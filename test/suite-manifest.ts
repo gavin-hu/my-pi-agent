@@ -83,7 +83,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/jobs-screen",
 		"extension",
 	],
-	memory: ["store", "format", "tools", "view/memory-picker"],
+	memory: ["store", "format", "tools", "context", "view/memory-picker"],
 	plan: [
 		"plans",
 		"plan-files",
@@ -179,6 +179,7 @@ export const LIB_SUITES: readonly string[] = [
 	"plans/paths",
 	"process",
 	"report",
+	"report-load",
 	"repo-key",
 	"session-roster",
 	"session-tool",

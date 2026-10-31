@@ -51,6 +51,8 @@ export interface MoveResult {
 export interface MemoryRuntime {
 	/** Resolve paths and load notes for a session; returns a warning message, if any. */
 	load(cwd: string, trusted: boolean): Promise<string | undefined>;
+	/** The load this session started, for a reader that must see the notes rather than an empty store. */
+	ready(): Promise<void>;
 	/** Replace the recall config (loaded per session). */
 	setConfig(config: MemoryConfig): void;
 	config(): MemoryConfig;
@@ -144,25 +146,41 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">): MemoryRunti
 		return warnings.length > 0 ? { changed, warning: warnings.join(" ") } : { changed };
 	};
 
+	/**
+	 * The session's store read, started by `load` and awaited by `ready`.
+	 *
+	 * Kept here rather than in a shared helper: `lib/` would cost every entrypoint a static
+	 * module evaluation, and this promise is worth four lines beside the state it guards.
+	 */
+	let reading: Promise<string | undefined> = Promise.resolve(undefined);
+
+	async function readStores(cwd: string, isTrusted: boolean): Promise<string | undefined> {
+		trusted = isTrusted;
+		const resolved = await resolveMemoryPaths(pi, cwd);
+		paths = resolved;
+		const warnings: string[] = [];
+		const read = (scope: MemoryScope): string[] => {
+			const path = scope === "global" ? resolved.global : resolved.project;
+			try {
+				return parseEntries(readMemoryFile(path));
+			} catch (error) {
+				warnings.push(error instanceof Error ? error.message : String(error));
+				return [];
+			}
+		};
+		entries = { global: read("global"), project: trusted ? read("project") : [] };
+		stamps = { project: trusted ? stampOf("project") : undefined, global: stampOf("global") };
+		return warnings.length > 0 ? warnings.join(" ") : undefined;
+	}
+
 	return {
-		async load(cwd, isTrusted) {
-			trusted = isTrusted;
-			const resolved = await resolveMemoryPaths(pi, cwd);
-			paths = resolved;
-			const warnings: string[] = [];
-			const read = (scope: MemoryScope): string[] => {
-				const path = scope === "global" ? resolved.global : resolved.project;
-				try {
-					return parseEntries(readMemoryFile(path));
-				} catch (error) {
-					warnings.push(error instanceof Error ? error.message : String(error));
-					return [];
-				}
-			};
-			entries = { global: read("global"), project: trusted ? read("project") : [] };
-			stamps = { project: trusted ? stampOf("project") : undefined, global: stampOf("global") };
-			return warnings.length > 0 ? warnings.join(" ") : undefined;
+		/** Started, not awaited: the first reader waits through `ready`. */
+		load: (cwd, isTrusted) => {
+			reading = readStores(cwd, isTrusted);
+			reading.catch(() => {});
+			return reading;
 		},
+		ready: () => reading.then(() => undefined),
 		setConfig: (next) => {
 			config = next;
 		},

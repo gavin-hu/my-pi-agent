@@ -212,7 +212,7 @@ skill. Mitigations:
 | Contract | Detail |
 |---|---|
 | Registration | The default export registers the `memory` tool, the `/memory` command, and four event listeners; nothing long-lived. |
-| Events | `session_start` loads config and both stores; `before_agent_start` injects the `[MEMORY]` message; `context` keeps only the newest injection; `session_shutdown` clears the cache. The runtime refreshes both stores from their file stamps whenever the notes are read. |
+| Events | `session_start` loads config and starts both stores — the read lands beside the reload, and the first turn, a tool or a command waits for it — `before_agent_start` injects the `[MEMORY]` message; `context` keeps only the newest injection; `session_shutdown` clears the cache. The runtime refreshes both stores from their file stamps whenever the notes are read. |
 | Tool | direct exposure (the default), `executionMode: "sequential"`, `annotations` and `outputSchema` as above. |
 | State | External markdown, **not** branch state: the tool result's `details`/`structuredContent` mirror the call but the notes are read from disk and survive independently of `/resume` and `/tree`. |
 | UI | `ctx.ui.notify`, `editor`, and `confirm`, guarded by `ctx.hasUI`, plus the `/memory` picker (`ctx.ui.custom`) in the TUI. |

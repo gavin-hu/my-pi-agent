@@ -57,6 +57,29 @@ describe("registration", () => {
 	});
 });
 
+describe("the refresh a session starts", () => {
+	test("starts on a session start, which does not wait for it", async () => {
+		const repo = await makeRepo("pi-rewind-start-");
+		const fake = createFakePi();
+		rewindExtension(fake.pi);
+		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
+		// The handler starts the refresh and returns; nothing here awaits it, which is the
+		// reload path — the run below is what waits.
+		await emit(fake.pi, "session_start", {}, ctx);
+	});
+
+	test("is awaited by the first run, which still decides its snapshot", async () => {
+		const repo = await makeRepo("pi-rewind-start-");
+		const fake = createFakePi();
+		rewindExtension(fake.pi);
+		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
+		await emit(fake.pi, "session_start", {}, ctx);
+		// The run waits on the same promise the handler started, so a run that would build on an
+		// unrefreshed cache still completes.
+		await emit(fake.pi, "before_agent_start", { prompt: "do it" }, ctx);
+	});
+});
+
 describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 	test("takes one snapshot per prompt, before the first mutating call", async () => {
 		const repo = await makeRepo("pi-rw-ext-one-");

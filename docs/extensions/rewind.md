@@ -176,7 +176,7 @@ commit. These refs are not branches and are not touched by `git push --all`.
 |---|---|
 | Model-facing tools | None. `/rewind` and `/review` are user-driven; automatic snapshots cover the start of every task. |
 | Commands | `/rewind` and `/review` (`pi.registerCommand`). |
-| Events | `session_start` (reset run state, status, stale-index sweep), `session_tree` (status refresh after tree navigation), `before_agent_start` (record the prompt — absent on a run a custom message starts — and resolve the run's snapshot decision), `tool_call` (take the run's snapshot before the first mutating call), `session_shutdown` (release indexes, clear status). |
+| Events | `session_start` (starts the run-state reset, the status repaint and the stale-index sweep; the first run waits for them), `session_tree` (status refresh after tree navigation), `before_agent_start` (record the prompt — absent on a run a custom message starts — and resolve the run's snapshot decision), `tool_call` (take the run's snapshot before the first mutating call), `session_shutdown` (release indexes, clear status). |
 | State storage | Git refs `refs/pi/rewind/<id>` with metadata in the commit body. No tool-result `details` and no `pi.appendEntry`. |
 | Lifecycle | Index paths are created lazily and released in `session_shutdown`; status chip is set on start/tree/snapshot and cleared on shutdown. |
 

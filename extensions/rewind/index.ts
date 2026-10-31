@@ -26,13 +26,15 @@ export function registerRewind(pi: ExtensionAPI): void {
 
 	registerCommands(pi, runtime);
 
-	pi.on("session_start", async (_event, ctx) => {
-		await run.refresh(ctx);
-		await runtime.sweepStaleIndexes(ctx);
+	// Started, not awaited: the refresh and the temp-index sweep run beside the reload, and
+	// the first run awaits them (`beginRun`), so nothing reads half-refreshed state.
+	pi.on("session_start", (_event, ctx) => {
+		run.start(ctx);
 	});
 
 	// A tree navigation can land on a different branch with its own snapshots.
 	pi.on("session_tree", async (_event, ctx) => {
+		await run.ready();
 		await runtime.setStatus(ctx);
 	});
 

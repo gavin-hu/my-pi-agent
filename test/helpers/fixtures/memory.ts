@@ -102,6 +102,9 @@ export function memorySuite(): MemorySuite {
 		exists: (scope) => existsSync(pathFor(scope)),
 		start: async (reason = "startup") => {
 			await emitCollect(pi, "session_start", { reason }, context.ctx);
+			// The store read is started by the handler and awaited by the first turn, so the harness
+			// ends a session start the way a turn does: a case that reads the store next sees it.
+			await emitCollect(pi, "before_agent_start", {}, context.ctx);
 		},
 		emit: (event, payload = {}) => emitCollect(pi, event, payload, context.ctx),
 		dispose: () => {

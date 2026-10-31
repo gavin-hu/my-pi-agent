@@ -26,6 +26,13 @@ export interface SnapshotRun {
 	reset(): void;
 	/** Drop caches and run state, then repaint status (on session start). */
 	refresh(ctx: ExtensionContext): Promise<void>;
+	/**
+	 * Start the session's scans — a fresh cache, the status repaint, and the stale temp-index
+	 * sweep — without holding up the reload. The first run awaits them (`beginRun`).
+	 */
+	start(ctx: ExtensionContext): void;
+	/** The scans this session started, for a reader that must not see half-refreshed state. */
+	ready(): Promise<void>;
 }
 
 export function createSnapshotRun(pi: ExtensionAPI, runtime: RewindRuntime): SnapshotRun {
@@ -58,6 +65,9 @@ export function createSnapshotRun(pi: ExtensionAPI, runtime: RewindRuntime): Sna
 	};
 
 	const beginRun = async (prompt: string | undefined, ctx: ExtensionContext): Promise<void> => {
+		// The session's scans land before the first run reads them: a reload reuses this
+		// runtime, so a run never builds on state from the session before it.
+		await scanning;
 		reset();
 		pendingPrompt = summarizePrompt(prompt);
 		try {
@@ -95,6 +105,17 @@ export function createSnapshotRun(pi: ExtensionAPI, runtime: RewindRuntime): Sna
 		}
 	};
 
+	/** The session's scans: started by `start`, awaited by the first run (see `ready`). */
+	let scanning: Promise<void> = Promise.resolve();
+
+	const start = (ctx: ExtensionContext): void => {
+		scanning = (async () => {
+			await refresh(ctx);
+			await runtime.sweepStaleIndexes(ctx);
+		})();
+		scanning.catch(() => {});
+	};
+
 	const refresh = async (ctx: ExtensionContext): Promise<void> => {
 		runtime.invalidate();
 		policies.clear();
@@ -102,5 +123,5 @@ export function createSnapshotRun(pi: ExtensionAPI, runtime: RewindRuntime): Sna
 		await runtime.setStatus(ctx);
 	};
 
-	return { beginRun, onToolCall, reset, refresh };
+	return { beginRun, onToolCall, reset, refresh, start, ready: () => scanning.then(() => undefined) };
 }
