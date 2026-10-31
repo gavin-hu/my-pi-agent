@@ -29,7 +29,15 @@ import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { plural } from "../../lib/board/round-text.ts";
 import { strayField } from "../../lib/stray-fields.ts";
-import { type Dispatch, handoffText, notListening, offerText, ownerFor, peerFor, sessionDispatch } from "./dispatch.ts";
+import {
+	actorFor,
+	type Dispatch,
+	handoffText,
+	notListening,
+	offerText,
+	ownerFor,
+	sessionDispatch,
+} from "./dispatch.ts";
 import {
 	formatClaimed,
 	formatHandoff,
@@ -171,11 +179,16 @@ async function assignCard(
 	// records you as the owner without the claim's next step. `claim` is that act.
 	if (namesSelf(me, to))
 		return refusal("assign", `${cardRef(id)} cannot be handed to yourself: \`claim\` takes one.`, card);
-	const owner: Actor = { label: to };
+	// Who `to` names, asked before the check and once: a card records the id the bus gave its
+	// holder, and `holds` compares ids first, so an id the caller typed has to be resolved to
+	// the peer it names rather than compared as a label. The same actor is what the write
+	// records, so the check and the write cannot disagree about who `to` is.
+	const peers = await dispatch.peers().catch(() => undefined);
+	const target = actorFor(peers, to);
 	// The board, not just the card: a card that waits on unfinished work, or a `plan` lane
 	// with no room, is refused here, so a handoff for it is never sent. `mayOp` is the
 	// store's own check without the write, and the board's settings are the store's, not a default.
-	const refused = mayOp(card, { kind: "assign", to: owner }, me, indexOf(await store.list()), store.config());
+	const refused = mayOp(card, { kind: "assign", to: target }, me, indexOf(await store.list()), store.config());
 	if (refused !== undefined) return refusal("assign", refused, card);
 
 	let delivered: string[];
@@ -185,14 +198,12 @@ async function assignCard(
 		return refusal("assign", formatHandoffFailure(card, to, messageOf(error)), card);
 	}
 
-	// Ask the bus which session answers to the label: an owner recorded with its id
-	// survives the peer renaming itself, which a label alone does not — and the same read
-	// says whether that peer will be woken by the message it just got.
-	const peers = await dispatch.peers().catch(() => undefined);
-	const peer = peerFor(peers, to);
+	// The owner a handoff records: the resolved peer, whose id survives the peer renaming
+	// itself, or the label a message file was written for when the bus could not say who that
+	// is. The same read also says whether that peer will be woken by the message it just got.
 	const applied = await store.mutate(
 		id,
-		{ kind: "assign", to: peer === undefined ? ownerFor(to, delivered) : { id: peer.id, label: peer.label } },
+		{ kind: "assign", to: target.id === undefined ? ownerFor(to, delivered) : target },
 		me,
 		now,
 	);

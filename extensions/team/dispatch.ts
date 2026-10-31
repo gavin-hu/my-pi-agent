@@ -14,6 +14,7 @@
 import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
 import { cardRef, type CardOwner } from "../../lib/board/card.ts";
+import type { Actor } from "../../lib/board/rules.ts";
 import { listPeers, MAX_MESSAGE_TEXT, type Peer, send as sendTo } from "../../lib/session-tool.ts";
 
 /** How a handoff reaches a peer, and what the bus can say about the peers there are. */
@@ -121,6 +122,19 @@ export function notListening(peers: readonly Peer[] | undefined, labels: readonl
 		const peer = peerFor(peers, label);
 		return peer !== undefined && peer.listening === false;
 	});
+}
+
+/**
+ * The actor a handoff names: the peer the bus lists, else the label that was asked for.
+ *
+ * `team assign` checks the card against this before it sends anything and records the same
+ * actor afterwards, so the check and the write cannot disagree about who `to` is. That is
+ * what makes an id the holder: a card records the id the bus gave it, `holds` compares ids
+ * first, and only the resolved actor carries one.
+ */
+export function actorFor(peers: readonly Peer[] | undefined, to: string): Actor {
+	const peer = peerFor(peers, to);
+	return peer === undefined ? { label: to.trim() } : { id: peer.id, label: peer.label };
 }
 
 /**

@@ -12,7 +12,7 @@ import type { Card } from "../../lib/board/card.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
-import { handoffText, notListening, offerText, ownerFor, peerFor, sessionDispatch } from "./dispatch.ts";
+import { actorFor, handoffText, notListening, offerText, ownerFor, peerFor, sessionDispatch } from "./dispatch.ts";
 
 /** A claimed card, which is what a handoff describes. */
 function card(overrides: Partial<Card> = {}): Card {
@@ -177,6 +177,23 @@ describe("notListening", () => {
 		// A record that does not say is not a claim that nobody will read it.
 		expect(notListening(peers, ["billing-core", "billing-web", "ops-helper", "ghost"])).toEqual(["billing-web"]);
 		expect(notListening(undefined, ["billing-web"])).toEqual([]);
+	});
+});
+
+describe("actorFor", () => {
+	const peers = [
+		{ id: "s-core", label: "billing-core", listening: true },
+		{ id: "s-web", label: "billing-web" },
+	];
+
+	test("makes an id the peer that answers to it, which is what a holder's record is compared with", () => {
+		expect(actorFor(peers, "s-core")).toEqual({ id: "s-core", label: "billing-core" });
+		expect(actorFor(peers, "BILLING-WEB")).toEqual({ id: "s-web", label: "billing-web" });
+	});
+
+	test("keeps the label when the bus could not say, which is not a peer with no id", () => {
+		expect(actorFor(undefined, " billing-core ")).toEqual({ label: "billing-core" });
+		expect(actorFor(peers, "nobody")).toEqual({ label: "nobody" });
 	});
 });
 
