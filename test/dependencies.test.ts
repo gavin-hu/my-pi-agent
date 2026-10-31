@@ -13,6 +13,12 @@
  *
  * A genuine exception names its reason in `REGISTRATION_LOAD`; the map is empty
  * today, which is the honest state after the fixes this check found.
+ *
+ * The other half of a deferral is the contract: a module that reaches another through
+ * `import()` may not re-declare a type that module exports. A facade cannot import a
+ * value without loading it, so it restates — `review-lazy.ts` carried copies of
+ * `review.ts`'s decision types until they drifted — while a *type* import is erased and
+ * costs the registration path nothing. `restatedTypes` holds that half.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -21,13 +27,17 @@ import { dirname, join, relative, resolve } from "node:path";
 import {
 	createSourceFile,
 	forEachChild,
+	isCallExpression,
 	isExportDeclaration,
 	isExternalModuleReference,
 	isImportDeclaration,
 	isImportEqualsDeclaration,
+	isInterfaceDeclaration,
 	isNamespaceImport,
 	isStringLiteral,
+	isTypeAliasDeclaration,
 	ScriptTarget,
+	SyntaxKind,
 	type Node,
 } from "typescript";
 import { tempDir } from "./helpers/env.ts";
@@ -103,6 +113,75 @@ function resolveFile(from: string, specifier: string): string | null {
 		if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
 	}
 	return null;
+}
+
+/**
+ * The local modules one file defers through a literal `import()`.
+ *
+ * A deferral is the fix the rule above asks for, and it is also why a facade restates
+ * what it cannot statically import: `review-lazy.ts` declared `review.ts`'s types twice
+ * over. A computed specifier, or a thunk passed in from elsewhere, has no edge here.
+ */
+function deferredTargets(file: string): string[] {
+	const source = createSourceFile(file, readFileSync(file, "utf8"), ScriptTarget.Latest, true);
+	const found: string[] = [];
+	const visit = (node: Node): void => {
+		if (isCallExpression(node) && node.expression.kind === SyntaxKind.ImportKeyword) {
+			const [specifier] = node.arguments;
+			if (specifier && isStringLiteral(specifier)) {
+				const target = resolveFile(file, specifier.text);
+				if (target !== null) found.push(target);
+			}
+		}
+		forEachChild(node, visit);
+	};
+	forEachChild(source, visit);
+	return found;
+}
+
+/** The names a module exports as a type: an `interface`, or a `type` alias. */
+function exportedTypes(file: string): string[] {
+	const source = createSourceFile(file, readFileSync(file, "utf8"), ScriptTarget.Latest, true);
+	const found: string[] = [];
+	for (const statement of source.statements) {
+		if (!isInterfaceDeclaration(statement) && !isTypeAliasDeclaration(statement)) continue;
+		const exported = statement.modifiers?.some((modifier) => modifier.kind === SyntaxKind.ExportKeyword);
+		if (exported !== true || statement.name === undefined) continue;
+		found.push(statement.name.text);
+	}
+	return found;
+}
+
+/** How many deferral edges the tree has, so a walker that stopped resolving cannot pass. */
+export function deferralEdges(files: readonly string[]): number {
+	return files.reduce((total, file) => total + deferredTargets(file).length, 0);
+}
+
+/**
+ * Rule 5: a module that defers another may not re-declare a type that module exports.
+ *
+ * A facade cannot import a value without loading it, so it restates — `review-lazy.ts`
+ * carried copies of `review.ts`'s decision types, and they had already drifted apart. A
+ * *type* import is erased, so naming the contract costs nothing and the copy is the only
+ * thing that can go wrong.
+ */
+export function restatedTypes(files: readonly string[]): string[] {
+	const types = new Map(files.map((file) => [file, exportedTypes(file)]));
+	const violations: string[] = [];
+	for (const file of files) {
+		const mine = types.get(file) ?? [];
+		if (mine.length === 0) continue;
+		for (const target of deferredTargets(file)) {
+			const theirs = new Set(types.get(target) ?? []);
+			for (const name of mine) {
+				if (!theirs.has(name)) continue;
+				violations.push(
+					`${repoRelative(file)}:${name} re-declares ${repoRelative(target)}:${name}; name it with an import type instead`,
+				);
+			}
+		}
+	}
+	return [...new Set(violations)].sort();
 }
 
 /** A readable chain from the entrypoint to the module that made the import. */
@@ -342,5 +421,51 @@ describe("registration module budget", () => {
 		expect(total, "static module evaluations across every entry; MODULE_BUDGET may only fall").toBeLessThanOrEqual(
 			MODULE_BUDGET,
 		);
+	});
+});
+
+describe("deferred contracts", () => {
+	test("a module that defers to another restates none of its types", () => {
+		const files = everySourceFile();
+		// A walker that stopped resolving `import()` would leave both checks below vacuous.
+		expect(deferralEdges(files), "the tree defers tens of modules").toBeGreaterThan(20);
+		expect(
+			restatedTypes(files),
+			"import the type from the module the facade defers to; a type import is erased, so it costs the registration path nothing",
+		).toEqual([]);
+	});
+
+	test("the check tells a restated type from an imported one", () => {
+		const dir = tempDir("deferral-");
+		const impl = join(dir, "impl.ts");
+		const facade = join(dir, "facade.ts");
+		writeFileSync(impl, "export interface Choice { action: string }\nexport type Decision = { ok: boolean };\n");
+		// The facade restates one type and names the other, which is the whole rule.
+		writeFileSync(
+			facade,
+			[
+				'import type { Choice } from "./impl.ts";',
+				"export type Decision = { ok: boolean };",
+				'export const load = (): Promise<unknown> => import("./impl.ts");',
+				"export type Loaded = Choice | Decision;",
+			].join("\n"),
+		);
+
+		const violations = restatedTypes([impl, facade]);
+		expect(violations).toHaveLength(1);
+		expect(violations[0]).toContain("facade.ts:Decision re-declares");
+		expect(violations[0]).toContain("impl.ts:Decision");
+		expect(deferralEdges([impl, facade])).toBe(1);
+
+		// The fix is what the real tree does: the facade names the type and declares none.
+		writeFileSync(
+			facade,
+			[
+				'import type { Choice, Decision } from "./impl.ts";',
+				'export const load = (): Promise<unknown> => import("./impl.ts");',
+				"export type Loaded = Choice | Decision;",
+			].join("\n"),
+		);
+		expect(restatedTypes([impl, facade])).toEqual([]);
 	});
 });
