@@ -2,11 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FakePi } from "../fakes.ts";
-import { createFakePi } from "../fakes.ts";
-import { fakeCtx as sharedFakeCtx } from "../context.ts";
-
-export type { FakePi };
-export { createFakePi };
+import { fakeCtx } from "../context.ts";
 
 /** A scratch tree with text, image, binary, nested, hidden, and symlink files. */
 export interface Fixture {
@@ -55,14 +51,14 @@ export interface FakeCtx {
 	statuses: Map<string, string>;
 }
 
-export interface FakeCtxOptions {
+export interface FileBrowseCtxOptions {
 	/** Theme double; defaults to identity `fg` so rendered text stays assertable. */
 	theme?: { fg(color: string, text: string): string };
 }
 
 /** A minimal `ExtensionContext` double; no UI, so `ui.notify` just records. */
-export function fakeCtx(cwd: string, mode = "print", options: FakeCtxOptions = {}): FakeCtx {
-	const result = sharedFakeCtx({ cwd, mode, hasUI: false, theme: options.theme });
+export function fileBrowseCtx(cwd: string, mode = "print", options: FileBrowseCtxOptions = {}): FakeCtx {
+	const result = fakeCtx({ cwd, mode, hasUI: false, theme: options.theme });
 	const notifications: Array<{ message: string; level: string }> = [];
 	result.ctx.ui.notify = (message: string, level = "info") => {
 		notifications.push({ message, level });

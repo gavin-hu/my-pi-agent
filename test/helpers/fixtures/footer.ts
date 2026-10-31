@@ -12,7 +12,7 @@ import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 import type { PricedUsage, StatusSnapshot } from "../../../extensions/bytefly/footer/types.ts";
 import { fakeTheme } from "../fakes.ts";
 
-interface FakeCtxOptions {
+interface FooterCtxOptions {
 	mode?: string;
 	cwd?: string;
 	home?: string;
@@ -40,7 +40,7 @@ interface FakeFooterCtx {
 }
 
 /** Minimal `ExtensionContext` double for footer install tests. */
-export function fakeFooterCtx(options: FakeCtxOptions = {}): FakeFooterCtx {
+export function fakeFooterCtx(options: FooterCtxOptions = {}): FakeFooterCtx {
 	const footers: any[] = [];
 	const headers: any[] = [];
 	const workingMessages: Array<string | undefined> = [];

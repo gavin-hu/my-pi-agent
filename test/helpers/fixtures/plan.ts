@@ -1,7 +1,7 @@
 import { createFakePi, type AnyHandler } from "../fakes.ts";
-import { fakeCtx as sharedFakeCtx, type FakeCtxOptions, type FakeCtxResult } from "../context.ts";
+import { fakeCtx, type FakeCtxOptions, type FakeCtxResult } from "../context.ts";
 
-export interface FakePi {
+export interface PlanPi {
 	pi: any;
 	tools: Map<string, any>;
 	commands: Map<string, any>;
@@ -14,9 +14,9 @@ export interface FakePi {
 }
 
 /** Minimal `ExtensionAPI` double covering the surface the plan-mode extension uses. */
-export function makeFakePi(
+export function makePlanPi(
 	options: { active?: string[]; planFlag?: boolean; exec?: any; allTools?: any[] } = {},
-): FakePi {
+): PlanPi {
 	const defaultActive = ["read", "bash", "edit", "write", "grep", "find", "ls"];
 	const fake = createFakePi({
 		active: options.active ?? defaultActive,
@@ -40,8 +40,8 @@ export function makeFakePi(
 }
 
 /** A plan-mode context: RPC by default so `ctx.mode === "tui"` branches stay off. */
-export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
-	return sharedFakeCtx({ mode: "rpc", hasUI: true, ...options });
+export function planCtx(options: FakeCtxOptions = {}): FakeCtxResult {
+	return fakeCtx({ mode: "rpc", hasUI: true, ...options });
 }
 
 /** A persisted plan-mode custom entry. */

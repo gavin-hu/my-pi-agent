@@ -16,7 +16,7 @@ import type { PlanSummary, StoredPlan } from "./plans.ts";
 import { type ReviewBaselines, reviewPlan, runBrowserReview } from "./review.ts";
 import type { PlanRuntime } from "./runtime.ts";
 import type { PlanReviewOptions, PlanReviewResult, PlanWebReview } from "./web.ts";
-import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
+import { planCtx, makePlanPi } from "../../test/helpers/fixtures/plan.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 
 const PATH = "~/.pi/agent/plans/a1f9c02/2026-10-14-1600-demo.md";
@@ -122,9 +122,9 @@ function setup(
 ) {
 	const { runtime, readCalls, latestCalls, indexCalls, enableCalls, marks } = fakeRuntime(options);
 	const { web, started, starts, closeCalls } = fakeWeb(options.result);
-	const pi = makeFakePi();
+	const pi = makePlanPi();
 	registerCommands(pi.pi, runtime, web);
-	const { ctx, notifications } = fakeCtx({ cwd: "/repo", isIdle: () => options.idle ?? true });
+	const { ctx, notifications } = planCtx({ cwd: "/repo", isIdle: () => options.idle ?? true });
 	return {
 		pi,
 		ctx,
@@ -171,9 +171,9 @@ describe("/plan share", () => {
 			},
 			svg: "<svg/>",
 		});
-		const pi = makeFakePi();
+		const pi = makePlanPi();
 		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+		const { ctx, notifications } = planCtx({ cwd: "/repo" });
 
 		await pi.commands.get("plan").handler("share", ctx);
 
@@ -187,9 +187,9 @@ describe("/plan share", () => {
 		const web = shareWeb({
 			state: { sharing: false, origin: "", links: [], reason: "no network address to share on." },
 		});
-		const pi = makeFakePi();
+		const pi = makePlanPi();
 		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+		const { ctx, notifications } = planCtx({ cwd: "/repo" });
 
 		await pi.commands.get("plan").handler("share", ctx);
 
@@ -198,9 +198,9 @@ describe("/plan share", () => {
 
 	test("reports when no review is open", async () => {
 		const { runtime } = fakeRuntime({ file: plan() });
-		const pi = makeFakePi();
+		const pi = makePlanPi();
 		registerCommands(pi.pi, runtime, shareWeb(undefined));
-		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+		const { ctx, notifications } = planCtx({ cwd: "/repo" });
 
 		await pi.commands.get("plan").handler("share", ctx);
 
@@ -219,9 +219,9 @@ describe("/plan share", () => {
 				],
 			},
 		});
-		const pi = makeFakePi();
+		const pi = makePlanPi();
 		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+		const { ctx, notifications } = planCtx({ cwd: "/repo" });
 
 		await pi.commands.get("plan").handler("share", ctx);
 
@@ -242,9 +242,9 @@ describe("/plan share", () => {
 			},
 			{ state: { sharing: false, origin: "", links: [] } },
 		);
-		const pi = makeFakePi();
+		const pi = makePlanPi();
 		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+		const { ctx, notifications } = planCtx({ cwd: "/repo" });
 
 		await pi.commands.get("plan").handler("share stop", ctx);
 
@@ -256,7 +256,7 @@ describe("/plan share", () => {
 			const built = setup({ result: { status: "cancelled" } });
 			return { pi: built.pi, runtime: built.runtime };
 		})();
-		const { ctx } = fakeCtx({ cwd: "/repo" });
+		const { ctx } = planCtx({ cwd: "/repo" });
 
 		await pi.commands.get("plan").handler("share the load between two sessions", ctx);
 
@@ -370,7 +370,7 @@ describe("/plan review", () => {
 		const file = plan();
 		const { runtime } = fakeRuntime({ file });
 		const { web, started } = fakeWeb(saved(file, []));
-		const pi = makeFakePi();
+		const pi = makePlanPi();
 		registerCommands(pi.pi, runtime, web);
 		const { ctx, notifications } = remoteCtx({ cwd: "/repo" });
 
@@ -394,9 +394,9 @@ describe("/plan review", () => {
 			shareState: () => undefined,
 			closeAll: async () => {},
 		};
-		const pi = makeFakePi();
+		const pi = makePlanPi();
 		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+		const { ctx, notifications } = planCtx({ cwd: "/repo" });
 
 		await pi.commands.get("plan").handler("review", ctx);
 
@@ -456,7 +456,7 @@ describe("/plan list", () => {
 			summaries,
 			result: { status: "saved", plan: plan(), annotations: [] },
 		});
-		const { ctx: tuiCtx, notifications } = fakeCtx({ mode: "tui", cwd: "/repo" });
+		const { ctx: tuiCtx, notifications } = planCtx({ mode: "tui", cwd: "/repo" });
 		// The screen selects the first plan immediately, as Enter on a focused row does.
 		tuiCtx.ui.custom = async (
 			factory: (
@@ -489,7 +489,7 @@ describe("/plan list", () => {
 		const { pi } = setup({ result: { status: "cancelled" }, summaries });
 		const seen: unknown[] = [];
 		pi.pi.events.on("my-pi-agent/rails-screen", (value: unknown) => seen.push(value));
-		const { ctx: tuiCtx } = fakeCtx({ mode: "tui", cwd: "/repo" });
+		const { ctx: tuiCtx } = planCtx({ mode: "tui", cwd: "/repo" });
 		tuiCtx.ui.custom = async () => undefined;
 
 		await pi.commands.get("plan").handler("list", tuiCtx);
@@ -621,7 +621,7 @@ function webThatFails(): PlanWebReview {
 
 /** A TUI context whose review screen answers with `choices`, in order. */
 function tuiCtx(choices: unknown[], editorAnswers: Array<string | undefined> = []) {
-	const { ctx, notifications } = fakeCtx({ mode: "tui" });
+	const { ctx, notifications } = planCtx({ mode: "tui" });
 	const queue = [...choices];
 	const answers = [...editorAnswers];
 	let editorCalls = 0;

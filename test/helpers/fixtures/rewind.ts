@@ -68,7 +68,7 @@ export function branchWithUser(id = "e1", text = "do the task") {
 	];
 }
 
-export interface FakeCtxOptions {
+export interface RewindCtxOptions {
 	cwd: string;
 	hasUI?: boolean;
 	mode?: string;
@@ -84,7 +84,7 @@ export interface FakeCtxOptions {
 }
 
 /** A minimal `ExtensionContext` for command and event handlers. */
-export function makeCtx(pi: FakePi, options: FakeCtxOptions) {
+export function makeCtx(pi: FakePi, options: RewindCtxOptions) {
 	const result = sharedFakeCtx({
 		cwd: options.cwd,
 		hasUI: options.hasUI ?? false,

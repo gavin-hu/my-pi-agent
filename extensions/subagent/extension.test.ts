@@ -16,8 +16,8 @@ import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir, useEnv, withAgentDir, withEnv } from "../../test/helpers/env.ts";
-import { emit, makeFakePi } from "../../test/helpers/fakes.ts";
-import { assistantMessage, fakeTheme, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
+import { emit, fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
+import { assistantMessage, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle } from "../../test/helpers/process.ts";
 
@@ -734,7 +734,7 @@ describe("clipPath", () => {
 });
 
 describe("formatToolCall", () => {
-	const theme = fakeTheme();
+	const theme = fakeTheme;
 
 	test("formats built-in tools", () => {
 		expect(formatToolCall("bash", { command: "ls -la" }, theme, true)).toBe("$ ls -la");

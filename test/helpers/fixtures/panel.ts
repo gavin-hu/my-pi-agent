@@ -26,7 +26,7 @@ import type { UpdateHandle } from "../../../extensions/bytefly/update/register.t
 import type { UpdateOutcome } from "../../../extensions/bytefly/update/state.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
 import { fakeTheme } from "../fakes.ts";
-import { makeFakePi } from "./boot.ts";
+import { makeByteflyPi } from "./boot.ts";
 import { makeFinding, makeReport } from "./doctor.ts";
 import { type FakeStore, makeDiscovery, makeItem, makeStore, packageExtension } from "./picker.ts";
 import { fakeSettings, fakeSettingsSurface } from "./settings.ts";
@@ -202,7 +202,7 @@ export function bootPanel(options: {
 	skills?: (paths: readonly string[], cwd: string, agentDir: string) => ReadonlyMap<string, SkillInfo>;
 	update?: UpdateHandle;
 }) {
-	const { pi, commands } = makeFakePi();
+	const { pi, commands } = makeByteflyPi();
 	registerPanel(pi, {
 		doctor: fakeDoctor(options.reports ?? []),
 		update: options.update ?? fakeUpdate(),

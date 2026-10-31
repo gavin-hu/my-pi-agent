@@ -8,7 +8,7 @@ import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { useEnv, withEnv } from "../../test/helpers/env.ts";
 import { createFakePi, emit } from "../../test/helpers/fakes.ts";
-import { fakeCtx, makeFixture, runCommand, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
+import { fileBrowseCtx, makeFixture, runCommand, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 import fileBrowser from "./index.ts";
 import type { FileServer, FileServerResult } from "./transport/server.ts";
 
@@ -58,7 +58,7 @@ describe("browse command", () => {
 	test("reports not running before a start", async () => {
 		const { pi } = createFakePi();
 		fileBrowser(pi);
-		const { ctx, notifications } = fakeCtx("/tmp/repo");
+		const { ctx, notifications } = fileBrowseCtx("/tmp/repo");
 		await runCommand(pi, "browse", "status", ctx);
 		expect(notifications.at(-1)?.message).toContain("not running");
 	});
@@ -81,7 +81,7 @@ describe("browse command", () => {
 				opened.push(url);
 			},
 		});
-		const { ctx, notifications } = fakeCtx(fixture.root);
+		const { ctx, notifications } = fileBrowseCtx(fixture.root);
 
 		await runCommand(pi, "browse", "", ctx);
 		await runCommand(pi, "browse", "", ctx);
@@ -107,7 +107,7 @@ describe("browse command", () => {
 				opened.push(url);
 			},
 		});
-		const { ctx, notifications } = fakeCtx(fixture.root);
+		const { ctx, notifications } = fileBrowseCtx(fixture.root);
 
 		await runCommand(pi, "browse", "", ctx);
 		expect(opened).toEqual(["http://127.0.0.1:4321/files/"]);
@@ -132,7 +132,7 @@ describe("browse command", () => {
 				server: { ...servedOf(fakeServer(fixture!.root)), close: async () => void closes++ },
 			}),
 		});
-		const { ctx } = fakeCtx(fixture.root);
+		const { ctx } = fileBrowseCtx(fixture.root);
 		await runCommand(pi, "browse", "", ctx);
 		await emit(pi, "session_shutdown", {}, ctx);
 		expect(closes).toBe(1);
@@ -146,7 +146,7 @@ describe("browse command", () => {
 			// The one way a mount is refused: the prefix is another page's.
 			createServer: async () => ({ kind: "refused", reason: "the serve extension is not loaded" }),
 		});
-		const { ctx, notifications } = fakeCtx(fixture.root);
+		const { ctx, notifications } = fileBrowseCtx(fixture.root);
 		await runCommand(pi, "browse", "", ctx);
 		expect(notifications.at(-1)?.level).toBe("error");
 		expect(notifications.at(-1)?.message).toContain("serve extension is not loaded");
@@ -156,7 +156,7 @@ describe("browse command", () => {
 		fixture = makeFixture();
 		const { pi } = createFakePi();
 		fileBrowser(pi, { createServer: async () => fakeServer(fixture!.root), open: noOpen });
-		const { ctx, notifications } = fakeCtx(fixture.root);
+		const { ctx, notifications } = fileBrowseCtx(fixture.root);
 		await runCommand(pi, "browse", "a.txt", ctx);
 		expect(notifications.at(-1)?.level).toBe("error");
 	});
