@@ -145,7 +145,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	afterAll(async () => {
 		await browser?.close();
 		await closeReview();
-	});
+	}, 30_000);
 
 	test("draws the plan's blocks and names the plan in the header", async () => {
 		const page = await openPage();
