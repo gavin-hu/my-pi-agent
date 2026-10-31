@@ -161,7 +161,10 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
   turns. `waitFor` therefore takes an elapsed-time budget (2 s by default) — not
   an attempt count — and times out loudly rather than turning runner load into a
   coin flip. Reach for it only when the completion point is genuinely outside
-  the test; otherwise `settle()` plus an assertion.
+  the test; otherwise `settle()` plus an assertion. A timeout names the test that
+  waited, its `path:line`, the predicate, and the elapsed time against the
+  budget (`helpers/wait-site.ts`), so a `--parallel` red is diagnosed from its
+  log instead of re-run to see whether it repeats.
 - No `Date.now()` / `new Date()` in tests; inject `makeClock` (`helpers/clock.ts`).
   `waitFor` is the exception, for the reason above.
 - No real network. Drive request handlers / routers directly; web-access injects
@@ -315,7 +318,7 @@ test/
   scripts-surface.test.ts  # the package scripts, and the docs that name them
   settings-coverage.test.ts # the settings catalogue, the loaders it shows, and the docs that count it
   tool-render.test.ts      # every tool's call and result through the shared frame
-  wait-budget.test.ts      # no test waits on `waitFor` for a literal budget under a second
+  wait-budget.test.ts      # no test waits on `waitFor` for a literal budget under a second, and a timeout names its test
 ```
 
 Rules:

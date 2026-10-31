@@ -12,6 +12,10 @@
  * nests its own parentheses and a regex over it is guesswork. A named constant is
  * allowed: it keeps the decision visible at its declaration, which is how
  * `ROTATE_BUDGET_MS` is written. A literal is the copy-paste form this catches.
+ *
+ * The same file owns what the throw says: a `--parallel` timeout that names no
+ * test is a re-run waiting to happen, so `helpers/wait-site.ts` reports the test,
+ * its site, and the time it spent, and the cases below hold that message.
  */
 
 import { readFileSync } from "node:fs";
@@ -19,6 +23,8 @@ import { join, relative as relativePath } from "node:path";
 import { describe, expect, test } from "bun:test";
 import ts from "typescript";
 import { posix, walkFiles } from "./helpers/files.ts";
+import { waitFor } from "./helpers/process.ts";
+import { type WaitTimeout, waitTimeoutMessage } from "./helpers/wait-site.ts";
 
 const repo = join(import.meta.dir, "..");
 
@@ -113,5 +119,95 @@ describe("wait budgets", () => {
 			"await waitUntil(() => ready(), 20);",
 		].join("\n");
 		expect(budgetProblems({ path: "example.test.ts", text })).toEqual([]);
+	});
+});
+
+/** A stack in the shape Bun prints, one frame per `path:line:column` given. */
+function stackOf(...frames: string[]): string {
+	return ["Error: waitFor timeout", ...frames.map((frame) => `    at async <anonymous> (${frame})`)].join("\n");
+}
+
+/** A test file whose titles a stack can point into. */
+const PAGE_SUITE = [
+	'describe("a board page", () => {',
+	'\ttest("closes on its grace", async () => {',
+	"\t\tawait waitFor(() => notifications.length > 0);",
+	"\t});",
+	"});",
+].join("\n");
+
+/** A timeout with the real budget, ready for a fabricated stack. */
+function expired(stack: string): WaitTimeout {
+	return { budgetMs: 2000, elapsedMs: 2004, predicate: "() => notifications.length > 0", stack };
+}
+
+/** Read the page suite for its own path, and nothing else. */
+function readPageSuite(path: string): string {
+	if (path !== pageTestFile) throw new Error(`unexpected read of ${path}`);
+	return PAGE_SUITE;
+}
+
+const pageTestFile = join(repo, "extensions", "board", "page.test.ts");
+const pageHelper = join(repo, "test", "helpers", "board-page.ts");
+
+describe("a wait that ran out", () => {
+	const cases: Array<{ what: string; timeout: WaitTimeout; read?: (path: string) => string; contains: string }> = [
+		{
+			what: "names the suite and test that waited, with the line it waited on",
+			timeout: expired(stackOf(`${pageTestFile}:3:9`)),
+			read: readPageSuite,
+			contains: '"a board page > closes on its grace" (extensions/board/page.test.ts:3)',
+		},
+		{
+			what: "keeps walking to the test when a helper issued the wait",
+			timeout: expired(stackOf(`${pageHelper}:88:5`, `${pageTestFile}:3:9`)),
+			read: readPageSuite,
+			contains: '"a board page > closes on its grace" (extensions/board/page.test.ts:3)',
+		},
+		{
+			what: "falls back to the site when no test frame appears",
+			timeout: expired(stackOf(`${pageHelper}:88:5`)),
+			contains: "test/helpers/board-page.ts:88, predicate:",
+		},
+		{
+			what: "says so when a test file line sits outside every title",
+			timeout: expired(stackOf(`${pageTestFile}:1:1`)),
+			read: () => 'import { test } from "bun:test";\n',
+			contains: "extensions/board/page.test.ts:1 (no enclosing test found), predicate:",
+		},
+		{
+			what: "names no site at all when the stack carries none",
+			timeout: expired("Error: waitFor timeout\n    at processTicksAndRejections (node:internal/process:1:1)"),
+			contains: "— an unknown call site, predicate:",
+		},
+	];
+
+	for (const { what, timeout, read, contains } of cases) {
+		test(what, async () => {
+			const message = await waitTimeoutMessage(timeout, read);
+			expect(message).toContain(contains);
+			expect(message).toContain("waitFor timed out after 2004ms of a 2000ms budget");
+		});
+	}
+
+	test("names its own test, file, and budget when a real wait expires", async () => {
+		const ready = () => false;
+		const message = await waitFor(ready, MIN_BUDGET_MS).then(
+			() => "the wait resolved",
+			(error: unknown) => (error instanceof Error ? error.message : String(error)),
+		);
+		expect(message).toContain('"a wait that ran out > names its own test, file, and budget when a real wait expires"');
+		expect(message).toMatch(/\(test\/wait-budget\.test\.ts:\d+\)/);
+		expect(message).toMatch(/after \d+ms of a 1000ms budget/);
+		expect(message).toContain("predicate: ");
+	});
+
+	test("keeps a multi-line predicate on one line, and short", async () => {
+		const predicate = `() => ${Array.from({ length: 40 }, (_, index) => `ready(${index})`).join(" && ")}`;
+		const message = await waitTimeoutMessage({ ...expired(stackOf(`${pageTestFile}:3:9`)), predicate }, readPageSuite);
+		expect(message.split("\n")).toHaveLength(1);
+		expect(message).toContain("predicate: () => ready(0) && ready(1)");
+		expect(message).toContain("...");
+		expect(message.length).toBeLessThan(predicate.length);
 	});
 });

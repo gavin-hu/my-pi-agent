@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- dev: a `waitFor` that runs out now names what it was waiting for — the test it was
+  called from (`describe > test`), its `path:line`, the predicate, and the elapsed time
+  against the budget. Two `--parallel` failures in one day said only how long they waited,
+  which left each one a re-run away from being unattributable; nothing documented a flake,
+  so a red now diagnoses itself from its own log. `test/helpers/wait-site.ts` reads the call
+  stack and the enclosing titles, loading `typescript` only on the failure path.
 - dev: the control center is one picture per section — `assets/screens/bytefly-extensions.png`,
   `bytefly-skills.png`, and `bytefly-settings.png`. The Skills tab had none, so a section the doc
   describes at length was never shown; the Extensions asset takes the name that says which tab it

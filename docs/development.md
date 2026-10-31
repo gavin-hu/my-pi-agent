@@ -167,6 +167,12 @@ the same lost-exit path. When both close, delete the `check:serial` step and run
 [`architecture.md`](./architecture.md#documented-limits-with-no-planned-card)
 records the same condition.
 
+A `--parallel` failure that is not that one is reported, not re-run: an expired
+`waitFor` throws the test it waited in, its call site, the predicate, and the
+elapsed time against its budget, so the log a red run leaves is the diagnosis.
+No flake is documented here or in [`../test/README.md`](../test/README.md); a
+recurring one is a card, and a re-run that passes proves only that it passed.
+
 ## Performance
 
 A frame re-renders every block in the transcript, so the cost that makes a long

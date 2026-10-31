@@ -3,12 +3,14 @@
  *
  * The job and subagent suites spawn processes with different `SpawnFn`
  * signatures and consume stdout with different encodings, so there are two
- * child doubles here; `waitFor` is shared.
+ * child doubles here; `waitFor` is shared, and `./wait-site.ts` names the test
+ * behind a wait that ran out.
  */
 
 import { EventEmitter } from "node:events";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import type { Readable } from "node:stream";
+import { waitTimeoutMessage } from "./wait-site.ts";
 import type { KillTreeFn, LivenessFn, SpawnFn, SpawnedProcess, StartTokenFn } from "../../lib/spawn.ts";
 import type { SpawnFn as SubagentSpawnFn } from "../../extensions/subagent/types.ts";
 
@@ -213,9 +215,23 @@ export async function settle(ms = 0): Promise<void> {
  * Prefer `settle` plus an assertion when the completion point is known.
  */
 export async function waitFor(predicate: () => boolean, budgetMs = 2000): Promise<void> {
-	const deadline = Date.now() + Math.max(1, budgetMs);
+	// Taken here, not at the deadline: past the first `await` the async stack is
+	// truncated to this helper, and a report that names no caller is the failure
+	// this one exists to prevent.
+	const stack = new Error("waitFor timeout").stack ?? "";
+	const started = Date.now();
+	const deadline = started + Math.max(1, budgetMs);
 	while (!predicate()) {
-		if (Date.now() >= deadline) throw new Error(`waitFor timed out after ${budgetMs}ms`);
+		const now = Date.now();
+		if (now >= deadline) {
+			const report = await waitTimeoutMessage({
+				budgetMs,
+				elapsedMs: now - started,
+				predicate: String(predicate),
+				stack,
+			});
+			throw new Error(report);
+		}
 		await settle();
 	}
 }
