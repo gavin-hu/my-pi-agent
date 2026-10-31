@@ -112,13 +112,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   constant sees the page, the note, and the status line named `lead` (or its configured lead)
   instead of `team-lead`; a card a browser claimed before the rename still names
   `board:team-lead` as its owner, and `reclaim` takes it back.
-- `board`: `approve` and `review` take the lead's signature, and nobody else's. The lead is a
-  team name in `bytefly.json` (`{"board": {"lead": "team-lead"}}`), so it
-  signs as a session that joined under it, and never while holding the card — a lead releases a
-  card before signing it. Two peers can no longer sign each other's cards. `/board approve` and
-  `/board review` remain the other way in, writing as the person `you`, which is what lets a
-  repository worked by one session finish its work; the refusal names both the lead and that
-  door. The board's `bytefly.json` section is read once, in `lib/board/config.ts`, and handed to
+- `board`: `approve` and `review` take the lead's signature, and nobody else's. The lead is
+  `board.lead` (`lead` by default), so it signs as a session that joined under it, and never
+  while holding the card — a lead releases a card before signing it. Two peers can no longer
+  sign each other's cards. `/board approve` and `/board review` remain the other way in,
+  writing as the person `you`; the refusal names both the lead and that door. The board's
+  `bytefly.json` section is read once, in `lib/board/config.ts`, and handed to
   the rules as one `BoardConfig` (the WIP limits and the lead), so no rule learns to read a file.
 
 - `lib`: `TUI_TOKENS` names Pi's tool vocabulary too — `toolTitle` and `toolOutput` join the role
@@ -144,8 +143,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `bytefly` + `plan`: `Shift+Tab` at the main editor toggles plan mode. The footer's mode
   segment leads the resource line with `▶ auto` in accent or `≡ plan` in warning — the bar
   draws that word from its own label and only reads the plan flag, so the plan file name
-  the chip carries never reaches it, and the composer border follows the mode (`accent` in
-  auto, `warning` while planning).
+  the chip carries never reaches it.
   Bytefly unsets the reserved `app.thinking.cycle` chord while it holds the key and restores
   it on shutdown, so `/hotkeys` tells the truth; `plan` no longer registers `Ctrl+Alt+P`,
   and `/plan` remains the toggle when bytefly is not loaded.
@@ -154,28 +152,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   transport client, the lock, the slash table, the history reader and the state files — so a
   session with no account evaluates none of it, and `/wechat login` on a host that never emits
   `session_start` still awaits the load. `ensureBridge` and `createLoginClient` are async now;
-  `isAllowedPeer` loads with its use. Registration drops from 781 to 760 modules and the summed
-  static graph from 747 to 727.
-- every full-screen surface now lives under `view/` and loads on first use, and a rule keeps it
-  there: `test/dependencies.test.ts` refuses a registration graph that reaches `extensions/*/view/`
-  or any `lib/http/` module but `mount.ts`, so a new screen is lazy by where it is filed rather
-  than by a row someone remembers. `/memory`, `/sessions`, `/watch`, `/check`, `/agents`, `/rewind`,
-  `/review`, `/todos`, `/wechat login` and `/wechat status`, the question tool's questionnaire, and
-  the rewind review gate are imported in the TUI branch that opens them; `web_fetch` loads its
+  `isAllowedPeer` loads with its use. That step leaves registration at 760 modules and the
+  summed static graph at 727.
+- `lib`: every full-screen surface now lives under `view/` and loads on first use, and a rule
+  keeps it there: `test/dependencies.test.ts` refuses a registration graph that reaches
+  `extensions/*/view/` or any `lib/http/` module but `mount.ts`, so a new screen is lazy by
+  where it is filed rather than by a row someone remembers. `/memory`, `/sessions`, `/watch`,
+  `/check`, `/agents`, `/rewind`, `/review`, `/todos`, `/wechat login` and `/wechat status`,
+  the question tool's questionnaire, and the rewind review gate are imported in the TUI branch
+  that opens them; `web_fetch` loads its
   page reader and passage finder in `execute`, so a session that never fetches pays neither;
   `serve`, `board` and `plan` import the mount contract from `lib/http/mount.ts` and load the
-  rest of that kit on the first bind. Registration drops from 817 to 781 modules and the summed
-  static graph from 857 to 747; `lib/tui/index.ts` (fifteen re-exports, no importers) is gone
-  with the `tui.ts` files it sat beside. The split moves a renderer or a rail widget out of the
-  way of its screen, never into it: `job`, `watch`, `todo` and `wechat` gain `render.ts`,
-  `widget.ts` or `text/status.ts` beside their `view/`.
-- the package loads 185 fewer modules at startup (1,044 → 859). The plan review server and the
-  review gate behind it, the board page, the browse server, the worktree screen, the bytefly panel
-  screen and its picker and settings surface, the `/jobs` screen, and the job runtime's process seam
-  are imported on first use, so registration, plan mode's cancel path and tool schemas, `/board
-  status`, `/browse status`, text-mode listings, and session shutdown no longer load them;
-  `session-bus` reads its process start token when it starts instead of in its factory, so a session
-  that never joins no longer spawns `ps` on every Pi start.
+  rest of that kit on the first bind. That step takes registration from 817 to 781 modules and
+  the summed static graph from 857 to 747; `lib/tui/index.ts` (fifteen re-exports, no
+  importers) is gone with the `tui.ts` files it sat beside. The split moves a renderer or a
+  rail widget out of the way of its screen, never into it: `job`, `watch`, `todo` and `wechat`
+  gain `render.ts`, `widget.ts` or `text/status.ts` beside their `view/`.
+- `lib`: the whole effort leaves the package loading 185 fewer modules at startup (1,044 →
+  859). The plan review server, the review gate behind it, the board page, the browse server,
+  the worktree screen, the bytefly panel screen and its picker and settings surface, the
+  `/jobs` screen, and the job runtime's process seam are imported on first use, so
+  registration, plan mode's cancel path and tool schemas, `/board status`, `/browse status`,
+  text-mode listings, and session shutdown no longer load them;
+  `session-bus` reads its process start token when it starts instead of in its factory, so a
+  session that never joins no longer spawns `ps` on every Pi start.
 - `board`: a session's cards, notes, and joins are written as the label it already holds —
   the one `/team join billing-core` gave it — instead of the `team-agent-<id>` name derived
   past it, which the first claim's join then renamed the session back to. A session the bus
@@ -204,13 +204,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is reporting its work as free. Each panel is refilled only when what it prints has moved, so
   a peer's write no longer takes the reader's scroll offset or the focus they put on a fold.
 
-- `board`: a card reads its plan as `~/…`, the form `write_plan` shows, instead of the
-  absolute path the card stores — so the same plan reads the same way to whoever opens the
+- `board`: a card reads its plan as `~/…`, the form `plan` action `write` shows, instead of
+  the absolute path the card stores — so the same plan reads the same way to whoever opens the
   card, and the stored path in the tool's details is unchanged.
 
 - `board`: a card can no longer be executed against a path to nothing. `contract` requires
-  the plan file `write_plan` returned, `lib/board/artifact.ts` checks that it is a markdown
-  file inside this repository's plan store (`lib/plans/paths.ts`, shared with `plan`), and a
+  the plan file `plan` action `write` returned, `lib/board/artifact.ts` checks that it is a
+  markdown file inside this repository's plan store (`lib/plans/paths.ts`, shared with `plan`),
+  and a
   move to `execute` or `done` re-checks that it is still there — so the plan a card promises
   is a file, not a string. A claim's result ends with the next step (plan mode, then
   `contract`), plan mode's board refusal names the same order, and a card planned before the
@@ -224,24 +225,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unchanged — a sign still comes from somebody other than the holder — and the card records
   who signed, which reads differently from a peer's sign.
 
-- dev: the board's render fixtures name a plan the shipped `contract` accepts. The gallery's
-  contract call passed `plans/totals.md` and the page's seeded cards defaulted to
-  `plans/<id>.md`, both of which the new gate refuses — a nested directory `write_plan` never
-  writes, holding no file. `fixturePlanPath` now spells every one against the store, the
-  seeding throws instead of inventing a path, and a `board fixture plan paths` test proves
-  each is accepted and that the old spelling is not. No image moved: the gallery's call line
-  hides the argument, and a seeded card's plan decides its `planned` fact, which is the same
-  before and after.
-
-- dev: the plan-side fixtures name the plan store the tools write into. The gallery pictured
-  `write_plan` and `exit_plan_mode` saving to `.pi/plans/add-rate-limiting.md` — the retired
-  in-checkout directory the plan tool migrates away from — so both now show
-  `~/.pi/agent/plans/<key>/2026-10-29-1015-add-rate-limiting.md` with the absolute form in
-  their `details`, and a `plan fixture plan paths` test pins the two spellings to one path.
-  `test/helpers/board-flow.ts` seeds `<id>.md` instead of `plans/<id>.md`, a name the store
-  resolves inside itself rather than a subdirectory no writer makes. The recapture also picks
-  up `assets/tools/board.png` and `board-round.png`, which lagged the board fixture's `planned`
-  fact since the plan gate landed.
+- dev: the render fixtures name a real plan in the store, which is what the shipped
+  `contract` requires. The gallery's board call passed `plans/totals.md` and the page's seeded
+  cards defaulted to `plans/<id>.md`, while the plan-side gallery pictured `plan`'s `write`
+  and `exit` actions saving to `.pi/plans/add-rate-limiting.md`, the retired in-checkout
+  directory the tool migrates away from — a nested directory no writer makes, and paths the
+  new gate refuses. `fixturePlanPath` spells every one against the store,
+  `test/helpers/board-flow.ts` seeds `<id>.md`, the seeding throws instead of inventing a
+  path, and `board fixture plan paths` and `plan fixture plan paths` prove each is accepted
+  and the old spelling is not. The two plan fixtures now show the absolute form of
+  `~/.pi/agent/plans/<key>/2026-10-29-1015-add-rate-limiting.md` in their `details`, and the
+  recapture picks up `assets/tools/board.png` and `board-round.png`, which lagged the board
+  fixture's `planned` fact since the plan gate landed. No card image moves: the call line
+  hides the argument, and a seeded plan decides the same `planned` fact before and after.
 
 - `docs`: an agent-directory location is spelled one way everywhere — `<agent-dir>` —
   because 15 uses still wrote `<agentDir>` across three pages, the `plan-review` example,
@@ -518,7 +514,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   back every path the batch had listed, including one the session held before the call — a
   live path handed to nobody — and the watch remembered only the ids one read returned, so
   mail a peer's lagging clock sorted ahead of them could be announced again once the front
-  was consumed. The batch gives back what it published, and the watch remembers a count.
+  was consumed. The batch gives back what it published, and the watch's memory is pruned by
+  what is still on disk instead of by a count of ids.
 - `board`: a blocked card is told what it can do about a full lane, and three refusals around
   a block say what they mean. A resume into `plan` or `execute` is held to that lane's limit —
   a park frees a slot rather than reserving one — but the refusal offered `finish, block, or
@@ -580,7 +577,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that the claim would then refuse, because the precheck ran with the default limits. `offer`
   now carries the `plan`-lane room check as its own rule instead of running a claim as a
   stand-in, so an offer is never sent for work nobody can pick up.
-- `plan`: `set_plan_steps`' `status` names its two values — `completed` ticks a step,
+- `plan`: `steps`' `status` names its two values — `completed` ticks a step,
   `pending` reopens it — and says a plan step has no in-progress state, so a model arriving
   from `todo`'s three-state enum does not have a whole batch refused for it.
 - `board`: `list` with `round: true` draws the lead's awaiting-approval queue in the
