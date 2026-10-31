@@ -122,7 +122,7 @@ describe("buildRound", () => {
 
 	test("unreviewed is every executing card nobody has spot-checked, whatever its clock says", () => {
 		// The lead owes a look at everything in `execute` until one is recorded, so the group
-		// needs no idle window to notice it: a card one millisecond old is already here, which
+		// needs no unwritten window to notice it: a card one millisecond old is already here, which
 		// is what a peer that finishes in ten minutes depends on.
 		const round = buildRound(
 			[
@@ -135,8 +135,8 @@ describe("buildRound", () => {
 		expect(round.unreviewed.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
-	test("unreviewed and idle are the same card when its owner has gone quiet", () => {
-		// Two facts, one card: the lead still owes the spot-check, and nobody has touched it.
+	test("unreviewed and unwritten are the same card when its owner has gone quiet", () => {
+		// Two facts, one card: the lead still owes the spot-check, and nobody has written it.
 		const round = buildRound([doing("1", { updatedAt: NOW - UNWRITTEN_MS })], NOW);
 		expect(round.unreviewed.map((entry) => entry.id)).toEqual(["1"]);
 		expect(round.unwritten.map((entry) => entry.id)).toEqual(["1"]);
@@ -154,7 +154,7 @@ describe("buildRound", () => {
 		expect(round.done.map((entry) => entry.id)).toEqual(["2"]);
 	});
 
-	test("idle is an executing card nobody has touched for the idle window", () => {
+	test("unwritten is an executing card nobody has written for the window", () => {
 		const round = buildRound(
 			[doing("1", { updatedAt: NOW - UNWRITTEN_MS }), doing("2", { updatedAt: NOW - UNWRITTEN_MS + 1 })],
 			NOW,
@@ -162,16 +162,16 @@ describe("buildRound", () => {
 		expect(round.unwritten.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
-	test("idle reads the card's own clock, not a session's liveness", () => {
-		// A freshly noted card is not idle however long its owner has been gone: the
+	test("unwritten reads the card's own clock, not a session's liveness", () => {
+		// A freshly noted card is not unwritten however long its owner has been gone: the
 		// board cannot see a process, and says so by measuring the card.
 		const round = buildRound([doing("1", { updatedAt: NOW, createdAt: 0 })], NOW);
 		expect(round.unwritten).toEqual([]);
 	});
 
-	test("a card can be both unplanned and idle, because both are worth knowing", () => {
+	test("a card can be both unplanned and unwritten, because both are worth knowing", () => {
 		// A card re-planned after it started: still in the board's plan lane, and its owner
-		// has not touched it since. Both groups say something a lead acts on.
+		// has not written it since. Both groups say something a lead acts on.
 		const round = buildRound([planning("1")], NOW);
 		expect(round.unplanned.map((entry) => entry.id)).toEqual(["1"]);
 		const executing = buildRound([doing("1", { updatedAt: NOW - UNWRITTEN_MS })], NOW);
