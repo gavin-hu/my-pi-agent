@@ -1,36 +1,31 @@
 /**
- * Job runtime: the session-scoped job table and process lifecycle.
+ * Job runtime: the session-scoped job table and the durable record.
  *
- * Owns the in-memory `Job` map, live child handles, callbacks, and the repaint
- * clock, and composes the smaller pieces: `store.ts` (durable registry),
- * `logs.ts` (log tails), `log-writer.ts` (the per-job stream, line split, and
- * rotation), `status.ts` (exit-status recovery), `ui.ts` (status chips), and
- * `waiters.ts`.
+ * Owns the in-memory `Job` map and its transitions, and composes the smaller
+ * pieces: `child.ts` (a job's process and its output), `clock.ts` (the repaint
+ * clock and the reattached-job sweep), `store.ts` (the durable registry),
+ * `ui.ts` (status chips), and `waiters.ts`.
  *
  * Registry model: each session is the sole writer of its own
  * `registry-<hash>.json`. `load` merges every session's file and adopts the
  * records of dead peer sessions (so a detached server reattaches and a crashed
- * session's history survives) before reconciling pids. The process/spawn/clock
- * functions are injectable so the whole runtime can be driven by a fake child in
- * tests.
+ * session's history survives) before reconciling pids. The process seams are
+ * injectable so the whole runtime can be driven by a fake child in tests.
  *
  * Concurrency: the runtime assumes the tool is `executionMode: "sequential"`,
  * but job completion is asynchronous, so `finalize` is guarded against running
  * twice and listeners/waiters are removed on cleanup.
  */
 
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { KILL_GRACE_MS } from "../../lib/child.ts";
+import { abortableSleep } from "../../lib/timer.ts";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import type { LineSplitter } from "../../lib/lines.ts";
-import type { KillTreeFn, SpawnedProcess, SpawnFn, StdinSink } from "../../lib/spawn.ts";
+import type { KillTreeFn, SpawnFn } from "../../lib/spawn.ts";
+import { createJobChildren, type JobSeams } from "./child.ts";
+import { createExternalSweep, createRepaintClock } from "./clock.ts";
 import { DEFAULT_CONFIG, loadConfig, type JobsConfig } from "./config.ts";
-import { createLogWriter, type LogHandle } from "./log-writer.ts";
-import { readLogTail } from "./logs.ts";
-import { sanitizeUntrustedLine } from "../../lib/format.ts";
-import { defaultInterval } from "../../lib/timer.ts";
-import { clipLabel } from "../../lib/tui/columns.ts";
-import { compareJobs, formatLogs } from "./format.ts";
+import { compareJobs } from "./format.ts";
 import {
 	loadRegistries,
 	mergeRecords,
@@ -41,72 +36,20 @@ import {
 	settleGone,
 } from "./registry.ts";
 import { createOwnership, removeSessionMarker } from "./session.ts";
-import { LOG_ENV, STATUS_ENV, readExitStatus, withExitTrap } from "./status.ts";
-import { type Job, type JobRecord, type JobStatus, type KillSignal } from "./types.ts";
+import {
+	type Job,
+	type JobRecord,
+	type JobStatus,
+	type KillSignal,
+	type LogResult,
+	type SendOptions,
+	type SendResult,
+	type StartOptions,
+	type WaitResult,
+} from "./types.ts";
 import { createUiController } from "./ui.ts";
 import { createJobStore, type JobStore, toRecord } from "./store.ts";
-import { createWaiters } from "./waiters.ts";
-
-/** Characters of sanitized log sent to the model. */
-const LOG_MODEL_CHARS = 16 * 1024;
-/** Default `wait` timeout. */
-const DEFAULT_WAIT_MS = 30_000;
-
-export interface StartOptions {
-	command: string;
-	cwd?: string;
-	label?: string;
-	wake?: boolean;
-	detached?: boolean;
-	/** Give the child a stdin pipe, so `send` can write to it while it runs here. */
-	stdin?: boolean;
-	/** Auto-kill the job after this many milliseconds (SIGTERM, escalating to SIGKILL). */
-	timeoutMs?: number;
-}
-
-export interface LogResult {
-	job: Job;
-	/** Model-facing render of the tail, including status header/truncation note. */
-	text: string;
-	/** Sanitized tail lines, for the `/jobs` log pane. */
-	lines: string[];
-	truncated: boolean;
-	/** True when earlier log lines exist beyond the returned window. */
-	more: boolean;
-}
-
-export interface WaitResult {
-	job: Job;
-	timedOut: boolean;
-	cancelled: boolean;
-}
-
-export interface SendOptions {
-	/** Text written to the job's stdin. */
-	input?: string;
-	/** Append a newline to `input`; defaults to true. */
-	newline?: boolean;
-	/** End the job's stdin after writing, so the child sees EOF. */
-	eof?: boolean;
-}
-
-export interface SendResult {
-	job: Job;
-	/** Characters of `input` written, excluding any newline this call added. */
-	sent: number;
-	/** True when this call ended the job's stdin. */
-	closed: boolean;
-}
-
-/** The process seam a started job uses: the spawn, the three questions about a pid, and the log splitter. */
-interface JobSeams {
-	spawn: SpawnFn;
-	liveness: (pid: number) => boolean;
-	killTree: KillTreeFn;
-	startToken: (pid: number) => string | undefined;
-	/** A fresh line splitter for one job's log (`lib/lines.ts`, loaded with the seam). */
-	newSplitter: () => LineSplitter;
-}
+import { createWaiters, waitFor } from "./waiters.ts";
 
 export interface RuntimeOptions {
 	spawn?: SpawnFn;
@@ -118,17 +61,8 @@ export interface RuntimeOptions {
 	isWindows?: () => boolean;
 	/** Fixed config, for tests; production loads it per cwd. */
 	config?: JobsConfig;
-}
-
-interface Handle {
-	/** The job's log: stream, line split, rotation, and the repaint window. */
-	log: LogHandle;
-	killTimer?: ReturnType<typeof setTimeout>;
-	timeoutTimer?: ReturnType<typeof setTimeout>;
-	/** The child's stdin pipe, present only for a job started with `stdin: true`. */
-	stdin?: StdinSink | null;
-	/** True once stdin was ended, or the child closed its end. */
-	stdinClosed?: boolean;
+	/** How long to wait before a shutdown's SIGKILL; the grace, injectable so a test need not sleep. */
+	sleep?: (ms: number) => Promise<void>;
 }
 
 export interface JobsRuntime {
@@ -205,6 +139,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	};
 
 	const now = options.now ?? (() => Date.now());
+	const sleep = options.sleep ?? abortableSleep;
 	const isWindows = options.isWindows ?? (() => process.platform === "win32");
 
 	// The config is read by `load`, once the session has a cwd; until then the shipped
@@ -217,11 +152,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	};
 
 	const jobs = new Map<string, Job>();
-	const handles = new Map<string, Handle>();
 	const waiters = createWaiters();
 	let sessionId = "session";
 	let disposed = false;
-	let clock: (() => void) | undefined;
 
 	/** Jobs this session owns (a dead session's adopted records included). */
 	const ownJobs = (): Job[] => [...jobs.values()].filter((job) => job.sessionId === sessionId);
@@ -234,107 +167,15 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	const persist = (): void => store().persist(jobs.values());
 
 	/** A fresh line splitter for one job's log, loaded with the seam that starts it. */
-	const newSplitter = (): LineSplitter => {
+	const newSplitter = (): ReturnType<JobSeams["newSplitter"]> => {
 		if (syncSeams === undefined) throw new Error("the job process seam is not loaded yet.");
 		return syncSeams.newSplitter();
 	};
 
-	/** Delete a job's log file, best-effort. */
-	const removeLog = (job: JobRecord): void => {
-		try {
-			const path = store().safeLogPath(job);
-			if (path && existsSync(path)) unlinkSync(path);
-			// Both segments are the job's own log; drop the rotated one too.
-			const rotated = store().safeRotatedLogPath(job);
-			if (rotated && existsSync(rotated)) unlinkSync(rotated);
-		} catch {
-			// Log cleanup is best-effort.
-		}
-	};
-
-	/** Delete a job's status file once its code has been observed, best-effort. */
-	const removeStatus = (job: JobRecord): void => {
-		try {
-			const path = store().safeStatusPath(job);
-			if (path && existsSync(path)) unlinkSync(path);
-		} catch {
-			// Status cleanup is best-effort.
-		}
-	};
-
-	/** Remove every durable artifact a job leaves behind. */
-	const removeArtifacts = (job: JobRecord): void => {
-		store().releaseId(job.id);
-		removeStatus(job);
-		removeLog(job);
-	};
-
-	const stopClock = (): void => {
-		clock?.();
-		clock = undefined;
-	};
-
-	const ensureClock = (): void => {
-		const running = [...jobs.values()].some((job) => job.status === "running");
-		if (disposed || !running) {
-			stopClock();
-			return;
-		}
-		if (clock) return;
-		clock = defaultInterval(config.repaintMs, () => {
-			ownership.touch();
-			pollExternal();
-			// Re-assert the chip every tick. It is otherwise only set on a job
-			// transition, so anything that clears extension statuses (a session reload,
-			// another UI path) would hide a still-running job's chip until the next
-			// transition. The clock is the only periodic hook while jobs run.
-			ui.setStatus();
-		});
-	};
-
-	const paint = (): void => {
-		ensureClock();
-		ownership.touch();
-		if (disposed) return;
-		ui.paint();
-	};
-
-	/** Whether a pid is still running, asked through the loaded seam. */
-	const isAlive = (pid: number): boolean => syncSeams?.liveness(pid) ?? true;
-
-	/**
-	 * Who owns a job: `live`, `quiet`, or `gone`, and this session's own marker. `quiet` is
-	 * not dead — the heartbeat only ticks while a job runs, so a peer that has finished its
-	 * work stops writing one, and reading that as death adopted a live session's records.
-	 */
-	const ownership = createOwnership({
-		directory: () => store().directory(),
-		sessionId: () => sessionId,
-		now,
-		ttlMs: () => config.sessionTtlMs,
-		alive: isAlive,
-		startToken: (pid) => syncSeams?.startToken(pid),
-	});
-
-	/** Signal a pid, through the held seam; a job cannot run before the seam is held. */
-	const killPid = (pid: number, signal: NodeJS.Signals, force = false): void => {
-		syncSeams?.killTree(pid, signal, force);
-	};
-
-	/**
-	 * Whether a persisted start-time token still matches the live pid.
-	 * Returns true when either side is unavailable, so callers fall back to
-	 * liveness alone; a mismatch means the pid was reused and must not be signalled.
-	 */
-	const tokenMatches = (job: JobRecord): boolean => {
-		if (!job.startToken || job.pid === null) return true;
-		const current = syncSeams?.startToken(job.pid);
-		return !current || current === job.startToken;
-	};
+	/** The process seam once it has loaded; a pid question before then answers as it always did. */
+	const jobSeam = (): JobSeams | undefined => syncSeams;
 
 	/** Recover an exit code from a job's status file, guarded by the trusted path. */
-	const exitCodeFor = (job: JobRecord): number | undefined => readExitStatus(store().safeStatusPath(job));
-
 	/** A completion listener, published from the index; `undefined` after shutdown. */
 	let onCompleteHandler: ((job: JobRecord) => void) | undefined;
 
@@ -366,52 +207,18 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	 * every clock tick would be a notification storm.
 	 */
 	const settleGoneJob = (job: Job): boolean => {
-		Object.assign(job, settleGone(job, { isAlive, tokenMatches, readExitCode: exitCodeFor, now: now() }));
+		Object.assign(
+			job,
+			settleGone(job, {
+				isAlive: children.alive,
+				tokenMatches: children.owns,
+				readExitCode: children.exitCode,
+				now: now(),
+			}),
+		);
 		if (job.status === "running") return false;
 		announceComplete(job);
 		return true;
-	};
-
-	/** Poll reattached (unowned) jobs, which have no `close` event to observe. */
-	const pollExternal = (): void => {
-		ownership.touch();
-		let changed = false;
-		for (const job of jobs.values()) {
-			if (job.status !== "running" || job.owned) continue;
-			const peer = job.sessionId !== sessionId;
-			// A live peer owns this job, a quiet one included: its heartbeat only ticks while
-			// a job runs.
-			if (peer && ownership.state(job.sessionId) !== "gone") continue;
-			if (job.pid === null || !isAlive(job.pid)) {
-				// A record with no pid cannot be judged gone; leave it alone rather than
-				// announcing (and waking) on every tick.
-				if (!settleGoneJob(job)) continue;
-				// A reattached `wake` job has no `close` event, so this is the only place
-				// its completion can trigger the one wake turn.
-				wakeIfNeeded(job);
-				changed = true;
-				continue;
-			}
-			// The owner is gone and the job is not detached: reap the abandoned
-			// process, guarding against pid reuse with the start token.
-			if (peer && !job.detached) {
-				if (tokenMatches(job)) {
-					try {
-						killPid(job.pid, "SIGTERM");
-					} catch {
-						// Already gone.
-					}
-					settle(job, { status: "killed", signal: "SIGTERM" });
-				} else {
-					settle(job, { status: "unknown" });
-				}
-				changed = true;
-			}
-		}
-		if (!changed) return;
-		pruneFinished();
-		persist();
-		if (!disposed) ui.paint();
 	};
 
 	const pruneFinished = (): void => {
@@ -426,86 +233,25 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			const job = finished.shift();
 			if (!job) break;
 			jobs.delete(job.id);
-			removeArtifacts(job);
+			children.removeArtifacts(job);
 		}
-	};
-
-	/** Remember the newest non-empty output line, which `status`/`wait` report. */
-	const recordLine = (job: Job, line: string): void => {
-		const clean = sanitizeUntrustedLine(line);
-		if (clean) job.lastLine = clean;
-	};
-
-	/**
-	 * The per-job log sink: stream, line split, rotation, and the repaint window.
-	 *
-	 * Built on first use, because the line splitter arrives with the process seam: a
-	 * session that never starts a job never writes one.
-	 */
-	let sink: ReturnType<typeof createLogWriter> | undefined;
-	const logWriter = (): ReturnType<typeof createLogWriter> => {
-		sink ??= createLogWriter({
-			now,
-			newSplitter,
-			logPath: (job) => store().safeLogPath(job),
-			rotatedPath: (job) => store().safeRotatedLogPath(job),
-			maxBytes: () => config.maxLogBytes,
-			repaintMs: () => config.repaintMs,
-			onLine: recordLine,
-			onPaint: paint,
-		});
-		return sink;
-	};
-
-	/** Clear a handle's timers, close its log stream, and drop it. */
-	const disposeHandle = (id: string, options: { endStream: boolean }): void => {
-		const handle = handles.get(id);
-		if (!handle) return;
-		if (handle.killTimer) clearTimeout(handle.killTimer);
-		if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
-		logWriter().dispose(handle.log, options);
-		// Release the stdin pipe so a child waiting on input sees EOF instead of a
-		// half-open pipe nobody can write to.
-		if (handle.stdin && !handle.stdinClosed) {
-			try {
-				handle.stdin.end();
-			} catch {
-				// Already closed.
-			}
-		}
-		handle.stdin = null;
-		handle.stdinClosed = true;
-		handles.delete(id);
-	};
-
-	const onChunk = (id: string, chunk: Buffer): void => {
-		const handle = handles.get(id);
-		const job = jobs.get(id);
-		if (!handle || !job) return;
-		logWriter().write(handle.log, job, chunk);
 	};
 
 	const finalize = (id: string, code: number | null, signal: string | null): void => {
-		const handle = handles.get(id);
 		const job = jobs.get(id);
-		if (!handle || !job || job.status !== "running") return;
-		// Commit any buffered output, including a final line without a newline.
-		for (const line of logWriter().flush(handle.log)) recordLine(job, line);
-		// A detached job keeps no parent stream; read its last line from the log.
-		if (!handle.log.stream) {
-			const last = readLogTail(store().safeLogPath(job), 1).lines.at(-1);
-			if (last) job.lastLine = last;
-		}
-		disposeHandle(id, { endStream: true });
+		if (!children.get(id) || !job || job.status !== "running") return;
+		// Commit the child's buffered output, then let its handle go.
+		children.flush(job);
+		children.dispose(id, { endStream: true });
 
 		const status: JobStatus = signal ? "killed" : code === 0 ? "exited" : "failed";
 		settle(job, { status, exitCode: signal ? null : code, signal });
 		// The close event already carried the code, so the status file is redundant.
-		removeStatus(job);
+		children.removeStatus(job);
 
 		pruneFinished();
 		persist();
-		paint();
+		clock.paint();
 		if (!disposed && status === "failed") ui.notifyFailure(job);
 		if (job.wake && !disposed) {
 			try {
@@ -515,6 +261,51 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			}
 		}
 	};
+
+	/**
+	 * A job's process and its output, over `lib/child.ts`'s supervisor.
+	 *
+	 * The record's questions — is this pid still ours, what did it exit with, what
+	 * does this log say — stay in this module; the handle, the log stream, stdin and
+	 * the escalation are the child's.
+	 */
+	const children = createJobChildren({
+		seams: jobSeam,
+		store,
+		config: () => config,
+		now,
+		newSplitter,
+		table: {
+			record: (id) => jobs.get(id),
+			ids: () => jobs.keys(),
+			insert: (job) => jobs.set(job.id, job),
+			settle,
+			sessionId: () => sessionId,
+			changed: () => {
+				persist();
+				clock.paint();
+			},
+		},
+		onSettled: (id, outcome) => {
+			if (outcome.kind === "closed") finalize(id, outcome.code, outcome.signal);
+			else finalize(id, 1, null);
+		},
+		onPaint: () => clock.paint(),
+	});
+
+	/**
+	 * Who owns a job: `live`, `quiet`, or `gone`, and this session's own marker. `quiet` is
+	 * not dead — the heartbeat only ticks while a job runs, so a peer that has finished its
+	 * work stops writing one, and reading that as death adopted a live session's records.
+	 */
+	const ownership = createOwnership({
+		directory: () => store().directory(),
+		sessionId: () => sessionId,
+		now,
+		ttlMs: () => config.sessionTtlMs,
+		alive: (pid) => children.alive(pid),
+		startToken: (pid) => children.startToken(pid),
+	});
 
 	let onFinishHandler: ((job: Job) => void) | undefined;
 
@@ -528,6 +319,46 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 	};
 
+	/** Poll the jobs this session reattached, which have no `close` event to observe. */
+	const pollExternal = createExternalSweep({
+		records: () => jobs.values(),
+		sessionId: () => sessionId,
+		ownerPresent: (owner) => ownership.state(owner) !== "gone",
+		alive: (pid) => children.alive(pid),
+		owns: (job) => children.owns(job),
+		settleGone: settleGoneJob,
+		settle,
+		wake: wakeIfNeeded,
+		signal: (pid) => children.signal({ pid }, "SIGTERM"),
+		touchMarker: () => ownership.touch(),
+		changed: () => {
+			pruneFinished();
+			persist();
+			if (!disposed) ui.paint();
+		},
+	});
+
+	/**
+	 * The repaint clock: the only periodic hook the runtime arms.
+	 *
+	 * Its tick touches this session's liveness marker, polls the jobs it
+	 * reattached, and re-asserts the chip — which is otherwise only set on a job
+	 * transition, so anything that clears extension statuses (a session reload,
+	 * another UI path) would hide a still-running job's chip.
+	 */
+	const clock = createRepaintClock({
+		repaintMs: () => config.repaintMs,
+		running: () => [...jobs.values()].some((job) => job.status === "running"),
+		disposed: () => disposed,
+		touchMarker: () => ownership.touch(),
+		tick: () => {
+			ownership.touch();
+			pollExternal();
+			ui.setStatus();
+		},
+		repaint: () => ui.paint(),
+	});
+
 	const runtime: JobsRuntime = {
 		get config() {
 			return config;
@@ -540,9 +371,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		start,
 		list: () => [...jobs.values()].sort(compareJobs).map(toRecord),
 		get: (id) => jobs.get(id),
-		logs,
-		send,
-		kill,
+		logs: (id, lines) => children.logs(id, lines),
+		send: (id, options) => children.send(id, options),
+		kill: (id, signal) => children.kill(id, signal),
 		wait,
 		clear,
 		pendingCompletions,
@@ -571,8 +402,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		// A reload or session replacement can reuse this runtime after `shutdown`,
 		// so reset all session state before re-reading the registry.
 		disposed = false;
-		stopClock();
-		for (const id of [...handles.keys()]) disposeHandle(id, { endStream: true });
+		clock.stop();
+		children.disposeAll();
 		waiters.resolveAll();
 
 		// The durable registry is keyed by the session's own cwd, not the active
@@ -606,21 +437,20 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 		// Resolve dead pids (recovering exit codes), then classify the survivors.
 		const settled = [...merged.values()].map((record) =>
-			settleGone(record, { isAlive, tokenMatches, readExitCode: exitCodeFor, now: now() }),
+			settleGone(record, {
+				isAlive: children.alive,
+				tokenMatches: children.owns,
+				readExitCode: children.exitCode,
+				now: now(),
+			}),
 		);
-		const { jobs: reconciled, orphans } = planReconcile(settled, isAlive, now(), {
+		const { jobs: reconciled, orphans } = planReconcile(settled, children.alive, now(), {
 			ownerState: ownership.state,
 			currentSessionId: sessionId,
 		});
 
 		for (const record of orphans) {
-			if (record.pid !== null) {
-				try {
-					killPid(record.pid, "SIGTERM");
-				} catch {
-					// The process may already be gone.
-				}
-			}
+			if (record.pid !== null) children.signal({ pid: record.pid }, "SIGTERM");
 			record.status = "killed";
 			record.signal = "SIGTERM";
 			record.finishedAt = now();
@@ -640,260 +470,19 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 		pruneFinished();
 		persist();
-		paint();
+		clock.paint();
 	}
 
 	async function start(startOptions: StartOptions, ctx: ExtensionContext): Promise<Job> {
 		if (!config.enabled) throw new Error("jobs are disabled.");
 		ui.attach(ctx);
-		const wantsStdin = startOptions.stdin === true;
-		// Windows has no process group to leave and no shell `EXIT` trap to record an
-		// exit code, so a job there cannot outlive the session: refusing an explicit
-		// detach is the honest answer, and it happens before any id is reserved.
-		// `detachedByDefault` stays inert instead of failing every start with a config
-		// the user set on another machine; `doctor` names that.
-		const windows = isWindows();
-		if (windows && startOptions.detached === true) {
-			throw new Error(
-				"A detached job cannot outlive the session on Windows: there is no process group to leave " +
-					"and no shell EXIT trap to record its exit code. Start it with `detached: false`, " +
-					"run it under WSL, or move the work into a `subagent`.",
-			);
-		}
-		const detached = windows ? false : (startOptions.detached ?? config.detachedByDefault);
-		// A detached job outlives this process, so a stdin pipe owned by this session
-		// would hand it EOF the moment the session ends; refuse instead of silently
-		// dropping the pipe (or the detach).
-		if (wantsStdin && detached) {
-			throw new Error("a detached job cannot take stdin; start it with `detached: false`.");
-		}
 		const cwd = startOptions.cwd ? startOptions.cwd : effectiveCwd(ctx);
-		// The registry directory must exist before `nextId`, which reserves the id
-		// with an `O_EXCL` lock file inside it.
-		mkdirSync(store().directory(), { recursive: true });
-		// `store().nextId` folds in the on-disk counters and ids from every session,
-		// so a peer that advanced the shared counter cannot hand us a live job's id.
-		const id = store().nextId(jobs.keys());
-		const logPath = store().logPath(id);
-		// Only a POSIX shell has an `EXIT` trap to record a status, and only a detached
-		// job points its own output at the log so it keeps logging after this process
-		// ends (which on Windows is never: `detached` is false there).
-		const statusPath = windows ? null : store().statusPath(id);
-		const detachOutput = detached;
-
-		// Wrap the command so a POSIX shell records its exit status; the path travels
-		// in the environment so the shell never has to quote it.
-		const program = withExitTrap(startOptions.command, windows, detachOutput);
-		const env: NodeJS.ProcessEnv = { ...process.env };
-		if (statusPath) env[STATUS_ENV] = statusPath;
-		if (detachOutput) env[LOG_ENV] = logPath;
 		// A start before `load` still needs the seam; load it rather than refusing.
 		await openSeam();
-		const seam = syncSeams as JobSeams;
-		let process_: SpawnedProcess;
-		try {
-			process_ = seam.spawn(program, { cwd, env, detachOutput, stdin: wantsStdin });
-		} catch (error) {
-			// A failed spawn must not leave the reserved id behind.
-			store().releaseId(id);
-			throw error;
-		}
-		const pid = process_.pid ?? null;
-		if (detachOutput) process_.unref?.();
-		// Create the file eagerly so `logs` works before the first write, then
-		// append through a stream. A detached job's shell writes the file directly.
-		try {
-			writeFileSync(logPath, "", { flag: "a" });
-		} catch {
-			// A missing directory was already handled by mkdirSync above.
-		}
-		const job: Job = {
-			id,
-			label: sanitizeUntrustedLine((startOptions.label ?? "").trim()) || clipLabel(startOptions.command),
-			command: startOptions.command,
-			cwd,
-			pid,
-			status: "running",
-			exitCode: null,
-			signal: null,
-			startedAt: now(),
-			finishedAt: null,
-			logPath,
-			statusPath,
-			detached,
-			wake: startOptions.wake ?? config.wakeOnFinish,
-			stdin: wantsStdin,
-			sessionId,
-			seen: false,
-			lastLine: "",
-			startToken: pid !== null ? (seam.startToken(pid) ?? null) : null,
-			owned: true,
-		};
-
-		const handle: Handle = {
-			log: logWriter().create(detachOutput ? undefined : logPath),
-		};
-		if (wantsStdin) {
-			const sink = process_.stdin ?? null;
-			handle.stdin = sink;
-			handle.stdinClosed = sink === null;
-			// A child that exits can emit `error`/`close` on the pipe; record it so a
-			// later `send` reports the truth instead of throwing an unhandled stream error.
-			const markClosed = (): void => {
-				const current = handles.get(id);
-				if (current) current.stdinClosed = true;
-			};
-			sink?.on("error", markClosed);
-			sink?.on("close", markClosed);
-		}
-		handles.set(id, handle);
-		jobs.set(id, job);
-
-		if (startOptions.timeoutMs !== undefined) {
-			handle.timeoutTimer = setTimeout(() => {
-				if (jobs.get(id)?.status === "running") void kill(id, "SIGTERM");
-			}, startOptions.timeoutMs);
-			handle.timeoutTimer.unref?.();
-		}
-
-		process_.stdout?.on("data", (chunk: Buffer) => onChunk(id, chunk));
-		process_.stderr?.on("data", (chunk: Buffer) => onChunk(id, chunk));
-		process_.on("close", (code, signal) => finalize(id, code, signal));
-		process_.on("error", () => finalize(id, 1, null));
-
+		const job = children.start(startOptions, { cwd, windows: isWindows() });
 		persist();
-		paint();
+		clock.paint();
 		return job;
-	}
-
-	function logs(id: string, lines = config.maxLogLines): LogResult | undefined {
-		const job = jobs.get(id);
-		if (!job) return undefined;
-		const current = readLogTail(store().safeLogPath(job), lines);
-		let all = current.lines;
-		let more = current.more;
-		let truncated = current.truncated;
-		// Keep `logs` continuous across a rotation: fill the request from the
-		// previous segment when the live one holds fewer lines.
-		if (all.length < lines) {
-			const previous = readLogTail(store().safeRotatedLogPath(job), lines - all.length);
-			if (previous.lines.length > 0) {
-				all = [...previous.lines, ...all];
-				more = more || previous.more;
-				truncated = truncated || previous.truncated;
-			}
-		}
-		const last = all.at(-1);
-		if (last) job.lastLine = last;
-		const formatted = formatLogs(job, all, LOG_MODEL_CHARS);
-		// A rotation that outran its drain drops the oldest queued chunks; say so once
-		// rather than letting the gap look like a program that skipped output.
-		const dropped = handles.get(id)?.log.droppedBytes ?? 0;
-		const text = dropped > 0 ? `${formatted.text}\n… ${dropped} bytes dropped while the log rotated.` : formatted.text;
-		return {
-			job,
-			text,
-			lines: all,
-			truncated: formatted.truncated || truncated,
-			more,
-		};
-	}
-
-	async function kill(id: string, signal: KillSignal = "SIGTERM"): Promise<Job | undefined> {
-		const job = jobs.get(id);
-		if (!job) return undefined;
-		if (job.status !== "running") return job;
-		const pid = job.pid;
-		if (pid === null) {
-			settle(job, { status: "unknown" });
-			persist();
-			paint();
-			return job;
-		}
-
-		// A reattached pid may have been reused; if the start token disagrees, stop
-		// rather than signal an unrelated process.
-		if (!tokenMatches(job)) {
-			settle(job, { status: "unknown" });
-			persist();
-			paint();
-			return job;
-		}
-
-		// Adopt a peer's job so the outcome persists in our file; the peer's stale
-		// file is dropped on a later load.
-		job.sessionId = sessionId;
-
-		try {
-			killPid(pid, signal, signal === "SIGKILL");
-		} catch {
-			// Best-effort; liveness below decides the final state.
-		}
-
-		const handle = handles.get(id);
-		if (handle) {
-			if (signal !== "SIGKILL") {
-				if (handle.killTimer) clearTimeout(handle.killTimer);
-				handle.killTimer = setTimeout(() => {
-					if (jobs.get(id)?.status === "running") {
-						try {
-							killPid(pid, "SIGKILL", true);
-						} catch {
-							// Already gone.
-						}
-					}
-				}, config.killGraceMs);
-				handle.killTimer.unref?.();
-			}
-		} else {
-			// Reattached/external Job: no `close` event will arrive, so reconcile
-			// after the grace period instead of waiting forever.
-			setTimeout(() => {
-				const current = jobs.get(id);
-				if (current?.status !== "running") return;
-				if (!isAlive(pid)) {
-					settle(current, { status: "killed", signal });
-				} else {
-					try {
-						killPid(pid, "SIGKILL", true);
-					} catch {
-						// Best-effort.
-					}
-					settle(current, { status: "killed", signal: "SIGKILL" });
-				}
-				persist();
-				paint();
-			}, config.killGraceMs).unref?.();
-		}
-		return job;
-	}
-
-	function send(id: string, options: SendOptions): SendResult {
-		const job = jobs.get(id);
-		if (!job) throw new Error(`no job "${id}".`);
-		if (job.status !== "running") throw new Error(`job ${id} is ${job.status}; stdin is closed.`);
-		if (!job.stdin) throw new Error(`job ${id} was not started with stdin; restart it with \`stdin: true\`.`);
-		const handle = handles.get(id);
-		// A pipe this session opened but that is closed is a different fact from one
-		// that was never ours, so state it first.
-		if (handle?.stdinClosed) throw new Error(`job ${id} closed its stdin.`);
-		if (!handle?.stdin) throw new Error(`job ${id}'s stdin belongs to the session that started it.`);
-
-		const input = options.input ?? "";
-		const payload = input && options.newline !== false ? `${input}\n` : input;
-		try {
-			if (payload) handle.stdin.write(payload);
-			if (options.eof) {
-				handle.stdin.end();
-				handle.stdinClosed = true;
-			}
-		} catch {
-			// The child closed its end; record it so the next `send` says so.
-			handle.stdinClosed = true;
-			handle.stdin = null;
-			throw new Error(`job ${id} closed its stdin.`);
-		}
-		return { job, sent: input.length, closed: options.eof === true };
 	}
 
 	function wait(
@@ -908,26 +497,12 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			return Promise.resolve({ job, timedOut: false, cancelled: false });
 		}
 		onUpdate?.();
-
-		return new Promise<WaitResult>((resolve) => {
-			let settled = false;
-			let remove = (): void => {};
-			const finish = (timedOut: boolean, cancelled: boolean): void => {
-				if (settled) return;
-				settled = true;
-				if (timer) clearTimeout(timer);
-				signal?.removeEventListener("abort", onAbort);
-				remove();
-				resolve({ job: jobs.get(id) ?? job, timedOut, cancelled });
-			};
-			const resolveWaiter = (): void => finish(false, false);
-			const onAbort = (): void => finish(false, true);
-			const timer = setTimeout(() => finish(true, false), timeoutMs ?? DEFAULT_WAIT_MS);
-
-			remove = waiters.add(id, resolveWaiter);
-			if (signal?.aborted) onAbort();
-			else signal?.addEventListener("abort", onAbort, { once: true });
-		});
+		// The record is read again at settle time, so the answer carries the job as it
+		// finished rather than as it was when the wait began.
+		return waitFor(waiters, id, { timeoutMs, signal }).then((outcome) => ({
+			job: jobs.get(id) ?? job,
+			...outcome,
+		}));
 	}
 
 	function clear(id: string | undefined, all: boolean): { cleared: number; refused?: string } {
@@ -940,9 +515,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			}
 			jobs.delete(id);
 			waiters.resolve(id);
-			removeArtifacts(job);
+			children.removeArtifacts(job);
 			persist();
-			paint();
+			clock.paint();
 			return { cleared: 1 };
 		}
 
@@ -953,23 +528,17 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			if (job.status === "running") {
 				// Without `all`, running jobs are left alone; with `all`, force-remove them.
 				if (!all) continue;
-				if (job.pid !== null) {
-					try {
-						killPid(job.pid, "SIGKILL", true);
-					} catch {
-						// Best-effort.
-					}
-				}
+				if (job.pid !== null) children.signal({ pid: job.pid }, "SIGKILL");
 				// Drop the handle too: the child will not deliver a `close` we want.
-				disposeHandle(job.id, { endStream: true });
+				children.dispose(job.id, { endStream: true });
 			}
 			jobs.delete(job.id);
 			waiters.resolve(job.id);
-			removeArtifacts(job);
+			children.removeArtifacts(job);
 			cleared++;
 		}
 		persist();
-		paint();
+		clock.paint();
 		return { cleared };
 	}
 
@@ -995,18 +564,21 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	async function shutdown(): Promise<void> {
 		disposed = true;
-		stopClock();
+		clock.stop();
 		const running = [...jobs.values()].filter(
 			(job) => job.status === "running" && !job.detached && job.sessionId === sessionId,
 		);
-		for (const job of running) await kill(job.id, "SIGTERM");
+		for (const job of running) await children.kill(job.id, "SIGTERM");
 		if (running.length > 0) {
-			await new Promise((resolve) => setTimeout(resolve, Math.min(config.killGraceMs, 2000)));
+			// The grace is the same for every running job, handled or not: a reattached job has
+			// no child to watch, so a close-driven wait would SIGKILL it on the heels of its
+			// SIGTERM. The cap is the shared default, not a second literal.
+			await sleep(Math.min(config.killGraceMs, KILL_GRACE_MS));
 		}
 		for (const job of running) {
-			if (jobs.get(job.id)?.status === "running") await kill(job.id, "SIGKILL");
+			if (jobs.get(job.id)?.status === "running") await children.kill(job.id, "SIGKILL");
 		}
-		for (const id of [...handles.keys()]) disposeHandle(id, { endStream: true });
+		children.disposeAll();
 		waiters.resolveAll();
 		persist();
 		removeSessionMarker(store().directory(), sessionId);

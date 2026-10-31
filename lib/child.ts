@@ -1,23 +1,32 @@
 /**
- * A command watcher's process lifecycle: spawn, tree-kill, escalate, and drain.
+ * A spawned command's lifecycle: spawn, tree-kill, escalate, and drain.
  *
- * A command source is a spawned process whose merged stdout and stderr feed the
- * matcher. This module owns the process side only — the spawn, the SIGTERM →
- * SIGKILL grace, and the shutdown drain — over the injected `SpawnFn` and
- * `KillTreeFn` seams, so the runtime keeps the watcher's status, its repaint,
- * and its clock.
+ * A `job` or a `watch` command source is a process whose merged stdout and
+ * stderr feed its owner. This module owns the process side only — the spawn, the
+ * SIGTERM → SIGKILL grace, and the shutdown drain — over the injected `SpawnFn`
+ * and `KillTreeFn` seams, so each owner keeps its own status, repaint, and clock.
+ * The escalation has one body and one default (`KILL_GRACE_MS`); each owner passes
+ * its configured grace, so `job` escalates at its `killGraceMs` and `watch` at its
+ * own, and neither re-implements the SIGTERM → SIGKILL step.
  *
  * Value-only: the child handle and its escalation timer live on the caller's
  * slot, never here, because Pi loads each extension with its own module cache.
  */
 
-import { defaultKillTree, defaultSpawn, type KillTreeFn, type SpawnFn, type SpawnedProcess } from "../../lib/spawn.ts";
+import {
+	defaultKillTree,
+	defaultSpawn,
+	type KillTreeFn,
+	type SpawnFn,
+	type SpawnedProcess,
+	type SpawnOptions,
+} from "./spawn.ts";
 
 /** Grace period before a stopped command is escalated to SIGKILL. */
 export const KILL_GRACE_MS = 2000;
 
 /**
- * The process fields a watcher record carries. The supervisor mutates them in
+ * The process fields a caller's record carries. The supervisor mutates them in
  * place, so the runtime's record and the module's handle cannot disagree about
  * whether a child is still live.
  */
@@ -27,7 +36,7 @@ export interface ChildSlot {
 	killTimer?: ReturnType<typeof setTimeout>;
 }
 
-/** How a child settled, for the sink that owns the watcher's status transition. */
+/** How a child settled, for the sink that owns the caller's status transition. */
 export type ChildOutcome =
 	| { kind: "closed"; code: number | null; signal: string | null }
 	| { kind: "failed"; message: string };
@@ -37,7 +46,7 @@ export interface ChildSink {
 	onData(chunk: Buffer): void;
 	/**
 	 * The child closed or failed to spawn. The sink owns the status, because only
-	 * it knows whether the watcher was still running when that happened.
+	 * it knows whether the job or watcher was still running when that happened.
 	 */
 	onSettled(outcome: ChildOutcome): void;
 }
@@ -50,12 +59,19 @@ export interface ChildSupervisorOptions {
 }
 
 export interface ChildSupervisor {
-	/** Spawn `command`, or return the spawn error and leave the slot's child unset. */
-	start(slot: ChildSlot, command: string, cwd: string, sink: ChildSink): string | undefined;
-	/** SIGTERM a command, escalating to SIGKILL when it has not closed in time. */
-	terminate(slot: ChildSlot): void;
-	/** Kill immediately, without arming an escalation. */
-	kill(slot: ChildSlot, signal: "SIGTERM" | "SIGKILL"): void;
+	/**
+	 * Spawn `command` with the caller's options, or return the spawn error and
+	 * leave the slot's child unset. The child is readable as `slot.child`.
+	 */
+	start(slot: ChildSlot, command: string, options: SpawnOptions, sink: ChildSink): string | undefined;
+	/**
+	 * Send `signal` (SIGTERM by default) and escalate to SIGKILL when the command
+	 * has not closed within the grace. A SIGKILL was already final, so it is not
+	 * escalated.
+	 */
+	terminate(slot: ChildSlot, signal?: NodeJS.Signals): void;
+	/** Signal now, without arming an escalation. */
+	kill(slot: ChildSlot, signal: NodeJS.Signals): void;
 	/** Cancel a pending escalation. */
 	clearTimer(slot: ChildSlot): void;
 	/** Resolve when every slot's child has closed, or after `ms`, whichever comes first. */
@@ -74,7 +90,7 @@ export function createChildSupervisor(options: ChildSupervisorOptions = {}): Chi
 		}
 	};
 
-	const kill = (slot: ChildSlot, signal: "SIGTERM" | "SIGKILL"): void => {
+	const kill = (slot: ChildSlot, signal: NodeJS.Signals): void => {
 		const pid = slot.pid;
 		try {
 			if (pid !== undefined) killTree(pid, signal, signal === "SIGKILL");
@@ -84,9 +100,12 @@ export function createChildSupervisor(options: ChildSupervisorOptions = {}): Chi
 		}
 	};
 
-	const terminate = (slot: ChildSlot): void => {
+	const terminate = (slot: ChildSlot, signal: NodeJS.Signals = "SIGTERM"): void => {
 		clearTimer(slot);
-		kill(slot, "SIGTERM");
+		kill(slot, signal);
+		// A SIGKILL is already final: arming an escalation behind it would only fire against
+		// a slot that is about to be cleared, and the doc above says it does not.
+		if (signal === "SIGKILL") return;
 		if (slot.pid === undefined && !slot.child) return;
 		slot.killTimer = setTimeout(() => {
 			slot.killTimer = undefined;
@@ -95,10 +114,10 @@ export function createChildSupervisor(options: ChildSupervisorOptions = {}): Chi
 		slot.killTimer.unref?.();
 	};
 
-	const start = (slot: ChildSlot, command: string, cwd: string, sink: ChildSink): string | undefined => {
+	const start = (slot: ChildSlot, command: string, options: SpawnOptions, sink: ChildSink): string | undefined => {
 		let child: SpawnedProcess;
 		try {
-			child = spawnFn(command, { cwd });
+			child = spawnFn(command, options);
 		} catch (error) {
 			return error instanceof Error ? error.message : String(error);
 		}

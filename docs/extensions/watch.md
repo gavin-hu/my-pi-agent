@@ -222,7 +222,8 @@ The shared seams are `lib/`'s: `lib/spawn.ts` (spawn, tree-kill), `lib/lines.ts`
 `lib/tui/status-controller.ts` (chips and the alert), and
 `lib/tui/dock-screen.ts` (the `/watch` frame, navigation, and confirm layer).
 What stays here is the watcher policy: the tailer, the matcher, the source
-model, the command-child lifecycle in `child.ts`, and the watcher vocabulary.
+model, and the watcher vocabulary; the command-child lifecycle is
+`lib/child.ts`, which `job` drives too.
 
 The file tailer polls and exposes `tick()` publicly; the interval is a thin
 wrapper over `tick()`, so tests drive matching deterministically with no real
@@ -246,8 +247,7 @@ outlive the session.
 | `tools.ts` | The `watch` tool definition, execution, and transcript rendering. |
 | `schema.ts` | TypeBox parameters and pure `normalizeCall` validation. |
 | `types.ts` | `WatchAction`/`WatchStatus`, `WatchRecord`, `WatchDetails`, `PendingMatch`. |
-| `runtime.ts` | The session-scoped watcher table, matcher, poll tick, and shutdown; spawning and tree-kill come from `child.ts`, line splitting from `lib/lines.ts`. |
-| `child.ts` | A command watcher's process lifecycle: spawn, the SIGTERM → SIGKILL grace, and the shutdown drain, over the injected `SpawnFn`/`KillTreeFn` seams. |
+| `runtime.ts` | The session-scoped watcher table, matcher, poll tick, and shutdown; spawning and tree-kill come from `lib/child.ts`, line splitting from `lib/lines.ts`. |
 | `format.ts` | Pure text formatting, including the watcher row both surfaces draw; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
 | `ui.ts` | Status chips and the match alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
 | `render.ts` | The `WatchResult` transcript block over the shared `TailResult`. |
@@ -257,8 +257,8 @@ outlive the session.
 
 ## Testing
 
-`runtime.test.ts` covers config, schema, the child supervisor, and the tailer
-with a fake clock and fake children; `tools.test.ts` covers the tool and command;
+`runtime.test.ts` covers config, schema, and the tailer with a fake clock and
+fake children; `tools.test.ts` covers the tool and command;
 `view/watch-screen.test.ts` covers registration, formatting, the status chips, and the screen
 through the shared `createFakePi`/`fakeCtx` doubles. The test harness is
 `test/helpers/fixtures/watch.ts`.

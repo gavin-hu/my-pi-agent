@@ -1,11 +1,11 @@
 /**
  * Durable job storage: the on-disk registry that outlives a session.
  *
- * The live process table (the `Job` map, including the `owned` child handles)
- * stays in the runtime because process events mutate it; this owns the parts
- * that survive a session — the registry directory, the id counter, the atomic
- * write of this session's own registry file, and the trusted artifact-path
- * rules. Each session writes only its own file, so peers never race.
+ * The live table (the `Job` map) stays in the runtime and the handles stay in
+ * `child.ts`, because process events mutate both; this owns the parts that
+ * survive a session — the registry directory, the id counter, the atomic write of
+ * this session's own registry file, and the trusted artifact-path rules. Each
+ * session writes only its own file, so peers never race.
  *
  * Persistence is best-effort: an unwritable registry must never break a job that
  * is otherwise running fine.

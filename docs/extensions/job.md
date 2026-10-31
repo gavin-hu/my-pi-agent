@@ -347,7 +347,9 @@ rewritten.
   settles it (recovering an exit code from the status file, else `unknown`)
   when the pid disappears.
 - **Shared seams, job policy.** The spawn/tree-kill/liveness seam
-  (`lib/spawn.ts`), the byte-safe line splitter (`lib/lines.ts`), the
+  (`lib/spawn.ts`), the command supervisor (`lib/child.ts`, which `watch` drives
+  too: one SIGTERM → SIGKILL body, each extension's own grace), the byte-safe
+  line splitter (`lib/lines.ts`), the
   untrusted-line boundary (`lib/format.ts`), the pending-report coordinator
   (`lib/report.ts`), the status chips (`lib/tui/status-controller.ts`), and the
   `/jobs` screen frame (`lib/tui/dock-screen.ts`) are shared with `watch`; this
@@ -396,13 +398,15 @@ rewritten.
 | `registry.ts` | Per-session registry load/merge under `<agent-dir>/jobs/<project>/`, legacy migration, and pure reconciliation. |
 | `reservations.ts` | Atomic `O_EXCL` job-id reservation and release. |
 | `status.ts` | `EXIT`-trap exit-status file (write path via env, read on reattach). |
-| `session.ts` | Per-session heartbeat markers and owner-liveness rules. |
+| `session.ts` | Per-session heartbeat markers and the ownership rule: `live`, `quiet`, or `gone`. |
 | `store.ts` | Durable store: the registry directory (`<agent-dir>/jobs/<project>/`), this session's atomic merge-write, deletions. |
 | `logs.ts` | Bounded, sanitized log-tail reading. |
 | `ui.ts` | Footer status chips and the failure alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
 | `waiters.ts` | `wait` resolver bookkeeping. |
 | `log-writer.ts` | Per-job log sink: write stream, line split, rotation queue, and the output-driven repaint window. |
-| `runtime.ts` | Composition: job table, child handles, process events, repaint clock. |
+| `runtime.ts` | The job table and the durable record: load and reconcile, settle, waiters, clear, shutdown. |
+| `child.ts` | A job's process and its output: the spawn policy, the handle, the log stream and stdin, close/error settle, the signal and its SIGKILL grace, and the files a job leaves, over the shared `lib/child.ts` supervisor. |
+| `clock.ts` | The periodic work: the repaint clock that re-asserts the chip, and the sweep that polls the jobs this session reattached. |
 | `render.ts` | The `JobResult` transcript block over the shared `TailResult`. |
 | `view/jobs-screen.ts` | The `/jobs` screen (a `DockListScreen` subclass: job rows, focus block, counts, verbs), loaded on first use. |
 | `tools.ts` | The `job` tool and its transcript rendering. |
@@ -414,10 +418,13 @@ rewritten.
 `extensions/job/` covers schema validation (`schema`), pure formatting and
 sanitization (`format`), the durable store (`store`), per-session reconciliation
 (`registry`), id reservation (`reservations`), exit-status recovery (`status`),
-session markers (`session`), bounded log reads and tail flags (`logs`), wait
-bookkeeping (`waiters`), the `job` tool (`tools`), the `/jobs` screen (`view/jobs-screen`),
-the runtime's session-scoped list and failure notification (`runtime`), `send`
-to a job's stdin and the pipe's lifecycle (`runtime`), log rotation, its two
-segments, and the cross-segment read (`runtime`), and the
-install/resume/shutdown lifecycle (`extension`). Tests drive a scripted
-`FakeChild` and a temp registry, so the suite runs without launching a process.
+session markers and the ownership rule (`session`), bounded log reads and tail
+flags (`logs`), log rotation and its two segments (`log-writer`), wait
+bookkeeping and the wait promise (`waiters`), the `job` tool (`tools`), the
+`/jobs` screen (`view/jobs-screen`), the table's session-scoped list,
+reattachment, clear and failure notification (`runtime`), a job's spawn, finish,
+kill, Windows policy, detached output, bounded tail and pid questions (`child`),
+`send` to a job's stdin and the pipe's lifecycle (`stdin`), the repaint clock and
+the external sweep (`clock`), and the install/resume/shutdown lifecycle
+(`extension`). Tests drive a scripted `FakeChild` and a temp registry, so the
+suite runs without launching a process.

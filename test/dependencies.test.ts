@@ -260,8 +260,14 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is the one rejected-call shape five actions share. `worktree`'s folded tool draws
  * bytefly's generic fallback, exactly as its four tools did, so no transcript kit joins its
  * registration graph for cosmetics.
+ *
+ * 734 → 737: `job`'s 1017-line runtime became three modules of one responsibility — the table,
+ * `child.ts` (a job's process and its output) and `clock.ts` (the repaint clock and the
+ * reattached-job sweep) — and the last of the three brings `lib/child.ts` with it, which is the
+ * module both extensions now spawn through. Nothing is deferred: the three are the split, and
+ * every one of them is what the old single module already evaluated, spread differently.
  */
-const MODULE_BUDGET = 734;
+const MODULE_BUDGET = 737;
 
 /** A repo-relative path with forward slashes, the form the maps use. */
 function repoRelative(file: string): string {

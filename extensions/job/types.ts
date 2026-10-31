@@ -59,6 +59,53 @@ export interface Job extends JobRecord {
 	owned: boolean;
 }
 
+export interface StartOptions {
+	command: string;
+	cwd?: string;
+	label?: string;
+	wake?: boolean;
+	detached?: boolean;
+	/** Give the child a stdin pipe, so `send` can write to it while it runs here. */
+	stdin?: boolean;
+	/** Auto-kill the job after this many milliseconds (SIGTERM, escalating to SIGKILL). */
+	timeoutMs?: number;
+}
+
+export interface WaitResult {
+	job: Job;
+	timedOut: boolean;
+	cancelled: boolean;
+}
+
+/** A job's log as `logs` returns it: the model-facing render plus the raw tail. */
+export interface LogResult {
+	job: Job;
+	/** Model-facing render of the tail, including status header/truncation note. */
+	text: string;
+	/** Sanitized tail lines, for the `/jobs` log pane. */
+	lines: string[];
+	truncated: boolean;
+	/** True when earlier log lines exist beyond the returned window. */
+	more: boolean;
+}
+
+export interface SendOptions {
+	/** Text written to the job's stdin. */
+	input?: string;
+	/** Append a newline to `input`; defaults to true. */
+	newline?: boolean;
+	/** End the job's stdin after writing, so the child sees EOF. */
+	eof?: boolean;
+}
+
+export interface SendResult {
+	job: Job;
+	/** Characters of `input` written, excluding any newline this call added. */
+	sent: number;
+	/** True when this call ended the job's stdin. */
+	closed: boolean;
+}
+
 /** Registry file contents. One file exists per session. */
 export interface RegistryFile {
 	version: 1;
