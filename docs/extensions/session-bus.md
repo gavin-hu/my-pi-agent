@@ -212,9 +212,10 @@ listening watch is what raises the turn.
   pane's shutdown leaves the record and the claims to the newer one instead of
   releasing them. Listening is still per process, so the survivor's watch is the
   survivor's.
-- **A message file that does not parse is dropped.** The board's read never
-  consumes mail, but it does delete a file it cannot validate, so a truncated
-  message cannot linger on the bus.
+- **A message file that does not parse is skipped, and left to `inbox` and the TTL.** The
+  board's read never consumes mail, so it deletes nothing — not even a file it cannot
+  validate, which may be mail this build cannot read and the next one can. Consuming it
+  or the 24-hour expiry is what clears the file.
 - **No network.** It is not a distributed bus and does not synchronize machines.
 
 ## Pi integration

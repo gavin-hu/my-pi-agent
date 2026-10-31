@@ -593,6 +593,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `resolve` answers `D:\agent`; `extensions/board/tools.test.ts` expected the native spelling
   of a plan path from a line `shortenPath` prints with `/`. The first is rooted with `resolve`
   and the second asserts the display form — macOS and Ubuntu were green through both.
+- `session-bus`: **a peek no longer deletes a message it cannot read** — the one loop behind
+  both reads removed a file whose JSON did not validate even when the read promised not to
+  consume, and `/sessions` polls `peek` every second, so a truncated message or one a newer
+  build wrote was eaten by the board rather than by its reader. A file that does not parse is
+  now skipped and left where it is, still counted in `unread`, and only the consuming `inbox`
+  or the 24-hour message TTL clears it — the same rule the board's `Skip` follows for a card
+  file it will not list. The store test now says what the code does.
 
 ## [0.21.0] - 2026-10-28
 
