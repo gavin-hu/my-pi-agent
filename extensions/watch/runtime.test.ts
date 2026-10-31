@@ -251,6 +251,22 @@ describe("watch runtime", () => {
 		expect(h.runtime.get(watch.id)?.exitCode).toBe(0);
 	});
 
+	test("keeps the signal of a command that was killed", () => {
+		const { h, ctx } = runtimeHarness();
+		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
+
+		// Node reports a killed child as a null code plus the signal, which is the only account
+		// of what happened to it; a bare "exited" reads like a clean finish.
+		h.children[0].close(null, "SIGKILL");
+
+		const record = h.runtime.get(watch.id);
+		if (!record) throw new Error("the watcher was not listed");
+		expect(record.status).toBe("exited");
+		expect(record.exitCode).toBeNull();
+		// `statusWord` reads this field; `tools.test.ts` holds the sentence it produces.
+		expect(record.signal).toBe("SIGKILL");
+	});
+
 	test("stop signals the process tree and flushes a partial line", () => {
 		const { h, ctx } = runtimeHarness();
 		const watch = h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
