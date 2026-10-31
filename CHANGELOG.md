@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `package`: the `pi.video` preview is a ten-slide tour of the surfaces the package
+  ships instead of six stills cross-faded. Every slide is drawn in one fixed stage
+  under a brand row that prints the pack's version, with a kicker and a caption
+  below it and a chaptered progress bar, and the slides that are taller than the
+  stage scroll instead of shrinking to a stamp — 29 seconds at a megabit, because
+  the gallery autoplays it. `bun run screenshot:video --stills <dir>` writes the
+  slides as PNGs so a redesign is reviewed as pictures, and the board page's
+  `board.png`, `team.png`, and `card-dialog.png` are recaptured in the dark theme
+  the rest of the assets use, which is what the tour draws them in.
+
 ## [0.23.0] - 2026-10-31
 
 ### Added
