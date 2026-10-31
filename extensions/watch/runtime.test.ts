@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { appendFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { makeCtx, makeHarnessSuite, settle } from "../../test/helpers/fixtures/watch.ts";
+import { makeHarnessSuite, runtimeHarness, settle } from "../../test/helpers/fixtures/watch.ts";
 import { DEFAULT_CONFIG, normalizeConfig } from "./config.ts";
-import type { WatchConfig } from "./config.ts";
 import { MAX_LABEL, normalizeCall } from "./schema.ts";
 
 const suite = makeHarnessSuite();
@@ -104,94 +101,13 @@ describe("watch call schema", () => {
 });
 
 describe("watch runtime", () => {
-	function runtimeHarness(options: { config?: Partial<WatchConfig> } = {}) {
-		const h = suite.makeHarness(options);
-		const { ctx } = makeCtx({ cwd: h.dir });
-		h.runtime.load(ctx);
-		return { h, ctx };
-	}
-
-	test("follows appended lines and matches only the pattern", () => {
-		const { h, ctx } = runtimeHarness();
-		const path = join(h.dir, "app.log");
-		writeFileSync(path, "start\n");
-		const watch = h.runtime.add({ path, pattern: "error" }, ctx);
-
-		appendFileSync(path, "all good\nerror: boom\n");
-		h.runtime.tick();
-
-		expect(h.runtime.matches(watch.id)?.lines).toEqual(["error: boom"]);
-		expect(h.runtime.get(watch.id)?.matchCount).toBe(1);
-		expect(h.runtime.get(watch.id)?.linesRead).toBe(2);
-	});
-
-	test("an exclude pattern suppresses a match", () => {
-		const { h, ctx } = runtimeHarness();
-		const path = join(h.dir, "app.log");
-		writeFileSync(path, "");
-		const watch = h.runtime.add({ path, pattern: "error", exclude: ["ignore"] }, ctx);
-
-		appendFileSync(path, "error ignore me\nerror keep me\n");
-		h.runtime.tick();
-
-		expect(h.runtime.matches(watch.id)?.lines).toEqual(["error keep me"]);
-	});
-
-	test("fromStart scans existing content", () => {
-		const { h, ctx } = runtimeHarness();
-		const path = join(h.dir, "app.log");
-		writeFileSync(path, "error old\n");
-		const watch = h.runtime.add({ path, pattern: "error", fromStart: true }, ctx);
-
-		h.runtime.tick();
-
-		expect(h.runtime.matches(watch.id)?.lines).toEqual(["error old"]);
-	});
-
-	test("a shrinking file is re-read from the start", () => {
-		const { h, ctx } = runtimeHarness();
-		const path = join(h.dir, "app.log");
-		writeFileSync(path, "error aaaaaaaa\n");
-		const watch = h.runtime.add({ path, pattern: "error" }, ctx);
-		h.runtime.tick();
-
-		writeFileSync(path, "error x\n");
-		h.runtime.tick();
-
-		expect(h.runtime.matches(watch.id)?.lines).toEqual(["error x"]);
-	});
-
-	test("refuses to watch a missing file", () => {
-		const { h, ctx } = runtimeHarness();
-		expect(() => h.runtime.add({ path: "missing.log", pattern: "x" }, ctx)).toThrow(/file not found/);
-	});
-
-	test("refuses a path that is not a regular file", () => {
-		const { h, ctx } = runtimeHarness();
-		expect(() => h.runtime.add({ path: h.dir, pattern: "x" }, ctx)).toThrow(/not a regular file/);
-	});
-
-	test("a path replaced by a directory is skipped, not thrown", () => {
-		const { h, ctx } = runtimeHarness();
-		const path = join(h.dir, "app.log");
-		writeFileSync(path, "error one\n");
-		const watch = h.runtime.add({ path, pattern: "error", fromStart: true }, ctx);
-		h.runtime.tick();
-
-		rmSync(path);
-		mkdirSync(path);
-
-		expect(() => h.runtime.tick()).not.toThrow();
-		expect(h.runtime.get(watch.id)?.status).toBe("running");
-	});
-
 	test("refuses add when watch is disabled", () => {
-		const { h, ctx } = runtimeHarness({ config: { enabled: false } });
+		const { h, ctx } = runtimeHarness(suite, { config: { enabled: false } });
 		expect(() => h.runtime.add({ command: "build", pattern: "x" }, ctx)).toThrow(/watch is disabled/);
 	});
 
 	test("refuses add when every live watcher is running", () => {
-		const { h, ctx } = runtimeHarness({ config: { maxWatchers: 1 } });
+		const { h, ctx } = runtimeHarness(suite, { config: { maxWatchers: 1 } });
 		h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		expect(() => h.runtime.add({ command: "build", pattern: "y" }, ctx)).toThrow(
@@ -200,7 +116,7 @@ describe("watch runtime", () => {
 	});
 
 	test("a stopped watcher frees its slot", () => {
-		const { h, ctx } = runtimeHarness({ config: { maxWatchers: 1 } });
+		const { h, ctx } = runtimeHarness(suite, { config: { maxWatchers: 1 } });
 		h.runtime.add({ command: "build", pattern: "x" }, ctx);
 		h.runtime.stop("w1");
 
@@ -211,7 +127,7 @@ describe("watch runtime", () => {
 	});
 
 	test("an exited watcher frees its slot", () => {
-		const { h, ctx } = runtimeHarness({ config: { maxWatchers: 1 } });
+		const { h, ctx } = runtimeHarness(suite, { config: { maxWatchers: 1 } });
 		h.runtime.add({ command: "build", pattern: "x" }, ctx);
 		h.children[0].close(0);
 
@@ -222,7 +138,7 @@ describe("watch runtime", () => {
 	});
 
 	test("tails merged stdout and stderr", () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		const watch = h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
 
 		h.children[0].write("ok\n");
@@ -232,7 +148,7 @@ describe("watch runtime", () => {
 	});
 
 	test("logs returns the raw sanitized tail, not only matches", () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		const watch = h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
 
 		h.children[0].write("ok\n\u001b[31mFAIL\u001b[0m\n");
@@ -242,7 +158,7 @@ describe("watch runtime", () => {
 	});
 
 	test("marks a watcher exited when its command closes", () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		h.children[0].close(0);
@@ -252,7 +168,7 @@ describe("watch runtime", () => {
 	});
 
 	test("keeps the signal of a command that was killed", () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		// Node reports a killed child as a null code plus the signal, which is the only account
@@ -268,7 +184,7 @@ describe("watch runtime", () => {
 	});
 
 	test("stop signals the process tree and flushes a partial line", () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		const watch = h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
 		h.children[0].write("FAIL partial");
 
@@ -279,7 +195,7 @@ describe("watch runtime", () => {
 	});
 
 	test("a stopped command that never closes is escalated to SIGKILL", async () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		h.runtime.stop(watch.id);
@@ -289,7 +205,7 @@ describe("watch runtime", () => {
 	});
 
 	test("a command that closes after SIGTERM is not force-killed", async () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		h.runtime.stop(watch.id);
@@ -300,7 +216,7 @@ describe("watch runtime", () => {
 	});
 
 	test("clear refuses a running watcher unless all is set", () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		expect(h.runtime.clear(watch.id, false).refused).toBeDefined();
@@ -309,12 +225,12 @@ describe("watch runtime", () => {
 	});
 
 	test("clear of an unknown id is a no-op", () => {
-		const { h } = runtimeHarness();
+		const { h } = runtimeHarness(suite);
 		expect(h.runtime.clear("w9")).toEqual({ cleared: 0 });
 	});
 
 	test("shutdown is idempotent and leaves nothing running", async () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		await h.runtime.shutdown();
@@ -326,7 +242,7 @@ describe("watch runtime", () => {
 	});
 
 	test("pending matches survive until marked reported", () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		const watch = h.runtime.add({ command: "build", pattern: "FAIL", label: "ci" }, ctx);
 		h.children[0].write("FAIL\n");
 
@@ -341,7 +257,7 @@ describe("watch runtime", () => {
 	});
 
 	test("a wake watcher fires onMatch once per batch with all pending", () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		const batches: number[] = [];
 		h.runtime.onMatch = (matches) => batches.push(matches.length);
 		h.runtime.add({ command: "build", pattern: "FAIL", wake: true }, ctx);
@@ -352,7 +268,7 @@ describe("watch runtime", () => {
 	});
 
 	test("wakeOnMatch is the default for a new watcher", () => {
-		const { h, ctx } = runtimeHarness({ config: { wakeOnMatch: true } });
+		const { h, ctx } = runtimeHarness(suite, { config: { wakeOnMatch: true } });
 		const seen: number[] = [];
 		h.runtime.onMatch = (matches) => seen.push(matches.length);
 		h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
@@ -361,7 +277,7 @@ describe("watch runtime", () => {
 	});
 
 	test("an explicit wake overrides the config default", () => {
-		const { h, ctx } = runtimeHarness({ config: { wakeOnMatch: true } });
+		const { h, ctx } = runtimeHarness(suite, { config: { wakeOnMatch: true } });
 		const seen: number[] = [];
 		h.runtime.onMatch = (matches) => seen.push(matches.length);
 		const watch = h.runtime.add({ command: "build", pattern: "FAIL", wake: false }, ctx);
@@ -371,7 +287,7 @@ describe("watch runtime", () => {
 	});
 
 	test("unseenCount counts every unreported match", () => {
-		const { h, ctx } = runtimeHarness();
+		const { h, ctx } = runtimeHarness(suite);
 		h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
 		h.children[0].write("FAIL one\nFAIL two\n");
 		expect(h.runtime.unseenCount()).toBe(2);

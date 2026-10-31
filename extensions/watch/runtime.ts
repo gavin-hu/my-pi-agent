@@ -8,7 +8,7 @@
  * kills every running command.
  */
 
-import { closeSync, openSync, readSync, statSync } from "node:fs";
+import { closeSync, openSync, readSync, type Stats, statSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
@@ -24,6 +24,18 @@ import type { PendingMatch, WatchMatch, WatchRecord, WatchSource } from "./types
 
 /** Largest slice read from a file per tick. */
 const MAX_CHUNK = 1024 * 1024;
+
+/**
+ * What says "this is still the file we were reading": its inode, and its birth time for
+ * the platforms that report an inode as zero or reuse one.
+ *
+ * Size cannot answer it. A rotation that renames the old file away and writes a replacement
+ * (`logrotate create`) usually leaves a file *longer* than the bytes already consumed, so
+ * the new file looks like growth and a stale offset resumes in the middle of a line.
+ */
+function fileIdentity(info: Stats): string {
+	return info.ino + ":" + info.birthtimeMs;
+}
 
 /** Internal watcher state: the public record plus non-serializable fields. */
 interface Internal {
@@ -48,6 +60,8 @@ interface Internal {
 	regex: RegExp;
 	excludes: RegExp[];
 	offset: number;
+	/** {@link fileIdentity} of the file `offset` belongs to; absent for a command watcher. */
+	identity?: string;
 	lines: LineSplitter;
 	rawLines: string[];
 	matches: WatchMatch[];
@@ -239,13 +253,24 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	const pollFile = (w: Internal, time: number): void => {
 		const path = w.source.path;
 		if (!path) return;
-		let size: number;
+		let info: Stats;
 		try {
-			size = statSync(path).size;
+			info = statSync(path);
 		} catch {
 			// A rotated-away file is tolerated; a later tick picks up its replacement.
 			return;
 		}
+		const identity = fileIdentity(info);
+		if (w.identity === undefined) {
+			w.identity = identity;
+		} else if (w.identity !== identity) {
+			// A different file is at this path, so this is a rotation and not a growth: the
+			// new file's head has never been read, whatever its size says.
+			w.offset = 0;
+			w.lines.reset();
+			w.identity = identity;
+		}
+		const size = info.size;
 		if (size < w.offset) {
 			w.offset = 0;
 			w.lines.reset();
@@ -329,14 +354,16 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 					command: (opts.command ?? "").trim(),
 					cwd: opts.cwd ? (isAbsolute(opts.cwd) ? opts.cwd : resolve(base, opts.cwd)) : base,
 				};
+		let identity: string | undefined;
 		if (source.kind === "file") {
-			let info: ReturnType<typeof statSync>;
+			let info: Stats;
 			try {
 				info = statSync(source.path ?? "");
 			} catch {
 				throw new Error(`file not found: ${source.path}`);
 			}
 			if (!info.isFile()) throw new Error(`not a regular file: ${source.path}`);
+			identity = fileIdentity(info);
 		}
 		const caseSensitive = opts.caseSensitive ?? false;
 		const regex = compileRegex(opts.pattern, caseSensitive);
@@ -367,6 +394,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 			regex,
 			excludes,
 			offset,
+			...(identity === undefined ? {} : { identity }),
 			lines: new LineSplitter(),
 			rawLines: [],
 			matches: [],

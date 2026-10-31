@@ -188,6 +188,12 @@ other.
   resumed session starts with no watchers.
 - `matches` and `logs` keep bounded histories (`maxMatches`/`maxLogLines`), so
   older lines are dropped.
+- A file replaced by a rotation (`logrotate create`: the old one renamed away, a new
+  one written at the same path) is read again from its start, whatever its size —
+  the poller notices the inode and birth time moved. A `copytruncate` rotation, which
+  truncates and rewrites the same file, is only noticed when a poll catches it
+  shorter than what has been read; one that regrows past that offset between two
+  polls keeps the old offset, and its head is missed.
 - Matching is per line; a pattern cannot span a newline.
 - Only a **wake** match raises an OS notification, and only when bytefly's
   `notify.enabled` and `notify.matchFound` are on. A match collected while the
