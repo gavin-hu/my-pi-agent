@@ -53,7 +53,7 @@ export function handoffText(card: Card, to: string, lead: Lead, note?: string): 
 		`Handoff: ${cardRef(card.id)} "${card.title}" is yours, ${to}.`,
 		`It is already assigned to you — write its contract with board action "contract" if it has none, then note each phase.`,
 		signatureLine(lead),
-		`If the board shows another owner, the write lost a race after this message: tell the lead instead of working it.`,
+		`If the board shows another owner, the write lost a race after this message: leave it alone and ${askLead(lead)}.`,
 		card.paths.length > 0 ? `Paths: ${card.paths.join(", ")}` : undefined,
 		card.planPath === undefined ? undefined : `Plan: ${card.planPath}`,
 		note === undefined ? undefined : `Note: ${note}`,

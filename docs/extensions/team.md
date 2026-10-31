@@ -167,7 +167,8 @@ ask, with `session send`. `assign` and `offer` write that sentence from the stor
 and they write it before the paths, so a message clipped to the bus's limit keeps its step
 and loses its tail. The owner is recorded after the message is sent, though, so the block
 closes with a condition the peer can act on: a card whose write lost the race is not theirs,
-and it says to tell the lead rather than work it.
+and it says to leave that card alone and ask the lead — `session send`, the same channel the
+gates line names, from the same phrase.
 
 An offer is advice: nothing is theirs until they claim it, and a card nobody claims stays
 `backlog`, so it keeps showing up as unassigned in the round — with its age, which is the one
