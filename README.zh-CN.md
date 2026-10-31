@@ -51,7 +51,7 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 
 ```bash
 pi install npm:@gavin-hu/my-pi-agent                        # 最新发布版
-pi install git:github.com/gavin-hu/my-pi-agent@v0.22.0      # 固定版本
+pi install git:github.com/gavin-hu/my-pi-agent@v0.23.0      # 固定版本
 ```
 
 `git` 需在 `PATH` 上，供 [`worktree`](./docs/extensions/worktree.md) 与

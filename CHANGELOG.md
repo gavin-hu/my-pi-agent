@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-31
+
 ### Added
 
 - `package`: the pi.dev gallery listing has a preview video. `pi.video` names
@@ -5066,7 +5068,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.20.0
