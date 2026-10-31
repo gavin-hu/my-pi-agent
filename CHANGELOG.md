@@ -15,6 +15,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   its port from the kernel rather than the literal `53_410`, which Linux's ephemeral
   range covers. A band nobody can free fails naming the band and the tries, rather than
   as an expected/received mismatch.
+- dev: a terminal capture starts on the theme's canvas. The crop took 28 of
+  Terminal's 32-point title bar, so every terminal asset carried a light seam down
+  its top row — six device pixels of white and two of a 230 hairline, four points
+  of the bar — which read as a bright edge once a frame was scaled into a card. The
+  crop now reaches the frame and refuses a capture whose top row is not the canvas,
+  so a macOS that grows the bar fails the capture instead of shipping the band, and
+  every terminal frame is recaptured. `shots/video.ts` drops its `TOP_TRIM = 8`
+  workaround with them, and `assets/video/demo.mp4` is re-montaged — the three
+  browser slides in the storyboard stop losing eight real pixels too.
 
 ## [0.23.0] - 2026-10-31
 

@@ -52,16 +52,6 @@ export const MONTAGE: readonly MontageFrame[] = [
 	{ frame: "tool-renderings", caption: "Every tool block, rendered", seconds: 2.0, mode: "pan" },
 ];
 
-/**
- * How much of a frame's top edge a card drops, in pixels.
- *
- * The terminal captures crop the title bar by 28 points and leave about seven
- * pixels of its light bottom edge behind, which reads as a bright seam once the
- * picture is scaled into a card. The seam belongs to `capture/terminal.ts`, not
- * to the montage; until the crop grows, the card starts below it.
- */
-const TOP_TRIM = 8;
-
 /** How long one slide takes to fade in over the one before it, in seconds. */
 const FADE_SECONDS = 0.22;
 
@@ -159,7 +149,6 @@ export interface MontageRequest {
 	bps: number;
 	fadeSeconds: number;
 	totalSeconds: number;
-	trimTop: number;
 	maxPan: number;
 	colors: typeof COLORS;
 	font: string;
@@ -226,10 +215,10 @@ export function montageScript(request: MontageRequest): string {
 	const place = function (index, progress) {
 		const slide = frames[index];
 		const image = images[index];
-		const visibleHeight = image.height - request.trimTop;
-		const scale = slide.mode === "pan" ? box.w / image.width : Math.min(box.w / image.width, box.h / visibleHeight);
+		const scale =
+			slide.mode === "pan" ? box.w / image.width : Math.min(box.w / image.width, box.h / image.height);
 		const w = image.width * scale;
-		const h = visibleHeight * scale;
+		const h = image.height * scale;
 		if (slide.mode === "pan") {
 			const travel = Math.min(Math.max(0, h - box.h), request.maxPan);
 			return {
@@ -247,7 +236,7 @@ export function montageScript(request: MontageRequest): string {
 		ctx.beginPath();
 		ctx.roundRect(at.card.x, at.card.y, at.card.w, at.card.h, 10);
 		ctx.clip();
-		ctx.drawImage(images[index], 0, request.trimTop, images[index].width, images[index].height - request.trimTop, at.image.x, at.image.y, at.image.w, at.image.h);
+		ctx.drawImage(images[index], 0, 0, images[index].width, images[index].height, at.image.x, at.image.y, at.image.w, at.image.h);
 		ctx.restore();
 	};
 	const paintBorder = function (index, progress) {
@@ -337,7 +326,6 @@ export function montageRequest(slides: readonly Slide[], options: VideoOptions):
 		bps: options.bps,
 		fadeSeconds: FADE_SECONDS,
 		totalSeconds: totalSeconds(slides),
-		trimTop: TOP_TRIM,
 		maxPan: MAX_PAN,
 		colors: COLORS,
 		font: FONT,

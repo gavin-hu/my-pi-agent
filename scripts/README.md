@@ -25,7 +25,10 @@ A **terminal frame** is macOS-only: it is drawn by the shipped component with th
 `screencapture`, so the docs show the product rather than a mock. `bun run check`
 renders every frame at three widths and fails when one leaves the terminal or
 outgrows its `rows`, so a layout break is caught in CI even though no window can
-be opened there.
+be opened there. The capture also cuts Terminal's title bar off — its last
+segment is the capture command's argv — and refuses a frame whose top row is not
+the theme canvas, so a macOS that grows the bar stops the capture instead of
+leaving a light seam down the picture.
 
 A **browser page** is headless: Playwright drives the Chrome the machine already
 has — `PI_CHROME`, else the usual bundles and the paths the three CI images use,
