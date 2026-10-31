@@ -169,11 +169,11 @@ describe("the registration", () => {
 
 	test("names every group the lead's rollup reports", () => {
 		// The groups come from a round rather than a second list, so a group added to the rollup
-		// cannot reach the model as an unnamed count. Both surfaces are checked: the action's
-		// description and the parameter's own sentence, in which one group is spelled rather
-		// than named after its field.
+		// cannot reach the model unnamed. Both surfaces are checked, and two groups are spelled
+		// rather than named after their field.
 		const { tool } = harness();
-		const groups = Object.keys(buildRound([], NOW)).map((key) => (key === "unapproved" ? "awaiting approval" : key));
+		const spelled: Record<string, string> = { unapproved: "awaiting approval", unreviewed: "awaiting review" };
+		const groups = Object.keys(buildRound([], NOW)).map((key) => spelled[key] ?? key);
 		const described = `${BOARD_ACTION_DOCS.list} ${tool.parameters.properties.round.description}`.toLowerCase();
 		for (const group of groups) expect(described, group).toContain(group);
 	});

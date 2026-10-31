@@ -60,7 +60,16 @@ export const REASON_TONE: Record<ReasonKind, BoardTone> = {
  * `KIND_RANK` object in the bundle and a hand-written set of `[data-kind]` rules in the
  * stylesheet — which is how `gone` came to be ranked second and drawn quietest.
  */
-export const DECISION_KINDS = ["blocked", "gone", "approval", "waiting", "idle", "unplanned", "unassigned"] as const;
+export const DECISION_KINDS = [
+	"blocked",
+	"gone",
+	"approval",
+	"review",
+	"waiting",
+	"idle",
+	"unplanned",
+	"unassigned",
+] as const;
 
 /** One reason a card is in the lead's queue. */
 export type DecisionKind = (typeof DECISION_KINDS)[number];
@@ -70,6 +79,7 @@ export const DECISION_TONE: Record<DecisionKind, BoardTone> = {
 	blocked: "danger",
 	gone: "danger",
 	approval: "warn",
+	review: "warn",
 	waiting: "dim",
 	idle: "warn",
 	unplanned: "dim",

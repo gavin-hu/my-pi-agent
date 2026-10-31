@@ -163,6 +163,9 @@ __HISTORY_LINE__
     // A complete contract nobody has read is the lead's decision, and the one the flow
     // stops on: the card cannot be executed until it is approved.
     add(round.unapproved, function (card) { return why(card, "contract ready — needs approval"); }, "approval");
+    // The other gate is the lead's too, and it is owed from the moment a card enters the
+    // lane: the work behind it is checked here rather than after half an hour of silence.
+    add(round.unreviewed, function (card) { return why(card, "no spot-check yet"); }, "review");
     // A dead owner is a fact, not an inference from silence: the card is anyone's now.
     var gone = goneLabels(view);
     add(

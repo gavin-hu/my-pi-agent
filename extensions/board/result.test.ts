@@ -105,6 +105,7 @@ describe("the rollup's sections", () => {
 			unassigned: [card({ id: "1", lane: "backlog", owner: undefined })],
 			unplanned: [card({ id: "2" })],
 			unapproved: [card({ id: "3" })],
+			unreviewed: [card({ id: "7" })],
 			blocked: [card({ id: "4", lane: "blocked", blocked: { kind: "decision" } })],
 			idle: [card({ id: "5", lane: "execute" })],
 			done: [card({ id: "6", lane: "done" })],
@@ -116,6 +117,7 @@ describe("the rollup's sections", () => {
 			"Unassigned",
 			"Unplanned",
 			"Awaiting approval",
+			"Awaiting review",
 			"Blocked",
 			"Idle",
 			"Done",
@@ -123,5 +125,8 @@ describe("the rollup's sections", () => {
 		// The lead's queue is the one group a reader acts on, so the card is named there.
 		const approval = input.sections.find((entry) => entry.label === "Awaiting approval");
 		expect(approval?.rows.map((row) => row.id)).toEqual(["3"]);
+		// The other signature is its own queue, one section further down and not folded into it.
+		const review = input.sections.find((entry) => entry.label === "Awaiting review");
+		expect(review?.rows.map((row) => row.id)).toEqual(["7"]);
 	});
 });

@@ -120,6 +120,28 @@ describe("buildRound", () => {
 		expect(round.unapproved.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
+	test("unreviewed is every executing card nobody has spot-checked, whatever its clock says", () => {
+		// The lead owes a look at everything in `execute` until one is recorded, so the group
+		// needs no idle window to notice it: a card one millisecond old is already here, which
+		// is what a peer that finishes in ten minutes depends on.
+		const round = buildRound(
+			[
+				doing("1", { updatedAt: NOW }),
+				doing("2", { review: { by: "lead", at: NOW } }),
+				planned("3", { ...COMPLETE, approved: { by: "lead", at: NOW } }),
+			],
+			NOW,
+		);
+		expect(round.unreviewed.map((entry) => entry.id)).toEqual(["1"]);
+	});
+
+	test("unreviewed and idle are the same card when its owner has gone quiet", () => {
+		// Two facts, one card: the lead still owes the spot-check, and nobody has touched it.
+		const round = buildRound([doing("1", { updatedAt: NOW - IDLE_MS })], NOW);
+		expect(round.unreviewed.map((entry) => entry.id)).toEqual(["1"]);
+		expect(round.idle.map((entry) => entry.id)).toEqual(["1"]);
+	});
+
 	test("blocked and done are their own lists", () => {
 		const round = buildRound(
 			[
@@ -162,6 +184,7 @@ describe("buildRound", () => {
 			unassigned: [],
 			unplanned: [],
 			unapproved: [],
+			unreviewed: [],
 			blocked: [],
 			idle: [],
 			done: [],

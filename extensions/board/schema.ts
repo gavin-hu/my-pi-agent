@@ -116,7 +116,7 @@ export const BoardParams = Type.Object({
 	round: Type.Optional(
 		Type.Boolean({
 			description:
-				"`list`: also return the lead's rollup — owners, unassigned, unplanned, awaiting approval, blocked, idle, and done.",
+				"`list`: also return the lead's rollup — owners, unassigned, unplanned, awaiting approval, awaiting review, blocked, idle, and done.",
 		}),
 	),
 	archived: Type.Optional(
