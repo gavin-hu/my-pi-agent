@@ -24,6 +24,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   costs a line on the result, never the signature. Both refusals that ask for a signature now name
   the way to ask — ``ask <lead> with `session send` `` — from the one phrase in
   `lib/board/lead.ts` that `team`'s handoff already printed.
+- `session-bus`: a label is held for as long as the bus keeps the record that took it, not only
+  while its session can answer — so a crashed lead keeps `board.lead` for the ten minutes its
+  record outlives its process, and a peer can no longer join first and sign for a peer. A
+  record past the TTL holds nothing, because the next read prunes it; the refusal a rename
+  meets now says which of the two it hit.
 
 ### Fixed
 

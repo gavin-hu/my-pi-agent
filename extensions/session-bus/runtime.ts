@@ -142,11 +142,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	function stateOf(session: SessionRecord, at = now()): RosterState {
 		return rosterStateOf(session, at, sessionTtlMs, seams);
 	}
-
-	/** Whether a record is a session that can still answer. */
-	function isLive(session: SessionRecord, at = now()): boolean {
-		return stateOf(session, at) === "live";
-	}
 	const sessionTtlMs = options.sessionTtlMs ?? SESSION_TTL_MS;
 	const messageTtlMs = options.messageTtlMs ?? DEFAULT_MESSAGE_TTL_MS;
 
@@ -233,15 +228,23 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		});
 	}
 
-	/** The labels other live sessions hold: a crashed session's label is not taken. */
+	/** The labels other sessions hold, and the record holding each. */
 	async function takenLabels(bus: BusStore, mine: string): Promise<Map<string, SessionRecord>> {
-		const at = now();
 		const sessions = await bus.sessions();
 		const taken = new Map<string, SessionRecord>();
-		// The record, not just the string: a refusal names the session that holds the label,
-		// which a set of lowercase labels could not do.
+		// Every record the bus is still keeping, not only a live one. A label is what a session
+		// is addressed by, and `board.lead` is a name whose signature decides whether a card may
+		// be executed or finished — so a name stays its taker's while the bus remembers the
+		// session, which is the same window `store.prune` keeps the record for. A session that
+		// crashed a minute ago therefore holds its name instead of leaving it to whoever joins
+		// next.
+		//
+		// The window is the pruner's own, asked here rather than read off `stateOf`: a record
+		// past the TTL holds nothing, because the next read deletes it — and a session that
+		// yielded to one would spend its life suffixed by a row that no longer exists.
+		const at = now();
 		for (const session of sessions) {
-			if (session.id !== mine && isLive(session, at)) taken.set(session.label.toLowerCase(), session);
+			if (session.id !== mine && at - session.lastSeen <= sessionTtlMs) taken.set(session.label.toLowerCase(), session);
 		}
 		return taken;
 	}
@@ -303,11 +306,17 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return { live, gone };
 	}
 
-	async function prepare(): Promise<void> {
+	/**
+	 * Forget the sessions the TTL has taken, so a label and the row holding it leave together.
+	 *
+	 * A label is reserved for the window this keeps, so the claim and the prune are one call:
+	 * `prepare` joins first and forgets here, which is what leaves a name free and its row gone
+	 * at the same moment — and one label over one session, rather than two a `send` must refuse.
+	 */
+	async function pruneStale(): Promise<void> {
 		if (!store || !record) throw new Error("session bus is not started.");
-		await joinBus();
-		// The caller is active by definition; refresh it before pruning so a quiet
-		// session that finally calls a tool does not delete its own record.
+		// The caller is active by definition; refresh it before pruning so a quiet session
+		// that finally calls a tool does not delete its own record.
 		record.lastSeen = now();
 		await store.writeSession(record);
 		const sets = await pruneSets();
@@ -318,6 +327,11 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			sessionTtlMs,
 			messageTtlMs,
 		});
+	}
+
+	async function prepare(): Promise<void> {
+		await joinBus();
+		await pruneStale();
 	}
 
 	async function currentRecord(): Promise<SessionRecord> {
@@ -383,13 +397,28 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		};
 	}
 
+	/**
+	 * The label's holder as a refusal names it: which session, and what it is now.
+	 *
+	 * A label held by a record that cannot answer reads as a bug unless the sentence says so —
+	 * the name is kept because the bus still remembers the session, and it gives the name back
+	 * when the heartbeat ages out and a read prunes the record.
+	 */
+	function heldBy(holder: SessionRecord): string {
+		// Only two states can arrive: `takenLabels` reserves a record inside the TTL the prune
+		// goes by, so a holder is live or its process is gone.
+		return stateOf(holder) === "gone"
+			? `held by session ${holder.id}, which is not running — the bus forgets it when its heartbeat ages out`
+			: `already in use by session ${holder.id}`;
+	}
+
 	async function rename(label: string): Promise<string> {
 		if (!store || !record) throw new Error("session bus is not started.");
 		const candidate = normalizeLabel(label, record.label);
 		// The bus's own answer to "who has it": the session record, named by its id, because
 		// the label it holds is the one the caller just asked for.
 		const holder = (await takenLabels(store, record.id)).get(candidate.toLowerCase());
-		if (holder) throw new Error(`the label "${candidate}" is already in use by session ${holder.id}.`);
+		if (holder) throw new Error(`the label "${candidate}" is ${heldBy(holder)}.`);
 		record.label = candidate;
 		record.lastSeen = now();
 		await store.writeSession(record);

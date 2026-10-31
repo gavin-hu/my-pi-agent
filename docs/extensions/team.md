@@ -203,7 +203,9 @@ moves, and finish are `board`'s in this same session.
   `board:<lead>` answers no message; the label is the one the session serving the page joins
   under, so a handoff to it reaches whoever is serving the page just now —
   and is refused, like any other label, when nobody is. The seat's cards come back with
-  `reclaim`.
+  `reclaim`. The name is reserved while the bus keeps that session's record — ten minutes
+  past its last heartbeat — so a peer cannot take it by joining first; after that it is
+  anyone's, and a sign under it is a name rather than an identity.
 - **A label-only owner is fragile.** If the bus could not name the session behind `to`,
   the card records the label, and a rename would need a `reclaim` and a fresh handoff.
 - **A preset name is drawn, not chosen.** An unnamed session that joins draws one of the

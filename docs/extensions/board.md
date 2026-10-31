@@ -155,7 +155,12 @@ own. **The page serves as `board.lead`** (`lead` by default), so the session tha
 `/board` takes that name and can sign — the shipped board has a signer without being
 configured. A repository that wants its own name sets `{"board": {"lead": "gavin"}}`, and the
 page, the roster, and the gate follow it. It is a label check and nothing more, which is the
-half of "somebody read this" a file can hold.
+half of "somebody read this" a file can hold. What the bus adds is that the name cannot be
+taken while it still has a record: a label is held against every record the bus keeps, not
+only a live one, so a lead whose process crashed keeps `board.lead` until its heartbeat ages
+out and a read prunes the record — a peer cannot join first and sign for a peer. Past that
+ten minutes the name is free again, and nothing behind it is an identity: the signer is
+whoever holds the name.
 
 **The person's door.** A repository worked by one session would otherwise never get a card
 past `plan` or `execute`, so `/board approve` and `/board review` write the same two signs as

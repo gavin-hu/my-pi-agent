@@ -575,16 +575,15 @@ describe("labels", () => {
 		lastSeen: -3_600_000,
 	});
 
-	test("a stale record's label is free at join, and a peer reaches it by name", async () => {
+	test("a record the bus forgets holds no label, and a peer reaches the taker by name", async () => {
 		const dir = scratchDir(temps, "pi-session-bus-");
 		const store = createBusStore({ dir });
 		await store.ensure();
+		// An hour old: the first read prunes it, so its name was never a reservation.
 		await store.writeSession(stale("gone", "lead"));
-
 		const lead = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		await acting(lead, context("/repo", "s9", "lead"));
 		expect((await lead.status()).me.label).toBe("lead");
-
 		const peer = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		await acting(peer, context("/repo", "s10", "peer"));
 		expect((await peer.send({ to: "lead", text: "hi" })).delivered).toEqual(["lead"]);
@@ -592,16 +591,18 @@ describe("labels", () => {
 		await peer.stop();
 	});
 
-	test("joins onto a stale session's label instead of refusing it", async () => {
+	test("a name taken past the TTL is one session, not an address two answer to", async () => {
 		const dir = scratchDir(temps, "pi-session-bus-");
 		const store = createBusStore({ dir });
 		await store.ensure();
-		await store.writeSession(stale("gone", "lead"));
-
-		const session = runtime(dir, { repo: { root: "/repo", key: "shared" } });
-		await acting(session, context("/repo", "s1", "mine"));
-		expect((await session.join({ label: "lead", listen: false })).label).toBe("lead");
-		await session.stop();
+		// Past the TTL the record no longer reserves the name, and the join's prune deletes it, so
+		// `lead` is one session rather than the two a `send` cannot choose between.
+		await store.writeSession({ ...stale("dead", "lead"), pid: 4242, lastSeen: 1_000 });
+		const peer = bus(dir, "/repo", () => 601_001);
+		await acting(peer, context("/repo", "s9", "peer"));
+		await peer.join({ label: "lead", listen: false });
+		expect((await store.sessions()).map((row) => row.label)).toEqual(["lead"]);
+		await peer.stop();
 	});
 
 	test("two joins in the same instant end with distinct labels", async () => {
@@ -610,8 +611,7 @@ describe("labels", () => {
 		const second = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		await Promise.all([acting(first, context("/repo", "s1", "lead")), acting(second, context("/repo", "s2", "lead"))]);
 		const labels = (await createBusStore({ dir }).sessions()).map((session) => session.label).sort();
-		// A canary for the race, not a proof of it: whichever session the scheduler lets
-		// in second yields, so the property is distinctness rather than order.
+		// A canary for the race: whichever session the scheduler lets in second yields.
 		expect(labels).toHaveLength(2);
 		expect(new Set(labels).size).toBe(2);
 		expect(labels.every((label) => /^lead(-s[12])?$/.test(label))).toBe(true);
@@ -619,16 +619,16 @@ describe("labels", () => {
 		await second.stop();
 	});
 
-	test("a dead pid's label is free at once, not after the TTL", async () => {
+	test("a dead pid's label is held while the bus keeps its record", async () => {
 		const dir = scratchDir(temps, "pi-session-bus-");
 		const store = createBusStore({ dir });
 		await store.ensure();
-		// Fresh heartbeat, dead process: the crash a TTL cannot see.
+		// The crash a heartbeat cannot see: a fresh record over a process that is gone, so the
+		// name that signs a board's gates is nobody else's until the TTL prunes the record.
 		await store.writeSession({ ...stale("dead", "lead"), pid: 4242, lastSeen: 1_000 });
-
 		const lead = runtime(dir, { repo: { root: "/repo", key: "shared" }, alive: (pid) => pid !== 4242 });
 		await acting(lead, context("/repo", "s9", "lead"));
-		expect((await lead.status()).me.label).toBe("lead");
+		expect((await lead.status()).me.label).toBe("lead-s9");
 		await lead.stop();
 	});
 
