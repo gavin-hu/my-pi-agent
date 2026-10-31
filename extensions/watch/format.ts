@@ -23,6 +23,49 @@ export function compileRegex(pattern: string, caseSensitive: boolean): RegExp {
 	return new RegExp(pattern, caseSensitive ? "" : "i");
 }
 
+/** A pattern read out of what a caller wrote: the expression, and what it said about case. */
+export interface ReadPattern {
+	/** The expression itself, with the printer's delimiters gone. */
+	pattern: string;
+	/** What the literal's flags said, or `undefined` when the caller wrote a bare expression. */
+	caseSensitive?: boolean;
+}
+
+/**
+ * The printer's own shape: a body with no slash in it, then `/`, then a flag run.
+ *
+ * `[^/]+` rather than `.+` is what keeps a pattern like `/api/v1/` an expression: its body
+ * carries a slash, so it cannot be the `/…/flags` form this reads. It is read only for the
+ * whole string, so a pattern with any text around the slashes is untouched.
+ */
+const LITERAL_PATTERN = /^\/([^/]+)\/([a-z]*)$/;
+
+/**
+ * A pattern as the tool prints it, or the expression the caller meant.
+ *
+ * `formatPattern` below prints `/pat/` for a case-sensitive watcher and `/pat/i` otherwise,
+ * and a model reads that line and writes it back: so the round trip has to hold, and the
+ * printer and this reader are one pair. A bare expression keeps its meaning, with
+ * `caseSensitive` deciding — which is what `add` has always taken.
+ *
+ * A flag run this cannot honour is refused rather than silently matched as text: `g` and `y`
+ * carry `lastIndex` across per-line `.test` calls, and a pattern that reads as `/x/g` and
+ * quietly matches nothing is exactly the failure this exists to stop.
+ */
+export function readPattern(raw: string, field = "pattern"): ReadPattern {
+	const text = raw.trim();
+	const literal = LITERAL_PATTERN.exec(text);
+	if (literal === null) return { pattern: text };
+	const [, body, flags] = literal;
+	const unsupported = [...new Set(flags)].filter((flag) => flag !== "i");
+	if (unsupported.length > 0) {
+		throw new Error(
+			`${field}'s flags are not read (\`${unsupported.join("")}\`): it takes the expression itself, and \`caseSensitive\` decides case — \`/${body}/\` and \`/${body}/i\` are the two forms the tool prints.`,
+		);
+	}
+	return { pattern: body, caseSensitive: !flags.includes("i") };
+}
+
 /**
  * A watcher's pattern as `/<pattern>/<flags>`, with the wake badge appended:
  * `/pat/`, `/pat/i`, `/pat/ · wake`, `/pat/i · wake`.
@@ -166,7 +209,7 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 			if (!source) return argsComplete ? "add" : "add …";
 			const preview = labelLine(source);
 			const pattern = typeof args.pattern === "string" ? args.pattern.trim() : "";
-			return pattern ? `add ${preview} /${clip(sanitizeLine(pattern), 24)}/` : `add ${preview}`;
+			return pattern ? `add ${preview} ${clip(sanitizeLine(pattern), 24)}` : `add ${preview}`;
 		}
 		case "status":
 		case "matches":

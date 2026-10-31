@@ -10,6 +10,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import { optionalString } from "../../lib/config.ts";
+import { readPattern } from "./format.ts";
 import { WATCH_ACTIONS, type WatchAction } from "./types.ts";
 
 /** Longest accepted label. */
@@ -119,9 +120,15 @@ export function normalizeCall(raw: unknown): WatchCall {
 			if (path && path.length > MAX_SOURCE) throw new Error(`path is longer than ${MAX_SOURCE} characters.`);
 			if (command.length > MAX_SOURCE) throw new Error(`command is longer than ${MAX_SOURCE} characters.`);
 
-			const pattern = typeof args.pattern === "string" ? args.pattern.trim() : "";
-			if (!pattern) throw new Error('"add" requires a pattern.');
-			assertRegex(pattern, "pattern");
+			const rawPattern = typeof args.pattern === "string" ? args.pattern : "";
+			if (!rawPattern.trim()) throw new Error('"add" requires a pattern.');
+			// Read before the length and compile checks, because `/…/` wraps the expression the
+			// checks are about: a literal's flags win over `caseSensitive`, being the more specific
+			// statement, and a bare expression keeps the argument's meaning.
+			const read = readPattern(rawPattern, "pattern");
+			assertRegex(read.pattern, "pattern");
+			const caseSensitive =
+				read.caseSensitive ?? (typeof args.caseSensitive === "boolean" ? args.caseSensitive : undefined);
 
 			const rawExclude = Array.isArray(args.exclude) ? args.exclude : [];
 			if (rawExclude.length > MAX_EXCLUDE) throw new Error(`exclude accepts at most ${MAX_EXCLUDE} patterns.`);
@@ -129,8 +136,16 @@ export function normalizeCall(raw: unknown): WatchCall {
 			for (const entry of rawExclude) {
 				const text = typeof entry === "string" ? entry.trim() : "";
 				if (!text) continue;
-				assertRegex(text, "exclude");
-				exclude.push(text);
+				const item = readPattern(text, "exclude");
+				// An exclude's case is the watcher's, and the record has nowhere to keep a second
+				// one — so a flag on it would be dropped silently, which is the failure this fixes.
+				if (item.caseSensitive !== undefined) {
+					throw new Error(
+						"exclude has no flags of its own: it follows the watcher's `caseSensitive` — pass `/keep/` or `keep`.",
+					);
+				}
+				assertRegex(item.pattern, "exclude");
+				exclude.push(item.pattern);
 			}
 
 			const label = optionalString(args.label);
@@ -142,9 +157,9 @@ export function normalizeCall(raw: unknown): WatchCall {
 				...(path ? { path } : {}),
 				...(command ? { command } : {}),
 				...(cwd ? { cwd } : {}),
-				pattern,
+				pattern: read.pattern,
 				...(exclude.length > 0 ? { exclude } : {}),
-				...(typeof args.caseSensitive === "boolean" ? { caseSensitive: args.caseSensitive } : {}),
+				...(caseSensitive === undefined ? {} : { caseSensitive }),
 				...(label ? { label } : {}),
 				...(typeof args.wake === "boolean" ? { wake: args.wake } : {}),
 				...(typeof args.fromStart === "boolean" ? { fromStart: args.fromStart } : {}),

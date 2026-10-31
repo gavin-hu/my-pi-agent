@@ -13,7 +13,7 @@ after a running turn settles.
 | Capability | How | What you get |
 |---|---|---|
 | Tail a source | `watch add` | A file is followed from its current end unless `fromStart` is set, and a shrinking file is re-read from the start; a command's merged stdout/stderr is streamed. |
-| Line matching | `watch add` | An include pattern with an optional exclude list, case-insensitive unless `caseSensitive` is set. |
+| Line matching | `watch add` | An include pattern with an optional exclude list, case-insensitive unless `caseSensitive` is set. A pattern written the way the tool prints one — `/ERROR/`, `/ERROR/i` — is read as that expression: the delimiters are not text, and the flags decide case. |
 | Match delivery | `watch add`, `watch matches` | Pending matches are reported to the model at the start of the next turn. |
 | Wake turn | `watch add`, the `wakeOnMatch` key | One triggered turn as soon as the agent is idle, including right after a running turn settles. |
 | Desktop alert | `my-pi-agent/watch-match`, `notify.enabled`, `notify.matchFound` | A wake match leaves the terminal as an OS notification. |
@@ -62,8 +62,8 @@ rest read it back.
 | `path` | Regular file to tail (`add`); exactly one of `path`/`command`. |
 | `command` | Shell command whose output to tail (`add`). |
 | `cwd` | Working directory for a command source; defaults to the effective cwd. |
-| `pattern` | Regular expression a line must match (`add`, required). |
-| `exclude` | Regular expressions that suppress a match (`add`, optional). |
+| `pattern` | Regular expression a line must match (`add`, required). A `/…/` or `/…/i` form is read as `formatPattern` prints it: no `i` means case-sensitive. Any other flag is refused rather than matched as text. So a pattern that is entirely slash-shaped — `/api/` — is now `api` case-sensitively; write `\/api\/` to match the slashes themselves. |
+| `exclude` | Regular expressions that suppress a match (`add`, optional). An exclude has no flags of its own — it follows the watcher's `caseSensitive` — so `/keep/` and `keep` mean the same thing and `/keep/i` is refused. |
 | `caseSensitive` | Match case-sensitively; default `false`. |
 | `label` | Short display label (`add`); defaults to the source. |
 | `wake` | Wake the agent with one triggered turn on a match (`add`). |
@@ -194,7 +194,8 @@ other.
   truncates and rewrites the same file, is only noticed when a poll catches it
   shorter than what has been read; one that regrows past that offset between two
   polls keeps the old offset, and its head is missed.
-- Matching is per line; a pattern cannot span a newline.
+- Matching is per line; a pattern cannot span a newline. A pattern whose body holds a slash —
+  `/api/v1/` — is the expression itself, because the printer's form has no slash inside.
 - Only a **wake** match raises an OS notification, and only when bytefly's
   `notify.enabled` and `notify.matchFound` are on. A match collected while the
   agent was busy notifies once that run settles, and `watch` itself never sends

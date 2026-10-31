@@ -4,6 +4,7 @@ import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { makeWatchRecord as record } from "../../test/helpers/fixtures/watch.ts";
 import {
 	compileRegex,
+	readPattern,
 	formatCallText,
 	formatPattern,
 	formatPendingMatch,
@@ -23,6 +24,25 @@ describe("watch formatting", () => {
 	test("compileRegex is case-insensitive by default and sensitive on request", () => {
 		expect(compileRegex("error", false).test("ERROR")).toBe(true);
 		expect(compileRegex("error", true).test("ERROR")).toBe(false);
+	});
+
+	test("readPattern reads the form the printer writes, and leaves bare text alone", () => {
+		// The round trip is the whole contract: `formatPattern` prints these two, so a model
+		// copying either back must mean the same watcher it read.
+		expect(readPattern("/error/")).toEqual({ pattern: "error", caseSensitive: true });
+		expect(readPattern("/error/i")).toEqual({ pattern: "error", caseSensitive: false });
+		expect(readPattern("error")).toEqual({ pattern: "error" });
+		// A body with a slash in it cannot be the `/…/flags` form, so a path pattern survives.
+		expect(readPattern("/api/v1/x")).toEqual({ pattern: "/api/v1/x" });
+		expect(readPattern("/api/v1/")).toEqual({ pattern: "/api/v1/" });
+	});
+
+	test("readPattern refuses a flag it cannot honour, naming the one it can", () => {
+		// `g` and `y` carry `lastIndex` across the per-line `.test` calls, so honouring them
+		// would skip lines — and matching them as text is the silent zero this replaces.
+		expect(() => readPattern("/error/g")).toThrow(/flags are not read/);
+		expect(() => readPattern("/error/gm")).toThrow(/`gm`/);
+		expect(() => readPattern("/keep/x", "exclude")).toThrow(/exclude's flags/);
 	});
 
 	test("sourceLabel names a file or a command", () => {
@@ -95,8 +115,10 @@ describe("watch formatting", () => {
 	});
 
 	test("formatCallText summarizes an add with its source and pattern", () => {
-		expect(formatCallText("add", { path: "app.log", pattern: "error" })).toBe("add app.log /error/");
-		expect(formatCallText("add", { command: "tail -f x", pattern: "boom" })).toBe("add $ tail -f x /boom/");
+		// The pattern prints as typed: wrapping it in slashes is what taught a model to write a
+		// literal the parser then read as text, so the transcript shows what the caller sent.
+		expect(formatCallText("add", { path: "app.log", pattern: "error" })).toBe("add app.log error");
+		expect(formatCallText("add", { command: "tail -f x", pattern: "boom" })).toBe("add $ tail -f x boom");
 		expect(formatCallText("add", {}, false)).toBe("add …");
 	});
 
