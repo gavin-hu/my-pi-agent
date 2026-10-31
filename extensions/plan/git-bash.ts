@@ -22,13 +22,24 @@
  *
  * This is a guard rail, not a sandbox — the same stance as the rest of plan
  * mode. A few exotic read invocations are refused on purpose rather than
- * risking a bypass. It touches nothing on disk.
+ * risking a bypass. It writes nothing of its own: what it allows can still move
+ * `.git/index`, which `git status` and `git diff` refresh, and that is git's
+ * record of the working tree rather than a write a plan asks for.
+ *
+ * Two switches are forced onto every allowed command that runs a diff, because a
+ * repository can otherwise name the program that runs: `--no-textconv` stops a
+ * `diff.<driver>.textconv` helper and `--no-ext-diff` stops `diff.external`. They
+ * are appended after the subcommand, so a caller cannot re-enable either — and the
+ * denylist refuses `--textconv` and `--ext-diff` by name anyway.
  */
 
 import { hasShellEscape } from "../../lib/shell.ts";
 
-/** Verdict from the read-only git command guard. */
-export type GitCommandVerdict = { ok: true } | { ok: false; reason: string };
+/** Verdict from one read-only git check, before the command is rewritten. */
+type GitCheck = { ok: true } | { ok: false; reason: string };
+
+/** What the guard answers: the command to run, or why the caller may not. */
+export type GitCommandVerdict = { ok: true; command: string } | { ok: false; reason: string };
 
 /**
  * Characters that chain commands, substitute, redirect, or form a subshell.
@@ -168,7 +179,7 @@ const TAG_FLAGS = [
 	"--no-column",
 ];
 
-function checkFlagAndPositional(rest: string[], spec: RestCheck, label: string): GitCommandVerdict {
+function checkFlagAndPositional(rest: string[], spec: RestCheck, label: string): GitCheck {
 	const flags = new Set(spec.flags);
 	const listFlags = new Set(spec.listFlags ?? []);
 	let sawListFlag = rest.some((token) => listFlags.has(token));
@@ -269,7 +280,7 @@ const CONFIG_GET_FLAGS = new Set([
  * one this guard knows, a write action is refused by name, positionals are at most one, and
  * the only forms left are the ones git reads with: `--get*`, `--list`, or one bare name.
  */
-function checkConfig(rest: string[]): GitCommandVerdict {
+function checkConfig(rest: string[]): GitCheck {
 	const tokens = rest.map(unquote);
 	const positionals: string[] = [];
 	let reads = false;
@@ -316,7 +327,7 @@ function checkConfig(rest: string[]): GitCommandVerdict {
 }
 
 /** Subcommand-specific read-only rules; the rest only pass the option denylist. */
-function checkRest(subcommand: string, rest: string[]): GitCommandVerdict {
+function checkRest(subcommand: string, rest: string[]): GitCheck {
 	switch (subcommand) {
 		case "branch":
 			return checkFlagAndPositional(rest, { flags: BRANCH_FLAGS, listFlags: ["-l", "--list"] }, "branch");
@@ -326,10 +337,11 @@ function checkRest(subcommand: string, rest: string[]): GitCommandVerdict {
 			const [first] = rest.map(unquote);
 			if (rest.length === 0) return { ok: true };
 			if ((first === "-v" || first === "--verbose") && rest.length === 1) return { ok: true };
-			if (first === "show" || first === "get-url") return { ok: true };
+			// `show` opens the remote's connection and `get-url` reads a configured URL; `-v`
+			// prints both URLs from config, so the narrowed form costs a plan nothing.
 			return {
 				ok: false,
-				reason: `"git remote ${first}" can change a remote; use "git remote -v" or "git remote show".`,
+				reason: `"git remote ${first}" reads beyond this repository's config; use "git remote -v" for the URLs.`,
 			};
 		}
 		case "config":
@@ -368,7 +380,7 @@ function checkRest(subcommand: string, rest: string[]): GitCommandVerdict {
  * Pure and side-effect free. Chaining is not handled here; see
  * {@link checkReadOnlyGit}.
  */
-function checkSingleGitCommand(command: string): GitCommandVerdict {
+function checkSingleGitCommand(command: string): GitCheck {
 	if (SHELL_META.test(command) || hasShellEscape(command)) {
 		return { ok: false, reason: "shell substitution and redirection are not allowed while planning." };
 	}
@@ -404,25 +416,73 @@ function checkSingleGitCommand(command: string): GitCommandVerdict {
 }
 
 /** Chain operators that join read-only git commands into one call. */
-const CHAIN_SEPARATOR = /(?:&&|;)/;
+const CHAIN_SEPARATOR = /(&&|;)/;
+
+/** The switches that keep a repository's own program out of a diff, and where they go. */
+const FORCED_DIFF_FLAGS = ["--no-textconv", "--no-ext-diff"] as const;
+
+/** Subcommands that run a diff, and therefore whatever the repository configured for one. */
+const DIFF_SUBCOMMANDS = new Set(["diff", "log", "show", "diff-tree", "diff-index", "diff-files", "whatchanged"]);
+
+/** A segment's `git <subcommand>` head, with the whitespace the caller wrote. */
+const GIT_HEAD = /^(\s*git\s+)([A-Za-z][A-Za-z-]*)(?=\s|$)/;
+
+/** `git stash show`, which runs a diff under a second word. */
+const STASH_SHOW_HEAD = /^(\s*git\s+stash\s+show)(?=\s|$)/;
+
+/**
+ * One segment with the diff switches forced in.
+ *
+ * Spliced into the string rather than rebuilt from tokens, so a quoted argument keeps its
+ * quotes and the caller's spacing is untouched — the tokens were only ever unquoted for
+ * checking. A subcommand that runs no diff is returned exactly as written, and a switch the
+ * segment already carries is not added twice, so the result is its own fixed point.
+ *
+ * The check is per token, not per substring: a value that happens to contain a switch's text
+ * is not the switch, and `--no-textconv` alone still needs `--no-ext-diff` beside it.
+ */
+function forceNoRepoPrograms(segment: string): string {
+	const head = GIT_HEAD.exec(segment);
+	if (head === null) return segment;
+	const subcommand = head[2] ?? "";
+	const at = subcommand === "stash" ? (STASH_SHOW_HEAD.exec(segment)?.[0].length ?? -1) : head[0].length;
+	if (at < 0) return segment;
+	if (subcommand !== "stash" && !DIFF_SUBCOMMANDS.has(subcommand)) return segment;
+	const carried = new Set(segment.split(/\s+/));
+	const missing = FORCED_DIFF_FLAGS.filter((flag) => !carried.has(flag));
+	if (missing.length === 0) return segment;
+	return `${segment.slice(0, at)} ${missing.join(" ")}${segment.slice(at)}`;
+}
 
 /**
  * Whether `command` is one or more read-only git invocations joined by `&&` or
- * `;`, or a reason it is not. Every segment is validated independently, so a
- * chain can only combine allowed reads. Pipes, substitution, redirection, and
- * a conditional `||` stay blocked. Pure and side-effect free.
+ * `;`, and — when it is — the command to run, with the switches that stop a
+ * repository's own diff program forced in.
+ *
+ * Every segment is validated independently, so a chain can only combine allowed
+ * reads. Pipes, substitution, redirection, and a conditional `||` stay blocked.
+ * The returned command is what `index.ts` puts on the call, so the guard decides
+ * both the shape and the switches rather than leaving the latter to the model.
  */
-export function checkReadOnlyGit(input: string): GitCommandVerdict {
+export function readOnlyGitCommand(input: string): GitCommandVerdict {
 	const command = input.trim();
 	if (command === "") return { ok: false, reason: "the command is empty." };
 
-	for (const raw of command.split(CHAIN_SEPARATOR)) {
-		const segment = raw.trim();
+	const parts = command.split(CHAIN_SEPARATOR);
+	const rewritten: string[] = [];
+	for (const [index, part] of parts.entries()) {
+		// Odd entries are the separators themselves, which are kept as written.
+		if (index % 2 === 1) {
+			rewritten.push(part);
+			continue;
+		}
+		const segment = part.trim();
 		if (segment === "") {
 			return { ok: false, reason: "a chained command has an empty segment." };
 		}
 		const verdict = checkSingleGitCommand(segment);
 		if (!verdict.ok) return verdict;
+		rewritten.push(forceNoRepoPrograms(part));
 	}
-	return { ok: true };
+	return { ok: true, command: rewritten.join("") };
 }

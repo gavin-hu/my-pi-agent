@@ -50,6 +50,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: the read-only git shell can no longer be made to run a repository's own program.
+  `--textconv` was refused by name, but `.gitattributes` can still name a
+  `diff.<driver>.textconv` helper that plain `git diff`, `git show`, and `git log -p` run, so
+  a cloned-then-untrusted repo executed a program inside plan mode. Every allowed command
+  that runs a diff is now handed back with `--no-textconv --no-ext-diff` (which also closes
+  `diff.external`), `git remote` is narrowed to `-v` so `remote show` cannot open a
+  connection from a plan, and the module's "touches nothing on disk" sentence now says what
+  it means: the guard writes nothing of its own, while `git status` and `git diff` can still
+  refresh `.git/index`.
 - `watch`: a file replaced by a rotation is read again from its start. The poller reset its
   offset only when the file shrank, so a `logrotate create` rotation — the old file renamed
   away and a longer one written at the same path — looked like growth: the watcher resumed
