@@ -90,7 +90,10 @@ act there that puts this session on the bus.
 
 Labels are how another session addresses you. Name one by the outcome it owns
 (`billing-core`, `integrator`, `verify-billing`), not by a layer or a role;
-duplicate labels get a short id suffix automatically.
+duplicate labels get a short id suffix automatically. A label is held for as long as
+the bus keeps the taker's record — ten minutes past its last heartbeat — so a session
+that crashed a minute ago has not freed its name, and one that is merely slow has not
+lost it. Past that window the record is pruned and the name is anyone's.
 
 A label is what the footer's `[label]` draws: bytefly reads this session's own record
 and follows the `session-label` event, so the bar names the session the way a card, a
