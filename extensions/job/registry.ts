@@ -204,6 +204,59 @@ export function settleGone(record: JobRecord, options: SettleGoneOptions): JobRe
 	return { ...record, status, exitCode: code, finishedAt: options.now };
 }
 
+/** What a load makes of every session's file, before the runtime touches a record. */
+export interface LoadedRecords {
+	/** Every record, merged across the session files and reconciled against liveness. */
+	records: JobRecord[];
+	/** Live, non-detached leftovers for the caller to kill. */
+	orphans: JobRecord[];
+	/** Sessions whose file may be dropped once their records are rewritten here. */
+	deadSessions: Set<string>;
+}
+
+/** The liveness and ownership seams a load reconciles against. */
+export interface LoadSeams {
+	/** This session, which adopts a dead one's records. */
+	sessionId: string;
+	/** What the session that wrote a file is now. */
+	ownerState: (sessionId: string) => RosterState;
+	/** The process seams: whether a pid runs, whether its token still matches, its exit code. */
+	process: {
+		alive: (pid: number) => boolean;
+		owns: (record: JobRecord) => boolean;
+		exitCode: (record: JobRecord) => number | undefined;
+	};
+	now: number;
+}
+
+/** Merge every session's file, recover dead pids, and classify the survivors. */
+export function loadRecords(files: readonly RegistryFile[], seams: LoadSeams): LoadedRecords {
+	const merged = new Map<string, JobRecord>();
+	const deadSessions = new Set<string>();
+	for (const file of files) {
+		if (file.sessionId !== seams.sessionId && seams.ownerState(file.sessionId) === "gone")
+			deadSessions.add(file.sessionId);
+		for (const record of file.jobs) {
+			const existing = merged.get(record.id);
+			merged.set(record.id, existing ? mergeRecords(existing, record, seams.sessionId) : record);
+		}
+	}
+	// Resolve dead pids (recovering exit codes), then classify the survivors.
+	const settled = [...merged.values()].map((record) =>
+		settleGone(record, {
+			isAlive: seams.process.alive,
+			tokenMatches: seams.process.owns,
+			readExitCode: seams.process.exitCode,
+			now: seams.now,
+		}),
+	);
+	const { jobs, orphans } = planReconcile(settled, seams.process.alive, seams.now, {
+		ownerState: seams.ownerState,
+		currentSessionId: seams.sessionId,
+	});
+	return { records: jobs, orphans, deadSessions };
+}
+
 export interface ReconcileResult {
 	/** The records after liveness reconciliation. */
 	jobs: JobRecord[];

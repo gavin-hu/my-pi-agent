@@ -101,8 +101,8 @@ export function createJobStore(initialDir = registryDirFor(process.cwd())): JobS
 	};
 }
 
-/** Strip runtime-only fields for persistence. */
-export function toRecord(job: Job): JobRecord {
+/** Strip runtime-only fields for persistence: the record, with or without a live handle. */
+export function toRecord(job: JobRecord & { owned?: boolean }): JobRecord {
 	const { owned: _owned, ...record } = job;
 	return record;
 }

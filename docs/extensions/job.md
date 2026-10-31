@@ -279,7 +279,7 @@ rewritten.
 | `outputSchema` / `structuredContent` | None. Results return `JobDetails` in tool-result `details` only. |
 | State storage | One durable registry file per session, `~/.pi/agent/jobs/<projectKey>/registry-<sessionHash>.json` (keyed by the session cwd, so entering a worktree does not move it), merged from every session file on load; a dead session's records are adopted and a legacy shared `registry.json` is migrated once. Ids are reserved with an atomic `O_EXCL` `<id>.lock` before `start`, and a POSIX job's exit code is written to a per-job `.status` file. Tool results carry `JobDetails`; unreported completions arrive as a shared transcript notice (`my-pi-agent/notice`) at `before_agent_start`. |
 | Lifecycle | `session_start` loads and reconciles the registry and arms `onFinish` and `onComplete`; `session_shutdown` kills session-owned jobs and clears both status chips. `session_tree` repaints; `agent_start`/`agent_settled` track busy; `context` prunes stale notices of its own source. |
-| Event bus | Each job that reaches a terminal state is published on `my-pi-agent/job-finished` (`lib/events.ts`) with its id, label, status, exit code, and signal, from the one `settle` path every transition goes through. bytefly's notify capability subscribes there instead of importing this extension. |
+| Event bus | Each job that reaches a terminal state is published on `my-pi-agent/job-finished` (`lib/events.ts`) with its id, label, status, exit code, and signal, from the one path every transition goes through — a close event, a pid observed gone on the clock, a gone peer's leftover reaped, and an orphan killed while the registry loads — which announces the completion and fires the one wake turn together. A peer's record settled here is adopted, so its completion is this session's to report. bytefly's notify capability subscribes there instead of importing this extension. |
 
 ## Design notes
 
@@ -395,7 +395,7 @@ rewritten.
 | `config.ts` | The `job` section of `bytefly.json`: loading and clamping. |
 | `format.ts` | Pure formatting, duration, and transcript outcome-line helpers, plus the job row both surfaces draw; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
 | `paths.ts` | Session/marker/registry/status file-name helpers. |
-| `registry.ts` | Per-session registry load/merge under `<agent-dir>/jobs/<project>/`, legacy migration, and pure reconciliation. |
+| `registry.ts` | Per-session registry load/merge under `<agent-dir>/jobs/<project>/`, legacy migration, and the pure reconciliation a load runs — `loadRecords` merges every file, recovers dead pids, and classifies the survivors and orphans. |
 | `reservations.ts` | Atomic `O_EXCL` job-id reservation and release. |
 | `status.ts` | `EXIT`-trap exit-status file (write path via env, read on reattach). |
 | `session.ts` | Per-session heartbeat markers and the ownership rule: `live`, `quiet`, or `gone`. |
@@ -404,7 +404,7 @@ rewritten.
 | `ui.ts` | Footer status chips and the failure alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
 | `waiters.ts` | `wait` resolver bookkeeping. |
 | `log-writer.ts` | Per-job log sink: write stream, line split, rotation queue, and the output-driven repaint window. |
-| `runtime.ts` | The job table and the durable record: load and reconcile, settle, waiters, clear, shutdown. |
+| `runtime.ts` | The job table and the durable record: load and reconcile, the one settle path that announces a completion and its wake turn (holding either until the session arms its listener), waiters, clear, shutdown. |
 | `child.ts` | A job's process and its output: the spawn policy, the handle, the log stream and stdin, close/error settle, the signal and its SIGKILL grace, and the files a job leaves, over the shared `lib/child.ts` supervisor. |
 | `clock.ts` | The periodic work: the repaint clock that re-asserts the chip, and the sweep that polls the jobs this session reattached. |
 | `render.ts` | The `JobResult` transcript block over the shared `TailResult`. |

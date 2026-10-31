@@ -13,7 +13,7 @@ import { NOTICE_TYPE } from "../../lib/notice.ts";
 import { onRailsSuppressed } from "../../lib/rails.ts";
 import { tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { createFakePi, emit, emitFirst, fakeTheme, type AnyHandler } from "../../test/helpers/fakes.ts";
-import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/job.ts";
+import { makeCtx, jobRecord, makeHarnessSuite, save } from "../../test/helpers/fixtures/job.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 
 const suite = makeHarnessSuite();
@@ -152,6 +152,22 @@ describe("jobs extension", () => {
 		await h.runtime.start({ command: "sleep 1", label: "build" }, ctx);
 		h.children[0].close(2);
 		expect(seen).toEqual([{ id: "j1", label: "build", status: "failed", exitCode: 2, signal: null }]);
+	});
+
+	test("announces and wakes a job killed as an orphan at load", async () => {
+		const { h, pi, ctx } = setup();
+		const sent: Array<{ message: any; options: any }> = [];
+		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
+		const seen: unknown[] = [];
+		pi.events.on(JOB_FINISHED_CHANNEL, (data: unknown) => seen.push(data));
+		// A dead session's non-detached job: `session_start` loads, kills it, then arms.
+		save(h, "old", [jobRecord({ detached: false, wake: true, label: "build" })], 2);
+
+		await emit(pi, "session_start", {}, ctx);
+
+		expect(sent).toHaveLength(1);
+		expect(sent[0].options.triggerTurn).toBe(true);
+		expect(seen).toEqual([{ id: "j1", label: "build", status: "killed", exitCode: null, signal: "SIGTERM" }]);
 	});
 
 	test("keeps only the newest injected completion note in context", async () => {

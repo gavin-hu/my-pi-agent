@@ -414,6 +414,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `job`: **every way a job settles announces it, and wakes it** — two of the four paths
+  skipped the announce-and-wake pair the close event made by hand: a peer's leftover reaped
+  on the clock announced the completion but never woke, and kept the dead peer's `sessionId`,
+  so `pendingCompletions` reported it for no session at all; an orphan killed while the
+  registry loaded wrote `killed` straight onto the record, announcing nothing. Both now go
+  through the one settle path, which announces the completion and fires the wake together
+  and adopts the record it settles. A load settles before `session_start` arms the listeners,
+  so what it settles is held and replayed when each is armed — the arming order in
+  `lib/report.ts` is unchanged.
 - `plan`: **the review's body routes take JSON, and say so** — `lib/http`'s `requireJsonBody`
   was exported and tested but called from nowhere, while `docs/security.md` described it as one
   of the checks a mutating page makes: `/api/comment`, `/api/feedback`, `/api/approve`, and

@@ -147,8 +147,9 @@ export interface PendingChannelOptions {
  * The order inside `session_start` is the contract: the reporter forgets the
  * previous session's busy window, the runtime loads the records, and only then
  * is the report trigger armed — a reload or a replaced session reuses the same
- * runtime. A shutdown clears the trigger before the runtime releases the table it
- * was calling into.
+ * runtime, so a runtime that can settle an outcome while loading holds what it
+ * settled until this arms. A shutdown clears the trigger before the runtime
+ * releases the table it was calling into.
  */
 export function registerPendingChannel(
 	pi: Pick<ExtensionAPI, "on">,
