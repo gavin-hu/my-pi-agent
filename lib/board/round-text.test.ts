@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import type { Card } from "./card.ts";
 import { buildRound } from "./round.ts";
 import { minuteOldCards } from "../../test/helpers/fixtures/board.ts";
 import {
@@ -14,6 +15,9 @@ import {
 	HISTORY_LINE_JS,
 	HISTORY_OWNER_JS,
 	historyLine,
+	HOLDING_OF_JS,
+	holdingLine,
+	holdingOf,
 	isHistoryOwner,
 	PLURAL_JS,
 	plural,
@@ -218,5 +222,30 @@ describe("the history line the browser receives", () => {
 		] as const) {
 			expect(browserHistory(label, held, roster)).toBe(isHistoryOwner(label, held, roster));
 		}
+	});
+});
+
+describe("what a session is holding", () => {
+	test("names the one card, counts the rest, and says idle for none", () => {
+		// One row says what the next verb takes and how much else there is, rather than a list
+		// that would push the other teammates off a one-line row.
+		expect(holdingOf([])).toBe("idle");
+		expect(holdingOf([card("162", { lane: "plan" })])).toBe("#162 plan");
+		expect(holdingOf([card("162", { lane: "plan" }), card("163"), card("164", { lane: "blocked" })])).toBe(
+			"#162 plan +2",
+		);
+	});
+
+	test("pairs the label with it, so a name and a count are one sentence", () => {
+		expect(holdingLine("helen", [card("162", { lane: "plan" })])).toBe("helen — #162 plan");
+		expect(holdingLine("helen", [])).toBe("helen — idle");
+	});
+
+	test("crosses to the page as the same body, safe to splice into a script", () => {
+		expect(HOLDING_OF_JS).toBe(String(holdingOf));
+		expect(HOLDING_OF_JS).not.toContain("`");
+		expect(HOLDING_OF_JS).not.toContain("${");
+		const browserHolding = new Function(`return (${HOLDING_OF_JS});`)() as (cards: readonly Card[]) => string;
+		expect(browserHolding([card("162", { lane: "plan" })])).toBe(holdingOf([card("162", { lane: "plan" })]));
 	});
 });

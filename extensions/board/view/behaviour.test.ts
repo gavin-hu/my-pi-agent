@@ -695,10 +695,10 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			expect(await rows()).toBe(4);
 			expect((await page.textContent(".board-team__tail"))?.trim()).toBe("3 owners with no record · 7 done");
 			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
-			// The absent owner that holds a card is a row of its own, not part of the history: the
-			// queue is saying its work is free, and that sentence needs a name beside it.
-			expect(await page.textContent(".board-team__roster")).toContain("billing-holder");
-			expect(await page.textContent(".board-team__roster")).toContain("1 held");
+			// The absent owner that holds a card is a row of its own: the row says what it holds.
+			const rosterText = (await page.textContent(".board-team__roster")) ?? "";
+			expect(rosterText).toContain("billing-holder");
+			expect(rosterText).toContain("#" + held.id + " plan");
 			// The caption counts people, not rows, so the fold does not change it.
 			const caption = () =>
 				page.$$eval(".board-team__caption", (nodes) =>
