@@ -3,9 +3,11 @@
  *
  * One store per working directory, opened on first use and kept for the session:
  * a tool call is frequent and the repository lookup shells out to git, so the
- * answer is remembered per `cwd`. The identity is the same pair a card records — the
- * session id Pi knows, and the name the team addresses it by — so the id is what keeps
- * a card held across a rename, and the name is read from the bus record where it is.
+ * answer is remembered per `cwd`. A failed open is not: one bad read must not
+ * outlive the call that hit it, so the next call asks again. The identity is the
+ * same pair a card records — the session id Pi knows, and the name the team
+ * addresses it by — so the id is what keeps a card held across a rename, and the
+ * name is read from the bus record where it is.
  *
  * One session per *host*, not one per extension: Pi loads `board` and `team` with
  * separate module caches, so two sessions would mean the seat `/board` sets is
@@ -47,7 +49,12 @@ export interface TeamStanding {
 
 /** What a tool, a page, and a round need from the session, without any of them owning it. */
 export interface BoardSession {
-	/** The board for `cwd`'s repository. */
+	/**
+	 * The board for `cwd`'s repository.
+	 *
+	 * Opened once and kept, unless the open failed: a rejection is dropped so the next call
+	 * asks again, the rule `lib/lazy.ts` states for a load it owns.
+	 */
 	store(cwd: string): Promise<BoardStore>;
 	/**
 	 * The session a write is made as: its team name, and the id a card keeps.
@@ -74,7 +81,8 @@ export interface BoardSession {
 	 * behaves exactly as before when they are not, which is what keeps the page working
 	 * with `session-bus` unloaded. Three callers read it — the page's snapshot, `/team`'s
 	 * round, and the tool's rollup, which folds the owners a bus has no record of — and all
-	 * of them want the same directory.
+	 * of them want the same directory. Resolved once per working directory, and asked again
+	 * when the store it needs failed, because a failure is no more this cache's to keep.
 	 */
 	busDir(cwd: string): Promise<string>;
 	/**
@@ -83,7 +91,8 @@ export interface BoardSession {
 	 * The board records the artifact a card is executed against, so it has to answer the
 	 * question `plan` answers: which directory that store is. One key rule — `repoKeyFor`
 	 * over the effective cwd — and the unkeyed branch outside a repository, so a card cannot
-	 * name a plan the plan tool would refuse to read.
+	 * name a plan the plan tool would refuse to read. Resolved once per working directory,
+	 * with a failed resolution as unremembered as a failed store.
 	 */
 	planDir(cwd: string): Promise<string>;
 	/** The seat this session serves the page as, or undefined when it is not serving. */
@@ -98,6 +107,11 @@ export interface BoardSession {
 export interface BoardSessionOptions {
 	now?: () => number;
 	agentDir?: string;
+	/**
+	 * Test seam: the store open itself, so a suite can fail one and watch the next call ask
+	 * again. The product supplies nothing, and `store` is the only caller.
+	 */
+	open?: (cwd: string) => Promise<BoardStore>;
 }
 
 /**
@@ -141,6 +155,30 @@ const SESSION_KEY = Symbol.for("@gavin-hu/my-pi-agent/board-session");
 type BoardHost = ExtensionAPI & { [SESSION_KEY]?: BoardSession };
 
 /**
+ * One load per key, remembered once it has settled — a rejection is not.
+ *
+ * A keyed cache is what the three stores below need: two callers on one directory share one
+ * promise, so the second call neither opens a second store nor shells out to git again. What
+ * must not be shared is a failure — a config read or the agent directory can fail once and
+ * answer the next time — so the entry is dropped in its rejection handler, and `lib/lazy.ts`
+ * is the same rule for a load with no key.
+ */
+function rememberLoad<T>(cache: Map<string, Promise<T>>, key: string, load: () => Promise<T>): Promise<T> {
+	const cached = cache.get(key);
+	if (cached !== undefined) return cached;
+	const pending = Promise.resolve()
+		.then(load)
+		.catch((error: unknown) => {
+			// The entry is this attempt's: a key is only written when absent, so dropping it
+			// cannot drop a newer attempt.
+			cache.delete(key);
+			throw error;
+		});
+	cache.set(key, pending);
+	return pending;
+}
+
+/**
  * The session around one host, built on the first call and shared after it.
  *
  * `board` and `team` both work on the same store and must name a write as the same
@@ -157,13 +195,11 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 	let seat: string | undefined;
 	let standing: JoinResult | undefined;
 	const agentDir = options.agentDir;
+	/** The real open, unless a suite supplied one: the store a call works on. */
+	const open = options.open ?? ((cwd: string) => openBoard(pi, cwd, agentDir === undefined ? {} : { agentDir }));
 	const session: BoardSession = {
 		store(cwd) {
-			const cached = stores.get(cwd);
-			if (cached) return cached;
-			const opened = openBoard(pi, cwd, agentDir === undefined ? {} : { agentDir });
-			stores.set(cwd, opened);
-			return opened;
+			return rememberLoad(stores, cwd, () => open(cwd));
 		},
 		async who(ctx, cwd) {
 			const id = sessionIdOf(ctx);
@@ -185,20 +221,14 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 		},
 		now: options.now ?? Date.now,
 		busDir(cwd) {
-			const cached = busDirs.get(cwd);
-			if (cached) return cached;
-			const resolved = session.store(cwd).then((store) => busDirFor(agentDir ?? getAgentDir(), store));
-			busDirs.set(cwd, resolved);
-			return resolved;
+			return rememberLoad(busDirs, cwd, () =>
+				session.store(cwd).then((store) => busDirFor(agentDir ?? getAgentDir(), store)),
+			);
 		},
 		planDir(cwd) {
-			const cached = planDirs.get(cwd);
-			if (cached) return cached;
-			const resolved = repoKeyFor(pi, resolveEffectiveCwd(cwd)).then((repo) =>
-				plansDirFor(agentDir ?? getAgentDir(), repo),
+			return rememberLoad(planDirs, cwd, () =>
+				repoKeyFor(pi, resolveEffectiveCwd(cwd)).then((repo) => plansDirFor(agentDir ?? getAgentDir(), repo)),
 			);
-			planDirs.set(cwd, resolved);
-			return resolved;
 		},
 		serving: () => seat,
 		serve: (label) => {

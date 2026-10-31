@@ -403,6 +403,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: **a failed open is asked again instead of pinning the session** — the store, the bus
+  directory, and the plan directory each kept their promise before it settled, so one failure (a
+  config read, the agent directory) was replayed for every later call, and `busDir`'s failure
+  came with the store's. A rejection is dropped so the next call asks again, the rule
+  `lib/lazy.ts` already states for a load it owns, while a success is still opened once and
+  shared.
 - `session-bus`: **the inbox watch announces mail that arrives behind a full backlog** — the
   poll read the oldest 50 unread messages, so a session holding that many had new mail sorted
   behind them and never announced it: a handoff, which assigns work, sat unread until the model
