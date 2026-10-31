@@ -308,6 +308,8 @@ test/
     surface.ts             # the catalog and the registered surface, counted from the tree
     board-page.ts          # the shipped board page, served over a fixture store
     board-browser.ts       # that page in a browser, over a board a suite seeds
+    board-dom.ts           # the DOM shape a board suite's page predicates read, and the reads over it
+    board-fixture.ts       # the working board two page suites drive, seeded through the gates
     board-flow.ts          # drive a card through the board's gates, for suites about something else
     serve.ts               # a real server a suite mounts a shipped page on, LAN share included
     fixtures/<cap>.ts      # one per capability, never one per extension

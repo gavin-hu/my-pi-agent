@@ -45,6 +45,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   record outlives its process, and a peer can no longer join first and sign for a peer. A
   record past the TTL holds nothing, because the next read prunes it; the refusal a rename
   meets now says which of the two it hit.
+- `board`: the card dialog says why a card sits where it does, and what it promises. It opens
+  with the sentence the card face prints, from the same rule and in its kind's tone — a block's
+  own words, an offer nobody took, a contract nobody has approved — where a whole-card read used
+  to show none of it. The contract's three lines read at body size and wrap, with the approval as
+  a signature line under them instead of a rung that stayed hidden until somebody signed, and
+  `landed` carries the moment beside the commit.
 
 ### Fixed
 

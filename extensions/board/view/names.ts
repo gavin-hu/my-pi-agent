@@ -56,7 +56,8 @@ export const BOARD_CLASS = {
 	cardPriorityHigh: "board-card__priority--high",
 	cardPriorityLow: "board-card__priority--low",
 
-	// The card dialog: the record of one card, as a ladder of facts and its notes.
+	// The card dialog: the record of one card — its reason, a ladder of facts, the contract
+	// it promises, and its notes.
 	dialogPanel: "board-dialog__panel",
 	dialogHead: "board-dialog__head",
 	dialogId: "board-dialog__id",
@@ -72,6 +73,11 @@ export const BOARD_CLASS = {
 	dialogPath: "board-dialog__path",
 	dialogValue: "board-dialog__value",
 	dialogPlan: "board-dialog__plan",
+	// The sentence the card face prints, whole, and the promise it was opened to read: the
+	// contract's block is its own, and its signature closes it.
+	dialogReason: "board-dialog__reason",
+	dialogContract: "board-dialog__contract",
+	dialogSign: "board-dialog__sign",
 	dialogNotes: "board-dialog__notes",
 	dialogNote: "board-dialog__note",
 	dialogNoteFoot: "board-dialog__note-foot",

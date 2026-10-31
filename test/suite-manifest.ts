@@ -53,6 +53,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"transport/router",
 		"view/behaviour",
 		"view/dialog",
+		"view/dialog-behaviour",
 		"view/repaint",
 		"view/pages",
 	],

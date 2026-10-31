@@ -45,6 +45,9 @@ const dialogTemplate = String.raw`(function () {
   /** The sections a rung can belong to, in the order the body draws them. */
   var SECTIONS = ["contract", "start", "links", "record"];
 
+  /** The promise's three rows, which the section's own rule hides with the heading. */
+  var CONTRACT_ROWS = ["goal", "acceptance", "scope-out"];
+
 __INLINE_MARKDOWN__
 
   /** Fill the dialog's contents from a card, without opening or closing it. */
@@ -78,6 +81,21 @@ __INLINE_MARKDOWN__
     since.textContent = card.since === undefined ? "" : " \u00b7 " + ago(card.since);
     since.hidden = card.since === undefined;
 
+    // The sentence the card face prints under its meta, from the same body: the one fact that
+    // decides what happens next. It is the whole of the answer for a blocked card (what a
+    // person parked it on) and an offered one (how long it has gone unanswered), so no rung
+    // restates it. The face's holds-up half is left to the "waited on by" rung below — the face
+    // put it on that line only because it has no ladder to put it on.
+    var why = document.getElementById("card-dialog-reason");
+    var reason = board.reasonFor(card, ago);
+    // A last note is the one reason not drawn here: it is the sentence at the top of the
+    // notes below, and the dialog would be saying one thing twice.
+    var showReason = reason !== undefined && reason.kind !== "note";
+    why.hidden = !showReason;
+    why.textContent = showReason ? reason.text : "";
+    if (showReason) why.setAttribute("data-tone", board.reasonTone(reason.kind));
+    else why.removeAttribute("data-tone");
+
     // One fact per row of the ladder, so a reader can pick out a value instead of
     // hunting for it in a sentence. A row with nothing to say takes its label with it:
     // an empty cell under a heading reads as a missing value, not as an absence.
@@ -95,15 +113,27 @@ __INLINE_MARKDOWN__
       else dd.setAttribute("title", full);
     };
 
-    // The contract is three lines and a signature, and each is its own rung: a reader
-    // comparing what was promised with what was done reads them one at a time, and the
-    // approval's age is the fact that says whether anybody has looked.
+    // The contract is the promise, so it is a block of its own at body size and wrapping,
+    // not three rungs clipped to one line: each line is up to 400 characters and is what a
+    // reader agreed to and what a reviewer checks word by word. The block belongs to the
+    // "contract" section, so a card with none leaves every row hidden and the section's own
+    // rule takes the heading with it.
     var contract = card.contract;
-    setRow("goal", Boolean(contract), contract ? contract.goal : "", contract ? contract.goal : undefined);
-    setRow("acceptance", Boolean(contract), contract ? contract.acceptance : "", contract ? contract.acceptance : undefined);
-    setRow("scope-out", Boolean(contract), contract ? contract.scopeOut : "", contract ? contract.scopeOut : undefined);
-    var approved = contract && contract.approved;
-    setRow("approved", Boolean(approved), approved ? approved.by + " \u00b7 " + ago(approved.at) : "");
+    document.getElementById("card-dialog-goal").textContent = contract === undefined ? "" : contract.goal;
+    document.getElementById("card-dialog-acceptance").textContent = contract === undefined ? "" : contract.acceptance;
+    document.getElementById("card-dialog-scope-out").textContent = contract === undefined ? "" : contract.scopeOut;
+    for (var f = 0; f < CONTRACT_ROWS.length; f++) {
+      document.getElementById("card-dialog-" + CONTRACT_ROWS[f]).hidden = contract === undefined;
+    }
+    // The approval closes the promise the way a signature closes a document, in the tone the
+    // board gives an approval. No line when nobody has signed: the block is unsigned, and the
+    // reason line above is what says the card is waiting for a person to read it.
+    var sign = document.getElementById("card-dialog-sign");
+    var approved = contract === undefined ? undefined : contract.approved;
+    sign.hidden = approved === undefined;
+    sign.textContent = approved === undefined ? "" : "approved by " + approved.by + " \u00b7 " + ago(approved.at);
+    if (approved === undefined) sign.removeAttribute("data-tone");
+    else sign.setAttribute("data-tone", board.reasonTone("approval"));
 
     // A long plan path elides on one line, and the whole of it is on the hover title and
     // in the text, so it stays copyable: the reason to open a card is often its plan.
@@ -119,7 +149,16 @@ __INLINE_MARKDOWN__
     // When it was last touched and who touched it are one moment, so they are one rung: two
     // rows spent a line saying half of the same fact each.
     setRow("updated", true, ago(card.updatedAt) + " by " + card.by);
-    setRow("landed", card.landed !== undefined, card.landed ? card.landed.commit : "", card.landed ? card.landed.commit : undefined);
+    // A landing is a commit and a moment: the commit says which change closed the card, and
+    // the age says how long ago it was. The whole commit stays on the hover title, where a
+    // reader copies it from, rather than being crowded out by the age beside it.
+    var landed = card.landed;
+    setRow(
+      "landed",
+      landed !== undefined,
+      landed === undefined ? "" : landed.commit + " \u00b7 " + ago(landed.at),
+      landed === undefined ? undefined : landed.commit
+    );
     setRow("reviewed", card.review !== undefined, card.review ? card.review.by + " \u00b7 " + ago(card.review.at) : "");
 
     pair("paths", card.paths.length > 0);
