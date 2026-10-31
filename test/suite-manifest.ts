@@ -43,6 +43,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	board: [
 		"input",
 		"result",
+		"signs",
 		"tools",
 		"lazy-page",
 		"page",

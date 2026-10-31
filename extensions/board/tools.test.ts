@@ -201,9 +201,9 @@ describe("a field the action does not act on", () => {
 		const { call } = harness();
 		const result = await call({ action: "add", title: "x", dependsOn: ["1"], text: "why" });
 		expect(result.details.error).toBe(
-			"add does not act on dependsOn, text: `edit` takes dependsOn; `note` takes text.",
+			"add does not act on dependsOn, text: `edit` takes dependsOn; `note`, `approve`, and `review` take text.",
 		);
-		// Two actions take this one, so the message has to name both and say "take".
+		// Three actions take this one, so the message names the serial list and says "take".
 		const lane = await call({ action: "add", title: "x", lane: "execute" });
 		expect(lane.details.error).toBe("add does not act on lane: `list` and `move` take it.");
 	});

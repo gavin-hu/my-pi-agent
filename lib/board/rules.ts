@@ -90,10 +90,10 @@ export type CardOp =
 	 * so a caller cannot skip the check by omitting it.
 	 */
 	| { kind: "contract"; artifact?: ArtifactCheck; goal?: unknown; acceptance?: unknown; scopeOut?: unknown }
-	/** Read the contract and approve it: the lead, and never the card's holder. */
-	| { kind: "approve" }
-	/** Spot-check the finished work: the lead, in `execute`, and never the card's holder. */
-	| { kind: "review" }
+	/** Read the contract and approve it: the lead, and never the card's holder; `text` is noted with the sign. */
+	| { kind: "approve"; text?: unknown }
+	/** Spot-check the finished work: the lead, in `execute`, and never the card's holder; `text` is noted with the sign. */
+	| { kind: "review"; text?: unknown }
 	// Every field but `kind` is optional, and an absent one is left as it was: the page
 	// sends the three it can show, and omitting a link must not clear it.
 	| { kind: "edit"; title?: unknown; paths?: unknown; priority?: unknown; dependsOn?: unknown }
@@ -202,9 +202,9 @@ function prepare(card: Card, op: CardOp, actor: Actor, now: number, board: Board
 		case "contract":
 			return contractOp(card, op, actor);
 		case "approve":
-			return approve(card, actor, now, config);
+			return approve(card, actor, now, config, op.text);
 		case "review":
-			return review(card, actor, now, config);
+			return review(card, actor, now, config, op.text);
 		case "edit":
 			return edit(card, op, actor, board);
 		case "reclaim":

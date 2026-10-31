@@ -18,6 +18,8 @@
  * Value-only, as `lib/` must be: the tables are the callers'.
  */
 
+import { listOf } from "./format.ts";
+
 /** The fields each action reads, keyed in the order the actions are documented. */
 export type ActionFields = Readonly<Record<string, readonly string[]>>;
 
@@ -38,8 +40,11 @@ export function strayField(action: string, args: Record<string, unknown>, fields
 	const named = (field: string): string => {
 		const taking = Object.keys(fields).filter((candidate) => fields[candidate]?.includes(field));
 		if (taking.length === 0) return `${field} belongs to no action`;
-		const verbs = taking.map((one) => `\`${one}\``).join(" and ");
-		return `${verbs} ${taking.length === 1 ? "takes" : "take"} ${stray.length === 1 ? "it" : field}`;
+		const verbs = taking.map((one) => `\`${one}\``);
+		// Two read as "a and b"; three or more take the serial comma, or the list stops saying
+		// where one verb ends and the next begins.
+		const list = verbs.length === 2 ? verbs.join(" and ") : listOf(verbs, "and");
+		return `${list} ${taking.length === 1 ? "takes" : "take"} ${stray.length === 1 ? "it" : field}`;
 	};
 	return `${action} does not act on ${stray.join(", ")}: ${stray.map(named).join("; ")}.`;
 }
