@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { JobsConfig } from "../../../extensions/job/config.ts";
 import { DEFAULT_CONFIG } from "../../../extensions/job/config.ts";
+import { loadRegistries, REGISTRY_VERSION, saveRegistry } from "../../../extensions/job/registry.ts";
+import type { JobRecord } from "../../../extensions/job/types.ts";
 import type { KillTreeFn, LivenessFn, SpawnFn, StartTokenFn } from "../../../lib/spawn.ts";
 import { createJobsRuntime, type JobsRuntime } from "../../../extensions/job/runtime.ts";
 import { makeClock } from "../clock.ts";
@@ -92,6 +94,51 @@ export function readLog(path: string): string {
 	} catch {
 		return "";
 	}
+}
+
+/**
+ * A persisted job record for a suite that is about ownership or the registry.
+ *
+ * `sessionId` defaults to a peer's, which is what a fixture writes when it is not about
+ * this session's own jobs. Named for the capability rather than `record`, so the one-file
+ * suites that build their own keep their own; only a suite that shares one imports this.
+ */
+export function jobRecord(overrides: Partial<JobRecord> = {}): JobRecord {
+	return {
+		id: "j1",
+		label: "build",
+		command: "sleep 99",
+		cwd: "/repo",
+		pid: 777,
+		status: "running",
+		exitCode: null,
+		signal: null,
+		startedAt: 1,
+		finishedAt: null,
+		logPath: "/tmp/j1.log",
+		statusPath: null,
+		detached: false,
+		wake: false,
+		stdin: false,
+		sessionId: "old",
+		seen: false,
+		lastLine: "",
+		startToken: null,
+		...overrides,
+	};
+}
+
+/** Persist a session's registry file in a harness directory. */
+export function save(h: { dir: string }, sessionId: string, entries: JobRecord[], counter = entries.length + 1): void {
+	saveRegistry(h.dir, { version: REGISTRY_VERSION, sessionId, counter, jobs: entries });
+}
+
+/** Every persisted record across all session files. */
+export function persistedIds(h: { dir: string }): string[] {
+	return loadRegistries(h.dir)
+		.files.flatMap((file) => file.jobs)
+		.map((entry) => entry.id)
+		.sort();
 }
 
 /**

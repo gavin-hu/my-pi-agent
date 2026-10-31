@@ -185,7 +185,7 @@ const SECTIONS: readonly SectionCase[] = [
 			killGraceMs: "a shutdown timing, tuned once",
 			detachedByDefault: "an exit behaviour, set once per machine",
 			repaintMs: "a refresh interval, tuned once",
-			sessionTtlMs: "a reaping interval, tuned once",
+			sessionTtlMs: "an identity-check interval, tuned once",
 			registryDir: "a path override",
 		},
 	},

@@ -40,13 +40,7 @@ import {
 	removeRegistry,
 	settleGone,
 } from "./registry.ts";
-import {
-	isSessionAlive,
-	pruneSessionMarkers,
-	readSessionMarker,
-	removeSessionMarker,
-	touchSessionMarker,
-} from "./session.ts";
+import { createOwnership, removeSessionMarker } from "./session.ts";
 import { LOG_ENV, STATUS_ENV, readExitStatus, withExitTrap } from "./status.ts";
 import { type Job, type JobRecord, type JobStatus, type KillSignal } from "./types.ts";
 import { createUiController } from "./ui.ts";
@@ -275,17 +269,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		removeLog(job);
 	};
 
-	/** Refresh this session's liveness marker while it runs jobs. */
-	const touchMarker = (): void => {
-		if (disposed) return;
-		touchSessionMarker(store().directory(), sessionId, process.pid, now());
-	};
-
-	/** Whether the session that owns a job is still alive. */
-	const ownerAlive = (owner: string): boolean =>
-		owner === sessionId ||
-		isSessionAlive(readSessionMarker(store().directory(), owner), now(), config.sessionTtlMs, isAlive);
-
 	const stopClock = (): void => {
 		clock?.();
 		clock = undefined;
@@ -299,7 +282,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 		if (clock) return;
 		clock = defaultInterval(config.repaintMs, () => {
-			touchMarker();
+			ownership.touch();
 			pollExternal();
 			// Re-assert the chip every tick. It is otherwise only set on a job
 			// transition, so anything that clears extension statuses (a session reload,
@@ -311,13 +294,27 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const paint = (): void => {
 		ensureClock();
-		touchMarker();
+		ownership.touch();
 		if (disposed) return;
 		ui.paint();
 	};
 
 	/** Whether a pid is still running, asked through the loaded seam. */
 	const isAlive = (pid: number): boolean => syncSeams?.liveness(pid) ?? true;
+
+	/**
+	 * Who owns a job: `live`, `quiet`, or `gone`, and this session's own marker. `quiet` is
+	 * not dead — the heartbeat only ticks while a job runs, so a peer that has finished its
+	 * work stops writing one, and reading that as death adopted a live session's records.
+	 */
+	const ownership = createOwnership({
+		directory: () => store().directory(),
+		sessionId: () => sessionId,
+		now,
+		ttlMs: () => config.sessionTtlMs,
+		alive: isAlive,
+		startToken: (pid) => syncSeams?.startToken(pid),
+	});
 
 	/** Signal a pid, through the held seam; a job cannot run before the seam is held. */
 	const killPid = (pid: number, signal: NodeJS.Signals, force = false): void => {
@@ -377,14 +374,14 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	/** Poll reattached (unowned) jobs, which have no `close` event to observe. */
 	const pollExternal = (): void => {
-		touchMarker();
+		ownership.touch();
 		let changed = false;
 		for (const job of jobs.values()) {
 			if (job.status !== "running" || job.owned) continue;
 			const peer = job.sessionId !== sessionId;
-			const alive = peer ? ownerAlive(job.sessionId) : true;
-			// A live peer session owns this job; leave its state to that owner.
-			if (peer && alive) continue;
+			// A live peer owns this job, a quiet one included: its heartbeat only ticks while
+			// a job runs.
+			if (peer && ownership.state(job.sessionId) !== "gone") continue;
 			if (job.pid === null || !isAlive(job.pid)) {
 				// A record with no pid cannot be judged gone; leave it alone rather than
 				// announcing (and waking) on every tick.
@@ -589,8 +586,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		ui.attach(ctx);
 
 		// Announce this session, and drop markers for sessions that are gone.
-		touchMarker();
-		pruneSessionMarkers(store().directory(), now(), config.sessionTtlMs, isAlive);
+		ownership.touch();
+		ownership.prune();
 
 		const { files, counter } = loadRegistries(store().directory());
 		store().setCounter(counter);
@@ -600,7 +597,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const merged = new Map<string, JobRecord>();
 		const deadSessions = new Set<string>();
 		for (const file of files) {
-			if (file.sessionId !== sessionId && !ownerAlive(file.sessionId)) deadSessions.add(file.sessionId);
+			if (file.sessionId !== sessionId && ownership.state(file.sessionId) === "gone") deadSessions.add(file.sessionId);
 			for (const record of file.jobs) {
 				const existing = merged.get(record.id);
 				merged.set(record.id, existing ? mergeRecords(existing, record, sessionId) : record);
@@ -612,7 +609,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			settleGone(record, { isAlive, tokenMatches, readExitCode: exitCodeFor, now: now() }),
 		);
 		const { jobs: reconciled, orphans } = planReconcile(settled, isAlive, now(), {
-			isOwnerAlive: ownerAlive,
+			ownerState: ownership.state,
 			currentSessionId: sessionId,
 		});
 

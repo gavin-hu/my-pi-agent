@@ -27,7 +27,14 @@ export interface JobsConfig {
 	killGraceMs: number;
 	/** Status-chip refresh interval while jobs run. */
 	repaintMs: number;
-	/** How long a session heartbeat is trusted before its jobs are reaped. */
+	/**
+	 * How old a session's heartbeat may be before its pid is re-checked against the process
+	 * it named.
+	 *
+	 * The heartbeat only ticks while a job runs, so age alone means the session is idle, not
+	 * gone: a quiet session keeps its jobs. The token check is what catches a pid that has
+	 * since been reused by another program.
+	 */
 	sessionTtlMs: number;
 	/** Override for the registry directory; defaults under the agent dir. */
 	registryDir: string | undefined;

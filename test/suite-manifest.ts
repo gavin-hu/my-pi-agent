@@ -60,7 +60,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	"file-browse": ["view/pages", "transport/router", "command", "files/files", "config/config", "extension"],
 	"file-open": ["extension"],
 	goal: ["format", "tools", "runtime", "extension"],
-	job: ["runtime", "tools", "view/jobs-screen", "extension"],
+	job: ["runtime", "session", "tools", "view/jobs-screen", "extension"],
 	memory: ["store", "format", "tools", "view/memory-picker"],
 	plan: [
 		"plans",
