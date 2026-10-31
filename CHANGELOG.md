@@ -417,6 +417,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   syntax. A body that is not declared JSON is now refused `415` ahead of the role check, so the
   form never reaches the parser; the page's own posts all send `application/json`, so they are
   unchanged.
+- `watch`: **`maxWatchers` counts live watchers, and the refusal names an action that works** —
+  `add` compared the whole map, so a `stopped` or `exited` watcher kept its slot and the message
+  said `stop one first`, which changes a status but frees nothing. The gate is now
+  `runningCount()`, the count `config.ts` and the docs already name, and the message reads
+  `at most N live watcher(s); stop one first`.
 - `board`: **a failed open is not pinned for the session** — the store, the bus directory, and the
   plan directory each kept their promise before it settled, so one failure (a config read, the
   agent directory) would have been replayed for every later call, and `busDir`'s failure would
