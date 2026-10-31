@@ -17,7 +17,7 @@ import { existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pollUntil, sleep } from "../poll.ts";
-import { repo } from "../theme.ts";
+import { pageColors, repo } from "../theme.ts";
 import { WINDOW_BOUNDS } from "../screens/fixtures/index.ts";
 import { frameFingerprint, frameLines, recordFrame } from "../screens/frames.ts";
 import type { Screen } from "../screens/index.ts";
@@ -25,11 +25,15 @@ import type { Screen } from "../screens/index.ts";
 /** A temporary Terminal profile that matches the theme's canvas, deleted after. */
 const PROFILE = "PiScreenshot";
 /**
- * Terminal's window title bar, in points. The capture drops it: its last
- * segment is the foreground process's argv, which no profile title switch
- * covers and which carries this machine's paths and environment.
+ * Terminal's window title bar, in points, its light bottom edge included. The
+ * capture drops it: its last segment is the foreground process's argv, which no
+ * profile title switch covers and which carries this machine's paths and
+ * environment. Cropping the bar alone leaves that edge — eight device pixels of
+ * white along the top of a 2x capture — which reads as a bright seam once the
+ * frame is scaled down, so the crop reaches past it to the frame's canvas and
+ * `cropTitleBar` fails instead of shipping the band.
  */
-const TITLE_BAR_POINTS = 28;
+const TITLE_BAR_POINTS = 32;
 
 function osascript(script: string): string {
 	return execFileSync("osascript", ["-e", script], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -181,6 +185,7 @@ function cropTitleBar(source: string, out: string, windowWidth: number): void {
 			out,
 			String(windowWidth),
 			String(TITLE_BAR_POINTS),
+			pageColors.background,
 		],
 		{ stdio: ["ignore", "ignore", "pipe"] },
 	);
