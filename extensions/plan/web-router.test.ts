@@ -293,6 +293,29 @@ describe("review router", () => {
 		expect(cancelled).toEqual([]);
 	});
 
+	test("a reviewer's route still answers from the network, where the owner's do not", async () => {
+		// The asymmetry is the point: sharing exists so a reviewer works from another machine,
+		// and only the owner's routes are bound to the serving one (see #187, #194). Without
+		// this case, wrapping `/api/comment` in `ownerOnly` would pass every other test.
+		const { ctx, saved } = router({
+			caller: (token) => (token === "tok" ? { role: "reviewer", name: "rina" } : undefined),
+		});
+		const headers = { ...HOST, "content-type": "application/json" };
+		const posted = await handleReviewRequest(
+			ctx,
+			"POST",
+			"/api/comment?token=tok",
+			headers,
+			JSON.stringify({ annotations: [{ anchor: 1, comment: "from the office" }] }),
+			"10.0.0.7",
+		);
+
+		expect(posted.status).toBe(200);
+		expect(saved).toEqual([[{ anchor: 1, comment: "from the office" }]]);
+		// The same peer gets the page, so a shared link is worth its name.
+		expect((await handleReviewRequest(ctx, "GET", "/?token=tok", HOST, "", "10.0.0.7")).status).toBe(200);
+	});
+
 	test("the owner saves the review and cannot post to the reviewer route", async () => {
 		const { ctx, saved, ownerSaves } = router();
 
