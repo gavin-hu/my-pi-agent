@@ -511,8 +511,10 @@ describe("changelog shape", () => {
 	test("holds one bullet per mechanism in the window a release is cut from", () => {
 		// A released window is frozen history; `[Unreleased]` is what a release is cut from, so
 		// the bullets in it are the ones that can still be folded before a reader sees them.
+		// A release commit moves them under their dated heading and leaves this window empty,
+		// which is the commit `publish.yml` checks out: nothing to fold is not a failure, and
+		// a non-empty result there would have refused every publish.
 		const bullets = windows[0]?.subsections.flatMap((section) => section.bullets) ?? [];
-		expect(bullets.length).toBeGreaterThan(0);
 		expect(
 			repeatedMechanisms(bullets),
 			"one mechanism, one bullet: fold the pair, or reword one so no sentence is shared",
