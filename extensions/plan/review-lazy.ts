@@ -6,57 +6,14 @@
  * `/plan review` and the `plan` tool's `exit` action are the only two doors in. Both import this
  * module instead, so the loop loads once, on the first review of the session.
  *
- * The types stay here rather than in `review.ts` because a type import is erased:
- * the `plan` tool declares its `exit` details from them at registration time.
+ * The types are `review.ts`'s, imported here as types: an import of that kind is erased, so
+ * the facade defers the loop without paying for it, and the two modules cannot disagree
+ * about what a review hands back.
  */
 
-import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
-import type { SectionDigest } from "./plan-text.ts";
-import type { PlanStore, StoredPlan } from "./plans.ts";
-import type { PlanAnnotation } from "./feedback.ts";
+import type { ReviewDecision, ReviewPlanOptions } from "./review.ts";
+import type { StoredPlan } from "./plans.ts";
 import type { PlanReviewResult, PlanReviewSession, PlanWebReview } from "./web.ts";
-
-/** A choice from the review screen, with the refinement the screen carried, if any. */
-export interface PlanReviewChoice {
-	action: "approve" | "refine" | "keep" | "cancel";
-	refinement?: string;
-}
-
-/** What a review decided, and the plan state it decided on. */
-export type ReviewDecision =
-	| { action: "approve"; plan: StoredPlan; comments: PlanAnnotation[] }
-	| {
-			action: "refine";
-			plan: StoredPlan;
-			/** The refinement request: the saved comments, or what the user typed. */
-			refinement: string;
-			comments: PlanAnnotation[];
-			/** True when the request came from the browser, which is reported differently. */
-			fromBrowser: boolean;
-	  }
-	| { action: "keep"; plan: StoredPlan }
-	/** Leave plan mode without approving; the plan file stays for a later review. */
-	| { action: "cancel"; plan: StoredPlan };
-
-/** What the previous review showed, so this one can mark what changed. */
-export interface ReviewBaselines {
-	/** The sections the last review of `path` showed, when this branch has one. */
-	reviewed(path: string): SectionDigest[] | undefined;
-	/** Remember what a review just showed, as a session entry on this branch. */
-	markReviewed(path: string, content: string): void;
-}
-
-/** Everything one review needs: whom to ask, where to ask, and what to compare against. */
-export interface ReviewPlanOptions {
-	ctx: ExtensionToolContext;
-	web: PlanWebReview;
-	/** Re-read the plan after a browser review that may have changed it. */
-	plans: PlanStore;
-	baselines: ReviewBaselines;
-	plan: StoredPlan;
-	/** Aborting the turn closes the browser server. */
-	signal?: AbortSignal;
-}
 
 /** The review module, as the loader returns it. */
 export type ReviewModule = typeof import("./review.ts");
