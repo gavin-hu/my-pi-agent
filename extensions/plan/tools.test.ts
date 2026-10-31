@@ -9,7 +9,7 @@ import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { callTool } from "../../test/helpers/tools.ts";
 import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import type { ExecResult } from "../../test/helpers/git.ts";
-import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
+import { planCtx, makePlanPi } from "../../test/helpers/fixtures/plan.ts";
 import { useEnv } from "../../test/helpers/env.ts";
 import { repoKeyOf } from "../../lib/repo-key.ts";
 import { shortenPath } from "../../lib/format.ts";
@@ -62,7 +62,7 @@ type FakeExec = (command: string, args: string[]) => Promise<Omit<ExecResult, "k
 
 function setup(web?: PlanWebReview, options: { allTools?: unknown[]; exec?: FakeExec } = {}) {
 	const root = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-tools-")));
-	const fake = makeFakePi({
+	const fake = makePlanPi({
 		active: ["read", "bash", "write", "edit", ENTER_TOOL, "todo"],
 		exec: options.exec ?? repoExec(root),
 		// A normal install has `goal` registered by its sibling extension; the
@@ -159,7 +159,7 @@ function webThatApproves(annotations: PlanAnnotation[]): { web: PlanWebReview; s
 
 /** Enter plan mode through the real tool, in a repository rooted at `cwd`. */
 async function enterPlan(enter: any, runtime: any, cwd: string) {
-	const { ctx } = fakeCtx({ confirm: true, cwd });
+	const { ctx } = planCtx({ confirm: true, cwd });
 	await callTool(enter, {}, ctx);
 	expect(runtime.isEnabled()).toBe(true);
 }
@@ -173,7 +173,7 @@ async function savePlan(write: any, ctx: any, content: string): Promise<string> 
 
 /** Approve a saved plan through the real tool, leaving plan mode. */
 async function approvePlan(exit: any, planPath: string, cwd: string) {
-	await callTool(exit, { plan_path: planPath }, fakeCtx({ editor: "1", cwd }).ctx);
+	await callTool(exit, { plan_path: planPath }, planCtx({ editor: "1", cwd }).ctx);
 }
 
 /** A plan whose `Steps` section holds `count` top-level steps. */
@@ -432,7 +432,7 @@ describe("plan approval merge", () => {
 describe("enter_plan_mode", () => {
 	test("enables plan mode and activates both control tools when the user confirms", async () => {
 		const { enter, runtime, activeTools, root } = setup();
-		const { ctx } = fakeCtx({ confirm: true, cwd: root });
+		const { ctx } = planCtx({ confirm: true, cwd: root });
 		const result = await callTool(enter, {}, ctx);
 
 		expect(result.details).toEqual({ entered: true });
@@ -445,7 +445,7 @@ describe("enter_plan_mode", () => {
 
 	test("stays in normal mode when the user declines", async () => {
 		const { enter, runtime, root } = setup();
-		const { ctx } = fakeCtx({ confirm: false, cwd: root });
+		const { ctx } = planCtx({ confirm: false, cwd: root });
 		const result = await callTool(enter, {}, ctx);
 
 		expect(result.details).toEqual({ entered: false });
@@ -457,7 +457,7 @@ describe("enter_plan_mode", () => {
 		const { enter, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(enter, {}, ctx);
 		expect(result.details).toEqual({ entered: true, already: true });
 
@@ -468,7 +468,7 @@ describe("enter_plan_mode", () => {
 
 	test("reports an error without a UI", async () => {
 		const { enter, runtime, root } = setup();
-		const { ctx } = fakeCtx({ hasUI: false, cwd: root });
+		const { ctx } = planCtx({ hasUI: false, cwd: root });
 		const result = await callTool(enter, {}, ctx);
 
 		expect(result.isError).toBe(true);
@@ -480,7 +480,7 @@ describe("enter_plan_mode", () => {
 describe("write_plan", () => {
 	test("refuses outside plan mode", async () => {
 		const { write, root } = setup();
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(write, { title: "x", content: "y" }, ctx);
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain("Not in plan mode");
@@ -502,7 +502,7 @@ describe("write_plan", () => {
 	test("writes the plan file, remembers it, and repaints the footer", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const { ctx, statusCalls } = fakeCtx({ cwd: root });
+		const { ctx, statusCalls } = planCtx({ cwd: root });
 
 		const result = await callTool(write, { title: "Add rate limiting", content: "# Plan\n1. Do it" }, ctx);
 		const details = result.details as { path: string; relativePath: string; bytes: number };
@@ -520,7 +520,7 @@ describe("write_plan", () => {
 	test("refuses a plan with more steps than approval can track", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 
 		const result = await callTool(write, { title: "Big", content: planWithSteps(MAX_STEPS + 1) }, ctx);
 
@@ -537,7 +537,7 @@ describe("write_plan", () => {
 		await enterPlan(enter, runtime, root);
 		const full = planWithSteps(MAX_STEPS);
 
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, full);
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, full);
 		expect(readFileSync(planPath, "utf-8")).toBe(full);
 
 		await approvePlan(exit, planPath, root);
@@ -548,8 +548,8 @@ describe("write_plan", () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const original = planWithSteps(2);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, original);
-		const { ctx } = fakeCtx({ cwd: root });
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, original);
+		const { ctx } = planCtx({ cwd: root });
 
 		const result = await callTool(
 			write,
@@ -565,7 +565,7 @@ describe("write_plan", () => {
 	test("notes a step that will be shortened in the todo list, and stays quiet otherwise", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 
 		const long = await callTool(
 			write,
@@ -582,7 +582,7 @@ describe("write_plan", () => {
 	test("reports a write failure as an error result", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(write, { title: "   ", content: "y" }, ctx);
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain("Could not write the plan");
@@ -591,7 +591,7 @@ describe("write_plan", () => {
 	test("reports an oversized plan from the store", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(write, { title: "Huge", content: "x".repeat(256 * 1024 + 1) }, ctx);
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain("too large");
@@ -614,17 +614,17 @@ describe("a plan approved twice", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(
 			write,
-			fakeCtx({ cwd: root }).ctx,
+			planCtx({ cwd: root }).ctx,
 			"# Plan\n\n## Steps\n\n- [ ] Wire the limiter into the router",
 		);
 		// Approve it once, then read the list back as the branch would hold it. The seed
 		// record is the entry the first approval appended, keyed by the resolved path.
-		await callTool(exit, { plan_path: planPath }, fakeCtx({ editor: "1", cwd: root }).ctx);
+		await callTool(exit, { plan_path: planPath }, planCtx({ editor: "1", cwd: root }).ctx);
 		expect(runtime.seeded(planPath)).toEqual(["Wire the limiter into the router"]);
 
 		// Approve a refined plan over a branch still holding the older step's item.
 		await enterPlan(enter, runtime, root);
-		const { ctx, toolCalls } = fakeCtx({
+		const { ctx, toolCalls } = planCtx({
 			editor: "1",
 			branch: todoBranch([{ content: "Wire the limiter", status: "pending" }]),
 			cwd: root,
@@ -640,7 +640,7 @@ describe("a plan approved twice", () => {
 	test("warns that a refined plan's todo items are stale, at the write", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const ctx = fakeCtx({ cwd: root }).ctx;
+		const ctx = planCtx({ cwd: root }).ctx;
 		const planPath = await savePlan(write, ctx, "# Plan\n\n## Steps\n\n- [ ] one");
 		// Not seeded: refining a plan nobody approved says nothing about the todo list.
 		const first = await callTool(
@@ -666,9 +666,9 @@ describe("exit_plan_mode with a browser review", () => {
 		const { web, starts } = webThatApproves([]);
 		const { enter, exit, write, runtime, root } = setup(web);
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Plan\n\n## Steps\n\n- [ ] one");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "# Plan\n\n## Steps\n\n- [ ] one");
 
-		const { ctx } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
+		const { ctx } = planCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 
 		expect(starts[0]?.canApprove).toBe(true);
@@ -679,7 +679,7 @@ describe("exit_plan_mode with a browser review", () => {
 describe("exit_plan_mode", () => {
 	test("rejects when not in plan mode", async () => {
 		const { exit, root } = setup();
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const { ctx } = planCtx({ editor: "1", cwd: root });
 		const result = await callTool(exit, { plan_path: join(planDir(root), "x.md") }, ctx);
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain("Not in plan mode");
@@ -688,7 +688,7 @@ describe("exit_plan_mode", () => {
 	test("rejects a missing plan file and a path outside the plans directory", async () => {
 		const { enter, exit, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 
 		const missing = await callTool(exit, { plan_path: join(planDir(root), "nope.md") }, ctx);
 		expect(missing.isError).toBe(true);
@@ -703,9 +703,9 @@ describe("exit_plan_mode", () => {
 	test("reports an error without a UI", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = fakeCtx({ hasUI: false, cwd: root });
+		const { ctx } = planCtx({ hasUI: false, cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.isError).toBe(true);
 		expect(result.details.unavailable).toBe(true);
@@ -721,7 +721,7 @@ describe("exit_plan_mode", () => {
 		const planPath = join(plansDir, "big.md");
 		writeFileSync(planPath, planWithSteps(MAX_STEPS + 1));
 
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const { ctx } = planCtx({ editor: "1", cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 
 		expect(result.isError).toBe(true);
@@ -735,9 +735,9 @@ describe("exit_plan_mode", () => {
 	test("keeps planning only when the user chooses that explicit option", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = fakeCtx({ editor: "2", cwd: root });
+		const { ctx } = planCtx({ editor: "2", cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(false);
 		expect(result.isError).toBeUndefined();
@@ -747,9 +747,9 @@ describe("exit_plan_mode", () => {
 	test("leaves plan mode when the plan review is dismissed", async () => {
 		const { enter, exit, write, runtime, activeTools, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx, toolCalls } = fakeCtx({ editor: undefined, cwd: root });
+		const { ctx, toolCalls } = planCtx({ editor: undefined, cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.details).toMatchObject({ approved: false, cancelled: true });
 		expect(result.content[0].text).toContain("Plan mode is off");
@@ -761,9 +761,9 @@ describe("exit_plan_mode", () => {
 	test("leaves plan mode through the Exit review option", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = fakeCtx({ editor: "3", cwd: root });
+		const { ctx } = planCtx({ editor: "3", cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.details.cancelled).toBe(true);
 		expect(runtime.isEnabled()).toBe(false);
@@ -774,7 +774,7 @@ describe("exit_plan_mode", () => {
 		const { enter, cancel, runtime, activeTools, root } = setup();
 		await enterPlan(enter, runtime, root);
 
-		const { ctx, notices, toolCalls } = fakeCtx({ cwd: root });
+		const { ctx, notices, toolCalls } = planCtx({ cwd: root });
 		const result = await callTool(cancel, {}, ctx);
 		expect(result.details.cancelled).toBe(true);
 		expect(runtime.isEnabled()).toBe(false);
@@ -793,7 +793,7 @@ describe("exit_plan_mode", () => {
 
 	test("cancel_plan_mode refuses outside plan mode", async () => {
 		const { cancel } = setup();
-		const { ctx } = fakeCtx();
+		const { ctx } = planCtx();
 		const result = await callTool(cancel, {}, ctx);
 		expect(result.isError).toBe(true);
 		expect(result.details.cancelled).toBe(false);
@@ -804,11 +804,11 @@ describe("exit_plan_mode", () => {
 		const { enter, exit, write, runtime, activeTools, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const plan = ["Plan:", "1. Read the parser", "2. Add a tokenizer", "3. Update tests"].join("\n");
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, plan);
 
 		// Accept the goal offer: the approval records the goal, which is what this
 		// asserts.
-		const { ctx, toolCalls } = fakeCtx({ editor: "1", confirm: true, cwd: root });
+		const { ctx, toolCalls } = planCtx({ editor: "1", confirm: true, cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 
 		expect(result.details.approved).toBe(true);
@@ -845,9 +845,9 @@ describe("exit_plan_mode", () => {
 			"- `bun run check` passes",
 			"- approve and merge",
 		].join("\n");
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, plan);
 
-		const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
+		const { ctx, toolCalls } = planCtx({ editor: "1", cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 
 		expect(toolCalls[0]?.args).toEqual({
@@ -868,9 +868,9 @@ describe("exit_plan_mode", () => {
 		// Without a `Steps` heading the shallowest list is the plan (the older rule),
 		// so the verification bullets are already steps and a summary would duplicate
 		// them.
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Plan\n\n## Verification\n- run the suite");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "# Plan\n\n## Verification\n- run the suite");
 
-		const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
+		const { ctx, toolCalls } = planCtx({ editor: "1", cwd: root });
 		await callTool(exit, { plan_path: planPath }, ctx);
 
 		expect(toolCalls[0]?.args).toEqual({ todos: [{ content: "run the suite", status: "pending" }] });
@@ -880,10 +880,10 @@ describe("exit_plan_mode", () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const plan = ["# Plan", "## Steps", "- [ ] Add the cache", "## Verification", "- run the suite"].join("\n");
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, plan);
 		// A branch whose todo list is already at its cap keeps the verification out.
 		const full = Array.from({ length: 50 }, (_, index) => ({ content: `existing ${index}`, status: "pending" }));
-		const { ctx } = fakeCtx({ editor: "1", branch: todoBranch(full), cwd: root });
+		const { ctx } = planCtx({ editor: "1", branch: todoBranch(full), cwd: root });
 
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 
@@ -905,9 +905,9 @@ describe("exit_plan_mode", () => {
 			"## Risks",
 			"- stale reads",
 		].join("\n");
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, plan);
 
-		const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
+		const { ctx, toolCalls } = planCtx({ editor: "1", cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 
 		expect(toolCalls[0].args).toEqual({
@@ -924,9 +924,9 @@ describe("exit_plan_mode", () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const plan = ["## Steps", "- [ ] Read the parser", "- [ ] Add a tokenizer"].join("\n");
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, plan);
 
-		const { ctx, toolCalls } = fakeCtx({
+		const { ctx, toolCalls } = planCtx({
 			editor: "1",
 			cwd: root,
 			branch: todoBranch([{ content: "Fix the flaky test", status: "pending" }]),
@@ -947,9 +947,9 @@ describe("exit_plan_mode", () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const plan = ["## Steps", "- [ ] Fix the flaky test", "- [ ] Add a token bucket"].join("\n");
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, plan);
 
-		const { ctx, toolCalls } = fakeCtx({
+		const { ctx, toolCalls } = planCtx({
 			editor: "1",
 			cwd: root,
 			branch: todoBranch([{ content: "  fix   the FLAKY test ", status: "completed" }]),
@@ -968,9 +968,9 @@ describe("exit_plan_mode", () => {
 	test("does not rewrite a todo list that already holds every step", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "## Steps\n- [ ] Only step");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "## Steps\n- [ ] Only step");
 
-		const { ctx, toolCalls } = fakeCtx({
+		const { ctx, toolCalls } = planCtx({
 			editor: "1",
 			cwd: root,
 			branch: todoBranch([{ content: "Only step", status: "completed" }]),
@@ -988,9 +988,9 @@ describe("exit_plan_mode", () => {
 			allTools: [{ name: TODO_TOOL, parameters: { properties: { todos: { maxItems: 2 } } } }],
 		});
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, planWithSteps(3));
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, planWithSteps(3));
 
-		const { ctx, toolCalls } = fakeCtx({
+		const { ctx, toolCalls } = planCtx({
 			editor: "1",
 			cwd: root,
 			branch: todoBranch([{ content: "Existing", status: "pending" }]),
@@ -1009,9 +1009,9 @@ describe("exit_plan_mode", () => {
 	test("accepts a plan_path named relative to the store", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const { ctx } = planCtx({ editor: "1", cwd: root });
 		const result = await callTool(exit, { plan_path: basename(planPath) }, ctx);
 		expect(result.details.approved).toBe(true);
 	});
@@ -1019,9 +1019,9 @@ describe("exit_plan_mode", () => {
 	test("accepts a plan_path spelled the way the tool displays it", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const { ctx } = planCtx({ editor: "1", cwd: root });
 		const result = await callTool(exit, { plan_path: shortenPath(planPath) }, ctx);
 		expect(result.details.approved).toBe(true);
 	});
@@ -1029,9 +1029,9 @@ describe("exit_plan_mode", () => {
 	test("approves even when the todo tool is unavailable", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Only step");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Only step");
 
-		const { ctx, setExecuteError } = fakeCtx({ editor: "1", cwd: root });
+		const { ctx, setExecuteError } = planCtx({ editor: "1", cwd: root });
 		setExecuteError(true);
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(true);
@@ -1040,9 +1040,9 @@ describe("exit_plan_mode", () => {
 	test("reports why the todo seed failed instead of calling the tool unavailable", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Only step");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Only step");
 
-		const { ctx } = fakeCtx({
+		const { ctx } = planCtx({
 			editor: "1",
 			cwd: root,
 			extra: {
@@ -1062,9 +1062,9 @@ describe("exit_plan_mode", () => {
 	test("returns the user's refinement and stays in plan mode", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Use a generator");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Use a generator");
 
-		const { ctx } = fakeCtx({ editor: "Use a hand-written lexer instead.", cwd: root });
+		const { ctx } = planCtx({ editor: "Use a hand-written lexer instead.", cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.details.refined).toBe(true);
 		expect(result.details.refinement).toBe("Use a hand-written lexer instead.");
@@ -1075,9 +1075,9 @@ describe("exit_plan_mode", () => {
 	test("treats a numbered sentence as feedback, not an approval", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Use a generator");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Use a generator");
 
-		const { ctx } = fakeCtx({ editor: "1. make step 2 smaller", cwd: root });
+		const { ctx } = planCtx({ editor: "1. make step 2 smaller", cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.details.refined).toBe(true);
 		expect(result.details.refinement).toBe("1. make step 2 smaller");
@@ -1088,9 +1088,9 @@ describe("exit_plan_mode", () => {
 	test("an empty review exits without approving", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Use a generator");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Use a generator");
 
-		const { ctx } = fakeCtx({ editor: "   ", cwd: root });
+		const { ctx } = planCtx({ editor: "   ", cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.details.cancelled).toBe(true);
 		expect(result.details.approved).toBe(false);
@@ -1100,9 +1100,9 @@ describe("exit_plan_mode", () => {
 	test("uses the review screen in TUI mode", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = fakeCtx({ mode: "tui", custom: { action: "approve" }, cwd: root });
+		const { ctx } = planCtx({ mode: "tui", custom: { action: "approve" }, cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(true);
 		expect(runtime.isEnabled()).toBe(false);
@@ -1111,9 +1111,9 @@ describe("exit_plan_mode", () => {
 	test("carries an inline TUI refinement through", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Use a generator");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Use a generator");
 
-		const { ctx } = fakeCtx({
+		const { ctx } = planCtx({
 			mode: "tui",
 			custom: { action: "refine", refinement: "use a hand-written lexer" },
 			cwd: root,
@@ -1129,9 +1129,9 @@ describe("exit_plan_mode", () => {
 		const annotations: PlanAnnotation[] = [{ anchor: 0, quote: "one", comment: "make it concrete" }];
 		const { enter, exit, write, runtime, root } = setup(webThatSaves(annotations));
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- one");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "- one");
 
-		const { ctx, notifications } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
+		const { ctx, notifications } = planCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.details.refined).toBe(true);
 		expect(result.details.refinement).toContain("make it concrete");
@@ -1144,10 +1144,10 @@ describe("exit_plan_mode", () => {
 		const { web, starts } = webThatApproves([]);
 		const { enter, exit, write, runtime, root } = setup(web);
 		await enterPlan(enter, runtime, root);
-		const ctx = fakeCtx({ cwd: root }).ctx;
+		const ctx = planCtx({ cwd: root }).ctx;
 		const planPath = await savePlan(write, ctx, "## Goal\nOld body\n## Steps\n- [ ] One");
 
-		const first = fakeCtx({ mode: "tui", cwd: root }).ctx;
+		const first = planCtx({ mode: "tui", cwd: root }).ctx;
 		first.ui.custom = async () => ({ action: "refine", refinement: "tighten the goal" });
 		await callTool(exit, { plan_path: planPath }, first);
 
@@ -1157,7 +1157,7 @@ describe("exit_plan_mode", () => {
 			ctx,
 		);
 
-		const second = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root }).ctx;
+		const second = planCtx({ mode: "tui", custom: { action: "browser" }, cwd: root }).ctx;
 		const result = await callTool(exit, { plan_path: planPath }, second);
 
 		expect(result.details.approved).toBe(true);
@@ -1170,9 +1170,9 @@ describe("exit_plan_mode", () => {
 		const { web, starts } = webThatApproves(annotations);
 		const { enter, exit, write, runtime, root, activeTools } = setup(web);
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Read the parser\n2. Update tests");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Read the parser\n2. Update tests");
 
-		const { ctx, toolCalls } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
+		const { ctx, toolCalls } = planCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 
 		expect(starts[0]).toMatchObject({ canApprove: true });
@@ -1190,11 +1190,11 @@ describe("exit_plan_mode", () => {
 		const { web, starts } = webThatApproves([]);
 		const { enter, exit, write, runtime, root } = setup(web);
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- one");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "- one");
 
 		const controller = new AbortController();
 		controller.abort();
-		const { ctx } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
+		const { ctx } = planCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
 		const result = await exit.execute("call-1", { plan_path: planPath }, controller.signal, undefined, ctx);
 
 		expect(starts).toEqual([]);
@@ -1206,9 +1206,9 @@ describe("exit_plan_mode", () => {
 	test("a cancelled browser review returns to the review screen", async () => {
 		const { enter, exit, write, runtime, root } = setup(webThatCancels());
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- one");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "- one");
 
-		const { ctx } = fakeCtx({ mode: "tui", cwd: root });
+		const { ctx } = planCtx({ mode: "tui", cwd: root });
 		let calls = 0;
 		ctx.ui.custom = async () => (calls++ === 0 ? { action: "browser" } : { action: "keep" });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
@@ -1221,7 +1221,7 @@ describe("exit_plan_mode", () => {
 	test("uses dialogs on a remote turn instead of the review screen", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
 		const { ctx, customCalls, files, events, editorCalls, timeouts } = remoteCtx({ cwd: root, editor: "1" });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
@@ -1241,7 +1241,7 @@ describe("exit_plan_mode", () => {
 	test("sends the plan file before the prompt", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
 		const { ctx, files, editorCalls } = remoteCtx({ cwd: root, editor: "2" });
 		await callTool(exit, { plan_path: planPath }, ctx);
@@ -1252,7 +1252,7 @@ describe("exit_plan_mode", () => {
 	test("the digest names the plan title when the file has one", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
 
 		const { ctx, editorCalls } = remoteCtx({ cwd: root, editor: "3" });
 		await callTool(exit, { plan_path: planPath }, ctx);
@@ -1262,7 +1262,7 @@ describe("exit_plan_mode", () => {
 	test("removes the full-plan action and keeps planning on 2", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
 
 		const { ctx, posted, files, editorCalls, timeouts } = remoteCtx({ cwd: root, editor: "2" });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
@@ -1280,7 +1280,7 @@ describe("exit_plan_mode", () => {
 	test("falls back to the plan text when the file cannot be sent", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
 
 		const { ctx, posted, events, setFileResult } = remoteCtx({ cwd: root, editor: "1" });
 		setFileResult(false);
@@ -1297,9 +1297,9 @@ describe("exit_plan_mode", () => {
 	test("mounts the review screen as a full-screen overlay", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = fakeCtx({ mode: "tui", cwd: root });
+		const { ctx } = planCtx({ mode: "tui", cwd: root });
 		const seen: unknown[] = [];
 		ctx.ui.custom = async (_factory: unknown, options: unknown) => {
 			seen.push(options);
@@ -1320,8 +1320,8 @@ describe("exit_plan_mode", () => {
 		async function approve(content: string, options: { branch?: unknown[]; executeError?: string } = {}) {
 			const { enter, exit, write, runtime, root } = setup();
 			await enterPlan(enter, runtime, root);
-			const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, content);
-			const fake = fakeCtx({
+			const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, content);
+			const fake = planCtx({
 				editor: "1",
 				branch: options.branch,
 				executeError: options.executeError,
@@ -1385,9 +1385,9 @@ describe("exit_plan_mode", () => {
 			// `allTools` names no goal, as when the sibling extension is disabled.
 			const { enter, exit, write, runtime, root } = setup(undefined, { allTools: [{ name: TODO_TOOL }] });
 			await enterPlan(enter, runtime, root);
-			const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Add rate limiting\n\n## Steps\n- [ ] One");
+			const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "# Add rate limiting\n\n## Steps\n- [ ] One");
 
-			const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
+			const { ctx, toolCalls } = planCtx({ editor: "1", cwd: root });
 			const result = await callTool(exit, { plan_path: planPath }, ctx);
 
 			expect(result.details.approved).toBe(true);
@@ -1401,10 +1401,10 @@ describe("set_plan_steps", () => {
 	test("ticks steps off in an approved plan and reports progress", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two\n3. Three");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. One\n2. Two\n3. Three");
 		await approvePlan(exit, planPath, root);
 
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(
 			setSteps,
 			{
@@ -1428,10 +1428,10 @@ describe("set_plan_steps", () => {
 	test("reopens a step and drops its DONE marker", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- First [DONE:1]\n- Second");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "- First [DONE:1]\n- Second");
 		await approvePlan(exit, planPath, root);
 
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(
 			setSteps,
 			{ plan_path: planPath, updates: [{ step: 1, status: "pending", expected: "First" }] },
@@ -1447,10 +1447,10 @@ describe("set_plan_steps", () => {
 	test("refuses a stale expected text and leaves the file unchanged", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. One\n2. Two");
 		await approvePlan(exit, planPath, root);
 
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(
 			setSteps,
 			{ plan_path: planPath, updates: [{ step: 2, status: "completed", expected: "Wire it" }] },
@@ -1465,10 +1465,10 @@ describe("set_plan_steps", () => {
 	test("accepts an expected text that matches after normalization", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. One\n2. Two");
 		await approvePlan(exit, planPath, root);
 
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(
 			setSteps,
 			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "  ONE " }] },
@@ -1482,10 +1482,10 @@ describe("set_plan_steps", () => {
 	test("ticks the todo item approval seeded from the same step", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One\n2. Two");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. One\n2. Two");
 		await approvePlan(exit, planPath, root);
 
-		const { ctx, toolCalls } = fakeCtx({
+		const { ctx, toolCalls } = planCtx({
 			cwd: root,
 			branch: todoBranch([
 				{ content: "One", status: "pending" },
@@ -1514,10 +1514,10 @@ describe("set_plan_steps", () => {
 	test("writes nothing when the matching item is already in that state", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. One");
 		await approvePlan(exit, planPath, root);
 
-		const { ctx, toolCalls } = fakeCtx({ cwd: root, branch: todoBranch([{ content: "One", status: "completed" }]) });
+		const { ctx, toolCalls } = planCtx({ cwd: root, branch: todoBranch([{ content: "One", status: "completed" }]) });
 		const result = await callTool(
 			setSteps,
 			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "One" }] },
@@ -1533,10 +1533,10 @@ describe("set_plan_steps", () => {
 	test("reports a step with no matching todo item instead of inventing one", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. One");
 		await approvePlan(exit, planPath, root);
 
-		const { ctx, toolCalls } = fakeCtx({ cwd: root, branch: todoBranch([{ content: "Renamed", status: "pending" }]) });
+		const { ctx, toolCalls } = planCtx({ cwd: root, branch: todoBranch([{ content: "Renamed", status: "pending" }]) });
 		const result = await callTool(
 			setSteps,
 			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "One" }] },
@@ -1551,10 +1551,10 @@ describe("set_plan_steps", () => {
 	test("reports a failed todo write without turning the written plan into an error", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. One");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. One");
 		await approvePlan(exit, planPath, root);
 
-		const { ctx } = fakeCtx({
+		const { ctx } = planCtx({
 			cwd: root,
 			branch: todoBranch([{ content: "One", status: "pending" }]),
 			executeError: "at most 50 todos are allowed",
@@ -1574,10 +1574,10 @@ describe("set_plan_steps", () => {
 	test("refuses when any step is out of range and leaves the file unchanged", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- One");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "- One");
 		await approvePlan(exit, planPath, root);
 
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(
 			setSteps,
 			{
@@ -1598,10 +1598,10 @@ describe("set_plan_steps", () => {
 	test("refuses a plan outside the plans directory", async () => {
 		const { enter, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		runtime.disable(fakeCtx({ cwd: root }).ctx);
+		runtime.disable(planCtx({ cwd: root }).ctx);
 		writeFileSync(join(root, "secret.md"), "- One");
 
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(
 			setSteps,
 			{ plan_path: join(root, "secret.md"), updates: [{ step: 1, status: "completed", expected: "One" }] },
@@ -1615,9 +1615,9 @@ describe("set_plan_steps", () => {
 	test("refuses while still in plan mode", async () => {
 		const { enter, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- One");
+		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "- One");
 
-		const { ctx } = fakeCtx({ cwd: root });
+		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(
 			setSteps,
 			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "One" }] },

@@ -18,7 +18,7 @@ import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import { execP, makeRepo, makeRepoWithRemote } from "../../test/helpers/git.ts";
-import { bootWorktree, makeFakePi, makeTempTracker, testConfig } from "../../test/helpers/fixtures/worktree.ts";
+import { bootWorktree, makeBareWorktreePi, makeTempTracker, testConfig } from "../../test/helpers/fixtures/worktree.ts";
 import { DEFAULT_CONFIG, loadConfig } from "./config.ts";
 import {
 	branchExists,
@@ -62,7 +62,7 @@ import { WORKTREE_TOOLS } from "./tools.ts";
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
-const pi = makeFakePi();
+const pi = makeBareWorktreePi();
 
 // Windows needs Developer Mode/admin to create symlinks, so those cases skip.
 const symlinkTest = (canCreateSymlinks() ? test : test.skip) as typeof test;
@@ -319,7 +319,7 @@ describe.skipIf(!runSlowSuites)("checkout status", () => {
 	test("reports a fresh worktree as clean, with no commits of its own", async () => {
 		const { repo, dir, base } = await worktree();
 		const status = await statusOf(
-			makeFakePi(),
+			makeBareWorktreePi(),
 			{ path: dir, branch: "wt" },
 			{ baseRef: "origin/main", record: record(repo, dir, base) },
 		);
@@ -343,7 +343,7 @@ describe.skipIf(!runSlowSuites)("checkout status", () => {
 		await execP("git", ["add", "."], { cwd: dir });
 		await execP("git", ["commit", "-qm", "work"], { cwd: dir });
 
-		let status = await statusOf(makeFakePi(), entry, options);
+		let status = await statusOf(makeBareWorktreePi(), entry, options);
 		expect(status.commits).toBe(1);
 		expect(status.ahead).toBe(1);
 		expect(status.merged).toBe(false);
@@ -353,7 +353,7 @@ describe.skipIf(!runSlowSuites)("checkout status", () => {
 		// Land it: the same branch, now contained in the base it targets.
 		await execP("git", ["push", "-q", "origin", "HEAD:main"], { cwd: dir });
 		await execP("git", ["fetch", "-q", "origin"], { cwd: repo });
-		status = await statusOf(makeFakePi(), entry, options);
+		status = await statusOf(makeBareWorktreePi(), entry, options);
 		expect(status.commits).toBe(1);
 		expect(status.ahead).toBe(0);
 		expect(status.merged).toBe(true);
@@ -365,7 +365,7 @@ describe.skipIf(!runSlowSuites)("checkout status", () => {
 	test("cannot count commits for a worktree it did not create", async () => {
 		const { dir } = await worktree();
 		// No record means no fork point, so the count is unknown and the coarse answer stands.
-		const status = await statusOf(makeFakePi(), { path: dir, branch: "wt" }, { baseRef: "origin/main" });
+		const status = await statusOf(makeBareWorktreePi(), { path: dir, branch: "wt" }, { baseRef: "origin/main" });
 		expect(status.commits).toBeUndefined();
 		expect(status.merged).toBe(true);
 	});
@@ -376,13 +376,13 @@ describe.skipIf(!runSlowSuites)("checkout status", () => {
 		await execP("git", ["add", "."], { cwd: dir });
 		await execP("git", ["commit", "-qm", "work"], { cwd: dir });
 
-		let status = await statusOf(makeFakePi(), { path: dir, branch: "wt" }, { baseRef: "origin/main" });
+		let status = await statusOf(makeBareWorktreePi(), { path: dir, branch: "wt" }, { baseRef: "origin/main" });
 		expect(status.ahead).toBe(1);
 		expect(status.merged).toBe(false);
 		expect(status.state).toBe("clean");
 
 		writeFileSync(join(dir, "dirty.txt"), "y");
-		status = await statusOf(makeFakePi(), { path: dir, branch: "wt" }, { baseRef: "origin/main" });
+		status = await statusOf(makeBareWorktreePi(), { path: dir, branch: "wt" }, { baseRef: "origin/main" });
 		expect(status.state).toBe("dirty");
 		expect(status.changed).toBe(1);
 	});
@@ -393,17 +393,17 @@ describe.skipIf(!runSlowSuites)("checkout status", () => {
 		await execP("git", ["push", "-q", "origin", "HEAD:main"], { cwd: repo });
 		await execP("git", ["fetch", "-q", "origin"], { cwd: repo });
 
-		const status = await statusOf(makeFakePi(), { path: dir, branch: "wt" }, { baseRef: "origin/main" });
+		const status = await statusOf(makeBareWorktreePi(), { path: dir, branch: "wt" }, { baseRef: "origin/main" });
 		expect(status.behind).toBeGreaterThanOrEqual(1);
 	});
 
 	test("reports a missing directory and flags a stale lock", async () => {
-		const missing = await statusOf(makeFakePi(), { path: join(tempDir("pi-wt-missing-"), "nope") }, {});
+		const missing = await statusOf(makeBareWorktreePi(), { path: join(tempDir("pi-wt-missing-"), "nope") }, {});
 		expect(missing.state).toBe("missing");
 
 		const { repo, dir } = await worktree();
 		await execP("git", ["worktree", "lock", "--reason", "pi:999999:sess", dir], { cwd: repo });
-		const stale = await statusOf(makeFakePi(), { path: dir, branch: "wt", locked: "pi:999999:sess" }, {});
+		const stale = await statusOf(makeBareWorktreePi(), { path: dir, branch: "wt", locked: "pi:999999:sess" }, {});
 		expect(stale.locked).toBe(true);
 		expect(stale.staleLock).toBe(true);
 	});

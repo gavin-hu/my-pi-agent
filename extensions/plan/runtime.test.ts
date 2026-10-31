@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { baselineEntry, fakeCtx, makeFakePi, stateEntry } from "../../test/helpers/fixtures/plan.ts";
+import { baselineEntry, planCtx, makePlanPi, stateEntry } from "../../test/helpers/fixtures/plan.ts";
 import { checkReadOnlyGit } from "./git-bash.ts";
 import { hasPathInput } from "./path-guard.ts";
 import { changedSections, sectionDigests } from "./plan-text.ts";
@@ -9,13 +9,13 @@ import { createPlanPolicy } from "./policy.ts";
 import { BASELINE_TYPE, createPlanRuntime, ENTER_TOOL, EXIT_TOOL, STATE_TYPE, WRITE_PLAN_TOOL } from "./runtime.ts";
 
 function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknown[] } = {}) {
-	const fake = makeFakePi({
+	const fake = makePlanPi({
 		active: options.active ?? ["read", "bash", "write", "edit", ENTER_TOOL, "todo"],
 		planFlag: options.planFlag,
 	});
 	if (options.planFlag) fake.flags.set("plan", { default: true });
 	const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
-	const { ctx, statusCalls } = fakeCtx({ branch: options.branch });
+	const { ctx, statusCalls } = planCtx({ branch: options.branch });
 	return { ...fake, runtime, ctx, statusCalls };
 }
 
@@ -81,10 +81,10 @@ describe("plan runtime — tool gating", () => {
 	});
 
 	test("keeps a tool that carries the read-only hint", () => {
-		const fake = makeFakePi({ active: ["read", "web_search"] });
+		const fake = makePlanPi({ active: ["read", "web_search"] });
 		fake.pi.allTools = [{ name: "web_search", annotations: { readOnlyHint: true } }];
 		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
-		runtime.enable(fakeCtx().ctx);
+		runtime.enable(planCtx().ctx);
 		expect(fake.activeTools()).toContain("web_search");
 	});
 
@@ -191,7 +191,7 @@ describe("plan runtime — plan-tool identity", () => {
 	});
 
 	test("recognizes a plan tool sourced from this extension", () => {
-		const fake = makeFakePi({ active: ["read"] });
+		const fake = makePlanPi({ active: ["read"] });
 		fake.pi.allTools = [
 			{ name: EXIT_TOOL, sourceInfo: { path: "/this/index.ts" } },
 			{ name: WRITE_PLAN_TOOL, sourceInfo: { path: "/this/index.ts" } },
@@ -204,7 +204,7 @@ describe("plan runtime — plan-tool identity", () => {
 	});
 
 	test("rejects a plan tool sourced from another extension", () => {
-		const fake = makeFakePi({ active: ["read"] });
+		const fake = makePlanPi({ active: ["read"] });
 		fake.pi.allTools = [
 			{ name: EXIT_TOOL, sourceInfo: { path: "/other/index.ts" } },
 			{ name: WRITE_PLAN_TOOL, sourceInfo: { path: "/other/index.ts" } },
@@ -217,7 +217,7 @@ describe("plan runtime — plan-tool identity", () => {
 	});
 
 	test("accepts a plan tool whose source the host did not record", () => {
-		const fake = makeFakePi({ active: ["read"] });
+		const fake = makePlanPi({ active: ["read"] });
 		fake.pi.allTools = [{ name: EXIT_TOOL }];
 		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
 		expect(runtime.isOwnTool(EXIT_TOOL)).toBe(true);
@@ -305,7 +305,7 @@ describe("plan runtime — review baseline", () => {
 		const { runtime } = setup();
 		runtime.markReviewed(path, plan);
 
-		runtime.restore(fakeCtx({ branch: [stateEntry(true)] }).ctx);
+		runtime.restore(planCtx({ branch: [stateEntry(true)] }).ctx);
 
 		expect(runtime.reviewed(path)).toBeUndefined();
 	});
@@ -343,7 +343,7 @@ describe("plan runtime — branch restore", () => {
 		// A `/tree` navigation: the host resets the active set to the target
 		// branch's declared tools before emitting `session_tree`.
 		pi.setActiveTools(["read", "grep", "job"]);
-		const treeCtx = fakeCtx({ branch: [stateEntry(true, ["write", "edit", "job"])] }).ctx;
+		const treeCtx = planCtx({ branch: [stateEntry(true, ["write", "edit", "job"])] }).ctx;
 		runtime.restore(treeCtx);
 		runtime.disable(treeCtx);
 
@@ -359,7 +359,7 @@ describe("plan runtime — branch restore", () => {
 
 		// The host restores a base set without write/edit; plan mode was off there.
 		pi.setActiveTools(["read", "grep"]);
-		const offCtx = fakeCtx({ branch: [stateEntry(false)] }).ctx;
+		const offCtx = planCtx({ branch: [stateEntry(false)] }).ctx;
 		runtime.restore(offCtx);
 
 		expect(activeTools()).not.toContain("write");

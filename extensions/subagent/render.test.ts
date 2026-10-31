@@ -5,10 +5,10 @@ import { Container, getKeybindings, KeybindingsManager, setKeybindings, TUI_KEYB
 import { emptyUsage } from "./stream.ts";
 import { renderSubagentCall, renderSubagentResult, type StreamedSubagentArgs } from "./render.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
-import { assistantMessage, fakeTheme } from "../../test/helpers/fixtures/subagent.ts";
-import { coloringTheme } from "../../test/helpers/fakes.ts";
+import { assistantMessage } from "../../test/helpers/fixtures/subagent.ts";
+import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 
-const theme = fakeTheme();
+const theme = fakeTheme;
 
 /** Fixed render time, so elapsed labels never depend on the wall clock. */
 const NOW = 1_000_000;

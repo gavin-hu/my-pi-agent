@@ -5,14 +5,14 @@ import { PLAN_ENTER_TOOL } from "../../lib/tool-names.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { createFakePi, emit, fakeTheme } from "../../test/helpers/fakes.ts";
-import { bootBytefly, makeFakePi, OFFLINE_UPDATE } from "../../test/helpers/fixtures/boot.ts";
+import { bootBytefly, makeByteflyPi, OFFLINE_UPDATE } from "../../test/helpers/fixtures/boot.ts";
 import { fakeFooterCtx } from "../../test/helpers/fixtures/footer.ts";
 import { makeDiscovery, makeItem } from "../../test/helpers/fixtures/picker.ts";
 
 describe("bytefly extension registration", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "bytefly" }, () => {
-			const { pi, tools, commands, handlers, markdownTransformers, messageRenderers, toolRenderers } = makeFakePi();
+			const { pi, tools, commands, handlers, markdownTransformers, messageRenderers, toolRenderers } = makeByteflyPi();
 			bootBytefly(pi);
 			expect(tools.size).toBe(0);
 			expect(commands.size).toBe(0);
@@ -24,7 +24,7 @@ describe("bytefly extension registration", () => {
 	});
 
 	test("registers one /bytefly command and no retired aliases", () => {
-		const { pi, commands } = makeFakePi();
+		const { pi, commands } = makeByteflyPi();
 		bootBytefly(pi);
 		expect(commands.has("bytefly")).toBe(true);
 		expect(commands.has("extensions")).toBe(false);
@@ -32,7 +32,7 @@ describe("bytefly extension registration", () => {
 	});
 
 	test("completes extension names, not the retired chrome toggles", () => {
-		const { pi, commands } = makeFakePi();
+		const { pi, commands } = makeByteflyPi();
 		bootBytefly(pi);
 		const labels = commands
 			.get("bytefly")
@@ -46,7 +46,7 @@ describe("bytefly extension registration", () => {
 	});
 
 	test("registers the doctor surface's read-only tool", () => {
-		const { pi, tools, commands } = makeFakePi();
+		const { pi, tools, commands } = makeByteflyPi();
 		bootBytefly(pi);
 		const tool = tools.get("run_doctor");
 		expect(tool?.annotations.readOnlyHint).toBe(true);
@@ -54,26 +54,26 @@ describe("bytefly extension registration", () => {
 	});
 
 	test("registers the notify capability's hooks", () => {
-		const { pi, handlers } = makeFakePi();
+		const { pi, handlers } = makeByteflyPi();
 		bootBytefly(pi);
 		// `ui_prompt_start` is notify's own hook; the separator shares `agent_settled`.
 		expect(handlers.has("ui_prompt_start")).toBe(true);
 	});
 
 	test("registers the user-message transformer", () => {
-		const { pi, markdownTransformers } = makeFakePi();
+		const { pi, markdownTransformers } = makeByteflyPi();
 		bootBytefly(pi);
 		expect(markdownTransformers).toHaveLength(1);
 	});
 
 	test("registers the notice renderer", () => {
-		const { pi, messageRenderers } = makeFakePi();
+		const { pi, messageRenderers } = makeByteflyPi();
 		bootBytefly(pi);
 		expect(messageRenderers.has(NOTICE_TYPE)).toBe(true);
 	});
 
 	test("registers the tool-block resolver", () => {
-		const { pi, toolRenderers } = makeFakePi();
+		const { pi, toolRenderers } = makeByteflyPi();
 		bootBytefly(pi);
 		expect(toolRenderers).toHaveLength(1);
 	});
@@ -81,7 +81,7 @@ describe("bytefly extension registration", () => {
 
 describe("bytefly interactive surfaces", () => {
 	test("drives the working line while the working indicator is up", async () => {
-		const { pi } = makeFakePi();
+		const { pi } = makeByteflyPi();
 		bootBytefly(pi);
 		const { ctx, workingMessages } = fakeFooterCtx({ mode: "tui" });
 
@@ -96,7 +96,7 @@ describe("bytefly interactive surfaces", () => {
 	});
 
 	test("shares one output pad between the notice and the turn separator", () => {
-		const { pi, messageRenderers, renderers } = makeFakePi();
+		const { pi, messageRenderers, renderers } = makeByteflyPi();
 		bootBytefly(pi);
 
 		// A notice is handed Pi's pad; it insets by it and records it for the rest.
@@ -116,7 +116,7 @@ describe("bytefly interactive surfaces", () => {
 	});
 
 	test("installs the footer on session start and restores it on shutdown", async () => {
-		const { pi } = makeFakePi();
+		const { pi } = makeByteflyPi();
 		bootBytefly(pi);
 		const { ctx, footers } = fakeFooterCtx({ mode: "tui" });
 
@@ -129,7 +129,7 @@ describe("bytefly interactive surfaces", () => {
 	});
 
 	test("installs the header only with the bytefly startup TUI, and restores it", async () => {
-		const { pi } = makeFakePi({ settings: { quietStartup: true } });
+		const { pi } = makeByteflyPi({ settings: { quietStartup: true } });
 		bootBytefly(pi);
 		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
 
@@ -142,7 +142,7 @@ describe("bytefly interactive surfaces", () => {
 	});
 
 	test("does not install interactive chrome outside the tui mode", async () => {
-		const { pi } = makeFakePi({ settings: { quietStartup: true } });
+		const { pi } = makeByteflyPi({ settings: { quietStartup: true } });
 		bootBytefly(pi);
 		const { ctx, footers, headers } = fakeFooterCtx({ mode: "print" });
 
@@ -160,7 +160,7 @@ describe("bytefly interactive surfaces", () => {
 		};
 		ctx.ui.getEditorComponent = () => installed;
 
-		const bare = makeFakePi();
+		const bare = makeByteflyPi();
 		bootBytefly(bare.pi);
 		await emit(bare.pi, "session_start", { reason: "startup" }, ctx);
 		expect(installed).toBeUndefined();
@@ -178,7 +178,7 @@ describe("bytefly interactive surfaces", () => {
 
 describe("bytefly command wiring", () => {
 	test("reaches the update check from /bytefly update", async () => {
-		const { pi, commands } = makeFakePi();
+		const { pi, commands } = makeByteflyPi();
 		// The injected list and version are what the command reports, so the wiring
 		// is proven without a package-manager call or an agent-directory write.
 		bootBytefly(pi, {
@@ -201,7 +201,7 @@ describe("bytefly command wiring", () => {
 	});
 
 	test("keeps the chrome installed when the panel runs", async () => {
-		const { pi, commands } = makeFakePi({ settings: { quietStartup: true } });
+		const { pi, commands } = makeByteflyPi({ settings: { quietStartup: true } });
 		const discovery = makeDiscovery({ extensions: [makeItem({ path: "/agent/extensions/one.ts" })] }).discovery;
 		bootBytefly(pi, { extensions: { discover: async () => discovery } });
 		const { ctx, footers, headers } = fakeFooterCtx({ mode: "tui", trusted: true });

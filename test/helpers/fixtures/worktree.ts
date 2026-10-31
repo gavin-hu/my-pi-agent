@@ -12,7 +12,7 @@ import {
 import { registerWorktree } from "../../../extensions/worktree/index.ts";
 import { createFakePi, emitFirst } from "../fakes.ts";
 import { execP } from "../git.ts";
-import { fakeCtx as sharedFakeCtx } from "../context.ts";
+import { fakeCtx } from "../context.ts";
 import { useAgentDir } from "../env.ts";
 
 export {
@@ -90,7 +90,7 @@ function isolateAgentDir(): void {
 }
 
 /** A minimal `pi` API for driving the extension without the Pi runtime. */
-export function makeFakePi() {
+export function makeBareWorktreePi() {
 	isolateAgentDir();
 	const fake = createFakePi({
 		exec: (command, args, options) => execP(command, args, options),
@@ -136,7 +136,7 @@ export function makeWorktreePi(options: WorktreePiOptions = {}) {
 	return { pi, builtins };
 }
 
-export interface FakeCtxOptions {
+export interface WorktreeCtxOptions {
 	cwd: string;
 	hasUI?: boolean;
 	confirm?: boolean;
@@ -144,9 +144,9 @@ export interface FakeCtxOptions {
 }
 
 /** A minimal `ExtensionContext` for tool and event handlers. */
-export function makeFakeCtx(pi: any, options: FakeCtxOptions) {
+export function makeFakeCtx(pi: any, options: WorktreeCtxOptions) {
 	const hasUI = options.hasUI ?? false;
-	const result = sharedFakeCtx({
+	const result = fakeCtx({
 		cwd: options.cwd,
 		hasUI,
 		mode: hasUI ? "tui" : "print",

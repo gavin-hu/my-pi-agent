@@ -134,6 +134,7 @@ shared `FakePi`/`fakeCtx` pair may build it inline from `test/helpers/` instead
 of adding a fixture. A fixture must:
 
 - build the `FakePi` / `fakeCtx` pair with that extension's defaults;
+- export it under a capability name — `makePlanPi`, `fileBrowseCtx`, `RewindCtxOptions` — never the shared helper's own name, so a reader can tell the narrowed double from the one in `test/helpers/`;
 - expose a **suite harness** returning `{ repo/dir, pi, ctx, ...actions }` and
   owning teardown, so tests never use `try/finally` to clean up;
 - export only the recorders and actions its tests read;

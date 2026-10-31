@@ -1,7 +1,7 @@
 /**
  * Fixture for booting the bytefly extension.
  *
- * `makeFakePi` is the shared `ExtensionAPI` double narrowed to what bytefly
+ * `makeByteflyPi` is the shared `ExtensionAPI` double narrowed to what bytefly
  * registers; `bootBytefly` calls the shipped extension factory over it with the
  * update check made inert, because a test that boots bytefly must never read npm
  * or write the agent directory.
@@ -13,7 +13,7 @@ import type { MarkdownTransformer, ToolRendererResolver } from "@earendil-works/
 import bytefly from "../../../extensions/bytefly/index.ts";
 import { createFakePi, type AnyHandler } from "../fakes.ts";
 
-interface FakePi {
+interface ByteflyPi {
 	pi: any;
 	tools: Map<string, any>;
 	commands: Map<string, any>;
@@ -26,7 +26,7 @@ interface FakePi {
 }
 
 /** Minimal `ExtensionAPI` double covering what the bytefly extension uses. */
-export function makeFakePi(options: { settings?: any } = {}): FakePi {
+export function makeByteflyPi(options: { settings?: any } = {}): ByteflyPi {
 	const fake = createFakePi({ settings: options.settings });
 	return {
 		pi: fake.pi,

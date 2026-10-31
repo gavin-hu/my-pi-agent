@@ -1,12 +1,6 @@
 import type { Message } from "@earendil-works/pi-ai";
-import { fakeTheme as sharedFakeTheme } from "../fakes.ts";
 
 export { makeSubagentSpawn as makeFakeSpawn, SubagentChild as FakeChild, waitFor } from "../process.ts";
-
-/** A theme double with identity colorization, for pure render/format tests. */
-export function fakeTheme(): any {
-	return sharedFakeTheme;
-}
 
 /** An assistant message with the fields the runner reads. */
 export function assistantMessage(
