@@ -474,7 +474,18 @@ git diff -- extensions\plan      # allowed: a Windows path separator
 git status && rm -rf x            # blocked: the second segment is not git
 git status | sh                   # blocked: pipes are never allowed
 git diff > out.patch              # blocked: redirection is a write
+git config --get user.email       # allowed: a read
+git config --add core.hooksPath x # blocked: it writes .git/config
 ```
+
+`git config` reads only. Its flags are an allowlist — `--get`, `--get-all`,
+`--get-regexp`, `--list`, and the modifiers that shape them (`--show-origin`,
+`--show-scope`, `--local`, `--global`, `--null`) — one bare `git config <name>` reads a
+key, and every action that writes is refused by name: `--add`, `--replace-all`, `--unset`,
+`--unset-all`, `--rename-section`, `--remove-section`, `--edit`, or a `<name> <value>`
+pair. A write action used to pass as long as a read flag appeared beside it, so
+`git config --show-scope --replace-all core.fsmonitor /tmp/hook.sh` configured a hook from
+inside a plan and the next `git status` ran it.
 
 A refused shell command explains the fix: the working directory is already the
 project root (so `cd` is unnecessary), and files belong to the `read`, `grep`,

@@ -55,7 +55,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/plan/extension.test.ts": 499,
 	"extensions/plan/feedback.test.ts": 499,
 	"extensions/plan/plans.test.ts": 1840,
-	"extensions/plan/runtime.test.ts": 578,
+	"extensions/plan/runtime.test.ts": 432,
 	"extensions/plan/tools.test.ts": 1704,
 	"extensions/plan/tui.test.ts": 610,
 	"extensions/plan/web-behaviour.test.ts": 574,

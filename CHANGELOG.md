@@ -379,6 +379,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: **plan mode refuses every `git config` write** — the guard used to accept any
+  `git config` that merely contained a read flag, so `git config --show-scope --replace-all
+  core.fsmonitor /tmp/hook.sh` wrote `.git/config` from inside a plan and the `git status`
+  that followed ran the hook. The flags are an allowlist now (`--get*`, `--list`, one bare
+  `git config <name>`, and the modifiers that shape them), and `--add`, `--replace-all`,
+  `--unset`, `--unset-all`, `--rename-section`, `--remove-section`, `--edit`, and a `<name>
+  <value>` pair are each refused by name.
 - `docs`: **the pi.dev listing previews five screenshots instead of one** — the chrome hero,
   the terminal plan review, the board, the browser plan review, and the file browser. The
   gallery rewrites a README Markdown image to the npm CDN at the published version, and

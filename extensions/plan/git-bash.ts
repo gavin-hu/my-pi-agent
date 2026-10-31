@@ -202,6 +202,119 @@ function checkFlagAndPositional(rest: string[], spec: RestCheck, label: string):
 	return { ok: true };
 }
 
+/** `git config` flags that write the file, each of which the guard refuses by name. */
+const CONFIG_WRITE_FLAGS = new Set([
+	"--add",
+	"--edit",
+	"-e",
+	"--remove-section",
+	"--rename-section",
+	"--replace-all",
+	"--unset",
+	"--unset-all",
+]);
+
+/** `git config` flags whose value is the next token, or the part after `=`. */
+const CONFIG_VALUE_FLAGS = new Set([
+	"--get",
+	"--get-all",
+	"--get-regexp",
+	"--get-urlmatch",
+	"--get-color",
+	"--get-colorbool",
+	"--default",
+	"--file",
+	"-f",
+	"--type",
+	"--blob",
+]);
+
+/** `git config` flags that select or shape a read without taking a value. */
+const CONFIG_READ_FLAGS = new Set([
+	"--list",
+	"-l",
+	"--show-origin",
+	"--show-scope",
+	"--name-only",
+	"--null",
+	"-z",
+	"--local",
+	"--global",
+	"--system",
+	"--worktree",
+	"--includes",
+	"--no-includes",
+	"--bool",
+	"--int",
+	"--bool-or-int",
+	"--path",
+]);
+
+/** `git config` flags that ask for a value rather than only shaping the output. */
+const CONFIG_GET_FLAGS = new Set([
+	"--get",
+	"--get-all",
+	"--get-regexp",
+	"--get-urlmatch",
+	"--get-color",
+	"--get-colorbool",
+]);
+
+/**
+ * `git config` reads only, by allowlist.
+ *
+ * Asking whether a read flag appeared *anywhere* let every write through beside one:
+ * `git config --show-scope --replace-all core.fsmonitor /tmp/hook.sh` wrote `.git/config`
+ * from inside plan mode, and the `git status` that followed ran the hook. Each flag is now
+ * one this guard knows, a write action is refused by name, positionals are at most one, and
+ * the only forms left are the ones git reads with: `--get*`, `--list`, or one bare name.
+ */
+function checkConfig(rest: string[]): GitCommandVerdict {
+	const tokens = rest.map(unquote);
+	const positionals: string[] = [];
+	let reads = false;
+	for (let index = 0; index < tokens.length; index += 1) {
+		const token = tokens[index] ?? "";
+		if (!token.startsWith("-")) {
+			positionals.push(token);
+			continue;
+		}
+		const [flag = "", inline] = token.split("=", 2);
+		if (CONFIG_WRITE_FLAGS.has(flag)) {
+			return {
+				ok: false,
+				reason: `"git config ${flag}" writes .git/config; "git config" may only read while planning.`,
+			};
+		}
+		if (!CONFIG_READ_FLAGS.has(flag) && !CONFIG_VALUE_FLAGS.has(flag)) {
+			return { ok: false, reason: `"git config" flag "${token}" is not a read-only option.` };
+		}
+		if (!CONFIG_VALUE_FLAGS.has(flag)) {
+			if (flag === "--list" || flag === "-l") reads = true;
+			continue;
+		}
+		if (CONFIG_GET_FLAGS.has(flag)) reads = true;
+		if (inline !== undefined) continue;
+		const value = tokens[index + 1];
+		// A flag is not a value: reading `--replace-all` as `--get`'s key would refuse nothing
+		// and leave git to act on it, so the value is refused rather than guessed.
+		if (value === undefined || value.startsWith("-")) {
+			return { ok: false, reason: `"git config ${flag}" needs a value, and plan mode does not guess one.` };
+		}
+		index += 1;
+	}
+	if (positionals.length > 1) {
+		return { ok: false, reason: '"git config <name> <value>" writes .git/config; plan mode reads config only.' };
+	}
+	if (!reads && positionals.length !== 1) {
+		return {
+			ok: false,
+			reason: '"git config" may only read; use "git config <name>", --get, --get-all, --get-regexp, or --list.',
+		};
+	}
+	return { ok: true };
+}
+
 /** Subcommand-specific read-only rules; the rest only pass the option denylist. */
 function checkRest(subcommand: string, rest: string[]): GitCommandVerdict {
 	switch (subcommand) {
@@ -219,22 +332,8 @@ function checkRest(subcommand: string, rest: string[]): GitCommandVerdict {
 				reason: `"git remote ${first}" can change a remote; use "git remote -v" or "git remote show".`,
 			};
 		}
-		case "config": {
-			const hasReadFlag = rest.some((raw) => {
-				const token = unquote(raw);
-				return (
-					token.startsWith("--get") ||
-					token === "--list" ||
-					token === "-l" ||
-					token === "--show-origin" ||
-					token === "--show-scope"
-				);
-			});
-			if (!hasReadFlag) {
-				return { ok: false, reason: '"git config" may only read; add --get, --get-all, --get-regexp, or --list.' };
-			}
-			return { ok: true };
-		}
+		case "config":
+			return checkConfig(rest);
 		case "stash": {
 			const [first] = rest.map(unquote);
 			if (first === "list" || first === "show") return { ok: true };
