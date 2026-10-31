@@ -197,6 +197,11 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		}
 	};
 
+	/** The start this session is running or ran; only `start` starts one. */
+	function ensureReady(): Promise<void> {
+		return starting ?? Promise.resolve();
+	}
+
 	async function joinBus(): Promise<void> {
 		if (!store || !record) throw new Error("session bus is not started.");
 		if (joined) return;
@@ -330,6 +335,9 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	}
 
 	async function prepare(): Promise<void> {
+		// A call that lands while the session's start is still settling waits for it: the channel
+		// starts the bus without blocking the reload, so the first tool or command is the reader.
+		await ensureReady();
 		await joinBus();
 		await pruneStale();
 	}

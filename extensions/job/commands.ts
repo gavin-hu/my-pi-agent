@@ -16,6 +16,9 @@ export function registerCommands(pi: ExtensionAPI, runtime: JobsRuntime): void {
 	pi.registerCommand("jobs", {
 		description: "Show and manage background jobs",
 		handler: async (_args, ctx) => {
+			// The session's registry load is started, not awaited, so the first read waits for it:
+			// a `/jobs` typed right after a reload would otherwise list an unmerged registry.
+			await runtime.ready();
 			if (ctx.mode !== "tui") {
 				ctx.ui.notify(formatJobList(runtime.list()), "info");
 				return;

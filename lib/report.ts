@@ -119,9 +119,11 @@ export function createPendingReporter<T>(options: PendingReporterOptions<T>): Pe
 /** The session-scoped state a channel drives, narrowed to what its hooks need. */
 export interface PendingChannelRuntime {
 	/**
-	 * Load this session's records on every session start. A promise is awaited, so a
-	 * runtime that resolves a repository or opens a store is fully loaded before the
-	 * report trigger is armed.
+	 * Start this session's load on every session start, returning the promise it settles on.
+	 *
+	 * Called, not awaited: the scan runs beside the rest of the reload, and the report trigger
+	 * is armed when it lands, so a runtime that resolves a repository or opens a store is still
+	 * fully loaded before anything is reported.
 	 */
 	load(ctx: ExtensionContext): void | Promise<void>;
 	/** Repaint the status chip; a runtime that publishes none omits it. */
@@ -155,14 +157,28 @@ export function registerPendingChannel(
 	pi: Pick<ExtensionAPI, "on">,
 	{ reporter, runtime, onSessionStart, onSessionShutdown }: PendingChannelOptions,
 ): void {
-	pi.on("session_start", async (_event, ctx) => {
+	let armed: Promise<void> = Promise.resolve();
+
+	pi.on("session_start", (_event, ctx) => {
 		reporter.sessionStart();
-		await runtime.load(ctx);
-		onSessionStart?.(ctx);
+		// Started, not awaited: the scan runs beside the reload. The trigger is armed when it
+		// lands, which is the same order the awaited form had — the waiting moved to the
+		// readers below, so a lifecycle event no longer pays for a scan nobody has asked for.
+		armed = Promise.resolve(runtime.load(ctx)).then(
+			() => onSessionStart?.(ctx),
+			(error: unknown) => {
+				// The load failed: arm anyway, so a reporter that still has something to say is
+				// not muted for the whole session, and let the first reader hear the failure.
+				onSessionStart?.(ctx);
+				throw error;
+			},
+		);
+		armed.catch(() => {});
 	});
 
 	// Tree navigation does not change the pending records; only repaint.
-	pi.on("session_tree", (_event, ctx) => {
+	pi.on("session_tree", async (_event, ctx) => {
+		await armed.catch(() => {});
 		runtime.setStatus?.(ctx);
 	});
 
@@ -173,8 +189,10 @@ export function registerPendingChannel(
 		reporter.agentSettled(event);
 	});
 
-	// Report what is queued at the start of the next turn, without triggering one.
-	pi.on("before_agent_start", (_event, ctx) => {
+	// Report what is queued at the start of the next turn, without triggering one. The first
+	// reader of the session's records waits for the scan that `session_start` started.
+	pi.on("before_agent_start", async (_event, ctx) => {
+		await armed;
 		const reported = reporter.beforeAgentStart();
 		if (!reported) return undefined;
 		runtime.setStatus?.(ctx);
@@ -186,6 +204,9 @@ export function registerPendingChannel(
 	pi.on("context", (event) => reporter.filterContext(event.messages));
 
 	pi.on("session_shutdown", async () => {
+		// A load still running is awaited before the runtime is released, and its failure is
+		// swallowed here: a shutdown must release what exists even if the scan did not finish.
+		await armed.catch(() => {});
 		onSessionShutdown?.();
 		await runtime.shutdown();
 	});

@@ -78,6 +78,9 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 		executionMode: "sequential",
 
 		async execute(_toolCallId, params, _signal, _onUpdate) {
+			// The notes in hand before the action reads them: a tool call can arrive before the
+			// session's store read has landed, and an empty store would read as "no notes".
+			await runtime.ready();
 			const args = params as MemoryArgs;
 			let action: MemoryDetails["action"];
 			let scope: MemoryScope;

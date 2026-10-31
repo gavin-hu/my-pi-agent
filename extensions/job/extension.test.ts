@@ -124,6 +124,19 @@ describe("jobs extension", () => {
 		expect(commands.has("jobs")).toBe(true);
 	});
 
+	test("a /jobs typed before the registry load lands lists the merged records", async () => {
+		const { h, pi, ctx, command } = setup();
+		if (!command) throw new Error("the jobs command was not registered");
+		const notices: string[] = [];
+		ctx.ui.notify = (message: string) => notices.push(message);
+		// A record from a session that is gone is merged in by the load, which the session start
+		// only starts: the command is the reader that waits for it.
+		save(h, "old", [jobRecord({ detached: false, label: "build" })], 2);
+		await emit(pi, "session_start", {}, ctx);
+		await command.handler("", ctx);
+		expect(notices.at(-1)).toContain("build");
+	});
+
 	test("loads the registry on session start", async () => {
 		const { pi, ctx, statuses } = setup();
 		for (const handler of (pi.handlers.get("session_start") ?? []) as AnyHandler[]) await handler({}, ctx);
@@ -160,10 +173,13 @@ describe("jobs extension", () => {
 		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
 		const seen: unknown[] = [];
 		pi.events.on(JOB_FINISHED_CHANNEL, (data: unknown) => seen.push(data));
-		// A dead session's non-detached job: `session_start` loads, kills it, then arms.
+		// A dead session's non-detached job: `session_start` starts the load, which kills it and
+		// holds the outcome until the trigger arms — a reader waits for that (`ready`).
 		save(h, "old", [jobRecord({ detached: false, wake: true, label: "build" })], 2);
 
 		await emit(pi, "session_start", {}, ctx);
+		// The load is started, not awaited: the first turn's report triggers it to settle.
+		await emitFirst(pi, "before_agent_start", {}, ctx);
 
 		expect(sent).toHaveLength(1);
 		expect(sent[0].options.triggerTurn).toBe(true);

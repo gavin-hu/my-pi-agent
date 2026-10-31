@@ -70,8 +70,9 @@ export interface JobsRuntime {
 	readonly sessionId: string;
 	/** Effective working directory, honoring an active worktree root. */
 	effectiveCwd(ctx: ExtensionContext): string;
-	/** Load and reconcile the registry, then paint the UI. */
+	/** Load and reconcile the registry, then paint the UI; `ready` is the same work as a handle. */
 	load(ctx: ExtensionContext): Promise<void>;
+	ready(): Promise<void>;
 	start(options: StartOptions, ctx: ExtensionContext): Promise<Job>;
 	list(): JobRecord[];
 	get(id: string): Job | undefined;
@@ -376,6 +377,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		repaint: () => ui.paint(),
 	});
 
+	/** The session's registry load, so a reader waits rather than reading half a merge. */
+	let loading: Promise<void> = Promise.resolve();
 	const runtime: JobsRuntime = {
 		get config() {
 			return config;
@@ -384,7 +387,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			return sessionId;
 		},
 		effectiveCwd,
-		load,
+		load: (ctx) => (loading = loadRegistry(ctx)),
+		ready: () => loading,
 		start,
 		list: () => [...jobs.values()].sort(compareJobs).map(toRecord),
 		get: (id) => jobs.get(id),
@@ -422,12 +426,10 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		},
 	};
 
-	async function load(ctx: ExtensionContext): Promise<void> {
-		// The seam comes with the first load: this is the first path that asks whether a
-		// recorded pid is still alive, and the only one that needs `child_process`.
+	async function loadRegistry(ctx: ExtensionContext): Promise<void> {
+		// The first path that asks whether a recorded pid is alive, and the only one needing `child_process`.
 		await openSeam();
-		// A reload or session replacement can reuse this runtime after `shutdown`,
-		// so reset all session state before re-reading the registry.
+		// A reload reuses this runtime after `shutdown`, so reset before re-reading.
 		disposed = false;
 		// Anything the last session settled unannounced belongs to its table, not this one.
 		heldCompletions = [];
@@ -486,7 +488,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (!config.enabled) throw new Error("jobs are disabled.");
 		ui.attach(ctx);
 		const cwd = startOptions.cwd ? startOptions.cwd : effectiveCwd(ctx);
-		// A start before `load` still needs the seam; load it rather than refusing.
+		// A start before the registry load still needs the seam; open it rather than refusing.
 		await openSeam();
 		const job = children.start(startOptions, { cwd, windows: isWindows() });
 		persist();

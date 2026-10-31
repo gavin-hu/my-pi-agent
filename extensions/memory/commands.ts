@@ -93,6 +93,9 @@ export function registerCommands(pi: ExtensionAPI, runtime: MemoryRuntime): void
 		description: `Show or manage durable memory: ${MEMORY_USAGE}`,
 		getArgumentCompletions: completeMemoryArg,
 		handler: async (args, ctx) => {
+			// Every branch reads the store, so the session's load lands first: a command can be
+			// typed before the first turn, and an unloaded store would answer "nothing stored".
+			await runtime.ready();
 			const trimmed = args.trim();
 			// A bare `/memory` opens the picker; an explicit subcommand keeps its text form.
 			if (trimmed === "") {

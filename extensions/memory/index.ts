@@ -32,14 +32,24 @@ export default function memory(pi: ExtensionAPI): void {
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
 
-	pi.on("session_start", async (_event, ctx) => {
+	// Started, not awaited: the store read runs beside the reload, and the first turn waits
+	// through `ready`, so one turn no longer pays for a scan the session may never need.
+	pi.on("session_start", (_event, ctx) => {
 		runtime.setConfig(loadMemoryConfig(ctx.cwd));
-		const warning = await runtime.load(ctx.cwd, ctx.isProjectTrusted());
-		if (warning && ctx.hasUI) ctx.ui.notify(`memory: ${warning}`, "warning");
+		runtime.load(ctx.cwd, ctx.isProjectTrusted()).then(
+			(warning) => {
+				if (warning && ctx.hasUI) ctx.ui.notify(`memory: ${warning}`, "warning");
+			},
+			() => {
+				// A failed read still leaves an empty store behind: the notes are optional, and
+				// the tool reports the store itself when it is asked.
+			},
+		);
 	});
 
 	// Restate stored notes before each run, bounded by the config cap.
-	pi.on("before_agent_start", () => {
+	pi.on("before_agent_start", async () => {
+		await runtime.ready();
 		const config = runtime.config();
 		if (!config.inject) return undefined;
 		const body = buildInjection(runtime.entries(), config.maxInjectBytes);
@@ -55,5 +65,10 @@ export default function memory(pi: ExtensionAPI): void {
 		return { messages: event.messages.filter((message) => !isMemoryContext(message) || message === last) };
 	});
 
-	pi.on("session_shutdown", () => runtime.reset());
+	pi.on("session_shutdown", async () => {
+		// A read still running lands before the reset clears it, so nothing from this session can
+		// repopulate the view after it ended.
+		await runtime.ready().catch(() => {});
+		runtime.reset();
+	});
 }
