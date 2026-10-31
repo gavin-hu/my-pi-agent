@@ -46,6 +46,19 @@ worker on macOS can drop the subprocess exit notification for its first spawn
 (`oven-sh/bun#41024`, `#39709`) and hang the first git-using test of a file until
 its timeout, which showed up as a rotating red macOS job. Use `bun run
 test:serial` to reproduce that shape locally.
+
+**A parallel timeout on a busy machine is not a regression until a serial run says
+so.** The budgets here are deliberately generous — `waitFor` 2 s, the job exit-trap
+shell 10 s, `EXEC_WATCHDOG_MS` 20 s — and the whole suite still passes at load ~52
+on an 8-core box under eight busy loops (6905 pass, 86 s against 30 s idle), so a
+wait that expires there is much likelier to be contention than a bug. The failure
+says so itself: `waitFor` and the spawn watchdog both end with
+`PARALLEL_HAZARD_HINT` (`helpers/wait-site.ts`), which names `bun run check:serial`
+— the shape macOS CI runs — as the confirmation. Re-running the same parallel check
+proves nothing, and a *serial* red is the card. The confirmation is a step, not a
+shrug: a parallel red that comes back on the **same test** while serial keeps passing
+is still a card — that is a wait whose budget no longer fits its work, and the log
+names it.
 `test/helpers/preload.ts` additionally snapshots and restores the tracked env
 vars (`PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR`, `PI_WORKTREE_ROOT`,
 `PI_WORKTREE_BRANCH`, `PI_WORKTREE_MAIN`) around every test, and clears them for

@@ -14,6 +14,7 @@ import { execFile } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PARALLEL_HAZARD_HINT } from "./wait-site.ts";
 
 export interface ExecResult {
 	stdout: string;
@@ -90,7 +91,7 @@ export function execP(
 			reject(
 				new Error(
 					`${command} ${args.join(" ")} did not settle within ${EXEC_WATCHDOG_MS}ms ` +
-						`(childExited=${exited}${exited ? ", the exit notification was lost" : ""})`,
+						`(childExited=${exited}${exited ? ", the exit notification was lost" : ""}) — ${PARALLEL_HAZARD_HINT}`,
 				),
 			);
 		}, EXEC_WATCHDOG_MS);

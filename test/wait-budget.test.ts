@@ -32,7 +32,7 @@ import { describe, expect, test } from "bun:test";
 import ts from "typescript";
 import { posix, walkFiles } from "./helpers/files.ts";
 import { waitFor } from "./helpers/process.ts";
-import { type WaitTimeout, waitTimeoutMessage } from "./helpers/wait-site.ts";
+import { PARALLEL_HAZARD_HINT, type WaitTimeout, waitTimeoutMessage } from "./helpers/wait-site.ts";
 
 const repo = join(import.meta.dir, "..");
 
@@ -307,6 +307,9 @@ describe("a wait that ran out", () => {
 			const message = await waitTimeoutMessage(timeout, read);
 			expect(message).toContain(contains);
 			expect(message).toContain("waitFor timed out after 2004ms of a 2000ms budget");
+			// A red on a busy box says what to do with itself, not just where it happened.
+			expect(message).toContain(PARALLEL_HAZARD_HINT);
+			expect(message).toContain("confirm with `bun run check:serial`");
 		});
 	}
 
@@ -320,6 +323,7 @@ describe("a wait that ran out", () => {
 		expect(message).toMatch(/\(test\/wait-budget\.test\.ts:\d+\)/);
 		expect(message).toMatch(/after \d+ms of a 1000ms budget/);
 		expect(message).toContain("predicate: ");
+		expect(message).toContain(PARALLEL_HAZARD_HINT);
 	});
 
 	test("keeps a multi-line predicate on one line, and short", async () => {
