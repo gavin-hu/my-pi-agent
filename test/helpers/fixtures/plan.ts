@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { createFakePi, type AnyHandler } from "../fakes.ts";
 import { fakeCtx, type FakeCtxOptions, type FakeCtxResult } from "../context.ts";
 
@@ -37,6 +38,20 @@ export function makePlanPi(
 		sentMessages: fake.sentMessages,
 		activeTools: fake.activeTools,
 	};
+}
+
+/**
+ * A pi whose `git rev-parse` reports `root` as the repository root, so a plan store keys on
+ * `root`'s common git directory instead of landing in the unkeyed directory.
+ */
+export function planRepoPi(root: string): any {
+	return createFakePi({
+		exec: async (command: string, args: string[]) => {
+			if (command !== "git" || args[0] !== "rev-parse") return { stdout: "", stderr: "", code: 1 };
+			const out = args.includes("--git-common-dir") ? join(root, ".git") : root;
+			return { stdout: `${out}\n`, stderr: "", code: 0 };
+		},
+	}).pi;
 }
 
 /** A plan-mode context: RPC by default so `ctx.mode === "tui"` branches stay off. */
