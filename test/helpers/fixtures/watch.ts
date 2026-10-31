@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from "node:fs";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_CONFIG, type WatchConfig } from "../../../extensions/watch/config.ts";
@@ -92,6 +93,22 @@ export function makeHarness(
 export interface HarnessSuite {
 	makeHarness: (options?: Parameters<typeof makeHarness>[0]) => Harness;
 	cleanup: () => void;
+}
+
+/**
+ * The watch runtime over a fresh temp dir, loaded as the session that uses it.
+ *
+ * Both watch suites start here — the file tailers and the command watchers — so a case
+ * differing only in the file it writes is a case in the same suite.
+ */
+export function runtimeHarness(
+	suite: HarnessSuite,
+	options: { config?: Partial<WatchConfig> } = {},
+): { h: Harness; ctx: ExtensionContext } {
+	const h = suite.makeHarness(options);
+	const { ctx } = makeCtx({ cwd: h.dir });
+	h.runtime.load(ctx);
+	return { h, ctx };
 }
 
 /** Build a suite-scoped harness factory whose `cleanup` removes every harness. */

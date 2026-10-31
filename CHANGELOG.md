@@ -48,6 +48,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   workaround with them, and `assets/video/demo.mp4` is re-montaged — the three
   browser slides in the storyboard stop losing eight real pixels too.
 
+### Fixed
+
+- `watch`: a file replaced by a rotation is read again from its start. The poller reset its
+  offset only when the file shrank, so a `logrotate create` rotation — the old file renamed
+  away and a longer one written at the same path — looked like growth: the watcher resumed
+  from the old offset and silently skipped the new file's head, with no error and no status
+  signal. The offset and the line splitter now reset when the path's inode or birth time
+  moves. A `copytruncate` rotation — the same file truncated and rewritten — is still only
+  noticed when a poll catches it shorter than what was read, and the new limitation row says
+  so.
+
 ## [0.23.0] - 2026-10-31
 
 ### Added
