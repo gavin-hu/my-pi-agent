@@ -63,7 +63,12 @@ export interface BusMessage {
 export interface InboxPeek {
 	/** Up to one page of messages the caller has not seen, oldest first. */
 	mail: BusMessage[];
-	/** Every id whose file is still in the inbox, whether or not this read returned it. */
+	/**
+	 * Every id whose file is still in the inbox, whether or not this read returned it.
+	 *
+	 * A file this build cannot read counts: it stays where it is, and `inbox` or the prune
+	 * TTL is what ends it, so its id is never in `mail` while it is still here.
+	 */
 	unread: ReadonlySet<string>;
 }
 

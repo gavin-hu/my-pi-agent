@@ -146,7 +146,7 @@ describe("inbox", () => {
 		expect(await store.unread("s2")).toBe(54);
 	});
 
-	test("peek stops at a corrupt file, which the next consume clears", async () => {
+	test("peek leaves a message it cannot parse, and the next consume clears it", async () => {
 		const { dir, store } = fixture();
 		await store.writeMessage("s2", message("100-a", "s2"));
 		const [inbox] = await readdir(join(dir, "inbox"));
@@ -154,8 +154,14 @@ describe("inbox", () => {
 		const [file] = await readdir(join(dir, "inbox", inbox));
 		if (!file) throw new Error("the message file was not written");
 		await writeFile(join(dir, "inbox", inbox, file), "{");
-		expect((await store.peek("s2", { limit: 10 })).mail).toEqual([]);
+		// A poll reads and never deletes: the file is still unread, so the id it holds stays
+		// in the set — a board polling every second would otherwise eat mail it cannot read.
+		expect(await store.peek("s2", { limit: 10 })).toEqual({ mail: [], unread: new Set(["100-a"]) });
+		expect(await store.peek("s2", { limit: 10 })).toEqual({ mail: [], unread: new Set(["100-a"]) });
+		expect(await readdir(join(dir, "inbox", inbox))).toEqual([file]);
+		// Consuming is the read that clears it.
 		expect(await store.inbox("s2", 10)).toEqual([]);
+		expect(await store.unread("s2")).toBe(0);
 	});
 });
 

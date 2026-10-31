@@ -231,6 +231,11 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 * and so does a read, because the caller names the ids it already has. A file name holds
 	 * the id, so a skip costs no read — which is what lets a watch page a backlog one poll at
 	 * a time without ever reading the same file twice.
+	 *
+	 * Only the consuming read deletes, and it deletes a file it cannot validate too, so a
+	 * truncated message cannot linger on the bus. A read that promises not to consume leaves
+	 * such a file where it is: it may be mail this build cannot read and the next one can, and
+	 * `inbox` or the prune TTL is what ends it.
 	 */
 	async function readMessages(
 		directory: string,
@@ -243,8 +248,12 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			if (known?.has(idOfFile(name))) continue;
 			const path = join(directory, name);
 			const message = readTyped(path, isMessage);
-			if (message) messages.push(message);
-			if (remove || !message) await rm(path, { force: true });
+			if (!message) {
+				if (remove) await rm(path, { force: true });
+				continue;
+			}
+			messages.push(message);
+			if (remove) await rm(path, { force: true });
 			if (messages.length >= limit) break;
 		}
 		return messages.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
