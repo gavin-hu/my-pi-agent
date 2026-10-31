@@ -51,7 +51,10 @@ export const BOARD_CLASS = {
 	cardReasonAccent: "board-card__reason--accent",
 	cardReasonDanger: "board-card__reason--danger",
 	cardReasonSuccess: "board-card__reason--success",
-	cardHolds: "board-card__holds",
+	// A priority is a word and a level, not a second pill: the level is what it is coloured by.
+	cardPriority: "board-card__priority",
+	cardPriorityHigh: "board-card__priority--high",
+	cardPriorityLow: "board-card__priority--low",
 
 	// The card dialog: the record of one card, as a ladder of facts and its notes.
 	dialogPanel: "board-dialog__panel",

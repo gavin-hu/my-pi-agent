@@ -28,6 +28,7 @@ const LANE_ROLE_CSS = LANES.flatMap((lane) => {
 	return [
 		`.board-lane[data-lane="${lane}"] .board-lane__dot{background:var(--${role})}`,
 		`.board-dialog__state[data-lane="${lane}"]::before{background:var(--${role})}`,
+		`.board-card[data-lane="${lane}"] .board-card__id{color:var(--${role})}`,
 	];
 }).join("\n");
 
@@ -124,10 +125,12 @@ ${DECISION_WHY_CSS}
 .board-lane__list{display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0;list-style:none}
 .board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted)}
 
-/* A card: the title, then the facts a reader needs to act on it. Its lane says
-   which state it is in, so the card itself carries no second colour bar. */
-.board-card{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);cursor:pointer;transition:border-color var(--motion-fast) var(--motion-ease),transform var(--motion-fast) var(--motion-ease)}
-.board-card:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+/* A card: the title, then the facts a reader needs to act on it. Its lane says which
+   state it is in, and the id wears that lane's colour, so the card needs no second bar.
+   The hover lifts nothing: the page cannot move a card, and a card that rises on the
+   pointer reads as one you can pick up. */
+.board-card{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);cursor:pointer;transition:border-color var(--motion-fast) var(--motion-ease)}
+.board-card:hover{border-color:var(--border-strong)}
 .board-card[hidden]{display:none}
 .board-card__head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
 .board-card__id{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
@@ -136,11 +139,15 @@ ${DECISION_WHY_CSS}
 /* Finished work recedes: it is history, and the live lanes should not compete with it. */
 .board-card[data-lane="done"] .board-card__title{color:var(--muted)}
 .board-card[data-lane="done"] .board-card__title:hover{color:var(--accent)}
-.board-card[data-lane="done"] .bf-chip--accent{color:var(--muted);border-color:var(--border)}
 .board-card__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:0;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 /* How much history the card carries and how recent it is: a count and a stamp, in the
    meta line's own voice, so a card with ten notes cannot look like one with none. */
 .board-card__notes{display:inline-flex;align-items:baseline;gap:var(--space-1);font-variant-numeric:tabular-nums}
+/* An order is a word beside the name rather than a second pill, so who holds a card and
+   how urgent it is are two shapes a reader tells apart at a glance. */
+.board-card__priority{font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.02em}
+.board-card__priority--high{color:var(--warn)}
+.board-card__priority--low{color:var(--dim)}
 .board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:0;padding:0;list-style:none}
 /* A chip is one line and nowrap by design, so an owner label or a path longer than the card
    would spill past its border and across the lane beside it: clipped to the card instead,
@@ -150,6 +157,9 @@ ${DECISION_WHY_CSS}
 .board-card .bf-chip{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 /* A path is something a reader types, so it wears the mono face the dialog's ladder uses. */
 .board-card__paths .bf-chip{font-family:var(--font-mono)}
+/* The other half of a link — what leaving this card undone holds up — is drawn in this
+   same paragraph after a middot: it is the same edge read from the other end, so it takes
+   the reason's tone and no second row of its own. */
 .board-card__reason{margin:0;font:var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 /* The tone rules come *after* the base rule, and that is load-bearing: a tone class is one
    class and so is the base, so the later of two equal selectors wins. Generated before it,
@@ -157,10 +167,6 @@ ${DECISION_WHY_CSS}
    exists to stop. The pages suite pins the order, not just the rule's presence. */
 ${REASON_TONE_CSS}
 
-/* The other side of a link: what leaving this card undone holds up. It is a cost and not a
-   verdict, so it stays in the card's own voice: warn already means "a reader has to decide",
-   and a card can hold others up while nothing about it needs deciding. */
-.board-card__holds{margin:0;font:var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 /* Where the reader has been: j/k walks the drawn cards and wraps, so a lane walked and
    come back to looked exactly like a lane arriving for the first time. A read card keeps
    a quiet edge and the one the reader is on wears the accent one — after the hover rule,
@@ -314,7 +320,7 @@ ${REASON_TONE_CSS}
 }
 @media (prefers-reduced-motion: reduce){
   .board-card,.board-team__decision{transition:none}
-  .board-card:hover,.board-team__decision:hover{transform:none}
+  .board-team__decision:hover{transform:none}
 }
 @media print{
   .board-lanes,.board-team__grid{grid-template-columns:minmax(0,1fr)}

@@ -17,6 +17,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a card's face spends one row on its links. What a card holds up rides the reason
+  line after a middot instead of a second clamped paragraph, so the two ends of one edge read
+  as one edge and a busy card gives back the row; and the id now wears its lane's colour, so a
+  card states its state on itself rather than only in the tray beside it.
+- `board`: a card draws who holds it as a neutral pill and how urgent it is as a word, so the
+  accent colour on a face means the lane or the card the reader is on and never a person's
+  name. A hovered card keeps its border change and loses the pixel of lift — the page cannot
+  move a card — and a title longer than its two-line clamp carries the whole of itself on a
+  hover, the way the reason line and the path hints already did.
 - `board`: a sign now tells the other side. `approve` and `review` record the card and then send
   its owner one event naming the signer and the lane the sign opened — the same channel a handoff
   uses, which waits in the inbox and starts no turn — so the session that can make the next move
