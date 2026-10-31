@@ -86,6 +86,27 @@ describe("watch tool", () => {
 		expect(result.details.matches).toBe("error: boom");
 	});
 
+	test("reads a pattern written the way the tool prints one", async () => {
+		const { h, ctx, tool } = setup();
+		const path = join(h.dir, "app.log");
+		writeFileSync(path, "");
+		// The reported failure: `/ERROR/` compiled into a regex whose ends are literal slashes,
+		// so it matched nothing and an empty `matches` read as a clean log.
+		const added = await call(tool, ctx, { action: "add", path, pattern: "/ERROR/" });
+		expect(added.content[0].text.split("\n")[0]).toContain("→ /ERROR/");
+		appendFileSync(path, "error: quiet\nERROR: boom\n");
+		h.runtime.tick();
+		const result = await call(tool, ctx, { action: "matches", id: "w1" });
+		expect(result.details.matches).toBe("ERROR: boom");
+	});
+
+	test("a flag it cannot honour is refused, rather than matched as text", async () => {
+		const { ctx, tool } = setup();
+		const result = await call(tool, ctx, { action: "add", command: "build", pattern: "/FAIL/g" });
+		expect(result.isError).toBe(true);
+		expect(result.details.error).toMatch(/flags are not read/);
+	});
+
 	test("logs returns the raw output tail", async () => {
 		const { h, ctx, tool } = setup();
 		await call(tool, ctx, { action: "add", command: "build", pattern: "FAIL" });

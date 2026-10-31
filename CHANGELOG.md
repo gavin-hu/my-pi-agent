@@ -58,6 +58,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   moves. A `copytruncate` rotation — the same file truncated and rewritten — is still only
   noticed when a poll catches it shorter than what was read, and the new limitation row says
   so.
+- `watch`: a pattern written the way the tool prints one now matches what it looks like.
+  `/ERROR/` and `/ERROR/i` compiled into regexes whose ends were the literal slashes, so they
+  matched nothing and an empty `matches` read as a clean log; both are now read as the
+  expression plus the flags the printer shows — no `i` means case-sensitive — and a flag it
+  cannot honour (`g`, `y`, which would carry `lastIndex` across per-line tests) is refused
+  with a sentence instead of matched as text. An exclude follows the watcher's
+  `caseSensitive`, so its own flag is refused too, and the transcript's call line shows the
+  pattern as typed rather than inventing a literal. A pattern whose body holds a slash —
+  `/api/v1/` — is still the expression itself.
 
 ## [0.23.0] - 2026-10-31
 
