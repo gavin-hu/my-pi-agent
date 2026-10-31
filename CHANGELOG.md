@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `team`: a fifth action, `ask`, sends one peer a question as the bus's `ask` kind and
+  reports what happened to it — `Asked billing-core.`, or the peers that will read it at
+  their next turn instead of being woken. It writes no card and waits on nothing: the reply
+  is an ordinary `session send`, so a lead can ask how work is going without spending its
+  turn, and `question` defaults to asking that. `card` is optional in the schema for the one
+  verb that takes none; the four card verbs keep their own refusals.
+
 ### Changed
 
 - `board`: the rollup's `idle` group is `unwritten`, because that is what it measures — an

@@ -57,6 +57,20 @@ export function notListeningLine(labels: readonly string[]): string | undefined 
 	return `  Not listening: ${labels.join(", ")} — it reads this at its next turn.`;
 }
 
+/**
+ * A question sent: who has it, and where the answer will arrive.
+ *
+ * No card is named, because an ask touches none — the reader's next question is whether it
+ * landed, so the line leads with the peer and then says the one thing a send cannot: that
+ * nothing is waiting on an answer.
+ */
+export function formatAsk(delivered: readonly string[], notListening: readonly string[] = [], to = ""): string {
+	const who = delivered.length > 0 ? delivered.join(", ") : to === "" ? "nobody" : to;
+	return [`Asked ${who}.`, "  The answer arrives as mail; nothing is waiting on it.", notListeningLine(notListening)]
+		.filter((line): line is string => line !== undefined)
+		.join("\n");
+}
+
 /** The send that never landed: the card was not touched. */
 export function formatHandoffFailure(card: Card, to: string, reason: string): string {
 	return `${cardRef(card.id)} was not handed off to ${to}: ${reason}\n  The card is unchanged.`;

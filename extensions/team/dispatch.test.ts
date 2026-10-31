@@ -13,7 +13,16 @@ import { askLead } from "../../lib/board/lead.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
-import { actorFor, handoffText, notListening, offerText, ownerFor, peerFor, sessionDispatch } from "./dispatch.ts";
+import {
+	actorFor,
+	askText,
+	handoffText,
+	notListening,
+	offerText,
+	ownerFor,
+	peerFor,
+	sessionDispatch,
+} from "./dispatch.ts";
 
 /** The lead a case hands the builder: the name a sign has to carry. */
 const LEAD = "billing-lead";
@@ -242,5 +251,20 @@ describe("ownerFor", () => {
 		expect(ownerFor("billing-core", ["billing-core"])).toEqual({ label: "billing-core" });
 		expect(ownerFor("billing-core", [])).toEqual({ label: "billing-core" });
 		expect(ownerFor("s-core", ["billing-core"])).toEqual({ label: "billing-core" });
+	});
+});
+
+describe("askText", () => {
+	test("puts the question first and names the one way back", () => {
+		const text = askText("is #162 ready for review?", "billing-lead");
+		expect(text.startsWith("Ask: is #162 ready for review?")).toBe(true);
+		expect(text).toContain('session send to "billing-lead"');
+		expect(text).toContain("nothing is waiting on it");
+	});
+
+	test("clips at the bus's limit, like every other body here", () => {
+		const text = askText("x".repeat(MAX_MESSAGE_TEXT * 2), "billing-lead");
+		expect(text.length).toBe(MAX_MESSAGE_TEXT);
+		expect(text.endsWith("…")).toBe(true);
 	});
 });

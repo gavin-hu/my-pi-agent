@@ -34,7 +34,7 @@ export interface TeamSuiteOptions {
 	 * had no way to see; a case stages that by moving the card here, which is the one moment
 	 * the message is on its way and the card is not yet touched.
 	 */
-	duringSend?: (input: { kind: "handoff" | "event"; to: string; text: string }) => Promise<void> | void;
+	duringSend?: (input: { kind: "handoff" | "event" | "ask"; to: string; text: string }) => Promise<void> | void;
 	/** The team the bus lists, when the default pair is not the case. */
 	peers?: Peer[];
 	/** The label a join lands on, when it is not the lead's own. */
@@ -60,7 +60,7 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 	}
 	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
 	const session = openBoardSession(fake.pi, { now: () => NOW, agentDir });
-	const sent: Array<{ kind: "handoff" | "event"; to: string; text: string }> = [];
+	const sent: Array<{ kind: "handoff" | "event" | "ask"; to: string; text: string }> = [];
 	// A fixed team, because `assign` asks who a peer is before it sends: the bus's record is
 	// what the pre-check compares a holder against and what the card then records, so a stub
 	// derived from what was already sent would answer nothing at the moment it is asked.

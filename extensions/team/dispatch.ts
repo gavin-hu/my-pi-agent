@@ -21,7 +21,7 @@ import { listPeers, MAX_MESSAGE_TEXT, type Peer, send as sendTo } from "../../li
 /** How a handoff reaches a peer, and what the bus can say about the peers there are. */
 export interface Dispatch {
 	/** Send the text as `kind`, and report the labels a message file was written for. Throws on failure. */
-	send(input: { kind: "handoff" | "event"; to: string; text: string }): Promise<{ delivered: string[] }>;
+	send(input: { kind: "handoff" | "event" | "ask"; to: string; text: string }): Promise<{ delivered: string[] }>;
 	/**
 	 * Every session the bus lists, when it can say.
 	 *
@@ -59,6 +59,32 @@ export function handoffText(card: Card, to: string, lead: Lead, note?: string): 
 		note === undefined ? undefined : `Note: ${note}`,
 	].filter((line): line is string => line !== undefined);
 	return withinLimit(lines.join("\n"));
+}
+
+/**
+ * What the lead asks when it names no question.
+ *
+ * One sentence, because `question` is optional and an ask with no text would be a message
+ * a peer cannot act on: the round says what a session holds, so what it cannot say is how
+ * the work is going.
+ */
+export const DEFAULT_QUESTION = "how is it going?";
+
+/**
+ * What an `ask` says: the question, and the one way back.
+ *
+ * The reply target is written out because an `ask` is the one kind with no protocol of its
+ * own — the bus names the sender, but nothing in the message says a reply is wanted or where
+ * it goes — and "nothing is waiting on it" is what keeps a peer from treating it as a
+ * handoff. Clipped to the bus's limit like every other body here.
+ */
+export function askText(question: string, from: string): string {
+	return withinLimit(
+		[
+			`Ask: ${question}`,
+			`Answer with \`session send to "${from}"\` when you have a moment — nothing is waiting on it.`,
+		].join("\n"),
+	);
 }
 
 /**

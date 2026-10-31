@@ -1,12 +1,13 @@
 /**
  * The `team` tool: the lead's round over the same cards `board` owns.
  *
- * Four actions, because they are the four a lead takes at the round: hand a card out,
- * offer it, take one back, and take one itself. `assign` sends the handoff **first** and
- * sets the owner **second**: a card assigned without a message is a card nobody knows
- * about, while a message for a card that then changed is one the peer can still claim.
- * Either failure is reported with the card as it actually is, so the lead's next call
- * starts from the truth.
+ * Five actions, because they are the five a lead takes at the round: hand a card out,
+ * offer it, take one back, take one itself, and ask a peer how its work is going. `assign`
+ * sends the handoff **first** and sets the owner **second**: a card assigned without a
+ * message is a card nobody knows about, while a message for a card that then changed is
+ * one the peer can still claim. Either failure is reported with the card as it actually
+ * is, so the lead's next call starts from the truth. `ask` is the one verb with no card
+ * behind it, and the one that names nothing the board can answer.
  *
  * `claim` is the lead's own work, and it is the same store operation `board`'s claim
  * makes, so the lane rules, the WIP limit, and the offer record cleared are the store's —
@@ -31,7 +32,9 @@ import { plural } from "../../lib/board/round-text.ts";
 import { strayField } from "../../lib/stray-fields.ts";
 import {
 	actorFor,
+	askText,
 	type Dispatch,
+	DEFAULT_QUESTION,
 	handoffText,
 	notListening,
 	offerText,
@@ -39,6 +42,7 @@ import {
 	sessionDispatch,
 } from "./dispatch.ts";
 import {
+	formatAsk,
 	formatClaimed,
 	formatHandoff,
 	formatHandoffFailure,
@@ -99,14 +103,17 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			"(`to` is a teammate's label or id, as `/team` lists them); `offer` broadcasts an unclaimed card to every other " +
 			"live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back to Backlog and " +
 			"sends nothing, so it needs no team; `claim` takes one for yourself, and the card's plan, contract, moves, and " +
-			"finish are `board`'s. Nothing here starts a peer's turn: a message waits in its inbox, and a peer that is " +
-			"listening reports it at its next turn.",
+			"`ask` sends one peer a question and reports what the bus did with it — delivered, or waiting for that peer's " +
+			"next turn — so the answer arrives as mail and nothing waits on it. Nothing here starts a peer's turn: a message " +
+			"waits in its inbox, and a peer that is listening reports it at its next turn.",
 		promptSnippet:
 			"Run a round over the board: assign a card to a running session, offer one, reclaim one, or claim one.",
 		promptGuidelines: [
 			"Open the board with `/board` or work a card first, so this session and its peers are on the team.",
 			"Offer a card nobody has taken; assign one you mean a particular peer to hold; claim one you will take " +
 				"yourself, then plan and record it with `board`.",
+			"Ask a peer with `ask` when a card cannot answer the question: the round says what a session holds, not how " +
+				"the work is going. The reply arrives as mail, so read the inbox before asking again.",
 			"When a result says `Not listening`, say so: the message waits for that peer's next turn.",
 			"Reclaim a card whose owner is gone or has gone quiet rather than editing someone else's work. A " +
 				"`gone:` owner's process is not running, so what it held is anyone's to reclaim.",
@@ -125,10 +132,20 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			// cannot have read a card or sent a message on its way to the refusal.
 			const stray = strayField(action, args, ACTION_FIELDS);
 			if (stray !== undefined) return refusal(action, stray);
-			const id = normalizeCardId(args.card);
-			if (id === undefined) return refusal(action, `"${String(args.card)}" is not a card id.`);
 			const me = await session.who(ctx, ctx.cwd);
 			try {
+				// `ask` is the one verb with no card behind it, so it runs before the id and the store:
+				// what it needs is this session's name, for the reply line, and the bus.
+				if (action === "ask") return await askPeer(me, args.to, args.question, dispatchFor(ctx));
+				const id = args.card === undefined ? undefined : normalizeCardId(args.card);
+				if (id === undefined) {
+					return refusal(
+						action,
+						args.card === undefined
+							? 'card is required: pass the id, e.g. "4".'
+							: `"${String(args.card)}" is not a card id.`,
+					);
+				}
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
 				if (action === "reclaim") return await reclaimCard(store, me, id, now);
@@ -273,6 +290,42 @@ function namesSelf(me: Actor, to: string): boolean {
 }
 
 /**
+ * `ask`: send one peer a question, and report what happened to it.
+ *
+ * The one verb that writes no card: there is nothing to check, nothing to own, and nothing
+ * to wait on. What it does report is the same pair `assign` does — the labels a message file
+ * was written for, and which of them will read it at their next turn instead of being
+ * woken — because "delivered" and "delivered and read" are different answers to a lead
+ * asking whether a peer heard.
+ */
+async function askPeer(
+	me: Actor,
+	rawTo: unknown,
+	rawQuestion: unknown,
+	dispatch: Dispatch,
+): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
+	const to = typeof rawTo === "string" ? rawTo.trim() : "";
+	if (to === "") return refusal("ask", 'ask needs a peer: pass `to`, e.g. "billing-core".');
+	// The same rule `assign` applies to a card: a question to yourself is mail you already
+	// read, and the round is the better answer to it.
+	if (namesSelf(me, to)) return refusal("ask", `${to} is this session — the round already says what you hold.`);
+	const asked = typeof rawQuestion === "string" && rawQuestion.trim() !== "" ? rawQuestion.trim() : DEFAULT_QUESTION;
+	let delivered: string[];
+	try {
+		delivered = (await dispatch.send({ kind: "ask", to, text: askText(asked, me.label) })).delivered;
+	} catch (error) {
+		return refusal("ask", `the ask did not reach ${to}: ${messageOf(error)}`);
+	}
+	const peers = await dispatch.peers().catch(() => undefined);
+	const silent = notListening(peers, delivered);
+	return textResult(formatAsk(delivered, silent, to), {
+		action: "ask",
+		delivered,
+		...(silent.length === 0 ? {} : { notListening: silent }),
+	});
+}
+
+/**
  * `claim`: the lead takes a card itself, through the store operation `board`'s claim makes.
  *
  * The lane rules, the WIP limit, the waiting refusal, and the offer record cleared are the
@@ -318,6 +371,7 @@ async function reclaimCard(
 
 /** The collapsed line for a successful call, from its details. */
 function summaryOf(details: TeamDetails): string {
+	if (details.action === "ask") return `asked ${details.delivered?.join(", ") ?? "nobody"}`;
 	const card = details.card;
 	if (!card) return details.action === "reclaim" ? "reclaimed" : "handed off";
 	if (details.action === "claim") return `${cardRef(card.id)} claimed`;

@@ -189,7 +189,7 @@ export async function listPeers(ctx: ExtensionToolContext): Promise<Peer[] | und
 /** Send one message, and report the labels a message file was written for. */
 export async function send(
 	ctx: ExtensionToolContext,
-	input: { kind: "handoff" | "event"; to: string; text: string },
+	input: { kind: "handoff" | "event" | "ask"; to: string; text: string },
 ): Promise<SendResult> {
 	const answer = await call(ctx, { action: "send", kind: input.kind, to: input.to, text: input.text });
 	if ("error" in answer) return { ok: false, error: answer.error };

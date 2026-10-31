@@ -60,7 +60,7 @@ describe("a field the action does not act on", () => {
 		// caller believed it had named one of them.
 		const result = await call({ action: "offer", card: id, to: "billing-core" });
 		expect(result.isError).toBe(true);
-		expect(result.details.error).toBe("offer does not act on to: `assign` takes it.");
+		expect(result.details.error).toBe("offer does not act on to: `assign` and `ask` take it.");
 		expect(sent).toEqual([]);
 	});
 
@@ -70,7 +70,7 @@ describe("a field the action does not act on", () => {
 		await call({ action: "assign", card: id, to: "billing-core" });
 		const before = await (await store()).read(id);
 		const result = await call({ action: "reclaim", card: id, to: "billing-core" });
-		expect(result.details.error).toBe("reclaim does not act on to: `assign` takes it.");
+		expect(result.details.error).toBe("reclaim does not act on to: `assign` and `ask` take it.");
 		// Whoever held it still does: the refusal reached the card in no way at all.
 		expect((await (await store()).read(id))?.owner?.label).toBe("billing-core");
 		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
@@ -81,7 +81,7 @@ describe("a field the action does not act on", () => {
 		const id = await seed();
 		const result = await call({ action: "offer", card: id, to: "billing-core", title: "x" });
 		expect(result.details.error).toBe(
-			"offer does not act on to, title: `assign` takes to; title belongs to no action.",
+			"offer does not act on to, title: `assign` and `ask` take to; title belongs to no action.",
 		);
 		expect(sent).toEqual([]);
 	});
@@ -158,7 +158,7 @@ describe("claim", () => {
 		const { call, seed, store } = harness();
 		const id = await seed();
 		const result = await call({ action: "claim", card: id, to: "billing-core" });
-		expect(result.details.error).toBe("claim does not act on to: `assign` takes it.");
+		expect(result.details.error).toBe("claim does not act on to: `assign` and `ask` take it.");
 		expect((await (await store()).read(id))?.lane).toBe("backlog");
 	});
 

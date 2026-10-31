@@ -1,15 +1,18 @@
 # team — the lead's round over the board
 
-`board` owns the cards. `team` owns the lead's four actions: `assign` hands a card to a
+`board` owns the cards. `team` owns the lead's five actions: `assign` hands a card to a
 session that is **already running**, `offer` hands one to whoever is free, and `reclaim`
 takes one back when its owner is gone or has gone quiet. `assign` writes the card and puts
 a handoff on the session bus, `offer` writes only the moment it was made — never an owner,
 because the first peer to claim is what makes an offer into work — and `reclaim` writes the
-card alone, so it needs no bus.
+card alone, so it needs no bus. `ask` writes no card at all: it sends one peer a question
+as an `ask` message, and the answer comes back as ordinary mail.
 The report says what the peer will actually do with it.
 
 Nothing starts a process. A message lands in the peer's inbox and is reported at its next
-turn, so `assign` and `offer` are messages, not launches.
+turn, so `assign`, `offer`, and `ask` are messages, not launches — and `ask` is the one that
+waits for nothing at all: a question nobody answers leaves the lead exactly where the
+round already put it.
 
 Both halves are **opt-in**, because the board is a workflow a session either runs or does
 not. A lead names both — `PI_ENABLED_EXTENSIONS=board,team` — and a worker session that
@@ -35,9 +38,10 @@ line; the owners a bus has no record of collapse to one row*
 | Hand a feature to a running session | `team` action `assign` | The card is `plan`, owned by that session, and a handoff is in its inbox |
 | Tell the peer what to do first | `team` action `assign` with `note` | The handoff carries the card, its paths, its plan, and that line |
 | Hand a feature to whoever is free | `team` action `offer` | Every other live session gets an event naming the card; the card stays unowned until one claims it, and it records when the offer was made, so a lead can tell an offer nobody took from a card nobody has looked at |
-| Know whether a message will be woken for | an `assign` or `offer` result, `/team`, and the Team tab | All three name the peers whose record says their next turn is when it lands: the result as `Not listening: <labels>`, `/team` as a lowercase `not listening:` inside its presence line, the Team tab as a chip |
+| Ask a peer how its work is going | `team` action `ask` | One peer's inbox gets an `ask` message — the question, and the one line back: `session send` to the lead. The result says which labels the message reached and which of them will read it at their next turn, and nothing waits on the reply |
+| Know whether a message will be woken for | an `assign`, `offer`, or `ask` result, `/team`, and the Team tab | All three name the peers whose record says their next turn is when it lands: the result as `Not listening: <labels>`, `/team` as a lowercase `not listening:` inside its presence line, the Team tab as a chip |
 | Take a card back | `team` action `reclaim` | The owner clears, the card returns to Backlog, and its notes stay |
-| Keep the round to the team | `team` | Only `assign`, `offer`, `reclaim`, and `claim`: no card is created, contracted, approved, or finished here — that is `board`'s surface, which is where a claimed card is planned and moved |
+| Keep the round to the team | `team` | Only `assign`, `offer`, `reclaim`, `claim`, and `ask`: no card is created, contracted, approved, or finished here — that is `board`'s surface, which is where a claimed card is planned and moved |
 | See the round without a browser | `/team` | `buildRound`'s summary — the one the page's Team tab is served — laid out as text by `formatRound`: what needs a decision, who holds what, then one line naming the cards a dead owner left behind, and one presence line for who is live, who is not listening, who has gone quiet, and who is gone. Every session that line names carries what it is holding, from `lib/board/round-text.ts`'s one phrase — `live: helen — #162 plan · quiet: cara — idle · gone: dan — #1 execute +1` — so a session holding one card and one holding nothing are read apart; `not listening:` is the exception and names the peer only, because it is a flag on an entry already listed as live. The owners the bus has no record of and that hold nothing are one line, `18 owners with no record · 76 done`, in the Team tab's own words — the fold is the same rule and the same sentence on both surfaces, and it keeps a long history from spending the round's cap. The rollup itself is capped at ten lines, then `… N more`, and the gone and presence lines follow the cap rather than counting against it — the cap is a notify's limit, not a screen's. An empty board is one line |
 
 ## Quickstart
@@ -51,6 +55,8 @@ peer: board({action:"contract", card:"4", path:"…", goal:"…", acceptance:"�
       → the card records its plan and its contract
 peer: board({action:"note", card:"4", text:"…"})        → a phase, as it happens
 later: team({action:"reclaim", card:"4"})               → #4 reclaimed from billing-core
+lead: team({action:"ask", to:"billing-core", question:"what is left on #4?"})
+      → Asked billing-core. The answer arrives as mail; nothing is waiting on it.
 ```
 
 Work nobody has taken instead of work you are routing:
@@ -105,9 +111,10 @@ is not: a card that session claimed is the session's, and `release` returns it.
 | `offer` | `card`, `note?` | Checks the preconditions a claim would meet, broadcasts the card as an `event` to every other live session, then records the offer on the card — the moment, and nothing else: status and owner are untouched |
 | `reclaim` | `card` | Clears the owner and returns the card to Backlog, keeping its notes, contract, and plan |
 | `claim` | `card` | Takes a pool card for this session: it enters `plan`, owned by the round's session, and the claim asks to join the team once — the same operation and the same join `board`'s claim makes. A card somebody holds, one that waits on unfinished work, and a full `plan` lane are refused with the board's own sentence |
+| `ask` | `to`, `question?` | Sends one peer a question and writes nothing else: no card is named, so no card is read or written. `question` defaults to asking how it is going. `to` that names this session is refused — the round already says what you hold |
 
-`card` takes `4` or `#4`. `to` is a teammate's label or id, as `/team` lists them — a
-label nobody answers to cannot be handed a card, and the result says so.
+`card` takes `4` or `#4`, and every action but `ask` needs one. `to` is a teammate's label or id, as `/team` lists them — a
+label nobody answers to cannot be handed a card or asked anything, and the result says so.
 
 The parameters are one flat object, so a field is published to every action at once.
 An action reads only the fields in its row above, and a call carrying one that its
@@ -121,7 +128,8 @@ offer does not act on to: `assign` takes it.
 ```
 
 `ACTION_FIELDS` in `types.ts` is the table that answers this, `lib/stray-fields.ts` is
-the sentence, and a test holds every published parameter to an action that acts on it.
+the sentence, and a test holds every published parameter to an action that acts on it. Two
+verbs read `to` now — `assign` and `ask` — so the refusal names both.
 
 ### The order is the point
 
