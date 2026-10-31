@@ -34,9 +34,14 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+	CONFIG_DIR_NAME,
+	getAgentDir,
+	type ExtensionAPI,
+	withFileMutationQueue,
+} from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { keepRevision, writeAtomic } from "./plan-files.ts";
+import { createAtomic, keepRevision, writeAtomic } from "./plan-files.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isContainedPlan, isPlanFileName, plansDirFor, resolvePlanArg } from "../../lib/plans/paths.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
@@ -152,19 +157,12 @@ export function stamp(date: Date): string {
 }
 
 function uniquePath(dir: string, base: string): string {
-	const taken = (candidate: string): boolean => {
-		try {
-			// lstat, not exists: a dangling symlink still occupies the name and must
-			// never be written through.
-			lstatSync(candidate);
-			return true;
-		} catch {
-			return false;
-		}
-	};
 	let candidate = join(dir, `${base}.md`);
 	let suffix = 2;
-	while (taken(candidate)) {
+	// A migration moves one plan at a time and is not raced by a create; the markdown name
+	// rule keeps the file readable by every reader, and `createAtomic` is what a *new* plan
+	// uses, because two sessions may well be writing one.
+	while (existsSync(candidate)) {
 		candidate = join(dir, `${base}-${suffix}.md`);
 		suffix += 1;
 	}
@@ -276,46 +274,57 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		const dir = await dirFor(base);
 		mkdirSync(dir, { recursive: true });
 
-		let path: string;
-		if (input.planPath) {
-			const resolved = resolvePlanArg(dir, input.planPath);
-			if (!isContainedPlan(dir, resolved)) {
-				throw new Error("plan_path must be a markdown plan file inside the plans directory.");
+		// A new plan has nobody to read: the name is *claimed* with the finished text, so two
+		// sessions writing one title in the same minute land on two files instead of the second
+		// replacing the first.
+		if (input.planPath === undefined) {
+			const content = carryFeedback("", input.content);
+			const nextBytes = Buffer.byteLength(content, "utf-8");
+			if (nextBytes > MAX_PLAN_BYTES) {
+				throw new Error(`The plan is too large with its review comments (${nextBytes} bytes).`);
 			}
-			path = resolved;
-		} else {
-			path = uniquePath(dir, `${stamp(now())}-${slugify(title)}`);
+			const path = createAtomic(dir, `${stamp(now())}-${slugify(title)}`, content);
+			// A name can still land on a dangling symlink; refuse to write through it.
+			if (!isContainedPlan(dir, path)) {
+				throw new Error("The plan path is not writable inside the plans directory.");
+			}
+			return { path, relativePath: shortenPath(path), title, content, bytes: nextBytes };
 		}
 
-		// A new plan can still land on a dangling symlink; refuse to write through it.
+		const path = resolvePlanArg(dir, input.planPath);
 		if (!isContainedPlan(dir, path)) {
-			throw new Error("The plan path is not writable inside the plans directory.");
+			throw new Error("plan_path must be a markdown plan file inside the plans directory.");
 		}
+		// A refinement is a read-modify-write, so it takes its turn per plan file: a browser save
+		// or a `steps` tick arriving beside it would otherwise be written back over from the copy
+		// read before the other one landed.
+		return withFileMutationQueue(path, async () => {
+			// A refinement rewrites the body but not the review: every stored comment is
+			// carried onto the block whose text survived, so revising a plan under review
+			// does not silently discard what a teammate wrote.
+			const previous = existsSync(path) ? readFileSync(path, "utf-8") : undefined;
+			const content =
+				previous === undefined ? carryFeedback("", input.content) : carryFeedback(previous, input.content);
+			const nextBytes = Buffer.byteLength(content, "utf-8");
+			if (nextBytes > MAX_PLAN_BYTES) {
+				throw new Error(`The plan is too large with its review comments (${nextBytes} bytes).`);
+			}
 
-		// A refinement rewrites the body but not the review: every stored comment is
-		// carried onto the block whose text survived, so revising a plan under review
-		// does not silently discard what a teammate wrote.
-		const previous = existsSync(path) ? readFileSync(path, "utf-8") : undefined;
-		const content = previous === undefined ? carryFeedback("", input.content) : carryFeedback(previous, input.content);
-		const nextBytes = Buffer.byteLength(content, "utf-8");
-		if (nextBytes > MAX_PLAN_BYTES) {
-			throw new Error(`The plan is too large with its review comments (${nextBytes} bytes).`);
-		}
-
-		// Both are kept: the plan is what the review and the model read from now on, and the
-		// revision is what they read before this call — the only thing a diff, or a comment
-		// carried onto a block that moved, can be answered against.
-		// A refinement that changed nothing has nothing to keep: the copy would be the plan.
-		const replaced = previous === undefined || previous === content ? undefined : keepRevision(path, previous);
-		writeAtomic(path, content);
-		return {
-			path,
-			relativePath: shortenPath(path),
-			title,
-			content,
-			bytes: nextBytes,
-			...(replaced === undefined ? {} : { replaced: { path: replaced, relativePath: shortenPath(replaced) } }),
-		};
+			// Both are kept: the plan is what the review and the model read from now on, and the
+			// revision is what they read before this call — the only thing a diff, or a comment
+			// carried onto a block that moved, can be answered against.
+			// A refinement that changed nothing has nothing to keep: the copy would be the plan.
+			const replaced = previous === undefined || previous === content ? undefined : keepRevision(path, previous);
+			writeAtomic(path, content);
+			return {
+				path,
+				relativePath: shortenPath(path),
+				title,
+				content,
+				bytes: nextBytes,
+				...(replaced === undefined ? {} : { replaced: { path: replaced, relativePath: shortenPath(replaced) } }),
+			};
+		});
 	};
 
 	const read = async (cwd: string, planPath: string): Promise<StoredPlan | undefined> => {
@@ -336,39 +345,52 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		}
 	};
 
+	/**
+	 * The key a plan's mutations queue on: the resolved path, so `a.md` and its absolute form
+	 * are one file. A path outside the store is keyed too — `read` refuses it inside the
+	 * queue, with the sentence it has always given.
+	 */
+	const queueKey = async (cwd: string, planPath: string): Promise<string> =>
+		resolvePlanArg(await dirFor(cwd), planPath);
+
 	const setSteps = async (cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan> => {
-		const plan = await read(cwd, planPath);
-		if (!plan) throw new Error("No plan file there; pass a plan_path written by `plan` action `write`.");
-		const steps = extractPlanSteps(plan.content);
-		const total = steps.length;
-		const outOfRange = updates.find(
-			(update) => !Number.isInteger(update.step) || update.step < 1 || update.step > total,
-		);
-		if (outOfRange) {
-			const range = total === 0 ? "it has no steps" : `valid steps are 1 to ${total}`;
-			throw new Error(`Step ${outOfRange.step} is out of range; ${range}.`);
-		}
-		// The expected text is the guard against a reordered plan: refuse the whole
-		// batch rather than tick the step that moved into that number.
-		const stale = updates.find((update) => {
-			const step = steps[update.step - 1];
-			return step === undefined || !matchesStepText(step.content, update.expected);
-		});
-		if (stale) {
-			const actual = steps[stale.step - 1]?.content;
-			throw new Error(
-				`Step ${stale.step} is no longer "${stale.expected}"; the file now has "${actual ?? "no step"}". Re-read the plan and pass the current step number.`,
+		const resolved = await queueKey(cwd, planPath);
+		// One read-modify-write per plan file: a browser save or a refinement arriving beside
+		// this call would otherwise be written back over from the copy read before it landed.
+		return withFileMutationQueue(resolved, async () => {
+			const plan = await read(cwd, planPath);
+			if (!plan) throw new Error("No plan file there; pass a plan_path written by `plan` action `write`.");
+			const steps = extractPlanSteps(plan.content);
+			const total = steps.length;
+			const outOfRange = updates.find(
+				(update) => !Number.isInteger(update.step) || update.step < 1 || update.step > total,
 			);
-		}
-		const updated = setStepStatuses(plan.content, updates);
-		if (!updated) throw new Error("Could not update the plan steps; pass steps from the plan file.");
-		writeAtomic(plan.path, updated);
-		return {
-			path: plan.path,
-			relativePath: plan.relativePath,
-			content: updated,
-			bytes: Buffer.byteLength(updated, "utf-8"),
-		};
+			if (outOfRange) {
+				const range = total === 0 ? "it has no steps" : `valid steps are 1 to ${total}`;
+				throw new Error(`Step ${outOfRange.step} is out of range; ${range}.`);
+			}
+			// The expected text is the guard against a reordered plan: refuse the whole
+			// batch rather than tick the step that moved into that number.
+			const stale = updates.find((update) => {
+				const step = steps[update.step - 1];
+				return step === undefined || !matchesStepText(step.content, update.expected);
+			});
+			if (stale) {
+				const actual = steps[stale.step - 1]?.content;
+				throw new Error(
+					`Step ${stale.step} is no longer "${stale.expected}"; the file now has "${actual ?? "no step"}". Re-read the plan and pass the current step number.`,
+				);
+			}
+			const updated = setStepStatuses(plan.content, updates);
+			if (!updated) throw new Error("Could not update the plan steps; pass steps from the plan file.");
+			writeAtomic(plan.path, updated);
+			return {
+				path: plan.path,
+				relativePath: plan.relativePath,
+				content: updated,
+				bytes: Buffer.byteLength(updated, "utf-8"),
+			};
+		});
 	};
 
 	/**
@@ -383,23 +405,28 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		annotations: PlanAnnotation[],
 		options: { author?: string } = {},
 	): Promise<StoredPlan> => {
-		const plan = await read(cwd, planPath);
-		if (!plan) throw new Error("No plan file there; pass a plan_path written by `plan` action `write`.");
-		const author = normalizeAuthor(options.author);
-		// An untagged entry is the writer's own; one tagged with a different name is
-		// another writer's comment, so it is dropped rather than re-signed.
-		const own = annotations.filter((annotation) => {
-			const who = normalizeAuthor(annotation.author);
-			return who === "" || who === author;
+		const resolved = await queueKey(cwd, planPath);
+		// The same per-plan turn `setSteps` takes: a tick that lands between this save's read and
+		// its write would be discarded, which is how a comment vanished under a tick.
+		return withFileMutationQueue(resolved, async () => {
+			const plan = await read(cwd, planPath);
+			if (!plan) throw new Error("No plan file there; pass a plan_path written by `plan` action `write`.");
+			const author = normalizeAuthor(options.author);
+			// An untagged entry is the writer's own; one tagged with a different name is
+			// another writer's comment, so it is dropped rather than re-signed.
+			const own = annotations.filter((annotation) => {
+				const who = normalizeAuthor(annotation.author);
+				return who === "" || who === author;
+			});
+			const content = formatFeedback(plan.content, own, { author });
+			writeAtomic(plan.path, content);
+			return {
+				path: plan.path,
+				relativePath: plan.relativePath,
+				content,
+				bytes: Buffer.byteLength(content, "utf-8"),
+			};
 		});
-		const content = formatFeedback(plan.content, own, { author });
-		writeAtomic(plan.path, content);
-		return {
-			path: plan.path,
-			relativePath: plan.relativePath,
-			content,
-			bytes: Buffer.byteLength(content, "utf-8"),
-		};
 	};
 
 	/**

@@ -46,7 +46,7 @@ import { repoKeyOf } from "../../lib/repo-key.ts";
 import { shortenPath } from "../../lib/format.ts";
 import { createFakePi, fakeTheme as theme } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
-import { fixedPlanDate } from "../../test/helpers/fixtures/plan.ts";
+import { fixedPlanDate, planRepoPi } from "../../test/helpers/fixtures/plan.ts";
 import { settle } from "../../test/helpers/process.ts";
 
 const FIXED = fixedPlanDate(); // 2026-10-08 15:30 local
@@ -83,17 +83,6 @@ function tempDir(): string {
 	return realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-")));
 }
 
-/** A fake pi whose `git rev-parse` reports `root` as the repository root. */
-function repoPi(root: string) {
-	return createFakePi({
-		exec: async (command: string, args: string[]) => {
-			if (command !== "git" || args[0] !== "rev-parse") return { stdout: "", stderr: "", code: 1 };
-			const out = args.includes("--git-common-dir") ? join(root, ".git") : root;
-			return { stdout: `${out}\n`, stderr: "", code: 0 };
-		},
-	}).pi;
-}
-
 /** A fake pi outside any repository. */
 function noRepoPi() {
 	return createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 128 }) }).pi;
@@ -101,7 +90,7 @@ function noRepoPi() {
 
 /** A store in a fresh repository rooted at `root`. */
 function repoStore(root: string) {
-	return createPlanStore(repoPi(root), { now: () => FIXED });
+	return createPlanStore(planRepoPi(root), { now: () => FIXED });
 }
 
 /** A fake pi whose `git rev-parse` answers for the directory it is asked about. */

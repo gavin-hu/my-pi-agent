@@ -119,7 +119,15 @@ call with neither `title` nor `content` is refused before anything is written.
 The file lands in
 `<agent-dir>/plans/<repo-key>/<YYYY-MM-DD-HHmm>-<slug>.md`, keyed by the
 repository's common git directory, so a plan approved in one worktree is the
-same plan from the main checkout and from every other session. Outside a
+same plan from the main checkout and from every other session. The name is
+claimed, not probed: the finished text is linked onto it, so two sessions writing
+the same title in the same minute land on `…-<slug>.md` and `…-<slug>-2.md`
+rather than the second replacing the first. A plan's own edits take turns per file
+and **per process**: one session's browser save, `steps` tick, and refinement on a
+plan serialize, so none of them writes back the copy another has already replaced,
+while edits to different plans do not wait on each other. Two *sessions* editing
+one plan are not locked against each other — the turn is the host's in-process
+queue, not a lock on disk. Outside a
 repository the store is `<agent-dir>/plans`. Plans are outside the project, so
 they are never untracked files and never appear in a `rewind` snapshot; a store
 an older version left in `<repo>/.pi/plans` is moved in once, with a notice.
@@ -1007,7 +1015,7 @@ both.
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
 | `plans.ts` | Plan-file store: slug/stamp naming, the store's directory (`<agent-dir>/plans/`, keyed by the repository, unkeyed outside git, through `lib/plans/paths.ts`), `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
 | `lib/plans/paths.ts` | Where a plan lives, and which paths are one: `plansDir` for `<agent-dir>/plans/` (keyed by the repository, unkeyed outside it), the markdown/non-dotfile name rule, symlink-safe containment, and `resolvePlanArg`. Shared with `board`, which records the file a card is executed against. |
-| `plan-files.ts` | How a plan file reaches the disk: `writeAtomic` (a dotfile temp, then a rename, so a crash cannot truncate the plan a review is reading) and `keepRevision`, which keeps the text a refinement replaces beside it, numbered, up to the newest five. |
+| `plan-files.ts` | How a plan file reaches the disk: `createAtomic` (the finished text linked onto a name it must win, so two sessions cannot share one) and `writeAtomic` (a dotfile temp, then a rename, for a refinement, where replacing is the point), and `keepRevision`, which keeps the text a refinement replaces beside it, numbered, up to the newest five. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
 | `steps.ts` | Plan-document structure: the outline, step extraction and the `Steps`-section scope, the plan's own goal (`goalSection`), and the checkbox edit. |
 | `sections.ts` | The one fence-aware heading scan: `extractSections`, `sectionKeys` (the key that tells two identically titled sections apart), and the `HEADING` / `FENCE` / `normalizeHeadingText` vocabulary `blocks.ts` reads a heading through. |

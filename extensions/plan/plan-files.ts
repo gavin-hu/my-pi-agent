@@ -15,8 +15,9 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { linkSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { hasErrorCode } from "../../lib/errors.ts";
 
 /**
  * How many replaced revisions a plan keeps, as dotfiles beside it.
@@ -48,6 +49,64 @@ export function writeAtomic(path: string, content: string): void {
 			// The temp file was never created, or the rename already moved it.
 		}
 		throw error;
+	}
+}
+
+/**
+ * How many names a create may try before it gives up on the directory.
+ *
+ * A tie is one extra attempt; running out means something is systematically wrong — a name
+ * rule that admits no free file, or a filesystem that cannot hold one — and the sentence is
+ * better than a loop nobody can see.
+ */
+const MAX_CREATE_ATTEMPTS = 100;
+
+/** Test seams for {@link createAtomic}, which exists to be raced. */
+export interface CreateSeams {
+	/** Runs after the text is on disk and before the first name is claimed. */
+	beforeLink?: () => void;
+}
+
+/**
+ * Create a new plan under `dir` and return the path it won.
+ *
+ * The name is *claimed*, not chosen: the finished text is written to a hidden sibling and
+ * hard-linked onto the candidate, which fails with `EEXIST` rather than replacing whatever is
+ * already there. Two sessions writing the same title in the same minute therefore land on two
+ * files — the loser moves on to `-2`, `-3` — where probing with `lstat` and then renaming let
+ * the second overwrite the first, leaving the loser's text only as a revision and its result
+ * naming a path that holds somebody else's plan.
+ *
+ * A link, not `writeFileSync(…, { flag: "wx" })`: the text reaches its name whole, so a crash
+ * mid-create leaves nothing under a plan's name for a review to open.
+ */
+export function createAtomic(dir: string, base: string, content: string, seams: CreateSeams = {}): string {
+	const temp = join(dir, `.${base}.${randomBytes(6).toString("hex")}.tmp`);
+	writeFileSync(temp, content, { encoding: "utf-8", flag: "wx" });
+	try {
+		for (let attempt = 1; attempt <= MAX_CREATE_ATTEMPTS; attempt += 1) {
+			const candidate = join(dir, attempt === 1 ? `${base}.md` : `${base}-${attempt}.md`);
+			seams.beforeLink?.();
+			try {
+				linkSync(temp, candidate);
+				return candidate;
+			} catch (error) {
+				if (hasErrorCode(error, "EEXIST")) continue;
+				// Anything else — a filesystem without hard links, a full disk, a permission — would
+				// otherwise surface as a bare `EPERM … link '…' -> '…'` on a plain "save the plan".
+				const code = (error as { code?: string }).code ?? "unknown";
+				throw new Error(
+					`Could not create a plan in ${dirname(temp)} (${code}): the store claims a name by hard-linking it, which this filesystem may not allow.`,
+				);
+			}
+		}
+		throw new Error(`Could not name a new plan in ${dirname(temp)} after ${MAX_CREATE_ATTEMPTS} tries.`);
+	} finally {
+		try {
+			unlinkSync(temp);
+		} catch {
+			// The link moved it onto the plan, which is the only other thing that happens to it.
+		}
 	}
 }
 

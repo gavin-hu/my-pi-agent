@@ -85,6 +85,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	memory: ["store", "format", "tools", "view/memory-picker"],
 	plan: [
 		"plans",
+		"plan-files",
 		"steps",
 		"todos",
 		"feedback",

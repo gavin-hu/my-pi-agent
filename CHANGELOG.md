@@ -50,6 +50,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: two writers can no longer lose to each other silently. A new plan's name is claimed
+  by hard-linking the finished text onto it instead of being probed and then renamed over, so
+  two sessions writing one title in the same minute land on `-2` rather than the second
+  replacing the first — where the loser's text survived only as a revision and its result
+  still named the path. The read-modify-write paths take a per-file turn from the host's
+  `withFileMutationQueue` (`write`'s refinement, `setSteps`, and `saveFeedback`), so a
+  browser save and a `steps` tick on one plan both land while different plans still proceed
+  in parallel.
 - `plan`: the step cap counts the items a plan lists, and a step longer than 200 characters
   can be ticked with the line the file holds. De-duplication ran before the cap was counted,
   so a 60-bullet `Steps` section with 11 repeats was accepted as 49 tracked steps and the
