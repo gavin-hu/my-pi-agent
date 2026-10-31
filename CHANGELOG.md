@@ -65,6 +65,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `dev`: a shot script runs only as its own entry point. `scripts/shots/video.ts` called
+  `runCli` at top level, and `runCli` runs `main()` the moment it is called — so importing the
+  module, which `scripts/video.test.ts` does for `parseArgs`, launched Chrome, recorded the
+  H.264 montage and overwrote `assets/video/demo.mp4` on every `bun test`: a capture per run,
+  and every tree dirty afterwards. The call is guarded with `import.meta.main` like its four
+  siblings, and the video suite now fails any script under `scripts/shots/` that calls `runCli`
+  at top level.
 - `plan`: two writers can no longer lose to each other silently. A new plan's name is claimed
   by hard-linking the finished text onto it instead of being probed and then renamed over, so
   two sessions writing one title in the same minute land on `-2` rather than the second
