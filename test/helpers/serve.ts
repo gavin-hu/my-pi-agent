@@ -77,6 +77,8 @@ export function testMountSource(address = "127.0.0.1"): MountSource {
 			handler: spec.handler,
 			...(spec.maxBodyBytes === undefined ? {} : { maxBodyBytes: spec.maxBodyBytes }),
 			...(spec.idle === undefined ? {} : { idle: spec.idle }),
+			// The idle grace's own seam, so a case fires the arm instead of waiting it out.
+			...(spec.timer === undefined ? {} : { timer: spec.timer }),
 		});
 		if (mounted === undefined) return { kind: "refused", reason: `${spec.prefix} is already served` };
 		const mount: HttpMount = {

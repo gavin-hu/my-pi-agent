@@ -16,11 +16,24 @@ import type { BoardStore } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { pageActor } from "../../lib/board/seat.ts";
-import { BOARD_BASE } from "../../lib/board/page-pointer.ts";
+import { type PagePointer, BOARD_BASE, readPointer } from "../../lib/board/page-pointer.ts";
+import type { BoardSession } from "../../lib/board/session.ts";
+import type { PageStart } from "../../extensions/board/page.ts";
 import { testMountSource } from "./serve.ts";
 import { type BoardServer, createBoardServer } from "../../extensions/board/transport/server.ts";
 import { BOARD_CLIENT_JS } from "../../extensions/board/view/client.ts";
 import { renderBoardPage } from "../../extensions/board/view/page.ts";
+
+/** The page a start served here, or a failure that says why there is none. */
+export function servedPage(start: PageStart): { port: number; url: string; seat: string } {
+	if (start.kind !== "served") throw new Error(`the page was not served here: ${start.kind}`);
+	return start;
+}
+
+/** The note a page leaves beside this board's cards. */
+export async function noteOf(runtime: BoardSession, cwd: string): Promise<PagePointer | undefined> {
+	return readPointer((await runtime.store(cwd)).dir);
+}
 
 /** What the page prints for the repository and the store it reads. */
 export interface PageDisplay {

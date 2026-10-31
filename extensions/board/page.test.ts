@@ -19,9 +19,10 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import { type PagePointer, type ProbeFetch, readPointer, PAGE_FILE } from "../../lib/board/page-pointer.ts";
-import { createBoardPage, IDLE_FIRST_MS, IDLE_STOP_MS, type PageStart } from "./page.ts";
+import { createBoardPage, type PageStart } from "./page.ts";
+import { noteOf, servedPage } from "../../test/helpers/board-page.ts";
 import { CARDS_DIR_NAME } from "../../lib/board/store.ts";
-import type { RepeatTimer } from "../../lib/timer.ts";
+import type { ArmTimer, RepeatTimer } from "../../lib/timer.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 
 const temps = makeTempTracker();
@@ -43,6 +44,8 @@ function harness(
 		mount?: MountSource;
 		/** The ticker seam, so a case drives the push instead of waiting on a second. */
 		interval?: RepeatTimer;
+		/** The grace seam, so a case fires the idle timer instead of waiting it out. */
+		timer?: ArmTimer;
 		lead?: string; // the board's `board.lead`: the name the page serves as
 	} = {},
 ) {
@@ -55,21 +58,11 @@ function harness(
 		open: (url) => opened.push(url),
 		idleMs: 40,
 		...(options.interval === undefined ? {} : { interval: options.interval }),
+		...(options.timer === undefined ? {} : { timer: options.timer }),
 		...(options.firstIdleMs === undefined ? {} : { firstIdleMs: options.firstIdleMs }),
 		...(options.probe === undefined ? {} : { probe: options.probe }),
 	});
 	return { page, ctx: board.ctx, opened, notifications: board.notifications, cwd: board.cwd, runtime: board.runtime };
-}
-
-/** The note a page leaves beside this board's cards. */
-async function noteOf(runtime: BoardSession, cwd: string): Promise<PagePointer | undefined> {
-	return readPointer((await runtime.store(cwd)).dir);
-}
-
-/** The page this session served, or a failure that says why there is none. */
-function served(start: PageStart): { port: number; url: string; seat: string } {
-	if (start.kind !== "served") throw new Error(`the page was not served here: ${start.kind}`);
-	return start;
 }
 
 /** The page another session served, or a failure that says why there is none. */
@@ -100,7 +93,7 @@ describe("the roster", () => {
 			{ id: "s-core", label: "team-agent-score", mode: "tui", lastSeen: NOW - 1_000 },
 			{ id: "s-lead", label: "team-lead", mode: "tui", lastSeen: NOW },
 		]);
-		const status = served(await page.start(ctx));
+		const status = servedPage(await page.start(ctx));
 		const snapshot = JSON.parse(
 			await (await fetch((status.url ?? "").replace("/?token=", "/api/board?token="))).text(),
 		);
@@ -114,7 +107,7 @@ describe("the roster", () => {
 
 	test("says nothing about the roster when no session has ever joined here", async () => {
 		const { page, ctx } = harness();
-		const status = served(await page.start(ctx));
+		const status = servedPage(await page.start(ctx));
 		const snapshot = JSON.parse(
 			await (await fetch((status.url ?? "").replace("/?token=", "/api/board?token="))).text(),
 		);
@@ -126,7 +119,7 @@ describe("the roster", () => {
 describe("start", () => {
 	test("serves the document and the snapshot, and refuses to write", async () => {
 		const { page, ctx, opened } = harness();
-		const status = served(await page.start(ctx));
+		const status = servedPage(await page.start(ctx));
 		expect(status.port).toBeGreaterThan(0);
 		// The opened URL carries the credential the page needs, and nothing else does.
 		expect(opened[0]).toContain("?token=");
@@ -179,7 +172,7 @@ describe("start", () => {
 
 	test("publishes no chip of its own, because the port belongs to the session", async () => {
 		const { page, ctx } = harness();
-		served(await page.start(ctx));
+		servedPage(await page.start(ctx));
 		// `serve` draws the one port chip; a second chip for the same number is the
 		// duplication this page stopped making.
 		expect(ctx.statuses.has("board")).toBe(false);
@@ -189,8 +182,8 @@ describe("start", () => {
 
 	test("a second start reuses the running page and summons it again", async () => {
 		const { page, ctx, opened } = harness();
-		const first = served(await page.start(ctx));
-		const second = served(await page.start(ctx));
+		const first = servedPage(await page.start(ctx));
+		const second = servedPage(await page.start(ctx));
 		expect(second.port).toBe(first.port);
 		// The page is one; the command is how it is shown, so a closed tab is one `/board`
 		// away from being open again.
@@ -217,7 +210,7 @@ describe("the page this repository already serves", () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const lead = harness({ cwd, agentDir, lead: "team-lead" });
-		const servedFirst = served(await lead.page.start(lead.ctx));
+		const servedFirst = servedPage(await lead.page.start(lead.ctx));
 		const note = await noteOf(lead.runtime, cwd);
 		expect(note?.port).toBe(servedFirst.port);
 		// One token: the note carries the page's own, and holding it cannot change a card.
@@ -257,7 +250,7 @@ describe("the page this repository already serves", () => {
 		};
 
 		const lead = harness({ cwd: main, agentDir, exec });
-		const first = served(await lead.page.start(lead.ctx));
+		const first = servedPage(await lead.page.start(lead.ctx));
 		// One board, filed under the shared key, with one note beside its cards.
 		const leadStore = await lead.runtime.store(main);
 		const peerRuntime = boardHarness({ cwd: worktree, agentDir, exec, now: NOW, track: temps.track });
@@ -277,7 +270,7 @@ describe("the page this repository already serves", () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const dead = harness({ cwd, agentDir, probe: async () => ({ ok: false }) });
-		const status = served(await dead.page.start(dead.ctx));
+		const status = servedPage(await dead.page.start(dead.ctx));
 		expect((await noteOf(dead.runtime, cwd))?.port).toBe(status.port);
 		await dead.page.stop();
 	});
@@ -286,7 +279,7 @@ describe("the page this repository already serves", () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const lead = harness({ cwd, agentDir, lead: "team-lead" });
-		const first = served(await lead.page.start(lead.ctx));
+		const first = servedPage(await lead.page.start(lead.ctx));
 		// Somebody else's note is there, but the page is not answering yet: this session
 		// serves, loses the exclusive write, and then finds the winner answering.
 		let answers = 0;
@@ -319,7 +312,7 @@ describe("the page this repository already serves", () => {
 			startedAt: NOW - 1000,
 		};
 		writeFileSync(join(store.dir, PAGE_FILE), JSON.stringify(stale));
-		const status = served(await dead.page.start(dead.ctx));
+		const status = servedPage(await dead.page.start(dead.ctx));
 		const said = dead.notifications.join("\n");
 		// A notice that names the URL, not an error: what a reader needs is where that page was.
 		expect(said).toContain("http://127.0.0.1:4781/board/?token=stale-view-token");
@@ -390,7 +383,7 @@ describe("the page this repository already serves", () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const lead = harness({ cwd, agentDir, lead: "team-lead" });
-		const first = served(await lead.page.start(lead.ctx));
+		const first = servedPage(await lead.page.start(lead.ctx));
 		// A peer whose probe only ever gets the ping through — which is what a page busy
 		// answering its own browser looks like when the question is the snapshot.
 		const asked: string[] = [];
@@ -413,7 +406,7 @@ describe("the page this repository already serves", () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const lead = harness({ cwd, agentDir, lead: "team-lead" });
-		const first = served(await lead.page.start(lead.ctx));
+		const first = servedPage(await lead.page.start(lead.ctx));
 		let answering = true;
 		const viewer = harness({ cwd, agentDir, probe: async () => ({ ok: answering }) });
 		attached(await viewer.page.start(viewer.ctx));
@@ -435,7 +428,7 @@ describe("the page this repository already serves", () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const lead = harness({ cwd, agentDir });
-		const first = served(await lead.page.start(lead.ctx));
+		const first = servedPage(await lead.page.start(lead.ctx));
 		const viewer = harness({ cwd, agentDir });
 		attached(await viewer.page.start(viewer.ctx));
 
@@ -447,30 +440,9 @@ describe("the page this repository already serves", () => {
 
 	test("status reports the seat and the tabs watching it", async () => {
 		const { page, ctx } = harness({ lead: "team-lead" });
-		const status = served(await page.start(ctx));
+		const status = servedPage(await page.start(ctx));
 		expect(await page.status()).toMatchObject({ running: true, seat: "team-lead", port: status.port, watchers: 0 });
 		await page.stop();
-	});
-});
-
-describe("the idle grace", () => {
-	test("closes the page once the last tab has been gone for the grace", async () => {
-		const { page, ctx, notifications } = harness();
-		// The shipped grace, shortened: the same path a real timer takes.
-		const status = served(await page.start(ctx));
-		expect(IDLE_STOP_MS).toBe(60_000);
-		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
-		const stream = await fetch(`http://127.0.0.1:${status.port}/board/events?token=${token}`);
-		expect(stream.status).toBe(200);
-		// The page has a reader; the grace must not be armed yet.
-		await settle(150);
-		expect((await page.status()).running).toBe(true);
-		await stream.body?.cancel();
-		// The stop and the notice are two steps of one idle callback, so the notice is
-		// what proves both: `stop` clears the state before it reports.
-		await waitFor(() => notifications.length > 0);
-		expect((await page.status()).running).toBe(false);
-		expect(notifications).toContain("board: stopped — the last page was closed");
 	});
 });
 
@@ -483,7 +455,7 @@ describe("a board the page cannot read", () => {
 		};
 		const { page, ctx, notifications, runtime, cwd } = harness({ interval });
 		const store = await runtime.store(cwd);
-		const status = served(await page.start(ctx));
+		const status = servedPage(await page.start(ctx));
 		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
 		const stream = await fetch(`http://127.0.0.1:${status.port}/board/events?token=${token}`);
 		expect(stream.status).toBe(200);
@@ -538,26 +510,10 @@ describe("a start that cannot write the board", () => {
 	});
 });
 
-describe("a page no tab ever opened", () => {
-	test("closes on its first grace, and says which grace it was", async () => {
-		const { page, ctx, notifications, cwd, runtime } = harness({ firstIdleMs: 20 });
-		const status = served(await page.start(ctx));
-		// Two minutes in the product, twenty milliseconds here: the same path.
-		expect(IDLE_FIRST_MS).toBe(120_000);
-		// The browser never came up: no stream is opened against this page at all.
-		await waitFor(() => notifications.length > 0);
-		expect((await page.status()).running).toBe(false);
-		expect(notifications).toContain("board: stopped — no tab ever opened; /board starts it again");
-		// And nothing is left behind for the next session to probe.
-		expect(await noteOf(runtime, cwd)).toBeUndefined();
-		await expect(fetch(status.url ?? "")).rejects.toBeDefined();
-	});
-});
-
 describe("closeAll", () => {
 	test("closes the page without a context, as a shutdown does", async () => {
 		const { page, ctx } = harness();
-		const status = served(await page.start(ctx));
+		const status = servedPage(await page.start(ctx));
 		await page.closeAll();
 		expect((await page.status()).running).toBe(false);
 		await expect(fetch(status.url ?? "")).rejects.toBeDefined();

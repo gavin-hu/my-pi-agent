@@ -17,6 +17,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `test`: the board page's two idle-grace cases fire the grace instead of waiting for it. Both
+  graces are wall-clock timers (a minute after the last tab, two minutes for a page no tab
+  ever opened), and the cases awaited a notification under a two-second `waitFor` budget —
+  an injected twenty milliseconds turned into a bet on machine load, which lost on a loaded
+  box. The mount now takes the one-shot timer its grace is armed on (`MountSpec.timer`, the
+  seam `idle` already had), the page hands it down, and the cases fire the arm the page took;
+  the waits that remain are for the immediate aftermath — the tab's close, the notice — not
+  for the grace. The two cases moved to `extensions/board/page-idle.test.ts` when the suite
+  bar said the file could not grow.
 - `board`: the rollup's `idle` group is `unwritten`, because that is what it measures — an
   `execute` card whose file nobody has written for 30 minutes — and next to `blocked` and
   `done` the old word read as "somebody is available", an invitation to reclaim work in

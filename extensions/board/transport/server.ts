@@ -20,7 +20,7 @@ import {
 	tokenMatches,
 } from "../../../lib/http/index.ts";
 import type { IdleReason } from "../../../lib/http/sink.ts";
-import { defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
+import { type ArmTimer, defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
 import type { PageView } from "../view/page.ts";
 import { type BoardRouterContext, handleBoardRequest } from "./router.ts";
 
@@ -58,6 +58,13 @@ export interface BoardServerOptions {
 	onError?: (error: unknown) => void;
 	/** The interval seam, so a test drives the ticker instead of waiting. */
 	interval?: RepeatTimer;
+	/**
+	 * The one-shot seam the idle grace is armed on, so a test fires it instead of waiting.
+	 *
+	 * The grace is a wall-clock timer in the product (a minute, two minutes), so a case that
+	 * awaits its injected milliseconds is really betting its budget on machine load.
+	 */
+	timer?: ArmTimer;
 }
 
 /** A running page. */
@@ -116,6 +123,7 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 						onIdle: options.onIdle,
 					},
 				}),
+		...(options.timer === undefined ? {} : { timer: options.timer }),
 	};
 	const outcome = await options.mount({
 		...spec,

@@ -19,6 +19,7 @@ import type { NetworkInterfaceInfo } from "node:os";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type BusAnswer, requestOverBus } from "../bus-request.ts";
 import { messageOf } from "../errors.ts";
+import type { ArmTimer } from "../timer.ts";
 import type { IdleGrace } from "./sink.ts";
 import type { LoopbackHandler } from "./serve.ts";
 
@@ -42,6 +43,13 @@ export interface MountSpec {
 	maxBodyBytes?: number;
 	/** Grace after this page's last reader leaves; omitted, it waits for `release()`. */
 	idle?: IdleGrace;
+	/**
+	 * The timer that grace is armed on; absent, the process's own.
+	 *
+	 * A page's grace is a minute or two of wall clock, so a test that awaits it is really
+	 * betting its budget on machine load; the seam is how a case fires it instead.
+	 */
+	timer?: ArmTimer;
 }
 
 /** A prefix this page now serves. */
