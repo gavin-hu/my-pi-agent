@@ -87,6 +87,17 @@ describe("watch tool", () => {
 		expect(cleared.details.cleared).toBe(1);
 	});
 
+	test("status and list name the signal that killed a command", async () => {
+		const { h, ctx, tool } = setup();
+		await call(tool, ctx, { action: "add", command: "build", pattern: "x" });
+		// Node's own account of a killed child: no exit code, and the signal that ended it.
+		h.children[0].close(null, "SIGKILL");
+		const status = await call(tool, ctx, { action: "status", id: "w1" });
+		expect(status.content[0].text.split("\n")[0]).toBe("w1: exited (SIGKILL)");
+		const list = await call(tool, ctx, { action: "list" });
+		expect(list.content[0].text).toContain("w1  exited (SIGKILL)");
+	});
+
 	test("clear refuses a running watcher by id without all", async () => {
 		const { ctx, tool } = setup();
 		await call(tool, ctx, { action: "add", command: "build", pattern: "x" });

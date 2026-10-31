@@ -612,6 +612,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now skipped and left where it is, still counted in `unread`, and only the consuming `inbox`
   or the 24-hour message TTL clears it — the same rule the board's `Skip` follows for a card
   file it will not list. The store test now says what the code does.
+- `watch`: **a command killed by a signal says which one** — `statusWord` reported `exited (<code>)`
+  only when the exit code was a number, and node reports a signalled child as a null code plus
+  the signal, so SIGKILL and SIGTERM both read as a bare `exited` on `watch status`,
+  `watch list`, the `/watch` focus pane, and the empty-tail note. The captured signal is now the
+  helper's second answer, so a killed command reads `exited (SIGKILL)` while a numeric code keeps
+  the wording it had; the record's `signal` field needed no change — the runtime already stored it,
+  and only the sentence was missing.
 
 ## [0.21.0] - 2026-10-28
 

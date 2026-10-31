@@ -79,11 +79,14 @@ export function statusGlyphChar(status: WatchStatus): string {
 	}
 }
 
-/** Short status word, including an exit code or error when present. */
+/** Short status word, including an exit code, the signal that ended it, or an error when present. */
 export function statusWord(watch: WatchRecord): string {
 	if (watch.status === "error" && watch.error) return `error (${watch.error})`;
-	if (watch.status === "exited" && watch.exitCode !== undefined && watch.exitCode !== null) {
-		return `exited (${watch.exitCode})`;
+	if (watch.status === "exited") {
+		if (typeof watch.exitCode === "number") return `exited (${watch.exitCode})`;
+		// Node reports a signalled child with a null code and the signal that ended it, so the
+		// code alone would leave a killed command looking like a clean exit.
+		if (watch.signal) return `exited (${watch.signal})`;
 	}
 	return watch.status;
 }
