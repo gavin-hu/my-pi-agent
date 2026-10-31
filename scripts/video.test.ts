@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { MONTAGE, montageRequest, montageScript, parseArgs, totalSeconds } from "./shots/video.ts";
 import { repo } from "./theme.ts";
@@ -58,6 +58,23 @@ describe("video shot arguments", () => {
 		expect(() => parseArgs(["--width", "200"])).toThrow("at least 320×240");
 		expect(() => parseArgs(["--fps", "0"])).toThrow("--fps must be positive");
 		expect(() => parseArgs(["--fps", "90"])).toThrow("--fps must be between 1 and 60");
+	});
+});
+
+describe("shot scripts as modules", () => {
+	test("every shot script runs only as the entry point", () => {
+		// `runCli` runs `main()` the moment it is called, so a shot script that calls it at top
+		// level captures whenever anything imports it — and this suite imports `parseArgs` from
+		// `shots/video.ts`, which launched Chrome, recorded H.264 and overwrote
+		// `assets/video/demo.mp4` on every `bun test` (see #183). An unindented call is the bug.
+		const dir = join(import.meta.dir, "shots");
+		const scripts = readdirSync(dir).filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"));
+		expect(scripts).toContain("video.ts");
+		for (const name of scripts) {
+			const source = readFileSync(join(dir, name), "utf8");
+			if (!source.includes("runCli(")) continue;
+			expect(/^runCli\(/m.test(source), `${name} calls runCli at top level`).toBe(false);
+		}
 	});
 });
 

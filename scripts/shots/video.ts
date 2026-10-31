@@ -361,4 +361,6 @@ async function main(): Promise<void> {
 	);
 }
 
-runCli("usage: bun run scripts/shots/video.ts [-o <file.mp4>] [--width n] [--height n] [--fps n] [--bps n]", main);
+if (import.meta.main) {
+	runCli("usage: bun run scripts/shots/video.ts [-o <file.mp4>] [--width n] [--height n] [--fps n] [--bps n]", main);
+}
