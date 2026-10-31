@@ -12,7 +12,7 @@ import { mkdir, link, readdir, rename, rm, rmdir, stat, writeFile } from "node:f
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/config.ts";
 import { claimsConflict } from "./overlap.ts";
-import type { BusMessage, ClaimConflict, ClaimRecord, SessionRecord } from "./types.ts";
+import type { BusMessage, ClaimConflict, ClaimRecord, InboxPeek, SessionRecord } from "./types.ts";
 import { INBOX_DIR_NAME, SESSIONS_DIR_NAME } from "../../lib/session-roster.ts";
 
 const DIR_MODE = 0o700;
@@ -32,8 +32,11 @@ export interface BusStore {
 	session(id: string): Promise<SessionRecord | undefined>;
 	removeSession(id: string): Promise<void>;
 	writeMessage(target: string, message: BusMessage): Promise<void>;
-	/** Read a recipient's messages without consuming them, oldest first. */
-	peek(id: string, limit: number): Promise<BusMessage[]>;
+	/**
+	 * Read a recipient's newest messages without consuming them, oldest first, with the
+	 * ids of every message still in the inbox.
+	 */
+	peek(id: string, limit: number): Promise<InboxPeek>;
 	inbox(id: string, limit: number): Promise<BusMessage[]>;
 	unread(id: string): Promise<number>;
 	claims(): Promise<ClaimRecord[]>;
@@ -150,13 +153,18 @@ async function writeJson(path: string, value: unknown): Promise<void> {
 	}
 }
 
+const MESSAGE_SUFFIX = ".json";
+
 async function listFiles(dir: string): Promise<string[]> {
 	try {
-		return (await readdir(dir)).filter((name) => name.endsWith(".json")).sort();
+		return (await readdir(dir)).filter((name) => name.endsWith(MESSAGE_SUFFIX)).sort();
 	} catch {
 		return [];
 	}
 }
+
+/** The message id a file name holds, which is the id a reader compares against. */
+const idOfFile = (name: string): string => name.slice(0, -MESSAGE_SUFFIX.length);
 
 /**
  * Drop a recipient's directory once it holds no files, so a bus does not keep
@@ -216,17 +224,30 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		return sessions.sort((a, b) => b.lastSeen - a.lastSeen || a.label.localeCompare(b.label));
 	}
 
-	async function readMessages(id: string, limit: number, remove: boolean): Promise<BusMessage[]> {
-		const directory = inboxDir(id);
+	/**
+	 * One window of a recipient's inbox, read from the end the caller asked for.
+	 *
+	 * The end is the question, not a preference. `inbox` consumes from the front, so a
+	 * limited consume never starves. The watch reads from the back, because a new message
+	 * sorts last: an oldest-first window is exactly the mail that has waited longest, and
+	 * mail behind a backlog deeper than one read would never be announced.
+	 */
+	async function readMessages(
+		directory: string,
+		names: readonly string[],
+		options: { limit: number; from: "oldest" | "newest"; remove: boolean },
+	): Promise<BusMessage[]> {
+		const { limit, from, remove } = options;
+		const order = from === "newest" ? [...names].reverse() : names;
 		const messages: BusMessage[] = [];
-		for (const name of await listFiles(directory)) {
+		for (const name of order) {
 			const path = join(directory, name);
 			const message = readTyped(path, isMessage);
 			if (message) messages.push(message);
 			if (remove || !message) await rm(path, { force: true });
 			if (messages.length >= limit) break;
 		}
-		return messages.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id)).slice(0, limit);
+		return messages.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
 	}
 
 	async function readClaims(): Promise<ClaimRecord[]> {
@@ -357,9 +378,19 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			await writeJson(join(directory, `${message.id}.json`), message);
 		},
 
-		peek: (id, limit) => readMessages(id, limit, false),
+		async peek(id, limit) {
+			const directory = inboxDir(id);
+			const names = await listFiles(directory);
+			return {
+				mail: await readMessages(directory, names, { limit, from: "newest", remove: false }),
+				unread: new Set(names.map(idOfFile)),
+			};
+		},
 
-		inbox: (id, limit) => readMessages(id, limit, true),
+		async inbox(id, limit) {
+			const directory = inboxDir(id);
+			return readMessages(directory, await listFiles(directory), { limit, from: "oldest", remove: true });
+		},
 
 		async unread(id) {
 			return (await listFiles(inboxDir(id))).length;

@@ -99,6 +99,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"format",
 		"protocol",
 		"store",
+		"mail-watch",
 		"runtime",
 		"view/session-list",
 		"tools",

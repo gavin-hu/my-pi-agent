@@ -53,6 +53,20 @@ export interface BusMessage {
 	at: number;
 }
 
+/**
+ * One read of a recipient's inbox.
+ *
+ * The watch and `inbox` ask two questions of the same directory — which mail is new,
+ * and which mail is gone — and one readdir answers both, so a queue's health never
+ * depends on what a single window happened to cover.
+ */
+export interface InboxPeek {
+	/** The newest messages, oldest first, so a burst reads in the order it arrived. */
+	mail: BusMessage[];
+	/** Every id still in the inbox, whether or not this read returned it. */
+	unread: ReadonlySet<string>;
+}
+
 /** One repository-relative claim. */
 export interface ClaimRecord {
 	path: string;

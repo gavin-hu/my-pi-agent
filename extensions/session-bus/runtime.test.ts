@@ -190,7 +190,7 @@ describe("messages", () => {
 		expect(await first.send({ to: "*", text: "build failed", kind: "event" })).toMatchObject({
 			delivered: ["backend"],
 		});
-		expect(await store.peek("dead", 10)).toEqual([]);
+		expect((await store.peek("dead", 10)).mail).toEqual([]);
 		await first.stop();
 		await second.stop();
 	});

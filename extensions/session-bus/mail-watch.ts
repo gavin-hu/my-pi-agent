@@ -12,11 +12,14 @@
  */
 
 import type { RepeatTimer } from "../../lib/timer.ts";
-import type { BusMessage } from "./types.ts";
+import type { BusMessage, InboxPeek } from "./types.ts";
 
 export interface MailWatchOptions {
-	/** This session's unread mail, read-only: nothing is consumed or marked. */
-	peek(): Promise<BusMessage[]>;
+	/**
+	 * This session's inbox, read-only: the newest unread mail, and the ids of every
+	 * message still there. Nothing is consumed or marked.
+	 */
+	peek(): Promise<InboxPeek>;
 	/** The repeating timer behind the poll. */
 	interval: RepeatTimer;
 	/** Poll interval; 0 disables the ticker (tests). */
@@ -97,9 +100,10 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 	 */
 	async function pollOnce(): Promise<void> {
 		if (!armed) return;
-		const mail = await peek();
-		const unread = new Set(mail.map((message) => message.id));
-		// A message that expired or was consumed leaves the queue with its file.
+		const { mail, unread } = await peek();
+		// What is still on disk, not what this window covered: a queue can hold mail older
+		// than the newest window, and the window is not the inbox. A message that expired or
+		// was consumed leaves the queue with its file.
 		pendingMail = pendingMail.filter((message) => unread.has(message.id));
 		const queued = new Set(pendingMail.map((message) => message.id));
 		const fresh = mail.filter((message) => !reported.has(message.id) && !queued.has(message.id));

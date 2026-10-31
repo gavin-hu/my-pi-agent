@@ -262,6 +262,13 @@ listening watch is what raises the turn.
   with one `readdir` every 2 s, the same trade `watch` makes for a file tail, so
   it does not depend on a platform's event API or a filename in the event. Only
   a listening session polls.
+- **The poll reads the newest mail, and the queue by what is on disk.** That one read
+  returns the newest 50 messages and the ids of everything still unread: a new
+  message sorts last, so an oldest-first window would leave mail behind a backlog of 50
+  or more unannounced — a handoff, which assigns work, waiting for a model that never
+  calls `inbox`. The queue is pruned by what is still on disk rather than by what that
+  one window covered, so a burst larger than a read keeps its place. `inbox` still
+  consumes oldest first, and a limit never starves.
 - **Read the board, prune on the next call.** The open board polls a read-only
   `snapshot()` and `peek()` that hide a session past the TTL, a claim held by one,
   and consume nothing. The physical prune, and the claim release that goes with

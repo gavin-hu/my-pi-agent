@@ -400,6 +400,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: **the inbox watch announces mail that arrives behind a full backlog** — the
+  poll read the oldest 50 unread messages, so a session holding that many had new mail sorted
+  behind them and never announced it: a handoff, which assigns work, sat unread until the model
+  happened to call `session inbox`. The poll now reads the newest 50 together with the ids of
+  every message still unread, and prunes its queue by what is still on disk rather than by what
+  that one window covered, so a burst larger than a read keeps its place. `inbox` still
+  consumes oldest first.
 - `plan`: **plan mode refuses every `git config` write** — the guard used to accept any
   `git config` that merely contained a read flag, so `git config --show-scope --replace-all
   core.fsmonitor /tmp/hook.sh` wrote `.git/config` from inside a plan and the `git status`
