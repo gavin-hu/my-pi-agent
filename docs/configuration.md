@@ -359,7 +359,7 @@ edit.
 | `maxLogBytes` | integer | `8388608` | `0`–`1073741824` | Bytes a log segment may reach before it rotates to `<id>.log.1`; `0` keeps logs unbounded. |
 | `killGraceMs` | integer | `5000` | `0`–`60000` | Grace period before a SIGTERM escalates to SIGKILL. |
 | `repaintMs` | integer | `1000` | `100`–`10000` | Chip refresh interval while jobs run. |
-| `sessionTtlMs` | integer | `60000` | `5000`–`600000` | How long a session heartbeat is trusted before its jobs are reaped. |
+| `sessionTtlMs` | integer | `60000` | `5000`–`600000` | How old a session heartbeat may be before its pid is re-checked for reuse. |
 | `registryDir` | string | | | Override for the registry and log directory; the default sits under the agent directory. |
 
 ## `watch` — file and command watchers

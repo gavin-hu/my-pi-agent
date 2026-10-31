@@ -58,6 +58,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `job`: `sessionTtlMs` names how old a heartbeat may be before its pid is re-checked for
+  reuse, not how long it is trusted before a peer's jobs are reaped — a quiet session is an
+  idle one, not a dead one.
 - `plan` + `worktree`: **nine tools become two.** `plan` registers one tool with five
   actions — `enter`, `write`, `exit`, `steps`, `cancel` — and `worktree` one with four —
   `enter`, `exit`, `list`, `prune` — the way `board` and `todo` already carry their verbs, so
@@ -411,6 +414,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   session that already holds it — named by its id, which the schema allows — is the same no-op
   the label is instead of `#4 is held by billing-core`. The check and the write now take one
   actor, resolved once from the bus, so they cannot disagree about who `to` is.
+- `job`: **a live session's finished jobs stay its own while it is quiet** — the heartbeat is
+  only written while a job runs, and liveness required a fresh one, so a peer that had finished
+  its work read as dead within a minute: another session deleted its registry file, adopted its
+  records, reported its completion, and clearing them deleted its log, after which the owner
+  read "no output yet". Liveness is the roster's three answers now (`live` / `quiet` / `gone`),
+  so only a gone pid — dead, or reused, which the marker's own start token now catches — lets
+  anything be adopted, and a live pid's marker is kept rather than swept.
 - `plan`: **plan mode refuses every `git config` write** — the guard used to accept any
   `git config` that merely contained a read flag, so `git config --show-scope --replace-all
   core.fsmonitor /tmp/hook.sh` wrote `.git/config` from inside a plan and the `git status`

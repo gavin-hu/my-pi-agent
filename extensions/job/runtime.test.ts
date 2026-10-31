@@ -20,20 +20,12 @@ import {
 import { listReservedIds, pruneReservations, releaseReservation, reserveId } from "./reservations.ts";
 import { createJobsRuntime, type JobsRuntime } from "./runtime.ts";
 import { MAX_COMMAND, MAX_LABEL, MAX_STDIN, normalizeCall, type JobCall } from "./schema.ts";
-import {
-	isSessionAlive,
-	listSessionMarkers,
-	pruneSessionMarkers,
-	readSessionMarker,
-	removeSessionMarker,
-	sessionMarkerPath,
-	touchSessionMarker,
-} from "./session.ts";
+import { readSessionMarker, touchSessionMarker } from "./session.ts";
 import { LOG_ENV, STATUS_ENV, readExitStatus, withExitTrap } from "./status.ts";
 import { createJobStore } from "./store.ts";
 import type { Job, JobRecord } from "./types.ts";
 import { createWaiters } from "./waiters.ts";
-import { makeCtx, makeHarnessSuite, readLog, type Harness } from "../../test/helpers/fixtures/job.ts";
+import { jobRecord, makeCtx, makeHarnessSuite, readLog, save, type Harness } from "../../test/helpers/fixtures/job.ts";
 import { tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
@@ -45,48 +37,9 @@ afterEach(() => {
 	temps.flush();
 });
 
-/** A persisted record; `statusPath`/`startToken` default to null for the required fields. */
-function record(overrides: Partial<JobRecord> = {}): JobRecord {
-	return {
-		id: "j1",
-		label: "build",
-		command: "sleep 99",
-		cwd: "/repo",
-		pid: 777,
-		status: "running",
-		exitCode: null,
-		signal: null,
-		startedAt: 1,
-		finishedAt: null,
-		logPath: "/tmp/j1.log",
-		statusPath: null,
-		detached: false,
-		wake: false,
-		stdin: false,
-		sessionId: "old",
-		seen: false,
-		lastLine: "",
-		startToken: null,
-		...overrides,
-	};
-}
-
 /** The in-memory shape the store persists. */
 function job(overrides: Partial<JobRecord> = {}): Job {
-	return { ...record(overrides), owned: true };
-}
-
-/** Persist a session's registry file in the harness directory. */
-function save(h: Harness, sessionId: string, jobs: JobRecord[], counter = jobs.length + 1): void {
-	saveRegistry(h.dir, { version: REGISTRY_VERSION, sessionId, counter, jobs });
-}
-
-/** Every persisted record across all session files. */
-function persistedIds(h: Harness): string[] {
-	return loadRegistries(h.dir)
-		.files.flatMap((file) => file.jobs)
-		.map((entry) => entry.id)
-		.sort();
+	return { ...jobRecord(overrides), owned: true };
 }
 
 async function start(h: Harness, command = "sleep 10"): Promise<void> {
@@ -252,7 +205,12 @@ describe("job registry", () => {
 		const parsed = parseRegistry({
 			sessionId: "s1",
 			counter: 5,
-			jobs: [record(), { id: "bad" }, 7, { ...record({ id: "j2" }), statusPath: undefined, startToken: undefined }],
+			jobs: [
+				jobRecord(),
+				{ id: "bad" },
+				7,
+				{ ...jobRecord({ id: "j2" }), statusPath: undefined, startToken: undefined },
+			],
 		});
 		expect(parsed.counter).toBe(5);
 		expect(parsed.sessionId).toBe("s1");
@@ -271,7 +229,7 @@ describe("job registry", () => {
 
 	test("saveRegistry round-trips one session's file", async () => {
 		const dir = temps.track(tempDir("pi-jobs-reg-"));
-		saveRegistry(dir, { version: REGISTRY_VERSION, sessionId: "s1", counter: 3, jobs: [record()] });
+		saveRegistry(dir, { version: REGISTRY_VERSION, sessionId: "s1", counter: 3, jobs: [jobRecord()] });
 		const { files, counter } = loadRegistries(dir);
 		expect(files).toHaveLength(1);
 		expect(files[0].sessionId).toBe("s1");
@@ -285,13 +243,13 @@ describe("job registry", () => {
 			version: REGISTRY_VERSION,
 			sessionId: "a",
 			counter: 2,
-			jobs: [record({ id: "j1", sessionId: "a" })],
+			jobs: [jobRecord({ id: "j1", sessionId: "a" })],
 		});
 		saveRegistry(dir, {
 			version: REGISTRY_VERSION,
 			sessionId: "b",
 			counter: 7,
-			jobs: [record({ id: "j2", sessionId: "b" })],
+			jobs: [jobRecord({ id: "j2", sessionId: "b" })],
 		});
 		const { files, counter } = loadRegistries(dir);
 		expect(files.map((file) => file.sessionId).sort()).toEqual(["a", "b"]);
@@ -302,7 +260,7 @@ describe("job registry", () => {
 		const dir = temps.track(tempDir("pi-jobs-reg-"));
 		writeFileSync(
 			join(dir, "registry.json"),
-			JSON.stringify({ version: REGISTRY_VERSION, counter: 4, jobs: [record()] }),
+			JSON.stringify({ version: REGISTRY_VERSION, counter: 4, jobs: [jobRecord()] }),
 			"utf-8",
 		);
 		const { files, counter } = loadRegistries(dir);
@@ -321,15 +279,15 @@ describe("job registry", () => {
 	});
 
 	test("mergeRecords lets a settled record beat a running one", async () => {
-		const running = record({ status: "running" });
-		const settled = record({ status: "exited", exitCode: 0, finishedAt: 200 });
+		const running = jobRecord({ status: "running" });
+		const settled = jobRecord({ status: "exited", exitCode: 0, finishedAt: 200 });
 		expect(mergeRecords(running, settled).status).toBe("exited");
 		expect(mergeRecords(settled, running).status).toBe("exited");
 	});
 
 	test("mergeRecords lets the preferred session win a same-class tie", async () => {
-		const a = record({ sessionId: "a", startedAt: 100 });
-		const b = record({ sessionId: "b", startedAt: 999 });
+		const a = jobRecord({ sessionId: "a", startedAt: 100 });
+		const b = jobRecord({ sessionId: "b", startedAt: 999 });
 		expect(mergeRecords(a, b, "a").sessionId).toBe("a");
 	});
 });
@@ -338,67 +296,67 @@ describe("settleGone", () => {
 	const options = { isAlive: () => false, tokenMatches: () => true, now: 999 };
 
 	test("leaves a live process running", async () => {
-		const settled = settleGone(record(), { ...options, isAlive: () => true });
+		const settled = settleGone(jobRecord(), { ...options, isAlive: () => true });
 		expect(settled.status).toBe("running");
 		expect(settled.finishedAt).toBeNull();
 	});
 
 	test("marks a gone process unknown without an exit code", async () => {
-		const settled = settleGone(record(), options);
+		const settled = settleGone(jobRecord(), options);
 		expect(settled.status).toBe("unknown");
 		expect(settled.finishedAt).toBe(999);
 	});
 
 	test("recovers a zero code as exited and a non-zero as failed", async () => {
-		expect(settleGone(record(), { ...options, readExitCode: () => 0 })).toMatchObject({
+		expect(settleGone(jobRecord(), { ...options, readExitCode: () => 0 })).toMatchObject({
 			status: "exited",
 			exitCode: 0,
 		});
-		expect(settleGone(record(), { ...options, readExitCode: () => 3 })).toMatchObject({
+		expect(settleGone(jobRecord(), { ...options, readExitCode: () => 3 })).toMatchObject({
 			status: "failed",
 			exitCode: 3,
 		});
 	});
 
 	test("a mismatched start token stays unknown and is never signalled", async () => {
-		const settled = settleGone(record(), { ...options, isAlive: () => true, tokenMatches: () => false });
+		const settled = settleGone(jobRecord(), { ...options, isAlive: () => true, tokenMatches: () => false });
 		expect(settled.status).toBe("unknown");
 	});
 
 	test("leaves a finished record untouched", async () => {
-		const finished = record({ status: "exited", exitCode: 0, finishedAt: 50 });
+		const finished = jobRecord({ status: "exited", exitCode: 0, finishedAt: 50 });
 		expect(settleGone(finished, options)).toBe(finished);
 	});
 });
 
 describe("planReconcile", () => {
 	test("marks a running job with a dead pid as unknown", async () => {
-		const { jobs, orphans } = planReconcile([record()], () => false, 999);
+		const { jobs, orphans } = planReconcile([jobRecord()], () => false, 999);
 		expect(jobs[0].status).toBe("unknown");
 		expect(jobs[0].finishedAt).toBe(999);
 		expect(orphans).toHaveLength(0);
 	});
 
 	test("reaps a live, non-detached leftover", async () => {
-		const { jobs, orphans } = planReconcile([record()], () => true, 999);
+		const { jobs, orphans } = planReconcile([jobRecord()], () => true, 999);
 		expect(orphans.map((entry) => entry.id)).toEqual(["j1"]);
 		expect(jobs[0].status).toBe("running");
 	});
 
 	test("reattaches a live detached job", async () => {
-		const { orphans } = planReconcile([record({ detached: true })], () => true, 999);
+		const { orphans } = planReconcile([jobRecord({ detached: true })], () => true, 999);
 		expect(orphans).toHaveLength(0);
 	});
 
 	test("leaves finished jobs untouched", async () => {
-		const finished = record({ status: "exited", exitCode: 0, finishedAt: 50 });
+		const finished = jobRecord({ status: "exited", exitCode: 0, finishedAt: 50 });
 		const { jobs } = planReconcile([finished], () => true, 999);
 		expect(jobs[0]).toEqual(finished);
 	});
 
-	test("keeps a live non-detached job owned by another live session", async () => {
-		const { jobs, orphans } = planReconcile([record({ sessionId: "peer" })], () => true, 999, {
-			isOwnerAlive: (id) => id === "peer",
+	test("keeps a live non-detached job owned by another live or quiet session", async () => {
+		const { jobs, orphans } = planReconcile([jobRecord({ sessionId: "peer" })], () => true, 999, {
+			ownerState: (id) => (id === "peer" ? "quiet" : "gone"),
 			currentSessionId: "me",
 		});
 		expect(orphans).toHaveLength(0);
@@ -406,16 +364,16 @@ describe("planReconcile", () => {
 	});
 
 	test("reaps a live non-detached job whose owner is dead", async () => {
-		const { orphans } = planReconcile([record({ sessionId: "peer" })], () => true, 999, {
-			isOwnerAlive: () => false,
+		const { orphans } = planReconcile([jobRecord({ sessionId: "peer" })], () => true, 999, {
+			ownerState: () => "gone",
 			currentSessionId: "me",
 		});
 		expect(orphans.map((entry) => entry.id)).toEqual(["j1"]);
 	});
 
 	test("reaps a live non-detached leftover from the current session", async () => {
-		const { orphans } = planReconcile([record({ sessionId: "me" })], () => true, 999, {
-			isOwnerAlive: () => true,
+		const { orphans } = planReconcile([jobRecord({ sessionId: "me" })], () => true, 999, {
+			ownerState: () => "live",
 			currentSessionId: "me",
 		});
 		expect(orphans.map((entry) => entry.id)).toEqual(["j1"]);
@@ -457,79 +415,6 @@ describe("job reservations", () => {
 		const pending = reserveId(dir, []);
 		pruneReservations(dir, [committed]);
 		expect(listReservedIds(dir)).toEqual([pending]);
-	});
-});
-
-describe("job session markers", () => {
-	test("sessionMarkerPath is stable per session and differs across sessions", async () => {
-		expect(sessionMarkerPath("/dir", "s1")).toBe(sessionMarkerPath("/dir", "s1"));
-		expect(sessionMarkerPath("/dir", "s1")).not.toBe(sessionMarkerPath("/dir", "s2"));
-	});
-
-	test("sessionMarkerPath hashes the id so it cannot escape the directory", async () => {
-		const path = sessionMarkerPath("/dir", "../../evil");
-		expect(path.startsWith(join("/dir", "session-"))).toBe(true);
-		expect(path).not.toContain("..");
-	});
-
-	test("touch/read/remove round-trips through disk", async () => {
-		const dir = temps.track(tempDir("pi-jobs-session-"));
-		touchSessionMarker(dir, "s1", 1234, 500);
-		expect(readSessionMarker(dir, "s1")).toEqual({ sessionId: "s1", pid: 1234, updatedAt: 500 });
-		removeSessionMarker(dir, "s1");
-		expect(readSessionMarker(dir, "s1")).toBeUndefined();
-		expect(() => removeSessionMarker(dir, "s1")).not.toThrow();
-	});
-
-	test("a missing marker is undefined", async () => {
-		const dir = temps.track(tempDir("pi-jobs-session-"));
-		expect(readSessionMarker(dir, "s1")).toBeUndefined();
-	});
-
-	test("a malformed marker is undefined", async () => {
-		const dir = temps.track(tempDir("pi-jobs-session-"));
-		writeFileSync(sessionMarkerPath(dir, "s1"), JSON.stringify({ sessionId: "s1", pid: "x" }), "utf-8");
-		expect(readSessionMarker(dir, "s1")).toBeUndefined();
-	});
-
-	test("a missing marker is dead", async () => {
-		expect(isSessionAlive(undefined, 1000, 100, () => true)).toBe(false);
-	});
-
-	test("a dead pid is dead even when fresh", async () => {
-		expect(isSessionAlive({ sessionId: "s1", pid: 42, updatedAt: 1000 }, 1000, 100, () => false)).toBe(false);
-	});
-
-	test("a stale heartbeat is dead", async () => {
-		expect(isSessionAlive({ sessionId: "s1", pid: 42, updatedAt: 800 }, 1000, 100, () => true)).toBe(false);
-	});
-
-	test("a fresh heartbeat with a live pid is alive", async () => {
-		expect(isSessionAlive({ sessionId: "s1", pid: 42, updatedAt: 950 }, 1000, 100, () => true)).toBe(true);
-	});
-
-	test("a non-positive pid falls back to the timestamp", async () => {
-		expect(isSessionAlive({ sessionId: "s1", pid: 0, updatedAt: 950 }, 1000, 100, () => false)).toBe(true);
-	});
-
-	test("listSessionMarkers lists every valid marker", async () => {
-		const dir = temps.track(tempDir("pi-jobs-session-"));
-		touchSessionMarker(dir, "s1", 1, 100);
-		touchSessionMarker(dir, "s2", 2, 100);
-		expect(
-			listSessionMarkers(dir)
-				.map((marker) => marker.sessionId)
-				.sort(),
-		).toEqual(["s1", "s2"]);
-	});
-
-	test("pruneSessionMarkers prunes dead and stale markers, keeping live ones", async () => {
-		const dir = temps.track(tempDir("pi-jobs-session-"));
-		touchSessionMarker(dir, "live", 10, 1000);
-		touchSessionMarker(dir, "deadpid", 20, 1000);
-		touchSessionMarker(dir, "stale", 30, 100);
-		pruneSessionMarkers(dir, 1000, 100, (pid) => pid !== 20);
-		expect(listSessionMarkers(dir).map((marker) => marker.sessionId)).toEqual(["live"]);
 	});
 });
 
@@ -665,7 +550,7 @@ describe("job store", () => {
 			version: REGISTRY_VERSION,
 			sessionId: "peer",
 			counter: 3,
-			jobs: [record({ id: "j9", sessionId: "peer" })],
+			jobs: [jobRecord({ id: "j9", sessionId: "peer" })],
 		});
 		store.persist([job({ id: "j1", sessionId: "me", seen: true }), job({ id: "j2", sessionId: "peer" })]);
 		const files = Object.fromEntries(loadRegistries(dir).files.map((file) => [file.sessionId, file]));
@@ -676,25 +561,25 @@ describe("job store", () => {
 
 	test("safeLogPath accepts only this job's file in the directory", async () => {
 		const store = createJobStore("/tmp/pi-jobs-store");
-		expect(store.safeLogPath(record({ id: "j1", logPath: "/tmp/pi-jobs-store/j1.log" }))).toBe(
+		expect(store.safeLogPath(jobRecord({ id: "j1", logPath: "/tmp/pi-jobs-store/j1.log" }))).toBe(
 			resolve(join("/tmp/pi-jobs-store", "j1.log")),
 		);
-		expect(store.safeLogPath(record({ id: "j1", logPath: "/tmp/elsewhere/j1.log" }))).toBeUndefined();
+		expect(store.safeLogPath(jobRecord({ id: "j1", logPath: "/tmp/elsewhere/j1.log" }))).toBeUndefined();
 	});
 
 	test("safeStatusPath accepts only a status file in the directory", async () => {
 		const store = createJobStore("/tmp/pi-jobs-store");
-		expect(store.safeStatusPath(record({ id: "j1", statusPath: "/tmp/pi-jobs-store/j1.status" }))).toBe(
+		expect(store.safeStatusPath(jobRecord({ id: "j1", statusPath: "/tmp/pi-jobs-store/j1.status" }))).toBe(
 			resolve(join("/tmp/pi-jobs-store", "j1.status")),
 		);
-		expect(store.safeStatusPath(record({ id: "j1", statusPath: "/tmp/elsewhere/j1.status" }))).toBeUndefined();
-		expect(store.safeStatusPath(record({ id: "j1", statusPath: null }))).toBeUndefined();
+		expect(store.safeStatusPath(jobRecord({ id: "j1", statusPath: "/tmp/elsewhere/j1.status" }))).toBeUndefined();
+		expect(store.safeStatusPath(jobRecord({ id: "j1", statusPath: null }))).toBeUndefined();
 	});
 
 	test("safeRotatedLogPath derives the previous segment and refuses a traversing id", async () => {
 		const store = createJobStore("/tmp/pi-jobs-store");
-		expect(store.safeRotatedLogPath(record({ id: "j1" }))).toBe(resolve(join("/tmp/pi-jobs-store", "j1.log.1")));
-		expect(store.safeRotatedLogPath(record({ id: "../../escape" }))).toBeUndefined();
+		expect(store.safeRotatedLogPath(jobRecord({ id: "j1" }))).toBe(resolve(join("/tmp/pi-jobs-store", "j1.log.1")));
+		expect(store.safeRotatedLogPath(jobRecord({ id: "../../escape" }))).toBeUndefined();
 	});
 });
 
@@ -968,7 +853,7 @@ describe("job runtime — kill", () => {
 
 	test("settles a running record with no pid as unknown", async () => {
 		const h = suite.makeHarness();
-		save(h, "old", [record({ pid: null })], 2);
+		save(h, "old", [jobRecord({ pid: null })], 2);
 		await h.runtime.load(makeCtx().ctx);
 		expect(await h.runtime.kill("j1")).toMatchObject({ status: "unknown" });
 		expect(h.kills).toHaveLength(0);
@@ -976,7 +861,7 @@ describe("job runtime — kill", () => {
 
 	test("reconciles a reattached job after the kill grace period", async () => {
 		const h = suite.makeHarness();
-		save(h, "old", [record({ label: "server", command: "dev", detached: true })], 2);
+		save(h, "old", [jobRecord({ label: "server", command: "dev", detached: true })], 2);
 		await h.runtime.load(makeCtx().ctx);
 		expect(h.runtime.get("j1")?.status).toBe("running");
 
@@ -1057,7 +942,7 @@ describe("job runtime — send", () => {
 	test("refuses a running job whose pipe belongs to another session", async () => {
 		const h = suite.makeHarness();
 		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
-		save(h, "peer", [record({ id: "j9", label: "peer", sessionId: "peer", detached: true, stdin: true })], 10);
+		save(h, "peer", [jobRecord({ id: "j9", label: "peer", sessionId: "peer", detached: true, stdin: true })], 10);
 		await h.runtime.load(makeCtx({ sessionId: "me" }).ctx);
 		expect(() => h.runtime.send("j9", { input: "x" })).toThrow("belongs to the session that started it");
 	});
@@ -1263,92 +1148,6 @@ describe("job runtime — wait", () => {
 	});
 });
 
-describe("job runtime — registry reconcile", () => {
-	test("recovers an exit code from the status file", async () => {
-		const h = suite.makeHarness();
-		h.dead.add(888);
-		save(h, "old", [record({ pid: 888, statusPath: join(h.dir, "j1.status") })], 2);
-		writeFileSync(join(h.dir, "j1.status"), "0", "utf-8");
-		await h.runtime.load(makeCtx().ctx);
-		expect(h.runtime.get("j1")?.status).toBe("exited");
-		expect(h.runtime.get("j1")?.exitCode).toBe(0);
-	});
-
-	test("recovers a non-zero exit code as failed", async () => {
-		const h = suite.makeHarness();
-		h.dead.add(888);
-		save(h, "old", [record({ pid: 888, statusPath: join(h.dir, "j1.status") })], 2);
-		writeFileSync(join(h.dir, "j1.status"), "3", "utf-8");
-		await h.runtime.load(makeCtx().ctx);
-		expect(h.runtime.get("j1")?.status).toBe("failed");
-		expect(h.runtime.get("j1")?.exitCode).toBe(3);
-	});
-
-	test("refuses to signal a pid whose start token changed", async () => {
-		const h = suite.makeHarness({ startToken: () => "new" });
-		save(h, "old", [record({ startToken: "old" })], 2);
-		await h.runtime.load(makeCtx().ctx);
-		expect(h.kills).toHaveLength(0);
-		expect(h.runtime.get("j1")?.status).toBe("unknown");
-	});
-
-	test("adopts a dead session's records and deletes its file", async () => {
-		const h = suite.makeHarness();
-		save(h, "old", [record({ detached: true, status: "exited", exitCode: 0, finishedAt: 5, sessionId: "old" })], 2);
-		await h.runtime.load(makeCtx({ sessionId: "me" }).ctx);
-		expect(h.runtime.get("j1")?.sessionId).toBe("me");
-		expect(h.runtime.get("j1")?.status).toBe("exited");
-		const files = loadRegistries(h.dir).files.map((file) => file.sessionId);
-		expect(files).not.toContain("old");
-		expect(persistedIds(h)).toContain("j1");
-	});
-
-	test("polls a reattached detached job when its pid disappears", async () => {
-		const h = suite.makeHarness({ config: { repaintMs: 10 } });
-		save(h, "old", [record({ label: "server", command: "dev", detached: true })], 2);
-		await h.runtime.load(makeCtx().ctx);
-		expect(h.runtime.get("j1")?.status).toBe("running");
-		h.dead.add(777);
-		await settle(60);
-		expect(h.runtime.get("j1")?.status).toBe("unknown");
-	});
-
-	test("wakes for a reattached wake job that finishes", async () => {
-		const h = suite.makeHarness({ config: { repaintMs: 10 } });
-		const fired: string[] = [];
-		h.runtime.onFinish = (entry) => fired.push(entry.id);
-		save(h, "old", [record({ label: "server", command: "dev", detached: true, wake: true })], 2);
-		await h.runtime.load(makeCtx().ctx);
-		expect(h.runtime.get("j1")?.status).toBe("running");
-		h.dead.add(777);
-		await settle(60);
-		expect(h.runtime.get("j1")?.status).toBe("unknown");
-		expect(fired).toEqual(["j1"]);
-	});
-
-	test("reports a reattached job observed gone", async () => {
-		const h = suite.makeHarness({ config: { repaintMs: 10 } });
-		const seen: string[] = [];
-		h.runtime.onComplete = (entry) => seen.push(`${entry.id}:${entry.status}`);
-		save(h, "old", [record({ label: "server", command: "dev", detached: true })], 2);
-		await h.runtime.load(makeCtx().ctx);
-		h.dead.add(777);
-		await settle(60);
-		expect(seen).toEqual(["j1:unknown"]);
-	});
-
-	test("does not report a reattached job with no pid to judge", async () => {
-		const h = suite.makeHarness({ config: { repaintMs: 10 } });
-		const seen: string[] = [];
-		h.runtime.onComplete = (entry) => seen.push(entry.id);
-		save(h, "old", [record({ label: "server", command: "dev", detached: true, pid: null })], 2);
-		await h.runtime.load(makeCtx().ctx);
-		await settle(60);
-		expect(h.runtime.get("j1")?.status).toBe("running");
-		expect(seen).toEqual([]);
-	});
-});
-
 describe("job runtime — pending, clear, status", () => {
 	test("pendingCompletions peeks and markReported marks", async () => {
 		const h = suite.makeHarness();
@@ -1419,70 +1218,6 @@ describe("job runtime — pending, clear, status", () => {
 		expect(statuses.get("jobs-failure")).toBe("✗ 1");
 	});
 
-	test("shows a live peer's jobs and keeps their ids reserved", async () => {
-		const h = suite.makeHarness();
-		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
-		save(h, "peer", [record({ id: "j9", label: "peer", sessionId: "peer", detached: true })], 10);
-		const { ctx } = makeCtx({ sessionId: "me" });
-		await h.runtime.load(ctx);
-		// Visible, but owned by the peer: the row is tagged and the record cannot be
-		// cleared here, while its id stays reserved.
-		expect(h.runtime.list().map((entry) => entry.id)).toContain("j9");
-		expect(h.runtime.list().find((entry) => entry.id === "j9")?.sessionId).toBe("peer");
-		expect(h.runtime.sessionId).toBe("me");
-		expect(h.runtime.get("j9")?.status).toBe("running");
-		expect((await h.runtime.start({ command: "mine" }, ctx)).id).toBe("j10");
-	});
-
-	test("clear refuses another session's finished job", async () => {
-		const h = suite.makeHarness();
-		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
-		save(
-			h,
-			"peer",
-			[
-				record({
-					id: "j9",
-					label: "peer",
-					sessionId: "peer",
-					detached: true,
-					status: "exited",
-					exitCode: 0,
-					pid: null,
-					finishedAt: 5,
-				}),
-			],
-			10,
-		);
-		await h.runtime.load(makeCtx({ sessionId: "me" }).ctx);
-		expect(h.runtime.clear("j9", false).refused).toContain("another live session");
-	});
-
-	test("does not count a live peer's running job in the chip", async () => {
-		const h = suite.makeHarness();
-		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
-		save(h, "peer", [record({ id: "j9", label: "peer", sessionId: "peer", detached: true })], 10);
-		const { ctx, statuses } = makeCtx({ sessionId: "me" });
-		await h.runtime.load(ctx);
-		h.runtime.setStatus(ctx);
-		expect(statuses.has("jobs")).toBe(false);
-	});
-
-	test("ignores a live peer's unreported failure in the chip", async () => {
-		const h = suite.makeHarness();
-		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
-		save(
-			h,
-			"peer",
-			[record({ label: "peer", sessionId: "peer", status: "failed", exitCode: 1, pid: null, finishedAt: 5 })],
-			2,
-		);
-		const { ctx, statuses } = makeCtx({ sessionId: "me" });
-		await h.runtime.load(ctx);
-		h.runtime.setStatus(ctx);
-		expect(statuses.has("jobs-failure")).toBe(false);
-	});
-
 	test("re-asserts the chip on the repaint clock after an external clear", async () => {
 		const h = suite.makeHarness({ config: { repaintMs: 10 } });
 		const { ctx, statuses } = makeCtx();
@@ -1517,28 +1252,6 @@ describe("job runtime — pending, clear, status", () => {
 		const pid = h.children[0].pid;
 		await h.runtime.shutdown();
 		expect(h.kills.some((kill) => kill.pid === pid && kill.signal === "SIGKILL")).toBe(true);
-	});
-
-	test("shutdown leaves a live peer's job running", async () => {
-		const h = suite.makeHarness();
-		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
-		save(h, "peer", [record({ label: "peer", sessionId: "peer", detached: false })], 2);
-		const { ctx } = makeCtx({ sessionId: "me" });
-		await h.runtime.load(ctx);
-		await h.runtime.shutdown();
-		expect(h.kills.some((kill) => kill.pid === 777)).toBe(false);
-	});
-
-	test("persist keeps a peer session's file intact", async () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx({ sessionId: "me" });
-		await h.runtime.load(ctx);
-		save(h, "peer", [record({ id: "j9", label: "peer", sessionId: "peer", detached: true })], 10);
-		const entry = await h.runtime.start({ command: "mine" }, ctx);
-		expect(entry.id).toBe("j10");
-		expect(persistedIds(h)).toContain("j9");
-		expect(persistedIds(h)).toContain("j10");
-		expect(loadRegistries(h.dir).files.some((file) => file.sessionId === "peer")).toBe(true);
 	});
 });
 

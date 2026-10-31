@@ -22,6 +22,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import type { RosterState } from "../../lib/session-roster.ts";
 import { registryPathFor } from "./paths.ts";
 import { JOB_STATUSES, type JobRecord, type JobStatus, type RegistryFile } from "./types.ts";
 
@@ -213,10 +214,12 @@ export interface ReconcileResult {
 /** Owner-liveness context for {@link planReconcile}. */
 export interface ReconcileOptions {
 	/**
-	 * Whether the session that started a job is still alive. A live owner means
-	 * another session owns the job, so it is left running rather than reaped.
+	 * What the session that started a job is: `live`, `quiet`, or `gone`.
+	 *
+	 * Only `gone` frees the job to be reaped. A `quiet` owner is an idle one — its
+	 * heartbeat stops while it has nothing running — and its job is still its own.
 	 */
-	isOwnerAlive?: (sessionId: string) => boolean;
+	ownerState?: (sessionId: string) => RosterState;
 	/** The reconciling session; its own leftovers are always reaped. */
 	currentSessionId?: string;
 }
@@ -250,12 +253,12 @@ export function planReconcile(
 			jobs.push(record);
 			continue;
 		}
-		// Another live session still owns this job: keep it running instead of
-		// reaping a peer's work.
+		// Another session still owns this job: keep it running instead of reaping a
+		// peer's work. Its owner is only `gone` when its process is.
 		if (
-			options.isOwnerAlive &&
+			options.ownerState &&
 			record.sessionId !== options.currentSessionId &&
-			options.isOwnerAlive(record.sessionId)
+			options.ownerState(record.sessionId) !== "gone"
 		) {
 			jobs.push(record);
 			continue;

@@ -208,7 +208,7 @@ are in
 | `maxLogBytes` | `8388608` | Bytes a log segment may reach before it rotates to `<id>.log.1`; `0` keeps logs unbounded. |
 | `killGraceMs` | `5000` | Grace before SIGTERM escalates to SIGKILL. |
 | `repaintMs` | `1000` | Status-chip refresh interval while jobs run. |
-| `sessionTtlMs` | `60000` | How long a session heartbeat is trusted before its jobs may be reaped. |
+| `sessionTtlMs` | `60000` | How old a session heartbeat may be before its pid is re-checked for reuse. |
 | `registryDir` | — | Override the registry/log directory. |
 
 ## Security
@@ -234,7 +234,9 @@ rewritten.
   kill or clear it, and the tool's `clear` refuses that record too; the tool can
   still take one over by explicit id (`status`/`logs`/`kill`, where `kill`
   adopts it). Chips, completion notices, and pruning stay this session's own, so
-  a peer's finished job waits for that session to clear it.
+  a peer's finished job waits for that session to clear it — including when that
+  session has been idle long enough for its heartbeat to age, because the
+  heartbeat only ticks while a job is running.
 - **A carriage return is not a line break.** Output is split on `\n` only; a
   progress rewrite (`10%\r50%\r100%`) is one line whose sanitized form keeps the
   text after the last `\r`. A program that only ever emits `\r` therefore
@@ -320,10 +322,13 @@ rewritten.
   per session, `start` claims the next `j<n>` with an `O_EXCL` `<id>.lock`
   before spawning, so two sessions cannot pick the same id from a stale read;
   the reservation is pruned once the id is committed to a registry file.
-- **Sessions heartbeat; reconciliation is owner-aware.** Each session writes a
-  liveness marker, so a peer's live non-detached job is not reaped until its
-  owner's marker expires. `persist` merges onto a fresh read and drops ids this
-  session deleted.
+- **Sessions heartbeat; ownership is the process.** Each session writes a liveness
+  marker (its pid, that process's start time, and its last beat), and the beat only
+  ticks while a job runs — so a session that has finished its work goes quiet rather
+  than dying. Only a session that is *gone* — its pid is dead, or a reused one —
+  gives up its records: a quiet peer keeps its file, its marker, and its jobs, and a
+  peer's live non-detached job is never reaped. `persist` merges onto a fresh read and
+  drops ids this session deleted.
 - **Exit codes survive a session boundary.** A POSIX job is spawned behind an
   `EXIT` trap that writes `$?` to a per-job `.status` file (path passed in the
   environment); a later session reads it when it finds a dead pid and reports
@@ -334,8 +339,9 @@ rewritten.
   `detached` dev server survives.
 - **Pid reuse is guarded by a start-time token.** Before signalling an unowned
   pid, its best-effort start token (`ps -o lstart=`) is re-checked; a mismatch
-  is treated as gone instead of as a signal. Where no token is available the
-  check degrades to liveness.
+  is treated as gone instead of as a signal. The same token is written into a
+  session's marker, so a pid that has been reused is a gone session rather than a
+  quiet one. Where no token is available the check degrades to liveness.
 - **Reattached jobs are polled.** A reattached detached job has no child
   handle, so its `close` event never fires; the repaint clock polls it and
   settles it (recovering an exit code from the status file, else `unknown`)
