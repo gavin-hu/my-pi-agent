@@ -78,13 +78,13 @@ describe("formatRound", () => {
 		expect(formatRound(cards, buildRound(cards, NOW))).toContain("unapproved (1): #2 plan");
 	});
 
-	test("an untouched card in flight is idle, not unplanned-by-accident", () => {
+	test("an unwritten card in flight is not unplanned-by-accident", () => {
 		const stale = card("2", { lane: "execute", owner: { label: "billing-core" }, planPath: "p.md" });
 		const aged = { ...stale, updatedAt: NOW - UNWRITTEN_MS - 1 };
 		expect(formatRound([aged], buildRound([aged], NOW))).toContain("unwritten (1): #2 execute planned");
 	});
 
-	test("names an executing card nobody has spot-checked, before the card is idle", () => {
+	test("names an executing card nobody has spot-checked, before the card is unwritten", () => {
 		// The lead's half of the flow is two signatures, so the text states both queues: this one
 		// is owed from the minute the card enters `execute`.
 		const fresh = card("2", { lane: "execute", owner: { label: "billing-core" }, planPath: "p.md" });

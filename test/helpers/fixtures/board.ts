@@ -49,7 +49,7 @@ export function numberedCard(id: string, overrides: Partial<Card> = {}): Card {
 
 /**
  * Numbered cards a minute old at `now`: the shape the rollup and `/team` suites show,
- * where the age keeps a card out of the idle bucket without changing any other fact.
+ * where the age keeps a card out of the unwritten bucket without changing any other fact.
  */
 export function minuteOldCards(now: number): (id: string, overrides?: Partial<Card>) => Card {
 	return (id, overrides = {}) => numberedCard(id, { createdAt: now - 60_000, updatedAt: now - 60_000, ...overrides });
