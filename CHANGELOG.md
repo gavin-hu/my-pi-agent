@@ -369,6 +369,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `docs`: **the pi.dev listing previews five screenshots instead of one** — the chrome hero,
+  the terminal plan review, the board, the browser plan review, and the file browser. The
+  gallery rewrites a README Markdown image to the npm CDN at the published version, and
+  `files` published no `assets/`, so every one of them answered 404; those five PNGs ship in
+  the tarball now (1.4 MB more unpacked). The six-screen table and the 1.9 MB tool-renderings
+  sheet are raw `<img>` tags, which the gallery drops and GitHub still renders, so they stay
+  out of the pack, and `test/release.test.ts` fails on a Markdown image `files` does not
+  publish.
 - `session-bus`: a message to a session whose process has exited is refused instead of
   reported delivered. `status` and the prune already called that record `gone` and freed the
   paths it held, while `send` resolved it from the roster on disk and answered `Delivered to

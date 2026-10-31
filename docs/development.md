@@ -92,6 +92,15 @@ bun run screenshot:file-browse -o assets/screens/file-browse.png --theme dark
 own checkout out of the image. Both scripts set the theme through the page's own
 toggle, which keeps the header glyph and the page in step.
 
+Which of those pictures the pi.dev gallery previews is decided by how the README
+writes them. A Markdown `![…](assets/screens/<name>.png)` is rendered with its
+path rewritten to the npm CDN at the published version, so that PNG has to be in
+`files` in `package.json` and `test/release.test.ts` fails on one that is not. A
+raw `<img>` is dropped by the gallery and rendered by GitHub, which is how the
+six-screen table and the tool-renderings sheet stay out of the tarball; the
+manifest's `pi.image` is the one preview read from `package.json` instead, and it
+has to be an absolute `raw.githubusercontent.com` URL.
+
 Not every headless capture is a screenshot of the product. The pages under
 `assets/cards/` are bilingual posters for posting a capability to a timeline: the
 plan pair — `plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic-led —
