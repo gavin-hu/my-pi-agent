@@ -16,6 +16,7 @@
  */
 
 import { mintToken } from "../../lib/http/index.ts";
+import { tokenMatches } from "../../lib/http/token.ts";
 import type { ReviewCaller, ReviewRole } from "./types.ts";
 
 /** The token → caller table one running review holds. */
@@ -54,7 +55,17 @@ export function createTokens(mint: () => string = defaultToken): TokenTable {
 			callers.set(value, { role });
 			return value;
 		},
-		get: (token) => callers.get(token),
+		get: (token) => {
+			// Every entry is compared, in constant time, and the loop never returns early: a
+			// `Map.get` would find the owner's token faster than a reviewer's, and this table's
+			// whole job is that one role cannot be told from another by timing. Three entries
+			// per review, so the walk costs nothing (docs/security.md promises `tokenMatches`).
+			let found: ReviewCaller | undefined;
+			for (const [key, caller] of callers) {
+				if (tokenMatches(token, key)) found = caller;
+			}
+			return found;
+		},
 		revoke: (token) => {
 			callers.delete(token);
 		},

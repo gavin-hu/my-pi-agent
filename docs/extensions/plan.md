@@ -56,7 +56,7 @@ executes.
 ## Quickstart
 
 ```bash
-pi --extension ./extensions/plan   # load just this extension
+pi --extension ./extensions/plan   # load just this extension (no browser review: see below)
 pi -e .                            # load the whole @gavin-hu/my-pi-agent package
 pi install ./                      # install the package for a user
 ```
@@ -175,8 +175,10 @@ the revision it kept.
 presents it for approval. A hand-edited or older file whose step list is over the
 cap is refused before the review screen. The user approves, keeps planning, asks
 for a refinement, or exits plan mode without approving; the last keeps the plan
-file for a later review and records no todo items or goal. The review also offers
-**Exit plan mode (discard)**, which leaves plan mode without approving.
+file for a later review and records no todo items or goal. The same decision goes by
+three names, because each surface names its own control: `x exit plan` on the review
+screen's footer, `3 exit` in the remote prompt, and **Back to Pi** on the review page.
+None of them approves anything.
 
 On approval, plan mode ends, write access returns, and the plan's steps go into
 the todo list:
@@ -435,6 +437,13 @@ Plan mode is a **guard rail, not a sandbox**: extensions run with Pi's OS
 permissions, so it prevents accidental writes while planning, not a hostile
 command. The read-only guarantee is layered:
 
+- **Plan mode ends three ways, and one of them is the model's.** Approval and the
+  person's cancel both need a UI answer; `plan` action `cancel` does not — a model can
+  call it and write access returns with no approval recorded. That is deliberate (the
+  model must be able to give up, and a refusal that a session cannot clear is worse),
+  and it is why plan mode is a gate rather than a fence: the guard rail is the tool
+  set, not the exit. `board`'s state, the plan file, and the todo list are untouched by
+  it.
 - **Tool set at entry.** Tools that are not read-only are removed from the active
   set or blocked. `write` and `edit` are hidden, raw shell is limited to read-only
   git commands through `bash` (chained with `&&`/`;`), `powershell` is blocked
@@ -862,7 +871,7 @@ both.
 
 | Integration point | How |
 |---|---|
-| Tools | one `plan` tool, active in both modes, with five actions: `enter`, `write`, `exit`, `steps`, `cancel`. It is `executionMode: "sequential"`, closed-world, and carries one annotation set — `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false` — because `write` overwrites a plan file: the actions that only change the mode are exempted by the guard in `index.ts`, the only place that can tell them apart. Each action returns typed `details` discriminated by `action` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `CancelPlanModeDetails`, `SetPlanStepsDetails`); a refusal carries `RefusedPlanDetails` (`refused`, `error`) and no action's state; no `outputSchema`/`structuredContent`. |
+| Tools | one `plan` tool, active in both modes, with five actions: `enter`, `write`, `exit`, `steps`, `cancel`. It is `executionMode: "sequential"`, closed-world, and carries one annotation set — `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false` — because `write` overwrites a plan file: the actions that only change the mode are exempted by the guard in `index.ts`, the only place that can tell them apart. Each action returns typed `details` discriminated by `action` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `CancelPlanModeDetails`, `SetPlanStepsDetails`); a refusal carries `RefusedPlanDetails` (`refused`, `error`) and, where the state is what makes the refusal actionable, the action's own details as well — `exit`'s over-cap block names the plan it read so the block still shows what was not presented, and `enter`'s no-UI block carries `{ action: "enter", entered: false, unavailable: true }` so a caller can tell that refusal from another; no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `/plan share [stop]` (reviewer link), `/plan cancel` (leave without approving), `/skill:init` (skill-backed `AGENTS.md` bootstrap), `--plan` launch flag. `Shift+Tab` is bytefly's editor chord, not a registered shortcut: `app.thinking.cycle` is reserved, so the editor requests a toggle over the event bus instead. |
 | State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan writes a goal only at approval, through `ctx.executeTool("goal", { objective })` when the `goal` tool is registered: a `planning` goal is promoted to the plan's `## Goal`, a session with none is given the same objective, and an `active`/`achieved` goal is left alone — no path asks first. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
 | Entry requests | `pi.events` channels from `lib/plan-entry.ts`: `PLAN_ENTER_REQUEST` (the `goal` workflow asks, with the shared consent sentence, and plan enables the mode on the caller's context without a second dialog) and `PLAN_TOGGLE_REQUEST` (bytefly's Shift+Tab asks to flip it and gets the state back). Both share one `PlanModeRequest` payload and `isPlanExtensionLoaded`. Subscribed on `session_start`, released on `session_shutdown`. |
@@ -1072,7 +1081,7 @@ both.
 bun test extensions/plan
 ```
 
-Thirteen co-located suites, declared in `test/suite-manifest.ts`:
+Twenty-seven co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, the store's directory, atomic
   writes, `read`/`latest`/`index`, `setSteps`, `saveFeedback`, and step extraction;

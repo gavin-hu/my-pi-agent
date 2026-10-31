@@ -26,6 +26,9 @@ import {
 	type ServeResponse,
 } from "../../lib/http/index.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../lib/web/index.ts";
+
+/** The review script's own path, beside `THEME_JS_PATH` in the page's markup. */
+export const CLIENT_JS_PATH = "/client.js";
 import { coerceAnnotations, type PlanAnnotation } from "./feedback.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { renderReviewPage, type ReviewPageData } from "./web-page.ts";
@@ -94,6 +97,50 @@ function roleOnly(caller: ReviewCaller, roles: readonly ReviewRole[], message: s
 	return roles.includes(caller.role) ? undefined : jsonError(403, message);
 }
 
+/**
+ * The refusal for an owner-only POST: method, body type, then role, in that order.
+ *
+ * Five routes composed these three guards by hand, and the order is the whole contract —
+ * a form-encoded GET must be refused as a method before it is ever read as a body. Each
+ * route passes its own phrase and sentence, so no refusal text moved.
+ */
+function ownerPost(
+	caller: ReviewCaller,
+	method: string,
+	contentType: string | string[] | undefined,
+	phrase: string,
+	message: string,
+	roles: readonly ReviewRole[] = ["owner"],
+): ServeResponse | undefined {
+	return postOnly(method, phrase) ?? requireJsonBody(contentType) ?? roleOnly(caller, roles, message);
+}
+
+/**
+ * Parse the body, save it as the caller, and report which happened.
+ *
+ * Three routes persist annotations and differ only in what they do after the write; the
+ * order — parse, refuse a malformed body, then save — is what keeps a bad request from
+ * reaching the store, so it lives here once.
+ */
+async function settleAnnotations(
+	ctx: ReviewContext,
+	caller: ReviewCaller,
+	body: string,
+): Promise<ServeResponse | { annotations: PlanAnnotation[]; result: Extract<SaveResult, { ok: true }> }> {
+	const annotations = parseAnnotations(body);
+	if (isResponse(annotations)) return annotations;
+	const result = await ctx.save(annotations, caller);
+	if (!result.ok) return jsonError(result.status, result.message);
+	return { annotations, result };
+}
+
+/** Whether a settled call is the refusal to send rather than what it saved. */
+function isRefusal(
+	value: ServeResponse | { annotations: PlanAnnotation[]; result: Extract<SaveResult, { ok: true }> },
+): value is ServeResponse {
+	return !("annotations" in value);
+}
+
 /** The link id a revoke request names, or undefined when the body has none. */
 function linkIdOf(body: string): string | undefined {
 	let parsed: unknown;
@@ -125,7 +172,7 @@ export async function handleReviewRequest(
 	const { pathname, search } = parsed;
 
 	if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
-	if (pathname === "/client.js") return { status: 200, headers: scriptHeaders(), body: REVIEW_CLIENT_JS };
+	if (pathname === CLIENT_JS_PATH) return { status: 200, headers: scriptHeaders(), body: REVIEW_CLIENT_JS };
 
 	const token = search.get("token") ?? "";
 	const caller = ctx.caller(token);
@@ -158,10 +205,13 @@ export async function handleReviewRequest(
 		return jsonResponse(200, { ok: true, share: result.state, svg: result.svg });
 	}
 	if (pathname === "/api/share/revoke") {
-		const refusal =
-			postOnly(method, "revoke a link") ??
-			requireJsonBody(headers["content-type"]) ??
-			roleOnly(caller, ["owner"], "Only the plan owner can revoke a link.");
+		const refusal = ownerPost(
+			caller,
+			method,
+			headers["content-type"],
+			"revoke a link",
+			"Only the plan owner can revoke a link.",
+		);
 		if (refusal) return refusal;
 		const id = linkIdOf(body);
 		if (id === undefined) return jsonError(400, "The request body must name the link's id.");
@@ -172,46 +222,51 @@ export async function handleReviewRequest(
 	if (pathname === "/api/comment") {
 		// A reviewer's whole surface: persist the comments they wrote and end
 		// nothing. Only the owner's own save decides the review.
-		const refusal =
-			postOnly(method, "post comments") ??
-			requireJsonBody(headers["content-type"]) ??
-			roleOnly(caller, ["reviewer"], "Only a shared reviewer posts comments.");
+		const refusal = ownerPost(
+			caller,
+			method,
+			headers["content-type"],
+			"post comments",
+			"Only a shared reviewer posts comments.",
+			["reviewer"],
+		);
 		if (refusal) return refusal;
-		const annotations = parseAnnotations(body);
-		if (isResponse(annotations)) return annotations;
-		const result = await ctx.save(annotations, caller);
-		if (!result.ok) return jsonError(result.status, result.message);
-		return jsonResponse(200, { ok: true, ...(result.author === undefined ? {} : { author: result.author }) });
+		const settled = await settleAnnotations(ctx, caller, body);
+		if (isRefusal(settled)) return settled;
+		const { author } = settled.result;
+		return jsonResponse(200, { ok: true, ...(author === undefined ? {} : { author }) });
 	}
 	if (pathname === "/api/feedback") {
 		// Returning to the model is the owner's decision; a reviewer posts to
 		// `/api/comment`, so this route can never settle a shared review.
-		const refusal =
-			postOnly(method, "save feedback") ??
-			requireJsonBody(headers["content-type"]) ??
-			roleOnly(caller, ["owner"], "Only the plan owner saves this review; a reviewer posts comments.");
+		const refusal = ownerPost(
+			caller,
+			method,
+			headers["content-type"],
+			"save feedback",
+			"Only the plan owner saves this review; a reviewer posts comments.",
+		);
 		if (refusal) return refusal;
-		const annotations = parseAnnotations(body);
-		if (isResponse(annotations)) return annotations;
-		const result = await ctx.save(annotations, caller);
-		if (!result.ok) return jsonError(result.status, result.message);
-		ctx.onSaved(annotations);
+		const settled = await settleAnnotations(ctx, caller, body);
+		if (isRefusal(settled)) return settled;
+		ctx.onSaved(settled.annotations);
 		return jsonResponse(200, { ok: true });
 	}
 	if (pathname === "/api/approve") {
 		// Only the owner's own page approves, and only the `exit` flow owns
 		// the side effects: a reviewer token is refused whatever it posts.
-		const refusal =
-			postOnly(method, "approve") ??
-			requireJsonBody(headers["content-type"]) ??
-			roleOnly(caller, ["owner"], "A shared review cannot approve the plan.");
+		const refusal = ownerPost(
+			caller,
+			method,
+			headers["content-type"],
+			"approve",
+			"A shared review cannot approve the plan.",
+		);
 		if (refusal) return refusal;
 		if (!ctx.canApprove) return jsonError(403, "This review cannot be approved from the browser.");
-		const annotations = parseAnnotations(body);
-		if (isResponse(annotations)) return annotations;
-		const result = await ctx.save(annotations, caller);
-		if (!result.ok) return jsonError(result.status, result.message);
-		ctx.onApprove(annotations);
+		const settled = await settleAnnotations(ctx, caller, body);
+		if (isRefusal(settled)) return settled;
+		ctx.onApprove(settled.annotations);
 		return jsonResponse(200, { ok: true });
 	}
 

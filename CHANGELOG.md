@@ -17,6 +17,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: the guide's claims match the code, and two review-page gaps close. `docs/extensions/plan.md`
+  now counts the twenty-seven suites the manifest declares, names the exit control as each
+  surface carries it (`x exit plan`, `3 exit`, **Back to Pi**), says the browser review needs
+  `serve` loaded, splits the refusal-details row around the two refusals that carry state on
+  purpose, and states in Security that `plan` action `cancel` is model-callable and restores
+  write access with no approval. The review page compares its owner token with `tokenMatches`
+  instead of a `Map.get`, walking the table without an early return; its two constant scripts
+  stay answered before the token gate, now with the reason in the code and in
+  `docs/security.md`. Three integration-point cleanups ride along — one `ownerPost` guard
+  composition, `CLIENT_JS_PATH` beside `THEME_JS_PATH`, and one `settleAnnotations` for the
+  parse-then-save block three routes shared — with every refusal sentence unchanged.
 - `watch`: the watcher table has a bound. Only running watchers were counted, so a session
   that watched one command after another grew the table for as long as it ran — each finished
   record still holding up to `maxMatches` matches and `maxLogLines` raw lines — until someone
