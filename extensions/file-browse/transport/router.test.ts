@@ -820,24 +820,23 @@ describe("loopback server", () => {
 			headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
 			stream: true,
 		};
-		server = await serveHere(
-			fixture.root,
-			{ ...DEFAULT_CONFIG, autoOpen: false },
-			{
-				handler: async () => stream,
-			},
-		);
-		const firstFrames: Promise<unknown>[] = [];
+		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false }, { handler: async () => stream });
+		// Held, not merely started: a response whose reader nothing references is collected, which
+		// tears its connection down and frees the slot it counted — the race this case lost under
+		// `--parallel`, and what the forced collection below reproduces on its own.
+		const held: unknown[] = [];
 		for (let page = 0; page < LIVE_MAX_CLIENTS; page++) {
 			const reply = await fetch(`${server.url}events`);
 			expect(reply.status).toBe(200);
 			const reader = reply.body?.getReader();
 			expect(reader).toBeDefined();
-			if (reader) firstFrames.push(reader.read());
+			if (!reader) return;
+			held.push(reader);
+			// A frame reaches only an attached page, so the sink is attached before the next
+			// request is counted.
+			await reader.read();
 		}
-		// A frame reaches only an attached page: a response nobody reads can be torn
-		// down by the client before the next request, which frees the slot it counted.
-		await Promise.all(firstFrames);
+		Bun.gc(true);
 		const refused = await fetch(`${server.url}events`);
 		expect(refused.status).toBe(204);
 		expect(await refused.text()).toBe("");
