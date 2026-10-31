@@ -105,6 +105,8 @@ async function askPlanReview(
 			return choice ?? { action: "keep" };
 		},
 		dialogs: async () => {
+			// A dismissed or expired prompt answers with nothing; `parsePlanReviewReply` reads
+			// that as keep planning, so a silent human never leaves plan mode by inaction.
 			const answer = await ctx.ui.editor(planReviewPrompt(plan.content, language, remote), "");
 			return parsePlanReviewReply(answer ?? "");
 		},

@@ -719,7 +719,7 @@ describe("plan exit", () => {
 		expect(runtime.isEnabled()).toBe(true);
 	});
 
-	test("keeps planning only when the user chooses that explicit option", async () => {
+	test("keeps planning when the user chooses that option", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
@@ -731,18 +731,18 @@ describe("plan exit", () => {
 		expect(runtime.isEnabled()).toBe(true);
 	});
 
-	test("leaves plan mode when the plan review is dismissed", async () => {
-		const { enter, exit, write, runtime, activeTools, root } = setup();
+	test("keeps planning when the plan review is dismissed", async () => {
+		// Nothing is not a decision: leaving plan mode restores write access, so it takes an answer.
+		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx, toolCalls } = planCtx({ editor: undefined, cwd: root });
+		const { ctx } = planCtx({ editor: undefined, cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
-		expect(result.details).toMatchObject({ approved: false, cancelled: true });
-		expect(result.content[0].text).toContain("Plan mode is off");
-		expect(runtime.isEnabled()).toBe(false);
-		expect(activeTools()).toContain("write");
-		expect(toolCalls).toEqual([]);
+		expect(result.details).toMatchObject({ approved: false });
+		expect(result.details.cancelled).toBeUndefined();
+		expect(result.content[0].text).toContain("Stay in plan mode");
+		expect(runtime.isEnabled()).toBe(true);
 	});
 
 	test("leaves plan mode through the Exit review option", async () => {
@@ -1070,16 +1070,16 @@ describe("plan exit", () => {
 		expect(runtime.isEnabled()).toBe(true);
 	});
 
-	test("an empty review exits without approving", async () => {
+	test("an empty review keeps planning without approving", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Use a generator");
 
 		const { ctx } = planCtx({ editor: "   ", cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
-		expect(result.details.cancelled).toBe(true);
+		expect(result.details.cancelled).toBeUndefined();
 		expect(result.details.approved).toBe(false);
-		expect(runtime.isEnabled()).toBe(false);
+		expect(runtime.isEnabled()).toBe(true);
 	});
 
 	test("uses the review screen in TUI mode", async () => {
