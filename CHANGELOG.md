@@ -436,13 +436,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   test states — names the three browser suites in one list and fails a hook with no budget, one
   under ten seconds, or a list entry that is gone or no longer shows a boot call. `test/README.md`
   also stops claiming a bare `bun test` runs with a 30-second timeout.
-- `session-bus`: **the inbox watch announces mail that arrives behind a full backlog** — the
-  poll read the oldest 50 unread messages, so a session holding that many had new mail sorted
-  behind them and never announced it: a handoff, which assigns work, sat unread until the model
-  happened to call `session inbox`. The poll now reads the newest 50 together with the ids of
-  every message still unread, and prunes its queue by what is still on disk rather than by what
-  that one window covered, so mail already queued keeps the place it held. `inbox` still
-  consumes oldest first.
 - `team`: `assign` resolves the peer `to` names before it checks the card, so a handoff to the
   session that already holds it — named by its id, which the schema allows — is the same no-op
   the label is instead of `#4 is held by billing-core`. The check and the write now take one
