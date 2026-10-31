@@ -56,6 +56,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to show none of it. The contract's three lines read at body size and wrap, with the approval as
   a signature line under them instead of a rung that stayed hidden until somebody signed, and
   `landed` carries the moment beside the commit.
+- `docs`: the front page carries one screenshot — the whole-window hero — instead of twelve, and
+  a line under **Themes** sends a reader to the extension pages for the terminal frames, the
+  browser pages, and the tool gallery. Nothing stopped being shown: every one of those frames is
+  already embedded on its own page, so the README drops ~4.1 MB without losing a picture.
 
 ### Fixed
 

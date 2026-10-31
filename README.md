@@ -170,52 +170,14 @@ and [`bytefly-light`](./themes/bytefly-light.json) its light companion, with
 optional automatic light/dark switching. Installing the pack does not change
 your theme: pick one through `/settings` → **Theme** (or `/bytefly settings` →
 **Theme**), or set
-`"theme": "bytefly-light/bytefly-dark"` for switching. The screenshots in this
-README use `bytefly-dark`.
+`"theme": "bytefly-light/bytefly-dark"` for switching. The screenshot above
+uses `bytefly-dark`.
 
-### Screens
-
-<table>
-<tr>
-<td width="50%"><img src="assets/screens/todo.png" alt="The /todos screen: a Todos title rule, a 3/7 completed summary, and the list with check, spinner, and circle glyphs" width="100%"></td>
-<td width="50%"><img src="assets/screens/question.png" alt="The ask_user_question dialog: Auth and Scope tabs, a question, four numbered options with descriptions, and the navigation hint" width="100%"></td>
-</tr>
-<tr>
-<td width="50%"><img src="assets/screens/job.png" alt="The /jobs screen: a summary line, the job rows with status glyphs and elapsed times, and the focused job's command, cwd, and last output line" width="100%"></td>
-<td width="50%"><img src="assets/screens/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and a detail line naming the snapshot the focused prompt holds" width="100%"></td>
-</tr>
-<tr>
-<td width="50%"><img src="assets/screens/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, the focused session's cwd, claims, and identity, and the Tab scope and watch hints" width="100%"></td>
-<td width="50%"><img src="assets/screens/watch.png" alt="The /watch screen: a summary line and watcher rows with live match counts and the focused watcher's pattern and source" width="100%"></td>
-</tr>
-</table>
-
-The plan review as the terminal draws it, then the three browser pages this
-package serves: the board, the browser-based plan review, and the file browser.
-
-![The terminal plan review: a Plan Review title rule, a notice that one section changed since the last review, the plan body with its headings and ◼/◻ task checkboxes, a scroll gauge naming the current section and the visible line range, and the Esc/a/r/w, scroll, and section-jump hints](assets/screens/plan.png)
-
-![The board page: a toolbar with the repository's name and a live badge, Board and Team tabs, done-of-total progress, a filter, the keys button and a theme toggle; five lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, a note count and its age, path hints, and a reason line naming what the card waits for and what it holds up, with no button on any of them](assets/screens/board.png)
-
-![The browser-based plan review: a sticky header with the plan title, a status chip, and the Approve & run, Save feedback, and Back to Pi actions, a Share action, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail holding the owner's own comment and a teammate's @priya comment](assets/screens/plan-review.png)
-
-![The loopback file browser, showing the path filter, the file tree, and a rendered Markdown preview](assets/screens/file-browse.png)
-
-### Tool renderings
-
-Every tool block as the transcript draws it — the tool's own call line as the
-headline, then the result body two columns under it behind the transcript rail —
-each tool's own renderer (or bytefly's generic fallback): the user nameplate and
-a notice, Pi's built-ins, and every tool this package registers. The rail glyph
-is the `chrome.rail` setting.
-
-<img src="assets/screens/tool-renderings.png" alt="A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, run_check, send_wechat, ask_user_question, session, board, team, the plan tools, and the worktree tools" width="100%">
-
-`bun run screenshot:tools` regenerates it; `bun run screenshot:tool-pngs` writes
-one image per tool under [`assets/tools/`](./assets/tools).
-
-Ready to use one? Each extension's page under [`docs/extensions/`](./docs/extensions/)
-opens with what it does and the keys and commands it answers.
+Every other frame — the terminal screens, the three browser pages, and one block
+per tool — lives on the page for its extension under
+[`docs/extensions/`](./docs/extensions/), which opens with what it does and the
+keys it answers. `bun run screenshot:tools` regenerates the tool gallery into
+[`assets/tools/`](./assets/tools).
 
 ## Configuration
 
