@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `package`: the pi.dev gallery listing has a preview video. `pi.video` names
+  `assets/video/demo.mp4` — six frames the package already ships, cross-faded with
+  one caption each — and `bun run screenshot:video` regenerates it from a clean
+  checkout, drawing on a canvas and encoding H.264 with the Chrome the screenshots
+  already drive, so no video encoder has to be installed.
 - `board`: the lead's round reports `unreviewed` — every card in `execute` that nobody has
   spot-checked — beside `unapproved`, so both signatures the flow waits on are queues the
   lead reads: `board list round: true`, `/team`'s headline and group line, the transcript's

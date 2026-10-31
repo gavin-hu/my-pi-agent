@@ -159,7 +159,7 @@ describe("release consistency", () => {
 
 const manifest = JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as {
 	files?: string[];
-	pi?: { image?: string };
+	pi?: { image?: string; video?: string };
 };
 
 /** What `files` publishes, without the negations that narrow it. */
@@ -202,6 +202,21 @@ describe("the published tarball", () => {
 			true,
 		);
 		expect(existsSync(join(repo, image.slice(prefix.length)))).toBe(true);
+	});
+
+	test("points pi.video at an absolute raw video that exists", () => {
+		// The same preview service renders both fields, so the same rule holds: a
+		// relative path or a file the repository does not carry is a preview that
+		// never plays on the gallery page.
+		const video = manifest.pi?.video ?? "";
+		const prefix = "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/";
+		expect(video.startsWith(prefix), "the preview service requires an absolute raw.githubusercontent.com URL").toBe(
+			true,
+		);
+		expect(video.endsWith(".mp4"), "H.264 in mp4 is the container every browser the gallery targets can play").toBe(
+			true,
+		);
+		expect(existsSync(join(repo, video.slice(prefix.length)))).toBe(true);
 	});
 
 	test("has an image to publish", () => {
