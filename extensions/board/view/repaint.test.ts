@@ -56,11 +56,11 @@ async function seedBoard(store: BoardStore, now: number): Promise<void> {
 describe.skipIf(CHROME === undefined)("a frame", () => {
 	beforeAll(async () => {
 		board = await openBoardBrowser({ lead: LEAD.label, now: clock.now, seed: seedBoard });
-	});
+	}, 30_000);
 
 	afterAll(async () => {
 		await board?.close();
-	});
+	}, 30_000);
 
 	test("repaints a card that gains a card waiting on it", async () => {
 		const page = await board.open();

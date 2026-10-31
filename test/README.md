@@ -7,10 +7,20 @@ banned-pattern rules below.
 ## Running
 
 ```bash
-bun test                 # whole suite (isolated per-file globals, 30s timeout)
+bun test                 # whole suite (isolated per-file globals, bun's 5s default)
 bun test <path>          # one file or directory
-bun run check            # format + typecheck + test
+bun run check            # format + typecheck + test (the script states --timeout 30000)
 ```
+
+A suite that boots a browser states its hooks' budget — `}, 30_000);` on its
+`beforeAll`/`afterAll` — because that is the one setup that needs longer than
+bun's five-second hook default: a temp store, a seeded board, a loopback socket,
+and Chromium. Without it the suite is dropped whole when it is run as `bun test
+<path>`, and every case under it goes with it; `bun run check` is safe either way,
+because the script's `--timeout` reaches hooks. `test/wait-budget.test.ts` names
+the browser suites in one list and fails a hook that states no budget, or one
+under ten seconds, and fails the list when an entry is gone or no longer shows a
+boot call.
 
 The always-on model-facing prompt size is budgeted. `test/prompt-budget.test.ts`
 covers the pure per-turn injected-context builders, which are re-injected every
@@ -19,7 +29,10 @@ turn, so a regression in that text fails fast.
 `bun test` runs the suite through `bun run test` with `--parallel=4` (which
 implies `--isolate`), so each test file runs in its own worker process and
 `process.env` edits in one file cannot leak into another. The worker count is
-capped at four so the git-heavy worktree and rewind suites are not starved.
+capped at four so the git-heavy worktree and rewind suites are not starved. The
+script's `--timeout 30000` is a *test* budget and reaches a hook too, which is
+why a browser suite's own statement is the thing that makes it independent of
+how it was invoked.
 
 The git-heavy `rewind`, `worktree`, and `session-bus` real-repository tests create
 real repositories and real git commands, so `test/helpers/slow-suite.ts` gates

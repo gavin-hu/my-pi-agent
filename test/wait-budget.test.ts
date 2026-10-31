@@ -1,5 +1,5 @@
 /**
- * Wait-budget guard: no test waits on `waitFor` for less than a second.
+ * Wait-budget guard: the deadlines a test states.
  *
  * `waitFor` (`helpers/process.ts`) polls a predicate and throws when the budget
  * runs out. Its default is 2000 ms, and a budget only bounds a *failure* — it
@@ -8,7 +8,15 @@
  * fifteen 200 ms waits in the job log-rotation suite and one 100 ms wait on a
  * timeout kill.
  *
- * The rule is checked on the AST rather than the text, because a call's predicate
+ * The same rule covers a suite's hooks. `bun test` gives a `beforeAll` five seconds
+ * unless the test script's `--timeout` says otherwise, so a suite that boots a
+ * browser — a temp store, a seeded board, a loopback socket, and Chromium — is
+ * dropped whole when it is run as `bun test <path>`, and every case under it goes
+ * with it: one run of `bun test extensions/board extensions/team` lost all 30 cases
+ * to "a hook timed out". A browser suite therefore states its hooks' budget, so
+ * what it needs does not depend on how it was invoked.
+ *
+ * Rules are checked on the AST rather than the text, because a call's predicate
  * nests its own parentheses and a regex over it is guesswork. A named constant is
  * allowed: it keeps the decision visible at its declaration, which is how
  * `ROTATE_BUDGET_MS` is written. A literal is the copy-paste form this catches.
@@ -35,6 +43,18 @@ const repo = join(import.meta.dir, "..");
  */
 export const MIN_BUDGET_MS = 1000;
 
+/**
+ * The shortest budget a browser suite's hooks may state.
+ *
+ * Bun's own hook default is 5000 ms. Above the page-paint budget every browser
+ * suite already carries (10 s) as well, so a slow paint is reported by the wait that
+ * paints, naming its page, rather than by the hook around it.
+ */
+export const MIN_HOOK_BUDGET_MS = 10_000;
+
+/** The hooks whose budget a browser suite states. */
+const HOOKS = new Set(["beforeAll", "beforeEach", "afterAll", "afterEach"]);
+
 /** A source file to check, and the path its failures are reported under. */
 export interface Source {
 	path: string;
@@ -47,6 +67,53 @@ const TEST_DIRS = ["extensions", "lib", "scripts", "test"];
 /** The message one offending call reports. */
 function offence(path: string, line: number, budget: number): string {
 	return `${path}:${line}: waitFor budget ${budget} ms is under the ${MIN_BUDGET_MS} ms floor; drop the argument for the 2000 ms default, or name the budget as a constant`;
+}
+
+/** The message one offending hook reports. */
+function hookOffence(path: string, line: number, budget: number | undefined): string {
+	const stated = budget === undefined ? "no budget" : `${budget} ms`;
+	return `${path}:${line}: a hook that boots a browser states its budget (${stated}); stay above ${MIN_HOOK_BUDGET_MS} ms — the 30_000 ms the browser suites use — because bun's hook default is 5000 ms`;
+}
+
+/**
+ * The suites that boot a browser, named rather than detected.
+ *
+ * A scan for the launcher cannot be trusted to be complete — a suite may import
+ * `openBoardBrowser` under another name, or reach Chromium through a helper of its own — so
+ * this is an exact set, the way `ROOT_TEST_FILES` is: a new browser suite is added here and
+ * the rule below covers it, and a path that is no longer a test, or no longer boots a
+ * browser, fails as stale.
+ */
+const BROWSER_SUITES = [
+	"extensions/board/view/behaviour.test.ts",
+	"extensions/board/view/repaint.test.ts",
+	"extensions/plan/web-behaviour.test.ts",
+];
+
+/** The spellings a browser suite's boot is visible as, for the pin's own staleness check. */
+const BOOT_CALLS = ["chromium.launch", "openBoardBrowser"];
+
+/** Every `beforeAll`/`afterAll` in the file that states no usable budget. */
+export function hookBudgetProblems(source: Source): string[] {
+	const file = ts.createSourceFile(source.path, source.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+	const found: string[] = [];
+	const visit = (node: ts.Node): void => {
+		if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && HOOKS.has(node.expression.text)) {
+			const budget = node.arguments[1];
+			const { line } = file.getLineAndCharacterOfPosition(node.expression.getStart(file));
+			if (budget === undefined) {
+				found.push(hookOffence(source.path, line + 1, undefined));
+			} else if (ts.isNumericLiteral(budget)) {
+				const value = Number(budget.text);
+				if (Number.isFinite(value) && value < MIN_HOOK_BUDGET_MS) {
+					found.push(hookOffence(source.path, line + 1, value));
+				}
+			}
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(file);
+	return found;
 }
 
 /** Every `waitFor(predicate, <literal>)` below the floor, as `path:line` messages. */
@@ -119,6 +186,59 @@ describe("wait budgets", () => {
 			"await waitUntil(() => ready(), 20);",
 		].join("\n");
 		expect(budgetProblems({ path: "example.test.ts", text })).toEqual([]);
+	});
+});
+
+describe("hook budgets", () => {
+	/** One pinned suite, read from the tree. */
+	function suite(path: string): Source {
+		return { path, text: readFileSync(join(repo, path), "utf-8") };
+	}
+
+	test("the pinned browser suites still boot a browser", () => {
+		// The pin is the rule's scope, so it has to stay true: a path that is no longer a test,
+		// or whose source no longer shows a boot, is one the rule would silently stop covering.
+		const files = testFiles();
+		const missing = BROWSER_SUITES.filter((path) => !files.includes(path));
+		expect(missing, "a pinned browser suite that is gone or renamed").toEqual([]);
+		const quiet = BROWSER_SUITES.filter((path) => !BOOT_CALLS.some((call) => suite(path).text.includes(call)));
+		expect(quiet, "a pinned browser suite that no longer shows its boot").toEqual([]);
+	});
+
+	test("every browser suite's hooks state a budget", () => {
+		for (const path of BROWSER_SUITES) {
+			// A suite with no hook left would make this vacuous, so it must still have one.
+			expect(suite(path).text, path).toContain("beforeAll(");
+			expect(hookBudgetProblems(suite(path)), path).toEqual([]);
+		}
+	});
+
+	test("names a hook that states no budget, with its line", () => {
+		const text = ["beforeAll(async () => {", "\tawait boot();", "});"].join("\n");
+		expect(hookBudgetProblems({ path: "suite.test.ts", text })).toEqual([hookOffence("suite.test.ts", 1, undefined)]);
+	});
+
+	test("names a hook whose budget is under the floor", () => {
+		const text = ["beforeAll(async () => {}, 5000);", "afterAll(async () => {}, 9000);"].join("\n");
+		expect(hookBudgetProblems({ path: "suite.test.ts", text })).toEqual([
+			hookOffence("suite.test.ts", 1, 5000),
+			hookOffence("suite.test.ts", 2, 9000),
+		]);
+	});
+
+	test("accepts a budget at the floor, a named constant, and a computed one", () => {
+		for (const hook of [
+			`beforeAll(async () => {}, ${MIN_HOOK_BUDGET_MS})`,
+			"beforeAll(async () => {}, BOOT_MS)",
+			"beforeAll(async () => {}, budgetFor())",
+			"afterAll(async () => {}, 30_000)",
+			"afterEach(async () => {}, 30_000)",
+		]) {
+			expect(
+				hookBudgetProblems({ path: "suite.test.ts", text: `openBoardBrowser({ seed });\n${hook};\n` }),
+				hook,
+			).toEqual([]);
+		}
 	});
 });
 

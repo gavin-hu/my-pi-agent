@@ -201,11 +201,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		});
 		store = board.store;
 		directory = board.directory;
-	});
+	}, 30_000);
 
 	afterAll(async () => {
 		await board?.close();
-	});
+	}, 30_000);
 
 	test("draws each lane with the cards the store holds", async () => {
 		const page = await openPage();
