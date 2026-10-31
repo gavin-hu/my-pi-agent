@@ -320,7 +320,7 @@ describe("move", () => {
 		expect(
 			refusal(applyOp(card, { kind: "move", lane: "execute", artifact: provedFor(card) }, CORE, NOW, boardOf(card))),
 		).toBe(
-			"#4 is in plan; its contract is not approved yet. The lead (billing-lead) approves with `approve`, or the person with `/board approve 4`.",
+			"#4 is in plan; its contract is not approved yet. The lead (billing-lead) approves with `approve` (ask billing-lead with `session send`), or the person with `/board approve 4`.",
 		);
 	});
 
@@ -329,7 +329,7 @@ describe("move", () => {
 		expect(
 			refusal(applyOp(card, { kind: "move", lane: "done", artifact: provedFor(card) }, CORE, NOW, boardOf(card))),
 		).toBe(
-			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review`, or the person with `/board review 4`.",
+			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` (ask billing-lead with `session send`), or the person with `/board review 4`.",
 		);
 		const checked = reviewed();
 		const noPlan = { ...checked, planPath: undefined } as Card;
@@ -395,7 +395,7 @@ describe("move", () => {
 				applyOp(resumed, { kind: "move", lane: "done", artifact: provedFor(resumed) }, CORE, NOW, boardOf(resumed)),
 			),
 		).toBe(
-			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review`, or the person with `/board review 4`.",
+			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` (ask billing-lead with `session send`), or the person with `/board review 4`.",
 		);
 	});
 
@@ -499,7 +499,7 @@ describe("move", () => {
 				applyOp(resumed, { kind: "move", lane: "done", artifact: provedFor(resumed) }, CORE, NOW, boardOf(resumed)),
 			),
 		).toBe(
-			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review`, or the person with `/board review 4`.",
+			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` (ask billing-lead with `session send`), or the person with `/board review 4`.",
 		);
 	});
 

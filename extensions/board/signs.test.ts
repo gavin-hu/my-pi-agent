@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
+import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { presetNameFor } from "../../lib/session-label.ts";
 import { registerTools } from "./tools.ts";
 import type { BoardDetails } from "./types.ts";
@@ -26,20 +27,43 @@ const LEAD_ID = "s-lead";
 const LEAD = presetNameFor(LEAD_ID) ?? LEAD_ID;
 const NOW = 50_000;
 
+/** The board tool's dependency seam, as `registerTools` takes it. */
+type BoardDeps = NonNullable<Parameters<typeof registerTools>[2]>;
+
+/** The bus a sign sends on, as that seam describes it. */
+type Notify = NonNullable<BoardDeps["notify"]>;
+
+/** One message the tool sent, which is what a case asks about. */
+interface Sent {
+	kind: "event";
+	to: string;
+	text: string;
+}
+
+/** The bus, recorded: what a sign sent, or the sentence a bus that cannot answer gives. */
+function bus(options: { sent?: Sent[]; fail?: string } = {}): Notify {
+	return async (_ctx, input) => {
+		if (options.fail !== undefined) return { ok: false, error: options.fail };
+		options.sent?.push(input);
+		return { ok: true, delivered: [input.to] };
+	};
+}
+
 /** One repository, its agent directory, and the two sessions that act on one board. */
-function bench(): { lead: Session; peer: Session } {
+function bench(deps: BoardDeps = {}): { lead: Session; peer: Session } {
 	const cwd = temps.track(tempDir("pi-repo-"));
 	const agentDir = temps.track(tempDir("pi-agent-"));
 	return {
-		lead: session({ cwd, agentDir, sessionId: LEAD_ID }),
-		peer: session({ cwd, agentDir, sessionId: "s-peer" }),
+		lead: session({ cwd, agentDir, sessionId: LEAD_ID, deps }),
+		peer: session({ cwd, agentDir, sessionId: "s-peer", deps }),
 	};
 }
 
 /** One session on the bench's board, and the one action call a case needs. */
-function session(options: { cwd: string; agentDir: string; sessionId: string }) {
-	const board = boardHarness({ ...options, lead: LEAD, now: NOW });
-	registerTools(board.fake.pi, board.runtime);
+function session(options: { cwd: string; agentDir: string; sessionId: string; deps?: BoardDeps }) {
+	const { deps, ...rest } = options;
+	const board = boardHarness({ ...rest, lead: LEAD, now: NOW });
+	registerTools(board.fake.pi, board.runtime, deps);
 	const tool = board.fake.pi.tools.get("board");
 	if (!tool) throw new Error("the board tool was not registered");
 	return {
@@ -97,5 +121,52 @@ describe("a sign's note", () => {
 		expect(checked.details.card?.review?.by).toBe(LEAD);
 		expect(checked.details.card?.notes.at(-1)).toMatchObject({ by: LEAD, text: "Checked: the gate bites." });
 		expect((await board.peer.call({ action: "move", card: "1", lane: "done" })).details.card?.lane).toBe("done");
+	});
+});
+
+describe("a sign tells the other side", () => {
+	test("approve sends the owner one event: who signed, and the lane it opened", async () => {
+		const sent: Sent[] = [];
+		const board = bench({ notify: bus({ sent }) });
+		await claimedWithContract(board);
+		const signed = await board.lead.call({ action: "approve", card: "1" });
+		expect(sent).toHaveLength(1);
+		expect(sent[0]?.kind).toBe("event");
+		expect(sent[0]?.to).toBe("s-peer");
+		expect(sent[0]?.text ?? "").toContain(`approved by ${LEAD}`);
+		expect(sent[0]?.text ?? "").toContain('lane "execute"');
+		expect(resultText(signed)).toContain(`told ${signed.details.card?.owner?.label}`);
+	});
+
+	test("review names the lane that finishing the card needs", async () => {
+		const sent: Sent[] = [];
+		const board = bench({ notify: bus({ sent }) });
+		await claimedWithContract(board);
+		await board.lead.call({ action: "approve", card: "1" });
+		await board.peer.call({ action: "move", card: "1", lane: "execute" });
+		sent.length = 0;
+		await board.lead.call({ action: "review", card: "1" });
+		expect(sent[0]?.text ?? "").toContain(`spot-checked by ${LEAD}`);
+		expect(sent[0]?.text ?? "").toContain('lane "done"');
+	});
+
+	test("a repeated sign writes nothing, so the owner is not told twice", async () => {
+		const sent: Sent[] = [];
+		const board = bench({ notify: bus({ sent }) });
+		await claimedWithContract(board);
+		await board.lead.call({ action: "approve", card: "1" });
+		sent.length = 0;
+		const again = await board.lead.call({ action: "approve", card: "1" });
+		expect(again.details.card?.contract?.approved?.by).toBe(LEAD);
+		expect(sent).toHaveLength(0);
+	});
+
+	test("a bus that cannot answer costs a line on the result, never the signature", async () => {
+		const board = bench({ notify: bus({ fail: "the session bus is not loaded" }) });
+		await claimedWithContract(board);
+		const signed = await board.lead.call({ action: "approve", card: "1" });
+		expect(signed.isError).toBeFalsy();
+		expect(signed.details.card?.contract?.approved?.by).toBe(LEAD);
+		expect(resultText(signed)).toContain("was not told (the session bus is not loaded)");
 	});
 });
