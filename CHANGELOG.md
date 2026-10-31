@@ -59,6 +59,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   compares `expected` in full, so the guard no longer refuses the very line it asked for. The
   todo list still holds one item per distinct text, which the approval message reports as
   `skipped`.
+- `watch`: a pattern runs against a bounded line, and the shape that would blow up on it is
+  refused at `add`. Patterns are model-authored and matched per line on the poll clock, while
+  a line could be 1 MiB and nothing printed keeps more than 200 characters — so one
+  catastrophic expression froze the session, the watcher table and every other poll with it.
+  `matchChars` (default `16384`, clamped `1024`–`262144`) caps the prefix a pattern or exclude
+  sees, and an expression that repeats a group whose own end repeats without a bound —
+  `(a+)+`, `(\w+)+` — is refused with its shape named. A `$` anchor on a line longer than the
+  cap now sees the cut, which the Limitations say.
 - `plan`: the read-only git shell can no longer be made to run a repository's own program.
   `--textconv` was refused by name, but `.gitattributes` can still name a
   `diff.<driver>.textconv` helper that plain `git diff`, `git show`, and `git log -p` run, so

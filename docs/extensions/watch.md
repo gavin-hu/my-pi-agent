@@ -62,7 +62,7 @@ rest read it back.
 | `path` | Regular file to tail (`add`); exactly one of `path`/`command`. |
 | `command` | Shell command whose output to tail (`add`). |
 | `cwd` | Working directory for a command source; defaults to the effective cwd. |
-| `pattern` | Regular expression a line must match (`add`, required). A `/…/` or `/…/i` form is read as `formatPattern` prints it: no `i` means case-sensitive. Any other flag is refused rather than matched as text. So a pattern that is entirely slash-shaped — `/api/` — is now `api` case-sensitively; write `\/api\/` to match the slashes themselves. |
+| `pattern` | Regular expression a line must match (`add`, required). A `/…/` or `/…/i` form is read as `formatPattern` prints it: no `i` means case-sensitive. Any other flag is refused rather than matched as text. So a pattern that is entirely slash-shaped — `/api/` — is now `api` case-sensitively; write `\/api\/` to match the slashes themselves. An expression that repeats a group whose own end repeats without a bound — `(a+)+`, `(\w+)+` — is refused at `add`, because it is exponential in the line it is run against. |
 | `exclude` | Regular expressions that suppress a match (`add`, optional). An exclude has no flags of its own — it follows the watcher's `caseSensitive` — so `/keep/` and `keep` mean the same thing and `/keep/i` is refused. |
 | `caseSensitive` | Match case-sensitively; default `false`. |
 | `label` | Short display label (`add`); defaults to the source. |
@@ -160,6 +160,7 @@ Every value is clamped; a missing or malformed document is ignored.
 | `maxMatches` | `200` | Matches kept per watcher before the oldest are dropped. |
 | `maxLogLines` | `500` | Raw lines kept per watcher for `logs`. |
 | `matchLines` | `50` | Lines returned by `matches`/`logs` when `lines` is omitted. |
+| `matchChars` | `16384` | Longest prefix of a line a pattern or exclude is run against (clamped 1024–262144). Every surface clips a line to 200 characters, so this is a bound on the work, not on what a reader sees. |
 | `pollMs` | `500` | File poll interval. |
 
 ```json
@@ -188,6 +189,17 @@ other.
   resumed session starts with no watchers.
 - `matches` and `logs` keep bounded histories (`maxMatches`/`maxLogLines`), so
   older lines are dropped.
+- A line longer than `matchChars` is matched on its first `matchChars` characters, and
+  the cut changes what an anchor means in both directions: a match that only exists past
+  the cut is lost, and `$` or `\b` can match **early**, at the cut, where the line
+  continues — a false match as well as a missing one. The cut is far past anything printed
+  (every surface shows at most 200 characters), `logs` still reads the whole line, and only
+  what the pattern is run against is bounded.
+- The nested-repeat refusal is a check on the pattern's *shape*, and it is knowingly
+  incomplete: a pattern that passes `add` is not thereby proved safe. `(a|ab)+`, a group
+  that can match empty (`((a+)?)+`), and a slow alternation inside a bounded repeat all
+  pass it. `matchChars` bounds those, and there is no per-line timeout or circuit breaker:
+  a pattern that is slow within the cap is slow on every line it meets.
 - A file replaced by a rotation (`logrotate create`: the old one renamed away, a new
   one written at the same path) is read again from its start, whatever its size —
   the poller notices the inode and birth time moved. A `copytruncate` rotation, which

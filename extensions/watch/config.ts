@@ -23,6 +23,14 @@ export interface WatchConfig {
 	maxLogLines: number;
 	/** Lines returned to the model by `matches`/`logs` when unspecified. */
 	matchLines: number;
+	/**
+	 * Longest prefix of a line a pattern or exclude is run against.
+	 *
+	 * A pattern is model-authored and matched synchronously on the poll clock, so the input it
+	 * is handed is a budget: `LineSplitter` emits up to 1 MiB per line, while every surface
+	 * clips a line to 200 characters before printing it.
+	 */
+	matchChars: number;
 	/** File poll interval. */
 	pollMs: number;
 }
@@ -35,6 +43,7 @@ export const DEFAULT_CONFIG: WatchConfig = {
 	maxMatches: 200,
 	maxLogLines: 500,
 	matchLines: 50,
+	matchChars: 16_384,
 	pollMs: 500,
 };
 
@@ -49,6 +58,9 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 		maxMatches: clampInteger(raw.maxMatches, base.maxMatches, 1, 5000),
 		maxLogLines: clampInteger(raw.maxLogLines, base.maxLogLines, 1, 5000),
 		matchLines: clampInteger(raw.matchLines, base.matchLines, 1, 2000),
+		// Never above 1 MiB, the largest line the splitter emits, so the cap is a bound and
+		// not a wish; never below a screenful, so a reader's line still matches whole.
+		matchChars: clampInteger(raw.matchChars, base.matchChars, 1_024, 262_144),
 		pollMs: clampInteger(raw.pollMs, base.pollMs, 100, 60_000),
 	};
 }

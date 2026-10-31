@@ -375,6 +375,7 @@ The settings screen has no row for it; `wakeOnMatch` is a `bytefly.json` edit.
 | `maxMatches` | integer | `200` | `1`–`5000` | Matches kept per watcher before the oldest are dropped. |
 | `maxLogLines` | integer | `500` | `1`–`5000` | Raw lines kept per watcher for `logs`. |
 | `matchLines` | integer | `50` | `1`–`2000` | Lines returned by `matches` and `logs` when the call omits a count. |
+| `matchChars` | integer | `16384` | `1024`–`262144` | Longest prefix of a line a pattern or exclude is run against; every surface prints at most 200 characters of a line. |
 | `pollMs` | integer | `500` | `100`–`60000` | File poll interval; watchers do not use `fs.watch`. |
 
 ## `memory` — durable notes

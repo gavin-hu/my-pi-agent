@@ -71,6 +71,17 @@ describe("watch call schema", () => {
 		expect(() => normalizeCall({ action: "add", path: "a", pattern: "(" })).toThrow(/not a valid regular expression/);
 	});
 
+	test("add refuses a pattern or an exclude that repeats a repeat without a bound", () => {
+		// The shape cannot be allowed to reach the matcher: it is run once per line, on the poll
+		// clock, and one line is enough to wedge the session (see #172).
+		expect(() => normalizeCall({ action: "add", path: "a", pattern: "(a+)+" })).toThrow(
+			/pattern `\(a\+\)\+` repeats `\(a\+\)`/,
+		);
+		expect(() => normalizeCall({ action: "add", path: "a", pattern: "x", exclude: ["(\\w+)+"] })).toThrow(
+			/exclude `\(\\w\+\)\+` repeats `\(\\w\+\)`/,
+		);
+	});
+
 	test("add rejects an invalid exclude pattern", () => {
 		expect(() => normalizeCall({ action: "add", path: "a", pattern: "x", exclude: ["["] })).toThrow(
 			/exclude is not a valid regular expression/,

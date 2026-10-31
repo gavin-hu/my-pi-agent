@@ -26,6 +26,26 @@ describe("watch formatting", () => {
 		expect(compileRegex("error", true).test("ERROR")).toBe(false);
 	});
 
+	test("refuses a group that repeats a repeat without a bound", () => {
+		// `(a+)+` is exponential in the line it is run against, and a line comes from a file
+		// nobody vouched for; the refusal names the shape and one rewrite.
+		for (const pattern of ["(a+)+", "(a+)*", "(\\w+)+", "((a+))+", "(?:a+)+", "(a+){1,}", "x(a*){2,}y"]) {
+			expect(() => compileRegex(pattern, false)).toThrow(/repeats \`.+\`, whose last element already repeats/);
+		}
+		// The sentence quotes the group, because nothing is rewritten for the caller: the
+		// expression may be long and the offending repeat is what has to change.
+		expect(() => compileRegex("x(a*){2,}y", false)).toThrow(/repeats \`\(a\*\)\`/);
+		expect(() => compileRegex("(a+)+", false)).toThrow(/repeats \`\(a\+\)\`/);
+	});
+
+	test("keeps the patterns whose repeats cannot blow up", () => {
+		// Bounded inside (`{1,3}`), pinned by a separator (`\\s`), literal (`\\+`, `[+]`), or
+		// nested without a repeat: none of these has the exponential shape.
+		for (const pattern of ["(ab)+", "(a{1,3})+", "a+", "(\\w+\\s)+", "(a+)?", "[+]+", "\\(a+\\)+", "(a|b)+"]) {
+			expect(() => compileRegex(pattern, false)).not.toThrow();
+		}
+	});
+
 	test("readPattern reads the form the printer writes, and leaves bare text alone", () => {
 		// The round trip is the whole contract: `formatPattern` prints these two, so a model
 		// copying either back must mean the same watcher it read.

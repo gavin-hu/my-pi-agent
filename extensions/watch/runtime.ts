@@ -219,10 +219,14 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		if (w.rawLines.length > config.maxLogLines) {
 			w.rawLines.splice(0, w.rawLines.length - config.maxLogLines);
 		}
-		for (const exclude of w.excludes) if (exclude.test(line)) return false;
-		if (!w.regex.test(line)) return false;
+		// The pattern is model-authored and runs here, synchronously, on the poll clock, so the
+		// text it is handed is a budget: a line longer than `matchChars` is matched on its
+		// prefix. `logs` keeps the whole line, because that is what the process wrote.
+		const subject = line.length > config.matchChars ? line.slice(0, config.matchChars) : line;
+		for (const exclude of w.excludes) if (exclude.test(subject)) return false;
+		if (!w.regex.test(subject)) return false;
 
-		const clean = sanitizeUntrustedLine(line);
+		const clean = sanitizeUntrustedLine(subject);
 		w.matches.push({ seq: ++w.seq, line: clean, at: time, seen: false });
 		if (w.matches.length > config.maxMatches) {
 			w.matches.splice(0, w.matches.length - config.maxMatches);
