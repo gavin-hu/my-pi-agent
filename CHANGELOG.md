@@ -400,6 +400,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `team`: `assign` resolves the peer `to` names before it checks the card, so a handoff to the
+  session that already holds it — named by its id, which the schema allows — is the same no-op
+  the label is instead of `#4 is held by billing-core`. The check and the write now take one
+  actor, resolved once from the bus, so they cannot disagree about who `to` is.
 - `plan`: **plan mode refuses every `git config` write** — the guard used to accept any
   `git config` that merely contained a read flag, so `git config --show-scope --replace-all
   core.fsmonitor /tmp/hook.sh` wrote `.git/config` from inside a plan and the `git status`
