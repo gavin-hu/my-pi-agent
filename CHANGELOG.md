@@ -190,22 +190,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the files it could not read; the seat is still in the Team tab, whose roster marks the
   page's own row `you`.
 
-- `board`: the terminal round folds the owners a bus has no record of and that hold
-  nothing into one line — `18 owners with no record · 76 done` — for `board list
-  round: true` and `/team`, so a board that has been worked for a while prints its queue
-  instead of a row per finished owner (24 lines to 8 on this repository's board, where the
-  cap had been swallowing the decisions). The rule and the sentence are
-  `lib/board/round-text.ts`'s and cross to the Team tab as source, the way `plural` does, so
-  the two surfaces cannot disagree about who is history; a board read with the bus unloaded
-  prints what it printed before, and the rollup's details still carry every owner.
-
-- `board`: the Team tab states the owners a bus has no record of in one row — `18 owners with
-  no record · 71 done`, unfolded by a click and ordered by what each finished — caps the
-  roster with the queue's own rule, prints a teammate on one line, and folds the ids past the
-  strip's sixth behind its count. The owners a bus knows still get a row each, and one that
-  holds a card keeps its own row even with no record, because the queue is reporting its work
-  as free. Each panel is now refilled only when what it prints has moved, so a peer's write
-  no longer takes the reader's scroll offset or the focus they put on a fold.
+- `board`: **every owner a bus has no record of is one line, in the round and on the Team
+  tab** — `isHistoryOwner` and `historyLine` are `lib/board/round-text.ts`'s and each surface
+  takes them as source, the way `plural` does, so the text and the tab cannot answer "who is
+  only history" two ways. `board list round: true` and `/team` print
+  `18 owners with no record · 76 done` instead of a row per finished owner (24 lines to 8 on
+  this repository's board, where the cap had been swallowing the decisions), a board read with
+  the bus unloaded prints what it printed before, and the rollup's details still carry every
+  owner. The Team tab states the same row, unfolded by a click and ordered by what each
+  finished, caps the roster with the queue's own rule, prints a teammate on one line, and
+  folds the ids past the strip's sixth behind its count. An owner the bus knows still gets a
+  row each, and one that holds a card keeps its own row even with no record, because the queue
+  is reporting its work as free. Each panel is refilled only when what it prints has moved, so
+  a peer's write no longer takes the reader's scroll offset or the focus they put on a fold.
 
 - `board`: a card reads its plan as `~/…`, the form `write_plan` shows, instead of the
   absolute path the card stores — so the same plan reads the same way to whoever opens the
@@ -393,6 +390,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   copies moved to the module that owns them (`fixtures/{http,question,session-bus}.ts`,
   `helpers/tools.ts`, `scratchDir` and `bareCtx` in `helpers/`, `screenText` in `fakes.ts`).
   No test's assertions changed.
+- `test`: **`[Unreleased]` fails when two bullets tell one mechanism's story** — two landings
+  of one change is the normal shape of a fast session, and the earlier bullet is the one left
+  describing behaviour that no longer exists: #136's "announces mail that arrives behind a full
+  backlog" outlived #145's rewrite of the same read until it was folded by hand. A pair of
+  bullets that open on one scope and share eight consecutive words now fails
+  `test/release.test.ts`, naming both lines and the sentence. Eight is where this file stops
+  colliding — at six and seven, closers like "no tool parameter or config key changed" fire
+  between bullets that never met — and it reads the window a release is cut from, since a
+  released one is frozen history. The pair it found there, the round and the Team tab stating
+  the owners a bus has no record of, is one bullet now.
 
 ### Removed
 

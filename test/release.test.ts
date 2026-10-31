@@ -17,6 +17,11 @@
  * used to land from two sessions merging into `[Unreleased]` in the same release
  * cycle, which reads as two releases sharing a heading.
  *
+ * The bullets are held to one per mechanism in the window a release is cut from:
+ * two landings of one change is the normal shape of a fast session, the earlier
+ * bullet is the one left describing behaviour that no longer exists, and a
+ * sentence carried from the first landing into the second is what that reads as.
+ *
  * The tarball itself is checked too: the pi.dev gallery renders a README
  * Markdown image through the npm CDN, so an image `files` does not publish is a
  * 404 on the listing page, and `pi.image` is the one preview the service reads
@@ -349,6 +354,13 @@ describe("the release guide", () => {
 	});
 });
 
+interface ChangelogBullet {
+	/** 1-based line of the `- ` that opens it, for the failure message. */
+	line: number;
+	/** The bullet's prose, with its wrapped lines joined. */
+	text: string;
+}
+
 /**
  * One `## [version]` window and the `###` subsections under it.
  *
@@ -360,7 +372,7 @@ interface ChangelogWindow {
 	version: string;
 	/** 1-based line of the `##` heading, for the failure message. */
 	line: number;
-	subsections: Array<{ name: string; line: number; bullets: number }>;
+	subsections: Array<{ name: string; line: number; bullets: ChangelogBullet[] }>;
 }
 
 /** Keep a Changelog's subsection names, in the order they are written. */
@@ -370,25 +382,81 @@ const CHANGELOG_SECTIONS = ["Added", "Changed", "Deprecated", "Removed", "Fixed"
 function changelogWindows(markdown: string): ChangelogWindow[] {
 	const windows: ChangelogWindow[] = [];
 	let current: ChangelogWindow | undefined;
+	let bullet: ChangelogBullet | undefined;
 	for (const [index, line] of markdown.split("\n").entries()) {
 		const lineNumber = index + 1;
 		const heading = /^## \[([^\]]+)\]/.exec(line);
 		if (heading) {
 			current = { version: heading[1] as string, line: lineNumber, subsections: [] };
 			windows.push(current);
+			bullet = undefined;
 			continue;
 		}
 		const subsection = /^### (.+?)\s*$/.exec(line);
 		if (subsection && current) {
-			current.subsections.push({ name: subsection[1] as string, line: lineNumber, bullets: 0 });
+			current.subsections.push({ name: subsection[1] as string, line: lineNumber, bullets: [] });
+			bullet = undefined;
 			continue;
 		}
-		if (current && current.subsections.length > 0 && line.startsWith("- ")) {
-			const last = current.subsections[current.subsections.length - 1];
-			if (last) last.bullets += 1;
+		const section = current?.subsections[current.subsections.length - 1];
+		if (section === undefined) continue;
+		if (line.startsWith("- ")) {
+			const opened: ChangelogBullet = { line: lineNumber, text: line.slice(2) };
+			section.bullets.push(opened);
+			bullet = opened;
+		} else if (bullet !== undefined && /^\s{2,}\S/.test(line)) {
+			bullet.text += ` ${line.trim()}`;
+		} else {
+			bullet = undefined;
 		}
 	}
 	return windows;
+}
+
+/**
+ * Consecutive words two `[Unreleased]` bullets must share before they read as one
+ * mechanism told twice. Eight is where this file's own history stops colliding: at
+ * six and seven, closers like "no tool parameter or config key changed" fire between
+ * bullets that never met.
+ */
+const MECHANISM_RUN = 8;
+
+/** A bullet's words, in order: markdown markers and punctuation are not words. */
+function wordsOf(text: string): string[] {
+	return text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+/** The extension or module a bullet opens on — `` `board`: … `` — if it names one. */
+function scopeOf(text: string): string | undefined {
+	return /^`([\w/.@+-]+)`/.exec(text.trim())?.[1];
+}
+
+/**
+ * Bullets that tell one mechanism's story twice, as `lines A and B both say "…"`.
+ *
+ * Prose cannot be judged, but a sentence carried from one landing into the next can, and
+ * that is the shape a second landing takes. Runs are indexed as the window is read, so the
+ * earlier bullet owns one and a later bullet of the same scope that repeats it is the
+ * duplicate. A bullet that names no scope is never compared: this reads a carried sentence,
+ * not whether two descriptions mean the same thing.
+ */
+function repeatedMechanisms(bullets: readonly ChangelogBullet[]): string[] {
+	const owner = new Map<string, ChangelogBullet>();
+	const problems: string[] = [];
+	for (const bullet of bullets) {
+		const scope = scopeOf(bullet.text);
+		if (scope === undefined) continue;
+		const words = wordsOf(bullet.text);
+		let twin: { first: ChangelogBullet; run: string } | undefined;
+		for (let at = 0; at + MECHANISM_RUN <= words.length; at += 1) {
+			const run = words.slice(at, at + MECHANISM_RUN).join(" ");
+			const first = owner.get(run);
+			if (first === undefined) owner.set(run, bullet);
+			else if (twin === undefined && scopeOf(first.text) === scope) twin = { first, run };
+		}
+		if (twin !== undefined) problems.push(`lines ${twin.first.line} and ${bullet.line} both say "${twin.run}"`);
+	}
+	return problems;
 }
 
 describe("changelog shape", () => {
@@ -434,9 +502,62 @@ describe("changelog shape", () => {
 		const empty: string[] = [];
 		for (const window of windows) {
 			for (const section of window.subsections) {
-				if (section.bullets === 0) empty.push(`${window.version}: ### ${section.name} (line ${section.line})`);
+				if (section.bullets.length === 0) empty.push(`${window.version}: ### ${section.name} (line ${section.line})`);
 			}
 		}
 		expect(empty).toEqual([]);
+	});
+
+	test("holds one bullet per mechanism in the window a release is cut from", () => {
+		// A released window is frozen history; `[Unreleased]` is what a release is cut from, so
+		// the bullets in it are the ones that can still be folded before a reader sees them.
+		const bullets = windows[0]?.subsections.flatMap((section) => section.bullets) ?? [];
+		expect(bullets.length).toBeGreaterThan(0);
+		expect(
+			repeatedMechanisms(bullets),
+			"one mechanism, one bullet: fold the pair, or reword one so no sentence is shared",
+		).toEqual([]);
+	});
+});
+
+/** A bullet as the shape parser would hand it back, for the cases below. */
+function fixtureBullet(line: number, text: string): ChangelogBullet {
+	return { line, text };
+}
+
+describe("the mechanism check", () => {
+	test("fails two bullets of one scope that carry one sentence", () => {
+		// The bold marker, the em dash, and the punctuation belong to the prose, not the words:
+		// a carried sentence still matches once they are dropped.
+		const problems = repeatedMechanisms([
+			fixtureBullet(3, "`board`: **the owners a bus has no record of is one line** — in the round."),
+			fixtureBullet(9, "`board`: the owners a bus has no record of is one line, on the Team tab."),
+		]);
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toContain("lines 3 and 9");
+	});
+
+	test("passes a sentence one word short of the run", () => {
+		const problems = repeatedMechanisms([
+			fixtureBullet(3, "`board`: the round folds owners a bus down."),
+			fixtureBullet(9, "`board`: the round folds owners a bus apart."),
+		]);
+		expect(problems).toEqual([]);
+	});
+
+	test("passes one sentence shared between two scopes", () => {
+		const problems = repeatedMechanisms([
+			fixtureBullet(3, "`board`: the owners a bus has no record of is one line."),
+			fixtureBullet(9, "`team`: the owners a bus has no record of is one line."),
+		]);
+		expect(problems).toEqual([]);
+	});
+
+	test("passes a bullet that names no scope, because it is not compared", () => {
+		const problems = repeatedMechanisms([
+			fixtureBullet(3, "the owners a bus has no record of is one line, in the round."),
+			fixtureBullet(9, "the owners a bus has no record of is one line, on the tab."),
+		]);
+		expect(problems).toEqual([]);
 	});
 });
