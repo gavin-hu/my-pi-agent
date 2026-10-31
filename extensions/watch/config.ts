@@ -17,6 +17,14 @@ export interface WatchConfig {
 	wakeOnMatch: boolean;
 	/** Live watchers kept before `add` is refused. */
 	maxWatchers: number;
+	/**
+	 * Records kept in the table, running and finished together.
+	 *
+	 * Every finished watcher still holds its matches and raw lines, and nothing made the table
+	 * shrink: a session that added, watched a command finish, and added again grew it for as
+	 * long as it ran. Past this many records, `add` drops the oldest finished ones.
+	 */
+	maxRecords: number;
 	/** Matches kept per watcher before the oldest are dropped. */
 	maxMatches: number;
 	/** Raw lines kept per watcher for the `logs` action. */
@@ -40,6 +48,7 @@ export const DEFAULT_CONFIG: WatchConfig = {
 	showStatus: true,
 	wakeOnMatch: false,
 	maxWatchers: 20,
+	maxRecords: 50,
 	maxMatches: 200,
 	maxLogLines: 500,
 	matchLines: 50,
@@ -55,6 +64,7 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 		showStatus: typeof raw.showStatus === "boolean" ? raw.showStatus : base.showStatus,
 		wakeOnMatch: typeof raw.wakeOnMatch === "boolean" ? raw.wakeOnMatch : base.wakeOnMatch,
 		maxWatchers: clampInteger(raw.maxWatchers, base.maxWatchers, 1, 200),
+		maxRecords: clampInteger(raw.maxRecords, base.maxRecords, 1, 1000),
 		maxMatches: clampInteger(raw.maxMatches, base.maxMatches, 1, 5000),
 		maxLogLines: clampInteger(raw.maxLogLines, base.maxLogLines, 1, 5000),
 		matchLines: clampInteger(raw.matchLines, base.matchLines, 1, 2000),

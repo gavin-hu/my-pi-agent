@@ -198,6 +198,7 @@ const SECTIONS: readonly SectionCase[] = [
 			wakeOnMatch: "off by default; a bytefly.json edit",
 			showStatus: "chip placement, not behaviour",
 			maxWatchers: "a registry limit",
+			maxRecords: "a registry limit",
 			maxMatches: "a registry limit",
 			maxLogLines: "a model-facing limit",
 			matchLines: "a model-facing limit",

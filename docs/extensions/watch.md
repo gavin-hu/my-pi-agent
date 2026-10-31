@@ -157,6 +157,7 @@ Every value is clamped; a missing or malformed document is ignored.
 | `showStatus` | `true` | Show the two status chips. |
 | `wakeOnMatch` | `false` | Default for a new watcher's `wake`; a per-watcher `wake` overrides it. |
 | `maxWatchers` | `20` | Live watchers before `add` is refused. |
+| `maxRecords` | `50` | Records kept in the table, running and finished together; past it `add` drops the oldest finished watcher, because a finished one still holds its matches and raw lines. |
 | `maxMatches` | `200` | Matches kept per watcher before the oldest are dropped. |
 | `maxLogLines` | `500` | Raw lines kept per watcher for `logs`. |
 | `matchLines` | `50` | Lines returned by `matches`/`logs` when `lines` is omitted. |
