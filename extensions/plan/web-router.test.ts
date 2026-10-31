@@ -213,6 +213,22 @@ describe("review router", () => {
 		expect((await handleReviewRequest(ctx, "GET", "/api/feedback?token=tok", HOST)).status).toBe(405);
 	});
 
+	test("refuses a body a form could send, on every route that reads one", async () => {
+		const { ctx, saved, approved, cancelled } = router();
+		const routes = ["/api/comment", "/api/feedback", "/api/approve", "/api/share/revoke"];
+		for (const route of routes) {
+			for (const contentType of ["text/plain", "application/x-www-form-urlencoded", undefined]) {
+				const headers = contentType === undefined ? HOST : { ...HOST, "content-type": contentType };
+				const response = await handleReviewRequest(ctx, "POST", `${route}?token=tok`, headers, "annotations=[]");
+				expect(response.status, `${route} ${String(contentType)}`).toBe(415);
+				expect(response.body).toContain("The request body must be JSON.");
+			}
+		}
+		expect(saved).toEqual([]);
+		expect(approved).toEqual([]);
+		expect(cancelled).toEqual([]);
+	});
+
 	test("reports a save conflict from the store", async () => {
 		const { ctx, setSave } = router();
 		setSave({ ok: false, status: 409, message: "The plan changed." });

@@ -122,7 +122,9 @@ export function router(overrides: Partial<ReviewContext> = {}) {
 }
 
 export const get = (url: string) => handleReviewRequest(router().ctx, "GET", url, HOST);
-export const post = (ctx: ReviewContext, url: string, body = "") => handleReviewRequest(ctx, "POST", url, HOST, body);
+/** One POST the way the page makes it: every body-taking route is sent JSON. */
+export const post = (ctx: ReviewContext, url: string, body = "") =>
+	handleReviewRequest(ctx, "POST", url, { ...HOST, "content-type": "application/json" }, body);
 
 export function reviewPage(overrides: Partial<ReviewPageData> = {}): string {
 	return renderReviewPage({
@@ -351,3 +353,11 @@ export const feedbackUrl = (session: PlanReviewSession) => at(session, "/api/fee
 export const approveUrl = (session: PlanReviewSession) => at(session, "/api/approve");
 export const cancelUrl = (session: PlanReviewSession) => at(session, "/api/cancel");
 export const eventsUrl = (session: PlanReviewSession) => at(session, "/events");
+
+/** One JSON post from the page's own buttons, which is what the client sends. */
+export const pagePost = (session: PlanReviewSession, path: string, payload: unknown = {}): Promise<Response> =>
+	fetch(at(session, path), {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(payload),
+	});

@@ -410,6 +410,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: **the review's body routes take JSON, and say so** — `lib/http`'s `requireJsonBody`
+  was exported and tested but called from nowhere, while `docs/security.md` described it as one
+  of the checks a mutating page makes: `/api/comment`, `/api/feedback`, `/api/approve`, and
+  `/api/share/revoke` parsed whatever arrived and left a form or `text/plain` body to fail on its
+  syntax. A body that is not declared JSON is now refused `415` ahead of the role check, so the
+  form never reaches the parser; the page's own posts all send `application/json`, so they are
+  unchanged.
 - `board`: **a failed open is not pinned for the session** — the store, the bus directory, and the
   plan directory each kept their promise before it settled, so one failure (a config read, the
   agent directory) would have been replayed for every later call, and `busDir`'s failure would

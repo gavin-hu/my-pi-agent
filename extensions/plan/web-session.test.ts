@@ -16,6 +16,7 @@ import {
 	islandOf,
 	LAN,
 	nextFrame,
+	pagePost,
 	reviewSuite,
 } from "../../test/helpers/fixtures/plan-web.ts";
 import { MAX_ANNOTATIONS, MAX_COMMENT_LENGTH, MAX_QUOTE_LENGTH } from "./feedback.ts";
@@ -140,10 +141,8 @@ describe("review session", () => {
 
 	test("resolves saved with the annotations written into the plan", async () => {
 		const session = await start();
-		const response = await fetch(feedbackUrl(session), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "make it concrete" }] }),
+		const response = await pagePost(session, "/api/feedback", {
+			annotations: [{ anchor: 2, comment: "make it concrete" }],
 		});
 
 		expect(response.status).toBe(200);
@@ -159,10 +158,8 @@ describe("review session", () => {
 		// A refinement carried the note onto another block, and the page is the only place
 		// that still knows. A save must not rewrite it as though it sat there all along.
 		const session = await start("# Plan\n\nA paragraph.\n");
-		const response = await fetch(feedbackUrl(session), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "check this", moved: true }] }),
+		const response = await pagePost(session, "/api/feedback", {
+			annotations: [{ anchor: 2, comment: "check this", moved: true }],
 		});
 
 		expect(response.status).toBe(200);
@@ -175,10 +172,8 @@ describe("review session", () => {
 		// Settling is the reader's decision, and the page is where it was made: a save that
 		// dropped the flag would hand a closed question back to the model as an open one.
 		const session = await start("# Plan\n\nA paragraph.\n");
-		const response = await fetch(feedbackUrl(session), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "answered", resolved: true }] }),
+		const response = await pagePost(session, "/api/feedback", {
+			annotations: [{ anchor: 2, comment: "answered", resolved: true }],
 		});
 
 		expect(response.status).toBe(200);
@@ -195,11 +190,7 @@ describe("review session", () => {
 
 	test("resolves approved with the saved comments", async () => {
 		const session = await start("# Plan\n\n- [ ] step\n", { canApprove: true });
-		const response = await fetch(approveUrl(session), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "ship it" }] }),
-		});
+		const response = await pagePost(session, "/api/approve", { annotations: [{ anchor: 2, comment: "ship it" }] });
 
 		expect(response.status).toBe(200);
 		const result = await session.done;
@@ -212,7 +203,8 @@ describe("review session", () => {
 
 	test("refuses approve when the session is comment-only", async () => {
 		const session = await start();
-		expect((await fetch(approveUrl(session), { method: "POST" })).status).toBe(403);
+		const response = await pagePost(session, "/api/approve", { annotations: [] });
+		expect(response.status).toBe(403);
 
 		await fetch(cancelUrl(session), { method: "POST" });
 		expect((await session.done).status).toBe("cancelled");
@@ -395,10 +387,8 @@ describe("review session", () => {
 
 	test("rejects an oversize body with a JSON 413, not a dropped connection", async () => {
 		const session = await start("# Plan\n", {}, { maxBodyBytes: 64 });
-		const response = await fetch(feedbackUrl(session), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ annotations: [{ anchor: 0, comment: "x".repeat(200) }] }),
+		const response = await pagePost(session, "/api/feedback", {
+			annotations: [{ anchor: 0, comment: "x".repeat(200) }],
 		});
 
 		expect(response.status).toBe(413);
