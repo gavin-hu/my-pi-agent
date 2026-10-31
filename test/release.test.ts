@@ -17,12 +17,17 @@
  * used to land from two sessions merging into `[Unreleased]` in the same release
  * cycle, which reads as two releases sharing a heading.
  *
+ * The tarball itself is checked too: the pi.dev gallery renders a README
+ * Markdown image through the npm CDN, so an image `files` does not publish is a
+ * 404 on the listing page, and `pi.image` is the one preview the service reads
+ * from the manifest, so it has to be the absolute raw URL it requires.
+ *
  * The tag half needs tags in the clone; CI checks out with `fetch-depth: 0` so
  * they are present. A shallow clone without tags skips only that half.
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { posix, walkFiles } from "./helpers/files.ts";
@@ -144,6 +149,59 @@ describe("release consistency", () => {
 	test("offers at least one pin to check", () => {
 		// A regex that stopped matching would make the test above vacuously pass.
 		expect(docPins().length).toBeGreaterThan(0);
+	});
+});
+
+const manifest = JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as {
+	files?: string[];
+	pi?: { image?: string };
+};
+
+/** What `files` publishes, without the negations that narrow it. */
+const published = (manifest.files ?? []).filter((entry) => !entry.startsWith("!"));
+
+/** The two entry READMEs, which the gallery renders at the published version. */
+const ENTRY_READMES = ["README.md", "README.zh-CN.md"];
+
+/**
+ * Every relative Markdown image target in the entry READMEs, as `file: target`.
+ *
+ * These are the images the gallery keeps: it rewrites a `![…](path)` to the npm
+ * CDN and drops a raw `<img>` tag, so a preview written as HTML is GitHub's
+ * alone and one written as Markdown has to exist in the tarball.
+ */
+function rewrittenImages(): string[] {
+	const images: string[] = [];
+	for (const name of ENTRY_READMES) {
+		for (const match of readFileSync(join(repo, name), "utf-8").matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
+			if (/^(?:https?:|\/\/)/i.test(match[1])) continue;
+			images.push(`${name}: ${match[1]}`);
+		}
+	}
+	return images;
+}
+
+describe("the published tarball", () => {
+	test("publishes every README image the gallery rewrites to the npm CDN", () => {
+		const unpublished = rewrittenImages().filter((image) => {
+			const target = image.slice(image.indexOf(": ") + 2);
+			return !published.some((entry) => new Bun.Glob(entry).match(target));
+		});
+		expect(unpublished, "add it to package.json files, or the gallery renders a 404").toEqual([]);
+	});
+
+	test("points pi.image at an absolute raw screenshot that exists", () => {
+		const image = manifest.pi?.image ?? "";
+		const prefix = "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/";
+		expect(image.startsWith(prefix), "the preview service requires an absolute raw.githubusercontent.com URL").toBe(
+			true,
+		);
+		expect(existsSync(join(repo, image.slice(prefix.length)))).toBe(true);
+	});
+
+	test("has an image to publish", () => {
+		// A regex that stopped matching would make the case above vacuously pass.
+		expect(rewrittenImages().length).toBeGreaterThan(0);
 	});
 });
 

@@ -171,6 +171,16 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 </tr>
 </table>
 
+下面是终端里画出的计划审查，以及本包在浏览器中提供的三个页面：看板、浏览器版计划审查和文件浏览器。
+
+![终端计划审查：Plan Review 标题线、一条说明自上次审查以来有一节已改动的通知、带标题与 ◼/◻ 任务复选框的计划正文、标出当前章节和可见行范围的滚动指示线，以及 Esc/a/r/w、滚动与章节跳转提示](assets/screens/plan.png)
+
+![看板页：带仓库名与实时徽标的工具栏、Board 与 Team 两个标签页、完成数/总数进度、过滤器、按键按钮和主题切换；五个泳道托盘，各带一个点、一个计数和一个折叠控件；卡片带负责人标签、笔记数及其时长、路径提示、一行说明该卡在等什么、一行说明它卡住了哪些卡，以及一行理由，卡片上没有任何按钮](assets/screens/board.png)
+
+![浏览器版计划审查：粘性头部带计划标题、状态标签，以及 Approve & run、Save feedback、Back to Pi 三个动作和一个 Share 动作；侧栏带步骤进度与章节大纲；计划本身是一列有度量宽度的正文，注释栏里放着负责人自己的评论和队友 @priya 的评论](assets/screens/plan-review.png)
+
+![回环文件浏览器：路径过滤器、文件树，以及渲染好的 Markdown 预览](assets/screens/file-browse.png)
+
 ### 工具渲染
 
 每个工具块都按转录中的样子绘制：工具自身的调用行作为标题，结果正文在其下方两列、
@@ -178,7 +188,7 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 （每个工具自身的渲染器或 bytefly 的通用回退）——用户铭牌与通知、Pi 内置工具，以及本包注册的每个工具。
 侧栏字形由 `chrome.rail` 设置。
 
-![每个工具块的全页参考图：用户铭牌、通知、回合分隔线，Pi 的 read、write、edit、bash、grep、find、ls 渲染器，以及每个包内工具——todo、goal、memory、job、watch、subagent、web_search、web_fetch、read_doc、open_path、run_doctor、send_wechat、ask_user_question、session、board、team、plan 工具与 worktree 工具](assets/screens/tool-renderings.png)
+<img src="assets/screens/tool-renderings.png" alt="每个工具块的全页参考图：用户铭牌、通知、回合分隔线，Pi 的 read、write、edit、bash、grep、find、ls 渲染器，以及每个包内工具——todo、goal、memory、job、watch、subagent、web_search、web_fetch、read_doc、open_path、run_doctor、send_wechat、ask_user_question、session、board、team、plan 工具与 worktree 工具" width="100%">
 
 `bun run screenshot:tools` 重新生成它；`bun run screenshot:tool-pngs` 在
 [`assets/tools/`](./assets/tools) 下为每个工具输出一张图。

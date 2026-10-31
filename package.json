@@ -84,6 +84,11 @@
     "lib/**",
     "skills/**",
     "themes/**",
+    "assets/screens/board.png",
+    "assets/screens/chrome.png",
+    "assets/screens/file-browse.png",
+    "assets/screens/plan-review.png",
+    "assets/screens/plan.png",
     "!**/*.test.ts"
   ],
   "publishConfig": {

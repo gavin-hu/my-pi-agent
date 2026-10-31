@@ -190,6 +190,17 @@ README use `bytefly-dark`.
 </tr>
 </table>
 
+The plan review as the terminal draws it, then the three browser pages this
+package serves: the board, the browser-based plan review, and the file browser.
+
+![The terminal plan review: a Plan Review title rule, a notice that one section changed since the last review, the plan body with its headings and ◼/◻ task checkboxes, a scroll gauge naming the current section and the visible line range, and the Esc/a/r/w, scroll, and section-jump hints](assets/screens/plan.png)
+
+![The board page: a toolbar with the repository's name and a live badge, Board and Team tabs, done-of-total progress, a filter, the keys button and a theme toggle; five lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, a note count and its age, path hints, a line naming what the card waits for, a line naming the cards it holds up, and a reason line, with no button on any of them](assets/screens/board.png)
+
+![The browser-based plan review: a sticky header with the plan title, a status chip, and the Approve & run, Save feedback, and Back to Pi actions, a Share action, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail holding the owner's own comment and a teammate's @priya comment](assets/screens/plan-review.png)
+
+![The loopback file browser, showing the path filter, the file tree, and a rendered Markdown preview](assets/screens/file-browse.png)
+
 ### Tool renderings
 
 Every tool block as the transcript draws it — the tool's own call line as the
@@ -198,7 +209,7 @@ each tool's own renderer (or bytefly's generic fallback): the user nameplate and
 a notice, Pi's built-ins, and every tool this package registers. The rail glyph
 is the `chrome.rail` setting.
 
-![A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, run_check, send_wechat, ask_user_question, session, board, team, the plan tools, and the worktree tools](assets/screens/tool-renderings.png)
+<img src="assets/screens/tool-renderings.png" alt="A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, run_check, send_wechat, ask_user_question, session, board, team, the plan tools, and the worktree tools" width="100%">
 
 `bun run screenshot:tools` regenerates it; `bun run screenshot:tool-pngs` writes
 one image per tool under [`assets/tools/`](./assets/tools).
