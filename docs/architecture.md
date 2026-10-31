@@ -476,8 +476,9 @@ reviewed against the tree at each release, and none of them is a checklist to ti
 - A long-session benchmark stays within its budget — measured with `bun run bench:render`
   at each release.
 - A release is one reviewed command path with provenance, and the tag, changelog, and npm
-  version cannot drift — `test/release.test.ts` holds the version, the install pins, and
-  the changelog's one-set-per-window shape.
+  version cannot drift — `test/release.test.ts` holds the version, the install pins, the
+  changelog's one-set-per-window shape, and one bullet per mechanism in the window a release
+  is cut from.
 - Docs truth tests cover tool names and config keys, and every relative doc link and
   heading anchor resolves — `test/naming.test.ts`, `test/config-docs.test.ts`, and the
   doc-link guard in `test/doc-links.test.ts`.

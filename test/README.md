@@ -99,7 +99,11 @@ gate is stated in the test.
    evaluations across every entry may not exceed `MODULE_BUDGET`.
    `release.test.ts` ties `package.json`, the newest dated changelog heading,
    and the newest `vX.Y.Z` tag together. CI checks out with `fetch-depth: 0` so
-   the tag is present; the tag assertion is skipped in a clone that has none.
+   the tag is present; the tag assertion is skipped in a clone that has none. It
+   holds the changelog's shape too — one `Added`/`Changed`/`Fixed` set per
+   window, and in `[Unreleased]` one bullet per mechanism: two bullets of one
+   scope that share eight consecutive words are one change landed twice, and a
+   bullet that names no scope is not compared.
    The tool names in both entry READMEs are pinned by
    `naming.test.ts`, and the configuration reference is pinned by
    `config-docs.test.ts`.
@@ -328,7 +332,7 @@ test/
   prompt-budget.test.ts    # injected-context size ceilings
   theme.test.ts            # themes/*.json contract, incl. WCAG AA per semantic role
   config-docs.test.ts      # the configuration reference against the loaders
-  release.test.ts          # package version, changelog heading, and newest tag
+  release.test.ts          # package version, newest tag, and the changelog's shape and bullets
   scripts-surface.test.ts  # the package scripts, and the docs that name them
   settings-coverage.test.ts # the settings catalogue, the loaders it shows, and the docs that count it
   tool-render.test.ts      # every tool's call and result through the shared frame

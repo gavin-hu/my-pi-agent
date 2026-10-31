@@ -583,4 +583,7 @@ it again, up to ten per package.
 
 `test/release.test.ts` ties the package version, the newest dated changelog
 heading, the newest `vX.Y.Z` tag, and the install pins the docs offer together,
-so a release that skips a step fails CI.
+so a release that skips a step fails CI. It holds the changelog's shape with them:
+in `[Unreleased]` a change is one bullet, so two bullets that open on one scope and
+carry the same sentence — a second landing superseding the first — fail naming both,
+before the section a release is cut from can say one thing twice.
