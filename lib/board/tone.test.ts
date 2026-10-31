@@ -32,9 +32,9 @@ describe("the tone table", () => {
 	test("ranks a gone owner above a card merely sitting still, and colours it as the loss it is", () => {
 		// The defect this table exists for: `gone` was ranked second and drawn quieter than
 		// `idle`, because the rank and the colour were two lists in two files.
-		expect(DECISION_KINDS.indexOf("gone")).toBeLessThan(DECISION_KINDS.indexOf("idle"));
+		expect(DECISION_KINDS.indexOf("gone")).toBeLessThan(DECISION_KINDS.indexOf("unwritten"));
 		expect(DECISION_TONE.gone).toBe("danger");
-		expect(DECISION_TONE.idle).toBe("warn");
+		expect(DECISION_TONE.unwritten).toBe("warn");
 	});
 
 	test("gives a lane its own role, and never the page's accent for all of them", () => {

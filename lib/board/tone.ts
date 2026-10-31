@@ -66,7 +66,7 @@ export const DECISION_KINDS = [
 	"approval",
 	"review",
 	"waiting",
-	"idle",
+	"unwritten",
 	"unplanned",
 	"unassigned",
 ] as const;
@@ -81,7 +81,7 @@ export const DECISION_TONE: Record<DecisionKind, BoardTone> = {
 	approval: "warn",
 	review: "warn",
 	waiting: "dim",
-	idle: "warn",
+	unwritten: "warn",
 	unplanned: "dim",
 	unassigned: "dim",
 };

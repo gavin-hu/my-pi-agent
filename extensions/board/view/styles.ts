@@ -43,7 +43,7 @@ const REASON_TONE_CSS = BOARD_TONES.map((tone) => `.board-card__reason--${tone}{
 /**
  * A decision row's edge, one rule per tone the table names.
  *
- * Generated from the same table the terminal reads, so `gone` — ranked above `idle` — wears
+ * Generated from the same table the terminal reads, so `gone` — ranked above `unwritten` — wears
  * the refusal colour by being classified, not by a rule somebody remembered to add.
  */
 const DECISION_TONE_CSS = BOARD_TONES.map(
