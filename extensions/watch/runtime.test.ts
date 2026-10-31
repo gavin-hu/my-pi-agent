@@ -190,11 +190,35 @@ describe("watch runtime", () => {
 		expect(() => h.runtime.add({ command: "build", pattern: "x" }, ctx)).toThrow(/watch is disabled/);
 	});
 
-	test("refuses add when the live watcher limit is reached", () => {
+	test("refuses add when every live watcher is running", () => {
 		const { h, ctx } = runtimeHarness({ config: { maxWatchers: 1 } });
 		h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
-		expect(() => h.runtime.add({ command: "build", pattern: "y" }, ctx)).toThrow(/at most 1 watchers/);
+		expect(() => h.runtime.add({ command: "build", pattern: "y" }, ctx)).toThrow(
+			"at most 1 live watcher; stop one first.",
+		);
+	});
+
+	test("a stopped watcher frees its slot", () => {
+		const { h, ctx } = runtimeHarness({ config: { maxWatchers: 1 } });
+		h.runtime.add({ command: "build", pattern: "x" }, ctx);
+		h.runtime.stop("w1");
+
+		const second = h.runtime.add({ command: "build", pattern: "y" }, ctx);
+
+		expect(second.id).toBe("w2");
+		expect(h.runtime.runningCount()).toBe(1);
+	});
+
+	test("an exited watcher frees its slot", () => {
+		const { h, ctx } = runtimeHarness({ config: { maxWatchers: 1 } });
+		h.runtime.add({ command: "build", pattern: "x" }, ctx);
+		h.children[0].close(0);
+
+		const second = h.runtime.add({ command: "build", pattern: "y" }, ctx);
+
+		expect(h.runtime.get("w1")?.status).toBe("exited");
+		expect(second.id).toBe("w2");
 	});
 
 	test("tails merged stdout and stderr", () => {

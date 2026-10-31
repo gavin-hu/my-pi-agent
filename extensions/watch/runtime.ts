@@ -316,8 +316,10 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 
 	const add = (opts: AddWatchOptions, ctx: ExtensionContext): WatchRecord => {
 		if (!config.enabled) throw new Error("watch is disabled.");
-		if (watches.size >= config.maxWatchers) {
-			throw new Error(`at most ${config.maxWatchers} watchers; stop one first.`);
+		if (runningCount() >= config.maxWatchers) {
+			throw new Error(
+				`at most ${config.maxWatchers} live watcher${config.maxWatchers === 1 ? "" : "s"}; stop one first.`,
+			);
 		}
 		const base = resolveEffectiveCwd(ctx.cwd);
 		const source: WatchSource = opts.path
