@@ -97,7 +97,7 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`plan`](./docs/extensions/plan.md) | `plan`, `/plan`, `--plan` | 只读规划（一个工具五个动作：`enter`、`write`、`exit`、`steps`、`cancel`）：模型先调研，把计划保存到 `~/.pi/agent/plans/<repo-key>` 下（每个仓库一份，各 worktree 共享），你在写入任何内容前先批准。可在 TUI 中审阅，或在浏览器中打开以留下行内评论：页面会跟随计划文件实时更新，你也可以给每位同事各一个审阅链接，各自以绑定的名义评论。`init` 技能复用同一审阅流程来创建或更新项目的 `AGENTS.md`。 |
+| [`plan`](./docs/extensions/plan.md) | `plan`, `/plan`, `--plan` | 只读规划：一个工具的五个动作 —— `enter`、`write`、`exit`、`steps`、`cancel`。模型先调研，把计划保存到 `~/.pi/agent/plans/<repo-key>` 下（每个仓库一份，各 worktree 共享），你在写入任何内容前先批准。可在 TUI 中审阅，也可在浏览器里留下行内评论：页面会跟随计划文件实时更新，每位同事各持一个审阅链接，以自己的名义评论。`init` 技能复用同一审阅流程来创建或更新项目的 `AGENTS.md`。 |
 | [`check`](./docs/extensions/check.md) | `run_check`, `/check` | 检测项目的测试、lint 或类型检查命令（或使用 `check.command`），在受监管的进程中运行，并把失败整理成可导航的 `file:line` 列表。 |
 | [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | 把任务委派给专职智能体（`explorer`、`planner`、`reviewer`、`worker`、`researcher`、`tester`、`debugger`、`documenter`），运行在它自己的 Pi 进程中 —— 单个、并行、链式或在后台运行；后台运行时在页脚显示数量，完成后发出提示。 |
 | [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | 持久任务列表（`pending` / `in_progress` / `completed`），配一行式 widget。 |
@@ -106,9 +106,9 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 | [`job`](./docs/extensions/job.md) | `job`, `/jobs` | 在后台运行长时 shell 命令；查看日志、等待或结束它们。 |
 | [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | 跟踪文件或命令输出，按模式匹配行，并提醒你或把匹配的行交给智能体。 |
 | [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions`（屏幕） | 在同一仓库的多个 Pi 会话之间协调：发现彼此、交换简短消息/事件、读取收件箱、编辑前声明路径；`/sessions` 是显示对等会话、未读邮件和路径声明的实时面板。本地、默认拉取式；收件箱监视需会话自行开启，空闲时会唤起本会话的一轮，从不创建智能体。 |
-| [`serve`](./docs/extensions/serve.md) | — | 每个 session 一个 loopback 服务。`/board`、`/browse` 和浏览器里的 plan review 都在它上面挂载路径前缀，而不是各自监听端口，因此一个 session 只有一个端口、一个 chip、一条关闭路径——而第二个 session（peer 会话、另一个 worktree、另一个 Pi）依然有自己的端口。端口由仓库自身的 key 哈希到 `4780`–`5779`，每个项目各有自己的编号，因此收藏的地址在重启后依然有效、无需任何设置；`bytefly.json` 里的 `serve.port` 可以覆盖它；共享 review 只为发起共享的那一个页面借用同一个网段上的一个地址。 |
-| [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板：一张卡片代表一个 feature，在五条车道间移动——`backlog`、`plan`、`execute`、`blocked`、`done`——契约（`goal`、`acceptance`、`scopeOut`）必须写明，并指向 `plan` 的 `write` 动作存进本仓库 plan store 的那份 plan 文件，由 lead（`bytefly.json` 里的 `board.lead`，且不能是卡片持有者）或本人用 `/board approve` 批准——之后才能进入执行，完成的工作同样要经过 `/board review` 抽检才能收尾；`plan` 与 `execute` 受 `bytefly.json` 里的 WIP 上限约束。已完成的卡片会离开看板进入 `archive/`，其注记与落地 commit 仍可读；同一个看板在浏览器里以 **Board** 和 **Team** 两个 tab 实时显示。页面只读——写入只走工具——以看板 lead（`board.lead`，默认 `lead`）的席位对外服务，因此第二个 session 打开的是同一张页面；把卡片交给队友由 `team` 负责——看板自己只发一条消息，即签名后告知卡片的 owner，好让能走下一步的 session 被通知，而不是轮询。卡片可以带上优先级、声明自己在等待哪几张卡片。步骤留在 owner 的 plan 和 `todo` 里，卡片就是 feature、它的 owner，以及解释它的历史。Team tab 会把 bus 没有记录的 owner 收成一行，因为只要某张卡片曾归属它，它就会一直是 owner。页面以 `/board` 挂在该项目自身的端口上（由仓库 key 哈希得到），因此收藏的地址重启后依然有效、无需设置；`bytefly.json` 里的 `serve.port` 可以覆盖它。默认关闭：用 `PI_ENABLED_EXTENSIONS=board` 加载。 |
-| [`team`](./docs/extensions/team.md) | `team`、`/team` | 同一块看板上的 lead 轮次。`/team join <label>` 让一个 session 加入团队，lead 打开 `/board` 时则以页面席位之名自动加入；随后 `assign` 把一个 feature 交给运行中的 session，`offer` 交给谁有空谁接——广播而不写卡片，由第一个认领的人拿走——`reclaim` 把卡片收回 Backlog，`claim` 则让 lead 自己接手，之后的 plan 与 contract 交给 `board`。结果会说明谁会因此被叫醒、谁会在下一轮才读到；`/team` 在终端里打印同一份轮次，不用开浏览器，也不启动任何进程。与 `board` 一并默认关闭：用 `PI_ENABLED_EXTENSIONS=board,team` 加载。 |
+| [`serve`](./docs/extensions/serve.md) | — | 每个 session 一个 loopback 服务：`/board`、`/browse` 和浏览器里的 plan review 都在它上面挂载路径前缀，而不是各自监听端口，因此一个 session 只有一个端口、一个 chip、一条关闭路径 —— 而第二个 session 依然有自己的端口。端口是项目自身的编号，由仓库 key 哈希到 `4780`–`5779`，因此收藏的地址在重启后依然有效；`bytefly.json` 里的 `serve.port` 可以覆盖它；共享 review 只为发起共享的那一个页面借用同一个网段上的一个地址。 |
+| [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板：一张卡片代表一个 feature —— 它的 owner、优先级、在等哪几张卡片，以及解释它的历史 —— 在 `backlog`、`plan`、`execute`、`blocked`、`done` 五条车道间移动。契约（`goal`、`acceptance`、`scopeOut`）写明本仓库 plan store 里的一份 plan，由 lead（`bytefly.json` 里的 `board.lead`，默认 `lead`，且不能是卡片持有者）或本人用 `/board approve` 签名之后，卡片才能进入执行；收尾要经过 `/board review` 抽检，`plan` 与 `execute` 受 WIP 上限约束，签名会通知卡片的 owner。已完成的卡片进入 `archive/`，其注记与落地 commit 仍可读。同一个看板在 `/board` 的页面上以 **Board** 与 **Team** 两个 tab 实时显示，只读 —— 写入只走工具 —— 以看板 lead 的席位对外服务，因此第二个 session 打开的是同一张页面；Team tab 会把 bus 没有记录的 owner 收成一行。步骤留在 owner 的 plan 和 `todo` 里。默认关闭：用 `PI_ENABLED_EXTENSIONS=board` 加载。 |
+| [`team`](./docs/extensions/team.md) | `team`、`/team` | 同一块看板上的 lead 轮次：`/team join <label>` 让一个 session 加入团队，lead 打开 `/board` 时则以页面席位之名自动加入；随后 `assign` 把一个 feature 交给运行中的 session，`offer` 交给谁有空谁接 —— 广播而不写卡片，由第一个认领的人拿走 —— `reclaim` 把卡片收回 Backlog，`claim` 则让 lead 自己接手，之后的 plan 与 contract 交给 `board`。结果会说明谁会因此被叫醒、谁会在下一轮才读到，`/team` 在终端里打印同一份轮次。不启动任何进程。与 `board` 一并默认关闭：用 `PI_ENABLED_EXTENSIONS=board,team` 加载。 |
 | [`context`](./docs/extensions/context.md) | `/context` | 显示上下文窗口的去向 —— 系统提示、工具定义、按角色拆分的对话、注入的笔记 —— 并从报告中触发压缩，给出压缩前后的数字。 |
 
 ### 保护你的工作
@@ -133,7 +133,7 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`bytefly`](./docs/extensions/bytefly.md) | `/bytefly`（`doctor`、`settings`、`skills`、`update`、`upgrade` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，输入框上边框实时显示 `working` 计数、本次运行的工具数与计时，转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 可开关扩展与技能，并集中存放精选设置；`/bytefly upgrade` 在确认后通过 Pi 自己的包管理器安装待更新版本；可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知，Pi 自己的启动更新块也会变成主题化 notice 与头部标记。`bytefly.json` 是每个扩展都会读取的配置文档。 |
+| [`bytefly`](./docs/extensions/bytefly.md) | `/bytefly`（`doctor`、`settings`、`skills`、`update`、`upgrade` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，输入框边框有实时运行行（`working` 计数、本次运行的工具与计时），转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 开关扩展与技能并集中存放精选设置，`/bytefly upgrade` 在确认后通过 Pi 自己的包管理器安装待更新版本。可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知，Pi 自己的启动更新块也会变成主题化 notice 与头部标记。`bytefly.json` 是每个扩展都会读取的配置文档。 |
 
 ### 技能
 
