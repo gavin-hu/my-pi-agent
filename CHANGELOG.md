@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the rollup's `idle` group is `unwritten`, because that is what it measures — an
+  `execute` card whose file nobody has written for 30 minutes — and next to `blocked` and
+  `done` the old word read as "somebody is available", an invitation to reclaim work in
+  progress. The headline and its group line say `unwritten`, `board list` with `round: true`
+  heads the section `Unwritten`, and the page's queue row says `no writes for 2h` where it
+  said `no touch for 2h`. `idle` is left with one meaning: a session holding nothing, in the
+  roster rows. Card files, lanes, and the reclaim path are untouched.
 - `board`: every surface that names a session says what it is holding. `/team`'s presence
   line prints `live: helen — #162 plan · gone: dan — #1 execute +1`, and the Team tab's
   teammate row says `#162 plan` (or `#162 plan +2` past the first, `idle` when it holds

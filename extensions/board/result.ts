@@ -51,10 +51,10 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
 	// it is drawn in the order `formatRound` prints it rather than left to the text above.
 	if (round.unapproved.length > 0) sections.push(section("Awaiting approval", round.unapproved, rowLine));
 	// The lead's second signature: a card the lead has not looked at yet is one the flow stops
-	// on just as surely, so it is drawn beside the first rather than left to `idle`'s clock.
+	// on just as surely, so it is drawn beside the first rather than left to `unwritten`'s clock.
 	if (round.unreviewed.length > 0) sections.push(section("Awaiting review", round.unreviewed, rowLine));
 	if (round.blocked.length > 0) sections.push(section("Blocked", round.blocked, rowLine));
-	if (round.idle.length > 0) sections.push(section("Idle", round.idle, rowLine));
+	if (round.unwritten.length > 0) sections.push(section("Unwritten", round.unwritten, rowLine));
 	if (round.done.length > 0) sections.push(section("Done", round.done, rowLine));
 	return sections.length === 0 ? undefined : { kind: "sections", sections };
 }

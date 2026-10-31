@@ -107,7 +107,7 @@ describe("the rollup's sections", () => {
 			unapproved: [card({ id: "3" })],
 			unreviewed: [card({ id: "7" })],
 			blocked: [card({ id: "4", lane: "blocked", blocked: { kind: "decision" } })],
-			idle: [card({ id: "5", lane: "execute" })],
+			unwritten: [card({ id: "5", lane: "execute" })],
 			done: [card({ id: "6", lane: "done" })],
 		};
 		const input = resultInput({ action: "list", me: ME, round, cards: [] });
@@ -119,7 +119,7 @@ describe("the rollup's sections", () => {
 			"Awaiting approval",
 			"Awaiting review",
 			"Blocked",
-			"Idle",
+			"Unwritten",
 			"Done",
 		]);
 		// The lead's queue is the one group a reader acts on, so the card is named there.

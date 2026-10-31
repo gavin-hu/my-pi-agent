@@ -348,7 +348,7 @@ describe("the client bundle", () => {
 		// above a card merely sitting still, and the row wears the tone the same table gives
 		// that kind — which is how it stopped being ranked second and drawn quietest.
 		expect(BOARD_CLIENT_JS).toContain(
-			'var DECISION_RANK = ["blocked","gone","approval","review","waiting","idle","unplanned","unassigned"]',
+			'var DECISION_RANK = ["blocked","gone","approval","review","waiting","unwritten","unplanned","unassigned"]',
 		);
 		expect(BOARD_CLIENT_JS).toContain("board.rankOf");
 		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-tone", decisionTone(entry.kind))');

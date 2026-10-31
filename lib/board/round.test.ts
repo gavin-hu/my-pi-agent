@@ -10,7 +10,7 @@ import { describe, expect, test } from "bun:test";
 import { type Card } from "./card.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { LANES } from "./lanes.ts";
-import { buildRound, IDLE_MS } from "./round.ts";
+import { buildRound, UNWRITTEN_MS } from "./round.ts";
 
 const NOW = 1_000_000;
 
@@ -137,9 +137,9 @@ describe("buildRound", () => {
 
 	test("unreviewed and idle are the same card when its owner has gone quiet", () => {
 		// Two facts, one card: the lead still owes the spot-check, and nobody has touched it.
-		const round = buildRound([doing("1", { updatedAt: NOW - IDLE_MS })], NOW);
+		const round = buildRound([doing("1", { updatedAt: NOW - UNWRITTEN_MS })], NOW);
 		expect(round.unreviewed.map((entry) => entry.id)).toEqual(["1"]);
-		expect(round.idle.map((entry) => entry.id)).toEqual(["1"]);
+		expect(round.unwritten.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
 	test("blocked and done are their own lists", () => {
@@ -156,17 +156,17 @@ describe("buildRound", () => {
 
 	test("idle is an executing card nobody has touched for the idle window", () => {
 		const round = buildRound(
-			[doing("1", { updatedAt: NOW - IDLE_MS }), doing("2", { updatedAt: NOW - IDLE_MS + 1 })],
+			[doing("1", { updatedAt: NOW - UNWRITTEN_MS }), doing("2", { updatedAt: NOW - UNWRITTEN_MS + 1 })],
 			NOW,
 		);
-		expect(round.idle.map((entry) => entry.id)).toEqual(["1"]);
+		expect(round.unwritten.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
 	test("idle reads the card's own clock, not a session's liveness", () => {
 		// A freshly noted card is not idle however long its owner has been gone: the
 		// board cannot see a process, and says so by measuring the card.
 		const round = buildRound([doing("1", { updatedAt: NOW, createdAt: 0 })], NOW);
-		expect(round.idle).toEqual([]);
+		expect(round.unwritten).toEqual([]);
 	});
 
 	test("a card can be both unplanned and idle, because both are worth knowing", () => {
@@ -174,8 +174,8 @@ describe("buildRound", () => {
 		// has not touched it since. Both groups say something a lead acts on.
 		const round = buildRound([planning("1")], NOW);
 		expect(round.unplanned.map((entry) => entry.id)).toEqual(["1"]);
-		const executing = buildRound([doing("1", { updatedAt: NOW - IDLE_MS })], NOW);
-		expect(executing.idle.map((entry) => entry.id)).toEqual(["1"]);
+		const executing = buildRound([doing("1", { updatedAt: NOW - UNWRITTEN_MS })], NOW);
+		expect(executing.unwritten.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
 	test("an empty board has empty groups", () => {
@@ -186,7 +186,7 @@ describe("buildRound", () => {
 			unapproved: [],
 			unreviewed: [],
 			blocked: [],
-			idle: [],
+			unwritten: [],
 			done: [],
 		});
 	});

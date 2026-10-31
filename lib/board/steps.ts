@@ -248,8 +248,9 @@ function stalePlan(card: Card): string {
  * Add a note to the card's history: the holder's, or anyone's while nobody holds it.
  *
  * A note is content, not a sign, so it follows `edit` and not `approve` — and freeing the gate
- * is also what keeps the rollup's idle clock honest: `updatedAt` moves on every write, so a
- * note from a session that does not hold the card would hide an idle card from the lead.
+ * is also what keeps the rollup's unwritten clock honest: `updatedAt` moves on every write,
+ * so a note from a session that does not hold the card would hide an unwritten card from
+ * the lead.
  */
 export function note(card: Card, raw: unknown, actor: Actor, now: number): Prepared {
 	if (card.owner !== undefined && !holds(card, actor)) {

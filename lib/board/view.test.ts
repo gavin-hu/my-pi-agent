@@ -254,7 +254,7 @@ describe("buildView", () => {
 		expect(view.round.owners.map((group) => group.label)).toEqual(["billing-core"]);
 		// The card is executing and nothing has touched it since `updatedAt`, which is the
 		// rollup's one question a lane cannot answer.
-		expect(view.round.idle.map((entry) => entry.id)).toEqual([]);
+		expect(view.round.unwritten.map((entry) => entry.id)).toEqual([]);
 		expect(view.round.owners[0]?.cards.map((entry) => entry.id)).toEqual(["1"]);
 	});
 

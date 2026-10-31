@@ -125,7 +125,7 @@ __HOLDING__
    * rows would test the element instead of the card.
    *
    * The round's groups overlap on purpose — an executing card untouched for half an hour
-   * is both idle and unplanned — so a card can arrive twice. On the page one card is
+   * is both unwritten and unplanned — so a card can arrive twice. On the page one card is
    * one row, and the strongest reason is the one it keeps: a blocker outranks silence,
    * which outranks a missing plan, which outranks nobody holding it.
    */
@@ -180,7 +180,7 @@ __HOLDING__
       function (card) { return (card.owner ? card.owner.label : "its owner") + " is not running — the card is free"; },
       "gone",
     );
-    add(round.idle, function (card) { return "no touch for " + ago(card.updatedAt); }, "idle");
+    add(round.unwritten, function (card) { return "no writes for " + ago(card.updatedAt); }, "unwritten");
     // The board card says the same words for the same fact: one voice for one state.
     add(round.unplanned, function (card) { return why(card, "no contract yet"); }, "unplanned");
     add(round.unassigned, function () { return "nobody holds it"; }, "unassigned");
@@ -474,7 +474,7 @@ __HOLDING__
     fill(shell.queue, queueSig(decisions, all.length, query), function (slot) {
       caption(slot, "Needs a decision", decisions.length, all.length);
       if (decisions.length === 0) {
-        slot.appendChild(el("p", N.teamEmpty, filtering ? noMatch : "nothing needs you: no blockers, no contract waiting to be read, nothing idle"));
+        slot.appendChild(el("p", N.teamEmpty, filtering ? noMatch : "nothing needs you: no blockers, no contract waiting to be read, nothing unwritten"));
         return;
       }
       var list = el("div", N.teamQueue);

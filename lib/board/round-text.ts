@@ -45,7 +45,7 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 		`${round.unapproved.length} awaiting approval`,
 		`${round.unreviewed.length} awaiting review`,
 		`${round.blocked.length} blocked`,
-		`${round.idle.length} idle`,
+		`${round.unwritten.length} unwritten`,
 		`${round.done.length} done`,
 	].join(" · ");
 	const lines = [headline];
@@ -72,7 +72,7 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 	lines.push(...group("unapproved", round.unapproved));
 	lines.push(...group("unreviewed", round.unreviewed));
 	lines.push(...group("blocked", round.blocked, true));
-	lines.push(...group("idle", round.idle));
+	lines.push(...group("unwritten", round.unwritten));
 	lines.push(...group("done", round.done));
 	return lines.join("\n");
 }

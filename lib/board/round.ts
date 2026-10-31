@@ -4,14 +4,16 @@
  * This is what `board list --round` returns and what the page's Team tab draws, so
  * the two cannot disagree about who holds what. It deliberately reads nothing but
  * the cards: a session's liveness is `session status`'s answer, and the board has
- * to work when `session-bus` is not loaded. `idle` therefore means what a card can
- * know — nobody has touched it in half an hour — not that its owner's process is
- * gone.
+ * to work when `session-bus` is not loaded. `unwritten` therefore means what a card can
+ * know — nobody has written its file in half an hour — not that its owner's process is
+ * gone, and not that a session is free: a session holding nothing is the roster's `idle`,
+ * which is a bus fact this rollup never reads.
  *
- * The groups overlap on purpose. A `plan` card with no contract and no touch for half
- * an hour is both `unplanned` and, once it is executing, `idle`; hiding it in one of the
- * two would lose half the reason a lead should look at it. The same holds for `unreviewed`
- * and `idle`: one says the lead owes a look, the other that nobody has touched the card.
+ * The groups overlap on purpose. A `plan` card with no contract and no writes for half
+ * an hour is both `unplanned` and, once it is executing, `unwritten`; hiding it in one of
+ * the two would lose half the reason a lead should look at it. The same holds for
+ * `unreviewed` and `unwritten`: one says the lead owes a look, the other that nobody has
+ * written the card.
  *
  * Pure: no I/O and no clock of its own.
  */
@@ -19,8 +21,8 @@
 import type { Card } from "./card.ts";
 import { contractApproved, missingContractFields } from "./contract.ts";
 
-/** How long an `execute` card may go untouched before the rollup calls it idle. */
-export const IDLE_MS = 30 * 60 * 1_000;
+/** How long an `execute` card may go unwritten before the rollup calls it that. */
+export const UNWRITTEN_MS = 30 * 60 * 1_000;
 
 /**
  * One owner, the live cards it holds, and the ones it finished.
@@ -60,8 +62,8 @@ export interface RoundSummary<T extends Card = Card> {
 	unreviewed: T[];
 	/** `blocked` cards, and the note that says why. */
 	blocked: T[];
-	/** `execute` cards untouched for {@link IDLE_MS}: possibly a dead owner. */
-	idle: T[];
+	/** `execute` cards with no write for {@link UNWRITTEN_MS}: possibly a dead owner. */
+	unwritten: T[];
 	/** Finished cards, in the board's own order — priority, then age — kept as history. */
 	done: T[];
 }
@@ -84,7 +86,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 	const unapproved: T[] = [];
 	const unreviewed: T[] = [];
 	const blocked: T[] = [];
-	const idle: T[] = [];
+	const unwritten: T[] = [];
 	const done: T[] = [];
 
 	for (const card of cards) {
@@ -103,7 +105,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		// The lead's second signature, owed by every card in the lane: what `done` requires is a
 		// spot-check, and no clock can say whether the work behind it is finished.
 		if (card.lane === "execute" && card.review === undefined) unreviewed.push(card);
-		if (card.lane === "execute" && now - card.updatedAt >= IDLE_MS) idle.push(card);
+		if (card.lane === "execute" && now - card.updatedAt >= UNWRITTEN_MS) unwritten.push(card);
 
 		if (card.owner === undefined) continue;
 		const key = card.owner.label.toLowerCase();
@@ -120,7 +122,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		unapproved,
 		unreviewed,
 		blocked,
-		idle,
+		unwritten,
 		done,
 	};
 }
