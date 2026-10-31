@@ -237,10 +237,10 @@ describe("the document", () => {
 		expect(BOARD_CSS).toContain(".board-picker{flex-wrap:wrap;border:0;background:none;gap:var(--space-1)}");
 	});
 
-	test("wears its priority as a filed chip and its paths as code", () => {
-		// A priority is a field a card carries, so it wears the kit's quiet pill rather than the
-		// same muted text as its age; a path hint is something a reader types, so it is mono.
-		expect(BOARD_CLIENT_JS).toContain('chip(card.priority, "outline")');
+	test("wears its priority as a word and its paths as code", () => {
+		expect(BOARD_CLIENT_JS).toContain("PRIORITY_CLASS[card.priority]");
+		expect(BOARD_CSS).toContain(".board-card__priority--high{color:var(--warn)}");
+		// A path hint is something a reader types, so it is mono.
 		expect(BOARD_CSS).toContain(".board-card__paths .bf-chip{font-family:var(--font-mono)}");
 		// Two mono paths four pixels apart read as one path that wrapped, so the list keeps the
 		// dialog's taller column gap: the separation is the only thing saying where one ends.
@@ -260,6 +260,8 @@ describe("the document", () => {
 		expect(BOARD_CLIENT_JS).toContain("hint.title = shown[i]");
 		// A title with no spaces in it wraps to the two-line clamp instead of being cut mid-word.
 		expect(ownRules()).toMatch(/\.board-card__title\{[^}]*overflow-wrap:anywhere/);
+		expect(BOARD_CLIENT_JS).toContain("node.scrollHeight > node.clientHeight + 1");
+		expect(BOARD_CLIENT_JS).toContain('node.removeAttribute("title")');
 	});
 
 	test("draws every colour through a kit token", () => {
@@ -329,7 +331,7 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("board.matches(card, query)");
 		expect(BOARD_CLIENT_JS).toContain("matchesLabel(mate.label)");
 		expect(BOARD_CLIENT_JS).toContain("laneWithWork(view)");
-		expect(BOARD_CLIENT_JS).toContain("line.title = reason.text");
+		expect(BOARD_CLIENT_JS).toContain("line.title = why");
 		expect(BOARD_CLIENT_JS).toContain("why.title = entry.why");
 	});
 
@@ -367,10 +369,8 @@ describe("the client bundle", () => {
 		expect(BOARD_CSS).toContain(
 			'.board-card[data-current="true"]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}',
 		);
-		// The line under the reason clamps like the reason, which is why it is described too,
-		// and it keeps the card's own voice: warn means a reader has to decide something.
-		expect(ownRules()).toMatch(/\.board-card__holds\{[^}]*-webkit-line-clamp:2/);
-		expect(ownRules()).toMatch(/\.board-card__holds\{[^}]*color:var\(--muted\)/);
+		// The other half of a link rides the reason line after a middot, in the reason's tone.
+		expect(BOARD_CLIENT_JS).toContain('reason.text + " \\u00b7 " + holds');
 	});
 
 	test("draws the dashboard: a queue, a roster, and a Done strip that opens cards", () => {

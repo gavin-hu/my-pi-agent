@@ -64,8 +64,9 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 
 	test("repaints a card that gains a card waiting on it", async () => {
 		const page = await board.open();
-		const holds = () => page.textContent('#lane-execute .board-card[data-card="2"] .board-card__holds');
-		await expect(holds()).resolves.toBe("holds up #1 (backlog) Export orders as CSV");
+		// The other half of a link is the reason line's, after a middot: one row for one edge.
+		const holds = () => page.textContent('#lane-execute .board-card[data-card="2"] .board-card__reason');
+		await expect(holds()).resolves.toContain("holds up #1 (backlog) Export orders as CSV");
 		// A third card is linked to the executing one. That is a write to a card in another
 		// lane, and the blocker's own record keeps the revision it had.
 		await board.store.mutate(
@@ -77,7 +78,7 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		// The frame has landed once the edited card's own lane has drawn the reason its link
 		// gave it; what is left to prove is that the lane in front of the reader heard too.
 		await page.locator('#lane-backlog .board-card[data-card="3"] .board-card__reason').waitFor({ timeout: PAINT_MS });
-		await expect(holds()).resolves.toBe(
+		await expect(holds()).resolves.toContain(
 			"holds up #1 (backlog) Export orders as CSV, #3 (backlog) Invoice totals round the wrong way",
 		);
 		await page.close();

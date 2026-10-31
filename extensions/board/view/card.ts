@@ -7,8 +7,9 @@
  * wording, and the reason rule spliced in from `lib/board/reason.ts` — so no rule about a
  * card is stated twice.
  *
- * Two of the face's facts are longer than it can draw: the hints past its third path, the
- * reason sentence, and the cards it is holding up. Each is on a hover title for the
+ * Three of the face's facts are longer than it can draw: the title in its two-line clamp,
+ * the hints past its third path, and the reason sentence — which carries what the card
+ * holds up after a middot, so one edge is one row. Each is on a hover title for the
  * pointer, and each is named by the title button's `aria-describedby` for the keyboard,
  * because `j`/`k` walks cards by focusing that button and never hovers anything.
  *
@@ -43,6 +44,15 @@ export const BOARD_CARD_JS = String.raw`(function () {
     danger: N.cardReasonDanger,
     success: N.cardReasonSuccess,
   };
+
+  /**
+   * The class each priority wears.
+   *
+   * Both levels are named here rather than one class with a modifier decided at the call
+   * site, because this table is what the class contract compares with the stylesheet: a
+   * level with no rule, or a rule with no level, fails there instead of in a screenshot.
+   */
+  var PRIORITY_CLASS = { high: N.cardPriorityHigh, low: N.cardPriorityLow };
 
   /** "3h", "just now" — the age a stamp is drawn with, read against the reader's clock. */
   function sentence(wording, age) {
@@ -142,10 +152,15 @@ export const BOARD_CARD_JS = String.raw`(function () {
     var described = [];
 
     var meta = el("p", N.cardMeta);
-    meta.appendChild(card.owner ? chip(card.owner.label, "accent") : el("span", "", "unassigned"));
-    // The order inside a lane is the priority, so an urgent card says so: an order
-    // nobody can see reads as an accident. The lane's colour stays the card's own.
-    if (card.priority !== "normal") meta.appendChild(chip(card.priority, "outline"));
+    // Who holds it is a name, not an action: the pill is neutral, so the accent colour on a card
+    // means the lane it is in or the card the reader is on, and never a person.
+    meta.appendChild(card.owner ? chip(card.owner.label, "outline") : el("span", "", "unassigned"));
+    // The order inside a lane is the priority, so an urgent card says so: an order nobody
+    // can see reads as an accident. A word beside the name rather than a second pill, so an
+    // owner and an urgency are two shapes.
+    if (card.priority !== "normal") {
+      meta.appendChild(el("span", N.cardPriority + " " + PRIORITY_CLASS[card.priority], card.priority));
+    }
     // The stamp, so the clock can keep the age honest between frames: a board can be
     // quiet for ten minutes while the page still says "live".
     meta.appendChild(stamp(card.updatedAt, "updated {age}"));
@@ -171,26 +186,22 @@ export const BOARD_CARD_JS = String.raw`(function () {
       if (card.paths.length > PATH_CHIPS) described.push("card-paths-" + card.id);
     }
 
+    // One row for the card's links: why it is not moving, and what leaving it undone holds
+    // up. The other side of a link used to be a second clamped paragraph, so a card three
+    // others waited on spent two rows saying one fact from each end.
     var reason = reasonOf(card);
-    if (reason) {
+    var holds = card.dependents === undefined ? undefined : "holds up " + card.dependents;
+    var why = reason === undefined ? holds : holds === undefined ? reason.text : reason.text + " \u00b7 " + holds;
+    if (why !== undefined) {
       // The tone is a lookup, not a suffix: a name assembled from a prefix is a name no
-      // test can compare with the stylesheet.
-      var line = el("p", N.cardReason + " " + TONE_CLASS[reasonTone(reason.kind)], reason.text);
+      // test can compare with the stylesheet. A card that only holds others up is drawn in
+      // the tone a waiting card wears, because it is the same edge read the other way.
+      var line = el("p", N.cardReason + " " + TONE_CLASS[reasonTone(reason === undefined ? "waiting" : reason.kind)], why);
       line.id = "card-reason-" + card.id;
       // It clamps on the card, so the full sentence is the tooltip.
-      line.title = reason.text;
+      line.title = why;
       item.appendChild(line);
       described.push(line.id);
-    }
-
-    // The other side of a link, on the face: what leaving this card undone holds up. It was
-    // dialog-only, so a card three others were waiting on looked like any other card.
-    if (card.dependents !== undefined) {
-      var holds = el("p", N.cardHolds, "holds up " + card.dependents);
-      holds.id = "card-holds-" + card.id;
-      holds.title = "holds up " + card.dependents;
-      item.appendChild(holds);
-      described.push(holds.id);
     }
 
     // The reason and the hints are drawn below the title, and a keyboard reader never
@@ -211,7 +222,24 @@ export const BOARD_CARD_JS = String.raw`(function () {
   }
 
   /**
-   * Paint the card the reader is on and the cards they have already read.
+   * Give a clamped title the hover the rest of the face has.
+   *
+   * The title is the one field with nowhere else to be read: the reason, the hints and the
+   * plus-N chip each carry their whole sentence on a hover and describe the title button with
+   * it, and a two-line clamp with no title left a long name readable only by opening the
+   * card. A card in a folded lane or on the other tab measures as nothing, so it keeps
+   * what it had and the next pass tries again once a reader can see it.
+   */
+  function fitTitle(card) {
+    var node = card.querySelector(".board-card__title");
+    if (!node || !node.getClientRects || node.getClientRects().length === 0) return;
+    if (node.scrollHeight > node.clientHeight + 1) node.title = node.textContent;
+    else node.removeAttribute("title");
+  }
+
+  /**
+   * Paint the card the reader is on, the cards they have already read, and the hover a
+   * clamped title needs.
    *
    * j/k walks the drawn cards and wraps, so walking a lane and coming back looked
    * exactly like arriving for the first time. The two ids are the client's own — never
@@ -224,6 +252,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
       var id = nodes[i].getAttribute("data-card");
       marked(nodes[i], "data-current", board.current !== undefined && String(board.current) === id);
       marked(nodes[i], "data-visited", board.visited !== undefined && board.visited[id] === true);
+      fitTitle(nodes[i]);
     }
   };
 })();`;

@@ -440,10 +440,9 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		);
 		try {
 			const page = await openPage();
-			// The face says it too, and names the card rather than its id: a lead reading a lane
-			// decides on that, and the dialog was the only place it lived.
-			expect(await page.textContent('#lane-backlog .board-card[data-card="1"] .board-card__holds')).toBe(
-				"holds up #2 (backlog) Invoice totals round the wrong way",
+			// The face says it too, on the reason's own line, naming the card rather than its id.
+			expect(await page.textContent('#lane-backlog .board-card[data-card="1"] .board-card__reason')).toContain(
+				"· holds up #2 (backlog) Invoice totals round the wrong way",
 			);
 			expect(await page.textContent('#lane-backlog .board-card[data-card="2"] .board-card__reason')).toBe(
 				"waits on #1 (backlog) Export orders as CSV",
@@ -638,10 +637,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("wears its priority and its paths as fields, not as prose", async () => {
 		const page = await openPage();
-		// The executing card is the seeded one with a priority, so its meta line is the case.
-		expect(
-			await page.$eval("#lane-execute .board-card .board-card__meta .bf-chip--outline", (n) => n.textContent),
-		).toBe("high");
+		// The executing card is the seeded one with a priority, so its meta line is the case:
+		// who holds it is a neutral pill, and how urgent it is is a word beside that pill.
+		const meta = "#lane-execute .board-card .board-card__meta";
+		expect(await page.$eval(`${meta} .bf-chip--outline`, (n) => n.textContent)).toBe("billing-core");
+		expect(await page.$eval(`${meta} .board-card__priority`, (n) => n.textContent)).toBe("high");
 		// A path is a value a reader types, so it wears the dialog's mono face on the card too.
 		const mono = await page.$eval("#lane-execute .board-card .board-card__paths .bf-chip", (n) =>
 			(globalThis as unknown as { getComputedStyle(node: ElementLike): { fontFamily: string } })
