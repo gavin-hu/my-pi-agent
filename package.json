@@ -126,7 +126,8 @@
     "themes": [
       "./themes/*.json"
     ],
-    "image": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/screens/chrome.png"
+    "image": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/screens/chrome.png",
+    "video": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/video/demo.mp4"
   },
   "scripts": {
     "test": "bun test --parallel=4 --timeout 30000",
@@ -148,6 +149,7 @@
     "screenshot:plan": "bun run scripts/shots/plan-review.ts",
     "screenshot:tools": "bun run tools:render gallery assets/screens/tool-renderings.png",
     "screenshot:tool-pngs": "bun run tools:render tools assets/tools",
+    "screenshot:video": "bun run scripts/shots/video.ts",
     "probe:wechat": "bun run scripts/wechat-poll.ts",
     "screenshots": "bun run scripts/screenshots.ts",
     "tools:render": "bun run scripts/tools/index.ts"

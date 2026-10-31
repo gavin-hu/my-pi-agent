@@ -3,7 +3,7 @@
 The dev tooling: the commands `package.json` exposes and the modules they share.
 Nothing here ships — `files` in `package.json` decides that — so a change is
 judged by `bun run check` and by the assets it writes under `assets/screens/`,
-`assets/cards/`, and `assets/tools/`.
+`assets/cards/`, `assets/tools/`, and `assets/video/`.
 
 ## Layout
 
@@ -12,7 +12,7 @@ judged by `bun run check` and by the assets it writes under `assets/screens/`,
 | [`screenshots.ts`](./screenshots.ts) | The capture command: `render <name>` prints one frame as ANSI on any OS, a named screen captures only it, and no argument captures every frame, the hero among them. |
 | [`screens/`](./screens/) | The frames: `index.ts` is the registry — the `Screen` type and `SCREENS`, which holds every capturable frame including the `chrome` hero — `fixtures/` is the data they draw around, one module per surface, and `frames.ts` reads and writes `frames.json`, the fingerprint of the frame each capture was taken of. |
 | [`capture/`](./capture/) | The two mechanisms. `terminal.ts` drives Terminal.app and `screencapture`; `chrome.ts` and `page.ts` drive Playwright against the local Chrome; `crop-title-bar.js` is the JXA crop, run by `osascript`. |
-| [`shots/`](./shots/) | One CLI per captured page — `board`, `file-browse`, `plan-review`, `cards` — plus `plan-review-capture.ts` for the review page's state. |
+| [`shots/`](./shots/) | One CLI per captured page — `board`, `file-browse`, `plan-review`, `cards` — plus `plan-review-capture.ts` for the review page's state, and `video.ts`, the montage that is the `pi.video` gallery preview. |
 | [`tools/`](./tools/) | The tool-renderings CLI (`list`, `render`, `html`, `gallery`, `tools`) and `fixtures/`, one fixture per registered tool. `fixtures/board-store.ts` is the one module that is not a fixture: it seeds a board in a temp directory, and `test/helpers/board-page.ts` serves the shipped page over it, which is why the gallery, the picture, and the browser suite describe the same cards. |
 | [`examples/`](./examples/) | Sample inputs a documented command takes, such as `plan-review.md` for `screenshot:plan`. |
 | [`cli.ts`](./cli.ts), [`theme.ts`](./theme.ts), [`poll.ts`](./poll.ts), [`ansi-html.ts`](./ansi-html.ts), [`transcript-fixture.ts`](./transcript-fixture.ts) | Shared: flag parsing, the capture theme and page palette, sleep and polling, the ANSI-to-HTML bridge, the transcript fixture. |
@@ -38,6 +38,12 @@ fixture or a fixture project, so a refresh reproduces the same example.
 Which mechanism an asset uses follows where it is drawn: a TUI component is a
 frame in `screens/`, a page the package serves is a CLI in `shots/`, and the tool
 galleries are `tools/`.
+
+A **video** is neither, and is the only asset drawn from assets rather than from a
+fixture: `shots/video.ts` is handed the frames above, one caption each, and the
+Chrome it drives draws them on a canvas and encodes the result, because the
+machine has no video encoder and the preview must be reproducible from a clean
+checkout. Its storyboard is the list that decides what the file shows.
 
 ## Fixtures
 
@@ -65,6 +71,10 @@ that draws it.
   rails, and the footer — padded to the window a session fills.
 - A capture needs a real Terminal.app window, which is why CI cannot produce one
   and the release step names it.
+- `assets/video/demo.mp4` is made of six of those assets, so it is stale the
+  moment one of them is recaptured and nothing can tell: two encodes of the same
+  frames do not match byte for byte. `bun run screenshot:video` re-montages them,
+  and the storyboard names which six.
 
 ## A script a doc names
 

@@ -39,6 +39,7 @@ repositories.
 | `bun run tools:render <list\|render\|html\|gallery\|tools>` | The tool-renderings CLI: `list` names every rendering, `render <name> --width n` prints one block as ANSI on any OS, `html <out>` writes the gallery page, and `gallery <out>` / `tools <dir>` capture PNGs with Playwright driving the local Chrome. `screenshot:tools` and `screenshot:tool-pngs` are the last two with their asset paths filled in. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/screens/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. It is `bun run tools:render gallery assets/screens/tool-renderings.png`. |
 | `bun run screenshot:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
+| `bun run screenshot:video` | Regenerate `assets/video/demo.mp4`, the `pi.video` gallery preview: six frames this repository already ships, cross-faded with one caption each, drawn on a canvas and encoded to H.264 by the local Chrome (`MediaRecorder`), so no video encoder is installed for it. `-o`, `--width`, `--height`, `--fps`, and `--bps` tune the shot; the storyboard is `MONTAGE` in `scripts/shots/video.ts`. Set `PI_CHROME` for a non-default Chrome. |
 
 ## Screenshots
 
@@ -74,8 +75,9 @@ is the one thing the picture cannot report about itself. Only a screen that pins
 its `size` is recorded, since that is what makes a frame the same frame twice;
 adding a screen to the record is the same capture that writes its asset.
 
-Four assets come from a headless browser instead of the terminal: the two
-browser pages and the tool galleries (`screenshot:tools`, `screenshot:tool-pngs`).
+The browser assets come from headless Chrome instead of the terminal: the two
+browser pages, the tool galleries (`screenshot:tools`, `screenshot:tool-pngs`), and
+the `pi.video` montage (`screenshot:video`), which is those frames again, encoded.
 `scripts/capture/chrome.ts` drives Playwright against the Chrome the machine already
 has — `PI_CHROME`, else the usual bundles — so a refresh downloads no browser,
 and it sizes the window to the document before capturing, so a page wider than the
