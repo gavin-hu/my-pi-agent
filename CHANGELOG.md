@@ -15,6 +15,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   come before the paths, so a message clipped to the bus's limit keeps the step it was sent to
   give. The waking hint in `session-bus` points at the message for both gates rather than
   promising a start.
+- `team`: **a handoff whose write lost the race says so where the peer reads it** — `assign`
+  sends the message before it records the owner, so another session can take the card in
+  between: the lead read `formatRacedAssignment`, while the peer's inbox kept "It is already
+  assigned to you" for a card somebody else held. The peer was not the holder, so its own next
+  call was refused naming the rival — it found out from a refusal the message never warned it
+  about. The instruction block is closed by a condition instead — it says to tell the lead if
+  the board shows another owner rather than work it — which is true on both sides of the race
+  and cannot itself be lost, unlike a second message that an armed watch would raise a turn
+  for. `offer` needs none: its only next step is a claim, and the store refuses that naming the
+  holder. Both raced branches have cases now, staged on the bus seam the suite owns.
 
 ## [0.22.0] - 2026-10-31
 

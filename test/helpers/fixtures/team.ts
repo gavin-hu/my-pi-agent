@@ -27,6 +27,14 @@ export const NOW = 90_000;
 export interface TeamSuiteOptions {
 	/** A send that throws this, so the failure path is the one under test. */
 	fail?: string;
+	/**
+	 * Work another session does while this message is being delivered.
+	 *
+	 * `assign` and `offer` send before they write, so the write can lose a race the pre-check
+	 * had no way to see; a case stages that by moving the card here, which is the one moment
+	 * the message is on its way and the card is not yet touched.
+	 */
+	duringSend?: (input: { kind: "handoff" | "event"; to: string; text: string }) => Promise<void> | void;
 	/** The team the bus lists, when the default pair is not the case. */
 	peers?: Peer[];
 	/** The label a join lands on, when it is not the lead's own. */
@@ -64,6 +72,7 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 		async send(input) {
 			if (options.fail !== undefined) throw new Error(options.fail);
 			sent.push(input);
+			await options.duringSend?.(input);
 			return { delivered: input.to === "*" ? ["billing-core", "billing-web"] : [input.to] };
 		},
 		// The peers a case passes in; the default is the two above, listening.

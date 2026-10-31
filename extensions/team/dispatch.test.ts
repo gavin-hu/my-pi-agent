@@ -66,6 +66,16 @@ describe("handoffText", () => {
 		expect(text).toContain("Note: start with the webhook");
 	});
 
+	test("says what to do if the assignment lost the race after the message", () => {
+		// The message is sent before the owner is recorded, so the peer can be reading a card
+		// another session took in between. The clause is the only correction that cannot be
+		// lost, because the peer already holds it, and it names the lead rather than a claim
+		// because the card may not be the peer's to claim.
+		const text = handoffText(card(), "billing-core", LEAD);
+		expect(text).toContain("If the board shows another owner");
+		expect(text).toContain("tell the lead instead of working it");
+	});
+
 	test("stays inside the send limit, however many paths a card carries", () => {
 		const long = card({ paths: Array.from({ length: 60 }, (_, index) => `${"x".repeat(190)}${index}`) });
 		const text = handoffText(long, "billing-core", LEAD);
