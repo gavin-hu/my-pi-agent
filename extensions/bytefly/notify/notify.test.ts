@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { JOB_FINISHED_CHANNEL, type JobFinishedEvent, WATCH_MATCH_CHANNEL } from "../../../lib/events.ts";
 import { tempDir, withAgentDir } from "../../../test/helpers/env.ts";
 import { createFakePi, emit } from "../../../test/helpers/fakes.ts";
-import { fakeFooterCtx } from "../../../test/helpers/fixtures/bytefly.ts";
+import { fakeFooterCtx } from "../../../test/helpers/fixtures/footer.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
 import { DEFAULT_NOTIFY_CONFIG, loadNotifyConfig, MAX_TITLE_LENGTH, normalizeNotifyConfig } from "./config.ts";
 import { resolveMethod, sendNotification, type NotifySeams } from "./dispatch.ts";

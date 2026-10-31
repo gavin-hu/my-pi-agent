@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { coloringTheme } from "../../../test/helpers/fakes.ts";
-import { SKILLS_INDEX, buildPanel, enabledItem, selectedLine } from "../../../test/helpers/fixtures/bytefly.ts";
+import { SKILLS_INDEX, buildPanel, enabledItem, selectedLine } from "../../../test/helpers/fixtures/panel.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeItem, skillItem } from "../../../test/helpers/fixtures/picker.ts";
 import { settle } from "../../../test/helpers/process.ts";

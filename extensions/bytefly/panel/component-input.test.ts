@@ -7,7 +7,8 @@
 import { describe, expect, test } from "bun:test";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { coloringTheme } from "../../../test/helpers/fakes.ts";
-import { buildPanel, enabledItem, fakeSettingsSurface, selectedLine } from "../../../test/helpers/fixtures/bytefly.ts";
+import { buildPanel, enabledItem, selectedLine } from "../../../test/helpers/fixtures/panel.ts";
+import { fakeSettingsSurface } from "../../../test/helpers/fixtures/settings.ts";
 import { makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeItem } from "../../../test/helpers/fixtures/picker.ts";
 import { settle } from "../../../test/helpers/process.ts";

@@ -9,14 +9,8 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import {
-	buildPanel,
-	enabledItem,
-	fakeSettingsSurface,
-	focusPanel,
-	selectedLine,
-	settingsSnapshot,
-} from "../../../test/helpers/fixtures/bytefly.ts";
+import { buildPanel, enabledItem, focusPanel, selectedLine } from "../../../test/helpers/fixtures/panel.ts";
+import { fakeSettingsSurface, settingsSnapshot } from "../../../test/helpers/fixtures/settings.ts";
 import { settle } from "../../../test/helpers/process.ts";
 import type { Settings } from "../picker/types.ts";
 import { settingViews } from "./settings.ts";

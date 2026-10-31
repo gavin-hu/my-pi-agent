@@ -5,7 +5,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { buildPanel, fakeSettingsSurface, focusPanel, selectedLine } from "../../../test/helpers/fixtures/bytefly.ts";
+import { buildPanel, focusPanel, selectedLine } from "../../../test/helpers/fixtures/panel.ts";
+import { fakeSettingsSurface } from "../../../test/helpers/fixtures/settings.ts";
 import { settle } from "../../../test/helpers/process.ts";
 import { type SettingsSurface } from "./settings-runtime.ts";
 import { applyEditKey, type EditingState } from "./tui/editing.ts";

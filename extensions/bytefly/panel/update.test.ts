@@ -7,13 +7,8 @@ import { describe, expect, test } from "bun:test";
 import pkg from "../../../package.json";
 import { fakeCtx } from "../../../test/helpers/context.ts";
 import { makeFakePi } from "../../../test/helpers/fakes.ts";
-import {
-	bootPanel,
-	commandDiscovery,
-	fakeDoctor,
-	fakeSettings,
-	fakeUpdate,
-} from "../../../test/helpers/fixtures/bytefly.ts";
+import { bootPanel, commandDiscovery, fakeDoctor, fakeUpdate } from "../../../test/helpers/fixtures/panel.ts";
+import { fakeSettings } from "../../../test/helpers/fixtures/settings.ts";
 import { registerPanel } from "./commands.ts";
 import type { UpdateOutcome } from "../update/state.ts";
 

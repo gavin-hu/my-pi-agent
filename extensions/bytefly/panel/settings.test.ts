@@ -14,7 +14,7 @@ import {
 	settingDescriptor,
 	settingsSnapshot,
 	settingView,
-} from "../../../test/helpers/fixtures/bytefly.ts";
+} from "../../../test/helpers/fixtures/settings.ts";
 import type { Settings } from "../picker/types.ts";
 import { nextValue, rowsForScope, SETTING_ROWS, settingViews, storedValue, textError } from "./settings.ts";
 import { SHIPPED_THEMES_DIR, shippedThemeNames } from "./themes.ts";

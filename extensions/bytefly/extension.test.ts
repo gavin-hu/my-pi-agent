@@ -5,7 +5,8 @@ import { PLAN_ENTER_TOOL } from "../../lib/tool-names.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { createFakePi, emit, fakeTheme } from "../../test/helpers/fakes.ts";
-import { bootBytefly, fakeFooterCtx, makeFakePi, OFFLINE_UPDATE } from "../../test/helpers/fixtures/bytefly.ts";
+import { bootBytefly, makeFakePi, OFFLINE_UPDATE } from "../../test/helpers/fixtures/boot.ts";
+import { fakeFooterCtx } from "../../test/helpers/fixtures/footer.ts";
 import { makeDiscovery, makeItem } from "../../test/helpers/fixtures/picker.ts";
 
 describe("bytefly extension registration", () => {

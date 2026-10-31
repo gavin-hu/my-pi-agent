@@ -125,9 +125,13 @@ the code under test is missing a seam. Add the seam instead of the mock.
 ## Fixtures
 
 An extension that needs an extension-specific `FakePi` / `fakeCtx` pair or
-suite harness owns one fixture module under `test/helpers/fixtures/<name>.ts`.
-An extension that needs only the shared `FakePi`/`fakeCtx` pair may build it
-inline from `test/helpers/` instead of adding a fixture. A fixture must:
+suite harness owns fixture modules under `test/helpers/fixtures/`, one per
+capability, named for the capability (`picker.ts`, `footer.ts`) or
+`<ext>-<capability>.ts` where the bare name would be ambiguous
+(`wechat-bridge.ts`). A suite imports the capability its doubles serve, so a
+footer suite never loads the panel harness. An extension that needs only the
+shared `FakePi`/`fakeCtx` pair may build it inline from `test/helpers/` instead
+of adding a fixture. A fixture must:
 
 - build the `FakePi` / `fakeCtx` pair with that extension's defaults;
 - expose a **suite harness** returning `{ repo/dir, pi, ctx, ...actions }` and
@@ -284,7 +288,7 @@ test/
     board-page.ts          # the shipped board page, served over a fixture store
     board-flow.ts          # drive a card through the board's gates, for suites about something else
     serve.ts               # a real server a suite mounts a shipped page on, LAN share included
-    fixtures/<name>.ts     # extension-specific fixtures
+    fixtures/<cap>.ts      # one per capability, never one per extension
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract
   layout.test.ts           # the test tree's shape, the root-test set, and the suite manifest
@@ -342,7 +346,7 @@ Rules:
 
 | From | Source under test | Shared helper | Fixture |
 | --- | --- | --- | --- |
-| `extensions/<name>/<capability>.test.ts` | `./<module>.ts` or `./<sub>/<module>.ts` | `../../test/helpers/<module>.ts` | `../../test/helpers/fixtures/<name>.ts` |
-| `lib/<area>.test.ts` | `./<module>.ts` | `../test/helpers/<module>.ts` | `../test/helpers/fixtures/<name>.ts` |
-| `scripts/<area>.test.ts` | `./<module>.ts` | `../test/helpers/<module>.ts` | `../test/helpers/fixtures/<name>.ts` |
-| `test/<name>.test.ts` | `skills/<name>/scripts/<module>.ts` | `./helpers/<module>.ts` | `./helpers/fixtures/<name>.ts` |
+| `extensions/<name>/<capability>.test.ts` | `./<module>.ts` or `./<sub>/<module>.ts` | `../../test/helpers/<module>.ts` | `../../test/helpers/fixtures/<capability>.ts` |
+| `lib/<area>.test.ts` | `./<module>.ts` | `../test/helpers/<module>.ts` | `../test/helpers/fixtures/<capability>.ts` |
+| `scripts/<area>.test.ts` | `./<module>.ts` | `../test/helpers/<module>.ts` | `../test/helpers/fixtures/<capability>.ts` |
+| `test/<name>.test.ts` | `skills/<name>/scripts/<module>.ts` | `./helpers/<module>.ts` | `./helpers/fixtures/<capability>.ts` |

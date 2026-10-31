@@ -19,7 +19,7 @@ import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 import { zeroUsage } from "../../../lib/usage.ts";
 import { scratchDir, withAgentDir } from "../../../test/helpers/env.ts";
 import { emit, fakeTheme, makeFakePi, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
-import { fakeFooterCtx, fullSnapshot, renderFooter, usageOf } from "../../../test/helpers/fixtures/bytefly.ts";
+import { fakeFooterCtx, fullSnapshot, renderFooter, usageOf } from "../../../test/helpers/fixtures/footer.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
 import { budgetBody, budgetNotice, budgetState } from "./budget.ts";
 import { usageRecords } from "./collect/entries.ts";

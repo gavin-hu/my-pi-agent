@@ -6,16 +6,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
-import {
-	enabledItem,
-	findRow,
-	pathRow,
-	settingsSnapshot,
-	settingView,
-	skillIndex,
-	textModel,
-	userRow,
-} from "../../../test/helpers/fixtures/bytefly.ts";
+import { enabledItem, findRow, pathRow, skillIndex, textModel, userRow } from "../../../test/helpers/fixtures/panel.ts";
+import { settingsSnapshot, settingView } from "../../../test/helpers/fixtures/settings.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeItem, skillItem } from "../../../test/helpers/fixtures/picker.ts";
 import { resourceKey } from "../picker/resources.ts";

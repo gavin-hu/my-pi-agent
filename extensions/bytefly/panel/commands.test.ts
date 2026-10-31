@@ -13,12 +13,12 @@ import {
 	bootPanel,
 	commandDiscovery,
 	fakeDoctor,
-	fakeSettings,
 	fakeUpdate,
 	pathRow,
 	skillIndex,
 	userRow,
-} from "../../../test/helpers/fixtures/bytefly.ts";
+} from "../../../test/helpers/fixtures/panel.ts";
+import { fakeSettings } from "../../../test/helpers/fixtures/settings.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeDiscovery, makeItem, skillItem } from "../../../test/helpers/fixtures/picker.ts";
 import { registerPanel } from "./commands.ts";
