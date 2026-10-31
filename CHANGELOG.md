@@ -17,6 +17,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the card dialog reads in the order a reader acts on it. Its head keeps what the
+  card face led with — the owner as a chip, the priority as a word, and the lane with the age
+  that says how long the card has held it — and the body is four named sections: the contract
+  it is judged against, the plan and paths to start from, its links, and its record, with
+  `updated` carrying the writer on the same rung. A section with nothing in it takes its
+  heading with it, the notes read newest first, and a card with none says `no notes yet`
+  instead of drawing an empty list.
 - `board`: a card's face spends one row on its links. What a card holds up rides the reason
   line after a middot instead of a second clamped paragraph, so the two ends of one edge read
   as one edge and a busy card gives back the row; and the id now wears its lane's colour, so a

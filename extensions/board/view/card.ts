@@ -51,6 +51,8 @@ export const BOARD_CARD_JS = String.raw`(function () {
    * Both levels are named here rather than one class with a modifier decided at the call
    * site, because this table is what the class contract compares with the stylesheet: a
    * level with no rule, or a rule with no level, fails there instead of in a screenshot.
+   * The dialog's head wears the same word, so the table is published rather than restated:
+   * a level added here reaches the face and the record beside it.
    */
   var PRIORITY_CLASS = { high: N.cardPriorityHigh, low: N.cardPriorityLow };
 
@@ -214,6 +216,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
 
   board.cardNode = cardNode;
   board.sentence = sentence;
+  board.priorityClass = PRIORITY_CLASS;
 
   /** Set a mark on a card, or drop it, so one that lost it does not keep it. */
   function marked(node, name, on) {

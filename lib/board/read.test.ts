@@ -44,8 +44,9 @@ describe("readCard", () => {
 
 	test("reads the four-lane board's log words as the lanes they became", () => {
 		// `todo` was the pool and `doing` was the work in hand; `blocked` and `done` kept their
-		// names. A card written then is finished now, so the last entry is what its `in lane`
-		// age reads — but the whole log has to pass the gate for the card to be read at all.
+		// names. A card written then is finished now, so the last entry is the age beside its
+		// lane in the dialog's head — but the whole log has to pass the gate for the card to be
+		// read at all.
 		const { lane, ...rest } = card({ lane: "done", owner: { label: "billing-core" } });
 		const read = readCard({
 			...rest,

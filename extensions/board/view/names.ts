@@ -61,6 +61,8 @@ export const BOARD_CLASS = {
 	dialogHead: "board-dialog__head",
 	dialogId: "board-dialog__id",
 	dialogState: "board-dialog__state",
+	// How long the card has held the lane the head names, in the lane word's own line.
+	dialogAge: "board-dialog__age",
 	dialogBody: "board-dialog__body",
 	dialogSection: "board-dialog__section",
 	dialogHeading: "board-dialog__heading",
