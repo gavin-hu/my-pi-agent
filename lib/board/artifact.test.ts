@@ -113,6 +113,15 @@ describe("planForExecute", () => {
 		expect(planForExecute(STORE, card("execute", path))).toEqual({ path, recorded: path });
 	});
 
+	test("admits a plan refined after it was recorded, because the check is presence, not bytes", () => {
+		// The sign covers the three lines and the path, and `plan` action `steps` rewrites the
+		// file after approval: an edit must not close the gate the approval opened.
+		const path = plan("refined.md");
+		expect(planForExecute(STORE, card("execute", path))).toEqual({ path, recorded: path });
+		writeFileSync(path, "# Refined\n\n- [x] one\n");
+		expect(planForExecute(STORE, card("execute", path))).toEqual({ path, recorded: path });
+	});
+
 	test("refuses a plan deleted while the card is still in plan, where contract works", () => {
 		const path = join(STORE, "deleted.md");
 		expect(planForExecute(STORE, card("plan", path))).toEqual({
