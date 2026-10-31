@@ -16,18 +16,20 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Page } from "playwright-core";
 import { makeClock } from "../../../test/helpers/clock.ts";
-import { type Browser, chromium, type Page } from "playwright-core";
-import { findChrome } from "../../../scripts/capture/chrome.ts";
 import type { Actor } from "../../../lib/board/rules.ts";
 import { DEFAULT_WIP } from "../../../lib/board/limits.ts";
 import { createStore } from "../../../lib/board/store.ts";
 import { advance } from "../../../test/helpers/board-flow.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
-import { serveBoardPage, type ServedBoardPage } from "../../../test/helpers/board-page.ts";
-
-/** The browser this machine has; absent means the whole suite is skipped. */
-const CHROME = findChrome();
+import {
+	BOARD_CHROME as CHROME,
+	BOARD_PAINT_MS as PAINT_MS,
+	type BoardBrowser,
+	openBoardBrowser,
+} from "../../../test/helpers/board-browser.ts";
+import { serveBoardPage } from "../../../test/helpers/board-page.ts";
 
 /** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
 const clock = makeClock(1_760_000_000_000);
@@ -35,13 +37,10 @@ const clock = makeClock(1_760_000_000_000);
 const LEAD: Actor = { id: "s-lead", label: "billing-lead" };
 const CORE: Actor = { id: "s-core", label: "billing-core" };
 
-/** How long a page gets to show what the fixture holds. */
-const PAINT_MS = 10_000;
-
-let directory = "";
-let browser: Browser;
-let server: ServedBoardPage;
+/** The board the suite reads, its browser, and the place a test writes beside its cards. */
+let board: BoardBrowser;
 let store: ReturnType<typeof createStore>;
+let directory = "";
 
 /**
  * The board the page serves: two cards to do, one being worked, and seven finished.
@@ -49,11 +48,7 @@ let store: ReturnType<typeof createStore>;
  * Seven rather than six is what puts the Done lane past its fold, which is a lane's
  * state the reader has to click to see.
  */
-async function seedBoard(): Promise<void> {
-	// The page prints who signed, so the board names `billing-lead` as its lead.
-	store = createStore(directory, { config: { wip: DEFAULT_WIP, lead: LEAD.label } });
-	await store.ensure();
-	const now = clock.now();
+async function seedBoard(store: ReturnType<typeof createStore>, now: number): Promise<void> {
 	const todo = [
 		{ title: "Export orders as CSV", paths: ["src/reports"] },
 		{ title: "Invoice totals round the wrong way", paths: ["src/billing/totals"] },
@@ -118,12 +113,7 @@ const ROOT = "/Users/someone/my-pi-agent";
 const REPO = "my-pi-agent";
 
 /** One fresh tab on the served page, waited until its lanes have painted. */
-async function openPage(): Promise<Page> {
-	const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
-	await page.goto(server.url, { waitUntil: "load" });
-	await page.waitForSelector("#lane-backlog .board-card", { timeout: PAINT_MS });
-	return page;
-}
+const openPage = (): Promise<Page> => board.open();
 
 /**
  * The sliver of the DOM the predicates below read.
@@ -202,21 +192,19 @@ async function cardCount(page: Page, lane: string, count: number): Promise<void>
 
 describe.skipIf(CHROME === undefined)("the served page", () => {
 	beforeAll(async () => {
-		directory = mkdtempSync(join(tmpdir(), "pi-board-page-"));
-		await seedBoard();
-		// The shipped page over this store: the one boot a caller outside the extension needs.
-		server = await serveBoardPage({
-			store,
+		board = await openBoardBrowser({
+			// The page prints who signed, so the board names `billing-lead` as its lead.
+			lead: LEAD.label,
 			now: clock.now,
+			seed: seedBoard,
 			display: { repo: REPO, root: ROOT, where: WHERE },
 		});
-		browser = await chromium.launch({ executablePath: CHROME, headless: true });
+		store = board.store;
+		directory = board.directory;
 	});
 
 	afterAll(async () => {
-		await browser?.close();
-		await server?.close();
-		if (directory !== "") rmSync(directory, { recursive: true, force: true });
+		await board?.close();
 	});
 
 	test("draws each lane with the cards the store holds", async () => {
@@ -1025,9 +1013,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			roster: sessions,
 			display: { repo: REPO, root: ROOT, where: WHERE },
 		});
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await board.tab(`${long.url}&view=team`);
 		try {
-			await page.goto(`${long.url}&view=team`, { waitUntil: "load" });
 			const rows = () => page.$$eval(".board-team__mate", (nodes) => nodes.length);
 			const foldFocus = () =>
 				page.evaluate(

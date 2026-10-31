@@ -59,6 +59,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   used to push a card to the end of its priority and reshuffle the listing a reader was working
   down. The lane still decides first and then the priority; past those two the id carries the
   order, so the same board reads in the same order twice.
+- `test`: the board page's browser fixture is one helper — `test/helpers/board-browser.ts`
+  boots a temp board, a headless Chrome, and a tab waited until its first frame — and its
+  browser cases are two suites: `extensions/board/view/behaviour.test.ts` for what a reader
+  can do on the page, and the new `view/repaint.test.ts` for what a frame repaints. The split
+  is the suite-size gate's own answer to a case that needed room: the behaviour suite's entry
+  falls from 1,140 lines to 1,127, and the ledger's total with it.
 - `file-browse`: **every `/browse` opens the page**, including one that finds it already
   served for the same root — a second command reprints the URL and puts the page in front of
   you, where it used to only print it and leave you to paste it. The server does not restart
@@ -379,6 +385,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: **a card repaints when the card it waits for, or holds up, moves** — a lane was
+  rebuilt only when a card in it had itself moved, so a blocker another session finished in
+  another lane left the waiting card reading `waits on #11 (execute) Wire retries` after the
+  frame that finished it had already landed. The lane's signature now carries the two facts a
+  face derives from the rest of the board — what the card waits on and what it holds up — the
+  way the Team tab's queue already carried its rows' reasons, so the sentence cannot outlive
+  the record it describes. A lane can therefore repaint on a write to a card outside it; the
+  fold, the filter, and the page's scroll offset are the reader's own and survive it.
 - `docs`: **the pi.dev listing previews five screenshots instead of one** — the chrome hero,
   the terminal plan review, the board, the browser plan review, and the file browser. The
   gallery rewrites a README Markdown image to the npm CDN at the published version, and

@@ -704,7 +704,7 @@ describe("the class contract", () => {
 		"data-fold": "a fold control names its key, so focus finds it again after the repaint it caused",
 		"data-lane": "a lane section and a card carry the lane they are in",
 		"data-picker-lane": "the narrow picker reads which lane a button selects",
-		"data-rev": "a lane rebuilds only when a card's revision moves",
+		"data-rev": "the revision a lane's signature carries, so a face is drawn once per move",
 		"data-sig": "a lane remembers what it last drew",
 		"data-skeleton": "the placeholders are removed once the first frame lands",
 		"data-view": "the tab switch writes which panel is current",

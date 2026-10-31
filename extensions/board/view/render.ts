@@ -9,8 +9,9 @@
  * them.
  *
  * A frame replaces what changed and leaves the rest alone: a lane is rebuilt only
- * when its cards' revisions moved, so the filter input, a collapsed lane, the scroll
- * offset, and an open dialog all survive a peer's write.
+ * when what its cards draw has moved — a revision of their own, or a blocker or a
+ * dependent the rest of the board decides — so the filter input, a collapsed lane, the
+ * scroll offset, and an open dialog all survive a peer's write.
  *
  * The client modules share one namespace, `window.bfBoard`: this one paints the whole
  * frame, `card.ts` draws one card's face, `team.ts` draws the round, `dialog.ts` fills and
@@ -309,7 +310,21 @@ __RUNTIME__
     return section;
   }
 
-  /** Draw the lanes, rebuilding only one whose cards actually moved. */
+  /**
+   * What one face is drawn from: the card's own revision, and the two facts about it that
+   * the rest of the board decides.
+   *
+   * A face prints what the card waits for and what it holds up, both derived from other
+   * cards, so a blocker finished in another lane moves nothing in this card's record — and
+   * a lane keyed on revisions alone kept a sentence the board had already left behind. The
+   * Team tab's queue carries its rows' reasons the same way: a signature lists the facts a
+   * row prints, not just the row's own file.
+   */
+  function faceSig(card) {
+    return card.id + ":" + card.rev + "|" + (card.waits || "") + "|" + (card.dependents || "");
+  }
+
+  /** Draw the lanes, rebuilding only one whose faces actually moved. */
   function renderLanes(view) {
     var lanes = document.getElementById("board-lanes");
     if (!lanes) return;
@@ -341,7 +356,7 @@ __RUNTIME__
       section.style.setProperty("--lane-count", String(lane.cards.length));
       var shown = lane.cards.filter(function (card) { return matches(card, query); });
       shownTotal += shown.length;
-      var sig = lane.cards.map(function (card) { return card.id + ":" + card.rev; }).join(",") + "|" + query;
+      var sig = lane.cards.map(faceSig).join(",") + "|" + query;
       if (section.getAttribute("data-sig") !== sig) {
         section.setAttribute("data-sig", sig);
         var list = section.querySelector(".board-lane__list");
