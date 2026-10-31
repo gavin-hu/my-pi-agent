@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { DEFAULT_CONFIG, type WatchConfig } from "../../../extensions/watch/config.ts";
 import type { KillTreeFn, SpawnFn } from "../../../lib/spawn.ts";
 import { createWatchRuntime, type WatchRuntime } from "../../../extensions/watch/runtime.ts";
+import type { WatchRecord } from "../../../extensions/watch/types.ts";
 import { makeClock, type Clock } from "../clock.ts";
 import { fakeCtx as sharedFakeCtx, type FakeCtxResult } from "../context.ts";
 import { makeJobSpawn, type JobChild } from "../process.ts";
@@ -11,6 +12,25 @@ import { makeJobSpawn, type JobChild } from "../process.ts";
 export { makeJobSpawn as makeFakeSpawn, JobChild as FakeChild, settle, waitFor } from "../process.ts";
 
 export type FakeCtx = FakeCtxResult;
+
+/** A settled `WatchRecord` a formatting or screen test can vary one field of. */
+export function makeWatchRecord(overrides: Partial<WatchRecord> = {}): WatchRecord {
+	return {
+		id: "w1",
+		label: "errors",
+		source: { kind: "file", path: "/tmp/app.log" },
+		pattern: "error",
+		exclude: [],
+		caseSensitive: false,
+		wake: false,
+		fromStart: false,
+		status: "running",
+		startedAt: 1000,
+		linesRead: 3,
+		matchCount: 1,
+		...overrides,
+	};
+}
 
 /** A minimal `ExtensionContext` for runtime and event handlers. */
 export function makeCtx(options: { cwd?: string; mode?: string; sessionId?: string } = {}): FakeCtx {

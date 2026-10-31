@@ -8,7 +8,6 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "../../lib/format.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, rejectionLine } from "../../lib/tui/tool.ts";
@@ -17,6 +16,7 @@ import { paint } from "../../lib/tui/tokens.ts";
 import {
 	compareWatches,
 	formatCallText,
+	formatPattern,
 	formatTail,
 	formatWatchList,
 	formatWatchOutcomeLine,
@@ -81,9 +81,9 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 							},
 							ctx as ExtensionContext,
 						);
-						const flags = `${call.caseSensitive ? "" : "i"}${watch.wake ? ", wake" : ""}`;
+						const pattern = formatPattern(watch);
 						return textResult(
-							`Watching ${watch.id}: ${sourceLabel(watch)} → /${sanitizeLine(watch.pattern)}/${flags}\nRead with \`watch matches ${watch.id}\` or \`watch logs ${watch.id}\`.`,
+							`Watching ${watch.id}: ${sourceLabel(watch)} → ${pattern}\nRead with \`watch matches ${watch.id}\` or \`watch logs ${watch.id}\`.`,
 							{ action: "add", watch } satisfies WatchDetails,
 						);
 					}

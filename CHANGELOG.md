@@ -58,6 +58,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `watch`: the `add` result's pattern reads the same for every flag combination — `formatPattern`
+  builds `/<pattern>/<flags>` and then the badges, so a case-sensitive `wake` watcher renders
+  `/pat/ · wake` where it showed a dangling `/pat/, wake`. The `status` line and the `/watch`
+  pane use the helper too, and `status` names `wake` now that it can.
 - `bytefly`: **the footer names the teammate this session is**, not just the name the
   terminal knows — the `[session]` segment draws the bus's roster label, which is what a
   card's owner, a handoff, and `/team` use, and falls back to Pi's own session name when the

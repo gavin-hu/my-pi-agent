@@ -23,6 +23,16 @@ export function compileRegex(pattern: string, caseSensitive: boolean): RegExp {
 	return new RegExp(pattern, caseSensitive ? "" : "i");
 }
 
+/**
+ * A watcher's pattern as `/<pattern>/<flags>`, with the wake badge appended:
+ * `/pat/`, `/pat/i`, `/pat/ · wake`, `/pat/i · wake`.
+ */
+export function formatPattern(watch: Pick<WatchRecord, "pattern" | "caseSensitive" | "wake">): string {
+	const flags = watch.caseSensitive ? "" : "i";
+	const badge = watch.wake ? `${SEPARATORS.item}wake` : "";
+	return `/${sanitizeLine(watch.pattern)}/${flags}${badge}`;
+}
+
 /** What a watcher reads: a path or a command, clipped for display. */
 export function sourceLabel(watch: WatchRecord): string {
 	if (watch.source.kind === "file") return clipLabel(watch.source.path ?? "");
@@ -116,7 +126,7 @@ export function formatWatchStatus(watch: WatchRecord, now = Date.now()): string 
 	const lines = [
 		`${watch.id}: ${statusWord(watch)}`,
 		`source: ${sourceLabel(watch)}`,
-		`pattern: /${sanitizeLine(watch.pattern)}/${watch.caseSensitive ? "" : "i"}`,
+		`pattern: ${formatPattern(watch)}`,
 	];
 	if (watch.exclude.length > 0)
 		lines.push(`exclude: ${watch.exclude.map((item) => `/${sanitizeLine(item)}/`).join(" ")}`);
@@ -194,9 +204,8 @@ export function formatWatchOutcomeLine(watch: WatchRecord, theme: Theme, now = D
 /** Unstyled, sanitized detail lines for the `/watch` focus pane. */
 export function formatWatchDetail(watch: WatchRecord, now = Date.now()): string[] {
 	const age = Math.max(0, (watch.endedAt ?? now) - watch.startedAt);
-	const flags = `${watch.caseSensitive ? "" : "i"}${watch.wake ? " · wake" : ""}`;
 	return [
-		sanitizeLine(`${sourceLabel(watch)} · /${watch.pattern}/${flags}`),
+		sanitizeLine(`${sourceLabel(watch)} · ${formatPattern(watch)}`),
 		sanitizeLine(
 			`${statusWord(watch)} · ${watch.linesRead} lines · ${watch.matchCount} matches · ${Math.round(age / 1000)}s`,
 		),

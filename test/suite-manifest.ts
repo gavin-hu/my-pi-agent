@@ -112,7 +112,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	subagent: ["agents", "run", "render", "extension"],
 	team: ["commands", "dispatch", "extension", "handoff", "tools"],
 	todo: ["tools", "runtime", "view/todo-screen"],
-	watch: ["runtime", "tools", "view/watch-screen"],
+	watch: ["format", "runtime", "tools", "view/watch-screen"],
 	serve: ["config", "registry", "extension"],
 	"session-bus": [
 		"format",
