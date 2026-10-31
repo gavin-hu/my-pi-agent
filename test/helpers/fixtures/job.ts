@@ -4,10 +4,13 @@ import { join } from "node:path";
 import type { JobsConfig } from "../../../extensions/job/config.ts";
 import { DEFAULT_CONFIG } from "../../../extensions/job/config.ts";
 import { loadRegistries, REGISTRY_VERSION, saveRegistry } from "../../../extensions/job/registry.ts";
-import type { JobRecord } from "../../../extensions/job/types.ts";
+import type { JobCall } from "../../../extensions/job/schema.ts";
+import type { Job, JobRecord } from "../../../extensions/job/types.ts";
 import type { KillTreeFn, LivenessFn, SpawnFn, StartTokenFn } from "../../../lib/spawn.ts";
 import { createJobsRuntime, type JobsRuntime } from "../../../extensions/job/runtime.ts";
 import { makeClock } from "../clock.ts";
+import { tempDir } from "../env.ts";
+import type { TempTracker } from "../git.ts";
 import { makeJobSpawn, type JobChild } from "../process.ts";
 import { fakeCtx as sharedFakeCtx, type FakeCtxResult } from "../context.ts";
 
@@ -46,6 +49,7 @@ export function makeHarness(
 		config?: Partial<JobsConfig>;
 		startToken?: StartTokenFn;
 		isWindows?: () => boolean;
+		sleep?: (ms: number) => Promise<void>;
 	} = {},
 ): Harness {
 	const clock = makeClock(1000);
@@ -73,6 +77,7 @@ export function makeHarness(
 		config,
 		startToken: options.startToken ?? (() => undefined),
 		isWindows: options.isWindows,
+		sleep: options.sleep,
 	});
 
 	return {
@@ -164,4 +169,41 @@ export function makeHarnessSuite(): HarnessSuite {
 			for (const harness of live.splice(0)) harness.cleanup();
 		},
 	};
+}
+
+/** The in-memory shape the store persists. */
+export function job(overrides: Partial<JobRecord> = {}): Job {
+	return { ...jobRecord(overrides), owned: true };
+}
+
+/** Load a runtime and start one job on it, which most suites begin with. */
+export async function startJob(h: Harness, command = "sleep 10"): Promise<void> {
+	const { ctx } = makeCtx();
+	await h.runtime.load(ctx);
+	await h.runtime.start({ command }, ctx);
+}
+
+/** Narrow a normalized call to one action, or fail the test. */
+export function asAction<A extends JobCall["action"]>(call: JobCall, action: A): Extract<JobCall, { action: A }> {
+	if (call.action !== action) throw new Error(`expected ${action}, got ${call.action}`);
+	return call as Extract<JobCall, { action: A }>;
+}
+
+/** A temp directory for a status file, registered with the caller's tracker. */
+export function statusDir(temps: TempTracker): string {
+	return temps.track(tempDir("pi-jobs-status-"));
+}
+
+/** A runtime whose spawn always fails, for the case that checks the reserved id is released. */
+export function runtimeWithFailedSpawn(dir: string): JobsRuntime {
+	return createJobsRuntime({
+		spawn: () => {
+			throw new Error("spawn failed");
+		},
+		killTree: () => {},
+		liveness: () => false,
+		now: () => 1000,
+		config: { ...DEFAULT_CONFIG, registryDir: dir },
+		isWindows: () => false,
+	});
 }

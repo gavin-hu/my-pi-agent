@@ -293,6 +293,9 @@ flowchart TD
 | Child `pi` process | `subagent` spawns it, enforces a deadline, escalates and reports the exit. | The transcript, if the user asked for one. |
 | Peer session | The bridge opens one per admitted sender; logout or shutdown stops the bridge. | Each peer's history, on disk, apart from the host session. |
 
+A job is a process plus a durable record, so a later session can re-attach to it and stop it; a
+watcher is a live position in a file or a pipe, held in memory for the session and gone with it.
+
 Three rules keep that honest.
 
 - **A one-runtime resource takes a lock.** A second Pi cannot drive the same

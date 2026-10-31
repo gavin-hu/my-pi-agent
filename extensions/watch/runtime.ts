@@ -14,7 +14,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { LineSplitter } from "../../lib/lines.ts";
 import type { KillTreeFn, SpawnFn, SpawnedProcess } from "../../lib/spawn.ts";
-import { createChildSupervisor } from "./child.ts";
+import { createChildSupervisor, KILL_GRACE_MS } from "../../lib/child.ts";
 import { DEFAULT_CONFIG, loadConfig, type WatchConfig } from "./config.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
 import { defaultInterval } from "../../lib/timer.ts";
@@ -24,8 +24,6 @@ import type { PendingMatch, WatchMatch, WatchRecord, WatchSource } from "./types
 
 /** Largest slice read from a file per tick. */
 const MAX_CHUNK = 1024 * 1024;
-/** Grace before a stopped command escalates to SIGKILL; `child.ts` defaults the same. */
-const KILL_GRACE_MS = 2000;
 
 /** Internal watcher state: the public record plus non-serializable fields. */
 interface Internal {
@@ -277,24 +275,29 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	};
 
 	const startCommand = (w: Internal): void => {
-		const error = children.start(w, w.source.command ?? "", w.source.cwd ?? process.cwd(), {
-			onData: (chunk) => consume(w, chunk, now()),
-			onSettled: (outcome) => {
-				if (w.status !== "running") return;
-				if (outcome.kind === "closed") {
-					flushPending(w, now());
-					w.status = "exited";
-					w.exitCode = outcome.code;
-					w.signal = outcome.signal;
-				} else {
-					w.status = "error";
-					w.error = outcome.message;
-				}
-				w.endedAt = now();
-				ui.paint();
-				if (runningCount() === 0) stopClock();
+		const error = children.start(
+			w,
+			w.source.command ?? "",
+			{ cwd: w.source.cwd ?? process.cwd() },
+			{
+				onData: (chunk) => consume(w, chunk, now()),
+				onSettled: (outcome) => {
+					if (w.status !== "running") return;
+					if (outcome.kind === "closed") {
+						flushPending(w, now());
+						w.status = "exited";
+						w.exitCode = outcome.code;
+						w.signal = outcome.signal;
+					} else {
+						w.status = "error";
+						w.error = outcome.message;
+					}
+					w.endedAt = now();
+					ui.paint();
+					if (runningCount() === 0) stopClock();
+				},
 			},
-		});
+		);
 		if (error === undefined) return;
 		w.status = "error";
 		w.error = error;

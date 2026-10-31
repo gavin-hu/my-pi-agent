@@ -27,10 +27,6 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
 		lines: 875,
 		why: "one escape-first block and inline scan for README Markdown",
 	},
-	"extensions/job/runtime.ts": {
-		lines: 1017,
-		why: "the session's job table, child handles, and repaint clock",
-	},
 	"lib/highlight.ts": {
 		lines: 1000,
 		why: "one tokenizer per language over a shared escape-first scan",
@@ -45,7 +41,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  * The named modules' total, written down so raising one height has to lower
  * another. It falls whenever a module shrinks; it never rises.
  */
-const LONG_MODULE_TOTAL = 3700;
+const LONG_MODULE_TOTAL = 2683;
 
 describe("module sizes", () => {
 	test("a module over the line bar states the responsibility that keeps it whole", () => {
