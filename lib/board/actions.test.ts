@@ -71,13 +71,13 @@ describe("readActionsText", () => {
 
 describe("boardWriteRefusal", () => {
 	test("names the verb, the reads, and the order that avoids the refusal", () => {
-		const text = boardWriteRefusal("claim", "exit_plan_mode to proceed.");
+		const text = boardWriteRefusal("claim", "plan exit to proceed.");
 		expect(text).toContain("`claim` changes the board");
 		expect(text).toContain("only `list` reads it");
 		expect(text).toContain("claim the card before you plan");
 		expect(text).toContain("record its plan once the plan is approved");
 		// Plan mode supplies its own exit guidance, so the sentence has one source per fact.
-		expect(text.endsWith("exit_plan_mode to proceed.")).toBe(true);
+		expect(text.endsWith("plan exit to proceed.")).toBe(true);
 	});
 
 	test("names the tool itself when the call carried no verb", () => {

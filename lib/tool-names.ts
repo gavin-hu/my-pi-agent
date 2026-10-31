@@ -17,11 +17,12 @@ export const TODO_TOOL = "todo";
 export const GOAL_TOOL = "goal";
 
 /**
- * The `enter_plan_mode` tool. `plan` registers it, and `goal` offers the same
- * phase to the user, so the name is shared: the request channel and the
- * registration probe both look it up.
+ * The `plan` tool. `plan` registers it and `goal` offers the same phase to the user,
+ * so the name is shared: the request channel and the registration probe both look
+ * it up. Its actions are the planning verbs, so one name replaces the five tools
+ * that used to spell them.
  */
-export const PLAN_ENTER_TOOL = "enter_plan_mode";
+export const PLAN_TOOL = "plan";
 
 /** The `subagent` tool, which plan mode pins to read-only delegation. */
 export const SUBAGENT_TOOL = "subagent";

@@ -11,7 +11,7 @@ every turn. The goal is the *what*; the [`todo`](./todo.md) list is the *how*.
 | Phase tracking | `goal`, `/goal done` | The goal is `planning`, `active`, or `achieved`, and only the workflow can open a draft. |
 | Plan-first question | `goal`, `/goal <prompt>`, `/goal raw` | One dialog decides whether a new goal enters plan mode before it is pursued. |
 | Plan-mode allowlist | `goal` in plan mode | The model can record or update the objective while plan mode keeps the rest of the session read-only. |
-| Plan-phase settlement | `planning` goal, `exit_plan_mode` | Leaving plan mode without approval makes the draft `active`; approving the plan writes its `## Goal` into it. |
+| Plan-phase settlement | `planning` goal, `plan` action `exit` | Leaving plan mode without approval makes the draft `active`; approving the plan writes its `## Goal` into it. |
 | Understanding loop | `/goal <prompt>`, `/goal set`, `/goal edit` | A typed goal is restated, questioned when it is unclear, and confirmed in the editor before it is recorded. |
 | Goal rail | the `Goal · active · …` widget, the `achieved` key | The objective stays one line above the editor while it is pursued. |
 | Per-turn restatement | the `[SESSION GOAL]` reminder | The model reads the pursued objective before each turn, without it entering the transcript. |
@@ -135,7 +135,7 @@ and stores the objective as `planning`, so a plan can be designed against it;
 declining stores it `active`, the final objective. The question is skipped for
 an update to a goal that is already pursued, without a dialog UI, and when
 `plan` is not loaded. The question and its consent sentence come from
-`lib/plan-entry.ts`, the same ones `enter_plan_mode` shows, so the user answers
+`lib/plan-entry.ts`, the same ones the `enter` action shows, so the user answers
 once.
 
 A draft whose plan never arrived is settled rather than stranded. If plan mode is
@@ -213,7 +213,7 @@ that is what it is. The `goal` tool stays the silent setter.
   the extension that asks also has to act on the answer — which a command context
   cannot do, since `ExtensionCommandContext` has no `executeTool`. So the consent
   sentence and the request channel live in `lib/plan-entry.ts`: `goal` asks, and
-  `plan` enables silently over `pi.events`. `enter_plan_mode` keeps its own
+  `plan` enables silently over `pi.events`. The `enter` action keeps its own
   confirm for the model-initiated path, using the same sentence, so the user is
   never asked twice and the two texts cannot drift.
 - **The draft is settled, not stranded.** A `planning` goal is normalised by the

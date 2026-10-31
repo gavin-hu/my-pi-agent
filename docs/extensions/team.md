@@ -65,7 +65,7 @@ Nobody free, so the lead takes it:
 
 ```
 lead: team({action:"claim", card:"5"})                  → #5 is yours, in plan.
-      → design it in plan mode, write_plan, then `board` action `contract`
+      → design it in plan mode, `plan` action `write`, then `board` action `contract`
 ```
 
 ## Joining the team

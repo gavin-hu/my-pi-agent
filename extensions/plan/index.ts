@@ -5,9 +5,9 @@
  * active set or blocked: write and edit are hidden, bash is limited to a single
  * read-only git command, powershell is blocked, and everything else that mutates
  * (worktree, MCP tools) is blocked. `subagent` stays active but is forced
- * read-only. The one permitted write is `write_plan`,
- * which saves the plan in the agent directory. The model investigates, saves the
- * plan, and calls `exit_plan_mode` to read the file back and ask for approval.
+ * read-only. The one permitted write is the `plan` tool's `write` action, which
+ * saves the plan in the agent directory. The model investigates, saves the plan,
+ * and calls `plan` action `exit` to read the file back and ask for approval.
  *
  * Toggle with `/plan` (or Shift+Tab, which bytefly's editor binds), or start with
  * `--plan`. The state is
@@ -61,7 +61,7 @@ export function planModeContext(goal?: PublishedGoal | null): string {
 		"",
 		`- Do not modify anything except the plan file: while planning, ${READ_ONLY_SUMMARY}.`,
 		"- bash is git-only: read-only git commands chain with && or ; — no pipes, redirection, or substitution, and no powershell. The cwd is already the project root, so skip cd, and read files with read, grep, find, and ls.",
-		"- Investigate and design a concrete plan, then save it with write_plan and call exit_plan_mode with the returned plan_path for approval.",
+		"- Investigate and design a concrete plan, then save it with `plan` action `write` and call `plan` action `exit` with the returned plan_path for approval.",
 		"- Delegate broad exploration with subagent.",
 		`- To choose between approaches, ask with ${ASK_USER_QUESTION_TOOL} before finalizing.`,
 	];
@@ -163,11 +163,11 @@ export default function planMode(pi: ExtensionAPI): void {
 	 * the path backstop (a hint on a path-carrying tool is only a claim).
 	 */
 	const blockedReason = async (toolName: string, input: unknown): Promise<string | undefined> => {
-		// Plan-owned tools are the sanctioned exception: `write_plan` saves the
-		// artifact, `exit_plan_mode` presents it, `cancel_plan_mode` restores access,
-		// and `enter_plan_mode` answers "already" to a call that was in flight when
-		// plan mode came on. The source-path check keeps a same-named tool from
-		// another extension from borrowing the exemption.
+		// Plan's own tool is the sanctioned exception: it is the mode's vocabulary —
+		// `write` saves the artifact, `exit` presents it, `cancel` restores access, and
+		// `enter` answers "already" — so its actions decide for themselves whether they
+		// apply, and each refuses outside its mode. The source-path check keeps a
+		// same-named tool from another extension from borrowing the exemption.
 		if (runtime.isOwnTool(toolName)) return undefined;
 		// `subagent` stays active, but only as read-only delegation. The flag is
 		// forced in place (the child enforces it through `--tools`), so the model

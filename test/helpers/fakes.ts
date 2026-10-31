@@ -6,10 +6,46 @@
  * helpers wrap it to expose the maps their tests inspect.
  */
 
-import type { MarkdownTransformer, ToolRendererResolver } from "@earendil-works/pi-coding-agent";
+import type { MarkdownTransformer, ToolDefinition, ToolRendererResolver } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, type MarkdownTheme, type Component } from "@earendil-works/pi-tui";
 
 export type AnyHandler = (...args: any[]) => any;
+
+/**
+ * The context Pi hands `renderCall` / `renderResult`.
+ *
+ * Spelled from `ToolDefinition` because the host exports the tool type but not this
+ * one; the fourth parameter of its own renderer is the same type, so the two cannot
+ * drift apart.
+ */
+type RenderContext = Parameters<NonNullable<ToolDefinition["renderResult"]>>[3];
+
+/**
+ * A render context for a suite that draws one block directly instead of driving a
+ * session.
+ *
+ * The package's renderers read only `lastComponent`, `expanded`, and `state`; the
+ * rest is what Pi passes for a finished, non-streaming call, so a renderer that
+ * starts reading another field gets a value rather than undefined.
+ */
+export function toolRenderContext(options: { expanded?: boolean } = {}): RenderContext {
+	return {
+		args: {},
+		toolCallId: "call-1",
+		invalidate: () => {},
+		lastComponent: undefined,
+		state: {},
+		cwd: process.cwd(),
+		executionStarted: true,
+		argsComplete: true,
+		isPartial: false,
+		expanded: options.expanded ?? false,
+		showImages: false,
+		isError: false,
+		durationMs: undefined,
+		outputPad: 0,
+	};
+}
 
 /** Identity theme so rendered text stays assertable. */
 export const fakeTheme: any = {

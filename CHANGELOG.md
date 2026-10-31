@@ -55,6 +55,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan` + `worktree`: **nine tools become two.** `plan` registers one tool with five
+  actions — `enter`, `write`, `exit`, `steps`, `cancel` — and `worktree` one with four —
+  `enter`, `exit`, `list`, `prune` — the way `board` and `todo` already carry their verbs, so
+  the pack's tool surface drops from 27 to 20 and its prompt snippets from 26 to 19. The old
+  names (`enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`,
+  `set_plan_steps`, `enter_worktree`, `exit_worktree`, `list_worktrees`, `prune_worktrees`)
+  are gone with no alias: **a prompt, skill, or `tools` setting that still spells one calls a
+  tool that no longer exists.** Each block is the same block, drawn under the call line its
+  action names (`plan write Add rate limiting`; `worktree` keeps bytefly's fallback,
+  `worktree enter (name feat)`); Pi's per-tool filter is all-or-nothing on a folded tool, so
+  disabling `plan` or `worktree` disables every verb, and `list` is no longer reachable while
+  planning — `/worktree` still reads the inventory there.
 - `board`: **a lane keeps the order the cards were added in** — a note, a claim, or a contract
   used to push a card to the end of its priority and reshuffle the listing a reader was working
   down. The lane still decides first and then the priority; past those two the id carries the

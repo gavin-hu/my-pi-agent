@@ -75,7 +75,7 @@ export const BoardParams = Type.Object({
 	path: Type.Optional(
 		Type.String({
 			description:
-				"`contract`, required: the plan file this card is executed against — the path `write_plan` returned, inside this repository's plan store.",
+				"`contract`, required: the plan file this card is executed against — the path `plan` action `write` returned, inside this repository's plan store.",
 		}),
 	),
 	goal: Type.Optional(

@@ -245,7 +245,7 @@ describe("the contract", () => {
 	test("refuses a contract with no plan, naming where the path comes from", () => {
 		const card = claimed();
 		expect(refusal(applyOp(card, { kind: "contract", ...CONTRACT }, CORE, NOW, boardOf(card)))).toBe(
-			"contract needs the plan file #4 is executed against: pass `path` as write_plan returned it.",
+			"contract needs the plan file #4 is executed against: pass `path` as `plan` action `write` returned it.",
 		);
 	});
 

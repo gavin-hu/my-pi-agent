@@ -7,9 +7,9 @@
  *   - lowercase snake_case;
  *   - a singleton tool is named for its domain (`todo`, `goal`, `job`,
  *     `subagent`);
- *   - a multi-word tool is verb-first (`enter_worktree`, `write_plan`,
- *     `ask_user_question`), except the documented noun-first carve-outs that
- *     mirror Claude Code (`web_search`, `web_fetch`).
+ *   - a multi-word tool is verb-first (`ask_user_question`, `run_check`),
+ *     except the documented noun-first carve-outs that mirror Claude Code
+ *     (`web_search`, `web_fetch`).
  *
  * Built-in overrides (`read`/`write`/`edit`/`bash`/`grep`/`find`/`ls`) are
  * deliberately excluded: they reuse the built-in names.
@@ -33,20 +33,14 @@ import { TOOL_NAME as openPath } from "../extensions/file-open/schema.ts";
 import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
 import { TOOL_NAME as job } from "../extensions/job/tools.ts";
 import { TOOL_NAME as memory } from "../extensions/memory/tools.ts";
-import {
-	CANCEL_TOOL,
-	ENTER_TOOL,
-	EXIT_TOOL,
-	SET_PLAN_STEPS_TOOL,
-	WRITE_PLAN_TOOL,
-} from "../extensions/plan/runtime.ts";
+import { PLAN_TOOL } from "../extensions/plan/runtime.ts";
 import { TOOL_NAME as session } from "../extensions/session-bus/tools.ts";
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
 import { TOOL_NAME as watch } from "../extensions/watch/tools.ts";
 import { TOOL_NAME as webFetch } from "../extensions/web-access/fetch/tool.ts";
 import { TOOL_NAME as webSearch } from "../extensions/web-access/search/tool.ts";
 import { TOOL_NAME as wechatSend } from "../extensions/wechat/tools.ts";
-import { WORKTREE_TOOLS } from "../extensions/worktree/tools.ts";
+import { WORKTREE_TOOL } from "../extensions/worktree/tools.ts";
 
 const NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 
@@ -86,11 +80,7 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "goal", name: goal },
 	{ extension: "job", name: job },
 	{ extension: "memory", name: memory },
-	{ extension: "plan", name: ENTER_TOOL },
-	{ extension: "plan", name: WRITE_PLAN_TOOL },
-	{ extension: "plan", name: EXIT_TOOL },
-	{ extension: "plan", name: CANCEL_TOOL },
-	{ extension: "plan", name: SET_PLAN_STEPS_TOOL },
+	{ extension: "plan", name: PLAN_TOOL },
 	{ extension: "session-bus", name: session },
 	{ extension: "subagent", name: subagent },
 	{ extension: "todo", name: todo },
@@ -98,10 +88,7 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "web-access", name: webFetch },
 	{ extension: "web-access", name: webSearch },
 	{ extension: "wechat", name: wechatSend },
-	{ extension: "worktree", name: WORKTREE_TOOLS.enter },
-	{ extension: "worktree", name: WORKTREE_TOOLS.exit },
-	{ extension: "worktree", name: WORKTREE_TOOLS.prune },
-	{ extension: "worktree", name: WORKTREE_TOOLS.list },
+	{ extension: "worktree", name: WORKTREE_TOOL },
 ];
 
 const names = REGISTERED.map((entry) => entry.name);
@@ -165,30 +152,23 @@ describe("extension tool naming", () => {
 		expect([...names].sort()).toEqual([
 			"ask_user_question",
 			"board",
-			"cancel_plan_mode",
-			"enter_plan_mode",
-			"enter_worktree",
-			"exit_plan_mode",
-			"exit_worktree",
 			"goal",
 			"job",
-			"list_worktrees",
 			"memory",
 			"open_path",
-			"prune_worktrees",
+			"plan",
 			"read_doc",
 			"run_check",
 			"run_doctor",
 			"send_wechat",
 			"session",
-			"set_plan_steps",
 			"subagent",
 			"team",
 			"todo",
 			"watch",
 			"web_fetch",
 			"web_search",
-			"write_plan",
+			"worktree",
 		]);
 	});
 });

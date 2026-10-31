@@ -338,7 +338,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 
 	const setSteps = async (cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan> => {
 		const plan = await read(cwd, planPath);
-		if (!plan) throw new Error("No plan file there; pass a plan_path written by write_plan.");
+		if (!plan) throw new Error("No plan file there; pass a plan_path written by `plan` action `write`.");
 		const steps = extractPlanSteps(plan.content);
 		const total = steps.length;
 		const outOfRange = updates.find(
@@ -384,7 +384,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		options: { author?: string } = {},
 	): Promise<StoredPlan> => {
 		const plan = await read(cwd, planPath);
-		if (!plan) throw new Error("No plan file there; pass a plan_path written by write_plan.");
+		if (!plan) throw new Error("No plan file there; pass a plan_path written by `plan` action `write`.");
 		const author = normalizeAuthor(options.author);
 		// An untagged entry is the writer's own; one tagged with a different name is
 		// another writer's comment, so it is dropped rather than re-signed.

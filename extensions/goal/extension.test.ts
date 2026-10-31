@@ -306,7 +306,7 @@ describe("goal reminder", () => {
 
 describe("/goal command", () => {
 	async function started(branch: unknown[] = [], ctxOptions: Partial<FakeCtxOptions> = {}, plan = false) {
-		const fakePi = makeFakePi(plan ? { allTools: [{ name: "enter_plan_mode" }] } : {});
+		const fakePi = makeFakePi(plan ? { allTools: [{ name: "plan" }] } : {});
 		goal(fakePi.pi);
 		const fake = fakeCtx({ mode: "print", branch, ...ctxOptions });
 		await emit(fakePi.pi, "session_start", { reason: "startup" }, fake.ctx);

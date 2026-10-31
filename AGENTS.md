@@ -33,10 +33,10 @@ bun run bench:render              # render benchmark; see docs/development.md
 `main` is protected by convention.
 
 - Start every task in a worktree, before plan mode, which refuses
-  `enter_worktree`. Under Pi, `enter_worktree <name>`; otherwise
+  `worktree`. Under Pi, `worktree` with `action: "enter"`; otherwise
   `git worktree add .pi/worktrees/<name> -b worktree-<name>`. It cuts from
   `origin/main`, so rebase onto `main` right after.
-- Never commit unless the user asks; before `exit_worktree`, ask how to reconcile
+- Never commit unless the user asks; before `worktree` exits, ask how to reconcile
   the branch (commit, merge, keep, discard).
 - Commit, then rebase onto `main` before merging, re-running `bun run check`: a
   rebase needs a clean tree, and `main` moves while you work. `git push origin

@@ -19,7 +19,7 @@ const NOW = 1_760_000_000_000;
 /**
  * The store the fixture's plans live in: the default agent directory, and this repository's key.
  *
- * `write_plan` saves into `<agent-dir>/plans/<repo-key>` and the board's `contract` records only
+ * The `plan` tool's `write` action saves into `<agent-dir>/plans/<repo-key>`; the board's `contract` records only
  * a file there, so this is the one spelling both halves of the fixture use — a path outside it
  * is one the shipped tool refuses.
  */

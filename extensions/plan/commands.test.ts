@@ -1,6 +1,6 @@
 /**
  * The plan command surface and the review gate: `/plan review`, `/plan list`,
- * and the one decision flow shared by `exit_plan_mode` and the browser.
+ * and the one decision flow shared by the `exit` action and the browser.
  *
  * The runtime and the browser server are doubles, so nothing here writes a plan
  * or opens a socket. `review.ts` is driven through its context and web seams,

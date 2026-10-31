@@ -612,7 +612,7 @@ describe("board fixture plan paths", () => {
 		for (const spelled of plans) {
 			expect(spelled.startsWith(`${FIXTURE_PLAN_STORE}/`), spelled).toBe(true);
 			const name = spelled.slice(FIXTURE_PLAN_STORE.length + 1);
-			// One file directly in the store: `write_plan` writes no subdirectory of it.
+			// One file directly in the store: `plan` action `write` makes no subdirectory of it.
 			expect(name.includes("/"), spelled).toBe(false);
 			writeFileSync(join(dir, name), "# A fixture plan\n- [ ] one\n");
 			expect(planForContract(dir, join(dir, name)), spelled).toEqual({ path: join(dir, name) });
@@ -642,15 +642,14 @@ describe("plan fixture plan paths", () => {
 	}
 
 	test("every plan fixture names a plan the store could hold, in both forms the tool returns", () => {
-		// The three tools whose result carries a plan: `write_plan` and `exit_plan_mode` draw the
-		// `~` form, and `set_plan_steps` carries both without drawing either.
-		for (const name of ["write_plan", "exit_plan_mode", "set_plan_steps"]) {
+		// The three actions whose result carries a plan: `write` and `exit` draw it.
+		for (const name of ["plan-write", "plan-exit", "plan-steps"]) {
 			const plan = planDetails(name);
 			expect(plan, name).toBeDefined();
 			if (plan === undefined) continue;
 			expect(plan.path.startsWith(STORE), name).toBe(true);
-			// One file directly in the store: `write_plan` writes no subdirectory of it, and the
-			// in-checkout `.pi/plans` directory it used to picture is the one nothing writes now.
+			// One file directly in the store: the `write` action makes no subdirectory of it, and
+			// the in-checkout `.pi/plans` directory it used to picture is the one nothing writes now.
 			const fileName = plan.path.slice(STORE.length);
 			expect(fileName.includes("/"), name).toBe(false);
 			expect(fileName.endsWith(".md"), name).toBe(true);

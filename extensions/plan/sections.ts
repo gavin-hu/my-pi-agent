@@ -2,7 +2,7 @@
  * Plan-document sections (pure).
  *
  * One fence-aware scan of a plan's markdown: the review screen navigates by
- * section, `set_plan_steps` looks up `## Steps`, a carried comment finds the
+ * section, the `plan` tool's `steps` action looks up `## Steps`, a carried comment finds the
  * block it belongs to, and the browser outline lists the same headings. A second
  * scanner would disagree about a heading inside a fence, so every reader goes
  * through this module.

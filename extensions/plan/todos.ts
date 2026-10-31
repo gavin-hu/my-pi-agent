@@ -44,7 +44,7 @@ export interface TodoMerge {
 /** Fallback list cap when the registered todo tool does not advertise one. */
 export const DEFAULT_TODO_MAX = 50;
 
-/** What the tick-time mirror did for one `set_plan_steps` batch. */
+/** What the tick-time mirror did for one `steps` batch. */
 export interface TodoMirror {
 	/** The list after the matching items were brought in line with the plan. */
 	todos: ExistingTodo[];

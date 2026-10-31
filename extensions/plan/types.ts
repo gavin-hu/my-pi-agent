@@ -4,6 +4,9 @@
 
 import type { PlanAnnotation } from "./feedback.ts";
 import type { SectionDigest } from "./plan-text.ts";
+import type { PlanAction } from "./runtime.ts";
+
+export type { PlanAction };
 import type { StepUpdate } from "./steps.ts";
 
 /**
@@ -65,8 +68,10 @@ export interface SeededStepsEntry {
 	steps: string[];
 }
 
-/** Structured result carried in `enter_plan_mode`'s `details`. */
+/** Structured result carried in the `plan` tool's `details` for `action: "enter"`. */
 export interface EnterPlanModeDetails {
+	/** The verb this result answers, so a renderer reads the result instead of the call. */
+	action: "enter";
 	/** Whether the user agreed to enter plan mode. */
 	entered: boolean;
 	/** True when plan mode was already enabled before this call. */
@@ -75,8 +80,10 @@ export interface EnterPlanModeDetails {
 	unavailable?: boolean;
 }
 
-/** Structured result carried in `write_plan`'s `details`. */
+/** Structured result carried in the `plan` tool's `details` for `action: "write"`. */
 export interface WritePlanDetails {
+	/** The verb this result answers. */
+	action: "write";
 	/** Absolute path of the written plan file. */
 	path: string;
 	/** How the path is shown: `~`-shortened, since plans live outside the project. */
@@ -85,8 +92,10 @@ export interface WritePlanDetails {
 	bytes: number;
 }
 
-/** Structured result carried in `set_plan_steps`'s `details`. */
+/** Structured result carried in the `plan` tool's `details` for `action: "steps"`. */
 export interface SetPlanStepsDetails {
+	/** The verb this result answers. */
+	action: "steps";
 	/** Absolute path of the plan file that was updated. */
 	path: string;
 	/** How the path is shown: `~`-shortened. */
@@ -99,8 +108,10 @@ export interface SetPlanStepsDetails {
 	total: number;
 }
 
-/** Structured result carried in `exit_plan_mode`'s `details`. */
+/** Structured result carried in the `plan` tool's `details` for `action: "exit"`. */
 export interface ExitPlanModeDetails {
+	/** The verb this result answers. */
+	action: "exit";
 	/** Whether the user approved the plan. */
 	approved: boolean;
 	/** The plan the model submitted, read from its file. */
@@ -121,8 +132,40 @@ export interface ExitPlanModeDetails {
 	unavailable?: boolean;
 }
 
-/** Structured result carried in `cancel_plan_mode`'s `details`. */
+/** Structured result carried in the `plan` tool's `details` for `action: "cancel"`. */
 export interface CancelPlanModeDetails {
+	/** The verb this result answers. */
+	action: "cancel";
 	/** True when plan mode was on and has now been turned off. */
 	cancelled: boolean;
 }
+
+/**
+ * A refused call: the reason, and the verb it named. It carries no `action`
+ * field on purpose — a refusal has none of that verb's state to report, and the
+ * absent discriminant is what tells a renderer it is looking at a rejection.
+ */
+export interface RefusedPlanDetails {
+	/** The verb the call named. */
+	refused: PlanAction;
+	/** Why the call was refused, as the model reads it. */
+	error: string;
+}
+
+/**
+ * What the `plan` tool's result carries: one of the five verbs, told apart by
+ * `action`, or a refusal that carried no state at all.
+ *
+ * The details name their own verb so a renderer draws the result it was given
+ * rather than re-reading the call's arguments, which a resumed transcript may
+ * no longer spell the same way. A details block recorded before the fold has no
+ * `action` at all, and a refusal never reaches the per-verb renderers; both take
+ * the same fallback.
+ */
+export type PlanDetails =
+	| EnterPlanModeDetails
+	| WritePlanDetails
+	| ExitPlanModeDetails
+	| SetPlanStepsDetails
+	| CancelPlanModeDetails
+	| RefusedPlanDetails;

@@ -18,7 +18,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type BusAnswer, requestOverBus } from "./bus-request.ts";
 import { isPlanModeEnabled } from "./plan-state.ts";
-import { PLAN_ENTER_TOOL } from "./tool-names.ts";
+import { PLAN_TOOL } from "./tool-names.ts";
 
 /** EventBus channel on which a caller asks `plan` to enable plan mode. */
 export const PLAN_ENTER_REQUEST = "my-pi-agent/plan-mode/enter";
@@ -29,12 +29,13 @@ export const PLAN_TOGGLE_REQUEST = "my-pi-agent/plan-mode/toggle";
 /** One clause describing the read-only guarantee, reused across prompts. */
 export const READ_ONLY_SUMMARY =
 	"write and edit are disabled, bash is limited to read-only git commands, and other mutating tools are blocked; " +
-	"subagent delegation is forced read-only, and the only file write is write_plan (a plan file in the agent " +
-	"directory)";
+	"subagent delegation is forced read-only, and the only file write is the plan file, saved by the `plan` tool's " +
+	"`write` action in the agent directory";
 
 /**
- * The consent question, as the user sees it. Shown by `enter_plan_mode` and by
- * any caller that offers plan mode itself, so both describe the same guarantee.
+ * The consent question, as the user sees it. Shown by the `plan` tool's `enter`
+ * action and by any caller that offers plan mode itself, so both describe the same
+ * guarantee.
  */
 export const PLAN_CONSENT =
 	`Plan mode is read-only exploration: ${READ_ONLY_SUMMARY}. ` +
@@ -65,10 +66,10 @@ export interface PlanModeRequest {
 }
 
 /**
- * Whether the `plan` extension registered its tools in this session.
+ * Whether the `plan` extension registered its tool in this session.
  */
 export function isPlanExtensionLoaded(pi: Pick<ExtensionAPI, "getAllTools">): boolean {
-	return pi.getAllTools().some((tool) => tool.name === PLAN_ENTER_TOOL);
+	return pi.getAllTools().some((tool) => tool.name === PLAN_TOOL);
 }
 
 /**

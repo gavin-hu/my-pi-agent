@@ -25,8 +25,6 @@ import {
 	WEB_SEARCH_TOOL,
 } from "../../lib/tool-names.ts";
 
-import { ENTER_TOOL } from "./runtime.ts";
-
 /**
  * Tools that stay available while planning: structured readers (documents
  * included), the trackers, the git-only `bash`, and the known web/question
@@ -53,23 +51,23 @@ export const PLAN_SAFE_TOOLS = [
  */
 export const PLAN_ALLOWED_TOOLS = [...PLAN_SAFE_TOOLS, SUBAGENT_TOOL, BOARD_TOOL];
 /**
- * Tools always blocked while planning, even when annotated read-only.
- * `enter_plan_mode` is denied so it stays hidden while planning; the guard exempts
- * plan's own registration so a call already in flight can still answer "already".
+ * Tools always blocked while planning, even when annotated read-only. The `plan`
+ * tool is not one of them: plan mode keeps it active in both modes, because its
+ * actions are the mode's own verbs and each one refuses outside its mode.
  */
-const ALWAYS_BLOCKED_TOOLS = ["write", "edit", ENTER_TOOL];
+const ALWAYS_BLOCKED_TOOLS = ["write", "edit"];
 
 /** Shown when a tool call is refused while planning. */
-export const BLOCKED_GUIDANCE = "Call exit_plan_mode and get approval before using it.";
+export const BLOCKED_GUIDANCE = "Call `plan` action `exit` and get approval before using it.";
 
 /** Appended to a refused `bash` call; names the readers and the exit hatch. */
 export const BASH_BLOCKED_GUIDANCE =
-	"Use the read, grep, find, and ls tools for files, or call exit_plan_mode and get approval before using other shell commands.";
+	"Use the read, grep, find, and ls tools for files, or call `plan` action `exit` and get approval before using other shell commands.";
 
 /**
  * Build plan mode's read-only policy: known readers and the plan/goal trackers
- * are allowed, write/edit/shell/`enter_plan_mode` are always blocked, and every
- * other tool must carry the MCP `readOnlyHint` to pass.
+ * are allowed, write/edit and the shells are always blocked, and every other tool
+ * must carry the MCP `readOnlyHint` to pass.
  */
 export function createPlanPolicy(pi: ExtensionAPI): ReadOnlyPolicy {
 	return createReadOnlyPolicy({

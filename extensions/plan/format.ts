@@ -5,9 +5,15 @@
  * the cap diagnosis, the preview, and the merge summary in one place.
  */
 
-import { SET_PLAN_STEPS_TOOL } from "./runtime.ts";
 import { MAX_STEP_LENGTH, MAX_STEPS, type PlanStep, type StepUpdate } from "./steps.ts";
 import type { TodoMerge } from "./todos.ts";
+
+/**
+ * How every message names the tick-off call. One spelling, because the tool is now
+ * one verb among five and a message that still spelled the old name would teach the
+ * model a tool that no longer exists.
+ */
+export const TICK_CALL = "`plan` action `steps`";
 
 /** Lines of plan shown in an unexpanded result. */
 const PREVIEW_LINES = 8;
@@ -80,7 +86,7 @@ export function mergeSummary(merged: TodoMerge, steps: PlanStep[]): string {
 		merged.deferred > 0 ? `${merged.deferred} deferred, list full` : "",
 	].filter(Boolean);
 	const suffix = notes.length > 0 ? ` (${notes.join(", ")})` : "";
-	const tick = `Tick each one off in the file with ${SET_PLAN_STEPS_TOOL} as you finish it, passing the step's text as \`expected\`.`;
+	const tick = `Tick each one off in the file with ${TICK_CALL} as you finish it, passing the step's text as \`expected\`.`;
 	const touched =
 		merged.stale > 0
 			? ` ${merged.stale} older item${merged.stale === 1 ? "" : "s"} no longer match${merged.stale === 1 ? "es" : ""} this plan but ${merged.stale === 1 ? "was" : "were"} left alone: ${merged.stale === 1 ? "it was" : "they were"} started or finished, so check ${merged.stale === 1 ? "it" : "them"} yourself.`

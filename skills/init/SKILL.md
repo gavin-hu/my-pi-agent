@@ -13,7 +13,7 @@ cannot show; the repository supplies every command, path, and convention that ca
 be verified. Plan mode is the review gate: no write happens before approval.
 
 `/skill:init` loads this skill. If plan mode is not active, call
-`enter_plan_mode` and wait for confirmation. Keep the interview and the plan
+`plan` with action `enter` and wait for confirmation. Keep the interview and the plan
 review in that order; do not write the file early to save a step. A declined plan
 mode ends the skill: stop and explain, rather than writing directly.
 
@@ -29,7 +29,7 @@ mode ends the skill: stop and explain, rather than writing directly.
         └─> draft: new file, exact edits, or an honest no-op
         └─> quality gate
         └─> plan outline with ## Steps and ## Verification
-        └─> write_plan ──> exit_plan_mode
+        └─> plan · write ──> plan · exit
                              ├─ not approved ──> refine the same plan
                              └─ approved ──────> write/edit the target
                                                  └─ read back + quality gate
@@ -147,7 +147,7 @@ evidence, not as a replacement for reading the repository.
 
 ## 5. Plan and review
 
-- Save the proposal with `write_plan` in the documented outline. The plan must
+- Save the proposal with `plan` action `write` in the documented outline. The plan must
   include:
   - `## Goal` — the outcome for the instruction file;
   - `## Context` — the sourced evidence sheet, the effective-file finding, and the
@@ -162,9 +162,9 @@ evidence, not as a replacement for reading the repository.
   - `## Verification` — the project's own check when it declares one (`run_check`,
     or the narrower docs or structure test that guards the instruction file), then
     reading the written file back against the checklist.
-- Call `exit_plan_mode` with the returned path.
+- Call `plan` action `exit` with the returned path.
 - If the user refines or rejects the plan, stay in plan mode, rewrite the same
-  plan file with `write_plan` (`plan_path`), and present it again.
+  plan file with `plan` action `write` (`plan_path`), and present it again.
 - No write to the target may happen before approval.
 
 ## 6. Apply and verify

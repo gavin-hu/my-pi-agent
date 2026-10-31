@@ -106,17 +106,20 @@ export function contractRoute(card: Pick<Card, "lane">): string {
 export function planForContract(planDir: string, rawPath: string): ArtifactCheck {
 	const found = locate(planDir, rawPath);
 	if (found.kind === "outside") {
-		return { error: `${at(found.path)} is not in this repository's plan store; write_plan saves into ${at(planDir)}.` };
+		return {
+			error: `${at(found.path)} is not in this repository's plan store; \`plan\` action \`write\` saves into ${at(planDir)}.`,
+		};
 	}
 	if (found.kind === "named") {
-		return { error: `${at(found.path)} is not a markdown plan; write_plan saves into ${at(planDir)}.` };
+		return { error: `${at(found.path)} is not a markdown plan; \`plan\` action \`write\` saves into ${at(planDir)}.` };
 	}
 	if (!found.present) {
 		return {
-			error: `${at(found.path)} does not exist; write_plan saves the plan, and \`contract\` records the path it returns.`,
+			error: `${at(found.path)} does not exist; \`plan\` action \`write\` saves the plan, and \`contract\` records the path it returns.`,
 		};
 	}
-	if (!found.file) return { error: `${at(found.path)} is not a file; record the markdown file write_plan saves.` };
+	if (!found.file)
+		return { error: `${at(found.path)} is not a file; record the markdown file \`plan\` action \`write\` saves.` };
 	return { path: found.path };
 }
 

@@ -25,7 +25,8 @@ import { plural } from "../../lib/board/round-text.ts";
  * that card's plan until one exists — so the call that opens the work is the one place the
  * order has to be said. It is a line of the transcript, not a field: nothing reads it back.
  */
-export const CLAIM_NEXT = "  next: design it in plan mode, write_plan, then `contract` with the path it returned";
+export const CLAIM_NEXT =
+	"  next: design it in plan mode, `plan` action `write`, then `contract` with the path it returned";
 
 /** One card: the headline, then the state a reader needs in order to act on it. */
 export function formatCard(card: Card, board?: BoardIndex, now?: number): string {
@@ -137,7 +138,7 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 	if (card.blocked !== undefined) lines.push(`  blocked: ${blockText(card.blocked)}`);
 	if (card.landed !== undefined) lines.push(`  landed: ${card.landed.commit}`);
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);
-	// The card stores the path resolved, so the line is shortened the way `write_plan` shows
+	// The card stores the path resolved, so the line is shortened the way the `write` action shows
 	// it: an absolute home directory is noise in every read of the same card.
 	if (card.planPath !== undefined) lines.push(`  plan: ${shortenPath(card.planPath)}`);
 	// The contract is what a reader is asked to agree to, so the block says it in full and

@@ -57,7 +57,6 @@ import {
 } from "./registry.ts";
 import { loadState, persistState, type WorktreeState } from "./state.ts";
 import { statusMarks } from "./status.ts";
-import { WORKTREE_TOOLS } from "./tools.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -800,8 +799,8 @@ describe.skipIf(!runSlowSuites)("pruneWorktrees", () => {
 	/** Create a clean worktree and leave it behind, as a previous session would. */
 	async function keptWorktree(repo: string, name: string): Promise<string> {
 		const harness = await bootWorktree(repo);
-		await harness.run(WORKTREE_TOOLS.enter, { name });
-		await harness.run(WORKTREE_TOOLS.exit, { remove: false });
+		await harness.action("enter", { name });
+		await harness.action("exit", { remove: false });
 		return managedPath(repo, name);
 	}
 
@@ -814,7 +813,7 @@ describe.skipIf(!runSlowSuites)("pruneWorktrees", () => {
 
 	async function prune(repo: string): Promise<string> {
 		const harness = await bootWorktree(repo);
-		const result = await harness.run(WORKTREE_TOOLS.prune, {});
+		const result = await harness.action("prune", {});
 		return result.content[0].text;
 	}
 
@@ -839,10 +838,10 @@ describe.skipIf(!runSlowSuites)("pruneWorktrees", () => {
 		temps.track(repo);
 		temps.track(remote);
 		const harness = await bootWorktree(repo);
-		await harness.run(WORKTREE_TOOLS.enter, { name: "cur" });
+		await harness.action("enter", { name: "cur" });
 		const dir = managedPath(repo, "cur");
 
-		const result = await harness.run(WORKTREE_TOOLS.prune, {});
+		const result = await harness.action("prune", {});
 		expect(result.content[0].text).toContain(`${dir} (current)`);
 		expect(existsSync(dir)).toBe(true);
 	});

@@ -129,6 +129,6 @@ export function formatClaimed(card: Card): string {
 	return (
 		`${cardRef(card.id)} is yours, in plan.\n` +
 		`  ${card.title}\n` +
-		`  next: design it in plan mode, write_plan, then \`board\` action \`contract\``
+		`  next: design it in plan mode, \`plan\` action \`write\`, then \`board\` action \`contract\``
 	);
 }

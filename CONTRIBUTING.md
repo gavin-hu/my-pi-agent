@@ -33,8 +33,8 @@ worktree per task, and enter it before you plan: plan mode is read-only, so it
 will not create one.
 
 ```bash
-# Under Pi with this package loaded:
-enter_worktree <name>
+# Under Pi with this package loaded, call the worktree tool's enter action:
+#   action "enter", name "<name>"
 
 # Otherwise:
 git worktree add .pi/worktrees/<name> -b worktree-<name>
@@ -49,7 +49,7 @@ a clean tree), run `git rebase main`, and re-run `bun run check`. Confirm with
 rebase: `git push origin main` publishes everything on it.
 
 With the work committed and checked, ask how to reconcile the branch (commit,
-merge, keep, or discard) before `exit_worktree`. Exiting with `remove: true,
+merge, keep, or discard) before `worktree` exits. Exiting with `remove: true,
 keepBranch: true` drops the clean worktree, keeps the branch, and reports the
 commits ahead plus the merge command; merge on the main checkout, push, and
 delete the branch. Never `git add -A` or `git add .`; stage explicit paths. Never

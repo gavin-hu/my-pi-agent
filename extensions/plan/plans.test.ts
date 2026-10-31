@@ -1428,7 +1428,7 @@ describe("plan text — changed sections", () => {
 	});
 
 	test("flags a renamed heading even when its body is unchanged", () => {
-		// The baseline is keyed by heading text, which is why write_plan asks a
+		// The baseline is keyed by heading text, which is why `write` asks a
 		// refinement to keep its headings: a rename has no digest to compare against.
 		expect(flags(sectionDigests(["## Approach", "Ship it."].join("\n")), ["## Design", "Ship it."].join("\n"))).toEqual(
 			[true],
@@ -1610,7 +1610,7 @@ describe("plan index — age and notice", () => {
 
 	test("says where plans go when there are none", () => {
 		expect(formatPlanIndex([], "~/.pi/agent/plans/a1f9c02")).toBe(
-			"No plans in ~/.pi/agent/plans/a1f9c02 yet; write_plan saves one there.",
+			"No plans in ~/.pi/agent/plans/a1f9c02 yet; `plan` action `write` saves one there.",
 		);
 	});
 
@@ -1813,9 +1813,9 @@ describe("plan policy", () => {
 		expect(policy.check("powershell")?.block).toBe(true);
 	});
 
-	test("blocks write, edit, and enter_plan_mode", () => {
+	test("blocks write and edit", () => {
 		const policy = createPlanPolicy(piWith([]));
-		for (const name of ["write", "edit", "enter_plan_mode"]) {
+		for (const name of ["write", "edit"]) {
 			expect(policy.check(name)?.block).toBe(true);
 		}
 	});
@@ -1835,6 +1835,6 @@ describe("plan policy", () => {
 	});
 
 	test("names the exit hatch in a refused call", () => {
-		expect(createPlanPolicy(piWith([])).check("write")?.reason).toContain("exit_plan_mode");
+		expect(createPlanPolicy(piWith([])).check("write")?.reason).toContain("action `exit`");
 	});
 });

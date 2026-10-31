@@ -40,7 +40,7 @@ export interface ReviewContext {
 	caller: (token: string) => ReviewCaller | undefined;
 	/** The host names this server answers to now, so a rebound page is refused. */
 	hosts: () => readonly string[];
-	/** Whether the browser may approve the plan (only the `exit_plan_mode` flow). */
+	/** Whether the browser may approve the plan (only the `plan` tool's `exit` flow). */
 	canApprove: boolean;
 	/** Build the page data for the caller (recomputed per request). */
 	page: (caller: ReviewCaller) => Promise<ReviewPageData>;
@@ -192,7 +192,7 @@ export async function handleReviewRequest(
 		return jsonResponse(200, { ok: true });
 	}
 	if (pathname === "/api/approve") {
-		// Only the owner's own page approves, and only the exit_plan_mode flow owns
+		// Only the owner's own page approves, and only the `exit` flow owns
 		// the side effects: a reviewer token is refused whatever it posts.
 		const refusal =
 			postOnly(method, "approve") ?? roleOnly(caller, ["owner"], "A shared review cannot approve the plan.");
