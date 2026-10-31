@@ -91,7 +91,9 @@ export function formatOfferFailure(card: Card, reason: string): string {
  *
  * The peers have an event for a card somebody else has since claimed, moved, or taken
  * over, so the correction says the offer stands as a message and the card is what the
- * board now says — not that nothing happened.
+ * board now says — not that nothing happened. No second message follows it: an offer's only
+ * next step is a claim, and a claim for a card somebody holds is refused naming the holder,
+ * so the stale text cannot send a peer anywhere the store will not correct it.
  */
 export function formatRacedOffer(card: Card, reason: string): string {
 	return (

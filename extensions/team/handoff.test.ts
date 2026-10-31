@@ -104,6 +104,34 @@ describe("assign", () => {
 		expect(result.details.card?.owner).toBeUndefined();
 	});
 
+	test("a card taken while the handoff is in flight is the rival's, and the peer is told", async () => {
+		// The one window the pre-check cannot see: the message is on its way and the card has
+		// not been touched, so another session claims it there. The assignment's own write is
+		// then refused against a card that is no longer free.
+		let id = "";
+		const race = harness({
+			duringSend: async (input) => {
+				if (input.kind !== "handoff") return;
+				const claimed = await (await race.store()).mutate(id, { kind: "claim" }, { label: "billing-web" }, NOW + 1);
+				expect(claimed.ok).toBe(true);
+			},
+		});
+		id = await race.seed();
+		const result = await race.call({ action: "assign", card: id, to: "billing-core" });
+
+		// The message went out first and carries the sentence that makes it survivable: without
+		// it the peer works a card somebody else holds, and finds out only when its own next call
+		// is refused naming the rival — the handoff it acted on never said the card might not be
+		// its.
+		expect(race.sent).toHaveLength(1);
+		expect(race.sent[0]?.text).toContain("If the board shows another owner");
+		expect(result.isError).toBe(true);
+		expect(resultText(result)).toContain(
+			`#${id} was handed off to billing-core, but the card changed before it could be assigned`,
+		);
+		expect(result.details.card).toMatchObject({ owner: { label: "billing-web" }, lane: "plan" });
+	});
+
 	test("refuses a handoff to the lead's own label or id, and names the claim", async () => {
 		const { call, seed, store, sent, me } = harness();
 		const id = await seed();
@@ -214,6 +242,31 @@ describe("offer", () => {
 		expect(resultText(result)).toContain("#1 was not offered: no other active sessions.");
 		expect(resultText(result)).toContain("The card is unchanged.");
 		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
+	});
+
+	test("an offer whose record loses the race sends no correction, and the claim is what tells a peer", async () => {
+		let id = "";
+		const race = harness({
+			duringSend: async () => {
+				const claimed = await (await race.store()).mutate(id, { kind: "claim" }, { label: "billing-web" }, NOW + 1);
+				expect(claimed.ok).toBe(true);
+			},
+		});
+		id = await race.seed();
+		const result = await race.call({ action: "offer", card: id });
+
+		// One broadcast and nothing after it: the offer's only next step is a claim, and the store
+		// refuses that naming the holder — so a stale offer cannot send a peer anywhere it is not
+		// told, and a second message would only wake every peer again.
+		expect(race.sent).toHaveLength(1);
+		expect(race.sent[0]?.to).toBe("*");
+		expect(result.isError).toBe(true);
+		expect(resultText(result)).toContain("was offered, but the card changed before the offer could be recorded");
+		expect(result.details.card).toMatchObject({ owner: { label: "billing-web" } });
+
+		const late = await (await race.store()).mutate(id, { kind: "claim" }, { label: "billing-core" }, NOW + 2);
+		if (late.ok) throw new Error("a card somebody holds is not claimable");
+		expect(late.error).toContain("is held by billing-web");
 	});
 
 	test("names the peers it reached that are not listening", async () => {

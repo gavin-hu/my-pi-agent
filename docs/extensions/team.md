@@ -165,7 +165,9 @@ so a peer is never told to make a move only the lead can sign — it is told whi
 ask, with `session send`. `assign` and `offer` write that sentence from the store's
 `board.lead`, so the lead a handoff names is the one whose signature the gate will take,
 and they write it before the paths, so a message clipped to the bus's limit keeps its step
-and loses its tail.
+and loses its tail. The owner is recorded after the message is sent, though, so the block
+closes with a condition the peer can act on: a card whose write lost the race is not theirs,
+and it says to tell the lead rather than work it.
 
 An offer is advice: nothing is theirs until they claim it, and a card nobody claims stays
 `backlog`, so it keeps showing up as unassigned in the round — with its age, which is the one
@@ -193,7 +195,9 @@ moves, and finish are `board`'s in this same session.
   card cannot be handed a card, and an offer to nobody says so.
 - **A held card is not assignable.** `assign` moves a pool card; one somebody already holds
   is refused, because a handoff cannot take work away from its owner — `reclaim` it, then
-  assign.
+  assign. The handoff is sent before the owner is written, so another session can take the
+  card in between: the peer reads that a card whose write lost the race is not its to work,
+  and the lead's refusal names the card the board now shows.
 - **The lead's name is a label, not a person.** The seat is not a session, so its actor id
   `board:<lead>` answers no message; the label is the one the session serving the page joins
   under, so a handoff to it reaches whoever is serving the page just now —
