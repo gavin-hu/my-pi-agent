@@ -374,7 +374,7 @@ included, so the segment states which mode the session is in and `≡ plan` is t
 override that withholds — a mode added later is a third value of this one chip, never a
 second indicator saying what the session may do. `Shift+Tab` at
 the main editor asks [plan](./plan.md) to flip it; the chip and the composer
-border are read from the branch, so `/plan` and the model's own `exit_plan_mode`
+border are read from the branch, so `/plan` and the model's own `plan` action `exit`
 move them too. Bytefly unsets Pi's `app.thinking.cycle` chord while it holds the
 key, so `/hotkeys` and the header stop claiming Shift+Tab, and restores it on
 shutdown. A session without `plan` still reads `▶ auto` and keeps the thinking

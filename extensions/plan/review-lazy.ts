@@ -3,11 +3,11 @@
  *
  * `review.ts` owns the loop, the TUI screen (`tui.ts`), the compact remote prompt,
  * and the baseline rule — about 1,000 lines that registration never needs:
- * `/plan review` and `exit_plan_mode` are the only two doors in. Both import this
+ * `/plan review` and the `plan` tool's `exit` action are the only two doors in. Both import this
  * module instead, so the loop loads once, on the first review of the session.
  *
  * The types stay here rather than in `review.ts` because a type import is erased:
- * `exit_plan_mode` declares its details from them at registration time.
+ * the `plan` tool declares its `exit` details from them at registration time.
  */
 
 import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";

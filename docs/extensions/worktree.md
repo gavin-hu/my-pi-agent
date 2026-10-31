@@ -13,26 +13,26 @@ root changes. It is one of two sibling git extensions in this package
 
 | Capability | How | What you get |
 |---|---|---|
-| Isolated checkout | `enter_worktree`, `/worktree enter`, `--worktree` | A new checkout at `<repo>/.pi/worktrees/<name>` on branch `worktree-<name>`, cut from `origin/main`. |
+| Isolated checkout | `worktree` action `enter`, `/worktree enter`, `--worktree` | A new checkout at `<repo>/.pi/worktrees/<name>` on branch `worktree-<name>`, cut from `origin/main`. |
 | Root-following built-ins | `read`, `write`, `edit`, `bash`, `grep`, `find`, `ls` | The built-in tools keep taking ordinary relative paths, resolved inside the worktree. |
 | Escape refusal | `guard.blockFileEscapes`, `guard.blockGitRedirects`, `guard.blockSymlinkEscapes` | Writes, `cd`, and `git` redirects that reach the main checkout are refused, symlink escapes included. |
-| Plan-mode refusal | `/worktree`, `enter_worktree` | In plan mode the screen opens read-only and every verb refuses until the plan is approved. |
+| Plan-mode refusal | `/worktree`, `worktree` action `enter` | In plan mode the screen opens read-only and every verb refuses until the plan is approved. |
 | PowerShell refusal | `powershell` while isolated | The unparseable shell is refused instead of becoming an unguarded escape. |
 | Seeded working copy | `.worktreeinclude`, `include` | Gitignored files such as `.env` are copied into each new worktree. |
-| Ignore bootstrap | `enter_worktree` | The first worktree offers to add `.pi/worktrees` to `.gitignore`, so the checkout does not pollute status. |
-| PR/MR checkout | `enter_worktree` `name`, `--worktree` | A pull or merge request's head is fetched and checked out as `pr-<n>`. |
+| Ignore bootstrap | `worktree` action `enter` | The first worktree offers to add `.pi/worktrees` to `.gitignore`, so the checkout does not pollute status. |
+| PR/MR checkout | `worktree` action `enter` with `name`, `--worktree` | A pull or merge request's head is fetched and checked out as `pr-<n>`. |
 | Child sessions | `PI_WORKTREE_ROOT`, `PI_WORKTREE_BRANCH`, `PI_WORKTREE_MAIN` | A `pi` started from a tool binds to the same worktree, read-only for lifecycle. |
 
 ### Returning and managing
 
 | Capability | How | What you get |
 |---|---|---|
-| Return with a handoff | `exit_worktree`, `/worktree exit` | Back in the main checkout, with the branch, its commits, and the merge or PR command that finishes them. |
-| Work that survives | `exit_worktree`, `worktree.onExit` | A worktree holding changes or commits is asked about or kept, never force-deleted. |
-| Status inventory | `list_worktrees`, `/worktree` | The active root, the gaps isolation does not cover, and every managed worktree with its state. |
+| Return with a handoff | `worktree` action `exit`, `/worktree exit` | Back in the main checkout, with the branch, its commits, and the merge or PR command that finishes them. |
+| Work that survives | `worktree` action `exit`, `worktree.onExit` | A worktree holding changes or commits is asked about or kept, never force-deleted. |
+| Status inventory | `worktree` action `list`, `/worktree` | The active root, the gaps isolation does not cover, and every managed worktree with its state. |
 | Worktree screen | `/worktree` | One list screen with the focused worktree's path, base, and gaps, and the verbs to act on it. |
-| Cleanup | `prune_worktrees`, `/worktree prune` | Clean, unused, old worktrees are removed; every other one is kept with a reason. |
-| Concurrent-session safety | `enter_worktree`, `prune_worktrees` | A worktree in use is locked, so another session's sweep cannot remove it. |
+| Cleanup | `worktree` action `prune`, `/worktree prune` | Clean, unused, old worktrees are removed; every other one is kept with a reason. |
+| Concurrent-session safety | `worktree` actions `enter` and `prune` | A worktree in use is locked, so another session's sweep cannot remove it. |
 | Session restore | `/resume`, `--continue` | An active worktree is restored from the branch, or reported gone. |
 | Extension signal | `worktree:changed` | Another extension follows the active root without polling. |
 | Doctor finding | `run_doctor` | A degraded `guard.blockPowershell` setting is named in the health report instead of only at use. |
@@ -49,30 +49,32 @@ pi install ./                          # install the package
 /worktree                              # the list screen, or the same facts as text
 ```
 
-The model enters with `enter_worktree`; `pi -e . --worktree feature-auth` starts
+The model enters with `worktree` action `enter`; `pi -e . --worktree feature-auth` starts
 the session already isolated.
 
 ## Tools
 
-<img src="../../assets/tools/list_worktrees.png" alt="The list_worktrees tool's call and result, drawn by the generic fallback" width="100%">
+<img src="../../assets/tools/worktree-list.png" alt="The worktree tool's list action: the call line and the indented status it reports" width="100%">
 
-`enter_worktree` creates or enters a checkout, `exit_worktree` returns to the
-main checkout, and `prune_worktrees` and `list_worktrees` manage and report. All
-four are `executionMode: "sequential"`, and only `list_worktrees` is read-only.
+One tool with four actions — `enter`, `exit`, `list`, `prune` — because they are
+one lifecycle. It is `executionMode: "sequential"` and takes the strictest
+annotation of the four, `destructiveHint: true` with `openWorldHint: true`,
+because `enter` writes into the checkout the session is bound to; `list` writes
+nothing, and the fold cannot say that with one hint.
 
-| Tool | Usage |
+| Action | Usage |
 |---|---|
-| `enter_worktree` | `name` to create a worktree, or `path` to enter an existing one. Errors if already isolated. |
-| `exit_worktree` | optional `remove` and `keepBranch`. Returns the clean/keep/remove decision and a `handoff` (`branch`, `base`, `ahead`, `commits`, `merged`). |
-| `prune_worktrees` | no parameters. Removes eligible managed worktrees and reports the rest. |
-| `list_worktrees` | no parameters. Read-only status: active root, inactive overrides, isolation gaps, managed worktrees. |
+| `enter` | `name` to create a worktree, or `path` to enter an existing one. Errors if already isolated. |
+| `exit` | optional `remove` and `keepBranch`. Returns the clean/keep/remove decision and a `handoff` (`branch`, `base`, `ahead`, `commits`, `merged`). |
+| `list` | no fields. Read-only status: active root, inactive overrides, isolation gaps, managed worktrees. |
+| `prune` | no fields. Removes eligible managed worktrees and reports the rest. |
 
-`enter_worktree` creates `<repo>/.pi/worktrees/<name>` on branch
+`enter` creates `<repo>/.pi/worktrees/<name>` on branch
 `worktree-<name>` cut from `origin/main` (which can lag the local `main`), or
 enters an existing worktree by `path`, and rebinds the session's working root to
 it.
 
-`exit_worktree` returns to the main checkout. A clean worktree is removed
+`exit` returns to the main checkout. A clean worktree is removed
 automatically; one with uncommitted changes or new commits prompts (or is kept
 in non-interactive mode). Its result ends with a **handoff**: the branch, how
 many commits it holds beyond the merge target, how many it made since it was
@@ -96,7 +98,7 @@ relative paths inside the worktree, and:
 
 ### Status text
 
-`list_worktrees` (and a headless `/worktree`) reports the active worktree, any
+`list` (and a headless `/worktree`) reports the active worktree, any
 override that is not re-rooted, what isolation does not cover, and the managed
 worktrees:
 
@@ -149,7 +151,7 @@ pane for the selected one. A worktree that has not committed since it was create
 says `no commits` instead of `merged`: it is an ancestor of its base, which git
 alone cannot tell from a branch that landed. When work did land, the row says how
 much — `commits 2  merged`. Outside a terminal — print, RPC, JSON — the same
-facts print as text instead, which is also what the model's `list_worktrees`
+facts print as text instead, which is also what the model's `list` action
 reads.
 
 | Key | What it does |
@@ -202,10 +204,10 @@ which also lists every key with its default and accepted values.
 tool names: Pi refuses to load two extensions that register the same tool, so
 exclude the name here to load alongside it. It is read when the extension
 loads, from the process working directory; reload after changing it. `/worktree`
-and `list_worktrees` list any overridden tool that is not re-rooted.
+and `worktree` action `list` name any overridden tool that is not re-rooted.
 
 `.gitignore` must cover the managed directory, or worktrees show up as untracked
-files in the main checkout. `enter_worktree` offers once per session to append
+files in the main checkout. `enter` offers once per session to append
 `.pi/worktrees/`, and skips the offer when `git check-ignore` already reports the
 directory as ignored, so a wider rule is enough and no literal line is needed:
 
@@ -264,7 +266,7 @@ config/secrets.json
 
 ## Pull / merge requests
 
-`enter_worktree` accepts a PR/MR reference in `name`, as does the startup flag:
+`enter` accepts a PR/MR reference in `name`, as does the startup flag:
 
 ```
 pi --worktree '#1234'
@@ -280,8 +282,8 @@ While isolated, the extension exports `PI_WORKTREE_ROOT`, `PI_WORKTREE_BRANCH`,
 and `PI_WORKTREE_MAIN` (the main checkout) into the process environment. A child
 `pi` process — a subagent spawned by an extension, or any `pi` you start from a
 tool — inherits it and binds to the same worktree instead of the main checkout.
-The child is read-only with respect to lifecycle: `enter_worktree` and
-`exit_worktree` refuse, and the parent owns cleanup.
+The child is read-only with respect to lifecycle: `enter` and `exit`
+refuse, and the parent owns cleanup.
 
 Extensions can also follow changes on the `pi.events` channel
 `worktree:changed`, which receives `{ active, path, branch, borrowed }`.
@@ -290,7 +292,7 @@ Extensions can also follow changes on the `pi.events` channel
 
 Entering a managed worktree takes a `git worktree lock` (reason
 `pi:<pid>:<session>`), so a concurrent sweep cannot remove it; exiting and
-shutdown release it. `/worktree prune` (or the `prune_worktrees` tool) removes
+shutdown release it. `/worktree prune` (or `worktree` action `prune`) removes
 managed worktrees that are clean, have no new commits, are not the current or a
 live-locked one, and are older than `pruneAfterDays`. It releases locks whose
 owning process is gone first, and any failure keeps the worktree with a reason.
@@ -306,7 +308,7 @@ use, falling back to directory mtime for a worktree with no record.
   extension owns `bash` (or another overridden name), set
   `skipOverrides: ["bash"]` so this extension does not register it; that tool
   then runs in the main checkout with **no re-rooting**, so only its absolute
-  writes are guarded (relative paths are not isolated), and `list_worktrees`
+  writes are guarded (relative paths are not isolated), and `list`
   reports it. `skipOverrides` is read at load time, from the process working
   directory.
 - The commit count behind `no commits` comes from the commit a worktree was
@@ -321,11 +323,15 @@ use, falling back to directory mtime for a worktree with no record.
 - Only the model's `bash` tool is re-rooted and guarded. A shell command the
   user runs directly (`!` in the TUI / the `user_bash` event) is not re-rooted
   and still runs in the main checkout; Pi has no mutable session cwd to change
-  that. `/worktree` and `list_worktrees` report the active root, and list the
+  that. `/worktree` and `list` report the active root, and list the
   shell under `Not isolated:` on every status read.
 - Windows `powershell` is refused while isolated, or — with
   `guard.blockPowershell: false` — allowed and unguarded. There is no third
   state: a parsed PowerShell command that keeps the tool.
+- **`list` is not available while planning.** One annotation set cannot be both
+  read-only and destructive, so plan mode hides the whole tool and a planning
+  session reads the inventory with `/worktree` instead. A per-tool filter is
+  all-or-nothing for the same reason, so disabling `worktree` loses every verb.
 
 ## Non-goals
 
@@ -342,7 +348,7 @@ use, falling back to directory mtime for a worktree with no record.
 | Contract | Detail |
 |---|---|
 | Registration | The default export calls `registerWorktree`: root-tool overrides, the `--worktree` flag, lifecycle listeners, model tools, and the `/worktree` command. Nothing long-lived starts at load. |
-| Tools | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees` via `registerTool`. All `executionMode: "sequential"`. Annotations: `enter_worktree` destructive + open-world; `exit_worktree`/`prune_worktrees` destructive; `list_worktrees` read-only. No `outputSchema`; structured state is returned in tool-result `details` — `exit_worktree` carries `{ state, removed, handoff }`, where `handoff` is `{ branch, base, ahead, commits, merged }` (`commits` absent when the worktree has no recorded base commit). |
+| Tools | one `worktree` tool via `registerTool`, with four actions (`enter`, `exit`, `list`, `prune`), `executionMode: "sequential"`, and one annotation set for all four: `destructiveHint: true`, `openWorldHint: true` — the strictest, because `enter` writes into the checkout the session is bound to. The block is bytefly's generic fallback, as the four tools' was: the verb reads as the subject and its fields as the aside (`worktree enter (name feat)`, `worktree list`). No `outputSchema`; structured state is returned in tool-result `details` discriminated by `action` — `exit` carries `{ action, state, removed, handoff }`, where `handoff` is `{ branch, base, ahead, commits, merged }` (`commits` absent when the worktree has no recorded base commit). |
 | Built-in overrides | `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` are re-registered under the same names with `defaultActive: false`; each spreads the built-in definition and replaces only `execute`. `skipOverrides` is applied at load time. `powershell` is deliberately not overridden: it cannot be re-rooted without a guard, so the `tool_call` handler refuses it (see `guard.blockPowershell`). |
 | Commands | `/worktree` via `registerCommand`, with argument completions for `enter`, `exit`, and `prune`. The bare command mounts `screen.ts` in a terminal and prints the status text otherwise; `enter`/`exit`/`prune` refuse while plan mode is read-only. |
 | Flags | `--worktree` via `registerFlag`. |
@@ -387,7 +393,7 @@ one read and two renderings.
   `--continue` restore the binding or report accurately when the directory is
   gone; the registry is reconciled against `git worktree list` on every
   management read and is never the source of truth.
-- **Never force out work.** `exit_worktree` never force-deletes a branch that
+- **Never force out work.** `exit` never force-deletes a branch that
   still holds uncommitted changes or commits not reachable from the recorded
   base, even with `remove: true`.
 - **A handoff is read, not performed.** The exit reports the branch's state and
@@ -414,7 +420,7 @@ one read and two renderings.
 | `errors.ts` | Cancellation error that distinguishes a user decline from a failure |
 | `enter.ts` / `exit.ts` / `prune.ts` | The lifecycle phases |
 | `handoff.ts` | The `Handoff:` block an exit leaves: the branch's lead, whether the base contains it, and the merge or PR command. |
-| `tools.ts` / `commands.ts` | Model tools / slash commands |
+| `tools.ts` / `commands.ts` | The one model tool and its four actions / slash commands |
 | `screen.ts` | The `/worktree` list screen: rows, keys, detail pane, and verbs |
 | `root-tools.ts` | Load-time built-in overrides bound to the active root |
 | `git.ts` | Git plumbing (shared runner + read helpers) |
@@ -434,7 +440,9 @@ bun run test:watch
 ```
 
 The suite covers the pure logic (`include.ts` gitignore matcher, `guard.ts` path
-and command checks, `parsePrReference`), drives the `/worktree` screen against a
+and command checks, `parsePrReference`), the folded tool's own surface
+(`tools.test.ts`: the four actions in one schema and its annotations), drives the
+`/worktree` screen against a
 snapshot (`ui.test.ts`: rows, marks, verbs, and width bounds), and drives the
 extension end-to-end against real temporary git repositories through a mocked
 `pi` API: enter/exit, isolation guards, borrowed worktrees, prune, and

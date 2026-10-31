@@ -110,7 +110,7 @@ export async function enterWorktree(
 	}
 	if (current) {
 		throw new Error(
-			`Already working in a worktree (${worktreeLabel(current)}). Run /worktree exit, or call exit_worktree, before entering another.`,
+			`Already working in a worktree (${worktreeLabel(current)}). Run /worktree exit, or call \`worktree\` action \`exit\`, before entering another.`,
 		);
 	}
 
@@ -269,7 +269,7 @@ export async function enterWorktree(
 	setStatus(ctx, `${GLYPHS.worktree} ${worktreeLabel(state)}`);
 	const summary =
 		`Entered worktree.\n${stateSummary(state)}\n\n` +
-		`Relative paths now resolve inside the worktree. When finished, call exit_worktree.` +
+		`Relative paths now resolve inside the worktree. When finished, call \`worktree\` action \`exit\`.` +
 		(copiedIncludes.length > 0 ? `\n\nCopied ${copiedIncludes.length} gitignored file(s).` : "");
 	return { state, summary };
 }

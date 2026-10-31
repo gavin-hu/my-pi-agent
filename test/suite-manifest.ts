@@ -64,6 +64,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"plans",
 		"feedback",
 		"tools",
+		"tool-registration",
 		"review-lazy",
 		"review-prompt",
 		"web-lazy",
@@ -115,7 +116,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"peer/peer",
 		"view/status",
 	],
-	worktree: ["git", "flow", "ui"],
+	worktree: ["git", "flow", "tools", "ui"],
 };
 
 export const LIB_SUITES: readonly string[] = [

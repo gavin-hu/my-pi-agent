@@ -31,7 +31,7 @@ export const MAX_STEP_LENGTH = 200;
  * section that carries the end state — the same surface before and after when the
  * change alters one that already exists, one frame when it is new — in a fence
  * that stays untagged unless every line is code, so the reviewer sees the result
- * before the steps that build it. Guidance only: `write_plan` never rejects or
+ * before the steps that build it. Guidance only: the `write` action never rejects or
  * rewrites a plan that omits a section, and a change with no visible surface drops
  * `Visual`.
  */
@@ -268,7 +268,7 @@ const LIST_PREFIX = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?/;
  * list markers and inline emphasis, and the lines are joined with `; `, prefixed
  * with `Verify:` and elided like a long step. The item is deliberately *not* a
  * plan step: it is not in the `Steps` section, so it must not count against the
- * step cap or appear in `set_plan_steps` numbering.
+ * step cap or appear in the `steps` action's numbering.
  *
  * A plan with no `Steps` heading feeds its shallowest list as steps (the older
  * rule), so that list already covers the verification bullets; appending a
@@ -297,7 +297,7 @@ export function extractPlanSteps(plan: string): PlanStep[] {
 	return topLevelItems(plan).map((item) => ({ content: elide(item.step.content), status: item.step.status }));
 }
 
-/** The full cost of a plan's step list, for the warning `write_plan` reports. */
+/** The full cost of a plan's step list, for the warning the `write` action reports. */
 export interface PlanStepSummary {
 	/** Top-level items in the step list, before the {@link MAX_STEPS} cap. */
 	total: number;

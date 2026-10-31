@@ -22,7 +22,7 @@ import { isPursuedGoal } from "../../lib/goal-state.ts";
 import { isRemoteTurn, remoteLanguage } from "../../lib/interaction.ts";
 import { PLAN_CONSENT, PLAN_CONSENT_SHORT, PLAN_CONSENT_SHORT_ZH, requestPlanMode } from "../../lib/plan-entry.ts";
 import { isPlanModeEnabled } from "../../lib/plan-state.ts";
-import { PLAN_ENTER_TOOL } from "../../lib/tool-names.ts";
+import { PLAN_TOOL } from "../../lib/tool-names.ts";
 import type { Goal, GoalStatus } from "./types.ts";
 
 /** Dialog title: the question the phase answers. */
@@ -45,7 +45,7 @@ export async function goalPhase(
 	if (isPlanModeEnabled(ctx.sessionManager.getBranch())) return "planning";
 	if (!options.ask || !ctx.hasUI) return "active";
 	// Do not ask about a phase this session cannot enter.
-	if (!pi.getAllTools().some((tool) => tool.name === PLAN_ENTER_TOOL)) return "active";
+	if (!pi.getAllTools().some((tool) => tool.name === PLAN_TOOL)) return "active";
 	const consent = isRemoteTurn(ctx)
 		? remoteLanguage(ctx) === "zh"
 			? PLAN_CONSENT_SHORT_ZH

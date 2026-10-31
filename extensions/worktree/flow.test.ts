@@ -34,7 +34,6 @@ import worktreeExtension from "./index.ts";
 import { loadRegistry } from "./registry.ts";
 import { ROOT_TOOL_NAMES } from "./root-tools.ts";
 import { ENV_BRANCH, ENV_MAIN, ENV_ROOT } from "./runtime.ts";
-import { WORKTREE_TOOLS } from "./tools.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -236,7 +235,7 @@ describe.skipIf(!runSlowSuites)("entering a worktree", () => {
 		const repo = temps.track(await makeRepo("pi-wt-enter-"));
 		const harness = await bootWorktree(repo);
 
-		const result = await harness.run(WORKTREE_TOOLS.enter, { name: "a" });
+		const result = await harness.action("enter", { name: "a" });
 		const dir = managedPath(repo, "a");
 		expect(result.content[0].text).toContain("Entered worktree");
 		expect(harness.ctx.statuses.get("worktree")).toContain("a");
@@ -251,10 +250,10 @@ describe.skipIf(!runSlowSuites)("entering a worktree", () => {
 	test("refuses a name or a path that leaves the managed directory", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-enter-"));
 		const harness = await bootWorktree(repo);
-		await expect(
-			harness.run(WORKTREE_TOOLS.enter, { name: join(tempDir("pi-wt-escape-"), "outside") }),
-		).rejects.toThrow(/outside/);
-		await expect(harness.run(WORKTREE_TOOLS.enter, { path: repo })).rejects.toThrow(/main checkout/i);
+		await expect(harness.action("enter", { name: join(tempDir("pi-wt-escape-"), "outside") })).rejects.toThrow(
+			/outside/,
+		);
+		await expect(harness.action("enter", { path: repo })).rejects.toThrow(/main checkout/i);
 	});
 
 	test("treats a declined outside-path entry as a normal cancellation", async () => {
@@ -263,7 +262,7 @@ describe.skipIf(!runSlowSuites)("entering a worktree", () => {
 		await execP("git", ["worktree", "add", "-b", "outside-branch", outside], { cwd: repo });
 
 		const harness = await bootWorktree(repo, { hasUI: true, confirm: false });
-		const result = await harness.run(WORKTREE_TOOLS.enter, { path: outside });
+		const result = await harness.action("enter", { path: outside });
 		expect(result.content[0].text).toMatch(/cancelled/i);
 		expect(result.details.cancelled).toBe(true);
 		expect(harness.ctx.statuses.has("worktree")).toBe(false);
@@ -273,13 +272,13 @@ describe.skipIf(!runSlowSuites)("entering a worktree", () => {
 		const repo = temps.track(await makeRepo("pi-wt-enter-"));
 		const harness = await bootWorktree(repo);
 
-		await harness.run(WORKTREE_TOOLS.enter, { name: "reuse" });
+		await harness.action("enter", { name: "reuse" });
 		writeFileSync(join(managedPath(repo, "reuse"), "work.txt"), "x");
-		await harness.run(WORKTREE_TOOLS.exit, { remove: true, keepBranch: true });
+		await harness.action("exit", { remove: true, keepBranch: true });
 
-		const reentered = await harness.run(WORKTREE_TOOLS.enter, { name: "reuse" });
+		const reentered = await harness.action("enter", { name: "reuse" });
 		expect(reentered.content[0].text).toContain("Entered worktree");
-		await harness.run(WORKTREE_TOOLS.exit, { remove: true, keepBranch: true });
+		await harness.action("exit", { remove: true, keepBranch: true });
 	});
 
 	test("binds a borrowed worktree and refuses to change it", async () => {
@@ -287,16 +286,16 @@ describe.skipIf(!runSlowSuites)("entering a worktree", () => {
 
 		// Leave a kept worktree behind, as the parent session would.
 		const parent = await bootWorktree(repo);
-		await parent.run(WORKTREE_TOOLS.enter, { name: "borrow" });
-		await parent.run(WORKTREE_TOOLS.exit, { remove: false });
+		await parent.action("enter", { name: "borrow" });
+		await parent.action("exit", { remove: false });
 		const dir = managedPath(repo, "borrow");
 
 		const child = await bootWorktree(repo, { env: { root: dir, branch: "worktree-borrow", main: repo } });
 		expect(child.ctx.statuses.get("worktree")).toContain("borrow");
-		expect((await child.run(WORKTREE_TOOLS.list, {})).content[0].text).toContain(realPathOfNearest(repo));
+		expect((await child.action("list", {})).content[0].text).toContain(realPathOfNearest(repo));
 
-		await expect(child.run(WORKTREE_TOOLS.enter, { name: "x" })).rejects.toThrow(/inherited/i);
-		await expect(child.run(WORKTREE_TOOLS.exit, {})).rejects.toThrow(/inherited|parent/i);
+		await expect(child.action("enter", { name: "x" })).rejects.toThrow(/inherited/i);
+		await expect(child.action("exit", {})).rejects.toThrow(/inherited|parent/i);
 
 		const handler = child.pi.handlers.get("tool_call")[0];
 		expect(handler({ toolName: "write", input: { path: join(repo, "outside.txt") } })).toMatchObject({ block: true });
@@ -311,7 +310,7 @@ describe.skipIf(!runSlowSuites)("gitignore offer", () => {
 		const repo = temps.track(await makeRepo("pi-wt-ignore-"));
 		const harness = await bootWorktree(repo, { hasUI: true });
 
-		await harness.run(WORKTREE_TOOLS.enter, { name: "a" });
+		await harness.action("enter", { name: "a" });
 
 		expect(harness.ctx.confirms.map((entry: { title: string }) => entry.title)).toEqual([
 			"Add the worktree directory to .gitignore?",
@@ -324,7 +323,7 @@ describe.skipIf(!runSlowSuites)("gitignore offer", () => {
 		writeFileSync(join(repo, ".gitignore"), ".pi/\n");
 		const harness = await bootWorktree(repo, { hasUI: true });
 
-		await harness.run(WORKTREE_TOOLS.enter, { name: "a" });
+		await harness.action("enter", { name: "a" });
 
 		expect(harness.ctx.confirms).toEqual([]);
 		expect(readFileSync(join(repo, ".gitignore"), "utf-8")).toBe(".pi/\n");
@@ -334,7 +333,7 @@ describe.skipIf(!runSlowSuites)("gitignore offer", () => {
 		const repo = temps.track(await makeRepo("pi-wt-ignore-"));
 		const harness = await bootWorktree(repo, { hasUI: true, confirm: false });
 
-		await harness.run(WORKTREE_TOOLS.enter, { name: "a" });
+		await harness.action("enter", { name: "a" });
 
 		expect(existsSync(join(repo, ".gitignore"))).toBe(false);
 	});
@@ -344,10 +343,10 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("removes a clean worktree and its branch", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo);
-		await harness.run(WORKTREE_TOOLS.enter, { name: "a" });
+		await harness.action("enter", { name: "a" });
 		const dir = managedPath(repo, "a");
 
-		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+		const result = await harness.action("exit", { remove: true });
 		expect(result.content[0].text).toContain("Removed worktree");
 		expect(existsSync(dir)).toBe(false);
 		expect((await execP("git", ["branch"], { cwd: repo })).stdout).not.toContain("worktree-a");
@@ -356,11 +355,11 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("keeps a dirty worktree when there is no UI to ask", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo);
-		await harness.run(WORKTREE_TOOLS.enter, { name: "dirty" });
+		await harness.action("enter", { name: "dirty" });
 		const dir = managedPath(repo, "dirty");
 		writeFileSync(join(dir, "work.txt"), "x");
 
-		const result = await harness.run(WORKTREE_TOOLS.exit, {});
+		const result = await harness.action("exit", {});
 		expect(result.content[0].text).toContain("Kept worktree");
 		expect(existsSync(dir)).toBe(true);
 	});
@@ -368,11 +367,11 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("treats a declined exit prompt as a normal result and keeps the binding", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo, { hasUI: true, select: "Cancel" });
-		await harness.run(WORKTREE_TOOLS.enter, { name: "declined" });
+		await harness.action("enter", { name: "declined" });
 		const dir = managedPath(repo, "declined");
 		writeFileSync(join(dir, "work.txt"), "x");
 
-		const result = await harness.run(WORKTREE_TOOLS.exit, {});
+		const result = await harness.action("exit", {});
 		expect(result.content[0].text).toMatch(/cancelled/i);
 		expect(result.isError).not.toBe(true);
 		expect(result.details.cancelled).toBe(true);
@@ -383,13 +382,13 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("keeps a branch with unmerged commits on forced removal", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo);
-		await harness.run(WORKTREE_TOOLS.enter, { name: "commits" });
+		await harness.action("enter", { name: "commits" });
 		const dir = managedPath(repo, "commits");
 		writeFileSync(join(dir, "new.txt"), "x");
 		await execP("git", ["add", "."], { cwd: dir });
 		await execP("git", ["commit", "-qm", "work"], { cwd: dir });
 
-		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+		const result = await harness.action("exit", { remove: true });
 		expect(result.content[0].text).toContain("Removed worktree");
 		expect(result.content[0].text).toMatch(/Kept branch worktree-commits/);
 		expect(existsSync(dir)).toBe(false);
@@ -399,13 +398,13 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("hands the branch back with the command that finishes it", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-handoff-"));
 		const harness = await bootWorktree(repo);
-		await harness.run(WORKTREE_TOOLS.enter, { name: "hand" });
+		await harness.action("enter", { name: "hand" });
 		const dir = managedPath(repo, "hand");
 		writeFileSync(join(dir, "new.txt"), "x");
 		await execP("git", ["add", "."], { cwd: dir });
 		await execP("git", ["commit", "-qm", "work"], { cwd: dir });
 
-		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+		const result = await harness.action("exit", { remove: true });
 		const text = result.content[0].text;
 
 		expect(text).toContain("Handoff: worktree-hand is 1 commit ahead of main.");
@@ -417,7 +416,7 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("counts against the base branch, not the commit recorded at entry", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-handoff-"));
 		const harness = await bootWorktree(repo);
-		await harness.run(WORKTREE_TOOLS.enter, { name: "rebased" });
+		await harness.action("enter", { name: "rebased" });
 		const dir = managedPath(repo, "rebased");
 
 		// The base branch moves on after the worktree was cut, which is what a rebase
@@ -430,7 +429,7 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 		await execP("git", ["add", "."], { cwd: dir });
 		await execP("git", ["commit", "-qm", "mine"], { cwd: dir });
 
-		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+		const result = await harness.action("exit", { remove: true });
 
 		expect(result.content[0].text).toContain("Handoff: worktree-rebased is 1 commit ahead of main.");
 		expect(result.details.handoff).toMatchObject({ base: "main", ahead: 1, merged: false });
@@ -439,9 +438,9 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("says there is nothing to merge once the branch was deleted", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-handoff-"));
 		const harness = await bootWorktree(repo);
-		await harness.run(WORKTREE_TOOLS.enter, { name: "empty" });
+		await harness.action("enter", { name: "empty" });
 
-		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+		const result = await harness.action("exit", { remove: true });
 		expect(result.content[0].text).toContain("Deleted branch worktree-empty");
 		expect(result.content[0].text).toContain("nothing to merge");
 		expect(result.content[0].text).not.toContain("git merge --no-ff");
@@ -450,10 +449,10 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("names the branch it kept for a dirty worktree", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-handoff-"));
 		const harness = await bootWorktree(repo);
-		await harness.run(WORKTREE_TOOLS.enter, { name: "dirty" });
+		await harness.action("enter", { name: "dirty" });
 		writeFileSync(join(managedPath(repo, "dirty"), "work.txt"), "x");
 
-		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: false });
+		const result = await harness.action("exit", { remove: false });
 		expect(result.content[0].text).toContain("Kept worktree");
 		// Nothing committed, so nothing landed: the handoff says that rather than claiming a
 		// merge of the work still sitting in the directory.
@@ -464,11 +463,11 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("keeps a dirty worktree's branch when the user chooses remove", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo, { hasUI: true, select: "Remove it and its branch" });
-		await harness.run(WORKTREE_TOOLS.enter, { name: "dirty2" });
+		await harness.action("enter", { name: "dirty2" });
 		const dir = managedPath(repo, "dirty2");
 		writeFileSync(join(dir, "work.txt"), "x");
 
-		const result = await harness.run(WORKTREE_TOOLS.exit, {});
+		const result = await harness.action("exit", {});
 		expect(result.content[0].text).toContain("Removed worktree");
 		expect(result.content[0].text).toContain("Kept branch worktree-dirty2");
 		expect(existsSync(dir)).toBe(false);
@@ -478,16 +477,16 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo);
 
-		await harness.run(WORKTREE_TOOLS.enter, { name: "bypath" });
+		await harness.action("enter", { name: "bypath" });
 		const dir = managedPath(repo, "bypath");
-		await harness.run(WORKTREE_TOOLS.exit, { remove: false });
+		await harness.action("exit", { remove: false });
 
 		writeFileSync(join(dir, "new.txt"), "x");
 		await execP("git", ["add", "."], { cwd: dir });
 		await execP("git", ["commit", "-qm", "work"], { cwd: dir });
 
-		await harness.run(WORKTREE_TOOLS.enter, { path: dir });
-		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+		await harness.action("enter", { path: dir });
+		const result = await harness.action("exit", { remove: true });
 		expect(result.content[0].text).toContain("Removed worktree");
 		expect(result.content[0].text).toMatch(/Kept branch worktree-bypath/);
 		expect((await execP("git", ["branch"], { cwd: repo })).stdout).toContain("worktree-bypath");
@@ -496,7 +495,7 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("keeps the worktree and reports the failure when removal fails", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo);
-		await harness.run(WORKTREE_TOOLS.enter, { name: "stuck" });
+		await harness.action("enter", { name: "stuck" });
 		const dir = managedPath(repo, "stuck");
 		const realExec = harness.pi.exec;
 		harness.pi.exec = async (command: string, args: string[], options?: { cwd?: string; timeout?: number }) => {
@@ -506,7 +505,7 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 			return realExec(command, args, options);
 		};
 
-		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: true });
+		const result = await harness.action("exit", { remove: true });
 		expect(result.content[0].text).toContain("Kept the worktree: remove failed");
 		expect(existsSync(dir)).toBe(true);
 		expect(harness.ctx.statuses.has("worktree")).toBe(false);
@@ -515,7 +514,7 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 	test("refuses to exit when the session is not isolated", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo);
-		await expect(harness.run(WORKTREE_TOOLS.exit, {})).rejects.toThrow(/Not currently in a worktree/);
+		await expect(harness.action("exit", {})).rejects.toThrow(/Not currently in a worktree/);
 	});
 });
 
@@ -564,7 +563,7 @@ describe.skipIf(!runSlowSuites)("/worktree command and completions", () => {
 	test("reports a declined exit as info, not an error", async () => {
 		const repo = temps.track(await makeRepo("pi-wt-exit-"));
 		const harness = await bootWorktree(repo, { hasUI: true, select: "Cancel" });
-		await harness.run(WORKTREE_TOOLS.enter, { name: "declined-cmd" });
+		await harness.action("enter", { name: "declined-cmd" });
 		writeFileSync(join(managedPath(repo, "declined-cmd"), "work.txt"), "x");
 
 		await harness.command("exit");
@@ -617,7 +616,7 @@ describe("extension registration", () => {
 		const { pi, builtins } = makeWorktreePi();
 		expect(pi.flags.get("worktree")?.type).toBe("string");
 		expect([...pi.commands.keys()]).toEqual(["worktree"]);
-		const expected = [...Object.values(WORKTREE_TOOLS), ...ROOT_TOOL_NAMES].sort();
+		const expected = ["worktree", ...ROOT_TOOL_NAMES].sort();
 		expect([...pi.tools.keys()].sort()).toEqual(expected);
 		for (const name of ROOT_TOOL_NAMES) {
 			expect(builtins.calls.some((call) => call.name === name)).toBe(true);
@@ -671,7 +670,7 @@ describe.skipIf(!runSlowSuites)("extension lifecycle", () => {
 		const harness = await bootWorktree(repo, { allTools: [foreignBash] });
 		expect(harness.ctx.notices.at(-1)).toMatch(/not active for: bash/);
 
-		const result = await harness.run(WORKTREE_TOOLS.list);
+		const result = await harness.action("list");
 		expect(result.details.inactiveOverrides).toContain("bash");
 		expect(result.content[0].text).toMatch(/not active for: bash/);
 	});
@@ -724,7 +723,7 @@ describe.skipIf(!runSlowSuites)("extension lifecycle", () => {
 
 describe.skipIf(!runSlowSuites)("isolation gaps through the extension", () => {
 	async function statusText(harness: WorktreeHarness): Promise<string> {
-		const result = await harness.run(WORKTREE_TOOLS.list);
+		const result = await harness.action("list");
 		return result.content[0].text;
 	}
 
@@ -809,7 +808,7 @@ describe.skipIf(!runSlowSuites)("managed worktree status", () => {
 		writeFileSync(join(repo, ".pi", "worktrees", "beta", "dirty.txt"), "x\n");
 
 		const harness = await bootWorktree(repo);
-		const result = await harness.run(WORKTREE_TOOLS.list);
+		const result = await harness.action("list");
 		const text = String(result.content[0]?.text ?? "");
 		expect(text).toContain("Managed worktrees (3):");
 

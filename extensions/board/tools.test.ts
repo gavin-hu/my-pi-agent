@@ -269,7 +269,7 @@ describe("list", () => {
 		await call({ action: "add", title: "One" });
 		const claimed = await call({ action: "claim", card: "1" });
 		expect(resultText(claimed)).toContain(
-			"next: design it in plan mode, write_plan, then `contract` with the path it returned",
+			"next: design it in plan mode, `plan` action `write`, then `contract` with the path it returned",
 		);
 		// Only a claim says it: the card's other writes do not repeat the instruction.
 		expect(resultText(await call({ action: "release", card: "1" }))).not.toContain("next:");
@@ -830,7 +830,7 @@ describe("the flow: contract, approval, spot-check", () => {
 			acceptance: "A retry leaves one order",
 			scopeOut: "No refunds",
 		});
-		// The card prints the plan the way `write_plan` shows it — shortened, with `/` — so the
+		// The card prints the plan the way `plan` action `write` shows it — shortened, with `/` — so the
 		// expectation is the display form rather than the native spelling the card stores.
 		expect(resultText(result)).toContain(`plan: ${shortenPath(plan)}`);
 		expect(resultText(result)).toContain("approved: nobody yet");
@@ -842,7 +842,7 @@ describe("the flow: contract, approval, spot-check", () => {
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
 		expect(resultText(await call({ action: "contract", card: "1", goal: "g", acceptance: "a", scopeOut: "s" }))).toBe(
-			"Error: contract needs the plan file #1 is executed against: pass `path` as write_plan returned it.",
+			"Error: contract needs the plan file #1 is executed against: pass `path` as `plan` action `write` returned it.",
 		);
 		const plan = await writePlan(board);
 		expect(resultText(await call({ action: "contract", card: "1", path: plan, goal: "x".repeat(401) }))).toBe(
@@ -894,7 +894,7 @@ describe("the flow: contract, approval, spot-check", () => {
 		});
 		expect(result.isError).toBe(true);
 		expect(resultText(result)).toContain("is not in this repository's plan store");
-		expect(resultText(result)).toContain("write_plan");
+		expect(resultText(result)).toContain("action `write`");
 		// A refused call leaves the card exactly as it was.
 		expect((await call({ action: "list", card: "1" })).details.card?.contract).toBeUndefined();
 	});

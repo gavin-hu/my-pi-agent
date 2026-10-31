@@ -1,39 +1,75 @@
 /**
- * Model-facing tools for the worktree extension.
+ * The model-facing tool for the worktree extension.
+ *
+ * One tool with four actions, like `plan` and `board`: `enter` creates or enters an
+ * isolated checkout, `exit` returns to the main checkout, `list` reports the current
+ * isolation and the managed worktrees, and `prune` removes the ones nobody is
+ * using. Each action refuses outside the state it applies to, and the lifecycle
+ * itself belongs to `lifecycle.ts`.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { messageOf } from "../../lib/errors.ts";
 import {
 	enterWorktree,
+	enteredWorktree,
 	exitWorktree,
+	exitedWorktree,
 	isWorktreeCancelled,
 	pruneWorktrees,
-	enteredWorktree,
-	exitedWorktree,
 	worktreeStatus,
 } from "./lifecycle.ts";
 import { getActive, getInactiveOverrides } from "./runtime.ts";
 
 /**
- * Model-facing tool names, verb-first to match Claude Code's plan/worktree tools
- * (`EnterWorktree`/`ExitWorktree`). Exported so the naming guard test can check
- * them without loading the extension.
+ * The model-facing tool name. `worktree` is the domain, the way `plan` and `board`
+ * are, and the four lifecycle verbs are its actions.
  */
-export const WORKTREE_TOOLS = {
-	enter: "enter_worktree",
-	exit: "exit_worktree",
-	prune: "prune_worktrees",
-	list: "list_worktrees",
-} as const;
+export const WORKTREE_TOOL = "worktree";
+
+/** The tool's actions, in the order the description offers them. */
+export const WORKTREE_ACTIONS = ["enter", "exit", "list", "prune"] as const;
+
+/** One verb of the `worktree` tool. */
+export type WorktreeAction = (typeof WORKTREE_ACTIONS)[number];
+
+const WorktreeParams = Type.Object({
+	action: StringEnum(WORKTREE_ACTIONS, {
+		description:
+			"`enter` creates or enters an isolated worktree, `exit` returns to the main checkout, `list` reports the isolation and the managed worktrees, `prune` removes the unused ones.",
+	}),
+	name: Type.Optional(
+		Type.String({
+			description: "`enter`: name for a new worktree (branch worktree-<name>, directory .pi/worktrees/<name>).",
+		}),
+	),
+	path: Type.Optional(
+		Type.String({
+			description: "`enter`: absolute or repo-relative path of an existing worktree to enter instead of creating one.",
+		}),
+	),
+	remove: Type.Optional(Type.Boolean({ description: "`exit`: force removal (or keep when false) without prompting." })),
+	keepBranch: Type.Optional(Type.Boolean({ description: "`exit`: keep the worktree branch when removing." })),
+});
+
+/** The fields one action reads, so a test or a caller can name them without the whole schema. */
+export type WorktreeArgs = {
+	action: WorktreeAction;
+	name?: string;
+	path?: string;
+	remove?: boolean;
+	keepBranch?: boolean;
+};
 
 /**
- * The result a lifecycle tool answers when the user declined.
+ * The result a lifecycle action answers when the user declined.
  *
- * Entering and exiting ask the same question and are refused the same way: the message is
- * the refusal the user just chose, and `cancelled` is what tells a caller it was a choice
- * rather than a failure. A cancelled call still throws — every other error is a real one.
+ * Entering and exiting ask the same question and are refused the same way: the
+ * message is the refusal the user just chose, and `cancelled` is what tells a
+ * caller it was a choice rather than a failure. A cancelled call still throws —
+ * every other error is a real one.
  */
 function cancelledResult(error: unknown): { content: [{ type: "text"; text: string }]; details: { cancelled: true } } {
 	if (!isWorktreeCancelled(error)) throw error;
@@ -41,114 +77,75 @@ function cancelledResult(error: unknown): { content: [{ type: "text"; text: stri
 }
 
 export function registerTools(pi: ExtensionAPI): void {
-	pi.registerTool({
-		name: WORKTREE_TOOLS.enter,
-		label: "Enter worktree",
+	pi.registerTool<typeof WorktreeParams, unknown>({
+		name: WORKTREE_TOOL,
+		label: "Worktree",
 		description:
-			"Create or enter an isolated git worktree and switch the session's working directory into it. Pass `name` to " +
-			"create one or `path` to enter an existing one. Errors when the session is already isolated.",
-		promptSnippet: "Create or enter an isolated git worktree (only when instructed).",
+			"An isolated git worktree for this session. `enter` creates one on its own branch (or enters an existing " +
+			"checkout) and switches the session's working directory into it; `exit` leaves it and returns to the main " +
+			"checkout, removing it when clean and asking when it holds work; `list` reports whether the session is " +
+			"isolated, its path and branch, the inactive overrides, and the managed worktrees on disk; `prune` removes " +
+			"the managed worktrees that are clean, have no new commits, are not the current one, are not locked by a " +
+			"live process, and are older than the configured age. Every field but `action` says which action reads it.",
+		promptSnippet: "Create, enter, leave, list, or prune the session's isolated git worktrees.",
 		promptGuidelines: [
-			"Use enter_worktree only when the user or project instructions explicitly ask for a worktree; never start one on your own initiative.",
-			"Call list_worktrees first if unsure whether the session is already isolated: enter_worktree errors when it is.",
+			"Use worktree with action enter only when the user or project instructions explicitly ask for a worktree; never start one on your own initiative.",
+			"Call action list first if unsure whether the session is already isolated: action enter errors when it is.",
+			"Call action exit after work started with action enter; it is the only way back to the main checkout, and asking before ending a task keeps uncommitted work from being discarded.",
+			"Use action prune to clean up worktrees left behind by earlier sessions; worktrees with any work are kept.",
 		],
-		parameters: Type.Object({
-			name: Type.Optional(
-				Type.String({
-					description: "Name for a new worktree (branch worktree-<name>, directory .pi/worktrees/<name>).",
-				}),
-			),
-			path: Type.Optional(
-				Type.String({
-					description: "Absolute or repo-relative path of an existing worktree to enter instead of creating one.",
-				}),
-			),
-		}),
+		parameters: WorktreeParams,
 		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
 		executionMode: "sequential",
+
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			try {
-				const { state, summary } = await enterWorktree(pi, ctx, { name: params.name, path: params.path });
-				ctx.ui.notify(enteredWorktree(state), "info");
-				return {
-					content: [{ type: "text", text: summary }],
-					details: { state },
-				};
-			} catch (error) {
-				return cancelledResult(error);
+			switch (params.action) {
+				case "enter": {
+					try {
+						const { state, summary } = await enterWorktree(pi, ctx, { name: params.name, path: params.path });
+						ctx.ui.notify(enteredWorktree(state), "info");
+						return {
+							content: [{ type: "text", text: summary }],
+							details: { action: "enter", state },
+						};
+					} catch (error) {
+						return cancelledResult(error);
+					}
+				}
+				case "exit": {
+					try {
+						const result = await exitWorktree(pi, ctx, { remove: params.remove, keepBranch: params.keepBranch });
+						ctx.ui.notify(exitedWorktree(result.state), "info");
+						return {
+							content: [{ type: "text", text: result.output }],
+							details: {
+								action: "exit",
+								state: result.state,
+								removed: result.removed,
+								handoff: result.handoff,
+							},
+						};
+					} catch (error) {
+						return cancelledResult(error);
+					}
+				}
+				case "prune":
+					return {
+						content: [{ type: "text", text: await pruneWorktrees(pi, ctx) }],
+						details: { action: "prune" },
+					};
+				case "list": {
+					const current = getActive();
+					return {
+						content: [{ type: "text", text: await worktreeStatus(pi, ctx) }],
+						details: {
+							action: "list",
+							active: current ? { path: current.path, branch: current.branch, borrowed: !!current.borrowed } : null,
+							inactiveOverrides: getInactiveOverrides(),
+						},
+					};
+				}
 			}
-		},
-	});
-
-	pi.registerTool({
-		name: WORKTREE_TOOLS.exit,
-		label: "Exit worktree",
-		description:
-			"Leave the current git worktree and return to the main checkout. The worktree is removed when clean; with " +
-			"uncommitted changes or new commits the user chooses whether to keep it. The result names the branch's " +
-			"commits and the merge or pull-request command that finishes it.",
-		promptSnippet: "Leave the current git worktree and return to the main checkout.",
-		promptGuidelines: [
-			"Use exit_worktree after work started with enter_worktree; it is the only way back to the main checkout.",
-			"Ask before ending the task rather than exiting on your own initiative, so uncommitted work is not discarded without a choice.",
-		],
-		parameters: Type.Object({
-			remove: Type.Optional(Type.Boolean({ description: "Force removal (or keep when false) without prompting." })),
-			keepBranch: Type.Optional(Type.Boolean({ description: "Keep the worktree branch when removing." })),
-		}),
-		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
-		executionMode: "sequential",
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			try {
-				const result = await exitWorktree(pi, ctx, { remove: params.remove, keepBranch: params.keepBranch });
-				ctx.ui.notify(exitedWorktree(result.state), "info");
-				return {
-					content: [{ type: "text", text: result.output }],
-					details: { state: result.state, removed: result.removed, handoff: result.handoff },
-				};
-			} catch (error) {
-				return cancelledResult(error);
-			}
-		},
-	});
-
-	pi.registerTool({
-		name: WORKTREE_TOOLS.prune,
-		label: "Prune worktrees",
-		description:
-			"Remove managed git worktrees that are clean, have no new commits, are not the current one, are not locked by " +
-			"a live process, and are older than the configured pruneAfterDays. Worktrees with any work are kept.",
-		promptSnippet: "Remove clean, unused managed git worktrees older than the configured age.",
-		promptGuidelines: [
-			"Use prune_worktrees to clean up worktrees left behind by earlier sessions; worktrees with any work are kept.",
-		],
-		parameters: Type.Object({}),
-		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
-		executionMode: "sequential",
-		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
-			return { content: [{ type: "text", text: await pruneWorktrees(pi, ctx) }], details: {} };
-		},
-	});
-
-	pi.registerTool({
-		name: WORKTREE_TOOLS.list,
-		label: "List worktrees",
-		description:
-			"Report whether the session is isolated in a git worktree, its path and branch, any inactive isolation " +
-			"overrides, and the managed worktrees on disk. Read-only.",
-		promptSnippet: "Report whether the session is isolated in a git worktree and list managed worktrees.",
-		promptGuidelines: ["Use list_worktrees to check isolation and see managed worktrees before entering or pruning."],
-		parameters: Type.Object({}),
-		annotations: { readOnlyHint: true, openWorldHint: false },
-		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
-			const current = getActive();
-			return {
-				content: [{ type: "text", text: await worktreeStatus(pi, ctx) }],
-				details: {
-					active: current ? { path: current.path, branch: current.branch, borrowed: !!current.borrowed } : null,
-					inactiveOverrides: getInactiveOverrides(),
-				},
-			};
 		},
 	});
 }

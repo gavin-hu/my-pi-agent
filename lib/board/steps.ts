@@ -288,7 +288,7 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 	if (!holds(card, actor)) return { error: `${heldBy(card)} Only its owner records a plan.` };
 	if (op.artifact === undefined) {
 		return {
-			error: `contract needs the plan file ${cardRef(card.id)} is executed against: pass \`path\` as write_plan returned it.`,
+			error: `contract needs the plan file ${cardRef(card.id)} is executed against: pass \`path\` as \`plan\` action \`write\` returned it.`,
 		};
 	}
 	if ("error" in op.artifact) return { error: op.artifact.error };

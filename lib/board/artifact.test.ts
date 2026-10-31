@@ -50,7 +50,7 @@ describe("planForContract", () => {
 		const outside = join(OUTSIDE, "one.md");
 		writeFileSync(outside, "# elsewhere\n");
 		expect(planForContract(STORE, outside)).toEqual({
-			error: `${shortenPath(outside)} is not in this repository's plan store; write_plan saves into ${shortenPath(STORE)}.`,
+			error: `${shortenPath(outside)} is not in this repository's plan store; \`plan\` action \`write\` saves into ${shortenPath(STORE)}.`,
 		});
 	});
 
@@ -59,12 +59,12 @@ describe("planForContract", () => {
 		const notes = join(STORE, "notes.txt");
 		writeFileSync(notes, "notes\n");
 		expect(planForContract(STORE, notes)).toEqual({
-			error: `${shortenPath(notes)} is not a markdown plan; write_plan saves into ${shortenPath(STORE)}.`,
+			error: `${shortenPath(notes)} is not a markdown plan; \`plan\` action \`write\` saves into ${shortenPath(STORE)}.`,
 		});
 	});
 
 	test("expands the `~/…` form, and refuses it when it is not in the store", () => {
-		// The form `write_plan` displays; a home path is outside a store under a temp dir.
+		// The form `plan` action `write` displays; a home path is outside a store under a temp dir.
 		const checked = planForContract(STORE, "~/nowhere/one.md");
 		expect("error" in checked && checked.error).toContain("is not in this repository's plan store");
 		expect("error" in checked && checked.error).toContain(shortenPath(STORE));
@@ -73,7 +73,7 @@ describe("planForContract", () => {
 	test("refuses a plan that was never written", () => {
 		const future = join(STORE, "future.md");
 		expect(planForContract(STORE, future)).toEqual({
-			error: `${shortenPath(future)} does not exist; write_plan saves the plan, and \`contract\` records the path it returns.`,
+			error: `${shortenPath(future)} does not exist; \`plan\` action \`write\` saves the plan, and \`contract\` records the path it returns.`,
 		});
 	});
 
@@ -81,7 +81,7 @@ describe("planForContract", () => {
 		const path = join(STORE, "dir.md");
 		mkdirSync(path, { recursive: true });
 		expect(planForContract(STORE, path)).toEqual({
-			error: `${shortenPath(path)} is not a file; record the markdown file write_plan saves.`,
+			error: `${shortenPath(path)} is not a file; record the markdown file \`plan\` action \`write\` saves.`,
 		});
 	});
 
@@ -89,7 +89,7 @@ describe("planForContract", () => {
 		const path = join(STORE, ".hidden.md");
 		writeFileSync(path, "# hidden\n");
 		expect(planForContract(STORE, path)).toEqual({
-			error: `${shortenPath(path)} is not a markdown plan; write_plan saves into ${shortenPath(STORE)}.`,
+			error: `${shortenPath(path)} is not a markdown plan; \`plan\` action \`write\` saves into ${shortenPath(STORE)}.`,
 		});
 	});
 

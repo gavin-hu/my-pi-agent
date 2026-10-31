@@ -25,9 +25,9 @@ const achieved = (objective: string): Goal => ({ objective, status: "achieved" }
 /** A branch that plan mode has turned on. */
 const PLANNING_ON = [{ type: "custom", customType: "plan-mode", data: { enabled: true } }];
 
-/** A fake pi that registers `enter_plan_mode`, as the plan extension does. */
+/** A fake pi that registers the `plan` tool, as the plan extension does. */
 function planPi() {
-	return makeFakePi({ allTools: [{ name: "enter_plan_mode" }] });
+	return makeFakePi({ allTools: [{ name: "plan" }] });
 }
 
 /** A fake pi without the plan extension, so the phase cannot be entered. */
@@ -485,7 +485,7 @@ describe("clarify host", () => {
 function setup(options: { plan?: boolean } = {}) {
 	// `allTools` stands in for the plan extension's registration, which is what the
 	// phase decision probes before asking the user anything.
-	const { pi, tools } = makeFakePi(options.plan ? { allTools: [{ name: "enter_plan_mode" }] } : {});
+	const { pi, tools } = makeFakePi(options.plan ? { allTools: [{ name: "plan" }] } : {});
 	const runtime = createGoalRuntime();
 	registerTools(pi, runtime);
 	const tool = tools.get(TOOL_NAME);

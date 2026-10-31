@@ -12,7 +12,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getKeybindings, KeybindingsManager, setKeybindings, type TUI, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import type { KeybindingDefinitions } from "@earendil-works/pi-tui";
 import { PLAN_TOGGLE_REQUEST } from "../../../lib/plan-entry.ts";
-import { PLAN_ENTER_TOOL } from "../../../lib/tool-names.ts";
+import { PLAN_TOOL } from "../../../lib/tool-names.ts";
 import { editorTheme } from "../../../lib/tui/chrome.ts";
 import { isShiftTab } from "../../../lib/tui/cursor.ts";
 import { coloringTheme, createFakePi } from "../../../test/helpers/fakes.ts";
@@ -59,7 +59,7 @@ function modeCtx(branch: unknown[] = []) {
 
 /** A pi double that reports `plan` as loaded. */
 function piWithPlan() {
-	return createFakePi({ allTools: [{ name: PLAN_ENTER_TOOL }] }).pi;
+	return createFakePi({ allTools: [{ name: PLAN_TOOL }] }).pi;
 }
 
 describe("Shift+Tab", () => {

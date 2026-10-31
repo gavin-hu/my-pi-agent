@@ -28,7 +28,7 @@ subprocess per peer.
 
 | Capability | How | What you get |
 |---|---|---|
-| Plan review over chat | automatic: an `exit_plan_mode` on a WeChat turn | The plan arrives as a file, then one compact editor prompt with three actions. |
+| Plan review over chat | automatic: a `plan` action `exit` on a WeChat turn | The plan arrives as a file, then one compact editor prompt with three actions. |
 | Forwarded dialogs | `remotePrompts` | A dialog raised inside a WeChat turn is asked and answered in that peer's chat. |
 | Peer questions | `ask_user_question` | The peer answers their own question, numbered, and a reply cannot reach another peer's prompt. |
 | Control screen | `/wechat` | Account, connection, per-peer rows, activity, and any waiting prompt on one live screen. |
@@ -381,7 +381,7 @@ plan file is sent before one compact editor prompt with the title, first steps,
 mode status, and three actions. Reply 2 to keep planning or 3 to exit; any other
 text is a refinement. If the upload fails, the plan text is sent instead. The
 plan file stays on disk. After a Keep decision the user can say “exit plan mode”; the model
-calls `cancel_plan_mode`, which needs no plan path and records no todo or goal.
+calls `plan` action `cancel`, which needs no plan path and records no todo or goal.
 The flow mirrors the
 reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the ciphertext
 (`Content-Type: application/octet-stream`) → read `x-encrypted-param` → send a

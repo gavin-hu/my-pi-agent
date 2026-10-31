@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
-import { PLAN_ENTER_TOOL } from "../../lib/tool-names.ts";
+import { PLAN_TOOL } from "../../lib/tool-names.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { createFakePi, emit, fakeTheme } from "../../test/helpers/fakes.ts";
@@ -165,7 +165,7 @@ describe("bytefly interactive surfaces", () => {
 		await emit(bare.pi, "session_start", { reason: "startup" }, ctx);
 		expect(installed).toBeUndefined();
 
-		const withPlan = createFakePi({ allTools: [{ name: PLAN_ENTER_TOOL }] });
+		const withPlan = createFakePi({ allTools: [{ name: PLAN_TOOL }] });
 		bootBytefly(withPlan.pi);
 		await emit(withPlan.pi, "session_start", { reason: "startup" }, ctx);
 		expect(installed).toBeFunction();

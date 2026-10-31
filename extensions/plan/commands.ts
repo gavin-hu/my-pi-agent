@@ -126,7 +126,8 @@ async function reviewInBrowser(
 	const file = path ? await runtime.plans.read(ctx.cwd, path) : await runtime.plans.latest(ctx.cwd);
 	if (!file) {
 		if (path) ctx.ui.notify(`Plan review: no plan file at ${path}`, "error");
-		else ctx.ui.notify("Plan review: no plan to review; write one with write_plan or pass a path.", "warning");
+		else
+			ctx.ui.notify("Plan review: no plan to review; write one with `plan` action `write` or pass a path.", "warning");
 		return;
 	}
 	// The server is loopback-only, so a remote turn cannot drive it.
@@ -161,7 +162,7 @@ async function reviewInBrowser(
 		return;
 	}
 	const message = runtime.isEnabled()
-		? `The user reviewed the plan ${result.plan.relativePath} in the browser and left feedback:\n${summary}\nStay in plan mode, revise the plan (write_plan, reusing plan_path), then call exit_plan_mode again.`
+		? `The user reviewed the plan ${result.plan.relativePath} in the browser and left feedback:\n${summary}\nStay in plan mode, revise the plan (\`plan\` action \`write\`, reusing plan_path), then call \`plan\` action \`exit\` again.`
 		: `The user reviewed the plan ${result.plan.relativePath} in the browser and left feedback:\n${summary}\nUpdate the plan file to address the feedback.`;
 	if (ctx.isIdle()) await pi.sendUserMessage(message);
 	else await pi.sendUserMessage(message, { deliverAs: "followUp" });

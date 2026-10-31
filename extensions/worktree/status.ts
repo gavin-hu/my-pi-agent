@@ -1,6 +1,6 @@
 /**
  * Worktree status and reporting: labels, summaries, refusal messages, and the
- * override/`list_worktrees` view.
+ * override/`list` view.
  *
  * One snapshot feeds both surfaces: `formatWorktreeStatus` renders it as the text
  * a tool result or a headless command prints, and `screen.ts` renders the same
@@ -205,7 +205,7 @@ export function formatWorktreeStatus(snapshot: WorktreeSnapshot): string {
 	return lines.join("\n");
 }
 
-/** Read the status and render it: what the `list_worktrees` tool and a headless `/worktree` print. */
+/** Read the status and render it: what the `list` action and a headless `/worktree` print. */
 export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): Promise<string> {
 	return formatWorktreeStatus(await worktreeSnapshot(pi, ctx));
 }

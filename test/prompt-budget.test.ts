@@ -51,7 +51,7 @@ describe("injected prompt budget", () => {
 		const section = formatWorktreeSection(WORKTREE);
 		expect(section.length).toBeLessThanOrEqual(260);
 		expect(section).toContain(WORKTREE.path);
-		expect(section).toContain("exit_worktree");
+		expect(section).toContain("worktree` action `exit");
 	});
 
 	test("an inherited worktree says not to exit it", () => {

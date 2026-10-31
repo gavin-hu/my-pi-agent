@@ -1,75 +1,60 @@
 /**
- * Worktree isolation: enter, exit, prune, and list.
+ * Worktree isolation in the gallery: enter, exit, list, and prune — one block per
+ * action of the folded `worktree` tool.
  *
- * These read as a small table, so the fixture is this session's worktrees —
- * the current one, a dirty one, and one already merged.
+ * These read as a small table, so the fixture is this session's worktrees — the
+ * current one, a dirty one, and one already merged.
  */
 
 import type { ToolFixture } from "./types.ts";
 import { CWD } from "./workspace.ts";
 
-/** One entry per worktree tool, in gallery order. */
+/** The state a worktree session carries, as the lifecycle hands it back. */
+const STATE = {
+	active: true,
+	name: "tool-gallery",
+	path: `${CWD}/.pi/worktrees/tool-gallery`,
+	branch: "worktree-tool-gallery",
+	repoRoot: CWD,
+	baseRef: "origin/main",
+	baseRefMode: "head",
+	createdByUs: true,
+};
+
+/** One entry per action of the `worktree` tool, in gallery order. */
 export const WORKTREE_FIXTURES: ToolFixture[] = [
 	{
-		name: "enter_worktree",
+		name: "worktree",
 		group: "package",
 		label: "no custom renderer (generic fallback)",
-		args: { name: "tool-gallery" },
+		args: { action: "enter", name: "tool-gallery" },
 		result: {
 			content: [
 				{
 					type: "text",
-					text: `Worktree: tool-gallery\n  path:   ${CWD}/.pi/worktrees/tool-gallery\n  branch: worktree-tool-gallery\n  base:   origin/main (head)\n  main:   ${CWD}`,
+					text: `Worktree: tool-gallery\n  path:   ${STATE.path}\n  branch: worktree-tool-gallery\n  base:   origin/main (head)\n  main:   ${CWD}`,
 				},
 			],
-			details: {
-				state: {
-					active: true,
-					name: "tool-gallery",
-					path: `${CWD}/.pi/worktrees/tool-gallery`,
-					branch: "worktree-tool-gallery",
-					repoRoot: CWD,
-					baseRef: "origin/main",
-					baseRefMode: "head",
-					createdByUs: true,
-				},
-			},
+			details: { action: "enter", state: STATE },
 		},
 	},
 	{
-		name: "exit_worktree",
+		name: "worktree-exit",
+		tool: "worktree",
 		group: "package",
 		label: "no custom renderer (generic fallback)",
-		args: { remove: true },
+		args: { action: "exit", remove: true },
 		result: {
 			content: [{ type: "text", text: "Exited worktree tool-gallery and removed it." }],
-			details: {
-				removed: true,
-				state: {
-					active: true,
-					name: "tool-gallery",
-					path: `${CWD}/.pi/worktrees/tool-gallery`,
-					branch: "worktree-tool-gallery",
-					repoRoot: CWD,
-					baseRef: "origin/main",
-					baseRefMode: "head",
-					createdByUs: true,
-				},
-			},
+			details: { action: "exit", state: STATE, removed: true },
 		},
 	},
 	{
-		name: "prune_worktrees",
+		name: "worktree-list",
+		tool: "worktree",
 		group: "package",
 		label: "no custom renderer (generic fallback)",
-		args: {},
-		result: { content: [{ type: "text", text: "Removed 2 worktrees: feature-auth, fix-typo." }], details: {} },
-	},
-	{
-		name: "list_worktrees",
-		group: "package",
-		label: "no custom renderer (generic fallback)",
-		args: {},
+		args: { action: "list" },
 		result: {
 			content: [
 				{
@@ -83,9 +68,21 @@ export const WORKTREE_FIXTURES: ToolFixture[] = [
 				},
 			],
 			details: {
-				active: { path: `${CWD}/.pi/worktrees/tool-gallery`, branch: "worktree-tool-gallery", borrowed: false },
+				action: "list",
+				active: { path: STATE.path, branch: STATE.branch, borrowed: false },
 				inactiveOverrides: [],
 			},
+		},
+	},
+	{
+		name: "worktree-prune",
+		tool: "worktree",
+		group: "package",
+		label: "no custom renderer (generic fallback)",
+		args: { action: "prune" },
+		result: {
+			content: [{ type: "text", text: "Removed 2 worktrees: feature-auth, fix-typo." }],
+			details: { action: "prune" },
 		},
 	},
 ];

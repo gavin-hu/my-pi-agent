@@ -161,7 +161,7 @@ export const SCREENS: Record<string, Screen> = {
 	},
 	plan: {
 		asset: "plan",
-		title: "π - my-pi-agent · exit_plan_mode",
+		title: "π - my-pi-agent · plan exit",
 		// Wide enough for the whole hint row and tall enough to reach the Steps
 		// checklist under the fixture's Goal/Context/Approach/Visual sections; the
 		// frame size is fixed so the capture never depends on the resize.

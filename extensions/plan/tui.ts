@@ -1,7 +1,7 @@
 /**
  * Terminal rendering for the plan review screen.
  *
- * `PlanViewComponent` is the scrollable review screen `exit_plan_mode` opens
+ * `PlanViewComponent` is the scrollable review screen the `exit` action opens
  * for approval. The plan body is rendered by Pi's own `Markdown` component with
  * the active Markdown theme, so headings, lists, code, links, and quotes match
  * the rest of the application; plan-authored control characters are stripped
@@ -168,7 +168,7 @@ function scrollRow(
 	return truncateToWidth(`  ${head}`, width);
 }
 
-/** Scrollable plan review screen opened by `exit_plan_mode`. */
+/** Scrollable plan review screen opened by the `exit` action. */
 export class PlanViewComponent implements Component {
 	private offset = 0;
 	private visible = DEFAULT_ROWS;

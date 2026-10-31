@@ -2,18 +2,18 @@
  * Session-scoped state and tool gating for plan mode.
  *
  * Enabling plan mode removes every tool the policy does not consider read-only
- * from the active set and activates the plan-mode control tools: `exit_plan_mode`
- * (present the plan for approval) and `write_plan` (save the plan artifact under
- * the plans directory). Disabling restores exactly what it hid. The enabled flag is
- * persisted as a custom session entry so `/resume` and `/tree` follow the
- * branch, and it is also mirrored into the footer status. The review baseline
- * travels the same way, as one digest per heading section, so the changed-section
- * markers survive a resume too.
+ * from the active set, and keeps the one `plan` tool active in both modes: its
+ * actions are what ask to enter, save the artifact under the plans directory,
+ * present it, tick it, and leave. Disabling restores exactly what it hid. The
+ * enabled flag is persisted as a custom session entry so `/resume` and `/tree`
+ * follow the branch, and it is also mirrored into the footer status. The review
+ * baseline travels the same way, as one digest per heading section, so the
+ * changed-section markers survive a resume too.
  *
- * `write_plan` is the one sanctioned write while planning. The read-only guard
- * in `index.ts` permits plan's own tools only when the registered tool is this
- * extension's (matched by source path), so a same-named tool from another
- * extension cannot borrow the exemption.
+ * The `plan` tool's `write` action is the one sanctioned write while planning. The
+ * read-only guard in `index.ts` permits that tool only when the registered one is
+ * this extension's (matched by source path), so a same-named tool from another
+ * extension cannot borrow the exemption, and each action refuses outside its mode.
  */
 
 import { basename, resolve } from "node:path";
@@ -23,22 +23,25 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { sanitizeLine } from "../../lib/format.ts";
 import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
-import { PLAN_ENTER_TOOL } from "../../lib/tool-names.ts";
+import { PLAN_TOOL as PLAN_TOOL_NAME } from "../../lib/tool-names.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
 import { sameSections, sectionDigests, type SectionDigest } from "./plan-text.ts";
 import type { PlanModeEntry, ReviewBaselineEntry, SeededStepsEntry } from "./types.ts";
 
-/** Tool the model calls to leave plan mode after approval. */
-export const EXIT_TOOL = "exit_plan_mode";
-/** Tool the model calls to leave plan mode without approving. */
-export const CANCEL_TOOL = "cancel_plan_mode";
-/** Tool the model calls to ask to enter plan mode. */
-export const ENTER_TOOL = PLAN_ENTER_TOOL;
-/** Tool the model calls to save the plan artifact. */
-export const WRITE_PLAN_TOOL = "write_plan";
-/** Tool the model calls to keep an approved plan's steps current. */
-export const SET_PLAN_STEPS_TOOL = "set_plan_steps";
+/** The one model-facing tool: every planning verb is one of its actions. */
+export const PLAN_TOOL = PLAN_TOOL_NAME;
+
+/**
+ * The verbs of the one `plan` tool, in the order the schema offers them.
+ *
+ * One action tool rather than five tools, so every verb shares a name and a
+ * registration; the order is the one the description walks them in.
+ */
+export const PLAN_ACTIONS = ["enter", "write", "exit", "steps", "cancel"] as const;
+
+/** One verb of the `plan` tool. */
+export type PlanAction = (typeof PLAN_ACTIONS)[number];
 /** Custom-entry type used for plan-mode state. */
 export const STATE_TYPE = PLAN_MODE_ENTRY_TYPE;
 /** Custom-entry type used for a plan's review baseline. */
@@ -49,16 +52,13 @@ export const SEEDED_TYPE = "plan-seeded";
 /** Longest plan-file basename shown in the footer chip. */
 const STATUS_NAME_LENGTH = 28;
 
-/** Tools plan mode activates itself. */
-const CONTROL_TOOLS = [EXIT_TOOL, CANCEL_TOOL, WRITE_PLAN_TOOL];
-
 /**
- * Tools the read-only guard exempts when this extension registered them.
- * `enter_plan_mode` is here only so a call already in flight when plan mode came on
- * is answered by the tool ("already in plan mode"); the policy still denies it, so
- * it stays hidden while planning.
+ * The one tool plan mode keeps in the active set in both modes. Every other tool
+ * follows the policy, which is about writing files and cannot answer for a tool
+ * whose actions are the mode's own verbs: hiding it while planning would hide the
+ * way to write the plan and the way out.
  */
-const OWNED_TOOLS = [...CONTROL_TOOLS, ENTER_TOOL];
+const MODE_TOOLS = [PLAN_TOOL];
 
 export interface PlanRuntime {
 	/** Whether plan mode is currently on. */
@@ -68,9 +68,9 @@ export interface PlanRuntime {
 	toggle(ctx: ExtensionContext): void;
 	/** Restore state from the branch and the `--plan` flag. */
 	restore(ctx: ExtensionContext): void;
-	/** Plan-file storage for `write_plan` and `exit_plan_mode`. */
+	/** Plan-file storage for the `write` and `exit` actions. */
 	plans: PlanStore;
-	/** Whether `toolName` is one of plan's own tools (not a same-named impostor) the read-only guard exempts. */
+	/** Whether `toolName` is the `plan` tool (not a same-named impostor) the read-only guard exempts. */
 	isOwnTool(toolName: string): boolean;
 	/** Path of the most recently written plan, for the footer chip. */
 	lastPlanPath(): string | undefined;
@@ -194,6 +194,9 @@ export function createPlanRuntime(
 	// Tools plan mode deactivated, so disabling restores exactly those and does
 	// not re-activate a tool another extension intentionally hid.
 	let removedForPlan: string[] = [];
+	// Mode tools this enable had to activate, so disabling puts the user's own
+	// active set back instead of widening it.
+	let addedForPlan: string[] = [];
 
 	const plans = createPlanStore(pi);
 
@@ -203,7 +206,7 @@ export function createPlanRuntime(
 	 * is rejected.
 	 */
 	const isOwnTool = (toolName: string): boolean => {
-		if (!OWNED_TOOLS.includes(toolName)) return false;
+		if (toolName !== PLAN_TOOL) return false;
 		const info = pi.getAllTools().find((tool) => tool.name === toolName);
 		const source = info?.sourceInfo?.path;
 		return source === undefined || options.entryPath === undefined || samePath(source, options.entryPath);
@@ -211,7 +214,7 @@ export function createPlanRuntime(
 
 	/** Tools plan mode would hide from the current active set. */
 	const captureHidden = (): string[] => [
-		...new Set(pi.getActiveTools().filter((name) => !policy.isAllowed(name) && !CONTROL_TOOLS.includes(name))),
+		...new Set(pi.getActiveTools().filter((name) => !policy.isAllowed(name) && !MODE_TOOLS.includes(name))),
 	];
 
 	/**
@@ -223,12 +226,18 @@ export function createPlanRuntime(
 		const active = pi.getActiveTools();
 		if (enabled) {
 			// Keep only tools the policy considers safe to expose while read-only
-			// (structured readers and the plan/goal trackers) plus the control tools.
-			pi.setActiveTools([...new Set([...active.filter((name) => policy.isAllowed(name)), ...CONTROL_TOOLS])]);
+			// (structured readers and the plan/goal trackers), plus the `plan` tool
+			// itself, whose actions are the mode's own vocabulary.
+			addedForPlan = MODE_TOOLS.filter((name) => !active.includes(name));
+			pi.setActiveTools([...new Set([...active.filter((name) => policy.isAllowed(name)), ...MODE_TOOLS])]);
 			return;
 		}
+		// A mode tool this enable had to activate goes back to how the user left it,
+		// rather than staying active because the mode needed it for a while.
+		const kept = active.filter((name) => !addedForPlan.includes(name));
+		addedForPlan = [];
 		const restored = addHidden ? removedForPlan : [];
-		pi.setActiveTools([...new Set([...active.filter((name) => !CONTROL_TOOLS.includes(name)), ...restored])]);
+		pi.setActiveTools([...new Set([...kept, ...restored])]);
 		removedForPlan = [];
 	};
 

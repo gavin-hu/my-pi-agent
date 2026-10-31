@@ -226,8 +226,8 @@ function ruleOf(path: string): string {
  */
 const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/wechat/bridge.ts": "the bridge loads when an account is stored",
-	"extensions/plan/web.ts": "the browser review loads on /plan review, /plan share, or exit_plan_mode",
-	"extensions/plan/review.ts": "the review gate and its TUI screen load on the first /plan review or exit_plan_mode",
+	"extensions/plan/web.ts": "the browser review loads on /plan review, /plan share, or the plan tool's exit action",
+	"extensions/plan/review.ts": "the review gate and its TUI screen load on the first /plan review or plan exit",
 	"extensions/plan/git-bash.ts": "the read-only git check loads when plan mode vets a bash call",
 	"extensions/plan/path-guard.ts": "the path backstop loads when plan mode vets a tool call",
 	"extensions/board/page.ts": "the board page loads on the first /board",
@@ -255,8 +255,13 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * two entries that load the board's rules load two more modules each; then the page's seat
  * (`board/seat.ts`) became `lib/`, which the settings screen loads too, since the lead's default
  * is that seat. Nothing was deferred.
+ *
+ * 733 → 734: folding `plan` into one action tool adds one, and defers none — `tools/refusal.ts`
+ * is the one rejected-call shape five actions share. `worktree`'s folded tool draws
+ * bytefly's generic fallback, exactly as its four tools did, so no transcript kit joins its
+ * registration graph for cosmetics.
  */
-const MODULE_BUDGET = 733;
+const MODULE_BUDGET = 734;
 
 /** A repo-relative path with forward slashes, the form the maps use. */
 function repoRelative(file: string): string {

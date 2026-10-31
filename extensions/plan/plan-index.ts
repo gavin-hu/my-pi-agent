@@ -90,7 +90,7 @@ function footprintText(summaries: readonly PlanSummary[], nowMs: number): string
 export function formatPlanIndex(summaries: readonly PlanSummary[], dir: string, now: number = Date.now()): string {
 	const where = sanitizeLine(shortenPath(dir));
 	if (summaries.length === 0) {
-		return `No plans in ${where} yet; write_plan saves one there.`;
+		return `No plans in ${where} yet; \`plan\` action \`write\` saves one there.`;
 	}
 	const lines = summaries.map(
 		(summary) =>
@@ -241,7 +241,9 @@ export class PlanIndexComponent implements Component {
 
 		const body: string[] = [];
 		if (this.summaries.length === 0) {
-			body.push(...emptyState(theme, w, { label: "No plans yet. write_plan saves one in the agent directory." }));
+			body.push(
+				...emptyState(theme, w, { label: "No plans yet. `plan` action `write` saves one in the agent directory." }),
+			);
 		} else {
 			const { start, end } = this.cursor.window(this.summaries.length);
 			for (let index = start; index < end; index++) {

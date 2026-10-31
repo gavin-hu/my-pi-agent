@@ -5,11 +5,11 @@ import { baselineEntry, planCtx, makePlanPi, stateEntry } from "../../test/helpe
 import { hasPathInput } from "./path-guard.ts";
 import { changedSections, sectionDigests } from "./plan-text.ts";
 import { createPlanPolicy } from "./policy.ts";
-import { BASELINE_TYPE, createPlanRuntime, ENTER_TOOL, EXIT_TOOL, STATE_TYPE, WRITE_PLAN_TOOL } from "./runtime.ts";
+import { BASELINE_TYPE, createPlanRuntime, PLAN_TOOL, STATE_TYPE } from "./runtime.ts";
 
 function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknown[] } = {}) {
 	const fake = makePlanPi({
-		active: options.active ?? ["read", "bash", "write", "edit", ENTER_TOOL, "todo"],
+		active: options.active ?? ["read", "bash", "write", "edit", PLAN_TOOL, "todo"],
 		planFlag: options.planFlag,
 	});
 	if (options.planFlag) fake.flags.set("plan", { default: true });
@@ -19,29 +19,33 @@ function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknow
 }
 
 describe("plan runtime — tool gating", () => {
-	test("enable removes write, edit, and enter_plan_mode and adds both control tools", () => {
+	test("enable removes write and edit and keeps the plan tool, whose actions are the mode's verbs", () => {
 		const { runtime, ctx, activeTools } = setup();
 		runtime.enable(ctx);
 		const active = activeTools();
 		expect(active).not.toContain("write");
 		expect(active).not.toContain("edit");
-		expect(active).not.toContain(ENTER_TOOL);
 		expect(active).toContain("bash");
-		expect(active).toContain(EXIT_TOOL);
-		expect(active).toContain(WRITE_PLAN_TOOL);
+		expect(active).toContain(PLAN_TOOL);
 		expect(active).toContain("todo");
 	});
 
-	test("disable restores write, edit, and enter_plan_mode and removes both control tools", () => {
+	test("disable restores write and edit and leaves the plan tool where the user had it", () => {
 		const { runtime, ctx, activeTools } = setup();
 		runtime.enable(ctx);
 		runtime.disable(ctx);
 		const active = activeTools();
 		expect(active).toContain("write");
 		expect(active).toContain("edit");
-		expect(active).toContain(ENTER_TOOL);
-		expect(active).not.toContain(EXIT_TOOL);
-		expect(active).not.toContain(WRITE_PLAN_TOOL);
+		expect(active).toContain(PLAN_TOOL);
+	});
+
+	test("a plan tool the user had disabled is removed again on disable", () => {
+		const { runtime, ctx, activeTools } = setup({ active: ["read", "bash", "write"] });
+		runtime.enable(ctx);
+		expect(activeTools()).toContain(PLAN_TOOL);
+		runtime.disable(ctx);
+		expect(activeTools()).not.toContain(PLAN_TOOL);
 	});
 
 	test("keeps the git-only bash shell but blocks powershell while planning", () => {
@@ -93,7 +97,7 @@ describe("plan runtime — tool gating", () => {
 		runtime.disable(ctx);
 		expect(activeTools()).not.toContain("write");
 		expect(activeTools()).not.toContain("edit");
-		expect(activeTools()).not.toContain(ENTER_TOOL);
+		expect(activeTools()).not.toContain(PLAN_TOOL);
 	});
 
 	test("a redundant enable does not forget the tools to restore", () => {
@@ -103,7 +107,7 @@ describe("plan runtime — tool gating", () => {
 		runtime.disable(ctx);
 		expect(activeTools()).toContain("write");
 		expect(activeTools()).toContain("edit");
-		expect(activeTools()).toContain(ENTER_TOOL);
+		expect(activeTools()).toContain(PLAN_TOOL);
 	});
 });
 
@@ -113,7 +117,7 @@ describe("plan runtime — persistence and status", () => {
 		runtime.enable(ctx);
 		runtime.enable(ctx);
 		expect(entries).toEqual([
-			{ type: "custom", customType: STATE_TYPE, data: { enabled: true, removed: ["write", "edit", ENTER_TOOL] } },
+			{ type: "custom", customType: STATE_TYPE, data: { enabled: true, removed: ["write", "edit"] } },
 		]);
 		runtime.disable(ctx);
 		expect(entries).toHaveLength(2);
@@ -151,7 +155,7 @@ describe("plan runtime — persistence and status", () => {
 		off.runtime.restore(off.ctx);
 		expect(off.runtime.isEnabled()).toBe(false);
 		expect(off.activeTools()).toContain("write");
-		expect(off.activeTools()).not.toContain(EXIT_TOOL);
+		expect(off.activeTools()).toContain(PLAN_TOOL);
 
 		const on = setup({ planFlag: true, branch: [stateEntry(true)] });
 		on.runtime.restore(on.ctx);
@@ -181,45 +185,31 @@ describe("plan runtime — persistence and status", () => {
 });
 
 describe("plan runtime — plan-tool identity", () => {
-	test("recognizes only the plan-owned tool names", () => {
+	test("recognizes the one plan-owned tool name", () => {
 		const { runtime } = setup();
-		expect(runtime.isOwnTool(EXIT_TOOL)).toBe(true);
-		expect(runtime.isOwnTool(WRITE_PLAN_TOOL)).toBe(true);
-		expect(runtime.isOwnTool(ENTER_TOOL)).toBe(true);
+		expect(runtime.isOwnTool(PLAN_TOOL)).toBe(true);
 		expect(runtime.isOwnTool("write")).toBe(false);
 	});
 
 	test("recognizes a plan tool sourced from this extension", () => {
 		const fake = makePlanPi({ active: ["read"] });
-		fake.pi.allTools = [
-			{ name: EXIT_TOOL, sourceInfo: { path: "/this/index.ts" } },
-			{ name: WRITE_PLAN_TOOL, sourceInfo: { path: "/this/index.ts" } },
-			{ name: ENTER_TOOL, sourceInfo: { path: "/this/index.ts" } },
-		];
+		fake.pi.allTools = [{ name: PLAN_TOOL, sourceInfo: { path: "/this/index.ts" } }];
 		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
-		expect(runtime.isOwnTool(EXIT_TOOL)).toBe(true);
-		expect(runtime.isOwnTool(WRITE_PLAN_TOOL)).toBe(true);
-		expect(runtime.isOwnTool(ENTER_TOOL)).toBe(true);
+		expect(runtime.isOwnTool(PLAN_TOOL)).toBe(true);
 	});
 
 	test("rejects a plan tool sourced from another extension", () => {
 		const fake = makePlanPi({ active: ["read"] });
-		fake.pi.allTools = [
-			{ name: EXIT_TOOL, sourceInfo: { path: "/other/index.ts" } },
-			{ name: WRITE_PLAN_TOOL, sourceInfo: { path: "/other/index.ts" } },
-			{ name: ENTER_TOOL, sourceInfo: { path: "/other/index.ts" } },
-		];
+		fake.pi.allTools = [{ name: PLAN_TOOL, sourceInfo: { path: "/other/index.ts" } }];
 		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
-		expect(runtime.isOwnTool(EXIT_TOOL)).toBe(false);
-		expect(runtime.isOwnTool(WRITE_PLAN_TOOL)).toBe(false);
-		expect(runtime.isOwnTool(ENTER_TOOL)).toBe(false);
+		expect(runtime.isOwnTool(PLAN_TOOL)).toBe(false);
 	});
 
 	test("accepts a plan tool whose source the host did not record", () => {
 		const fake = makePlanPi({ active: ["read"] });
-		fake.pi.allTools = [{ name: EXIT_TOOL }];
+		fake.pi.allTools = [{ name: PLAN_TOOL }];
 		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
-		expect(runtime.isOwnTool(EXIT_TOOL)).toBe(true);
+		expect(runtime.isOwnTool(PLAN_TOOL)).toBe(true);
 	});
 });
 

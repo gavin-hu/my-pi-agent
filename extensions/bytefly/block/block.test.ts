@@ -308,18 +308,18 @@ describe("callFallback", () => {
 	});
 
 	test("quotes a subject containing spaces and appends options", () => {
-		const line = callFallback("enter_worktree", { name: "my branch", keep: true }, fakeTheme, false);
+		const line = callFallback("foo", { target: "my branch", keep: true }, fakeTheme, false);
 		expect(line).toContain('"my branch"');
 		expect(line).toContain("(keep)");
 	});
 
 	test("renders a bare flag when there is no subject", () => {
-		expect(callFallback("exit_worktree", { remove: true }, fakeTheme, false)).toEndWith("exit_worktree remove");
+		expect(callFallback("foo", { remove: true }, fakeTheme, false)).toEndWith("foo remove");
 	});
 
 	test("drops empty values and keeps a no-arg call to just the title", () => {
-		expect(callFallback("prune_worktrees", {}, fakeTheme, false)).toBe("prune_worktrees");
-		expect(callFallback("list_worktrees", undefined, fakeTheme, false)).toBe("list_worktrees");
+		expect(callFallback("foo", {}, fakeTheme, false)).toBe("foo");
+		expect(callFallback("foo", undefined, fakeTheme, false)).toBe("foo");
 	});
 
 	test("splits a subject from its remaining options", () => {
@@ -333,7 +333,7 @@ describe("callFallback", () => {
 	});
 
 	test("colours a bare flag faint", () => {
-		expect(callFallback("exit_worktree", { remove: true }, coloringTheme, false)).toContain("[dim]remove");
+		expect(callFallback("foo", { remove: true }, coloringTheme, false)).toContain("[dim]remove");
 	});
 
 	test("expands arguments onto indented lines and sanitizes them", () => {

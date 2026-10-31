@@ -1,98 +1,72 @@
 /**
- * The `enter_plan_mode` tool registration.
+ * The `enter` action of the `plan` tool.
  *
  * It asks for confirmation, then turns the runtime's enabled flag on; the tool
  * gating and persistence belong to `runtime.ts`.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
-import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
-import { GLYPHS } from "../../../lib/tui/glyphs.ts";
-import { paint } from "../../../lib/tui/tokens.ts";
-import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
-import { failedResult } from "../../../lib/tool-result.ts";
+import type { AgentToolResult, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
 import { isRemoteTurn, remoteLanguage } from "../../../lib/interaction.ts";
 import { PLAN_CONSENT, PLAN_CONSENT_SHORT, PLAN_CONSENT_SHORT_ZH, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
-import { ENTER_TOOL, type PlanRuntime } from "../runtime.ts";
+import { failedResult } from "../../../lib/tool-result.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
+import { callLine, type ToolCallText } from "../../../lib/tui/tool.ts";
+import { PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
 import type { EnterPlanModeDetails } from "../types.ts";
 
 const ENTERED_TEXT =
-	"You are now in plan mode. Explore read-only, then save the full plan with write_plan (a short title and the markdown) " +
-	"and call exit_plan_mode with the returned path so the user can read the file and choose. " +
+	"You are now in plan mode. Explore read-only, then save the full plan with `plan` action `write` (a short title and the " +
+	"markdown) and call `plan` action `exit` with the returned plan_path so the user can read the file and choose. " +
 	`While planning, ${READ_ONLY_SUMMARY}.`;
 
-export function registerEnterTool(pi: ExtensionAPI, runtime: PlanRuntime): void {
-	pi.registerTool({
-		name: ENTER_TOOL,
-		label: "Enter plan mode",
-		description:
-			"Enter read-only plan mode: investigate and design, then save the plan with write_plan and present it with " +
-			"exit_plan_mode. Entering switches the session's active tool set to read-only and requires the user to confirm.",
-		promptSnippet: "Ask the user to enter read-only plan mode.",
-		promptGuidelines: [
-			"Call enter_plan_mode before a non-trivial implementation task; skip it for small, obvious changes.",
-		],
-		parameters: Type.Object({}),
-		executionMode: "sequential",
-		// readOnlyHint stays true: entering plan mode changes only the session's
-		// tool set, never files or system state, so it needs no approval.
-		annotations: { readOnlyHint: true, openWorldHint: false },
+export async function executeEnter(
+	runtime: PlanRuntime,
+	ctx: ExtensionToolContext,
+): Promise<AgentToolResult<EnterPlanModeDetails>> {
+	if (runtime.isEnabled()) {
+		return {
+			content: [{ type: "text", text: "Already in plan mode." }],
+			details: { action: "enter", entered: true, already: true } satisfies EnterPlanModeDetails,
+		};
+	}
+	if (!ctx.hasUI) {
+		return failedResult(
+			"No interactive UI is available to confirm entering plan mode. Ask the user whether they want a plan.",
+			{ action: "enter", entered: false, unavailable: true } satisfies EnterPlanModeDetails,
+		);
+	}
 
-		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
-			if (runtime.isEnabled()) {
-				return {
-					content: [{ type: "text", text: "Already in plan mode." }],
-					details: { entered: true, already: true } satisfies EnterPlanModeDetails,
-				};
-			}
-			if (!ctx.hasUI) {
-				return failedResult(
-					"No interactive UI is available to confirm entering plan mode. Ask the user whether they want a plan.",
-					{ entered: false, unavailable: true } satisfies EnterPlanModeDetails,
-				);
-			}
+	const consent = isRemoteTurn(ctx)
+		? remoteLanguage(ctx) === "zh"
+			? PLAN_CONSENT_SHORT_ZH
+			: PLAN_CONSENT_SHORT
+		: PLAN_CONSENT;
+	const approved = await ctx.ui.confirm("Enter plan mode?", consent);
+	if (!approved) {
+		return {
+			content: [{ type: "text", text: "Stayed in normal mode. Proceed, or ask the user how to continue." }],
+			details: { action: "enter", entered: false } satisfies EnterPlanModeDetails,
+		};
+	}
+	runtime.enable(ctx);
+	if (isRemoteTurn(ctx)) {
+		// The peer UI has no footer chip; say the mode and its exit in the chat.
+		ctx.ui.notify("Plan mode on — write access is off. Say “exit plan mode” to leave without approving.", "info");
+	}
+	return {
+		content: [{ type: "text", text: ENTERED_TEXT }],
+		details: { action: "enter", entered: true } satisfies EnterPlanModeDetails,
+	};
+}
 
-			const consent = isRemoteTurn(ctx)
-				? remoteLanguage(ctx) === "zh"
-					? PLAN_CONSENT_SHORT_ZH
-					: PLAN_CONSENT_SHORT
-				: PLAN_CONSENT;
-			const approved = await ctx.ui.confirm("Enter plan mode?", consent);
-			if (!approved) {
-				return {
-					content: [{ type: "text", text: "Stayed in normal mode. Proceed, or ask the user how to continue." }],
-					details: { entered: false } satisfies EnterPlanModeDetails,
-				};
-			}
-			runtime.enable(ctx);
-			if (isRemoteTurn(ctx)) {
-				// The peer UI has no footer chip; say the mode and its exit in the chat.
-				ctx.ui.notify("Plan mode on — write access is off. Say “exit plan mode” to leave without approving.", "info");
-			}
-			return {
-				content: [{ type: "text", text: ENTERED_TEXT }],
-				details: { entered: true } satisfies EnterPlanModeDetails,
-			};
-		},
+export function callEnter(theme: Theme, last: unknown): ToolCallText {
+	return callLine(theme, last, PLAN_TOOL, "enter");
+}
 
-		renderCall(_args, theme, context) {
-			return callLine(theme, context?.lastComponent, ENTER_TOOL, "requested plan mode");
-		},
-
-		renderResult(result, options, theme, context) {
-			const text = reuseText(context?.lastComponent);
-			const outcome = detailsOrLine(theme, result, options.expanded, toolDetails<EnterPlanModeDetails>(result.details));
-			if ("line" in outcome) {
-				text.setText(outcome.line);
-				return text;
-			}
-			const details = outcome.details;
-			if (details.unavailable) text.setText(paint(theme, "warn", "No UI to confirm plan mode"));
-			else if (details.already) text.setText(paint(theme, "meta", "Already in plan mode"));
-			else if (details.entered) text.setText(paint(theme, "ok", `${GLYPHS.check} Plan mode enabled`));
-			else text.setText(paint(theme, "meta", "Stayed in normal mode"));
-			return text;
-		},
-	});
+export function textEnter(details: EnterPlanModeDetails, theme: Theme): string {
+	if (details.unavailable) return paint(theme, "warn", "No UI to confirm plan mode");
+	if (details.already) return paint(theme, "meta", "Already in plan mode");
+	if (details.entered) return paint(theme, "ok", `${GLYPHS.check} Plan mode enabled`);
+	return paint(theme, "meta", "Stayed in normal mode");
 }

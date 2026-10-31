@@ -60,7 +60,7 @@ export interface ReviewPageData {
 	outline: ReviewOutlineItem[];
 	/**
 	 * The plan's step progress, from the same `extractPlanSteps` the approval and
-	 * `set_plan_steps` use: the `Steps` section when there is one, so the page
+	 * the `steps` action use: the `Steps` section when there is one, so the page
 	 * agrees with what approval seeds rather than counting every checkbox.
 	 */
 	steps: { done: number; total: number };
@@ -71,7 +71,7 @@ export interface ReviewPageData {
 	 * count, comment length, and quote length, from `feedback.ts`.
 	 */
 	limits: { comments: number; comment: number; quote: number };
-	/** Whether the review may approve the plan (only the `exit_plan_mode` flow). */
+	/** Whether the review may approve the plan (only the `plan` tool's `exit` flow). */
 	canApprove: boolean;
 	/** Who is looking: `owner` may approve, `reviewer` may only comment. */
 	role: ReviewRole;
@@ -150,7 +150,7 @@ export function reviewPageData(input: ReviewPayloadInput): ReviewPageData {
 					},
 				],
 	);
-	// The same step list approval seeds and set_plan_steps indexes, so the page's
+	// The same step list approval seeds and the `steps` action indexes, so the page's
 	// progress cannot disagree with the todo list.
 	const stepList = extractPlanSteps(current);
 	// Highlight code blocks once, at the boundary: the client copies only the tok-*

@@ -57,7 +57,7 @@ export interface PlanReviewSession {
 export interface PlanReviewOptions {
 	/** Abort signal; aborting closes the session as cancelled. */
 	signal?: AbortSignal;
-	/** Whether the browser may approve the plan (only the `exit_plan_mode` flow). */
+	/** Whether the browser may approve the plan (only the `plan` tool's `exit` flow). */
 	canApprove?: boolean;
 	/** The section digests the previous review showed, so this page can mark changed sections. */
 	baseline?: SectionDigest[];

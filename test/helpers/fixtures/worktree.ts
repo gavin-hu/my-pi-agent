@@ -10,6 +10,7 @@ import {
 	type RootToolName,
 } from "../../../extensions/worktree/root-tools.ts";
 import { registerWorktree } from "../../../extensions/worktree/index.ts";
+import { WORKTREE_TOOL, type WorktreeAction } from "../../../extensions/worktree/tools.ts";
 import { createFakePi, emitFirst } from "../fakes.ts";
 import { execP } from "../git.ts";
 import { fakeCtx } from "../context.ts";
@@ -178,8 +179,10 @@ export interface WorktreeHarness {
 	pi: any;
 	ctx: any;
 	builtins: ReturnType<typeof makeBuiltinStub>;
-	/** Run a registered worktree tool by name. */
+	/** Run a registered tool by name, for the root overrides this extension rebinds. */
 	run(name: string, params?: unknown): Promise<any>;
+	/** Run one action of the folded `worktree` tool. */
+	action(action: WorktreeAction, params?: Record<string, unknown>): Promise<any>;
 	/** Run the `/worktree` command with a raw argument string. */
 	command(args: string): Promise<unknown>;
 }
@@ -203,6 +206,8 @@ export async function bootWorktree(repo: string, options: WorktreeBootOptions = 
 		ctx,
 		builtins,
 		run: (name, params = {}) => pi.tools.get(name).execute("call-1", params, undefined, undefined, ctx),
+		action: (action, params = {}) =>
+			pi.tools.get(WORKTREE_TOOL).execute("call-1", { ...params, action }, undefined, undefined, ctx),
 		command: (args) => pi.commands.get("worktree").handler(args, ctx),
 	};
 }

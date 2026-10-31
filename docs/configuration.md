@@ -517,7 +517,7 @@ is a `bytefly.json` edit.
 | `branchPrefix` | string | `"worktree-"` | | Prefix of the branch a managed worktree creates. |
 | `fetchRemote` | boolean | `true` | | Fetch the remote before branching from the default branch. |
 | `fetchTimeoutMs` | integer | `5000` | `0`–`600000` | Timeout for that fetch, in milliseconds. |
-| `onExit` | string | `"ask"` | `ask`, `keep`, `remove` | What `exit_worktree` does by default: ask, always keep, or always remove. |
+| `onExit` | string | `"ask"` | `ask`, `keep`, `remove` | What `worktree` action `exit` does by default: ask, always keep, or always remove. |
 | `pruneAfterDays` | integer | `7` | `0`–`3650` | Age in days after which `/worktree prune` may remove a clean, unused worktree. |
 | `include` | string[] | `[]` | | Gitignored files copied into a new worktree; the fallback when `.worktreeinclude` is absent. |
 | `skipOverrides` | string[] | `[]` | | Built-in tool names not to re-register, so another extension can own them. |

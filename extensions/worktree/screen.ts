@@ -5,7 +5,7 @@
  * The frame, navigation, y/N confirmation, and pane come from the shared
  * `DockListScreen`, so this module owns only the worktree vocabulary. Rows come
  * from the same `worktreeSnapshot` the text status renders and their marks from the
- * same `statusMarks`, so the screen and the `list_worktrees` tool cannot disagree
+ * same `statusMarks`, so the screen and the `worktree` tool's `list` action cannot disagree
  * about a worktree.
  *
  * Every verb but `p` closes the screen and hands the action back to the command:

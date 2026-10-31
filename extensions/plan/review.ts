@@ -4,7 +4,7 @@
  * A review has three presentations — the scrollable TUI screen, a dialog-only
  * editor, and a remote turn's compact editor prompt — and one optional browser
  * server. This module owns the loop that switches between
- * them, so `exit_plan_mode` and `/plan review` share one lifecycle and only map
+ * them, so the `plan` tool's `exit` action and `/plan review` share one lifecycle and only map
  * the returned {@link ReviewDecision} to their own result.
  *
  * It also owns the review baseline: a review marks the content the human was
@@ -118,7 +118,7 @@ async function askPlanReview(
 
 /** How a browser review may decide, and what to report when it opens. */
 export interface BrowserReviewOptions {
-	/** Whether the browser may approve the plan (only the `exit_plan_mode` flow). */
+	/** Whether the browser may approve the plan (only the `plan` tool's `exit` flow). */
 	canApprove: boolean;
 	/** The section digests the previous review showed, for the changed markers. */
 	baseline?: SectionDigest[];

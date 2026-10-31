@@ -5,7 +5,7 @@ import { basename, join } from "node:path";
 import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import type { ExistingTodo } from "../../lib/todo-state.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { fakeTheme, toolRenderContext } from "../../test/helpers/fakes.ts";
 import { callTool } from "../../test/helpers/tools.ts";
 import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import type { ExecResult } from "../../test/helpers/git.ts";
@@ -18,17 +18,11 @@ import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
 import { createPlanPolicy } from "./policy.ts";
 import { PLAN_REVIEW_TIMEOUT_MS } from "./review.ts";
-import {
-	CANCEL_TOOL,
-	createPlanRuntime,
-	ENTER_TOOL,
-	EXIT_TOOL,
-	SET_PLAN_STEPS_TOOL,
-	WRITE_PLAN_TOOL,
-} from "./runtime.ts";
+import { createPlanRuntime, PLAN_TOOL } from "./runtime.ts";
 import { MAX_STEP_LENGTH, MAX_STEPS } from "./steps.ts";
 import { DEFAULT_TODO_MAX, mergeTodos, mirrorStepStatuses } from "./todos.ts";
 import { registerTools } from "./tools.ts";
+import type { PlanAction } from "./types.ts";
 import type { PlanReviewOptions, PlanWebReview } from "./web.ts";
 
 /** One agent directory for this file: plans land outside the project now. */
@@ -60,10 +54,26 @@ function repoExec(root: string) {
 /** The exec seam the fake `pi` calls; `killed` is optional there, so it is left out. */
 type FakeExec = (command: string, args: string[]) => Promise<Omit<ExecResult, "killed">>;
 
+/**
+ * One action of the folded `plan` tool, bound the way a test wants to call it.
+ *
+ * The tool is one registration with an `action` discriminant, so a case that
+ * exercises `write` passes `write`'s fields and this adds the verb; the seam is
+ * the tool's real `execute` and `renderResult`, not a stand-in for them.
+ */
+function bound(plan: any, action: PlanAction): any {
+	return {
+		execute: (toolCallId: string, params: Record<string, unknown> = {}, ...rest: unknown[]) =>
+			plan.execute(toolCallId, { ...params, action }, ...rest),
+		renderResult: (result: unknown, options: { expanded: boolean }, theme: unknown) =>
+			plan.renderResult(result, options, theme, toolRenderContext(options)),
+	};
+}
+
 function setup(web?: PlanWebReview, options: { allTools?: unknown[]; exec?: FakeExec } = {}) {
 	const root = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-tools-")));
 	const fake = makePlanPi({
-		active: ["read", "bash", "write", "edit", ENTER_TOOL, "todo"],
+		active: ["read", "bash", "write", "edit", PLAN_TOOL, "todo"],
 		exec: options.exec ?? repoExec(root),
 		// A normal install has `goal` registered by its sibling extension; the
 		// approval probes for it before recording the session goal.
@@ -71,15 +81,17 @@ function setup(web?: PlanWebReview, options: { allTools?: unknown[]; exec?: Fake
 	});
 	const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
 	registerTools(fake.pi, runtime, web);
+	const plan = fake.tools.get(PLAN_TOOL);
 	return {
 		...fake,
 		runtime,
 		root,
-		enter: fake.tools.get(ENTER_TOOL),
-		exit: fake.tools.get(EXIT_TOOL),
-		cancel: fake.tools.get(CANCEL_TOOL),
-		write: fake.tools.get(WRITE_PLAN_TOOL),
-		setSteps: fake.tools.get(SET_PLAN_STEPS_TOOL),
+		plan,
+		enter: bound(plan, "enter"),
+		exit: bound(plan, "exit"),
+		cancel: bound(plan, "cancel"),
+		write: bound(plan, "write"),
+		setSteps: bound(plan, "steps"),
 	};
 }
 
@@ -181,31 +193,6 @@ function planWithSteps(count: number): string {
 	const steps = Array.from({ length: count }, (_, index) => `- [ ] step ${index}`).join("\n");
 	return `## Steps\n${steps}`;
 }
-
-describe("plan tool registration", () => {
-	test("registers four sequential tools with the plan-mode annotations", () => {
-		const { enter, write, exit, setSteps } = setup();
-		const cases: Array<[any, Record<string, unknown>]> = [
-			[enter, { readOnlyHint: true, openWorldHint: false }],
-			[write, { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }],
-			[exit, { readOnlyHint: true, openWorldHint: false }],
-			[setSteps, { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }],
-		];
-		for (const [tool, annotations] of cases) {
-			expect(tool.executionMode).toBe("sequential");
-			expect(tool.annotations).toMatchObject(annotations);
-			expect(tool.promptSnippet.length).toBeGreaterThan(0);
-		}
-	});
-
-	test("activates enter_plan_mode and set_plan_steps by default, not the plan-mode-only pair", () => {
-		const { enter, write, exit, setSteps } = setup();
-		expect(enter.defaultActive).toBeUndefined();
-		expect(setSteps.defaultActive).toBeUndefined();
-		expect(exit.defaultActive).toBe(false);
-		expect(write.defaultActive).toBe(false);
-	});
-});
 
 describe("plan approval merge", () => {
 	const step = (content: string, status: "pending" | "completed" = "pending") => ({ content, status });
@@ -429,18 +416,17 @@ describe("plan approval merge", () => {
 	});
 });
 
-describe("enter_plan_mode", () => {
-	test("enables plan mode and activates both control tools when the user confirms", async () => {
-		const { enter, runtime, activeTools, root } = setup();
+describe("plan enter", () => {
+	test("enables plan mode, keeps the plan tool, and names the folded calls", async () => {
+		const { enter, plan, runtime, activeTools, root } = setup();
 		const { ctx } = planCtx({ confirm: true, cwd: root });
 		const result = await callTool(enter, {}, ctx);
 
-		expect(result.details).toEqual({ entered: true });
+		expect(result.details).toEqual({ action: "enter", entered: true });
 		expect(runtime.isEnabled()).toBe(true);
 		expect(activeTools()).not.toContain("write");
-		expect(activeTools()).toContain(EXIT_TOOL);
-		expect(activeTools()).toContain(WRITE_PLAN_TOOL);
-		expect(result.content[0].text).toContain("write_plan");
+		expect(activeTools()).toContain(plan.name);
+		expect(result.content[0].text).toContain("`plan` action `write`");
 	});
 
 	test("stays in normal mode when the user declines", async () => {
@@ -448,7 +434,7 @@ describe("enter_plan_mode", () => {
 		const { ctx } = planCtx({ confirm: false, cwd: root });
 		const result = await callTool(enter, {}, ctx);
 
-		expect(result.details).toEqual({ entered: false });
+		expect(result.details).toEqual({ action: "enter", entered: false });
 		expect(result.isError).toBeUndefined();
 		expect(runtime.isEnabled()).toBe(false);
 	});
@@ -459,7 +445,7 @@ describe("enter_plan_mode", () => {
 
 		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(enter, {}, ctx);
-		expect(result.details).toEqual({ entered: true, already: true });
+		expect(result.details).toEqual({ action: "enter", entered: true, already: true });
 
 		const text = enter.renderResult(result, { expanded: false }, fakeTheme).render(80).join("\n");
 		expect(text).toContain("Already in plan mode");
@@ -477,7 +463,7 @@ describe("enter_plan_mode", () => {
 	});
 });
 
-describe("write_plan", () => {
+describe("plan write", () => {
 	test("refuses outside plan mode", async () => {
 		const { write, root } = setup();
 		const { ctx } = planCtx({ cwd: root });
@@ -487,16 +473,16 @@ describe("write_plan", () => {
 	});
 
 	test("names the droppable headings and how steps are counted", () => {
-		const { write } = setup();
-		expect(write.description).toContain("a guide, not a form");
-		expect(write.description).toContain("drop Context, Approach, Visual, or Risks");
-		expect(write.description).toContain("the shallowest list anywhere becomes the steps");
-		expect(write.description).toContain("before and after in one fence each");
+		const { plan } = setup();
+		expect(plan.description).toContain("a guide, not a form");
+		expect(plan.description).toContain("drop Context, Approach, Visual, or Risks");
+		expect(plan.description).toContain("the shallowest list anywhere becomes the steps");
+		expect(plan.description).toContain("before and after in one fence each");
 	});
 
 	test("asks a refinement to keep its section headings", () => {
-		const { write } = setup();
-		expect(write.promptGuidelines.join("\n")).toContain("keep every section heading");
+		const { plan } = setup();
+		expect(plan.promptGuidelines.join("\n")).toContain("keep every section heading");
 	});
 
 	test("writes the plan file, remembers it, and repaints the footer", async () => {
@@ -528,7 +514,7 @@ describe("write_plan", () => {
 		expect(result.content[0].text).toContain(`${MAX_STEPS + 1} top-level steps`);
 		expect(result.content[0].text).toContain(`at most ${MAX_STEPS}`);
 		expect(result.content[0].text).toContain("Nothing was written");
-		expect(result.details).toBeUndefined();
+		expect(result.details.refused).toBe("write");
 		expect(runtime.lastPlanPath()).toBeUndefined();
 	});
 
@@ -579,13 +565,14 @@ describe("write_plan", () => {
 		expect(short.content[0].text).not.toContain("Note:");
 	});
 
-	test("reports a write failure as an error result", async () => {
+	test("refuses a write with no title instead of naming a file for it", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const { ctx } = planCtx({ cwd: root });
 		const result = await callTool(write, { title: "   ", content: "y" }, ctx);
 		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain("Could not write the plan");
+		expect(result.content[0].text).toContain("`write` needs a title");
+		expect(runtime.lastPlanPath()).toBeUndefined();
 	});
 
 	test("reports an oversized plan from the store", async () => {
@@ -600,7 +587,7 @@ describe("write_plan", () => {
 	test("renders the saved relative path", () => {
 		const { write } = setup();
 		const component = write.renderResult(
-			{ details: { path: "/x/plans/p.md", relativePath: "/x/plans/p.md", bytes: 1 } },
+			{ details: { action: "write", path: "/x/plans/p.md", relativePath: "/x/plans/p.md", bytes: 1 } },
 			{ expanded: false },
 			fakeTheme,
 		);
@@ -661,7 +648,7 @@ describe("a plan approved twice", () => {
 	});
 });
 
-describe("exit_plan_mode with a browser review", () => {
+describe("plan exit with a browser review", () => {
 	test("approves from the page and records the steps", async () => {
 		const { web, starts } = webThatApproves([]);
 		const { enter, exit, write, runtime, root } = setup(web);
@@ -676,7 +663,7 @@ describe("exit_plan_mode with a browser review", () => {
 	});
 });
 
-describe("exit_plan_mode", () => {
+describe("plan exit", () => {
 	test("rejects when not in plan mode", async () => {
 		const { exit, root } = setup();
 		const { ctx } = planCtx({ editor: "1", cwd: root });
@@ -715,7 +702,7 @@ describe("exit_plan_mode", () => {
 	test("refuses to present a plan file over the step cap", async () => {
 		const { enter, exit, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		// A hand-edited (or older-session) file can exceed the cap without write_plan.
+		// A hand-edited (or older-session) file can exceed the cap without the write action.
 		const plansDir = planDir(root);
 		mkdirSync(plansDir, { recursive: true });
 		const planPath = join(plansDir, "big.md");
@@ -727,7 +714,7 @@ describe("exit_plan_mode", () => {
 		expect(result.isError).toBe(true);
 		expect(result.details.approved).toBe(false);
 		expect(result.content[0].text).toContain(`${MAX_STEPS + 1} top-level steps`);
-		expect(result.content[0].text).toContain("write_plan");
+		expect(result.content[0].text).toContain("`plan` action `write`");
 		// Nothing was approved: the session is still planning.
 		expect(runtime.isEnabled()).toBe(true);
 	});
@@ -770,7 +757,7 @@ describe("exit_plan_mode", () => {
 		expect(existsSync(planPath)).toBe(true);
 	});
 
-	test("cancel_plan_mode restores write access without touching todos or goals", async () => {
+	test("plan cancel restores write access without touching todos or goals", async () => {
 		const { enter, cancel, runtime, activeTools, root } = setup();
 		await enterPlan(enter, runtime, root);
 
@@ -791,12 +778,12 @@ describe("exit_plan_mode", () => {
 		expect(notices.some((notice) => notice.message.includes("write access is off"))).toBe(true);
 	});
 
-	test("cancel_plan_mode refuses outside plan mode", async () => {
+	test("refuses outside plan mode", async () => {
 		const { cancel } = setup();
 		const { ctx } = planCtx();
 		const result = await callTool(cancel, {}, ctx);
 		expect(result.isError).toBe(true);
-		expect(result.details.cancelled).toBe(false);
+		expect(result.details.refused).toBe("cancel");
 		expect(result.content[0].text).toContain("nothing to cancel");
 	});
 
@@ -815,8 +802,6 @@ describe("exit_plan_mode", () => {
 		expect(result.details.planPath).toBe(planPath);
 		expect(runtime.isEnabled()).toBe(false);
 		expect(activeTools()).toContain("write");
-		expect(activeTools()).not.toContain(EXIT_TOOL);
-		expect(activeTools()).not.toContain(WRITE_PLAN_TOOL);
 
 		// The approval seeds the steps and then records the goal, in that order.
 		expect(toolCalls.map((entry) => entry.name)).toEqual([TODO_TOOL, GOAL_TOOL]);
@@ -830,7 +815,7 @@ describe("exit_plan_mode", () => {
 		expect(result.content[0].text).toContain("test-plan.md");
 		expect(result.content[0].text).toContain("source of truth");
 		expect(result.content[0].text).toContain("1. [ ] Read the parser");
-		expect(result.content[0].text).toContain(SET_PLAN_STEPS_TOOL);
+		expect(result.content[0].text).toContain("`plan` action `steps`");
 	});
 
 	test("carries the Verification section as the last todo item", async () => {
@@ -1397,7 +1382,7 @@ describe("exit_plan_mode", () => {
 	});
 });
 
-describe("set_plan_steps", () => {
+describe("plan steps", () => {
 	test("ticks steps off in an approved plan and reports progress", async () => {
 		const { enter, exit, write, setSteps, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
@@ -1634,6 +1619,7 @@ describe("set_plan_steps", () => {
 		const component = setSteps.renderResult(
 			{
 				details: {
+					action: "steps",
 					path: "/x/plans/p.md",
 					relativePath: ".pi/plans/p.md",
 					updates: [{ step: 2, status: "completed" }],
@@ -1651,10 +1637,10 @@ describe("set_plan_steps", () => {
 });
 
 describe("plan tool rendering", () => {
-	test("exit_plan_mode previews the plan and shows it in full when expanded", async () => {
+	test("plan exit previews the plan and shows it in full when expanded", async () => {
 		const { exit } = setup();
 		const plan = ["# Plan", ...Array.from({ length: 20 }, (_, index) => `${index + 1}. step`)].join("\n");
-		const details = { approved: true, plan, planPath: "/x/plans/p.md", relativePath: ".pi/plans/p.md" };
+		const details = { action: "exit", approved: true, plan, planPath: "/x/plans/p.md", relativePath: ".pi/plans/p.md" };
 
 		const collapsed = exit.renderResult({ details }, { expanded: false }, fakeTheme).render(80).join("\n");
 		expect(collapsed).toContain("Plan approved");
@@ -1670,7 +1656,15 @@ describe("plan tool rendering", () => {
 	test("renders the relative plan path, not the absolute one", async () => {
 		const { exit } = setup();
 		const component = exit.renderResult(
-			{ details: { approved: true, plan: "# P", planPath: "/x/plans/p.md", relativePath: ".pi/plans/p.md" } },
+			{
+				details: {
+					action: "exit",
+					approved: true,
+					plan: "# P",
+					planPath: "/x/plans/p.md",
+					relativePath: ".pi/plans/p.md",
+				},
+			},
 			{ expanded: false },
 			fakeTheme,
 		);
@@ -1685,6 +1679,7 @@ describe("plan tool rendering", () => {
 			const component = exit.renderResult(
 				{
 					details: {
+						action: "exit",
 						approved: false,
 						plan: "hello\u001b[31mred\u001b[0m\u0007 world",
 						planPath: "/x/plans/p.md",
