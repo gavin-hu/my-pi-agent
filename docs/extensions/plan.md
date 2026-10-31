@@ -501,6 +501,21 @@ A refused shell command explains the fix: the working directory is already the
 project root (so `cd` is unnecessary), and files belong to the `read`, `grep`,
 `find`, and `ls` tools.
 
+**What a repository could otherwise make it run.** A cloned repository can name the
+program a diff runs — `diff.<driver>.textconv` in `.gitattributes` for a file type, or
+`diff.external` in its config — so every command the guard allows that runs a diff is
+handed back with `--no-textconv --no-ext-diff` in it: `git show HEAD` runs as
+`git show --no-textconv --no-ext-diff HEAD`. Both are inserted after the subcommand, and
+`--textconv` and `--ext-diff` are refused by name, so a caller cannot put the program back.
+`git remote` is narrowed the same way: only `git remote` and `git remote -v` are allowed,
+because `remote show` connects to the remote and `remote get-url` reads past this
+repository's config, while `-v` prints both URLs from it.
+
+The guard writes nothing of its own, but it does not make the repository read-only in the
+filesystem sense: `git status` and `git diff` can refresh `.git/index`, and hooks
+configured in the repository (`core.fsmonitor`, `post-index-change`) are still git's to
+run. Treat plan mode as a guard rail, not a sandbox — the same stance as the rest of it.
+
 A string parser can never be the boundary, so capability gating replaced the
 earlier segment-based command allowlist. The git shell guard is a narrow,
 deliberate exception — an allowlist over read-only git command shapes, not a

@@ -200,9 +200,13 @@ export default function planMode(pi: ExtensionAPI): void {
 			if (typeof command !== "string" || command.trim() === "") {
 				return `Plan mode: an empty bash command is not allowed. ${BASH_BLOCKED_GUIDANCE}`;
 			}
-			const { checkReadOnlyGit } = await import("./git-bash.ts");
-			const verdict = checkReadOnlyGit(command);
-			if (!verdict.ok) return `Plan mode: ${verdict.reason} ${BASH_BLOCKED_GUIDANCE}`;
+			const { readOnlyGitCommand } = await import("./git-bash.ts");
+			const decision = readOnlyGitCommand(command);
+			if (!decision.ok) return `Plan mode: ${decision.reason} ${BASH_BLOCKED_GUIDANCE}`;
+			// The guard hands back the command it approved, with the switches that keep a
+			// repository's own diff program out of it: the call runs what the guard decided, the
+			// same way the subagent branch above writes its forced parameter onto the input.
+			(input as { command: string }).command = decision.command;
 		}
 		const { hasPathInput } = await import("./path-guard.ts");
 		if (hasPathInput(input) && !PLAN_SAFE_TOOLS.includes(toolName)) {
