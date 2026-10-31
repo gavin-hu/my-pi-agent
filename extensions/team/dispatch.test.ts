@@ -9,6 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { Card } from "../../lib/board/card.ts";
+import { askLead } from "../../lib/board/lead.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
@@ -69,11 +70,11 @@ describe("handoffText", () => {
 	test("says what to do if the assignment lost the race after the message", () => {
 		// The message is sent before the owner is recorded, so the peer can be reading a card
 		// another session took in between. The clause is the only correction that cannot be
-		// lost, because the peer already holds it, and it names the lead rather than a claim
-		// because the card may not be the peer's to claim.
+		// lost, because the peer already holds it, and it names the lead's channel rather than a
+		// claim because the card may not be the peer's to claim.
 		const text = handoffText(card(), "billing-core", LEAD);
 		expect(text).toContain("If the board shows another owner");
-		expect(text).toContain("tell the lead instead of working it");
+		expect(text).toContain(`leave it alone and ${askLead(LEAD)}`);
 	});
 
 	test("stays inside the send limit, however many paths a card carries", () => {
@@ -81,8 +82,9 @@ describe("handoffText", () => {
 		const text = handoffText(long, "billing-core", LEAD);
 		expect(text.length).toBeLessThanOrEqual(MAX_MESSAGE_TEXT);
 		// A clipped message must keep the step it was sent to give: the paths are the only
-		// line long enough to push the gates past the limit, so they come after them.
+		// line long enough to push the gates past the limit, so both sentences come before them.
 		expect(text).toContain(`ask ${LEAD} with \`session send\` when each is ready`);
+		expect(text).toContain(`leave it alone and ${askLead(LEAD)}`);
 	});
 });
 

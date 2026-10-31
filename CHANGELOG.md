@@ -39,8 +39,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   between: the lead read `formatRacedAssignment`, while the peer's inbox kept "It is already
   assigned to you" for a card somebody else held. The peer was not the holder, so its own next
   call was refused naming the rival — it found out from a refusal the message never warned it
-  about. The instruction block is closed by a condition instead — it says to tell the lead if
-  the board shows another owner rather than work it — which is true on both sides of the race
+  about. The instruction block is closed by a condition instead — it says to leave the card
+  alone and ask the lead (`session send`) if the board shows another owner, rather than work
+  it — which is true on both sides of the race
   and cannot itself be lost, unlike a second message that an armed watch would raise a turn
   for. `offer` needs none: its only next step is a claim, and the store refuses that naming the
   holder. Both raced branches have cases now, staged on the bus seam the suite owns.
