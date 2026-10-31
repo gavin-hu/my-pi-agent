@@ -70,7 +70,9 @@ export const BoardParams = Type.Object({
 		}),
 	),
 	text: Type.Optional(
-		Type.String({ description: `\`note\`: the note to append; one line, at most ${MAX_NOTE} characters.` }),
+		Type.String({
+			description: `\`note\`: the note to append; \`approve\` and \`review\`: what the signer saw, recorded with the sign; one line, at most ${MAX_NOTE} characters.`,
+		}),
 	),
 	path: Type.Optional(
 		Type.String({

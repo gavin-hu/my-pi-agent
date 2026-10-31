@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { MAX_NOTE } from "./card.ts";
 import { personActor } from "./lead.ts";
 import {
 	accepted,
@@ -76,6 +77,36 @@ describe("approve", () => {
 		const next = stepOf(card, { kind: "approve" }, personActor());
 		expect(next.contract?.approved?.by).toBe("you");
 	});
+
+	test("records the note the signer wrote, in the same write", () => {
+		// A signer is exactly the session `note` refuses on a held card, so the sign is the door a
+		// caveat comes through: one line, its newline folded like any other note's.
+		const card = stepOf(written(), { kind: "approve", text: "The acceptance is thin,\nthe plan is sound." }, LEAD);
+		expect(card.contract?.approved).toEqual({ by: LEAD.label, at: NOW });
+		expect(card.notes.at(-1)).toEqual({ by: LEAD.label, at: NOW, text: "The acceptance is thin, the plan is sound." });
+	});
+
+	test("refuses a note it cannot record, and signs nothing", () => {
+		expect(refusal(applyOp(written(), { kind: "approve", text: "   " }, LEAD, NOW, boardOf(written())))).toBe(
+			"text is required.",
+		);
+		const long = written();
+		expect(refusal(applyOp(long, { kind: "approve", text: "x".repeat(MAX_NOTE + 1) }, LEAD, NOW, boardOf(long)))).toBe(
+			`text must be at most ${MAX_NOTE} characters.`,
+		);
+		// The gate's sentence is the one worth reading first, so it answers before the note does.
+		const moving = executing();
+		expect(refusal(applyOp(moving, { kind: "approve", text: "" }, LEAD, NOW, boardOf(moving)))).toBe(
+			"#4 is in execute; a contract is approved in plan.",
+		);
+	});
+
+	test("a second sign from the lead keeps the first stamp, and still records its note", () => {
+		const first = approved();
+		const card = stepOf(first, { kind: "approve", text: "one more look" }, LEAD);
+		expect(card.contract?.approved).toEqual(first.contract?.approved);
+		expect(card.notes.at(-1)?.text).toBe("one more look");
+	});
 });
 
 describe("review", () => {
@@ -104,5 +135,11 @@ describe("review", () => {
 	test("the same reviewer again is a no-op", () => {
 		const card = reviewed();
 		expect(accepted(applyOp(card, { kind: "review" }, LEAD, NOW, boardOf(card))).changed).toBe(false);
+	});
+
+	test("records the note the spot-checker wrote", () => {
+		const card = stepOf(executing(), { kind: "review", text: "Ships; the docs line is still wrong." }, LEAD);
+		expect(card.review).toEqual({ by: LEAD.label, at: NOW });
+		expect(card.notes.at(-1)).toEqual({ by: LEAD.label, at: NOW, text: "Ships; the docs line is still wrong." });
 	});
 });

@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: `approve` and `review` take a `text` note, recorded with the sign — the session that
+  signs is exactly the one `note` refuses on a held card, so a caveat had nowhere to go, and a
+  repeated sign records its note without re-signing the contract.
 - dev: a `waitFor` that runs out now names what it was waiting for — the test it was
   called from (`describe > test`), its `path:line`, the predicate, and the elapsed time
   against the budget. Two `--parallel` failures in one day said only how long they waited,

@@ -321,8 +321,11 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
  * to release the card first, because a session signing its own wording is the gate approving
  * itself, and a session that is neither the lead nor the person is told whose signature the gate
  * takes. The person's `/board approve` is the other way in.
+ *
+ * `text` is the note the signer leaves with the sign, in the same write: a signer is exactly
+ * the caller `note` refuses on a held card, so this is where a caveat has somewhere to go.
  */
-export function approve(card: Card, actor: Actor, now: number, config: BoardConfig): Prepared {
+export function approve(card: Card, actor: Actor, now: number, config: BoardConfig, text?: unknown): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; its contract is closed.` };
 	if (card.lane !== "plan") return { error: `${cardRef(card.id)} is in ${card.lane}; a contract is approved in plan.` };
 	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "approve")}` };
@@ -337,12 +340,22 @@ export function approve(card: Card, actor: Actor, now: number, config: BoardConf
 		const gaps = missing.length === 0 ? "" : `: ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} missing`;
 		return { error: `${cardRef(card.id)} has no contract to approve yet${gaps}.` };
 	}
-	if (contract.approved?.by === actor.label) return { changed: false, fields: null };
-	return { changed: true, fields: { contract: { ...contract, approved: { by: actor.label, at: now } } } };
+	const noted = signNote(card, text, actor, now);
+	if ("error" in noted) return { error: noted.error };
+	// A second sign from the same session says nothing new, so the contract keeps its stamp;
+	// the note still lands, because a caller who wrote one recorded a fact about the card.
+	const signed = contract.approved?.by === actor.label;
+	if (signed && !noted.wrote) return { changed: false, fields: null };
+	const approval = signed ? {} : { contract: { ...contract, approved: { by: actor.label, at: now } } };
+	return { changed: true, fields: { ...approval, ...noted.fields } };
 }
 
-/** Record the spot-check of finished work: the lead's, and never the holder's. */
-export function review(card: Card, actor: Actor, now: number, config: BoardConfig): Prepared {
+/**
+ * Record the spot-check of finished work: the lead's, and never the holder's.
+ *
+ * `text` rides the sign here too, so "checked, and this is still wrong" is one call.
+ */
+export function review(card: Card, actor: Actor, now: number, config: BoardConfig, text?: unknown): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be reviewed.` };
 	if (card.lane !== "execute") {
 		return { error: `${cardRef(card.id)} is in ${card.lane}; finished work is spot-checked in execute.` };
@@ -350,8 +363,30 @@ export function review(card: Card, actor: Actor, now: number, config: BoardConfi
 	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "review")}` };
 	const wrongSigner = signRefusal(card, actor, config.lead, "review");
 	if (wrongSigner !== undefined) return { error: wrongSigner };
-	if (card.review?.by === actor.label) return { changed: false, fields: null };
-	return { changed: true, fields: { review: { by: actor.label, at: now } } };
+	const noted = signNote(card, text, actor, now);
+	if ("error" in noted) return { error: noted.error };
+	const signed = card.review?.by === actor.label;
+	if (signed && !noted.wrote) return { changed: false, fields: null };
+	const spotCheck = signed ? {} : { review: { by: actor.label, at: now } };
+	return { changed: true, fields: { ...spotCheck, ...noted.fields } };
+}
+
+/**
+ * The note a signer leaves with the sign, in the same write.
+ *
+ * Validated after the gate, as `note` validates after the holder check: a card that cannot be
+ * signed at all is the answer worth reading first.
+ */
+function signNote(
+	card: Card,
+	raw: unknown,
+	actor: Actor,
+	now: number,
+): { fields: Partial<Card>; wrote: boolean } | { error: string } {
+	if (raw === undefined) return { fields: {}, wrote: false };
+	const parsed = normalizeNote(raw);
+	if ("error" in parsed) return { error: parsed.error };
+	return { fields: appendNote(card, actor, now, parsed.text), wrote: true };
 }
 
 /**

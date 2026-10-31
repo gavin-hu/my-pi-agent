@@ -235,9 +235,9 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 						});
 					}
 					case "approve":
-						return await mutate(store, action, me, now, args, { kind: "approve" });
+						return await mutate(store, action, me, now, args, { kind: "approve", text: args.text });
 					case "review":
-						return await mutate(store, action, me, now, args, { kind: "review" });
+						return await mutate(store, action, me, now, args, { kind: "review", text: args.text });
 					case "edit": {
 						if (
 							args.title === undefined &&

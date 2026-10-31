@@ -44,9 +44,9 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	contract:
 		"records the plan file and the three lines a card promises — `goal`, `acceptance`, `scopeOut` — and drops any approval, because the wording changed; `path` is required and must be the plan `plan` action `write` saved in this repository's plan store",
 	approve:
-		"approves the contract: the lead (`board.lead`, `lead` by default, the name the page serves as), who does not hold the card, says the wording is right, which is what `plan` to `execute` requires",
+		"approves the contract: the lead (`board.lead`, `lead` by default, the name the page serves as), who does not hold the card, says the wording is right, which is what `plan` to `execute` requires, and `text` records what the signer saw",
 	review:
-		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`, which is what `done` requires",
+		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`, which is what `done` requires, and `text` records what the signer saw",
 	edit: "fixes what the card says — title, path hints, priority, and what it waits for",
 	archive:
 		"sets a finished card aside, out of the board and still readable, or every finished card when no `card` is named",
@@ -73,8 +73,8 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	move: ["card", "lane", "blockedBy", "blocker"],
 	note: ["card", "text"],
 	contract: ["card", "path", "goal", "acceptance", "scopeOut"],
-	approve: ["card"],
-	review: ["card"],
+	approve: ["card", "text"],
+	review: ["card", "text"],
 	edit: ["card", "title", "paths", "priority", "dependsOn"],
 	archive: ["card"],
 	drop: ["card"],
