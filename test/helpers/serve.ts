@@ -7,10 +7,12 @@
  *
  * A case that names a port rather than asking for one asks here first: a suite shares
  * the machine's ports with whatever else it runs, so the number it wants is a guess
- * until somebody binds it.
+ * until somebody binds it. Both probes reject when the machine refuses to bind at all —
+ * an exhausted fd table is not a port somebody holds, and reading it as one hides it.
  */
 
 import { createServer } from "node:net";
+import { hasErrorCode, messageOf } from "../../lib/errors.ts";
 import {
 	type HttpMount,
 	type MountSource,
@@ -19,29 +21,41 @@ import {
 	type SharedListener,
 } from "../../lib/http/index.ts";
 
-/** Whether `port` is free on loopback right now; the probe holds it only for the bind. */
+/**
+ * Whether `port` is free on loopback right now; the probe holds it only for the bind.
+ * Rejects when the bind failed for a reason other than the number being taken.
+ */
 export function portIsFree(port: number): Promise<boolean> {
-	return new Promise((resolve) => {
+	return new Promise((resolve, reject) => {
 		const probe = createServer();
-		probe.once("error", () => resolve(false));
+		probe.once("error", (error: unknown) => {
+			if (hasErrorCode(error, "EADDRINUSE")) resolve(false);
+			else reject(new Error(`could not probe port ${port}: ${messageOf(error)}`));
+		});
 		probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
 	});
 }
 
 /**
- * A loopback port free right now, given straight back: a case that needs a number of
- * its own asks the kernel for one instead of naming it and hoping.
+ * A loopback port free right now, given straight back: a case that needs a number of its
+ * own asks the kernel for one instead of naming it and hoping. Rejects when the machine
+ * refuses to bind, rather than leaving a promise no caller can settle.
  */
-export async function freePort(): Promise<number> {
-	const probe = createServer();
-	const port = await new Promise<number>((resolve) => {
+export function freePort(): Promise<number> {
+	return new Promise((resolve, reject) => {
+		const probe = createServer();
+		probe.once("error", (error: unknown) =>
+			reject(new Error(`could not ask the kernel for a free port: ${messageOf(error)}`)),
+		);
 		probe.listen(0, "127.0.0.1", () => {
 			const address = probe.address();
-			resolve(typeof address === "object" && address ? address.port : 0);
+			if (typeof address !== "object" || address === null) {
+				reject(new Error("the probe bound no port to give back"));
+				return;
+			}
+			probe.close(() => resolve(address.port));
 		});
 	});
-	await new Promise<void>((resolve) => probe.close(() => resolve()));
-	return port;
 }
 
 /**
