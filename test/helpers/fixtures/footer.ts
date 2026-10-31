@@ -105,6 +105,7 @@ export function fullSnapshot(overrides: Partial<StatusSnapshot> = {}): StatusSna
 	return {
 		cwd: "/home/u/repo/project",
 		sessionName: null,
+		rosterLabel: null,
 		branch: "main",
 		statuses: new Map([
 			[STATUS_KEYS.planMode, `${GLYPHS.plan} plan`],

@@ -20,6 +20,7 @@ import {
 	SESSIONS_DIR_NAME,
 	SESSION_TTL_MS,
 	readRoster,
+	readSessionLabel,
 	rosterStateOf,
 } from "./session-roster.ts";
 
@@ -134,6 +135,41 @@ describe("readRoster", () => {
 		writeMail(dir, "aaa", "1");
 		writeFileSync(join(dir, INBOX_DIR_NAME, "aaa", "README"), "x\n", "utf-8");
 		expect((await readRoster(dir))?.[0]?.mail).toBe(1);
+	});
+});
+
+describe("readSessionLabel", () => {
+	test("finds this session's record under whichever key filed it", async () => {
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		const ours = join(agentDir, BUS_DIR_NAME, "first");
+		mkdirSync(join(ours, SESSIONS_DIR_NAME), { recursive: true });
+		writeSession(ours, "aaa", { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
+		// A second repository's bus sits beside it: the id decides, not the directory.
+		const other = join(agentDir, BUS_DIR_NAME, "second");
+		mkdirSync(join(other, SESSIONS_DIR_NAME), { recursive: true });
+		writeSession(other, "bbb", { id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW });
+		expect(await readSessionLabel(agentDir, "s-1")).toBe("billing-core");
+		expect(await readSessionLabel(agentDir, "s-2")).toBe("billing-lead");
+	});
+
+	test("answers undefined for a session no record names, and with no bus at all", async () => {
+		const empty = temps.track(tempDir("pi-bus-agent-"));
+		expect(await readSessionLabel(empty, "s-1")).toBeUndefined();
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		const dir = join(agentDir, BUS_DIR_NAME, "key");
+		mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
+		writeSession(dir, "aaa", { id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW });
+		expect(await readSessionLabel(agentDir, "s-1")).toBeUndefined();
+	});
+
+	test("skips a record that will not parse, and one that is not a record", async () => {
+		const agentDir = temps.track(tempDir("pi-bus-agent-"));
+		const dir = join(agentDir, BUS_DIR_NAME, "key");
+		mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
+		writeFileSync(join(dir, SESSIONS_DIR_NAME, "broken.json"), "{ not json\n", "utf-8");
+		writeSession(dir, "half", { id: "s-1", label: "half" });
+		writeSession(dir, "good", { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
+		expect(await readSessionLabel(agentDir, "s-1")).toBe("billing-core");
 	});
 });
 

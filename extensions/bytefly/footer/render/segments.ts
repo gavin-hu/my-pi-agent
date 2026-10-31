@@ -55,7 +55,11 @@ export function pwdSegment(snapshot: StatusSnapshot, theme: Theme, home: string 
 }
 
 export function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	const name = snapshot.sessionName ? sanitizeLine(snapshot.sessionName) : "";
+	// The roster's label first: Pi's session name is what the terminal calls this session, and
+	// the label is what a card, a handoff, and `/team` use. No record means no team, so the bar
+	// keeps the name the user knows.
+	const raw = snapshot.rosterLabel ?? snapshot.sessionName;
+	const name = raw ? sanitizeLine(raw) : "";
 	if (!name) return null;
 	const short = truncateLabel(name, CONFIG.sessionLabelMax);
 	// Brackets and a brighter token keep the session name from reading as a

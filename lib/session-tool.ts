@@ -59,9 +59,10 @@ export const TEAM_JOIN_REQUEST = "my-pi-agent/team-join/request";
  * What a join asks for.
  *
  * `label` is the name to be on the team as; without one the bus settles its own. `name`
- * is the separate question of whether that label also becomes Pi's session name — the
- * footer and `/resume` — and it is opt-in, because a join is not a rename: only
- * `/team join <label>` means "call me this from now on".
+ * is the separate question of whether that label also becomes Pi's session name — what
+ * `/resume` lists — and it is opt-in, because a join is not a rename: only
+ * `/team join <label>` means "call me this from now on". The footer needs no opt-in: it
+ * draws the label itself, so a plain join moves what the bar names this session.
  */
 export interface TeamJoinInput {
 	label?: string;

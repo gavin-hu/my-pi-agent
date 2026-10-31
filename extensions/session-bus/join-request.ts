@@ -10,7 +10,8 @@
  * The answer always comes: every path here returns a result, including a failure, so
  * a caller never waits on a listener that threw. A caller that asks for `name` also gets
  * Pi's session name, because `/team join <label>` is the one door that means "call me
- * this from now on"; every other join leaves the footer alone.
+ * this from now on"; the footer draws the roster label after every join either way, so a
+ * plain join changes the name on the bar without renaming the session.
  *
  * The claim is the answer, not the result: the bus starts and joins asynchronously, so
  * this answers with the promise and stays claimed while it runs — which is what keeps

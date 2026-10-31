@@ -58,6 +58,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: **the footer names the teammate this session is**, not just the name the
+  terminal knows — the `[session]` segment draws the bus's roster label, which is what a
+  card's owner, a handoff, and `/team` use, and falls back to Pi's own session name when the
+  bus has no record for the session, so a session off the bus reads as it did. `session-bus`
+  publishes the label on `session-label` whenever it settles, renames, or yields one, and the
+  footer reads the record once at session start, so no frame touches the bus or git. A plain
+  join now moves what the bar names the session without renaming it in Pi.
 - `job`: `sessionTtlMs` names how old a heartbeat may be before its pid is re-checked for
   reuse, not how long it is trusted before a peer's jobs are reaped — a quiet session is an
   idle one, not a dead one.

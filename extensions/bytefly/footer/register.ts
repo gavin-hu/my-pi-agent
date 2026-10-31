@@ -10,7 +10,7 @@
  */
 
 import { homedir } from "node:os";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { type ExtensionAPI, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../../lib/events.ts";
 import { budgetBody, budgetNotice, budgetState } from "./budget.ts";
 import { createSnapshotReader, type SnapshotReader } from "./collect/snapshot.ts";
@@ -32,6 +32,30 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 	const delegation = createDelegationLedger();
 	pi.events.on(SUBAGENT_FINISHED_CHANNEL, (event) => delegation.note(event));
 
+	// The label a peer knows this session by, once the follower below reports one; `null` is
+	// no record, and the bar keeps Pi's own session name.
+	let rosterLabel: string | null = null;
+	/** Whether this session's label is being followed: a tree change re-installs, it is not new. */
+	let followed = false;
+	const followLabel = (ctx: ExtensionContext): void => {
+		if (followed) return;
+		followed = true;
+		// Loaded where it is used: the follower walks the bus's layout on disk and subscribes to
+		// its label, and the registration graph is a budget that may only fall.
+		void import("./collect/label.ts")
+			.then(({ followRosterLabel }) =>
+				followRosterLabel({
+					pi,
+					ctx,
+					agentDir: getAgentDir(),
+					sink: (label) => {
+						rosterLabel = label;
+					},
+				}),
+			)
+			.catch(() => {});
+	};
+
 	/** The installed reader and the budget it was priced with, while a footer is up. */
 	let budget: { limit: number; read: SnapshotReader } | undefined;
 	/** One warning per session: the notice stays in scrollback, and a re-install must not repeat it. */
@@ -41,8 +65,11 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 
 	const install = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui") return;
+		// Not awaited: a footer is installed synchronously, and the bar draws Pi's name until the
+		// label lands — which is what a session with no record shows anyway.
+		followLabel(ctx);
 		const config = loadByteflyConfig(ctx.cwd);
-		const read = createSnapshotReader(config, delegation);
+		const read = createSnapshotReader(config, delegation, () => rosterLabel);
 		budget = { limit: config.budget, read };
 
 		ctx.ui.setFooter((tui, _theme, footerData) =>
@@ -57,9 +84,11 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 	};
 
 	pi.on("session_start", (_event, ctx) => {
-		// A new session in this process starts from zero: the ledger is not branch state,
-		// and a budget that was already reported is unreported again.
+		// A new session in this process starts from zero: the ledger is not branch state, the
+		// label belongs to the session, and a budget that was already reported is unreported again.
 		delegation.reset();
+		followed = false;
+		rosterLabel = null;
 		warned = false;
 		warnedUnpriced = false;
 		install(ctx);

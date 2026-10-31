@@ -390,6 +390,7 @@ const READS_AGENT_DIR = new Map<string, string>([
 	["extensions/bytefly/picker/discovery.ts", "finds installed packages in the agent directory"],
 	["extensions/bytefly/picker/resources.ts", "reads a package's own metadata"],
 	["extensions/bytefly/picker/toggle.ts", "writes Pi's own settings through the host"],
+	["extensions/bytefly/footer/register.ts", "hands the agent directory to the label follower"],
 	["extensions/bytefly/update/check.ts", "asks the package manager what is installed"],
 	["extensions/bytefly/update/register.ts", "wires the update check to the cache"],
 	["extensions/subagent/agents.ts", "reads the agent definitions Pi ships"],

@@ -159,6 +159,48 @@ async function mailCount(dir: string, stem: string): Promise<number> {
 }
 
 /**
+ * One session's own label, found by the id it belongs to.
+ *
+ * The record is filed under the repository's key, which a caller without a board store
+ * would have to resolve with git first — and a footer asking for a name that may not
+ * exist should not cost two subprocesses at every session start. So the bus root is
+ * walked instead and the record is matched on its id: a session id belongs to one
+ * session, so the first record that names it is the answer wherever the bus filed it.
+ *
+ * Every miss is ordinary: a machine with no bus, or with records for other sessions
+ * only, answers `undefined` rather than an error.
+ */
+export async function readSessionLabel(agentDir: string, id: string): Promise<string | undefined> {
+	const root = join(agentDir, BUS_DIR_NAME);
+	let keys: string[];
+	try {
+		keys = await readdir(root);
+	} catch {
+		return undefined;
+	}
+	for (const key of keys) {
+		const dir = join(root, key, SESSIONS_DIR_NAME);
+		let names: string[];
+		try {
+			names = await readdir(dir);
+		} catch {
+			continue;
+		}
+		for (const name of names) {
+			if (!name.endsWith(".json")) continue;
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
+			} catch {
+				continue;
+			}
+			if (isSessionPayload(parsed) && parsed.id === id) return parsed.label;
+		}
+	}
+	return undefined;
+}
+
+/**
  * Every session the bus has recorded for one repository, or `undefined` when the bus
  * has never been used here.
  *

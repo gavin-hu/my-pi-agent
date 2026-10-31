@@ -142,3 +142,45 @@ export function sessionNameOf(ctx: Pick<ExtensionContext, "sessionManager">): st
 		return undefined;
 	}
 }
+
+/**
+ * The session's id, or undefined when the host does not report one.
+ *
+ * Read beside the name because they are the same fact from two sides: a name is how a
+ * person reads a session, an id is how one is filed — a bus record, a card's owner, a
+ * resume. A host that refuses the call is a session with no id, not an error.
+ */
+export function sessionIdOf(ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {
+	try {
+		const id = ctx.sessionManager.getSessionId();
+		return typeof id === "string" && id !== "" ? id : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * `pi.events` channel: a session settled the label its peers address it by.
+ *
+ * Here rather than in `lib/events.ts`, the way `lib/plan-entry.ts` and `lib/http/mount.ts`
+ * keep their own: a label is this module's vocabulary, and both sides of the channel — the
+ * bus that settles one and the footer that draws it — already load this module, so the
+ * literal costs a registration graph nothing and cannot be re-typed on one side.
+ */
+export const SESSION_LABEL_CHANNEL = "my-pi-agent/session-label";
+
+/**
+ * Payload on {@link SESSION_LABEL_CHANNEL}: one session's name on the bus.
+ *
+ * Emitted by `session-bus` whenever it settles or yields a label, and read by bytefly's
+ * footer, which draws it instead of Pi's own session name: the two part company the moment
+ * the board seats a session under a preset teammate name, or a collision appends an id. The
+ * id rides along because the channel reaches every session in the process, and only the one
+ * named here is the reader's own.
+ */
+export interface SessionLabelEvent {
+	/** Pi session id the label belongs to. */
+	id: string;
+	/** The name another session addresses this one by. */
+	label: string;
+}

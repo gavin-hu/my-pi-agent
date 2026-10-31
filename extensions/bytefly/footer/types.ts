@@ -84,6 +84,13 @@ export interface StatusSnapshot {
 	cwd: string;
 	/** Session name set by the user, `null` when unnamed. */
 	sessionName: string | null;
+	/**
+	 * The name peers address this session by, when the bus has recorded one.
+	 *
+	 * `null` means no record — bytefly runs without the bus and the bar keeps Pi's own
+	 * session name, which is all a session that never joined has.
+	 */
+	rosterLabel: string | null;
 	/** Branch name, `null` when not in a repository, `"detached"` on detached HEAD. */
 	branch: string | null;
 	/** Extension status texts (from `ctx.ui.setStatus`), including `worktree`. */

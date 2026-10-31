@@ -25,7 +25,14 @@ import { join } from "node:path";
 import { resolveEffectiveCwd } from "../env.ts";
 import { plansDirFor } from "../plans/paths.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import { agentLabel, defaultLabel, normalizeLabel, presetNameFor, sessionNameOf } from "../session-label.ts";
+import {
+	agentLabel,
+	defaultLabel,
+	normalizeLabel,
+	presetNameFor,
+	sessionIdOf,
+	sessionNameOf,
+} from "../session-label.ts";
 import { BUS_DIR_NAME, readRoster, type RosterSession, rosterStateOf } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
 import type { Actor } from "./rules.ts";
@@ -243,14 +250,4 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 	};
 	host[SESSION_KEY] = session;
 	return session;
-}
-
-/** The session id, or undefined when the host does not report one. */
-function sessionIdOf(ctx: ExtensionContext): string | undefined {
-	try {
-		const id = ctx.sessionManager.getSessionId();
-		return typeof id === "string" && id !== "" ? id : undefined;
-	} catch {
-		return undefined;
-	}
 }

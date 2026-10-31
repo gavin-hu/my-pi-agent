@@ -46,7 +46,7 @@ describe("a board's join request", () => {
 			pi.events.emit(TEAM_JOIN_REQUEST, { ctx, input: { label: "team-agent-s1" }, respond: resolve });
 		});
 		expect(await answered).toEqual({ ok: true, label: "team-agent-s1", watching: { armed: true, wake: false } });
-		// A join is membership, not a rename: the footer keeps the name the user gave it.
+		// A join is membership, not a rename: Pi's name stays, and only the bar's label moves.
 		expect(pi.getSessionName()).toBeUndefined();
 		expect((await bus.status()).onBus).toBe(true);
 		await bus.stop();

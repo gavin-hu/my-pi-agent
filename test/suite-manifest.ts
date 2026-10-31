@@ -14,6 +14,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"block/block",
 		"chrome",
 		"doctor/doctor",
+		"footer/collect/label",
 		"footer/footer",
 		"mode/editor",
 		"notify/notify",

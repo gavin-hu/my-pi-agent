@@ -14,7 +14,7 @@ a running turn settles. There is no network service and no hidden context.
 
 | Capability | How | What you get | Status |
 |---|---|---|---|
-| Membership | `session join [label]`, `/team join [<label>]`, `/board`, the first `board` claim, the board's `w` | The join: this session is on the bus under a stable label peers address, and listens for mail unless told not to. A label given to `session join` or `/team join` is also Pi's session name, so the footer and `/resume` agree with the record; `/board` joins as the board's lead (`board.lead`, `lead` by default) or, on a page it is only watching, under its own preset teammate name (`tom`, `lily`, … — `team-agent-<id>` once every preset name is held); the first `board` claim joins under that same name, and renames nothing; `w` joins under the name the bus derives and writes nothing to Pi. | Shipped |
+| Membership | `session join [label]`, `/team join [<label>]`, `/board`, the first `board` claim, the board's `w` | The join: this session is on the bus under a stable label peers address, and listens for mail unless told not to. That label is what the footer draws; a label given to `session join` or `/team join` is also Pi's session name, so `/resume` agrees with the record; `/board` joins as the board's lead (`board.lead`, `lead` by default) or, on a page it is only watching, under its own preset teammate name (`tom`, `lily`, … — `team-agent-<id>` once every preset name is held); the first `board` claim joins under that same name, and renames nothing; `w` joins under the name the bus derives and writes nothing to Pi. | Shipped |
 | Peer discovery | `session status` | Every active session with its unread count and claims, plus this session's identity, in one read — and a session whose process is gone says so, its paths free from that read on. | Unreleased |
 | Live board | `/sessions` | Sessions, this session's unread mail, and every claim held on the repository, on one screen. | Shipped |
 | Board actions | `/sessions` (`w`, `x`) | Start or stop listening from the board, or release an own claim behind a confirmation, without leaving it. | Shipped |
@@ -58,7 +58,7 @@ collapsed line that expands to the board's rows.
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
-| `join` | optional `label`, `wake`, `listen` | Joins the bus, names this session on it and in Pi when a label is given — the same path and uniqueness rule as `/team join`, so the footer and `/resume` agree with the record peers address — and starts listening for mail. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; `listen: false` joins without listening. A label a live session holds is refused, naming the session that holds it — its id, since the label it holds is the one you asked for — and the refusal leaves both names and the watch alone. The result reports the label the bus settled on and whether mail will reach this session. |
+| `join` | optional `label`, `wake`, `listen` | Joins the bus, names this session on it and in Pi when a label is given — the same path and uniqueness rule as `/team join`, so `/resume` agrees with the record peers address — and starts listening for mail. The footer draws the label either way, so a plain join changes the name on the bar without renaming the session. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; `listen: false` joins without listening. A label a live session holds is refused, naming the session that holds it — its id, since the label it holds is the one you asked for — and the refusal leaves both names and the watch alone. The result reports the label the bus settled on and whether mail will reach this session. |
 
 A claim is all-or-nothing: if one path conflicts, nothing is claimed. A claim on
 a directory conflicts with claims below it and above it, so `src/api` and
@@ -92,9 +92,12 @@ Labels are how another session addresses you. Name one by the outcome it owns
 (`billing-core`, `integrator`, `verify-billing`), not by a layer or a role;
 duplicate labels get a short id suffix automatically.
 
-A label is also Pi's session name, so the footer's `[label]` and `/resume` agree
-with the bus. Because the bus derives a joining session's label from that name, a
-named session comes back under the same label after a resume.
+A label is what the footer's `[label]` draws: bytefly reads this session's own record
+and follows the `session-label` event, so the bar names the session the way a card, a
+handoff, and `/team` do. `/team join <label>` makes the label Pi's session name too, so
+`/resume` agrees with the bus; any other join leaves Pi's name alone and only the bar
+moves. Because the bus derives a joining session's label from that name, a named session
+comes back under the same label after a resume.
 
 The tool's `join` action is the same join from the model's side, so a `board` or a
 `team` call can put a session on the bus without the user naming it, and
@@ -220,7 +223,7 @@ listening watch is what raises the turn.
 |---|---|
 | Tools | `session` — one action-shaped tool; `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: false`, `executionMode: "sequential"`. |
 | Commands | `/sessions` — the board in `tui`, the listing elsewhere; no arguments and no sub-commands. |
-| UI | `tui` mounts `SessionListComponent` through `withPolledScreen` (rails suppressed, a 1 s read-only poll of `snapshot()` + `peek()`); every other mode prints through `ctx.ui.notify`. No status chip, so listening never changes the footer. |
+| UI | `tui` mounts `SessionListComponent` through `withPolledScreen` (rails suppressed, a 1 s read-only poll of `snapshot()` + `peek()`); every other mode prints through `ctx.ui.notify`. No status chip: the watch state changes no footer segment, and the label is the bus's own `session-label` event rather than a chip. |
 | Events | `session_start` resolves the repository and arms the mail trigger, without joining; `session_tree` only repaints, since navigating the tree changes no pending record; `agent_start` marks the run busy; `before_agent_start` reports queued non-wake mail at the next turn; `agent_settled` retries a wake the run suppressed; `context` prunes stale notices; `session_shutdown` clears the heartbeat, the watch ticker, and the record. The seven hooks are `lib/report.ts`'s `registerPendingChannel`, not a local copy. |
 | State | Files under `<agent-dir>/session-bus/<repo-key>/`; nothing in the session branch. Listening is session-only. `/resume` re-registers the same session id. |
 | Lifecycle | The factory only registers. The runtime starts on `session_start`; heartbeat, watch ticker, and cleanup belong to it. Disabling `session-bus` through `PI_DISABLED_EXTENSIONS` registers nothing. |

@@ -262,7 +262,9 @@ identity, and grouped help are tuned in
 
 Two lines, each with a left and right zone:
 
-- **Line 1 — identity:** `pwd` and the session name on the left; on the right the
+- **Line 1 — identity:** `pwd` and the name this session is on the team as on the left —
+  the bus's roster label when it has one, and Pi's own session name when it has none, so a
+  session off the bus reads exactly as it did; on the right the
   alert, then the remaining status chips (a job count, a rewind timeline, the
   `✆` bridge), then `⎇ branch · ⑂ worktree`, then the session's page port
   (`◉ 4780`) while anything is served on it. One server serves every page of a
@@ -1696,6 +1698,7 @@ columns, gauge), so the look follows the active theme.
 | `footer/delegation.ts` | The child-run ledger: the pricing inputs of the last delegated runs, versioned so the footer re-prices when a subagent finishes. |
 | `footer/collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
 | `footer/collect/snapshot.ts` | Snapshot assembly; memoized pricing scan, context estimate, and session name per branch leaf. |
+| `footer/collect/label.ts` | The roster label the bar names this session by: one read of the bus's own record, then every label the bus publishes. |
 | `footer/price/types.ts` | `Currency`, `ModelRates`, `PeakWindow`/`PeakSchedule`, `ByteflyConfig`. |
 | `footer/price/config.ts` | The `price` section of `bytefly.json`: schema, defaults, built-in DeepSeek rates/tariff, currency defaults, normalizer, loader. |
 | `footer/price/rates.ts` | Model-key matching: `createRateLookup` splits every key once, splits a key at its first slash (so an OpenRouter model id may contain one), matches exact and wildcard most-specific-first, and remembers the last record's model. |

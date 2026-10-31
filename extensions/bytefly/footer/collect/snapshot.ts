@@ -42,7 +42,11 @@ export interface SnapshotReader {
 	peek(): PricedUsage | undefined;
 }
 
-export function createSnapshotReader(config: ByteflyConfig, delegation: DelegationLedger): SnapshotReader {
+export function createSnapshotReader(
+	config: ByteflyConfig,
+	delegation: DelegationLedger,
+	rosterLabel: () => string | null = () => null,
+): SnapshotReader {
 	const price = createPricer(config);
 	let key: string | null = null;
 	let usage: PricedUsage = { ...zeroUsage(), unpriced: 0, unpricedModels: [] };
@@ -90,6 +94,9 @@ export function createSnapshotReader(config: ByteflyConfig, delegation: Delegati
 		return {
 			cwd: ctx.cwd,
 			sessionName,
+			// Read every frame, because the bus settles a label without the session moving: a
+			// cached field, not a read — nothing here touches the bus.
+			rosterLabel: rosterLabel(),
 			branch: footerData.getGitBranch(),
 			statuses: footerData.getExtensionStatuses(),
 			model,

@@ -22,7 +22,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
-import { sessionNameOf } from "../../lib/session-label.ts";
+import { sessionNameOf, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
 import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
 import {
 	defaultLabel,
@@ -210,6 +210,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		record.lastSeen = now();
 		await store.writeSession(record);
 		await settleLabel();
+		publishLabel();
 		joined = true;
 		armHeartbeat();
 	}
@@ -227,7 +228,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				await store.writeSession(record);
 				// A heartbeat that resumed after a long pause can find its label taken; the
 				// tick is where a revived session notices and yields, after its own write.
-				await settleLabel();
+				if (await settleLabel()) publishLabel();
 			})().catch(() => {});
 		});
 	}
@@ -250,18 +251,35 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	 * that keeps the label does not look again, and two of them can each decide that.
 	 * Every writer that observes a rival yields, and the record written last always
 	 * observes the other, so a collision ends with two distinct labels.
+	 *
+	 * Answers whether this call yielded, which is the only thing that can change a label
+	 * after it is settled — the heartbeat tick is where that happens.
 	 */
-	async function settleLabel(): Promise<void> {
-		if (!store || !record) return;
+	async function settleLabel(): Promise<boolean> {
+		if (!store || !record) return false;
 		const me = record;
 		let yields = 0;
 		while (yields < 3 && (await takenLabels(store, me.id)).has(me.label.toLowerCase())) {
 			me.label = suffixLabel(me.label, me.id);
 			yields += 1;
 		}
-		if (yields === 0) return;
+		if (yields === 0) return false;
 		me.lastSeen = now();
 		await store.writeSession(me);
+		return true;
+	}
+
+	/**
+	 * Tell the footer what peers address this session by.
+	 *
+	 * Nothing else can say what a label is: the bus settles it, yields it on a collision, and
+	 * gives it to a caller that asked for a name. The footer draws it in place of Pi's own
+	 * session name, which the terminal knows but a card, a handoff, and `/team` do not.
+	 */
+	function publishLabel(): void {
+		if (!record) return;
+		// A host with no event bus has no listener: the footer it would feed keeps Pi's own name.
+		pi.events?.emit(SESSION_LABEL_CHANNEL, { id: record.id, label: record.label });
 	}
 
 	/**
@@ -378,6 +396,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		// A rename that raced another one ends on the label the bus settled on, which
 		// is what the caller hands to Pi as this session's name.
 		await settleLabel();
+		publishLabel();
 		joined = true;
 		armHeartbeat();
 		return record.label;

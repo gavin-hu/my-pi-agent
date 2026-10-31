@@ -96,6 +96,8 @@ function pricedTokens(tokens: { input: number; output: number; cacheRead: number
 export const CHROME_SNAPSHOT: StatusSnapshot = {
 	cwd: DEMO_PROJECT,
 	sessionName: null,
+	// No team in the preview: the segment draws the session name, as a session off the bus does.
+	rosterLabel: null,
 	branch: "main",
 	// Plan mode and nothing else: a worktree chip beside `main` was a pair no session has.
 	statuses: new Map([[STATUS_KEYS.planMode, `${GLYPHS.plan} plan`]]),
