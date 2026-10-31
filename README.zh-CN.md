@@ -151,50 +151,13 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 [`bytefly-light`](./themes/bytefly-light.json) 是其浅色搭档，并支持可选的自动
 浅色/深色切换。安装本包不会改变你的主题：通过 `/settings` → **Theme**（或
 `/bytefly settings` → **Theme**）选择，
-或设置 `"theme": "bytefly-light/bytefly-dark"` 以自动切换。本 README 的截图
+或设置 `"theme": "bytefly-light/bytefly-dark"` 以自动切换。上方的截图
 使用 `bytefly-dark`。
 
-### 截图
-
-<table>
-<tr>
-<td width="50%"><img src="assets/screens/todo.png" alt="/todos 屏幕：Todos 标题线、3/7 完成摘要，以及带对勾、进行中和圆圈字形的列表" width="100%"></td>
-<td width="50%"><img src="assets/screens/question.png" alt="ask_user_question 对话框：Auth 与 Scope 标签页、问题、四个带说明的编号选项，以及导航提示" width="100%"></td>
-</tr>
-<tr>
-<td width="50%"><img src="assets/screens/job.png" alt="/jobs 屏幕：摘要行、带状态字形和耗时的任务行，以及焦点任务的命令、工作目录和最后一行输出" width="100%"></td>
-<td width="50%"><img src="assets/screens/rewind.png" alt="/rewind 屏幕：从新到旧的提示行、标记有代码快照的菱形，以及一行标明焦点提示所持快照的详情" width="100%"></td>
-</tr>
-<tr>
-<td width="50%"><img src="assets/screens/session.png" alt="/sessions 屏幕：计数摘要、带未读数和路径声明数的会话行、焦点会话的工作目录、声明和身份，以及 Tab 范围与监视提示" width="100%"></td>
-<td width="50%"><img src="assets/screens/watch.png" alt="/watch 屏幕：摘要行和带实时匹配数的监视行，以及焦点监视的模式与来源" width="100%"></td>
-</tr>
-</table>
-
-下面是终端里画出的计划审查，以及本包在浏览器中提供的三个页面：看板、浏览器版计划审查和文件浏览器。
-
-![终端计划审查：Plan Review 标题线、一条说明自上次审查以来有一节已改动的通知、带标题与 ◼/◻ 任务复选框的计划正文、标出当前章节和可见行范围的滚动指示线，以及 Esc/a/r/w、滚动与章节跳转提示](assets/screens/plan.png)
-
-![看板页：带仓库名与实时徽标的工具栏、Board 与 Team 两个标签页、完成数/总数进度、过滤器、按键按钮和主题切换；五个泳道托盘，各带一个点、一个计数和一个折叠控件；卡片带负责人标签、笔记数及其时长、路径提示，以及一行理由，写着它在等什么、它卡住了哪些卡，卡片上没有任何按钮](assets/screens/board.png)
-
-![浏览器版计划审查：粘性头部带计划标题、状态标签，以及 Approve & run、Save feedback、Back to Pi 三个动作和一个 Share 动作；侧栏带步骤进度与章节大纲；计划本身是一列有度量宽度的正文，注释栏里放着负责人自己的评论和队友 @priya 的评论](assets/screens/plan-review.png)
-
-![回环文件浏览器：路径过滤器、文件树，以及渲染好的 Markdown 预览](assets/screens/file-browse.png)
-
-### 工具渲染
-
-每个工具块都按转录中的样子绘制：工具自身的调用行作为标题，结果正文在其下方两列、
-由转录侧栏（rail）引出
-（每个工具自身的渲染器或 bytefly 的通用回退）——用户铭牌与通知、Pi 内置工具，以及本包注册的每个工具。
-侧栏字形由 `chrome.rail` 设置。
-
-<img src="assets/screens/tool-renderings.png" alt="每个工具块的全页参考图：用户铭牌、通知、回合分隔线，Pi 的 read、write、edit、bash、grep、find、ls 渲染器，以及每个包内工具——todo、goal、memory、job、watch、subagent、web_search、web_fetch、read_doc、open_path、run_doctor、send_wechat、ask_user_question、session、board、team、plan 工具与 worktree 工具" width="100%">
-
-`bun run screenshot:tools` 重新生成它；`bun run screenshot:tool-pngs` 在
-[`assets/tools/`](./assets/tools) 下为每个工具输出一张图。
-
-准备上手了？每个扩展在 [`docs/extensions/`](./docs/extensions/) 下的页面开头便说明它做什么，
-以及它对应的按键与命令。
+其余截图 —— 终端各屏幕、浏览器里的三个页面，以及每个工具一块 —— 都在各扩展自己
+位于 [`docs/extensions/`](./docs/extensions/) 下的页面里，页面开头便说明它做什么、
+对应哪些按键；`bun run screenshot:tools` 会把工具画廊重新生成到
+[`assets/tools/`](./assets/tools)。
 
 ## 配置
 
