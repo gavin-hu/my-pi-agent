@@ -311,7 +311,8 @@ test/
     board-dom.ts           # the DOM shape a board suite's page predicates read, and the reads over it
     board-fixture.ts       # the working board two page suites drive, seeded through the gates
     board-flow.ts          # drive a card through the board's gates, for suites about something else
-    serve.ts               # a real server a suite mounts a shipped page on, LAN share included
+    serve.ts               # a real server a suite mounts a shipped page on, LAN share
+                           #   included, and the loopback port probes that name one
     fixtures/<cap>.ts      # one per capability, never one per extension
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract
