@@ -16,7 +16,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { openInBrowser } from "../../lib/browser.ts";
-import type { RepeatTimer } from "../../lib/timer.ts";
+import type { ArmTimer, RepeatTimer } from "../../lib/timer.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import {
 	BOARD_BASE,
@@ -104,6 +104,11 @@ export interface BoardPageDeps {
 	idleMs?: number;
 	/** Grace for a page no tab ever attached to; defaults to {@link IDLE_FIRST_MS}. */
 	firstIdleMs?: number;
+	/**
+	 * The one-shot seam the idle grace is armed on, so a test fires the grace instead of
+	 * waiting a real minute for it. Product default when absent.
+	 */
+	timer?: ArmTimer;
 	/** Whether a page another session left a note about is answering; a test drives it. */
 	probe?: ProbeFetch;
 }
@@ -216,6 +221,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				session: deps.session(),
 				token,
 				...(deps.interval === undefined ? {} : { interval: deps.interval }),
+				...(deps.timer === undefined ? {} : { timer: deps.timer }),
 				onError: warnBlind,
 				idleMs: deps.idleMs ?? IDLE_STOP_MS,
 				firstIdleMs: deps.firstIdleMs ?? IDLE_FIRST_MS,

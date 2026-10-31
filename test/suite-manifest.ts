@@ -48,6 +48,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"tools",
 		"lazy-page",
 		"page",
+		"page-idle",
 		"commands",
 		"extension",
 		"transport/router",
