@@ -11,7 +11,7 @@
  */
 
 import type { ExistingTodo } from "../../lib/todo-state.ts";
-import type { PlanStep, StepUpdate } from "./steps.ts";
+import { elideStep, matchesStepText, type PlanStep, type StepUpdate } from "./steps.ts";
 
 /** The merged list plus the counts the approval message reports. */
 export interface TodoMerge {
@@ -71,7 +71,10 @@ export function mirrorStepStatuses(existing: ExistingTodo[], updates: readonly S
 	let updated = 0;
 	let unmatched = 0;
 	for (const update of byStep.values()) {
-		const index = todos.findIndex((todo) => contentKey(todo.content) === contentKey(update.expected));
+		// A todo item is the step shortened to one line, so the step the caller named is
+		// compared in that same form: the item holds the elision, the caller holds the file's
+		// line, and both are this step.
+		const index = todos.findIndex((todo) => matchesStepText(todo.content, elideStep(update.expected)));
 		if (index === -1) {
 			unmatched += 1;
 			continue;

@@ -145,7 +145,9 @@ rendered as written, and a refinement is asked to keep its section headings so
 the review can still mark only what changed.
 
 A plan with more than 50 top-level steps in its `Steps` section is refused with
-the cap and the fix named, and nothing is written.
+the cap and the fix named, and nothing is written. The cap counts items, so a step
+repeated twice is two of them: a list a reader would have to do 51 times is not a
+49-step plan because eleven of the lines say the same thing.
 
 The file is the source of truth. On approval the model follows the plan file's
 steps, and refinements rewrite the same file (`write` with `plan_path`), so
@@ -209,11 +211,13 @@ objective is the user's. No path spends a model turn.
 
 Keep an approved plan current: `plan_path`, plus `updates`, each a 1-based `step`
 in the order `exit` listed, a `status` of `pending` or `completed`, and
-`expected` — the step's text, so an update whose step number moved is refused
-instead of ticking the wrong line. It is a single all-or-nothing write: a step out
-of range, or an `expected` text that no longer matches the file, refuses every
-entry. Only the checkboxes change, and a reopened step drops its `[DONE:n]`
-marker.
+`expected` — the step's text as the file words it, so an update whose step number
+moved is refused instead of ticking the wrong line. It is a single all-or-nothing
+write: a step out of range, or an `expected` text that no longer matches the file,
+refuses every entry. Only the checkboxes change, and a reopened step drops its
+`[DONE:n]` marker. A step longer than 200 characters is matched in full, so the line
+the file holds always ticks it; the todo item carrying it is the shortened form, and
+that item is ticked too because the mirror compares the two in the shortened shape.
 
 The todo item approval seeded from a step is ticked with it: the file is written
 first and is authoritative, a renamed item is left alone and reported as
@@ -794,10 +798,11 @@ both.
   immediately; it lists a file over the 256 KiB plan limit without reading it,
   and does not index the agent directory's plans while a worktree is active.
 - Approval tracks at most 50 steps: `write` refuses a larger plan, and
-  `exit` refuses to present one, so no reviewed step is silently
-  dropped. A step longer than 200 characters is shortened in the todo list and
-  the approval listing — a display rule only, because the plan file always keeps
-  the full text.
+  `exit` refuses to present one, so no reviewed step is silently dropped. The cap
+  counts *items*: a step written twice is two numbered steps, and the todo list
+  shows the text once (`skipped` in the approval message). A step longer than 200
+  characters is shortened in the todo list only — a display rule, because the plan
+  file keeps the full text and `steps` matches `expected` against it.
 - The todo item for a step is matched by its text. An item renamed after
   approval no longer matches, so `steps` leaves it alone and says so in
   its result; the plan file is still updated.

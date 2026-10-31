@@ -10,7 +10,7 @@
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { TODO_TOOL } from "../../../lib/tool-names.ts";
 import { lastTodos } from "../../../lib/todo-state.ts";
-import { extractPlanSteps, verificationItem, type PlanStep, type StepUpdate } from "../steps.ts";
+import { elideStep, extractPlanSteps, verificationItem, type PlanStep, type StepUpdate } from "../steps.ts";
 import { DEFAULT_TODO_MAX, mergeTodos, mirrorStepStatuses, type TodoMerge } from "../todos.ts";
 import { firstTextLine } from "./nested.ts";
 
@@ -39,7 +39,9 @@ export async function seedTodos(
 	/** What an earlier approval of the same plan appended, when it was approved before. */
 	previous?: readonly string[],
 ): Promise<{ steps: PlanStep[]; merged?: TodoMerge; error?: string }> {
-	const steps = extractPlanSteps(plan);
+	// A todo item is one line, so the plan's own text is shortened here rather than in
+	// extraction: the file and the `steps` guard keep the whole step.
+	const steps = extractPlanSteps(plan).map((step) => ({ ...step, content: elideStep(step.content) }));
 	const verification = verificationItem(plan);
 	if (steps.length === 0 && !verification) return { steps };
 	const merged = mergeTodos(lastTodos(ctx.sessionManager.getBranch()), steps, todoMaxItems(pi), verification, previous);
