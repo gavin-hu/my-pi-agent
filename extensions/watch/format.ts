@@ -18,9 +18,122 @@ import { byRunningFirst, statusRow, type StatusRow } from "../../lib/tui/rows.ts
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { PendingMatch, WatchRecord, WatchStatus } from "./types.ts";
 
+/**
+ * Refuse an expression that repeats a group already repeating without a bound.
+ *
+ * `(a+)+` is the shape: the inner `+` chooses how much to consume and the outer one chooses
+ * how many times to try again, so the work is exponential in the line and one line — from a
+ * file nobody vouched for — wedges the session, the poll clock included. The check reads the
+ * expression as text (escapes, character classes and `{n,m}` bounds included) rather than
+ * asking the engine, because the cost is a property of the shape, not of a match.
+ *
+ * Only a *trailing* unbounded repeat counts: `(\w+\s)+` ends with `\s`, so its splits are
+ * pinned by the separator and it stays linear, while `(\w+)+` has nowhere else to go.
+ */
+export function assertSafePattern(value: string, field: string): void {
+	const group = nestsUnboundedRepeat(value);
+	if (group === undefined) return;
+	// Nothing is rewritten for the caller, so the sentence quotes the group it means: the
+	// expression as a whole can be long, and the offending repeat is what has to change.
+	throw new Error(
+		`${field} \`${value}\` repeats \`${group}\`, whose last element already repeats without a bound — exponential in the line it runs on, so one long line can freeze the session: bound one of the two repeats, or rewrite the expression.`,
+	);
+}
+
 /** Compile a pattern; case-insensitive unless `caseSensitive`. */
 export function compileRegex(pattern: string, caseSensitive: boolean): RegExp {
+	assertSafePattern(pattern, "pattern");
 	return new RegExp(pattern, caseSensitive ? "" : "i");
+}
+
+/** One group being read, and whether the last thing in it repeats without a bound. */
+interface Frame {
+	/** Where the group's `(` is, so a refusal can quote it. */
+	start: number;
+	/** Whether this group's last element is followed by an unbounded quantifier. */
+	endsUnbounded: boolean;
+	/** Whether it has an element yet, so a `?` in `(?:` is not read as a quantifier. */
+	hasAtom: boolean;
+}
+
+/**
+ * The first group in `pattern` that is quantifier-unbounded and ends unbounded itself, as
+ * the text a refusal quotes (`(a+)+`), or `undefined` when there is none.
+ *
+ * The quantifier after `)` is read by {@link unboundedAt}, which returns how many characters
+ * it spans so the scan can skip it; frames make the answer hold through nesting, so
+ * `((a+))+` is caught the same way `(a+)+` is.
+ */
+function nestsUnboundedRepeat(pattern: string): string | undefined {
+	const frames: Frame[] = [{ start: 0, endsUnbounded: false, hasAtom: false }];
+	const current = (): Frame => frames[frames.length - 1] as Frame;
+	for (let i = 0; i < pattern.length; i++) {
+		const char = pattern[i] as string;
+		if (char === "\\") {
+			i++;
+			current().hasAtom = true;
+			current().endsUnbounded = false;
+			continue;
+		}
+		if (char === "[") {
+			// A character class is one atom, and `(`, `)` or `+` inside it are literal.
+			for (i++; i < pattern.length; i++) {
+				if (pattern[i] === "\\") i++;
+				else if (pattern[i] === "]") break;
+			}
+			current().hasAtom = true;
+			current().endsUnbounded = false;
+			continue;
+		}
+		if (char === "(") {
+			frames.push({ start: i, endsUnbounded: false, hasAtom: false });
+			continue;
+		}
+		if (char === ")") {
+			if (frames.length < 2) {
+				// An unbalanced `)` is the engine's refusal to make, not this scan's.
+				current().hasAtom = true;
+				current().endsUnbounded = false;
+				continue;
+			}
+			const closed = frames.pop() as Frame;
+			const repeat = unboundedAt(pattern, i + 1);
+			if (repeat !== undefined && closed.endsUnbounded) {
+				return pattern.slice(closed.start, i + 1);
+			}
+			if (repeat !== undefined) i += repeat.length - 1;
+			const parent = current();
+			parent.hasAtom = true;
+			// A group without a quantifier ends where its body ends, which is how `((a+))+`
+			// is the same shape as `(a+)+`.
+			parent.endsUnbounded = repeat !== undefined || closed.endsUnbounded;
+			continue;
+		}
+		const repeat = unboundedAt(pattern, i);
+		if (repeat !== undefined && current().hasAtom) {
+			current().endsUnbounded = true;
+			i += repeat.length - 1;
+			continue;
+		}
+		if (repeat !== undefined) continue;
+		current().hasAtom = true;
+		current().endsUnbounded = false;
+	}
+	return undefined;
+}
+
+/**
+ * The unbounded quantifier starting at `at`, as the characters it spans: `*`, `+`, or
+ * `{n,}`. A bounded one (`?`, `{n}`, `{n,m}`) is not a repeat, so it returns `undefined`.
+ */
+function unboundedAt(pattern: string, at: number): string | undefined {
+	const char = pattern[at];
+	if (char === "*" || char === "+") return char;
+	if (char !== "{") return undefined;
+	const bounded = /^\{(\d+)(?:(,)(\d*))?\}/.exec(pattern.slice(at));
+	if (bounded === null) return undefined;
+	const [, , comma, upper] = bounded;
+	return comma !== undefined && upper === "" ? bounded[0] : undefined;
 }
 
 /** A pattern read out of what a caller wrote: the expression, and what it said about case. */

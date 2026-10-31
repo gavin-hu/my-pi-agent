@@ -201,6 +201,7 @@ const SECTIONS: readonly SectionCase[] = [
 			maxMatches: "a registry limit",
 			maxLogLines: "a model-facing limit",
 			matchLines: "a model-facing limit",
+			matchChars: "a matching budget, tuned once",
 			pollMs: "a poll interval, tuned once",
 		},
 	},

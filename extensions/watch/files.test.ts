@@ -107,6 +107,38 @@ describe("file watchers", () => {
 		expect(h.runtime.matches(watch.id)?.lines).toEqual(["error aaaaaaaa", "error bbbbbbbb", "error new"]);
 	});
 
+	test("matches a long line on its prefix, and the cut is the end it sees", () => {
+		// A pattern is model-authored and runs per line on the poll clock, so the line it is
+		// handed is a budget; a tail past `matchChars` is not part of what the pattern reads.
+		const { h, ctx } = runtimeHarness(suite, { config: { matchChars: 16 } });
+		const path = join(h.dir, "app.log");
+		writeFileSync(path, "");
+		const within = h.runtime.add({ path, pattern: "ERROR" }, ctx);
+		const tail = h.runtime.add({ path, pattern: "END$" }, ctx);
+
+		appendFileSync(path, "ERROR " + "x".repeat(400) + " END\n");
+		h.runtime.tick();
+
+		expect(h.runtime.matches(within.id)?.lines).toHaveLength(1);
+		expect(h.runtime.matches(tail.id)?.lines).toEqual([]);
+	});
+
+	test("what a reader gets from a long match is still the printed line", () => {
+		// The cap only decides what the pattern sees: every surface clips a line to 200
+		// characters, so nothing a reader sees changed.
+		const { h, ctx } = runtimeHarness(suite, { config: { matchChars: 16 } });
+		const path = join(h.dir, "app.log");
+		writeFileSync(path, "");
+		const watch = h.runtime.add({ path, pattern: "ERROR" }, ctx);
+
+		appendFileSync(path, `ERROR ${"x".repeat(400)}\n`);
+		h.runtime.tick();
+
+		const line = h.runtime.matches(watch.id)?.lines[0] ?? "";
+		expect(line).toStartWith("ERROR ");
+		expect(line.length).toBeLessThanOrEqual(200);
+	});
+
 	test("refuses to watch a missing file", () => {
 		const { h, ctx } = runtimeHarness(suite);
 		expect(() => h.runtime.add({ path: "missing.log", pattern: "x" }, ctx)).toThrow(/file not found/);

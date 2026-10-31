@@ -10,7 +10,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import { optionalString } from "../../lib/config.ts";
-import { readPattern } from "./format.ts";
+import { assertSafePattern, readPattern } from "./format.ts";
 import { WATCH_ACTIONS, type WatchAction } from "./types.ts";
 
 /** Longest accepted label. */
@@ -83,6 +83,9 @@ export type WatchCall =
 
 function assertRegex(value: string, field: string): void {
 	if (value.length > MAX_PATTERN) throw new Error(`${field} is longer than ${MAX_PATTERN} characters.`);
+	// The shape a catastrophic pattern is made of is refused before the engine sees it, so the
+	// refusal arrives at `add` with the field's name rather than as a frozen session later.
+	assertSafePattern(value, field);
 	try {
 		new RegExp(value);
 	} catch (error) {
