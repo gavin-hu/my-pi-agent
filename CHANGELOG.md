@@ -409,13 +409,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   came with the store's. A rejection is dropped so the next call asks again, the rule
   `lib/lazy.ts` already states for a load it owns, while a success is still opened once and
   shared.
-- `session-bus`: **the inbox watch announces mail that arrives behind a full backlog** — the
-  poll read the oldest 50 unread messages, so a session holding that many had new mail sorted
-  behind them and never announced it: a handoff, which assigns work, sat unread until the model
-  happened to call `session inbox`. The poll now reads the newest 50 together with the ids of
-  every message still unread, and prunes its queue by what is still on disk rather than by what
-  that one window covered, so mail already queued keeps the place it held. `inbox` still
-  consumes oldest first.
+- `session-bus`: **the inbox watch announces mail it has not announced, wherever it sorts** —
+  the poll read a window of the inbox (the oldest 50, then the newest 50), so mail behind a
+  backlog of 50 or more waited for a consume, and a handoff written by a peer whose clock lagged
+  was hidden for good by an id that sorts before every other: a handoff assigns work, and the
+  notice is the only delivery for a session not calling `session inbox`. One readdir now returns
+  up to 50 messages from the front of the queue whose ids the watch does not have, together with
+  the ids of everything still unread, so a deep backlog arrives a page at a time; the queue and
+  the watch's memory are pruned by what is still on disk rather than by a count of ids, so mail
+  already queued keeps the place it held and nothing is announced twice. `inbox` still consumes
+  oldest first.
 - `team`: `assign` resolves the peer `to` names before it checks the card, so a handoff to the
   session that already holds it — named by its id, which the schema allows — is the same no-op
   the label is instead of `#4 is held by billing-core`. The check and the write now take one

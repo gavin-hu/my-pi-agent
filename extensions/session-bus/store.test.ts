@@ -111,27 +111,36 @@ describe("inbox", () => {
 	test("peek reads a message without consuming it", async () => {
 		const { store } = fixture();
 		await store.writeMessage("s2", message("100-a", "s2"));
-		expect((await store.peek("s2", 10)).mail.map((entry) => entry.id)).toEqual(["100-a"]);
-		expect((await store.peek("s2", 10)).mail.map((entry) => entry.id)).toEqual(["100-a"]);
+		expect((await store.peek("s2", { limit: 10 })).mail.map((entry) => entry.id)).toEqual(["100-a"]);
+		expect((await store.peek("s2", { limit: 10 })).mail.map((entry) => entry.id)).toEqual(["100-a"]);
 		expect(await store.unread("s2")).toBe(1);
 		expect((await store.inbox("s2", 10)).map((entry) => entry.id)).toEqual(["100-a"]);
 		expect(await store.unread("s2")).toBe(0);
-		expect(await store.peek("s2", 10)).toEqual({ mail: [], unread: new Set() });
+		expect(await store.peek("s2", { limit: 10 })).toEqual({ mail: [], unread: new Set() });
 	});
 
-	test("peek reads the newest window, and names every message still unread", async () => {
+	test("peek pages from the front of the inbox, and skips the ids the caller has", async () => {
 		const { store } = fixture();
 		for (let index = 0; index < 55; index += 1) {
 			const at = 1_000 + index;
 			await store.writeMessage("s2", message(`${at}-a`, "s2", at));
 		}
-		const { mail, unread } = await store.peek("s2", 50);
-		// The newest window: a message that arrives sorts last, so an oldest-first read is
-		// exactly the mail that has waited longest, and new mail behind it would never show.
-		expect(mail.map((entry) => entry.id)).toEqual(Array.from({ length: 50 }, (_, index) => `${1_005 + index}-a`));
-		// Every id, not just the window's: the five it left out are still unread.
-		expect(unread.size).toBe(55);
-		expect(unread.has("1000-a")).toBe(true);
+		const first = await store.peek("s2", { limit: 50 });
+		// One page, from the front: what a poll reads, while the rest waits for the next page
+		// instead of being skipped — a window taken from either end leaves mail behind it.
+		expect(first.mail.map((entry) => entry.id)).toEqual(Array.from({ length: 50 }, (_, index) => `${1_000 + index}-a`));
+		// Every id, not just the page's: the five it left out are still unread.
+		expect(first.unread.size).toBe(55);
+		expect(first.unread.has("1054-a")).toBe(true);
+		// A caller that names what it has reads on past it.
+		const known = new Set(first.mail.map((entry) => entry.id));
+		expect((await store.peek("s2", { limit: 50, known })).mail.map((entry) => entry.id)).toEqual([
+			"1050-a",
+			"1051-a",
+			"1052-a",
+			"1053-a",
+			"1054-a",
+		]);
 		// Consuming still starts at the front, so a limit never starves.
 		expect((await store.inbox("s2", 1)).map((entry) => entry.id)).toEqual(["1000-a"]);
 		expect(await store.unread("s2")).toBe(54);
@@ -145,7 +154,7 @@ describe("inbox", () => {
 		const [file] = await readdir(join(dir, "inbox", inbox));
 		if (!file) throw new Error("the message file was not written");
 		await writeFile(join(dir, "inbox", inbox, file), "{");
-		expect((await store.peek("s2", 10)).mail).toEqual([]);
+		expect((await store.peek("s2", { limit: 10 })).mail).toEqual([]);
 		expect(await store.inbox("s2", 10)).toEqual([]);
 	});
 });
@@ -285,7 +294,7 @@ describe("prune", () => {
 		await store.writeMessage("s3", message("900-b", "s3", 900));
 		await store.prune({ now: 1_000, activeIds: new Set(["s2", "s3"]), sessionTtlMs: 500, messageTtlMs: 500 });
 		expect(await readdir(join(dir, "inbox"))).toHaveLength(1);
-		expect((await store.peek("s3", 10)).mail).toHaveLength(1);
+		expect((await store.peek("s3", { limit: 10 })).mail).toHaveLength(1);
 	});
 
 	test("collects the temp file a crashed writer left, and leaves a live one alone", async () => {

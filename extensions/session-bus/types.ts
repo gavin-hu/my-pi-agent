@@ -58,12 +58,12 @@ export interface BusMessage {
  *
  * The watch and `inbox` ask two questions of the same directory — which mail is new,
  * and which mail is gone — and one readdir answers both, so a queue's health never
- * depends on what a single window happened to cover.
+ * depends on what a single page happened to cover.
  */
 export interface InboxPeek {
-	/** The newest messages, oldest first, so a burst reads in the order it arrived. */
+	/** Up to one page of messages the caller has not seen, oldest first. */
 	mail: BusMessage[];
-	/** Every id still in the inbox, whether or not this read returned it. */
+	/** Every id whose file is still in the inbox, whether or not this read returned it. */
 	unread: ReadonlySet<string>;
 }
 

@@ -16,10 +16,10 @@ import type { BusMessage, InboxPeek } from "./types.ts";
 
 export interface MailWatchOptions {
 	/**
-	 * This session's inbox, read-only: the newest unread mail, and the ids of every
-	 * message still there. Nothing is consumed or marked.
+	 * This session's inbox, read-only: up to a page of mail whose ids are not `known`, and
+	 * the ids of every message still there. Nothing is consumed or marked.
 	 */
-	peek(): Promise<InboxPeek>;
+	peek(known: ReadonlySet<string>): Promise<InboxPeek>;
 	/** The repeating timer behind the poll. */
 	interval: RepeatTimer;
 	/** Poll interval; 0 disables the ticker (tests). */
@@ -31,14 +31,6 @@ export interface WatchingState {
 	armed: boolean;
 	wake: boolean;
 }
-
-/**
- * How many ids one watch remembers.
- *
- * More than the 50 messages one `peek` returns, so a backlog larger than a single
- * read cannot make the watch forget an id it already announced.
- */
-const MAX_REPORTED = 200;
 
 export interface MailWatch {
 	/** Arm or disarm this session's inbox watch. */
@@ -65,7 +57,10 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 	let wake = false;
 	let stopTicker: (() => void) | undefined;
 	let pendingMail: BusMessage[] = [];
-	/** Ids already queued, reported, or consumed; a broadcast shares one id. */
+	/**
+	 * Ids already queued, reported, or consumed — pruned by what is still on disk, so it
+	 * holds exactly the announced mail an `inbox` call has not removed yet.
+	 */
 	let reported = new Set<string>();
 	let onWake: (() => void) | undefined;
 
@@ -73,42 +68,33 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 		pendingMail = pendingMail.filter((message) => !ids.has(message.id));
 	}
 
-	/**
-	 * Remember an id, and the count of ids this watch holds.
-	 *
-	 * A count, not the set of what is on disk: one `peek` returns at most `MAX_LIMIT`
-	 * messages, so a watch that narrowed itself to that window forgot an id it had
-	 * already announced the moment newer mail sorted ahead of it, and announced it
-	 * again once the front was consumed. A `Set` keeps insertion order, so the oldest
-	 * id is the first one it yields.
-	 */
-	function remember(id: string): void {
-		reported.add(id);
-		if (reported.size <= MAX_REPORTED) return;
-		const oldest = reported.values().next();
-		if (!oldest.done) reported.delete(oldest.value);
-	}
-
 	function markReported(ids: readonly string[]): void {
-		for (const id of ids) remember(id);
+		for (const id of ids) reported.add(id);
 		dropFromPending(new Set(ids));
 	}
 
 	/**
-	 * Queue what arrived since the last poll, once, and wake a turn when this
-	 * session asked for one.
+	 * Queue what this watch has not announced, once, and wake a turn when this session
+	 * asked for one.
+	 *
+	 * The queue and the memory are pruned by what is still on disk, so `reported` is
+	 * bounded by the inbox rather than by a count: an id that leaves the inbox leaves the
+	 * set, and no id still on disk can be forgotten while it is there. A count was how a
+	 * backlog larger than one read made the watch forget an id it had already announced and
+	 * announce it again.
 	 */
 	async function pollOnce(): Promise<void> {
 		if (!armed) return;
-		const { mail, unread } = await peek();
-		// What is still on disk, not what this window covered: a queue can hold mail older
-		// than the newest window, and the window is not the inbox. A message that expired or
-		// was consumed leaves the queue with its file.
+		const known = new Set(reported);
+		for (const message of pendingMail) known.add(message.id);
+		const { mail, unread } = await peek(known);
+		// The read names everything still in the inbox, which is a different question from
+		// what one page covered: a message that expired or was consumed leaves the queue and
+		// the memory with its file.
+		for (const id of reported) if (!unread.has(id)) reported.delete(id);
 		pendingMail = pendingMail.filter((message) => unread.has(message.id));
-		const queued = new Set(pendingMail.map((message) => message.id));
-		const fresh = mail.filter((message) => !reported.has(message.id) && !queued.has(message.id));
-		if (fresh.length === 0) return;
-		pendingMail = [...pendingMail, ...fresh];
+		if (mail.length === 0) return;
+		pendingMail = [...pendingMail, ...mail];
 		if (wake) onWake?.();
 	}
 

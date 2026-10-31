@@ -77,7 +77,7 @@ export interface SessionBus {
 	status(): Promise<SessionStatus>;
 	/** The live bus, read only: no record refresh, no prune. */
 	snapshot(): Promise<SessionStatus>;
-	/** This session's newest unread mail, read only: nothing is consumed or marked. */
+	/** This session's unread mail, read only: nothing is consumed or marked. */
 	peek(): Promise<BusMessage[]>;
 	/** Release a claim by its stored repository-relative path. */
 	releaseStored(path: string): Promise<boolean>;
@@ -158,8 +158,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 
 	/** The watch reads this session's own inbox; nothing is consumed or marked. */
 	const mailWatch = createMailWatch({
-		peek: async (): Promise<InboxPeek> =>
-			store && record ? store.peek(record.id, MAX_LIMIT) : { mail: [], unread: new Set() },
+		peek: async (known): Promise<InboxPeek> =>
+			store && record ? store.peek(record.id, { limit: MAX_LIMIT, known }) : { mail: [], unread: new Set() },
 		interval,
 		watchMs,
 	});
@@ -460,7 +460,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 
 		async peek() {
 			if (!store || !record) throw new Error("session bus is not started.");
-			return (await store.peek(record.id, MAX_LIMIT)).mail;
+			return (await store.peek(record.id, { limit: MAX_LIMIT })).mail;
 		},
 
 		/**

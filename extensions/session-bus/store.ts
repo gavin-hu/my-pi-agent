@@ -33,10 +33,10 @@ export interface BusStore {
 	removeSession(id: string): Promise<void>;
 	writeMessage(target: string, message: BusMessage): Promise<void>;
 	/**
-	 * Read a recipient's newest messages without consuming them, oldest first, with the
-	 * ids of every message still in the inbox.
+	 * Read up to `limit` messages from the front of a recipient's inbox without consuming
+	 * them, skipping the ids the caller already has, with every id still unread.
 	 */
-	peek(id: string, limit: number): Promise<InboxPeek>;
+	peek(id: string, options: { limit: number; known?: ReadonlySet<string> }): Promise<InboxPeek>;
 	inbox(id: string, limit: number): Promise<BusMessage[]>;
 	unread(id: string): Promise<number>;
 	claims(): Promise<ClaimRecord[]>;
@@ -225,22 +225,22 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	}
 
 	/**
-	 * One window of a recipient's inbox, read from the end the caller asked for.
+	 * Up to `limit` messages from the front of a recipient's inbox, oldest first.
 	 *
-	 * The end is the question, not a preference. `inbox` consumes from the front, so a
-	 * limited consume never starves. The watch reads from the back, because a new message
-	 * sorts last: an oldest-first window is exactly the mail that has waited longest, and
-	 * mail behind a backlog deeper than one read would never be announced.
+	 * The front is the queue, not a detail: consuming starts there so a limit never starves,
+	 * and so does a read, because the caller names the ids it already has. A file name holds
+	 * the id, so a skip costs no read — which is what lets a watch page a backlog one poll at
+	 * a time without ever reading the same file twice.
 	 */
 	async function readMessages(
 		directory: string,
 		names: readonly string[],
-		options: { limit: number; from: "oldest" | "newest"; remove: boolean },
+		options: { limit: number; known?: ReadonlySet<string>; remove: boolean },
 	): Promise<BusMessage[]> {
-		const { limit, from, remove } = options;
-		const order = from === "newest" ? [...names].reverse() : names;
+		const { limit, known, remove } = options;
 		const messages: BusMessage[] = [];
-		for (const name of order) {
+		for (const name of names) {
+			if (known?.has(idOfFile(name))) continue;
 			const path = join(directory, name);
 			const message = readTyped(path, isMessage);
 			if (message) messages.push(message);
@@ -378,18 +378,18 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			await writeJson(join(directory, `${message.id}.json`), message);
 		},
 
-		async peek(id, limit) {
+		async peek(id, options) {
 			const directory = inboxDir(id);
 			const names = await listFiles(directory);
 			return {
-				mail: await readMessages(directory, names, { limit, from: "newest", remove: false }),
+				mail: await readMessages(directory, names, { ...options, remove: false }),
 				unread: new Set(names.map(idOfFile)),
 			};
 		},
 
 		async inbox(id, limit) {
 			const directory = inboxDir(id);
-			return readMessages(directory, await listFiles(directory), { limit, from: "oldest", remove: true });
+			return readMessages(directory, await listFiles(directory), { limit, remove: true });
 		},
 
 		async unread(id) {
