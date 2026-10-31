@@ -19,7 +19,7 @@ a running turn settles. There is no network service and no hidden context.
 | Live board | `/sessions` | Sessions, this session's unread mail, and every claim held on the repository, on one screen. | Shipped |
 | Board actions | `/sessions` (`w`, `x`) | Start or stop listening from the board, or release an own claim behind a confirmation, without leaving it. | Shipped |
 | Short messages | `session send` | One message per recipient, addressed by label or id, with a broadcast for events. | Shipped |
-| Message kinds | `session send` with `kind` | A `message`, `event`, `ask`, or `handoff` keeps its meaning; `ask` does not block the sender, and a `handoff` is named as the work it assigns. | Shipped |
+| Message kinds | `session send` with `kind`, or `team` action `ask` | A `message`, `event`, `ask`, or `handoff` keeps its meaning; `ask` does not block the sender, and `team`'s `ask` is the lead-sized form of it — one peer, one question, and the reply as ordinary mail. A `handoff` is named as the work it assigns. | Shipped |
 | Message paths | `session send` with `paths` | A message can name the repository paths it concerns, echoed in the inbox row. | Shipped |
 | Inbox on demand | `session inbox` | Up to `limit` messages, oldest first, consumed only when the model asks. | Shipped |
 | Listening | `session join` | New mail reported at the next turn; `join({wake: true})` raises one turn once the agent is idle, and `join({listen: false})` stops it. The record carries whether this session listens, so a peer's status read answers it without asking. | Shipped |

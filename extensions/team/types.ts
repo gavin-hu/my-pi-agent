@@ -1,10 +1,11 @@
 /**
  * The shapes `team` registers and reports.
  *
- * A `team` result is one card plus what happened to the handoff, so the details say
- * both: `assigned` is who the card went to, `delivered` is the labels the bus wrote
+ * A `team` result is usually one card plus what happened to the handoff, so the details
+ * say both: `assigned` is who the card went to, `delivered` is the labels the bus wrote
  * a message file for, and `messageError` is the send that never landed — a card is
- * never left in a state the report does not describe.
+ * never left in a state the report does not describe. `ask` is the one verb with no
+ * card: it reports the same two send facts and nothing else.
  */
 
 import type { Card } from "../../lib/board/card.ts";
@@ -13,8 +14,11 @@ import type { CardOwner } from "../../lib/board/card.ts";
 /** The tool's name. `board` owns the cards; `team` owns the round. */
 export const TEAM_TOOL = "team";
 
-/** The four actions: the lead's round — hand out, offer, take back, and take one itself. */
-export const TEAM_ACTIONS = ["assign", "offer", "reclaim", "claim"] as const;
+/**
+ * The five actions: the lead's round — hand out, offer, take back, and take one itself —
+ * and the question it can send one peer.
+ */
+export const TEAM_ACTIONS = ["assign", "offer", "reclaim", "claim", "ask"] as const;
 
 /** One action. */
 export type TeamAction = (typeof TEAM_ACTIONS)[number];
@@ -28,7 +32,7 @@ export interface TeamDetails {
 	assigned?: CardOwner;
 	/**
 	 * The labels a message file was written for, when the send landed: the one peer for
-	 * `assign`, every other live session for `offer`.
+	 * `assign` and `ask`, every other live session for `offer`.
 	 */
 	delivered?: string[];
 	/**
@@ -47,7 +51,7 @@ export interface TeamDetails {
  *
  * The parameters are one flat object, so a field is published to every action at once,
  * and only this table stops one reaching an action that would drop it. `to` is `assign`'s
- * alone: an `offer` that named a peer was broadcast to every live session instead, and a
+ * and `ask`'s: an `offer` that named a peer was broadcast to every live session instead, and a
  * `reclaim` that named one took the card back from whoever held it.
  *
  * A test holds the other direction — every published parameter but `action` is claimed
@@ -58,6 +62,7 @@ export const ACTION_FIELDS: Record<TeamAction, readonly string[]> = {
 	offer: ["card", "note"],
 	reclaim: ["card"],
 	claim: ["card"],
+	ask: ["to", "question"],
 };
 
 /** Whether a value is one of the actions, so an unknown one is a refusal and not a crash. */
