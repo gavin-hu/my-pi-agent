@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `team`: a handoff and an offer name the moves a peer may make and the two it may not —
+  `execute` waits on the lead's `approve` and `done` on the lead's `review` — with the
+  configured lead's name and `session send` as the way to ask, instead of telling the peer to
+  "move it to execute, blocked, or done" and sending its next call into a refusal. Both lines
+  come before the paths, so a message clipped to the bus's limit keeps the step it was sent to
+  give. The waking hint in `session-bus` points at the message for both gates rather than
+  promising a start.
+
 ## [0.22.0] - 2026-10-31
 
 ### Added

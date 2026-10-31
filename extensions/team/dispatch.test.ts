@@ -14,6 +14,9 @@ import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { actorFor, handoffText, notListening, offerText, ownerFor, peerFor, sessionDispatch } from "./dispatch.ts";
 
+/** The lead a case hands the builder: the name a sign has to carry. */
+const LEAD = "billing-lead";
+
 /** A claimed card, which is what a handoff describes. */
 function card(overrides: Partial<Card> = {}): Card {
 	return cardFixture("4", {
@@ -30,7 +33,7 @@ function card(overrides: Partial<Card> = {}): Card {
 
 describe("handoffText", () => {
 	test("names the card, its outcome, and says the card is already the peer's", () => {
-		const text = handoffText(card(), "billing-core");
+		const text = handoffText(card(), "billing-core", LEAD);
 		expect(text).toContain('Handoff: #4 "Billing webhook accepts orders" is yours, billing-core.');
 		expect(text).toContain("Paths: src/billing");
 		expect(text).toContain("already assigned to you");
@@ -39,10 +42,24 @@ describe("handoffText", () => {
 		expect(text).not.toContain('action "claim"');
 	});
 
+	test("names the two moves the lead has to sign, and who to tell", () => {
+		const text = handoffText(card(), "billing-core", LEAD);
+		// The next move after "write the contract" is `execute`, which the store refuses
+		// without the lead's `approve`; `done` is refused without its `review`. A message
+		// that named those moves and not their signer was an instruction to be refused.
+		// The verb, not just the name: #151 gives the refusal the same channel, so the two say
+		// one thing about how a peer reaches the lead.
+		expect(text).toContain("`blocked` is yours to set");
+		expect(text).toContain(`needs the lead (${LEAD}) to \`approve\` the contract`);
+		expect(text).toContain("`done` needs the lead's `review`");
+		expect(text).toContain(`ask ${LEAD} with \`session send\` when each is ready`);
+	});
+
 	test("carries the plan when one is recorded, and the lead's note when there is one", () => {
 		const text = handoffText(
 			card({ planPath: "~/.pi/agent/plans/k/one.md" }),
 			"billing-core",
+			LEAD,
 			"start with the webhook",
 		);
 		expect(text).toContain("Plan: ~/.pi/agent/plans/k/one.md");
@@ -50,27 +67,38 @@ describe("handoffText", () => {
 	});
 
 	test("stays inside the send limit, however many paths a card carries", () => {
-		const long = card({ paths: Array.from({ length: 12 }, (_, index) => `${"x".repeat(190)}${index}`) });
-		expect(handoffText(long, "billing-core").length).toBeLessThanOrEqual(4_000);
+		const long = card({ paths: Array.from({ length: 60 }, (_, index) => `${"x".repeat(190)}${index}`) });
+		const text = handoffText(long, "billing-core", LEAD);
+		expect(text.length).toBeLessThanOrEqual(MAX_MESSAGE_TEXT);
+		// A clipped message must keep the step it was sent to give: the paths are the only
+		// line long enough to push the gates past the limit, so they come after them.
+		expect(text).toContain(`ask ${LEAD} with \`session send\` when each is ready`);
 	});
 });
 
 describe("offerText", () => {
 	test("says the card is unclaimed, and that claiming it is the next step", () => {
-		const text = offerText(card());
+		const text = offerText(card(), LEAD);
 		expect(text).toContain('Offer: #4 "Billing webhook accepts orders" is unclaimed.');
 		expect(text).toContain("Paths: src/billing");
 		expect(text).toContain('action "claim"');
 		// An offer names no owner: a peer that read "yours" would not claim at all.
-		expect(text).not.toContain("is yours");
+		expect(text).not.toContain("is yours,");
+	});
+
+	test("names the same two gates, so a claimer is not walked into a refusal", () => {
+		const text = offerText(card(), LEAD);
+		expect(text).toContain(`needs the lead (${LEAD}) to \`approve\` the contract`);
+		expect(text).toContain("`done` needs the lead's `review`");
+		expect(text).toContain(`ask ${LEAD} with \`session send\` when each is ready`);
 	});
 
 	test("carries the plan and the lead's note, and stays inside the send limit", () => {
-		const text = offerText(card({ planPath: "~/.pi/agent/plans/k/one.md" }), "whoever is free");
+		const text = offerText(card({ planPath: "~/.pi/agent/plans/k/one.md" }), LEAD, "whoever is free");
 		expect(text).toContain("Plan: ~/.pi/agent/plans/k/one.md");
 		expect(text).toContain("Note: whoever is free");
-		const long = card({ paths: Array.from({ length: 12 }, (_, index) => `${"x".repeat(190)}${index}`) });
-		expect(offerText(long).length).toBeLessThanOrEqual(MAX_MESSAGE_TEXT);
+		const long = card({ paths: Array.from({ length: 60 }, (_, index) => `${"x".repeat(190)}${index}`) });
+		expect(offerText(long, LEAD).length).toBeLessThanOrEqual(MAX_MESSAGE_TEXT);
 	});
 });
 

@@ -9,6 +9,8 @@
  * no two cases share a board, a message, or a join.
  */
 
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { registerTools } from "../../../extensions/team/tools.ts";
 import type { Dispatch } from "../../../extensions/team/dispatch.ts";
 import type { TeamDetails } from "../../../extensions/team/types.ts";
@@ -29,6 +31,8 @@ export interface TeamSuiteOptions {
 	peers?: Peer[];
 	/** The label a join lands on, when it is not the lead's own. */
 	joinLabel?: string;
+	/** The lead the repository names, when the default is not the case under test. */
+	lead?: string;
 }
 
 /**
@@ -40,6 +44,12 @@ export interface TeamSuiteOptions {
 export function teamSuite(track: (dir: string) => string, options: TeamSuiteOptions = {}) {
 	const agentDir = track(tempDir("pi-agent-"));
 	const cwd = track(tempDir("pi-repo-"));
+	// The lead the message names is the store's, so a case that changes it writes the file the
+	// loader reads, before any store is opened on that directory.
+	if (options.lead !== undefined) {
+		mkdirSync(join(cwd, ".pi"), { recursive: true });
+		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ board: { lead: options.lead } }));
+	}
 	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
 	const session = openBoardSession(fake.pi, { now: () => NOW, agentDir });
 	const sent: Array<{ kind: "handoff" | "event"; to: string; text: string }> = [];

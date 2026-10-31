@@ -29,7 +29,7 @@ const HANDOFF_PREVIEW = 800;
 
 /** What a waking turn is told to do with a handoff: work it, not acknowledge it. */
 const HANDOFF_HINT =
-	"A handoff is work you now own: run `session inbox`, record the card's plan, and start — do not just acknowledge it.";
+	"A handoff is work you now own: run `session inbox`, record the card's plan, and start it — the message names the two moves that wait on the lead, so do not just acknowledge it.";
 
 /** `1 handoff`, `2 new messages` — a burst of handoffs is named as the work it is. */
 function headlineOf(messages: readonly BusMessage[]): string {
@@ -58,7 +58,8 @@ function previewOf(message: BusMessage): string {
  *
  * A `handoff` is the one kind that assigns work, so it is the one kind the text
  * treats as an instruction rather than as mail: the headline counts handoffs, the
- * preview keeps enough of the body to be actionable, and the hint says to start it.
+ * preview keeps enough of the body to be actionable, and the hint says to start it and
+ * leaves the two gates to the message, which is the only place that knows the lead's name.
  * Nothing else about the kind changes — it still does not block or wait for a reply.
  */
 export function mailNotice(messages: BusMessage[]): NoticeMessage {

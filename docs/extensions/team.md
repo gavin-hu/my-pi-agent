@@ -157,10 +157,15 @@ not name — goes back to `reclaim` if its holder renames.
 
 A handoff is an instruction, not a notification: the peer's notice is headlined
 `1 handoff`, carries enough of the body to be actionable, and says the work is theirs —
-read it with `session inbox`, record the plan, and start. The card is already theirs
+read it with `session inbox`, record the plan, and start it. The card is already theirs
 (`assign` wrote the owner), so there is no claim step; the peer writes the contract, works,
-notes, and moves it on — into `execute` once the lead has approved the contract, and to
-`done` once the lead has spot-checked it.
+and notes each phase. The message names what is left: `blocked` is the peer's own, while
+`execute` waits on the lead's `approve` of the contract and `done` on the lead's `review`,
+so a peer is never told to make a move only the lead can sign — it is told which name to
+ask, with `session send`. `assign` and `offer` write that sentence from the store's
+`board.lead`, so the lead a handoff names is the one whose signature the gate will take,
+and they write it before the paths, so a message clipped to the bus's limit keeps its step
+and loses its tail.
 
 An offer is advice: nothing is theirs until they claim it, and a card nobody claims stays
 `backlog`, so it keeps showing up as unassigned in the round — with its age, which is the one

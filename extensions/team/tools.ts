@@ -193,7 +193,8 @@ async function assignCard(
 
 	let delivered: string[];
 	try {
-		delivered = (await dispatch.send({ kind: "handoff", to, text: handoffText(card, to, note) })).delivered;
+		delivered = (await dispatch.send({ kind: "handoff", to, text: handoffText(card, to, store.config().lead, note) }))
+			.delivered;
 	} catch (error) {
 		return refusal("assign", formatHandoffFailure(card, to, messageOf(error)), card);
 	}
@@ -246,7 +247,8 @@ async function offerCard(
 
 	let delivered: string[];
 	try {
-		delivered = (await dispatch.send({ kind: "event", to: "*", text: offerText(card, note) })).delivered;
+		delivered = (await dispatch.send({ kind: "event", to: "*", text: offerText(card, store.config().lead, note) }))
+			.delivered;
 	} catch (error) {
 		return refusal("offer", formatOfferFailure(card, messageOf(error)), card);
 	}
