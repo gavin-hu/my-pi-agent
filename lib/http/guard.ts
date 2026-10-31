@@ -19,6 +19,20 @@ import { jsonError, type ServeResponse } from "./response.ts";
 /** The methods a loopback server answers unless it says otherwise. */
 export const PAGE_METHODS: readonly string[] = ["GET", "HEAD", "POST"];
 
+/**
+ * Whether a request reached the server from this machine.
+ *
+ * The socket's peer address is the only evidence a route has: `Host` is what the client
+ * asked for, and a LAN client can ask for `127.0.0.1` by name. `undefined` is refused, so a
+ * caller that forgets to pass a peer fails a test instead of opening the route — the shipped
+ * server always supplies one. A dual-stack socket reports a v4 peer as `::ffff:127.0.0.1`,
+ * which is why that form is named.
+ */
+export function isLoopbackAddress(address: string | undefined): boolean {
+	if (address === undefined) return false;
+	return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
 /** The 405 for a route that only accepts POST, or nothing when the method is right. */
 export function postOnly(method: string, what: string): ServeResponse | undefined {
 	if (method.toUpperCase() === "POST") return undefined;

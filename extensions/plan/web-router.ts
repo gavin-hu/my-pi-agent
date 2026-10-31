@@ -16,6 +16,7 @@
 import {
 	envelopeRefusal,
 	eventHeaders,
+	isLoopbackAddress,
 	jsonError,
 	jsonResponse,
 	pageHeaders,
@@ -26,6 +27,9 @@ import {
 	type ServeResponse,
 } from "../../lib/http/index.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../lib/web/index.ts";
+
+/** What an owner-only route says to a request that came from the network. */
+const OFF_LOOPBACK = "This route answers only on the machine serving the review.";
 
 /** The review script's own path, beside `THEME_JS_PATH` in the page's markup. */
 export const CLIENT_JS_PATH = "/client.js";
@@ -163,6 +167,7 @@ export async function handleReviewRequest(
 	rawUrl: string,
 	headers: Record<string, string | string[] | undefined> = {},
 	body = "",
+	remoteAddress?: string,
 ): Promise<ServeResponse> {
 	const envelope = envelopeRefusal({ method, headers, hosts: ctx.hosts() });
 	if (envelope) return envelope;
@@ -177,6 +182,12 @@ export async function handleReviewRequest(
 	const token = search.get("token") ?? "";
 	const caller = ctx.caller(token);
 	if (caller === undefined) return jsonError(403, "Invalid or missing token.");
+	// The owner's own routes answer on this machine only. A shared link is a reviewer's link
+	// whatever token it carries, so the peer address — not `Host`, which the client chooses —
+	// decides whether approve, cancel, save, and the share controls are reachable at all.
+	const offLoopback = !isLoopbackAddress(remoteAddress);
+	const ownerOnly = (refusal: ServeResponse | undefined): ServeResponse | undefined =>
+		refusal ?? (offLoopback ? jsonError(403, OFF_LOOPBACK) : undefined);
 
 	if (pathname === "/" || pathname === "/index.html") {
 		return { status: 200, headers: pageHeaders(), body: renderReviewPage(await ctx.page(caller)) };
@@ -184,17 +195,19 @@ export async function handleReviewRequest(
 	if (pathname === "/events") return { status: 200, headers: eventHeaders(), stream: true };
 	if (pathname === "/api/cancel") {
 		// Ending the review is the owner's decision; a reviewer closes their tab.
-		const refusal =
-			postOnly(method, "cancel") ?? roleOnly(caller, ["owner"], "Only the plan owner can close this review.");
+		const refusal = ownerOnly(
+			postOnly(method, "cancel") ?? roleOnly(caller, ["owner"], "Only the plan owner can close this review."),
+		);
 		if (refusal) return refusal;
 		ctx.onCancel();
 		return jsonResponse(200, { ok: true });
 	}
 	if (pathname === "/api/share" || pathname === "/api/share/link" || pathname === "/api/share/stop") {
 		// A shared link must never be able to mint another one.
-		const refusal =
+		const refusal = ownerOnly(
 			postOnly(method, "share or stop sharing") ??
-			roleOnly(caller, ["owner"], "Only the plan owner can share this review.");
+				roleOnly(caller, ["owner"], "Only the plan owner can share this review."),
+		);
 		if (refusal) return refusal;
 		const result =
 			pathname === "/api/share/stop"
@@ -205,12 +218,8 @@ export async function handleReviewRequest(
 		return jsonResponse(200, { ok: true, share: result.state, svg: result.svg });
 	}
 	if (pathname === "/api/share/revoke") {
-		const refusal = ownerPost(
-			caller,
-			method,
-			headers["content-type"],
-			"revoke a link",
-			"Only the plan owner can revoke a link.",
+		const refusal = ownerOnly(
+			ownerPost(caller, method, headers["content-type"], "revoke a link", "Only the plan owner can revoke a link."),
 		);
 		if (refusal) return refusal;
 		const id = linkIdOf(body);
@@ -239,12 +248,14 @@ export async function handleReviewRequest(
 	if (pathname === "/api/feedback") {
 		// Returning to the model is the owner's decision; a reviewer posts to
 		// `/api/comment`, so this route can never settle a shared review.
-		const refusal = ownerPost(
-			caller,
-			method,
-			headers["content-type"],
-			"save feedback",
-			"Only the plan owner saves this review; a reviewer posts comments.",
+		const refusal = ownerOnly(
+			ownerPost(
+				caller,
+				method,
+				headers["content-type"],
+				"save feedback",
+				"Only the plan owner saves this review; a reviewer posts comments.",
+			),
 		);
 		if (refusal) return refusal;
 		const settled = await settleAnnotations(ctx, caller, body);
@@ -255,12 +266,8 @@ export async function handleReviewRequest(
 	if (pathname === "/api/approve") {
 		// Only the owner's own page approves, and only the `exit` flow owns
 		// the side effects: a reviewer token is refused whatever it posts.
-		const refusal = ownerPost(
-			caller,
-			method,
-			headers["content-type"],
-			"approve",
-			"A shared review cannot approve the plan.",
+		const refusal = ownerOnly(
+			ownerPost(caller, method, headers["content-type"], "approve", "A shared review cannot approve the plan."),
 		);
 		if (refusal) return refusal;
 		if (!ctx.canApprove) return jsonError(403, "This review cannot be approved from the browser.");

@@ -32,7 +32,10 @@ One loopback server per session serves every page, and each page mounts a path p
   no token at all: `/theme.js` and `/app.js` are the same bytes to every reader and can
   neither read nor change a card. `plan`'s review page serves the same two kinds of asset
   the same way — `/theme.js` and `/client.js` are compile-time constants, answered before
-  the token is read, and neither can see a plan. Because a page is one per repository, a second
+  the token is read, and neither can see a plan. Its owner-only routes — approve, cancel,
+  save feedback, and the share controls — answer only on the machine serving the review: a
+  shared link is a reviewer's link whatever token it carries, so a request whose socket peer
+  is not loopback is refused before the route runs. Because a page is one per repository, a second
   session reaches it through the note the serving page leaves beside the cards
   (`page.json`, owner-only): the port, the seat, and that token. The page closes on
   `/board stop`, a minute after its last tab leaves, or at session shutdown. Writing a

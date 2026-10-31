@@ -16,7 +16,7 @@ import {
 	parseFeedback,
 	stripFeedback,
 } from "./feedback.ts";
-import { get, HOST, PLAN, post, router } from "../../test/helpers/fixtures/plan-web.ts";
+import { get, HOST, LOOPBACK_PEER, PLAN, post, router } from "../../test/helpers/fixtures/plan-web.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { handleReviewRequest } from "./web-router.ts";
 describe("browser comment codec", () => {
@@ -344,7 +344,26 @@ describe("review router", () => {
 				"content-type": "application/json",
 			},
 			JSON.stringify({ annotations: [] }),
+			LOOPBACK_PEER,
 		);
 		expect(own.status).toBe(200);
+
+		// The same request from the network is refused whatever its origin says: the owner's
+		// routes answer on this machine only (see #187).
+		const fromNetwork = await handleReviewRequest(
+			ctx,
+			"POST",
+			"/api/feedback?token=tok",
+			{
+				...HOST,
+				origin: "http://127.0.0.1:1234",
+				"sec-fetch-site": "same-origin",
+				"content-type": "application/json",
+			},
+			JSON.stringify({ annotations: [] }),
+			"10.0.0.7",
+		);
+		expect(fromNetwork.status).toBe(403);
+		expect(fromNetwork.body).toContain("answers only on the machine serving the review");
 	});
 });
