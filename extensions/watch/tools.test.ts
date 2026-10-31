@@ -35,6 +35,22 @@ describe("watch tool", () => {
 		expect(result.details.watch.id).toBe("w1");
 	});
 
+	test("an add result reads one way for every flag combination", async () => {
+		const { ctx, tool } = setup();
+		const lines: string[] = [];
+		for (const flags of [{}, { caseSensitive: true }, { wake: true }, { caseSensitive: true, wake: true }]) {
+			const result = await call(tool, ctx, { action: "add", command: "build", pattern: "FAIL", ...flags });
+			expect(result.isError).toBeUndefined();
+			lines.push(result.content[0].text.split("\n")[0]);
+		}
+		expect(lines).toEqual([
+			"Watching w1: $ build → /FAIL/i",
+			"Watching w2: $ build → /FAIL/",
+			"Watching w3: $ build → /FAIL/i · wake",
+			"Watching w4: $ build → /FAIL/ · wake",
+		]);
+	});
+
 	test("a rejected add returns an error without state", async () => {
 		const { ctx, tool } = setup();
 		const result = await call(tool, ctx, { action: "add", pattern: "error" });

@@ -258,7 +258,8 @@ outlive the session.
 ## Testing
 
 `runtime.test.ts` covers config, schema, and the tailer with a fake clock and
-fake children; `tools.test.ts` covers the tool and command;
-`view/watch-screen.test.ts` covers registration, formatting, the status chips, and the screen
-through the shared `createFakePi`/`fakeCtx` doubles. The test harness is
-`test/helpers/fixtures/watch.ts`.
+fake children; `tools.test.ts` covers the tool and command; `format.test.ts` covers
+the text `format.ts` builds; `view/watch-screen.test.ts` covers registration, the status
+chips, and the screen through the shared `createFakePi`/`fakeCtx` doubles. The test
+harness is `test/helpers/fixtures/watch.ts`, which also builds the `WatchRecord` a
+test varies one field of.
