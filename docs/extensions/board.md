@@ -78,8 +78,8 @@ row as an opt-in extension and names the switch.
 | Take a feature | `board` action `claim` | The card is pulled into `plan` and owned by this session — or refused, naming the count, when `plan` is full. The result names the next step, because the claim is what commits the session to a plan |
 | Hand it back | `board` action `release` | The card is back in `backlog` with no owner; the contract and its approval stay, because the plan did not change |
 | Write the contract | `board` action `contract` | The plan file and the three lines the card promises — `goal`, `acceptance`, `scopeOut` — written in one call; `path` is required, and it must be the plan `plan` action `write` saved in this repository's plan store, so a contract cannot name a file that does not exist. Any change to a line or to the file drops the approval, because the sign named both |
-| Approve the contract | `board` action `approve`, or `/board approve <id>` | The lead records that the wording is right — a session that joined under `board.lead`, and never the holder — or the person at the keyboard signs; only then may the card enter `execute`. `text` adds a note, recorded with the sign, because a signer is exactly the session `note` refuses on a held card |
-| Spot-check the work | `board` action `review`, or `/board review <id>` | The lead records that they looked at the finished work in `execute` — never the holder — or the person does; only then may the card be finished. `text` adds a note, recorded with the sign, so "checked, and this is still wrong" is one call |
+| Approve the contract | `board` action `approve`, or `/board approve <id>` | The lead records that the wording is right — a session that joined under `board.lead`, and never the holder — or the person at the keyboard signs; only then may the card enter `execute`. `text` adds a note, recorded with the sign, because a signer is exactly the session `note` refuses on a held card. The card's owner is sent the sign over the bus, so the session that can make the next move is told rather than left to poll |
+| Spot-check the work | `board` action `review`, or `/board review <id>` | The lead records that they looked at the finished work in `execute` — never the holder — or the person does; only then may the card be finished. `text` adds a note, recorded with the sign, so "checked, and this is still wrong" is one call. The owner is told the same way, with `done` named |
 | Change lane | `board` action `move` | Wherever the board allows from where the card is: `plan` to `execute` (no unfinished dependency, a complete contract, a plan that is still in the store, an approval by somebody other than the holder) or `blocked`, `execute` to `plan` (re-plan), `blocked`, or `done` (no unfinished dependency, spot-checked, the same plan check), `blocked` back to `plan` when that lane has room, or to `execute` once its contract is approved and its plan is there |
 | Record what happened | `board` action `note` | A note appended to the card's history, attributed and stamped — one line, at most 1000 characters; its holder writes it, or anyone while nobody holds the card, the way `edit` works |
 | Fix what a card says | `board` action `edit` | A new title, path hints, priority, or the cards it waits for — by its holder, or by anyone while nobody holds it |
@@ -114,8 +114,10 @@ peer: pull the first, design it, then write down what it promises
       → board contract 1 path <the file `plan` action `write` returned> goal … acceptance … scopeOut …
       → board move 1 execute  — refused: the contract is not approved yet
 lead: board approve 1                       (/team join lead first; else /board approve 1)
+      → tells #1's owner over the bus: an event naming the lead and the lane `execute`
 peer: board move 1 execute → board note 1 …
 lead: board review 1                        (or the person: /board review 1)
+      → tells #1's owner again: `done` is open
 peer: board move 1 done
       → board claim 2 — refused while #1 is unfinished, allowed once it is done
 lead: board list round: true
@@ -161,6 +163,17 @@ past `plan` or `execute`, so `/board approve` and `/board review` write the same
 session typing it holds the card. The card says who signed, and the two read differently
 because they are different: `you` is the person who read the plan, the lead is a second pair
 of eyes.
+
+**The sign tells the other side.** `approve` and `review` write the card and then send it to
+the card's owner: an event in that session's inbox naming the signer and the lane the sign
+opened, which is the same `session send` a handoff is — it waits, and starts no turn. A
+repeated sign writes nothing, so it sends nothing, and a bus that cannot answer costs a line
+on the result (`told api-core`, or `api-core was not told (…)`) and never the signature,
+which is already on the card. The way to ask travels the same channel: the refusal for either
+gate names ``ask <lead> with `session send` ``, from the one phrase in `lib/board/lead.ts` that
+`team`'s handoff prints too. `/board approve` is the exception on purpose — a command context
+has no way to reach a peer, so the person's sign is the one that tells nobody, and the owner
+reads it on its next `list`.
 
 **Joining.** One thing, done for you: `/board` puts this session on the team — as
 the lead's name when it serves the page, under its own name when it watches one — and so does
@@ -699,6 +712,7 @@ it always meant: when the card was last touched, which is not when it last chang
 | `snapshot.ts` | The page's snapshot: the cards, the bus's records, the store's size and path, and the repository's own name, handed to `buildView` |
 | `commands.ts` | `/board`, its three words and their refusals, and the one line `/board status` prints |
 | `join.ts` | The board's side of the team: when it asks (the page, or the first claimed card), the name it asks for, and how the outcome reads on a `/board` line |
+| `announce.ts` | The message a sign sends: the card's owner, told who signed and the lane the sign opened, over the same `session send` a handoff uses — and the line the result carries when the bus cannot answer, which never undoes the sign |
 | `transport/router.ts` | The five reads — the document, the client script, the theme script, the snapshot, and the frame stream — with the token gate and the guards in front of them |
 | `transport/server.ts` | The loopback listener, the frame push — one read of the board per frame, and a failed read reported rather than thrown — and the close |
 | `view/page.ts` | The document: an inert shell the client fills, named after the repository it is a board of so the toolbar is not blank before the first frame, with no form on it |

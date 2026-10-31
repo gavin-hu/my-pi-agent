@@ -8,6 +8,7 @@
 import { describe, expect, test } from "bun:test";
 import { numberedCard } from "../../test/helpers/fixtures/board.ts";
 import {
+	askLead,
 	holderRefusal,
 	isLead,
 	isPerson,
@@ -17,6 +18,7 @@ import {
 	PERSON_LABEL,
 	personActor,
 	signRefusal,
+	signedText,
 } from "./lead.ts";
 import type { Actor } from "./rules.ts";
 
@@ -59,12 +61,12 @@ describe("signRefusal", () => {
 		expect(signRefusal(CARD, personActor(), LEAD, "review")).toBeUndefined();
 	});
 
-	test("a session that is not the lead is told whose signature the gate takes", () => {
+	test("a session that is not the lead is told whose signature the gate takes, and how to ask", () => {
 		expect(signRefusal(CARD, PEER, LEAD, "approve")).toBe(
-			"#4's contract is signed by the lead (team-lead); this session is api-core. The person signs it with `/board approve 4`.",
+			"#4's contract is signed by the lead (team-lead), and this session is api-core — ask team-lead with `session send`, or the person signs it with `/board approve 4`.",
 		);
 		expect(signRefusal(CARD, PEER, LEAD, "review")).toBe(
-			"#4 is spot-checked by the lead (team-lead); this session is api-core. The person signs with `/board review 4`.",
+			"#4 is spot-checked by the lead (team-lead), and this session is api-core — ask team-lead with `session send`, or the person signs with `/board review 4`.",
 		);
 	});
 });
@@ -79,12 +81,29 @@ describe("holderRefusal", () => {
 });
 
 describe("missingSign", () => {
-	test("a lane that needs a sign names both ways to give it", () => {
+	test("a lane that needs a sign names both ways to give it, and the channel that reaches the lead", () => {
 		expect(missingSign(CARD, LEAD, "approve")).toBe(
-			"#4 is in plan; its contract is not approved yet. The lead (team-lead) approves with `approve`, or the person with `/board approve 4`.",
+			"#4 is in plan; its contract is not approved yet. The lead (team-lead) approves with `approve` (ask team-lead with `session send`), or the person with `/board approve 4`.",
 		);
 		expect(missingSign(CARD, LEAD, "review")).toBe(
-			"#4 has no spot-check recorded. The lead (team-lead) records one with `review`, or the person with `/board review 4`.",
+			"#4 has no spot-check recorded. The lead (team-lead) records one with `review` (ask team-lead with `session send`), or the person with `/board review 4`.",
+		);
+	});
+});
+
+describe("askLead", () => {
+	test("the lead is reached by its name over the bus, which is the one phrase every surface prints", () => {
+		expect(askLead(LEAD)).toBe("ask team-lead with `session send`");
+	});
+});
+
+describe("signedText", () => {
+	test("the owner is told who signed and the move the sign unlocked", () => {
+		expect(signedText(CARD, "approve", THE_LEAD)).toBe(
+			'Signature: #4 "feature 4" — its contract is approved by Team-Lead.\nNext: `execute` is open — board action "move" with lane "execute". `done` still needs the lead\'s `review`.',
+		);
+		expect(signedText(CARD, "review", THE_LEAD)).toBe(
+			'Signature: #4 "feature 4" — spot-checked by Team-Lead.\nNext: `done` is open — board action "move" with lane "done", while the plan it recorded is still in the store.',
 		);
 	});
 });

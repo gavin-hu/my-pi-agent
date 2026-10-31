@@ -43,6 +43,7 @@ import {
 } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, resultInput } from "./result.ts";
+import type { Notify } from "./announce.ts";
 import { createInput } from "./input.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { BoardParams } from "./schema.ts";
@@ -124,8 +125,15 @@ async function headCommit(pi: ExtensionAPI, cwd: string): Promise<{ commit: stri
 	return id === undefined ? undefined : { commit: id.slice(0, 7) };
 }
 
-export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { team?: TeamJoin } = {}): void {
+export function registerTools(
+	pi: ExtensionAPI,
+	runtime: BoardSession,
+	deps: { team?: TeamJoin; notify?: Notify } = {},
+): void {
 	const team = deps.team ?? createTeamJoin(pi);
+	// Loaded at the first sign, not at registration: a board that never signs pays nothing for the
+	// message, and the registration graph stays the size it was.
+	let signMessage: Promise<typeof import("./announce.ts")> | undefined;
 	pi.registerTool({
 		name: BOARD_TOOL,
 		label: "Board",
@@ -138,7 +146,7 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 		promptSnippet: `The shared feature list for this repository: ${BOARD_ACTIONS.join(", ")}.`,
 		promptGuidelines: [
 			"Claim a card to pull it from backlog into plan, design it in plan mode, then record the contract with `contract`: goal, acceptance, scopeOut, and the plan file `plan` action `write` returned — a path outside this repository's plan store is refused. Move it to execute only once the lead (`board.lead` in `bytefly.json`, `lead` by default, the name the page serves as) has approved that contract, or the person has signed with `/board approve` — a lead releases a card before signing it.",
-			"Before a card is done, the lead records a spot-check with `review`, or the person signs with `/board review`; the plan it recorded must still be in the store, and `contract` is how it is re-recorded.",
+			"Before a card is done, the lead records a spot-check with `review`, or the person signs with `/board review`; the plan it recorded must still be in the store, and `contract` is how it is re-recorded. A sign is announced to the card's owner in its inbox, so the session that can move next is told rather than left to poll; a session that needs one asks the lead with `session send`.",
 			"Move a card to `blocked` with a `blocker` kind and one line about what is waited on: it resumes in `plan`, or in `execute` once its contract is approved.",
 			"Note each phase of the work, and release or reclaim a card you stop holding, so the lane count means what it says.",
 			"A card that waits on another is linked with `edit` and `dependsOn`, so the order is on the board instead of in a refusal.",
@@ -177,7 +185,7 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 					case "add":
 						return await add(store, me, args, now);
 					case "claim": {
-						const claimed = await mutate(store, action, me, now, args, { kind: "claim" }, CLAIM_NEXT);
+						const claimed = await mutate(store, action, me, now, args, { kind: "claim" }, { next: CLAIM_NEXT });
 						// Taking a card is what makes this session a teammate. It is the one action here
 						// worth being addressed about, and the board is the user's surface for the team, so
 						// nobody has to know the bus exists. A refused claim wrote nothing and enlists
@@ -235,9 +243,11 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 						});
 					}
 					case "approve":
-						return await mutate(store, action, me, now, args, { kind: "approve", text: args.text });
-					case "review":
-						return await mutate(store, action, me, now, args, { kind: "review", text: args.text });
+					case "review": {
+						const { announce, notifyOverBus } = await (signMessage ??= import("./announce.ts"));
+						const told = (card: Card) => announce(card, action, me, ctx, deps.notify ?? notifyOverBus);
+						return await mutate(store, action, me, now, args, { kind: action, text: args.text }, { told });
+					}
 					case "edit": {
 						if (
 							args.title === undefined &&
@@ -468,16 +478,25 @@ async function mutate(
 	now: number,
 	args: BoardArgs,
 	op: CardOp,
-	/** One line a card's own text does not carry, for the action that has a next step. */
-	next?: string,
+	/**
+	 * What the call says besides the card: `next` after any successful write, and `told` only after
+	 * one that changed something — a repeated sign is the same signature, and the owner does not
+	 * need to hear it twice.
+	 */
+	report: { next?: string; told?: (card: Card) => Promise<string | undefined> } = {},
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
 	const id = normalizeCardId(args.card);
 	if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
 	const result = await store.mutate(id, op, me, now);
 	if (!result.ok) return refusal(action, me, result.error, result.card);
-	const lines = [formatCard(result.card), ...(next === undefined ? [] : [next])];
-	return textResult(lines.join("\n"), { action, me, card: result.card });
+	const told = result.changed ? await report.told?.(result.card) : undefined;
+	const lines = [formatCard(result.card), ...(report.next === undefined ? [] : [report.next])];
+	return textResult([...lines, ...(told === undefined ? [] : [told])].join("\n"), {
+		action,
+		me,
+		card: result.card,
+	});
 }
 
 /**

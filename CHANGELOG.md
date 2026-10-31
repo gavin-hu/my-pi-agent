@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `board`: a sign now tells the other side. `approve` and `review` record the card and then send
+  its owner one event naming the signer and the lane the sign opened — the same channel a handoff
+  uses, which waits in the inbox and starts no turn — so the session that can make the next move
+  is told instead of polling for it. A repeated sign sends nothing, and a bus that cannot answer
+  costs a line on the result, never the signature. Both refusals that ask for a signature now name
+  the way to ask — ``ask <lead> with `session send` `` — from the one phrase in
+  `lib/board/lead.ts` that `team`'s handoff already printed.
+
 ### Fixed
 
 - `team`: a handoff and an offer name the moves a peer may make and the two it may not —

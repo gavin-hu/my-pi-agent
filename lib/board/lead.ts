@@ -13,7 +13,8 @@
  * (`signRefusal`), and a lead that holds the card it means to sign (`holderRefusal` — release it
  * first, since a session signing its own wording is the gate approving itself). The words of each
  * sign live in one table here, so the two gates and the lane requirements that ask for a
- * signature cannot drift into four slightly different sentences.
+ * signature cannot drift into four slightly different sentences: a refusal names `askLead` as the
+ * way to ask, and `signedText` is what the sign sends the card's owner.
  *
  * Pure: a name compare and a sentence, no clock and no file.
  */
@@ -87,26 +88,46 @@ interface SignWords {
 	readonly release: string;
 	/** What the move gate says when nobody has signed: the way out, naming the lead. */
 	readonly missing: (card: Card, lead: Lead) => string;
+	/** What the card's owner reads when the sign lands: who signed, and the move it unlocked. */
+	readonly signed: (card: Card, by: string) => string;
 }
 
 const SIGN_WORDS: Record<Sign, SignWords> = {
 	approve: {
 		notSigner: (card, actor, lead) =>
-			`${cardRef(card.id)}'s contract is signed by the lead (${lead}); this session is ${actor.label}. The person signs it with \`/board approve ${card.id}\`.`,
+			`${cardRef(card.id)}'s contract is signed by the lead (${lead}), and this session is ${actor.label} — ${askLead(lead)}, or the person signs it with \`/board approve ${card.id}\`.`,
 		holder: "Its contract is signed by the lead, who does not hold it.",
 		release: "A lead releases a card before signing it.",
 		missing: (card, lead) =>
-			`${cardRef(card.id)} is in plan; its contract is not approved yet. The lead (${lead}) approves with \`approve\`, or the person with \`/board approve ${card.id}\`.`,
+			`${cardRef(card.id)} is in plan; its contract is not approved yet. The lead (${lead}) approves with \`approve\` (${askLead(lead)}), or the person with \`/board approve ${card.id}\`.`,
+		signed: (card, by) =>
+			`Signature: ${cardRef(card.id)} "${card.title}" — its contract is approved by ${by}.\n` +
+			`Next: \`execute\` is open — board action "move" with lane "execute". \`done\` still needs the lead's \`review\`.`,
 	},
 	review: {
 		notSigner: (card, actor, lead) =>
-			`${cardRef(card.id)} is spot-checked by the lead (${lead}); this session is ${actor.label}. The person signs with \`/board review ${card.id}\`.`,
+			`${cardRef(card.id)} is spot-checked by the lead (${lead}), and this session is ${actor.label} — ${askLead(lead)}, or the person signs with \`/board review ${card.id}\`.`,
 		holder: "A card is spot-checked by the lead, who does not hold it.",
 		release: "A lead releases a card before spot-checking it.",
 		missing: (card, lead) =>
-			`${cardRef(card.id)} has no spot-check recorded. The lead (${lead}) records one with \`review\`, or the person with \`/board review ${card.id}\`.`,
+			`${cardRef(card.id)} has no spot-check recorded. The lead (${lead}) records one with \`review\` (${askLead(lead)}), or the person with \`/board review ${card.id}\`.`,
+		signed: (card, by) =>
+			`Signature: ${cardRef(card.id)} "${card.title}" — spot-checked by ${by}.\n` +
+			`Next: \`done\` is open — board action "move" with lane "done", while the plan it recorded is still in the store.`,
 	},
 };
+
+/**
+ * How a session asks the lead for a sign.
+ *
+ * The gates are the lead's, and the sessions that want one are its peers on the same bus, so the
+ * way to ask is a message: it waits in the lead's inbox and starts no turn, which is exactly what
+ * a handoff is. The phrase is written once because two surfaces print it — the refusals below,
+ * and `team`'s handoff, whose text told a peer to ask before this sentence had a home.
+ */
+export function askLead(lead: Lead): string {
+	return `ask ${lead} with \`session send\``;
+}
 
 /**
  * Why `actor` may not sign `card`, or `undefined` when it may.
@@ -127,4 +148,15 @@ export function holderRefusal(actor: Actor, lead: Lead, sign: Sign): string {
 /** What a lane that needs a sign nobody gave says: the lead approves it, or the person signs. */
 export function missingSign(card: Card, lead: Lead, sign: Sign): string {
 	return SIGN_WORDS[sign].missing(card, lead);
+}
+
+/**
+ * What a sign sends the card's owner: who signed, and the move it unlocked.
+ *
+ * The gate is the lead's and the card is worked by its owner, so the one session that can act on
+ * the sign is the one told. Without it the owner learns by polling a board it has no reason to
+ * read twice, and the lead learns which card is ready the same way.
+ */
+export function signedText(card: Card, sign: Sign, by: Actor): string {
+	return SIGN_WORDS[sign].signed(card, by.label);
 }
