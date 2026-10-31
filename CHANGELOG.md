@@ -50,6 +50,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: the step cap counts the items a plan lists, and a step longer than 200 characters
+  can be ticked with the line the file holds. De-duplication ran before the cap was counted,
+  so a 60-bullet `Steps` section with 11 repeats was accepted as 49 tracked steps and the
+  repeats were silently untracked — the opposite of what the cap exists for. Extraction now
+  returns the file's own text and its numbering is 1:1 with it; the shortening to 200
+  characters happens only where a one-line surface is built (the todo list), and `steps`
+  compares `expected` in full, so the guard no longer refuses the very line it asked for. The
+  todo list still holds one item per distinct text, which the approval message reports as
+  `skipped`.
 - `plan`: the read-only git shell can no longer be made to run a repository's own program.
   `--textconv` was refused by name, but `.gitattributes` can still name a
   `diff.<driver>.textconv` helper that plain `git diff`, `git show`, and `git log -p` run, so

@@ -130,7 +130,7 @@ function indentOf(line: string): number {
 	return line.length - line.trimStart().length;
 }
 
-/** Every top-level list item, in order, before de-duplication and capping. */
+/** Every top-level list item, in order, before capping. */
 function scanListItems(plan: string): PlanListItem[] {
 	const items: PlanListItem[] = [];
 	// Fences hide example lists (`- name: foo` in a YAML block) from extraction.
@@ -226,9 +226,13 @@ function stepsSection(plan: string): { start: number; end: number } | undefined 
 
 /**
  * The plan's top-level steps in order: the shallowest list level of the `Steps`
- * section (or of the whole plan when there is none), de-duplicated, capped.
- * Extraction, the review gauge, and checkbox edits all index into this, so they
- * agree on what counts as a step.
+ * section (or of the whole plan when there is none), capped.
+ *
+ * One entry per item the file lists, repeats included: the cap counts what a plan
+ * asks a reader to do, and every number `setStepStatuses` and the `steps` action
+ * use indexes the file itself. A repeated text only becomes one row where a list
+ * of one-liners is built — `todos.ts`'s merge — not here, which is why a 60-item
+ * section of 11 repeats is refused rather than quietly tracked as 49.
  */
 function topLevelItems(plan: string, cap: number = MAX_STEPS): PlanListItem[] {
 	const section = stepsSection(plan);
@@ -239,20 +243,23 @@ function topLevelItems(plan: string, cap: number = MAX_STEPS): PlanListItem[] {
 	let baseIndent = Number.POSITIVE_INFINITY;
 	for (const item of items) baseIndent = Math.min(baseIndent, item.indent);
 
-	const seen = new Set<string>();
 	const top: PlanListItem[] = [];
 	for (const item of items) {
 		if (item.indent !== baseIndent) continue;
-		const key = item.step.content.toLowerCase();
-		if (seen.has(key)) continue;
-		seen.add(key);
 		top.push(item);
 		if (top.length >= cap) break;
 	}
 	return top;
 }
 
-function elide(content: string): string {
+/**
+ * A step shortened to one line's worth, for a surface that shows one line.
+ *
+ * Only the todo list and the page need this; the plan file keeps the whole text, and
+ * the `steps` guard compares the whole text first. Kept pure and exported so those two
+ * boundaries elide the same way rather than each inventing a width.
+ */
+export function elideStep(content: string): string {
 	return content.length > MAX_STEP_LENGTH ? `${content.slice(0, MAX_STEP_LENGTH - 1).trimEnd()}…` : content;
 }
 
@@ -289,12 +296,12 @@ export function verificationItem(plan: string): PlanStep | undefined {
 		.map((line) => cleanLabel(line.replace(LIST_PREFIX, "")))
 		.filter(Boolean);
 	if (items.length === 0) return undefined;
-	return { content: elide(`Verify: ${items.join("; ")}`), status: "pending" };
+	return { content: elideStep(`Verify: ${items.join("; ")}`), status: "pending" };
 }
 
-/** Top-level steps from a plan, in order. */
+/** Top-level steps from a plan, in order, as the file words them: the cap's view. */
 export function extractPlanSteps(plan: string): PlanStep[] {
-	return topLevelItems(plan).map((item) => ({ content: elide(item.step.content), status: item.step.status }));
+	return topLevelItems(plan).map((item) => ({ content: item.step.content, status: item.step.status }));
 }
 
 /** The full cost of a plan's step list, for the warning the `write` action reports. */
@@ -330,7 +337,14 @@ export interface StepUpdate extends StepEdit {
 	expected: string;
 }
 
-/** Whether the step text now at a number still matches what the caller expected. */
+/**
+ * Whether the step text now at a number still matches what the caller expected.
+ *
+ * Both sides are the file's own words: extraction no longer shortens a step, so the guard
+ * compares like with like. A caller reading a *shortened* copy — a todo item — compares that
+ * copy with {@link elideStep} of the step it means, which is `todos.ts`'s job; widening this
+ * rule instead would let two steps that share an elision answer for each other.
+ */
 export function matchesStepText(actual: string, expected: string): boolean {
 	const normalize = (text: string): string => text.trim().replace(/\s+/g, " ").toLowerCase();
 	return normalize(actual) === normalize(expected);

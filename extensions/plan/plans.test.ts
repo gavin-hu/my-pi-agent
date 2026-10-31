@@ -33,15 +33,11 @@ import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp, type PlanSu
 import { ENV_ROOT } from "../../lib/env.ts";
 import { createPlanPolicy, PLAN_ALLOWED_TOOLS, PLAN_SAFE_TOOLS } from "./policy.ts";
 import {
-	extractPlanSteps,
 	goalSection,
-	matchesStepText,
 	MAX_STEP_LENGTH,
-	MAX_STEPS,
 	PLAN_OUTLINE,
 	PLAN_SECTIONS,
 	planStepSummary,
-	setStepStatuses,
 	verificationItem,
 } from "./steps.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
@@ -666,6 +662,18 @@ describe("plan store — setSteps", () => {
 		expect(updated.content).toBe("1. [x] Add the cache\n2. Wire it");
 	});
 
+	test("ticks a step past the display cap with the line the file holds", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const long = "x".repeat(MAX_STEP_LENGTH + 40);
+		const file = await store.write(root, { title: "Steps", content: `## Steps\n- [ ] ${long}` });
+
+		// The file's own line, which is what a model reads and passes back: it used to be refused
+		// because the guard compared against the shortened form nobody could see.
+		const updated = await store.setSteps(root, file.path, [{ step: 1, status: "completed", expected: long }]);
+		expect(updated.content).toBe(`## Steps\n- [x] ${long}`);
+	});
+
 	test("ticks off a step and returns the rewritten plan", async () => {
 		const root = tempDir();
 		const store = repoStore(root);
@@ -852,195 +860,6 @@ describe("plan store — authored review comments", () => {
 	});
 });
 
-describe("step extraction", () => {
-	const pending = (content: string) => ({ content, status: "pending" as const });
-	const completed = (content: string) => ({ content, status: "completed" as const });
-
-	test("reads a numbered plan", () => {
-		const plan = ["Plan:", "1. Read the parser", "2. Add a tokenizer", "3. Update tests"].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([
-			pending("Read the parser"),
-			pending("Add a tokenizer"),
-			pending("Update tests"),
-		]);
-	});
-
-	test("reads `1)` numbering and bullet lists", () => {
-		expect(extractPlanSteps("1) First\n2) Second")).toEqual([pending("First"), pending("Second")]);
-		expect(extractPlanSteps("- Alpha\n* Beta\n+ Gamma")).toEqual([pending("Alpha"), pending("Beta"), pending("Gamma")]);
-	});
-
-	test("strips emphasis, code, and done markers", () => {
-		const plan = "1. **Bold** step with `code` [DONE:1]\n2. _Italic_ one";
-		expect(extractPlanSteps(plan)).toEqual([completed("Bold step with code"), pending("Italic one")]);
-	});
-
-	test("keeps underscores inside identifiers", () => {
-		const plan = "1. Rename user_id to account_id\n2. Read snake_case_file.ts";
-		expect(extractPlanSteps(plan)).toEqual([
-			pending("Rename user_id to account_id"),
-			pending("Read snake_case_file.ts"),
-		]);
-	});
-
-	test("turns checkboxes into status", () => {
-		const plan = ["- [ ] First task", "- [x] Done task", "- [X] Also done"].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([pending("First task"), completed("Done task"), completed("Also done")]);
-	});
-
-	test("skips nested sub-bullets but keeps a uniformly indented plan", () => {
-		const nested = ["1. Add the lexer", "   - nested note", "   - another note", "2. Update tests"].join("\n");
-		expect(extractPlanSteps(nested)).toEqual([pending("Add the lexer"), pending("Update tests")]);
-		expect(extractPlanSteps("  - One\n  - Two")).toEqual([pending("One"), pending("Two")]);
-	});
-
-	test("ignores list items inside fenced code blocks", () => {
-		const plan = [
-			"Plan:",
-			"```yaml",
-			"- name: foo",
-			"  1. nested example",
-			"```",
-			"1. Real step one",
-			"2. Real step two",
-		].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([pending("Real step one"), pending("Real step two")]);
-	});
-
-	test("ignores tilde fences and hides the rest after an unclosed fence", () => {
-		expect(extractPlanSteps(["~~~", "- not a step", "~~~", "- Real step"].join("\n"))).toEqual([pending("Real step")]);
-		expect(extractPlanSteps(["1. Before fence", "```", "- inside"].join("\n"))).toEqual([pending("Before fence")]);
-	});
-
-	test("uses the shallowest list as the top level regardless of order", () => {
-		const plan = ["  - nested first", "- top level", "  - another nested", "- second top"].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([pending("top level"), pending("second top")]);
-	});
-
-	test("skips prose, blank lines, and de-duplicates steps", () => {
-		expect(extractPlanSteps(["Here is the plan.", "", "1. Only real step", "Done."].join("\n"))).toEqual([
-			pending("Only real step"),
-		]);
-		expect(extractPlanSteps("1. Same\n2. same\n3. Other")).toEqual([pending("Same"), pending("Other")]);
-	});
-
-	test("joins indented continuation lines to their step", () => {
-		const plan = [
-			"- [ ] Replace the body of the file, keeping the",
-			"  opening notice and the commit rule",
-			"- [ ] Read it back and re-check it against the",
-			"  checklist",
-		].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([
-			pending("Replace the body of the file, keeping the opening notice and the commit rule"),
-			pending("Read it back and re-check it against the checklist"),
-		]);
-	});
-
-	test("ends a step at a nested marker, a blank line, or a shallow line", () => {
-		const nested = ["- [ ] Add the lexer", "  handles tokens", "  - nested note", "- [ ] Update tests"].join("\n");
-		expect(extractPlanSteps(nested)).toEqual([pending("Add the lexer handles tokens"), pending("Update tests")]);
-
-		const blank = ["- [ ] First step", "  continued", "", "  prose after a blank line", "- [ ] Second"].join("\n");
-		expect(extractPlanSteps(blank)).toEqual([pending("First step continued"), pending("Second")]);
-
-		const shallow = ["- [ ] Only real step", "  continued", "Done."].join("\n");
-		expect(extractPlanSteps(shallow)).toEqual([pending("Only real step continued")]);
-	});
-
-	test("elides very long steps and caps the list", () => {
-		const [step] = extractPlanSteps(`1. ${"x".repeat(MAX_STEP_LENGTH + 50)}`);
-		expect(step.content.length).toBe(MAX_STEP_LENGTH);
-		expect(step.content.endsWith("…")).toBe(true);
-
-		const plan = Array.from({ length: MAX_STEPS + 10 }, (_, i) => `${i + 1}. step ${i}`).join("\n");
-		expect(extractPlanSteps(plan)).toHaveLength(MAX_STEPS);
-	});
-
-	test("returns nothing for a plan without steps", () => {
-		expect(extractPlanSteps("Just some prose.")).toEqual([]);
-		expect(extractPlanSteps("")).toEqual([]);
-	});
-});
-
-describe("step extraction — the Steps section", () => {
-	const pending = (content: string) => ({ content, status: "pending" as const });
-
-	test("reads only the Steps section when the plan has one", () => {
-		const plan = [
-			"# Plan",
-			"## Context",
-			"- the repo is large",
-			"- prior art exists",
-			"## Approach",
-			"- use a cache",
-			"## Steps",
-			"- [ ] Add the cache",
-			"- [ ] Wire it",
-			"## Risks",
-			"- stale reads",
-		].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([pending("Add the cache"), pending("Wire it")]);
-	});
-
-	test("keeps nested notes inside the section but not as steps", () => {
-		const plan = [
-			"## Steps",
-			"1. Add the cache",
-			"   - a nested note",
-			"### Check the cache",
-			"2. Wire it",
-			"## Risks",
-			"- stale reads",
-		].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([pending("Add the cache"), pending("Wire it")]);
-	});
-
-	test("an empty Steps section means no steps", () => {
-		expect(extractPlanSteps(["## Steps", "", "## Risks", "- stale reads"].join("\n"))).toEqual([]);
-	});
-
-	test("ignores a Steps heading inside a fence", () => {
-		const plan = ["```md", "## Steps", "- not a step", "```", "- Real step"].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([pending("Real step")]);
-	});
-
-	test("falls back to the whole plan without a Steps heading", () => {
-		const plan = ["## Goal", "- first", "## Approach", "- second"].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([pending("first"), pending("second")]);
-	});
-
-	test("matches the heading case-insensitively and through emphasis", () => {
-		const plan = ["## **STEPS**", "- One", "## Risks", "- two"].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([pending("One")]);
-	});
-
-	test("setStepStatuses edits the section-scoped steps", () => {
-		const plan = ["## Context", "- prose", "## Steps", "- [ ] One", "- [ ] Two"].join("\n");
-		expect(setStepStatuses(plan, [{ step: 1, status: "completed" }])).toBe(
-			["## Context", "- prose", "## Steps", "- [x] One", "- [ ] Two"].join("\n"),
-		);
-	});
-});
-
-describe("step summary and text match", () => {
-	test("counts past the cap and counts steps whose text will be shortened", () => {
-		const plan = Array.from({ length: MAX_STEPS + 3 }, (_, index) => `${index + 1}. step ${index}`).join("\n");
-		expect(planStepSummary(plan)).toEqual({ total: MAX_STEPS + 3, elided: 0 });
-		expect(planStepSummary(`1. ${"x".repeat(MAX_STEP_LENGTH + 1)}\n2. Short`)).toEqual({ total: 2, elided: 1 });
-	});
-
-	test("scopes the count to the Steps section", () => {
-		const plan = ["## Context", "- prose", "## Steps", "- One", "- Two"].join("\n");
-		expect(planStepSummary(plan)).toEqual({ total: 2, elided: 0 });
-	});
-
-	test("matches step text ignoring case, surrounding space, and collapsed whitespace", () => {
-		expect(matchesStepText("Add  the cache", " add the CACHE ")).toBe(true);
-		expect(matchesStepText("Add the cache", "Wire it")).toBe(false);
-	});
-});
-
 describe("plan outline", () => {
 	test("documents the sections in order and a checkbox step", () => {
 		const headings = PLAN_OUTLINE.split("\n")
@@ -1075,80 +894,6 @@ describe("plan outline", () => {
 		expect(extractSections(PLAN_OUTLINE).map((section) => section.title)).toEqual(["<Title>", ...PLAN_SECTIONS]);
 		expect(planStepSummary(PLAN_OUTLINE)).toEqual({ total: 2, elided: 0 });
 		expect(verificationItem(PLAN_OUTLINE)?.content).toBe("Verify: bun test src/config.test.ts; bun run check");
-	});
-});
-
-describe("step status edits", () => {
-	const pending = (content: string) => ({ content, status: "pending" as const });
-
-	test("marks a numbered step done and leaves its text alone", () => {
-		const plan = ["1. Read the parser", "2. Add a tokenizer"].join("\n");
-		expect(setStepStatuses(plan, [{ step: 2, status: "completed" }])).toBe(
-			"1. Read the parser\n2. [x] Add a tokenizer",
-		);
-	});
-
-	test("adds a checkbox to a plain list item and returns it to pending", () => {
-		expect(setStepStatuses("- Do the thing", [{ step: 1, status: "completed" }])).toBe("- [x] Do the thing");
-		expect(setStepStatuses("- [x] Done", [{ step: 1, status: "pending" }])).toBe("- [ ] Done");
-	});
-
-	test("applies several steps in one pass", () => {
-		const plan = ["1. One", "2. Two", "3. Three"].join("\n");
-		const result = setStepStatuses(plan, [
-			{ step: 1, status: "completed" },
-			{ step: 3, status: "completed" },
-		]);
-		expect(result).toBe("1. [x] One\n2. Two\n3. [x] Three");
-	});
-
-	test("reopening drops a DONE marker; completing keeps it", () => {
-		const reopened = setStepStatuses("- First [DONE:1]\n- Second", [{ step: 1, status: "pending" }]);
-		expect(reopened).toBe("- [ ] First\n- Second");
-		expect(extractPlanSteps(reopened as string)).toEqual([pending("First"), pending("Second")]);
-		expect(setStepStatuses("- First [DONE:1]", [{ step: 1, status: "completed" }])).toBe("- [x] First [DONE:1]");
-	});
-
-	test("a duplicate step takes the last entry", () => {
-		const result = setStepStatuses("- One", [
-			{ step: 1, status: "completed" },
-			{ step: 1, status: "pending" },
-		]);
-		expect(result).toBe("- [ ] One");
-	});
-
-	test("aligns its numbering with extractPlanSteps", () => {
-		const plan = ["1. Same", "2. same", "3. Other"].join("\n");
-		expect(extractPlanSteps(plan)).toEqual([pending("Same"), pending("Other")]);
-		expect(setStepStatuses(plan, [{ step: 2, status: "completed" }])).toBe("1. Same\n2. same\n3. [x] Other");
-	});
-
-	test("keeps a wrapped step's continuation when the checkbox changes", () => {
-		const plan = ["- [ ] First step", "  continues here", "- [ ] Second"].join("\n");
-		expect(setStepStatuses(plan, [{ step: 1, status: "completed" }])).toBe(
-			["- [x] First step", "  continues here", "- [ ] Second"].join("\n"),
-		);
-		expect(setStepStatuses(plan, [{ step: 2, status: "completed" }])).toBe(
-			["- [ ] First step", "  continues here", "- [x] Second"].join("\n"),
-		);
-	});
-
-	test("ignores steps inside fences", () => {
-		const result = setStepStatuses(["```", "- nope", "```", "- Real"].join("\n"), [{ step: 1, status: "completed" }]);
-		expect(result).toContain("- [x] Real");
-		expect(result).toContain("- nope");
-	});
-
-	test("changes nothing when any step is out of range or non-integer", () => {
-		expect(setStepStatuses("- One", [{ step: 0, status: "completed" }])).toBeUndefined();
-		expect(setStepStatuses("- One", [{ step: 2, status: "completed" }])).toBeUndefined();
-		expect(setStepStatuses("- One", [{ step: 1.5, status: "completed" }])).toBeUndefined();
-		expect(
-			setStepStatuses("- One\n- Two", [
-				{ step: 1, status: "completed" },
-				{ step: 9, status: "completed" },
-			]),
-		).toBeUndefined();
 	});
 });
 
