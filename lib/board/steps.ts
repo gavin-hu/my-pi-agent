@@ -275,8 +275,8 @@ function appendNote(card: Card, actor: Actor, now: number, text: string): Pick<C
  * Write the contract, and the plan file it is executed against.
  *
  * The plan lane's one act: a card is planned by saying what it promises, and the wording and
- * the file it names are what the approval covers, so a change to either drops the signature.
- * The plan is required —
+ * which file it names are what the approval covers — never the file's bytes, which the board
+ * does not read — so a changed line or a different plan drops the signature. The plan is required —
  * a contract is a promise plus the agreement it will be read against, and a card whose
  * contract names no artifact has nothing to execute. A contract call that names nothing at
  * all is refused rather than quietly changing nothing.

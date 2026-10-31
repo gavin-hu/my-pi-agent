@@ -78,7 +78,7 @@ where it does, the sections a reader acts on, then its notes newest first
 | Publish a feature | `board` action `add` | A `backlog` card with path hints and a first note (one line, at most 1000 characters) |
 | Take a feature | `board` action `claim` | The card is pulled into `plan` and owned by this session — or refused, naming the count, when `plan` is full. The result names the next step, because the claim is what commits the session to a plan |
 | Hand it back | `board` action `release` | The card is back in `backlog` with no owner; the contract and its approval stay, because the plan did not change |
-| Write the contract | `board` action `contract` | The plan file and the three lines the card promises — `goal`, `acceptance`, `scopeOut` — written in one call; `path` is required, and it must be the plan `plan` action `write` saved in this repository's plan store, so a contract cannot name a file that does not exist. Any change to a line or to the file drops the approval, because the sign named both |
+| Write the contract | `board` action `contract` | The plan file and the three lines the card promises — `goal`, `acceptance`, `scopeOut` — written in one call; `path` is required, and it must be the plan `plan` action `write` saved in this repository's plan store, so a contract cannot name a file that does not exist. The approval covers the three lines and which file they are read against, not the file's bytes: a changed line or a different `path` drops it, and a plan refined in place keeps it |
 | Approve the contract | `board` action `approve`, or `/board approve <id>` | The lead records that the wording is right — a session that joined under `board.lead`, and never the holder — or the person at the keyboard signs; only then may the card enter `execute`. `text` adds a note, recorded with the sign, because a signer is exactly the session `note` refuses on a held card. The card's owner is sent the sign over the bus, so the session that can make the next move is told rather than left to poll |
 | Spot-check the work | `board` action `review`, or `/board review <id>` | The lead records that they looked at the finished work in `execute` — never the holder — or the person does; only then may the card be finished. `text` adds a note, recorded with the sign, so "checked, and this is still wrong" is one call. The owner is told the same way, with `done` named |
 | Change lane | `board` action `move` | Wherever the board allows from where the card is: `plan` to `execute` (no unfinished dependency, a complete contract, a plan that is still in the store, an approval by somebody other than the holder) or `blocked`, `execute` to `plan` (re-plan), `blocked`, or `done` (no unfinished dependency, spot-checked, the same plan check), `blocked` back to `plan` when that lane has room, or to `execute` once its contract is approved and its plan is there |
@@ -224,7 +224,7 @@ name there is the project's, and the seat is read off the roster where it belong
 | `reclaim` | `card` | the card, back in `backlog`, whoever held it |
 | `move` | `card`, `lane`, `blockedBy?`, `blocker?` | the card in its new lane, through the one transition the board allows from where it is; `blocker` (`contract`, `dependency`, or `decision`) is required for `blocked` and is recorded with `blockedBy` (one line, ≤200 characters) as the card's one `blocked` record — sent with any other lane it is refused, and it cannot change while the card is parked, because a reason is what the card was parked on; a re-plan from `execute` or a resume from `blocked` is an entry into `plan` and so is held to that lane's limit. A move to `execute` or `done` re-checks the plan the card recorded — a deleted file, or one outside the store, is refused with `contract` as the way out — and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
 | `note` | `card`, `text` | the card with the note appended |
-| `contract` | `card`, `path`, `goal?`, `acceptance?`, `scopeOut?` | the card with its plan file and its contract recorded, and any approval dropped: a changed line is an unapproved one. `path` is required and must resolve inside this repository's plan store (a bare name is read there, `~/…` is accepted) and exist; a path outside it is refused with the store named |
+| `contract` | `card`, `path`, `goal?`, `acceptance?`, `scopeOut?` | the card with its plan file and its contract recorded, and any approval dropped: a changed line, or a different plan file, is an unapproved contract. `path` is required and must resolve inside this repository's plan store (a bare name is read there, `~/…` is accepted) and exist; a path outside it is refused with the store named |
 | `approve` | `card`, `text?` | the card with its contract approved, by the lead and not by its holder — the gate in front of `execute` (see **Who signs**); `text` is a note recorded in the same write. The person signs the same gate with `/board approve <id>` |
 | `review` | `card`, `text?` | the card with a spot-check recorded, by the lead and not by its holder — the gate in front of `done`; `text` is a note recorded in the same write. The person signs with `/board review <id>` |
 | `edit` | `card`, `title?`, `paths?`, `priority?`, `dependsOn?` | the card with what it says corrected; an omitted field is left alone, and `dependsOn: []` removes every link |
@@ -511,10 +511,13 @@ it always meant: when the card was last touched, which is not when it last chang
   repository's plan store, and a move to `execute` or `done` re-checks that the file is still
   there. The board still never reads a plan — a `stat` is the whole check — but a card can no
   longer be executed against a path to nothing, which is what "the plan it is executed
-  against" had been claiming while `execute` asked no question at all. The proof is a fact
-  the tool hands the state machine, so `rules.ts` stays pure and a surface added later cannot
-  pass the gate by forgetting it; the stored path is the resolved one, so a card reads the
-  same absolute file from every session.
+  against" had been claiming while `execute` asked no question at all. What the sign covers
+  follows from that check rather than from a hash: the three lines and the path, never the
+  file's bytes, because a plan is the holder's to refine — `plan` action `steps` rewrites it
+  after approval — so an edit keeps the sign and the spot-check at `done` judges the finished
+  work. The proof is a fact the tool hands the state machine, so `rules.ts` stays pure and a
+  surface added later cannot pass the gate by forgetting it; the stored path is the resolved
+  one, so a card reads the same absolute file from every session.
 - **An id is never reused.** The next id is the highest in `cards/`, `archive/` *or*
   `ended/` plus one, so a number cannot be handed to a second feature — which is the only
   thing that lets a note, a handoff, or a link name a card and still mean it. A record
@@ -664,10 +667,10 @@ it always meant: when the card was last touched, which is not when it last chang
   optional `text` note, written with the sign: the signer is the session `note` refuses on a
   held card, so without it a caveat has nowhere to go on the card. The contract is
   three one-line fields written by `contract`, and a changed line or a different plan file
-  drops the sign, because the sign named both the wording and the artifact — so a re-worded
-  card is signed again, by the lead that signed the last one. A card too small to state an
-  acceptance does not belong on the board — it belongs in `todo` — which is the honest answer
-  to "this is ceremony for a typo fix".
+  drops the sign, because the sign named the wording and which plan file, not the file's bytes
+  — so a re-worded card is signed again, by the lead that signed the last one. A card too small
+  to state an acceptance does not belong on the board — it belongs in `todo` — which is the
+  honest answer to "this is ceremony for a typo fix".
 - **`status` became `lane` because a card now has two states.** The field, the parameter, and
   the page's attribute were renamed in one step with no behaviour change: once a card can be
   approved and reviewed, "status" answers more than one question, and the docs had always
