@@ -17,6 +17,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the card dialog stops saying one thing twice. Its reason line steps aside for the
+  section that prints the same fact — the signature under a signed contract, and the record's
+  `landed` rung — so a card the lead has read no longer reads `contract approved by …` a block
+  above its own signature, while an unsigned contract and a finished card with no commit keep
+  the line, because nothing below says either.
 - `board`: the card dialog reads in the order a reader acts on it. Its head keeps what the
   card face led with — the owner as a chip, the priority as a word, and the lane with the age
   that says how long the card has held it — and the body is four named sections: the contract
