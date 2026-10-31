@@ -40,12 +40,10 @@ frame in `screens/`, a page the package serves is a CLI in `shots/`, and the too
 galleries are `tools/`.
 
 A **video** is neither, and is the only asset drawn from assets rather than from a
-fixture: `shots/video.ts` is handed the frames above, a kicker and a caption each,
-and the Chrome it drives draws them in one fixed stage — a brand row above it, the
-words and a chapter of progress below — and encodes the result, because the machine
-has no video encoder and the preview must be reproducible from a clean checkout. Its
-storyboard is the list that decides what the file shows, and `--stills <dir>` writes
-one PNG per slide instead of encoding, so a redesign is reviewed as pictures.
+fixture: `shots/video.ts` is handed the frames above, one caption each, and the
+Chrome it drives draws them on a canvas and encodes the result, because the
+machine has no video encoder and the preview must be reproducible from a clean
+checkout. Its storyboard is the list that decides what the file shows.
 
 ## Fixtures
 
@@ -73,12 +71,10 @@ that draws it.
   rails, and the footer — padded to the window a session fills.
 - A capture needs a real Terminal.app window, which is why CI cannot produce one
   and the release step names it.
-- `assets/video/demo.mp4` is made of ten of those assets, so it is stale the
+- `assets/video/demo.mp4` is made of six of those assets, so it is stale the
   moment one of them is recaptured and nothing can tell: two encodes of the same
   frames do not match byte for byte. `bun run screenshot:video` re-montages them,
-  and the storyboard names which ten. Its brand row prints the pack's version, so
-  a release re-montages it beside the hero — a preview that names the last version
-  is behind in the one line a viewer reads first.
+  and the storyboard names which six.
 
 ## A script a doc names
 

@@ -32,14 +32,14 @@ repositories.
 | `bun run probe:wechat [holdMs]` | Hold one WeChat poll open for the stated milliseconds (default 3000) and report what the server did with it, so a stalled bridge can be diagnosed without a phone; [`extensions/wechat.md`](./extensions/wechat.md) says when to reach for it. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
 | `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/screens/` (macOS only); naming screens captures only those. |
-| `bun run screenshot:board [--out <dir>]` | Render the board page and capture both tabs as full-page PNGs with Playwright driving the local Chrome. It starts the shipped board server over a fixture store in a temporary directory, so the image never names a real checkout; `--out`, `--width`, `--scale`, `--theme light\|dark`, `--wait`, and `--dialog card` (the card dialog — card 1, the fixture's fullest record — instead of the two tabs) tune the shot. The shipped `board.png`, `team.png`, and `card-dialog.png` are `--theme dark`, the palette every other captured surface draws in. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run screenshot:board [--out <dir>]` | Render the board page and capture both tabs as full-page PNGs with Playwright driving the local Chrome. It starts the shipped board server over a fixture store in a temporary directory, so the image never names a real checkout; `--out`, `--width`, `--scale`, `--theme light\|dark`, `--wait`, and `--dialog card` (the card dialog — card 1, the fixture's fullest record — instead of the two tabs) tune the shot. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with Playwright driving the local Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:plan` <plan.md> | Render one plan through the browser review page and capture it as a full-page PNG with Playwright driving the local Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot, and `--as owner\|reviewer` picks the owner's page or the one a shared link opens. `--post <name>` posts one comment as that reviewer before the capture, so the frame shows the name bound to her link, and `--draft <text>` starts the tab with one unsaved comment, the state a reload restores; `--share` opens the owner's Share dialog with two links instead of the plan, so the per-person list is what the frame shows. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:cards [flow\|graphic\|board\|team\|parallel]` | Capture the posting cards at 1200×675, 2× by default: the plan pair — `assets/cards/plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic-led — and the board three — `board.html`, the five lanes, one card's atoms and the lead's round, `board-team.html`, the three `team` verbs, and `board-parallel.html`, three cards planned side by side and then executed side by side, each row crossing the `approve` and `review` lines. Naming cards captures only those, and `-o` names the output for a single card; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run tools:render <list\|render\|html\|gallery\|tools>` | The tool-renderings CLI: `list` names every rendering, `render <name> --width n` prints one block as ANSI on any OS, `html <out>` writes the gallery page, and `gallery <out>` / `tools <dir>` capture PNGs with Playwright driving the local Chrome. `screenshot:tools` and `screenshot:tool-pngs` are the last two with their asset paths filled in. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/screens/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. It is `bun run tools:render gallery assets/screens/tool-renderings.png`. |
 | `bun run screenshot:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
-| `bun run screenshot:video` | Regenerate `assets/video/demo.mp4`, the `pi.video` gallery preview: ten frames this repository already ships, drawn in one fixed stage with a brand row naming the pack's version, a kicker and a caption per slide, and a chaptered progress bar, then encoded to H.264 by the local Chrome (`MediaRecorder`), so no video encoder is installed for it. `-o`, `--width`, `--height`, `--fps`, and `--bps` tune the shot, and `--stills <dir>` writes one PNG per slide at 55% of its hold instead of encoding; the storyboard is `MONTAGE` in `scripts/shots/video.ts`, and the file's weight is a budget because the gallery autoplays it. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run screenshot:video` | Regenerate `assets/video/demo.mp4`, the `pi.video` gallery preview: six frames this repository already ships, cross-faded with one caption each, drawn on a canvas and encoded to H.264 by the local Chrome (`MediaRecorder`), so no video encoder is installed for it. `-o`, `--width`, `--height`, `--fps`, and `--bps` tune the shot; the storyboard is `MONTAGE` in `scripts/shots/video.ts`. Set `PI_CHROME` for a non-default Chrome. |
 
 ## Screenshots
 
@@ -77,8 +77,7 @@ adding a screen to the record is the same capture that writes its asset.
 
 The browser assets come from headless Chrome instead of the terminal: the two
 browser pages, the tool galleries (`screenshot:tools`, `screenshot:tool-pngs`), and
-the `pi.video` montage (`screenshot:video`), which is ten of those frames again,
-laid out in one stage and encoded.
+the `pi.video` montage (`screenshot:video`), which is those frames again, encoded.
 `scripts/capture/chrome.ts` drives Playwright against the Chrome the machine already
 has — `PI_CHROME`, else the usual bundles — so a refresh downloads no browser,
 and it sizes the window to the document before capturing, so a page wider than the
@@ -88,13 +87,11 @@ fixture project, so a refresh reproduces the same examples:
 ```bash
 bun run screenshot:plan scripts/examples/plan-review.md -o assets/screens/plan-review.png --width 1280 --scale 1 --theme dark
 bun run screenshot:file-browse -o assets/screens/file-browse.png --theme dark
-bun run screenshot:board --theme dark
-bun run screenshot:board --theme dark --dialog card
 ```
 
 `file-browse` serves a generated project in a temporary directory unless given
 `--root`; the page prints the served root, so that default keeps a maintainer's
-own checkout out of the image. Each script sets the theme through the page's own
+own checkout out of the image. Both scripts set the theme through the page's own
 toggle, which keeps the header glyph and the page in step.
 
 Which of those pictures the pi.dev gallery previews is decided by how the README
@@ -490,9 +487,7 @@ authenticates with npm trusted publishing (OIDC). See
    in the same step: `bun run screenshots chrome` re-renders
    `assets/screens/chrome.png` from the new `package.json`, and nothing else can,
    because the capture needs macOS and Terminal.app — see
-   [Screenshots](#screenshots). Re-montage the preview in the same step too,
-   with `bun run screenshot:video`: its brand row prints the version the bump
-   just changed.
+   [Screenshots](#screenshots).
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
 5. Tag `main`'s HEAD and push it with `main`, never after it:
