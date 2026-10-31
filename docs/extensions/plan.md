@@ -392,6 +392,9 @@ remote turn the plan file is sent first, then a compact prompt carrying the
 title, step count, first steps, mode status, and three actions — `1` approve,
 `2` keep planning, `3` exit. If the upload fails, the plan's text is sent
 instead. Any other reply is a refinement, so "select Refine, then type" is gone.
+A reply that never comes is `2` keep planning, never `3` exit: an empty Enter, a
+dismissed prompt, and the ten-minute expiry all answer as nothing, and nothing is
+not a decision — leaving plan mode restores write access, so it takes an answer.
 A WeChat turn takes the same dialog path and is answered over
 WeChat, even though the session is in TUI mode: the choice comes from
 `askHuman(ctx, { custom, dialogs, body })` in `lib/interaction.ts`, not from
@@ -798,6 +801,12 @@ both.
 - The todo item for a step is matched by its text. An item renamed after
   approval no longer matches, so `steps` leaves it alone and says so in
   its result; the plan file is still updated.
+- A remote review prompt expires after ten minutes (`PLAN_REVIEW_TIMEOUT_MS`), on
+  the assumption that the human has to read the plan first. An expiry is read as
+  `2` keep planning, so the plan stays under review and write access stays off. On
+  WeChat the peer is nudged once at five minutes and then told `That question timed
+  out.`, which says nothing about the plan's state: whoever meant to answer has to
+  ask again or reply `2`/approve to a fresh review.
 - Browser review needs a local browser: the server is loopback-only, so a remote
   turn cannot drive it.
 - A browser that never connects leaves the review waiting until the user

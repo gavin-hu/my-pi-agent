@@ -59,6 +59,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   connection from a plan, and the module's "touches nothing on disk" sentence now says what
   it means: the guard writes nothing of its own, while `git status` and `git diff` can still
   refresh `.git/index`.
+- `plan`: an unanswered review prompt keeps planning instead of leaving plan mode. The
+  compact review prompt parsed an empty reply as `3` exit, so an Esc, an empty Enter, or the
+  ten-minute expiry ended plan mode, restored write access, and recorded no approval —
+  while the review screen's own no-answer default was keep. An empty reply is now `keep`,
+  leaving still takes an answer, and the timeout is a Limitations row instead of an
+  undocumented way out.
 - `watch`: a file replaced by a rotation is read again from its start. The poller reset its
   offset only when the file shrank, so a `logrotate create` rotation — the old file renamed
   away and a longer one written at the same path — looked like growth: the watcher resumed

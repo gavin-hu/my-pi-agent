@@ -81,10 +81,14 @@ export function planReviewPrompt(content: string, language: InteractionLanguage,
 /**
  * Parse the one editor reply. Only an exact number or action word is an action;
  * any other non-empty text is a refinement request.
+ *
+ * An empty reply — Esc, an empty Enter, or the prompt expiring unanswered — is
+ * `keep`, not `cancel`: a silent prompt is not a decision, and nothing here may
+ * end plan mode and hand write access back without one. Leaving takes an answer.
  */
 export function parsePlanReviewReply(raw: string): PlanReviewReply {
 	const text = raw.trim();
-	if (text === "") return { action: "cancel" };
+	if (text === "") return { action: "keep" };
 	const key = text.toLowerCase();
 	for (const action of REVIEW_ACTIONS) {
 		if (key === action.key || action.words.includes(key)) return { action: action.action };

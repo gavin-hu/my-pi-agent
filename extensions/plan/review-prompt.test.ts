@@ -67,7 +67,14 @@ describe("parsePlanReviewReply", () => {
 		});
 	});
 
-	test("cancels an empty reply", () => {
-		expect(parsePlanReviewReply("   ")).toEqual({ action: "cancel" });
+	test("keeps planning when the reply is empty, so silence cannot leave plan mode", () => {
+		// Esc, an empty Enter, and the ten-minute expiry all arrive here as nothing. Each one
+		// used to end plan mode with write access restored and no approval, which is the one
+		// outcome a silent prompt must never produce.
+		expect(parsePlanReviewReply("")).toEqual({ action: "keep" });
+		expect(parsePlanReviewReply("   ")).toEqual({ action: "keep" });
+		// Leaving still takes an answer.
+		expect(parsePlanReviewReply("3")).toEqual({ action: "cancel" });
+		expect(parsePlanReviewReply("exit")).toEqual({ action: "cancel" });
 	});
 });
