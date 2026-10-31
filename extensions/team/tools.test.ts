@@ -13,13 +13,24 @@ import { advance } from "../../test/helpers/board-flow.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { NOW, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { ACTION_FIELDS } from "./types.ts";
+import { ACTION_FIELDS, TEAM_ACTIONS } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
 /** One tool over fresh directories, tracked for teardown by this file's hook. */
 const harness = (options: TeamSuiteOptions = {}) => teamSuite(temps.track, options);
+
+/**
+ * Whether a prompt surface names a verb, as a word rather than as the tail of a longer one.
+ *
+ * Both surfaces are prose: the description writes `` `claim` `` and the snippet writes `claim`
+ * bare, so an anchored match is the one rule that reads them the same way — and `reclaim`
+ * stops answering for `claim`.
+ */
+function named(text: string, action: string): boolean {
+	return new RegExp(`\\b${action}\\b`).test(text);
+}
 
 describe("the registration", () => {
 	test("declares the surface the tool needs", () => {
@@ -29,6 +40,19 @@ describe("the registration", () => {
 		expect(tool.promptGuidelines.length).toBeGreaterThan(0);
 		expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: true, openWorldHint: false });
 		expect(tool.executionMode).toBe("sequential");
+	});
+
+	test("names every verb it has, in the snippet and in the description", () => {
+		const { tool } = harness();
+		// The snippet is the one line the always-on tool list carries, so a verb missing there is
+		// a verb a model only discovers from the schema — `ask` was absent from it for a release.
+		for (const action of TEAM_ACTIONS) {
+			expect(named(tool.promptSnippet, action), `${action} in the snippet`).toBe(true);
+			expect(named(tool.description, action), `${action} in the description`).toBe(true);
+		}
+		// A substring check would let `reclaim` answer for `claim`, which is the verb this guard
+		// exists for; the boundary is what makes the case mean what it says.
+		expect(named("Run a round: reclaim one.", "claim")).toBe(false);
 	});
 
 	test("says which action needs no team", () => {

@@ -103,11 +103,12 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			"(`to` is a teammate's label or id, as `/team` lists them); `offer` broadcasts an unclaimed card to every other " +
 			"live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back to Backlog and " +
 			"sends nothing, so it needs no team; `claim` takes one for yourself, and the card's plan, contract, moves, and " +
-			"`ask` sends one peer a question and reports what the bus did with it — delivered, or waiting for that peer's " +
-			"next turn — so the answer arrives as mail and nothing waits on it. Nothing here starts a peer's turn: a message " +
-			"waits in its inbox, and a peer that is listening reports it at its next turn.",
+			"finish are `board`'s; `ask` sends one peer a question and reports what the bus did with it — delivered, or " +
+			"waiting for that peer's next turn — so the answer arrives as mail and nothing waits on it. Nothing here starts " +
+			"a peer's turn: a message waits in its inbox, and a peer that is listening reports it at its next turn.",
 		promptSnippet:
-			"Run a round over the board: assign a card to a running session, offer one, reclaim one, or claim one.",
+			"Run a round over the board: assign a card to a running session, offer one, reclaim one, claim one, or ask " +
+			"one peer a question.",
 		promptGuidelines: [
 			"Open the board with `/board` or work a card first, so this session and its peers are on the team.",
 			"Offer a card nobody has taken; assign one you mean a particular peer to hold; claim one you will take " +
