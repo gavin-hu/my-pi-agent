@@ -30,6 +30,10 @@ describe("assign", () => {
 		expect(sent).toHaveLength(1);
 		expect(sent[0]?.to).toBe("billing-core");
 		expect(sent[0]?.text).toContain("Note: start with the webhook");
+		// The board's default lead is the name a sign carries, and it is the name the peer is
+		// told to ask: the two moves after `plan` are refused without it.
+		expect(sent[0]?.text).toContain("needs the lead (lead) to `approve` the contract");
+		expect(sent[0]?.text).toContain("`done` needs the lead's `review`");
 		// The id comes from the bus, so a peer that renames itself still holds its card.
 		// A handoff pulls a pool card into `plan`, where its contract is written.
 		expect(result.details.card).toMatchObject({
@@ -40,6 +44,16 @@ describe("assign", () => {
 		expect(resultText(result)).toContain("#1 handed off to billing-core.");
 		// Listening is the default the stub reports, so no warning line is added.
 		expect(resultText(result)).not.toContain("Not listening");
+	});
+
+	test("names the lead the project configured, not the default", async () => {
+		const { call, seed, sent } = harness({ lead: "billing-lead" });
+		const id = await seed();
+		await call({ action: "assign", card: id, to: "billing-core" });
+		// The name reaches the wire from the same store the gate reads, so the peer is sent to
+		// the session that can actually sign its card.
+		expect(sent[0]?.text).toContain("needs the lead (billing-lead) to `approve` the contract");
+		expect(sent[0]?.text).toContain("ask billing-lead with `session send` when each is ready");
 	});
 
 	test("names the peer when its record says it is not listening", async () => {
@@ -143,6 +157,9 @@ describe("offer", () => {
 		expect(sent[0]).toMatchObject({ kind: "event", to: "*" });
 		expect(sent[0]?.text).toContain("is unclaimed");
 		expect(sent[0]?.text).toContain("Note: whoever is free");
+		// A claimer meets the same two gates, so the broadcast names them too.
+		expect(sent[0]?.text).toContain("needs the lead (lead) to `approve` the contract");
+		expect(sent[0]?.text).toContain("`done` needs the lead's `review`");
 		// One write, and only the offer: the card is unowned, still to do, and its one
 		// change is the moment it was offered — which is what a lead reads instead of
 		// guessing whether anybody looked.

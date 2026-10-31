@@ -14,6 +14,7 @@
 import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
 import { cardRef, type CardOwner } from "../../lib/board/card.ts";
+import type { Lead } from "../../lib/board/lead.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import { listPeers, MAX_MESSAGE_TEXT, type Peer, send as sendTo } from "../../lib/session-tool.ts";
 
@@ -34,18 +35,22 @@ export interface Dispatch {
 /**
  * What the peer reads.
  *
- * It names the card, its outcome, and the paths, and says what to do next: record the
- * plan, work, note, finish. It does **not** ask the peer to claim the card — `assign`
- * has already recorded the owner, and a claim by the holder is a no-op. The claim is
- * only for the failure path where the send landed and the assignment did not.
+ * It names the card and its outcome, says what to do next — record the plan, work, note,
+ * and which moves are the peer's own — and then the paths it needs. The instruction comes
+ * before the paths because the paths are the only line that can run past the bus's limit,
+ * and a clipped message must not lose the step it was sent to give. It does **not** ask
+ * the peer to claim the card — `assign` has already recorded the owner, and a claim by the
+ * holder is a no-op. The claim is only for the failure path where the send landed and the
+ * assignment did not.
  */
-export function handoffText(card: Card, to: string, note?: string): string {
+export function handoffText(card: Card, to: string, lead: Lead, note?: string): string {
 	const lines = [
 		`Handoff: ${cardRef(card.id)} "${card.title}" is yours, ${to}.`,
+		`It is already assigned to you — write its contract with board action "contract" if it has none, then note each phase.`,
+		signatureLine(lead),
 		card.paths.length > 0 ? `Paths: ${card.paths.join(", ")}` : undefined,
 		card.planPath === undefined ? undefined : `Plan: ${card.planPath}`,
 		note === undefined ? undefined : `Note: ${note}`,
-		`It is already assigned to you — write its contract with board action "contract" if it has none, then note each phase and move it to execute, blocked, or done.`,
 	].filter((line): line is string => line !== undefined);
 	return withinLimit(lines.join("\n"));
 }
@@ -55,17 +60,33 @@ export function handoffText(card: Card, to: string, note?: string): string {
  *
  * An offer names no owner: the first peer to claim the card takes it, so the text says
  * what the card is and that claiming is the next step, and it never implies the work is
- * already somebody's.
+ * already somebody's. The claim and the two gates come before the paths, for the reason
+ * `handoffText` does: the step is what the message is for.
  */
-export function offerText(card: Card, note?: string): string {
+export function offerText(card: Card, lead: Lead, note?: string): string {
 	const lines = [
 		`Offer: ${cardRef(card.id)} "${card.title}" is unclaimed.`,
+		`First to claim it takes it: run board action "claim" with card "${card.id}", then write its contract and note each phase.`,
+		signatureLine(lead),
 		card.paths.length > 0 ? `Paths: ${card.paths.join(", ")}` : undefined,
 		card.planPath === undefined ? undefined : `Plan: ${card.planPath}`,
 		note === undefined ? undefined : `Note: ${note}`,
-		`First to claim it takes it: run board action "claim" with card "${card.id}", then write its contract and move it on from plan.`,
 	].filter((line): line is string => line !== undefined);
 	return withinLimit(lines.join("\n"));
+}
+
+/**
+ * The moves a card has left, and which of them the peer may make itself.
+ *
+ * Both gates are the lead's signature — `lib/board/steps.ts` refuses `plan`→`execute`
+ * without `approve` and `done` without `review`, and refuses a signer who holds the card —
+ * so a message that said "move it to execute, blocked, or done" handed the peer an
+ * instruction its own next call would refuse. The name is the configured lead, which is the
+ * one a sign has to carry, and the way to ask it is `session send`, the same channel that
+ * carried this message.
+ */
+function signatureLine(lead: Lead): string {
+	return `Its three moves: \`blocked\` is yours to set; \`execute\` needs the lead (${lead}) to \`approve\` the contract, and \`done\` needs the lead's \`review\` — ask ${lead} with \`session send\` when each is ready.`;
 }
 
 /**
