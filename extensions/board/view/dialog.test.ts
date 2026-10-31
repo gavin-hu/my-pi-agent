@@ -131,11 +131,16 @@ describe("the dialog's client", () => {
 		// body size, which a card without a contract leaves hidden.
 		expect(BOARD_CLIENT_JS).toContain('var CONTRACT_ROWS = ["goal", "acceptance", "scope-out"];');
 		expect(BOARD_CLIENT_JS).toContain('document.getElementById("card-dialog-" + CONTRACT_ROWS[f]).hidden');
-		// The dialog opens with the card face's reason sentence, from the same body, and leaves a
-		// bare last note to the notes below rather than printing it twice.
+		// The dialog opens with the card face's reason sentence, from the same body, and steps
+		// aside for the section that prints the same fact: a bare last note is the notes' first
+		// sentence, a signed contract is the signature under it, and a landing is the record's
+		// rung. The kinds with nothing below — an unsigned contract, a card with no commit — are
+		// drawn, because the line would be the only place that fact appears.
 		expect(BOARD_CLIENT_JS).toContain("board.reasonFor(card, ago)");
 		expect(BOARD_CLIENT_JS).toContain('why.setAttribute("data-tone", board.reasonTone(reason.kind))');
-		expect(BOARD_CLIENT_JS).toContain('reason.kind !== "note"');
+		expect(BOARD_CLIENT_JS).toContain("!drawnBelow(card, reason.kind)");
+		expect(BOARD_CLIENT_JS).toContain('if (kind === "approval") return card.contract !== undefined');
+		expect(BOARD_CLIENT_JS).toContain('if (kind === "done") return card.landed !== undefined;');
 		// The approval is the signature under the three lines, in the tone the board gives a sign.
 		expect(BOARD_CLIENT_JS).toContain('"approved by " + approved.by + " \\u00b7 " + ago(approved.at)');
 		expect(BOARD_CLIENT_JS).toContain('board.reasonTone("approval")');

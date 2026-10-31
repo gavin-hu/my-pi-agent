@@ -48,6 +48,23 @@ const dialogTemplate = String.raw`(function () {
   /** The promise's three rows, which the section's own rule hides with the heading. */
   var CONTRACT_ROWS = ["goal", "acceptance", "scope-out"];
 
+  /**
+   * Whether a section below the reason line already prints what a reason of this kind says.
+   *
+   * The dialog says one thing once: a last note is the first sentence of the notes, a signed
+   * contract is the signature under its three lines, and a landing is the record's landed rung.
+   * What is left is what nothing below prints — an unsigned contract has no signature line, and
+   * a finished card with no commit has no rung. The contract kind is drawn for the same
+   * reason: its sentences name a field the block omits or a plan row that is empty, which is
+   * exactly what the sections draw nothing of.
+   */
+  function drawnBelow(card, kind) {
+    if (kind === "note") return true;
+    if (kind === "approval") return card.contract !== undefined && card.contract.approved !== undefined;
+    if (kind === "done") return card.landed !== undefined;
+    return false;
+  }
+
 __INLINE_MARKDOWN__
 
   /** Fill the dialog's contents from a card, without opening or closing it. */
@@ -88,9 +105,9 @@ __INLINE_MARKDOWN__
     // put it on that line only because it has no ladder to put it on.
     var why = document.getElementById("card-dialog-reason");
     var reason = board.reasonFor(card, ago);
-    // A last note is the one reason not drawn here: it is the sentence at the top of the
-    // notes below, and the dialog would be saying one thing twice.
-    var showReason = reason !== undefined && reason.kind !== "note";
+    // A reason is drawn only where it is the one place its fact appears, so a card whose
+    // signature or landing line below already says it does not read it twice.
+    var showReason = reason !== undefined && !drawnBelow(card, reason.kind);
     why.hidden = !showReason;
     why.textContent = showReason ? reason.text : "";
     if (showReason) why.setAttribute("data-tone", board.reasonTone(reason.kind));

@@ -192,7 +192,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		await page.close();
 	});
 
-	test("says what a blocked or unsigned card is waiting for, and draws no signature nobody gave", async () => {
+	test("says what a blocked or unsigned card is waiting for, and leaves a signed one to the signature", async () => {
 		// The two states the dialog used to draw nothing about: a plan card whose contract
 		// nobody has approved, and one parked on a decision. It borrows a pool card and gives
 		// it back in the `finally` — a released card keeps its contract, which the gates allow.
@@ -222,6 +222,13 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 			expect(await hidden(page, "#card-dialog-contract-section")).toBe(false);
 			expect(await page.textContent("#card-dialog-scope-out")).toBe("No currency work");
 			expect(await hidden(page, "#card-dialog-sign")).toBe(true);
+
+			// Once the lead has read the wording, the sentence the reason line would print is the
+			// signature under the contract, so the line steps aside: one fact, said once.
+			await store.mutate("2", { kind: "approve" }, LEAD, now);
+			await page.waitForSelector("#card-dialog-sign:not([hidden])", { timeout: PAINT_MS });
+			expect(await page.textContent("#card-dialog-sign")).toMatch(/^approved by billing-lead \u00b7 \d+[a-z]$/);
+			expect(await hidden(page, "#card-dialog-reason")).toBe(true);
 
 			// Parked on a decision, the line is the block's own sentence, in the refusal's tone.
 			await store.mutate(
@@ -275,6 +282,17 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-landed")).toMatch(/^4af1b4a \u00b7 \d+[a-z]$/);
 		expect(await page.getAttribute("#card-dialog-landed", "title")).toBe("4af1b4a");
+		// The reason line's `✓ done by billing-core · landed 4af1b4a` is that rung and the head's
+		// own owner chip, so it steps aside; a finished card that landed no commit has no rung and
+		// keeps the line, because nothing below says who finished it.
+		expect(await hidden(page, "#card-dialog-reason")).toBe(true);
+
+		await page.keyboard.press("Escape");
+		await page.click('#lane-done .board-card[data-card="5"] .board-card__title');
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		expect(await hidden(page, "#card-dialog-landed")).toBe(true);
+		expect(await page.textContent("#card-dialog-reason")).toBe("\u2713 done by billing-core");
+		expect(await hidden(page, "#card-dialog-reason")).toBe(false);
 		await page.close();
 	});
 
