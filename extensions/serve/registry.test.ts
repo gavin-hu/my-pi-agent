@@ -11,6 +11,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createServer, type Server } from "node:http";
 import type { LoopbackHandler, MountOutcome, MountRequest, MountSpec } from "../../lib/http/index.ts";
 import { textResponse } from "../../lib/http/index.ts";
+import { freePort } from "../../test/helpers/serve.ts";
 import { createServeRegistry, type ServeRegistry, type ServeRegistryDeps } from "./registry.ts";
 
 /** One registry under test, and the sessions it was asked to serve. */
@@ -141,7 +142,10 @@ describe("the session's server", () => {
 
 describe("the project's port", () => {
 	test("is where a session's first bind lands", async () => {
-		const project = 53_410;
+		// The number is the kernel's, not the case's: a literal is only free until something
+		// else on the machine takes it, and Linux draws ephemeral ports from the range the
+		// literal used to sit in.
+		const project = await freePort();
 		const registry = registryWith({ pickPort: () => project });
 		const board = await mounted(registry, { session: "s1", prefix: "/board" });
 		expect(board.port).toBe(project);

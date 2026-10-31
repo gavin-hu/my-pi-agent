@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `test`: `serve`'s two port cases ask the machine what is free instead of asserting a number
+  they do not own. The project's number is a hash into a band shared with whatever else
+  runs here — this machine's dev servers sit inside 4780–5779 — so the case that asserts
+  it now picks a project whose number is free, and the registry's first-bind case takes
+  its port from the kernel rather than the literal `53_410`, which Linux's ephemeral
+  range covers. A band nobody can free fails naming the band and the tries, rather than
+  as an expected/received mismatch.
+
 ## [0.23.0] - 2026-10-31
 
 ### Added

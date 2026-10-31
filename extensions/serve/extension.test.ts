@@ -11,7 +11,15 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { type LoopbackHandler, projectPort, requestMount, textResponse } from "../../lib/http/index.ts";
+import { portIsFree } from "../../test/helpers/serve.ts";
+import {
+	type LoopbackHandler,
+	PORT_BASE,
+	PORT_RANGE,
+	projectPort,
+	requestMount,
+	textResponse,
+} from "../../lib/http/index.ts";
 import { repoKeyOf } from "../../lib/repo-key.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import serveExtension from "./index.ts";
@@ -29,15 +37,38 @@ async function load(disabled?: string) {
 	return fake;
 }
 
-/** Start a session and open its first page. */
-async function opened(disabled?: string) {
-	const fake = await load(disabled);
-	const cwd = temps.track(tempDir("pi-serve-"));
+/** Start a session in `cwd` and open its first page. */
+async function opened(cwd: string = temps.track(tempDir("pi-serve-"))) {
+	const fake = await load();
 	const harness = fakeCtx({ sessionId: "s1", cwd });
 	await emit(fake.pi, "session_start", {}, harness.ctx);
 	const outcome = await requestMount(fake.pi, { session: "s1", prefix: "/board", handler });
 	if (outcome.kind !== "mounted") throw new Error(`expected a mount, got: ${outcome.reason}`);
 	return { fake, harness, cwd, mount: outcome.mount };
+}
+
+/** Tries before a case gives up on the band being free. */
+const PORT_ATTEMPTS = 8;
+
+/**
+ * A project whose own number nobody holds right now.
+ *
+ * The number is a hash into a band shared with whatever else this machine runs, so a
+ * case that asserts the number has to pick a project whose number is free: a fresh
+ * temp directory is a fresh hash into all of it, and a band nobody can free fails naming
+ * the numbers it tried — that is the machine, not the code under test.
+ */
+async function projectWithFreePort(): Promise<{ cwd: string; port: number }> {
+	const tried: number[] = [];
+	for (let attempt = 0; attempt < PORT_ATTEMPTS; attempt++) {
+		const cwd = temps.track(tempDir("pi-serve-"));
+		const port = projectPort(repoKeyOf(cwd));
+		if (await portIsFree(port)) return { cwd, port };
+		tried.push(port);
+	}
+	throw new Error(
+		`no project number was free in ${PORT_BASE}-${PORT_BASE + PORT_RANGE - 1} after ${PORT_ATTEMPTS} tries (${tried.join(", ")}) — this machine is holding the band, not the code`,
+	);
 }
 
 describe("registration", () => {
@@ -61,8 +92,9 @@ describe("registration", () => {
 
 describe("the project's port", () => {
 	test("is the repository's, so a restart lands on the same one", async () => {
-		const first = await opened();
-		expect(first.mount.port).toBe(projectPort(repoKeyOf(first.cwd)));
+		const project = await projectWithFreePort();
+		const first = await opened(project.cwd);
+		expect(first.mount.port).toBe(project.port);
 
 		await emit(first.fake.pi, "session_shutdown", {}, first.harness.ctx);
 		// A session started again in the same project is the restart a bookmark sees, and the
