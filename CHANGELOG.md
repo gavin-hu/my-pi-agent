@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: every surface that names a session says what it is holding. `/team`'s presence
+  line prints `live: helen — #162 plan · gone: dan — #1 execute +1`, and the Team tab's
+  teammate row says `#162 plan` (or `#162 plan +2` past the first, `idle` when it holds
+  nothing) where it used to say `3 held` / `no cards`, so a session holding one card and one
+  holding nothing are read apart instead of both reading as present. The phrase is
+  `lib/board/round-text.ts`'s one body, which the page receives as text; the bus is
+  untouched, because a session's liveness is its own diagnostic and not the board's store.
 - `test`: `serve`'s two port cases ask the machine what is free instead of asserting a number
   they do not own. The project's number is a hash into a band shared with whatever else
   runs here — this machine's dev servers sit inside 4780–5779 — so the case that asserts

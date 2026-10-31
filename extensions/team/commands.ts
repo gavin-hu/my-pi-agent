@@ -10,8 +10,8 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { type Card, cardRef } from "../../lib/board/card.ts";
-import { buildRound } from "../../lib/board/round.ts";
-import { formatRound, plural } from "../../lib/board/round-text.ts";
+import { buildRound, type RoundSummary } from "../../lib/board/round.ts";
+import { formatRound, holdingLine, plural } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
 import { readRoster, type RosterSession, rosterStateOf } from "../../lib/session-roster.ts";
@@ -93,11 +93,12 @@ export function joinedLine(result: JoinResult): string {
  */
 export function roundText(cards: readonly Card[], now: number, roster?: readonly RosterSession[]): string {
 	if (cards.length === 0) return "team: nothing to report — the board is empty";
-	const round = formatRound(cards, buildRound(cards, now), roster).split("\n");
-	const shown = round.slice(0, MAX_ROUND_LINES);
-	if (round.length > MAX_ROUND_LINES) shown.push(`… ${plural(round.length - MAX_ROUND_LINES, "line")} more`);
+	const round = buildRound(cards, now);
+	const lines = formatRound(cards, round, roster).split("\n");
+	const shown = lines.slice(0, MAX_ROUND_LINES);
+	if (lines.length > MAX_ROUND_LINES) shown.push(`… ${plural(lines.length - MAX_ROUND_LINES, "line")} more`);
 	for (const line of goneLines(cards, roster, now)) shown.push(line);
-	const who = presenceLine(roster, now);
+	const who = presenceLine(roster, now, round);
 	if (who !== undefined) shown.push(who);
 	return shown.join("\n");
 }
@@ -127,7 +128,15 @@ function goneLines(cards: readonly Card[], roster: readonly RosterSession[] | un
 }
 
 /**
- * `live: a, b · not listening: b · quiet: c · gone: d`, or nothing when nobody is here.
+ * `live: a — #2 execute · not listening: b · quiet: c — idle · gone: d — #4 plan`, or
+ * nothing when nobody is here.
+ *
+ * Every state group names the session with what it is holding, from
+ * `lib/board/round-text.ts`'s one phrase, so a line that says who is around also says what
+ * they are doing: a session holding nothing reads `idle`, and one holding cards names the
+ * first and counts the rest. `not listening:` is the exception, and it is a flag rather than
+ * a state: it names a peer already listed under `live:`, so repeating its holding there
+ * would print one session twice.
  *
  * Four facts, and the middle one is the one a lead can act on: a live session that is
  * not listening reads mail at its next turn rather than being woken for it. It is only
@@ -135,24 +144,32 @@ function goneLines(cards: readonly Card[], roster: readonly RosterSession[] | un
  * ignoring anything. `gone` is the loudest and comes last, because it is the one a lead
  * answers by reclaiming rather than by waiting.
  */
-function presenceLine(roster: readonly RosterSession[] | undefined, now: number): string | undefined {
+function presenceLine(
+	roster: readonly RosterSession[] | undefined,
+	now: number,
+	round: RoundSummary,
+): string | undefined {
 	if (roster === undefined || roster.length === 0) return undefined;
+	// The owner groups are where the board already decided which label a card belongs to, so
+	// the holding a session prints is the one its rollup line counted.
+	const held = new Map(round.owners.map((group) => [group.label.toLowerCase(), group.cards] as const));
+	const session = (label: string): string => holdingLine(label, held.get(label.toLowerCase()) ?? []);
 	const live: string[] = [];
 	const quiet: string[] = [];
 	const dead: string[] = [];
 	const silent: string[] = [];
-	for (const session of roster) {
-		const state = rosterStateOf(session, now);
+	for (const record of roster) {
+		const state = rosterStateOf(record, now);
 		if (state === "gone") {
-			dead.push(session.label);
+			dead.push(session(record.label));
 			continue;
 		}
 		if (state !== "live") {
-			quiet.push(session.label);
+			quiet.push(session(record.label));
 			continue;
 		}
-		live.push(session.label);
-		if (session.watching?.armed === false) silent.push(session.label);
+		live.push(session(record.label));
+		if (record.watching?.armed === false) silent.push(record.label);
 	}
 	const parts = [
 		live.length > 0 ? `live: ${live.join(", ")}` : "",

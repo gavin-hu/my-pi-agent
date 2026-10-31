@@ -51,7 +51,9 @@ describe("roundText", () => {
 		const lines = roundText(cards, NOW, roster).split("\n");
 		// The instruction comes before the presence line: who died is the quieter fact.
 		expect(lines).toContain("reclaim #1, #2 — billing-core is not running");
-		expect(lines.at(-1)).toBe("live: billing-lead · quiet: ops-helper · gone: billing-core");
+		expect(lines.at(-1)).toBe(
+			"live: billing-lead — idle · quiet: ops-helper — #4 execute · gone: billing-core — #1 execute +1",
+		);
 		// A card finished by a dead owner is history, not work to reclaim.
 		const reclaim = lines.find((line) => line.startsWith("reclaim "));
 		expect(reclaim).not.toContain("#3");
@@ -74,7 +76,7 @@ describe("roundText", () => {
 			"unassigned (1): #1 backlog",
 			"unreviewed (1): #2 execute unplanned",
 			"blocked (1): #3 blocked — gateway",
-			"live: billing-lead · quiet: ops-helper",
+			"live: billing-lead — idle · quiet: ops-helper — idle",
 		]);
 	});
 
@@ -100,7 +102,7 @@ describe("roundText", () => {
 			},
 		];
 		expect(roundText(cards, NOW, roster).split("\n").at(-1)).toBe(
-			"live: billing-lead, billing-core · not listening: billing-core · quiet: ops-helper",
+			"live: billing-lead — idle, billing-core — idle · not listening: billing-core · quiet: ops-helper — idle",
 		);
 	});
 

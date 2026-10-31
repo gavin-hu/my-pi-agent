@@ -28,14 +28,17 @@
  */
 
 /**
- * The tab's fragment, with the fold's rule and its sentence spliced in.
+ * The tab's fragment, with the fold's rule, its sentence, and the holding's phrase spliced in.
  *
- * The source crosses as text, because a page's bundle has no import graph, and the two
+ * The source crosses as text, because a page's bundle has no import graph, and the three
  * `__NAME__` placeholders are rules a served script must never carry — `pages.test` fails an
  * unfilled one.
  */
-export function teamJs(rules: { historyOwner: string; historyLine: string }): string {
-	return teamTemplate.replace("__HISTORY_OWNER__", rules.historyOwner).replace("__HISTORY_LINE__", rules.historyLine);
+export function teamJs(rules: { historyOwner: string; historyLine: string; holding: string }): string {
+	return teamTemplate
+		.replace("__HISTORY_OWNER__", rules.historyOwner)
+		.replace("__HISTORY_LINE__", rules.historyLine)
+		.replace("__HOLDING__", rules.holding);
 }
 
 const teamTemplate = String.raw`(function () {
@@ -51,6 +54,8 @@ const teamTemplate = String.raw`(function () {
 __HISTORY_OWNER__
 
 __HISTORY_LINE__
+
+__HOLDING__
 
   /** The word a teammate's state is read as; never a colour alone. */
   var STATE_WORD = { live: "live", quiet: "quiet", gone: "gone", absent: "no record", unknown: "\u2014" };
@@ -339,7 +344,10 @@ __HISTORY_LINE__
     }
     var held = mate.cards.live.length;
     var done = mate.cards.done.length;
-    mets.appendChild(document.createTextNode(" \u00B7 " + (held === 0 ? "no cards" : held + " held")));
+    // What it is holding, from the one body the terminal's round prints too: idle, #162 plan,
+    // or #162 plan +2. A row that counted its own cards would be the second copy of that rule,
+    // and an owner the bus has no record of has no count to print in the first place.
+    mets.appendChild(document.createTextNode(" \u00B7 " + holdingOf(mate.cards.live)));
     if (done > 0) mets.appendChild(document.createTextNode(" \u00B7 " + done + " done"));
     if (held > 0) {
       var at = mate.cards.live[0].updatedAt;
@@ -355,7 +363,7 @@ __HISTORY_LINE__
    * The history row: how many owners nothing answers to, and what they finished.
    *
    * One row instead of eighteen, because a label that ever claimed a card stays an owner for
-   * good: eighteen rows of "no record · no cards · 1 done" are one fact printed eighteen
+   * good: eighteen rows of "no record · idle · 1 done" are one fact printed eighteen
    * times. The row wears the same absence its rows do, so its dot is the hollow ring.
    */
   function tailRow(tail, folded) {

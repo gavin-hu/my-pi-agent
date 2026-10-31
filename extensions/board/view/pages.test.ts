@@ -356,7 +356,7 @@ describe("the client bundle", () => {
 
 	test("folds the owners a bus has no record of, and the ids past the strip's sixth", () => {
 		// The roster is the other list that only grows: every label that ever claimed a card stays
-		// an owner, so a board with a long history drew eighteen rows of "no record · no cards ·
+		// an owner, so a board with a long history drew eighteen rows of "no record · idle ·
 		// 1 done". The rule is stated once — absent, and holding nothing — and the row it makes
 		// says what the rows would have said one at a time. Both are `lib/board/round-text.ts`'s
 		// bodies, because the terminal's round folds the same owners.

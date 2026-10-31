@@ -10,6 +10,10 @@
  * or a store: the group lines are pure and a caller supplies what it already read. The roster
  * is what lets an owner who is only history be stated once instead of once per label, and it
  * is optional because a board works with `session-bus` unloaded.
+ *
+ * It also carries what a session is holding, because both surfaces that name one say so: the
+ * terminal's presence line prints the pair, and the page's teammate row prints its second
+ * half beside the label.
  */
 
 import { type Card, cardRef } from "./card.ts";
@@ -121,6 +125,40 @@ export function historyLine(owners: number, done: number): string {
 
 /** The same body, as the browser receives it: it calls `plural`, which the fragment holds. */
 export const HISTORY_LINE_JS = String(historyLine);
+
+/**
+ * What a session is holding, in one phrase: `#162 plan`, `#162 plan +2`, or `idle`.
+ *
+ * The first card is named because an id and a lane are what the next verb takes, and the rest
+ * are counted rather than listed: a roster row is one line, and a session holding four cards
+ * should not push the other teammates off it. `idle` is the holding that is no card — the
+ * fact a presence line could not say before, and the one a lead reads to tell "here and busy"
+ * from "here and free".
+ *
+ * Written as concatenation, like `plural`, and with the `#` inlined rather than taken from
+ * `cardRef`: the page's bundle carries this body as `HOLDING_OF_JS`, and a template or a call
+ * it could not resolve would be a served script that does not run.
+ */
+export function holdingOf(cards: readonly Card[]): string {
+	const [first] = cards;
+	if (first === undefined) return "idle";
+	const brief = "#" + first.id + " " + first.lane;
+	return cards.length === 1 ? brief : brief + " +" + (cards.length - 1);
+}
+
+/** The same body, as the browser receives it. */
+export const HOLDING_OF_JS = String(holdingOf);
+
+/**
+ * The pair: `helen — #162 plan`.
+ *
+ * The label and its holding are one sentence, so a reader never matches a name in one column
+ * to a count in another. The page draws the label in its own element and prints
+ * {@link holdingOf} beside it, which reads the same way and keeps the name a heading.
+ */
+export function holdingLine(label: string, cards: readonly Card[]): string {
+	return label + " — " + holdingOf(cards);
+}
 
 /** `#4 execute planned`, the brief a rollup group needs. */
 function brief(card: Card): string {
