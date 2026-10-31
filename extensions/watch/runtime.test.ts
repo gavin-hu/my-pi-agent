@@ -126,6 +126,36 @@ describe("watch runtime", () => {
 		);
 	});
 
+	test("keeps the table inside maxRecords by dropping the oldest finished watcher", () => {
+		// Every finished record still holds its matches and raw lines; without a bound a session
+		// that watched one command after another grew the table for as long as it ran (see #173).
+		const { h, ctx } = runtimeHarness(suite, { config: { maxRecords: 3 } });
+		const ids: string[] = [];
+		for (let n = 0; n < 5; n++) {
+			const watch = h.runtime.add({ command: "echo", pattern: "x" }, ctx);
+			ids.push(watch.id);
+			h.runtime.stop(watch.id);
+		}
+
+		const kept = h.runtime.list().map((watch) => watch.id);
+		expect(kept).toHaveLength(3);
+		// The two oldest went first, and the one just added is still there.
+		expect(kept).not.toContain(ids[0]);
+		expect(kept).not.toContain(ids[1]);
+		expect(kept).toContain(ids[4]);
+	});
+
+	test("never evicts a running watcher to make room", () => {
+		// `maxWatchers` bounds the running ones; a table of nothing but running records stays
+		// over `maxRecords` rather than cutting one loose mid-flight.
+		const { h, ctx } = runtimeHarness(suite, { config: { maxRecords: 1, maxWatchers: 3 } });
+		h.runtime.add({ command: "sleep", pattern: "x" }, ctx);
+		h.runtime.add({ command: "sleep", pattern: "y" }, ctx);
+
+		expect(h.runtime.list()).toHaveLength(2);
+		expect(h.runtime.list().every((watch) => watch.status === "running")).toBe(true);
+	});
+
 	test("a stopped watcher frees its slot", () => {
 		const { h, ctx } = runtimeHarness(suite, { config: { maxWatchers: 1 } });
 		h.runtime.add({ command: "build", pattern: "x" }, ctx);

@@ -372,6 +372,7 @@ The settings screen has no row for it; `wakeOnMatch` is a `bytefly.json` edit.
 | `showStatus` | boolean | `true` | | Show the chips while watchers run or a match is unreported. |
 | `wakeOnMatch` | boolean | `false` | | Default `wake` for a new watcher: trigger one agent turn on a match. |
 | `maxWatchers` | integer | `20` | `1`–`200` | Live watchers kept before `add` is refused. |
+| `maxRecords` | integer | `50` | `1`–`1000` | Records kept in the table, running and finished together; past it `add` drops the oldest finished watcher. |
 | `maxMatches` | integer | `200` | `1`–`5000` | Matches kept per watcher before the oldest are dropped. |
 | `maxLogLines` | integer | `500` | `1`–`5000` | Raw lines kept per watcher for `logs`. |
 | `matchLines` | integer | `50` | `1`–`2000` | Lines returned by `matches` and `logs` when the call omits a count. |

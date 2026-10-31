@@ -157,6 +157,23 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 
 	const list = (): WatchRecord[] => [...watches.values()].map(record);
 
+	/**
+	 * Drop the oldest finished records once the table is over `maxRecords`.
+	 *
+	 * Only `add` grows the table, so only `add` trims it: a finished watcher keeps its matches
+	 * and raw lines, and nothing else ever made the table shrink, so a session that watched one
+	 * command after another grew it for as long as it ran. Running records are never evicted —
+	 * `maxWatchers` is their own bound — and a table of nothing but running records is left
+	 * over the limit rather than cutting one loose.
+	 */
+	const evictFinished = (): void => {
+		for (const [key, w] of watches) {
+			if (watches.size <= config.maxRecords) return;
+			if (w.status === "running") continue;
+			watches.delete(key);
+		}
+	};
+
 	const runningCount = (): number => {
 		let count = 0;
 		for (const w of watches.values()) if (w.status === "running") count++;
@@ -406,6 +423,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 			seq: 0,
 		};
 		watches.set(w.id, w);
+		evictFinished();
 		if (source.kind === "command") startCommand(w);
 		ensureClock();
 		ui.paint();

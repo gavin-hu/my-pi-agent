@@ -17,6 +17,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `watch`: the watcher table has a bound. Only running watchers were counted, so a session
+  that watched one command after another grew the table for as long as it ran — each finished
+  record still holding up to `maxMatches` matches and `maxLogLines` raw lines — until someone
+  called `clear`. `maxRecords` (default `50`, clamped `1`–`1000`) is the table's own limit:
+  past it, `add` drops the oldest finished watcher. A running watcher is never evicted;
+  `maxWatchers` remains its bound.
 - `test`: the board page's two idle-grace cases fire the grace instead of waiting for it. Both
   graces are wall-clock timers (a minute after the last tab, two minutes for a page no tab
   ever opened), and the cases awaited a notification under a two-second `waitFor` budget —
