@@ -267,7 +267,7 @@ listening watch is what raises the turn.
   message sorts last, so an oldest-first window would leave mail behind a backlog of 50
   or more unannounced — a handoff, which assigns work, waiting for a model that never
   calls `inbox`. The queue is pruned by what is still on disk rather than by what that
-  one window covered, so a burst larger than a read keeps its place. `inbox` still
+  one window covered, so mail already queued keeps the place it held. `inbox` still
   consumes oldest first, and a limit never starves.
 - **Read the board, prune on the next call.** The open board polls a read-only
   `snapshot()` and `peek()` that hide a session past the TTL, a claim held by one,

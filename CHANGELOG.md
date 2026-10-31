@@ -408,7 +408,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   behind them and never announced it: a handoff, which assigns work, sat unread until the model
   happened to call `session inbox`. The poll now reads the newest 50 together with the ids of
   every message still unread, and prunes its queue by what is still on disk rather than by what
-  that one window covered, so a burst larger than a read keeps its place. `inbox` still
+  that one window covered, so mail already queued keeps the place it held. `inbox` still
   consumes oldest first.
 - `team`: `assign` resolves the peer `to` names before it checks the card, so a handoff to the
   session that already holds it — named by its id, which the schema allows — is the same no-op
