@@ -245,9 +245,10 @@ ${REASON_TONE_CSS}
 .board-team__id{appearance:none;border:0;background:none;padding:5px 8px;margin:-5px -8px;min-height:24px;cursor:pointer;font:var(--fs-sm) var(--font-mono);color:var(--muted);text-decoration:underline dotted;text-underline-offset:3px}
 .board-team__id:hover{color:var(--accent);text-decoration:underline}
 
-/* The card dialog: the record of one card, in two named sections. Nothing here scrolls on
-   its own — the kit's body is the one scrollbar, so a reader is never inside a scroll
-   inside a scroll. */
+/* The card dialog: the record of one card, as the questions a reader asks of it — what it
+   promises, where to start, what it is tied to, what has happened, and what was said.
+   Nothing here scrolls on its own — the kit's body is the one scrollbar, so a reader is
+   never inside a scroll inside a scroll. */
 /* A little taller than the kit's default: this dialog is the only place a whole card —
    its facts, its plan, and every note it kept — can be read. */
 .board-dialog__panel{width:min(720px,100%);max-height:84vh}
@@ -260,9 +261,11 @@ ${REASON_TONE_CSS}
 /* The heading is a label, not a headline: the title above it is the only headline here. */
 .board-dialog__heading{display:flex;align-items:baseline;gap:var(--space-1);margin:0;padding-bottom:var(--space-1);border-bottom:1px solid var(--border);font:var(--fw-medium) var(--fs-xs) var(--font-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .board-dialog__count{font:var(--fs-xs) var(--font-mono);letter-spacing:0;text-transform:none;color:var(--dim)}
-/* The ladder: labels size to the longest one, values take the width that is left, and
-   every row starts at the same column so the eye can run down the facts. */
-.board-dialog__facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--space-1) var(--space-3);margin:0;align-items:baseline}
+/* The ladder: labels size to the longest one in the section they belong to, values take the
+   width that is left, and every row starts at the same column so the eye can run down the
+   facts of one question at a time. The floor is the ladder's longest label, so a section of
+   short ones still starts its values where the sections above it do. */
+.board-dialog__facts{display:grid;grid-template-columns:minmax(6.5rem,max-content) minmax(0,1fr);gap:var(--space-1) var(--space-3);margin:0;align-items:baseline}
 .board-dialog__facts dt{font:var(--fs-xs) var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .board-dialog__facts dd{margin:0;min-width:0;font:var(--fs-sm) var(--font-ui);color:var(--text)}
 /* A path is a value like any other, but a long one elides on its single line and keeps the
@@ -286,6 +289,9 @@ ${REASON_TONE_CSS}
 .board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}
 .board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-dialog__state::before{content:"";width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
+/* The age beside the lane word is a duration, not a label: the lane is uppercase, its age is
+   not, and a number is read in the face the rest of the page's ages wear. */
+.board-dialog__age{font-variant-numeric:tabular-nums;letter-spacing:0;text-transform:none;color:var(--muted)}
 
 .board-skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
 

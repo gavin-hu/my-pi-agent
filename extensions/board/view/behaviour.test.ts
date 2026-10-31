@@ -375,15 +375,16 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
-	test("reads the card as a ladder of facts, one row each", async () => {
+	test("reads the card in the order a reader acts on it, one fact a row", async () => {
 		const page = await openPage();
 		await page.click("#lane-execute .board-card__title");
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-id")).toBe("#3");
-		// The age is the page's own clock, not the seed's, so only its shape is asserted.
-		expect(await page.textContent("#card-dialog-updated")).toMatch(/^\d+[mhd]$|^\d+d$/);
-		expect(await page.textContent("#card-dialog-by")).toBe("billing-core");
+		// The head keeps what the face led with — the person, the order — so nothing is lost.
+		expect(await page.textContent("#card-dialog-owner")).toContain("billing-core");
 		expect(await page.textContent("#card-dialog-priority")).toBe("high");
+		// The page's own clock, so the shape only — and the author rides the same row.
+		expect(await page.textContent("#card-dialog-updated")).toMatch(/^(\d+[mhd]|now) by billing-core$/);
 		// A card with no link and no landing has no row, label included: an empty value
 		// under a label reads as a missing fact instead of an absent one.
 		expect(await hidden(page, "#card-dialog-landed")).toBe(true);
@@ -401,30 +402,29 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		);
 		expect(plan).toContain("2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md");
 
-		// The notes are the record: each sentence with its attribution under it, and the
-		// section's heading carries the count. Body size is a stylesheet claim, held by
-		// `pages.test.ts` where the CSS is.
+		// The notes are the record, newest first — a note is why a card is opened — each
+		// attributed under it, and the heading carries the count. Body size is CSS data.
 		expect(await page.$$eval("#card-dialog-notes .board-dialog__note", (nodes) => nodes.length)).toBe(2);
 		expect(await page.$$eval("#card-dialog-notes .board-dialog__note-foot", (nodes) => nodes.length)).toBe(2);
+		expect(await page.textContent("#card-dialog-notes .board-dialog__note-text")).toBe("no retries yet");
 		expect(await page.textContent("#card-dialog-note-count")).toContain("2");
 		expect(await page.$$eval("#card-dialog-path-list .board-dialog__path", (nodes) => nodes.length)).toBe(2);
 		await page.close();
 	});
 
-	test("says how long the card has been in its lane", async () => {
-		// The fixture files a note and a plan against the doing card after the claim, so
-		// `updatedAt` and the lane entry are different moments: the row that says how long
-		// the lane has held cannot be reading the last write.
+	test("says how long the card has held its lane, in the head", async () => {
+		// The age belongs beside the lane word: the lane's own name cannot say how long, and
+		// the updated stamp cannot either — a note moves that stamp without moving the card.
 		const page = await openPage();
 		await page.click('#lane-execute .board-card__title:text-is("Billing webhook accepts orders")');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-		expect(await page.textContent("#card-dialog-lane")).toMatch(/^execute · /);
-		expect(await hidden(page, "#card-dialog-lane-label")).toBe(false);
+		expect(await page.textContent("#card-dialog-state")).toMatch(/^Execute · (\d+[mhd]|now)$/);
+		expect(await page.$("#card-dialog-lane")).toBeNull();
 		// A card nobody has taken says the same about the lane it was born in.
 		await page.keyboard.press("Escape");
 		await page.click('#lane-backlog .board-card__title:text-is("Export orders as CSV")');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-		expect(await page.textContent("#card-dialog-lane")).toMatch(/^backlog · /);
+		expect(await page.textContent("#card-dialog-state")).toMatch(/^Backlog · (\d+[mhd]|now)$/);
 		await page.close();
 	});
 

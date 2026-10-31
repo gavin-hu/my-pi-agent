@@ -101,34 +101,48 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
       <span class="${N.dialogId}" id="card-dialog-id"></span>
       <h2 id="card-dialog-title"></h2>
       <span class="bf-spacer"></span>
-      <span class="${N.dialogState}" id="card-dialog-state"></span>
+      <span id="card-dialog-owner"></span>
+      <span class="${N.cardPriority}" id="card-dialog-priority" hidden></span>
+      <span class="${N.dialogState}" id="card-dialog-state"><span id="card-dialog-state-label"></span><span class="${N.dialogAge}" id="card-dialog-since" hidden></span></span>
       <button type="button" class="bf-btn bf-btn--icon" id="card-dialog-close" aria-label="Close">×</button>
     </div>
     <div class="bf-dialog__body ${N.dialogBody}">
       <p class="sr-only" id="card-dialog-where" aria-live="polite"></p>
-      <section class="${N.dialogSection}" aria-labelledby="card-dialog-card-head">
-        <h3 class="${N.dialogHeading}" id="card-dialog-card-head">the card</h3>
+      <section class="${N.dialogSection}" id="card-dialog-contract-section" aria-labelledby="card-dialog-contract-head">
+        <h3 class="${N.dialogHeading}" id="card-dialog-contract-head">contract</h3>
         <dl class="${N.dialogFacts}">
-          <dt id="card-dialog-owner-label">owner</dt><dd class="${N.dialogValue}" id="card-dialog-owner"></dd>
-          <dt id="card-dialog-priority-label" hidden>priority</dt><dd class="${N.dialogValue}" id="card-dialog-priority" hidden></dd>
-          <dt id="card-dialog-updated-label">updated</dt><dd class="${N.dialogValue}" id="card-dialog-updated"></dd>
-          <dt id="card-dialog-lane-label" hidden>in lane</dt><dd class="${N.dialogValue}" id="card-dialog-lane" hidden></dd>
-          <dt id="card-dialog-by-label">last edited</dt><dd class="${N.dialogValue}" id="card-dialog-by"></dd>
-          <dt id="card-dialog-landed-label" hidden>landed</dt><dd class="${N.dialogValue}" id="card-dialog-landed" hidden></dd>
-          <dt id="card-dialog-depends-label" hidden>waits on</dt><dd class="${N.dialogValue}" id="card-dialog-depends" hidden></dd>
-          <dt id="card-dialog-dependents-label" hidden>waited on by</dt><dd class="${N.dialogValue}" id="card-dialog-dependents" hidden></dd>
-          <dt id="card-dialog-plan-label" hidden>plan</dt><dd class="${N.dialogValue} ${N.dialogPlan}" id="card-dialog-plan" hidden></dd>
           <dt id="card-dialog-goal-label" hidden>goal</dt><dd class="${N.dialogValue}" id="card-dialog-goal" hidden></dd>
           <dt id="card-dialog-acceptance-label" hidden>acceptance</dt><dd class="${N.dialogValue}" id="card-dialog-acceptance" hidden></dd>
           <dt id="card-dialog-scope-out-label" hidden>scope out</dt><dd class="${N.dialogValue}" id="card-dialog-scope-out" hidden></dd>
           <dt id="card-dialog-approved-label" hidden>approved</dt><dd class="${N.dialogValue}" id="card-dialog-approved" hidden></dd>
-          <dt id="card-dialog-reviewed-label" hidden>reviewed</dt><dd class="${N.dialogValue}" id="card-dialog-reviewed" hidden></dd>
+        </dl>
+      </section>
+      <section class="${N.dialogSection}" id="card-dialog-start-section" aria-labelledby="card-dialog-start-head">
+        <h3 class="${N.dialogHeading}" id="card-dialog-start-head">to start</h3>
+        <dl class="${N.dialogFacts}">
+          <dt id="card-dialog-plan-label" hidden>plan</dt><dd class="${N.dialogValue} ${N.dialogPlan}" id="card-dialog-plan" hidden></dd>
           <dt id="card-dialog-paths-label" hidden>paths</dt><dd id="card-dialog-paths" hidden><ul class="${N.dialogPaths}" id="card-dialog-path-list"></ul></dd>
         </dl>
       </section>
-      <section class="${N.dialogSection}" aria-labelledby="card-dialog-notes-head">
+      <section class="${N.dialogSection}" id="card-dialog-links-section" aria-labelledby="card-dialog-links-head">
+        <h3 class="${N.dialogHeading}" id="card-dialog-links-head">links</h3>
+        <dl class="${N.dialogFacts}">
+          <dt id="card-dialog-depends-label" hidden>waits on</dt><dd class="${N.dialogValue}" id="card-dialog-depends" hidden></dd>
+          <dt id="card-dialog-dependents-label" hidden>waited on by</dt><dd class="${N.dialogValue}" id="card-dialog-dependents" hidden></dd>
+        </dl>
+      </section>
+      <section class="${N.dialogSection}" id="card-dialog-record-section" aria-labelledby="card-dialog-record-head">
+        <h3 class="${N.dialogHeading}" id="card-dialog-record-head">record</h3>
+        <dl class="${N.dialogFacts}">
+          <dt id="card-dialog-updated-label">updated</dt><dd class="${N.dialogValue}" id="card-dialog-updated"></dd>
+          <dt id="card-dialog-landed-label" hidden>landed</dt><dd class="${N.dialogValue}" id="card-dialog-landed" hidden></dd>
+          <dt id="card-dialog-reviewed-label" hidden>reviewed</dt><dd class="${N.dialogValue}" id="card-dialog-reviewed" hidden></dd>
+        </dl>
+      </section>
+      <section class="${N.dialogSection}" id="card-dialog-notes-section" aria-labelledby="card-dialog-notes-head">
         <h3 class="${N.dialogHeading}" id="card-dialog-notes-head">notes<span class="${N.dialogCount}" id="card-dialog-note-count"></span></h3>
         <ol class="${N.dialogNotes}" id="card-dialog-notes"></ol>
+        <p class="bf-dialog__hint" id="card-dialog-no-notes" hidden>no notes yet</p>
         <p class="bf-dialog__hint" id="card-dialog-earlier" hidden></p>
       </section>
     </div>
