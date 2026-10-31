@@ -593,9 +593,11 @@ it always meant: when the card was last touched, which is not when it last chang
   being waited for is a copy that drifts; the cycle check and the drop rule are what
   keep the graph whole instead.
 - **A priority is a field, not a lane.** Urgency is not a stage of the work, so it stays
-  a field: inside a lane, priority then age is the order, and a card says its priority only
-  when it is not the ordinary one. The lanes are the flow's stages, which is why a fifth one
-  had to be argued for in the note below rather than added as "urgent".
+  a field: inside a lane, priority then the id the card was given is the order — never the
+  moment it was last touched, so a note or a claim cannot move a card out from under a reader
+  working down the lane — and a card says its priority only when it is not the ordinary one.
+  The lanes are the flow's stages, which is why a fifth one had to be argued for in the note
+  below rather than added as "urgent".
 - **`edit` leaves an omitted field alone.** It is the one action whose job is "make it
   say this", so an absent field must mean "not this field" — a caller that sends only a
   title must not clear the path hints and links it never mentioned.

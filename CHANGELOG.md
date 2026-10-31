@@ -55,6 +55,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: **a lane keeps the order the cards were added in** — a note, a claim, or a contract
+  used to push a card to the end of its priority and reshuffle the listing a reader was working
+  down. The lane still decides first and then the priority; past those two the id carries the
+  order, so the same board reads in the same order twice.
 - `file-browse`: **every `/browse` opens the page**, including one that finds it already
   served for the same root — a second command reprints the URL and puts the page in front of
   you, where it used to only print it and leave you to paste it. The server does not restart

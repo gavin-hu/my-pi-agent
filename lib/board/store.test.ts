@@ -95,7 +95,7 @@ describe("create", () => {
 });
 
 describe("list and read", () => {
-	test("returns lane order, oldest first, with the id as the tie-break", async () => {
+	test("returns lane order, then the id as the tie-break", async () => {
 		const { store } = scratchStore();
 		const todo = await store.create({ title: "backlog", paths: [] }, LEAD, NOW);
 		const doing = await store.create({ title: "execute", paths: [] }, LEAD, NOW);
@@ -104,19 +104,19 @@ describe("list and read", () => {
 		await advance(store, doing.id, "execute", SEED, NOW);
 		await advance(store, blocked.id, "blocked", SEED, NOW);
 		await advance(store, done.id, "done", SEED, NOW);
-		expect((await store.list()).map((card) => card.title)).toEqual(["backlog", "execute", "blocked", "done"]);
 		expect((await store.list()).map((card) => card.id)).toEqual([todo.id, doing.id, blocked.id, done.id]);
 	});
 
-	test("orders a lane by priority before age", async () => {
+	test("orders a lane by priority, then by the id the card was given", async () => {
 		const { store } = scratchStore();
 		const low = await store.create({ title: "low", paths: [], priority: "low" }, LEAD, NOW);
 		const high = await store.create({ title: "high", paths: [], priority: "high" }, LEAD, NOW);
 		const ordinary = await store.create({ title: "ordinary", paths: [] }, LEAD, NOW);
-		// A done card stays history whatever its priority: the lane decides first.
-		const finished = await store.create({ title: "finished", paths: [], priority: "high" }, LEAD, NOW);
-		await advance(store, finished.id, "done", SEED, NOW);
-		expect((await store.list()).map((card) => card.id)).toEqual([high.id, ordinary.id, low.id, finished.id]);
+		const second = await store.create({ title: "second", paths: [] }, LEAD, NOW);
+		// A done card stays history whatever its priority, and a write moves the stamp, not the place.
+		await advance(store, high.id, "done", SEED, NOW);
+		await store.mutate(ordinary.id, { kind: "note", text: "later" }, LEAD, NOW + 5);
+		expect((await store.list()).map((card) => card.id)).toEqual([ordinary.id, second.id, low.id, high.id]);
 	});
 
 	test("reads one card, and reports nothing for an id that is not there", async () => {

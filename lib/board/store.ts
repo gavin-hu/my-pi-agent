@@ -558,11 +558,15 @@ async function readdirSafe(dir: string): Promise<string[]> {
 }
 
 /**
- * Lane order, then the lead's order inside it, then oldest first, with the id as the
- * tie-break.
+ * Lane order, then the lead's order inside it, then the order the cards were added in: the
+ * id, which is allocated once and never reissued.
  *
  * Priority sorts inside a lane rather than beside it: a `high` card in Done is still
  * history, and a lane that mixed the two would have to say so in its head.
+ *
+ * The id carries the age, and `updatedAt` deliberately does not: every write moves that
+ * stamp, so ordering by it makes a note, a claim, or a contract push a card to the end of
+ * its priority and reshuffle the listing a reader was working down.
  */
 function sortForLane(cards: Card[]): Card[] {
 	const lane = (card: Card): number => LANES.indexOf(card.lane);
@@ -571,8 +575,6 @@ function sortForLane(cards: Card[]): Card[] {
 		if (byLane !== 0) return byLane;
 		const byPriority = priorityRank(a) - priorityRank(b);
 		if (byPriority !== 0) return byPriority;
-		const byAge = a.updatedAt - b.updatedAt;
-		if (byAge !== 0) return byAge;
 		return Number(a.id) - Number(b.id);
 	});
 }
