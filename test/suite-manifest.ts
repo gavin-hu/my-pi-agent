@@ -50,6 +50,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"extension",
 		"transport/router",
 		"view/behaviour",
+		"view/repaint",
 		"view/pages",
 	],
 	check: ["check", "surface", "extension"],
