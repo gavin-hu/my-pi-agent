@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { KILL_GRACE_MS } from "../../lib/child.ts";
-import { readSessionMarker } from "./session.ts";
+import { readSessionMarker, touchSessionMarker } from "./session.ts";
 import { settle } from "../../test/helpers/process.ts";
-import { makeCtx, makeHarnessSuite, startJob } from "../../test/helpers/fixtures/job.ts";
+import { jobRecord, makeCtx, makeHarnessSuite, save, startJob } from "../../test/helpers/fixtures/job.ts";
 
 const suite = makeHarnessSuite();
 afterEach(() => {
@@ -194,5 +194,59 @@ describe("job runtime — pending, clear, status", () => {
 		const pid = h.children[0].pid;
 		await h.runtime.shutdown();
 		expect(h.kills.some((kill) => kill.pid === pid && kill.signal === "SIGKILL")).toBe(true);
+	});
+});
+
+describe("job runtime — settle announcements", () => {
+	test("settles an orphan killed at load through the announce path", async () => {
+		const h = suite.makeHarness();
+		const seen: string[] = [];
+		h.runtime.onComplete = (entry) => seen.push(`${entry.id}:${entry.status}`);
+		// The owner's marker is gone and the job is not detached, so load kills it.
+		save(h, "old", [jobRecord({ detached: false })], 2);
+		await h.runtime.load(makeCtx({ sessionId: "me" }).ctx);
+
+		expect(h.kills.some((kill) => kill.pid === 777)).toBe(true);
+		expect(h.runtime.get("j1")?.status).toBe("killed");
+		expect(seen).toEqual(["j1:killed"]);
+		expect(h.runtime.pendingCompletions().map((job) => job.id)).toEqual(["j1"]);
+	});
+
+	test("holds what a load settled until the listeners are armed", async () => {
+		const h = suite.makeHarness();
+		save(h, "old", [jobRecord({ detached: false, wake: true })], 2);
+		// The production order: `session_start` loads first and arms the listeners second.
+		await h.runtime.load(makeCtx({ sessionId: "me" }).ctx);
+
+		const seen: string[] = [];
+		const woken: string[] = [];
+		h.runtime.onFinish = (entry) => woken.push(entry.id);
+		h.runtime.onComplete = (entry) => seen.push(entry.id);
+
+		expect(seen).toEqual(["j1"]);
+		expect(woken).toEqual(["j1"]);
+	});
+
+	test("reaps a gone peer's job and announces and wakes it as its own", async () => {
+		const h = suite.makeHarness({ config: { repaintMs: 10 } });
+		touchSessionMarker(h.dir, "peer", 999, 1_000_000);
+		save(h, "peer", [jobRecord({ label: "peer", sessionId: "peer", wake: true, detached: false })], 2);
+		await h.runtime.load(makeCtx({ sessionId: "me" }).ctx);
+		expect(h.runtime.get("j1")?.status).toBe("running");
+
+		const seen: string[] = [];
+		const woken: string[] = [];
+		h.runtime.onComplete = (entry) => seen.push(`${entry.id}:${entry.status}`);
+		h.runtime.onFinish = (entry) => woken.push(entry.id);
+		// The peer's process dies while this session watches it.
+		h.dead.add(999);
+		await settle(60);
+
+		expect(h.kills.some((kill) => kill.pid === 777)).toBe(true);
+		expect(h.runtime.get("j1")?.status).toBe("killed");
+		expect(seen).toEqual(["j1:killed"]);
+		expect(woken).toEqual(["j1"]);
+		// Adopted: the completion is this session's to report, not the dead peer's.
+		expect(h.runtime.pendingCompletions().map((job) => `${job.id}:${job.sessionId}`)).toEqual(["j1:me"]);
 	});
 });

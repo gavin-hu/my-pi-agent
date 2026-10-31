@@ -94,8 +94,6 @@ export interface ExternalSweepDeps {
 	settleGone: (job: Job) => boolean;
 	/** Move a record to a settled status, resolving its waiters. */
 	settle: (job: Job, patch: { status: JobStatus; signal?: string | null }) => void;
-	/** Fire the one wake turn for an unowned `wake` job that just finished. */
-	wake: (job: Job) => void;
 	/** SIGTERM a pid. */
 	signal: (pid: number) => void;
 	/** Refresh this session's liveness marker. */
@@ -120,16 +118,14 @@ export function createExternalSweep(deps: ExternalSweepDeps): () => void {
 			if (peer && deps.ownerPresent(job.sessionId)) continue;
 			if (job.pid === null || !deps.alive(job.pid)) {
 				// A record with no pid cannot be judged gone; leave it alone rather than
-				// announcing (and waking) on every tick.
+				// announcing on every tick.
 				if (!deps.settleGone(job)) continue;
-				// A reattached `wake` job has no `close` event, so this is the only place
-				// its completion can trigger the one wake turn.
-				deps.wake(job);
 				changed = true;
 				continue;
 			}
 			// The owner is gone and the job is not detached: reap the abandoned
-			// process, guarding against pid reuse with the start token.
+			// process, guarding against pid reuse with the start token. A settle is the
+			// whole announcement, so the reap needs no second call of its own.
 			if (peer && !job.detached) {
 				if (deps.owns(job)) {
 					deps.signal(job.pid);

@@ -27,9 +27,8 @@ import { createExternalSweep, createRepaintClock } from "./clock.ts";
 import { DEFAULT_CONFIG, loadConfig, type JobsConfig } from "./config.ts";
 import { compareJobs } from "./format.ts";
 import {
+	loadRecords,
 	loadRegistries,
-	mergeRecords,
-	planReconcile,
 	registryDirFor,
 	removeLegacyRegistry,
 	removeRegistry,
@@ -100,11 +99,10 @@ export interface JobsRuntime {
 	/** Kill session-owned jobs (unless detached), stop the clock, persist. */
 	shutdown(): Promise<void>;
 	/** Called when a `wake` job finishes; the index triggers one turn. */
-	onFinish?: (job: Job) => void;
+	onFinish?: (job: JobRecord) => void;
 	/**
-	 * Called when any job reaches a terminal state, whether it was watched to
-	 * completion or observed gone on the clock. The index bridges it to the event
-	 * bus; the runtime itself never reaches for a listener.
+	 * Called when any job reaches a terminal state, however it settled. The index bridges
+	 * it to the event bus; the runtime itself never reaches for a listener.
 	 */
 	onComplete?: (job: JobRecord) => void;
 }
@@ -175,28 +173,67 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	/** The process seam once it has loaded; a pid question before then answers as it always did. */
 	const jobSeam = (): JobSeams | undefined => syncSeams;
 
-	/** Recover an exit code from a job's status file, guarded by the trusted path. */
-	/** A completion listener, published from the index; `undefined` after shutdown. */
+	/** The listeners the index arms on session start; `undefined` after shutdown. */
 	let onCompleteHandler: ((job: JobRecord) => void) | undefined;
+	let onFinishHandler: ((job: JobRecord) => void) | undefined;
+
+	/** Settled before its listener was armed — a load finishes first — and replayed by it. */
+	let heldCompletions: JobRecord[] = [];
+	let heldWakes: JobRecord[] = [];
 
 	/** Publish a terminal transition unless the runtime is shutting down or was reloaded. */
-	const announceComplete = (job: Job): void => {
+	const announceComplete = (job: JobRecord): void => {
 		if (disposed) return;
+		if (onCompleteHandler === undefined) {
+			heldCompletions.push(toRecord(job));
+			return;
+		}
 		try {
-			onCompleteHandler?.(toRecord(job));
+			onCompleteHandler(toRecord(job));
 		} catch {
 			// A completion listener must not break the process bookkeeping.
 		}
 	};
 
+	/** Fire the one wake turn a finished `wake` job asked for, or hold it until one is armed. */
+	const wakeIfNeeded = (job: JobRecord): void => {
+		if (!job.wake || disposed) return;
+		if (onFinishHandler === undefined) {
+			heldWakes.push(toRecord(job));
+			return;
+		}
+		try {
+			onFinishHandler(job);
+		} catch {
+			// Wake is best-effort.
+		}
+	};
+
+	/**
+	 * Announce one terminal transition: the completion, then the wake turn it asked for. Every
+	 * way a record settles ends here — a close event, a pid observed gone, a peer's leftover
+	 * reaped, an orphan killed at load — so no path announces half the pair.
+	 */
+	const publishSettled = (job: JobRecord): void => {
+		announceComplete(job);
+		wakeIfNeeded(job);
+	};
+
 	/** Move a record to a settled status, resolving any waiters and announcing it. */
-	const settle = (job: Job, patch: { status: JobStatus; exitCode?: number | null; signal?: string | null }): void => {
+	const settle = (
+		job: JobRecord,
+		patch: { status: JobStatus; exitCode?: number | null; signal?: string | null },
+	): void => {
+		// A record this session settles is this session's now: the only peer record the
+		// table settles is one whose owner is gone, and until it is adopted its completion
+		// is reportable by nobody.
+		job.sessionId = sessionId;
 		job.status = patch.status;
 		job.exitCode = patch.exitCode ?? null;
 		job.signal = patch.signal ?? null;
 		job.finishedAt = now();
 		waiters.resolve(job.id);
-		announceComplete(job);
+		publishSettled(job);
 	};
 
 	/**
@@ -217,7 +254,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			}),
 		);
 		if (job.status === "running") return false;
-		announceComplete(job);
+		publishSettled(job);
 		return true;
 	};
 
@@ -253,13 +290,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		persist();
 		clock.paint();
 		if (!disposed && status === "failed") ui.notifyFailure(job);
-		if (job.wake && !disposed) {
-			try {
-				onFinishHandler?.(job);
-			} catch {
-				// Wake is best-effort.
-			}
-		}
 	};
 
 	/**
@@ -307,18 +337,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		startToken: (pid) => children.startToken(pid),
 	});
 
-	let onFinishHandler: ((job: Job) => void) | undefined;
-
-	/** Fire the one wake turn for an unowned `wake` job that just finished. */
-	const wakeIfNeeded = (job: Job): void => {
-		if (!job.wake || disposed) return;
-		try {
-			onFinishHandler?.(job);
-		} catch {
-			// Wake is best-effort.
-		}
-	};
-
 	/** Poll the jobs this session reattached, which have no `close` event to observe. */
 	const pollExternal = createExternalSweep({
 		records: () => jobs.values(),
@@ -328,7 +346,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		owns: (job) => children.owns(job),
 		settleGone: settleGoneJob,
 		settle,
-		wake: wakeIfNeeded,
 		signal: (pid) => children.signal({ pid }, "SIGTERM"),
 		touchMarker: () => ownership.touch(),
 		changed: () => {
@@ -384,14 +401,24 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		get onFinish() {
 			return onFinishHandler;
 		},
-		set onFinish(handler: ((job: Job) => void) | undefined) {
+		// A load settles its orphans before `session_start` arms this listener, so what it
+		// owed is replayed here rather than announced into nothing.
+		set onFinish(handler: ((job: JobRecord) => void) | undefined) {
 			onFinishHandler = handler;
+			if (handler === undefined) return;
+			const held = heldWakes;
+			heldWakes = [];
+			for (const job of held) wakeIfNeeded(job);
 		},
 		get onComplete() {
 			return onCompleteHandler;
 		},
 		set onComplete(handler: ((job: JobRecord) => void) | undefined) {
 			onCompleteHandler = handler;
+			if (handler === undefined) return;
+			const held = heldCompletions;
+			heldCompletions = [];
+			for (const job of held) announceComplete(job);
 		},
 	};
 
@@ -402,6 +429,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		// A reload or session replacement can reuse this runtime after `shutdown`,
 		// so reset all session state before re-reading the registry.
 		disposed = false;
+		// Anything the last session settled unannounced belongs to its table, not this one.
+		heldCompletions = [];
+		heldWakes = [];
 		clock.stop();
 		children.disposeAll();
 		waiters.resolveAll();
@@ -422,48 +452,27 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 		const { files, counter } = loadRegistries(store().directory());
 		store().setCounter(counter);
-
-		// Merge every session's records. A file whose owner is gone is adopted: its
-		// records will be rewritten under this session and its file deleted.
-		const merged = new Map<string, JobRecord>();
-		const deadSessions = new Set<string>();
-		for (const file of files) {
-			if (file.sessionId !== sessionId && ownership.state(file.sessionId) === "gone") deadSessions.add(file.sessionId);
-			for (const record of file.jobs) {
-				const existing = merged.get(record.id);
-				merged.set(record.id, existing ? mergeRecords(existing, record, sessionId) : record);
-			}
-		}
-
-		// Resolve dead pids (recovering exit codes), then classify the survivors.
-		const settled = [...merged.values()].map((record) =>
-			settleGone(record, {
-				isAlive: children.alive,
-				tokenMatches: children.owns,
-				readExitCode: children.exitCode,
-				now: now(),
-			}),
-		);
-		const { jobs: reconciled, orphans } = planReconcile(settled, children.alive, now(), {
+		const loaded = loadRecords(files, {
+			sessionId,
 			ownerState: ownership.state,
-			currentSessionId: sessionId,
+			process: children,
+			now: now(),
 		});
 
-		for (const record of orphans) {
+		for (const record of loaded.orphans) {
 			if (record.pid !== null) children.signal({ pid: record.pid }, "SIGTERM");
-			record.status = "killed";
-			record.signal = "SIGTERM";
-			record.finishedAt = now();
+			// An orphan killed here is a terminal state like any other, so it is settled the
+			// same way — announced, and woken, once `session_start` arms the listeners.
+			settle(record, { status: "killed", signal: "SIGTERM" });
 		}
 
 		jobs.clear();
-		for (const record of reconciled) {
-			const adopted = deadSessions.has(record.sessionId) ? { ...record, sessionId } : record;
+		for (const record of loaded.records) {
+			const adopted = loaded.deadSessions.has(record.sessionId) ? { ...record, sessionId } : record;
 			jobs.set(adopted.id, { ...adopted, owned: false });
 		}
 
-		// The adopted records now live in this session's file; drop the peers' files.
-		for (const dead of deadSessions) removeRegistry(store().directory(), dead);
+		for (const dead of loaded.deadSessions) removeRegistry(store().directory(), dead);
 		removeLegacyRegistry(store().directory());
 		// Ids now committed to a registry no longer need their reservation.
 		store().pruneReservations(jobs.keys());
