@@ -9,14 +9,8 @@
 import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../../test/helpers/context.ts";
 import { fakeTheme, makeFakePi } from "../../../test/helpers/fakes.ts";
-import {
-	bootPanel,
-	commandDiscovery,
-	fakeDoctor,
-	fakeSettings,
-	fakeUpdate,
-	pathRow,
-} from "../../../test/helpers/fixtures/bytefly.ts";
+import { bootPanel, commandDiscovery, fakeDoctor, fakeUpdate, pathRow } from "../../../test/helpers/fixtures/panel.ts";
+import { fakeSettings } from "../../../test/helpers/fixtures/settings.ts";
 import { makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeDiscovery, makeStore } from "../../../test/helpers/fixtures/picker.ts";
 import { settle } from "../../../test/helpers/process.ts";

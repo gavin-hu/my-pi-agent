@@ -10,16 +10,13 @@ import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { enabledItem, findRow, skillIndex, textModel } from "../../../test/helpers/fixtures/panel.ts";
 import {
 	documentFor,
-	enabledItem,
-	findRow,
 	settingDescriptor,
 	settingView,
 	settingsSnapshot,
-	skillIndex,
-	textModel,
-} from "../../../test/helpers/fixtures/bytefly.ts";
+} from "../../../test/helpers/fixtures/settings.ts";
 import type { PanelRow } from "./types.ts";
 import { resourceRow, verdictColumn } from "./tui/list-view.ts";
 import { editHints, projectNote, settingLabelColumn, settingRow } from "./tui/settings-view.ts";

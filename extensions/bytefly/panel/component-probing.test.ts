@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { buildPanel, enabledItem } from "../../../test/helpers/fixtures/bytefly.ts";
+import { buildPanel, enabledItem } from "../../../test/helpers/fixtures/panel.ts";
 import { settle } from "../../../test/helpers/process.ts";
 
 describe("PanelComponent refresh", () => {

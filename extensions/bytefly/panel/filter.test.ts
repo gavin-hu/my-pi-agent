@@ -4,13 +4,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import {
-	enabledItem,
-	findRow,
-	settingView,
-	settingsSnapshot,
-	textModel,
-} from "../../../test/helpers/fixtures/bytefly.ts";
+import { enabledItem, findRow, textModel } from "../../../test/helpers/fixtures/panel.ts";
+import { settingView, settingsSnapshot } from "../../../test/helpers/fixtures/settings.ts";
 import { filterChips, isFiltering, NO_FILTER, rowMatches, settingMatches, type PanelFilter } from "./filter.ts";
 
 const filter = (overrides: Partial<PanelFilter> = {}): PanelFilter => ({ ...NO_FILTER, ...overrides });
