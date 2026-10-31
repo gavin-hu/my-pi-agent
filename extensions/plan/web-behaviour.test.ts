@@ -18,7 +18,7 @@ import { findChrome } from "../../scripts/capture/chrome.ts";
 import { LOOPBACK_HOSTS } from "../../lib/http/index.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import type { ReviewContext, SaveResult } from "./web-router.ts";
-import { handleReviewRequest } from "./web-router.ts";
+import { reviewAt } from "../../test/helpers/fixtures/plan-web.ts";
 import { testMountSource } from "../../test/helpers/serve.ts";
 import type { ReviewPageData } from "./web-page.ts";
 
@@ -116,7 +116,7 @@ async function serve(
 		// the review's own cap is a megabyte.
 		maxBodyBytes: 1024 * 1024,
 		async handler(request) {
-			const answer = await handleReviewRequest(ctx, request.method, request.url, request.headers, request.body);
+			const answer = await reviewAt(request, ctx);
 			// The router answers a stream marker; the mount needs the sink that goes with it.
 			return answer.stream ? { result: answer, openSink: () => () => {} } : { result: answer };
 		},

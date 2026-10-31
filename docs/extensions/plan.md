@@ -34,7 +34,7 @@ executes.
 | Capability | How | What you get | Status |
 |---|---|---|---|
 | Review screen | `plan` action `exit` | A scrollable, themed plan with approve, refine, keep, browser, and exit in the footer. | Shipped |
-| Browser page | `/plan review`, `w` on the review screen | The plan opens in a local browser as a reading-first page with live section and step progress. | Partial |
+| Browser page | `/plan review`, `w` on the review screen | The plan opens in a local browser as a reading-first page with live section and step progress. It needs `serve` loaded to mint the prefix; on a shared review, only a reviewer's routes answer over the network — approve, cancel, save and the share controls answer on the serving machine alone. | Partial |
 | Approval in the browser | the `/plan review` page's **Approve & run** | The plan is approved without returning to the terminal, and the steps are seeded. | Shipped |
 | Inline comments | the page's `+ Comment`, **Save feedback** | Comments are saved into the plan file as `> [!REVIEW]` lines and returned to the model. | Shipped |
 | Live page | the page's `events` stream, the plan-file poll | An edit made elsewhere repaints every open page without a reload. | Shipped |

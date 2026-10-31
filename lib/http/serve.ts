@@ -44,6 +44,13 @@ export interface LoopbackRequest {
 	headers: IncomingHttpHeaders;
 	/** The body, read up to the cap; `""` for every method when no cap was set. */
 	body: string;
+	/**
+	 * The socket's peer address, so a route can tell this machine from the network.
+	 *
+	 * Absent only when the runtime does not report one; `isLoopbackAddress` refuses that,
+	 * which is the fail-closed direction for a route that needs it.
+	 */
+	remoteAddress?: string;
 }
 
 /** What a route answers with. */
@@ -262,7 +269,13 @@ async function answer(
 	}
 	let reply: LoopbackReply;
 	try {
-		reply = await route.spec.handler({ method, url, headers: request.headers, body });
+		reply = await route.spec.handler({
+			method,
+			url,
+			headers: request.headers,
+			body,
+			remoteAddress: request.socket.remoteAddress,
+		});
 	} catch {
 		reply = { result: INTERNAL_ERROR };
 	}

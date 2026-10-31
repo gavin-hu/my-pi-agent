@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { checkOrigin, envelopeRefusal, PAGE_METHODS, postOnly, requireJsonBody } from "./guard.ts";
+import { checkOrigin, envelopeRefusal, isLoopbackAddress, PAGE_METHODS, postOnly, requireJsonBody } from "./guard.ts";
 import { LOOPBACK_HOSTS } from "./router.ts";
 
 /** The headers a page's own fetch sends, so a case starts from an allowed request. */
@@ -24,6 +24,21 @@ describe("postOnly", () => {
 		const refusal = postOnly("GET", "approve");
 		expect(refusal?.status).toBe(405);
 		expect(refusal?.body).toContain("Use POST to approve.");
+	});
+});
+
+describe("isLoopbackAddress", () => {
+	test("knows this machine in the three forms a socket reports it", () => {
+		expect(isLoopbackAddress("127.0.0.1")).toBe(true);
+		expect(isLoopbackAddress("::1")).toBe(true);
+		// A dual-stack socket reports a v4 peer this way, which is why it is named.
+		expect(isLoopbackAddress("::ffff:127.0.0.1")).toBe(true);
+	});
+
+	test("refuses the network, and refuses not knowing", () => {
+		for (const address of ["10.0.0.7", "192.168.1.24", "::ffff:10.0.0.7", "0.0.0.0", "127.0.0.2", undefined]) {
+			expect([address, isLoopbackAddress(address)]).toEqual([address, false]);
+		}
 	});
 });
 

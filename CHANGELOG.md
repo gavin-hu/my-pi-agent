@@ -17,6 +17,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: the browser review's owner-only routes answer on the machine serving it. Approve,
+  cancel, save feedback and the share controls were guarded by the token's role alone, so a
+  reviewer holding a shared LAN link — and the owner token with it — was one `roleOnly` check
+  from approving the plan. `lib/http` now carries the socket's peer address on the request
+  (`LoopbackRequest.remoteAddress`) and `isLoopbackAddress` sits beside the other shared
+  guards; the router refuses an owner route from anywhere but `127.0.0.1`, `::1`, or a
+  v4-mapped `::ffff:127.0.0.1`, with `undefined` refused too. Reviewer routes, the page and
+  its two constant scripts keep answering over the LAN, which is what sharing is for.
 - `plan`: the guide's claims match the code, and two review-page gaps close. `docs/extensions/plan.md`
   now counts the twenty-seven suites the manifest declares, names the exit control as each
   surface carries it (`x exit plan`, `3 exit`, **Back to Pi**), says the browser review needs

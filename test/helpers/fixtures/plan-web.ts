@@ -16,6 +16,7 @@ import type { PlanStore, StoredPlan } from "../../../extensions/plan/plans.ts";
 import { REVIEW_CLIENT_JS } from "../../../extensions/plan/web-client.ts";
 import { renderReviewPage, type ReviewPageData } from "../../../extensions/plan/web-page.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "../../../extensions/plan/web-router.ts";
+import type { LoopbackRequest, ServeResponse } from "../../../lib/http/index.ts";
 import {
 	createPlanWebReview,
 	type PlanReviewOptions,
@@ -121,10 +122,23 @@ export function router(overrides: Partial<ReviewContext> = {}) {
 	};
 }
 
-export const get = (url: string) => handleReviewRequest(router().ctx, "GET", url, HOST);
+/** The peer these helpers speak as: the owner's own browser, on this machine. */
+export const LOOPBACK_PEER = "127.0.0.1";
+
+export const get = (url: string) => handleReviewRequest(router().ctx, "GET", url, HOST, "", LOOPBACK_PEER);
 /** One POST the way the page makes it: every body-taking route is sent JSON. */
 export const post = (ctx: ReviewContext, url: string, body = "") =>
-	handleReviewRequest(ctx, "POST", url, { ...HOST, "content-type": "application/json" }, body);
+	handleReviewRequest(ctx, "POST", url, { ...HOST, "content-type": "application/json" }, body, LOOPBACK_PEER);
+
+/**
+ * The router call a mount makes: the request's own values, peer address included.
+ *
+ * A mount hands the review one request object, so a suite that stands in for the server
+ * spreads it the same way instead of restating the five fields and forgetting the sixth.
+ */
+export function reviewAt(request: LoopbackRequest, ctx: ReviewContext): Promise<ServeResponse> {
+	return handleReviewRequest(ctx, request.method, request.url, request.headers, request.body, request.remoteAddress);
+}
 
 export function reviewPage(overrides: Partial<ReviewPageData> = {}): string {
 	return renderReviewPage({
