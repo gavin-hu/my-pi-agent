@@ -378,6 +378,10 @@ session token, and the owner's token is the one that opened the page.
 | `POST /api/share/revoke?token=…` | owner only: revoke one link by `{ id }`, leaving the others answering |
 | `POST /api/share/stop?token=…` | owner only: revoke every reviewer link |
 
+Every route that reads a body takes JSON and only JSON: a form-encoded, `text/plain`,
+or headerless body is refused `415` before the role check, so a form cannot reach the
+parser even from the page's own origin.
+
 ## Behaviour by mode
 
 The review screen is TUI-only: `exit` opens `PlanViewComponent`, and `w`

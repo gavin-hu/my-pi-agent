@@ -1,10 +1,11 @@
 /**
  * The request router for browser plan review.
  *
- * A request is validated (method, `Host`, origin, token), matched to a route,
- * and answered with a plain {@link ServeResponse}, so every route can be tested
- * without a socket. The `/events` route is a marker: the node server in `web.ts`
- * keeps that response open as a Server-Sent Events stream.
+ * A request is validated (method, `Host`, origin, token, and — on a route that
+ * reads a body — that the body is JSON), matched to a route, and answered with a
+ * plain {@link ServeResponse}, so every route can be tested without a socket. The
+ * `/events` route is a marker: the node server in `web.ts` keeps that response open
+ * as a Server-Sent Events stream.
  *
  * The token is a per-session secret carried in the page URL, and on a shared
  * review it is the only credential a reviewer has: it names the caller — the
@@ -20,6 +21,7 @@ import {
 	pageHeaders,
 	parseRequestUrl,
 	postOnly,
+	requireJsonBody,
 	scriptHeaders,
 	type ServeResponse,
 } from "../../lib/http/index.ts";
@@ -157,7 +159,9 @@ export async function handleReviewRequest(
 	}
 	if (pathname === "/api/share/revoke") {
 		const refusal =
-			postOnly(method, "revoke a link") ?? roleOnly(caller, ["owner"], "Only the plan owner can revoke a link.");
+			postOnly(method, "revoke a link") ??
+			requireJsonBody(headers["content-type"]) ??
+			roleOnly(caller, ["owner"], "Only the plan owner can revoke a link.");
 		if (refusal) return refusal;
 		const id = linkIdOf(body);
 		if (id === undefined) return jsonError(400, "The request body must name the link's id.");
@@ -169,7 +173,9 @@ export async function handleReviewRequest(
 		// A reviewer's whole surface: persist the comments they wrote and end
 		// nothing. Only the owner's own save decides the review.
 		const refusal =
-			postOnly(method, "post comments") ?? roleOnly(caller, ["reviewer"], "Only a shared reviewer posts comments.");
+			postOnly(method, "post comments") ??
+			requireJsonBody(headers["content-type"]) ??
+			roleOnly(caller, ["reviewer"], "Only a shared reviewer posts comments.");
 		if (refusal) return refusal;
 		const annotations = parseAnnotations(body);
 		if (isResponse(annotations)) return annotations;
@@ -182,6 +188,7 @@ export async function handleReviewRequest(
 		// `/api/comment`, so this route can never settle a shared review.
 		const refusal =
 			postOnly(method, "save feedback") ??
+			requireJsonBody(headers["content-type"]) ??
 			roleOnly(caller, ["owner"], "Only the plan owner saves this review; a reviewer posts comments.");
 		if (refusal) return refusal;
 		const annotations = parseAnnotations(body);
@@ -195,7 +202,9 @@ export async function handleReviewRequest(
 		// Only the owner's own page approves, and only the `exit` flow owns
 		// the side effects: a reviewer token is refused whatever it posts.
 		const refusal =
-			postOnly(method, "approve") ?? roleOnly(caller, ["owner"], "A shared review cannot approve the plan.");
+			postOnly(method, "approve") ??
+			requireJsonBody(headers["content-type"]) ??
+			roleOnly(caller, ["owner"], "A shared review cannot approve the plan.");
 		if (refusal) return refusal;
 		if (!ctx.canApprove) return jsonError(403, "This review cannot be approved from the browser.");
 		const annotations = parseAnnotations(body);
