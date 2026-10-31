@@ -59,6 +59,17 @@ const DECISION_TONE_CSS = BOARD_TONES.map(
  */
 const DECISION_WHY_CSS = `.board-team__decision[data-tone="danger"] .board-team__why{color:var(--danger)}`;
 
+/**
+ * A dialog line's colour, one rule per tone the tone table names.
+ *
+ * The reason line takes its tone from the reason's kind, the way the card face's does, and the
+ * signature takes the tone the table gives an approval: a sign is the card's, not the page's,
+ * so it is coloured by the same table rather than by a word chosen here.
+ */
+const DIALOG_TONE_CSS = BOARD_TONES.map(
+	(tone) => `.board-dialog__reason[data-tone="${tone}"],.board-dialog__sign[data-tone="${tone}"]{color:var(--${tone})}`,
+).join("\n");
+
 /** The shared shell, the components, and the board's own layout. */
 export const BOARD_CSS = `${WEB_BASE_CSS}
 ${WEB_THEME_CSS}
@@ -271,6 +282,19 @@ ${REASON_TONE_CSS}
 /* A path is a value like any other, but a long one elides on its single line and keeps the
    whole of itself on the hover title, so a 90-character plan cannot shred the ladder. */
 .board-dialog__value{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The card face's reason sentence, whole: the one fact that says what happens next, which a
+   reader opens the card to act on. It wraps where the face clamps at two lines, and it reads
+   at body size on the same measure as a note, because it is the same kind of sentence. */
+.board-dialog__reason{margin:0;max-width:68ch;font:var(--fs-base)/var(--lh-relaxed) var(--font-ui);color:var(--text);overflow-wrap:anywhere}
+/* The contract is the promise, so its three lines read at body size and wrap inside their
+   column: a promise clipped to one line is a promise a reader cannot check. The block keeps
+   the ladder's own grid, so its labels sit in the same column as the facts beside them. */
+.board-dialog__contract dd{font:var(--fs-base)/var(--lh-relaxed) var(--font-ui);overflow-wrap:anywhere}
+/* Who signed it, under what they signed: quiet until a tone says otherwise. */
+.board-dialog__sign{margin:0;max-width:68ch;font:var(--fw-medium) var(--fs-sm) var(--font-ui);color:var(--muted)}
+/* The tone rules come after the base rules, which is what makes them win: a base class and a
+   data-tone rule are one class each, so source order decides between them. */
+${DIALOG_TONE_CSS}
 /* A plan path and the ids a card waits for are code, and a reader copies them. */
 .board-dialog__plan{font-family:var(--font-mono)}
 .board-dialog__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:0;padding:0;list-style:none;min-width:0}

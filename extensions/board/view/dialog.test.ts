@@ -10,6 +10,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { BOARD_TONES } from "../../../lib/board/tone.ts";
 import { boardDocument, ownRules } from "../../../test/helpers/board-document.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CSS } from "./styles.ts";
@@ -32,7 +33,12 @@ describe("the dialog's document", () => {
 			"card-dialog-state-label",
 			"card-dialog-since",
 			// One section per question, each labelled by its own heading.
+			"card-dialog-reason",
 			"card-dialog-contract-head",
+			"card-dialog-goal",
+			"card-dialog-acceptance",
+			"card-dialog-scope-out",
+			"card-dialog-sign",
 			"card-dialog-start-head",
 			"card-dialog-links-head",
 			"card-dialog-record-head",
@@ -68,6 +74,34 @@ describe("the dialog's document", () => {
 		// The ladder's values start at one column in every section: the floor is the longest
 		// label the ladder has, so a section of short ones lines up with the sections above it.
 		expect(BOARD_CSS).toContain("grid-template-columns:minmax(6.5rem,max-content)");
+		// The promise is not a rung: three lines that wrap at body size, because a contract
+		// line is up to 400 characters and a clipped promise cannot be checked.
+		const contract = ownRules().match(/\.board-dialog__contract dd\{[^}]*\}/)?.[0] ?? "";
+		expect(contract).toContain("--fs-base");
+		expect(contract).toContain("overflow-wrap:anywhere");
+		// And the reason line is the sentence the face prints, whole on the notes' measure.
+		const reason = ownRules().match(/\.board-dialog__reason\{[^}]*\}/)?.[0] ?? "";
+		expect(reason).toContain("--fs-base");
+		expect(reason).toContain("68ch");
+	});
+
+	test("tones the reason and the signature by the one tone table", () => {
+		// The reason line takes its kind's tone and a sign takes the approval's, so a blocked
+		// card's dialog is as loud as its face and an approved contract reads the same colour
+		// on both surfaces.
+		for (const tone of BOARD_TONES) {
+			expect(BOARD_CSS, tone).toContain(
+				`.board-dialog__reason[data-tone="${tone}"],.board-dialog__sign[data-tone="${tone}"]{color:var(--${tone})}`,
+			);
+		}
+		// After their base rules, or a base class and a tone class of one class each leave
+		// source order to decide, and every tone was inert when the card's were generated first.
+		expect(BOARD_CSS.indexOf('.board-dialog__reason[data-tone="warn"],')).toBeGreaterThan(
+			BOARD_CSS.indexOf(".board-dialog__reason{margin:0"),
+		);
+		expect(BOARD_CSS.indexOf('.board-dialog__sign[data-tone="warn"]{')).toBeGreaterThan(
+			BOARD_CSS.indexOf(".board-dialog__sign{margin:0"),
+		);
 	});
 });
 
@@ -85,11 +119,7 @@ describe("the dialog's client", () => {
 		// The rungs are written once, in the order the body draws them: a row is a name, and
 		// the label and the value are found from it, so a row cannot ship with one half hidden.
 		expect(BOARD_CLIENT_JS).toContain('"card-dialog-" + name + "-label"');
-		expect([...BOARD_CLIENT_JS.matchAll(/setRow\("([a-z-]+)"/g)].map((match) => match[1])).toEqual([
-			"goal",
-			"acceptance",
-			"scope-out",
-			"approved",
+		expect([...BOARD_CLIENT_JS.matchAll(/setRow\(\s*"([a-z-]+)"/g)].map((match) => match[1])).toEqual([
 			"plan",
 			"depends",
 			"dependents",
@@ -97,6 +127,20 @@ describe("the dialog's client", () => {
 			"landed",
 			"reviewed",
 		]);
+		// The contract is a block instead, so the ladder never writes its rows: three lines at
+		// body size, which a card without a contract leaves hidden.
+		expect(BOARD_CLIENT_JS).toContain('var CONTRACT_ROWS = ["goal", "acceptance", "scope-out"];');
+		expect(BOARD_CLIENT_JS).toContain('document.getElementById("card-dialog-" + CONTRACT_ROWS[f]).hidden');
+		// The dialog opens with the card face's reason sentence, from the same body, and leaves a
+		// bare last note to the notes below rather than printing it twice.
+		expect(BOARD_CLIENT_JS).toContain("board.reasonFor(card, ago)");
+		expect(BOARD_CLIENT_JS).toContain('why.setAttribute("data-tone", board.reasonTone(reason.kind))');
+		expect(BOARD_CLIENT_JS).toContain('reason.kind !== "note"');
+		// The approval is the signature under the three lines, in the tone the board gives a sign.
+		expect(BOARD_CLIENT_JS).toContain('"approved by " + approved.by + " \\u00b7 " + ago(approved.at)');
+		expect(BOARD_CLIENT_JS).toContain('board.reasonTone("approval")');
+		// A landing is a commit and the moment it landed; the commit stays whole on the hover.
+		expect(BOARD_CLIENT_JS).toContain('landed.commit + " \\u00b7 " + ago(landed.at)');
 		// An empty section takes its heading with it, and the notes read newest first — with
 		// one line instead of an empty list when a card has none.
 		expect(BOARD_CLIENT_JS).toContain('card-dialog-" + SECTIONS[s] + "-section');

@@ -108,14 +108,15 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
     </div>
     <div class="bf-dialog__body ${N.dialogBody}">
       <p class="sr-only" id="card-dialog-where" aria-live="polite"></p>
+      <p class="${N.dialogReason}" id="card-dialog-reason" hidden></p>
       <section class="${N.dialogSection}" id="card-dialog-contract-section" aria-labelledby="card-dialog-contract-head">
         <h3 class="${N.dialogHeading}" id="card-dialog-contract-head">contract</h3>
-        <dl class="${N.dialogFacts}">
-          <dt id="card-dialog-goal-label" hidden>goal</dt><dd class="${N.dialogValue}" id="card-dialog-goal" hidden></dd>
-          <dt id="card-dialog-acceptance-label" hidden>acceptance</dt><dd class="${N.dialogValue}" id="card-dialog-acceptance" hidden></dd>
-          <dt id="card-dialog-scope-out-label" hidden>scope out</dt><dd class="${N.dialogValue}" id="card-dialog-scope-out" hidden></dd>
-          <dt id="card-dialog-approved-label" hidden>approved</dt><dd class="${N.dialogValue}" id="card-dialog-approved" hidden></dd>
+        <dl class="${N.dialogFacts} ${N.dialogContract}">
+          <dt>goal</dt><dd id="card-dialog-goal" hidden></dd>
+          <dt>acceptance</dt><dd id="card-dialog-acceptance" hidden></dd>
+          <dt>scope out</dt><dd id="card-dialog-scope-out" hidden></dd>
         </dl>
+        <p class="${N.dialogSign}" id="card-dialog-sign" hidden></p>
       </section>
       <section class="${N.dialogSection}" id="card-dialog-start-section" aria-labelledby="card-dialog-start-head">
         <h3 class="${N.dialogHeading}" id="card-dialog-start-head">to start</h3>
