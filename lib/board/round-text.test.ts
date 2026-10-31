@@ -41,10 +41,11 @@ describe("formatRound", () => {
 		// The groups overlap on purpose: #2 is live for its owner and unplanned for the
 		// lead, and one line each is what says both.
 		expect(formatRound(cards, buildRound(cards, NOW)).split("\n")).toEqual([
-			"2 owners · 4 features · 1 unassigned · 0 unplanned · 0 awaiting approval · 1 blocked · 0 idle · 1 done",
+			"2 owners · 4 features · 1 unassigned · 0 unplanned · 0 awaiting approval · 1 awaiting review · 1 blocked · 0 idle · 1 done",
 			"billing-core (2): #2 execute unplanned, #3 blocked",
 			"billing-other (0 live, 1 done)",
 			"unassigned (1): #1 backlog",
+			"unreviewed (1): #2 execute unplanned",
 			"blocked (1): #3 blocked — gateway",
 			"done (1): #4 done",
 		]);
@@ -79,9 +80,19 @@ describe("formatRound", () => {
 		expect(formatRound([aged], buildRound([aged], NOW))).toContain("idle (1): #2 execute planned");
 	});
 
+	test("names an executing card nobody has spot-checked, before the card is idle", () => {
+		// The lead's half of the flow is two signatures, so the text states both queues: this one
+		// is owed from the minute the card enters `execute`.
+		const fresh = card("2", { lane: "execute", owner: { label: "billing-core" }, planPath: "p.md" });
+		const lines = formatRound([fresh], buildRound([fresh], NOW)).split("\n");
+		expect(lines).toContain("unreviewed (1): #2 execute planned");
+		expect(lines[0]).toContain("1 awaiting review");
+		expect(lines).not.toContain("idle (1): #2 execute planned");
+	});
+
 	test("an empty board is a headline of zeroes, not a refusal", () => {
 		expect(formatRound([], buildRound([], NOW))).toBe(
-			"0 owners · 0 features · 0 unassigned · 0 unplanned · 0 awaiting approval · 0 blocked · 0 idle · 0 done",
+			"0 owners · 0 features · 0 unassigned · 0 unplanned · 0 awaiting approval · 0 awaiting review · 0 blocked · 0 idle · 0 done",
 		);
 	});
 });

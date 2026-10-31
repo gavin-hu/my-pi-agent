@@ -10,7 +10,8 @@
  *
  * The groups overlap on purpose. A `plan` card with no contract and no touch for half
  * an hour is both `unplanned` and, once it is executing, `idle`; hiding it in one of the
- * two would lose half the reason a lead should look at it.
+ * two would lose half the reason a lead should look at it. The same holds for `unreviewed`
+ * and `idle`: one says the lead owes a look, the other that nobody has touched the card.
  *
  * Pure: no I/O and no clock of its own.
  */
@@ -47,6 +48,16 @@ export interface RoundSummary<T extends Card = Card> {
 	unplanned: T[];
 	/** `plan` cards whose contract is complete and nobody has approved: the lead's queue. */
 	unapproved: T[];
+	/**
+	 * `execute` cards nobody has spot-checked: the lead's other signature, and owed from the
+	 * moment a card enters the lane rather than from a clock.
+	 *
+	 * A card in `execute` is work the lead must look at before it may be finished, so this is
+	 * the whole lane, in flight included — the board cannot tell finished work from work in
+	 * progress, and a card that says nothing until it has sat untouched for half an hour is a
+	 * card the lead hears about late.
+	 */
+	unreviewed: T[];
 	/** `blocked` cards, and the note that says why. */
 	blocked: T[];
 	/** `execute` cards untouched for {@link IDLE_MS}: possibly a dead owner. */
@@ -71,6 +82,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 	const unassigned: T[] = [];
 	const unplanned: T[] = [];
 	const unapproved: T[] = [];
+	const unreviewed: T[] = [];
 	const blocked: T[] = [];
 	const idle: T[] = [];
 	const done: T[] = [];
@@ -88,6 +100,9 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 			if (missingContractFields(card.contract).length > 0 || card.planPath === undefined) unplanned.push(card);
 			else if (!contractApproved(card.contract)) unapproved.push(card);
 		}
+		// The lead's second signature, owed by every card in the lane: what `done` requires is a
+		// spot-check, and no clock can say whether the work behind it is finished.
+		if (card.lane === "execute" && card.review === undefined) unreviewed.push(card);
 		if (card.lane === "execute" && now - card.updatedAt >= IDLE_MS) idle.push(card);
 
 		if (card.owner === undefined) continue;
@@ -103,6 +118,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		unassigned,
 		unplanned,
 		unapproved,
+		unreviewed,
 		blocked,
 		idle,
 		done,

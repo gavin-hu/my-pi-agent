@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `board`: the lead's round reports `unreviewed` — every card in `execute` that nobody has
+  spot-checked — beside `unapproved`, so both signatures the flow waits on are queues the
+  lead reads: `board list round: true`, `/team`'s headline and group line, the transcript's
+  section, and the page's **Needs a decision** rows (a `review` kind, ranked under
+  `approval`). Half the lead's work used to be guessed from the idle clock, so a peer that
+  finished in ten minutes was invisible until half an hour had passed.
+
 ### Changed
 
 - `board`: a sign now tells the other side. `approve` and `review` record the card and then send
@@ -2157,7 +2166,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `session-bus`: two sessions that join in the same instant under the same name end
   with distinct labels — whichever notices the other yields to a short id suffix —
   and a name at the 40-character limit no longer swallows that suffix.
-
 
 ## [0.17.0] - 2026-10-22
 
