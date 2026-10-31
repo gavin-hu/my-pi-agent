@@ -96,7 +96,12 @@ gate is stated in the test.
    because deferring the load is the fix, and an exception names its reason in
    the file. The same walker holds the local-module budget: five handler-only
    surfaces are named in `DEFERRED_FROM_REGISTRATION`, and the total static
-   evaluations across every entry may not exceed `MODULE_BUDGET`.
+   evaluations across every entry may not exceed `MODULE_BUDGET`. Deferring has a
+   second half, checked the same way: a module that reaches another through
+   `import()` may not re-declare a type that module exports. A facade names its
+   implementation's contract with an `import type`, which is erased, instead of
+   restating it — the review gate's decision types were declared twice until they
+   drifted.
    `release.test.ts` ties `package.json`, the newest dated changelog heading,
    and the newest `vX.Y.Z` tag together. CI checks out with `fetch-depth: 0` so
    the tag is present; the tag assertion is skipped in a clone that has none. It
