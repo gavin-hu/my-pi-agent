@@ -128,6 +128,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"runtime",
 		"view/session-list",
 		"tools",
+		"inbox-read",
 		"overlap",
 		"resolve",
 		"extension",

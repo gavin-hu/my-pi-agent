@@ -1,66 +1,12 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { fakeCtx } from "../../test/helpers/context.ts";
 import { scratchDir } from "../../test/helpers/env.ts";
+import { busToolSession as session, joinBusSession as joins } from "../../test/helpers/fixtures/session-bus-tool.ts";
+import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
-import { createSessionBus, type SessionBus } from "./runtime.ts";
-import { registerTools } from "./tools.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
-
-interface Session {
-	bus: SessionBus;
-	ctx: ExtensionContext;
-	/** The Pi surface the tool writes a label through. */
-	pi: { getSessionName(): string | undefined; setSessionName(name: string): void };
-	tool: {
-		execute(
-			id: string,
-			params: unknown,
-			signal?: undefined,
-			update?: undefined,
-			ctx?: ExtensionContext,
-		): Promise<{ content: Array<{ text: string }>; details: any; isError?: true }>;
-		renderCall(
-			args: unknown,
-			theme: unknown,
-			context?: { lastComponent?: unknown },
-		): { render(width: number): string[] };
-		renderResult(
-			result: { content: Array<{ type: string; text?: string }>; details: unknown },
-			options: { expanded: boolean },
-			theme: unknown,
-			context?: { lastComponent?: unknown },
-		): { render(width: number): string[] };
-	};
-}
-
-function session(dir: string, root: string, id: string, name: string): Session {
-	const bus = createSessionBus({} as ExtensionAPI, {
-		dir,
-		repo: { root, key: "shared" },
-		now: () => 1_000,
-		heartbeatMs: 0,
-	});
-	const fake = createFakePi();
-	// Pi's session name and the bus's label are one identity in production, so a
-	// test that joins has to start from the name the session came back with.
-	fake.pi.setSessionName(name);
-	registerTools(fake.pi, bus);
-	const tool = fake.tools.get("session");
-	if (!tool) throw new Error("session tool not registered");
-	const ctx = fakeCtx({ cwd: root, sessionId: id, sessionName: name }).ctx as ExtensionContext;
-	return { bus, ctx, tool, pi: fake.pi };
-}
-
-/** Joining puts a session on the bus, so a case that needs a peer joins it. */
-async function joins(target: Session): Promise<void> {
-	await target.bus.start(target.ctx);
-	await target.bus.join({ label: target.pi.getSessionName() ?? "session", listen: false });
-}
 
 describe("session tool", () => {
 	test("status lists both terminal sessions", async () => {
@@ -75,30 +21,6 @@ describe("session tool", () => {
 			"backend",
 			"frontend",
 		]);
-		await frontend.bus.stop();
-		await backend.bus.stop();
-	});
-
-	test("send and inbox travel between sessions", async () => {
-		const dir = scratchDir(temps, "pi-session-bus-");
-		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
-		const backend = session(dir, "/repo/backend", "s2", "backend");
-		await joins(frontend);
-		await joins(backend);
-
-		const sent = await frontend.tool.execute(
-			"call",
-			{ action: "send", to: "backend", text: "contract v2", kind: "event", paths: ["src/api"] },
-			undefined,
-			undefined,
-			frontend.ctx,
-		);
-		expect(sent.details.delivered).toEqual(["backend"]);
-		const inbox = await backend.tool.execute("call", { action: "inbox" }, undefined, undefined, backend.ctx);
-		expect(inbox.details.messages).toHaveLength(1);
-		expect(inbox.content[0]?.text).toContain("contract v2");
-		const again = await backend.tool.execute("call", { action: "inbox" }, undefined, undefined, backend.ctx);
-		expect(again.details.messages).toEqual([]);
 		await frontend.bus.stop();
 		await backend.bus.stop();
 	});
@@ -372,35 +294,6 @@ describe("session tool", () => {
 			fakeTheme,
 		);
 		expect(rendered.render(80).join("\n")).toContain("1 session · 0 claims · watch wake");
-	});
-
-	test("expanded inbox lists what was consumed", () => {
-		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
-		const rendered = frontend.tool.renderResult(
-			{
-				content: [],
-				details: {
-					action: "inbox",
-					messages: [
-						{
-							id: "m1",
-							from: "s2",
-							fromLabel: "backend",
-							to: "s1",
-							toLabel: "frontend",
-							kind: "event",
-							text: "contract v2",
-							at: 1,
-						},
-					],
-				},
-			},
-			{ expanded: true },
-			fakeTheme,
-		);
-		const text = rendered.render(80).join("\n");
-		expect(text).toContain("contract v2");
-		expect(text).toContain("backend · event");
 	});
 
 	test("a release names the paths it did not own instead of a green success", () => {

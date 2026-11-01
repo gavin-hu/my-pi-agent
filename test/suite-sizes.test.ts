@@ -66,7 +66,6 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/rewind/transport/store.test.ts": 631,
 	"extensions/session-bus/extension.test.ts": 411,
 	"extensions/session-bus/runtime.test.ts": 959,
-	"extensions/session-bus/tools.test.ts": 425,
 	"extensions/session-bus/view/session-list.test.ts": 509,
 	"extensions/subagent/agents.test.ts": 476,
 	"extensions/subagent/extension.test.ts": 783,
