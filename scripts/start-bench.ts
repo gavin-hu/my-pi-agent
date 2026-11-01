@@ -209,5 +209,5 @@ if (import.meta.main) {
 	console.log(
 		`start (main namespace) · ${middle.mainMs.toFixed(0)}ms · ${RUNS} runs, median total (${fastest.importMs.toFixed(0)}–${slowest.importMs.toFixed(0)}ms import)`,
 	);
-	console.log("TUI init is not included; `PI_STARTUP_BENCHMARK=1 pi` in a terminal measures that half");
+	console.log("TUI init is not included; `PI_TIMING=1 PI_STARTUP_BENCHMARK=1 pi` in a terminal measures that half");
 }

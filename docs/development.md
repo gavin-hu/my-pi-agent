@@ -286,10 +286,21 @@ bun run bench:start
   `lib/format.ts` by 19, `lib/config.ts` by 17, six more `lib/tui/*` by 16. A
   module removed from an entry's registration graph is saved *N* times, and
   `bench:load`'s `ENTRY_BUDGET` row is what proves it fell.
-- **TUI init is not in that number:** `PI_STARTUP_BENCHMARK=1 pi` in a terminal
-  initialises the TUI, prints the same timings and exits; it refuses to run without
-  a TTY, so that half is a local reading rather than a CI one. `bun run check`
-  never runs either bench.
+- **TUI init is not in that number:** `PI_TIMING=1 PI_STARTUP_BENCHMARK=1 pi` in a
+  terminal initialises the TUI, prints the same timings and exits — both variables,
+  because `PI_TIMING` is what turns the instrument on and the benchmark flag only
+  says to stop after init; without the first it starts a normal session and prints
+  nothing. It refuses to run without a TTY, so that half is a local reading rather
+  than a CI one. `bun run check` never runs either bench.
+- **The terminal reading has two halves, and they are not comparable to this one.** A
+  real start on the author's machine read `main` 1544 ms — `createAgentSessionRuntime`
+  1198, `interactiveMode.init` **331** — with the extension namespace at 1012. The
+  graph did not quadruple: an interactive start runs the model catalog, the settings
+  watcher and the first frame *between* the loader's `time()` calls, so each entry's
+  delta carries that waiting, while this harness's offline rpc child does not. Read
+  the interactive numbers for the TUI half (331 ms, the first frame, against ~225 ms
+  for every extension's import) and this script for the graph; do not compare one
+  graph's per-entry ms across the two.
 
 ## Cross-platform
 
