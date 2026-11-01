@@ -75,7 +75,9 @@ export interface InboxPeek {
 	 *
 	 * They stay where they are — a newer build may read them — so a reader names them rather
 	 * than passing them off as empty inbox space, and the message TTL ends them through their
-	 * mtime, which is the only age a file without a readable `at` has.
+	 * mtime, which is the only age a file without a readable `at` has. The list is what this
+	 * walk reached: it stops at the page's `limit`, so a refusal behind a full page is named
+	 * once the mail in front of it is consumed.
 	 */
 	unreadable: string[];
 }

@@ -229,7 +229,11 @@ listening watch is what raises the turn.
   leave it on disk, and `inbox` names it (`Mail this build cannot read: … — left on disk,
   cleared by the TTL`). It is not counted into the "… N more" tail, because a second `inbox`
   would not return it. The 24-hour message TTL is what ends it, on the only age such a file
-  has: its mtime. The board store took the same rule for a card file (`docs/extensions/board.md`).
+  has: its mtime. Two bounds are worth knowing: the names are what one page walk reached, so a
+  refusal behind a full page is named once the mail in front of it is consumed; and `status`'s
+  unread count is a count of **files**, so a peer's badge keeps counting one this build cannot
+  read until the TTL ends it — `inbox` is what says it cannot be read. The board store took the
+  same rule for a card file (`docs/extensions/board.md`).
 - **No network.** It is not a distributed bus and does not synchronize machines.
 
 ## Pi integration

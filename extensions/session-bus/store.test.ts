@@ -172,6 +172,28 @@ describe("inbox", () => {
 		expect(await readdir(join(dir, "inbox", inbox))).toEqual([file]);
 	});
 
+	test("names a refusal behind a full page once the mail in front of it is consumed", async () => {
+		const { dir, store } = fixture();
+		for (const id of ["100-a", "101-b", "102-c"]) await store.writeMessage("s2", message(id, "s2"));
+		const [inbox] = await readdir(join(dir, "inbox"));
+		if (!inbox) throw new Error("the inbox directory was not written");
+		// The third message is the one this build cannot read, behind a page that holds two.
+		const broken = "102-c.json";
+		await writeFile(join(dir, "inbox", inbox, broken), "{");
+
+		// The walk stops at the page, so the refusal is behind it and not yet named — the read
+		// reports what it reached rather than reading the whole backlog to find one file.
+		const first = await store.peek("s2", { limit: 2 });
+		expect(first.mail.map((entry) => entry.id)).toEqual(["100-a", "101-b"]);
+		expect(first.unreadable).toEqual([]);
+		// The badge counts files, so it counts the one nothing can read yet.
+		expect(await store.unread("s2")).toBe(3);
+
+		// Consuming the page puts it at the front, where the next read names it.
+		await store.inbox("s2", 2);
+		expect((await store.peek("s2", { limit: 2 })).unreadable).toEqual([broken]);
+	});
+
 	test("keeps an unparseable file inside the TTL and prunes it past it by its mtime", async () => {
 		const { dir, store } = fixture();
 		await store.writeMessage("s2", message("100-a", "s2"));

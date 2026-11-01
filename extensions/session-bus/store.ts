@@ -63,6 +63,12 @@ export interface BusStore {
 	 * files it could not validate instead of deleting them. A limit of zero consumes nothing.
 	 */
 	inbox(id: string, limit: number): Promise<InboxRead>;
+	/**
+	 * Every file in a recipient's inbox, by count — the number a peer's status row shows.
+	 *
+	 * It counts files, so a file this build cannot read counts until its TTL ends it: `inbox`
+	 * is what says it cannot be read. That is the one promise this count makes.
+	 */
 	unread(id: string): Promise<number>;
 	claims(): Promise<ClaimRecord[]>;
 	claimAll(
@@ -274,6 +280,11 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 * read — a renamed field, a stricter guard — and destroying it on the way past is how one
 	 * build's parser silently eats another's message. The message TTL ends it through its
 	 * mtime, so nothing it cannot read accumulates.
+	 *
+	 * The walk stops at `limit` messages, so the names it reports are the ones it reached: a
+	 * refusal behind a full page is named once the mail in front of it is consumed. Reading
+	 * every name to find one would cost the whole backlog on every poll, which is the read this
+	 * store exists to page.
 	 */
 	async function readMessages(
 		directory: string,

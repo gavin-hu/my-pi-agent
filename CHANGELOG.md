@@ -159,8 +159,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in the inbox" and `inbox` then answered `Inbox empty.` Both reads now leave it on disk, name
   it in the `inbox` result (`Mail this build cannot read: … — left on disk, cleared by the
   TTL`), and keep it out of the tail. The message TTL ends it through its mtime, the only age
-  a file with no readable `at` has, so nothing unreadable accumulates. The board's store
-  already worked this way for a card file.
+  a file with no readable `at` has, so nothing unreadable accumulates. The names are what one
+  page walk reached — a refusal behind a full page is named once the mail ahead of it is
+  consumed — and `status`'s unread count is unchanged: it counts files, so a badge counts one
+  this build cannot read until the TTL ends it. The board's store already worked this way for
+  a card file.
 - `session-bus`: a send that reached some peers and not others says so. `send` wrote one message
   file per recipient in a loop and threw on the first failure, so a partial fan-out was
   reported as a total failure while the peers written before it held the message — and
