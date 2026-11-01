@@ -143,6 +143,7 @@
     "config:migrate": "bun run scripts/migrate-config.ts",
     "compat:versions": "bun run scripts/peer-versions.ts",
     "bench:render": "bun run scripts/render-bench.ts",
+    "bench:load": "bun run scripts/load-bench.ts",
     "screenshot:board": "bun run scripts/shots/board.ts",
     "screenshot:cards": "bun run scripts/shots/cards.ts",
     "screenshot:file-browse": "bun run scripts/shots/file-browse.ts",

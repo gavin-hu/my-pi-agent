@@ -22,18 +22,13 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import {
 	createSourceFile,
 	forEachChild,
 	isCallExpression,
-	isExportDeclaration,
-	isExternalModuleReference,
-	isImportDeclaration,
-	isImportEqualsDeclaration,
 	isInterfaceDeclaration,
-	isNamespaceImport,
 	isStringLiteral,
 	isTypeAliasDeclaration,
 	ScriptTarget,
@@ -41,8 +36,18 @@ import {
 	type Node,
 } from "typescript";
 import { tempDir } from "./helpers/env.ts";
+import { entrypoints, packageOf, resolveFile, staticGraph, staticSpecifiers } from "./helpers/graph.ts";
 
 const REPO = join(import.meta.dir, "..");
+
+/** Every extension entry on disk, sorted by name. */
+const ENTRIES = entrypoints(join(REPO, "extensions"));
+
+/** The extension an entry belongs to: `extensions/<name>/index.ts`. */
+function extensionOf(entry: string): string {
+	const parts = entry.split(/[\\/]/);
+	return parts[parts.length - 2] ?? "";
+}
 
 interface PackageJson {
 	dependencies?: Record<string, string>;
@@ -58,62 +63,6 @@ const DEPENDENCIES = new Set(Object.keys(PACKAGE.dependencies ?? {}));
  * of entry, so a new exception is a deliberate, reviewable sentence.
  */
 const REGISTRATION_LOAD: Readonly<Record<string, string>> = {};
-
-/** Whether an import or re-export loads a runtime value (a bare `import "x"` does). */
-function bindsValue(node: Node): boolean {
-	if (isExportDeclaration(node)) return !node.isTypeOnly;
-	if (!isImportDeclaration(node)) return true;
-	const clause = node.importClause;
-	if (!clause) return true;
-	if (clause.isTypeOnly) return false;
-	if (clause.name) return true;
-	const named = clause.namedBindings;
-	if (!named) return false;
-	if (isNamespaceImport(named)) return true;
-	return named.elements.some((element) => !element.isTypeOnly);
-}
-
-/**
- * The specifiers one module loads at import time.
- *
- * `import`, `export … from`, and `import x = require("y")` are all static; a
- * dynamic `import()` is a call expression and is deliberately not collected.
- */
-export function staticSpecifiers(file: string): string[] {
-	const source = createSourceFile(file, readFileSync(file, "utf8"), ScriptTarget.Latest, true);
-	const found: string[] = [];
-	const visit = (node: Node): void => {
-		if (isImportDeclaration(node) || isExportDeclaration(node)) {
-			const specifier = node.moduleSpecifier;
-			if (specifier && isStringLiteral(specifier) && bindsValue(node)) found.push(specifier.text);
-		} else if (isImportEqualsDeclaration(node) && isExternalModuleReference(node.moduleReference)) {
-			const expression = node.moduleReference.expression;
-			if (isStringLiteral(expression)) found.push(expression.text);
-		}
-		forEachChild(node, visit);
-	};
-	forEachChild(source, visit);
-	return found;
-}
-
-/** The package a bare specifier names, or `null` for a path or a host built-in. */
-function packageOf(specifier: string): string | null {
-	if (specifier.startsWith(".") || specifier.startsWith("/")) return null;
-	if (specifier.startsWith("node:") || specifier.startsWith("bun:")) return null;
-	const parts = specifier.split("/");
-	if (specifier.startsWith("@")) return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null;
-	return parts[0] || null;
-}
-
-/** The file a relative specifier resolves to, or `null` when it is not a source file here. */
-function resolveFile(from: string, specifier: string): string | null {
-	if (!specifier.startsWith(".")) return null;
-	const base = resolve(dirname(from), specifier);
-	for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts")]) {
-		if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
-	}
-	return null;
-}
 
 /**
  * The local modules one file defers through a literal `import()`.
@@ -195,13 +144,6 @@ function chainOf(parents: ReadonlyMap<string, string>, file: string): string {
 	return walked.map((step) => relative(REPO, step)).join(" → ");
 }
 
-/** Every extension entrypoint. */
-function entrypoints(): string[] {
-	return readdirSync(join(REPO, "extensions"), { withFileTypes: true })
-		.filter((entry) => entry.isDirectory() && existsSync(join(REPO, "extensions", entry.name, "index.ts")))
-		.map((entry) => join(REPO, "extensions", entry.name, "index.ts"));
-}
-
 /** Each dependency one entrypoint loads at registration, with the chain that reaches it. */
 function registrationLoads(entry: string): string[] {
 	const parents = new Map<string, string>();
@@ -228,7 +170,7 @@ function registrationLoads(entry: string): string[] {
 
 describe("dependency budget", () => {
 	test("no runtime dependency loads when an extension registers", () => {
-		const loads = [...new Set(entrypoints().flatMap(registrationLoads))].sort();
+		const loads = [...new Set(ENTRIES.flatMap(registrationLoads))].sort();
 		expect(
 			loads,
 			"load the package inside the function that needs it (the extract/xlsx.ts pattern), or name a reason in REGISTRATION_LOAD",
@@ -324,29 +266,50 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 };
 
 /**
- * The total static module evaluations the entries may have.
+ * What each entry may statically evaluate, keyed by extension name.
  *
  * Like `LONG_MODULES`, the bar may only fall: a feature that needs more modules
- * has to justify the raise here, and a deferral that lands lowers it.
+ * has to justify the raise here, and a deferral that lands lowers it. The budget
+ * is per entry rather than one total because Pi imports each extension with its
+ * own module cache — a shared `lib/` module is paid once *per importing entry* —
+ * so a total lets one entry balloon while another's deferral pays for it. The
+ * total is their sum, 737.
  *
- * 727 → 733: the board's `bytefly.json` section became one module (`board/config.ts`, read by
- * `board` and by `team` through the store) and the signer rule another (`board/lead.ts`), so the
- * two entries that load the board's rules load two more modules each; then the page's seat
- * (`board/seat.ts`) became `lib/`, which the settings screen loads too, since the lead's default
- * is that seat. Nothing was deferred.
- *
- * 733 → 734: folding `plan` into one action tool adds one, and defers none — `tools/refusal.ts`
- * is the one rejected-call shape five actions share. `worktree`'s folded tool draws
- * bytefly's generic fallback, exactly as its four tools did, so no transcript kit joins its
- * registration graph for cosmetics.
- *
- * 734 → 737: `job`'s 1017-line runtime became three modules of one responsibility — the table,
- * `child.ts` (a job's process and its output) and `clock.ts` (the repaint clock and the
- * reattached-job sweep) — and the last of the three brings `lib/child.ts` with it, which is the
- * module both extensions now spawn through. Nothing is deferred: the three are the split, and
- * every one of them is what the old single module already evaluated, spread differently.
+ * The heights moved as the tree did: the board's `bytefly.json` section became
+ * one module (`board/config.ts`, read by `board` and by `team` through the store)
+ * and the signer rule another (`board/lead.ts`); the page's seat (`board/seat.ts`)
+ * became `lib/`, which the settings screen loads too. Folding `plan` into one
+ * action tool adds one to `plan` and defers none — `tools/refusal.ts` is the one
+ * rejected-call shape five actions share — and `worktree`'s folded tool draws
+ * bytefly's generic fallback, exactly as its four tools did. `job`'s 1017-line
+ * runtime became three modules of one responsibility, only the last of which
+ * brings `lib/child.ts` with it: the three are the split, and every one of them
+ * is what the old single module already evaluated, spread differently.
  */
-const MODULE_BUDGET = 737;
+const ENTRY_BUDGET: Readonly<Record<string, number>> = {
+	bytefly: 92,
+	board: 58,
+	plan: 55,
+	team: 48,
+	job: 43,
+	"session-bus": 43,
+	subagent: 41,
+	"web-access": 39,
+	worktree: 35,
+	goal: 34,
+	watch: 32,
+	todo: 30,
+	wechat: 30,
+	check: 29,
+	"file-read": 29,
+	rewind: 28,
+	memory: 27,
+	question: 18,
+	serve: 11,
+	context: 8,
+	"file-open": 5,
+	"file-browse": 2,
+};
 
 /** A repo-relative path with forward slashes, the form the maps use. */
 function repoRelative(file: string): string {
@@ -368,25 +331,11 @@ function everySourceFile(): string[] {
 }
 
 /** Every local module one entrypoint loads statically, its entry included. */
-function staticGraph(entry: string): Set<string> {
-	const seen = new Set<string>();
-	const queue = [entry];
-	while (queue.length > 0) {
-		const file = queue.shift() as string;
-		if (seen.has(file)) continue;
-		seen.add(file);
-		for (const specifier of staticSpecifiers(file)) {
-			const target = resolveFile(file, specifier);
-			if (target !== null) queue.push(target);
-		}
-	}
-	return seen;
-}
 
 describe("registration module budget", () => {
 	test("the deferred surfaces do not load when an extension registers", () => {
 		const offenders: string[] = [];
-		for (const entry of entrypoints()) {
+		for (const entry of ENTRIES) {
 			const graph = staticGraph(entry);
 			const reached = new Set([...graph].map(repoRelative));
 			for (const path of reached) {
@@ -416,11 +365,23 @@ describe("registration module budget", () => {
 		expect(dead.map(String), "a rule that matches nothing has stopped applying; fix it or drop it").toEqual([]);
 	});
 
-	test("the registration graph stays inside its module budget", () => {
-		const total = entrypoints().reduce((sum, entry) => sum + staticGraph(entry).size, 0);
-		expect(total, "static module evaluations across every entry; MODULE_BUDGET may only fall").toBeLessThanOrEqual(
-			MODULE_BUDGET,
+	test("every entry's registration graph stays inside its budget", () => {
+		const offenders = ENTRIES.filter((entry) => staticGraph(entry).size > (ENTRY_BUDGET[extensionOf(entry)] ?? 0)).map(
+			(entry) => {
+				const name = extensionOf(entry);
+				return `${name}: ${staticGraph(entry).size} static modules, budget ${ENTRY_BUDGET[name] ?? 0}; defer a surface or raise the row`;
+			},
 		);
+		expect(offenders, "static module evaluations per entry; each row in ENTRY_BUDGET may only fall").toEqual([]);
+	});
+
+	test("every entry has a budget, and every budget names an entry", () => {
+		const names = ENTRIES.map(extensionOf);
+		const missing = names.filter((name) => !(name in ENTRY_BUDGET)).map((name) => `${name}: no row in ENTRY_BUDGET`);
+		const stale = Object.keys(ENTRY_BUDGET)
+			.filter((name) => !names.includes(name))
+			.map((name) => `${name}: row names no extension on disk`);
+		expect([...missing, ...stale], "a new extension enters the budget; a deleted one leaves it").toEqual([]);
 	});
 });
 

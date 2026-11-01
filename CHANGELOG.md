@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `dev`: `bun run bench:load` reports what a load costs, per extension — the
+  modules its entry statically evaluates at registration, how many of them are `lib/`, how
+  many another entry pays again, and what that graph costs to import with the host packages
+  warm. Pi imports each extension with its own module cache, so the package evaluates 737
+  local modules over 392 distinct ones today; the graph is gated per entry in
+  `test/dependencies.test.ts` (the one total became one budget per extension, so an entry
+  that grows can no longer be paid for by another's deferral), and the timings stay a
+  pre-release reading.
 - `team`: a fifth action, `ask`, sends one peer a question as the bus's `ask` kind and
   reports what happened to it — `Asked billing-core.`, or the peers that will read it at
   their next turn instead of being woken. It writes no card and waits on nothing: the reply

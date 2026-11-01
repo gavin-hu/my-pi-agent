@@ -28,6 +28,7 @@ import { createPricer } from "../extensions/bytefly/footer/price/price.ts";
 import type { ByteflyConfig, ModelRates } from "../extensions/bytefly/footer/price/types.ts";
 import type { UsageRecord } from "../extensions/bytefly/footer/types.ts";
 import { renderingComponents } from "./tools/index.ts";
+import { printTable } from "./cli.ts";
 
 /** One measured transcript shape. */
 export interface BenchCase {
@@ -132,6 +133,7 @@ export function measure(benchCase: BenchCase): BenchResult {
 		frame(components, benchCase.width);
 		durations.push(performance.now() - started);
 	}
+	const p95Ms = p95(durations);
 
 	collect();
 	const before = process.memoryUsage().heapUsed;
@@ -143,7 +145,7 @@ export function measure(benchCase: BenchCase): BenchResult {
 		...benchCase,
 		lines,
 		medianMs: median(durations),
-		p95Ms: p95(durations),
+		p95Ms,
 		// A frame that allocates nothing can read as a small negative delta after a
 		// collection; report the floor instead of a "-0.00 MB".
 		heapMbPerFrame: Math.max(0, (after - before) / FRAMES / (1024 * 1024)),
@@ -253,15 +255,6 @@ export function measurePrice(priceCase: PriceCase): PriceResult {
 	}
 	const ms = median(durations);
 	return { ...priceCase, ms, perRecordMs: (ms * 1000) / priceCase.records, stable: priceStable(records, config) };
-}
-
-/** Print one fixed-width table; the header names the columns. */
-function printTable(header: readonly string[], rows: readonly (readonly string[])[]): void {
-	const widths = header.map((title, column) => Math.max(title.length, ...rows.map((row) => row[column].length)));
-	const format = (cells: readonly string[]): string =>
-		cells.map((cell, column) => cell.padEnd(widths[column])).join("  ");
-	console.log(format(header));
-	for (const row of rows) console.log(format(row));
 }
 
 /** `bun run bench:render` */
