@@ -9,7 +9,7 @@ import { failedResult, textResult } from "../../lib/tool-result.ts";
 import type { AgentConfig } from "./agents.ts";
 import type { TranscriptMode } from "./config.ts";
 import type { RunOptions } from "./run.ts";
-import { MAX_CONCURRENCY, PER_TASK_OUTPUT_CAP, type SubagentArgs } from "./schema.ts";
+import { MAX_CONCURRENCY, MODEL_OUTPUT_CAP, type SubagentArgs } from "./schema.ts";
 import {
 	createResult,
 	getFinalOutput,
@@ -19,6 +19,14 @@ import {
 	truncateOutput,
 } from "./stream.ts";
 import type { DispatchDefaults, OnUpdateCallback, SingleResult, SubagentDetails } from "./types.ts";
+
+/**
+ * Model-facing text for one result, capped in every mode: a failed run's error detail or
+ * stderr is the case that needs it, and `details` keeps the full text either way.
+ */
+function boundedOutput(result: SingleResult): string {
+	return truncateOutput(getResultOutput(result), MODEL_OUTPUT_CAP);
+}
 
 /** Everything a mode runner needs, assembled once by `index.ts`. */
 export interface ModeContext {
@@ -75,7 +83,7 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 
 		if (isFailedResult(result)) {
 			return failedResult(
-				`Chain stopped at step ${i + 1} (${step.agent}): ${getResultOutput(result)}`,
+				`Chain stopped at step ${i + 1} (${step.agent}): ${boundedOutput(result)}`,
 				makeDetails(results),
 			);
 		}
@@ -130,7 +138,7 @@ export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult
 
 	const successCount = results.filter((result) => !isFailedResult(result)).length;
 	const summaries = results.map((result) => {
-		const output = truncateOutput(getResultOutput(result), PER_TASK_OUTPUT_CAP);
+		const output = boundedOutput(result);
 		const status = isFailedResult(result)
 			? `failed${result.stopReason && result.stopReason !== "end" ? ` (${result.stopReason})` : ""}`
 			: "completed";
@@ -163,7 +171,7 @@ export async function runSingleMode(ctx: ModeContext): Promise<AgentToolResult<S
 
 	if (isFailedResult(result)) {
 		return failedResult(
-			`Agent ${result.agent} ${result.stopReason ?? "failed"}: ${getResultOutput(result)}`,
+			`Agent ${result.agent} ${result.stopReason ?? "failed"}: ${boundedOutput(result)}`,
 			makeDetails([result]),
 		);
 	}
