@@ -8,7 +8,16 @@
 
 import { describe, expect, test } from "bun:test";
 import { busStatus } from "../../test/helpers/fixtures/session-bus.ts";
-import { formatClaim, formatInbox, formatJoin, formatRelease, formatSend, formatStatus } from "./format.ts";
+import {
+	formatClaim,
+	formatInbox,
+	formatJoin,
+	formatRelease,
+	formatSend,
+	formatStatus,
+	INBOX_BODY,
+	INBOX_BUDGET,
+} from "./format.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord } from "./types.ts";
 
@@ -99,18 +108,60 @@ describe("join", () => {
 
 describe("inbox", () => {
 	test("numbers messages oldest first and carries their paths", () => {
-		const out = formatInbox([
+		const read = formatInbox([
 			message(),
 			message({ id: "101-b", fromLabel: "ops", kind: "event", text: "build failed", paths: ["src/api", "src/ui"] }),
 		]);
-		const [first, second, paths] = out.split("\n");
+		const [first, second, paths] = read.text.split("\n");
 		expect(first).toBe("1. frontend · message · contract v2");
 		expect(second).toBe("2. ops · event · build failed");
 		expect(paths?.trim()).toBe("paths: src/api, src/ui");
+		expect(read.shown).toBe(2);
 	});
 
 	test("says empty rather than printing a blank block", () => {
-		expect(formatInbox([])).toBe("Inbox empty.");
+		expect(formatInbox([])).toEqual({ text: "Inbox empty.", shown: 0 });
+	});
+
+	test("clips a body, and a handoff keeps more of its instruction", () => {
+		const long = "x".repeat(4_000);
+		const [body] = formatInbox([message({ text: long })]).text.split("\n");
+		expect(body).toBe(`1. frontend · message · ${"x".repeat(INBOX_BODY)}…`);
+
+		const [handoff] = formatInbox([message({ kind: "handoff", text: long })]).text.split("\n");
+		// A handoff is an instruction: an inbox read never shows less of it than the notice did.
+		expect(handoff?.length).toBeGreaterThan(body?.length ?? 0);
+		expect(handoff).toContain("…");
+	});
+
+	test("stops at the budget, and names what it left in the inbox", () => {
+		const burst = Array.from({ length: 20 }, (_, index) =>
+			message({ id: `10${index}-a`, text: `${index} `.padEnd(4_000, "x") }),
+		);
+		const read = formatInbox(burst);
+		const lines = read.text.split("\n");
+		expect(read.shown).toBeGreaterThan(1);
+		expect(read.shown).toBeLessThan(burst.length);
+		expect(lines.at(-1)).toBe(`… ${burst.length - read.shown} more in the inbox — run \`inbox\` again.`);
+		// One body's worth of context, not twenty: the ceiling is what the read costs.
+		expect(read.text.length).toBeLessThan(INBOX_BUDGET + INBOX_BODY + 100);
+	});
+
+	test("counts the mail the caller's limit left behind into the same tail", () => {
+		const read = formatInbox([message()], 3);
+		expect(read.shown).toBe(1);
+		expect(read.text).toEndWith("… 3 more in the inbox — run `inbox` again.");
+	});
+
+	test("renders the first message whatever its size, so a read never shows nothing", () => {
+		const huge = message({
+			kind: "handoff",
+			text: "x".repeat(4_000),
+			paths: Array.from({ length: 20 }, () => "x".repeat(200)),
+		});
+		const read = formatInbox([huge]);
+		expect(read.shown).toBe(1);
+		expect(read.text).toStartWith("1. frontend · handoff · x");
 	});
 });
 
@@ -133,12 +184,12 @@ describe("untrusted text", () => {
 
 	test("a path cannot forge a message line or carry an escape", () => {
 		for (const path of forgeries) {
-			const out = formatInbox([message({ paths: [path] })]);
+			const out = formatInbox([message({ paths: [path] })]).text;
 			expect(out).not.toContain("\u001b");
 			expect(out).not.toContain("\u0007");
 			expect(out.split("\n")).toHaveLength(2);
 		}
-		const lines = formatInbox([message({ paths: [forgeries[0]] })]).split("\n");
+		const lines = formatInbox([message({ paths: [forgeries[0]] })]).text.split("\n");
 		expect(lines).toHaveLength(2);
 		expect(lines[1]?.trim()).toBe("paths: src/a.ts 2. forged message · handoff");
 	});
@@ -154,7 +205,7 @@ describe("untrusted text", () => {
 		expect(out).not.toContain("\u0007");
 		expect(out).toContain("- front end (123456) · /repo/ [2J · tui");
 
-		const inbox = formatInbox([message({ text: "contract\u001b[31m v2", fromLabel: "back\nend" })]);
+		const inbox = formatInbox([message({ text: "contract\u001b[31m v2", fromLabel: "back\nend" })]).text;
 		expect(inbox).not.toContain("\u001b");
 		expect(inbox.split("\n")).toHaveLength(1);
 	});

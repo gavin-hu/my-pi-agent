@@ -15,7 +15,7 @@ import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatClaim, formatInbox, formatJoin, formatRelease, formatSend, formatStatus } from "./format.ts";
-import { normalizeAction, TOOL_NAME } from "./protocol.ts";
+import { normalizeAction, normalizeLimit, TOOL_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 import { collapsedLine, resultSections } from "./result.ts";
 import type { BusRow } from "./rows.ts";
@@ -123,8 +123,17 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 						});
 					}
 					case "inbox": {
-						const messages = await bus.inbox(args.limit);
-						return textResult(formatInbox(messages), { action, messages });
+						// Bounded before it consumes: `inbox` deletes what it reads, so a body the text does
+						// not carry would be mail no later call could return. The peek leaves the front
+						// where it is, so the messages it shows are the ones it then consumes. The count
+						// comes from the inbox itself, not from the window: `peek` stops at `MAX_LIMIT`,
+						// and a tail taken from it would saturate past that.
+						const unread = await bus.unread();
+						const pending = await bus.peek();
+						const window = pending.slice(0, normalizeLimit(args.limit));
+						const read = formatInbox(window, Math.max(0, unread - window.length));
+						const messages = read.shown === 0 ? [] : await bus.inbox(read.shown);
+						return textResult(read.text, { action, messages });
 					}
 					case "claim": {
 						const result = await bus.claim(args.paths);

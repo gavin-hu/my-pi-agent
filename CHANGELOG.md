@@ -111,6 +111,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reload instead of blocking it. The report channel keeps its ordering: the trigger arms when
   a runtime's load lands, and a load that fails is armed anyway and reported at the first
   read rather than as an unhandled rejection.
+- `session-bus`: an `inbox` read is bounded by what it can put in a context, and consumes
+  only what it shows. Every body was rendered whole — the default 20-message read of
+  4,000-character bodies was 80,430 characters, 200,000 at the maximum limit, and the notice
+  for the same burst is 1,191 — so `inbox`, the surface the prompt tells a model to run, was
+  the one with no ceiling. A body is now clipped (400 characters, 800 for a handoff, never
+  less than the notice already showed) and the read stops at 4,000 characters; the mail past
+  that point, or past `limit`, is named in one `… N more in the inbox` line. Because a read
+  deletes, the tool peeks at the front of the inbox and then consumes exactly what it rendered,
+  so the tail is true: the next `inbox` returns the rest, and a ceiling can never be mail
+  deleted unseen. The clip rule moved to `format.ts` so the notice and the inbox cannot drift.
 
 ### Fixed
 

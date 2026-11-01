@@ -79,6 +79,8 @@ export interface SessionBus {
 	snapshot(): Promise<SessionStatus>;
 	/** This session's unread mail, read only: nothing is consumed or marked. */
 	peek(): Promise<BusMessage[]>;
+	/** Messages waiting in this session's inbox, counted by file — `peek` stops at its own cap. */
+	unread(): Promise<number>;
 	/** Release a claim by its stored repository-relative path. */
 	releaseStored(path: string): Promise<boolean>;
 	send(input: {
@@ -519,6 +521,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			return (await store.peek(record.id, { limit: MAX_LIMIT })).mail;
 		},
 
+		async unread() {
+			if (!store || !record) throw new Error("session bus is not started.");
+			return store.unread(record.id);
+		},
 		/**
 		 * Release a claim by its stored path.
 		 *

@@ -9,6 +9,7 @@
 import { sanitizeLine } from "../../lib/format.ts";
 import { burstText, noticeMessage, type NoticeItem, type NoticeMessage } from "../../lib/notice.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { clipText, HANDOFF_PREVIEW } from "./format.ts";
 import type { BusMessage } from "./types.ts";
 
 /** Marker embedded in the injected mail context. */
@@ -19,13 +20,6 @@ const MAX_NOTICE_LINES = 5;
 
 /** A message body is clipped to this many characters in a preview. */
 const MAX_PREVIEW = 200;
-
-/**
- * A handoff is clipped far less generously, because it is an instruction and not a
- * notification: the card, its paths, and the step to take all sit past the point
- * where a message preview would have stopped. The inbox still holds the full text.
- */
-const HANDOFF_PREVIEW = 800;
 
 /** What a waking turn is told to do with a handoff: work it, not acknowledge it. */
 const HANDOFF_HINT =
@@ -41,9 +35,7 @@ function headlineOf(messages: readonly BusMessage[]): string {
 
 /** One message as a preview line: sender, kind, and the head of its text. */
 function previewOf(message: BusMessage): string {
-	const text = sanitizeLine(message.text);
-	const limit = message.kind === "handoff" ? HANDOFF_PREVIEW : MAX_PREVIEW;
-	const head = text.length > limit ? `${text.slice(0, limit)}…` : text;
+	const head = clipText(sanitizeLine(message.text), message.kind === "handoff" ? HANDOFF_PREVIEW : MAX_PREVIEW);
 	const paths = message.paths?.length ? ` (${message.paths.map((path) => sanitizeLine(path)).join(", ")})` : "";
 	return `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}${SEPARATORS.item}${head}${paths}`;
 }

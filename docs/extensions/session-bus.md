@@ -55,7 +55,7 @@ collapsed line that expands to the board's rows.
 |---|---|---|
 | `status` | — | Active sessions with unread counts, their state, claims, and this session's identity. A session whose process is gone is listed as `gone` until its heartbeat ages out, and its claims are not listed at all. Prunes stale records. A read: it never adds this session to the bus. |
 | `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient. `to: "*"` is only valid with `kind: "event"`. A session whose process is gone is not a recipient: naming it is refused, and a broadcast skips it. |
-| `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
+| `inbox` | optional `limit` | Consumes up to `limit` messages, oldest first (default 20, max 50). Each body is clipped and the whole read stops at a 4,000-character budget; the mail it did not reach stays in the inbox and is named in one `… N more` line. |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
 | `join` | optional `label`, `wake`, `listen` | Joins the bus, names this session on it and in Pi when a label is given — the same path and uniqueness rule as `/team join`, so `/resume` agrees with the record peers address — and starts listening for mail. The footer draws the label either way, so a plain join changes the name on the bar without renaming the session. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; `listen: false` joins without listening. A label a live session holds is refused, naming the session that holds it — its id, since the label it holds is the one you asked for — and the refusal leaves both names and the watch alone. The result reports the label the bus settled on and whether mail will reach this session. |
@@ -120,7 +120,8 @@ a `wake` raises that session’s own turn, not a phone notification.
 ## Configuration
 
 None in v1. The heartbeat (10 s), watch poll (2 s), session TTL (10 min), message
-TTL (24 h), text cap, inbox limit, and preview cap are fixed, not configurable.
+TTL (24 h), text cap, inbox limit, body clip, and inbox ceiling are fixed, not
+configurable.
 The bus lives under the agent directory, not the project, so it is never committed.
 
 ## Parallel workflow
@@ -217,8 +218,9 @@ listening watch is what raises the turn.
   survivor's.
 - **A message file that does not parse is skipped, and left to `inbox` and the TTL.** The
   board's read never consumes mail, so it deletes nothing — not even a file it cannot
-  validate, which may be mail this build cannot read and the next one can. Consuming it
-  or the 24-hour expiry is what clears the file.
+  validate, which may be mail this build cannot read and the next one can. An `inbox`
+  read that consumes at least one message clears such a file on the way past; one that
+  consumes nothing, like the board, leaves it to the 24-hour expiry.
 - **No network.** It is not a distributed bus and does not synchronize machines.
 
 ## Pi integration
@@ -292,6 +294,20 @@ listening watch is what raises the turn.
 - **The notice reuses the shared report channel.** `lib/report.ts` already owns
   whether an outcome may raise a turn; the bus supplies the pending mail and the
   text, and bytefly renders the notice like a `job` or `watch` one.
+- **One read is bounded, and consumes only what it shows.** `inbox` is the surface the
+  prompt tells a model to run, so it is the one that could cost the most context: each
+  body is clipped — 400 characters, 800 for a handoff, never less than the notice already
+  showed — and the read stops at 4,000 characters, where a burst of full bodies was 80,000
+  at the default limit. The mail past that point, or past `limit`, is named in one
+  `… N more` line rather than rendered. The read peeks at the front of the inbox, then
+  deletes exactly the messages it showed: the front is a queue, so the mail behind the
+  line is what the next call returns, and a ceiling can never be mail deleted unseen. The
+  count in that line comes from the inbox's own file count, not from the peek — `peek`
+  stops at 50, and a tail taken from it would saturate and read as closer to caught up
+  than the session is. The peek and the delete are two reads, so a message that arrives
+  between them *and* sorts ahead of the front would be consumed unseen; only a peer clock
+  behind the front's can write an id that early, and the watch's whole page is ordered by
+  what is on disk for the same reason.
 
 ## Files
 
@@ -317,7 +333,7 @@ listening watch is what raises the turn.
 ## Testing
 
 The capability suites — `format`, `protocol`, `store`, `runtime`, `tui`, `tools`,
-`overlap`, `resolve`, and `extension` — are declared in `test/suite-manifest.ts`.
+`inbox-read`, `overlap`, `resolve`, and `extension` — are declared in `test/suite-manifest.ts`.
 They build a bus in a temp directory with a fixed clock, so none needs a live peer; `runtime.test.ts`
 puts its real-repository cases behind `runSlowSuites`, which skips unless `CI` or
 `PI_SLOW_TESTS=1` is set.
