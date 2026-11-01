@@ -99,7 +99,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 		name: TEAM_TOOL,
 		label: "Team",
 		description:
-			"Run a round of work over the shared board: `assign` hands a card to a running session and sends it a handoff " +
+			"Run a round of work over the shared board: `assign` sends a running session a handoff and then records the owner " +
 			"(`to` is a teammate's label or id, as `/team` lists them); `offer` broadcasts an unclaimed card to every other " +
 			"live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back to Backlog and " +
 			"sends nothing, so it needs no team; `claim` takes one for yourself, and the card's plan, contract, moves, and " +

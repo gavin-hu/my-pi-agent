@@ -2,8 +2,8 @@
 
 `board` owns the cards. `team` owns the lead's five actions: `assign` hands a card to a
 session that is **already running**, `offer` hands one to whoever is free, and `reclaim`
-takes one back when its owner is gone or has gone quiet. `assign` writes the card and puts
-a handoff on the session bus, `offer` writes only the moment it was made — never an owner,
+takes one back when its owner is gone or has gone quiet. `assign` sends the handoff and
+then writes the card, `offer` writes only the moment it was made — never an owner,
 because the first peer to claim is what makes an offer into work — and `reclaim` writes the
 card alone, so it needs no bus. `ask` writes no card at all: it sends one peer a question
 as an `ask` message, and the answer comes back as ordinary mail.
@@ -262,7 +262,7 @@ moves, and finish are `board`'s in this same session.
   second tool to be on a team, so `/board` joins, the first claimed card joins, and
   `/team join` is the one naming action. `wake` stays a bus-level choice and is never
   armed on a user's behalf, because it spends turns.
-- **Push and pull are two verbs.** `assign` writes the owner and sends one message;
+- **Push and pull are two verbs.** `assign` sends one message and then writes the owner;
   `offer` broadcasts and writes nothing. One verb with an optional `to` would have two
   outcomes and one details shape, and a reader could not tell which happened.
 - **The offer's preconditions are a dry-run claim.** `applyOp` judges what a peer is about

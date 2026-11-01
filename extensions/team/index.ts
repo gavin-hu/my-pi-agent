@@ -1,8 +1,8 @@
 /**
  * team — the lead's round over the shared board.
  *
- * `board` owns the cards; `team` owns the leads round over them. `assign` hands a card to
- * a session that is already running and sends it a handoff — dispatch cannot start a
+ * `board` owns the cards; `team` owns the leads round over them. `assign` sends a handoff
+ * to a session that is already running and then records the owner — dispatch cannot start a
  * peer's turn, and the page and the docs say so — `offer` broadcasts one to whoever is
  * free, `reclaim` takes one back when its owner is gone or has gone quiet, and `claim`
  * takes one for the lead itself. The card's life after that is `board`'s.

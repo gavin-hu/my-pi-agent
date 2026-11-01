@@ -86,7 +86,7 @@ where it does, the sections a reader acts on, then its notes newest first
 | Fix what a card says | `board` action `edit` | A new title, path hints, priority, or the cards it waits for — by its holder, or by anyone while nobody holds it |
 | Say how urgent it is | `board` action `add` or `edit` with `priority` | `high` sorts first inside its lane, and the card says so |
 | Record what a card waits for | `board` action `edit` with `dependsOn` | An unfinished dependency refuses a claim and a move to `execute` or `done`, and the reason line names it; the card it waits on answers the other half — `list` on it names the cards waiting on it, and its dialog row `waited on by` says the same |
-| Hand a card to a teammate | `team` action `assign` | The owner is recorded **and** a handoff is sent to that session's inbox; a pool card comes with `plan`, and a card somebody already holds is refused — `reclaim` it, then assign. The page cannot do this: a browser has no way to message a peer, so a page assignment that recorded an owner and told nobody is gone with the write path |
+| Hand a card to a teammate | `team` action `assign` | A handoff is sent to that session's inbox **and then** the owner is recorded; a pool card comes with `plan`, and a card somebody already holds is refused — `reclaim` it, then assign. The page cannot do this: a browser has no way to message a peer, so a page assignment that recorded an owner and told nobody is gone with the write path |
 | Take a card back from the tool | `board` action `reclaim` | The owner clears and the card returns to `backlog`, without the page and without `team` |
 | Find a card without reading every lane | `board` action `list` with `query` | The cards whose title, holder, path hint, plan, or note text matches — the same rule the page's filter uses, from one body (`MATCHES_QUERY_JS`) |
 | See the work you hold | `board` action `list` with `mine` | The cards this session holds, by the same rule a claim is checked against |
@@ -326,7 +326,7 @@ The board as a posting card — the same rules, drawn to be read at half width:
 
 *`board`: the lanes, one card's atoms, and the lead's round — three readings of one board, drawn by `screenshot:cards board`.*
 
-<img src="../../assets/cards/board-team.png" alt="The three team verbs as three bands: assign sends a handoff to a named peer and writes the card into plan, owned by that peer, before the peer reads the mail; offer broadcasts an event to every other live session without recording an owner, so the first claim wins; reclaim returns the card to Backlog with its notes kept and no handoff sent" width="100%">
+<img src="../../assets/cards/board-team.png" alt="The three team verbs as three bands: assign sends a handoff to a named peer and then records the owner, so a pooled card enters plan in that write; offer broadcasts an event to every other live session without recording an owner, so the first claim wins; reclaim returns the card to Backlog with its notes kept and no handoff sent" width="100%">
 
 *`board-team`: `assign`, `offer`, and `reclaim` — the two that reach the bus, and the one that writes the card alone (`screenshot:cards team`).*
 
