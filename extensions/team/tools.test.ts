@@ -5,15 +5,18 @@
  * on — so the cases assert it off the tool rather than a copy, and the stray-field table is
  * what keeps a parameter from being published to an action that would drop it. `claim` and
  * `reclaim` move the card and nothing else, so they need no bus; the two verbs that send a
- * message live in `handoff.test.ts`.
+ * message live in `handoff.test.ts`. The transcript block is the same surface seen by a
+ * human: one collapsed line, and the result's own lines behind the expand key.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import type { Card } from "../../lib/board/card.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
-import { NOW, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
+import { NOW, type TeamSuite, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
+import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { ACTION_FIELDS, TEAM_ACTIONS } from "./types.ts";
+import { ACTION_FIELDS, TEAM_ACTIONS, type TeamDetails } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -239,5 +242,61 @@ describe("reclaim", () => {
 		await board.mutate(id, { kind: "claim" }, { label: "billing-core" }, NOW);
 		await call({ action: "reclaim", card: id });
 		expect(sent).toEqual([]);
+	});
+});
+
+describe("the transcript block", () => {
+	/** One result rendered at 80 columns, the way the transcript asks for it. */
+	const block = (tool: TeamSuite["tool"], result: unknown, expanded: boolean): string =>
+		tool
+			.renderResult(result, { expanded, isPartial: false }, fakeTheme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+
+	test("collapsed is the one summary line, and expanding draws the lines the model got", async () => {
+		// The peer's record says it is not listening, so the result carries the one fact a human
+		// cannot get from the card: that the handoff waits for that peer's next turn.
+		const { call, tool, seed } = harness({ peers: [{ id: "s-core", label: "billing-core", listening: false }] });
+		const id = await seed();
+		const result = await call({ action: "assign", card: id, to: "billing-core" });
+		expect(block(tool, result, false).trim()).toBe(`#${id} plan → billing-core`);
+		const expanded = block(tool, result, true);
+		// The sentences `format.ts` wrote for the model, drawn rather than repeated: the card's
+		// title and paths, then who reads the message when.
+		expect(expanded).toContain("Billing webhook accepts orders");
+		// The continuation indent survives the sanitizer, which trims a line: a title under the
+		// sentence it belongs to is not a list item.
+		expect(expanded).toContain("  paths: src/billing");
+		expect(expanded).toContain("Not listening: billing-core");
+		expect(expanded).not.toBe(block(tool, result, false));
+	});
+
+	test("the call line names the peer for ask, the one verb with no card", () => {
+		const { tool } = harness();
+		const line = (args: Record<string, unknown>): string =>
+			tool.renderCall(args, fakeTheme, { lastComponent: undefined }).render(80).join("\n");
+		// `ask` acts on a peer and nothing else, so a subject that stopped at the verb hid the
+		// only thing the call was about.
+		expect(line({ action: "ask", to: "billing-core" })).toContain("ask → billing-core");
+		expect(line({ action: "reclaim", card: "2" })).toContain("reclaim #2");
+		// `offer` broadcasts, so a peer in its args is a stray field the call refuses: the subject
+		// never names one.
+		expect(line({ action: "offer", card: "2", to: "billing-core" })).not.toContain("billing-core");
+	});
+
+	test("an expanded block neutralizes the text it draws", async () => {
+		const { tool, seed, store } = harness();
+		const id = await seed();
+		const card = (await (await store()).read(id)) as Card;
+		// A card's title is user data, so it reaches the block through the sanitizer: the escapes
+		// a stored title could carry never reach the terminal.
+		const result = {
+			content: [{ type: "text", text: `#${id} handed off to billing-core.\n  Ev\u001b[31mil\u0007 title` }],
+			details: { action: "assign", card } as TeamDetails,
+		};
+		const expanded = block(tool, result, true);
+		expect(expanded).not.toContain("\u001b");
+		expect(expanded).not.toContain("\u0007");
+		expect(expanded).toContain("title");
 	});
 });

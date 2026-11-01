@@ -16,7 +16,7 @@
  * the round's.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
 import { type Card, cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { indexOf } from "../../lib/board/links.ts";
@@ -24,10 +24,12 @@ import { type Actor, mayOp } from "../../lib/board/rules.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
+import { sanitizeUntrustedLine } from "../../lib/format.ts";
 import type { DeliveryFailure, TeamJoin } from "../../lib/session-tool.ts";
 import { failedResult, type ToolFailure, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
+import { paint } from "../../lib/tui/tokens.ts";
+import { callLine, detailsOrLine, messageText, type ToolMessageResult } from "../../lib/tui/tool.ts";
 import { plural } from "../../lib/board/round-text.ts";
 import { strayField } from "../../lib/stray-fields.ts";
 import {
@@ -70,11 +72,40 @@ function refusal(action: TeamAction, message: string, card?: Card): ToolFailure<
 	return failedResult(`Error: ${message}`, { action, error: message, ...(card === undefined ? {} : { card }) });
 }
 
-/** The call line's subject: the verb, the card, and the peer it names. */
+/**
+ * The call line's subject: the verb, the card, and the peer it names.
+ *
+ * `assign` and `ask` are the two verbs that act on a peer, and `ask` is the one with no
+ * card — so its subject is the peer alone, and a line that stopped at the verb would hide
+ * the only thing the call was about.
+ */
 function callSubject(action: TeamAction, args: Record<string, unknown>): string {
 	const card = typeof args.card === "string" && args.card.trim() !== "" ? cardRef(args.card.trim()) : "";
 	const to = typeof args.to === "string" && args.to.trim() !== "" ? ` → ${args.to.trim()}` : "";
-	return card === "" ? action : `${action} ${card}${action === "assign" ? to : ""}`;
+	const peer = action === "assign" || action === "ask" ? to : "";
+	return card === "" ? `${action}${peer}` : `${action} ${card}${peer}`;
+}
+
+/**
+ * The result's own lines, as the expanded block draws them.
+ *
+ * `format.ts` owns the wording, and the model reads it as the call's text, so the block
+ * draws that text rather than a second copy of the sentences: a card's title and paths
+ * reach a human in the words the tool already wrote. Both are a card's, so every line is
+ * sanitized at the boundary before the theme paints it — and the indent `format.ts` gives
+ * a continuation line is put back, because the sanitizer trims one and a title under the
+ * sentence it belongs to is not a list item.
+ */
+function resultLines(theme: Theme, result: ToolMessageResult): string {
+	return messageText(result)
+		.split("\n")
+		.map((line) => paint(theme, "toolOutput", `${continuationIndent(line)}${sanitizeUntrustedLine(line)}`))
+		.join("\n");
+}
+
+/** The two-space indent a result's continuation line carries, and a first line does not. */
+function continuationIndent(line: string): string {
+	return line.startsWith("  ") ? "  " : "";
 }
 
 /** What the tool needs from the outside, so a suite drives it without a bus. */
@@ -167,11 +198,17 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			return callLine(theme, context.lastComponent, TEAM_TOOL, callSubject(action, args as Record<string, unknown>));
 		},
 
-		renderResult(result, _options, theme, context) {
+		renderResult(result, options, theme, context) {
 			const text = reuseText(context?.lastComponent);
 			const details = toolDetails<TeamDetails>(result.details);
-			const outcome = detailsOrLine(theme, result, false, details);
-			text.setText("line" in outcome ? outcome.line : summaryOf(outcome.details));
+			const outcome = detailsOrLine(theme, result, options.expanded, details);
+			if ("line" in outcome) {
+				text.setText(outcome.line);
+				return text;
+			}
+			// A round's result is a card and a sentence about it, so the collapsed block is the one
+			// summary line and expanding reveals the lines the model was handed.
+			text.setText(options.expanded ? resultLines(theme, result) : summaryOf(outcome.details));
 			return text;
 		},
 	});

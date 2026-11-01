@@ -5,9 +5,8 @@
  * to a session that is already running and then records the owner — dispatch cannot start a
  * peer's turn, and the page and the docs say so — `offer` broadcasts one to whoever is
  * free, `reclaim` takes one back when its owner is gone or has gone quiet, and `claim`
- * takes one for the lead itself. The card's life after that is `board`'s.
- * Its one
- * command, `/team`, prints the round the board's Team tab draws, without a browser.
+ * takes one for the lead itself. The card's life after that is `board`'s. Its one command,
+ * `/team`, prints the round the board's Team tab draws, without a browser.
  *
  * Either extension works without the other: `board` is the work list, and `team` is
  * the lead's half of it; both are opt-in, so a session names the ones it runs. The

@@ -107,8 +107,9 @@ export function roundText(cards: readonly Card[], now: number, roster?: readonly
  * The work a dead owner left behind, as the line that says who takes it.
  *
  * One line per gone owner that still holds cards, before the presence line: `gone: b` at
- * the end of that line says who died, and this one says what to do about it. A card that
- * waits on another is left to the board, whose rules would refuse the claim anyway.
+ * the end of that line says who died, and this one says what to do about it. Every card
+ * that owner holds is named, including one that waits on another: the board's dependency
+ * rule refuses a claim or a move, and `reclaim` is neither.
  */
 function goneLines(cards: readonly Card[], roster: readonly RosterSession[] | undefined, now: number): string[] {
 	if (roster === undefined) return [];

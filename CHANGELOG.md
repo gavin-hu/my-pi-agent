@@ -391,6 +391,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `caseSensitive`, so its own flag is refused too, and the transcript's call line shows the
   pattern as typed rather than inventing a literal. A pattern whose body holds a slash —
   `/api/v1/` — is still the expression itself.
+- `team`: a result's own lines reach the transcript. The collapsed block is still the one
+  summary line, but it drew that line at every width and no keystroke revealed more, so the
+  sentences the tool writes for the model — the card's title, its `paths:`, a
+  `Not listening: …` peer, a claim's `next:` step — were readable by nobody but the model;
+  expanding now draws that text, sanitized and in the tool-output role, rather than a second
+  copy of the wording. The `ask` call line names the peer it asks (`ask → billing-web`)
+  instead of the bare verb: `ask` is the one verb with no card, so its peer is the whole
+  subject. Two comments on the same surface now say what the code does — `goneLines` names
+  every card a gone owner holds, because `reclaim` is neither a claim nor a move — and the
+  gallery gained a `team-expanded` entry rendered by the shipped renderer.
 
 ## [0.23.0] - 2026-10-31
 
