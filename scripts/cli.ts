@@ -4,7 +4,8 @@
  * The two shot scripts parse the same flag set — output, width, scale, theme,
  * wait — and two more read a numeric flag, so the parsing, the validations, and
  * the usage epilogue live here instead of once per script. A script keeps its
- * own positional argument, its own extra flags, and its own defaults.
+ * own positional argument, its own extra flags, and its own defaults. The table
+ * printer the benches share lives here for the same reason.
  */
 
 /** What the shot scripts' shared flags parse to. */
@@ -103,4 +104,13 @@ export function runCli(usage: string, main: () => Promise<void>): void {
 		if (message && !message.startsWith("--")) console.error(usage);
 		process.exit(1);
 	});
+}
+
+/** Print one fixed-width table; the header names the columns. */
+export function printTable(header: readonly string[], rows: readonly (readonly string[])[]): void {
+	const widths = header.map((title, column) => Math.max(title.length, ...rows.map((row) => row[column].length)));
+	const format = (cells: readonly string[]): string =>
+		cells.map((cell, column) => cell.padEnd(widths[column])).join("  ");
+	console.log(format(header));
+	for (const row of rows) console.log(format(row));
 }

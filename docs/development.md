@@ -29,6 +29,7 @@ repositories.
 | `bun run config:migrate [--project <dir>]` | Move each per-extension `<name>.json` into the shared `bytefly.json`, once per machine and repository; `--dry-run` previews and `--keep` leaves the old files. How it behaves is in [`configuration.md`](./configuration.md#migrating-from-older-versions). |
 | `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
+| `bun run bench:load` | Report what a load costs, per extension: the local modules its entry evaluates at registration, how many of them are `lib/` and how many another entry pays again, and what that graph costs to import. Gates the graph only; the timings are a pre-release reading. |
 | `bun run probe:wechat [holdMs]` | Hold one WeChat poll open for the stated milliseconds (default 3000) and report what the server did with it, so a stalled bridge can be diagnosed without a phone; [`extensions/wechat.md`](./extensions/wechat.md) says when to reach for it. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
 | `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/screens/` (macOS only); naming screens captures only those. |
@@ -217,6 +218,39 @@ must produce the same totals, and `scripts/render-bench.test.ts` asserts that on
 every platform. Treat **10 ms for one re-price** as the point worth investigating,
 and keep the per-record column near a microsecond; a rate table that is re-scanned
 per record shows up here as hundreds of microseconds per record.
+
+### What a load costs
+
+Pi imports each extension with its own module cache
+(`createJiti(…, { moduleCache: false })`), so a shared `lib/` module is
+transformed and evaluated once *per importing entry* — 22 entries evaluate 737
+local modules over 392 distinct ones today. `bun run bench:load` measures that per
+entry: the modules its entry statically evaluates, how many are `lib/`, how many
+another entry pays again, and what the graph costs to import with the host
+packages already warm.
+
+```bash
+bun run bench:load
+```
+
+- **The gate, which is deterministic:** each entry's graph must fit its row in
+  `ENTRY_BUDGET` (`test/dependencies.test.ts`), and a row may only fall. A feature
+  that needs more modules either defers a surface with `import()` or states the
+  raise; `ENTRY_BUDGET` is per entry rather than one total because a total lets one
+  extension balloon while another's deferral pays for it.
+- **The numbers, which are a pre-release reading:** the import column is the fastest
+  of three child processes per entry, each with the host packages warmed, so it
+  measures this package's own graph and not the host's — and the fastest run is the
+  one least disturbed by whatever else the machine was doing. On the author's
+  laptop that is roughly 0.1 ms per module above a 1 ms floor: 2 modules import in
+  about 1 ms, 92 in about 8 ms; a column that jumps far above that for one entry is
+  noise before it is a regression, which is why the module count is the number to
+  trust. Treat **an entry past 100 modules**, or one whose graph stops falling, as
+  the point worth investigating. The reading takes about 20 seconds; `bun run check`
+  never runs it.
+
+Adding a module to the registration path is the change this is for: the module
+count moves even when the timing does not, and the entry that grew is named.
 
 ## Cross-platform
 
