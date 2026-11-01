@@ -30,11 +30,11 @@ export interface SessionRecord {
 	startedAt: number;
 	lastSeen: number;
 	/**
-	 * Whether this session is listening for mail, written when it joins.
+	 * Whether this session is listening for mail, written on every join.
 	 *
-	 * Absent means "not listening": a record written before this existed and a session
-	 * that stopped listening read the same way, which is the honest answer for a peer
-	 * deciding whether mail will reach it.
+	 * `armed: false` means the session is on the bus but no watch will wake it, which is the
+	 * honest answer for a peer deciding whether mail will reach it; absent is only a record
+	 * written before this field existed.
 	 */
 	watching?: { armed: boolean; wake: boolean };
 }

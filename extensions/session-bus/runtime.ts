@@ -477,10 +477,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// so a peer can still address this session, and only the watch is turned off.
 			const watching =
 				input.listen === false ? await mailWatch.watch({ stop: true }) : await mailWatch.watch({ wake: input.wake });
-			// Written to the record so a peer reads it from disk instead of asking: this is the
-			// fact `team` reports as "not listening", and an absent field means exactly that.
-			if (watching.armed) me.watching = { armed: true, wake: watching.wake };
-			else delete me.watching;
+			// Written on every join, disarmed included, so a peer reads it from disk instead of
+			// asking: `armed: false` is the fact `team` reports as "not listening", and the
+			// field's absence is only ever a record older than this line.
+			me.watching = { armed: watching.armed, wake: watching.wake };
 			await requireStore().writeSession(me);
 			return { label, watching };
 		},

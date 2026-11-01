@@ -327,7 +327,7 @@ describe("the inbox watch", () => {
 		const seen = (await frontend.status()).sessions.find((session) => session.id === "s2");
 		expect(seen?.watching).toEqual({ armed: true, wake: true });
 		await backend.join({ listen: false });
-		expect((await store.session("s2"))?.watching).toBeUndefined();
+		expect((await store.session("s2"))?.watching).toEqual({ armed: false, wake: false });
 		await frontend.stop();
 		await backend.stop();
 	});

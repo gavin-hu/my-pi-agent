@@ -132,6 +132,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`MODEL_OUTPUT_CAP`, named for what it bounds rather than for parallel's tasks) with the
   omission notice, and the complete text stays in the tool details. A successful single reply is
   deliberately left whole; `extensions/subagent/failure-output.test.ts` pins both halves.
+- `session-bus`: a session that joined with `listen: false` is named as one. `join` returned
+  `{armed: false}` and wrote nothing to the record, and every reader marks a peer `not
+  listening` from `armed === false` — so `team`'s `Not listening:` line, `/team`'s presence
+  line, and the Team tab's chip were promises `docs/extensions/team.md` made and nothing
+  printed. The record now carries the watch state on every join, disarmed included; absence
+  is only a record written before the field existed. Found by an end-to-end case that joins
+  without listening and reads the answer back from the store, the roster, and the status rows.
 - `dev`: a shot script runs only as its own entry point. `scripts/shots/video.ts` called
   `runCli` at top level, and `runCli` runs `main()` the moment it is called — so importing the
   module, which `scripts/video.test.ts` does for `parseArgs`, launched Chrome, recorded the

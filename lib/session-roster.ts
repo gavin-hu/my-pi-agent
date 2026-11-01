@@ -55,8 +55,8 @@ export interface RosterSession {
 	/**
 	 * Whether the session is listening for mail, when its record says.
 	 *
-	 * Absent is "not listening": a record written before this existed and a session that
-	 * stopped listening read the same way, so a reader never claims a peer will be reached.
+	 * `armed: false` is a session on the bus that no wake will reach; absent is only a record
+	 * written before the field existed, so a reader never claims a peer will be reached.
 	 */
 	watching?: { armed: boolean; wake: boolean };
 }

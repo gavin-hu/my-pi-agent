@@ -261,10 +261,10 @@ listening watch is what raises the turn.
   WeChat peer a team member. Nothing joins at start, in any mode; a session opts
   in by joining, or by the first action that needs it to be addressable.
 - **Listening is on the record.** `join` writes this session's watch state onto its
-  own record, so a peer's `status` read says whether mail will reach it without
-  asking it anything. The field is absent when the session is not listening — which
-  is also how a record written before the field existed reads, and neither is a
-  claim about a peer that has since gone quiet.
+  own record, disarmed included, so a peer's `status` read says whether mail will
+  reach it without asking it anything: `armed: false` is a session on the bus that
+  no wake will reach. A field that is absent is only a record written before this
+  existed, which is not a claim about a peer that has since gone quiet.
 - **Sanitized at the boundary.** Messages are model-authored and are sanitized
   before rendering, like other untrusted text in the transcript.
 - **Poll, not `fs.watch`.** The listening watch reads this session's inbox directory
