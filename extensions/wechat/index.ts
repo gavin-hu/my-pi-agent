@@ -195,6 +195,28 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		}
 	};
 
+	/**
+	 * The start a session began, so everything that needs the bridge can join it.
+	 *
+	 * Pi awaits every `session_start` handler, and opening a bridge is a module graph
+	 * plus a login over the network, so the start is handed back to Pi at once and the
+	 * promise is kept here. One promise, not one per call: the RPC double
+	 * `session_start`, a command, and a tool that all arrive mid-build must see the
+	 * same start, or two of them could open two pollers.
+	 */
+	let starting: Promise<void> | undefined;
+	const start = (ctx: ExtensionContext): Promise<void> => {
+		starting ??= autoStart(ctx)
+			.catch(() => {
+				// The start reports its own failures; a rejected promise nothing awaits must not
+				// become an unhandled rejection that takes the session down.
+			})
+			.finally(() => {
+				starting = undefined;
+			});
+		return starting;
+	};
+
 	const commandDeps: CommandDeps = {
 		getBridge: () => bridge,
 		// Both of these can be the first thing that needs the bridge: `/wechat login`
@@ -224,24 +246,36 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	};
 
 	registerCommands(pi, commandDeps);
-	registerTools(pi, { getBridge: () => bridge });
+	// A tool call is the other reader that can arrive first: it joins the session's
+	// start rather than finding no bridge because the frame came back sooner.
+	registerTools(pi, {
+		getBridge: async () => {
+			const ctx = ctxRef;
+			if (ctx) await start(ctx);
+			return bridge;
+		},
+	});
 
-	pi.on("session_start", async (_event, ctx) => {
+	pi.on("session_start", (_event, ctx) => {
 		ctxRef = ctx;
 		// Stored credentials mean the bridge should be polling, so a new session
 		// (startup, reload, `/new`, resume, fork) reconnects it without a command.
 		// The bridge module loads here, on the first account, not at registration.
-		await autoStart(ctx);
+		void start(ctx);
 	});
 	pi.on("session_shutdown", async () => {
 		// Shutdown is emitted before the host resets the UI, so the chip is still ours to clear.
 		ctxRef?.ui.setStatus(STATUS_KEYS.wechat, undefined);
 		try {
+			// A session can end while its deferred start is still opening: waiting for it here
+			// is what keeps a bridge that lands afterwards from polling a dead runtime.
+			await starting;
 			await bridge?.shutdown();
 		} finally {
 			// A throwing close must not leave a live handle on a dead runtime.
 			bridge = undefined;
 			building = undefined;
+			starting = undefined;
 			ctxRef = undefined;
 		}
 	});

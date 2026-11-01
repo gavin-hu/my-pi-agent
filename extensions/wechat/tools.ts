@@ -44,7 +44,11 @@ const WechatSendResult = Type.Object({
 });
 
 export interface ToolDeps {
-	getBridge: () => Bridge | undefined;
+	/**
+	 * The bridge, or a promise of it: the start is deferred off `session_start`, so the
+	 * first turn can arrive while it is still opening, and this reader joins it.
+	 */
+	getBridge: () => Bridge | undefined | Promise<Bridge | undefined>;
 }
 
 function sendResult(sent: boolean, error?: string) {
@@ -79,7 +83,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 			if ((args.text === undefined) === (args.image === undefined)) {
 				return sendResult(false, "Give exactly one of text or image.");
 			}
-			const bridge = deps.getBridge();
+			const bridge = await deps.getBridge();
 			if (!bridge) {
 				return sendResult(false, "WeChat bridge is not started. Run /wechat login first.");
 			}

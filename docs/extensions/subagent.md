@@ -104,7 +104,9 @@ the behaviour is here.
 - **`transcripts`** (`off`, `failed`, or `all`; default `off`) keeps finished
   runs on disk, all of them or only the failed ones.
 - **`retentionDays`** (default 14) and **`maxRuns`** (default 100) bound the
-  store. It is pruned at `session_start`, and only while transcripts are on.
+  store. It is pruned on every `session_start`, and only while transcripts are on —
+  beside the first frame, not in front of it: the sweep resolves the repository with
+  git, so it starts and is dropped rather than awaited.
 - **`backgroundMax`** (default 4, `1`–`8`) bounds concurrently running
   background children. Finished runs do not consume a slot. A run that is still
   running when the session ends is interrupted; the next `/agents` shows the
@@ -390,7 +392,7 @@ step's `Output`.
 | Command | `/agents` |
 | State storage | tool-result `details`; optional per-run transcripts under `.pi/subagents/`; background start/finish entries (`subagent-background`) on the session branch |
 | Event | `my-pi-agent/subagent-finished` (`SUBAGENT_FINISHED_CHANNEL` in `lib/events.ts`) once per finished child |
-| Lifecycle | `session_start` loads the config, prunes expired transcripts, and attaches the footer chip; `session_shutdown` aborts every live background child and clears the chip |
+| Lifecycle | `session_start` loads the config on the frame, starts the transcript prune beside it, and attaches the footer chip; `session_shutdown` aborts every live background child and clears the chip |
 
 ## Design notes
 

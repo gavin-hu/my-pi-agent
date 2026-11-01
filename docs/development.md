@@ -30,7 +30,7 @@ repositories.
 | `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
 | `bun run bench:load` | Report what a load costs, per extension: the local modules its entry evaluates at registration, how many of them are `lib/` and how many another entry pays again, and what that graph costs to import. Gates the graph only; the timings are a pre-release reading. |
-| `bun run bench:start` | Report what a start costs, per extension: the milliseconds its graph took to import cold, its factory's registration, and the totals across the manifest, from the host's own `PI_TIMING=1` output. A pre-release reading, never a gate; it needs a default model in the developer's settings, and never calls it. |
+| `bun run bench:start` | Report what a start costs, per extension: the milliseconds its graph took to import cold, its factory's registration, and the totals across the manifest, from the host's own `PI_TIMING=1` output — then the milliseconds its `session_start` handlers hold the first frame for, measured in the same process against the shared test doubles. A pre-release reading, never a gate; it needs a default model in the developer's settings, and never calls it. |
 | `bun run probe:wechat [holdMs]` | Hold one WeChat poll open for the stated milliseconds (default 3000) and report what the server did with it, so a stalled bridge can be diagnosed without a phone; [`extensions/wechat.md`](./extensions/wechat.md) says when to reach for it. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
 | `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/screens/` (macOS only); naming screens captures only those. |
@@ -260,7 +260,10 @@ A start pays that graph **cold and in one process**, in manifest order, and a
 cache before reloading. `bun run bench:start` asks the host what that costs — it
 runs `pi` on a temp agent dir whose settings load this checkout, with
 `PI_TIMING=1` and `--mode rpc` (which prints the timings and exits without a model
-call), and prints each entry's import, factory, and total.
+call), and prints each entry's import, factory, and total. It then registers the
+same entries in its own process and prints what their `session_start` handlers
+hold the first frame for, which no child can report: rpc mode emits the event and
+never draws a frame.
 
 ```bash
 bun run bench:start
@@ -286,7 +289,7 @@ bun run bench:start
   `lib/format.ts` by 19, `lib/config.ts` by 17, six more `lib/tui/*` by 16. A
   module removed from an entry's registration graph is saved *N* times, and
   `bench:load`'s `ENTRY_BUDGET` row is what proves it fell.
-- **TUI init is not in that number:** `PI_TIMING=1 PI_STARTUP_BENCHMARK=1 pi` in a
+- **TUI init is not in the import number:** `PI_TIMING=1 PI_STARTUP_BENCHMARK=1 pi` in a
   terminal initialises the TUI, prints the same timings and exits — both variables,
   because `PI_TIMING` is what turns the instrument on and the benchmark flag only
   says to stop after init; without the first it starts a normal session and prints
@@ -308,6 +311,21 @@ bun run bench:start
   294 the online pair suggested. Read `bench:start` for the graph, `--offline` for the
   frame, and `--no-extensions` for Pi's own floor; the online numbers say nothing about
   either.
+- **Of that 64 ms, the handlers are the half this package can move.** `bench:start`'s
+  second table reads **~13 ms of `session_start` across 22 entries** here — `bytefly`
+  5–10 (its footer's install builds the pricing reader cold), `rewind` 2–3,
+  `session-bus` ~1, `memory` ~1 — and the rest of the 64 is Pi's own init with our
+  chrome installed. Only the milliseconds a caller *waits* for count: a handler that
+  starts work and drops it reads as its synchronous part, which is the number the
+  deferral below moves. The temp agent dir turns `subagent.transcripts` on with a wide
+  retention, so the sweep reads as the ~17 ms it costs on the frame instead of as 0.
+- **Defer what nothing needs before the first draw.** Pi awaits every
+  `session_start` handler, so anything a handler awaits is frame time. `subagent` reads
+  its config on the frame and sweeps the transcript store beside it, `wechat` hands its
+  bridge start back in one promise that its command and its tool join, and `rewind`
+  starts its scan and lets the first run await it. A new handler that spawns a
+  process, reads a store, or opens a socket belongs in that shape, not in the awaited
+  part.
 
 ## Cross-platform
 

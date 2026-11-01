@@ -104,6 +104,8 @@ describe("wechat lifecycle", () => {
 		wechat(fake.pi, { createClient: client.createClient, sleep: client.sleep, openSession: peers.openSession });
 		const result = fakeCtx({ mode: "rpc", cwd: dir });
 		await emit(fake.pi, "session_start", { type: "session_start" }, result.ctx);
+		// The start is deferred off the frame, so wait for the bridge it opened.
+		await waitFor(() => client.clients() > 0);
 		return { fake, client, peers, ...result };
 	}
 
@@ -123,13 +125,61 @@ describe("wechat lifecycle", () => {
 		});
 	});
 
+	test("closes the bridge a start in flight opens after the shutdown", async () => {
+		await withAgentDir(async (dir) => {
+			writeAccount(dir);
+			const fake = createFakePi();
+			const client = fakeWechatClient();
+			wechat(fake.pi, {
+				createClient: client.createClient,
+				sleep: client.sleep,
+				openSession: fakePeerSession("hi").openSession,
+			});
+			const { ctx } = fakeCtx({ mode: "rpc", cwd: dir });
+
+			// A session that ends before its deferred start finishes: shutdown waits for the
+			// open and then closes it, so nothing is left polling a dead runtime.
+			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+			await waitFor(() => client.aborts() > 0);
+			expect(client.clients()).toBe(1);
+		});
+	});
+
+	test("a send_wechat call joins the deferred start instead of missing the bridge", async () => {
+		await withAgentDir(async (dir) => {
+			writeAccount(dir);
+			const fake = createFakePi();
+			const client = fakeWechatClient();
+			wechat(fake.pi, {
+				createClient: client.createClient,
+				sleep: client.sleep,
+				openSession: fakePeerSession("hi").openSession,
+			});
+			const { ctx } = fakeCtx({ mode: "rpc", cwd: dir });
+
+			// The frame is back while the start is still opening; the tool is a reader of it.
+			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
+			const tool = fake.tools.get("send_wechat");
+			const result = await tool.execute("id", { text: "hello" }, undefined, undefined, ctx);
+			expect(result.content[0].text).toBe("Sent to the WeChat owner.");
+			expect(client.sent[0]?.text).toBe("hello");
+
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+		});
+	});
+
 	test("keeps one poller when session_start is emitted twice", async () => {
 		await withAgentDir(async (dir) => {
 			writeAccount(dir);
 			const { fake, client, ctx } = await start(dir);
 
-			// RPC binds the session twice on a session switch.
+			// RPC binds the session twice on a session switch. The start is deferred, so the
+			// tool is what joins it: it returns once that start has settled, which is the
+			// point a second poller would have been running.
 			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
+			const tool = fake.tools.get("send_wechat");
+			await tool.execute("id", { text: "hi" }, undefined, undefined, ctx);
 			expect(client.clients()).toBe(1);
 
 			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
@@ -293,6 +343,7 @@ describe("wechat lifecycle", () => {
 			});
 			const afterCtx = fakeCtx({ mode: "rpc", cwd: dir });
 			await emit(after.pi, "session_start", { type: "session_start" }, afterCtx.ctx);
+			await waitFor(() => second.clients() > 0);
 
 			expect(first.sent[0]?.text).toBe("answered before");
 			expect(first.clients()).toBe(1);

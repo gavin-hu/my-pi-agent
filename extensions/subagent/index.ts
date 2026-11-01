@@ -81,14 +81,23 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 	let settings: SubagentConfig | undefined;
 	let activeCtx: ExtensionContext | undefined;
 
-	const startSession = async (ctx: ExtensionContext): Promise<void> => {
+	/**
+	 * Read the config on the frame, and sweep the transcript store beside it.
+	 *
+	 * Pi awaits every `session_start` handler, and the sweep resolves the repository
+	 * with git and stats every run directory, so it starts and is dropped rather than
+	 * awaited. Nothing reads its result: a run directory is only a file on disk, and
+	 * the next start sweeps again.
+	 */
+	const startSession = (ctx: ExtensionContext): void => {
 		settings = loadSubagentConfig(ctx.cwd);
-		if (settings.transcripts === "off") return;
-		try {
-			pruneTranscripts(await transcriptsDirFor(pi, ctx.cwd), settings);
-		} catch {
-			// Retention is housekeeping: an unreadable store must not fail a session.
-		}
+		const retention = settings;
+		if (retention.transcripts === "off") return;
+		void transcriptsDirFor(pi, ctx.cwd)
+			.then((dir) => pruneTranscripts(dir, retention))
+			.catch(() => {
+				// Retention is housekeeping: an unreadable store must not fail a session.
+			});
 	};
 
 	/**
@@ -119,13 +128,13 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 		runs: () => background.list(activeCtx?.sessionManager.getBranch() ?? []),
 	});
 
-	pi.on("session_start", async (_event, ctx) => {
+	pi.on("session_start", (_event, ctx) => {
 		background.reset();
 		activeCtx = ctx;
 		ui.attach(ctx);
 		background.subscribe(() => ui.paint());
 		ui.paint();
-		await startSession(ctx);
+		startSession(ctx);
 	});
 	pi.on("session_shutdown", () => {
 		background.shutdown();

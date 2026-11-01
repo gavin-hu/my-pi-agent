@@ -43,6 +43,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   your work now), the one uncovered review fact — the sign lands in the owner's inbox — moves
   into `review`'s action doc, and `test/prompt-budget.test.ts` sums the description, snippet,
   guidelines and schema into a ceiling so the next restatement fails instead of accumulating.
+- `dev`: `bun run bench:start` also reports the other half of a start — what each
+  entry's `session_start` handlers hold the first frame for, measured in-process against the
+  shared test doubles, since an rpc child emits the event and draws no frame. Offline, the
+  frame is 101 ms with the pack and 37 ms with `--no-extensions`, so ~64 ms is ours and the
+  handlers are ~13 ms of it (`bytefly` 5–10, `rewind` 2–3, then `session-bus` and `memory` at
+  ~1); the rest is Pi's own init with our chrome installed. A pre-release reading, like the
+  rest of that script.
+- `subagent`: the transcript sweep starts beside the first frame instead of in front of it.
+  `session_start` still reads the config on the frame, but pruning resolves the repository
+  with git and stats every run directory, which measured ~17 ms of awaited start while
+  `subagent.transcripts` is on. Nothing reads the result, so it runs and is dropped; a run
+  directory is a file on disk and the next start sweeps again.
+- `wechat`: the bridge start is deferred off the first frame and kept in one promise its
+  readers join. Opening the bridge loads a module graph and logs in over the network, and Pi
+  awaits every `session_start` handler; `/wechat` and `send_wechat` now wait for the start
+  instead of finding no bridge, and `session_shutdown` awaits it before closing, so a bridge
+  that lands after a shutdown is closed rather than left polling.
+
 - `bytefly`: the `/bytefly` panel's listing, price report and theme names load when the
   command opens a surface, not on every start — `panel/kit.ts` is imported on demand, so the
   registration graph drops six modules (92 → 86, and the package 737 → 731 evaluations over
