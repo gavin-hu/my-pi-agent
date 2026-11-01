@@ -114,6 +114,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-outline",
 		"web-page",
 		"web-router",
+		"web-routes",
 		"web-session",
 		"web-settlement",
 		"web-share",

@@ -2,15 +2,21 @@
  * The request router for browser plan review.
  *
  * A request is validated (method, `Host`, origin, token, and — on a route that
- * reads a body — that the body is JSON), matched to a route, and answered with a
- * plain {@link ServeResponse}, so every route can be tested without a socket. The
- * `/events` route is a marker: the node server in `web.ts` keeps that response open
- * as a Server-Sent Events stream.
+ * reads a body — that the body is JSON), matched to a route in the table, and
+ * answered with a plain {@link ServeResponse}, so every route can be tested
+ * without a socket. The `/events` route is a marker: the node server in `web.ts` keeps
+ * that response open as a Server-Sent Events stream.
  *
  * The token is a per-session secret carried in the page URL, and on a shared
  * review it is the only credential a reviewer has: it names the caller — the
  * role it holds, and the name it posts under — and the router refuses an
  * owner-only route for a reviewer however the request was built.
+ *
+ * The routes live by role beside this module — `web-routes-owner.ts` and
+ * `web-routes-reviewer.ts` — and each is a row here: what it answers, who may call it,
+ * and whether it reads a body. What a route may *not* do is compose its own guards, because
+ * that is the thing a new route gets wrong: it declares its access and {@link routeRefusal}
+ * decides once, in the one order the contract has.
  */
 
 import {
@@ -18,7 +24,6 @@ import {
 	eventHeaders,
 	isLoopbackAddress,
 	jsonError,
-	jsonResponse,
 	pageHeaders,
 	parseRequestUrl,
 	postOnly,
@@ -27,17 +32,19 @@ import {
 	type ServeResponse,
 } from "../../lib/http/index.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../lib/web/index.ts";
+import { coerceAnnotations, type PlanAnnotation } from "./feedback.ts";
+import type { ReviewCaller, ReviewRole } from "./types.ts";
+import { REVIEW_CLIENT_JS } from "./web-client.ts";
+import { renderReviewPage, type ReviewPageData } from "./web-page.ts";
+import { OWNER_ROUTES } from "./web-routes-owner.ts";
+import { REVIEWER_ROUTES } from "./web-routes-reviewer.ts";
+import type { ShareResult } from "./web-share.ts";
 
 /** What an owner-only route says to a request that came from the network. */
 const OFF_LOOPBACK = "This route answers only on the machine serving the review.";
 
 /** The review script's own path, beside `THEME_JS_PATH` in the page's markup. */
 export const CLIENT_JS_PATH = "/client.js";
-import { coerceAnnotations, type PlanAnnotation } from "./feedback.ts";
-import { REVIEW_CLIENT_JS } from "./web-client.ts";
-import { renderReviewPage, type ReviewPageData } from "./web-page.ts";
-import type { ReviewCaller, ReviewRole } from "./types.ts";
-import type { ShareResult } from "./web-share.ts";
 
 /** What a save callback reports back. A reviewer's post reports the name it was
  * stored under, so a page created before the first write can adopt it. */
@@ -71,90 +78,99 @@ export interface ReviewContext {
 	onCancel: () => void;
 }
 
-/**
- * Parse and validate an `{ annotations }` request body. Returns the annotations,
- * or an error response to send instead.
- */
-function parseAnnotations(body: string): PlanAnnotation[] | ServeResponse {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(body);
-	} catch {
-		return jsonError(400, "The request body must be JSON.");
-	}
-	const annotations = coerceAnnotations((parsed as { annotations?: unknown } | null)?.annotations);
-	if (!annotations) return jsonError(400, "The annotations are malformed.");
-	return annotations;
+/** The annotations a body held and the write's own report, or the refusal to send instead. */
+export type Settled =
+	| { response: ServeResponse }
+	| { annotations: PlanAnnotation[]; result: Extract<SaveResult, { ok: true }> };
+
+/** One request a route may act on, after the dispatcher's guards and body read. */
+export interface RouteRequest {
+	/** The running session the review belongs to. */
+	ctx: ReviewContext;
+	/** The role and the name the token gave the caller. */
+	caller: ReviewCaller;
+	/** The raw body, for the one route that names a link rather than annotations. */
+	body: string;
+	/**
+	 * Parse the body as annotations and save them as the caller, or report the refusal.
+	 *
+	 * A route must not read a body itself: the order — parse, refuse a malformed one, then
+	 * save — is what keeps a bad request from reaching the store, so it is the dispatcher's
+	 * one settle, reachable from the routes on both sides of the role split.
+	 */
+	settle: () => Promise<Settled>;
 }
 
-/** A parsed body is either the annotations or the error response to send. */
-function isResponse(value: PlanAnnotation[] | ServeResponse): value is ServeResponse {
-	return !Array.isArray(value);
+/** One route the review serves behind its token. */
+export interface ReviewRoute {
+	/** The exact path this route answers. */
+	path: string;
+	/** The verb, as a 405 phrases it: `Use POST to <phrase>.` */
+	phrase: string;
+	/** The role that may call it. An owner's route answers on this machine alone. */
+	access: ReviewRole;
+	/** What a caller of another role is told. */
+	refusal: string;
+	/** Whether the route reads a JSON body, so anything else is a 415. */
+	body: "json" | "none";
+	/** What happens once the guards have passed. */
+	run(request: RouteRequest): Promise<ServeResponse>;
 }
 
-/**
- * The 403 for a route the caller's role may not use, or nothing when it may. Each
- * route keeps its own sentence, because the reason differs: a reviewer posts
- * comments, and only the owner decides.
- */
-function roleOnly(caller: ReviewCaller, roles: readonly ReviewRole[], message: string): ServeResponse | undefined {
-	return roles.includes(caller.role) ? undefined : jsonError(403, message);
-}
+/** Every route behind the token: the owner's, then the reviewer's one. */
+export const REVIEW_ROUTES: readonly ReviewRoute[] = [...OWNER_ROUTES, ...REVIEWER_ROUTES];
 
 /**
- * The refusal for an owner-only POST: method, body type, then role, in that order.
- *
- * Five routes composed these three guards by hand, and the order is the whole contract —
- * a form-encoded GET must be refused as a method before it is ever read as a body. Each
- * route passes its own phrase and sentence, so no refusal text moved.
- */
-function ownerPost(
-	caller: ReviewCaller,
-	method: string,
-	contentType: string | string[] | undefined,
-	phrase: string,
-	message: string,
-	roles: readonly ReviewRole[] = ["owner"],
-): ServeResponse | undefined {
-	return postOnly(method, phrase) ?? requireJsonBody(contentType) ?? roleOnly(caller, roles, message);
-}
-
-/**
- * Parse the body, save it as the caller, and report which happened.
+ * Parse the body and save it as the caller, or report the refusal to send instead.
  *
  * Three routes persist annotations and differ only in what they do after the write; the
  * order — parse, refuse a malformed body, then save — is what keeps a bad request from
  * reaching the store, so it lives here once.
  */
-async function settleAnnotations(
-	ctx: ReviewContext,
-	caller: ReviewCaller,
-	body: string,
-): Promise<ServeResponse | { annotations: PlanAnnotation[]; result: Extract<SaveResult, { ok: true }> }> {
-	const annotations = parseAnnotations(body);
-	if (isResponse(annotations)) return annotations;
-	const result = await ctx.save(annotations, caller);
-	if (!result.ok) return jsonError(result.status, result.message);
-	return { annotations, result };
-}
-
-/** Whether a settled call is the refusal to send rather than what it saved. */
-function isRefusal(
-	value: ServeResponse | { annotations: PlanAnnotation[]; result: Extract<SaveResult, { ok: true }> },
-): value is ServeResponse {
-	return !("annotations" in value);
-}
-
-/** The link id a revoke request names, or undefined when the body has none. */
-function linkIdOf(body: string): string | undefined {
+async function settleAnnotations(ctx: ReviewContext, caller: ReviewCaller, body: string): Promise<Settled> {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(body);
 	} catch {
-		return undefined;
+		return { response: jsonError(400, "The request body must be JSON.") };
 	}
-	const id = (parsed as { id?: unknown } | null)?.id;
-	return typeof id === "string" && id !== "" ? id : undefined;
+	const annotations = coerceAnnotations((parsed as { annotations?: unknown } | null)?.annotations);
+	if (!annotations) return { response: jsonError(400, "The annotations are malformed.") };
+	const result = await ctx.save(annotations, caller);
+	if (!result.ok) return { response: jsonError(result.status, result.message) };
+	return { annotations, result };
+}
+
+/** The 403 for a route the caller's role may not use, or nothing when it may. */
+function roleOnly(caller: ReviewCaller, access: ReviewRole, message: string): ServeResponse | undefined {
+	return caller.role === access ? undefined : jsonError(403, message);
+}
+
+/**
+ * The refusal for a route, or nothing when the request may run it: method, then body type,
+ * then role, then — on an owner's route — that the request came from this machine.
+ *
+ * The order is the whole contract: a form-encoded GET is refused as a method before its body
+ * is ever read, a body that is not JSON never reaches the parser, and a reviewer is refused
+ * as a role before the review's own files are touched. Loopback follows from access, because
+ * an owner-only route is exactly the one that answers on the machine serving the review: a
+ * shared link is a reviewer's link whatever token it carries, so the peer address — not
+ * `Host`, which the client chooses — decides whether approve, cancel, save, revoke, and the
+ * share controls are reachable at all.
+ */
+function routeRefusal(
+	route: ReviewRoute,
+	method: string,
+	contentType: string | string[] | undefined,
+	caller: ReviewCaller,
+	offLoopback: boolean,
+): ServeResponse | undefined {
+	return (
+		postOnly(method, route.phrase) ??
+		(route.body === "json" ? requireJsonBody(contentType) : undefined) ??
+		roleOnly(caller, route.access, route.refusal) ??
+		(route.access === "owner" && offLoopback ? jsonError(403, OFF_LOOPBACK) : undefined)
+	);
 }
 
 /**
@@ -179,103 +195,19 @@ export async function handleReviewRequest(
 	if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
 	if (pathname === CLIENT_JS_PATH) return { status: 200, headers: scriptHeaders(), body: REVIEW_CLIENT_JS };
 
-	const token = search.get("token") ?? "";
-	const caller = ctx.caller(token);
+	const caller = ctx.caller(search.get("token") ?? "");
 	if (caller === undefined) return jsonError(403, "Invalid or missing token.");
-	// The owner's own routes answer on this machine only. A shared link is a reviewer's link
-	// whatever token it carries, so the peer address — not `Host`, which the client chooses —
-	// decides whether approve, cancel, save, and the share controls are reachable at all.
-	const offLoopback = !isLoopbackAddress(remoteAddress);
-	const ownerOnly = (refusal: ServeResponse | undefined): ServeResponse | undefined =>
-		refusal ?? (offLoopback ? jsonError(403, OFF_LOOPBACK) : undefined);
 
+	// The page and its stream are the same for either role: a reviewer reads the plan she was
+	// invited to, and the island she is given is built for her role.
 	if (pathname === "/" || pathname === "/index.html") {
 		return { status: 200, headers: pageHeaders(), body: renderReviewPage(await ctx.page(caller)) };
 	}
 	if (pathname === "/events") return { status: 200, headers: eventHeaders(), stream: true };
-	if (pathname === "/api/cancel") {
-		// Ending the review is the owner's decision; a reviewer closes their tab.
-		const refusal = ownerOnly(
-			postOnly(method, "cancel") ?? roleOnly(caller, ["owner"], "Only the plan owner can close this review."),
-		);
-		if (refusal) return refusal;
-		ctx.onCancel();
-		return jsonResponse(200, { ok: true });
-	}
-	if (pathname === "/api/share" || pathname === "/api/share/link" || pathname === "/api/share/stop") {
-		// A shared link must never be able to mint another one.
-		const refusal = ownerOnly(
-			postOnly(method, "share or stop sharing") ??
-				roleOnly(caller, ["owner"], "Only the plan owner can share this review."),
-		);
-		if (refusal) return refusal;
-		const result =
-			pathname === "/api/share/stop"
-				? await ctx.stopShare()
-				: pathname === "/api/share/link"
-					? await ctx.invite()
-					: await ctx.share();
-		return jsonResponse(200, { ok: true, share: result.state, svg: result.svg });
-	}
-	if (pathname === "/api/share/revoke") {
-		const refusal = ownerOnly(
-			ownerPost(caller, method, headers["content-type"], "revoke a link", "Only the plan owner can revoke a link."),
-		);
-		if (refusal) return refusal;
-		const id = linkIdOf(body);
-		if (id === undefined) return jsonError(400, "The request body must name the link's id.");
-		const result = await ctx.revoke(id);
-		if (!result) return jsonError(404, "That link is not shared.");
-		return jsonResponse(200, { ok: true, share: result.state, svg: result.svg });
-	}
-	if (pathname === "/api/comment") {
-		// A reviewer's whole surface: persist the comments they wrote and end
-		// nothing. Only the owner's own save decides the review.
-		const refusal = ownerPost(
-			caller,
-			method,
-			headers["content-type"],
-			"post comments",
-			"Only a shared reviewer posts comments.",
-			["reviewer"],
-		);
-		if (refusal) return refusal;
-		const settled = await settleAnnotations(ctx, caller, body);
-		if (isRefusal(settled)) return settled;
-		const { author } = settled.result;
-		return jsonResponse(200, { ok: true, ...(author === undefined ? {} : { author }) });
-	}
-	if (pathname === "/api/feedback") {
-		// Returning to the model is the owner's decision; a reviewer posts to
-		// `/api/comment`, so this route can never settle a shared review.
-		const refusal = ownerOnly(
-			ownerPost(
-				caller,
-				method,
-				headers["content-type"],
-				"save feedback",
-				"Only the plan owner saves this review; a reviewer posts comments.",
-			),
-		);
-		if (refusal) return refusal;
-		const settled = await settleAnnotations(ctx, caller, body);
-		if (isRefusal(settled)) return settled;
-		ctx.onSaved(settled.annotations);
-		return jsonResponse(200, { ok: true });
-	}
-	if (pathname === "/api/approve") {
-		// Only the owner's own page approves, and only the `exit` flow owns
-		// the side effects: a reviewer token is refused whatever it posts.
-		const refusal = ownerOnly(
-			ownerPost(caller, method, headers["content-type"], "approve", "A shared review cannot approve the plan."),
-		);
-		if (refusal) return refusal;
-		if (!ctx.canApprove) return jsonError(403, "This review cannot be approved from the browser.");
-		const settled = await settleAnnotations(ctx, caller, body);
-		if (isRefusal(settled)) return settled;
-		ctx.onApprove(settled.annotations);
-		return jsonResponse(200, { ok: true });
-	}
 
-	return jsonError(404, "That page does not exist.");
+	const route = REVIEW_ROUTES.find((candidate) => candidate.path === pathname);
+	if (!route) return jsonError(404, "That page does not exist.");
+	const refusal = routeRefusal(route, method, headers["content-type"], caller, !isLoopbackAddress(remoteAddress));
+	if (refusal) return refusal;
+	return route.run({ ctx, caller, body, settle: () => settleAnnotations(ctx, caller, body) });
 }
