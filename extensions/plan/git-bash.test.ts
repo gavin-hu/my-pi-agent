@@ -243,6 +243,14 @@ describe("read-only git shell guard — the command it hands back", () => {
 });
 
 describe("read-only git shell guard — a repository's own diff program", () => {
+	/**
+	 * Whether git can execute a `#!/bin/sh` textconv driver out of the repository.
+	 * Windows cannot — the file carries no exec bit there and git exits 128 — so the
+	 * control case below, which needs the driver to run, is proved on POSIX only. The
+	 * guard's own case runs everywhere.
+	 */
+	const RUNS_SHELL_DRIVER = process.platform !== "win32";
+
 	/** A repo whose `.gitattributes` names a textconv driver that leaves a marker. */
 	async function repoWithConverter(): Promise<{ repo: string; marker: string }> {
 		const repo = temps.track(await makeRepo("pi-plan-guard-"));
@@ -271,7 +279,7 @@ describe("read-only git shell guard — a repository's own diff program", () => 
 		expect(existsSync(marker)).toBe(false);
 	});
 
-	test("without the forced switches, the same repo runs it", async () => {
+	test.skipIf(!RUNS_SHELL_DRIVER)("without the forced switches, the same repo runs it", async () => {
 		// The control: a guard that only refused `--textconv` by name left this open.
 		const { repo, marker } = await repoWithConverter();
 		const { code } = await execP("git", ["diff"], { cwd: repo });
