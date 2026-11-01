@@ -152,6 +152,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: the listening watch queues each message once, and never queues one that
+  was read before it left the inbox. `pollOnce` had no single-flight guard, so the ticker, an
+  explicit poll, and a poll slower than the 2 s interval could each compute the same `known`
+  and append the same mail — the notice then read `2 new messages` with one line repeated. It
+  now drops a second reader instead of queueing it, like the board's own reader, and it judges
+  the page it read by the state it returned to: mail `inbox` consumed and marked during the
+  read is filtered out at append, and a watch stopped mid-read queues nothing into the queue
+  `stop` already cleared.
 - `subagent`: a failed `single` run no longer hands the model the child's whole `stderr`. Only
   parallel mode capped its reply, so one failing delegation — a broken build, a verbose stack
   trace — could return 3 MiB of child noise into the parent's context, against 51 KiB for the

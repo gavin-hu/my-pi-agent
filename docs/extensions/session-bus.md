@@ -277,8 +277,10 @@ listening watch is what raises the turn.
   backlog deeper than one page arrives a page at a time, and a peer whose clock lags writes an id
   before every other and is announced just the same. The queue and the watch's memory are pruned
   by what is still on disk rather than by a count of ids, so mail already queued keeps the place
-  it held and nothing is announced twice. `inbox` still consumes oldest first, and a limit never
-  starves.
+  it held and nothing is announced twice. That is why one read runs at a time: the ticker and an
+  explicit poll are dropped rather than queued behind a read in flight, and a page is filtered
+  against the ids marked reported by the time it returns, so mail `inbox` consumed mid-read is
+  not announced at all. `inbox` still consumes oldest first, and a limit never starves.
 - **Read the board, prune on the next call.** The open board polls a read-only
   `snapshot()` and `peek()` that hide a session past the TTL, a claim held by one,
   and consume nothing. The physical prune, and the claim release that goes with
