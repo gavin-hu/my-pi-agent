@@ -209,11 +209,22 @@ describe("review client", () => {
 	});
 
 	test("settles on a terminal state instead of Offline", () => {
-		expect(REVIEW_CLIENT_JS).toContain('label = "Approved"');
-		expect(REVIEW_CLIENT_JS).toContain('label = "Saved"');
-		expect(REVIEW_CLIENT_JS).toContain('label = "Closed"');
+		// The kit's pill carries the page's own words, lowercased like the other served pages'.
+		expect(REVIEW_CLIENT_JS).toContain('label = "approved"');
+		expect(REVIEW_CLIENT_JS).toContain('label = "saved"');
+		expect(REVIEW_CLIENT_JS).toContain('label = "closed"');
 		expect(REVIEW_CLIENT_JS).toContain("} else if (everConnected) {");
 		expect(REVIEW_CLIENT_JS).toContain("everConnected = true");
+	});
+
+	test("paints the kit's live pill and offers the kit's one reload control", () => {
+		// The shape is shared (`paintLive`, `#reload-hint`); the words and the moment are this
+		// page's, and a stale page — a dropped stream or a plan that moved — reveals the chip
+		// rather than building a button into the controls.
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("reload-hint")');
+		expect(REVIEW_CLIENT_JS).toContain("paintLive(stateEl, tone, label)");
+		expect(REVIEW_CLIENT_JS).toContain("function offerReload()");
+		expect(REVIEW_CLIENT_JS).not.toContain(".review-controls");
 	});
 
 	test("shows the server's own reason when a save is rejected", () => {

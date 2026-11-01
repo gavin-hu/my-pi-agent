@@ -580,10 +580,10 @@ describe("web theme runtime", () => {
 		expect(() => new Function(script)).not.toThrow();
 	});
 
-	test("each page opens the same sheet from its own trigger", () => {
-		// The sheet's ids are fixed; only the shortcut button differs per page.
-		expect(keysDialogScript("shortcuts")).toContain('getElementById("shortcuts")');
-		expect(keysDialogScript("shortcuts")).not.toContain('getElementById("keys-open")');
+	test("opens a sheet from the trigger it is handed", () => {
+		// The sheet's ids are fixed; the trigger is whatever id the page's button wears.
+		expect(keysDialogScript("keys-open")).toContain('getElementById("keys-open")');
+		expect(keysDialogScript("a-page-trigger")).toContain('getElementById("a-page-trigger")');
 	});
 
 	test("traps Tab, closes on Esc, and restores focus for any dialog", () => {

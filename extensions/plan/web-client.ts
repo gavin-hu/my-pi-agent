@@ -103,6 +103,7 @@ ${CLIENT_BASE_JS}
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
   var progressEl = document.getElementById("progress-fill");
+  var reloadEl = document.getElementById("reload-hint");
 
 ${CLIENT_RUNTIME_JS}
 
@@ -385,7 +386,7 @@ ${WEB_MARKDOWN_JS}
 
   // The sheet's own wiring — trigger, close button, backdrop, Tab trap, and Esc —
   // is shared with browse; the page keeps only its own keymap.
-  ${keysDialogScript("shortcuts")}
+  ${keysDialogScript("keys-open")}
 
   /**
    * What a key may do, built where the state and the handlers are.
@@ -442,6 +443,9 @@ ${WEB_MARKDOWN_JS}
   window.addEventListener("resize", updateProgress);
   window.addEventListener("pagehide", settleStream);
   if (planEl) planEl.addEventListener("scroll", updateProgress);
+  // The one reload control both stale reasons offer (a conflict, or a stream that has gone)
+  // is the kit's chip, so the page wires it here rather than building a button of its own.
+  if (reloadEl) reloadEl.addEventListener("click", function () { window.location.reload(); });
 
   try {
     stream = new EventSource(pageBase() + "/events?token=" + encodeURIComponent(token));
@@ -464,7 +468,6 @@ ${WEB_MARKDOWN_JS}
   // A reload during a review keeps this tab's unsaved work: the comments it added
   // and the composer it was typing into, which needs the blocks rendered first.
   var restoredTyping = restoreDraft();
-  renderHeader();
   renderName();
   outlineItems = renderOutline(outlineList, outlineEntries());
   renderAll();

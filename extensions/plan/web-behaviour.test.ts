@@ -29,10 +29,9 @@ const CHROME = findChrome();
 const PAINT_MS = 10_000;
 
 /**
- * The prefix the fixture review answers under.
- *
- * The review's own shape, `/plan/<id>`, because the mount is what strips it: a page served
- * at the origin's root would not prove the page's own URLs are built from that prefix.
+ * The prefix the fixture review answers under: the review's own `/plan/<id>` shape, because the
+ * mount is what strips it, and a page served at the origin's root would not prove the page's own
+ * URLs are built from that prefix.
  */
 const BASE = "/plan/probe";
 
@@ -42,6 +41,7 @@ const ANNOTATION: PlanAnnotation = { anchor: 0, comment: "needs a rollback step"
 const PAGE: ReviewPageData = {
 	base: BASE,
 	title: "Add rate limiting",
+	path: "~/.pi/agent/plans/probe/add-rate-limiting.md",
 	blocks: [
 		{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting"] },
 		{ start: 1, end: 1, kind: "paragraph", lines: ["Start with the token bucket."] },
@@ -317,7 +317,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			undefined,
 			{ timeout: PAINT_MS },
 		);
-		expect(await page.textContent("#review-state")).toContain("Approved");
+		expect(await page.textContent("#review-state")).toContain("approved");
 		expect(await page.textContent("#status")).toContain("Approved");
 
 		// `c` would otherwise open a composer for a note nothing could save.

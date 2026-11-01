@@ -61,6 +61,7 @@ export const HOST = { host: "127.0.0.1:1234" };
 const PAGE_DATA: ReviewPageData = {
 	base: "",
 	title: "T",
+	path: PATH,
 	blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["hello"] }],
 	annotations: [],
 	outline: [],
@@ -144,6 +145,7 @@ export function reviewPage(overrides: Partial<ReviewPageData> = {}): string {
 	return renderReviewPage({
 		base: "",
 		title: "Add rate limiting",
+		path: "~/.pi/agent/plans/repo-key/add-rate-limiting.md",
 		blocks: [{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting"] }],
 		annotations: [],
 		outline: [{ id: "s-0", line: 0, level: 1, text: "Add rate limiting" }],

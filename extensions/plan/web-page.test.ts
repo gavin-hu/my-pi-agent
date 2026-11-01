@@ -106,7 +106,7 @@ describe("review page", () => {
 		expect(html).toContain('<script src="/client.js" defer>');
 		expect(html).toContain('<script src="/theme.js">');
 		expect(html).toContain('id="theme-toggle"');
-		expect(html).toContain('id="shortcuts"');
+		expect(html).toContain('id="keys-open"');
 		expect(html).toContain('id="save"');
 		expect(html).toContain('id="cancel"');
 	});
@@ -193,6 +193,81 @@ describe("review page", () => {
 		expect(html).not.toContain("to approve");
 		expect(html).not.toContain("Approve and run the plan");
 		expect(html).toContain("for all shortcuts");
+	});
+});
+
+describe("the page's chrome", () => {
+	test("wears the kit's toolbar, control bar, and footer", () => {
+		// One shape for every served page (lib/web): the toolbar says what the page is and how
+		// it is doing, the bar holds the page's own actions, and the footer says where the
+		// content came from — so a reader who has used /board already knows this page.
+		const html = reviewPage();
+		expect(html).toContain('<div class="bf-toolbar review-bar">');
+		expect(html).toContain(
+			'<span class="bf-context bf-context--subject" id="plan-title" title="~/.pi/agent/plans/repo-key/add-rate-limiting.md">Add rate limiting</span>',
+		);
+		expect(html).toContain('<div class="bf-toolbar__facts">');
+		expect(html).toContain('<span class="bf-chip bf-chip--accent bf-live" id="review-state"');
+		expect(html).toContain('<span class="bf-live__text">connecting…</span>');
+		expect(html).toContain('id="reload-hint"');
+		expect(html).toContain('<div class="bf-toolbar__chrome">');
+		expect(html).toContain('<div class="bf-app__bar review-actions">');
+		expect(html).toContain('<footer class="bf-app__footer">');
+		expect(html).toContain("plan ~/.pi/agent/plans/repo-key/add-rate-limiting.md");
+		// The status sentence stays, in the facts zone, as the page's own live region.
+		expect(html).toContain('<span class="bf-status" id="status" role="status" aria-live="polite"></span>');
+	});
+
+	test("drops the page's own header rules instead of re-declaring the kit's", () => {
+		for (const rule of [
+			".review-heading{",
+			".review-title{",
+			".review-state{",
+			".review-status{",
+			".review-controls{",
+		]) {
+			expect(REVIEW_CSS, rule).not.toContain(rule);
+		}
+		// A title is read from its head, unlike the paths the kit cuts; one page rule says so.
+		expect(REVIEW_CSS).toContain(".review-bar .bf-context--subject{direction:ltr;text-align:left}");
+	});
+
+	test("draws the view switch as the kit's segmented control", () => {
+		const html = reviewPage();
+		expect(html).toContain(
+			'<div class="bf-segmented review-view" role="group" aria-label="What to show" id="review-view">',
+		);
+		expect(html).toContain(
+			'<button type="button" class="bf-segmented__item" data-view="all" aria-pressed="true">All</button>',
+		);
+	});
+});
+
+describe("the panel each role is owed", () => {
+	test("gives the owner the step meter, the finish block, and no name control", () => {
+		const html = reviewPage();
+		expect(html).toContain('id="step-fact"');
+		expect(html).toContain("Plan steps");
+		expect(html).toContain("<strong>Approve &amp; run</strong>");
+		expect(html).toContain("<strong>Save feedback</strong>");
+		expect(html).not.toContain('id="reviewer-name"');
+	});
+
+	test("names only Save when this review cannot approve", () => {
+		const html = reviewPage({ canApprove: false });
+		expect(html).toContain("<strong>Save feedback</strong>");
+		expect(html).not.toContain("<strong>Approve &amp; run</strong>");
+	});
+
+	test("gives a reviewer their name and the comment count, and no approval facts", () => {
+		const html = reviewPage({ role: "reviewer", canApprove: false });
+		expect(html).toContain('<div class="review-identity">');
+		expect(html).toContain('id="reviewer-name"');
+		expect(html).toContain("<strong>Post comments</strong>");
+		expect(html).toContain('id="comment-total"');
+		// The plan's step progress is what approval seeds, so it is the owner's fact alone.
+		expect(html).not.toContain('id="step-fact"');
+		expect(html).not.toContain("<span>Plan steps</span>");
 	});
 });
 

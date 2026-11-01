@@ -110,9 +110,8 @@ describe("review outline", () => {
 	});
 
 	test("paints the facts, and counts each comment under the heading above it", () => {
-		// The counters are renderOutline's own output, so the section a comment lands in is
-		// the same rule the list was built with; a comment anchored above the first heading
-		// is in no section and must not be counted into one.
+		// The counters are renderOutline's own output, so a comment lands in the section the
+		// list was built with; one anchored above the first heading is counted in no section.
 		const node = (id: string) => ({
 			id,
 			hidden: false,
@@ -176,6 +175,7 @@ describe("review outline", () => {
 				id: "",
 				children: [] as unknown[],
 				setAttribute() {},
+				addEventListener() {},
 				appendChild(child: unknown) {
 					node.children.push(child);
 				},

@@ -202,7 +202,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
   }
 
   function offerUndo(index, annotation) {
-    var controls = document.querySelector(".review-controls");
+    var controls = document.querySelector(".review-actions");
     clearUndo();
     if (!controls) return;
     var button = el("button", "bf-btn");

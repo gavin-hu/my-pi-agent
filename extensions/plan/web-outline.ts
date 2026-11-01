@@ -86,6 +86,13 @@ export function renderOutline(list: ClientNode | null, entries: readonly Outline
 		const count = el("span", "review-nav__count");
 		count.hidden = true;
 		link.appendChild(count);
+		// A jump is the reader naming the section they want, so the mark moves to it at once; the
+		// watcher still owns it while the reader scrolls.
+		link.addEventListener("click", () => {
+			const links = list.querySelectorAll("a");
+			for (let i = 0; i < links.length; i++) links[i]?.removeAttribute("aria-current");
+			link.setAttribute("aria-current", "true");
+		});
 		li.appendChild(link);
 		list.appendChild(li);
 		counters[item.line] = count;

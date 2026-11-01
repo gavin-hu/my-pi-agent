@@ -612,30 +612,37 @@ line range it shows, and the footer lists only the keys that apply.
 
 ## Browser review
 
-<img src="../../assets/screens/plan-review.png" alt="The browser-based plan review: a sticky header with the plan title, a status chip, and the Approve & run, Save feedback, and Back to Pi actions, a Share action, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail holding the owner's own comment and a teammate's @priya comment" width="100%">
+<img src="../../assets/screens/plan-review.png" alt="The browser-based plan review: a toolbar with the plan's title as its subject and a connected · 3 comments chip; a control bar with Share, Approve & run, Save feedback, and Back to Pi; a side panel with one sentence naming the two decisions, step progress, the All/Changed/Comments switch, and a section outline; the plan as one measured column with a comment rail holding the owner's own comment and a teammate's @priya comment; and a footer naming the plan file" width="100%">
 
 Press `w` on the review screen — or run `/plan review [path]` — to open the plan
 in the default browser on `127.0.0.1`. Its tab reads `plan review · <the plan's
 title>` — the page's name as the header's lockup says it, then the subject, the shape
 `lib/web/markup.ts`'s `tabTitle` gives every served page — rendered with the document
 rather than set by a script, so a strip of tabs names the plan before the page has
-finished loading. The page is a
-reading-first review surface: a sticky header carrying the plan's H1 (falling back to the file-name
-slug), a live status chip (connection, comment count, and unsaved changes), the
-theme toggle, and the review actions, over a hairline reading-progress bar. A
-sticky side panel shows the plan's `Steps` section progress and comment count above a
-**section outline**, and the document is GitHub's Markdown content column — one centred
-measure of at most 1012px with a comment rail in its left margin. Every block
-reveals a **+ Comment** action on hover; select
-text first to quote it. **Save feedback** writes the comments into the plan
+finished loading. The page is a reading-first review surface, and its chrome is the
+same three bands `/board` and `/browse` wear: a toolbar carrying the plan's H1
+(falling back to the file-name slug) as its subject, with the plan file on the hover,
+the live chip (connection, comment count, and unsaved changes), the status line, and
+the keys and theme controls; a control bar carrying the page's own actions —
+**Approve & run**, **Save feedback**, **Back to Pi**, and the owner's **Share**; and a
+footer naming the plan file. A comment-only review shows no approve action at all. A
+stream that has gone offers `⟳ reload` beside the chip, and a save that met a plan
+changed on disk reveals the same control, so a stale page never becomes a dead one.
+The side panel belongs to the reader's role: an owner gets one sentence naming the two
+decisions, the plan's `Steps` progress, and the comment count; a reviewer gets the
+name their comments are signed with and the count, and no approval facts. Both get the
+**All / Changed / Comments** switch and the **section outline**, and the document is
+GitHub's Markdown content column — one centred measure of at most 1012px with a
+comment rail in its left margin. Every block reveals a **+ Comment** action on hover;
+select text first to quote it. **Save feedback** writes the comments into the plan
 file and returns them to the model.
 
 - **A comment can be settled.** **Resolve** (on your own note) keeps it — its place, its
   quote, its history — and marks it `> [!REVIEW resolved]` in the file, where a later review
   and the model both read it as closed; **Reopen** puts it back. The panel counts
   `2 open · 1 resolved`. A note you wrote is labelled **You** on your page and **The owner**
-  on somebody else's, a reviewer's is `@name`, and one sentence beside the facts says what
-  **Approve & run** and **Save feedback** each do.
+  on somebody else's, a reviewer's is `@name`, and one sentence in the panel says what
+  this role's actions do.
 - **Shared theme.** The page uses the same Bytefly tokens, base rules, and
   syntax-token colours as `file-browse` (`lib/web/`), follows the system light/dark
   preference until the header toggle sets an explicit choice, and remembers that
@@ -646,9 +653,11 @@ file and returns them to the model.
   comment-count badge
   in a rail in the left margin, so annotating never reflows the text.
 - **Section outline and facts.** Headings become a sticky outline with jump
-  links, an active-section highlight, and a per-section comment count; the panel
-  above it reports the `Steps` section's progress (`n/m`, the same list approval
-  seeds) and total comments. A
+  links, an active-section highlight, and a per-section comment count — a clicked
+  section is marked the moment it is named, so a plan short enough not to scroll
+  still answers the click. The panel above it reports the total comments for both
+  roles and, for the owner, the `Steps` section's progress (`n/m`, the same list
+  approval seeds). A
   section that changed since the previous review on this branch carries a dot
   (its `title` and accessible label say so); an unchanged plan shows none.
 - **Inline threads.** A comment renders directly under the block it anchors to,
@@ -682,8 +691,8 @@ file and returns them to the model.
   open a confirmation that says what happens and starts on **Cancel**; only its
   own **Approve & run** posts. **Save feedback** keeps plan mode and returns the
   comments as a refinement; **Back to Pi** closes the review with no decision.
-  Each action settles the page on a terminal state — `Approved`, `Saved`, or
-  `Closed` — so the tab never falls to Offline. `/plan review` is comment-only:
+  Each action settles the page on a terminal state — `approved`, `saved`, or
+  `closed` — so the tab never falls to `offline`. `/plan review` is comment-only:
   it renders no approve action and the server refuses one.
 - **Markdown that reads.** Headings, lists, task items, blockquotes, fenced
   code, GFM tables, `---` rules, and bare-URL autolinks render; a list item's
@@ -1048,8 +1057,8 @@ both.
 | `web-tokens.ts` | The token table: the role each token names, the collision rule that keeps two roles off one token, and the names the other live links have bound. |
 | `web-streams.ts` | The event streams: who is listening, what a frame is addressed to, and the closed-tab grace that ends the review when the owner's page goes away. |
 | `web-router.ts` | Pure request handler: token role, `Host` allowlist, origin, and method checks through one POST-and-role guard, then the page, comment, owner-save, approve, cancel, and the four share routes. |
-| `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet, approve confirmation, share and name dialogs) and inline CSS. |
-| `web-payload.ts` | The page's data island: `ReviewPageData` and `reviewPageData`, which builds every fact the browser renders — the blocks, the stored comments, the outline and its change marks, the step progress, the highlighted code, the caps, and who is asking — from one read of the plan, with no server or socket in sight. |
+| `web-page.ts` | The review page shell — the kit toolbar (`pageSubject`, `liveChip`, `reloadChip`, `toolbarChrome`), the control bar, the role-aware panel (finish block, facts, the segmented view switch, the outline), the reading progress, the shortcut sheet, and the approve, share, and name dialogs — and the page's inline CSS. |
+| `web-payload.ts` | The page's data island: `ReviewPageData` and `reviewPageData`, which builds every fact the browser renders — the blocks, the stored comments, the outline and its change marks, the step progress, the plan's own path, the highlighted code, the caps, and who is asking — from one read of the plan, with no server or socket in sight. |
 | `web-write.ts` | The review's two write paths over the plan store: `saveOwnerAnnotations` (the owner's save, which returns the plan it wrote) and `postReviewerAnnotations` (a reviewer's post, signed and scoped to its link), sharing one 404/409 check so a comment can never land beside text nobody read. |
 | `web-share.ts` | Pure sharing rules: the reachable LAN addresses from an injected snapshot, one tokenized URL, the link table (mint, find, revoke, list, state) with its cap, and the reasons a share is unavailable. |
 | `web-share-session.ts` | The shared listener: its bound address, the link table over the session's tokens, `ShareState`, and invite/revoke/stop/close, injected with the request handler, role map, and frame hooks. |
@@ -1063,7 +1072,7 @@ both.
 | `web-comments.ts` | The client's comment half: selection quotes, the composer, authored cards and who may edit them, delete-with-undo. |
 | `web-collab.ts` | The client's collaboration half: the link list with copy and per-link revoke, the reviewer's name, and the island refetch a stream frame triggers. |
 | `web-markdown.ts` | The client's block half: tables, fenced code, headings, quotes, and lists, with each block's text handed to the shared `renderInline` from `lib/web/markdown.ts` (interpolated into `web-client.ts`). |
-| `web-chrome.ts` | The client's chrome half: the state chip, the status line, the header, and reading progress (interpolated into `web-client.ts`). |
+| `web-chrome.ts` | The client's chrome half: the state chip on the kit's live pill, the status line, the one reload control a stale page offers, and reading progress (interpolated into `web-client.ts`). |
 | `web-outline.ts` | The client's outline as typed source (`WEB_OUTLINE_JS`): `sectionFor` — the last heading at or before a line — `renderOutline`, which builds the list and hands back the counters it made, `observeSections`, which watches the blocks and returns the one watcher the client keeps, and `renderFacts`, which paints the step progress and counts each comment under its heading. |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |

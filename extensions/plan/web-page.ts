@@ -19,9 +19,13 @@ import {
 	docHead,
 	type KeyHint,
 	keysSheet,
+	liveChip,
+	pageFooter,
+	pageSubject,
+	reloadChip,
 	SIDEBAR_COLLAPSE_MAX,
 	tabTitle,
-	themeToggle,
+	toolbarChrome,
 	WEB_BASE_CSS,
 	WEB_COMPONENTS_CSS,
 	WEB_LAYOUT_CSS,
@@ -53,20 +57,36 @@ ${WEB_COMPONENTS_CSS}
 .bf-review{--review-measure:1012px;--review-rail:26px;--review-gutter:34px;flex:1 1 auto;padding:var(--space-5) var(--space-6) 120px}
 /* The document is one content column at GitHub's Markdown body width, with the
    comment rail inside it, so a plan reads the way the same file does on GitHub. */
-/* Sticky header: identity, the connection/save chip, the actions, and a
-   hairline reading-progress bar pinned to the header's bottom edge. */
-.review-bar{align-items:center;gap:var(--space-2) var(--space-4)}
-.review-bar .bf-brand{flex:0 0 auto}
-.review-heading{display:flex;align-items:center;flex:1 1 240px;min-width:0;overflow:hidden;border-left:1px solid var(--border);padding-left:var(--space-4)}
-.review-title{display:block;flex:1 1 auto;min-width:8ch;font-size:var(--fs-lg);font-weight:var(--fw-semibold);line-height:var(--lh-tight);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.review-state{flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.review-status{flex:0 0 auto;max-width:42ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.review-status:empty{display:none}
-.review-controls{display:inline-flex;align-items:center;gap:var(--space-2);flex:0 0 auto}
-.review-caption{margin:0;color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-snug)}
+/* Sticky header: the kit's toolbar says who the page is of and how it is doing, a control
+   row under it holds the page's own actions, and a hairline reading progress bar is pinned
+   to the header's bottom edge (the kit's shape; see lib/web/README.md). */
+/* The subject is the plan's title, so it is read from its head — the kit cuts a path's head
+   because a path ends in the folder being read, and a title ends in nothing. */
+.review-bar .bf-context--subject{direction:ltr;text-align:left}
+/* The review's state sentence is longer than a stream's, so the pill may shrink inside the
+   toolbar instead of overflowing it. */
+.review-bar .bf-live{max-width:100%}
+/* A status sentence shares the facts zone with the chips: it holds one line, keeps the head,
+   and disappears when there is nothing to say. paintStatus replaces the class, so the page
+   styles it through the toolbar rather than wearing a class of its own. */
+.review-bar .bf-status{max-width:42ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-bar .bf-status:empty{display:none}
+/* The page's own actions: the bar is the kit's, and the group sits under the header's chrome. */
+.review-actions{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;justify-content:flex-end}
 .review-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
 .review-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
-/* Review panel: the plan's review facts, the section outline, then the keys. */
+/* The finish block: what this page's own decisions do, in the reader's role. One or two
+   button names in the text colour, and the sentence around them quiet. */
+.review-finish{margin:0;padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-snug)}
+.review-finish strong{color:var(--text);font-weight:var(--fw-semibold)}
+/* A reviewer's identity is a fact about them, not one of the page's actions: the name control
+   wears the quiet chrome the toolbar gives a control that is not the page's own. */
+.review-identity{display:flex;align-items:center;gap:var(--space-2)}
+.review-identity .bf-btn{border-color:transparent;color:var(--muted);padding:0;font-size:var(--fs-xs)}
+.review-identity .bf-btn:hover{border-color:transparent;color:var(--accent)}
+.review-identity .bf-btn:disabled{opacity:1;color:var(--text)}
+/* Review panel: the reader's finish block, the facts that role is owed, the view switch, the
+   section outline, then the keys. */
 .bf-app__body--single{grid-template-columns:minmax(0,1fr)}
 .review-panel{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4) var(--space-4) var(--space-2)}
 .review-facts{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-3);border-bottom:1px solid var(--border)}
@@ -77,10 +97,9 @@ ${WEB_COMPONENTS_CSS}
 .review-fact .bf-progress{color:var(--text)}
 .review-fact .bf-progress__track{width:96px}
 .review-fact__value{color:var(--text);font-family:var(--font-mono);font-variant-numeric:tabular-nums}
-.review-view{display:flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:var(--radius-md)}
-.review-view .bf-btn{flex:1 1 auto;justify-content:center;padding:3px 8px;font-size:var(--fs-xs);border:0;background:none}
-.review-view .bf-btn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:var(--fw-semibold)}
-.review-view .bf-btn:disabled{opacity:.5;cursor:default}
+.review-view{display:flex}
+.review-view .bf-segmented__item{flex:1 1 auto;justify-content:center}
+.review-view .bf-segmented__item:disabled{opacity:.5;cursor:default}
 .review-nav{min-width:0}
 .review-nav__title{margin:0;font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .review-nav ul{list-style:none;margin:0;padding:0}
@@ -164,21 +183,8 @@ ${WEB_COMPONENTS_CSS}
 .bf-review{padding:var(--space-4) 18px 80px}
 .review-nav__title{display:none}
 }
-/* The controls are the widest thing in the bar — seven of them once a review can
-   be shared — so the title moves to its own row while they still need a row of
-   their own, rather than being squeezed to nothing beside it. */
-@media (max-width:1120px){
-.review-bar{align-items:flex-start}
-.review-heading{flex:1 1 100%;order:3;border-left:0;padding-left:0;margin-top:var(--space-1)}
-.review-controls{order:2;margin-left:auto}
-.review-status{order:4;flex:1 1 100%;max-width:none;white-space:normal}
-}
-/* Below a phone's width the controls wrap instead of running off the page. */
-@media (max-width:640px){
-.review-controls{flex-wrap:wrap;justify-content:flex-end;max-width:100%}
-.review-heading{gap:var(--space-2)}
-.review-title{min-width:0}
-}
+/* The toolbar keeps the kit's row at every width: the subject takes a row of its own when
+   the line cannot hold it, and the page's actions stay in their own bar. */
 @media (prefers-reduced-motion:no-preference){.bf-block{transition:background var(--motion-fast) var(--motion-ease)}}
 @media (hover:none){.bf-block__add{opacity:1}}
 /* On paper the document is the whole page: no comment rail to hover, no composer,
@@ -262,31 +268,48 @@ function nameDialog(): string {
 }
 
 /**
+ * The finish block: one sentence naming the decisions this reader's role has, because the
+ * buttons are the same weight and the difference was only ever in the docs. It sits in the
+ * panel, not the sticky header: a taller header would hide the section an outline link just
+ * jumped to.
+ */
+function finishBlock(role: ReviewRole, canApprove: boolean): string {
+	if (role === "reviewer")
+		return `<p class="review-finish"><strong>Post comments</strong> signs them with your name and returns them to the plan.</p>`;
+	if (canApprove)
+		return `<p class="review-finish"><strong>Approve &amp; run</strong> runs the plan and returns these comments; <strong>Save feedback</strong> keeps planning.</p>`;
+	return `<p class="review-finish"><strong>Save feedback</strong> returns these comments to the plan and keeps planning.</p>`;
+}
+
+/**
  * Render the review page for `data`. The markup is a fixed shell; the client
  * fills every dynamic field, so this function is the only place that needs the
  * JSON-island escaping.
  */
 export function renderReviewPage(data: ReviewPageData): string {
 	const island = JSON.stringify(data).replace(/</g, "\\u003c");
-	// One sentence saying what the two decisions do, because the buttons are the same weight
-	// and the difference was only ever in the docs. It sits in the panel, not the sticky
-	// header: a taller header would hide the section an outline link just jumped to.
-	const caption =
-		data.role === "owner"
-			? "Approving runs the plan and returns these comments; saving keeps planning."
-			: "Your comments are signed with your name and returned to the plan.";
 	const hasOutline = data.outline.length > 0;
 	const bodyClass = hasOutline ? "bf-app__body" : "bf-app__body bf-app__body--single";
+	// The panel is the reader's own. A reviewer is named there, sees what their comments are
+	// signed with, and the comment count; the plan's step progress is the owner's, because it
+	// is the list approval seeds. The switch and the outline are the plan's, so both roles get
+	// them. A reviewer's name is a fact about them, not one of the page's actions, so it lives
+	// here rather than in the control bar.
+	const identity =
+		data.role === "reviewer"
+			? `
+<div class="review-identity"><button type="button" class="bf-btn" id="reviewer-name" hidden></button></div>`
+			: "";
 	const outlinePanel = hasOutline
 		? `<details class="bf-app__sidebar review-outline" open>
 <summary class="bf-panel__summary">Sections</summary>
 <div class="bf-panel review-panel">
-<p class="review-caption">${caption}</p>
-${reviewFacts()}
-<div class="review-view" role="group" aria-label="What to show" id="review-view">
-<button type="button" class="bf-btn" data-view="all" aria-pressed="true">All</button>
-<button type="button" class="bf-btn" data-view="changed" aria-pressed="false">Changed</button>
-<button type="button" class="bf-btn" data-view="comments" aria-pressed="false">Comments</button>
+${finishBlock(data.role, data.canApprove)}${identity}
+${reviewFacts(data.role)}
+<div class="bf-segmented review-view" role="group" aria-label="What to show" id="review-view">
+<button type="button" class="bf-segmented__item" data-view="all" aria-pressed="true">All</button>
+<button type="button" class="bf-segmented__item" data-view="changed" aria-pressed="false">Changed</button>
+<button type="button" class="bf-segmented__item" data-view="comments" aria-pressed="false">Comments</button>
 </div>
 <nav class="review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
 ${reviewHints(data.role, data.canApprove)}
@@ -307,10 +330,8 @@ ${reviewHints(data.role, data.canApprove)}
 		? `<button type="button" class="${data.canApprove ? "bf-btn" : "bf-btn bf-btn--primary"}" id="save">Save feedback</button>`
 		: `<button type="button" class="bf-btn bf-btn--primary" id="post">Post comments</button>`;
 	const closeControl = isOwner ? `<button type="button" class="bf-btn" id="cancel">Back to Pi</button>` : "";
-	// Sharing belongs to the owner; a reviewer gets the name they comment under.
-	const shareControl = isOwner
-		? `<button type="button" class="bf-btn" id="share">Share</button>`
-		: `<button type="button" class="bf-btn" id="reviewer-name" hidden></button>`;
+	// Sharing belongs to the owner; a reviewer's identity is a row in the panel.
+	const shareControl = isOwner ? `<button type="button" class="bf-btn" id="share">Share</button>` : "";
 	return `<!doctype html>
 <html lang="en"${baseAttribute(data.base)}>
 <head>
@@ -320,19 +341,19 @@ ${docHead({ title: tabTitle("plan review", data.title), css: REVIEW_CSS, base: d
 <a class="skip" href="#plan">Skip to the plan</a>
 <header class="bf-app__header"><div class="bf-toolbar review-bar">
 ${brandLockup("plan review")}
-<div class="review-heading">
-<span class="review-title" id="plan-title">Plan review</span>
-<span class="bf-chip bf-chip--accent review-state" id="review-state">Connecting&#8230;</span>
+${pageSubject({ id: "plan-title", label: data.title, title: data.path })}
+<div class="bf-toolbar__facts">
+${liveChip({ id: "review-state", label: "connecting\u2026" })}
+${reloadChip({ title: "Reload to review the plan again" })}
+<span class="bf-status" id="status" role="status" aria-live="polite"></span>
 </div>
-<span class="bf-status review-status" id="status" role="status" aria-live="polite"></span>
-<div class="review-controls">
-${themeToggle()}
-<button type="button" class="bf-btn bf-btn--icon" id="shortcuts" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>${shareControl}${approveButton}${saveControl}${closeControl}
-</div>
+${toolbarChrome()}
 </div><div class="review-progress" aria-hidden="true"><span class="review-progress__fill" id="progress-fill"></span></div></header>
+<div class="bf-app__bar review-actions">${shareControl}${approveButton}${saveControl}${closeControl}</div>
 <div class="${bodyClass}">
 ${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
 </div>
+${pageFooter({ facts: `plan ${data.path}` })}
 ${keysSheet(reviewKeys(data.role, data.canApprove))}
 ${data.canApprove ? approveDialog() : ""}
 ${data.role === "owner" ? shareDialog() : nameDialog()}
@@ -344,12 +365,17 @@ ${data.role === "owner" ? shareDialog() : nameDialog()}
 }
 
 /**
- * The review facts panel: the plan's step progress and total comment count.
- * Static placeholders; the client fills them from the blocks it rendered.
+ * The review facts panel: the step progress an owner is owed and the comment total both
+ * roles are. Static placeholders; the client fills them from the blocks it rendered and
+ * skips a fact the markup does not carry.
  */
-function reviewFacts(): string {
-	return `<div class="review-facts" id="review-facts">
-<div class="review-fact" id="step-fact"><span>Plan steps</span><span class="bf-progress"><span class="bf-progress__track"><span class="bf-progress__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>
+function reviewFacts(role: ReviewRole): string {
+	const steps =
+		role === "owner"
+			? `
+<div class="review-fact" id="step-fact"><span>Plan steps</span><span class="bf-progress"><span class="bf-progress__track"><span class="bf-progress__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>`
+			: "";
+	return `<div class="review-facts" id="review-facts">${steps}
 <div class="review-fact"><span>Comments</span><span class="review-fact__value" id="comment-total">0</span></div>
 </div>`;
 }

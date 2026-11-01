@@ -186,10 +186,10 @@ export function dialogScript(options: DialogOptions): string {
 /**
  * The `?` keyboard sheet's wiring, shared by both clients.
  *
- * `triggerId` is the page's own shortcut button, since browse opens the sheet
- * from `#keys-open` and review from `#shortcuts`. The sheet's ids are the fixed
- * contract in `keysSheet` (`lib/web/markup.ts`), and the page's keydown handler
- * calls in through `window.bfKeys`.
+ * `triggerId` is the page's own shortcut button; both served pages open the sheet from
+ * `keysButton`'s `#keys-open`, so the id is one the kit owns rather than a page's choice.
+ * The sheet's ids are the fixed contract in `keysSheet` (`lib/web/markup.ts`), and the
+ * page's keydown handler calls in through `window.bfKeys`.
  */
 export function keysDialogScript(triggerId: string): string {
 	return dialogScript({
