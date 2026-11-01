@@ -11,6 +11,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { waitFor } from "../../test/helpers/process.ts";
 import { createMailWatch, type MailWatch } from "./mail-watch.ts";
 import { MAX_LIMIT } from "./protocol.ts";
 import { createBusStore, type BusStore } from "./store.ts";
@@ -28,16 +29,41 @@ interface Fixture {
 	wakes: number[];
 	/** Put one message in this session's inbox, named so it sorts by `at`. */
 	write(at: number, kind?: BusMessage["kind"]): Promise<void>;
+	/** Reads the watch has made of the inbox. */
+	peeks(): number;
+	/** Whether a read is parked at the gate, so `release()` has something to open. */
+	held(): boolean;
+	/** Open the gate a held read waits on; a no-op when the fixture holds none. */
+	release(): void;
 }
 
-/** A store, an armed watch over one inbox, and no ticker: every case polls by hand. */
-async function fixture(): Promise<Fixture> {
+/**
+ * A store, an armed watch over one inbox, and no ticker: every case polls by hand.
+ *
+ * `hold` puts every read behind a gate this case opens with {@link Fixture.release}, which
+ * is how two polls are made to overlap exactly — no timer, no guessed delay.
+ */
+async function fixture(options: { hold?: boolean } = {}): Promise<Fixture> {
 	const dir = mkdtempSync(join(tmpdir(), "pi-mail-watch-"));
 	dirs.push(dir);
 	const store = createBusStore({ dir });
 	const wakes: number[] = [];
+	const held = options.hold === true;
+	let peeks = 0;
+	let open: (() => void) | undefined;
 	const watch = createMailWatch({
-		peek: (known) => store.peek("s2", { limit: MAX_LIMIT, known }),
+		peek: async (known) => {
+			peeks += 1;
+			const page = await store.peek("s2", { limit: MAX_LIMIT, known });
+			// Held after the read, so a case can act on the inbox in the window between the
+			// page being taken and the watch appending it.
+			if (held) {
+				await new Promise<void>((resolve) => {
+					open = resolve;
+				});
+			}
+			return page;
+		},
 		interval: () => () => {},
 		watchMs: 0,
 	});
@@ -46,6 +72,12 @@ async function fixture(): Promise<Fixture> {
 		store,
 		watch,
 		wakes,
+		peeks: () => peeks,
+		held: () => open !== undefined,
+		release: () => {
+			open?.();
+			open = undefined;
+		},
 		write: (at, kind = "message") =>
 			store.writeMessage("s2", {
 				id: `${at}-a`,
@@ -156,6 +188,52 @@ describe("the armed inbox watch", () => {
 		// Every one of them is still unread on disk, and none is announced a second time.
 		await target.watch.poll();
 		expect(target.watch.pending()).toEqual([]);
+	});
+
+	test("queues a message once when a tick and a poll overlap", async () => {
+		const target = await fixture({ hold: true });
+		await target.write(1_000);
+		const arming = target.watch.watch({ wake: true });
+		expect(target.peeks()).toBe(1);
+		// A tick beside the read in flight: dropped, not queued behind it, so two readers
+		// cannot compute the same `known` and append the same mail.
+		const second = target.watch.poll();
+		expect(target.peeks()).toBe(1);
+
+		await waitFor(() => target.held());
+		target.release();
+		await Promise.all([arming, second]);
+		expect(target.watch.pending().map((message) => message.id)).toEqual(["1000-a"]);
+		expect(target.wakes).toHaveLength(1);
+	});
+
+	test("does not queue mail consumed while the poll was reading", async () => {
+		const target = await fixture({ hold: true });
+		await target.write(1_000);
+		const arming = target.watch.watch({});
+		await waitFor(() => target.held());
+
+		// The model's own `inbox` call lands between the read and the append: the page this
+		// poll is carrying names a message this session already has.
+		const consumed = await target.store.inbox("s2", 10);
+		target.watch.markReported(consumed.map((message) => message.id));
+
+		target.release();
+		await arming;
+		expect(target.watch.pending()).toEqual([]);
+	});
+
+	test("queues nothing from a read that returns after the watch stopped", async () => {
+		const target = await fixture({ hold: true });
+		await target.write(1_000);
+		const arming = target.watch.watch({});
+		await waitFor(() => target.held());
+		await target.watch.watch({ stop: true });
+
+		target.release();
+		await arming;
+		expect(target.watch.pending()).toEqual([]);
+		expect(target.watch.state()).toEqual({ armed: false, wake: false });
 	});
 
 	test("queues nothing while it is disarmed", async () => {

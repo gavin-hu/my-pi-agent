@@ -62,6 +62,8 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 	 * holds exactly the announced mail an `inbox` call has not removed yet.
 	 */
 	let reported = new Set<string>();
+	/** One read at a time: a poll that arrives while another is reading is dropped, not queued. */
+	let polling = false;
 	let onWake: (() => void) | undefined;
 
 	function dropFromPending(ids: ReadonlySet<string>): void {
@@ -82,20 +84,37 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 	 * set, and no id still on disk can be forgotten while it is there. A count was how a
 	 * backlog larger than one read made the watch forget an id it had already announced and
 	 * announce it again.
+	 *
+	 * One read at a time, and the page is judged by the state it came back to. The ticker,
+	 * an explicit `poll`, and a poll slower than the interval can all be in flight at once,
+	 * and each of them would read the same `known` and append the same mail; a second reader
+	 * is dropped instead, like the board's own reader. Between the peek and the append,
+	 * `inbox` can consume and mark what this page carries, and a `stop` can clear the queue,
+	 * so the answer is filtered by the current `reported` and by whether the watch is still
+	 * armed — `known` is what the store was asked, not what it is still allowed to queue.
 	 */
 	async function pollOnce(): Promise<void> {
-		if (!armed) return;
-		const known = new Set(reported);
-		for (const message of pendingMail) known.add(message.id);
-		const { mail, unread } = await peek(known);
-		// The read names everything still in the inbox, which is a different question from
-		// what one page covered: a message that expired or was consumed leaves the queue and
-		// the memory with its file.
-		for (const id of reported) if (!unread.has(id)) reported.delete(id);
-		pendingMail = pendingMail.filter((message) => unread.has(message.id));
-		if (mail.length === 0) return;
-		pendingMail = [...pendingMail, ...mail];
-		if (wake) onWake?.();
+		if (!armed || polling) return;
+		polling = true;
+		try {
+			const known = new Set(reported);
+			for (const message of pendingMail) known.add(message.id);
+			const { mail, unread } = await peek(known);
+			if (!armed) return;
+			// The read names everything still in the inbox, which is a different question from
+			// what one page covered: a message that expired or was consumed leaves the queue and
+			// the memory with its file.
+			for (const id of reported) if (!unread.has(id)) reported.delete(id);
+			pendingMail = pendingMail.filter((message) => unread.has(message.id));
+			// Read before `inbox` consumed it: the file is gone and the id is in `reported`, so the
+			// page is stale for exactly the mail this session already has.
+			const fresh = mail.filter((message) => !reported.has(message.id));
+			if (fresh.length === 0) return;
+			pendingMail = [...pendingMail, ...fresh];
+			if (wake) onWake?.();
+		} finally {
+			polling = false;
+		}
 	}
 
 	function disarm(): void {
