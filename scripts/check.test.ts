@@ -221,3 +221,40 @@ describe("a scoped test phase", () => {
 		expect((slow[2] as Phase).env).toEqual({ PI_SLOW_TESTS: "1" });
 	});
 });
+
+describe("a run with nothing to do", () => {
+	test("refuses --tests --static rather than reporting zero phases green", () => {
+		expect(() => parseArgs(["--tests", "--static"])).toThrow(
+			"--static is the check's static half; bun run test has none",
+		);
+	});
+});
+
+describe("a selection that carries the gate", () => {
+	const selection = { tests: ["a.test.ts"], reasons: ["ext:worktree > 4 suites"] };
+
+	test("says how many of its files skip without the gate, and what runs them", () => {
+		const lines = planLines(
+			{ scope: "all", names: [], base: "main", serial: false, watch: false, testsOnly: true, dryRun: false },
+			selection,
+			2,
+		);
+		expect(lines.at(-1)).toBe(
+			"  2 of them are gated suites: their cases skip without PI_SLOW_TESTS=1 — `bun run test --slow` runs those",
+		);
+	});
+
+	test("says nothing when none of them is gated, and names one as one", () => {
+		const plan = {
+			scope: "all" as const,
+			names: [],
+			base: "main",
+			serial: false,
+			watch: false,
+			testsOnly: true,
+			dryRun: false,
+		};
+		expect(planLines(plan, selection).at(-1)).toBe("tests > 1 files (parallel)");
+		expect(planLines(plan, selection, 1).at(-1)).toContain("1 of them is a gated suite");
+	});
+});

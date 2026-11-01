@@ -167,7 +167,9 @@ A change that stays inside one extension or one `lib/` area may be verified with
 `bun run check --changed` and landed; CI still runs the whole suite on three
 systems, so a scope that was too narrow is caught there rather than by review.
 Name a scope when you already know it — `--ext board`, `--lib tui`, `--root` —
-and `--slow` for the gated suites below.
+and `--slow` for the gated suites below. A selection that contains gated suites
+says how many, and points at `--slow`, so a scoped run cannot be read as its own
+full coverage.
 
 ### Slow suites
 

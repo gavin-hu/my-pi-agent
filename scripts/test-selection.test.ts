@@ -12,6 +12,7 @@ import { describe, expect, test } from "bun:test";
 import { textOf } from "../test/helpers/scan.ts";
 import { EXTENSION_SUITES, LIB_SUITES, declaredSuiteFiles } from "../test/suite-manifest.ts";
 import {
+	gatedAmong,
 	regionOf,
 	reachIndex,
 	selectAll,
@@ -163,5 +164,16 @@ describe("a tree", () => {
 		const read = tree(repo);
 		expect(read.packageTests).toContain("test/layout.test.ts");
 		expect(read.packageTests.filter((file) => !file.startsWith("test/") || !file.endsWith(".test.ts"))).toEqual([]);
+	});
+});
+
+describe("the gate among the files a scope picked", () => {
+	test("names the gated suites and leaves the rest alone", () => {
+		const picked = ["extensions/worktree/flow.test.ts", "extensions/watch/format.test.ts", "lib/format.test.ts"];
+		expect(gatedAmong(repo, picked)).toEqual(["extensions/worktree/flow.test.ts"]);
+	});
+
+	test("finds nothing in a selection of package-level tests", () => {
+		expect(gatedAmong(repo, tree(repo).packageTests)).toEqual([]);
 	});
 });

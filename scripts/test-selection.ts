@@ -107,14 +107,26 @@ export function reachIndex(root: string): Map<string, string[]> {
 	return index;
 }
 
-/** The gated git suites, derived from the tree: every suite that imports the gate. */
+/**
+ * The gated git suites, derived from the tree: every suite that imports the gate.
+ * A file outside the manifest can import it too, so the check reports on the files
+ * it actually selected rather than on the manifest alone.
+ */
+export function gatedAmong(root: string, suites: readonly string[]): string[] {
+	return suites.filter((suite) => importsGate(root, suite));
+}
+
+/** Whether one file imports `test/helpers/slow-suite.ts`, which is how a suite opts into the gate. */
+function importsGate(root: string, file: string): boolean {
+	return staticSpecifiers(join(root, file)).some((specifier) => {
+		const target = resolveFile(join(root, file), specifier);
+		return target !== null && relativeTo(root, target) === "test/helpers/slow-suite.ts";
+	});
+}
+
+/** The gated git suites alone: the declared layout, filtered by the gate's own import. */
 export function slowSuites(root: string): string[] {
-	return declaredSuiteFiles().filter((suite) =>
-		staticSpecifiers(join(root, suite)).some((specifier) => {
-			const target = resolveFile(join(root, suite), specifier);
-			return target !== null && relativeTo(root, target) === "test/helpers/slow-suite.ts";
-		}),
-	);
+	return gatedAmong(root, declaredSuiteFiles());
 }
 
 function selection(tests: Iterable<string>, reasons: string[]): Selection {

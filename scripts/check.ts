@@ -25,8 +25,10 @@
 
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
+import { runSlowSuites } from "../test/helpers/slow-suite.ts";
 import { runCli } from "./cli.ts";
 import {
+	gatedAmong,
 	type Selection,
 	reachIndex,
 	selectAll,
@@ -259,6 +261,8 @@ export function parseArgs(argv: string[]): Plan {
 	}
 	if (gaveBase && plan.scope !== "changed") throw new Error("--base names the revision --changed diffs against");
 	if (plan.watch && plan.scope === "static") throw new Error("--watch runs the tests, and --static runs none");
+	if (plan.testsOnly && plan.scope === "static")
+		throw new Error("--static is the check's static half; bun run test has none");
 	if ((plan.scope === "ext" || plan.scope === "lib") && plan.names.length === 0) {
 		throw new Error(`--${plan.scope} needs a name`);
 	}
@@ -268,14 +272,24 @@ export function parseArgs(argv: string[]): Plan {
 	return plan;
 }
 
-/** The whole plan, in the order it runs, so a run can be read before it starts. */
-export function planLines(plan: Plan, chosen: Selection | undefined): string[] {
+/**
+ * The whole plan, in the order it runs, so a run can be read before it starts.
+ *
+ * `gated` is how many of the selected files are gated suites: their cases skip
+ * unless the run turns the gate on, which is the one thing a scoped run would
+ * otherwise read as full coverage.
+ */
+export function planLines(plan: Plan, chosen: Selection | undefined, gated = 0): string[] {
 	const lines: string[] = [];
 	if (!plan.testsOnly && !plan.watch) lines.push("static > format:check, typecheck, beside the tests");
 	if (chosen === undefined) return lines;
 	for (const reason of chosen.reasons) lines.push(`  ${reason}`);
 	const scope = plan.watch ? "--watch" : plan.serial ? "serial" : "parallel";
 	lines.push(`tests > ${chosen.tests.length} files (${scope})`);
+	if (gated > 0) {
+		const suites = `${gated} of them ${gated === 1 ? "is a gated suite" : "are gated suites"}`;
+		lines.push(`  ${suites}: their cases skip without PI_SLOW_TESTS=1 — \`bun run test --slow\` runs those`);
+	}
 	return lines;
 }
 
@@ -316,9 +330,12 @@ async function main(): Promise<void> {
 	const plan = parseArgs(process.argv.slice(2));
 	const selected = performance.now();
 	const chosen = selectionFor(root, plan);
-	for (const line of planLines(plan, chosen)) console.log(line);
+	const walked = Math.round(performance.now() - selected);
+	// `--slow` turns the gate on below, so its own selection needs no warning.
+	const gated = chosen && plan.scope !== "slow" && !runSlowSuites ? gatedAmong(root, chosen.tests).length : 0;
+	for (const line of planLines(plan, chosen, gated)) console.log(line);
 	// The walk is the one cost a narrowed run pays before its first test: say it.
-	if (plan.scope === "changed") console.log(`  selection took ${Math.round(performance.now() - selected)}ms`);
+	if (plan.scope === "changed") console.log(`  selection took ${walked}ms`);
 	if (plan.dryRun) return;
 	const workers = workersFor(availableParallelism());
 	const phases = phasesFor({
