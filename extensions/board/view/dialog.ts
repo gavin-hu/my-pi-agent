@@ -176,7 +176,12 @@ __INLINE_MARKDOWN__
       landed === undefined ? "" : landed.commit + " \u00b7 " + ago(landed.at),
       landed === undefined ? undefined : landed.commit
     );
-    setRow("reviewed", card.review !== undefined, card.review ? card.review.by + " \u00b7 " + ago(card.review.at) : "");
+    var reviewed = card.review;
+    setRow(
+      "reviewed",
+      reviewed !== undefined,
+      reviewed === undefined ? "" : reviewed.by + " \u00b7 " + ago(reviewed.at) + (reviewed.byInstruction === undefined ? "" : " \u00b7 by instruction")
+    );
 
     pair("paths", card.paths.length > 0);
     var pathList = document.getElementById("card-dialog-path-list");

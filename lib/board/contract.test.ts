@@ -17,6 +17,7 @@ import {
 	mergedContract,
 	missingContractFields,
 	normalizeContractField,
+	normalizeInstruction,
 } from "./contract.ts";
 
 const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s" };
@@ -70,6 +71,23 @@ describe("an approval", () => {
 	});
 });
 
+describe("normalizeInstruction", () => {
+	test("keeps one sanitized line, in the signer's words", () => {
+		expect(normalizeInstruction("  closed on my instruction\nfor 0.22.0 ")).toEqual({
+			text: "closed on my instruction for 0.22.0",
+		});
+	});
+
+	test("refuses an absent, empty, or over-long reason, in the words of the field", () => {
+		expect(normalizeInstruction(undefined)).toEqual({ error: "override needs the one line saying why." });
+		expect(normalizeInstruction("   ")).toEqual({ error: "override needs the one line saying why." });
+		expect(normalizeInstruction(7)).toEqual({ error: "override needs the one line saying why." });
+		expect(normalizeInstruction("x".repeat(MAX_CONTRACT + 1))).toEqual({
+			error: `override must be at most ${MAX_CONTRACT} characters.`,
+		});
+	});
+});
+
 describe("isContract and isSign", () => {
 	test("accepts what this build writes, and an older contract with no sign", () => {
 		expect(isContract(COMPLETE)).toBe(true);
@@ -89,5 +107,14 @@ describe("isContract and isSign", () => {
 		expect(isSign({ by: "billing-lead", at: 0 })).toBe(true);
 		expect(isSign({ by: "billing-lead" })).toBe(false);
 		expect(isSign(undefined)).toBe(false);
+	});
+
+	test("a sign by instruction is trusted only as the line a signer would have written", () => {
+		expect(isSign({ by: "you", at: 0, byInstruction: "closed on my instruction" })).toBe(true);
+		// A stored sign the write path would never produce: an empty reason, a wrapping one, and a
+		// wrapping one whose newline has been flattened but not capped.
+		expect(isSign({ by: "you", at: 0, byInstruction: "" })).toBe(false);
+		expect(isSign({ by: "you", at: 0, byInstruction: "two\nlines" })).toBe(false);
+		expect(isSign({ by: "you", at: 0, byInstruction: "x".repeat(MAX_CONTRACT + 1) })).toBe(false);
 	});
 });

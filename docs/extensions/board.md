@@ -132,7 +132,7 @@ lead: board list round: true
 | `/board` | the lead | Serves the page as the board's lead (`board.lead`, `lead` by default), or opens the one another session already serves — and opens it again when it is already up, so a closed tab is one command away. The line it prints names the repository and the address |
 | `/board team` | lead | The same, opened on the Team tab |
 | `/board approve <id>` | the person | Signs the card's contract as `you`, the other actor the gate takes: a session must be the lead (`board.lead`), and the holder may sign nothing at all. Only a card in `plan` with a complete contract can be signed, and the refusal is the tool's own sentence |
-| `/board review <id>` | the person | Records the spot-check of finished work as `you`; only a card in `execute` can be signed |
+| `/board review <id>` | the person | Records the spot-check of finished work as `you`; only a card in `execute` can be signed. `/board review <id> --override <why>` is the other case: it signs a card that is already `done` and has no sign, with one line saying why, and the record then reads `closed by instruction` |
 | `/board archive` | lead | Runs the same sweep the tool's bare `archive` runs, and says what it folded away and what it kept: a finished card an open card still waits on stays on the board |
 | `/board status` | both | One line: the seat, the repository, the port, how many tabs are watching, the store's path, and the team the last `/board` joined — or the page being watched, and whether the note behind it still answers |
 | `/board stop` | lead | Stops the page this session serves; a watched page that has stopped answering is dropped instead, and a watched page that is alive is its owner's to stop |
@@ -170,6 +170,17 @@ past `plan` or `execute`, so `/board approve` and `/board review` write the same
 session typing it holds the card. The card says who signed, and the two read differently
 because they are different: `you` is the person who read the plan, the lead is a second pair
 of eyes.
+
+**A close by instruction.** A card can finish without passing the gate — somebody with the
+authority to skip it says so, and until this existed the only trace was a note, which reads
+exactly like the note on a card that was signed. `review` with an `override` is that close
+recorded: the reason is required (one line, the same 400-character ceiling a contract line
+has), the card must already be `done`, and no sign may be on it, because the one rule the
+override relaxes is the lane. Who may sign and who may not is the same gate, so the holder
+is still refused and the person's door is still the way in. The sign keeps the reason in
+`byInstruction`, and every surface reads it: the card's reason line and its `reviewed` rung,
+the dialog's row, and the rollup's done count (`3 done, 1 by instruction, 2 archivable`).
+A sign without that field was made at the gate, which is why nothing older needed migrating.
 
 **The sign tells the other side.** `approve` and `review` write the card and then send it to
 the card's owner: an event in that session's inbox naming the signer and the lane the sign
@@ -231,7 +242,7 @@ name there is the project's, and the seat is read off the roster where it belong
 | `note` | `card`, `text` | the card with the note appended |
 | `contract` | `card`, `path`, `goal?`, `acceptance?`, `scopeOut?` | the card with its plan file and its contract recorded, and any approval dropped: a changed line, or a different plan file, is an unapproved contract. `path` is required and must resolve inside this repository's plan store (a bare name is read there, `~/…` is accepted) and exist; a path outside it is refused with the store named |
 | `approve` | `card`, `text?` | the card with its contract approved, by the lead and not by its holder — the gate in front of `execute` (see **Who signs**); `text` is a note recorded in the same write. The person signs the same gate with `/board approve <id>` |
-| `review` | `card`, `text?` | the card with a spot-check recorded, by the lead and not by its holder — the gate in front of `done`; `text` is a note recorded in the same write. The person signs with `/board review <id>` |
+| `review` | `card`, `text?`, `override?` | the card with a spot-check recorded, by the lead and not by its holder — the gate in front of `done`; `text` is a note recorded in the same write. `override` is the close a gate was not asked for: one line saying why, which signs a card that is already `done` and has no sign on it, and the sign then carries `byInstruction` so the card, the round, and the page say `closed by instruction`. The person signs either with `/board review <id> [--override <why>]` |
 | `edit` | `card`, `title?`, `paths?`, `priority?`, `dependsOn?` | the card with what it says corrected; an omitted field is left alone, and `dependsOn: []` removes every link |
 | `archive` | `card?` | the ids set aside — one finished card, or every archivable one when no card is named, which is every finished card no open card still waits on: archiving is one way, and a link a sweep stranded would name a card no read of the board opens; a card still in flight is refused |
 | `drop` | `card` | the id that was dropped, whose number is now spent |
@@ -392,7 +403,9 @@ button stays on that button.
   nothing is rewritten behind a read. A card already in `execute` is held to the same check
   on its way to `done`.
 - **A finished card stays finished.** `done` is terminal — claim, assign, release,
-  reclaim, move, contract, approve, review, and offer all refuse it — so a card a
+  reclaim, move, contract, approve, review, and offer all refuse it, and the one write
+  that reaches a finished card is `review` with an `override`, which fills the sign a
+  close outside the gate left empty and moves nothing — so a card a
   dependency was recorded against cannot un-finish and reopen the order after the fact,
   and `archive` does not change that: it moves a `done` card's file, and never its lane.
   The one exception is `edit`: a title, path hints, priority, or `dependsOn` can still be

@@ -89,7 +89,10 @@ describe("the board tool surface", () => {
 	test("stays under its ceiling, with three guidelines", () => {
 		// 8,156 characters before the restating bullets were cut; the ceiling is what the
 		// three that are not already in the schema, the description, or the action docs cost.
-		expect(boardSurface()).toBeLessThanOrEqual(7_200);
+		// 7,200 held until `review` took the one-line `override`, which is the record a card
+		// closed outside the gate had no way to carry: that parameter costs ~200 and buys the
+		// difference between a forced close and a signed one.
+		expect(boardSurface()).toBeLessThanOrEqual(7_400);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
 	});

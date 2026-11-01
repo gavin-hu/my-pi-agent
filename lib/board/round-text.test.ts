@@ -55,6 +55,22 @@ describe("formatRound", () => {
 		]);
 	});
 
+	test("counts the closes made by instruction on the count they qualify", () => {
+		const cards = [
+			card("4", {
+				lane: "done",
+				owner: { label: "billing-other" },
+				review: { by: "you", at: NOW, byInstruction: "closed on my instruction" },
+			}),
+			card("5", { lane: "done", owner: { label: "billing-other" }, review: { by: "lead", at: NOW } }),
+		];
+		// The card keeps its own sentence either way: this is the one line a lead scans before
+		// opening anything, so it says how many of the history were not signed at the gate.
+		expect(formatRound(cards, buildRound(cards, NOW)).split("\n")[0]).toContain(
+			"2 done, 1 by instruction, 2 archivable",
+		);
+	});
+
 	test("an owner who finished everything keeps its line and its count", () => {
 		const cards = [card("4", { lane: "done", owner: { label: "billing-other" } })];
 		const lines = formatRound(cards, buildRound(cards, NOW)).split("\n");

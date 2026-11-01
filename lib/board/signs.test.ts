@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { MAX_NOTE } from "./card.ts";
+import { type Card, MAX_NOTE } from "./card.ts";
 import { personActor } from "./lead.ts";
 import {
 	accepted,
@@ -19,6 +19,7 @@ import {
 	CONFIG,
 	CORE,
 	executing,
+	finished,
 	LEAD,
 	NOW,
 	OTHER,
@@ -141,5 +142,56 @@ describe("review", () => {
 		const card = stepOf(executing(), { kind: "review", text: "Ships; the docs line is still wrong." }, LEAD);
 		expect(card.review).toEqual({ by: LEAD.label, at: NOW });
 		expect(card.notes.at(-1)).toEqual({ by: LEAD.label, at: NOW, text: "Ships; the docs line is still wrong." });
+	});
+});
+
+describe("a spot-check made by instruction", () => {
+	/** A finished card with no sign on it: the record a close outside the gate leaves behind. */
+	function closedByHand(): Card {
+		return { ...finished(), review: undefined };
+	}
+
+	test("signs a finished card nobody signed, and keeps the line saying why", () => {
+		const card = stepOf(
+			closedByHand(),
+			{ kind: "review", override: "Closed on my instruction for 0.22.0." },
+			personActor(),
+		);
+		expect(card.review).toEqual({ by: "you", at: NOW, byInstruction: "Closed on my instruction for 0.22.0." });
+	});
+
+	test("refuses an override with no reason, and one on a card that is not finished", () => {
+		const card = closedByHand();
+		expect(refusal(applyOp(card, { kind: "review", override: "   " }, LEAD, NOW, boardOf(card)))).toBe(
+			"override needs the one line saying why.",
+		);
+		const running = executing();
+		expect(refusal(applyOp(running, { kind: "review", override: "shipped anyway" }, LEAD, NOW, boardOf(running)))).toBe(
+			"#4 is in execute; an override signs a card that is already done.",
+		);
+	});
+
+	test("keeps the holder out, and never rewrites a sign already there", () => {
+		const card = closedByHand();
+		expect(
+			refusal(applyOp(card, { kind: "review", override: "closed on my instruction" }, CORE, NOW, boardOf(card))),
+		).toContain("spot-checked by the lead, who does not hold it");
+		// Every card that finished through the gate carries a spot-check, so an override on one is
+		// a second signature rather than a record of the close that happened.
+		const gated = finished();
+		expect(
+			refusal(applyOp(gated, { kind: "review", override: "closed on my instruction" }, LEAD, NOW, boardOf(gated))),
+		).toBe("#4 is already spot-checked by billing-lead; an override signs a card that has no sign.");
+	});
+
+	test("the same signer saying it again writes nothing, and a note still lands", () => {
+		const reason = "closed on my instruction";
+		const closed = stepOf(closedByHand(), { kind: "review", override: reason }, LEAD);
+		expect(accepted(applyOp(closed, { kind: "review", override: reason }, LEAD, NOW, boardOf(closed))).changed).toBe(
+			false,
+		);
+		const noted = stepOf(closed, { kind: "review", override: reason, text: "for the record" }, LEAD);
+		expect(noted.review).toEqual(closed.review);
+		expect(noted.notes.at(-1)?.text).toBe("for the record");
 	});
 });

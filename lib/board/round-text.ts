@@ -49,7 +49,7 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 		// The history is the one count a reader can act on without opening a card: a finished
 		// card an open one still waits on stays, so `archivable` is what a sweep would take. It
 		// rides on the count it qualifies, and says nothing at all when there is nothing to sweep.
-		`${round.done.length} done${round.archivable.length > 0 ? `, ${round.archivable.length} archivable` : ""}`,
+		`${round.done.length} done${byInstruction(cards)}${round.archivable.length > 0 ? `, ${round.archivable.length} archivable` : ""}`,
 	].join(" · ");
 	const lines = [headline];
 	// The history is counted as it goes, so its one line can follow the owner lines and the
@@ -80,6 +80,18 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 	const dropped = droppedHistory(cards);
 	if (dropped !== "") lines.push(dropped);
 	return lines.join("\n");
+}
+
+/**
+ * How many finished cards were closed by instruction, as a clause on the done count.
+ *
+ * The cards are already in hand, so this is a rule over them rather than a field on
+ * `RoundSummary`: the round counts lanes, and how a close was signed is the card's own fact.
+ * Empty when nobody overrode a gate, which is every board that never needed to.
+ */
+function byInstruction(cards: readonly Card[]): string {
+	const count = cards.filter((card) => card.lane === "done" && card.review?.byInstruction !== undefined).length;
+	return count === 0 ? "" : `, ${count} by instruction`;
 }
 
 /**

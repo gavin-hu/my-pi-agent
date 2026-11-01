@@ -35,7 +35,7 @@ export function registerCommands(
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
 		description:
-			"Open the shared board in a local browser, sign its two gates as the person, or fold the finished cards away: /board [archive | team | status | stop | approve <id> | review <id>]",
+			"Open the shared board in a local browser, sign its two gates as the person, or fold the finished cards away: /board [archive | team | status | stop | approve <id> | review <id> [--override <why>]]",
 		getArgumentCompletions: (prefix: string) => {
 			// Lowercased, because that is what the handler parses: `/board ST 4` signs, so `/board ST`
 			// has to complete.
@@ -45,10 +45,13 @@ export function registerCommands(
 			return items.length > 0 ? items.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
-			const [word = "", rawCard] = args.trim().toLowerCase().split(/\s+/);
+			// The word is folded so `/board ST 4` signs; everything after it is kept as typed, because
+			// the one reason a sign can carry is the person's own sentence and not a lowercased one.
+			const [first = "", ...rest] = args.trim().split(/\s+/);
+			const word = first.toLowerCase();
 			const sign = signOf(word);
 			if (sign !== undefined) {
-				const line = await signLine(session, sign, rawCard, ctx);
+				const line = await signLine(session, sign, rest, ctx);
 				ctx.ui.notify(line.text, line.tone);
 				return;
 			}
@@ -153,29 +156,60 @@ const NO_PEER = "a command cannot reach a peer — it reads the sign on its next
 async function signLine(
 	session: BoardSession,
 	sign: Sign,
-	rawCard: string | undefined,
+	words: readonly string[],
 	ctx: ExtensionCommandContext,
 ): Promise<SignLine> {
+	const { id: rawCard, override } = signWords(words);
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
 	if (id === undefined) return { text: `board: ${sign} needs a card id — try /board ${sign} 4`, tone: "info" };
+	// Two signs, one flag: an approval is a contract read, and nothing about a close belongs on it.
+	if (override !== undefined && sign === "approve") {
+		return { text: "board: approve takes no --override — a contract is approved while it is in plan", tone: "info" };
+	}
 	// The store is a repository read and a file write, and a command has nowhere else to report
 	// what they throw: without this the person sees a raw command error instead of a line.
 	let result: MutateResult;
 	try {
 		const store = await session.store(ctx.cwd);
-		result = await store.mutate(id, { kind: sign }, personActor(), session.now());
+		result = await store.mutate(
+			id,
+			override === undefined ? { kind: sign } : { kind: "review", override },
+			personActor(),
+			session.now(),
+		);
 	} catch (error) {
 		return { text: `board: ${sign} ${cardRef(id)} failed — ${messageOf(error)}`, tone: "error" };
 	}
 	if (!result.ok) return { text: `board: ${result.error}`, tone: "info" };
 	const done = sign === "approve" ? "approved" : "reviewed";
+	const how = result.card.review?.byInstruction === undefined ? "" : " · closed by instruction";
 	const text = result.changed
-		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}`
-		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}`;
+		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}`
+		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}`;
 	if (result.card.owner === undefined) return { text, tone: "info" };
 	// A command context has no nested `session send`, so a sign from here reaches nobody. Saying
 	// so is the only moment that trade-off costs something; the signature is recorded either way.
 	return { text: `${text} · ${notToldLine(result.card.owner.label, NO_PEER)}`, tone: "info" };
+}
+
+/** The flag that turns a `review` into the close a gate was not asked for. */
+const OVERRIDE_FLAG = "--override";
+
+/**
+ * A sign's words: the card it names, and the reason the rest of the line gives.
+ *
+ * `review 4 --override closed on my instruction` — the reason is everything after the flag,
+ * unquoted, so a sentence with spaces in it is one argument rather than a quoting rule
+ * nobody remembers. A flag with nothing after it arrives as the empty string rather than as
+ * no flag at all, so the refusal is the state machine's "needs the one line saying why".
+ */
+function signWords(words: readonly string[]): { id: string | undefined; override: string | undefined } {
+	const at = words.findIndex((word) => word.toLowerCase() === OVERRIDE_FLAG);
+	const named = at === -1 ? words : words.slice(0, at);
+	return {
+		id: named[0] === undefined ? undefined : named[0].toLowerCase(),
+		override: at === -1 ? undefined : words.slice(at + 1).join(" "),
+	};
 }
 
 /** One line for `/board status`: the page this session serves, watches, or does not have. */

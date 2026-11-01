@@ -74,6 +74,12 @@ export const BoardParams = Type.Object({
 			description: `\`note\`: the note to append; \`approve\` and \`review\`: what the signer saw, recorded with the sign; one line, at most ${MAX_NOTE} characters.`,
 		}),
 	),
+	override: Type.Optional(
+		Type.String({
+			description:
+				"`review`: the one line saying why, for a card already `done`; the record says `closed by instruction`.",
+		}),
+	),
 	path: Type.Optional(
 		Type.String({
 			description:

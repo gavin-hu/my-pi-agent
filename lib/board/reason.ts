@@ -95,7 +95,11 @@ export function reasonFor(card: Card, ago: (at: number) => string): Reason | und
 	}
 	const landed = card.landed === undefined ? "" : " · landed " + card.landed.commit;
 	const who = card.owner === undefined ? "" : " by " + card.owner.label;
-	return { kind: "done", text: "✓ done" + who + landed };
+	// A sign that carries a reason is a close the gate was not asked for, and the difference
+	// between that and a signed one is the whole point of recording it: no helper, because this
+	// body is also the browser's.
+	const how = card.review?.byInstruction === undefined ? "" : " · closed by instruction";
+	return { kind: "done", text: "✓ done" + who + landed + how };
 }
 
 /** The same body, as the browser receives it: one rule for the page and the transcript. */
