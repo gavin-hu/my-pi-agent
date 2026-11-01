@@ -27,16 +27,19 @@ function section(label: string | undefined, cards: readonly Card[], rowLine: Tai
 /**
  * What the expanded block draws, or undefined when the action has nothing to list.
  *
- * A `list` is the board (or the one card it was asked for); a `list --round` is one
- * section per rollup group, in the order a lead reads them: owners, then what needs
- * a decision. Every other action produced one card, which the collapsed line
- * already names, so it has no rows.
+ * A `list` is the board (or the one card it was asked for); a `list --round` is that
+ * listing — when a filter made it a slice — above one section per rollup group, in the
+ * order a lead reads them: owners, then what needs a decision. Every other action produced
+ * one card, which the collapsed line already names, so it has no rows.
  */
 export function resultInput(details: BoardDetails): TailResultInput<Card> | undefined {
 	if (details.action !== "list") return undefined;
 	// Only a read narrowed to this session's own cards marks them, and it marks them with
 	// the rule the filter used: the rows and the filter agree about what "mine" means.
 	const rowLine = boardRowLineFor(details.mine === true ? details.me : undefined);
+	// The rollup is the whole board, so its rows are nobody's in particular: the accent means
+	// "this row is yours" and a group holding a peer's card is not.
+	const rollupLine = boardRowLineFor();
 	if (details.card) return { kind: "list", rows: [details.card], more: 0, rowLine };
 	const round = details.round;
 	if (!round) {
@@ -44,18 +47,23 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
 		return cards.length === 0 ? undefined : { kind: "list", rows: cards, more: 0, rowLine };
 	}
 	const sections: TailSection<Card>[] = [];
-	for (const group of round.owners) sections.push(section(group.label, group.cards, rowLine));
-	if (round.unassigned.length > 0) sections.push(section("Unassigned", round.unassigned, rowLine));
-	if (round.unplanned.length > 0) sections.push(section("Unplanned", round.unplanned, rowLine));
+	// The slice the call asked for, unlabelled because it is the listing rather than a group
+	// of one, and only when a filter made it a slice: a bare `round` already draws every one
+	// of those cards in the rollup below.
+	const slice = details.narrowed === true ? (details.cards ?? []) : [];
+	if (slice.length > 0) sections.push(section(undefined, slice, rowLine));
+	for (const group of round.owners) sections.push(section(group.label, group.cards, rollupLine));
+	if (round.unassigned.length > 0) sections.push(section("Unassigned", round.unassigned, rollupLine));
+	if (round.unplanned.length > 0) sections.push(section("Unplanned", round.unplanned, rollupLine));
 	// The lead's first signature: a contract nobody has signed is a card the flow stops on, so
 	// it is drawn in the order `formatRound` prints it rather than left to the text above.
-	if (round.unapproved.length > 0) sections.push(section("Awaiting approval", round.unapproved, rowLine));
+	if (round.unapproved.length > 0) sections.push(section("Awaiting approval", round.unapproved, rollupLine));
 	// The lead's second signature: a card the lead has not looked at yet is one the flow stops
 	// on just as surely, so it is drawn beside the first rather than left to `unwritten`'s clock.
-	if (round.unreviewed.length > 0) sections.push(section("Awaiting review", round.unreviewed, rowLine));
-	if (round.blocked.length > 0) sections.push(section("Blocked", round.blocked, rowLine));
-	if (round.unwritten.length > 0) sections.push(section("Unwritten", round.unwritten, rowLine));
-	if (round.done.length > 0) sections.push(section("Done", round.done, rowLine));
+	if (round.unreviewed.length > 0) sections.push(section("Awaiting review", round.unreviewed, rollupLine));
+	if (round.blocked.length > 0) sections.push(section("Blocked", round.blocked, rollupLine));
+	if (round.unwritten.length > 0) sections.push(section("Unwritten", round.unwritten, rollupLine));
+	if (round.done.length > 0) sections.push(section("Done", round.done, rollupLine));
 	return sections.length === 0 ? undefined : { kind: "sections", sections };
 }
 

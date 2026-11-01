@@ -149,6 +149,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   printed. The record now carries the watch state on every join, disarmed included; absence
   is only a record written before the field existed. Found by an end-to-end case that joins
   without listening and reads the answer back from the store, the roster, and the status rows.
+- `board`: a `list` with `round: true` keeps the filters it was given. `read()` printed the
+  rollup over the whole board instead of the listing the filters chose, and returned the
+  filtered rows in details that the expanded block then ignored — so `list mine: true round: true`
+  printed another session's card and drew no row of your own, and `list query: "zzz" round: true`
+  answered with two cards. The listing now comes first and the rollup follows it, one result
+  answering both questions in the order they were asked; `details.cards` is that slice rather
+  than the whole board (which also stops `done` cards reaching a `round` result's rows), the
+  expanded block draws the slice above the rollup's groups and gives those groups the plain row
+  line, since the accent means "this row is yours", and a filtered listing that matched nothing
+  says `No cards match.` instead of calling the board empty.
 - `dev`: a shot script runs only as its own entry point. `scripts/shots/video.ts` called
   `runCli` at top level, and `runCli` runs `main()` the moment it is called — so importing the
   module, which `scripts/video.test.ts` does for `parseArgs`, launched Chrome, recorded the

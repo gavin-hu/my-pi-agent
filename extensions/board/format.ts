@@ -46,6 +46,19 @@ export interface ListingNotes {
 	archived: number;
 	/** Card files this build could not read. */
 	skipped: readonly Skip[];
+	/**
+	 * Whether a filter made this a slice rather than the board.
+	 *
+	 * An empty slice is the reader's own question answered with nothing, which is not the same
+	 * statement as a board with no cards — the page draws the two apart for the same reason.
+	 */
+	narrowed?: boolean;
+}
+
+/** What an empty listing says: the board's own state, or the reader's filter answered with nothing. */
+function emptyListing(notes: ListingNotes): string {
+	if (notes.narrowed === true) return "No cards match.";
+	return notes.hiddenDone === 0 ? "The board is empty." : "No open cards.";
 }
 
 /**
@@ -55,8 +68,7 @@ export interface ListingNotes {
  * read, the finished cards a plain listing left out, and the cards an `archive` set aside.
  */
 export function formatBoard(shown: readonly Card[], notes: ListingNotes): string {
-	const lines =
-		shown.length === 0 ? [notes.hiddenDone === 0 ? "The board is empty." : "No open cards."] : shown.map(listLine);
+	const lines = shown.length === 0 ? [emptyListing(notes)] : shown.map(listLine);
 	// A finished card is history rather than work, so a listing that names no lane leaves
 	// them out; the count is what keeps the omission from reading as a smaller board.
 	if (notes.hiddenDone > 0) {
