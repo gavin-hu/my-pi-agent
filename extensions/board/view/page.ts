@@ -13,15 +13,18 @@
  * contract test holds every class to the kit or to this page's stylesheet.
  */
 
-import { escapeHtml } from "../../../lib/escape.ts";
 import {
 	baseAttribute,
 	brandLockup,
-	button,
+	chip,
 	docHead,
 	keysSheet,
+	liveChip,
+	pageFooter,
+	pageSubject,
+	reloadChip,
 	tabTitle,
-	themeToggle,
+	toolbarChrome,
 } from "../../../lib/web/index.ts";
 import { BOARD_KEYS } from "./keys.ts";
 import { BOARD_CLASS as N } from "./names.ts";
@@ -44,6 +47,8 @@ export function renderBoardPage(input: {
 	repo: string;
 	/** The repository root, which is the header name's hover: a name alone cannot tell two clones apart. */
 	root: string;
+	/** The store these cards are filed under, which its footer names before a frame arrives. */
+	where: string;
 }): string {
 	const team = input.view === "team";
 	// The page answers under the session's mount, so its own script and theme are named
@@ -59,25 +64,28 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
 <a class="skip" href="#main">Skip to the cards</a>
 <header class="bf-app__header"><div class="bf-toolbar ${N.toolbar}">
   ${brandLockup("board")}
-  <span class="bf-chip bf-chip--outline" id="board-repo" title="${escapeHtml(input.root)}">${escapeHtml(input.repo)}</span>
-  <p class="bf-status ${N.status}" id="board-status" data-state="connecting" aria-live="polite">connecting…</p>
-  <span class="bf-spacer"></span>
-  <div class="${N.controls}">
-    <div class="bf-segmented" role="tablist" aria-label="View">
-      <button type="button" class="bf-segmented__item" role="tab" id="tab-board" data-view="board" aria-controls="panel-board" aria-selected="${team ? "false" : "true"}" tabindex="${team ? "-1" : "0"}">Board</button>
-      <button type="button" class="bf-segmented__item" role="tab" id="tab-team" data-view="team" aria-controls="panel-team" aria-selected="${team ? "true" : "false"}" tabindex="${team ? "0" : "-1"}">Team</button>
-    </div>
-    <p class="bf-progress ${N.progress}" id="board-progress" hidden>
-      <span class="bf-progress__track"><span class="bf-progress__fill" id="board-progress-fill"></span></span>
-      <span id="board-progress-text">0/0</span>
-    </p>
-    <label class="bf-field ${N.filter}"><span class="sr-only">Filter cards</span>
-      <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
-    </label>
-    ${button({ label: "?", variant: "icon", id: "keys-open", title: "Keyboard shortcuts", attrs: { "aria-haspopup": "dialog" } })}
-    ${themeToggle()}
+  ${pageSubject({ id: "board-repo", label: input.repo, title: input.root })}
+  <div class="bf-toolbar__facts">
+    ${chip({ label: "read-only", tone: "accent" })}
+    ${liveChip({ id: "board-status", label: "connecting…" })}
+    ${reloadChip({ title: "Run /board again if this does not clear" })}
   </div>
+  ${toolbarChrome()}
 </div></header>
+<div class="bf-app__bar ${N.bar}">
+  <div class="bf-segmented" role="tablist" aria-label="View">
+    <button type="button" class="bf-segmented__item" role="tab" id="tab-board" data-view="board" aria-controls="panel-board" aria-selected="${team ? "false" : "true"}" tabindex="${team ? "-1" : "0"}">Board</button>
+    <button type="button" class="bf-segmented__item" role="tab" id="tab-team" data-view="team" aria-controls="panel-team" aria-selected="${team ? "true" : "false"}" tabindex="${team ? "0" : "-1"}">Team</button>
+  </div>
+  <p class="bf-progress ${N.progress}" id="board-progress" hidden>
+    <span class="bf-progress__track"><span class="bf-progress__fill" id="board-progress-fill"></span></span>
+    <span id="board-progress-text">0/0</span>
+  </p>
+  <span class="bf-spacer"></span>
+  <label class="bf-field ${N.filter}"><span class="sr-only">Filter cards</span>
+    <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
+  </label>
+</div>
 <main class="bf-app__main ${N.main}" id="main" tabindex="-1">
   <section class="${N.panel}" id="panel-board" role="tabpanel" aria-labelledby="tab-board"${team ? " hidden" : ""}>
     <div class="bf-segmented ${N.picker}" id="board-picker" role="group" aria-label="Lane"></div>
@@ -93,7 +101,7 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
     <div class="${N.team}" id="board-team"></div>
   </section>
 </main>
-<footer class="bf-app__footer"><span id="board-where"></span></footer>
+${pageFooter({ factsId: "board-where", facts: `store ${input.where}` })}
 
 <div class="bf-dialog" id="board-card-dialog" hidden>
   <div class="bf-dialog__panel ${N.dialogPanel}" role="dialog" aria-modal="true" aria-labelledby="card-dialog-title" tabindex="-1">

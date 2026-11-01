@@ -20,7 +20,7 @@ the shared loopback layer plus one small vanilla script.
 | File previews | `/view/<rel>` | Text, rendered Markdown, image thumbnails, and download cards for binary or over-size files, each with a per-language icon. |
 | Quick open | `/files/`, `Ctrl/Cmd+K`, `/files/api/files` | A fuzzy path finder over the tree opens a file without walking the tree. |
 | Git diff view | `/diff`, `/diff/<rel>` | A change overview and one file's unified diff, scoped to `head`, `staged`, or `worktree`. |
-| Live status | `/events`, the `◉ live` chip | An open page keeps its branch, change markers, and footer up to date without a reload. |
+| Live status | `/events`, the `◉ live` chip | An open page keeps its branch and its change markers up to date without a reload; a stream that has gone offers `⟳ reload`. |
 | Reload hint | `/api/dir-rev`, `⟳ reload` | A page whose folder gained or lost a file offers a reload control instead of changing its rows. |
 | The session's page port | `serve`'s `◉ <port>` chip | The footer names the one port every page of the session answers on, this one included. |
 | Listing controls | the `Name`, `Size`, and `Modified` headers | The current folder sorts by name, size, or modified time, directories first, and the choice is remembered per browser. |
@@ -355,22 +355,27 @@ The page has its own live status, which is what a left-open tab reads. A `◉ li
 chip beside `read-only` says whether status is flowing (green), still
 connecting (accent), stalled (amber, after three missed frames), or offline
 (red); the branch chip, the `● N changes +A −D` chip, and the change markers in
-the tree and the listing update in place; and the footer line reports `up 2m
-14s · 37 requests`. The chip names its state and never counts, and a frame whose
-change set did not move repaints nothing at all. One Server-Sent Events stream
-per page carries it, on the same loopback server, so nothing extra is opened and
-nothing is written; that stream is also how the server notices the last page
-closing its window, after which it stops listening.
+the tree and the listing update in place; and the chip's hover reports the
+server's own accounting of the stream, `up 2m 14s · 37 requests`. The chip names
+its state and never counts, and a frame whose change set did not move repaints
+nothing at all. One Server-Sent Events stream per page carries it, on the same
+loopback server, so nothing extra is opened and nothing is written; that stream
+is also how the server notices the last page closing its window, after which it
+stops listening.
 
 The header chip starts hidden and is painted by the client from `/events`:
 `◉ live` in the success colour while frames arrive, `◉ connecting` before the
 first one, `◉ stale` in the warning colour when three intervals pass without a
 frame on an open connection, and `◉ offline` in the danger colour once the
 stream errors. The chip names its state rather than counting, so it is repainted
-only when that state changes. The same frame carries the branch (or detached
-head), the uncommitted-change totals and paths, the server's uptime, and the
-requests it has answered, so the branch chip, the changes chip, the markers, and
-the footer line are painted from one snapshot rather than four requests. Each
+only when that state changes. A stream that has gone is where the page stops
+being true, so `offline` also reveals the `⟳ reload` control beside the chip,
+whose hover names the way back (restart `/browse`, then reload): the page can
+re-request itself, and that is the one action a stale page has. The same frame
+carries the branch (or detached head), the uncommitted-change totals and paths,
+the server's uptime, and the requests it has answered, so the branch chip, the
+changes chip, the markers, and the chip's hover are painted from one snapshot
+rather than four requests. Each
 change set also carries a short revision, and a frame whose revision the page
 already painted does no work at all — so an idle tree costs no DOM, however many
 rows the page drew. Losing the stream leaves everything the page last showed in
@@ -427,8 +432,8 @@ stops at the first difference because the control, not the checker, is the fix.
   type renders exactly as before. State that the tokenizer does not carry
   across lines (shell heredocs, interpolation inside a template literal) is
   approximated rather than parsed.
-- Live status updates what the page already contains: the header chips, the
-  markers on the rows it rendered, and the footer line. A file that appears on
+- Live status updates what the page already contains: the header chips and the
+  markers on the rows it rendered. A file that appears on
   disk does not join the listing by itself — the page offers `⟳ reload` instead —
   and the check covers the folder the page lists, by name, not the folders inside
   it, a listed file's contents, the `/diff` table, or a file page's `changes`
@@ -520,10 +525,10 @@ stops at the first difference because the control, not the checker, is the fix.
 | `view/client.ts` | The `/app.js` source: sort, wrap, copy, hunk navigation, reading progress, and the page keymap |
 | `view/tree.ts` | The sidebar block: path filter, fold-all, lazy tree loading, and the tree's keyboard model (interpolated into `client.ts`) |
 | `view/palette.ts` | The quick-open palette: fuzzy search, the combobox wiring, and the `window.bfPalette` contract (interpolated into `client.ts`) |
-| `view/live-client.ts` | The client's live status block: the event stream, the chips, the markers, and the footer line (interpolated into `client.ts`) |
+| `view/live-client.ts` | The client's live status block: the event stream, the chips and their hover, the markers, and the reload control (interpolated into `client.ts`) |
 | `live/live.ts` | The live status snapshot, its frame, and the fan-out channel that ticks it |
 | `live/rev.ts` | Short digests of the change set and a folder's listing names, so an unchanged frame is skipped |
-| `view/chrome.ts` | Header chrome: the git and changes chips, the live chip, the reload control, and the footer line |
+| `view/chrome.ts` | The page's own header chips: the git branch and the change totals |
 | `view/styles.ts` | The page-only `browse-*` stylesheet (the `bf-*` kit comes from `lib/web`) |
 | `view/html.ts` | Page renderers: the shared shell, the two-pane layout, the listing, and the cards |
 | `view/diff-html.ts` | The unified-diff body: the gutter, the sign, the hunk sections, and per-hunk highlighting |

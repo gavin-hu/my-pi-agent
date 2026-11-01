@@ -13,15 +13,14 @@
 
 /** Every `board-*` class the page wears. Keys are what the code reads; values are what CSS matches. */
 export const BOARD_CLASS = {
-	// The shell, the toolbar, and the two panel wrappers.
+	// The shell, the toolbar, the bar under it, and the two panel wrappers.
 	toolbar: "board-toolbar",
-	controls: "board-controls",
+	bar: "board-bar",
 	main: "board-main",
 	panel: "board-panel",
 	filter: "board-filter",
 	picker: "board-picker",
 	progress: "board-progress",
-	status: "board-status",
 	noCards: "board-no-cards",
 	skeleton: "board-skeleton",
 

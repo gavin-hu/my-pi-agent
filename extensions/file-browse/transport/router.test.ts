@@ -278,10 +278,10 @@ describe("live status stream route", () => {
 		const page = text(await handleRequest({ ...context(), live: idleStatus() }, "GET", "/", {}));
 		expect(page).toContain('id="live-state"');
 		expect(page).toContain(`data-interval="${DEFAULT_CONFIG.liveIntervalMs}"`);
-		expect(page).toContain('id="live-status"');
+		expect(page).toContain('id="reload-hint"');
 
 		const off = text(await handleRequest({ ...context({ live: false }), live: idleStatus() }, "GET", "/", {}));
-		expect(off).not.toContain('id="live-status"');
+		expect(off).not.toContain("reload-hint");
 	});
 });
 
@@ -295,11 +295,12 @@ describe("live folder revision", () => {
 		expect(page).toContain("hidden>⟳ reload");
 	});
 
-	test("leaves the control off a page with nothing to compare", async () => {
+	test("offers the reload control wherever live status is on", async () => {
 		fixture = makeFixture();
 		const file = text(await handleRequest({ ...context(), live: idleStatus() }, "GET", "/view/a.txt", {}));
 		expect(file).toContain('id="live-state"');
-		expect(file).not.toContain("reload-hint");
+		// Not the folder's business only: a lost stream is the other reason, and it starts hidden.
+		expect(file).toContain("hidden>⟳ reload</button>");
 
 		const off = text(
 			await handleRequest({ ...context({ live: false }), live: idleStatus() }, "GET", "/browse/sub", {}),
@@ -315,7 +316,6 @@ describe("live folder revision", () => {
 		);
 		expect(page).toContain('id="live-state"');
 		expect(page).not.toContain("data-rev=");
-		expect(page).not.toContain("reload-hint");
 	});
 
 	test("answers the revision the page drew", async () => {

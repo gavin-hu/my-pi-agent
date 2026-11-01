@@ -22,7 +22,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
    and the panes stop scrolling so the document prints whole. */
 @media print{
 .bf-app,.bf-app__body,.bf-app__main,.bf-app__sidebar,.bf-panel{display:block!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
-.bf-toolbar,.bf-app__sidebar,.bf-app__footer,.bf-progress,.skip,.bf-dialog{display:none!important}
+.bf-toolbar,.bf-app__bar,.bf-app__sidebar,.bf-app__footer,.bf-progress,.skip,.bf-dialog{display:none!important}
 .bf-app__header{position:static!important;border:0!important}
 .bf-app__main{padding:0!important}
 }

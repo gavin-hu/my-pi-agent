@@ -33,12 +33,18 @@ export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height
 .bf-app__sidebar{display:flex;flex-direction:column;min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border)}
 .bf-app__main{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:var(--space-5) var(--space-6)}
 .bf-app__footer{flex:0 0 auto;border-top:1px solid var(--border);color:var(--muted);font-size:var(--fs-sm);padding:var(--space-3) var(--space-6)}
+/* A page's own controls, between the header and the body: identity and state stay above, the
+   content's controls sit here, and the body keeps the height they do not use. */
+.bf-app__bar{display:flex;align-items:center;gap:var(--space-3);flex:0 0 auto;flex-wrap:wrap;padding:var(--space-2) var(--space-6);background:var(--surface);border-bottom:1px solid var(--border)}
 @media (max-width:${SIDEBAR_COLLAPSE_MAX}px){
 .bf-app{height:auto;min-height:100vh;overflow:visible}
 .bf-app{min-height:100dvh}
 .bf-app__body{flex:none;grid-template-columns:1fr}
 .bf-app__sidebar{display:block;position:static;max-height:none;overflow:visible;border-right:0;border-bottom:1px solid var(--border)}
 .bf-app__main{overflow:visible}
+/* A long subject takes a row of its own rather than squeezing the facts beside it: the
+   browser's root can be deeper than the toolbar is wide. */
+.bf-toolbar .bf-context--subject{flex:1 1 100%}
 .bf-app__sidebar .bf-panel__summary{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);cursor:pointer;list-style:none;font-family:var(--font-mono);font-size:var(--fs-sm);color:var(--muted)}
 .bf-panel__summary::-webkit-details-marker{display:none}
 .bf-panel__summary::before{content:"\\25B8";color:var(--muted)}

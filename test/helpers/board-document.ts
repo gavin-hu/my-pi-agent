@@ -19,10 +19,12 @@ import { BOARD_CSS } from "../../extensions/board/view/styles.ts";
 export const REPO = "my-pi-agent";
 /** The repository root the header carries as its hover title. */
 export const ROOT = "/Users/someone/my-pi-agent";
+/** The store the footer names before a frame arrives. */
+export const WHERE = "~/.pi/agent/board/document";
 
 /** The document as the server renders it, for the structure these tests read. */
 export function boardDocument(view: PageView): string {
-	return renderBoardPage({ view, base: "", repo: REPO, root: ROOT });
+	return renderBoardPage({ view, base: "", repo: REPO, root: ROOT, where: WHERE });
 }
 
 /** The page's own rules, without the shared blocks that define the palette. */

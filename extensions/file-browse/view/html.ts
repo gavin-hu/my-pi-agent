@@ -11,14 +11,17 @@
 import {
 	baseAttribute,
 	brandLockup,
+	chip,
 	docHead,
 	type KeyHint,
 	keysSheet,
+	pageFooter,
+	pageSubject,
 	tabTitle,
-	themeToggle,
+	toolbarChrome,
 } from "../../../lib/web/index.ts";
 import { escapeHtml } from "../../../lib/escape.ts";
-import { renderChanges, renderGit, renderLiveChrome, renderLiveStatus, type LivePage } from "./chrome.ts";
+import { renderChanges, renderGit, renderLiveChrome, type LivePage } from "./chrome.ts";
 import { type DirEntry, type FileView, type Listing, type TreeNode } from "../files/files.ts";
 import { formatSize } from "../../../lib/format.ts";
 import { DIFF_MODES, statusLetter, type ChangedFile, type DiffMode } from "../text/diff.ts";
@@ -111,13 +114,14 @@ ${docHead({ title: layout.title, css: BROWSE_CSS, base: layout.base })}
 ${SPRITE}
 <header class="bf-app__header"><div class="bf-toolbar">
   ${brandLockup("browse")}
-  <span class="bf-context browse-root">${escapeHtml(layout.rootLabel)}</span>
-  ${renderGit(layout.git)}
-  ${renderChanges(layout.summary, layout.live, layout.base)}
-  <span class="bf-chip bf-chip--accent">read-only</span>
-  ${renderLiveChrome(layout.live)}
-  <button type="button" class="bf-btn bf-btn--icon browse-keys-btn" id="keys-open" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
-  ${themeToggle()}
+  ${pageSubject({ label: layout.rootLabel, title: layout.rootLabel })}
+  <div class="bf-toolbar__facts">
+    ${renderGit(layout.git)}
+    ${renderChanges(layout.summary, layout.live, layout.base)}
+    ${chip({ label: "read-only", tone: "accent" })}
+    ${renderLiveChrome(layout.live)}
+  </div>
+  ${toolbarChrome()}
 </div><div class="browse-progress" aria-hidden="true"><span class="browse-progress__fill" id="progress-fill"></span></div></header>
 <div class="bf-app__body">
   <details class="bf-app__sidebar browse-sidebar" open>
@@ -137,7 +141,7 @@ ${SPRITE}
 ${layout.main}
   </main>
 </div>
-<footer class="bf-app__footer">${layout.live ? renderLiveStatus() : ""}served from ${escapeHtml(layout.rootLabel)} · read-only · ${escapeHtml(layout.footerNote)}</footer>
+${pageFooter({ facts: `served from ${layout.rootLabel} · ${layout.footerNote}` })}
 ${layout.keys && layout.keys.length > 0 ? keysSheet(layout.keys) : ""}
 <script src="${layout.base}/app.js" defer></script>
 </body>

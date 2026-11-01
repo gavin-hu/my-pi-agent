@@ -89,6 +89,22 @@ export function paintStatus(node: ClientNode, text: string, kind?: string): void
 	node.className = kind ? "bf-status bf-status--" + kind : "bf-status";
 }
 
+/**
+ * Paint the live chip: the tone's class, the state's word, and its tooltip.
+ *
+ * What a state *says* is the page's voice — `live · 3m`, `connecting…`, `offline` — so the
+ * caller passes the word and the tooltip, and only the shape is shared. A page that starts
+ * its chip hidden shows it here: a painted state is a state the page can stand behind. The
+ * tooltip is left alone when the caller has none, since a page may keep a fixed one.
+ */
+export function paintLive(node: ClientNode, tone: string, label: string, title?: string): void {
+	node.className = "bf-chip bf-live" + (tone ? " bf-chip--" + tone : "");
+	node.hidden = false;
+	if (title) node.title = title;
+	const text = node.querySelector(".bf-live__text");
+	if (text) text.textContent = label;
+}
+
 /** One answer from the server: whether it accepted, its status, and its parsed body. */
 interface PostResult {
 	ok: boolean;
@@ -146,4 +162,4 @@ export const CLIENT_BASE_JS = String(pageBase);
  *
  * `test` holds each to its module body and proves the string is safe to splice.
  */
-export const CLIENT_RUNTIME_JS = [el, typing, paintStatus, postJson].map(String).join("\n\n");
+export const CLIENT_RUNTIME_JS = [el, typing, paintStatus, paintLive, postJson].map(String).join("\n\n");

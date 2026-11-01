@@ -76,12 +76,11 @@ ${WEB_THEME_CSS}
 ${WEB_LAYOUT_CSS}
 ${WEB_COMPONENTS_CSS}
 
-/* Toolbar: identity and state on the left, the controls the reader uses on the right. */
+/* Toolbar: identity, state, and the app's chrome; the bar under it carries the controls. */
 .board-toolbar{gap:var(--space-3);flex-wrap:wrap}
-.board-status{margin:0}
-/* The right side of the toolbar is one group, so a wrap happens between groups
-   rather than between two controls that belong together. */
-.board-controls{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;justify-content:flex-end}
+/* The bar is the board's own control row: the view switch, the done meter, and the filter,
+   with the filter pushed to the end of whatever room the row has. */
+.board-bar{gap:var(--space-3)}
 .board-filter{width:13rem}
 .board-progress{margin:0}
 .board-picker{display:none;margin-bottom:var(--space-3)}
@@ -322,7 +321,6 @@ ${DIALOG_TONE_CSS}
 @media (max-width:1180px){
   .board-lanes{flex-wrap:wrap}
   .board-lane{flex:1 1 calc(50% - var(--space-4))}
-  .board-progress{display:none}
   /* Two panels need a wide window; below this the queue comes first, the roster after. */
   .board-team__grid{grid-template-columns:minmax(0,1fr)}
 }
@@ -334,10 +332,10 @@ ${DIALOG_TONE_CSS}
   .board-lane[hidden]{display:none}
   .board-picker{display:flex}
   .board-toolbar{gap:var(--space-2)}
-  .board-toolbar .bf-spacer{display:none}
-  /* The icons stay with the tabs and the filter takes the last row whole, so the
-     toolbar wraps once, on purpose, instead of leaving two buttons stranded. */
-  .board-controls{width:100%;justify-content:flex-start}
+  /* The filter takes the bar's last row whole, so the bar wraps once, on purpose, rather
+     than leaving a search field stranded beside the switch. */
+  .board-bar{gap:var(--space-2);padding:var(--space-2) var(--space-4)}
+  .board-bar .bf-spacer{display:none}
   .board-filter{order:9;width:100%}
   .board-team__foot{flex-wrap:wrap}
 }

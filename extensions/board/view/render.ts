@@ -90,6 +90,9 @@ const renderTemplate = String.raw`(function () {
 
 __RUNTIME__
 
+  /** The live chip's painter, for the stream's fragment: one body, written in the kit. */
+  board.paintLive = paintLive;
+
   /**
    * The queue's order, its colours, and the tone a reason line wears — spliced in from
    * lib/board/tone.ts, which the terminal reads through extensions/board/tone.ts. One

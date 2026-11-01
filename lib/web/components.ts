@@ -12,8 +12,18 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-mark__bottom{fill:var(--warn)}
 .bf-title{margin:0;font-weight:var(--fw-semibold);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bf-context{font-family:var(--font-mono);font-size:var(--fs-sm);color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The page's subject: the toolbar's splitter, and the one label it truncates. RTL keeps the
+   end of a path — the folder a reader is in — over its head, which names only the machine. */
+.bf-context--subject{flex:1 1 auto;direction:rtl;text-align:left}
 .bf-toolbar{display:flex;align-items:center;gap:var(--space-3);min-height:56px;padding:var(--space-2) var(--space-6);flex-wrap:wrap}
 .bf-spacer{flex:1 1 auto}
+/* The toolbar's two right-hand zones: the page's own facts as pills, then the app's chrome. */
+.bf-toolbar__facts{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;justify-content:flex-end}
+.bf-toolbar__chrome{display:flex;align-items:center;gap:var(--space-2)}
+/* Chrome is quieter than a control: a borderless icon here keeps the key-sheet button from
+   reading as one of the page's own, and the box comes back on hover, where it is the target. */
+.bf-toolbar__chrome .bf-btn{border-color:transparent;color:var(--muted)}
+.bf-toolbar__chrome .bf-btn:hover{border-color:var(--border);color:var(--text)}
 .bf-btn{appearance:none;border:1px solid var(--border);border-radius:var(--radius-md);background:transparent;color:var(--text);font:var(--fs-sm) var(--font-ui);padding:5px var(--space-3);cursor:pointer}
 .bf-btn:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
 .bf-btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
@@ -33,6 +43,14 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-chip--success{color:var(--success)}
 .bf-chip--warn{color:var(--warn)}
 .bf-chip--danger{color:var(--danger)}
+/* The live state and its one action wear one pill: the tone is the text's colour, and the
+   border follows it, so a page never re-draws the shape for a new state. */
+.bf-live,.bf-reload{border:1px solid currentColor;border-radius:var(--radius-pill);padding:2px 10px}
+.bf-live{font-family:var(--font-mono)}
+.bf-live__glyph{font-size:9px;line-height:1}
+.bf-live__text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bf-reload{appearance:none;background:transparent;font-family:var(--font-mono);color:var(--warn);cursor:pointer}
+.bf-reload:hover{color:var(--warn);text-decoration:underline}
 .bf-segmented{display:inline-flex;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
 .bf-segmented__item{appearance:none;border:0;border-radius:0;background:transparent;color:var(--text);font:var(--fs-xs) var(--font-ui);padding:5px var(--space-3);cursor:pointer}
 .bf-segmented__item+.bf-segmented__item{border-left:1px solid var(--border)}
@@ -52,6 +70,10 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-status{color:var(--muted);font-size:var(--fs-sm)}
 .bf-status--saved{color:var(--success)}
 .bf-status--error{color:var(--danger)}
+/* The footer's one line: a store's path or a served root, then the page's own count. It wraps
+   rather than truncating — a footer is one sentence carrying two facts, and cutting it hides
+   one of them: a cut at the head left a stub of "served from" behind, which reads as damage. */
+.bf-footer__facts{display:block;min-width:0;overflow-wrap:anywhere}
 .bf-note{margin-top:var(--space-3);font-size:var(--fs-sm);color:var(--muted)}
 .bf-empty{padding:64px var(--space-6);text-align:center}
 .bf-empty__title{font-size:var(--fs-base);margin:0 0 6px}

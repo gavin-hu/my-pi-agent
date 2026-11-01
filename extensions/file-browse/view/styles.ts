@@ -20,7 +20,6 @@ ${WEB_THEME_CSS}
 ${WEB_LAYOUT_CSS}
 ${WEB_COMPONENTS_CSS}
 .browse-side{padding:var(--space-3)}
-.browse-root{flex:1 1 auto;direction:rtl;text-align:left}
 .browse-git{font-family:var(--font-mono)}
 .browse-quick-open{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);width:100%;margin-bottom:var(--space-2);padding:6px var(--space-2);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);color:var(--muted);font:var(--fs-sm) var(--font-ui);cursor:pointer}
 .browse-quick-open:hover{border-color:var(--accent);color:var(--accent)}
@@ -42,14 +41,6 @@ body.palette-open{overflow:hidden}
 .browse-diff:hover{color:var(--accent);text-decoration:none}
 .browse-diff__dot{color:var(--warn);font-size:9px;line-height:1}
 .browse-change{color:var(--warn);font-size:9px;line-height:1;flex:0 0 auto}
-/* Live status: the connection chip keeps its own border and padding so a tone
-   swap only changes the colour, and the footer line reads as one muted clause. */
-.browse-live{font-family:var(--font-mono);border:1px solid currentColor;border-radius:var(--radius-pill);padding:2px 10px}
-.browse-live__glyph{font-size:9px;line-height:1}
-.browse-reload{border:1px solid currentColor;border-radius:var(--radius-pill);padding:2px 10px;cursor:pointer;font-family:var(--font-mono)}
-.browse-reload:hover{text-decoration:underline}
-.browse-live-line{color:var(--muted);font-variant-numeric:tabular-nums}
-.browse-live-line::after{content:" · "}
 .browse-diff-totals{font-family:var(--font-mono)}
 .browse-diff-add{color:var(--success)}
 .browse-diff-del{color:var(--danger)}
@@ -130,11 +121,7 @@ body.palette-open{overflow:hidden}
 .browse-side{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
 .browse-side .bf-tree{flex:1 1 auto;min-height:0;overflow:auto}
 }
-@media (max-width:820px){
-.browse-root{order:9;flex:1 1 100%}
-}
 @media (max-width:520px){
-.bf-toolbar .bf-theme-toggle{margin-left:auto}
 /* A phone has no room for four button rows above the file: the actions keep one
    line and scroll instead, so the document starts where it should. A control
    keeps its own width — shrunk, a label wraps and a segmented control clips. */

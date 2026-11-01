@@ -105,7 +105,8 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 	const started = await createBoardServer({
 		mount: testMountSource(),
 		session: "fixture",
-		page: async (tab) => renderBoardPage({ view: tab, base: BOARD_BASE, repo, root }),
+		page: async (tab) =>
+			renderBoardPage({ view: tab, base: BOARD_BASE, repo, root, where: display.where ?? store.where() }),
 		script: BOARD_CLIENT_JS,
 		view,
 	});
