@@ -17,15 +17,11 @@ repositories.
 
 | Command | What it does |
 |---|---|
-| `bun run check:static` | `format:check` + `typecheck`, the static half of `check`. |
-| `bun run check` | `format:check` + `typecheck` + `test`, all three at once through `scripts/check.ts`. The one command a change must pass. |
-| `bun run test` | Unit tests (`bun test --parallel=4`, 30s timeout). |
-| `bun run test:serial` | Unit tests, one file at a time. |
-| `bun run test:watch` | Unit tests in watch mode. |
+| `bun run check` | The gate a landing needs: `format:check`, `typecheck`, and the tests, the first two running beside the test phase through `scripts/check.ts` so the gate costs what its longest phase costs. One scope flag narrows the tests: `--static` (the static half alone), `--serial` (one file at a time, what macOS CI runs), `--watch`, `--changed [--base <ref>]` (the tests a change reaches), `--ext <name…>`, `--lib <area…>`, `--root` (the package-level tests), `--slow` (the gated git suites). `--dry-run` prints the selection and runs nothing. |
+| `bun run test [scope]` | The same scopes without the static phases; no flag is every test, in parallel. |
 | `bun run typecheck` | `tsc --noEmit`. |
 | `bun run format` | `biome format --write .`. |
 | `bun run format:check` | `biome format .`, check only. |
-| `bun run check:serial` | The same gate (`scripts/check.ts --serial`) with the serial suite, which is what the macOS CI job runs. |
 | `bun run config:migrate [--project <dir>]` | Move each per-extension `<name>.json` into the shared `bytefly.json`, once per machine and repository; `--dry-run` previews and `--keep` leaves the old files. How it behaves is in [`configuration.md`](./configuration.md#migrating-from-older-versions). |
 | `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
@@ -152,6 +148,29 @@ Tests are deterministic by construction: inject `now`, `spawn`, `kill`,
 `liveness`, and a clock rather than stubbing globals. Real git is allowed only
 inside a tracked temp directory.
 
+### Scoped runs
+
+`bun run check` is what a landing needs. Between edits a narrower run is enough,
+and `bun run check --changed` is the one that needs no argument: it runs the
+static half, then the suites the working tree and the branch can reach — every
+suite whose static imports touch a changed file, plus the suites of the region
+the file belongs to (`extensions/<name>/`, `lib/<area>/`, `scripts/<stem>.ts`).
+The package-level tests always run, because they are the sweeps that read the
+tree rather than import a module, and a change to shared ground
+(`test/helpers/`, `test/suite-manifest.ts`, `package.json`, `tsconfig.json`,
+`bun.lock`) widens the run to everything and says so. The selection is printed
+before anything runs, one line per reason, so a narrow run is auditable rather
+than trusted — and a path no suite claims (a doc, a workflow, an asset) leaves
+the package-level tests as the whole run.
+
+A change that stays inside one extension or one `lib/` area may be verified with
+`bun run check --changed` and landed; CI still runs the whole suite on three
+systems, so a scope that was too narrow is caught there rather than by review.
+Name a scope when you already know it — `--ext board`, `--lib tui`, `--root` —
+and `--slow` for the gated suites below. A selection that contains gated suites
+says how many, and points at `--slow`, so a scoped run cannot be read as its own
+full coverage.
+
 ### Slow suites
 
 The git-heavy `rewind`, `worktree`, and `session-bus` real-repository tests are
@@ -159,14 +178,14 @@ gated: they skip unless `CI` is set or `PI_SLOW_TESTS=1` is exported. A local
 `bun run check` stays fast; run them with:
 
 ```bash
-PI_SLOW_TESTS=1 bun run test
+bun run test --slow
 ```
 
-CI runs the macOS job through `bun run check:serial` because a `--parallel`
+CI runs the macOS job through `bun run check --serial` because a `--parallel`
 worker on macOS can drop the subprocess exit notification for its first spawn
 and hang a git-using test. The cause is upstream: `oven-sh/bun#41024` and
 `#39709` are open against Bun 1.4.3, and `#45483` (filed 2026-10-16) describes
-the same lost-exit path. When both close, delete the `check:serial` step and run
+the same lost-exit path. When both close, drop `--serial` and run
 `bun run check` on all three systems;
 [`architecture.md`](./architecture.md#documented-limits-with-no-planned-card)
 records the same condition.
@@ -362,7 +381,7 @@ not an upgrade):
 bun add --dev @earendil-works/pi-agent-core@latest @earendil-works/pi-ai@latest \
   @earendil-works/pi-coding-agent@latest @earendil-works/pi-tui@latest typebox@latest
 bun run compat:versions
-bun run typecheck && bun run test:serial
+bun run check --serial
 git checkout package.json bun.lock && bun install --frozen-lockfile
 ```
 
@@ -635,7 +654,7 @@ authenticates with npm trusted publishing (OIDC). See
 
    The run then waits for the `npm` environment review (the approval), checks out
    `vX.Y.Z` rather than a branch, proves the tag is on `main` and that its
-   `package.json` is that version, runs `bun run check:serial`, and publishes with
+   `package.json` is that version, runs `bun run check --serial`, and publishes with
    `--provenance` through npm trusted publishing. There is no token to leak and no
    local publish path: `publishConfig.provenance` is `true`, so `npm publish` from
    a developer machine fails instead of shipping an unsigned tarball.

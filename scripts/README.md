@@ -16,7 +16,8 @@ judged by `bun run check` and by the assets it writes under `assets/screens/`,
 | [`tools/`](./tools/) | The tool-renderings CLI (`list`, `render`, `html`, `gallery`, `tools`) and `fixtures/`, one fixture per registered tool. `fixtures/board-store.ts` is the one module that is not a fixture: it seeds a board in a temp directory, and `test/helpers/board-page.ts` serves the shipped page over it, which is why the gallery, the picture, and the browser suite describe the same cards. |
 | [`examples/`](./examples/) | Sample inputs a documented command takes, such as `plan-review.md` for `screenshot:plan`. |
 | [`cli.ts`](./cli.ts), [`theme.ts`](./theme.ts), [`poll.ts`](./poll.ts), [`ansi-html.ts`](./ansi-html.ts), [`transcript-fixture.ts`](./transcript-fixture.ts) | Shared: flag parsing, the capture theme and page palette, sleep and polling, the ANSI-to-HTML bridge, the transcript fixture. |
-| `check.ts`, `wechat-poll.ts`, `migrate-config.ts`, `release-notes.ts`, `peer-versions.ts`, `render-bench.ts`, `load-bench.ts`, `start-bench.ts` | One command each, under [`docs/development.md#scripts`](../docs/development.md#scripts). `check.ts` is the gate: three phases at once, its exit code the one that matters. |
+| [`check.ts`](./check.ts), [`test-selection.ts`](./test-selection.ts) | The gate, `bun run check` / `bun run test`: its phases at once, its exit code the one that matters, and the scope flags it takes — which `test-selection.ts` answers from the manifest and the import walker. What a scope covers is [`docs/development.md#scoped-runs`](../docs/development.md#scoped-runs). |
+| `wechat-poll.ts`, `migrate-config.ts`, `release-notes.ts`, `peer-versions.ts`, `render-bench.ts`, `load-bench.ts`, `start-bench.ts` | One command each, under [`docs/development.md#scripts`](../docs/development.md#scripts). |
 
 ## The two capture mechanisms
 

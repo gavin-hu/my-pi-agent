@@ -33,19 +33,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `dev`: `bun run check` and `bun run test` are one command with a scope, and the check's three
+  phases run at once through `scripts/check.ts` instead of in a chain — so the gate costs what its
+  longest phase costs, 30.4 s on an 8-core machine measured while the box was busy against
+  48.7–55.5 s for the old chain, and the test worker count still comes from the cores capped at
+  the four `test/README.md` documents, because seven broke two wall-clock budgets on a loaded box
+  (`job`'s shell-exit budget moved 10 s → 25 s for the same reason). The tests a run covers are a
+  flag rather than another script name: `--static`, `--serial`, `--watch`, `--ext <name…>`,
+  `--lib <area…>`, `--root`, `--slow`, or `--changed [--base <ref>]`, which runs every suite whose
+  static imports touch a changed file, plus its region's, plus the package-level tests always, and
+  everything when a shared path changed — printing why before it runs, so a narrowed run is
+  auditable. One extension is 17 suites instead of 264 files, and `--slow` derives the gated git
+  suites from the tree rather than naming them. `test:serial`, `test:watch`, `check:static`, and
+  `check:serial` are **removed**: use `bun run test --serial`, `bun run test --watch`,
+  `bun run check --static`, and `bun run check --serial`.
+
 - `question`: the tool is renamed from `ask_user_question` to `question`, so the wire name
   matches the extension, its docs page, and the one-word domain names `todo`, `goal`, `job`,
   and `subagent`. Plan mode's read-only policy and rewind's never-snapshot policy carry the
   same constant, so both follow; a pinned `--tools ask_user_question`, a saved child allowlist,
   or a prompt that spells the old name must be updated. The parameter shape, the questionnaire,
   and the tool's "Other (type something)" row are unchanged.
-- `dev`: `bun run check` runs its three phases at once instead of in a chain, through the new
-  `scripts/check.ts`, so the gate costs what its longest phase costs rather than their sum. On an
-  8-core machine measured while the box was busy, the whole gate is 30.4 s against 48.7–55.5 s for
-  the old format-then-typecheck-then-test chain under the same load; the test worker count stayed
-  at the four `test/README.md` documents, because seven broke two wall-clock budgets on a loaded
-  box. `check:serial` keeps the serial suite for the macOS CI job, and `job`'s shell-exit budget
-  moved from 10 s to 25 s so a starved spawn reports a reason instead of a timeout.
 - `board`: the tool's always-on text drops from 8,156 to 7,097 characters (~2,039 → ~1,774
   tokens), and the 1,059 that left were the four guidelines that restated the same tool. "A
   blocked card resumes in `plan` …" is the `blocker` parameter's sentence, `dependsOn`'s refusal

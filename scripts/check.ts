@@ -1,5 +1,5 @@
 /**
- * The gate: `bun run check` and `bun run check:serial`.
+ * The gate: `bun run check` and `bun run test`, each of them with a scope.
  *
  * Three phases make up a check — format, typecheck, test — and only the last one uses more than
  * one core. Run in a chain, the two single-threaded phases hold every core for ~8 s before the
@@ -7,11 +7,38 @@
  * costs. The worker count comes from the machine rather than a constant, because a 4-core runner
  * given eight workers starves the suites that spawn git and a browser.
  *
- *   check.ts            the parallel gate, for a developer's machine
- *   check.ts --serial   the same gate with the test phase serial, which is what macOS CI runs
+ * Which tests the last phase runs is a flag rather than another script name — `test-selection.ts`
+ * answers that half — so the surface is two entries and one vocabulary:
+ *
+ *   check.ts                       static + every test, the gate a landing needs
+ *   check.ts --tests               the tests alone, which is `bun run test`
+ *   check.ts --static              the static half alone
+ *   check.ts --serial              one file at a time, which is what macOS CI runs
+ *   check.ts --watch               the tests in watch mode
+ *   check.ts --ext board wechat    one or more extensions' declared suites
+ *   check.ts --lib board           one `lib/` area's suites
+ *   check.ts --root                the package-level tests
+ *   check.ts --slow                the gated git suites, with the gate on
+ *   check.ts --changed [--base r]  the tests this change can reach
+ *   check.ts --dry-run             print the selection, run nothing
  */
 
 import { availableParallelism } from "node:os";
+import { join } from "node:path";
+import { runSlowSuites } from "../test/helpers/slow-suite.ts";
+import { runCli } from "./cli.ts";
+import {
+	gatedAmong,
+	type Selection,
+	reachIndex,
+	selectAll,
+	selectChanged,
+	selectExt,
+	selectLib,
+	selectRoot,
+	selectSlow,
+	tree,
+} from "./test-selection.ts";
 
 /** One command the gate runs. */
 export interface Phase {
@@ -26,6 +53,8 @@ export interface Phase {
 	 * reader wants only when they do not.
 	 */
 	live: boolean;
+	/** Extra environment for this phase, such as the gate the slow suites read. */
+	env?: Record<string, string>;
 }
 
 /** What one phase did. */
@@ -55,16 +84,37 @@ export function workersFor(cpus: number): number {
 	return Math.max(2, Math.min(cpus, MAX_WORKERS));
 }
 
+/** What one test phase covers: a scope's files, the whole suite, or no test phase at all. */
+export interface PhaseOptions {
+	serial: boolean;
+	workers: number;
+	/** Format and typecheck as well; `false` is what `bun run test` runs. */
+	static?: boolean;
+	/** The files to run: absent is the whole suite, `null` is no test phase. */
+	tests?: readonly string[] | null;
+	/** `bun test --watch`, which implies `--isolate`. */
+	watch?: boolean;
+	/** Environment the test phase reads, such as `PI_SLOW_TESTS=1`. */
+	env?: Record<string, string>;
+}
+
 /** The three phases, in the order a summary reads them. */
-export function phasesFor(options: { serial: boolean; workers: number }): Phase[] {
-	const test = options.serial
-		? ["bun", "test", "--timeout", String(PHASE_TIMEOUT_MS)]
-		: ["bun", "test", `--parallel=${options.workers}`, "--timeout", String(PHASE_TIMEOUT_MS)];
-	return [
-		{ name: "format", cmd: ["bun", "run", "format:check"], live: false },
-		{ name: "typecheck", cmd: ["bun", "run", "typecheck"], live: false },
-		{ name: "test", cmd: test, live: true },
-	];
+export function phasesFor(options: PhaseOptions): Phase[] {
+	const phases: Phase[] = [];
+	if (options.static !== false) {
+		phases.push(
+			{ name: "format", cmd: ["bun", "run", "format:check"], live: false },
+			{ name: "typecheck", cmd: ["bun", "run", "typecheck"], live: false },
+		);
+	}
+	if (options.tests === null) return phases;
+	const flags = options.watch
+		? ["--watch", "--isolate"]
+		: options.serial
+			? ["--timeout", String(PHASE_TIMEOUT_MS)]
+			: [`--parallel=${options.workers}`, "--timeout", String(PHASE_TIMEOUT_MS)];
+	phases.push({ name: "test", cmd: ["bun", "test", ...flags, ...(options.tests ?? [])], live: true, env: options.env });
+	return phases;
 }
 
 /** How one phase is run; injected so the gate's own tests need no subprocess. */
@@ -90,9 +140,10 @@ export function summarize(
 	const elapsed = seconds.toFixed(1);
 	if (failed.length === 0) {
 		const how = serial ? "serial" : `${workers} workers`;
+		const phases = `${results.length} phase${results.length === 1 ? "" : "s"}`;
 		return {
 			code: 0,
-			message: `check: ${results.length} phases green in ${elapsed}s (test ${how})`,
+			message: `check: ${phases} green in ${elapsed}s (test ${how})`,
 			dump: "",
 		};
 	}
@@ -113,6 +164,7 @@ async function spawnPhase(phase: Phase): Promise<{ code: number; output: string 
 	const proc = Bun.spawn(phase.cmd, {
 		stdout: phase.live ? "inherit" : "pipe",
 		stderr: phase.live ? "inherit" : "pipe",
+		...(phase.env ? { env: { ...process.env, ...phase.env } } : {}),
 	});
 	if (phase.live) return { code: await proc.exited, output: "" };
 	const [out, err] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
@@ -120,18 +172,190 @@ async function spawnPhase(phase: Phase): Promise<{ code: number; output: string 
 	return { code, output: `${out}${err}` };
 }
 
+/** What a run covers, one scope at a time. */
+export type Scope = "all" | "static" | "changed" | "ext" | "lib" | "root" | "slow";
+
+/** A parsed command line. */
+export interface Plan {
+	scope: Scope;
+	/** Extension or `lib/` area names, for `ext` and `lib`. */
+	names: string[];
+	/** The git revision `--changed` diffs against. */
+	base: string;
+	/** One file at a time, which is what macOS CI runs. */
+	serial: boolean;
+	/** `bun test --watch`. */
+	watch: boolean;
+	/** The `test` entry: skip the static phases. */
+	testsOnly: boolean;
+	/** Print the plan and run nothing. */
+	dryRun: boolean;
+}
+
+/** The flags this command accepts, which is what a doc may name. */
+export const FLAGS = [
+	"--changed",
+	"--base",
+	"--ext",
+	"--lib",
+	"--root",
+	"--slow",
+	"--static",
+	"--serial",
+	"--watch",
+	"--tests",
+	"--dry-run",
+] as const;
+
+const USAGE = `usage: bun run check [--static | --changed [--base <ref>] | --ext <name...> | --lib <area...> | --root | --slow]
+                    [--serial | --watch] [--dry-run]
+       bun run test  the same scopes without the static half`;
+
+const SCOPE_FLAGS: Record<string, Scope> = {
+	"--static": "static",
+	"--changed": "changed",
+	"--ext": "ext",
+	"--lib": "lib",
+	"--root": "root",
+	"--slow": "slow",
+};
+
+/**
+ * Parse the command line. A scope flag is exclusive, `--base` belongs to
+ * `--changed`, and a positional argument is a name only where one is expected —
+ * each of those refuses rather than guessing what was meant.
+ */
+export function parseArgs(argv: string[]): Plan {
+	const plan: Plan = {
+		scope: "all",
+		names: [],
+		base: "main",
+		serial: false,
+		watch: false,
+		testsOnly: false,
+		dryRun: false,
+	};
+	let scopeFlag: string | undefined;
+	let gaveBase = false;
+	for (let index = 0; index < argv.length; index++) {
+		const arg = argv[index];
+		const value = (): string => {
+			const next = argv[++index];
+			if (next === undefined) throw new Error(`${arg} needs a value`);
+			return next;
+		};
+		const scope = SCOPE_FLAGS[arg];
+		if (scope !== undefined) {
+			if (scopeFlag !== undefined) throw new Error(`${scopeFlag} and ${arg} pick two scopes; give one`);
+			scopeFlag = arg;
+			plan.scope = scope;
+		} else if (arg === "--base") {
+			plan.base = value();
+			gaveBase = true;
+		} else if (arg === "--serial") plan.serial = true;
+		else if (arg === "--watch") plan.watch = true;
+		else if (arg === "--tests") plan.testsOnly = true;
+		else if (arg === "--dry-run") plan.dryRun = true;
+		else if (arg.startsWith("-")) throw new Error(`unknown option ${arg}`);
+		else plan.names.push(arg);
+	}
+	if (gaveBase && plan.scope !== "changed") throw new Error("--base names the revision --changed diffs against");
+	if (plan.watch && plan.scope === "static") throw new Error("--watch runs the tests, and --static runs none");
+	if (plan.testsOnly && plan.scope === "static")
+		throw new Error("--static is the check's static half; bun run test has none");
+	if ((plan.scope === "ext" || plan.scope === "lib") && plan.names.length === 0) {
+		throw new Error(`--${plan.scope} needs a name`);
+	}
+	if (plan.names.length > 0 && plan.scope !== "ext" && plan.scope !== "lib") {
+		throw new Error(`unexpected argument ${plan.names[0]}; a name follows --ext or --lib`);
+	}
+	return plan;
+}
+
+/**
+ * The whole plan, in the order it runs, so a run can be read before it starts.
+ *
+ * `gated` is how many of the selected files are gated suites: their cases skip
+ * unless the run turns the gate on, which is the one thing a scoped run would
+ * otherwise read as full coverage.
+ */
+export function planLines(plan: Plan, chosen: Selection | undefined, gated = 0): string[] {
+	const lines: string[] = [];
+	if (!plan.testsOnly && !plan.watch) lines.push("static > format:check, typecheck, beside the tests");
+	if (chosen === undefined) return lines;
+	for (const reason of chosen.reasons) lines.push(`  ${reason}`);
+	const scope = plan.watch ? "--watch" : plan.serial ? "serial" : "parallel";
+	lines.push(`tests > ${chosen.tests.length} files (${scope})`);
+	if (gated > 0) {
+		const suites = `${gated} of them ${gated === 1 ? "is a gated suite" : "are gated suites"}`;
+		lines.push(`  ${suites}: their cases skip without PI_SLOW_TESTS=1 — \`bun run test --slow\` runs those`);
+	}
+	return lines;
+}
+
+/** The selection the plan names, or `undefined` for a run that has no tests. */
+export function selectionFor(root: string, plan: Plan): Selection | undefined {
+	if (plan.scope === "static") return undefined;
+	if (plan.scope === "ext") return selectExt(plan.names);
+	if (plan.scope === "lib") return selectLib(plan.names);
+	if (plan.scope === "root") return selectRoot(tree(root));
+	if (plan.scope === "slow") return selectSlow(root);
+	if (plan.scope === "changed") return selectChanged(tree(root), changedPaths(root, plan.base), reachIndex(root));
+	return selectAll(tree(root));
+}
+
+/** Every path that differs from `base`: on the branch, in the index, or in the working tree. */
+export function changedPaths(root: string, base: string): string[] {
+	const paths = new Set<string>();
+	const calls = [
+		["diff", "--name-only", "--relative", `${base}...HEAD`],
+		["diff", "--name-only", "--relative"],
+		["diff", "--name-only", "--relative", "--cached"],
+		["ls-files", "--others", "--exclude-standard"],
+	];
+	for (const args of calls) {
+		const result = Bun.spawnSync(["git", "-C", root, ...args], { stdout: "pipe", stderr: "pipe" });
+		if (result.exitCode !== 0) {
+			const message = result.stderr.toString().trim() || `git ${args.join(" ")} failed`;
+			throw new Error(`${message}\n--changed diffs against \`${base}\`; name another revision with --base`);
+		}
+		for (const path of result.stdout.toString().split("\n")) if (path.trim()) paths.add(path.trim());
+	}
+	return [...paths].sort();
+}
+
 /** The gate: every phase at once, its failures named, its exit code the one that matters. */
-async function main(argv: readonly string[]): Promise<number> {
-	const serial = argv.includes("--serial");
+async function main(): Promise<void> {
+	const root = join(import.meta.dir, "..");
+	const plan = parseArgs(process.argv.slice(2));
+	const selected = performance.now();
+	const chosen = selectionFor(root, plan);
+	const walked = Math.round(performance.now() - selected);
+	// `--slow` turns the gate on below, so its own selection needs no warning.
+	const gated = chosen && plan.scope !== "slow" && !runSlowSuites ? gatedAmong(root, chosen.tests).length : 0;
+	for (const line of planLines(plan, chosen, gated)) console.log(line);
+	// The walk is the one cost a narrowed run pays before its first test: say it.
+	if (plan.scope === "changed") console.log(`  selection took ${walked}ms`);
+	if (plan.dryRun) return;
 	const workers = workersFor(availableParallelism());
-	const phases = phasesFor({ serial, workers });
+	const phases = phasesFor({
+		serial: plan.serial,
+		workers,
+		static: !plan.testsOnly && !plan.watch,
+		tests: chosen === undefined ? null : chosen.tests,
+		watch: plan.watch,
+		...(plan.scope === "slow" ? { env: { PI_SLOW_TESTS: "1" } } : {}),
+	});
 	const started = performance.now();
 	const results = await runPhases(phases, spawnPhase);
-	const summary = summarize(results, (performance.now() - started) / 1000, workers, serial);
+	const summary = summarize(results, (performance.now() - started) / 1000, workers, plan.serial);
 	if (summary.dump !== "") process.stderr.write(`${summary.dump}\n`);
 	if (summary.code === 0) console.log(summary.message);
 	else console.error(summary.message);
-	return summary.code;
+	process.exitCode = summary.code;
 }
 
-if (import.meta.main) process.exit(await main(process.argv.slice(2)));
+if (import.meta.main) {
+	if (process.argv.includes("-h") || process.argv.includes("--help")) console.log(USAGE);
+	else runCli(USAGE, main);
+}

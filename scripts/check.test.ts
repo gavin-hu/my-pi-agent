@@ -7,16 +7,25 @@
  * seconds this script exists to save.
  */
 
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { selectExt } from "./test-selection.ts";
 import {
+	FLAGS,
 	PHASE_TIMEOUT_MS,
-	phasesFor,
-	runPhases,
-	summarize,
-	workersFor,
 	type Phase,
 	type PhaseResult,
+	type Plan,
+	parseArgs,
+	phasesFor,
+	planLines,
+	runPhases,
+	selectionFor,
+	summarize,
+	workersFor,
 } from "./check.ts";
+
+const repo = join(import.meta.dir, "..");
 
 /** A result for one phase, as a runner would report it. */
 function result(name: string, code: number, output = "", live = false): PhaseResult {
@@ -98,5 +107,154 @@ describe("the summary", () => {
 		expect(summary.code).toBe(1);
 		expect(summary.message).toBe("check: format, test failed in 3.0s");
 		expect(summary.dump).toBe("格式");
+	});
+});
+
+describe("the scope a command line names", () => {
+	const all: Plan = {
+		scope: "all",
+		names: [],
+		base: "main",
+		serial: false,
+		watch: false,
+		testsOnly: false,
+		dryRun: false,
+	};
+
+	test("no argument is the whole gate, in parallel, against main", () => {
+		expect(parseArgs([])).toEqual(all);
+	});
+
+	test("each scope flag replaces the default, and a name is a name", () => {
+		const cases: [string[], Partial<Plan>][] = [
+			[["--static"], { scope: "static" }],
+			[["--root"], { scope: "root" }],
+			[["--slow"], { scope: "slow" }],
+			[["--changed"], { scope: "changed" }],
+			[["--changed", "--base", "develop"], { scope: "changed", base: "develop" }],
+			[["--ext", "board", "wechat"], { scope: "ext", names: ["board", "wechat"] }],
+			[["--lib", "board"], { scope: "lib", names: ["board"] }],
+			[["--tests"], { testsOnly: true }],
+			[["--serial"], { serial: true }],
+			[["--watch"], { watch: true }],
+			[["--dry-run"], { dryRun: true }],
+		];
+		const wrong = cases
+			.map(([argv, expected]) => ({ got: parseArgs(argv), expected: { ...all, ...expected } }))
+			.filter(({ got, expected }) => JSON.stringify(got) !== JSON.stringify(expected))
+			.map(({ got }) => JSON.stringify(got));
+		expect(wrong).toEqual([]);
+	});
+
+	test("a second scope is refused by name, not resolved to one of them", () => {
+		expect(() => parseArgs(["--ext", "board", "--root"])).toThrow("--ext and --root pick two scopes; give one");
+		expect(() => parseArgs(["--base", "develop"])).toThrow("--base names the revision --changed diffs against");
+		expect(() => parseArgs(["--static", "--watch"])).toThrow("--watch runs the tests, and --static runs none");
+		expect(() => parseArgs(["--ext"])).toThrow("--ext needs a name");
+		expect(() => parseArgs(["--lib"])).toThrow("--lib needs a name");
+		expect(() => parseArgs(["board"])).toThrow("unexpected argument board; a name follows --ext or --lib");
+		expect(() => parseArgs(["--nope"])).toThrow("unknown option --nope");
+	});
+
+	test("every flag the docs may name is one the parser takes", () => {
+		const refused = FLAGS.filter((flag) => {
+			const argv =
+				flag === "--base"
+					? [flag, "main", "--changed"]
+					: flag === "--ext" || flag === "--lib"
+						? [flag, "board"]
+						: [flag];
+			try {
+				parseArgs(argv);
+				return false;
+			} catch {
+				return true;
+			}
+		});
+		expect(refused).toEqual([]);
+	});
+
+	test("a static run names the static half and no tests", () => {
+		expect(planLines({ ...all, scope: "static" }, undefined)).toEqual([
+			"static > format:check, typecheck, beside the tests",
+		]);
+	});
+
+	test("a run says why each group is in it, then what it will execute", () => {
+		const lines = planLines(
+			{ ...all, scope: "changed" },
+			{ tests: ["a", "b"], reasons: ["package-level > 2 files, always"] },
+		);
+		expect(lines).toEqual([
+			"static > format:check, typecheck, beside the tests",
+			"  package-level > 2 files, always",
+			"tests > 2 files (parallel)",
+		]);
+	});
+
+	test("a static plan selects nothing, and a named scope selects its suites", () => {
+		expect(selectionFor(repo, { ...all, scope: "static" })).toBeUndefined();
+		expect(selectionFor(repo, { ...all, scope: "ext", names: ["board"] })?.tests).toEqual(selectExt(["board"]).tests);
+		expect(selectionFor(repo, { ...all, scope: "root" })?.tests).toContain("test/layout.test.ts");
+		expect(() => selectionFor(repo, { ...all, scope: "ext", names: ["nope"] })).toThrow("--ext names no such ext");
+	});
+});
+
+describe("a scoped test phase", () => {
+	test("runs the files it was given, after the flags", () => {
+		const phases = phasesFor({ serial: false, workers: 3, tests: ["a.test.ts", "b.test.ts"] });
+		const test_ = phases[2] as Phase;
+		expect(test_.cmd).toEqual(["bun", "test", "--parallel=3", "--timeout", "30000", "a.test.ts", "b.test.ts"]);
+	});
+
+	test("drops the static phases for the `test` entry, and the test phase for `--static`", () => {
+		const noStatic = phasesFor({ serial: false, workers: 3, static: false, tests: ["a.test.ts"] });
+		expect(noStatic.map((phase) => phase.name)).toEqual(["test"]);
+		const noTests = phasesFor({ serial: false, workers: 3, tests: null });
+		expect(noTests.map((phase) => phase.name)).toEqual(["format", "typecheck"]);
+	});
+
+	test("watch implies isolate, and the slow scope carries its gate", () => {
+		const watched = phasesFor({ serial: false, workers: 3, watch: true, static: false, tests: ["a.test.ts"] });
+		expect((watched[0] as Phase).cmd).toEqual(["bun", "test", "--watch", "--isolate", "a.test.ts"]);
+		const slow = phasesFor({ serial: false, workers: 3, tests: ["s.test.ts"], env: { PI_SLOW_TESTS: "1" } });
+		expect((slow[2] as Phase).env).toEqual({ PI_SLOW_TESTS: "1" });
+	});
+});
+
+describe("a run with nothing to do", () => {
+	test("refuses --tests --static rather than reporting zero phases green", () => {
+		expect(() => parseArgs(["--tests", "--static"])).toThrow(
+			"--static is the check's static half; bun run test has none",
+		);
+	});
+});
+
+describe("a selection that carries the gate", () => {
+	const selection = { tests: ["a.test.ts"], reasons: ["ext:worktree > 4 suites"] };
+
+	test("says how many of its files skip without the gate, and what runs them", () => {
+		const lines = planLines(
+			{ scope: "all", names: [], base: "main", serial: false, watch: false, testsOnly: true, dryRun: false },
+			selection,
+			2,
+		);
+		expect(lines.at(-1)).toBe(
+			"  2 of them are gated suites: their cases skip without PI_SLOW_TESTS=1 — `bun run test --slow` runs those",
+		);
+	});
+
+	test("says nothing when none of them is gated, and names one as one", () => {
+		const plan = {
+			scope: "all" as const,
+			names: [],
+			base: "main",
+			serial: false,
+			watch: false,
+			testsOnly: true,
+			dryRun: false,
+		};
+		expect(planLines(plan, selection).at(-1)).toBe("tests > 1 files (parallel)");
+		expect(planLines(plan, selection, 1).at(-1)).toContain("1 of them is a gated suite");
 	});
 });

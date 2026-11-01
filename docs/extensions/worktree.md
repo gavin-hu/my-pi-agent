@@ -434,9 +434,9 @@ one read and two renderings.
 ## Testing
 
 ```bash
-bun test          # unit + real-git tests
-bun run check     # format:check + typecheck + tests
-bun run test:watch
+bun run test --ext worktree   # the extension's suites, real-git cases included under CI
+bun run check                 # format:check + typecheck + every test
+bun run test --ext worktree --watch
 ```
 
 The suite covers the pure logic (`include.ts` gitignore matcher, `guard.ts` path
