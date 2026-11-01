@@ -115,7 +115,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	],
 	question: ["tools", "view/question-screen", "extension"],
 	rewind: ["commands/review", "state/runtime", "transport/store", "extension"],
-	subagent: ["agents", "run", "render", "extension"],
+	subagent: ["agents", "run", "render", "extension", "failure-output"],
 	team: ["commands", "dispatch", "extension", "handoff", "tools"],
 	todo: ["tools", "runtime", "view/todo-screen"],
 	watch: ["files", "format", "runtime", "tools", "view/watch-screen"],

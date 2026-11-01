@@ -124,6 +124,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `subagent`: a failed `single` run no longer hands the model the child's whole `stderr`. Only
+  parallel mode capped its reply, so one failing delegation — a broken build, a verbose stack
+  trace — could return 3 MiB of child noise into the parent's context, against 51 KiB for the
+  same failure in a batch. The cap is one helper over all three mode runners now: the error
+  detail, its `stderr` fallback, a task's output and a chain step's all stop at 50 KiB
+  (`MODEL_OUTPUT_CAP`, named for what it bounds rather than for parallel's tasks) with the
+  omission notice, and the complete text stays in the tool details. A successful single reply is
+  deliberately left whole; `extensions/subagent/failure-output.test.ts` pins both halves.
 - `dev`: a shot script runs only as its own entry point. `scripts/shots/video.ts` called
   `runCli` at top level, and `runCli` runs `main()` the moment it is called — so importing the
   module, which `scripts/video.test.ts` does for `parseArgs`, launched Chrome, recorded the

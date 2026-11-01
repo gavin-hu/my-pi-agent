@@ -16,8 +16,8 @@ export const MAX_PARALLEL_TASKS = 8;
 export const MAX_CHAIN_STEPS = 8;
 /** How many parallel tasks may run at once. */
 export const MAX_CONCURRENCY = 4;
-/** Model-facing bytes returned per task in parallel mode. */
-export const PER_TASK_OUTPUT_CAP = 50 * 1024;
+/** Model-facing bytes returned per task, per chain step, or for a failed run's error text. */
+export const MODEL_OUTPUT_CAP = 50 * 1024;
 /** Display items shown per result before collapsing. */
 export const COLLAPSED_ITEM_COUNT = 10;
 /** Text lines shown per item in a collapsed result. */

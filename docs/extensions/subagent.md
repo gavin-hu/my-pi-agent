@@ -17,6 +17,7 @@ can also start in the background and be inspected, collected, or cancelled with
 | Project-agent trust gate | `agentScope` with the trust gate | A `.pi/agents` file loads only when the project is trusted or confirmed, so a repository cannot inject a prompt by adding a file. |
 | Three delegation modes | `subagent` (`agent` + `task`, `tasks[]`, `chain[]`) | One agent, an independent batch, or an ordered chain whose steps receive `{previous}`. |
 | Parallel and chain bounds | `tasks[]`, `chain[]` | Parallel accepts up to 8 tasks with 4 running at once; a chain accepts up to 8 steps and stops at the first failure. |
+| Bounded model-facing output | `subagent`, every mode | What one result hands the model is capped at 50 KiB — a task's output, or a failed run's error text — with an omission notice and the full text in the tool details. |
 | Per-step working directory | `cwd` | A single run, each parallel task, or each chain step can name its working directory; a relative path resolves against the active root. |
 | Built-in agents | `subagent` (`agent`) | Recon, planning, review, implementation, research, testing, debugging, and docs work without writing an agent file. |
 | External agents | `subagent` (`agentScope`) | Markdown agents from the user directory and the nearest `.pi/agents`, opt-in per scope and never replacing a built-in silently. |
@@ -158,6 +159,10 @@ shape.
 { "agent": "explorer", "task": "Find every place the HTTP client is retried", "cwd": "." }
 ```
 
+A successful run's final reply comes back whole. A failed one replies with the child's
+error detail, or its `stderr`, capped at 50 KiB with an omission notice — a failing build's
+log arrives bounded, and the full text stays in the tool details.
+
 ### Background
 
 ```json
@@ -192,7 +197,8 @@ output remains in the tool details.
 
 Runs steps in order. `{previous}` in a step's `task` is replaced by the prior
 step's final output. The chain stops at the first failing step, and a chain has
-at most 8 steps (like the parallel task cap).
+at most 8 steps (like the parallel task cap). The failing step's error text is
+capped the same way single mode's is.
 
 ```json
 {
@@ -422,9 +428,11 @@ step's `Output`.
   `spawnAndCollect` and flushing in `runSingleAgent`'s `finally` means the
   artifact exists even on the abort path, and the child needs no tool, no prompt
   line, and no writable store.
-- **Bounded parallel output.** Parallel mode runs at most 4 of up to 8 tasks at
-  once and caps each model-facing section at 50 KiB, appending an omission notice
-  pointing at the tool details. The full results stay in `details` for rendering.
+- **Bounded model-facing output.** Every mode caps what one result hands the model at 50 KiB,
+  appending an omission notice that points at the tool details, where the full result stays.
+  The case that needs it is a failure, because `run.ts` buffers a child's `stderr` without a
+  bound; parallel mode also runs at most 4 of up to 8 tasks at once, which is the run's bound
+  rather than the reply's.
 - **One mode, resolved first.** `resolveMode` runs before any process starts and
   returns a readable error instead of spawning; the TypeBox `maxItems` cap is
   re-checked there because programmatic callers such as `codemode` bypass schema
@@ -474,7 +482,7 @@ step's `Output`.
 bun test extensions/subagent
 ```
 
-Four co-located suites, declared in `test/suite-manifest.ts`:
+Five co-located suites, declared in `test/suite-manifest.ts`:
 
 - `agents.test.ts` — the built-in registry, markdown discovery and pool
   resolution, config normalisation, the parameter schema, `resolveMode`,
@@ -487,6 +495,9 @@ Four co-located suites, declared in `test/suite-manifest.ts`:
 - `extension.test.ts` — registration, run settings, mode validation, all three
   modes, the project-agent gate, accounting, `/agents`, the footer chip, and the
   formatters.
+- `failure-output.test.ts` — what a failed run hands the model: the 50 KiB cap in
+  single and chain mode, the omission notice, the whole `stderr` still in
+  `details`, and a successful reply left uncapped.
 
 `runSingleAgent` takes an injectable `SpawnFn`, so no suite launches `pi` or
 spends tokens.
