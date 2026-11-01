@@ -1,0 +1,163 @@
+/**
+ * `/board approve` and `/board review` — the person's door to the board's two gates.
+ *
+ * The sign is the same `mutate` the tool makes, with the person as the actor, so a session
+ * that holds a card can still have it signed. What this suite pins is the line the door
+ * prints: the state machine's own refusal, the failure a throwing store becomes, and the
+ * half that says the owner was not told — a command context cannot make the nested
+ * `session send` the tool's `announce` uses, so the owner reads the sign on its next `list`.
+ */
+
+import { describe, expect, test } from "bun:test";
+import { fakeCtx } from "../../test/helpers/context.ts";
+import { createFakePi } from "../../test/helpers/fakes.ts";
+import { fakeBoardSession, pageWithNoRecording, signingBoard } from "../../test/helpers/board-command.ts";
+import type { BoardSession } from "../../lib/board/session.ts";
+import { BOARD_COMMAND, registerCommands } from "./commands.ts";
+
+/**
+ * The half a sign on somebody's card carries: the tool's nested `session send` is not
+ * available to a command, so this door says out loud that the owner was not told.
+ */
+const NOT_TOLD =
+	" · team-agent-slead was not told (a command cannot reach a peer — it reads the sign on its next list)";
+
+describe("/board approve and /board review", () => {
+	test("signs the contract as the person, not as the session that holds the card", async () => {
+		const board = await signingBoard();
+		const store = board.store;
+		await store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		expect(await board.say("approve 1")).toBe(`board: #1 approved by you${NOT_TOLD}`);
+		expect((await store.read(board.id))?.contract?.approved?.by).toBe("you");
+		board.temps.flush();
+	});
+
+	test("walks a one-session card past both gates, which the holder alone could not", async () => {
+		const board = await signingBoard();
+		const store = board.store;
+		await store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		// The holder's own approval is refused, which is why the person has a door.
+		const own = await store.mutate(board.id, { kind: "approve" }, board.me, 1_000);
+		expect(own.ok).toBe(false);
+		expect(await board.say("approve 1")).toContain("approved by you");
+		expect(
+			(await store.mutate(board.id, { kind: "move", lane: "execute", artifact: { path: board.plan } }, board.me, 1_000))
+				.ok,
+		).toBe(true);
+		expect(await board.say("review 1")).toBe(`board: #1 reviewed by you${NOT_TOLD}`);
+		expect((await store.read(board.id))?.review?.by).toBe("you");
+		const done = await store.mutate(
+			board.id,
+			{ kind: "move", lane: "done", artifact: { path: board.plan } },
+			board.me,
+			1_000,
+		);
+		expect(done.ok).toBe(true);
+		board.temps.flush();
+	});
+
+	test("refuses a sign in the lane the gate does not live in", async () => {
+		const board = await signingBoard();
+		const store = board.store;
+		const pool = await store.create({ title: "Two", paths: [] }, board.me, 1_000);
+		expect(await board.say(`approve ${pool.id}`)).toBe(
+			`board: #${pool.id} is in backlog; a contract is approved in plan.`,
+		);
+		board.temps.flush();
+	});
+
+	test("says which word needs a card id", async () => {
+		const board = await signingBoard();
+		expect(await board.say("approve")).toBe("board: approve needs a card id — try /board approve 4");
+		board.temps.flush();
+	});
+
+	test("gives the state machine's refusal, so a sign in the wrong lane reads like the tool's", async () => {
+		const board = await signingBoard();
+		// Still in `plan` with no contract: the approval's own gate answers.
+		expect(await board.say("approve 1")).toContain("#1 has no contract to approve yet");
+		expect(await board.say("review 1")).toBe("board: #1 is in plan; finished work is spot-checked in execute.");
+		expect(await board.say("approve 99")).toContain("#99 does not exist");
+		board.temps.flush();
+	});
+
+	test("says so when the sign is already there, rather than pretending to write", async () => {
+		const board = await signingBoard();
+		const store = board.store;
+		await store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		await board.say("approve 1");
+		expect(await board.say("approve 1")).toBe(`board: #1 is already approved by you${NOT_TOLD}`);
+		board.temps.flush();
+	});
+
+	test("says nothing about telling anybody when the card has no owner", async () => {
+		// A signable card is in `plan` or `execute`, and both are entered by a claim or an
+		// assignment, so this is the guard `announce` keeps too: nobody to tell, and the line
+		// does not pretend otherwise.
+		const fake = createFakePi();
+		const { ctx, notices } = fakeCtx({ cwd: process.cwd() });
+		const card = { id: "4", title: "One", lane: "plan", notes: [], paths: [] };
+		const session = {
+			...fakeBoardSession(),
+			store: async () => ({
+				mutate: async () => ({ ok: true, card, changed: true, dropped: false, archived: false }),
+			}),
+		} as unknown as BoardSession;
+		registerCommands(fake.pi, session, pageWithNoRecording());
+		const command = fake.commands.get(BOARD_COMMAND);
+		if (!command) throw new Error("the board command was not registered");
+		await command.handler("approve 4", ctx);
+		expect(notices.at(-1)).toEqual({ message: "board: #4 approved by you", kind: "info" });
+	});
+
+	test("turns a store that throws into a line, in the error tone", async () => {
+		// A command has nowhere else to report what a repository read or a file write throws:
+		// without this the person gets a raw command error instead of a sentence.
+		const signOver = async (session: BoardSession): Promise<Array<{ message: string; kind?: string }>> => {
+			const fake = createFakePi();
+			const { ctx, notices } = fakeCtx({ cwd: process.cwd() });
+			registerCommands(fake.pi, session, pageWithNoRecording());
+			const command = fake.commands.get(BOARD_COMMAND);
+			if (!command) throw new Error("the board command was not registered");
+			await command.handler("approve 4", ctx);
+			return notices;
+		};
+		const read = await signOver({
+			...fakeBoardSession(),
+			store: async () => {
+				throw new Error("EACCES: the board is not writable");
+			},
+		} as unknown as BoardSession);
+		expect(read.at(-1)).toEqual({
+			message: "board: approve #4 failed — EACCES: the board is not writable",
+			kind: "error",
+		});
+		const write = await signOver({
+			...fakeBoardSession(),
+			store: async () => ({
+				mutate: async () => {
+					throw new Error("ENOSPC: no space left on device");
+				},
+			}),
+		} as unknown as BoardSession);
+		expect(write.at(-1)).toEqual({
+			message: "board: approve #4 failed — ENOSPC: no space left on device",
+			kind: "error",
+		});
+	});
+});

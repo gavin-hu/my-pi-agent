@@ -40,6 +40,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the person's sign door matches the tool beside it. `/board`'s completion is
+  case-insensitive, because the handler already lowercases what it parses — `/board St`
+  offers `status` and `stop` instead of nothing. A `/board approve|review` whose board read or
+  file write throws is a line in the error tone (`board: approve #4 failed — …`) rather than a
+  raw command error. And a sign on somebody's card says on its own line what the guide
+  documented and the transcript never showed: `#4 approved by you · api-core was not told (a
+  command cannot reach a peer — it reads the sign on its next list)`. That second half is
+  `notToldLine` in `lib/board/lead.ts`, which the tool's `announce` now builds too, so the two
+  doors cannot drift.
 - `plan`: the browser review wears the served pages' one chrome (`lib/web`) instead of its own
   header. The kit toolbar carries the plan's H1 as its subject with the plan file on the
   hover, the live chip painted by the shared `paintLive` (`connected · 3 comments`, in the

@@ -52,6 +52,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"page",
 		"page-idle",
 		"commands",
+		"sign",
 		"extension",
 		"transport/router",
 		"view/behaviour",

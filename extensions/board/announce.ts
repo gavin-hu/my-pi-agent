@@ -13,7 +13,7 @@
 
 import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
-import { type Sign, signedText } from "../../lib/board/lead.ts";
+import { type Sign, notToldLine, signedText } from "../../lib/board/lead.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { type SendResult, send } from "../../lib/session-tool.ts";
@@ -52,5 +52,5 @@ export async function announce(
 		ok: false as const,
 		error: messageOf(error),
 	}));
-	return answer.ok ? `  told ${owner.label}` : `  ${owner.label} was not told (${answer.error})`;
+	return answer.ok ? `  told ${owner.label}` : `  ${notToldLine(owner.label, answer.error)}`;
 }

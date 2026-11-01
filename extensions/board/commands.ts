@@ -10,9 +10,11 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
-import { PERSON_LABEL, personActor, type Sign, signOf } from "../../lib/board/lead.ts";
+import { notToldLine, PERSON_LABEL, personActor, type Sign, signOf } from "../../lib/board/lead.ts";
 import { plural } from "../../lib/board/round-text.ts";
 import { type BoardSession } from "../../lib/board/session.ts";
+import type { MutateResult } from "../../lib/board/store.ts";
+import { messageOf } from "../../lib/errors.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { teamLine } from "./join.ts";
@@ -35,7 +37,9 @@ export function registerCommands(
 		description:
 			"Open the shared board in a local browser, sign its two gates as the person, or fold the finished cards away: /board [archive | team | status | stop | approve <id> | review <id>]",
 		getArgumentCompletions: (prefix: string) => {
-			const text = prefix.trimStart();
+			// Lowercased, because that is what the handler parses: `/board ST 4` signs, so `/board ST`
+			// has to complete.
+			const text = prefix.trimStart().toLowerCase();
 			if (text.includes(" ")) return null;
 			const items = BOARD_WORDS.filter((word) => word.startsWith(text));
 			return items.length > 0 ? items.map((value) => ({ value, label: value })) : null;
@@ -44,7 +48,8 @@ export function registerCommands(
 			const [word = "", rawCard] = args.trim().toLowerCase().split(/\s+/);
 			const sign = signOf(word);
 			if (sign !== undefined) {
-				ctx.ui.notify(await signLine(session, sign, rawCard, ctx), "info");
+				const line = await signLine(session, sign, rawCard, ctx);
+				ctx.ui.notify(line.text, line.tone);
 				return;
 			}
 			if (word === "archive") {
@@ -122,6 +127,20 @@ function wordHelp(): string {
 	);
 }
 
+/** A line for the person, and the tone it is shown in: a failure is not the same news as a sign. */
+interface SignLine {
+	text: string;
+	tone: "info" | "error";
+}
+
+/**
+ * Why a sign from the command reaches nobody, in the words the line carries.
+ *
+ * The tool tells the owner through a nested `session send`; a command context has no
+ * `ctx.executeTool`, so this door writes the sign and the owner reads it on its next `list`.
+ */
+const NO_PEER = "a command cannot reach a peer — it reads the sign on its next list";
+
 /**
  * Sign one of the card's two gates as the person at the keyboard.
  *
@@ -136,18 +155,27 @@ async function signLine(
 	sign: Sign,
 	rawCard: string | undefined,
 	ctx: ExtensionCommandContext,
-): Promise<string> {
+): Promise<SignLine> {
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
-	if (id === undefined) {
-		return `board: ${sign} needs a card id — try /board ${sign} 4`;
+	if (id === undefined) return { text: `board: ${sign} needs a card id — try /board ${sign} 4`, tone: "info" };
+	// The store is a repository read and a file write, and a command has nowhere else to report
+	// what they throw: without this the person sees a raw command error instead of a line.
+	let result: MutateResult;
+	try {
+		const store = await session.store(ctx.cwd);
+		result = await store.mutate(id, { kind: sign }, personActor(), session.now());
+	} catch (error) {
+		return { text: `board: ${sign} ${cardRef(id)} failed — ${messageOf(error)}`, tone: "error" };
 	}
-	const store = await session.store(ctx.cwd);
-	const result = await store.mutate(id, { kind: sign }, personActor(), session.now());
-	if (!result.ok) return `board: ${result.error}`;
+	if (!result.ok) return { text: `board: ${result.error}`, tone: "info" };
 	const done = sign === "approve" ? "approved" : "reviewed";
-	return result.changed
+	const text = result.changed
 		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}`
 		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}`;
+	if (result.card.owner === undefined) return { text, tone: "info" };
+	// A command context has no nested `session send`, so a sign from here reaches nobody. Saying
+	// so is the only moment that trade-off costs something; the signature is recorded either way.
+	return { text: `${text} · ${notToldLine(result.card.owner.label, NO_PEER)}`, tone: "info" };
 }
 
 /** One line for `/board status`: the page this session serves, watches, or does not have. */

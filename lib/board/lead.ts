@@ -160,3 +160,15 @@ export function missingSign(card: Card, lead: Lead, sign: Sign): string {
 export function signedText(card: Card, sign: Sign, by: Actor): string {
 	return SIGN_WORDS[sign].signed(card, by.label);
 }
+
+/**
+ * What a result says when the card's owner did not hear about a sign.
+ *
+ * Two doors write a sign: the tool, whose bus message can fail, and the person's `/board
+ * approve`, whose command context cannot reach a peer at all. The sentence is one body so a
+ * reader of either transcript is told the same fact in the same words — and the signature is
+ * recorded either way, which is why this is a line on a result and never a refusal.
+ */
+export function notToldLine(owner: string, reason: string): string {
+	return `${owner} was not told (${reason})`;
+}
