@@ -126,6 +126,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"store",
 		"mail-watch",
 		"runtime",
+		"watching",
 		"view/session-list",
 		"tools",
 		"inbox-read",
