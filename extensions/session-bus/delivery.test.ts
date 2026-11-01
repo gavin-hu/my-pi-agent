@@ -75,7 +75,7 @@ describe("a send that reached some peers", () => {
 		expect(result.content[0]?.text).toContain("Not delivered to third (");
 
 		// The peer that was reached really has it: the report is not an apology for a drop.
-		expect((await backend.bus.peek()).map((message) => message.text)).toEqual(["build failed"]);
+		expect((await backend.bus.peek()).mail.map((message) => message.text)).toEqual(["build failed"]);
 
 		await frontend.bus.stop();
 		await backend.bus.stop();
