@@ -62,12 +62,14 @@ describe("job status files", () => {
 	/**
 	 * How long a real shell gets to exit before the test says it did not.
 	 *
-	 * A spawn can be starved for seconds while four test files run at once — the hazard
-	 * AGENTS.md names for `--parallel`, and the reason CI runs the suite serially — so the
-	 * wait is bounded here and reports that, instead of dying on the runner's own 30 s
-	 * timeout with a test name and no reason.
+	 * A spawn can be starved for seconds while a machine's worth of test files run at once — the
+	 * hazard AGENTS.md names for `--parallel`, and the reason CI runs the suite serially — so the
+	 * wait is bounded here and reports that, instead of dying on the runner's own 30 s timeout with
+	 * a test name and no reason. The bound is measured, not guessed: at the gate's own worker count
+	 * (`scripts/check.ts`) a loaded box took longer than 10 s to exit this shell, so the budget sits
+	 * under the wrapper's 30 s and above what contention costs.
 	 */
-	const SHELL_EXIT_MS = 10_000;
+	const SHELL_EXIT_MS = 25_000;
 	/** How long the trap's write gets to land: it runs as the shell exits, past `close`. */
 	const STATUS_LAND_MS = 2_000;
 
