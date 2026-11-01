@@ -296,7 +296,7 @@ describe("review router", () => {
 	test("a reviewer's route still answers from the network, where the owner's do not", async () => {
 		// The asymmetry is the point: sharing exists so a reviewer works from another machine,
 		// and only the owner's routes are bound to the serving one (see #187, #194). Without
-		// this case, wrapping `/api/comment` in `ownerOnly` would pass every other test.
+		// this case, declaring `/api/comment` as the owner's access would pass every other test.
 		const { ctx, saved } = router({
 			caller: (token) => (token === "tok" ? { role: "reviewer", name: "rina" } : undefined),
 		});
