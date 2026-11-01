@@ -448,7 +448,9 @@ command. The read-only guarantee is layered:
   set or blocked. `write` and `edit` are hidden, raw shell is limited to read-only
   git commands through `bash` (chained with `&&`/`;`), `powershell` is blocked
   outright, and other mutating tools (worktree mutations, MCP tools) are blocked
-  until you exit plan mode. `subagent` stays active but is forced read-only. The
+  until you exit plan mode. `subagent` stays active but is forced read-only, and a
+  background run is refused by name — it could not be inspected or collected while
+  planning. The
   only permitted write is the `plan` tool's `write` action, which can only
   create or overwrite markdown plan files directly inside the plans directory —
   never dotfiles and never through a symlink.
@@ -1081,7 +1083,7 @@ both.
 bun test extensions/plan
 ```
 
-Twenty-seven co-located suites, declared in `test/suite-manifest.ts`:
+Twenty-eight co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, the store's directory, atomic
   writes, `read`/`latest`/`index`, `setSteps`, `saveFeedback`, and step extraction;
@@ -1122,3 +1124,6 @@ Twenty-seven co-located suites, declared in `test/suite-manifest.ts`:
 source lines and levels, and the occurrence key.
 - `extension.test.ts` — the Pi wiring: registration, the enter and toggle requests,
   the session lifecycle, the tool-call guard, injected context, and the command.
+- `subagent-background.test.ts` — the one guard the tool-call guard adds beside
+  `readOnly`: a background subagent is refused while planning, and the same call
+  without it still passes with `readOnly` forced.

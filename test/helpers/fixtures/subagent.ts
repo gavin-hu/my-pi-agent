@@ -1,6 +1,24 @@
 import type { Message } from "@earendil-works/pi-ai";
+import subagent, { TOOL_NAME } from "../../../extensions/subagent/index.ts";
+import type { RunOptions } from "../../../extensions/subagent/run.ts";
+import type { SingleResult } from "../../../extensions/subagent/types.ts";
+import { makeFakePi } from "../fakes.ts";
 
 export { makeSubagentSpawn as makeFakeSpawn, SubagentChild as FakeChild, waitFor } from "../process.ts";
+
+/**
+ * The `subagent` tool as Pi registers it, with an injectable runner.
+ *
+ * Every suite that drives the tool needs this same seam, so the tool's own `pi` rides on the
+ * return value and a suite reaches the entries a run appends through it.
+ */
+export function registerSubagentTool(run: (options: RunOptions) => Promise<SingleResult>) {
+	const { pi, tools } = makeFakePi();
+	subagent(pi, { run });
+	const tool = tools.get(TOOL_NAME);
+	if (!tool) throw new Error("subagent tool was not registered");
+	return Object.assign(tool, { pi });
+}
 
 /** An assistant message with the fields the runner reads. */
 export function assistantMessage(

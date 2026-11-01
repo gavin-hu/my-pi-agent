@@ -10,13 +10,10 @@
 
 import { describe, expect, test } from "bun:test";
 import { callTool } from "../../test/helpers/tools.ts";
-import subagent, { TOOL_NAME } from "./index.ts";
-import type { RunOptions } from "./run.ts";
 import { MODEL_OUTPUT_CAP } from "./schema.ts";
 import { emptyUsage } from "./stream.ts";
 import type { SingleResult } from "./types.ts";
-import { makeFakePi } from "../../test/helpers/fakes.ts";
-import { assistantMessage, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
+import { assistantMessage, fakeToolCtx, registerSubagentTool } from "../../test/helpers/fixtures/subagent.ts";
 
 /** Three mebibytes of child noise, the size the report measured. */
 const HUGE_STDERR = "npm ERR! build failed\n".repeat(Math.ceil((3 * 1024 * 1024) / 23));
@@ -34,14 +31,6 @@ function noisyFailure(agent: string): SingleResult {
 	};
 }
 
-function register(run: (options: RunOptions) => Promise<SingleResult>) {
-	const { pi, tools } = makeFakePi();
-	subagent(pi, { run });
-	const tool = tools.get(TOOL_NAME);
-	if (!tool) throw new Error("subagent tool was not registered");
-	return tool;
-}
-
 function call(tool: unknown, params: unknown): Promise<any> {
 	return callTool(tool, params, fakeToolCtx());
 }
@@ -51,7 +40,7 @@ const replyBytes = (text: string): number => Buffer.byteLength(text, "utf8");
 
 describe("a failed run's model-facing text", () => {
 	test("single mode caps the child's stderr and keeps it whole in details", async () => {
-		const tool = register(async () => noisyFailure("explorer"));
+		const tool = registerSubagentTool(async () => noisyFailure("explorer"));
 
 		const result = await call(tool, { agent: "explorer", task: "build it" });
 		const text: string = result.content[0].text;
@@ -65,7 +54,7 @@ describe("a failed run's model-facing text", () => {
 	});
 
 	test("chain mode caps the failing step's stderr and keeps it whole in details", async () => {
-		const tool = register(async (options) =>
+		const tool = registerSubagentTool(async (options) =>
 			options.agentName === "planner"
 				? noisyFailure("planner")
 				: {
@@ -95,7 +84,7 @@ describe("a failed run's model-facing text", () => {
 
 	test("a successful single reply is returned whole, since only a failure is noise", async () => {
 		const big = "x".repeat(MODEL_OUTPUT_CAP + 1_000);
-		const tool = register(async (options) => ({
+		const tool = registerSubagentTool(async (options) => ({
 			agent: options.agentName,
 			task: "t",
 			exitCode: 0,

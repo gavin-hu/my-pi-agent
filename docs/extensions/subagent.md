@@ -85,8 +85,9 @@ terminal surface.
 - In RPC, print, and JSON `/agents` reports the same runs as a notification — a
   count, then one line per run with agent, task, status, elapsed time, and usage
   — and there is no board and no action.
-- In plan mode `subagent` stays active but every call is forced read-only, and
-  `/agents` refuses until the plan is approved.
+- In plan mode `subagent` stays active but every call is forced read-only, a
+  background run is refused (it could not be inspected or collected before the
+  plan is approved), and `/agents` refuses until the plan is approved.
 
 ## Configuration
 
@@ -178,6 +179,10 @@ footer counts running helpers. A finish notice points back at `/agents`; the
 finalized result replaces the preview when the run finishes. A background run is
 session-owned and is bounded by the same timeout and transcript settings as a
 foreground run.
+
+The child gets the task it was given, whole. The entry that records the run — and
+so the board and `collect` — keeps the first 4 KiB of it, ending in `…` when the task
+was longer, because an entry replays on every branch rebuild.
 
 ### Parallel
 
@@ -484,7 +489,7 @@ step's `Output`.
 bun test extensions/subagent
 ```
 
-Five co-located suites, declared in `test/suite-manifest.ts`:
+Seven co-located suites, declared in `test/suite-manifest.ts`:
 
 - `agents.test.ts` — the built-in registry, markdown discovery and pool
   resolution, config normalisation, the parameter schema, `resolveMode`,
@@ -500,6 +505,12 @@ Five co-located suites, declared in `test/suite-manifest.ts`:
 - `failure-output.test.ts` — what a failed run hands the model: the 50 KiB cap in
   single and chain mode, the omission notice, the whole `stderr` still in
   `details`, and a successful reply left uncapped.
+- `retention.test.ts` — the transcript sweep on a session start: the start returns
+  while pruning still waits on its repository, and the sweep removes what the
+  retention window expired.
+- `background-task.test.ts` — the task split: the child gets 5000 characters
+  whole while the entry keeps the first 4 KiB plus `…` — 4,097 characters — and a task at
+  the cap is stored unmarked.
 
 `runSingleAgent` takes an injectable `SpawnFn`, so no suite launches `pi` or
 spends tokens.
