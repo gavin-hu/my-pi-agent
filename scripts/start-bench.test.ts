@@ -12,7 +12,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { manifestEntries } from "../test/helpers/graph.ts";
-import { parseTimings, prepareAgentDir, readStart, type TimingGroups } from "./start-bench.ts";
+import { settle } from "../test/helpers/process.ts";
+import { parseTimings, prepareAgentDir, readStart, type TimingGroups, timeHandlers } from "./start-bench.ts";
 
 const ROOT = join(import.meta.dir, "..");
 
@@ -117,5 +118,44 @@ describe("the temp agent dir", () => {
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
+	});
+});
+
+describe("the handler reading", () => {
+	/** A handler that holds the caller for `ms`, and one that starts the same wait and drops it. */
+	const fixture = (ms: number) => ({
+		name: "fixture",
+		factory: (pi: any) => {
+			pi.on("session_start", () => settle(ms));
+			pi.on("session_start", () => {
+				void settle(ms);
+			});
+		},
+	});
+
+	test("counts what the caller waits for and not work a handler starts and drops", async () => {
+		const ms = 100;
+		const row = await timeHandlers(fixture(ms), { cwd: ROOT });
+		expect(row.handlers).toBe(2);
+		// The awaited handler is the whole of it: the dropped one returns on its first line.
+		expect(row.blockingMs).toBeGreaterThanOrEqual(ms);
+		expect(row.blockingMs).toBeLessThan(ms * 2);
+	});
+
+	test("times only the event a frame waits for", async () => {
+		let treeHandlers = 0;
+		const row = await timeHandlers(
+			{
+				name: "fixture",
+				factory: (pi: any) => {
+					pi.on("session_tree", () => {
+						treeHandlers += 1;
+					});
+				},
+			},
+			{ cwd: ROOT },
+		);
+		expect(row).toEqual({ name: "fixture", handlers: 0, blockingMs: 0 });
+		expect(treeHandlers).toBe(0);
 	});
 });

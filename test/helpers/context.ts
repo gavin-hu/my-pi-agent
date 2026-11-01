@@ -31,6 +31,8 @@ export interface FakeCtxOptions {
 	input?: string | undefined;
 	custom?: unknown;
 	theme?: { fg(color: string, text: string): string; bold?(text: string): string };
+	/** Result of `isProjectTrusted`; defaults to `true`. */
+	trusted?: boolean;
 	isIdle?: () => boolean;
 	navigateTree?: (targetId: string) => unknown;
 	/** Make every nested `executeTool` call fail; a string also becomes its message. */
@@ -57,6 +59,8 @@ export interface FakeCtxResult {
 	editorSets: string[];
 	/** Editor dialogs opened, in call order, with their title and prefill. */
 	editorCalls: Array<{ title: string; prefill?: string }>;
+	/** The header and footer factories `session_start` installed, by slot. */
+	installed: { header?: unknown; footer?: unknown };
 	customCalls: any[];
 	setConfirm(value: boolean | undefined): void;
 	setSelect(value: string | undefined | Array<string | undefined>): void;
@@ -88,6 +92,7 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 	const editorSets: string[] = [];
 	const editorCalls: Array<{ title: string; prefill?: string }> = [];
 	const customCalls: any[] = [];
+	const installed: { header?: unknown; footer?: unknown } = {};
 
 	let confirmResult = options.confirm;
 	let selectResult: DialogResult | DialogResult[] = options.select;
@@ -102,6 +107,7 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 		mode,
 		hasUI,
 		cwd,
+		isProjectTrusted: () => options.trusted ?? true,
 		isIdle: options.isIdle ?? (() => true),
 		waitForIdle: async () => {},
 		navigateTree: async (targetId: string) => {
@@ -119,6 +125,13 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 		tools: [],
 		ui: {
 			theme: options.theme ?? fakeTheme,
+			// Both slots are install-once surfaces in the host: a factory or `undefined`.
+			setHeader: (factory: unknown) => {
+				installed.header = factory;
+			},
+			setFooter: (factory: unknown) => {
+				installed.footer = factory;
+			},
 			setStatus: (key: string, text?: string) => {
 				statusCalls.push({ key, text });
 				if (text === undefined) statuses.delete(key);
@@ -179,6 +192,7 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 		confirms,
 		editorCalls,
 		customCalls,
+		installed,
 	};
 
 	if (options.extra) Object.assign(ctx, options.extra);
@@ -198,6 +212,7 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 		editorSets,
 		editorCalls,
 		customCalls,
+		installed,
 		setConfirm: (value) => {
 			confirmResult = value;
 		},

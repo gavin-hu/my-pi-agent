@@ -8,17 +8,39 @@
  * on stderr, and `--mode rpc` with its stdin closed prints them and exits without a model
  * call. The numbers are a pre-release reading on this machine; nothing here gates on time.
  *
+ * The child cannot see the other half of a start: Pi awaits every `session_start` handler
+ * before the first frame, and rpc mode never draws one. So the same process that ran the
+ * children registers each entry again against the shared test doubles and reports the
+ * milliseconds its handlers hold the caller for (see {@link timeHandlers}).
+ *
  *   load-bench.ts    the graph, counted and gated per entry
- *   start-bench.ts   what that graph costs a start to import
+ *   start-bench.ts   what that graph costs a start to import, and to start
  */
 
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { SHARED_CONFIG_FILE } from "../lib/config.ts";
+import { fakeCtx } from "../test/helpers/context.ts";
 import { ALL_EXTENSIONS_ENV, tempDir } from "../test/helpers/env.ts";
+import { createFakePi, type FakePiOptions } from "../test/helpers/fakes.ts";
 import { printTable } from "./cli.ts";
 import { reading } from "./load-bench.ts";
+
+/**
+ * The host's `exec`, for real.
+ *
+ * A handler's cost on the frame is mostly what it spawns, so the reading has to run the
+ * command: a stub that resolves instantly would report every handler as free.
+ */
+const realExec: FakePiOptions["exec"] = (command, args, options) =>
+	new Promise((resolve) => {
+		execFile(command, args, { cwd: options?.cwd, timeout: options?.timeout ?? 15_000 }, (error, stdout, stderr) => {
+			resolve({ stdout, stderr, code: error === null ? 0 : 1 });
+		});
+	});
 
 /** Runs per reading; the middle total is the one printed. Each run is a cold child process. */
 const RUNS = 3;
@@ -93,6 +115,93 @@ export interface StartReading {
 /** The milliseconds one label took, or `undefined` when the group has no such row. */
 function msOf(rows: readonly TimingRow[], label: string): number | undefined {
 	return rows.find((row) => row.label === label)?.ms;
+}
+
+/** One entry's share of the first frame: what its `session_start` handlers cost. */
+export interface HandlerRow {
+	name: string;
+	/** Handlers the entry registered for `session_start`. */
+	handlers: number;
+	/** Milliseconds they held the caller for before returning control, which is all a frame feels. */
+	blockingMs: number;
+}
+
+/** A manifest entry, loaded and ready to register. */
+export interface BenchEntry {
+	name: string;
+	factory: (pi: ExtensionAPI, deps?: never) => void;
+}
+
+/**
+ * Time what one entry's `session_start` handlers hold the first frame for.
+ *
+ * What counts is everything Pi waits for: the whole of a handler that returns a promise,
+ * and only the synchronous part of one that starts work and drops it — which is the point
+ * of the deferral this reading is here to show. One turn of the event loop is given back
+ * between handlers, so a dropped promise cannot charge its work to the entry timed next.
+ *
+ * The context is the shared double, an interactive session, and a context that is not yet
+ * a project: that is the shape a first frame gets, and it reads no live state.
+ */
+export async function timeHandlers(
+	entry: BenchEntry,
+	options: { cwd: string; exec?: FakePiOptions["exec"] },
+): Promise<HandlerRow> {
+	const fake = createFakePi({ exec: options.exec });
+	const { cwd } = options;
+	entry.factory(fake.pi, {} as never);
+	const handlers = fake.handlers.get("session_start") ?? [];
+	const { ctx } = fakeCtx({ cwd, mode: "tui" });
+	let blockingMs = 0;
+	for (const handler of handlers) {
+		const started = performance.now();
+		try {
+			await handler({ type: "session_start" }, ctx);
+		} catch {
+			// A handler that fails is the extension's business; the reading is about time.
+		}
+		blockingMs += performance.now() - started;
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	}
+	return { name: entry.name, handlers: handlers.length, blockingMs };
+}
+
+/**
+ * Register every manifest entry in this process and time its `session_start` handlers.
+ *
+ * A child cannot answer this half: rpc mode emits the event but never draws a frame. The
+ * temp agent dir is used for the same reason the child's is — no stored account, no live
+ * session — and it carries one document that turns subagent transcripts on, so the sweep
+ * a deferral takes off the frame reads as the cost it would otherwise be. Retention is
+ * set wide in that document: this is a reading, and it must not delete real transcripts.
+ *
+ * `exec` is the real one, because a start's handler cost is mostly what it spawns.
+ */
+export async function readHandlers(root: string, agentDir: string): Promise<HandlerRow[]> {
+	writeFileSync(
+		join(agentDir, SHARED_CONFIG_FILE),
+		`${JSON.stringify({ subagent: { transcripts: "failed", maxRuns: 1000, retentionDays: 3650 } }, null, 2)}\n`,
+	);
+	const saved = new Map<string, string | undefined>();
+	for (const [key, value] of Object.entries({ ...ALL_EXTENSIONS_ENV, PI_CODING_AGENT_DIR: agentDir })) {
+		saved.set(key, process.env[key]);
+		process.env[key] = value;
+	}
+	const rows: HandlerRow[] = [];
+	try {
+		for (const graph of reading(root).rows) {
+			const path = isAbsolute(graph.entry) ? graph.entry : join(root, graph.entry);
+			const module = (await import(path)) as { default?: BenchEntry["factory"] };
+			if (typeof module.default !== "function") continue;
+			rows.push(await timeHandlers({ name: graph.name, factory: module.default }, { cwd: root, exec: realExec }));
+		}
+	} finally {
+		for (const [key, value] of saved) {
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+		}
+	}
+	return rows;
 }
 
 /** One start's timings against the manifest, entry by entry. */
@@ -178,8 +287,10 @@ if (import.meta.main) {
 	const root = join(import.meta.dir, "..");
 	const agentDir = prepareAgentDir(root);
 	const runs: StartReading[] = [];
+	let handlers: HandlerRow[] = [];
 	try {
 		for (let index = 0; index < RUNS; index++) runs.push(startOnce(root, agentDir));
+		handlers = await readHandlers(root, agentDir);
 	} finally {
 		rmSync(agentDir, { recursive: true, force: true });
 	}
@@ -209,5 +320,18 @@ if (import.meta.main) {
 	console.log(
 		`start (main namespace) · ${middle.mainMs.toFixed(0)}ms · ${RUNS} runs, median total (${fastest.importMs.toFixed(0)}–${slowest.importMs.toFixed(0)}ms import)`,
 	);
-	console.log("TUI init is not included; `PI_TIMING=1 PI_STARTUP_BENCHMARK=1 pi` in a terminal measures that half");
+
+	console.log("");
+	const blocking = [...handlers].sort((a, b) => b.blockingMs - a.blockingMs || a.name.localeCompare(b.name));
+	printTable(
+		["entry", "handlers", "blocking"],
+		blocking.map((row) => [row.name, String(row.handlers), `${row.blockingMs.toFixed(1)}ms`]),
+	);
+	const held = handlers.reduce((sum, row) => sum + row.blockingMs, 0);
+	console.log(
+		`session_start · ${handlers.length} handlers · ${held.toFixed(1)}ms held on the frame · work a handler starts and drops is not counted`,
+	);
+	console.log(
+		"The first paint is not included; `PI_TIMING=1 PI_STARTUP_BENCHMARK=1 pi` in a terminal measures that half",
+	);
 }
