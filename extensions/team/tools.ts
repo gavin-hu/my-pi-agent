@@ -24,7 +24,7 @@ import { type Actor, mayOp } from "../../lib/board/rules.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
-import type { TeamJoin } from "../../lib/session-tool.ts";
+import type { DeliveryFailure, TeamJoin } from "../../lib/session-tool.ts";
 import { failedResult, type ToolFailure, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
@@ -210,9 +210,11 @@ async function assignCard(
 	if (refused !== undefined) return refusal("assign", refused, card);
 
 	let delivered: string[];
+	let failed: DeliveryFailure[];
 	try {
-		delivered = (await dispatch.send({ kind: "handoff", to, text: handoffText(card, to, store.config().lead, note) }))
-			.delivered;
+		const sent = await dispatch.send({ kind: "handoff", to, text: handoffText(card, to, store.config().lead, note) });
+		delivered = sent.delivered;
+		failed = sent.failed;
 	} catch (error) {
 		return refusal("assign", formatHandoffFailure(card, to, messageOf(error)), card);
 	}
@@ -229,11 +231,12 @@ async function assignCard(
 	if (!applied.ok)
 		return refusal("assign", formatRacedAssignment(applied.card ?? card, to, applied.error), applied.card ?? card);
 	const silent = notListening(peers, delivered);
-	return textResult(formatHandoff(applied.card, to, delivered, silent), {
+	return textResult(formatHandoff(applied.card, to, delivered, silent, failed), {
 		action: "assign",
 		card: applied.card,
 		assigned: applied.card.owner,
 		delivered,
+		...(failed.length === 0 ? {} : { failed }),
 		...(silent.length === 0 ? {} : { notListening: silent }),
 	});
 }
@@ -264,22 +267,26 @@ async function offerCard(
 	if (refused !== undefined) return refusal("offer", refused, card);
 
 	let delivered: string[];
+	let failed: DeliveryFailure[];
 	try {
-		delivered = (await dispatch.send({ kind: "event", to: "*", text: offerText(card, store.config().lead, note) }))
-			.delivered;
+		const sent = await dispatch.send({ kind: "event", to: "*", text: offerText(card, store.config().lead, note) });
+		delivered = sent.delivered;
+		failed = sent.failed;
 	} catch (error) {
 		return refusal("offer", formatOfferFailure(card, messageOf(error)), card);
 	}
 	// The peers have the event, so a card that changed underneath is reported as raced
-	// rather than refused: the message is already in their inboxes.
+	// rather than refused: the message is already in their inboxes. The same holds for the
+	// peer the broadcast missed — the offer is recorded, and the result names who did not hear.
 	const recorded = await store.mutate(id, { kind: "offer" }, me, now);
 	if (!recorded.ok) return refusal("offer", formatRacedOffer(recorded.card ?? card, recorded.error), recorded.card);
 	const peers = await dispatch.peers().catch(() => undefined);
 	const silent = notListening(peers, delivered);
-	return textResult(formatOffer(recorded.card, delivered, silent), {
+	return textResult(formatOffer(recorded.card, delivered, silent, failed), {
 		action: "offer",
 		card: recorded.card,
 		delivered,
+		...(failed.length === 0 ? {} : { failed }),
 		...(silent.length === 0 ? {} : { notListening: silent }),
 	});
 }
@@ -312,16 +319,20 @@ async function askPeer(
 	if (namesSelf(me, to)) return refusal("ask", `${to} is this session — the round already says what you hold.`);
 	const asked = typeof rawQuestion === "string" && rawQuestion.trim() !== "" ? rawQuestion.trim() : DEFAULT_QUESTION;
 	let delivered: string[];
+	let failed: DeliveryFailure[];
 	try {
-		delivered = (await dispatch.send({ kind: "ask", to, text: askText(asked, me.label) })).delivered;
+		const sent = await dispatch.send({ kind: "ask", to, text: askText(asked, me.label) });
+		delivered = sent.delivered;
+		failed = sent.failed;
 	} catch (error) {
 		return refusal("ask", `the ask did not reach ${to}: ${messageOf(error)}`);
 	}
 	const peers = await dispatch.peers().catch(() => undefined);
 	const silent = notListening(peers, delivered);
-	return textResult(formatAsk(delivered, silent, to), {
+	return textResult(formatAsk(delivered, silent, to, failed), {
 		action: "ask",
 		delivered,
+		...(failed.length === 0 ? {} : { failed }),
 		...(silent.length === 0 ? {} : { notListening: silent }),
 	});
 }

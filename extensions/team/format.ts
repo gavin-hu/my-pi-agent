@@ -8,6 +8,7 @@
  */
 
 import { type Card, cardRef } from "../../lib/board/card.ts";
+import { type DeliveryFailure, notDeliveredLine } from "../../lib/session-tool.ts";
 
 /** `/team join` landed: the label peers address, and whether mail will reach this session. */
 export function formatJoined(label: string, watching: { armed: boolean }): string {
@@ -32,6 +33,7 @@ export function formatHandoff(
 	to: string,
 	delivered: readonly string[],
 	notListening: readonly string[] = [],
+	failed: readonly DeliveryFailure[] = [],
 ): string {
 	const who = delivered.length > 0 ? delivered.join(", ") : to;
 	return [
@@ -40,6 +42,7 @@ export function formatHandoff(
 		card.paths.length > 0 ? `  paths: ${card.paths.join(", ")}` : undefined,
 		"  The card is already owned by the peer; the handoff is in its inbox.",
 		notListeningLine(notListening),
+		indent(notDeliveredLine(failed)),
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
@@ -57,6 +60,11 @@ export function notListeningLine(labels: readonly string[]): string | undefined 
 	return `  Not listening: ${labels.join(", ")} — it reads this at its next turn.`;
 }
 
+/** A continuation line, when a shared sentence has one to add. */
+function indent(line: string | undefined): string | undefined {
+	return line === undefined ? undefined : `  ${line}`;
+}
+
 /**
  * A question sent: who has it, and where the answer will arrive.
  *
@@ -64,9 +72,19 @@ export function notListeningLine(labels: readonly string[]): string | undefined 
  * landed, so the line leads with the peer and then says the one thing a send cannot: that
  * nothing is waiting on an answer.
  */
-export function formatAsk(delivered: readonly string[], notListening: readonly string[] = [], to = ""): string {
+export function formatAsk(
+	delivered: readonly string[],
+	notListening: readonly string[] = [],
+	to = "",
+	failed: readonly DeliveryFailure[] = [],
+): string {
 	const who = delivered.length > 0 ? delivered.join(", ") : to === "" ? "nobody" : to;
-	return [`Asked ${who}.`, "  The answer arrives as mail; nothing is waiting on it.", notListeningLine(notListening)]
+	return [
+		`Asked ${who}.`,
+		"  The answer arrives as mail; nothing is waiting on it.",
+		notListeningLine(notListening),
+		indent(notDeliveredLine(failed)),
+	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
 }
@@ -82,7 +100,12 @@ export function formatHandoffFailure(card: Card, to: string, reason: string): st
  * `offer` writes nothing, so the sentence has to say the ownership question is still
  * open — a reader who took "offered" for "assigned" would stop looking at the card.
  */
-export function formatOffer(card: Card, delivered: readonly string[], notListening: readonly string[] = []): string {
+export function formatOffer(
+	card: Card,
+	delivered: readonly string[],
+	notListening: readonly string[] = [],
+	failed: readonly DeliveryFailure[] = [],
+): string {
 	const who = delivered.length > 0 ? delivered.join(", ") : "nobody";
 	return [
 		`${cardRef(card.id)} offered to ${who}.`,
@@ -90,6 +113,7 @@ export function formatOffer(card: Card, delivered: readonly string[], notListeni
 		card.paths.length > 0 ? `  paths: ${card.paths.join(", ")}` : undefined,
 		"  The card is unowned until one of them claims it.",
 		notListeningLine(notListening),
+		indent(notDeliveredLine(failed)),
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");

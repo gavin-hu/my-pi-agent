@@ -95,11 +95,19 @@ export function resultSections(details: SessionDetails): TailResultInput<BusRow>
 		}
 		case "send": {
 			const delivered = details.delivered ?? [];
-			if (delivered.length === 0) return undefined;
-			return {
-				kind: "sections",
-				sections: [section(delivered.map((label) => ({ kind: "result", label, tone: "ok" })))],
-			};
+			const failed = details.failed ?? [];
+			const sections: TailSection<BusRow>[] = [];
+			if (delivered.length > 0)
+				sections.push(section(delivered.map((label) => ({ kind: "result", label, tone: "ok" }))));
+			if (failed.length > 0) {
+				sections.push(
+					section(
+						failed.map((entry) => ({ kind: "result", label: `${entry.label} \u2014 ${entry.error}`, tone: "warn" })),
+						"Not delivered",
+					),
+				);
+			}
+			return sections.length > 0 ? { kind: "sections", sections } : undefined;
 		}
 		case "join":
 			return undefined;
@@ -133,8 +141,14 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 		}
 		case "send": {
 			const delivered = details.delivered ?? [];
+			const failed = details.failed ?? [];
 			if (delivered.length === 0) return paint(theme, "meta", "Delivered to nobody");
-			return paint(theme, "ok", `Delivered to ${delivered.map((label) => sanitizeLine(label)).join(", ")}`);
+			const line = paint(theme, "ok", `Delivered to ${delivered.map((label) => sanitizeLine(label)).join(", ")}`);
+			// A recipient the message could not be written for is the one fact the delivered list
+			// leaves out, so it is drawn rather than left to the expanded section.
+			return failed.length === 0
+				? line
+				: `${line}${paint(theme, "faint", SEPARATORS.item)}${paint(theme, "warn", `${failed.length} not delivered`)}`;
 		}
 		case "inbox": {
 			const messages = details.messages ?? [];

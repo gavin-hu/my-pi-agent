@@ -12,6 +12,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { notDeliveredLine } from "../../lib/session-tool.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatClaim, formatInbox, formatJoin, formatRelease, formatSend, formatStatus } from "./format.ts";
@@ -116,9 +117,15 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 							kind: args.kind,
 							paths: args.paths,
 						});
-						return textResult(formatSend(result.delivered, result.messageId), {
+						// Something delivered is a success that names its failures; nothing delivered is a
+						// failure, because no recipient can be told a message landed. The line either way is
+						// one helper's, so the sentence cannot differ from `team`'s.
+						const line = notDeliveredLine(result.failed);
+						if (result.delivered.length === 0) return errorResult(action, line ?? "no recipient could be written.");
+						return textResult([formatSend(result.delivered, result.messageId), line].filter(Boolean).join("\n"), {
 							action,
 							delivered: result.delivered,
+							...(result.failed.length === 0 ? {} : { failed: result.failed }),
 							messageId: result.messageId,
 						});
 					}
