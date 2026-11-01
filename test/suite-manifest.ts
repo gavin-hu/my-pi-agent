@@ -204,7 +204,14 @@ export const LIB_SUITES: readonly string[] = [
 	"web/web",
 ];
 
-export const SCRIPT_SUITES: readonly string[] = ["load-bench", "screenshots", "release", "render-bench", "video"];
+export const SCRIPT_SUITES: readonly string[] = [
+	"load-bench",
+	"screenshots",
+	"release",
+	"render-bench",
+	"start-bench",
+	"video",
+];
 
 /** Every declared suite as a repo-relative path, sorted. */
 export function declaredSuiteFiles(): string[] {

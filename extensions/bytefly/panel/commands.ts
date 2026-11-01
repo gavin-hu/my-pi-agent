@@ -20,7 +20,6 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import pkg from "../../../package.json";
 import { sanitizeLine } from "../../../lib/format.ts";
-import { withRailsSuppressed } from "../../../lib/rails.ts";
 import { REQUIREMENTS, type ExtensionReport } from "../../../lib/requirements.ts";
 import { formatExtension, formatReport, hasProblems } from "../doctor/format.ts";
 import type { DoctorRuntime } from "../doctor/runtime.ts";
@@ -32,13 +31,24 @@ import type { Discovery } from "../picker/types.ts";
 import { usageRecords } from "../footer/collect/entries.ts";
 import { loadByteflyConfig } from "../footer/price/config.ts";
 import { createPricer } from "../footer/price/price.ts";
-import { formatListing, formatSettingsListing, SKILL_NOUN } from "./format.ts";
-import { pricesReport } from "./prices.ts";
-import { buildPanelModel, buildSkillModel, extensionName } from "./join.ts";
 import type { SettingsRuntime, SettingsRuntimeDeps } from "./settings-runtime.ts";
 import type { SkillIndex } from "./skills.ts";
-import { shippedThemeNames } from "./themes.ts";
 import type { PanelSection } from "./types.ts";
+
+/**
+ * What `/bytefly` reads once it opens, imported on demand rather than at registration.
+ * The listing, its prices, and the theme names are this command's alone, and a start
+ * pays every static import of every entry.
+ */
+type PanelKit = typeof import("./kit.ts");
+
+let panelKit: Promise<PanelKit> | undefined;
+
+/** The panel's listing helpers, loaded the first time `/bytefly` opens a surface. */
+function loadPanelKit(): Promise<PanelKit> {
+	panelKit ??= import("./kit.ts");
+	return panelKit;
+}
 
 /** Host seams for the panel command, injected by tests and the composition root. */
 export interface PanelCommandDeps {
@@ -59,7 +69,8 @@ export interface PanelCommandDeps {
  * of any resource in either discovery view. Reading both views keeps a
  * project-only name valid before the screen has switched to Project scope.
  */
-function selectableNames(discovery: Discovery): Set<string> {
+async function selectableNames(discovery: Discovery): Promise<Set<string>> {
+	const { extensionName } = await loadPanelKit();
 	const names = new Set<string>(Object.keys(REQUIREMENTS));
 	for (const item of [...discovery.extensions.global, ...discovery.extensions.effective]) {
 		names.add(extensionName(item.path));
@@ -140,12 +151,13 @@ function parseArgs(args: string): PanelArgs {
  * Print one extension's full findings, or say why it has none. The screen's
  * named form and the `doctor` subcommand share this text path.
  */
-function notifyExtension(
+async function notifyExtension(
 	ctx: ExtensionCommandContext,
 	name: string,
 	reports: readonly ExtensionReport[],
 	runtime: PickerRuntime,
-): void {
+): Promise<void> {
+	const { extensionName } = await loadPanelKit();
 	const report = reports.find((entry) => entry.extension === name);
 	if (report) {
 		ctx.ui.notify(formatExtension(report), hasProblems([report]) ? "warning" : "info");
@@ -165,8 +177,9 @@ function notifyExtension(
  * package's own palettes. The list is empty outside the TUI (RPC, print, JSON),
  * where the row still shows the stored value.
  */
-function settingsThemeNames(ctx: ExtensionCommandContext): string[] {
+async function settingsThemeNames(ctx: ExtensionCommandContext): Promise<string[]> {
 	try {
+		const { shippedThemeNames } = await loadPanelKit();
 		return shippedThemeNames(ctx.ui.getAllThemes());
 	} catch {
 		return [];
@@ -194,7 +207,8 @@ interface PanelHolder {
 }
 
 /** `/bytefly prices`: one question about the transcript, no discovery. */
-function pricesAnswer(ctx: ExtensionCommandContext, cwd: string): void {
+async function pricesAnswer(ctx: ExtensionCommandContext, cwd: string): Promise<void> {
+	const { pricesReport } = await loadPanelKit();
 	const config = loadByteflyConfig(cwd);
 	const active = ctx.model ? { provider: ctx.model.provider, model: ctx.model.id } : undefined;
 	const scanned = usageRecords(ctx.sessionManager.getEntries(), active);
@@ -227,12 +241,13 @@ async function updateAnswer(
 }
 
 /** Settings outside `tui`: the grouped listing without resolving packages. */
-function settingsText(
+async function settingsText(
 	run: PanelRun,
 	makeSettings: NonNullable<PanelCommandDeps["settings"]>,
 	createSettingsStores: (cwd: string, agentDir: string, trusted: boolean) => Discovery["stores"],
 	surfaceNotice: (message: string, kind?: "warning" | "error") => void,
-): void {
+): Promise<void> {
+	const { formatSettingsListing } = await loadPanelKit();
 	const stores = createSettingsStores(run.cwd, run.agentDir, run.trusted);
 	const settings = makeSettings({
 		stores,
@@ -246,13 +261,14 @@ function settingsText(
 }
 
 /** Skills outside `tui`: the grouped listing from Pi's metadata, with no probe. */
-function skillsText(
+async function skillsText(
 	run: PanelRun,
 	runtime: PickerRuntime,
 	discovery: Discovery,
 	loadSkills: (paths: readonly string[], cwd: string, agentDir: string) => SkillIndex,
 	resolveSkillPaths: (discovery: Discovery) => string[],
-): void {
+): Promise<void> {
+	const { buildSkillModel, formatListing, SKILL_NOUN } = await loadPanelKit();
 	const index = loadSkills(resolveSkillPaths(discovery), run.cwd, run.agentDir);
 	const model = buildSkillModel({ items: runtime.items("skills"), index, agentDir: run.agentDir });
 	run.ctx.ui.notify(
@@ -271,13 +287,14 @@ async function reportText(run: PanelRun, runtime: PickerRuntime): Promise<void> 
 		return;
 	}
 	if (run.name !== undefined) {
-		notifyExtension(run.ctx, run.name, reports, runtime);
+		await notifyExtension(run.ctx, run.name, reports, runtime);
 		return;
 	}
 	if (run.mode === "doctor") {
 		run.ctx.ui.notify(formatReport(reports), hasProblems(reports) ? "warning" : "info");
 		return;
 	}
+	const { buildPanelModel, formatListing } = await loadPanelKit();
 	const model = buildPanelModel({ items: runtime.items("extensions"), reports, agentDir: run.agentDir });
 	run.ctx.ui.notify(formatListing(model, runtime.scope()), "info");
 }
@@ -300,6 +317,7 @@ async function mountPanel(
 	let reports: ExtensionReport[] = cached ?? [];
 
 	const { PanelComponent } = await import("./tui.ts");
+	const { withRailsSuppressed } = await import("../../../lib/rails.ts");
 	// The dock screen owns the editor slot; hide the rails for its lifetime.
 	await withRailsSuppressed(run.pi, () =>
 		ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
@@ -367,10 +385,9 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// in every mode, because the footer that would carry the same fact exists only in
 		// `tui`.
 		if (mode === "prices") return pricesAnswer(ctx, cwd);
-
 		const agentDir = getAgentDir();
 		const trusted = ctx.isProjectTrusted();
-		const themes = settingsThemeNames(ctx);
+		const themes = await settingsThemeNames(ctx);
 		// The mounted screen owns its feedback: a refusal or a failed write belongs in
 		// the frame, not appended to the transcript behind it. Before the screen
 		// exists (the non-TUI settings path, a pre-mount failure) the transcript is
@@ -396,7 +413,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// Settings outside `tui` prints its grouped listing without resolving
 		// packages or probing the doctor.
 		if (section === "settings" && ctx.mode !== "tui") {
-			settingsText(run, makeSettings, createSettingsStores, surfaceNotice);
+			await settingsText(run, makeSettings, createSettingsStores, surfaceNotice);
 			return;
 		}
 
@@ -427,7 +444,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 
 		// The name is checked before the probe: a typo should not pay for every
 		// prerequisite check, and the set is available as soon as discovery is.
-		if (name !== undefined && section === "extensions" && !selectableNames(discovery).has(name)) {
+		if (name !== undefined && section === "extensions" && !(await selectableNames(discovery)).has(name)) {
 			ctx.ui.notify(`bytefly: no extension named "${sanitizeLine(name)}"`, "warning");
 			return;
 		}
@@ -438,7 +455,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// Skills outside `tui` print the same grouped listing, from the metadata Pi's
 		// loader reads; there is no report to probe for and no package to resolve.
 		if (section === "skills" && ctx.mode !== "tui") {
-			skillsText(run, runtime, discovery, loadSkills, resolvedSkillPaths);
+			await skillsText(run, runtime, discovery, loadSkills, resolvedSkillPaths);
 			return;
 		}
 
