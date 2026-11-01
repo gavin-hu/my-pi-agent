@@ -114,13 +114,13 @@ describe("assign", () => {
 		expect(card).toMatchObject({ lane: "plan", owner: { id: CORE.id, label: CORE.label }, by: LEAD.label });
 	});
 
-	test("assignment is not a lane change: a card in plan stays there", () => {
-		// Naming the session that already holds a card is the one held case assign accepts, and
-		// it is a no-op: the lane it earned is unchanged and no revision is spent.
+	test("refuses the holder, so naming the owner again is not a silent no-op", () => {
+		// It used to be accepted as a no-op, which gave an id-named holder the same answer as a
+		// label-named one — and `team` then spent a second handoff on a card nobody was handed.
 		const card = approved();
-		const result = accepted(applyOp(card, { kind: "assign", to: CORE }, LEAD, NOW, boardOf(card)));
-		expect(result.changed).toBe(false);
-		expect(result.card.lane).toBe("plan");
+		expect(refusal(applyOp(card, { kind: "assign", to: CORE }, LEAD, NOW, boardOf(card)))).toBe(
+			"#4 is already billing-core's.",
+		);
 	});
 
 	test("handing a card to a different session is refused; reclaim is how it changes hands", () => {

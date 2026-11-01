@@ -204,6 +204,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `team`: `assign` refuses a card the peer already holds instead of sending a second
+  handoff for it. The rules answered `{ changed: false }` for the session a card already
+  belongs to — a no-op chosen so an id-named holder got the same answer as a label-named
+  one — and `assignCard` sends before it writes, so the no-op still spent a message: two
+  assigns to one peer sent two handoffs and both read `#1 handed off to billing-core`. The
+  holder is now refused like a third party (`#1 is already billing-core's.`, beside
+  `#1 is held by billing-web.`), so `mayOp` refuses before the send and both doors answer
+  alike.
 - `session-bus`: a message file this build cannot read is reported, not deleted. The
   consuming read used to delete a file it could not validate, so mail written by a newer
   build — a renamed field, a stricter `paths` guard — vanished on the next `inbox` or prune
