@@ -90,7 +90,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   workaround with them, and `assets/video/demo.mp4` is re-montaged — the three
   browser slides in the storyboard stop losing eight real pixels too.
 
-- A reload no longer waits for scans nobody has read yet. `rewind`'s snapshot refresh and
+- `rewind`, `memory`, `job`, `session-bus`: a reload no longer waits for scans nobody has read yet. `rewind`'s snapshot refresh and
   stale-index sweep, the bus roster, the job registry and `memory`'s store read are now
   started at `session_start` and awaited by the surface that reads them — the first turn, and
   the tool or command that can arrive before one — so the work runs beside the rest of the
