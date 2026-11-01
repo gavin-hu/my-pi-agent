@@ -167,6 +167,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   which ends in `…` when it was cut. And a plan-mode session could start a background run while
   `/agents`, the only door to it, refuses until the plan is approved — the call is refused by name
   now, in the same branch that forces `readOnly`. `MAX_TASK_CHARS` has its first cases.
+- `board`: the record says what it costs and what it lost. `done` never drained — 24 finished
+  cards on this repository's board, median 10.9 h, and `archive` called once in 946 calls —
+  because nothing asked for it: the rollup printed a bare `24 done` and the page had no word
+  for a sweep. The rollup now reads `24 done, 21 archivable`, `RoundSummary.archivable` is the
+  finished cards no open card still waits on, and `/board archive` runs the same sweep the
+  tool's bare `archive` does (`extensions/board/archive.ts`, one owner for both), so archiving
+  — which is one way, with nothing to un-archive it — never strands a `waits on` link. The
+  other half is the caps: a card read now says `2 earlier lane changes dropped` beside the note
+  count, and the rollup names the cards that lost history in one line instead of leaving the
+  count on the card where nobody looks.
 - `subagent`: a failed `single` run no longer hands the model the child's whole `stderr`. Only
   parallel mode capped its reply, so one failing delegation — a broken build, a verbose stack
   trace — could return 3 MiB of child noise into the parent's context, against 51 KiB for the

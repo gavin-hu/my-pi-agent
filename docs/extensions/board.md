@@ -133,6 +133,7 @@ lead: board list round: true
 | `/board team` | lead | The same, opened on the Team tab |
 | `/board approve <id>` | the person | Signs the card's contract as `you`, the other actor the gate takes: a session must be the lead (`board.lead`), and the holder may sign nothing at all. Only a card in `plan` with a complete contract can be signed, and the refusal is the tool's own sentence |
 | `/board review <id>` | the person | Records the spot-check of finished work as `you`; only a card in `execute` can be signed |
+| `/board archive` | lead | Runs the same sweep the tool's bare `archive` runs, and says what it folded away and what it kept: a finished card an open card still waits on stays on the board |
 | `/board status` | both | One line: the seat, the repository, the port, how many tabs are watching, the store's path, and the team the last `/board` joined — or the page being watched, and whether the note behind it still answers |
 | `/board stop` | lead | Stops the page this session serves; a watched page that has stopped answering is dropped instead, and a watched page that is alive is its owner's to stop |
 | `/team` | both | The round in the terminal: the rollup, the work a dead owner left behind, then who is live, who has gone quiet, and who is gone |
@@ -217,7 +218,7 @@ name there is the project's, and the seat is read off the roster where it belong
 
 | Action | Parameters | Result |
 |---|---|---|
-| `list` | `lane?`, `mine?`, `card?`, `query?`, `round?`, `archived?` | the cards in lane order, one card, or what a query or `mine` matches — a query reads a card's title, holder, path hints, plan, and the text of its notes; a listing that names no lane leaves out the `done` cards and says how many, since a finished card is history rather than work, and one a filter matched nothing of says so instead of calling the board empty; `round: true` also prints the rollup, after the listing and over the whole board, so a narrowed listing keeps the cards it asked for; `archived: true` reads the archive instead of the board, with `query` and `mine` narrowing it and `lane`/`round` refused |
+| `list` | `lane?`, `mine?`, `card?`, `query?`, `round?`, `archived?` | the cards in lane order, one card, or what a query or `mine` matches — a query reads a card's title, holder, path hints, plan, and the text of its notes; a listing that names no lane leaves out the `done` cards and says how many, since a finished card is history rather than work, and one a filter matched nothing of says so instead of calling the board empty; `round: true` also prints the rollup, after the listing and over the whole board, so a narrowed listing keeps the cards it asked for, and its done count says how many are archivable; `archived: true` reads the archive instead of the board, with `query` and `mine` narrowing it and `lane`/`round` refused |
 | `add` | `title`, `paths?`, `priority?`, `note?` | the new `backlog` card |
 | `claim` | `card` | the card, pulled into `plan` and owned by this session — refused, naming the count, when `plan` is at its limit (the limit counts the whole board, not one session's cards); the result ends with the next step, which is plan mode. `team`'s `claim` writes the same operation for a lead taking work from its round |
 | `release` | `card` | the card, back in `backlog` with no owner; the contract and its approval stay |
@@ -228,7 +229,7 @@ name there is the project's, and the seat is read off the roster where it belong
 | `approve` | `card`, `text?` | the card with its contract approved, by the lead and not by its holder — the gate in front of `execute` (see **Who signs**); `text` is a note recorded in the same write. The person signs the same gate with `/board approve <id>` |
 | `review` | `card`, `text?` | the card with a spot-check recorded, by the lead and not by its holder — the gate in front of `done`; `text` is a note recorded in the same write. The person signs with `/board review <id>` |
 | `edit` | `card`, `title?`, `paths?`, `priority?`, `dependsOn?` | the card with what it says corrected; an omitted field is left alone, and `dependsOn: []` removes every link |
-| `archive` | `card?` | the ids set aside — one finished card, or every finished card when no card is named; a card still in flight is refused |
+| `archive` | `card?` | the ids set aside — one finished card, or every archivable one when no card is named, which is every finished card no open card still waits on: archiving is one way, and a link a sweep stranded would name a card no read of the board opens; a card still in flight is refused |
 | `drop` | `card` | the id that was dropped, whose number is now spent |
 
 `card` takes `4` or `#4`. A refused call is an error result that still carries the
@@ -731,7 +732,8 @@ it always meant: when the card was last touched, which is not when it last chang
 | `lazy-page.ts` | The page behind `lib/lazy`: the command paths load `page.ts` once, and `closeAll` closes only a page that was already opened, so a session that never touches the board imports none of the server |
 | `page.ts` | The page's lifecycle: the `/board` prefix it holds on the session's server, the three closes (`/board stop`, the idle grace, and shutdown — each taking the note with it), and the probe behind `/board status` |
 | `snapshot.ts` | The page's snapshot: the cards, the bus's records, the store's size and path, and the repository's own name, handed to `buildView` |
-| `commands.ts` | `/board`, its three words and their refusals, and the one line `/board status` prints |
+| `commands.ts` | `/board`, its words and their refusals, and the one line `/board status` prints |
+| `archive.ts` | The one sweep behind `archive` and `/board archive`: what it takes, what it keeps, and the sentence that says both |
 | `join.ts` | The board's side of the team: when it asks (the page, or the first claimed card), the name it asks for, and how the outcome reads on a `/board` line |
 | `announce.ts` | The message a sign sends: the card's owner, told who signed and the lane the sign opened, over the same `session send` a handoff uses — and the line the result carries when the bus cannot answer, which never undoes the sign |
 | `transport/router.ts` | The five reads — the document, the client script, the theme script, the snapshot, and the frame stream — with the token gate and the guards in front of them |

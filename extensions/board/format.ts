@@ -182,6 +182,9 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 	}
 	const dropped = card.notesDropped > 0 ? ` (${card.notesDropped} earlier dropped)` : "";
 	lines.push(`  ${plural(card.notes.length, "note")}${dropped}`);
+	// The lane history has its own cap, and a card that lost transitions to it says so: the
+	// rollup names the card, and this is the line that says what it lost.
+	if ((card.logDropped ?? 0) > 0) lines.push(`  ${card.logDropped} earlier lane changes dropped`);
 	return lines;
 }
 

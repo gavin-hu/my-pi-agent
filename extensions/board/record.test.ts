@@ -1,0 +1,153 @@
+/**
+ * The board's record: what a finished card costs the board, and what a cap costs the card.
+ *
+ * Two facts a reader needed and could not see — how much history a sweep may fold away, and
+ * which cards lost notes or transitions to a cap — so the sweep, the word that runs it, and
+ * the two lines that name it are pinned here. `tools.test.ts` and `commands.test.ts` are both
+ * named at their height in `test/suite-sizes.test.ts`, which is why this suite exists.
+ */
+
+import { afterAll, describe, expect, test } from "bun:test";
+import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { Card } from "../../lib/board/card.ts";
+import type { Actor } from "../../lib/board/rules.ts";
+import { buildRound } from "../../lib/board/round.ts";
+import { formatRound } from "../../lib/board/round-text.ts";
+import type { BoardSession } from "../../lib/board/session.ts";
+import { boardHarness } from "../../test/helpers/board.ts";
+import { advance } from "../../test/helpers/board-flow.ts";
+import { boardCard, numberedCard } from "../../test/helpers/fixtures/board.ts";
+import { createFakePi } from "../../test/helpers/fakes.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
+import { sweepFinished, sweepText } from "./archive.ts";
+import { BOARD_COMMAND, registerCommands } from "./commands.ts";
+import { formatCard } from "./format.ts";
+import type { BoardPage } from "./page.ts";
+
+const temps = makeTempTracker();
+afterAll(() => temps.flush());
+
+const NOW = 50_000;
+const ME: Actor = { id: "s-lead", label: "billing-core" };
+
+/** A board with a store, and the session a command or a tool works as. */
+function board() {
+	const harness = boardHarness({ now: NOW, track: temps.track, sessionId: ME.id, sessionName: ME.label });
+	const session: BoardSession = {
+		store: (cwd: string) => harness.runtime.store(cwd),
+		planDir: (cwd: string) => harness.runtime.planDir(cwd),
+		busDir: (cwd: string) => harness.runtime.busDir(cwd),
+		now: () => NOW,
+		who: async () => ME,
+		serving: () => undefined,
+		serve: () => {},
+		team: { last: () => undefined, record: () => {} },
+	};
+	return { harness, session };
+}
+
+/** A page the sweep never touches: the word opens a store, not a browser. */
+const NO_PAGE: BoardPage = {
+	start: async () => {
+		throw new Error("the archive word opens no page");
+	},
+	stop: async () => false,
+	status: async () => ({ running: false }),
+	dropStale: async () => false,
+	closeAll: async () => {},
+};
+
+describe("the sweep", () => {
+	test("keeps a finished card an open card still waits on, and says why", async () => {
+		const { harness, session } = board();
+		const store = await harness.runtime.store(harness.ctx.cwd);
+		const first = await store.create({ title: "Finished one", paths: [] }, ME, NOW);
+		const second = await store.create({ title: "Waiting one", paths: [] }, ME, NOW);
+		await advance(store, first.id, "done", { owner: ME }, NOW);
+		await advance(store, second.id, "plan", { owner: ME }, NOW);
+		await store.mutate(second.id, { kind: "edit", dependsOn: [first.id] }, ME, NOW);
+
+		const swept = await sweepFinished(store, ME, NOW);
+		// Archiving is one way, so the card an open card names stays: the record would lose
+		// the target of a link `list` still prints.
+		expect(swept.moved).toEqual([]);
+		expect(swept.kept).toEqual([first.id]);
+		expect(sweepText(swept)).toContain(`1 card kept: an open card still waits on #${first.id}.`);
+		expect(await session.store(harness.ctx.cwd).then((s) => s.list())).toHaveLength(2);
+	});
+
+	test("/board archive runs it and reports what it left", async () => {
+		const { harness, session } = board();
+		const store = await harness.runtime.store(harness.ctx.cwd);
+		const kept = await store.create({ title: "Finished, still waited on", paths: [] }, ME, NOW);
+		const free = await store.create({ title: "Finished, nobody waits", paths: [] }, ME, NOW);
+		const waiting = await store.create({ title: "Waiting one", paths: [] }, ME, NOW);
+		await advance(store, kept.id, "done", { owner: ME }, NOW);
+		await advance(store, free.id, "done", { owner: ME }, NOW);
+		await store.mutate(waiting.id, { kind: "edit", dependsOn: [kept.id] }, ME, NOW);
+
+		const fake = createFakePi();
+		registerCommands(fake.pi, session, NO_PAGE);
+		const command = fake.commands.get(BOARD_COMMAND);
+		if (!command) throw new Error("the board command was not registered");
+		// The harness's context, not a new one: a command works the board of its own cwd, and a
+		// context built elsewhere would sweep a second, empty repository.
+		const { ctx, notifications } = harness;
+		await command.handler("archive", ctx as unknown as ExtensionCommandContext);
+
+		const said = notifications.at(-1) ?? "";
+		expect(said).toContain(`1 card archived: #${free.id}`);
+		expect(said).toContain(`1 card kept: an open card still waits on #${kept.id}.`);
+		// Asked again, the sweep has nothing to take: it names what it keeps rather than
+		// reporting a silent zero, and nothing is archived twice.
+		await command.handler("archive", ctx);
+		const again = notifications.at(-1) ?? "";
+		expect(again).toContain(`1 card kept: an open card still waits on #${kept.id}.`);
+		expect(again).not.toContain("archived:");
+	});
+});
+
+describe("dropped history", () => {
+	/** A card that lost three notes and two lane changes to the caps. */
+	function capped(overrides: Partial<Card> = {}): Card {
+		return numberedCard("49", { lane: "plan", notesDropped: 3, logDropped: 2, notes: [], log: [], ...overrides });
+	}
+
+	test("a card read says what the lane cap took, beside what the note cap took", () => {
+		const text = formatCard(capped(), undefined, NOW);
+		expect(text).toContain("0 notes (3 earlier dropped)");
+		expect(text).toContain("2 earlier lane changes dropped");
+	});
+
+	test("the rollup names the cards, because a count on the card is where nobody looks", () => {
+		const cards = [capped(), boardCard("7")];
+		const text = formatRound(cards, buildRound(cards, NOW));
+		expect(text).toContain("dropped history: #49 (3 notes, 2 lanes) — the card keeps the count, not the text");
+		// A card that lost nothing is not named: the line is about the loss, not the board.
+		expect(text).not.toContain("#7 (");
+	});
+
+	test("says nothing at all on a board that dropped nothing", () => {
+		const cards = [boardCard("7")];
+		expect(formatRound(cards, buildRound(cards, NOW))).not.toContain("dropped history");
+	});
+});
+
+describe("the archivable count", () => {
+	test("counts the finished cards nothing open waits on", () => {
+		const done = boardCard("1", { lane: "done" });
+		const waited = boardCard("2", { lane: "done" });
+		const open = boardCard("3", { lane: "plan", dependsOn: ["2"] });
+		const round = buildRound([done, waited, open], NOW);
+		expect(round.done.map((card) => card.id)).toEqual(["1", "2"]);
+		expect(round.archivable.map((card) => card.id)).toEqual(["1"]);
+	});
+
+	test("a finished card another finished card names is archivable", () => {
+		const first = boardCard("1", { lane: "done" });
+		const second = boardCard("2", { lane: "done", dependsOn: ["1"] });
+		const round = buildRound([first, second], NOW);
+		// The dependent is finished too: nothing is held up, so nothing is kept.
+		expect(round.archivable.map((card) => card.id)).toEqual(["1", "2"]);
+	});
+});

@@ -188,6 +188,7 @@ describe("buildRound", () => {
 			blocked: [],
 			unwritten: [],
 			done: [],
+			archivable: [],
 		});
 	});
 

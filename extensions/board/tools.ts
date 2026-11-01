@@ -532,28 +532,19 @@ async function archiveCards(
 		if (!result.changed) return textResult(`${cardRef(id)} is already archived.`, { action: "archive", me });
 		return textResult(formatArchived([id]), { action: "archive", me, card: result.card, archived: [id] });
 	}
-	const finished = (await store.list()).filter((card) => card.lane === "done");
-	const moved: string[] = [];
-	const failed: Array<{ card: string; error: string }> = [];
-	for (const card of finished) {
-		const result = await store.mutate(card.id, { kind: "archive" }, me, now);
-		if (result.ok && result.changed) moved.push(card.id);
-		// A sweep is best-effort, and a card that changed underneath it is the one thing it
-		// cannot report by silence: "every finished card" must not read as fewer, unexplained.
-		else if (!result.ok) failed.push({ card: card.id, error: result.error });
-	}
-	if (moved.length === 0 && failed.length === 0) {
+	// One sweep, shared with `/board archive`: the numbers the rollup prints and the cards it
+	// moves are one rule, and a finished card an open one still waits on is never taken. The
+	// module is loaded here rather than at registration, like every surface a call opens.
+	const { sweepFinished, sweepText } = await import("./archive.ts");
+	const swept = await sweepFinished(store, me, now, await store.list());
+	if (swept.moved.length === 0 && swept.failed.length === 0 && swept.kept.length === 0) {
 		return textResult("No finished cards to archive.", { action: "archive", me });
 	}
-	const text = [
-		...(moved.length === 0 ? [] : [formatArchived(moved)]),
-		...failed.map((entry) => `${cardRef(entry.card)} was not archived (${entry.error})`),
-	].join(" · ");
-	return textResult(text, {
+	return textResult(sweepText(swept), {
 		action: "archive",
 		me,
-		...(moved.length === 0 ? {} : { archived: moved }),
-		...(failed.length === 0 ? {} : { failed }),
+		...(swept.moved.length === 0 ? {} : { archived: swept.moved }),
+		...(swept.failed.length === 0 ? {} : { failed: swept.failed }),
 	});
 }
 

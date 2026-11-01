@@ -301,9 +301,9 @@ describe("/board", () => {
 	});
 
 	test("warns about a word it does not know, and lists the ones it does", async () => {
-		const { calls, notifications } = await run("archive");
+		const { calls, notifications } = await run("scrub");
 		expect(calls).toEqual([]);
-		expect(notifications.at(-1)).toContain("try /board approve <id>, /board review <id>, /board status, /board stop");
+		expect(notifications.at(-1)).toContain("try /board archive, /board approve <id>, /board review <id>");
 	});
 
 	test("completes only the words it has", async () => {
@@ -322,7 +322,7 @@ describe("/board", () => {
 		const fake = createFakePi();
 		registerCommands(fake.pi, fakeSession(), page());
 		expect(fake.commands.get(BOARD_COMMAND)?.description).toContain(
-			"/board [team | status | stop | approve <id> | review <id>]",
+			"/board [archive | team | status | stop | approve <id> | review <id>]",
 		);
 	});
 });
