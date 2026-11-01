@@ -292,15 +292,22 @@ bun run bench:start
   says to stop after init; without the first it starts a normal session and prints
   nothing. It refuses to run without a TTY, so that half is a local reading rather
   than a CI one. `bun run check` never runs either bench.
-- **The terminal reading has two halves, and they are not comparable to this one.** A
-  real start on the author's machine read `main` 1544 ms — `createAgentSessionRuntime`
-  1198, `interactiveMode.init` **331** — with the extension namespace at 1012. The
-  graph did not quadruple: an interactive start runs the model catalog, the settings
-  watcher and the first frame *between* the loader's `time()` calls, so each entry's
-  delta carries that waiting, while this harness's offline rpc child does not. Read
-  the interactive numbers for the TUI half (331 ms, the first frame, against ~225 ms
-  for every extension's import) and this script for the graph; do not compare one
-  graph's per-entry ms across the two.
+- **The terminal reading has three numbers, and only two of them are ours.** On the
+  author's machine:
+
+  | run | `main` total | `createAgentSessionRuntime` | `interactiveMode.init` | extensions |
+  |---|---|---|---|---|
+  | online | 1544 ms | 1198 | 331 | 1012 |
+  | `--offline` | 462 ms | 351 | 101 | 316 |
+  | `--no-extensions` | 92 ms | 46 | 37 | — |
+
+  The online extras — ~1080 ms — are the host's package and model resolution over the
+  network, and they leak into every loader delta, which is why the same graph reads
+  1012 ms there and 316 offline. Offline, the runtime is almost exactly the graph (316
+  of 351), and the frame is **~64 ms** this package's (101 against Pi's own 37), not the
+  294 the online pair suggested. Read `bench:start` for the graph, `--offline` for the
+  frame, and `--no-extensions` for Pi's own floor; the online numbers say nothing about
+  either.
 
 ## Cross-platform
 
