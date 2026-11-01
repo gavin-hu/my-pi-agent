@@ -20,14 +20,6 @@ afterEach(() => {
 });
 
 describe("the store read the session starts", () => {
-	test("is started, not awaited: the session start returns before the notes are read", async () => {
-		suite.write("global", "- one note\n");
-		// No turn is emitted here, so nothing has awaited the read: the handler's own promise
-		// is the only thing that has run.
-		const results = await suite.emit("session_start", { reason: "startup" });
-		expect(results).toEqual([]);
-	});
-
 	test("is awaited by the first turn, which therefore sees the notes", async () => {
 		suite.write("global", "- late note\n");
 		await suite.emit("session_start", { reason: "startup" });

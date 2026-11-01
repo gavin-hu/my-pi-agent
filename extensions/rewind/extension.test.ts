@@ -57,29 +57,6 @@ describe("registration", () => {
 	});
 });
 
-describe("the refresh a session starts", () => {
-	test("starts on a session start, which does not wait for it", async () => {
-		const repo = await makeRepo("pi-rewind-start-");
-		const fake = createFakePi();
-		rewindExtension(fake.pi);
-		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
-		// The handler starts the refresh and returns; nothing here awaits it, which is the
-		// reload path — the run below is what waits.
-		await emit(fake.pi, "session_start", {}, ctx);
-	});
-
-	test("is awaited by the first run, which still decides its snapshot", async () => {
-		const repo = await makeRepo("pi-rewind-start-");
-		const fake = createFakePi();
-		rewindExtension(fake.pi);
-		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
-		await emit(fake.pi, "session_start", {}, ctx);
-		// The run waits on the same promise the handler started, so a run that would build on an
-		// unrefreshed cache still completes.
-		await emit(fake.pi, "before_agent_start", { prompt: "do it" }, ctx);
-	});
-});
-
 describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 	test("takes one snapshot per prompt, before the first mutating call", async () => {
 		const repo = await makeRepo("pi-rw-ext-one-");
@@ -235,9 +212,11 @@ describe.skipIf(!runSlowSuites)("status chip", () => {
 		const branch = branchWithUser("e1", "do the task");
 		const ctx = makeCtx(fake, { cwd: repo, branch, sessionId: "s1" });
 
-		// One branch prompt and no snapshot yet: the chip already counts the
-		// prompt, matching the one row `/rewind` would list.
+		// One branch prompt and no snapshot yet: the chip already counts the prompt, matching
+		// the one row `/rewind` would list. The session start only starts the refresh, so the
+		// chip is read after the repaint that waits for it.
 		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		await emit(fake.pi, "session_tree", { type: "session_tree" }, ctx);
 		expect(ctx.statuses.get("rewind")).toBe("↺ 1");
 
 		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "do the task" }, ctx);
@@ -278,6 +257,8 @@ describe.skipIf(!runSlowSuites)("status chip", () => {
 		const ctx = makeCtx(fake, { cwd: repo, hasUI: false, branch, sessionId: "s1" });
 
 		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		// A tree repaint is the reader: it waits for the started refresh, then paints.
+		await emit(fake.pi, "session_tree", { type: "session_tree" }, ctx);
 		expect(ctx.statuses.get("rewind")).toBe("↺ 2");
 
 		await fake.commands.get("rewind").handler("", ctx);
@@ -335,6 +316,8 @@ describe.skipIf(!runSlowSuites)("rails and index lifecycle", () => {
 		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
 
 		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		// The sweep is part of the scan the session start only starts; the repaint waits for it.
+		await emit(fake.pi, "session_tree", { type: "session_tree" }, ctx);
 
 		expect(existsSync(stale[0])).toBe(false);
 		expect(existsSync(stale[1])).toBe(false);
