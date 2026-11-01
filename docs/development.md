@@ -30,6 +30,7 @@ repositories.
 | `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
 | `bun run bench:load` | Report what a load costs, per extension: the local modules its entry evaluates at registration, how many of them are `lib/` and how many another entry pays again, and what that graph costs to import. Gates the graph only; the timings are a pre-release reading. |
+| `bun run bench:start` | Report what a start costs, per extension: the milliseconds its graph took to import cold, its factory's registration, and the totals across the manifest, from the host's own `PI_TIMING=1` output. A pre-release reading, never a gate; it needs a default model in the developer's settings, and never calls it. |
 | `bun run probe:wechat [holdMs]` | Hold one WeChat poll open for the stated milliseconds (default 3000) and report what the server did with it, so a stalled bridge can be diagnosed without a phone; [`extensions/wechat.md`](./extensions/wechat.md) says when to reach for it. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
 | `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/screens/` (macOS only); naming screens captures only those. |
@@ -223,8 +224,8 @@ per record shows up here as hundreds of microseconds per record.
 
 Pi imports each extension with its own module cache
 (`createJiti(…, { moduleCache: false })`), so a shared `lib/` module is
-transformed and evaluated once *per importing entry* — 22 entries evaluate 737
-local modules over 392 distinct ones today. `bun run bench:load` measures that per
+transformed and evaluated once *per importing entry* — 22 entries evaluate 731
+local modules over 387 distinct ones today. `bun run bench:load` measures that per
 entry: the modules its entry statically evaluates, how many are `lib/`, how many
 another entry pays again, and what the graph costs to import with the host
 packages already warm.
@@ -251,6 +252,44 @@ bun run bench:load
 
 Adding a module to the registration path is the change this is for: the module
 count moves even when the timing does not, and the entry that grew is named.
+
+### What a start costs
+
+A start pays that graph **cold and in one process**, in manifest order, and a
+`/reload` pays it again: Pi's `DefaultResourceLoader.reload` clears the extension
+cache before reloading. `bun run bench:start` asks the host what that costs — it
+runs `pi` on a temp agent dir whose settings load this checkout, with
+`PI_TIMING=1` and `--mode rpc` (which prints the timings and exits without a model
+call), and prints each entry's import, factory, and total.
+
+```bash
+bun run bench:start
+```
+
+- **The reading, which is a pre-release one:** 22 entries cost **~225 ms of import
+  and 10 ms of factory** in a start here, inside a `main` namespace worth ~280 ms —
+  this package is most of what a start costs. The middle import total of three
+  runs is printed, with its range beside it, because one cold child per run is the
+  whole point: compare totals, not single entries, and expect a wide range on a
+  loaded machine.
+- **Where the time is:** the first entry in manifest order absorbs ~23 ms of the
+  loader's own bootstrap — jiti's TypeScript transformer, initialised once — which
+  is why `serve` reads as 22–28 ms for 11 modules (2.5 ms each) where every other
+  entry runs 0.20–0.50 ms per module; `bench:load` puts the same graph at 1.7 ms
+  warm. Reordering the manifest to put `bytefly` first moved exactly that cost
+  onto `bytefly` (25 → 50 ms) and took `serve` out of the top. So each entry's own
+  cost is flat at ~0.30 ms per module, and `bytefly` (86 modules, 24 ms), `board`
+  (58, 17 ms) and `plan` (55, 18 ms) are simply the large graphs.
+- **The duplication is the ceiling:** 731 evaluations over 387 modules means 344
+  are the same module paid again, ≈ 103 ms at 0.30 ms each. `lib/env.ts` is
+  evaluated by all 22 entries, `lib/tui/glyphs.ts`, `lib/tui/tokens.ts` and
+  `lib/format.ts` by 19, `lib/config.ts` by 17, six more `lib/tui/*` by 16. A
+  module removed from an entry's registration graph is saved *N* times, and
+  `bench:load`'s `ENTRY_BUDGET` row is what proves it fell.
+- **TUI init is not in that number:** `PI_STARTUP_BENCHMARK=1 pi` in a terminal
+  initialises the TUI, prints the same timings and exits; it refuses to run without
+  a TTY, so that half is a local reading rather than a CI one. `bun run check`
+  never runs either bench.
 
 ## Cross-platform
 

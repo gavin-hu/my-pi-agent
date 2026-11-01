@@ -16,6 +16,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `test/dependencies.test.ts` (the one total became one budget per extension, so an entry
   that grows can no longer be paid for by another's deferral), and the timings stay a
   pre-release reading.
+- `dev`: `bun run bench:start` reports what a *start* costs, per extension — the milliseconds
+  its registration graph takes to import cold, its factory, and the totals across the manifest,
+  read from Pi's own `PI_TIMING=1` output in a temp agent dir that loads this checkout. It
+  answers what `bench:load` cannot: a start here pays 223 ms of import and 10 ms of factory,
+  345 of the 737 evaluations are a shared module paid a second time, and the first manifest
+  entry carries ~23 ms of the loader's own bootstrap (jiti's transformer, once) — which is what
+  made `serve` look like a 2.5 ms-per-module outlier. A pre-release reading; `bun run check`
+  never runs it.
 - `team`: a fifth action, `ask`, sends one peer a question as the bus's `ask` kind and
   reports what happened to it — `Asked billing-core.`, or the peers that will read it at
   their next turn instead of being woken. It writes no card and waits on nothing: the reply
@@ -25,6 +33,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the `/bytefly` panel's listing, price report and theme names load when the
+  command opens a surface, not on every start — `panel/kit.ts` is imported on demand, so the
+  registration graph drops six modules (92 → 86, and the package 737 → 731 evaluations over
+  387 distinct ones, gated by `ENTRY_BUDGET`). The win is deterministic and small in wall
+  clock: a start here reads ~225 ms of import either way, because six modules are ~0.3 ms
+  each and the reading's spread is larger than that.
 - `plan`: the browser review's owner-only routes answer on the machine serving it. Approve,
   cancel, save feedback and the share controls were guarded by the token's role alone, so a
   reviewer holding a shared LAN link — and the owner token with it — was one `roleOnly` check

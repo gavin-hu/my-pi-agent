@@ -258,6 +258,13 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/file-browse/git/git.ts": "the browse status and diff load when /browse opens a page",
 	"extensions/worktree/screen.ts": "the worktree screen loads in the TUI branch of /worktree",
 	"extensions/bytefly/panel/tui.ts": "the panel screen loads in the TUI branch of /bytefly",
+	"extensions/bytefly/panel/kit.ts": "the panel's listing, prices, and theme names load when /bytefly opens a surface",
+	"extensions/bytefly/panel/format.ts": "the panel's listing text loads with panel/kit.ts",
+	"extensions/bytefly/panel/join.ts": "the panel's model loads with panel/kit.ts",
+	"extensions/bytefly/panel/prices.ts": "the price report loads on /bytefly prices",
+	"extensions/bytefly/panel/themes.ts": "the shipped theme names load when /bytefly builds a settings view",
+	"extensions/bytefly/picker/resources.ts":
+		"the resource helpers load with the picker, when /bytefly resolves a listing",
 	"extensions/bytefly/panel/settings-runtime.ts":
 		"the settings runtime loads when /bytefly opens settings or the panel",
 	"extensions/bytefly/picker/discovery.ts": "resource discovery loads when /bytefly lists or opens the panel",
@@ -287,7 +294,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is what the old single module already evaluated, spread differently.
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
-	bytefly: 92,
+	bytefly: 86,
 	board: 58,
 	plan: 55,
 	team: 48,
