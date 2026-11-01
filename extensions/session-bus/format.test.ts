@@ -123,6 +123,28 @@ describe("inbox", () => {
 		expect(formatInbox([])).toEqual({ text: "Inbox empty.", shown: 0 });
 	});
 
+	test("names the mail it cannot read, and never calls it empty", () => {
+		expect(formatInbox([], 0, ["1720000000000-a.jsonl"])).toEqual({
+			text: "Mail this build cannot read: 1720000000000-a.jsonl — left on disk, cleared by the TTL.",
+			shown: 0,
+		});
+
+		// Named, not counted: the name is what a person needs, and it follows the page it could
+		// not be part of.
+		const read = formatInbox([message()], 0, ["a.jsonl", "b.jsonl"]);
+		expect(read.shown).toBe(1);
+		expect(read.text).toEndWith("Mail this build cannot read: a.jsonl, b.jsonl — left on disk, cleared by the TTL.");
+
+		// A directory full of them cannot fill the transcript.
+		const many = formatInbox([], 0, ["a.jsonl", "b.jsonl", "c.jsonl", "d.jsonl"]);
+		expect(many.text).toContain("a.jsonl, b.jsonl, c.jsonl and 1 more");
+
+		// They are not waiting to be read, so they come off the tail: the rest of the inbox is
+		// what a second `inbox` call would actually return.
+		const remainder = formatInbox([message()], 3, ["a.jsonl"]);
+		expect(remainder.text).toContain("… 2 more in the inbox");
+	});
+
 	test("clips a body, and a handoff keeps more of its instruction", () => {
 		const long = "x".repeat(4_000);
 		const [body] = formatInbox([message({ text: long })]).text.split("\n");

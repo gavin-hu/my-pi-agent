@@ -123,8 +123,27 @@ function inboxLine(message: BusMessage, index: number): string {
  * same instruction back. It is not clamped here: the caller counts the inbox, not the
  * window it happened to read, so a burst past the peek's own cap is named whole.
  */
-export function formatInbox(messages: readonly BusMessage[], waiting = 0): InboxRead {
-	if (messages.length === 0) return { text: "Inbox empty.", shown: 0 };
+/**
+ * The sentence for mail files this build could not read.
+ *
+ * Named rather than counted, because the name is what a person needs to look at the file, and
+ * bounded to three so a directory full of them cannot fill the transcript. They are not gone:
+ * the store leaves them on disk for a build that can read them, and the message TTL ends them.
+ */
+export function unreadableText(files: readonly string[]): string {
+	if (files.length === 0) return "";
+	const named = files.slice(0, 3).map(sanitizeLine).join(", ");
+	const rest = files.length > 3 ? ` and ${files.length - 3} more` : "";
+	return `Mail this build cannot read: ${named}${rest} — left on disk, cleared by the TTL.`;
+}
+
+export function formatInbox(
+	messages: readonly BusMessage[],
+	waiting = 0,
+	unreadable: readonly string[] = [],
+): InboxRead {
+	const refused = unreadableText(unreadable);
+	if (messages.length === 0) return { text: refused === "" ? "Inbox empty." : refused, shown: 0 };
 	const lines: string[] = [];
 	let used = 0;
 	for (const message of messages) {
@@ -134,8 +153,11 @@ export function formatInbox(messages: readonly BusMessage[], waiting = 0): Inbox
 		used += line.length + 1;
 	}
 	const shown = lines.length;
-	const more = messages.length - shown + waiting;
+	// The unreadable files are not waiting to be read, so they are not part of what running
+	// `inbox` again would return: counting them here is how a tail promises mail nobody can have.
+	const more = Math.max(0, messages.length - shown + waiting - unreadable.length);
 	if (more > 0) lines.push(`… ${more} more in the inbox — run \`inbox\` again.`);
+	if (refused !== "") lines.push(refused);
 	return { text: lines.join("\n"), shown };
 }
 

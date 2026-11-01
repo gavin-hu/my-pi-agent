@@ -152,6 +152,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a message file this build cannot read is reported, not deleted. The
+  consuming read used to delete a file it could not validate, so mail written by a newer
+  build — a renamed field, a stricter `paths` guard — vanished on the next `inbox` or prune
+  with no trace, while `peek` left it counting as unread mail forever: the tail said "… 1 more
+  in the inbox" and `inbox` then answered `Inbox empty.` Both reads now leave it on disk, name
+  it in the `inbox` result (`Mail this build cannot read: … — left on disk, cleared by the
+  TTL`), and keep it out of the tail. The message TTL ends it through its mtime, the only age
+  a file with no readable `at` has, so nothing unreadable accumulates. The names are what one
+  page walk reached — a refusal behind a full page is named once the mail ahead of it is
+  consumed — and `status`'s unread count is unchanged: it counts files, so a badge counts one
+  this build cannot read until the TTL ends it. The board's store already worked this way for
+  a card file.
 - `session-bus`: a send that reached some peers and not others says so. `send` wrote one message
   file per recipient in a loop and threw on the first failure, so a partial fan-out was
   reported as a total failure while the peers written before it held the message — and

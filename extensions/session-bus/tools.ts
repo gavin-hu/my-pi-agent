@@ -137,10 +137,17 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 						// and a tail taken from it would saturate past that.
 						const unread = await bus.unread();
 						const pending = await bus.peek();
-						const window = pending.slice(0, normalizeLimit(args.limit));
-						const read = formatInbox(window, Math.max(0, unread - window.length));
+						const window = pending.mail.slice(0, normalizeLimit(args.limit));
+						// Mail this build cannot read is left on disk for a build that can, so it is
+						// named rather than counted into the tail — a tail that promised it would
+						// otherwise answer `Inbox empty.` on the next call.
+						const read = formatInbox(window, Math.max(0, unread - window.length), pending.unreadable);
 						const messages = read.shown === 0 ? [] : await bus.inbox(read.shown);
-						return textResult(read.text, { action, messages });
+						return textResult(read.text, {
+							action,
+							messages,
+							...(pending.unreadable.length === 0 ? {} : { unreadable: pending.unreadable }),
+						});
 					}
 					case "claim": {
 						const result = await bus.claim(args.paths);

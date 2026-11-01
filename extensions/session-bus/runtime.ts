@@ -77,8 +77,8 @@ export interface SessionBus {
 	status(): Promise<SessionStatus>;
 	/** The live bus, read only: no record refresh, no prune. */
 	snapshot(): Promise<SessionStatus>;
-	/** This session's unread mail, read only: nothing is consumed or marked. */
-	peek(): Promise<BusMessage[]>;
+	/** This session's unread mail without consuming it, and the files this build cannot read. */
+	peek(): Promise<InboxPeek>;
 	/** Messages waiting in this session's inbox, counted by file — `peek` stops at its own cap. */
 	unread(): Promise<number>;
 	/** Release a claim by its stored repository-relative path. */
@@ -114,6 +114,7 @@ export interface SessionBus {
 }
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
+const NO_MAIL: InboxPeek = { mail: [], unread: new Set(), unreadable: [] };
 const DEFAULT_WATCH_MS = 2_000;
 const DEFAULT_MESSAGE_TTL_MS = 24 * 60 * 60_000;
 function messageId(now: number): string {
@@ -156,7 +157,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	/** The watch reads this session's own inbox; nothing is consumed or marked. */
 	const mailWatch = createMailWatch({
 		peek: async (known): Promise<InboxPeek> =>
-			store && record ? store.peek(record.id, { limit: MAX_LIMIT, known }) : { mail: [], unread: new Set() },
+			store && record ? store.peek(record.id, { limit: MAX_LIMIT, known }) : NO_MAIL,
 		interval,
 		watchMs,
 	});
@@ -518,7 +519,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 
 		async peek() {
 			if (!store || !record) throw new Error("session bus is not started.");
-			return (await store.peek(record.id, { limit: MAX_LIMIT })).mail;
+			return store.peek(record.id, { limit: MAX_LIMIT });
 		},
 
 		async unread() {
@@ -576,7 +577,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		async inbox(limit) {
 			const me = await currentRecord();
 			if (!store) throw new Error("session bus is not started.");
-			const messages = await store.inbox(me.id, normalizeLimit(limit));
+			const { messages } = await store.inbox(me.id, normalizeLimit(limit));
 			// Mail read before its notice fired is never announced afterwards.
 			mailWatch.markReported(messages.map((message) => message.id));
 			return messages;

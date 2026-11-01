@@ -216,7 +216,7 @@ describe("the armed inbox watch", () => {
 		// The model's own `inbox` call lands between the read and the append: the page this
 		// poll is carrying names a message this session already has.
 		const consumed = await target.store.inbox("s2", 10);
-		target.watch.markReported(consumed.map((message) => message.id));
+		target.watch.markReported(consumed.messages.map((message) => message.id));
 
 		target.release();
 		await arming;

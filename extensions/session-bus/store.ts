@@ -12,7 +12,15 @@ import { mkdir, link, readdir, rename, rm, rmdir, stat, writeFile } from "node:f
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/config.ts";
 import { claimsConflict } from "./overlap.ts";
-import type { BusMessage, ClaimConflict, ClaimRecord, DeliveryFailure, InboxPeek, SessionRecord } from "./types.ts";
+import type {
+	BusMessage,
+	ClaimConflict,
+	ClaimRecord,
+	DeliveryFailure,
+	InboxPeek,
+	InboxRead,
+	SessionRecord,
+} from "./types.ts";
 import { INBOX_DIR_NAME, SESSIONS_DIR_NAME } from "../../lib/session-roster.ts";
 
 const DIR_MODE = 0o700;
@@ -50,7 +58,17 @@ export interface BusStore {
 	 * them, skipping the ids the caller already has, with every id still unread.
 	 */
 	peek(id: string, options: { limit: number; known?: ReadonlySet<string> }): Promise<InboxPeek>;
-	inbox(id: string, limit: number): Promise<BusMessage[]>;
+	/**
+	 * Read and consume up to `limit` messages from the front of a recipient's inbox, naming the
+	 * files it could not validate instead of deleting them. A limit of zero consumes nothing.
+	 */
+	inbox(id: string, limit: number): Promise<InboxRead>;
+	/**
+	 * Every file in a recipient's inbox, by count — the number a peer's status row shows.
+	 *
+	 * It counts files, so a file this build cannot read counts until its TTL ends it: `inbox`
+	 * is what says it cannot be read. That is the one promise this count makes.
+	 */
 	unread(id: string): Promise<number>;
 	claims(): Promise<ClaimRecord[]>;
 	claimAll(
@@ -257,31 +275,38 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 * the id, so a skip costs no read — which is what lets a watch page a backlog one poll at
 	 * a time without ever reading the same file twice.
 	 *
-	 * Only the consuming read deletes, and it deletes a file it cannot validate too, so a
-	 * truncated message cannot linger on the bus. A read that promises not to consume leaves
-	 * such a file where it is: it may be mail this build cannot read and the next one can, and
-	 * `inbox` or the prune TTL is what ends it.
+	 * Only the consuming read deletes, and it deletes only what it read. A file this build
+	 * cannot validate is named back to the caller instead: it may be mail a newer build can
+	 * read — a renamed field, a stricter guard — and destroying it on the way past is how one
+	 * build's parser silently eats another's message. The message TTL ends it through its
+	 * mtime, so nothing it cannot read accumulates.
+	 *
+	 * The walk stops at `limit` messages, so the names it reports are the ones it reached: a
+	 * refusal behind a full page is named once the mail in front of it is consumed. Reading
+	 * every name to find one would cost the whole backlog on every poll, which is the read this
+	 * store exists to page.
 	 */
 	async function readMessages(
 		directory: string,
 		names: readonly string[],
 		options: { limit: number; known?: ReadonlySet<string>; remove: boolean },
-	): Promise<BusMessage[]> {
+	): Promise<{ messages: BusMessage[]; unreadable: string[] }> {
 		const { limit, known, remove } = options;
 		const messages: BusMessage[] = [];
+		const unreadable: string[] = [];
 		for (const name of names) {
 			if (known?.has(idOfFile(name))) continue;
 			const path = join(directory, name);
 			const message = readTyped(path, isMessage);
 			if (!message) {
-				if (remove) await rm(path, { force: true });
+				unreadable.push(name);
 				continue;
 			}
 			messages.push(message);
 			if (remove) await rm(path, { force: true });
 			if (messages.length >= limit) break;
 		}
-		return messages.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
+		return { messages: messages.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id)), unreadable };
 	}
 
 	async function readClaims(): Promise<ClaimRecord[]> {
@@ -427,10 +452,8 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		async peek(id, options) {
 			const directory = inboxDir(id);
 			const names = await listFiles(directory);
-			return {
-				mail: await readMessages(directory, names, { ...options, remove: false }),
-				unread: new Set(names.map(idOfFile)),
-			};
+			const { messages, unreadable } = await readMessages(directory, names, { ...options, remove: false });
+			return { mail: messages, unread: new Set(names.map(idOfFile)), unreadable };
 		},
 
 		async inbox(id, limit) {
@@ -485,8 +508,19 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
 				const directory = join(inboxRoot, name);
 				for (const file of await listFiles(directory)) {
-					const message = readTyped(join(directory, file), isMessage);
-					if (!message || at - message.at > messageTtlMs) await rm(join(directory, file), { force: true });
+					const path = join(directory, file);
+					const message = readTyped(path, isMessage);
+					if (message) {
+						if (at - message.at > messageTtlMs) await rm(path, { force: true });
+						continue;
+					}
+					// A file with no readable `at` has no clock of its own, so its mtime is the one it
+					// gets: the TTL still ends mail this build cannot read instead of keeping it forever.
+					const written = await stat(path).then(
+						(info) => info.mtimeMs,
+						() => at,
+					);
+					if (at - written > messageTtlMs) await rm(path, { force: true });
 				}
 				await dropStaleTemps(directory);
 				await dropIfEmpty(directory);

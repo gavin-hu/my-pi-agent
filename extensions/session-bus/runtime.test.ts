@@ -481,7 +481,7 @@ describe("board reads", () => {
 		await backend.join({});
 		await frontend.send({ to: "backend", text: "preview me" });
 
-		expect((await backend.peek()).map((message) => message.text)).toEqual(["preview me"]);
+		expect((await backend.peek()).mail.map((message) => message.text)).toEqual(["preview me"]);
 		// Nothing is queued for a report and nothing was deleted: `inbox` still owns both.
 		expect(backend.pending()).toEqual([]);
 		expect(await createBusStore({ dir }).unread("s2")).toBe(1);
@@ -943,7 +943,7 @@ describe("a resume", () => {
 		expect(status.sessions.map((session) => session.id)).toEqual(["s2"]);
 
 		// The mail is not: it is a file, and a resumed session reads it again.
-		expect((await resumed.peek()).map((message) => message.text)).toEqual(["before the resume"]);
+		expect((await resumed.peek()).mail.map((message) => message.text)).toEqual(["before the resume"]);
 
 		// Rejoining takes the same label, because it derives from Pi's session name — which
 		// is what the doc means by "the footer and /resume agree with the record".

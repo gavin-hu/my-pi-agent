@@ -33,8 +33,8 @@ function createBoardReader(bus: SessionBus): (screen: SessionsScreen) => Promise
 		if (busy) return;
 		busy = true;
 		try {
-			const [status, messages] = await Promise.all([bus.snapshot(), bus.peek()]);
-			screen.setBoard({ status, messages });
+			const [status, peeked] = await Promise.all([bus.snapshot(), bus.peek()]);
+			screen.setBoard({ status, messages: peeked.mail });
 		} catch {
 			// Best-effort: the next tick tries again, and the board keeps its last read.
 		} finally {
@@ -53,8 +53,8 @@ async function openSessionsScreen(pi: ExtensionAPI, ctx: ExtensionCommandContext
 	const { withPolledScreen } = await import("../../lib/screen-session.ts");
 	const { SessionListComponent } = await import("./view/session-list.ts");
 	await bus.start(ctx);
-	const [status, messages] = await Promise.all([bus.snapshot(), bus.peek()]);
-	const first = { status, messages };
+	const [status, peeked] = await Promise.all([bus.snapshot(), bus.peek()]);
+	const first = { status, messages: peeked.mail };
 	let read: ((screen: SessionsScreen) => Promise<void>) | undefined;
 	await withPolledScreen(
 		pi,

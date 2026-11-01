@@ -223,11 +223,17 @@ listening watch is what raises the turn.
   pane's shutdown leaves the record and the claims to the newer one instead of
   releasing them. Listening is still per process, so the survivor's watch is the
   survivor's.
-- **A message file that does not parse is skipped, and left to `inbox` and the TTL.** The
-  board's read never consumes mail, so it deletes nothing — not even a file it cannot
-  validate, which may be mail this build cannot read and the next one can. An `inbox`
-  read that consumes at least one message clears such a file on the way past; one that
-  consumes nothing, like the board, leaves it to the 24-hour expiry.
+- **A message file that does not parse is reported, not deleted.** A file this build cannot
+  validate — written by a newer one, a renamed field, a stricter guard — may be mail the next
+  build can read, so nothing here destroys it: `peek`, the board, and a consuming `inbox` all
+  leave it on disk, and `inbox` names it (`Mail this build cannot read: … — left on disk,
+  cleared by the TTL`). It is not counted into the "… N more" tail, because a second `inbox`
+  would not return it. The 24-hour message TTL is what ends it, on the only age such a file
+  has: its mtime. Two bounds are worth knowing: the names are what one page walk reached, so a
+  refusal behind a full page is named once the mail in front of it is consumed; and `status`'s
+  unread count is a count of **files**, so a peer's badge keeps counting one this build cannot
+  read until the TTL ends it — `inbox` is what says it cannot be read. The board store took the
+  same rule for a card file (`docs/extensions/board.md`).
 - **No network.** It is not a distributed bus and does not synchronize machines.
 
 ## Pi integration
