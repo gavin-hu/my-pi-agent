@@ -63,6 +63,17 @@ describe("the registration", () => {
 		expect(tool.description).not.toContain("All three need the team");
 	});
 
+	test("says an offer records the moment, not that it writes nothing", () => {
+		const { tool } = harness();
+		// The shipped path calls the store, which sets `offeredAt` and bumps `rev` and
+		// `updatedAt`; "writes nothing" read as a free probe and hid that write. Both
+		// model-facing surfaces say it, so both are pinned — the schema's copy drifted first.
+		for (const text of [tool.description, tool.parameters.properties.action.description]) {
+			expect(text).toContain("records the moment it was made");
+			expect(text).not.toContain("writes nothing");
+		}
+	});
+
 	test("refuses an action it does not have, without throwing", async () => {
 		const { call } = harness();
 		const result = await call({ action: "spawn", card: "1" });
