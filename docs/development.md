@@ -592,11 +592,12 @@ authenticates with npm trusted publishing (OIDC). See
    `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
    update the link refs at the bottom of that file. Bump the `@vX.Y.Z` install
    pin in both entry READMEs in the same commit — they are the only docs that
-   offer a pin; `test/release.test.ts` fails on a stale pin. Recapture the hero
-   in the same step: `bun run screenshots chrome` re-renders
-   `assets/screens/chrome.png` from the new `package.json`, and nothing else can,
-   because the capture needs macOS and Terminal.app — see
-   [Screenshots](#screenshots).
+   offer a pin; `test/release.test.ts` fails on a stale pin. This step is the
+   only one that renders: recapture `assets/` here, never while a feature or fix
+   is in flight, and the hero has to be recaptured here because nothing else can:
+   `bun run screenshots chrome` re-renders
+   `assets/screens/chrome.png` from the new `package.json`, because the capture
+   needs macOS and Terminal.app — see [Screenshots](#screenshots).
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
 5. Tag `main`'s HEAD and push it with `main`, never after it:
