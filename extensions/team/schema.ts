@@ -15,7 +15,7 @@ export const TeamParams = Type.Object({
 		TEAM_ACTIONS.map((action) => Type.Literal(action)),
 		{
 			description:
-				"`assign` hands a card to a running session and sends it a handoff; `offer` broadcasts an unclaimed card to " +
+				"`assign` sends a running session a handoff and then records the owner; `offer` broadcasts an unclaimed card to " +
 				"every other live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back " +
 				"to Backlog; `claim` takes one for the lead itself, which then plans and records it with `board`; `ask` sends " +
 				"one peer a question and starts nothing, so the answer arrives as mail. They are the round's five verbs: " +
