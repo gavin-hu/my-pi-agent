@@ -1069,8 +1069,8 @@ the `notify` section of `bytefly.json` (see [Configuration](#configuration)):
 - **A run settled** (`agent_settled`). Pi finished the turn and waits for the
   next message. An aborted run is skipped: interrupting with Escape means the
   user is already at the keyboard.
-- **The agent needs input.** Pi opened a prompt while a run was active — an
-  `ask_user_question`, a plan review, a subagent approval. A prompt opened while
+- **The agent needs input.** Pi opened a prompt while a run was active — a
+  `question`, a plan review, a subagent approval. A prompt opened while
   idle is a command the user just typed, so it does not fire; the run boundary
   is what separates "the agent is asking" from "the user is asking".
 - **A background job finished.** The [job](./job.md) extension announces each

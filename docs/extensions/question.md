@@ -1,16 +1,16 @@
 # question — structured questions for Pi
 
-A single model-facing tool, `ask_user_question`, that lets the model ask the
+A single model-facing tool, `question`, that lets the model ask the
 human one or more structured questions mid-turn and wait for typed answers.
 Modelled on Claude Code's `AskUserQuestion`.
 
-<img src="../../assets/screens/question.png" alt="The ask_user_question dialog: Auth and Scope tabs, a question, four numbered options with descriptions, and the navigation hint" width="100%">
+<img src="../../assets/screens/question.png" alt="The question dialog: Auth and Scope tabs, a question, four numbered options with descriptions, and the navigation hint" width="100%">
 
 ## Capabilities
 
 | Capability | How | What you get |
 |---|---|---|
-| Mid-turn asking | `ask_user_question` | The model asks 1–4 questions and the turn waits until you answer or cancel. |
+| Mid-turn asking | `question` | The model asks 1–4 questions and the turn waits until you answer or cancel. |
 | Labelled options | `questions[].options` | Each question offers up to four choices, each with an optional second line describing it. |
 | Free-form answers | the automatic `Other (type something)` row, `questions[].options` omitted | You can type an answer the options do not cover, and a question with no options asks for plain text. |
 | Multiple selections | `questions[].multiSelect` | `Space` toggles options and `Enter` confirms the set. |
@@ -36,9 +36,9 @@ the model for a decision and the questionnaire takes the screen.
 
 ## Tool
 
-<img src="../../assets/tools/ask_user_question.png" alt="The ask_user_question tool's call and result: the call line and an indented body with the question headers, the options, and the answers" width="100%">
+<img src="../../assets/tools/question.png" alt="The question tool's call and result: the call line and an indented body with the question headers, the options, and the answers" width="100%">
 
-The model calls `ask_user_question` with 1–4 questions. Each question offers up
+The model calls `question` with 1–4 questions. Each question offers up
 to four labelled options (plus an automatic **“Other (type something)”** free-form
 entry); a question with no options asks for free-form text. The tool blocks until
 the user answers or cancels, then returns the answers as text the model can act
@@ -46,7 +46,7 @@ on.
 
 | | |
 |---|---|
-| Name | `ask_user_question` |
+| Name | `question` |
 | Exposure | `model-only` (declared to the model, not callable from codemode scripts) |
 | Annotations | read-only, not destructive, not open-world |
 | Execution | sequential |
@@ -87,7 +87,7 @@ lists the headers and one option line per question; the result renders one line
 per answer:
 
 ```
-ask_user_question 2 questions (Auth, Scope)
+question 2 questions (Auth, Scope)
   Auth: OAuth, Session cookies, Other
   Scope: repo, admin, Other
 
@@ -153,7 +153,7 @@ UI.
 
 | Integration point | Value |
 |---|---|
-| Tool | `ask_user_question`; `exposure: "model-only"`, `defaultActive: false`, activated in `session_start` when `ctx.hasUI` is true. |
+| Tool | `question`; `exposure: "model-only"`, `defaultActive: false`, activated in `session_start` when `ctx.hasUI` is true. |
 | Execution | `executionMode: "sequential"`. |
 | Annotations | `readOnlyHint: true`, `openWorldHint: false` (a read-only tool declares no `destructiveHint`). |
 | Output schema | None. Structured data is returned as tool-result `details` (not `structuredContent`). |
@@ -163,9 +163,9 @@ UI.
 ## Design notes
 
 - **One reviewed, tested tool.** The model otherwise asks in prose (a wasted
-  turn, unstructured answers) or a bespoke extension registers its own one-off
-  `question`/`questionnaire` tool; this packages a single implementation modelled
-  on Claude Code's `AskUserQuestion`.
+  turn, unstructured answers) or each project registers its own one-off
+  questionnaire tool; this packages a single implementation modelled on
+  Claude Code's `AskUserQuestion`.
 - **`model-only` exposure, declared and activated.** `model-only` is the
   recommended exposure for tools that ask the user. It is still declared, so it
   works in interactive and RPC sessions; in `print`/`json` it is left inactive so

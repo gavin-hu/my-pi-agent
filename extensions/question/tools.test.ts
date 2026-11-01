@@ -212,7 +212,7 @@ describe("answers", () => {
 	});
 });
 
-describe("ask_user_question execution", () => {
+describe("question execution", () => {
 	test("returns an error result when the session has no UI", async () => {
 		const { ctx } = fakeCtx({ mode: "print", hasUI: false });
 		const result = await execute(

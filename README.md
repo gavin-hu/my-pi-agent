@@ -118,7 +118,7 @@ has the full tool and command surface, opening with its capabilities.
 | [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | Delegate a task to a specialist agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) in its own Pi process — single, parallel, chained, or in the background, with a footer chip while it runs and a finish notice. |
 | [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | A persistent task list (`pending` / `in_progress` / `completed`) with a one-line widget. |
 | [`goal`](./docs/extensions/goal.md) | `goal`, `/goal` | A persistent session objective, kept in a widget and restated before each turn. |
-| [`question`](./docs/extensions/question.md) | `ask_user_question` | Ask you one or more structured questions (labelled options plus free-form "Other") and wait. |
+| [`question`](./docs/extensions/question.md) | `question` | Ask you one or more structured questions (labelled options plus free-form "Other") and wait. |
 | [`job`](./docs/extensions/job.md) | `job`, `/jobs` | Run long-lived shell commands in the background; inspect logs, wait, or kill them. |
 | [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | Tail a file or command output, match lines against patterns, and alert you or hand matching lines to the agent. |
 | [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions` (screen) | Coordinate parallel Pi sessions on one repository: discover peers, exchange short messages/events, consume an inbox, or claim paths before editing, with `/sessions` as a live board of peers, unread mail, and claims. Local, pull-based by default, with an opt-in inbox watch that raises this session's turn once it is idle; it never spawns an agent. |

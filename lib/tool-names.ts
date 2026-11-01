@@ -28,10 +28,10 @@ export const PLAN_TOOL = "plan";
 export const SUBAGENT_TOOL = "subagent";
 
 /**
- * The `ask_user_question` tool. The `question` extension registers it, and
- * the `plan` and `rewind` read-only policies list it, so all three must agree.
+ * The `question` tool. The `question` extension registers it, and the `plan` and
+ * `rewind` read-only policies list it, so all three must agree.
  */
-export const ASK_USER_QUESTION_TOOL = "ask_user_question";
+export const QUESTION_TOOL = "question";
 
 /**
  * The `session` tool. `session-bus` registers it, and `team` calls it through

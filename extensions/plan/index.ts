@@ -31,7 +31,7 @@ import {
 } from "../../lib/plan-entry.ts";
 import { isBoardRead } from "../../lib/policy.ts";
 import { boardWriteRefusal } from "../../lib/board/actions.ts";
-import { ASK_USER_QUESTION_TOOL, BOARD_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
+import { BOARD_TOOL, QUESTION_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
@@ -63,7 +63,7 @@ export function planModeContext(goal?: PublishedGoal | null): string {
 		"- bash is git-only: read-only git commands chain with && or ; — no pipes, redirection, or substitution, and no powershell. The cwd is already the project root, so skip cd, and read files with read, grep, find, and ls.",
 		"- Investigate and design a concrete plan, then save it with `plan` action `write` and call `plan` action `exit` with the returned plan_path for approval.",
 		"- Delegate broad exploration with subagent.",
-		`- To choose between approaches, ask with ${ASK_USER_QUESTION_TOOL} before finalizing.`,
+		`- To choose between approaches, ask with ${QUESTION_TOOL} before finalizing.`,
 	];
 	if (goal && isPursuedGoal(goal)) {
 		lines.push(`- Current session goal: ${clip(sanitizeLine(goal.objective), GOAL_CONTEXT_CHARS)}`);

@@ -1,7 +1,7 @@
 # Built-in init questions
 
 The `init` skill selects from this bank. It is a menu, not a checklist: one
-`ask_user_question` call with at most four entries is the default, and a second
+`question` call with at most four entries is the default, and a second
 call is allowed only for a material ambiguity. Never ask for secrets,
 credentials, tokens, environment values, or personal data.
 

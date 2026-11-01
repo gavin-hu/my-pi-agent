@@ -15,7 +15,7 @@
  *   account, which the poller lock then rejects — and the ordering would be
  *   arbitrary.
  * - The peer's dialogs route to the phone. `bindExtensions` is given this peer's
- *   `ExtensionUIContext`, so `ask_user_question` and plan approval reach the
+ *   `ExtensionUIContext`, so `question` and plan approval reach the
  *   sender instead of a terminal that is not watching.
  * - History is one session directory per peer under the WeChat state dir, so a
  *   restart resumes the conversation instead of forgetting it.

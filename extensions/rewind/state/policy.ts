@@ -10,14 +10,14 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createReadOnlyPolicy, WORKSPACE_READERS } from "../../../lib/policy.ts";
-import { ASK_USER_QUESTION_TOOL, GOAL_TOOL, TODO_TOOL } from "../../../lib/tool-names.ts";
+import { GOAL_TOOL, QUESTION_TOOL, TODO_TOOL } from "../../../lib/tool-names.ts";
 import type { RewindConfig } from "../config/config.ts";
 
 /** Tools that only read files or track session state, so they never snapshot. */
 const READER_TOOLS = [...WORKSPACE_READERS, TODO_TOOL, GOAL_TOOL];
 
 /** The interactive tool: it prompts the user and never touches the working tree. */
-const SESSION_TOOLS = [ASK_USER_QUESTION_TOOL];
+const SESSION_TOOLS = [QUESTION_TOOL];
 
 export interface SnapshotPolicy {
 	/** Whether a call to `toolName` should be preceded by a snapshot. */

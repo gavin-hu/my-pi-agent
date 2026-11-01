@@ -1,7 +1,7 @@
 /**
  * The tools whose state the session owns: todo, goal, and memory.
  *
- * `ask_user_question-cancelled` leads because a cancelled question is the
+ * `question-cancelled` leads because a cancelled question is the
  * state those three share: the record stays, and the turn moved on.
  */
 
@@ -10,8 +10,8 @@ import type { ToolFixture } from "./types.ts";
 /** One entry per session-state tool, in gallery order. */
 export const SESSION_FIXTURES: ToolFixture[] = [
 	{
-		name: "ask_user_question-cancelled",
-		tool: "ask_user_question",
+		name: "question-cancelled",
+		tool: "question",
 		group: "package",
 		label: "a cancelled question",
 		args: {

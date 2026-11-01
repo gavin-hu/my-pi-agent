@@ -1526,7 +1526,7 @@ describe("plan policy", () => {
 			"todo",
 			"goal",
 			"bash",
-			"ask_user_question",
+			"question",
 			"web_search",
 			"web_fetch",
 		]) {
