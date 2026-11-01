@@ -46,7 +46,9 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 		`${round.unreviewed.length} awaiting review`,
 		`${round.blocked.length} blocked`,
 		`${round.unwritten.length} unwritten`,
-		`${round.done.length} done`,
+		// The history is the one count a reader can act on without opening a card: a finished
+		// card an open one still waits on stays, so `archivable` is what a sweep would take.
+		`${round.done.length} done, ${round.archivable.length} archivable`,
 	].join(" · ");
 	const lines = [headline];
 	// The history is counted as it goes, so its one line can follow the owner lines and the
@@ -74,7 +76,30 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 	lines.push(...group("blocked", round.blocked, true));
 	lines.push(...group("unwritten", round.unwritten));
 	lines.push(...group("done", round.done));
+	const dropped = droppedHistory(cards);
+	if (dropped !== "") lines.push(dropped);
 	return lines.join("\n");
+}
+
+/**
+ * The cards that lost text to the note or lane cap, in one line, or the empty string.
+ *
+ * A cap is a decision that history is worth less than a bounded file, and it is only honest
+ * while a reader is told: the count lives on the card, which is a place nobody looks until
+ * they have already decided to open it.
+ */
+function droppedHistory(cards: readonly Card[]): string {
+	const lost: string[] = [];
+	for (const card of cards) {
+		const parts: string[] = [];
+		const notes = card.notesDropped;
+		if (notes > 0) parts.push(plural(notes, "note"));
+		const lanes = card.logDropped ?? 0;
+		if (lanes > 0) parts.push(`${lanes} ${lanes === 1 ? "lane" : "lanes"}`);
+		if (parts.length > 0) lost.push(`${cardRef(card.id)} (${parts.join(", ")})`);
+	}
+	if (lost.length === 0) return "";
+	return `dropped history: ${lost.join(", ")} — the card keeps the count, not the text`;
 }
 
 /**

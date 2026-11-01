@@ -107,6 +107,7 @@ describe("a rollup under a narrowed listing", () => {
 		blocked: [],
 		unwritten: [],
 		done: [],
+		archivable: [],
 	};
 
 	test("draws the slice first, unlabelled, and marks only its rows", () => {
@@ -146,6 +147,7 @@ describe("the rollup's sections", () => {
 			blocked: [card({ id: "4", lane: "blocked", blocked: { kind: "decision" } })],
 			unwritten: [card({ id: "5", lane: "execute" })],
 			done: [card({ id: "6", lane: "done" })],
+			archivable: [card({ id: "6", lane: "done" })],
 		};
 		const input = resultInput({ action: "list", me: ME, round, cards: [] });
 		if (input?.kind !== "sections") throw new Error("a rollup is sections");

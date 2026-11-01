@@ -33,7 +33,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 		"shows the board — `lane` filters one lane, `mine` only what this session holds, " +
 		"`query` matches a title, a holder, a path hint, the plan, or a note's text, `card` reads that one card " +
 		"instead of the board, which refuses the fields that narrow a listing beside it, and `round` also prints the lead's rollup of owners, unassigned, unplanned, awaiting approval, awaiting review, " +
-		"blocked, unwritten, and done, after the listing and over the whole board — and a listing that names no lane leaves out the `done` cards, " +
+		"blocked, unwritten, done, and how many are archivable, after the listing and over the whole board — and a listing that names no lane leaves out the `done` cards, " +
 		"saying how many it left out",
 	add: "creates a `backlog` card",
 	claim: "pulls one into `plan` for this session, when `plan` has room",
@@ -49,7 +49,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`, which is what `done` requires, and `text` records what the signer saw; the sign is announced to the card's owner in its inbox, so a session that needs one asks the lead with `session send`",
 	edit: "fixes what the card says — title, path hints, priority, and what it waits for",
 	archive:
-		"sets a finished card aside, out of the board and still readable, or every finished card when no `card` is named",
+		"sets a finished card aside, out of the board and still readable, or every archivable one when no `card` is named",
 	drop: "deletes a `backlog` or a `done` card, or one you hold",
 };
 

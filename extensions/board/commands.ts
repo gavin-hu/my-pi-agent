@@ -22,7 +22,7 @@ import type { BoardPage, BoardPageStatus } from "./page.ts";
 export const BOARD_COMMAND = "board";
 
 /** The words the command accepts, in the order a user is likely to want them. */
-const BOARD_WORDS = ["approve", "review", "status", "stop", "team"] as const;
+const BOARD_WORDS = ["archive", "approve", "review", "status", "stop", "team"] as const;
 
 export function registerCommands(
 	pi: ExtensionAPI,
@@ -33,7 +33,7 @@ export function registerCommands(
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
 		description:
-			"Open the shared board in a local browser, or sign its two gates as the person: /board [team | status | stop | approve <id> | review <id>]",
+			"Open the shared board in a local browser, sign its two gates as the person, or fold the finished cards away: /board [archive | team | status | stop | approve <id> | review <id>]",
 		getArgumentCompletions: (prefix: string) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
@@ -45,6 +45,15 @@ export function registerCommands(
 			const sign = signOf(word);
 			if (sign !== undefined) {
 				ctx.ui.notify(await signLine(session, sign, rawCard, ctx), "info");
+				return;
+			}
+			if (word === "archive") {
+				// The person's door to the sweep the tool already had: one rule for both, so the
+				// count the rollup prints and the cards this moves cannot be two sets.
+				const { sweepFinished, sweepText } = await import("./archive.ts");
+				const store = await session.store(ctx.cwd);
+				const swept = await sweepFinished(store, personActor(), session.now());
+				ctx.ui.notify(`board: ${sweepText(swept)}`, swept.failed.length > 0 ? "warning" : "info");
 				return;
 			}
 			if (word === "status") {

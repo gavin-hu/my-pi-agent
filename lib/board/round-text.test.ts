@@ -45,7 +45,7 @@ describe("formatRound", () => {
 		// The groups overlap on purpose: #2 is live for its owner and unplanned for the
 		// lead, and one line each is what says both.
 		expect(formatRound(cards, buildRound(cards, NOW)).split("\n")).toEqual([
-			"2 owners · 4 features · 1 unassigned · 0 unplanned · 0 awaiting approval · 1 awaiting review · 1 blocked · 0 unwritten · 1 done",
+			"2 owners · 4 features · 1 unassigned · 0 unplanned · 0 awaiting approval · 1 awaiting review · 1 blocked · 0 unwritten · 1 done, 1 archivable",
 			"billing-core (2): #2 execute unplanned, #3 blocked",
 			"billing-other (0 live, 1 done)",
 			"unassigned (1): #1 backlog",
@@ -96,7 +96,7 @@ describe("formatRound", () => {
 
 	test("an empty board is a headline of zeroes, not a refusal", () => {
 		expect(formatRound([], buildRound([], NOW))).toBe(
-			"0 owners · 0 features · 0 unassigned · 0 unplanned · 0 awaiting approval · 0 awaiting review · 0 blocked · 0 unwritten · 0 done",
+			"0 owners · 0 features · 0 unassigned · 0 unplanned · 0 awaiting approval · 0 awaiting review · 0 blocked · 0 unwritten · 0 done, 0 archivable",
 		);
 	});
 });

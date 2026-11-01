@@ -18,7 +18,7 @@
  * Pure: no I/O and no clock of its own.
  */
 
-import type { Card } from "./card.ts";
+import { type Card, dependsOf } from "./card.ts";
 import { contractApproved, missingContractFields } from "./contract.ts";
 
 /** How long an `execute` card may go unwritten before the rollup calls it that. */
@@ -66,6 +66,14 @@ export interface RoundSummary<T extends Card = Card> {
 	unwritten: T[];
 	/** Finished cards, in the board's own order — priority, then age — kept as history. */
 	done: T[];
+	/**
+	 * The finished cards a sweep may fold away: the ones no open card still waits on.
+	 *
+	 * Archiving is one way — nothing un-archives — so a finished card an open card names in
+	 * `dependsOn` stays on the board: the link survives the archive but the record loses the
+	 * card it names, and `#7 waits on #2` would point at a card no read of the board opens.
+	 */
+	archivable: T[];
 }
 
 /**
@@ -124,5 +132,22 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		blocked,
 		unwritten,
 		done,
+		archivable: archivableOf(cards, done),
 	};
+}
+
+/**
+ * The finished cards nothing open still waits on.
+ *
+ * The whole board is read, not just the finished cards: a `done` card that another finished
+ * card names is nobody's blocker, and a `done` card an open one names is what a sweep must
+ * leave where it is.
+ */
+export function archivableOf<T extends Card = Card>(cards: readonly T[], done: readonly T[]): T[] {
+	const waited = new Set<string>();
+	for (const card of cards) {
+		if (card.lane === "done") continue;
+		for (const id of dependsOf(card)) waited.add(id);
+	}
+	return done.filter((card) => !waited.has(card.id));
 }
