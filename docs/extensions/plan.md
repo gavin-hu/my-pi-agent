@@ -501,7 +501,7 @@ path separator while a backslash that escapes a metacharacter is still refused.
 Everything else uses the structured readers — `read`, `grep`, `find`, `ls`, and
 `read_doc` for a PDF, Word, OpenDocument, RTF, or Excel file — and the other
 read-only tools already available (`web_search`, `web_fetch`,
-`ask_user_question`, `todo`, `goal`).
+`question`, `todo`, `goal`).
 
 ```bash
 git status && git diff --stat     # allowed: two read-only git commands

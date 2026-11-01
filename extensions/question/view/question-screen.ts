@@ -1,5 +1,5 @@
 /**
- * Terminal UI driver for ask_user_question.
+ * Terminal UI driver for the question tool.
  *
  * The state machine lives in `tui-state.ts`; this module renders it and routes
  * keyboard input, including the inline `Editor` for free-form answers.

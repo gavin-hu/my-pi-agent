@@ -30,7 +30,7 @@ subprocess per peer.
 |---|---|---|
 | Plan review over chat | automatic: a `plan` action `exit` on a WeChat turn | The plan arrives as a file, then one compact editor prompt with three actions. |
 | Forwarded dialogs | `remotePrompts` | A dialog raised inside a WeChat turn is asked and answered in that peer's chat. |
-| Peer questions | `ask_user_question` | The peer answers their own question, numbered, and a reply cannot reach another peer's prompt. |
+| Peer questions | `question` | The peer answers their own question, numbered, and a reply cannot reach another peer's prompt. |
 | Control screen | `/wechat` | Account, connection, per-peer rows, activity, and any waiting prompt on one live screen. |
 | Prompt cancellation | `/wechat`, `c` on the control screen | One waiting question is withdrawn with a notice, without stopping the peer's turn. |
 | Peer steering | `/wechat stop <peer>`, `/wechat reset <peer>` | One peer's running turn stops, or their conversation starts fresh. |

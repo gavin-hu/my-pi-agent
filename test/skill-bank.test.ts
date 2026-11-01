@@ -2,7 +2,7 @@
  * Structure guard for the `init` skill's question bank.
  *
  * The bank is prose the model reads: question tables whose `Shape` column names the
- * options to offer. `ask_user_question` refuses more than four options and adds its
+ * options to offer. `question` refuses more than four options and adds its
  * own free-form escape, so an over-long list or a label spent on "Other" becomes a
  * rejected call in the middle of an interview. Both drifted once already, which is
  * why the bank states the convention in its header and this file holds it:

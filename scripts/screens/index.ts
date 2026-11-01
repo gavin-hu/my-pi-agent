@@ -143,7 +143,7 @@ export const SCREENS: Record<string, Screen> = {
 	},
 	question: {
 		asset: "question",
-		title: "π - my-pi-agent · ask_user_question",
+		title: "π - my-pi-agent · question",
 		render: renderQuestion,
 	},
 	job: {

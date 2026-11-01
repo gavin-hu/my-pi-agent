@@ -1,7 +1,7 @@
 /**
  * question — a structured "ask the user" tool for Pi.
  *
- * Registers `ask_user_question` (exposure `model-only`): one to four questions,
+ * Registers `question` (exposure `model-only`): one to four questions,
  * each with labelled options and a free-form "Other" answer, answered through a
  * tabbed TUI, forwarded RPC dialogs, or refused cleanly when there is no UI.
  *

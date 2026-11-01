@@ -1,5 +1,5 @@
 /**
- * Model-facing tool registration for ask_user_question.
+ * Model-facing tool registration for the question tool.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -10,13 +10,13 @@ import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { detailsOrLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
+import { QUESTION_TOOL } from "../../lib/tool-names.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
 import { askViaDialogs, type QuestionUI } from "./dialogs.ts";
-import { AskUserQuestionParams, normalizeQuestions, type AskUserQuestionArgs } from "./schema.ts";
+import { QuestionParams, normalizeQuestions, type QuestionArgs } from "./schema.ts";
 import type { AskResult } from "./types.ts";
 
-export const TOOL_NAME = ASK_USER_QUESTION_TOOL;
+export const TOOL_NAME = QUESTION_TOOL;
 
 function dialogUI(ctx: ExtensionContext): QuestionUI {
 	const ui = ctx.ui;
@@ -38,18 +38,18 @@ export function registerTools(pi: ExtensionAPI): void {
 			"options asks for free-form text.",
 		promptSnippet: "Ask the user a structured question and wait for the answer.",
 		promptGuidelines: [
-			"Use ask_user_question when a decision needs the user's input — a preference, a missing requirement, or a choice between approaches — instead of guessing.",
+			"Use question when a decision needs the user's input — a preference, a missing requirement, or a choice between approaches — instead of guessing.",
 			"Prefer it over prose when the answer is a choice, and ask only what you cannot infer from the code or conversation.",
 			"Ask the minimum number of questions; ask independent questions in one call, and make each option concrete and distinct.",
 		],
-		parameters: AskUserQuestionParams,
+		parameters: QuestionParams,
 		exposure: "model-only",
 		defaultActive: false,
 		annotations: { readOnlyHint: true, openWorldHint: false },
 		executionMode: "sequential",
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			const questions = normalizeQuestions((params as AskUserQuestionArgs).questions);
+			const questions = normalizeQuestions((params as QuestionArgs).questions);
 
 			let result: AskResult;
 			if (!ctx.hasUI) {
@@ -79,7 +79,7 @@ export function registerTools(pi: ExtensionAPI): void {
 			// The args stream in: `questions` can be absent, and an option can arrive
 			// before its label. Read a partial call as a smaller summary and never
 			// throw — a throwing renderer makes Pi fall back to its own call line.
-			const raw = (args as Partial<AskUserQuestionArgs> | undefined)?.questions;
+			const raw = (args as Partial<QuestionArgs> | undefined)?.questions;
 			const questions = Array.isArray(raw) ? raw : [];
 			const count = questions.length;
 			const noun = count === 1 ? "question" : "questions";

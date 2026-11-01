@@ -75,7 +75,7 @@ them here. Drop a question the evidence sheet already answers.
 
 ## 2. Interview
 
-Use `ask_user_question` once with at most four questions from the built-in bank.
+Use `question` once with at most four questions from the built-in bank.
 Choose the bank's deterministic default set for the repository state, then drop
 every question the evidence sheet already answers: `Purpose` only when README and
 manifest are silent, `Verify` only when detected commands are missing or conflict,

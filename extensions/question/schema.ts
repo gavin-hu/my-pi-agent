@@ -1,5 +1,5 @@
 /**
- * Parameter schema and validation for ask_user_question.
+ * Parameter schema and validation for the question tool.
  *
  * Everything here is pure: no host APIs, no terminal, no model calls. The
  * limits are enforced before a UI driver runs so an invalid call fails fast
@@ -35,7 +35,7 @@ const QuestionSchema = Type.Object({
 	multiSelect: Type.Optional(Type.Boolean({ description: "Allow selecting several options at once (default false)" })),
 });
 
-export const AskUserQuestionParams = Type.Object({
+export const QuestionParams = Type.Object({
 	questions: Type.Array(QuestionSchema, {
 		minItems: 1,
 		maxItems: MAX_QUESTIONS,
@@ -43,7 +43,7 @@ export const AskUserQuestionParams = Type.Object({
 	}),
 });
 
-export type AskUserQuestionArgs = Static<typeof AskUserQuestionParams>;
+export type QuestionArgs = Static<typeof QuestionParams>;
 
 /** Clip a header to `HEADER_MAX_WIDTH` display columns (counts code points). */
 function normalizeHeader(raw: unknown, index: number): string {

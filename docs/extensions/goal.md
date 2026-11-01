@@ -169,7 +169,7 @@ reply is treated as a restatement, so a model that ignores the JSON instruction
 still works; a failed, timed-out, or unusable comprehension notices the user and
 keeps the typed text. The questions are asked one at a time with `ctx.ui.select`
 (for a question with options) and `ctx.ui.input` (for a free-form one); the
-command never calls `ask_user_question`. `/goal raw` never needs a dialog for the
+command never calls `question`. `/goal raw` never needs a dialog for the
 words, but the plan question does: both run variants ask it only where a dialog
 UI exists, and record `active` otherwise. The record-only paths never ask, and a
 goal recorded while plan mode is already on is still a draft (`planning`), because

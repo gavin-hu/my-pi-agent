@@ -110,7 +110,7 @@ const POLICY_TOOLS = [
 	{ name: "edit", annotations: { readOnlyHint: false, destructiveHint: true } },
 	{ name: "bash" },
 	{ name: "subagent", annotations: { readOnlyHint: false } },
-	{ name: "ask_user_question" },
+	{ name: "question" },
 ];
 
 function policy(overrides: Partial<RewindConfig> = {}) {
@@ -121,7 +121,7 @@ function policy(overrides: Partial<RewindConfig> = {}) {
 describe("snapshot policy", () => {
 	test("never snapshots structured readers, trackers, or the interactive prompt", () => {
 		const subject = policy();
-		for (const name of ["read", "grep", "find", "ls", "read_doc", "todo", "goal", "ask_user_question"]) {
+		for (const name of ["read", "grep", "find", "ls", "read_doc", "todo", "goal", "question"]) {
 			expect(subject.shouldSnapshot(name)).toBe(false);
 		}
 	});

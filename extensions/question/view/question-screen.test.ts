@@ -715,7 +715,7 @@ describe("askViaTui viewport", () => {
 });
 
 /** The registered tool whose transcript renderers these tests exercise. */
-describe("ask_user_question transcript rendering", () => {
+describe("question transcript rendering", () => {
 	test("the call line lists one options line per question", () => {
 		const lines = registeredTool()
 			.renderCall(

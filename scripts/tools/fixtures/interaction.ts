@@ -1,7 +1,7 @@
 /**
  * The two tools that talk to a person: a WeChat message and a question.
  *
- * `send_wechat` reports what left the bridge; `ask_user_question` shows the
+ * `send_wechat` reports what left the bridge; `question` shows the
  * dialog a turn waits on, and the cancelled variant sits in `variants.ts`.
  */
 
@@ -17,7 +17,7 @@ export const INTERACTION_FIXTURES: ToolFixture[] = [
 		result: { content: [{ type: "text", text: "Sent to the WeChat owner." }], details: { sent: true } },
 	},
 	{
-		name: "ask_user_question",
+		name: "question",
 		group: "package",
 		label: "a two-question answer, one custom",
 		args: {

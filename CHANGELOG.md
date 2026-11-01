@@ -33,6 +33,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `question`: the tool is renamed from `ask_user_question` to `question`, so the wire name
+  matches the extension, its docs page, and the one-word domain names `todo`, `goal`, `job`,
+  and `subagent`. Plan mode's read-only policy and rewind's never-snapshot policy carry the
+  same constant, so both follow; a pinned `--tools ask_user_question`, a saved child allowlist,
+  or a prompt that spells the old name must be updated. The parameter shape, the questionnaire,
+  and the tool's "Other (type something)" row are unchanged.
 - `board`: the tool's always-on text drops from 8,156 to 7,097 characters (~2,039 → ~1,774
   tokens), and the 1,059 that left were the four guidelines that restated the same tool. "A
   blocked card resumes in `plan` …" is the `blocker` parameter's sentence, `dependsOn`'s refusal
