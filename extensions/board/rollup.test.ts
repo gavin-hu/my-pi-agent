@@ -57,6 +57,16 @@ function halves(text: string): { listing: string; rollup: string } {
 }
 
 describe("a listing with a rollup", () => {
+	test("counts the finished cards the listing leaves out", async () => {
+		const { board, call } = boardTool();
+		await call({ action: "add", title: "Open one" });
+		await call({ action: "add", title: "Finished one" });
+		await advance(await board.runtime.store(board.ctx.cwd), "2", "done", { owner: PEER }, NOW);
+		const result = await call({ action: "list", round: true });
+		expect(result.details.round?.done.map((card) => card.id)).toEqual(["2"]);
+		expect(resultText(result)).toContain("2 features");
+	});
+
 	test("keeps the cards its filter chose, and follows them with the whole board", async () => {
 		const { board, call } = boardTool();
 		await call({ action: "add", title: "Mine one" });

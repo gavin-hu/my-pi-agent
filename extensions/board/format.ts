@@ -58,7 +58,10 @@ export interface ListingNotes {
 /** What an empty listing says: the board's own state, or the reader's filter answered with nothing. */
 function emptyListing(notes: ListingNotes): string {
 	if (notes.narrowed === true) return "No cards match.";
-	return notes.hiddenDone === 0 ? "The board is empty." : "No open cards.";
+	// Only a board holding nothing at all is empty: a finished card, one set aside, or a file this
+	// build refused is still on it, and the notes under this line account for each.
+	const nothing = notes.hiddenDone === 0 && notes.archived === 0 && notes.skipped.length === 0;
+	return nothing ? "The board is empty." : "No open cards.";
 }
 
 /**

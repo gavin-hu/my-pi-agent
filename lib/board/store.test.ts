@@ -149,15 +149,15 @@ describe("list and read", () => {
 		]);
 	});
 
-	test("one read answers with both the cards and the files it refused", async () => {
+	test("one read answers with the cards, the files it refused, and what they cost", async () => {
 		const { dir, store } = scratchStore();
 		const card = await store.create({ title: "good", paths: [] }, LEAD, NOW);
 		writeFileSync(join(dir, "cards", "0002.json"), '{"v":1,');
-		// The page's snapshot wants both halves, so it must be able to get them from one pass
-		// over the pile rather than reading every card twice for one frame.
+		// A page's frame wants all three from one pass, and a file it refused still occupies the disk.
 		expect(await store.scan()).toEqual({
 			cards: [card],
 			skipped: [{ file: "0002.json", id: "2", why: "bad JSON" }],
+			bytes: statSync(join(dir, "cards", "0001.json")).size + statSync(join(dir, "cards", "0002.json")).size,
 		});
 		expect((await store.scan()).cards).toEqual(await store.list());
 		expect((await store.scan()).skipped).toEqual(await store.skipped());
@@ -506,19 +506,19 @@ describe("archive", () => {
 	});
 });
 
-describe("bytes, where, and the signature", () => {
+describe("the pile's size, where, and the signature", () => {
 	test("counts the card files and ignores a temp file, and never the archive", async () => {
 		const { dir, store } = scratchStore();
 		await store.create({ title: "T", paths: [] }, LEAD, NOW);
-		const before = await store.bytes();
+		const before = (await store.scan()).bytes;
 		expect(before).toBeGreaterThan(0);
 		expect(before).toBe(statSync(join(dir, "cards", "0001.json")).size);
 		writeFileSync(join(dir, "cards", ".tmp-1-x"), "x".repeat(500));
-		expect(await store.bytes()).toBe(before);
+		expect((await store.scan()).bytes).toBe(before);
 		// The page's size belongs to the cards it lists, so a card set aside lowers it.
 		await advance(store, "1", "done", SEED, NOW);
 		await store.mutate("1", { kind: "archive" }, LEAD, NOW);
-		expect(await store.bytes()).toBe(0);
+		expect((await store.scan()).bytes).toBe(0);
 	});
 
 	test("names the directory it writes to", async () => {

@@ -258,6 +258,8 @@ describe("list", () => {
 		writeFileSync(join(store.dir, "cards", "0007.json"), JSON.stringify({ v: 3, id: "7", title: "Newer" }));
 
 		const listed = await call({ action: "list" });
+		// A refused file is still on the board, so the sentence names the state, not emptiness.
+		expect(resultText(listed)).toStartWith("No open cards.\n");
 		expect(resultText(listed)).toContain("1 file this build cannot read: 0007.json (version 3)");
 		const missing = await call({ action: "list", card: "7" });
 		expect(missing.isError).toBe(true);
@@ -451,17 +453,12 @@ describe("list", () => {
 		// An empty board says only that.
 		const empty = harness();
 		expect(resultText(await empty.call({ action: "list" }))).toBe("The board is empty.");
-	});
-
-	test("the round still counts the finished cards a listing leaves out", async () => {
-		const board = harness();
-		const { call } = board;
-		await call({ action: "add", title: "Open one" });
-		await call({ action: "add", title: "Finished one" });
-		await seed(board, "2", "done");
-		const result = await call({ action: "list", round: true });
-		expect(result.details.round?.done.map((card) => card.id)).toEqual(["2"]);
-		expect(resultText(result)).toContain("2 features");
+		// A card set aside is not a card gone: the note under this line says where it went, so
+		// the sentence names the state instead of claiming the board is bare.
+		await call({ action: "archive", card: "1" });
+		expect(resultText(await call({ action: "list" }))).toBe(
+			"No open cards.\n1 card is set aside in the archive; pass archived: true to read it.",
+		);
 	});
 
 	test("adds the lead's rollup when asked, over the whole board", async () => {
