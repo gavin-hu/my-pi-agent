@@ -44,6 +44,12 @@ describe("assign", () => {
 		expect(resultText(result)).toContain("#1 handed off to billing-core.");
 		// Listening is the default the stub reports, so no warning line is added.
 		expect(resultText(result)).not.toContain("Not listening");
+		// A repeat for the same peer is refused before anything is sent: the write would be a
+		// no-op, so the only thing a second assign added was a handoff for a card already its own.
+		const again = await call({ action: "assign", card: id, to: "billing-core" });
+		expect(again.isError).toBe(true);
+		expect(resultText(again)).toContain(`#${id} is already billing-core's.`);
+		expect(sent).toHaveLength(1);
 	});
 
 	test("names the lead the project configured, not the default", async () => {
@@ -150,8 +156,8 @@ describe("assign", () => {
 		expect((await (await store()).read(id))?.owner).toBeUndefined();
 	});
 
-	test("takes the holder's id the way it takes its label: the card is its own and nothing is written", async () => {
-		const { call, seed, store } = harness();
+	test("refuses the holder the same way by id and by label, and sends nothing", async () => {
+		const { call, seed, store, sent } = harness();
 		const board = await store();
 		// The bus knew the holder when the card was claimed, so the record carries the id a
 		// rename keeps — which is what `holds` compares first.
@@ -165,12 +171,12 @@ describe("assign", () => {
 		for (const id of [withId, byLabel]) {
 			const before = await board.read(id);
 			const result = await call({ action: "assign", card: id, to: "s-billing-core" });
-			expect(result.isError, id).toBeFalsy();
-			expect(result.details.card?.owner?.label, id).toBe("billing-core");
-			// The holder is a no-op in the store, so the write is skipped and the revision holds:
-			// the same answer the label gives, which is what naming the holder means.
-			expect(result.details.card?.rev, id).toBe(before?.rev);
+			expect(result.isError, id).toBe(true);
+			expect(resultText(result), id).toContain(`#${id} is already billing-core's.`);
+			// What it used to accept was a no-op write; the message is what a peer acts on.
+			expect((await board.read(id))?.rev, id).toBe(before?.rev);
 		}
+		expect(sent).toEqual([]);
 	});
 });
 

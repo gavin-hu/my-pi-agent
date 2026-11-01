@@ -57,13 +57,13 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
  *
  * A held card is refused rather than handed over, because the owner a handoff would skip is
  * the one the rules protect: changing hands is `reclaim` and a second assignment. Naming the
- * session that already holds it is the one held case left, and it is a no-op.
+ * session that already holds it is refused too, and for the message rather than the write:
+ * the write would be a no-op, but `team` sends before it writes, so accepting the no-op spent
+ * a second handoff on a card nobody was handed.
  */
 export function assign(card: Card, to: Actor, board: BoardIndex, limits: WipLimits): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be assigned.` };
-	if (card.owner !== undefined) {
-		return holds(card, to) ? { changed: false, fields: null } : { error: heldBy(card) };
-	}
+	if (card.owner !== undefined) return { error: holds(card, to) ? alreadyHeldBy(card) : heldBy(card) };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
 	// A pool card is the only card this moves, so it comes with the lane a claim would give it:
@@ -485,4 +485,12 @@ function ownerOf(actor: Actor): CardOwner {
 /** The refusal for an operation on a card someone else holds. */
 function heldBy(card: Card): string {
 	return `${cardRef(card.id)} is held by ${card.owner?.label ?? "another session"}.`;
+}
+
+/**
+ * The refusal for the session a card already belongs to: no `reclaim`, which is what a
+ * third-party refusal offers, and no second handoff, which is the whole point of refusing.
+ */
+function alreadyHeldBy(card: Card): string {
+	return `${cardRef(card.id)} is already ${card.owner?.label ?? "another session"}'s.`;
 }

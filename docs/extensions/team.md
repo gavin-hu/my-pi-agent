@@ -107,7 +107,7 @@ is not: a card that session claimed is the session's, and `release` returns it.
 
 | Action | Parameters | Behaviour |
 |---|---|---|
-| `assign` | `card`, `to`, `note?` | Checks the card's preconditions, sends the handoff as a `handoff` message, then records the owner. `to` that names this session is refused — a card you will take yourself is `claim` |
+| `assign` | `card`, `to`, `note?` | Checks the card's preconditions, sends the handoff as a `handoff` message, then records the owner. `to` that names this session is refused — a card you will take yourself is `claim` — and so is a card the peer already holds |
 | `offer` | `card`, `note?` | Checks the preconditions a claim would meet, broadcasts the card as an `event` to every other live session, then records the offer on the card — the moment, and nothing else: status and owner are untouched |
 | `reclaim` | `card` | Clears the owner and returns the card to Backlog, keeping its notes, contract, and plan |
 | `claim` | `card` | Takes a pool card for this session: it enters `plan`, owned by the round's session, and the claim asks to join the team once — the same operation and the same join `board`'s claim makes. A card somebody holds, one that waits on unfinished work, and a full `plan` lane are refused with the board's own sentence |
@@ -204,7 +204,10 @@ moves, and finish are `board`'s in this same session.
   card cannot be handed a card, and an offer to nobody says so.
 - **A held card is not assignable.** `assign` moves a pool card; one somebody already holds
   is refused, because a handoff cannot take work away from its owner — `reclaim` it, then
-  assign. The handoff is sent before the owner is written, so another session can take the
+  assign. The session that already holds it is refused too, and for the message rather than
+  the write: the write would be a no-op, but the handoff is sent before it, so a repeat would
+  hand a peer a second instruction for one card (`#4 is already billing-core's.`). The handoff
+  is sent before the owner is written, so another session can take the
   card in between: the peer reads that a card whose write lost the race is not its to work,
   and the lead's refusal names the card the board now shows.
 - **The lead's name is a label, not a person.** The seat is not a session, so its actor id
