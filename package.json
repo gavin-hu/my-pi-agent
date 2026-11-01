@@ -130,8 +130,8 @@
     "video": "https://raw.githubusercontent.com/gavin-hu/my-pi-agent/main/assets/video/demo.mp4"
   },
   "scripts": {
-    "test": "bun run scripts/verify.ts --tests",
-    "check": "bun run scripts/verify.ts",
+    "test": "bun run scripts/check.ts --tests",
+    "check": "bun run scripts/check.ts",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
     "format:check": "biome format .",

@@ -17,8 +17,8 @@ repositories.
 
 | Command | What it does |
 |---|---|
-| `bun run check` | The gate a landing needs: `format:check` + `typecheck`, then every test. One scope flag narrows the tests: `--static` (the static half alone), `--serial` (one file at a time, what macOS CI runs), `--watch`, `--changed [--base <ref>]` (static + the tests that change reaches), `--ext <name…>`, `--lib <area…>`, `--root` (the package-level tests), `--slow` (the gated git suites). `--dry-run` prints the selection and runs nothing. |
-| `bun run test [scope]` | The same scopes without the static half; no flag is every test, in parallel. |
+| `bun run check` | The gate a landing needs: `format:check`, `typecheck`, and the tests, the first two running beside the test phase through `scripts/check.ts` so the gate costs what its longest phase costs. One scope flag narrows the tests: `--static` (the static half alone), `--serial` (one file at a time, what macOS CI runs), `--watch`, `--changed [--base <ref>]` (the tests a change reaches), `--ext <name…>`, `--lib <area…>`, `--root` (the package-level tests), `--slow` (the gated git suites). `--dry-run` prints the selection and runs nothing. |
+| `bun run test [scope]` | The same scopes without the static phases; no flag is every test, in parallel. |
 | `bun run typecheck` | `tsc --noEmit`. |
 | `bun run format` | `biome format --write .`. |
 | `bun run format:check` | `biome format .`, check only. |

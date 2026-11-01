@@ -3,7 +3,7 @@
  *
  * `bun run check --ext board` and `bun run check --changed` ask one question —
  * what should this run cover — so the answer lives here once, as a pure
- * function: no git, no spawn, no clock. `verify.ts` is the command that asks.
+ * function: no git, no spawn, no clock. `check.ts` is the command that asks.
  *
  * Two owners supply the facts. `test/suite-manifest.ts` is the one declaration
  * of every suite, so a scope reads the layout instead of keeping a second list;
@@ -160,7 +160,7 @@ export function selectRoot(scope: Tree): Selection {
 	return selection(scope.packageTests, [`package-level > ${scope.packageTests.length} files`]);
 }
 
-/** The gated git suites alone; `verify.ts` turns the gate on for the run. */
+/** The gated git suites alone; `check.ts` turns the gate on for the run. */
 export function selectSlow(root: string): Selection {
 	const suites = slowSuites(root);
 	return selection(suites, [`gated git suites > ${suites.length} files (PI_SLOW_TESTS=1)`]);

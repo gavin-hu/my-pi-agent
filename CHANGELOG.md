@@ -33,17 +33,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `dev`: the test scripts are two entries with a scope flag instead of six `:`-named ones.
-  `bun run check` still means the gate — `format:check` + `typecheck`, then every test — and
-  `bun run test` the same without the static half, but the tests they run are now chosen by
-  `--static`, `--serial`, `--watch`, `--ext <name…>`, `--lib <area…>`, `--root`, `--slow`, or
-  `--changed [--base <ref>]`, which runs the suites a change can reach (every suite whose static
-  imports touch a changed file, plus its region's, plus the package-level tests always, and
-  everything when a shared path changed) and prints why before it runs. `test:serial`,
-  `test:watch`, `check:static`, and `check:serial` are **removed**: use `bun run test --serial`,
-  `bun run test --watch`, `bun run check --static`, and `bun run check --serial`. A run of one
-  extension is 17 suites instead of 264 files, and `--slow` derives the gated git suites from the
-  tree rather than naming them.
+- `dev`: `bun run check` and `bun run test` are one command with a scope, and the check's three
+  phases run at once through `scripts/check.ts` instead of in a chain — so the gate costs what its
+  longest phase costs, 30.4 s on an 8-core machine measured while the box was busy against
+  48.7–55.5 s for the old chain, and the test worker count still comes from the cores capped at
+  the four `test/README.md` documents, because seven broke two wall-clock budgets on a loaded box
+  (`job`'s shell-exit budget moved 10 s → 25 s for the same reason). The tests a run covers are a
+  flag rather than another script name: `--static`, `--serial`, `--watch`, `--ext <name…>`,
+  `--lib <area…>`, `--root`, `--slow`, or `--changed [--base <ref>]`, which runs every suite whose
+  static imports touch a changed file, plus its region's, plus the package-level tests always, and
+  everything when a shared path changed — printing why before it runs, so a narrowed run is
+  auditable. One extension is 17 suites instead of 264 files, and `--slow` derives the gated git
+  suites from the tree rather than naming them. `test:serial`, `test:watch`, `check:static`, and
+  `check:serial` are **removed**: use `bun run test --serial`, `bun run test --watch`,
+  `bun run check --static`, and `bun run check --serial`.
 
 - `question`: the tool is renamed from `ask_user_question` to `question`, so the wire name
   matches the extension, its docs page, and the one-word domain names `todo`, `goal`, `job`,

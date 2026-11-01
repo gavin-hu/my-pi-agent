@@ -33,13 +33,24 @@ The always-on model-facing prompt size is budgeted. `test/prompt-budget.test.ts`
 covers the pure per-turn injected-context builders, which are re-injected every
 turn, so a regression in that text fails fast.
 
-`bun run test` runs the suite through `scripts/verify.ts` with `--parallel=4` (which
-implies `--isolate`), so each test file runs in its own worker process and
-`process.env` edits in one file cannot leak into another. The worker count is
-capped at four so the git-heavy worktree and rewind suites are not starved. The
+`bun run test` runs the suite through `scripts/check.ts`, whose test phase is
+`bun test --parallel=4` (which implies `--isolate`), so each test file runs in its
+own worker process and `process.env` edits in one file cannot leak into another. The worker count is
+capped at four so the git-heavy worktree and rewind suites are not starved, and
+`bun run check` takes the same number from `scripts/check.ts` — it is also what
+held: at seven workers on a loaded box a 100 ms timer measured at 263 ms and
+`job`'s shell-exit budget passed 25 s, so the cap is a measurement, not a habit. The
 script's `--timeout 30000` is a *test* budget and reaches a hook too, which is
 why a browser suite's own statement is the thing that makes it independent of
 how it was invoked.
+
+`bun run check` runs its three phases **at once** rather than in a chain, so the
+gate costs what its longest phase costs. On an 8-core machine, measured while
+the box was busy: format 0.2-0.4 s, typecheck 7.6 s, tests ~30 s at four
+workers — 30.4 s for the whole gate, against 48.7-55.5 s for the old
+format-then-typecheck-then-test chain under the same load. The two static phases
+are captured and printed only when they fail; the test phase streams, because it
+is what is on screen.
 
 The git-heavy `rewind`, `worktree`, and `session-bus` real-repository tests create
 real repositories and real git commands, so `test/helpers/slow-suite.ts` gates
