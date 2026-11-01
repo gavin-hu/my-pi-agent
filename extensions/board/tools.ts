@@ -31,16 +31,7 @@ import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatRound } from "../../lib/board/round-text.ts";
-import { skippedText } from "../../lib/board/skipped.ts";
-import {
-	archiveNote,
-	CLAIM_NEXT,
-	formatArchive,
-	formatArchived,
-	formatBoard,
-	formatCard,
-	formatDropped,
-} from "./format.ts";
+import { CLAIM_NEXT, formatArchive, formatArchived, formatBoard, formatCard, formatDropped } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, resultInput } from "./result.ts";
 import type { Notify } from "./announce.ts";
@@ -404,25 +395,26 @@ async function read(
 	);
 	// A finished card is history rather than work, and nothing prunes it — this
 	// repository's own board is mostly finished cards — so a listing that names no lane
-	// leaves them out and says how many. A named lane, `card`, and `round` are unchanged;
-	// the rollup counts the whole board, which is what makes it a rollup.
+	// leaves them out and says how many. A named lane and `card` are unchanged; the rollup
+	// counts the whole board, which is what makes it a rollup.
 	const hiddenDone = args.lane === undefined ? listed.filter((card) => card.lane === "done").length : 0;
 	const shown = hiddenDone === 0 ? listed : listed.filter((card) => card.lane !== "done");
-	if (args.round !== true) {
-		return textResult(formatBoard(shown, { hiddenDone, archived, skipped }), {
-			action,
-			me,
-			cards: shown,
-			...(args.mine === true ? { mine: true } : {}),
-		});
-	}
+	// The rollup is the whole board's answer, so it is printed *after* the listing rather than
+	// instead of it: a filter beside `round` asked two questions, and a call that answered only
+	// one of them dropped the other without saying so.
+	const narrowed = args.lane !== undefined || args.query !== undefined || args.mine === true;
+	const listing = formatBoard(shown, { hiddenDone, archived, skipped, narrowed });
+	const details: BoardDetails = {
+		action,
+		me,
+		cards: shown,
+		...(narrowed ? { narrowed } : {}),
+		...(args.mine === true ? { mine: true } : {}),
+	};
+	if (args.round !== true) return textResult(listing, details);
 	const round = buildRound(cards, now);
-	// One line under the rollup, because a reader who cannot see a card file should know why,
-	// and one for the archive, because a rollup that silently left it out would be a board
-	// smaller than the one on disk.
-	const notes = [skippedText(skipped), archiveNote(archived)].filter((line) => line !== "");
-	const text = [formatRound(cards, round, await roster()), ...notes].join("\n");
-	return textResult(text, { action, me, cards: listed, round, ...(args.mine === true ? { mine: true } : {}) });
+	const text = `${listing}\n\n${formatRound(cards, round, await roster())}`;
+	return textResult(text, { ...details, round });
 }
 
 /**

@@ -96,6 +96,43 @@ describe("the rows a mine listing draws", () => {
 	});
 });
 
+describe("a rollup under a narrowed listing", () => {
+	/** A rollup holding one card, owned by the peer: the whole board's answer, which is not this session's. */
+	const round: RoundSummary = {
+		owners: [{ label: PEER.label, cards: [card({ id: "4" })], done: [] }],
+		unassigned: [],
+		unplanned: [],
+		unapproved: [],
+		unreviewed: [],
+		blocked: [],
+		unwritten: [],
+		done: [],
+	};
+
+	test("draws the slice first, unlabelled, and marks only its rows", () => {
+		const mine = card({ id: "1", owner: { label: ME.label, id: ME.id } });
+		const input = resultInput({ action: "list", me: ME, mine: true, narrowed: true, cards: [mine], round });
+		if (input?.kind !== "sections") throw new Error("a rollup is sections");
+		// The listing came first in the text, so it comes first here, and it is a listing rather
+		// than a group of one: no label above it.
+		expect(input.sections[0]?.label).toBeUndefined();
+		expect(input.sections[0]?.rows.map((row) => row.id)).toEqual(["1"]);
+		expect(input.sections[1]?.label).toBe(PEER.label);
+		// The accent means "this row is yours": the slice that asked for `mine` wears it, and the
+		// rollup that answers for the whole board does not, even inside the same result.
+		expect(input.sections[0]?.rowLine(mine, WIDTH, coloringTheme)).toContain(`${colour("accent")}#1`);
+		expect(input.sections[1]?.rowLine(card({ id: "4" }), WIDTH, coloringTheme)).toContain(`${colour("label")}#4`);
+	});
+
+	test("draws the rollup alone when nothing was narrowed", () => {
+		const input = resultInput({ action: "list", me: ME, cards: [card()], round });
+		if (input?.kind !== "sections") throw new Error("a rollup is sections");
+		// A bare `round` already draws every one of those cards in a group below, so a slice
+		// above it would be the same rows twice.
+		expect(input.sections.map((entry) => entry.label)).toEqual([PEER.label]);
+	});
+});
+
 describe("the rollup's sections", () => {
 	test("draws every group the round reports, in the order the text prints it", () => {
 		// Every group carries one card, and the group it belongs to is the assertion: a
