@@ -48,6 +48,8 @@ export interface ReviewPageData {
 	base: string;
 	/** Plan title: the document's H1, or the file-name slug when it has none. */
 	title: string;
+	/** The plan file as a reader sees it (`~`-shortened): the header's hover and the footer's line. */
+	path: string;
 	/** Source-line blocks of the feedback-stripped plan. */
 	blocks: PlanBlock[];
 	/** Absolute start lines of the blocks that are new or edited since the previous review. */
@@ -97,7 +99,7 @@ export interface ReviewPageData {
 export interface ReviewPayloadInput {
 	/** The mount prefix the review answers under, e.g. `/plan/3f9c21aa`. */
 	base: string;
-	/** The plan's path, for the title's file-name fallback. */
+	/** The plan's path as the user sees it (`~`-shortened): the title's fallback, and the page's own where. */
 	path: string;
 	/** The plan as stored, feedback markers included. */
 	content: string;
@@ -166,6 +168,7 @@ export function reviewPageData(input: ReviewPayloadInput): ReviewPageData {
 		// The document's own H1 reads better than the file-name slug, and the slug is
 		// still the fallback for a plan that starts with something else.
 		title: marks.find((mark) => mark.section.level === 1)?.section.title || planTitle(basename(input.path)),
+		path: input.path,
 		blocks,
 		...(blockMarks.starts.length === 0 ? {} : { changed: blockMarks.starts }),
 		...(blockMarks.compared ? { blockMarks: true } : {}),

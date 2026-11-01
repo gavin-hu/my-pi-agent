@@ -93,7 +93,7 @@ export function parseArgs(argv: string[]): ShotOptions {
 const READY = `(function () {
 	var state = document.getElementById("review-state");
 	return document.querySelectorAll("#plan .bf-block").length > 0 &&
-		!!state && /Connected|Saved|Offline/.test(state.textContent || "");
+		!!state && /connected|saved|offline/.test(state.textContent || "");
 })()`;
 
 /**

@@ -40,6 +40,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: the browser review wears the served pages' one chrome (`lib/web`) instead of its own
+  header. The kit toolbar carries the plan's H1 as its subject with the plan file on the
+  hover, the live chip painted by the shared `paintLive` (`connected · 3 comments`, in the
+  words this page already used, lowercased like `board`'s `live · 3m`), the status line, and
+  the shared keys and theme buttons; a `.bf-app__bar` under it holds Share, Approve & run,
+  Save feedback, and Back to Pi; and the footer names the plan file, which rides the island
+  as `ReviewPageData.path`. A stale page — a stream that has gone, or a save that met a plan
+  changed on disk — reveals the kit's `⟳ reload` chip instead of a button the client built,
+  and the page's own header rules and their two media queries are gone. The panel is now the
+  reader's: an owner gets a finish block naming the two decisions, the step meter, and the
+  comment count; a reviewer gets the name their comments are signed with and the count, and
+  no approval facts; and both get the kit's segmented All/Changed/Comments switch. A clicked
+  outline section is marked current at once, so a plan short enough not to scroll still
+  answers the click.
 - `dev`: `bun run check` and `bun run test` are one command with a scope, and the check's three
   phases run at once through `scripts/check.ts` instead of in a chain — so the gate costs what its
   longest phase costs, 30.4 s on an 8-core machine measured while the box was busy against

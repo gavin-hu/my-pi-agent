@@ -3,39 +3,53 @@
  *
  * It is a fragment of the same IIFE `web-client.ts` ships (`WEB_CHROME_JS` is
  * interpolated into `REVIEW_CLIENT_JS`), kept in its own module so the state
- * chip, the status line, and the header are read together and away from the
- * document rendering. It paints only text it was handed.
+ * chip, the status line, and the reload control are read together and away from
+ * the document rendering. It paints only text it was handed: the pill's shape and
+ * tone are the kit's (`paintLive`), and what a state *says* is this page's own.
  */
 
-export const WEB_CHROME_JS = String.raw`  function setStatus(text, kind) {
+export const WEB_CHROME_JS = String.raw`  // Set once the page has been told it is stale — by a conflict, or by a stream that has
+  // gone — so a later frame cannot hide the one control that still helps.
+  var needsReload = false;
+
+  function setStatus(text, kind) {
     if (statusEl) paintStatus(statusEl, text, kind);
   }
 
-  // The always-visible header chip: connection, comment count, and whether
-  // there are edits the file does not have yet.
+  // Reloading is the one action a stale page has: nothing here is unsaved, so it is a
+  // control rather than a confirm dialog, and it is the kit's chip rather than a button
+  // this page assembles at runtime.
+  function offerReload() {
+    needsReload = true;
+    if (reloadEl) reloadEl.hidden = false;
+  }
+
+  // The always-visible header chip: connection, comment count, and whether there are edits
+  // the file does not have yet. The words are this page's voice; the pill, its tone, and its
+  // hover are the ones every served page wears.
   function updateState() {
     if (!stateEl) return;
     var label;
     var tone = "";
     if (approved) {
-      label = "Approved";
+      label = "approved";
       tone = "success";
     } else if (saved) {
-      label = "Saved";
+      label = "saved";
       tone = "success";
     } else if (closed) {
-      // Settled by the user, not by a dropped stream: never flash Offline.
-      label = "Closed";
+      // Settled by the user, not by a dropped stream: never flash offline.
+      label = "closed";
     } else if (connected === true) {
-      label = "Connected";
+      label = "connected";
       tone = "success";
     } else if (everConnected) {
       // Only after the stream has opened once: an error before that is a
-      // transient initial connect, so keep showing Connecting rather than Offline.
-      label = "Offline";
+      // transient initial connect, so keep showing connecting rather than offline.
+      label = "offline";
       tone = "danger";
     } else {
-      label = "Connecting\u2026";
+      label = "connecting\u2026";
     }
     var count = annotations.length;
     label += " \u00b7 " + count + (count === 1 ? " comment" : " comments");
@@ -43,18 +57,12 @@ export const WEB_CHROME_JS = String.raw`  function setStatus(text, kind) {
       label += " \u00b7 " + (role === "reviewer" ? "unposted" : "unsaved");
       if (!tone) tone = "warn";
     }
-    stateEl.textContent = label;
-    stateEl.className = "bf-chip bf-chip--accent review-state" + (tone ? " bf-chip--" + tone : "");
-  }
-
-  function renderHeader() {
-    var titleEl = document.getElementById("plan-title");
-    if (titleEl && data.title) {
-      titleEl.textContent = data.title;
-      titleEl.title = data.title;
-    }
-    // The document's own <title> already names the plan, rendered with the page: a second
-    // copy of the same sentence in script is a tab title that can disagree with the head.
+    paintLive(stateEl, tone, label);
+    // A stream that has gone is where this page stops being true, so it offers the reload
+    // beside the state that says so. A conflict, which said the same thing about the file,
+    // keeps offering it too.
+    if (tone === "danger") offerReload();
+    else if (reloadEl && !needsReload) reloadEl.hidden = true;
   }
 
   function updateProgress() {
@@ -80,20 +88,6 @@ export const WEB_CHROME_JS = String.raw`  function setStatus(text, kind) {
     // the frame renderer is the one rule that decides that, so this asks for a repaint
     // rather than removing the buttons itself.
     renderAll();
-  }
-
-  // A conflict means the file moved under the page; only a reload can re-anchor.
-  function offerReload() {
-    if (document.getElementById("reload")) return;
-    var controls = document.querySelector(".review-controls");
-    if (!controls) return;
-    var reload = el("button");
-    reload.type = "button";
-    reload.id = "reload";
-    reload.className = "bf-btn bf-btn--primary";
-    reload.textContent = "Reload";
-    reload.addEventListener("click", function () { window.location.reload(); });
-    controls.appendChild(reload);
   }
 
   // The stream exists only to notice a closed tab. Once the review is settled it

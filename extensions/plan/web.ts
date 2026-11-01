@@ -234,7 +234,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 			// the previous review left, and who is asking.
 			return reviewPageData({
 				base,
-				path: plan.path,
+				path: plan.relativePath,
 				content: stored.content,
 				baseline: options.baseline,
 				caller,
