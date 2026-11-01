@@ -39,6 +39,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   same constant, so both follow; a pinned `--tools ask_user_question`, a saved child allowlist,
   or a prompt that spells the old name must be updated. The parameter shape, the questionnaire,
   and the tool's "Other (type something)" row are unchanged.
+- `dev`: `bun run check` runs its three phases at once instead of in a chain, through the new
+  `scripts/check.ts`, so the gate costs what its longest phase costs rather than their sum. On an
+  8-core machine measured while the box was busy, the whole gate is 30.4 s against 48.7–55.5 s for
+  the old format-then-typecheck-then-test chain under the same load; the test worker count stayed
+  at the four `test/README.md` documents, because seven broke two wall-clock budgets on a loaded
+  box. `check:serial` keeps the serial suite for the macOS CI job, and `job`'s shell-exit budget
+  moved from 10 s to 25 s so a starved spawn reports a reason instead of a timeout.
 - `board`: the tool's always-on text drops from 8,156 to 7,097 characters (~2,039 → ~1,774
   tokens), and the 1,059 that left were the four guidelines that restated the same tool. "A
   blocked card resumes in `plan` …" is the `blocker` parameter's sentence, `dependsOn`'s refusal

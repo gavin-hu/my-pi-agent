@@ -211,6 +211,7 @@ export const LIB_SUITES: readonly string[] = [
 ];
 
 export const SCRIPT_SUITES: readonly string[] = [
+	"check",
 	"load-bench",
 	"screenshots",
 	"release",

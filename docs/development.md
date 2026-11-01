@@ -18,14 +18,14 @@ repositories.
 | Command | What it does |
 |---|---|
 | `bun run check:static` | `format:check` + `typecheck`, the static half of `check`. |
-| `bun run check` | `format:check` + `typecheck` + `test`. The one command a change must pass. |
+| `bun run check` | `format:check` + `typecheck` + `test`, all three at once through `scripts/check.ts`. The one command a change must pass. |
 | `bun run test` | Unit tests (`bun test --parallel=4`, 30s timeout). |
 | `bun run test:serial` | Unit tests, one file at a time. |
 | `bun run test:watch` | Unit tests in watch mode. |
 | `bun run typecheck` | `tsc --noEmit`. |
 | `bun run format` | `biome format --write .`. |
 | `bun run format:check` | `biome format .`, check only. |
-| `bun run check:serial` | `bun run check` with the serial suite. |
+| `bun run check:serial` | The same gate (`scripts/check.ts --serial`) with the serial suite, which is what the macOS CI job runs. |
 | `bun run config:migrate [--project <dir>]` | Move each per-extension `<name>.json` into the shared `bytefly.json`, once per machine and repository; `--dry-run` previews and `--keep` leaves the old files. How it behaves is in [`configuration.md`](./configuration.md#migrating-from-older-versions). |
 | `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
