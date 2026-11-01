@@ -47,8 +47,9 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 		`${round.blocked.length} blocked`,
 		`${round.unwritten.length} unwritten`,
 		// The history is the one count a reader can act on without opening a card: a finished
-		// card an open one still waits on stays, so `archivable` is what a sweep would take.
-		`${round.done.length} done, ${round.archivable.length} archivable`,
+		// card an open one still waits on stays, so `archivable` is what a sweep would take. It
+		// rides on the count it qualifies, and says nothing at all when there is nothing to sweep.
+		`${round.done.length} done${round.archivable.length > 0 ? `, ${round.archivable.length} archivable` : ""}`,
 	].join(" · ");
 	const lines = [headline];
 	// The history is counted as it goes, so its one line can follow the owner lines and the

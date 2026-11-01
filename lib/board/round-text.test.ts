@@ -96,7 +96,7 @@ describe("formatRound", () => {
 
 	test("an empty board is a headline of zeroes, not a refusal", () => {
 		expect(formatRound([], buildRound([], NOW))).toBe(
-			"0 owners · 0 features · 0 unassigned · 0 unplanned · 0 awaiting approval · 0 awaiting review · 0 blocked · 0 unwritten · 0 done, 0 archivable",
+			"0 owners · 0 features · 0 unassigned · 0 unplanned · 0 awaiting approval · 0 awaiting review · 0 blocked · 0 unwritten · 0 done",
 		);
 	});
 });

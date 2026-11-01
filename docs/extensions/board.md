@@ -763,11 +763,14 @@ lane table and its transition matrix, the WIP limits and their config, the depen
 the note a page leaves, the one reason rule, the rollup and its text, the sentence for a
 refused file, the card's transitions, the store a call opens and the identity it writes as,
 the files that store keeps, and the snapshot, and
-`extensions/board/{input,seat,tools,page,commands,extension,transport/router,view/pages,view/dialog,view/dialog-behaviour,view/behaviour}`
-for the card body, the seat, every action, the page's lifecycle over a real socket (a page
-served, attached to, and taken over, a board that stops being readable, and a write refused
-on the wire), the command, the
-factory, the routes, the page's document and client bundle, the card dialog's own, that dialog
+`extensions/board/{input,record,result,rollup,signs,tools,lazy-page,page,page-idle,commands,extension,transport/router,view/pages,view/repaint,view/dialog,view/dialog-behaviour,view/behaviour}`
+for the card body, the record's cost and its dropped history (the sweep behind `archive` and
+`/board archive`, the archivable count behind it, and the two dropped counts), the transcript
+block a result draws, a listing that keeps its filters beside a rollup, the two signs over the
+tool, every action, the page's lifecycle over a real socket (a page served, attached to, and
+taken over, a board that stops being readable, and a write refused on the wire), a surface
+loaded only when it is opened, the page's own start and idle grace, the command, the factory,
+the routes, the page's document and client bundle, a repaint, the card dialog's own, that dialog
 driven in a browser — a card opened from its title or anywhere on it, its reason line, its
 sections, the contract's block and signature, the blocked and unsigned states, a landing's age,
 and the keyboard it keeps — and the
