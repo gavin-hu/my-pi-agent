@@ -309,7 +309,7 @@ describe("a wait that ran out", () => {
 			expect(message).toContain("waitFor timed out after 2004ms of a 2000ms budget");
 			// A red on a busy box says what to do with itself, not just where it happened.
 			expect(message).toContain(PARALLEL_HAZARD_HINT);
-			expect(message).toContain("confirm with `bun run check:serial`");
+			expect(message).toContain("confirm with `bun run check --serial`");
 		});
 	}
 

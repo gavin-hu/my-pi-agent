@@ -102,7 +102,7 @@ jobs:
 
       # The gate: the same checks CI runs, on the exact tree being published.
       - name: Run checks
-        run: bun run check:serial
+        run: bun run check --serial
 
       # The registry is named by the publish step and nothing else is needed here:
       # no `registry-url`, which makes setup-node write an `.npmrc` with a

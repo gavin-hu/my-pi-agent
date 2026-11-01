@@ -59,7 +59,7 @@ jobs:
 
       - name: Run checks (serial suite)
         if: matrix.os == 'macos-latest'
-        run: bun run check:serial
+        run: bun run check --serial
 
   # Proves the package against the newest published Pi, not the versions the
   # lockfile pinned. Peer ranges stay "*" because the host supplies them, so this
@@ -108,4 +108,4 @@ jobs:
       # subprocess exit notification for its first spawn on a small runner
       # (oven-sh/bun#39709), which would fail this job for an unrelated reason.
       - name: Run the suite against the newest peers
-        run: bun run test:serial
+        run: bun run test --serial

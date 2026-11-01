@@ -33,6 +33,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `dev`: the test scripts are two entries with a scope flag instead of six `:`-named ones.
+  `bun run check` still means the gate — `format:check` + `typecheck`, then every test — and
+  `bun run test` the same without the static half, but the tests they run are now chosen by
+  `--static`, `--serial`, `--watch`, `--ext <name…>`, `--lib <area…>`, `--root`, `--slow`, or
+  `--changed [--base <ref>]`, which runs the suites a change can reach (every suite whose static
+  imports touch a changed file, plus its region's, plus the package-level tests always, and
+  everything when a shared path changed) and prints why before it runs. `test:serial`,
+  `test:watch`, `check:static`, and `check:serial` are **removed**: use `bun run test --serial`,
+  `bun run test --watch`, `bun run check --static`, and `bun run check --serial`. A run of one
+  extension is 17 suites instead of 264 files, and `--slow` derives the gated git suites from the
+  tree rather than naming them.
+
 - `question`: the tool is renamed from `ask_user_question` to `question`, so the wire name
   matches the extension, its docs page, and the one-word domain names `todo`, `goal`, `job`,
   and `subagent`. Plan mode's read-only policy and rewind's never-snapshot policy carry the

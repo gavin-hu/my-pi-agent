@@ -10,17 +10,17 @@ holds the word budget: a new paragraph replaces one.
 ## Commands
 
 ```bash
-bun install                       # once per worktree (no node_modules)
-bun run check                     # format:check + typecheck + test
+bun install                       # once per worktree
+bun run check                     # the gate: format:check, typecheck, every test
+bun run check --changed           # narrowed to this change's tests
+bun run test --ext <name>         # one extension's tests
 bun run format                    # biome format --write .
-bun test <path>                   # one test file or directory
-PI_SLOW_TESTS=1 bun run test      # include the gated git suites
-bun run check:serial              # what macOS CI runs: --parallel can hang
-bun run bench:render              # render benchmark; see docs/development.md
+bun run test --slow               # the gated git suites
+bun run bench:render              # render benchmark
 ```
 
-- `bun run check` is what a change must pass: the test you touched while
-  iterating, then the whole check.
+- A narrow change: `bun run check --changed`, which prints its selection.
+  Landing: the whole `bun run check`. Scopes are flags in `docs/development.md`.
 - `rewind`, `worktree`, and `session-bus`'s real-repository tests skip unless
   `CI` or `PI_SLOW_TESTS=1` is set. Touching one means running it explicitly.
 - A new package-level test goes into `ROOT_TEST_FILES` in

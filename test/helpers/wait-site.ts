@@ -107,7 +107,7 @@ export async function titlesAt(text: string, line: number): Promise<string[]> {
  * serial run CI uses, not a shrug and not a blind re-run of the same parallel check.
  */
 export const PARALLEL_HAZARD_HINT =
-	"four files at once can starve this on a loaded machine: confirm with `bun run check:serial` before treating it as a regression, and a second red on this same test is still a card";
+	"four files at once can starve this on a loaded machine: confirm with `bun run check --serial` before treating it as a regression, and a second red on this same test is still a card";
 
 /**
  * The one-line message an expired wait throws: how long it spent, against what

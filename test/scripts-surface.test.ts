@@ -3,16 +3,21 @@
  *
  * The docs are how a contributor finds a dev command, so every `bun run <name>` this
  * project's docs name must be an entry in `package.json`, and the scripts table must
- * list every entry. Two exclusions, both facts rather than leniency: `skills/`
- * documents other projects' commands, and `CHANGELOG.md` records what a release
- * shipped, so a script renamed since would fail against its own history.
+ * list every entry. Three exclusions, all facts rather than leniency: `skills/`
+ * documents other projects' commands, `CHANGELOG.md` records what a release shipped
+ * (so a script renamed since would fail against its own history), and a bare
+ * `bun run build` in a fixture is a sample command rather than this package's.
+ *
+ * The last two cases cover the two places a retired name hides: a CI workflow (a
+ * `run:` line is a command nobody re-reads) and a source string (the `--serial` hint
+ * a failing wait prints), where a colon is what a package script name looks like.
  */
 
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { posix, walkFiles } from "./helpers/files.ts";
-import { relative } from "./helpers/scan.ts";
+import { extensionsDir, libDir, relative, scriptsDir, testDir } from "./helpers/scan.ts";
 
 const repo = posix(join(import.meta.dir, ".."));
 /** Every declared script, so a failure can name the ones the docs forgot. */
@@ -65,5 +70,28 @@ describe("the scripts surface", () => {
 			}
 		}
 		expect(offenders).toEqual([]);
+	});
+
+	test("every command a workflow runs is a declared script", () => {
+		const offenders: string[] = [];
+		for (const file of walkFiles(join(repo, ".github")).filter((name) => name.endsWith(".yml"))) {
+			for (const [, command] of readFileSync(file, "utf-8").matchAll(BUN_RUN)) {
+				if (SCRIPTS.includes(command)) continue;
+				offenders.push(`${relative(file)}: \`bun run ${command}\` is not a script in package.json`);
+			}
+		}
+		expect(offenders, "CI runs a script a contributor cannot run").toEqual([]);
+	});
+
+	test("a colon-named command in a source string is a declared script", () => {
+		const offenders: string[] = [];
+		for (const file of [extensionsDir, libDir, scriptsDir, testDir].flatMap((dir) => walkFiles(dir))) {
+			if (!file.endsWith(".ts")) continue;
+			for (const [, command] of readFileSync(file, "utf-8").matchAll(BUN_RUN)) {
+				if (!command.includes(":") || SCRIPTS.includes(command)) continue;
+				offenders.push(`${relative(file)}: \`bun run ${command}\` is not a script in package.json`);
+			}
+		}
+		expect(offenders, "a hint that names a retired command sends the reader nowhere").toEqual([]);
 	});
 });
