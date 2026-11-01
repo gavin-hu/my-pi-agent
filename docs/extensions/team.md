@@ -266,8 +266,9 @@ moves, and finish are `board`'s in this same session.
   `/team join` is the one naming action. `wake` stays a bus-level choice and is never
   armed on a user's behalf, because it spends turns.
 - **Push and pull are two verbs.** `assign` sends one message and then writes the owner;
-  `offer` broadcasts and writes nothing. One verb with an optional `to` would have two
-  outcomes and one details shape, and a reader could not tell which happened.
+  `offer` broadcasts and then records the moment it was made. One verb with an optional
+  `to` would have two outcomes and one details shape, and a reader could not tell which
+  happened.
 - **The offer's preconditions are a dry-run claim.** `applyOp` judges what a peer is about
   to do, so a card nobody may claim is refused before anything is sent, and the refusal is
   the rules' own sentence rather than a second copy.

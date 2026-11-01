@@ -97,8 +97,9 @@ export function formatHandoffFailure(card: Card, to: string, reason: string): st
 /**
  * A card offered to the team: who heard, and that nobody holds it yet.
  *
- * `offer` writes nothing, so the sentence has to say the ownership question is still
- * open — a reader who took "offered" for "assigned" would stop looking at the card.
+ * `offer` records the moment and no ownership, so the sentence has to say the ownership
+ * question is still open — a reader who took "offered" for "assigned" would stop looking
+ * at the card.
  */
 export function formatOffer(
 	card: Card,

@@ -204,6 +204,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `team`: the `offer` verb's description and its `action` parameter say it *records the offer*
+  instead of "writes nothing". The shipped path calls the store, which sets `offeredAt` and
+  bumps the card's `rev` and `updatedAt` — only the lane and the owner stay put — so a model
+  planning against "writes nothing" read an offer as a free probe and could not see the write
+  it makes. Both surfaces now say the moment is recorded and why, and a case in
+  `extensions/team/tools.test.ts` fails if either drifts back.
+
 - `team`: `assign` refuses a card the peer already holds instead of sending a second
   handoff for it. The rules answered `{ changed: false }` for the session a card already
   belongs to — a no-op chosen so an id-named holder got the same answer as a label-named

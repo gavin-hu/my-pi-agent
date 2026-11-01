@@ -15,11 +15,12 @@ export const TeamParams = Type.Object({
 		TEAM_ACTIONS.map((action) => Type.Literal(action)),
 		{
 			description:
-				"`assign` sends a running session a handoff and then records the owner; `offer` broadcasts an unclaimed card to " +
-				"every other live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back " +
-				"to Backlog; `claim` takes one for the lead itself, which then plans and records it with `board`; `ask` sends " +
-				"one peer a question and starts nothing, so the answer arrives as mail. They are the round's five verbs: " +
-				"`board` creates, plans, moves, and finishes the cards, and the page is a view.",
+				"`assign` sends a running session a handoff and then records the owner; `offer` broadcasts an unclaimed card " +
+				"to every other live session, then records the moment it was made — the lane and the owner stay put — so " +
+				"the first to claim it takes it; `reclaim` takes a card back to Backlog; `claim` takes one for the lead " +
+				"itself, which then plans and records it with `board`; `ask` sends one peer a question and starts nothing, " +
+				"so the answer arrives as mail. They are the round's five verbs: `board` creates, plans, moves, and " +
+				"finishes the cards, and the page is a view.",
 		},
 	),
 	card: Type.Optional(Type.String({ description: 'The card to act on, e.g. "4" or "#4"; `ask` takes none.' })),
