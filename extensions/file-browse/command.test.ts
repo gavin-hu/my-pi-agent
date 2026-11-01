@@ -5,31 +5,81 @@
  */
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
-import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { realpathSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { ENV_DISABLED_EXTENSIONS, ENV_ROOT } from "../../lib/env.ts";
 import { useEnv, withEnv } from "../../test/helpers/env.ts";
-import { createFakePi, emit } from "../../test/helpers/fakes.ts";
+import { createFakePi, emit, type FakePi } from "../../test/helpers/fakes.ts";
 import { fileBrowseCtx, makeFixture, runCommand, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
+import { settle, waitFor } from "../../test/helpers/process.ts";
 import fileBrowser from "./index.ts";
 import type { FileServer, FileServerResult } from "./transport/server.ts";
 
-const env = useEnv({ PI_WORKTREE_ROOT: undefined });
+const env = useEnv({ [ENV_ROOT]: undefined });
 afterAll(() => env.restore());
 
 let fixture: Fixture | undefined;
+let other: Fixture | undefined;
 
 afterEach(() => {
 	fixture?.remove();
 	fixture = undefined;
+	other?.remove();
+	other = undefined;
 });
 
 function fakeServer(root: string): FileServerResult {
-	return { kind: "served", server: { url: "http://127.0.0.1:4321/files/", port: 4321, root, close: async () => {} } };
+	return {
+		kind: "served",
+		server: { url: "http://127.0.0.1:4321/files/", port: 4321, root, reroot: () => {}, close: async () => {} },
+	};
 }
 
 /** The page a fake result carries, for a case that only needs one field of it. */
 function servedOf(result: FileServerResult): FileServer {
 	if (result.kind !== "served") throw new Error(result.reason);
 	return result.server;
+}
+
+/** A fake page whose served root moves with `reroot`, so a follow can be observed. */
+function movableServer(root: string): {
+	result: FileServerResult;
+	reroots: Array<{ root: string; readers: boolean }>;
+} {
+	let served = root;
+	const reroots: Array<{ root: string; readers: boolean }> = [];
+	return {
+		reroots,
+		result: {
+			kind: "served",
+			server: {
+				url: "http://127.0.0.1:4321/files/",
+				port: 4321,
+				get root() {
+					return served;
+				},
+				reroot(next, readers) {
+					served = realpathSync.native(next);
+					reroots.push({ root: served, readers: Boolean(readers?.git && readers.diff) });
+				},
+				close: async () => {},
+			},
+		},
+	};
+}
+
+/**
+ * Publish the switch a worktree enter or exit publishes.
+ *
+ * The effective root is the environment's, exactly as `/browse` reads it, so a case
+ * sets the variable the switch would set and then emits the trigger. The page reacts
+ * asynchronously — it loads the modules a re-root needs — so a case that expects a move
+ * waits on the recorder rather than on the emit.
+ */
+async function switchTo(root: string, pi: FakePi["pi"]): Promise<void> {
+	await withEnv({ [ENV_ROOT]: root }, async () => {
+		pi.events.emit("worktree:changed", { active: true, path: root });
+	});
 }
 
 const noOpen = () => {};
@@ -159,5 +209,82 @@ describe("browse command", () => {
 		const { ctx, notifications } = fileBrowseCtx(fixture.root);
 		await runCommand(pi, "browse", "a.txt", ctx);
 		expect(notifications.at(-1)?.level).toBe("error");
+	});
+
+	test("follows the session into the worktree it switched to", async () => {
+		fixture = makeFixture();
+		other = makeFixture();
+		const { pi } = createFakePi();
+		const page = movableServer(fixture.root);
+		fileBrowser(pi, { createServer: async () => page.result, open: noOpen });
+		const { ctx, notifications } = fileBrowseCtx(fixture.root);
+		await runCommand(pi, "browse", "", ctx);
+
+		await switchTo(other.root, pi);
+		await waitFor(() => page.reroots.length === 1);
+
+		// The readers are rebuilt for the new root, so the header's git context and the
+		// diff view are the new tree's, not the one the session left.
+		expect(page.reroots).toEqual([{ root: other.root, readers: true }]);
+		expect(notifications.at(-1)).toEqual({
+			level: "info",
+			message: `browse: followed to ${other.root} at http://127.0.0.1:4321/files/`,
+		});
+		await runCommand(pi, "browse", "status", ctx);
+		expect(notifications.at(-1)?.message).toContain(other.root);
+	});
+
+	test("keeps a subfolder root under the new tree, and falls back to its base", async () => {
+		fixture = makeFixture();
+		other = makeFixture();
+		const bare = makeFixture();
+		const { pi } = createFakePi();
+		const page = movableServer(join(fixture.root, "sub"));
+		fileBrowser(pi, { createServer: async () => page.result, open: noOpen });
+		const { ctx } = fileBrowseCtx(fixture.root);
+		await runCommand(pi, "browse", "sub", ctx);
+
+		await switchTo(other.root, pi);
+		await waitFor(() => page.reroots.length === 1);
+		expect(page.reroots.at(-1)?.root).toBe(join(other.root, "sub"));
+
+		// A tree without that folder serves its own root instead of failing the follow.
+		rmSync(join(bare.root, "sub"), { recursive: true, force: true });
+		await switchTo(bare.root, pi);
+		await waitFor(() => page.reroots.length === 2);
+		expect(page.reroots.at(-1)?.root).toBe(bare.root);
+		bare.remove();
+	});
+
+	test("stays put when the announced tree is the one it serves", async () => {
+		fixture = makeFixture();
+		const { pi } = createFakePi();
+		const page = movableServer(fixture.root);
+		fileBrowser(pi, { createServer: async () => page.result, open: noOpen });
+		const { ctx } = fileBrowseCtx(fixture.root);
+		await runCommand(pi, "browse", "", ctx);
+
+		// The gate is synchronous, so nothing needs waiting for: the same tree is the
+		// page's own, and the event costs no reads at all.
+		await switchTo(fixture.root, pi);
+		expect(page.reroots).toEqual([]);
+	});
+
+	test("drops the listener with the page it served", async () => {
+		fixture = makeFixture();
+		other = makeFixture();
+		const { pi } = createFakePi();
+		const page = movableServer(fixture.root);
+		fileBrowser(pi, { createServer: async () => page.result, open: noOpen });
+		const { ctx } = fileBrowseCtx(fixture.root);
+		await runCommand(pi, "browse", "", ctx);
+		await runCommand(pi, "browse", "stop", ctx);
+
+		const target = other.root;
+		await withEnv({ [ENV_ROOT]: target }, async () => {
+			pi.events.emit("worktree:changed", { active: true, path: target });
+			await settle(25);
+		});
+		expect(page.reroots).toEqual([]);
 	});
 });

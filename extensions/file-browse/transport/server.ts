@@ -25,7 +25,7 @@ import {
 import { IDLE_STOP_MS, type ServeConfig } from "../config/config.ts";
 import { createFileIndex } from "../files/files.ts";
 import type { GitDiffProvider, GitStatusProvider } from "../git/git.ts";
-import { createLiveChannel, createLiveStatus } from "../live/live.ts";
+import { createLiveChannel, createLiveStatus, movedFrameOf } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 
 /**
@@ -37,14 +37,28 @@ import { handleRequest, type ServeContext } from "./router.ts";
  */
 export const BROWSE_BASE = "/files";
 
+/** The readers built for one root: the header's git context, and the diff view's. */
+export interface RootReaders {
+	/** Read-only git context for the page header; omitted when unavailable. */
+	git?: GitStatusProvider;
+	/** Read-only diff provider for the change and diff views; omitted when unavailable. */
+	diff?: GitDiffProvider;
+}
+
 /** A mounted page. */
 export interface FileServer {
 	/** The page's URL, e.g. `http://127.0.0.1:4780/files/`. */
 	url: string;
 	/** The port the session's server bound. */
 	port: number;
-	/** Resolved absolute root that is actually served. */
-	root: string;
+	/** Resolved absolute root served right now; it moves with `reroot`. */
+	readonly root: string;
+	/**
+	 * Serve `root` from this same prefix instead, and tell every attached page, so it
+	 * reloads onto it. The URL and port do not change: the prefix is the session's, not
+	 * the root's. Throws when `root` cannot be resolved, leaving the page as it was.
+	 */
+	reroot(root: string, readers?: RootReaders): void;
 	/** Give the prefix back. Safe to call more than once. */
 	close(): Promise<void>;
 }
@@ -73,27 +87,38 @@ export interface FileServerOptions {
 
 /** Mount a read-only page rooted at `options.root` on the session's server. */
 export async function createFileServer(options: FileServerOptions): Promise<FileServerResult> {
-	const root = realpathSync.native(options.root);
 	const { config } = options;
+	// What the page reads right now. One holder, so a reroot swaps the root and its
+	// readers together: a render, a status frame, and a reload can never disagree.
+	let current: { root: string } & RootReaders = {
+		root: realpathSync.native(options.root),
+		git: options.git,
+		diff: options.diff,
+	};
+	const gitReader: GitStatusProvider = () => current.git?.() ?? Promise.resolve(undefined);
+	const diffReader: GitDiffProvider = {
+		list: (mode) => current.diff?.list(mode) ?? Promise.resolve(undefined),
+		file: (rel, mode) => current.diff?.file(rel, mode) ?? Promise.resolve(undefined),
+	};
 	// The status feed's two server-owned facts: how long it has been up, and how
 	// many requests it has answered. Both are read per frame, never cached.
 	let requests = 0;
 	const status = config.live
 		? createLiveStatus({
-				git: options.git,
-				diff: config.gitDiff ? options.diff : undefined,
+				git: gitReader,
+				diff: config.gitDiff ? diffReader : undefined,
 				startedAt: Date.now(),
 				requests: () => requests,
 			})
 		: undefined;
 	const live = status ? createLiveChannel({ status, intervalMs: config.liveIntervalMs }) : undefined;
 	const context: ServeContext = {
-		root,
+		root: current.root,
 		base: BROWSE_BASE,
 		config,
-		git: options.git,
-		diff: options.diff,
-		index: createFileIndex(root, config.maxIndexEntries),
+		git: gitReader,
+		diff: diffReader,
+		index: createFileIndex(current.root, config.maxIndexEntries),
 		live: status,
 	};
 	const handler = options.handler ?? handleRequest;
@@ -132,7 +157,18 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 		server: {
 			url: `${mount.origin}${mount.base}/`,
 			port: mount.port,
-			root,
+			get root() {
+				return current.root;
+			},
+			reroot(next, readers = {}) {
+				// Resolved before anything is swapped: a root that cannot be served (a
+				// removed worktree) leaves the page on the one it has.
+				const resolved = realpathSync.native(next);
+				current = { root: resolved, git: readers.git, diff: readers.diff };
+				context.root = resolved;
+				context.index = createFileIndex(resolved, config.maxIndexEntries);
+				live?.announce(movedFrameOf(resolved));
+			},
 			close: async () => {
 				// End the streams first, so a connected page does not hold the mount open.
 				live?.close();

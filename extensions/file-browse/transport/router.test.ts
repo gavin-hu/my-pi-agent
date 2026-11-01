@@ -17,12 +17,11 @@ import { DEFAULT_CONFIG, LIVE_MAX_CLIENTS, type ServeConfig } from "../config/co
 import type { DiffList, GitDiffProvider } from "../git/git.ts";
 import { changeIndexOf, createLiveChannel, createLiveStatus, frameOf, type LiveClient } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
-import { BROWSE_BASE, createFileServer, type FileServer, type FileServerOptions } from "./server.ts";
-import { testMountSource } from "../../../test/helpers/serve.ts";
+import { BROWSE_BASE, type FileServer } from "./server.ts";
 import type { ServeResponse } from "../../../lib/http/index.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { useEnv } from "../../../test/helpers/env.ts";
-import { makeFixture, type Fixture } from "../../../test/helpers/fixtures/file-browse.ts";
+import { makeFixture, servePage, type Fixture } from "../../../test/helpers/fixtures/file-browse.ts";
 import { settle } from "../../../test/helpers/process.ts";
 
 const env = useEnv({ PI_WORKTREE_ROOT: undefined });
@@ -704,21 +703,6 @@ function connectionRefused(url: string): Promise<boolean> {
 	});
 }
 
-/**
- * The shipped page, mounted on a real server: the socket `serve` would have given it.
- *
- * The page holds `/files`, so `server.url` is the origin with that prefix.
- */
-async function serveHere(
-	root: string,
-	config: FileServerOptions["config"],
-	extra: Partial<FileServerOptions> = {},
-): Promise<FileServer> {
-	const outcome = await createFileServer({ root, config, mount: testMountSource(), session: "s1", ...extra });
-	if (outcome.kind !== "served") throw new Error(outcome.reason);
-	return outcome.server;
-}
-
 describe("loopback server", () => {
 	test("holds the /files namespace, which is what every URL it emits is built from", async () => {
 		fixture = makeFixture();
@@ -726,14 +710,14 @@ describe("loopback server", () => {
 		// the Markdown destinations, so the mount and the document agree. This case is that
 		// claim, and it is meant to fail when the prefix moves.
 		expect(BROWSE_BASE).toBe("/files");
-		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
+		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
 		expect(new URL(server.url).pathname).toBe("/files/");
 		expect(await (await fetch(server.url)).text()).toContain('<script src="/files/app.js"');
 	});
 
 	test("leaves the origin's root to the other pages, and redirects a bare prefix", async () => {
 		fixture = makeFixture();
-		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
+		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
 		const origin = new URL(server.url).origin;
 		// The root is unclaimed by decision: `board` and a plan review leave it free too.
 		const root = await fetch(`${origin}/`);
@@ -747,7 +731,7 @@ describe("loopback server", () => {
 
 	test("serves listings, files, and the tree API over HTTP", async () => {
 		fixture = makeFixture();
-		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
+		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
 		expect(server.port).toBeGreaterThan(0);
 		expect(server.url.startsWith("http://127.0.0.1:")).toBe(true);
 
@@ -766,7 +750,7 @@ describe("loopback server", () => {
 
 	test("responds to HEAD without a body", async () => {
 		fixture = makeFixture();
-		server = await serveHere(fixture.root, DEFAULT_CONFIG);
+		server = await servePage(fixture.root, DEFAULT_CONFIG);
 		const response = await fetch(server.url, { method: "HEAD" });
 		expect(response.status).toBe(200);
 		expect(await response.text()).toBe("");
@@ -774,7 +758,7 @@ describe("loopback server", () => {
 
 	test("streams a status frame as a page connects, and ends it on close", async () => {
 		fixture = makeFixture();
-		const started = await serveHere(
+		const started = await servePage(
 			fixture.root,
 			{ ...DEFAULT_CONFIG, autoOpen: false },
 			{
@@ -807,7 +791,7 @@ describe("loopback server", () => {
 
 	test("answers /events with 404 when live status is off", async () => {
 		fixture = makeFixture();
-		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, live: false });
+		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, live: false });
 		const reply = await fetch(`${server.url}events`);
 		expect(reply.status).toBe(404);
 		expect(await reply.text()).toContain("Live status is not available");
@@ -820,7 +804,7 @@ describe("loopback server", () => {
 			headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
 			stream: true,
 		};
-		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false }, { handler: async () => stream });
+		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false }, { handler: async () => stream });
 		// Held, not merely started: a response whose reader nothing references is collected, which
 		// tears its connection down and frees the slot it counted — the race this case lost under
 		// `--parallel`, and what the forced collection below reproduces on its own.
@@ -844,7 +828,7 @@ describe("loopback server", () => {
 
 	test("closes idempotently and stops accepting connections", async () => {
 		fixture = makeFixture();
-		const started = await serveHere(fixture.root, DEFAULT_CONFIG);
+		const started = await servePage(fixture.root, DEFAULT_CONFIG);
 		const url = started.url;
 		await started.close();
 		await started.close();
@@ -858,7 +842,7 @@ describe("loopback server", () => {
 			closed = resolve;
 		});
 		let started: FileServer | undefined;
-		started = await serveHere(
+		started = await servePage(
 			fixture.root,
 			{ ...DEFAULT_CONFIG, autoOpen: false },
 			{

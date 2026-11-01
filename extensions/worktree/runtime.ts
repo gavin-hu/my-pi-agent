@@ -10,6 +10,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { ENV_ROOT } from "../../lib/env.ts";
+import { WORKTREE_CHANGED_CHANNEL, type WorktreeChangedEvent } from "../../lib/events.ts";
 import { loadConfig, type WorktreeConfig } from "./config.ts";
 import type { WorktreeState } from "./state.ts";
 
@@ -20,15 +21,6 @@ export { ENV_ROOT };
 export const ENV_BRANCH = "PI_WORKTREE_BRANCH";
 /** Main checkout a borrowed worktree forked from, so a child knows its `repoRoot`. */
 export const ENV_MAIN = "PI_WORKTREE_MAIN";
-
-/**
- * The channel `publishWorktree` announces on, for another extension that follows the active
- * root without polling; `docs/extensions/worktree.md` names it as the contract.
- *
- * Not exported: the channel is an event name on `pi.events`, so what crosses the boundary
- * is the string a listener subscribes to, and the constant is this module's own.
- */
-const WORKTREE_EVENT_CHANNEL = "worktree:changed";
 
 let active: WorktreeState | null = null;
 /** Directory to use when not isolated (the session cwd at startup). */
@@ -133,13 +125,16 @@ export function lockReasonFor(ctx: ExtensionContext): string {
 	return `pi:${process.pid}:${ctx.sessionManager.getSessionId()}`;
 }
 
-/** Notify other extensions (and the subagent extension) about the active worktree. */
+/**
+ * Notify other extensions (and the subagent extension) about the active worktree, on the
+ * channel another extension follows the active root through without polling.
+ */
 export function publishWorktree(pi: ExtensionAPI, state: WorktreeState | null): void {
 	try {
-		pi.events.emit(
-			WORKTREE_EVENT_CHANNEL,
-			state ? { active: true, path: state.path, branch: state.branch, borrowed: !!state.borrowed } : { active: false },
-		);
+		const event: WorktreeChangedEvent = state
+			? { active: true, path: state.path, branch: state.branch, borrowed: !!state.borrowed }
+			: { active: false };
+		pi.events.emit(WORKTREE_CHANGED_CHANNEL, event);
 	} catch {
 		// Event bus is optional.
 	}

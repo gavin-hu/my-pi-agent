@@ -34,7 +34,7 @@ root changes. It is one of two sibling git extensions in this package
 | Cleanup | `worktree` action `prune`, `/worktree prune` | Clean, unused, old worktrees are removed; every other one is kept with a reason. |
 | Concurrent-session safety | `worktree` actions `enter` and `prune` | A worktree in use is locked, so another session's sweep cannot remove it. |
 | Session restore | `/resume`, `--continue` | An active worktree is restored from the branch, or reported gone. |
-| Extension signal | `worktree:changed` | Another extension follows the active root without polling. |
+| Extension signal | `worktree:changed` | Another extension follows the active root without polling, on the channel `lib/events.ts` owns: `file-browse` re-roots its open page and reloads it. |
 | Doctor finding | `run_doctor` | A degraded `guard.blockPowershell` setting is named in the health report instead of only at use. |
 
 ## Quickstart

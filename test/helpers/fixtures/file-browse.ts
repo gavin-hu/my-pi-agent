@@ -1,8 +1,14 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+	createFileServer,
+	type FileServer,
+	type FileServerOptions,
+} from "../../../extensions/file-browse/transport/server.ts";
 import type { FakePi } from "../fakes.ts";
 import { fakeCtx } from "../context.ts";
+import { testMountSource } from "../serve.ts";
 
 /** A scratch tree with text, image, binary, nested, hidden, and symlink files. */
 export interface Fixture {
@@ -43,6 +49,23 @@ export function makeFixture(): Fixture {
 		hasSymlinks,
 		remove: () => rmSync(base, { recursive: true, force: true }),
 	};
+}
+
+/**
+ * The shipped page on a real socket: the mount `serve` would have given it.
+ *
+ * A suite that drives the page's own HTTP surface asks for this rather than binding a
+ * port itself. The page holds `/files`, so `server.url` is the origin with that prefix,
+ * and the case owns the close.
+ */
+export async function servePage(
+	root: string,
+	config: FileServerOptions["config"],
+	extra: Partial<FileServerOptions> = {},
+): Promise<FileServer> {
+	const outcome = await createFileServer({ root, config, mount: testMountSource(), session: "s1", ...extra });
+	if (outcome.kind !== "served") throw new Error(outcome.reason);
+	return outcome.server;
 }
 
 export interface FakeCtx {

@@ -3,20 +3,23 @@
  *
  * Registers the read-only `/browse` command. It starts a `node:http` server
  * bound to 127.0.0.1, rooted at the effective cwd, and opens the default
- * browser at a two-pane tree browser. No tool is registered; the server is
- * closed on `session_shutdown`, by `/browse stop`, and once its last page has
- * been gone for the idle grace — a closed window is not a running server.
+ * browser at a two-pane tree browser. The page follows the session's root: a
+ * `worktree:changed` re-roots it on the tree the session now works in, and the
+ * open page reloads onto it. No tool is registered; the server is closed on
+ * `session_shutdown`, by `/browse stop`, and once its last page has been gone
+ * for the idle grace — a closed window is not a running server.
  *
  * Load with:  pi --extension ./extensions/file-browse
  */
 
 import { realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
+import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import type { openInBrowser } from "../../lib/browser.ts";
 import type { ServeConfig } from "./config/config.ts";
-import type { FileServer } from "./transport/server.ts";
+import type { FileServer, RootReaders } from "./transport/server.ts";
 
 export interface FileBrowserDeps {
 	/** Override the server factory (tests). */
@@ -29,6 +32,21 @@ interface RunningServer {
 	server: FileServer;
 	/** The context of the command that started it, used to clear the chip later. */
 	ctx: ExtensionContext;
+	/** The config the page was opened with; a re-root keeps it. */
+	config: ServeConfig;
+	/** The checkout the session worked in when the page started, realpathed. */
+	base: string;
+	/** Drops the worktree listener; the subscription lives as long as the page. */
+	off: () => void;
+}
+
+/** The real path of `path`, or the path itself when it cannot be resolved. */
+function realOrSelf(path: string): string {
+	try {
+		return realpathSync.native(path);
+	} catch {
+		return path;
+	}
 }
 
 export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}): void {
@@ -41,6 +59,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		const current = running;
 		if (!current) return false;
 		running = undefined;
+		current.off();
 		await current.server.close();
 		return true;
 	};
@@ -93,24 +112,69 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		open(url);
 	};
 
-	/** Open the page's server; the server, git, HTTP, and browser modules live here. */
-	const openServer = async (root: string, config: ServeConfig, ctx: ExtensionContext): Promise<void> => {
-		const create = deps.createServer ?? (await import("./transport/server.ts")).createFileServer;
+	/** The page's read-only git readers for one root; a re-root rebuilds them. */
+	const readersFor = async (root: string, config: ServeConfig): Promise<RootReaders> => {
 		const { createGitDiff, createGitStatus } = await import("./git/git.ts");
+		return {
+			git: createGitStatus(pi, root),
+			diff: createGitDiff(pi, root, {
+				context: config.diffContext,
+				maxLines: config.maxDiffLines,
+				maxFileBytes: config.maxFileBytes,
+				maxTextLines: config.maxTextLines,
+			}),
+		};
+	};
+
+	/**
+	 * Serve the tree the session now works in, from the page's own URL.
+	 *
+	 * A worktree switch moves the session's root, and the page follows what a fresh
+	 * `/browse` would serve — `resolveEffectiveCwd` is the one rule, so the event and the
+	 * command cannot disagree. A page started on a subfolder keeps that subfolder under the
+	 * new tree when it is there, and falls back to the new root when it is not. The open
+	 * page reloads onto it; the URL, port, and prefix stay the session's.
+	 */
+	const follow = (): void => {
+		const current = running;
+		if (!current) return;
+		const nextBase = realOrSelf(resolveEffectiveCwd(current.ctx.cwd));
+		// Nothing moved: an event that repeats the tree already served costs no reads.
+		if (nextBase === current.base) return;
+		void reRoot(current, nextBase);
+	};
+
+	/** The asynchronous half of a follow: resolve the root the page should serve now. */
+	const reRoot = async (current: RunningServer, nextBase: string): Promise<void> => {
+		const { isInside } = await import("../../lib/path.ts");
+		const { relativePath } = await import("./files/paths.ts");
+		const inside = isInside(current.base, current.server.root);
+		const rel = inside ? relativePath(current.base, current.server.root) : "";
+		const candidate = rel ? join(nextBase, ...rel.split("/")) : nextBase;
+		const info = await stat(candidate).catch(() => undefined);
+		const nextRoot = info?.isDirectory() ? candidate : nextBase;
+		try {
+			current.server.reroot(nextRoot, await readersFor(nextRoot, current.config));
+		} catch (error) {
+			current.ctx.ui.notify(`browse: ${error instanceof Error ? error.message : String(error)}`, "error");
+			return;
+		}
+		current.base = nextBase;
+		current.ctx.ui.notify(`browse: followed to ${current.server.root} at ${current.server.url}`, "info");
+	};
+
+	/** Open the page's server; the server, git, HTTP, and browser modules live here. */
+	const openServer = async (base: string, root: string, config: ServeConfig, ctx: ExtensionContext): Promise<void> => {
+		const create = deps.createServer ?? (await import("./transport/server.ts")).createFileServer;
 		const { requestMount } = await import("../../lib/http/index.ts");
+		const { WORKTREE_CHANGED_CHANNEL } = await import("../../lib/events.ts");
 		try {
 			const outcome = await create({
 				root,
 				config,
 				mount: (spec) => requestMount(pi, spec),
 				session: sessionId,
-				git: createGitStatus(pi, root),
-				diff: createGitDiff(pi, root, {
-					context: config.diffContext,
-					maxLines: config.maxDiffLines,
-					maxFileBytes: config.maxFileBytes,
-					maxTextLines: config.maxTextLines,
-				}),
+				...(await readersFor(root, config)),
 				onIdle: () => void stopWhenPageLeft(),
 			});
 			if (outcome.kind === "refused") {
@@ -118,7 +182,9 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 				return;
 			}
 			const server = outcome.server;
-			running = { server, ctx };
+			// The listener lives exactly as long as the page, so a session with no page
+			// open holds no subscription to another extension's channel.
+			running = { server, ctx, config, base, off: pi.events.on(WORKTREE_CHANGED_CHANNEL, () => follow()) };
 			ctx.ui.notify(`browse: ${server.root} at ${server.url}`, "info");
 			await openPage(server.url, config);
 		} catch (error) {
@@ -159,7 +225,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		}
 
 		await stop();
-		await openServer(root, config, ctx);
+		await openServer(realOrSelf(cwd), root, config, ctx);
 	};
 
 	pi.registerCommand("browse", {

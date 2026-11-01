@@ -8,11 +8,12 @@
  * re-typed on either side — a rename has to break the build, not a notification
  * at runtime.
  *
- * The bus carries no state. `rails.ts` and `worktree` publish their own channels
- * from the modules that own them; a channel crosses an extension boundary only
- * when the payload is the whole contract, which is the case here: `job` publishes
- * a finished job for bytefly's notify capability, and `subagent` publishes a
- * finished child run for bytefly's footer roll-up.
+ * The bus carries no state. `rails.ts` publishes its channels from the module
+ * that owns them; a channel crosses an extension boundary only when the payload
+ * is the whole contract, which is the case here: `job` publishes a finished job
+ * for bytefly's notify capability, `subagent` publishes a finished child run for
+ * bytefly's footer roll-up, and `worktree` announces the active root that
+ * `file-browse` follows.
  */
 
 /** EventBus channel: a background job reached a terminal state. */
@@ -81,6 +82,29 @@ export interface SubagentFinishedEvent {
 	at: number | null;
 	/** Child process exit code; a model-level failure still exits 0. */
 	exitCode: number;
+}
+
+/** EventBus channel: the session's active working tree changed (enter or exit). */
+export const WORKTREE_CHANGED_CHANNEL = "worktree:changed";
+
+/**
+ * Payload on {@link WORKTREE_CHANGED_CHANNEL}: the root the session now works in.
+ *
+ * Published by `worktree` once it has exported the root into the process
+ * environment, so `active: false` means the session is back in its own checkout. A consumer that serves a
+ * root — `file-browse` re-roots its open page — reads the payload as a trigger
+ * only: the effective root comes from `lib/env.ts`'s `resolveEffectiveCwd`, so
+ * the event and a fresh command can never disagree about it.
+ */
+export interface WorktreeChangedEvent {
+	/** Whether the session is now in a worktree. */
+	active: boolean;
+	/** The worktree's absolute root; absent when `active` is false. */
+	path?: string;
+	/** Its branch, when one is checked out. */
+	branch?: string;
+	/** True when the worktree was inherited from a parent process (a subagent). */
+	borrowed?: boolean;
 }
 
 /** EventBus channel: `web-access` resolved its search provider for this session. */
