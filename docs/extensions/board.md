@@ -437,8 +437,9 @@ written before the log existed has no age beside its lane, and `updatedAt` keeps
 it always meant: when the card was last touched, which is not when it last changed lane.
 - **Nothing prunes itself.** A `done` card stays until someone sets it aside or drops it,
   an archived card stays until someone drops it, and a dropped card leaves its record
-  behind for the same reason; the page shows how many bytes the board occupies and how
-  many files it could not read, and neither it nor the round counts the archive. Setting
+  behind for the same reason; the page shows how many bytes the board occupies — off the
+  same read that lists the cards — and how many files it could not read, and neither it nor
+  the round counts the archive. Setting
   history aside is a `board` call, not a threshold nobody stated, so what a read returns
   never depends on how much has accumulated.
 - **A page claim is a claim nobody cleans up.** A card a page claimed before this change

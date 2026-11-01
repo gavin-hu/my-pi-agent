@@ -40,6 +40,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a page frame reads the board once. `store.scan()` answers the cards, the files it
+  refused and the bytes they occupy — the size comes off the read that was already made — so
+  `viewOf` no longer follows it with `bytes()`, which re-`readdir`ed `cards/` and `stat`ed every
+  file whose contents the scan had just read. Measured here at 200 cards, one frame went from
+  11.78 ms (`scan` 8.27 + `bytes` 3.86) to 8.4 ms, and it runs once a second for every open tab
+  until the page stops. `bytes()` leaves `BoardStore`: `list` and `skipped` were already the
+  scan's two halves.
+
 - `dev`: `bun run check` and `bun run test` are one command with a scope, and the check's three
   phases run at once through `scripts/check.ts` instead of in a chain — so the gate costs what its
   longest phase costs, 30.4 s on an 8-core machine measured while the box was busy against
@@ -203,6 +211,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   head so the folder being read survives.
 
 ### Fixed
+
+- `board`: an all-archived board says "No open cards." instead of "The board is empty.".
+  `formatBoard` picked its empty sentence on the hidden done cards alone, so a board whose every
+  card had been archived printed "The board is empty." directly above "1 card is set aside in
+  the archive; pass archived: true to read it." A card file this build refused is accounted for
+  the same way, which is the state its own note under the line already names.
 
 - `team`: the `offer` verb's description and its `action` parameter say it *records the offer*
   instead of "writes nothing". The shipped path calls the store, which sets `offeredAt` and

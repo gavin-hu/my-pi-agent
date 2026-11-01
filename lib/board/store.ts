@@ -132,13 +132,13 @@ export interface BoardStore {
 	/** Every card on the board, in lane order: backlog, plan, execute, blocked, done. */
 	list(): Promise<Card[]>;
 	/**
-	 * The board in one read: the cards, and the files it refused.
+	 * The board in one read: the cards, the files it refused, and the bytes they occupy.
 	 *
-	 * A page's snapshot needs both, and asking twice reads and parses every card twice to
+	 * A page's snapshot needs all three, and asking twice reads and parses every card twice to
 	 * answer one frame; `list` and `skipped` are the two halves of this for a caller that
 	 * wants only one.
 	 */
-	scan(): Promise<{ cards: Card[]; skipped: Skip[] }>;
+	scan(): Promise<{ cards: Card[]; skipped: Skip[]; bytes: number }>;
 	/**
 	 * The cards set aside in the archive, in the same order, and the files there this build
 	 * refused. Read only when a caller asks: no other read opens the pile.
@@ -155,8 +155,6 @@ export interface BoardStore {
 	 * found in whichever pile it lies in, and written back to that one.
 	 */
 	mutate(id: string, op: CardOp, actor: Actor, now: number): Promise<MutateResult>;
-	/** Bytes the board's cards occupy on disk; the archive is not counted. */
-	bytes(): Promise<number>;
 	/** Card files this build refused to read, and why. */
 	skipped(): Promise<Skip[]>;
 	/** A short, user-facing name for the directory. */
@@ -236,22 +234,30 @@ export function createStore(
 		await sweepTemps(archiveDir);
 	};
 
-	/** Every card file of one pile, read once: what it shows and what it refused. */
-	const scanPile = async (pileDir: string): Promise<{ cards: Card[]; skipped: Skip[] }> => {
+	/**
+	 * Every card file of one pile, read once: what it shows, what it refused, and what it costs.
+	 *
+	 * The size comes off the read rather than a second pass, because the bytes are already in
+	 * hand: a frame that walked the directory again would stat every file it just opened.
+	 */
+	const scanPile = async (pileDir: string): Promise<{ cards: Card[]; skipped: Skip[]; bytes: number }> => {
 		const entries = await readdirSafe(pileDir);
 		const cards: Card[] = [];
 		const skipped: Skip[] = [];
+		let bytes = 0;
 		for (const entry of entries) {
 			const read = await readCardFile(pileDir, entry);
+			// Counted for a refusal too: a card file this build cannot read still occupies the disk.
+			bytes += read.bytes;
 			if ("card" in read) cards.push(read.card);
 			// Anything that is not a card-named file is not the board's to explain.
 			else if (entry.endsWith(".json")) skipped.push(read.skip);
 		}
 		// Sorted by file name so two reads of one board say the same thing in the same order.
-		return { cards: sortForLane(cards), skipped: skipped.sort((a, b) => a.file.localeCompare(b.file)) };
+		return { cards: sortForLane(cards), skipped: skipped.sort((a, b) => a.file.localeCompare(b.file)), bytes };
 	};
 
-	const scan = (): Promise<{ cards: Card[]; skipped: Skip[] }> => scanPile(cardsDir);
+	const scan = (): Promise<{ cards: Card[]; skipped: Skip[]; bytes: number }> => scanPile(cardsDir);
 
 	const list = async (): Promise<Card[]> => (await scan()).cards;
 
@@ -366,17 +372,6 @@ export function createStore(
 		};
 	};
 
-	const bytes = async (): Promise<number> => {
-		const entries = await readdirSafe(cardsDir);
-		let total = 0;
-		for (const entry of entries) {
-			if (!CARD_FILE.test(entry)) continue;
-			const info = await stat(join(cardsDir, entry)).catch(() => undefined);
-			if (info) total += info.size;
-		}
-		return total;
-	};
-
 	return {
 		dir,
 		key,
@@ -389,7 +384,6 @@ export function createStore(
 		read,
 		create,
 		mutate,
-		bytes,
 		skipped,
 		where: () => shortenPath(dir),
 		root: () => root,
@@ -405,36 +399,46 @@ function fileNameFor(id: string): string {
 /** The card files the reader accepts. */
 const CARD_FILE = /^(\d{4,})\.json$/;
 
-/** One card file: the card, or the reason this build refused it. */
-async function readCardFile(pileDir: string, entry: string): Promise<{ card: Card } | { skip: Skip }> {
+/** One card file: the card or the reason this build refused it, and the bytes it occupies. */
+type CardFileRead = { card: Card; bytes: number } | { skip: Skip; bytes: number };
+
+/**
+ * One card file, read once: the file's bytes are decoded and counted in the same pass, so a
+ * caller that wants the pile's size pays nothing for it — and a name that is not a card file is
+ * never opened, so it counts as nothing.
+ */
+async function readCardFile(pileDir: string, entry: string): Promise<CardFileRead> {
 	const match = CARD_FILE.exec(entry);
-	if (!match) return { skip: { file: entry, why: "not a card id" } };
+	if (!match) return { skip: { file: entry, why: "not a card id" }, bytes: 0 };
 	const id = String(Number(match[1]));
-	const text = await readFile(join(pileDir, entry), "utf-8").catch(() => undefined);
-	if (text === undefined) return { skip: { file: entry, id, why: "cannot be read" } };
+	const raw = await readFile(join(pileDir, entry)).catch(() => undefined);
+	if (raw === undefined) return { skip: { file: entry, id, why: "cannot be read" }, bytes: 0 };
+	// The read bytes are the file's size, so the size needs no `stat` of its own.
+	const bytes = raw.length;
+	const text = raw.toString("utf-8");
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(text);
 	} catch {
-		return { skip: { file: entry, id, why: "bad JSON" } };
+		return { skip: { file: entry, id, why: "bad JSON" }, bytes };
 	}
 	// A version this build does not read is the one refusal a reader can act on: the file was
 	// written by a newer build, so the board is not empty, it is not readable here. Every
 	// version `readCard` can map is read; the number is named rather than guessed at.
 	const version = typeof parsed === "object" && parsed !== null ? (parsed as { v?: unknown }).v : undefined;
 	if (typeof version === "number" && !SUPPORTED_VERSIONS.some((known) => known === version)) {
-		return { skip: { file: entry, id, why: `version ${version}` } };
+		return { skip: { file: entry, id, why: `version ${version}` }, bytes };
 	}
 	// The one gate a file read passes: an older spelling of the lane field is read as
 	// this build's, and everything else is a shape this build does not trust.
 	const card = readCard(parsed);
-	if (card === undefined) return { skip: { file: entry, id, why: "not a card record" } };
+	if (card === undefined) return { skip: { file: entry, id, why: "not a card record" }, bytes };
 	// The file name is the id's canonical spelling: a padded id inside the record
 	// (or a record moved under another name) is a disagreement, not a card.
 	if (card.id !== String(Number(match[1]))) {
-		return { skip: { file: entry, id, why: `names card ${card.id}` } };
+		return { skip: { file: entry, id, why: `names card ${card.id}` }, bytes };
 	}
-	return { card };
+	return { card, bytes };
 }
 
 /** The highest id a directory holds, or 0 when it holds none. */
