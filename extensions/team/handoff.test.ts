@@ -244,6 +244,21 @@ describe("offer", () => {
 		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
 	});
 
+	test("records the offer a peer could not be reached for, and names it", async () => {
+		// One message file per inbox: the broadcast landed in one, not the other, so the offer
+		// happened. Recording nothing would lose the record of an offer that reached somebody.
+		const { call, seed, store } = harness({
+			undelivered: [{ label: "billing-web", error: "EEXIST: file already exists, mkdir '…'" }],
+		});
+		const id = await seed();
+		const result = await call({ action: "offer", card: id });
+		expect(result.isError).toBeFalsy();
+		expect(resultText(result)).toContain("#1 offered to billing-core.");
+		expect(resultText(result)).toContain("Not delivered to billing-web (EEXIST: file already exists, mkdir '…').");
+		expect(result.details.failed?.map((entry) => entry.label)).toEqual(["billing-web"]);
+		expect((await (await store()).read(id))?.offeredAt).toBe(NOW);
+	});
+
 	test("an offer whose record loses the race sends no correction, and the claim is what tells a peer", async () => {
 		let id = "";
 		const race = harness({

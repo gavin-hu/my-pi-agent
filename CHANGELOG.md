@@ -152,6 +152,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a send that reached some peers and not others says so. `send` wrote one message
+  file per recipient in a loop and threw on the first failure, so a partial fan-out was
+  reported as a total failure while the peers written before it held the message — and
+  `team`'s `offer` then refused a card whose event was already in some inboxes, leaving an
+  offer with no record of it. The runtime now collects the recipients it could not write for
+  and returns them beside `delivered`; something delivered is a success that prints
+  `Not delivered to <label> (<reason>)`, nothing delivered stays an error, and `offer`
+  records the offer and names the peer it missed. Pinned end to end in
+  `extensions/session-bus/delivery.test.ts`, which stages the failure on disk.
 - `session-bus`: the listening watch queues each message once, and never queues one that
   was read before it left the inbox. `pollOnce` had no single-flight guard, so the ticker, an
   explicit poll, and a poll slower than the 2 s interval could each compute the same `known`

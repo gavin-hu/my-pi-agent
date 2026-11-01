@@ -45,7 +45,7 @@ function bus(options: { sent?: Sent[]; fail?: string } = {}): Notify {
 	return async (_ctx, input) => {
 		if (options.fail !== undefined) return { ok: false, error: options.fail };
 		options.sent?.push(input);
-		return { ok: true, delivered: [input.to] };
+		return { ok: true, delivered: [input.to], failed: [] };
 	};
 }
 

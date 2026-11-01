@@ -39,7 +39,7 @@ import {
 } from "./protocol.ts";
 import { createMailWatch, type WatchingState } from "./mail-watch.ts";
 import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
-import type { BusMessage, ClaimConflict, InboxPeek, SessionRecord, SessionStatus } from "./types.ts";
+import type { BusMessage, ClaimConflict, DeliveryFailure, InboxPeek, SessionRecord, SessionStatus } from "./types.ts";
 import {
 	BUS_DIR_NAME,
 	type RosterSeams,
@@ -88,7 +88,7 @@ export interface SessionBus {
 		text: string;
 		kind?: string;
 		paths?: unknown;
-	}): Promise<{ delivered: string[]; messageId: string }>;
+	}): Promise<{ delivered: string[]; failed: DeliveryFailure[]; messageId: string }>;
 	inbox(limit?: number): Promise<BusMessage[]>;
 	claim(paths: unknown): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(paths: unknown): Promise<{ released: string[]; notOwned: string[] }>;
@@ -559,21 +559,18 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			let paths: string[] | undefined;
 			if (input.paths !== undefined) paths = storedPaths(me, input.paths);
 			const id = messageId(now());
-			for (const recipient of resolved.recipients) {
-				const message: BusMessage = {
-					id,
-					from: me.id,
-					fromLabel: me.label,
-					to: recipient.id,
-					toLabel: recipient.label,
-					kind,
-					text: text.text,
-					...(paths ? { paths } : {}),
-					at: now(),
-				};
-				await store.writeMessage(recipient.id, message);
-			}
-			return { delivered: resolved.recipients.map((recipient) => recipient.label), messageId: id };
+			// One file per inbox, so the peers written before a failure keep the message: the store
+			// answers with both lists and the caller decides what a partial delivery means.
+			const { delivered, failed } = await store.writeTo(resolved.recipients, {
+				id,
+				from: me.id,
+				fromLabel: me.label,
+				kind,
+				text: text.text,
+				...(paths ? { paths } : {}),
+				at: now(),
+			});
+			return { delivered, failed, messageId: id };
 		},
 
 		async inbox(limit) {

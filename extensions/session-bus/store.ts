@@ -12,7 +12,7 @@ import { mkdir, link, readdir, rename, rm, rmdir, stat, writeFile } from "node:f
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/config.ts";
 import { claimsConflict } from "./overlap.ts";
-import type { BusMessage, ClaimConflict, ClaimRecord, InboxPeek, SessionRecord } from "./types.ts";
+import type { BusMessage, ClaimConflict, ClaimRecord, DeliveryFailure, InboxPeek, SessionRecord } from "./types.ts";
 import { INBOX_DIR_NAME, SESSIONS_DIR_NAME } from "../../lib/session-roster.ts";
 
 const DIR_MODE = 0o700;
@@ -32,6 +32,19 @@ export interface BusStore {
 	session(id: string): Promise<SessionRecord | undefined>;
 	removeSession(id: string): Promise<void>;
 	writeMessage(target: string, message: BusMessage): Promise<void>;
+	/**
+	 * Write one message for each recipient, and answer with those written and those a
+	 * file could not be made for.
+	 *
+	 * A send is one file per inbox, not one transaction over several, so a failure part-way
+	 * through leaves the recipients before it holding the message. Nothing here can make the
+	 * set atomic — splitting the report from the write is the point — so the caller decides
+	 * what a partial delivery means.
+	 */
+	writeTo(
+		recipients: readonly { id: string; label: string }[],
+		fields: Omit<BusMessage, "to" | "toLabel">,
+	): Promise<{ delivered: string[]; failed: DeliveryFailure[] }>;
 	/**
 	 * Read up to `limit` messages from the front of a recipient's inbox without consuming
 	 * them, skipping the ids the caller already has, with every id still unread.
@@ -215,6 +228,18 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	const inboxDir = (id: string): string => join(inboxRoot, SHA(id));
 	const claimFile = (path: string): string => join(claimsDir, `${SHA(path)}.json`);
 
+	/**
+	 * One message file in one inbox, created where it is not there yet.
+	 *
+	 * A local function rather than a method, because two entries of the store write through
+	 * it and `this` is not a receiver a destructured caller keeps.
+	 */
+	async function writeMessageFile(target: string, message: BusMessage): Promise<void> {
+		const directory = inboxDir(target);
+		await mkdir(directory, { recursive: true, mode: DIR_MODE });
+		await writeJson(join(directory, `${message.id}.json`), message);
+	}
+
 	async function readSessions(): Promise<SessionRecord[]> {
 		const sessions: SessionRecord[] = [];
 		for (const name of await listFiles(sessionsDir)) {
@@ -381,10 +406,22 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			await dropIfEmpty(inboxDir(id));
 		},
 
-		async writeMessage(target, message) {
-			const directory = inboxDir(target);
-			await mkdir(directory, { recursive: true, mode: DIR_MODE });
-			await writeJson(join(directory, `${message.id}.json`), message);
+		writeMessage: writeMessageFile,
+
+		async writeTo(recipients, fields) {
+			const delivered: string[] = [];
+			const failed: DeliveryFailure[] = [];
+			for (const recipient of recipients) {
+				try {
+					await writeMessageFile(recipient.id, { ...fields, to: recipient.id, toLabel: recipient.label });
+					delivered.push(recipient.label);
+				} catch (error) {
+					// The recipient's own sentence, kept as it came: it is the reason a caller
+					// prints, and a filesystem refusal means nothing once it is rewritten.
+					failed.push({ label: recipient.label, error: error instanceof Error ? error.message : String(error) });
+				}
+			}
+			return { delivered, failed };
 		},
 
 		async peek(id, options) {

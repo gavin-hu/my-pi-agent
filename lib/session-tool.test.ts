@@ -8,7 +8,15 @@
 
 import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../test/helpers/context.ts";
-import { join, listPeers, MAX_MESSAGE_TEXT, send, TEAM_JOIN_REQUEST, type TeamJoinRequest } from "./session-tool.ts";
+import {
+	join,
+	listPeers,
+	MAX_MESSAGE_TEXT,
+	notDeliveredLine,
+	send,
+	TEAM_JOIN_REQUEST,
+	type TeamJoinRequest,
+} from "./session-tool.ts";
 
 /** What one nested call answers. */
 type Reply = { isError?: boolean; result?: unknown };
@@ -139,8 +147,31 @@ describe("send", () => {
 		expect(await send(ctx, { kind: "event", to: "*", text: "handoff text" })).toEqual({
 			ok: true,
 			delivered: ["billing-core"],
+			failed: [],
 		});
 		expect(calls).toEqual([{ name: "session", action: "send", kind: "event", to: "*", text: "handoff text" }]);
+	});
+
+	test("carries the peers a partial fan-out could not reach, and one sentence for them", async () => {
+		const { ctx } = client(() =>
+			ok({
+				action: "send",
+				delivered: ["billing-core"],
+				failed: [{ label: "billing-web", error: "EEXIST: file already exists" }, { label: 7 }, "nonsense"],
+			}),
+		);
+		expect(await send(ctx, { kind: "event", to: "*", text: "x" })).toEqual({
+			ok: true,
+			delivered: ["billing-core"],
+			failed: [{ label: "billing-web", error: "EEXIST: file already exists" }],
+		});
+	});
+
+	test("the not-delivered sentence sanitizes both halves, and is absent when nobody failed", () => {
+		expect(notDeliveredLine([])).toBeUndefined();
+		expect(notDeliveredLine([{ label: "billing\nweb", error: "EACCES\r\nrefused" }])).toBe(
+			"Not delivered to billing web (EACCES refused).",
+		);
 	});
 
 	test("reports a failed send as its sentence", async () => {

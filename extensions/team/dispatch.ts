@@ -16,12 +16,26 @@ import type { Card } from "../../lib/board/card.ts";
 import { cardRef, type CardOwner } from "../../lib/board/card.ts";
 import { askLead, type Lead } from "../../lib/board/lead.ts";
 import type { Actor } from "../../lib/board/rules.ts";
-import { listPeers, MAX_MESSAGE_TEXT, type Peer, send as sendTo } from "../../lib/session-tool.ts";
+import {
+	listPeers,
+	MAX_MESSAGE_TEXT,
+	type DeliveryFailure,
+	type Peer,
+	send as sendTo,
+} from "../../lib/session-tool.ts";
 
 /** How a handoff reaches a peer, and what the bus can say about the peers there are. */
 export interface Dispatch {
-	/** Send the text as `kind`, and report the labels a message file was written for. Throws on failure. */
-	send(input: { kind: "handoff" | "event" | "ask"; to: string; text: string }): Promise<{ delivered: string[] }>;
+	/**
+	 * Send the text as `kind`, and report what the bus did with it: the labels a message
+	 * file was written for, and the peers it could not be written for. Throws only when
+	 * nobody got it.
+	 */
+	send(input: {
+		kind: "handoff" | "event" | "ask";
+		to: string;
+		text: string;
+	}): Promise<{ delivered: string[]; failed: DeliveryFailure[] }>;
 	/**
 	 * Every session the bus lists, when it can say.
 	 *
@@ -138,9 +152,11 @@ export function sessionDispatch(ctx: ExtensionToolContext): Dispatch {
 		async send(input) {
 			const result = await sendTo(ctx, input);
 			// `assign` and `offer` branch on a failed send, so this seam reports it the way
-			// they read it: the bus's sentence, as the reason the card was not handed over.
+			// they read it: the bus's sentence, as the reason the card was not handed over. A
+			// send that reached somebody is not a failure — it is a success with a list of the
+			// peers it missed, which they print.
 			if (!result.ok) throw new Error(result.error);
-			return { delivered: result.delivered };
+			return { delivered: result.delivered, failed: result.failed };
 		},
 		peers: () => listPeers(ctx),
 	};

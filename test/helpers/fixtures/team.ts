@@ -41,6 +41,8 @@ export interface TeamSuiteOptions {
 	joinLabel?: string;
 	/** The lead the repository names, when the default is not the case under test. */
 	lead?: string;
+	/** The peers the send could not write a message for, when the case is a partial fan-out. */
+	undelivered?: Array<{ label: string; error: string }>;
 }
 
 /**
@@ -73,7 +75,12 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 			if (options.fail !== undefined) throw new Error(options.fail);
 			sent.push(input);
 			await options.duringSend?.(input);
-			return { delivered: input.to === "*" ? ["billing-core", "billing-web"] : [input.to] };
+			const failed = options.undelivered ?? [];
+			const reached = input.to === "*" ? ["billing-core", "billing-web"] : [input.to];
+			// A send that reached everybody is the default. A case that wants the partial
+			// fan-out names the peers a write failed for, and they leave the delivered list:
+			// one message file is either written for a peer or not.
+			return { delivered: reached.filter((label) => !failed.some((entry) => entry.label === label)), failed };
 		},
 		// The peers a case passes in; the default is the two above, listening.
 		async peers() {

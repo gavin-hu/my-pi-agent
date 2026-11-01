@@ -99,6 +99,17 @@ export interface ClaimConflict {
 }
 
 /**
+ * One recipient a message could not be written for.
+ *
+ * A send is one file per inbox, so one failure does not undo the recipients already
+ * written: the caller is told which peers hold the message and which do not.
+ */
+export interface DeliveryFailure {
+	label: string;
+	error: string;
+}
+
+/**
  * What the board reads in one poll: the bus as it stands, and this session's
  * unread mail. Peeking never consumes, so the notice and `inbox` are unaffected.
  */
@@ -112,6 +123,8 @@ export interface SessionDetails {
 	action: "status" | "send" | "inbox" | "claim" | "release" | "join";
 	status?: SessionStatus;
 	delivered?: string[];
+	/** With send: the recipients no message file could be written for. */
+	failed?: DeliveryFailure[];
 	messageId?: string;
 	messages?: BusMessage[];
 	claimed?: string[];

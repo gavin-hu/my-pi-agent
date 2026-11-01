@@ -54,7 +54,7 @@ collapsed line that expands to the board's rows.
 | Action | Inputs | Result |
 |---|---|---|
 | `status` | — | Active sessions with unread counts, their state, claims, and this session's identity. A session whose process is gone is listed as `gone` until its heartbeat ages out, and its claims are not listed at all. Prunes stale records. A read: it never adds this session to the bus. |
-| `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient. `to: "*"` is only valid with `kind: "event"`. A session whose process is gone is not a recipient: naming it is refused, and a broadcast skips it. |
+| `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient, and reports what happened to each: a partial fan-out names the peers it could not write for (`Not delivered to <label> (<reason>)`) and still succeeds, while reaching nobody is a failure. `to: "*"` is only valid with `kind: "event"`. A session whose process is gone is not a recipient: naming it is refused, and a broadcast skips it. |
 | `inbox` | optional `limit` | Consumes up to `limit` messages, oldest first (default 20, max 50). Each body is clipped and the whole read stops at a 4,000-character budget; the mail it did not reach stays in the inbox and is named in one `… N more` line. |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
@@ -187,6 +187,13 @@ listening watch is what raises the turn.
 - **Two listening peers can ping-pong.** Each reply wakes the other as soon as it is
   idle. A wake raises one turn per burst, and `inbox` consumes, so the loop needs
   both sides to keep replying; the answer is to stop listening on one of them.
+- **A fan-out is one file per inbox, so it can be partial.** A write that fails for one
+  recipient does not undo the recipients already written, and nothing can make the set
+  atomic — so `send` reports both lists. `team`'s `offer` records the offer when any peer
+  was reached and names the ones it missed; a send that reached nobody is refused, and
+  the card is untouched. A caller must not retry a partial send — the peers in `delivered`
+  would each get the message twice — which is why `failed` is a list to ask again and not a
+  reason to repeat the send.
 - **No broadcast history.** A broadcast reaches the sessions active at send time;
   a session that joins later does not receive it.
 - **Mail to a gone session is refused, not queued.** A record whose process has

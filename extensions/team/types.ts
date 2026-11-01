@@ -10,6 +10,7 @@
 
 import type { Card } from "../../lib/board/card.ts";
 import type { CardOwner } from "../../lib/board/card.ts";
+import type { DeliveryFailure } from "../../lib/session-tool.ts";
 
 /** The tool's name. `board` owns the cards; `team` owns the round. */
 export const TEAM_TOOL = "team";
@@ -40,6 +41,8 @@ export interface TeamDetails {
 	 * for their next turn instead of being raised as one. Absent when every peer listens.
 	 */
 	notListening?: string[];
+	/** The peers no message file could be written for, when the send reached somebody else. */
+	failed?: DeliveryFailure[];
 	/** Why the handoff was not sent; the card is untouched when this is set. */
 	messageError?: string;
 	/** A refusal's reason, which the renderer draws instead of the details. */

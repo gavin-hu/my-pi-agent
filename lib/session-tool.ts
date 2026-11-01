@@ -24,6 +24,7 @@
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { type BusAnswer, requestOverBus } from "./bus-request.ts";
 import { messageOf } from "./errors.ts";
+import { sanitizeLine } from "./format.ts";
 import { watchingOf } from "./session-roster.ts";
 import { SESSION_TOOL } from "./tool-names.ts";
 
@@ -51,6 +52,29 @@ export interface Peer {
 
 /** What a join did: the label it landed on, and whether mail will reach the session. */
 export type JoinResult = { ok: true; label: string; watching: Watching } | { ok: false; error: string };
+
+/**
+ * One recipient a message could not be written for.
+ *
+ * A send is one file per inbox, so a failure part-way through a broadcast leaves the peers
+ * written before it holding the message. What a caller is told is therefore two lists.
+ */
+export interface DeliveryFailure {
+	label: string;
+	error: string;
+}
+
+/**
+ * The one sentence for the peers a message did not reach.
+ *
+ * `session send` and the three `team` verbs print it, so it lives here: two copies are how
+ * a label one of them forgot to sanitize reaches a rendered frame.
+ */
+export function notDeliveredLine(failed: readonly DeliveryFailure[]): string | undefined {
+	if (failed.length === 0) return undefined;
+	const who = failed.map((entry) => `${sanitizeLine(entry.label)} (${sanitizeLine(entry.error)})`).join(", ");
+	return `Not delivered to ${who}.`;
+}
 
 /** EventBus channel on which a caller asks `session-bus` to join the team for it. */
 export const TEAM_JOIN_REQUEST = "my-pi-agent/team-join/request";
@@ -81,8 +105,14 @@ export interface TeamJoinRequest {
 	respond(result: BusAnswer<JoinResult>): void;
 }
 
-/** What a send did. */
-export type SendResult = { ok: true; delivered: string[] } | { ok: false; error: string };
+/**
+ * What a send did.
+ *
+ * `ok` is the bus's own answer to "did anyone get this": a total failure is `ok: false`,
+ * because no recipient can be told a message landed. A partial one is a success carrying
+ * the peers a file could not be written for, which is the only case that needs saying.
+ */
+export type SendResult = { ok: true; delivered: string[]; failed: DeliveryFailure[] } | { ok: false; error: string };
 
 /** One nested call's answer: the details on success, the sentence on failure. */
 type Answer = { details: Record<string, unknown> } | { error: string };
@@ -193,9 +223,18 @@ export async function send(
 ): Promise<SendResult> {
 	const answer = await call(ctx, { action: "send", kind: input.kind, to: input.to, text: input.text });
 	if ("error" in answer) return { ok: false, error: answer.error };
-	const delivered = answer.details.delivered;
+	const labels = (value: unknown): string[] =>
+		Array.isArray(value) ? value.filter((label): label is string => typeof label === "string") : [];
+	const failed = answer.details.failed;
 	return {
 		ok: true,
-		delivered: Array.isArray(delivered) ? delivered.filter((label): label is string => typeof label === "string") : [],
+		delivered: labels(answer.details.delivered),
+		failed: Array.isArray(failed)
+			? failed.flatMap((entry) => {
+					if (typeof entry !== "object" || entry === null) return [];
+					const { label, error } = entry as Record<string, unknown>;
+					return typeof label === "string" && typeof error === "string" ? [{ label, error }] : [];
+				})
+			: [],
 	};
 }
