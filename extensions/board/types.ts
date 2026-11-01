@@ -46,7 +46,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	approve:
 		"approves the contract: the lead (`board.lead`, `lead` by default, the name the page serves as), who does not hold the card, says the wording is right, which is what `plan` to `execute` requires, and `text` records what the signer saw",
 	review:
-		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`, which is what `done` requires, and `text` records what the signer saw; the sign is announced to the card's owner in its inbox, so a session that needs one asks the lead with `session send`",
+		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`, which is what `done` requires, and `text` records what the signer saw; the sign is announced to the card's owner in its inbox, so a session that needs one asks the lead with `session send`. `override` instead signs a finished card nobody signed, naming why",
 	edit: "fixes what the card says — title, path hints, priority, and what it waits for",
 	archive:
 		"sets a finished card aside, out of the board and still readable, or every archivable one when no `card` is named",
@@ -74,7 +74,7 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	note: ["card", "text"],
 	contract: ["card", "path", "goal", "acceptance", "scopeOut"],
 	approve: ["card", "text"],
-	review: ["card", "text"],
+	review: ["card", "text", "override"],
 	edit: ["card", "title", "paths", "priority", "dependsOn"],
 	archive: ["card"],
 	drop: ["card"],

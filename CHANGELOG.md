@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: a card closed outside the gate can be signed after the fact. `review` takes
+  `override` — one line saying why, which signs a card that is already `done` and carries no
+  sign — and the sign keeps that line in `byInstruction`, so the card's reason line and its
+  `reviewed` rung, the dialog, and the rollup's done count (`3 done, 1 by instruction, 2
+  archivable`) all say `closed by instruction` instead of leaving a forced close
+  indistinguishable from a signed one. The person's door is `/board review <id> --override
+  <why>`, and the reason is kept as typed rather than lowercased with the word. It is
+  refused with no reason, on any lane but `done`, and over a sign that is already there, and
+  absent means signed through the gate — so nothing older needed migrating.
 - `dev`: `bun run bench:load` reports what a load costs, per extension — the
   modules its entry statically evaluates at registration, how many of them are `lib/`, how
   many another entry pays again, and what that graph costs to import with the host packages

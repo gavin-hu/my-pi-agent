@@ -11,11 +11,12 @@
  * function, so each suite flushes them with the tracker it already owns.
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { SHARED_CONFIG_FILE } from "../../lib/config.ts";
 import { openBoardSession, type BoardSession } from "../../lib/board/session.ts";
+import { BOARD_DIR_NAME } from "../../lib/board/store.ts";
 import { fakeCtx } from "./context.ts";
 import { createFakePi, type FakePiOptions } from "./fakes.ts";
 import { tempDir } from "./env.ts";
@@ -68,6 +69,23 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 		sessionName: options.sessionName ?? "billing-lead",
 	});
 	return { fake, runtime, ctx, notifications, cwd, agentDir, now };
+}
+
+/**
+ * The card file the store wrote for `id`, found by reading the pile rather than by
+ * rebuilding its file name: the padding is the store's, and a suite that guessed it would
+ * keep passing on the day the naming changed under it.
+ *
+ * A suite that needs a record the gates never write — a card closed outside them — is
+ * pointed at its file by this.
+ */
+export function cardFile(agentDir: string, id: string): string {
+	const pile = join(agentDir, BOARD_DIR_NAME);
+	const found = readdirSync(pile, { recursive: true, encoding: "utf8" })
+		.filter((name) => name.endsWith(".json"))
+		.find((name) => (JSON.parse(readFileSync(join(pile, name), "utf8")) as { id?: string }).id === id);
+	if (found === undefined) throw new Error(`no card file for #${id} under ${pile}`);
+	return join(pile, found);
 }
 
 /**

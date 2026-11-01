@@ -146,6 +146,9 @@ describe("the dialog's client", () => {
 		expect(BOARD_CLIENT_JS).toContain('board.reasonTone("approval")');
 		// A landing is a commit and the moment it landed; the commit stays whole on the hover.
 		expect(BOARD_CLIENT_JS).toContain('landed.commit + " \\u00b7 " + ago(landed.at)');
+		// A spot-check says who and when, and says so when the close was made by instruction: the
+		// reason itself is the reason line above it, which is the shared body.
+		expect(BOARD_CLIENT_JS).toContain('reviewed.byInstruction === undefined ? "" : " \\u00b7 by instruction"');
 		// An empty section takes its heading with it, and the notes read newest first — with
 		// one line instead of an empty list when a card has none.
 		expect(BOARD_CLIENT_JS).toContain('card-dialog-" + SECTIONS[s] + "-section');

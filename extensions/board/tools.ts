@@ -256,7 +256,17 @@ export function registerTools(
 					case "review": {
 						const { announce, notifyOverBus } = await (signMessage ??= import("./announce.ts"));
 						const told = (card: Card) => announce(card, action, me, ctx, deps.notify ?? notifyOverBus);
-						return await mutate(store, action, me, now, args, { kind: action, text: args.text }, { told });
+						return await mutate(
+							store,
+							action,
+							me,
+							now,
+							args,
+							action === "review"
+								? { kind: "review", text: args.text, override: args.override }
+								: { kind: "approve", text: args.text },
+							{ told },
+						);
 					}
 					case "edit": {
 						if (

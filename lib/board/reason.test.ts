@@ -110,6 +110,19 @@ describe("reasonFor", () => {
 				ago,
 			),
 		).toEqual({ kind: "done", text: "✓ done by billing-core · landed 4af1b4a" });
+		// A close the gate was not asked for says so: pinned to the sign rather than to the lane,
+		// because every finished card is in the lane and only this one was closed by instruction.
+		expect(
+			reasonFor(
+				card({
+					lane: "done",
+					owner,
+					review: { by: "you", at: NOW, byInstruction: "closed on my instruction" },
+					landed: { commit: "4af1b4a", at: NOW },
+				}),
+				ago,
+			),
+		).toEqual({ kind: "done", text: "✓ done by billing-core · landed 4af1b4a · closed by instruction" });
 	});
 });
 

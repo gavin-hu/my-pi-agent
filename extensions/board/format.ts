@@ -166,7 +166,10 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 		const approved = card.contract.approved;
 		lines.push(`  approved: ${approved === undefined ? "nobody yet" : approved.by}`);
 	}
-	if (card.review !== undefined) lines.push(`  reviewed: ${card.review.by}`);
+	if (card.review !== undefined) {
+		const reason = card.review.byInstruction;
+		lines.push(`  reviewed: ${card.review.by}${reason === undefined ? "" : ` · by instruction: ${reason}`}`);
+	}
 
 	if (card.paths.length > 0) lines.push(`  paths: ${card.paths.join(", ")}`);
 	if (dependsOf(card).length > 0) lines.push(`  waits on: ${waitingOf(card, board)}`);

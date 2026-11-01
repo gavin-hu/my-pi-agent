@@ -9,6 +9,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { readFileSync, writeFileSync } from "node:fs";
+import { cardFile } from "../../test/helpers/board.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeBoardSession, pageWithNoRecording, signingBoard } from "../../test/helpers/board-command.ts";
@@ -159,5 +161,49 @@ describe("/board approve and /board review", () => {
 			message: "board: approve #4 failed — ENOSPC: no space left on device",
 			kind: "error",
 		});
+	});
+});
+
+describe("/board review --override", () => {
+	/** A card this fixture finished through the gate, with its sign taken back off afterward. */
+	async function closedByHand(board: Awaited<ReturnType<typeof signingBoard>>, me: typeof board.me) {
+		await board.store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			me,
+			1_000,
+		);
+		await board.store.mutate(board.id, { kind: "approve" }, { id: "person:you", label: "you" }, 1_000);
+		await board.store.mutate(board.id, { kind: "move", lane: "execute", artifact: { path: board.plan } }, me, 1_000);
+		await board.store.mutate(board.id, { kind: "review" }, { id: "person:you", label: "you" }, 1_000);
+		await board.store.mutate(board.id, { kind: "move", lane: "done", artifact: { path: board.plan } }, me, 1_000);
+		const file = cardFile(board.agentDir, board.id);
+		const card = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+		delete card.review;
+		writeFileSync(file, JSON.stringify(card));
+	}
+
+	test("signs a finished card, and keeps the reason as the person typed it", async () => {
+		const board = await signingBoard();
+		await closedByHand(board, board.me);
+		// The word is folded for the parser; the sentence after the flag is not.
+		expect(await board.say("REVIEW 1 --override Closed On My Instruction")).toBe(
+			`board: #1 reviewed by you · closed by instruction${NOT_TOLD}`,
+		);
+		expect((await board.store.read(board.id))?.review).toMatchObject({
+			by: "you",
+			byInstruction: "Closed On My Instruction",
+		});
+		board.temps.flush();
+	});
+
+	test("refuses the flag with nothing after it, and on a word that takes no override", async () => {
+		const board = await signingBoard();
+		await closedByHand(board, board.me);
+		expect(await board.say("review 1 --override")).toBe("board: override needs the one line saying why.");
+		expect(await board.say("approve 1 --override closed anyway")).toBe(
+			"board: approve takes no --override — a contract is approved while it is in plan",
+		);
+		board.temps.flush();
 	});
 });

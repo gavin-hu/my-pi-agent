@@ -121,6 +121,17 @@ export function reviewed(owner: Actor = CORE, reviewer: Actor = LEAD): Card {
 	return stepOf(executing(approved(owner)), { kind: "review" }, reviewer);
 }
 
+/**
+ * A finished card: spot-checked by the lead, then moved to `done` on a commit.
+ *
+ * Its `review` is what a `done` move requires, so a case that needs a finished card nobody
+ * signed is that field taken back off — which is the record a close outside the gate leaves.
+ */
+export function finished(owner: Actor = CORE, reviewer: Actor = LEAD): Card {
+	const card = reviewed(owner, reviewer);
+	return stepOf(card, { kind: "move", lane: "done", landed: { commit: "4af1b4a" }, artifact: provedFor(card) }, owner);
+}
+
 /** A card in `plan` on one of `ids`, for the cases that need several at once. */
 export function pulled(id: string, owner: Actor): Card {
 	return stepOf(createCard(id, { title: `T${id}`, paths: [] }, LEAD, 1_000), { kind: "claim" }, owner);

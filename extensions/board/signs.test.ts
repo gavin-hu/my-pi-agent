@@ -9,11 +9,11 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { tempDir } from "../../test/helpers/env.ts";
-import { boardHarness } from "../../test/helpers/board.ts";
+import { boardHarness, cardFile } from "../../test/helpers/board.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { presetNameFor } from "../../lib/session-label.ts";
 import { registerTools } from "./tools.ts";
@@ -168,5 +168,53 @@ describe("a sign tells the other side", () => {
 		expect(signed.isError).toBeFalsy();
 		expect(signed.details.card?.contract?.approved?.by).toBe(LEAD);
 		expect(resultText(signed)).toContain("was not told (the session bus is not loaded)");
+	});
+});
+
+describe("a close made by instruction", () => {
+	/** A card finished through the gate with its sign taken back off: what a close outside it leaves on disk. */
+	async function closedByHand(who: { lead: Session; peer: Session }): Promise<void> {
+		await claimedWithContract(who);
+		await who.lead.call({ action: "approve", card: "1" });
+		await who.peer.call({ action: "move", card: "1", lane: "execute" });
+		await who.lead.call({ action: "review", card: "1" });
+		await who.peer.call({ action: "move", card: "1", lane: "done" });
+		const file = cardFile(who.peer.board.agentDir, "1");
+		const card = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+		delete card.review;
+		writeFileSync(file, JSON.stringify(card));
+	}
+
+	test("signs a finished card, and both the result and the owner say how it was closed", async () => {
+		const sent: Sent[] = [];
+		const board = bench({ notify: bus({ sent }) });
+		await closedByHand(board);
+		sent.length = 0;
+		const signed = await board.lead.call({ action: "review", card: "1", override: "Closed on my instruction." });
+		expect(signed.isError).toBeFalsy();
+		expect(signed.details.card?.review).toMatchObject({ by: LEAD, byInstruction: "Closed on my instruction." });
+		expect(resultText(signed)).toContain(`reviewed: ${LEAD} · by instruction: Closed on my instruction.`);
+		// The owner hears the close it can act on, and not the move it can no longer make.
+		expect(sent[0]?.text ?? "").toContain("closed by instruction");
+		expect(sent[0]?.text ?? "").not.toContain('lane "done"');
+	});
+
+	test("refuses it without a reason, and never over a sign that is already there", async () => {
+		const board = bench();
+		await closedByHand(board);
+		expect(resultText(await board.lead.call({ action: "review", card: "1", override: "   " }))).toContain(
+			"override needs the one line saying why.",
+		);
+		// A card that finished through the gate keeps the sign it was given: an override records a
+		// close that happened, not a second signature on one that did not.
+		const gated = bench();
+		await claimedWithContract(gated);
+		await gated.lead.call({ action: "approve", card: "1" });
+		await gated.peer.call({ action: "move", card: "1", lane: "execute" });
+		await gated.lead.call({ action: "review", card: "1" });
+		await gated.peer.call({ action: "move", card: "1", lane: "done" });
+		expect(
+			resultText(await gated.lead.call({ action: "review", card: "1", override: "closed on my instruction" })),
+		).toContain(`already spot-checked by ${LEAD}`);
 	});
 });

@@ -33,6 +33,11 @@ export interface Sign {
 	by: string;
 	/** When it signed. */
 	at: number;
+	/**
+	 * The one line saying why the gate was overridden, in the signer's words, and absent when it
+	 * was not: a sign that carries this is a close made by instruction, and a reader says so.
+	 */
+	byInstruction?: string;
 }
 
 /** What a card promises before it may be executed. */
@@ -49,6 +54,20 @@ export interface Contract {
 
 /** A rejected field, phrased for the model: what was wrong, not that something was. */
 export type FieldError = { error: string };
+
+/**
+ * The reason a sign overrode its gate: one sanitized line, or the reason it cannot be one.
+ *
+ * The cap is the contract line's, for the same reason it exists there: the line is drawn on a
+ * row and in a dialog rung, so a signer's essay would be the thing that broke the card face.
+ */
+export function normalizeInstruction(raw: unknown): { text: string } | FieldError {
+	if (typeof raw !== "string") return { error: "override needs the one line saying why." };
+	const text = sanitizeLine(raw).trim();
+	if (text === "") return { error: "override needs the one line saying why." };
+	if (text.length > MAX_CONTRACT) return { error: `override must be at most ${MAX_CONTRACT} characters.` };
+	return { text };
+}
 
 /** One contract line as stored: one sanitized line, or the reason it cannot be one. */
 export function normalizeContractField(field: ContractField, raw: unknown): { text: string } | FieldError {
@@ -94,11 +113,22 @@ export function mergedContract(
 	return next;
 }
 
-/** Whether `value` is a sign this build can trust: a name and a whole moment. */
+/**
+ * Whether `value` is a sign this build can trust: a name, a whole moment, and a reason that is
+ * already the line {@link normalizeInstruction} would write.
+ *
+ * The reason is checked against the normalizer rather than by a second rule, so a hand-edited
+ * `byInstruction` cannot read back as a sign while the write path would have refused it.
+ */
 export function isSign(value: unknown): value is Sign {
 	if (typeof value !== "object" || value === null) return false;
 	const sign = value as Record<string, unknown>;
-	return typeof sign.by === "string" && sign.by !== "" && typeof sign.at === "number" && Number.isInteger(sign.at);
+	if (typeof sign.by !== "string" || sign.by === "" || typeof sign.at !== "number" || !Number.isInteger(sign.at)) {
+		return false;
+	}
+	if (sign.byInstruction === undefined) return true;
+	const reason = normalizeInstruction(sign.byInstruction);
+	return !("error" in reason) && reason.text === sign.byInstruction;
 }
 
 /** Whether `value` is a contract this build can trust. */

@@ -31,7 +31,13 @@ import {
 	priorityOf,
 } from "./card.ts";
 import { type ArtifactCheck, contractRoute } from "./artifact.ts";
-import { CONTRACT_FIELDS, mergedContract, missingContractFields, normalizeContractField } from "./contract.ts";
+import {
+	CONTRACT_FIELDS,
+	mergedContract,
+	missingContractFields,
+	normalizeContractField,
+	normalizeInstruction,
+} from "./contract.ts";
 import { type BoardConfig } from "./config.ts";
 import { holderRefusal, missingSign, signRefusal } from "./lead.ts";
 import { type WipLimits, wipRefusal } from "./limits.ts";
@@ -355,20 +361,51 @@ export function approve(card: Card, actor: Actor, now: number, config: BoardConf
  * Record the spot-check of finished work: the lead's, and never the holder's.
  *
  * `text` rides the sign here too, so "checked, and this is still wrong" is one call.
+ *
+ * `override` is the other way a finished card gets a sign, and it is somebody saying the gate
+ * was jumped: the reason is required, the card must already be `done`, and no review may be on
+ * it, because the one rule this relaxes is the lane and a reason is not a second signature. Who
+ * may sign, and never the holder, is the same gate. The sign records how it was made, so a
+ * forced close reads as one instead of as a clean one.
  */
-export function review(card: Card, actor: Actor, now: number, config: BoardConfig, text?: unknown): Prepared {
-	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be reviewed.` };
-	if (card.lane !== "execute") {
-		return { error: `${cardRef(card.id)} is in ${card.lane}; finished work is spot-checked in execute.` };
+export function review(
+	card: Card,
+	actor: Actor,
+	now: number,
+	config: BoardConfig,
+	text?: unknown,
+	override?: unknown,
+): Prepared {
+	const instruction = override === undefined ? undefined : normalizeInstruction(override);
+	if (instruction !== undefined && "error" in instruction) return { error: instruction.error };
+	if (instruction === undefined) {
+		if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be reviewed.` };
+		if (card.lane !== "execute") {
+			return { error: `${cardRef(card.id)} is in ${card.lane}; finished work is spot-checked in execute.` };
+		}
+	} else if (!LANE_RULES[card.lane].terminal) {
+		return { error: `${cardRef(card.id)} is in ${card.lane}; an override signs a card that is already done.` };
 	}
 	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "review")}` };
 	const wrongSigner = signRefusal(card, actor, config.lead, "review");
 	if (wrongSigner !== undefined) return { error: wrongSigner };
+	const signed = card.review?.by === actor.label;
+	// A sign is a fact about a person and a moment, so an override never replaces one: it is how a
+	// card with no spot-check gets a record, not how a record gets a different author. The same
+	// signer, saying the same thing, is its own case — the sign is already the one it asked for.
+	if (instruction !== undefined && card.review !== undefined && !(signed && card.review.byInstruction !== undefined)) {
+		return {
+			error: `${cardRef(card.id)} is already spot-checked by ${card.review.by}; an override signs a card that has no sign.`,
+		};
+	}
 	const noted = signNote(card, text, actor, now);
 	if ("error" in noted) return { error: noted.error };
-	const signed = card.review?.by === actor.label;
 	if (signed && !noted.wrote) return { changed: false, fields: null };
-	const spotCheck = signed ? {} : { review: { by: actor.label, at: now } };
+	const stamp =
+		instruction === undefined
+			? { by: actor.label, at: now }
+			: { by: actor.label, at: now, byInstruction: instruction.text };
+	const spotCheck = signed ? {} : { review: stamp };
 	return { changed: true, fields: { ...spotCheck, ...noted.fields } };
 }
 

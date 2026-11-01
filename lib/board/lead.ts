@@ -111,9 +111,22 @@ const SIGN_WORDS: Record<Sign, SignWords> = {
 		release: "A lead releases a card before spot-checking it.",
 		missing: (card, lead) =>
 			`${cardRef(card.id)} has no spot-check recorded. The lead (${lead}) records one with \`review\` (${askLead(lead)}), or the person with \`/board review ${card.id}\`.`,
-		signed: (card, by) =>
-			`Signature: ${cardRef(card.id)} "${card.title}" — spot-checked by ${by}.\n` +
-			`Next: \`done\` is open — board action "move" with lane "done", while the plan it recorded is still in the store.`,
+		// Two signs, two announcements: a spot-check opens the last move, while one made by
+		// instruction is already the close, so telling its owner that `done` is open would send it
+		// after a move its card made before the sign existed.
+		signed: (card, by) => {
+			const why = card.review?.byInstruction;
+			if (why !== undefined) {
+				return (
+					`Signature: ${cardRef(card.id)} "${card.title}" — closed by instruction, signed by ${by}: ${why}.\n` +
+					`Next: nothing is open — the card is already done, and its record says how it was closed.`
+				);
+			}
+			return (
+				`Signature: ${cardRef(card.id)} "${card.title}" — spot-checked by ${by}.\n` +
+				`Next: \`done\` is open — board action "move" with lane "done", while the plan it recorded is still in the store.`
+			);
+		},
 	},
 };
 
