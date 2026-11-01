@@ -137,6 +137,20 @@ const ASSIGNED: TeamDetails = {
 	delivered: ["billing-core"],
 };
 
+/**
+ * The lines `formatHandoff` writes for that assignment, which are the result's own text.
+ *
+ * The transcript draws them when the block is expanded, so the fixture carries the real
+ * wording rather than a stand-in: a gallery entry that abbreviated it would show a block the
+ * shipped renderer never produces.
+ */
+const HANDOFF_TEXT = [
+	"#1 handed off to billing-core.",
+	"  Billing webhook accepts orders",
+	"  paths: src/billing, src/api",
+	"  The card is already owned by the peer; the handoff is in its inbox.",
+].join("\n");
+
 /** One reclaim, as the tool reports it. */
 const RECLAIMED: TeamDetails = {
 	action: "reclaim",
@@ -232,7 +246,19 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		label: "a card handed to a running session",
 		args: { action: "assign", card: "1", to: "billing-core" },
 		result: {
-			content: [{ type: "text", text: "#1 handed off to billing-core." }],
+			content: [{ type: "text", text: HANDOFF_TEXT }],
+			details: ASSIGNED,
+		},
+	},
+	{
+		name: "team-expanded",
+		tool: "team",
+		group: "package",
+		label: "the same handoff, expanded to the lines the model got",
+		args: { action: "assign", card: "1", to: "billing-core" },
+		options: { expanded: true },
+		result: {
+			content: [{ type: "text", text: HANDOFF_TEXT }],
 			details: ASSIGNED,
 		},
 	},
@@ -243,7 +269,14 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		label: "a card taken back to the pool, its notes kept",
 		args: { action: "reclaim", card: "2" },
 		result: {
-			content: [{ type: "text", text: "#2 reclaimed from billing-core" }],
+			content: [
+				{
+					type: "text",
+					text:
+						"#2 reclaimed from billing-core and back in Backlog; its notes are kept.\n" +
+						"  Retry branches merge cleanly into main",
+				},
+			],
 			details: RECLAIMED,
 		},
 	},
