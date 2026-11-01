@@ -191,7 +191,9 @@ listening watch is what raises the turn.
   recipient does not undo the recipients already written, and nothing can make the set
   atomic — so `send` reports both lists. `team`'s `offer` records the offer when any peer
   was reached and names the ones it missed; a send that reached nobody is refused, and
-  the card is untouched.
+  the card is untouched. A caller must not retry a partial send — the peers in `delivered`
+  would each get the message twice — which is why `failed` is a list to ask again and not a
+  reason to repeat the send.
 - **No broadcast history.** A broadcast reaches the sessions active at send time;
   a session that joins later does not receive it.
 - **Mail to a gone session is refused, not queued.** A record whose process has

@@ -228,6 +228,18 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	const inboxDir = (id: string): string => join(inboxRoot, SHA(id));
 	const claimFile = (path: string): string => join(claimsDir, `${SHA(path)}.json`);
 
+	/**
+	 * One message file in one inbox, created where it is not there yet.
+	 *
+	 * A local function rather than a method, because two entries of the store write through
+	 * it and `this` is not a receiver a destructured caller keeps.
+	 */
+	async function writeMessageFile(target: string, message: BusMessage): Promise<void> {
+		const directory = inboxDir(target);
+		await mkdir(directory, { recursive: true, mode: DIR_MODE });
+		await writeJson(join(directory, `${message.id}.json`), message);
+	}
+
 	async function readSessions(): Promise<SessionRecord[]> {
 		const sessions: SessionRecord[] = [];
 		for (const name of await listFiles(sessionsDir)) {
@@ -394,18 +406,14 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			await dropIfEmpty(inboxDir(id));
 		},
 
-		async writeMessage(target, message) {
-			const directory = inboxDir(target);
-			await mkdir(directory, { recursive: true, mode: DIR_MODE });
-			await writeJson(join(directory, `${message.id}.json`), message);
-		},
+		writeMessage: writeMessageFile,
 
 		async writeTo(recipients, fields) {
 			const delivered: string[] = [];
 			const failed: DeliveryFailure[] = [];
 			for (const recipient of recipients) {
 				try {
-					await this.writeMessage(recipient.id, { ...fields, to: recipient.id, toLabel: recipient.label });
+					await writeMessageFile(recipient.id, { ...fields, to: recipient.id, toLabel: recipient.label });
 					delivered.push(recipient.label);
 				} catch (error) {
 					// The recipient's own sentence, kept as it came: it is the reason a caller
