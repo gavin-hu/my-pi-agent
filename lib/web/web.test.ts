@@ -193,7 +193,7 @@ describe("web base", () => {
 	test("prints the document without its chrome", () => {
 		expect(WEB_BASE_CSS).toContain("@media print{");
 		expect(WEB_BASE_CSS).toContain(
-			".bf-toolbar,.bf-app__sidebar,.bf-app__footer,.bf-progress,.skip,.bf-dialog{display:none!important}",
+			".bf-toolbar,.bf-app__bar,.bf-app__sidebar,.bf-app__footer,.bf-progress,.skip,.bf-dialog{display:none!important}",
 		);
 		expect(WEB_BASE_CSS).toContain("overflow:visible!important}");
 	});

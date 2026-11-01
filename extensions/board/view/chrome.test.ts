@@ -1,0 +1,150 @@
+/**
+ * The board page's chrome: the toolbar's zones, the bar under it, and the footer.
+ *
+ * Held apart from `pages.test.ts`, which is at its size bar: the document's *card* rules stay
+ * there, and what the shell wears between its header and its footer is checked here — read from
+ * the same served document, so the two suites cannot disagree about what a reader is given.
+ *
+ * The stream's own case needs a browser: it reads what the page offers once its server has gone.
+ * Where the machine has none the case skips, naming `PI_CHROME`, so `bun run check` stays green
+ * on a runner without Chrome and still says why nothing ran.
+ */
+
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { makeClock } from "../../../test/helpers/clock.ts";
+import { LEAD, seedWorkingBoard } from "../../../test/helpers/board-fixture.ts";
+import {
+	BOARD_CHROME as CHROME,
+	BOARD_PAINT_MS as PAINT_MS,
+	type BoardBrowser,
+	openBoardBrowser,
+} from "../../../test/helpers/board-browser.ts";
+import { serveBoardPage } from "../../../test/helpers/board-page.ts";
+import { boardDocument as pageOf, REPO, ROOT, WHERE } from "../../../test/helpers/board-document.ts";
+import { renderBoardPage } from "./page.ts";
+import { BOARD_CSS } from "./styles.ts";
+
+/** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
+const clock = makeClock(1_760_000_000_000);
+
+describe("the toolbar", () => {
+	test("carries the page's state as chips, and the app's chrome last", () => {
+		// One owner per fact: read-only and the stream's state are the header's chips, the way
+		// browse wears them, and the reload control is the one action a dropped stream offers.
+		const page = pageOf("board");
+		expect(page).toContain('<div class="bf-toolbar__facts">');
+		expect(page).toContain('<span class="bf-chip bf-chip--accent">read-only</span>');
+		expect(page).toContain('<span class="bf-chip bf-chip--accent bf-live" id="board-status"');
+		expect(page).toContain('<span class="bf-live__text">connecting…</span>');
+		expect(page).toContain('id="reload-hint"');
+		// The app's chrome is its own zone, so `?` stops reading as one of the board's controls.
+		expect(page).toContain(
+			'<div class="bf-toolbar__chrome"><button type="button" class="bf-btn bf-btn--icon" id="keys-open"',
+		);
+		// The chip is where a reader looks for the state, not a region that announces it.
+		expect(page).not.toContain('aria-live="polite">connecting');
+	});
+
+	test("names the repository in the toolbar, and the root on its hover", () => {
+		const page = pageOf("board");
+		expect(page).toContain(
+			`<span class="bf-context bf-context--subject" id="board-repo" title="${ROOT}">${REPO}</span>`,
+		);
+		// Both are server data, and a repository path can hold a quote: it is escaped, because
+		// the root goes in an attribute.
+		const odd = renderBoardPage({ view: "board", base: "", repo: "a&b", root: '/tmp/"x"', where: WHERE });
+		expect(odd).toContain('title="/tmp/&quot;x&quot;"');
+		expect(odd).toContain(">a&amp;b<");
+	});
+});
+
+describe("the bar under it", () => {
+	test("holds the board's own controls, in the order a reader uses them", () => {
+		// The header answers who the board is of and whether it is live; the switch, the meter,
+		// and the filter answer what the reader is looking at, so they get the row below it.
+		const page = pageOf("board");
+		const bar = page.slice(page.indexOf('<div class="bf-app__bar board-bar">'));
+		for (const id of ['id="tab-board"', 'id="tab-team"', 'id="board-progress"', 'id="board-filter"']) {
+			expect(bar, id).toContain(id);
+		}
+		expect(bar.indexOf('id="board-filter"')).toBeGreaterThan(bar.indexOf('id="board-progress"'));
+	});
+
+	test("keeps the done meter at every width", () => {
+		// It used to be the toolbar's, and a narrow window had no room for it beside the tabs,
+		// the filter, and the chrome. In a row of its own it does, so the count is not a fact
+		// that appears and disappears with the window.
+		const media = BOARD_CSS.slice(BOARD_CSS.indexOf("@media (max-width:1180px)"));
+		expect(media.slice(0, media.indexOf("@media (max-width:860px)"))).not.toContain("board-progress");
+		expect(BOARD_CSS).toContain(".board-bar{gap:var(--space-3)}");
+	});
+});
+
+describe("the footer", () => {
+	test("names the store before the first frame arrives", () => {
+		// The store is the one footer fact the document can state, so a slow frame leaves a
+		// line that names the board rather than an empty bar; the counts follow with the frame.
+		const page = pageOf("board");
+		expect(page).toContain('<footer class="bf-app__footer">');
+		expect(page).toContain(`<span class="bf-footer__facts" id="board-where">store ${WHERE}</span>`);
+	});
+});
+
+/** The board the stream case reads, and its browser. */
+let board: BoardBrowser;
+
+describe.skipIf(CHROME === undefined)("a dropped stream", () => {
+	beforeAll(async () => {
+		board = await openBoardBrowser({
+			lead: LEAD.label,
+			now: clock.now,
+			seed: seedWorkingBoard,
+			display: { repo: REPO, root: ROOT, where: WHERE },
+		});
+	}, 30_000);
+
+	afterAll(async () => {
+		await board?.close();
+	}, 30_000);
+
+	test("offers the one action it leaves, and names the state", async () => {
+		// A page whose server has gone is stale, not wrong: the chip says so in the danger tone
+		// and the reload control appears beside it. Nothing is confirmed and nothing is written —
+		// reloading is the only thing a reader can do here, so it is a control, not a dialog.
+		const served = await serveBoardPage({
+			store: board.store,
+			now: clock.now,
+			display: { repo: REPO, root: ROOT, where: WHERE },
+		});
+		const page = await board.tab(served.url);
+		try {
+			const chipText = () => page.textContent("#board-status");
+			await page.waitForFunction(
+				() =>
+					(
+						(
+							globalThis as unknown as {
+								document: { getElementById(id: string): { textContent: string | null } | null };
+							}
+						).document.getElementById("board-status")?.textContent ?? ""
+					).includes("live"),
+				undefined,
+				{ timeout: PAINT_MS },
+			);
+			// A stream that is arriving offers no reload: the page it drew is still true.
+			expect(await page.isVisible("#reload-hint")).toBe(false);
+			expect(await page.getAttribute("#board-status", "class")).toContain("bf-chip--success");
+
+			await served.close();
+			await page.waitForSelector("#reload-hint:not([hidden])", { timeout: PAINT_MS });
+			expect(await chipText()).toContain("reconnecting");
+			expect(await page.getAttribute("#board-status", "class")).toContain("bf-chip--danger");
+			// The control names the action and keeps the remedy on its hover.
+			expect((await page.textContent("#reload-hint"))?.trim()).toBe("⟳ reload");
+			expect(await page.getAttribute("#reload-hint", "title")).toBe("Run /board again if this does not clear");
+		} finally {
+			await page.close();
+			await served.close();
+		}
+	});
+});

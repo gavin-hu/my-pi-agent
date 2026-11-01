@@ -10,6 +10,7 @@
 
 import { escapeHtml } from "../../../lib/escape.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { liveChip, reloadChip } from "../../../lib/web/index.ts";
 import type { GitStatus } from "../git/git.ts";
 import type { ChangeIndex } from "../live/live.ts";
 
@@ -33,30 +34,28 @@ export interface LivePage {
 }
 
 /**
- * The header's live controls: the connection chip, and the reload control the
- * client reveals once the folder the page drew has changed on disk. Both start
- * hidden, so a page with JS off — or with live status disabled — never shows a
- * state or a control it cannot keep true; the reload control is not rendered at
- * all when the page has no listing revision to compare.
+ * The header's live chrome: the connection chip, and the reload control the client reveals
+ * once the page stops being true — the folder it drew changed on disk, or the stream it reads
+ * has gone. Both start hidden, so a page with JS off — or with live status disabled — never
+ * shows a state or a control it cannot keep true.
  *
- * The chip is deliberately not a `role="status"` region: the header is where a
- * reader looks for the page's state, not a place to announce every change to it.
+ * The chip is not a live region: the header is where a reader looks for the page's state, and
+ * its tooltip is where the server's own accounting of the stream (`up 2m 14s · 37 requests`)
+ * is read, since the footer carries the page's facts and nothing else.
  */
 export function renderLiveChrome(live: LivePage | undefined): string {
 	if (!live) return "";
-	const rev =
-		live.rev === undefined ? "" : ` data-dir="${escapeHtml(live.dir ?? "")}" data-rev="${escapeHtml(live.rev)}"`;
-	const chip = `<span class="bf-chip bf-chip--accent browse-live" id="live-state" title="Live status from the browse server" data-interval="${live.intervalMs}"${rev} hidden><span class="browse-live__glyph" aria-hidden="true">◉</span><span class="browse-live__text">connecting</span></span>`;
-	if (live.rev === undefined) return chip;
-	return `${chip}<button type="button" class="bf-chip bf-chip--warn browse-reload" id="reload-hint" title="This folder changed on disk" hidden>⟳ reload</button>`;
-}
-
-/**
- * The footer's live line, hidden until the first frame: uptime and requests are
- * server facts the rendered page does not know at build time.
- */
-export function renderLiveStatus(): string {
-	return `<span class="browse-live-line" id="live-status" hidden></span>`;
+	const rev: Record<string, string> =
+		live.rev === undefined ? {} : { "data-dir": live.dir ?? "", "data-rev": live.rev };
+	return (
+		liveChip({
+			id: "live-state",
+			label: "connecting",
+			title: "Live status from the browse server",
+			hidden: true,
+			attrs: { "data-interval": String(live.intervalMs), ...rev },
+		}) + reloadChip({ title: "This folder changed on disk" })
+	);
 }
 
 /**

@@ -152,6 +152,81 @@ export function themeToggle(): string {
 	return `<button type="button" class="bf-btn bf-btn--icon bf-theme-toggle" id="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle light and dark theme"><span class="theme-glyph" aria-hidden="true">\u263E</span></button>`;
 }
 
+/**
+ * The page's subject: what this page is of — a repository's name, a served root.
+ *
+ * It is the toolbar's splitter as well as its label, so the only thing after it is the page's
+ * own facts and the app's chrome. The whole value is on the hover, because the line truncates
+ * its head: two clones of one repository, or two served folders, are told apart by the path.
+ */
+export function pageSubject(options: { id?: string; label: string; title: string }): string {
+	const id = options.id === undefined ? "" : ` id="${escapeHtml(options.id)}"`;
+	return `<span class="bf-context bf-context--subject"${id} title="${escapeHtml(options.title)}">${escapeHtml(options.label)}</span>`;
+}
+
+/**
+ * The live-state chip: the state's colour, its word, and its glyph.
+ *
+ * The tone is a `bf-chip--*` modifier and the glyph is decoration, so a client repaints the
+ * word and the class and never the shape ({@link paintLive} does exactly that). `attrs`
+ * carries a page's own hooks — the browse pages put their polling interval and the revision
+ * of what they drew there. The chip is not a live region: the header is where a reader looks
+ * for the state, and a page that announced every repaint would talk over its own content.
+ */
+export function liveChip(options: {
+	id: string;
+	label: string;
+	title?: string;
+	hidden?: boolean;
+	attrs?: Record<string, string>;
+}): string {
+	const title = options.title === undefined ? "" : ` title="${escapeHtml(options.title)}"`;
+	const attrs = Object.entries(options.attrs ?? {})
+		.map(([key, value]) => ` ${key}="${escapeHtml(value)}"`)
+		.join("");
+	return `<span class="bf-chip bf-chip--accent bf-live" id="${escapeHtml(options.id)}"${title}${attrs}${options.hidden ? " hidden" : ""}><span class="bf-live__glyph" aria-hidden="true">◉</span><span class="bf-live__text">${escapeHtml(options.label)}</span></span>`;
+}
+
+/**
+ * The live chip's one action: reload the page.
+ *
+ * It starts hidden and a client reveals it when the page stops being true — the folder it
+ * drew changed on disk, or the stream it reads has gone. Reloading is not a write: a page
+ * that cannot change a card can still ask the server for the page again.
+ */
+export function reloadChip(options: { title: string }): string {
+	return `<button type="button" class="bf-chip bf-chip--warn bf-reload" id="reload-hint" title="${escapeHtml(options.title)}" hidden>⟳ reload</button>`;
+}
+
+/** The `?` button that opens {@link keysSheet}, which is the one trigger both pages use. */
+export function keysButton(): string {
+	return button({
+		label: "?",
+		variant: "icon",
+		id: "keys-open",
+		title: "Keyboard shortcuts",
+		attrs: { "aria-haspopup": "dialog" },
+	});
+}
+
+/** The app's chrome, in the toolbar's last zone: the key sheet, then the theme toggle. */
+export function toolbarChrome(): string {
+	return `<div class="bf-toolbar__chrome">${keysButton()}${themeToggle()}</div>`;
+}
+
+/**
+ * The footer: one line of the page's own facts.
+ *
+ * A page says where its content came from — `store <path> …`, `served from <root> …` — and
+ * the line truncates its head rather than its tail, so the end that names the folder survives.
+ * `factsId` is for a page whose client keeps the line true after a frame; the facts ride the
+ * document so a slow frame never leaves the footer blank.
+ */
+export function pageFooter(options: { facts: string; factsId?: string }): string {
+	const id = options.factsId === undefined ? "" : ` id="${escapeHtml(options.factsId)}"`;
+	return `<footer class="bf-app__footer"><span class="bf-footer__facts"${id}>${escapeHtml(options.facts)}</span></footer>`;
+}
+
 /** A chip's tone, mapping to a `bf-chip--*` modifier. */
 export type ChipTone = "accent" | "success" | "warn" | "danger";
 
@@ -216,8 +291,8 @@ export interface KeyHint {
  * until the client opens it.
  *
  * The ids are the contract with `keysDialogScript` in `runtime.ts` — `#keys-dialog`
- * for the sheet, `#keys-close` for its own close button — and the trigger button
- * is the page's own concern, since the two pages name it differently.
+ * for the sheet, `#keys-close` for its own close button — and its trigger is
+ * {@link keysButton}.
  */
 export function keysSheet(rows: readonly KeyHint[], note?: string): string {
 	const kbd = (key: string): string => `<kbd class="bf-kbd">${escapeHtml(key)}</kbd>`;

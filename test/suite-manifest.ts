@@ -59,12 +59,14 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/dialog-behaviour",
 		"view/repaint",
 		"view/pages",
+		"view/chrome",
 	],
 	check: ["check", "surface", "extension"],
 	context: ["report", "view/context-report", "extension"],
 	"file-read": ["extract/extract", "tool"],
 	"file-browse": [
 		"view/pages",
+		"view/chrome",
 		"transport/router",
 		"transport/root-move",
 		"command",
@@ -216,6 +218,7 @@ export const LIB_SUITES: readonly string[] = [
 	"tui/interaction",
 	"tui/tool",
 	"web/web",
+	"web/web-chrome",
 ];
 
 export const SCRIPT_SUITES: readonly string[] = [

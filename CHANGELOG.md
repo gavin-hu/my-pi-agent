@@ -178,6 +178,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   so the tail is true: the next `inbox` returns the rest, and a ceiling can never be mail
   deleted unseen. The clip rule moved to `format.ts` so the notice and the inbox cannot drift.
 
+- `lib/web`: a served page's chrome is three rows deep and the kit draws all of them. The
+  toolbar is the lockup, a subject that grows and truncates its head (`pageSubject`), the
+  page's own facts as chips (`.bf-toolbar__facts`), and the app's chrome — the key sheet and
+  the theme toggle, borderless and muted, so `?` stops reading as one of the page's buttons
+  (`toolbarChrome`, `keysButton`). A page's own controls get their own row (`.bf-app__bar`),
+  and the footer is one facts line (`pageFooter`) that wraps rather than cutting a sentence
+  in half. The live state is one pill (`liveChip`, `reloadChip`) painted by one body
+  (`paintLive`, spliced through `CLIENT_RUNTIME_JS`), because the board and file browse had
+  each written the tone rule, the border, and the `?` button for themselves.
+- `board`: the toolbar keeps identity, state, and chrome, and the Board|Team switch, the done
+  meter, and the filter move to a bar under it — so the meter shows from three cards up at
+  any width instead of vanishing below 1180px, where it had no room. `read-only` is stated
+  once, in the header, as a chip; the footer names the store from the document, so a slow
+  frame no longer leaves it blank. The live state is the kit's chip, its `live · 3m` age is
+  the tooltip, and a stream that has dropped reveals `⟳ reload` (`run /board again if this
+  does not clear`). The status line is no longer a live region: it repainted an age every
+  minute, and the reload is the part a reader can act on.
+- `file-browse`: the live chip is the kit's, and the server's `up 2m 14s · 37 requests`
+  accounting moved from the footer line into its hover; `offline` now reveals the reload
+  control, which used to appear only when the listed folder changed. The footer is the
+  page's facts alone — `read-only` and the live line are gone from it, the first because the
+  header chip owns it — and the served root is the toolbar's subject, truncated from the
+  head so the folder being read survives.
+
 ### Fixed
 
 - `session-bus`: a message file this build cannot read is reported, not deleted. The

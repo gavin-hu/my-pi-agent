@@ -22,25 +22,31 @@ import { CLIENT_JS } from "./client.ts";
 import { DEFAULT_CONFIG } from "../config/config.ts";
 import { changeDirs, type ChangedFile } from "../text/diff.ts";
 import { renderDiffLines } from "./diff-html.ts";
-import type { DirEntry, FileView, Listing, TreeNode } from "../files/files.ts";
+import type { FileView } from "../files/files.ts";
 import {
 	formatDate,
 	renderBreadcrumbs,
 	renderDiffPage,
 	hrefFor,
-	renderDirectoryPage,
 	renderErrorPage,
 	renderFileDiffPage,
 	renderFilePage,
 	type ChangeSummary,
 	type DiffPage,
-	type DirectoryPage,
 	type FilePage,
 } from "./html.ts";
 import { renderChanges } from "./chrome.ts";
 import { LIVE_CLIENT_JS } from "./live-client.ts";
 import { renderMarkdown } from "./markdown.ts";
 import type { LinkBase } from "./urls.ts";
+import {
+	dirEntry as entry,
+	directoryPage,
+	listing,
+	MTIME_MS,
+	ROOT_LABEL,
+	TREE,
+} from "../../../test/helpers/file-browse-view.ts";
 import { PALETTE_CLIENT_JS } from "./palette.ts";
 import { BROWSE_CSS } from "./styles.ts";
 import { TREE_CLIENT_JS } from "./tree.ts";
@@ -53,49 +59,6 @@ import {
 	sanitizeInlineTag,
 } from "./raw-html.ts";
 import { handleRequest } from "../transport/router.ts";
-
-const ROOT_LABEL = "/srv/aurora";
-const MTIME_MS = 1_700_000_000_000;
-
-const TREE: TreeNode = {
-	name: "root",
-	rel: "",
-	isDir: true,
-	isImage: false,
-	broken: false,
-	kind: "directory",
-	children: [
-		{
-			name: "sub",
-			rel: "sub",
-			isDir: true,
-			isImage: false,
-			broken: false,
-			kind: "directory",
-			children: [
-				{ name: "b.md", rel: "sub/b.md", isDir: false, isImage: false, broken: false, kind: "text", children: [] },
-			],
-		},
-		{ name: 'a"<b>.txt', rel: 'a"<b>.txt', isDir: false, isImage: false, broken: false, kind: "text", children: [] },
-	],
-};
-
-function entry(overrides: Partial<DirEntry> & Pick<DirEntry, "name" | "rel">): DirEntry {
-	return {
-		isDir: false,
-		isSymlink: false,
-		broken: false,
-		size: 1,
-		mtimeMs: MTIME_MS,
-		kind: "text",
-		isImage: false,
-		...overrides,
-	};
-}
-
-function listing(entries: DirEntry[], total = entries.length, truncated = false): Listing {
-	return { entries, total, truncated };
-}
 
 function textView(lines: string[], overrides: Partial<Extract<FileView, { kind: "text" }>> = {}) {
 	return {
@@ -121,19 +84,6 @@ function markdownView(lines: string[], overrides: Partial<Extract<FileView, { ki
 		mime: "application/octet-stream",
 		...overrides,
 	};
-}
-
-function directoryPage(overrides: Partial<DirectoryPage> = {}): string {
-	return renderDirectoryPage({
-		base: "",
-		rootLabel: ROOT_LABEL,
-		rel: "",
-		listing: listing([]),
-		tree: TREE,
-		thumbnails: false,
-		maxThumbBytes: 0,
-		...overrides,
-	});
 }
 
 function imageView(overrides: Partial<Extract<FileView, { kind: "image" }>> = {}) {
@@ -272,14 +222,6 @@ describe("page chrome", () => {
 		expect(BROWSE_CSS).toContain(".bf-card__actions>*{flex:0 0 auto}");
 	});
 
-	test("keeps the served folder's tail when the header path is cut", () => {
-		// A left ellipsis names the root; cutting the end kept only
-		// `Users/gavin/Repositories/Github/` and lost the folder being browsed.
-		expect(BROWSE_CSS).toContain(".browse-root{flex:1 1 auto;direction:rtl;text-align:left}");
-		expect(BROWSE_CSS).toContain("@media (max-width:820px){\n.browse-root{order:9;flex:1 1 100%}");
-		expect(BROWSE_CSS).not.toContain("direction:ltr");
-	});
-
 	test("drops a phone's trailing table column so the name keeps the room", () => {
 		// The listing's Modified and the diff's Changes are the widest fixed columns
 		// and the least of what a reader is choosing between: at 390px the name had
@@ -352,19 +294,6 @@ describe("page chrome", () => {
 
 	test("omits the git chip without a status", () => {
 		expect(directoryPage()).not.toContain('class="bf-chip browse-git');
-	});
-
-	test("renders the live chrome only when the channel is on", () => {
-		const live = directoryPage({ live: { intervalMs: 3000 } });
-		expect(live).toContain('id="live-state"');
-		expect(live).toContain('data-interval="3000"');
-		expect(live).toContain('class="browse-live-line" id="live-status" hidden');
-		expect(live).toContain('id="browse-changes" href="/diff"');
-
-		const off = directoryPage();
-		expect(off).not.toContain("live-state");
-		expect(off).not.toContain("live-status");
-		expect(off).toContain('<footer class="bf-app__footer">served from ');
 	});
 });
 
@@ -573,7 +502,8 @@ describe("file page", () => {
 		const html = filePage("a<b>.txt", textView(["x"]));
 		expect(html).toContain("Text ·");
 		expect(html).not.toContain("application/octet-stream");
-		expect(html).toContain("read-only · a&lt;b&gt;.txt</footer>");
+		expect(html).toContain("read-only");
+		expect(html).toContain("a&lt;b&gt;.txt</span></footer>");
 	});
 });
 

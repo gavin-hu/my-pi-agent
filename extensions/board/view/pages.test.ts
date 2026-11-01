@@ -21,10 +21,9 @@ import {
 	WEB_THEME_CSS,
 } from "../../../lib/web/index.ts";
 import { duplicateDeclarations, unfilledPlaceholders, unreadPublications } from "../../../test/helpers/bundle.ts";
-import { boardDocument as pageOf, ownRules, REPO, ROOT } from "../../../test/helpers/board-document.ts";
+import { boardDocument as pageOf, ownRules } from "../../../test/helpers/board-document.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";
-import { renderBoardPage } from "./page.ts";
 import { BOARD_CSS } from "./styles.ts";
 import { BOARD_TONES, DECISION_KINDS, DECISION_TONE } from "../../../lib/board/tone.ts";
 
@@ -47,20 +46,6 @@ describe("the document", () => {
 		// and the subject it is given is the repository's name: a store key is a hash.
 		expect(BOARD_CLIENT_JS).toContain("var tabTitle = function tabTitle(");
 		expect(BOARD_CLIENT_JS).toContain('tabTitle("board", view.repo');
-	});
-
-	test("names the repository in the header, and the root on its hover", () => {
-		// The board's subject is its repository, so the toolbar says which one it is rather than
-		// which seat is serving it: the seat is the Team tab's business, and the project is what
-		// a reader of the page needs before the first frame arrives.
-		const page = pageOf("board");
-		expect(page).toContain(`<span class="bf-chip bf-chip--outline" id="board-repo" title="${ROOT}">${REPO}</span>`);
-		expect(page).not.toContain('id="board-me"');
-		// Both are server data, and a repository path can hold a quote: it is escaped, because the
-		// root goes in an attribute.
-		const odd = renderBoardPage({ view: "board", base: "", repo: "a&b", root: '/tmp/"x"' });
-		expect(odd).toContain('title="/tmp/&quot;x&quot;"');
-		expect(odd).toContain(">a&amp;b<");
 	});
 
 	test("carries no write surface at all", () => {

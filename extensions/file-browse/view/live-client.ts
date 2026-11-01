@@ -18,11 +18,9 @@
  */
 
 export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the header chips, the tree and listing
-	// markers, and the footer line. The server owns the cadence; this only paints.
+	// markers. The server owns the cadence; this only paints.
 	var liveChip = document.getElementById("live-state");
 	if (liveChip) {
-		var liveText = liveChip.querySelector(".browse-live__text");
-		var liveLine = document.getElementById("live-status");
 		var liveGit = document.querySelector(".browse-git");
 		var liveChanges = document.getElementById("browse-changes");
 		var liveInterval = Number(liveChip.getAttribute("data-interval")) || 5000;
@@ -33,6 +31,8 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		var liveDirRev = liveChip.getAttribute("data-rev");
 		var liveReload = document.getElementById("reload-hint");
 		var liveDirTimer = 0;
+		/** The stream's own accounting of itself, which the chip's hover carries. */
+		var liveServer = "";
 
 		function formatSpan(ms) {
 			var seconds = Math.max(0, Math.round(ms / 1000));
@@ -42,17 +42,28 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 			return Math.floor(minutes / 60) + "h " + String(minutes % 60).padStart(2, "0") + "m";
 		}
 
+		/**
+		 * The chip's hover: what the state means, and what a reader can do about it.
+		 *
+		 * The footer carries the page's facts, so the server's uptime and request count are read
+		 * here — the chip is the one place the stream speaks about itself. A state a reader can
+		 * act on says so, because a word like "offline" with no remedy is a dead end.
+		 */
+		function liveTitle(tone) {
+			if (tone === "danger") return "The server stopped — restart /browse, then reload";
+			if (tone === "warn") return "No frame in three intervals — this page may be stale";
+			return liveServer || "Live status from the browse server";
+		}
+
 		function setLiveTone(tone, label) {
 			liveTone = tone;
-			liveChip.className = "bf-chip browse-live" + (tone ? " bf-chip--" + tone : "");
-			liveChip.hidden = false;
-			if (liveText) liveText.textContent = label;
+			paintLive(liveChip, tone, label, liveTitle(tone));
 		}
 
 		// The chip names its state and never counts: nothing is repainted between
-		// frames, and the age of the last one is the footer's uptime to report. Three
-		// missed frames on an open connection is a stalled feed, not a live one, so
-		// one timeout is armed per frame instead of a second-by-second tick.
+		// frames, and the uptime is the chip's hover to report. Three missed frames on an
+		// open connection is a stalled feed, not a live one, so one timeout is armed per
+		// frame instead of a second-by-second tick.
 		function armLiveStale() {
 			window.clearTimeout(liveStale);
 			liveStale = window.setTimeout(function () {
@@ -141,13 +152,12 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		}
 
 		function paintLiveSnapshot(snapshot) {
+			var requests = Number(snapshot.requests) || 0;
+			liveServer =
+				"up " + formatSpan(Number(snapshot.uptimeMs) || 0) + " \u00B7 " + requests +
+				(requests === 1 ? " request" : " requests");
 			setLiveTone("success", "live");
 			armLiveStale();
-			if (liveLine) {
-				liveLine.hidden = false;
-				var requests = Number(snapshot.requests) || 0;
-				liveLine.textContent = "up " + formatSpan(Number(snapshot.uptimeMs) || 0) + " \\u00B7 " + requests + (requests === 1 ? " request" : " requests");
-			}
 			paintLiveGit(snapshot.git);
 			paintLiveChanges(snapshot.changes);
 		}
@@ -196,6 +206,9 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 			});
 			liveStream.addEventListener("error", function () {
 				setLiveTone("danger", "offline");
+				// A stream that is gone is where this page stops being true, and a reload is the
+				// one action a reader has: offer it rather than only naming the state.
+				showLiveReload();
 			});
 			window.addEventListener("pagehide", function () {
 				liveStream.close();

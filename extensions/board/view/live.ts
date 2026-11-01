@@ -13,20 +13,27 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   var board = window.bfBoard || (window.bfBoard = {});
   var token = new URLSearchParams(window.location.search).get("token") || "";
 
-  /** The badge's text and its kit status role: connecting, live, reconnecting. */
+  /**
+   * The chip's word and its tone: connecting, live, reconnecting.
+   *
+   * The state is the page's own vocabulary; the shape is the kit's, so the chip is painted
+   * through one body every served page shares. A retrying stream is where this page can no
+   * longer be trusted, so that is the one state that offers the reload.
+   */
   function badge(state, at) {
     var node = document.getElementById("board-status");
     if (!node) return;
     node.setAttribute("data-state", state);
-    node.className = "bf-status " + N.status +
-      (state === "live" ? " bf-status--saved" : state === "reconnecting" ? " bf-status--error" : "");
     // "now" would read as "live · now ago", so a fresh frame says only "live".
+    var text = "connecting…";
     if (state === "live") {
       var age = at === undefined ? "now" : board.ago(at);
-      node.textContent = age === "now" ? "live" : "live · " + age;
+      text = age === "now" ? "live" : "live · " + age;
     }
-    else if (state === "reconnecting") node.textContent = "reconnecting…";
-    else node.textContent = "connecting…";
+    else if (state === "reconnecting") text = "reconnecting…";
+    board.paintLive(node, state === "live" ? "success" : state === "reconnecting" ? "danger" : "accent", text);
+    var reload = document.getElementById("reload-hint");
+    if (reload) reload.hidden = state !== "reconnecting";
   }
 
   /** Show one tab: the panel, the selected tab, and the address so a link is shareable. */
@@ -215,6 +222,12 @@ export const BOARD_LIVE_JS = String.raw`(function () {
 
   /** The filter and the two tab sets. */
   function wireChrome() {
+    var reload = document.getElementById("reload-hint");
+    if (reload) {
+      reload.addEventListener("click", function () {
+        window.location.reload();
+      });
+    }
     var filter = document.getElementById("board-filter");
     if (filter) {
       filter.addEventListener("input", function () {

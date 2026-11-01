@@ -30,7 +30,7 @@ string, so the plan's `el(tag, className)` and the board's `el(tag, className, t
 two builders, and the plan compared `INPUT` where the board lowercased the tag.
 
 `client-runtime.ts` holds one body of each, as ordinary TypeScript, and exports
-`CLIENT_RUNTIME_JS` — the four functions as source, in the order a client reads them. A
+`CLIENT_RUNTIME_JS` — the five functions as source, in the order a client reads them. A
 page carries it the way it carries `plural` and its class table: the source crosses the
 boundary, and the page runs the function instead of a copy of it.
 
@@ -38,9 +38,34 @@ The bodies are JavaScript on purpose — no annotation survives into the string,
 backtick or `${` may appear in one. The DOM is reached through `globalThis`, because this
 project compiles without a DOM lib; the cast names the guarantee the page makes.
 
-What stays page-side: what a status *says*. `paintStatus` owns the text, its tooltip, and
-the `bf-status--<tone>` class; the board composes `live · 3m` and appends its own class.
-A shared runtime that also decided the wording would be a second copy of the page's voice.
+What stays page-side: what a state *says*. `paintStatus` owns the text, its tooltip, and
+the `bf-status--<tone>` class; `paintLive` owns the live chip's tone modifier, its word,
+and its tooltip — and the board composes `live · 3m` while browse puts the stream's own
+`up 2m 14s · 37 requests` in the hover. A shared runtime that also decided the wording
+would be a second copy of the page's voice.
+
+## One toolbar, one bar, one footer
+
+A served page's chrome is three rows deep and each row has one job:
+
+- `.bf-toolbar` — the lockup, the subject (`.bf-context--subject`: mono, grows, truncates
+  its head so a path keeps the folder being read), then `.bf-toolbar__facts` (the page's own
+  facts as `bf-chip` pills) and `.bf-toolbar__chrome` (the key sheet and the theme toggle,
+  borderless and muted, because they are the app's and not the page's).
+- `.bf-app__bar` — a page's own controls, when it has any. The board is the only page with
+  one so far: its view switch, done meter, and filter.
+- `.bf-app__footer` — one `.bf-footer__facts` line naming where the content came from and
+  what it holds. It wraps rather than truncating, and it states no fact a header chip
+already owns: `read-only` is a chip on both pages, not a footer clause on one.
+
+The live state is `liveChip` plus `reloadChip`, and they are the same pill: the tone is the
+text's colour and the border follows it, so a new state never costs a new rule. The chip is
+not a live region — the header is where a reader looks for the state, not a place to
+announce every repaint — and the reload is the one action a page whose stream has gone can
+offer. It is a control rather than a confirm dialog because nothing here has a consequence
+to confirm: nothing is unsaved, and a modal over a stale page covers what the reader can
+still use. Reloading is not a write, so the rule that a served page offers no write
+surface holds.
 
 ## One inline Markdown renderer, spliced in
 
@@ -145,6 +170,8 @@ These names are one agreement between a page, its client, and tests:
 | `THEME_JS_PATH` served by both routers | `runtime.ts` |
 | `pi-web-theme` in `localStorage` | `WEB_THEME_STORAGE_KEY` |
 | `#keys-dialog` (hidden, `aria-modal`) and `#keys-close` | `keysSheet` (`markup.ts`) |
+| `#keys-open` | `keysButton` (`markup.ts`) |
+| `.bf-live` with a `.bf-live__text` child, and `#reload-hint` | `liveChip` / `reloadChip`, painted by `paintLive` (`client-runtime.ts`) |
 | the page's own sheet trigger id | `keysDialogScript(triggerId)` |
 | `window.bfKeys` — `open` / `toggle` / `close` / `isOpen` | `dialogScript` |
 
@@ -161,8 +188,9 @@ choice. Neither page reloads for a theme.
 
 ## Markup atoms and escaping
 
-`docHead`, `brandLockup`, `markIcon`, `tabTitle`, `themeToggle`, `chip`, `button`, and
-`keysSheet` return strings. `docHead` links the mark as the tab icon — two SVG
+`docHead`, `brandLockup`, `markIcon`, `tabTitle`, `themeToggle`, `chip`, `button`,
+`keysSheet`, `keysButton`, `toolbarChrome`, `pageSubject`, `liveChip`, `reloadChip`, and
+`pageFooter` return strings. `docHead` links the mark as the tab icon — two SVG
 data URIs from the same blocks the lockup draws, the dark one plain and the light
 one behind `prefers-color-scheme` — because an icon is its own document and
 cannot read the page's tokens.
