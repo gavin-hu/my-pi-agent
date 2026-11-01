@@ -33,6 +33,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the tool's always-on text drops from 8,156 to 7,097 characters (~2,039 → ~1,774
+  tokens), and the 1,059 that left were the four guidelines that restated the same tool. "A
+  blocked card resumes in `plan` …" is the `blocker` parameter's sentence, `dependsOn`'s refusal
+  is its own parameter's, "a card's steps belong in `todo`" closes the description, and "`paths`
+  are hints … not claims" closes the `paths` parameter — each is still stated once, where the
+  model reads it. The three surviving bullets keep what is said nowhere else (design in plan
+  mode and the approval gate, note each phase and release what you stop holding, a `handoff` is
+  your work now), the one uncovered review fact — the sign lands in the owner's inbox — moves
+  into `review`'s action doc, and `test/prompt-budget.test.ts` sums the description, snippet,
+  guidelines and schema into a ceiling so the next restatement fails instead of accumulating.
 - `bytefly`: the `/bytefly` panel's listing, price report and theme names load when the
   command opens a surface, not on every start — `panel/kit.ts` is imported on demand, so the
   registration graph drops six modules (92 → 86, and the package 737 → 731 evaluations over

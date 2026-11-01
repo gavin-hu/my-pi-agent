@@ -62,6 +62,39 @@ function verbHelp(): string {
 	return `${BOARD_ACTIONS.map((action) => `\`${action}\` ${BOARD_ACTION_DOCS[action]}`).join("; ")}.`;
 }
 
+/**
+ * The tool's description: what the board is, and the actions it takes.
+ *
+ * Exported, with {@link BOARD_GUIDELINES}, so the surface budget in
+ * `test/prompt-budget.test.ts` measures the text that is really registered instead of a
+ * second copy of it. The actions are stated once, in `BOARD_ACTION_DOCS`.
+ */
+export const BOARD_DESCRIPTION =
+	"The shared feature list for this repository: one card per feature, which any session reads and writes. " +
+	"A card moves through five lanes - backlog, plan, execute, blocked, done - and carries the feature's " +
+	"outcome, the session that holds it, the contract it promises (goal, acceptance, scopeOut), the plan it " +
+	`is executed against, its priority, what it waits for, and its notes. ${verbHelp()} A card's steps do not ` +
+	"belong on the board - they belong in the plan and in `todo`.";
+
+/**
+ * The three rules that are not already in the schema, the description, or the action docs.
+ *
+ * Everything a fourth bullet used to say is stated once by the field or the action it is
+ * about — a `blocked` card's resume is the `blocker` parameter's sentence, `dependsOn`'s
+ * refusal is its own parameter's, "steps belong in `todo`" closes the description, and
+ * "`paths` are hints, not claims" closes the `paths` parameter. Repeating one here costs
+ * every request for nothing, which is what the ceiling in `test/prompt-budget.test.ts` is
+ * for: one idea per bullet, and none of them already said.
+ */
+export const BOARD_GUIDELINES = [
+	"Claim a card, design it in plan mode, record the contract, then move it to execute: that last gate is the lead's `approve`, or the person's `/board approve`.",
+	"Note each phase of the work, and release or reclaim a card you stop holding, so the lane count means what it says.",
+	"A `handoff` in your inbox is work you now own: read it with `session inbox`, record the plan, and start it.",
+];
+
+/** The one line in the system prompt's tool list: the actions, and nothing they do. */
+export const BOARD_SNIPPET = `The shared feature list for this repository: ${BOARD_ACTIONS.join(", ")}.`;
+
 /** The parameters as the schema validates them. */
 type BoardArgs = Static<typeof BoardParams>;
 
@@ -137,23 +170,9 @@ export function registerTools(
 	pi.registerTool({
 		name: BOARD_TOOL,
 		label: "Board",
-		description:
-			"The shared feature list for this repository: one card per feature, which any session reads and writes. " +
-			"A card moves through five lanes - backlog, plan, execute, blocked, done - and carries the feature's " +
-			"outcome, the session that holds it, the contract it promises (goal, acceptance, scopeOut), the plan it " +
-			`is executed against, its priority, what it waits for, and its notes. ${verbHelp()} A card's steps do not ` +
-			"belong on the board - they belong in the plan and in `todo`.",
-		promptSnippet: `The shared feature list for this repository: ${BOARD_ACTIONS.join(", ")}.`,
-		promptGuidelines: [
-			"Claim a card to pull it from backlog into plan, design it in plan mode, then record the contract with `contract`: goal, acceptance, scopeOut, and the plan file `plan` action `write` returned — a path outside this repository's plan store is refused. Move it to execute only once the lead (`board.lead` in `bytefly.json`, `lead` by default, the name the page serves as) has approved that contract, or the person has signed with `/board approve` — a lead releases a card before signing it.",
-			"Before a card is done, the lead records a spot-check with `review`, or the person signs with `/board review`; the plan it recorded must still be in the store, and `contract` is how it is re-recorded. A sign is announced to the card's owner in its inbox, so the session that can move next is told rather than left to poll; a session that needs one asks the lead with `session send`.",
-			"Move a card to `blocked` with a `blocker` kind and one line about what is waited on: it resumes in `plan`, or in `execute` once its contract is approved.",
-			"Note each phase of the work, and release or reclaim a card you stop holding, so the lane count means what it says.",
-			"A card that waits on another is linked with `edit` and `dependsOn`, so the order is on the board instead of in a refusal.",
-			"A feature's steps belong in `todo`, not on the board: one card is one feature, whatever it takes.",
-			"A `handoff` in your inbox is work you now own: read it with `session inbox`, record the plan, and start it.",
-			"`paths` are hints for a reader, not claims; `session`'s path claims are what protect a file.",
-		],
+		description: BOARD_DESCRIPTION,
+		promptSnippet: BOARD_SNIPPET,
+		promptGuidelines: BOARD_GUIDELINES,
 		parameters: BoardParams,
 		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
 		executionMode: "sequential",

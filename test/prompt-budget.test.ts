@@ -1,11 +1,16 @@
 /**
- * Always-on prompt budget for the per-turn injected context.
+ * Always-on prompt budget: the per-turn injected context, and the one tool surface large
+ * enough to have its own ceiling.
  *
- * Covers the injected-context builders, which are pure, so a regression in the
- * text re-injected every turn fails fast.
+ * The injected-context builders are pure, so a regression in the text re-injected every turn
+ * fails fast. The board tool's surface is the largest in the package, so its four blocks are
+ * summed here the way a request pays for them; `test/dependencies.test.ts` holds the
+ * registration graph, and this holds the text.
  */
 
 import { describe, expect, test } from "bun:test";
+import { BoardParams } from "../extensions/board/schema.ts";
+import { BOARD_DESCRIPTION, BOARD_GUIDELINES, BOARD_SNIPPET } from "../extensions/board/tools.ts";
 import { GOAL_CONTEXT_MARKER, buildGoalContext } from "../extensions/goal/index.ts";
 import { planModeContext, PLAN_MODE_MARKER } from "../extensions/plan/index.ts";
 import { WECHAT_CHANNEL_PROMPT } from "../extensions/wechat/text/channel.ts";
@@ -67,5 +72,32 @@ describe("injected prompt budget", () => {
 		expect(WECHAT_CHANNEL_PROMPT).toContain("run a command");
 		expect(WECHAT_CHANNEL_PROMPT).toContain("recommendation");
 		expect(WECHAT_CHANNEL_PROMPT).toContain("attachment");
+	});
+});
+
+/** The board tool's always-on characters, summed the way a request pays for them. */
+function boardSurface(): number {
+	return (
+		BOARD_DESCRIPTION.length +
+		BOARD_SNIPPET.length +
+		BOARD_GUIDELINES.join("\n").length +
+		JSON.stringify(BoardParams).length
+	);
+}
+
+describe("the board tool surface", () => {
+	test("stays under its ceiling, with three guidelines", () => {
+		// 8,156 characters before the restating bullets were cut; the ceiling is what the
+		// three that are not already in the schema, the description, or the action docs cost.
+		expect(boardSurface()).toBeLessThanOrEqual(7_200);
+		expect(BOARD_GUIDELINES).toHaveLength(3);
+		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
+	});
+
+	test("keeps each guideline to a bullet-sized line", () => {
+		for (const guideline of BOARD_GUIDELINES) {
+			expect(guideline.endsWith(".")).toBe(true);
+			expect(guideline.length).toBeLessThanOrEqual(170);
+		}
 	});
 });
