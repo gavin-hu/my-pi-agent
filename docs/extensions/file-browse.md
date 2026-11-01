@@ -33,6 +33,7 @@ the shared loopback layer plus one small vanilla script.
 | Markdown preview | `/view/<rel>`, `/view/<rel>?raw=1` | A README renders as headings, lists, tables, code, and links, with a one-click raw view. |
 | Copy and wrap | the page toolbar, `y`, `u` | Copy a file's path or contents or a `path:12-30` line reference, and toggle line wrapping for text and raw views. |
 | Theme toggle | the header button, `/theme.js` | Dark and light palettes, following the system until an explicit choice is remembered per browser. |
+| Follows the session | `enter_worktree`, `exit_worktree` | The served root moves with the session on the same URL and port, and an open page reloads onto the new tree. |
 | Idle stop and prefix reuse | `/browse stop`, the idle grace | The page gives its prefix back when nobody is reading it, so a closed tab never holds the session's server. |
 
 ## Quickstart
@@ -64,6 +65,11 @@ selects the root.
 
 - The root is the effective cwd, so an active `worktree` session serves the
   worktree. `<path>` must resolve inside it.
+- A worktree switch re-roots the running page on what a fresh `/browse` would serve,
+  on the same URL and port. A page started with `<path>` keeps that subfolder under the
+  new tree when it is there, and otherwise lands on the new root; the open page reloads
+  itself. The notice travels on the page's own stream, so with `live` off the page serves
+  the new root from its next navigation instead.
 - The port is the project's: `serve` hashes the repository key into `4780`–`5779`
   (and `serve.port` pins it), so the origin stays stable across roots and restarts. A
   busy pinned port is reported, not silently changed.
@@ -112,7 +118,7 @@ global document then project document, project wins — are in
 | `gitDiff` | `true` | Offer the read-only diff view; `false` also drops the changes chip. |
 | `diffContext` | `3` | Unified diff context lines. |
 | `maxDiffLines` | `4000` | Diff lines rendered before truncation. |
-| `live` | `true` | Stream live status to open pages. |
+| `live` | `true` | Stream live status to open pages, and tell an open page when the served root moves (a worktree switch) so it reloads. |
 | `liveIntervalMs` | `5000` | Milliseconds between status frames while a page is connected. |
 
 ## Security

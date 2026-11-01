@@ -292,6 +292,8 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * runtime became three modules of one responsibility, only the last of which
  * brings `lib/child.ts` with it: the three are the split, and every one of them
  * is what the old single module already evaluated, spread differently.
+ * `worktree`'s one raise is `lib/events.ts`: the channel `file-browse` follows moved
+ * out of the publishing module, so both sides compile against one name.
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 86,
@@ -302,7 +304,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	"session-bus": 43,
 	subagent: 41,
 	"web-access": 39,
-	worktree: 35,
+	worktree: 36,
 	goal: 34,
 	watch: 32,
 	todo: 30,

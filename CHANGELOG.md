@@ -30,6 +30,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is an ordinary `session send`, so a lead can ask how work is going without spending its
   turn, and `question` defaults to asking that. `card` is optional in the schema for the one
   verb that takes none; the four card verbs keep their own refusals.
+- `file-browse`: an open page follows the session's worktree switch. `enter_worktree` and
+  `exit_worktree` re-root the running page on what a fresh `/browse` would serve — the same
+  URL and port, a `/browse <path>` subfolder kept under the new tree when it is there — and
+  the page reloads onto it, instead of serving the checkout the session left until `/browse`
+  runs again. The notice rides the page's own stream, so `live: false` serves the new root
+  from the next navigation; the channel moved to `lib/events.ts` so both extensions compile
+  against one name.
 
 ### Changed
 

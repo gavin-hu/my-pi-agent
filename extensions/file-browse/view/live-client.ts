@@ -188,6 +188,12 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 				try { snapshot = JSON.parse(event.data); } catch (error) { return; }
 				paintLiveSnapshot(snapshot);
 			});
+			// The root moved under this page — a worktree switch re-rooted the server — so
+			// the document it drew belongs to the tree the session left. Reloading is the
+			// only honest way to show another tree, exactly as the folder check says.
+			liveStream.addEventListener("moved", function () {
+				window.location.reload();
+			});
 			liveStream.addEventListener("error", function () {
 				setLiveTone("danger", "offline");
 			});

@@ -142,6 +142,18 @@ export function frameOf(snapshot: LiveSnapshot): string {
 	return `event: status\ndata: ${JSON.stringify(snapshot)}\n\n`;
 }
 
+/**
+ * The one-off frame that tells an open page its root moved under it.
+ *
+ * It is not a status frame and carries no status: the served root is what changed,
+ * and a page cannot render a tree from a different root without loading it, so the
+ * page reloads the document it is already on. The root is in the payload for the
+ * log a page (or a test) prints, not because a page needs it to act.
+ */
+export function movedFrameOf(root: string): string {
+	return `event: moved\ndata: ${JSON.stringify({ root })}\n\n`;
+}
+
 /** A connected page, as the channel writes it: the sink's two verbs. */
 export type LiveClient = EventSink;
 
@@ -167,6 +179,11 @@ export interface LiveChannel {
 	 * stream, so a refusal never has to take back a head it already wrote.
 	 */
 	atCapacity(): boolean;
+	/**
+	 * Write one frame to every attached page, outside the tick. The server uses it
+	 * for a fact that is not a status snapshot — the root moving under its pages.
+	 */
+	announce(frame: string): void;
 }
 
 /**
@@ -223,6 +240,9 @@ export function createLiveChannel(options: LiveChannelOptions): LiveChannel {
 		},
 		atCapacity() {
 			return clients.size >= maxClients;
+		},
+		announce(frame) {
+			send(frame);
 		},
 	};
 }
