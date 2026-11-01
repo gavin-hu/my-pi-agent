@@ -178,6 +178,12 @@ export default function planMode(pi: ExtensionAPI): void {
 				return `Plan mode: the registered "${SUBAGENT_TOOL}" tool does not support read-only delegation; explore with the structured tools instead. ${BLOCKED_GUIDANCE}`;
 			}
 			if (typeof input === "object" && input !== null) {
+				// A background run outlives the call and is reached only through `/agents`, which
+				// refuses while planning: starting one here would spend a child's budget on a
+				// result nobody can collect until the plan is approved.
+				if ((input as Record<string, unknown>).background === true) {
+					return `Plan mode: a background run cannot be inspected or collected while planning; run it in the foreground and wait for it. ${BLOCKED_GUIDANCE}`;
+				}
 				(input as Record<string, unknown>)[SUBAGENT_READ_ONLY_PARAM] = true;
 			}
 			return undefined;

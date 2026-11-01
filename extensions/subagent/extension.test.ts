@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { callTool } from "../../test/helpers/tools.ts";
-import subagent, { TOOL_NAME } from "./index.ts";
+import subagent from "./index.ts";
 import type { BackgroundRun, BackgroundRuntime } from "./background.ts";
 import { registerAgentsCommand } from "./commands.ts";
 import { aggregateUsage, clip, clipPath, formatAgentsList, formatToolCall, formatUsageStats } from "./format.ts";
@@ -17,7 +17,11 @@ import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir, useEnv, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { emit, fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
-import { assistantMessage, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
+import {
+	assistantMessage,
+	fakeToolCtx,
+	registerSubagentTool as register,
+} from "../../test/helpers/fixtures/subagent.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle } from "../../test/helpers/process.ts";
 
@@ -45,14 +49,6 @@ function failure(agent: string, message: string): SingleResult {
 		stopReason: "error",
 		errorMessage: message,
 	};
-}
-
-function register(run: (options: RunOptions) => Promise<SingleResult>) {
-	const { pi, tools } = makeFakePi();
-	subagent(pi, { run });
-	const tool = tools.get(TOOL_NAME);
-	if (!tool) throw new Error("subagent tool was not registered");
-	return Object.assign(tool, { pi });
 }
 
 function call(tool: any, params: unknown, ctx = fakeToolCtx()): Promise<any> {

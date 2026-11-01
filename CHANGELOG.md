@@ -160,6 +160,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the page it read by the state it returned to: mail `inbox` consumed and marked during the
   read is filtered out at append, and a watch stopped mid-read queues nothing into the queue
   `stop` already cleared.
+- `subagent`: a background run is given the task it was asked to run, and plan mode stops starting
+  one. The 4 KiB cap is documented as "the task stored in an entry" but was slicing the string
+  handed to the child too, so a 5,000-character task reached the child and the session entry as
+  4,096 with no warning while the foreground path has no cap; the cap now bounds only the record,
+  which ends in `…` when it was cut. And a plan-mode session could start a background run while
+  `/agents`, the only door to it, refuses until the plan is approved — the call is refused by name
+  now, in the same branch that forces `readOnly`. `MAX_TASK_CHARS` has its first cases.
 - `subagent`: a failed `single` run no longer hands the model the child's whole `stderr`. Only
   parallel mode capped its reply, so one failing delegation — a broken build, a verbose stack
   trace — could return 3 MiB of child noise into the parent's context, against 51 KiB for the

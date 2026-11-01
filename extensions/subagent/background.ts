@@ -23,8 +23,10 @@ export const BACKGROUND_ENTRY = "subagent-background";
 const MAX_OUTPUT_CHARS = 50 * 1024;
 /** Cap on the live preview shown while a run is active. */
 const MAX_PREVIEW_CHARS = 8 * 1024;
-/** Cap on the task stored in an entry. */
+/** Cap on the task stored in an entry; the run itself gets the task whole. */
 const MAX_TASK_CHARS = 4 * 1024;
+/** Marks the entry's copy when the task was longer than the cap. */
+const TASK_ELLIPSIS = "…";
 
 export type BackgroundStatus = "running" | "finished" | "failed" | "cancelled" | "timedout" | "interrupted";
 
@@ -185,6 +187,11 @@ function finalOutput(result: SingleResult): string {
 	return text.length > MAX_OUTPUT_CHARS ? `${text.slice(0, MAX_OUTPUT_CHARS)}\n… output truncated` : text;
 }
 
+/** The entry's copy of a task: bounded, and marked when it was cut, since the run gets it whole. */
+function storedTask(task: string): string {
+	return task.length > MAX_TASK_CHARS ? `${task.slice(0, MAX_TASK_CHARS)}${TASK_ELLIPSIS}` : task;
+}
+
 /** The latest output for a running run, bounded and kept at the tail. */
 function liveOutput(result: SingleResult): string {
 	const text = stripControlChars(getFinalOutput(result.messages) || result.stderr.trim());
@@ -335,7 +342,7 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 		const id = nextId(branch, new Map([...live].map(([key, value]) => [key, value.run])));
 		const cwd = input.cwd ? resolve(depsRun.defaultCwd, input.cwd) : depsRun.defaultCwd;
 		const startedAt = now();
-		const task = input.task.slice(0, MAX_TASK_CHARS);
+		const task = storedTask(input.task);
 		const record: BackgroundRun = {
 			id,
 			agent: input.agent,
@@ -370,7 +377,7 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 					defaults: depsRun.defaults,
 					agentName: input.agent,
 					agents: depsRun.agents,
-					task,
+					task: input.task,
 					cwd: input.cwd,
 					readOnly: input.readOnly,
 					abortAsResult: true,
