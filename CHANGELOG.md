@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `team`: `assign` and `ask` join this session to the team once, under the label it already
+  writes cards as. `session-bus` records a sender and arms no watch, so a lead that only ever
+  ran the round was on the bus and not on the team: the peer's reply landed in an inbox
+  nothing reported, and `/team` listed the lead as not listening. A refused call joins
+  nobody, `claim` shares the same ask-once standing, and the prompt guideline that told a
+  model to open the board first is gone with the gap.
 - `board`: a card closed outside the gate can be signed after the fact. `review` takes
   `override` — one line saying why, which signs a card that is already `done` and carries no
   sign — and the sign keeps that line in `byInstruction`, so the card's reason line and its

@@ -97,7 +97,7 @@ where it does, the sections a reader acts on, then its notes newest first
 | Read a board at its real size | the `Done` fold, an empty lane's rail, the Team tab's own folds | `Done` starts folded at six cards or more, its count in the head, and a reader's toggle decides from then on. A lane holding no cards narrows to its head, word, and count, and a lane of finished cards stops widening at three, so the lanes carrying work keep the width. On the Team tab the queue and the roster share one cap, so both stay on one screen, and the ids past the strip's sixth fold behind its count |
 | Open a card | the card, or `Enter` on a focused one | The whole card is the door — its title stays the focusable button — and it opens the dialog holding the card whole: why it sits where it does, its lane, its owner, its paths, what it waits for, its plan, the contract it promises and who signed it, and every note. A drag across a card's prose selects it instead of opening it |
 | See the lead's round at a glance | `/board team`, or `/team` with no browser | A queue of cards that need a decision, each with the reason and its way out, then who is on the team and what they hold |
-| Join the team | `/board`, or the first card you claim | Opening the page joins this session to the team — as the lead's name when it serves the page, under the name it already holds when it opens one somebody else serves — and so does the first card it claims, so nothing has to be armed by hand. Joining never renames Pi's session: the footer keeps the name you gave it, and a `/team join` name is kept rather than replaced by the id-derived one. `/board status` reports the team this session is on, whichever door it used |
+| Join the team | `/board`, the first card you claim, or the first handoff or question `team` sends | Opening the page joins this session to the team — as the lead's name when it serves the page, under the name it already holds when it opens one somebody else serves — and so does the first card it claims, and a `team` `assign` or `ask` that landed. Joining never renames Pi's session: the footer keeps the name you gave it, and a `/team join` name is kept rather than replaced by the id-derived one. `/board status` reports the team this session is on, whichever door it used |
 | See who is around | `/board team` | The Teammates list: every session this repository's bus has recorded, plus every owner a card names, each stating `live`, `quiet`, `no record`, or `—` when no bus is loaded. An owner the bus has no record of and that holds nothing is one row stating how many there are and what they finished, unfolded by a click — the list only grows, because a label that ever claimed a card stays an owner — while one that still holds a card keeps its own row |
 
 ## Quickstart
@@ -199,10 +199,11 @@ in the error tone), because a command has nowhere else to report it.
 
 **Joining.** One thing, done for you: `/board` puts this session on the team — as
 the lead's name when it serves the page, under its own name when it watches one — and so does
-the first card it claims. A read, a new card, a note, a plan, or an edit enlists nobody: a
-teammate is a session that holds work. The join is also the listening: mail is reported at
+the first card it claims, and the first handoff or question `team` sends. A read, a new card, a
+note, a plan, or an edit enlists nobody: a teammate is a session that holds work or hands it
+out. The join is also the listening: mail is reported at
 that session's next turn, and no turn is raised, so being on the team never spends a turn.
-A session that has neither opened the board nor claimed a card is not on it.
+A session that has neither opened the board nor claimed a card nor sent through `team` is not on it.
 
 **The two names.** A session's team name is the seat — the board's lead — while it serves the
 page, which is also what makes it the lead unless `board.lead` names someone else; otherwise
