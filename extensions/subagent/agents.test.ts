@@ -150,8 +150,9 @@ describe("loadAgentsFromDir", () => {
 });
 
 describe("findNearestProjectAgentsDir", () => {
-	test("walks up to the nearest .pi/agents", () => {
+	test("walks up to the nearest .pi/agents inside the repository", () => {
 		const root = tempDir();
+		mkdirSync(join(root, ".git"), { recursive: true });
 		const projectAgents = join(root, ".pi", "agents");
 		mkdirSync(projectAgents, { recursive: true });
 		const nested = join(root, "src", "deep");
@@ -160,7 +161,6 @@ describe("findNearestProjectAgentsDir", () => {
 	});
 
 	test("returns null when no .pi/agents exists", () => {
-		// A bare temp dir under tmpdir has no .pi/agents ancestor.
 		expect(findNearestProjectAgentsDir(tempDir())).toBeNull();
 	});
 });

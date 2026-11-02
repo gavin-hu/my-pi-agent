@@ -284,6 +284,46 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `subagent`: a deadline or abort really kills the child. The SIGKILL escalation asked
+  `proc.killed`, which is set when a signal is *sent* — so a child that ignores SIGTERM stayed
+  alive, `close` never fired, and the run hung past its deadline with no timer left. Liveness is
+  now the close itself, and the escalation re-arms rather than stacking a second timer.
+- `subagent`: a chain's `{previous}` is inserted verbatim. It went through `String.replace`'s
+  replacement syntax, so a previous step that printed `$&`, `` $` ``, `$'`, `$1` or `$$` mangled
+  the next step's task — a diff or a regex in a review chain did it routinely.
+- `subagent`: child-authored text cannot drive the terminal. `stopReason` and `model` were
+  interpolated raw into the result block while every sibling field was sanitized; both now pass
+  through `sanitizeLine`.
+- `subagent`: project agents are found only between the session cwd and its repository root. The
+  walk ran to `/`, so a `.pi/agents` in a parent checkout was pooled as project agents — and the
+  trust gate, which vets the session's own project, never saw it.
+- `subagent`: a session reset aborts the runs it ends and tags each with a generation, so a
+  child that settles after the switch cannot finish a run that reused its id or free its slot.
+- `subagent`: the `/agents` detail pane follows a run that finishes under it. Its facts and
+  subtitle were captured when the pane opened, so status stayed `running` and the duration grew
+  without bound. The shared `dock-screen` re-derives both from the row, which `/jobs` and
+  `/watch` panes get too.
+- `subagent`: the background surface survives a second session in one process. A reset emptied
+  the runtime's listeners while the surface kept its stale subscription, so the footer chip
+  stopped painting; a failed build is retried instead of poisoning every later call, and a
+  shutdown clears the session context even when nothing was built.
+- `subagent`: an aborted run publishes its usage. The abort rejected the call before
+  `subagent-finished` was emitted, so a child that had spent tokens vanished from the delegated
+  roll-up; the partial result now travels on the error and is published before it is rethrown.
+- `subagent`: a refused background call is an error. "Too many background runs" and "Unknown
+  agent" returned a normal result, so a model planned on a run that never started.
+- `subagent`: one very long output line no longer takes the collapsed block. Collapse cut by
+  line count only, so a single 50 k line rendered whole and offered no expand hint; each
+  collapsed line is clipped to a character budget and the hint appears.
+- `subagent`: truncating a large output is linear and byte-safe. The old loop re-measured the
+  whole string once per removed character and cut by code units, so a 50 KiB CJK result blocked
+  the host for ~200 ms and could end mid-character; it now cuts the UTF-8 buffer once, on a
+  character boundary.
+- `subagent`: a string `offset`/`limit` in a printed `read` call is ignored instead of
+  concatenated, which rendered `read a.ts:10-104` for `{offset: "10", limit: 5}`.
+- `subagent`: markdown discovery is deterministic. Files load in name order, so two files
+  claiming one agent name resolve the same way on every filesystem, and a blank `name` or
+  `description` is skipped like a missing one.
 - `board`: `/board stop` clears a watched note whose file is already gone, instead of keeping
   the reference and printing a line that cannot be true. A clean exit by the serving session
   takes its note with it while a viewer still holds it, and `dropStale` cleared the reference

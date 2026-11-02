@@ -43,17 +43,30 @@ export interface RunOptions {
 	spawn?: SpawnFn;
 	/** Per-run wall-clock limit in ms; `0` or absent disables it. */
 	timeoutMs?: number;
+	/** Grace before a killed child is escalated to SIGKILL; a test seam, not a setting. */
+	escalationMs?: number;
 	/** Return an aborted result instead of throwing (used by background runs). */
 	abortAsResult?: boolean;
 }
 
+/**
+ * The prompt file a child is handed, and its directory.
+ *
+ * The directory is created first, so a write that fails has to take it back: the caller
+ * learns the path only on success, and a temp directory left behind is a leak per attempt.
+ */
 async function writePromptToTempFile(agentName: string, prompt: string): Promise<{ dir: string; filePath: string }> {
 	const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "pi-subagent-"));
 	const safeName = agentName.replace(/[^\w.-]+/g, "_");
 	const filePath = path.join(dir, `prompt-${safeName}.md`);
-	await withFileMutationQueue(filePath, async () => {
-		await fs.promises.writeFile(filePath, prompt, { encoding: "utf-8", mode: 0o600 });
-	});
+	try {
+		await withFileMutationQueue(filePath, async () => {
+			await fs.promises.writeFile(filePath, prompt, { encoding: "utf-8", mode: 0o600 });
+		});
+	} catch (error) {
+		await fs.promises.rm(dir, { recursive: true, force: true }).catch(() => {});
+		throw error;
+	}
 	return { dir, filePath };
 }
 
@@ -75,6 +88,8 @@ interface SpawnContext {
 	cwd: string;
 	/** Per-run wall-clock limit in ms; `0` disables it. */
 	timeoutMs: number;
+	/** Grace before SIGTERM escalates to SIGKILL. */
+	escalationMs?: number;
 	signal?: AbortSignal;
 	result: SingleResult;
 	onEvent: () => void;
@@ -83,7 +98,7 @@ interface SpawnContext {
 
 /** Spawn the child, parse stdout line-by-line, and resolve when it closes. */
 function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
-	const { command, args, cwd, timeoutMs, signal, result, onEvent, spawn } = context;
+	const { command, args, cwd, timeoutMs, escalationMs, signal, result, onEvent, spawn } = context;
 	return new Promise<SpawnOutcome>((resolve) => {
 		const proc = spawn(command, args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
 		const splitter = new LineSplitter();
@@ -102,9 +117,13 @@ function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
 				result.timedOut = true;
 			}
 			proc.kill("SIGTERM");
+			// `proc.killed` only says a signal was sent, so a child that ignores SIGTERM is alive
+			// with it set — liveness here is this call's own `settled`, set when `close` fires.
+			if (killTimer) clearTimeout(killTimer);
 			killTimer = setTimeout(() => {
-				if (!proc.killed) proc.kill("SIGKILL");
-			}, KILL_ESCALATION_MS);
+				killTimer = undefined;
+				if (!settled) proc.kill("SIGKILL");
+			}, escalationMs ?? KILL_ESCALATION_MS);
 			killTimer.unref();
 		};
 		const onAbort = () => kill("abort");
@@ -201,9 +220,18 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 			? [agent.systemPrompt, READ_ONLY_NOTE].filter(Boolean).join("\n\n")
 			: agent.systemPrompt;
 		if (systemPrompt.trim()) {
-			const tmp = await writePromptToTempFile(agent.name, systemPrompt);
-			tempDir = tmp.dir;
-			tempPath = tmp.filePath;
+			try {
+				const tmp = await writePromptToTempFile(agent.name, systemPrompt);
+				tempDir = tmp.dir;
+				tempPath = tmp.filePath;
+			} catch (error) {
+				// A full or unwritable TMPDIR fails this run, not the chain that asked for it.
+				result.exitCode = 1;
+				result.finishedAt = Date.now();
+				result.errorMessage = `Could not write the agent's prompt: ${error instanceof Error ? error.message : String(error)}`;
+				result.stderr = result.errorMessage;
+				return result;
+			}
 		}
 
 		const args = buildAgentArgs(agent, options.task, options.defaults, tempPath, options.readOnly === true);
@@ -214,6 +242,7 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 			args: invocation.args,
 			cwd: runCwd,
 			timeoutMs,
+			escalationMs: options.escalationMs,
 			signal: options.signal,
 			result,
 			onEvent: emit,
@@ -231,7 +260,9 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 				result.errorMessage = "Aborted";
 				return result;
 			}
-			throw new Error("Subagent was aborted");
+			// The partial result travels on the error: the run spent tokens before the abort, and
+			// the caller's accounting publishes what the child reached rather than nothing.
+			throw Object.assign(new Error("Subagent was aborted"), { result });
 		}
 		return result;
 	} finally {

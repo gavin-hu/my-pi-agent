@@ -52,7 +52,9 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 
 	for (let i = 0; i < chain.length; i++) {
 		const step = chain[i];
-		const task = step.task.replace(/\{previous\}/g, previous);
+		// A function, not a string: `String.replace` expands `$&`, `` $` ``, `$'`, `$1` and `$$` in
+		// the replacement, so a previous step that printed one would mangle this step's task.
+		const task = step.task.replace(/\{previous\}/g, () => previous);
 		const chainUpdate: OnUpdateCallback | undefined = onUpdate
 			? (partial) => {
 					const current = partial.details?.results[0];

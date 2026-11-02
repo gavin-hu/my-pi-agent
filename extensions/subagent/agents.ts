@@ -226,7 +226,9 @@ export function loadAgentsFromDir(dir: string, source: "user" | "project"): Agen
 
 	let entries: fs.Dirent[];
 	try {
-		entries = fs.readdirSync(dir, { withFileTypes: true });
+		// Sorted, so two files claiming one name resolve the same way on every filesystem:
+		// `readdir` order is the platform's, and the pool takes the later one.
+		entries = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
 	} catch {
 		return [];
 	}
@@ -240,7 +242,10 @@ export function loadAgentsFromDir(dir: string, source: "user" | "project"): Agen
 		try {
 			const content = fs.readFileSync(filePath, "utf-8");
 			const { frontmatter, body } = parseFrontmatter<AgentFrontmatter>(content);
-			if (typeof frontmatter.name !== "string" || typeof frontmatter.description !== "string") continue;
+			// A blank field is a missing one: `name: "  "` would list an agent nobody can call,
+			// and Pi's own frontmatter reader treats a blank description the same way.
+			if (typeof frontmatter.name !== "string" || frontmatter.name.trim() === "") continue;
+			if (typeof frontmatter.description !== "string" || frontmatter.description.trim() === "") continue;
 			agents.push({
 				name: frontmatter.name,
 				description: frontmatter.description,
@@ -265,15 +270,39 @@ function isDirectory(candidate: string): boolean {
 	}
 }
 
-/** Walk up from `cwd` to the nearest `<CONFIG_DIR_NAME>/agents` directory. */
+/** Whether `dir` is a repository root: `.git` is a directory, or the file a worktree has. */
+function isRepositoryRoot(dir: string): boolean {
+	try {
+		fs.statSync(path.join(dir, ".git"));
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * The nearest `<CONFIG_DIR_NAME>/agents` between `cwd` and its repository root.
+ *
+ * The walk is bounded by the repository, because only a directory inside the session's own
+ * checkout is what the trust gate at the call site is about: an agent file above the root —
+ * a parent checkout, `/tmp` — is not repository-controlled, and the gate would never see it.
+ * Outside a repository the session's own directory is the boundary.
+ */
 export function findNearestProjectAgentsDir(cwd: string): string | null {
-	let current = cwd;
-	while (true) {
+	let root: string | undefined;
+	for (let current = cwd; ; current = path.dirname(current)) {
+		if (isRepositoryRoot(current)) {
+			root = current;
+			break;
+		}
+		const parent = path.dirname(current);
+		if (parent === current) break;
+	}
+	const boundary = root ?? cwd;
+	for (let current = cwd; ; current = path.dirname(current)) {
 		const candidate = path.join(current, CONFIG_DIR_NAME, "agents");
 		if (isDirectory(candidate)) return candidate;
-		const parent = path.dirname(current);
-		if (parent === current) return null;
-		current = parent;
+		if (current === boundary) return null;
 	}
 }
 

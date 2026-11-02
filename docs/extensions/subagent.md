@@ -20,7 +20,7 @@ can also start in the background and be inspected, collected, or cancelled with
 | Bounded model-facing output | `subagent`, every mode | What one result hands the model is capped at 50 KiB — a task's output, or a failed run's error text — with an omission notice and the full text in the tool details. |
 | Per-step working directory | `cwd` | A single run, each parallel task, or each chain step can name its working directory; a relative path resolves against the active root. |
 | Built-in agents | `subagent` (`agent`) | Recon, planning, review, and implementation without writing an agent file. |
-| External agents | `subagent` (`agentScope`) | Markdown agents from the user directory and the nearest `.pi/agents`, opt-in per scope and never replacing a built-in silently. |
+| External agents | `subagent` (`agentScope`) | Markdown agents from the user directory and the nearest `.pi/agents`, opt-in per scope. The pool merges by name — built-ins, then user, then project — so a file with a built-in's name deliberately overrides that role. |
 | Background runs | `subagent` (`background: true`), `/agents` | A single run continues after the call returns and is inspected, collected, or cancelled from the board. |
 | Background concurrency cap | `backgroundMax` | At most four background children run at once; finished runs release their slot. |
 | Session-owned background run | `background: true` | `/tree` does not move the run and a restart cannot resume it; an unfinished start shows as `interrupted`. |
@@ -118,9 +118,11 @@ Subagent-authored text is stripped of terminal control characters before it
 reaches the transcript, so content the child echoed from an untrusted source
 cannot drive the parent terminal.
 
-Built-in agents are fixed prompts installed with the package; a repository
-cannot change them. Project-local agents **are** repository-controlled, so they
-are not loaded under the default `agentScope: "user"`. When they are requested
+Built-in agents are fixed prompts installed with the package; a repository cannot
+edit them, though a file of the same name overrides one by name (above). A project
+agent is found only between the session cwd and its repository root, so a
+`.pi/agents` above the checkout is never adopted. Project-local agents **are**
+repository-controlled, so they are not loaded under the default `agentScope: "user"`. When they are requested
 (`"project"` or `"both"`) for an untrusted project, the extension asks for
 confirmation before running them in an interactive session; without a UI it
 refuses instead of running them silently. The gate is driven only by the
@@ -234,8 +236,9 @@ model: anthropic/claude-sonnet-4-5   # optional; omit to inherit the session mod
 You are a privacy auditor. Report findings as file:line references.
 ```
 
-`tools` accepts a comma-separated string or a YAML list. A file missing `name`
-or `description` is skipped. Names that do not resolve to an available tool are
+`tools` accepts a comma-separated string or a YAML list. A file missing — or blank — `name`
+or `description` is skipped, and two files claiming one name load in file-name order so the
+same file wins on every filesystem. Names that do not resolve to an available tool are
 dropped from `--tools` silently, so keep them spelled as Pi reports them.
 
 External agents are only as available as the extensions in the **subprocess's**
@@ -459,7 +462,7 @@ step's `Output`.
 bun test extensions/subagent
 ```
 
-Six co-located suites, declared in `test/suite-manifest.ts`:
+Fourteen co-located suites, declared in `test/suite-manifest.ts`:
 
 - `agents.test.ts` — the built-in registry, markdown discovery and pool
   resolution, config normalisation, the parameter schema, `resolveMode`,
@@ -477,6 +480,23 @@ Six co-located suites, declared in `test/suite-manifest.ts`:
 - `background-task.test.ts` — the task split: the child gets 5000 characters
   whole while the entry keeps the first 4 KiB plus `…` — 4,097 characters — and a task at
   the cap is stored unmarked.
+- `spawn.test.ts` — the kill: a child that ignores SIGTERM is escalated to SIGKILL at the
+  grace, and one that closes inside it is not.
+- `chain.test.ts` — `{previous}` is the prior output verbatim, `$&`, `` $` ``, `$'` and `$$`
+  included.
+- `sanitize.test.ts` — the child-authored `stopReason` and `model` cannot drive the terminal,
+  a string `offset` is not printed as a line range, and one long line stays inside the
+  collapsed block's budget.
+- `discovery.test.ts` — the project-agents walk stops at the repository root, two files
+  claiming one name resolve the same way every time, and a blank `name`/`description` is
+  skipped.
+- `background-reset.test.ts` — a reset aborts what it ends, and a late result cannot finish
+  the run that reused its id.
+- `board-live.test.ts` — the open `/agents` pane follows a run to finished or failed instead
+  of freezing its snapshot.
+- `surface.test.ts` — a second session in one process keeps the footer chip painting.
+- `refusal.test.ts` — a refused background call is an error, and an aborted run publishes the
+  usage it reached before the abort.
 
 `runSingleAgent` takes an injectable `SpawnFn`, so no suite launches `pi` or
 spends tokens.

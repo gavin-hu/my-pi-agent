@@ -55,7 +55,12 @@ function getDisplayItems(messages: SingleResult["messages"]): DisplayItem[] {
 function hasExpandableContent(items: DisplayItem[]): boolean {
 	return (
 		items.length > COLLAPSED_ITEM_COUNT ||
-		items.some((item) => item.type === "text" && item.text.split("\n").length > COLLAPSED_TEXT_LINES)
+		items.some(
+			(item) =>
+				item.type === "text" &&
+				(item.text.split("\n").length > COLLAPSED_TEXT_LINES ||
+					item.text.split("\n").some((line) => line.length > COLLAPSED_LINE_MAX)),
+		)
 	);
 }
 
@@ -145,6 +150,9 @@ function durationSuffix(result: SingleResult, status: ResultStatus, now: number)
 	return ` ${formatDuration(end - result.startedAt)}`;
 }
 
+/** Characters one collapsed text line keeps; a single 50 k line must not take the block. */
+const COLLAPSED_LINE_MAX = 240;
+
 /** Elapsed time plus a `[stopReason]` bracket, unless the result is clean or still running. */
 function statusSuffix(result: SingleResult, status: ResultStatus, theme: Theme, now: number): string {
 	let suffix = "";
@@ -153,7 +161,8 @@ function statusSuffix(result: SingleResult, status: ResultStatus, theme: Theme, 
 	const showReason = status === "failed" || status === "aborted";
 	const stop = showReason && result.stopReason && result.stopReason !== "end" ? result.stopReason : undefined;
 	const reason = stop ?? (status === "failed" ? `exit ${result.exitCode}` : undefined);
-	if (reason) suffix += ` ${paint(theme, statusRole(status), `[${reason}]`)}`;
+	// `stopReason` is the child's own string, like the agent name above it.
+	if (reason) suffix += ` ${paint(theme, statusRole(status), `[${sanitizeLine(reason)}]`)}`;
 	return suffix;
 }
 
@@ -191,7 +200,8 @@ function renderDisplayItems(items: DisplayItem[], theme: Theme, limit?: number, 
 	for (const item of shown) {
 		if (item.type === "text") {
 			const safe = stripControlChars(item.text);
-			const text = preview ? safe.split("\n").slice(0, COLLAPSED_TEXT_LINES).join("\n") : safe;
+			const kept = preview ? safe.split("\n").slice(0, COLLAPSED_TEXT_LINES) : safe.split("\n");
+			const text = (preview ? kept.map((line) => clip(line, COLLAPSED_LINE_MAX)) : kept).join("\n");
 			lines.push(paint(theme, "toolOutput", text));
 		} else {
 			lines.push(paint(theme, "meta", "→ ") + formatToolCall(item.name, item.args, theme, preview));

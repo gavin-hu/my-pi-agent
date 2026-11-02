@@ -466,11 +466,17 @@ export abstract class DockListScreen<T> implements Component {
 		if (!this.liveDetail()) return;
 		const id = this.pane.id;
 		if (!id) return;
+		const row = this.rows().find((entry) => this.idOf(entry) === id);
 		const source = this.detailById?.(id);
-		if (!source) {
+		if (!row || !source) {
 			this.closeDetail();
 			return;
 		}
+		// Facts and subtitle are derived from the row, so they are re-derived here: a run that
+		// finishes under an open pane must stop saying `running` with a growing duration.
+		const contents = this.detailFor(row);
+		this.detailFacts = contents.facts;
+		this.pane.update({ subtitle: contents.subtitle });
 		if (this.detailText === undefined) this.pane.update({ lines: source.lines, more: source.more });
 	}
 
