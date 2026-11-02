@@ -346,12 +346,6 @@ const STORES: readonly StoreRow[] = [
 		constantsIn: "lib/plans/paths.ts",
 		names: "plans",
 	},
-	{
-		location: "<agent-dir>/subagents/",
-		page: "subagent.md",
-		module: "extensions/subagent/transcripts.ts",
-		names: "subagents",
-	},
 	{ location: "<agent-dir>/memory.md", page: "memory.md", module: "extensions/memory/store.ts", names: "memory.md" },
 	{
 		location: "<agent-dir>/session-bus/<repo-key>/",

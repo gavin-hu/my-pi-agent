@@ -72,11 +72,6 @@ function detailRows(run: BackgroundRun, now: number, theme: Theme, width: number
 	if (run.errorMessage) {
 		rows.push(keyValueRow(theme, width, { label: "Error", value: sanitizeLine(run.errorMessage), labelWidth: 12 }));
 	}
-	if (run.artifactPath) {
-		rows.push(
-			keyValueRow(theme, width, { label: "Transcript", value: sanitizeLine(run.artifactPath), labelWidth: 12 }),
-		);
-	}
 	return rows;
 }
 

@@ -58,17 +58,8 @@ afterEach(() => {
 });
 
 describe("built-in agents", () => {
-	test("ships the eight role agents in order", () => {
-		expect(BUILTIN_AGENTS.map((agent) => agent.name)).toEqual([
-			"explorer",
-			"planner",
-			"reviewer",
-			"worker",
-			"researcher",
-			"tester",
-			"debugger",
-			"documenter",
-		]);
+	test("ships the four role agents in order", () => {
+		expect(BUILTIN_AGENTS.map((agent) => agent.name)).toEqual(["explorer", "planner", "reviewer", "worker"]);
 	});
 
 	test("every built-in carries a prompt, a description, and an explicit allowlist", () => {
@@ -77,10 +68,6 @@ describe("built-in agents", () => {
 			planner: ["read", "grep", "find", "ls", "read_doc"],
 			reviewer: ["read", "grep", "find", "ls", "read_doc", "bash"],
 			worker: ["read", "write", "edit", "bash", "grep", "find", "ls", "read_doc"],
-			researcher: ["read", "grep", "find", "ls", "read_doc", "web_search", "web_fetch"],
-			tester: ["read", "write", "edit", "grep", "find", "ls", "read_doc", "bash"],
-			debugger: ["read", "grep", "find", "ls", "read_doc", "bash"],
-			documenter: ["read", "write", "edit", "grep", "find", "ls", "read_doc", "bash"],
 		};
 
 		for (const agent of BUILTIN_AGENTS) {
@@ -243,28 +230,10 @@ describe("normalizeSubagentConfig", () => {
 		);
 	});
 
-	test("only a known transcript mode is accepted", () => {
-		expect(normalizeSubagentConfig({ transcripts: "failed" }, DEFAULT_SUBAGENT_CONFIG).transcripts).toBe("failed");
-		expect(normalizeSubagentConfig({ transcripts: "all" }, DEFAULT_SUBAGENT_CONFIG).transcripts).toBe("all");
-		expect(
-			normalizeSubagentConfig({ transcripts: "everything" as unknown as "all" }, DEFAULT_SUBAGENT_CONFIG).transcripts,
-		).toBe(DEFAULT_SUBAGENT_CONFIG.transcripts);
-		expect(normalizeSubagentConfig({ transcripts: 1 as unknown as "all" }, DEFAULT_SUBAGENT_CONFIG).transcripts).toBe(
-			DEFAULT_SUBAGENT_CONFIG.transcripts,
-		);
-	});
-
 	test("clamps the background capacity", () => {
 		expect(normalizeSubagentConfig({ backgroundMax: 2 }, DEFAULT_SUBAGENT_CONFIG).backgroundMax).toBe(2);
 		expect(normalizeSubagentConfig({ backgroundMax: 0 }, DEFAULT_SUBAGENT_CONFIG).backgroundMax).toBe(1);
 		expect(normalizeSubagentConfig({ backgroundMax: 99 }, DEFAULT_SUBAGENT_CONFIG).backgroundMax).toBe(8);
-	});
-
-	test("keeps retention usable", () => {
-		expect(normalizeSubagentConfig({ retentionDays: 3 }, DEFAULT_SUBAGENT_CONFIG).retentionDays).toBe(3);
-		expect(normalizeSubagentConfig({ retentionDays: 0 }, DEFAULT_SUBAGENT_CONFIG).retentionDays).toBe(1);
-		expect(normalizeSubagentConfig({ maxRuns: 0 }, DEFAULT_SUBAGENT_CONFIG).maxRuns).toBe(1);
-		expect(normalizeSubagentConfig({ maxRuns: 5_000 }, DEFAULT_SUBAGENT_CONFIG).maxRuns).toBe(1_000);
 	});
 });
 
@@ -283,11 +252,11 @@ describe("loadSubagentConfig", () => {
 		await withAgentDir((globalDir) => {
 			writeFileSync(
 				join(globalDir, "bytefly.json"),
-				JSON.stringify({ subagent: { timeoutMs: 2_000, transcripts: "all" } }),
+				JSON.stringify({ subagent: { timeoutMs: 2_000, backgroundMax: 2 } }),
 			);
 			const config = loadSubagentConfig(repo);
 			expect(config.timeoutMs).toBe(1_000);
-			expect(config.transcripts).toBe("all");
+			expect(config.backgroundMax).toBe(2);
 		}, "subagent-global-");
 	});
 
@@ -401,12 +370,6 @@ describe("buildAgentArgs", () => {
 		const args = buildAgentArgs(explorer, "t", {}, "/tmp/prompt.md");
 		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,read_doc");
 		expect(valueAfter(args, "--append-system-prompt")).toBe("/tmp/prompt.md");
-	});
-
-	test("passes the researcher's web tool allowlist", () => {
-		const researcher = builtin("researcher")!;
-		const args = buildAgentArgs(researcher, "t", {}, null);
-		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,read_doc,web_search,web_fetch");
 	});
 
 	test("readOnly narrows an agent's tools to the reader allowlist", () => {

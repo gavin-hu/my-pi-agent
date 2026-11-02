@@ -61,14 +61,6 @@ export interface SingleResult {
 	timedOut?: boolean;
 	/** The limit that applied to this run in ms; absent when it had none. */
 	timeoutMs?: number;
-	/** Directory of the run's transcript, when one was written. */
-	artifactPath?: string;
-	/** Bytes buffered for the transcript. */
-	artifactBytes?: number;
-	/** Whether the transcript stopped at the size cap. */
-	artifactTruncated?: boolean;
-	/** Why the transcript could not be written, when it could not. */
-	artifactError?: string;
 }
 
 /** A background run the tool just started. */

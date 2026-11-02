@@ -7,7 +7,6 @@
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { failedResult, textResult } from "../../lib/tool-result.ts";
 import type { AgentConfig } from "./agents.ts";
-import type { TranscriptMode } from "./config.ts";
 import type { RunOptions } from "./run.ts";
 import { MAX_CONCURRENCY, MODEL_OUTPUT_CAP, type SubagentArgs } from "./schema.ts";
 import {
@@ -42,13 +41,11 @@ export interface ModeContext {
 	makeDetails: (results: SingleResult[]) => SubagentDetails;
 	/** Per-run wall-clock limit in ms; `0` or absent disables it. */
 	timeoutMs?: number;
-	/** Where and when a finished run writes a transcript. */
-	transcripts?: { dir: string; mode: Exclude<TranscriptMode, "off"> };
 }
 
 /** Sequential chain: each step's `{previous}` is the prior step's final output. */
 export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<SubagentDetails>> {
-	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails, agents, timeoutMs, transcripts } = ctx;
+	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails, agents, timeoutMs } = ctx;
 	const chain = args.chain ?? [];
 	const results: SingleResult[] = [];
 	let previous = "";
@@ -77,7 +74,6 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 			onUpdate: chainUpdate,
 			makeDetails,
 			timeoutMs,
-			transcripts,
 		});
 		results.push(result);
 
@@ -96,7 +92,7 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 
 /** Independent tasks with bounded concurrency, reporting running/done progress. */
 export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult<SubagentDetails>> {
-	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails, agents, timeoutMs, transcripts } = ctx;
+	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails, agents, timeoutMs } = ctx;
 	const tasks = args.tasks ?? [];
 	const allResults: SingleResult[] = tasks.map((task) => createResult(task.agent, task.task));
 
@@ -122,7 +118,6 @@ export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult
 			// Elapsed time is per run, so a deadline is too: one timer around the mode
 			// would bound the batch rather than each child.
 			timeoutMs,
-			transcripts,
 			onUpdate: (partial) => {
 				const current = partial.details?.results[0];
 				if (!current) return;
@@ -153,7 +148,7 @@ export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult
 
 /** One agent + task. */
 export async function runSingleMode(ctx: ModeContext): Promise<AgentToolResult<SubagentDetails>> {
-	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails, agents, timeoutMs, transcripts } = ctx;
+	const { run, args, defaults, defaultCwd, signal, onUpdate, makeDetails, agents, timeoutMs } = ctx;
 	const result = await run({
 		defaultCwd,
 		defaults,
@@ -166,7 +161,6 @@ export async function runSingleMode(ctx: ModeContext): Promise<AgentToolResult<S
 		onUpdate,
 		makeDetails,
 		timeoutMs,
-		transcripts,
 	});
 
 	if (isFailedResult(result)) {

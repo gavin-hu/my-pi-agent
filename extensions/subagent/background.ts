@@ -45,7 +45,6 @@ export interface BackgroundRun {
 	usage?: UsageStats;
 	/** Latest bounded output: a live preview while running, final output after. */
 	output?: string;
-	artifactPath?: string;
 }
 
 interface StartEntry {
@@ -69,7 +68,6 @@ interface FinishEntry {
 	errorMessage?: string;
 	usage: UsageStats;
 	output: string;
-	artifactPath?: string;
 }
 
 type BackgroundEntry = StartEntry | FinishEntry;
@@ -112,7 +110,6 @@ export interface BackgroundRunDeps {
 	defaults: DispatchDefaults;
 	defaultCwd: string;
 	timeoutMs: number;
-	transcripts?: RunOptions["transcripts"];
 	backgroundMax: number;
 }
 
@@ -167,7 +164,6 @@ function readEntry(raw: unknown): BackgroundEntry | undefined {
 			...(typeof data.errorMessage === "string" ? { errorMessage: data.errorMessage } : {}),
 			usage,
 			output: typeof data.output === "string" ? data.output : "",
-			...(typeof data.artifactPath === "string" ? { artifactPath: data.artifactPath } : {}),
 		};
 	}
 	return undefined;
@@ -213,7 +209,6 @@ function runFromEntries(start: StartEntry, finish?: FinishEntry): BackgroundRun 
 		...(finish?.errorMessage ? { errorMessage: finish.errorMessage } : {}),
 		...(finish?.usage ? { usage: finish.usage } : {}),
 		...(finish?.output ? { output: finish.output } : {}),
-		...(finish?.artifactPath ? { artifactPath: finish.artifactPath } : {}),
 	};
 }
 
@@ -286,7 +281,6 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 			...(result.errorMessage ? { errorMessage: result.errorMessage } : {}),
 			usage: result.usage,
 			output,
-			...(result.artifactPath ? { artifactPath: result.artifactPath } : {}),
 		};
 		try {
 			deps.appendEntry(BACKGROUND_ENTRY, {
@@ -299,7 +293,6 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 				...(result.errorMessage ? { errorMessage: result.errorMessage } : {}),
 				usage: result.usage,
 				output,
-				...(result.artifactPath ? { artifactPath: result.artifactPath } : {}),
 			} satisfies FinishEntry);
 		} catch {
 			// The live row still reflects the result; a failed append must not crash.
@@ -383,7 +376,6 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 					abortAsResult: true,
 					signal: controller.signal,
 					timeoutMs: depsRun.timeoutMs,
-					transcripts: depsRun.transcripts,
 					makeDetails: (results) => ({ mode: "single", results }),
 					onUpdate: (partial) => {
 						const current = partial.details?.results[0];
@@ -432,7 +424,6 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 			"",
 			output || "(no output)",
 		];
-		if (run.artifactPath) lines.push("", `Transcript: ${run.artifactPath}`);
 		return { ok: true, text: lines.join("\n") };
 	};
 

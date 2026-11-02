@@ -193,7 +193,7 @@ because `/resume` and `/tree` rebuild from it.
 |---|---|---|
 | Session branch | Messages, tool results with `details`, custom entries (plan mode, goals, notices) | `getBranch()`, on `session_start` and `session_tree` |
 | The config document | Configuration, one section per owner | Each extension's `config.ts`, global then project |
-| Project `.pi/` | Plans, worktrees, subagent transcripts, notes, project config | The owning extension, by path |
+| Project `.pi/` | Plans, worktrees, notes, project config | The owning extension, by path |
 | Agent directory | Global notes and config, the plan store, job logs, session-bus state, the board store, WeChat state | The owning extension, by path |
 | A repository-keyed directory | One board: `cards/*.json` under `<agent-dir>/board/<repo-key>/`, with an `archive/*.json` pile beside it for finished cards set aside, written only by [`../lib/board/store.ts`](../lib/board/store.ts) | `board`, and `team` through it |
 | Git refs | Rewind snapshots under `refs/pi/rewind` | `rewind`, by ref name |
@@ -290,7 +290,7 @@ flowchart TD
 |---|---|---|
 | Loopback server | `serve` binds it on the first mount, and closes it on shutdown or when its last mount leaves; a page gives its own prefix back on the owner's command or on idle. | Nothing: the page describes a session that is still running. |
 | Background job or watcher | Started by a tool call, tracked in a registry with its own log, reconciled on shutdown. | The log and the registry entry, so a restarted session can list and stop what is still running. |
-| Child `pi` process | `subagent` spawns it, enforces a deadline, escalates and reports the exit. | The transcript, if the user asked for one. |
+| Child `pi` process | `subagent` spawns it, enforces a deadline, escalates and reports the exit. | The tool result, once the run ends. |
 | Peer session | The bridge opens one per admitted sender; logout or shutdown stops the bridge. | Each peer's history, on disk, apart from the host session. |
 
 A job is a process plus a durable record, so a later session can re-attach to it and stop it; a
@@ -407,7 +407,7 @@ neither is repeated here.
 | `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. The store reports its own size, in its header, without becoming one. |
 | `plan`: a shared review reaches one network, one address, and at most eight links | A tunnel, relay, or hosted review service is a product to operate, not a page to serve; the non-goals below name it. Revisit with a hosted deployment. |
 | `plan`: a reviewer's name is a label bound to a link, not an account | The owner still makes the only decision, so an account would add identity without adding a decision. Revisit if reviewers must be authenticated across restarts. |
-| `subagent`: a child run's cost never enters the parent total, and the roll-up restarts at `/resume` | A documented non-goal: the parent total prices the parent's own turns, and a transcript is an audit record rather than a cost ledger. |
+| `subagent`: a child run's cost never enters the parent total, and the roll-up restarts at `/resume` | A documented non-goal: the parent total prices the parent's own turns, and a child's usage is a record in the tool result rather than part of the session ledger. |
 | `subagent`: background is single mode, and a background child is session-owned | Making a child resumable is a durable job queue, which the non-goals exclude. Revisit if a run must outlive its session. |
 | `watch`: a **wake** match raises a notification once the running turn settles | A match found mid-turn is raised when that run settles, so a long turn delays it but never drops it. Revisit if a turn must be interrupted mid-flight. |
 | `watch`: watcher state is memory-only | A watcher tails a live process or file; a resumed session cannot re-attach to a pipe it no longer has. Revisit if a watcher is given a durable source. |

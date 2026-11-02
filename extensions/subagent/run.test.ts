@@ -1,8 +1,7 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, utimesSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterAll, describe, expect, test } from "bun:test";
 import { screenText } from "../../test/helpers/fakes.ts";
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { BUILTIN_AGENTS } from "./agents.ts";
 import {
 	BACKGROUND_ENTRY,
@@ -25,11 +24,9 @@ import {
 	parseJsonLine,
 	truncateOutput,
 } from "./stream.ts";
-import { createTranscript, pruneTranscripts, runIdFor, transcriptsDirFor } from "./transcripts.ts";
 import type { SingleResult, SubagentDetails, UsageStats } from "./types.ts";
 import { makeClock } from "../../test/helpers/clock.ts";
-import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
-import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
+import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { assistantMessage, makeFakeSpawn } from "../../test/helpers/fixtures/subagent.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
@@ -68,8 +65,6 @@ function promptPath(args: string[]): string | undefined {
 	const index = args.indexOf("--append-system-prompt");
 	return index === -1 ? undefined : args[index + 1];
 }
-
-const store = () => temps.track(tempDir("subagent-runs-"));
 
 describe("stream helpers", () => {
 	test("createResult starts in the running-sentinel state", () => {
@@ -455,89 +450,6 @@ describe("runSingleAgent", () => {
 		await promise;
 	});
 
-	test("writes a transcript for a finished run", async () => {
-		const dir = store();
-		const { spawn } = makeFakeSpawn((child) => {
-			child.line({ type: "message_end", message: assistantMessage("done") });
-			child.emitStderr("a warning");
-			child.close(0);
-		});
-
-		const result = await runSingleAgent(options({ spawn, transcripts: { dir, mode: "all" } }));
-
-		expect(result.artifactError).toBeUndefined();
-		expect(existsSync(join(result.artifactPath!, "meta.json"))).toBe(true);
-		expect(readFileSync(join(result.artifactPath!, "events.jsonl"), "utf-8")).toContain("message_end");
-		expect(readFileSync(join(result.artifactPath!, "stderr.log"), "utf-8")).toBe("a warning");
-	});
-
-	test("failed mode keeps a failed run and skips a successful one", async () => {
-		const dir = store();
-		const { spawn } = makeFakeSpawn((child) => child.close(1));
-
-		const failed = await runSingleAgent(options({ spawn, transcripts: { dir, mode: "failed" } }));
-		expect(existsSync(join(failed.artifactPath!, "meta.json"))).toBe(true);
-
-		const { spawn: okSpawn } = makeFakeSpawn((child) => child.close(0));
-		const succeeded = await runSingleAgent(options({ spawn: okSpawn, transcripts: { dir, mode: "failed" } }));
-		expect(succeeded.artifactPath).toBeUndefined();
-		expect(readdirSync(dir)).toHaveLength(1);
-	});
-
-	test("writes the transcript of an aborted run before rejecting", async () => {
-		const dir = store();
-		const controller = new AbortController();
-		const { spawn, children } = makeFakeSpawn(() => {
-			/* hold the process open until the test aborts it */
-		});
-
-		const promise = runSingleAgent(
-			options({
-				signal: controller.signal,
-				spawn,
-				agentName: "mute",
-				agents: [MUTE_AGENT],
-				transcripts: { dir, mode: "all" },
-			}),
-		);
-		await waitFor(() => children.length === 1);
-		controller.abort();
-		children[0].close(null, "SIGTERM");
-
-		await expect(promise).rejects.toThrow("aborted");
-		const [run] = readdirSync(dir);
-		expect(JSON.parse(readFileSync(join(dir, run, "meta.json"), "utf-8")).exitCode).toBe(1);
-	});
-
-	test("records a timed-out run in failed mode", async () => {
-		const dir = store();
-		const { spawn, children } = makeFakeSpawn(() => {
-			/* hold the child open until the deadline kills it */
-		});
-
-		const promise = runSingleAgent(
-			options({ spawn, timeoutMs: 5, agentName: "mute", agents: [MUTE_AGENT], transcripts: { dir, mode: "failed" } }),
-		);
-		await waitFor(() => children.length === 1 && children[0].killSignals.length > 0);
-		children[0].close(null, "SIGTERM");
-
-		const result = await promise;
-		const meta = JSON.parse(readFileSync(join(result.artifactPath!, "meta.json"), "utf-8"));
-		expect(meta.timedOut).toBe(true);
-	});
-
-	test("reports an unwritable transcript without failing the run", async () => {
-		const blocker = join(store(), "file");
-		writeFileSync(blocker, "");
-		const { spawn } = makeFakeSpawn((child) => child.close(0));
-
-		const result = await runSingleAgent(options({ spawn, transcripts: { dir: blocker, mode: "all" } }));
-
-		expect(result.artifactPath).toBeUndefined();
-		expect(result.artifactError).toBeTruthy();
-		expect(isFailedResult(result)).toBe(false);
-	});
-
 	test("removes the temporary system-prompt file", async () => {
 		let seenPath: string | undefined;
 		const { spawn } = makeFakeSpawn((child) => {
@@ -549,161 +461,6 @@ describe("runSingleAgent", () => {
 		await runSingleAgent(options({ spawn }));
 		expect(seenPath).toBeTruthy();
 		expect(existsSync(seenPath!)).toBe(false);
-	});
-});
-
-const FIXED_START = Date.parse("2026-10-15T14:30:12Z");
-const DAY_MS = 86_400_000;
-
-function transcriptResult(overrides: Partial<SingleResult> = {}): SingleResult {
-	return {
-		agent: "explorer",
-		agentSource: "builtin",
-		task: "inspect the loader",
-		exitCode: 0,
-		messages: [],
-		stderr: "",
-		usage: { input: 7, output: 3, cacheRead: 0, cacheWrite: 0, cost: 0.02, contextTokens: 10, turns: 1 },
-		model: "claude-sonnet-4-5",
-		startedAt: FIXED_START,
-		finishedAt: FIXED_START + 4_000,
-		...overrides,
-	};
-}
-
-/** A Pi double whose only git answer is the repository root. */
-function piIn(root: string | undefined) {
-	return createFakePi({
-		exec: async () => (root ? { stdout: `${root}\n`, stderr: "", code: 0 } : { stdout: "", stderr: "no", code: 128 }),
-	}).pi;
-}
-
-/** Create a run directory with a fixed age, as `worktree/prune.test.ts` does. */
-function makeRun(dir: string, name: string, ageMs: number): string {
-	const path = join(dir, name);
-	mkdirSync(path, { recursive: true });
-	const seconds = (FIXED_START - ageMs) / 1000;
-	utimesSync(path, seconds, seconds);
-	return path;
-}
-
-describe("transcripts", () => {
-	test("runIdFor renders the start time in UTC with a hex suffix", () => {
-		expect(runIdFor(FIXED_START, "a1b2c3")).toBe("20261015-143012-a1b2c3");
-	});
-
-	test("runIdFor sorts chronologically as a plain string", () => {
-		const first = runIdFor(FIXED_START, "ffffff");
-		const second = runIdFor(FIXED_START + 1_000, "000000");
-		expect(first < second).toBe(true);
-	});
-
-	test("transcriptsDirFor resolves the repository's .pi/subagents", async () => {
-		const repo = realpathSync.native(tempDir("subagent-repo-"));
-		expect(await transcriptsDirFor(piIn(repo), repo)).toBe(join(repo, CONFIG_DIR_NAME, "subagents"));
-	});
-
-	test("transcriptsDirFor falls back to the agent directory outside a repository", async () => {
-		await withAgentDir(async (agentDir) => {
-			expect(await transcriptsDirFor(piIn(undefined), tempDir("subagent-cwd-"))).toBe(join(agentDir, "subagents"));
-			expect(getAgentDir()).toBe(agentDir);
-		}, "subagent-global-");
-	});
-
-	test("createTranscript writes the stream, stderr, and metadata for one run", () => {
-		const dir = store();
-		const transcript = createTranscript();
-		transcript.line('{"type":"message_end"}');
-		transcript.line('{"type":"tool_execution_end","isError":true}');
-		transcript.stderr("a warning");
-
-		const written = transcript.write(dir, transcriptResult({ toolErrors: 1 }), { cwd: "/repo", readOnly: true });
-
-		expect(written.error).toBeUndefined();
-		expect(written.path?.startsWith(join(dir, "20261015-143012-"))).toBe(true);
-		const events = readFileSync(join(written.path!, "events.jsonl"), "utf-8");
-		expect(events).toContain("message_end");
-		expect(events).toContain("tool_execution_end");
-		expect(readFileSync(join(written.path!, "stderr.log"), "utf-8")).toBe("a warning");
-		const meta = JSON.parse(readFileSync(join(written.path!, "meta.json"), "utf-8"));
-		expect(meta).toMatchObject({
-			agent: "explorer",
-			agentSource: "builtin",
-			cwd: "/repo",
-			readOnly: true,
-			timedOut: false,
-			toolErrors: 1,
-			model: "claude-sonnet-4-5",
-		});
-		expect(meta.runId.startsWith("20261015-143012-")).toBe(true);
-	});
-
-	test("createTranscript stops at the size cap and marks the truncation", () => {
-		const dir = store();
-		const transcript = createTranscript({ maxBytes: 40 });
-		transcript.line("a".repeat(30));
-		transcript.line("b".repeat(30));
-
-		const written = transcript.write(dir, transcriptResult(), { cwd: "/repo", readOnly: false });
-
-		expect(written.truncated).toBe(true);
-		const events = readFileSync(join(written.path!, "events.jsonl"), "utf-8");
-		expect(events).toContain('"transcript-truncated"');
-		expect(events).not.toContain("bbbb");
-		expect(JSON.parse(readFileSync(join(written.path!, "meta.json"), "utf-8")).transcript.truncated).toBe(true);
-	});
-
-	test("createTranscript reports an unwritable store instead of throwing", () => {
-		const blocker = join(store(), "file");
-		writeFileSync(blocker, "");
-
-		const written = createTranscript().write(blocker, transcriptResult(), { cwd: "/repo", readOnly: false });
-
-		expect(written.path).toBeUndefined();
-		expect(written.error).toBeTruthy();
-	});
-
-	test("pruneTranscripts removes runs past the retention window and keeps the rest", () => {
-		const dir = store();
-		const aged = makeRun(dir, "20260101-000000-aaaaaa", 30 * DAY_MS);
-		const fresh = makeRun(dir, "20260110-000000-bbbbbb", DAY_MS);
-
-		const outcome = pruneTranscripts(dir, { retentionDays: 14, maxRuns: 100, now: FIXED_START });
-
-		expect(outcome.removed).toEqual(["20260101-000000-aaaaaa"]);
-		expect(existsSync(aged)).toBe(false);
-		expect(existsSync(fresh)).toBe(true);
-	});
-
-	test("pruneTranscripts keeps only the newest runs beyond the count cap", () => {
-		const dir = store();
-		makeRun(dir, "20260101-000000-aaaaaa", 3 * DAY_MS);
-		makeRun(dir, "20260102-000000-bbbbbb", 2 * DAY_MS);
-		const newest = makeRun(dir, "20260103-000000-cccccc", DAY_MS);
-
-		const outcome = pruneTranscripts(dir, { retentionDays: 3650, maxRuns: 1, now: FIXED_START });
-
-		expect(outcome.removed).toEqual(["20260101-000000-aaaaaa", "20260102-000000-bbbbbb"]);
-		expect(outcome.kept).toBe(1);
-		expect(existsSync(newest)).toBe(true);
-	});
-
-	test("pruneTranscripts never touches a directory that is not a run id", () => {
-		const dir = store();
-		const notes = makeRun(dir, "notes", 30 * DAY_MS);
-
-		const outcome = pruneTranscripts(dir, { retentionDays: 1, maxRuns: 1, now: FIXED_START });
-
-		expect(outcome.removed).toEqual([]);
-		expect(existsSync(notes)).toBe(true);
-	});
-
-	test("pruneTranscripts returns quietly when the store does not exist yet", () => {
-		const missing = join(store(), "absent");
-		expect(pruneTranscripts(missing, { retentionDays: 14, maxRuns: 10, now: FIXED_START })).toEqual({
-			removed: [],
-			kept: 0,
-		});
 	});
 });
 
@@ -1098,7 +855,7 @@ describe("agents board", () => {
 		expect(detail).toContain("Esc back");
 	});
 
-	test("the detail pane adds the error and transcript rows when the run has them", () => {
+	test("the detail pane adds the error row when the run has one", () => {
 		const failed: BackgroundRun[] = [
 			{
 				id: "a4",
@@ -1109,7 +866,6 @@ describe("agents board", () => {
 				finishedAt: 1_000,
 				status: "failed",
 				errorMessage: "exit 1",
-				artifactPath: "/repo/.pi/subagents/20261015-143012-abcdef",
 			},
 		];
 		const { component } = board({ runs: () => failed });
@@ -1118,8 +874,6 @@ describe("agents board", () => {
 		const detail = screenText(component);
 		expect(detail).toContain("Error");
 		expect(detail).toContain("exit 1");
-		expect(detail).toContain("Transcript");
-		expect(detail).toContain("/repo/.pi/subagents/20261015-143012-abcdef");
 	});
 
 	test("c collects a finished run and x cancels a running one", () => {

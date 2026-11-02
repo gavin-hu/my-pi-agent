@@ -355,11 +355,10 @@ bun run bench:start
   `session-bus` ~1, `memory` ~1 — and the rest of the 64 is Pi's own init with our
   chrome installed. Only the milliseconds a caller *waits* for count: a handler that
   starts work and drops it reads as its synchronous part, which is the number the
-  deferral below moves. The temp agent dir turns `subagent.transcripts` on with a wide
-  retention, so the sweep reads as the ~17 ms it costs on the frame instead of as 0.
+  deferral below moves.
 - **Defer what nothing needs before the first draw.** Pi awaits every
   `session_start` handler, so anything a handler awaits is frame time. `subagent` reads
-  its config on the frame and sweeps the transcript store beside it, `wechat` hands its
+  its config on the frame and nothing else, `wechat` hands its
   bridge start back in one promise that its command and its tool join, and `rewind`
   starts its scan and lets the first run await it. A new handler that spawns a
   process, reads a store, or opens a socket belongs in that shape, not in the awaited

@@ -280,16 +280,6 @@ function callText(args: StreamedSubagentArgs, theme: Theme, context?: { cwd?: st
 	return text;
 }
 
-/** The transcript this run kept, or why it could not be written. */
-function transcriptLine(result: SingleResult, theme: Theme): string | undefined {
-	if (result.artifactError) {
-		return paint(theme, "warn", `transcript failed: ${sanitizeLine(result.artifactError)}`);
-	}
-	if (!result.artifactPath) return undefined;
-	const cut = result.artifactTruncated ? paint(theme, "warn", " (truncated)") : "";
-	return paint(theme, "faint", `transcript: ${sanitizeLine(result.artifactPath)}${cut}`);
-}
-
 /** A blank line and one faint row: the shape every expanded footnote takes. */
 function addFaintRow(container: Container, theme: Theme, text: string): void {
 	container.addChild(new Spacer(1));
@@ -360,8 +350,6 @@ function addExpandedResult(
 
 	const usage = usageLine(result);
 	if (usage) addFaintRow(container, theme, usage);
-	const transcript = transcriptLine(result, theme);
-	if (transcript) container.addChild(new Text(transcript, 0, 0));
 }
 
 /** The collapsed single result: header, a word, body, and the shared footer. */

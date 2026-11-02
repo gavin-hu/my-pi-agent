@@ -412,16 +412,11 @@ snapshots than the number alone implies.
 
 ## `subagent` — delegated runs
 
-Read once per session. A transcript is written by the dispatching process, never
-by the child, so the read-only tool set and the project-agent trust gate are
-unaffected.
+Read once per session, on the frame; a call that arrives first reads it lazily.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `timeoutMs` | integer | `600000` | `0`–`3600000` | Wall-clock limit for one child run; `0` disables it. A run past it is killed and fails with `Timed out after …`. |
-| `transcripts` | string | `"off"` | `"off"`, `"failed"`, `"all"` | Which finished runs keep a transcript under `.pi/subagents/`. |
-| `retentionDays` | integer | `14` | `1`–`3650` | Age after which a run directory is pruned at session start. |
-| `maxRuns` | integer | `100` | `1`–`1000` | Run directories kept; the oldest are pruned first. |
 | `backgroundMax` | integer | `4` | `1`–`8` | Background children allowed to run at once. |
 
 ## `check` — verification runs
