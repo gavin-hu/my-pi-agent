@@ -1094,7 +1094,7 @@ both.
 bun test extensions/plan
 ```
 
-Twenty-eight co-located suites, declared in `test/suite-manifest.ts`:
+Thirty co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, the store's directory, atomic
   writes, `read`/`latest`/`index`, `setSteps`, `saveFeedback`, and step extraction;
