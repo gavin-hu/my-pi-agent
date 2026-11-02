@@ -295,6 +295,54 @@ bun run bench:load
 Adding a module to the registration path is the change this is for: the module
 count moves even when the timing does not, and the entry that grew is named.
 
+### What a start costs
+
+A start pays that graph **cold and in one process**, in manifest order, and a
+`/reload` pays it again: Pi's `DefaultResourceLoader.reload` clears the extension
+cache before reloading. The frame is what a person waits for, and it is the half this
+package can move: `PI_TIMING=1 PI_STARTUP_BENCHMARK=1 pi` in a terminal initialises
+the TUI, prints the timings and exits — both variables, because `PI_TIMING` is what
+turns the instrument on and the benchmark flag only says to stop after init; without
+the first it starts a normal session and prints nothing. It refuses to run without a
+TTY, so that half is a local reading rather than a CI one, and `bun run check` never
+runs it.
+
+- **The terminal reading has three numbers, and only two of them are ours.** On the
+  author's machine:
+
+  | run | `main` total | `createAgentSessionRuntime` | `interactiveMode.init` | extensions |
+  |---|---|---|---|---|
+  | online | 1544 ms | 1198 | 331 | 1012 |
+  | `--offline` | 462 ms | 351 | 101 | 316 |
+  | `--no-extensions` | 92 ms | 46 | 37 | — |
+
+  The online extras — ~1080 ms — are the host's package and model resolution over the
+  network, and they leak into every loader delta, which is why the same graph reads
+  1012 ms there and 316 offline. Offline, the runtime is almost exactly the graph (316
+  of 351), and the frame is **~64 ms** this package's (101 against Pi's own 37), not the
+  294 the online pair suggested. `--offline` is the frame and `--no-extensions` Pi's own
+  floor; the online numbers say nothing about either, and a per-entry graph is what
+  `bench:load` answers, warm.
+- **The first entry in manifest order pays the loader's bootstrap.** jiti's TypeScript
+  transformer initialises once, on that entry, so its per-module cost reads several
+  times the others'; reordering the manifest moves the cost to whichever entry is first
+  rather than removing it. Past that, each entry's own cost is the size of its graph,
+  which is the number `bench:load`'s `ENTRY_BUDGET` row gates.
+- **The duplication is the ceiling:** 731 evaluations over 387 modules means 344
+  are the same module paid again: `lib/env.ts` is evaluated by all 22 entries,
+  `lib/tui/glyphs.ts`, `lib/tui/tokens.ts` and `lib/format.ts` by 19, `lib/config.ts` by 17,
+  six more `lib/tui/*` by 16. A module removed from an entry's registration graph is
+  saved *N* times, and `bench:load`'s `ENTRY_BUDGET` row is what proves it fell.
+- **Defer what nothing needs before the first draw.** Pi awaits every
+  `session_start` handler, so anything a handler awaits is frame time, and only the
+  milliseconds a caller *waits* for count: a handler that starts work and drops it
+  reads as its synchronous part. `subagent` reads
+  its config on the frame and nothing else, `wechat` hands its
+  bridge start back in one promise that its command and its tool join, and `rewind`
+  starts its scan and lets the first run await it. A new handler that spawns a
+  process, reads a store, or opens a socket belongs in that shape, not in the awaited
+  part.
+
 ## Cross-platform
 
 The package and its checks run on Windows, macOS, and Linux; CI runs the full
