@@ -44,8 +44,9 @@ import { type BoardStore, openBoard } from "./store.ts";
  * Two surfaces ask: `board` when it joins on the page or on a claim, and `team` for
  * `/team join`. It is a standing rather than a flag because both need to *say* what
  * happened — `/board status` names the label and whether mail is listened for — and
- * because a failure has to be asked again while a success must not be. A failure is
- * kept so a line can say why, and `ok` is what a caller reads to decide.
+ * because the next ask reads more than the last answer: a failure is asked again, and so
+ * is a success the bus no longer holds, which is the roster half in `lib/board/join.ts`.
+ * A failure is kept so a line can say why, and `ok` is what a caller reads to decide.
  */
 export interface TeamStanding {
 	/** What the last join did, or undefined when this session has not asked. */
@@ -106,7 +107,7 @@ export interface BoardSession {
 	serving(): string | undefined;
 	/** Serve the page under `seat`, or stand it down when the page stops. */
 	serve(seat: string | undefined): void;
-	/** Where this session stands on the team, so a claim joins once and status can say. */
+	/** Where this session stands on the team, so a claim joins and `/board status` can say. */
 	team: TeamStanding;
 }
 

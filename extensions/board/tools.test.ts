@@ -14,6 +14,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { advance, TEST_CONTRACT } from "../../test/helpers/board-flow.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
+import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { tempDir } from "../../test/helpers/env.ts";
@@ -121,19 +122,17 @@ async function writePlan(
 }
 
 /**
- * A session on this repository's bus, written where `readRoster` reads it.
- *
- * The round folds the owners a bus has no record of, so a case that wants one folded has to
- * put somebody on the bus first — an empty directory is "no record" for every label.
+ * A session on this repository's bus, written where `readRoster` reads it — the record the
+ * round folds by, and the one that tells a claim the join it made still holds. An empty
+ * directory is "no record" for every label.
  */
 async function joinBus(
-	board: { runtime: ReturnType<typeof harness>["runtime"]; ctx: ReturnType<typeof harness>["ctx"] },
+	runtime: ReturnType<typeof harness>["runtime"],
+	ctx: ReturnType<typeof harness>["ctx"],
 	id: string,
 	label: string,
-): Promise<void> {
-	const dir = join(await board.runtime.busDir(board.ctx.cwd), "sessions");
-	mkdirSync(dir, { recursive: true });
-	writeFileSync(join(dir, `${id}.json`), JSON.stringify({ id, label, mode: "tui", lastSeen: NOW, mail: 0 }));
+): Promise<string> {
+	return writeBusRecord(await runtime.busDir(ctx.cwd), { id, label, lastSeen: NOW });
 }
 
 describe("the registration", () => {
@@ -353,7 +352,7 @@ describe("list", () => {
 		}
 		// This session is on the bus, so its own row is not history — and the rollup is the only
 		// read that goes near it.
-		await joinBus(board, LEAD_ID, LEAD);
+		await joinBus(board.runtime, board.ctx, LEAD_ID, LEAD);
 		await call({ action: "add", title: "Held here" });
 		await call({ action: "claim", card: "3" });
 		const result = await call({ action: "list", round: true });
@@ -1231,10 +1230,12 @@ describe("the details a refusal carries", () => {
 describe("the team", () => {
 	test("a claim joins once, under this session's own name", async () => {
 		const { team, calls, labels } = recordingTeam();
-		const { call } = harness({ team });
+		const { call, runtime, ctx } = harness({ team });
 		await call({ action: "add", title: "One" });
 		await call({ action: "add", title: "Two" });
 		const claimed = await call({ action: "claim", card: "1" });
+		// The record a join leaves is what the next claim reads: the roster answers for the team.
+		await joinBus(runtime, ctx, LEAD_ID, LEAD);
 		await call({ action: "claim", card: "2" });
 		expect(calls).toHaveLength(1);
 		// The label is the card's owner label, so the bus, the roster and the card agree.
@@ -1246,12 +1247,11 @@ describe("the team", () => {
 
 	test("a claim writes as the name the session already holds, and joins under it", async () => {
 		const { team, labels } = recordingTeam();
-		const board = harness({ team });
-		const { call } = board;
+		const { call, runtime, ctx } = harness({ team });
 		// `/team join core-claims` is the one door that renames a session, and the board's
 		// first claim must not take the name back by joining as the id-derived one.
 		await call({ action: "add", title: "One" });
-		await joinBus(board, LEAD_ID, "core-claims");
+		await joinBus(runtime, ctx, LEAD_ID, "core-claims");
 		const claimed = await call({ action: "claim", card: "1" });
 		expect(claimed.details.card?.owner).toEqual({ id: LEAD_ID, label: "core-claims" });
 		expect(labels).toEqual(["core-claims"]);

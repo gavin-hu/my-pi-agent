@@ -200,12 +200,12 @@ export function registerTools(
 						// worth being addressed about, and the board is the user's surface for the team, so
 						// nobody has to know the bus exists. A refused claim wrote nothing and enlists
 						// nobody; a refused join is not a failed claim, so the card stands and the next
-						// claim asks again.
+						// claim asks again — as it does when the bus no longer holds this session.
 						if (!refused(claimed)) {
 							// Loaded here, not at registration: the join is the claim's side effect, so a
 							// session that never claims pays nothing for it.
 							const { joinOnce } = await import("../../lib/board/join.ts");
-							await joinOnce(runtime.team, team, ctx, me.label);
+							await joinOnce(runtime, team, ctx, me.label);
 						}
 						return claimed;
 					}

@@ -134,14 +134,14 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 	/**
 	 * Put this session on the team, once, for the verbs a peer answers by mail.
 	 *
-	 * The same ask-once call `/board` and `board`'s claim make, so a lead that only ever runs
-	 * the round is on the team under the label it writes cards as rather than merely on the
-	 * bus, where a send records a sender and arms no watch. Loaded on demand, like the claim's
-	 * join was, so registration stays as small as it is.
+	 * The same join `/board` and `board`'s claim make, asked again when the bus no longer holds
+	 * this session, so a lead that only ever runs the round is on the team under the label it
+	 * writes cards as rather than merely on the bus, where a send records a sender and arms no
+	 * watch. Loaded on demand, like the claim's join was, so registration stays as small as it is.
 	 */
 	const joinRound = async (ctx: ExtensionContext, label: string): Promise<void> => {
 		const { joinOnce } = await import("../../lib/board/join.ts");
-		await joinOnce(session.team, await teamFor(), ctx, label);
+		await joinOnce(session, await teamFor(), ctx, label);
 	};
 
 	pi.registerTool({
@@ -412,7 +412,7 @@ async function askPeer(
  * The lane rules, the WIP limit, the waiting refusal, and the offer record cleared are the
  * store's, so the two doors cannot answer them differently. The join is the claim's one
  * side effect outside the card: taking work is what makes this session a teammate, and it
- * is the same ask-once call `board` makes.
+ * is the same join `board` makes, asked again when the bus no longer holds this session.
  */
 async function claimCard(
 	store: BoardStore,

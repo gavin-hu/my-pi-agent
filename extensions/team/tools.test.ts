@@ -172,6 +172,21 @@ describe("claim", () => {
 		expect((await (await store()).read(id))?.offeredAt).toBeUndefined();
 	});
 
+	test("asks again when the bus no longer holds this session", async () => {
+		const { call, seed, joined, me, leaveBus } = harness();
+		const self = await me();
+		await call({ action: "claim", card: await seed() });
+		// The join left a record, so the next claim reads it and asks nothing.
+		await call({ action: "claim", card: await seed("Second") });
+		expect(joined).toEqual([self.label]);
+		// A stopped bus takes its record with it, and a standing that outlived it is no evidence
+		// that peers resolve this session: the next claim joins again rather than writing under a
+		// name nobody answers to.
+		leaveBus();
+		await call({ action: "claim", card: await seed("Third") });
+		expect(joined).toEqual([self.label, self.label]);
+	});
+
 	test("refuses a card somebody holds, and one that waits", async () => {
 		const { call, seed, store } = harness();
 		const board = await store();
