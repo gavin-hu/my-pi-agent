@@ -152,6 +152,9 @@ keeps its own note) instead of waiting for the next `/board` to trip over it. A 
 already gone is dropped too, because there is nothing left to clear: the reference to it is
 what a viewer holds, and letting it stand is how `/board status` kept naming a page that no
 longer existed and `/board stop` answered "is answering" about the one it had just proved dead.
+A start that fails after the port is bound — the note is a write into the board's own
+directory — closes the page again, so the session is not left holding `/board` on a port
+nothing serves.
 
 **Who signs.** The two gates take the lead's signature and nothing else: `approve` and
 `review` accept a session only while its team name is `board.lead`, and never while that

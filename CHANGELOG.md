@@ -259,7 +259,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   proved dead. Dropping a note now answers what happened (`dropped`, `live`, or `gone`), the
   reference goes unless the page came back, and only a probe that answered is called answering —
   the gone note reads "… 's note for :<port> is already gone".
-
+- `board`: a `/board` that fails after its port is bound gives the prefix back. `start()`
+  mounted the page and then wrote the note beside the cards, and only then recorded what it had
+  started — so a write that failed (a board directory that cannot take the note) left `/board`
+  mounted on the session's server, the socket bound and the frame ticker running for the rest of
+  the session, while `/board status`, `/board stop`, and shutdown all read nothing to close: every
+  later `/board` was refused as already served. The page is recorded the moment it has a mount, so
+  the one close all three doors use owns it and the catch that reports the failure runs it.
 - `board`: a claim joins again when the bus no longer holds the session. The join was asked
   once per session off the standing alone, and a standing stays `ok` after `bus.stop()`, after
   the TTL ended the record, and after a `/resume` took the seat — so the next claim wrote a

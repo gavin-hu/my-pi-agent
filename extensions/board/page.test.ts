@@ -491,8 +491,8 @@ describe("a start that cannot write the board", () => {
 	test("fails with a reason, and leaves no listener or note behind", async () => {
 		const board = boardHarness({ now: NOW, track: temps.track });
 		const store = await board.runtime.store(board.cwd);
-		// A file where the board's directory has to be: `ensure` fails before a port is
-		// bound, and the same `catch` covers a seat write that fails after it.
+		// A file where the board's directory has to be: `ensure` fails before a port is bound, and
+		// the note that fails after one is `page-idle.test.ts`'s case.
 		mkdirSync(dirname(store.dir), { recursive: true });
 		writeFileSync(store.dir, "");
 		const page = createBoardPage(board.runtime, {
