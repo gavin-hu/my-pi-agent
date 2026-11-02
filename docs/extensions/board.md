@@ -135,7 +135,7 @@ lead: board list round: true
 | `/board review <id>` | the person | Records the spot-check of finished work as `you`; only a card in `execute` can be signed. `/board review <id> --override <why>` is the other case: it signs a card that is already `done` and has no sign, with one line saying why, and the record then reads `closed by instruction` |
 | `/board archive` | lead | Runs the same sweep the tool's bare `archive` runs, and says what it folded away and what it kept: a finished card an open card still waits on stays on the board |
 | `/board status` | both | One line: the seat, the repository, the port, how many tabs are watching, the store's path, and the team the last `/board` joined — or the page being watched, and whether the note behind it still answers |
-| `/board stop` | lead | Stops the page this session serves; a watched page that has stopped answering is dropped instead, and a watched page that is alive is its owner's to stop |
+| `/board stop` | lead | Stops the page this session serves; a watched page that has stopped answering is dropped instead — and so is a note whose file is already gone, because there is nothing left to clear — while a watched page that is alive is its owner's to stop |
 | `/team` | both | The round in the terminal: the rollup, the work a dead owner left behind, then who is live, who has gone quiet, and who is gone |
 
 **Who serves the page.** The first `/board` in a repository serves it; after that the
@@ -148,7 +148,10 @@ URL — takes the note over, and serves. A clean exit is not that case: `/board 
 session shut down normally both take their note with them, so the note that survives is
 one a crash left. `/board status` probes the note it is watching, and names one that
 answers nobody; `/board stop` then drops it (a token-safe clear, so a page that came back
-keeps its own note) instead of waiting for the next `/board` to trip over it.
+keeps its own note) instead of waiting for the next `/board` to trip over it. A note that is
+already gone is dropped too, because there is nothing left to clear: the reference to it is
+what a viewer holds, and letting it stand is how `/board status` kept naming a page that no
+longer existed and `/board stop` answered "is answering" about the one it had just proved dead.
 
 **Who signs.** The two gates take the lead's signature and nothing else: `approve` and
 `review` accept a session only while its team name is `board.lead`, and never while that

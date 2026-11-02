@@ -250,6 +250,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `/board stop` clears a watched note whose file is already gone, instead of keeping
+  the reference and printing a line that cannot be true. A clean exit by the serving session
+  takes its note with it while a viewer still holds it, and `dropStale` cleared the reference
+  only when `clearPointer` said it had removed the file — so a note that was not there left the
+  reference standing, `/board status` kept naming a page nothing answers, and `/board stop`
+  answered "nothing to stop here — <seat> is answering on :<port>" about the page it had just
+  proved dead. Dropping a note now answers what happened (`dropped`, `live`, or `gone`), the
+  reference goes unless the page came back, and only a probe that answered is called answering —
+  the gone note reads "… 's note for :<port> is already gone".
+
 - `board`: a claim joins again when the bus no longer holds the session. The join was asked
   once per session off the standing alone, and a standing stays `ok` after `bus.stop()`, after
   the TTL ended the record, and after a `/resume` took the seat — so the next claim wrote a

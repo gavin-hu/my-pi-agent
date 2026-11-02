@@ -26,7 +26,7 @@ function fakePage(calls: string[]): BoardPage {
 		status,
 		dropStale: async () => {
 			calls.push("dropStale");
-			return false;
+			return "gone";
 		},
 		closeAll: async () => {
 			calls.push("closeAll");

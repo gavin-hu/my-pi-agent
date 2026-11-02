@@ -157,6 +157,10 @@ export async function createPointer(dir: string, pointer: PagePointer): Promise<
  * faster session had written in between, and both would serve a page, only one of them
  * findable. The move is atomic, so the file this call holds is the file that was there;
  * a note that is not the one proved dead goes back where it came from.
+ *
+ * `false` is not a failure: the note may be one another session already cleared, or the one
+ * that replaced it, and then there is nothing of this caller's left to remove — its own
+ * reference to the note is the stale thing, and the answer says it has no clearing to do.
  */
 export async function clearPointer(dir: string, token: string): Promise<boolean> {
 	const pointer = await readPointer(dir);

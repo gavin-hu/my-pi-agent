@@ -57,7 +57,7 @@ export function fakeBoardPage(): { page: BoardPage; calls: string[] } {
 		},
 		dropStale: async () => {
 			calls.push("dropStale");
-			return false;
+			return "gone";
 		},
 		closeAll: async () => {
 			calls.push("closeAll");
@@ -121,7 +121,7 @@ export function pageWithNoRecording(): BoardPage {
 		start: async () => ({ kind: "failed", reason: "not started" }),
 		stop: async () => false,
 		status: async () => ({ running: false }),
-		dropStale: async () => false,
+		dropStale: async () => "gone",
 		closeAll: async () => {},
 	};
 }

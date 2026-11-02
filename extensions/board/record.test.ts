@@ -56,7 +56,7 @@ const NO_PAGE: BoardPage = {
 	},
 	stop: async () => false,
 	status: async () => ({ running: false }),
-	dropStale: async () => false,
+	dropStale: async () => "gone",
 	closeAll: async () => {},
 };
 
