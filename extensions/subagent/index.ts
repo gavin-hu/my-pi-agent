@@ -17,7 +17,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
-import { textResult } from "../../lib/tool-result.ts";
+import { failedResult, textResult } from "../../lib/tool-result.ts";
 import {
 	type AgentConfig,
 	type AgentScope,
@@ -89,16 +89,27 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 	 * per child, so one wrapper reports each run exactly once. The emit is guarded:
 	 * a bus listener that throws must not fail a delegation that already ran.
 	 */
-	const run = async (options: RunOptions): Promise<SingleResult> => {
-		const result = await runner(options);
+	const publish = (result: SingleResult): void => {
 		const event = finishedEvent(result);
-		if (event) {
-			try {
-				pi.events.emit(SUBAGENT_FINISHED_CHANNEL, event);
-			} catch {
-				// Accounting is best-effort; the run's own result is what matters.
-			}
+		if (!event) return;
+		try {
+			pi.events.emit(SUBAGENT_FINISHED_CHANNEL, event);
+		} catch {
+			// Accounting is best-effort; the run's own result is what matters.
 		}
+	};
+	const run = async (options: RunOptions): Promise<SingleResult> => {
+		let result: SingleResult;
+		try {
+			result = await runner(options);
+		} catch (error) {
+			// An aborted child throws, but it may have spent tokens first: the partial result on
+			// the error is what keeps the delegated ledger honest before the abort is rethrown.
+			const partial = (error as { result?: SingleResult }).result;
+			if (partial) publish(partial);
+			throw error;
+		}
+		publish(result);
 		return result;
 	};
 
@@ -188,10 +199,10 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 
 			if (args.background) {
 				if (mode !== "single") {
-					return textResult("`background` supports single mode only.", makeDetails([]));
+					return failedResult("`background` supports single mode only.", makeDetails([]));
 				}
 				if (!agents.some((candidate) => candidate.name === args.agent)) {
-					return textResult(
+					return failedResult(
 						`Unknown agent: "${args.agent ?? ""}". Available agents: ${formatAgentList(agents)}`,
 						makeDetails([]),
 					);
@@ -215,7 +226,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 					ctx,
 				);
 				if (!started.ok) {
-					return textResult(started.error, makeDetails([]));
+					return failedResult(started.error, makeDetails([]));
 				}
 				return textResult(
 					`Started ${started.run.agent} as ${started.run.id} in the background. Use /agents to inspect, collect, or cancel it.`,

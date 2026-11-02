@@ -119,12 +119,17 @@ export function getResultOutput(result: SingleResult): string {
 
 /** Truncate to at most `cap` UTF-8 bytes, appending a notice with the omitted count. */
 export function truncateOutput(text: string, cap: number): string {
-	const byteLength = Buffer.byteLength(text, "utf8");
-	if (byteLength <= cap) return text;
+	// Cut in bytes, once: trimming a string until its byte length fits re-measures the whole
+	// string per character, which is quadratic and blocks the host for seconds on a CJK output.
+	const bytes = Buffer.from(text, "utf8");
+	if (bytes.length <= cap) return text;
 
-	let truncated = text.slice(0, cap);
-	while (Buffer.byteLength(truncated, "utf8") > cap) truncated = truncated.slice(0, -1);
-	const omitted = byteLength - Buffer.byteLength(truncated, "utf8");
+	let end = cap;
+	// Never split a UTF-8 sequence: step back over continuation bytes (`10xxxxxx`) so the
+	// decoded head is whole characters and does not end in a replacement mark.
+	while (end > 0 && (bytes[end] & 0xc0) === 0x80) end -= 1;
+	const truncated = bytes.subarray(0, end).toString("utf8");
+	const omitted = bytes.length - end;
 	return `${truncated}\n\n[Output truncated: ${omitted} bytes omitted. Full output preserved in tool details.]`;
 }
 

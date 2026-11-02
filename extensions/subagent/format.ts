@@ -40,7 +40,7 @@ export function formatUsageStats(usage: Partial<UsageStats>, model?: string): st
 		tokenPart("R", usage.cacheRead),
 		tokenPart("W", usage.cacheWrite),
 		contextPart(usage.contextTokens),
-		model ?? "",
+		model === undefined ? "" : sanitizeLine(model),
 	]
 		.filter(Boolean)
 		.join(" ");
@@ -126,8 +126,10 @@ export function formatToolCall(
 			return fg("meta", "$ ") + fg("toolOutput", clip(sanitizeLine(String(a.command ?? "…")), preview ? 60 : 200));
 		case "read": {
 			const rawPath = clipPath(shortenPath(sanitizeLine(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200);
-			const offset = a.offset as number | undefined;
-			const limit = a.limit as number | undefined;
+			// Model-authored arguments: a string offset is not a line number, and rendering
+			// `start + limit - 1` on a string concatenates it into a range that never existed.
+			const offset = typeof a.offset === "number" ? a.offset : undefined;
+			const limit = typeof a.limit === "number" ? a.limit : undefined;
 			let text = fg("accent", rawPath);
 			if (offset !== undefined || limit !== undefined) {
 				const start = offset ?? 1;

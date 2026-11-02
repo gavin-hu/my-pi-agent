@@ -73,13 +73,15 @@ export function createBackgroundSurface(pi: ExtensionAPI): BackgroundSurface {
 	const attach = (): void => {
 		if (!loaded || ctx === undefined) return;
 		loaded.ui.attach(ctx);
-		unsubscribe ??= loaded.background.subscribe(() => loaded?.ui.paint());
+		if (unsubscribe === undefined) unsubscribe = loaded.background.subscribe(() => loaded?.ui.paint());
 		loaded.ui.paint();
 	};
 
 	/** Build the runtime and the chip, once per process, and attach them. */
 	const ensure = (next: ExtensionContext): Promise<Loaded> => {
 		ctx = next;
+		// A rejected build is retried by the next first use, not remembered as a poisoned
+		// promise for the rest of the process.
 		building ??= (async () => {
 			const [{ createBackgroundRuntime }, { createSubagentUi }] = await Promise.all([
 				import("./background.ts"),
@@ -94,7 +96,11 @@ export function createBackgroundSurface(pi: ExtensionAPI): BackgroundSurface {
 			loaded = { background, ui: chip };
 			attach();
 			return loaded;
-		})();
+		})().catch((error: unknown) => {
+			building = undefined;
+			loaded = undefined;
+			throw error;
+		});
 		return building;
 	};
 
@@ -105,16 +111,21 @@ export function createBackgroundSurface(pi: ExtensionAPI): BackgroundSurface {
 		start(next) {
 			ctx = next;
 			if (!loaded) return;
+			// A reset empties the runtime's listeners, so the handle from the last attach is
+			// dead: drop it before attaching, or the chip never subscribes again.
 			loaded.background.reset();
+			unsubscribe = undefined;
 			attach();
 		},
 		shutdown() {
+			// Cleared even when nothing was built: a build that lands after this shutdown must
+			// not attach to a context Pi has already invalidated.
+			ctx = undefined;
 			if (!loaded) return;
 			loaded.background.shutdown();
 			loaded.ui.detach();
 			unsubscribe?.();
 			unsubscribe = undefined;
-			ctx = undefined;
 		},
 		async startRun(input, branch, deps, next) {
 			const { background } = await ensure(next);

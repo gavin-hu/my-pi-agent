@@ -246,6 +246,8 @@ function nextId(branch: readonly unknown[], live: ReadonlyMap<string, Background
 interface LiveRun {
 	controller: AbortController;
 	run: BackgroundRun;
+	/** The session generation that created it; a late result from another is not this row's. */
+	generation: number;
 }
 
 export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime {
@@ -253,6 +255,8 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 	const live = new Map<string, LiveRun>();
 	const listeners = new Set<() => void>();
 	let disposed = false;
+	/** Bumped by `reset`, so a child that settles after a session switch cannot finish a row. */
+	let generation = 0;
 
 	const notify = (): void => {
 		for (const listener of listeners) {
@@ -266,9 +270,9 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 
 	const runningCount = (): number => [...live.values()].filter((entry) => entry.run.status === "running").length;
 
-	const finish = (id: string, result: SingleResult): void => {
+	const finish = (id: string, result: SingleResult, startedIn: number): void => {
 		const entry = live.get(id);
-		if (!entry || disposed) return;
+		if (!entry || disposed || entry.generation !== startedIn || startedIn !== generation) return;
 		const status = statusOf(result);
 		const output = finalOutput(result);
 		const finishedAt = result.finishedAt ?? now();
@@ -305,16 +309,16 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 		}
 	};
 
-	const failStart = (id: string, error: unknown): void => {
+	const failStart = (id: string, error: unknown, startedIn: number): void => {
 		const entry = live.get(id);
-		if (!entry || disposed) return;
+		if (!entry || disposed || entry.generation !== startedIn || startedIn !== generation) return;
 		const message = error instanceof Error ? error.message : String(error);
 		const result = createResult(entry.run.agent, entry.run.task);
 		result.exitCode = 1;
 		result.stderr = message;
 		result.errorMessage = message;
 		result.finishedAt = now();
-		finish(id, result);
+		finish(id, result, startedIn);
 	};
 
 	const start = (
@@ -345,7 +349,8 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 			status: "running",
 		};
 		const controller = new AbortController();
-		live.set(id, { controller, run: record });
+		const startedIn = generation;
+		live.set(id, { controller, run: record, generation: startedIn });
 		try {
 			deps.appendEntry(BACKGROUND_ENTRY, {
 				phase: "start",
@@ -381,7 +386,7 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 						const current = partial.details?.results[0];
 						if (!current) return;
 						const entry = live.get(id);
-						if (!entry) return;
+						if (!entry || entry.generation !== startedIn || startedIn !== generation) return;
 						const preview = liveOutput(current);
 						entry.run = {
 							...entry.run,
@@ -392,8 +397,8 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 					},
 				}),
 			)
-			.then((result) => finish(id, result))
-			.catch((error) => failStart(id, error));
+			.then((result) => finish(id, result, startedIn))
+			.catch((error) => failStart(id, error, startedIn));
 
 		return { ok: true, run: { ...record } };
 	};
@@ -443,6 +448,11 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 	};
 
 	const reset = (): void => {
+		// A reset is a new session's start: anything still running belongs to the one that
+		// ended, so it is aborted rather than orphaned, and the generation moves on so a
+		// child that settles afterwards cannot finish a row of the same id in the new session.
+		for (const entry of live.values()) entry.controller.abort();
+		generation += 1;
 		disposed = false;
 		live.clear();
 		listeners.clear();
