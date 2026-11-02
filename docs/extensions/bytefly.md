@@ -146,7 +146,7 @@ does when no rate matches.
 `bytefly.json` is one shared document with a top-level section per extension (see
 [Configuration](../configuration.md)). It is read from the global
 document, then `<cwd>/.pi/bytefly.json`, project winning. The old per-extension
-files (`document.json`, `jobs.json`, …) are no longer read; `bun run config:migrate`
+files (`document.json`, `jobs.json`, …) are no longer read; `bun run migrate:config`
 moves them into the shared document.
 
 Neither document is needed for DeepSeek. The built-in table for the selected

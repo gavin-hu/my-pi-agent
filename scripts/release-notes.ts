@@ -6,7 +6,7 @@
  * easy to get subtly wrong (the next `## [` line, the trailing blank lines), so
  * the logic lives here and the docs call this script instead.
  *
- * Usage: `bun run release:notes X.Y.Z` writes the section to stdout.
+ * Usage: `bun run report:notes X.Y.Z` writes the section to stdout.
  */
 
 import { readFileSync } from "node:fs";
@@ -46,7 +46,7 @@ export function changelogSection(markdown: string, version: string): string | un
 if (import.meta.main) {
 	const version = process.argv[2];
 	if (version === undefined || version.trim() === "") {
-		console.error("usage: bun run release:notes X.Y.Z");
+		console.error("usage: bun run report:notes X.Y.Z");
 		process.exit(1);
 	}
 	const section = changelogSection(readFileSync(CHANGELOG, "utf-8"), version.trim());

@@ -14,11 +14,11 @@ judged by `bun run check` and by the assets it writes under `assets/screens/`,
 | [`capture/`](./capture/) | The two mechanisms. `terminal.ts` drives Terminal.app and `screencapture`; `chrome.ts` and `page.ts` drive Playwright against the local Chrome; `crop-title-bar.js` is the JXA crop, run by `osascript`. |
 | [`shots/`](./shots/) | One CLI per captured page — `board`, `file-browse`, `plan-review`, `cards` — plus `plan-review-capture.ts` for the review page's state, and `video.ts`, the montage that is the `pi.video` gallery preview. |
 | [`tools/`](./tools/) | The tool-renderings CLI (`list`, `render`, `html`, `gallery`, `tools`) and `fixtures/`, one fixture per registered tool. `fixtures/board-store.ts` is the one module that is not a fixture: it seeds a board in a temp directory, and `test/helpers/board-page.ts` serves the shipped page over it, which is why the gallery, the picture, and the browser suite describe the same cards. |
-| [`examples/`](./examples/) | Sample inputs a documented command takes, such as `plan-review.md` for `screenshot:plan`. |
+| [`examples/`](./examples/) | Sample inputs a documented command takes, such as `plan-review.md` for `capture:plan`. |
 | [`cli.ts`](./cli.ts), [`theme.ts`](./theme.ts), [`poll.ts`](./poll.ts), [`ansi-html.ts`](./ansi-html.ts), [`transcript-fixture.ts`](./transcript-fixture.ts) | Shared: flag parsing, the capture theme and page palette, sleep and polling, the ANSI-to-HTML bridge, the transcript fixture. |
 | [`junit.ts`](./junit.ts) | The red gate's report: `reportPath` (`.pi/cache/test-report.xml`), `readReport` — a bounded scan of bun's JUnit XML for the run's totals and the cases carrying a `<failure>`, not a general parser — and `reportDigest`, the `file:line — suite > case` lines a failing test phase prints. `check.ts` is its only caller. |
-| [`check.ts`](./check.ts), [`test-selection.ts`](./test-selection.ts) | The gate, `bun run check` / `bun run test`: its phases at once, its exit code the one that matters, and the scope flags it takes — which `test-selection.ts` answers from the manifest and the import walker. What a scope covers is [`docs/development.md#scoped-runs`](../docs/development.md#scoped-runs). |
-| `wechat-poll.ts`, `migrate-config.ts`, `release-notes.ts`, `peer-versions.ts`, `render-bench.ts`, `load-bench.ts`, `start-bench.ts` | One command each, under [`docs/development.md#scripts`](../docs/development.md#scripts). |
+| [`check.ts`](./check.ts), [`test-selection.ts`](./test-selection.ts) | The gate, `bun run check` / `bun run check:tests`: its phases at once, its exit code the one that matters, and the scope flags it takes — which `test-selection.ts` answers from the manifest and the import walker. What a scope covers is [`docs/development.md#scoped-runs`](../docs/development.md#scoped-runs). |
+| `migrate-config.ts`, `release-notes.ts`, `peer-versions.ts`, `render-bench.ts`, `load-bench.ts` | One command each, under [`docs/development.md#scripts`](../docs/development.md#scripts). |
 
 ## The two capture mechanisms
 
@@ -78,7 +78,7 @@ that draws it.
   and the release step names it.
 - `assets/video/demo.mp4` is made of six of those assets, so it is stale the
   moment one of them is recaptured and nothing can tell: two encodes of the same
-  frames do not match byte for byte. `bun run screenshot:video` re-montages them,
+  frames do not match byte for byte. `bun run capture:video` re-montages them,
   and the storyboard names which six.
 
 ## A script a doc names

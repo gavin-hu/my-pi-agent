@@ -11,11 +11,11 @@ holds the word budget: a new paragraph replaces one.
 
 ```bash
 bun install                       # once per worktree
-bun run check                     # the gate: format:check, typecheck, every test
+bun run check                     # the gate: check:format, check:types, every test
 bun run check --changed           # narrowed to this change's tests
-bun run test --ext <name>         # one extension's tests
+bun run check:tests --ext <name>  # one extension's tests
+bun run check:tests --slow        # the gated git suites
 bun run format                    # biome format --write .
-bun run test --slow               # the gated git suites
 bun run bench:render              # render benchmark
 ```
 
@@ -138,9 +138,9 @@ Three are gates; the fourth is review.
 ## UI verification
 
 A surface is verified by rendering it. A terminal frame:
-`bun run screenshots render <screen>`, or
-`bun run tools:render render <tool> --width 80` for one block; a
-browser page: `bun run screenshot:plan <plan.md>` or `screenshot:file-browse`,
+`bun run capture:screens render <screen>`, or
+`bun run render:tools render <tool> --width 80` for one block; a
+browser page: `bun run capture:plan <plan.md>` or `capture:file-browse`,
 each driving the shipped page. `bun run check` renders every screen at three
 widths, so an overflowing frame fails there. Re-capture `assets/` only in the
 release phase, never during a feature or fix.

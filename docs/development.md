@@ -15,29 +15,33 @@ repositories.
 
 ## Scripts
 
+A name is a verb when the verb is the whole errand (`check`, `format`), or `<verb>:<target>` for
+one member of it, so a command says what kind of work it is before it says what it is about.
+`package.json` repeats no name twice and no value calls another script: each row names the file
+it runs. `test/scripts-surface.test.ts` holds both halves — the verbs this surface has, and the
+rule that a value is a path.
+
 | Command | What it does |
 |---|---|
-| `bun run check` | The gate a landing needs: `format:check`, `typecheck`, and the tests, the first two running beside the test phase through `scripts/check.ts` so the gate costs what its longest phase costs. One scope flag narrows the tests: `--static` (the static half alone), `--serial` (one file at a time, what macOS CI runs), `--watch`, `--changed [--base <ref>]` (the tests a change reaches), `--ext <name…>`, `--lib <area…>`, `--root` (the package-level tests), `--slow` (the gated git suites). `--dry-run` prints the selection and runs nothing. A red test phase names its cases as `file:line — suite > case` and leaves `bun`'s JUnit report at `.pi/cache/test-report.xml` — [`#a-red-run`](#a-red-run). |
-| `bun run test [scope]` | The same scopes without the static phases; no flag is every test, in parallel. |
-| `bun run typecheck` | `tsc --noEmit`. |
+| `bun run check` | The gate a landing needs: `check:format`, `check:types`, and the tests, the first two running beside the test phase through `scripts/check.ts` so the gate costs what its longest phase costs. One scope flag narrows the tests: `--static` (the static half alone), `--serial` (one file at a time, what macOS CI runs), `--watch`, `--changed [--base <ref>]` (the tests a change reaches), `--ext <name…>`, `--lib <area…>`, `--root` (the package-level tests), `--slow` (the gated git suites). `--dry-run` prints the selection and runs nothing. A red test phase names its cases as `file:line — suite > case` and leaves `bun`'s JUnit report at `.pi/cache/test-report.xml` — [`#a-red-run`](#a-red-run). |
+| `bun run check:format` | `biome format .` — the read-only half of `format`, and one of the three phases `check` runs. |
+| `bun run check:types` | `tsc --noEmit` — one of the three phases `check` runs. |
+| `bun run check:tests [scope]` | The tests alone, with every scope flag `check` takes; no flag is every test, in parallel. |
 | `bun run format` | `biome format --write .`. |
-| `bun run format:check` | `biome format .`, check only. |
-| `bun run config:migrate [--project <dir>]` | Move each per-extension `<name>.json` into the shared `bytefly.json`, once per machine and repository; `--dry-run` previews and `--keep` leaves the old files. How it behaves is in [`configuration.md`](./configuration.md#migrating-from-older-versions). |
-| `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
 | `bun run bench:load` | Report what a load costs, per extension: the local modules its entry evaluates at registration, how many of them are `lib/` and how many another entry pays again, and what that graph costs to import. Gates the graph only; the timings are a pre-release reading. |
-| `bun run bench:start` | Report what a start costs, per extension: the milliseconds its graph took to import cold, its factory's registration, and the totals across the manifest, from the host's own `PI_TIMING=1` output — then the milliseconds its `session_start` handlers hold the first frame for, measured in the same process against the shared test doubles. A pre-release reading, never a gate; it needs a default model in the developer's settings, and never calls it. |
-| `bun run probe:wechat [holdMs]` | Hold one WeChat poll open for the stated milliseconds (default 3000) and report what the server did with it, so a stalled bridge can be diagnosed without a phone; [`extensions/wechat.md`](./extensions/wechat.md) says when to reach for it. |
-| `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
-| `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/screens/` (macOS only); naming screens captures only those. |
-| `bun run screenshot:board [--out <dir>]` | Render the board page and capture both tabs as full-page PNGs with Playwright driving the local Chrome. It starts the shipped board server over a fixture store in a temporary directory, so the image never names a real checkout; `--out`, `--width`, `--scale`, `--theme light\|dark`, `--wait`, and `--dialog card` (the card dialog — card 1, the fixture's fullest record — instead of the two tabs) tune the shot. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with Playwright driving the local Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:plan` <plan.md> | Render one plan through the browser review page and capture it as a full-page PNG with Playwright driving the local Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot, and `--as owner\|reviewer` picks the owner's page or the one a shared link opens. `--post <name>` posts one comment as that reviewer before the capture, so the frame shows the name bound to her link, and `--draft <text>` starts the tab with one unsaved comment, the state a reload restores; `--share` opens the owner's Share dialog with two links instead of the plan, so the per-person list is what the frame shows. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:cards [flow\|graphic\|board\|team\|parallel]` | Capture the posting cards at 1200×675, 2× by default: the plan pair — `assets/cards/plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic-led — and the board three — `board.html`, the five lanes, one card's atoms and the lead's round, `board-team.html`, the three `team` verbs, and `board-parallel.html`, three cards planned side by side and then executed side by side, each row crossing the `approve` and `review` lines. Naming cards captures only those, and `-o` names the output for a single card; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run tools:render <list\|render\|html\|gallery\|tools>` | The tool-renderings CLI: `list` names every rendering, `render <name> --width n` prints one block as ANSI on any OS, `html <out>` writes the gallery page, and `gallery <out>` / `tools <dir>` capture PNGs with Playwright driving the local Chrome. `screenshot:tools` and `screenshot:tool-pngs` are the last two with their asset paths filled in. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/screens/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. It is `bun run tools:render gallery assets/screens/tool-renderings.png`. |
-| `bun run screenshot:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
-| `bun run screenshot:video` | Regenerate `assets/video/demo.mp4`, the `pi.video` gallery preview: six frames this repository already ships, cross-faded with one caption each, drawn on a canvas and encoded to H.264 by the local Chrome (`MediaRecorder`), so no video encoder is installed for it. `-o`, `--width`, `--height`, `--fps`, and `--bps` tune the shot; the storyboard is `MONTAGE` in `scripts/shots/video.ts`. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run render:tools <list\|render\|html\|gallery\|tools>` | The tool-renderings CLI: `list` names every rendering, `render <name> --width n` prints one block as ANSI on any OS, `html <out>` writes the gallery page, and `gallery <out>` / `tools <dir>` capture PNGs with Playwright driving the local Chrome. `capture:tools` and `capture:tool-pngs` are the last two with their asset paths filled in. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run capture:screens [name…]` | Regenerate the screenshots and hero under `assets/screens/` (macOS only); naming screens captures only those. |
+| `bun run capture:board [--out <dir>]` | Render the board page and capture both tabs as full-page PNGs with Playwright driving the local Chrome. It starts the shipped board server over a fixture store in a temporary directory, so the image never names a real checkout; `--out`, `--width`, `--scale`, `--theme light\|dark`, `--wait`, and `--dialog card` (the card dialog — card 1, the fixture's fullest record — instead of the two tabs) tune the shot. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run capture:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with Playwright driving the local Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run capture:plan` <plan.md> | Render one plan through the browser review page and capture it as a full-page PNG with Playwright driving the local Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot, and `--as owner\|reviewer` picks the owner's page or the one a shared link opens. `--post <name>` posts one comment as that reviewer before the capture, so the frame shows the name bound to her link, and `--draft <text>` starts the tab with one unsaved comment, the state a reload restores; `--share` opens the owner's Share dialog with two links instead of the plan, so the per-person list is what the frame shows. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run capture:cards [flow\|graphic\|board\|team\|parallel]` | Capture the posting cards at 1200×675, 2× by default: the plan pair — `assets/cards/plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic-led — and the board three — `board.html`, the five lanes, one card's atoms and the lead's round, `board-team.html`, the three `team` verbs, and `board-parallel.html`, three cards planned side by side and then executed side by side, each row crossing the `approve` and `review` lines. Naming cards captures only those, and `-o` names the output for a single card; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run capture:video` | Regenerate `assets/video/demo.mp4`, the `pi.video` gallery preview: six frames this repository already ships, cross-faded with one caption each, drawn on a canvas and encoded to H.264 by the local Chrome (`MediaRecorder`), so no video encoder is installed for it. `-o`, `--width`, `--height`, `--fps`, and `--bps` tune the shot; the storyboard is `MONTAGE` in `scripts/shots/video.ts`. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run capture:tools` | Regenerate the tool call/result gallery (`assets/screens/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. It is `bun run render:tools gallery assets/screens/tool-renderings.png`. |
+| `bun run capture:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
+| `bun run report:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
+| `bun run report:notes X.Y.Z` | Print one changelog section for `gh release create`. |
+| `bun run migrate:config [--project <dir>]` | Move each per-extension `<name>.json` into the shared `bytefly.json`, once per machine and repository; `--dry-run` previews and `--keep` leaves the old files. How it behaves is in [`configuration.md`](./configuration.md#migrating-from-older-versions). |
 
 ## Screenshots
 
@@ -47,13 +51,13 @@ gallery — `cards/` the four posting posters with their stylesheet, and
 `tools/` the one-PNG-per-tool files. A file belongs where its writer puts it,
 which is also the command in the table above that regenerates it.
 
-`bun run screenshots` captures the terminal surfaces and the `chrome.png` hero on
+`bun run capture:screens` captures the terminal surfaces and the `chrome.png` hero on
 macOS: each frame is drawn by the shipped component with the `bytefly-dark`
 theme inside a real Terminal.app window, then captured with `screencapture`, so
 the docs show the product rather than a mock. Naming screens captures only
 those; with no argument it captures every entry in the `SCREENS` map of
 `scripts/screens/index.ts`, the `chrome` hero among them. To check a layout without a
-capture, `bun run screenshots render <name>` prints one frame as ANSI
+capture, `bun run capture:screens render <name>` prints one frame as ANSI
 on any OS; `--width` and `--rows` override the terminal.
 
 A screen is an asset stem, a window title, and a `render(width, rows)` that
@@ -74,8 +78,8 @@ its `size` is recorded, since that is what makes a frame the same frame twice;
 adding a screen to the record is the same capture that writes its asset.
 
 The browser assets come from headless Chrome instead of the terminal: the two
-browser pages, the tool galleries (`screenshot:tools`, `screenshot:tool-pngs`), and
-the `pi.video` montage (`screenshot:video`), which is those frames again, encoded.
+browser pages, the tool galleries (`capture:tools`, `capture:tool-pngs`), and
+the `pi.video` montage (`capture:video`), which is those frames again, encoded.
 `scripts/capture/chrome.ts` drives Playwright against the Chrome the machine already
 has — `PI_CHROME`, else the usual bundles — so a refresh downloads no browser,
 and it sizes the window to the document before capturing, so a page wider than the
@@ -83,8 +87,8 @@ window is photographed at its own layout. Both page captures have a fixture or a
 fixture project, so a refresh reproduces the same examples:
 
 ```bash
-bun run screenshot:plan scripts/examples/plan-review.md -o assets/screens/plan-review.png --width 1280 --scale 1 --theme dark
-bun run screenshot:file-browse -o assets/screens/file-browse.png --theme dark
+bun run capture:plan scripts/examples/plan-review.md -o assets/screens/plan-review.png --width 1280 --scale 1 --theme dark
+bun run capture:file-browse -o assets/screens/file-browse.png --theme dark
 ```
 
 `file-browse` serves a generated project in a temporary directory unless given
@@ -108,7 +112,7 @@ and the board three — `board.html`, the five lanes, one card's atoms and the l
 `board-team.html`, `assign`, `offer`, and `reclaim` as three bands, and
 `board-parallel.html`, three cards planned side by side and then executed side by side,
 every row crossing the `approve` and `review` lines. Every card is captured at 1200×675
-by `screenshot:cards`, and they share `assets/cards/cards.css`,
+by `capture:cards`, and they share `assets/cards/cards.css`,
 whose shell — palette, `.card`, `.title`, the `.strip` row, `.foot` — is what
 keeps the set from drifting apart; the board three add their own atoms under a banner of
 their own. A card whose content outgrows its box fails the capture rather than being
@@ -197,7 +201,7 @@ gated: they skip unless `CI` is set or `PI_SLOW_TESTS=1` is exported. A local
 `bun run check` stays fast; run them with:
 
 ```bash
-bun run test --slow
+bun run check:tests --slow
 ```
 
 CI runs the macOS job through `bun run check --serial` because a `--parallel`
@@ -291,79 +295,6 @@ bun run bench:load
 Adding a module to the registration path is the change this is for: the module
 count moves even when the timing does not, and the entry that grew is named.
 
-### What a start costs
-
-A start pays that graph **cold and in one process**, in manifest order, and a
-`/reload` pays it again: Pi's `DefaultResourceLoader.reload` clears the extension
-cache before reloading. `bun run bench:start` asks the host what that costs — it
-runs `pi` on a temp agent dir whose settings load this checkout, with
-`PI_TIMING=1` and `--mode rpc` (which prints the timings and exits without a model
-call), and prints each entry's import, factory, and total. It then registers the
-same entries in its own process and prints what their `session_start` handlers
-hold the first frame for, which no child can report: rpc mode emits the event and
-never draws a frame.
-
-```bash
-bun run bench:start
-```
-
-- **The reading, which is a pre-release one:** 22 entries cost **~225 ms of import
-  and 10 ms of factory** in a start here, inside a `main` namespace worth ~280 ms —
-  this package is most of what a start costs. The middle import total of three
-  runs is printed, with its range beside it, because one cold child per run is the
-  whole point: compare totals, not single entries, and expect a wide range on a
-  loaded machine.
-- **Where the time is:** the first entry in manifest order absorbs ~23 ms of the
-  loader's own bootstrap — jiti's TypeScript transformer, initialised once — which
-  is why `serve` reads as 22–28 ms for 11 modules (2.5 ms each) where every other
-  entry runs 0.20–0.50 ms per module; `bench:load` puts the same graph at 1.7 ms
-  warm. Reordering the manifest to put `bytefly` first moved exactly that cost
-  onto `bytefly` (25 → 50 ms) and took `serve` out of the top. So each entry's own
-  cost is flat at ~0.30 ms per module, and `bytefly` (86 modules, 24 ms), `board`
-  (58, 17 ms) and `plan` (55, 18 ms) are simply the large graphs.
-- **The duplication is the ceiling:** 731 evaluations over 387 modules means 344
-  are the same module paid again, ≈ 103 ms at 0.30 ms each. `lib/env.ts` is
-  evaluated by all 22 entries, `lib/tui/glyphs.ts`, `lib/tui/tokens.ts` and
-  `lib/format.ts` by 19, `lib/config.ts` by 17, six more `lib/tui/*` by 16. A
-  module removed from an entry's registration graph is saved *N* times, and
-  `bench:load`'s `ENTRY_BUDGET` row is what proves it fell.
-- **TUI init is not in the import number:** `PI_TIMING=1 PI_STARTUP_BENCHMARK=1 pi` in a
-  terminal initialises the TUI, prints the same timings and exits — both variables,
-  because `PI_TIMING` is what turns the instrument on and the benchmark flag only
-  says to stop after init; without the first it starts a normal session and prints
-  nothing. It refuses to run without a TTY, so that half is a local reading rather
-  than a CI one. `bun run check` never runs either bench.
-- **The terminal reading has three numbers, and only two of them are ours.** On the
-  author's machine:
-
-  | run | `main` total | `createAgentSessionRuntime` | `interactiveMode.init` | extensions |
-  |---|---|---|---|---|
-  | online | 1544 ms | 1198 | 331 | 1012 |
-  | `--offline` | 462 ms | 351 | 101 | 316 |
-  | `--no-extensions` | 92 ms | 46 | 37 | — |
-
-  The online extras — ~1080 ms — are the host's package and model resolution over the
-  network, and they leak into every loader delta, which is why the same graph reads
-  1012 ms there and 316 offline. Offline, the runtime is almost exactly the graph (316
-  of 351), and the frame is **~64 ms** this package's (101 against Pi's own 37), not the
-  294 the online pair suggested. Read `bench:start` for the graph, `--offline` for the
-  frame, and `--no-extensions` for Pi's own floor; the online numbers say nothing about
-  either.
-- **Of that 64 ms, the handlers are the half this package can move.** `bench:start`'s
-  second table reads **~13 ms of `session_start` across 22 entries** here — `bytefly`
-  5–10 (its footer's install builds the pricing reader cold), `rewind` 2–3,
-  `session-bus` ~1, `memory` ~1 — and the rest of the 64 is Pi's own init with our
-  chrome installed. Only the milliseconds a caller *waits* for count: a handler that
-  starts work and drops it reads as its synchronous part, which is the number the
-  deferral below moves.
-- **Defer what nothing needs before the first draw.** Pi awaits every
-  `session_start` handler, so anything a handler awaits is frame time. `subagent` reads
-  its config on the frame and nothing else, `wechat` hands its
-  bridge start back in one promise that its command and its tool join, and `rewind`
-  starts its scan and lets the first run await it. A new handler that spawns a
-  process, reads a store, or opens a socket belongs in that shape, not in the awaited
-  part.
-
 ## Cross-platform
 
 The package and its checks run on Windows, macOS, and Linux; CI runs the full
@@ -379,7 +310,7 @@ tests.
 
 The dev dependencies pin a floor (`^1.4.0`, resolved by `bun.lock`); `bun run
 check` proves the package against exactly that. The floor is not the ceiling: the
-`compat` CI job installs the **newest published** peers and runs `typecheck` and
+`compat` CI job installs the **newest published** peers and runs `check:types` and
 the serial suite against them, so a Pi release that breaks the package is visible
 without waiting for someone to bump the lockfile.
 
@@ -398,7 +329,7 @@ not an upgrade):
 ```bash
 bun add --dev @earendil-works/pi-agent-core@latest @earendil-works/pi-ai@latest \
   @earendil-works/pi-coding-agent@latest @earendil-works/pi-tui@latest typebox@latest
-bun run compat:versions
+bun run report:versions
 bun run check --serial
 git checkout package.json bun.lock && bun install --frozen-lockfile
 ```
@@ -632,7 +563,7 @@ authenticates with npm trusted publishing (OIDC). See
    offer a pin; `test/release.test.ts` fails on a stale pin. This step is the
    only one that renders: recapture `assets/` here, never while a feature or fix
    is in flight, and the hero has to be recaptured here because nothing else can:
-   `bun run screenshots chrome` re-renders
+   `bun run capture:screens chrome` re-renders
    `assets/screens/chrome.png` from the new `package.json`, because the capture
    needs macOS and Terminal.app — see [Screenshots](#screenshots).
 3. Run `bun run check`.
@@ -652,12 +583,12 @@ authenticates with npm trusted publishing (OIDC). See
    its body:
 
    ```bash
-   bun run release:notes X.Y.Z > section.md
+   bun run report:notes X.Y.Z > section.md
    gh release create vX.Y.Z --title X.Y.Z --notes-file section.md
    rm section.md
    ```
 
-   `release:notes` prints the `## [X.Y.Z]` section (heading included) and exits
+   `report:notes` prints the `## [X.Y.Z]` section (heading included) and exits
    non-zero when that version has no changelog section, so a mistyped version
    fails before `gh` runs.
 

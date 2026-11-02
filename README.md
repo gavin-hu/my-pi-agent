@@ -176,7 +176,7 @@ uses `bytefly-dark`.
 Every other frame — the terminal screens, the three browser pages, and one block
 per tool — lives on the page for its extension under
 [`docs/extensions/`](./docs/extensions/), which opens with what it does and the
-keys it answers. `bun run screenshot:tools` regenerates the tool gallery into
+keys it answers. `bun run capture:tools` regenerates the tool gallery into
 [`assets/tools/`](./assets/tools).
 
 ## Configuration

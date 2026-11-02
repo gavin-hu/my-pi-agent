@@ -8,11 +8,11 @@
  * resolved through bytefly's own `registerToolBlocks` resolver — so the rail,
  * its status colour, and the generic fallback are the ones a session shows.
  *
- *   bun run tools:render list                     one line per rendering
- *   bun run tools:render render <name> [--width]  print one block's ANSI
- *   bun run tools:render html <out.html>          write the gallery page
- *   bun run tools:render gallery <out.png>        capture the gallery full-page
- *   bun run tools:render tools <dir>              one PNG per rendering
+ *   bun run render:tools list                     one line per rendering
+ *   bun run render:tools render <name> [--width]  print one block's ANSI
+ *   bun run render:tools html <out.html>          write the gallery page
+ *   bun run render:tools gallery <out.png>        capture the gallery full-page
+ *   bun run render:tools tools <dir>              one PNG per rendering
  *
  * Fixtures live in `fixtures/`, one module per tool family; this module is
  * the plumbing.
@@ -421,7 +421,7 @@ async function main(): Promise<void> {
 		}
 		return;
 	}
-	throw new Error("usage: bun run tools:render <list|render|html|gallery|tools> [name|out] [--width n]");
+	throw new Error("usage: bun run render:tools <list|render|html|gallery|tools> [name|out] [--width n]");
 }
 
 if (import.meta.main) {

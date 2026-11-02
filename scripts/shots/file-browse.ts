@@ -11,7 +11,7 @@
  * image must not name a real checkout or someone's files. `PI_CHROME` selects a
  * Chrome or Chromium other than the macOS default.
  *
- *   bun run screenshot:file-browse [--root <dir>] [--file <rel>] [-o out.png]
+ *   bun run capture:file-browse [--root <dir>] [--file <rel>] [-o out.png]
  *     [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000]
  *
  * Output defaults to `file-browse.png` in the working directory.
@@ -244,7 +244,7 @@ async function capture(options: ShotOptions): Promise<void> {
 	}
 }
 
-const USAGE = `usage: bun run screenshot:file-browse [--root <dir>] [--file <rel>] [-o out.png] [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000]`;
+const USAGE = `usage: bun run capture:file-browse [--root <dir>] [--file <rel>] [-o out.png] [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000]`;
 
 if (import.meta.main) {
 	runCli(USAGE, async () => {

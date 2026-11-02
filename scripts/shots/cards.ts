@@ -7,9 +7,9 @@
  * first, then the usual bundles) and writes the PNG a card is posted as — 2× by
  * default, so the text stays crisp where X scales it.
  *
- *   bun run screenshot:cards              # every card
- *   bun run screenshot:cards board        # one card
- *   bun run screenshot:cards flow -o /tmp/flow.png --scale 3
+ *   bun run capture:cards              # every card
+ *   bun run capture:cards board        # one card
+ *   bun run capture:cards flow -o /tmp/flow.png --scale 3
  *
  * A card that outgrows its own 1200×675 box fails the run with the measured
  * size instead of being captured clipped, because the image is the whole page.
@@ -125,7 +125,7 @@ async function capture(name: string, options: ShotOptions): Promise<void> {
 	console.log(out);
 }
 
-const USAGE = `usage: bun run screenshot:cards [${Object.keys(CARDS).join("|")}] [-o out.png] [--scale 2] [--wait 8000]`;
+const USAGE = `usage: bun run capture:cards [${Object.keys(CARDS).join("|")}] [-o out.png] [--scale 2] [--wait 8000]`;
 
 if (import.meta.main) {
 	runCli(USAGE, async () => {

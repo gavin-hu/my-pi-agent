@@ -67,7 +67,7 @@ row as an opt-in extension and names the switch.
 
 *The card dialog: the record of one card — the head it shares with the card face, why it sits
 where it does, the sections a reader acts on, then its notes newest first
-(`screenshot:board --dialog card`).*
+(`capture:board --dialog card`).*
 
 ## Capabilities
 
@@ -356,15 +356,15 @@ The board as a posting card — the same rules, drawn to be read at half width:
 
 <img src="../../assets/cards/board.png" alt="One board, every session: the page's repository name and live badge; five lane trays — Backlog, Plan, Execute, Blocked, Done — each with a dot, a count pill and a fold; one card carrying an id, a title, an owner chip, a priority chip, its age, a path chip and one reason line, with no action on it; and the lead's round with two owner lines — each dot in the colour of the state it reports, success for live and warn for quiet — and the counts unassigned, unplanned, awaiting approval, awaiting review, blocked, unwritten and done" width="100%">
 
-*`board`: the lanes, one card's atoms, and the lead's round — three readings of one board, drawn by `screenshot:cards board`.*
+*`board`: the lanes, one card's atoms, and the lead's round — three readings of one board, drawn by `capture:cards board`.*
 
 <img src="../../assets/cards/board-team.png" alt="The three team verbs as three bands: assign sends a handoff to a named peer and then records the owner, so a pooled card enters plan in that write; offer broadcasts an event to every other live session without recording an owner, so the first claim wins; reclaim returns the card to Backlog with its notes kept and no handoff sent" width="100%">
 
-*`board-team`: `assign`, `offer`, and `reclaim` — the two that reach the bus, and the one that writes the card alone (`screenshot:cards team`).*
+*`board-team`: `assign`, `offer`, and `reclaim` — the two that reach the bus, and the one that writes the card alone (`capture:cards team`).*
 
 <img src="../../assets/cards/board-parallel.png" alt="Two lanes of three rows each. In the plan lane, #4 billing-core, #5 api-core, and #6 web-core each carry a contract node reading contract, 契约, and plan file, side by side, with goal, acceptance, and scope out named under them; every row crosses one vertical approve line, a signature only the lead may give and never while holding the card. In the execute lane the same three run at once under their owners, each row crossing a vertical review spot-check line into done. Each lane's floor states its count — 3/3 contracts, 3/5 owners executing — and the round beneath counts 0 unplanned, 1 awaiting approval, and 2 done; the foot says execute opens only on the lead's approval and that assign and offer hand a card over without starting a turn" width="100%">
 
-*`board-parallel`: plan three at once, then execute three at once — `approve` is the lead's signature on the contract, `review` the lead's look before `done`, and both are lines every row crosses (`screenshot:cards parallel`).*
+*`board-parallel`: plan three at once, then execute three at once — `approve` is the lead's signature on the contract, `review` the lead's look before `done`, and both are lines every row crosses (`capture:cards parallel`).*
 
 ## Keys
 

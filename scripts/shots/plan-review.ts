@@ -7,7 +7,7 @@
  * without opening a browser by hand. It is macOS-friendly (it finds Google
  * Chrome's bundle) and honours `PI_CHROME` for another Chrome or Chromium.
  *
- *   bun run screenshot:plan <plan.md> [-o out.png] [--width 1280]
+ *   bun run capture:plan <plan.md> [-o out.png] [--width 1280]
  *     [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer]
  *     [--post <name>] [--draft <text>] [--share]
  *
@@ -175,7 +175,7 @@ async function mintShareLinks(
 	if (!response.ok) throw new Error(`the review refused a second link: ${response.status}`);
 }
 
-const USAGE = `usage: bun run screenshot:plan <plan.md> [-o out.png] [--width 1280] [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer] [--post <name>] [--draft <text>] [--share]`;
+const USAGE = `usage: bun run capture:plan <plan.md> [-o out.png] [--width 1280] [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer] [--post <name>] [--draft <text>] [--share]`;
 
 if (import.meta.main) {
 	runCli(USAGE, async () => {

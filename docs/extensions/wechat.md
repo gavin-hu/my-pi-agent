@@ -400,23 +400,14 @@ floor on how fast the bot can react to anything.
 
 `pollHoldMs` asks the server for a shorter hold. The response mirrors
 `longpolling_timeout_ms`, but whether the server *honours* a request for a
-different value is not documented, so it is opt-in and unset by default. To find
-out on your account, quit `pi` and run this from a repository checkout:
+different value is not documented, so it is opt-in and unset by default — and
+nothing in this repository measures whether a request was honoured, so set it and
+watch the bridge's own reaction rather than trusting the echo.
 
-```bash
-bun run probe:wechat 3000
-```
-
-It prints the requested hold, the measured one, and the value the server echoed,
-then says whether the request was honoured. It refuses to run while a bridge is
-polling (two clients on one account can steal each other's messages), and it
-never touches the stored cursor.
-
-The same run answers a second question: every message it receives is printed with
-the `group_id` and `session_id` the protocol supplied, when it supplied them.
-Nothing in the bridge routes on either — a conversation is keyed by sender — so a
-message posted in a group is the only way to learn whether rooms are delivered at
-all, a question a group-chat design would have to answer first.
+The protocol also carries a `group_id` and a `session_id` on a message, when it
+carries them at all. Nothing in the bridge routes on either — a conversation is
+keyed by sender — so a message posted in a group is the only way to learn whether
+rooms are delivered, a question a group-chat design would have to answer first.
 
 ## Troubleshooting
 

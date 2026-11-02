@@ -11,7 +11,7 @@
  * editing this file. A missing package is an error, not a blank line: a
  * half-installed tree must not look like a tested one.
  *
- * Usage: `bun run compat:versions`
+ * Usage: `bun run report:versions`
  */
 
 import { appendFileSync, existsSync, readFileSync } from "node:fs";

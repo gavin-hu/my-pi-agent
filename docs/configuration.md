@@ -532,7 +532,7 @@ Before the shared document, each extension read its own `<name>.json`
 machine and per repository:
 
 ```bash
-bun run config:migrate --project <repo-root>   # add --dry-run to preview, --keep to keep the old files
+bun run migrate:config --project <repo-root>   # add --dry-run to preview, --keep to keep the old files
 ```
 
 It moves each legacy file into its section, renames an already-migrated

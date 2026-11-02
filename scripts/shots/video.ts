@@ -12,7 +12,7 @@
  * The page half is an expression string, the way every capture here writes its
  * page code: `tsconfig` has no DOM lib, and the browser is not this program.
  *
- *   bun run screenshot:video [-o assets/video/demo.mp4] [--width 1280]
+ *   bun run capture:video [-o assets/video/demo.mp4] [--width 1280]
  *     [--height 720] [--fps 30] [--bps 1400000]
  */
 
@@ -165,7 +165,7 @@ export function slides(montage: readonly MontageFrame[] = MONTAGE): Slide[] {
 	return montage.map((slide) => {
 		const path = join(repo, "assets", "screens", `${slide.frame}.png`);
 		if (!existsSync(path))
-			throw new Error(`${path} is missing; capture it with \`bun run screenshots ${slide.frame}\``);
+			throw new Error(`${path} is missing; capture it with \`bun run capture:screens ${slide.frame}\``);
 		return { ...slide, src: `data:image/png;base64,${readFileSync(path).toString("base64")}` };
 	});
 }

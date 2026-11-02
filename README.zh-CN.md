@@ -156,7 +156,7 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 
 其余截图 —— 终端各屏幕、浏览器里的三个页面，以及每个工具一块 —— 都在各扩展自己
 位于 [`docs/extensions/`](./docs/extensions/) 下的页面里，页面开头便说明它做什么、
-对应哪些按键；`bun run screenshot:tools` 会把工具画廊重新生成到
+对应哪些按键；`bun run capture:tools` 会把工具画廊重新生成到
 [`assets/tools/`](./assets/tools)。
 
 ## 配置
