@@ -18,7 +18,7 @@ import { messageOf } from "../../lib/errors.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { teamLine } from "./join.ts";
-import type { BoardPage, BoardPageStatus } from "./page.ts";
+import type { BoardPage, BoardPageStatus, StaleDrop } from "./page.ts";
 
 /** The command's name, which is also the word a user types. */
 export const BOARD_COMMAND = "board";
@@ -74,12 +74,7 @@ export function registerCommands(
 				// it is dropped here, and the line says whose it was.
 				if (status.stale === true) {
 					const dropped = await page.dropStale(ctx);
-					ctx.ui.notify(
-						dropped
-							? `board: dropped ${status.seat}'s note for :${status.port} — it answered nobody`
-							: `board: nothing to stop here — ${status.seat} is answering on :${status.port}`,
-						"info",
-					);
+					ctx.ui.notify(dropLine(dropped, status), "info");
 					return;
 				}
 				// A page another session serves is that session's to stop, and saying whose it is is the answer.
@@ -227,4 +222,17 @@ export function statusLine(status: BoardPageStatus, team?: JoinResult): string {
 	// The team outlives the page: a session that claimed a card is on it with no page open, so
 	// the line says which team this session is on whichever door put it there.
 	return `board: not running — /board opens it${teamLine(team)}`;
+}
+
+/**
+ * What `/board stop` says after it went to drop a note nobody answers.
+ *
+ * Only a page the probe found is called "answering": the other two answers are this session
+ * watching nothing now, and a note it could not clear is one that is not there — the sentence
+ * a stale note survived was the one that named a page this call had just proved dead.
+ */
+export function dropLine(dropped: StaleDrop, status: BoardPageStatus): string {
+	if (dropped === "live") return `board: nothing to stop here — ${status.seat} is answering on :${status.port}`;
+	if (dropped === "dropped") return `board: dropped ${status.seat}'s note for :${status.port} — it answered nobody`;
+	return `board: nothing to stop here — ${status.seat}'s note for :${status.port} is already gone`;
 }

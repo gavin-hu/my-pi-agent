@@ -113,6 +113,17 @@ export interface BoardPageDeps {
 	probe?: ProbeFetch;
 }
 
+/**
+ * What `/board stop` got when it went to drop a note nobody answers.
+ *
+ * An answer rather than a boolean, because the two ways it can end without dropping anything
+ * are said differently: a page that came back is somebody's to stop, and a note that is
+ * already gone is nothing left to do — calling that one "answering" is how a stale note
+ * survived the `/board stop` that had just proved it dead. `gone` is also "this session
+ * watches nothing", which `/board stop` never reaches: `stale` is what sends it here.
+ */
+export type StaleDrop = "dropped" | "live" | "gone";
+
 /** The page as `/board` and `session_shutdown` drive it. */
 export interface BoardPage {
 	start: (ctx: ExtensionContext, view?: PageView) => Promise<PageStart>;
@@ -120,8 +131,8 @@ export interface BoardPage {
 	stop: () => Promise<boolean>;
 	/** What `/board status` prints: served here, watched, watched and dead, or absent. */
 	status: () => Promise<BoardPageStatus>;
-	/** Drop the note of a page that has stopped answering. False when it still answers. */
-	dropStale: (ctx: ExtensionContext) => Promise<boolean>;
+	/** Drop the note of a page that has stopped answering; `live` when it answers again. */
+	dropStale: (ctx: ExtensionContext) => Promise<StaleDrop>;
 	closeAll: () => Promise<void>;
 }
 
@@ -343,16 +354,19 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 	 *
 	 * Only a note this session watched, and only while it answers nobody: a page that came
 	 * back between the status line and this call keeps its note, and `clearPointer`'s token
-	 * check makes that true even if a new page wrote one in between.
+	 * check makes that true even if a new page wrote one in between. Either way this session
+	 * stops watching what it was: a note already removed by its owner, or replaced by a newer
+	 * one, is not one this session can clear, and holding the reference to it is what kept
+	 * `/board status` calling a gone note stale and `/board stop` calling its page alive.
 	 */
-	const dropStale = async (ctx: ExtensionContext): Promise<boolean> => {
+	const dropStale = async (ctx: ExtensionContext): Promise<StaleDrop> => {
 		const pointer = attachedTo;
-		if (pointer === undefined) return false;
-		if (await probePage(pointer, deps.probe)) return false;
+		if (pointer === undefined) return "gone";
+		if (await probePage(pointer, deps.probe)) return "live";
 		const store = await storeOf(ctx);
-		if (!(await clearPointer(store.dir, pointer.token))) return false;
+		const dropped = await clearPointer(store.dir, pointer.token);
 		attachedTo = undefined;
-		return true;
+		return dropped ? "dropped" : "gone";
 	};
 
 	return {

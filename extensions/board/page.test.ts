@@ -418,7 +418,7 @@ describe("the page this repository already serves", () => {
 		expect(stale).toMatchObject({ running: false, attached: true, stale: true, seat: "team-lead", port: first.port });
 
 		// Dropping it is a token-safe clear: the note in this repository is the dead one.
-		expect(await viewer.page.dropStale(viewer.ctx)).toBe(true);
+		expect(await viewer.page.dropStale(viewer.ctx)).toBe("dropped");
 		expect(await noteOf(viewer.runtime, cwd)).toBeUndefined();
 		expect(await viewer.page.status()).toEqual({ running: false });
 		await lead.page.stop();
@@ -433,7 +433,7 @@ describe("the page this repository already serves", () => {
 		attached(await viewer.page.start(viewer.ctx));
 
 		// The lead is alive: stop is still the owner's decision, and no note is dropped.
-		expect(await viewer.page.dropStale(viewer.ctx)).toBe(false);
+		expect(await viewer.page.dropStale(viewer.ctx)).toBe("live");
 		expect((await noteOf(viewer.runtime, cwd))?.port).toBe(first.port);
 		await lead.page.stop();
 	});

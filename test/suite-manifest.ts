@@ -51,6 +51,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"lazy-page",
 		"page",
 		"page-idle",
+		"page-note",
 		"commands",
 		"sign",
 		"extension",

@@ -19,7 +19,7 @@ import {
 import type { BoardSession } from "../../lib/board/session.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 import type { TeamJoin } from "./join.ts";
-import type { BoardPage } from "./page.ts";
+import type { BoardPage, StaleDrop } from "./page.ts";
 
 /** A page this session watches rather than serves. */
 function attachedPage(): BoardPage {
@@ -34,13 +34,13 @@ function attachedPage(): BoardPage {
 		}),
 		stop: async () => false,
 		status: async () => ({ running: false, attached: true, seat: "team-lead", port: 4812 }),
-		dropStale: async () => false,
+		dropStale: async () => "gone",
 		closeAll: async () => {},
 	};
 }
 
 /** A page this session watched, whose note now answers nobody. */
-function stalePage(dropped = true): { page: BoardPage; calls: string[] } {
+function stalePage(dropped: StaleDrop = "dropped"): { page: BoardPage; calls: string[] } {
 	const calls: string[] = [];
 	return {
 		calls,
@@ -189,9 +189,19 @@ describe("/board", () => {
 	});
 
 	test("keeps the note of a page that came back before stop", async () => {
-		const stale = stalePage(false);
+		const stale = stalePage("live");
 		const { notifications } = await run("stop", { page: stale.page });
 		expect(notifications.at(-1)).toBe("board: nothing to stop here — team-lead is answering on :4812");
+	});
+
+	test("says the note is already gone instead of calling its page alive", async () => {
+		// The owner's clean exit took the note with it: there is nothing left to drop, and the
+		// page this session watched is not one that came back — the status line had already
+		// proved it dead, so "is answering" was the one sentence that could not be true.
+		const stale = stalePage("gone");
+		const { notifications } = await run("stop", { page: stale.page });
+		expect(stale.calls).toEqual(["dropStale"]);
+		expect(notifications.at(-1)).toBe("board: nothing to stop here — team-lead's note for :4812 is already gone");
 	});
 
 	test("prints the address, so a page can be opened by hand", async () => {
