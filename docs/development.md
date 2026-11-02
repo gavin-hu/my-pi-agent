@@ -266,8 +266,8 @@ per record shows up here as hundreds of microseconds per record.
 
 Pi imports each extension with its own module cache
 (`createJiti(…, { moduleCache: false })`), so a shared `lib/` module is
-transformed and evaluated once *per importing entry* — 22 entries evaluate 731
-local modules over 387 distinct ones today. `bun run bench:load` measures that per
+transformed and evaluated once *per importing entry* — 22 entries evaluate 722
+local modules over 384 distinct ones today. `bun run bench:load` measures that per
 entry: the modules its entry statically evaluates, how many are `lib/`, how many
 another entry pays again, and what the graph costs to import with the host
 packages already warm.
@@ -328,7 +328,7 @@ runs it.
   times the others'; reordering the manifest moves the cost to whichever entry is first
   rather than removing it. Past that, each entry's own cost is the size of its graph,
   which is the number `bench:load`'s `ENTRY_BUDGET` row gates.
-- **The duplication is the ceiling:** 731 evaluations over 387 modules means 344
+- **The duplication is the ceiling:** 722 evaluations over 384 modules means 338
   are the same module paid again: `lib/env.ts` is evaluated by all 22 entries,
   `lib/tui/glyphs.ts`, `lib/tui/tokens.ts` and `lib/format.ts` by 19, `lib/config.ts` by 17,
   six more `lib/tui/*` by 16. A module removed from an entry's registration graph is

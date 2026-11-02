@@ -13,7 +13,7 @@ import type { BackgroundRuntime } from "./background.ts";
 import { formatAgentsList } from "./format.ts";
 
 /** Open `/agents`; the TUI gets the board, other modes get the list. */
-async function openAgents(
+export async function openAgents(
 	pi: ExtensionAPI,
 	background: BackgroundRuntime,
 	ctx: ExtensionCommandContext,
@@ -71,13 +71,4 @@ async function openAgents(
 	}
 	if (ctx.isIdle()) await pi.sendUserMessage(collected.text);
 	else await pi.sendUserMessage(collected.text, { deliverAs: "followUp" });
-}
-
-export function registerAgentsCommand(pi: ExtensionAPI, background: BackgroundRuntime): void {
-	pi.registerCommand("agents", {
-		description: "Inspect, collect, or cancel background subagent runs",
-		handler: async (_args, ctx) => {
-			await openAgents(pi, background, ctx);
-		},
-	});
 }

@@ -72,6 +72,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `subagent`: the background surface loads on first use. `background.ts`, `commands.ts`, `ui.ts` and
+  the three `lib/` modules only they reach were imported at registration, so every session paid for
+  the runtime, the chip and the `/agents` board even if it never delegated in the background. A new
+  `surface.ts` keeps `/agents` in Pi's palette — a command registered later never reaches it — and
+  imports the stack when the command or a `background: true` call first runs: the entry's graph falls
+  37 → 31 modules, `ENTRY_BUDGET` drops to the measured count, and the three modules are named in
+  `DEFERRED_FROM_REGISTRATION` so a static re-import fails the gate.
+
 - `board`: the person's sign door matches the tool beside it. `/board`'s completion is
   case-insensitive, because the handler already lowercases what it parses — `/board St`
   offers `status` and `stop` instead of nothing. A `/board approve|review` whose board read or

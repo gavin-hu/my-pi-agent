@@ -365,10 +365,16 @@ step's `Output`.
 | Command | `/agents` |
 | State storage | tool-result `details`; background start/finish entries (`subagent-background`) on the session branch |
 | Event | `my-pi-agent/subagent-finished` (`SUBAGENT_FINISHED_CHANNEL` in `lib/events.ts`) once per finished child |
-| Lifecycle | `session_start` loads the config on the frame and attaches the footer chip; `session_shutdown` aborts every live background child and clears the chip |
+| Lifecycle | `session_start` loads the config on the frame, and the background surface (runtime, chip, `/agents`) is built on first use; `session_shutdown` aborts every live background child and clears the chip |
 
 ## Design notes
 
+- **The background surface loads on first use.** Pi builds its command palette at load, so
+  `/agents` is registered by `surface.ts` and only its handler waits: the runtime, the chip and
+  the board are imported when the command or a `background: true` call first needs them. A
+  session that never delegates in the background never evaluates the stack — the entry's
+  registration graph is 31 modules, down from 37 — and the trade is one `import()` awaited
+  inside a call that already spawns a process.
 - **The child starts in the active root.** `defaultCwd` is
   `resolveEffectiveCwd(ctx.cwd)`, so a delegated run begins in the worktree when
   the session is isolated even though Pi's `ctx.cwd` never changes and the child
@@ -437,10 +443,11 @@ step's `Output`.
 | `stream.ts` | JSON-event parsing, guarded usage accounting, output helpers (pure). |
 | `config.ts` | The `subagent` section of `bytefly.json`: the deadline and the background capacity. |
 | `run.ts` | Runs one subagent process and captures its result (including the background abort-as-result path). |
-| `background.ts` | Background run entries, replay, capacity, cancel, collect, and shutdown. |
+| `surface.ts` | Registers `/agents` at load and builds the stack behind it on first use — the runtime, the chip, the board — so a session that never backgrounds a run pays nothing for them. |
+| `background.ts` | Background run entries, replay, capacity, cancel, collect, and shutdown. Loaded with `surface.ts` on first use. |
 | `view/agents-board.ts` | The `/agents` board: a `DockListScreen` with a live output pane and width-aware facts, loaded on first use. |
-| `commands.ts` | The `/agents` command. |
-| `ui.ts` | The running-count footer chip and finish notices. |
+| `commands.ts` | The `/agents` command body, imported by its handler. |
+| `ui.ts` | The running-count footer chip and finish notices, loaded with the runtime. |
 | `accounting.ts` | The `subagent-finished` event payload built from a result (pure). |
 | `format.ts` | Token/usage/total line and tool-call formatting (pure, money-free). |
 | `render.ts` | `renderCall` / `renderResult`: the call line and the result block. |
