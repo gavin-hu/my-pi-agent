@@ -253,6 +253,12 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				return { kind: "failed", reason: started.reason };
 			}
 			const server = started.server;
+			// The mount exists from here, and `running` is the only handle the three closes take: a
+			// throw between the mount and the note — `settlePointer` writes beside the cards — would
+			// otherwise leave /board mounted, its port bound and its ticker pushing for the rest of
+			// the session, with every later `/board` refused as already served.
+			const page = { server, store, token, seat };
+			running = page;
 			// The note and the seat: written last, on the port the server actually bound, and only if no
 			// other session got there first: the loser of that race attaches to the page that
 			// won rather than serving a second page nobody can find. A note that answers
@@ -267,7 +273,9 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 			};
 			const outcome = await settlePointer(store.dir, note, deps.probe);
 			if (outcome.kind === "attached") {
-				await server.close();
+				// This session serves nothing after all: the close is the one every door uses, and its
+				// note clear is a no-op for a note this call never wrote.
+				await closeRunning();
 				return attach(outcome.pointer);
 			}
 			if (outcome.kind === "written" && outcome.took !== undefined) {
@@ -278,7 +286,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				);
 			}
 			if (outcome.kind !== "written") {
-				await server.close();
+				await closeRunning();
 				const path = join(store.dir, PAGE_FILE);
 				const reason =
 					outcome.kind === "stale"
@@ -289,10 +297,12 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				ctx.ui.notify(`board: the page did not start (${reason})`, "error");
 				return { kind: "failed", reason };
 			}
-			running = { server, store, token, seat };
 			open(server.url);
-			return describe(running);
+			return describe(page);
 		} catch (error) {
+			// Nothing to close when the store or the mount failed; the page itself when the note did,
+			// so the prefix is free and the seat is nobody's for the next `/board`.
+			await closeRunning();
 			return failed(error);
 		}
 	};

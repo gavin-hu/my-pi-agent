@@ -1,5 +1,9 @@
 /**
- * The page's idle grace: a page no tab ever opened, and one whose last tab left.
+ * The page's own start mistakes and idle graces: a start that fails after its port is bound, a
+ * page no tab ever opened, and one whose last tab left.
+ *
+ * The failed start is here rather than in `page.test.ts` because that suite is at its named
+ * height, and the prefix it must give back is the page's own lifecycle, not a socket's answer.
  *
  * Both graces are wall-clock timers in the product — two minutes and one — and both cases
  * used to await a notification under a two-second `waitFor` budget, which turned an injected
@@ -9,6 +13,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { graceTimer } from "../../test/helpers/fixtures/http.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
@@ -16,6 +21,7 @@ import { testMountSource } from "../../test/helpers/serve.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { createBoardPage, IDLE_FIRST_MS, IDLE_STOP_MS } from "./page.ts";
 import { noteOf, servedPage } from "../../test/helpers/board-page.ts";
+import { readPointer } from "../../lib/board/page-pointer.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -83,5 +89,43 @@ describe("a page no tab ever opened", () => {
 		// And nothing is left behind for the next session to probe.
 		expect(await noteOf(runtime, cwd)).toBeUndefined();
 		await expect(fetch(status.url ?? "")).rejects.toBeDefined();
+	});
+});
+
+describe("a start that fails after the port is bound", () => {
+	test("gives the prefix back, so the next /board serves instead of being refused", async () => {
+		const board = boardHarness({ now: NOW, track: temps.track });
+		const store = await board.runtime.store(board.cwd);
+		const base = testMountSource();
+		let mounts = 0;
+		const page = createBoardPage(board.runtime, {
+			// The note is a write beside the cards, so the first mount turns the board's directory
+			// into a file: `settlePointer` rethrows every fs error but EEXIST, and the mount exists
+			// by then. The second mount is the `/board` the case is asking to succeed.
+			mount: async (spec) => {
+				const mounted = await base(spec);
+				if (mounts++ > 0) return mounted;
+				rmSync(store.dir, { recursive: true, force: true });
+				writeFileSync(store.dir, "");
+				return mounted;
+			},
+			session: () => "s1",
+			open: () => {},
+			idleMs: 40,
+		});
+
+		const start = await page.start(board.ctx);
+		expect(start.kind).toBe("failed");
+		expect(board.notifications.join("\n")).toContain("board: the page did not start");
+		// The page was never announced, so nothing else would ever close it: no seat, no note, and
+		// no mount holding /board on the session's server.
+		expect((await page.status()).running).toBe(false);
+		expect(await readPointer(store.dir)).toBeUndefined();
+		// The directory can take a note again, and the prefix is free: a leaked mount would answer
+		// refused here, and every later `/board` in the session would say already served.
+		rmSync(store.dir, { force: true });
+		mkdirSync(store.dir, { recursive: true });
+		servedPage(await page.start(board.ctx));
+		await page.stop();
 	});
 });
