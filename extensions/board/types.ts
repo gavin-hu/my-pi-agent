@@ -2,7 +2,8 @@
  * The shapes the `board` tool registers and reports.
  *
  * `details` is the result's state: the card an action produced, the cards a list
- * read, the rollup when it was asked for, and — on a refusal — the card as it was,
+ * read, the rollup when it was asked for, what an archive did, the sentence a sign's
+ * message produced, and — on a refusal — the card as it was,
  * so a retry starts from the truth rather than from what the model thought it
  * knew. The renderer and the tool share these types, and nothing else.
  */
@@ -108,12 +109,34 @@ export interface BoardDetails {
 	round?: RoundSummary;
 	/** The id a `drop` removed. */
 	dropped?: string;
-	/** The ids an `archive` set aside, in the order it moved them. */
-	archived?: string[];
-	/** Cards an `archive` sweep could not set aside, and why: a move that changed underneath it. */
-	failed?: Array<{ card: string; error: string }>;
+	/** What an `archive` did, card by card: the outcome the collapsed line states. */
+	archive?: ArchiveOutcome;
+	/**
+	 * What a sign's message to the card's owner produced: `told api-core`, or the sentence
+	 * saying it was not told. Absent when nothing was sent — no owner, or a repeated sign.
+	 */
+	told?: string;
 	/** A refusal's reason, which the renderer draws instead of the details. */
 	error?: string;
+}
+
+/**
+ * What an `archive` did, in the four answers a call can give.
+ *
+ * One shape for the single card and the sweep, because they are the same question asked
+ * over one card or the board: a result that stated its own outcome in the text and
+ * nothing in the details drew a listing count instead, and a sweep that failed on a card
+ * read as if it had not.
+ */
+export interface ArchiveOutcome {
+	/** The ids it set aside, in the order it moved them. */
+	moved: string[];
+	/** Finished cards a live link kept on the board: an open card still waits on them. */
+	kept: string[];
+	/** The cards it could not set aside, and why: a move that changed underneath it. */
+	failed: Array<{ card: string; error: string }>;
+	/** The one card a repeated call found already aside: a no-op, not a failure. */
+	already?: string;
 }
 
 /** Whether a value is one of the actions, so an unknown one is a refusal and not a crash. */

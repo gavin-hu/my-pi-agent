@@ -136,6 +136,9 @@ describe("a sign tells the other side", () => {
 		expect(sent[0]?.text ?? "").toContain(`approved by ${LEAD}`);
 		expect(sent[0]?.text ?? "").toContain('lane "execute"');
 		expect(resultText(signed)).toContain(`told ${signed.details.card?.owner?.label}`);
+		// The same sentence without the text's continuation indent, so the transcript block draws
+		// it instead of dropping the one fact the bus produced.
+		expect(signed.details.told).toBe(`told ${signed.details.card?.owner?.label}`);
 	});
 
 	test("review names the lane that finishing the card needs", async () => {
@@ -159,6 +162,8 @@ describe("a sign tells the other side", () => {
 		const again = await board.lead.call({ action: "approve", card: "1" });
 		expect(again.details.card?.contract?.approved?.by).toBe(LEAD);
 		expect(sent).toHaveLength(0);
+		// Nothing was said, so there is no line for the block to draw.
+		expect(again.details.told).toBeUndefined();
 	});
 
 	test("a bus that cannot answer costs a line on the result, never the signature", async () => {
@@ -168,6 +173,7 @@ describe("a sign tells the other side", () => {
 		expect(signed.isError).toBeFalsy();
 		expect(signed.details.card?.contract?.approved?.by).toBe(LEAD);
 		expect(resultText(signed)).toContain("was not told (the session bus is not loaded)");
+		expect(signed.details.told).toContain("was not told (the session bus is not loaded)");
 	});
 });
 

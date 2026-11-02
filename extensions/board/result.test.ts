@@ -80,6 +80,62 @@ describe("the collapsed line", () => {
 		const line = collapsedLine(coloringTheme, { action: "list", me: ME, card: card({ lane: "blocked" }) });
 		expect(line).toContain(`${colour(TONE_ROLE.danger)}blocked`);
 	});
+
+	test("names the archive outcome, so a no-op is not a listing count", () => {
+		// The defect: `archive card:"1"` twice drew `0 cards` over a sentence that said the card
+		// was already aside, because the details carried nothing the line could read.
+		const moved = collapsedLine(coloringTheme, {
+			action: "archive",
+			me: ME,
+			archive: { moved: ["4"], kept: [], failed: [] },
+		});
+		expect(moved).toContain(`${colour("label")}#4 archived`);
+		expect(moved).toContain(ME.label);
+		const already = collapsedLine(coloringTheme, {
+			action: "archive",
+			me: ME,
+			archive: { moved: [], kept: [], failed: [], already: "4" },
+		});
+		expect(already).toContain(`${colour("meta")}#4 already archived`);
+		for (const line of [moved, already]) expect(line).not.toContain("0 cards");
+	});
+
+	test("names what a sweep kept and what it failed on", () => {
+		const line = collapsedLine(coloringTheme, {
+			action: "archive",
+			me: ME,
+			archive: { moved: ["4"], kept: ["5"], failed: [{ card: "6", error: "#6 kept changing while it was written." }] },
+		});
+		// Three outcomes at once, each in its own tone: a move, the hold a live link is, and a refusal.
+		expect(line).toContain("#4 archived");
+		expect(line).toContain(`${colour("meta")}1 card kept: still waited on`);
+		expect(line).toContain(`${colour("bad")}#6 not archived`);
+		// The reason stays in the result's text: this line names what to read, not why.
+		expect(line).not.toContain("kept changing");
+	});
+
+	test("draws an empty sweep as an answer rather than as a count", () => {
+		const line = collapsedLine(coloringTheme, {
+			action: "archive",
+			me: ME,
+			archive: { moved: [], kept: [], failed: [] },
+		});
+		expect(line).toContain("no finished cards to archive");
+	});
+
+	test("draws who a sign told, after the card and the actor", () => {
+		const line = collapsedLine(coloringTheme, { action: "approve", me: ME, card: card(), told: "told api-core" });
+		expect(line).toContain(`${colour("meta")}told api-core`);
+		// The person's command prints the clause after its card; the block keeps that order, so a
+		// sign reads the same way whichever door made it.
+		expect(line.indexOf("told api-core")).toBeGreaterThan(line.indexOf(ME.label));
+	});
+
+	test("draws a sign that reached nobody, which only the text used to carry", () => {
+		const told = "api-core was not told (the session bus is not loaded)";
+		const line = collapsedLine(coloringTheme, { action: "review", me: ME, card: card(), told });
+		expect(line).toContain(told);
+	});
 });
 
 describe("the rows a mine listing draws", () => {

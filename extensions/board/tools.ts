@@ -502,7 +502,8 @@ async function mutate(
 	/**
 	 * What the call says besides the card: `next` after any successful write, and `told` only after
 	 * one that changed something — a repeated sign is the same signature, and the owner does not
-	 * need to hear it twice.
+	 * need to hear it twice. Both the text and the transcript block carry the `told` line: the
+	 * text as an indented continuation, the details as the sentence the one-line block draws.
 	 */
 	report: { next?: string; told?: (card: Card) => Promise<string | undefined> } = {},
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
@@ -513,10 +514,12 @@ async function mutate(
 	if (!result.ok) return refusal(action, me, result.error, result.card);
 	const told = result.changed ? await report.told?.(result.card) : undefined;
 	const lines = [formatCard(result.card), ...(report.next === undefined ? [] : [report.next])];
+	const announcement = told?.trim();
 	return textResult([...lines, ...(told === undefined ? [] : [told])].join("\n"), {
 		action,
 		me,
 		card: result.card,
+		...(announcement === undefined ? {} : { told: announcement }),
 	});
 }
 
@@ -539,8 +542,17 @@ async function archiveCards(
 		const result = await store.mutate(id, { kind: "archive" }, me, now);
 		if (!result.ok) return refusal("archive", me, result.error, result.card);
 		// Asked twice is one state, not an error: the card is where the caller wanted it.
-		if (!result.changed) return textResult(`${cardRef(id)} is already archived.`, { action: "archive", me });
-		return textResult(formatArchived([id]), { action: "archive", me, card: result.card, archived: [id] });
+		if (!result.changed)
+			return textResult(`${cardRef(id)} is already archived.`, {
+				action: "archive",
+				me,
+				archive: { moved: [], kept: [], failed: [], already: id },
+			});
+		return textResult(formatArchived([id]), {
+			action: "archive",
+			me,
+			archive: { moved: [id], kept: [], failed: [] },
+		});
 	}
 	// One sweep, shared with `/board archive`: the numbers the rollup prints and the cards it
 	// moves are one rule, and a finished card an open one still waits on is never taken. The
@@ -548,14 +560,13 @@ async function archiveCards(
 	const { sweepFinished, sweepText } = await import("./archive.ts");
 	const swept = await sweepFinished(store, me, now, await store.list());
 	if (swept.moved.length === 0 && swept.failed.length === 0 && swept.kept.length === 0) {
-		return textResult("No finished cards to archive.", { action: "archive", me });
+		return textResult("No finished cards to archive.", {
+			action: "archive",
+			me,
+			archive: { moved: [], kept: [], failed: [] },
+		});
 	}
-	return textResult(sweepText(swept), {
-		action: "archive",
-		me,
-		...(swept.moved.length === 0 ? {} : { archived: swept.moved }),
-		...(swept.failed.length === 0 ? {} : { failed: swept.failed }),
-	});
+	return textResult(sweepText(swept), { action: "archive", me, archive: swept });
 }
 
 /** `drop`: the card and its notes leave together, so the report is the id. */
