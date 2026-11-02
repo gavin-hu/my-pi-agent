@@ -214,6 +214,31 @@ describe("a scoped test phase", () => {
 		expect(noTests.map((phase) => phase.name)).toEqual(["format", "typecheck"]);
 	});
 
+	test("names the report it writes, after the flags and before the files", () => {
+		// A second artifact, not a different output: bun still prints the console report, and the
+		// file is what a red run's digest reads.
+		const phases = phasesFor({ serial: false, workers: 3, tests: ["a.test.ts"], report: ".pi/cache/r.xml" });
+		expect((phases[2] as Phase).cmd).toEqual([
+			"bun",
+			"test",
+			"--parallel=3",
+			"--timeout",
+			"30000",
+			"--reporter=junit",
+			"--reporter-outfile=.pi/cache/r.xml",
+			"a.test.ts",
+		]);
+	});
+
+	test("writes no report for a run that has no test phase, or none it should record", () => {
+		const staticOnly = phasesFor({ serial: false, workers: 3, tests: null, report: ".pi/cache/r.xml" });
+		expect(staticOnly.some((phase) => phase.cmd.includes("--reporter=junit"))).toBe(false);
+		// Watch rewrites the report on every pass, so the gate leaves it alone: the run it would
+		// describe is never the one a reader sees.
+		const watched = phasesFor({ serial: false, workers: 3, tests: ["a.test.ts"], watch: true, report: undefined });
+		expect(watched.some((phase) => phase.cmd.includes("--reporter=junit"))).toBe(false);
+	});
+
 	test("watch implies isolate, and the slow scope carries its gate", () => {
 		const watched = phasesFor({ serial: false, workers: 3, watch: true, static: false, tests: ["a.test.ts"] });
 		expect((watched[0] as Phase).cmd).toEqual(["bun", "test", "--watch", "--isolate", "a.test.ts"]);

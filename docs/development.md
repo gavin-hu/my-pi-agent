@@ -17,7 +17,7 @@ repositories.
 
 | Command | What it does |
 |---|---|
-| `bun run check` | The gate a landing needs: `format:check`, `typecheck`, and the tests, the first two running beside the test phase through `scripts/check.ts` so the gate costs what its longest phase costs. One scope flag narrows the tests: `--static` (the static half alone), `--serial` (one file at a time, what macOS CI runs), `--watch`, `--changed [--base <ref>]` (the tests a change reaches), `--ext <name…>`, `--lib <area…>`, `--root` (the package-level tests), `--slow` (the gated git suites). `--dry-run` prints the selection and runs nothing. |
+| `bun run check` | The gate a landing needs: `format:check`, `typecheck`, and the tests, the first two running beside the test phase through `scripts/check.ts` so the gate costs what its longest phase costs. One scope flag narrows the tests: `--static` (the static half alone), `--serial` (one file at a time, what macOS CI runs), `--watch`, `--changed [--base <ref>]` (the tests a change reaches), `--ext <name…>`, `--lib <area…>`, `--root` (the package-level tests), `--slow` (the gated git suites). `--dry-run` prints the selection and runs nothing. A red test phase names its cases as `file:line — suite > case` and leaves `bun`'s JUnit report at `.pi/cache/test-report.xml` — [`#a-red-run`](#a-red-run). |
 | `bun run test [scope]` | The same scopes without the static phases; no flag is every test, in parallel. |
 | `bun run typecheck` | `tsc --noEmit`. |
 | `bun run format` | `biome format --write .`. |
@@ -170,6 +170,25 @@ Name a scope when you already know it — `--ext board`, `--lib tui`, `--root` �
 and `--slow` for the gated suites below. A selection that contains gated suites
 says how many, and points at `--slow`, so a scoped run cannot be read as its own
 full coverage.
+
+### A red run
+
+A failing test phase prints each failing case where a reader can act on it, after the console
+report bun already wrote:
+
+```
+test report — /repo/.pi/cache/test-report.xml
+  failures (1 of 7249 in 58.52s, 131 skipped):
+    scripts/check.test.ts:288 — scratch > red on purpose (0.00s)
+check: test failed in 58.5s
+```
+
+The lines come from bun's own JUnit report (`--reporter=junit --reporter-outfile`), which the
+gate writes under `.pi/cache/` and removes before each run, so the file is that attempt's or
+absent. The console output is unchanged — the report is a second artifact, and
+`scripts/junit.ts` reads it rather than parsing the prose around it. One red it cannot name is a
+suite that could not be *loaded*: bun writes no report for it, so the digest says no report was
+written and the error above it is the report. Exit codes stay 0 and 1.
 
 ### Slow suites
 
