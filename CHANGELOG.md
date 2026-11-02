@@ -244,6 +244,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: an inbox is read in the order its mail arrived — the file's `mtime`, with the
+  name settling a tie inside one filesystem tick — instead of by the id, which carries the
+  sender's clock. A peer whose clock runs ahead no longer writes mail that sorts behind a backlog
+  and waits there, and a read page is no longer re-sorted by the sender's `at` after the walk had
+  already chosen it, so what `inbox` shows is the front it deleted.
+
 - `board`: an all-archived board says "No open cards." instead of "The board is empty.".
   `formatBoard` picked its empty sentence on the hidden done cards alone, so a board whose every
   card had been archived printed "The board is empty." directly above "1 card is set aside in
