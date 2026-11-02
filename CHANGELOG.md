@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-02
+
 ### Added
 
 - `dev`: the `bun run` surface is one set. A name is a verb when the verb is the whole errand
@@ -51,8 +53,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `dev`: `bun run bench:load` reports what a load costs, per extension — the
   modules its entry statically evaluates at registration, how many of them are `lib/`, how
   many another entry pays again, and what that graph costs to import with the host packages
-  warm. Pi imports each extension with its own module cache, so the package evaluates 737
-  local modules over 392 distinct ones today; the graph is gated per entry in
+  warm. Pi imports each extension with its own module cache, so the package evaluated 737
+  local modules over 392 distinct ones when this landed; the graph is gated per entry in
   `test/dependencies.test.ts` (the one total became one budget per extension, so an entry
   that grows can no longer be paid for by another's deferral), and the timings stay a
   pre-release reading.
@@ -111,7 +113,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   until the page stops. `bytes()` leaves `BoardStore`: `list` and `skipped` were already the
   scan's two halves.
 
-- `dev`: `bun run check` and `bun run test` are one command with a scope, and the check's three
+- `dev`: `bun run check` and `bun run check:tests` are one command with a scope, and the check's three
   phases run at once through `scripts/check.ts` instead of in a chain — so the gate costs what its
   longest phase costs, 30.4 s on an 8-core machine measured while the box was busy against
   48.7–55.5 s for the old chain, and the test worker count still comes from the cores capped at
@@ -123,7 +125,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   everything when a shared path changed — printing why before it runs, so a narrowed run is
   auditable. One extension is 17 suites instead of 264 files, and `--slow` derives the gated git
   suites from the tree rather than naming them. `test:serial`, `test:watch`, `check:static`, and
-  `check:serial` are **removed**: use `bun run test --serial`, `bun run test --watch`,
+  `check:serial` are **removed**: use `bun run check:tests --serial`, `bun run check:tests --watch`,
   `bun run check --static`, and `bun run check --serial`.
 
 - `question`: the tool is renamed from `ask_user_question` to `question`, so the wire name
@@ -142,11 +144,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   your work now), the one uncovered review fact — the sign lands in the owner's inbox — moves
   into `review`'s action doc, and `test/prompt-budget.test.ts` sums the description, snippet,
   guidelines and schema into a ceiling so the next restatement fails instead of accumulating.
-- `subagent`: the transcript sweep starts beside the first frame instead of in front of it.
-  `session_start` still reads the config on the frame, but pruning resolves the repository
-  with git and stats every run directory, which measured ~17 ms of awaited start while
-  `subagent.transcripts` is on. Nothing reads the result, so it runs and is dropped; a run
-  directory is a file on disk and the next start sweeps again.
 - `wechat`: the bridge start is deferred off the first frame and kept in one promise its
   readers join. Opening the bridge loads a module graph and logs in over the network, and Pi
   awaits every `session_start` handler; `/wechat` and `send_wechat` now wait for the start
@@ -168,16 +165,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   v4-mapped `::ffff:127.0.0.1`, with `undefined` refused too. Reviewer routes, the page and
   its two constant scripts keep answering over the LAN, which is what sharing is for.
 - `plan`: the guide's claims match the code, and two review-page gaps close. `docs/extensions/plan.md`
-  now counts the twenty-seven suites the manifest declares, names the exit control as each
+  now counts the thirty suites the manifest declares, names the exit control as each
   surface carries it (`x exit plan`, `3 exit`, **Back to Pi**), says the browser review needs
   `serve` loaded, splits the refusal-details row around the two refusals that carry state on
   purpose, and states in Security that `plan` action `cancel` is model-callable and restores
   write access with no approval. The review page compares its owner token with `tokenMatches`
   instead of a `Map.get`, walking the table without an early return; its two constant scripts
   stay answered before the token gate, now with the reason in the code and in
-  `docs/security.md`. Three integration-point cleanups ride along — one `ownerPost` guard
-  composition, `CLIENT_JS_PATH` beside `THEME_JS_PATH`, and one `settleAnnotations` for the
-  parse-then-save block three routes shared — with every refusal sentence unchanged.
+  `docs/security.md`. Two integration-point cleanups ride along — `CLIENT_JS_PATH` beside
+  `THEME_JS_PATH`, and one `settleAnnotations` for the parse-then-save block three routes
+  shared — with every refusal sentence unchanged.
 - `watch`: the watcher table has a bound. Only running watchers were counted, so a session
   that watched one command after another grew the table for as long as it ran — each finished
   record still holding up to `maxMatches` matches and `maxLogLines` raw lines — until someone
@@ -214,7 +211,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   its port from the kernel rather than the literal `53_410`, which Linux's ephemeral
   range covers. A band nobody can free fails naming the band and the tries, rather than
   as an expected/received mismatch.
-- dev: a terminal capture starts on the theme's canvas. The crop took 28 of
+- `dev`: a terminal capture starts on the theme's canvas. The crop took 28 of
   Terminal's 32-point title bar, so every terminal asset carried a light seam down
   its top row — six device pixels of white and two of a 230 hairline, four points
   of the bar — which read as a bright edge once a frame was scaled into a card. The
@@ -5594,7 +5591,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.20.0...v0.21.0
