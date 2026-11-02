@@ -198,6 +198,33 @@ async function listFiles(dir: string): Promise<string[]> {
 const idOfFile = (name: string): string => name.slice(0, -MESSAGE_SUFFIX.length);
 
 /**
+ * A recipient's messages in the order they arrived, oldest first.
+ *
+ * The queue is the inbox's own clock, not the writer's: an id carries the sender's `now()`, so
+ * its order is the sender's clock, and a peer whose clock runs ahead would write a name that
+ * sorts after every other — at the back for as long as a backlog is deeper than one page, and
+ * read last for as long as it keeps sending. A file's mtime is when the message landed here,
+ * which every session shares, so the front is the same for every reader and every poll. Two
+ * files published in one filesystem tick tie, and the name settles it so the page is stable.
+ */
+async function listMessages(dir: string): Promise<string[]> {
+	const names = await listFiles(dir);
+	const stamped = await Promise.all(
+		names.map((name) =>
+			stat(join(dir, name)).then(
+				(info): { name: string; at: number } | undefined => ({ name, at: info.mtimeMs }),
+				// Published between the readdir and the stat, and so already read by the next poll.
+				() => undefined,
+			),
+		),
+	);
+	return stamped
+		.filter((entry): entry is { name: string; at: number } => entry !== undefined)
+		.sort((a, b) => a.at - b.at || a.name.localeCompare(b.name))
+		.map((entry) => entry.name);
+}
+
+/**
  * Drop a recipient's directory once it holds no files, so a bus does not keep
  * one empty directory for every session that ever joined it. An inbox with mail
  * stays, because a session's id survives a resume and its mail is still its own;
@@ -271,9 +298,10 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 * Up to `limit` messages from the front of a recipient's inbox, oldest first.
 	 *
 	 * The front is the queue, not a detail: consuming starts there so a limit never starves,
-	 * and so does a read, because the caller names the ids it already has. A file name holds
-	 * the id, so a skip costs no read — which is what lets a watch page a backlog one poll at
-	 * a time without ever reading the same file twice.
+	 * and so does a read, because the caller names the ids it already has. The order is when
+	 * the mail arrived, not the clock the sender stamped it with, so no peer's clock decides
+	 * where its mail sits. A file name holds the id, so a skip costs no read — which is what
+	 * lets a watch page a backlog one poll at a time without reading the same file twice.
 	 *
 	 * Only the consuming read deletes, and it deletes only what it read. A file this build
 	 * cannot validate is named back to the caller instead: it may be mail a newer build can
@@ -306,7 +334,9 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			if (remove) await rm(path, { force: true });
 			if (messages.length >= limit) break;
 		}
-		return { messages: messages.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id)), unreadable };
+		// In the order it walked: the page a read shows is the front it deleted, and a message's
+		// own `at` cannot reorder it after the fact.
+		return { messages, unreadable };
 	}
 
 	async function readClaims(): Promise<ClaimRecord[]> {
@@ -451,14 +481,14 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 
 		async peek(id, options) {
 			const directory = inboxDir(id);
-			const names = await listFiles(directory);
+			const names = await listMessages(directory);
 			const { messages, unreadable } = await readMessages(directory, names, { ...options, remove: false });
 			return { mail: messages, unread: new Set(names.map(idOfFile)), unreadable };
 		},
 
 		async inbox(id, limit) {
 			const directory = inboxDir(id);
-			return readMessages(directory, await listFiles(directory), { limit, remove: true });
+			return readMessages(directory, await listMessages(directory), { limit, remove: true });
 		},
 
 		async unread(id) {

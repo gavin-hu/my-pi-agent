@@ -21,7 +21,7 @@ a running turn settles. There is no network service and no hidden context.
 | Short messages | `session send` | One message per recipient, addressed by label or id, with a broadcast for events. | Shipped |
 | Message kinds | `session send` with `kind`, or `team` action `ask` | A `message`, `event`, `ask`, or `handoff` keeps its meaning; `ask` does not block the sender, and `team`'s `ask` is the lead-sized form of it — one peer, one question, and the reply as ordinary mail. A `handoff` is named as the work it assigns. | Shipped |
 | Message paths | `session send` with `paths` | A message can name the repository paths it concerns, echoed in the inbox row. | Shipped |
-| Inbox on demand | `session inbox` | Up to `limit` messages, oldest first, consumed only when the model asks. | Shipped |
+| Inbox on demand | `session inbox` | Up to `limit` messages, oldest first by arrival, consumed only when the model asks. | Shipped |
 | Listening | `session join` | New mail reported at the next turn; `join({wake: true})` raises one turn once the agent is idle, and `join({listen: false})` stops it. The record carries whether this session listens, so a peer's status read answers it without asking. | Shipped |
 | Path claims | `session claim`, `session release` | A file or directory prefix held by one session at a time. | Shipped |
 
@@ -55,7 +55,7 @@ collapsed line that expands to the board's rows.
 |---|---|---|
 | `status` | — | Active sessions with unread counts, their state, claims, and this session's identity. A session whose process is gone is listed as `gone` until its heartbeat ages out, and its claims are not listed at all. Prunes stale records. A read: it never adds this session to the bus. |
 | `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient, and reports what happened to each: a partial fan-out names the peers it could not write for (`Not delivered to <label> (<reason>)`) and still succeeds, while reaching nobody is a failure. `to: "*"` is only valid with `kind: "event"`. A session whose process is gone is not a recipient: naming it is refused, and a broadcast skips it. |
-| `inbox` | optional `limit` | Consumes up to `limit` messages, oldest first (default 20, max 50). Each body is clipped and the whole read stops at a 4,000-character budget; the mail it did not reach stays in the inbox and is named in one `… N more` line. |
+| `inbox` | optional `limit` | Consumes up to `limit` messages, oldest first by arrival (default 20, max 50). Each body is clipped and the whole read stops at a 4,000-character budget; the mail it did not reach stays in the inbox and is named in one `… N more` line. |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
 | `join` | optional `label`, `wake`, `listen` | Joins the bus, names this session on it and in Pi when a label is given — the same path and uniqueness rule as `/team join`, so `/resume` agrees with the record peers address — and starts listening for mail. The footer draws the label either way, so a plain join changes the name on the bar without renaming the session. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; `listen: false` joins without listening. A label a live session holds is refused, naming the session that holds it — its id, since the label it holds is the one you asked for — and the refusal leaves both names and the watch alone. The result reports the label the bus settled on and whether mail will reach this session. |
@@ -284,16 +284,19 @@ listening watch is what raises the turn.
   with one `readdir` every 2 s, the same trade `watch` makes for a file tail, so
   it does not depend on a platform's event API or a filename in the event. Only
   a listening session polls.
-- **The poll reads the mail it has not announced, and its queue by what is on disk.** That one
+- **The poll reads the mail it has not announced, and its queue by when it arrived.** That one
   read returns up to 50 messages from the front of the inbox whose ids the watch does not have,
   plus the ids of everything still unread, so where a message's id sorts cannot hide it: a
-  backlog deeper than one page arrives a page at a time, and a peer whose clock lags writes an id
-  before every other and is announced just the same. The queue and the watch's memory are pruned
-  by what is still on disk rather than by a count of ids, so mail already queued keeps the place
-  it held and nothing is announced twice. That is why one read runs at a time: the ticker and an
-  explicit poll are dropped rather than queued behind a read in flight, and a page is filtered
-  against the ids marked reported by the time it returns, so mail `inbox` consumed mid-read is
-  not announced at all. `inbox` still consumes oldest first, and a limit never starves.
+  backlog deeper than one page arrives a page at a time. The front is the oldest arrival — the
+  file's mtime, the one clock every session on the machine shares — so no peer's clock decides
+  where its mail sits, and reading that order costs one `stat` per file rather than one read; a
+  name only settles two files published in the same filesystem tick. The queue and the watch's
+  memory are pruned by what is still on disk rather than by a count of ids, so mail already
+  queued keeps the place it held and nothing is announced twice. That is why one read runs at a
+  time: the ticker and an explicit poll are dropped rather than queued behind a read in flight,
+  and a page is filtered against the ids marked reported by the time it returns, so mail `inbox`
+  consumed mid-read is not announced at all. `inbox` still consumes oldest first, and a limit
+  never starves.
 - **Read the board, prune on the next call.** The open board polls a read-only
   `snapshot()` and `peek()` that hide a session past the TTL, a claim held by one,
   and consume nothing. The physical prune, and the claim release that goes with
@@ -319,10 +322,9 @@ listening watch is what raises the turn.
   line is what the next call returns, and a ceiling can never be mail deleted unseen. The
   count in that line comes from the inbox's own file count, not from the peek — `peek`
   stops at 50, and a tail taken from it would saturate and read as closer to caught up
-  than the session is. The peek and the delete are two reads, so a message that arrives
-  between them *and* sorts ahead of the front would be consumed unseen; only a peer clock
-  behind the front's can write an id that early, and the watch's whole page is ordered by
-  what is on disk for the same reason.
+  than the session is. The peek and the delete are two reads, and the queue is arrival order, so
+  a message that arrives between them lands behind the front instead of inside the page: nothing
+  the read did not show can be deleted unseen.
 
 ## Files
 

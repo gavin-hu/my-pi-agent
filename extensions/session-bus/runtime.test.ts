@@ -407,12 +407,12 @@ describe("the inbox watch", () => {
 		await backend.stop();
 	});
 
-	test("a peer whose clock is behind cannot make the watch announce mail twice", async () => {
+	test("a peer whose clock is behind writes a name that sorts first, and is announced last, once", async () => {
 		const dir = scratchDir(temps, "pi-session-bus-");
 		const { frontend, backend } = await pair(dir);
 		const store = createBusStore({ dir });
-		// One millisecond, fifty messages: the watch remembers what it reported from the only
-		// read it gets, and the ids are ordered so a later arrival can sort before them.
+		// One millisecond, forty-five messages, then five whose ids sort before all of them though
+		// they arrive after: the watch remembers what it reported from the only read it gets.
 		const ids = (from: number, count: number) =>
 			Array.from({ length: count }, (_, index) => `1000-${(from + index).toString(16).padStart(2, "0")}`);
 		const write = async (id: string) =>
@@ -426,17 +426,17 @@ describe("the inbox watch", () => {
 				text: "hi",
 				at: 1_000,
 			});
-		for (const id of ids(0xb0, 50)) await write(id);
+		for (const id of ids(0xb0, 45)) await write(id);
 		await backend.join({ listen: true });
-		expect(backend.pending()).toHaveLength(50);
+		expect(backend.pending()).toHaveLength(45);
 		backend.markReported(backend.pending().map((queued) => queued.id));
 
-		// A peer whose clock is behind sends five that sort ahead of the reported fifty, which
-		// pushes the tail of them past one read: the watch must still remember it reported them.
 		for (const id of ids(0x00, 5)) await write(id);
 		await backend.poll();
-		await backend.inbox(5);
-		await backend.poll();
+		expect(backend.pending().map((queued) => queued.id)).toEqual(ids(0x00, 5));
+		// Consuming the front — the reported forty-five they arrived behind — takes them too, and
+		// leaves nothing announced a second time.
+		await backend.inbox(50);
 		expect(backend.pending()).toEqual([]);
 		await frontend.stop();
 		await backend.stop();

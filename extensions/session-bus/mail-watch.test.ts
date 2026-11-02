@@ -161,8 +161,9 @@ describe("the armed inbox watch", () => {
 		const announced = target.wakes.length;
 
 		// The id carries the writer's clock, so a peer running behind writes one that sorts
-		// before every message already on the bus, however late it arrives. A window taken from
-		// one end of the inbox can hide it; the ids the watch has not announced cannot.
+		// before every message already on the bus, however late it arrives — and the queue is the
+		// arrival, so it sits behind a full page. A window taken from one end of the inbox can
+		// hide it; the ids the watch has not announced cannot.
 		await target.write(1_400_000, "handoff");
 		await target.watch.poll();
 		expect(target.watch.pending().map((message) => message.text)).toEqual(["mail 1400000"]);

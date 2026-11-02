@@ -40,6 +40,13 @@ const message = (id: string, to: string, at = 100): BusMessage => ({
 	at,
 });
 
+/** Name a message file's arrival instead of racing the wall clock: the seam the TTL case uses. */
+async function stamp(dir: string, id: string, at: number): Promise<void> {
+	const [inbox] = await readdir(join(dir, "inbox"));
+	if (!inbox) throw new Error("the inbox directory was not written");
+	await utimes(join(dir, "inbox", inbox, `${id}.json`), at, at);
+}
+
 describe("sessions", () => {
 	test("writes and reads one record per session, tolerating a corrupt file", async () => {
 		const { store } = fixture();
@@ -144,6 +151,24 @@ describe("inbox", () => {
 		// Consuming still starts at the front, so a limit never starves.
 		expect((await store.inbox("s2", 1)).messages.map((entry) => entry.id)).toEqual(["1000-a"]);
 		expect(await store.unread("s2")).toBe(54);
+	});
+
+	test("orders the queue by when mail arrived, not by the clock the sender wrote it with", async () => {
+		const { dir, store } = fixture();
+		// An id carries the sender's clock: a peer running ahead writes one that sorts after every
+		// other, one running behind writes one that sorts before all of them. The queue is the
+		// arrival, and a name only settles two files published in one filesystem tick.
+		await store.writeMessage("s2", message("9000-ahead", "s2", 9_000));
+		await store.writeMessage("s2", message("1000-behind", "s2", 1_000));
+		await store.writeMessage("s2", message("8000-tie", "s2", 8_000));
+		await stamp(dir, "9000-ahead", 1_000);
+		await stamp(dir, "8000-tie", 1_000);
+		await stamp(dir, "1000-behind", 1_001);
+		const page = (await store.peek("s2", { limit: 10 })).mail.map((entry) => entry.id);
+		// The page is in the order it walked, which `at` would not give; consuming takes that front.
+		expect(page).toEqual(["8000-tie", "9000-ahead", "1000-behind"]);
+		expect((await store.inbox("s2", 1)).messages.map((entry) => entry.id)).toEqual(["8000-tie"]);
+		expect((await store.inbox("s2", 10)).messages.map((entry) => entry.id)).toEqual(["9000-ahead", "1000-behind"]);
 	});
 
 	test("names a message it cannot parse and leaves it for the TTL", async () => {
