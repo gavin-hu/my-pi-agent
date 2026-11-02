@@ -257,6 +257,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   header chip owns it — and the served root is the toolbar's subject, truncated from the
   head so the folder being read survives.
 
+### Removed
+
+- `subagent`: four built-in agents nothing in this repository's workflow reached for —
+  `tester`, `debugger`, `documenter`, and `researcher` — leaving `explorer`, `planner`,
+  `reviewer`, and `worker`. Each restated a surface the session already has: `tester` and
+  `documenter` are `worker` with a sentence, `debugger` is `reviewer`'s read-plus-bash
+  allowlist, and `researcher` is what a `readOnly: true` run already gives every agent
+  (`web_search`/`web_fetch` are in the reader set). The always-on description names four
+  agents instead of eight. Nothing is lost for a caller who wants one back: a user or project
+  agent file of the same name merges over the built-ins (`agentScope`), which the External
+  agents section of the extension's page describes.
+- `subagent`: the optional transcript store. `transcripts`, `retentionDays`, and `maxRuns`
+  are gone with `transcripts.ts` and the session-start prune: a run's output already lives in
+  the tool result and in the session's own record, nothing else read `<agent-dir>/subagents/`,
+  and the store was off by default. The config keeps `timeoutMs` and `backgroundMax`.
+
 ### Fixed
 
 - `board`: `/board stop` clears a watched note whose file is already gone, instead of keeping

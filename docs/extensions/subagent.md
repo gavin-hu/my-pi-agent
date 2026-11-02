@@ -10,7 +10,7 @@ can also start in the background and be inspected, collected, or cancelled with
 
 | Capability | How | What you get |
 |---|---|---|
-| Isolated context | `subagent` | Each task runs in its own process with its own transcript, and only its final reply returns to the caller. |
+| Isolated context | `subagent` | Each task runs in its own process with its own context window, and only its final reply returns to the caller. |
 | Explicit tool allowlist | `--tools` for every child | An agent gets only its declared tools, not the parent's ambient extensions; `worker` cannot recurse into `subagent`. |
 | Read-only delegation | `subagent` (`readOnly: true`) | Every spawned agent runs with a reader-only tool set, enforced at the process boundary. |
 | Plan-mode guard | `subagent`, plan mode | Plan mode forces every call read-only and refuses `/agents` until the plan is approved. |
@@ -19,14 +19,13 @@ can also start in the background and be inspected, collected, or cancelled with
 | Parallel and chain bounds | `tasks[]`, `chain[]` | Parallel accepts up to 8 tasks with 4 running at once; a chain accepts up to 8 steps and stops at the first failure. |
 | Bounded model-facing output | `subagent`, every mode | What one result hands the model is capped at 50 KiB — a task's output, or a failed run's error text — with an omission notice and the full text in the tool details. |
 | Per-step working directory | `cwd` | A single run, each parallel task, or each chain step can name its working directory; a relative path resolves against the active root. |
-| Built-in agents | `subagent` (`agent`) | Recon, planning, review, implementation, research, testing, debugging, and docs work without writing an agent file. |
+| Built-in agents | `subagent` (`agent`) | Recon, planning, review, and implementation without writing an agent file. |
 | External agents | `subagent` (`agentScope`) | Markdown agents from the user directory and the nearest `.pi/agents`, opt-in per scope and never replacing a built-in silently. |
 | Background runs | `subagent` (`background: true`), `/agents` | A single run continues after the call returns and is inspected, collected, or cancelled from the board. |
 | Background concurrency cap | `backgroundMax` | At most four background children run at once; finished runs release their slot. |
 | Session-owned background run | `background: true` | `/tree` does not move the run and a restart cannot resume it; an unfinished start shows as `interrupted`. |
 | Live progress | `subagent` | Tool calls and progress update in the transcript while the child runs, with a `↳ N` footer chip and a finish notice. |
 | Bounded runs | `timeoutMs` | A child that hangs is killed at the deadline and reported as a failed run rather than rejecting the whole call. |
-| Optional transcripts | `transcripts` | Per-run streams under `.pi/subagents/`, written by the parent and pruned by age and count. |
 | Inherited model | `subagent` | Children use the dispatching session's model and thinking level unless an agent overrides them. |
 
 ## Quickstart
@@ -102,43 +101,19 @@ the behaviour is here.
   `SIGTERM`, then `SIGKILL` after 5 s, as a user abort — but the run fails
   instead of throwing: a chain stops at that step, a parallel call counts a
   failure, and the model sees `Timed out after 10m00s`.
-- **`transcripts`** (`off`, `failed`, or `all`; default `off`) keeps finished
-  runs on disk, all of them or only the failed ones.
-- **`retentionDays`** (default 14) and **`maxRuns`** (default 100) bound the
-  store. It is pruned on every `session_start`, and only while transcripts are on —
-  beside the first frame, not in front of it: the sweep resolves the repository with
-  git, so it starts and is dropped rather than awaited.
 - **`backgroundMax`** (default 4, `1`–`8`) bounds concurrently running
   background children. Finished runs do not consume a slot. A run that is still
   running when the session ends is interrupted; the next `/agents` shows the
   start entry without a finish.
 
-### Transcripts
-
-```
-.pi/subagents/20261015-143012-a1b2c3/
-  meta.json     agent, task, cwd, model, timings, exit, status, usage
-  events.jsonl  the child's raw stdout lines, verbatim
-  stderr.log    only when the child wrote any
-```
-
-The store is resolved against the **session** cwd, so inside a worktree it lands
-in the main checkout's `.pi/` and outlives that worktree — the anchoring the
-`job` registry uses. Outside a repository it falls back to
-`<agent-dir>/subagents`. The parent writes it and the child never learns it
-exists, so `readOnly`, the `--tools` allowlist, and the project-agent trust gate
-are unchanged. Writing is best-effort: an unwritable checkout records the failure
-in the result and never fails a run. The stream is buffered in the parent up to
-32 MiB, then truncated with a marker rather than silently dropped.
-
 ## Security
 
 A subagent is a real `pi` process and shares Pi's OS permissions. The built-in
-`worker`, `tester`, and `documenter` can write files; the others read files and
-run bash (the `reviewer` and `debugger` are instructed to stay read-only, but
-that is a prompt, not a sandbox). With `readOnly: true` the restriction is not a
-prompt: the child never receives `write`, `edit`, `bash`, or `powershell` in its
-`--tools` list, so it cannot write even if its system prompt says otherwise.
+`worker` can write files; `explorer` and `reviewer` read files, and the `reviewer`
+runs bash under a read-only instruction that is a prompt, not a sandbox. With
+`readOnly: true` the restriction is not a prompt: the child never receives
+`write`, `edit`, `bash`, or `powershell` in its `--tools` list, so it cannot
+write even if its system prompt says otherwise.
 Subagent-authored text is stripped of terminal control characters before it
 reaches the transcript, so content the child echoed from an untrusted source
 cannot drive the parent terminal.
@@ -177,8 +152,7 @@ run with its status, elapsed time, and usage. While a run is active, its detail
 pane follows a bounded preview of the latest output, and a `↳ N` chip in the
 footer counts running helpers. A finish notice points back at `/agents`; the
 finalized result replaces the preview when the run finishes. A background run is
-session-owned and is bounded by the same timeout and transcript settings as a
-foreground run.
+session-owned and is bounded by the same timeout setting as a foreground run.
 
 The child gets the task it was given, whole. The entry that records the run — and
 so the board and `collect` — keeps the first 4 KiB of it, ending in `…` when the task
@@ -225,10 +199,6 @@ capped the same way single mode's is.
 | `planner` | `read, grep, find, ls, read_doc` | Delegated planning in an isolated context (headless/chain); never edits. |
 | `reviewer` | `read, grep, find, ls, read_doc, bash` | Reviews for bugs, security, and maintainability; bash limited to read-only `git diff/log/show`. |
 | `worker` | `read, write, edit, bash, grep, find, ls, read_doc` | General-purpose executor; reports what changed. |
-| `researcher` | `read, grep, find, ls, read_doc, web_search, web_fetch` | Investigates external questions and returns sourced findings with confidence. |
-| `tester` | `read, write, edit, grep, find, ls, read_doc, bash` | Adds or updates tests and runs them; never weakens assertions to pass. |
-| `debugger` | `read, grep, find, ls, read_doc, bash` | Root-causes a failure from evidence; read-only plus running tests/builds. |
-| `documenter` | `read, write, edit, grep, find, ls, read_doc, bash` | Updates READMEs, docs, and changelogs to match the code. |
 
 Each agent's system prompt is appended to the subprocess, and its tool list is
 passed as `--tools`. Every built-in has an explicit allowlist, so an agent never
@@ -324,9 +294,8 @@ Markdown, and per-step/per-task usage with a total.
 
 A failed or aborted result always shows its `errorMessage`, falling back to the
 subprocess `stderr`, in both the collapsed and expanded views, in every mode. A
-run that exceeded its deadline reports `Timed out after …` the same way, and the
-expanded view adds the transcript path, the truncation marker, or why the
-transcript could not be written. A failure with neither falls back to
+run that exceeded its deadline reports `Timed out after …` the same way. A
+failure with neither falls back to
 `Error: Subprocess exited with code N.` and an
 `[exit N]` bracket, so a non-zero exit is never silent. A child terminated by a
 signal (an OOM kill, a crash) has no exit code, so it is recorded as
@@ -351,10 +320,9 @@ step's `Output`.
 - A background run is session-owned: `/tree` does not move it, and a process
   restart cannot resume it. A start entry without a finish is shown as
   `interrupted`.
-- The collected output is capped at 50 KiB; the optional transcript keeps the
-  full stream. The `/agents` detail keeps only a bounded live preview, and a
-  finished run keeps its bounded output in the session record rather than the
-  child's full result.
+- The collected output is capped at 50 KiB. The `/agents` detail keeps only a
+  bounded live preview, and a finished run keeps its bounded output in the session
+  record rather than the child's full result.
 - A finish notice appears in the TUI, but there is no OS notification; the run
   remains listed in `/agents`.
 
@@ -368,15 +336,15 @@ step's `Output`.
   does not reimplement tool execution or model streaming.
 - **No pinned models.** Built-in agents set no `model`, so a subprocess inherits
   the dispatching session's provider/model and thinking level.
-- **No persistence by default.** A run's transcript lives in the tool result
-  details; keeping it on disk is opt-in, parent-written, and bounded by age and
-  count. It is an audit and handoff record, not a resume point: replaying a run
-  whose writes already landed is not attempted.
+- **No persistence.** A run's output lives in the tool-result details and in the
+  session's own record; nothing is written beside the repository for a run. A
+  transcript was opt-in, parent-written, and bounded by age and count — an audit
+  record, never a resume point — and it was the only store the extension kept, so
+  it went with the prune.
 - **No cost attribution to the parent session.** A subagent's token counts are
-  captured in the tool result and shown in the transcript, but they belong to a
-  separate process and are not added to the dispatching session's totals. The
-  child's own dollar cost stays in the tool details (and in a run's `meta.json`)
-  and is never printed in the transcript: only the status bar prices a delegated
+  captured in the tool result, but they belong to a separate process and are not
+  added to the dispatching session's totals. The child's own dollar cost stays in
+  the tool details and is never printed: only the status bar prices a delegated
   run, in the configured currency and tariff. Each finished run publishes
   `my-pi-agent/subagent-finished` (`SubagentFinishedEvent` in `lib/events.ts`)
   and bytefly's footer shows the session's child runs as their own `↳` roll-up,
@@ -395,9 +363,9 @@ step's `Output`.
 | Output schema | none; the full result lives in tool-result `details` |
 | Execution | spawns `pi --mode json` subprocesses; external agents discovered from `<agent-dir>/agents` and `.pi/agents` |
 | Command | `/agents` |
-| State storage | tool-result `details`; optional per-run transcripts under `.pi/subagents/`; background start/finish entries (`subagent-background`) on the session branch |
+| State storage | tool-result `details`; background start/finish entries (`subagent-background`) on the session branch |
 | Event | `my-pi-agent/subagent-finished` (`SUBAGENT_FINISHED_CHANNEL` in `lib/events.ts`) once per finished child |
-| Lifecycle | `session_start` loads the config on the frame, starts the transcript prune beside it, and attaches the footer chip; `session_shutdown` aborts every live background child and clears the chip |
+| Lifecycle | `session_start` loads the config on the frame and attaches the footer chip; `session_shutdown` aborts every live background child and clears the chip |
 
 ## Design notes
 
@@ -431,10 +399,6 @@ step's `Output`.
   closure serves both triggers, so the SIGTERM → 5 s SIGKILL escalation is
   identical; only the reporting differs, because a deadline must leave the
   finished steps in `details` while a user abort rejects the call.
-- **The transcript is the parent's.** Teeing the child's stdout and stderr in
-  `spawnAndCollect` and flushing in `runSingleAgent`'s `finally` means the
-  artifact exists even on the abort path, and the child needs no tool, no prompt
-  line, and no writable store.
 - **Bounded model-facing output.** Every mode caps what one result hands the model at 50 KiB,
   appending an omission notice that points at the tool details, where the full result stays.
   The case that needs it is a failure, because `run.ts` buffers a child's `stderr` without a
@@ -471,8 +435,7 @@ step's `Output`.
 | `schema.ts` | TypeBox params, limits, and `resolveMode`. |
 | `invocation.ts` | `pi` subprocess invocation and argument construction. |
 | `stream.ts` | JSON-event parsing, guarded usage accounting, output helpers (pure). |
-| `transcripts.ts` | Per-run transcript buffer, run ids, the store directory (`<agent-dir>/subagents/`), and pruning. |
-| `config.ts` | The `subagent` section of `bytefly.json`: deadline, transcripts, retention. |
+| `config.ts` | The `subagent` section of `bytefly.json`: the deadline and the background capacity. |
 | `run.ts` | Runs one subagent process and captures its result (including the background abort-as-result path). |
 | `background.ts` | Background run entries, replay, capacity, cancel, collect, and shutdown. |
 | `view/agents-board.ts` | The `/agents` board: a `DockListScreen` with a live output pane and width-aware facts, loaded on first use. |
@@ -480,7 +443,7 @@ step's `Output`.
 | `ui.ts` | The running-count footer chip and finish notices. |
 | `accounting.ts` | The `subagent-finished` event payload built from a result (pure). |
 | `format.ts` | Token/usage/total line and tool-call formatting (pure, money-free). |
-| `render.ts` | `renderCall` / `renderResult` transcript rendering. |
+| `render.ts` | `renderCall` / `renderResult`: the call line and the result block. |
 | `types.ts` | Shared result and process types. |
 
 ## Testing
@@ -489,14 +452,13 @@ step's `Output`.
 bun test extensions/subagent
 ```
 
-Seven co-located suites, declared in `test/suite-manifest.ts`:
+Six co-located suites, declared in `test/suite-manifest.ts`:
 
 - `agents.test.ts` — the built-in registry, markdown discovery and pool
   resolution, config normalisation, the parameter schema, `resolveMode`,
   subprocess argument construction, invocation, and the finished event.
 - `run.test.ts` — the stream helpers, the concurrency limiter, `runSingleAgent`
-  against a scripted child, transcripts and pruning, the background runtime, and
-  the board component.
+  against a scripted child, the background runtime, and the board component.
 - `render.test.ts` — the call and result blocks in every mode, collapsed and
   expanded, the failure text, and component reuse.
 - `extension.test.ts` — registration, run settings, mode validation, all three
@@ -505,9 +467,6 @@ Seven co-located suites, declared in `test/suite-manifest.ts`:
 - `failure-output.test.ts` — what a failed run hands the model: the 50 KiB cap in
   single and chain mode, the omission notice, the whole `stderr` still in
   `details`, and a successful reply left uncapped.
-- `retention.test.ts` — the transcript sweep on a session start: the start returns
-  while pruning still waits on its repository, and the sweep removes what the
-  retention window expired.
 - `background-task.test.ts` — the task split: the child gets 5000 characters
   whole while the entry keeps the first 4 KiB plus `…` — 4,097 characters — and a task at
   the cap is stored unmarked.

@@ -268,24 +268,6 @@ describe("renderSubagentResult", () => {
 		expect(text).toContain("find auth");
 	});
 
-	test("expanded single names the transcript it kept", () => {
-		const kept = single({ artifactPath: "/repo/.pi/subagents/20261015-143012-a1b2c3", artifactBytes: 42 });
-		const text = viewText({ mode: "single", results: [kept] }, { expanded: true });
-		expect(text).toContain("/repo/.pi/subagents/20261015-143012-a1b2c3");
-	});
-
-	test("expanded single marks a truncated transcript", () => {
-		const truncated = single({ artifactPath: "/repo/.pi/subagents/run", artifactTruncated: true });
-		const text = viewText({ mode: "single", results: [truncated] }, { expanded: true });
-		expect(text).toContain("(truncated)");
-	});
-
-	test("expanded single reports an unwritable transcript", () => {
-		const broken = single({ artifactError: "EACCES: permission denied" });
-		const text = viewText({ mode: "single", results: [broken] }, { expanded: true });
-		expect(text).toContain("EACCES: permission denied");
-	});
-
 	test("a timed-out run reports its deadline in both views", () => {
 		const late = single({ exitCode: 1, timedOut: true, timeoutMs: 600_000, errorMessage: "Timed out after 10m00s" });
 		const details: SubagentDetails = { mode: "single", results: [late] };

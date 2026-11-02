@@ -22,7 +22,6 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { SHARED_CONFIG_FILE } from "../lib/config.ts";
 import { fakeCtx } from "../test/helpers/context.ts";
 import { ALL_EXTENSIONS_ENV, tempDir } from "../test/helpers/env.ts";
 import { createFakePi, type FakePiOptions } from "../test/helpers/fakes.ts";
@@ -171,17 +170,11 @@ export async function timeHandlers(
  *
  * A child cannot answer this half: rpc mode emits the event but never draws a frame. The
  * temp agent dir is used for the same reason the child's is — no stored account, no live
- * session — and it carries one document that turns subagent transcripts on, so the sweep
- * a deferral takes off the frame reads as the cost it would otherwise be. Retention is
- * set wide in that document: this is a reading, and it must not delete real transcripts.
+ * session.
  *
  * `exec` is the real one, because a start's handler cost is mostly what it spawns.
  */
 export async function readHandlers(root: string, agentDir: string): Promise<HandlerRow[]> {
-	writeFileSync(
-		join(agentDir, SHARED_CONFIG_FILE),
-		`${JSON.stringify({ subagent: { transcripts: "failed", maxRuns: 1000, retentionDays: 3650 } }, null, 2)}\n`,
-	);
 	const saved = new Map<string, string | undefined>();
 	for (const [key, value] of Object.entries({ ...ALL_EXTENSIONS_ENV, PI_CODING_AGENT_DIR: agentDir })) {
 		saved.set(key, process.env[key]);

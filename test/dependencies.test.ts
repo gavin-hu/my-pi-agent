@@ -302,7 +302,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	team: 48,
 	job: 43,
 	"session-bus": 43,
-	subagent: 41,
+	subagent: 40,
 	"web-access": 39,
 	worktree: 36,
 	goal: 34,

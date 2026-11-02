@@ -2,9 +2,9 @@
  * Running one subagent subprocess.
  *
  * Spawns `pi --mode json`, folds the JSON event stream into a `SingleResult`,
- * enforces the run's deadline, optionally records the raw stream, streams partial
- * updates, and cleans up the temporary system-prompt file. The process factory and
- * the transcript store are injectable so tests can drive a scripted child.
+ * enforces the run's deadline, streams partial updates, and cleans up the temporary
+ * system-prompt file. The process factory is injectable so tests can drive a
+ * scripted child.
  */
 
 import { spawn as nodeSpawn } from "node:child_process";
@@ -15,10 +15,8 @@ import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { formatDuration } from "../../lib/format.ts";
 import { LineSplitter } from "../../lib/lines.ts";
 import { BUILTIN_AGENTS, formatAgentList, type AgentConfig } from "./agents.ts";
-import type { TranscriptMode } from "./config.ts";
 import { buildAgentArgs, getPiInvocation, READ_ONLY_NOTE } from "./invocation.ts";
-import { applyEvent, createResult, isFailedResult, parseJsonLine } from "./stream.ts";
-import { createTranscript, type Transcript } from "./transcripts.ts";
+import { applyEvent, createResult, parseJsonLine } from "./stream.ts";
 import type { DispatchDefaults, OnUpdateCallback, SingleResult, SpawnFn, SubagentDetails } from "./types.ts";
 
 export interface RunOptions {
@@ -47,8 +45,6 @@ export interface RunOptions {
 	timeoutMs?: number;
 	/** Return an aborted result instead of throwing (used by background runs). */
 	abortAsResult?: boolean;
-	/** Where and when a finished run writes a transcript. */
-	transcripts?: { dir: string; mode: Exclude<TranscriptMode, "off"> };
 }
 
 async function writePromptToTempFile(agentName: string, prompt: string): Promise<{ dir: string; filePath: string }> {
@@ -82,13 +78,12 @@ interface SpawnContext {
 	signal?: AbortSignal;
 	result: SingleResult;
 	onEvent: () => void;
-	transcript?: Transcript;
 	spawn: SpawnFn;
 }
 
 /** Spawn the child, parse stdout line-by-line, and resolve when it closes. */
 function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
-	const { command, args, cwd, timeoutMs, signal, result, onEvent, transcript, spawn } = context;
+	const { command, args, cwd, timeoutMs, signal, result, onEvent, spawn } = context;
 	return new Promise<SpawnOutcome>((resolve) => {
 		const proc = spawn(command, args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
 		const splitter = new LineSplitter();
@@ -127,7 +122,6 @@ function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
 		};
 
 		const processLine = (line: string) => {
-			transcript?.line(line);
 			const event = parseJsonLine(line);
 			if (event && applyEvent(result, event)) onEvent();
 		};
@@ -140,7 +134,6 @@ function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
 		proc.stderr?.on("data", (chunk) => {
 			const text = chunk.toString();
 			result.stderr += text;
-			transcript?.stderr(text);
 		});
 
 		proc.on("close", (code, signal) => {
@@ -198,8 +191,6 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 
 	const timeoutMs = options.timeoutMs ?? 0;
 	if (timeoutMs > 0) result.timeoutMs = timeoutMs;
-	const transcripts = options.transcripts;
-	const transcript = transcripts ? createTranscript() : undefined;
 	let runCwd = options.defaultCwd;
 
 	let tempDir: string | null = null;
@@ -226,7 +217,6 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 			signal: options.signal,
 			result,
 			onEvent: emit,
-			transcript,
 			spawn,
 		});
 
@@ -245,19 +235,6 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 		}
 		return result;
 	} finally {
-		// Flushed here, not after the call: the abort path throws past every caller.
-		if (transcript && transcripts && (transcripts.mode === "all" || isFailedResult(result))) {
-			const written = transcript.write(transcripts.dir, result, {
-				cwd: runCwd,
-				readOnly: options.readOnly === true,
-			});
-			if (written.path) {
-				result.artifactPath = written.path;
-				result.artifactBytes = written.bytes;
-				if (written.truncated) result.artifactTruncated = true;
-			}
-			if (written.error) result.artifactError = written.error;
-		}
 		if (tempPath) {
 			try {
 				fs.unlinkSync(tempPath);

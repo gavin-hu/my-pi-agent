@@ -32,7 +32,6 @@ import { createSubagentUi } from "./ui.ts";
 import { loadSubagentConfig, type SubagentConfig } from "./config.ts";
 import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
-import { pruneTranscripts, transcriptsDirFor } from "./transcripts.ts";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { finishedEvent } from "./accounting.ts";
 import { runSingleAgent, type RunOptions } from "./run.ts";
@@ -81,23 +80,9 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 	let settings: SubagentConfig | undefined;
 	let activeCtx: ExtensionContext | undefined;
 
-	/**
-	 * Read the config on the frame, and sweep the transcript store beside it.
-	 *
-	 * Pi awaits every `session_start` handler, and the sweep resolves the repository
-	 * with git and stats every run directory, so it starts and is dropped rather than
-	 * awaited. Nothing reads its result: a run directory is only a file on disk, and
-	 * the next start sweeps again.
-	 */
+	/** Read the config on the frame, as the call path does when it arrives first. */
 	const startSession = (ctx: ExtensionContext): void => {
 		settings = loadSubagentConfig(ctx.cwd);
-		const retention = settings;
-		if (retention.transcripts === "off") return;
-		void transcriptsDirFor(pi, ctx.cwd)
-			.then((dir) => pruneTranscripts(dir, retention))
-			.catch(() => {
-				// Retention is housekeeping: an unreadable store must not fail a session.
-			});
 	};
 
 	/**
@@ -180,12 +165,6 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 			const agents = discovery.agents;
 			const requestedTotal = args.chain?.length ?? args.tasks?.length ?? 1;
 			const config = settings ?? loadSubagentConfig(ctx.cwd);
-			// Resolved against the session cwd, not the active root: a run's record outlives
-			// the worktree it ran in, the way the `job` registry does.
-			const transcripts =
-				config.transcripts === "off"
-					? undefined
-					: { dir: await transcriptsDirFor(pi, ctx.cwd), mode: config.transcripts };
 			const makeDetails = (results: SingleResult[]): SubagentDetails => ({
 				mode,
 				results,
@@ -245,7 +224,6 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 						defaults,
 						defaultCwd: root,
 						timeoutMs: config.timeoutMs,
-						transcripts,
 						backgroundMax: config.backgroundMax,
 					},
 				);
@@ -277,7 +255,6 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 				makeDetails,
 				agents,
 				timeoutMs: config.timeoutMs,
-				transcripts,
 			};
 
 			if (mode === "chain" && args.chain) return runChainMode(context);

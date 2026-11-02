@@ -15,7 +15,7 @@ import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { tempDir, useEnv, withAgentDir, withEnv } from "../../test/helpers/env.ts";
+import { tempDir, useEnv, withEnv } from "../../test/helpers/env.ts";
 import { emit, fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
 import {
 	assistantMessage,
@@ -171,25 +171,6 @@ describe("subagent run settings", () => {
 		);
 
 		expect(seen).toEqual([1234, 1234]);
-	});
-
-	test("resolves the transcript store only when the config asks for one", async () => {
-		await withAgentDir(async (agentDir) => {
-			const seen: RunOptions[] = [];
-			const tool = register(async (options) => {
-				seen.push(options);
-				return success(options.agentName, "ok");
-			});
-			const repo = tempDir("subagent-repo-");
-
-			await call(tool, { agent: "explorer", task: "find it" }, fakeToolCtx({ cwd: repo }));
-			expect(seen[0].transcripts).toBeUndefined();
-
-			mkdirSync(join(repo, ".pi"), { recursive: true });
-			writeFileSync(join(repo, ".pi", "bytefly.json"), JSON.stringify({ subagent: { transcripts: "failed" } }));
-			await call(tool, { agent: "explorer", task: "find it again" }, fakeToolCtx({ cwd: repo }));
-			expect(seen[1].transcripts).toEqual({ dir: join(agentDir, "subagents"), mode: "failed" });
-		}, "subagent-global-");
 	});
 });
 

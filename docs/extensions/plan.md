@@ -554,7 +554,7 @@ While planning, `subagent` stays available but every call is **forced
 read-only**. Plan mode sets `readOnly: true` on the call in the `tool_call`
 guard, and `subagent` in turn gives each spawned agent a reader-only `--tools`
 list (`read`, `grep`, `find`, `ls`, `read_doc`, `web_search`, `web_fetch`). The child
-process enforces it, so a delegated `explorer`, `researcher`, or even `worker`
+process enforces it, so a delegated `explorer`, `planner`, or even `worker`
 cannot write, edit, or run a shell — regardless of its prompt or an external
 agent file that overrides it.
 
