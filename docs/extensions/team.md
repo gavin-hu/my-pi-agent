@@ -34,7 +34,7 @@ line; the owners a bus has no record of collapse to one row*
 
 | Capability | How | What you get |
 |---|---|---|
-| Join the team | `/board` as the lead, `/team join <label>` as a teammate, or the first card you claim | The session is on the team under a name peers address, listening, and `/team` and the Team tab list it |
+| Join the team | `/board` as the lead, `/team join <label>` as a teammate, the first card you claim, or the first handoff or question you send | The session is on the team under a name peers address, listening, and `/team` and the Team tab list it — so a lead that only ever runs the round still hears the reply |
 | Hand a feature to a running session | `team` action `assign` | The card is `plan`, owned by that session, and a handoff is in its inbox |
 | Tell the peer what to do first | `team` action `assign` with `note` | The handoff carries the card, its paths, its plan, and that line |
 | Hand a feature to whoever is free | `team` action `offer` | Every other live session gets an event naming the card; the card stays unowned until one claims it, and it records when the offer was made, so a lead can tell an offer nobody took from a card nobody has looked at. One peer whose inbox cannot be written is not the broadcast's failure: the offer is recorded and the result names it (`Not delivered to <label> (<reason>)`), and only a broadcast that reached nobody leaves the card untouched |
@@ -84,6 +84,7 @@ its surface is the point: `board` and `team` join this session for you.
 | You are | Action | What happens |
 |---|---|---|
 | The lead | `/board` | The session joins as the board's lead (`board.lead`, `lead` by default) — the name the page serves as — and listens, so a handoff or an offer is reported at its next turn |
+| The lead, handing work out | `team` action `assign`, or the cardless `ask` | The session joins under the name it already holds and listens, so the peer's question, or its request for a sign, is reported at the lead's next turn — the same join a claim makes, once per session |
 | A teammate | the first card it claims | The session joins under the name it already holds, or a preset teammate name (`tom`, `lily`, `ben`) when it has none, and listens; Pi's footer keeps the name it already had |
 | A teammate who wants a name | `/team join billing-core` | The session joins as `billing-core`, and Pi's footer and `/resume` show that name — the one join that renames |
 | A viewer | `/board` on a session that is not serving | The page is somebody else's to serve, so this session joins under its own name instead of the seat |
@@ -92,7 +93,9 @@ Joining is listening: mail is reported at that session's next turn, and **no tur
 raised** for it, so being on the team never spends a turn. `/team join` with no name draws
 one when Pi has no name for the session — `lily` rather than the repository's basename — and
 renames nothing; a session Pi already names keeps that name. `/team` says who is live and
-who is live but not listening. `/board status` reports the team this session is on — which
+who is live but not listening. A `team` action a peer answers by mail — `assign` and `ask` —
+is a door too: a call that landed joins this session once, and a call that was refused joins
+nobody. `/board status` reports the team this session is on — which
 label, and whether mail reaches it — whichever door put it there, and prints no team clause
 only when this session never joined at all.
 
@@ -108,11 +111,11 @@ is not: a card that session claimed is the session's, and `release` returns it.
 
 | Action | Parameters | Behaviour |
 |---|---|---|
-| `assign` | `card`, `to`, `note?` | Checks the card's preconditions, sends the handoff as a `handoff` message, then records the owner. `to` that names this session is refused — a card you will take yourself is `claim` — and so is a card the peer already holds |
+| `assign` | `card`, `to`, `note?` | Checks the card's preconditions, sends the handoff as a `handoff` message, then records the owner. A landed handoff also joins this session to the team once, under the label it writes cards as — the same join `claim` makes — so the peer's answer is reported at its next turn. `to` that names this session is refused — a card you will take yourself is `claim` — and so is a card the peer already holds |
 | `offer` | `card`, `note?` | Checks the preconditions a claim would meet, broadcasts the card as an `event` to every other live session, then records the offer on the card — the moment, and nothing else: status and owner are untouched |
 | `reclaim` | `card` | Clears the owner and returns the card to Backlog, keeping its notes, contract, and plan |
 | `claim` | `card` | Takes a pool card for this session: it enters `plan`, owned by the round's session, and the claim asks to join the team once — the same operation and the same join `board`'s claim makes. A card somebody holds, one that waits on unfinished work, and a full `plan` lane are refused with the board's own sentence |
-| `ask` | `to`, `question?` | Sends one peer a question and writes nothing else: no card is named, so no card is read or written. `question` defaults to asking how it is going. `to` that names this session is refused — the round already says what you hold |
+| `ask` | `to`, `question?` | Sends one peer a question and writes nothing else: no card is named, so no card is read or written. `question` defaults to asking how it is going. The ask joins this session once, because the answer is mail. `to` that names this session is refused — the round already says what you hold |
 
 `card` takes `4` or `#4`, and every action but `ask` needs one. `to` is a teammate's label or id, as `/team` lists them — a
 label nobody answers to cannot be handed a card or asked anything, and the result says so.
@@ -263,8 +266,9 @@ moves, and finish are `board`'s in this same session.
   and must work with the bus disabled; `team` is the lead's round and is the only thing
   that needs the bus. If the round ever stops needing it, `team` folds back in.
 - **Joining is the bus's, wearing `board`'s clothes.** A lead should not have to learn a
-  second tool to be on a team, so `/board` joins, the first claimed card joins, and
-  `/team join` is the one naming action. `wake` stays a bus-level choice and is never
+  second tool to be on a team, so `/board` joins, the first claimed card joins, `/team join`
+  is the one naming action, and the two verbs a peer answers by mail — `assign` and `ask` —
+  join once their call has landed. `wake` stays a bus-level choice and is never
   armed on a user's behalf, because it spends turns.
 - **Push and pull are two verbs.** `assign` sends one message and then writes the owner;
   `offer` broadcasts and then records the moment it was made. One verb with an optional

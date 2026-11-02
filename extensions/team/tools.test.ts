@@ -3,10 +3,11 @@
  *
  * The registration is what the model reads — four actions and the parameters each one acts
  * on — so the cases assert it off the tool rather than a copy, and the stray-field table is
- * what keeps a parameter from being published to an action that would drop it. `claim` and
- * `reclaim` move the card and nothing else, so they need no bus; the two verbs that send a
- * message live in `handoff.test.ts`. The transcript block is the same surface seen by a
- * human: one collapsed line, and the result's own lines behind the expand key.
+ * what keeps a parameter from being published to an action that would drop it. `claim`,
+ * `reclaim`, and the join the round asks for move the card and no message, so they need no
+ * bus; the two verbs that send one live in `handoff.test.ts`. The transcript block is the
+ * same surface seen by a human: one collapsed line, and the result's own lines behind the
+ * expand key.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -205,6 +206,39 @@ describe("claim", () => {
 		const result = await call({ action: "claim", card: "9" });
 		expect(result.isError).toBe(true);
 		expect(resultText(result)).toContain("#9 does not exist.");
+	});
+});
+
+describe("the join a round makes", () => {
+	test("a handoff joins under the lead's own label, once for the session", async () => {
+		const { call, seed, joined, me } = harness();
+		const self = await me();
+		const id = await seed();
+		expect((await call({ action: "assign", card: id, to: "billing-core" })).isError).toBeFalsy();
+		// The label the reply line names and the card records — and one join, not one per call:
+		// the reply to a handoff is mail a lead that only runs the round would otherwise miss.
+		expect(joined).toEqual([self.label]);
+		await call({ action: "ask", to: "billing-web", question: "any blockers?" });
+		const second = await seed("Second");
+		await call({ action: "claim", card: second });
+		expect(joined).toEqual([self.label]);
+	});
+
+	test("an ask joins, because the answer arrives as mail", async () => {
+		const { call, joined, me } = harness();
+		const self = await me();
+		expect((await call({ action: "ask", to: "billing-core" })).isError).toBeFalsy();
+		expect(joined).toEqual([self.label]);
+	});
+
+	test("a refused call joins nobody", async () => {
+		const { call, joined } = harness();
+		// All three refuse before they reach the store's write or a peer, so a session whose
+		// call did nothing does not appear on the team it never addressed.
+		expect((await call({ action: "assign", card: "9", to: "billing-core" })).isError).toBe(true);
+		expect((await call({ action: "ask" })).isError).toBe(true);
+		expect((await call({ action: "claim", card: "9" })).isError).toBe(true);
+		expect(joined).toEqual([]);
 	});
 });
 
