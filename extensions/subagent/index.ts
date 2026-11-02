@@ -26,9 +26,7 @@ import {
 	formatAgentList,
 	formatAgentNames,
 } from "./agents.ts";
-import { createBackgroundRuntime } from "./background.ts";
-import { registerAgentsCommand } from "./commands.ts";
-import { createSubagentUi } from "./ui.ts";
+import { createBackgroundSurface } from "./surface.ts";
 import { loadSubagentConfig, type SubagentConfig } from "./config.ts";
 import { runChainMode, runParallelMode, runSingleMode, type ModeContext } from "./orchestrate.ts";
 import { renderSubagentCall, renderSubagentResult } from "./render.ts";
@@ -78,7 +76,6 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 	// Read once per session; a call that arrives before `session_start` reads the
 	// same files lazily, so the two paths cannot disagree.
 	let settings: SubagentConfig | undefined;
-	let activeCtx: ExtensionContext | undefined;
 
 	/** Read the config on the frame, as the call path does when it arrives first. */
 	const startSession = (ctx: ExtensionContext): void => {
@@ -105,28 +102,17 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 		return result;
 	};
 
-	const background = createBackgroundRuntime({
-		appendEntry: (customType, data) => pi.appendEntry(customType, data),
-		onFinish: (run) => ui.notifyFinished(run),
-	});
-	const ui = createSubagentUi({
-		runs: () => background.list(activeCtx?.sessionManager.getBranch() ?? []),
-	});
+	// The background surface is registered here and built on first use: `/agents` has to exist
+	// in Pi's palette from load, while the runtime, the board and the chip are paid for only by
+	// a session that backgrounds a run.
+	const surface = createBackgroundSurface(pi);
+	surface.register();
 
 	pi.on("session_start", (_event, ctx) => {
-		background.reset();
-		activeCtx = ctx;
-		ui.attach(ctx);
-		background.subscribe(() => ui.paint());
-		ui.paint();
+		surface.start(ctx);
 		startSession(ctx);
 	});
-	pi.on("session_shutdown", () => {
-		background.shutdown();
-		ui.detach();
-		activeCtx = undefined;
-	});
-	registerAgentsCommand(pi, background);
+	pi.on("session_shutdown", () => surface.shutdown());
 
 	pi.registerTool({
 		name: TOOL_NAME,
@@ -210,7 +196,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 						makeDetails([]),
 					);
 				}
-				const started = background.start(
+				const started = await surface.startRun(
 					{
 						agent: args.agent ?? "",
 						task: args.task ?? "",
@@ -226,6 +212,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 						timeoutMs: config.timeoutMs,
 						backgroundMax: config.backgroundMax,
 					},
+					ctx,
 				);
 				if (!started.ok) {
 					return textResult(started.error, makeDetails([]));

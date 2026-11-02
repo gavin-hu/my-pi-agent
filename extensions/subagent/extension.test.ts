@@ -4,7 +4,7 @@ import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { callTool } from "../../test/helpers/tools.ts";
 import subagent from "./index.ts";
 import type { BackgroundRun, BackgroundRuntime } from "./background.ts";
-import { registerAgentsCommand } from "./commands.ts";
+import { registerAgentsCommand } from "./surface.ts";
 import { aggregateUsage, clip, clipPath, formatAgentsList, formatToolCall, formatUsageStats } from "./format.ts";
 import type { RunOptions } from "./run.ts";
 import { emptyUsage } from "./stream.ts";
@@ -489,7 +489,7 @@ function runtimeFor(runs: BackgroundRun[] = RUNS) {
 /** Register `/agents` over a runtime. */
 function commandFor(runtime: BackgroundRuntime) {
 	const fake = makeFakePi();
-	registerAgentsCommand(fake.pi, runtime);
+	registerAgentsCommand(fake.pi, async () => runtime);
 	return { fake, command: fake.commands.get("agents") };
 }
 
