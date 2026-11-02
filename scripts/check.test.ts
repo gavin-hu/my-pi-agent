@@ -47,9 +47,9 @@ describe("the worker count", () => {
 });
 
 describe("the phases", () => {
-	test("runs format, typecheck and the tests, with the budget the scripts state", () => {
+	test("runs format, types and the tests, with the budget the scripts state", () => {
 		const phases = phasesFor({ serial: false, workers: 4 });
-		expect(phases.map((phase) => phase.name)).toEqual(["format", "typecheck", "test"]);
+		expect(phases.map((phase) => phase.name)).toEqual(["format", "types", "test"]);
 		const test_ = phases[2] as Phase;
 		expect(test_.cmd).toContain("--parallel=4");
 		expect(test_.cmd).toContain(String(PHASE_TIMEOUT_MS));
@@ -76,14 +76,14 @@ describe("running them", () => {
 			return { code: 0, output: "" };
 		});
 		// All three are in flight: a chain would have one name here and two after the awaits.
-		expect(started).toEqual(["format", "typecheck", "test"]);
+		expect(started).toEqual(["format", "types", "test"]);
 		expect((await pending).map((entry) => entry.code)).toEqual([0, 0, 0]);
 	});
 });
 
 describe("the summary", () => {
 	test("passes, and says what the gate cost", () => {
-		const summary = summarize([result("format", 0), result("typecheck", 0), result("test", 0)], 24.44, 7, false);
+		const summary = summarize([result("format", 0), result("types", 0), result("test", 0)], 24.44, 7, false);
 		expect(summary.code).toBe(0);
 		expect(summary.message).toBe("check: 3 phases green in 24.4s (test 7 workers)");
 		expect(summary.dump).toBe("");
@@ -91,13 +91,13 @@ describe("the summary", () => {
 
 	test("fails the gate when one phase fails, naming it", () => {
 		const summary = summarize(
-			[result("format", 0), result("typecheck", 2, "error TS2304"), result("test", 0)],
+			[result("format", 0), result("types", 2, "error TS2304"), result("test", 0)],
 			9,
 			7,
 			false,
 		);
 		expect(summary.code).toBe(1);
-		expect(summary.message).toBe("check: typecheck failed in 9.0s");
+		expect(summary.message).toBe("check: types failed in 9.0s");
 		// A captured phase's output is the reason it failed, so it is what a reader is shown.
 		expect(summary.dump).toBe("error TS2304");
 	});
@@ -176,7 +176,7 @@ describe("the scope a command line names", () => {
 
 	test("a static run names the static half and no tests", () => {
 		expect(planLines({ ...all, scope: "static" }, undefined)).toEqual([
-			"static > format:check, typecheck, beside the tests",
+			"static > check:format, check:types, beside the tests",
 		]);
 	});
 
@@ -186,7 +186,7 @@ describe("the scope a command line names", () => {
 			{ tests: ["a", "b"], reasons: ["package-level > 2 files, always"] },
 		);
 		expect(lines).toEqual([
-			"static > format:check, typecheck, beside the tests",
+			"static > check:format, check:types, beside the tests",
 			"  package-level > 2 files, always",
 			"tests > 2 files (parallel)",
 		]);
@@ -207,11 +207,11 @@ describe("a scoped test phase", () => {
 		expect(test_.cmd).toEqual(["bun", "test", "--parallel=3", "--timeout", "30000", "a.test.ts", "b.test.ts"]);
 	});
 
-	test("drops the static phases for the `test` entry, and the test phase for `--static`", () => {
+	test("drops the static phases for the `check:tests` entry, and the test phase for `--static`", () => {
 		const noStatic = phasesFor({ serial: false, workers: 3, static: false, tests: ["a.test.ts"] });
 		expect(noStatic.map((phase) => phase.name)).toEqual(["test"]);
 		const noTests = phasesFor({ serial: false, workers: 3, tests: null });
-		expect(noTests.map((phase) => phase.name)).toEqual(["format", "typecheck"]);
+		expect(noTests.map((phase) => phase.name)).toEqual(["format", "types"]);
 	});
 
 	test("names the report it writes, after the flags and before the files", () => {
@@ -250,7 +250,7 @@ describe("a scoped test phase", () => {
 describe("a run with nothing to do", () => {
 	test("refuses --tests --static rather than reporting zero phases green", () => {
 		expect(() => parseArgs(["--tests", "--static"])).toThrow(
-			"--static is the check's static half; bun run test has none",
+			"--static is the check's static half; bun run check:tests has none",
 		);
 	});
 });
@@ -265,7 +265,7 @@ describe("a selection that carries the gate", () => {
 			2,
 		);
 		expect(lines.at(-1)).toBe(
-			"  2 of them are gated suites: their cases skip without PI_SLOW_TESTS=1 — `bun run test --slow` runs those",
+			"  2 of them are gated suites: their cases skip without PI_SLOW_TESTS=1 — `bun run check:tests --slow` runs those",
 		);
 	});
 

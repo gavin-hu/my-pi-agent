@@ -2,7 +2,7 @@
  * The shell every posting card shares: the plan pair — `plan-flow.html`, prose-led,
  * and `plan-flow-graphic.html`, graphic-led — and the board three — `board.html`,
  * `board-team.html`, and `board-parallel.html`. Every card is captured at 1200×675
- * by `screenshot:cards`.
+ * by `capture:cards`.
  *
  * The palette is `themes/bytefly-dark.json` — the one the terminal theme, the
  * README hero, and the browser pages all draw from — copied here because a page

@@ -1,7 +1,7 @@
 /**
- * The gate: `bun run check` and `bun run test`, each of them with a scope.
+ * The gate: `bun run check` and `bun run check:tests`, each of them with a scope.
  *
- * Three phases make up a check — format, typecheck, test — and only the last one uses more than
+ * Three phases make up a check — format, types, test — and only the last one uses more than
  * one core. Run in a chain, the two single-threaded phases hold every core for ~8 s before the
  * tests start, so they run beside the test phase instead: the gate costs what its longest phase
  * costs. The worker count comes from the machine rather than a constant, because a 4-core runner
@@ -11,7 +11,7 @@
  * answers that half — so the surface is two entries and one vocabulary:
  *
  *   check.ts                       static + every test, the gate a landing needs
- *   check.ts --tests               the tests alone, which is `bun run test`
+ *   check.ts --tests               the tests alone, which is `bun run check:tests`
  *   check.ts --static              the static half alone
  *   check.ts --serial              one file at a time, which is what macOS CI runs
  *   check.ts --watch               the tests in watch mode
@@ -90,7 +90,7 @@ export function workersFor(cpus: number): number {
 export interface PhaseOptions {
 	serial: boolean;
 	workers: number;
-	/** Format and typecheck as well; `false` is what `bun run test` runs. */
+	/** Format and types as well; `false` is what `bun run check:tests` runs. */
 	static?: boolean;
 	/** The files to run: absent is the whole suite, `null` is no test phase. */
 	tests?: readonly string[] | null;
@@ -112,8 +112,8 @@ export function phasesFor(options: PhaseOptions): Phase[] {
 	const phases: Phase[] = [];
 	if (options.static !== false) {
 		phases.push(
-			{ name: "format", cmd: ["bun", "run", "format:check"], live: false },
-			{ name: "typecheck", cmd: ["bun", "run", "typecheck"], live: false },
+			{ name: "format", cmd: ["bun", "run", "check:format"], live: false },
+			{ name: "types", cmd: ["bun", "run", "check:types"], live: false },
 		);
 	}
 	if (options.tests === null) return phases;
@@ -201,7 +201,7 @@ export interface Plan {
 	serial: boolean;
 	/** `bun test --watch`. */
 	watch: boolean;
-	/** The `test` entry: skip the static phases. */
+	/** The `check:tests` entry: skip the static phases. */
 	testsOnly: boolean;
 	/** Print the plan and run nothing. */
 	dryRun: boolean;
@@ -224,7 +224,7 @@ export const FLAGS = [
 
 const USAGE = `usage: bun run check [--static | --changed [--base <ref>] | --ext <name...> | --lib <area...> | --root | --slow]
                     [--serial | --watch] [--dry-run]
-       bun run test  the same scopes without the static half`;
+       bun run check:tests  the same scopes without the static half`;
 
 const SCOPE_FLAGS: Record<string, Scope> = {
 	"--static": "static",
@@ -277,7 +277,7 @@ export function parseArgs(argv: string[]): Plan {
 	if (gaveBase && plan.scope !== "changed") throw new Error("--base names the revision --changed diffs against");
 	if (plan.watch && plan.scope === "static") throw new Error("--watch runs the tests, and --static runs none");
 	if (plan.testsOnly && plan.scope === "static")
-		throw new Error("--static is the check's static half; bun run test has none");
+		throw new Error("--static is the check's static half; bun run check:tests has none");
 	if ((plan.scope === "ext" || plan.scope === "lib") && plan.names.length === 0) {
 		throw new Error(`--${plan.scope} needs a name`);
 	}
@@ -296,14 +296,14 @@ export function parseArgs(argv: string[]): Plan {
  */
 export function planLines(plan: Plan, chosen: Selection | undefined, gated = 0): string[] {
 	const lines: string[] = [];
-	if (!plan.testsOnly && !plan.watch) lines.push("static > format:check, typecheck, beside the tests");
+	if (!plan.testsOnly && !plan.watch) lines.push("static > check:format, check:types, beside the tests");
 	if (chosen === undefined) return lines;
 	for (const reason of chosen.reasons) lines.push(`  ${reason}`);
 	const scope = plan.watch ? "--watch" : plan.serial ? "serial" : "parallel";
 	lines.push(`tests > ${chosen.tests.length} files (${scope})`);
 	if (gated > 0) {
 		const suites = `${gated} of them ${gated === 1 ? "is a gated suite" : "are gated suites"}`;
-		lines.push(`  ${suites}: their cases skip without PI_SLOW_TESTS=1 — \`bun run test --slow\` runs those`);
+		lines.push(`  ${suites}: their cases skip without PI_SLOW_TESTS=1 — \`bun run check:tests --slow\` runs those`);
 	}
 	return lines;
 }

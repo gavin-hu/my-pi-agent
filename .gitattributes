@@ -1,5 +1,5 @@
 # Normalize all text to LF so checkouts are consistent across platforms
-# (Biome formats with LF; a CRLF working tree fails `bun run format:check`).
+# (Biome formats with LF; a CRLF working tree fails `bun run check:format`).
 * text=auto eol=lf
 
 # Keep binary assets untouched.

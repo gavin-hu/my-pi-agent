@@ -136,7 +136,7 @@ Each value is merged over the defaults and clamped:
 ```
 
 The section was named `document` before this extension was renamed; the loader
-reads only `file-read`, and `bun run config:migrate` renames an existing
+reads only `file-read`, and `bun run migrate:config` renames an existing
 `document` section and moves a legacy `document.json` into it.
 
 ## Security

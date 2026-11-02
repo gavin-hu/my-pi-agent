@@ -353,4 +353,4 @@ The capability suites — `format`, `protocol`, `store`, `runtime`, `tui`, `tool
 `inbox-read`, `overlap`, `resolve`, and `extension` — are declared in `test/suite-manifest.ts`.
 They build a bus in a temp directory with a fixed clock, so none needs a live peer; `runtime.test.ts`
 puts its real-repository cases behind `runSlowSuites`, which skips unless `CI` or
-`PI_SLOW_TESTS=1` is set — `bun run test --slow` runs exactly those suites.
+`PI_SLOW_TESTS=1` is set — `bun run check:tests --slow` runs exactly those suites.

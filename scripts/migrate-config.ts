@@ -9,7 +9,7 @@
  * is malformed and never overwrites an existing section, so a partial migration
  * is safe to re-run.
  *
- * Run:  bun run config:migrate [--project <dir>] [--dry-run] [--keep]
+ * Run:  bun run migrate:config [--project <dir>] [--dry-run] [--keep]
  */
 
 import { rmSync } from "node:fs";

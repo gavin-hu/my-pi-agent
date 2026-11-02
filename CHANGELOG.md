@@ -8,6 +8,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `dev`: the `bun run` surface is one set. A name is a verb when the verb is the whole errand
+  (`check`, `format`), or `<verb>:<target>` when it is one member of it, and no value calls
+  another script: `screenshot:tools` and `screenshot:tool-pngs` used to run `tools:render`, so
+  `package.json` could not say what they did. `test` → `check:tests`, `typecheck` →
+  `check:types`, `format:check` → `check:format` — the three things `check` already ran, named
+  as its members — `tools:render` → `render:tools`, `screenshots` → `capture:screens`, the
+  five `screenshot:<page>` → `capture:<page>`, `screenshot:tools`/`-tool-pngs` →
+  `capture:tools`/`-tool-pngs`, `compat:versions` → `report:versions`, `release:notes` →
+  `report:notes`, and `config:migrate` → `migrate:config`. No aliases are kept, so every
+  `bun run` in a note, a script, or a habit is one of the nineteen. Two entries are pruned
+  rather than renamed, because neither earned a row: `probe:wechat` (a one-off long-poll
+  diagnostic beside the extension's own doctor) and `bench:start` (an ungated pre-release
+  reading that needed a model in the developer's settings; its `[Unreleased]` bullet and its
+  `What a start costs` section go with it). `test/scripts-surface.test.ts` pins the verbs and
+  the rule that a value names the file it runs, so the next command cannot be a ninth spelling.
+
 - `dev`: a red `bun run check` names its failures. The test phase now also writes bun's JUnit
   report to `.pi/cache/test-report.xml` (`--reporter=junit --reporter-outfile`, a second
   artifact — the console output is unchanged), and on a failure `scripts/junit.ts` reads it into
@@ -40,14 +56,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `test/dependencies.test.ts` (the one total became one budget per extension, so an entry
   that grows can no longer be paid for by another's deferral), and the timings stay a
   pre-release reading.
-- `dev`: `bun run bench:start` reports what a *start* costs, per extension — the milliseconds
-  its registration graph takes to import cold, its factory, and the totals across the manifest,
-  read from Pi's own `PI_TIMING=1` output in a temp agent dir that loads this checkout. It
-  answers what `bench:load` cannot: a start here pays 223 ms of import and 10 ms of factory,
-  345 of the 737 evaluations are a shared module paid a second time, and the first manifest
-  entry carries ~23 ms of the loader's own bootstrap (jiti's transformer, once) — which is what
-  made `serve` look like a 2.5 ms-per-module outlier. A pre-release reading; `bun run check`
-  never runs it.
 - `team`: a fifth action, `ask`, sends one peer a question as the bus's `ask` kind and
   reports what happened to it — `Asked billing-core.`, or the peers that will read it at
   their next turn instead of being woken. It writes no card and waits on nothing: the reply
@@ -126,13 +134,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   your work now), the one uncovered review fact — the sign lands in the owner's inbox — moves
   into `review`'s action doc, and `test/prompt-budget.test.ts` sums the description, snippet,
   guidelines and schema into a ceiling so the next restatement fails instead of accumulating.
-- `dev`: `bun run bench:start` also reports the other half of a start — what each
-  entry's `session_start` handlers hold the first frame for, measured in-process against the
-  shared test doubles, since an rpc child emits the event and draws no frame. Offline, the
-  frame is 101 ms with the pack and 37 ms with `--no-extensions`, so ~64 ms is ours and the
-  handlers are ~13 ms of it (`bytefly` 5–10, `rewind` 2–3, then `session-bus` and `memory` at
-  ~1); the rest is Pi's own init with our chrome installed. A pre-release reading, like the
-  rest of that script.
 - `subagent`: the transcript sweep starts beside the first frame instead of in front of it.
   `session_start` still reads the config on the frame, but pruning resolves the repository
   with git and stats every run directory, which measured ~17 ms of awaited start while

@@ -60,11 +60,11 @@ commits ahead plus the merge command; merge on the main checkout with
 
 | Command | What it does |
 |---|---|
-| `bun run check` | format:check + typecheck + test |
+| `bun run check` | check:format + check:types + the tests |
 | `bun run format` | Rewrite formatting with Biome |
-| `bun run typecheck` | `tsc --noEmit` |
-| `bun run test` | Unit tests |
-| `bun run test --slow` | The gated git suites: `worktree`, `rewind`, and `session-bus` |
+| `bun run check:types` | `tsc --noEmit` |
+| `bun run check:tests` | Unit tests |
+| `bun run check:tests --slow` | The gated git suites: `worktree`, `rewind`, and `session-bus` |
 
 See [`docs/development.md`](./docs/development.md) and
 [`test/README.md`](./test/README.md) for the test tiers and determinism rules.

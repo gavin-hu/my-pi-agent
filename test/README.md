@@ -7,11 +7,11 @@ banned-pattern rules below.
 ## Running
 
 ```bash
-bun run check            # format + typecheck + every test (the gate a landing needs)
-bun run check --changed  # the same, narrowed to the tests this change reaches
-bun run test --ext board # one extension's suites, no static half
-bun run test --slow      # the gated git suites
-bun test <path>          # one file or directory, straight to bun (5s default budget)
+bun run check                    # check:format + check:types + every test (the landing gate)
+bun run check --changed          # the same, narrowed to the tests this change reaches
+bun run check:tests --ext board  # one extension's suites, no static half
+bun run check:tests --slow       # the gated git suites
+bun test <path>                  # one file or directory, straight to bun (5s default budget)
 ```
 
 A scope is a flag on the two entry scripts (`--ext`, `--lib`, `--root`, `--slow`,
@@ -33,7 +33,7 @@ The always-on model-facing prompt size is budgeted. `test/prompt-budget.test.ts`
 covers the pure per-turn injected-context builders, which are re-injected every
 turn, so a regression in that text fails fast.
 
-`bun run test` runs the suite through `scripts/check.ts`, whose test phase is
+`bun run check:tests` runs the suite through `scripts/check.ts`, whose test phase is
 `bun test --parallel=4` (which implies `--isolate`), so each test file runs in its
 own worker process and `process.env` edits in one file cannot leak into another. The worker count is
 capped at four so the git-heavy worktree and rewind suites are not starved, and
@@ -56,7 +56,7 @@ The git-heavy `rewind`, `worktree`, and `session-bus` real-repository tests crea
 real repositories and real git commands, so `test/helpers/slow-suite.ts` gates
 them: they skip unless `CI` is set (GitHub Actions sets it) or `PI_SLOW_TESTS=1`
 is exported. A local `bun run check` therefore stays fast while CI keeps the
-coverage. Run them locally with `bun run test --slow` (the derived list of gated
+coverage. Run them locally with `bun run check:tests --slow` (the derived list of gated
 suites, with the gate on) or `PI_SLOW_TESTS=1 bun test <path>`; a new slow suite opts in with
 `describe.skipIf(!runSlowSuites)("...", () => { ... })`.
 CI runs the macOS job through `bun run check --serial` instead: a `--parallel`

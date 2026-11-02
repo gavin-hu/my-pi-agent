@@ -8,9 +8,14 @@
  * (so a script renamed since would fail against its own history), and a bare
  * `bun run build` in a fixture is a sample command rather than this package's.
  *
- * The last two cases cover the two places a retired name hides: a CI workflow (a
- * `run:` line is a command nobody re-reads) and a source string (the `--serial` hint
- * a failing wait prints), where a colon is what a package script name looks like.
+ * The next cases cover the places a retired name hides: a CI workflow (a `run:` line is
+ * a command nobody re-reads) and a source string (the `--serial` hint a failing wait
+ * prints), where a colon is what a package script name looks like.
+ *
+ * The last two are the shape of the surface itself, which is the other half of a
+ * rename: a name is a verb or one member of a verb's family, and a value names the file
+ * it runs. `screenshot:tools` used to run `tools:render`, so `package.json` could not
+ * say what it did; a value that is not a path is that defect again.
  */
 
 import { readFileSync, readdirSync } from "node:fs";
@@ -20,10 +25,33 @@ import { posix, walkFiles } from "./helpers/files.ts";
 import { extensionsDir, libDir, relative, scriptsDir, testDir } from "./helpers/scan.ts";
 
 const repo = posix(join(import.meta.dir, ".."));
-/** Every declared script, so a failure can name the ones the docs forgot. */
-const SCRIPTS: string[] = Object.keys(
-	(JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as { scripts: Record<string, string> }).scripts,
-);
+/** Every declared script and what it runs, so a failure can name the ones the docs forgot. */
+const DECLARED: Record<string, string> = (
+	JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as { scripts: Record<string, string> }
+).scripts;
+
+/** The names alone, which is what the docs are compared against. */
+const SCRIPTS: string[] = Object.keys(DECLARED);
+
+/**
+ * The verbs this surface is spelled with, and what each one promises.
+ *
+ * A name is `<verb>` — the whole errand — or `<verb>:<target>`, one member of it, so a
+ * command says what kind of work it is before it says what it is about. Adding a verb is a
+ * deliberate edit to this table; that is the difference between a family and a ninth spelling.
+ */
+const KINDS: Record<string, string> = {
+	check: "verify the tree — the whole gate, or one phase of it",
+	format: "rewrite the tree's formatting, whose dry run is `check:format`",
+	bench: "measure something, and write nothing",
+	render: "draw on stdout or into a file",
+	capture: "write an asset under `assets/`",
+	report: "print a fact, and write nothing",
+	migrate: "rewrite the machine's config, once",
+};
+
+/** What a command may run: a file in this repository's `scripts/`, or a toolchain binary. */
+const RUNS: readonly RegExp[] = [/^bun run scripts\/[\w./-]+\.ts(?: |$)/, /^tsc(?: |$)/, /^biome(?: |$)/];
 
 /**
  * A `bun run <name>` in a doc. A file path is matched too, on purpose: a command the
@@ -81,6 +109,36 @@ describe("the scripts surface", () => {
 			}
 		}
 		expect(offenders, "CI runs a script a contributor cannot run").toEqual([]);
+	});
+
+	test("every name is a verb, or one member of a verb's family", () => {
+		const verbs = Object.keys(KINDS).join(", ");
+		const offenders: string[] = [];
+		for (const name of SCRIPTS) {
+			const [kind, target, ...rest] = name.split(":");
+			if (rest.length > 0) {
+				offenders.push(`package.json: \`${name}\` has two colons; a name is <verb> or <verb>:<target>`);
+				continue;
+			}
+			if (KINDS[kind] === undefined) {
+				offenders.push(`package.json: \`${name}\` starts with "${kind}", which is not one of ${verbs}`);
+				continue;
+			}
+			if (target !== undefined && !/^[a-z][a-z-]*$/.test(target)) {
+				offenders.push(`package.json: \`${name}\` has the target "${target}", which is not lowercase kebab`);
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+
+	test("every value names the file it runs, never another script", () => {
+		const offenders = Object.entries(DECLARED)
+			.filter(([, value]) => !RUNS.some((pattern) => pattern.test(value)))
+			.map(
+				([name, value]) =>
+					`package.json: \`${name}\` runs \`${value}\` — name the script file it runs, so the entry says what it does`,
+			);
+		expect(offenders).toEqual([]);
 	});
 
 	test("a colon-named command in a source string is a declared script", () => {

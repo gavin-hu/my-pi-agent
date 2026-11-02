@@ -108,7 +108,7 @@ describe("docs screenshots", () => {
 			if (frame !== fingerprint) {
 				for (const [index, line] of lines.entries()) console.log(`${name}|${index}|${JSON.stringify(line)}`);
 			}
-			expect(frame, `assets/screens/${screen.asset}.png is behind the frame: bun run screenshots ${name}`).toBe(
+			expect(frame, `assets/screens/${screen.asset}.png is behind the frame: bun run capture:screens ${name}`).toBe(
 				fingerprint,
 			);
 		}

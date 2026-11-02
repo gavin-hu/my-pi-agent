@@ -7,7 +7,7 @@
  * description. Nothing here names a real checkout: the store is a temporary
  * directory and the paths are this repository's own directories.
  *
- *   bun run screenshot:board [--width 1280] [--scale 1] [--theme light|dark]
+ *   bun run capture:board [--width 1280] [--scale 1] [--theme light|dark]
  *     [--wait 8000] [--out <dir>] [--dialog card]
  *
  * Output defaults to `assets/screens/board.png` and `assets/screens/team.png`; with
@@ -121,7 +121,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 
 if (import.meta.main) {
 	runCli(
-		"usage: bun run screenshot:board [--out <dir>] [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000] [--dialog card]",
+		"usage: bun run capture:board [--out <dir>] [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000] [--dialog card]",
 		() => main(),
 	);
 }
