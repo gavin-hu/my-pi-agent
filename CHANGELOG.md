@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `dev`: a red `bun run check` names its failures. The test phase now also writes bun's JUnit
+  report to `.pi/cache/test-report.xml` (`--reporter=junit --reporter-outfile`, a second
+  artifact — the console output is unchanged), and on a failure `scripts/junit.ts` reads it into
+  one line per case — `scripts/check.test.ts:288 — scratch > red on purpose (0.00s)` — under the
+  run's counts and wall time. A gate that fails is the state a model reads most often, and it
+  was prose plus an exit code; exit codes are unchanged, the report is removed before each run so
+  it is never an older one, and a suite that could not be loaded (bun writes no report for it) is
+  named as such instead of reading as a clean run.
+
 - `team`: `assign` and `ask` join this session to the team once, under the label it already
   writes cards as. `session-bus` records a sender and arms no watch, so a lead that only ever
   ran the round was on the bus and not on the team: the peer's reply landed in an inbox

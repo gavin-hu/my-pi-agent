@@ -23,10 +23,12 @@
  *   check.ts --dry-run             print the selection, run nothing
  */
 
+import { mkdirSync, rmSync } from "node:fs";
 import { availableParallelism } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { runSlowSuites } from "../test/helpers/slow-suite.ts";
 import { runCli } from "./cli.ts";
+import { reportDigest, reportPath } from "./junit.ts";
 import {
 	gatedAmong,
 	type Selection,
@@ -96,6 +98,13 @@ export interface PhaseOptions {
 	watch?: boolean;
 	/** Environment the test phase reads, such as `PI_SLOW_TESTS=1`. */
 	env?: Record<string, string>;
+	/**
+	 * Where the test phase writes bun's JUnit report, when it should write one.
+	 *
+	 * A second artifact, not a different output: bun prints the console report either way, so
+	 * this is the machine-readable half a red run names its failures from.
+	 */
+	report?: string;
 }
 
 /** The three phases, in the order a summary reads them. */
@@ -113,7 +122,13 @@ export function phasesFor(options: PhaseOptions): Phase[] {
 		: options.serial
 			? ["--timeout", String(PHASE_TIMEOUT_MS)]
 			: [`--parallel=${options.workers}`, "--timeout", String(PHASE_TIMEOUT_MS)];
-	phases.push({ name: "test", cmd: ["bun", "test", ...flags, ...(options.tests ?? [])], live: true, env: options.env });
+	const report = options.report === undefined ? [] : ["--reporter=junit", `--reporter-outfile=${options.report}`];
+	phases.push({
+		name: "test",
+		cmd: ["bun", "test", ...flags, ...report, ...(options.tests ?? [])],
+		live: true,
+		env: options.env,
+	});
 	return phases;
 }
 
@@ -338,6 +353,13 @@ async function main(): Promise<void> {
 	if (plan.scope === "changed") console.log(`  selection took ${walked}ms`);
 	if (plan.dryRun) return;
 	const workers = workersFor(availableParallelism());
+	const report = reportPath(root);
+	if (!plan.watch) {
+		// The report is this attempt's or absent: a file left by an older run would be read as
+		// this one's, and bun writes no directory for the outfile.
+		mkdirSync(dirname(report), { recursive: true });
+		rmSync(report, { force: true });
+	}
 	const phases = phasesFor({
 		serial: plan.serial,
 		workers,
@@ -345,11 +367,16 @@ async function main(): Promise<void> {
 		tests: chosen === undefined ? null : chosen.tests,
 		watch: plan.watch,
 		...(plan.scope === "slow" ? { env: { PI_SLOW_TESTS: "1" } } : {}),
+		...(plan.watch ? {} : { report }),
 	});
 	const started = performance.now();
 	const results = await runPhases(phases, spawnPhase);
 	const summary = summarize(results, (performance.now() - started) / 1000, workers, plan.serial);
+	// A test failure names its cases; the other phases dump what they printed, and both can be
+	// true of one run.
+	const tested = results.some((result) => result.phase.name === "test" && result.code !== 0);
 	if (summary.dump !== "") process.stderr.write(`${summary.dump}\n`);
+	if (tested) process.stderr.write(`${reportDigest(report)}\n`);
 	if (summary.code === 0) console.log(summary.message);
 	else console.error(summary.message);
 	process.exitCode = summary.code;
