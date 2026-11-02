@@ -7,10 +7,10 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tempDir } from "../../test/helpers/env.ts";
+import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
+import { tempDir } from "../../test/helpers/env.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { repoKeyOf } from "../repo-key.ts";
@@ -63,10 +63,8 @@ async function recordOnBus(
 	cwd: string,
 	record: { id: string; label: string; lastSeen?: number; pid?: number },
 ): Promise<void> {
-	const dir = join(await runtime.busDir(cwd), "sessions");
-	mkdirSync(dir, { recursive: true });
 	const { lastSeen = NOW, ...rest } = record;
-	writeFileSync(join(dir, `${record.id}.json`), JSON.stringify({ ...rest, lastSeen, mode: "tui" }));
+	writeBusRecord(await runtime.busDir(cwd), { ...rest, lastSeen });
 }
 
 describe("who", () => {

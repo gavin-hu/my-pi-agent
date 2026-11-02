@@ -6,7 +6,8 @@
  * time this session claims a card — and never asks anybody to run a bus action.
  *
  * The join itself is `lib/board/join.ts`'s `joinOnce`, because a claim joins from either
- * tool; this module holds what is the board's own: what a `/board` line says about it.
+ * tool, and asks again when the bus no longer holds this session; this module holds what
+ * is the board's own: what a `/board` line says about it.
  */
 
 import type { JoinResult } from "../../lib/session-tool.ts";

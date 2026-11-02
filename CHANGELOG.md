@@ -250,6 +250,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a claim joins again when the bus no longer holds the session. The join was asked
+  once per session off the standing alone, and a standing stays `ok` after `bus.stop()`, after
+  the TTL ended the record, and after a `/resume` took the seat — so the next claim wrote a
+  card under a name no peer resolved. Being on the team is now the roster's answer: a `live`
+  record for this session id keeps the join it already made, anything else asks again under
+  the label the card is written as (one rule, `lib/board/join.ts`, for both `board`'s claim and
+  `team`'s), and a mail watch the user turned off with `/session listen off` stays off through
+  that re-ask — the choice is repeated, not treated as a broken join.
+
 - `session-bus`: an inbox is read in the order its mail arrived — the file's `mtime`, with the
   name settling a tie inside one filesystem tick — instead of by the id, which carries the
   sender's clock. A peer whose clock runs ahead no longer writes mail that sorts behind a backlog
