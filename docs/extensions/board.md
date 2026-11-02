@@ -186,7 +186,8 @@ A sign without that field was made at the gate, which is why nothing older neede
 the card's owner: an event in that session's inbox naming the signer and the lane the sign
 opened, which is the same `session send` a handoff is — it waits, and starts no turn. A
 repeated sign writes nothing, so it sends nothing, and a bus that cannot answer costs a line
-on the result (`told api-core`, or `api-core was not told (…)`) and never the signature,
+on the result — `told api-core`, or `api-core was not told (…)`, which the transcript block
+draws after the card and the text carries indented below it — and never the signature,
 which is already on the card. The way to ask travels the same channel: the refusal for either
 gate names ``ask <lead> with `session send` ``, from the one phrase in `lib/board/lead.ts` that
 `team`'s handoff prints too. The two commands are the exception on purpose — a
@@ -251,7 +252,7 @@ name there is the project's, and the seat is read off the roster where it belong
 | `approve` | `card`, `text?` | the card with its contract approved, by the lead and not by its holder — the gate in front of `execute` (see **Who signs**); `text` is a note recorded in the same write. The person signs the same gate with `/board approve <id>` |
 | `review` | `card`, `text?`, `override?` | the card with a spot-check recorded, by the lead and not by its holder — the gate in front of `done`; `text` is a note recorded in the same write. `override` is the close a gate was not asked for: one line saying why, which signs a card that is already `done` and has no sign on it, and the sign then carries `byInstruction` so the card, the round, and the page say `closed by instruction`. The person signs either with `/board review <id> [--override <why>]` |
 | `edit` | `card`, `title?`, `paths?`, `priority?`, `dependsOn?` | the card with what it says corrected; an omitted field is left alone, and `dependsOn: []` removes every link |
-| `archive` | `card?` | the ids set aside — one finished card, or every archivable one when no card is named, which is every finished card no open card still waits on: archiving is one way, and a link a sweep stranded would name a card no read of the board opens; a card still in flight is refused |
+| `archive` | `card?` | the ids set aside — one finished card, or every archivable one when no card is named, which is every finished card no open card still waits on: archiving is one way, and a link a sweep stranded would name a card no read of the board opens; a card still in flight is refused. The result states the outcome — what moved, what a live link kept, what it failed on, or that the card was already aside — in its text and on the transcript's one line |
 | `drop` | `card` | the id that was dropped, whose number is now spent |
 
 `card` takes `4` or `#4`. A refused call is an error result that still carries the
@@ -564,6 +565,13 @@ it always meant: when the card was last touched, which is not when it last chang
   look at the archive is the directory listing a lane-less `list` counts, so the omission
   cannot pass for a deleted history — and an archive therefore lowers the board's size
   and the cost of every read. The ids stay spent because the file name is the id.
+- **A result states its own outcome.** The details carry what a call did, not just the one
+  card it touched, because the transcript's collapsed line reads the details and never the
+  result's text: `archive` records what it moved, what a live link kept, what it failed on,
+  and the card a repeated call found already aside, and a sign records the sentence its
+  message produced (`told api-core`, or who was not told). Without the first, a second
+  archive drew `0 cards` over a sentence saying the card was already aside; without the
+  second, the block never said whether the owner heard.
 - **Create is exclusive**, by hard-linking a temporary file onto the target name,
   so two adds cannot share an id. **Update** re-reads, re-checks the operation's
   own preconditions, then renames over the old file: an operation means "apply when
@@ -793,7 +801,7 @@ refused file, the card's transitions, the store a call opens and the identity it
 the files that store keeps, and the snapshot, and
 `extensions/board/{input,record,result,rollup,signs,tools,lazy-page,page,page-idle,commands,extension,transport/router,view/pages,view/repaint,view/dialog,view/dialog-behaviour,view/behaviour}`
 for the card body, the record's cost and its dropped history (the sweep behind `archive` and
-`/board archive`, the archivable count behind it, and the two dropped counts), the transcript
+`/board archive` and the outcome it reports, the archivable count behind it, and the two dropped counts), the transcript
 block a result draws, a listing that keeps its filters beside a rollup, the two signs over the
 tool, every action, the page's lifecycle over a real socket (a page served, attached to, and
 taken over, a board that stops being readable, and a write refused on the wire), a surface

@@ -265,6 +265,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and waits there, and a read page is no longer re-sorted by the sender's `at` after the walk had
   already chosen it, so what `inbox` shows is the front it deleted.
 
+- `board`: an `archive` result states its own outcome, so a two-line transcript is no longer a
+  count. `collapsedLine` fell through to `0 cards` for the no-op (`archive card:"1"` twice) and
+  for the empty sweep, and drew even a sweep that failed on `#3` as its moved count alone,
+  because the details carried only `archived`/`failed` and neither was drawn. The details now
+  hold an `archive` outcome — `moved`, `kept`, `failed`, and the `already` a repeated call found
+  — and the collapsed line names each: `#1 archived`, `#1 already archived`, `2 cards kept:
+  still waited on`, `#3 not archived`, or `no finished cards to archive`. A sign's
+  `told`/`was not told` sentence, which only the text carried, is a details field too and is
+  drawn after the card and the actor.
+
 - `board`: an all-archived board says "No open cards." instead of "The board is empty.".
   `formatBoard` picked its empty sentence on the hidden done cards alone, so a board whose every
   card had been archived printed "The board is empty." directly above "1 card is set aside in

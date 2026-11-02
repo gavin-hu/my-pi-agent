@@ -1084,7 +1084,7 @@ describe("archive", () => {
 		await call({ action: "add", title: "Open one" });
 		await seed(board, "1", "done");
 		const result = await call({ action: "archive", card: "1" });
-		expect(result.details.archived).toEqual(["1"]);
+		expect(result.details.archive?.moved).toEqual(["1"]);
 		expect(resultText(result)).toBe(
 			"1 card archived: #1 — out of the board, its notes and plan still readable with archived: true.",
 		);
@@ -1140,8 +1140,8 @@ describe("archive", () => {
 		await call({ action: "claim", card: "3" });
 
 		const result = await call({ action: "archive" });
-		expect(result.details.archived).toEqual(["1"]);
-		expect(result.details.failed).toEqual([
+		expect(result.details.archive?.moved).toEqual(["1"]);
+		expect(result.details.archive?.failed).toEqual([
 			{ card: "2", error: "#2 kept changing while it was written; read it again." },
 		]);
 		expect(resultText(result)).toContain("1 card archived: #1");
@@ -1158,7 +1158,7 @@ describe("archive", () => {
 		await seed(board, "2", "done");
 		await call({ action: "claim", card: "3" });
 		const result = await call({ action: "archive" });
-		expect(result.details.archived).toEqual(["1", "2"]);
+		expect(result.details.archive?.moved).toEqual(["1", "2"]);
 		expect(resultText(result)).toContain("2 cards archived: #1, #2");
 		expect((await call({ action: "list" })).details.cards?.map((card) => card.id)).toEqual(["3"]);
 		expect((await call({ action: "list", archived: true })).details.cards?.map((card) => card.id)).toEqual(["1", "2"]);

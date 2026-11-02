@@ -3,8 +3,9 @@
  *
  * Two facts a reader needed and could not see — how much history a sweep may fold away, and
  * which cards lost notes or transitions to a cap — so the sweep, the word that runs it, and
- * the two lines that name it are pinned here. `tools.test.ts` and `commands.test.ts` are both
- * named at their height in `test/suite-sizes.test.ts`, which is why this suite exists.
+ * the two lines that name it are pinned here. The outcome the sweep reports is here too, for
+ * the same reason: `tools.test.ts` and `commands.test.ts` are both named at their height in
+ * `test/suite-sizes.test.ts`, which is why this suite exists.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -16,13 +17,15 @@ import { formatRound } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
-import { boardCard, numberedCard } from "../../test/helpers/fixtures/board.ts";
+import { boardCard, numberedCard, resultText } from "../../test/helpers/fixtures/board.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { sweepFinished, sweepText } from "./archive.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 import { formatCard } from "./format.ts";
 import type { BoardPage } from "./page.ts";
+import { registerTools } from "./tools.ts";
+import { BOARD_TOOL, type BoardDetails } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -149,5 +152,49 @@ describe("the archivable count", () => {
 		const round = buildRound([first, second], NOW);
 		// The dependent is finished too: nothing is held up, so nothing is kept.
 		expect(round.archivable.map((card) => card.id)).toEqual(["1", "2"]);
+	});
+});
+
+describe("the archive result", () => {
+	/** The board tool over this suite's harness: the details a call hands the transcript block. */
+	async function archiveTool() {
+		const suite = board();
+		registerTools(suite.harness.fake.pi, suite.harness.runtime);
+		const tool = suite.harness.fake.pi.tools.get(BOARD_TOOL);
+		if (!tool) throw new Error("the board tool was not registered");
+		const store = await suite.harness.runtime.store(suite.harness.ctx.cwd);
+		const call = async (args: Record<string, unknown>) =>
+			(await tool.execute("call-1", args, undefined, undefined, suite.harness.ctx)) as {
+				content: Array<{ type: string; text: string }>;
+				details: BoardDetails;
+			};
+		return { call, store };
+	}
+
+	test("states what it moved, and the card a second call found aside", async () => {
+		const { call, store } = await archiveTool();
+		const card = await store.create({ title: "Finished", paths: [] }, ME, NOW);
+		await advance(store, card.id, "done", { owner: ME }, NOW);
+		const moved = await call({ action: "archive", card: card.id });
+		expect(moved.details.archive?.moved).toEqual([card.id]);
+		// Asked twice is one state: the outcome names the card already aside, and the sweep after
+		// it is an empty answer — the two calls that used to draw `0 cards` over their sentence.
+		const again = await call({ action: "archive", card: card.id });
+		expect(again.details.archive).toEqual({ moved: [], kept: [], failed: [], already: card.id });
+		const empty = await call({ action: "archive" });
+		expect(resultText(empty)).toBe("No finished cards to archive.");
+		expect(empty.details.archive).toEqual({ moved: [], kept: [], failed: [] });
+	});
+
+	test("states a card a live link kept, and what the sweep failed on", async () => {
+		const { call, store } = await archiveTool();
+		const kept = await store.create({ title: "Finished, still waited on", paths: [] }, ME, NOW);
+		const waiting = await store.create({ title: "Waiting one", paths: [] }, ME, NOW);
+		await advance(store, kept.id, "done", { owner: ME }, NOW);
+		await store.mutate(waiting.id, { kind: "edit", dependsOn: [kept.id] }, ME, NOW);
+		const swept = await call({ action: "archive" });
+		// The hold is a fact the block draws, not only a sentence in the text.
+		expect(swept.details.archive).toEqual({ moved: [], kept: [kept.id], failed: [] });
+		expect(resultText(swept)).toContain(`1 card kept: an open card still waits on #${kept.id}.`);
 	});
 });

@@ -17,7 +17,7 @@ import { plural } from "../../lib/board/round-text.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { boardRowLineFor } from "./rows.ts";
 import { TONE_ROLE } from "./tone.ts";
-import type { BoardDetails } from "./types.ts";
+import type { ArchiveOutcome, BoardDetails } from "./types.ts";
 
 /** One section of the expanded block, drawn as the session that asked for it. */
 function section(label: string | undefined, cards: readonly Card[], rowLine: TailRowLine<Card>): TailSection<Card> {
@@ -76,24 +76,55 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
  */
 export function collapsedLine(theme: Theme, details: BoardDetails): string {
 	const me = paint(theme, "faint", sanitizeLine(details.me.label));
-	const archived = details.archived;
-	if (archived !== undefined && archived.length > 0) {
-		const first = archived[0];
-		const label =
-			archived.length === 1 && first !== undefined
-				? `${cardRef(first)} archived`
-				: `${plural(archived.length, "card")} archived`;
-		return `${paint(theme, "label", label)} ${SEPARATORS.item} ${me}`;
-	}
+	if (details.archive) return `${archiveLine(theme, details.archive)} ${SEPARATORS.item} ${me}`;
 	if (details.dropped)
 		return `${paint(theme, "label", `${cardRef(details.dropped)} dropped`)} ${SEPARATORS.item} ${me}`;
 	const card = details.card;
-	if (card) return `${cardLine(theme, card)} ${SEPARATORS.item} ${me}`;
+	if (card) return `${cardLine(theme, card)} ${SEPARATORS.item} ${me}${toldLine(theme, details.told)}`;
 	const count = details.cards?.length ?? 0;
 	const round = details.round;
 	if (!round) return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${me}`;
 	const owners = round.owners.length;
 	return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${plural(owners, "owner")} ${SEPARATORS.item} ${me}`;
+}
+
+/**
+ * What an archive did, as the one line a reader sees.
+ *
+ * The four answers a call can give at once — cards folded away, cards an open card still
+ * waits on, cards the store refused, and the card a second call found already aside — so a
+ * sweep that failed on a card names it here instead of drawing a count that reads as if it
+ * had not. The reasons stay in the text; the ids are what a reader acts on.
+ */
+function archiveLine(theme: Theme, outcome: ArchiveOutcome): string {
+	const parts: string[] = [];
+	const moved = outcome.moved;
+	if (moved.length === 1 && moved[0] !== undefined) {
+		parts.push(paint(theme, "label", `${cardRef(moved[0])} archived`));
+	} else if (moved.length > 1) {
+		parts.push(paint(theme, "label", `${plural(moved.length, "card")} archived`));
+	}
+	if (outcome.already !== undefined) parts.push(paint(theme, "meta", `${cardRef(outcome.already)} already archived`));
+	if (outcome.kept.length > 0)
+		parts.push(paint(theme, "meta", `${plural(outcome.kept.length, "card")} kept: still waited on`));
+	if (outcome.failed.length > 0) {
+		const ids = outcome.failed.map((entry) => cardRef(entry.card)).join(", ");
+		parts.push(paint(theme, "bad", `${ids} not archived`));
+	}
+	// A sweep with nothing to do is an answer: no move, no hold, no refusal.
+	if (parts.length === 0) parts.push(paint(theme, "label", "no finished cards to archive"));
+	return parts.join(` ${SEPARATORS.item} `);
+}
+
+/**
+ * The sign's sentence, after the actor: `· told api-core`, or who was not told.
+ *
+ * One clause for both answers, because `announce` writes one sentence — and the person's
+ * command prints the same clause after its card (`#4 approved by you · api-core was not told
+ * (…)`), so the two doors a sign has read alike.
+ */
+function toldLine(theme: Theme, told: string | undefined): string {
+	return told === undefined ? "" : ` ${SEPARATORS.item} ${paint(theme, "meta", sanitizeLine(told))}`;
 }
 
 /**
