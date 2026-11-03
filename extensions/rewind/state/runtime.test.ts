@@ -26,20 +26,9 @@ import {
 import { runSlowSuites } from "../../../test/helpers/slow-suite.ts";
 import { DEFAULT_CONFIG } from "../config/config.ts";
 import {
-	boundDiff,
 	formatChangeSummary,
-	formatHunkRevertBody,
-	formatHunkRevertText,
 	formatRelativeTime,
 	formatRestoreText,
-	formatReviewDetail,
-	formatReviewEntryCounts,
-	formatReviewListText,
-	formatReviewRevertText,
-	formatReviewSummary,
-	formatRevertAllBody,
-	formatRevertOneBody,
-	formatRevertSelectedBody,
 	formatRewindDetail,
 	formatRewindListText,
 	formatRewindParts,
@@ -48,18 +37,7 @@ import {
 	PROMPT_WIDTH,
 	summarizePrompt,
 } from "../text/format.ts";
-import {
-	applyPatchReverse,
-	busyGitState,
-	diffNumStat,
-	diffPatch,
-	diffStat,
-	nameStatus,
-	restorePaths,
-	treeFromWorkingTree,
-} from "../transport/git.ts";
-import { buildHunkPatch, parseFilePatch } from "../text/patch.ts";
-import type { ReviewEntry } from "../text/paths.ts";
+import { busyGitState, diffStat, nameStatus, restorePaths, treeFromWorkingTree } from "../transport/git.ts";
 import { applyRestore, planRestore } from "../transport/restore.ts";
 import { choosePaths } from "../commands/rewind.ts";
 import { RewindListComponent, type RewindListOptions } from "../view/rewind-tui.ts";
@@ -260,189 +238,6 @@ describe("rewind formatting", () => {
 		expect(formatRestoreText({ id: "z", commit: "c", root: "/r", changed: 1, removed: 0, safety: "s" })).toContain(
 			"safety snapshot #s",
 		);
-	});
-});
-
-/** One review entry with text counts; a rename is built where the source matters. */
-function reviewEntry(
-	path: string,
-	change: Exclude<ReviewEntry["change"], "renamed">,
-	added: number | null,
-	removed: number | null,
-): ReviewEntry {
-	return { path, change, added, removed };
-}
-
-const REVIEW_ENTRIES = [
-	reviewEntry("src/a.ts", "modified", 12, 3),
-	reviewEntry("src/new.ts", "added", 4, 0),
-	reviewEntry("src/old.ts", "deleted", 0, 9),
-	reviewEntry("assets/logo.png", "modified", null, null),
-];
-
-describe("review formatting", () => {
-	test("counts a text row, a binary row, and a zero row", () => {
-		expect(formatReviewEntryCounts(REVIEW_ENTRIES[0]!)).toBe("+12 −3");
-		expect(formatReviewEntryCounts(REVIEW_ENTRIES[1]!)).toBe("+4");
-		expect(formatReviewEntryCounts(REVIEW_ENTRIES[2]!)).toBe("−9");
-		expect(formatReviewEntryCounts(REVIEW_ENTRIES[3]!)).toBe("bin");
-		expect(formatReviewEntryCounts(reviewEntry("x", "modified", 0, 0))).toBe("0");
-	});
-
-	test("summarizes files, line deltas, binary presence, and the selection", () => {
-		const all = formatReviewSummary(REVIEW_ENTRIES);
-		const selected = formatReviewSummary(REVIEW_ENTRIES, 2);
-
-		expect(all).toContain("4 files");
-		expect(all).toContain("+16 −12");
-		expect(all).toContain("bin");
-		expect(all).not.toContain("selected");
-		expect(selected).toContain("2 selected");
-		expect(formatReviewSummary([REVIEW_ENTRIES[0]!])).toContain("+12 −3");
-	});
-
-	test("explains each change kind", () => {
-		expect(formatReviewDetail(REVIEW_ENTRIES[0]!)).toContain("modified since the snapshot");
-		expect(formatReviewDetail(REVIEW_ENTRIES[1]!)).toContain("reverting deletes it");
-		expect(formatReviewDetail(REVIEW_ENTRIES[2]!)).toContain("reverting brings it back");
-	});
-
-	test("lists the changed paths for a headless review", () => {
-		const text = formatReviewListText(REVIEW_ENTRIES, "fix the list");
-
-		expect(text).toContain('Reviewing after "fix the list"');
-		expect(text).toContain("M src/a.ts");
-		expect(text).toContain("A src/new.ts");
-		expect(text).toContain("D src/old.ts");
-		expect(text).toContain("+12 −3");
-	});
-
-	test("names committed changes in the headless list", () => {
-		const text = formatReviewListText(REVIEW_ENTRIES, "fix the list", true);
-
-		expect(text).toContain("already committed");
-		expect(text).toContain("working tree only");
-	});
-
-	test("reports a revert, its safety snapshot, and what is left", () => {
-		const summary = { id: "s", commit: "c", root: "/r", changed: 1, removed: 0, safety: "safe" };
-		const reverted = formatReviewRevertText(summary, 2);
-
-		expect(reverted).toContain("Reverted 1 file");
-		expect(reverted).toContain("Safety snapshot #safe");
-		expect(reverted).toContain("2 files still changed");
-		expect(formatReviewRevertText({ ...summary, safety: undefined }, 0)).toContain("No changes remain.");
-	});
-
-	test("names the file, the change, and the safety snapshot in a one-file confirm", () => {
-		const body = formatRevertOneBody(REVIEW_ENTRIES[0]!, "fix the list", true);
-
-		expect(body).toContain("M — modified since the snapshot");
-		expect(body).toContain('to the snapshot taken before "fix the list"');
-		expect(body).toContain("undoable with /rewind");
-		expect(body).toContain("HEAD and the index are untouched");
-		expect(body).not.toContain("already committed");
-		expect(formatRevertOneBody(REVIEW_ENTRIES[0]!, "fix the list", false)).toContain("cannot be undone");
-	});
-
-	test("names the committed case in a one-file confirm", () => {
-		const body = formatRevertOneBody(REVIEW_ENTRIES[0]!, "fix the list", true, true);
-
-		expect(body).toContain("already committed");
-		expect(body).toContain("leaves the commits in place");
-	});
-
-	test("summarizes the whole review in an all-files confirm", () => {
-		const body = formatRevertAllBody(REVIEW_ENTRIES, "fix the list", true);
-
-		expect(body).toContain('Restores 4 files to the snapshot taken before "fix the list"');
-		expect(body).toContain("+16 −12");
-		expect(body).toContain("HEAD and the index are untouched");
-		expect(formatRevertAllBody(REVIEW_ENTRIES, "fix the list", true, true)).toContain("already committed");
-	});
-
-	test("names a selected subset and leaves the other files alone", () => {
-		const body = formatRevertSelectedBody(REVIEW_ENTRIES.slice(0, 2), "fix the list", true);
-
-		expect(body).toContain("Restores 2 selected files");
-		expect(body).toContain("Other changed files stay as they are");
-		expect(body).toContain("+16 −3");
-		expect(body).toContain("HEAD and the index are untouched");
-		expect(formatRevertSelectedBody(REVIEW_ENTRIES.slice(0, 2), "fix the list", true, true)).toContain(
-			"already committed",
-		);
-	});
-});
-
-describe("rename formatting", () => {
-	const renamed: ReviewEntry = {
-		path: "after/name.ts",
-		change: "renamed",
-		from: "before/name.ts",
-		added: 9,
-		removed: 9,
-	};
-
-	test("names the source in the detail, the headless list, and the confirm", () => {
-		expect(formatReviewDetail(renamed)).toContain("renamed from before/name.ts");
-		expect(formatReviewDetail(renamed)).toContain("reverting moves it back");
-		expect(formatReviewListText([renamed], "fix the list")).toContain("R after/name.ts (from before/name.ts)");
-
-		const body = formatRevertOneBody(renamed, "fix the list", true);
-		expect(body).toContain("R — renamed from before/name.ts");
-		expect(body).toContain('Moves after/name.ts back to before/name.ts as it was before "fix the list"');
-	});
-});
-
-describe("hunk revert formatting", () => {
-	const entry: ReviewEntry = { path: "src/a.ts", change: "modified", added: 5, removed: 4 };
-
-	test("names the selected subset, the rest of the file, and the safety snapshot", () => {
-		const body = formatHunkRevertBody(entry, 2, 5, "fix the list", true);
-
-		expect(body).toContain('Reverts 2 of 5 hunks in src/a.ts to the snapshot taken before "fix the list"');
-		expect(body).toContain("3 hunks in the file stay as they are.");
-		expect(body).toContain("undoable with /rewind");
-		expect(formatHunkRevertBody(entry, 5, 5, "fix", false)).toContain("Every hunk in the file is reverted.");
-		expect(formatHunkRevertBody(entry, 1, 2, "fix", false)).toContain("1 hunk in the file stays as it is.");
-		expect(formatHunkRevertBody(entry, 1, 2, "fix", false)).toContain("cannot be undone");
-	});
-
-	test("reports the count, file, safety snapshot, and what is left", () => {
-		const reverted = formatHunkRevertText("src/a.ts", 2, "safe", 3);
-
-		expect(reverted).toContain("Reverted 2 hunks in src/a.ts");
-		expect(reverted).toContain("Safety snapshot #safe");
-		expect(reverted).toContain("3 files still changed");
-		expect(formatHunkRevertText("src/a.ts", 1, undefined, 0)).toContain("No changes remain.");
-	});
-});
-
-describe("diff bounding", () => {
-	test("expands tabs and strips control characters", () => {
-		const lines = boundDiff("+a\tb\u0007c\n context");
-
-		expect(lines[0]).toBe(["+a", "b c"].join(" ".repeat(4)));
-		expect(lines[1]).toBe(" context");
-		expect(boundDiff("+x\u001b[31my")[0]).not.toContain("\u001b");
-	});
-
-	test("returns a placeholder for an empty or binary patch", () => {
-		expect(boundDiff("")).toEqual(["No textual diff."]);
-		expect(boundDiff("\n\n")).toEqual(["No textual diff."]);
-	});
-
-	test("caps a long patch and says so", () => {
-		const lines = boundDiff(Array.from({ length: 10 }, (_, index) => `+line ${index}`).join("\n"), 4);
-
-		expect(lines).toHaveLength(5);
-		expect(lines.at(-1)).toContain("truncated at 4 lines");
-	});
-
-	test("caps a very large patch by characters", () => {
-		const lines = boundDiff(`+${"x".repeat(20)}`, 10, 5);
-
-		expect(lines.at(-1)).toBe("… diff truncated");
 	});
 });
 
@@ -761,35 +556,18 @@ describe.skipIf(!runSlowSuites)("/rewind command", () => {
 });
 
 describe.skipIf(!runSlowSuites)("git plumbing", () => {
-	test("nameStatus, diffStat, diffPatch, and diffNumStat describe one tree diff literally", async () => {
+	test("nameStatus and diffStat describe one tree diff literally", async () => {
 		const repo = await makeRepo("pi-rw-git-diff-");
 		cleanups.push(repo);
 		const before = (await runGit(["rev-parse", "HEAD^{tree}"], { cwd: repo })).stdout.trim();
 		writeFileSync(join(repo, "README.md"), "changed\n");
 		writeFileSync(join(repo, "new.txt"), "new\n");
-		writeFileSync(join(repo, "binary.bin"), "\u0000\u0001\u0002");
-		writeFileSync(join(repo, "weird[1].txt"), "literal\n");
 		const current = await treeFromWorkingTree(runGit, repo, indexFileFor(repo, "diff"), true);
 
 		expect(await nameStatus(runGit, repo, before, current, ["new.txt"])).toEqual([
 			{ path: "new.txt", change: "added" },
 		]);
 		expect(await diffStat(runGit, repo, before, current, ["new.txt"])).not.toContain("README.md");
-
-		const stats = await diffNumStat(runGit, repo, before, current);
-		expect(stats.get("README.md")).toEqual({ added: 1, removed: 1 });
-		expect(stats.get("new.txt")).toEqual({ added: 1, removed: 0 });
-		expect(stats.get("binary.bin")).toEqual({ added: null, removed: null });
-
-		const patch = await diffPatch(runGit, repo, before, current, ["README.md"]);
-		expect(patch).toContain("diff --git a/README.md b/README.md");
-		expect(patch).toContain("+changed");
-		expect(patch).not.toContain("new.txt");
-
-		// `weird[1].txt` is a filesystem name, not a glob.
-		const literal = await diffPatch(runGit, repo, before, current, ["weird[1].txt"]);
-		expect(literal).toContain("weird[1].txt");
-		expect(literal).toContain("+literal");
 	});
 
 	test("nameStatus pairs a rename even when the user disabled diff.renames", async () => {
@@ -805,10 +583,6 @@ describe.skipIf(!runSlowSuites)("git plumbing", () => {
 		expect(await nameStatus(runGit, repo, before, current)).toEqual([
 			{ path: "renamed.md", change: "renamed", from: "README.md" },
 		]);
-		// The patch keeps git's delete+create shape for the paired row.
-		const patch = await diffPatch(runGit, repo, before, current, ["README.md", "renamed.md"]);
-		expect(patch).toContain("deleted file mode");
-		expect(patch).toContain("new file mode");
 	});
 
 	test("restorePaths rewrites only the named paths and leaves the real index alone", async () => {
@@ -824,33 +598,6 @@ describe.skipIf(!runSlowSuites)("git plumbing", () => {
 		// Not selected, so untouched.
 		expect(readFileSync(join(repo, "other.txt"), "utf-8")).toBe("changed too\n");
 		expect((await runGit(["diff", "--cached", "--name-only"], { cwd: repo })).stdout.trim()).toBe("");
-	});
-
-	test("applyPatchReverse reverts one hunk, leaves the index alone, and refuses a stale patch", async () => {
-		const repo = await makeRepo("pi-rw-git-hunk-");
-		cleanups.push(repo);
-		const lines = Array.from({ length: 20 }, (_, index) => `line ${index + 1}`);
-		writeFileSync(join(repo, "hunks.txt"), `${lines.join("\n")}\n`);
-		await runGit(["add", "."], { cwd: repo });
-		await runGit(["commit", "-qm", "hunk base"], { cwd: repo });
-		const before = (await runGit(["rev-parse", "HEAD^{tree}"], { cwd: repo })).stdout.trim();
-
-		const changed = lines.map((line, index) => (index === 1 ? "changed one" : index === 15 ? "changed two" : line));
-		writeFileSync(join(repo, "hunks.txt"), `${changed.join("\n")}\n`);
-		const current = await treeFromWorkingTree(runGit, repo, indexFileFor(repo, "hunk"), true);
-		const patch = parseFilePatch(await diffPatch(runGit, repo, before, current, ["hunks.txt"]));
-		expect(patch?.hunks).toHaveLength(2);
-		if (!patch) return;
-
-		await applyPatchReverse(runGit, repo, buildHunkPatch(patch, [0]));
-
-		const after = readFileSync(join(repo, "hunks.txt"), "utf-8").split("\n");
-		expect(after[1]).toBe("line 2");
-		expect(after[15]).toBe("changed two");
-		expect((await runGit(["diff", "--cached", "--name-only"], { cwd: repo })).stdout.trim()).toBe("");
-		// The same hunk no longer matches, so a second apply fails instead of
-		// applying stale context to a moved file.
-		await expect(applyPatchReverse(runGit, repo, buildHunkPatch(patch, [0]))).rejects.toThrow();
 	});
 
 	test("busyGitState names an in-progress merge", async () => {
@@ -1126,7 +873,6 @@ describe("runtime guards", () => {
 		if (!plan.ok) expect(plan.reason).toContain("taken from /elsewhere");
 
 		await expect(runtime.restore(ctx, "/repo", foreign, DEFAULT_CONFIG)).rejects.toThrow(/taken from/);
-		await expect(runtime.revertHunks(ctx, "/repo", foreign, DEFAULT_CONFIG, "patch")).rejects.toThrow(/taken from/);
 	});
 
 	test("caches the config per root until invalidate drops it", async () => {

@@ -253,13 +253,10 @@ function runHarness(config: Partial<RewindConfig> = {}, overrides: Partial<Rewin
 		},
 		list: async () => [],
 		plan: async () => ({ ok: false, reason: "not used" }),
-		patch: async () => "",
-		numStat: async () => new Map(),
 		headTree: async () => undefined,
 		restore: async () => {
 			throw new Error("not used");
 		},
-		revertHunks: async () => ({}),
 		setStatus: async () => {
 			status += 1;
 		},

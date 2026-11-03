@@ -6,8 +6,8 @@
  * the process open. The WeChat bridge arms a one-shot per acknowledgement,
  * typing keep-alive, and prompt timeout; plan's review page arms one for the
  * closed-tab grace; `job` and `watch` repaint on a repeating one; the browse
- * live channel needs both; `job`, `watch`, `check`, `subagent`, and `wechat`
- * sleep between polls. Keeping the defaults here means one definition of "arm
+ * live channel needs both; `job`, `watch`, `subagent`, and `wechat` sleep
+ * between polls. Keeping the defaults here means one definition of "arm
  * it, and let it be cancelled", and one place where the `unref` lives.
  *
  * Value-only: types and constant functions, no module state.

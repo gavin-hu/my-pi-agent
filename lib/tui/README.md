@@ -54,8 +54,8 @@ so a screen that ends on a blank removes the dock's bottom edge. A screen that
 lays out its own rows closes its block with `screenFooter(theme, width, hint)`;
 a screen whose row above the hint varies places `plainRule` itself.
 
-A list that **opens a pane over one row** — `/jobs`, `/watch`, `/agents`,
-`/check` — subclasses [`dock-screen.ts`](./dock-screen.ts) instead of
+A list that **opens a pane over one row** — `/jobs`, `/watch`, `/agents` —
+subclasses [`dock-screen.ts`](./dock-screen.ts) instead of
 re-assembling the frame. `DockListScreen` owns the two modes, the `IdCursor` and
 `LinePane`, the navigation and wheel keys, the y/N confirmation, the one-line
 feedback notice, and the range rows; the subclass supplies `rows`, `idOf`,

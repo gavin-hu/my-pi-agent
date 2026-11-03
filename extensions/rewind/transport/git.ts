@@ -9,9 +9,8 @@
  * (`GIT_INDEX_FILE`) so the user's real index and HEAD are never modified.
  */
 
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	createExecRunner,
@@ -24,7 +23,7 @@ import {
 	runGitOrThrow as run,
 	type RunGit,
 } from "../../../lib/git/index.ts";
-import { parseNameStatus, parseNumStat, type ChangedPath, type PathStat } from "../text/paths.ts";
+import { parseNameStatus, type ChangedPath } from "../text/paths.ts";
 
 // Re-export exactly the shared helpers this extension consumes, so rewind code
 // has one git import surface instead of reaching into `lib/git` directly.
@@ -183,45 +182,6 @@ export async function diffStat(
 }
 
 /**
- * A unified patch between two trees, optionally limited to `paths`.
- *
- * `--no-renames` is deliberate: `nameStatus` pairs a rename into one row, while
- * its patch stays a delete plus a create, which describes exactly the two working
- * tree operations a revert of that row performs.
- */
-export async function diffPatch(
-	runGit: RunGit,
-	cwd: string,
-	from: string,
-	to: string,
-	paths?: readonly string[],
-): Promise<string> {
-	const args = ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--unified=3", from, to, "--"];
-	if (paths) args.push(...paths.map(literalPathspec));
-	const result = await runGit(args, { cwd });
-	return result.code === 0 ? result.stdout : "";
-}
-
-/**
- * Per-path added/removed line counts between two trees, with binary as nulls.
- *
- * `--no-renames` keeps a rename's removed lines on its source and its added lines
- * on its destination; `toReviewEntries` joins the two onto the paired entry.
- */
-export async function diffNumStat(
-	runGit: RunGit,
-	cwd: string,
-	from: string,
-	to: string,
-	paths?: readonly string[],
-): Promise<Map<string, PathStat>> {
-	const args = ["diff", "--no-color", "--numstat", "--no-renames", from, to, "--"];
-	if (paths) args.push(...paths.map(literalPathspec));
-	const result = await runGit(args, { cwd });
-	return result.code === 0 ? parseNumStat(result.stdout) : new Map();
-}
-
-/**
  * Rewrite the given paths in the working tree from `commit`.
  *
  * `read-tree --reset -u` takes no pathspec, so a partial restore checks the paths
@@ -241,26 +201,6 @@ export async function restorePaths(
 		cwd,
 		env: { GIT_INDEX_FILE: indexFile },
 	});
-}
-
-/**
- * Reverse-apply a prepared patch to the working tree.
- *
- * `pi.exec` has no stdin, so the patch goes through a private temporary
- * directory and a path argument. Without `--index` or `--cached`, `git apply`
- * writes only the working tree, and it verifies every hunk before writing, so a
- * file edited after its diff was read fails atomically instead of applying stale
- * context. The caller builds the patch from already-fetched diff output.
- */
-export async function applyPatchReverse(runGit: RunGit, cwd: string, patch: string): Promise<void> {
-	const dir = mkdtempSync(join(tmpdir(), "pi-rewind-patch-"));
-	try {
-		const file = join(dir, "patch.diff");
-		writeFileSync(file, patch);
-		await run(runGit, ["apply", "--reverse", "--whitespace=nowarn", file], { cwd });
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
 }
 
 /**

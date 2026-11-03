@@ -105,7 +105,7 @@ document. `PI_OFFLINE` skips the check;
 
 ## What you get
 
-22 extensions, 3 packaged skills, and 2 themes, grouped by the promises this
+21 extensions, 3 packaged skills, and 2 themes, grouped by the promises this
 README makes. Each extension's own page in `docs/extensions/`
 has the full tool and command surface, opening with its capabilities.
 
@@ -114,7 +114,6 @@ has the full tool and command surface, opening with its capabilities.
 | Extension | Tools and commands | What it does |
 |---|---|---|
 | [`plan`](./docs/extensions/plan.md) | `plan`, `/plan`, `--plan` | Read-only planning: one tool with five actions — `enter`, `write`, `exit`, `steps`, `cancel`. The model investigates, saves a plan under `~/.pi/agent/plans/<repo-key>` (one store per repository, shared by its worktrees), and you approve it before anything is written. Review it in the TUI, or in a browser to leave inline comments: the page follows the plan file live, wears the same toolbar, control bar, and footer as `/board` and `/browse`, and its panel is the reader's — an owner's step progress and decisions, a reviewer's name and comment count — while each teammate can hold their own reviewer link and comment under their own name. The `init` skill uses the same review to create or update a project's `AGENTS.md`. |
-| [`check`](./docs/extensions/check.md) | `run_check`, `/check` | Detect the project's test, lint, or typecheck command (or take `check.command`), run it in a supervised process, and turn failures into a navigable `file:line` list. |
 | [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | Delegate a task to a specialist agent (`explorer`, `planner`, `reviewer`, `worker`) in its own Pi process — single, parallel, chained, or in the background, with a footer chip while it runs and a finish notice. |
 | [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | A persistent task list (`pending` / `in_progress` / `completed`) with a one-line widget. |
 | [`goal`](./docs/extensions/goal.md) | `goal`, `/goal` | A persistent session objective, kept in a widget and restated before each turn. |
@@ -132,7 +131,7 @@ has the full tool and command surface, opening with its capabilities.
 | Extension | Tools and commands | What it does |
 |---|---|---|
 | [`worktree`](./docs/extensions/worktree.md) | `worktree`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | Work inside an isolated `git worktree` on its own branch — one tool with four actions: `enter`, `exit`, `list`, `prune`; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
-| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` status chip | Snapshot the repo before each prompt's first change, under `refs/pi/rewind`, restore code, conversation, or both, and review the latest turn's changes before reverting a file. |
+| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `↺ N` status chip | Snapshot the repo before each prompt's first change, under `refs/pi/rewind`, then restore code, conversation, or both from an earlier prompt. |
 | [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | Durable cross-session notes as human-editable markdown, injected into each run and managed through the `/memory` picker. |
 
 ### Reach the world

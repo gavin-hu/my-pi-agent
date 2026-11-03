@@ -1,10 +1,10 @@
 /**
  * The process seam shared by the extensions that run a shell command.
  *
- * `job`, `watch`, and `check` all start a command in its own process group,
- * stream or discard its output, and kill the whole tree — a signal to the POSIX
- * group, or `taskkill /T` on Windows. Only the policy on top differs (durable
- * jobs, a tailed watcher, a bounded check), so the seam lives here.
+ * `job` and `watch` both start a command in its own process group, stream or
+ * discard its output, and kill the whole tree — a signal to the POSIX group, or
+ * `taskkill /T` on Windows. Only the policy on top differs (durable jobs, a
+ * tailed watcher), so the seam lives here.
  *
  * IO is split from the decision: {@link spawnOptions} and {@link killPlan} are
  * pure and testable on every platform, while {@link defaultSpawn} and

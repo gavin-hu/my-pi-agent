@@ -211,9 +211,6 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	serve: { notes: ["Without it `/board`, `/browse`, and `/plan review` refuse, naming it."] },
 	board: {},
 	team: { notes: ["`assign` needs `session-bus` loaded to deliver a handoff; without it the card is untouched."] },
-	check: {
-		notes: ["Runs the project's detected command through a shell; a stack with no detector needs `check.command`."],
-	},
 	plan: {
 		notes: ["Needs an interactive UI to enter plan mode."],
 	},

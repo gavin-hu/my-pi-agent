@@ -1,12 +1,10 @@
 /**
- * The rewind timeline and the review list: the two screens that read a
- * snapshot store.
+ * The rewind timeline: the screen that reads a snapshot store.
  *
  * `root: repo` is the real package root on purpose — the timeline renders the
  * store it would actually read — while the paths inside are invented.
  */
 
-import type { ReviewEntry } from "../../../extensions/rewind/text/paths.ts";
 import type { RewindPoint } from "../../../extensions/rewind/state/timeline.ts";
 import { now } from "./shared.ts";
 import { repo } from "../../theme.ts";
@@ -83,12 +81,4 @@ export const REWIND_POINTS: RewindPoint[] = [
 			entryId: "e1",
 		},
 	},
-];
-
-/** The changed files the review screen shows after a documentation turn. */
-export const REVIEW_ENTRIES: ReviewEntry[] = [
-	{ path: "extensions/rewind/commands/review.ts", change: "modified", added: 42, removed: 3 },
-	{ path: "extensions/rewind/view/review-tui.ts", change: "added", added: 180, removed: 0 },
-	{ path: "extensions/rewind/commands/commands.ts", change: "modified", added: 6, removed: 1 },
-	{ path: "assets/review.png", change: "added", added: null, removed: null },
 ];

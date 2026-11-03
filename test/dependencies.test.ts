@@ -283,7 +283,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
  * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 733.
+ * total is their sum, 704.
  *
  * The heights moved as the tree did: the board's `bytefly.json` section became
  * one module (`board/config.ts`, read by `board` and by `team` through the store)
@@ -314,7 +314,6 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	watch: 33,
 	todo: 31,
 	wechat: 30,
-	check: 29,
 	"file-read": 29,
 	rewind: 28,
 	memory: 28,

@@ -39,13 +39,12 @@ describe("registration", () => {
 		});
 	});
 
-	test("registers both commands and the lifecycle events", () => {
+	test("registers the rewind command and the lifecycle events", () => {
 		const { pi, commands, handlers } = createFakePi();
 
 		rewindExtension(pi);
 
 		expect(commands.has("rewind")).toBe(true);
-		expect(commands.has("review")).toBe(true);
 		expect(commands.has("checkpoint")).toBe(false);
 		expect([...handlers.keys()].sort()).toEqual([
 			"before_agent_start",

@@ -14,23 +14,20 @@ import { JobListComponent } from "../../extensions/job/view/jobs-screen.ts";
 import { MemoryPickerComponent } from "../../extensions/memory/view/memory-picker.ts";
 import { PlanViewComponent } from "../../extensions/plan/tui.ts";
 import { askViaTui } from "../../extensions/question/view/question-screen.ts";
-import { CheckResultComponent } from "../../extensions/check/view/check-screens.ts";
 import { ContextComponent } from "../../extensions/context/view/context-report.ts";
 import { AgentsBoardComponent } from "../../extensions/subagent/view/agents-board.ts";
-import { ReviewListComponent } from "../../extensions/rewind/view/review-tui.ts";
 import { RewindListComponent } from "../../extensions/rewind/view/rewind-tui.ts";
 import { TodoListComponent } from "../../extensions/todo/view/todo-screen.ts";
 import { WatchListComponent } from "../../extensions/watch/view/watch-screen.ts";
 import { SessionListComponent } from "../../extensions/session-bus/view/session-list.ts";
 import { WorktreeListComponent } from "../../extensions/worktree/screen.ts";
 import { StatusScreenComponent } from "../../extensions/wechat/view/status-screen.ts";
-import { pageColors, repo, setThemeInstance, theme } from "../theme.ts";
+import { pageColors, setThemeInstance, theme } from "../theme.ts";
 import { frameLines } from "./frames.ts";
 import { makeDiscovery, makeStore } from "../../test/helpers/fixtures/picker.ts";
 import {
 	AGENT_RUNS,
 	BUS_BOARD,
-	CHECK_RESULT,
 	CONTEXT_REPORT,
 	JOBS,
 	MEMORY_CALLBACKS,
@@ -44,7 +41,6 @@ import {
 	PLAN,
 	PLAN_BASELINE,
 	QUESTIONS,
-	REVIEW_ENTRIES,
 	REWIND_POINTS,
 	SCREEN_TUI,
 	WINDOW_BOUNDS,
@@ -228,59 +224,6 @@ export const SCREENS: Record<string, Screen> = {
 				close: noop,
 				requestRender: noop,
 				viewportRowsSource: () => rows,
-			}).render(width),
-	},
-	check: {
-		asset: "check",
-		title: "π - my-pi-agent · /check",
-		bounds: { left: 80, top: 80, right: 920, bottom: 315 },
-		size: { width: 100, rows: 11 },
-		render: (width, rows) =>
-			new CheckResultComponent({
-				result: CHECK_RESULT,
-				cwd: repo,
-				theme,
-				onRerun: noop,
-				onClose: noop,
-				requestRender: noop,
-				viewportRows: () => rows,
-			}).render(width),
-	},
-	"check-detail": {
-		asset: "check-detail",
-		title: "π - my-pi-agent · /check · failure",
-		// Tall enough for the whole excerpt: the target line sits in the middle.
-		bounds: { left: 80, top: 80, right: 920, bottom: 385 },
-		size: { width: 100, rows: 15 },
-		render: (width, rows) => {
-			const component = new CheckResultComponent({
-				result: CHECK_RESULT,
-				cwd: repo,
-				theme,
-				onRerun: noop,
-				onClose: noop,
-				requestRender: noop,
-				viewportRows: () => rows,
-			});
-			// Enter on the focused failure opens its source excerpt.
-			component.handleInput("\r");
-			return component.render(width);
-		},
-	},
-	review: {
-		asset: "review",
-		title: "π - my-pi-agent · /review",
-		bounds: { left: 80, top: 80, right: 920, bottom: 350 },
-		size: { width: 100, rows: 13 },
-		render: (width, rows) =>
-			new ReviewListComponent({
-				entries: REVIEW_ENTRIES,
-				prompt: "Refresh the README screenshots",
-				theme,
-				initialSelected: ["extensions/rewind/commands/review.ts", "extensions/rewind/commands/commands.ts"],
-				onClose: noop,
-				requestRender: noop,
-				viewportRows: () => rows,
 			}).render(width),
 	},
 	watch: {

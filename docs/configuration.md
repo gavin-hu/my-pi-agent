@@ -17,7 +17,6 @@ section and every key with its type, default, and bounds.
 - [Section index](#section-index)
 - [Document metadata](#document-metadata)
 - [`board` — the shared feature board](#board--the-shared-feature-board)
-- [`check` — verification runs](#check--verification-runs)
 - [`serve` — the session's page server](#serve--the-sessions-page-server)
 - [`price` — cost calculation](#price--cost-calculation)
 - [`notify` — OS notifications](#notify--os-notifications)
@@ -172,7 +171,7 @@ The sections, by what they are for:
 
 | Group | Sections |
 |---|---|
-| Plan and delegate | [`board`](#board--the-shared-feature-board), [`check`](#check--verification-runs), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
+| Plan and delegate | [`board`](#board--the-shared-feature-board), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
 | Keep your work safe | [`worktree`](#worktree--isolated-worktrees), [`rewind`](#rewind--snapshots), [`memory`](#memory--durable-notes) |
 | Reach the world | [`web-access`](#web-access--search-and-fetch), [`serve`](#serve--the-sessions-page-server), [`file-browse`](#file-browse--the-local-file-server), [`file-read`](#file-read--document-and-spreadsheet-extraction), [`wechat`](#wechat--the-wechat-bridge) |
 | Chrome and upkeep | [`price`](#price--cost-calculation), [`notify`](#notify--os-notifications), [`doctor`](#doctor--diagnostics), [`chrome`](#chrome--transcript-chrome) |
@@ -192,7 +191,6 @@ repository root rather than the active working directory.
 | [`board`](../extensions/board/) | `board` | WIP limits for `plan` and `execute`, and the team name whose signature the board's two gates take. |
 | [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
 | [`serve`](../extensions/serve/) | `serve` | The port every page of a session shares. |
-| [`check`](../extensions/check/) | `check` | Detection override, run timeout, and log tail. |
 | [`file-read`](../extensions/file-read/) | `file-read` | Read limits, enabled formats. |
 | [`file-browse`](../extensions/file-browse/) | `file-browse` | Page limits. |
 | [`goal`](../extensions/goal/) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
@@ -418,16 +416,6 @@ Read once per session, on the frame; a call that arrives first reads it lazily.
 |---|---|---|---|---|
 | `timeoutMs` | integer | `600000` | `0`–`3600000` | Wall-clock limit for one child run; `0` disables it. A run past it is killed and fails with `Timed out after …`. |
 | `backgroundMax` | integer | `4` | `1`–`8` | Background children allowed to run at once. |
-
-## `check` — verification runs
-
-`/bytefly settings` has no rows for these; they are `bytefly.json` edits.
-
-| Key | Type | Default | Values | What it does |
-|---|---|---|---|---|
-| `command` | string | `""` | | Shell command that overrides detection for every target. Empty means detect. |
-| `timeoutMs` | integer | `600000` | `0`–`3600000` | Wall-clock limit per command; `0` disables it. |
-| `maxLogBytes` | integer | `1048576` | `65536`–`16777216` | Bytes of output retained per command. |
 
 ## `serve` — the session's page server
 

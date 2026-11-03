@@ -7,7 +7,6 @@ get — then the Quickstart, the surface, the behaviour, and the contributor
 sections behind them.
 
 - [`plan`](./plan.md)
-- [`check`](./check.md)
 - [`subagent`](./subagent.md)
 - [`todo`](./todo.md)
 - [`goal`](./goal.md)
