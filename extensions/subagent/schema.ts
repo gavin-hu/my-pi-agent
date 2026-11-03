@@ -6,8 +6,8 @@
  * spawning a process.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
+import { StringEnum } from "../../lib/tool-schema.ts";
 import type { SubagentMode } from "./types.ts";
 
 /** Hard cap on tasks in one parallel call. */

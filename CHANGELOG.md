@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `lib`: every enumerated tool parameter is its union again under `bun run check:types` — `plan`'s
+  `action` and step `status`, `job`'s `signal`, `goal`'s `status`, `subagent`'s `agentScope`, and
+  the eight other schemas built from `StringEnum`. Pi 1.5.0 types pi-ai's `StringEnum` against its
+  own `pi-schema`, so a parameter built from it inferred as `unknown`, while Pi's runtime kept
+  handing extensions TypeBox's `TUnsafe`; [`lib/tool-schema.ts`](./lib/tool-schema.ts) owns that
+  type now, so the check passes against the pinned 1.4.0 floor and the newest published peers
+  alike. No tool's schema JSON, and no tool's behaviour, changes.
+- `test`: the `pi.exec` and render-context doubles carry what Pi 1.5 added (`truncated`,
+  `keyText`/`keyHint`) in a shape the 1.4 floor still accepts.
+
 ## [0.24.0] - 2026-11-02
 
 ### Added

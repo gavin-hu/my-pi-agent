@@ -6,9 +6,9 @@
  * carrying the unchanged notes instead of half-applying a call.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
+import { StringEnum } from "../../lib/tool-schema.ts";
 import { MEMORY_ACTIONS, MEMORY_SCOPES, type MemoryAction, type MemoryScope } from "./types.ts";
 
 /** Maximum length of one note, in characters. */

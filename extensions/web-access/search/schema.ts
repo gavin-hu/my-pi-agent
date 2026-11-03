@@ -5,8 +5,8 @@
  * network call, so the model can retry with a corrected query.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
+import { StringEnum } from "../../../lib/tool-schema.ts";
 import { MAX_RESULTS, type WebSearchConfig } from "./config.ts";
 import { SEARCH_PROVIDER_NAMES, type SearchRequest } from "./types.ts";
 

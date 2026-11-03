@@ -9,9 +9,9 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { messageOf } from "../../lib/errors.ts";
+import { StringEnum } from "../../lib/tool-schema.ts";
 import {
 	enterWorktree,
 	enteredWorktree,

@@ -6,9 +6,9 @@
  * with missing arguments. Failures throw a model-readable `Error`.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import { optionalString } from "../../lib/config.ts";
+import { StringEnum } from "../../lib/tool-schema.ts";
 import { JOB_ACTIONS, KILL_SIGNALS, type JobAction, type KillSignal } from "./types.ts";
 
 /** Longest accepted command string. */
