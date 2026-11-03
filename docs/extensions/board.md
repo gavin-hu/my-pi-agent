@@ -750,9 +750,17 @@ it always meant: when the card was last touched, which is not when it last chang
   the work is not finished, and re-planning changes what was agreed — so a card that was
   blocked and resumed needs another look before `done`, while a card that lands keeps the
   sign that let it through.
-  `landed` is the commit `HEAD` resolved to at the move to `done`, recorded because
-  `done` is terminal and nothing later can say which change closed the card. Of the three
-  the move writes, only the blocker is required — a card cannot be parked without saying
+  `landed` is the newest commit in `HEAD`'s history whose message names the card —
+  `(#266, …)`, the way a change says what it closes — recorded because `done` is terminal
+  and nothing later can say which change closed the card. It is a search rather than
+  `HEAD` itself: a card moved from a checkout the work never reached would otherwise name
+  whatever commit happened to be there, and a plausible-looking hash is worse than none.
+  A message that merely cites the card matches too, so a later `review #266 nit` commit is
+  recorded over the merge that closed it — the read looks for the card's own id, not for the
+  act of landing.
+  A history that never names the card, or a directory that is not a repository, records no
+  commit and the record's landing rung is simply absent. Of the three the move writes,
+  only the blocker is required — a card cannot be parked without saying
   what kind of block it is, because a block is what a person is asked to answer. The
   sentence is optional (the page says `blocked, with nothing recorded`), and a card
   finished before the field, or outside a repository, has no commit to record — finishing

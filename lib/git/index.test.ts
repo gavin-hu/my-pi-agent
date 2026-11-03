@@ -21,6 +21,7 @@ import {
 	GitError,
 	type GitResult,
 	hasCommits,
+	logGrep,
 	repoRoot,
 	repoRootFor,
 	revParse,
@@ -258,6 +259,29 @@ describe("revParseMany", () => {
 		const { run, calls } = recordingRunner(new Map());
 		expect(await revParseMany(run, "/repo", [])).toEqual([]);
 		expect(calls).toEqual([]);
+	});
+});
+
+describe("logGrep", () => {
+	test("asks git for the newest message match and returns it whole", async () => {
+		const key = "log --max-count=1 --format=%H --extended-regexp --grep=(^|[^0-9])#1([^0-9]|$) HEAD";
+		const found = recordingRunner(new Map([[key, { stdout: "abc123def\n" }]]));
+		expect(await logGrep(found.run, "/repo", "HEAD", "(^|[^0-9])#1([^0-9]|$)")).toBe("abc123def");
+		// One call, and the walk stops at the first match: the pattern is git's own argv
+		// rather than something rewritten here, so the boundary it anchors is the caller's.
+		expect(found.calls.map((call) => call.args)).toEqual([
+			["log", "--max-count=1", "--format=%H", "--extended-regexp", "--grep=(^|[^0-9])#1([^0-9]|$)", "HEAD"],
+		]);
+	});
+
+	test("answers nothing for a history that does not match, or a directory that is not one", async () => {
+		const empty = recordingRunner(new Map());
+		expect(await logGrep(empty.run, "/repo", "HEAD", "#1")).toBeUndefined();
+
+		const notARepo = recordingRunner(
+			new Map([["log --max-count=1 --format=%H --extended-regexp --grep=#1 HEAD", { code: 128 }]]),
+		);
+		expect(await logGrep(notARepo.run, "/repo", "HEAD", "#1")).toBeUndefined();
 	});
 });
 
