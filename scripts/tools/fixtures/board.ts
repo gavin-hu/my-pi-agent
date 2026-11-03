@@ -110,7 +110,6 @@ const DONE = card({
 	planPath: fixturePlanPath("export-orders"),
 	contract: { ...CONTRACT, approved: { by: "billing-lead", at: NOW - 4_000_000 } },
 	review: { by: "billing-lead", at: NOW - 3_700_000 },
-	landed: { commit: "4af1b4a", at: NOW - 3_600_000 },
 	notes: [{ by: "billing-other", at: NOW - 3_600_000, text: "shipped behind a flag" }],
 	rev: 6,
 	by: "billing-other",

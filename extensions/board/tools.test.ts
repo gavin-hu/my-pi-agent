@@ -586,12 +586,10 @@ describe("claim, release, and move", () => {
 		await seed(board, "2", "done");
 		const listing = resultText(await call({ action: "list" }));
 		expect(listing).toContain("blocked: legal has to sign");
-		// A plain listing leaves the finished card out, so its line is read from the lane
-		// that asks for it. No repository behind this harness, so it names no commit: the
-		// silence is the honest answer, not a word saying "none".
+		// A plain listing leaves the finished card out, so its line is read from the lane that
+		// asks for it.
 		const finished = resultText(await call({ action: "list", lane: "done" }));
 		expect(finished).toContain(`#2 done · Finished one · ${LEAD}`);
-		expect(finished).not.toContain("landed");
 	});
 
 	test("a block records what it waits on, and the listing says so", async () => {
@@ -614,18 +612,6 @@ describe("claim, release, and move", () => {
 		// pool carries none, and the transition log keeps what the park was.
 		expect((await call({ action: "release", card: "1" })).details.card?.blocked).toBeUndefined();
 		expect(resultText(await call({ action: "list" }))).not.toContain("blocked: legal has to sign");
-	});
-
-	test("a move to done outside a repository finishes the card without a commit", async () => {
-		const board = harness();
-		const { call } = board;
-		await call({ action: "add", title: "One" });
-		await seed(board, "1", "execute");
-		const store = await board.runtime.store(board.ctx.cwd);
-		await store.mutate("1", { kind: "review" }, REVIEWER, NOW);
-		const done = await call({ action: "move", card: "1", lane: "done" });
-		expect(done.details.card?.lane).toBe("done");
-		expect(done.details.card?.landed).toBeUndefined();
 	});
 
 	test("every card action needs a card", async () => {
@@ -1025,7 +1011,6 @@ describe("the whole flow, two sessions", () => {
 		expect((await board.call({ action: "review", card: "1" })).details.card?.review?.by).toBe(LEAD);
 		const done = await peer.call({ action: "move", card: "1", lane: "done" });
 		expect(done.details.card?.lane).toBe("done");
-		expect(done.details.card?.landed).toBeUndefined();
 	});
 });
 

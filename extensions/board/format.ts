@@ -116,7 +116,7 @@ export function formatDropped(id: string): string {
  * The ids an archive set aside, and how to read them again.
  *
  * A move has to name the way back or it reads like a deletion: the card is out of the
- * board and its notes, plan, and landed commit are still in its file.
+ * board and its notes and plan are still in its file.
  */
 export function formatArchived(ids: readonly string[]): string {
 	const theirs = ids.length === 1 ? "its" : "their";
@@ -134,11 +134,10 @@ function listLine(card: Card): string {
 	const holder = card.owner === undefined ? "unassigned" : card.owner.label;
 	const urgency = priorityOf(card) === DEFAULT_PRIORITY ? "" : ` · ${priorityOf(card)}`;
 	const waits = dependsOf(card).length === 0 ? "" : ` · waits on ${dependsOf(card).map(cardRef).join(", ")}`;
-	// The two lanes that carry a fact of their own say it here: what a block waits on, and
-	// what closed a finished card. Both are one short phrase, so a listing stays one line.
+	// The blocked lane carries a fact of its own, and it says it here: the sentence, or the
+	// kind, is one short phrase, so a listing stays one line.
 	const blocked = card.blocked === undefined ? "" : ` · blocked: ${blockText(card.blocked)}`;
-	const landed = card.landed === undefined ? "" : ` · landed ${card.landed.commit}`;
-	return `${cardRef(card.id)} ${card.lane} · ${card.title} · ${holder}${urgency}${waits}${blocked}${landed}`;
+	return `${cardRef(card.id)} ${card.lane} · ${card.title} · ${holder}${urgency}${waits}${blocked}`;
 }
 
 /** The state lines under a card's headline. */
@@ -151,7 +150,6 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 		lines.push(`  offered: ${formatAge(now, card.offeredAt)} ago, and nobody took it`);
 	}
 	if (card.blocked !== undefined) lines.push(`  blocked: ${blockText(card.blocked)}`);
-	if (card.landed !== undefined) lines.push(`  landed: ${card.landed.commit}`);
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);
 	// The card stores the path resolved, so the line is shortened the way the `write` action shows
 	// it: an absolute home directory is noise in every read of the same card.

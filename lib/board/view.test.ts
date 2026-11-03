@@ -161,9 +161,9 @@ describe("buildView", () => {
 		expect(view.lanes[0]?.cards[1]?.offeredAt).toBeUndefined();
 	});
 
-	test("carries a block's reason and a finished card's commit through to the lanes", () => {
-		// The page draws both from the card it is handed, so a field the view dropped would
-		// be a blank line where the reason and the commit belong.
+	test("carries a block's reason through to the lanes", () => {
+		// The page draws it from the card it is handed, so a field the view dropped would be a
+		// blank line where the reason belongs.
 		const view = buildView({
 			me: ME,
 			cards: [
@@ -172,7 +172,7 @@ describe("buildView", () => {
 					owner: { label: "billing-core" },
 					blocked: { kind: "decision", note: "legal has to sign" },
 				}),
-				card("5", { lane: "done", owner: { label: "billing-core" }, landed: { commit: "4af1b4a", at: NOW } }),
+				card("5", { lane: "done", owner: { label: "billing-core" } }),
 			],
 			now: NOW,
 			bytes: 0,
@@ -183,7 +183,7 @@ describe("buildView", () => {
 		const blocked = view.lanes.find((lane) => lane.key === "blocked")?.cards[0];
 		const done = view.lanes.find((lane) => lane.key === "done")?.cards[0];
 		expect(blocked?.blocked).toEqual({ kind: "decision", note: "legal has to sign" });
-		expect(done?.landed).toEqual({ commit: "4af1b4a", at: NOW });
+		expect(done?.review).toBeUndefined();
 	});
 
 	test("hands the rollup's groups the same card the lanes carry", () => {

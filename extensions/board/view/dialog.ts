@@ -51,17 +51,16 @@ const dialogTemplate = String.raw`(function () {
   /**
    * Whether a section below the reason line already prints what a reason of this kind says.
    *
-   * The dialog says one thing once: a last note is the first sentence of the notes, a signed
-   * contract is the signature under its three lines, and a landing is the record's landed rung.
-   * What is left is what nothing below prints — an unsigned contract has no signature line, and
-   * a finished card with no commit has no rung. The contract kind is drawn for the same
-   * reason: its sentences name a field the block omits or a plan row that is empty, which is
-   * exactly what the sections draw nothing of.
+   * The dialog says one thing once: a last note is the first sentence of the notes, and a
+   * signed contract is the signature under its three lines. What is left is what nothing
+   * below prints — an unsigned contract has no signature line, and a finished card's close
+   * has no row of its own. The contract kind is drawn for the same reason: its sentences name
+   * a field the block omits or a plan row that is empty, which is exactly what the sections
+   * draw nothing of.
    */
   function drawnBelow(card, kind) {
     if (kind === "note") return true;
     if (kind === "approval") return card.contract !== undefined && card.contract.approved !== undefined;
-    if (kind === "done") return card.landed !== undefined;
     return false;
   }
 
@@ -106,7 +105,7 @@ __INLINE_MARKDOWN__
     var why = document.getElementById("card-dialog-reason");
     var reason = board.reasonFor(card, ago);
     // A reason is drawn only where it is the one place its fact appears, so a card whose
-    // signature or landing line below already says it does not read it twice.
+    // signature below already says it does not read it twice.
     var showReason = reason !== undefined && !drawnBelow(card, reason.kind);
     why.hidden = !showReason;
     why.textContent = showReason ? reason.text : "";
@@ -166,16 +165,6 @@ __INLINE_MARKDOWN__
     // When it was last touched and who touched it are one moment, so they are one rung: two
     // rows spent a line saying half of the same fact each.
     setRow("updated", true, ago(card.updatedAt) + " by " + card.by);
-    // A landing is a commit and a moment: the commit says which change closed the card, and
-    // the age says how long ago it was. The whole commit stays on the hover title, where a
-    // reader copies it from, rather than being crowded out by the age beside it.
-    var landed = card.landed;
-    setRow(
-      "landed",
-      landed !== undefined,
-      landed === undefined ? "" : landed.commit + " \u00b7 " + ago(landed.at),
-      landed === undefined ? undefined : landed.commit
-    );
     var reviewed = card.review;
     setRow(
       "reviewed",

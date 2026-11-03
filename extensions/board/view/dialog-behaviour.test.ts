@@ -147,10 +147,8 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		expect(await page.textContent("#card-dialog-priority")).toBe("high");
 		// The page's own clock, so the shape only — and the author rides the same row.
 		expect(await page.textContent("#card-dialog-updated")).toMatch(/^(\d+[mhd]|now) by billing-core$/);
-		// A card with no link and no landing has no row, label included: an empty value
-		// under a label reads as a missing fact instead of an absent one.
-		expect(await hidden(page, "#card-dialog-landed")).toBe(true);
-		expect(await hidden(page, "#card-dialog-landed-label")).toBe(true);
+		// A card with no link has no row, label included: an empty value under a label reads
+		// as a missing fact instead of an absent one.
 		expect(await hidden(page, "#card-dialog-depends")).toBe(true);
 		expect(await hidden(page, "#card-dialog-depends-label")).toBe(true);
 
@@ -274,25 +272,22 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		}
 	});
 
-	test("dates a landing beside the commit it landed as", async () => {
+	test("says who closed a finished card, on the reason line", async () => {
 		const page = await openPage();
 		await page.click("#lane-head-done");
 		await page.waitForSelector('#lane-done .board-card[data-card="4"]', { timeout: PAINT_MS });
 		await page.click('#lane-done .board-card[data-card="4"] .board-card__title');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-		expect(await page.textContent("#card-dialog-landed")).toMatch(/^4af1b4a \u00b7 \d+[a-z]$/);
-		expect(await page.getAttribute("#card-dialog-landed", "title")).toBe("4af1b4a");
-		// The reason line's `✓ done by billing-core · landed 4af1b4a` is that rung and the head's
-		// own owner chip, so it steps aside; a finished card that landed no commit has no rung and
-		// keeps the line, because nothing below says who finished it.
-		expect(await hidden(page, "#card-dialog-reason")).toBe(true);
+		// The record has no row of its own for a close, so the line the card face prints is the
+		// only place it appears — and a finished card always draws it.
+		expect(await page.textContent("#card-dialog-reason")).toBe("\u2713 done by billing-core");
+		expect(await hidden(page, "#card-dialog-reason")).toBe(false);
 
 		await page.keyboard.press("Escape");
 		await page.click('#lane-done .board-card[data-card="5"] .board-card__title');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-		expect(await hidden(page, "#card-dialog-landed")).toBe(true);
+		// A second finished card says the same thing, because a close is who closed it.
 		expect(await page.textContent("#card-dialog-reason")).toBe("\u2713 done by billing-core");
-		expect(await hidden(page, "#card-dialog-reason")).toBe(false);
 		await page.close();
 	});
 

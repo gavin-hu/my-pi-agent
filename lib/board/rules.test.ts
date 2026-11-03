@@ -339,12 +339,6 @@ describe("move", () => {
 		expect(stepOf(checked, { kind: "move", lane: "done", artifact: provedFor(checked) }, CORE).lane).toBe("done");
 	});
 
-	test("a done move records the commit that closed the card", () => {
-		const card = reviewed();
-		const done = stepOf(card, { kind: "move", lane: "done", landed: { commit: "4af1b4a" }, artifact: proved() }, CORE);
-		expect(done.landed).toEqual({ commit: "4af1b4a", at: NOW });
-	});
-
 	test("plan to done is not a route, and the refusal names the ones that are", () => {
 		const card = approved();
 		expect(

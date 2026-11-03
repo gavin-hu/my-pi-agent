@@ -26,9 +26,9 @@ const SUITE_BAR = 400;
 /** Every declared suite past the bar, at its height: debt, and a height only falls. */
 const LONG_SUITES: Record<string, number> = {
 	"extensions/board/page.test.ts": 521,
-	"extensions/board/tools.test.ts": 1272,
+	"extensions/board/tools.test.ts": 1257,
 	"extensions/board/view/behaviour.test.ts": 792,
-	"extensions/board/view/pages.test.ts": 706,
+	"extensions/board/view/pages.test.ts": 704,
 	"extensions/bytefly/block/block.test.ts": 561,
 	"extensions/bytefly/chrome.test.ts": 1185,
 	"extensions/bytefly/doctor/doctor.test.ts": 511,
@@ -77,8 +77,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/wechat/view/status.test.ts": 448,
 	"extensions/worktree/flow.test.ts": 825,
 	"extensions/worktree/git.test.ts": 893,
-	"lib/board/card.test.ts": 406,
-	"lib/board/rules.test.ts": 719,
+	"lib/board/rules.test.ts": 713,
 	"lib/board/store.test.ts": 610,
 	"lib/board/view.test.ts": 475,
 	"lib/core.test.ts": 1045,
@@ -91,7 +90,7 @@ const LONG_SUITES: Record<string, number> = {
 };
 
 /** The named suites' total, written down so only a split can move it. */
-const LONG_SUITE_TOTAL = 52328;
+const LONG_SUITE_TOTAL = 51899;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 

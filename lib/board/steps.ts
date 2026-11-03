@@ -113,7 +113,6 @@ export function move(
 	card: Card,
 	op: Extract<CardOp, { kind: "move" }>,
 	actor: Actor,
-	now: number,
 	board: BoardIndex,
 	config: BoardConfig,
 ): Prepared {
@@ -156,7 +155,6 @@ export function move(
 	// agreement, so those two exits drop it — and `review` refuses a finished card, so a move
 	// that dropped the sign here could never be signed again.
 	if (card.lane === "execute" && (target === "blocked" || target === "plan")) fields.review = undefined;
-	if (target === "done" && op.landed !== undefined) fields.landed = { commit: op.landed.commit, at: now };
 	if (target === "execute" || target === "plan") return enter(card, target, board, config.wip, fields);
 	return { changed: true, fields };
 }

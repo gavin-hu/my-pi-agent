@@ -20,8 +20,6 @@ import type { BoardStore } from "../../lib/board/store.ts";
 /** Who a seeded card belongs to. */
 export interface Seeded {
 	owner: Actor;
-	/** The commit a seed records on the way to `done`; absent leaves the card with none. */
-	landed?: string;
 	/**
 	 * The plan file the seed records, proved as the tool proves it.
 	 *
@@ -89,16 +87,5 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 		const result = await store.mutate(id, { kind: "review" }, personActor(), now);
 		if (!result.ok) fail(result.error);
 	}
-	// No commit unless the caller names one: a board outside a repository finishes cards
-	// without one, and a test of that state must not be handed a fake.
-	await apply(
-		who.landed === undefined
-			? { kind: "move", lane: "done", artifact: { path: contract ?? plan } }
-			: {
-					kind: "move",
-					lane: "done",
-					landed: { commit: who.landed },
-					artifact: { path: contract ?? plan },
-				},
-	);
+	await apply({ kind: "move", lane: "done", artifact: { path: contract ?? plan } });
 }

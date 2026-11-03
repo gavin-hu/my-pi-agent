@@ -103,26 +103,19 @@ describe("reasonFor", () => {
 		);
 	});
 
-	test("a finished card says who closed it and with what", () => {
-		expect(
-			reasonFor(
-				card({ lane: "done", owner, review: { by: "lead", at: NOW }, landed: { commit: "4af1b4a", at: NOW } }),
-				ago,
-			),
-		).toEqual({ kind: "done", text: "✓ done by billing-core · landed 4af1b4a" });
+	test("a finished card says who closed it, and whether the gate was asked", () => {
+		expect(reasonFor(card({ lane: "done", owner, review: { by: "lead", at: NOW } }), ago)).toEqual({
+			kind: "done",
+			text: "✓ done by billing-core",
+		});
 		// A close the gate was not asked for says so: pinned to the sign rather than to the lane,
 		// because every finished card is in the lane and only this one was closed by instruction.
 		expect(
 			reasonFor(
-				card({
-					lane: "done",
-					owner,
-					review: { by: "you", at: NOW, byInstruction: "closed on my instruction" },
-					landed: { commit: "4af1b4a", at: NOW },
-				}),
+				card({ lane: "done", owner, review: { by: "you", at: NOW, byInstruction: "closed on my instruction" } }),
 				ago,
 			),
-		).toEqual({ kind: "done", text: "✓ done by billing-core · landed 4af1b4a · closed by instruction" });
+		).toEqual({ kind: "done", text: "✓ done by billing-core · closed by instruction" });
 	});
 });
 

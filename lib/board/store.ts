@@ -60,8 +60,8 @@ const ENDED_DIR_NAME = "ended";
 /**
  * The subdirectory a finished card is set aside in.
  *
- * A second pile, not a second state: the file is moved here unchanged, so its notes, plan,
- * and landed commit stay readable, and the board's own reads stop opening it.
+ * A second pile, not a second state: the file is moved here unchanged, so its notes and plan
+ * stay readable, and the board's own reads stop opening it.
  */
 const ARCHIVE_DIR_NAME = "archive";
 

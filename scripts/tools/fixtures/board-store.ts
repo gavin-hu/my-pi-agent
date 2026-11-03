@@ -166,17 +166,7 @@ export async function seedStore(directory: string): Promise<void> {
 		if (spec.lane === "done") {
 			const reviewer = owner.label === LEAD.label ? personActor() : LEAD;
 			await store.mutate(card.id, { kind: "review" }, reviewer, at + 4_200);
-			await store.mutate(
-				card.id,
-				{
-					kind: "move",
-					lane: "done",
-					landed: { commit: "4af1b4a" },
-					artifact: { path: planOf(spec) },
-				},
-				owner,
-				at + 4_400,
-			);
+			await store.mutate(card.id, { kind: "move", lane: "done", artifact: { path: planOf(spec) } }, owner, at + 4_400);
 		}
 		if ("dependsOn" in spec && spec.dependsOn !== undefined) {
 			await store.mutate(
