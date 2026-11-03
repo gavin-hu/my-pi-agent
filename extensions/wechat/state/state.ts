@@ -6,7 +6,7 @@
  * the connection permanently.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { BotCredentials, PeerState, SeenMessage, WechatState } from "../types.ts";
 import type { MessageTarget } from "../transport/deliver.ts";
@@ -79,10 +79,18 @@ export function readState(path: string): WechatState {
 	}
 }
 
-/** Write state to disk. */
+/**
+ * Write state to disk atomically: a sibling temp file, then a rename over the old one.
+ *
+ * A torn write would leave a file `readState` cannot parse, and its fallback is empty
+ * state — the cursor and the remembered ids would go with it, so the server would
+ * replay and already-answered messages would be answered again.
+ */
 export function writeState(path: string, state: WechatState): void {
 	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, `${JSON.stringify(state, null, 2)}\n`, "utf-8");
+	const temp = `${path}.${process.pid}.tmp`;
+	writeFileSync(temp, `${JSON.stringify(state, null, 2)}\n`, "utf-8");
+	renameSync(temp, path);
 }
 
 /**

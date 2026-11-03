@@ -176,6 +176,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"commands/commands",
 		"dialog/channels",
 		"peer/peer",
+		"state/state",
 		"view/status",
 	],
 	worktree: ["git", "flow", "tools", "ui"],

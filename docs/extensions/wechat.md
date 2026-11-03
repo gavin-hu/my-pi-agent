@@ -134,7 +134,7 @@ screen, and every subcommand is the same action one of the screen's keys runs.
 | `/wechat pause` | Stop polling new messages; running turns may finish and reply. The poller lock is released, so another runtime may take the account. |
 | `/wechat resume` | Reacquire the lock and poll again; reports when another runtime already holds it. |
 | `/wechat doctor` | Print a read-only health report: connection and token age, last poll and hold, lock holder, per-peer session/queue, recent failures. |
-| `/wechat stop <peer>` | Stop that peer's running turn; reports when nothing was running. |
+| `/wechat stop <peer>` | Stop that peer's running turn, including one whose session is still opening; the turn never starts then, and reports when nothing was running. |
 | `/wechat reset <peer>` | Start a fresh conversation for that peer; refused while its turn runs. |
 | `/wechat history <peer> [n]` | Print that peer's recent messages (default 10, max 20); read-only, and works without a live session. |
 | `/wechat allow [peer]` | Add a refused sender to `wechat.allowedPeers` in the project `.pi/bytefly.json`, after a confirmation that names the file. Without an argument it offers the refused senders. |
