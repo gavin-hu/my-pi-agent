@@ -42,7 +42,8 @@ same record or none.
 Three rules live here because two surfaces need each and a second copy would be a second
 answer. `matchesQuery` is the rule `list`'s `query` and the page's filter box both answer,
 spliced into the bundle as `MATCHES_QUERY_JS`. `holds` (the id decides when both sides have
-one) with `cardRef` and `signatureOf` names a card and notices it changed. `laneSince` says
+one) with `cardRef` and `signatureOf` names a card and notices it changed; `dependsOf`
+reads a card's own links. `laneSince` says
 when the card entered the lane it is in, computed from the lane log because a stored clock
 would be one more field to keep true.
 
@@ -66,9 +67,11 @@ from `LANES`, so a lane cannot be spelled one way in a schema and another in a r
 
 `TRANSITIONS` is the other half: every lane change a move may make, with the
 `Requirement`s (`REQUIREMENTS`: contract, approval, review, artifact, blocker, waiting) in
-front of it. `steps.ts` enforces them and the tool offers exactly `targetsFrom`, so a
-surface cannot offer a move the state machine refuses. `transitionOf`, `laneIndex`,
-`isLane`, and `movableLanes` are the questions callers ask of the same table.
+front of it. `steps.ts` enforces them, and `transitionOf` / `targetsFrom` are the same table
+asked about one move — `targetsFrom` is the list a refusal prints. The tool's `lane`
+description names `movableLanes()` instead: which targets exist depends on the card's own
+lane and a schema has no card, so it offers every lane but `backlog` and leaves the route to
+the refusal. `laneIndex` and `isLane` are the questions left.
 
 ### contract.ts
 
@@ -88,12 +91,13 @@ stored value to.
 
 The dependency graph, answered over an index of the whole board. A link is one id in the
 waiting card's own file — the reverse edge is never stored, because a second copy of one
-edge is a copy that can drift. `BoardIndex` / `indexOf` build the map; `blockersOf` and
-`blockersText` say what is unfinished and render the same list for a refusal and for the
-page; `dependentsOf` / `openDependentsOf` / `dependedOn` / `waitingOn` say what a drop
-would strand or block; `wouldCycle` refuses a loop; `normalizeDepends` stores one edge once.
-A dependency naming a card that is not on the board is refused when it is written, and a
-card cannot be dropped while another waits on it.
+edge is a copy that can drift. `BoardIndex` / `indexOf` build the map; `blockersOf` says what
+is unfinished, `lanesText` is a card list as a reader meets it (`#2 (execute), #3 (blocked)`,
+with `titles` for the one surface that has room for a title), and `waitingOn` is the same
+unfinished list as one sentence. `dependentsOf` / `openDependentsOf` / `dependedOn` say what
+a drop would strand or block, `wouldCycle` refuses a loop, and `normalizeDepends` stores one
+edge once. A dependency naming a card that is not on the board is refused when it is written,
+and a card cannot be dropped while another waits on it.
 
 ### limits.ts
 
@@ -162,7 +166,7 @@ plan mode's refusal prints, `boardWriteRefusal` is the refusal a write action ge
 and `isBoardReadAction` answers for one unnormalized value, where anything unknown is not a
 read.
 
-One table because the tool's enum and the read-only policy were once two: `lib/policy.ts`'s
+One table, so the tool's enum and the read-only policy cannot disagree: `lib/policy.ts`'s
 `isBoardRead` and `board`'s own schema both read this one, so a second read action cannot be
 admitted by one and refused by the other.
 
@@ -192,7 +196,8 @@ prunes: `archive` and `drop` are the two ways a card leaves the board.
 ### config.ts
 
 The `board` section of `bytefly.json`, read once: `BoardConfig` (`wip` and `lead`),
-`DEFAULT_BOARD_CONFIG`, `normalizeBoardConfig` — each key falling back on its own, so a file
+`DEFAULT_BOARD_CONFIG` / `DEFAULT_LEAD`, `normalizeBoardConfig` — each key falling back on
+its own, so a file
 that sets one keeps the other — and `readBoardConfig`, the project's section over the global
 one. Both are read together when the store opens, because a board that asked the file on
 every write would spend a stat to answer a question nobody changed.
@@ -310,7 +315,8 @@ revision moved, and a client cannot invent a state the model surface would not r
 How a second session finds the page a repository already serves. A page is one loopback server
 owned by one session's process, so the only thing discoverable is the note it leaves at
 `PAGE_FILE` (`page.json`): the port, the seat, and the token the page reads by — nothing a
-reader could misuse, since a page writes nothing. `PING_PATH` / `SNAPSHOT_PATH` / `BOARD_BASE`
+reader could misuse, since a page writes nothing. `PagePointer` is that note as a record and
+`urlOf` the address it answers at; `PING_PATH` / `SNAPSHOT_PATH` / `BOARD_BASE`
 are the routes the router serves and the probe asks for; `probePage` is the question "is it
 still there", with the network as a seam so a test drives it.
 
@@ -323,9 +329,9 @@ note named rather than blaming a session.
 
 ### tone.ts
 
-What colour a board surface wears, stated once, because the page and the terminal used to
-decide it in seven places. `BoardTone` is the page kit's own colour words plus `dim`, so a
-tone is the name of a CSS property and the page needs no map; `BOARD_TONES`, `REASON_TONE`
+What colour a board surface wears, stated once, because the page and the terminal both need
+it and two statements drift apart. `BoardTone` is the page kit's own colour words plus `dim`,
+so a tone is the name of a CSS property and the page needs no map; `BOARD_TONES`, `REASON_TONE`
 (every reason kind, `waiting` included because the card face invents it), and
 `DECISION_KINDS` / `DECISION_TONE`, the Team queue's kinds in rank order with the tone each
 wears, so a row's position and its colour cannot disagree. The rule behind the words: warn is
@@ -340,10 +346,12 @@ transcript speaks it.
 ### reason.ts
 
 Why a card sits where it does, as one rule for the card face, the lead's queue, and the
-transcript. `reasonFor(card, ago)` answers a `Reason` — a `ReasonKind` and one sentence — for
+transcript. `REASON_KINDS` is every kind there is, and `reasonFor(card, ago)` answers a
+`Reason` — a `ReasonKind` and one sentence — for
 an unanswered offer, a blocked card's recorded reason, a contract's missing line, an approval
-nobody gave, a spot-check nobody did, and a finished card's commit. The sentence used to be
-written three times, and the surfaces multiply the states it has to name.
+nobody gave, a spot-check nobody did, and a finished card's commit. The card face, the lead's
+queue, and the transcript read this one body, because the states it names would otherwise be
+three sentences that drift.
 
 `REASON_FOR_JS` is why it is self-contained: it reads the card and a formatter for relative
 times and nothing else, and the clock is a parameter because the two callers read an age

@@ -241,7 +241,7 @@ re-asserts through the caller's bus and neither imports the other.
 
 ## The layers
 
-Four layers sit below the extensions, each with one contract.
+Each layer below the extensions has one contract.
 
 | Layer | Job | Contract |
 |---|---|---|
