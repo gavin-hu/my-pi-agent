@@ -307,6 +307,16 @@ the first it starts a normal session and prints nothing. It refuses to run witho
 TTY, so that half is a local reading rather than a CI one, and `bun run check` never
 runs it.
 
+- **A timing group is one namespace, and the groups overlap.** `PI_TIMING` keeps a
+  clock per namespace and prints a group for each; a line is the gap since the
+  previous line *in that namespace*, and a group's `TOTAL` adds only its own lines.
+  `main`'s `TOTAL` is the elapsed start, and every `extensions` line — that clock is
+  reset inside `DefaultResourceLoader.reload` — lands inside `main`'s
+  `createAgentSessionRuntime`, so the extension total is already counted there. A
+  measured offline start printed `main` 259 ms, `createAgentSessionRuntime` 251 and
+  `extensions` 215: adding the two groups reports 474 ms for a 259 ms start, which is
+  how a report talks itself into the wrong lever. The groups are not shares of one
+  run, and no two of their totals are comparable.
 - **The terminal reading has three numbers, and only two of them are ours.** On the
   author's machine:
 
@@ -321,27 +331,39 @@ runs it.
   1012 ms there and 316 offline. Offline, the runtime is almost exactly the graph (316
   of 351), and the frame is **~64 ms** this package's (101 against Pi's own 37), not the
   294 the online pair suggested. `--offline` is the frame and `--no-extensions` Pi's own
-  floor; the online numbers say nothing about either, and a per-entry graph is what
-  `bench:load` answers, warm.
+  floor, and that floor is paid **once per process**: it is all of Pi's own work for the
+  run, subtracted once and never multiplied by the entries. A reading taken only
+  `--offline` leaves out the largest term of an online start — the host's network
+  resolution — so it cannot say a start is slow; it says how much of the frame is this
+  package's, and a per-entry graph is what `bench:load` answers, warm.
 - **The first entry in manifest order pays the loader's bootstrap.** jiti's TypeScript
   transformer initialises once, on that entry, so its per-module cost reads several
-  times the others'; reordering the manifest moves the cost to whichever entry is first
-  rather than removing it. Past that, each entry's own cost is the size of its graph,
-  which is the number `bench:load`'s `ENTRY_BUDGET` row gates.
+  times the others'. `serve` is first with 11 modules today, so its line is the
+  bootstrap rather than its graph and its per-module figure means nothing. Reordering
+  the manifest moves the cost to whichever entry is first rather than removing it. Past
+  that, each entry's own cost is the size of its graph, which is the number
+  `bench:load`'s `ENTRY_BUDGET` row gates — and the milliseconds are the machine's,
+  while the module count is what transfers between them.
 - **The duplication is the ceiling:** 722 evaluations over 384 modules means 338
   are the same module paid again: `lib/env.ts` is evaluated by all 22 entries,
   `lib/tui/glyphs.ts`, `lib/tui/tokens.ts` and `lib/format.ts` by 19, `lib/config.ts` by 17,
   six more `lib/tui/*` by 16. A module removed from an entry's registration graph is
-  saved *N* times, and `bench:load`'s `ENTRY_BUDGET` row is what proves it fell.
+  saved *N* times, and `bench:load`'s `ENTRY_BUDGET` row is what proves it fell. That is
+  the graph lever, and it is per entry: a dynamic `import()` on the registration path,
+  not a feature deleted. Dropping an extension is the last resort — it buys one entry's
+  graph at the price of the feature, and the duplication falls only by that entry's
+  share.
 - **Defer what nothing needs before the first draw.** Pi awaits every
   `session_start` handler, so anything a handler awaits is frame time, and only the
   milliseconds a caller *waits* for count: a handler that starts work and drops it
-  reads as its synchronous part. `subagent` reads
-  its config on the frame and nothing else, `wechat` hands its
-  bridge start back in one promise that its command and its tool join, and `rewind`
-  starts its scan and lets the first run await it. A new handler that spawns a
-  process, reads a store, or opens a socket belongs in that shape, not in the awaited
-  part.
+  reads as its synchronous part. `bytefly`'s update check is that shape — a fresh
+  24-hour cache hit costs no package-manager call, and a miss is fired without
+  awaiting — so the npm registry read a startup reading seems to show there is
+  neither import cost nor frame time. `subagent` reads its config on the frame and
+  nothing else, `wechat` hands its bridge start back in one promise that its command
+  and its tool join, and `rewind` starts its scan and lets the first run await it. A
+  new handler that spawns a process, reads a store, or opens a socket belongs in that
+  shape, not in the awaited part.
 
 ## Cross-platform
 
