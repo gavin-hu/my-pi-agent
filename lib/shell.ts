@@ -15,7 +15,7 @@
  */
 
 /** Characters a backslash escapes in a shell, for guard purposes. */
-export const SHELL_ESCAPABLE = /[\s"'\\$`;&|<>(){}[\]]/;
+const SHELL_ESCAPABLE = /[\s"'\\$`;&|<>(){}[\]]/;
 
 /** Whether a preceding backslash escapes the single character `next`. */
 export function isShellEscapable(next: string): boolean {

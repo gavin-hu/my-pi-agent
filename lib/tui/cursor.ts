@@ -249,7 +249,7 @@ export function isCloseKey(data: string): boolean {
 }
 
 /** Shift+Tab arrives as this sequence on terminals without the Kitty protocol. */
-export const SHIFT_TAB = "\u001b[Z";
+const SHIFT_TAB = "\u001b[Z";
 
 /**
  * Whether `data` is Shift+Tab, in either encoding.

@@ -59,7 +59,7 @@ export const SNAPSHOT_PATH = "/api/board";
  * loop with the snapshot route, and a page declared dead while it is merely slow is taken
  * over — two servers, one note.
  */
-export const PROBE_MS = 1_500;
+const PROBE_MS = 1_500;
 
 /** The port, the seat, and the credential the page reads by. */
 export interface PagePointer {
@@ -88,7 +88,7 @@ export function urlOf(pointer: PagePointer): string {
  * create one has to tell them apart: the first is a race with a page that cleared its note
  * and is worth another attempt, the second is a file only its owner can explain.
  */
-export async function noteExists(dir: string): Promise<boolean> {
+async function noteExists(dir: string): Promise<boolean> {
 	try {
 		await access(join(dir, PAGE_FILE));
 		return true;
@@ -198,10 +198,10 @@ async function putBack(held: string, target: string): Promise<void> {
 }
 
 /** How many times a caller tries to own the note before it gives up for good. */
-export const NOTE_ATTEMPTS = 3;
+const NOTE_ATTEMPTS = 3;
 
 /** How long a page that has written its note but does not answer yet is given, in steps. */
-export const YOUNG_POLLS = 8;
+const YOUNG_POLLS = 8;
 const YOUNG_POLL_MS = 75;
 
 /** How many times a caller looks again at a name that is momentarily free. */

@@ -112,7 +112,7 @@ wears with the set its stylesheet draws, in both directions.
 `namesScript` is the boundary, and it throws rather than trusting a caller: a value must
 be `KEBAB` — lowercase, hyphenated — because the table is spliced into a template
 literal, and a backtick would end the string while `${` would interpolate at build time.
-The global it binds must be a JavaScript `IDENTIFIER`. The table's *keys* are the page's
+The global it binds must be a JavaScript identifier. The table's *keys* are the page's
 own English; its *values* are what CSS matches, and nothing else in the page may spell
 one.
 
