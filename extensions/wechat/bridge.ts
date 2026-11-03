@@ -62,7 +62,8 @@ export interface BridgeDeps {
 	saveState: (state: WechatState) => void;
 	createClient: (account: BotCredentials) => WechatClient;
 	acquireLock: () => boolean;
-	refreshLock: () => void;
+	/** Re-stamp the lock, or take it back; false when another live session owns it. */
+	refreshLock: () => boolean;
 	releaseLock: () => void;
 	sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 	/** Arm a cancellable one-shot timer. Defaults to a real, unref'd `setTimeout`. */
@@ -189,6 +190,21 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		notify("WeChat session expired. Run /wechat login to reconnect.", "warning");
 	}
 
+	/**
+	 * Another session took the account's lock: stop polling it, because carrying on
+	 * would read a second cursor and answer the peers this one still holds twice. The
+	 * lock is not released — it is theirs now — and the stop is a shutdown's, so a
+	 * running turn is abandoned the same way.
+	 */
+	function handleLockLost(): void {
+		if (connection !== "running") return;
+		connection = "stopped";
+		// The loop is on its way out — it asked for the stamp — so nothing needs aborting.
+		abort = undefined;
+		void dropConnection();
+		notify("WeChat polling stopped: another Pi session took over the poller lock.", "warning");
+	}
+
 	/** Send one bubble to a peer and report whether it was delivered. */
 	async function reply(target: MessageTarget, text: string, signal?: AbortSignal): Promise<boolean> {
 		return deliverer.reply(target, text, signal ?? abort?.signal);
@@ -306,7 +322,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		onMessages: (messages) => {
 			for (const message of messages) intake.handleMessage(message);
 		},
-		refreshLock: deps.refreshLock,
+		refreshLock: () => {
+			if (!deps.refreshLock()) handleLockLost();
+		},
 		isRunning: () => connection === "running",
 		pollTimeout,
 		now: deps.now,
@@ -361,6 +379,15 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		// Errors are surfaced by the loop's own catch.
 		await loopPromise?.catch(() => undefined);
 		loopPromise = undefined;
+	}
+
+	/** Drop the worker and everything the connection accumulated, then publish it. */
+	async function dropConnection(): Promise<void> {
+		const closing = worker;
+		worker = undefined;
+		await closing?.close({ abandon: true });
+		resetEphemeral();
+		publishState();
 	}
 
 	/**
@@ -454,11 +481,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				await stopLoop(stopping);
 				// A paused bridge has no loop and no abort controller but still owns a
 				// worker, so close it unconditionally rather than leaking the sessions.
-				const closing = worker;
-				worker = undefined;
-				await closing?.close({ abandon: true });
-				resetEphemeral();
-				publishState();
+				await dropConnection();
 				releaseSafe();
 			});
 		},

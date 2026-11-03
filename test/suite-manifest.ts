@@ -169,6 +169,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	"web-access": ["fetch/fetch", "fetch/structured", "search/search", "http"],
 	wechat: [
 		"bridge",
+		"bridge-lock",
 		"config",
 		"tools",
 		"extension",

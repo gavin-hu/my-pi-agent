@@ -41,7 +41,7 @@ subprocess per peer.
 |---|---|---|
 | Owner-only admission | `allowedPeers`, `/wechat allow [peer]` | Only the owner who scanned the QR drives the agent until another sender is named. |
 | Per-peer tool allowlist | `peers[<id>].tools` | An extra admitted peer can be narrowed to named tools; an empty list leaves none. |
-| One poller per account | `poller.lock` | A second `pi` process is refused instead of stealing the account's messages. |
+| One poller per account | `poller.lock` | A second `pi` process is refused instead of stealing the account's messages, and a poller whose lock a takeover replaced stops rather than reading the account beside the new holder. |
 
 ### Delivery and reliability
 
@@ -418,7 +418,11 @@ rooms are delivered, a question a group-chat design would have to answer first.
   owns the account at a time, tracked by `<agent-dir>/wechat/poller.lock`.
   Quit the other `pi` process. A lock left by a process that already exited is
   ignored on the next start, and one older than 120 s is ignored too, so a crash
-  never needs the file removed by hand.
+  never needs the file removed by hand. A poller that loses the lock mid-run
+  stops instead of keeping a second cursor: it says `WeChat polling stopped:
+  another Pi session took over the poller lock.`, the chip clears, and the next
+  `session_start` — `/reload`, `/new`, or a restart — takes the lock back once
+  the other session lets it go.
 - **The chip says `✆ wechat`, while `/wechat status` reads `closed` with no
   peer count and `send_wechat` reports the bridge is not started — and an
   inbound message is answered in the terminal but never reaches the phone.**

@@ -59,6 +59,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a record that is still this process's — after a takeover it no longer writes its own pid over the
   new holder's, nor deletes it on the way out. The restamp lands by rename, so the lock is never
   briefly empty for a rival to read as free.
+- `wechat`: a poller whose `poller.lock` a takeover replaced stops instead of polling the account
+  beside the new holder. The lock is re-stamped at the top of every attempt rather than after a
+  delivered answer, so a session that lost the account sends no further request and applies no
+  response under a second cursor: the bridge moves the connection to `stopped`, drops the peer
+  worker, and says `WeChat polling stopped: another Pi session took over the poller lock.` The
+  `acquireLock` comment now states the one-read window its clean-up really has, instead of claiming
+  the delete is conditional on the record it judged.
 - `lib`: every enumerated tool parameter is its union again under `bun run check:types` — `plan`'s
   `action` and step `status`, `job`'s `signal`, `goal`'s `status`, `subagent`'s `agentScope`, and
   the eight other schemas built from `StringEnum`. Pi 1.5.0 types pi-ai's `StringEnum` against its
