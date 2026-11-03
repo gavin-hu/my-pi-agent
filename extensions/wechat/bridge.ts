@@ -354,6 +354,22 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		}
 	}
 
+	/** Start the poll loop on a fresh abort controller; its one catch reports a failure. */
+	function startLoop(): void {
+		abort = new AbortController();
+		loopPromise = poll.run(abort.signal).catch((error) => {
+			notify(`WeChat bridge stopped: ${messageOf(error)}`, "error");
+		});
+	}
+
+	/** Stop the loop on the controller the caller took off `abort`, and forget it. */
+	async function stopLoop(stopping: AbortController | undefined): Promise<void> {
+		stopping?.abort();
+		// Errors are surfaced by the loop's own catch.
+		await loopPromise?.catch(() => undefined);
+		loopPromise = undefined;
+	}
+
 	/**
 	 * Serialize lifecycle transitions. A pause and a resume from the control
 	 * screen, or a shutdown racing either, must not leave two poll loops or a
@@ -435,11 +451,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				now: deps.now,
 				armTimer,
 			});
+			startLoop();
 			publishState();
-			abort = new AbortController();
-			loopPromise = poll.run(abort.signal).catch((error) => {
-				notify(`WeChat bridge stopped: ${messageOf(error)}`, "error");
-			});
 		},
 
 		close(): Promise<void> {
@@ -447,14 +460,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				running = false;
 				paused = false;
 				expired = false;
-				abort?.abort();
+				const stopping = abort;
 				abort = undefined;
-				try {
-					await loopPromise;
-				} catch {
-					// Errors are surfaced by the loop's own catch.
-				}
-				loopPromise = undefined;
+				await stopLoop(stopping);
 				// A paused bridge has no loop and no abort controller but still owns a
 				// worker, so close it unconditionally rather than leaking the sessions.
 				const closing = worker;
@@ -476,13 +484,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				const stopping = abort;
 				abort = undefined;
 				await channels.cancelAll();
-				stopping?.abort();
-				try {
-					await loopPromise;
-				} catch {
-					// Errors are surfaced by the loop's own catch.
-				}
-				loopPromise = undefined;
+				await stopLoop(stopping);
 				// No poller means no lock to keep: another runtime may take the account
 				// while this one is paused. Resume reacquires it and reports a conflict.
 				releaseSafe();
@@ -500,10 +502,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				}
 				paused = false;
 				running = true;
-				abort = new AbortController();
-				loopPromise = poll.run(abort.signal).catch((error) => {
-					notify(`WeChat bridge stopped: ${messageOf(error)}`, "error");
-				});
+				startLoop();
 				publishState();
 				return true;
 			});
