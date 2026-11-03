@@ -626,8 +626,10 @@ the live chip (connection, comment count, and unsaved changes), the status line,
 the keys and theme controls; a control bar carrying the page's own actions —
 **Approve & run**, **Save feedback**, **Back to Pi**, and the owner's **Share**; and a
 footer naming the plan file. A comment-only review shows no approve action at all. A
-stream that has gone offers `⟳ reload` beside the chip, and a save that met a plan
-changed on disk reveals the same control, so a stale page never becomes a dead one.
+stream that dropped says `reconnecting…` in the warning tone while the browser retries,
+and one that did not come back says `offline` and offers `⟳ reload` beside the chip; a
+save that met a plan changed on disk reveals the same control, so a stale page never
+becomes a dead one.
 The side panel belongs to the reader's role: an owner gets one sentence naming the two
 decisions, the plan's `Steps` progress, and the comment count; a reviewer gets the
 name their comments are signed with and the count, and no approval facts. Both get the

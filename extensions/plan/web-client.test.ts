@@ -174,7 +174,9 @@ describe("review client", () => {
 	});
 
 	test("keeps a stream open so the server sees the tab close", () => {
-		expect(REVIEW_CLIENT_JS).toContain("new EventSource(");
+		// One stream, opened by the client every served page runs, so a dropped connection means
+		// the same thing on all three.
+		expect(REVIEW_CLIENT_JS).toContain("stream = liveStream({");
 		// A closed tab is a dropped stream the server times out; a beacon would also
 		// cancel the review on a reload, which the 409 path offers on purpose.
 		expect(REVIEW_CLIENT_JS).not.toContain("sendBeacon");
@@ -213,8 +215,10 @@ describe("review client", () => {
 		expect(REVIEW_CLIENT_JS).toContain('label = "approved"');
 		expect(REVIEW_CLIENT_JS).toContain('label = "saved"');
 		expect(REVIEW_CLIENT_JS).toContain('label = "closed"');
-		expect(REVIEW_CLIENT_JS).toContain("} else if (everConnected) {");
-		expect(REVIEW_CLIENT_JS).toContain("everConnected = true");
+		// The four connection states are the shared client's; these are this page's words for
+		// them, and a settled review is decided above all four.
+		expect(REVIEW_CLIENT_JS).toContain('} else if (liveState === "reconnecting") {');
+		expect(REVIEW_CLIENT_JS).toContain('} else if (liveState === "dead") {');
 	});
 
 	test("paints the kit's live pill and offers the kit's one reload control", () => {

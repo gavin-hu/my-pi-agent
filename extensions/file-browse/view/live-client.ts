@@ -8,7 +8,9 @@
  * into the page through a status frame.
  *
  * It does nothing at all unless the server rendered the connection chip, which
- * is what makes `live: false` and JS-off leave the page exactly as it was.
+ * is what makes `live: false` and JS-off leave the page exactly as it was. What a
+ * state *says* is this page's; the states themselves, and the retry count that
+ * turns one into the next, are the shared stream client's.
  *
  * The folder check is the other half: the stream is shared by every open page, so
  * it cannot say what *this* page's rows show. A page that lists a folder carries
@@ -25,6 +27,8 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		var liveChanges = document.getElementById("browse-changes");
 		var liveInterval = Number(liveChip.getAttribute("data-interval")) || 5000;
 		var liveStale = 0;
+		/** The state the shared stream client reported, and the tone painted for it. */
+		var liveState = "connecting";
 		var liveTone = "";
 		var liveRev = "";
 		var liveDir = liveChip.getAttribute("data-dir");
@@ -43,21 +47,43 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		}
 
 		/**
-		 * The chip's hover: what the state means, and what a reader can do about it.
+		 * The chip's hover, for the word it is wearing: what it means, and what a reader can do
+		 * about it.
 		 *
 		 * The footer carries the page's facts, so the server's uptime and request count are read
 		 * here — the chip is the one place the stream speaks about itself. A state a reader can
 		 * act on says so, because a word like "offline" with no remedy is a dead end.
 		 */
-		function liveTitle(tone) {
-			if (tone === "danger") return "The server stopped — restart /browse, then reload";
-			if (tone === "warn") return "No frame in three intervals — this page may be stale";
-			return liveServer || "Live status from the browse server";
+		function liveTitle(word) {
+			if (word === "offline") return "The server stopped — restart /browse, then reload";
+			if (word === "reconnecting") return "The stream dropped — this page is stale until it reconnects";
+			if (word === "stale") return "No frame in three intervals — this page may be stale";
+			if (word === "live") return liveServer || "Live status from the browse server";
+			return "Waiting for the browse server";
 		}
 
-		function setLiveTone(tone, label) {
+		function paintLiveState(state, tone, word) {
+			liveState = state;
 			liveTone = tone;
-			paintLive(liveChip, tone, label, liveTitle(tone));
+			paintLive(liveChip, tone, word, liveTitle(word));
+		}
+
+		// The page's words for the four states the shared client reports. A stream that dropped
+		// is a page that may be stale, not one that has stopped being true, so only the spent
+		// retries — dead — are where this page offers its one action.
+		function liveWords(state) {
+			if (state === "live") {
+				paintLiveState("live", "success", "live");
+				armLiveStale();
+				return;
+			}
+			window.clearTimeout(liveStale);
+			if (state === "reconnecting") paintLiveState("reconnecting", "warn", "reconnecting");
+			else if (state === "dead") {
+				paintLiveState("dead", "danger", "offline");
+				showLiveReload();
+			}
+			else paintLiveState("connecting", "accent", "connecting");
 		}
 
 		// The chip names its state and never counts: nothing is repainted between
@@ -67,7 +93,7 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		function armLiveStale() {
 			window.clearTimeout(liveStale);
 			liveStale = window.setTimeout(function () {
-				if (liveTone === "success") setLiveTone("warn", "stale");
+				if (liveState === "live") paintLiveState("live", "warn", "stale");
 			}, liveInterval * 3);
 		}
 
@@ -156,7 +182,7 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 			liveServer =
 				"up " + formatSpan(Number(snapshot.uptimeMs) || 0) + " \u00B7 " + requests +
 				(requests === 1 ? " request" : " requests");
-			setLiveTone("success", "live");
+			paintLiveState("live", "success", "live");
 			armLiveStale();
 			paintLiveGit(snapshot.git);
 			paintLiveChanges(snapshot.changes);
@@ -188,36 +214,30 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 				.catch(function () { /* the stream already reports a dead server */ });
 		}
 
-		if (window.EventSource) {
-			var liveStream = new EventSource(pageBase() + "/events");
-			liveStream.addEventListener("open", function () {
-				if (liveTone !== "success") setLiveTone("accent", "connecting");
-			});
-			liveStream.addEventListener("status", function (event) {
+		// The stream: one state machine for every served page, in this page's words. A root
+		// that moved under this page is the one frame it cannot paint — the document it drew
+		// belongs to the tree the session left — so that frame reloads, as the folder check does.
+		var liveLink = liveStream({
+			url: pageBase() + "/events",
+			events: ["status", "moved"],
+			words: liveWords,
+			frame: function (event) {
+				if (event.type === "moved") {
+					window.location.reload();
+					return;
+				}
 				var snapshot;
 				try { snapshot = JSON.parse(event.data); } catch (error) { return; }
 				paintLiveSnapshot(snapshot);
-			});
-			// The root moved under this page — a worktree switch re-rooted the server — so
-			// the document it drew belongs to the tree the session left. Reloading is the
-			// only honest way to show another tree, exactly as the folder check says.
-			liveStream.addEventListener("moved", function () {
-				window.location.reload();
-			});
-			liveStream.addEventListener("error", function () {
-				setLiveTone("danger", "offline");
-				// A stream that is gone is where this page stops being true, and a reload is the
-				// one action a reader has: offer it rather than only naming the state.
-				showLiveReload();
-			});
-			window.addEventListener("pagehide", function () {
-				liveStream.close();
-				window.clearTimeout(liveStale);
-				window.clearInterval(liveDirTimer);
-			});
-			if (liveDir !== null && liveDirRev && liveReload) {
-				liveDirTimer = window.setInterval(checkLiveDir, liveInterval);
 			}
+		});
+		window.addEventListener("pagehide", function () {
+			liveLink.close();
+			window.clearTimeout(liveStale);
+			window.clearInterval(liveDirTimer);
+		});
+		if (liveDir !== null && liveDirRev && liveReload) {
+			liveDirTimer = window.setInterval(checkLiveDir, liveInterval);
 		}
 	}
 `;

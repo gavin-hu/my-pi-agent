@@ -1,13 +1,16 @@
 /**
- * The browser runtime both page clients splice into their bundles: the element builder,
- * the "is the user typing?" test, the status line, and the JSON POST.
+ * The browser runtime the three page clients splice into their bundles: the element builder,
+ * the "is the user typing?" test, the status line, the live chip's painter, the JSON POST,
+ * and the event-stream client.
  *
- * Two surfaces had written each of these for themselves, and because a bundle is a
+ * Surfaces had written each of these for themselves, and because a bundle is a
  * template literal no type checker and no AST scan ever compared them: the plan's
  * `el(tag, className)` and the board's `el(tag, className, text)` were two builders, and
- * the plan's `typing` compared `INPUT` where the board's lowercased the tag. Both are
- * now one body, written here as real TypeScript, and each client carries the *source*
- * (`CLIENT_RUNTIME_JS`) the same way it carries `plural` and the class table.
+ * the plan's `typing` compared `INPUT` where the board's lowercased the tag. The stream was
+ * the worst of them, with three state machines that disagreed about what a dropped
+ * connection means. Each is now one body, written here as real TypeScript, and each client
+ * carries the *source* (`CLIENT_RUNTIME_JS`) the same way it carries `plural` and the class
+ * table.
  *
  * The functions are plain JavaScript on purpose: their text is spliced into a bundle, so
  * no annotation may survive into the string and no backtick or `${` may appear in a body.
@@ -47,6 +50,49 @@ export interface ClientNode {
 /** What `document.createElement` has to answer for these helpers. */
 interface RuntimeDocument {
 	createElement(tag: string): ClientNode;
+}
+
+/** One frame off a stream, as a listener reads it: the event's name and the server's text. */
+export interface StreamEvent {
+	type: string;
+	data?: string;
+}
+
+/** The part of an `EventSource` the stream client uses, and the whole of what it needs. */
+interface EventStream {
+	onopen: ((event: StreamEvent) => void) | null;
+	onerror: ((event: StreamEvent) => void) | null;
+	onmessage: ((event: StreamEvent) => void) | null;
+	addEventListener(name: string, listener: (event: StreamEvent) => void): void;
+	close(): void;
+}
+
+/** The states a served page's stream may be in: the one list of them. */
+export type LiveState = "connecting" | "live" | "reconnecting" | "dead";
+
+/** What a page tells its stream: where to listen, what a state says, and what a frame is. */
+export interface LiveStreamOptions {
+	/** Where the stream is served, prefix and token included. */
+	url: string;
+	/** Named frames the page wants beside the default `message`. */
+	events?: readonly string[];
+	/**
+	 * Failed connects in a row before the stream is dead.
+	 *
+	 * The browser retries an `EventSource` by itself, so a count is the only thing a page
+	 * has to say which retry is no longer a blip. Defaults to three.
+	 */
+	attempts?: number;
+	/** Paint one state in the page's own words: the chip's tone, its word, and its hover. */
+	words(state: LiveState): void;
+	/** One frame arrived, named or not. */
+	frame(event: StreamEvent): void;
+}
+
+/** A running stream: the page's one way to end it. */
+export interface LiveStream {
+	/** Stop listening. A late state is never painted, and the socket is released. */
+	close(): void;
 }
 
 /**
@@ -105,6 +151,85 @@ export function paintLive(node: ClientNode, tone: string, label: string, title?:
 	if (text) text.textContent = label;
 }
 
+/**
+ * Follow one event stream: connecting, live, reconnecting, or dead.
+ *
+ * A live page is one of three surfaces, and each had written its own answer to "the stream
+ * errored" — one said reconnecting forever, one said offline on the first blip, and the
+ * review's kept a settled state while dropping the connection. The states are the same on
+ * all three, so they are decided once, here:
+ *
+ * - `connecting` — no stream has opened yet;
+ * - `live` — it is open, which a frame proves as well as an open event;
+ * - `reconnecting` — it was live and the connection went, and the browser is retrying;
+ * - `dead` — it has failed `attempts` times in a row without opening, so the page it drew
+ *   can no longer be trusted.
+ *
+ * What each state *says* is the page's: the board's word carries the frame's age, browse's
+ * hover the server's own accounting, the review's its comment count and a settled state.
+ * So `words` paints, and this owns the transitions and nothing else. A page with no
+ * `EventSource` gets a handle that closes and paints nothing, which leaves its document as
+ * the server drew it.
+ */
+export function liveStream(options: LiveStreamOptions): LiveStream {
+	// Cast for the same reason as `el`: this project compiles without a DOM lib, so the cast
+	// names the guarantee the page makes — it is a browser, and it has one.
+	const Source = (globalThis as unknown as { EventSource?: new (url: string) => EventStream }).EventSource;
+	const attempts = options.attempts === undefined ? 3 : options.attempts;
+	const names = options.events === undefined ? [] : options.events;
+	let state: LiveState = "connecting";
+	let misses = 0;
+	let ended = false;
+	let source: EventStream | null = null;
+
+	function paint(next: LiveState): void {
+		if (ended || next === state) return;
+		state = next;
+		options.words(next);
+	}
+
+	function close(): void {
+		ended = true;
+		if (source === null) return;
+		source.close();
+		source = null;
+	}
+
+	/** A failed connect or reconnect attempt: one error is a blip, `attempts` of them is not. */
+	function failed(): void {
+		if (ended) return;
+		misses = misses + 1;
+		if (misses >= attempts) paint("dead");
+		else if (state === "live" || state === "reconnecting") paint("reconnecting");
+	}
+
+	function arrived(event: StreamEvent): void {
+		if (ended) return;
+		misses = 0;
+		paint("live");
+		options.frame(event);
+	}
+
+	try {
+		source = Source === undefined ? null : new Source(options.url);
+	} catch {
+		// A URL the page cannot open is not a stream that may come back.
+		paint("dead");
+		return { close: close };
+	}
+	if (source === null) return { close: close };
+	const stream = source;
+	stream.onopen = function () {
+		if (ended) return;
+		misses = 0;
+		paint("live");
+	};
+	stream.onerror = failed;
+	stream.onmessage = arrived;
+	for (const name of names) stream.addEventListener(name, arrived);
+	return { close: close };
+}
+
 /** One answer from the server: whether it accepted, its status, and its parsed body. */
 interface PostResult {
 	ok: boolean;
@@ -158,8 +283,8 @@ export function pageBase(): string {
 export const CLIENT_BASE_JS = String(pageBase);
 
 /**
- * The runtime, as a bundle receives it: the four bodies, in the order a client reads them.
+ * The runtime, as a bundle receives it: the six bodies, in the order a client reads them.
  *
  * `test` holds each to its module body and proves the string is safe to splice.
  */
-export const CLIENT_RUNTIME_JS = [el, typing, paintStatus, paintLive, postJson].map(String).join("\n\n");
+export const CLIENT_RUNTIME_JS = [el, typing, paintStatus, paintLive, postJson, liveStream].map(String).join("\n\n");

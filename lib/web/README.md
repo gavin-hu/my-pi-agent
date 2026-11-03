@@ -30,7 +30,7 @@ string, so the plan's `el(tag, className)` and the board's `el(tag, className, t
 two builders, and the plan compared `INPUT` where the board lowercased the tag.
 
 `client-runtime.ts` holds one body of each, as ordinary TypeScript, and exports
-`CLIENT_RUNTIME_JS` — the five functions as source, in the order a client reads them. A
+`CLIENT_RUNTIME_JS` — the six functions as source, in the order a client reads them. A
 page carries it the way it carries `plural` and its class table: the source crosses the
 boundary, and the page runs the function instead of a copy of it.
 
@@ -43,6 +43,14 @@ the `bf-status--<tone>` class; `paintLive` owns the live chip's tone modifier, i
 and its tooltip — and the board composes `live · 3m` while browse puts the stream's own
 `up 2m 14s · 37 requests` in the hover. A shared runtime that also decided the wording
 would be a second copy of the page's voice.
+
+`liveStream` draws that same line for the stream itself: one state machine, the page's
+words. `connecting` is a stream that has not opened; `live` is one that has, which a frame
+proves as well as an open event; `reconnecting` is a live one whose connection went while
+the browser retries by itself; and `dead` is `attempts` failures in a row with no opening
+between them — the one state a page answers with its `⟳ reload`. Counting attempts rather
+than starting a clock is what makes a blip a word and not a reload, and a stream that never
+comes back stops reading as `reconnecting` forever.
 
 ## One toolbar, one bar, one footer
 
