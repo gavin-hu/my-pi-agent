@@ -45,11 +45,12 @@ rule that a value is a path.
 
 ## Screenshots
 
-`assets/` holds three directories, one per thing that writes them: `screens/`
+`assets/` holds four directories, one per thing that writes them: `screens/`
 every captured frame — the terminal surfaces, the browser pages, and the tool
-gallery — `cards/` the four posting posters with their stylesheet, and
-`tools/` the one-PNG-per-tool files. A file belongs where its writer puts it,
-which is also the command in the table above that regenerates it.
+gallery — `cards/` the five posting posters with their stylesheet, `tools/` the
+one-PNG-per-tool files, and `video/` the montage `capture:video` encodes from six
+of those frames. A file belongs where its writer puts it, which is also the
+command in the table above that regenerates it.
 
 `bun run capture:screens` captures the terminal surfaces and the `chrome.png` hero on
 macOS: each frame is drawn by the shipped component with the `bytefly-dark`
