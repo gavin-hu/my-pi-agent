@@ -233,7 +233,7 @@ export function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = 
 		saveState: (state) => saved.push(state),
 		createClient: () => client,
 		acquireLock: () => true,
-		refreshLock: () => {},
+		refreshLock: () => true,
 		releaseLock: () => {
 			released.count += 1;
 		},

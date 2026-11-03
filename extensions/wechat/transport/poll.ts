@@ -4,8 +4,8 @@
  * Weixin holds a `getupdates` request for a server-chosen duration; the loop
  * feeds every returned message to the bridge, advances the stored cursor, and
  * keeps the poller lock fresh. A wedged request is retried at once with the same
- * cursor (nothing is skipped), a transport error backs off, and an expired token
- * stops the loop.
+ * cursor (nothing is skipped), a transport error backs off, an expired token
+ * stops the loop, and an account another live session has taken over stops it too.
  */
 
 import type { BotCredentials, WeixinMessage } from "../types.ts";
@@ -44,6 +44,11 @@ export interface PollDeps {
 	/** The token expired; the bridge clears its running state and reports it. */
 	onExpired: () => void;
 	onMessages: (messages: WeixinMessage[]) => void;
+	/**
+	 * Re-stamp the lock at the top of every attempt. It is also the ownership check: a
+	 * bridge whose lock another live session took stops the connection here, which the
+	 * `isRunning` question that follows reads as "no longer ours".
+	 */
 	refreshLock: () => void;
 	isRunning: () => boolean;
 	now: () => number;
@@ -70,6 +75,13 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 			let timeoutNotified = false;
 			let rejectedNotified = false;
 			while (deps.isRunning() && !signal.aborted) {
+				// Before the request, not after the answer: an account another live session has
+				// taken over is not ours to read, and applying a response under a second cursor
+				// is what answers the same peer twice. The stamp is the check, and a bridge
+				// that finds the lock gone stops the connection while it runs, so this asks the
+				// state again instead of sending a request nothing will use.
+				deps.refreshLock();
+				if (!deps.isRunning()) return;
 				const client = deps.client();
 				const account = deps.account();
 				if (!client || !account) break;
@@ -144,7 +156,6 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 					deps.saveState();
 				}
 				deps.onMessages(response.msgs);
-				deps.refreshLock();
 				deps.onPoll?.({ at: deps.now(), holdMs: hint !== undefined && hint.hold === hold ? hint.timeoutMs : hold });
 			}
 		},

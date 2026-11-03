@@ -1310,7 +1310,7 @@ describe("poll loop", () => {
 		await waitFor(() => sent.messages.length === 1);
 		expect(sent.cursor()).toBe("c2");
 		expect(sent.saves()).toBe(1);
-		expect(sent.refreshes()).toBe(1);
+		expect(sent.refreshes()).toBeGreaterThanOrEqual(1);
 		expect(sent.polls.at(-1)).toEqual({ at: 1000, holdMs: 5400 });
 		sent.abort();
 		await sent.done;

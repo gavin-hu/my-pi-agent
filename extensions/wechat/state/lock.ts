@@ -76,7 +76,7 @@ function blocks(info: LockInfo | undefined, deps: LockDeps): boolean {
 	return deps.isAlive(info.pid);
 }
 
-/** Whether two reads are the same record, so a clean-up can leave a replaced one alone. */
+/** Whether two reads are the same record, so a clean-up leaves a replaced one alone. */
 function sameLock(a: LockInfo | undefined, b: LockInfo | undefined): boolean {
 	if (a === undefined || b === undefined) return a === b;
 	return a.pid === b.pid && a.at === b.at;
@@ -108,9 +108,12 @@ export function acquireLock(path: string, deps: LockDeps): boolean {
 		// corrupt, or own one is cleared so that the next create can decide.
 		const seen = readLock(path);
 		if (blocks(seen, deps)) return false;
-		// Only the record this attempt judged is removed. A rival that replaced it
-		// meanwhile owns a different one, and deleting that would leave the account
-		// to nobody — so the next attempt re-reads it instead.
+		// The delete is not conditional on that record: the check narrows the window to
+		// one read, and the unlink after it removes whatever is at the path by then, so
+		// a rival that replaced the file in between loses the record it just wrote.
+		// Nothing is handed to nobody for long — the next create is still the decision,
+		// and a rival whose record this removed finds the lock gone on its own next
+		// refresh and stops polling rather than sharing the account.
 		if (!sameLock(readLock(path), seen)) continue;
 		// Clearing the way only pays on an attempt that can still create: the last one
 		// must leave the stale record in place rather than hand the account to nobody.
@@ -131,15 +134,18 @@ export function acquireLock(path: string, deps: LockDeps): boolean {
  * The new record lands by rename, so the file is never empty on the way: a plain
  * truncating write leaves a moment with no record at all, and a rival that reads it
  * then takes a live lock's file for a stale one and claims the account beside us.
+ *
+ * Answers whether this process holds the lock afterwards: a released or stale lock is
+ * taken back and says `true`, and a live record another pid owns is the one answer of
+ * `false` — the account is theirs now, and a caller that kept polling would read a
+ * second cursor and answer their peers twice.
  */
-export function refreshLock(path: string, deps: LockDeps): void {
-	if (readLock(path)?.pid !== deps.pid) {
-		acquireLock(path, deps);
-		return;
-	}
+export function refreshLock(path: string, deps: LockDeps): boolean {
+	if (readLock(path)?.pid !== deps.pid) return acquireLock(path, deps);
 	const temp = `${path}.${process.pid}.tmp`;
 	writeFileSync(temp, stamp(deps), "utf-8");
 	renameSync(temp, path);
+	return true;
 }
 
 /** Release the lock if this process owns it. */

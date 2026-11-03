@@ -131,18 +131,18 @@ describe("poller lock", () => {
 	test("refresh re-stamps its own record by rename, leaving no temp file", () => {
 		const path = newPath();
 		acquireLock(path, lockDeps());
-		refreshLock(path, lockDeps({ now: () => 1500 }));
+		expect(refreshLock(path, lockDeps({ now: () => 1500 }))).toBe(true);
 		expect(readLock(path)).toEqual({ pid: 1, at: 1500 });
 		expect(readdirSync(dirname(path))).toEqual(["poller.lock"]);
 	});
 
-	test("a refresh does not overwrite a record a takeover replaced", () => {
+	test("a refresh does not overwrite a record a takeover replaced, and says it lost", () => {
 		const path = newPath();
 		acquireLock(path, lockDeps());
 		// pid 2 took the account over while this process was quiet; its record is live
 		// (50 ms old against a 100 ms bar, so the staleness branch is not what decides).
 		writeFileSync(path, JSON.stringify({ pid: 2, at: 1250 }), "utf-8");
-		refreshLock(path, lockDeps({ now: () => 1300 }));
+		expect(refreshLock(path, lockDeps({ now: () => 1300 }))).toBe(false);
 		expect(readLock(path)).toEqual({ pid: 2, at: 1250 });
 	});
 
@@ -150,7 +150,7 @@ describe("poller lock", () => {
 		const path = newPath();
 		acquireLock(path, lockDeps());
 		releaseLock(path, 1);
-		refreshLock(path, lockDeps({ now: () => 1400 }));
+		expect(refreshLock(path, lockDeps({ now: () => 1400 }))).toBe(true);
 		expect(readLock(path)).toEqual({ pid: 1, at: 1400 });
 	});
 });
