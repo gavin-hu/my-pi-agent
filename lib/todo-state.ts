@@ -20,6 +20,7 @@
 
 import { sanitizeLine } from "./format.ts";
 import { TODO_TOOL } from "./tool-names.ts";
+import { toolResultDetails } from "./tool-result.ts";
 
 /** Statuses a todo item may carry. */
 export const TODO_STATUSES = ["pending", "in_progress", "completed"] as const;
@@ -40,16 +41,6 @@ export interface ExistingTodo {
 	status: TodoStatus;
 	/** Present-continuous label the todo tool requires for an in-progress item. */
 	activeForm?: string;
-}
-
-/** Minimal shape of a session entry, used for runtime narrowing. */
-interface BranchEntryLike {
-	type?: string;
-	message?: {
-		role?: string;
-		toolName?: string;
-		details?: unknown;
-	};
 }
 
 const STATUS_SET: ReadonlySet<string> = new Set(TODO_STATUSES);
@@ -132,13 +123,8 @@ export function normalizeTodos(raw: unknown, options: NormalizeOptions = {}): Ex
 export function lastTodos(entries: Iterable<unknown>): ExistingTodo[] {
 	let todos: ExistingTodo[] = [];
 	for (const raw of entries) {
-		const entry = raw as BranchEntryLike;
-		if (entry?.type !== "message") continue;
-		const message = entry.message;
-		if (message?.role !== "toolResult" || message.toolName !== TODO_TOOL) continue;
-		const details = message.details as { todos?: unknown; error?: unknown } | undefined;
-		if (!details || details.error) continue;
-		if (!Array.isArray(details.todos)) continue;
+		const details = toolResultDetails(raw, TODO_TOOL);
+		if (!details || !Array.isArray(details.todos)) continue;
 		try {
 			todos = normalizeTodos(details.todos, { requireActiveForm: false });
 		} catch {

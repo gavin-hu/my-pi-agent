@@ -23,6 +23,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `lib`: a published-state replay ignores a branch entry whose tool-result `details` is not a record
+  instead of throwing on it — `lastGoal` threw a `TypeError` on a tampered session file, so a `plan`
+  command reading the goal crashed rather than reading no goal. `lib/tool-result.ts` now owns the one
+  scan behind `lastGoal` and `lastTodos` (the entry shape, the tool-result match, and the rejected
+  call that is not a write), so the two replays cannot grow an arm the other lacks.
 - `lib`: a summary that could not keep every cell now says so — `fitCells` ends the line with a `…`,
   reserved before the kept prefix is fitted and separated from it only when that costs no cell. A
   narrow dock summary or bytefly panel counts line no longer reads as the whole summary when the

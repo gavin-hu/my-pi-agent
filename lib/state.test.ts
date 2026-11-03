@@ -71,6 +71,7 @@ describe("lastGoal", () => {
 			goalResult({ objective: 42, status: "active" }),
 			goalResult({ objective: "bad status", status: "doing" }),
 			goalResult(null, "no goal"),
+			{ type: "message", message: { role: "toolResult", toolName: GOAL_TOOL, details: "not a record" } },
 			{ type: "custom", customType: GOAL_ENTRY_TYPE, data: {} },
 			{ type: "message", message: { role: "user", content: "hi" } },
 		];
@@ -282,6 +283,7 @@ describe("lastTodos", () => {
 			todoResult(kept),
 			todoResult("not a list"),
 			{ type: "message", message: { role: "toolResult", toolName: TODO_TOOL, details: null } },
+			{ type: "message", message: { role: "toolResult", toolName: TODO_TOOL, details: "not a record" } },
 		];
 		expect(lastTodos(entries)).toEqual(kept);
 	});
