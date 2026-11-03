@@ -114,11 +114,16 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 		name: "session-name",
 		tool: "session",
 		group: "package",
-		label: "a session naming itself",
-		args: { action: "name", label: "billing-lead" },
+		label: "a session joining the bus, naming itself",
+		args: { action: "join", label: "billing-lead" },
 		result: {
-			content: [{ type: "text", text: 'This session is now named "billing-lead".' }],
-			details: { action: "name", label: "billing-lead" },
+			content: [
+				{
+					type: "text",
+					text: 'On the bus as "billing-lead", listening: new messages appear at your next turn.',
+				},
+			],
+			details: { action: "join", label: "billing-lead", watching: { armed: true, wake: false } },
 		},
 	},
 	{

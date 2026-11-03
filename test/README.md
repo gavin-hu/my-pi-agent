@@ -120,7 +120,10 @@ gate is stated in the test.
    same line array — the deterministic half of the render-cache contract, since
    a renderer that rebuilds its lines every frame is correct but slow. The
    states it covers are the ones a row really renders: streaming arguments, a
-   settled call, and a collapsed, expanded, or partial result.
+   settled call, and a collapsed, expanded, or partial result. Its result
+   payloads are the gallery's fixtures, drawn collapsed and expanded, so a
+   result a tool really produces is bounded rather than a stand-in built in the
+   test.
    `dependencies.test.ts` walks each extension entrypoint's static import graph
    through the TypeScript AST and fails when one of `package.json`'s
    `dependencies` loads at registration; a dynamic `import()` ends the walk,

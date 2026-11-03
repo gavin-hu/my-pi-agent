@@ -7,10 +7,14 @@
  * they all share, because bytefly frames every tool block: a line that overflows
  * its width pushes the rail, an unsanitized message reaches the terminal, and a
  * frame that re-derives every block per render makes a long transcript slow.
- * Registration only — no session hook runs, so nothing touches disk or network.
+ * The result payloads are the gallery's fixtures, so a block is drawn from the
+ * result a tool really produces rather than a stand-in built here.
+ * Registration only — no session hook runs, so no session state, store, or
+ * network is touched.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { initTheme } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ToolCallText } from "../lib/tui/tool.ts";
 import board from "../extensions/board/index.ts";
@@ -28,11 +32,19 @@ import todo from "../extensions/todo/index.ts";
 import watch from "../extensions/watch/index.ts";
 import webAccess from "../extensions/web-access/index.ts";
 import wechat from "../extensions/wechat/index.ts";
+import { FIXTURES, type ToolFixture } from "../scripts/tools/fixtures/index.ts";
 import { createFakePi, fakeTheme } from "./helpers/fakes.ts";
 import { ALL_EXTENSIONS_ENV, useEnv } from "./helpers/env.ts";
 
 /** Every tool here is rendered, so the fake session loads the whole pack. */
 const env = useEnv(ALL_EXTENSIONS_ENV);
+
+/**
+ * The process theme an expanded subagent block draws with: it renders Pi's
+ * Markdown, which reads the theme a session initializes and no renderer can be
+ * handed. A width assertion strips the colour, so the system palette is enough.
+ */
+initTheme();
 
 afterAll(() => env.restore());
 
@@ -124,6 +136,52 @@ describe("tool render contract", () => {
 					expect(lines, `${name} call wrapped at ${width}`).toHaveLength(component.text.split("\n").length);
 				}
 				expectBounded(lines, width, `${name} call at ${width}`);
+			}
+		}
+	});
+
+	/**
+	 * One fixture's result as the transcript draws it: the same payload, with the
+	 * collapse lifted for the expanded pass so the rows and the `N more` hint a
+	 * collapsed block hides are drawn too.
+	 */
+	function drawResult(tool: any, fixture: ToolFixture, expanded: boolean, width: number): string[] {
+		const isPartial = fixture.options?.isPartial ?? false;
+		const component = tool.renderResult(
+			fixture.result,
+			{ expanded, isPartial },
+			fakeTheme,
+			context({
+				args: fixture.args ?? {},
+				expanded,
+				isPartial,
+				isError: fixture.result?.isError === true,
+				durationMs: fixture.options?.durationMs,
+			}),
+		);
+		return component.render(width);
+	}
+
+	test("every fixture result draws bounded, control-free lines at every width", () => {
+		const tools = registeredTools();
+		for (const fixture of FIXTURES) {
+			if (fixture.group !== "package" || fixture.result === undefined) continue;
+			// A variant fixture (`web_fetch-rejected`) renders the real tool's renderer;
+			// its own name is only the gallery label. A fixture whose tool this pack does
+			// not register here (`worktree`, `open_path`) is the generic fallback's.
+			const tool = tools.get(fixture.tool ?? fixture.name);
+			if (typeof tool?.renderResult !== "function") continue;
+			for (const width of WIDTHS) {
+				const collapsed = drawResult(tool, fixture, false, width);
+				expect(collapsed, `${fixture.name} result drew nothing at ${width}`).not.toHaveLength(0);
+				expectBounded(collapsed, width, `${fixture.name} result at ${width}`);
+				const expanded = drawResult(tool, fixture, true, width);
+				expectBounded(expanded, width, `${fixture.name} expanded result at ${width}`);
+				// Expanding lifts a collapse, it never sheds a row: a tool that hides
+				// lines collapsed draws them here, and one with nothing hidden draws the same.
+				expect(expanded.length, `${fixture.name} expanded to fewer lines at ${width}`).toBeGreaterThanOrEqual(
+					collapsed.length,
+				);
 			}
 		}
 	});
