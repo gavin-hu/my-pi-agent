@@ -11,7 +11,7 @@ bun run check                    # check:format + check:types + every test (the 
 bun run check --changed          # the same, narrowed to the tests this change reaches
 bun run check:tests --ext board  # one extension's suites, no static half
 bun run check:tests --slow       # the gated git suites
-bun test <path>                  # one file or directory, straight to bun (5s default budget)
+bun test <path>                  # one file or directory, straight to bun, same case budget
 ```
 
 A scope is a flag on the two entry scripts (`--ext`, `--lib`, `--root`, `--slow`,
@@ -19,15 +19,26 @@ A scope is a flag on the two entry scripts (`--ext`, `--lib`, `--root`, `--slow`
 [`../docs/development.md#scoped-runs`](../docs/development.md#scoped-runs) says
 which one a change needs.
 
+One case budget reaches both invocations. `helpers/budget.ts` states
+`CASE_BUDGET_MS`; `helpers/preload.ts` hands it to every case with
+`setDefaultTimeout`, and `scripts/check.ts` passes it as `--timeout`, which is the
+only form that reaches hooks. So a case is budgeted the same under `bun test
+<path>` and `bun run check` — the old 5 s default is why one suite used to pass
+under the gate and fail on its own. The spawn watchdog is that budget less the
+margin a failure needs to report in, so a starved `git` call or shell names
+itself just before the case gives up rather than after. Raising one number raises
+all of them.
+
 A suite that boots a browser states its hooks' budget — `}, 30_000);` on its
-`beforeAll`/`afterAll` — because that is the one setup that needs longer than
-bun's five-second hook default: a temp store, a seeded board, a loopback socket,
-and Chromium. Without it the suite is dropped whole when it is run as `bun test
-<path>`, and every case under it goes with it; `bun run check` is safe either way,
-because the script's `--timeout` reaches hooks. `test/wait-budget.test.ts` names
-the browser suites in one list and fails a hook that states no budget, or one
-under ten seconds, and fails the list when an entry is gone or no longer shows a
-boot call.
+`beforeAll`/`afterAll` — because `setDefaultTimeout` does not reach a hook, and
+that setup needs longer than bun's five-second hook default: a temp store, a
+seeded board, a loopback socket, and Chromium. Without it the suite is dropped
+whole when it is run as `bun test <path>`, and every case under it goes with it.
+`test/wait-budget.test.ts` names the browser suites in one list and fails a hook
+that states no budget, or one under ten seconds, and fails the list when an entry
+is gone or no longer shows a boot call. It holds the clocks too: the watchdog
+leaves its case room to report, and a case that states a budget names a constant
+rather than writing a number.
 
 The always-on model-facing prompt size is budgeted. `test/prompt-budget.test.ts`
 covers the pure per-turn injected-context builders, which are re-injected every
@@ -39,10 +50,10 @@ own worker process and `process.env` edits in one file cannot leak into another.
 capped at four so the git-heavy worktree and rewind suites are not starved, and
 `bun run check` takes the same number from `scripts/check.ts` — it is also what
 held: at seven workers on a loaded box a 100 ms timer measured at 263 ms and
-`job`'s shell-exit budget passed 25 s, so the cap is a measurement, not a habit. The
-script's `--timeout 30000` is a *test* budget and reaches a hook too, which is
-why a browser suite's own statement is the thing that makes it independent of
-how it was invoked.
+`job`'s shell-exit wait passed 25 s, so the cap is a measurement, not a habit. The
+script's `--timeout` is the case budget and reaches a hook too, which is why a
+browser suite's own statement is the thing that makes it independent of how it was
+invoked.
 
 `bun run check` runs its three phases **at once** rather than in a chain, so the
 gate costs what its longest phase costs. On an 8-core machine, measured while
@@ -59,17 +70,19 @@ is exported. A local `bun run check` therefore stays fast while CI keeps the
 coverage. Run them locally with `bun run check:tests --slow` (the derived list of gated
 suites, with the gate on) or `PI_SLOW_TESTS=1 bun test <path>`; a new slow suite opts in with
 `describe.skipIf(!runSlowSuites)("...", () => { ... })`.
-CI runs the macOS job through `bun run check --serial` instead: a `--parallel`
-worker on macOS can drop the subprocess exit notification for its first spawn
+CI runs the Linux and macOS jobs through `bun run check --serial` instead: a
+`--parallel` worker can drop the subprocess exit notification for its first spawn
 (`oven-sh/bun#41024`, `#39709`) and hang the first git-using test of a file until
-its timeout, which showed up as a rotating red macOS job. Use `bun run
-check --serial` to reproduce that shape locally.
+the case's budget runs out, which showed up as a rotating red macOS job and as a
+33-minute park on ubuntu (run 41560292494). Windows keeps the parallel path, so
+it stays covered daily. Use `bun run check --serial` to reproduce that shape
+locally.
 
 **A parallel timeout on a busy machine is not a regression until a serial run says
-so.** The budgets here are deliberately generous — `waitFor` 2 s, the job exit-trap
-shell 10 s, `EXEC_WATCHDOG_MS` 20 s — and the whole suite still passes at load ~52
-on an 8-core box under eight busy loops (6905 pass, 86 s against 30 s idle), so a
-wait that expires there is much likelier to be contention than a bug. The failure
+so.** The budgets here are deliberately generous — `waitFor` 2 s, one 60 s case
+budget, a 55 s spawn watchdog — and the whole suite still passes at load ~52 on an
+8-core box under eight busy loops (6905 pass, 86 s against 30 s idle), so a wait
+that expires there is much likelier to be contention than a bug. The failure
 says so itself: `waitFor` and the spawn watchdog both end with
 `PARALLEL_HAZARD_HINT` (`helpers/wait-site.ts`), which names `bun run check --serial`
 — the shape macOS CI runs — as the confirmation. Re-running the same parallel check
@@ -229,11 +242,11 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
 - The one real-process exception is the job exit-trap suite: it runs a POSIX
   shell to exercise shell `EXIT`-trap semantics, with fixed commands and exit
   codes, and is skipped on Windows. A child is the one thing `settle()` cannot
-  drain, so both of its waits are bounded with `waitFor`: the shell's exit at
-  10 s, which reports "the shell did not exit within 10000ms", and the status
-  file the trap writes as the shell exits, which lands after the child's `close`
-  (2 s). An unbounded wait there is what a rotating `--parallel` failure looked
-  like — a 30 s timeout on the test, with no reason in it.
+  drain, so both of its waits are bounded with `waitFor`: the shell's exit at the
+  run's spawn watchdog, which reports "the shell did not exit within 55000ms", and
+  the status file the trap writes as the shell exits, which lands after the
+  child's `close` (2 s). An unbounded wait there is what a rotating `--parallel`
+  failure looked like — a timeout on the test, with no reason in it.
 - `PI_CODING_AGENT_DIR` is touched only through `helpers/env.ts`
   (`useAgentDir` / `withAgentDir`).
 

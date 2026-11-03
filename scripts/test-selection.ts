@@ -14,7 +14,7 @@
 
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { resolveFile, staticGraph, staticSpecifiers } from "../test/helpers/graph.ts";
+import { cachedSpecifiers, resolveFile, staticGraph, staticSpecifiers } from "../test/helpers/graph.ts";
 import { EXTENSION_SUITES, LIB_SUITES, SCRIPT_SUITES, declaredSuiteFiles } from "../test/suite-manifest.ts";
 
 /** What a scope resolved to, and one line per group that put a file in it. */
@@ -95,8 +95,11 @@ function suitesOfRegion(region: string): string[] {
 /** Every declared suite, by the repo-relative files its static imports reach. */
 export function reachIndex(root: string): Map<string, string[]> {
 	const index = new Map<string, string[]>();
+	// One reader for the walk: every declared suite reaches the same shared modules, and each read
+	// is a parse, so an index costs one parse per file rather than one per entry that reaches it.
+	const read = cachedSpecifiers();
 	for (const suite of declaredSuiteFiles()) {
-		for (const file of staticGraph(join(root, suite))) {
+		for (const file of staticGraph(join(root, suite), read)) {
 			const relative = relativeTo(root, file);
 			if (relative.startsWith("..")) continue;
 			const suites = index.get(relative);

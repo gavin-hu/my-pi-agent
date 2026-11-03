@@ -439,7 +439,7 @@ neither is repeated here.
 | `bytefly`: five notify triggers fire per event rather than per unseen event | A notification is a nudge, not a state; the footer chip is the state. |
 | `session-bus`: a message file that does not parse is dropped | A message is written as a temp file and hard-linked into place, so this needs disk corruption; keeping it would leave an unreadable entry in every listing forever. |
 | `session-bus`: a claim cannot see branch divergence | Claims say who is where, not what will merge; a rebase on the baseline still decides. |
-| CI: macOS runs the suite serially while Windows and Linux use `--parallel=4` | Two open Bun bugs (`oven-sh/bun#41024`, `#39709`; a related one, `#45483`) can park a `--parallel` worker on macOS after its first subprocess spawn, which hangs a git-using test instead of failing it. Still open against Bun 1.4.3; revisit when both close, then drop `--serial` from the matrix. |
+| CI: Linux and macOS run the suite serially while Windows uses `--parallel=4` | Two open Bun bugs (`oven-sh/bun#41024`, `#39709`; a related one, `#45483`) can park a `--parallel` worker after its first subprocess spawn, which hangs a git-using test instead of failing it — the 33-minute park on ubuntu (run 41560292494) is that bug, not a macOS one. Still open against Bun 1.4.3; Windows keeps the parallel path covered, and each job's `timeout-minutes` bounds a park from any other cause. Revisit when both close, then drop `--serial` from the matrix. |
 
 ## Explicit non-goals
 
@@ -473,8 +473,8 @@ reviewed against the tree at each release, and none of them is a checklist to ti
   worktree binding, and the rewind timeline — each a session entry or tool-result
   `details` rebuilt from `getBranch()`, pinned by its extension's tests.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git suites,
-  and the compat job names the newest Pi it passed against. macOS runs it serially until
-  the upstream hang is fixed.
+  and the compat job names the newest Pi it passed against. Linux and macOS run it serially,
+  and every job states a timeout, until the upstream hang is fixed.
 - A long-session benchmark stays within its budget — measured with `bun run bench:render`
   at each release.
 - A release is one reviewed command path with provenance, and the tag, changelog, and npm

@@ -22,6 +22,10 @@ jobs:
     # of the locked suite would prove nothing new. Push and PR cover `check`.
     if: github.event_name != 'schedule'
     runs-on: ${{ matrix.os }}
+    # A parked worker (see the serial note below) burns wall-clock until GitHub's six-hour default
+    # cancels it, which reads as a hung CI rather than a red one. Twenty minutes is far above a
+    # serial run of the suite and far below a park.
+    timeout-minutes: 20
     strategy:
       # Report every OS even if one fails, so a Windows-only regression is
       # visible without re-running the whole matrix.
@@ -46,19 +50,21 @@ jobs:
       # 1.4.3, the latest release: a --parallel worker can drop the subprocess
       # exit notification for its first spawn and park forever, so whichever
       # git-heavy test runs first burns its whole timeout and a different test
-      # does it on each run. A related report, #45483, was filed 2026-10-16. The
-      # macOS job runs the suite serially until that is fixed upstream; ubuntu
-      # and windows keep --parallel=4. `docs/architecture.md` carries the same gap,
-      # with the condition to revisit.
+      # does it on each run. A related report, #45483, was filed 2026-10-16. This
+      # is not a macOS bug: the ubuntu job parked for 33 minutes on run
+      # 41560292494 and passed in 68 s on re-dispatch, which is why the Linux job
+      # and the compat job below both run serially. Only Windows keeps
+      # --parallel=4, so the parallel path stays covered by a run every day.
+      # `docs/architecture.md` carries the same gap, with the condition to revisit.
       # The default shell per OS is intentional: forcing bash on Windows would
       # reintroduce Git-Bash path conversion, which is itself platform-specific.
       # format:check, typecheck, test
       - name: Run checks
-        if: matrix.os != 'macos-latest'
+        if: matrix.os == 'windows-latest'
         run: bun run check
 
       - name: Run checks (serial suite)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os != 'windows-latest'
         run: bun run check --serial
 
   # Proves the package against the newest published Pi, not the versions the
@@ -73,6 +79,9 @@ jobs:
     # against the weekly sweep, where it belongs.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # Same bound as the check matrix: a repository checkout with tags is not quick, and a park
+    # here would otherwise sit until GitHub's six-hour default.
+    timeout-minutes: 20
     steps:
       # `test/release.test.ts` compares the package version with the newest tag.
       - uses: actions/checkout@v4
@@ -104,7 +113,7 @@ jobs:
       - name: Typecheck against the newest peers
         run: bun run check:types
 
-      # Serial, like the macOS check: a `--parallel` worker can drop the
+      # Serial, like the Linux and macOS checks: a `--parallel` worker can drop the
       # subprocess exit notification for its first spawn on a small runner
       # (oven-sh/bun#39709), which would fail this job for an unrelated reason.
       - name: Run the suite against the newest peers

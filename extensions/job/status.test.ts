@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { STATUS_ENV, readExitStatus, withExitTrap, LOG_ENV } from "./status.ts";
 import { waitFor } from "../../test/helpers/process.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
+import { SPAWN_WATCHDOG_MS } from "../../test/helpers/budget.ts";
 import { statusDir } from "../../test/helpers/fixtures/job.ts";
 
 const temps = makeTempTracker();
@@ -60,16 +61,12 @@ describe("job status files", () => {
 	const realShell = process.platform !== "win32";
 
 	/**
-	 * How long a real shell gets to exit before the test says it did not.
-	 *
-	 * A spawn can be starved for seconds while a machine's worth of test files run at once — the
-	 * hazard AGENTS.md names for `--parallel`, and the reason CI runs the suite serially — so the
-	 * wait is bounded here and reports that, instead of dying on the runner's own 30 s timeout with
-	 * a test name and no reason. The bound is measured, not guessed: at the gate's own worker count
-	 * (`scripts/check.ts`) a loaded box took longer than 10 s to exit this shell, so the budget sits
-	 * under the wrapper's 30 s and above what contention costs.
+	 * The same spawn watchdog every other spawned process gets (`../../test/helpers/budget.ts`):
+	 * a real shell can be starved for seconds while a machine's worth of test files run at once —
+	 * the hazard AGENTS.md names for `--parallel`, and the reason CI runs the suite serially — so
+	 * the wait is bounded and reports that, instead of dying on the case's own budget with a test
+	 * name and no reason in it.
 	 */
-	const SHELL_EXIT_MS = 25_000;
 	/** How long the trap's write gets to land: it runs as the shell exits, past `close`. */
 	const STATUS_LAND_MS = 2_000;
 
@@ -92,10 +89,10 @@ describe("job status files", () => {
 		try {
 			// `waitFor` is this suite's one clock; a spawn that never closes names itself
 			// here rather than at the runner's own timeout, which says only the test's name.
-			await waitFor(() => closed, SHELL_EXIT_MS);
+			await waitFor(() => closed, SPAWN_WATCHDOG_MS);
 		} catch {
 			child.kill("SIGKILL");
-			throw new Error(`the shell did not exit within ${SHELL_EXIT_MS}ms`);
+			throw new Error(`the shell did not exit within ${SPAWN_WATCHDOG_MS}ms`);
 		}
 		if (failure) throw failure;
 	}
