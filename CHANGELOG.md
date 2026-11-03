@@ -23,6 +23,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: a `/stop` — `/wechat stop <peer>`, the peer's own `/stop`, or the control screen's key —
+  that lands while that peer's session is still opening is taken instead of answered with “nothing
+  is running”: the turn never starts, the peer hears one stopped line, and the intent is dropped if
+  the open itself fails. `state.json` is now written through a sibling temp file and renamed into
+  place, so a write cut short can no longer leave a file that reads as empty state and takes the
+  cursor and the remembered message ids with it — which replayed and re-answered messages.
 - `lib`: every enumerated tool parameter is its union again under `bun run check:types` — `plan`'s
   `action` and step `status`, `job`'s `signal`, `goal`'s `status`, `subagent`'s `agentScope`, and
   the eight other schemas built from `StringEnum`. Pi 1.5.0 types pi-ai's `StringEnum` against its

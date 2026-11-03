@@ -72,7 +72,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/web-access/search/search.test.ts": 975,
 	"extensions/wechat/bridge.test.ts": 1403,
 	"extensions/wechat/commands/commands.test.ts": 1569,
-	"extensions/wechat/peer/peer.test.ts": 1681,
+	"extensions/wechat/peer/peer.test.ts": 1644,
 	"extensions/wechat/transport/client.test.ts": 945,
 	"extensions/wechat/view/status.test.ts": 702,
 	"extensions/worktree/flow.test.ts": 825,

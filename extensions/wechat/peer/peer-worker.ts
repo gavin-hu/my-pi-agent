@@ -94,7 +94,10 @@ export interface PeerSnapshot {
 export interface PeerWorker {
 	/** Queue one message; it is never merged into another. */
 	enqueue(item: PeerItem): void;
-	/** Stop the running turn for `peer`; false when nothing was running. */
+	/**
+	 * Stop the running turn for `peer`, including one whose session is still opening;
+	 * false when nothing was running.
+	 */
 	abort(peer: string): boolean;
 	/**
 	 * Drop the peer's conversation so the next message starts a fresh session.
@@ -253,6 +256,13 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			prefixed = true;
 			blocked = !(await deps.send(item, body));
 		};
+		// A stop that arrived while the session was opening: the prompt never runs, and the
+		// peer still hears it stopped, its attachment line included. Nothing is awaited
+		// between the open and this check, so a mark here is always one made while opening.
+		if (aborted.delete(item.peer)) {
+			if (!closed) await sendPart(deps.fallback(item, "stopped"));
+			return;
+		}
 		const pipeline = createReplyPipeline({
 			sendPart,
 			armTimer,
@@ -338,6 +348,9 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 					const opened = await sessionFor(peer, target);
 					await runTurn(item, opened);
 				} catch (error) {
+					// A stop marked while the open was in flight must not outlive it, or the
+					// peer's next turn would read as stopped before it started.
+					aborted.delete(peer);
 					deps.notify?.(`WeChat session failed for ${item.peer}: ${messageOf(error)}`, "error");
 					// A closing worker says one line of its own instead: the peer does not need
 					// two reasons, and the second send may well fail on the dying connection.
@@ -404,9 +417,11 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 
 		abort(peer: string): boolean {
 			const target = peers.get(peer);
-			if (!target?.running || !target.session) return false;
+			if (!target?.running) return false;
+			// The intent is recorded even before the session exists: `wake` acts on it as
+			// soon as the open settles, so a stop inside the opening window is not lost.
 			aborted.add(peer);
-			void target.session.session.abort();
+			void target.session?.session.abort();
 			return true;
 		},
 

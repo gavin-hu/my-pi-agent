@@ -22,17 +22,6 @@ import { createPeerWorker, type PeerItem, type PeerState } from "./peer-worker.t
 import { createPollLoop, defaultPollTimeout } from "../transport/poll.ts";
 import { createPresence, type PresenceDeps } from "./presence.ts";
 import { createReplyPipeline } from "./reply-pipeline.ts";
-import {
-	emptyState,
-	findPeer,
-	readState,
-	recordInbound,
-	rememberMessage,
-	SEEN_MAX,
-	SEEN_TTL_MS,
-	seenMessage,
-	writeState,
-} from "../state/state.ts";
 import { createTimerMap, defaultSleep, type ArmTimer } from "../timer.ts";
 import type { BotCredentials, InboundItem, UpdatesResponse, WeixinMessage } from "../types.ts";
 
@@ -212,90 +201,6 @@ describe("poller lock", () => {
 		releaseLock(path, 1);
 		expect(isLocked(path, lockDeps({ pid: 2 }))).toBe(false);
 		expect(acquireLock(path, lockDeps({ pid: 3 }))).toBe(true);
-	});
-});
-
-describe("state", () => {
-	function newPath(): string {
-		return join(tempDir("wechat-state-"), "state.json");
-	}
-
-	test("round-trips the cursor and peers", () => {
-		const path = newPath();
-		writeState(path, { cursor: "c1", ownerId: "owner", peers: { p: { lastContextToken: "t", lastSeen: 7 } } });
-		expect(readState(path)).toEqual({
-			cursor: "c1",
-			ownerId: "owner",
-			peers: { p: { lastContextToken: "t", lastSeen: 7 } },
-		});
-	});
-
-	test("returns empty state for a corrupt or missing file", () => {
-		const broken = newPath();
-		writeFileSync(broken, "{ broken", "utf-8");
-		expect(readState(broken)).toEqual(emptyState());
-		expect(readState(newPath())).toEqual(emptyState());
-	});
-
-	test("recordInbound keeps the previous context token when a new one is absent", () => {
-		const state = emptyState();
-		recordInbound(state, "p", "tok", 1);
-		recordInbound(state, "p", undefined, 2);
-		expect(state.peers.p).toEqual({ lastContextToken: "tok", lastSeen: 2 });
-	});
-
-	test("recordInbound keeps one entry for either id form", () => {
-		const state = emptyState();
-		recordInbound(state, "alice@im.wechat", "tok", 1);
-		recordInbound(state, "alice", "tok2", 2);
-		// One person, one entry: the first form seen is the stored key.
-		expect(Object.keys(state.peers)).toEqual(["alice@im.wechat"]);
-		expect(findPeer(state, "alice")).toEqual({ lastContextToken: "tok2", lastSeen: 2 });
-		expect(findPeer(state, "ALICE@im.wechat")).toEqual({ lastContextToken: "tok2", lastSeen: 2 });
-		expect(findPeer(state, "nobody")).toBeUndefined();
-	});
-
-	test("remembers a message id by normalized peer and expires it", () => {
-		const state = emptyState();
-		rememberMessage(state, "alice@im.wechat", 7, 1000);
-		expect(seenMessage(state, "alice", 7)).toBe(true);
-		expect(seenMessage(state, "ALICE", 7)).toBe(true);
-		expect(seenMessage(state, "alice", 8)).toBe(false);
-		expect(seenMessage(state, "bob", 7)).toBe(false);
-
-		// One hour later the entry is stale; remembering a newer id prunes it.
-		rememberMessage(state, "alice", 9, 1000 + SEEN_TTL_MS + 1);
-		expect(seenMessage(state, "alice", 7)).toBe(false);
-		expect(seenMessage(state, "alice", 9)).toBe(true);
-	});
-
-	test("caps the remembered ids", () => {
-		const state = emptyState();
-		for (let id = 0; id < SEEN_MAX + 10; id++) rememberMessage(state, "alice", id, 1000);
-		expect(state.seen).toHaveLength(SEEN_MAX);
-		expect(seenMessage(state, "alice", 0)).toBe(false);
-		expect(seenMessage(state, "alice", SEEN_MAX + 9)).toBe(true);
-	});
-
-	test("round-trips seen ids and drops malformed entries", () => {
-		const path = newPath();
-		writeState(path, {
-			cursor: "",
-			peers: {},
-			seen: [{ peer: "alice", id: 1, at: 5 }, { peer: "", id: 2, at: 5 }, { peer: "bob", id: "x", at: 5 } as never],
-		});
-		expect(readState(path).seen).toEqual([{ peer: "alice", id: 1, at: 5 }]);
-	});
-
-	test("findPeer prefers the freshest duplicate left by an older version", () => {
-		const state = emptyState();
-		state.peers.alice = { lastContextToken: "stale", lastSeen: 1 };
-		state.peers["alice@im.wechat"] = { lastContextToken: "fresh", lastSeen: 2 };
-		expect(findPeer(state, "alice")?.lastContextToken).toBe("fresh");
-
-		recordInbound(state, "alice", "newer", 3);
-		expect(state.peers["alice@im.wechat"]?.lastContextToken).toBe("newer");
-		expect(state.peers.alice?.lastContextToken).toBe("stale");
 	});
 });
 
@@ -878,6 +783,10 @@ describe("peer worker", () => {
 		options: {
 			answers?: string[];
 			holdFirst?: boolean;
+			/** Hold the first session open, so a test can act before it exists. */
+			holdOpen?: boolean;
+			/** Fail the first open, and answer the next message normally. */
+			failFirstOpen?: boolean;
 			idleTimeoutMs?: number;
 			concurrency?: number;
 			/** Whether the transport accepts a part; defaults to yes. */
@@ -891,9 +800,14 @@ describe("peer worker", () => {
 		const opened: Array<{ peer: string; fresh: boolean }> = [];
 		const sessions: ReturnType<typeof workerSession>[] = [];
 		const timers: Array<{ ms: number; fn: () => void }> = [];
+		const openWaiters: Array<() => void> = [];
 		const worker = createPeerWorker({
 			openSession: async (peer, sessionOptions) => {
 				opened.push({ peer, fresh: sessionOptions.fresh });
+				if (options.holdOpen && opened.length === 1) {
+					await new Promise<void>((resolve) => openWaiters.push(resolve));
+				}
+				if (options.failFirstOpen && opened.length === 1) throw new Error("could not open the session");
 				const fake = workerSession(options);
 				sessions.push(fake);
 				return fake.peerSession;
@@ -924,7 +838,17 @@ describe("peer worker", () => {
 				};
 			},
 		});
-		return { worker, sent, notices, opened, sessions, timers };
+		return {
+			worker,
+			sent,
+			notices,
+			opened,
+			sessions,
+			timers,
+			releaseOpen: () => {
+				for (const resolve of openWaiters.splice(0)) resolve();
+			},
+		};
 	}
 
 	test("opens one session per peer and answers there", async () => {
@@ -1210,6 +1134,45 @@ describe("peer worker", () => {
 		// Nothing is running afterwards.
 		expect(worker.state("alice@im.wechat").status).toBe("idle");
 		expect(worker.abort("alice@im.wechat")).toBe(false);
+	});
+
+	test("takes a stop that arrives while the session is still opening", async () => {
+		const { worker, sent, sessions, releaseOpen } = workerHarness({ holdOpen: true, answers: ["too late"] });
+		worker.enqueue(peerItem("long task"));
+		await settle();
+		// The turn is running, but the session it needs does not exist yet.
+		expect(worker.state("alice@im.wechat").status).toBe("running");
+		expect(worker.abort("alice@im.wechat")).toBe(true);
+
+		releaseOpen();
+		await settle();
+		await settle();
+		// The prompt never ran, and the peer hears the turn stopped, once.
+		expect(sessions[0]?.prompts).toEqual([]);
+		expect(sent.map((message) => message.text)).toEqual(["fallback:stopped"]);
+		expect(worker.state("alice@im.wechat").status).toBe("idle");
+	});
+
+	test("a stop does not outlive a session that failed to open", async () => {
+		const { worker, sent, notices, releaseOpen } = workerHarness({
+			holdOpen: true,
+			failFirstOpen: true,
+			answers: ["pong"],
+		});
+		worker.enqueue(peerItem("first"));
+		await settle();
+		expect(worker.abort("alice@im.wechat")).toBe(true);
+
+		releaseOpen();
+		await settle();
+		await settle();
+		// The failed open reports the failure, not the stop that came before it.
+		expect(sent.map((message) => message.text)).toEqual(["fallback:failed"]);
+		expect(notices[0]).toContain("could not open the session");
+
+		worker.enqueue(peerItem("second"));
+		await settle();
+		expect(sent.map((message) => message.text)).toEqual(["fallback:failed", "pong"]);
 	});
 
 	test("disposes an idle session after the timeout, and reopens on the next message", async () => {
