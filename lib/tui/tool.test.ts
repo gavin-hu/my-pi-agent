@@ -1,7 +1,8 @@
 /**
  * The tool-transcript kit and the per-instance render memo: the call line, the
- * sanitized error and rejection, the overflow hints, the tail block, the
- * running timer, and the cache that keeps a repeat frame cheap.
+ * sanitized error and rejection, the overflow hints, the running timer, and the
+ * cache that keeps a repeat frame cheap. The tail block's own suite is
+ * `tail-result.test.ts`.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -21,8 +22,6 @@ import {
 	reuseCallText,
 	startToolProgress,
 	syncElapsedTimer,
-	isTailResult,
-	TailResult,
 	ToolCallText,
 	toolCallTitle,
 } from "./tool.ts";
@@ -230,113 +229,6 @@ describe("earlierHint", () => {
 		const hint = earlierHint(fakeTheme, 3, "matches");
 		expect(hint).toContain("… 3 earlier matches");
 		expect(hint.toLowerCase()).toContain("expand");
-	});
-});
-
-describe("TailResult", () => {
-	const rowLine = (row: string, width: number): string => `${row}:${width}`;
-
-	test("draws a leading blank line, the rows, and the overflow note", () => {
-		const view = new TailResult<string>({ kind: "list", rows: ["a", "b"], more: 2, rowLine }, fakeTheme);
-		const lines = view.render(40);
-		expect(lines[0]).toBe("");
-		expect(lines[1]).toBe("a:40");
-		expect(lines[2]).toBe("b:40");
-		expect(lines[3]).toContain("… 2 more");
-	});
-
-	test("draws the earlier note and the themed tail", () => {
-		const view = new TailResult<string>(
-			{ kind: "lines", lines: ["one", "two"], earlier: 5, earlierLabel: "lines" },
-			fakeTheme,
-		);
-		const lines = view.render(40);
-		expect(lines[0]).toBe("");
-		expect(lines[1]).toContain("… 5 earlier lines");
-		expect(lines[2]).toBe("one");
-		expect(lines[3]).toBe("two");
-	});
-
-	test("clips every line to the render width", () => {
-		const view = new TailResult<string>(
-			{ kind: "lines", lines: ["x".repeat(20)], earlier: 0, earlierLabel: "lines" },
-			fakeTheme,
-		);
-		expect(visibleWidth(view.render(10)[1] ?? "")).toBeLessThanOrEqual(10);
-	});
-
-	test("draws one group of rows per section, with a faint heading and a per-section overflow note", () => {
-		const view = new TailResult<string>(
-			{
-				kind: "sections",
-				sections: [
-					{ rows: ["a"], more: 0, rowLine },
-					{ label: "Claims", rows: ["b"], more: 2, rowLine },
-				],
-			},
-			fakeTheme,
-		);
-		const lines = view.render(40);
-		expect(lines[0]).toBe("");
-		expect(lines[1]).toBe("a:40");
-		expect(lines[2]).toBe("Claims");
-		expect(lines[3]).toBe("b:40");
-		expect(lines[4]).toContain("… 2 more");
-	});
-
-	test("clips a section heading to the render width", () => {
-		const view = new TailResult<string>(
-			{ kind: "sections", sections: [{ label: "C".repeat(20), rows: [], more: 0, rowLine }] },
-			fakeTheme,
-		);
-		expect(visibleWidth(view.render(10)[1] ?? "")).toBeLessThanOrEqual(10);
-	});
-
-	test("updates in place for reuse", () => {
-		const view = new TailResult<string>(
-			{ kind: "lines", lines: ["old"], earlier: 0, earlierLabel: "lines" },
-			fakeTheme,
-		);
-		view.setInput({ kind: "lines", lines: ["new"], earlier: 0, earlierLabel: "lines" }, fakeTheme);
-		expect(view.render(40)).toEqual(["", "new"]);
-	});
-
-	test("serves a repeat frame from its memo, and rebuilds when the input moves", () => {
-		// A frame re-renders every block, so this one is derived once and compared
-		// once until its input, theme or width changes.
-		let built = 0;
-		const counted = (row: string, width: number): string => {
-			built += 1;
-			return `${row}:${width}`;
-		};
-		const view = new TailResult<string>({ kind: "list", rows: ["a"], more: 0, rowLine: counted }, fakeTheme);
-		const first = view.render(40);
-		expect(view.render(40)).toBe(first);
-		expect(built).toBe(1);
-
-		// `setInput` is the invalidation: the new rows are built, then held again.
-		view.setInput({ kind: "list", rows: ["a", "b"], more: 0, rowLine: counted }, fakeTheme);
-		expect(view.render(40)).toEqual(["", "a:40", "b:40"]);
-		expect(built).toBe(3);
-
-		// A new width is a new layout; `invalidate` drops it for a theme change.
-		view.render(20);
-		expect(built).toBe(5);
-		view.invalidate();
-		view.render(20);
-		expect(built).toBe(7);
-	});
-});
-
-describe("isTailResult", () => {
-	test("recognises the kit's block through the erased row type", () => {
-		// The extensions reuse their block through `context.lastComponent`, so the guard is
-		// where the row type the caller drew is put back on the instance.
-		const view = new TailResult<string>({ kind: "lines", lines: ["x"], earlier: 0, earlierLabel: "lines" }, fakeTheme);
-		expect(isTailResult<string>(view)).toBe(true);
-		expect(isTailResult<string>({ render: () => [] })).toBe(false);
-		expect(isTailResult<string>(undefined)).toBe(false);
-		expect(isTailResult<string>("TailResult")).toBe(false);
 	});
 });
 

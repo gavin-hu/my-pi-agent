@@ -47,6 +47,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reads `refused 1 (bob)`, the summary line's.
 - `lib`: `writeJsonFile` is the one atomic JSON write now — the two `wechat` files above, and
   `writeConfigFile`, which still writes the same bytes. One body instead of a copy per caller.
+- `lib`: a `TailResult` heading after the first opens with a blank line, so the rail carries it
+  through a gap and one group ends before the next begins. `board`'s round and a `session` status
+  block no longer draw a peer's rows and the next group as one run under a muted label.
 - `board`, `file-browse`, `plan`: one live-stream client for the three served pages, out of
   `lib/web`'s browser runtime, so the states have one definition. A dropped stream reads
   `reconnecting…` on every page and only a stream that did not come back reads `offline` and
