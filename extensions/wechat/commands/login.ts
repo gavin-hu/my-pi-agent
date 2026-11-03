@@ -7,7 +7,7 @@
  */
 
 import { DEFAULT_BASE_URL, type WechatClient } from "../transport/client.ts";
-import { messageOf } from "../errors.ts";
+import { messageOf } from "../../../lib/errors.ts";
 import type { BotCredentials, QrResponse, QrStatus } from "../types.ts";
 
 /** Categorical meaning of a `get_qrcode_status` value. */

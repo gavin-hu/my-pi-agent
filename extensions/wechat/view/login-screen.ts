@@ -3,7 +3,7 @@
  *
  * `LoginScreenComponent` is mounted by `ctx.ui.custom`; it renders the QR (or
  * the login URL when the terminal is too narrow) and closes on Esc. The polling
- * loop is owned by the command, which updates `state` and calls `requestRender`.
+ * loop is owned by the command, which updates `state` and repaints.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -63,8 +63,6 @@ export interface LoginScreenOptions {
 	state: () => LoginViewState;
 	/** Called when the user presses Esc. */
 	onCancel: () => void;
-	/** Repaint after a state change. */
-	requestRender: () => void;
 }
 
 /** The QR login screen opened by `/wechat login`. */

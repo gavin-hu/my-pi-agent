@@ -45,7 +45,7 @@ export interface PeerChannels {
 	handleInbound(peer: string, text: string): boolean;
 	/** The prompt one peer is waiting on, if any. */
 	pendingFor(peer: string): PendingPromptInfo | undefined;
-	/** Every waiting prompt, oldest channel first. */
+	/** Every waiting prompt, oldest first. */
 	prompts(): PendingPromptInfo[];
 	/** Whether that peer — or with no argument, any peer — has a prompt waiting. */
 	hasPending(peer?: string): boolean;
@@ -113,7 +113,9 @@ export function createPeerChannels(deps: PeerChannelDeps): PeerChannels {
 				const info = channel.pendingInfo();
 				if (info) waiting.push(info);
 			}
-			return waiting;
+			// The map is in channel-creation order; a peer that was asked first but
+			// answered later would then sort behind a newer one.
+			return waiting.sort((left, right) => left.startedAt - right.startedAt);
 		},
 
 		hasPending(peer?: string): boolean {

@@ -7,7 +7,7 @@ const ALICE = "alice@im.wechat";
 const BOB = "bob@im.wechat";
 
 /** The registry over recording senders, a mutable running set, and a fake clock. */
-function channelsOver(options: { running?: string[]; language?: "en" | "zh" } = {}) {
+function channelsOver(options: { running?: string[]; language?: "en" | "zh"; now?: () => number } = {}) {
 	const sent: Array<{ peer: string; text: string }> = [];
 	const files: Array<{ peer: string; name: string }> = [];
 	const flushed: string[] = [];
@@ -26,7 +26,7 @@ function channelsOver(options: { running?: string[]; language?: "en" | "zh" } = 
 		},
 		active: (peer) => running.has(peer),
 		language: () => options.language ?? "en",
-		now: () => 1_000,
+		now: options.now ?? (() => 1_000),
 	});
 	const stop = (peer: string): void => {
 		running.delete(peer);
@@ -103,6 +103,23 @@ describe("peer channels", () => {
 		expect(sent[0]?.peer).toBe(ALICE);
 		channels.handleInbound(ALICE, "no");
 		expect(await answer).toEqual({ kind: "confirmed", confirmed: false });
+	});
+
+	test("lists the waiting prompts oldest first, not in channel order", async () => {
+		let clock = 1_000;
+		const { channels } = channelsOver({ now: () => clock });
+		// Alice's channel exists first…
+		channels.for(ALICE);
+		clock = 2_000;
+		channels.for(BOB).request({ kind: "confirm", title: "Sure?" });
+		clock = 3_000;
+		const alice = channels.for(ALICE).request({ kind: "select", title: "Pick", options: ["A"] });
+		await settle();
+		// …but Bob started waiting first, so he is the oldest prompt.
+		expect(channels.prompts().map((prompt) => prompt.peer)).toEqual([BOB, ALICE]);
+		channels.handleInbound(ALICE, "1");
+		expect(await alice).toEqual({ kind: "value", value: "A" });
+		await channels.cancelAll();
 	});
 
 	test("cancels every prompt on a pause, telling each peer once", async () => {

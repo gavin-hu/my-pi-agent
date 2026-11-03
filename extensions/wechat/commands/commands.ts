@@ -28,7 +28,7 @@ import type { StatusAction } from "../view/status-screen.ts";
 import type { LoginViewState } from "../view/login-screen.ts";
 import type { LoginOutcome } from "./login.ts";
 import { doctorReport } from "./doctor.ts";
-import { messageOf } from "../errors.ts";
+import { messageOf } from "../../../lib/errors.ts";
 import { peerLabel, peerKey } from "../text/format.ts";
 import { defaultSleep } from "../timer.ts";
 import { qrLines } from "../../../lib/qr.ts";
@@ -370,7 +370,6 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 				controller.abort();
 				done({ kind: "cancelled" });
 			},
-			requestRender: () => tui.requestRender(),
 		});
 	});
 

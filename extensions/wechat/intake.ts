@@ -16,7 +16,7 @@ import type { AdmissionQueue, TurnBudget } from "./peer/admission.ts";
 import type { PeerWorker } from "./peer/peer-worker.ts";
 import type { Presence } from "./peer/presence.ts";
 import type { PeerChannels } from "./dialog/channels.ts";
-import { messageOf } from "./errors.ts";
+import { messageOf } from "../../lib/errors.ts";
 import { findPeer, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
 import { codePointSlice, parseInbound, peerKey, peerLabel, peerLanguage, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";

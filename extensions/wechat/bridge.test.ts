@@ -933,7 +933,6 @@ describe("bridge delivery", () => {
 		await waitFor(() => bridge.status().lastPollAt !== undefined);
 		const status = bridge.status();
 		expect(status.startedAt).toBe(5000);
-		expect(status.tokenCreatedAt).toBe(account.createdAt);
 		expect(status.lock).toEqual({ pid: 7, at: 1000 });
 		expect(status.pollHoldMs).toBe(5000);
 		await bridge.close();

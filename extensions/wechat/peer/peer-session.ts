@@ -105,7 +105,7 @@ export function withoutWechatExtensions(base: LoadExtensionsResult): LoadExtensi
  * activated. `codemode`/`deferred`/`model-only` tools stay as the session left
  * them, and anything the settings exclude never reaches `getAllTools()`.
  */
-export function activateDirectTools(session: {
+function activateDirectTools(session: {
 	getActiveToolNames(): string[];
 	getAllTools(): Array<{ name: string; exposure: string }>;
 	setActiveToolsByName(names: string[]): void;

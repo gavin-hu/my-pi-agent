@@ -11,6 +11,7 @@
 
 import type { BotCredentials } from "../types.ts";
 import type { WechatClient } from "../transport/client.ts";
+import type { MessageTarget } from "../transport/deliver.ts";
 import type { PeerState } from "./peer-worker.ts";
 import type { PeerLanguage } from "../text/format.ts";
 import { notice } from "../text/notices.ts";
@@ -43,15 +44,8 @@ export interface PresenceDeps {
 	languageOf: (peer: string) => PeerLanguage;
 	/** Send one stock line to the peer (chunked by the bridge). */
 	send: (peer: string, contextToken: string | undefined, text: string) => Promise<unknown>;
-	/** A forwarded dialog is waiting; its own reminder covers the wait. */
 	/** Whether that peer is waiting on a dialog, so "still working" would be noise. */
 	promptPending: (peer: string) => boolean;
-}
-
-/** One message a notice refers to. */
-export interface PresenceTarget {
-	peer: string;
-	contextToken?: string;
 }
 
 export interface Presence {
@@ -64,7 +58,7 @@ export interface Presence {
 	/** Stop one peer's keep-alive without touching the indicator. */
 	stopTyping(peer: string): void;
 	/** Tell a queued peer once that their message is waiting. */
-	armAck(target: PresenceTarget): void;
+	armAck(target: MessageTarget): void;
 	cancelAck(peer: string): void;
 	/** Say once that this turn is taking a while. */
 	armSlowNotice(peer: string, contextToken: string | undefined): void;
@@ -204,7 +198,7 @@ export function createPresence(deps: PresenceDeps): Presence {
 	 * within {@link ACK_DELAY_MS} cancels this, because the typing indicator says
 	 * the same thing without spending a bubble.
 	 */
-	function armAck(target: PresenceTarget): void {
+	function armAck(target: MessageTarget): void {
 		// A message can be queued behind a running turn; it still gets one
 		// acknowledgement after the delay, but not one per message.
 		if (acks.has(target.peer)) return;

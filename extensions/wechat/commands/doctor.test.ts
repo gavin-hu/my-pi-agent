@@ -36,7 +36,6 @@ function doctorStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 		startedAt: doctorNow - 1000,
 		lastPollAt: doctorNow - 3200,
 		pollHoldMs: 18_000,
-		tokenCreatedAt: doctorAccount.createdAt,
 		lock: { pid: 1234, at: doctorNow - 240_000 },
 		...overrides,
 	};

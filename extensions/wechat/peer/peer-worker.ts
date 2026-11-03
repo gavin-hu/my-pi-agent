@@ -29,7 +29,7 @@
  */
 
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { messageOf } from "../errors.ts";
+import { messageOf } from "../../../lib/errors.ts";
 import type { NoticeKind } from "../text/notices.ts";
 import type { PeerSession } from "./peer-session.ts";
 import { createReplyPipeline, type ReplyPipeline } from "./reply-pipeline.ts";
