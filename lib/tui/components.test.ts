@@ -14,11 +14,11 @@ import {
 	TUI_KEYBINDINGS,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
-import { ansiTheme, coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
+import { ansiTheme, BOLD_SGR, coloringTheme, fakeTheme, roleSgrTheme } from "../../test/helpers/fakes.ts";
 import { computeGauge, DEFAULT_GAUGE_THRESHOLDS, gaugeBar, gaugeRole } from "./gauge.ts";
 import { EXPAND_KEYBINDING, GLYPHS, SEPARATORS, STATUS_KEYS, expandHint, expandKey, keyHintText } from "./glyphs.ts";
 import { byRunningFirst, checkbox, chip, emptyState, keyValueRow, listRow, statusRow } from "./rows.ts";
-import { paint, paintPrefix, TUI_TOKENS, type TuiRole } from "./tokens.ts";
+import { boldClose, paint, paintPrefix, TUI_TOKENS, type TuiRole } from "./tokens.ts";
 
 /** Column counts exercised by the width sweeps. */
 const WIDTHS = Array.from({ length: 115 }, (_, index) => index + 6);
@@ -60,6 +60,14 @@ describe("TUI_TOKENS", () => {
 			expect(open.length).toBeGreaterThan(0);
 			expect(open).not.toContain("\u001b[39m");
 		}
+	});
+
+	test("boldClose returns the escape the theme's own bold run ends with", () => {
+		expect(boldClose(roleSgrTheme)).toBe(BOLD_SGR.close);
+	});
+
+	test("boldClose closes nothing in a theme that does not bold", () => {
+		expect(boldClose(fakeTheme)).toBe("");
 	});
 });
 
