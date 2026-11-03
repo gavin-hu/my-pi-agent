@@ -223,6 +223,7 @@ export const LIB_SUITES: readonly string[] = [
 	"requirements",
 	"screen-session",
 	"timer",
+	"tool-schema",
 	"git/index",
 	"http/http",
 	"http/mount",

@@ -7,9 +7,9 @@
  * model-readable `Error`.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import { optionalString } from "../../lib/config.ts";
+import { StringEnum } from "../../lib/tool-schema.ts";
 import { assertSafePattern, readPattern } from "./format.ts";
 import { WATCH_ACTIONS, type WatchAction } from "./types.ts";
 

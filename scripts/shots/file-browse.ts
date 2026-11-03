@@ -198,7 +198,10 @@ function execApi(): Pick<ExtensionAPI, "exec"> {
 					{ cwd: options?.cwd, timeout: options?.timeout ?? 0, maxBuffer: 8 * 1024 * 1024 },
 					(error, stdout, stderr) => {
 						const code = error && typeof error.code === "number" ? error.code : error ? 1 : 0;
-						settle({ stdout, stderr, code, killed: false });
+						// `truncated` is what Pi 1.5 added to the result; the 1.4 floor has no such field,
+						// so it is built here rather than as the literal `settle` is given.
+						const result = { stdout, stderr, code, killed: false, truncated: false };
+						settle(result);
 					},
 				);
 			}),

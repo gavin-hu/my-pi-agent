@@ -283,7 +283,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
  * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 737.
+ * total is their sum, 733.
  *
  * The heights moved as the tree did: the board's `bytefly.json` section became
  * one module (`board/config.ts`, read by `board` and by `team` through the store)
@@ -296,26 +296,28 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * brings `lib/child.ts` with it: the three are the split, and every one of them
  * is what the old single module already evaluated, spread differently.
  * `worktree`'s one raise is `lib/events.ts`: the channel `file-browse` follows moved
- * out of the publishing module, so both sides compile against one name.
+ * out of the publishing module, so both sides compile against one name. The eleven
+ * entries that declare a string-enum parameter each pay one more for
+ * `lib/tool-schema.ts`, which owns the type Pi's own typings stopped giving it.
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
-	bytefly: 86,
+	bytefly: 87,
 	board: 58,
-	plan: 55,
+	plan: 56,
 	team: 48,
-	job: 43,
-	"session-bus": 43,
-	subagent: 31,
-	"web-access": 39,
-	worktree: 36,
-	goal: 34,
-	watch: 32,
-	todo: 30,
+	job: 44,
+	"session-bus": 44,
+	subagent: 32,
+	"web-access": 40,
+	worktree: 37,
+	goal: 35,
+	watch: 33,
+	todo: 31,
 	wechat: 30,
 	check: 29,
 	"file-read": 29,
 	rewind: 28,
-	memory: 27,
+	memory: 28,
 	question: 18,
 	serve: 11,
 	context: 8,

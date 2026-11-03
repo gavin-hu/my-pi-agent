@@ -6,7 +6,13 @@
  * helpers wrap it to expose the maps their tests inspect.
  */
 
-import type { MarkdownTransformer, ToolDefinition, ToolRendererResolver } from "@earendil-works/pi-coding-agent";
+import {
+	keyHint,
+	keyText,
+	type MarkdownTransformer,
+	type ToolDefinition,
+	type ToolRendererResolver,
+} from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, type MarkdownTheme, type Component } from "@earendil-works/pi-tui";
 
 export type AnyHandler = (...args: any[]) => any;
@@ -21,6 +27,13 @@ export type AnyHandler = (...args: any[]) => any;
 type RenderContext = Parameters<NonNullable<ToolDefinition["renderResult"]>>[3];
 
 /**
+ * The keybinding hints Pi 1.5 passes on that context, and requires. Named here rather
+ * than read off `RenderContext` so the fixture is the same shape on the 1.4 floor,
+ * where the context does not carry them yet.
+ */
+type KeyHintSeams = { keyText: typeof keyText; keyHint: typeof keyHint };
+
+/**
  * A render context for a suite that draws one block directly instead of driving a
  * session.
  *
@@ -29,7 +42,7 @@ type RenderContext = Parameters<NonNullable<ToolDefinition["renderResult"]>>[3];
  * starts reading another field gets a value rather than undefined.
  */
 export function toolRenderContext(options: { expanded?: boolean } = {}): RenderContext {
-	return {
+	const context: RenderContext & KeyHintSeams = {
 		args: {},
 		toolCallId: "call-1",
 		invalidate: () => {},
@@ -44,7 +57,10 @@ export function toolRenderContext(options: { expanded?: boolean } = {}): RenderC
 		isError: false,
 		durationMs: undefined,
 		outputPad: 0,
+		keyText,
+		keyHint,
 	};
+	return context;
 }
 
 /** Identity theme so rendered text stays assertable. */

@@ -7,8 +7,8 @@
  * before any state changes.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
+import { StringEnum } from "../../lib/tool-schema.ts";
 import { MAX_TODOS, TODO_STATUSES } from "../../lib/todo-state.ts";
 
 /**

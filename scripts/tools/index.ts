@@ -31,6 +31,8 @@ import {
 	createReadToolDefinition,
 	createWriteToolDefinition,
 	getMarkdownTheme,
+	keyHint,
+	keyText,
 	type Theme,
 	type ToolRenderers,
 } from "@earendil-works/pi-coding-agent";
@@ -147,9 +149,15 @@ function harness(): {
 /** The render context a top-level tool row gets, as the host types it. */
 type RenderContext = Parameters<NonNullable<ToolRenderers["renderCall"]>>[2];
 
+/**
+ * The keybinding hints Pi 1.5 passes on that context, and requires: named here so the
+ * fixture is the same shape on the 1.4 floor, where the context does not carry them.
+ */
+type KeyHintSeams = { keyText: typeof keyText; keyHint: typeof keyHint };
+
 /** One for `fixture`, with the fields its renderers read. */
 function context(fixture: ToolFixture): RenderContext {
-	return {
+	const renderContext: RenderContext & KeyHintSeams = {
 		args: fixture.args ?? {},
 		toolCallId: `call-${fixture.name}`,
 		invalidate: () => {},
@@ -166,7 +174,10 @@ function context(fixture: ToolFixture): RenderContext {
 		// host's pad of 0 and bytefly adds nothing on top.
 		outputPad: 0,
 		durationMs: fixture.options?.durationMs,
+		keyText,
+		keyHint,
 	};
+	return renderContext;
 }
 
 /**

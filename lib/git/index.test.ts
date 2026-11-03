@@ -47,6 +47,15 @@ function recordingRunner(responses: Map<string, Partial<GitResult>> | ((args: st
 
 // --- The execution runner ---------------------------------------------------
 
+/**
+ * A `pi.exec` result for a double in this suite. Pi 1.5 added `truncated` and made it
+ * required; the 1.4 floor has no such field. `createExecRunner` drops it either way,
+ * so one helper keeps these doubles valid on both.
+ */
+function execResult(result: { stdout: string; stderr: string; code: number; killed: boolean }) {
+	return { ...result, truncated: false };
+}
+
 describe("runGitOrThrow", () => {
 	test("returns stdout on a clean exit", async () => {
 		const { run } = recordingRunner(new Map([["status", { stdout: "clean\n" }]]));
@@ -78,7 +87,7 @@ describe("createExecRunner", () => {
 		const pi = {
 			exec: async (command: string, args: string[], options: unknown) => {
 				calls.push({ command, args, options });
-				return { stdout: "out", stderr: "err", code: 3, killed: true };
+				return execResult({ stdout: "out", stderr: "err", code: 3, killed: true });
 			},
 		};
 		const result = await createExecRunner(pi)(["diff", "--stat"], { cwd: "/repo", timeoutMs: 500 });
@@ -92,7 +101,7 @@ describe("createExecRunner", () => {
 		const pi = {
 			exec: async (_command: string, _args: string[], options: unknown) => {
 				seen = options;
-				return { stdout: "", stderr: "", code: 0, killed: false };
+				return execResult({ stdout: "", stderr: "", code: 0, killed: false });
 			},
 		};
 		await createExecRunner(pi)(["status"], { cwd: "/repo" });
@@ -106,7 +115,7 @@ describe("createExecRunner", () => {
 			const pi = {
 				exec: async () => {
 					seen = process.env[key];
-					return { stdout: "", stderr: "", code: 0, killed: false };
+					return execResult({ stdout: "", stderr: "", code: 0, killed: false });
 				},
 			};
 			await createExecRunner(pi)(["write-tree"], { cwd: "/repo", env: { [key]: "/tmp/index" } });
@@ -135,7 +144,7 @@ describe("repoRootFor", () => {
 		const pi = {
 			exec: async (_command: string, _args: string[], options: unknown) => {
 				seen.push(options);
-				return { stdout: "/repo\n", stderr: "", code: 0, killed: false };
+				return execResult({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
 			},
 		};
 		expect(await repoRootFor(pi, "/repo", 5000)).toBe("/repo");
@@ -151,7 +160,7 @@ describe("repoRootFor", () => {
 		expect(await repoRootFor(failing, "/repo")).toBeUndefined();
 
 		const absent = {
-			exec: async () => ({ stdout: "", stderr: "", code: 128, killed: false }),
+			exec: async () => execResult({ stdout: "", stderr: "", code: 128, killed: false }),
 		};
 		expect(await repoRootFor(absent, "/repo", 100)).toBeUndefined();
 	});

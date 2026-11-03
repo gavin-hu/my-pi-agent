@@ -6,10 +6,10 @@
  * objective instead of silently corrupting the goal.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
 import { MAX_GOAL_OBJECTIVE } from "../../lib/goal-state.ts";
+import { StringEnum } from "../../lib/tool-schema.ts";
 import { GOAL_ACTIONS, GOAL_MODEL_STATUSES, GOAL_STATUSES, type Goal, type GoalStatus } from "./types.ts";
 
 /**

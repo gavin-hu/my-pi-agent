@@ -6,9 +6,9 @@
  * artifacts untouched.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import type { AgentToolResult, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
+import { StringEnum } from "../../../lib/tool-schema.ts";
 import { textResult } from "../../../lib/tool-result.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";

@@ -23,8 +23,8 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
+import { StringEnum } from "../../lib/tool-schema.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { detailsOrLine, messageText, callLine } from "../../lib/tui/tool.ts";

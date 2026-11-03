@@ -2,8 +2,8 @@
  * Parameter schema, output schema, and request resolution for `web_fetch`.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
+import { StringEnum } from "../../../lib/tool-schema.ts";
 import { MAX_OUTPUT_CHARS, type WebFetchConfig } from "./config.ts";
 import type { FindMode } from "./find.ts";
 import type { FetchRequest } from "./types.ts";

@@ -5,8 +5,8 @@
  * returns, so a caller can read the findings as data instead of parsing text.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
+import { StringEnum } from "../../../lib/tool-schema.ts";
 
 /** Tool name, exported here so the naming guard imports one constant. */
 export const TOOL_NAME = "run_doctor";
