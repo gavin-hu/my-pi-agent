@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { rejectionOf, type WechatClient } from "./client.ts";
 import { aesEcbPaddedSize, encryptEcb, sanitizeFileName, sniffImageMime, uploadUrlOf } from "./media.ts";
-import type { BotCredentials, CDNMedia } from "../types.ts";
+import type { BotCredentials, CDNMedia, SendResponse } from "../types.ts";
 
 /** `UploadMediaType.FILE` from the protocol. */
 export const UPLOAD_MEDIA_TYPE_FILE = 3;
@@ -41,7 +41,6 @@ export interface SendLocalFileArgs {
 
 /** One encrypted upload, with what both item shapes need to describe it. */
 interface Uploaded {
-	plain: Buffer;
 	/** Plaintext size in bytes, the `len` of a file item. */
 	rawsize: number;
 	/** Padded ciphertext size, the `mid_size` of an image item. */
@@ -82,7 +81,34 @@ async function uploadLocal(args: SendLocalFileArgs, mediaType: number, plain: Bu
 		aes_key: Buffer.from(aeskey).toString("base64"),
 		encrypt_type: 1,
 	};
-	return { plain, rawsize, filesize, media, aeskey };
+	return { rawsize, filesize, media, aeskey };
+}
+
+/**
+ * Read, screen, and upload one local file; `undefined` when it is unreadable or
+ * refused, including by the caller's own `accept`.
+ */
+async function readAndUpload(
+	args: SendLocalFileArgs,
+	mediaType: number,
+	accept?: (plain: Buffer) => boolean,
+): Promise<Uploaded | undefined> {
+	try {
+		const plain = readFileSync(args.filePath);
+		if (accept !== undefined && !accept(plain)) return undefined;
+		return await uploadLocal(args, mediaType, plain);
+	} catch {
+		return undefined;
+	}
+}
+
+/** True when the server accepted the item; any failure is the caller's fallback. */
+async function accepted(send: () => Promise<SendResponse>): Promise<boolean> {
+	try {
+		return rejectionOf(await send()) === undefined;
+	} catch {
+		return false;
+	}
 }
 
 /**
@@ -91,10 +117,10 @@ async function uploadLocal(args: SendLocalFileArgs, mediaType: number, plain: Bu
  * than throwing, so the caller can fall back.
  */
 export async function sendLocalFile(args: SendLocalFileArgs): Promise<boolean> {
-	try {
-		const uploaded = await uploadLocal(args, UPLOAD_MEDIA_TYPE_FILE, readFileSync(args.filePath));
-		if (!uploaded) return false;
-		const response = await args.client.sendFileMessage(
+	const uploaded = await readAndUpload(args, UPLOAD_MEDIA_TYPE_FILE);
+	if (!uploaded) return false;
+	return accepted(() =>
+		args.client.sendFileMessage(
 			args.account,
 			{
 				to: args.to,
@@ -104,11 +130,8 @@ export async function sendLocalFile(args: SendLocalFileArgs): Promise<boolean> {
 				contextToken: args.contextToken,
 			},
 			args.signal,
-		);
-		return rejectionOf(response) === undefined;
-	} catch {
-		return false;
-	}
+		),
+	);
 }
 
 /**
@@ -119,12 +142,10 @@ export async function sendLocalFile(args: SendLocalFileArgs): Promise<boolean> {
  * {@link sendLocalFile}: false on any failure, for the caller to fall back on.
  */
 export async function sendLocalImage(args: SendLocalFileArgs): Promise<boolean> {
-	try {
-		const plain = readFileSync(args.filePath);
-		if (sniffImageMime(plain) === undefined) return false;
-		const uploaded = await uploadLocal(args, UPLOAD_MEDIA_TYPE_IMAGE, plain);
-		if (!uploaded) return false;
-		const response = await args.client.sendImageMessage(
+	const uploaded = await readAndUpload(args, UPLOAD_MEDIA_TYPE_IMAGE, (plain) => sniffImageMime(plain) !== undefined);
+	if (!uploaded) return false;
+	return accepted(() =>
+		args.client.sendImageMessage(
 			args.account,
 			{
 				to: args.to,
@@ -134,9 +155,6 @@ export async function sendLocalImage(args: SendLocalFileArgs): Promise<boolean> 
 				contextToken: args.contextToken,
 			},
 			args.signal,
-		);
-		return rejectionOf(response) === undefined;
-	} catch {
-		return false;
-	}
+		),
+	);
 }

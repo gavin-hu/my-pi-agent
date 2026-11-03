@@ -10,7 +10,7 @@
 
 import type { BotCredentials, WeixinMessage } from "../types.ts";
 import { isSessionExpired, rejectionOf, type WechatClient } from "./client.ts";
-import { messageOf } from "../errors.ts";
+import { messageOf } from "../../../lib/errors.ts";
 import { defaultTimer } from "../timer.ts";
 
 const BACKOFF_MS = 2000;

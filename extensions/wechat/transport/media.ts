@@ -1,10 +1,10 @@
 /**
- * Inbound media helpers: decode the AES key, download from the CDN, decrypt,
- * sniff the image type, and save to disk.
+ * Media shared by both directions: the AES key and block codec, the CDN URLs, the
+ * image sniff, the filename sanitize, and the one disk write an attachment needs.
  *
  * Weixin media are AES-128-ECB with PKCS#7 padding (Node's `node:crypto`), so
  * there is no extra dependency. Everything here is pure or filesystem-only; the
- * HTTP fetch is injected through the client, and tests never touch the network.
+ * HTTP transfer is injected through the client, and tests never touch the network.
  *
  * It also owns the one rule that turns a value from the wire into a filesystem
  * name (`sanitizePathSegment`), which a media filename and a peer's session
@@ -96,8 +96,8 @@ export function mediaDownloadUrl(ref: CDNMedia, cdnBaseUrl: string): string {
 	return `${cdnBaseUrl}/download?encrypted_query_param=${encodeURIComponent(param)}`;
 }
 
-/** Build the CDN upload URL from an `upload_param` and the `filekey`. */
-export function buildUploadUrl(cdnBaseUrl: string, uploadParam: string, filekey: string): string {
+/** The CDN upload URL from an `upload_param` and the `filekey`. */
+function buildUploadUrl(cdnBaseUrl: string, uploadParam: string, filekey: string): string {
 	return `${cdnBaseUrl}/upload?encrypted_query_param=${encodeURIComponent(uploadParam)}&filekey=${encodeURIComponent(filekey)}`;
 }
 

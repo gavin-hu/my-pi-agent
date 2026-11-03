@@ -21,7 +21,7 @@ import { createAdmissionQueue, createTurnBudget } from "./peer/admission.ts";
 import { createDeliverer, type MessageTarget } from "./transport/deliver.ts";
 import { createInboundAdmission } from "./transport/inbound.ts";
 import { createPollLoop, defaultPollTimeout } from "./transport/poll.ts";
-import { messageOf } from "./errors.ts";
+import { messageOf } from "../../lib/errors.ts";
 import { peerKey, sanitizeInbound, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
 import { createPresence } from "./peer/presence.ts";
@@ -108,8 +108,6 @@ export interface BridgeStatus {
 	lastSendError?: string;
 	/** The long-poll hold currently in use (server hint or configured). */
 	pollHoldMs?: number;
-	/** The stored account's login time. */
-	tokenCreatedAt?: number;
 	/** The poller lock on disk, for the doctor. */
 	lock?: { pid: number; at: number };
 }
@@ -269,7 +267,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	/** Inbound media resolution and the hand-off to a peer session. */
 	const inbound = createInboundAdmission({
 		client: () => client,
-		account: () => account,
 		signal: () => abort?.signal,
 		maxMediaBytes: () => deps.config.maxMediaBytes,
 		mediaDir: deps.mediaDir,
@@ -553,7 +550,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				lastPollError,
 				lastSendError,
 				pollHoldMs: pollHoldMs ?? deps.config.pollHoldMs,
-				tokenCreatedAt: account?.createdAt,
 				lock: deps.loadLock?.(),
 			};
 		},

@@ -10,7 +10,7 @@
 
 import type { BotCredentials } from "../types.ts";
 import { isSessionExpired, rejectionOf, WechatError, type WechatClient } from "./client.ts";
-import { messageOf } from "../errors.ts";
+import { messageOf } from "../../../lib/errors.ts";
 import { chunkText, toWechatText } from "../text/format.ts";
 import { basename } from "node:path";
 import { sendLocalFile, sendLocalImage } from "./outbound.ts";

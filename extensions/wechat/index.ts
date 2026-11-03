@@ -22,7 +22,7 @@ import { paint } from "../../lib/tui/tokens.ts";
 import type { Bridge, BridgeState } from "./bridge.ts";
 import type { WechatClient, WechatClientOptions } from "./transport/client.ts";
 import { registerCommands, type CommandDeps } from "./commands/commands.ts";
-import { messageOf } from "./errors.ts";
+import { messageOf } from "../../lib/errors.ts";
 import { loadWechatConfig, type WechatConfig } from "./config.ts";
 import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./state/credentials.ts";
 import type { PeerSession, PeerSessionOptions } from "./peer/peer-session.ts";

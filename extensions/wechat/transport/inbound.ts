@@ -8,17 +8,16 @@
  */
 
 import type { ImageContent } from "@earendil-works/pi-ai";
-import type { BotCredentials, InboundItem } from "../types.ts";
+import type { InboundItem } from "../types.ts";
 import type { WechatClient } from "./client.ts";
 import type { PeerItem } from "../peer/peer-worker.ts";
-import { messageOf } from "../errors.ts";
+import { messageOf } from "../../../lib/errors.ts";
 import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
 import { notice } from "../text/notices.ts";
 
 /** What the inbound side needs from the bridge; every value is read at call time. */
 export interface InboundDeps {
 	client: () => WechatClient | undefined;
-	account: () => BotCredentials | undefined;
 	signal: () => AbortSignal | undefined;
 	maxMediaBytes: () => number;
 	mediaDir: () => string;

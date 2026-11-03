@@ -45,7 +45,6 @@ import {
 import { LoginScreenComponent, loginBody, statusLabel } from "../view/login-screen.ts";
 import {
 	aesEcbPaddedSize,
-	buildUploadUrl,
 	decodeMediaKey,
 	decryptEcb,
 	encryptEcb,
@@ -572,7 +571,6 @@ describe("login screen", () => {
 			onCancel: () => {
 				cancelled = true;
 			},
-			requestRender: () => {},
 		});
 		component.handleInput("\u001b");
 		expect(cancelled).toBe(true);
@@ -583,7 +581,6 @@ describe("login screen", () => {
 			theme: fakeTheme,
 			state: () => ({ status: "wait", lines: ["██"], url: "" }),
 			onCancel: () => {},
-			requestRender: () => {},
 		});
 		for (const line of component.render(12)) expect(visibleWidth(line)).toBeLessThanOrEqual(12);
 	});
@@ -676,16 +673,10 @@ describe("media URLs", () => {
 		);
 	});
 
-	test("buildUploadUrl encodes the upload param and filekey", () => {
-		expect(buildUploadUrl("https://cdn/c2c", "a b&c", "ff00")).toBe(
-			"https://cdn/c2c/upload?encrypted_query_param=a%20b%26c&filekey=ff00",
-		);
-	});
-
 	test("uploadUrlOf prefers the full URL, builds from the param, and refuses neither", () => {
 		expect(uploadUrlOf({ uploadFullUrl: "https://up/x", uploadParam: "p" }, "https://cdn", "k")).toBe("https://up/x");
-		expect(uploadUrlOf({ uploadParam: "p" }, "https://cdn/c2c", "k")).toBe(
-			"https://cdn/c2c/upload?encrypted_query_param=p&filekey=k",
+		expect(uploadUrlOf({ uploadParam: "a b&c" }, "https://cdn/c2c", "ff00")).toBe(
+			"https://cdn/c2c/upload?encrypted_query_param=a%20b%26c&filekey=ff00",
 		);
 		expect(() => uploadUrlOf({}, "https://cdn", "k")).toThrow();
 	});
