@@ -63,7 +63,6 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/pages",
 		"view/chrome",
 	],
-	check: ["check", "surface", "extension"],
 	context: ["report", "view/context-report", "extension"],
 	"file-read": ["extract/extract", "tool"],
 	"file-browse": [

@@ -99,7 +99,7 @@ export interface DockListScreenOptions {
  * One docked list screen. Subclass it and implement the vocabulary hooks; the
  * frame, the keys, the confirm layer, and the pane lifecycle are shared.
  *
- * `/jobs`, `/watch`, `/agents`, and `/check` are the subclasses. The optional
+ * `/jobs`, `/watch`, `/sessions`, `/agents`, and `/worktree` are the subclasses. The optional
  * members are for a screen that needs more than the basic shape, and default to
  * the behavior a plain list wants: no pollable pane (`detailById`), a pane whose
  * lines are fixed at open (`liveDetail`), and no verb inside the pane

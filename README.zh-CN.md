@@ -90,7 +90,7 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 
 ## 包含内容
 
-22 个扩展、3 个随包技能，以及 2 个主题，按本 README 的承诺分组。
+21 个扩展、3 个随包技能，以及 2 个主题，按本 README 的承诺分组。
 每个扩展在 `docs/extensions/` 下的页面提供完整的工具与命令说明，并以能力表开头。
 
 ### 规划与委派
@@ -98,7 +98,6 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
 | [`plan`](./docs/extensions/plan.md) | `plan`, `/plan`, `--plan` | 只读规划：一个工具的五个动作 —— `enter`、`write`、`exit`、`steps`、`cancel`。模型先调研，把计划保存到 `~/.pi/agent/plans/<repo-key>` 下（每个仓库一份，各 worktree 共享），你在写入任何内容前先批准。可在 TUI 中审阅，也可在浏览器里留下行内评论：页面跟随计划文件实时更新，穿着与 `/board`、`/browse` 相同的工具栏、控制栏和页脚，侧栏则按角色给事实 —— owner 看到决策说明与步骤进度，审阅者看到自己的署名与评论数 —— 每位同事各持一个审阅链接，以自己的名义评论。`init` 技能复用同一审阅流程来创建或更新项目的 `AGENTS.md`。 |
-| [`check`](./docs/extensions/check.md) | `run_check`, `/check` | 检测项目的测试、lint 或类型检查命令（或使用 `check.command`），在受监管的进程中运行，并把失败整理成可导航的 `file:line` 列表。 |
 | [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | 把任务委派给专职智能体（`explorer`、`planner`、`reviewer`、`worker`），运行在它自己的 Pi 进程中 —— 单个、并行、链式或在后台运行；后台运行时在页脚显示数量，完成后发出提示。 |
 | [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | 持久任务列表（`pending` / `in_progress` / `completed`），配一行式 widget。 |
 | [`goal`](./docs/extensions/goal.md) | `goal`, `/goal` | 持久会话目标，保存在 widget 中，并在每个回合前重述。 |

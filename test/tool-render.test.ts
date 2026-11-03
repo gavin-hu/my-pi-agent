@@ -15,7 +15,6 @@ import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ToolCallText } from "../lib/tui/tool.ts";
 import board from "../extensions/board/index.ts";
 import bytefly from "../extensions/bytefly/index.ts";
-import check from "../extensions/check/index.ts";
 import fileRead from "../extensions/file-read/index.ts";
 import goal from "../extensions/goal/index.ts";
 import jobs from "../extensions/job/index.ts";
@@ -40,7 +39,6 @@ afterAll(() => env.restore());
 /** Every extension that registers a tool with a renderer, as the gallery does. */
 const EXTENSIONS: Array<(pi: any) => void> = [
 	bytefly,
-	check,
 	fileRead,
 	goal,
 	jobs,

@@ -41,7 +41,7 @@ const SUBCOMMANDS: Completion[] = [
 
 const USAGE = "Usage: /worktree [enter [name]|exit|prune]";
 
-/** Refuse a lifecycle change while plan mode is read-only, as `/check` does. */
+/** Refuse a lifecycle change while plan mode is read-only, as `/agents` does. */
 async function refuseInPlanMode(ctx: ExtensionContext): Promise<boolean> {
 	const { isPlanModeEnabled } = await import("../../lib/plan-state.ts");
 	if (!isPlanModeEnabled(ctx.sessionManager.getBranch())) return false;

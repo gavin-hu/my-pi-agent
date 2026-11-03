@@ -37,8 +37,6 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/bytefly/panel/model.test.ts": 429,
 	"extensions/bytefly/picker/picker.test.ts": 560,
 	"extensions/bytefly/update/update.test.ts": 1176,
-	"extensions/check/check.test.ts": 598,
-	"extensions/check/surface.test.ts": 1092,
 	"extensions/file-browse/files/files.test.ts": 911,
 	"extensions/file-browse/transport/router.test.ts": 867,
 	"extensions/file-browse/view/pages.test.ts": 1520,
@@ -95,7 +93,7 @@ const LONG_SUITES: Record<string, number> = {
 };
 
 /** The named suites' total, written down so only a split can move it. */
-const LONG_SUITE_TOTAL = 56210;
+const LONG_SUITE_TOTAL = 54520;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 

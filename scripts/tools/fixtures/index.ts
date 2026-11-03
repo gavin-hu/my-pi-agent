@@ -9,8 +9,8 @@
 
 import { BOARD_FIXTURES } from "./board.ts";
 import { BUILTIN_FIXTURES } from "./builtin.ts";
-import { CHECK_FIXTURES } from "./check.ts";
 import { DELEGATION_FIXTURES } from "./delegation.ts";
+import { DOCTOR_FIXTURES } from "./doctor.ts";
 import { INTERACTION_FIXTURES } from "./interaction.ts";
 import { JOB_FIXTURES } from "./jobs.ts";
 import { PLAN_FIXTURES } from "./plan.ts";
@@ -33,7 +33,7 @@ export const FIXTURES: ToolFixture[] = [
 	...JOB_FIXTURES,
 	...DELEGATION_FIXTURES,
 	...WEB_FIXTURES,
-	...CHECK_FIXTURES,
+	...DOCTOR_FIXTURES,
 	...INTERACTION_FIXTURES,
 	...PLAN_FIXTURES,
 	...WORKTREE_FIXTURES,

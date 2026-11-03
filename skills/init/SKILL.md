@@ -159,8 +159,8 @@ evidence, not as a replacement for reading the repository.
     shallowest list anywhere, which is the draft rather than the actions;
   - `## Risks` — assumptions, conflicts, and gaps from a cancelled or unavailable
     interview;
-  - `## Verification` — the project's own check when it declares one (`run_check`,
-    or the narrower docs or structure test that guards the instruction file), then
+  - `## Verification` — the project's own check when it declares one (`bun run check`,
+    `make check`, or the narrower docs or structure test that guards the instruction file), then
     reading the written file back against the checklist.
 - Call `plan` action `exit` with the returned path.
 - If the user refines or rejects the plan, stay in plan mode, rewrite the same

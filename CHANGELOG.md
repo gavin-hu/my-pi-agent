@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- `check`: the extension is retired — `run_check`, `/check`, its live run and failure screens, and
+  the `check` section of `bytefly.json`. Breaking: a project that relied on detection or on
+  `check.command` runs its check with `bash` (`bun run check`, `make check`), and a long-lived
+  process belongs to `job`, which already owns attachment and a bounded log. The detection,
+  parsing, and screen modules go with it rather than staying as a stub, so no tool name, command,
+  or config key is reserved.
+
 ### Fixed
 
 - `lib`: every enumerated tool parameter is its union again under `bun run check:types` — `plan`'s

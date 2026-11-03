@@ -7,7 +7,7 @@
  *   - lowercase snake_case;
  *   - a singleton tool is named for its domain (`todo`, `goal`, `job`,
  *     `subagent`);
- *   - a multi-word tool is verb-first (`send_wechat`, `run_check`),
+ *   - a multi-word tool is verb-first (`send_wechat`, `run_doctor`),
  *     except the documented noun-first carve-outs that mirror Claude Code
  *     (`web_search`, `web_fetch`).
  *
@@ -26,9 +26,8 @@ import { TODO_TOOL as todo } from "../lib/tool-names.ts";
 import { BOARD_TOOL as board } from "../extensions/board/types.ts";
 import { TEAM_TOOL as team } from "../extensions/team/types.ts";
 import { TOOL_NAME as question } from "../extensions/question/tools.ts";
-import { TOOL_NAME as runCheck } from "../extensions/check/tools.ts";
-import { TOOL_NAME as readDoc } from "../extensions/file-read/schema.ts";
 import { TOOL_NAME as runDoctor } from "../extensions/bytefly/doctor/tools.ts";
+import { TOOL_NAME as readDoc } from "../extensions/file-read/schema.ts";
 import { TOOL_NAME as openPath } from "../extensions/file-open/schema.ts";
 import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
 import { TOOL_NAME as job } from "../extensions/job/tools.ts";
@@ -73,7 +72,6 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "board", name: board },
 	{ extension: "team", name: team },
 	{ extension: "question", name: question },
-	{ extension: "check", name: runCheck },
 	{ extension: "file-read", name: readDoc },
 	{ extension: "bytefly", name: runDoctor },
 	{ extension: "file-open", name: openPath },
@@ -158,7 +156,6 @@ describe("extension tool naming", () => {
 			"plan",
 			"question",
 			"read_doc",
-			"run_check",
 			"run_doctor",
 			"send_wechat",
 			"session",

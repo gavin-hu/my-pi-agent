@@ -3,7 +3,7 @@
  * (dev tooling).
  *
  * Each one is hand-written data for a real component: the todo list, a job
- * table, a rewind timeline, a plan, a check result, a watch list, the picker
+ * table, a rewind timeline, a plan, a watch list, the picker
  * panel. They live here so `index.ts` one level up is the frames and the capture
  * is a separate module, and so a test can render every frame without either.
  *
@@ -12,7 +12,6 @@
  */
 
 export { AGENT_RUNS } from "./agents.ts";
-export { CHECK_RESULT } from "./check.ts";
 export { CONTEXT_REPORT } from "./context.ts";
 export { HERO_GOAL, HERO_TODOS } from "./hero.ts";
 export { JOBS } from "./jobs.ts";
