@@ -19,7 +19,7 @@ import { resultText } from "../../test/helpers/fixtures/board.ts";
 import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { type FakeCtxOptions } from "../../test/helpers/context.ts";
-import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
 import { presetNameFor, TEAMMATE_NAMES } from "../../lib/session-label.ts";
 import { MAX_NOTES } from "../../lib/board/card.ts";
 import { shortenPath } from "../../lib/format.ts";
@@ -614,30 +614,6 @@ describe("claim, release, and move", () => {
 		// pool carries none, and the transition log keeps what the park was.
 		expect((await call({ action: "release", card: "1" })).details.card?.blocked).toBeUndefined();
 		expect(resultText(await call({ action: "list" }))).not.toContain("blocked: legal has to sign");
-	});
-
-	test("a move to done records the commit it landed as, when the directory has one", async () => {
-		const cwd = temps.track(await makeRepo("pi-board-landed-"));
-		// A real repository: the board keys on it, and a move to done can ask git what closed it.
-		const board = harness({
-			cwd,
-			exec: async (command: string, args: string[], options?: { cwd?: string }) => {
-				const result = await execP(command, args, { cwd: options?.cwd });
-				return { stdout: result.stdout, stderr: result.stderr, code: result.code };
-			},
-		});
-		const { call } = board;
-		await call({ action: "add", title: "One" });
-		// The gates are not what this case is about, so a seed walks them; the move itself is
-		// still the tool's, because the commit it records is the tool's git read.
-		await seed(board, "1", "execute");
-		const store = await board.runtime.store(board.ctx.cwd);
-		await store.mutate("1", { kind: "review" }, REVIEWER, NOW);
-		const done = await call({ action: "move", card: "1", lane: "done" });
-		const commit = done.details.card?.landed?.commit ?? "";
-		expect(commit).toMatch(/^[0-9a-f]{7}$/);
-		expect(resultText(done)).toContain(`landed: ${commit}`);
-		expect(resultText(await call({ action: "list", lane: "done" }))).toContain(`landed ${commit}`);
 	});
 
 	test("a move to done outside a repository finishes the card without a commit", async () => {

@@ -24,7 +24,7 @@ import { readRoster, type RosterSession } from "../../lib/session-roster.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { listOf } from "../../lib/format.ts";
-import { revParse } from "../../lib/git/read.ts";
+import { logGrep } from "../../lib/git/read.ts";
 import { strayField } from "../../lib/stray-fields.ts";
 import { createExecRunner } from "../../lib/git/runner.ts";
 import { failedResult, textResult } from "../../lib/tool-result.ts";
@@ -137,16 +137,21 @@ function refused(result: unknown): boolean {
 }
 
 /**
- * The commit at `cwd`'s `HEAD`, shortened, or nothing when there is none.
+ * The commit a finished card landed as: the newest one whose message names the card.
  *
  * A finished card records what closed it, and the commit is the one fact a repository can
- * answer that the card cannot. A directory that is not a repository, or one with no
- * commits, answers nothing — the move still happens, because finishing a card must not
- * depend on git.
+ * answer that the card cannot. `HEAD` is not that fact — a card moved from a checkout the
+ * work never reached would name whatever commit happened to be there — so the read is a
+ * search for the card's own id, which is how a change states what it closes (`(#266, …)`).
+ * The boundary keeps `#1` out of `#10`'s message. `HEAD`'s history only: an unmerged branch
+ * that mentions the card in a review is a mention, not a landing.
+ *
+ * Nothing naming the card answers nothing, and the move still happens: a card finished
+ * before the convention, or outside a repository, has no commit to record.
  */
-async function headCommit(pi: ExtensionAPI, cwd: string): Promise<{ commit: string } | undefined> {
-	const id = await revParse(createExecRunner(pi), cwd, "HEAD");
-	return id === undefined ? undefined : { commit: id.slice(0, 7) };
+async function landedCommit(pi: ExtensionAPI, cwd: string, id: string): Promise<{ commit: string } | undefined> {
+	const found = await logGrep(createExecRunner(pi), cwd, "HEAD", `(^|[^0-9])#${id}([^0-9]|$)`);
+	return found === undefined ? undefined : { commit: found.slice(0, 7) };
 }
 
 export function registerTools(
@@ -220,10 +225,11 @@ export function registerTools(
 							return refusal(action, me, `move needs a target lane: ${listOf(movableLanes())}.`);
 						}
 						// Only the lanes that have something to say read for it: a move to `done`
-						// records the commit that closed the card, and both `execute` and `done` carry
+						// records the commit that names the card, and both `execute` and `done` carry
 						// the proof that the plan the card recorded is still there. A board outside a
-						// repository simply has no commit to record.
-						const landed = lane === "done" ? await headCommit(pi, ctx.cwd) : undefined;
+						// repository, or one whose history never names the card, has no commit to record.
+						const id = normalizeCardId(args.card);
+						const landed = lane === "done" && id !== undefined ? await landedCommit(pi, ctx.cwd, id) : undefined;
 						const proved =
 							lane === "execute" || lane === "done"
 								? await recordedPlan(runtime, ctx.cwd, store, args.card)

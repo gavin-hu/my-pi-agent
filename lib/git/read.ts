@@ -3,8 +3,8 @@
  *
  * Small helpers that ask git *about* the repository rather than changing it.
  * They run through an injected {@link RunGit}, so they are testable without a
- * runtime. Keeping them here means worktree, rewind, and plan share one
- * definition instead of re-implementing `rev-parse`.
+ * runtime. Keeping them here means worktree, rewind, plan, and board share one
+ * definition instead of re-implementing `rev-parse` or a log search.
  */
 
 import { realpathSync } from "node:fs";
@@ -88,6 +88,25 @@ export async function revParseMany(runGit: RunGit, cwd: string, revs: readonly s
 		.map((line) => line.trim())
 		.filter((line) => line !== "");
 	return ids.length === revs.length ? ids : [];
+}
+
+/**
+ * The newest commit reachable from `rev` whose message matches `pattern`, as a full
+ * object id, or undefined when none does or `cwd` is not a repository.
+ *
+ * A commit message is where a change says what it closes, and the commit is the one
+ * fact the repository knows about a finished piece of work. `--max-count=1` stops the
+ * walk at the first match, so the read costs what that match's depth costs. The
+ * pattern is an extended regexp, because a caller anchoring an id needs a boundary
+ * (`#1` is a prefix of `#10`).
+ */
+export async function logGrep(runGit: RunGit, cwd: string, rev: string, pattern: string): Promise<string | undefined> {
+	const result = await runGit(["log", "--max-count=1", "--format=%H", "--extended-regexp", `--grep=${pattern}`, rev], {
+		cwd,
+	});
+	if (result.code !== 0) return undefined;
+	const id = result.stdout.trim();
+	return id || undefined;
 }
 
 /** Whether the repository has at least one commit. */
