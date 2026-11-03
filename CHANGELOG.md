@@ -23,6 +23,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a `list` draws its rows only when the block is expanded, so a collapsed block is
+  the one line that counts the cards — the picture `docs/extensions/board.md` describes and the
+  gallery fixture's own label promised. Before, `renderResult` asked `resultInput` for rows
+  whatever `options.expanded` said, so the same listing drew identically collapsed and expanded
+  and `board-round`'s `expanded: true` was inert.
 - `wechat`: a peer's session directory is one sanitized path segment now, so a hostile peer id —
   `../..`, a separator, a leading dot — can no longer name another peer's history or climb out of
   `sessions/`. `sanitizePathSegment` is the one owner of the rule that turns a wire value into a
