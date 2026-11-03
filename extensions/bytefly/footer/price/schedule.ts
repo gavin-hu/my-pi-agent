@@ -7,7 +7,7 @@
  * reuses it across a branch, keeping this module pure and cheap to call.
  */
 
-import { asRecord } from "../../../../lib/config.ts";
+import { asRecord } from "../../../../lib/json.ts";
 import type { PeakSchedule, PeakWindow } from "./types.ts";
 
 const TIME_OF_DAY = /^(\d{1,2}):(\d{2})$/;

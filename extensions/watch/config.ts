@@ -6,7 +6,8 @@
  * clamped to a safe range.
  */
 
-import { clampInteger, loadConfigSection } from "../../lib/config.ts";
+import { clampInteger } from "../../lib/json.ts";
+import { loadConfigSection } from "../../lib/config.ts";
 
 export interface WatchConfig {
 	/** Allow starting watchers; false refuses `add`. Default: true. */

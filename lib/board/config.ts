@@ -12,7 +12,8 @@
  * one extension reaching into another.
  */
 
-import { asRecord, loadConfigSection } from "../config.ts";
+import { asRecord } from "../json.ts";
+import { loadConfigSection } from "../config.ts";
 import { type Lead, normalizeLead } from "./lead.ts";
 import { DEFAULT_WIP, normalizeWip, type WipLimits } from "./limits.ts";
 

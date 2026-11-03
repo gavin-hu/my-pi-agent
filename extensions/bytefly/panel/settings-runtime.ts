@@ -12,10 +12,10 @@
 
 import { join } from "node:path";
 import { CONFIG_DIR_NAME, type QuietStartup } from "@earendil-works/pi-coding-agent";
+import { readJson } from "../../../lib/json.ts";
 import {
 	configSection,
 	configValueAt,
-	readJson,
 	SHARED_CONFIG_FILE,
 	unsetConfigValueAt,
 	writeConfigValuesAt,

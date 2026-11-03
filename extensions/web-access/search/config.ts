@@ -7,7 +7,7 @@
  * so a typo cannot produce a nonsensical request.
  */
 
-import { clampInteger, cleanString } from "../../../lib/config.ts";
+import { clampInteger, cleanString } from "../../../lib/json.ts";
 import { SEARCH_PROVIDER_IDS, type SearchProviderId } from "./types.ts";
 
 /** `"auto"` picks the first configured provider; a named id forces one. */

@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { asNumber } from "../../../lib/config.ts";
+import { asNumber } from "../../../lib/json.ts";
 import { mediaDownloadUrl } from "./media.ts";
 import type {
 	BotCredentials,

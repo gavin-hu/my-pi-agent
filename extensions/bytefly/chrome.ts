@@ -14,7 +14,8 @@
 
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { cleanString, loadConfigSection } from "../../lib/config.ts";
+import { cleanString } from "../../lib/json.ts";
+import { loadConfigSection } from "../../lib/config.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 

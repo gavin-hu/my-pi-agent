@@ -19,7 +19,7 @@
  * worse than a blob.
  */
 
-import { asRecord } from "../../../lib/config.ts";
+import { asRecord } from "../../../lib/json.ts";
 import { decodeEntities } from "../html.ts";
 import { charLength, sliceChars } from "../text.ts";
 

@@ -6,7 +6,8 @@
  * documents are ignored, and every value is clamped to a safe range.
  */
 
-import { clampInteger, cleanString, loadConfigSection } from "../../lib/config.ts";
+import { clampInteger, cleanString } from "../../lib/json.ts";
+import { loadConfigSection } from "../../lib/config.ts";
 
 export interface JobsConfig {
 	/** Track jobs at all. Default: true. */

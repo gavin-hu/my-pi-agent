@@ -1,5 +1,5 @@
 /**
- * `writeJsonFile`: the one atomic JSON write, beside its read twin in `config.ts`.
+ * `writeJsonFile`: the one atomic JSON write, beside its read twin in `json.ts`.
  *
  * The document arrives by rename, and the mode rides on the temp file it publishes.
  */
@@ -8,7 +8,7 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../test/helpers/env.ts";
-import { writeJsonFile } from "./config.ts";
+import { writeJsonFile } from "./json.ts";
 
 describe("writeJsonFile", () => {
 	function newPath(): string {

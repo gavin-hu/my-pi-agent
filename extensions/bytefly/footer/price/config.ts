@@ -14,7 +14,8 @@
  * for it, while `USD` adds Pi's recorded dollars.
  */
 
-import { asRecord, clampInteger, clampNumber, cleanString, loadConfigSection } from "../../../../lib/config.ts";
+import { asRecord, clampInteger, clampNumber, cleanString } from "../../../../lib/json.ts";
+import { loadConfigSection } from "../../../../lib/config.ts";
 import { parseWindow } from "./schedule.ts";
 import type { ByteflyConfig, Currency, CurrencyCode, ModelRates, PeakSchedule, PeakWindow } from "./types.ts";
 

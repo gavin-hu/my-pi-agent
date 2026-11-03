@@ -14,7 +14,8 @@
  * value is one port for every session.
  */
 
-import { clampInteger, loadConfigSection } from "../../lib/config.ts";
+import { clampInteger } from "../../lib/json.ts";
+import { loadConfigSection } from "../../lib/config.ts";
 
 /** The `serve` section. */
 export interface ServeConfig {

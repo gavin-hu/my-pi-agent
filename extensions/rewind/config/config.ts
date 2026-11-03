@@ -6,7 +6,8 @@
  * malformed documents are ignored, and every value is clamped to a safe range.
  */
 
-import { clampInteger, cleanString, loadConfigSection, stringList } from "../../../lib/config.ts";
+import { clampInteger, cleanString, stringList } from "../../../lib/json.ts";
+import { loadConfigSection } from "../../../lib/config.ts";
 
 export interface RewindConfig {
 	/** Take one automatic snapshot per user prompt. Default: true. */

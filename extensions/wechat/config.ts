@@ -7,7 +7,8 @@
  * lifecycle.
  */
 
-import { clampInteger, cleanString, loadConfigSection } from "../../lib/config.ts";
+import { clampInteger, cleanString } from "../../lib/json.ts";
+import { loadConfigSection } from "../../lib/config.ts";
 
 /** Per-peer overrides, keyed by id or label (both forms match). */
 export interface WechatPeerConfig {

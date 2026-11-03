@@ -9,7 +9,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { writeJsonFile } from "../../../lib/config.ts";
+import { writeJsonFile } from "../../../lib/json.ts";
 import { DEFAULT_BASE_URL } from "../transport/client.ts";
 import type { BotCredentials, CredentialsFile } from "../types.ts";
 

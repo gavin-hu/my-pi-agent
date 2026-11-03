@@ -222,7 +222,7 @@ export const LIB_SUITES: readonly string[] = [
 	"child",
 	"core",
 	"format",
-	"config",
+	"json",
 	"lazy",
 	"lines",
 	"plans/paths",

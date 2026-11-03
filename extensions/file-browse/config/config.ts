@@ -7,7 +7,8 @@
  * `serve.port` is where that is pinned.
  */
 
-import { asBoolean, clampInteger, loadConfigSection } from "../../../lib/config.ts";
+import { asBoolean, clampInteger } from "../../../lib/json.ts";
+import { loadConfigSection } from "../../../lib/config.ts";
 
 export interface ServeConfig {
 	/** Open the default browser when the server starts. */
