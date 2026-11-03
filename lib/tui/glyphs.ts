@@ -101,6 +101,12 @@ export function keyHintText(theme: Theme, key: string, description: string): str
 /**
  * The built-in-style expand affordance: a meta `(ctrl+o to expand)` with the
  * key in faint. Degrades to `(to expand)` when the binding is unknown.
+ *
+ * The hint says `expand`, not "this block": the key flips Pi's global
+ * `app.tools.expand`, so one press expands every tool block in the transcript,
+ * and a block that is the only collapsed one is not the only one it changes.
+ *
+ * @see EXPAND_KEYBINDING
  */
 export function expandHint(theme: Theme): string {
 	const hint = keyHintText(theme, keyText(EXPAND_KEYBINDING), "to expand)");

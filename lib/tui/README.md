@@ -142,7 +142,9 @@ the hue repeats — so nothing may be encoded by hue alone.
 
 Width is terminal columns, not string length. Use `visibleWidth`,
 `truncateToWidth`, and `wrapTextWithAnsi`; every returned line must fit the
-width, and width arithmetic starts from `Math.max(1, width)`. Size from the live
+width, and width arithmetic starts from `Math.max(1, width)`. A summary that
+could not keep a cell says so: `fitCells` ends the line with `…`, priced into
+the width, so a narrow screen never reads as the whole summary. Size from the live
 viewport — `titleRule`, `viewportRows`, `fitRows`, and `ListCursor`, fed by a
 `ViewportRowsSource` (number or getter) with a sensible fallback — so a resize is
 picked up. List screens stay docked; only the plan review uses

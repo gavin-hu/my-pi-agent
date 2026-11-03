@@ -370,7 +370,8 @@ export abstract class DockListScreen<T> implements Component {
 
 	private summary(rows: readonly T[], width: number): string {
 		const separator = paint(this.theme, "meta", SEPARATORS.item);
-		return clip(`  ${fitCells(this.summaryCells(rows), Math.max(1, width - 2), separator)}`, width);
+		const dropped = paint(this.theme, "meta", "…");
+		return clip(`  ${fitCells(this.summaryCells(rows), Math.max(1, width - 2), separator, dropped)}`, width);
 	}
 
 	render(width: number): string[] {

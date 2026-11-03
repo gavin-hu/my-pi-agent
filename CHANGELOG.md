@@ -23,6 +23,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `lib`: a summary that could not keep every cell now says so — `fitCells` ends the line with a `…`,
+  reserved before the kept prefix is fitted and separated from it only when that costs no cell. A
+  narrow dock summary or bytefly panel counts line no longer reads as the whole summary when the
+  lane, the count, or the state was the cell that did not fit.
 - `lib`: `worktree`'s registry holds no copy of the temp-then-rename shape any more — it points at
   `writeJsonFile`, which also refuses a value JSON has no form for (`undefined`, a function) with a
   `TypeError` naming the path, rather than writing the text `undefined` that the next read loads as
