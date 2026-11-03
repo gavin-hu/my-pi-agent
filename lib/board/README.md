@@ -8,8 +8,8 @@ decide one of their rules for itself.
 What belongs here rather than in `extensions/board/`: the record and the boundary a read
 passes, the lifecycle that decides who may do what, the store that is the only writer, and
 the bodies every surface renders. The extension keeps the tool, its schema, its commands,
-its transport, and the browser bundle — and the bundle receives `view.ts`'s snapshot and
-nothing else. The user-facing contract is
+its transport, and the browser bundle, which receives `view.ts`'s snapshot as its data and
+the spliced rules below as its source. The user-facing contract is
 [`docs/extensions/board.md`](../../docs/extensions/board.md); the decisions behind these
 rules, with the conditions that would revisit them, are
 [`docs/architecture.md#documented-limits-with-no-planned-card`](../../docs/architecture.md#documented-limits-with-no-planned-card).
@@ -25,11 +25,11 @@ The shape one card file holds, the caps a write is held to, and the parser that 
 whether a file on disk is still a card. `CARD_VERSION` with `SUPPORTED_VERSIONS` and
 `ENDED_VERSION` say which builds wrote what; `Card`, `CardOwner`, `CardNote`,
 `CardBlock`, `CardTransition`, `CardLanded`, and the `EndedCard` a finished card becomes
-are the record, and `MAX_TITLE` / `MAX_PATHS` / `MAX_PATH` / `MAX_PLAN` / `MAX_BLOCKED` /
-`MAX_NOTE` / `MAX_NOTES` / `MAX_LOG` / `MAX_DEPENDS` are its caps. Ownership, priority
+are the record, and `MAX_TITLE` / `MAX_PATHS` / `MAX_PATH` / `MAX_PLAN` / `MAX_NOTE` /
+`MAX_NOTES` / `MAX_LOG` / `MAX_DEPENDS` are its caps. Ownership, priority
 (`PRIORITIES`, `DEFAULT_PRIORITY`, `priorityOf`, `priorityRank`), and the `BLOCKERS` a
-block names are part of the same record, so a lane's `ownerless` invariant can be read
-off the lane table rather than restated.
+block names, with a 200-char reason, are part of the same record, so a lane's `ownerless`
+invariant can be read off the lane table rather than restated.
 
 The `normalize*` boundary is what the model's arguments pass: `normalizeTitle`,
 `normalizePathHints` (repo-relative hints, never claims), `normalizeNote`,
@@ -132,7 +132,7 @@ handoff — a dry run is a question, not a mutation performed as a fake session;
 is one switch over the card *and* the board index, so a lane change cannot be reachable from
 one surface and refused from another.
 
-The one write (`write`) bumps the revision, appends the lane log, and clears what the lane
+The one write bumps the revision, appends the lane log, and clears what the lane
 left behind. Two shapes of failure matter here: a refusal is `{ ok: false }` with its reason
 and the card untouched, while a no-op is `{ ok: true, changed: false }` — the preconditions
 already hold, so nothing is written and the revision does not move. Nothing here touches the
@@ -175,8 +175,9 @@ admitted by one and refused by the other.
 ### store.ts
 
 The backend: `BoardStore` over `<agent-dir>/board/<repo-key>/cards/*.json`, with `createStore`
-and the one construction point `openBoard`. The directory name constants (`BOARD_DIR_NAME`,
-`CARDS_DIR_NAME`, `ENDED_DIR_NAME`, `ARCHIVE_DIR_NAME`) and `boardDirFor` are the layout; `key`
+and the one construction point `openBoard`. `BOARD_DIR_NAME` / `CARDS_DIR_NAME` and
+`boardDirFor` are the layout a caller names, the `ended/` and `archive/` piles sit beside
+`cards/`, and `key`
 is the hash it was filed under, carried rather than read back off the directory's last segment
 because `session-bus` files this repository's records under the same key.
 
@@ -190,7 +191,7 @@ once; `list` and `skipped` are its two halves, and `list` orders a lane by prior
 `archive` renames a finished card's file into the `archive/` pile beside the cards without
 rewriting it, so `read` finds a card in either pile and writes it back to that one while
 `list` still reads the board alone. `archived()` / `archivedCount()` are the pile on request
-and its count, `nextCardId` spends an archived number as well as an ended one, and nothing
+and its count, a number spent by an ended or archived card is never handed out again, and nothing
 prunes: `archive` and `drop` are the two ways a card leaves the board.
 
 ### config.ts
@@ -248,12 +249,13 @@ writes nothing, so the id decides no ownership.
 
 Who may sign the two gates, and the words each refusal uses. `Lead`, `normalizeLead` over
 [`../session-label.ts`](../session-label.ts), `isLead` (a case-insensitive label compare,
-which is not `holds`), and the person at the keyboard — `PERSON_LABEL` (`you`), `PERSON_ID`,
-`personActor`, `isPerson` — which is the actor `/board approve` and `/board review` write,
+which is not `holds`), and the person at the keyboard — `PERSON_LABEL` (`you`),
+`personActor` / `isPerson`, whose actor carries the id `person:you` — which is the actor
+`/board approve` and `/board review` write,
 and the one actor a file can name that is not a holder, so a repository worked by one session
 can still close a card.
 
-`SIGN_KINDS` / `signOf` name the two signs; `signRefusal` (not the lead), `holderRefusal` (a
+`signOf` names the two signs, `approve` and `review`, from one list; `signRefusal` (not the lead), `holderRefusal` (a
 lead holding the card it means to sign), and `missingSign` (the sign a lane requires) are the
 three sentences, so the gates and the lane requirements cannot drift into four versions of
 one rule. `askLead` is the table's one phrase for how a session asks (`session send`),

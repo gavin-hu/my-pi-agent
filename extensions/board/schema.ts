@@ -34,8 +34,9 @@ export const BoardParams = Type.Object({
 		Type.Union(
 			LANES.map((lane) => Type.Literal(lane)),
 			{
-				// The lanes a move may name come from the transition table, so a route added
-				// there is offered here without a second list to forget.
+				// The lanes a move may name are every lane but `backlog`: which targets exist
+				// depends on the card's own lane, and a schema has no card. `steps.ts` refuses a
+				// route that does not exist, and prints the targets `targetsFrom` allows.
 				description:
 					"`list`: show only this lane, and not skip the `done` cards. " +
 					`\`move\`: the lane to move to — ${listOf(movableLanes())}; \`backlog\` is \`release\`'s, not a move's, and a card may move only where a transition exists from its own lane.`,

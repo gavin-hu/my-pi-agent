@@ -174,8 +174,9 @@ export function movableLanes(): Lane[] {
 /**
  * The lanes a `move` from `lane` may reach, in lane order.
  *
- * A tool description and a refusal both read this: the alternative is the hand-written list
- * that drifted from `rules.ts` and offered a target the rule then refused.
+ * `steps.ts` reads this for one question, which is also the sentence its refusal prints. The
+ * tool's `lane` description names `movableLanes()` instead: it has no card, so it cannot ask
+ * which targets exist from a lane it does not know.
  */
 export function targetsFrom(lane: Lane): Lane[] {
 	return LANES.filter((to) => transitionOf(lane, to) !== undefined);
