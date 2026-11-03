@@ -453,7 +453,7 @@ describe("peer actions", () => {
 			view({ bridge: true, connection: "open", refused: 1, refusedPeers: ["alice"] }),
 		);
 		screen.handleInput("a");
-		expect(actions).toEqual([{ kind: "allow" }]);
+		expect(actions).toEqual([{ verb: "allow" }]);
 	});
 
 	test("toggles pausing on p and flashes the result", () => {
@@ -490,7 +490,7 @@ describe("peer actions", () => {
 	test("opens the focused peer's history", () => {
 		const { screen, actions } = withActions();
 		screen.handleInput("h");
-		expect(actions).toEqual([{ kind: "history", peer: "alice@im.wechat" }]);
+		expect(actions).toEqual([{ verb: "history", peer: "alice@im.wechat" }]);
 	});
 
 	test("explains when there is no peer to act on", () => {
@@ -517,27 +517,27 @@ describe("StatusScreenComponent", () => {
 	test("asks to log in, start a new session, or log out", () => {
 		const login = component(view());
 		login.screen.handleInput("l");
-		expect(login.actions).toEqual(["login"]);
+		expect(login.actions).toEqual([{ verb: "login" }]);
 
 		const session = component(view({ bridge: true, connection: "open" }));
 		session.screen.handleInput("n");
-		expect(session.actions).toEqual(["new"]);
+		expect(session.actions).toEqual([{ verb: "new" }]);
 
 		const logout = component(view({ bridge: true, connection: "open" }));
 		logout.screen.handleInput("o");
-		expect(logout.actions).toEqual(["logout"]);
+		expect(logout.actions).toEqual([{ verb: "logout" }]);
 	});
 
 	test("accepts the uppercase form of each action key", () => {
 		const login = component(view());
 		login.screen.handleInput("L");
-		expect(login.actions).toEqual(["login"]);
+		expect(login.actions).toEqual([{ verb: "login" }]);
 		const session = component(view());
 		session.screen.handleInput("N");
-		expect(session.actions).toEqual(["new"]);
+		expect(session.actions).toEqual([{ verb: "new" }]);
 		const logout = component(view());
 		logout.screen.handleInput("O");
-		expect(logout.actions).toEqual(["logout"]);
+		expect(logout.actions).toEqual([{ verb: "logout" }]);
 		const refresh = component(view());
 		refresh.screen.handleInput("R");
 		expect(refresh.renders()).toBe(1);

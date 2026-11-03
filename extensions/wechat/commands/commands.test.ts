@@ -196,7 +196,7 @@ describe("the control screen", () => {
 		const started: number[] = [];
 		const { deps } = harness();
 		const { ctx, customCalls } = fakeCtx({
-			custom: "new",
+			custom: { verb: "new" },
 			extra: {
 				newSession: async () => {
 					started.push(1);
@@ -221,11 +221,11 @@ describe("the control screen", () => {
 		const dir = tempDir("wechat-allow-");
 		const h = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
 		h.deps.readHistory = async (peer, count) => `${peer} ${count}`;
-		const history = fakeCtx({ custom: { kind: "history", peer: "alice" } });
+		const history = fakeCtx({ custom: { verb: "history", peer: "alice" } });
 		await handler(h.deps)("status", history.ctx);
 		expect(history.notices.at(-1)?.message).toContain("alice");
 
-		const allow = fakeCtx({ cwd: dir, custom: { kind: "allow" }, select: "alice", confirm: true });
+		const allow = fakeCtx({ cwd: dir, custom: { verb: "allow" }, select: "alice", confirm: true });
 		await handler(h.deps)("status", allow.ctx);
 		expect(JSON.parse(readFileSync(join(dir, CONFIG_DIR_NAME, "bytefly.json"), "utf8")).wechat.allowedPeers).toEqual([
 			"alice",

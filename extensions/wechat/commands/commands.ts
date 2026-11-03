@@ -48,30 +48,63 @@ export interface CommandDeps {
 	now: () => number;
 }
 
-/** One `/wechat` verb and the line `/wechat help` shows for it. */
+/** One `/wechat` verb: the line `/wechat help` shows, and the runner every caller shares. */
 export interface WechatCommand {
 	verb: string;
 	description: string;
+	/** Run the verb. The control screen's closing actions reuse it. */
+	run(ctx: ExtensionCommandContext, deps: CommandDeps, args: string): Promise<void>;
 }
 
 /**
  * Every `/wechat` verb, in the order `help` and the completions list them. The
- * help text, the usage line, and the tab completions are all derived from this
- * table, so a verb cannot be listed in one place and missed in another.
+ * help text, the usage line, the tab completions, the dispatch, and the command's
+ * own description are all derived from this table, so a verb cannot be listed in
+ * one place and missed in another.
  */
 export const WECHAT_COMMANDS = [
-	{ verb: "login", description: "Log in by QR; on a scan, store the account and start the bridge" },
-	{ verb: "new", description: "Start a fresh host session (peer conversations are independent)" },
-	{ verb: "status", description: "Open the control screen (a one-line summary outside the TUI)" },
-	{ verb: "pause", description: "Stop polling new messages; running turns may finish" },
-	{ verb: "resume", description: "Resume polling after /wechat pause" },
-	{ verb: "doctor", description: "Print a health report: token age, last poll, lock, peers, failures" },
-	{ verb: "stop", description: "Stop one peer's running turn: /wechat stop <peer>" },
-	{ verb: "reset", description: "Start a fresh conversation for one peer: /wechat reset <peer>" },
-	{ verb: "history", description: "Print one peer's recent messages: /wechat history <peer> [n]" },
-	{ verb: "allow", description: "Allow a refused sender in the project config: /wechat allow [peer]" },
-	{ verb: "logout", description: "Clear the stored account and stop the bridge" },
-	{ verb: "help", description: "List these commands" },
+	{ verb: "login", description: "Log in by QR; on a scan, store the account and start the bridge", run: runLogin },
+	{ verb: "new", description: "Start a fresh host session (peer conversations are independent)", run: runNew },
+	{ verb: "status", description: "Open the control screen (a one-line summary outside the TUI)", run: runPanel },
+	{
+		verb: "pause",
+		description: "Stop polling new messages; running turns may finish",
+		run: (ctx, deps) => runPauseToggle(ctx, deps, false),
+	},
+	{
+		verb: "resume",
+		description: "Resume polling after /wechat pause",
+		run: (ctx, deps) => runPauseToggle(ctx, deps, true),
+	},
+	{ verb: "doctor", description: "Print a health report: token age, last poll, lock, peers, failures", run: runDoctor },
+	{
+		verb: "stop",
+		description: "Stop one peer's running turn: /wechat stop <peer>",
+		run: (ctx, deps, args) => runPeerAction(ctx, deps, "stop", args),
+	},
+	{
+		verb: "reset",
+		description: "Start a fresh conversation for one peer: /wechat reset <peer>",
+		run: (ctx, deps, args) => runPeerAction(ctx, deps, "reset", args),
+	},
+	{
+		verb: "history",
+		description: "Print one peer's recent messages: /wechat history <peer> [n]",
+		run: (ctx, deps, args) => runHistory(ctx, deps, args),
+	},
+	{
+		verb: "allow",
+		description: "Allow a refused sender in the project config: /wechat allow [peer]",
+		run: (ctx, deps, args) => runAllow(ctx, deps, args || undefined),
+	},
+	{ verb: "logout", description: "Clear the stored account and stop the bridge", run: runLogout },
+	{
+		verb: "help",
+		description: "List these commands",
+		run: async (ctx) => {
+			ctx.ui.notify(wechatHelp());
+		},
+	},
 ] as const satisfies readonly WechatCommand[];
 
 export type WechatVerb = (typeof WECHAT_COMMANDS)[number]["verb"];
@@ -396,23 +429,10 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 				requestRender: () => tui.requestRender(),
 			}),
 	);
-	if (typeof action === "object" && action?.kind === "history") {
-		await runHistory(ctx, deps, action.peer);
-		return;
-	}
-	if (typeof action === "object" && action?.kind === "allow") {
-		await runAllow(ctx, deps);
-		return;
-	}
-	switch (action) {
-		case "login":
-		case "new":
-		case "logout":
-			await dispatch(action, ctx, deps);
-			return;
-		default:
-			return;
-	}
+	// The screen names a verb by the type the table declares, so a key and its
+	// subcommand share one runner; the peer it was pressed on is the verb's argument.
+	if (action === "close" || action === undefined) return;
+	await dispatch(action.verb, ctx, deps, action.peer ?? "");
 }
 
 async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
@@ -467,39 +487,12 @@ async function dispatch(
 	deps: CommandDeps,
 	peerArg = "",
 ): Promise<void> {
-	switch (verb) {
-		case "login":
-			return runLogin(ctx, deps);
-		case "new":
-			return runNew(ctx, deps);
-		case "status":
-			return runPanel(ctx, deps);
-		case "doctor":
-			return runDoctor(ctx, deps);
-		case "history":
-			return runHistory(ctx, deps, peerArg);
-		case "allow":
-			return runAllow(ctx, deps, peerArg || undefined);
-		case "pause":
-			return runPauseToggle(ctx, deps, false);
-		case "resume":
-			return runPauseToggle(ctx, deps, true);
-		case "stop":
-			return runPeerAction(ctx, deps, "stop", peerArg);
-		case "reset":
-			return runPeerAction(ctx, deps, "reset", peerArg);
-		case "logout":
-			return runLogout(ctx, deps);
-		case "help":
-			ctx.ui.notify(wechatHelp());
-			return;
-	}
+	await WECHAT_COMMANDS.find((command) => command.verb === verb)?.run(ctx, deps, peerArg);
 }
 
 export function registerCommands(pi: ExtensionAPI, deps: CommandDeps): void {
 	pi.registerCommand("wechat", {
-		description:
-			"WeChat bridge. /wechat opens the control screen (login | new | status | pause | resume | doctor | stop | reset | history | allow | logout | help)",
+		description: `WeChat bridge. /wechat opens the control screen (${WECHAT_VERBS.join(" | ")})`,
 		getArgumentCompletions: completeSubcommand,
 		handler: async (args, ctx) => {
 			const [sub = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);
