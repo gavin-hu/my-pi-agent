@@ -282,6 +282,9 @@ sessions polling one account).
   are saved under `<agent-dir>/wechat/media/` with sanitized names and a size cap
   (`maxMediaBytes`). Inbound text is capped by `maxInboundChars` before it reaches
   the model, and a replayed message id is answered once. Nothing is executed.
+- A peer id names a directory, so it is reduced to one path segment before it is
+  used: a separator, a leading dot, or `..` cannot name another peer's history or
+  climb out of `sessions/`.
 - Credentials are written `0600` and redacted from diagnostics; egress is only to
   the Weixin endpoint.
 - Automated or unofficial WeChat use can violate WeChat's terms and risk account
@@ -611,7 +614,7 @@ guidance used to do.
 | `transport/deliver.ts` | The one outbound text path (reply, dialog preface, `send_wechat`) plus file and image delivery: flatten, split, number, expiry, rejection, and the once-per-outage notice. |
 | `transport/outbound.ts` | Upload and send local media: one hash/encrypt/`getUploadUrl`/upload body, then a file item or an image item, and an image must sniff as one. |
 | `transport/inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to a peer's session. |
-| `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, image MIME sniff (undefined when the bytes are no image), filename sanitize, and save helpers. |
+| `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, image MIME sniff (undefined when the bytes are no image), the wire-value-to-one-path-segment rule (`sanitizePathSegment`, with `sanitizeFileName` as its file case), and save helpers. |
 | `state/state.ts` | `state.json` (cursor, owner, per-peer tokens, recent message ids), written atomically. |
 | `state/credentials.ts` | `<agent-dir>/wechat/` and its `credentials.json` (`0600`, every stored account and the active one), written atomically so a torn write cannot read back as “not logged in”. |
 | `state/lock.ts` | Poller lockfile. |
