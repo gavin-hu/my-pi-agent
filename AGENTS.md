@@ -160,7 +160,7 @@ release phase, never during a feature or fix.
   `#anchor`; `test/doc-links.test.ts` resolves them.
 - One doc per audience: per-area contracts live in
   `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`,
-  `scripts/README.md`, and `test/README.md`.
+  `lib/board/README.md`, `scripts/README.md`, and `test/README.md`.
 
 ## How to work
 

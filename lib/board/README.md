@@ -1,0 +1,364 @@
+# lib/board — the shared feature board
+
+A board is one file per feature: what the feature is for, what it promises, why it sits
+where it does, and the two signatures a person gives it. The `board` tool, `team`'s round,
+and the served page read and write those files through this directory, and no surface may
+decide one of their rules for itself.
+
+What belongs here rather than in `extensions/board/`: the record and the boundary a read
+passes, the lifecycle that decides who may do what, the store that is the only writer, and
+the bodies every surface renders. The extension keeps the tool, its schema, its commands,
+its transport, and the browser bundle — and the bundle receives `view.ts`'s snapshot and
+nothing else. The user-facing contract is
+[`docs/extensions/board.md`](../../docs/extensions/board.md); the decisions behind these
+rules, with the conditions that would revisit them, are
+[`docs/architecture.md#documented-limits-with-no-planned-card`](../../docs/architecture.md#documented-limits-with-no-planned-card).
+
+Each module below owns one paragraph: what it is, and the couple it must not drift out of.
+The one-line index of the same modules is the `board/` block of [`../README.md`](../README.md).
+
+## The record and its boundary
+
+### card.ts
+
+The shape one card file holds, the caps a write is held to, and the parser that decides
+whether a file on disk is still a card. `CARD_VERSION` with `SUPPORTED_VERSIONS` and
+`ENDED_VERSION` say which builds wrote what; `Card`, `CardOwner`, `CardNote`,
+`CardBlock`, `CardTransition`, `CardLanded`, and the `EndedCard` a finished card becomes
+are the record, and `MAX_TITLE` / `MAX_PATHS` / `MAX_PATH` / `MAX_PLAN` / `MAX_BLOCKED` /
+`MAX_NOTE` / `MAX_NOTES` / `MAX_LOG` / `MAX_DEPENDS` are its caps. Ownership, priority
+(`PRIORITIES`, `DEFAULT_PRIORITY`, `priorityOf`, `priorityRank`), and the `BLOCKERS` a
+block names are part of the same record, so a lane's `ownerless` invariant can be read
+off the lane table rather than restated.
+
+The `normalize*` boundary is what the model's arguments pass: `normalizeTitle`,
+`normalizePathHints` (repo-relative hints, never claims), `normalizeNote`,
+`normalizePlanPath`, `normalizePriority`, `normalizeCardId`, `normalizeBlock`. Each answers
+`{ error }` instead of throwing, because a bad argument is a refusal a reader can act on.
+`isCard` is the shape every read is held to and `isEndedCard` the older finished record —
+`read.ts` maps a past shape onto this one, so the router, the tool, and the page see the
+same record or none.
+
+Three rules live here because two surfaces need each and a second copy would be a second
+answer. `matchesQuery` is the rule `list`'s `query` and the page's filter box both answer,
+spliced into the bundle as `MATCHES_QUERY_JS`. `holds` (the id decides when both sides have
+one) with `cardRef` and `signatureOf` names a card and notices it changed. `laneSince` says
+when the card entered the lane it is in, computed from the lane log because a stored clock
+would be one more field to keep true.
+
+### read.ts
+
+The one gate a card file read passes. `readCard` maps every version this build can read
+onto the current record — a v1 file's `status`, `plan`, and `blockedBy`/`blocker` become
+`lane`, `planPath`, and `blocked`, and the four-lane log's `todo` / `doing` become
+`backlog` / `execute` — then stamps `CARD_VERSION`. The map is read-time only: no file is
+rewritten, so a board full of older cards reads as a board rather than as a pile of
+refusals, and each card takes the new shape on its next write.
+
+### lanes.ts
+
+The lane vocabulary as data, and the one table that decides what each lane means.
+`LANES` / `Lane` (backlog, plan, execute, blocked, done) and `LANE_RULES` carry each
+lane's label, its empty word, its colour role, and the three facts the rest of the board
+reads off it: `ownerless` (the pool), `terminal` (finished), `pulled` (held to a WIP
+limit). The page receives the table in its snapshot and the tool's schema is generated
+from `LANES`, so a lane cannot be spelled one way in a schema and another in a renderer.
+
+`TRANSITIONS` is the other half: every lane change a move may make, with the
+`Requirement`s (`REQUIREMENTS`: contract, approval, review, artifact, blocker, waiting) in
+front of it. `steps.ts` enforces them and the tool offers exactly `targetsFrom`, so a
+surface cannot offer a move the state machine refuses. `transitionOf`, `laneIndex`,
+`isLane`, and `movableLanes` are the questions callers ask of the same table.
+
+### contract.ts
+
+What a card promises before it may be executed: `Contract` (goal, acceptance, scopeOut,
+and the `Sign` that approved the wording), `CONTRACT_FIELDS` / `MAX_CONTRACT`, and the
+boundary `normalizeContractField` applies to one line of a model's argument. The plan file
+says how; the contract says what and why, so a session that picks a card up does not
+renegotiate it and one that finishes it can be checked against something it did not write.
+
+The sign is part of the contract because it is a statement about *this* wording:
+`mergedContract` drops it when an edited line arrives, and `missingContractFields` /
+`contractComplete` / `contractApproved` are the gate `steps.ts` asks. `normalizeInstruction`
+is the one line an overriding sign says why, which `isSign` and `isContract` also hold a
+stored value to.
+
+### links.ts
+
+The dependency graph, answered over an index of the whole board. A link is one id in the
+waiting card's own file — the reverse edge is never stored, because a second copy of one
+edge is a copy that can drift. `BoardIndex` / `indexOf` build the map; `blockersOf` and
+`blockersText` say what is unfinished and render the same list for a refusal and for the
+page; `dependentsOf` / `openDependentsOf` / `dependedOn` / `waitingOn` say what a drop
+would strand or block; `wouldCycle` refuses a loop; `normalizeDepends` stores one edge once.
+A dependency naming a card that is not on the board is refused when it is written, and a
+card cannot be dropped while another waits on it.
+
+### limits.ts
+
+How many cards a pulled lane may hold, and the sentence that refuses the next one. The
+board is a pull system whose binding constraint is the person who approves and spot-checks,
+so `plan` and `execute` are gated rather than advised. `WipLimits`, `DEFAULT_WIP` (3 and
+5), `MAX_WIP`, and `normalizeWip` over `clampInteger` turn the settings into numbers, so a
+typo cannot stop a board; `limitOf` / `countIn` answer a lane's `Requirement`; and
+`wipRefusal` names the count, the limit, and the ways out.
+
+The arithmetic only: where the numbers are read from is `config.ts`, which hands them to
+`applyOp` whole so `rules.ts` stays pure.
+
+### artifact.ts
+
+Whether a path is a plan of this repository, which is the one thing the board asks of the
+plan store. `PlanArtifact` is the resolved path that was proved and `ArtifactCheck` is that
+path or the sentence refusing it — one fact for the state machine to order. `planForContract`
+requires a `.md` this repository's store holds whose file is there; `planForExecute` requires
+the recorded plan to still be there, named with the card and `contractRoute` as the way out.
+The path rules come from [`../plans/paths.ts`](../plans/paths.ts), so the board and the plan
+tool cannot disagree about what a plan path is; the board still never reads a plan.
+
+## The lifecycle
+
+### rules.ts
+
+The card lifecycle as a pure function of the card, the operation, who asked, the clock, the
+other cards, and the board's limits. `Actor`, `CardOp`, and `createCard` define the inputs;
+`mayOp` is the same decision without the write, which is what `team` asks before it sends a
+handoff — a dry run is a question, not a mutation performed as a fake session; and `applyOp`
+is one switch over the card *and* the board index, so a lane change cannot be reachable from
+one surface and refused from another.
+
+The one write (`write`) bumps the revision, appends the lane log, and clears what the lane
+left behind. Two shapes of failure matter here: a refusal is `{ ok: false }` with its reason
+and the card untouched, while a no-op is `{ ok: true, changed: false }` — the preconditions
+already hold, so nothing is written and the revision does not move. Nothing here touches the
+filesystem or the bus: ownership is advisory, and the store owns the compare-and-set that
+makes a concurrent writer lose.
+
+### steps.ts
+
+What each operation does — the gates, the lane changes, and the sentence a refusal carries
+— split from the table that dispatches it so the dispatch reads as one switch and the rules
+read as one decision per operation. `claim` pulls a pool card into `plan`; `assign` hands
+one over and moves only a pool card's lane; `release` / `reclaim` return it; `move` walks
+`TRANSITIONS` and asks every gate; `contractOp` writes the three lines and the plan path;
+`approve` / `review` record the two human gates, both refused to the card's own holder, and
+`review` also signs a card already in `done` when an override gives the one line saying why;
+`note` / `edit` / `offer` / `archive` / `drop` keep their own rules, and a drop is refused
+while something waits on the card.
+
+Each answers a `Prepared`: a refusal sentence, a no-op, or the fields a write would apply.
+`{ fields: null, changed: true }` is the one operation that changes the board without
+changing the record — `archive` moves the file, and that is the store's write.
+
+### actions.ts
+
+The actions and which of them only read the board, as one table. `BOARD_ACTIONS` /
+`BoardAction` is the list the tool publishes, in its description order, and
+`BOARD_ACTION_KIND` is a `Record` over every one of them, so an action added to the tuple
+does not compile until somebody says whether it reads. `BOARD_READ_ACTIONS` is the same
+answer for a reader that has to name the reads, `readActionsText` is that list as the phrase
+plan mode's refusal prints, `boardWriteRefusal` is the refusal a write action gets there,
+and `isBoardReadAction` answers for one unnormalized value, where anything unknown is not a
+read.
+
+One table because the tool's enum and the read-only policy were once two: `lib/policy.ts`'s
+`isBoardRead` and `board`'s own schema both read this one, so a second read action cannot be
+admitted by one and refused by the other.
+
+## Storage and identity
+
+### store.ts
+
+The backend: `BoardStore` over `<agent-dir>/board/<repo-key>/cards/*.json`, with `createStore`
+and the one construction point `openBoard`. The directory name constants (`BOARD_DIR_NAME`,
+`CARDS_DIR_NAME`, `ENDED_DIR_NAME`, `ARCHIVE_DIR_NAME`) and `boardDirFor` are the layout; `key`
+is the hash it was filed under, carried rather than read back off the directory's last segment
+because `session-bus` files this repository's records under the same key.
+
+Two writes race safely without a lock. `create` hard-links a temp file onto the name, so two
+adds cannot share an id and the loser retries with the next one. `mutate` re-reads the board,
+re-checks an operation whose card changed underneath, and renames over the old file — a write
+says "apply when this holds", never "force this state". `scan` is one pass answering the cards,
+the files it refused (`Skip`), and the bytes they occupy, so a page's frame reads the board
+once; `list` and `skipped` are its two halves, and `list` orders a lane by priority then id.
+
+`archive` renames a finished card's file into the `archive/` pile beside the cards without
+rewriting it, so `read` finds a card in either pile and writes it back to that one while
+`list` still reads the board alone. `archived()` / `archivedCount()` are the pile on request
+and its count, `nextCardId` spends an archived number as well as an ended one, and nothing
+prunes: `archive` and `drop` are the two ways a card leaves the board.
+
+### config.ts
+
+The `board` section of `bytefly.json`, read once: `BoardConfig` (`wip` and `lead`),
+`DEFAULT_BOARD_CONFIG`, `normalizeBoardConfig` — each key falling back on its own, so a file
+that sets one keeps the other — and `readBoardConfig`, the project's section over the global
+one. Both are read together when the store opens, because a board that asked the file on
+every write would spend a stat to answer a question nobody changed.
+
+The arithmetic of a limit stays in `limits.ts` and the signer rule stays in `lead.ts`; this
+module is the file. `extensions/bytefly` imports it too, so the settings screen shows what the
+loader keeps rather than a copy of the default.
+
+### session.ts
+
+What a board call works on and who it writes as: `BoardSession`, `TeamStanding` — what the
+last join did, so a claim joins and `/board status` can say — and `openBoardSession`. One
+store per working directory, opened on first use and remembered, because the repository
+lookup shells out to git; a failed open is not remembered, so one bad read does not outlive
+the call that hit it. The identity is the pair a card records: the Pi session id, which keeps
+a card held across a rename, and the name the bus already holds for it, else the id-derived
+one.
+
+One session per *host*, not one per extension: `board` and `team` load with separate module
+caches, so two sessions would mean the seat `/board` sets is invisible to every write `team`
+makes. That state lives in the closure, never in a module variable, and `busDirFor` builds the
+bus's directory from the key the store carries, so the roster cannot be moved by regrouping
+the board's own files. `planDir(cwd)` is this repository's plan store through
+[`../plans/paths.ts`](../plans/paths.ts), which is what a card's plan file has to be inside.
+
+### join.ts
+
+The one join both tools ask for, so a claim through `board` and one through `team` cannot
+answer it differently. `JoinSession` is the standing, the clock, and the bus's directory —
+all the rule reads — and `joinOnce` asks while the standing says nothing good, and again
+while the roster holds no `live` record for this session id: a standing stays true after the
+bus stops, the TTL prunes the record, or `/resume` takes the seat over, so a claim that
+trusted it would write a card under a name peers no longer resolve. A join the user asked to
+leave disarmed is asked again the same way, and a failed join never undoes the card it came
+after — a bus that is not loaded is a sentence, not an exception.
+
+### seat.ts
+
+The seat a page is served as: `SEAT_ID_PREFIX` (`board:`) and `pageActor`, the actor a page
+reads as. A page outlives the session that opened it, so it needs one name for its whole
+life and one id derived from it, and the name is `board.lead` because the two questions have
+one answer: the page belongs to the lead, and serving it is how a session becomes the lead.
+The name arrives normalized by `config.ts`, so there is no second label rule here and no
+default name — a constant would be a second answer to what the config already says. The page
+writes nothing, so the id decides no ownership.
+
+### lead.ts
+
+Who may sign the two gates, and the words each refusal uses. `Lead`, `normalizeLead` over
+[`../session-label.ts`](../session-label.ts), `isLead` (a case-insensitive label compare,
+which is not `holds`), and the person at the keyboard — `PERSON_LABEL` (`you`), `PERSON_ID`,
+`personActor`, `isPerson` — which is the actor `/board approve` and `/board review` write,
+and the one actor a file can name that is not a holder, so a repository worked by one session
+can still close a card.
+
+`SIGN_KINDS` / `signOf` name the two signs; `signRefusal` (not the lead), `holderRefusal` (a
+lead holding the card it means to sign), and `missingSign` (the sign a lane requires) are the
+three sentences, so the gates and the lane requirements cannot drift into four versions of
+one rule. `askLead` is the table's one phrase for how a session asks (`session send`),
+`signedText` is what a sign sends the owner, and `notToldLine` is what the caller prints when
+that message did not go.
+
+## What a surface renders
+
+### round.ts
+
+The lead's rollup computed from the cards alone: `buildRound` with `RoundSummary` /
+`RoundGroup` over owners, unassigned, unplanned (a contract still missing a line, or a plan
+never recorded), unapproved, unreviewed (every card in `execute` until somebody has
+spot-checked it, so the second gate is owed from the lane change rather than from a clock),
+blocked, unwritten (`UNWRITTEN_MS`, half an hour), and done. It reads nothing but the cards,
+so the board works with `session-bus` unloaded; a session that is merely idle is a bus fact
+this rollup never reads.
+
+The groups overlap on purpose: a card can be both `unplanned` and `unwritten`, and `unreviewed`
+and `unwritten` say different things — one that the lead owes a look, the other that nobody has
+written the card. Hiding it in one group would lose half the reason to look. `archivableOf` is
+the finished pile `archive` is offered.
+
+### round-text.ts
+
+That rollup as the lines a reader gets, because `board`'s tool returns them — the model's next
+decision is taken from the counts and the ids — and `team`'s `/team` prints them, because a
+lead in a terminal should not have to open a browser. `formatRound` folds the owners a bus has
+no record of and that hold nothing into one line, given the roster, and counts the closes made
+by instruction on the done count. `plural` and the fold's own bodies (`isHistoryOwner`,
+`historyLine`) are spliced into the page as `PLURAL_JS` / `HISTORY_OWNER_JS` / `HISTORY_LINE_JS`;
+the page's filter rule and the card face's reason arrive the same way.
+
+The same module carries what a session is holding — `holdingOf` (`#162 plan`, `#162 plan +2`,
+or `idle`) and `holdingLine`, which is the label and its holding as one sentence, received by
+the page as `HOLDING_OF_JS` — so `/team`'s presence line and the Team tab's teammate row say
+what a named session is doing from one body.
+
+### skipped.ts
+
+The sentence for the card files a board refused. A skipped file is not an absent one: a board
+written by a newer build, or a record this build cannot trust, would otherwise read as "nobody
+has planned anything" while the work sits on disk. `skippedText` prints it under a listing and
+the page prints the same sentence on the footer's hover title, so the two name the same files.
+`Skip` is the store's own record, already phrased for a reader.
+
+### view.ts
+
+The page's snapshot — `buildView` answering `BoardView` (lanes, each carrying its words,
+colour, limit, and count, the total, the rollup, the signature, the repository's name and
+root, and the store's path) — and the one shape a client is allowed to know. Each card arrives
+as a `ViewCard` carrying the priority it acts on, the moment it entered its lane (`since`), and
+`waits` when something unfinished blocks it, so the browser renders an answer instead of
+re-deciding one. `sig` is what makes a push cheap: the page is re-sent only when a card's
+revision moved, and a client cannot invent a state the model surface would not report.
+
+### page-pointer.ts
+
+How a second session finds the page a repository already serves. A page is one loopback server
+owned by one session's process, so the only thing discoverable is the note it leaves at
+`PAGE_FILE` (`page.json`): the port, the seat, and the token the page reads by — nothing a
+reader could misuse, since a page writes nothing. `PING_PATH` / `SNAPSHOT_PATH` / `BOARD_BASE`
+are the routes the router serves and the probe asks for; `probePage` is the question "is it
+still there", with the network as a seam so a test drives it.
+
+Two rules make the file safe to trust. It is created exclusively by hard-linking a temp file
+onto the name (`createPointer`), so two sessions starting at once cannot both believe they are
+the page — the loser reads the winner's pointer and attaches. And it is believed only while it
+answers: `settlePointer` runs the ladder — write, attach to a winner that answers, take over a
+note proved dead — and `readPointer` / `clearPointer` (its own note only) leave an unreadable
+note named rather than blaming a session.
+
+### tone.ts
+
+What colour a board surface wears, stated once, because the page and the terminal used to
+decide it in seven places. `BoardTone` is the page kit's own colour words plus `dim`, so a
+tone is the name of a CSS property and the page needs no map; `BOARD_TONES`, `REASON_TONE`
+(every reason kind, `waiting` included because the card face invents it), and
+`DECISION_KINDS` / `DECISION_TONE`, the Team queue's kinds in rank order with the tone each
+wears, so a row's position and its colour cannot disagree. The rule behind the words: warn is
+a person who must act next, danger is a refusal or a loss, and anything merely true of the
+card is muted.
+
+`DECISION_RANK_JS` / `DECISION_TONE_JS` / `REASON_TONE_JS` are those tables as the browser
+bundle's own source, spliced in like every other rule the page shares. The terminal's
+vocabulary is not here: `extensions/board/tone.ts` maps a tone to a `TuiRole`, because only the
+transcript speaks it.
+
+### reason.ts
+
+Why a card sits where it does, as one rule for the card face, the lead's queue, and the
+transcript. `reasonFor(card, ago)` answers a `Reason` — a `ReasonKind` and one sentence — for
+an unanswered offer, a blocked card's recorded reason, a contract's missing line, an approval
+nobody gave, a spot-check nobody did, and a finished card's commit. The sentence used to be
+written three times, and the surfaces multiply the states it has to name.
+
+`REASON_FOR_JS` is why it is self-contained: it reads the card and a formatter for relative
+times and nothing else, and the clock is a parameter because the two callers read an age
+against different nows — the page's against the reader's, the transcript's against the
+snapshot's.
+
+## What must not drift
+
+- **One writer.** `store.ts` is the only code that writes a card file; a rule that seems to
+  need a write belongs in an operation, and the store applies it with a re-read.
+- **One action table.** `actions.ts` answers both "what may be called" and "what only reads",
+  and `lib/policy.ts` reads it rather than keeping a list.
+- **One lane table.** `lanes.ts` decides a lane's words, colour, ownership, and the moves out
+  of it; the tool's enum, the page's snapshot, and `steps.ts` all read it.
+- **One body per page rule.** Anything the browser bundle needs is a `*_JS` export here,
+  spliced in by the extension's bundle — never a second copy written in JavaScript.
+- **One set of sign words.** `lead.ts` owns what each refusal and each sign says, so the two
+  gates and the lane requirements that ask for a signature cannot drift apart.

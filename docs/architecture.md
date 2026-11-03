@@ -15,7 +15,8 @@ It is not a second rulebook. Every rule has one owner and its reasoning sits nex
 to it: invariants in [`../AGENTS.md`](../AGENTS.md), the shared module table in
 [`../lib/README.md`](../lib/README.md), the terminal design system in
 [`../lib/tui/README.md`](../lib/tui/README.md), the browser design system in
-[`../lib/web/README.md`](../lib/web/README.md), the threat model in
+[`../lib/web/README.md`](../lib/web/README.md), the board's internals in
+[`../lib/board/README.md`](../lib/board/README.md), the threat model in
 [`./security.md`](./security.md), the test tiers in [`../test/README.md`](../test/README.md),
 and one extension's full surface on its page under
 [`./extensions/`](./extensions/).
@@ -248,6 +249,7 @@ Four layers sit below the extensions, each with one contract.
 | [`../lib/tui/`](../lib/tui/) | the terminal design system: roles, rules, rows, columns, gauges, the transcript kit, the render cache | [`../lib/tui/README.md`](../lib/tui/README.md) |
 | [`../lib/web/`](../lib/web/) | the browser design system: tokens, base CSS, components, markup atoms | [`../lib/web/README.md`](../lib/web/README.md) |
 | [`../lib/http/`](../lib/http/) | the loopback policy every served page obeys: one server entry, the mount a page claims a prefix with, binding, `Host` check, page headers, responses, event streams, the idempotent closer | [`../lib/README.md`](../lib/README.md) |
+| [`../lib/board/`](../lib/board/) | the shared feature board: the card record and its boundary, the lifecycle and its two signs, the one store, and the snapshot the page renders | [`../lib/board/README.md`](../lib/board/README.md) |
 
 Two rules keep the layers honest.
 
@@ -489,6 +491,7 @@ reviewed against the tree at each release, and none of them is a checklist to ti
 |---|---|
 | Invariants, code quality, workflow | [`../AGENTS.md`](../AGENTS.md) |
 | Shared modules and host seams | [`../lib/README.md`](../lib/README.md) |
+| The board's internals | [`../lib/board/README.md`](../lib/board/README.md) |
 | The terminal design system | [`../lib/tui/README.md`](../lib/tui/README.md) |
 | The browser design system | [`../lib/web/README.md`](../lib/web/README.md) |
 | Test tiers and determinism | [`../test/README.md`](../test/README.md) |
