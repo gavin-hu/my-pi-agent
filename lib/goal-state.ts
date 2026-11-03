@@ -28,6 +28,7 @@
 
 import { sanitizeLine } from "./format.ts";
 import { GOAL_TOOL } from "./tool-names.ts";
+import { type BranchEntryLike, toolResultDetails } from "./tool-result.ts";
 
 /** Custom-entry type `goal` uses to persist a goal set outside the tool. */
 export const GOAL_ENTRY_TYPE = "goal";
@@ -43,18 +44,6 @@ export interface PublishedGoal {
 	/** The objective, sanitized to a single line. */
 	objective: string;
 	status: PublishedGoalStatus;
-}
-
-/** Minimal shape of a session entry, used for runtime narrowing. */
-interface BranchEntryLike {
-	type?: string;
-	customType?: string;
-	data?: unknown;
-	message?: {
-		role?: string;
-		toolName?: string;
-		details?: unknown;
-	};
 }
 
 /**
@@ -97,12 +86,8 @@ export function lastGoal(entries: Iterable<unknown>): PublishedGoal | null {
 			continue;
 		}
 
-		if (entry?.type !== "message") continue;
-		const message = entry.message;
-		if (message?.role !== "toolResult" || message.toolName !== GOAL_TOOL) continue;
-		const details = message.details as { goal?: unknown; error?: unknown } | undefined;
-		if (!details || details.error) continue;
-		if (!("goal" in details)) continue;
+		const details = toolResultDetails(raw, GOAL_TOOL);
+		if (!details || !("goal" in details)) continue;
 		const next = readGoal(details.goal);
 		if (next !== undefined) goal = next;
 	}
