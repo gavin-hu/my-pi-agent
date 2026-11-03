@@ -322,29 +322,22 @@ describe("isCard", () => {
 		}
 	});
 
-	test("accepts a recorded block and a landing, and an older card with neither", () => {
+	test("accepts a recorded block, and a card that has none", () => {
 		const block = { kind: "decision" as const, note: "legal has to sign" };
 		expect(isCard(card({ lane: "blocked", owner: { label: "billing-core" }, blocked: block }))).toBe(true);
 		// A block may hold the sentence alone: that is what a card written before the kind reads as.
 		expect(isCard(card({ lane: "blocked", owner: { label: "billing-core" }, blocked: { note: "legal" } }))).toBe(true);
-		expect(isCard(card({ lane: "done", owner: { label: "billing-core" }, landed: { commit: "4af1b4a", at: 1 } }))).toBe(
-			true,
-		);
-		// The two fields are optional, so every card written before them still reads.
+		// The field is optional, so every card written before it still reads.
 		expect(isCard(card())).toBe(true);
 	});
 
-	test("refuses a block that is empty, unknown, or over the cap, and a landing that is not one", () => {
+	test("refuses a block that is empty, unknown, or over the cap", () => {
 		const blocked = { lane: "blocked" as const, owner: { label: "billing-core" } };
 		expect(isCard({ ...card(blocked), blocked: {} })).toBe(false);
 		expect(isCard({ ...card(blocked), blocked: { kind: "paused" } })).toBe(false);
 		expect(isCard({ ...card(blocked), blocked: { note: "" } })).toBe(false);
 		expect(isCard({ ...card(blocked), blocked: { note: "x".repeat(201) } })).toBe(false);
 		expect(isCard({ ...card(blocked), blocked: 7 })).toBe(false);
-		const done = { lane: "done" as const, owner: { label: "billing-core" } };
-		expect(isCard({ ...card(done), landed: { commit: "", at: 1 } })).toBe(false);
-		expect(isCard({ ...card(done), landed: { commit: "not a sha", at: 1 } })).toBe(false);
-		expect(isCard({ ...card(done), landed: { commit: "4af1b4a" } })).toBe(false);
 	});
 
 	test("refuses more notes than a card keeps, and a malformed one", () => {

@@ -31,6 +31,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   process belongs to `job`, which already owns attachment and a bounded log. The detection,
   parsing, and screen modules go with it rather than staying as a stub, so no tool name, command,
   or config key is reserved.
+- `board`: a finished card no longer records a commit it "landed" as — the `landed` field, the
+  search of `HEAD` for a message naming the card, the record's landing row, and `logGrep` in
+  `lib/git/` all go. A message that cites a card is a citation, not proof: a later `review #266 nit`
+  was recorded over the merge that closed it. `done` still reads `✓ done by <owner>`, or
+  `· closed by instruction`, and a card file that still carries `landed` keeps reading.
 
 ### Fixed
 

@@ -68,16 +68,15 @@ export type CardOp =
 	| { kind: "assign"; to: Actor }
 	| { kind: "release" }
 	/**
-	 * Change lane. `blockedBy` and `blocker` are what a block records, `landed` says which
-	 * commit closed a card, and `artifact` is the plan proof a card entering `execute` or
-	 * `done` carries: each is read only by the lanes that ask for it.
+	 * Change lane. `blockedBy` and `blocker` are what a block records, and `artifact` is the
+	 * plan proof a card entering `execute` or `done` carries: each is read only by the lanes
+	 * that ask for it.
 	 */
 	| {
 			kind: "move";
 			lane: Lane;
 			blockedBy?: unknown;
 			blocker?: unknown;
-			landed?: { commit: string };
 			artifact?: ArtifactCheck;
 	  }
 	// `text` and the contract fields are whatever the model sent: the modules that own
@@ -196,7 +195,7 @@ function prepare(card: Card, op: CardOp, actor: Actor, now: number, board: Board
 		case "release":
 			return release(card, actor);
 		case "move":
-			return move(card, op, actor, now, board, config);
+			return move(card, op, actor, board, config);
 		case "note":
 			return note(card, op.text, actor, now);
 		case "contract":

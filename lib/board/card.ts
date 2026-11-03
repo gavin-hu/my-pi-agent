@@ -156,19 +156,6 @@ export interface CardTransition {
 	block?: CardBlock;
 }
 
-/**
- * What a finished card landed as.
- *
- * A `done` card cannot say which change closed it from its own text, and `done` is
- * terminal, so the commit is recorded once, where the move that finished it happens.
- */
-export interface CardLanded {
-	/** The commit at the move to `done`, as git resolves `HEAD` there. */
-	commit: string;
-	/** When the card was finished. */
-	at: number;
-}
-
 /** One feature on the board. */
 export interface Card {
 	/** Schema version; an unknown value is refused rather than guessed at. */
@@ -195,8 +182,6 @@ export interface Card {
 	 * when it leaves — the transition log keeps what it was.
 	 */
 	blocked?: CardBlock;
-	/** What closed a finished card: the commit at the move to `done`, and when. */
-	landed?: CardLanded;
 	/**
 	 * When this card was last offered to the team, and nobody has taken it.
 	 *
@@ -500,7 +485,6 @@ export function isCard(value: unknown): value is Card {
 	if (card.contract !== undefined && !isContract(card.contract)) return false;
 	if (card.review !== undefined && !isSign(card.review)) return false;
 	if (card.blocked !== undefined && !isBlock(card.blocked)) return false;
-	if (card.landed !== undefined && !isLanded(card.landed)) return false;
 	if (card.offeredAt !== undefined && (typeof card.offeredAt !== "number" || !Number.isInteger(card.offeredAt))) {
 		return false;
 	}
@@ -532,14 +516,6 @@ function isBlock(value: unknown): value is CardBlock {
 		if (typeof block.note !== "string" || block.note === "" || block.note.length > MAX_BLOCKED) return false;
 	}
 	return block.kind !== undefined || block.note !== undefined;
-}
-
-/** A recorded landing: a commit id and the moment it closed the card. */
-function isLanded(value: unknown): value is CardLanded {
-	if (typeof value !== "object" || value === null) return false;
-	const landed = value as Record<string, unknown>;
-	if (typeof landed.commit !== "string" || !/^[0-9a-f]{4,40}$/.test(landed.commit)) return false;
-	return typeof landed.at === "number" && Number.isInteger(landed.at);
 }
 
 function isOwner(value: unknown): boolean {

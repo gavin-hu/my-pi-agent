@@ -441,15 +441,13 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain('"no plan recorded"');
 	});
 
-	test("says what a block waits on, and what closed a finished card", () => {
+	test("says what a block waits on", () => {
 		// The reason slot carries the recorded reason rather than the last note somebody
-		// happened to write, and the commit is the one fact a finished card cannot say itself.
-		// One body answers both, spliced in from lib/board/reason.ts.
+		// happened to write. One body answers it, spliced in from lib/board/reason.ts.
 		expect(BOARD_CLIENT_JS).toContain('"blocked, with nothing recorded"');
 		// The block is one record now, and the line says what kind of block it is when nobody
 		// wrote a sentence — the one thing a reader needs to know what the card is waiting on.
 		expect(BOARD_CLIENT_JS).toContain('"blocked on a "');
-		expect(BOARD_CLIENT_JS).toContain('landed " + card.landed.commit');
 		// The Team tab's queue asks the same rule rather than re-deriving a sentence.
 		expect(BOARD_CLIENT_JS).toContain("board.reasonFor(card, ago)");
 	});

@@ -4,9 +4,7 @@
  *
  * Seven rather than six is what puts the Done lane past its fold, which is a lane's state the
  * reader has to click to see. The card being worked carries a plan, a contract, its approval, a
- * priority, two path hints, and two notes, so a picture of it is the record at its fullest; one
- * of the finished cards landed as a commit and the rest finished outside a repository, which is
- * a board with no commit to record.
+ * priority, two path hints, and two notes, so a picture of it is the record at its fullest.
  *
  * It is seeded through the store and `advance`, so a suite given this board cannot be handed a
  * state the rules would refuse. One owner for one fixture: the page's behaviour suite and the
@@ -73,12 +71,6 @@ export async function seedWorkingBoard(store: BoardStore, now: number): Promise<
 			LEAD,
 			now - index * 300_000,
 		);
-		await advance(
-			store,
-			card.id,
-			"done",
-			{ owner: CORE, ...(index === 1 ? { landed: "4af1b4a" } : {}) },
-			now - index * 300_000 + 1_000,
-		);
+		await advance(store, card.id, "done", { owner: CORE }, now - index * 300_000 + 1_000);
 	}
 }
