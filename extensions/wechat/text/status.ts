@@ -37,6 +37,15 @@ export interface StatusView {
 	prompts: Array<{ peer: string; title: string; startedAt: number }>;
 	/** The clock the view was built with, for the prompt age. */
 	now?: number;
+	/** How old the stored token is, for the health report; `undefined` without one. */
+	tokenAgeMs?: number;
+	/** Since the last poll, and the hold it asked for; both absent before one. */
+	lastPollAgeMs?: number;
+	pollHoldMs?: number;
+	lastPollError?: string;
+	lastSendError?: string;
+	/** The poller lock's holder and age, so a stuck poll names the process. */
+	lock?: { pid: number; ageMs: number };
 }
 
 /** One peer's line in the control screen. */
@@ -47,6 +56,8 @@ export interface PeerRow {
 	status: "idle" | "queued" | "running";
 	queued: number;
 	runningMs?: number;
+	/** How long the peer's session has been open; only the health report shows it. */
+	sessionAgeMs?: number;
 }
 
 /** The connection word for a bridge status, or `closed` when there is none. */
@@ -63,28 +74,35 @@ export function connectionOf(status: BridgeStatus | undefined): StatusConnection
 	}
 }
 
+/** A sanitized display line for a value that may be absent; `undefined` stays absent. */
+function optionalLine(value: string | undefined): string | undefined {
+	return value === undefined ? undefined : sanitizeLine(value);
+}
+
 /** Build the view from the stored account and the live bridge status. */
 export function statusView(
 	account: BotCredentials | undefined,
 	status: BridgeStatus | undefined,
 	now: number = Date.now(),
 ): StatusView {
+	const since = (at: number | undefined): number | undefined => (at === undefined ? undefined : Math.max(0, now - at));
 	return {
 		bridge: status !== undefined,
-		account: account ? peerLabel(account.ilinkUserId) : undefined,
+		account: account ? sanitizeLine(peerLabel(account.ilinkUserId)) : undefined,
 		connection: connectionOf(status),
-		owner: status?.owner ? peerLabel(status.owner) : undefined,
+		owner: status?.owner ? sanitizeLine(peerLabel(status.owner)) : undefined,
 		peers: status?.peerCount ?? 0,
 		queued: status?.queued ?? 0,
 		peerRows: (status?.peerStates ?? []).map((entry) => ({
 			id: entry.peer,
-			label: peerLabel(entry.peer),
+			label: sanitizeLine(peerLabel(entry.peer)),
 			status: entry.state.status,
 			queued: entry.state.queued,
 			runningMs: entry.state.runningMs,
+			sessionAgeMs: entry.state.sessionAgeMs,
 		})),
 		refused: status?.refused ?? 0,
-		refusedPeers: status?.refusedPeers ?? [],
+		refusedPeers: (status?.refusedPeers ?? []).map(sanitizeLine),
 		mediaDropped: status?.mediaDropped ?? 0,
 		promptPending: status?.promptPending ?? false,
 		prompts: (status?.prompts ?? []).map((prompt) => ({
@@ -93,6 +111,12 @@ export function statusView(
 			startedAt: prompt.startedAt,
 		})),
 		now,
+		tokenAgeMs: account ? since(account.createdAt) : undefined,
+		lastPollAgeMs: since(status?.lastPollAt),
+		pollHoldMs: status?.pollHoldMs,
+		lastPollError: optionalLine(status?.lastPollError),
+		lastSendError: optionalLine(status?.lastSendError),
+		lock: status?.lock ? { pid: status.lock.pid, ageMs: Math.max(0, now - status.lock.at) } : undefined,
 	};
 }
 
@@ -109,6 +133,16 @@ export function statusLine(view: StatusView): string {
 	}
 	const recovery = view.connection === "expired" ? " — run /wechat login to reconnect" : "";
 	return `wechat: ${parts.join(SEPARATORS.item)}${recovery}`;
+}
+
+/** What one peer is doing, and for how long; the screen and the report share it. */
+export function peerValue(row: PeerRow): string {
+	if (row.status === "running") {
+		const seconds = Math.max(0, Math.round((row.runningMs ?? 0) / 1000));
+		return `running ${seconds}s${row.queued > 0 ? `, ${row.queued} queued` : ""}`;
+	}
+	if (row.status === "queued") return `queued ${row.queued}`;
+	return "idle";
 }
 
 /**

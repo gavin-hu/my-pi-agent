@@ -178,6 +178,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"transport/deliver",
 		"transport/poll",
 		"commands/commands",
+		"commands/doctor",
 		"dialog/channels",
 		"dialog/interaction",
 		"dialog/remote-ui",

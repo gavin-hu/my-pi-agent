@@ -39,6 +39,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `wechat`: `credentials.json` can no longer read back as “not logged in” after an interrupted
   write, so a cut-short login no longer costs a fresh QR scan: it is written `0600` through a
   sibling temp file renamed over the old one, the same shape `state.json` took.
+- `wechat`: `/wechat doctor` renders from the status view instead of re-deriving its facts, so the
+  report and the control screen can no longer word one thing two ways. A CJK peer label now lines
+  up with an ASCII one — the label column is padded by display width, not UTF-16 length — and a
+  control character or escape sequence in a peer id or a server error no longer reaches the
+  terminal. The per-peer cell reads `running 42s`, the control screen's wording, and the media line
+  reads `refused 1 (bob)`, the summary line's.
 - `lib`: `writeJsonFile` is the one atomic JSON write now — the two `wechat` files above, and
   `writeConfigFile`, which still writes the same bytes. One body instead of a copy per caller.
 - `board`, `file-browse`, `plan`: one live-stream client for the three served pages, out of

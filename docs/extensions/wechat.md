@@ -625,7 +625,7 @@ guidance used to do.
 | `peer/presence.ts` | Typing, acknowledgement, and the slow/busy lines; all per-peer wait timers in one registry. |
 | `commands/commands.ts` | The one `/wechat` verb table: each row carries its runner, and the help text, the usage line, the completions, the command description, and the dispatch all derive from it; plus the panel, login/logout, and the per-peer stop/reset. `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
 | `commands/slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
-| `commands/doctor.ts` | The plain-text `/wechat doctor` report: connection/token age, poll, lock, peer sessions, recent failures, and config. |
+| `commands/doctor.ts` | The plain-text `/wechat doctor` report: it renders a `StatusView`, so the connection, per-peer, and refusal facts are the ones `text/status.ts` owns; the poll, lock, and config lines are its own, and so is the remedy each state asks for. |
 | `commands/login.ts` | QR login state machine. |
 | `commands/history.ts` | Read-only `/history`: opens the peer's newest session, formats the last user/assistant messages, and never writes. |
 | `text/format.ts` | Sanitize, chunk, and label helpers (text only). |

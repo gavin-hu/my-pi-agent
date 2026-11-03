@@ -20,7 +20,7 @@ import { keyValueRow, listRow } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
 import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
 import type { WechatVerb } from "../commands/commands.ts";
-import { type PeerRow, refusedValue, type StatusConnection, type StatusView } from "../text/status.ts";
+import { type PeerRow, peerValue, refusedValue, type StatusConnection, type StatusView } from "../text/status.ts";
 
 /**
  * What the status screen closed with: the verb to run, with the peer it names, or
@@ -153,16 +153,6 @@ export function statusBody(view: StatusView, theme: Theme, width: number, select
 		lines.push(clip(`  ${paint(theme, "meta", "Run /wechat login to connect an account.")}`, target));
 	}
 	return lines;
-}
-
-/** The peer value: what it is doing, and for how long. */
-function peerValue(row: PeerRow): string {
-	if (row.status === "running") {
-		const seconds = Math.max(0, Math.round((row.runningMs ?? 0) / 1000));
-		return `running ${seconds}s${row.queued > 0 ? `, ${row.queued} queued` : ""}`;
-	}
-	if (row.status === "queued") return `queued ${row.queued}`;
-	return "idle";
 }
 
 /** One selectable line per peer, with a range row when the list is scrolled. */
