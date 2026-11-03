@@ -11,7 +11,7 @@
  * file and the parse error a user would otherwise never see.
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 
@@ -120,14 +120,30 @@ export interface JsonWriteOptions {
  *
  * The mode rides on the temp file rather than being applied after the write, so a
  * `0600` file is never readable at a wider mode for even a moment.
+ *
+ * A value JSON has no form for is refused: `JSON.stringify` answers `undefined` for it,
+ * and written out that is the five letters, which the next reader loads as an empty
+ * document. A write or rename that fails removes its temp, so the next write is not
+ * handed the broken one's name.
  */
 export function writeJsonFile(path: string, value: unknown, options: JsonWriteOptions = {}): void {
+	const body = JSON.stringify(value, null, 2);
+	if (body === undefined) throw new TypeError(`writeJsonFile: ${path} has no JSON form`);
 	mkdirSync(dirname(path), { recursive: true });
 	const temp = `${path}.${process.pid}.tmp`;
-	const text = `${JSON.stringify(value, null, 2)}\n`;
-	if (options.mode === undefined) writeFileSync(temp, text, "utf-8");
-	else writeFileSync(temp, text, { encoding: "utf-8", mode: options.mode });
-	renameSync(temp, path);
+	const text = `${body}\n`;
+	try {
+		if (options.mode === undefined) writeFileSync(temp, text, "utf-8");
+		else writeFileSync(temp, text, { encoding: "utf-8", mode: options.mode });
+		renameSync(temp, path);
+	} catch (error) {
+		try {
+			rmSync(temp, { force: true });
+		} catch {
+			// The failure that brought us here is the one worth reporting.
+		}
+		throw error;
+	}
 }
 
 /** What {@link readJsonResult} found: nothing, a usable object, or why not. */
