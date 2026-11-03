@@ -36,6 +36,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the open itself fails. `state.json` is now written through a sibling temp file and renamed into
   place, so a write cut short can no longer leave a file that reads as empty state and takes the
   cursor and the remembered message ids with it — which replayed and re-answered messages.
+- `wechat`: the poller lock is taken with an exclusive create, so two `pi` sessions starting at the
+  same moment can no longer both claim one account and answer every message twice from two
+  histories. A lock left by a dead or stale holder is still taken over, and a refresh re-stamps only
+  a record that is still this process's — after a takeover it no longer writes its own pid over the
+  new holder's, nor deletes it on the way out. The restamp lands by rename, so the lock is never
+  briefly empty for a rival to read as free.
 - `lib`: every enumerated tool parameter is its union again under `bun run check:types` — `plan`'s
   `action` and step `status`, `job`'s `signal`, `goal`'s `status`, `subagent`'s `agentScope`, and
   the eight other schemas built from `StringEnum`. Pi 1.5.0 types pi-ai's `StringEnum` against its
