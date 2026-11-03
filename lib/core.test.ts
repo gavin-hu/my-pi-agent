@@ -1,11 +1,9 @@
 /**
- * The shared core: config coercion and the `bytefly.json` document, the worktree
- * environment, boundary errors and HTML escaping, path containment, the
- * read-only policy, the rejected-call shape, the transcript notice, and the
- * turn-affinity prompt channel.
- *
- * Every case runs over a temp directory or an injected seam; no session, host,
- * or network is involved.
+ * The shared core: JSON narrowing and the `bytefly.json` document, the worktree
+ * environment, boundary errors and escaping, path containment, the read-only
+ * policy, the rejected-call shape, the transcript notice, and the prompt channel.
+ * Every case runs over a temp directory or an injected seam: no session, host,
+ * or network.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -22,15 +20,17 @@ import {
 	clampInteger,
 	clampNumber,
 	cleanString,
+	optionalString,
+	readJson,
+	readJsonResult,
+	stringList,
+} from "./json.ts";
+import {
 	configSection,
 	configValueAt,
 	loadConfigFile,
 	loadConfigSection,
-	optionalString,
-	readJson,
-	readJsonResult,
 	SHARED_CONFIG_FILE,
-	stringList,
 	unsetConfigValueAt,
 	writeConfigFile,
 	writeConfigSection,

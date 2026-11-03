@@ -14,7 +14,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { writeJsonFile } from "../../lib/config.ts";
+import { writeJsonFile } from "../../lib/json.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
 import type { WorktreeConfig } from "./config.ts";
 import { commitsAhead, commitsBehind, isStaleLock, type ManagedWorktree, statusEntries } from "./git.ts";

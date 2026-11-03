@@ -6,7 +6,8 @@
  * many background children may run at once — never an agent's prompt or tools.
  */
 
-import { clampInteger, loadConfigSection } from "../../lib/config.ts";
+import { clampInteger } from "../../lib/json.ts";
+import { loadConfigSection } from "../../lib/config.ts";
 
 export interface SubagentConfig {
 	/** Wall-clock limit for one child run in ms; `0` disables it. */

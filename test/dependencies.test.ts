@@ -283,7 +283,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
  * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 704.
+ * total is their sum, 718.
  *
  * The heights moved as the tree did: the board's `bytefly.json` section became
  * one module (`board/config.ts`, read by `board` and by `team` through the store)
@@ -299,26 +299,33 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * out of the publishing module, so both sides compile against one name. The eleven
  * entries that declare a string-enum parameter each pay one more for
  * `lib/tool-schema.ts`, which owns the type Pi's own typings stopped giving it.
+ * `lib/config.ts`'s JSON boundary became `lib/json.ts`. Fifteen entries that clamp a
+ * number *and* load their own `bytefly.json` section now evaluate both modules —
+ * bytefly, board, file-read, goal, job, memory, rewind, serve, subagent, team, todo,
+ * watch, web-access, worktree and wechat — and fourteen of them raise their row, because
+ * `wechat`'s 30 already held one of slack over its 29, so the total went 704 -> 718. That
+ * is what the seam costs. What it buys is `session-bus`: the one entry that needs the
+ * boundary and no document, which swaps `config.ts` for `json.ts` at the same count.
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
-	bytefly: 87,
-	board: 58,
+	bytefly: 88,
+	board: 59,
 	plan: 56,
-	team: 48,
-	job: 44,
+	team: 49,
+	job: 45,
 	"session-bus": 44,
-	subagent: 32,
-	"web-access": 40,
-	worktree: 37,
-	goal: 35,
-	watch: 33,
-	todo: 31,
+	subagent: 33,
+	"web-access": 41,
+	worktree: 38,
+	goal: 36,
+	watch: 34,
+	todo: 32,
 	wechat: 30,
-	"file-read": 29,
-	rewind: 28,
-	memory: 28,
+	"file-read": 30,
+	rewind: 29,
+	memory: 29,
 	question: 18,
-	serve: 11,
+	serve: 12,
 	context: 8,
 	"file-open": 5,
 	"file-browse": 2,

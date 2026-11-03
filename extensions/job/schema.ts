@@ -7,7 +7,7 @@
  */
 
 import { Type, type Static } from "typebox";
-import { optionalString } from "../../lib/config.ts";
+import { optionalString } from "../../lib/json.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { JOB_ACTIONS, KILL_SIGNALS, type JobAction, type KillSignal } from "./types.ts";
 

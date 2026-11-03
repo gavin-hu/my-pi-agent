@@ -5,14 +5,14 @@
  * text from the same entries, so a tool error and a `doctor` line cannot drift apart.
  *
  * The table is data: no module state, no I/O, no host access. Everything a probe
- * needs (running a command, reading a file, loading an optional package, the
- * platform, the directories) arrives as a seam, the same way `RunGit` does in
- * `lib/git/runner.ts`. That keeps `probeExtension` testable with no process and
- * keeps `lib/` value-only.
+ * needs (running a command, reading a file, loading an optional package, the platform,
+ * the directories) arrives as a seam, the same way `RunGit` does in `lib/git/runner.ts`.
+ * That keeps `probeExtension` testable with no process and `lib/` value-only.
  */
 
 import { join } from "node:path";
-import { configSection, configValueAt, type JsonReadResult, SHARED_CONFIG_FILE } from "./config.ts";
+import { type JsonReadResult } from "./json.ts";
+import { configSection, configValueAt, SHARED_CONFIG_FILE } from "./config.ts";
 import type { WebSearchProviderEvent } from "./events.ts";
 import { pdfGuidance } from "./pdf.ts";
 import { getPiInvocation, type PiInvocation } from "./pi-invocation.ts";
@@ -315,7 +315,7 @@ export interface DirSeams {
 /** Everything a probe needs from the outside world. */
 export interface ProbeSeams {
 	exec: ExecSeam;
-	/** Validate a file with its reason, not silently (see `lib/config.ts`). */
+	/** Validate a file with its reason, not silently (see `lib/json.ts`). */
 	readJson: (path: string) => JsonReadResult;
 	dirs: DirSeams;
 	platform: NodeJS.Platform;

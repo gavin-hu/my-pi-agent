@@ -15,7 +15,8 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { readJsonResult, SHARED_CONFIG_FILE, writeConfigFile } from "../lib/config.ts";
+import { readJsonResult } from "../lib/json.ts";
+import { SHARED_CONFIG_FILE, writeConfigFile } from "../lib/config.ts";
 
 /** Top-level bytefly keys that now live under `price`. */
 const PRICE_KEYS = ["currency", "rates", "peak"] as const;

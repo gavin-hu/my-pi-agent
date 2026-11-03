@@ -11,7 +11,8 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "bun:test";
-import { readJson, SHARED_CONFIG_FILE } from "../lib/config.ts";
+import { readJson } from "../lib/json.ts";
+import { SHARED_CONFIG_FILE } from "../lib/config.ts";
 import { tempDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import { LEGACY_FILES, migrate, migrateDocument, migrateScope } from "./migrate-config.ts";

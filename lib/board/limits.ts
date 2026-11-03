@@ -14,7 +14,7 @@
  * arithmetic and the sentence.
  */
 
-import { clampInteger } from "../config.ts";
+import { clampInteger } from "../json.ts";
 import { LANE_RULES, type Lane } from "./lanes.ts";
 
 /** The lanes a limit applies to: the two a card is pulled into. */

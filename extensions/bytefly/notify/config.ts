@@ -14,7 +14,8 @@
  * flags then narrow what is announced.
  */
 
-import { asBoolean, cleanString, loadConfigSection } from "../../../lib/config.ts";
+import { asBoolean, cleanString } from "../../../lib/json.ts";
+import { loadConfigSection } from "../../../lib/config.ts";
 import { NOTIFY_METHODS, type NotifyConfig, type NotifyMethod } from "./types.ts";
 
 /** A notification title longer than this is clamped; it is a label, not a message. */

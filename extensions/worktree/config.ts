@@ -7,7 +7,8 @@
  */
 
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { asBoolean, cleanString, clampInteger, loadConfigSection, stringList } from "../../lib/config.ts";
+import { asBoolean, cleanString, clampInteger, stringList } from "../../lib/json.ts";
+import { loadConfigSection } from "../../lib/config.ts";
 
 export interface WorktreeGuardConfig {
 	/** Block write/edit whose resolved path leaves the active worktree. Default: true */

@@ -7,7 +7,8 @@
  * field is clamped.
  */
 
-import { clampInteger, loadConfigSection } from "../../lib/config.ts";
+import { clampInteger } from "../../lib/json.ts";
+import { loadConfigSection } from "../../lib/config.ts";
 import { FORMATS, type FormatId } from "./formats.ts";
 
 export interface ReadConfig {

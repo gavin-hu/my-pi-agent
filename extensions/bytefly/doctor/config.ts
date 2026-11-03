@@ -9,7 +9,8 @@
  * so it must not depend on parsing cleanly itself.
  */
 
-import { clampInteger, loadConfigSection } from "../../../lib/config.ts";
+import { clampInteger } from "../../../lib/json.ts";
+import { loadConfigSection } from "../../../lib/config.ts";
 
 /** How long a single probe may take before it counts as unusable. */
 const DEFAULT_TIMEOUT_MS = 2_000;

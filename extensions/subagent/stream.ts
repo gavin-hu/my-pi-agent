@@ -6,7 +6,7 @@
  */
 
 import type { Message } from "@earendil-works/pi-ai";
-import { asNumber, asRecord } from "../../lib/config.ts";
+import { asNumber, asRecord } from "../../lib/json.ts";
 import { USAGE_COUNTERS, type UsageCounts, zeroUsage } from "../../lib/usage.ts";
 import type { SingleResult, UsageStats } from "./types.ts";
 

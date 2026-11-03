@@ -6,7 +6,8 @@
  * notes are markdown, not JSON — only recall behavior is configured here.
  */
 
-import { clampInteger, loadConfigSection } from "../../lib/config.ts";
+import { clampInteger } from "../../lib/json.ts";
+import { loadConfigSection } from "../../lib/config.ts";
 
 export interface MemoryConfig {
 	/** Inject stored notes before each run. */

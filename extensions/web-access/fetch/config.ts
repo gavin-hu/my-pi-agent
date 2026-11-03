@@ -7,7 +7,7 @@
  * over global ones in the top-level loader.
  */
 
-import { clampInteger, cleanString } from "../../../lib/config.ts";
+import { clampInteger, cleanString } from "../../../lib/json.ts";
 
 /** Hard ceiling on the returned slice, mirroring the tool parameter maximum. */
 export const MAX_OUTPUT_CHARS = 100_000;

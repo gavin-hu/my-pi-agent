@@ -8,7 +8,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { writeJsonFile } from "../../../lib/config.ts";
+import { writeJsonFile } from "../../../lib/json.ts";
 import type { BotCredentials, PeerState, SeenMessage, WechatState } from "../types.ts";
 import type { MessageTarget } from "../transport/deliver.ts";
 import { wechatDir } from "./credentials.ts";
