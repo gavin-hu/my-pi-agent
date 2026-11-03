@@ -224,4 +224,29 @@ describe("the rollup's sections", () => {
 		const review = input.sections.find((entry) => entry.label === "Awaiting review");
 		expect(review?.rows.map((row) => row.id)).toEqual(["7"]);
 	});
+
+	test("leaves out an owner whose only card is finished, which `Done` already draws", () => {
+		// `buildRound` keeps that owner's group on purpose: the round's text line counts what it
+		// finished, so the group is the kit's answer and the empty heading is this caller's bug.
+		const finished = card({ id: "8", lane: "done", owner: { label: "billing-other", id: "s-other" } });
+		const round: RoundSummary = {
+			owners: [
+				{ label: PEER.label, cards: [card()], done: [] },
+				{ label: "billing-other", cards: [], done: [finished] },
+			],
+			unassigned: [],
+			unplanned: [],
+			unapproved: [],
+			unreviewed: [],
+			blocked: [],
+			unwritten: [],
+			done: [finished],
+			archivable: [finished],
+		};
+		const input = resultInput({ action: "list", me: ME, round, cards: [] });
+		if (input?.kind !== "sections") throw new Error("a rollup is sections");
+		expect(input.sections.map((entry) => entry.label)).toEqual([PEER.label, "Done"]);
+		// The finished card is not lost with the heading: it is the `Done` section's row.
+		expect(input.sections[1]?.rows.map((row) => row.id)).toEqual(["8"]);
+	});
 });

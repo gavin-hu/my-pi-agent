@@ -37,6 +37,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   gallery fixture's own label promised. Before, `renderResult` asked `resultInput` for rows
   whatever `options.expanded` said, so the same listing drew identically collapsed and expanded
   and `board-round`'s `expanded: true` was inert.
+- `board`: an expanded `list --round` block no longer draws an owner heading with no rows under it —
+  an owner whose only card is finished keeps its round group so the text line can count what it
+  finished, and that group has nothing to draw. The owner is still named by that line, and the
+  finished card still appears once under `Done`.
 - `wechat`: a peer's session directory is one sanitized path segment now, so a hostile peer id —
   `../..`, a separator, a leading dot — can no longer name another peer's history or climb out of
   `sessions/`. `sanitizePathSegment` is the one owner of the rule that turns a wire value into a
