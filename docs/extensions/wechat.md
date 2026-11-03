@@ -466,8 +466,8 @@ rooms are delivered, a question a group-chat design would have to answer first.
   characters, so an answer that stalls mid-paragraph still arrives in pieces. A
   part that is itself longer than `maxReplyChars` is split again and numbered,
   and the marker is part of the budget, so a delivered message stays inside the
-  limit — unless the limit is smaller than the marker itself, where one code
-  point per part is the floor.
+  limit — wherever the limit can hold the marker its part count needs. Below
+  that, one code point per part is the floor and the marker overflows it.
 - An abandoned turn's notice is one attempt, not a queue. Any close — `/wechat
   new`, `/reload`, a fork, a logout, or a process exit — sends one short line per
   peer that still had work, and a queued message shares its peer's line rather

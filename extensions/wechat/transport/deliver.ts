@@ -16,8 +16,9 @@ import { basename } from "node:path";
 import { sendLocalFile, sendLocalImage } from "./outbound.ts";
 
 /** The widest marker `parts` parts need: `[n/n] ` is four characters plus both counts. */
-function markerWidth(parts: number): number {
-	return 4 + 2 * String(parts).length;
+/** `[i/n] ` in code points, for a part count of `digits` digits. */
+function markerWidth(digits: number): number {
+	return 4 + 2 * digits;
 }
 
 /**
@@ -26,19 +27,23 @@ function markerWidth(parts: number): number {
  * marker's width first, because a part that then overshoots is a part the peer
  * receives over the limit.
  *
- * Reserving room can add a part, which can widen the marker: the loop settles on
- * the digit width the final count needs. The count only grows as the room shrinks,
- * so it ends.
+ * The final count `n` is the fixpoint of "cut with room for a `digits(n)`-digit
+ * marker, then count again": reserving room can add a part, and enough parts widen
+ * the marker (9 → 10). `digits(count)` only grows as the reserved width grows and
+ * never exceeds `digits(text.length)`, so a fixed point exists in that range and
+ * the loop reaches it by walking the widths.
+ *
+ * The room never drops below one code point, so a limit too small for the marker
+ * its own part count needs cannot be honoured: the part is one code point and the
+ * marker overflows it. That is the floor — the limit wins wherever it can.
  */
 export function numberedChunks(text: string, max: number): string[] {
 	const whole = chunkText(text, max);
 	if (whole.length <= 1) return whole;
-	let parts = whole.length;
 	let chunks = whole;
-	for (let pass = 0; pass < 6; pass += 1) {
-		chunks = chunkText(text, Math.max(1, max - markerWidth(parts)));
-		if (chunks.length === parts) break;
-		parts = chunks.length;
+	for (let digits = 1; digits <= String(text.length).length; digits += 1) {
+		chunks = chunkText(text, Math.max(1, max - markerWidth(digits)));
+		if (String(chunks.length).length === digits) break;
 	}
 	return chunks;
 }

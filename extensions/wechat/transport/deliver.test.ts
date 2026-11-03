@@ -73,6 +73,15 @@ describe("numbered parts", () => {
 		expect(chunks.every((chunk) => width(chunk) === 1)).toBe(true);
 	});
 
+	test("the floor is the marker its own count needs, not just a tiny limit", () => {
+		// Seven parts would fit a seven-point limit, but 100 parts need `[1/100] `:
+		// the room floors at one code point and the marker overflows. Nothing is lost.
+		const chunks = numberedChunks("a".repeat(100), 7);
+		expect(chunks).toHaveLength(100);
+		expect(chunks.join("")).toBe("a".repeat(100));
+		expect(chunks.every((chunk) => width(chunk) === 1)).toBe(true);
+	});
+
 	test("a reply that fits is one unnumbered message", () => {
 		expect(numberedChunks("abcdefgh", 12)).toEqual(["abcdefgh"]);
 	});
