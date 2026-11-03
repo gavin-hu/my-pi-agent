@@ -142,8 +142,8 @@ A surface is verified by rendering it. A terminal frame:
 `bun run render:tools render <tool> --width 80` for one block; a
 browser page: `bun run capture:plan <plan.md>` or `capture:file-browse`,
 each driving the shipped page. `bun run check` renders every screen at three
-widths, so an overflowing frame fails there. Re-capture `assets/` only in the
-release phase, never during a feature or fix.
+widths, so an overflowing frame fails there. Re-capture `assets/screens/` only in
+the release phase; an `assets/cards/` poster follows its page.
 
 ## Documentation
 
