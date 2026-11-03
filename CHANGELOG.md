@@ -59,11 +59,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `TypeError` naming the path, rather than writing the text `undefined` that the next read loads as
   an empty document, and removes its temp when the write or the rename fails instead of leaving it
   for the next write to reuse.
-- `board`: a card moved to `done` records the commit whose message names it (`(#266, …)`) instead of
-  whatever `HEAD` happened to be, so a card finished from a checkout the work never reached no
-  longer carries a plausible-looking hash belonging to somebody else's change; a history that never
-  names the card records no landing at all, and the record's landing rung is absent. A message that
-  merely cites the card counts, so the newest mention wins over the merge that closed it.
 - `board`: a `list` draws its rows only when the block is expanded, so a collapsed block is
   the one line that counts the cards — the picture `docs/extensions/board.md` describes and the
   gallery fixture's own label promised. Before, `renderResult` asked `resultInput` for rows
