@@ -118,7 +118,10 @@ send_wechat({ image: "/tmp/plot.png" })
 
 The call line carries the message text, or an image's file name rather than its
 path; the result is one line — `sent to WeChat owner`, or the failure with a
-reason.
+reason. While the send is in flight the row reads `Sending…` with a live elapsed
+count (`startToolProgress`, `elapsedSuffix`), and the settled line carries the
+duration once it passes a second, so a slow network reads as slow rather than as
+a hung call.
 
 ## Commands
 

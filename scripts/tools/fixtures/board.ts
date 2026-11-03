@@ -251,6 +251,15 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		},
 	},
 	{
+		name: "team-assigning",
+		tool: "team",
+		group: "package",
+		label: "a handoff in flight, waiting on the bus",
+		args: { action: "assign", card: "1", to: "billing-core" },
+		options: { isPartial: true },
+		result: { content: [] },
+	},
+	{
 		name: "team-expanded",
 		tool: "team",
 		group: "package",

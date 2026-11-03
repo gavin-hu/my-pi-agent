@@ -15,7 +15,7 @@ import type { Card } from "../../lib/board/card.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { NOW, type TeamSuite, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { fakeTheme, toolRenderContext } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { ACTION_FIELDS, TEAM_ACTIONS, type TeamDetails } from "./types.ts";
 
@@ -318,6 +318,52 @@ describe("the transcript block", () => {
 		expect(expanded).toContain("  paths: src/billing");
 		expect(expanded).toContain("Not listening: billing-core");
 		expect(expanded).not.toBe(block(tool, result, false));
+	});
+
+	test("a busy round names the verb it waits on, and the settled line carries the duration", async () => {
+		const { call, tool, seed } = harness();
+		const id = await seed();
+		const args = { action: "assign", card: id, to: "billing-core" };
+		const result = await call(args);
+		// A live frame carries no details, so the verb comes off the call's own arguments.
+		const context = { ...toolRenderContext(), args, durationMs: 2100 };
+		const live = tool
+			.renderResult({ content: [] }, { expanded: false, isPartial: true }, fakeTheme, context)
+			.render(80)
+			.join("\n");
+		// The live frame's number comes off the wall clock, so the verb is what a suite can hold;
+		// `elapsedSuffix`'s own numbers are `lib/tui`'s case.
+		expect(live).toContain("Handing over");
+		const settled = tool
+			.renderResult(result, { expanded: false, isPartial: false }, fakeTheme, context)
+			.render(80)
+			.join("\n");
+		expect(settled.trim()).toBe(`#${id} plan → billing-core · 2.1s`);
+		// The settled frame clears the interval the live line started, so nothing ticks after it.
+		expect((context.state as { elapsedTimer?: unknown }).elapsedTimer).toBeUndefined();
+	});
+
+	test("hands Pi a partial result while the send is in flight", async () => {
+		let partials = 0;
+		let duringSend = 0;
+		const { tool, seed, ctx } = harness({
+			duringSend: () => {
+				duringSend = partials;
+			},
+		});
+		const id = await seed();
+		await tool.execute(
+			"call-1",
+			{ action: "assign", card: id, to: "billing-core" },
+			undefined,
+			() => {
+				partials += 1;
+			},
+			ctx,
+		);
+		// The message is on its way and the card is not yet touched: that wait is what the live line covers.
+		expect(duringSend).toBe(1);
+		expect(partials).toBe(1);
 	});
 
 	test("the call line names the peer for ask, the one verb with no card", () => {
