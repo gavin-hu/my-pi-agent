@@ -135,6 +135,12 @@ offer does not act on to: `assign` takes it.
 the sentence, and a test holds every published parameter to an action that acts on it. Two
 verbs read `to` now — `assign` and `ask` — so the refusal names both.
 
+While a verb works, the row says which wait it is in — `Handing over…`, `Offering…`,
+`Asking…`, `Claiming…`, `Reclaiming…` — with a live elapsed count, and the settled summary
+line carries the duration once it passes a second. The verbs that send wait on the bus and
+the two that move a card wait on the store, so a slow round is told apart from a hung one;
+a call refused for its own arguments never draws the live line at all.
+
 ### The order is the point
 
 `assign` sends **before** it assigns, and each failure leaves a state the report names:

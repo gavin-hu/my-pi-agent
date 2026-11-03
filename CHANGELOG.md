@@ -102,6 +102,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   alike. No tool's schema JSON, and no tool's behaviour, changes.
 - `test`: the `pi.exec` and render-context doubles carry what Pi 1.5 added (`truncated`,
   `keyText`/`keyHint`) in a shape the 1.4 floor still accepts.
+- `wechat`, `team`: the two calls that wait on something outside the process say so while they
+  wait — `send_wechat` reads `Sending…`, `team` reads its own verb (`Handing over…`, `Offering…`,
+  `Asking…`, `Claiming…`, `Reclaiming…`) — with the live elapsed count `startToolProgress` and
+  `elapsedSuffix` give the six tools that already used them. A send that outlasts a second also
+  carries its duration on the settled line, so a slow network or a slow bus reads as slow instead
+  of as a hung call. The argument-only refusals still draw no live line, and no other tool changes.
 
 ## [0.24.0] - 2026-11-02
 

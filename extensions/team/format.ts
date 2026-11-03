@@ -9,6 +9,7 @@
 
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import { type DeliveryFailure, notDeliveredLine } from "../../lib/session-tool.ts";
+import type { TeamAction } from "./types.ts";
 
 /** `/team join` landed: the label peers address, and whether mail will reach this session. */
 export function formatJoined(label: string, watching: { armed: boolean }): string {
@@ -172,4 +173,23 @@ export function formatClaimed(card: Card): string {
 		`  ${card.title}\n` +
 		`  next: design it in plan mode, \`plan\` action \`write\`, then \`board\` action \`contract\``
 	);
+}
+
+/**
+ * What a running call is doing, in the verb's own words.
+ *
+ * A partial result carries no details, so this line is all a human has while the call works:
+ * the verb says what the wait is — the bus for `assign`, `offer`, and `ask`, the store for
+ * `claim` and `reclaim` — because the card's summary cannot until the call settles.
+ */
+const WORKING: Record<TeamAction, string> = {
+	assign: "Handing over…",
+	offer: "Offering…",
+	reclaim: "Reclaiming…",
+	claim: "Claiming…",
+	ask: "Asking…",
+};
+
+export function formatWorking(action: TeamAction): string {
+	return WORKING[action];
 }

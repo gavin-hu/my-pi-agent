@@ -17,6 +17,15 @@ export const INTERACTION_FIXTURES: ToolFixture[] = [
 		result: { content: [{ type: "text", text: "Sent to the WeChat owner." }], details: { sent: true } },
 	},
 	{
+		name: "send_wechat-running",
+		tool: "send_wechat",
+		group: "package",
+		label: "a send in flight, waiting on the network",
+		args: { text: "The build is green." },
+		options: { isPartial: true },
+		result: { content: [] },
+	},
+	{
 		name: "question",
 		group: "package",
 		label: "a two-question answer, one custom",

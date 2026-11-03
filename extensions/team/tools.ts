@@ -34,7 +34,15 @@ import type { DeliveryFailure, TeamJoin } from "../../lib/session-tool.ts";
 import { failedResult, type ToolFailure, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { callLine, detailsOrLine, messageText, type ToolMessageResult } from "../../lib/tui/tool.ts";
+import {
+	callLine,
+	detailsOrLine,
+	elapsedSuffix,
+	messageText,
+	startToolProgress,
+	syncElapsedTimer,
+	type ToolMessageResult,
+} from "../../lib/tui/tool.ts";
 import { plural } from "../../lib/board/round-text.ts";
 import { strayField } from "../../lib/stray-fields.ts";
 import {
@@ -58,6 +66,7 @@ import {
 	formatRacedOffer,
 	formatRacedAssignment,
 	formatReclaimed,
+	formatWorking,
 } from "./format.ts";
 import { TeamParams } from "./schema.ts";
 import {
@@ -173,7 +182,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
 		executionMode: "sequential",
 
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, _signal, onUpdate, ctx) {
 			const args = params as TeamArgs;
 			const action = normalizeTeamAction(args.action);
 			if (!action) {
@@ -183,6 +192,9 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			// cannot have read a card or sent a message on its way to the refusal.
 			const stray = strayField(action, args, ACTION_FIELDS);
 			if (stray !== undefined) return refusal(action, stray);
+			// Past the argument refusals, every branch below waits — on the store, on the bus, or on
+			// the join — so the row says it is working from here rather than staying motionless.
+			startToolProgress(onUpdate);
 			const me = await session.who(ctx, ctx.cwd);
 			// The join every verb a peer answers by mail asks for, built once per call from the
 			// name the reply line names — so the round never keeps a second copy of its label.
@@ -219,7 +231,16 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 		},
 
 		renderResult(result, options, theme, context) {
+			const startedAt = syncElapsedTimer(options.isPartial, context);
 			const text = reuseText(context?.lastComponent);
+			// A partial result carries no details, so the live line comes before `detailsOrLine`,
+			// which would otherwise read the working frame as a rejection.
+			if (options.isPartial) {
+				const verb = normalizeTeamAction((context.args as { action?: unknown } | undefined)?.action) ?? "assign";
+				const elapsed = startedAt === undefined ? "" : elapsedSuffix(theme, Date.now() - startedAt);
+				text.setText(paint(theme, "warn", formatWorking(verb)) + elapsed);
+				return text;
+			}
 			const details = toolDetails<TeamDetails>(result.details);
 			const outcome = detailsOrLine(theme, result, options.expanded, details);
 			if ("line" in outcome) {
@@ -227,8 +248,13 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 				return text;
 			}
 			// A round's result is a card and a sentence about it, so the collapsed block is the one
-			// summary line and expanding reveals the lines the model was handed.
-			text.setText(options.expanded ? resultLines(theme, result) : summaryOf(outcome.details));
+			// summary line and expanding reveals the lines the model was handed. The duration rides the
+			// summary: the model's own sentences are not the place for a column of time.
+			text.setText(
+				options.expanded
+					? resultLines(theme, result)
+					: summaryOf(outcome.details) + elapsedSuffix(theme, context.durationMs),
+			);
 			return text;
 		},
 	});

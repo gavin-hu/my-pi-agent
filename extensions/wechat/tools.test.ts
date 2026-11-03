@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { fakeTheme, createFakePi } from "../../test/helpers/fakes.ts";
+import { fakeTheme, createFakePi, toolRenderContext } from "../../test/helpers/fakes.ts";
 import type { Bridge, SendResult } from "./bridge.ts";
 import { registerTools, TOOL_NAME } from "./tools.ts";
 
@@ -82,6 +82,21 @@ describe("send_wechat execution", () => {
 		expect(result.isError).toBe(true);
 		expect(result.details).toEqual({ sent: false, error: "network down" });
 	});
+
+	test("hands Pi a partial result so the row repaints while the send is in flight", async () => {
+		let release: (outcome: SendResult) => void = () => {};
+		const settled = new Promise<SendResult>((resolve) => {
+			release = resolve;
+		});
+		const bridge = { sendToOwner: () => settled } as unknown as Bridge;
+		const tool = toolFor(() => bridge);
+		const partials: unknown[] = [];
+		const pending = tool.execute("id", { text: "hello" }, undefined, (partial: unknown) => partials.push(partial));
+		expect(partials).toHaveLength(1);
+		release({ ok: true });
+		// The host replaces the partial with the result it settles on.
+		expect((await pending).details).toEqual({ sent: true });
+	});
 });
 
 describe("send_wechat rendering", () => {
@@ -98,5 +113,30 @@ describe("send_wechat rendering", () => {
 			.join("\n");
 		expect(text).toContain("bad");
 		expect(text).not.toContain("\u001b");
+	});
+
+	test("a slow send says it is sending, and the settled line carries the duration", () => {
+		const tool = toolFor(() => stubBridge({ ok: true }));
+		const context = { ...toolRenderContext(), durationMs: 2500 };
+		const live = tool
+			.renderResult({ content: [], details: undefined }, { expanded: false, isPartial: true }, fakeTheme, context)
+			.render(80)
+			.join("\n");
+		// The live frame's number comes off the wall clock, so the word is what a suite can hold;
+		// `elapsedSuffix`'s own numbers are `lib/tui`'s case.
+		expect(live).toContain("Sending");
+		const settled = tool
+			.renderResult(
+				{ content: [{ type: "text", text: "Sent to the WeChat owner." }], details: { sent: true } },
+				{ expanded: false, isPartial: false },
+				fakeTheme,
+				context,
+			)
+			.render(80)
+			.join("\n");
+		expect(settled).toContain("sent to WeChat owner");
+		expect(settled).toContain("2.5s");
+		// The settled frame clears the interval the live line started, so nothing ticks after it.
+		expect((context.state as { elapsedTimer?: unknown }).elapsedTimer).toBeUndefined();
 	});
 });

@@ -14,7 +14,14 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { failedResult, textResult } from "../../lib/tool-result.ts";
-import { callLine, errorLine, rejectionLine } from "../../lib/tui/tool.ts";
+import {
+	callLine,
+	elapsedSuffix,
+	errorLine,
+	rejectionLine,
+	startToolProgress,
+	syncElapsedTimer,
+} from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { Bridge } from "./bridge.ts";
 
@@ -78,11 +85,14 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
 		executionMode: "sequential",
 
-		async execute(_toolCallId, params) {
+		async execute(_toolCallId, params, _signal, onUpdate) {
 			const args = params as WechatSendArgs;
 			if ((args.text === undefined) === (args.image === undefined)) {
 				return sendResult(false, "Give exactly one of text or image.");
 			}
+			// After the argument refusal and before every wait, the bridge's own open included: what
+			// is left to do here is a network send, so the row says it is working rather than nothing.
+			startToolProgress(onUpdate);
 			const bridge = await deps.getBridge();
 			if (!bridge) {
 				return sendResult(false, "WeChat bridge is not started. Run /wechat login first.");
@@ -100,10 +110,16 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		},
 
 		renderResult(result, options, theme, context) {
+			const startedAt = syncElapsedTimer(options.isPartial, context);
 			const text = reuseText(context.lastComponent);
 			const details = toolDetails<{ sent?: boolean; error?: string }>(result.details);
+			if (options.isPartial) {
+				const elapsed = startedAt === undefined ? "" : elapsedSuffix(theme, Date.now() - startedAt);
+				text.setText(paint(theme, "warn", "Sending…") + elapsed);
+				return text;
+			}
 			if (details?.sent) {
-				text.setText(paint(theme, "ok", "sent to WeChat owner"));
+				text.setText(paint(theme, "ok", "sent to WeChat owner") + elapsedSuffix(theme, context.durationMs));
 				return text;
 			}
 			if (details?.error) {
