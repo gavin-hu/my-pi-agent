@@ -5,6 +5,10 @@
  * Weixin media are AES-128-ECB with PKCS#7 padding (Node's `node:crypto`), so
  * there is no extra dependency. Everything here is pure or filesystem-only; the
  * HTTP fetch is injected through the client, and tests never touch the network.
+ *
+ * It also owns the one rule that turns a value from the wire into a filesystem
+ * name (`sanitizePathSegment`), which a media filename and a peer's session
+ * directory both use.
  */
 
 import { createCipheriv, createDecipheriv } from "node:crypto";
@@ -69,11 +73,20 @@ export function sniffImageMime(bytes: Uint8Array): string | undefined {
 	return undefined;
 }
 
-/** Strip control characters and path separators, cap length, and never empty. */
-export function sanitizeFileName(name: string): string {
-	const cleaned = stripControlChars(name).replace(/[\\/]/g, "_").replace(/^\.+/, "").trim();
-	const safe = cleaned || "file";
+/**
+ * One filesystem name from a value that came off the wire: control characters and
+ * path separators stripped, no leading dot, capped length, and never empty — the
+ * caller names the fallback it wants for an emptied value.
+ */
+export function sanitizePathSegment(value: string, fallback: string): string {
+	const cleaned = stripControlChars(value).replace(/[\\/]/g, "_").replace(/^\.+/, "").trim();
+	const safe = cleaned || fallback;
 	return safe.length > 120 ? safe.slice(0, 120) : safe;
+}
+
+/** An inbound file's name, as one path segment. */
+export function sanitizeFileName(name: string): string {
+	return sanitizePathSegment(name, "file");
 }
 
 /** The CDN URL for a media reference, preferring a server-provided full URL. */

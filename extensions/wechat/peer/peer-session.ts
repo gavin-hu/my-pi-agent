@@ -34,6 +34,7 @@ import {
 import { join } from "node:path";
 import { WECHAT_CHANNEL_PROMPT } from "../text/channel.ts";
 import { peerKey } from "../text/format.ts";
+import { sanitizePathSegment } from "../transport/media.ts";
 
 /** The SDK pieces a peer session needs; injected so tests never load resources. */
 export interface PeerSessionSeams {
@@ -70,9 +71,14 @@ export interface PeerSession {
 	dispose(): void;
 }
 
-/** The session directory of one peer; one conversation per peer. */
+/**
+ * The session directory of one peer; one conversation per peer. `peerKey`
+ * decides the identity, and the segment is filtered because a peer id arrives
+ * from the wire: an unfiltered one could name another peer's directory or climb
+ * out of the root.
+ */
 export function peerSessionDir(sessionsDir: string, peer: string): string {
-	return join(sessionsDir, peerKey(peer) || "unknown");
+	return join(sessionsDir, sanitizePathSegment(peerKey(peer), "unknown"));
 }
 
 /**

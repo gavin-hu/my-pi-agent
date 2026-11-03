@@ -23,6 +23,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: a peer's session directory is one sanitized path segment now, so a hostile peer id —
+  `../..`, a separator, a leading dot — can no longer name another peer's history or climb out of
+  `sessions/`. `sanitizePathSegment` is the one owner of the rule that turns a wire value into a
+  filesystem name, with `sanitizeFileName` as its file case; `peerKey` still decides identity, so a
+  legitimate peer resumes its own conversation.
 - `wechat`: the peer session's UI context is typed as the host's `ExtensionUIContext` instead of being cast
   into place, so a member added to or renamed in that interface fails the build rather than disappearing
   from a peer turn; the `askHuman` marker rides an intersection member, with no cast. Its theme is now an

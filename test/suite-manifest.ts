@@ -171,6 +171,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"bridge",
 		"bridge-lock",
 		"config",
+		"paths",
 		"tools",
 		"extension",
 		"transport/client",
