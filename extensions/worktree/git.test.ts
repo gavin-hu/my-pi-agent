@@ -831,7 +831,7 @@ describe.skipIf(!runSlowSuites)("pruneWorktrees", () => {
 		expect(text).toContain(`Kept ${newDir} (recent)`);
 		expect(existsSync(oldDir)).toBe(false);
 		expect(existsSync(newDir)).toBe(true);
-	}, 60_000); // two worktrees on a remote-backed repo; allow for parallel contention
+	});
 
 	test("keeps the current worktree", async () => {
 		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-cur-");
@@ -868,7 +868,7 @@ describe.skipIf(!runSlowSuites)("pruneWorktrees", () => {
 
 		expect(await prune(repo)).toContain(`Removed ${dir}`);
 		expect(existsSync(dir)).toBe(false);
-	}, 60_000); // lock probe plus prune; allow for parallel contention
+	});
 
 	test("keeps a worktree that contains work", async () => {
 		const { repo, remote } = await makeRepoWithRemote("pi-wt-prune-work-");

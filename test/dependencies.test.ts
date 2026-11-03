@@ -36,7 +36,14 @@ import {
 	type Node,
 } from "typescript";
 import { tempDir } from "./helpers/env.ts";
-import { entrypoints, packageOf, resolveFile, staticGraph, staticSpecifiers } from "./helpers/graph.ts";
+import {
+	cachedSpecifiers,
+	entrypoints,
+	packageOf,
+	resolveFile,
+	staticGraph,
+	staticSpecifiers,
+} from "./helpers/graph.ts";
 
 const REPO = join(import.meta.dir, "..");
 
@@ -204,6 +211,23 @@ describe("dependency budget", () => {
 			"static-default",
 			"static-named",
 		]);
+	});
+	test("a cached reader hands a shared module to the walk once, however many entries reach it", () => {
+		// The cost that made `reachIndex` ride its suite's budget: every entry reaches the same
+		// shared modules, and each uncached read is a parse.
+		const dir = tempDir("graph-cache-");
+		writeFileSync(join(dir, "shared.ts"), "export const shared = 1;\n");
+		writeFileSync(join(dir, "one.ts"), 'import { shared } from "./shared.ts";\nvoid shared;\n');
+		writeFileSync(join(dir, "two.ts"), 'import { shared } from "./shared.ts";\nvoid shared;\n');
+		const reads: string[] = [];
+		const read = cachedSpecifiers((file) => {
+			reads.push(file);
+			return staticSpecifiers(file);
+		});
+		expect(staticGraph(join(dir, "one.ts"), read).size).toBe(2);
+		expect(staticGraph(join(dir, "two.ts"), read).size).toBe(2);
+		const shared = reads.filter((file) => file.endsWith("shared.ts"));
+		expect(shared, "a shared module is parsed once per reader").toHaveLength(1);
 	});
 });
 

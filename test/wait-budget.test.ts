@@ -24,12 +24,21 @@
  * The same file owns what the throw says: a `--parallel` timeout that names no
  * test is a re-run waiting to happen, so `helpers/wait-site.ts` reports the test,
  * its site, and the time it spent, and the cases below hold that message.
+ *
+ * It also owns the run's clocks. A budget only bounds a failure, so the numbers
+ * are few and derived: `helpers/budget.ts` states one case budget, and the spawn
+ * watchdog is that budget less the margin a failure needs to report in. The
+ * preload hands the budget to every case and `scripts/check.ts` passes it as
+ * `--timeout` for the hooks, so a case is budgeted the same however the suite was
+ * invoked. A case that states its own budget names a constant rather than
+ * writing a number here.
  */
 
 import { readFileSync } from "node:fs";
 import { join, relative as relativePath } from "node:path";
 import { describe, expect, test } from "bun:test";
 import ts from "typescript";
+import { CASE_BUDGET_MS, REPORT_MARGIN_MS, SPAWN_WATCHDOG_MS } from "./helpers/budget.ts";
 import { posix, walkFiles } from "./helpers/files.ts";
 import { waitFor } from "./helpers/process.ts";
 import { PARALLEL_HAZARD_HINT, type WaitTimeout, waitTimeoutMessage } from "./helpers/wait-site.ts";
@@ -108,6 +117,32 @@ export function hookBudgetProblems(source: Source): string[] {
 				if (Number.isFinite(value) && value < MIN_HOOK_BUDGET_MS) {
 					found.push(hookOffence(source.path, line + 1, value));
 				}
+			}
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(file);
+	return found;
+}
+
+/** The calls that may state a case's budget. */
+const TITLED = new Set(["test", "it"]);
+
+/** The message one offending case budget reports. */
+function caseBudgetOffence(path: string, line: number, budget: number): string {
+	return `${path}:${line}: a case states its budget as ${budget} ms; name the constant it needs instead — a literal here is the copy-paste form the run's one budget already answers`;
+}
+
+/** Every `test(title, fn, <literal>)` that states its own budget as a number, as `path:line` messages. */
+export function caseBudgetProblems(source: Source): string[] {
+	const file = ts.createSourceFile(source.path, source.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+	const found: string[] = [];
+	const visit = (node: ts.Node): void => {
+		if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && TITLED.has(node.expression.text)) {
+			const budget = node.arguments[2];
+			if (budget !== undefined && ts.isNumericLiteral(budget)) {
+				const { line } = file.getLineAndCharacterOfPosition(budget.getStart(file));
+				found.push(caseBudgetOffence(source.path, line + 1, Number(budget.text)));
 			}
 		}
 		ts.forEachChild(node, visit);
@@ -269,6 +304,42 @@ function readPageSuite(path: string): string {
 
 const pageTestFile = join(repo, "extensions", "board", "page.test.ts");
 const pageHelper = join(repo, "test", "helpers", "board-page.ts");
+
+describe("the run's clocks", () => {
+	test("one case budget, and a spawn watchdog that leaves it room to report", () => {
+		expect(SPAWN_WATCHDOG_MS).toBeLessThan(CASE_BUDGET_MS);
+		expect(CASE_BUDGET_MS - SPAWN_WATCHDOG_MS, "the margin a failure reports in").toBeGreaterThanOrEqual(MIN_BUDGET_MS);
+		expect(SPAWN_WATCHDOG_MS).toBe(CASE_BUDGET_MS - REPORT_MARGIN_MS);
+	});
+
+	test("names a case budget written as a literal, with its line", () => {
+		const problems = caseBudgetProblems({
+			path: "example.test.ts",
+			text: ['test("x", () => {}, 5_000);', 'test("y", () => {});'].join("\n"),
+		});
+		expect(problems).toEqual([caseBudgetOffence("example.test.ts", 1, 5000)]);
+	});
+
+	test("accepts a case budget given as a constant or a computed one", () => {
+		for (const call of [
+			'test("x", () => {}, CASE_BUDGET_MS);',
+			'test("x", () => {}, budgetFor());',
+			'test("x", () => {});',
+			'it("x", () => {}, CASE_BUDGET_MS);',
+		]) {
+			expect(caseBudgetProblems({ path: "example.test.ts", text: `${call}\n` }), call).toEqual([]);
+		}
+	});
+
+	test("no test states its budget as a number", () => {
+		const files = testFiles();
+		expect(files.length).toBeGreaterThan(0);
+		const offenders = files.flatMap((path) =>
+			caseBudgetProblems({ path, text: readFileSync(join(repo, path), "utf-8") }),
+		);
+		expect(offenders).toEqual([]);
+	});
+});
 
 describe("a wait that ran out", () => {
 	const cases: Array<{ what: string; timeout: WaitTimeout; read?: (path: string) => string; contains: string }> = [

@@ -23,7 +23,7 @@ rule that a value is a path.
 
 | Command | What it does |
 |---|---|
-| `bun run check` | The gate a landing needs: `check:format`, `check:types`, and the tests, the first two running beside the test phase through `scripts/check.ts` so the gate costs what its longest phase costs. One scope flag narrows the tests: `--static` (the static half alone), `--serial` (one file at a time, what macOS CI runs), `--watch`, `--changed [--base <ref>]` (the tests a change reaches), `--ext <name…>`, `--lib <area…>`, `--root` (the package-level tests), `--slow` (the gated git suites). `--dry-run` prints the selection and runs nothing. A red test phase names its cases as `file:line — suite > case` and leaves `bun`'s JUnit report at `.pi/cache/test-report.xml` — [`#a-red-run`](#a-red-run). |
+| `bun run check` | The gate a landing needs: `check:format`, `check:types`, and the tests, the first two running beside the test phase through `scripts/check.ts` so the gate costs what its longest phase costs. One scope flag narrows the tests: `--static` (the static half alone), `--serial` (one file at a time, what CI's Linux and macOS jobs run), `--watch`, `--changed [--base <ref>]` (the tests a change reaches), `--ext <name…>`, `--lib <area…>`, `--root` (the package-level tests), `--slow` (the gated git suites). `--dry-run` prints the selection and runs nothing. A red test phase names its cases as `file:line — suite > case` and leaves `bun`'s JUnit report at `.pi/cache/test-report.xml` — [`#a-red-run`](#a-red-run). |
 | `bun run check:format` | `biome format .` — the read-only half of `format`, and one of the three phases `check` runs. |
 | `bun run check:types` | `tsc --noEmit` — one of the three phases `check` runs. |
 | `bun run check:tests [scope]` | The tests alone, with every scope flag `check` takes; no flag is every test, in parallel. |
@@ -204,11 +204,15 @@ gated: they skip unless `CI` is set or `PI_SLOW_TESTS=1` is exported. A local
 bun run check:tests --slow
 ```
 
-CI runs the macOS job through `bun run check --serial` because a `--parallel`
-worker on macOS can drop the subprocess exit notification for its first spawn
-and hang a git-using test. The cause is upstream: `oven-sh/bun#41024` and
-`#39709` are open against Bun 1.4.3, and `#45483` (filed 2026-10-16) describes
-the same lost-exit path. When both close, drop `--serial` and run
+CI runs the Linux and macOS jobs through `bun run check --serial` because a
+`--parallel` worker can drop the subprocess exit notification for its first spawn
+and hang a git-using test — a rotating red on macOS, and a 33-minute park on
+ubuntu (run 41560292494) that passed in 68 s on re-dispatch. The cause is
+upstream: `oven-sh/bun#41024` and `#39709` are open against Bun 1.4.3, and
+`#45483` (filed 2026-10-16) describes the same lost-exit path. Windows keeps
+`--parallel`, so the parallel path stays covered, and every job states
+`timeout-minutes: 20` so a park of any other cause fails visibly instead of at
+GitHub's six-hour default. When both close, drop `--serial` and run
 `bun run check` on all three systems;
 [`architecture.md`](./architecture.md#documented-limits-with-no-planned-card)
 records the same condition.

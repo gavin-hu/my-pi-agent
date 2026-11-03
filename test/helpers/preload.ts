@@ -1,4 +1,16 @@
-import { afterEach, beforeEach } from "bun:test";
+import { afterEach, beforeEach, setDefaultTimeout } from "bun:test";
+import { CASE_BUDGET_MS } from "./budget.ts";
+
+/**
+ * Give every case the run's one budget, whatever invoked it.
+ *
+ * Without this a bare `bun test <path>` budgets a case at bun's 5 s while `bun run check` passes
+ * `--timeout` (see `./budget.ts`), so the same case passes one way and fails the other. A hook is
+ * still bun's own default: `setDefaultTimeout` does not reach `beforeAll`, so a suite whose setup
+ * needs longer states its hooks' budget, which `test/wait-budget.test.ts` holds for the browser
+ * suites.
+ */
+setDefaultTimeout(CASE_BUDGET_MS);
 
 /**
  * Restore environment variables that tests mutate.

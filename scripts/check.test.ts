@@ -9,10 +9,10 @@
 
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { CASE_BUDGET_MS } from "../test/helpers/budget.ts";
 import { selectExt } from "./test-selection.ts";
 import {
 	FLAGS,
-	PHASE_TIMEOUT_MS,
 	type Phase,
 	type PhaseResult,
 	type Plan,
@@ -47,15 +47,15 @@ describe("the worker count", () => {
 });
 
 describe("the phases", () => {
-	test("runs format, types and the tests, with the budget the scripts state", () => {
+	test("runs format, types and the tests, with the run's one case budget", () => {
 		const phases = phasesFor({ serial: false, workers: 4 });
 		expect(phases.map((phase) => phase.name)).toEqual(["format", "types", "test"]);
 		const test_ = phases[2] as Phase;
 		expect(test_.cmd).toContain("--parallel=4");
-		expect(test_.cmd).toContain(String(PHASE_TIMEOUT_MS));
+		expect(test_.cmd).toContain(String(CASE_BUDGET_MS));
 	});
 
-	test("drops the worker flag on the serial path macOS CI runs", () => {
+	test("drops the worker flag on the serial path CI's Linux and macOS jobs run", () => {
 		const phases = phasesFor({ serial: true, workers: 7 });
 		const test_ = phases[2] as Phase;
 		expect(test_.cmd.some((arg) => arg.startsWith("--parallel="))).toBe(false);
@@ -204,7 +204,15 @@ describe("a scoped test phase", () => {
 	test("runs the files it was given, after the flags", () => {
 		const phases = phasesFor({ serial: false, workers: 3, tests: ["a.test.ts", "b.test.ts"] });
 		const test_ = phases[2] as Phase;
-		expect(test_.cmd).toEqual(["bun", "test", "--parallel=3", "--timeout", "30000", "a.test.ts", "b.test.ts"]);
+		expect(test_.cmd).toEqual([
+			"bun",
+			"test",
+			"--parallel=3",
+			"--timeout",
+			String(CASE_BUDGET_MS),
+			"a.test.ts",
+			"b.test.ts",
+		]);
 	});
 
 	test("drops the static phases for the `check:tests` entry, and the test phase for `--static`", () => {
@@ -223,7 +231,7 @@ describe("a scoped test phase", () => {
 			"test",
 			"--parallel=3",
 			"--timeout",
-			"30000",
+			String(CASE_BUDGET_MS),
 			"--reporter=junit",
 			"--reporter-outfile=.pi/cache/r.xml",
 			"a.test.ts",

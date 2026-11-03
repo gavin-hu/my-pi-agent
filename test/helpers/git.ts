@@ -14,6 +14,7 @@ import { execFile } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SPAWN_WATCHDOG_MS } from "./budget.ts";
 import { PARALLEL_HAZARD_HINT } from "./wait-site.ts";
 
 export interface ExecResult {
@@ -22,14 +23,6 @@ export interface ExecResult {
 	code: number;
 	killed: boolean;
 }
-
-/**
- * Backstop budget for one git invocation, kept well under the suite's 30s
- * per-test timeout so a lost subprocess exit notification surfaces as this
- * helper's error rather than a bare test timeout. Far above any real git call
- * in these tests, which run on throwaway temp repos.
- */
-const EXEC_WATCHDOG_MS = 20_000;
 
 /**
  * Applied to every git command the helpers and tests run: a fixed committer
@@ -79,10 +72,11 @@ export function execP(
 			},
 		);
 		// Backstop for a lost subprocess exit notification: bun's `test --parallel`
-		// workers on macOS can drop the one-shot exit watch (oven-sh/bun#41024,
-		// #39709), which leaves the callback above unreached forever. Settle from
-		// here instead, so the failure names the command and says whether the child
-		// had already exited, rather than burning the whole per-test timeout.
+		// workers can drop the one-shot exit watch (oven-sh/bun#41024, #39709), which
+		// leaves the callback above unreached forever. Settle from here instead, so the
+		// failure names the command and says whether the child had already exited,
+		// rather than burning the whole case's budget. The deadline is the case's own
+		// budget less its reporting margin (`./budget.ts`), so it always speaks first.
 		watchdog = setTimeout(() => {
 			if (settled) return;
 			settled = true;
@@ -90,11 +84,11 @@ export function execP(
 			child.kill("SIGKILL");
 			reject(
 				new Error(
-					`${command} ${args.join(" ")} did not settle within ${EXEC_WATCHDOG_MS}ms ` +
+					`${command} ${args.join(" ")} did not settle within ${SPAWN_WATCHDOG_MS}ms ` +
 						`(childExited=${exited}${exited ? ", the exit notification was lost" : ""}) — ${PARALLEL_HAZARD_HINT}`,
 				),
 			);
-		}, EXEC_WATCHDOG_MS);
+		}, SPAWN_WATCHDOG_MS);
 	});
 }
 

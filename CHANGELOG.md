@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `test`: the run states one case budget — `test/helpers/budget.ts`, handed to every case by the
+  preload and to the hooks through `check`'s `--timeout` — and every spawn watchdog is that budget
+  less its reporting margin. So a bare `bun test <path>` budgets a case the way `bun run check`
+  does, a starved git call or shell names itself instead of failing the case, and the three
+  numbers tuned one at a time are one knob. The reach index behind `--changed` reads each module
+  once instead of once per suite that reaches it (a 16 s walk is 0.6 s), and the wait-budget
+  guard fails a case that writes its budget as a literal. CI runs Linux serially beside macOS —
+  ubuntu's parallel job parked 33 minutes — and every job states `timeout-minutes: 20`.
+
 ### Removed
 
 - `rewind`: the `/review` command is gone — the latest-turn changed-file list, the per-file diff, the

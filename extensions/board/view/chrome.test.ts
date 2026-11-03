@@ -171,6 +171,7 @@ describe.skipIf(CHROME === undefined)("a dropped stream", () => {
 			await served.close();
 		}
 		// The stream is dead only after its retries, and each one waits out the server's own
-		// `retry:` hint, so this case is a few seconds long by design rather than slow.
-	}, 30_000);
+		// `retry:` hint, so this case is a few seconds long by design rather than slow — inside
+		// the run's own case budget.
+	});
 });

@@ -13,7 +13,7 @@
  *   check.ts                       static + every test, the gate a landing needs
  *   check.ts --tests               the tests alone, which is `bun run check:tests`
  *   check.ts --static              the static half alone
- *   check.ts --serial              one file at a time, which is what macOS CI runs
+ *   check.ts --serial              one file at a time, which is what CI's Linux and macOS jobs run
  *   check.ts --watch               the tests in watch mode
  *   check.ts --ext board wechat    one or more extensions' declared suites
  *   check.ts --lib board           one `lib/` area's suites
@@ -26,6 +26,7 @@
 import { mkdirSync, rmSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { dirname, join } from "node:path";
+import { CASE_BUDGET_MS } from "../test/helpers/budget.ts";
 import { runSlowSuites } from "../test/helpers/slow-suite.ts";
 import { runCli } from "./cli.ts";
 import { reportDigest, reportPath } from "./junit.ts";
@@ -66,9 +67,6 @@ export interface PhaseResult {
 	/** Captured output, empty for a `live` phase, whose output already went to the terminal. */
 	output: string;
 }
-
-/** The test budget the scripts state, reaching hooks as well as cases. */
-export const PHASE_TIMEOUT_MS = 30_000;
 
 /** The most workers one machine is given, however many cores it reports. */
 const MAX_WORKERS = 4;
@@ -120,8 +118,8 @@ export function phasesFor(options: PhaseOptions): Phase[] {
 	const flags = options.watch
 		? ["--watch", "--isolate"]
 		: options.serial
-			? ["--timeout", String(PHASE_TIMEOUT_MS)]
-			: [`--parallel=${options.workers}`, "--timeout", String(PHASE_TIMEOUT_MS)];
+			? ["--timeout", String(CASE_BUDGET_MS)]
+			: [`--parallel=${options.workers}`, "--timeout", String(CASE_BUDGET_MS)];
 	const report = options.report === undefined ? [] : ["--reporter=junit", `--reporter-outfile=${options.report}`];
 	phases.push({
 		name: "test",
@@ -197,7 +195,7 @@ export interface Plan {
 	names: string[];
 	/** The git revision `--changed` diffs against. */
 	base: string;
-	/** One file at a time, which is what macOS CI runs. */
+	/** One file at a time, which is what CI's Linux and macOS jobs run. */
 	serial: boolean;
 	/** `bun test --watch`. */
 	watch: boolean;

@@ -83,15 +83,37 @@ export function resolveFile(from: string, specifier: string): string | null {
 	return null;
 }
 
+/** A read of one module's static specifiers; `staticSpecifiers` is the one implementation. */
+type SpecifierReader = (file: string) => string[];
+
+/**
+ * A reader that parses each module once, for a caller that walks many entries.
+ *
+ * Every entry a walk starts from reaches the same shared modules, and each read is a parse:
+ * `reachIndex` (`scripts/test-selection.ts`) spent 19,513 reads over 946 files on this tree, and
+ * that cost is what made its own suite ride bun's budget. The cache belongs to the caller rather
+ * than the process, so a walk handed a file someone just wrote still sees it.
+ */
+export function cachedSpecifiers(read: SpecifierReader = staticSpecifiers): SpecifierReader {
+	const cache = new Map<string, string[]>();
+	return (file) => {
+		const seen = cache.get(file);
+		if (seen !== undefined) return seen;
+		const specifiers = read(file);
+		cache.set(file, specifiers);
+		return specifiers;
+	};
+}
+
 /** Every local module one entrypoint loads statically, its entry included. */
-export function staticGraph(entry: string): Set<string> {
+export function staticGraph(entry: string, read: SpecifierReader = staticSpecifiers): Set<string> {
 	const seen = new Set<string>();
 	const queue = [entry];
 	while (queue.length > 0) {
 		const file = queue.shift() as string;
 		if (seen.has(file)) continue;
 		seen.add(file);
-		for (const specifier of staticSpecifiers(file)) {
+		for (const specifier of read(file)) {
 			const target = resolveFile(file, specifier);
 			if (target !== null) queue.push(target);
 		}
