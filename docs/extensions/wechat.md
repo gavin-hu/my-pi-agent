@@ -627,7 +627,7 @@ guidance used to do.
 | `dialog/interaction.ts` | One peer's `InteractionChannel`: pending-prompt state machine, the other-answer stash, and reply routing for that peer. |
 | `dialog/channels.ts` | The per-peer channel registry: one channel each, inbound reply routing, the waiting prompts for the control screen, and cancel-all on a pause. |
 | `dialog/prompt.ts` | Pure prompt formatting and reply parsing. |
-| `dialog/remote-ui.ts` | The peer session's UI context: dialogs and notices bound to that peer, the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
+| `dialog/remote-ui.ts` | The peer session's UI context, typed as `ExtensionUIContext` so a member added to the host interface fails here instead of vanishing at runtime: dialogs and notices bound to that peer, an identity `Theme` whose public surface is checked where it is built (no terminal, so a style returns its text and a colour emits nothing), the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
 | `view/login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |
 | `text/status.ts` | The status facts (`statusView`) and the one-line summary (`statusLine`) the text modes print. |
 | `view/status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts, a focusable peer list, the body renderer, and one key table (typed against `WechatVerb`) that drives both the hints and the input, loaded on first use, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `listRow`, `paint`, `IdCursor`). |

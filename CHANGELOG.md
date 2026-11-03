@@ -23,6 +23,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: the peer session's UI context is typed as the host's `ExtensionUIContext` instead of being cast
+  into place, so a member added to or renamed in that interface fails the build rather than disappearing
+  from a peer turn; the `askHuman` marker rides an intersection member, with no cast. Its theme is now an
+  identity double whose public surface is checked where it is built. What that fixes, against the stub it
+  replaces: `colors` was a function rather than a colour map, `getColorMode()` answered `""` rather than a
+  mode, and `bold`, `italic`, `underline`, `inverse`, `strikethrough` and `style` returned an empty string
+  instead of the text handed to them. `fg` and `bg` already returned the text and still do, with no escape
+  sequence.
 - `job`: a cleared job's log can no longer reappear. A rotation opens its next segment inside the
   close callback instead of on a later tick, so nothing is pending once the rename is done, and
   removing a job's files disposes its writer before unlinking them — the deferred open that
