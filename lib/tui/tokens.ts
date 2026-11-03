@@ -89,15 +89,32 @@ export function paint(theme: Theme, role: TuiRole, text: string): string {
 }
 
 /**
+ * The sentinel a derivation wraps: a painting wrapper is split at it, so a
+ * frame reads the theme's own escapes rather than assuming a shape.
+ */
+const MARKER = "\u0000";
+
+/** The escapes a painting wrapper puts before `text`, and the ones after it. */
+function wrapEscapes(wrapped: string): { open: string; close: string } {
+	const at = wrapped.indexOf(MARKER);
+	return { open: wrapped.slice(0, at), close: wrapped.slice(at + MARKER.length) };
+}
+
+/**
  * The opening sequence for a role, without its reset. A frame that must repaint
  * a run in place — mid-line, where the surrounding text already carries the
  * closing reset — opens with this instead of wrapping a whole string.
- *
- * Derived from `paint` with a sentinel, so it tracks the theme's own escape
- * shape rather than assuming one.
  */
 export function paintPrefix(theme: Theme, role: TuiRole): string {
-	const marker = "\u0000";
-	const wrapped = paint(theme, role, marker);
-	return wrapped.slice(0, wrapped.indexOf(marker));
+	return wrapEscapes(paint(theme, role, MARKER)).open;
+}
+
+/**
+ * The sequence that ends the theme's bold run, for a frame that must stop the
+ * style mid-line: a call line keeps its tool name bold and reads the command
+ * after it plain. Derived like {@link paintPrefix}, so it closes nothing in a
+ * theme that does not bold.
+ */
+export function boldClose(theme: Theme): string {
+	return wrapEscapes(theme.bold(MARKER)).close;
 }

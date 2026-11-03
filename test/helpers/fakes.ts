@@ -157,15 +157,19 @@ export const ROLE_SGR = {
 	other: "\u001b[38;2;3;3;3m",
 } as const;
 
+/** The real SGR a bold run opens with, and the one that closes it. */
+export const BOLD_SGR = { open: "\u001b[1m", close: "\u001b[22m" } as const;
+
 /**
  * Theme that emits a distinct real SGR per colour token, so a test can tell two
  * roles apart after wrapping re-emits them (a tag double is not an escape, so
- * `Text` cannot carry it across a wrap).
+ * `Text` cannot carry it across a wrap). Bold is a real pair too, so a rewrite
+ * that ends a bold run mid-line is visible.
  */
 export const roleSgrTheme: any = {
 	fg: (color: string, text: string) =>
 		`${color in ROLE_SGR ? ROLE_SGR[color as keyof typeof ROLE_SGR] : ROLE_SGR.other}${text}\u001b[39m`,
-	bold: (text: string) => text,
+	bold: (text: string) => `${BOLD_SGR.open}${text}${BOLD_SGR.close}`,
 };
 
 /** A theme double that records every `fg(color, text)` call. */

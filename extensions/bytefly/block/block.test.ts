@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Text } from "@earendil-works/pi-tui";
 import {
+	BOLD_SGR,
 	coloringTheme,
 	createFakePi,
 	fakeTheme,
@@ -69,12 +70,12 @@ describe("toolBlockLines", () => {
 	});
 
 	test("recolours a shell call's command through the frame", () => {
-		const lines = toolBlockLines(innerOf(["\u001b[1m$ ls\u001b[0m"]), 40, 0, {
+		const lines = toolBlockLines(innerOf([roleSgrTheme.bold("$ ls")]), 40, 0, {
 			headline: true,
 			toolName: "bash",
-			theme: coloringTheme,
+			theme: roleSgrTheme,
 		});
-		expect(lines).toEqual(["\u001b[1mbash \u001b[22m[text]ls\u001b[0m"]);
+		expect(lines).toEqual([`${BOLD_SGR.open}bash ${BOLD_SGR.close}${ROLE_SGR.text}ls${BOLD_SGR.close}`]);
 	});
 
 	test("renders nothing for an absent inner", () => {
@@ -214,9 +215,8 @@ describe("headlineWithToolName", () => {
 	});
 
 	test("repaints the command in the body role so only the tool name spends the accent", () => {
-		expect(headlineWithToolName("\u001b[1m$ bun run check\u001b[0m", "bash", coloringTheme)).toBe(
-			"\u001b[1mbash \u001b[22m[text]bun run check\u001b[0m",
-		);
+		const named = headlineWithToolName(roleSgrTheme.bold("$ bun run check"), "bash", roleSgrTheme);
+		expect(named).toBe(`${BOLD_SGR.open}bash ${BOLD_SGR.close}${ROLE_SGR.text}bun run check${BOLD_SGR.close}`);
 	});
 
 	test("leaves a headline that is not a shell prompt untouched even with a theme", () => {
@@ -277,8 +277,8 @@ describe("ToolBlock", () => {
 
 describe("recolorShellCall", () => {
 	test("rewrites the first line and leaves later lines alone", () => {
-		expect(recolorShellCall("\u001b[1m$ ls\u001b[0m\nnext", "bash", coloringTheme)).toBe(
-			"\u001b[1mbash \u001b[22m[text]ls\u001b[0m\nnext",
+		expect(recolorShellCall(`${BOLD_SGR.open}$ ls${BOLD_SGR.close}\nnext`, "bash", roleSgrTheme)).toBe(
+			`${BOLD_SGR.open}bash ${BOLD_SGR.close}${ROLE_SGR.text}ls${BOLD_SGR.close}\nnext`,
 		);
 	});
 
@@ -373,9 +373,9 @@ describe("registerToolBlocks", () => {
 	});
 
 	test("hands the theme to the frame so a shell command is recoloured", () => {
-		const renderers = resolver()("bash", () => ({ renderCall: () => new Text("\u001b[1m$ ls\u001b[0m", 0, 0) }));
-		const lines = renderers?.renderCall?.({ command: "ls" }, coloringTheme, renderContext()).render(40) ?? [];
-		expect(lines).toEqual(["\u001b[1mbash \u001b[22m[text]ls\u001b[0m"]);
+		const renderers = resolver()("bash", () => ({ renderCall: () => new Text(roleSgrTheme.bold("$ ls"), 0, 0) }));
+		const lines = renderers?.renderCall?.({ command: "ls" }, roleSgrTheme, renderContext()).render(40) ?? [];
+		expect(lines).toEqual([`${BOLD_SGR.open}bash ${BOLD_SGR.close}${ROLE_SGR.text}ls${BOLD_SGR.close}`]);
 	});
 
 	test("trims a self-shell call's blank edges under its headline", () => {

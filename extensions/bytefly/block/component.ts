@@ -30,7 +30,7 @@ import { type Component, stripTerminalSequences, truncateToWidth } from "@earend
 import { sanitizeLine } from "../../../lib/format.ts";
 import { BODY_INDENT, bodyLines, indentBlockLines, isBlank } from "../../../lib/tui/indent.ts";
 import { RenderCache } from "../../../lib/tui/render-cache.ts";
-import { paintPrefix } from "../../../lib/tui/tokens.ts";
+import { boldClose, paintPrefix } from "../../../lib/tui/tokens.ts";
 
 /** How one tool-block frame is drawn. */
 export interface ToolBlockOptions {
@@ -77,9 +77,10 @@ export function headlineWithToolName(line: string, toolName: string, theme?: The
 	if (!SHELL_PROMPT.test(stripTerminalSequences(line))) return line;
 	const name = sanitizeLine(toolName);
 	if (!theme) return line.replace(/[$>]/, name);
-	// `\u001b[22m` ends the name's bold run; the role's opening colours what
-	// follows, which Pi's own trailing reset then closes.
-	return line.replace(SHELL_PROMPT_SPAN, `${name} \u001b[22m${paintPrefix(theme, "label")}`);
+	// The name keeps the bold Pi gave the whole call line: `boldClose` ends that
+	// run and the `label` role's opening takes over the command, which Pi's own
+	// trailing reset then closes.
+	return line.replace(SHELL_PROMPT_SPAN, `${name} ${boldClose(theme)}${paintPrefix(theme, "label")}`);
 }
 
 /**
