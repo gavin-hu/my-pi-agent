@@ -1,4 +1,3 @@
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import type { AgentSession, CreateAgentSessionOptions, LoadExtensionsResult } from "@earendil-works/pi-coding-agent";
@@ -10,7 +9,6 @@ import { createAdmissionQueue, createTurnBudget, type TurnBudget } from "./admis
 import { createDeliverer } from "../transport/deliver.ts";
 import { WECHAT_CHANNEL_PROMPT } from "../text/channel.ts";
 import type { WechatClient } from "../transport/client.ts";
-import { acquireLock, isLocked, releaseLock, type LockDeps } from "../state/lock.ts";
 import {
 	buildPeerLoader,
 	isWechatExtensionPath,
@@ -149,58 +147,6 @@ describe("admission queue", () => {
 		queue.reset();
 		expect(queue.pending("alice@im.wechat")).toBe(0);
 		release();
-	});
-});
-
-describe("poller lock", () => {
-	function newPath(): string {
-		return join(tempDir("wechat-lock-"), "poller.lock");
-	}
-
-	function lockDeps(overrides: Partial<LockDeps> = {}): LockDeps {
-		return { now: () => 1000, pid: 1, isAlive: () => true, staleMs: 100, ...overrides };
-	}
-
-	test("acquires when no lock exists", () => {
-		const path = newPath();
-		expect(acquireLock(path, lockDeps())).toBe(true);
-		expect(isLocked(path, lockDeps({ pid: 2 }))).toBe(true);
-	});
-
-	test("does not block the same pid", () => {
-		const path = newPath();
-		acquireLock(path, lockDeps());
-		expect(isLocked(path, lockDeps())).toBe(false);
-	});
-
-	test("does not block when the holder pid is dead", () => {
-		const path = newPath();
-		acquireLock(path, lockDeps());
-		expect(isLocked(path, lockDeps({ pid: 2, isAlive: () => false }))).toBe(false);
-	});
-
-	test("does not block a stale lock and takes it over", () => {
-		const path = newPath();
-		acquireLock(path, lockDeps());
-		expect(isLocked(path, lockDeps({ pid: 2, now: () => 5000 }))).toBe(false);
-		expect(acquireLock(path, lockDeps({ pid: 2, now: () => 5000 }))).toBe(true);
-	});
-
-	test("ignores a corrupt lockfile", () => {
-		const path = newPath();
-		writeFileSync(path, "{ broken", "utf-8");
-		expect(isLocked(path, lockDeps())).toBe(false);
-	});
-
-	test("only the owner's release removes the lock", () => {
-		const path = newPath();
-		acquireLock(path, lockDeps());
-		releaseLock(path, 2);
-		expect(isLocked(path, lockDeps({ pid: 2 }))).toBe(true);
-		// pid 2 did not own the lock, so the file is still there for its owner.
-		releaseLock(path, 1);
-		expect(isLocked(path, lockDeps({ pid: 2 }))).toBe(false);
-		expect(acquireLock(path, lockDeps({ pid: 3 }))).toBe(true);
 	});
 });
 

@@ -179,6 +179,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"dialog/channels",
 		"dialog/interaction",
 		"peer/peer",
+		"state/lock",
 		"state/state",
 		"text/format",
 		"view/panel-keys",
