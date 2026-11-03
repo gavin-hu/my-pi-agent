@@ -639,11 +639,12 @@ authenticates with npm trusted publishing (OIDC). See
    update the link refs at the bottom of that file. Bump the `@vX.Y.Z` install
    pin in both entry READMEs in the same commit — they are the only docs that
    offer a pin; `test/release.test.ts` fails on a stale pin. This step is the
-   only one that renders: recapture `assets/` here, never while a feature or fix
-   is in flight, and the hero has to be recaptured here because nothing else can:
-   `bun run capture:screens chrome` re-renders
-   `assets/screens/chrome.png` from the new `package.json`, because the capture
-   needs macOS and Terminal.app — see [Screenshots](#screenshots).
+   only one that renders the screens: recapture `assets/screens/` here, never
+   while a feature or fix is in flight; an `assets/cards/` poster instead follows
+   its page, recaptured in the change that makes it stale. The hero has to be
+   recaptured here because nothing else can: `bun run capture:screens chrome`
+   re-renders `assets/screens/chrome.png` from the new `package.json`, because the
+   capture needs macOS and Terminal.app — see [Screenshots](#screenshots).
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
 5. Tag `main`'s HEAD and push it with `main`, never after it:
