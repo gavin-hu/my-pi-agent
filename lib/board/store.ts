@@ -55,7 +55,7 @@ export const BOARD_DIR_NAME = "board";
 export const CARDS_DIR_NAME = "cards";
 
 /** The subdirectory a dropped card leaves its record in. */
-export const ENDED_DIR_NAME = "ended";
+const ENDED_DIR_NAME = "ended";
 
 /**
  * The subdirectory a finished card is set aside in.
@@ -63,7 +63,7 @@ export const ENDED_DIR_NAME = "ended";
  * A second pile, not a second state: the file is moved here unchanged, so its notes, plan,
  * and landed commit stay readable, and the board's own reads stop opening it.
  */
-export const ARCHIVE_DIR_NAME = "archive";
+const ARCHIVE_DIR_NAME = "archive";
 
 /** Card files are the user's work; only their owner reads them. */
 const FILE_MODE = 0o600;

@@ -21,10 +21,10 @@ export type ClassNames = Readonly<Record<string, string>>;
 export const KEBAB = /^[a-z][a-z0-9_-]*$/;
 
 /** What the global the table is bound to may be: a JavaScript identifier, and nothing else. */
-export const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 /** The declared global the table is bound to in a page's bundle. */
-export const NAMES_GLOBAL = "N";
+const NAMES_GLOBAL = "N";
 
 /**
  * The table as one script statement, for a client bundle to start with.

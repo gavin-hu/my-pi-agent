@@ -59,7 +59,7 @@ export const MAX_PATH = 200;
 export const MAX_PLAN = 1024;
 
 /** Longest sentence saying what a blocked card is waiting on: one line, so it fits a row. */
-export const MAX_BLOCKED = 200;
+const MAX_BLOCKED = 200;
 
 /**
  * Why a card is blocked: what a person has to read before it moves again.

@@ -64,7 +64,7 @@ export function pdfExtractorFromModule(module: unknown): PdfExtractor {
 }
 
 /** Load `unpdf` lazily, or throw {@link PdfUnavailableError} with install guidance. */
-export async function loadPdfExtractor(): Promise<PdfExtractor> {
+async function loadPdfExtractor(): Promise<PdfExtractor> {
 	let module: unknown;
 	try {
 		module = await import("unpdf");

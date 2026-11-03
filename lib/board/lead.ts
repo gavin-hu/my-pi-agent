@@ -35,7 +35,7 @@ export type Lead = string;
 export const PERSON_LABEL = "you";
 
 /** The id the person's actor carries: a prefix no session id uses, so a label cannot stand in. */
-export const PERSON_ID = "person:you";
+const PERSON_ID = "person:you";
 
 /** The actor a command writes as: the person's label, and an id a session cannot have. */
 export function personActor(): Actor {
@@ -71,7 +71,7 @@ export function isLead(actor: Pick<Actor, "label">, lead: Lead): boolean {
 export type Sign = "approve" | "review";
 
 /** The two signs, in the order a person is likely to want them. */
-export const SIGN_KINDS: readonly Sign[] = ["approve", "review"];
+const SIGN_KINDS: readonly Sign[] = ["approve", "review"];
 
 /** `word` as one of the two signs, or `undefined` when it is not one. */
 export function signOf(word: string): Sign | undefined {
