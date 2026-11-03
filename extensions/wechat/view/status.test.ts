@@ -160,9 +160,9 @@ describe("connectionOf", () => {
 	});
 
 	test("reports open, paused, and the persistent expired state", () => {
-		expect(connectionOf(bridgeStatus({ open: true }))).toBe("open");
-		expect(connectionOf(bridgeStatus({ expired: true }))).toBe("expired");
-		expect(connectionOf(bridgeStatus({ paused: true }))).toBe("paused");
+		expect(connectionOf(bridgeStatus({ state: "running" }))).toBe("open");
+		expect(connectionOf(bridgeStatus({ state: "expired" }))).toBe("expired");
+		expect(connectionOf(bridgeStatus({ state: "paused" }))).toBe("paused");
 	});
 });
 
@@ -171,7 +171,7 @@ describe("statusView", () => {
 		const built = statusView(
 			screenAccount,
 			bridgeStatus({
-				open: true,
+				state: "running",
 				owner: "owner@im.wechat",
 				peerCount: 2,
 				queued: 1,
@@ -453,7 +453,7 @@ describe("peer actions", () => {
 			view({ bridge: true, connection: "open", refused: 1, refusedPeers: ["alice"] }),
 		);
 		screen.handleInput("a");
-		expect(actions).toEqual([{ kind: "allow" }]);
+		expect(actions).toEqual([{ verb: "allow" }]);
 	});
 
 	test("toggles pausing on p and flashes the result", () => {
@@ -490,7 +490,7 @@ describe("peer actions", () => {
 	test("opens the focused peer's history", () => {
 		const { screen, actions } = withActions();
 		screen.handleInput("h");
-		expect(actions).toEqual([{ kind: "history", peer: "alice@im.wechat" }]);
+		expect(actions).toEqual([{ verb: "history", peer: "alice@im.wechat" }]);
 	});
 
 	test("explains when there is no peer to act on", () => {
@@ -517,27 +517,27 @@ describe("StatusScreenComponent", () => {
 	test("asks to log in, start a new session, or log out", () => {
 		const login = component(view());
 		login.screen.handleInput("l");
-		expect(login.actions).toEqual(["login"]);
+		expect(login.actions).toEqual([{ verb: "login" }]);
 
 		const session = component(view({ bridge: true, connection: "open" }));
 		session.screen.handleInput("n");
-		expect(session.actions).toEqual(["new"]);
+		expect(session.actions).toEqual([{ verb: "new" }]);
 
 		const logout = component(view({ bridge: true, connection: "open" }));
 		logout.screen.handleInput("o");
-		expect(logout.actions).toEqual(["logout"]);
+		expect(logout.actions).toEqual([{ verb: "logout" }]);
 	});
 
 	test("accepts the uppercase form of each action key", () => {
 		const login = component(view());
 		login.screen.handleInput("L");
-		expect(login.actions).toEqual(["login"]);
+		expect(login.actions).toEqual([{ verb: "login" }]);
 		const session = component(view());
 		session.screen.handleInput("N");
-		expect(session.actions).toEqual(["new"]);
+		expect(session.actions).toEqual([{ verb: "new" }]);
 		const logout = component(view());
 		logout.screen.handleInput("O");
-		expect(logout.actions).toEqual(["logout"]);
+		expect(logout.actions).toEqual([{ verb: "logout" }]);
 		const refresh = component(view());
 		refresh.screen.handleInput("R");
 		expect(refresh.renders()).toBe(1);
@@ -580,13 +580,11 @@ const doctorAccount: BotCredentials = {
 
 function doctorStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 	return {
-		open: true,
-		expired: false,
-		paused: false,
+		state: "running",
 		owner: "owner@im.wechat",
 		peerCount: 1,
 		queued: 2,
-		running: true,
+		turnsRunning: true,
 		peerStates: [
 			{
 				peer: "alice@im.wechat",
@@ -648,7 +646,7 @@ describe("doctorReport", () => {
 
 	test("treats a paused bridge as resumable", () => {
 		const text = doctorReport({
-			status: doctorStatus({ open: false, paused: true, peerStates: [], queued: 0, lock: undefined }),
+			status: doctorStatus({ state: "paused", peerStates: [], queued: 0, lock: undefined }),
 			account: doctorAccount,
 			config: DEFAULT_CONFIG,
 			now: doctorNow,
@@ -659,7 +657,7 @@ describe("doctorReport", () => {
 
 	test("treats an expired bridge as needing a login", () => {
 		const text = doctorReport({
-			status: doctorStatus({ open: false, expired: true, peerStates: [], queued: 0, lock: undefined }),
+			status: doctorStatus({ state: "expired", peerStates: [], queued: 0, lock: undefined }),
 			account: doctorAccount,
 			config: DEFAULT_CONFIG,
 			now: doctorNow,

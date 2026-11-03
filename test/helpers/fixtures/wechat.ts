@@ -193,10 +193,8 @@ export function fakePeerSession(answer: string | (() => string)): {
 /** A bridge status with nothing wrong, which is what a status case varies one field of. */
 export function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 	return {
-		open: false,
-		expired: false,
-		paused: false,
-		running: false,
+		state: "stopped",
+		turnsRunning: false,
 		peerCount: 0,
 		queued: 0,
 		peerStates: [],

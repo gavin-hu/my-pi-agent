@@ -19,13 +19,56 @@ import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { keyValueRow, listRow } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
 import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
+import type { WechatVerb } from "../commands/commands.ts";
 import { type PeerRow, refusedValue, type StatusConnection, type StatusView } from "../text/status.ts";
 
 /**
- * What the status screen closed with: a global action, a peer history request,
- * or `close`.
+ * What the status screen closed with: the verb to run, with the peer it names, or
+ * `close`. The verb type is the command's own, so a key cannot close the screen
+ * with a verb `/wechat` does not register.
  */
-export type StatusAction = "close" | "login" | "new" | "logout" | { kind: "history"; peer: string } | { kind: "allow" };
+export type StatusAction = "close" | { verb: WechatVerb; peer?: string };
+
+/** What one control-screen key does. */
+type PanelEffect =
+	/** Close the screen; the verb runs afterwards, outside it. */
+	| { close: WechatVerb }
+	/** Run inside the screen and flash the line it returns. */
+	| { inPlace: keyof StatusActions }
+	/** Drop the flash and repaint. */
+	| { refresh: true };
+
+/** One key the control screen answers. */
+export interface PanelKey {
+	key: string;
+	/** The word the hint row shows for it. */
+	label: string;
+	effect: PanelEffect;
+	/** Whether the key acts on the focused peer. */
+	needsPeer?: boolean;
+	/** Whether the hint row has room for it; the rest are documented, not hinted. */
+	hint: boolean;
+	color?: TuiRole;
+}
+
+/**
+ * Every key the control screen answers, in hint order: the peer keys, the global
+ * ones, then the three the hint row has no room for. `hints` and `handleInput`
+ * both read this table, so a key cannot answer input without being listed, and
+ * every closing key names a `/wechat` verb by its type.
+ */
+export const PANEL_KEYS: readonly PanelKey[] = [
+	{ key: "s", label: "stop", effect: { inPlace: "stop" }, needsPeer: true, hint: true, color: "warn" },
+	{ key: "d", label: "reset", effect: { inPlace: "reset" }, needsPeer: true, hint: true, color: "warn" },
+	{ key: "h", label: "history", effect: { close: "history" }, needsPeer: true, hint: true },
+	{ key: "l", label: "login", effect: { close: "login" }, hint: true, color: "accent" },
+	{ key: "n", label: "new", effect: { close: "new" }, hint: true, color: "accent" },
+	{ key: "o", label: "logout", effect: { close: "logout" }, hint: true, color: "bad" },
+	{ key: "r", label: "refresh", effect: { refresh: true }, hint: true },
+	{ key: "a", label: "allow", effect: { close: "allow" }, hint: false },
+	{ key: "p", label: "pause", effect: { inPlace: "togglePause" }, hint: false },
+	{ key: "c", label: "cancel prompt", effect: { inPlace: "cancelPrompt" }, needsPeer: true, hint: false },
+];
 
 /** How many peer rows the screen lists before scrolling. */
 const MAX_PEER_ROWS = 5;
@@ -158,8 +201,7 @@ export interface StatusActions {
 	stop(peer: string): string;
 	/** Start a fresh conversation for the peer; returns the line to flash. */
 	reset(peer: string): string;
-	/** Withdraw the waiting prompt; returns the line to flash. */
-	/** Withdraw the focused peer's waiting prompt. */
+	/** Withdraw the focused peer's waiting prompt; returns the line to flash. */
 	cancelPrompt(peer: string): string;
 	/** Pause or resume polling; async because it settles the poll loop first. */
 	togglePause(): string | Promise<string>;
@@ -201,16 +243,15 @@ export class StatusScreenComponent implements Component {
 	}
 
 	private hints(view: StatusView): ScreenHint[] {
+		const shown = (peer: boolean): ScreenHint[] =>
+			PANEL_KEYS.filter((entry) => entry.hint && (entry.needsPeer ?? false) === peer).map((entry) =>
+				entry.color === undefined
+					? `${entry.key} ${entry.label}`
+					: { text: `${entry.key} ${entry.label}`, color: entry.color },
+			);
 		const hints: ScreenHint[] = ["Esc close"];
-		if (view.peerRows.length > 0) {
-			hints.push("j/k move", { text: "s stop", color: "warn" }, { text: "d reset", color: "warn" }, "h history");
-		}
-		hints.push(
-			{ text: "l login", color: "accent" },
-			{ text: "n new", color: "accent" },
-			{ text: "o logout", color: "bad" },
-			"r refresh",
-		);
+		if (view.peerRows.length > 0) hints.push("j/k move", ...shown(true));
+		hints.push(...shown(false));
 		return hints;
 	}
 
@@ -221,74 +262,9 @@ export class StatusScreenComponent implements Component {
 			this.options.onClose("close");
 			return;
 		}
-		if (data === "l" || data === "L") {
-			this.options.onClose("login");
-			return;
-		}
-		if (data === "n" || data === "N") {
-			this.options.onClose("new");
-			return;
-		}
-		if (data === "o" || data === "O") {
-			this.options.onClose("logout");
-			return;
-		}
-		if (data === "r" || data === "R") {
-			this.setFlash(undefined);
-			return;
-		}
-		if (data === "p" || data === "P") {
-			if (!view.bridge) {
-				this.setFlash("WeChat is not running.");
-				return;
-			}
-			const outcome = this.options.actions?.togglePause();
-			if (!outcome) {
-				this.setFlash("Pause is unavailable here.");
-				return;
-			}
-			if (typeof outcome === "string") {
-				this.setFlash(outcome);
-				return;
-			}
-			this.setFlash(view.connection === "paused" ? "Resuming…" : "Pausing…");
-			void outcome.then(
-				(line) => this.setFlash(line),
-				() => this.setFlash("Pause action failed."),
-			);
-			return;
-		}
-		if (data === "a" || data === "A") {
-			this.options.onClose({ kind: "allow" });
-			return;
-		}
-		if (data === "c" || data === "C") {
-			// Cancel the focused peer's own prompt: with two turns running, the other
-			// peer's question is not this operator's to withdraw.
-			const waiting = peer ? view.prompts.find((entry) => entry.peer === peer.label) : undefined;
-			if (!peer || !waiting) {
-				this.setFlash("No prompt waiting.");
-				return;
-			}
-			this.setFlash(this.options.actions?.cancelPrompt(peer.id ?? peer.label) ?? "Prompt cancel is unavailable.");
-			return;
-		}
-		if (data === "s" || data === "S" || data === "d" || data === "D" || data === "h" || data === "H") {
-			if (!peer) {
-				this.setFlash("No peer conversation yet.");
-				return;
-			}
-			const id = peer.id ?? peer.label;
-			if (data === "h" || data === "H") {
-				this.options.onClose({ kind: "history", peer: id });
-				return;
-			}
-			const actions = this.options.actions;
-			if (!actions) {
-				this.setFlash("Peer actions are unavailable here.");
-				return;
-			}
-			this.setFlash(data === "s" || data === "S" ? actions.stop(id) : actions.reset(id));
+		const entry = PANEL_KEYS.find((candidate) => candidate.key === data.toLowerCase());
+		if (entry) {
+			this.pressKey(entry, view, peer);
 			return;
 		}
 		const rows = view.peerRows;
@@ -313,6 +289,77 @@ export class StatusScreenComponent implements Component {
 				this.select(rows.length - 1, view);
 				return;
 		}
+	}
+
+	/** Answer one key from {@link PANEL_KEYS}: close for a verb, run it here, or repaint. */
+	private pressKey(entry: PanelKey, view: StatusView, peer: PeerRow | undefined): void {
+		const effect = entry.effect;
+		if ("refresh" in effect) {
+			this.setFlash(undefined);
+			return;
+		}
+		if ("close" in effect) {
+			if (entry.needsPeer && peer === undefined) {
+				this.setFlash("No peer conversation yet.");
+				return;
+			}
+			this.options.onClose(
+				entry.needsPeer ? { verb: effect.close, peer: peer?.id ?? peer?.label } : { verb: effect.close },
+			);
+			return;
+		}
+		if (effect.inPlace === "togglePause") {
+			this.togglePause(view);
+			return;
+		}
+		if (peer === undefined) {
+			this.setFlash(effect.inPlace === "cancelPrompt" ? "No prompt waiting." : "No peer conversation yet.");
+			return;
+		}
+		const actions = this.options.actions;
+		if (!actions) {
+			this.setFlash(
+				effect.inPlace === "stop" || effect.inPlace === "reset"
+					? "Peer actions are unavailable here."
+					: "Prompt cancel is unavailable here.",
+			);
+			return;
+		}
+		const id = peer.id ?? peer.label;
+		if (effect.inPlace === "cancelPrompt") {
+			// Cancel the focused peer's own prompt: with two turns running, the other
+			// peer's question is not this operator's to withdraw.
+			const waiting = view.prompts.find((item) => item.peer === peer.label);
+			if (!waiting) {
+				this.setFlash("No prompt waiting.");
+				return;
+			}
+			this.setFlash(actions.cancelPrompt(id));
+			return;
+		}
+		this.setFlash(effect.inPlace === "stop" ? actions.stop(id) : actions.reset(id));
+	}
+
+	/** Pause or resume polling; the bridge settles the loop before the line lands. */
+	private togglePause(view: StatusView): void {
+		if (!view.bridge) {
+			this.setFlash("WeChat is not running.");
+			return;
+		}
+		const outcome = this.options.actions?.togglePause();
+		if (!outcome) {
+			this.setFlash("Pause is unavailable here.");
+			return;
+		}
+		if (typeof outcome === "string") {
+			this.setFlash(outcome);
+			return;
+		}
+		this.setFlash(view.connection === "paused" ? "Resuming…" : "Pausing…");
+		void outcome.then(
+			(line) => this.setFlash(line),
+			() => this.setFlash("Pause action failed."),
+		);
 	}
 
 	/** Focus the row at `index` and repaint when it moves. */

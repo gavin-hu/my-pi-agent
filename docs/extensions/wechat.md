@@ -577,19 +577,22 @@ their history stays on disk.
 The operator surface is one verb table: a bare `/wechat` (or `/wechat status`)
 opens the control screen, whose keys return the same verbs the subcommands
 accept, so each action has a single implementation and there is no subcommand to
-memorize. The table is also the source of the help text, the usage line, and the
-tab completions, so a new verb cannot be listed in one place and missed in
-another. The screen closes with an action the command runs afterwards, so the
-QR login screen never opens while the control screen still owns input focus. An
-unknown subcommand reports the valid verbs instead of silently falling back to
-status, which is what the old start/stop guidance used to do.
+memorize. Each row carries its own runner, and the help text, the usage line, the
+tab completions, the command's description, and the dispatch all derive from it,
+so a new verb cannot be listed in one place and missed in another. The screen's
+keys are one table of their own, typed against that verb union, so a key cannot
+name a verb the command does not register. The screen closes with an action the
+command runs afterwards, so the QR login screen never opens while the control
+screen still owns input focus. An unknown subcommand reports the valid verbs
+instead of silently falling back to status, which is what the old start/stop
+guidance used to do.
 
 ## Files
 
 | File | Responsibility |
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, start the bridge off the frame (one promise its readers join), build it, open peer sessions from the host context. |
-| `bridge.ts` | The composition root: wires the poll loop, delivery, presence, admission, and inbound modules to the live client/account/cursor/state; owns the connection lifecycle, the status snapshot, and `sendToOwner`. Loaded on `session_start` when an account is stored, never at registration, so a session with no account evaluates none of it. |
+| `bridge.ts` | The composition root: wires the poll loop, delivery, presence, admission, and inbound modules to the live client/account/cursor/state; owns the connection lifecycle — one `BridgeState` value, published as it moves — the status snapshot, and `sendToOwner`. Loaded on `session_start` when an account is stored, never at registration, so a session with no account evaluates none of it. |
 | `intake.ts` | The inbound path: who is refused, what is a replay, what is a command, what answers a pending prompt, and what is queued or turned away; the admission predicates live here too. |
 | `tools.ts` | The `send_wechat` tool: owner-only proactive text or one image, with the neither-or-both refusal. |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
@@ -610,7 +613,7 @@ status, which is what the old start/stop guidance used to do.
 | `peer/admission.ts` | The rolling-hour turn budget and the per-peer serial admission chain. |
 | `peer/reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
 | `peer/presence.ts` | Typing, acknowledgement, and the slow/busy lines; all per-peer wait timers in one registry. |
-| `commands/commands.ts` | The one `/wechat` verb table — a verb cannot be listed in one place and missed in another — driving the help text, the usage line and completions, plus the dispatch, the panel, login/logout, and the per-peer stop/reset; `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
+| `commands/commands.ts` | The one `/wechat` verb table: each row carries its runner, and the help text, the usage line, the completions, the command description, and the dispatch all derive from it; plus the panel, login/logout, and the per-peer stop/reset. `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
 | `commands/slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
 | `commands/doctor.ts` | The plain-text `/wechat doctor` report: connection/token age, poll, lock, peer sessions, recent failures, and config. |
 | `commands/login.ts` | QR login state machine. |
@@ -624,7 +627,7 @@ status, which is what the old start/stop guidance used to do.
 | `dialog/remote-ui.ts` | The peer session's UI context: dialogs and notices bound to that peer, the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
 | `view/login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |
 | `text/status.ts` | The status facts (`statusView`) and the one-line summary (`statusLine`) the text modes print. |
-| `view/status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts, a focusable peer list with stop/reset/history keys and the body renderer, loaded on first use, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `listRow`, `paint`, `IdCursor`). |
+| `view/status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts, a focusable peer list, the body renderer, and one key table (typed against `WechatVerb`) that drives both the hints and the input, loaded on first use, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `listRow`, `paint`, `IdCursor`). |
 
 Modules are grouped by the role they play: `transport/` is the only place that talks to iLink, `state/` owns the three files a session leaves on disk, `peer/` runs one peer's session and its queue, `commands/` holds a slash verb, `text/` words everything a peer reads, `dialog/` asks a question over WeChat, and `view/` draws a full-screen surface. `index.ts`, `bridge.ts`, `tools.ts`, `config.ts`, `types.ts`, `errors.ts`, and `timer.ts` stay at the root — the factory, the composition root, the public surface, and the seams the directories import.
 
