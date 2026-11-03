@@ -793,8 +793,9 @@ it always meant: when the card was last touched, which is not when it last chang
 | `view/client.ts` | The one script served at `/app.js` |
 
 The lanes, the contract, the limits, the reason rule, the steps, the store, the rollup, and
-the snapshot, and the rule that a plan path is a plan file are `lib/board/` — see
-[`lib/README.md`](../../lib/README.md).
+the snapshot, and the rule that a plan path is a plan file are `lib/board/`, one module
+each: [`lib/board/README.md`](../../lib/board/README.md) reasons about them, and the table
+in [`lib/README.md`](../../lib/README.md) indexes them.
 
 ## Testing
 

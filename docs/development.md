@@ -565,7 +565,8 @@ Do not duplicate across these:
 - `AGENTS.md` — the machine-facing entry point: the four rules, the gates that
   hold them, and the traps with no other home.
 - `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`,
-  `test/README.md` — the deep per-area contracts, with no copy beside the code.
+  `lib/board/README.md`, `test/README.md` — the deep per-area contracts, with no copy
+  beside the code.
 
 ## Tool and prompt surface
 
