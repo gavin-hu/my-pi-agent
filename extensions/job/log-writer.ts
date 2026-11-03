@@ -12,7 +12,7 @@
  * loads it.
  */
 
-import { createWriteStream, existsSync, renameSync, unlinkSync, type WriteStream } from "node:fs";
+import { closeSync, createWriteStream, existsSync, openSync, renameSync, unlinkSync, type WriteStream } from "node:fs";
 import type { LineSplitter } from "../../lib/lines.ts";
 import type { Job, JobRecord } from "./types.ts";
 
@@ -128,8 +128,30 @@ export function createLogWriter(options: LogWriterOptions): LogWriter {
 			} catch {
 				// A failed rename leaves the oversized segment in place; keep appending.
 			}
-			const reopened = createWriteStream(logPath, { flags: "a" });
-			reopened.on("error", () => {});
+			// Reopen here, not on a later tick: a deferred open lands after a `clear`
+			// that already unlinked both segments, recreating the log of a job that is
+			// gone. Opening the descriptor in this callback leaves nothing pending once
+			// it returns, so the unlink is final.
+			let fd: number | undefined;
+			let reopened: WriteStream | undefined;
+			try {
+				fd = openSync(logPath, "a");
+				reopened = createWriteStream(logPath, { fd });
+				reopened.on("error", () => {});
+			} catch {
+				// A stream event must not carry a throw into the child's output path: an
+				// unwritable log leaves the job running with no stream, and the drain
+				// below still empties the queue. That promise covers the cleanup too, so
+				// `closeSync` is guarded — its own throw (EINTR, EIO) would surface from
+				// the close listener as an uncaught exception and take the session down.
+				if (fd !== undefined) {
+					try {
+						closeSync(fd);
+					} catch {
+						// The descriptor is the OS's to reclaim; the log is unwritable anyway.
+					}
+				}
+			}
 			handle.stream = reopened;
 			handle.rotating = false;
 			handle.logBytes = 0;

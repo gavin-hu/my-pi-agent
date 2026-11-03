@@ -23,6 +23,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `job`: a cleared job's log can no longer reappear. A rotation opens its next segment inside the
+  close callback instead of on a later tick, so nothing is pending once the rename is done, and
+  removing a job's files disposes its writer before unlinking them — the deferred open that
+  recreated an empty `<id>.log` after `clear` has no window left.
 - `wechat`: five small defects from the bug review. A long reply's chunks are cut in code points, so
   a surrogate pair is never split across two messages, and an inbound truncation counts what it
   shows the same way. A numbered part now budgets for its `[i/n] ` marker, so no delivered message
