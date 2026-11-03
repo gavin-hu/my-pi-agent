@@ -308,7 +308,9 @@ export function registerTools(
 				text.setText(outcome.line);
 				return text;
 			}
-			const input = resultInput(outcome.details);
+			// A `list` is the one action with rows, so a collapsed block is the line that counts
+			// them: the rows are what expanding adds, not a second copy of the line's answer.
+			const input = options.expanded ? resultInput(outcome.details) : undefined;
 			if (!input) {
 				text.setText(collapsedLine(theme, outcome.details));
 				return text;
