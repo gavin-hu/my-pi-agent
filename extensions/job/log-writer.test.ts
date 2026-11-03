@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { LineSplitter } from "../../lib/lines.ts";
+import { type Harness, job, makeCtx, makeHarnessSuite, readLog, startJob } from "../../test/helpers/fixtures/job.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
-import { makeCtx, readLog, makeHarnessSuite, type Harness } from "../../test/helpers/fixtures/job.ts";
+import { createLogWriter } from "./log-writer.ts";
 
 const suite = makeHarnessSuite();
+/** Temp directories this file's unit cases made, removed at teardown. */
+const scratch: string[] = [];
 afterEach(() => {
 	suite.cleanup();
+	for (const dir of scratch.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
 /**
@@ -159,5 +165,62 @@ describe("job runtime — log rotation", () => {
 
 		expect(existsSync(rotated)).toBe(false);
 		expect(readLog(logPath)).toBe("aaaa\nbbbb\n");
+	});
+});
+
+describe("job runtime — log writer accounting", () => {
+	/** A writer over a real file, with a cap small enough for one rotation. */
+	function makeWriter(dir: string, logPath: () => string) {
+		return createLogWriter({
+			now: () => 0,
+			newSplitter: () => new LineSplitter(),
+			logPath,
+			rotatedPath: () => join(dir, "j1.log.1"),
+			maxBytes: () => 4,
+			repaintMs: () => 1_000_000,
+			onLine: () => {},
+			onPaint: () => {},
+		});
+	}
+
+	test("counts the bytes a failed reopen loses, and nothing for a detached job", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "pi-jobs-writer-"));
+		scratch.push(dir);
+		const live = join(dir, "j1.log");
+		// The segment's directory is gone by the time the cap is reached, so the
+		// rotation's rename and its reopen both fail: no stream, and no later one.
+		let logPath = live;
+		const writer = makeWriter(dir, () => logPath);
+		const handle = writer.create(live);
+		const record = job();
+
+		writer.write(handle, record, Buffer.from("aaaa\n"));
+		logPath = join(dir, "gone", "j1.log");
+		writer.write(handle, record, Buffer.from("bbbb\n"));
+		// The chunk that started the rotation drains once the reopen has failed.
+		await waitFor(() => handle.droppedBytes === 5);
+		expect(handle.stream).toBeUndefined();
+
+		writer.write(handle, record, Buffer.from("cccc\n"));
+		expect(handle.droppedBytes).toBe(10);
+
+		// A detached job has no stream by design, and loses nothing to report.
+		const detached = writer.create(undefined);
+		writer.write(detached, record, Buffer.from("dddd\n"));
+		expect(detached.droppedBytes).toBe(0);
+	});
+
+	test("clear unlinks a log whose stream is still closing", async () => {
+		const h = suite.makeHarness();
+		await startJob(h);
+		const logPath = h.runtime.get("j1")?.logPath;
+		if (!logPath) throw new Error("expected a log path");
+		h.children[0].write("aaaa\n");
+		// `all` clears a running job in one tick: its stream is ended and its file
+		// unlinked together, which Windows refuses until the stream's close.
+		expect(h.runtime.clear(undefined, true).cleared).toBe(1);
+		// Waited on the invariant, not on a fixed tick: the retry runs from the stream's
+		// close, so a loaded machine reaches the same state later and asserts the same thing.
+		await waitFor(() => !existsSync(logPath));
 	});
 });

@@ -33,6 +33,11 @@ export interface LogHandle {
 	droppedBytes: number;
 	/** Bytes written to the live segment, counted exactly as chunks arrive. */
 	logBytes: number;
+	/**
+	 * True when this handle was given a log path, so a chunk with nowhere to go is
+	 * lost; a detached job has no stream by design and loses nothing.
+	 */
+	expectsStream: boolean;
 	/** True once the handle is disposed; a rotation in flight never reopens. */
 	disposed: boolean;
 }
@@ -77,8 +82,15 @@ export function createLogWriter(options: LogWriterOptions): LogWriter {
 	let lastPaint = 0;
 
 	const writeLog = (handle: LogHandle, chunk: Buffer): void => {
+		if (handle.stream === undefined) {
+			// A reopen that failed leaves no stream for the rest of the job's life, so
+			// these bytes are gone: count them, or `logs` presents the short segment as
+			// complete. A detached job's chunks are its own shell's to write.
+			if (handle.expectsStream) handle.droppedBytes += chunk.length;
+			return;
+		}
 		try {
-			handle.stream?.write(chunk);
+			handle.stream.write(chunk);
 		} catch {
 			// A closed stream must not break output handling.
 		}
@@ -202,6 +214,7 @@ export function createLogWriter(options: LogWriterOptions): LogWriter {
 				rotating: false,
 				droppedBytes: 0,
 				logBytes: 0,
+				expectsStream: logPath !== undefined,
 				disposed: false,
 			};
 		},

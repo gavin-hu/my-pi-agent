@@ -13,8 +13,8 @@
  * one it started, and asks the runtime to settle one — it never holds the table.
  */
 
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { createChildSupervisor, type ChildOutcome, type ChildSlot, type ChildSupervisor } from "../../lib/child.ts";
+import { existsSync, mkdirSync, unlinkSync, type WriteStream, writeFileSync } from "node:fs";
+import { type ChildOutcome, type ChildSlot, type ChildSupervisor, createChildSupervisor } from "../../lib/child.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
 import type { LineSplitter } from "../../lib/lines.ts";
 import type { KillTreeFn, SpawnFn, StartTokenFn, StdinSink } from "../../lib/spawn.ts";
@@ -23,7 +23,7 @@ import type { JobsConfig } from "./config.ts";
 import { formatLogs } from "./format.ts";
 import { createLogWriter, type LogHandle, type LogWriter } from "./log-writer.ts";
 import { readLogTail } from "./logs.ts";
-import { LOG_ENV, STATUS_ENV, readExitStatus, withExitTrap } from "./status.ts";
+import { LOG_ENV, readExitStatus, STATUS_ENV, withExitTrap } from "./status.ts";
 import type { JobStore } from "./store.ts";
 import type {
 	Job,
@@ -381,12 +381,23 @@ export function createJobChildren(deps: JobChildrenDeps): JobChildren {
 		return job;
 	};
 
+	/** Log streams a dispose ended that have not closed yet, so a later unlink can wait them out. */
+	const ending = new Map<string, WriteStream>();
+
 	const dispose = (id: string, options: { endStream: boolean }): void => {
 		const handle = handles.get(id);
 		if (!handle) return;
 		if (handle.killTimer) clearTimeout(handle.killTimer);
 		if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
+		const stream = handle.log.stream;
 		logWriter().dispose(handle.log, options);
+		// The handle goes now, but its log file may still be held by a closing stream, or
+		// be about to exist again because that stream's open never landed: the removal
+		// path asks `ending` for the stream instead of this handle.
+		if (options.endStream && stream !== undefined && !stream.closed) {
+			ending.set(id, stream);
+			stream.once("close", () => ending.delete(id));
+		}
 		// Release the stdin pipe so a child waiting on input sees EOF instead of a
 		// half-open pipe nobody can write to.
 		if (handle.stdin && !handle.stdinClosed) {
@@ -437,7 +448,10 @@ export function createJobChildren(deps: JobChildrenDeps): JobChildren {
 		// A rotation that outran its drain drops the oldest queued chunks; say so once
 		// rather than letting the gap look like a program that skipped output.
 		const dropped = handles.get(id)?.log.droppedBytes ?? 0;
-		const text = dropped > 0 ? `${formatted.text}\n… ${dropped} bytes dropped while the log rotated.` : formatted.text;
+		const text =
+			dropped > 0
+				? `${formatted.text}\n… ${dropped} bytes dropped: the log rotated or could not be reopened.`
+				: formatted.text;
 		return {
 			job,
 			text,
@@ -486,26 +500,40 @@ export function createJobChildren(deps: JobChildrenDeps): JobChildren {
 		}
 	};
 
-	const removeLog = (job: JobRecord): void => {
-		try {
-			const path = deps.store().safeLogPath(job);
-			if (path && existsSync(path)) unlinkSync(path);
-			// Both segments are the job's own log; drop the rotated one too.
-			const rotated = deps.store().safeRotatedLogPath(job);
-			if (rotated && existsSync(rotated)) unlinkSync(rotated);
-		} catch {
-			// Log cleanup is best-effort.
+	/** Unlink every segment this job owns, best-effort. */
+	const unlinkLogs = (job: JobRecord): void => {
+		for (const path of [deps.store().safeLogPath(job), deps.store().safeRotatedLogPath(job)]) {
+			if (!path || !existsSync(path)) continue;
+			try {
+				unlinkSync(path);
+			} catch {
+				// Windows refuses while a descriptor still holds the file; the caller retries.
+			}
 		}
+	};
+
+	/**
+	 * Delete a job's log and any rotated segment, once more when its stream closes.
+	 *
+	 * The retry is attached *before* the first unlink: a stream whose open has not landed
+	 * creates the file again just after it, and Windows refuses the unlink outright while
+	 * the descriptor is held — both are answered by the close. Checking `closed` after the
+	 * unlink instead drops that retry when the close lands in the window between them,
+	 * which is the file a loaded machine leaves behind.
+	 */
+	const removeLog = (job: JobRecord, closing?: WriteStream): void => {
+		if (closing !== undefined && !closing.closed) closing.once("close", () => unlinkLogs(job));
+		unlinkLogs(job);
 	};
 
 	const removeArtifacts = (job: JobRecord): void => {
 		deps.store().releaseId(job.id);
 		// Stop the writer before its files go: a rotation whose reopen is in flight
 		// would otherwise recreate the log after the unlink. `dispose` is idempotent,
-		// so the paths that already disposed are unaffected.
+		// so a path that already disposed still hands over the stream it ended.
 		dispose(job.id, { endStream: true });
 		removeStatus(job);
-		removeLog(job);
+		removeLog(job, ending.get(job.id));
 	};
 
 	return {

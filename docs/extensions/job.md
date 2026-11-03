@@ -301,6 +301,12 @@ rewritten.
   than racing a deferred open. `logs` fills a request from the previous segment
   when the live one is shorter, so the rotation is invisible to the model and to
   the `/jobs` pane. A detached job writes its own log and is exempt.
+- **A cleared log goes once its stream has closed.** The unlink runs at once and
+  again from the ended stream's `close`: Windows refuses to unlink a file a
+  descriptor still holds, and a stream whose open has not landed yet recreates the
+  file just after the first attempt. Bytes a failed reopen could not write are
+  counted as dropped rather than leaving a short log that reads as complete; a
+  detached job has no parent stream and loses nothing that way.
 - **Stdin is an opt-in pipe.** `start` keeps the child's stdin closed by
   default, so it gets EOF immediately and a `read` exits instead of blocking;
   `stdin: true` swaps in a pipe that `send` writes to and `eof` closes. The pipe
