@@ -64,7 +64,7 @@ export function configValueAt(raw: unknown, path: readonly string[]): unknown {
 }
 
 /** Options for {@link loadConfigSection}. */
-export interface SectionOptions {
+interface SectionOptions {
 	/** Agent directory override; `worktree` resolves it explicitly. */
 	agentDir?: string;
 }

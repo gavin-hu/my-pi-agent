@@ -107,7 +107,7 @@ export function readJson(path: string): Record<string, unknown> | undefined {
 }
 
 /** How the written document is shaped: one JSON object, indented, newline-terminated. */
-export interface JsonWriteOptions {
+interface JsonWriteOptions {
 	/** File mode for the written file, applied to the temp file the rename publishes. */
 	mode?: number;
 }
