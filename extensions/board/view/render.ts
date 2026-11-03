@@ -93,6 +93,9 @@ __RUNTIME__
   /** The live chip's painter, for the stream's fragment: one body, written in the kit. */
   board.paintLive = paintLive;
 
+  /** The stream client, for the same fragment: one state machine, and this page's words. */
+  board.liveStream = liveStream;
+
   /**
    * The queue's order, its colours, and the tone a reason line wears — spliced in from
    * lib/board/tone.ts, which the terminal reads through extensions/board/tone.ts. One

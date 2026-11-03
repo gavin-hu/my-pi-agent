@@ -12,15 +12,19 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var token = new URLSearchParams(window.location.search).get("token") || "";
+  /** The state the shared stream client last reported, which the age ticker repaints. */
+  var streamState = "connecting";
 
   /**
-   * The chip's word and its tone: connecting, live, reconnecting.
+   * The chip's word and its tone, in this page's four states.
    *
-   * The state is the page's own vocabulary; the shape is the kit's, so the chip is painted
-   * through one body every served page shares. A retrying stream is where this page can no
-   * longer be trusted, so that is the one state that offers the reload.
+   * The states and their transitions are the shared client's, so all three served pages agree
+   * on what a dropped stream is and stop agreeing only on what it says. The shape is the kit's,
+   * through one body every page shares, and the word carries the last frame's age because a
+   * quiet board has no other way to show that its frames are still arriving.
    */
   function badge(state, at) {
+    streamState = state;
     var node = document.getElementById("board-status");
     if (!node) return;
     node.setAttribute("data-state", state);
@@ -31,9 +35,12 @@ export const BOARD_LIVE_JS = String.raw`(function () {
       text = age === "now" ? "live" : "live · " + age;
     }
     else if (state === "reconnecting") text = "reconnecting…";
-    board.paintLive(node, state === "live" ? "success" : state === "reconnecting" ? "danger" : "accent", text);
+    else if (state === "dead") text = "offline";
+    board.paintLive(node, state === "live" ? "success" : state === "connecting" ? "accent" : "danger", text);
+    // A stream that has not come back is where this page stops being true, and a reload is the
+    // one action a reader has. While the browser is still retrying, the chip says that instead.
     var reload = document.getElementById("reload-hint");
-    if (reload) reload.hidden = state !== "reconnecting";
+    if (reload) reload.hidden = state !== "dead";
   }
 
   /** Show one tab: the panel, the selected tab, and the address so a link is shareable. */
@@ -196,28 +203,26 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   function paint(view) {
     board.lastFrame = Date.now();
     board.shown = board.shown || laneWithWork(view);
-    badge("live", board.lastFrame);
     board.render(view);
   }
 
-  /** The live channel: a reconnect is the browser's own retry, not a second request. */
+  /** The live channel: one state machine for every page, in this page's words. */
   function stream() {
-    var source = new EventSource(pageBase() + "/events?token=" + encodeURIComponent(token));
-    source.onopen = function () {
-      badge("live", board.lastFrame);
-    };
-    source.onmessage = function (event) {
-      var view;
-      try {
-        view = JSON.parse(event.data);
-      } catch (error) {
-        return;
-      }
-      paint(view);
-    };
-    source.onerror = function () {
-      badge("reconnecting");
-    };
+    board.liveStream({
+      url: pageBase() + "/events?token=" + encodeURIComponent(token),
+      words: function (state) {
+        badge(state, board.lastFrame);
+      },
+      frame: function (event) {
+        var view;
+        try {
+          view = JSON.parse(event.data);
+        } catch (error) {
+          return;
+        }
+        paint(view);
+      },
+    });
   }
 
   /** The filter and the two tab sets. */
@@ -279,7 +284,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     // board cannot show by changing; the ages are the other, so the same tick keeps
     // them honest without waiting for somebody to write.
     window.setInterval(function () {
-      if (board.lastFrame !== undefined) badge("live", board.lastFrame);
+      if (board.lastFrame !== undefined) badge(streamState, board.lastFrame);
       board.refreshAges();
     }, 1000);
   }

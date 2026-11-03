@@ -353,8 +353,9 @@ so a session with no page open shows nothing at all.
 
 The page has its own live status, which is what a left-open tab reads. A `◉ live`
 chip beside `read-only` says whether status is flowing (green), still
-connecting (accent), stalled (amber, after three missed frames), or offline
-(red); the branch chip, the `● N changes +A −D` chip, and the change markers in
+connecting (accent), stalled (amber, after three missed frames), reconnecting
+(amber, while the browser retries a dropped stream), or offline (red, once those
+retries are spent); the branch chip, the `● N changes +A −D` chip, and the change markers in
 the tree and the listing update in place; and the chip's hover reports the
 server's own accounting of the stream, `up 2m 14s · 37 requests`. The chip names
 its state and never counts, and a frame whose change set did not move repaints
@@ -366,12 +367,16 @@ stops listening.
 The header chip starts hidden and is painted by the client from `/events`:
 `◉ live` in the success colour while frames arrive, `◉ connecting` before the
 first one, `◉ stale` in the warning colour when three intervals pass without a
-frame on an open connection, and `◉ offline` in the danger colour once the
-stream errors. The chip names its state rather than counting, so it is repainted
-only when that state changes. A stream that has gone is where the page stops
-being true, so `offline` also reveals the `⟳ reload` control beside the chip,
-whose hover names the way back (restart `/browse`, then reload): the page can
-re-request itself, and that is the one action a stale page has. The same frame
+frame on an open connection, `◉ reconnecting` in that same warning colour while
+the browser retries a stream that dropped, and `◉ offline` in the danger colour
+once three retries in a row have failed. Those four connection states, and the
+count that ends them, are the shared client's ([`lib/web`](../../lib/web/README.md));
+what this page adds is the words, the hover, and the cadence. The chip names its
+state rather than counting, so it is repainted only when that state changes. A stream that did not
+come back is where the page stops being true, so `offline` also reveals the
+`⟳ reload` control beside the chip, whose hover names the way back (restart
+`/browse`, then reload): the page can re-request itself, and that is the one
+action a stale page has. The same frame
 carries the branch (or detached head), the uncommitted-change totals and paths,
 the server's uptime, and the requests it has answered, so the branch chip, the
 changes chip, the markers, and the chip's hover are painted from one snapshot

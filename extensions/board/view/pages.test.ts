@@ -488,9 +488,9 @@ describe("the client bundle", () => {
 	});
 
 	test("opens one stream, with the token it was served with", () => {
-		// The page is mounted under the session's one origin, so its own stream is named from
-		// the base the document carries rather than from the origin's root.
-		expect(BOARD_CLIENT_JS).toContain('new EventSource(pageBase() + "/events?token=');
+		// The page is mounted under the session's one origin, so its own stream is named from the
+		// base the document carries, and it is opened by the same client every served page runs.
+		expect(BOARD_CLIENT_JS).toContain('url: pageBase() + "/events?token=" + encodeURIComponent(token)');
 		expect(BOARD_CLIENT_JS).toContain('new URLSearchParams(window.location.search).get("token")');
 	});
 

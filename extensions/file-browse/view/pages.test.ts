@@ -1378,7 +1378,7 @@ describe("browser script", () => {
 		expect(CLIENT_JS).toContain('fetch(pageBase() + "/api/tree?path="');
 		expect(CLIENT_JS).toContain('fetch(pageBase() + "/api/files?q="');
 		expect(CLIENT_JS).toContain('fetch(pageBase() + "/api/dir-rev?path="');
-		expect(CLIENT_JS).toContain('new EventSource(pageBase() + "/events")');
+		expect(CLIENT_JS).toContain('url: pageBase() + "/events"');
 		expect(CLIENT_JS).toContain('window.location.assign(pageBase() + "/view/"');
 	});
 
@@ -1413,8 +1413,8 @@ describe("browser script", () => {
 		// nothing repaints it between frames. Staleness is one timeout armed per
 		// frame, and the fragment's one interval checks the folder's revision — it
 		// never paints the chip.
-		expect(LIVE_CLIENT_JS).toContain('setLiveTone("success", "live")');
-		expect(LIVE_CLIENT_JS).toContain('setLiveTone("warn", "stale")');
+		expect(LIVE_CLIENT_JS).toContain('paintLiveState("live", "success", "live")');
+		expect(LIVE_CLIENT_JS).toContain('paintLiveState("live", "warn", "stale")');
 		expect(LIVE_CLIENT_JS).not.toMatch(/setInterval\([^)]*paint/);
 	});
 

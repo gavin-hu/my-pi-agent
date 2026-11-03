@@ -45,14 +45,15 @@ describe("the header", () => {
 describe("the live script", () => {
 	test("paints the chip through the kit, and offers the reload when the stream goes", () => {
 		// One painter, written once: the tone is a modifier and the state's word is the chip's
-		// child, so a page never builds the shape. The server's accounting of the stream is the
-		// chip's hover, and a stream that has gone is where the page stops being true — so that is
-		// where the control that re-requests it appears.
+		// child, so a page never builds the shape. The states are the shared client's; what this
+		// page adds is the words, and the hover that names the way back once they are spent.
 		expect(CLIENT_JS).toContain(String(paintLive));
-		expect(LIVE_CLIENT_JS).toContain("paintLive(liveChip, tone, label, liveTitle(tone))");
+		expect(LIVE_CLIENT_JS).toContain("paintLive(liveChip, tone, word, liveTitle(word))");
 		expect(LIVE_CLIENT_JS).toContain(
-			'if (tone === "danger") return "The server stopped — restart /browse, then reload"',
+			'if (word === "offline") return "The server stopped — restart /browse, then reload"',
 		);
+		// A stream that dropped is stale, not dead: the chip says so while the browser retries.
+		expect(LIVE_CLIENT_JS).toContain('paintLiveState("reconnecting", "warn", "reconnecting")');
 		expect(LIVE_CLIENT_JS).toContain("liveServer =");
 		expect(LIVE_CLIENT_JS).toContain("showLiveReload();");
 		// The page's own copy of the pill, and of its word, are gone: a second shape is how the

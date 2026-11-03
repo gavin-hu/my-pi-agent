@@ -9,7 +9,7 @@
  *
  * What is left here is the composition root, deliberately: the element handles, the state
  * the rules are handed, one adapter per rule that names it without arguments, the listeners
- * that attach them, the `EventSource` that keeps a tab's presence known, and the boot order.
+ * that attach them, the stream that keeps a tab's presence known, and the boot order.
  * None of it decides anything a test could disagree with — a rule that does belongs in a
  * module, where it can be typed and driven.
  *
@@ -69,9 +69,8 @@ ${CLIENT_BASE_JS}
   var saved = false;
   var approved = false;
   var closed = false;
-  var connected = null;
-  var everConnected = false;
   var dirty = false;
+
   var sectionObserver = null;
   var pendingQuote = null;
   var activeIndex = -1;
@@ -447,21 +446,13 @@ ${WEB_MARKDOWN_JS}
   // is the kit's chip, so the page wires it here rather than building a button of its own.
   if (reloadEl) reloadEl.addEventListener("click", function () { window.location.reload(); });
 
-  try {
-    stream = new EventSource(pageBase() + "/events?token=" + encodeURIComponent(token));
-    stream.addEventListener("open", function () { connected = true; everConnected = true; updateState(); });
-    stream.addEventListener("message", function (event) { refreshFromServer(event); });
-    stream.addEventListener("error", function () {
-      // The server ends the stream once the review is settled; keep showing the
-      // terminal state rather than Offline.
-      if (!saved && !approved && !closed) { connected = false; updateState(); }
-    });
-  } catch (error) {
-    // The server still sees the POST; the stream is only for close detection.
-    connected = false;
-    everConnected = true;
-    updateState();
-  }
+  // The stream's job is noticing a closed tab and saying whether this page is still true; it
+  // never writes. One state machine for every served page, and this page's words for it.
+  stream = liveStream({
+    url: pageBase() + "/events?token=" + encodeURIComponent(token),
+    words: function (state) { liveState = state; updateState(); },
+    frame: refreshFromServer,
+  });
 
   ${THEME_TOGGLE_JS}
 

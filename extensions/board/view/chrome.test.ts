@@ -22,6 +22,7 @@ import {
 import { serveBoardPage } from "../../../test/helpers/board-page.ts";
 import { boardDocument as pageOf, REPO, ROOT, WHERE } from "../../../test/helpers/board-document.ts";
 import { renderBoardPage } from "./page.ts";
+import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CSS } from "./styles.ts";
 
 /** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
@@ -43,6 +44,20 @@ describe("the toolbar", () => {
 		);
 		// The chip is where a reader looks for the state, not a region that announces it.
 		expect(page).not.toContain('aria-live="polite">connecting');
+	});
+
+	test("says which of the four states the stream is in, and offers the reload only once it is gone", () => {
+		// The states and their transitions are the shared client's (`lib/web/live-stream.test.ts`);
+		// this is the page's half of the contract, in the words the board says them in. A stream
+		// that dropped is not yet a page that is wrong, so the control waits for `dead`.
+		expect(BOARD_CLIENT_JS).toContain('else if (state === "reconnecting") text = "reconnecting');
+		expect(BOARD_CLIENT_JS).toContain('else if (state === "dead") text = "offline"');
+		expect(BOARD_CLIENT_JS).toContain('reload.hidden = state !== "dead"');
+		// The age ticker repaints the state the stream is in: one that always said `live` flipped
+		// an error back to a live chip within the second.
+		expect(BOARD_CLIENT_JS).toContain("badge(streamState, board.lastFrame)");
+		// One stream, opened by the client the kit hands every served page.
+		expect(BOARD_CLIENT_JS).toContain("board.liveStream({");
 	});
 
 	test("names the repository in the toolbar, and the root on its hover", () => {
@@ -136,8 +151,11 @@ describe.skipIf(CHROME === undefined)("a dropped stream", () => {
 			expect(await page.getAttribute("#board-status", "class")).toContain("bf-chip--success");
 
 			await served.close();
+			// A stream that did not come back is where the page stops being true, so the chip ends
+			// at `offline` in the danger tone and the reload appears beside it. The retry states
+			// between the drop and this one are the shared client's, held in its own suite.
 			await page.waitForSelector("#reload-hint:not([hidden])", { timeout: PAINT_MS });
-			expect(await chipText()).toContain("reconnecting");
+			expect(await chipText()).toContain("offline");
 			expect(await page.getAttribute("#board-status", "class")).toContain("bf-chip--danger");
 			// The control names the action and keeps the remedy on its hover.
 			expect((await page.textContent("#reload-hint"))?.trim()).toBe("⟳ reload");
@@ -146,5 +164,7 @@ describe.skipIf(CHROME === undefined)("a dropped stream", () => {
 			await page.close();
 			await served.close();
 		}
-	});
+		// The stream is dead only after its retries, and each one waits out the server's own
+		// `retry:` hint, so this case is a few seconds long by design rather than slow.
+	}, 30_000);
 });

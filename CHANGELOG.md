@@ -36,6 +36,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sibling temp file renamed over the old one, the same shape `state.json` took.
 - `lib`: `writeJsonFile` is the one atomic JSON write now — the two `wechat` files above, and
   `writeConfigFile`, which still writes the same bytes. One body instead of a copy per caller.
+- `board`, `file-browse`, `plan`: one live-stream client for the three served pages, out of
+  `lib/web`'s browser runtime, so the states have one definition. A dropped stream reads
+  `reconnecting…` on every page and only a stream that did not come back reads `offline` and
+  offers its reload — the board no longer has a chip that said `reconnecting…` forever with a
+  reload beside it (and flipped back to `live · 2m` on its own ticker), browse no longer calls
+  the server stopped on the first blip, and the review's chip gains the retry word its settled
+  states still outrank.
 - `job`: a cleared job's log can no longer reappear. A rotation opens its next segment inside the
   close callback instead of on a later tick, so nothing is pending once the rename is done, and
   removing a job's files disposes its writer before unlinking them — the deferred open that

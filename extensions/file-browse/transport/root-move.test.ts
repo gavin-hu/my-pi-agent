@@ -77,7 +77,10 @@ describe("the served root moving", () => {
 
 	test("the page's own script reloads on that frame, and draws its chips from the status one", () => {
 		expect(movedFrameOf("/x").startsWith("event: moved\n")).toBe(true);
-		expect(CLIENT_JS).toContain('liveStream.addEventListener("moved"');
+		// The one stream client names both events a page wants, and the page reloads on the one
+		// it cannot paint rather than drawing a document of the tree it has left.
+		expect(CLIENT_JS).toContain('events: ["status", "moved"]');
+		expect(CLIENT_JS).toContain('if (event.type === "moved") {');
 		expect(CLIENT_JS).toContain("window.location.reload()");
 	});
 });

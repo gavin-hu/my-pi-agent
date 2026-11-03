@@ -12,6 +12,10 @@ export const WEB_CHROME_JS = String.raw`  // Set once the page has been told it 
   // gone — so a later frame cannot hide the one control that still helps.
   var needsReload = false;
 
+  // The state the shared stream client last reported. The states themselves are its, so this
+  // page cannot disagree with the board about what a dropped stream is; the words are here.
+  var liveState = "connecting";
+
   function setStatus(text, kind) {
     if (statusEl) paintStatus(statusEl, text, kind);
   }
@@ -40,12 +44,16 @@ export const WEB_CHROME_JS = String.raw`  // Set once the page has been told it 
     } else if (closed) {
       // Settled by the user, not by a dropped stream: never flash offline.
       label = "closed";
-    } else if (connected === true) {
+    } else if (liveState === "live") {
       label = "connected";
       tone = "success";
-    } else if (everConnected) {
-      // Only after the stream has opened once: an error before that is a
-      // transient initial connect, so keep showing connecting rather than offline.
+    } else if (liveState === "reconnecting") {
+      // It was up and the connection went. The browser is retrying, so this is not yet a page
+      // a reader has to reload — and a settled review never reaches here, because settling
+      // ends the stream and the three states above it win.
+      label = "reconnecting\u2026";
+      tone = "warn";
+    } else if (liveState === "dead") {
       label = "offline";
       tone = "danger";
     } else {

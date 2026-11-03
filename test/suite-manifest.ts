@@ -250,6 +250,7 @@ export const LIB_SUITES: readonly string[] = [
 	"tui/tool",
 	"web/web",
 	"web/web-chrome",
+	"web/live-stream",
 ];
 
 export const SCRIPT_SUITES: readonly string[] = [
