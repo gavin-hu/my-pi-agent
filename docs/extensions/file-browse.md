@@ -407,11 +407,12 @@ stream ends, a reload re-attaches and cancels it, and `server.ts` turns that int
 the extension's `close()` and a cleared chip. Both providers are already
 TTL-cached, so a tick
 re-reads at most one `git status`, and every read failure degrades to `null`
-rather than a failed frame. The event-stream headers and the `retry:` preamble
-live in `lib/http` with the rest of the loopback policy, shared with plan's
-review page. The client half is `live-client.ts`: one `EventSource`, one
-snapshot paint (`textContent` only, never markup), one staleness timeout armed
-per frame, and a `pagehide` cleanup.
+rather than a failed frame. The event-stream headers, the `: keepalive`
+comment that keeps a quiet connection from being dropped as idle, and the
+`retry:` hint that doubles per failed connect live in `lib/http` with the rest
+of the loopback policy, shared with plan's review page. The client half is
+`live-client.ts`: one `EventSource`, one snapshot paint (`textContent` only,
+never markup), one staleness timeout armed per frame, and a `pagehide` cleanup.
 
 ## Reload hint
 

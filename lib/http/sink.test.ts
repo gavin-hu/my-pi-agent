@@ -1,16 +1,22 @@
 /**
- * The open streams of one loopback server, and the idle grace that follows the
- * last of them.
+ * The open streams of one loopback server, the heartbeat each one writes, the
+ * reconnect hint its attempts climb on, and the idle grace that follows the last
+ * of them.
  *
  * The response here is a double: what this module owns is the bookkeeping — one
- * release per sink, one grace per empty registry — and a socket only makes the
- * same facts slower to observe. `serve.test.ts` drives it over TCP.
+ * release per sink, one grace per empty registry, one ticker per stream, and one
+ * hint per attempt — and a socket only makes the same facts slower to observe.
+ * `serve.test.ts` drives it over TCP.
  */
 
 import { describe, expect, test } from "bun:test";
 import { graceTimer } from "../../test/helpers/fixtures/http.ts";
 import type { ServerResponse } from "node:http";
-import { createSinks } from "./sink.ts";
+import type { RepeatTimer } from "../timer.ts";
+import { createSinks, KEEPALIVE_MS, RETRY_MAX_MS, RETRY_MS } from "./sink.ts";
+
+/** The head a case opens a stream with: status and headers the double ignores. */
+const HEAD = { status: 200, headers: {} };
 
 /** A response that records what was written to it, so the sink can own liveness. */
 function pageResponse(): ServerResponse & { frames: string[]; ended: boolean } {
@@ -19,6 +25,7 @@ function pageResponse(): ServerResponse & { frames: string[]; ended: boolean } {
 		ended: false,
 		writableEnded: false,
 		destroyed: false,
+		writeHead(): void {},
 		write(frame: string): boolean {
 			double.frames.push(frame);
 			return true;
@@ -30,38 +37,156 @@ function pageResponse(): ServerResponse & { frames: string[]; ended: boolean } {
 		},
 	};
 	// The sink reads only `write`, `end`, `writableEnded`, and `destroyed`, which is
-	// everything a route can observe about one response.
+	// everything a route can observe about one response; the head write reaches the
+	// rest of the response through the same double.
 	return double as unknown as ServerResponse & { frames: string[]; ended: boolean };
+}
+
+/** The reconnect hint one stream's head carried, which is the first frame written to it. */
+function retryOf(response: { frames: string[] }): number {
+	const found = /^retry: (\d+)\n\n$/.exec(response.frames[0] ?? "");
+	if (found === null) throw new Error(`no retry hint in ${JSON.stringify(response.frames[0])}`);
+	return Number(found[1]);
+}
+
+/**
+ * The keepalive's own seam: a ticker that runs only when a case fires it, and
+ * records the period it was asked for and how many times it was stopped.
+ */
+function beatTicker(): { interval: RepeatTimer; periods: number[]; stops: number; tick(): void } {
+	let pending: (() => void) | undefined;
+	const state = {
+		periods: [] as number[],
+		stops: 0,
+		interval: ((ms: number, run: () => void) => {
+			state.periods.push(ms);
+			pending = run;
+			return () => {
+				state.stops += 1;
+				pending = undefined;
+			};
+		}) as RepeatTimer,
+		tick: () => pending?.(),
+	};
+	return state;
 }
 
 describe("event sinks", () => {
 	test("writes a frame through, and ends once with the last one", () => {
-		const sinks = createSinks();
+		const sinks = createSinks({ interval: beatTicker().interval });
 		const response = pageResponse();
-		const sink = sinks.open(response);
+		const sink = sinks.attach(response, HEAD);
 		sink.write("data: one\n\n");
 		sink.end("data: bye\n\n");
 		sink.end("data: again\n\n");
-		expect(response.frames).toEqual(["data: one\n\n", "data: bye\n\n"]);
+		expect(response.frames.slice(1)).toEqual(["data: one\n\n", "data: bye\n\n"]);
 		expect(response.ended).toBe(true);
 		expect(sinks.size()).toBe(0);
 	});
 
 	test("a write after the end, or to a socket that is gone, is a no-op", () => {
-		const sinks = createSinks();
+		const sinks = createSinks({ interval: beatTicker().interval });
 		const ended = pageResponse();
-		const sink = sinks.open(ended);
+		const sink = sinks.attach(ended, HEAD);
 		sink.end();
 		sink.write("data: too late\n\n");
-		expect(ended.frames).toEqual([]);
+		expect(ended.frames).toEqual([`retry: ${RETRY_MS}\n\n`]);
 
 		const lost = pageResponse();
 		lost.destroyed = true;
-		const second = sinks.open(lost);
+		const second = sinks.attach(lost, HEAD);
 		second.write("data: nowhere\n\n");
 		second.end("data: nowhere\n\n");
-		expect(lost.frames).toEqual([]);
+		// The head is the server's answer to a request that did arrive; no frame of the stream
+		// follows it once the socket is gone.
+		expect(lost.frames.slice(1)).toEqual([]);
 		expect(sinks.size()).toBe(0);
+	});
+});
+
+describe("the keepalive", () => {
+	test("writes a comment frame on its own ticker, and stops at the end", () => {
+		const beat = beatTicker();
+		const sinks = createSinks({ interval: beat.interval });
+		const response = pageResponse();
+		const sink = sinks.attach(response, HEAD);
+		// One ticker per stream, at the one period the policy names.
+		expect(beat.periods).toEqual([KEEPALIVE_MS]);
+		expect(KEEPALIVE_MS).toBe(20_000);
+		beat.tick();
+		// A comment, not an event: it carries no name and no data, so a page reads nothing from
+		// it, and the stream is still open behind it.
+		expect(response.frames).toEqual([`retry: ${RETRY_MS}\n\n`, ": keepalive\n\n"]);
+		expect(response.ended).toBe(false);
+		sink.end();
+		expect(beat.stops).toBe(1);
+		beat.tick();
+		expect(response.frames).toHaveLength(2);
+	});
+});
+
+describe("the reconnect hint", () => {
+	test("is the base hint on the first connect, then doubling to the cap", () => {
+		const beat = beatTicker();
+		const sinks = createSinks({ interval: beat.interval });
+		const hints: number[] = [];
+		for (let attempt = 0; attempt < 8; attempt += 1) {
+			const response = pageResponse();
+			sinks.attach(response, HEAD).end();
+			hints.push(retryOf(response));
+		}
+		// A server that stays down costs a connection a minute, not one every two seconds per
+		// tab overnight; the eighth attempt is not a bigger number than the seventh.
+		expect(hints).toEqual([
+			RETRY_MS,
+			RETRY_MS * 2,
+			RETRY_MS * 4,
+			RETRY_MS * 8,
+			RETRY_MS * 16,
+			RETRY_MAX_MS,
+			RETRY_MAX_MS,
+			RETRY_MAX_MS,
+		]);
+		expect(RETRY_MAX_MS).toBe(60_000);
+	});
+
+	test("resets once a stream delivered a frame, a keepalive included", () => {
+		const beat = beatTicker();
+		const sinks = createSinks({ interval: beat.interval });
+		sinks.attach(pageResponse(), HEAD).end();
+		// A second attempt with nothing delivered climbs, and the frame it wrote is what
+		// says the connection was read rather than a server that never answered.
+		const spoke = pageResponse();
+		const talking = sinks.attach(spoke, HEAD);
+		expect(retryOf(spoke)).toBe(RETRY_MS * 2);
+		talking.write("data: one\n\n");
+		talking.end();
+		const afterTalk = pageResponse();
+		sinks.attach(afterTalk, HEAD).end();
+		expect(retryOf(afterTalk)).toBe(RETRY_MS);
+		// A heartbeat proves the same thing, so a page with nothing to say does not climb
+		// either.
+		const beatOnly = pageResponse();
+		const beating = sinks.attach(beatOnly, HEAD);
+		expect(retryOf(beatOnly)).toBe(RETRY_MS * 2);
+		beat.tick();
+		beating.end();
+		const afterBeat = pageResponse();
+		sinks.attach(afterBeat, HEAD).end();
+		expect(retryOf(afterBeat)).toBe(RETRY_MS);
+	});
+
+	test("does not climb for a second tab on a mount that is already being read", () => {
+		const beat = beatTicker();
+		const sinks = createSinks({ interval: beat.interval });
+		const first = pageResponse();
+		sinks.attach(first, HEAD);
+		const second = pageResponse();
+		sinks.attach(second, HEAD);
+		// Two tabs are one attempt: the hint is what a tab's browser waits, and opening a
+		// second one is not a reconnect.
+		expect(retryOf(first)).toBe(RETRY_MS);
+		expect(retryOf(second)).toBe(RETRY_MS);
 	});
 });
 
@@ -70,8 +195,8 @@ describe("the idle grace", () => {
 		const timer = graceTimer();
 		let idled = 0;
 		const sinks = createSinks({ idle: { ms: 10, onIdle: () => (idled += 1) }, timer: timer.timer });
-		const first = sinks.open(pageResponse());
-		const second = sinks.open(pageResponse());
+		const first = sinks.attach(pageResponse(), HEAD);
+		const second = sinks.attach(pageResponse(), HEAD);
 		expect(timer.armed).toBe(0);
 		first.end();
 		expect(timer.armed).toBe(0);
@@ -86,11 +211,11 @@ describe("the idle grace", () => {
 		const timer = graceTimer();
 		let idled = 0;
 		const sinks = createSinks({ idle: { ms: 10, onIdle: () => (idled += 1) }, timer: timer.timer });
-		sinks.open(pageResponse()).end();
+		sinks.attach(pageResponse(), HEAD).end();
 		expect(timer.armed).toBe(1);
 		// A reload or a second tab: the server must not be closed under the page that
 		// is still reading it.
-		const returning = sinks.open(pageResponse());
+		const returning = sinks.attach(pageResponse(), HEAD);
 		expect(timer.cancelled).toBe(1);
 		timer.fire();
 		expect(idled).toBe(0);
@@ -120,7 +245,7 @@ describe("the idle grace", () => {
 			timer: timer.timer,
 		});
 		sinks.start();
-		const sink = sinks.open(pageResponse());
+		const sink = sinks.attach(pageResponse(), HEAD);
 		expect(timer.cancelled).toBe(1);
 		timer.fire();
 		expect(reasons).toEqual([]);
@@ -147,9 +272,9 @@ describe("the idle grace", () => {
 		const timer = graceTimer();
 		let idled = 0;
 		const sinks = createSinks({ idle: { ms: 10, onIdle: () => (idled += 1) }, timer: timer.timer });
-		sinks.open(pageResponse()).end();
+		sinks.attach(pageResponse(), HEAD).end();
 		const open = pageResponse();
-		sinks.open(open);
+		sinks.attach(open, HEAD);
 		sinks.endAll();
 		expect(open.ended).toBe(true);
 		expect(timer.cancelled).toBe(1);

@@ -90,13 +90,15 @@ export function respond(
  * status and headers, then a `retry:` hint for the browser's own reconnect.
  *
  * The connection itself stays the calling server's lifecycle — `respond` must
- * not be called after this, and the caller owns ending the response and any
- * periodic frames.
+ * not be called after this, and the caller owns ending the response. The hint is
+ * the caller's, not a default, because it belongs to the reconnect policy that
+ * counted the attempts ({@link createSinks}), and the frames after it — the
+ * keepalive included — are the sink's.
  */
 export function openEventStream(
 	response: ServerResponse,
 	result: Pick<ServeResponse, "status" | "headers">,
-	retryMs = 2000,
+	retryMs: number,
 ): void {
 	response.writeHead(result.status, result.headers);
 	response.write(`retry: ${retryMs}\n\n`);

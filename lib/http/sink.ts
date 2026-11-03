@@ -1,18 +1,41 @@
 /**
- * The event streams one loopback server keeps open, and the idle grace that ends
- * a server nobody is reading.
+ * The event streams one loopback server keeps open, the heartbeat that keeps one
+ * alive, the reconnect hint its reconnects back off on, and the idle grace that
+ * ends a server nobody is reading.
  *
  * The sink is the only thing a route writes: it owns liveness, so a frame after
  * the end is a no-op and `end` twice is fine, and no caller has to ask the raw
- * response whether it is still writable. The registry is the one place that knows
- * how many are open, which is exactly what an idle policy needs — the last one
- * leaving arms the grace, and a reload re-attaching stands it down.
+ * response whether it is still writable. A route writes what changed, and the sink
+ * writes the `: keepalive` comment every {@link KEEPALIVE_MS} on its behalf — a
+ * page left open overnight is otherwise dropped as an idle connection somewhere
+ * between it and this process, while its chip still says live.
+ *
+ * The registry is the one place that knows how many are open, which is exactly what
+ * an idle policy needs — the last one leaving arms the grace, and a reload
+ * re-attaching stands it down — and the one place that sees attempts, which is what
+ * a reconnect hint needs: the head's `retry:` doubles per failed connect up to
+ * {@link RETRY_MAX_MS}. A stream that got a frame onto the wire resets it, because
+ * one that delivered was read, not a server that never answered.
  *
  * Value-only: the only state is what the returned closure carries.
  */
 
 import type { ServerResponse } from "node:http";
-import { type ArmTimer, defaultTimer } from "../timer.ts";
+import { type ArmTimer, defaultInterval, defaultTimer, type RepeatTimer } from "../timer.ts";
+import type { ServeResponse } from "./response.ts";
+import { openEventStream } from "./server.ts";
+
+/** How often an open stream says it is still there, in ms. */
+export const KEEPALIVE_MS = 20_000;
+
+/** The reconnect hint the first attempt carries, in ms. */
+export const RETRY_MS = 2_000;
+
+/** The cap the hint climbs to, so a server that stays down costs minutes, not seconds. */
+export const RETRY_MAX_MS = 60_000;
+
+/** The heartbeat itself: a comment frame, which carries no event and no data. */
+const KEEPALIVE_FRAME = ": keepalive\n\n";
 
 /** One open event stream, as a route writes it. */
 export interface EventSink {
@@ -47,12 +70,17 @@ export interface SinkDeps {
 	idle?: IdleGrace;
 	/** The timer the grace is armed on; defaults to an unref'd one. */
 	timer?: ArmTimer;
+	/** The ticker a keepalive is armed on; defaults to an unref'd one. */
+	interval?: RepeatTimer;
 }
 
 /** The open streams of one loopback server. */
 export interface SinkRegistry {
-	/** Open a sink over one response; ending it starts the idle grace. */
-	open(response: ServerResponse): EventSink;
+	/**
+	 * Write the event-stream head this attempt deserves, and attach a sink over one
+	 * response; ending it starts the idle grace.
+	 */
+	attach(response: ServerResponse, head: Pick<ServeResponse, "status" | "headers">): EventSink;
 	/** How many streams are open. */
 	size(): number;
 	/** Arm the grace for a server nobody may ever read. Does nothing without `firstMs`. */
@@ -61,14 +89,25 @@ export interface SinkRegistry {
 	endAll(): void;
 }
 
+/**
+ * The reconnect hint for the `attempt`th connect in a row: `RETRY_MS`, then doubling,
+ * and never past `RETRY_MAX_MS`.
+ */
+function retryHint(attempt: number): number {
+	return Math.min(RETRY_MS * 2 ** Math.max(0, attempt - 1), RETRY_MAX_MS);
+}
+
 export function createSinks(deps: SinkDeps = {}): SinkRegistry {
 	const streams = new Set<EventSink>();
 	const timer = deps.timer ?? defaultTimer;
+	const beat = deps.interval ?? defaultInterval;
 	let cancelIdle: (() => void) | undefined;
 	/** A stream has attached at least once, so a departure is one to wait on. */
 	let sawStream = false;
 	/** The server asked for the first grace, so it may go idle without a reader. */
 	let started = false;
+	/** Connects in a row with no frame delivered, which is what the hint climbs on. */
+	let attempt = 0;
 
 	const standDown = (): void => {
 		cancelIdle?.();
@@ -87,10 +126,15 @@ export function createSinks(deps: SinkDeps = {}): SinkRegistry {
 	};
 
 	return {
-		open(response) {
+		attach(response, head) {
 			standDown();
 			sawStream = true;
-			const sink = createSink(response, () => {
+			// A second tab on a mount that is already being read is not a reconnect, so it
+			// neither climbs the ladder nor takes a bigger hint than the first one got.
+			if (streams.size === 0) attempt += 1;
+			openEventStream(response, head, retryHint(attempt));
+			const sink = createSink(response, beat, (delivered) => {
+				if (delivered) attempt = 0;
 				if (!streams.delete(sink)) return;
 				const idle = deps.idle;
 				if (idle !== undefined) arm(idle.ms, "last");
@@ -114,22 +158,33 @@ export function createSinks(deps: SinkDeps = {}): SinkRegistry {
 	};
 }
 
-/** A sink over one response, released from its registry exactly once. */
-function createSink(response: ServerResponse, release: () => void): EventSink {
+/**
+ * A sink over one response, released from its registry exactly once.
+ *
+ * `delivered` is the difference between a stream that was read and one that never
+ * answered, which is the only thing the reconnect hint needs to know: a heartbeat
+ * counts, since a comment frame that reached the wire proves the same connection.
+ */
+function createSink(response: ServerResponse, beat: RepeatTimer, released: (delivered: boolean) => void): EventSink {
 	let ended = false;
+	let delivered = false;
+	const write = (frame: string): void => {
+		if (ended || response.writableEnded || response.destroyed) return;
+		delivered = true;
+		response.write(frame);
+	};
+	const stopBeat = beat(KEEPALIVE_MS, () => write(KEEPALIVE_FRAME));
 	return {
-		write(frame) {
-			if (ended || response.writableEnded || response.destroyed) return;
-			response.write(frame);
-		},
+		write,
 		end(frame) {
 			if (ended) return;
 			ended = true;
+			stopBeat();
 			if (!response.writableEnded && !response.destroyed) {
 				if (frame === undefined) response.end();
 				else response.end(frame);
 			}
-			release();
+			released(delivered);
 		},
 	};
 }

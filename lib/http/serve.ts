@@ -5,10 +5,10 @@
  * A session has one port, so the socket cannot belong to a page. A page *mounts* a
  * path prefix on it — `/board`, `/files`, `/plan/<id>` — and the server owns
  * everything a request does not decide: the longest-prefix dispatch, the body cap
- * of whichever mount was reached, `HEAD` of a stream, the event-stream head, the
- * port retry, and a close that is safe to call twice. A mount's handler is handed
- * the request target *relative to its own prefix*, so a router keeps matching the
- * paths it always matched.
+ * of whichever mount was reached, `HEAD` of a stream, the event-stream head and
+ * the heartbeat behind it, the port retry, and a close that is safe to call
+ * twice. A mount's handler is handed the request target *relative to its own
+ * prefix*, so a router keeps matching the paths it always matched.
  *
  * The idle grace is per mount, not per socket: one page going quiet must not close
  * another's, so a mount carries its own open-stream registry and release, and the
@@ -27,11 +27,11 @@ import {
 	type Server,
 	type ServerResponse,
 } from "node:http";
-import type { ArmTimer } from "../timer.ts";
+import type { ArmTimer, RepeatTimer } from "../timer.ts";
 import { jsonHeaders } from "./headers.ts";
 import { type ServeResponse, textResponse } from "./response.ts";
 import { parseRequestUrl } from "./router.ts";
-import { bindHost, createCloser, openEventStream, respond } from "./server.ts";
+import { bindHost, createCloser, respond } from "./server.ts";
 import { createSinks, type EventSink, type IdleGrace, type SinkRegistry } from "./sink.ts";
 
 /** One request as a route sees it: the envelope, and a body already capped. */
@@ -81,6 +81,8 @@ export interface ServedMount {
 	idle?: IdleGrace;
 	/** The timer this mount's idle grace is armed on. */
 	timer?: ArmTimer;
+	/** The ticker this mount's keepalives are armed on; one comment every `KEEPALIVE_MS`. */
+	interval?: RepeatTimer;
 }
 
 /** A prefix served on a running server. */
@@ -288,8 +290,9 @@ async function answer(
 	// A `HEAD` of a stream is a plain response: there is no body to hold open, and
 	// the client would otherwise wait on frames it asked not to get.
 	if (reply.openSink !== undefined && method.toUpperCase() !== "HEAD") {
-		openEventStream(response, reply.result);
-		const sink = route.sinks.open(response);
+		// The registry writes the head itself: the retry hint it carries belongs to the
+		// attempt this stream is, which only the thing counting attempts knows.
+		const sink = route.sinks.attach(response, reply.result);
 		const detach = reply.openSink(sink);
 		let closed = false;
 		const finish = (): void => {
@@ -347,7 +350,7 @@ export async function serveHttp(options: ServeOptions): Promise<ServedServer> {
 		mount(spec) {
 			const base = normalizeBase(spec.prefix);
 			if (routes.has(base)) return undefined;
-			const sinks = createSinks({ idle: spec.idle, timer: spec.timer });
+			const sinks = createSinks({ idle: spec.idle, timer: spec.timer, interval: spec.interval });
 			const route: Route = {
 				spec: { ...spec, prefix: base },
 				base,

@@ -118,6 +118,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `elapsedSuffix` give the six tools that already used them. A send that outlasts a second also
   carries its duration on the settled line, so a slow network or a slow bus reads as slow instead
   of as a hung call. The argument-only refusals still draw no live line, and no other tool changes.
+- `lib`: an open event stream keeps itself alive. The sink writes a `: keepalive` comment every
+  20s, which the shared client's `EventSource` skips, so a board left open overnight or a review
+  borrowed over the LAN is no longer dropped as an idle connection while its chip still says live;
+  and the head's `retry:` hint doubles per failed connect from 2s to a 60s cap instead of asking a
+  server that stays down every two seconds per tab. A stream that delivered any frame — the
+  keepalive included — starts the ladder again, and a second tab is not an attempt.
 
 ## [0.24.0] - 2026-11-02
 
