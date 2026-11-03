@@ -51,7 +51,7 @@ subprocess per peer.
 | Proactive message | `send_wechat` | The model messages the owner one text or one local image, sent as a picture. | Partial |
 | Abandoned-turn notice | automatic: shutdown, `/reload`, `/new`, logout | Each peer with work gets one line saying the turn stopped, rather than silence. | Unreleased |
 | Outbound files | the upload flow, `askHuman` | A remote prompt can deliver a local file before its question, and a failed upload falls back to text. | Shipped |
-| Plain chat text | `maxReplyChars` | Markdown markers are flattened, and a part still over the limit is numbered. | Shipped |
+| Plain chat text | `maxReplyChars` | Markdown markers are flattened, and a long reply is split so each numbered part — `[1/3] ` included — fits the limit. | Shipped |
 
 ### Pairing and transport
 
@@ -302,7 +302,7 @@ needs. Per action:
 | Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. |
 | Is sent an image by the bot | A picture in the chat, from `send_wechat` with a local path, not a document attachment. |
 | Sends a voice note or video | One line: voice without a transcript and video are not supported. |
-| Reads a long answer | Streamed as it is produced — one part per paragraph, per two silent seconds, or per 400 characters — and numbered (`[1/3] …`) only when a single part exceeds `maxReplyChars`. |
+| Reads a long answer | Streamed as it is produced — one part per paragraph, per two silent seconds, or per 400 characters — and a part longer than `maxReplyChars` is split and numbered (`[1/3] …`), the number counting against the limit. |
 | Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
 | Is asked a question | Their own prompt, never another peer's: a reply answers the question their own conversation is blocked on. A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at the halfway point of its window and then cancelled: three minutes for a dialog, ten for a plan review, where the plan has to be read first. |
 | Types `/help`, `/new`, `/stop`, or `/status` | The command list, a fresh conversation, a stopped answer, or the current state — including the dialog a blocked turn is waiting on; `/new` is declined while their run is in flight. A command works while a dialog waits: it is never read as an answer to it. |
@@ -464,7 +464,10 @@ rooms are delivered, a question a group-chat design would have to answer first.
   first reaction faster than one cycle.
 - Parts are flushed at a paragraph boundary, after two silent seconds, or at 400
   characters, so an answer that stalls mid-paragraph still arrives in pieces. A
-  part that is itself longer than `maxReplyChars` is numbered.
+  part that is itself longer than `maxReplyChars` is split again and numbered,
+  and the marker is part of the budget, so a delivered message stays inside the
+  limit — wherever the limit can hold the marker its part count needs. Below
+  that, one code point per part is the floor and the marker overflows it.
 - An abandoned turn's notice is one attempt, not a queue. Any close — `/wechat
   new`, `/reload`, a fork, a logout, or a process exit — sends one short line per
   peer that still had work, and a queued message shares its peer's line rather

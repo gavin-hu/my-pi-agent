@@ -865,7 +865,7 @@ describe("bridge delivery", () => {
 		const { deps, peers } = makeDeps(
 			client,
 			{
-				config: { ...DEFAULT_CONFIG, maxReplyChars: 4 },
+				config: { ...DEFAULT_CONFIG, maxReplyChars: 16 },
 				notify: (message) => notifications.push(message),
 			},
 			{ hold: true },
@@ -874,9 +874,9 @@ describe("bridge delivery", () => {
 		bridge.open();
 		await waitFor(() => (peers[0]?.prompts.length ?? 0) === 1);
 
-		peers[0]?.release("abcdefgh");
+		peers[0]?.release("abcdefghijabcdefghij");
 		await waitFor(() => notifications.length === 1);
-		expect(sent).toEqual(["[1/2] abcd"]);
+		expect(sent).toEqual(["[1/2] abcdefghij"]);
 		expect(notifications[0]).toContain("after 1 of 2 parts were sent");
 		await bridge.close();
 	});
@@ -895,14 +895,14 @@ describe("bridge delivery", () => {
 		const { deps, saved } = makeDeps(
 			client,
 			{
-				config: { ...DEFAULT_CONFIG, maxReplyChars: 4 },
+				config: { ...DEFAULT_CONFIG, maxReplyChars: 16 },
 				notify: (message) => notifications.push(message),
 				// The token is stored under the un-suffixed form while the message comes
 				// from the suffixed one, so forgetting it exercises the id normalization.
 				loadAccount: () => ({ ...account, ilinkUserId: "owner" }),
 				loadState: () => ({ cursor: "", peers: { owner: { lastContextToken: "old", lastSeen: 0 } } }),
 			},
-			{ answers: ["abcdefgh"] },
+			{ answers: ["abcdefghijabcdefghij"] },
 		);
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -1176,13 +1176,13 @@ describe("bridge sendToOwner", () => {
 	test("flattens Markdown and numbers split parts", async () => {
 		const { client, sent } = makeClient([]);
 		const { deps } = makeDeps(client, {
-			config: { ...DEFAULT_CONFIG, maxReplyChars: 5 },
+			config: { ...DEFAULT_CONFIG, maxReplyChars: 16 },
 			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
-		expect(await bridge.sendToOwner("**abcdefgh**")).toEqual({ ok: true });
-		expect(sent.map((message) => message.text)).toEqual(["[1/2] abcde", "[2/2] fgh"]);
+		expect(await bridge.sendToOwner("**abcdefghijabcdefghij**")).toEqual({ ok: true });
+		expect(sent.map((message) => message.text)).toEqual(["[1/2] abcdefghij", "[2/2] abcdefghij"]);
 		await bridge.close();
 	});
 

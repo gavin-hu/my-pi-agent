@@ -15,6 +15,39 @@ import { chunkText, toWechatText } from "../text/format.ts";
 import { basename } from "node:path";
 import { sendLocalFile, sendLocalImage } from "./outbound.ts";
 
+/** The widest marker `parts` parts need: `[n/n] ` is four characters plus both counts. */
+/** `[i/n] ` in code points, for a part count of `digits` digits. */
+function markerWidth(digits: number): number {
+	return 4 + 2 * digits;
+}
+
+/**
+ * `text` split so that every numbered part — marker included — fits `max` code
+ * points. One chunk needs no marker, so it is cut at `max`; a split reserves the
+ * marker's width first, because a part that then overshoots is a part the peer
+ * receives over the limit.
+ *
+ * The final count `n` is the fixpoint of "cut with room for a `digits(n)`-digit
+ * marker, then count again": reserving room can add a part, and enough parts widen
+ * the marker (9 → 10). `digits(count)` only grows as the reserved width grows and
+ * never exceeds `digits(text.length)`, so a fixed point exists in that range and
+ * the loop reaches it by walking the widths.
+ *
+ * The room never drops below one code point, so a limit too small for the marker
+ * its own part count needs cannot be honoured: the part is one code point and the
+ * marker overflows it. That is the floor — the limit wins wherever it can.
+ */
+export function numberedChunks(text: string, max: number): string[] {
+	const whole = chunkText(text, max);
+	if (whole.length <= 1) return whole;
+	let chunks = whole;
+	for (let digits = 1; digits <= String(text.length).length; digits += 1) {
+		chunks = chunkText(text, Math.max(1, max - markerWidth(digits)));
+		if (String(chunks.length).length === digits) break;
+	}
+	return chunks;
+}
+
 /** One addressed text destination. */
 export interface MessageTarget {
 	peer: string;
@@ -107,7 +140,7 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 		const client = deps.client();
 		const account = deps.account();
 		if (!client || !account) return { ok: false, sent: 0, total: 0 };
-		const chunks = chunkText(toWechatText(text), deps.maxReplyChars()).filter((chunk) => chunk !== "");
+		const chunks = numberedChunks(toWechatText(text), deps.maxReplyChars()).filter((chunk) => chunk !== "");
 		if (chunks.length === 0) {
 			deps.notify("WeChat message had nothing to send after formatting.", "warning");
 			return { ok: false, sent: 0, total: 0, empty: true };
