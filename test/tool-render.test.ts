@@ -33,6 +33,7 @@ import watch from "../extensions/watch/index.ts";
 import webAccess from "../extensions/web-access/index.ts";
 import wechat from "../extensions/wechat/index.ts";
 import { FIXTURES, type ToolFixture } from "../scripts/tools/fixtures/index.ts";
+import { fixtureState } from "../scripts/tools/fixtures/state.ts";
 import { createFakePi, fakeTheme } from "./helpers/fakes.ts";
 import { ALL_EXTENSIONS_ENV, useEnv } from "./helpers/env.ts";
 
@@ -157,6 +158,7 @@ describe("tool render contract", () => {
 				isPartial,
 				isError: fixture.result?.isError === true,
 				durationMs: fixture.options?.durationMs,
+				state: fixtureState(fixture),
 			}),
 		);
 		return component.render(width);
@@ -184,6 +186,31 @@ describe("tool render contract", () => {
 				);
 			}
 		}
+	});
+
+	/**
+	 * The number a running fixture draws: `elapsedMs` puts the call's clock that far
+	 * back, so the block shows the elapsed its label promises instead of a verb alone.
+	 *
+	 * The seed is stamped just before the renderer reads the clock, and the drawn
+	 * number is a tenth of a second, so a stall of a few milliseconds is a rounding
+	 * rather than a failure — but a seed read as an exact string would be.
+	 */
+	test("a running fixture draws the elapsed its clock was seeded with", () => {
+		const tools = registeredTools();
+		let seeded = 0;
+		for (const fixture of FIXTURES) {
+			const elapsedMs = fixture.options?.elapsedMs;
+			if (elapsedMs === undefined) continue;
+			seeded += 1;
+			const tool = tools.get(fixture.tool ?? fixture.name);
+			expect(typeof tool?.renderResult, `${fixture.name} has no renderer`).toBe("function");
+			const drawn = drawResult(tool, fixture, false, 80).join(" ");
+			const shown = /· (\d+(?:\.\d+)?)s/.exec(drawn)?.[1];
+			expect(shown, `${fixture.name} drew no elapsed number`).toBeDefined();
+			expect(Math.abs(Number(shown) * 1000 - elapsedMs), `${fixture.name} drew ${shown}s`).toBeLessThanOrEqual(500);
+		}
+		expect(seeded, "no fixture seeds a clock").toBeGreaterThan(0);
 	});
 
 	test("bytefly's frame reuses its lines on an unchanged frame", () => {

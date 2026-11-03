@@ -3,17 +3,18 @@
  *
  * A transcript re-renders every block on every frame, so the cost that makes a
  * long session feel slow is per block, per frame. This script builds a session of
- * 500 and 2000 tool blocks through the real renderers (the same fixtures and
- * resolver the gallery uses) and reports, per width, what a frame costs: lines,
- * median and p95 frame time, heap per frame, and how many blocks came back from
- * their render memo instead of being rebuilt.
+ * 500 and 2000 tool blocks through the real renderers (the gallery's settled
+ * fixtures, the same renderers and resolver) and reports, per width, what a frame
+ * costs: lines, median and p95 frame time, heap per frame, and how many blocks
+ * came back from their render memo instead of being rebuilt.
  *
  * Two different questions, kept apart:
  *
  * - **Deterministic, and gated:** the same input must produce the same line
  *   array. That is a correctness property — a renderer that reads a clock or
  *   accumulates state across frames would show it — so the test beside this file
- *   asserts it, and the CLI exits non-zero when it fails.
+ *   asserts it, and the CLI exits non-zero when it fails. The gallery's running
+ *   fixtures are not in the session: a partial renderer may draw a live number.
  * - **Wall-clock and cache hits, and read by a person:** both depend on the
  *   machine and on which host renderers build fresh arrays (Pi's `Container`
  *   does, by design), so they are a pre-release reading compared against the
@@ -51,11 +52,17 @@ const FRAMES = 20;
 export type Session = Component[];
 
 /**
- * `blocks` tool blocks, cycling through every fixture so heights and content
- * vary the way a real session's do.
+ * `blocks` tool blocks, cycling through every settled fixture so heights and
+ * content vary the way a real session's do.
+ *
+ * A running fixture is left out: a partial renderer may draw a live elapsed number,
+ * so it could never pass the frame gate below, and a long finished transcript has
+ * no running row.
  */
 export function session(blocks: number): Session {
-	const fixtures = renderingComponents().flatMap((rendering) => rendering.components);
+	const fixtures = renderingComponents()
+		.filter((rendering) => !rendering.running)
+		.flatMap((rendering) => rendering.components);
 	if (fixtures.length === 0) throw new Error("no tool renderings to benchmark");
 	const components: Session = [];
 	for (let index = 0; index < blocks; index++) components.push(fixtures[index % fixtures.length]);

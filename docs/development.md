@@ -223,10 +223,10 @@ recurring one is a card, and a re-run that passes proves only that it passed.
 
 A frame re-renders every block in the transcript, so the cost that makes a long
 session feel slow is per block, per frame. `bun run bench:render` measures that:
-it builds 500 and 2000 tool blocks from the gallery fixtures through the real
-renderers — the same code a session draws — and prints, per width, the lines, the
-median and p95 frame time, heap per frame, and how many blocks came back from
-their render memo instead of being rebuilt.
+it builds 500 and 2000 tool blocks from the gallery's settled fixtures through
+the real renderers — the same code a session draws — and prints, per width, the
+lines, the median and p95 frame time, heap per frame, and how many blocks came
+back from their render memo instead of being rebuilt.
 
 ```bash
 bun run bench:render
@@ -236,8 +236,11 @@ Two different things come out of it:
 
 - **The gate, which is deterministic:** the same input must produce the same line
   array, and every line must fit the width. `scripts/render-bench.test.ts` asserts
-  both at 500 blocks on every platform, so a renderer that reads a clock or grows
-  state between frames fails CI.
+  both at 500 blocks on every platform, so a settled renderer that reads a clock or
+  grows state between frames fails CI. The gallery's running fixtures are left out
+  of that session: a partial renderer may draw a live elapsed number, which is a
+  clock, so it could never pass the gate, and a long finished transcript has no
+  running row.
 - **The numbers, which are a pre-release reading:** wall-clock and heap depend on
   the machine, so no CI job gates on them. On the author's laptop a 2000-block
   frame takes under a millisecond at 80 and 120 columns; treat **10 ms for 2000

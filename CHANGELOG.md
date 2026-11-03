@@ -128,6 +128,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the head's `retry:` hint doubles per failed connect from 2s to a 60s cap instead of asking a
   server that stays down every two seconds per tab. A stream that delivered any frame — the
   keepalive included — starts the ladder again, and a second tab is not an attempt.
+- dev: a running gallery fixture draws the elapsed number its label promises, so the picture
+  matches the block a session shows. `elapsedMs` seeds the call's clock and `fixtures/state.ts`
+  is the one owner that turns it into Pi's render state, shared by the gallery and the render
+  contract, which now asserts the number. `read_doc-running`, `send_wechat-running`, and
+  `team-assigning` were drawing their verb alone because a cold `state` started the clock at
+  `0ms`. The frame benchmark leaves the running fixtures out of its session: a partial
+  renderer may draw a live elapsed number, which the repeat-frame gate would fail. No
+  image is recaptured here.
 
 ## [0.24.0] - 2026-11-02
 

@@ -20,9 +20,9 @@ export const INTERACTION_FIXTURES: ToolFixture[] = [
 		name: "send_wechat-running",
 		tool: "send_wechat",
 		group: "package",
-		label: "a send in flight, waiting on the network",
+		label: "a send in flight, waiting on the network (live elapsed)",
 		args: { text: "The build is green." },
-		options: { isPartial: true },
+		options: { isPartial: true, elapsedMs: 2400 },
 		result: { content: [] },
 	},
 	{

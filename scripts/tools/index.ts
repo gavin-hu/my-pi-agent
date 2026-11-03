@@ -64,6 +64,7 @@ import { numberArg } from "../cli.ts";
 import { setThemeInstance, pageColors, theme as baseTheme } from "../theme.ts";
 import { TRANSCRIPT_NOTICE } from "../transcript-fixture.ts";
 import { FIXTURES, type ToolFixture } from "./fixtures/index.ts";
+import { fixtureState } from "./fixtures/state.ts";
 
 /**
  * The theme wrapped so the terminal's SGR decorations survive the capture.
@@ -160,7 +161,7 @@ function context(fixture: ToolFixture): RenderContext {
 		toolCallId: `call-${fixture.name}`,
 		invalidate: () => {},
 		lastComponent: undefined,
-		state: {},
+		state: fixtureState(fixture),
 		cwd: CWD,
 		executionStarted: true,
 		argsComplete: fixture.options?.argsComplete ?? true,
@@ -227,11 +228,17 @@ function toolLines(
 export interface RenderingComponents {
 	name: string;
 	group: ToolFixture["group"];
+	/** A partial block, whose renderer may draw a live elapsed number. */
+	running: boolean;
 	components: Component[];
 }
 
 /**
  * Every tool fixture's retained components, in gallery order, built once.
+ *
+ * A running fixture comes back with `running: true`: a partial renderer may draw
+ * a live elapsed number, so a consumer gating on repeat frames leaves it out —
+ * `grep`'s partial draws no clock, but the flag is the state, not the guess.
  *
  * Transcript surfaces (`user-message`, `notice`, `turn-rule`) are excluded: they
  * are not tool rows, so a frame-by-frame benchmark of a tool transcript has
@@ -250,7 +257,8 @@ export function renderingComponents(): RenderingComponents[] {
 		const components = [built.call, built.result].filter(
 			(component): component is Component => component !== undefined,
 		);
-		if (components.length > 0) out.push({ name: fixture.name, group: fixture.group, components });
+		if (components.length === 0) continue;
+		out.push({ name: fixture.name, group: fixture.group, running: fixture.options?.isPartial === true, components });
 	}
 	return out;
 }
