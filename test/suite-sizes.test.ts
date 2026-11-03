@@ -74,7 +74,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/wechat/commands/commands.test.ts": 1388,
 	"extensions/wechat/peer/peer.test.ts": 1590,
 	"extensions/wechat/transport/client.test.ts": 945,
-	"extensions/wechat/view/status.test.ts": 582,
+	"extensions/wechat/view/status.test.ts": 448,
 	"extensions/worktree/flow.test.ts": 825,
 	"extensions/worktree/git.test.ts": 893,
 	"lib/board/card.test.ts": 406,

@@ -2,16 +2,19 @@
  * The plain-text health report behind `/wechat doctor`.
  *
  * It answers the operator's first question — why is the bot quiet or slow? — from
- * facts the bridge already has: the connection, the token's age, the last poll,
- * the poller lock, per-peer sessions, and the last send/poll failure. Pure, so
- * the wording and the age math are unit-tested without a bridge.
+ * the facts `statusView` already derived: the connection, the token's age, the last
+ * poll, the poller lock, per-peer activity, and the last send/poll failure. Only the
+ * config summary and the remedy each state asks for are the report's own, so the
+ * report and the control screen cannot word a fact differently. Pure, so the
+ * wording and the age math are unit-tested without a bridge.
  */
 
 import { formatDuration } from "../../../lib/format.ts";
+import { padTo } from "../../../lib/tui/columns.ts";
 import type { BridgeStatus } from "../bridge.ts";
 import type { WechatConfig } from "../config.ts";
+import { peerValue, refusedValue, type StatusView, statusView } from "../text/status.ts";
 import type { BotCredentials } from "../types.ts";
-import { peerLabel } from "../text/format.ts";
 
 export interface DoctorInput {
 	/** Undefined when the bridge has never been built in this runtime. */
@@ -23,77 +26,68 @@ export interface DoctorInput {
 
 const LABEL = 11;
 
-/** One `Label      value` line. */
+/** One `Label      value` line, padded by display columns so a CJK label lines up. */
 function row(label: string, value: string): string {
-	return `${label.padEnd(LABEL)}${value}`;
+	return `${padTo(label, LABEL)}${value}`;
 }
 
-/** `3.2s` since `at`, or a placeholder. */
-function age(now: number, at: number | undefined): string {
-	return at === undefined ? "unknown" : `${formatDuration(Math.max(0, now - at))} ago`;
-}
+const ago = (ms: number): string => `${formatDuration(ms)} ago`;
 
-function connection(status: BridgeStatus | undefined, account: BotCredentials | undefined, now: number): string {
-	if (status?.state === "paused") return "paused · run /wechat resume";
-	if (status?.state !== "running") {
-		return status?.state === "expired" ? "expired · run /wechat login" : "closed";
+/**
+ * The connection, with what to do about it: the word is the view's, the remedy is
+ * the report's, because only the report is advice.
+ */
+function connection(view: StatusView): string {
+	switch (view.connection) {
+		case "paused":
+			return "paused · run /wechat resume";
+		case "expired":
+			return "expired · run /wechat login";
+		case "closed":
+			return "closed";
+		default: {
+			const owner = view.owner ?? "unclaimed";
+			const token = view.tokenAgeMs === undefined ? "unknown age" : `${formatDuration(view.tokenAgeMs)} old`;
+			return `open · owner ${owner} · token ${token}`;
+		}
 	}
-	const owner = status.owner ? peerLabel(status.owner) : "unclaimed";
-	const token = account ? `${formatDuration(Math.max(0, now - account.createdAt))} old` : "unknown age";
-	return `open · owner ${owner} · token ${token}`;
 }
 
-function poll(status: BridgeStatus | undefined, now: number): string {
-	if (!status) return "not started";
-	const last =
-		status.lastPollAt === undefined
-			? "no poll yet"
-			: `last ${formatDuration(Math.max(0, now - status.lastPollAt))} ago`;
-	const hold = status.pollHoldMs === undefined ? "server hold" : `hold ${formatDuration(status.pollHoldMs)}`;
-	const error = status.lastPollError ? ` · error: ${status.lastPollError}` : "";
+function poll(view: StatusView): string {
+	if (!view.bridge) return "not started";
+	const last = view.lastPollAgeMs === undefined ? "no poll yet" : `last ${ago(view.lastPollAgeMs)}`;
+	const hold = view.pollHoldMs === undefined ? "server hold" : `hold ${formatDuration(view.pollHoldMs)}`;
+	const error = view.lastPollError ? ` · error: ${view.lastPollError}` : "";
 	return `${last} · ${hold}${error}`;
 }
 
-function lockLine(status: BridgeStatus | undefined, now: number): string {
-	const lock = status?.lock;
-	if (!lock) return status?.state === "running" ? "not held" : "not running";
-	return `pid ${lock.pid} · ${age(now, lock.at)}`;
+function lockLine(view: StatusView): string {
+	if (!view.lock) return view.connection === "open" ? "not held" : "not running";
+	return `pid ${view.lock.pid} · ${ago(view.lock.ageMs)}`;
 }
 
-function peers(status: BridgeStatus | undefined): string[] {
-	if (!status || status.peerStates.length === 0) return [row("Peers", "none")];
-	const running = status.peerStates.filter((entry) => entry.state.status === "running").length;
-	const lines = [row("Peers", `${status.peerStates.length} · ${running} running · ${status.queued} queued`)];
-	for (const entry of status.peerStates) {
-		const state = entry.state;
-		const what =
-			state.status === "running"
-				? `running ${formatDuration(state.runningMs ?? 0)}`
-				: state.status === "queued"
-					? `queued ${state.queued}`
-					: "idle";
-		const session = state.sessionAgeMs === undefined ? "" : ` · session ${formatDuration(state.sessionAgeMs)}`;
-		lines.push(row(`  ${peerLabel(entry.peer)}`, `${what}${session}`));
+function peers(view: StatusView): string[] {
+	if (view.peerRows.length === 0) return [row("Peers", "none")];
+	const running = view.peerRows.filter((entry) => entry.status === "running").length;
+	const lines = [row("Peers", `${view.peerRows.length} · ${running} running · ${view.queued} queued`)];
+	for (const entry of view.peerRows) {
+		const session = entry.sessionAgeMs === undefined ? "" : ` · session ${formatDuration(entry.sessionAgeMs)}`;
+		lines.push(row(`  ${entry.label}`, `${peerValue(entry)}${session}`));
 	}
 	return lines;
 }
 
-function recent(status: BridgeStatus | undefined): string {
+function recent(view: StatusView): string {
 	const errors = [
-		status?.lastSendError ? `send: ${status.lastSendError}` : undefined,
-		status?.lastPollError ? `poll: ${status.lastPollError}` : undefined,
+		view.lastSendError ? `send: ${view.lastSendError}` : undefined,
+		view.lastPollError ? `poll: ${view.lastPollError}` : undefined,
 	].filter((entry): entry is string => entry !== undefined);
 	return row("Recent", errors.length > 0 ? errors.join(" · ") : "no recent failure");
 }
 
-function media(status: BridgeStatus | undefined): string {
-	const dropped = status?.mediaDropped ?? 0;
-	const refused = status?.refused ?? 0;
-	const names = status?.refusedPeers.join(", ");
-	return row(
-		"Media",
-		`${dropped} dropped · ${refused} refused${names ? ` (${names})` : ""} · ${status?.promptPending ? "prompt waiting" : "no prompt"}`,
-	);
+function media(view: StatusView): string {
+	const prompt = view.promptPending ? "prompt waiting" : "no prompt";
+	return row("Media", `${view.mediaDropped} dropped · refused ${refusedValue(view)} · ${prompt}`);
 }
 
 function configLine(config: WechatConfig): string {
@@ -109,14 +103,15 @@ function configLine(config: WechatConfig): string {
 /** The doctor report, one line per fact. */
 export function doctorReport(input: DoctorInput): string {
 	const { status, account, config, now } = input;
+	const view = statusView(account, status, now);
 	return [
 		"wechat — health",
-		row("Connection", connection(status, account, now)),
-		row("Poll", poll(status, now)),
-		row("Lock", lockLine(status, now)),
-		...peers(status),
-		recent(status),
-		media(status),
+		row("Connection", connection(view)),
+		row("Poll", poll(view)),
+		row("Lock", lockLine(view)),
+		...peers(view),
+		recent(view),
+		media(view),
 		configLine(config),
 	].join("\n");
 }
