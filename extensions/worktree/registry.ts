@@ -11,9 +11,10 @@
  * needs (`commitsAheadOf`) without it.
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { writeJsonFile } from "../../lib/config.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
 import type { WorktreeConfig } from "./config.ts";
 import { commitsAhead, commitsBehind, isStaleLock, type ManagedWorktree, statusEntries } from "./git.ts";
@@ -91,11 +92,7 @@ export function loadRegistry(repoRoot: string, config: WorktreeConfig): Worktree
 /** Atomically persist the registry. Failures are swallowed: it is a cache. */
 function saveRegistry(repoRoot: string, config: WorktreeConfig, registry: WorktreeRegistry): void {
 	try {
-		const file = registryPath(repoRoot, config);
-		mkdirSync(dirname(file), { recursive: true });
-		const tmp = `${file}.${process.pid}.tmp`;
-		writeFileSync(tmp, `${JSON.stringify(registry, null, 2)}\n`);
-		renameSync(tmp, file);
+		writeJsonFile(registryPath(repoRoot, config), registry);
 	} catch {
 		// Losing the registry only loses provenance, never a worktree.
 	}

@@ -4,7 +4,7 @@
  * The document arrives by rename, and the mode rides on the temp file it publishes.
  */
 
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../test/helpers/env.ts";
@@ -67,6 +67,23 @@ describe("writeJsonFile", () => {
 		const unserializable = { a: 2, added: 1n };
 		expect(() => writeJsonFile(path, unserializable)).toThrow();
 		expect(JSON.parse(readFileSync(path, "utf-8"))).toEqual({ a: 1 });
+		expect(readdirSync(dirname(path))).toEqual(["document.json"]);
+	});
+
+	test("refuses a value JSON has no form for", () => {
+		const path = newPath();
+		// `JSON.stringify(undefined)` is `undefined`, so an unchecked write puts the five
+		// letters in the file and the next read loads an empty document.
+		expect(() => writeJsonFile(path, undefined)).toThrow(TypeError);
+		expect(readdirSync(dirname(path))).toEqual([]);
+	});
+
+	test("takes its temp with it when the rename fails", () => {
+		const path = newPath();
+		// A directory at the target is a rename every platform refuses, with the temp already
+		// written: the failure must not leave the next write a name to reuse.
+		mkdirSync(path);
+		expect(() => writeJsonFile(path, { a: 1 })).toThrow();
 		expect(readdirSync(dirname(path))).toEqual(["document.json"]);
 	});
 });
