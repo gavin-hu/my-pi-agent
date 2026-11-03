@@ -36,6 +36,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sibling temp file renamed over the old one, the same shape `state.json` took.
 - `lib`: `writeJsonFile` is the one atomic JSON write now — the two `wechat` files above, and
   `writeConfigFile`, which still writes the same bytes. One body instead of a copy per caller.
+- dev: the tool-render contract draws every gallery fixture's result at 80/48/40, collapsed and
+  expanded, so the block a real transcript takes is bounded by the gate instead of only by the
+  macOS release capture. Wiring the fixtures in found a stale one: `session-name` pictured
+  `session({action:"name"})`, which `1776e54b` folded into `join`, so its block drew nothing and
+  its call was one the tool refuses; it pictures the join now. No image is recaptured here — the
+  gallery PNG for that block is regenerated with the release.
 - `job`: a cleared job's log can no longer reappear. A rotation opens its next segment inside the
   close callback instead of on a later tick, so nothing is pending once the rename is done, and
   removing a job's files disposes its writer before unlinking them — the deferred open that
