@@ -254,9 +254,9 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		name: "team-assigning",
 		tool: "team",
 		group: "package",
-		label: "a handoff in flight, waiting on the bus",
+		label: "a handoff in flight, waiting on the bus (live elapsed)",
 		args: { action: "assign", card: "1", to: "billing-core" },
-		options: { isPartial: true },
+		options: { isPartial: true, elapsedMs: 1800 },
 		result: { content: [] },
 	},
 	{

@@ -27,7 +27,7 @@ export const VARIANT_FIXTURES: ToolFixture[] = [
 		group: "package",
 		label: "a partial read (live elapsed)",
 		args: { path: "docs/architecture.pdf" },
-		options: { isPartial: true },
+		options: { isPartial: true, elapsedMs: 3200 },
 		result: { content: [] },
 	},
 	{

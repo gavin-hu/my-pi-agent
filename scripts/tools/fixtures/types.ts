@@ -27,5 +27,12 @@ export interface ToolFixture {
 	/** The result the renderer draws; unused by a `transcript` entry. */
 	result?: FixtureResult;
 	/** Render options, e.g. `expanded` for a block that hides its body. */
-	options?: { expanded?: boolean; isPartial?: boolean; argsComplete?: boolean; durationMs?: number };
+	options?: {
+		expanded?: boolean;
+		isPartial?: boolean;
+		argsComplete?: boolean;
+		durationMs?: number;
+		/** How far a running call's clock has moved, so the block draws its live number. */
+		elapsedMs?: number;
+	};
 }
