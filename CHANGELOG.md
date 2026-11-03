@@ -23,6 +23,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `job`: `clear` removes a job's log only once the stream that held it has closed — Windows refused the
+  unlink on a file a descriptor still held, and a stream whose open had not landed recreated the file
+  just after it, so a cleared job could leave a log behind. The second attempt rides the stream's
+  `close`, and the ended stream is remembered after its handle is disposed.
+- `job`: bytes a failed reopen could not write are counted as dropped and reported by `logs`, instead of
+  a short segment reading as a complete log; a detached job has no parent stream and stays uncounted.
 - `lib`: a published-state replay ignores a branch entry whose tool-result `details` is not a record
   instead of throwing on it — `lastGoal` threw a `TypeError` on a tampered session file, so a `plan`
   command reading the goal crashed rather than reading no goal. `lib/tool-result.ts` now owns the one
