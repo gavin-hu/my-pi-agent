@@ -177,6 +177,18 @@ async function pauseMessage(bridge: Bridge): Promise<VerbOutcome> {
 		: { message: "WeChat is not running.", kind: "warning" };
 }
 
+/** Run one control action against the live bridge, or say why it cannot run. */
+function withBridge<T>(deps: CommandDeps, absent: string, run: (bridge: Bridge) => T): T | string {
+	const bridge = deps.getBridge();
+	return bridge ? run(bridge) : absent;
+}
+
+/** The peers a subcommand can name, for a usage line: the live bridge's peer labels. */
+function knownPeers(bridge: Bridge | undefined): string {
+	const known = bridge?.status().peerStates.map((entry) => peerLabel(entry.peer)) ?? [];
+	return known.join(", ") || "none yet";
+}
+
 /** Pause or resume polling; the account and peer sessions stay in place. */
 async function runPauseToggle(ctx: ExtensionContext, deps: CommandDeps, resume: boolean): Promise<void> {
 	const bridge = deps.getBridge();
@@ -231,8 +243,7 @@ async function runHistory(ctx: ExtensionCommandContext, deps: CommandDeps, args:
 	const [peer = "", countArg] = args.trim().split(/\s+/).filter(Boolean);
 	const bridge = deps.getBridge();
 	if (!peer) {
-		const known = bridge?.status().peerStates.map((entry) => peerLabel(entry.peer)) ?? [];
-		ctx.ui.notify(`Usage: /wechat history <peer> [n]. Known: ${known.join(", ") || "none yet"}.`, "warning");
+		ctx.ui.notify(`Usage: /wechat history <peer> [n]. Known: ${knownPeers(bridge)}.`, "warning");
 		return;
 	}
 	const requested = Number.parseInt(countArg ?? "", 10);
@@ -368,23 +379,18 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 				view,
 				onClose: done,
 				actions: {
-					stop: (peer) => {
-						const bridge = deps.getBridge();
-						return bridge ? stopMessage(bridge, peer).message : "WeChat bridge is not running.";
-					},
-					reset: (peer) => {
-						const bridge = deps.getBridge();
-						return bridge ? resetMessage(bridge, peer).message : "WeChat bridge is not running.";
-					},
-					cancelPrompt: (focused) => {
-						const bridge = deps.getBridge();
-						return bridge ? cancelPromptMessage(bridge, focused).message : "No prompt is waiting.";
-					},
-					togglePause: async () => {
-						const bridge = deps.getBridge();
-						if (!bridge) return "WeChat bridge is not running.";
-						return (await (bridge.status().paused ? resumeMessage(bridge) : pauseMessage(bridge))).message;
-					},
+					stop: (peer) =>
+						withBridge(deps, "WeChat bridge is not running.", (bridge) => stopMessage(bridge, peer).message),
+					reset: (peer) =>
+						withBridge(deps, "WeChat bridge is not running.", (bridge) => resetMessage(bridge, peer).message),
+					cancelPrompt: (focused) =>
+						withBridge(deps, "No prompt is waiting.", (bridge) => cancelPromptMessage(bridge, focused).message),
+					togglePause: async () =>
+						withBridge(
+							deps,
+							"WeChat bridge is not running.",
+							async (bridge) => (await (bridge.status().paused ? resumeMessage(bridge) : pauseMessage(bridge))).message,
+						),
 				},
 				requestRender: () => tui.requestRender(),
 			}),
@@ -441,13 +447,9 @@ async function runPeerAction(
 		return;
 	}
 	const wanted = args.trim();
-	const known = bridge.status().peerStates.map((row) => peerLabel(row.peer));
 	const entry = wanted ? bridge.status().peerStates.find((row) => peerKey(row.peer) === peerKey(wanted)) : undefined;
 	if (!entry) {
-		ctx.ui.notify(
-			`Unknown WeChat peer${wanted ? ` "${wanted}"` : ""}. Known: ${known.join(", ") || "none yet"}.`,
-			"warning",
-		);
+		ctx.ui.notify(`Unknown WeChat peer${wanted ? ` "${wanted}"` : ""}. Known: ${knownPeers(bridge)}.`, "warning");
 		return;
 	}
 	if (verb === "stop") {

@@ -160,14 +160,6 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		});
 	};
 
-	/**
-	 * Bring the bridge up on a new session while an account is stored.
-	 *
-	 * The bridge is built and kept once per runtime — everything else in this
-	 * file reads the same handle — and an open bridge makes a repeat call a
-	 * no-op, so a host that binds one session twice (RPC emits `session_start`
-	 * twice on a session switch) cannot start a second poller.
-	 */
 	/** Build the bridge once, sharing the load with a command that asks while it is in flight. */
 	const ensure = (ctx: ExtensionContext): Promise<Bridge> => {
 		building ??= build(ctx).then(
@@ -184,6 +176,14 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		return building;
 	};
 
+	/**
+	 * Bring the bridge up on a new session while an account is stored.
+	 *
+	 * The bridge is built and kept once per runtime — everything else in this
+	 * file reads the same handle — and an open bridge makes a repeat call a
+	 * no-op, so a host that binds one session twice (RPC emits `session_start`
+	 * twice on a session switch) cannot start a second poller.
+	 */
 	const autoStart = async (ctx: ExtensionContext): Promise<void> => {
 		if (ctx.mode !== "tui" && ctx.mode !== "rpc") return;
 		if (!primaryAccount()) return;
