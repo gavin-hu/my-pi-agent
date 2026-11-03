@@ -103,6 +103,33 @@ export function readJson(path: string): Record<string, unknown> | undefined {
 	return result.state === "ok" ? result.value : undefined;
 }
 
+/** How the written document is shaped: one JSON object, indented, newline-terminated. */
+export interface JsonWriteOptions {
+	/** File mode for the written file, applied to the temp file the rename publishes. */
+	mode?: number;
+}
+
+/**
+ * Write `value` as JSON at `path`, replacing whatever is there in one rename.
+ *
+ * A plain truncating write leaves the file empty and half-written for as long as the
+ * write takes, and a reader that lands there parses nothing — defaults for a config
+ * file, "not logged in" for `wechat`'s credentials. The rename is the publish: a
+ * reader sees the old document or the new one, never a fragment. The pid suffix is
+ * what keeps two processes from sharing one temp name.
+ *
+ * The mode rides on the temp file rather than being applied after the write, so a
+ * `0600` file is never readable at a wider mode for even a moment.
+ */
+export function writeJsonFile(path: string, value: unknown, options: JsonWriteOptions = {}): void {
+	mkdirSync(dirname(path), { recursive: true });
+	const temp = `${path}.${process.pid}.tmp`;
+	const text = `${JSON.stringify(value, null, 2)}\n`;
+	if (options.mode === undefined) writeFileSync(temp, text, "utf-8");
+	else writeFileSync(temp, text, { encoding: "utf-8", mode: options.mode });
+	renameSync(temp, path);
+}
+
 /** What {@link readJsonResult} found: nothing, a usable object, or why not. */
 export type JsonReadResult =
 	| { state: "absent" }
@@ -352,8 +379,5 @@ function withoutPath(source: Record<string, unknown>, path: readonly string[]): 
 
 /** Write a whole config document atomically (sibling temp file, then rename). */
 export function writeConfigFile(path: string, document: Record<string, unknown>): void {
-	mkdirSync(dirname(path), { recursive: true });
-	const temp = `${path}.${process.pid}.tmp`;
-	writeFileSync(temp, `${JSON.stringify(document, null, 2)}\n`, "utf-8");
-	renameSync(temp, path);
+	writeJsonFile(path, document);
 }

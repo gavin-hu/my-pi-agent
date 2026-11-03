@@ -6,9 +6,10 @@
  * trusted, so a corrupt file degrades to "not logged in".
  */
 
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { writeJsonFile } from "../../../lib/config.ts";
 import { DEFAULT_BASE_URL } from "../transport/client.ts";
 import type { BotCredentials, CredentialsFile } from "../types.ts";
 
@@ -62,15 +63,15 @@ export function readCredentials(path: string): CredentialsFile {
 	}
 }
 
-/** Write a credentials file atomically enough for a config file, mode `0600`. */
+/**
+ * Write a credentials file by the one atomic JSON write, mode `0600`.
+ *
+ * The mode is on the temp file, so the rename publishes a private file: a torn
+ * write here would parse as no accounts at all, and the user would pay a fresh QR
+ * scan to get back in.
+ */
 export function writeCredentials(path: string, file: CredentialsFile): void {
-	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, `${JSON.stringify(file, null, 2)}\n`, { encoding: "utf-8", mode: 0o600 });
-	try {
-		chmodSync(path, 0o600);
-	} catch {
-		// Best effort: the mode argument already applied on POSIX.
-	}
+	writeJsonFile(path, file, { mode: 0o600 });
 }
 
 /** Store or replace one account and make it the active one. */
