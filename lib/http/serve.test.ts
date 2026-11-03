@@ -1,16 +1,17 @@
 /**
- * The one loopback server: the request envelope, the body cap, the stream head,
- * the port retry, the idle grace, and the close.
+ * The one loopback server: the request envelope, the body cap, the stream head and
+ * its keepalive, the port retry, the idle grace, and the close.
  *
  * Every case talks to `127.0.0.1` on an OS-chosen port, which is the only way to
  * observe what a socket actually receives; nothing leaves the host. The idle
- * grace takes an injected timer, so no test waits on the wall clock.
+ * grace takes an injected timer and the keepalive an injected ticker, so no test
+ * waits on the wall clock.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { graceTimer } from "../../test/helpers/fixtures/http.ts";
 import { createConnection } from "node:net";
-import { eventHeaders, textResponse } from "./index.ts";
+import { eventHeaders, RETRY_MS, textResponse } from "./index.ts";
 import { type ServedServer, serveHttp } from "./serve.ts";
 import { waitFor } from "../../test/helpers/process.ts";
 
@@ -134,6 +135,36 @@ describe("serveHttp", () => {
 		expect(idled).toEqual(["board"]);
 		// The other page is untouched: one mount going quiet is not the session going idle.
 		expect((await fetch(`${server.origin}/files/`)).status).toBe(200);
+	});
+
+	test("writes a keepalive comment to a quiet stream, and no event with it", async () => {
+		// The ticker is the sink's own seam, so the case fires the arm this mount took rather
+		// than waiting out the twenty seconds the product names.
+		const ticks: (() => void)[] = [];
+		const server = await start();
+		server.mount({
+			prefix: "/board",
+			interval: (_ms, tick) => {
+				ticks.push(tick);
+				return () => {};
+			},
+			handler: async () => ({
+				result: { status: 200, headers: eventHeaders(), stream: true },
+				openSink: () => () => {},
+			}),
+		});
+
+		const controller = new AbortController();
+		const reply = await fetch(`${server.origin}/board/events`, { signal: controller.signal });
+		const reader = reply.body?.getReader();
+		const decoder = new TextDecoder();
+		expect(decoder.decode((await reader?.read())?.value)).toBe(`retry: ${RETRY_MS}\n\n`);
+		expect(ticks).toHaveLength(1);
+		ticks[0]?.();
+		// A comment line is what an `EventSource` skips, so the connection is proven alive
+		// without a frame any page has to interpret.
+		expect(decoder.decode((await reader?.read())?.value)).toBe(": keepalive\n\n");
+		controller.abort();
 	});
 
 	test("closes the socket when its last mount is released, and not before", async () => {
