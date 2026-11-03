@@ -178,6 +178,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"commands/commands",
 		"dialog/channels",
 		"dialog/interaction",
+		"dialog/remote-ui",
 		"peer/peer",
 		"state/lock",
 		"state/state",
