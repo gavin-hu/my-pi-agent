@@ -16,7 +16,6 @@ import { PlanViewComponent } from "../../extensions/plan/tui.ts";
 import { askViaTui } from "../../extensions/question/view/question-screen.ts";
 import { ContextComponent } from "../../extensions/context/view/context-report.ts";
 import { AgentsBoardComponent } from "../../extensions/subagent/view/agents-board.ts";
-import { ReviewListComponent } from "../../extensions/rewind/view/review-tui.ts";
 import { RewindListComponent } from "../../extensions/rewind/view/rewind-tui.ts";
 import { TodoListComponent } from "../../extensions/todo/view/todo-screen.ts";
 import { WatchListComponent } from "../../extensions/watch/view/watch-screen.ts";
@@ -42,7 +41,6 @@ import {
 	PLAN,
 	PLAN_BASELINE,
 	QUESTIONS,
-	REVIEW_ENTRIES,
 	REWIND_POINTS,
 	SCREEN_TUI,
 	WINDOW_BOUNDS,
@@ -226,22 +224,6 @@ export const SCREENS: Record<string, Screen> = {
 				close: noop,
 				requestRender: noop,
 				viewportRowsSource: () => rows,
-			}).render(width),
-	},
-	review: {
-		asset: "review",
-		title: "π - my-pi-agent · /review",
-		bounds: { left: 80, top: 80, right: 920, bottom: 350 },
-		size: { width: 100, rows: 13 },
-		render: (width, rows) =>
-			new ReviewListComponent({
-				entries: REVIEW_ENTRIES,
-				prompt: "Refresh the README screenshots",
-				theme,
-				initialSelected: ["extensions/rewind/commands/review.ts", "extensions/rewind/commands/commands.ts"],
-				onClose: noop,
-				requestRender: noop,
-				viewportRows: () => rows,
 			}).render(width),
 	},
 	watch: {

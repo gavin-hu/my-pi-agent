@@ -11,18 +11,9 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../../lib/env.ts";
 import { loadConfig, type RewindConfig } from "../config/config.ts";
-import {
-	applyPatchReverse,
-	createRewindRunner,
-	diffNumStat,
-	diffPatch,
-	repoRoot,
-	revParse,
-	type RunGit,
-} from "../transport/git.ts";
+import { createRewindRunner, repoRoot, revParse, type RunGit } from "../transport/git.ts";
 import { createOperationQueue } from "../transport/queue.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "../transport/restore.ts";
-import type { PathStat } from "../text/paths.ts";
 import { createSnapshot } from "../transport/snapshot.ts";
 import { createStatusChip } from "../status.ts";
 import { belongsToRoot, listSnapshots, pruneSnapshots } from "../transport/store.ts";
@@ -35,12 +26,6 @@ export interface SnapshotOptions {
 	prompt?: string;
 }
 
-/** What a hunk revert did beyond the file it touched. */
-export interface HunkRevertResult {
-	/** Id of the pre-restore safety snapshot, when one was taken. */
-	safety?: string;
-}
-
 export interface RewindRuntime {
 	/** Repository (or worktree) root, or undefined outside a repository. */
 	rootFor(ctx: ExtensionContext): Promise<string | undefined>;
@@ -50,10 +35,6 @@ export interface RewindRuntime {
 	list(root: string): Promise<Snapshot[]>;
 	/** Preview a restore; `paths` narrows it to a subset of the changed paths. */
 	plan(root: string, target: Snapshot, paths?: readonly string[]): Promise<PlanResult>;
-	/** Unified patch between a snapshot and the working-tree tree `tree`. Read-only. */
-	patch(root: string, target: Snapshot, tree: string, paths?: readonly string[]): Promise<string>;
-	/** Per-path line counts for the same comparison. Read-only. */
-	numStat(root: string, target: Snapshot, tree: string, paths?: readonly string[]): Promise<Map<string, PathStat>>;
 	/** Tree id of HEAD, or undefined when the repository has no commit. Read-only. */
 	headTree(root: string): Promise<string | undefined>;
 	restore(
@@ -63,14 +44,6 @@ export interface RewindRuntime {
 		config: RewindConfig,
 		paths?: readonly string[],
 	): Promise<RestoreSummary>;
-	/** Reverse-apply a prepared hunk patch, after the same safety snapshot as a restore. */
-	revertHunks(
-		ctx: ExtensionContext,
-		root: string,
-		target: Snapshot,
-		config: RewindConfig,
-		patch: string,
-	): Promise<HunkRevertResult>;
 	/** Repaint the `↺ N` chip from the prompt count on the active branch (`/rewind` list size). */
 	setStatus(ctx: ExtensionContext): Promise<void>;
 	clearStatus(ctx: ExtensionContext): void;
@@ -152,16 +125,6 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 			return planRestore({ runGit }, { root, indexFile: await indexStore.pathFor(root), target, paths });
 		});
 
-	const patch = (root: string, target: Snapshot, tree: string, paths?: readonly string[]): Promise<string> =>
-		diffPatch(runGit, root, target.commit, tree, paths);
-
-	const numStat = (
-		root: string,
-		target: Snapshot,
-		tree: string,
-		paths?: readonly string[],
-	): Promise<Map<string, PathStat>> => diffNumStat(runGit, root, target.commit, tree, paths);
-
 	const headTree = async (root: string): Promise<string | undefined> => {
 		try {
 			return await revParse(runGit, root, "HEAD^{tree}");
@@ -212,21 +175,6 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 			return { ...summary, safety };
 		});
 
-	const revertHunks = (
-		ctx: ExtensionContext,
-		root: string,
-		target: Snapshot,
-		config: RewindConfig,
-		patch: string,
-	): Promise<HunkRevertResult> =>
-		queue.enqueue(async () => {
-			if (!belongsToRoot(target, root)) throw new Error(foreignRootReason(target, root));
-			const indexFile = await indexStore.pathFor(root);
-			const safety = config.safetySnapshot ? await safetySnapshot(ctx, root, config, indexFile) : undefined;
-			await applyPatchReverse(runGit, root, patch);
-			return { safety };
-		});
-
 	const sweepStaleIndexes = async (ctx: ExtensionContext): Promise<void> => {
 		try {
 			const root = await rootFor(ctx);
@@ -242,11 +190,8 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		snapshot,
 		list,
 		plan,
-		patch,
-		numStat,
 		headTree,
 		restore,
-		revertHunks,
 		setStatus: status.set,
 		clearStatus: status.clear,
 		releaseIndexes: indexStore.release,

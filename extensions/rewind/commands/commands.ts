@@ -61,8 +61,8 @@ async function openRewind(pi: ExtensionAPI, runtime: RewindRuntime, ctx: Extensi
 
 	const point = await withRailsSuppressed(pi, () => choosePoint(ctx, points));
 	if (!point) return;
-	// The rewind run and the review gate both load on the verb that needs them: the
-	// listing above and registration load neither.
+	// The rewind run loads on the verb that needs it: the listing above and
+	// registration load neither.
 	const { rewindTo } = await import("./rewind.ts");
 	await rewindTo(pi, runtime, ctx, root, point);
 }
@@ -72,14 +72,6 @@ export function registerCommands(pi: ExtensionAPI, runtime: RewindRuntime): void
 		description: "Rewind the working tree and/or conversation to an earlier prompt",
 		handler: async (_args, ctx) => {
 			await openRewind(pi, runtime, ctx);
-		},
-	});
-
-	pi.registerCommand("review", {
-		description: "Review the latest turn's changes and revert a file or the whole turn",
-		handler: async (_args, ctx) => {
-			const { openReview } = await import("./review.ts");
-			await openReview(pi, runtime, ctx);
 		},
 	});
 }

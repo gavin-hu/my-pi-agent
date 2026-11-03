@@ -1,8 +1,8 @@
 /**
  * The shared multi-select checklist screen.
  *
- * `/rewind`'s partial restore, `/review`'s changed-file list, and `/review`'s
- * hunk step are one screen: a docked list where Space toggles the focused row,
+ * `/rewind`'s partial restore is the caller: a docked list where Space toggles
+ * the focused row,
  * `a` and `n` fill or clear the selection, Enter returns it, and the summary
  * names how much is chosen. The frame, the cursor arithmetic, the wheel, and the
  * height math come from the `lib/tui/` kit; this base owns the selection and the

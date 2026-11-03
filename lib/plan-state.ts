@@ -3,7 +3,7 @@
  *
  * Plan mode persists one custom entry (`plan-mode`) whose `enabled` field is the
  * last word on the branch. `plan` writes it; `rewind` reads it through this
- * module so `/review` cannot write while planning, without importing another
+ * module so `/rewind` cannot restore while planning, without importing another
  * extension's modules.
  *
  * Value-only: a constant and a pure replay over untrusted branch entries.

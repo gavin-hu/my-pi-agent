@@ -131,7 +131,7 @@ has the full tool and command surface, opening with its capabilities.
 | Extension | Tools and commands | What it does |
 |---|---|---|
 | [`worktree`](./docs/extensions/worktree.md) | `worktree`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | Work inside an isolated `git worktree` on its own branch — one tool with four actions: `enter`, `exit`, `list`, `prune`; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
-| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` status chip | Snapshot the repo before each prompt's first change, under `refs/pi/rewind`, restore code, conversation, or both, and review the latest turn's changes before reverting a file. |
+| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `↺ N` status chip | Snapshot the repo before each prompt's first change, under `refs/pi/rewind`, then restore code, conversation, or both from an earlier prompt. |
 | [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | Durable cross-session notes as human-editable markdown, injected into each run and managed through the `/memory` picker. |
 
 ### Reach the world

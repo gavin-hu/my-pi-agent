@@ -130,7 +130,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"subagent-background",
 	],
 	question: ["tools", "view/question-screen", "extension"],
-	rewind: ["commands/review", "state/runtime", "transport/store", "extension"],
+	rewind: ["state/runtime", "transport/store", "extension"],
 	subagent: [
 		"agents",
 		"run",

@@ -29,7 +29,7 @@ export {
 } from "./panel.ts";
 export { PLAN, PLAN_BASELINE, PLAN_CONTENT, PLAN_PATH } from "./plan.ts";
 export { QUESTIONS } from "./questions.ts";
-export { REVIEW_ENTRIES, REWIND_POINTS } from "./rewind.ts";
+export { REWIND_POINTS } from "./rewind.ts";
 export { SCREEN_TUI, noop, now } from "./shared.ts";
 export { BUS_BOARD } from "./session.ts";
 export { TODOS } from "./todo.ts";

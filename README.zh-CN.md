@@ -115,7 +115,7 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
 | [`worktree`](./docs/extensions/worktree.md) | `worktree`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作（一个工具四个动作：`enter`、`exit`、`list`、`prune`）；内置的 read/write/edit/bash 工具会跟随，清理时也不会丢弃工作。 |
-| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` 状态标记 | 在每次提示的首次改动前于 `refs/pi/rewind` 下对仓库生成快照，可恢复代码、对话或两者，并在还原文件前审阅本轮改动。 |
+| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `↺ N` 状态标记 | 在每次提示的首次改动前于 `refs/pi/rewind` 下对仓库生成快照，可从更早的提示恢复代码、对话或两者。 |
 | [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | 跨会话的持久笔记，以可人工编辑的 Markdown 保存，注入每次运行，并通过 `/memory` 选择器管理。 |
 
 ### 连通外部世界

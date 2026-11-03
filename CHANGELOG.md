@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `rewind`: the `/review` command is gone — the latest-turn changed-file list, the per-file diff, the
+  file/batch revert, and the hunk checklist — with the modules only it read (`commands/review.ts`,
+  `view/review-tui.ts`, `view/hunk-picker.ts`, `text/patch.ts`, and the runtime's `patch`,
+  `numStat`, and `revertHunks` operations). `/rewind` keeps the timeline, the scopes, the path
+  checklist, and the subset restore, so a revert is still one `/rewind` selection; a hunk-level
+  revert no longer exists. Breaking for anyone who scripted the command.
 - `check`: the extension is retired — `run_check`, `/check`, its live run and failure screens, and
   the `check` section of `bytefly.json`. Breaking: a project that relied on detection or on
   `check.command` runs its check with `bash` (`bun run check`, `make check`), and a long-lived
