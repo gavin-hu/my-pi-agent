@@ -34,7 +34,9 @@ describe("review client", () => {
 		expect(WEB_SETTLE_JS).toContain('deps.base() + "/api/approve"');
 		expect(WEB_SETTLE_JS).toContain('deps.base() + "/api/cancel?token="');
 		expect(WEB_SETTLE_JS).toContain('"?token=" + encodeURIComponent(deps.token())');
-		expect(REVIEW_CLIENT_JS).toContain("/events?token=");
+		// The stream is the one route whose query the client builds: this page hands over its token
+		// and the URL it names is its path alone.
+		expect(REVIEW_CLIENT_JS).not.toContain("/events?token=");
 	});
 
 	test("a reviewer's post keeps the page live and an owner's save settles it", () => {
@@ -175,18 +177,25 @@ describe("review client", () => {
 
 	test("keeps a stream open so the server sees the tab close", () => {
 		// One stream, opened by the client every served page runs, so a dropped connection means
-		// the same thing on all three.
+		// the same thing on all three. The token that admits it is handed over, not spliced: a
+		// page that built its own query could drop the one credential its routes check.
 		expect(REVIEW_CLIENT_JS).toContain("stream = liveStream({");
+		expect(REVIEW_CLIENT_JS).toContain("token: token,");
+		// The page's other routes still build their own query; the stream's does not, because the
+		// client appends the token and this URL is its path alone.
+		expect(REVIEW_CLIENT_JS).not.toContain('pageBase() + "/events?');
 		// A closed tab is a dropped stream the server times out; a beacon would also
 		// cancel the review on a reload, which the 409 path offers on purpose.
 		expect(REVIEW_CLIENT_JS).not.toContain("sendBeacon");
 		expect(REVIEW_CLIENT_JS).not.toContain("beforeunload");
 	});
 
-	test("closes the stream once the review has settled", () => {
+	test("closes the stream once the review has settled, and leaves the tab's close to the kit", () => {
 		expect(REVIEW_CLIENT_JS).toContain("function settleStream()");
 		expect(REVIEW_CLIENT_JS).toContain("stream.close()");
-		expect(REVIEW_CLIENT_JS).toContain('addEventListener("pagehide", settleStream)');
+		// A page going away is the stream client's own teardown now, on all three pages: a second
+		// `pagehide` listener here would be the copy that drifts.
+		expect(REVIEW_CLIENT_JS).not.toContain('addEventListener("pagehide"');
 	});
 
 	test("offers a reload when the plan changed on disk", () => {

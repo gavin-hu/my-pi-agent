@@ -71,6 +71,11 @@ The server binds `127.0.0.1`. The unit of exposure is the mount: a prefix answer
 only what its page routes, and each page keeps its own `Host` allowlist, its own
 token, and its own method list in `lib/http`.
 
+A stream is not an exception to a page's token: the router checks it on `/events` as
+it does on every other route, before `serve` attaches the sink, and the head
+`eventHeaders` writes carries no policy of its own. A page that mints no token —
+`file-browse` — has none to check, which is the whole difference between the three.
+
 A shared review is the one exception, and it is the reviewing page's own: it asks
 for a listener on a single LAN address, and that listener carries only the prefixes
 that asked for it. `file-browse` and `board` are never reachable that way, and a page

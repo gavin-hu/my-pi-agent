@@ -72,8 +72,16 @@ export type LiveState = "connecting" | "live" | "reconnecting" | "dead";
 
 /** What a page tells its stream: where to listen, what a state says, and what a frame is. */
 export interface LiveStreamOptions {
-	/** Where the stream is served, prefix and token included. */
+	/** Where the stream is served, prefix and all, and no query: the token below is the query. */
 	url: string;
+	/**
+	 * The token this page's own requests carry, or `undefined` for a page that has none.
+	 *
+	 * Required, so a page says which it is. A stream is a request like any other — it is
+	 * behind whatever the mount's router checks — and a page that wrote its own query could
+	 * drop the token without a checker or a reader noticing the hole.
+	 */
+	token: string | undefined;
 	/** Named frames the page wants beside the default `message`. */
 	events?: readonly string[];
 	/**
@@ -167,9 +175,11 @@ export function paintLive(node: ClientNode, tone: string, label: string, title?:
  *
  * What each state *says* is the page's: the board's word carries the frame's age, browse's
  * hover the server's own accounting, the review's its comment count and a settled state.
- * So `words` paints, and this owns the transitions and nothing else. A page with no
- * `EventSource` gets a handle that closes and paints nothing, which leaves its document as
- * the server drew it.
+ * So `words` paints, and this owns the transitions and nothing else — plus the two things
+ * no page should decide twice: the stream's URL, which carries the page's token, and its
+ * teardown, which a page that is going away owes the server. A page with no `EventSource`
+ * gets a handle that closes and paints nothing, which leaves its document as the server drew
+ * it.
  */
 export function liveStream(options: LiveStreamOptions): LiveStream {
 	// Cast for the same reason as `el`: this project compiles without a DOM lib, so the cast
@@ -181,6 +191,7 @@ export function liveStream(options: LiveStreamOptions): LiveStream {
 	let misses = 0;
 	let ended = false;
 	let source: EventStream | null = null;
+	const url = options.token ? options.url + "?token=" + encodeURIComponent(options.token) : options.url;
 
 	function paint(next: LiveState): void {
 		if (ended || next === state) return;
@@ -194,6 +205,12 @@ export function liveStream(options: LiveStreamOptions): LiveStream {
 		source.close();
 		source = null;
 	}
+
+	// A page that is going away releases its own stream, so the mount's idle grace stops
+	// waiting out a teardown. Registered before the socket exists, so every path below — no
+	// event source at all, a URL that cannot open, a live one — is released the same way.
+	const win = globalThis as unknown as { addEventListener?: (type: string, listener: () => void) => void };
+	win.addEventListener?.("pagehide", close);
 
 	/** A failed connect or reconnect attempt: one error is a blip, `attempts` of them is not. */
 	function failed(): void {
@@ -211,7 +228,7 @@ export function liveStream(options: LiveStreamOptions): LiveStream {
 	}
 
 	try {
-		source = Source === undefined ? null : new Source(options.url);
+		source = Source === undefined ? null : new Source(url);
 	} catch {
 		// A URL the page cannot open is not a stream that may come back.
 		paint("dead");

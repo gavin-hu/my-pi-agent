@@ -84,7 +84,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   offers its reload — the board no longer has a chip that said `reconnecting…` forever with a
   reload beside it (and flipped back to `live · 2m` on its own ticker), browse no longer calls
   the server stopped on the first blip, and the review's chip gains the retry word its settled
-  states still outrank.
+  states still outrank. The same call now carries the page's token, which the client appends
+  rather than each page splicing `?token=` into its own URL, and closes the stream on
+  `pagehide` — the teardown only two of the three pages remembered, and the board none of.
 - dev: the tool-render contract draws every gallery fixture's result at 80/48/40, collapsed and
   expanded, so the block a real transcript takes is bounded by the gate instead of only by the
   macOS release capture. Wiring the fixtures in found a stale one: `session-name` pictured
