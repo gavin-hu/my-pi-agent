@@ -358,7 +358,7 @@ The board as a posting card — the same rules, drawn to be read at half width:
 
 *`board`: the lanes, one card's atoms, and the lead's round — three readings of one board, drawn by `capture:cards board`.*
 
-<img src="../../assets/cards/board-team.png" alt="The three team verbs as three bands: assign sends a handoff to a named peer and then records the owner, so a pooled card enters plan in that write; offer broadcasts an event to every other live session without recording an owner, so the first claim wins; reclaim returns the card to Backlog with its notes kept and no handoff sent" width="100%">
+<img src="../../assets/cards/board-team.png" alt="The three team verbs as three bands: assign sends a handoff to a named peer and then records the owner, so a pooled card enters plan in that write, while a card somebody already holds is refused; offer broadcasts an event to every other live session and records when it was offered without recording an owner, so the first claim wins; reclaim returns the card to Backlog with its notes kept and no handoff sent" width="100%">
 
 *`board-team`: `assign`, `offer`, and `reclaim` — the two that reach the bus, and the one that writes the card alone (`capture:cards team`).*
 
