@@ -52,7 +52,13 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
 	// of those cards in the rollup below.
 	const slice = details.narrowed === true ? (details.cards ?? []) : [];
 	if (slice.length > 0) sections.push(section(undefined, slice, rowLine));
-	for (const group of round.owners) sections.push(section(group.label, group.cards, rollupLine));
+	// An owner whose last card is done keeps its group, because the round's text line still counts
+	// what it finished — but the group has no rows, so a heading here would draw a label above
+	// nothing, and the finished cards themselves are already in the `Done` section below.
+	for (const group of round.owners) {
+		if (group.cards.length === 0) continue;
+		sections.push(section(group.label, group.cards, rollupLine));
+	}
 	if (round.unassigned.length > 0) sections.push(section("Unassigned", round.unassigned, rollupLine));
 	if (round.unplanned.length > 0) sections.push(section("Unplanned", round.unplanned, rollupLine));
 	// The lead's first signature: a contract nobody has signed is a card the flow stops on, so
