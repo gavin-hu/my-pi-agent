@@ -217,8 +217,11 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		// The stream: one state machine for every served page, in this page's words. A root
 		// that moved under this page is the one frame it cannot paint — the document it drew
 		// belongs to the tree the session left — so that frame reloads, as the folder check does.
-		var liveLink = liveStream({
+		// This page mints no token — it answers on the loopback socket and is never shared — so
+		// it says so, and the shared client's pagehide close ends the stream as the page leaves.
+		liveStream({
 			url: pageBase() + "/events",
+			token: undefined,
 			events: ["status", "moved"],
 			words: liveWords,
 			frame: function (event) {
@@ -232,7 +235,6 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 			}
 		});
 		window.addEventListener("pagehide", function () {
-			liveLink.close();
 			window.clearTimeout(liveStale);
 			window.clearInterval(liveDirTimer);
 		});

@@ -64,6 +64,8 @@ interface Booted {
 	frames: StreamEvent[];
 	handle: { close(): void };
 	stream: FakeStream;
+	/** The page going away, which the browser announces as `pagehide`. */
+	hide(): void;
 }
 
 /**
@@ -73,20 +75,29 @@ interface Booted {
  * is the function's parameter, which is how the client's `globalThis.EventSource` is reached.
  */
 function boot(options: Partial<LiveStreamOptions> = {}, Source: unknown = FakeStream): Booted {
-	const globals = { EventSource: Source };
+	// The page's `window`, as far as the client reaches it: every listener it registers, so a
+	// case can announce the teardown the browser would.
+	const teardown: (() => void)[] = [];
+	const globals = {
+		EventSource: Source,
+		addEventListener: (type: string, listener: () => void) => {
+			if (type === "pagehide") teardown.push(listener);
+		},
+	};
 	const bundle = new Function("globalThis", `${CLIENT_RUNTIME_JS}\nreturn { liveStream: liveStream };`)(globals) as {
 		liveStream: typeof liveStream;
 	};
 	const states: LiveState[] = [];
 	const frames: StreamEvent[] = [];
 	const handle = bundle.liveStream({
-		url: "/files/events?token=t",
+		url: "/files/events",
+		token: "t",
 		words: (state) => states.push(state),
 		frame: (event) => frames.push(event),
 		...options,
 	});
 	const stream = FakeStream.last as FakeStream;
-	return { states, frames, handle, stream };
+	return { states, frames, handle, stream, hide: () => teardown.forEach((listener) => listener()) };
 }
 
 describe("the live-stream client", () => {
@@ -98,6 +109,32 @@ describe("the live-stream client", () => {
 		expect(booted.states).toEqual([]);
 		booted.stream.open();
 		expect(booted.states).toEqual(["live"]);
+	});
+
+	test("leaves the query off a page that carries no token", () => {
+		// Browse mints none: it answers on the loopback socket only, so its stream names no
+		// credential, and a `token=` it cannot check would be the hole rather than the guard.
+		const booted = boot({ token: undefined });
+		expect(booted.stream.url).toBe("/files/events");
+	});
+
+	test("encodes the token rather than splicing it into the query", () => {
+		// A page reads its token from its own URL, so the value is the server's, not a promise
+		// the client may lean on: `&` and `=` here would otherwise start a second parameter.
+		const booted = boot({ token: "a b&c=d" });
+		expect(booted.stream.url).toBe("/files/events?token=a%20b%26c%3Dd");
+	});
+
+	test("closes its stream when the page goes away", () => {
+		// The server watches for the last reader, so a page that leaves without closing holds a
+		// mount open for the whole of its idle grace — the one teardown the browser cannot do.
+		const booted = boot();
+		booted.stream.open();
+		booted.hide();
+		expect(booted.stream.closed).toBe(true);
+		booted.stream.send("message", "late");
+		expect(booted.states).toEqual(["live"]);
+		expect(booted.frames).toEqual([]);
 	});
 
 	test("is live as soon as a frame arrives, and paints the transition once", () => {

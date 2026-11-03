@@ -440,16 +440,17 @@ ${WEB_MARKDOWN_JS}
 
   window.addEventListener("scroll", updateProgress);
   window.addEventListener("resize", updateProgress);
-  window.addEventListener("pagehide", settleStream);
   if (planEl) planEl.addEventListener("scroll", updateProgress);
   // The one reload control both stale reasons offer (a conflict, or a stream that has gone)
   // is the kit's chip, so the page wires it here rather than building a button of its own.
   if (reloadEl) reloadEl.addEventListener("click", function () { window.location.reload(); });
 
   // The stream's job is noticing a closed tab and saying whether this page is still true; it
-  // never writes. One state machine for every served page, and this page's words for it.
+  // never writes. One state machine for every served page, and this page's words for it —
+  // which is also why the kit closes it as the page leaves, and this page does not.
   stream = liveStream({
-    url: pageBase() + "/events?token=" + encodeURIComponent(token),
+    url: pageBase() + "/events",
+    token: token,
     words: function (state) { liveState = state; updateState(); },
     frame: refreshFromServer,
   });

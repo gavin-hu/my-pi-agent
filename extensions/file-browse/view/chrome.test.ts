@@ -61,4 +61,14 @@ describe("the live script", () => {
 		expect(CLIENT_JS).not.toContain('"bf-chip browse-live"');
 		expect(CLIENT_JS).not.toContain("browse-live__text");
 	});
+
+	test("names no token, and leaves the stream's close to the kit", () => {
+		// This page mints none — it answers on the loopback socket only — so it says so rather
+		// than leaving the reader to guess; and the teardown is the shared client's, so its own
+		// `pagehide` has only its timers left to clear.
+		expect(LIVE_CLIENT_JS).toContain("token: undefined");
+		expect(LIVE_CLIENT_JS).not.toContain("?token=");
+		expect(LIVE_CLIENT_JS).toContain('addEventListener("pagehide"');
+		expect(LIVE_CLIENT_JS).not.toContain(".close()");
+	});
 });

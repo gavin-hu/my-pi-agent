@@ -63,6 +63,10 @@ export function jsonHeaders(): Record<string, string> {
  * `no-store` stops a cached stream from replaying stale status, `keep-alive`
  * names the connection's intent, and `X-Accel-Buffering: no` is for any
  * buffering reverse proxy in front of it, which would otherwise hold the frames.
+ *
+ * What a stream may carry is the request's, not the head's: a page's stream is
+ * reached with the same token as the page, and the mount's router — which runs
+ * before `serve` attaches a sink — is where that is checked.
  */
 export function eventHeaders(): Record<string, string> {
 	return {

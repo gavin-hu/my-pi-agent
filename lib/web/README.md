@@ -52,6 +52,11 @@ between them — the one state a page answers with its `⟳ reload`. Counting at
 than starting a clock is what makes a blip a word and not a reload, and a stream that never
 comes back stops reading as `reconnecting` forever.
 
+The two things a page would otherwise decide for itself ride the same call: the stream's
+URL carries the page's `token`, appended here so no page splices a query of its own — a page
+with none, like browse, passes `undefined` and says so — and the stream closes on
+`pagehide`, which is the one teardown a browser leaves to the page.
+
 ## One toolbar, one bar, one footer
 
 A served page's chrome is three rows deep and each row has one job:

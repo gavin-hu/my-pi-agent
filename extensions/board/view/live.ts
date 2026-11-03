@@ -209,7 +209,8 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   /** The live channel: one state machine for every page, in this page's words. */
   function stream() {
     board.liveStream({
-      url: pageBase() + "/events?token=" + encodeURIComponent(token),
+      url: pageBase() + "/events",
+      token: token,
       words: function (state) {
         badge(state, board.lastFrame);
       },

@@ -56,8 +56,14 @@ describe("the toolbar", () => {
 		// The age ticker repaints the state the stream is in: one that always said `live` flipped
 		// an error back to a live chip within the second.
 		expect(BOARD_CLIENT_JS).toContain("badge(streamState, board.lastFrame)");
-		// One stream, opened by the client the kit hands every served page.
+		// One stream, opened by the client the kit hands every served page — and the token that
+		// admits it handed over rather than spliced: a page that built its own query could drop
+		// the one credential its mount checks, on the stream as on every other route.
 		expect(BOARD_CLIENT_JS).toContain("board.liveStream({");
+		expect(BOARD_CLIENT_JS).toContain("token: token,");
+		// The URL this page opens is its own path and no query: the kit appends the token, so the
+		// bundle's one `?token=` is the one the client wrote.
+		expect(BOARD_CLIENT_JS).toContain('url: pageBase() + "/events",');
 	});
 
 	test("names the repository in the toolbar, and the root on its hover", () => {
