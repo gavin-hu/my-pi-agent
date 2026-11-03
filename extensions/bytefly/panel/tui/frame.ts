@@ -89,11 +89,11 @@ export function tabsLine(
 	return clip(splitRow(left, right, width), width);
 }
 
-/** One section's counts as whole segments, so a narrow screen drops a count. */
+/** One section's counts as whole segments, so a narrow screen drops a count and marks it. */
 export function countsLine(theme: Theme, width: number, segments: readonly SummarySegment[]): string {
 	const separator = paint(theme, "faint", SEPARATORS.item);
 	const styled = segments.map((segment) => paint(theme, segment.color, segment.text));
-	return fitCells(styled, Math.max(1, width - 2), separator);
+	return fitCells(styled, Math.max(1, width - 2), separator, paint(theme, "faint", "…"));
 }
 
 /** One group heading: its label, and how many rows sit under it. */

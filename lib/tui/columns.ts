@@ -122,16 +122,38 @@ export function inlineRow(left: string, right: string, width: number, gap = 2): 
  * Join as many whole cells as fit, dropping trailing cells rather than
  * clipping one in half. The first cell is always kept, so an over-wide line
  * degrades to a clipped first cell instead of an empty one.
+ *
+ * A dropped cell is marked: the line ends with `overflow`, reserved before the
+ * prefix is fitted, so a narrow line reads as a summary that lost a cell rather
+ * than as the whole one. The separator before the mark is spent only when it
+ * costs no cell — a three-column ` · ` would otherwise drop a cell to say it
+ * dropped one, so the mark then sits against the last cell that fits. Pass a
+ * themed `overflow` to keep the mark in the same role as the separator.
  */
-export function fitCells(cells: readonly string[], width: number, separator = " "): string {
+export function fitCells(cells: readonly string[], width: number, separator = " ", overflow = "…"): string {
 	const w = usableWidth(width);
+	const markWidth = visibleWidth(overflow);
+	const tight = fitPrefix(cells, w - markWidth, separator);
+	if (tight.length === cells.length) return clip(tight.join(separator), w);
+	const spent = w - markWidth - visibleWidth(separator);
+	const spaced = fitPrefix(cells, spent, separator);
+	const punctuate = spaced.length === tight.length && visibleWidth(spaced[0]) <= spent;
+	const head = (punctuate ? spaced : tight).join(separator);
+	// The first cell keeps its place even when the mark cannot sit beside it: its own
+	// clip already says the line was cut.
+	if (visibleWidth(head) + markWidth > w) return clip(head, w);
+	return clip(`${head}${punctuate ? separator : ""}${overflow}`, w);
+}
+
+/** The longest leading run of whole cells that fits `width`, the first always kept. */
+function fitPrefix(cells: readonly string[], width: number, separator: string): string[] {
 	const kept: string[] = [];
 	for (const cell of cells) {
 		const candidate = [...kept, cell].join(separator);
-		if (kept.length > 0 && visibleWidth(candidate) > w) break;
+		if (kept.length > 0 && visibleWidth(candidate) > width) break;
 		kept.push(cell);
 	}
-	return clip(kept.join(separator), w);
+	return kept;
 }
 
 /**
