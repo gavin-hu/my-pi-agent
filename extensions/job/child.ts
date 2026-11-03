@@ -500,6 +500,10 @@ export function createJobChildren(deps: JobChildrenDeps): JobChildren {
 
 	const removeArtifacts = (job: JobRecord): void => {
 		deps.store().releaseId(job.id);
+		// Stop the writer before its files go: a rotation whose reopen is in flight
+		// would otherwise recreate the log after the unlink. `dispose` is idempotent,
+		// so the paths that already disposed are unaffected.
+		dispose(job.id, { endStream: true });
 		removeStatus(job);
 		removeLog(job);
 	};

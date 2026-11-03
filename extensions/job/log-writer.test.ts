@@ -112,9 +112,16 @@ describe("job runtime — log rotation", () => {
 		await waitFor(() => readLog(logPath) === "aaaa\nbbbb\n", ROTATE_BUDGET_MS);
 		h.children[0].write("cccc\n");
 		await waitFor(() => existsSync(rotated), ROTATE_BUDGET_MS);
+		// The rotation reopened synchronously, so the live segment is back already and
+		// nothing is left scheduled to create it.
+		expect(existsSync(logPath)).toBe(true);
 
 		h.children[0].close(0);
 		h.runtime.clear("j1", false);
+		expect(existsSync(logPath)).toBe(false);
+		expect(existsSync(rotated)).toBe(false);
+		// A deferred reopen would land on a later tick and undo the clear.
+		await settle(20);
 		expect(existsSync(logPath)).toBe(false);
 		expect(existsSync(rotated)).toBe(false);
 	});

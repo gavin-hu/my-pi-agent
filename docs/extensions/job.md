@@ -295,9 +295,12 @@ rewritten.
   is a `WriteStream`; when the live segment reaches `maxLogBytes` the stream is
   ended, the file renamed to `<id>.log.1`, and a fresh stream opened, with
   chunks that arrive during the swap queued (and bounded) rather than written
-  into the renamed inode. `logs` fills a request from the previous segment when
-  the live one is shorter, so the rotation is invisible to the model and to the
-  `/jobs` pane. A detached job writes its own log and is exempt.
+  into the renamed inode. The reopen opens its descriptor inside the close
+  callback, so nothing is left scheduled to create the file: a `clear` that lands
+  after the rename — and disposes the writer before unlinking — is final rather
+  than racing a deferred open. `logs` fills a request from the previous segment
+  when the live one is shorter, so the rotation is invisible to the model and to
+  the `/jobs` pane. A detached job writes its own log and is exempt.
 - **Stdin is an opt-in pipe.** `start` keeps the child's stdin closed by
   default, so it gets EOF immediately and a `read` exits instead of blocking;
   `stdin: true` swaps in a pipe that `send` writes to and `eof` closes. The pipe
@@ -403,7 +406,7 @@ rewritten.
 | `logs.ts` | Bounded, sanitized log-tail reading. |
 | `ui.ts` | Footer status chips and the failure alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
 | `waiters.ts` | `wait` resolver bookkeeping. |
-| `log-writer.ts` | Per-job log sink: write stream, line split, rotation queue, and the output-driven repaint window. |
+| `log-writer.ts` | Per-job log sink: write stream, line split, rotation queue with a synchronous reopen, and the output-driven repaint window. |
 | `runtime.ts` | The job table and the durable record: load and reconcile, the one settle path that announces a completion and its wake turn (holding either until the session arms its listener), waiters, clear, shutdown. |
 | `child.ts` | A job's process and its output: the spawn policy, the handle, the log stream and stdin, close/error settle, the signal and its SIGKILL grace, and the files a job leaves, over the shared `lib/child.ts` supervisor. |
 | `clock.ts` | The periodic work: the repaint clock that re-asserts the chip, and the sweep that polls the jobs this session reattached. |
