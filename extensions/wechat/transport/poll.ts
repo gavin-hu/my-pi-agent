@@ -61,9 +61,11 @@ export interface PollLoop {
 export function createPollLoop(deps: PollDeps): PollLoop {
 	return {
 		async run(signal: AbortSignal): Promise<void> {
-			// The server tells us how long it holds a poll; remember it so the watchdog
-			// can be tight instead of the generic fallback.
-			let serverHint: number | undefined;
+			// The server tells us how long it held the last poll; remember it so the
+			// watchdog can be tight instead of the generic fallback. It is remembered
+			// with the hold it answered, because a hold the operator lowered since then
+			// makes the old hint stale — the watchdog must tighten with the config.
+			let hint: { hold: number | undefined; timeoutMs: number } | undefined;
 			/** One notice per failure episode, so a flapping link is reported once. */
 			let timeoutNotified = false;
 			let rejectedNotified = false;
@@ -71,7 +73,8 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 				const client = deps.client();
 				const account = deps.account();
 				if (!client || !account) break;
-				const watchdogMs = deps.pollTimeout(serverHint ?? deps.holdMs());
+				const hold = deps.holdMs();
+				const watchdogMs = deps.pollTimeout(hint !== undefined && hint.hold === hold ? hint.timeoutMs : hold);
 				// A cancellable watchdog: `AbortSignal.timeout` cannot be cleared, and a
 				// pending timer per poll would keep the process awake long after the request
 				// settled. The shared seam unrefs it, so a wedged poll never holds a
@@ -81,7 +84,7 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 				let response;
 				try {
 					response = await client.getUpdates(account, deps.cursor(), AbortSignal.any([signal, watchdog.signal]), {
-						holdMs: deps.holdMs(),
+						holdMs: hold,
 					});
 				} catch (error) {
 					if (signal.aborted || !deps.isRunning()) break;
@@ -110,7 +113,9 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 					cancelWatchdog();
 				}
 				if (!response) break;
-				if (response.timeoutMs !== undefined && response.timeoutMs > 0) serverHint = response.timeoutMs;
+				if (response.timeoutMs !== undefined && response.timeoutMs > 0) {
+					hint = { hold, timeoutMs: response.timeoutMs };
+				}
 				if (isSessionExpired(response)) {
 					deps.onExpired();
 					return;
@@ -140,7 +145,7 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 				}
 				deps.onMessages(response.msgs);
 				deps.refreshLock();
-				deps.onPoll?.({ at: deps.now(), holdMs: serverHint ?? deps.holdMs() });
+				deps.onPoll?.({ at: deps.now(), holdMs: hint !== undefined && hint.hold === hold ? hint.timeoutMs : hold });
 			}
 		},
 	};

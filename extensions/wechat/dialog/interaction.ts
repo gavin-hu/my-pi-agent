@@ -167,6 +167,13 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 		},
 
 		async request(request: InteractionRequest, signal?: AbortSignal): Promise<InteractionAnswer> {
+			// A channel that was cancelled or went inactive has nobody left to answer,
+			// so it neither runs a prompt nor hands back a stashed reply: free text typed
+			// for a dialog that is gone must not answer the next one.
+			if (signal?.aborted || !this.isActive()) {
+				other = undefined;
+				return { kind: "cancelled" };
+			}
 			// A `select` that resolved to "Other" stashes its text; the immediately
 			// following `input` returns it without another round-trip.
 			const stashed = other;
@@ -176,7 +183,6 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 			}
 			if (request.kind !== "input") other = undefined;
 
-			if (signal?.aborted || !this.isActive()) return { kind: "cancelled" };
 			if (pending) return { kind: "cancelled" };
 
 			// Register the pending prompt before the send await so a fast reply is
@@ -199,8 +205,15 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 					}),
 				);
 			});
-			const sent = await deps.send(formatPrompt(request, { language: deps.language() }), signal);
-			if (!sent) settle({ kind: "cancelled" });
+			try {
+				if (!(await deps.send(formatPrompt(request, { language: deps.language() }), signal))) {
+					settle({ kind: "cancelled" });
+				}
+			} catch {
+				// A transport that throws is a prompt that never reached the peer: settle it,
+				// or the pending prompt eats the peer's next messages until the bound expires.
+				settle({ kind: "cancelled" });
+			}
 			return await answer;
 		},
 

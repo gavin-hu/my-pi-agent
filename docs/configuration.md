@@ -474,7 +474,7 @@ one port for every session.
 | `allowedPeers` | string[] | `[]` | | Extra peers allowed to drive the agent, by id or label; the owner is always allowed. |
 | `peers` | object | `{}` | | Per-peer overrides, keyed by peer id or label. |
 | `maxTurnsPerHour` | integer | `0` | `0`–`500` | Turns allowed per peer in a rolling hour; `0` disables the cap. |
-| `maxReplyChars` | integer | `4000` | `1`–`20000` | Replies longer than this are split into several messages. |
+| `maxReplyChars` | integer | `4000` | `1`–`20000` | Longest message a reply is split into; a split part's `[i/n] ` marker counts against it, and a limit under the marker's own width keeps one character per part. |
 | `botAgent` | string | `"pi-wechat"` | Up to 256 characters | Identifier sent as `base_info.bot_agent`. |
 | `channelVersion` | string | `"0.1.0"` | | Plugin version sent as `base_info.channel_version`. |
 | `cdnBaseUrl` | string | `"https://novac2c.cdn.weixin.qq.com/c2c"` | | Base URL for CDN media downloads and uploads; trailing slashes are stripped. |

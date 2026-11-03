@@ -23,6 +23,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: five small defects from the bug review. A long reply's chunks are cut in code points, so
+  a surrogate pair is never split across two messages, and an inbound truncation counts what it
+  shows the same way. A numbered part now budgets for its `[i/n] ` marker, so no delivered message
+  is `maxReplyChars + 6`. A dialog that was cancelled or went inactive no longer answers a later
+  `input` from the free text stashed for a `select`, and a prompt whose send throws settles instead
+  of leaving the peer's messages unanswered until the bound expires. A lowered `pollHoldMs` tightens
+  the poll watchdog again: the last server hint is used only for the hold it answered.
 - `wechat`: a `/stop` — `/wechat stop <peer>`, the peer's own `/stop`, or the control screen's key —
   that lands while that peer's session is still opening is taken instead of answered with “nothing
   is running”: the turn never starts, the peer hears one stopped line, and the intent is dropped if

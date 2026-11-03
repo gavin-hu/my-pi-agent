@@ -61,7 +61,46 @@ export function toWechatText(text: string): string {
 }
 
 /**
- * Split `text` into chunks of at most `max` characters, preferring a line break
+ * Whether `code` is a UTF-16 high surrogate, whose pair must stay with it.
+ * A lone half is not a character in any encoding.
+ */
+function isHighSurrogate(code: number): boolean {
+	return code >= 0xd800 && code <= 0xdbff;
+}
+
+/**
+ * The unit a `max`-wide window may end on without splitting a surrogate pair.
+ *
+ * A pair straddling the cut moves whole into the next piece. A one-unit window is
+ * the floor: there it takes the pair it starts on, because half of one is worse
+ * than one unit over.
+ */
+function cutUnit(text: string, max: number): number {
+	if (max <= 0 || !isHighSurrogate(text.charCodeAt(max - 1))) return max;
+	return max === 1 ? 2 : max - 1;
+}
+
+/**
+ * `text` cut to at most `max` code points, with the count it really has.
+ *
+ * Code points, not characters: a ZWJ sequence or a skin-tone modifier is several
+ * code points and can still be split between them, but a surrogate pair — one
+ * character in two units — is never cut in half.
+ */
+export function codePointSlice(text: string, max: number): { slice: string; total: number } {
+	let total = 0;
+	let end = text.length;
+	for (let index = 0; index < text.length; ) {
+		index += isHighSurrogate(text.charCodeAt(index)) && index + 1 < text.length ? 2 : 1;
+		total += 1;
+		if (total === max) end = index;
+	}
+	const slice = max <= 0 ? "" : total > max ? text.slice(0, end) : text;
+	return { slice, total };
+}
+
+/**
+ * Split `text` into chunks of at most `max` code points, preferring a line break
  * and never returning an empty chunk. A non-positive `max` returns the text whole.
  */
 export function chunkText(text: string, max: number): string[] {
@@ -70,7 +109,7 @@ export function chunkText(text: string, max: number): string[] {
 	let rest = text;
 	while (rest.length > max) {
 		let cut = rest.lastIndexOf("\n", max);
-		if (cut <= 0) cut = max;
+		if (cut <= 0) cut = cutUnit(rest, max);
 		const chunk = rest.slice(0, cut).trim();
 		if (chunk) chunks.push(chunk);
 		rest = rest.slice(cut).trim();

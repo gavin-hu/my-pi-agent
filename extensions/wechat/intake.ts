@@ -18,7 +18,7 @@ import type { Presence } from "./peer/presence.ts";
 import type { PeerChannels } from "./dialog/channels.ts";
 import { messageOf } from "./errors.ts";
 import { findPeer, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
-import { parseInbound, peerKey, peerLabel, peerLanguage, type PeerLanguage } from "./text/format.ts";
+import { codePointSlice, parseInbound, peerKey, peerLabel, peerLanguage, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
 import {
 	expandSnippet,
@@ -180,9 +180,13 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 		let text = rawText;
 		const cap = config.maxInboundChars;
 		if (text.length > cap) {
-			const total = text.length;
-			text = `${text.slice(0, cap)}\n[WeChat message truncated: showing ${cap} of ${total} characters]`;
-			notify(`WeChat message truncated to ${cap} characters.`, "warning");
+			// Counted and cut in code points: a unit count over-reports astral text and
+			// a unit cut can split a pair, so the note would name a character it broke.
+			const { slice, total } = codePointSlice(text, cap);
+			if (total > cap) {
+				text = `${slice}\n[WeChat message truncated: showing ${cap} of ${total} characters]`;
+				notify(`WeChat message truncated to ${cap} characters.`, "warning");
+			}
 		}
 
 		const now = deps.now();
