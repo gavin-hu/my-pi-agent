@@ -31,6 +31,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   mode, and `bold`, `italic`, `underline`, `inverse`, `strikethrough` and `style` returned an empty string
   instead of the text handed to them. `fg` and `bg` already returned the text and still do, with no escape
   sequence.
+- `wechat`: `credentials.json` can no longer read back as “not logged in” after an interrupted
+  write, so a cut-short login no longer costs a fresh QR scan: it is written `0600` through a
+  sibling temp file renamed over the old one, the same shape `state.json` took.
+- `lib`: `writeJsonFile` is the one atomic JSON write now — the two `wechat` files above, and
+  `writeConfigFile`, which still writes the same bytes. One body instead of a copy per caller.
 - `job`: a cleared job's log can no longer reappear. A rotation opens its next segment inside the
   close callback instead of on a later tick, so nothing is pending once the rename is done, and
   removing a job's files disposes its writer before unlinking them — the deferred open that
