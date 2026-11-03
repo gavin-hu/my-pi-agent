@@ -102,7 +102,7 @@ export function isWechatVerb(value: string): value is WechatVerb {
  * answer, and `login`/`logout` would drop the connection mid-turn.
  */
 function peerTurnRunning(deps: CommandDeps): boolean {
-	return deps.getBridge()?.status().running === true;
+	return deps.getBridge()?.status().turnsRunning === true;
 }
 
 /** Whether a peer turn currently blocks this verb, reported instead of running it. */
@@ -163,7 +163,7 @@ function cancelPromptMessage(bridge: Bridge, peer: string): VerbOutcome {
 
 /** Resume polling, unless it is not paused or the bridge will not start it. */
 async function resumeMessage(bridge: Bridge): Promise<VerbOutcome> {
-	if (!bridge.status().paused) return { message: "WeChat is not paused.", kind: "info" };
+	if (bridge.status().state !== "paused") return { message: "WeChat is not paused.", kind: "info" };
 	return (await bridge.resume())
 		? { message: "WeChat polling resumed.", kind: "info" }
 		: { message: "WeChat could not resume; check the terminal notice.", kind: "warning" };
@@ -171,7 +171,7 @@ async function resumeMessage(bridge: Bridge): Promise<VerbOutcome> {
 
 /** Pause polling, unless it is already paused or the bridge is not running. */
 async function pauseMessage(bridge: Bridge): Promise<VerbOutcome> {
-	if (bridge.status().paused) return { message: "WeChat is already paused.", kind: "warning" };
+	if (bridge.status().state === "paused") return { message: "WeChat is already paused.", kind: "warning" };
 	return (await bridge.pause())
 		? { message: "WeChat polling paused. Running turns may finish; no new messages will arrive.", kind: "info" }
 		: { message: "WeChat is not running.", kind: "warning" };
@@ -389,7 +389,8 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 						withBridge(
 							deps,
 							"WeChat bridge is not running.",
-							async (bridge) => (await (bridge.status().paused ? resumeMessage(bridge) : pauseMessage(bridge))).message,
+							async (bridge) =>
+								(await (bridge.status().state === "paused" ? resumeMessage(bridge) : pauseMessage(bridge))).message,
 						),
 				},
 				requestRender: () => tui.requestRender(),

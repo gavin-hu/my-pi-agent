@@ -51,7 +51,16 @@ export interface PeerRow {
 
 /** The connection word for a bridge status, or `closed` when there is none. */
 export function connectionOf(status: BridgeStatus | undefined): StatusConnection {
-	return status?.paused ? "paused" : status?.open ? "open" : status?.expired ? "expired" : "closed";
+	switch (status?.state) {
+		case "running":
+			return "open";
+		case "paused":
+			return "paused";
+		case "expired":
+			return "expired";
+		default:
+			return "closed";
+	}
 }
 
 /** Build the view from the stored account and the live bridge status. */

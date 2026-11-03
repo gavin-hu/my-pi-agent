@@ -80,16 +80,13 @@ export interface BridgeDeps {
 }
 
 export interface BridgeStatus {
-	open: boolean;
-	/** Whether the bridge stopped because the session expired and needs a re-login. */
-	expired: boolean;
-	/** Whether the operator paused polling; the account and peer sessions are kept. */
-	paused: boolean;
+	/** The connection state: stopped, polling, paused by the operator, or expired. */
+	state: BridgeState;
 	owner?: string;
 	peerCount: number;
 	queued: number;
-	/** Whether a turn is running right now. */
-	running: boolean;
+	/** Whether a peer turn is running right now; the bridge itself may be idle. */
+	turnsRunning: boolean;
 	/** One entry per peer that has work or a live session, for the control screen. */
 	peerStates: Array<{ peer: string; state: PeerState }>;
 	refused: number;
@@ -146,9 +143,7 @@ export interface Bridge {
 export function createBridge(deps: BridgeDeps): Bridge {
 	const sleep = deps.sleep ?? defaultSleep;
 	const armTimer = deps.armTimer ?? defaultTimer;
-	let running = false;
-	let paused = false;
-	let expired = false;
+	let connection: BridgeState = "stopped";
 	let startedAt: number | undefined;
 	let lastPollAt: number | undefined;
 	let lastPollError: string | undefined;
@@ -182,13 +177,11 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 	/** Report the current connection state to the host, for a status chip. */
 	function publishState(): void {
-		deps.onStateChange?.(running ? "running" : expired ? "expired" : paused ? "paused" : "stopped");
+		deps.onStateChange?.(connection);
 	}
 
 	function handleExpired(): void {
-		running = false;
-		paused = false;
-		expired = true;
+		connection = "expired";
 		// An expiry can be discovered by a send while the loop is parked in
 		// `getUpdates`; abort it so it cannot wake up beside a later `open()`.
 		abort?.abort();
@@ -269,7 +262,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		reply: (target, text) => reply(target, text),
 		enqueue: (item) => worker?.enqueue(item),
 		pruneTyping: () => presence.pruneTyping(),
-		isRunning: () => running,
+		isRunning: () => connection === "running",
 	});
 	/** The hourly turn budget and the serial admission chain. */
 	const budget = createTurnBudget(deps.config.maxTurnsPerHour, deps.now);
@@ -314,7 +307,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			for (const message of messages) intake.handleMessage(message);
 		},
 		refreshLock: deps.refreshLock,
-		isRunning: () => running,
+		isRunning: () => connection === "running",
 		pollTimeout,
 		now: deps.now,
 		onPoll: (result) => {
@@ -387,7 +380,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 	return {
 		open(): void {
-			if (running) return;
+			if (connection === "running") return;
 			// A run that expired keeps its worker (and therefore its peer sessions)
 			// and may still have a loop parked in `getUpdates`. Both are replaced
 			// here, so the old ones must stop first: otherwise two pollers share one
@@ -416,9 +409,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				state = { ...emptyState(), ownerId: loaded.ilinkUserId };
 				deps.saveState(state);
 			}
-			running = true;
-			paused = false;
-			expired = false;
+			connection = "running";
 			resetEphemeral();
 			startedAt = deps.now();
 			// One worker per connection: it owns the per-peer queues and sessions, so
@@ -457,9 +448,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 		close(): Promise<void> {
 			return serial(async () => {
-				running = false;
-				paused = false;
-				expired = false;
+				connection = "stopped";
 				const stopping = abort;
 				abort = undefined;
 				await stopLoop(stopping);
@@ -476,9 +465,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 		pause(): Promise<boolean> {
 			return serial(async () => {
-				if (!running) return false;
-				running = false;
-				paused = true;
+				if (connection !== "running") return false;
+				connection = "paused";
 				// Clear the abort controller before withdrawing the prompt: its send must
 				// not be cancelled by the poll abort that follows.
 				const stopping = abort;
@@ -495,13 +483,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 		resume(): Promise<boolean> {
 			return serial(async () => {
-				if (!paused || expired || !worker || !account) return false;
+				if (connection !== "paused" || !worker || !account) return false;
 				if (!deps.acquireLock()) {
 					notify("Another Pi session is already polling this WeChat account.", "warning");
 					return false;
 				}
-				paused = false;
-				running = true;
+				connection = "running";
 				startLoop();
 				publishState();
 				return true;
@@ -528,13 +515,11 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			const states = worker?.snapshot() ?? [];
 			return {
 				peerStates: states,
-				open: running,
-				expired,
-				paused,
+				state: connection,
 				owner: state.ownerId ?? account?.ilinkUserId,
 				peerCount: Object.keys(state.peers).length,
 				queued: states.reduce((total, entry) => total + entry.state.queued, 0),
-				running: states.some((entry) => entry.state.status === "running"),
+				turnsRunning: states.some((entry) => entry.state.status === "running"),
 				refused: refused.value,
 				refusedPeers: [...refusedPeers],
 				mediaDropped: inbound.dropped(),
@@ -555,7 +540,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		},
 
 		async sendToOwner(text: string | undefined, image?: string): Promise<SendResult> {
-			if (!running || !client || !account) return { ok: false, error: "WeChat bridge is not started." };
+			if (connection !== "running" || !client || !account) return { ok: false, error: "WeChat bridge is not started." };
 			const target = ownerTarget(state, account);
 			if (text !== undefined && worker?.state(target.peer).status === "running") {
 				// The bridge answers this turn itself, so a text send would land twice.

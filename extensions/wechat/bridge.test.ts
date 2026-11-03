@@ -140,9 +140,9 @@ describe("bridge lifecycle", () => {
 		bridge.open();
 		await bridge.close();
 		expect(released.count).toBe(1);
-		expect(bridge.status().open).toBe(false);
+		expect(bridge.status().state).toBe("stopped");
 		bridge.open();
-		expect(bridge.status().open).toBe(true);
+		expect(bridge.status().state).toBe("running");
 		await bridge.close();
 	});
 
@@ -153,9 +153,9 @@ describe("bridge lifecycle", () => {
 		bridge.open();
 		await bridge.shutdown();
 		await bridge.shutdown();
-		expect(bridge.status()).toMatchObject({ open: false, expired: false, paused: false });
+		expect(bridge.status().state).toBe("stopped");
 		bridge.open();
-		expect(bridge.status().open).toBe(true);
+		expect(bridge.status().state).toBe("running");
 		await bridge.close();
 	});
 
@@ -174,14 +174,14 @@ describe("bridge lifecycle", () => {
 		bridge.open();
 		await waitFor(() => bridge.status().peerStates.length === 1);
 		expect(await bridge.pause()).toBe(true);
-		expect(bridge.status()).toMatchObject({ open: false, paused: true });
+		expect(bridge.status().state).toBe("paused");
 		expect(released.count).toBe(1);
 		expect(states).toEqual(["running", "paused"]);
 		expect(await bridge.pause()).toBe(false);
 
 		const pollsBefore = calls.polls;
 		expect(await bridge.resume()).toBe(true);
-		expect(bridge.status()).toMatchObject({ open: true, paused: false });
+		expect(bridge.status().state).toBe("running");
 		await waitFor(() => calls.polls > pollsBefore);
 		expect(acquired).toBe(2);
 		expect(states).toEqual(["running", "paused", "running"]);
@@ -202,7 +202,7 @@ describe("bridge lifecycle", () => {
 		bridge.open();
 		expect(await bridge.pause()).toBe(true);
 		expect(await bridge.resume()).toBe(false);
-		expect(bridge.status()).toMatchObject({ open: false, paused: true });
+		expect(bridge.status().state).toBe("paused");
 		await bridge.close();
 	});
 
@@ -215,7 +215,7 @@ describe("bridge lifecycle", () => {
 		const resumed = bridge.resume();
 		expect(await paused).toBe(true);
 		expect(await resumed).toBe(true);
-		expect(bridge.status()).toMatchObject({ open: true, paused: false });
+		expect(bridge.status().state).toBe("running");
 		await bridge.close();
 	});
 
@@ -253,9 +253,9 @@ describe("bridge lifecycle", () => {
 		const { deps } = makeDeps(client, { onStateChange: (state) => states.push(state) });
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => bridge.status().expired);
+		await waitFor(() => bridge.status().state === "expired");
 		expect(states).toEqual(["running", "expired"]);
-		expect(bridge.status()).toMatchObject({ open: false, expired: true });
+		expect(bridge.status().state).toBe("expired");
 		await bridge.close();
 	});
 
@@ -265,9 +265,9 @@ describe("bridge lifecycle", () => {
 		const { deps } = makeDeps(client, { onStateChange: (state) => states.push(state) });
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => bridge.status().expired);
+		await waitFor(() => bridge.status().state === "expired");
 		bridge.open();
-		expect(bridge.status()).toMatchObject({ open: true, expired: false });
+		expect(bridge.status().state).toBe("running");
 		expect(states).toEqual(["running", "expired", "running"]);
 		await bridge.close();
 	});
@@ -278,10 +278,10 @@ describe("bridge lifecycle", () => {
 		const { deps } = makeDeps(client, { onStateChange: (state) => states.push(state) });
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => bridge.status().expired);
+		await waitFor(() => bridge.status().state === "expired");
 		await bridge.close();
 		expect(states).toEqual(["running", "expired", "stopped"]);
-		expect(bridge.status().expired).toBe(false);
+		expect(bridge.status().state).toBe("stopped");
 	});
 
 	test("a reopen after an expiry releases the old worker's sessions", async () => {
@@ -294,13 +294,13 @@ describe("bridge lifecycle", () => {
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => peers.length === 1 && (peers[0]?.prompts.length ?? 0) === 1);
-		await waitFor(() => bridge.status().expired);
+		await waitFor(() => bridge.status().state === "expired");
 
 		// The turn was still running when the token expired. Reopening replaces the
 		// worker, so the old session must be disposed and the old loop must not wake.
 		bridge.open();
 		await waitFor(() => peers[0]?.disposed() === 1);
-		expect(bridge.status().open).toBe(true);
+		expect(bridge.status().state).toBe("running");
 
 		// The new connection serves the next message with a fresh session.
 		await waitFor(() => peers.length === 2 && (peers[1]?.prompts.length ?? 0) === 1);
@@ -318,7 +318,7 @@ describe("bridge lifecycle", () => {
 		const { deps } = makeDeps(client);
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => bridge.status().refused === 1 && bridge.status().expired);
+		await waitFor(() => bridge.status().refused === 1 && bridge.status().state === "expired");
 		bridge.open();
 		expect(bridge.status().refused).toBe(0);
 		await bridge.close();

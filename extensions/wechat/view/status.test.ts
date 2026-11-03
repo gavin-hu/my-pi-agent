@@ -160,9 +160,9 @@ describe("connectionOf", () => {
 	});
 
 	test("reports open, paused, and the persistent expired state", () => {
-		expect(connectionOf(bridgeStatus({ open: true }))).toBe("open");
-		expect(connectionOf(bridgeStatus({ expired: true }))).toBe("expired");
-		expect(connectionOf(bridgeStatus({ paused: true }))).toBe("paused");
+		expect(connectionOf(bridgeStatus({ state: "running" }))).toBe("open");
+		expect(connectionOf(bridgeStatus({ state: "expired" }))).toBe("expired");
+		expect(connectionOf(bridgeStatus({ state: "paused" }))).toBe("paused");
 	});
 });
 
@@ -171,7 +171,7 @@ describe("statusView", () => {
 		const built = statusView(
 			screenAccount,
 			bridgeStatus({
-				open: true,
+				state: "running",
 				owner: "owner@im.wechat",
 				peerCount: 2,
 				queued: 1,
@@ -580,13 +580,11 @@ const doctorAccount: BotCredentials = {
 
 function doctorStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 	return {
-		open: true,
-		expired: false,
-		paused: false,
+		state: "running",
 		owner: "owner@im.wechat",
 		peerCount: 1,
 		queued: 2,
-		running: true,
+		turnsRunning: true,
 		peerStates: [
 			{
 				peer: "alice@im.wechat",
@@ -648,7 +646,7 @@ describe("doctorReport", () => {
 
 	test("treats a paused bridge as resumable", () => {
 		const text = doctorReport({
-			status: doctorStatus({ open: false, paused: true, peerStates: [], queued: 0, lock: undefined }),
+			status: doctorStatus({ state: "paused", peerStates: [], queued: 0, lock: undefined }),
 			account: doctorAccount,
 			config: DEFAULT_CONFIG,
 			now: doctorNow,
@@ -659,7 +657,7 @@ describe("doctorReport", () => {
 
 	test("treats an expired bridge as needing a login", () => {
 		const text = doctorReport({
-			status: doctorStatus({ open: false, expired: true, peerStates: [], queued: 0, lock: undefined }),
+			status: doctorStatus({ state: "expired", peerStates: [], queued: 0, lock: undefined }),
 			account: doctorAccount,
 			config: DEFAULT_CONFIG,
 			now: doctorNow,

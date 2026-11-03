@@ -244,7 +244,7 @@ describe("finishLogin", () => {
 	});
 
 	test("stops a running poller before opening with the new credentials", async () => {
-		const { deps, events } = harness({ status: bridgeStatus({ open: true }) });
+		const { deps, events } = harness({ status: bridgeStatus({ state: "running" }) });
 		const { ctx } = fakeCtx();
 		await finishLogin({ kind: "confirmed", account }, ctx, deps);
 		// `open()` is a no-op while a bridge runs, so a scan has to close it first.
@@ -353,7 +353,7 @@ describe("/wechat new", () => {
 
 	test("declines while a peer turn runs", async () => {
 		let started = 0;
-		const { deps } = harness({ status: bridgeStatus({ open: true, running: true }) });
+		const { deps } = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
 		const { ctx, notices } = fakeCtx({
 			extra: {
 				newSession: async () => {
@@ -489,7 +489,7 @@ describe("/wechat pause and resume", () => {
 		expect(paused.events).toEqual(["pause"]);
 		expect(notices.at(-1)?.message).toContain("paused");
 
-		const resumed = harness({ status: bridgeStatus({ paused: true }), resume: true });
+		const resumed = harness({ status: bridgeStatus({ state: "paused" }), resume: true });
 		const resumedCtx = fakeCtx();
 		await handler(resumed.deps)("resume", resumedCtx.ctx);
 		expect(resumed.events).toEqual(["resume"]);
@@ -519,7 +519,7 @@ describe("/wechat pause and resume", () => {
 
 describe("/wechat doctor", () => {
 	test("prints a health report", async () => {
-		const { deps } = harness({ status: bridgeStatus({ open: true, lastPollAt: 500, lock: { pid: 1, at: 1 } }) });
+		const { deps } = harness({ status: bridgeStatus({ state: "running", lastPollAt: 500, lock: { pid: 1, at: 1 } }) });
 		const { ctx, notices } = fakeCtx();
 		await handler(deps)("doctor", ctx);
 		const text = notices.at(-1)?.message ?? "";
@@ -611,7 +611,7 @@ describe("peer controls", () => {
  */
 describe("the /wechat command during a WeChat turn", () => {
 	test("prints the one-line summary instead of opening the control screen", async () => {
-		const { deps } = harness({ status: bridgeStatus({ open: true, running: true }) });
+		const { deps } = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
 		const { ctx, notifications, customCalls } = fakeCtx({ custom: "close" });
 		await handler(deps)("status", ctx);
 		expect(customCalls).toEqual([]);
@@ -619,7 +619,7 @@ describe("the /wechat command during a WeChat turn", () => {
 	});
 
 	test("declines logout before asking for a confirmation", async () => {
-		const { deps, logouts } = harness({ status: bridgeStatus({ open: true, running: true }) });
+		const { deps, logouts } = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
 		const { ctx, notices, confirms } = fakeCtx({ hasUI: true, confirm: true });
 		await handler(deps)("logout", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
@@ -630,7 +630,7 @@ describe("the /wechat command during a WeChat turn", () => {
 
 	test("declines new instead of replacing the session under the turn", async () => {
 		let started = 0;
-		const { deps } = harness({ status: bridgeStatus({ open: true, running: true }) });
+		const { deps } = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
 		const { ctx, notices } = fakeCtx({
 			extra: {
 				newSession: async () => {
@@ -645,7 +645,7 @@ describe("the /wechat command during a WeChat turn", () => {
 	});
 
 	test("declines login before fetching a QR code", async () => {
-		const { deps } = harness({ status: bridgeStatus({ open: true, running: true }) });
+		const { deps } = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
 		const { ctx, notices } = fakeCtx();
 		// The harness login client throws, so reaching it would fail this test.
 		await handler(deps)("login", ctx);
@@ -654,7 +654,7 @@ describe("the /wechat command during a WeChat turn", () => {
 	});
 
 	test("opens the control screen again once the peer turn settles", async () => {
-		const running = bridgeStatus({ open: true, running: true });
+		const running = bridgeStatus({ state: "running", turnsRunning: true });
 		const { deps } = harness({ status: running });
 		const { ctx, customCalls } = fakeCtx({ custom: "close" });
 		const command = handler(deps);
@@ -662,7 +662,7 @@ describe("the /wechat command during a WeChat turn", () => {
 		expect(customCalls).toEqual([]);
 
 		// The bridge reports the turn gone; the next `/wechat` is local again.
-		running.running = false;
+		running.turnsRunning = false;
 		await command("status", ctx);
 		expect(customCalls.length).toBe(1);
 	});

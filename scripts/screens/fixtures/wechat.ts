@@ -18,10 +18,8 @@ export const WECHAT_ACCOUNT: BotCredentials = {
 	createdAt: now - 9 * 24 * 60 * 60_000,
 };
 export const WECHAT_BRIDGE: BridgeStatus = {
-	open: true,
-	expired: false,
-	paused: false,
-	running: true,
+	state: "running",
+	turnsRunning: true,
 	owner: "owner@im.wechat",
 	peerCount: 3,
 	queued: 2,

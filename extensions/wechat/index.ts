@@ -187,7 +187,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	const autoStart = async (ctx: ExtensionContext): Promise<void> => {
 		if (ctx.mode !== "tui" && ctx.mode !== "rpc") return;
 		if (!primaryAccount()) return;
-		if (bridge?.status().open || bridge?.status().paused) return;
+		if (bridge?.status().state === "running" || bridge?.status().state === "paused") return;
 		try {
 			(bridge ?? (await ensure(ctx))).open();
 		} catch (error) {
