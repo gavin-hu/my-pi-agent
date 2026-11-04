@@ -33,17 +33,17 @@ describe("a poller that lost its lock", () => {
 		void bridge.close();
 	});
 
-	test("leaves nothing to pause, so the way back is an open that takes the lock", async () => {
+	test("reopens only through an open that takes the lock back", async () => {
 		const { client } = makeClient([]);
 		const { deps } = makeDeps(client, { refreshLock: () => false });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await settle();
 
-		// Pause and resume belong to a bridge that was polling: this one stopped, so
-		// only an open — which reacquires the lock, or refuses — can start it again.
-		expect(await bridge.pause()).toBe(false);
-		expect(await bridge.resume()).toBe(false);
+		// The stopped bridge has no loop and no worker, so there is nothing to resume:
+		// a start is an open, which reacquires the lock or refuses.
+		expect(bridge.status().state).toBe("stopped");
+		expect(bridge.status().turnsRunning).toBe(false);
 		void bridge.close();
 	});
 });

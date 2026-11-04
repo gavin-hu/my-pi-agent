@@ -1,32 +1,19 @@
 /**
- * The wechat extension's Pi integration: the registration gate, the status chip,
- * and the bridge lifecycle — one poller per runtime, opened when an account is
- * stored, answering inbound turns in the peer's own session, and released on
- * shutdown.
+ * The wechat extension's Pi registration: the gate, the command and tool it
+ * registers, when the bridge module loads, and the status chip it publishes.
  *
- * The transport, the sleep, and the peer session are the extension's own seams,
- * so the real bridge runs here without a network, a real timer, or a model.
+ * The bridge lifecycle itself is `lifecycle.test.ts`: this suite never opens a
+ * poller, so a registration regression is not buried in a network-free bridge run.
  */
 
 import { describe, expect, test } from "bun:test";
-import { isRemoteTurn } from "../../lib/interaction.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { coloringTheme, createFakePi, emit } from "../../test/helpers/fakes.ts";
-import {
-	ACCOUNT,
-	fakePeerSession,
-	fakeWechatClient,
-	inboundText,
-	updates,
-	writeAccount,
-} from "../../test/helpers/fixtures/wechat.ts";
-import { saveAccount } from "./state/credentials.ts";
-import { settle, waitFor } from "../../test/helpers/process.ts";
+import { writeAccount } from "../../test/helpers/fixtures/wechat.ts";
 import wechat, { wechatChip } from "./index.ts";
-import type { PeerSession } from "./peer/peer-session.ts";
 
 describe("wechat registration", () => {
 	test("registers the /wechat command and the send_wechat tool", () => {
@@ -36,8 +23,9 @@ describe("wechat registration", () => {
 		expect(fake.tools.has("send_wechat")).toBe(true);
 	});
 
-	test("loads the bridge only when an account is stored", async () => {
-		await withAgentDir(async () => {
+	test("loads the bridge only when a session starts it", async () => {
+		await withAgentDir(async (dir) => {
+			writeAccount(dir);
 			let loads = 0;
 			const fake = createFakePi();
 			wechat(fake.pi, {
@@ -47,11 +35,13 @@ describe("wechat registration", () => {
 				},
 			});
 			const { ctx } = fakeCtx({ mode: "rpc" });
+			// A stored account is not a start: the frame and a status read reach nothing.
 			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
 			await fake.commands.get("wechat").handler("status", ctx);
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-			// No account, so nothing a session start or a command does reaches the module.
 			expect(loads).toBe(0);
+			await fake.commands.get("wechat").handler("start", ctx);
+			expect(loads).toBe(1);
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 		});
 	});
 
@@ -91,270 +81,6 @@ describe("wechat registration", () => {
 	test("renders a chip for every bridge state, persistent for an expiry", () => {
 		expect(wechatChip(coloringTheme, "running")).toBe(`[success]${GLYPHS.wechat} wechat`);
 		expect(wechatChip(coloringTheme, "expired")).toBe(`[error]${GLYPHS.wechat} wechat expired`);
-		expect(wechatChip(coloringTheme, "paused")).toBe(`[warning]${GLYPHS.wechat} wechat paused`);
 		expect(wechatChip(coloringTheme, "stopped")).toBeUndefined();
-	});
-});
-
-describe("wechat lifecycle", () => {
-	async function start(dir: string, script = [updates()], answer = "hi from pi") {
-		const fake = createFakePi();
-		const client = fakeWechatClient(script);
-		const peers = fakePeerSession(answer);
-		wechat(fake.pi, { createClient: client.createClient, sleep: client.sleep, openSession: peers.openSession });
-		const result = fakeCtx({ mode: "rpc", cwd: dir });
-		await emit(fake.pi, "session_start", { type: "session_start" }, result.ctx);
-		// The start is deferred off the frame, so wait for the bridge it opened.
-		await waitFor(() => client.clients() > 0);
-		return { fake, client, peers, ...result };
-	}
-
-	test("connects a stored account on session_start", async () => {
-		await withAgentDir(async (dir) => {
-			writeAccount(dir);
-			const { fake, ctx, notifications } = await start(dir);
-
-			await fake.commands.get("wechat").handler("status", ctx);
-			expect(notifications.join("\n")).toContain("open");
-
-			const tool = fake.tools.get("send_wechat");
-			const result = await tool.execute("id", { text: "hi" }, undefined, undefined, ctx);
-			expect(result.content[0].text).toBe("Sent to the WeChat owner.");
-
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-		});
-	});
-
-	test("closes the bridge a start in flight opens after the shutdown", async () => {
-		await withAgentDir(async (dir) => {
-			writeAccount(dir);
-			const fake = createFakePi();
-			const client = fakeWechatClient();
-			wechat(fake.pi, {
-				createClient: client.createClient,
-				sleep: client.sleep,
-				openSession: fakePeerSession("hi").openSession,
-			});
-			const { ctx } = fakeCtx({ mode: "rpc", cwd: dir });
-
-			// A session that ends before its deferred start finishes: shutdown waits for the
-			// open and then closes it, so nothing is left polling a dead runtime.
-			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-			await waitFor(() => client.aborts() > 0);
-			expect(client.clients()).toBe(1);
-		});
-	});
-
-	test("a send_wechat call joins the deferred start instead of missing the bridge", async () => {
-		await withAgentDir(async (dir) => {
-			writeAccount(dir);
-			const fake = createFakePi();
-			const client = fakeWechatClient();
-			wechat(fake.pi, {
-				createClient: client.createClient,
-				sleep: client.sleep,
-				openSession: fakePeerSession("hi").openSession,
-			});
-			const { ctx } = fakeCtx({ mode: "rpc", cwd: dir });
-
-			// The frame is back while the start is still opening; the tool is a reader of it.
-			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
-			const tool = fake.tools.get("send_wechat");
-			const result = await tool.execute("id", { text: "hello" }, undefined, undefined, ctx);
-			expect(result.content[0].text).toBe("Sent to the WeChat owner.");
-			expect(client.sent[0]?.text).toBe("hello");
-
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-		});
-	});
-
-	test("keeps one poller when session_start is emitted twice", async () => {
-		await withAgentDir(async (dir) => {
-			writeAccount(dir);
-			const { fake, client, ctx } = await start(dir);
-
-			// RPC binds the session twice on a session switch. The start is deferred, so the
-			// tool is what joins it: it returns once that start has settled, which is the
-			// point a second poller would have been running.
-			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
-			const tool = fake.tools.get("send_wechat");
-			await tool.execute("id", { text: "hi" }, undefined, undefined, ctx);
-			expect(client.clients()).toBe(1);
-
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-		});
-	});
-
-	test("answers an inbound message in the peer's own session", async () => {
-		await withAgentDir(async (dir) => {
-			writeAccount(dir);
-			const { fake, client, ctx } = await start(dir, [updates([inboundText("hello")])]);
-
-			// The inbound message runs in the peer's own session, so the host
-			// transcript never sees it.
-			await waitFor(() => client.sent.length === 1);
-			expect(client.sent[0]).toMatchObject({ to: "owner@im.wechat", text: "hi from pi" });
-			expect(fake.sentMessages).toEqual([]);
-
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-		});
-	});
-
-	test("opens the account the most recent login confirmed", async () => {
-		await withAgentDir(async (dir) => {
-			const first = { ...ACCOUNT, ilinkBotId: "bot-a", ilinkUserId: "alice@im.wechat", baseUrl: "https://a" };
-			const second = { ...ACCOUNT, ilinkBotId: "bot-b", ilinkUserId: "bob@im.wechat", baseUrl: "https://b" };
-			writeAccount(dir, first);
-			// A later login as another account switches the bridge, even though the
-			// first account is still stored.
-			saveAccount(second);
-			const { fake, client, ctx } = await start(dir);
-			expect(client.baseUrls()).toEqual(["https://b"]);
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-		});
-	});
-
-	test("keeps the terminal's dialogs local while a peer turn runs", async () => {
-		await withAgentDir(async (dir) => {
-			writeAccount(dir);
-			const fake = createFakePi();
-			const client = fakeWechatClient([updates([inboundText("hello")])]);
-			let release!: () => void;
-			const held = new Promise<void>((resolve) => {
-				release = resolve;
-			});
-			const session = {
-				async prompt(): Promise<void> {
-					await held;
-				},
-				getLastAssistantText: () => "",
-				subscribe: () => () => {},
-				async abort(): Promise<void> {
-					release();
-				},
-				dispose(): void {},
-			};
-			wechat(fake.pi, {
-				createClient: client.createClient,
-				sleep: client.sleep,
-				openSession: async () => ({ session, dispose: () => {} }) as unknown as PeerSession,
-			});
-			const { ctx, notifications, selects } = fakeCtx({ mode: "tui", cwd: dir, hasUI: true, select: "local" });
-			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
-			await waitFor(() => client.polls() >= 1);
-
-			// The peer turn is in flight: the control screen's summary says so.
-			const command = fake.commands.get("wechat").handler;
-			let summary = "";
-			for (let attempt = 0; attempt < 50 && !summary.includes("running"); attempt++) {
-				await command("status", ctx);
-				summary = notifications.at(-1) ?? "";
-				if (!summary.includes("running")) await settle();
-			}
-			expect(summary, "the peer turn should be running").toContain("running");
-
-			// The host UI is not adapted to the peer's channel: a terminal dialog
-			// stays in the terminal instead of being answered on the phone.
-			expect(isRemoteTurn({ ui: ctx.ui })).toBe(false);
-			expect(await ctx.ui.select("Pick", ["A", "B"])).toBe("local");
-			expect(selects).toHaveLength(1);
-
-			release();
-			// The held turn produced no text, so the bridge sends its noText fallback.
-			await waitFor(() => client.sent.length === 1);
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-		});
-	});
-
-	test("stops polling and clears its handles on session_shutdown", async () => {
-		await withAgentDir(async (dir) => {
-			writeAccount(dir);
-			const { fake, client, ctx, statuses } = await start(dir);
-			await waitFor(() => client.polls() >= 1);
-			expect(statuses.get("wechat")).toContain("wechat");
-			const polls = client.polls();
-
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-			expect(client.aborts()).toBe(1);
-			expect(client.polls()).toBe(polls);
-			expect(statuses.get("wechat")).toBeUndefined();
-
-			// A second shutdown (reload, replacement, process exit) must not throw.
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-		});
-	});
-
-	test("clears the bridge when the account is logged out", async () => {
-		await withAgentDir(async (dir) => {
-			writeAccount(dir);
-			const fake = createFakePi();
-			const client = fakeWechatClient([updates()]);
-			wechat(fake.pi, { createClient: client.createClient, sleep: client.sleep });
-			const { ctx, notices } = fakeCtx({ mode: "rpc", cwd: dir, hasUI: true, confirm: true });
-			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
-			await waitFor(() => client.polls() >= 1);
-
-			await fake.commands.get("wechat").handler("logout", ctx);
-			expect(client.aborts()).toBe(1);
-			expect(notices.at(-1)?.message).toBe("WeChat logged out.");
-
-			// The account is the on/off switch: the summary must report neither the
-			// old account nor the old bridge's owner and counters.
-			await fake.commands.get("wechat").handler("status", ctx);
-			const summary = notices.at(-1)?.message ?? "";
-			expect(summary).toContain("not logged in");
-			expect(summary).toContain("closed");
-			expect(summary).not.toContain("peer(s)");
-			expect(summary).not.toContain("owner");
-
-			const tool = fake.tools.get("send_wechat");
-			const result = await tool.execute("id", { text: "hi" }, undefined, undefined, ctx);
-			expect(result.content[0].text).toContain("not started");
-
-			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
-		});
-	});
-
-	test("reconnects on the replacement runtime after a session switch", async () => {
-		await withAgentDir(async (dir) => {
-			writeAccount(dir);
-			// One runtime drains its loop, so each replacement gets its own transport.
-			const first = fakeWechatClient([updates([inboundText("first")])]);
-			const second = fakeWechatClient([updates([inboundText("second")])]);
-
-			// The host re-runs the factory for the new session, after shutdown.
-			const before = createFakePi();
-			wechat(before.pi, {
-				createClient: first.createClient,
-				sleep: first.sleep,
-				openSession: fakePeerSession("answered before").openSession,
-			});
-			const beforeCtx = fakeCtx({ mode: "rpc", cwd: dir });
-			await emit(before.pi, "session_start", { type: "session_start" }, beforeCtx.ctx);
-			await waitFor(() => first.sent.length === 1);
-			await emit(before.pi, "session_shutdown", { type: "session_shutdown" }, beforeCtx.ctx);
-
-			const after = createFakePi();
-			wechat(after.pi, {
-				createClient: second.createClient,
-				sleep: second.sleep,
-				openSession: fakePeerSession("reconnected").openSession,
-			});
-			const afterCtx = fakeCtx({ mode: "rpc", cwd: dir });
-			await emit(after.pi, "session_start", { type: "session_start" }, afterCtx.ctx);
-			await waitFor(() => second.clients() > 0);
-
-			expect(first.sent[0]?.text).toBe("answered before");
-			expect(first.clients()).toBe(1);
-			expect(second.clients()).toBe(1);
-
-			// The new runtime answers in its own peer session, not the host's.
-			await waitFor(() => second.sent.length === 1);
-			expect(second.sent[0]?.text).toBe("reconnected");
-			expect(after.sentMessages).toEqual([]);
-
-			await emit(after.pi, "session_shutdown", { type: "session_shutdown" }, afterCtx.ctx);
-		});
 	});
 });

@@ -1,9 +1,12 @@
 /**
  * Reading and writing `<agent-dir>/wechat/credentials.json`.
  *
- * The file is written `0600` and holds one entry per bot account, keyed by
- * `ilinkBotId`. Malformed or partial entries are dropped on read rather than
- * trusted, so a corrupt file degrades to "not logged in".
+ * The file is written `0600` and holds one bot account: the account a session
+ * binds to with `/wechat start`. A file an older version wrote as a map of
+ * accounts is read as the one it was polling (its `activeAccount`, else its
+ * first entry), and the rewrite that drops the rest is `migrateCredentials`.
+ * Malformed or partial entries are dropped on read rather than trusted, so a
+ * corrupt file degrades to "not logged in".
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -39,27 +42,46 @@ function normalizeAccount(value: unknown): BotCredentials | undefined {
 	};
 }
 
+/**
+ * The key an account is stored under and a session binds to.
+ *
+ * `ilinkBotId` is the server's own bot identity; the user id is the fallback for
+ * an account a login response named without one.
+ */
+export function accountKey(account: BotCredentials): string {
+	return account.ilinkBotId || account.ilinkUserId;
+}
+
+/** The first well-formed account in a legacy map, so a broken active pointer still degrades. */
+function firstAccount(entries: Record<string, unknown>): BotCredentials | undefined {
+	for (const value of Object.values(entries)) {
+		const account = normalizeAccount(value);
+		if (account) return account;
+	}
+	return undefined;
+}
+
+/** The one account a pre-single-account file was polling. */
+function legacyAccount(raw: Record<string, unknown>): CredentialsFile {
+	const accounts = raw.accounts;
+	if (!accounts || typeof accounts !== "object" || Array.isArray(accounts)) return {};
+	const entries = accounts as Record<string, unknown>;
+	const active = typeof raw.activeAccount === "string" ? entries[raw.activeAccount] : undefined;
+	const chosen = normalizeAccount(active) ?? firstAccount(entries);
+	return chosen === undefined ? {} : { account: chosen };
+}
+
 /** Read and validate a credentials file; a missing/corrupt file yields none. */
 export function readCredentials(path: string): CredentialsFile {
 	try {
-		if (!existsSync(path)) return { accounts: {} };
+		if (!existsSync(path)) return {};
 		const parsed = JSON.parse(readFileSync(path, "utf-8"));
-		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { accounts: {} };
-		const rawAccounts = (parsed as Record<string, unknown>).accounts;
-		if (!rawAccounts || typeof rawAccounts !== "object" || Array.isArray(rawAccounts)) return { accounts: {} };
-		const accounts: Record<string, BotCredentials> = {};
-		for (const [id, value] of Object.entries(rawAccounts as Record<string, unknown>)) {
-			const account = normalizeAccount(value);
-			if (account) accounts[id] = account;
-		}
-		// A pointer to an entry this read dropped (corrupt, or edited by hand) is
-		// ignored, so the caller falls back to the first account instead of failing.
-		const rawActive = (parsed as Record<string, unknown>).activeAccount;
-		const activeAccount =
-			typeof rawActive === "string" && rawActive !== "" && Object.hasOwn(accounts, rawActive) ? rawActive : undefined;
-		return activeAccount === undefined ? { accounts } : { accounts, activeAccount };
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+		const raw = parsed as Record<string, unknown>;
+		const account = normalizeAccount(raw.account);
+		return account ? { account } : legacyAccount(raw);
 	} catch {
-		return { accounts: {} };
+		return {};
 	}
 }
 
@@ -67,36 +89,49 @@ export function readCredentials(path: string): CredentialsFile {
  * Write a credentials file by the one atomic JSON write, mode `0600`.
  *
  * The mode is on the temp file, so the rename publishes a private file: a torn
- * write here would parse as no accounts at all, and the user would pay a fresh QR
+ * write here would parse as no account at all, and the user would pay a fresh QR
  * scan to get back in.
  */
 export function writeCredentials(path: string, file: CredentialsFile): void {
 	writeJsonFile(path, file, { mode: 0o600 });
 }
 
-/** Store or replace one account and make it the active one. */
+/** Store the account, replacing whatever was stored before it. */
 export function saveAccount(account: BotCredentials, path = credentialsPath()): void {
-	const file = readCredentials(path);
-	const key = account.ilinkBotId || account.ilinkUserId;
-	file.accounts[key] = account;
-	// The login that just confirmed this account is authoritative, even when other
-	// accounts are still stored: without the pointer, the next open would keep
-	// polling the first account in the file.
-	file.activeAccount = key;
-	writeCredentials(path, file);
+	writeCredentials(path, { account });
 }
 
-/** Remove every stored account (used by `/wechat logout`). */
+/** Remove the stored account (used by `/wechat logout`). */
 export function clearCredentials(path = credentialsPath()): void {
-	writeCredentials(path, { accounts: {} });
+	writeCredentials(path, {});
+}
+
+/** The account the bridge should run, if one is stored. */
+export function storedAccount(path = credentialsPath()): BotCredentials | undefined {
+	return readCredentials(path).account;
 }
 
 /**
- * The account the bridge should run: the last confirmed login, else the first
- * stored one (a file written before `activeAccount` existed).
+ * Rewrite a file an older version wrote as an account map down to the one account
+ * it was polling, dropping the others.
+ *
+ * The read above stays pure, so this one-time write belongs to a session's start
+ * rather than to every read. Returns whether it wrote.
  */
-export function primaryAccount(path = credentialsPath()): BotCredentials | undefined {
-	const file = readCredentials(path);
-	const active = file.activeAccount === undefined ? undefined : file.accounts[file.activeAccount];
-	return active ?? Object.values(file.accounts)[0];
+export function migrateCredentials(path = credentialsPath()): boolean {
+	if (!hasAccountMap(path)) return false;
+	writeCredentials(path, readCredentials(path));
+	return true;
+}
+
+/** Whether the file still carries the account map an older version wrote. */
+function hasAccountMap(path: string): boolean {
+	try {
+		if (!existsSync(path)) return false;
+		const parsed = JSON.parse(readFileSync(path, "utf-8"));
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+		return (parsed as Record<string, unknown>).accounts !== undefined;
+	} catch {
+		return false;
+	}
 }

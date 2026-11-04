@@ -556,7 +556,7 @@ Do not set those by hand: they describe the session to its child processes.
 ## State
 
 The `wechat` extension keeps runtime state under `<agent-dir>/wechat/`:
-`credentials.json` (mode `0600`, every stored account plus the active one),
+`credentials.json` (mode `0600`, the one stored account this bridge runs),
 `state.json` (the poll cursor, the owner, per-peer reply tokens, and the recent
 message ids used to ignore a replay), `media/` (downloaded inbound files), and
 `poller.lock` (one runtime owns the account at a time). This is login and runtime

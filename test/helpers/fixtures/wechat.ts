@@ -13,6 +13,10 @@
 import type { BridgeStatus } from "../../../extensions/wechat/bridge.ts";
 
 import { mkdirSync, writeFileSync } from "node:fs";
+import { type FakeCtxOptions, fakeCtx } from "../context.ts";
+import { createFakePi, emit } from "../fakes.ts";
+import { waitFor } from "../process.ts";
+import wechat from "../../../extensions/wechat/index.ts";
 import { join } from "node:path";
 import type { WechatClient, WechatClientOptions } from "../../../extensions/wechat/transport/client.ts";
 import type { PeerSession, PeerSessionOptions } from "../../../extensions/wechat/peer/peer-session.ts";
@@ -133,15 +137,11 @@ export function fakeWechatClient(script: UpdatesResponse[] = []): FakeWechatClie
 	};
 }
 
-/** Write a stored account as an older `/wechat login` would: no active pointer. */
+/** Write a stored account the way a confirmed `/wechat login` writes it: one account. */
 export function writeAccount(dir: string, account: BotCredentials = ACCOUNT): BotCredentials {
 	const wechat = join(dir, "wechat");
 	mkdirSync(wechat, { recursive: true });
-	writeFileSync(
-		join(wechat, "credentials.json"),
-		`${JSON.stringify({ accounts: { [account.ilinkBotId || account.ilinkUserId]: account } }, null, 2)}\n`,
-		"utf-8",
-	);
+	writeFileSync(join(wechat, "credentials.json"), `${JSON.stringify({ account }, null, 2)}\n`, "utf-8");
 	return account;
 }
 
@@ -205,4 +205,41 @@ export function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatu
 		prompts: [],
 		...overrides,
 	};
+}
+
+/**
+ * The wechat extension over its own seams: a context, a scripted transport, and a
+ * peer session, with no bridge opened yet.
+ *
+ * `loadBridge` is the one seam a case holds: it defers the extension's own module
+ * graph, so a case can act while a hand start is still building.
+ */
+export function wechatExtension(
+	dir: string,
+	options: FakeCtxOptions & {
+		script?: Parameters<typeof fakeWechatClient>[0];
+		answer?: string;
+		loadBridge?: () => Promise<typeof import("../../../extensions/wechat/bridge.ts")>;
+	} = {},
+) {
+	const fake = createFakePi();
+	const client = fakeWechatClient(options.script ?? [updates()]);
+	const peers = fakePeerSession(options.answer ?? "hi from pi");
+	wechat(fake.pi, {
+		createClient: client.createClient,
+		sleep: client.sleep,
+		openSession: peers.openSession,
+		loadBridge: options.loadBridge,
+	});
+	const result = fakeCtx({ mode: "rpc", cwd: dir, ...options });
+	return { fake, client, peers, ...result };
+}
+
+/** Open the bridge by hand, as `/wechat start` does, and wait for its poller. */
+export async function startWechat(dir: string, options: Parameters<typeof wechatExtension>[1] = {}) {
+	const opened = wechatExtension(dir, options);
+	await emit(opened.fake.pi, "session_start", { type: "session_start" }, opened.ctx);
+	await opened.fake.commands.get("wechat").handler("start", opened.ctx);
+	await waitFor(() => opened.client.clients() > 0);
+	return opened;
 }

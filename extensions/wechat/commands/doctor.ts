@@ -39,12 +39,10 @@ const ago = (ms: number): string => `${formatDuration(ms)} ago`;
  */
 function connection(view: StatusView): string {
 	switch (view.connection) {
-		case "paused":
-			return "paused · run /wechat resume";
 		case "expired":
 			return "expired · run /wechat login";
 		case "closed":
-			return "closed";
+			return "closed · run /wechat start";
 		default: {
 			const owner = view.owner ?? "unclaimed";
 			const token = view.tokenAgeMs === undefined ? "unknown age" : `${formatDuration(view.tokenAgeMs)} old`;

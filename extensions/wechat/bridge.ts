@@ -41,7 +41,7 @@ import type { BotCredentials, WechatState } from "./types.ts";
 import type { WechatConfig } from "./config.ts";
 
 /** The bridge's connection state, published to the UI for the status chip. */
-export type BridgeState = "stopped" | "running" | "expired" | "paused";
+export type BridgeState = "stopped" | "running" | "expired";
 
 export interface BridgeDeps {
 	config: WechatConfig;
@@ -81,7 +81,7 @@ export interface BridgeDeps {
 }
 
 export interface BridgeStatus {
-	/** The connection state: stopped, polling, paused by the operator, or expired. */
+	/** The connection state: stopped, polling, or expired. */
 	state: BridgeState;
 	owner?: string;
 	peerCount: number;
@@ -120,10 +120,6 @@ export interface SendResult {
 export interface Bridge {
 	open(): void;
 	close(): Promise<void>;
-	/** Stop polling new messages; running turns may finish. False when not running. */
-	pause(): Promise<boolean>;
-	/** Reacquire the lock and start polling again. False when not paused or the lock is taken. */
-	resume(): Promise<boolean>;
 	shutdown(): Promise<void>;
 	/** Stop one peer's running turn; false when that peer is idle. */
 	stop(peer: string): boolean;
@@ -381,6 +377,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	/** Drop the worker and everything the connection accumulated, then publish it. */
 	async function dropConnection(): Promise<void> {
 		const closing = worker;
+		// A bridge that stops by hand withdraws a waiting prompt first, while the peer
+		// still has a running turn to send the notice to: otherwise the question is
+		// left half-asked by a session that is about to be disposed.
+		await channels.cancelAll();
 		worker = undefined;
 		await closing?.close({ abandon: true });
 		resetEphemeral();
@@ -388,9 +388,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	/**
-	 * Serialize lifecycle transitions. A pause and a resume from the control
-	 * screen, or a shutdown racing either, must not leave two poll loops or a
-	 * released lock behind a running bridge.
+	 * Serialize lifecycle transitions. A close from the control screen and a start
+	 * from the command, or a shutdown racing either, must not leave two poll loops
+	 * or a released lock behind a running bridge.
 	 */
 	let lifecycle: Promise<void> = Promise.resolve();
 	function serial<T>(work: () => Promise<T>): Promise<T> {
@@ -476,42 +476,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				const stopping = abort;
 				abort = undefined;
 				await stopLoop(stopping);
-				// A paused bridge has no loop and no abort controller but still owns a
-				// worker, so close it unconditionally rather than leaking the sessions.
 				await dropConnection();
 				releaseSafe();
-			});
-		},
-
-		pause(): Promise<boolean> {
-			return serial(async () => {
-				if (connection !== "running") return false;
-				connection = "paused";
-				// Clear the abort controller before withdrawing the prompt: its send must
-				// not be cancelled by the poll abort that follows.
-				const stopping = abort;
-				abort = undefined;
-				await channels.cancelAll();
-				await stopLoop(stopping);
-				// No poller means no lock to keep: another runtime may take the account
-				// while this one is paused. Resume reacquires it and reports a conflict.
-				releaseSafe();
-				publishState();
-				return true;
-			});
-		},
-
-		resume(): Promise<boolean> {
-			return serial(async () => {
-				if (connection !== "paused" || !worker || !account) return false;
-				if (!deps.acquireLock()) {
-					notify("Another Pi session is already polling this WeChat account.", "warning");
-					return false;
-				}
-				connection = "running";
-				startLoop();
-				publishState();
-				return true;
 			});
 		},
 
