@@ -63,6 +63,19 @@ describe("TailResult", () => {
 		expect(lines).toHaveLength(6);
 	});
 
+	test("draws a row that returns several lines, in a list and under a heading", () => {
+		const list = new TailResult<string>(
+			{ kind: "list", rows: ["a"], more: 0, rowLine: () => ["head", "body"] },
+			fakeTheme,
+		);
+		expect(list.render(40)).toEqual(["", "head", "body"]);
+		const headed = new TailResult<string>(
+			{ kind: "sections", sections: [{ label: "Mail", rows: ["a"], more: 0, rowLine: () => ["head", "body"] }] },
+			fakeTheme,
+		);
+		expect(headed.render(40)).toEqual(["", "Mail", "head", "body"]);
+	});
+
 	test("opens the first heading with no blank line above it, an empty first group included", () => {
 		const view = new TailResult<string>(
 			{

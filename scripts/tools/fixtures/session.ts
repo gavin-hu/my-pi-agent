@@ -1,8 +1,10 @@
 /**
- * The tools whose state the session owns: todo, goal, and memory.
+ * The session surfaces: the bus tool's six actions, a cancelled question, and the
+ * three tools whose state the session owns (todo, goal, memory).
  *
- * `question-cancelled` leads because a cancelled question is the
- * state those three share: the record stays, and the turn moved on.
+ * `question-cancelled` leads because a cancelled question is the state those three
+ * share: the record stays, and the turn moved on. Every bus action is here, because a
+ * block no fixture draws is a block no width contract and no gallery image covers.
  */
 
 import type { ToolFixture } from "./types.ts";
@@ -31,19 +33,21 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 	{
 		name: "session",
 		group: "package",
-		label: "the bus summary",
+		label: "the bus summary, read before this session joins",
 		args: { action: "status" },
 		result: {
-			content: [{ type: "text", text: "Sessions (2)\n- frontend\n- backend" }],
+			content: [{ type: "text", text: "Sessions (3)\n- frontend\n- emma\n- verify-billing" }],
 			details: {
 				action: "status",
 				status: {
 					me: { id: "s1", label: "frontend" },
+					onBus: false,
 					sessions: [
-						{ id: "s1", label: "frontend", cwd: "/repo/frontend", mode: "tui", unread: 0 },
-						{ id: "s2", label: "backend", cwd: "/repo/backend", mode: "tui", unread: 1 },
+						{ id: "s1", label: "frontend", cwd: "/repo/frontend", mode: "tui", unread: 0, state: "live" },
+						{ id: "s2", label: "emma", cwd: "/repo/backend", mode: "tui", unread: 1, state: "live" },
+						{ id: "s3", label: "verify-billing", cwd: "/repo/backend", mode: "rpc", unread: 0, state: "gone" },
 					],
-					claims: [],
+					claims: [{ path: "src/api", owner: "s2", ownerLabel: "emma", at: 1 }],
 				},
 			},
 		},
@@ -99,6 +103,7 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 							repoRoot: "/repo",
 							startedAt: 1,
 							lastSeen: 2,
+							state: "gone",
 						},
 					],
 					claims: [
@@ -124,6 +129,99 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 				},
 			],
 			details: { action: "join", label: "billing-lead", watching: { armed: true, wake: false } },
+		},
+	},
+	{
+		name: "session-send",
+		tool: "session",
+		group: "package",
+		label: "an event that reached two peers and not the third",
+		args: { action: "send", to: "*", kind: "event", text: "contract v2 is approved" },
+		options: { expanded: true },
+		result: {
+			content: [
+				{
+					type: "text",
+					text: "Delivered to backend, billing-core (m-3f2a).\nNot delivered to verify-billing (inbox write failed).",
+				},
+			],
+			details: {
+				action: "send",
+				delivered: ["backend", "billing-core"],
+				failed: [{ label: "verify-billing", error: "inbox write failed" }],
+				messageId: "m-3f2a",
+			},
+		},
+	},
+	{
+		name: "session-inbox",
+		tool: "session",
+		group: "package",
+		label: "a handoff and a message, with one file this build cannot read",
+		args: { action: "inbox" },
+		options: { expanded: true },
+		result: {
+			content: [
+				{
+					type: "text",
+					text: "1. emma · handoff · Handoff: #274 is yours. Paths: extensions/session-bus.\n2. backend · message · is checkout.ts free?\nMail this build cannot read: 0001-verify-billing.json — left on disk, cleared by the TTL.",
+				},
+			],
+			details: {
+				action: "inbox",
+				messages: [
+					{
+						id: "0002-emma",
+						from: "s2",
+						fromLabel: "emma",
+						to: "s1",
+						toLabel: "frontend",
+						kind: "handoff",
+						text: 'Handoff: #274 "the transcript block" is yours, frontend. Paths: extensions/session-bus. The plan is in the card; record it and start without asking.',
+						paths: ["extensions/session-bus"],
+						at: 2,
+					},
+					{
+						id: "0003-backend",
+						from: "s3",
+						fromLabel: "backend",
+						to: "s1",
+						toLabel: "frontend",
+						kind: "message",
+						text: "is checkout.ts free?",
+						at: 3,
+					},
+				],
+				unreadable: ["0001-verify-billing.json"],
+			},
+		},
+	},
+	{
+		name: "session-claim",
+		tool: "session",
+		group: "package",
+		label: "a claim refused because a peer holds the path",
+		args: { action: "claim", paths: ["src/api"] },
+		options: { expanded: true },
+		result: {
+			content: [{ type: "text", text: "src/api is owned by backend (fedcba654321)." }],
+			details: {
+				action: "claim",
+				claimed: [],
+				conflicts: [{ path: "src/api", owner: "fedcba654321", ownerLabel: "backend" }],
+			},
+		},
+	},
+	{
+		name: "session-release",
+		tool: "session",
+		group: "package",
+		label: "a release that named one path it does not own",
+		args: { action: "release", paths: ["src/http", "src/api"] },
+		options: { expanded: true },
+		result: {
+			content: [{ type: "text", text: "Released: src/http.\nNot yours: src/api." }],
+			details: { action: "release", released: ["src/http"], notOwned: ["src/api"] },
 		},
 	},
 	{

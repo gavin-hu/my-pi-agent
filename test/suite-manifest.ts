@@ -160,6 +160,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"runtime",
 		"watching",
 		"delivery",
+		"result",
 		"view/session-list",
 		"tools",
 		"inbox-read",
