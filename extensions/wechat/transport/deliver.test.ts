@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { settle } from "../../../test/helpers/process.ts";
 import type { WechatClient } from "./client.ts";
 import { createDeliverer, numberedChunks, type DeliveryDeps } from "./deliver.ts";
 import type { BotCredentials } from "../types.ts";
@@ -84,5 +85,65 @@ describe("numbered parts", () => {
 
 	test("a reply that fits is one unnumbered message", () => {
 		expect(numberedChunks("abcdefgh", 12)).toEqual(["abcdefgh"]);
+	});
+});
+
+describe("deliverer ordering", () => {
+	test("serializes a reply and a prompt per peer", async () => {
+		const order: string[] = [];
+		let release: (() => void) | undefined;
+		const client = {
+			sendMessage: async (_account: unknown, args: { text: string }) => {
+				if (args.text === "one") await new Promise<void>((resolve) => (release = resolve));
+				order.push(args.text);
+				return { ret: 0 };
+			},
+		} as unknown as WechatClient;
+		const deliverer = createDeliverer({
+			client: () => client,
+			account: () => ACCOUNT,
+			maxReplyChars: () => 1000,
+			cdnBaseUrl: "",
+			maxMediaBytes: 1024,
+			notify: () => {},
+			onExpired: () => {},
+			forgetToken: () => {},
+		});
+		const first = deliverer.reply({ peer: "alice" }, "one");
+		const second = deliverer.prompt({ peer: "alice" }, "two");
+		await settle();
+		expect(order).toEqual([]);
+		release?.();
+		await Promise.all([first, second]);
+		expect(order).toEqual(["one", "two"]);
+	});
+
+	test("does not let one peer block another", async () => {
+		const order: string[] = [];
+		let release: (() => void) | undefined;
+		const client = {
+			sendMessage: async (_account: unknown, args: { to: string; text: string }) => {
+				if (args.to === "slow") await new Promise<void>((resolve) => (release = resolve));
+				order.push(args.text);
+				return { ret: 0 };
+			},
+		} as unknown as WechatClient;
+		const deliverer = createDeliverer({
+			client: () => client,
+			account: () => ACCOUNT,
+			maxReplyChars: () => 1000,
+			cdnBaseUrl: "",
+			maxMediaBytes: 1024,
+			notify: () => {},
+			onExpired: () => {},
+			forgetToken: () => {},
+		});
+		const slow = deliverer.reply({ peer: "slow" }, "one");
+		const fast = deliverer.reply({ peer: "fast" }, "two");
+		await settle();
+		expect(order).toEqual(["two"]);
+		release?.();
+		await Promise.all([slow, fast]);
+		expect(order).toEqual(["two", "one"]);
 	});
 });

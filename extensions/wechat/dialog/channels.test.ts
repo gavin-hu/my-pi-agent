@@ -133,6 +133,22 @@ describe("peer channels", () => {
 		expect(sent.filter((message) => message.text.includes("withdrawn"))).toHaveLength(2);
 	});
 
+	test("drops one peer's prompt when its turn ends, silently", async () => {
+		const { channels, sent } = channelsOver();
+		const alice = channels.for(ALICE).request({ kind: "confirm", title: "Sure?" });
+		void channels.for(BOB).request({ kind: "confirm", title: "Ready?" });
+		await settle();
+
+		channels.drop(ALICE);
+		expect(await alice).toEqual({ kind: "cancelled" });
+		expect(channels.hasPending(ALICE)).toBe(false);
+		// Bob's turn is still running, so his question still waits.
+		expect(channels.pendingFor(BOB)?.title).toBe("Ready?");
+		// The turn that ended says what happened to it; settling again does not.
+		expect(sent.some((message) => message.text.includes("withdrawn"))).toBe(false);
+		await channels.cancelAll();
+	});
+
 	test("drops every channel on a reset, silently", async () => {
 		const { channels, sent } = channelsOver();
 		const waiting = channels.for(ALICE).request({ kind: "confirm", title: "Sure?" });

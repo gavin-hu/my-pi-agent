@@ -378,10 +378,12 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
   dialog cannot freeze the session. A dialog uses three minutes; the plan review
   uses ten. A timed-out plan review is treated like a dismissal: plan mode ends
   without approval, and the plan file remains.
-- A prompt that goes away before it is answered says so: a pause withdraws it with
-  `问题已撤回。` / “That question was withdrawn.”, a `/stop` ends its turn with
-  `已停止。`, and a shutdown reports the abandoned turn — the peer was not slow, the
-  question or the session left.
+- A prompt that goes away before it is answered says so: the control screen's `c`
+  withdraws it with `问题已撤回。` / “That question was withdrawn.”, a `/stop` ends its
+  turn with `已停止。`, and a shutdown reports the abandoned turn — the peer was not
+  slow, the question or the session left. A question never outlives the turn that
+  asked it: the turn's end drops it, so `/status` stops naming it and the peer's next
+  message starts a turn of its own instead of arriving as its answer.
 
 Each peer session is created with its own UI context (`bindExtensions` with
 `mode: "rpc"`), so its dialogs go to that peer by construction rather than by
@@ -652,7 +654,7 @@ guidance used to do.
 | `text/notices.ts` | The peer-facing notice catalog: one line per kind, in the peer's language. |
 | `text/channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
 | `dialog/interaction.ts` | One peer's `InteractionChannel`: pending-prompt state machine, the other-answer stash, and reply routing for that peer. |
-| `dialog/channels.ts` | The per-peer channel registry: one channel each, inbound reply routing, the waiting prompts for the control screen, and cancel-all when the bridge closes. |
+| `dialog/channels.ts` | The per-peer channel registry: one channel each, inbound reply routing, the waiting prompts for the control screen, a peer's prompt dropped when its turn ends, and cancel-all when the bridge closes. |
 | `dialog/prompt.ts` | Pure prompt formatting and reply parsing. |
 | `dialog/remote-ui.ts` | The peer session's UI context, typed as `ExtensionUIContext` so a member added to the host interface fails here instead of vanishing at runtime: dialogs and notices bound to that peer, an identity `Theme` whose public surface is checked where it is built (no terminal, so a style returns its text and a colour emits nothing), the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
 | `view/login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |

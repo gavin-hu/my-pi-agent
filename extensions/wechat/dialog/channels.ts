@@ -51,6 +51,11 @@ export interface PeerChannels {
 	hasPending(peer?: string): boolean;
 	/** Withdraw every waiting prompt, telling each peer. */
 	cancelAll(): Promise<void>;
+	/**
+	 * Drop one peer's waiting prompt, silently: its turn ended, so the question went
+	 * with it. The turn's own line already told the peer.
+	 */
+	drop(peer: string): void;
 	/** Drop every channel and its waiting prompt, silently. */
 	reset(): void;
 }
@@ -128,6 +133,10 @@ export function createPeerChannels(deps: PeerChannelDeps): PeerChannels {
 			for (const channel of channels.values()) {
 				if (channel.hasPending()) await channel.cancel();
 			}
+		},
+
+		drop(peer: string): void {
+			channels.get(peer)?.reset();
 		},
 
 		reset(): void {

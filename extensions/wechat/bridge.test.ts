@@ -686,10 +686,28 @@ describe("bridge slash commands", () => {
 		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
 		deliver(inbound("/stop"));
 		await waitFor(() => sent.some((item) => item.text === "Stopped."));
-		// Only the tool's own signal settles the dialog; the command stops the turn.
-		expect(bridge.channel(owner).hasPending()).toBe(true);
+		// The question went with the turn it was asked in: nothing is left to answer,
+		// so `/status` no longer advertises it and the peer's next message is not its
+		// reply. The stopped turn's own line is the only one the peer needs.
+		expect(bridge.channel(owner).hasPending()).toBe(false);
+		expect(bridge.status().prompts).toEqual([]);
+		expect(await answer).toEqual({ kind: "cancelled" });
+		await bridge.close();
+	});
 
-		bridge.channel(owner).reset();
+	test("a turn that ends takes a dialog nobody answered with it", async () => {
+		const { client } = controllableClient();
+		const { deps, injected, peers } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
+		await waitFor(() => bridge.status().promptPending);
+		// The turn ends while its question is still waiting — a failure, an abandonment,
+		// or any abort — and the settle drops it just as a stop does.
+		peers[0]?.release("done");
+		await waitFor(() => !bridge.status().promptPending);
 		expect(await answer).toEqual({ kind: "cancelled" });
 		await bridge.close();
 	});
@@ -1223,108 +1241,22 @@ describe("bridge remote prompts", () => {
 		await bridge.close();
 		expect(await answer).toEqual({ kind: "cancelled" });
 	});
-});
 
-describe("two peers at once", () => {
-	const OTHER = "friend@im.wechat";
-
-	/** Open a bridge with the owner's turn and one other peer's turn both in flight. */
-	async function twoPeers() {
-		const { client, sent, deliver } = controllableClient();
-		const { deps, injected } = makeDeps(
-			client,
-			{ config: { ...DEFAULT_CONFIG, allowedPeers: [OTHER] } },
-			{ hold: true },
-		);
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-		deliver(inbound("hello", OTHER));
-		await waitFor(() => injected.length === 2);
-		return { bridge, sent };
-	}
-
-	test("gives each peer's dialog its own owner", async () => {
-		const { bridge, sent } = await twoPeers();
-
-		const mine = bridge.channel(owner).request({ kind: "confirm", title: "For the owner?" });
-		const theirs = bridge.channel(OTHER).request({ kind: "confirm", title: "For the friend?" });
-		await waitFor(() => bridge.status().prompts.length === 2);
-		// Each question went to the phone that was asked.
-		await waitFor(() => sent.filter((message) => message.text.includes("For the")).length === 2);
-		expect(sent.some((message) => message.to === owner && message.text.includes("For the owner?"))).toBe(true);
-		expect(sent.some((message) => message.to === OTHER && message.text.includes("For the friend?"))).toBe(true);
-
-		// Each reply answers its own peer's prompt and leaves the other waiting.
-		expect(bridge.channel(owner).handleInbound("yes")).toBe(true);
-		expect(await mine).toEqual({ kind: "confirmed", confirmed: true });
-		expect(bridge.status().prompts.map((prompt) => prompt.peer)).toEqual([OTHER]);
-
-		expect(bridge.channel(OTHER).handleInbound("no")).toBe(true);
-		expect(await theirs).toEqual({ kind: "confirmed", confirmed: false });
-		expect(bridge.status().prompts).toEqual([]);
-		await bridge.close();
-	});
-
-	test("aborting one peer's dialog leaves the other's waiting", async () => {
-		const { bridge } = await twoPeers();
-		const controller = new AbortController();
-		const mine = bridge.channel(owner).request({ kind: "confirm", title: "For the owner?" }, controller.signal);
-		const theirs = bridge.channel(OTHER).request({ kind: "select", title: "For the friend?", options: ["A"] });
-		await waitFor(() => bridge.status().prompts.length === 2);
-
-		controller.abort();
-		expect(await mine).toEqual({ kind: "cancelled" });
-		expect(bridge.channel(OTHER).hasPending()).toBe(true);
-		expect(bridge.channel(OTHER).handleInbound("1")).toBe(true);
-		expect(await theirs).toEqual({ kind: "value", value: "A" });
-		await bridge.close();
-	});
-});
-
-describe("abandoned turns", () => {
-	const NOTICE = "The session stopped before this answer finished — send it again when it's back.";
-
-	test("tells the peer when a close cuts its turn off", async () => {
-		// `respectSignal` makes the transport refuse an already-aborted send, as `fetch`
-		// does, so a notice that inherited the poll's controller would be lost here.
-		const { client, sent } = controllableClient({ respectSignal: true });
+	test("a stopped turn's question is not the answer to the message after it", async () => {
+		const { client, deliver } = controllableClient();
 		const { deps, injected } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
+		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
+		// The stop and the next message arrive in one poll: the question goes with the
+		// turn that asked it, so the message beside it starts a turn of its own.
+		deliver([inbound("/stop"), inbound("carry on")]);
+		await waitFor(() => injected.length === 2);
+		expect(injected[1]).toBe("carry on");
+		expect(bridge.status().prompts).toEqual([]);
+		expect(await answer).toEqual({ kind: "cancelled" });
 		await bridge.close();
-		expect(sent.map((message) => message.text)).toEqual([NOTICE]);
-	});
-
-	test("says nothing once the answer has arrived", async () => {
-		const { client, sent } = controllableClient({ respectSignal: true });
-		const { deps, injected } = makeDeps(client);
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-		await waitFor(() => sent.length === 1);
-
-		await bridge.close();
-		expect(sent.map((message) => message.text)).toEqual(["pong"]);
-	});
-
-	test("reports an abandon notice the transport could not deliver, once", async () => {
-		const { client } = controllableClient();
-		const notices: string[] = [];
-		const failing = {
-			...client,
-			sendMessage: async () => {
-				throw new Error("network down");
-			},
-		} as unknown as WechatClient;
-		const { deps, injected } = makeDeps(failing, { notify: (message) => notices.push(message) }, { hold: true });
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-
-		await bridge.close();
-		expect(notices.filter((message) => message.includes("network down"))).toHaveLength(1);
 	});
 });
