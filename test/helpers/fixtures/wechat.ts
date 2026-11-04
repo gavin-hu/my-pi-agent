@@ -10,7 +10,7 @@
  * Value-only: every recorder and queue is created per call.
  */
 
-import type { BridgeStatus } from "../../../extensions/wechat/bridge.ts";
+import type { Bridge, BridgeStatus } from "../../../extensions/wechat/bridge.ts";
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { type FakeCtxOptions, fakeCtx } from "../context.ts";
@@ -22,6 +22,8 @@ import type { WechatClient, WechatClientOptions } from "../../../extensions/wech
 import type { WechatInteractionChannel } from "../../../extensions/wechat/dialog/interaction.ts";
 import type { PeerSession } from "../../../extensions/wechat/host/chat.ts";
 import type { BotCredentials, UpdatesResponse, WeixinMessage } from "../../../extensions/wechat/types.ts";
+import type { CommandDeps, StartOutcome } from "../../../extensions/wechat/commands/commands.ts";
+import { DEFAULT_CONFIG } from "../../../extensions/wechat/config.ts";
 
 /** A stored account, as the login flow would have saved it. */
 export const ACCOUNT: BotCredentials = {
@@ -200,6 +202,85 @@ export function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatu
 		promptPending: false,
 		prompts: [],
 		...overrides,
+	};
+}
+
+/** What a `/wechat` command case reads back, so a call sequence is asserted in order. */
+export interface CommandHarness {
+	deps: CommandDeps;
+	saved: BotCredentials[];
+	opens: () => number;
+	/** Bridge lifecycle calls in order, so a restart is asserted as one sequence. */
+	events: string[];
+	/** How many times `bridge.stop` was asked, for the turn-stop cases. */
+	stops: string[];
+	logouts: () => number;
+}
+
+/**
+ * The `/wechat` command's own seams: a bridge double that records what it was
+ * asked and can be absent, a start and a stop, and a stored account.
+ */
+export function commandHarness(
+	options: {
+		open?: () => void;
+		status?: BridgeStatus;
+		bridge?: boolean;
+		stop?: boolean;
+		start?: StartOutcome;
+		startError?: string;
+		account?: BotCredentials;
+	} = {},
+): CommandHarness {
+	const saved: BotCredentials[] = [];
+	const events: string[] = [];
+	const stops: string[] = [];
+	let logouts = 0;
+	const status = options.status ?? bridgeStatus();
+	const bridge = {
+		open: () => {
+			events.push("open");
+			options.open?.();
+		},
+		close: async () => {
+			events.push("close");
+		},
+		status: () => status,
+		stop: () => {
+			stops.push("stop");
+			return options.stop ?? true;
+		},
+	} as unknown as Bridge;
+	const exists = options.bridge ?? true;
+	return {
+		deps: {
+			getBridge: () => (exists ? bridge : undefined),
+			startBridge: async () => {
+				events.push("start");
+				if (options.startError) throw new Error(options.startError);
+				return options.start ?? "started";
+			},
+			stopBridge: async () => {
+				events.push("stop");
+				return options.stop ?? true;
+			},
+			loadConfig: () => DEFAULT_CONFIG,
+			createLoginClient: () => {
+				throw new Error("login client is not used by these commands");
+			},
+			saveAccount: (value) => saved.push(value),
+			storedAccount: () => options.account,
+			readHistory: async () => "",
+			logout: () => {
+				logouts += 1;
+			},
+			now: () => 0,
+		},
+		saved,
+		opens: () => events.filter((event) => event === "open").length,
+		events,
+		stops,
+		logouts: () => logouts,
 	};
 }
 

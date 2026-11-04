@@ -134,7 +134,7 @@ describe("statusBody", () => {
 		const expired = statusBody(view({ bridge: true, account: "owner", connection: "expired" }), fakeTheme, 60).join(
 			"\n",
 		);
-		expect(expired).toContain("press l to log in again");
+		expect(expired).toContain("press l to log in, then t to start");
 		expect(statusBody(view(), fakeTheme, 60).join("\n")).toContain("Run /wechat login");
 	});
 

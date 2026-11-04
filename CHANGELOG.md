@@ -8,12 +8,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: `send_wechat` sends one local file as a WeChat document, beside the text and the picture
+  it already sends, and the shape is the argument's rather than the file's bytes — `file` is a
+  document however the bytes would sniff, `image` is still a picture and still refuses a non-image,
+  and the refusal names `text`, `image`, and `file`. It reuses the upload flow the plan review
+  already uses, keeps the owner-only rule and the `maxMediaBytes` cap, and a file sent while the
+  owner's own turn runs is allowed for the reason an image is: media cannot duplicate the streamed
+  answer. The owner send moved out of `bridge.ts` into `owner-send.ts`, which holds the shape rule,
+  so the composition root stays under the module bar.
+
 - `wechat`: `/wechat cancel` withdraws the waiting prompt without stopping the turn — the one control
   action that had no verb, so a session without the control screen (rpc, json, print) could only let it
   time out. The screen's `c` key and the verb share one runner, and `c` is in the hint row, where it
   used to be the one action a reader had to already know.
 
 ### Changed
+
+- `session-bus`: a session's automatic label names the repository it works in — the main checkout's
+  directory, which `git worktree list` lists first — rather than the directory it sits in, and a Pi
+  session name that merely repeats one of that repository's worktrees or its `worktree-<x>` branch is
+  declined at the join. A session started in a worktree, or resumed after its worktree is gone, no
+  longer joins under a name that leaves with the work it held, and one board no longer lists a preset
+  teammate beside a worktree's name for the same role. The porcelain parse behind it is `worktrees`
+  in `lib/git/read.ts`, which the worktree extension filters instead of parsing a second time.
 
 - `wechat`: the chat is this Pi session. An inbound message starts a turn here (`sendUserMessage`), its
   deltas stream back through the reply pipeline, and the run's settle ends it, so the phone and the

@@ -75,7 +75,7 @@ describe("/wechat cancel", () => {
 		const disconnected: CommandDeps = { ...deps, getBridge: () => undefined };
 		expect(await run(disconnected)).toEqual([
 			{
-				message: "No prompt is waiting: the WeChat bridge is not started on this session. Run /wechat start.",
+				message: "No prompt is waiting: this session runs no bridge. Run /wechat login, then /wechat start.",
 				kind: "warning",
 			},
 		]);

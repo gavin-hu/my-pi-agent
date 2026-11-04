@@ -17,7 +17,7 @@
  *   not told they are answering on a phone.
  * - A prompt waits for the session to be idle before it starts: `sendUserMessage`
  *   refuses to start a turn while one is streaming, and a WeChat message must not
- *   be lost to a terminal run.
+ *   be lost to a terminal run. `deliverAs` is not used — see `waitForIdle`.
  *
  * The session surface is the one the worker already drives (`prompt`, `abort`,
  * `subscribe`, `getLastAssistantText`), so the queue, the reply pipeline, and the
@@ -157,7 +157,16 @@ export function openHostChat(peer: string, deps: HostChatDeps): PeerSession {
 		}),
 	];
 
-	/** Wait for the host session to be free, or give up because the turn was stopped. */
+	/**
+	 * Wait for the host session to be free, or give up because the turn was stopped.
+	 *
+	 * The alternative is `sendUserMessage(..., { deliverAs: "followUp" })`, which
+	 * injects the chat's message into the terminal's run. It is rejected here for one
+	 * reason: the deltas are relayed from the moment the chat's turn is marked, so a
+	 * follow-up injected mid-run would stream the rest of the *terminal's* answer to
+	 * the phone. Waiting costs a delay on a busy terminal and keeps the relay honest:
+	 * everything the phone receives belongs to its own turn.
+	 */
 	async function waitForIdle(): Promise<void> {
 		while (!deps.isIdle() && !cancelled) {
 			await new Promise<void>((resolve) => waiters.push(resolve));

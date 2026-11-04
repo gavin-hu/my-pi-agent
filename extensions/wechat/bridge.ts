@@ -22,7 +22,7 @@ import { createDeliverer, type MessageTarget } from "./transport/deliver.ts";
 import { createInboundAdmission } from "./transport/inbound.ts";
 import { createPollLoop, defaultPollTimeout } from "./transport/poll.ts";
 import { messageOf } from "../../lib/errors.ts";
-import { peerKey, sanitizeInbound, type PeerLanguage } from "./text/format.ts";
+import { peerKey, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
 import { createPresence } from "./conversation/presence.ts";
 import { createForgetToken, createIntake, createLanguageOf, type Counter } from "./intake.ts";
@@ -30,10 +30,12 @@ import { createForgetToken, createIntake, createLanguageOf, type Counter } from 
 // The admission predicates, re-exported: they are the bridge's contract, and a caller
 // should not have to know which module inside it answers them.
 export { isAccountOwner, isInboundMessage } from "./intake.ts";
+export type { OwnerMessage, SendResult } from "./owner-send.ts";
 import { createChatChannel } from "./dialog/interaction.ts";
 import type { PendingPromptInfo, WechatInteractionChannel } from "./dialog/interaction.ts";
 import { defaultSleep, defaultTimer, type ArmTimer } from "./timer.ts";
 import { createTurnRunner, type TurnState, type TurnRunner } from "./conversation/turn.ts";
+import { sendOwnerMessage, type OwnerMessage, type SendResult } from "./owner-send.ts";
 import type { PeerSession } from "./host/chat.ts";
 import { emptyState, ownerTarget } from "./state/state.ts";
 import { SLASH_COMMANDS, type SlashCommand } from "./commands/slash.ts";
@@ -117,11 +119,6 @@ export interface BridgeStatus {
 	lock?: { pid: number; at: number };
 }
 
-export interface SendResult {
-	ok: boolean;
-	error?: string;
-}
-
 export interface Bridge {
 	open(): void;
 	close(): Promise<void>;
@@ -133,8 +130,8 @@ export interface Bridge {
 	status(): BridgeStatus;
 	/** The chat's interaction channel: the one its dialogs are answered through. */
 	channel(): WechatInteractionChannel;
-	/** Message the owner proactively: one text, or one image, never a chosen recipient. */
-	sendToOwner(text: string | undefined, image?: string): Promise<SendResult>;
+	/** Message the owner proactively: one text, one image, or one file, never a chosen recipient. */
+	sendToOwner(message: OwnerMessage): Promise<SendResult>;
 }
 
 /** Create the bridge over an injected environment. */
@@ -579,21 +576,18 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			return channelFor(state.ownerId ?? account?.ilinkUserId ?? "");
 		},
 
-		async sendToOwner(text: string | undefined, image?: string): Promise<SendResult> {
+		async sendToOwner(message: OwnerMessage): Promise<SendResult> {
 			if (connection !== "running" || !client || !account) return { ok: false, error: "WeChat bridge is not started." };
-			const target = ownerTarget(state, account);
-			if (text !== undefined && worker?.state().status === "running") {
-				// The bridge answers this turn itself, so a text send would land twice.
-				return { ok: false, error: "The bridge replies to this turn automatically; do not repeat it." };
-			}
-			if (image !== undefined) {
-				// An image cannot duplicate the streamed answer, so a running turn is fine.
-				const sent = await deliverer.image(target, image, abort?.signal);
-				return sent ? { ok: true } : { ok: false, error: "The image could not be sent; see the terminal notice." };
-			}
-			const trimmed = sanitizeInbound(text ?? "");
-			if (!trimmed) return { ok: false, error: "Nothing to send." };
-			return deliverer.toOwner(target.peer, target.contextToken, trimmed, abort?.signal);
+			return sendOwnerMessage(
+				{
+					target: ownerTarget(state, account),
+					deliverer,
+					signal: () => abort?.signal,
+					// One conversation: the running turn is the owner's own.
+					ownerTurnRunning: () => worker?.state().status === "running",
+				},
+				message,
+			);
 		},
 	};
 }

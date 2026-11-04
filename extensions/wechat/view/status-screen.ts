@@ -121,7 +121,7 @@ export function statusBody(view: StatusView, theme: Theme, width: number): strin
 	}
 	if (view.connection === "expired") {
 		lines.push("");
-		lines.push(clip(`  ${paint(theme, "bad", "Session expired — press l to log in again.")}`, target));
+		lines.push(clip(`  ${paint(theme, "bad", "Session expired — press l to log in, then t to start.")}`, target));
 	} else if (view.connection === "closed" && view.account) {
 		lines.push("");
 		lines.push(clip(`  ${paint(theme, "meta", "Not connected — press t to start the bridge.")}`, target));

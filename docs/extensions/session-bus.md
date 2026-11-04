@@ -49,13 +49,15 @@ addressable: `send`, `inbox`, `claim`, or `release`.
 `session` — `exposure: "direct"` (the default), `executionMode: "sequential"`,
 read-write and closed-world. One action-shaped tool keeps the prompt surface
 small: each action takes only the parameters it needs, and the result is one
-collapsed line that expands to the board's rows.
+collapsed line that expands to the board's rows. That line is the board's own
+summary — the same session, gone, unread, claim, watch, and not-on-the-bus cells
+`/sessions` counts with — so a session's state cannot read two ways.
 
 | Action | Inputs | Result |
 |---|---|---|
 | `status` | — | Active sessions with unread counts, their state, claims, and this session's identity. A session whose process is gone is listed as `gone` until its heartbeat ages out, and its claims are not listed at all. Prunes stale records. A read: it never adds this session to the bus. |
 | `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient, and reports what happened to each: a partial fan-out names the peers it could not write for (`Not delivered to <label> (<reason>)`) and still succeeds, while reaching nobody is a failure. `to: "*"` is only valid with `kind: "event"`. A session whose process is gone is not a recipient: naming it is refused, and a broadcast skips it. |
-| `inbox` | optional `limit` | Consumes up to `limit` messages, oldest first by arrival (default 20, max 50). Each body is clipped and the whole read stops at a 4,000-character budget; the mail it did not reach stays in the inbox and is named in one `… N more` line. |
+| `inbox` | optional `limit` | Consumes up to `limit` messages, oldest first by arrival (default 20, max 50). Each body is clipped and the whole read stops at a 4,000-character budget; the mail it did not reach stays in the inbox and is named in one `… N more` line. A file this build cannot read is not consumed and not counted as inbox space: it stays on disk for a build that can read it, is named in the read and under `Unreadable mail` in the block, and the message TTL ends it. An expanded block draws a message body wrapped under its sender, so a handoff is readable rather than clipped to the row. |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
 | `join` | optional `label`, `wake`, `listen` | Joins the bus, names this session on it and in Pi when a label is given — the same path and uniqueness rule as `/team join`, so `/resume` agrees with the record peers address — and starts listening for mail. The footer draws the label either way, so a plain join changes the name on the bar without renaming the session. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; `listen: false` joins without listening. A label a live session holds is refused, naming the session that holds it — its id, since the label it holds is the one you asked for — and the refusal leaves both names and the watch alone. The result reports the label the bus settled on and whether mail will reach this session. |
@@ -90,7 +92,11 @@ act there that puts this session on the bus.
 
 Labels are how another session addresses you. Name one by the outcome it owns
 (`billing-core`, `integrator`, `verify-billing`), not by a layer or a role;
-duplicate labels get a short id suffix automatically. A label is held for as long as
+duplicate labels get a short id suffix automatically. A derived label names the
+repository a session works in rather than the directory it sits in, so a session in a
+worktree is not named after that worktree — and a Pi session name that merely repeats
+one of the repository's worktrees or its `worktree-<x>` branch is declined at the join,
+because that name leaves with the worktree. A label is held for as long as
 the bus keeps the taker's record — ten minutes past its last heartbeat — so a session
 that crashed a minute ago has not freed its name, and one that is merely slow has not
 lost it. Past that window the record is pruned and the name is anyone's.
@@ -257,9 +263,11 @@ listening watch is what raises the turn.
   release is re-keyed by its real target, so a working directory reached through
   a symlink still resolves inside its own repository, a link inside the repository
   and the file it names are the same claim, and a link that leaves the repository
-  is refused. The automatic label is the real basename of the cwd, so a session
-  started through a link named differently is named after the directory it is
-  actually in. An absolute path argument that sits outside the repository is
+  is refused. The automatic label is the repository's own name — the main checkout's
+  directory, which `git worktree list` lists first — so a session started in a
+  worktree, or through a link named differently, is named after the repository it
+  works in rather than the directory it happens to sit in. An absolute path argument
+  that sits outside the repository is
   refused before it is re-keyed, and a relative one whose target leaves the
   repository is refused by the re-keying itself. A path whose target is the
   repository root is refused there too, and by that one rule: the spelling check
@@ -333,6 +341,7 @@ listening watch is what raises the turn.
 | `index.ts` | Disable guard, registration, the pending-report channel, and the session hooks. |
 | `join-request.ts` | The `board`/`team` join request: one `bus.join` answer, and the label it settles becomes Pi's session name. |
 | `runtime.ts` | Lifecycle, repo key (`<agent-dir>/session-bus/<repo-key>/`), joining, heartbeat, and the session's own reads and writes. |
+| `label.ts` | The automatic label a session joins under: one git question at start for the repository's working trees, then the shared rule. |
 | `mail-watch.ts` | The armed inbox watch: the poll, the not-yet-reported queue, and its state. |
 | `store.ts` | Atomic JSON files, inbox, peek, claims, pruning, and the one release loop. |
 | `protocol.ts` | Pure labels, targets, paths, validation, conflict rules. |

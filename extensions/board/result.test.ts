@@ -145,7 +145,8 @@ describe("the rows a mine listing draws", () => {
 		const plain = resultInput({ action: "list", me: ME, cards: [mine] });
 		const rowOf = (input: typeof marked): string => {
 			if (input?.kind !== "list") throw new Error("a list of one card is a list");
-			return input.rowLine(mine, WIDTH, coloringTheme);
+			const drawn = input.rowLine(mine, WIDTH, coloringTheme);
+			return typeof drawn === "string" ? drawn : drawn.join("\n");
 		};
 		expect(rowOf(marked)).toContain(`${colour("accent")}#4`);
 		expect(rowOf(plain)).toContain(`${colour("label")}#4`);

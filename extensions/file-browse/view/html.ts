@@ -24,6 +24,7 @@ import { escapeHtml } from "../../../lib/escape.ts";
 import { renderChanges, renderGit, renderLiveChrome, type LivePage } from "./chrome.ts";
 import { type DirEntry, type FileView, type Listing, type TreeNode } from "../files/files.ts";
 import { formatSize } from "../../../lib/format.ts";
+import { lastSegment } from "../../../lib/path.ts";
 import { DIFF_MODES, statusLetter, type ChangedFile, type DiffMode } from "../text/diff.ts";
 import { renderDiffLines } from "./diff-html.ts";
 import type { DiffFileView, GitStatus } from "../git/git.ts";
@@ -291,13 +292,6 @@ function markdownBaseDir(rel: string): string {
 function renderCodeLines(lines: string[], language?: HighlightLanguage): string {
 	const rendered = language ? highlightLines(lines, language) : lines.map((line) => escapeHtml(line));
 	return rendered.map((html) => `<span class="bf-code__line">${html.length > 0 ? html : " "}</span>`).join("");
-}
-
-/** The last segment of a root-relative path, or the path itself when it has none. */
-function lastSegment(path: string): string {
-	const trimmed = path.replace(/[/\\]+$/, "");
-	const slash = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
-	return slash === -1 ? trimmed : trimmed.slice(slash + 1);
 }
 
 /** The shortcuts every page shares, plus whatever the page adds. */

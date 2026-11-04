@@ -1,70 +1,19 @@
 /**
- * The bus's terminal surfaces: the row grammar, the `/sessions` board, the
- * expanded transcript block, and the mail notice.
+ * The `/sessions` board screen, and the row grammar the board and the `session`
+ * tool's transcript block share.
  *
- * Peer-authored text reaches every surface, so the suite pins both the shape a
- * reader sees and that a newline or an escape sequence in a label, a path, or a
- * message cannot forge a row or reach the terminal.
+ * Peer-authored text reaches both surfaces, so the suite pins the shape a reader
+ * sees and that a newline or an escape sequence in a label, a path, or a message
+ * cannot forge a row or reach the terminal.
  */
 
 import { describe, expect, test } from "bun:test";
-import { busStatus } from "../../../test/helpers/fixtures/session-bus.ts";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import { busBoard, busClaim, busMessage, busSession, busStatus } from "../../../test/helpers/fixtures/session-bus.ts";
 import { fakeTheme } from "../../../test/helpers/fakes.ts";
-import { mailNotice } from "../notice.ts";
-import { messageRowLine, sessionDetailBlock, sessionRows, sessionRowLine, summaryCells } from "../rows.ts";
-import { TailResult } from "../../../lib/tui/tool.ts";
-import { collapsedLine, resultSections } from "../result.ts";
+import { sessionDetailBlock, sessionRows, sessionRowLine, summaryCells } from "../rows.ts";
 import { SessionListComponent } from "./session-list.ts";
-import type { RosterState } from "../../../lib/session-roster.ts";
-import type { BoardSnapshot, BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "../types.ts";
-
-type ListedSession = SessionRecord & { unread: number; state: RosterState };
-
-function session(overrides: Partial<ListedSession> = {}): ListedSession {
-	return {
-		id: "abcdef123456",
-		label: "frontend",
-		pid: 1,
-		cwd: "/repo/frontend",
-		repoRoot: "/repo",
-		mode: "tui",
-		startedAt: 1_000,
-		lastSeen: 10_000,
-		unread: 0,
-		state: "live",
-		...overrides,
-	};
-}
-
-function claim(overrides: Partial<ClaimRecord> = {}): ClaimRecord {
-	return { path: "src/api", owner: "fedcba654321", ownerLabel: "backend", at: 9_000, ...overrides };
-}
-
-function message(overrides: Partial<BusMessage> = {}): BusMessage {
-	return {
-		id: "1-a",
-		from: "fedcba654321",
-		fromLabel: "backend",
-		to: "abcdef123456",
-		toLabel: "frontend",
-		kind: "message",
-		text: "is checkout.ts free?",
-		at: 9_500,
-		...overrides,
-	};
-}
-
-function board(): SessionStatus {
-	return busStatus(
-		[
-			session({ label: "verify-billing", id: "aaa111", mode: "rpc" }),
-			session({ label: "backend", id: "fedcba654321", unread: 3 }),
-			session({ label: "frontend", id: "abcdef123456" }),
-		],
-		[claim({ path: "src/api/routes.ts" }), claim({ path: "src/api" })],
-	);
-}
+import type { BoardSnapshot, BusMessage, SessionStatus } from "../types.ts";
 
 /** The board read: a bus status plus this session's unread mail. */
 function snapshot(statusValue: SessionStatus, messages: BusMessage[] = []): BoardSnapshot {
@@ -77,7 +26,7 @@ function expectBounded(lines: string[], width: number): void {
 
 describe("session rows", () => {
 	test("this session leads, peers follow by label, each with its claims", () => {
-		const rows = sessionRows(board());
+		const rows = sessionRows(busBoard());
 		expect(rows.map((row) => row.session.label)).toEqual(["frontend", "backend", "verify-billing"]);
 		expect(rows[0]?.self).toBe(true);
 		expect(rows[1]?.claims.map((item) => item.path)).toEqual(["src/api", "src/api/routes.ts"]);
@@ -85,7 +34,7 @@ describe("session rows", () => {
 	});
 
 	test("draws the label, the you tag, and the counts in width", () => {
-		const rows = sessionRows(board());
+		const rows = sessionRows(busBoard());
 		const self = rows[0];
 		if (!self) throw new Error("no self row");
 		const peer = rows[1];
@@ -100,7 +49,7 @@ describe("session rows", () => {
 	});
 
 	test("neutralizes a peer label with an escape sequence or a newline", () => {
-		const rows = sessionRows(busStatus([session({ id: "s1", label: "front\u001b[31m\nend" })]));
+		const rows = sessionRows(busStatus([busSession({ id: "s1", label: "front\u001b[31m\nend" })]));
 		const [row] = rows;
 		if (!row) throw new Error("no row");
 		const line = sessionRowLine(row, fakeTheme, 80);
@@ -109,21 +58,21 @@ describe("session rows", () => {
 	});
 
 	test("summarizes sessions, unread, claims, and the watch", () => {
-		const rows = sessionRows(board());
+		const rows = sessionRows(busBoard());
 		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).toContain("3 sessions");
 		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).toContain("3 unread");
 		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).toContain("2 claims");
 		expect(summaryCells(fakeTheme, rows, { armed: true, wake: false }).join(" · ")).toContain("watch on");
 		expect(summaryCells(fakeTheme, rows, { armed: true, wake: true }).join(" · ")).toContain("watch wake");
-		const single = sessionRows(busStatus([session({ id: "s1", label: "solo" })]));
+		const single = sessionRows(busStatus([busSession({ id: "s1", label: "solo" })]));
 		expect(summaryCells(fakeTheme, single, undefined).join(" · ")).toBe("1 session · 0 claims");
 	});
 
 	test("a dead session is counted and rowed as gone, not as a quiet teammate", () => {
 		const rows = sessionRows(
 			busStatus([
-				session({ id: "s1", label: "mine" }),
-				session({ id: "s2", label: "crashed", unread: 0, state: "gone" }),
+				busSession({ id: "s1", label: "mine" }),
+				busSession({ id: "s2", label: "crashed", unread: 0, state: "gone" }),
 			]),
 		);
 		// The summary leads with it: a crash is the one cell a lead must not scan past.
@@ -138,7 +87,7 @@ describe("session rows", () => {
 	});
 
 	test("the focus block names the cwd, at most two claims, and identity", () => {
-		const rows = sessionRows(board());
+		const rows = sessionRows(busBoard());
 		const block = sessionDetailBlock(rows[1] as never, 12_000);
 		expect(block[0]).toBe("cwd: /repo/frontend");
 		expect(block[1]).toBe("claims: src/api, src/api/routes.ts");
@@ -147,11 +96,11 @@ describe("session rows", () => {
 		expect(block.join("\n")).not.toContain("3 unread");
 
 		const many = busStatus(
-			[session({ id: "s1" })],
+			[busSession({ id: "s1" })],
 			[
-				claim({ path: "a", owner: "s1", ownerLabel: "solo" }),
-				claim({ path: "b", owner: "s1", ownerLabel: "solo" }),
-				claim({ path: "c", owner: "s1", ownerLabel: "solo" }),
+				busClaim({ path: "a", owner: "s1", ownerLabel: "solo" }),
+				busClaim({ path: "b", owner: "s1", ownerLabel: "solo" }),
+				busClaim({ path: "c", owner: "s1", ownerLabel: "solo" }),
 			],
 		);
 		expect(sessionDetailBlock(sessionRows(many)[0] as never, 12_000)[1]).toBe("claims: a, b +1 more");
@@ -196,13 +145,13 @@ describe("the /sessions screen", () => {
 
 	function ownClaimStatus(): SessionStatus {
 		return busStatus(
-			[session({ id: "abcdef123456", label: "frontend" })],
-			[claim({ owner: "abcdef123456", ownerLabel: "frontend" })],
+			[busSession({ id: "abcdef123456", label: "frontend" })],
+			[busClaim({ owner: "abcdef123456", ownerLabel: "frontend" })],
 		);
 	}
 
 	test("draws the board with a summary, rows, a focus block, and the scope hints", () => {
-		const view = screen(snapshot(board()), events());
+		const view = screen(snapshot(busBoard()), events());
 		view.handleInput("j");
 		const lines = view.render(80);
 		expect(lines[0]).toContain("Sessions");
@@ -216,7 +165,7 @@ describe("the /sessions screen", () => {
 	});
 
 	test("Tab moves to the unread mail, and Enter opens it as prose", () => {
-		const view = screen(snapshot(board(), [message()]), events());
+		const view = screen(snapshot(busBoard(), [busMessage()]), events());
 		view.handleInput("\t");
 		expect(view.currentScope).toBe("inbox");
 		const list = view.render(80).join("\n");
@@ -236,11 +185,11 @@ describe("the /sessions screen", () => {
 	});
 
 	test("closes the mail pane when the message is consumed elsewhere", () => {
-		const view = screen(snapshot(board(), [message()]), events());
+		const view = screen(snapshot(busBoard(), [busMessage()]), events());
 		view.handleInput("\t");
 		view.handleInput("\r");
 		expect(view.currentDetailId()).toBe("m:1-a");
-		view.setBoard(snapshot(board(), []));
+		view.setBoard(snapshot(busBoard(), []));
 		const lines = view.render(80).join("\n");
 		expect(lines).toContain("No unread mail.");
 		expect(view.currentDetailId()).toBeUndefined();
@@ -248,7 +197,7 @@ describe("the /sessions screen", () => {
 
 	test("Tab cycles to Claims, where a peer's claim is refused", () => {
 		const recorded = events();
-		const view = screen(snapshot(board()), recorded);
+		const view = screen(snapshot(busBoard()), recorded);
 		view.handleInput("\t");
 		view.handleInput("\t");
 		expect(view.currentScope).toBe("claims");
@@ -292,7 +241,7 @@ describe("the /sessions screen", () => {
 	});
 
 	test("opens a session pane with identity and claims, and returns on Esc", () => {
-		const view = screen(snapshot(board()), events());
+		const view = screen(snapshot(busBoard()), events());
 		view.handleInput("j");
 		view.handleInput("\r");
 		expect(view.currentDetailId()).toBe("s:fedcba654321");
@@ -307,18 +256,18 @@ describe("the /sessions screen", () => {
 	});
 
 	test("closes the pane when the peer leaves the bus", () => {
-		const view = screen(snapshot(board()), events());
+		const view = screen(snapshot(busBoard()), events());
 		view.handleInput("j");
 		view.handleInput("\r");
 		expect(view.currentDetailId()).toBe("s:fedcba654321");
-		view.setBoard(snapshot(busStatus([session({ id: "abcdef123456", label: "frontend" })])));
+		view.setBoard(snapshot(busStatus([busSession({ id: "abcdef123456", label: "frontend" })])));
 		expect(view.render(80).join("\n")).toContain("Sessions");
 		expect(view.currentDetailId()).toBeUndefined();
 	});
 
 	test("toggles the watch and shows the line it returns", async () => {
 		const recorded = events();
-		const view = screen(snapshot(board()), recorded);
+		const view = screen(snapshot(busBoard()), recorded);
 		view.handleInput("w");
 		await Promise.resolve();
 		expect(recorded.toggles).toEqual([false]);
@@ -327,12 +276,12 @@ describe("the /sessions screen", () => {
 
 	test("closes on q and repaints only when the board changed", () => {
 		const recorded = events();
-		const view = screen(snapshot(board()), recorded);
-		view.setBoard(snapshot(board()));
+		const view = screen(snapshot(busBoard()), recorded);
+		view.setBoard(snapshot(busBoard()));
 		expect(recorded.renders).toBe(0);
-		view.setBoard(snapshot(busStatus([session({ id: "abcdef123456", label: "frontend", unread: 2 })])));
+		view.setBoard(snapshot(busStatus([busSession({ id: "abcdef123456", label: "frontend", unread: 2 })])));
 		expect(recorded.renders).toBe(1);
-		view.setBoard(snapshot(board(), [message()]));
+		view.setBoard(snapshot(busBoard(), [busMessage()]));
 		expect(recorded.renders).toBe(2);
 		view.handleInput("q");
 		expect(recorded.closed).toBe(true);
@@ -353,7 +302,7 @@ describe("the /sessions screen", () => {
 	});
 
 	test("keeps the scope key and the action in a narrow hint row", () => {
-		const view = screen(snapshot(board(), [message()]), events());
+		const view = screen(snapshot(busBoard(), [busMessage()]), events());
 		const sessions = view.render(46).join("\n");
 		expect(sessions).toContain("Tab inbox");
 		expect(sessions).toContain("w watch");
@@ -366,144 +315,12 @@ describe("the /sessions screen", () => {
 	});
 
 	test("every scope fits the width", () => {
-		const view = screen(snapshot(board(), [message()]), events());
+		const view = screen(snapshot(busBoard(), [busMessage()]), events());
 		for (const width of [40, 80]) {
 			for (const scope of [0, 1, 2]) {
 				if (scope > 0) view.handleInput("\t");
 				expectBounded(view.render(width), width);
 			}
 		}
-	});
-});
-
-describe("the expanded result block", () => {
-	test("status lists the sessions and heads the claims", () => {
-		const input = resultSections({ action: "status", status: board() });
-		if (!input) throw new Error("no sections");
-		const lines = new TailResult(input, fakeTheme).render(80);
-		expect(lines[0]).toBe("");
-		const text = lines.join("\n");
-		expect(text).toContain("frontend · you");
-		expect(text).toContain("Claims");
-		expect(text).toContain("src/api");
-		expectBounded(lines, 80);
-		expectBounded(new TailResult(input, fakeTheme).render(40), 40);
-	});
-
-	test("inbox lists the messages with their sender", () => {
-		const input = resultSections({
-			action: "inbox",
-			messages: [message(), message({ id: "2-b", kind: "event", text: "contract v2" })],
-		});
-		if (!input) throw new Error("no sections");
-		const text = new TailResult(input, fakeTheme).render(80).join("\n");
-		expect(text).toContain("is checkout.ts free?");
-		expect(text).toContain("backend · event");
-	});
-
-	test("release separates released paths from the ones it does not own", () => {
-		const input = resultSections({ action: "release", released: ["src/ok.ts"], notOwned: ["src/theirs.ts"] });
-		if (!input) throw new Error("no sections");
-		const text = new TailResult(input, fakeTheme).render(80).join("\n");
-		expect(text).toContain("Released");
-		expect(text).toContain("Not yours");
-		expect(text).toContain("src/theirs.ts");
-	});
-
-	test("an action with nothing to list has no rows", () => {
-		const sections = resultSections({ action: "join", label: "backend", watching: { armed: true, wake: false } });
-		expect(sections).toBeUndefined();
-		expect(resultSections({ action: "inbox", messages: [] })).toBeUndefined();
-		expect(resultSections({ action: "release", released: [], notOwned: [] })).toBeUndefined();
-	});
-});
-
-describe("the collapsed result line", () => {
-	test("status counts read in the plural and name the watch", () => {
-		expect(collapsedLine(fakeTheme, { action: "status", status: board() })).toBe("3 sessions · 3 unread · 2 claims");
-		expect(
-			collapsedLine(fakeTheme, {
-				action: "status",
-				status: { ...board(), watching: { armed: true, wake: true } },
-			}),
-		).toContain("watch wake");
-	});
-
-	test("a claim conflict names the path and its owner", () => {
-		const line = collapsedLine(fakeTheme, {
-			action: "claim",
-			claimed: [],
-			conflicts: [{ path: "src/api", owner: "fedcba654321", ownerLabel: "backend" }],
-		});
-		expect(line).toContain("1 conflict");
-		expect(line).toContain("src/api held by backend");
-	});
-
-	test("a release names the paths it did not own", () => {
-		const line = collapsedLine(fakeTheme, { action: "release", released: [], notOwned: ["src/theirs.ts"] });
-		expect(line).toContain("Not yours: src/theirs.ts");
-	});
-
-	test("empty results never print a bare success", () => {
-		expect(collapsedLine(fakeTheme, { action: "send", delivered: [] })).toBe("Delivered to nobody");
-		expect(collapsedLine(fakeTheme, { action: "claim", claimed: [], conflicts: [] })).toBe("Claimed nothing");
-		expect(collapsedLine(fakeTheme, { action: "inbox", messages: [] })).toBe("Inbox empty");
-		expect(collapsedLine(fakeTheme, { action: "release", released: [], notOwned: [] })).toBe("Nothing to release");
-	});
-
-	test("the join line names the label and the state", () => {
-		expect(
-			collapsedLine(fakeTheme, { action: "join", label: "backend", watching: { armed: true, wake: true } }),
-		).toContain("listening, wake");
-		expect(
-			collapsedLine(fakeTheme, { action: "join", label: "backend", watching: { armed: false, wake: false } }),
-		).toContain("not listening");
-	});
-
-	test("a message row is one neutralized line", () => {
-		const line = messageRowLine(message({ text: "back\u001b[31m\nend" }), fakeTheme, 80);
-		expect(line).not.toContain("\u001b");
-		expect(line).not.toContain("\n");
-	});
-});
-
-describe("the mail notice", () => {
-	test("keeps five model lines but hands every message to the renderer", () => {
-		const messages = Array.from({ length: 6 }, (_, index) => message({ id: `${index}`, text: `message ${index}` }));
-		const notice = mailNotice(messages);
-		expect(notice.content).toContain("6 new messages:");
-		expect(notice.content).toContain("… 1 more");
-		expect(notice.content.split("\n").filter((line) => line.startsWith("- "))).toHaveLength(5);
-		expect(notice.details.items).toHaveLength(6);
-	});
-
-	test("names a burst of handoffs as the work it is, and says to start it", () => {
-		const notice = mailNotice([message({ kind: "handoff", text: "Handoff: #4 is yours" })]);
-		expect(notice.content).toContain("1 handoff");
-		expect(notice.details.title).toBe("1 handoff");
-		expect(notice.content).toContain("A handoff is work you now own");
-		expect(notice.content).toContain("do not just acknowledge it");
-	});
-
-	test("keeps a handoff's instruction, which sits past a message's preview limit", () => {
-		// The actionable line is last: paths and a note come first, so a 200-character
-		// preview would cut exactly the part that makes the wake useful.
-		const text = `Handoff: #4 "Billing webhook accepts orders" is yours, billing-core. Paths: ${"src/a".repeat(40)} It is already assigned to you — record the plan and start.`;
-		const notice = mailNotice([message({ kind: "handoff", text })]);
-		expect(notice.content).toContain("already assigned to you");
-		expect(notice.content.length).toBeLessThan(text.length + 400);
-	});
-
-	test("leaves a mixed burst as mail, and only the hint mentions the handoff", () => {
-		const notice = mailNotice([message({ kind: "handoff" }), message({ kind: "event" })]);
-		expect(notice.details.title).toBe("2 new messages");
-		expect(notice.content).toContain("work you now own");
-	});
-
-	test("marks an event and neutralizes the sender", () => {
-		const notice = mailNotice([message({ fromLabel: "back\u001b[31mend", kind: "event" })]);
-		expect(notice.details.items?.[0]?.severity).toBe("warn");
-		expect(notice.details.items?.[0]?.label).not.toContain("\u001b");
-		expect(notice.details.title).toBe("1 new message");
 	});
 });

@@ -9,8 +9,10 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { formatDuration, sanitizeLine } from "../../lib/format.ts";
-import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { clip, usableWidth } from "../../lib/tui/columns.ts";
+import { GLYPHS, GLYPH_GAP, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { listRow, statusRow } from "../../lib/tui/rows.ts";
 import type { TailRowLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -20,6 +22,9 @@ import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./ty
 
 /** Claim paths the focus block lists before it points at the pane. */
 const BLOCK_CLAIMS = 2;
+
+/** Columns between a row's body and the trailing cell beside it. */
+const TRAILING_GAP = 2;
 
 /** `1 claim`, `2 claims`. */
 export function count(n: number, noun: string): string {
@@ -100,6 +105,19 @@ export function claimRowLine(
 	});
 }
 
+/** The glyph a message of this kind is led by. A handoff is work, not a notification. */
+function messageGlyph(kind: BusMessage["kind"]): { glyph: string; role: "warn" | "info" } {
+	if (kind === "event") return { glyph: GLYPHS.warn, role: "warn" };
+	if (kind === "ask") return { glyph: GLYPHS.unknown, role: "info" };
+	if (kind === "handoff") return { glyph: GLYPHS.delegation, role: "info" };
+	return { glyph: GLYPHS.pending, role: "info" };
+}
+
+/** The sender and the kind, as the meta a message row closes with. */
+function messageTrailing(message: BusMessage): string {
+	return `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}`;
+}
+
 /** One message row: the sender and kind as meta trailing the text. */
 export function messageRowLine(
 	message: BusMessage,
@@ -107,16 +125,49 @@ export function messageRowLine(
 	width: number,
 	options: { selected?: boolean; marker?: boolean } = {},
 ): string {
-	const glyph = message.kind === "event" ? GLYPHS.warn : message.kind === "ask" ? GLYPHS.unknown : GLYPHS.pending;
+	const { glyph, role } = messageGlyph(message.kind);
 	return statusRow(theme, width, {
 		selected: options.selected === true,
 		marker: options.marker !== false,
 		glyph,
-		glyphRole: message.kind === "event" ? "warn" : "info",
+		glyphRole: role,
 		label: sanitizeLine(message.text),
 		labelRole: options.selected === true ? "accent" : "label",
-		trailing: `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}`,
+		trailing: messageTrailing(message),
 	});
+}
+
+/**
+ * One message in the expanded transcript block: the row above when its body fits
+ * beside the sender, and otherwise a `sender · kind` heading with the body wrapped
+ * under it.
+ *
+ * A message body is prose the reader asked to see, so an expanded block never clips
+ * one in mid-sentence: a handoff carries the step to take past the point a clipped
+ * row stops, which is the whole reason a wake is worth anything.
+ */
+export function messageRowLines(message: BusMessage, theme: Theme, width: number): string[] {
+	const trailing = messageTrailing(message);
+	const body = paint(theme, "label", sanitizeLine(message.text));
+	const w = usableWidth(width);
+	// The glyph and the column after it are reserved on every line, so the wrapped
+	// body hangs under its first character instead of restarting at the margin.
+	const textColumn = visibleWidth(messageGlyph(message.kind).glyph) + GLYPH_GAP;
+	const room = Math.max(1, w - textColumn);
+	if (visibleWidth(body) + visibleWidth(trailing) + TRAILING_GAP <= w) {
+		return [messageRowLine(message, theme, width, { marker: false })];
+	}
+	const { glyph, role } = messageGlyph(message.kind);
+	const head = statusRow(theme, width, {
+		marker: false,
+		glyph,
+		glyphRole: role,
+		label: trailing,
+		labelRole: "faint",
+		trailing: "",
+	});
+	const indent = " ".repeat(textColumn);
+	return [head, ...wrapTextWithAnsi(body, room).map((line) => clip(`${indent}${line}`, w))];
 }
 
 /** The one row renderer the expanded transcript block uses. */
@@ -127,7 +178,7 @@ export const busRowLine: TailRowLine<BusRow> = (row, width, theme) => {
 		case "claim":
 			return claimRowLine(row.claim, theme, width, { marker: false });
 		case "message":
-			return messageRowLine(row.message, theme, width, { marker: false });
+			return messageRowLines(row.message, theme, width);
 		case "result":
 			return statusRow(theme, width, {
 				marker: false,

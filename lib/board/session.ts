@@ -215,7 +215,7 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			// session serves is the name its cards are read against. A host that reports no id
 			// has no record to look for, so it keeps the bus's own readable chain.
 			if (seat !== undefined) return id === undefined ? { label: seat } : { id, label: seat };
-			if (id === undefined) return { label: defaultLabel(sessionNameOf(ctx), cwd) };
+			if (id === undefined) return { label: defaultLabel({ sessionName: sessionNameOf(ctx), cwd }) };
 			// The record is the bus's word for this session, so it is read rather than derived;
 			// a record that names nothing is no record, and draws like one.
 			const roster = await readRoster(await session.busDir(cwd));

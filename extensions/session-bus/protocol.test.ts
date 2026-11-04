@@ -18,8 +18,8 @@ describe("labels and actions", () => {
 		expect(normalizeLabel("   ", "session")).toBe("session");
 	});
 	test("uses the cwd basename as the default label", () => {
-		expect(defaultLabel(undefined, "/repo/frontend", "s1")).toBe("frontend");
-		expect(defaultLabel("named", "/repo/frontend", "s1")).toBe("named");
+		expect(defaultLabel({ cwd: "/repo/frontend", id: "s1" })).toBe("frontend");
+		expect(defaultLabel({ sessionName: "named", cwd: "/repo/frontend", id: "s1" })).toBe("named");
 	});
 	test("shortens an id for display", () => {
 		expect(shortId("abcdef123456")).toBe("123456");

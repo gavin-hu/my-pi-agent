@@ -26,6 +26,7 @@ import type { LoginViewState } from "../view/login-screen.ts";
 import type { LoginOutcome } from "./login.ts";
 import { doctorReport } from "./doctor.ts";
 import { messageOf } from "../../../lib/errors.ts";
+import { bridgeRemedy } from "../text/remedy.ts";
 import { peerLabel } from "../text/format.ts";
 import { defaultSleep } from "../timer.ts";
 import { qrLines } from "../../../lib/qr.ts";
@@ -231,7 +232,7 @@ async function runCancel(ctx: ExtensionCommandContext, deps: CommandDeps): Promi
 	const bridge = deps.getBridge();
 	if (!bridge) {
 		ctx.ui.notify(
-			"No prompt is waiting: the WeChat bridge is not started on this session. Run /wechat start.",
+			`No prompt is waiting: this session runs no bridge. ${bridgeRemedy(deps.storedAccount() !== undefined)}`,
 			"warning",
 		);
 		return;

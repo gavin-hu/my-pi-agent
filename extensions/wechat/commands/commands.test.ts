@@ -13,19 +13,9 @@ import { describe, expect, test } from "bun:test";
 import { type InteractionRequest, INTERACTION_OTHER_LABEL } from "../../../lib/interaction.ts";
 import { fakeCtx } from "../../../test/helpers/context.ts";
 import { createFakePi } from "../../../test/helpers/fakes.ts";
-import { bridgeStatus } from "../../../test/helpers/fixtures/wechat.ts";
-import type { Bridge, BridgeStatus } from "../bridge.ts";
+import { bridgeStatus, commandHarness as harness } from "../../../test/helpers/fixtures/wechat.ts";
 import type { WechatClient } from "../transport/client.ts";
-import {
-	finishLogin,
-	registerCommands,
-	runNew,
-	WECHAT_COMMANDS,
-	WECHAT_USAGE,
-	type CommandDeps,
-	type StartOutcome,
-} from "./commands.ts";
-import { DEFAULT_CONFIG } from "../config.ts";
+import { finishLogin, registerCommands, runNew, WECHAT_COMMANDS, WECHAT_USAGE, type CommandDeps } from "./commands.ts";
 import type { PeerLanguage } from "../text/format.ts";
 import {
 	createWechatInteractionChannel,
@@ -55,88 +45,6 @@ const account: BotCredentials = {
 	botAgent: "ag",
 	createdAt: 0,
 };
-
-interface Harness {
-	deps: CommandDeps;
-	saved: BotCredentials[];
-	opens: () => number;
-	/** Bridge lifecycle calls in order, so a restart is asserted as one sequence. */
-	events: string[];
-	/** Peers passed to `bridge.stop` / `bridge.reset`, in order. */
-	stops: string[];
-	resets: string[];
-	logouts: () => number;
-}
-
-function harness(
-	options: {
-		open?: () => void;
-		status?: BridgeStatus;
-		bridge?: boolean;
-		stop?: boolean;
-		reset?: boolean;
-		start?: StartOutcome;
-		startError?: string;
-		account?: BotCredentials;
-	} = {},
-): Harness {
-	const saved: BotCredentials[] = [];
-	const events: string[] = [];
-	const stops: string[] = [];
-	const resets: string[] = [];
-	let logouts = 0;
-	const status = options.status ?? bridgeStatus();
-	const bridge = {
-		open: () => {
-			events.push("open");
-			options.open?.();
-		},
-		close: async () => {
-			events.push("close");
-		},
-		status: () => status,
-		stop: (peer: string) => {
-			stops.push(peer);
-			return options.stop ?? true;
-		},
-		reset: (peer: string) => {
-			resets.push(peer);
-			return options.reset ?? true;
-		},
-	} as unknown as Bridge;
-	const exists = options.bridge ?? true;
-	return {
-		deps: {
-			getBridge: () => (exists ? bridge : undefined),
-			startBridge: async () => {
-				events.push("start");
-				if (options.startError) throw new Error(options.startError);
-				return options.start ?? "started";
-			},
-			stopBridge: async () => {
-				events.push("stop");
-				return options.stop ?? true;
-			},
-			loadConfig: () => DEFAULT_CONFIG,
-			createLoginClient: () => {
-				throw new Error("login client is not used by these commands");
-			},
-			saveAccount: (value) => saved.push(value),
-			storedAccount: () => options.account,
-			readHistory: async () => "",
-			logout: () => {
-				logouts += 1;
-			},
-			now: () => 0,
-		},
-		saved,
-		opens: () => events.filter((event) => event === "open").length,
-		events,
-		stops,
-		resets,
-		logouts: () => logouts,
-	};
-}
 
 function handler(deps: CommandDeps) {
 	const fake = createFakePi();

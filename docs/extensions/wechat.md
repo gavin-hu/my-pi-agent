@@ -466,8 +466,9 @@ rooms are delivered, a question a group-chat design would have to answer first.
   `/wechat status` say what happened.
 - One turn at a time: a message that arrives while the turn runs waits for its
   own turn and answer — it is neither merged into the running turn nor answered in
-  parallel — and is acknowledged and told why. Steering a running turn
-  (`deliverAs: "steer"`) is not used.
+  parallel — and is acknowledged and told why. `deliverAs` is not used at all: a
+  `steer` would rewrite the running turn, and a `followUp` would stream the
+  terminal's remaining answer to the phone.
 - The chat shares this session's context, model, and tools.
   costs its own model tokens, and it loads the package's tools (minus this
   bridge) in the same workspace. The idle sweep tells that session's extensions it
@@ -612,6 +613,7 @@ guidance used to do.
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, reconcile the branch's binding with the running bridge (one promise its readers join), bind and unbind on the commands, build the bridge, build the chat's session over the host context. |
 | `bridge.ts` | The composition root: wires the poll loop, delivery, presence, admission, and inbound modules to the live client/account/cursor/state; owns the connection lifecycle — one `BridgeState` value, published as it moves — the status snapshot, and `sendToOwner`. Loaded on the first hand start, never at registration, so a session that bound nothing evaluates none of it. |
 | `intake.ts` | The inbound path: who is refused, what is a replay, what is a command, what answers a pending prompt, and what is queued or turned away; the admission predicates live here too. A message is written down when it is concluded, and a queued one only when it is handed over. |
+| `owner-send.ts` | The owner-bound proactive send behind `send_wechat`: the field names the shape (`text`, `image`, `file`), a text is refused while the chat's own turn runs because the bridge answers it, and the transport sanitizes the file name. |
 | `tools.ts` | The `send_wechat` tool: owner-only proactive text or one image, with the neither-or-both refusal. |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
 | `types.ts` | Wire and domain types. |
@@ -637,6 +639,7 @@ guidance used to do.
 | `commands/login.ts` | QR login state machine. |
 | `commands/history.ts` | Read-only `/history`: formats the last user/assistant messages of this session's own entries, and never writes. |
 | `text/format.ts` | Sanitize, chunk, and label helpers (text only). |
+| `text/remedy.ts` | The remedy every notice names, in one place: a login stores an account and starts nothing, so the step that opens a bridge is a start, and a login only comes first when no account is stored. |
 | `text/notices.ts` | The peer-facing notice catalog: one line per kind, in the peer's language. |
 | `text/channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
 | `dialog/interaction.ts` | One peer's `InteractionChannel`: pending-prompt state machine, the other-answer stash, and reply routing for that peer. |
