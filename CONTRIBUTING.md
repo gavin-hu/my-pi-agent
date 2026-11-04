@@ -41,17 +41,21 @@ git worktree add .pi/worktrees/<name> -b worktree-<name>
 ```
 
 The branch is cut from `origin/main`, which lags the local `main` when pushes are
-infrequent, so rebase onto `main` right after entering.
+infrequent. Leave it there: the branch stays where it was cut, and divergence is
+settled once, by the merge.
 
-`main` moves while you work. Before merging, commit on the branch (a rebase needs
-a clean tree), run `git rebase main`, and re-run `bun run check`. Confirm with
-`git merge-base --is-ancestor main HEAD` rather than trusting the entry-time
-rebase: `git push origin main` publishes everything on it.
+`main` moves while you work. Commit as each step finishes and let the branch fall
+behind; when it is time to land, merge `main` into the branch (or merge the branch
+on the `main` checkout), resolve the divergence once, and run `bun run check` on
+that merge. Replaying the branch onto `main` with `git rebase main` instead pays a
+conflict per commit, and the `--no-ff` merge gives up linear history anyway, so
+the replay buys nothing: rebase is only worth it for a private branch of one or
+two commits.
 
-With the work committed and checked, ask how to reconcile the branch (commit,
-merge, keep, or discard) before `worktree` exits. Exiting with `remove: true,
-keepBranch: true` drops the clean worktree, keeps the branch, and reports the
-commits ahead plus the merge command; merge on the main checkout with
+With the work committed and the merge checked, ask how to reconcile the branch
+(commit, merge, keep, or discard) before `worktree` exits. Exiting with
+`remove: true, keepBranch: true` drops the clean worktree, keeps the branch, and
+reports the commits ahead plus the merge command; merge on the main checkout with
 `git merge --no-ff <branch>`, push, and delete the branch. Never `git add -A` or
 `git add .`; stage explicit paths. Never `git reset --hard`, `git checkout .`,
 `git clean -fd`, `git stash`, `git commit --no-verify`, or force-push `main`.

@@ -35,11 +35,11 @@ bun run bench:render              # render benchmark
 - Start every task in a worktree, before plan mode, which refuses
   `worktree`. Under Pi, `worktree` with `action: "enter"`; otherwise
   `git worktree add .pi/worktrees/<name> -b worktree-<name>`. It cuts from
-  `origin/main`, so rebase onto `main` right after.
+  `origin/main`; never rebase it — the merge settles divergence.
 - Never commit unless the user asks; before `worktree` exits, ask how to reconcile
   the branch (commit, merge, keep, discard).
-- Commit first, then rebase onto `main` and re-run `bun run check`: a rebase
-  needs a clean tree, and `main` moves.
+- Commit as steps finish; when `main` moves, merge it in and run `bun run
+  check` on that merge.
 - Land from a checkout on `main`: `git merge --no-ff <branch>`, then `git push
   origin main`; never push a branch head to `main`.
 - Stage explicit paths; never `git add -A` or `git add .`. Never `git reset
