@@ -176,6 +176,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"config",
 		"timer",
 		"paths",
+		"owner-send",
 		"tools",
 		"extension",
 		"lifecycle",

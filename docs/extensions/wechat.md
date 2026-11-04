@@ -48,7 +48,7 @@ subprocess per peer.
 | Capability | How | What you get | Status |
 |---|---|---|---|
 | Streamed replies | automatic: the reply pipeline | A long answer arrives as it is produced, not as one long silence. | Shipped |
-| Proactive message | `send_wechat` | The model messages the owner one text or one local image, sent as a picture. | Partial |
+| Proactive message | `send_wechat` | The model messages the owner one text, one local image as a picture, or one local file as a document. | Partial |
 | Abandoned-turn notice | automatic: shutdown, `/reload`, `/new`, logout | Each peer with work gets one line saying the turn stopped, rather than silence. | Unreleased |
 | Outbound files | the upload flow, `askHuman` | A remote prompt can deliver a local file before its question, and a failed upload falls back to text. | Shipped |
 | Plain chat text | `maxReplyChars` | Markdown markers are flattened, and a long reply is split so each numbered part — `[1/3] ` included — fits the limit. | Shipped |
@@ -101,15 +101,18 @@ fresh `/new` starts unbound.
 `send_wechat` — direct exposure (the default), `executionMode: "sequential"`,
 read-write, open-world. It messages the account owner and nobody else: the
 recipient is not a parameter, so untrusted generated text cannot be aimed at
-another account. Give exactly one of `text` or `image`; neither or both is
+another account. Give exactly one of `text`, `image`, or `file`; none or several is
 refused with the reason. A text send is also refused while a turn with the owner
-is in flight, because the bridge is already answering it, while an image is
-allowed there — an image cannot duplicate the streamed answer.
+is in flight, because the bridge is already answering it, while an image or a file
+is allowed there — media cannot duplicate the streamed answer. The field names the
+shape, not the bytes: `image` is a picture and refuses bytes that sniff as no
+image, while `file` is a document even when the file is an image.
 
 | Parameter | Type | Meaning |
 |---|---|---|
 | `text` | string, optional | Plain text, 1–4000 characters. |
-| `image` | string, optional | Path to a local image, up to 4096 characters; the bytes must sniff as an image. |
+| `image` | string, optional | Path to a local image, up to 4096 characters; the bytes must sniff as an image, and it arrives as a picture. |
+| `file` | string, optional | Path to a local file, up to 4096 characters; it arrives as a document, whatever the bytes are. |
 
 Result (`details` / `structuredContent`): `{ sent, error? }`. A failed send is an
 error result carrying the same shape, so the model can report what went wrong.
@@ -117,9 +120,10 @@ error result carrying the same shape, so the model can report what went wrong.
 ```text
 send_wechat({ text: "The build is green again." })
 send_wechat({ image: "/tmp/plot.png" })
+send_wechat({ file: "/tmp/report.pdf" })
 ```
 
-The call line carries the message text, or an image's file name rather than its
+The call line carries the message text, or a media file's name rather than its
 path; the result is one line — `sent to WeChat owner`, or the failure with a
 reason. While the send is in flight the row reads `Sending…` with a live elapsed
 count (`startToolProgress`, `elapsedSuffix`), and the settled line carries the
@@ -263,7 +267,7 @@ default are in
   "botAgent": "pi-wechat",   // sent as base_info.bot_agent
   "channelVersion": "0.1.0", // sent as base_info.channel_version
   "cdnBaseUrl": "https://novac2c.cdn.weixin.qq.com/c2c", // CDN media base
-  "maxMediaBytes": 20971520, // inbound media larger than this is skipped
+  "maxMediaBytes": 20971520, // media larger than this is skipped inbound and refused outbound
   "maxInboundChars": 8000, // inbound text longer than this is truncated
   "typingIndicator": true,   // show typing while a turn is generated
   "remotePrompts": true,     // answer interactive dialogs on WeChat during a WeChat turn
@@ -314,6 +318,7 @@ needs. Per action:
 | Sends while another peer's turn runs | Both conversations are answered in parallel, each with its own typing indicator and its own place in a dialog. |
 | Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. |
 | Is sent an image by the bot | A picture in the chat, from `send_wechat` with a local path, not a document attachment. |
+| Is sent a file by the bot | A document attachment, from `send_wechat` with a local path — a report or a log, not a picture. |
 | Sends a voice note or video | One line: voice without a transcript and video are not supported. |
 | Reads a long answer | Streamed as it is produced — one part per paragraph, per two silent seconds, or per 400 characters — and a part longer than `maxReplyChars` is split and numbered (`[1/3] …`), the number counting against the limit. |
 | Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
@@ -404,9 +409,9 @@ calls `plan` action `cancel`, which needs no plan path and records no todo or go
 The flow mirrors the
 reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the ciphertext
 (`Content-Type: application/octet-stream`) → read `x-encrypted-param` → send a
-`type: 4` file item. The plan review is the flow that uses it; `send_wechat`
-uploads an image over the same path as a `type: 2` item, while video and voice
-are not sent outbound.
+`type: 4` file item. The plan review and `send_wechat` are the flows that use it:
+an image goes as a `type: 2` item, a file as a `type: 4` document, while video and
+voice are not sent outbound.
 
 ## The long-poll hold
 
@@ -513,7 +518,8 @@ rooms are delivered, a question a group-chat design would have to answer first.
   server gave no transcript for is treated the same way.
 - Outbound **files** are supported (used by the plan review), and so are
   **images**, which `send_wechat` sends as a picture when given a local path whose
-  bytes sniff as one. Outbound video and voice are not supported.
+  bytes sniff as one; a local file it is given arrives as a document. Outbound
+  video and voice are not supported.
 - Remote prompts cover the standard dialogs (`select`/`confirm`/`input`/`editor`).
   A full-screen `ctx.ui.custom` component cannot be answered over WeChat: a peer
   session's UI context refuses it, exactly like RPC mode.
@@ -537,7 +543,7 @@ in-process).
 | Integration point | Detail |
 |---|---|
 | Command | `pi.registerCommand("wechat", …)` — `start`, `login`, `new`, `status`, `stop [peer]`, `doctor`, `reset <peer>`, `history <peer> [n]`, `allow [peer]`, `logout`, `help`; bare `/wechat` opens the control screen. |
-| Tools | `send_wechat` — one text or one local image, to the owner only; registered at factory time with direct exposure (the default), `executionMode: "sequential"`, `openWorldHint: true`. |
+| Tools | `send_wechat` — one text, one local image, or one local file, to the owner only; registered at factory time with direct exposure (the default), `executionMode: "sequential"`, `openWorldHint: true`. |
 | Annotations | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: false`, `openWorldHint: true` |
 | Output | `outputSchema` — `{ sent, error? }` — also returned as `structuredContent`; a failed send is an `isError` result with the same shape. |
 | Events | `session_start` (record the live context, then open the bridge when the branch bound an account); `session_tree` (reconcile the poller with the binding the landed branch carries); `session_shutdown` (await that start, then an idempotent stop, leaving the binding). No host run events: peer turns are not the host session's runs. |
@@ -629,7 +635,8 @@ guidance used to do.
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, reconcile the branch's binding with the running bridge (one promise its readers join), bind and unbind on the commands, build the bridge, open peer sessions from the host context. |
 | `bridge.ts` | The composition root: wires the poll loop, delivery, presence, admission, and inbound modules to the live client/account/cursor/state; owns the connection lifecycle — one `BridgeState` value, published as it moves — the status snapshot, and `sendToOwner`. Loaded on the first hand start, never at registration, so a session that bound nothing evaluates none of it. |
 | `intake.ts` | The inbound path: who is refused, what is a replay, what is a command, what answers a pending prompt, and what is queued or turned away; the admission predicates live here too. A message is written down when it is concluded, and a queued one only when it is handed over. |
-| `tools.ts` | The `send_wechat` tool: owner-only proactive text or one image, with the neither-or-both refusal. |
+| `tools.ts` | The `send_wechat` tool: owner-only proactive text, image, or file, with the none-or-several refusal. |
+| `owner-send.ts` | The owner-bound send behind the tool: the text/image/file shape rule, the running-turn refusal for text, and the one result each failure reports. |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
 | `types.ts` | Wire and domain types. |
 | `timer.ts` | The timer seam: the cancellable one-shot `ArmTimer`, `defaultTimer`, and the abortable `defaultSleep`. |

@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `wechat`: `send_wechat` sends one local file as a WeChat document, beside the text and the picture
+  it already sends, and the shape is the argument's rather than the file's bytes — `file` is a
+  document however the bytes would sniff, `image` is still a picture and still refuses a non-image,
+  and the refusal names `text`, `image`, and `file`. It reuses the upload flow the plan review
+  already uses, keeps the owner-only rule and the `maxMediaBytes` cap, and a file sent while the
+  owner's own turn runs is allowed for the reason an image is: media cannot duplicate the streamed
+  answer. The owner send moved out of `bridge.ts` into `owner-send.ts`, which holds the shape rule,
+  so the composition root stays under the module bar.
+
 ### Changed
 
 - `wechat`: the bridge is bound to one Pi session and started and stopped by hand — `/wechat start`
