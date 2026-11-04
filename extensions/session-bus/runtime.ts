@@ -58,8 +58,8 @@ export interface SessionBusOptions {
 	alive?: LivenessFn;
 	/** Test seam: the start-time seam the record is stamped with. */
 	startTokenFn?: StartTokenFn;
-	/** Test seam: skip git and use this repository identity. */
-	repo?: { root: string; key: string };
+	/** Test seam: skip git and use this repository identity, saying whether git would have resolved it. */
+	repo?: { root: string; key: string; fromGit?: boolean };
 	/** Heartbeat interval; 0 disables it (tests). */
 	heartbeatMs?: number;
 	/** Inbox-watch poll interval; 0 disables it (tests). */
@@ -180,7 +180,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// Deferred with the ask it makes: a factory registers, and the label settles at the
 			// first addressable action instead.
 			const { automaticLabel } = await import("./label.ts");
-			const label = await automaticLabel(pi, { context, cwd, id, repo });
+			const label = await automaticLabel(pi, { context, cwd, id, fromGit: repo.fromGit === true });
 			record = {
 				id,
 				label,

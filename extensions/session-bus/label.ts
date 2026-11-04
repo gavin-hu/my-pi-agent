@@ -22,12 +22,12 @@ export interface AutoLabelFacts {
 	cwd: string;
 	/** The session's id, the last fallback. */
 	id: string;
-	/** The repository the bus filed under; `fromGit` is what lets its trees be asked for. */
-	repo: { root: string; fromGit?: boolean };
+	/** Whether git resolved the repository, so its working trees can be asked for. */
+	fromGit: boolean;
 }
 
 /** The name this session joins under: its own, else the repository's, else its id. */
 export async function automaticLabel(pi: Pick<ExtensionAPI, "exec">, facts: AutoLabelFacts): Promise<string> {
-	const checkouts = facts.repo.fromGit === true ? await worktrees(createExecRunner(pi), facts.cwd) : [];
+	const checkouts = facts.fromGit ? await worktrees(createExecRunner(pi), facts.cwd) : [];
 	return defaultLabel({ sessionName: sessionNameOf(facts.context), cwd: facts.cwd, id: facts.id, checkouts });
 }
