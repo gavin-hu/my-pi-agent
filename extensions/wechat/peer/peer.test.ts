@@ -1270,7 +1270,7 @@ describe("poll loop", () => {
 				expired = true;
 				running = false;
 			},
-			onMessages: (list) => messages.push(...list),
+			onMessages: (list) => void messages.push(...list),
 			refreshLock: () => {
 				refreshes += 1;
 			},
@@ -1374,7 +1374,7 @@ describe("poll loop", () => {
 			},
 			notify: (message) => notices.push(message),
 			onExpired: () => {},
-			onMessages: (list) => messages.push(...list),
+			onMessages: (list) => void messages.push(...list),
 			refreshLock: () => {},
 			isRunning: () => true,
 			now: () => 1000,

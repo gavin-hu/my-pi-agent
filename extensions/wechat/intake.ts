@@ -192,7 +192,11 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 		const now = deps.now();
 		recordInbound(state, peer, message.context_token, now);
 		if (typeof messageId === "number" && messageId !== 0) rememberMessage(state, peer, messageId, now);
-		deps.saveState(state);
+		// Every outcome but a hand-off is final inside this call, so it is written down before
+		// the return. A queued message is written by the hand-off instead, because marking it
+		// seen before the media download would make a kill unrecoverable: the cursor would not
+		// replay it and the seen id would refuse it.
+		const commit = () => deps.saveState(state);
 
 		const target = { peer, contextToken: message.context_token ?? findPeer(state, peer)?.lastContextToken };
 		// A command is not an answer: while a dialog waits the model is blocked on it,
@@ -204,30 +208,37 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 		if (command && slash) {
 			if (command.ownerOnly && peerKey(peer) !== peerKey(owner ?? "")) {
 				deps.refused.value += 1;
+				commit();
 				return;
 			}
 			if (command.kind === "snippet") {
 				text = expandSnippet(command, slash.args);
 			} else {
 				void runSlashAction(command, target, slash.args);
+				commit();
 				return;
 			}
 		}
 		// A reply to a pending prompt is consumed here, before queueing, so it never
 		// starts a turn of its own. A duplicate answer was stopped by the id check.
-		if (channels.handleInbound(peer, text)) return;
+		if (channels.handleInbound(peer, text)) {
+			commit();
+			return;
+		}
 		const language = languageOf(peer, text);
 		const item: InboundItem = { ...target, text, media, language };
 		if (!text && media.length === 0) {
 			// Nothing to read. A voice note without a transcript or a video is
 			// answered, so the peer knows it did not reach the agent.
 			if (unsupported > 0) void deps.reply(item, notice("unsupported", language));
+			commit();
 			return;
 		}
 		// A slot is reserved here, before the download, so a burst of media cannot
 		// all pass the check and then enqueue together.
 		if (!budget.allow(peer)) {
 			void deps.reply(item, notice("budget", language));
+			commit();
 			return;
 		}
 		const busy = (worker?.state(peer).queued ?? 0) + admission.pending(peer);
@@ -238,6 +249,7 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 				deps.overflow.add(peer);
 				void deps.reply(item, notice("overflow", language));
 			}
+			commit();
 			return;
 		}
 		presence.keepTyping(peer, item.contextToken);

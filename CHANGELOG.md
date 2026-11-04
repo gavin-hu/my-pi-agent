@@ -54,6 +54,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: an inbound message survives a kill, a close, and a poller error — a batch's cursor is
+  persisted only after its messages reach a peer's session, so a download still in flight is read
+  again instead of acknowledged and lost; a close that interrupts one leaves it to the next start
+  rather than dropping it, and says so; a poll loop that dies stops the connection instead of leaving
+  an `open` status over no poller; and a transport error is reported once per episode, not per
+  two-second retry.
 - `job`: `clear` removes a job's log only once the stream that held it has closed — Windows refused the
   unlink on a file a descriptor still held, and a stream whose open had not landed recreated the file
   just after it, so a cleared job could leave a log behind. The second attempt rides the stream's

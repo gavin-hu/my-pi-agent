@@ -110,7 +110,16 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 			let prefix: string | undefined;
 			if (item.media.length > 0) {
 				const resolved = await resolveMedia(item);
-				if (!deps.isRunning()) return;
+				if (!deps.isRunning()) {
+					// A close interrupted the download. Nothing has been written down for this
+					// message — neither the cursor nor its seen id — so the next connection reads
+					// it again; saying so is what keeps the gap from looking like a delivery.
+					deps.notify(
+						"WeChat stopped while a message was downloading; it will be read again on the next start.",
+						"warning",
+					);
+					return;
+				}
 				// The bridge has already refused a message with no text and no media, so
 				// this is the other case: media arrived but nothing in it could be read.
 				if (!text && resolved.images.length === 0 && resolved.files.length === 0) {

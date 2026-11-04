@@ -17,7 +17,7 @@ subprocess per peer.
 | Inbound media | automatic: an inbound image or file | Images arrive as model image content, files are saved and referenced by path, and voice uses the server's transcript. | Shipped |
 | Isolated terminal | automatic: an inbound message | A WeChat turn runs in the peer's session, so the terminal transcript never sees the exchange. | Shipped |
 | Two peers at once | `PEER_CONCURRENCY` | Two peers' turns run concurrently; a third waits in a fair queue and is acknowledged. | Unreleased |
-| Inbound replay safety | automatic: the WeChat message id | A replayed message id is answered once, remembered for an hour across a reconnect or reload. | Shipped |
+| Inbound replay safety | automatic: the WeChat message id | A replayed message id is answered once, remembered for an hour across a reconnect or reload. A batch is acknowledged only once its messages reach a peer's session, so a kill or a close mid-download reads that message again instead of losing it. | Shipped |
 | Inbound text cap | `maxInboundChars` | Text past the configured cap is truncated with a marker instead of becoming an unbounded prompt. | Shipped |
 | Peer language | automatic: a message written in Chinese | Notices and `/help` answer in the peer's language, and a neutral reply does not switch it back. | Shipped |
 | Peer slash commands | `/new`, `/stop`, `/status`, `/history`, `/help` | The peer restarts, stops, inspects, or asks for help without spending a turn. | Shipped |
@@ -322,6 +322,7 @@ needs. Per action:
 | Types `/history` | The last eight messages of this conversation (or the requested number, up to 20), one line each. |
 | Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
 | Sends the same message twice (a server replay) | Answered once: the WeChat message id is remembered for an hour, across a reconnect or reload. |
+| Is mid-download when the bridge closes | One terminal line: the message is read again on the next start, rather than vanishing with the connection. |
 | Pastes a very long message | The first `maxInboundChars` characters reach the model, followed by a truncation marker, instead of an unbounded prompt. |
 | Gets an aborted turn | `已停止。` / “Stopped.” |
 | Exits, reloads, or forks mid-turn | One line: `会话已停止，这条还没答完。恢复后再发一次即可。` / “The session stopped before this answer finished — send it again when it's back.”, sent to every peer that still had work before the connection closes. |
@@ -453,7 +454,16 @@ rooms are delivered, a question a group-chat design would have to answer first.
   promised; (3) the terminal now reports a poll that times out or is rejected,
   a turn that could not start, and a send the server refused with `ret N`, so a
   silent phone with a clean terminal means the message never reached this
-  process.
+  process. A poll loop that dies outright — a state file it cannot write, a bug in
+  the inbound path — stops the connection (`WeChat bridge stopped: …`) instead of
+  leaving an `open` status over a poller that is gone; a `/wechat start` opens a new
+  one. A media download that hangs holds the next poll until it finishes, so a
+  `queued` count that never moves beside a stale last-poll is a `/wechat stop` and
+  `/wechat start`: the message is read again, because the interrupted batch was never
+  acknowledged.
+- **The terminal says a message arrived while the bridge was closing.** A media
+  download that a close interrupted is not acknowledged: the message is read again
+  when the bridge next starts, so nothing is lost and nothing is answered twice.
 - **A WeChat message is answered in the terminal but the phone never sees it.**
   Not possible any more for a per-peer session — a WeChat turn runs in that
   peer's session, never in the terminal's transcript. A `/wechat new`, `/reload`,
@@ -613,13 +623,13 @@ guidance used to do.
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, reconcile the branch's binding with the running bridge (one promise its readers join), bind and unbind on the commands, build the bridge, open peer sessions from the host context. |
 | `bridge.ts` | The composition root: wires the poll loop, delivery, presence, admission, and inbound modules to the live client/account/cursor/state; owns the connection lifecycle — one `BridgeState` value, published as it moves — the status snapshot, and `sendToOwner`. Loaded on the first hand start, never at registration, so a session that bound nothing evaluates none of it. |
-| `intake.ts` | The inbound path: who is refused, what is a replay, what is a command, what answers a pending prompt, and what is queued or turned away; the admission predicates live here too. |
+| `intake.ts` | The inbound path: who is refused, what is a replay, what is a command, what answers a pending prompt, and what is queued or turned away; the admission predicates live here too. A message is written down when it is concluded, and a queued one only when it is handed over. |
 | `tools.ts` | The `send_wechat` tool: owner-only proactive text or one image, with the neither-or-both refusal. |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
 | `types.ts` | Wire and domain types. |
 | `timer.ts` | The timer seam: the cancellable one-shot `ArmTimer`, `defaultTimer`, and the abortable `defaultSleep`. |
 | `transport/client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file and image sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
-| `transport/poll.ts` | The long-poll loop: `getupdates`, the watchdog and retry, backoff, cursor persistence, and the expiry stop. |
+| `transport/poll.ts` | The long-poll loop: `getupdates`, the watchdog and retry, backoff, cursor persistence — after the hand-off, and only while the connection is still ours — and the expiry stop. |
 | `transport/deliver.ts` | The one outbound text path (reply, dialog preface, `send_wechat`) plus file and image delivery: flatten, split, number, expiry, rejection, and the once-per-outage notice. |
 | `transport/outbound.ts` | Upload and send local media: one hash/encrypt/`getUploadUrl`/upload body, then a file item or an image item, and an image must sniff as one. |
 | `transport/inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to a peer's session. |
@@ -630,7 +640,7 @@ guidance used to do.
 | `state/lock.ts` | Poller lockfile. |
 | `peer/peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, this bridge excluded from its resources, and the channel prompt appended. |
 | `peer/peer-worker.ts` | Per-peer queue, two peers' turns at once (`PEER_CONCURRENCY`), the fair slot hand-off, prompt/abort/reset, streamed reply parts, idle-session sweep, and the notice an abandoning close sends. |
-| `peer/admission.ts` | The rolling-hour turn budget and the per-peer serial admission chain. |
+| `peer/admission.ts` | The rolling-hour turn budget and the per-peer serial admission chain, with `settled()` — the promise the poll loop awaits before it acknowledges a batch. |
 | `peer/reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
 | `peer/presence.ts` | Typing, acknowledgement, and the slow/busy lines; all per-peer wait timers in one registry. |
 | `commands/commands.ts` | The one `/wechat` verb table: each row carries its runner, and the help text, the usage line, the completions, the command description, and the dispatch all derive from it; plus the panel, start/stop, login/logout, and the per-peer stop/reset. `start`/`login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |

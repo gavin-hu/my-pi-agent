@@ -269,7 +269,13 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		now: deps.now,
 		notify,
 		reply: (target, text) => reply(target, text),
-		enqueue: (item) => worker?.enqueue(item),
+		enqueue: (item) => {
+			// The hand-off is the acknowledgement: the message is the worker's now, so its
+			// id and the peer's token become durable here and not a download earlier.
+			if (!worker) return;
+			worker.enqueue(item);
+			deps.saveState(state);
+		},
 		pruneTyping: () => presence.pruneTyping(),
 		isRunning: () => connection === "running",
 	});
@@ -312,8 +318,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		sleep,
 		notify,
 		onExpired: handleExpired,
-		onMessages: (messages) => {
+		onMessages: async (messages) => {
 			for (const message of messages) intake.handleMessage(message);
+			// Hold the cursor back until every message in the batch has reached a peer's
+			// queue: a message still downloading is not read, and the cursor is what makes
+			// the server forget it.
+			await admission.settled();
 		},
 		refreshLock: () => {
 			if (!deps.refreshLock()) handleLockLost();
@@ -361,8 +371,17 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	/** Start the poll loop on a fresh abort controller; its one catch reports a failure. */
 	function startLoop(): void {
 		abort = new AbortController();
-		loopPromise = poll.run(abort.signal).catch((error) => {
+		const controller = abort;
+		loopPromise = poll.run(abort.signal).catch(async (error) => {
+			// A loop that died while the connection was ours is a connection with no poller:
+			// nothing arrives, so saying "running" over it would leave a green chip and an
+			// open `/wechat status` until someone closed and opened the bridge by hand.
+			if (abort !== controller || connection !== "running") return;
+			connection = "stopped";
+			abort = undefined;
 			notify(`WeChat bridge stopped: ${messageOf(error)}`, "error");
+			await dropConnection();
+			releaseSafe();
 		});
 	}
 
