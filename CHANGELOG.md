@@ -84,6 +84,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of being consumed as that question's reply; the same drop happens whenever a turn
   ends with a prompt still waiting. A stop that lands while the answer is being delivered no
   longer leaks into the next turn, which used to answer “stopped” without ever prompting.
+- `wechat`: a peer session lets go of what its extensions opened. `AgentSession.dispose()` does
+  not emit `session_shutdown` — only the runtime teardown does, and a peer session has no runtime
+  — so `serve`'s socket, `file-browse`'s page server, `web-access`'s cache, and `job` and `watch`
+  children outlived the session and one more set stranded on every 30-minute idle sweep until the
+  host exited. The peer's extension runner is told the session is over before the session goes, and
+  a `/wechat stop` now waits for it, so a reset, an idle sweep, and a close release the same way.
 - `job`: `clear` removes a job's log only once the stream that held it has closed — Windows refused the
   unlink on a file a descriptor still held, and a stream whose open had not landed recreated the file
   just after it, so a cleared job could leave a log behind. The second attempt rides the stream's

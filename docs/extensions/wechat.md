@@ -70,7 +70,7 @@ subprocess per peer.
 | Capability | How | What you get |
 |---|---|---|
 | Health report | `/wechat doctor` | Connection, token age, last poll, lock holder, per-peer queues, and recent failures in one read-only report. |
-| Idle session cleanup | automatic: the 30-minute idle sweep | An idle peer's Pi session is disposed, so idle conversations do not keep costing context or memory. |
+| Idle session cleanup | automatic: the 30-minute idle sweep | An idle peer's Pi session is shut down and disposed, so its extensions release what they opened for it and idle conversations cost no context or memory. |
 | Peer history | `/wechat history <peer> [n]` | That peer's recent messages, ten by default and twenty at most, without a live session. |
 | Command help | `/wechat help` | Every subcommand with a line each, printed in the transcript. |
 
@@ -487,8 +487,9 @@ rooms are delivered, a question a group-chat design would have to answer first.
   peer has its own interaction channel.
 - Each peer conversation is a full Pi session: it carries its own context and
   costs its own model tokens, and it loads the package's tools (minus this
-  bridge) in the same workspace. The idle sweep disposes a session after 30
-  minutes, so idle peers cost nothing.
+  bridge) in the same workspace. The idle sweep tells that session's extensions it
+  is over — so the socket, page server, or job children one of them opened close
+  with it — and disposes it after 30 minutes, so idle peers cost nothing.
 - Inbound delivery is bounded by the server's long-poll hold: the client sees a
   message only when a `getupdates` request returns, measured at ~18 s per cycle
   here. The bridge reports a wedged or rejected poll, but it cannot make the
@@ -605,8 +606,8 @@ would otherwise do.
 
 A worker belongs to one open connection: `/wechat login` after an expiry, or a
 reconnect, creates a fresh worker, so a stale queue or a half-open session cannot
-leak into the new connection. Peer sessions are disposed with the worker but
-their history stays on disk.
+leak into the new connection. Peer sessions are disposed with the worker, each
+one telling its extensions first, but their history stays on disk.
 
 The operator surface is one verb table: a bare `/wechat` (or `/wechat status`)
 opens the control screen, whose keys return the same verbs the subcommands
@@ -642,7 +643,7 @@ guidance used to do.
 | `state/credentials.ts` | `<agent-dir>/wechat/` and its `credentials.json` (`0600`, the one stored account), written atomically so a torn write cannot read back as “not logged in”; a file an older version wrote as an account map is read as the account it was polling and rewritten down to one by `migrateCredentials`. |
 | `state/binding.ts` | The session's binding: a `wechat` branch entry naming the account key, last one wins, `null` for a stop; pure over the replayed branch, so `/resume`, a fork, and a tree jump each read their own. |
 | `state/lock.ts` | Poller lockfile. |
-| `peer/peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, this bridge excluded from its resources, and the channel prompt appended. |
+| `peer/peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, this bridge excluded from its resources, the channel prompt appended, and the `session_shutdown` its own disposal owes the peer's extensions. |
 | `peer/peer-worker.ts` | Per-peer queue, two peers' turns at once (`PEER_CONCURRENCY`), the fair slot hand-off, prompt/abort/reset, streamed reply parts, idle-session sweep, and the notice an abandoning close sends. |
 | `peer/admission.ts` | The rolling-hour turn budget and the per-peer serial admission chain, with `settled()` — the promise the poll loop awaits before it acknowledges a batch. |
 | `peer/reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
