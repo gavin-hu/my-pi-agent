@@ -59,7 +59,7 @@ describe("automaticLabel", () => {
 				context: context(WORKTREE, "peer-shutdown"),
 				cwd: WORKTREE,
 				id: "s1",
-				repo: { root: REPO, fromGit: true },
+				fromGit: true,
 			}),
 		).toBe("my-pi-agent");
 		// One question, asked of the working trees: the answer is every checkout at once.
@@ -73,7 +73,7 @@ describe("automaticLabel", () => {
 				context: context(REPO, "worktree-peer-shutdown"),
 				cwd: REPO,
 				id: "s1",
-				repo: { root: REPO, fromGit: true },
+				fromGit: true,
 			}),
 		).toBe("my-pi-agent");
 		expect(
@@ -81,7 +81,7 @@ describe("automaticLabel", () => {
 				context: context(REPO, "peer-shutdown"),
 				cwd: REPO,
 				id: "s2",
-				repo: { root: REPO, fromGit: true },
+				fromGit: true,
 			}),
 		).toBe("my-pi-agent");
 	});
@@ -93,7 +93,7 @@ describe("automaticLabel", () => {
 				context: context(REPO, "billing-core"),
 				cwd: REPO,
 				id: "s1",
-				repo: { root: REPO, fromGit: true },
+				fromGit: true,
 			}),
 		).toBe("billing-core");
 	});
@@ -105,7 +105,7 @@ describe("automaticLabel", () => {
 				context: context("/tmp/scratch", "scratch"),
 				cwd: "/tmp/scratch",
 				id: "s1",
-				repo: { root: "/tmp/scratch", fromGit: false },
+				fromGit: false,
 			}),
 		).toBe("scratch");
 		expect(calls).toEqual([]);
@@ -128,7 +128,7 @@ describe.skipIf(!runSlowSuites)("a real repository", () => {
 				context: context(cwd, sessionName),
 				cwd,
 				id: "s1",
-				repo: await repoKeyFor(realGit, cwd),
+				fromGit: (await repoKeyFor(realGit, cwd)).fromGit === true,
 			});
 
 		// The worktree's own name, as a join inside it once stamped into Pi, then carried
