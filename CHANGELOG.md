@@ -19,6 +19,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`: a session's automatic label names the repository it works in — the main checkout's
+  directory, which `git worktree list` lists first — rather than the directory it sits in, and a Pi
+  session name that merely repeats one of that repository's worktrees or its `worktree-<x>` branch is
+  declined at the join. A session started in a worktree, or resumed after its worktree is gone, no
+  longer joins under a name that leaves with the work it held, and one board no longer lists a preset
+  teammate beside a worktree's name for the same role. The porcelain parse behind it is `worktrees`
+  in `lib/git/read.ts`, which the worktree extension filters instead of parsing a second time.
+
 - `wechat`: the bridge is bound to one Pi session and started and stopped by hand — `/wechat start`
   writes a `wechat` branch entry and opens the poller; `/wechat stop` closes it, releases the poller
   lock, and records the stop; and a stored account alone opens nothing. The binding follows a resume

@@ -9,6 +9,9 @@
  *
  * `isInside` compares path strings; `isInsideReal` first resolves symlinks in
  * the deepest existing ancestor, so a link that leaves the root is refused.
+ * `lastSegment` names the part a path ends in — the directory a session is read as,
+ * the last folder of a root-relative page — splitting on either separator, because
+ * git prints forward slashes on Windows.
  *
  * No runtime dependencies beyond `node:fs` and `node:path`.
  */
@@ -46,4 +49,15 @@ export function realPathOfNearest(path: string): string {
 /** Whether `target` stays inside `root` once symlinks are resolved. */
 export function isInsideReal(root: string, target: string): boolean {
 	return isInside(realPathOfNearest(root), realPathOfNearest(target));
+}
+
+/**
+ * The segment a path ends in, with trailing separators and a root ignored.
+ *
+ * Either separator splits, so a path git printed on Windows and a path built by this
+ * platform give the same answer; a path that has no segment — `/`, or the empty string
+ * — yields the empty string rather than its own punctuation.
+ */
+export function lastSegment(path: string): string {
+	return path.split(/[\\/]/).filter(Boolean).at(-1) ?? "";
 }

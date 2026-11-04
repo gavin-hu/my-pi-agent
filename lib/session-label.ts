@@ -3,9 +3,10 @@
  *
  * Two vocabularies share this module, and neither copies the other. `session-bus`
  * settles its own label for a session that did not ask for one — the Pi session name,
- * else the working directory's basename, else the id. The board names a session for
- * the team instead: the page's seat, or a preset teammate name drawn from the id, or
- * `team-agent-` and the id's tail when every preset one is taken — one name on every
+ * else the repository's own name (the main checkout's directory, never the worktree
+ * the session sits in), else the id. The board names a session for the team instead:
+ * the page's seat, or a preset teammate name drawn from the id, or `team-agent-` and
+ * the id's tail when every preset one is taken — one name on every
  * surface, and one that cannot drift on a rename. The rules are here rather than in
  * either extension because a label is a shared vocabulary: it is displayed, it is a
  * send target, and it is stored in a card file that outlives one session.
@@ -15,6 +16,7 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "./format.ts";
+import { lastSegment } from "./path.ts";
 
 /** Longest label, in characters, that a session may be addressed by. */
 export const MAX_LABEL = 40;
@@ -44,10 +46,62 @@ export function shortId(id: string): string {
  * The bus appends a suffix when two live sessions share one; that decision belongs
  * to the registry, so this is only the name a session would pick for itself.
  */
-export function defaultLabel(sessionName: string | undefined, cwd: string, id = "session"): string {
-	const directory = cwd.split(/[\\/]/).filter(Boolean).at(-1);
-	const base = normalizeLabel(sessionName, normalizeLabel(directory, "session"));
-	return normalizeLabel(base, `session-${shortId(id)}`);
+export function defaultLabel(facts: LabelFacts): string {
+	const checkouts = [...(facts.checkouts ?? [])];
+	const taken = checkoutNames(checkouts);
+	// A name a worktree produced is no name: it leaves with the worktree, and the next
+	// session named after one is a different session under the same word.
+	const named = normalizeLabel(facts.sessionName, "");
+	const own = named !== "" && !taken.has(named.toLowerCase()) ? named : "";
+	const repository = lastSegment(checkouts[0]?.path ?? facts.cwd);
+	const base = own || normalizeLabel(repository, "session");
+	return normalizeLabel(base, `session-${shortId(facts.id ?? "session")}`);
+}
+
+/** What a session knows about itself when it picks a name. */
+export interface LabelFacts {
+	/** Pi's session name, when the session has one. */
+	sessionName?: string;
+	/** The session's working directory. */
+	cwd: string;
+	/** The session's id, for the last fallback. */
+	id?: string;
+	/** The repository's working trees, the main checkout first, when git resolved them. */
+	checkouts?: Iterable<Checkout>;
+}
+
+/** A working tree, as the label rules read one. */
+export interface Checkout {
+	/** The worktree's directory. */
+	path: string;
+	/** The branch checked out there, without `refs/heads/`. */
+	branch?: string;
+}
+
+/** The default branch prefix a worktree of this repository is cut on. */
+const WORKTREE_BRANCH_PREFIX = "worktree-";
+
+/**
+ * The names that are a checkout's rather than a session's.
+ *
+ * A session is named for what it is doing; a worktree is named for the work it holds,
+ * and its branch is `worktree-<x>` by the worktree extension's default. Neither is an
+ * identity a peer can address twice: the directory goes when the work is landed, and
+ * the branch is rebased or deleted after it. Lower-cased, because a label is addressed
+ * without case; the exact branch is named too, so a prefix someone configured is still
+ * caught by it as well as by the directory.
+ */
+export function checkoutNames(trees: Iterable<Checkout>): Set<string> {
+	const names = new Set<string>();
+	for (const tree of trees) {
+		const directory = lastSegment(tree.path).toLowerCase();
+		if (directory !== "") names.add(directory);
+		const branch = tree.branch?.toLowerCase();
+		if (!branch) continue;
+		names.add(branch);
+		if (branch.startsWith(WORKTREE_BRANCH_PREFIX)) names.add(branch.slice(WORKTREE_BRANCH_PREFIX.length));
+	}
+	return names;
 }
 
 /** The prefix of the team's name for a session that is not the page's seat. */

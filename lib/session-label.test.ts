@@ -11,6 +11,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	agentLabel,
+	checkoutNames,
 	defaultLabel,
 	MAX_LABEL,
 	normalizeLabel,
@@ -120,23 +121,87 @@ describe("presetNameFor", () => {
 	});
 });
 
+describe("checkoutNames", () => {
+	const trees = [
+		{ path: "/repo/my-pi-agent", branch: "main" },
+		{ path: "/repo/my-pi-agent/.pi/worktrees/peer-shutdown", branch: "worktree-peer-shutdown" },
+	];
+
+	test("names every checkout by its directory and its branch", () => {
+		expect([...checkoutNames(trees)].sort()).toEqual([
+			"main",
+			"my-pi-agent",
+			"peer-shutdown",
+			"worktree-peer-shutdown",
+		]);
+	});
+
+	test("names the branch without the default worktree prefix, both ways", () => {
+		// A directory is the name a session actually borrows; the branch is here because a
+		// join once stamped the branch into Pi's name, and `/resume` keeps that longer.
+		expect(checkoutNames([{ path: "/elsewhere", branch: "worktree-billing" }])).toEqual(
+			new Set(["elsewhere", "worktree-billing", "billing"]),
+		);
+	});
+
+	test("compares without case, the way a label is addressed", () => {
+		expect(checkoutNames([{ path: "/repo/Frontend", branch: "Worktree-UI" }])).toEqual(
+			new Set(["frontend", "worktree-ui", "ui"]),
+		);
+	});
+
+	test("a path with no last segment names nothing", () => {
+		expect(checkoutNames([{ path: "/" }])).toEqual(new Set());
+	});
+});
+
 describe("defaultLabel", () => {
+	const worktree = [
+		{ path: "/repo/my-pi-agent", branch: "main" },
+		{ path: "/repo/my-pi-agent/.pi/worktrees/peer-shutdown", branch: "worktree-peer-shutdown" },
+	];
+
 	test("prefers the Pi session name", () => {
-		expect(defaultLabel("billing lead", "/repo/somewhere", "id-1")).toBe("billing lead");
+		expect(defaultLabel({ sessionName: "billing lead", cwd: "/repo/somewhere", id: "id-1" })).toBe("billing lead");
 	});
 
 	test("falls back to the working directory's basename", () => {
-		expect(defaultLabel(undefined, "/repo/my-pi-agent", "id-1")).toBe("my-pi-agent");
-		expect(defaultLabel("   ", "/repo/my-pi-agent", "id-1")).toBe("my-pi-agent");
+		expect(defaultLabel({ cwd: "/repo/my-pi-agent", id: "id-1" })).toBe("my-pi-agent");
+		expect(defaultLabel({ sessionName: "   ", cwd: "/repo/my-pi-agent", id: "id-1" })).toBe("my-pi-agent");
+	});
+
+	test("names the repository, not the worktree it sits in", () => {
+		expect(
+			defaultLabel({ cwd: "/repo/my-pi-agent/.pi/worktrees/peer-shutdown", id: "id-1", checkouts: worktree }),
+		).toBe("my-pi-agent");
+		// A subdirectory of the checkout is the same repository as its root.
+		expect(defaultLabel({ cwd: "/repo/my-pi-agent/lib", id: "id-1", checkouts: worktree })).toBe("my-pi-agent");
+	});
+
+	test("declines a session name that merely repeats a checkout", () => {
+		for (const sessionName of ["peer-shutdown", "worktree-peer-shutdown", "Peer-Shutdown"]) {
+			expect(
+				defaultLabel({ sessionName, cwd: "/repo/my-pi-agent", id: "id-1", checkouts: worktree }),
+				sessionName,
+			).toBe("my-pi-agent");
+		}
+	});
+
+	test("keeps a name that is not a checkout's", () => {
+		expect(defaultLabel({ sessionName: "billing-core", cwd: "/repo/my-pi-agent", checkouts: worktree })).toBe(
+			"billing-core",
+		);
 	});
 
 	test("falls back to `session` when there is no name and no directory to borrow", () => {
-		// A cwd with no last segment borrows nothing, and the label itself is the
-		// fallback before the id ever is.
-		expect(defaultLabel(undefined, "/", "session-9191")).toBe("session");
+		expect(defaultLabel({ cwd: "/", id: "session-9191" })).toBe("session");
 	});
 
 	test("a windows path borrows its last segment too", () => {
-		expect(defaultLabel(undefined, "C:\\work\\billing", "id-1")).toBe("billing");
+		expect(defaultLabel({ cwd: "C:\\work\\billing", id: "id-1" })).toBe("billing");
+	});
+
+	test("ends on the id when even the repository has no name", () => {
+		expect(defaultLabel({ cwd: "/", id: "session-9191", checkouts: [{ path: "/" }] })).toBe("session");
 	});
 });

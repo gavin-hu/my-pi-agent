@@ -154,6 +154,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	serve: ["config", "registry", "extension"],
 	"session-bus": [
 		"format",
+		"label",
 		"protocol",
 		"store",
 		"mail-watch",

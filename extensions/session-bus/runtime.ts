@@ -22,10 +22,9 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
-import { sessionNameOf, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
+import { SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
 import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
 import {
-	defaultLabel,
 	MAX_LABEL,
 	MAX_LIMIT,
 	normalizeKind,
@@ -178,9 +177,13 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// afterwards, so no heartbeat tick spawns `ps`, and a session that never
 			// joins pays nothing in its factory.
 			const processToken = (seams.token ?? startTokenOf)(pid);
+			// Deferred with the ask it makes: a factory registers, and the label settles at the
+			// first addressable action instead.
+			const { automaticLabel } = await import("./label.ts");
+			const label = await automaticLabel(pi, { context, cwd, id, repo });
 			record = {
 				id,
-				label: defaultLabel(sessionNameOf(context), cwd, id),
+				label,
 				pid,
 				cwd,
 				repoRoot: repo.root,

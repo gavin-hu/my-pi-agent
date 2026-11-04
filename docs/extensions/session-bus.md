@@ -92,7 +92,11 @@ act there that puts this session on the bus.
 
 Labels are how another session addresses you. Name one by the outcome it owns
 (`billing-core`, `integrator`, `verify-billing`), not by a layer or a role;
-duplicate labels get a short id suffix automatically. A label is held for as long as
+duplicate labels get a short id suffix automatically. A derived label names the
+repository a session works in rather than the directory it sits in, so a session in a
+worktree is not named after that worktree — and a Pi session name that merely repeats
+one of the repository's worktrees or its `worktree-<x>` branch is declined at the join,
+because that name leaves with the worktree. A label is held for as long as
 the bus keeps the taker's record — ten minutes past its last heartbeat — so a session
 that crashed a minute ago has not freed its name, and one that is merely slow has not
 lost it. Past that window the record is pruned and the name is anyone's.
@@ -259,9 +263,11 @@ listening watch is what raises the turn.
   release is re-keyed by its real target, so a working directory reached through
   a symlink still resolves inside its own repository, a link inside the repository
   and the file it names are the same claim, and a link that leaves the repository
-  is refused. The automatic label is the real basename of the cwd, so a session
-  started through a link named differently is named after the directory it is
-  actually in. An absolute path argument that sits outside the repository is
+  is refused. The automatic label is the repository's own name — the main checkout's
+  directory, which `git worktree list` lists first — so a session started in a
+  worktree, or through a link named differently, is named after the repository it
+  works in rather than the directory it happens to sit in. An absolute path argument
+  that sits outside the repository is
   refused before it is re-keyed, and a relative one whose target leaves the
   repository is refused by the re-keying itself. A path whose target is the
   repository root is refused there too, and by that one rule: the spelling check
@@ -335,6 +341,7 @@ listening watch is what raises the turn.
 | `index.ts` | Disable guard, registration, the pending-report channel, and the session hooks. |
 | `join-request.ts` | The `board`/`team` join request: one `bus.join` answer, and the label it settles becomes Pi's session name. |
 | `runtime.ts` | Lifecycle, repo key (`<agent-dir>/session-bus/<repo-key>/`), joining, heartbeat, and the session's own reads and writes. |
+| `label.ts` | The automatic label a session joins under: one git question at start for the repository's working trees, then the shared rule. |
 | `mail-watch.ts` | The armed inbox watch: the poll, the not-yet-reported queue, and its state. |
 | `store.ts` | Atomic JSON files, inbox, peek, claims, pruning, and the one release loop. |
 | `protocol.ts` | Pure labels, targets, paths, validation, conflict rules. |
