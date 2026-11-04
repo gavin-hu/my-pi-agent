@@ -25,7 +25,7 @@ export interface InboundDeps {
 	notify: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** Answer a message that has nothing readable. */
 	reply: (item: InboundItem, text: string) => Promise<unknown>;
-	/** Hand a resolved message to the peer's own session. */
+	/** Hand a resolved message to the turn queue. */
 	enqueue: (item: ChatItem) => void;
 	pruneTyping: () => void;
 	isRunning: () => boolean;

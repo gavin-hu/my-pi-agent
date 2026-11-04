@@ -4,7 +4,7 @@
  *
  * The path is shared so Markdown flattening, part numbering, session expiry,
  * body-level rejection, and partial progress are decided once. A failure is
- * reported once per peer until a send gets through, and the peer's stored reply
+ * reported once per outage until a send gets through, and the chat's stored reply
  * token is forgotten so the next inbound message can replace it.
  */
 

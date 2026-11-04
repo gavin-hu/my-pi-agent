@@ -126,7 +126,7 @@ export interface Bridge {
 	/** Stop the chat's running turn; false when nothing is running. */
 	stop(): boolean;
 	/** What the conversation is doing, for `/status`. */
-	peerState(): TurnState;
+	turnState(): TurnState;
 	status(): BridgeStatus;
 	/** The chat's interaction channel: the one its dialogs are answered through. */
 	channel(): WechatInteractionChannel;
@@ -545,7 +545,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			return stopTurn();
 		},
 
-		peerState(): TurnState {
+		turnState(): TurnState {
 			return worker?.state() ?? { status: "idle", queued: 0 };
 		},
 

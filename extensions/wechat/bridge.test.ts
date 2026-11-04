@@ -695,7 +695,7 @@ describe("bridge slash commands", () => {
 		bridge.open();
 		await waitFor(() => sent.length === 1);
 		expect(sent[0]?.text).toContain("The chat is this Pi session");
-		expect(bridge.peerState()).toEqual({ status: "idle", queued: 0 });
+		expect(bridge.turnState()).toEqual({ status: "idle", queued: 0 });
 		await bridge.close();
 	});
 });
