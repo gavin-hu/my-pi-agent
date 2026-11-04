@@ -262,6 +262,8 @@ export function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = 
 		releaseLock: () => {
 			released.count += 1;
 		},
+		// No timer in a test: a case that cares arms the beat itself.
+		startHeartbeat: () => () => {},
 		sleep: async () => {},
 		...overrides,
 	};

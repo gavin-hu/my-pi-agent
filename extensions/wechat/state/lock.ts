@@ -2,18 +2,35 @@
  * A pid lockfile that stops two Pi sessions from long-polling the same account
  * at once (they would clobber the cursor and double-reply).
  *
- * The liveness check and clock are injected so the logic is testable without a
- * real process or wall clock. A stale lock (dead pid, or older than `staleMs`)
- * is taken over.
+ * The liveness check, clock, and timer are injected so the logic is testable without
+ * a real process, wall clock, or interval. A stale lock — one whose holder stopped
+ * beating, or whose pid is gone — is taken over.
  */
 
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { hasErrorCode } from "../../../lib/errors.ts";
+import { defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
 import { wechatDir } from "./credentials.ts";
 
-/** Locks older than this are considered abandoned even if the pid is alive. */
-export const DEFAULT_STALE_MS = 120_000;
+/**
+ * How often a polling holder re-stamps its record.
+ *
+ * The stamp at the top of a poll attempt is not a heartbeat: one attempt is
+ * legitimately longer than the bar — a long-poll hold, then a batch whose media is
+ * still downloading — so a holder that is alive and polling would age out between
+ * two attempts and a rival would take an account nobody abandoned. See
+ * {@link startLockHeartbeat}.
+ */
+const HEARTBEAT_MS = 30_000;
+
+/**
+ * Locks older than this are considered abandoned even if the pid is alive.
+ *
+ * Four heartbeats: a healthy holder has to miss three in a row to look stale, which
+ * leaves the bar wide enough that a beat late on a busy event loop is not an eviction.
+ */
+export const DEFAULT_STALE_MS = HEARTBEAT_MS * 4;
 
 /**
  * How many exclusive creates one acquire may attempt.
@@ -146,6 +163,28 @@ export function refreshLock(path: string, deps: LockDeps): boolean {
 	writeFileSync(temp, stamp(deps), "utf-8");
 	renameSync(temp, path);
 	return true;
+}
+
+/**
+ * Re-stamp the record on a timer, for as long as the returned stop function is not
+ * called.
+ *
+ * `beat` is {@link refreshLock} in the caller's environment, so a beat that cannot
+ * prove ownership still ends the poller through the same answer. The stop call must
+ * land before the lock is released: a beat left running would re-stamp — or take back
+ * — a record this process no longer holds.
+ *
+ * A beat that throws is dropped rather than left to the timer, where an uncaught error
+ * takes the process down. The record then ages out on its own, which is the bar's job.
+ */
+export function startLockHeartbeat(beat: () => void, every: RepeatTimer = defaultInterval): () => void {
+	return every(HEARTBEAT_MS, () => {
+		try {
+			beat();
+		} catch {
+			// A best-effort stamp: see the doc above.
+		}
+	});
 }
 
 /** Release the lock if this process owns it. */

@@ -59,6 +59,13 @@ export interface PollDeps {
 	 * `isRunning` question that follows reads as "no longer ours".
 	 */
 	refreshLock: () => void;
+	/**
+	 * Arm the lock heartbeat around this loop, and return the stop function. The stamp at the
+	 * top of an attempt is not a heartbeat — one attempt is legitimately longer than the stale
+	 * bar — so the record is re-stamped between attempts, and a beat that finds another
+	 * session's record stops the connection just as that stamp does.
+	 */
+	startHeartbeat: () => () => void;
 	isRunning: () => boolean;
 	now: () => number;
 	/** Report the last poll attempt, for the doctor/status. */
@@ -75,109 +82,122 @@ export interface PollLoop {
 export function createPollLoop(deps: PollDeps): PollLoop {
 	return {
 		async run(signal: AbortSignal): Promise<void> {
-			// The server tells us how long it held the last poll; remember it so the
-			// watchdog can be tight instead of the generic fallback. It is remembered
-			// with the hold it answered, because a hold the operator lowered since then
-			// makes the old hint stale — the watchdog must tighten with the config.
-			let hint: { hold: number | undefined; timeoutMs: number } | undefined;
-			/** One notice per failure episode, so a flapping link is reported once. */
-			let timeoutNotified = false;
-			let rejectedNotified = false;
-			let errorNotified = false;
-			while (deps.isRunning() && !signal.aborted) {
-				// Before the request, not after the answer: an account another live session has
-				// taken over is not ours to read, and applying a response under a second cursor
-				// is what answers the same peer twice. The stamp is the check, and a bridge
-				// that finds the lock gone stops the connection while it runs, so this asks the
-				// state again instead of sending a request nothing will use.
-				deps.refreshLock();
-				if (!deps.isRunning()) return;
-				const client = deps.client();
-				const account = deps.account();
-				if (!client || !account) break;
-				const hold = deps.holdMs();
-				const watchdogMs = deps.pollTimeout(hint !== undefined && hint.hold === hold ? hint.timeoutMs : hold);
-				// A cancellable watchdog: `AbortSignal.timeout` cannot be cleared, and a
-				// pending timer per poll would keep the process awake long after the request
-				// settled. The shared seam unrefs it, so a wedged poll never holds a
-				// shutdown open either.
-				const watchdog = new AbortController();
-				const cancelWatchdog = defaultTimer(watchdogMs, () => watchdog.abort());
-				let response;
-				try {
-					response = await client.getUpdates(account, deps.cursor(), AbortSignal.any([signal, watchdog.signal]), {
-						holdMs: hold,
-					});
-				} catch (error) {
-					if (signal.aborted || !deps.isRunning()) break;
-					if (watchdog.signal.aborted) {
-						deps.onPoll?.({
-							at: deps.now(),
-							error: `timed out after ${Math.round(watchdogMs / 1000)}s`,
+			// The record is re-stamped on a timer for as long as this loop runs: one attempt can
+			// outlast the stale bar, and a beat that finds a takeover ends the connection. The beat
+			// stops before the loop's caller does anything else, so nothing releases a lock that a
+			// late stamp could put back.
+			const stopHeartbeat = deps.startHeartbeat();
+			try {
+				// The server tells us how long it held the last poll; remember it so the
+				// watchdog can be tight instead of the generic fallback. It is remembered
+				// with the hold it answered, because a hold the operator lowered since then
+				// makes the old hint stale — the watchdog must tighten with the config.
+				let hint: { hold: number | undefined; timeoutMs: number } | undefined;
+				/** One notice per failure episode, so a flapping link is reported once. */
+				let timeoutNotified = false;
+				let rejectedNotified = false;
+				let errorNotified = false;
+				while (deps.isRunning() && !signal.aborted) {
+					// Before the request, not after the answer: an account another live session has
+					// taken over is not ours to read, and applying a response under a second cursor
+					// is what answers the same peer twice. The stamp is the check, and a bridge
+					// that finds the lock gone stops the connection while it runs, so this asks the
+					// state again instead of sending a request nothing will use.
+					deps.refreshLock();
+					if (!deps.isRunning()) return;
+					const client = deps.client();
+					const account = deps.account();
+					if (!client || !account) break;
+					const hold = deps.holdMs();
+					const watchdogMs = deps.pollTimeout(hint !== undefined && hint.hold === hold ? hint.timeoutMs : hold);
+					// A cancellable watchdog: `AbortSignal.timeout` cannot be cleared, and a
+					// pending timer per poll would keep the process awake long after the request
+					// settled. The shared seam unrefs it, so a wedged poll never holds a
+					// shutdown open either.
+					const watchdog = new AbortController();
+					const cancelWatchdog = defaultTimer(watchdogMs, () => watchdog.abort());
+					let response;
+					try {
+						response = await client.getUpdates(account, deps.cursor(), AbortSignal.any([signal, watchdog.signal]), {
+							holdMs: hold,
 						});
-						// A wedged request, not a server answer: retry at once with the same
-						// cursor, so nothing is skipped, and say so once.
-						if (!timeoutNotified) {
-							timeoutNotified = true;
-							deps.notify(`WeChat poll timed out after ${Math.round(watchdogMs / 1000)}s; retrying.`, "warning");
+					} catch (error) {
+						if (signal.aborted || !deps.isRunning()) break;
+						if (watchdog.signal.aborted) {
+							deps.onPoll?.({
+								at: deps.now(),
+								error: `timed out after ${Math.round(watchdogMs / 1000)}s`,
+							});
+							// A wedged request, not a server answer: retry at once with the same
+							// cursor, so nothing is skipped, and say so once.
+							if (!timeoutNotified) {
+								timeoutNotified = true;
+								deps.notify(`WeChat poll timed out after ${Math.round(watchdogMs / 1000)}s; retrying.`, "warning");
+							}
+							continue;
+						}
+						deps.onPoll?.({ at: deps.now(), error: messageOf(error) });
+						if (!errorNotified) {
+							errorNotified = true;
+							deps.notify(`WeChat poll failed: ${messageOf(error)}`, "warning");
+						}
+						try {
+							await deps.sleep(BACKOFF_MS, signal);
+						} catch {
+							break;
+						}
+						continue;
+					} finally {
+						cancelWatchdog();
+					}
+					if (!response) break;
+					if (response.timeoutMs !== undefined && response.timeoutMs > 0) {
+						hint = { hold, timeoutMs: response.timeoutMs };
+					}
+					if (isSessionExpired(response)) {
+						deps.onExpired();
+						return;
+					}
+					const rejection = rejectionOf(response);
+					if (rejection) {
+						// A body-level rejection (bad cursor, rate limit, revoked token) is not an
+						// empty poll: report it once and back off instead of hammering the API.
+						if (!rejectedNotified) {
+							rejectedNotified = true;
+							deps.onPoll?.({ at: deps.now(), error: `rejected ret ${rejection.code}` });
+							deps.notify(`WeChat poll rejected (ret ${rejection.code}); retrying.`, "warning");
+						}
+						try {
+							await deps.sleep(BACKOFF_MS, signal);
+						} catch {
+							break;
 						}
 						continue;
 					}
-					deps.onPoll?.({ at: deps.now(), error: messageOf(error) });
-					if (!errorNotified) {
-						errorNotified = true;
-						deps.notify(`WeChat poll failed: ${messageOf(error)}`, "warning");
+					timeoutNotified = false;
+					rejectedNotified = false;
+					errorNotified = false;
+					// The account is ours to answer, or it is not: a heartbeat that found another
+					// session's record stopped this connection while the request was parked, and handing
+					// this batch over would answer a peer the new holder is about to answer too.
+					if (!deps.isRunning()) return;
+					// The hand-off first, the acknowledgement after it. A batch whose messages are
+					// still downloading is not ours to acknowledge: the cursor is what makes the
+					// server forget them, and a poller that dies holding it loses them for good.
+					await deps.onMessages(response.msgs);
+					// A close or a lost lock during the hand-off: keep the old cursor, so the next
+					// connection reads the batch again. Intake's seen ids do not stand in the way,
+					// because they are only persisted with the message's hand-off.
+					if (!deps.isRunning()) return;
+					const next = response.buf;
+					if (next && next !== deps.cursor()) {
+						deps.setCursor(next);
+						deps.saveState();
 					}
-					try {
-						await deps.sleep(BACKOFF_MS, signal);
-					} catch {
-						break;
-					}
-					continue;
-				} finally {
-					cancelWatchdog();
+					deps.onPoll?.({ at: deps.now(), holdMs: hint !== undefined && hint.hold === hold ? hint.timeoutMs : hold });
 				}
-				if (!response) break;
-				if (response.timeoutMs !== undefined && response.timeoutMs > 0) {
-					hint = { hold, timeoutMs: response.timeoutMs };
-				}
-				if (isSessionExpired(response)) {
-					deps.onExpired();
-					return;
-				}
-				const rejection = rejectionOf(response);
-				if (rejection) {
-					// A body-level rejection (bad cursor, rate limit, revoked token) is not an
-					// empty poll: report it once and back off instead of hammering the API.
-					if (!rejectedNotified) {
-						rejectedNotified = true;
-						deps.onPoll?.({ at: deps.now(), error: `rejected ret ${rejection.code}` });
-						deps.notify(`WeChat poll rejected (ret ${rejection.code}); retrying.`, "warning");
-					}
-					try {
-						await deps.sleep(BACKOFF_MS, signal);
-					} catch {
-						break;
-					}
-					continue;
-				}
-				timeoutNotified = false;
-				rejectedNotified = false;
-				errorNotified = false;
-				// The hand-off first, the acknowledgement after it. A batch whose messages are
-				// still downloading is not ours to acknowledge: the cursor is what makes the
-				// server forget them, and a poller that dies holding it loses them for good.
-				await deps.onMessages(response.msgs);
-				// A close or a lost lock during the hand-off: keep the old cursor, so the next
-				// connection reads the batch again. Intake's seen ids do not stand in the way,
-				// because they are only persisted with the message's hand-off.
-				if (!deps.isRunning()) return;
-				const next = response.buf;
-				if (next && next !== deps.cursor()) {
-					deps.setCursor(next);
-					deps.saveState();
-				}
-				deps.onPoll?.({ at: deps.now(), holdMs: hint !== undefined && hint.hold === hold ? hint.timeoutMs : hold });
+			} finally {
+				stopHeartbeat();
 			}
 		},
 	};

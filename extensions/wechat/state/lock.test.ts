@@ -10,7 +10,17 @@ import { readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../../../test/helpers/env.ts";
-import { acquireLock, type LockDeps, type LockInfo, readLock, refreshLock, releaseLock } from "./lock.ts";
+import type { RepeatTimer } from "../../../lib/timer.ts";
+import {
+	acquireLock,
+	DEFAULT_STALE_MS,
+	type LockDeps,
+	type LockInfo,
+	readLock,
+	refreshLock,
+	releaseLock,
+	startLockHeartbeat,
+} from "./lock.ts";
 
 describe("poller lock", () => {
 	function newPath(): string {
@@ -152,5 +162,64 @@ describe("poller lock", () => {
 		releaseLock(path, 1);
 		expect(refreshLock(path, lockDeps({ now: () => 1400 }))).toBe(true);
 		expect(readLock(path)).toEqual({ pid: 1, at: 1400 });
+	});
+
+	/**
+	 * A repeating timer a test drives by hand, so no case waits for a beat.
+	 *
+	 * The interval is recorded rather than assumed: the bar has to be wider than it, and
+	 * that is the one relation the module cannot restate from inside the fake.
+	 */
+	function fakeTicker() {
+		const timer: { interval: number; beat?: () => void; stopped: boolean } = { interval: 0, stopped: false };
+		return {
+			timer,
+			every: ((ms, tick) => {
+				timer.interval = ms;
+				timer.beat = tick;
+				return () => {
+					timer.stopped = true;
+				};
+			}) satisfies RepeatTimer,
+		};
+	}
+
+	test("a holder that beats is not taken over, and one that stops beating is", () => {
+		// One attempt is longer than the bar — a long-poll hold, then a batch whose media is
+		// still downloading — so the record is re-stamped between attempts. What the bar has to
+		// survive is a rival that looks a whole interval after the last beat.
+		const path = newPath();
+		let now = 1000;
+		const deps = lockDeps({ now: () => now, staleMs: DEFAULT_STALE_MS });
+		const rival = () => acquireLock(path, lockDeps({ pid: 2, now: () => now, staleMs: DEFAULT_STALE_MS }));
+		const { timer, every } = fakeTicker();
+		const stop = startLockHeartbeat(() => {
+			refreshLock(path, deps);
+		}, every);
+		expect(acquireLock(path, deps)).toBe(true);
+		expect(timer.interval).toBeLessThan(DEFAULT_STALE_MS);
+
+		for (let beats = 0; beats < 5; beats += 1) {
+			now += timer.interval;
+			expect(rival()).toBe(false);
+			timer.beat?.();
+		}
+
+		stop();
+		expect(timer.stopped).toBe(true);
+		// A poller that stopped beating is what a crash leaves, so the bar decides again.
+		now += DEFAULT_STALE_MS + 1;
+		expect(rival()).toBe(true);
+	});
+
+	test("a beat that throws is dropped rather than left to the timer", () => {
+		// An uncaught throw in a timer's callback takes the process down. A record that could
+		// not be stamped then ages out on its own, which is what the bar is for.
+		const { timer, every } = fakeTicker();
+		const stop = startLockHeartbeat(() => {
+			throw new Error("EACCES: the state dir is read-only");
+		}, every);
+		expect(() => timer.beat?.()).not.toThrow();
+		stop();
 	});
 });
