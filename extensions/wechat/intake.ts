@@ -99,6 +99,8 @@ export interface IntakeDeps {
 	notify: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** The live worker: a connect or disconnect replaces it. */
 	worker: () => PeerWorker | undefined;
+	/** Stop one peer's running turn, and the dialog that turn was waiting on with it. */
+	stopTurn: (peer: string) => boolean;
 	channels: PeerChannels;
 	presence: Presence;
 	budget: TurnBudget;
@@ -140,7 +142,7 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 				reset: (peer) => {
 					worker?.reset(peer);
 				},
-				stop: (peer) => worker?.abort(peer) ?? false,
+				stop: (peer) => deps.stopTurn(peer),
 				history: (peer, count) => deps.readHistory(peer, count),
 			}),
 		};

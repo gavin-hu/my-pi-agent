@@ -292,6 +292,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		now: deps.now,
 		notify,
 		worker: () => worker,
+		stopTurn,
 		channels,
 		presence,
 		budget,
@@ -358,6 +359,20 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		lastPollError = undefined;
 		lastSendError = undefined;
 		pollHoldMs = undefined;
+	}
+
+	/**
+	 * Stop one peer's turn, and take the dialog that turn was waiting on with it.
+	 *
+	 * A prompt belongs to the turn that asked it, so a stopped turn cannot leave it
+	 * behind: `/status` would keep advertising a question nobody can answer, and the
+	 * peer's next message would be consumed as its reply instead of starting a turn.
+	 * The drop is silent because the stopped turn says so itself.
+	 */
+	function stopTurn(peer: string): boolean {
+		const stopped = worker?.abort(peer) ?? false;
+		if (stopped) channels.drop(peer);
+		return stopped;
 	}
 
 	function releaseSafe(): void {
@@ -471,6 +486,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 					presence.armSlowNotice(item.peer, item.contextToken);
 				},
 				onSettled: (item) => {
+					// The turn is over, so its dialog is too: a prompt it left behind must not
+					// be advertised, or eat the peer's next message as its answer.
+					channels.drop(item.peer);
 					presence.stopSlowNotice(item.peer);
 					presence.stopBusyNotice(item.peer);
 					presence.stopTyping(item.peer);
@@ -505,7 +523,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		},
 
 		stop(peer: string): boolean {
-			return worker?.abort(peer) ?? false;
+			return stopTurn(peer);
 		},
 
 		reset(peer: string): boolean {

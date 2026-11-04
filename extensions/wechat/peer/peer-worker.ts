@@ -348,9 +348,6 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 					const opened = await sessionFor(peer, target);
 					await runTurn(item, opened);
 				} catch (error) {
-					// A stop marked while the open was in flight must not outlive it, or the
-					// peer's next turn would read as stopped before it started.
-					aborted.delete(peer);
 					deps.notify?.(`WeChat session failed for ${item.peer}: ${messageOf(error)}`, "error");
 					// A closing worker says one line of its own instead: the peer does not need
 					// two reasons, and the second send may well fail on the dying connection.
@@ -359,6 +356,11 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 					target.running = undefined;
 					target.startedAt = undefined;
 					running -= 1;
+					// A stop is only ever meant for the turn that was running, and this is the
+					// last moment `abort` can record one: a mark made during the answer's
+					// delivery, or the line after it, must not turn the peer's next turn into a
+					// "stopped" that never prompted.
+					aborted.delete(peer);
 					deps.onSettled?.(item);
 					armIdleSweep(target);
 					wake();

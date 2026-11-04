@@ -269,20 +269,21 @@ export function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = 
 }
 
 /**
- * A client that delivers one inbound message, then holds the poll open until the
- * test pushes the next one, so a prompt can be answered deterministically.
+ * A client that delivers one inbound message or a whole poll batch, then holds the
+ * poll open until the test pushes the next one, so a prompt can be answered
+ * deterministically.
  */
 export function controllableClient(options: ClientOptions = {}): {
 	client: WechatClient;
 	sent: Array<{ to: string; text: string; contextToken?: string }>;
 	sentFiles: Array<{ to: string; fileName: string; len: string }>;
 	sentImages: Array<{ to: string; midSize: number; aeskey: string; contextToken?: string }>;
-	deliver: (message: WeixinMessage) => void;
+	deliver: (messages: WeixinMessage | WeixinMessage[]) => void;
 } {
 	const sent: Array<{ to: string; text: string; contextToken?: string }> = [];
 	const sentFiles: Array<{ to: string; fileName: string; len: string }> = [];
 	const sentImages: Array<{ to: string; midSize: number; aeskey: string; contextToken?: string }> = [];
-	let deliver: ((message: WeixinMessage) => void) | undefined;
+	let deliver: ((messages: WeixinMessage | WeixinMessage[]) => void) | undefined;
 	let first = true;
 	const client = {
 		getUpdates: async (_account: BotCredentials, _cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
@@ -291,7 +292,7 @@ export function controllableClient(options: ClientOptions = {}): {
 				return updates([inbound("ping")]);
 			}
 			return await new Promise<UpdatesResponse>((resolve) => {
-				deliver = (message) => resolve(updates([message]));
+				deliver = (messages) => resolve(updates(Array.isArray(messages) ? messages : [messages]));
 				signal?.addEventListener("abort", () => resolve({ ret: 0, msgs: [], buf: "c" }), { once: true });
 			});
 		},
@@ -328,6 +329,6 @@ export function controllableClient(options: ClientOptions = {}): {
 		sent,
 		sentFiles,
 		sentImages,
-		deliver: (message) => deliver?.(message),
+		deliver: (messages) => deliver?.(messages),
 	};
 }

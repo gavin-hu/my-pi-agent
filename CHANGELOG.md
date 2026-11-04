@@ -60,6 +60,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rather than dropping it, and says so; a poll loop that dies stops the connection instead of leaving
   an `open` status over no poller; and a transport error is reported once per episode, not per
   two-second retry.
+- `wechat`: a stop never outlives the turn it stopped. A stopped turn withdraws the dialog it
+  was waiting on, so `/status` stops advertising a question nobody can answer and the peer's
+  next message — including one in the same poll batch as a `/stop` — starts a turn of its own
+  instead of being consumed as that question's reply; the same drop happens whenever a turn
+  ends with a prompt still waiting. A stop that lands while the answer is being delivered no
+  longer leaks into the next turn, which used to answer “stopped” without ever prompting.
 - `job`: `clear` removes a job's log only once the stream that held it has closed — Windows refused the
   unlink on a file a descriptor still held, and a stream whose open had not landed recreated the file
   just after it, so a cleared job could leave a log behind. The second attempt rides the stream's

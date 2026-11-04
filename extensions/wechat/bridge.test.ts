@@ -686,10 +686,28 @@ describe("bridge slash commands", () => {
 		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
 		deliver(inbound("/stop"));
 		await waitFor(() => sent.some((item) => item.text === "Stopped."));
-		// Only the tool's own signal settles the dialog; the command stops the turn.
-		expect(bridge.channel(owner).hasPending()).toBe(true);
+		// The question went with the turn it was asked in: nothing is left to answer,
+		// so `/status` no longer advertises it and the peer's next message is not its
+		// reply. The stopped turn's own line is the only one the peer needs.
+		expect(bridge.channel(owner).hasPending()).toBe(false);
+		expect(bridge.status().prompts).toEqual([]);
+		expect(await answer).toEqual({ kind: "cancelled" });
+		await bridge.close();
+	});
 
-		bridge.channel(owner).reset();
+	test("a turn that ends takes a dialog nobody answered with it", async () => {
+		const { client } = controllableClient();
+		const { deps, injected, peers } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
+		await waitFor(() => bridge.status().promptPending);
+		// The turn ends while its question is still waiting — a failure, an abandonment,
+		// or any abort — and the settle drops it just as a stop does.
+		peers[0]?.release("done");
+		await waitFor(() => !bridge.status().promptPending);
 		expect(await answer).toEqual({ kind: "cancelled" });
 		await bridge.close();
 	});
@@ -1222,5 +1240,23 @@ describe("bridge remote prompts", () => {
 		await waitFor(() => sent.length >= 1 && bridge.status().promptPending);
 		await bridge.close();
 		expect(await answer).toEqual({ kind: "cancelled" });
+	});
+
+	test("a stopped turn's question is not the answer to the message after it", async () => {
+		const { client, deliver } = controllableClient();
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
+		// The stop and the next message arrive in one poll: the question goes with the
+		// turn that asked it, so the message beside it starts a turn of its own.
+		deliver([inbound("/stop"), inbound("carry on")]);
+		await waitFor(() => injected.length === 2);
+		expect(injected[1]).toBe("carry on");
+		expect(bridge.status().prompts).toEqual([]);
+		expect(await answer).toEqual({ kind: "cancelled" });
+		await bridge.close();
 	});
 });

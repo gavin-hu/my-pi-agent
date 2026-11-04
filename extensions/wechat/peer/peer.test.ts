@@ -318,6 +318,8 @@ describe("peer worker", () => {
 			accept?: (text: string) => boolean;
 			/** How a send ends: accepted, thrown, or held until its signal aborts. */
 			send?: "accept" | "throw" | "untilAborted";
+			/** Hold the first delivery open, so a test can act while the answer is going out. */
+			holdSend?: boolean;
 		} = {},
 	) {
 		const sent: Array<{ peer: string; text: string }> = [];
@@ -326,6 +328,7 @@ describe("peer worker", () => {
 		const sessions: ReturnType<typeof workerSession>[] = [];
 		const timers: Array<{ ms: number; fn: () => void }> = [];
 		const openWaiters: Array<() => void> = [];
+		const sendWaiters: Array<() => void> = [];
 		const worker = createPeerWorker({
 			openSession: async (peer, sessionOptions) => {
 				opened.push({ peer, fresh: sessionOptions.fresh });
@@ -340,6 +343,9 @@ describe("peer worker", () => {
 			send: async (target, text, sendOptions) => {
 				sent.push({ peer: target.peer, text });
 				if (options.send === "throw") throw new Error("transport down");
+				if (options.holdSend && sent.length === 1) {
+					await new Promise<void>((resolve) => sendWaiters.push(resolve));
+				}
 				if (options.send === "untilAborted") {
 					await new Promise<void>((resolve, reject) => {
 						if (!sendOptions?.signal) {
@@ -372,6 +378,9 @@ describe("peer worker", () => {
 			timers,
 			releaseOpen: () => {
 				for (const resolve of openWaiters.splice(0)) resolve();
+			},
+			releaseSend: () => {
+				for (const resolve of sendWaiters.splice(0)) resolve();
 			},
 		};
 	}
@@ -676,6 +685,33 @@ describe("peer worker", () => {
 		expect(sessions[0]?.prompts).toEqual([]);
 		expect(sent.map((message) => message.text)).toEqual(["fallback:stopped"]);
 		expect(worker.state("alice@im.wechat").status).toBe("idle");
+	});
+
+	test("a stop during the answer's delivery does not reach the next turn", async () => {
+		const { worker, sent, sessions, releaseSend } = workerHarness({
+			answers: ["answer", "pong"],
+			holdFirst: true,
+			holdSend: true,
+		});
+		worker.enqueue(peerItem("first"));
+		await settle();
+		// The prompt has produced its answer, and that answer is on its way out.
+		sessions[0]?.release();
+		await settle();
+		expect(sent.map((message) => message.text)).toEqual(["answer"]);
+
+		// Nothing consumes a mark made this late: the turn it belongs to is over.
+		expect(worker.abort("alice@im.wechat")).toBe(true);
+		releaseSend();
+		await settle();
+		await settle();
+		expect(sent.map((message) => message.text)).toEqual(["answer"]);
+
+		// The next turn prompts and answers normally instead of saying it stopped.
+		worker.enqueue(peerItem("second"));
+		await settle();
+		expect(sessions[0]?.prompts).toEqual(["first", "second"]);
+		expect(sent.map((message) => message.text)).toEqual(["answer", "pong"]);
 	});
 
 	test("a stop does not outlive a session that failed to open", async () => {
