@@ -112,10 +112,14 @@ describe("peer worker disposal", () => {
 		});
 		worker.enqueue({ peer, text: "hi", language: "en" });
 		await settle();
-		const closing = worker.close();
+		let settled = false;
+		const closing = worker.close().then(() => {
+			settled = true;
+		});
 		await settle();
-		// The close is not done while an extension still holds what it opened.
-		expect(order).toEqual(["letting go"]);
+		// Settlement, not the order: a close that never waited still leaves the disposal running,
+		// so `order` alone reads the same whether it waited or not.
+		expect({ settled, order }).toEqual({ settled: false, order: ["letting go"] });
 
 		release?.();
 		await closing;
