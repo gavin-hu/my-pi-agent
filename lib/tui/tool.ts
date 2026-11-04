@@ -198,8 +198,19 @@ export function earlierHint(theme: Theme, hidden: number, label: string): string
 	return `${paint(theme, "faint", `… ${hidden} earlier ${label}`)} ${expandHint(theme)}`;
 }
 
-/** The row renderer a {@link TailResult} list uses: the extension's row grammar at a width. */
-export type TailRowLine<Row> = (row: Row, width: number, theme: Theme) => string;
+/**
+ * The row renderer a {@link TailResult} list uses: the extension's row grammar at a width.
+ *
+ * One row is usually one line. A row whose body is prose may return several — a sender
+ * heading and its wrapped body — and the block pushes them in order, so a body is read
+ * whole instead of clipped to a column count the author cannot see.
+ */
+export type TailRowLine<Row> = (row: Row, width: number, theme: Theme) => string | readonly string[];
+
+/** A row renderer's output as the lines the block draws. */
+function rowLines(drawn: string | readonly string[]): readonly string[] {
+	return typeof drawn === "string" ? [drawn] : drawn;
+}
 
 /** One group of rows inside a {@link TailResult}, under an optional faint heading. */
 export interface TailSection<Row> {
@@ -264,7 +275,7 @@ export class TailResult<Row> implements Component {
 		const lines: string[] = [""];
 		const input = this.input;
 		if (input.kind === "list") {
-			for (const row of input.rows) lines.push(input.rowLine(row, w, this.theme));
+			for (const row of input.rows) lines.push(...rowLines(input.rowLine(row, w, this.theme)));
 			if (input.more > 0) lines.push(clip(`  ${overflowHint(this.theme, input.more)}`, w));
 			return lines;
 		}
@@ -276,7 +287,7 @@ export class TailResult<Row> implements Component {
 				// keeps its place, so a single-group result is drawn exactly as before.
 				if (section.label && lines.length > 1) lines.push("");
 				if (section.label) lines.push(clip(paint(this.theme, "faint", section.label), w));
-				for (const row of section.rows) lines.push(section.rowLine(row, w, this.theme));
+				for (const row of section.rows) lines.push(...rowLines(section.rowLine(row, w, this.theme)));
 				if (section.more > 0) lines.push(clip(`  ${overflowHint(this.theme, section.more)}`, w));
 			}
 			return lines;

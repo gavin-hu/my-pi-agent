@@ -11,7 +11,7 @@ import { sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import type { TailResultInput, TailSection } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { type BusRow, busRowLine, count, sessionRows } from "./rows.ts";
+import { type BusRow, busRowLine, count, sessionRows, summaryCells } from "./rows.ts";
 import type { SessionDetails } from "./types.ts";
 
 /** One section of the expanded result. */
@@ -43,8 +43,23 @@ export function resultSections(details: SessionDetails): TailResultInput<BusRow>
 		}
 		case "inbox": {
 			const messages = details.messages ?? [];
-			if (messages.length === 0) return undefined;
-			return { kind: "sections", sections: [section(messages.map((message) => ({ kind: "message", message })))] };
+			const unreadable = details.unreadable ?? [];
+			const sections: TailSection<BusRow>[] = [];
+			if (messages.length > 0) {
+				sections.push(section(messages.map((message) => ({ kind: "message", message }))));
+			}
+			// A file this build cannot read is left on disk, so it is named rather than
+			// passed off as inbox space: the section is drawn even when no message was
+			// consumed, which is the state a reader most needs to be told about.
+			if (unreadable.length > 0) {
+				sections.push(
+					section(
+						unreadable.map((file) => ({ kind: "result", label: file, tone: "warn" })),
+						"Unreadable mail",
+					),
+				);
+			}
+			return sections.length > 0 ? { kind: "sections", sections } : undefined;
 		}
 		case "claim": {
 			const conflicts = details.conflicts ?? [];
@@ -97,8 +112,14 @@ export function resultSections(details: SessionDetails): TailResultInput<BusRow>
 			const delivered = details.delivered ?? [];
 			const failed = details.failed ?? [];
 			const sections: TailSection<BusRow>[] = [];
-			if (delivered.length > 0)
-				sections.push(section(delivered.map((label) => ({ kind: "result", label, tone: "ok" }))));
+			if (delivered.length > 0) {
+				sections.push(
+					section(
+						delivered.map((label) => ({ kind: "result", label, tone: "ok" })),
+						"Delivered",
+					),
+				);
+			}
 			if (failed.length > 0) {
 				sections.push(
 					section(
@@ -124,20 +145,16 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 	const sep = SEPARATORS.item;
 	switch (details.action) {
 		case "status": {
-			const board = sessionRows(details.status);
-			const unread = board.reduce((total, row) => total + row.session.unread, 0);
-			const claims = board.reduce((total, row) => total + row.claims.length, 0);
-			const cells = [count(board.length, "session")];
-			if (unread > 0) cells.push(`${unread} unread`);
-			cells.push(count(claims, "claim"));
-			const watching = details.status?.watching;
-			if (watching) cells.push(watching.wake ? "watch wake" : "watch on");
-			const line = paint(theme, "meta", cells.join(sep));
-			// A reader that has not joined is looking at a bus it is not on.
-			if (details.status?.onBus === false) {
-				return `${line}${paint(theme, "faint", sep)}${paint(theme, "warn", "not on the bus \u2014 session join puts you on it")}`;
-			}
-			return line;
+			// The cells are the board's, so a gone session and a reader that has not joined
+			// read the same on the bar as on `/sessions` — and the summary stays one line,
+			// where a sentence spelling out what to do next would wrap it.
+			const cells = summaryCells(
+				theme,
+				sessionRows(details.status),
+				details.status?.watching,
+				details.status?.onBus !== false,
+			);
+			return cells.join(paint(theme, "faint", sep));
 		}
 		case "send": {
 			const delivered = details.delivered ?? [];
@@ -152,9 +169,16 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 		}
 		case "inbox": {
 			const messages = details.messages ?? [];
-			if (messages.length === 0) return paint(theme, "meta", "Inbox empty");
-			const senders = [...new Set(messages.map((message) => sanitizeLine(message.fromLabel)))];
-			return paint(theme, "meta", `${count(messages.length, "message")}${sep}${senders.join(", ")}`);
+			const unreadable = details.unreadable ?? [];
+			const cells: string[] = [];
+			if (messages.length > 0) {
+				const senders = [...new Set(messages.map((message) => sanitizeLine(message.fromLabel)))];
+				cells.push(paint(theme, "meta", `${count(messages.length, "message")}${sep}${senders.join(", ")}`));
+			}
+			// A refused file is not an empty inbox: it is the one fact the call leaves out,
+			// so the count is drawn here and the names are the expanded section's.
+			if (unreadable.length > 0) cells.push(paint(theme, "warn", count(unreadable.length, "unreadable file")));
+			return cells.length > 0 ? cells.join(paint(theme, "faint", sep)) : paint(theme, "meta", "Inbox empty");
 		}
 		case "claim": {
 			const conflicts = details.conflicts ?? [];

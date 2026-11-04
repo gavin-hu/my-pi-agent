@@ -76,6 +76,46 @@ describe("session tool", () => {
 		await backend.bus.stop();
 	});
 
+	test("an inbox heads the mail it could not read, and never reads it as empty", () => {
+		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
+		const details = {
+			action: "inbox",
+			messages: [
+				{
+					id: "1-a",
+					from: "s2",
+					fromLabel: "backend",
+					to: "s1",
+					toLabel: "frontend",
+					kind: "message",
+					text: "is checkout.ts free?",
+					at: 9_500,
+				},
+			],
+			unreadable: ["0001-verify-billing.json"],
+		};
+		const collapsed = frontend.tool
+			.renderResult({ content: [], details }, { expanded: false }, fakeTheme)
+			.render(80)
+			.join("\n");
+		expect(collapsed).toContain("1 unreadable file");
+		const expanded = frontend.tool
+			.renderResult({ content: [], details }, { expanded: true }, fakeTheme)
+			.render(80)
+			.join("\n");
+		expect(expanded).toContain("Unreadable mail");
+		expect(expanded).toContain("0001-verify-billing.json");
+		const empty = frontend.tool
+			.renderResult(
+				{ content: [], details: { action: "inbox", messages: [], unreadable: ["0001-verify-billing.json"] } },
+				{ expanded: false },
+				fakeTheme,
+			)
+			.render(80)
+			.join("\n");
+		expect(empty).not.toContain("Inbox empty");
+	});
+
 	test("the join transcript line says which mode is on", () => {
 		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
 		const rendered = frontend.tool.renderResult(
@@ -294,6 +334,29 @@ describe("session tool", () => {
 			fakeTheme,
 		);
 		expect(rendered.render(80).join("\n")).toContain("1 session · 0 claims · watch wake");
+	});
+
+	test("the collapsed status is one line at 80, gone and not-on-bus included", () => {
+		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
+		const status = {
+			me: { id: "s1", label: "frontend" },
+			onBus: false,
+			sessions: [
+				{ id: "s1", label: "frontend", unread: 0, state: "live" },
+				{ id: "s2", label: "verify-billing", unread: 1, state: "gone" },
+			],
+			claims: [{ path: "src/api", owner: "s1", ownerLabel: "frontend", at: 1 }],
+			watching: { armed: true, wake: false },
+		};
+		const rendered = frontend.tool.renderResult(
+			{ content: [], details: { action: "status", status } },
+			{ expanded: false },
+			fakeTheme,
+		);
+		const lines = rendered.render(80);
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("1 gone");
+		expect(lines[0]).toContain("not on the bus");
 	});
 
 	test("a release names the paths it did not own instead of a green success", () => {

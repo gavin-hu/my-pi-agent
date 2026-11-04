@@ -49,13 +49,15 @@ addressable: `send`, `inbox`, `claim`, or `release`.
 `session` — `exposure: "direct"` (the default), `executionMode: "sequential"`,
 read-write and closed-world. One action-shaped tool keeps the prompt surface
 small: each action takes only the parameters it needs, and the result is one
-collapsed line that expands to the board's rows.
+collapsed line that expands to the board's rows. That line is the board's own
+summary — the same session, gone, unread, claim, watch, and not-on-the-bus cells
+`/sessions` counts with — so a session's state cannot read two ways.
 
 | Action | Inputs | Result |
 |---|---|---|
 | `status` | — | Active sessions with unread counts, their state, claims, and this session's identity. A session whose process is gone is listed as `gone` until its heartbeat ages out, and its claims are not listed at all. Prunes stale records. A read: it never adds this session to the bus. |
 | `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient, and reports what happened to each: a partial fan-out names the peers it could not write for (`Not delivered to <label> (<reason>)`) and still succeeds, while reaching nobody is a failure. `to: "*"` is only valid with `kind: "event"`. A session whose process is gone is not a recipient: naming it is refused, and a broadcast skips it. |
-| `inbox` | optional `limit` | Consumes up to `limit` messages, oldest first by arrival (default 20, max 50). Each body is clipped and the whole read stops at a 4,000-character budget; the mail it did not reach stays in the inbox and is named in one `… N more` line. |
+| `inbox` | optional `limit` | Consumes up to `limit` messages, oldest first by arrival (default 20, max 50). Each body is clipped and the whole read stops at a 4,000-character budget; the mail it did not reach stays in the inbox and is named in one `… N more` line. A file this build cannot read is not consumed and not counted as inbox space: it stays on disk for a build that can read it, is named in the read and under `Unreadable mail` in the block, and the message TTL ends it. An expanded block draws a message body wrapped under its sender, so a handoff is readable rather than clipped to the row. |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
 | `join` | optional `label`, `wake`, `listen` | Joins the bus, names this session on it and in Pi when a label is given — the same path and uniqueness rule as `/team join`, so `/resume` agrees with the record peers address — and starts listening for mail. The footer draws the label either way, so a plain join changes the name on the bar without renaming the session. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; `listen: false` joins without listening. A label a live session holds is refused, naming the session that holds it — its id, since the label it holds is the one you asked for — and the refusal leaves both names and the watch alone. The result reports the label the bus settled on and whether mail will reach this session. |
