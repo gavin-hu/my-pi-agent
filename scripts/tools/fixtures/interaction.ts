@@ -17,6 +17,14 @@ export const INTERACTION_FIXTURES: ToolFixture[] = [
 		result: { content: [{ type: "text", text: "Sent to the WeChat owner." }], details: { sent: true } },
 	},
 	{
+		name: "send_wechat-file",
+		tool: "send_wechat",
+		group: "package",
+		label: "a file to the owner, sent as a document",
+		args: { file: "reports/weekly.pdf" },
+		result: { content: [{ type: "text", text: "Sent to the WeChat owner." }], details: { sent: true } },
+	},
+	{
 		name: "send_wechat-running",
 		tool: "send_wechat",
 		group: "package",

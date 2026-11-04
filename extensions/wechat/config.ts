@@ -31,7 +31,7 @@ export interface WechatConfig {
 	channelVersion: string;
 	/** Base URL for CDN media downloads and uploads. */
 	cdnBaseUrl: string;
-	/** Inbound media larger than this is skipped. */
+	/** Media larger than this is skipped inbound and refused outbound. */
 	maxMediaBytes: number;
 	/** Inbound text longer than this is truncated before it reaches the model. */
 	maxInboundChars: number;

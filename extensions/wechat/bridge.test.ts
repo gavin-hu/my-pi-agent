@@ -939,7 +939,7 @@ describe("bridge sendToOwner", () => {
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
-		expect(await bridge.sendToOwner("hello")).toEqual({ ok: true });
+		expect(await bridge.sendToOwner({ text: "hello" })).toEqual({ ok: true });
 		expect(sent[0]).toEqual({ to: owner, text: "hello", contextToken: "ctx" });
 		expect(bridge.status().lastSendError).toBeUndefined();
 		await bridge.close();
@@ -955,7 +955,7 @@ describe("bridge sendToOwner", () => {
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
-		expect(await bridge.sendToOwner("hello")).toEqual({ ok: true });
+		expect(await bridge.sendToOwner({ text: "hello" })).toEqual({ ok: true });
 		expect(sent[0]).toMatchObject({ to: "boss", contextToken: "ctx" });
 		await bridge.close();
 	});
@@ -986,7 +986,7 @@ describe("bridge sendToOwner", () => {
 		const { client } = makeClient([]);
 		const { deps } = makeDeps(client);
 		const bridge = createBridge(deps);
-		expect(await bridge.sendToOwner("hello")).toEqual({ ok: false, error: "WeChat bridge is not started." });
+		expect(await bridge.sendToOwner({ text: "hello" })).toEqual({ ok: false, error: "WeChat bridge is not started." });
 	});
 
 	test("refuses to repeat the answer of the turn in flight", async () => {
@@ -997,7 +997,7 @@ describe("bridge sendToOwner", () => {
 		await waitFor(() => injected.length === 1);
 
 		// The owner is mid-turn; a tool send now would deliver the answer twice.
-		expect(await bridge.sendToOwner("hi back")).toEqual({
+		expect(await bridge.sendToOwner({ text: "hi back" })).toEqual({
 			ok: false,
 			error: "The bridge replies to this turn automatically; do not repeat it.",
 		});
@@ -1015,7 +1015,7 @@ describe("bridge sendToOwner", () => {
 
 		const path = join(tempDir("wechat-bridge-image-"), "plot.png");
 		writeFileSync(path, Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]));
-		expect(await bridge.sendToOwner(undefined, path)).toEqual({ ok: true });
+		expect(await bridge.sendToOwner({ image: path })).toEqual({ ok: true });
 		// An image item carries the padded size and the key, and no file name.
 		expect(sentImages[0]).toMatchObject({ to: owner, contextToken: "ctx" });
 		expect(sentImages[0]?.midSize).toBeGreaterThan(0);
@@ -1032,9 +1032,9 @@ describe("bridge sendToOwner", () => {
 		const path = join(tempDir("wechat-bridge-image-"), "plot.png");
 		writeFileSync(path, Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]));
 		// The bridge cannot produce an image, so an image cannot duplicate the answer.
-		expect(await bridge.sendToOwner(undefined, path)).toEqual({ ok: true });
+		expect(await bridge.sendToOwner({ image: path })).toEqual({ ok: true });
 		expect(sentImages).toHaveLength(1);
-		expect(await bridge.sendToOwner("hi back")).toMatchObject({ ok: false });
+		expect(await bridge.sendToOwner({ text: "hi back" })).toMatchObject({ ok: false });
 		await bridge.close();
 	});
 
@@ -1056,7 +1056,7 @@ describe("bridge sendToOwner", () => {
 
 		const path = join(tempDir("wechat-bridge-image-"), "plot.png");
 		writeFileSync(path, Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]));
-		const result = await bridge.sendToOwner(undefined, path);
+		const result = await bridge.sendToOwner({ image: path });
 		expect(result.ok).toBe(false);
 		expect(notifications.filter((message) => message.includes("image delivery failed"))).toHaveLength(1);
 		await bridge.close();
@@ -1077,7 +1077,7 @@ describe("bridge sendToOwner", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		expect(await bridge.sendToOwner("note to self")).toEqual({ ok: true });
+		expect(await bridge.sendToOwner({ text: "note to self" })).toEqual({ ok: true });
 		expect(sent[0]).toMatchObject({ to: owner, text: "note to self" });
 		await bridge.close();
 	});
@@ -1093,7 +1093,7 @@ describe("bridge sendToOwner", () => {
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
-		const result = await bridge.sendToOwner("hello");
+		const result = await bridge.sendToOwner({ text: "hello" });
 		expect(result).toEqual({ ok: false, error: "Weixin rejected the message (ret -2: context token invalid)." });
 		expect(bridge.status().lastSendError).toContain("rejected");
 		await bridge.close();
@@ -1111,7 +1111,7 @@ describe("bridge sendToOwner", () => {
 		const bridge = createBridge(deps);
 		bridge.open();
 		// Reporting `ret 0` would hide the actual reason.
-		expect(await bridge.sendToOwner("hello")).toEqual({
+		expect(await bridge.sendToOwner({ text: "hello" })).toEqual({
 			ok: false,
 			error: "Weixin rejected the message (ret -2: context token invalid).",
 		});
@@ -1126,7 +1126,7 @@ describe("bridge sendToOwner", () => {
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
-		expect(await bridge.sendToOwner("**abcdefghijabcdefghij**")).toEqual({ ok: true });
+		expect(await bridge.sendToOwner({ text: "**abcdefghijabcdefghij**" })).toEqual({ ok: true });
 		expect(sent.map((message) => message.text)).toEqual(["[1/2] abcdefghij", "[2/2] abcdefghij"]);
 		await bridge.close();
 	});
@@ -1138,7 +1138,7 @@ describe("bridge sendToOwner", () => {
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
-		expect(await bridge.sendToOwner("**")).toEqual({ ok: false, error: "Nothing to send after formatting." });
+		expect(await bridge.sendToOwner({ text: "**" })).toEqual({ ok: false, error: "Nothing to send after formatting." });
 		expect(sent).toEqual([]);
 		await bridge.close();
 	});
