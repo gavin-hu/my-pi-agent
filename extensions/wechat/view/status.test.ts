@@ -102,9 +102,9 @@ describe("statusLine", () => {
 		expect(line).toContain("running alice");
 	});
 
-	test("points at the login recovery when expired", () => {
+	test("points at the login and the start when expired", () => {
 		expect(statusLine(view({ bridge: true, account: "owner", connection: "expired" }))).toContain(
-			"run /wechat login to reconnect",
+			"run /wechat login, then /wechat start",
 		);
 	});
 });
@@ -209,7 +209,7 @@ describe("statusBody", () => {
 		const expired = statusBody(view({ bridge: true, account: "owner", connection: "expired" }), fakeTheme, 60).join(
 			"\n",
 		);
-		expect(expired).toContain("press l to log in again");
+		expect(expired).toContain("press l to log in, then t to start");
 		expect(statusBody(view(), fakeTheme, 60).join("\n")).toContain("Run /wechat login");
 		expect(statusBody(view({ account: "owner" }), fakeTheme, 60).join("\n")).toContain("press t to start the bridge");
 	});

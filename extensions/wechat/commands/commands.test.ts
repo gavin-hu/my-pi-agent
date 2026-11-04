@@ -17,19 +17,10 @@ import { type InteractionRequest, INTERACTION_OTHER_LABEL } from "../../../lib/i
 import { fakeCtx } from "../../../test/helpers/context.ts";
 import { tempDir } from "../../../test/helpers/env.ts";
 import { createFakePi } from "../../../test/helpers/fakes.ts";
-import { bridgeStatus } from "../../../test/helpers/fixtures/wechat.ts";
-import type { Bridge, BridgeStatus } from "../bridge.ts";
+import { bridgeStatus, commandHarness } from "../../../test/helpers/fixtures/wechat.ts";
 import type { WechatClient } from "../transport/client.ts";
-import {
-	finishLogin,
-	registerCommands,
-	runNew,
-	WECHAT_COMMANDS,
-	WECHAT_USAGE,
-	type CommandDeps,
-	type StartOutcome,
-} from "./commands.ts";
 import { DEFAULT_CONFIG } from "../config.ts";
+import { finishLogin, registerCommands, runNew, WECHAT_COMMANDS, WECHAT_USAGE, type CommandDeps } from "./commands.ts";
 import type { PeerLanguage } from "../text/format.ts";
 import {
 	createWechatInteractionChannel,
@@ -60,88 +51,6 @@ const account: BotCredentials = {
 	createdAt: 0,
 };
 
-interface Harness {
-	deps: CommandDeps;
-	saved: BotCredentials[];
-	opens: () => number;
-	/** Bridge lifecycle calls in order, so a restart is asserted as one sequence. */
-	events: string[];
-	/** Peers passed to `bridge.stop` / `bridge.reset`, in order. */
-	stops: string[];
-	resets: string[];
-	logouts: () => number;
-}
-
-function harness(
-	options: {
-		open?: () => void;
-		status?: BridgeStatus;
-		bridge?: boolean;
-		stop?: boolean;
-		reset?: boolean;
-		start?: StartOutcome;
-		startError?: string;
-		account?: BotCredentials;
-	} = {},
-): Harness {
-	const saved: BotCredentials[] = [];
-	const events: string[] = [];
-	const stops: string[] = [];
-	const resets: string[] = [];
-	let logouts = 0;
-	const status = options.status ?? bridgeStatus();
-	const bridge = {
-		open: () => {
-			events.push("open");
-			options.open?.();
-		},
-		close: async () => {
-			events.push("close");
-		},
-		status: () => status,
-		stop: (peer: string) => {
-			stops.push(peer);
-			return options.stop ?? true;
-		},
-		reset: (peer: string) => {
-			resets.push(peer);
-			return options.reset ?? true;
-		},
-	} as unknown as Bridge;
-	const exists = options.bridge ?? true;
-	return {
-		deps: {
-			getBridge: () => (exists ? bridge : undefined),
-			startBridge: async () => {
-				events.push("start");
-				if (options.startError) throw new Error(options.startError);
-				return options.start ?? "started";
-			},
-			stopBridge: async () => {
-				events.push("stop");
-				return options.stop ?? true;
-			},
-			loadConfig: () => DEFAULT_CONFIG,
-			createLoginClient: () => {
-				throw new Error("login client is not used by these commands");
-			},
-			saveAccount: (value) => saved.push(value),
-			storedAccount: () => options.account,
-			readHistory: async () => "",
-			logout: () => {
-				logouts += 1;
-			},
-			now: () => 0,
-		},
-		saved,
-		opens: () => events.filter((event) => event === "open").length,
-		events,
-		stops,
-		resets,
-		logouts: () => logouts,
-	};
-}
-
 function handler(deps: CommandDeps) {
 	const fake = createFakePi();
 	registerCommands(fake.pi, deps);
@@ -153,7 +62,7 @@ function handler(deps: CommandDeps) {
 describe("the /wechat verb table", () => {
 	test("completes every verb, with the description help shows", () => {
 		const fake = createFakePi();
-		registerCommands(fake.pi, harness().deps);
+		registerCommands(fake.pi, commandHarness().deps);
 		const complete = fake.commands.get("wechat")?.getArgumentCompletions;
 		if (!complete) throw new Error("completions not registered");
 		const items = complete("") ?? [];
@@ -170,7 +79,7 @@ describe("the /wechat verb table", () => {
 	});
 
 	test("help lists the usage line and every verb with its description", async () => {
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		const { ctx, notices } = fakeCtx();
 		await handler(deps)("help", ctx);
 		const help = notices.at(-1)?.message ?? "";
@@ -181,7 +90,7 @@ describe("the /wechat verb table", () => {
 	});
 
 	test("warns on an unknown subcommand instead of silently showing status", async () => {
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		const { ctx, notices, customCalls } = fakeCtx({ custom: "close" });
 		await handler(deps)("restart", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
@@ -194,7 +103,7 @@ describe("the /wechat verb table", () => {
 describe("the control screen", () => {
 	test("opens for a bare command and runs the chosen action", async () => {
 		const started: number[] = [];
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		const { ctx, customCalls } = fakeCtx({
 			custom: { verb: "new" },
 			extra: {
@@ -210,7 +119,7 @@ describe("the control screen", () => {
 	});
 
 	test("closes without dispatching when the screen closes", async () => {
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		const { ctx, customCalls, notices } = fakeCtx({ custom: "close" });
 		await handler(deps)("status", ctx);
 		expect(customCalls.length).toBe(1);
@@ -219,7 +128,7 @@ describe("the control screen", () => {
 
 	test("routes the screen's history and allow actions through the command", async () => {
 		const dir = tempDir("wechat-allow-");
-		const h = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
+		const h = commandHarness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
 		h.deps.readHistory = async (peer, count) => `${peer} ${count}`;
 		const history = fakeCtx({ custom: { verb: "history", peer: "alice" } });
 		await handler(h.deps)("status", history.ctx);
@@ -235,7 +144,7 @@ describe("the control screen", () => {
 
 describe("finishLogin", () => {
 	test("stores the account and points at the start command", async () => {
-		const { deps, saved, events } = harness();
+		const { deps, saved, events } = commandHarness();
 		const { ctx, notices } = fakeCtx();
 		await finishLogin({ kind: "confirmed", account }, ctx, deps);
 		expect(saved).toEqual([account]);
@@ -245,7 +154,7 @@ describe("finishLogin", () => {
 	});
 
 	test("reports an expired QR without touching credentials or the bridge", async () => {
-		const { deps, saved, opens } = harness();
+		const { deps, saved, opens } = commandHarness();
 		const { ctx, notices } = fakeCtx();
 		await finishLogin({ kind: "expired" }, ctx, deps);
 		expect(saved).toEqual([]);
@@ -255,7 +164,7 @@ describe("finishLogin", () => {
 	});
 
 	test("reports a login error without connecting", async () => {
-		const { deps, saved, opens } = harness();
+		const { deps, saved, opens } = commandHarness();
 		const { ctx, notices } = fakeCtx();
 		await finishLogin({ kind: "error", message: "boom" }, ctx, deps);
 		expect(saved).toEqual([]);
@@ -264,7 +173,7 @@ describe("finishLogin", () => {
 	});
 
 	test("stays silent on cancel", async () => {
-		const { deps, saved, opens } = harness();
+		const { deps, saved, opens } = commandHarness();
 		const { ctx, notices } = fakeCtx();
 		await finishLogin({ kind: "cancelled" }, ctx, deps);
 		expect(saved).toEqual([]);
@@ -275,7 +184,7 @@ describe("finishLogin", () => {
 
 describe("/wechat login", () => {
 	test("declines outside the TUI, where the QR screen has nothing to draw on", async () => {
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		const { ctx, notices, customCalls } = fakeCtx({ mode: "rpc" });
 		await handler(deps)("login", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
@@ -284,7 +193,7 @@ describe("/wechat login", () => {
 	});
 
 	test("reports a QR fetch failure without opening the screen", async () => {
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		deps.createLoginClient = async () =>
 			({
 				fetchQr: async () => {
@@ -299,7 +208,7 @@ describe("/wechat login", () => {
 	});
 
 	test("stores the scanned account and points at the start command", async () => {
-		const { deps, saved, opens } = harness();
+		const { deps, saved, opens } = commandHarness();
 		deps.createLoginClient = async () =>
 			({
 				fetchQr: async () => ({ qrcode: "Q", imgContent: "url" }),
@@ -315,23 +224,40 @@ describe("/wechat login", () => {
 });
 
 describe("/wechat new", () => {
-	test("starts a new session through the command context", async () => {
-		let started = 0;
-		const { ctx } = fakeCtx({
+	test("starts a new session, then says the new one needs a start", async () => {
+		const order: string[] = [];
+		const fake = fakeCtx({
 			extra: {
 				newSession: async () => {
-					started += 1;
+					order.push("newSession");
 					return { cancelled: false };
 				},
 			},
 		});
-		await runNew(ctx, harness().deps);
-		expect(started).toBe(1);
+		const notify = fake.ctx.ui.notify;
+		fake.ctx.ui.notify = (message: string, kind?: string) => {
+			order.push("notify");
+			notify(message, kind);
+		};
+		await runNew(fake.ctx, commandHarness().deps);
+		// The new session carries no binding, so the notice belongs to it: it is posted
+		// after the switch, in the order this records.
+		expect(order).toEqual(["newSession", "notify"]);
+		expect(fake.notices.at(-1)?.message).toBe(
+			"WeChat is not running in the new session. Run /wechat start to run the bridge here.",
+		);
+	});
+
+	test("says nothing when the new session is cancelled", async () => {
+		const { ctx, notices } = fakeCtx({ extra: { newSession: async () => ({ cancelled: true }) } });
+		await runNew(ctx, commandHarness().deps);
+		// The session that asked is still the session running, so it lost no bridge.
+		expect(notices).toEqual([]);
 	});
 
 	test("declines while a peer turn runs", async () => {
 		let started = 0;
-		const { deps } = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
+		const { deps } = commandHarness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
 		const { ctx, notices } = fakeCtx({
 			extra: {
 				newSession: async () => {
@@ -351,7 +277,7 @@ describe("/wechat new", () => {
 describe("/wechat allow", () => {
 	test("allows a refused sender in the project config after confirmation", async () => {
 		const dir = tempDir("wechat-allow-");
-		const { deps } = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
+		const { deps } = commandHarness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
 		const { ctx, notices, confirms } = fakeCtx({ cwd: dir, select: "alice", confirm: true });
 		await handler(deps)("allow", ctx);
 		const file = join(dir, CONFIG_DIR_NAME, "bytefly.json");
@@ -362,7 +288,7 @@ describe("/wechat allow", () => {
 
 	test("writes nothing when the allow confirmation is declined", async () => {
 		const dir = tempDir("wechat-allow-");
-		const { deps } = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
+		const { deps } = commandHarness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
 		const { ctx } = fakeCtx({ cwd: dir, select: "alice", confirm: false });
 		await handler(deps)("allow", ctx);
 		expect(existsSync(join(dir, CONFIG_DIR_NAME, "bytefly.json"))).toBe(false);
@@ -370,7 +296,7 @@ describe("/wechat allow", () => {
 
 	test("allows an explicit peer without the picker", async () => {
 		const dir = tempDir("wechat-allow-");
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		const { ctx, selects } = fakeCtx({ cwd: dir, confirm: true });
 		await handler(deps)("allow bob", ctx);
 		expect(selects).toEqual([]);
@@ -379,7 +305,7 @@ describe("/wechat allow", () => {
 	});
 
 	test("explains when there is nobody refused to allow", async () => {
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		const { ctx, notices, selects } = fakeCtx({ confirm: true });
 		await handler(deps)("allow", ctx);
 		expect(selects).toEqual([]);
@@ -387,7 +313,7 @@ describe("/wechat allow", () => {
 	});
 
 	test("needs a confirmation dialog, which some modes have no UI for", async () => {
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		const { ctx, notices } = fakeCtx({ mode: "json" });
 		await handler(deps)("allow alice", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
@@ -399,7 +325,7 @@ describe("/wechat allow", () => {
 		const file = join(dir, CONFIG_DIR_NAME, "bytefly.json");
 		mkdirSync(join(dir, CONFIG_DIR_NAME), { recursive: true });
 		writeFileSync(file, "{ broken");
-		const { deps } = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
+		const { deps } = commandHarness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
 		const { ctx, notices } = fakeCtx({ cwd: dir, select: "alice", confirm: true });
 		await handler(deps)("allow", ctx);
 		expect(notices.at(-1)?.kind).toBe("error");
@@ -407,7 +333,7 @@ describe("/wechat allow", () => {
 	});
 
 	test("reports a sender that is already allowed", async () => {
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		deps.loadConfig = () => ({ ...DEFAULT_CONFIG, allowedPeers: ["alice"] });
 		const { ctx, notices, confirms } = fakeCtx({ select: "alice", confirm: true });
 		await handler(deps)("allow alice", ctx);
@@ -418,7 +344,7 @@ describe("/wechat allow", () => {
 
 describe("/wechat history", () => {
 	test("prints a peer's recent history", async () => {
-		const h = harness();
+		const h = commandHarness();
 		h.deps.readHistory = async (peer, count) => `${peer} ${count}\nYou: hi`;
 		const { ctx, notices } = fakeCtx();
 		await handler(h.deps)("history alice", ctx);
@@ -429,7 +355,7 @@ describe("/wechat history", () => {
 
 	test("caps the requested count at 20", async () => {
 		const counts: number[] = [];
-		const h = harness();
+		const h = commandHarness();
 		h.deps.readHistory = async (_peer, count) => {
 			counts.push(count);
 			return "You: hi";
@@ -440,7 +366,7 @@ describe("/wechat history", () => {
 	});
 
 	test("asks for a peer when there is no target", async () => {
-		const { deps } = harness();
+		const { deps } = commandHarness();
 		const { ctx, notices } = fakeCtx();
 		await handler(deps)("history", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
@@ -448,7 +374,7 @@ describe("/wechat history", () => {
 	});
 
 	test("reports a read failure instead of failing the command", async () => {
-		const h = harness();
+		const h = commandHarness();
 		h.deps.readHistory = async () => {
 			throw new Error("disk gone");
 		};
@@ -461,26 +387,26 @@ describe("/wechat history", () => {
 
 describe("/wechat start and stop", () => {
 	test("starts the bridge on this session, and says when it already runs", async () => {
-		const first = harness({ account });
+		const first = commandHarness({ account });
 		const opened = fakeCtx();
 		await handler(first.deps)("start", opened.ctx);
 		expect(first.events).toEqual(["start"]);
 		expect(opened.notices.at(-1)?.message).toContain("WeChat bridge started as owner");
 
-		const running = harness({ start: "already-running" });
+		const running = commandHarness({ start: "already-running" });
 		const second = fakeCtx();
 		await handler(running.deps)("start", second.ctx);
 		expect(second.notices.at(-1)?.message).toContain("already running");
 	});
 
 	test("reports a refused start, and declines a mode with no session to keep", async () => {
-		const refused = harness({ startError: "Not logged in. Run /wechat login first." });
+		const refused = commandHarness({ startError: "Not logged in. Run /wechat login first." });
 		const { ctx, notices } = fakeCtx();
 		await handler(refused.deps)("start", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
 		expect(notices.at(-1)?.message).toContain("/wechat login");
 
-		const ephemeral = harness();
+		const ephemeral = commandHarness();
 		const json = fakeCtx({ mode: "json" });
 		await handler(ephemeral.deps)("start", json.ctx);
 		expect(ephemeral.events).toEqual([]);
@@ -488,13 +414,13 @@ describe("/wechat start and stop", () => {
 	});
 
 	test("stops the bridge, and says so when nothing runs", async () => {
-		const stopped = harness({ stop: true });
+		const stopped = commandHarness({ stop: true });
 		const first = fakeCtx();
 		await handler(stopped.deps)("stop", first.ctx);
 		expect(stopped.events).toEqual(["stop"]);
 		expect(first.notices.at(-1)?.message).toBe("WeChat bridge stopped on this session.");
 
-		const idle = harness({ stop: false });
+		const idle = commandHarness({ stop: false });
 		const second = fakeCtx();
 		await handler(idle.deps)("stop", second.ctx);
 		expect(second.notices.at(-1)?.message).toContain("not running");
@@ -503,7 +429,9 @@ describe("/wechat start and stop", () => {
 
 describe("/wechat doctor", () => {
 	test("prints a health report", async () => {
-		const { deps } = harness({ status: bridgeStatus({ state: "running", lastPollAt: 500, lock: { pid: 1, at: 1 } }) });
+		const { deps } = commandHarness({
+			status: bridgeStatus({ state: "running", lastPollAt: 500, lock: { pid: 1, at: 1 } }),
+		});
 		const { ctx, notices } = fakeCtx();
 		await handler(deps)("doctor", ctx);
 		const text = notices.at(-1)?.message ?? "";
@@ -515,7 +443,7 @@ describe("/wechat doctor", () => {
 
 describe("/wechat logout", () => {
 	test("needs a confirmation dialog, which some modes have no UI for", async () => {
-		const { deps, logouts } = harness();
+		const { deps, logouts } = commandHarness();
 		const { ctx, notices } = fakeCtx({ mode: "json" });
 		await handler(deps)("logout", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
@@ -524,7 +452,7 @@ describe("/wechat logout", () => {
 	});
 
 	test("leaves the bridge alone when the confirmation is declined", async () => {
-		const { deps, events, logouts } = harness();
+		const { deps, events, logouts } = commandHarness();
 		const { ctx, confirms } = fakeCtx({ confirm: false });
 		await handler(deps)("logout", ctx);
 		expect(confirms.length).toBe(1);
@@ -533,7 +461,7 @@ describe("/wechat logout", () => {
 	});
 
 	test("closes the bridge and clears the account on confirmation", async () => {
-		const { deps, events, logouts } = harness();
+		const { deps, events, logouts } = commandHarness();
 		const { ctx, notices } = fakeCtx({ confirm: true });
 		await handler(deps)("logout", ctx);
 		expect(events).toEqual(["close"]);
@@ -548,7 +476,7 @@ describe("peer controls", () => {
 	});
 
 	test("stops a peer by either id form", async () => {
-		const h = harness({ status: state, stop: true });
+		const h = commandHarness({ status: state, stop: true });
 		const { ctx, notices } = fakeCtx();
 		await handler(h.deps)("stop alice", ctx);
 		expect(h.stops).toEqual(["alice@im.wechat"]);
@@ -556,7 +484,7 @@ describe("peer controls", () => {
 	});
 
 	test("resets a peer conversation", async () => {
-		const h = harness({ status: state, reset: true });
+		const h = commandHarness({ status: state, reset: true });
 		const { ctx, notices } = fakeCtx();
 		await handler(h.deps)("reset ALICE@im.wechat", ctx);
 		expect(h.resets).toEqual(["alice@im.wechat"]);
@@ -564,14 +492,14 @@ describe("peer controls", () => {
 	});
 
 	test("refuses a reset while the peer runs", async () => {
-		const h = harness({ status: state, reset: false });
+		const h = commandHarness({ status: state, reset: false });
 		const { ctx, notices } = fakeCtx();
 		await handler(h.deps)("reset alice", ctx);
 		expect(notices.at(-1)?.message).toContain("stop it before");
 	});
 
 	test("names the known peers on an unknown target", async () => {
-		const h = harness({ status: state });
+		const h = commandHarness({ status: state });
 		const { ctx, notices } = fakeCtx();
 		await handler(h.deps)("stop nobody", ctx);
 		expect(h.stops).toEqual([]);
@@ -579,12 +507,21 @@ describe("peer controls", () => {
 		expect(notices.at(-1)?.message).toContain("alice");
 	});
 
-	test("asks for login when no bridge is started", async () => {
-		const h = harness({ bridge: false });
+	test("asks for a start when no bridge is started and an account is stored", async () => {
+		const h = commandHarness({ bridge: false, account });
 		const { ctx, notices } = fakeCtx();
 		await handler(h.deps)("stop alice", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
-		expect(notices.at(-1)?.message).toContain("/wechat login");
+		// A login only stores an account, so naming it here sends the user in a circle.
+		expect(notices.at(-1)?.message).toBe("WeChat bridge is not started. Run /wechat start first.");
+	});
+
+	test("asks for a login before the start when no account is stored", async () => {
+		const h = commandHarness({ bridge: false });
+		const { ctx, notices } = fakeCtx();
+		await handler(h.deps)("reset alice", ctx);
+		expect(notices.at(-1)?.kind).toBe("warning");
+		expect(notices.at(-1)?.message).toBe("WeChat bridge is not started. Run /wechat login, then /wechat start.");
 	});
 });
 
@@ -595,7 +532,7 @@ describe("peer controls", () => {
  */
 describe("the /wechat command during a WeChat turn", () => {
 	test("prints the one-line summary instead of opening the control screen", async () => {
-		const { deps } = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
+		const { deps } = commandHarness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
 		const { ctx, notifications, customCalls } = fakeCtx({ custom: "close" });
 		await handler(deps)("status", ctx);
 		expect(customCalls).toEqual([]);
@@ -603,7 +540,7 @@ describe("the /wechat command during a WeChat turn", () => {
 	});
 
 	test("declines logout before asking for a confirmation", async () => {
-		const { deps, logouts } = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
+		const { deps, logouts } = commandHarness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
 		const { ctx, notices, confirms } = fakeCtx({ hasUI: true, confirm: true });
 		await handler(deps)("logout", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
@@ -614,7 +551,7 @@ describe("the /wechat command during a WeChat turn", () => {
 
 	test("declines new instead of replacing the session under the turn", async () => {
 		let started = 0;
-		const { deps } = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
+		const { deps } = commandHarness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
 		const { ctx, notices } = fakeCtx({
 			extra: {
 				newSession: async () => {
@@ -629,7 +566,7 @@ describe("the /wechat command during a WeChat turn", () => {
 	});
 
 	test("declines login before fetching a QR code", async () => {
-		const { deps } = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
+		const { deps } = commandHarness({ status: bridgeStatus({ state: "running", turnsRunning: true }) });
 		const { ctx, notices } = fakeCtx();
 		// The harness login client throws, so reaching it would fail this test.
 		await handler(deps)("login", ctx);
@@ -639,7 +576,7 @@ describe("the /wechat command during a WeChat turn", () => {
 
 	test("opens the control screen again once the peer turn settles", async () => {
 		const running = bridgeStatus({ state: "running", turnsRunning: true });
-		const { deps } = harness({ status: running });
+		const { deps } = commandHarness({ status: running });
 		const { ctx, customCalls } = fakeCtx({ custom: "close" });
 		const command = handler(deps);
 		await command("status", ctx);

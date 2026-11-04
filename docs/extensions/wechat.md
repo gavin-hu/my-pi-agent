@@ -140,7 +140,7 @@ screen, and every subcommand is the same action one of the screen's keys runs.
 | `/wechat` | TUI: the control screen. Elsewhere: a one-line summary. |
 | `/wechat start` | Bind this session to the stored account and start polling; a lock another session holds is a refused start, not a binding. |
 | `/wechat login` | QR login; on scan, stores the account (one account per file) and points at `/wechat start`. |
-| `/wechat new` | Start a fresh *host* session, which carries no binding: run `/wechat start` there. Peer conversations are independent and survive it; they use an inbound `/new`. |
+| `/wechat new` | Start a fresh *host* session, which carries no binding: it says so, and `/wechat start` in the new session is what runs the bridge there. Peer conversations are independent and survive it; they use an inbound `/new`. |
 | `/wechat status` | The same control screen as a bare `/wechat` (the one-line summary while a peer turn runs). |
 | `/wechat stop` | Stop polling on this session and release the poller lock; a peer turn still running is cut off with its notice. |
 | `/wechat doctor` | Print a read-only health report: connection and token age, last poll and hold, lock holder, per-peer session/queue, recent failures. |
@@ -170,7 +170,12 @@ cursor and owner instead of carrying the previous one's over.
 
 A session that expires while running keeps the `✆ wechat expired` chip:
 `/wechat status` reports it and points at the fix, and `/wechat login` followed
-by `/wechat start` is the recovery.
+by `/wechat start` is the recovery. Every notice that reports a missing bridge
+names the step that is actually missing — the expiry notice, the one-line
+status, and the screen's expired line all say login then start, while a `/wechat
+stop <peer>` or `/wechat reset <peer>` with no bridge says `/wechat start`, or
+`/wechat login` before it when no account is stored. `/wechat new` says the same
+for the session it starts.
 
 ### The control screen
 
@@ -662,6 +667,7 @@ guidance used to do.
 | `commands/history.ts` | Read-only `/history`: opens the peer's newest session, formats the last user/assistant messages, and never writes. |
 | `text/format.ts` | Sanitize, chunk, and label helpers (text only). |
 | `text/notices.ts` | The peer-facing notice catalog: one line per kind, in the peer's language. |
+| `text/remedy.ts` | The remedy every notice names: `START_REMEDY`, `LOGIN_THEN_START`, the status line's `EXPIRY_RECOVERY`, and `bridgeRemedy(hasAccount)` choosing the step this session is missing. |
 | `text/channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
 | `dialog/interaction.ts` | One peer's `InteractionChannel`: pending-prompt state machine, the other-answer stash, and reply routing for that peer. |
 | `dialog/channels.ts` | The per-peer channel registry: one channel each, inbound reply routing, the waiting prompts for the control screen, a peer's prompt dropped when its turn ends, and cancel-all when the bridge closes. |

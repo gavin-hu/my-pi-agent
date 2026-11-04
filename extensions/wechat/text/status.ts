@@ -12,6 +12,7 @@ import { sanitizeLine } from "../../../lib/format.ts";
 import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import type { BridgeStatus } from "../bridge.ts";
 import { peerLabel } from "./format.ts";
+import { EXPIRY_RECOVERY } from "./remedy.ts";
 import type { BotCredentials } from "../types.ts";
 
 /** User-facing connection word; the internal `BridgeState` stays running/stopped. */
@@ -129,7 +130,7 @@ export function statusLine(view: StatusView): string {
 		const active = view.peerRows.find((row) => row.status === "running");
 		if (active) parts.push(`running ${active.label}`);
 	}
-	const recovery = view.connection === "expired" ? " — run /wechat login to reconnect" : "";
+	const recovery = view.connection === "expired" ? EXPIRY_RECOVERY : "";
 	return `wechat: ${parts.join(SEPARATORS.item)}${recovery}`;
 }
 
