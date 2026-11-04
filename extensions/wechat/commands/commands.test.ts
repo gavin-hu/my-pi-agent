@@ -9,13 +9,9 @@
  * timer.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { type InteractionRequest, INTERACTION_OTHER_LABEL } from "../../../lib/interaction.ts";
 import { fakeCtx } from "../../../test/helpers/context.ts";
-import { tempDir } from "../../../test/helpers/env.ts";
 import { createFakePi } from "../../../test/helpers/fakes.ts";
 import { bridgeStatus } from "../../../test/helpers/fixtures/wechat.ts";
 import type { Bridge, BridgeStatus } from "../bridge.ts";
@@ -217,23 +213,6 @@ describe("the control screen", () => {
 		expect(notices).toEqual([]);
 	});
 
-	test("routes the screen's history and allow actions through the command", async () => {
-		const dir = tempDir("wechat-allow-");
-		const h = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
-		h.deps.readHistory = async (peer, count) => `${peer} ${count}`;
-		const history = fakeCtx({ custom: { verb: "history", peer: "alice" } });
-		await handler(h.deps)("status", history.ctx);
-		expect(history.notices.at(-1)?.message).toContain("alice");
-
-		const allow = fakeCtx({ cwd: dir, custom: { verb: "allow" }, select: "alice", confirm: true });
-		await handler(h.deps)("status", allow.ctx);
-		expect(JSON.parse(readFileSync(join(dir, CONFIG_DIR_NAME, "bytefly.json"), "utf8")).wechat.allowedPeers).toEqual([
-			"alice",
-		]);
-	});
-});
-
-describe("finishLogin", () => {
 	test("stores the account and points at the start command", async () => {
 		const { deps, saved, events } = harness();
 		const { ctx, notices } = fakeCtx();
@@ -348,103 +327,39 @@ describe("/wechat new", () => {
 	});
 });
 
-describe("/wechat allow", () => {
-	test("allows a refused sender in the project config after confirmation", async () => {
-		const dir = tempDir("wechat-allow-");
-		const { deps } = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
-		const { ctx, notices, confirms } = fakeCtx({ cwd: dir, select: "alice", confirm: true });
-		await handler(deps)("allow", ctx);
-		const file = join(dir, CONFIG_DIR_NAME, "bytefly.json");
-		expect(JSON.parse(readFileSync(file, "utf8")).wechat.allowedPeers).toEqual(["alice"]);
-		expect(confirms[0]?.message).toContain("bytefly.json");
-		expect(notices.at(-1)?.message).toContain("/reload");
-	});
-
-	test("writes nothing when the allow confirmation is declined", async () => {
-		const dir = tempDir("wechat-allow-");
-		const { deps } = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
-		const { ctx } = fakeCtx({ cwd: dir, select: "alice", confirm: false });
-		await handler(deps)("allow", ctx);
-		expect(existsSync(join(dir, CONFIG_DIR_NAME, "bytefly.json"))).toBe(false);
-	});
-
-	test("allows an explicit peer without the picker", async () => {
-		const dir = tempDir("wechat-allow-");
-		const { deps } = harness();
-		const { ctx, selects } = fakeCtx({ cwd: dir, confirm: true });
-		await handler(deps)("allow bob", ctx);
-		expect(selects).toEqual([]);
-		const file = join(dir, CONFIG_DIR_NAME, "bytefly.json");
-		expect(JSON.parse(readFileSync(file, "utf8")).wechat.allowedPeers).toEqual(["bob"]);
-	});
-
-	test("explains when there is nobody refused to allow", async () => {
-		const { deps } = harness();
-		const { ctx, notices, selects } = fakeCtx({ confirm: true });
-		await handler(deps)("allow", ctx);
-		expect(selects).toEqual([]);
-		expect(notices.at(-1)?.message).toContain("No refused sender");
-	});
-
-	test("needs a confirmation dialog, which some modes have no UI for", async () => {
-		const { deps } = harness();
-		const { ctx, notices } = fakeCtx({ mode: "json" });
-		await handler(deps)("allow alice", ctx);
-		expect(notices.at(-1)?.kind).toBe("warning");
-		expect(notices.at(-1)?.message).toContain("confirmation dialog");
-	});
-
-	test("does not overwrite a malformed project config", async () => {
-		const dir = tempDir("wechat-allow-");
-		const file = join(dir, CONFIG_DIR_NAME, "bytefly.json");
-		mkdirSync(join(dir, CONFIG_DIR_NAME), { recursive: true });
-		writeFileSync(file, "{ broken");
-		const { deps } = harness({ status: bridgeStatus({ refused: 1, refusedPeers: ["alice"] }) });
-		const { ctx, notices } = fakeCtx({ cwd: dir, select: "alice", confirm: true });
-		await handler(deps)("allow", ctx);
-		expect(notices.at(-1)?.kind).toBe("error");
-		expect(readFileSync(file, "utf8")).toBe("{ broken");
-	});
-
-	test("reports a sender that is already allowed", async () => {
-		const { deps } = harness();
-		deps.loadConfig = () => ({ ...DEFAULT_CONFIG, allowedPeers: ["alice"] });
-		const { ctx, notices, confirms } = fakeCtx({ select: "alice", confirm: true });
-		await handler(deps)("allow alice", ctx);
-		expect(confirms).toEqual([]);
-		expect(notices.at(-1)?.message).toContain("already allowed");
-	});
-});
-
 describe("/wechat history", () => {
 	test("prints a peer's recent history", async () => {
 		const h = harness();
-		h.deps.readHistory = async (peer, count) => `${peer} ${count}\nYou: hi`;
+		h.deps.readHistory = async (count) => `${count}\nYou: hi`;
 		const { ctx, notices } = fakeCtx();
-		await handler(h.deps)("history alice", ctx);
+		await handler(h.deps)("history", ctx);
 		const text = notices.at(-1)?.message ?? "";
-		expect(text).toContain("alice 10");
+		expect(text).toContain("10");
 		expect(text).toContain("You: hi");
 	});
 
 	test("caps the requested count at 20", async () => {
 		const counts: number[] = [];
 		const h = harness();
-		h.deps.readHistory = async (_peer, count) => {
+		h.deps.readHistory = async (count) => {
 			counts.push(count);
 			return "You: hi";
 		};
 		const { ctx } = fakeCtx();
-		await handler(h.deps)("history alice 99", ctx);
+		await handler(h.deps)("history 99", ctx);
 		expect(counts).toEqual([20]);
 	});
 
-	test("asks for a peer when there is no target", async () => {
-		const { deps } = harness();
-		const { ctx, notices } = fakeCtx();
-		await handler(deps)("history", ctx);
-		expect(notices.at(-1)?.kind).toBe("warning");
-		expect(notices.at(-1)?.message).toContain("Usage: /wechat history");
+	test("defaults to ten messages", async () => {
+		const counts: number[] = [];
+		const h = harness();
+		h.deps.readHistory = async (count) => {
+			counts.push(count);
+			return "You: hi";
+		};
+		const { ctx } = fakeCtx();
+		await handler(h.deps)("history", ctx);
+		expect(counts).toEqual([10]);
 	});
 
 	test("reports a read failure instead of failing the command", async () => {
@@ -542,49 +457,19 @@ describe("/wechat logout", () => {
 	});
 });
 
-describe("peer controls", () => {
-	const state = bridgeStatus({
-		peerStates: [{ peer: "alice@im.wechat", state: { status: "running", queued: 0 } }],
-	});
-
-	test("stops a peer by either id form", async () => {
-		const h = harness({ status: state, stop: true });
+describe("the chat's turn", () => {
+	test("stops the running turn instead of the bridge", async () => {
+		const h = harness({ status: bridgeStatus({ state: "running", turnsRunning: true }), stop: true });
 		const { ctx, notices } = fakeCtx();
-		await handler(h.deps)("stop alice", ctx);
-		expect(h.stops).toEqual(["alice@im.wechat"]);
-		expect(notices.at(-1)?.message).toContain("Stopping alice");
+		await handler(h.deps)("cancel", ctx);
+		expect(notices.at(-1)?.message).toContain("No prompt is waiting");
 	});
 
-	test("resets a peer conversation", async () => {
-		const h = harness({ status: state, reset: true });
-		const { ctx, notices } = fakeCtx();
-		await handler(h.deps)("reset ALICE@im.wechat", ctx);
-		expect(h.resets).toEqual(["alice@im.wechat"]);
-		expect(notices.at(-1)?.message).toContain("fresh conversation for alice");
-	});
-
-	test("refuses a reset while the peer runs", async () => {
-		const h = harness({ status: state, reset: false });
-		const { ctx, notices } = fakeCtx();
-		await handler(h.deps)("reset alice", ctx);
-		expect(notices.at(-1)?.message).toContain("stop it before");
-	});
-
-	test("names the known peers on an unknown target", async () => {
-		const h = harness({ status: state });
-		const { ctx, notices } = fakeCtx();
-		await handler(h.deps)("stop nobody", ctx);
-		expect(h.stops).toEqual([]);
-		expect(notices.at(-1)?.message).toContain('Unknown WeChat peer "nobody"');
-		expect(notices.at(-1)?.message).toContain("alice");
-	});
-
-	test("asks for login when no bridge is started", async () => {
+	test("opens the screen on a session that runs no bridge", async () => {
 		const h = harness({ bridge: false });
-		const { ctx, notices } = fakeCtx();
-		await handler(h.deps)("stop alice", ctx);
-		expect(notices.at(-1)?.kind).toBe("warning");
-		expect(notices.at(-1)?.message).toContain("/wechat login");
+		const { ctx, customCalls } = fakeCtx({ custom: "close" });
+		await handler(h.deps)("status", ctx);
+		expect(customCalls).toHaveLength(1);
 	});
 });
 
@@ -706,7 +591,6 @@ describe("built-in /stop and /status", () => {
 			activeTurn: state.status === "running",
 			language: "en",
 			session: {
-				newSession: () => {},
 				stop: () => {
 					stopped += 1;
 					return stopped === 1 && state.status === "running";
@@ -814,9 +698,6 @@ describe("built-in /new", () => {
 			activeTurn: false,
 			language: "en",
 			session: {
-				newSession: () => {
-					events.push("newSession");
-				},
 				stop: () => false,
 				status: () => ({ status: "idle", queued: 0 }),
 			},
@@ -829,20 +710,12 @@ describe("built-in /new", () => {
 		expect(command?.ownerOnly).toBe(true);
 	});
 
-	test("replies before starting the session", async () => {
+	test("declines in the chat, which is the session it would replace", async () => {
 		const command = findSlashCommand(SLASH_COMMANDS, "new");
 		const events: string[] = [];
 		await command?.run?.(context(events));
-		expect(events[0]).toContain("reply:Starting a new session");
-		expect(events[1]).toBe("newSession");
-	});
-
-	test("declines while a turn is in flight instead of restarting", async () => {
-		const command = findSlashCommand(SLASH_COMMANDS, "new");
-		const events: string[] = [];
-		await command?.run?.({ ...context(events), activeTurn: true });
 		expect(events).toHaveLength(1);
-		expect(events[0]).toContain("Still working on your last message");
+		expect(events[0]).toContain("The chat is this Pi session");
 	});
 
 	test("answers a Chinese peer in Chinese", async () => {
@@ -864,7 +737,7 @@ describe("built-in /help", () => {
 			},
 			activeTurn: false,
 			language: "en",
-			session: { newSession: () => {}, stop: () => false, status: () => ({ status: "idle", queued: 0 }) },
+			session: { stop: () => false, status: () => ({ status: "idle", queued: 0 }) },
 		};
 	}
 
@@ -888,7 +761,7 @@ describe("built-in /help", () => {
 		const replies: string[] = [];
 		await command?.run?.({ ...context(replies), language: "zh" });
 		expect(replies[0]).toContain("可用命令：");
-		expect(replies[0]).toContain("/new — 开始新会话（仅限所有者）");
+		expect(replies[0]).toContain("/new — 开始新会话（仅限终端）");
 		expect(replies[0]).not.toContain("owner only");
 	});
 });

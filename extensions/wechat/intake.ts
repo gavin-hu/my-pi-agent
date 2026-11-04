@@ -12,12 +12,12 @@
  * reconnect replaces the account, the state, and the worker rather than mutating them.
  */
 
-import type { AdmissionQueue, TurnBudget } from "./peer/admission.ts";
-import type { PeerWorker } from "./peer/peer-worker.ts";
-import type { Presence } from "./peer/presence.ts";
-import type { PeerChannels } from "./dialog/channels.ts";
+import type { AdmissionQueue, TurnBudget } from "./conversation/admission.ts";
+import type { TurnRunner } from "./conversation/turn.ts";
+import type { Presence } from "./conversation/presence.ts";
+import type { WechatInteractionChannel } from "./dialog/interaction.ts";
 import { messageOf } from "../../lib/errors.ts";
-import { findPeer, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
+import { ownerRecord, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
 import { codePointSlice, parseInbound, peerKey, peerLabel, peerLanguage, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
 import {
@@ -33,14 +33,12 @@ import type { MessageTarget } from "./transport/deliver.ts";
 import type { WechatConfig } from "./config.ts";
 
 /**
- * Whether `peer` may drive the agent: the owner, or an explicit extra. Either id
- * form is accepted (with or without `@im.wechat`), so a label copied from the
+ * Whether `peer` may drive the agent: the account's owner, and nobody else. Either
+ * id form is accepted (with or without `@im.wechat`), so a label copied from the
  * control screen is not silently refused.
  */
-export function isAllowedPeer(peer: string, owner: string | undefined, allowedPeers: string[]): boolean {
-	const key = peerKey(peer);
-	if (owner !== undefined && peerKey(owner) === key) return true;
-	return allowedPeers.some((allowed) => peerKey(allowed) === key);
+export function isAccountOwner(peer: string, owner: string | undefined): boolean {
+	return owner !== undefined && peerKey(owner) === peerKey(peer);
 }
 
 /** True when a message is inbound from a human (not the bot's own echo). */
@@ -68,16 +66,15 @@ export function createLanguageOf(languages: Map<string, PeerLanguage>): (peer: s
 	};
 }
 
-/** Drop a peer's cached reply token, so the next inbound message replaces it. */
+/** Drop the cached reply token, so the next inbound message replaces it. */
 export function createForgetToken(deps: {
 	state: () => WechatState;
 	saveState: (state: WechatState) => void;
-}): (peer: string) => void {
-	return (peer) => {
+}): () => void {
+	return () => {
 		const state = deps.state();
-		const entry = findPeer(state, peer);
-		if (!entry?.lastContextToken) return;
-		delete entry.lastContextToken;
+		if (!state.owner?.lastContextToken) return;
+		delete state.owner.lastContextToken;
 		deps.saveState(state);
 	};
 }
@@ -98,17 +95,18 @@ export interface IntakeDeps {
 	now: () => number;
 	notify: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** The live worker: a connect or disconnect replaces it. */
-	worker: () => PeerWorker | undefined;
-	/** Stop one peer's running turn, and the dialog that turn was waiting on with it. */
-	stopTurn: (peer: string) => boolean;
-	channels: PeerChannels;
+	worker: () => TurnRunner | undefined;
+	/** Stop the running turn, and the dialog that turn was waiting on with it. */
+	stopTurn: () => boolean;
+	/** The chat's one interaction channel: a reply answers its prompt, a command names it. */
+	channel: () => WechatInteractionChannel | undefined;
 	presence: Presence;
 	budget: TurnBudget;
 	admission: AdmissionQueue;
 	languageOf: (peer: string, text?: string) => PeerLanguage;
 	/** Send one bubble to a peer for the bridge's own notices. */
 	reply: (target: MessageTarget, text: string) => Promise<boolean>;
-	readHistory: (peer: string, count: number) => Promise<string>;
+	readHistory: (count: number) => Promise<string>;
 	/** Senders refused since the connection opened, and their labels. */
 	refused: Counter;
 	refusedPeers: Set<string>;
@@ -122,7 +120,7 @@ export interface IntakeDeps {
  * lookup it needs beside it.
  */
 export function createIntake(deps: IntakeDeps): { handleMessage: (message: WeixinMessage) => void } {
-	const { config, channels, presence, budget, admission, languageOf, notify } = deps;
+	const { config, channel, presence, budget, admission, languageOf, notify } = deps;
 
 	/** Run a slash action out-of-band and reply to the sender; never starts a turn. */
 	async function runSlashAction(command: SlashCommand, target: MessageTarget, args: string): Promise<void> {
@@ -134,16 +132,13 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 			reply: async (text) => {
 				await deps.reply(target, text);
 			},
-			activeTurn: worker?.state(target.peer).status === "running",
+			activeTurn: worker?.state().status === "running",
 			language: languageOf(target.peer),
 			session: slashControls(target.peer, {
-				state: (peer) => worker?.state(peer) ?? { status: "idle", queued: 0 },
-				prompt: (peer) => channels.pendingFor(peer)?.title,
-				reset: (peer) => {
-					worker?.reset(peer);
-				},
-				stop: (peer) => deps.stopTurn(peer),
-				history: (peer, count) => deps.readHistory(peer, count),
+				state: () => worker?.state() ?? { status: "idle", queued: 0 },
+				prompt: () => channel()?.pendingInfo()?.title,
+				stop: () => deps.stopTurn(),
+				history: (_peer, count) => deps.readHistory(count),
 			}),
 		};
 		try {
@@ -163,21 +158,21 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 		const owner = state.ownerId ?? deps.account()?.ilinkUserId;
 		// Admission comes first: a refused sender never reaches the state file, a
 		// pending prompt, or the queue.
-		if (!isAllowedPeer(peer, owner, config.allowedPeers)) {
+		if (!isAccountOwner(peer, owner)) {
 			deps.refused.value += 1;
 			const label = peerLabel(peer);
-			// Name a new sender once, so the operator can allowlist it from the
-			// terminal; the cap keeps a spam run from filling the list.
+			// Name a new sender once, so the terminal can show who knocked; the cap
+			// keeps a spam run from filling the list.
 			if (deps.refusedPeers.size < REFUSED_LABEL_CAP && !deps.refusedPeers.has(label)) {
 				deps.refusedPeers.add(label);
-				notify(`WeChat refused a message from ${label}. Add it to allowedPeers to admit.`, "warning");
+				notify(`WeChat refused a message from ${label}: only the account's owner is answered.`, "warning");
 			}
 			return;
 		}
 		// A server replay of an already handled message must not answer twice. The
 		// id is persisted, so a reload or reconnect cannot resurrect it.
 		const messageId = message.message_id;
-		if (typeof messageId === "number" && messageId !== 0 && seenMessage(state, peer, messageId)) return;
+		if (typeof messageId === "number" && messageId !== 0 && seenMessage(state, messageId)) return;
 
 		let text = rawText;
 		const cap = config.maxInboundChars;
@@ -192,15 +187,15 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 		}
 
 		const now = deps.now();
-		recordInbound(state, peer, message.context_token, now);
-		if (typeof messageId === "number" && messageId !== 0) rememberMessage(state, peer, messageId, now);
+		recordInbound(state, message.context_token, now);
+		if (typeof messageId === "number" && messageId !== 0) rememberMessage(state, messageId, now);
 		// Every outcome but a hand-off is final inside this call, so it is written down before
 		// the return. A queued message is written by the hand-off instead, because marking it
 		// seen before the media download would make a kill unrecoverable: the cursor would not
 		// replay it and the seen id would refuse it.
 		const commit = () => deps.saveState(state);
 
-		const target = { peer, contextToken: message.context_token ?? findPeer(state, peer)?.lastContextToken };
+		const target = { peer, contextToken: message.context_token ?? ownerRecord(state)?.lastContextToken };
 		// A command is not an answer: while a dialog waits the model is blocked on it,
 		// so /stop and /status must reach their handlers or the peer's only way out is
 		// the prompt timing out. A message with media is never a command, and an
@@ -223,7 +218,7 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 		}
 		// A reply to a pending prompt is consumed here, before queueing, so it never
 		// starts a turn of its own. A duplicate answer was stopped by the id check.
-		if (channels.handleInbound(peer, text)) {
+		if (channel()?.handleInbound(text) === true) {
 			commit();
 			return;
 		}
@@ -238,12 +233,12 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 		}
 		// A slot is reserved here, before the download, so a burst of media cannot
 		// all pass the check and then enqueue together.
-		if (!budget.allow(peer)) {
+		if (!budget.allow()) {
 			void deps.reply(item, notice("budget", language));
 			commit();
 			return;
 		}
-		const busy = (worker?.state(peer).queued ?? 0) + admission.pending(peer);
+		const busy = (worker?.state().queued ?? 0) + admission.pending();
 		if (busy >= MAX_QUEUE) {
 			// Refuse rather than grow without bound; one notice per episode, not per
 			// dropped message.
@@ -254,8 +249,8 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 			commit();
 			return;
 		}
-		presence.keepTyping(peer, item.contextToken);
-		presence.armAck(item);
+		presence.keepTyping(item.contextToken);
+		presence.armAck(item.contextToken);
 		admission.enqueue(item);
 	}
 

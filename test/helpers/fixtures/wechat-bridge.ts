@@ -12,7 +12,7 @@ import { createCipheriv } from "node:crypto";
 import type { BridgeDeps } from "../../../extensions/wechat/bridge.ts";
 import type { WechatClient } from "../../../extensions/wechat/transport/client.ts";
 import { DEFAULT_CONFIG } from "../../../extensions/wechat/config.ts";
-import type { PeerSession } from "../../../extensions/wechat/peer/peer-session.ts";
+import type { PeerSession } from "../../../extensions/wechat/host/chat.ts";
 import type { BotCredentials, UpdatesResponse, WechatState, WeixinMessage } from "../../../extensions/wechat/types.ts";
 import { tempDir } from "../env.ts";
 

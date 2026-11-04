@@ -23,7 +23,7 @@ import {
 } from "../../test/helpers/fixtures/wechat.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import wechat from "./index.ts";
-import type { PeerSession } from "./peer/peer-session.ts";
+import type { PeerSession } from "./host/chat.ts";
 import { BINDING_ENTRY } from "./state/binding.ts";
 import { saveAccount } from "./state/credentials.ts";
 

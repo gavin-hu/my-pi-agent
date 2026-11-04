@@ -19,7 +19,8 @@ import { waitFor } from "../process.ts";
 import wechat from "../../../extensions/wechat/index.ts";
 import { join } from "node:path";
 import type { WechatClient, WechatClientOptions } from "../../../extensions/wechat/transport/client.ts";
-import type { PeerSession, PeerSessionOptions } from "../../../extensions/wechat/peer/peer-session.ts";
+import type { WechatInteractionChannel } from "../../../extensions/wechat/dialog/interaction.ts";
+import type { PeerSession } from "../../../extensions/wechat/host/chat.ts";
 import type { BotCredentials, UpdatesResponse, WeixinMessage } from "../../../extensions/wechat/types.ts";
 
 /** A stored account, as the login flow would have saved it. */
@@ -158,13 +159,11 @@ function aborted(signal: AbortSignal | undefined): Promise<void> {
  * without loading extensions or calling a model.
  */
 export function fakePeerSession(answer: string | (() => string)): {
-	openSession: (peer: string, options: PeerSessionOptions) => Promise<PeerSession>;
+	openSession: (peer: string, options: { channel: WechatInteractionChannel }) => Promise<PeerSession>;
 	prompts: string[];
-	fresh: boolean[];
 	disposed: () => number;
 } {
 	const prompts: string[] = [];
-	const fresh: boolean[] = [];
 	let disposals = 0;
 	let last = "";
 	const session = {
@@ -180,12 +179,10 @@ export function fakePeerSession(answer: string | (() => string)): {
 		},
 	};
 	return {
-		openSession: async (_peer, options) => {
-			fresh.push(options.fresh === true);
+		openSession: async () => {
 			return { session, dispose: () => session.dispose() } as unknown as PeerSession;
 		},
 		prompts,
-		fresh,
 		disposed: () => disposals,
 	};
 }
@@ -195,9 +192,8 @@ export function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatu
 	return {
 		state: "stopped",
 		turnsRunning: false,
-		peerCount: 0,
 		queued: 0,
-		peerStates: [],
+		turn: { status: "idle", queued: 0 },
 		refused: 0,
 		refusedPeers: [],
 		mediaDropped: 0,

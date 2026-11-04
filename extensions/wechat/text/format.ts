@@ -135,8 +135,8 @@ export function peerLabel(peer: string): string {
 
 /**
  * The comparable identity of a peer id: trimmed, with the `@im.wechat` suffix
- * dropped. `allowedPeers` accepts either form, so an operator who copies the
- * label the control screen shows is not silently refused.
+ * dropped, so the label the control screen shows names the same sender as the
+ * stored account's id.
  */
 export function peerKey(id: string): string {
 	return peerLabel(id.trim()).toLowerCase();

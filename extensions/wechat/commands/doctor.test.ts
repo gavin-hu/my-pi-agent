@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { visibleWidth } from "@earendil-works/pi-tui";
 import type { BridgeStatus } from "../bridge.ts";
 import { DEFAULT_CONFIG } from "../config.ts";
 import type { BotCredentials } from "../types.ts";
@@ -19,15 +18,9 @@ function doctorStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 	return {
 		state: "running",
 		owner: "owner@im.wechat",
-		peerCount: 1,
 		queued: 2,
 		turnsRunning: true,
-		peerStates: [
-			{
-				peer: "alice@im.wechat",
-				state: { status: "running", queued: 2, runningMs: 42_000, sessionAgeMs: 60 * 60 * 1000 },
-			},
-		],
+		turn: { status: "running", queued: 2, runningMs: 42_000, sessionAgeMs: 60 * 60 * 1000 },
 		refused: 1,
 		refusedPeers: ["bob"],
 		mediaDropped: 2,
@@ -41,13 +34,8 @@ function doctorStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 	};
 }
 
-/** The column the value starts at, for a peer line whose value is `value`. */
-function valueColumn(line: string, value: string): number {
-	return visibleWidth(line.slice(0, line.indexOf(value)));
-}
-
 describe("doctorReport", () => {
-	test("reports the connection, poll, lock, peers, media, and config", () => {
+	test("reports the connection, poll, lock, turn, media, and config", () => {
 		const text = doctorReport({
 			status: doctorStatus(),
 			account: doctorAccount,
@@ -62,16 +50,13 @@ describe("doctorReport", () => {
 		expect(text).toContain("hold 18.0s");
 		expect(text).toContain("pid 1234");
 		expect(text).toContain("4m00s ago");
-		expect(text).toContain("1 running");
 		expect(text).toContain("2 queued");
-		expect(text).toContain("alice");
 		expect(text).toContain("running 42s");
 		expect(text).toContain("session 1h00m");
 		expect(text).toContain("2 dropped");
 		expect(text).toContain("refused 1 (bob)");
 		expect(text).toContain("no prompt");
 		expect(text).toContain("typing on");
-		expect(text).toContain("prompts on");
 	});
 
 	test("reports the last poll and send failures", () => {
@@ -87,7 +72,7 @@ describe("doctorReport", () => {
 
 	test("points a stopped bridge at the start command", () => {
 		const text = doctorReport({
-			status: doctorStatus({ state: "stopped", peerStates: [], queued: 0, lock: undefined }),
+			status: doctorStatus({ state: "stopped", turn: { status: "idle", queued: 0 }, queued: 0, lock: undefined }),
 			account: doctorAccount,
 			config: DEFAULT_CONFIG,
 			now: doctorNow,
@@ -98,7 +83,7 @@ describe("doctorReport", () => {
 
 	test("treats an expired bridge as needing a login", () => {
 		const text = doctorReport({
-			status: doctorStatus({ state: "expired", peerStates: [], queued: 0, lock: undefined }),
+			status: doctorStatus({ state: "expired", turn: { status: "idle", queued: 0 }, queued: 0, lock: undefined }),
 			account: doctorAccount,
 			config: DEFAULT_CONFIG,
 			now: doctorNow,
@@ -113,13 +98,12 @@ describe("doctorReport", () => {
 		expect(text).toContain("closed");
 		expect(text).toContain("not started");
 		expect(text).toContain("not running");
-		expect(text).toContain("none");
 		expect(text).toContain("no recent failure");
 	});
 
 	test("reports a full queue and a waiting prompt", () => {
 		const text = doctorReport({
-			status: doctorStatus({ peerStates: [], queued: 8, promptPending: true }),
+			status: doctorStatus({ turn: { status: "idle", queued: 8 }, queued: 8, promptPending: true }),
 			account: doctorAccount,
 			config: DEFAULT_CONFIG,
 			now: doctorNow,
@@ -127,45 +111,20 @@ describe("doctorReport", () => {
 		expect(text).toContain("prompt waiting");
 	});
 
-	test("counts the configured peer overrides and turn cap", () => {
+	test("names the configured turn cap", () => {
 		const text = doctorReport({
 			status: doctorStatus(),
 			account: doctorAccount,
-			config: { ...DEFAULT_CONFIG, allowedPeers: ["bob"], peers: { bob: { tools: ["read"] } }, maxTurnsPerHour: 12 },
+			config: { ...DEFAULT_CONFIG, maxTurnsPerHour: 12 },
 			now: doctorNow,
 		});
-		expect(text).toContain("1 allowed");
-		expect(text).toContain("1 peer override(s)");
 		expect(text).toContain("12 turns/h");
-	});
-
-	test("aligns a wide peer label's value with an ASCII one", () => {
-		const text = doctorReport({
-			status: doctorStatus({
-				peerStates: [
-					{ peer: "alice@im.wechat", state: { status: "idle", queued: 0 } },
-					{ peer: "李雷@im.wechat", state: { status: "idle", queued: 0 } },
-				],
-			}),
-			account: doctorAccount,
-			config: DEFAULT_CONFIG,
-			now: doctorNow,
-		});
-		const lines = text.split("\n");
-		const ascii = lines.find((line) => line.includes("alice")) ?? "";
-		const wide = lines.find((line) => line.includes("李雷")) ?? "";
-		expect(valueColumn(ascii, "idle")).toBe(valueColumn(wide, "idle"));
 	});
 
 	test("strips control characters a peer put in its id", () => {
 		const text = doctorReport({
 			status: doctorStatus({
-				peerStates: [
-					{
-						peer: "bad\u001b[31m@im.wechat",
-						state: { status: "idle", queued: 0, sessionAgeMs: 1000 },
-					},
-				],
+				turn: { status: "idle", queued: 0, sessionAgeMs: 1000 },
 				refusedPeers: ["\u0007bob"],
 				lastPollError: "rejected\u001b[0m ret -1",
 			}),
@@ -175,6 +134,5 @@ describe("doctorReport", () => {
 		});
 		expect(text).not.toContain("\u001b");
 		expect(text).not.toContain("\u0007");
-		expect(text).toContain("bad [31m");
 	});
 });

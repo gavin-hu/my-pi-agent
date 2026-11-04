@@ -17,24 +17,24 @@
  */
 
 import { WechatError, type WechatClient } from "./transport/client.ts";
-import { createAdmissionQueue, createTurnBudget } from "./peer/admission.ts";
+import { createAdmissionQueue, createTurnBudget } from "./conversation/admission.ts";
 import { createDeliverer, type MessageTarget } from "./transport/deliver.ts";
 import { createInboundAdmission } from "./transport/inbound.ts";
 import { createPollLoop, defaultPollTimeout } from "./transport/poll.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { peerKey, sanitizeInbound, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
-import { createPresence } from "./peer/presence.ts";
+import { createPresence } from "./conversation/presence.ts";
 import { createForgetToken, createIntake, createLanguageOf, type Counter } from "./intake.ts";
 
 // The admission predicates, re-exported: they are the bridge's contract, and a caller
 // should not have to know which module inside it answers them.
-export { isAllowedPeer, isInboundMessage } from "./intake.ts";
-import { createPeerChannels, type PeerChannels } from "./dialog/channels.ts";
+export { isAccountOwner, isInboundMessage } from "./intake.ts";
+import { createChatChannel } from "./dialog/interaction.ts";
 import type { PendingPromptInfo, WechatInteractionChannel } from "./dialog/interaction.ts";
 import { defaultSleep, defaultTimer, type ArmTimer } from "./timer.ts";
-import { createPeerWorker, type PeerState, type PeerWorker } from "./peer/peer-worker.ts";
-import type { PeerSession } from "./peer/peer-session.ts";
+import { createTurnRunner, type TurnState, type TurnRunner } from "./conversation/turn.ts";
+import type { PeerSession } from "./host/chat.ts";
 import { emptyState, ownerTarget } from "./state/state.ts";
 import { SLASH_COMMANDS, type SlashCommand } from "./commands/slash.ts";
 import type { BotCredentials, WechatState } from "./types.ts";
@@ -50,11 +50,11 @@ export interface BridgeDeps {
 	 * Open, resume, or restart one peer's own session. The bridge hands over its
 	 * channel so the session's dialogs reach that peer rather than the terminal.
 	 */
-	openSession: (peer: string, options: { fresh: boolean; channel: WechatInteractionChannel }) => Promise<PeerSession>;
+	openSession: (peer: string, options: { channel: WechatInteractionChannel }) => Promise<PeerSession>;
 	/** Directory where inbound files are saved. */
 	mediaDir: () => string;
-	/** Read the peer's own recent messages for `/history`; read-only. */
-	readHistory: (peer: string, count: number) => Promise<string>;
+	/** Read this conversation's recent messages for `/history`; read-only. */
+	readHistory: (count: number) => Promise<string>;
 	/** Built-in inbound slash commands. Defaults to {@link SLASH_COMMANDS}. */
 	slashCommands?: readonly SlashCommand[];
 	loadAccount: () => BotCredentials | undefined;
@@ -90,19 +90,18 @@ export interface BridgeStatus {
 	/** The connection state: stopped, polling, or expired. */
 	state: BridgeState;
 	owner?: string;
-	peerCount: number;
 	queued: number;
-	/** Whether a peer turn is running right now; the bridge itself may be idle. */
+	/** Whether the chat's turn is running right now; the bridge itself may be idle. */
 	turnsRunning: boolean;
-	/** One entry per peer that has work or a live session, for the control screen. */
-	peerStates: Array<{ peer: string; state: PeerState }>;
+	/** The one conversation's state, for the control screen. */
+	turn?: TurnState;
 	refused: number;
 	/** Labels of the senders refused since the bridge opened, newest last, capped. */
 	refusedPeers: string[];
 	mediaDropped: number;
-	/** Whether any peer's dialogs prompt is waiting for an answer. */
+	/** Whether the chat's dialog prompt is waiting for an answer. */
 	promptPending: boolean;
-	/** Every waiting prompt, one per peer, with its kind, title, and age. */
+	/** The waiting prompts, oldest first; one conversation has at most one. */
 	prompts: PendingPromptInfo[];
 	/** When this connection opened. */
 	startedAt?: number;
@@ -127,15 +126,13 @@ export interface Bridge {
 	open(): void;
 	close(): Promise<void>;
 	shutdown(): Promise<void>;
-	/** Stop one peer's running turn; false when that peer is idle. */
-	stop(peer: string): boolean;
-	/** Drop one peer's conversation so the next message starts fresh. */
-	reset(peer: string): boolean;
-	/** What one peer's conversation is doing, for `/status`. */
-	peerState(peer: string): PeerState;
+	/** Stop the chat's running turn; false when nothing is running. */
+	stop(): boolean;
+	/** What the conversation is doing, for `/status`. */
+	peerState(): TurnState;
 	status(): BridgeStatus;
-	/** One peer's interaction channel: the channel its session routes its dialogs through. */
-	channel(peer: string): WechatInteractionChannel;
+	/** The chat's interaction channel: the one its dialogs are answered through. */
+	channel(): WechatInteractionChannel;
 	/** Message the owner proactively: one text, or one image, never a chosen recipient. */
 	sendToOwner(text: string | undefined, image?: string): Promise<SendResult>;
 }
@@ -154,7 +151,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	let loopPromise: Promise<void> | undefined;
 	let client: WechatClient | undefined;
 	let account: BotCredentials | undefined;
-	let state: WechatState = { cursor: "", peers: {} };
+	let state: WechatState = { cursor: "" };
 	/** Senders refused since the connection opened; the inbound path bumps it. */
 	const refused: Counter = { value: 0 };
 	/** Labels of refused senders, so the operator can allowlist one by name. */
@@ -169,7 +166,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const forgetToken = createForgetToken({ state: () => state, saveState: deps.saveState });
 
 	/** One worker per open connection: it owns the queues and the peer sessions. */
-	let worker: PeerWorker | undefined;
+	let worker: TurnRunner | undefined;
 	const pollTimeout = deps.pollTimeout ?? defaultPollTimeout;
 
 	function notify(message: string, kind: "info" | "warning" | "error" = "info"): void {
@@ -238,29 +235,31 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		},
 	});
 	/**
-	 * Every peer's dialogs, one channel each.
-	 *
-	 * A prompt is sent through the peer's channel to the turn it belongs to, so a
-	 * reply can only answer its own peer's question even when two turns run at once.
-	 * A failure is reported once per peer by the deliverer; a silent failure would
-	 * leave the peer with only the choices, as if nothing preceded them.
+	 * The chat's one interaction channel: a dialog raised in a chat turn is asked and
+	 * answered on the phone, and there is one conversation to ask.
 	 */
-	const channels: PeerChannels = createPeerChannels({
-		flush: async (peer) => {
-			await worker?.flush(peer);
-		},
-		send: (peer, text, signal) => {
-			const item = worker?.running(peer);
-			return item ? deliverer.prompt(item, text, signal ?? abort?.signal) : Promise.resolve(false);
-		},
-		sendFile: (peer, filePath, fileName, signal) => {
-			const item = worker?.running(peer);
-			return item ? deliverer.file(item, filePath, fileName, signal ?? abort?.signal) : Promise.resolve(false);
-		},
-		active: (peer) => worker?.state(peer).status === "running",
-		language: (peer) => languageOf(peer),
-		armTimer: deps.armTimer,
-	});
+	let channel: WechatInteractionChannel | undefined;
+
+	function channelFor(peer: string): WechatInteractionChannel {
+		channel ??= createChatChannel({
+			peer,
+			flush: async () => {
+				await worker?.flush();
+			},
+			send: async (text, signal) => {
+				const item = worker?.running();
+				return item ? deliverer.prompt(item, text, signal ?? abort?.signal) : false;
+			},
+			sendFile: async (path, name, signal) => {
+				const item = worker?.running();
+				return item ? deliverer.file(item, path, name, signal ?? abort?.signal) : false;
+			},
+			active: () => worker?.running() !== undefined,
+			language: () => languageOf(peer),
+			armTimer: deps.armTimer,
+		});
+		return channel;
+	}
 
 	/** Typing, acknowledgement, and the slow/busy lines; one timer registry each. */
 	const presence = createPresence({
@@ -270,10 +269,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		client: () => client,
 		account: () => account,
 		signal: () => abort?.signal,
-		statusOf: (peer) => worker?.state(peer).status ?? "idle",
-		languageOf,
-		send: (peer, contextToken, text) => reply({ peer, contextToken }, text),
-		promptPending: (peer) => channels.hasPending(peer),
+		statusOf: () => worker?.state().status ?? "idle",
+		languageOf: () => languageOf(state.ownerId ?? account?.ilinkUserId ?? ""),
+		send: (contextToken, text) => reply({ peer: state.ownerId ?? account?.ilinkUserId ?? "", contextToken }, text),
+		promptPending: () => channel?.hasPending() ?? false,
 	});
 
 	/** Inbound media resolution and the hand-off to a peer session. */
@@ -309,7 +308,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		notify,
 		worker: () => worker,
 		stopTurn,
-		channels,
+		channel: () => channel,
 		presence,
 		budget,
 		admission,
@@ -321,6 +320,12 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		overflow,
 		slashCommands,
 	});
+
+	/** The waiting prompt, as the control screen and the one-line summary read it. */
+	function pendingPrompts(): PendingPromptInfo[] {
+		const waiting = channel?.pendingInfo();
+		return waiting ? [waiting] : [];
+	}
 
 	/** The long-poll loop; it reads the live client, cursor, and state. */
 	const poll = createPollLoop({
@@ -364,7 +369,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		overflow.clear();
 		refused.value = 0;
 		refusedPeers.clear();
-		channels.reset();
+		channel?.reset();
+		channel = undefined;
 		deliverer.reset();
 		presence.reset();
 		budget.reset();
@@ -384,9 +390,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	 * peer's next message would be consumed as its reply instead of starting a turn.
 	 * The drop is silent because the stopped turn says so itself.
 	 */
-	function stopTurn(peer: string): boolean {
-		const stopped = worker?.abort(peer) ?? false;
-		if (stopped) channels.drop(peer);
+	function stopTurn(): boolean {
+		const running = worker?.running();
+		const stopped = worker?.abort() ?? false;
+		if (stopped && running) channel?.reset();
 		return stopped;
 	}
 
@@ -429,7 +436,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		// A bridge that stops by hand withdraws a waiting prompt first, while the peer
 		// still has a running turn to send the notice to: otherwise the question is
 		// left half-asked by a session that is about to be disposed.
-		await channels.cancelAll();
+		if (channel?.hasPending()) await channel.cancel();
 		worker = undefined;
 		await closing?.close({ abandon: true });
 		resetEphemeral();
@@ -488,30 +495,30 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			// One worker per connection: it owns the per-peer queues and sessions, so
 			// a login (or a reconnect after an expiry) starts from a clean slate while
 			// each peer's history stays on disk.
-			worker = createPeerWorker({
-				openSession: (peer, options) => deps.openSession(peer, { fresh: options.fresh, channel: channels.for(peer) }),
+			worker = createTurnRunner({
+				openSession: (peer) => deps.openSession(peer, { channel: channelFor(peer) }),
 				// Each part is delivered as its own bubble; the worker puts the
 				// attachment line on the first one. A false result stops the stream.
 				send: (item, text, options) => reply(item, text, options?.signal),
 				fallback: (item, reason) => notice(reason, item.language),
 				onStart: (item) => {
-					presence.cancelAck(item.peer);
-					presence.stopBusyNotice(item.peer);
-					presence.keepTyping(item.peer, item.contextToken);
-					presence.armSlowNotice(item.peer, item.contextToken);
+					presence.cancelAck();
+					presence.stopBusyNotice();
+					presence.keepTyping(item.contextToken);
+					presence.armSlowNotice(item.contextToken);
 				},
 				onSettled: (item) => {
 					// The turn is over, so its dialog is too: a prompt it left behind must not
 					// be advertised, or eat the peer's next message as its answer.
-					channels.drop(item.peer);
-					presence.stopSlowNotice(item.peer);
-					presence.stopBusyNotice(item.peer);
-					presence.stopTyping(item.peer);
-					void presence.typingOff(item.peer);
+					channel?.reset();
+					presence.stopSlowNotice();
+					presence.stopBusyNotice();
+					presence.stopTyping();
+					void presence.typingOff();
 					presence.pruneTyping();
 					languages.set(item.peer, item.language);
 					// The flood notice is per episode: clear it once the queue drains.
-					const left = (worker?.state(item.peer).queued ?? 0) + admission.pending(item.peer);
+					const left = (worker?.state().queued ?? 0) + admission.pending();
 					if (left === 0) overflow.delete(item.peer);
 				},
 				notify,
@@ -537,32 +544,27 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			await this.close();
 		},
 
-		stop(peer: string): boolean {
-			return stopTurn(peer);
+		stop(): boolean {
+			return stopTurn();
 		},
 
-		reset(peer: string): boolean {
-			return worker?.reset(peer) ?? false;
-		},
-
-		peerState(peer: string): PeerState {
-			return worker?.state(peer) ?? { status: "idle", queued: 0 };
+		peerState(): TurnState {
+			return worker?.state() ?? { status: "idle", queued: 0 };
 		},
 
 		status(): BridgeStatus {
-			const states = worker?.snapshot() ?? [];
+			const turn = worker?.state();
 			return {
-				peerStates: states,
 				state: connection,
 				owner: state.ownerId ?? account?.ilinkUserId,
-				peerCount: Object.keys(state.peers).length,
-				queued: states.reduce((total, entry) => total + entry.state.queued, 0),
-				turnsRunning: states.some((entry) => entry.state.status === "running"),
+				queued: turn?.queued ?? 0,
+				turnsRunning: turn?.status === "running",
+				turn,
 				refused: refused.value,
 				refusedPeers: [...refusedPeers],
 				mediaDropped: inbound.dropped(),
-				promptPending: channels.hasPending(),
-				prompts: channels.prompts(),
+				promptPending: channel?.hasPending() ?? false,
+				prompts: pendingPrompts(),
 				startedAt,
 				lastPollAt,
 				lastPollError,
@@ -572,14 +574,15 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			};
 		},
 
-		channel(peer: string): WechatInteractionChannel {
-			return channels.for(peer);
+		channel(): WechatInteractionChannel {
+			// One conversation: a dialog can only belong to the account whose chat it is.
+			return channelFor(state.ownerId ?? account?.ilinkUserId ?? "");
 		},
 
 		async sendToOwner(text: string | undefined, image?: string): Promise<SendResult> {
 			if (connection !== "running" || !client || !account) return { ok: false, error: "WeChat bridge is not started." };
 			const target = ownerTarget(state, account);
-			if (text !== undefined && worker?.state(target.peer).status === "running") {
+			if (text !== undefined && worker?.state().status === "running") {
 				// The bridge answers this turn itself, so a text send would land twice.
 				return { ok: false, error: "The bridge replies to this turn automatically; do not repeat it." };
 			}

@@ -103,9 +103,10 @@ and `PI_OFFLINE` turns both off.
 
 - [`subagent`](../extensions/subagent/) launches a child `pi` process; its
   `readOnly` mode passes only reader tools to the child.
-- [`wechat`](../extensions/wechat/) admits only configured peers and keeps
-  credentials under `<agent-dir>/wechat/` with mode `0600`. The `send_wechat`
-  tool can message only the account owner.
+- [`wechat`](../extensions/wechat/) answers only the stored account's owner — the
+  chat is that Pi session, with its tools — and keeps credentials under
+  `<agent-dir>/wechat/` with mode `0600`. Anyone else is refused and counted, and
+  the `send_wechat` tool can message only the owner.
 - [`memory`](../extensions/memory/) injects notes into the model context; note
   text is sanitized at the boundary like any other model- or file-authored
   text.

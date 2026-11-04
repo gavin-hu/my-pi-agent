@@ -103,8 +103,8 @@ export interface CredentialsFile {
 	account?: BotCredentials;
 }
 
-/** Per-peer state: the reply token and the last inbound time. */
-export interface PeerState {
+/** The conversation's record: the reply token and the last inbound time. */
+export interface OwnerRecord {
 	lastContextToken?: string;
 	lastSeen: number;
 }
@@ -113,14 +113,14 @@ export interface PeerState {
 export interface WechatState {
 	cursor: string;
 	ownerId?: string;
-	peers: Record<string, PeerState>;
+	/** The one conversation's reply token and last inbound time. */
+	owner?: OwnerRecord;
 	/** Recently handled inbound ids, so a replay is answered once. */
 	seen?: SeenMessage[];
 }
 
-/** One handled inbound message, keyed by the normalized peer and its id. */
+/** One handled inbound message. */
 export interface SeenMessage {
-	peer: string;
 	id: number;
 	/** Epoch milliseconds; entries older than the window are pruned. */
 	at: number;

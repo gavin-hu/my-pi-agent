@@ -30,7 +30,7 @@ describe("an interrupted inbound batch", () => {
 		let built = 0;
 		const notices: string[] = [];
 		/** What reached the disk: the bridge writes a whole state, so this is the durable copy. */
-		let stored: WechatState = { cursor: "", peers: {} };
+		let stored: WechatState = { cursor: "" };
 		const saved: WechatState[] = [];
 		const { deps, peers } = makeDeps(first.client, {
 			createClient: () => (built++ === 0 ? first.client : second.client),

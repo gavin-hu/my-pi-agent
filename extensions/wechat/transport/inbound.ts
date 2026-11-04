@@ -10,7 +10,7 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import type { InboundItem } from "../types.ts";
 import type { WechatClient } from "./client.ts";
-import type { PeerItem } from "../peer/peer-worker.ts";
+import type { ChatItem } from "../conversation/turn.ts";
 import { messageOf } from "../../../lib/errors.ts";
 import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
 import { notice } from "../text/notices.ts";
@@ -26,7 +26,7 @@ export interface InboundDeps {
 	/** Answer a message that has nothing readable. */
 	reply: (item: InboundItem, text: string) => Promise<unknown>;
 	/** Hand a resolved message to the peer's own session. */
-	enqueue: (item: PeerItem) => void;
+	enqueue: (item: ChatItem) => void;
 	pruneTyping: () => void;
 	isRunning: () => boolean;
 }
@@ -132,7 +132,7 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 				if (resolved.files.length > 0) text = [text, ...resolved.files].filter(Boolean).join("\n");
 				images = resolved.images.length > 0 ? resolved.images : undefined;
 			}
-			const queued: PeerItem = {
+			const queued: ChatItem = {
 				peer: item.peer,
 				text,
 				images,

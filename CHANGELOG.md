@@ -6,7 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `wechat`: `/wechat cancel` withdraws the waiting prompt without stopping the turn — the one control
+  action that had no verb, so a session without the control screen (rpc, json, print) could only let it
+  time out. The screen's `c` key and the verb share one runner, and `c` is in the hint row, where it
+  used to be the one action a reader had to already know.
+
 ### Changed
+
+- `wechat`: the chat is this Pi session. An inbound message starts a turn here (`sendUserMessage`), its
+  deltas stream back through the reply pipeline, and the run's settle ends it, so the phone and the
+  terminal share one transcript, one model, and one toolset; a message that arrives mid-run waits for
+  that run. A dialog raised by a chat turn reaches the phone — the turn is marked on the UI context and
+  `askHuman` reads it — while a terminal turn keeps its own, and the phone-chat contract is appended to
+  the system prompt for chat turns only. Breaking: the session's mode, tools, and model apply to the
+  chat; `wechat/sessions/<peer>/` transcripts are no longer read or written, and `state.json`'s `peers`
+  map becomes one `owner` record, so an upgraded install keeps its cursor and seen ids but re-records
+  the reply token on the next inbound message.
 
 - `wechat`: the bridge is bound to one Pi session and started and stopped by hand — `/wechat start`
   writes a `wechat` branch entry and opens the poller; `/wechat stop` closes it, releases the poller
@@ -27,6 +44,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ubuntu's parallel job parked 33 minutes — and every job states `timeout-minutes: 20`.
 
 ### Removed
+
+- `wechat`: the per-sender machinery is gone — a Pi session per sender, `PEER_CONCURRENCY` and its fair
+  queue, the per-peer interaction-channel registry, `allowedPeers`, `peers[].tools`, and
+  `remotePrompts`, plus the peer argument on every verb. Only the account's owner is answered;
+  `/wechat allow` and `/wechat reset` are gone, `/wechat stop` stops the bridge, `/wechat history [n]`
+  prints this session's own messages, and `/wechat new` from the chat declines because it would close
+  the bridge (the terminal's `/wechat new` still starts a fresh session). The control screen is one
+  conversation: account, connection, queued, the running turn, refusals, and the waiting prompt.
 
 - `wechat`: `/wechat pause` and `/wechat resume` are gone, replaced by the hand start and stop on a
   bound session. The `paused` bridge state, its warning chip, and the control screen's `p` key go with

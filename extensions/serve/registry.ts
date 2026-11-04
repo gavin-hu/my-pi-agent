@@ -12,7 +12,7 @@
  * it is pinned to, or the project's own number, and falls back to an OS-chosen one when
  * that port is taken. Pinning is the session's, not a page's: `serve.port` belongs to the
  * first session that binds, so a second session in this process (a WeChat peer loads every
- * other extension, `extensions/wechat/peer/peer-session.ts`) falls back to an OS-chosen
+ * other extension, `extensions/wechat/conversation/peer-session.ts`) falls back to an OS-chosen
  * port instead of failing on the host's pin, and a second *process* is told the pin
  * is in use rather than moved off the address a bookmark names.
  *

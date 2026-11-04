@@ -17,25 +17,25 @@ import {
 	updates,
 } from "../../test/helpers/fixtures/wechat-bridge.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
-import { type BridgeState, createBridge, isAllowedPeer, isInboundMessage } from "./bridge.ts";
+import { type BridgeState, createBridge, isAccountOwner, isInboundMessage } from "./bridge.ts";
 import type { WechatClient } from "./transport/client.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import type { BotCredentials, UpdatesResponse, WechatState } from "./types.ts";
 
 describe("message identity", () => {
-	test("accepts the owner and explicit peers only", () => {
-		expect(isAllowedPeer("owner", "owner", [])).toBe(true);
-		expect(isAllowedPeer("friend", "owner", ["friend"])).toBe(true);
-		expect(isAllowedPeer("stranger", "owner", ["friend"])).toBe(false);
+	test("accepts the account's owner and nobody else", () => {
+		expect(isAccountOwner("owner", "owner")).toBe(true);
+		expect(isAccountOwner("stranger", "owner")).toBe(false);
+		expect(isAccountOwner("anything", undefined)).toBe(false);
 	});
 
 	test("accepts either id form after normalizing case and the suffix", () => {
-		// The control screen shows the label without the suffix, so a config entry
-		// copied from it has to match a message that carries the suffix.
-		expect(isAllowedPeer("alice@im.wechat", "owner@im.wechat", ["alice"])).toBe(true);
-		expect(isAllowedPeer("alice", "owner@im.wechat", ["alice@im.wechat"])).toBe(true);
-		expect(isAllowedPeer("alice@im.wechat", "owner", [" ALICE@im.wechat "])).toBe(true);
-		expect(isAllowedPeer("alice@im.wechat", "owner", ["alicia"])).toBe(false);
+		// The control screen shows the label without the suffix, and the stored
+		// account carries it, so both forms have to match the same person.
+		expect(isAccountOwner("alice@im.wechat", "alice")).toBe(true);
+		expect(isAccountOwner("alice", "alice@im.wechat")).toBe(true);
+		expect(isAccountOwner(" ALICE@im.wechat ", "alice")).toBe(true);
+		expect(isAccountOwner("alice@im.wechat", "alicia")).toBe(false);
 	});
 
 	test("rejects the bot echo and a message without a sender", () => {
@@ -94,12 +94,12 @@ describe("bridge lifecycle", () => {
 			loadState: () => ({
 				cursor: "old-cursor",
 				ownerId: "previous@im.wechat",
-				peers: { "previous@im.wechat": { lastSeen: 1, lastContextToken: "old" } },
+				owner: { lastSeen: 1, lastContextToken: "old" },
 			}),
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
-		expect(saved.at(-1)).toEqual({ cursor: "", ownerId: owner, peers: {} });
+		expect(saved.at(-1)).toEqual({ cursor: "", ownerId: owner });
 		expect(bridge.status().owner).toBe(owner);
 		void bridge.close();
 	});
@@ -107,7 +107,7 @@ describe("bridge lifecycle", () => {
 	test("keeps the stored state when the account id form changes", () => {
 		// The same person reported with and without the suffix must not be treated as
 		// a different account, or a re-login would drop the cursor and tokens.
-		const stored = { cursor: "c", ownerId: "owner", peers: { owner: { lastSeen: 1 } } };
+		const stored = { cursor: "c", ownerId: "owner", owner: { lastSeen: 1 } };
 		const { client } = makeClient([]);
 		const { deps, saved } = makeDeps(client, {
 			loadAccount: () => ({ ...account, ilinkUserId: "owner@im.wechat" }),
@@ -116,12 +116,13 @@ describe("bridge lifecycle", () => {
 		const bridge = createBridge(deps);
 		bridge.open();
 		expect(saved).toEqual([]);
-		expect(bridge.status().peerCount).toBe(1);
+		// The stored owner is kept as written; only its id form was compared.
+		expect(bridge.status().owner).toBe("owner");
 		void bridge.close();
 	});
 
 	test("keeps the stored state for the same account", () => {
-		const stored = { cursor: "c", ownerId: owner, peers: { [owner]: { lastSeen: 1 } } };
+		const stored = { cursor: "c", ownerId: owner, owner: { lastSeen: 1 } };
 		const { client } = makeClient([]);
 		const { deps, saved } = makeDeps(client, { loadState: () => structuredClone(stored) });
 		const bridge = createBridge(deps);
@@ -129,7 +130,7 @@ describe("bridge lifecycle", () => {
 		// The cursor is the server's place in a matched account; resetting it would
 		// replay or skip messages.
 		expect(saved).toEqual([]);
-		expect(bridge.status().peerCount).toBe(1);
+		expect(bridge.status().owner).toBe(owner);
 		void bridge.close();
 	});
 
@@ -166,7 +167,7 @@ describe("bridge lifecycle", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
+		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
 		await bridge.close();
 		// A stopped bridge asks its peers nothing: the question is withdrawn while the
 		// turn can still hear it, and the session is disposed after.
@@ -261,27 +262,11 @@ describe("bridge admission", () => {
 		bridge.open();
 		await waitFor(() => peers.length === 1 && peers[0].prompts.length === 1);
 		expect(peers[0]?.prompts[0]?.text).toBe("ping");
-		expect(bridge.status().peerStates[0]?.state.sessionAgeMs).toBe(0);
+		expect(bridge.status().turn?.sessionAgeMs).toBe(0);
 
 		peers[0]?.release("pong");
 		await waitFor(() => sent.length === 1);
 		expect(sent[0]).toEqual({ to: owner, text: "pong", contextToken: "ctx" });
-		await bridge.close();
-	});
-
-	test("gives each admitted peer its own session", async () => {
-		const other = "friend@im.wechat";
-		const { client } = makeClient([updates([inbound("mine"), inbound("theirs", other)])]);
-		const { deps, peers } = makeDeps(
-			client,
-			{ config: { ...DEFAULT_CONFIG, allowedPeers: [other] } },
-			{ answers: ["for me", "for them"] },
-		);
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => peers.length === 2);
-		await waitFor(() => peers.every((peer) => peer.prompts.length === 1));
-		expect(peers.map((peer) => peer.prompts[0]?.text).sort()).toEqual(["mine", "theirs"]);
 		await bridge.close();
 	});
 
@@ -297,7 +282,7 @@ describe("bridge admission", () => {
 		expect(injected).toEqual([]);
 		const named = notifications.filter((message) => message.includes("refused a message from stranger"));
 		expect(named).toHaveLength(1);
-		expect(named[0]).toContain("allowedPeers");
+		expect(named[0]).toContain("only the account's owner is answered");
 		await bridge.close();
 	});
 
@@ -390,25 +375,6 @@ describe("bridge admission", () => {
 		expect(injected[0]).toContain("[WeChat message truncated: showing 1000 of 1200 characters]");
 		expect(injected[0]?.startsWith("x".repeat(1000))).toBe(true);
 		expect(notifications.some((message) => message.includes("truncated to 1000 characters"))).toBe(true);
-		await bridge.close();
-	});
-
-	test("reports each peer's conversation state for the control screen", async () => {
-		const other = "friend@im.wechat";
-		const { client } = makeClient([updates([inbound("mine"), inbound("theirs", other), inbound("more", other)])]);
-		const { deps } = makeDeps(
-			client,
-			{ config: { ...DEFAULT_CONFIG, allowedPeers: [other] } },
-			{ hold: true, answers: ["for me", "for them"] },
-		);
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => bridge.status().peerStates.length === 2);
-
-		// Both peers run at once now; the extra message waits its own peer's turn.
-		const states = bridge.status().peerStates;
-		expect(states.find((entry) => entry.peer === owner)?.state).toMatchObject({ status: "running" });
-		expect(states.find((entry) => entry.peer === other)?.state).toMatchObject({ status: "running", queued: 1 });
 		await bridge.close();
 	});
 });
@@ -528,9 +494,9 @@ describe("bridge inbound media", () => {
 });
 
 describe("bridge slash commands", () => {
-	test("answers /history from the peer's own session", async () => {
+	test("answers /history from this session's own entries", async () => {
 		const { client, sent } = makeClient([updates([inbound("/history")])]);
-		const { deps } = makeDeps(client, { readHistory: async (peer, count) => `${peer} ${count}\nYou: hi` });
+		const { deps } = makeDeps(client, { readHistory: async (count) => `${count}\nYou: hi` });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => sent.length === 1);
@@ -575,7 +541,7 @@ describe("bridge slash commands", () => {
 		await bridge.close();
 	});
 
-	test("ignores an owner-only command from a non-owner peer", async () => {
+	test("ignores a command from a non-owner sender", async () => {
 		const calls: string[] = [];
 		const peer = "friend@im.wechat";
 		const { client, sent } = makeClient([updates([inbound("/new", peer)])]);
@@ -583,7 +549,6 @@ describe("bridge slash commands", () => {
 			slashCommands: [
 				{ name: "new", summary: "s", kind: "action", ownerOnly: true, run: () => void calls.push("ran") },
 			],
-			config: { ...DEFAULT_CONFIG, allowedPeers: [peer] },
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -642,7 +607,7 @@ describe("bridge slash commands", () => {
 		await bridge.close();
 	});
 
-	test("declines /new while a run is in flight", async () => {
+	test("declines /new in the chat, which is the session it would replace", async () => {
 		const { client, sent, deliver } = controllableClient();
 		const { deps, injected } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
@@ -651,9 +616,7 @@ describe("bridge slash commands", () => {
 
 		deliver(inbound("/new"));
 		await waitFor(() => sent.length >= 1);
-		expect(sent[0]?.text).toContain("send /new again");
-		// The session was not replaced under the run.
-		expect(bridge.reset(owner)).toBe(false);
+		expect(sent[0]?.text).toContain("The chat is this Pi session");
 		await bridge.close();
 	});
 
@@ -664,14 +627,14 @@ describe("bridge slash commands", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
+		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
 		deliver(inbound("/status"));
 		// The command reached its handler instead of being parsed as an answer.
 		await waitFor(() => sent.some((item) => item.text.includes("Proceed?")));
 		expect(sent.some((item) => item.text.includes("didn't recognize"))).toBe(false);
-		expect(bridge.channel(owner).hasPending()).toBe(true);
+		expect(bridge.channel().hasPending()).toBe(true);
 
-		bridge.channel(owner).cancel();
+		bridge.channel().cancel();
 		expect(await answer).toEqual({ kind: "cancelled" });
 		await bridge.close();
 	});
@@ -683,13 +646,13 @@ describe("bridge slash commands", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
+		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
 		deliver(inbound("/stop"));
 		await waitFor(() => sent.some((item) => item.text === "Stopped."));
 		// The question went with the turn it was asked in: nothing is left to answer,
 		// so `/status` no longer advertises it and the peer's next message is not its
 		// reply. The stopped turn's own line is the only one the peer needs.
-		expect(bridge.channel(owner).hasPending()).toBe(false);
+		expect(bridge.channel().hasPending()).toBe(false);
 		expect(bridge.status().prompts).toEqual([]);
 		expect(await answer).toEqual({ kind: "cancelled" });
 		await bridge.close();
@@ -702,7 +665,7 @@ describe("bridge slash commands", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
+		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
 		await waitFor(() => bridge.status().promptPending);
 		// The turn ends while its question is still waiting — a failure, an abandonment,
 		// or any abort — and the settle drops it just as a stop does.
@@ -719,20 +682,20 @@ describe("bridge slash commands", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel(owner).request({ kind: "select", title: "Pick", options: ["A", "B"] });
+		const answer = bridge.channel().request({ kind: "select", title: "Pick", options: ["A", "B"] });
 		deliver(inbound("1"));
 		expect(await answer).toEqual({ kind: "value", value: "A" });
 		await bridge.close();
 	});
 
-	test("starts a fresh conversation on /new when nothing is running", async () => {
+	test("/new is declined on an idle chat too, so the bridge is never unbound", async () => {
 		const { client, sent } = makeClient([updates([inbound("/new")])]);
 		const { deps } = makeDeps(client);
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toContain("Starting a new session");
-		expect(bridge.peerState(owner)).toEqual({ status: "idle", queued: 0 });
+		expect(sent[0]?.text).toContain("The chat is this Pi session");
+		expect(bridge.peerState()).toEqual({ status: "idle", queued: 0 });
 		await bridge.close();
 	});
 });
@@ -747,7 +710,7 @@ describe("bridge delivery", () => {
 		await waitFor(() => typing.length >= 1);
 		expect(typing[0]).toEqual({ ilinkUserId: owner, typing: true });
 
-		await bridge.stop(owner);
+		await bridge.stop();
 		await waitFor(() => typing.some((call) => call.typing === false));
 		expect(typing.at(-1)).toEqual({ ilinkUserId: owner, typing: false });
 		await bridge.close();
@@ -846,7 +809,7 @@ describe("bridge delivery", () => {
 				// The token is stored under the un-suffixed form while the message comes
 				// from the suffixed one, so forgetting it exercises the id normalization.
 				loadAccount: () => ({ ...account, ilinkUserId: "owner" }),
-				loadState: () => ({ cursor: "", peers: { owner: { lastContextToken: "old", lastSeen: 0 } } }),
+				loadState: () => ({ cursor: "", owner: { lastContextToken: "old", lastSeen: 0 } }),
 			},
 			{ answers: ["abcdefghijabcdefghij"] },
 		);
@@ -862,8 +825,7 @@ describe("bridge delivery", () => {
 		expect(sends).toBe(1);
 		// A rejected token is forgotten; the next inbound message replaces it, and the
 		// two id forms still share one entry.
-		expect(saved.at(-1)?.peers.owner?.lastContextToken).toBeUndefined();
-		expect(Object.keys(saved.at(-1)?.peers ?? {})).toEqual(["owner"]);
+		expect(saved.at(-1)?.owner?.lastContextToken).toBeUndefined();
 		await bridge.close();
 	});
 
@@ -935,7 +897,7 @@ describe("bridge sendToOwner", () => {
 	test("messages the owner using the stored reply token", async () => {
 		const { client, sent } = makeClient([]);
 		const { deps } = makeDeps(client, {
-			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+			loadState: () => ({ cursor: "", owner: { lastContextToken: "ctx", lastSeen: 0 } }),
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -945,13 +907,13 @@ describe("bridge sendToOwner", () => {
 		await bridge.close();
 	});
 
-	test("finds the reply token when the owner and the stored peer differ in id form", async () => {
+	test("sends to the account's own id with the stored reply token", async () => {
 		const { client, sent } = makeClient([]);
 		const { deps } = makeDeps(client, {
 			// The owner id comes from the login response; the token was recorded from
-			// a `from_user_id` that carries the suffix.
+			// a `from_user_id` that carries the suffix. One conversation, one record.
 			loadAccount: () => ({ ...account, ilinkUserId: "boss" }),
-			loadState: () => ({ cursor: "", peers: { "boss@im.wechat": { lastContextToken: "ctx", lastSeen: 0 } } }),
+			loadState: () => ({ cursor: "", owner: { lastContextToken: "ctx", lastSeen: 0 } }),
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -969,7 +931,7 @@ describe("bridge sendToOwner", () => {
 			client,
 			{
 				loadAccount: () => ({ ...account, ilinkUserId: "owner" }),
-				loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "old", lastSeen: 0 } } }),
+				loadState: () => ({ cursor: "", owner: { lastContextToken: "old", lastSeen: 0 } }),
 			},
 			{ hold: true },
 		);
@@ -1008,7 +970,7 @@ describe("bridge sendToOwner", () => {
 	test("sends one image to the owner as a picture", async () => {
 		const { client, sentImages } = controllableClient();
 		const { deps } = makeDeps(client, {
-			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+			loadState: () => ({ cursor: "", owner: { lastContextToken: "ctx", lastSeen: 0 } }),
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -1049,7 +1011,7 @@ describe("bridge sendToOwner", () => {
 		} as unknown as WechatClient;
 		const { deps } = makeDeps(failing, {
 			notify: (message) => notifications.push(message),
-			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+			loadState: () => ({ cursor: "", owner: { lastContextToken: "ctx", lastSeen: 0 } }),
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -1062,23 +1024,22 @@ describe("bridge sendToOwner", () => {
 		await bridge.close();
 	});
 
-	test("still messages the owner while another peer's turn runs", async () => {
-		const other = "friend@im.wechat";
-		const { client, sent } = makeClient([updates([inbound("hi", other)])]);
+	test("refuses a duplicate text while the chat's own turn runs", async () => {
+		const { client } = makeClient([updates([inbound("hi")])]);
 		const { deps, injected } = makeDeps(
 			client,
-			{
-				config: { ...DEFAULT_CONFIG, allowedPeers: [other] },
-				loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
-			},
+			{ loadState: () => ({ cursor: "", owner: { lastContextToken: "ctx", lastSeen: 0 } }) },
 			{ hold: true },
 		);
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		expect(await bridge.sendToOwner("note to self")).toEqual({ ok: true });
-		expect(sent[0]).toMatchObject({ to: owner, text: "note to self" });
+		// One conversation: the bridge's own stream is already the answer to that turn.
+		expect(await bridge.sendToOwner("note to self")).toEqual({
+			ok: false,
+			error: "The bridge replies to this turn automatically; do not repeat it.",
+		});
 		await bridge.close();
 	});
 
@@ -1089,7 +1050,7 @@ describe("bridge sendToOwner", () => {
 			sendMessage: async () => ({ ret: -2, errmsg: "context token invalid" }),
 		} as unknown as WechatClient;
 		const { deps } = makeDeps(client, {
-			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+			loadState: () => ({ cursor: "", owner: { lastContextToken: "ctx", lastSeen: 0 } }),
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -1106,7 +1067,7 @@ describe("bridge sendToOwner", () => {
 			sendMessage: async () => ({ ret: 0, errcode: -2, errmsg: "context token invalid" }),
 		} as unknown as WechatClient;
 		const { deps } = makeDeps(client, {
-			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+			loadState: () => ({ cursor: "", owner: { lastContextToken: "ctx", lastSeen: 0 } }),
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -1122,7 +1083,7 @@ describe("bridge sendToOwner", () => {
 		const { client, sent } = makeClient([]);
 		const { deps } = makeDeps(client, {
 			config: { ...DEFAULT_CONFIG, maxReplyChars: 16 },
-			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+			loadState: () => ({ cursor: "", owner: { lastContextToken: "ctx", lastSeen: 0 } }),
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -1134,7 +1095,7 @@ describe("bridge sendToOwner", () => {
 	test("reports a message that formats down to nothing", async () => {
 		const { client, sent } = makeClient([]);
 		const { deps } = makeDeps(client, {
-			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+			loadState: () => ({ cursor: "", owner: { lastContextToken: "ctx", lastSeen: 0 } }),
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -1152,7 +1113,7 @@ describe("bridge remote prompts", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel(owner).request({ kind: "select", title: "Pick", options: ["A", "B"] });
+		const answer = bridge.channel().request({ kind: "select", title: "Pick", options: ["A", "B"] });
 		await waitFor(() => sent.length >= 1 && bridge.status().promptPending);
 		expect(sent[0]?.text).toContain("Pick");
 
@@ -1172,7 +1133,7 @@ describe("bridge remote prompts", () => {
 
 		const path = join(tempDir("wechat-bridge-file-"), "plan.md");
 		writeFileSync(path, "plan");
-		expect(await bridge.channel(owner).postFile(path, "plan.md")).toBe(true);
+		expect(await bridge.channel().postFile(path, "plan.md")).toBe(true);
 		expect(sentFiles[0]).toMatchObject({ to: owner, fileName: "plan.md", len: "4" });
 		await bridge.close();
 	});
@@ -1191,8 +1152,8 @@ describe("bridge remote prompts", () => {
 
 		// A dialog preface (or the plan digest) that cannot be sent must not look like
 		// a preface that never existed: the peer would be left with only the choices.
-		await bridge.channel(owner).post("plan digest");
-		await bridge.channel(owner).post("second try");
+		await bridge.channel().post("plan digest");
+		await bridge.channel().post("second try");
 		const failures = notifications.filter((message) => message.includes("message delivery failed"));
 		expect(failures).toHaveLength(1);
 		await bridge.close();
@@ -1209,7 +1170,7 @@ describe("bridge remote prompts", () => {
 
 		const path = join(tempDir("wechat-bridge-file-"), "plan.md");
 		writeFileSync(path, "plan");
-		expect(await bridge.channel(owner).postFile(path, "plan.md")).toBe(false);
+		expect(await bridge.channel().postFile(path, "plan.md")).toBe(false);
 		expect(notifications.some((message) => message.includes("file delivery failed for plan.md"))).toBe(true);
 		await bridge.close();
 	});
@@ -1221,9 +1182,9 @@ describe("bridge remote prompts", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel(owner).request({ kind: "select", title: "Pick", options: ["A"] });
+		const answer = bridge.channel().request({ kind: "select", title: "Pick", options: ["A"] });
 		expect(bridge.status().prompts[0]).toMatchObject({ peer: owner, kind: "select", title: "Pick" });
-		bridge.channel(owner).cancel();
+		bridge.channel().cancel();
 		expect(await answer).toEqual({ kind: "cancelled" });
 		expect(bridge.status().prompts[0]).toBeUndefined();
 		await bridge.close();
@@ -1236,7 +1197,7 @@ describe("bridge remote prompts", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Sure?" });
+		const answer = bridge.channel().request({ kind: "confirm", title: "Sure?" });
 		await waitFor(() => sent.length >= 1 && bridge.status().promptPending);
 		await bridge.close();
 		expect(await answer).toEqual({ kind: "cancelled" });
@@ -1249,7 +1210,7 @@ describe("bridge remote prompts", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
+		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
 		// The stop and the next message arrive in one poll: the question goes with the
 		// turn that asked it, so the message beside it starts a turn of its own.
 		deliver([inbound("/stop"), inbound("carry on")]);

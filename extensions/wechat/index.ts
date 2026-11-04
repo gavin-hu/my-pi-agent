@@ -13,7 +13,7 @@
  * Load with:  pi --extension ./extensions/wechat
  */
 
-import { getAgentDir, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
+import { type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { lazy } from "../../lib/lazy.ts";
@@ -34,8 +34,8 @@ import {
 	wechatDir,
 } from "./state/credentials.ts";
 import { loadBinding, persistBinding, type WechatBinding } from "./state/binding.ts";
-import type { PeerSession, PeerSessionOptions } from "./peer/peer-session.ts";
-import { peerKey } from "./text/format.ts";
+import type { WechatInteractionChannel } from "./dialog/interaction.ts";
+import type { HostEventName, PeerSession } from "./host/chat.ts";
 import { registerTools } from "./tools.ts";
 
 /**
@@ -61,12 +61,21 @@ export interface WechatDeps {
 	/** Injected sleep; overridden in tests so the poll loop never waits on a real timer. */
 	sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 	/**
-	 * Build a peer's session. Overridden in tests, which must not load extensions or
-	 * call a model; production opens a real SDK session per peer.
+	 * Build the chat's session. Overridden in tests, which must not start a turn in
+	 * the host; production answers the chat in this session.
 	 */
-	openSession?: (peer: string, options: PeerSessionOptions) => Promise<PeerSession>;
+	openSession?: (peer: string, options: { channel: WechatInteractionChannel }) => Promise<PeerSession>;
 	/** The bridge module; overridden in tests so a load can be counted. */
 	loadBridge?: () => Promise<typeof import("./bridge.ts")>;
+}
+
+/**
+ * The host UI context as the mutable record the chat's turn marker is written on. The
+ * cast names the guarantee: an `ExtensionUIContext` is a class instance whose members a
+ * marker can sit beside, which is how a remote turn is announced to `askHuman`.
+ */
+function uiOf(ctx: ExtensionContext): Record<string, unknown> {
+	return ctx.ui as unknown as Record<string, unknown>;
 }
 
 export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
@@ -90,12 +99,32 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	 */
 	let epoch = 0;
 	let ctxRef: ExtensionContext | undefined;
+	/** The `before_agent_start` handler that appends the chat contract, while a bridge holds it. */
+	let contractOff: (() => void) | undefined;
 
 	const lockDeps = () => ({
 		now: () => Date.now(),
 		pid: process.pid,
 		isAlive: isPidAlive,
 	});
+
+	/**
+	 * Relay one host event to the chat session, by name: `pi.on` is typed per event, so
+	 * one narrow wrapper keeps the adapter free of the host's event shapes.
+	 */
+	const subscribeHost = (event: HostEventName, handler: (payload: unknown) => void): (() => void) => {
+		const relay = (payload: unknown) => handler(payload);
+		switch (event) {
+			case "message_update":
+				return pi.on("message_update", relay);
+			case "turn_end":
+				return pi.on("turn_end", relay);
+			case "session_compact":
+				return pi.on("session_compact", relay);
+			case "agent_settled":
+				return pi.on("agent_settled", relay);
+		}
+	};
 
 	/** The account the session branch binds, or undefined when nothing is bound. */
 	const bindingOf = (ctx: ExtensionContext): string | undefined =>
@@ -123,46 +152,55 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	const build = async (ctx: ExtensionContext): Promise<Bridge> => {
 		ctxRef = ctx;
 		const config = loadWechatConfig(ctx.cwd);
-		const peerTools = new Map(Object.entries(config.peers).map(([id, peer]) => [peerKey(id), peer.tools] as const));
 		// Everything a live bridge composes loads here, so a session with no account
-		// never evaluates the bridge, the peer worker, the transport or the lock.
-		const [{ createBridge }, client, { openPeerSession }, { createPeerUIContext }] = await Promise.all([
-			bridgeModule.get(),
-			clientModule.get(),
-			import("./peer/peer-session.ts"),
-			import("./dialog/remote-ui.ts"),
-		]);
+		// never evaluates the bridge, the transport or the lock.
+		const [{ createBridge }, client, { openHostChat }, { INTERACTION_TURN_KEY }, { WECHAT_CHANNEL_PROMPT }] =
+			await Promise.all([
+				bridgeModule.get(),
+				clientModule.get(),
+				import("./host/chat.ts"),
+				import("../../lib/interaction.ts"),
+				import("./text/channel.ts"),
+			]);
+		// The phone-chat contract rides on the turns the chat started: the marker on the UI
+		// context is what says which those are, so a terminal turn is not told it is
+		// answering on a phone. Registered with the bridge, and dropped with it.
+		contractOff?.();
+		contractOff = pi.on("before_agent_start", (event, ctx) => {
+			if (uiOf(ctx)[INTERACTION_TURN_KEY] === undefined) return;
+			const append = event.systemPromptOptions.appendSystemPrompt;
+			event.systemPromptOptions.appendSystemPrompt = append
+				? `${append}\n\n${WECHAT_CHANNEL_PROMPT}`
+				: WECHAT_CHANNEL_PROMPT;
+		});
 		const { acquireLock, lockPath, readLock, refreshLock, releaseLock, startLockHeartbeat } = await import(
 			"./state/lock.ts"
 		);
 		const { readState, statePath, writeState } = await import("./state/state.ts");
 		const { SLASH_COMMANDS } = await import("./commands/slash.ts");
-		const { readPeerHistory } = await import("./commands/history.ts");
+		const { formatHistory } = await import("./commands/history.ts");
 		return createBridge({
 			config,
 			now: () => Date.now(),
-			// Each peer gets its own session under the WeChat state dir, with the host's
-			// model and thinking level, and its dialogs bound to that peer.
-			openSession: (peer, options) =>
-				(deps.openSession ?? openPeerSession)(peer, {
-					cwd: ctxRef?.cwd ?? process.cwd(),
-					agentDir: getAgentDir(),
-					sessionsDir: join(wechatDir(), "sessions"),
-					model: ctxRef?.model,
-					thinkingLevel: ctxRef?.thinkingLevel,
-					// The peer's dialogs go to that peer only when `remotePrompts` is on;
-					// the terminal's own UI is never adapted, so a local turn keeps its dialogs.
-					uiContext: createPeerUIContext(options.channel, (message) => ctxRef?.ui.notify(message), {
-						prompts: config.remotePrompts,
+			// The chat is this session: an inbound message starts a turn here, and the
+			// dialogs raised inside it are answered on the phone.
+			openSession: (peer, options) => {
+				if (deps.openSession) return deps.openSession(peer, options);
+				return Promise.resolve(
+					openHostChat(peer, {
+						sendUserMessage: (content) => pi.sendUserMessage(content),
+						isIdle: () => ctx.isIdle(),
+						abortTurn: () => ctx.abort(),
+						ui: uiOf(ctx),
+						channel: () => options.channel,
+						subscribe: subscribeHost,
 					}),
-					onError: (message) => ctxRef?.ui.notify(`WeChat peer session: ${message}`, "warning"),
-					onWarning: (message) => ctxRef?.ui.notify(message, "warning"),
-					toolAllowlist: peerTools.get(peerKey(peer)),
-					fresh: options.fresh,
-				}),
+				);
+			},
 			mediaDir: () => join(wechatDir(), "media"),
-			readHistory: (peer, count) =>
-				readPeerHistory(ctxRef?.cwd ?? process.cwd(), join(wechatDir(), "sessions"), peer, count),
+			// There is no per-peer history file to read: `/history` reads this session's
+			// own entries, and asking cannot create or resume anything.
+			readHistory: async (count) => formatHistory(ctxRef?.sessionManager.getEntries() ?? [], count),
 			slashCommands: SLASH_COMMANDS,
 			loadAccount: () => storedAccount(),
 			loadState: () => readState(statePath()),
@@ -217,6 +255,8 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 
 	/** Drop the bridge handle, so the next start builds one from the stored account. */
 	const forget = (): void => {
+		contractOff?.();
+		contractOff = undefined;
 		bridge = undefined;
 		building = undefined;
 		boundTo = undefined;
@@ -343,9 +383,9 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		},
 		saveAccount,
 		storedAccount,
-		readHistory: async (peer, count) => {
-			const { readPeerHistory } = await import("./commands/history.ts");
-			return readPeerHistory(ctxRef?.cwd ?? process.cwd(), join(wechatDir(), "sessions"), peer, count);
+		readHistory: async (count) => {
+			const { formatHistory } = await import("./commands/history.ts");
+			return formatHistory(ctxRef?.sessionManager.getEntries() ?? [], count);
 		},
 		logout: async () => {
 			epoch += 1;

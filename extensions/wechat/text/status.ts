@@ -24,17 +24,16 @@ export interface StatusView {
 	account?: string;
 	connection: StatusConnection;
 	owner?: string;
-	peers: number;
 	queued: number;
-	/** Per-peer activity, so an operator can see who is waiting and for how long. */
-	peerRows: PeerRow[];
+	/** The conversation's activity, so an operator can see what it is doing. */
+	turn?: TurnRow;
 	refused: number;
 	/** Labels of the refused senders, so an operator can allowlist one. */
 	refusedPeers: string[];
 	mediaDropped: number;
 	promptPending: boolean;
-	/** Every waiting prompt, one per peer that was asked something. */
-	prompts: Array<{ peer: string; title: string; startedAt: number }>;
+	/** The waiting prompt, with its kind, title, and age. */
+	prompts: Array<{ title: string; startedAt: number }>;
 	/** The clock the view was built with, for the prompt age. */
 	now?: number;
 	/** How old the stored token is, for the health report; `undefined` without one. */
@@ -48,15 +47,12 @@ export interface StatusView {
 	lock?: { pid: number; ageMs: number };
 }
 
-/** One peer's line in the control screen. */
-export interface PeerRow {
-	/** The raw peer id, so an action targets the right person; falls back to `label`. */
-	id?: string;
-	label: string;
+/** A conversation's activity, for the control screen and the health report. */
+export interface TurnRow {
 	status: "idle" | "queued" | "running";
 	queued: number;
 	runningMs?: number;
-	/** How long the peer's session has been open; only the health report shows it. */
+	/** How long the conversation has been open; only the health report shows it. */
 	sessionAgeMs?: number;
 }
 
@@ -89,22 +85,13 @@ export function statusView(
 		account: account ? sanitizeLine(peerLabel(account.ilinkUserId)) : undefined,
 		connection: connectionOf(status),
 		owner: status?.owner ? sanitizeLine(peerLabel(status.owner)) : undefined,
-		peers: status?.peerCount ?? 0,
 		queued: status?.queued ?? 0,
-		peerRows: (status?.peerStates ?? []).map((entry) => ({
-			id: entry.peer,
-			label: sanitizeLine(peerLabel(entry.peer)),
-			status: entry.state.status,
-			queued: entry.state.queued,
-			runningMs: entry.state.runningMs,
-			sessionAgeMs: entry.state.sessionAgeMs,
-		})),
+		turn: status?.turn,
 		refused: status?.refused ?? 0,
 		refusedPeers: (status?.refusedPeers ?? []).map(sanitizeLine),
 		mediaDropped: status?.mediaDropped ?? 0,
 		promptPending: status?.promptPending ?? false,
 		prompts: (status?.prompts ?? []).map((prompt) => ({
-			peer: sanitizeLine(peerLabel(prompt.peer)),
 			title: sanitizeLine(prompt.title),
 			startedAt: prompt.startedAt,
 		})),
@@ -122,19 +109,18 @@ export function statusView(
 export function statusLine(view: StatusView): string {
 	const parts = [view.account ? `account ${view.account}` : "not logged in", view.connection];
 	if (view.bridge) {
-		parts.push(`${view.peers} peer(s)`, `${view.queued} queued`);
+		parts.push("1 conversation", `${view.queued} queued`);
 		if (view.refused > 0) parts.push(`refused ${refusedValue(view)}`);
 		if (view.mediaDropped > 0) parts.push(`${view.mediaDropped} media dropped`);
 		if (view.owner) parts.push(`owner ${view.owner}`);
-		const active = view.peerRows.find((row) => row.status === "running");
-		if (active) parts.push(`running ${active.label}`);
+		if (view.turn?.status === "running") parts.push(turnValue(view.turn));
 	}
 	const recovery = view.connection === "expired" ? " — run /wechat login to reconnect" : "";
 	return `wechat: ${parts.join(SEPARATORS.item)}${recovery}`;
 }
 
-/** What one peer is doing, and for how long; the screen and the report share it. */
-export function peerValue(row: PeerRow): string {
+/** What the conversation is doing, and for how long; the screen and the report share it. */
+export function turnValue(row: TurnRow): string {
 	if (row.status === "running") {
 		const seconds = Math.max(0, Math.round((row.runningMs ?? 0) / 1000));
 		return `running ${seconds}s${row.queued > 0 ? `, ${row.queued} queued` : ""}`;
@@ -144,8 +130,8 @@ export function peerValue(row: PeerRow): string {
 }
 
 /**
- * The refusal count with the senders named: naming them is what makes
- * `allowedPeers` usable, and either id form can be pasted into the config.
+ * The refusal count with the senders named: naming them is what tells an
+ * operator that someone besides the owner is writing to the bot.
  */
 export function refusedValue(view: StatusView): string {
 	const who = view.refusedPeers.length > 0 ? ` (${view.refusedPeers.join(", ")})` : "";

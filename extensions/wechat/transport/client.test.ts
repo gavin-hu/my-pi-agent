@@ -12,7 +12,7 @@ import { createCipheriv } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { SessionManager, type SessionEntry } from "@earendil-works/pi-coding-agent";
+import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { tempDir } from "../../../test/helpers/env.ts";
 import { fakeTheme } from "../../../test/helpers/fakes.ts";
@@ -28,7 +28,7 @@ import {
 	WechatClient,
 	WechatError,
 } from "./client.ts";
-import { formatHistory, HISTORY_LINE_CHARS, readPeerHistory } from "../commands/history.ts";
+import { formatHistory, HISTORY_LINE_CHARS } from "../commands/history.ts";
 import {
 	classifyStatus,
 	credentialsFromStatus,
@@ -48,7 +48,6 @@ import {
 	sniffImageMime,
 	uploadUrlOf,
 } from "./media.ts";
-import { peerSessionDir } from "../peer/peer-session.ts";
 import { qrLines, qrMatrix } from "../../../lib/qr.ts";
 import type { BotCredentials, QrResponse, QrStatus } from "../types.ts";
 
@@ -669,9 +668,7 @@ describe("the capped binary body", () => {
 	});
 });
 
-describe("peer history", () => {
-	const peer = "alice@im.wechat";
-
+describe("chat history", () => {
 	function message(role: "user" | "assistant", content: unknown, id: string): SessionEntry {
 		return {
 			type: "message",
@@ -706,28 +703,5 @@ describe("peer history", () => {
 	test("formatHistory ignores non-message entries and empty text", () => {
 		expect(formatHistory([{ type: "label", id: "1", parentId: null, timestamp: "", label: "x" } as never], 8)).toBe("");
 		expect(formatHistory([message("user", "   ", "1")], 8)).toBe("");
-	});
-
-	test("readPeerHistory reads the newest session from the peer's directory without creating one", async () => {
-		const root = tempDir("wechat-history-");
-		const manager = SessionManager.create(root, peerSessionDir(root, peer));
-		manager.appendMessage({ role: "user", content: "hello", timestamp: 1 } as never);
-		manager.appendMessage({
-			role: "assistant",
-			content: [{ type: "text", text: "hi there" }],
-			api: "x",
-			provider: "x",
-			model: "m",
-			usage: {},
-			stopReason: "stop",
-			timestamp: 2,
-		} as never);
-
-		expect(await readPeerHistory(root, root, peer, 8)).toBe("You: hello\nMe: hi there");
-	});
-
-	test("readPeerHistory returns an empty string when the peer has no session", async () => {
-		const root = tempDir("wechat-history-");
-		expect(await readPeerHistory(root, root, "nobody@im.wechat", 8)).toBe("");
 	});
 });
