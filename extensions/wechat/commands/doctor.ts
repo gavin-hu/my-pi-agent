@@ -68,7 +68,9 @@ function conversation(view: StatusView): string[] {
 	const turn = view.turn;
 	if (!turn) return [row("Turn", "idle")];
 	const session = turn.sessionAgeMs === undefined ? "" : ` · session ${formatDuration(turn.sessionAgeMs)}`;
-	return [row("Turn", `${turnValue(turn)}${session}`)];
+	// The doctor has no separate queue row, so the depth rides on the turn line here.
+	const queue = turn.queued > 0 ? `, ${turn.queued} queued` : "";
+	return [row("Turn", `${turnValue(turn)}${queue}${session}`)];
 }
 
 function recent(view: StatusView): string {

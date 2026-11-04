@@ -130,7 +130,7 @@ screen, and every subcommand is the same action one of the screen's keys runs.
 | `/wechat` | TUI: the control screen. Elsewhere: a one-line summary. |
 | `/wechat start` | Bind this session to the stored account and start polling; a lock another session holds is a refused start, not a binding. |
 | `/wechat login` | QR login; on scan, stores the account (one account per file) and points at `/wechat start`. |
-| `/wechat new` | Start a fresh *host* session, which carries no binding: run `/wechat start` there. Peer conversations are independent and survive it; they use an inbound `/new`. |
+| `/wechat new` | Start a fresh session, which carries no binding: run `/wechat start` there. The chat is whichever session runs the bridge, so an inbound `/new` is declined and this verb is the terminal's. |
 | `/wechat status` | The same control screen as a bare `/wechat` (the one-line summary while a turn runs). |
 | `/wechat stop` | Stop polling on this session and release the poller lock; a turn still running is cut off with its notice. |
 | `/wechat doctor` | Print a read-only health report: connection and token age, last poll and hold, lock holder, the turn's state and queue, recent failures. |
@@ -531,7 +531,7 @@ in-process).
 | Chat dialogs | The chat turn is marked on this session's `ctx.ui` (`INTERACTION_TURN_KEY`), and `askHuman` reads that marker, so `question` and a plan review raised inside the turn reach the phone with their file/text preface. A terminal turn carries no marker, so its dialogs stay local. |
 | Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, a stop publishes nothing, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`, plus the one `wechat` branch entry that binds an account to a session; the bridge is not authoritative UI, so nothing else is stored in the transcript. |
-| Lifecycle | The factory only registers, and the bridge module loads on the first hand start: `session_start` keeps that start in one promise (a second start, a command, and a tool all join it) and `session_shutdown` awaits it before closing, so a bridge that lands after a shutdown is closed rather than left polling. The import is deferred behind the binding check, so a session that bound nothing never evaluates the bridge, the peer worker, the transport or the lock. `/wechat start` writes the branch entry after `open()` succeeds and `/wechat stop` writes the unbind, so the branch says what this runtime did. One bridge per extension runtime: it is built once, `open()` is a no-op while running (so the RPC double `session_start` on a session switch cannot start a second poller), and shutdown is idempotent, so the reload and replacement paths (`/reload`, `/new`, resume, fork — all of which re-run the factory and emit shutdown before the new start) each end with exactly one poller. `/wechat` screens use `ctx.ui.custom`, so they degrade (status) or decline (login, logout) while a turn runs. |
+| Lifecycle | The factory only registers, and the bridge module loads on the first hand start: `session_start` keeps that start in one promise (a second start, a command, and a tool all join it) and `session_shutdown` awaits it before closing, so a bridge that lands after a shutdown is closed rather than left polling. The import is deferred behind the binding check, so a session that bound nothing never evaluates the bridge, the turn runner, the transport or the lock. `/wechat start` writes the branch entry after `open()` succeeds and `/wechat stop` writes the unbind, so the branch says what this runtime did. One bridge per extension runtime: it is built once, `open()` is a no-op while running (so the RPC double `session_start` on a session switch cannot start a second poller), and shutdown is idempotent, so the reload and replacement paths (`/reload`, `/new`, resume, fork — all of which re-run the factory and emit shutdown before the new start) each end with exactly one poller. `/wechat` screens use `ctx.ui.custom`, so they degrade (status) or decline (login, logout) while a turn runs. |
 
 ## Design notes
 
@@ -542,19 +542,19 @@ shared one context. It also produced the worst bug so far — a prompt rejected
 because the terminal went busy left the bridge deaf, with no acknowledgement and
 no answer.
 
-The peer session replaces all of it. Each admitted sender gets an ordinary Pi
-session, so a message starts immediately, the answer is that session's own
-`getLastAssistantText()`, and the terminal transcript never sees the exchange.
-The bridge keeps only what is genuinely shared: one poll loop per account, the
-media pipeline, admission, the typing indicator, and the notices.
+The chat session replaces all of it. An inbound message is a turn in this Pi
+session, so a message starts immediately, the answer streams from the same run,
+and there is no second transcript to reconcile. The bridge adds only what a phone
+needs on top: the poll loop per account, the media pipeline, admission, the
+typing indicator, and the notices.
 
-A peer session carries one extra piece of context: a short channel contract
-(`channel.ts`) appended to its system prompt, telling the model the reader is on
+A chat turn carries one extra piece of context: a short channel contract
+(`channel.ts`) appended to the system prompt for that turn, telling the model the reader is on
 a phone and cannot see this terminal, the tool output, or the filesystem; that a
 command it does not run is a command nobody runs; and that a plan or attachment
 has to be summarized in the message itself, because a file bubble may never be
-opened. It is a static append rather than a per-turn injection so it stays out of
-the conversation history and stays cacheable, and it deliberately says nothing
+opened. It is injected by `before_agent_start` while the turn is marked, so a
+terminal turn is never told it is on a phone, and it deliberately says nothing
 about individual tools (their own descriptions cover usage) or answer length (the
 reply pipeline handles splitting). Project instructions still apply; the contract
 changes how the answer is presented, not how carefully the work is done.
@@ -563,13 +563,12 @@ Media and typing stay at the boundary: downloads go to a fixed CDN with a size
 cap, filenames are sanitized before use, and typing is best-effort. The send tool
 is owner-only so untrusted generated text cannot be aimed at another account.
 
-Peer dialogs need no host seam: `AgentSession.bindExtensions` takes the UI
-context, so `createPeerUIContext` hands the peer session a UI whose dialogs are
-that peer's channel, marks it so `askHuman` delivers the optional file/text
-preface, and answers as cancelled when `remotePrompts` is off. The terminal's
-shared `ctx.ui` is deliberately left alone — with one session per peer there is
-no remote turn in the host, and adapting it routed a terminal turn's prompt to
-whichever peer happened to be running.
+Chat dialogs need one seam: the turn is marked on this session's `ctx.ui`
+(`INTERACTION_TURN_KEY`), and `askHuman` reads that marker, so `question` and a
+plan review raised inside the turn reach the phone with the optional file/text
+preface. A terminal turn carries no marker, so its dialogs stay local — the
+marker is per turn, not per session, which is what keeps one session's two
+audiences apart.
 
 Outbound files use the CDN upload flow (`getuploadurl`, AES-128-ECB ciphertext,
 `x-encrypted-param`) and reuse the same AES-128-ECB and key decoders as inbound
@@ -583,15 +582,15 @@ a module graph plus a login over the network, and Pi awaits every `session_start
 handler — so the start is kept in one promise that a second start, a command, and
 `send_wechat` all join, and shutdown awaits it before closing. The bridge handle
 is one variable that the tool and the commands read, because a built-but-unstored bridge still polls: it would
-answer peers, never publish a chip, and never stop. Keeping the same variable
+answer the chat, never publish a chip, and never stop. Keeping the same variable
 also makes the already-open guard real: every `session_start` reuses a running
 bridge instead of building a second poller, which is what the RPC double bind
 would otherwise do.
 
-A worker belongs to one open connection: `/wechat login` after an expiry, or a
-reconnect, creates a fresh worker, so a stale queue or a half-open session cannot
-leak into the new connection. Peer sessions are disposed with the worker, each
-one telling its extensions first, but their history stays on disk.
+A turn runner belongs to one open connection: `/wechat login` after an expiry, or
+a reconnect, creates a fresh runner, so a stale queue cannot leak into the new
+connection. The chat's session is the host's, so nothing is disposed with it; the
+run is aborted and the queue dropped.
 
 The operator surface is one verb table: a bare `/wechat` (or `/wechat status`)
 opens the control screen, whose keys return the same verbs the subcommands
@@ -622,38 +621,38 @@ guidance used to do.
 | `transport/poll.ts` | The long-poll loop: `getupdates`, the watchdog and retry, backoff, cursor persistence — after the hand-off, and only while the connection is still ours — and the expiry stop. |
 | `transport/deliver.ts` | The one outbound text path (reply, dialog preface, `send_wechat`) plus file and image delivery: flatten, split, number, expiry, rejection, and the once-per-outage notice. |
 | `transport/outbound.ts` | Upload and send local media: one hash/encrypt/`getUploadUrl`/upload body, then a file item or an image item, and an image must sniff as one. |
-| `transport/inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to a peer's session. |
+| `transport/inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to the turn queue. |
 | `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, image MIME sniff (undefined when the bytes are no image), the wire-value-to-one-path-segment rule (`sanitizePathSegment`, with `sanitizeFileName` as its file case), and save helpers. |
-| `state/state.ts` | `state.json` (cursor, owner, per-peer tokens, recent message ids), written atomically. |
+| `state/state.ts` | `state.json` (cursor, owner, the one conversation's reply token, recent message ids), written atomically. |
 | `state/credentials.ts` | `<agent-dir>/wechat/` and its `credentials.json` (`0600`, the one stored account), written atomically so a torn write cannot read back as “not logged in”; a file an older version wrote as an account map is read as the account it was polling and rewritten down to one by `migrateCredentials`. |
 | `state/binding.ts` | The session's binding: a `wechat` branch entry naming the account key, last one wins, `null` for a stop; pure over the replayed branch, so `/resume`, a fork, and a tree jump each read their own. |
 | `state/lock.ts` | Poller lockfile. |
 | `host/chat.ts` | The chat's session, which is this Pi session: `sendUserMessage` for the turn, `message_update` deltas and the settle relayed back, the turn marked on `ctx.ui` so its dialogs reach the phone, and a prompt held until the session is idle so a terminal run cannot swallow a message. |
-| `conversation/turn.ts` | Per-peer queue, two peers' turns at once (`PEER_CONCURRENCY`), the fair slot hand-off, prompt/abort/reset, streamed reply parts, idle-session sweep, and the notice an abandoning close sends. |
-| `conversation/admission.ts` | The rolling-hour turn budget and the per-peer serial admission chain, with `settled()` — the promise the poll loop awaits before it acknowledges a batch. |
+| `conversation/turn.ts` | One queue, one turn at a time: prompt/abort on the chat session, streamed reply parts, the fallback line when a turn ends without text, the idle sweep, and the one notice an abandoning close sends. |
+| `conversation/admission.ts` | The rolling-hour turn budget and the serial admission chain, with `settled()` — the promise the poll loop awaits before it acknowledges a batch. |
 | `conversation/reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
-| `conversation/presence.ts` | Typing, acknowledgement, and the slow/busy lines; all per-peer wait timers in one registry. |
-| `commands/commands.ts` | The one `/wechat` verb table: each row carries its runner, and the help text, the usage line, the completions, the command description, and the dispatch all derive from it; plus the panel, start/stop, login/logout, and the per-peer stop/reset. `start`/`login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
+| `conversation/presence.ts` | Typing, acknowledgement, and the slow/busy lines: one slot per signal, cleared when the turn settles. |
+| `commands/commands.ts` | The one `/wechat` verb table: each row carries its runner, and the help text, the usage line, the completions, the command description, and the dispatch all derive from it; plus the panel, start/stop, login/logout, `cancel`, and `history`. `start`/`login`/`new`/`logout` decline and `status` degrades to the summary while a turn runs. |
 | `commands/slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
-| `commands/doctor.ts` | The plain-text `/wechat doctor` report: it renders a `StatusView`, so the connection, per-peer, and refusal facts are the ones `text/status.ts` owns; the poll, lock, and config lines are its own, and so is the remedy each state asks for. |
+| `commands/doctor.ts` | The plain-text `/wechat doctor` report: it renders a `StatusView`, so the connection, turn, and refusal facts are the ones `text/status.ts` owns; the poll, lock, and config lines are its own, and so is the remedy each state asks for. |
 | `commands/login.ts` | QR login state machine. |
 | `commands/history.ts` | Read-only `/history`: formats the last user/assistant messages of this session's own entries, and never writes. |
 | `text/format.ts` | Sanitize, chunk, and label helpers (text only). |
 | `text/remedy.ts` | The remedy every notice names, in one place: a login stores an account and starts nothing, so the step that opens a bridge is a start, and a login only comes first when no account is stored. |
-| `text/notices.ts` | The peer-facing notice catalog: one line per kind, in the peer's language. |
-| `text/channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
-| `dialog/interaction.ts` | One peer's `InteractionChannel`: pending-prompt state machine, the other-answer stash, and reply routing for that peer. |
+| `text/notices.ts` | The chat-facing notice catalog: one line per kind, in the chat's language. |
+| `text/channel.ts` | The phone-chat contract appended to a chat turn's system prompt. |
+| `dialog/interaction.ts` | The chat's `InteractionChannel` and its factory: pending-prompt state machine, the other-answer stash, reply routing, and the bound on an ignored question. |
 | `dialog/prompt.ts` | Pure prompt formatting and reply parsing. |
 | `view/login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |
 | `text/status.ts` | The status facts (`statusView`) and the one-line summary (`statusLine`) the text modes print. |
-| `view/status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts, a focusable peer list, the body renderer, and one key table (typed against `WechatVerb`) that drives both the hints and the input, loaded on first use, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `listRow`, `paint`, `IdCursor`). |
+| `view/status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts for the one conversation, the body renderer, and one key table (typed against `WechatVerb`) that drives both the hints and the input, loaded on first use, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `paint`). |
 
 Modules are grouped by the role they play: `transport/` is the only place that talks to iLink, `state/` owns the three files a session leaves on disk plus the branch entry that binds an account, `conversation/` runs the chat's turn and its queue, `commands/` holds a slash verb, `text/` words everything the chat reads, `dialog/` asks a question over WeChat and builds the one channel, `host/` presents this session as the chat's, and `view/` draws a full-screen surface. `index.ts`, `bridge.ts`, `tools.ts`, `config.ts`, `types.ts`, and `timer.ts` stay at the root — the factory, the composition root, the public surface, and the seams the directories import.
 
 ## Testing
 
 `bun test extensions/wechat`. Modules take injected seams (HTTP runner, clock,
-sleep, `pi`/context fakes, and an `openSession` seam for the peer sessions); no
-test touches the network, a real session, or a model.
+sleep, `pi`/context fakes, and an `openSession` seam that stands in for the chat's
+session); no test touches the network, a real session, or a model.
 Inbound media is exercised with a locally encrypted fixture, so decryption is
 tested without a CDN.

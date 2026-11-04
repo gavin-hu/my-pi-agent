@@ -87,7 +87,7 @@ describe("statusLine", () => {
 			),
 		);
 		expect(line).toContain("1 conversation");
-		expect(line).toContain("running 1s, 2 queued");
+		expect(line).toContain("running 1s");
 		expect(line).not.toContain("peer");
 	});
 
@@ -118,7 +118,8 @@ describe("statusBody", () => {
 		const body = statusBody(built, fakeTheme, 80).join("\n");
 		expect(body).toContain("Account");
 		expect(body).toContain("owner");
-		expect(body).toContain("running 2s, 1 queued");
+		expect(body).toContain("running 2s");
+		expect(body).toContain("Queued");
 		expect(body).toContain("Pick one");
 		// One conversation: no per-peer list, no focus mark.
 		expect(body).not.toContain("Conversations");

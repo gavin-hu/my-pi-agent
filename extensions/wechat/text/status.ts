@@ -124,7 +124,7 @@ export function statusLine(view: StatusView): string {
 export function turnValue(row: TurnRow): string {
 	if (row.status === "running") {
 		const seconds = Math.max(0, Math.round((row.runningMs ?? 0) / 1000));
-		return `running ${seconds}s${row.queued > 0 ? `, ${row.queued} queued` : ""}`;
+		return `running ${seconds}s`;
 	}
 	if (row.status === "queued") return `queued ${row.queued}`;
 	return "idle";
