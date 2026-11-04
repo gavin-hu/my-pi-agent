@@ -178,12 +178,14 @@ describe("bridge lifecycle", () => {
 	test("reports the expiry and stops polling when the session expires", async () => {
 		const { client } = makeClient([{ ret: 0, errcode: -14, msgs: [], buf: "" }]);
 		const states: BridgeState[] = [];
-		const { deps } = makeDeps(client, { onStateChange: (state) => states.push(state) });
+		const { deps, notified } = makeDeps(client, { onStateChange: (state) => states.push(state) });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => bridge.status().state === "expired");
 		expect(states).toEqual(["running", "expired"]);
 		expect(bridge.status().state).toBe("expired");
+		// A re-login stores a token and opens nothing, so the remedy names both steps.
+		expect(notified).toContain("WeChat session expired. Run /wechat login, then /wechat start.");
 		await bridge.close();
 	});
 
@@ -286,16 +288,15 @@ describe("bridge admission", () => {
 	});
 
 	test("refuses and names a non-owner sender once", async () => {
-		const notifications: string[] = [];
 		const { client } = makeClient([
 			updates([inbound("hi", "stranger@im.wechat"), inbound("again", "stranger@im.wechat")]),
 		]);
-		const { deps, injected } = makeDeps(client, { notify: (message) => notifications.push(message) });
+		const { deps, injected, notified } = makeDeps(client);
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => bridge.status().refused === 2);
 		expect(injected).toEqual([]);
-		const named = notifications.filter((message) => message.includes("refused a message from stranger"));
+		const named = notified.filter((message) => message.includes("refused a message from stranger"));
 		expect(named).toHaveLength(1);
 		expect(named[0]).toContain("allowedPeers");
 		await bridge.close();
@@ -375,13 +376,9 @@ describe("bridge admission", () => {
 	test("truncates an oversized message and marks it", async () => {
 		const long = "x".repeat(1200);
 		const { client } = makeClient([updates([inbound(long)])]);
-		const notifications: string[] = [];
-		const { deps, injected } = makeDeps(
+		const { deps, injected, notified } = makeDeps(
 			client,
-			{
-				config: { ...DEFAULT_CONFIG, maxInboundChars: 1000 },
-				notify: (message) => notifications.push(message),
-			},
+			{ config: { ...DEFAULT_CONFIG, maxInboundChars: 1000 } },
 			{ hold: true },
 		);
 		const bridge = createBridge(deps);
@@ -389,7 +386,7 @@ describe("bridge admission", () => {
 		await waitFor(() => injected.length === 1);
 		expect(injected[0]).toContain("[WeChat message truncated: showing 1000 of 1200 characters]");
 		expect(injected[0]?.startsWith("x".repeat(1000))).toBe(true);
-		expect(notifications.some((message) => message.includes("truncated to 1000 characters"))).toBe(true);
+		expect(notified.some((message) => message.includes("truncated to 1000 characters"))).toBe(true);
 		await bridge.close();
 	});
 
@@ -1178,13 +1175,12 @@ describe("bridge remote prompts", () => {
 	});
 
 	test("reports a failed message preface once instead of dropping it", async () => {
-		const notifications: string[] = [];
 		const base = makeClient([updates([inbound("q")])]);
 		const client = {
 			...base.client,
 			sendMessage: async () => ({ ret: -1 }),
 		} as unknown as WechatClient;
-		const { deps, injected } = makeDeps(client, { notify: (message) => notifications.push(message) }, { hold: true });
+		const { deps, injected, notified } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
@@ -1193,16 +1189,15 @@ describe("bridge remote prompts", () => {
 		// a preface that never existed: the peer would be left with only the choices.
 		await bridge.channel(owner).post("plan digest");
 		await bridge.channel(owner).post("second try");
-		const failures = notifications.filter((message) => message.includes("message delivery failed"));
+		const failures = notified.filter((message) => message.includes("message delivery failed"));
 		expect(failures).toHaveLength(1);
 		await bridge.close();
 	});
 
 	test("reports a failed file preface on the terminal", async () => {
-		const notifications: string[] = [];
 		// `makeClient` has no upload endpoint, so the CDN upload fails like a real one.
 		const { client } = makeClient([updates([inbound("q")])]);
-		const { deps, injected } = makeDeps(client, { notify: (message) => notifications.push(message) }, { hold: true });
+		const { deps, injected, notified } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
@@ -1210,7 +1205,7 @@ describe("bridge remote prompts", () => {
 		const path = join(tempDir("wechat-bridge-file-"), "plan.md");
 		writeFileSync(path, "plan");
 		expect(await bridge.channel(owner).postFile(path, "plan.md")).toBe(false);
-		expect(notifications.some((message) => message.includes("file delivery failed for plan.md"))).toBe(true);
+		expect(notified.some((message) => message.includes("file delivery failed for plan.md"))).toBe(true);
 		await bridge.close();
 	});
 

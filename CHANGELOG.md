@@ -65,6 +65,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: every notice that reports a missing bridge names the step that is actually missing. A
+  `/wechat stop <peer>` or `/wechat reset <peer>` with no bridge says `/wechat start`, and a
+  `/wechat login` before it when no account is stored, instead of a login that only stores one; the
+  expiry notice, the one-line status, and the control screen's expired line say login then start; and
+  `/wechat new` says the session it starts carries no binding.
 - `session-bus`: the `session` tool's block reads what the board reads — its collapsed line is the
   board's own summary, so a gone session and a reader that has not joined appear as `1 gone` and
   `not on the bus` instead of a sentence that wrapped the line at 80 columns. An inbox read names
@@ -73,7 +78,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   delegation glyph rather than a plain message's, and an expanded message body wraps under its
   sender instead of being clipped to one line. All six actions have a gallery fixture now, so
   `test/tool-render.test.ts`'s width contract and the tool PNGs draw them.
-
 - `wechat`: a poller that is alive and polling never loses its lock to a second session — the
   record is re-stamped on a 30 s heartbeat for as long as the poll loop runs, and the 120 s stale
   bar is four beats, so a poll attempt that outlasts it (a long-poll hold, then a batch whose media

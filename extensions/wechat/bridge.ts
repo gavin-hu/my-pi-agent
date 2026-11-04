@@ -24,6 +24,7 @@ import { createPollLoop, defaultPollTimeout } from "./transport/poll.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { peerKey, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
+import { LOGIN_THEN_START } from "./text/remedy.ts";
 import { createPresence } from "./peer/presence.ts";
 import { createForgetToken, createIntake, createLanguageOf, type Counter } from "./intake.ts";
 
@@ -186,7 +187,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		// `getUpdates`; abort it so it cannot wake up beside a later `open()`.
 		abort?.abort();
 		publishState();
-		notify("WeChat session expired. Run /wechat login to reconnect.", "warning");
+		notify(`WeChat session expired. ${LOGIN_THEN_START}`, "warning");
 	}
 
 	/**

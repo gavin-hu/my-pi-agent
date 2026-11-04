@@ -307,11 +307,14 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
  * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 719.
+ * total is their sum, 720.
  *
  * `wechat`'s row went 30 -> 31 for `state/binding.ts`: the session's binding is a
  * pure reader of the branch that the lifecycle events consult before any bridge
- * exists, so it cannot defer behind the account check it decides.
+ * exists, so it cannot defer behind the account check it decides. It went 31 -> 32
+ * for `text/remedy.ts`: every notice that reports a missing bridge names the step
+ * that fixes it, and the command path asks which step that is before any bridge
+ * is loaded, so the sentences cannot live behind the bridge or the screen.
  *
  * The heights moved as the tree did: the board's `bytefly.json` section became
  * one module (`board/config.ts`, read by `board` and by `team` through the store)
@@ -348,7 +351,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	goal: 36,
 	watch: 34,
 	todo: 32,
-	wechat: 31,
+	wechat: 32,
 	"file-read": 30,
 	rewind: 29,
 	memory: 29,

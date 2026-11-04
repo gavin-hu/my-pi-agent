@@ -245,6 +245,7 @@ export function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = 
 	const injected: string[] = [];
 	const saved: WechatState[] = [];
 	const released = { count: 0 };
+	const notified: string[] = [];
 	const deps: BridgeDeps = {
 		config: { ...DEFAULT_CONFIG },
 		now: () => 1000,
@@ -272,9 +273,10 @@ export function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = 
 		// No timer in a test: a case that cares arms the beat itself.
 		startHeartbeat: () => () => {},
 		sleep: async () => {},
+		notify: (message) => notified.push(message),
 		...overrides,
 	};
-	return { deps, peers, injected, saved, released };
+	return { deps, peers, injected, saved, released, notified };
 }
 
 /**

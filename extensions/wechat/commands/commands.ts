@@ -30,6 +30,7 @@ import type { LoginOutcome } from "./login.ts";
 import { doctorReport } from "./doctor.ts";
 import { messageOf } from "../../../lib/errors.ts";
 import { peerLabel, peerKey } from "../text/format.ts";
+import { bridgeRemedy } from "../text/remedy.ts";
 import { defaultSleep } from "../timer.ts";
 import { qrLines } from "../../../lib/qr.ts";
 import { statusLine, statusView, type StatusView } from "../text/status.ts";
@@ -397,7 +398,12 @@ export async function runNew(ctx: ExtensionCommandContext, deps: CommandDeps): P
 	// the peer would be left unanswered. The inbound `/new` declines the same case
 	// through `activeTurn`.
 	if (busyWithPeerTurn(ctx, deps, "new")) return;
-	await ctx.newSession();
+	const result = await ctx.newSession();
+	// The notice belongs to the session that was just started, which is why it is
+	// posted after the switch; a cancelled switch leaves this session running, and
+	// saying the bridge is gone from it would be false.
+	if (result.cancelled) return;
+	ctx.ui.notify("WeChat is not running in the new session. Run /wechat start to run the bridge here.");
 }
 
 /**
@@ -470,7 +476,7 @@ async function runPeerAction(
 ): Promise<void> {
 	const bridge = deps.getBridge();
 	if (!bridge) {
-		ctx.ui.notify("WeChat bridge is not started. Run /wechat login first.", "warning");
+		ctx.ui.notify(`WeChat bridge is not started. ${bridgeRemedy(deps.storedAccount() !== undefined)}`, "warning");
 		return;
 	}
 	const wanted = args.trim();
