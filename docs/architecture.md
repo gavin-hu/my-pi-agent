@@ -438,7 +438,7 @@ neither is repeated here.
 | `bytefly`: the single update notice depends on patching `DefaultPackageManager.prototype.checkForAvailableUpdates` | Pi exposes no setting for its startup block. The shim is installed only in `tui`, restored on shutdown, and inert if the method shape changes. |
 | `bytefly`: five notify triggers fire per event rather than per unseen event | A notification is a nudge, not a state; the footer chip is the state. |
 | `session-bus`: a message file that does not parse is dropped | A message is written as a temp file and hard-linked into place, so this needs disk corruption; keeping it would leave an unreadable entry in every listing forever. |
-| `session-bus`: a claim cannot see branch divergence | Claims say who is where, not what will merge; a rebase on the baseline still decides. |
+| `session-bus`: a claim cannot see branch divergence | Claims say who is where, not what will merge; the merge into `main` still decides. |
 | CI: Linux and macOS run the suite serially while Windows uses `--parallel=4` | Two open Bun bugs (`oven-sh/bun#41024`, `#39709`; a related one, `#45483`) can park a `--parallel` worker after its first subprocess spawn, which hangs a git-using test instead of failing it — the 33-minute park on ubuntu (run 41560292494) is that bug, not a macOS one. Still open against Bun 1.4.3; Windows keeps the parallel path covered, and each job's `timeout-minutes` bounds a park from any other cause. Revisit when both close, then drop `--serial` from the matrix. |
 
 ## Explicit non-goals
