@@ -60,6 +60,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is still downloading) no longer looks like an abandoned lock. A poller that stopped beating — a
   crash, or a wedged process — is still taken over, and a heartbeat that finds a takeover aborts the
   parked poll so its batch is not handed over twice.
+- `wechat`: a send's failure is now recorded where it happened. An attachment the peer accepted ends the
+  one-notice outage window the way a delivered text already did, so one failed image no longer silences
+  that peer's later text failures. A close that aborts a proactive `send_wechat` keeps the owner's reply
+  token and leaves the last-failure report alone — the abort was not a refusal, and the next inbound
+  message still has a token to answer with.
+- `wechat`: a media cap is decided before the bytes are held. An outbound file is refused from its
+  `stat` size instead of after `readFileSync` allocated it, and a CDN download is read under
+  `maxMediaBytes` — a declared `content-length` up front, a chunked body as it arrives, with the
+  read abandoned at the first chunk past the cap. A multi-gigabyte file or media download is refused
+  rather than buffered and refused.
+- `wechat`: a malformed project `pollHoldMs` keeps the inherited global hold instead of clearing it;
+  only a numeric value below a second, an explicit `0` included, turns the requested hold off.
 - `wechat`: an inbound message survives a kill, a close, and a poller error — a batch's cursor is
   persisted only after its messages reach a peer's session, so a download still in flight is read
   again instead of acknowledged and lost; a close that interrupts one leaves it to the next start

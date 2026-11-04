@@ -42,6 +42,8 @@ export interface HttpRequest {
 	signal?: AbortSignal;
 	/** `binary` returns raw bytes in `bytes`; defaults to decoded `text`. */
 	responseType?: "text" | "binary";
+	/** A binary body past this size is refused while it is read, not after. */
+	maxBytes?: number;
 }
 
 export interface HttpResponse {
@@ -67,6 +69,51 @@ export class WechatError extends Error {
 	}
 }
 
+/** A CDN body past the cap; the read is abandoned rather than finished and refused. */
+function mediaTooLarge(maxBytes: number): WechatError {
+	return new WechatError(`Weixin media exceeded the ${maxBytes}-byte limit.`);
+}
+
+/**
+ * Read a binary body, refusing once it passes `maxBytes`.
+ *
+ * `response.arrayBuffer()` buffers the whole body before any caller can see its
+ * size, which is exactly the case the cap exists to prevent: a declared
+ * `content-length` is refused up front, and a chunked body as it arrives.
+ */
+async function readBinary(response: Response, maxBytes?: number): Promise<Uint8Array> {
+	const declared = Number(response.headers.get("content-length") ?? "");
+	if (maxBytes !== undefined && Number.isFinite(declared) && declared > maxBytes) {
+		await response.body?.cancel().catch(() => undefined);
+		throw mediaTooLarge(maxBytes);
+	}
+	if (!response.body) {
+		const bytes = new Uint8Array(await response.arrayBuffer());
+		if (maxBytes !== undefined && bytes.byteLength > maxBytes) throw mediaTooLarge(maxBytes);
+		return bytes;
+	}
+	const reader = response.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		total += value.byteLength;
+		if (maxBytes !== undefined && total > maxBytes) {
+			await reader.cancel().catch(() => undefined);
+			throw mediaTooLarge(maxBytes);
+		}
+		chunks.push(value);
+	}
+	const bytes = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return bytes;
+}
+
 /** Build an `HttpRunner` backed by `fetch`. */
 export function createFetchRunner(fetchImpl: typeof fetch = fetch): HttpRunner {
 	return async (request) => {
@@ -81,7 +128,12 @@ export function createFetchRunner(fetchImpl: typeof fetch = fetch): HttpRunner {
 			headers[key.toLowerCase()] = value;
 		});
 		if (request.responseType === "binary") {
-			return { status: response.status, headers, text: "", bytes: new Uint8Array(await response.arrayBuffer()) };
+			return {
+				status: response.status,
+				headers,
+				text: "",
+				bytes: await readBinary(response, request.maxBytes),
+			};
 		}
 		return { status: response.status, headers, text: await response.text() };
 	};
@@ -386,13 +438,17 @@ export class WechatClient {
 		return { ret: asNumber(data.ret), errcode: asNumber(data.errcode) };
 	}
 
-	/** `GET` a CDN media reference as raw bytes (no authorization header). */
-	async downloadCdn(ref: CDNMedia, signal?: AbortSignal): Promise<Uint8Array> {
+	/**
+	 * `GET` a CDN media reference as raw bytes (no authorization header), refused past
+	 * `maxBytes` while the body is read.
+	 */
+	async downloadCdn(ref: CDNMedia, options: { maxBytes?: number; signal?: AbortSignal } = {}): Promise<Uint8Array> {
 		const response = await this.http({
 			url: mediaDownloadUrl(ref, this.cdnBaseUrl),
 			method: "GET",
-			signal,
+			signal: options.signal,
 			responseType: "binary",
+			maxBytes: options.maxBytes,
 		});
 		if (response.status < 200 || response.status >= 300) {
 			throw new WechatError(`Weixin CDN returned HTTP ${response.status}.`, { status: response.status });

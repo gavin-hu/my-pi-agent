@@ -61,13 +61,10 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 		for (const ref of item.media) {
 			if (!client) break;
 			try {
-				const cipher = await client.downloadCdn(ref.media, deps.signal());
-				if (cipher.byteLength > deps.maxMediaBytes()) {
-					mediaDropped += 1;
-					dropped += 1;
-					deps.notify(`WeChat media dropped: over ${deps.maxMediaBytes()} bytes.`, "warning");
-					continue;
-				}
+				const cipher = await client.downloadCdn(ref.media, {
+					maxBytes: deps.maxMediaBytes(),
+					signal: deps.signal(),
+				});
 				if (ref.kind === "file") {
 					if (!ref.media.aes_key) throw new Error("missing AES key");
 					const plain = decryptEcb(cipher, decodeMediaKey(ref.media.aes_key));

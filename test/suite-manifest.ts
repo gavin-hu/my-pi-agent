@@ -181,6 +181,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"lifecycle",
 		"transport/client",
 		"transport/deliver",
+		"transport/outbound",
 		"transport/poll",
 		"transport/poll-loop",
 		"commands/commands",

@@ -6,8 +6,11 @@
  * `maxReplyChars + 6` is a part the transport is entitled to reject.
  */
 
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { settle } from "../../../test/helpers/process.ts";
+import { tempDir } from "../../../test/helpers/env.ts";
 import type { WechatClient } from "./client.ts";
 import { createDeliverer, numberedChunks, type DeliveryDeps } from "./deliver.ts";
 import type { BotCredentials } from "../types.ts";
@@ -48,6 +51,54 @@ function width(text: string): number {
 	return [...text].length;
 }
 
+/**
+ * A deliverer over a client whose text sends fail on demand, with the side effects
+ * the notice and the doctor both read recorded instead of applied.
+ */
+function notifier() {
+	const notes: string[] = [];
+	const errors: string[] = [];
+	const forgotten: string[] = [];
+	let textFails = false;
+	const client = {
+		sendMessage: async (_account: BotCredentials, _args: unknown, signal?: AbortSignal) => {
+			if (signal?.aborted) throw new Error("aborted");
+			if (textFails) throw new Error("network down");
+			return { ret: 0 };
+		},
+		getUploadUrl: async () => ({ uploadParam: "up" }),
+		uploadCdn: async () => "dl",
+		sendImageMessage: async () => ({ ret: 0 }),
+	} as unknown as WechatClient;
+	const deliverer = createDeliverer({
+		client: () => client,
+		account: () => ACCOUNT,
+		maxReplyChars: () => 1000,
+		cdnBaseUrl: "https://cdn/c2c",
+		maxMediaBytes: 1024,
+		notify: (message) => notes.push(message),
+		onExpired: () => {},
+		forgetToken: (peer) => forgotten.push(peer),
+		onSendError: (message) => errors.push(message),
+	});
+	return {
+		deliverer,
+		notes,
+		errors,
+		forgotten,
+		failText: (value: boolean) => {
+			textFails = value;
+		},
+	};
+}
+
+/** A temp image the upload path accepts. */
+function plot(): string {
+	const path = join(tempDir("wechat-image-"), "plot.png");
+	writeFileSync(path, Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]), Buffer.from("body")]));
+	return path;
+}
+
 describe("numbered parts", () => {
 	test("every delivered part fits the limit, marker included", async () => {
 		const { deliverer: send, sent } = deliverer(20);
@@ -85,6 +136,50 @@ describe("numbered parts", () => {
 
 	test("a reply that fits is one unnumbered message", () => {
 		expect(numberedChunks("abcdefgh", 12)).toEqual(["abcdefgh"]);
+	});
+});
+
+describe("failure reporting", () => {
+	test("a delivered attachment ends the outage a failed reply started", async () => {
+		const h = notifier();
+		h.failText(true);
+		await h.deliverer.reply({ peer: "alice@im.wechat" }, "one");
+		await h.deliverer.reply({ peer: "alice@im.wechat" }, "two");
+		// One notice per outage: nothing got through to that peer.
+		expect(h.notes).toHaveLength(1);
+
+		h.failText(false);
+		expect(await h.deliverer.image({ peer: "alice@im.wechat" }, plot())).toBe(true);
+
+		// The peer just received a picture, so the next failure is news again.
+		h.failText(true);
+		await h.deliverer.reply({ peer: "alice@im.wechat" }, "three");
+		expect(h.notes).toHaveLength(2);
+		expect(h.notes[1]).toContain("reply failed");
+	});
+
+	test("a close during a proactive send records no failure", async () => {
+		const h = notifier();
+		const controller = new AbortController();
+		controller.abort();
+
+		const result = await h.deliverer.toOwner("owner@im.wechat", "ctx", "hi", controller.signal);
+
+		expect(result.ok).toBe(false);
+		// Nothing was refused: the token is still good and the abort is not an outage.
+		expect(h.errors).toEqual([]);
+		expect(h.forgotten).toEqual([]);
+	});
+
+	test("a proactive send that fails without an abort is recorded", async () => {
+		const h = notifier();
+		h.failText(true);
+
+		const result = await h.deliverer.toOwner("owner@im.wechat", "ctx", "hi");
+
+		expect(result).toEqual({ ok: false, error: "network down" });
+		expect(h.errors).toEqual(["network down"]);
+		expect(h.forgotten).toEqual(["owner@im.wechat"]);
 	});
 });
 

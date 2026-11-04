@@ -134,8 +134,9 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 		config.remotePrompts = raw.remotePrompts;
 	}
 	if (raw.pollHoldMs !== undefined) {
-		const hold = clampInteger(raw.pollHoldMs, 0, 0, 120_000);
-		// `0` clears an inherited value; anything below a second is not a poll.
+		// A malformed value keeps an inherited hold, as every sibling field does; only a
+		// numeric `0` clears it.
+		const hold = clampInteger(raw.pollHoldMs, base.pollHoldMs ?? 0, 0, 120_000);
 		config.pollHoldMs = hold >= 1000 ? hold : undefined;
 	}
 	return config;

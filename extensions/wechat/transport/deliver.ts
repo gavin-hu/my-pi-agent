@@ -221,7 +221,12 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 				deps.onSendError?.(`${label} delivery failed: ${name}`);
 				deps.notify(`WeChat ${label} delivery failed for ${name}.`, "warning");
 			}
-			if (sent) deps.onSent?.();
+			if (sent) {
+				// An attachment that arrived is delivery as much as a text is, so the peer's
+				// next failure is news again.
+				failureNotified.delete(target.peer);
+				deps.onSent?.();
+			}
 			return sent;
 		});
 	}
@@ -280,10 +285,13 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 			return serialize(owner, async () => {
 				let failure: string | undefined;
 				const delivery = await deliverText(owner, contextToken, text, signal, (error, progress) => {
-					deps.forgetToken(owner);
 					const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
-					deps.onSendError?.(messageOf(error));
 					failure = `${messageOf(error)}${partial}`;
+					// A close aborts the send; nothing was refused, so the owner's token stays
+					// and the abort is not recorded as the last failure.
+					if (signal?.aborted) return;
+					deps.forgetToken(owner);
+					deps.onSendError?.(messageOf(error));
 				});
 				if (delivery.expired) return { ok: false, error: "WeChat session expired." };
 				if (delivery.empty) return { ok: false, error: "Nothing to send after formatting." };

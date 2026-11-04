@@ -1,15 +1,15 @@
 /**
  * The bridge's wire and storage half: the iLink client, the QR login state
- * machine and screen, stored credentials, media encode/decode, outbound file
- * upload, and read-only peer history.
+ * machine and screen, stored credentials, media encode/decode, the capped media
+ * download, and read-only peer history.
  *
  * Every seam is injected — the HTTP runner, the clock, the sleep, the random
  * source, and the filesystem root — so nothing here touches the network, a real
  * timer, or a real session.
  */
 
-import { createCipheriv, createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { createCipheriv } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { SessionManager, type SessionEntry } from "@earendil-works/pi-coding-agent";
@@ -17,6 +17,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { tempDir } from "../../../test/helpers/env.ts";
 import { fakeTheme } from "../../../test/helpers/fakes.ts";
 import {
+	createFetchRunner,
 	encodeClientVersion,
 	encodeUin,
 	type HttpRequest,
@@ -47,7 +48,6 @@ import {
 	sniffImageMime,
 	uploadUrlOf,
 } from "./media.ts";
-import { sendLocalFile, sendLocalImage, UPLOAD_MEDIA_TYPE_FILE, UPLOAD_MEDIA_TYPE_IMAGE } from "./outbound.ts";
 import { peerSessionDir } from "../peer/peer-session.ts";
 import { qrLines, qrMatrix } from "../../../lib/qr.ts";
 import type { BotCredentials, QrResponse, QrStatus } from "../types.ts";
@@ -254,6 +254,12 @@ describe("CDN transport", () => {
 	test("downloadCdn throws on a non-success status", async () => {
 		const { http } = recorder([{ status: 404, headers: {}, text: "" }]);
 		await expect(client(http).downloadCdn({ encrypt_query_param: "p" })).rejects.toBeInstanceOf(WechatError);
+	});
+
+	test("downloadCdn hands the media cap to the transport", async () => {
+		const { calls, http } = recorder([{ status: 200, headers: {}, text: "", bytes: new Uint8Array([1]) }]);
+		await client(http).downloadCdn({ full_url: "https://cdn/f" }, { maxBytes: 4096 });
+		expect(calls[0]?.maxBytes).toBe(4096);
 	});
 
 	test("uploadCdn POSTs the bytes as octet-stream and returns x-encrypted-param", async () => {
@@ -600,186 +606,66 @@ describe("media URLs", () => {
 	});
 });
 
-describe("outbound files", () => {
-	function fakeClient() {
-		const uploadRequests: Array<Record<string, unknown>> = [];
-		const uploads: Array<{ url: string; body: Uint8Array }> = [];
-		const sent: Array<Record<string, unknown>> = [];
-		const images: Array<Record<string, unknown>> = [];
-		let uploadParam: string | undefined = "up";
-		let fullUrl: string | undefined;
-		let uploadResult = "dl";
-		let uploadError: Error | undefined;
-		let sendRet: number | undefined = 0;
+/** A fetch double that answers one streamed body, the way a CDN download arrives. */
+function streamedFetch(body: ReadableStream<Uint8Array>): typeof fetch {
+	return (async () =>
+		({ status: 200, headers: new Headers(), body }) as unknown as Response) as unknown as typeof fetch;
+}
 
-		const fake = {
-			getUploadUrl: async (_account: BotCredentials, req: Record<string, unknown>) => {
-				uploadRequests.push(req);
-				return { uploadParam, uploadFullUrl: fullUrl };
+describe("the capped binary body", () => {
+	test("refuses a chunked body past the cap and abandons the read", async () => {
+		let cancelled = false;
+		const body = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(new Uint8Array(8));
+				controller.enqueue(new Uint8Array(8));
 			},
-			uploadCdn: async (url: string, body: Uint8Array) => {
-				uploads.push({ url, body });
-				if (uploadError) throw uploadError;
-				return uploadResult;
-			},
-			sendFileMessage: async (_account: BotCredentials, args: Record<string, unknown>) => {
-				sent.push(args);
-				return { ret: sendRet };
-			},
-			sendImageMessage: async (_account: BotCredentials, args: Record<string, unknown>) => {
-				images.push(args);
-				return { ret: sendRet };
-			},
-		} as unknown as WechatClient;
-
-		return {
-			client: fake,
-			uploadRequests,
-			uploads,
-			sent,
-			images,
-			setFullUrl: (value: string | undefined) => {
-				fullUrl = value;
-			},
-			setUploadError: (value: Error) => {
-				uploadError = value;
-			},
-			setSendRet: (value: number | undefined) => {
-				sendRet = value;
-			},
-		};
-	}
-
-	function tempFile(content: string): string {
-		const path = join(tempDir("wechat-outbound-"), "plan.md");
-		writeFileSync(path, content);
-		return path;
-	}
-
-	const fixedRandom = (size: number): Buffer => Buffer.alloc(size, 0xab);
-
-	function baseArgs(path: string, fake: WechatClient) {
-		return {
-			client: fake,
-			account,
-			cdnBaseUrl: "https://cdn/c2c",
-			maxBytes: 1024,
-			to: "peer",
-			contextToken: "ctx",
-			filePath: path,
-			random: fixedRandom,
-		};
-	}
-
-	test("uploads an image with the image media type and sends an image item", async () => {
-		const path = join(tempDir("wechat-outbound-"), "plot.png");
-		const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]), Buffer.from("body")]);
-		writeFileSync(path, png);
-		const h = fakeClient();
-
-		expect(await sendLocalImage(baseArgs(path, h.client))).toBe(true);
-		const key = fixedRandom(16).toString("hex");
-		expect(h.uploadRequests[0]).toMatchObject({ mediaType: UPLOAD_MEDIA_TYPE_IMAGE, aeskey: key });
-		// An image item carries no file name: the phone draws a picture, not a document.
-		expect(h.images[0]).toEqual({
-			to: "peer",
-			midSize: aesEcbPaddedSize(png.length),
-			aeskey: key,
-			contextToken: "ctx",
-			media: {
-				encrypt_query_param: "dl",
-				aes_key: Buffer.from(key).toString("base64"),
-				encrypt_type: 1,
+			cancel() {
+				cancelled = true;
 			},
 		});
-		expect(h.sent).toEqual([]);
+		const runner = createFetchRunner(streamedFetch(body));
+
+		await expect(
+			runner({ url: "https://cdn/f", method: "GET", responseType: "binary", maxBytes: 10 }),
+		).rejects.toBeInstanceOf(WechatError);
+		// The second chunk crossed the cap, so the body was never buffered whole.
+		expect(cancelled).toBe(true);
 	});
 
-	test("refuses a file that is not an image, before uploading anything", async () => {
-		const h = fakeClient();
-		expect(await sendLocalImage(baseArgs(tempFile("plain text"), h.client))).toBe(false);
-		expect(h.uploadRequests).toEqual([]);
-		expect(h.images).toEqual([]);
-	});
-
-	test("refuses an empty or oversized image, and one the server rejects", async () => {
-		const path = join(tempDir("wechat-outbound-"), "tiny.png");
-		writeFileSync(path, Buffer.from([0x89, 0x50, 0x4e, 0x47, 1]));
-		const h = fakeClient();
-		expect(await sendLocalImage({ ...baseArgs(path, h.client), maxBytes: 2 })).toBe(false);
-
-		h.setSendRet(1);
-		expect(await sendLocalImage(baseArgs(path, h.client))).toBe(false);
-	});
-
-	test("uploads the ciphertext and sends a file item", async () => {
-		const content = "plan body";
-		const path = tempFile(content);
-		const h = fakeClient();
-		const ok = await sendLocalFile(baseArgs(path, h.client));
-
-		expect(ok).toBe(true);
-		const key = fixedRandom(16).toString("hex");
-		expect(h.uploadRequests[0]).toMatchObject({
-			filekey: key,
-			mediaType: UPLOAD_MEDIA_TYPE_FILE,
-			toUserId: "peer",
-			rawsize: Buffer.byteLength(content),
-			rawfilemd5: createHash("md5").update(content).digest("hex"),
-			filesize: aesEcbPaddedSize(Buffer.byteLength(content)),
-			aeskey: key,
-		});
-
-		expect(h.uploads[0]?.url).toBe(
-			"https://cdn/c2c/upload?encrypted_query_param=up&filekey=abababababababababababababababab",
-		);
-		expect(h.uploads[0]?.body).toEqual(encryptEcb(Buffer.from(content), fixedRandom(16)));
-
-		expect(h.sent[0]).toMatchObject({
-			to: "peer",
-			fileName: "plan.md",
-			len: String(Buffer.byteLength(content)),
-			contextToken: "ctx",
-			media: {
-				encrypt_query_param: "dl",
-				aes_key: Buffer.from(key).toString("base64"),
-				encrypt_type: 1,
+	test("merges a chunked body the cap allows", async () => {
+		const body = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(new Uint8Array([1, 2]));
+				controller.enqueue(new Uint8Array([3]));
+				controller.close();
 			},
 		});
+		const response = await createFetchRunner(streamedFetch(body))({
+			url: "https://cdn/f",
+			method: "GET",
+			responseType: "binary",
+			maxBytes: 10,
+		});
+		expect(response.bytes).toEqual(new Uint8Array([1, 2, 3]));
 	});
 
-	test("prefers a server-provided full upload URL", async () => {
-		const path = tempFile("x");
-		const h = fakeClient();
-		h.setFullUrl("https://up/full");
-		await sendLocalFile(baseArgs(path, h.client));
-		expect(h.uploads[0]?.url).toBe("https://up/full");
-	});
+	test("refuses a declared length past the cap without reading the body", async () => {
+		let reads = 0;
+		const response = {
+			status: 200,
+			headers: new Headers({ "content-length": "9999" }),
+			arrayBuffer: async () => {
+				reads += 1;
+				return new ArrayBuffer(9999);
+			},
+		} as unknown as Response;
+		const fetchImpl = (async () => response) as unknown as typeof fetch;
 
-	test("refuses an oversize or empty file without uploading", async () => {
-		const h = fakeClient();
-		expect(await sendLocalFile({ ...baseArgs(tempFile("too big"), h.client), maxBytes: 2 })).toBe(false);
-		expect(await sendLocalFile(baseArgs(tempFile(""), h.client))).toBe(false);
-		expect(h.uploadRequests).toHaveLength(0);
-	});
-
-	test("returns false for a missing file, a failed upload, or a rejected send", async () => {
-		const h = fakeClient();
-		expect(await sendLocalFile(baseArgs(join(tempDir("wechat-outbound-"), "nope.md"), h.client))).toBe(false);
-
-		const failUpload = fakeClient();
-		failUpload.setUploadError(new Error("cdn down"));
-		expect(await sendLocalFile(baseArgs(tempFile("x"), failUpload.client))).toBe(false);
-
-		const badSend = fakeClient();
-		badSend.setSendRet(-1);
-		expect(await sendLocalFile(baseArgs(tempFile("x"), badSend.client))).toBe(false);
-	});
-
-	test("sanitizes the file name", async () => {
-		const h = fakeClient();
-		await sendLocalFile({ ...baseArgs(tempFile("x"), h.client), fileName: "a/b.md" });
-		expect(h.sent[0]?.fileName).toBe("a_b.md");
+		await expect(
+			createFetchRunner(fetchImpl)({ url: "https://cdn/f", method: "GET", responseType: "binary", maxBytes: 10 }),
+		).rejects.toBeInstanceOf(WechatError);
+		expect(reads).toBe(0);
 	});
 });
 

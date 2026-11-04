@@ -33,6 +33,12 @@ describe("normalizeConfig", () => {
 		expect(normalizeConfig({ pollHoldMs: 999_999 }, DEFAULT_CONFIG).pollHoldMs).toBe(120_000);
 	});
 
+	test("keeps an inherited poll hold when the project value is malformed", () => {
+		const inherited = { ...DEFAULT_CONFIG, pollHoldMs: 9000 };
+		expect(normalizeConfig({ pollHoldMs: "soon" }, inherited).pollHoldMs).toBe(9000);
+		expect(normalizeConfig({ pollHoldMs: null }, inherited).pollHoldMs).toBe(9000);
+	});
+
 	test("accepts only a boolean remotePrompts", () => {
 		expect(normalizeConfig({ remotePrompts: false }, DEFAULT_CONFIG).remotePrompts).toBe(false);
 		expect(normalizeConfig({ remotePrompts: "yes" }, DEFAULT_CONFIG).remotePrompts).toBe(true);

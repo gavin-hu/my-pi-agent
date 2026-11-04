@@ -11,7 +11,7 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { basename } from "node:path";
 import { rejectionOf, type WechatClient } from "./client.ts";
 import { aesEcbPaddedSize, encryptEcb, sanitizeFileName, sniffImageMime, uploadUrlOf } from "./media.ts";
@@ -37,6 +37,8 @@ export interface SendLocalFileArgs {
 	signal?: AbortSignal;
 	/** Random bytes for the AES key and file key; defaults to `crypto.randomBytes`. */
 	random?: (size: number) => Buffer;
+	/** The file read; defaults to `readFileSync`, injected to prove a refused size is never read. */
+	readFile?: (path: string) => Buffer;
 }
 
 /** One encrypted upload, with what both item shapes need to describe it. */
@@ -50,7 +52,10 @@ interface Uploaded {
 	aeskey: string;
 }
 
-/** Encrypt and upload one local file's bytes; `undefined` when it is empty or too big. */
+/**
+ * Encrypt and upload one local file's bytes; `undefined` when the buffer in hand is
+ * empty or past the cap, which is a file that changed between the stat and the read.
+ */
 async function uploadLocal(args: SendLocalFileArgs, mediaType: number, plain: Buffer): Promise<Uploaded | undefined> {
 	if (plain.length === 0 || plain.length > args.maxBytes) return undefined;
 
@@ -87,6 +92,9 @@ async function uploadLocal(args: SendLocalFileArgs, mediaType: number, plain: Bu
 /**
  * Read, screen, and upload one local file; `undefined` when it is unreadable or
  * refused, including by the caller's own `accept`.
+ *
+ * The cap is decided from `stat` before the read: a multi-gigabyte file must be
+ * refused without ever being buffered, or the refusal is what runs out of memory.
  */
 async function readAndUpload(
 	args: SendLocalFileArgs,
@@ -94,7 +102,9 @@ async function readAndUpload(
 	accept?: (plain: Buffer) => boolean,
 ): Promise<Uploaded | undefined> {
 	try {
-		const plain = readFileSync(args.filePath);
+		const size = statSync(args.filePath).size;
+		if (size === 0 || size > args.maxBytes) return undefined;
+		const plain = (args.readFile ?? readFileSync)(args.filePath);
 		if (accept !== undefined && !accept(plain)) return undefined;
 		return await uploadLocal(args, mediaType, plain);
 	} catch {
