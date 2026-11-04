@@ -85,15 +85,15 @@ describe("doctorReport", () => {
 		expect(text).toContain("poll: rejected ret -1");
 	});
 
-	test("treats a paused bridge as resumable", () => {
+	test("points a stopped bridge at the start command", () => {
 		const text = doctorReport({
-			status: doctorStatus({ state: "paused", peerStates: [], queued: 0, lock: undefined }),
+			status: doctorStatus({ state: "stopped", peerStates: [], queued: 0, lock: undefined }),
 			account: doctorAccount,
 			config: DEFAULT_CONFIG,
 			now: doctorNow,
 		});
-		expect(text).toContain("paused");
-		expect(text).toContain("/wechat resume");
+		expect(text).toContain("closed");
+		expect(text).toContain("/wechat start");
 	});
 
 	test("treats an expired bridge as needing a login", () => {

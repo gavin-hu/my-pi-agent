@@ -6,7 +6,7 @@
  * the TUI mounted by `runPanel`. It is the control hub: the global keys (login,
  * new session, logout) close the screen and dispatch, while a focused peer row
  * can be stopped, reset, or opened in `/wechat history` without leaving the
- * screen.
+ * screen, and the bridge itself is started and stopped in place.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -66,7 +66,7 @@ export const PANEL_KEYS: readonly PanelKey[] = [
 	{ key: "o", label: "logout", effect: { close: "logout" }, hint: true, color: "bad" },
 	{ key: "r", label: "refresh", effect: { refresh: true }, hint: true },
 	{ key: "a", label: "allow", effect: { close: "allow" }, hint: false },
-	{ key: "p", label: "pause", effect: { inPlace: "togglePause" }, hint: false },
+	{ key: "t", label: "start/stop", effect: { inPlace: "toggleBridge" }, hint: false },
 	{ key: "c", label: "cancel prompt", effect: { inPlace: "cancelPrompt" }, needsPeer: true, hint: false },
 ];
 
@@ -88,8 +88,6 @@ function connectionText(connection: StatusConnection): string {
 			return "open";
 		case "expired":
 			return "expired";
-		case "paused":
-			return "paused";
 		case "closed":
 			return "closed";
 	}
@@ -102,8 +100,6 @@ function connectionRole(connection: StatusConnection): TuiRole {
 			return "ok";
 		case "expired":
 			return "bad";
-		case "paused":
-			return "warn";
 		case "closed":
 			return "meta";
 	}
@@ -142,12 +138,9 @@ export function statusBody(view: StatusView, theme: Theme, width: number, select
 	if (view.connection === "expired") {
 		lines.push("");
 		lines.push(clip(`  ${paint(theme, "bad", "Session expired — press l to log in again.")}`, target));
-	} else if (view.connection === "paused") {
-		lines.push("");
-		lines.push(clip(`  ${paint(theme, "warn", "Paused — press p to resume polling.")}`, target));
 	} else if (view.connection === "closed" && view.account) {
 		lines.push("");
-		lines.push(clip(`  ${paint(theme, "meta", "Not connected — press l to log in again.")}`, target));
+		lines.push(clip(`  ${paint(theme, "meta", "Not connected — press t to start the bridge.")}`, target));
 	} else if (view.connection === "closed") {
 		lines.push("");
 		lines.push(clip(`  ${paint(theme, "meta", "Run /wechat login to connect an account.")}`, target));
@@ -193,8 +186,8 @@ export interface StatusActions {
 	reset(peer: string): string;
 	/** Withdraw the focused peer's waiting prompt; returns the line to flash. */
 	cancelPrompt(peer: string): string;
-	/** Pause or resume polling; async because it settles the poll loop first. */
-	togglePause(): string | Promise<string>;
+	/** Start or stop the bridge on this session; async because both settle the poll loop. */
+	toggleBridge(): string | Promise<string>;
 }
 
 export interface StatusScreenOptions {
@@ -298,8 +291,8 @@ export class StatusScreenComponent implements Component {
 			);
 			return;
 		}
-		if (effect.inPlace === "togglePause") {
-			this.togglePause(view);
+		if (effect.inPlace === "toggleBridge") {
+			this.toggleBridge(view);
 			return;
 		}
 		if (peer === undefined) {
@@ -330,25 +323,21 @@ export class StatusScreenComponent implements Component {
 		this.setFlash(effect.inPlace === "stop" ? actions.stop(id) : actions.reset(id));
 	}
 
-	/** Pause or resume polling; the bridge settles the loop before the line lands. */
-	private togglePause(view: StatusView): void {
-		if (!view.bridge) {
-			this.setFlash("WeChat is not running.");
-			return;
-		}
-		const outcome = this.options.actions?.togglePause();
+	/** Start or stop the bridge; the bridge settles the poll loop before the line lands. */
+	private toggleBridge(view: StatusView): void {
+		const outcome = this.options.actions?.toggleBridge();
 		if (!outcome) {
-			this.setFlash("Pause is unavailable here.");
+			this.setFlash("Starting and stopping the bridge is unavailable here.");
 			return;
 		}
 		if (typeof outcome === "string") {
 			this.setFlash(outcome);
 			return;
 		}
-		this.setFlash(view.connection === "paused" ? "Resuming…" : "Pausing…");
+		this.setFlash(view.connection === "open" ? "Stopping…" : "Starting…");
 		void outcome.then(
 			(line) => this.setFlash(line),
-			() => this.setFlash("Pause action failed."),
+			() => this.setFlash("Start or stop failed."),
 		);
 	}
 

@@ -83,7 +83,7 @@ export interface WeixinMessage {
 	context_token?: string;
 }
 
-/** A stored bot account, keyed by `ilinkBotId` in the credentials file. */
+/** A stored bot account; the file holds one, and a session binds to it by key. */
 export interface BotCredentials {
 	botToken: string;
 	ilinkUserId: string;
@@ -93,16 +93,14 @@ export interface BotCredentials {
 	createdAt: number;
 }
 
-/** Persisted `<agent-dir>/wechat/credentials.json`. */
+/**
+ * Persisted `<agent-dir>/wechat/credentials.json`: the one account this bridge runs.
+ *
+ * A file an older version wrote as a map of accounts (`accounts` plus the
+ * `activeAccount` pointer) is still read: its active entry, else its first.
+ */
 export interface CredentialsFile {
-	accounts: Record<string, BotCredentials>;
-	/**
-	 * Key of the account the most recent `/wechat login` confirmed, so a second
-	 * login switches to the account that was just scanned instead of keeping the
-	 * first one stored. Absent in a file written before this field existed, where
-	 * the first account is still used.
-	 */
-	activeAccount?: string;
+	account?: BotCredentials;
 }
 
 /** Per-peer state: the reply token and the last inbound time. */

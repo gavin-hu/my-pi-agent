@@ -9,20 +9,13 @@
  */
 
 import { createCipheriv, createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { SessionManager, type SessionEntry } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { tempDir } from "../../../test/helpers/env.ts";
 import { fakeTheme } from "../../../test/helpers/fakes.ts";
-import {
-	clearCredentials,
-	primaryAccount,
-	readCredentials,
-	saveAccount,
-	writeCredentials,
-} from "../state/credentials.ts";
 import {
 	encodeClientVersion,
 	encodeUin,
@@ -333,88 +326,6 @@ describe("transport and body rejections", () => {
 
 	test("rejectionOf prefers ret when both are set", () => {
 		expect(rejectionOf({ ret: -1, errcode: -2 })?.code).toBe(-1);
-	});
-});
-
-describe("stored credentials", () => {
-	const second: BotCredentials = {
-		botToken: "tok2",
-		ilinkUserId: "other@im.wechat",
-		ilinkBotId: "b2",
-		baseUrl: "https://other",
-		botAgent: "pi-wechat",
-		createdAt: 6,
-	};
-
-	function newPath(): string {
-		return join(tempDir("wechat-cred-"), "credentials.json");
-	}
-
-	test("round-trip an account keyed by bot id", () => {
-		const path = newPath();
-		saveAccount(account, path);
-		expect(primaryAccount(path)).toEqual(account);
-	});
-
-	test("makes the last confirmed login the active account", () => {
-		const path = newPath();
-		saveAccount(account, path);
-		saveAccount(second, path);
-		// Both stay stored (multi-account), but the bridge must run the new one.
-		expect(Object.keys(readCredentials(path).accounts)).toEqual(["b", "b2"]);
-		expect(primaryAccount(path)).toEqual(second);
-	});
-
-	test("switches to an account that is not the first stored one", () => {
-		const third: BotCredentials = { ...account, ilinkBotId: "b3", ilinkUserId: "third@im.wechat" };
-		const path = newPath();
-		saveAccount(account, path);
-		saveAccount(second, path);
-		saveAccount(third, path);
-		saveAccount(second, path);
-		// The first account is not the one that just logged in, so a first-only read
-		// would still return `account` here.
-		expect(primaryAccount(path)).toEqual(second);
-	});
-
-	test("falls back to the first account for a file written before activeAccount", () => {
-		const path = newPath();
-		writeFileSync(path, JSON.stringify({ accounts: { b: account, b2: second } }), "utf-8");
-		expect(readCredentials(path).activeAccount).toBeUndefined();
-		expect(primaryAccount(path)).toEqual(account);
-	});
-
-	test("ignores an active pointer to an account that is not stored", () => {
-		const path = newPath();
-		writeFileSync(path, JSON.stringify({ accounts: { b: account }, activeAccount: "gone" }), "utf-8");
-		expect(readCredentials(path).activeAccount).toBeUndefined();
-		expect(primaryAccount(path)).toEqual(account);
-	});
-
-	test("drops malformed entries on read", () => {
-		const path = newPath();
-		writeFileSync(path, JSON.stringify({ accounts: { bad: { botToken: "" }, good: account } }), "utf-8");
-		expect(primaryAccount(path)).toEqual(account);
-		expect(Object.keys(readCredentials(path).accounts)).toEqual(["good"]);
-	});
-
-	test("returns no accounts for a corrupt file", () => {
-		const path = newPath();
-		writeFileSync(path, "not json", "utf-8");
-		expect(readCredentials(path).accounts).toEqual({});
-	});
-
-	test("clears every account on logout", () => {
-		const path = newPath();
-		saveAccount(account, path);
-		clearCredentials(path);
-		expect(readCredentials(path)).toEqual({ accounts: {} });
-	});
-
-	test.skipIf(process.platform === "win32")("writes the file with mode 0600", () => {
-		const path = newPath();
-		writeCredentials(path, { accounts: { b: account } });
-		expect(statSync(path).mode & 0o777).toBe(0o600);
 	});
 });
 

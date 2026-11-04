@@ -38,10 +38,9 @@ describe("connectionOf", () => {
 		expect(connectionOf(bridgeStatus())).toBe("closed");
 	});
 
-	test("reports open, paused, and the persistent expired state", () => {
+	test("reports open and the persistent expired state", () => {
 		expect(connectionOf(bridgeStatus({ state: "running" }))).toBe("open");
 		expect(connectionOf(bridgeStatus({ state: "expired" }))).toBe("expired");
-		expect(connectionOf(bridgeStatus({ state: "paused" }))).toBe("paused");
 	});
 });
 
@@ -201,12 +200,9 @@ describe("statusBody", () => {
 		expect(body).toContain("2.0s");
 	});
 
-	test("shows the paused state and how to resume", () => {
-		const built = view({ bridge: true, account: "owner", connection: "paused", peers: 1 });
-		const body = statusBody(built, fakeTheme, 60).join("\n");
-		expect(body).toContain("paused");
-		expect(body).toContain("press p to resume");
-		expect(statusLine(built)).toContain("paused");
+	test("says how to start a bridge a stored account is not running", () => {
+		const body = statusBody(view({ account: "owner", connection: "closed" }), fakeTheme, 60).join("\n");
+		expect(body).toContain("press t to start the bridge");
 	});
 
 	test("shows the expiry and closed recovery lines", () => {
@@ -215,7 +211,7 @@ describe("statusBody", () => {
 		);
 		expect(expired).toContain("press l to log in again");
 		expect(statusBody(view(), fakeTheme, 60).join("\n")).toContain("Run /wechat login");
-		expect(statusBody(view({ account: "owner" }), fakeTheme, 60).join("\n")).toContain("press l to log in again");
+		expect(statusBody(view({ account: "owner" }), fakeTheme, 60).join("\n")).toContain("press t to start the bridge");
 	});
 
 	test("fits every line to a narrow width", () => {
@@ -262,9 +258,9 @@ function withActions() {
 			cancels.push("cancel");
 			return "Cancelled the waiting prompt.";
 		},
-		togglePause: () => {
+		toggleBridge: () => {
 			toggles.push("toggle");
-			return "Paused polling.";
+			return "Started the bridge.";
 		},
 	});
 	return { ...built, stops, resets, cancels, toggles };
@@ -311,7 +307,7 @@ describe("peer actions", () => {
 					cancels.push(peer);
 					return "Cancelled the waiting prompt.";
 				},
-				togglePause: () => "Paused polling.",
+				toggleBridge: () => "Started the bridge.",
 			},
 		);
 		screen.handleInput("c");
@@ -335,35 +331,29 @@ describe("peer actions", () => {
 		expect(actions).toEqual([{ verb: "allow" }]);
 	});
 
-	test("toggles pausing on p and flashes the result", () => {
+	test("starts or stops the bridge on t and flashes the result", () => {
 		const { screen, toggles } = withActions();
-		screen.handleInput("p");
+		screen.handleInput("t");
 		expect(toggles).toEqual(["toggle"]);
-		expect(screen.render(60).join("\n")).toContain("Paused polling.");
+		expect(screen.render(60).join("\n")).toContain("Started the bridge.");
 	});
 
-	test("shows progress while an async pause settles", async () => {
+	test("shows progress while an async start settles", async () => {
 		let finish: ((line: string) => void) | undefined;
-		const { screen } = component(view({ bridge: true, connection: "open" }), {
+		const { screen } = component(view({ account: "owner", connection: "closed" }), {
 			stop: () => "",
 			reset: () => "",
 			cancelPrompt: () => "",
-			togglePause: () =>
+			toggleBridge: () =>
 				new Promise<string>((resolve) => {
 					finish = resolve;
 				}),
 		});
-		screen.handleInput("p");
-		expect(screen.render(60).join("\n")).toContain("Pausing…");
-		finish?.("Resumed polling.");
+		screen.handleInput("t");
+		expect(screen.render(60).join("\n")).toContain("Starting…");
+		finish?.("Started the bridge.");
 		await settle();
-		expect(screen.render(60).join("\n")).toContain("Resumed polling.");
-	});
-
-	test("explains when there is no bridge to pause", () => {
-		const { screen } = component(view());
-		screen.handleInput("p");
-		expect(screen.render(60).join("\n")).toContain("WeChat is not running.");
+		expect(screen.render(60).join("\n")).toContain("Started the bridge.");
 	});
 
 	test("opens the focused peer's history", () => {

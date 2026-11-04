@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `wechat`: the bridge is bound to one Pi session and started and stopped by hand — `/wechat start`
+  writes a `wechat` branch entry and opens the poller; `/wechat stop` closes it, releases the poller
+  lock, and records the stop; and a stored account alone opens nothing. The binding follows a resume
+  and a tree jump, `/new` starts unbound, a start whose account differs replaces a running poller so a
+  fresh login takes effect, and `credentials.json` holds one account (an older account map is read as
+  the one it was polling, then rewritten down to that account). Breaking: a stored account no longer
+  reconnects by itself, `/wechat login` only stores, and a live `poller.lock` from an older version
+  has to be cleared by hand.
+
 - `test`: the run states one case budget — `test/helpers/budget.ts`, handed to every case by the
   preload and to the hooks through `check`'s `--timeout` — and every spawn watchdog is that budget
   less its reporting margin. So a bare `bun test <path>` budgets a case the way `bun run check`
@@ -18,6 +27,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ubuntu's parallel job parked 33 minutes — and every job states `timeout-minutes: 20`.
 
 ### Removed
+
+- `wechat`: `/wechat pause` and `/wechat resume` are gone, replaced by the hand start and stop on a
+  bound session. The `paused` bridge state, its warning chip, and the control screen's `p` key go with
+  them; the screen's `t` key starts or stops the bridge, `credentials.json`'s account map and
+  `activeAccount` pointer become the one stored account, and a bare `/wechat stop` now stops the bridge
+  while `/wechat stop <peer>` still stops one peer's turn.
 
 - `rewind`: the `/review` command is gone — the latest-turn changed-file list, the per-file diff, the
   file/batch revert, and the hunk checklist — with the modules only it read (`commands/review.ts`,

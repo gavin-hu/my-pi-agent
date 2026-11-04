@@ -270,7 +270,7 @@ function ruleOf(path: string): string {
  * not a screen but still must not be paid at start.
  */
 const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
-	"extensions/wechat/bridge.ts": "the bridge loads when an account is stored",
+	"extensions/wechat/bridge.ts": "the bridge loads when a bound session starts it",
 	"extensions/plan/web.ts": "the browser review loads on /plan review, /plan share, or the plan tool's exit action",
 	"extensions/plan/review.ts": "the review gate and its TUI screen load on the first /plan review or plan exit",
 	"extensions/plan/git-bash.ts": "the read-only git check loads when plan mode vets a bash call",
@@ -307,7 +307,11 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
  * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 718.
+ * total is their sum, 719.
+ *
+ * `wechat`'s row went 30 -> 31 for `state/binding.ts`: the session's binding is a
+ * pure reader of the branch that the lifecycle events consult before any bridge
+ * exists, so it cannot defer behind the account check it decides.
  *
  * The heights moved as the tree did: the board's `bytefly.json` section became
  * one module (`board/config.ts`, read by `board` and by `team` through the store)
@@ -344,7 +348,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	goal: 36,
 	watch: 34,
 	todo: 32,
-	wechat: 30,
+	wechat: 31,
 	"file-read": 30,
 	rewind: 29,
 	memory: 29,

@@ -52,8 +52,9 @@ const WechatSendResult = Type.Object({
 
 export interface ToolDeps {
 	/**
-	 * The bridge, or a promise of it: the start is deferred off `session_start`, so the
-	 * first turn can arrive while it is still opening, and this reader joins it.
+	 * The bridge, or a promise of it: a start is deferred off `session_start`, so the
+	 * first turn can arrive while it is still opening, and this reader joins it. A
+	 * tool never begins a start — the bridge is opened by hand.
 	 */
 	getBridge: () => Bridge | undefined | Promise<Bridge | undefined>;
 }
@@ -71,7 +72,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		name: TOOL_NAME,
 		label: "WeChat send",
 		description: [
-			"Send a WeChat message — plain text, or one local image as a picture — to the account owner from the running bridge (start it with /wechat login).",
+			"Send a WeChat message — plain text, or one local image as a picture — to the account owner from the running bridge (start it with /wechat start).",
 			"The recipient is always the owner and cannot be chosen.",
 		].join(" "),
 		promptSnippet: "Send a WeChat text or image to the account owner.",
@@ -95,7 +96,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 			startToolProgress(onUpdate);
 			const bridge = await deps.getBridge();
 			if (!bridge) {
-				return sendResult(false, "WeChat bridge is not started. Run /wechat login first.");
+				return sendResult(false, "WeChat bridge is not started. Run /wechat start first.");
 			}
 			const outcome = await bridge.sendToOwner(args.text, args.image);
 			return sendResult(outcome.ok, outcome.error);

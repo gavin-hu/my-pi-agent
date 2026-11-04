@@ -15,7 +15,7 @@ import { peerLabel } from "./format.ts";
 import type { BotCredentials } from "../types.ts";
 
 /** User-facing connection word; the internal `BridgeState` stays running/stopped. */
-export type StatusConnection = "open" | "expired" | "paused" | "closed";
+export type StatusConnection = "open" | "expired" | "closed";
 
 /** The facts the status screen and the one-line summary render. */
 export interface StatusView {
@@ -65,8 +65,6 @@ export function connectionOf(status: BridgeStatus | undefined): StatusConnection
 	switch (status?.state) {
 		case "running":
 			return "open";
-		case "paused":
-			return "paused";
 		case "expired":
 			return "expired";
 		default:

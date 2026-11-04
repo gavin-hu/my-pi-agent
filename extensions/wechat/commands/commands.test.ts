@@ -20,7 +20,15 @@ import { createFakePi } from "../../../test/helpers/fakes.ts";
 import { bridgeStatus } from "../../../test/helpers/fixtures/wechat.ts";
 import type { Bridge, BridgeStatus } from "../bridge.ts";
 import type { WechatClient } from "../transport/client.ts";
-import { finishLogin, registerCommands, runNew, WECHAT_COMMANDS, WECHAT_USAGE, type CommandDeps } from "./commands.ts";
+import {
+	finishLogin,
+	registerCommands,
+	runNew,
+	WECHAT_COMMANDS,
+	WECHAT_USAGE,
+	type CommandDeps,
+	type StartOutcome,
+} from "./commands.ts";
 import { DEFAULT_CONFIG } from "../config.ts";
 import type { PeerLanguage } from "../text/format.ts";
 import {
@@ -71,8 +79,9 @@ function harness(
 		bridge?: boolean;
 		stop?: boolean;
 		reset?: boolean;
-		pause?: boolean;
-		resume?: boolean;
+		start?: StartOutcome;
+		startError?: string;
+		account?: BotCredentials;
 	} = {},
 ): Harness {
 	const saved: BotCredentials[] = [];
@@ -98,26 +107,26 @@ function harness(
 			resets.push(peer);
 			return options.reset ?? true;
 		},
-		pause: async () => {
-			events.push("pause");
-			return options.pause ?? true;
-		},
-		resume: async () => {
-			events.push("resume");
-			return options.resume ?? true;
-		},
 	} as unknown as Bridge;
 	const exists = options.bridge ?? true;
 	return {
 		deps: {
 			getBridge: () => (exists ? bridge : undefined),
-			ensureBridge: async () => bridge,
+			startBridge: async () => {
+				events.push("start");
+				if (options.startError) throw new Error(options.startError);
+				return options.start ?? "started";
+			},
+			stopBridge: async () => {
+				events.push("stop");
+				return options.stop ?? true;
+			},
 			loadConfig: () => DEFAULT_CONFIG,
 			createLoginClient: () => {
 				throw new Error("login client is not used by these commands");
 			},
 			saveAccount: (value) => saved.push(value),
-			primaryAccount: () => undefined,
+			storedAccount: () => options.account,
 			readHistory: async () => "",
 			logout: () => {
 				logouts += 1;
@@ -174,10 +183,10 @@ describe("the /wechat verb table", () => {
 	test("warns on an unknown subcommand instead of silently showing status", async () => {
 		const { deps } = harness();
 		const { ctx, notices, customCalls } = fakeCtx({ custom: "close" });
-		await handler(deps)("start", ctx);
+		await handler(deps)("restart", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
-		expect(notices.at(-1)?.message).toContain('Unknown wechat command "start"');
-		expect(notices.at(-1)?.message).toContain("/wechat login");
+		expect(notices.at(-1)?.message).toContain('Unknown wechat command "restart"');
+		expect(notices.at(-1)?.message).toContain("Try /wechat start");
 		expect(customCalls).toEqual([]);
 	});
 });
@@ -225,37 +234,14 @@ describe("the control screen", () => {
 });
 
 describe("finishLogin", () => {
-	test("stores the account and starts the bridge on a confirmed scan", async () => {
-		const { deps, saved, opens } = harness();
+	test("stores the account and points at the start command", async () => {
+		const { deps, saved, events } = harness();
 		const { ctx, notices } = fakeCtx();
 		await finishLogin({ kind: "confirmed", account }, ctx, deps);
 		expect(saved).toEqual([account]);
-		expect(opens()).toBe(1);
-		expect(notices.at(-1)?.message).toContain("running");
-	});
-
-	test("stops a running poller before opening with the new credentials", async () => {
-		const { deps, events } = harness({ status: bridgeStatus({ state: "running" }) });
-		const { ctx } = fakeCtx();
-		await finishLogin({ kind: "confirmed", account }, ctx, deps);
-		// `open()` is a no-op while a bridge runs, so a scan has to close it first.
-		expect(events).toEqual(["close", "open"]);
-	});
-
-	test("keeps the account and points at status when connecting fails", async () => {
-		const { deps, saved, opens } = harness({
-			open: () => {
-				throw new Error("Another Pi session is already polling this WeChat account.");
-			},
-		});
-		const { ctx, notices } = fakeCtx();
-		await finishLogin({ kind: "confirmed", account }, ctx, deps);
-		expect(saved).toEqual([account]);
-		expect(opens()).toBe(1);
-		const last = notices.at(-1);
-		expect(last?.kind).toBe("warning");
-		expect(last?.message).toContain("did not start");
-		expect(last?.message).toContain("/wechat status");
+		// A scan is not a start: the bridge opens only when a person asks it to.
+		expect(events).toEqual([]);
+		expect(notices.at(-1)?.message).toContain("/wechat start");
 	});
 
 	test("reports an expired QR without touching credentials or the bridge", async () => {
@@ -312,7 +298,7 @@ describe("/wechat login", () => {
 		expect(customCalls).toEqual([]);
 	});
 
-	test("stores the scanned account and connects", async () => {
+	test("stores the scanned account and points at the start command", async () => {
 		const { deps, saved, opens } = harness();
 		deps.createLoginClient = async () =>
 			({
@@ -322,8 +308,9 @@ describe("/wechat login", () => {
 		await handler(deps)("login", ctx);
 		expect(customCalls.length).toBe(1);
 		expect(saved).toEqual([account]);
-		expect(opens()).toBe(1);
-		expect(notices.at(-1)?.message).toContain("owner");
+		// One scan stores the account; the bridge is opened by hand afterwards.
+		expect(opens()).toBe(0);
+		expect(notices.at(-1)?.message).toContain("/wechat start");
 	});
 });
 
@@ -472,39 +459,45 @@ describe("/wechat history", () => {
 	});
 });
 
-describe("/wechat pause and resume", () => {
-	test("pauses and resumes polling", async () => {
-		const paused = harness({ pause: true });
-		const { ctx, notices } = fakeCtx();
-		await handler(paused.deps)("pause", ctx);
-		expect(paused.events).toEqual(["pause"]);
-		expect(notices.at(-1)?.message).toContain("paused");
+describe("/wechat start and stop", () => {
+	test("starts the bridge on this session, and says when it already runs", async () => {
+		const first = harness({ account });
+		const opened = fakeCtx();
+		await handler(first.deps)("start", opened.ctx);
+		expect(first.events).toEqual(["start"]);
+		expect(opened.notices.at(-1)?.message).toContain("WeChat bridge started as owner");
 
-		const resumed = harness({ status: bridgeStatus({ state: "paused" }), resume: true });
-		const resumedCtx = fakeCtx();
-		await handler(resumed.deps)("resume", resumedCtx.ctx);
-		expect(resumed.events).toEqual(["resume"]);
-		expect(resumedCtx.notices.at(-1)?.message).toContain("resumed");
+		const running = harness({ start: "already-running" });
+		const second = fakeCtx();
+		await handler(running.deps)("start", second.ctx);
+		expect(second.notices.at(-1)?.message).toContain("already running");
 	});
 
-	test("explains when there is nothing to pause or resume", async () => {
-		const stop = harness({ pause: false });
-		const stopCtx = fakeCtx();
-		await handler(stop.deps)("pause", stopCtx.ctx);
-		expect(stopCtx.notices.at(-1)?.message).toContain("not running");
-
-		const resume = harness({ resume: true });
-		const resumeCtx = fakeCtx();
-		await handler(resume.deps)("resume", resumeCtx.ctx);
-		expect(resumeCtx.notices.at(-1)?.message).toContain("not paused");
-	});
-
-	test("explains that pause needs a running bridge", async () => {
-		const { deps } = harness({ bridge: false });
+	test("reports a refused start, and declines a mode with no session to keep", async () => {
+		const refused = harness({ startError: "Not logged in. Run /wechat login first." });
 		const { ctx, notices } = fakeCtx();
-		await handler(deps)("pause", ctx);
+		await handler(refused.deps)("start", ctx);
 		expect(notices.at(-1)?.kind).toBe("warning");
-		expect(notices.at(-1)?.message).toContain("not running");
+		expect(notices.at(-1)?.message).toContain("/wechat login");
+
+		const ephemeral = harness();
+		const json = fakeCtx({ mode: "json" });
+		await handler(ephemeral.deps)("start", json.ctx);
+		expect(ephemeral.events).toEqual([]);
+		expect(json.notices.at(-1)?.message).toContain("tui or rpc");
+	});
+
+	test("stops the bridge, and says so when nothing runs", async () => {
+		const stopped = harness({ stop: true });
+		const first = fakeCtx();
+		await handler(stopped.deps)("stop", first.ctx);
+		expect(stopped.events).toEqual(["stop"]);
+		expect(first.notices.at(-1)?.message).toBe("WeChat bridge stopped on this session.");
+
+		const idle = harness({ stop: false });
+		const second = fakeCtx();
+		await handler(idle.deps)("stop", second.ctx);
+		expect(second.notices.at(-1)?.message).toContain("not running");
 	});
 });
 

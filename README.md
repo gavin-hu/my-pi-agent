@@ -142,7 +142,7 @@ has the full tool and command surface, opening with its capabilities.
 | [`file-browse`](./docs/extensions/file-browse.md) | `/browse` | Start a loopback, read-only file browser rooted at the working directory, with Markdown preview, a fuzzy quick-open palette, a `path:12-30` reference copied from a selection, live status for a page left open, and a reload hint when the folder it lists changes. |
 | [`file-read`](./docs/extensions/file-read.md) | `read_doc` | Extract text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in process, paged. |
 | [`file-open`](./docs/extensions/file-open.md) | `/open`, `open_path` | Open or reveal a file or directory in the OS-native application. |
-| [`wechat`](./docs/extensions/wechat.md) | `/wechat`, `send_wechat` | Bridge a WeChat chat to the live session over the Weixin iLink bot API; inbound text, images, and files become turns. |
+| [`wechat`](./docs/extensions/wechat.md) | `/wechat`, `send_wechat` | Bridge a WeChat chat to the live session over the Weixin iLink bot API; inbound text, images, and files become turns, with the bridge bound to one session and started by hand. |
 
 ### Chrome and upkeep
 

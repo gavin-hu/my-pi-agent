@@ -19,7 +19,7 @@ const DOCTOR_PROBLEMS: Record<string, Omit<Finding, "extension">[]> = {
 			check: "state file",
 			severity: "missing",
 			detail: "not logged in",
-			hint: "run /wechat login to start the bridge",
+			hint: "run /wechat login, then /wechat start",
 		},
 		{ check: "qrcode", severity: "ok", detail: "package present" },
 	],

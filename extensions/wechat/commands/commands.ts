@@ -1,14 +1,14 @@
 /**
- * The `/wechat` command: `login`, `new`, `status`, `logout`, `allow`, `help`.
+ * The `/wechat` command: `start`, `stop`, `login`, `new`, `status`, `logout`, `allow`, `help`.
  *
  * The command is the operator's single entry point. `/wechat` (or `/wechat
  * status`) opens the control screen, where every action is a key; the verb
- * subcommands are shortcuts for RPC and scripts. A confirmed `login` stores
- * credentials, replaces a poller that is already running, and connects in one
- * step, and the bridge otherwise auto-starts on `session_start` while an account
- * exists. `new` starts a fresh session (an inbound `/new` dispatches it), and
- * `logout` discards the account and stops the bridge. Every dialog-backed verb
- * declines while a WeChat peer turn is running.
+ * subcommands are shortcuts for RPC and scripts. `start` binds the stored account
+ * to this session and opens the bridge, and `stop` closes it and records the
+ * stop; nothing starts on its own, so a login only stores the account. `new`
+ * starts a fresh session (an inbound `/new` dispatches it), and `logout` discards
+ * the account and stops the bridge. Every dialog-backed verb declines while a
+ * WeChat peer turn is running.
  */
 
 import {
@@ -35,16 +35,25 @@ import { qrLines } from "../../../lib/qr.ts";
 import { statusLine, statusView, type StatusView } from "../text/status.ts";
 import type { BotCredentials } from "../types.ts";
 
+/**
+ * What a start did: it bound this session, the bridge was already running for it, or
+ * a stop landed while it was building and the session is left stopped.
+ */
+export type StartOutcome = "started" | "already-running" | "superseded";
+
 export interface CommandDeps {
 	getBridge: () => Bridge | undefined;
-	ensureBridge: (ctx: ExtensionContext) => Promise<Bridge>;
+	/** Start and bind the bridge on this session; throws with the reason it cannot. */
+	startBridge: (ctx: ExtensionContext) => Promise<StartOutcome>;
+	/** Stop and unbind it; whether it was running. */
+	stopBridge: () => Promise<boolean>;
 	loadConfig: (cwd: string) => WechatConfig;
 	createLoginClient: (cwd: string) => Promise<WechatClient>;
 	saveAccount: (account: BotCredentials) => void;
-	primaryAccount: () => BotCredentials | undefined;
+	storedAccount: () => BotCredentials | undefined;
 	/** Read a peer's recent messages for `/wechat history`; read-only. */
 	readHistory: (peer: string, count: number) => Promise<string>;
-	logout: () => void;
+	logout: () => void | Promise<void>;
 	now: () => number;
 }
 
@@ -63,25 +72,16 @@ export interface WechatCommand {
  * one place and missed in another.
  */
 export const WECHAT_COMMANDS = [
-	{ verb: "login", description: "Log in by QR; on a scan, store the account and start the bridge", run: runLogin },
+	{ verb: "start", description: "Start the bridge on this session, bound to the stored account", run: runStart },
+	{ verb: "login", description: "Log in by QR; a scan stores the account (then /wechat start)", run: runLogin },
 	{ verb: "new", description: "Start a fresh host session (peer conversations are independent)", run: runNew },
 	{ verb: "status", description: "Open the control screen (a one-line summary outside the TUI)", run: runPanel },
 	{
-		verb: "pause",
-		description: "Stop polling new messages; running turns may finish",
-		run: (ctx, deps) => runPauseToggle(ctx, deps, false),
-	},
-	{
-		verb: "resume",
-		description: "Resume polling after /wechat pause",
-		run: (ctx, deps) => runPauseToggle(ctx, deps, true),
+		verb: "stop",
+		description: "Stop the bridge on this session, or one peer's turn: /wechat stop [peer]",
+		run: runStop,
 	},
 	{ verb: "doctor", description: "Print a health report: token age, last poll, lock, peers, failures", run: runDoctor },
-	{
-		verb: "stop",
-		description: "Stop one peer's running turn: /wechat stop <peer>",
-		run: (ctx, deps, args) => runPeerAction(ctx, deps, "stop", args),
-	},
 	{
 		verb: "reset",
 		description: "Start a fresh conversation for one peer: /wechat reset <peer>",
@@ -153,7 +153,7 @@ async function runDoctor(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 	ctx.ui.notify(
 		doctorReport({
 			status: deps.getBridge()?.status(),
-			account: deps.primaryAccount(),
+			account: deps.storedAccount(),
 			config: deps.loadConfig(ctx.cwd),
 			now: deps.now(),
 		}),
@@ -172,7 +172,7 @@ interface VerbOutcome {
  * screen's keys and the `/wechat <verb>` subcommands. A peer label carries text
  * the peer chose, so it is sanitized here rather than at each call site.
  */
-function stopMessage(bridge: Bridge, peer: string): VerbOutcome {
+function peerStopMessage(bridge: Bridge, peer: string): VerbOutcome {
 	const label = sanitizeLine(peerLabel(peer));
 	return bridge.stop(peer)
 		? { message: `Stopping ${label}'s turn.`, kind: "info" }
@@ -194,20 +194,29 @@ function cancelPromptMessage(bridge: Bridge, peer: string): VerbOutcome {
 	return { message: "Cancelled the waiting prompt.", kind: "info" };
 }
 
-/** Resume polling, unless it is not paused or the bridge will not start it. */
-async function resumeMessage(bridge: Bridge): Promise<VerbOutcome> {
-	if (bridge.status().state !== "paused") return { message: "WeChat is not paused.", kind: "info" };
-	return (await bridge.resume())
-		? { message: "WeChat polling resumed.", kind: "info" }
-		: { message: "WeChat could not resume; check the terminal notice.", kind: "warning" };
+/** Start the bridge on this session; the binding is recorded only once it polls. */
+async function startOutcome(ctx: ExtensionContext, deps: CommandDeps): Promise<VerbOutcome> {
+	try {
+		const outcome = await deps.startBridge(ctx);
+		if (outcome === "already-running") {
+			return { message: "WeChat is already running on this session.", kind: "info" };
+		}
+		if (outcome === "superseded") {
+			return { message: "A stop landed while WeChat was starting; it is not running here.", kind: "info" };
+		}
+		const account = deps.storedAccount();
+		const label = account ? ` as ${sanitizeLine(peerLabel(account.ilinkUserId))}` : "";
+		return { message: `WeChat bridge started${label}. /wechat stop closes it.`, kind: "info" };
+	} catch (error) {
+		return { message: `WeChat did not start: ${messageOf(error)}`, kind: "warning" };
+	}
 }
 
-/** Pause polling, unless it is already paused or the bridge is not running. */
-async function pauseMessage(bridge: Bridge): Promise<VerbOutcome> {
-	if (bridge.status().state === "paused") return { message: "WeChat is already paused.", kind: "warning" };
-	return (await bridge.pause())
-		? { message: "WeChat polling paused. Running turns may finish; no new messages will arrive.", kind: "info" }
-		: { message: "WeChat is not running.", kind: "warning" };
+/** Stop the bridge on this session, which also releases the poller lock. */
+async function stopOutcome(deps: CommandDeps): Promise<VerbOutcome> {
+	return (await deps.stopBridge())
+		? { message: "WeChat bridge stopped on this session.", kind: "info" }
+		: { message: "WeChat is not running on this session.", kind: "info" };
 }
 
 /** Run one control action against the live bridge, or say why it cannot run. */
@@ -222,14 +231,27 @@ function knownPeers(bridge: Bridge | undefined): string {
 	return known.join(", ") || "none yet";
 }
 
-/** Pause or resume polling; the account and peer sessions stay in place. */
-async function runPauseToggle(ctx: ExtensionContext, deps: CommandDeps, resume: boolean): Promise<void> {
-	const bridge = deps.getBridge();
-	if (!bridge) {
-		ctx.ui.notify("WeChat is not running.", "warning");
+/** Start the bridge on this session, and bind it to the stored account. */
+async function runStart(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
+	if (busyWithPeerTurn(ctx, deps, "start")) return;
+	// A start outlives the turn that ran it: it binds the session and keeps a poller,
+	// which the ephemeral modes have nowhere to put.
+	if (ctx.mode !== "tui" && ctx.mode !== "rpc") {
+		ctx.ui.notify("WeChat start needs a session that lives: the tui or rpc mode.", "warning");
 		return;
 	}
-	const outcome = await (resume ? resumeMessage(bridge) : pauseMessage(bridge));
+	const outcome = await startOutcome(ctx, deps);
+	ctx.ui.notify(outcome.message, outcome.kind);
+}
+
+/** Stop the bridge, or with a peer named, only that peer's running turn. */
+async function runStop(ctx: ExtensionCommandContext, deps: CommandDeps, args: string): Promise<void> {
+	const peer = args.trim();
+	if (peer) {
+		await runPeerAction(ctx, deps, "stop", peer);
+		return;
+	}
+	const outcome = await stopOutcome(deps);
 	ctx.ui.notify(outcome.message, outcome.kind);
 }
 
@@ -290,28 +312,16 @@ async function runHistory(ctx: ExtensionCommandContext, deps: CommandDeps, args:
 }
 
 /**
- * React to a finished login. A confirmed scan stores the account and starts the
- * bridge immediately, so `/wechat login` is the only command needed to go
- * online and the recovery path after a session expiry.
+ * React to a finished login. A confirmed scan stores the account and nothing else:
+ * the bridge is opened by hand, with `/wechat start`, on the session that should
+ * run it.
  */
 export async function finishLogin(result: LoginOutcome, ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
 	switch (result.kind) {
 		case "confirmed": {
 			deps.saveAccount(result.account);
 			const label = peerLabel(result.account.ilinkUserId);
-			try {
-				// A scan is authoritative: a poller that is already running holds the
-				// previous client and its token, and `open()` is a no-op while it runs, so
-				// it has to stop before the new credentials are used.
-				await deps.getBridge()?.close();
-				(await deps.ensureBridge(ctx)).open();
-				ctx.ui.notify(`WeChat connected as ${label} and the bridge is running.`);
-			} catch (error) {
-				ctx.ui.notify(
-					`WeChat connected as ${label}, but the bridge did not start: ${messageOf(error)}. Run /wechat status for details.`,
-					"warning",
-				);
-			}
+			ctx.ui.notify(`WeChat connected as ${label}. Run /wechat start to run the bridge on this session.`);
 			return;
 		}
 		case "expired":
@@ -377,8 +387,9 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 }
 
 /**
- * Start a fresh host session for `/wechat new`; the next `session_start`
- * auto-opens the bridge again because the account is stored.
+ * Start a fresh host session for `/wechat new`. The new session carries no binding,
+ * so the bridge stays stopped there until `/wechat start`: peer conversations are
+ * independent and stay on disk.
  */
 export async function runNew(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
 	// A WeChat peer turn is a real run on this bridge: replacing the host session
@@ -397,7 +408,7 @@ export async function runNew(ctx: ExtensionCommandContext, deps: CommandDeps): P
  * still owns input focus.
  */
 async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
-	const view = (): StatusView => statusView(deps.primaryAccount(), deps.getBridge()?.status());
+	const view = (): StatusView => statusView(deps.storedAccount(), deps.getBridge()?.status());
 	if (peerTurnRunning(deps) || !supportsCustomUI(ctx)) {
 		ctx.ui.notify(statusLine(view()));
 		return;
@@ -412,18 +423,14 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 				onClose: done,
 				actions: {
 					stop: (peer) =>
-						withBridge(deps, "WeChat bridge is not running.", (bridge) => stopMessage(bridge, peer).message),
+						withBridge(deps, "WeChat bridge is not running.", (bridge) => peerStopMessage(bridge, peer).message),
 					reset: (peer) =>
 						withBridge(deps, "WeChat bridge is not running.", (bridge) => resetMessage(bridge, peer).message),
 					cancelPrompt: (focused) =>
 						withBridge(deps, "No prompt is waiting.", (bridge) => cancelPromptMessage(bridge, focused).message),
-					togglePause: async () =>
-						withBridge(
-							deps,
-							"WeChat bridge is not running.",
-							async (bridge) =>
-								(await (bridge.status().state === "paused" ? resumeMessage(bridge) : pauseMessage(bridge))).message,
-						),
+					toggleBridge: async () =>
+						(deps.getBridge()?.status().state === "running" ? await stopOutcome(deps) : await startOutcome(ctx, deps))
+							.message,
 				},
 				requestRender: () => tui.requestRender(),
 			}),
@@ -442,7 +449,7 @@ async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void
 	if (busyWithPeerTurn(ctx, deps, "logout")) return;
 	if (!(await ctx.ui.confirm("Log out of WeChat?", "Remove the stored credentials and close the bridge."))) return;
 	await deps.getBridge()?.close();
-	deps.logout();
+	await deps.logout();
 	ctx.ui.notify("WeChat logged out.");
 }
 
@@ -473,7 +480,7 @@ async function runPeerAction(
 		return;
 	}
 	if (verb === "stop") {
-		ctx.ui.notify(stopMessage(bridge, entry.peer).message);
+		ctx.ui.notify(peerStopMessage(bridge, entry.peer).message);
 		return;
 	}
 	ctx.ui.notify(resetMessage(bridge, entry.peer).message);

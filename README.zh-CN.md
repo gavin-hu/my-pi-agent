@@ -126,7 +126,7 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 | [`file-browse`](./docs/extensions/file-browse.md) | `/browse` | 启动一个以工作目录为根的本地回环、只读文件浏览器，带 Markdown 预览、模糊快速打开面板、从选区复制 `path:12-30` 引用、为常开页面提供的实时状态，以及所列目录变化时的重新加载提示。 |
 | [`file-read`](./docs/extensions/file-read.md) | `read_doc` | 在进程内从本地 PDF、DOCX、DOC、ODT、RTF 或 XLSX 提取文本，支持分页。 |
 | [`file-open`](./docs/extensions/file-open.md) | `/open`, `open_path` | 用操作系统原生应用打开或定位文件/目录。 |
-| [`wechat`](./docs/extensions/wechat.md) | `/wechat`, `send_wechat` | 通过微信 iLink 机器人 API 把微信聊天桥接到实时会话；入站文本、图片和文件会变成回合。 |
+| [`wechat`](./docs/extensions/wechat.md) | `/wechat`, `send_wechat` | 通过微信 iLink 机器人 API 把微信聊天桥接到实时会话；入站文本、图片和文件会变成回合，桥接绑定到一个会话并由手动启动。 |
 
 ### 界面与维护
 

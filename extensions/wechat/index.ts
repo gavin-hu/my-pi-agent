@@ -4,10 +4,11 @@
  * Each peer's message becomes a turn in that peer's own Pi session (its own
  * history, model context, and tools), and that session's answer is sent back.
  * The terminal session is never injected into, so the two conversations cannot
- * mix. The bridge follows the stored account: it opens on `session_start` while
- * credentials exist (and after `/wechat login`), and `/wechat logout` is the
- * only way to discard the account and stop it. `/wechat` opens the control
- * screen. See `README.md`.
+ * mix. One account is bound to one Pi session and the bridge is started and
+ * stopped by hand on it: `/wechat start` records the binding on the session
+ * branch and opens the poller, `/wechat stop` closes it and records the stop, and
+ * a stored account alone starts nothing. `/wechat` opens the control screen. See
+ * `README.md`.
  *
  * Load with:  pi --extension ./extensions/wechat
  */
@@ -21,18 +22,26 @@ import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { Bridge, BridgeState } from "./bridge.ts";
 import type { WechatClient, WechatClientOptions } from "./transport/client.ts";
-import { registerCommands, type CommandDeps } from "./commands/commands.ts";
+import { registerCommands, type CommandDeps, type StartOutcome } from "./commands/commands.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { loadWechatConfig, type WechatConfig } from "./config.ts";
-import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./state/credentials.ts";
+import {
+	accountKey,
+	clearCredentials,
+	migrateCredentials,
+	saveAccount,
+	storedAccount,
+	wechatDir,
+} from "./state/credentials.ts";
+import { loadBinding, persistBinding, type WechatBinding } from "./state/binding.ts";
 import type { PeerSession, PeerSessionOptions } from "./peer/peer-session.ts";
 import { peerKey } from "./text/format.ts";
 import { registerTools } from "./tools.ts";
 
 /**
- * The chip text for a bridge state: a success chip while connected, and an
- * error chip that persists after a session expiry until the user reconnects or
- * stops the bridge. `stopped` publishes nothing.
+ * The chip text for a bridge state: a success chip while connected, and an error
+ * chip that persists after a session expiry until the user reconnects or stops
+ * the bridge. `stopped` publishes nothing.
  */
 export function wechatChip(theme: Theme, state: BridgeState): string | undefined {
 	switch (state) {
@@ -40,8 +49,6 @@ export function wechatChip(theme: Theme, state: BridgeState): string | undefined
 			return paint(theme, "ok", `${GLYPHS.wechat} wechat`);
 		case "expired":
 			return paint(theme, "bad", `${GLYPHS.wechat} wechat expired`);
-		case "paused":
-			return paint(theme, "warn", `${GLYPHS.wechat} wechat paused`);
 		case "stopped":
 			return undefined;
 	}
@@ -65,13 +72,23 @@ export interface WechatDeps {
 export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	if (!isExtensionEnabled("wechat")) return;
 
-	/** The bridge and the transport, loaded on the first account, never at registration. */
+	/** The bridge and the transport, loaded on the first start, never at registration. */
 	const bridgeModule = lazy(deps.loadBridge ?? (() => import("./bridge.ts")));
 	const clientModule = lazy(() => import("./transport/client.ts"));
 
 	let bridge: Bridge | undefined;
-	/** A build in flight, so a command that races `session_start` joins it instead of loading twice. */
+	/** A build in flight, so a command that races a start joins it instead of loading twice. */
 	let building: Promise<Bridge> | undefined;
+	/**
+	 * The account key this runtime opened the bridge for, so a branch whose binding
+	 * moved can be reconciled with what is actually polling.
+	 */
+	let boundTo: string | undefined;
+	/**
+	 * Bumped by every start and every stop, so a start that a stop overtook while it
+	 * was building cannot bind the branch after the stop wrote it.
+	 */
+	let epoch = 0;
 	let ctxRef: ExtensionContext | undefined;
 
 	const lockDeps = () => ({
@@ -79,6 +96,15 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		pid: process.pid,
 		isAlive: isPidAlive,
 	});
+
+	/** The account the session branch binds, or undefined when nothing is bound. */
+	const bindingOf = (ctx: ExtensionContext): string | undefined =>
+		loadBinding(ctx.sessionManager.getBranch())?.account ?? undefined;
+
+	/** Record a binding on the session branch; this file is the only writer. */
+	const persist = (binding: WechatBinding): void => {
+		persistBinding((customType, data) => pi.appendEntry(customType, data), binding);
+	};
 
 	/** One iLink client over the fetched transport, from an already-loaded module. */
 	const clientOf = (
@@ -136,7 +162,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			readHistory: (peer, count) =>
 				readPeerHistory(ctxRef?.cwd ?? process.cwd(), join(wechatDir(), "sessions"), peer, count),
 			slashCommands: SLASH_COMMANDS,
-			loadAccount: () => primaryAccount(),
+			loadAccount: () => storedAccount(),
 			loadState: () => readState(statePath()),
 			saveState: (state) => writeState(statePath(), state),
 			createClient: (account) => clientOf(client, config, account),
@@ -177,19 +203,58 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	};
 
 	/**
-	 * Bring the bridge up on a new session while an account is stored.
-	 *
-	 * The bridge is built and kept once per runtime — everything else in this
-	 * file reads the same handle — and an open bridge makes a repeat call a
-	 * no-op, so a host that binds one session twice (RPC emits `session_start`
-	 * twice on a session switch) cannot start a second poller.
+	 * Wait for a start this runtime already began: a hand start's build, or the
+	 * reconcile a frame ran. A reader that arrives mid-start sees the bridge that
+	 * start opens rather than reporting one that is not there yet.
 	 */
-	const autoStart = async (ctx: ExtensionContext): Promise<void> => {
+	const settle = async (): Promise<void> => {
+		await starting?.catch(() => undefined);
+		await building?.catch(() => undefined);
+	};
+
+	/** Drop the bridge handle, so the next start builds one from the stored account. */
+	const forget = (): void => {
+		bridge = undefined;
+		building = undefined;
+		boundTo = undefined;
+	};
+
+	/** Open the poller for an account the session binds, replacing what this runtime ran. */
+	const open = async (ctx: ExtensionContext, key: string): Promise<void> => {
+		const built = bridge ?? (await ensure(ctx));
+		built.open();
+		boundTo = key;
+	};
+
+	/**
+	 * Reconcile the branch's binding with the running bridge.
+	 *
+	 * A session that bound an account starts it again after `/resume` or a tree
+	 * jump, and a branch whose binding was stopped — or never made — closes what
+	 * this runtime opened. The bound account must still be the stored one, because
+	 * a binding names an account rather than a token.
+	 */
+	const applyBinding = async (ctx: ExtensionContext): Promise<void> => {
 		if (ctx.mode !== "tui" && ctx.mode !== "rpc") return;
-		if (!primaryAccount()) return;
-		if (bridge?.status().state === "running" || bridge?.status().state === "paused") return;
+		const wanted = bindingOf(ctx);
+		if (wanted === boundTo) return;
+		if (boundTo !== undefined) {
+			// One runtime runs one poller, and a tree jump can land on another binding.
+			const running = bridge;
+			forget();
+			await running?.close();
+		}
+		if (wanted === undefined) return;
+		const stored = storedAccount();
+		if (!stored || accountKey(stored) !== wanted) {
+			ctx.ui.notify(
+				"WeChat is bound to an account that is not stored. Run /wechat login, then /wechat start.",
+				"warning",
+			);
+			return;
+		}
 		try {
-			(bridge ?? (await ensure(ctx))).open();
+			await open(ctx, wanted);
 		} catch (error) {
 			ctx.ui.notify(`WeChat did not connect: ${messageOf(error)}`, "warning");
 		}
@@ -206,7 +271,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	 */
 	let starting: Promise<void> | undefined;
 	const start = (ctx: ExtensionContext): Promise<void> => {
-		starting ??= autoStart(ctx)
+		starting ??= applyBinding(ctx)
 			.catch(() => {
 				// The start reports its own failures; a rejected promise nothing awaits must not
 				// become an unhandled rejection that takes the session down.
@@ -217,50 +282,111 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		return starting;
 	};
 
+	/**
+	 * Start the bridge by hand on this session, and bind it.
+	 *
+	 * A login that replaced the stored account leaves a running poller holding the
+	 * previous token, so a start whose account differs replaces it. The binding is
+	 * recorded only once the poller is up: a lock another session holds is a
+	 * refused start, not a bound session that is not running.
+	 */
+	const startBridge = async (ctx: ExtensionContext): Promise<StartOutcome> => {
+		const account = storedAccount();
+		if (!account) throw new Error("Not logged in. Run /wechat login first.");
+		const key = accountKey(account);
+		if (bridge?.status().state === "running" && boundTo === key) return "already-running";
+		const mine = ++epoch;
+		if (bridge !== undefined) {
+			const running = bridge;
+			forget();
+			await running.shutdown();
+		}
+		await open(ctx, key);
+		// A stop that landed while this start was building owns the session now: close
+		// what opened and leave the branch's stop as the last word.
+		if (epoch !== mine) {
+			const overtaken = bridge;
+			forget();
+			await overtaken?.shutdown();
+			return "superseded";
+		}
+		persist({ account: key });
+		return "started";
+	};
+
+	/** Stop the bridge by hand on this session, and record the stop the branch keeps. */
+	const stopBridge = async (): Promise<boolean> => {
+		// A start may still be building, and closing before it lands would leave the
+		// poller that lands afterwards running behind a session that stopped it.
+		epoch += 1;
+		await settle();
+		const wasRunning = bridge !== undefined && bridge.status().state !== "stopped";
+		await bridge?.shutdown();
+		forget();
+		// An explicit stop is recorded even on a session that never started one: it is
+		// this session's answer, and a resume must not open what a person closed.
+		persist({ account: null });
+		return wasRunning;
+	};
+
 	const commandDeps: CommandDeps = {
 		getBridge: () => bridge,
-		// Both of these can be the first thing that needs the bridge: `/wechat login`
-		// runs before `session_start` on an RPC host, so the load is awaited here too.
-		ensureBridge: (ctx) => (bridge === undefined ? ensure(ctx) : Promise.resolve(bridge)),
+		startBridge,
+		stopBridge,
 		loadConfig: (cwd) => loadWechatConfig(cwd),
 		createLoginClient: async (cwd) => {
 			const config = loadWechatConfig(cwd);
 			return clientOf(await clientModule.get(), config);
 		},
 		saveAccount,
-		primaryAccount,
+		storedAccount,
 		readHistory: async (peer, count) => {
 			const { readPeerHistory } = await import("./commands/history.ts");
 			return readPeerHistory(ctxRef?.cwd ?? process.cwd(), join(wechatDir(), "sessions"), peer, count);
 		},
-		logout: () => {
+		logout: async () => {
+			epoch += 1;
+			await settle();
 			clearCredentials();
-			// The account is the on/off switch: without one there is nothing to report,
-			// so drop the handle rather than leave `/wechat` showing the old owner and
-			// counters. The next `ensureBridge`/`autoStart` builds a fresh bridge from
-			// the new account.
-			bridge = undefined;
-			building = undefined;
+			// The account the branch bound is gone, so the binding goes with it: a
+			// resume would otherwise open a bridge with nothing to log in as.
+			persist({ account: null });
+			forget();
 		},
 		now: () => Date.now(),
 	};
 
 	registerCommands(pi, commandDeps);
-	// A tool call is the other reader that can arrive first: it joins the session's
-	// start rather than finding no bridge because the frame came back sooner.
+	// A tool call is the other reader that can arrive first: it joins a start the
+	// session already began, and never begins one — the bridge is opened by hand.
 	registerTools(pi, {
 		getBridge: async () => {
-			const ctx = ctxRef;
-			if (ctx) await start(ctx);
+			// A tool joins a start that is already happening — the frame's reconcile or a
+			// hand start's build — and never begins one: the bridge is opened by hand.
+			await settle();
 			return bridge;
 		},
 	});
 
 	pi.on("session_start", (_event, ctx) => {
 		ctxRef = ctx;
-		// Stored credentials mean the bridge should be polling, so a new session
-		// (startup, reload, `/new`, resume, fork) reconnects it without a command.
-		// The bridge module loads here, on the first account, not at registration.
+		// One account per file: a file an older version wrote as a map is rewritten
+		// once, so the accounts it listed beside the active one stop existing.
+		try {
+			migrateCredentials();
+		} catch {
+			// The rewrite is housekeeping; a read of a legacy file still works.
+		}
+		// A session that bound an account opens it again here, which is what makes
+		// `/resume`, `/reload`, and the RPC double start land on one poller; a
+		// session with no binding — a fresh `/new`, or one that never started it —
+		// opens nothing.
+		void start(ctx);
+	});
+	// A tree jump lands on another branch, whose binding may be a different account
+	// or none: the running poller is reconciled with what the branch now says.
+	pi.on("session_tree", (_event, ctx) => {
+		ctxRef = ctx;
 		void start(ctx);
 	});
 	pi.on("session_shutdown", async () => {
@@ -272,9 +398,9 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			await starting;
 			await bridge?.shutdown();
 		} finally {
-			// A throwing close must not leave a live handle on a dead runtime.
-			bridge = undefined;
-			building = undefined;
+			// The binding stays on the branch, so a resume reopens what a shutdown
+			// closed; only `/wechat stop` and `/wechat logout` unbind.
+			forget();
 			starting = undefined;
 			ctxRef = undefined;
 		}
