@@ -6,6 +6,11 @@
  * keeps the poller lock fresh. A wedged request is retried at once with the same
  * cursor (nothing is skipped), a transport error backs off, an expired token
  * stops the loop, and an account another live session has taken over stops it too.
+ *
+ * The cursor is the batch's acknowledgement, so it moves only once the batch has
+ * been handed over *and* the connection is still ours: a kill inside the hand-off,
+ * or a close that interrupted it, leaves the old cursor and the next connection
+ * reads the batch again.
  */
 
 import type { BotCredentials, WeixinMessage } from "../types.ts";
@@ -43,7 +48,11 @@ export interface PollDeps {
 	notify: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** The token expired; the bridge clears its running state and reports it. */
 	onExpired: () => void;
-	onMessages: (messages: WeixinMessage[]) => void;
+	/**
+	 * Hand a batch over. Returning a promise holds the cursor back until the batch has
+	 * really been taken, so a download still in flight cannot be acknowledged early.
+	 */
+	onMessages: (messages: WeixinMessage[]) => void | Promise<void>;
 	/**
 	 * Re-stamp the lock at the top of every attempt. It is also the ownership check: a
 	 * bridge whose lock another live session took stops the connection here, which the
@@ -74,6 +83,7 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 			/** One notice per failure episode, so a flapping link is reported once. */
 			let timeoutNotified = false;
 			let rejectedNotified = false;
+			let errorNotified = false;
 			while (deps.isRunning() && !signal.aborted) {
 				// Before the request, not after the answer: an account another live session has
 				// taken over is not ours to read, and applying a response under a second cursor
@@ -114,7 +124,10 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 						continue;
 					}
 					deps.onPoll?.({ at: deps.now(), error: messageOf(error) });
-					deps.notify(`WeChat poll failed: ${messageOf(error)}`, "warning");
+					if (!errorNotified) {
+						errorNotified = true;
+						deps.notify(`WeChat poll failed: ${messageOf(error)}`, "warning");
+					}
 					try {
 						await deps.sleep(BACKOFF_MS, signal);
 					} catch {
@@ -150,12 +163,20 @@ export function createPollLoop(deps: PollDeps): PollLoop {
 				}
 				timeoutNotified = false;
 				rejectedNotified = false;
+				errorNotified = false;
+				// The hand-off first, the acknowledgement after it. A batch whose messages are
+				// still downloading is not ours to acknowledge: the cursor is what makes the
+				// server forget them, and a poller that dies holding it loses them for good.
+				await deps.onMessages(response.msgs);
+				// A close or a lost lock during the hand-off: keep the old cursor, so the next
+				// connection reads the batch again. Intake's seen ids do not stand in the way,
+				// because they are only persisted with the message's hand-off.
+				if (!deps.isRunning()) return;
 				const next = response.buf;
 				if (next && next !== deps.cursor()) {
 					deps.setCursor(next);
 					deps.saveState();
 				}
-				deps.onMessages(response.msgs);
 				deps.onPoll?.({ at: deps.now(), holdMs: hint !== undefined && hint.hold === hold ? hint.timeoutMs : hold });
 			}
 		},

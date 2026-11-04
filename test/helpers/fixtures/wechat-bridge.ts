@@ -93,6 +93,8 @@ export interface ClientOptions {
 	noTicket?: boolean;
 	/** Refuse a send whose signal is already aborted, as `fetch` would. */
 	respectSignal?: boolean;
+	/** Hold every media download until the returned `releaseMedia` is called. */
+	holdMedia?: boolean;
 }
 
 export function makeClient(
@@ -103,11 +105,23 @@ export function makeClient(
 	sent: Array<{ to: string; text: string; contextToken?: string }>;
 	typing: Array<{ ilinkUserId: string; typing: boolean }>;
 	calls: { polls: number };
+	/** Resolves once a held download has begun. */
+	mediaDownloading: Promise<void>;
+	/** Let a held download finish. */
+	releaseMedia: () => void;
 } {
 	const sent: Array<{ to: string; text: string; contextToken?: string }> = [];
 	const typing: Array<{ ilinkUserId: string; typing: boolean }> = [];
 	const queue = [...script];
 	const calls = { polls: 0 };
+	let releaseMedia: (() => void) | undefined;
+	let beginDownload: (() => void) | undefined;
+	const mediaGate = new Promise<void>((resolve) => {
+		releaseMedia = resolve;
+	});
+	const mediaDownloading = new Promise<void>((resolve) => {
+		beginDownload = resolve;
+	});
 	const client = {
 		getUpdates: async (_account: BotCredentials, _cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
 			calls.polls += 1;
@@ -136,12 +150,23 @@ export function makeClient(
 			return { ret: 0 };
 		},
 		downloadCdn: async (ref: { full_url?: string; encrypt_query_param?: string }): Promise<Uint8Array> => {
+			if (options.holdMedia) {
+				beginDownload?.();
+				await mediaGate;
+			}
 			const bytes = options.media?.[ref.full_url ?? ref.encrypt_query_param ?? ""];
 			if (!bytes) throw new Error("no media");
 			return bytes;
 		},
 	};
-	return { client: client as unknown as WechatClient, sent, typing, calls };
+	return {
+		client: client as unknown as WechatClient,
+		sent,
+		typing,
+		calls,
+		mediaDownloading,
+		releaseMedia: () => releaseMedia?.(),
+	};
 }
 
 export interface Script {

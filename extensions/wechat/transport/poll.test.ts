@@ -2,6 +2,10 @@
  * The poll loop's watchdog and its one hand-over: how long one `getupdates` may
  * hang, and the lost poller lock that ends the loop instead of sharing the account.
  *
+ * The third thing it owns is the batch's acknowledgement: the cursor is what makes the
+ * server forget a message, so it moves only once the batch has been handed over and the
+ * connection is still ours — an interrupted batch is read again, never lost.
+ *
  * The server reports how long it held a poll, which is a better bound than the
  * generic fallback — but only for the hold it actually answered. A configured
  * `pollHoldMs` that changes afterwards has to take effect, or a lowered hold
@@ -11,6 +15,7 @@
 import { describe, expect, test } from "bun:test";
 import type { BotCredentials, UpdatesResponse } from "../types.ts";
 import type { WechatClient } from "./client.ts";
+import { waitFor } from "../../../test/helpers/process.ts";
 import { createPollLoop, type PollDeps } from "./poll.ts";
 
 const ACCOUNT: BotCredentials = {
@@ -109,5 +114,136 @@ describe("the poller lock", () => {
 
 		// One poll under the held lock, and no request after the lost one.
 		expect({ polls, checks }).toEqual({ polls: 1, checks: 2 });
+	});
+});
+
+describe("the batch acknowledgement", () => {
+	/** One answer carrying a message, at a new cursor. */
+	function batch(buf: string): UpdatesResponse {
+		return { ret: 0, msgs: [{ from_user_id: "owner@im.wechat", item_list: [] }], buf };
+	}
+
+	/** A client that answers from a script, then holds the poll open until it is aborted. */
+	function scriptedClient(answers: Array<UpdatesResponse | Error>) {
+		const queue = [...answers];
+		const attempted: string[] = [];
+		const client = {
+			getUpdates: async (_account: BotCredentials, cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
+				attempted.push(cursor);
+				const next = queue.shift();
+				if (next instanceof Error) throw next;
+				if (next) return next;
+				await new Promise<void>((resolve) => signal?.addEventListener("abort", () => resolve(), { once: true }));
+				throw new Error("aborted");
+			},
+		} as unknown as WechatClient;
+		return { client, attempted };
+	}
+
+	/**
+	 * A loop over one client, writing down what it acknowledged and when. `onMessages`
+	 * runs inside the recorded hand-off, so a test can hold it and watch the cursor.
+	 */
+	function harness(
+		client: WechatClient,
+		options: { running?: () => boolean; onMessages?: () => void | Promise<void> } = {},
+	) {
+		const events: string[] = [];
+		const notices: string[] = [];
+		const sleeps: number[] = [];
+		const controller = new AbortController();
+		let cursor = "c0";
+		const deps: PollDeps = {
+			client: () => client,
+			account: () => ACCOUNT,
+			holdMs: () => undefined,
+			cursor: () => cursor,
+			setCursor: (next) => {
+				cursor = next;
+				events.push("cursor");
+			},
+			saveState: () => events.push("save"),
+			sleep: async (ms) => {
+				sleeps.push(ms);
+			},
+			notify: (message) => notices.push(message),
+			onExpired: () => {},
+			onMessages: async () => {
+				events.push("handoff");
+				await options.onMessages?.();
+			},
+			refreshLock: () => {},
+			isRunning: options.running ?? (() => true),
+			now: () => 0,
+			pollTimeout: () => 1_000,
+		};
+		const done = createPollLoop(deps).run(controller.signal);
+		return {
+			done,
+			events,
+			notices,
+			sleeps,
+			cursor: () => cursor,
+			abort: () => controller.abort(),
+		};
+	}
+
+	test("waits for the hand-off before it moves the cursor", async () => {
+		// The cursor is the server's permission to forget the batch, so a message still
+		// downloading is not read yet: it becomes durable after the hand-off returns.
+		const { client, attempted } = scriptedClient([batch("c2")]);
+		let release: (() => void) | undefined;
+		const handoff = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const loop = harness(client, { onMessages: () => handoff });
+
+		await waitFor(() => loop.events.includes("handoff"));
+		expect({ events: loop.events, cursor: loop.cursor() }).toEqual({ events: ["handoff"], cursor: "c0" });
+
+		release?.();
+		await waitFor(() => loop.events.includes("save"));
+		expect(loop.events.slice(0, 3)).toEqual(["handoff", "cursor", "save"]);
+		expect(loop.cursor()).toBe("c2");
+
+		loop.abort();
+		await loop.done;
+		expect(attempted).toEqual(["c0", "c2"]);
+	});
+
+	test("keeps the old cursor when a close interrupted the batch", async () => {
+		// The bridge closed while the batch was being handled. Nothing about it may be
+		// written down, or the next connection has no way to read the message again.
+		const { client, attempted } = scriptedClient([batch("c2")]);
+		let running = true;
+		const loop = harness(client, {
+			running: () => running,
+			onMessages: () => {
+				running = false;
+			},
+		});
+
+		await loop.done;
+
+		expect(loop.events).toEqual(["handoff"]);
+		expect(attempted).toEqual(["c0"]);
+	});
+
+	test("reports a transport error once per episode", async () => {
+		// Two seconds apart during an outage: a line per attempt would bury the terminal,
+		// so one line per episode, as the timeout and rejection branches beside it do.
+		const { client, attempted } = scriptedClient([
+			new Error("socket hang up"),
+			new Error("socket hang up"),
+			batch("c1"),
+		]);
+		const loop = harness(client);
+
+		await waitFor(() => attempted.length > 2);
+		expect(loop.notices.filter((message) => message.includes("poll failed"))).toHaveLength(1);
+		expect(loop.sleeps).toEqual([2_000, 2_000]);
+
+		loop.abort();
+		await loop.done;
 	});
 });

@@ -55,6 +55,8 @@ export interface AdmissionQueue {
 	enqueue(item: InboundItem): void;
 	/** Slots reserved but not yet queued (downloads in flight). */
 	pending(peer: string): number;
+	/** Resolves once every admission in flight right now has finished. */
+	settled(): Promise<void>;
 	/** Drop the bookkeeping (a new connection). */
 	reset(): void;
 }
@@ -94,6 +96,15 @@ export function createAdmissionQueue(deps: AdmissionQueueDeps): AdmissionQueue {
 
 		pending(peer: string): number {
 			return admitting.get(peer) ?? 0;
+		},
+
+		/**
+		 * The tails, which wait on everything ahead of them in their own chain: the poll
+		 * loop awaits this before it acknowledges a batch, so a message still downloading
+		 * cannot be counted as read.
+		 */
+		settled(): Promise<void> {
+			return Promise.all([...chains.values()]).then(() => undefined);
 		},
 
 		reset(): void {
