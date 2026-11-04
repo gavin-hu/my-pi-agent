@@ -78,6 +78,7 @@ describe("poll loop", () => {
 			refreshLock: () => {
 				refreshes += 1;
 			},
+			startHeartbeat: () => () => {},
 			isRunning: () => running,
 			now: () => 1000,
 			onPoll: (result) => polls.push(result),
@@ -180,6 +181,7 @@ describe("poll loop", () => {
 			onExpired: () => {},
 			onMessages: (list) => void messages.push(...list),
 			refreshLock: () => {},
+			startHeartbeat: () => () => {},
 			isRunning: () => true,
 			now: () => 1000,
 			pollTimeout: () => 5,

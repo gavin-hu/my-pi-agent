@@ -65,6 +65,12 @@ export interface BridgeDeps {
 	/** Re-stamp the lock, or take it back; false when another live session owns it. */
 	refreshLock: () => boolean;
 	releaseLock: () => void;
+	/**
+	 * Arm the lock heartbeat around `beat`, and return the stop function. It runs for one
+	 * connection: the beat must end with the poll loop, so a stopped bridge never keeps a
+	 * record fresh that it no longer holds.
+	 */
+	startHeartbeat: (beat: () => void) => () => void;
 	sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 	/** Arm a cancellable one-shot timer. Defaults to a real, unref'd `setTimeout`. */
 	armTimer?: ArmTimer;
@@ -193,10 +199,20 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	function handleLockLost(): void {
 		if (connection !== "running") return;
 		connection = "stopped";
-		// The loop is on its way out — it asked for the stamp — so nothing needs aborting.
+		// A beat can find a takeover while a poll is parked: abort it, so the loop cannot wake
+		// up holding a batch that is the new holder's to answer.
+		abort?.abort();
 		abort = undefined;
 		void dropConnection();
 		notify("WeChat polling stopped: another Pi session took over the poller lock.", "warning");
+	}
+
+	/**
+	 * Re-stamp the lock: at the top of every poll attempt, and on the heartbeat between
+	 * them. Whichever finds another session's record ends this connection.
+	 */
+	function stamp(): void {
+		if (!deps.refreshLock()) handleLockLost();
 	}
 
 	/** Send one bubble to a peer and report whether it was delivered. */
@@ -326,9 +342,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			// the server forget it.
 			await admission.settled();
 		},
-		refreshLock: () => {
-			if (!deps.refreshLock()) handleLockLost();
-		},
+		refreshLock: stamp,
+		startHeartbeat: () => deps.startHeartbeat(stamp),
 		isRunning: () => connection === "running",
 		pollTimeout,
 		now: deps.now,

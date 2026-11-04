@@ -54,6 +54,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: a poller that is alive and polling never loses its lock to a second session — the
+  record is re-stamped on a 30 s heartbeat for as long as the poll loop runs, and the 120 s stale
+  bar is four beats, so a poll attempt that outlasts it (a long-poll hold, then a batch whose media
+  is still downloading) no longer looks like an abandoned lock. A poller that stopped beating — a
+  crash, or a wedged process — is still taken over, and a heartbeat that finds a takeover aborts the
+  parked poll so its batch is not handed over twice.
 - `wechat`: an inbound message survives a kill, a close, and a poller error — a batch's cursor is
   persisted only after its messages reach a peer's session, so a download still in flight is read
   again instead of acknowledged and lost; a close that interrupts one leaves it to the next start

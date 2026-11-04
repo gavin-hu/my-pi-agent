@@ -132,7 +132,9 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			import("./peer/peer-session.ts"),
 			import("./dialog/remote-ui.ts"),
 		]);
-		const { acquireLock, lockPath, readLock, refreshLock, releaseLock } = await import("./state/lock.ts");
+		const { acquireLock, lockPath, readLock, refreshLock, releaseLock, startLockHeartbeat } = await import(
+			"./state/lock.ts"
+		);
 		const { readState, statePath, writeState } = await import("./state/state.ts");
 		const { SLASH_COMMANDS } = await import("./commands/slash.ts");
 		const { readPeerHistory } = await import("./commands/history.ts");
@@ -170,6 +172,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			acquireLock: () => acquireLock(lockPath(), lockDeps()),
 			refreshLock: () => refreshLock(lockPath(), lockDeps()),
 			releaseLock: () => releaseLock(lockPath(), process.pid),
+			startHeartbeat: (beat) => startLockHeartbeat(beat),
 			loadLock: () => readLock(lockPath()),
 			notify: (message, kind) => {
 				ctxRef?.ui.notify(message, kind);

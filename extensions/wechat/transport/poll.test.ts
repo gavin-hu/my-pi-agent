@@ -59,6 +59,7 @@ describe("the poll watchdog", () => {
 			onExpired: () => {},
 			onMessages: () => {},
 			refreshLock: () => true,
+			startHeartbeat: () => () => {},
 			isRunning: () => polls < responses.length,
 			now: () => 0,
 			pollTimeout: (serverHintMs) => {
@@ -105,6 +106,7 @@ describe("the poller lock", () => {
 				// loop reads as an end rather than a reason to poll again.
 				if (checks === 2) running = false;
 			},
+			startHeartbeat: () => () => {},
 			isRunning: () => running,
 			now: () => 0,
 			pollTimeout: () => 1_000,
@@ -114,6 +116,50 @@ describe("the poller lock", () => {
 
 		// One poll under the held lock, and no request after the lost one.
 		expect({ polls, checks }).toEqual({ polls: 1, checks: 2 });
+	});
+
+	test("beats under the lock for the whole run, and stops beating with it", async () => {
+		// One attempt can outlast the stale bar, so the beat lasts exactly as long as the loop. One
+		// left armed would keep a record fresh that this process no longer holds.
+		let armed = 0;
+		let stopped = 0;
+		const client = {
+			getUpdates: async (_account: BotCredentials, _cursor: string, signal?: AbortSignal): Promise<UpdatesResponse> => {
+				await new Promise<void>((resolve) => signal?.addEventListener("abort", () => resolve(), { once: true }));
+				throw new Error("aborted");
+			},
+		} as unknown as WechatClient;
+		const deps: PollDeps = {
+			client: () => client,
+			account: () => ACCOUNT,
+			holdMs: () => undefined,
+			cursor: () => "",
+			setCursor: () => {},
+			saveState: () => {},
+			sleep: async () => {},
+			notify: () => {},
+			onExpired: () => {},
+			onMessages: () => {},
+			refreshLock: () => {},
+			startHeartbeat: () => {
+				armed += 1;
+				return () => {
+					stopped += 1;
+				};
+			},
+			isRunning: () => true,
+			now: () => 0,
+			pollTimeout: () => 1_000,
+		};
+		const controller = new AbortController();
+		const run = createPollLoop(deps).run(controller.signal);
+
+		await waitFor(() => armed === 1);
+		expect(stopped).toBe(0);
+
+		controller.abort();
+		await run;
+		expect({ armed, stopped }).toEqual({ armed: 1, stopped: 1 });
 	});
 });
 
@@ -146,7 +192,11 @@ describe("the batch acknowledgement", () => {
 	 */
 	function harness(
 		client: WechatClient,
-		options: { running?: () => boolean; onMessages?: () => void | Promise<void> } = {},
+		options: {
+			running?: () => boolean;
+			onMessages?: () => void | Promise<void>;
+			startHeartbeat?: () => () => void;
+		} = {},
 	) {
 		const events: string[] = [];
 		const notices: string[] = [];
@@ -173,6 +223,7 @@ describe("the batch acknowledgement", () => {
 				await options.onMessages?.();
 			},
 			refreshLock: () => {},
+			startHeartbeat: options.startHeartbeat ?? (() => () => {}),
 			isRunning: options.running ?? (() => true),
 			now: () => 0,
 			pollTimeout: () => 1_000,
@@ -227,6 +278,24 @@ describe("the batch acknowledgement", () => {
 
 		expect(loop.events).toEqual(["handoff"]);
 		expect(attempted).toEqual(["c0"]);
+	});
+
+	test("does not hand a batch over once the connection is no longer ours", async () => {
+		// A heartbeat can find a takeover while the request is parked. The batch then belongs to
+		// the new holder, so handing it over here would answer the peer a second time.
+		let running = true;
+		const client = {
+			getUpdates: async (): Promise<UpdatesResponse> => {
+				running = false;
+				return batch("c2");
+			},
+		} as unknown as WechatClient;
+		const loop = harness(client, { running: () => running });
+
+		await loop.done;
+
+		// No hand-off, and nothing written: no cursor, no save.
+		expect(loop.events).toEqual([]);
 	});
 
 	test("reports a transport error once per episode", async () => {
