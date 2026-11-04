@@ -149,13 +149,20 @@ export function makeClient(
 			typing.push({ ilinkUserId: args.ilinkUserId, typing: args.typing });
 			return { ret: 0 };
 		},
-		downloadCdn: async (ref: { full_url?: string; encrypt_query_param?: string }): Promise<Uint8Array> => {
+		downloadCdn: async (
+			ref: { full_url?: string; encrypt_query_param?: string },
+			limits?: { maxBytes?: number },
+		): Promise<Uint8Array> => {
 			if (options.holdMedia) {
 				beginDownload?.();
 				await mediaGate;
 			}
 			const bytes = options.media?.[ref.full_url ?? ref.encrypt_query_param ?? ""];
 			if (!bytes) throw new Error("no media");
+			// The client refuses a body its cap would exceed, before handing it on.
+			if (limits?.maxBytes !== undefined && bytes.byteLength > limits.maxBytes) {
+				throw new Error(`media exceeded the ${limits.maxBytes}-byte limit`);
+			}
 			return bytes;
 		},
 	};
