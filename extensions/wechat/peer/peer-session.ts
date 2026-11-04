@@ -67,8 +67,11 @@ export interface PeerSessionOptions {
 /** One peer's live session. */
 export interface PeerSession {
 	session: AgentSession;
-	/** Drop the session and its event listeners. History is already on disk. */
-	dispose(): void;
+	/**
+	 * Tell the peer's extensions the session is over, then drop it and its listeners.
+	 * History is already on disk.
+	 */
+	dispose(): Promise<void>;
 }
 
 /**
@@ -149,7 +152,8 @@ export function buildPeerLoader(cwd: string, agentDir: string): DefaultResourceL
  *
  * The returned session is not subscribed to anything: the caller drives it with
  * `prompt`/`abort` and reads its events. `dispose()` must be called when the peer
- * goes idle for long enough, so N peers do not keep N contexts alive.
+ * goes idle for long enough, so N peers do not keep N contexts alive — and it is
+ * what lets the peer's extensions release the resources they opened for it.
  */
 export async function openPeerSession(peer: string, options: PeerSessionOptions): Promise<PeerSession> {
 	const create = options.seams?.create ?? createAgentSession;
@@ -193,6 +197,17 @@ export async function openPeerSession(peer: string, options: PeerSessionOptions)
 
 	return {
 		session,
-		dispose: () => session.dispose(),
+		async dispose(): Promise<void> {
+			// `AgentSession.dispose()` does not emit `session_shutdown` — only the runtime
+			// teardown does, and a peer session has no runtime. An extension opens its
+			// per-session resources in `session_start` (serve's socket, file-browse's page
+			// server, web-access's cache, job and watch children) and lets go of them only
+			// here, so without this event each idle sweep strands one more set.
+			if (session.extensionRunner.hasHandlers("session_shutdown")) {
+				// Before the session goes, so a handler still sees a live session.
+				await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
+			}
+			session.dispose();
+		},
 	};
 }

@@ -178,12 +178,12 @@ describe("wechat lifecycle", () => {
 				async abort(): Promise<void> {
 					release();
 				},
-				dispose(): void {},
+				async dispose(): Promise<void> {},
 			};
 			wechat(fake.pi, {
 				createClient: client.createClient,
 				sleep: client.sleep,
-				openSession: async () => ({ session, dispose: () => {} }) as unknown as PeerSession,
+				openSession: async () => ({ session, dispose: async () => {} }) as unknown as PeerSession,
 			});
 			const { ctx, notifications, selects } = fakeCtx({
 				mode: "tui",

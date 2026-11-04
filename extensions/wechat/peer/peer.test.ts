@@ -45,9 +45,9 @@ describe("peer session", () => {
 			setActiveToolsByName: (names: string[]) => {
 				active = [...names];
 			},
-			dispose: () => {
-				disposals += 1;
-			},
+			// `disposal.test.ts` owns what a session's extensions hear on the way out.
+			extensionRunner: { hasHandlers: () => false, emit: async () => {} },
+			dispose: () => void (disposals += 1),
 		};
 		return {
 			session: session as unknown as AgentSession,
@@ -142,7 +142,7 @@ describe("peer session", () => {
 		expect(fake.bound()?.mode).toBe("rpc");
 		expect(fake.bound()?.uiContext).toBe(uiContext);
 
-		opened.dispose();
+		await opened.dispose();
 		expect(fake.disposed()).toBe(1);
 	});
 
@@ -292,7 +292,7 @@ describe("peer worker", () => {
 		return {
 			peerSession: {
 				session: session as unknown as AgentSession,
-				dispose: () => session.dispose(),
+				dispose: async () => session.dispose(),
 			} as never,
 			session,
 			emit,
@@ -503,7 +503,7 @@ describe("peer worker", () => {
 		await worker.close();
 		resolveOpen?.({
 			session: { dispose: () => disposed.push(1) } as never,
-			dispose: () => disposed.push(1),
+			dispose: async () => void disposed.push(1),
 		} as never);
 		await settle();
 		await settle();

@@ -188,15 +188,24 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 		return { status: queued > 0 ? "queued" : "idle", queued, ...sessionAge };
 	}
 
-	/** Drop the peer's session and queue. */
-	function releaseSession(peer: string): void {
-		const target = peers.get(peer);
-		if (!target) return;
+	/**
+	 * Let go of the peer's session: the extensions that opened per-session resources in
+	 * `session_start` are told it is over, then the session itself goes. The entry
+	 * forgets the session at once, so no turn can be handed one that is shutting down.
+	 */
+	function disposeSession(target: PeerEntry): Promise<void> {
 		cancelIdleSweep(target);
-		target.session?.dispose();
+		const opened = target.session;
 		target.session = undefined;
 		target.sessionSince = undefined;
 		target.opening = undefined;
+		return opened ? opened.dispose() : Promise.resolve();
+	}
+
+	/** Drop the peer's session and queue. */
+	function releaseSession(peer: string): Promise<void> {
+		const target = peers.get(peer);
+		return target ? disposeSession(target) : Promise.resolve();
 	}
 
 	/** Dispose an idle session so N peers do not keep N contexts warm. */
@@ -206,9 +215,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 		target.disposeTimer = armTimer(idleTimeoutMs, () => {
 			target.disposeTimer = undefined;
 			if (target.running || target.queue.length > 0) return;
-			target.session?.dispose();
-			target.session = undefined;
-			target.opening = undefined;
+			void disposeSession(target);
 		});
 	}
 
@@ -218,11 +225,11 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			const startFresh = fresh.delete(peer);
 			target.opening = deps
 				.openSession(peer, { fresh: startFresh })
-				.then((opened) => {
+				.then(async (opened) => {
 					// The bridge may have closed (or reset this peer) while the session
 					// was being built; dispose it instead of leaking it.
 					if (closed || peers.get(peer) !== target) {
-						opened.dispose();
+						await opened.dispose();
 						throw new Error("The WeChat bridge closed while opening the session.");
 					}
 					target.session = opened;
@@ -431,7 +438,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			const target = peers.get(peer);
 			if (target?.running) return false;
 			fresh.add(peer);
-			releaseSession(peer);
+			void releaseSession(peer);
 			if (target) {
 				target.queue = [];
 				cancelIdleSweep(target);
@@ -471,10 +478,11 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 				.filter((target) => target.session)
 				.map((target) => target.session?.session.abort());
 			await Promise.allSettled(runningAborts);
-			for (const peer of [...peers.keys()]) {
-				releaseSession(peer);
-				peers.delete(peer);
-			}
+			// The extensions let go of their per-session resources before a close reports done,
+			// so a `session_shutdown` handler that never returns holds `/wechat stop`.
+			const releasing = [...peers.keys()].map((peer) => releaseSession(peer));
+			peers.clear();
+			await Promise.all(releasing);
 			aborted.clear();
 			fresh.clear();
 			await announceAbandoned(abandoned);

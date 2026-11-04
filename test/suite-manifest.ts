@@ -190,6 +190,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"dialog/interaction",
 		"dialog/remote-ui",
 		"peer/admission",
+		"peer/disposal",
 		"peer/peer",
 		"peer/presence",
 		"peer/reply-pipeline",
