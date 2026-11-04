@@ -16,6 +16,7 @@ import {
 	repoRootFor,
 	revParse,
 	type RunGitOptions,
+	worktrees,
 } from "../../lib/git/index.ts";
 import { isInside, realPathOfNearest } from "../../lib/path.ts";
 import { isPidAlive } from "../../lib/spawn.ts";
@@ -381,38 +382,14 @@ export async function listManagedWorktrees(
 	repoRoot: string,
 	config: WorktreeConfig,
 ): Promise<ManagedWorktree[]> {
-	const result = await git(pi, ["worktree", "list", "--porcelain"], repoRoot);
-	if (result.code !== 0) return [];
 	const managedRoot = realPathOfNearest(resolve(repoRoot, config.dir));
-	const entries: ManagedWorktree[] = [];
-	let current: ManagedWorktree = { path: "" };
-	const flush = () => {
-		if (!current.path) return;
-		const path = realPathOfNearest(current.path);
-		if (isInside(managedRoot, path)) {
-			entries.push({ ...current, path });
-		}
-		current = { path: "" };
-	};
-	for (const line of result.stdout.split("\n")) {
-		if (line.startsWith("worktree ")) {
-			flush();
-			current.path = line.slice("worktree ".length).trim();
-		} else if (line.startsWith("branch ")) {
-			current.branch = line
-				.slice("branch ".length)
-				.trim()
-				.replace(/^refs\/heads\//, "");
-		} else if (line.startsWith("HEAD ")) {
-			current.head = line.slice("HEAD ".length).trim().slice(0, 8);
-		} else if (line === "locked" || line.startsWith("locked ")) {
-			current.locked = line === "locked" ? "" : line.slice("locked ".length).trim();
-		} else if (line.trim() === "") {
-			flush();
-		}
-	}
-	flush();
-	return entries;
+	const resolved = (await worktrees(createExecRunner(pi), repoRoot)).map(({ path, head, branch, locked }) => ({
+		path: realPathOfNearest(path),
+		head,
+		branch,
+		locked,
+	}));
+	return resolved.filter((entry) => isInside(managedRoot, entry.path));
 }
 
 /** Lock a worktree so a concurrent sweep does not remove it. */

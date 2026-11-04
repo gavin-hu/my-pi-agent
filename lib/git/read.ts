@@ -90,6 +90,66 @@ export async function revParseMany(runGit: RunGit, cwd: string, revs: readonly s
 	return ids.length === revs.length ? ids : [];
 }
 
+/**
+ * A working tree of the repository, as `git worktree list --porcelain` reports it.
+ */
+export interface WorktreeEntry {
+	/** The path git prints for the working tree. */
+	path: string;
+	/** The commit checked out there, shortened the way the worktree screen draws it. */
+	head?: string;
+	/** The branch checked out there, without `refs/heads/`. */
+	branch?: string;
+	/** Whether the entry is the bare repository rather than a checkout. */
+	bare?: boolean;
+	/** The lock reason, or the empty string for a lock without one. */
+	locked?: string;
+}
+
+/** Characters of a commit id kept here: every caller compares or draws one short. */
+const SHORT_ID = 8;
+
+/**
+ * Every working tree of the repository containing `cwd`, the main checkout first.
+ *
+ * That order is git's promise, and callers lean on it: the first entry is the
+ * repository's own directory, which is the name a session works under rather than
+ * the worktree it happens to sit in. The format is parsed here once — the worktree
+ * extension filters this list, the bus reads it — so a field git adds is one edit.
+ * A failed call is no list, the same answer as a repository git will not describe.
+ */
+export async function worktrees(runGit: RunGit, cwd: string): Promise<WorktreeEntry[]> {
+	const result = await runGit(["worktree", "list", "--porcelain"], { cwd });
+	if (result.code !== 0) return [];
+	const entries: WorktreeEntry[] = [];
+	let current: WorktreeEntry | undefined;
+	const flush = () => {
+		if (current) entries.push(current);
+		current = undefined;
+	};
+	for (const line of result.stdout.split("\n")) {
+		if (line.startsWith("worktree ")) {
+			flush();
+			current = { path: line.slice("worktree ".length).trim() };
+			continue;
+		}
+		// A line before the first entry describes no tree, so it belongs to none.
+		if (!current) continue;
+		if (line.startsWith("HEAD ")) current.head = line.slice("HEAD ".length).trim().slice(0, SHORT_ID);
+		else if (line.startsWith("branch "))
+			current.branch = line
+				.slice("branch ".length)
+				.trim()
+				.replace(/^refs\/heads\//, "");
+		else if (line === "bare") current.bare = true;
+		else if (line === "locked" || line.startsWith("locked "))
+			current.locked = line === "locked" ? "" : line.slice("locked ".length).trim();
+		else if (line.trim() === "") flush();
+	}
+	flush();
+	return entries;
+}
+
 /** Whether the repository has at least one commit. */
 export async function hasCommits(runGit: RunGit, cwd: string): Promise<boolean> {
 	return (await revParse(runGit, cwd, "HEAD")) !== undefined;
