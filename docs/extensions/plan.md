@@ -38,7 +38,7 @@ executes.
 | Approval in the browser | the `/plan review` page's **Approve & run** | The plan is approved without returning to the terminal, and the steps are seeded. | Shipped |
 | Inline comments | the page's `+ Comment`, **Save feedback** | Comments are saved into the plan file as `> [!REVIEW]` lines and returned to the model. | Shipped |
 | Live page | the page's `events` stream, the plan-file poll | An edit made elsewhere repaints every open page without a reload. | Shipped |
-| Changed sections | the `exit` review screen, the `/plan review` outline | After a refinement, only the sections that changed are marked. | Shipped |
+| Changed sections | the `exit` review screen, the `/plan review` outline | After a refinement, only the sections that changed are marked: the screen counts them, puts a `·` in the body's margin beside each changed section's first line, and names the current one in the scroll row, where the page dots each changed outline entry. | Shipped |
 | Block-level change marks | the `/plan review` page's **Changed** view | After a refinement, each block that is new or edited is marked — an inserted step marks itself and leaves the rest of its section alone — and a section that lost blocks says how much shorter it became. **All** / **Changed** / **Comments** switch what the page shows, `v` cycles them, `n`/`N` walk the blocks that carry a comment, and a printed review is always the whole plan. | Unreleased |
 | Settled comments | the page's `Resolve` / `Reopen` on a note you wrote | The note keeps its place, its quote and its history and is written `> [!REVIEW resolved]`, where a later review and the model read it as closed; the panel counts `2 open · 1 resolved`, and every card names who wrote it. | Unreleased |
 | Section navigation | the review screen, `n`/`p` | The screen names the section you are in and jumps between headings. | Shipped |
@@ -574,15 +574,17 @@ agent file that overrides it.
 
 ## Review screen
 
-<img src="../../assets/screens/plan.png" alt="The terminal plan review: a Plan Review title rule, a notice that one section changed since the last review, the plan body with its headings and ◼/◻ task checkboxes, a scroll gauge naming the current section and the visible line range, and the Esc/a/r/w, scroll, and section-jump hints" width="100%">
+<img src="../../assets/screens/plan.png" alt="The terminal plan review: a Plan Review title rule, a notice that one section changed since the last review, the plan body with its headings, a `·` in the margin beside the changed `Steps` heading, and ◼/◻ task checkboxes, a scroll gauge naming the current section and the visible line range, and the Esc/a/r/w, scroll, and section-jump hints" width="100%">
 
 `exit` opens this screen on the plan file it just wrote. The body is
 rendered with Pi's own `Markdown` component and `getMarkdownTheme()`, so
 headings, lists, inline code, code blocks, links, and quotes carry the active
 theme's colours; task items get the shared `◼` (done) or `◻` (pending) marker,
-like the bytefly screen and the question dialog. A plan taller than the terminal
-scrolls under a gauge that names the section at the top of the viewport and the
-line range it shows, and the footer lists only the keys that apply.
+like the bytefly screen and the question dialog, and the transcript's
+approved-plan preview draws the same two boxes over the plan it shows. A plan
+taller than the terminal scrolls under a gauge that names the section at the top
+of the viewport and the line range it shows, and the footer lists only the keys
+that apply.
 
 - **Actions.** The footer colours the primary actions (`a approve & run` in
   `success`, `r refine` in `accent`). `a` asks `y/N` in the footer and says what
@@ -600,11 +602,15 @@ line range it shows, and the footer lists only the keys that apply.
   are in, and jumps between sections with `n`/`p`; the scroll row names the
   current section when the plan has more than one.
 - **What changed since the last review.** After a refinement, the screen names
-  how many sections changed, marks the current one in the scroll row, and the
-  browser outline dots each changed section, so a re-review does not mean
-  re-reading the whole plan. The baseline is one digest per heading section of
-  what the previous review showed, kept as a session entry, so a resumed session
-  or a `/tree` restore marks only what changed on its own branch.
+  how many sections changed, puts a `·` in the body's margin beside each changed
+  section's first line, marks the current one in the scroll row, and the browser
+  outline dots each changed section, so a re-review does not mean re-reading the
+  whole plan or `n`-ing through it to find the one that moved. The margin mark
+  replaces the body's first padding column, so a heading keeps its column and a
+  long heading never loses its text to the mark. The baseline is one digest per
+  heading section of what the previous review showed, kept as a session entry, so
+  a resumed session or a `/tree` restore marks only what changed on its own
+  branch.
 - **Scrolling.** `↑`/`↓` or `j`/`k`, `space`/`b` or `PgUp`/`PgDn`, `d`/`u`,
   `g`/`G`, and the mouse wheel. When the plan overflows, a gauge row above the
   hints shows the scroll position, the percent, and the visible line range (the
@@ -1051,14 +1057,14 @@ every link and closes that listener; closing the review does both.
 | `steps.ts` | Plan-document structure: the outline, step extraction and the `Steps`-section scope, the plan's own goal (`goalSection`), and the checkbox edit. |
 | `sections.ts` | The one fence-aware heading scan: `extractSections`, `sectionKeys` (the key that tells two identically titled sections apart), and the `HEADING` / `FENCE` / `normalizeHeadingText` vocabulary `blocks.ts` reads a heading through. |
 | `format.ts` | Pure result/approval text: the plan preview, the step-cap diagnosis, step labels, the merge summary, and the verification note. |
-| `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, and `changedSections`, which hands each section back with its flag. |
+| `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, `changedSections`, which hands each section back with its flag, and `taskMarker`, the split of a task item's line that the review screen and the transcript's preview both draw. |
 | `runtime.ts` | Enabled state, tool gating, persistence (mode and review baseline), the `plan` tool's identity and its place in the active set, footer status. |
 | `tools.ts` | The one registration: the flat action schema, the dispatch over the five actions, and the call and result blocks they draw. |
 | `tools/` | One module per action (`enter.ts`, `write.ts`, `exit.ts`, `cancel.ts`, `steps.ts`), each exporting its `execute`/`call`/`text` seam; plus `refusal.ts` (the one rejected-call shape), `todo-seed.ts` (the two nested `todo` writes) and `nested.ts` (reading a nested result). |
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. It also owns the contract — `ReviewDecision`, `ReviewBaselines`, `ReviewPlanOptions` — which `review-lazy.ts` imports as types. |
 | `review-prompt.ts` | Pure rendering and parsing for the review's dialog presentation: the digest posted before the question, the four option labels in one table with their parser, and the editor a revision is asked with. |
 | `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, and `/plan list`. |
-| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep). |
+| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and the `·` margin mark on each changed section, the scroll row's `· changed`, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep). |
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (store size and oldest plan, title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks), and `contentBlockAt`: the block with content a comment beside blank space belongs to. |
 | `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `readFeedback`/`parseFeedback` (body, blocks, and comments out of one parse), `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `feedbackSummary`, and payload validation. |

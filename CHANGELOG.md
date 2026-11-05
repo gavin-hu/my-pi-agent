@@ -45,6 +45,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   refused before the review rather than offering an approval that recorded a goal named after its
   slug.
 
+- `plan`: a second review marks every section that changed in the body, not only the one at the top —
+  a `·` in accent replaces the body's first padding column on each changed section's first line, so a
+  reader finds a revised section without `n`-ing through a long plan and a long heading never loses
+  text to the mark. The count row and the scroll row's `· changed` say what the dot means, and the
+  mark is the kit's `GLYPHS.changed`, the dot the review page already paints beside a changed outline
+  entry.
+
+- `plan`: the transcript's approved-plan preview draws a task item with the review screen's `◼`/`◻`
+  boxes instead of the file's `- [ ]`. Both surfaces build the line from `plan-text.ts`'s `taskMarker`,
+  which keeps the two columns the narrower box frees as padding, so the item's text stays in the column
+  the file put it in.
+
 - `session-bus`: a session's automatic label names the repository it works in — the main checkout's
   directory, which `git worktree list` lists first — rather than the directory it sits in, and a Pi
   session name that merely repeats one of that repository's worktrees or its `worktree-<x>` branch is
