@@ -10,8 +10,11 @@
  * plan's steps into the todo list, and finalizes the session goal, so it asks `y/N`
  * first through the shared `ConfirmState`, naming those three effects in the footer;
  * the plan stays mounted, and `Esc` backs out of the question before it backs
- * out of the review. It returns the chosen action through `onClose` so the
- * caller can act only after the screen is gone and input focus is free again.
+ * out of the review. `Ctrl+C` is the one key that ends the turn instead: it
+ * closes the screen with `interrupt`, whatever layer has the keyboard, so an
+ * interrupt is never answered as if the reader had dismissed something. It
+ * returns the chosen action through `onClose` so the caller can act only after
+ * the screen is gone and input focus is free again.
  */
 
 import { basename } from "node:path";
@@ -37,7 +40,7 @@ import {
 	type ScreenHint,
 	type ViewportRowsSource,
 } from "../../lib/tui/chrome.ts";
-import { isCloseKey } from "../../lib/tui/cursor.ts";
+import { isCloseKey, isInterruptKey } from "../../lib/tui/cursor.ts";
 import { ConfirmState } from "../../lib/tui/confirm.ts";
 import { gaugeBar } from "../../lib/tui/gauge.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
@@ -49,7 +52,7 @@ import { changedSections, planDisplayText, taskMarker, type SectionDigest } from
 import type { ApprovalEffects } from "./types.ts";
 
 /** What the user chose from the read/review screen. */
-export type PlanViewAction = "approve" | "refine" | "keep" | "browser" | "cancel";
+export type PlanViewAction = "approve" | "refine" | "keep" | "browser" | "cancel" | "interrupt";
 
 /** A plan section's rendered start line, for navigation and the current-section label. */
 interface SectionOffset {
@@ -348,6 +351,12 @@ export class PlanViewComponent implements Component {
 	}
 
 	handleInput(data: string): void {
+		// Ctrl+C interrupts the turn, so it answers whatever layer holds the keyboard:
+		// the reader asked for the review to stop, not for the plan to be kept.
+		if (isInterruptKey(data)) {
+			this.options.onClose("interrupt");
+			return;
+		}
 		if (this.editing) {
 			if (isCloseKey(data)) {
 				this.cancelRefine();

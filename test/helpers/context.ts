@@ -62,6 +62,8 @@ export interface FakeCtxResult {
 	/** The header and footer factories `session_start` installed, by slot. */
 	installed: { header?: unknown; footer?: unknown };
 	customCalls: any[];
+	/** How many times the extension aborted the turn through `ctx.abort()`. */
+	aborted: () => number;
 	setConfirm(value: boolean | undefined): void;
 	setSelect(value: string | undefined | Array<string | undefined>): void;
 	setEditor(value: string | undefined | Array<string | undefined>): void;
@@ -93,6 +95,7 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 	const editorCalls: Array<{ title: string; prefill?: string }> = [];
 	const customCalls: any[] = [];
 	const installed: { header?: unknown; footer?: unknown } = {};
+	let aborts = 0;
 
 	let confirmResult = options.confirm;
 	let selectResult: DialogResult | DialogResult[] = options.select;
@@ -109,6 +112,10 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 		cwd,
 		isProjectTrusted: () => options.trusted ?? true,
 		isIdle: options.isIdle ?? (() => true),
+		// Aborting ends the turn, so a test reads the count rather than a signal.
+		abort: () => {
+			aborts += 1;
+		},
 		waitForIdle: async () => {},
 		navigateTree: async (targetId: string) => {
 			navigations.push(targetId);
@@ -213,6 +220,7 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 		editorCalls,
 		customCalls,
 		installed,
+		aborted: () => aborts,
 		setConfirm: (value) => {
 			confirmResult = value;
 		},

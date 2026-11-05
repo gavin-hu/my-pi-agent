@@ -604,6 +604,11 @@ that apply.
   nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the model
   the plan was not approved; `x` leaves plan mode without approving and keeps the
   plan file, reporting it in the exit block alone; `w` opens the browser review.
+  `Ctrl+C` is the interrupt, not another Escape: it ends the turn from wherever
+  the keyboard is — the screen, the `y/N` question, the inline editor — so no
+  review is settled and the model is never told to ask what to change. Plan mode
+  stays on, write access stays off, and the result block reads `Plan review
+  interrupted`.
 - **Sections.** The screen splits the body at its headings, names the section you
   are in, and jumps between sections with `n`/`p`; the scroll row names the
   current section when the plan has more than one.
@@ -1070,7 +1075,7 @@ every link and closes that listener; closing the review does both.
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. It also owns the contract — `ReviewDecision`, `ReviewBaselines`, `ReviewPlanOptions` — which `review-lazy.ts` imports as types. |
 | `review-prompt.ts` | Pure rendering and parsing for the review's dialog presentation: the digest posted before the question, the four option labels in one table with their parser, and the editor a revision is asked with. |
 | `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, and `/plan list`. |
-| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and the `·` margin mark on each changed section, the scroll row's `· changed`, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep). |
+| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and the `·` margin mark on each changed section, the scroll row's `· changed`, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep/interrupt, and the `Ctrl+C` interrupt that closes every layer). |
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (store size and oldest plan, title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks), and `contentBlockAt`: the block with content a comment beside blank space belongs to. |
 | `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `readFeedback`/`parseFeedback` (body, blocks, and comments out of one parse), `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `feedbackSummary`, and payload validation. |
@@ -1117,7 +1122,7 @@ every link and closes that listener; closing the review does both.
 bun test extensions/plan
 ```
 
-Thirty-one co-located suites, declared in `test/suite-manifest.ts`:
+Thirty-five co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, the store's directory, atomic
   writes, `read`/`latest`/`index`, `setSteps`, `saveFeedback`, and step extraction;
@@ -1158,6 +1163,10 @@ Thirty-one co-located suites, declared in `test/suite-manifest.ts`:
   terminal narrows (the review's three exits and `n/p section` ahead of the scroll
   keys), the section jump only when the plan has sections, the role each key is
   painted in, and the inline editor's own entry line.
+- `interrupt.test.ts` — `Ctrl+C` as the interrupt the review screen tells from
+  `Esc`: it closes every layer that holds the keyboard (the screen, the `y/N`
+  question, the inline editor), the `exit` action aborts the turn and leaves plan
+  mode on without a nested call, and the block reads `Plan review interrupted`.
 - `sections.test.ts` — the fence-aware scan: heading shape, fences, the preamble,
 source lines and levels, and the occurrence key.
 - `extension.test.ts` — the Pi wiring: registration, the enter and toggle requests,

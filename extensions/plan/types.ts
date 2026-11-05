@@ -141,6 +141,8 @@ export interface ExitPlanModeDetails {
 	annotations?: PlanAnnotation[];
 	/** True when the user left plan mode without approving the plan. */
 	cancelled?: boolean;
+	/** True when the reader interrupted the turn, so the review settled nothing. */
+	interrupted?: boolean;
 	/** True when no interactive UI was available to ask for approval. */
 	unavailable?: boolean;
 }

@@ -27,6 +27,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: `Ctrl+C` on the review screen interrupts the turn instead of settling the review as “keep
+  planning”, which spent a model turn telling it to ask what to change. It ends the turn from wherever
+  the keyboard is — the screen, the `y/N` approval question, the inline refine editor — and leaves plan
+  mode on, write access off, and the plan unapproved, recorded as `Plan review interrupted`. `Esc` keeps
+  its layered meaning, so `isCloseKey` stays Esc-or-Ctrl+C for the screens where both close and the review
+  asks `isInterruptKey` first.
+
 - `wechat`: `/stop` is the chat's whole brake. It stops the running turn and drops the messages
   still queued behind it, because those turns would otherwise start the moment the stop settled and
   the queue is the one thing a phone cannot see to empty; the burst it took is reported as
