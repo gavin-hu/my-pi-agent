@@ -72,7 +72,9 @@ export type ScreenHint = string | { text: string; color?: TuiRole };
  * hangs it under a screen's title rule), joined with ` · `. Plain hints are
  * `faint`; an object hint names a role (`faint` when omitted). Hints are added while they
  * fit, so a narrow terminal drops whole keys instead of truncating one in half.
- * The first hint is always kept; the result is clipped to `width`.
+ * The first hint is always kept; the result is clipped to `width`. Order the array
+ * by what a reader cannot discover otherwise — the mode's exit before an extra —
+ * because the tail is what a narrow terminal loses.
  */
 export function screenHint(theme: Theme, width: number, hints: ScreenHint[], indent = BODY_INDENT): string {
 	const target = Math.max(1, width);

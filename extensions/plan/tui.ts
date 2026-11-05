@@ -97,18 +97,25 @@ const MIN_PADDED_WIDTH = 6;
 const BODY_PADDING = 2;
 /** Segments in the scroll gauge. */
 const GAUGE_SEGMENTS = 10;
-/** Footer hints shared by the review and the inline editor's primary actions. */
-const PRIMARY_HINTS: ScreenHint[] = [
+/**
+ * The review footer's first tier: the three ways the review ends. `screenHint`
+ * drops the tail, so they lead whatever the width: at 60 columns a reader still
+ * sees how to approve and how to leave the mode.
+ */
+const ENDING_HINTS: ScreenHint[] = [
 	"Esc keep plan",
 	{ text: "a approve", color: "ok" },
-	{ text: "r refine", color: "accent" },
-	{ text: "w browser", color: "accent" },
 	{ text: "x exit plan", color: "warn" },
 ];
-/** Scroll keys appended to the review footer while the plan overflows. */
-const SCROLL_HINTS: ScreenHint[] = ["j/k scroll", "space page", "g/G ends"];
+/** Second tier: what opens another surface, kept while the ends and the jump fit. */
+const ACTION_HINTS: ScreenHint[] = [
+	{ text: "r refine", color: "accent" },
+	{ text: "w browser", color: "accent" },
+];
 /** Section-jump hint, shown when the plan has more than one heading section. */
 const SECTION_HINTS: ScreenHint[] = ["n/p section"];
+/** Last tier: while the plan overflows, before the keys a reader tries anyway. */
+const SCROLL_HINTS: ScreenHint[] = ["j/k scroll", "space page", "g/G ends"];
 
 /** A task checkbox in a list marker: `- [x] `, `1. [ ] `. */
 const TASK_MARKER = /^([-*+]|\d+[.)])(\s+)(\[([ xX])\])(\s*)$/;
@@ -412,9 +419,13 @@ export class PlanViewComponent implements Component {
 			if (this.maxOffset > 0) lines.push(scrollRow(theme, w, this.offset, end, body.length, sectionLabel));
 			else lines.push("");
 			const pending = this.confirm.pending;
-			const sectionHints = sections.length > 1 ? SECTION_HINTS : [];
+			// Rated, not appended: the jump sits above the actions and the scroll keys,
+			// because a key that opens nothing else has no way to be found.
+			const jump: ScreenHint[] = sections.length > 1 ? SECTION_HINTS : [];
 			const hints: ScreenHint[] =
-				this.maxOffset > 0 ? [...PRIMARY_HINTS, ...SCROLL_HINTS, ...sectionHints] : PRIMARY_HINTS;
+				this.maxOffset > 0
+					? [...ENDING_HINTS, ...jump, ...ACTION_HINTS, ...SCROLL_HINTS]
+					: [...ENDING_HINTS, ...ACTION_HINTS];
 			lines.push(
 				pending ? truncateToWidth(`  ${paint(theme, "warn", pending.prompt)}`, w) : screenHint(theme, w, hints),
 			);

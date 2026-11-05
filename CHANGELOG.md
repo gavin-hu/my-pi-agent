@@ -27,6 +27,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: the review footer is ordered by what a reader cannot discover otherwise — the three ways the
+  review ends (`Esc keep plan`, `a approve`, `x exit plan`), then `n/p section`, then `r refine` and
+  `w browser`, then the scroll keys — because `screenHint` drops the tail. A sectioned plan at 60
+  columns keeps its mode exit and its section jump, where before the exit went first and the jump
+  needed about 112.
+
 - `session-bus`: a session's automatic label names the repository it works in — the main checkout's
   directory, which `git worktree list` lists first — rather than the directory it sits in, and a Pi
   session name that merely repeats one of that repository's worktrees or its `worktree-<x>` branch is
