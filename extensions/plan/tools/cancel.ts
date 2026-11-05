@@ -26,7 +26,6 @@ export async function executeCancel(
 		return planRefusal("cancel", "Not in plan mode; there is nothing to cancel.");
 	}
 	runtime.disable(ctx);
-	ctx.ui.notify("Plan mode off — full access restored. The plan was not approved.", "info");
 	return {
 		content: [{ type: "text", text: CANCELLED_TEXT }],
 		details: { action: "cancel", cancelled: true } satisfies CancelPlanModeDetails,

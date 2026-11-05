@@ -27,6 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: leaving plan mode without approving reports once. The `cancel` action and `x` on the review
+  screen answer in their transcript block alone, where each also raised a toast naming the same mode
+  change; `/plan` and `Shift+Tab` keep their notice, because they draw no block to carry it.
+
 - `wechat`: the chat commands say what they do in the space they have — `/status` names a waiting
   prompt by its first line instead of pasting a plan review's whole digest into one bubble,
   `/history` labels each line `你` / `我` for a Chinese peer instead of always `You` / `Me`, and

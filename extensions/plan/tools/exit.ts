@@ -202,7 +202,6 @@ export async function executeExit(
 	if (decision.action === "cancel") {
 		runtime.disable(ctx);
 		const shown = decision.plan.relativePath;
-		ctx.ui.notify("Plan mode off — full access restored. The plan was not approved.", "info");
 		return {
 			content: [
 				{
