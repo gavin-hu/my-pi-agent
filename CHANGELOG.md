@@ -60,6 +60,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   guard fails a case that writes its budget as a literal. CI runs Linux serially beside macOS —
   ubuntu's parallel job parked 33 minutes — and every job states `timeout-minutes: 20`.
 
+- `dev`: `bun run check --changed` runs the script suites for a changed path under `scripts/` that no
+  suite is named after — the frame record `scripts/screens/frames.json`, which
+  `scripts/screens/frames.ts` opens by path, or `scripts/capture/crop-title-bar.js`, which `osascript`
+  runs, so no import edge reaches either and `scripts/screenshots.test.ts`, the suite that reads the
+  record, used to be left out. The width comes from `SCRIPT_SUITES` rather than a declared directory
+  mapping, the run says `unclaimed script: <path> > 9 script suites`, and a top-level
+  `scripts/<stem>.ts` still selects only its own suite.
+
 ### Removed
 
 - `wechat`: the per-sender machinery is gone — a Pi session per sender, `PEER_CONCURRENCY` and its fair

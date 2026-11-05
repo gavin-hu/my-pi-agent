@@ -42,6 +42,7 @@ const SHARED = [/^test\/helpers\//, /^test\/suite-manifest\.ts$/, /^package\.jso
 const EXTENSION_PATH = /^extensions\/([^/]+)\//;
 const LIB_PATH = /^lib\/([^/]+)(?:\/|$)/;
 const SCRIPT_PATH = /^scripts\/([^/]+)\.ts$/;
+const SCRIPTS_PATH = /^scripts\//;
 
 /** A path relative to `root`, in posix form so the keys compare on every host. */
 function relativeTo(root: string, file: string): string {
@@ -90,6 +91,24 @@ function suitesOfRegion(region: string): string[] {
 	}
 	const stem = region.slice("script:".length);
 	return SCRIPT_SUITES.includes(stem) ? [`scripts/${stem}.test.ts`] : [];
+}
+
+/**
+ * Whether a path under `scripts/` is one no suite claims: not the top-level script a
+ * suite is named after.
+ *
+ * A script reads its data by path — `screens/frames.ts` opens `frames.json` beside it
+ * — and runs a helper file the way `osascript` runs `capture/crop-title-bar.js`, so no
+ * import edge reaches either, and the directory names no suite stem. The script suites
+ * are therefore the whole candidate set.
+ */
+function isUnclaimedScript(path: string): boolean {
+	return SCRIPTS_PATH.test(path) && regionOf(path) === undefined;
+}
+
+/** Every script suite, which is how wide an unclaimed script path has to run. */
+function scriptSuites(): string[] {
+	return SCRIPT_SUITES.map((stem) => `scripts/${stem}.test.ts`);
 }
 
 /** Every declared suite, by the repo-relative files its static imports reach. */
@@ -185,7 +204,8 @@ export function selectSlow(root: string): Selection {
  * The tests a change can reach. The package-level tests always run, because
  * they are the sweeps that read the tree rather than import a module; a shared
  * path widens the run to everything; otherwise a changed file contributes the
- * suites that import it and the suites named after its region.
+ * suites that import it and the suites named after its region, and a path under
+ * `scripts/` that names no suite contributes the script suites.
  */
 export function selectChanged(scope: Tree, changed: readonly string[], index: Map<string, string[]>): Selection {
 	const tests = new Set(scope.packageTests);
@@ -197,6 +217,12 @@ export function selectChanged(scope: Tree, changed: readonly string[], index: Ma
 	const shared = changed.filter((path) => SHARED.some((pattern) => pattern.test(path))).sort();
 	if (shared.length > 0) {
 		return selection(selectAll(scope).tests, [`shared ground: ${shared.join(", ")} > every suite`]);
+	}
+	const scripts = changed.filter(isUnclaimedScript).sort();
+	if (scripts.length > 0) {
+		const suites = scriptSuites();
+		for (const suite of suites) tests.add(suite);
+		reasons.push(`unclaimed script: ${scripts.join(", ")} > ${suites.length} script suites`);
 	}
 	for (const path of [...changed].sort()) {
 		const reached = index.get(path) ?? [];
