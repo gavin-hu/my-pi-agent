@@ -188,6 +188,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"tools",
 		"extension",
 		"lifecycle",
+		"intake",
 		"transport/client",
 		"transport/deliver",
 		"transport/outbound",

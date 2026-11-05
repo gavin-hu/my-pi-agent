@@ -112,7 +112,7 @@ export interface IntakeDeps {
 	/** Senders refused since the connection opened, and their labels. */
 	refused: Counter;
 	refusedPeers: Set<string>;
-	/** Peers already told the queue is full, until it drains. */
+	/** Peers already told the queue is full: an entry lives while their queue stays full. */
 	overflow: Set<string>;
 	slashCommands: readonly SlashCommand[];
 }
@@ -254,6 +254,10 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 			commit();
 			return;
 		}
+		// Room again, so the flood that was refused is over and a later one is told too.
+		// The entry cannot wait for the queue to drain instead: a burst whose downloads
+		// all failed, and a `/stop`, empty it without a turn settling to say so.
+		deps.overflow.delete(peer);
 		presence.keepTyping(item.contextToken);
 		presence.armAck(item.contextToken);
 		admission.enqueue(item);

@@ -157,7 +157,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const refusedPeers = new Set<string>();
 	/** The language each peer last wrote in, so a media-only message can answer. */
 	const languages = new Map<string, PeerLanguage>();
-	/** Peers already told that the queue is full, until it drains. */
+	/** Peers already told that the queue is full, while it stays full. */
 	const overflow = new Set<string>();
 	const slashCommands = deps.slashCommands ?? SLASH_COMMANDS;
 	/** The peer's language memory: written here when a turn settles, read on every message. */
@@ -518,9 +518,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 					void presence.typingOff();
 					presence.pruneTyping();
 					languages.set(item.peer, item.language);
-					// The flood notice is per episode: clear it once the queue drains.
-					const left = (worker?.state().queued ?? 0) + admission.pending();
-					if (left === 0) overflow.delete(item.peer);
 				},
 				notify,
 				now: deps.now,

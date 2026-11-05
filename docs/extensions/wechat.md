@@ -314,7 +314,7 @@ needs. Per action:
 | Types `/help`, `/stop`, `/cancel`, or `/status` | The command list, a stopped answer and the count of queued messages that went with it, a withdrawn question, or the current state — including the dialog a blocked turn is waiting on. `/new` is declined: the chat is this session. A command works while a dialog waits: it is never read as an answer to it. |
 | Types `/status` while the session is planning | The status line ends `计划模式已开启，暂时不能写入。` / “Plan mode is on — writes are disabled.”, so the mode the terminal shows as a chip is readable from the chat too. A question waiting on you is named alone: its own digest already carried the mode. |
 | Types `/history` | The last eight messages of this session (or the requested number, up to 20), one line each. |
-| Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
+| Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue — and one on a later flood too, once the queue has had room again, so the limit is never past and never silent. |
 | Sends the same message twice (a server replay) | Answered once: the WeChat message id is remembered for an hour, across a reconnect or reload. |
 | Is mid-download when the bridge closes | One terminal line: the message is read again on the next start, rather than vanishing with the connection. |
 | Pastes a very long message | The first `maxInboundChars` characters reach the model, followed by a truncation marker, instead of an unbounded prompt. |
