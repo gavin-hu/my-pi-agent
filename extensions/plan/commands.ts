@@ -2,17 +2,15 @@
  * Slash command for the plan-mode extension.
  *
  * `/plan` toggles plan mode, or enters it and sends an optional task;
- * Shift+Tab toggles too, through bytefly's editor. Four subcommands are reserved: `/plan review [path]`
- * opens a plan in the browser (and sends saved comments to the model as a
- * refinement), `/plan share [stop]` prints or revokes the link a teammate opens,
- * `/plan list` shows the plans directory, newest first with Enter opening a
- * review, and `/plan cancel` leaves the mode without approving.
+ * Shift+Tab toggles too, through bytefly's editor. Two subcommands are reserved:
+ * `/plan review [path]` opens a plan in the browser (and sends saved comments to
+ * the model as a refinement), and `/plan list` shows the plans directory, newest
+ * first with Enter opening a review. Every other line is a task.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isRemoteTurn } from "../../lib/interaction.ts";
 import { READ_ONLY_SUMMARY } from "../../lib/plan-entry.ts";
-import { qrLines } from "../../lib/qr.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { feedbackSummary } from "./feedback.ts";
 import { runBrowserReview } from "./review-lazy.ts";
@@ -24,9 +22,7 @@ import type { PlanWebReview } from "./web.ts";
 const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
 const REVIEW_PREFIX = "review";
-const SHARE_PREFIX = "share";
 const LIST_PREFIX = "list";
-const CANCEL_PREFIX = "cancel";
 
 /** Notice text for the current mode; shared by `/plan` and the toggle request. */
 export function planModeNotice(enabled: boolean): string {
@@ -54,11 +50,6 @@ function isListSubcommand(prompt: string): boolean {
 	return prompt.toLowerCase() === LIST_PREFIX;
 }
 
-/** Exact `cancel` leaves plan mode without approving; a longer sentence stays a task. */
-function isCancelSubcommand(prompt: string): boolean {
-	return prompt.toLowerCase() === CANCEL_PREFIX;
-}
-
 /**
  * Whether a command line is the reserved `review` subcommand. Bare `review`
  * always is; a path after it is, but `review the auth flow` stays a task, so a
@@ -69,44 +60,6 @@ function isReviewSubcommand(prompt: string): boolean {
 	if (!prompt.startsWith(`${REVIEW_PREFIX} `)) return false;
 	const target = prompt.slice(REVIEW_PREFIX.length).trim();
 	return target.endsWith(".md") || target.includes("/") || target.includes("\\");
-}
-
-/**
- * Whether a command line is the reserved `share` subcommand. Exact `share` and
- * `share stop` are; `share the tokens` stays a task.
- */
-function isShareSubcommand(prompt: string): boolean {
-	const text = prompt.toLowerCase();
-	return text === SHARE_PREFIX || text === `${SHARE_PREFIX} stop`;
-}
-
-/**
- * `/plan share`: print the link (and a QR) a teammate opens, or revoke it. The
- * browser page has the same button; this is the path a phone-owned or remote
- * session needs, where there is no page to click.
- */
-async function shareReview(web: PlanWebReview, prompt: string, ctx: ExtensionContext): Promise<void> {
-	const stopping = prompt.toLowerCase().endsWith("stop");
-	const result = stopping ? await web.stopSharing() : await web.share();
-	if (!result) {
-		ctx.ui.notify("Plan share: no browser review is open; run /plan review first.", "warning");
-		return;
-	}
-	if (stopping) {
-		ctx.ui.notify("Plan share: reviewers can no longer open this review.", "info");
-		return;
-	}
-	const link = result.state.links.at(-1);
-	if (!result.state.sharing || !link) {
-		ctx.ui.notify(`Plan share: ${result.state.reason ?? "no link is available"}.`, "warning");
-		return;
-	}
-	const lines = ["Review link: " + link.url, ...(await qrLines(link.url))];
-	// One link is one person, so more than one is the team the page can list.
-	if (result.state.links.length > 1) {
-		lines.push(`${result.state.links.length} links shared — the page lists every link and who each one posts as.`);
-	}
-	ctx.ui.notify(lines.join("\n"), "info");
 }
 
 /**
@@ -226,35 +179,20 @@ export function registerCommands(
 ): void {
 	pi.registerCommand("plan", {
 		description:
-			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans, review one in the browser, share that review with a link, or cancel planning without approving",
+			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans, or review one in the browser",
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
-			const subcommands = [LIST_PREFIX, REVIEW_PREFIX, SHARE_PREFIX, CANCEL_PREFIX].filter((name) =>
-				name.startsWith(text),
-			);
+			const subcommands = [LIST_PREFIX, REVIEW_PREFIX].filter((name) => name.startsWith(text));
 			return subcommands.length > 0 ? subcommands.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args, ctx) => {
 			const prompt = args.trim();
 
-			// `/plan list`, `/plan review [path]`, and `/plan cancel` are reserved
-			// subcommands; everything else is a task.
-			if (isCancelSubcommand(prompt)) {
-				if (!runtime.isEnabled()) {
-					ctx.ui.notify("Plan mode is already off.", "info");
-					return;
-				}
-				runtime.disable(ctx);
-				ctx.ui.notify("Plan mode off — full access restored. The plan was not approved.", "info");
-				return;
-			}
+			// `/plan list` and `/plan review [path]` are the reserved subcommands;
+			// everything else is a task.
 			if (isListSubcommand(prompt)) {
 				await openPlanIndex(pi, runtime, web, ctx);
-				return;
-			}
-			if (isShareSubcommand(prompt)) {
-				await shareReview(web, prompt, ctx);
 				return;
 			}
 			if (isReviewSubcommand(prompt)) {

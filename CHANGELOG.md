@@ -125,6 +125,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   was recorded over the merge that closed it. `done` still reads `✓ done by <owner>`, or
   `· closed by instruction`, and a card file that still carries `landed` keeps reading.
 
+- `plan`: `/plan share` and `/plan cancel` are gone, leaving `list` and `review` as the only reserved
+  words. Sharing is the review page's — **Share**, **New link**, **Revoke** — and leaving without
+  approving is `plan` action `cancel`, bare `/plan`, or `Shift+Tab`; both commands restated a control
+  that already existed, and `/plan share` needed a review open on the local machine. Breaking: a line
+  beginning with either word is a planning task again, as it is with `share the tokens`.
+
 ### Fixed
 
 - `wechat`: a sender's id and an account label are sanitized before they reach the terminal. The

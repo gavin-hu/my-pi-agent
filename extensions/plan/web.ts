@@ -289,9 +289,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 		const mount: HttpMount = outcome.mount;
 		const port = mount.port;
 
-		// The second listener, its reviewer token, and the state the page and
-		// `/plan share` read. It is handed the request handler, the role map, and the
-		// frame hooks, so sharing stays one concern instead of five fields here.
+		// The second listener, its reviewer token, and the state the page reads. It
+		// is handed the request handler, the role map, and the frame hooks, so
+		// sharing stays one concern instead of five fields here.
 		const shareSession = createShareSession({
 			mount,
 			base,
