@@ -173,7 +173,9 @@ the revision it kept.
 
 `plan_path` names the file `write` returned; the action reads it back and
 presents it for approval. A hand-edited or older file whose step list is over the
-cap is refused before the review screen. The user approves, keeps planning, asks
+cap is refused before the review screen, and so is a blank one: there is nothing
+to approve, and approving it would finalize a goal named after the file's slug, so
+`write` or `cancel` is named instead. The user approves, keeps planning, asks
 for a refinement, or exits plan mode without approving; the last keeps the plan
 file for a later review and records no todo items or goal. The same decision goes by
 three names, because each surface names its own control: `x exit plan` on the review
@@ -583,13 +585,17 @@ scrolls under a gauge that names the section at the top of the viewport and the
 line range it shows, and the footer lists only the keys that apply.
 
 - **Actions.** The footer colours the primary actions (`a approve & run` in
-  `success`, `r refine` in `accent`). `a` asks `y/N` in the footer, then ends
-  plan mode, restores write access, and seeds `todo`; `y` or `Enter` approves and
-  `n`, `q`, or `Esc` goes back to reading. `r` keeps the plan mounted and opens
-  an inline editor beneath it (`Enter` submits, an empty buffer does nothing,
-  `Esc` returns to the plan); `Esc` keeps planning and tells the model the plan
-  was not approved; `x` leaves plan mode without approving and keeps the plan
-  file; `w` opens the browser review.
+  `success`, `r refine` in `accent`). `a` asks `y/N` in the footer and says what
+  the answer does — `plan mode off`, the steps it seeds into `todo`, and `goal
+  set` when the approval finalizes the session goal — leaving out a clause that
+  approval will not carry out, so `y` is not a blind yes; the question and its
+  `y/N` lead, so a narrow footer cuts the consequences rather than the answer.
+  `y` or `Enter` approves and ends plan mode, restores write access, and seeds
+  `todo`; `n`, `q`, or `Esc` goes back to reading. `r` keeps the plan mounted and
+  opens an inline editor beneath it (`Enter` submits, an empty buffer does
+  nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the model
+  the plan was not approved; `x` leaves plan mode without approving and keeps the
+  plan file; `w` opens the browser review.
 - **Sections.** The screen splits the body at its headings, names the section you
   are in, and jumps between sections with `n`/`p`; the scroll row names the
   current section when the plan has more than one.

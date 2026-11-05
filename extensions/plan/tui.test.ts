@@ -348,7 +348,7 @@ describe("plan review actions", () => {
 
 		component.handleInput("a");
 		expect(actions).toEqual([]);
-		expect(renderReview(component, 80).join("\n")).toContain("Approve and run the plan? y/N");
+		expect(renderReview(component, 80).join("\n")).toContain("Approve & run the plan? y/N");
 
 		component.handleInput("y");
 		expect(actions).toEqual(["approve"]);
@@ -384,7 +384,7 @@ describe("plan review actions", () => {
 		component.handleInput("w");
 
 		expect(actions).toEqual([]);
-		expect(renderReview(component, 80).join("\n")).toContain("Approve and run the plan? y/N");
+		expect(renderReview(component, 80).join("\n")).toContain("plan mode off, 2 steps to todo, goal set");
 	});
 
 	test("the question stays within the terminal width", () => {

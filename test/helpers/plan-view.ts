@@ -11,7 +11,9 @@
 import type { MarkdownTheme } from "@earendil-works/pi-tui";
 import { sectionDigests } from "../../extensions/plan/plan-text.ts";
 import type { StoredPlan } from "../../extensions/plan/plans.ts";
+import { planStepSummary } from "../../extensions/plan/steps.ts";
 import { PlanViewComponent, type PlanViewAction, type PlanViewOptions } from "../../extensions/plan/tui.ts";
+import type { ApprovalEffects } from "../../extensions/plan/types.ts";
 import { fakeMarkdownTheme, fakeTheme } from "./fakes.ts";
 
 /** The demo plan the fixtures render under. */
@@ -44,6 +46,8 @@ export interface PlanReviewOptions {
 	path?: string;
 	/** Content the previous review showed, for the changed markers. */
 	baseline?: string;
+	/** What the review says approving will do; the fixture's own steps and a goal by default. */
+	approval?: ApprovalEffects;
 }
 
 /** A review over `content`, recording the actions and refinements it closes with. */
@@ -58,6 +62,7 @@ export function planReview(
 	const component = new PlanViewComponent({
 		plan: planFixture(content, options.path),
 		baseline: options.baseline === undefined ? undefined : sectionDigests(options.baseline),
+		approval: options.approval ?? { steps: planStepSummary(content).total, setsGoal: true },
 		theme,
 		markdownTheme: options.markdownTheme ?? fakeMarkdownTheme(theme),
 		onClose: (action, refinement) => {

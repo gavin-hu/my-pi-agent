@@ -38,6 +38,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   columns keeps its mode exit and its section jump, where before the exit went first and the jump
   needed about 112.
 
+- `plan`: the approval question says what `y` does — plan mode off, the steps it seeds into `todo`, and
+  `goal set` when the approval finalizes the session goal — where it asked `Approve and run the plan?
+  y/N` and nothing else. A clause the approval will not carry out is left out, and the question and
+  its `y/N` lead so a narrow footer cuts the consequences rather than the answer. A blank plan file is
+  refused before the review rather than offering an approval that recorded a goal named after its
+  slug.
+
 - `session-bus`: a session's automatic label names the repository it works in — the main checkout's
   directory, which `git worktree list` lists first — rather than the directory it sits in, and a Pi
   session name that merely repeats one of that repository's worktrees or its `worktree-<x>` branch is
