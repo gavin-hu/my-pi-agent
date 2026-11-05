@@ -21,14 +21,7 @@ import { sanitizeLine } from "../../lib/format.ts";
 import { ownerRecord, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
 import { codePointSlice, parseInbound, peerKey, peerLabel, peerLanguage, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
-import {
-	expandSnippet,
-	findSlashCommand,
-	parseSlash,
-	slashControls,
-	type SlashCommand,
-	type SlashContext,
-} from "./commands/slash.ts";
+import { findSlashCommand, parseSlash, slashControls, type SlashCommand, type SlashContext } from "./commands/slash.ts";
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
 import type { MessageTarget } from "./transport/deliver.ts";
 import type { WechatConfig } from "./config.ts";
@@ -207,18 +200,9 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 		const slash = media.length === 0 ? parseSlash(text) : undefined;
 		const command = slash ? findSlashCommand(deps.slashCommands, slash.name) : undefined;
 		if (command && slash) {
-			if (command.ownerOnly && peerKey(peer) !== peerKey(owner ?? "")) {
-				deps.refused.value += 1;
-				commit();
-				return;
-			}
-			if (command.kind === "snippet") {
-				text = expandSnippet(command, slash.args);
-			} else {
-				void runSlashAction(command, target, slash.args);
-				commit();
-				return;
-			}
+			void runSlashAction(command, target, slash.args);
+			commit();
+			return;
 		}
 		// A reply to a pending prompt is consumed here, before queueing, so it never
 		// starts a turn of its own. A duplicate answer was stopped by the id check.

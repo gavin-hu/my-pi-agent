@@ -25,12 +25,10 @@ import {
 import { notice, NOTICE_KINDS } from "../text/notices.ts";
 import { formatPrompt, parsePromptAnswer, RETRY_NOTICE } from "../dialog/prompt.ts";
 import {
-	expandSnippet,
 	findSlashCommand,
 	helpText,
 	parseSlash,
 	SLASH_COMMANDS,
-	type SlashCommand,
 	type SlashContext,
 	type SlashPeerState,
 } from "./slash.ts";
@@ -468,18 +466,6 @@ describe("slash parsing", () => {
 		// A path-like message parses to a name that is not registered.
 		expect(findSlashCommand(SLASH_COMMANDS, parseSlash("/usr/local")?.name ?? "")).toBeUndefined();
 	});
-
-	test("expandSnippet appends args as a separate paragraph and handles a bodyless snippet", () => {
-		const snippet: SlashCommand = {
-			name: "summarize",
-			summary: "Summarize the current context",
-			kind: "snippet",
-			snippet: "Summarize what we have so far.",
-		};
-		expect(expandSnippet(snippet, "")).toBe("Summarize what we have so far.");
-		expect(expandSnippet(snippet, "about the tests")).toBe("Summarize what we have so far.\n\nabout the tests");
-		expect(expandSnippet({ name: "x", summary: "", kind: "snippet" }, "only args")).toBe("only args");
-	});
 });
 
 describe("built-in /stop and /status", () => {
@@ -612,12 +598,6 @@ describe("built-in /new", () => {
 		};
 	}
 
-	test("is an owner-only action", () => {
-		const command = findSlashCommand(SLASH_COMMANDS, "new");
-		expect(command?.kind).toBe("action");
-		expect(command?.ownerOnly).toBe(true);
-	});
-
 	test("declines in the chat, which is the session it would replace", async () => {
 		const command = findSlashCommand(SLASH_COMMANDS, "new");
 		const events: string[] = [];
@@ -649,19 +629,14 @@ describe("built-in /help", () => {
 		};
 	}
 
-	test("is a non-owner action", () => {
-		const command = findSlashCommand(SLASH_COMMANDS, "help");
-		expect(command?.kind).toBe("action");
-		expect(command?.ownerOnly).toBeUndefined();
-	});
-
 	test("replies with the command list", async () => {
 		const command = findSlashCommand(SLASH_COMMANDS, "help");
 		const replies: string[] = [];
 		await command?.run?.(context(replies));
 		expect(replies[0]).toContain("/new");
 		expect(replies[0]).toContain("/help");
-		expect(replies[0]).toContain("owner only");
+		// Admission is the owner's, so there is no second, per-command gate to announce.
+		expect(replies[0]).not.toContain("owner only");
 	});
 
 	test("replies in Chinese for a Chinese peer", async () => {
@@ -675,12 +650,12 @@ describe("built-in /help", () => {
 });
 
 describe("helpText", () => {
-	test("lists each command and marks owner-only ones", () => {
+	test("lists each command", () => {
 		const text = helpText([
-			{ name: "new", summary: "Start a new session", kind: "action", ownerOnly: true },
-			{ name: "help", summary: "List the chat commands", kind: "action" },
+			{ name: "new", summary: "Start a new session" },
+			{ name: "help", summary: "List the chat commands" },
 		]);
-		expect(text).toContain("/new — Start a new session (owner only)");
+		expect(text).toContain("/new — Start a new session");
 		expect(text).toContain("/help — List the chat commands");
 		expect(text).toContain("reaches the agent");
 	});
@@ -688,12 +663,12 @@ describe("helpText", () => {
 	test("speaks Chinese when the peer does, falling back to the English summary", () => {
 		const text = helpText(
 			[
-				{ name: "new", summary: "Start a new session", summaryZh: "开始新会话", kind: "action", ownerOnly: true },
-				{ name: "help", summary: "List the chat commands", kind: "action" },
+				{ name: "new", summary: "Start a new session", summaryZh: "开始新会话" },
+				{ name: "help", summary: "List the chat commands" },
 			],
 			"zh",
 		);
-		expect(text).toContain("/new — 开始新会话（仅限所有者）");
+		expect(text).toContain("/new — 开始新会话");
 		// A command without a Chinese summary falls back to the English one.
 		expect(text).toContain("/help — List the chat commands");
 		expect(text).toContain("其他内容都会发送给助手。");
