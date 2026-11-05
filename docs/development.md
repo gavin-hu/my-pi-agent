@@ -160,13 +160,18 @@ and `bun run check --changed` is the one that needs no argument: it runs the
 static half, then the suites the working tree and the branch can reach — every
 suite whose static imports touch a changed file, plus the suites of the region
 the file belongs to (`extensions/<name>/`, `lib/<area>/`, `scripts/<stem>.ts`).
+An asset is claimed the other way round: `ASSET_SUITES` beside the layout declares
+which suites read a directory under `assets/`, so an edit to `assets/cards/` runs
+`scripts/cards.test.ts`.
 The package-level tests always run, because they are the sweeps that read the
 tree rather than import a module, and a change to shared ground
 (`test/helpers/`, `test/suite-manifest.ts`, `package.json`, `tsconfig.json`,
 `bun.lock`) widens the run to everything and says so. The selection is printed
 before anything runs, one line per reason, so a narrow run is auditable rather
-than trusted — and a path no suite claims (a doc, a workflow, an asset) leaves
-the package-level tests as the whole run.
+than trusted — and a path no suite claims (a doc, a workflow) leaves the
+package-level tests as the whole run. An asset nothing declares is the one path
+that widens instead, because bytes a suite may open by name cannot be narrowed to
+none.
 
 A change that stays inside one extension or one `lib/` area may be verified with
 `bun run check --changed` and landed; CI still runs the whole suite on three

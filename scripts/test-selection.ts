@@ -15,7 +15,13 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { cachedSpecifiers, resolveFile, staticGraph, staticSpecifiers } from "../test/helpers/graph.ts";
-import { EXTENSION_SUITES, LIB_SUITES, SCRIPT_SUITES, declaredSuiteFiles } from "../test/suite-manifest.ts";
+import {
+	ASSET_SUITES,
+	EXTENSION_SUITES,
+	LIB_SUITES,
+	SCRIPT_SUITES,
+	declaredSuiteFiles,
+} from "../test/suite-manifest.ts";
 
 /** What a scope resolved to, and one line per group that put a file in it. */
 export interface Selection {
@@ -42,6 +48,7 @@ const SHARED = [/^test\/helpers\//, /^test\/suite-manifest\.ts$/, /^package\.jso
 const EXTENSION_PATH = /^extensions\/([^/]+)\//;
 const LIB_PATH = /^lib\/([^/]+)(?:\/|$)/;
 const SCRIPT_PATH = /^scripts\/([^/]+)\.ts$/;
+const ASSET_PATH = /^assets\/([^/]+)\//;
 
 /** A path relative to `root`, in posix form so the keys compare on every host. */
 function relativeTo(root: string, file: string): string {
@@ -61,16 +68,18 @@ export function tree(root: string): Tree {
 }
 
 /**
- * The region a path belongs to — `ext:board`, `lib:tui`, `script:render-bench` —
- * or `undefined` for a path no suite is named after. A region is the candidate
- * set for a file the import graph cannot see, such as one that was just deleted
- * or just started being imported.
+ * The region a path belongs to — `ext:board`, `lib:tui`, `script:render-bench`,
+ * `asset:cards` — or `undefined` for a path no suite is named after. A region is
+ * the candidate set for a file the import graph cannot see, such as one that was
+ * just deleted, just started being imported, or opened by name as asset data.
  */
 export function regionOf(path: string): string | undefined {
 	const script = SCRIPT_PATH.exec(path);
 	if (script) return `script:${script[1]}`;
 	const extension = EXTENSION_PATH.exec(path);
 	if (extension) return `ext:${extension[1]}`;
+	const asset = ASSET_PATH.exec(path);
+	if (asset) return `asset:${asset[1]}`;
 	const lib = LIB_PATH.exec(path);
 	if (!lib) return undefined;
 	return `lib:${lib[1].replace(/\.test\.ts$/, "").replace(/\.ts$/, "")}`;
@@ -78,6 +87,7 @@ export function regionOf(path: string): string | undefined {
 
 /** The declared suites in one region. */
 function suitesOfRegion(region: string): string[] {
+	if (region.startsWith("asset:")) return [...(ASSET_SUITES[region.slice("asset:".length)] ?? [])];
 	if (region.startsWith("ext:")) {
 		const name = region.slice("ext:".length);
 		return (EXTENSION_SUITES[name] ?? []).map((suite) => `extensions/${name}/${suite}.test.ts`);
@@ -182,10 +192,21 @@ export function selectSlow(root: string): Selection {
 }
 
 /**
+ * Whether a changed path is asset data no suite declares: bytes something may
+ * read by name, which no import edge and no region can point at.
+ */
+function unclaimedAsset(path: string): boolean {
+	if (!path.startsWith("assets/")) return false;
+	const region = regionOf(path);
+	return region === undefined || suitesOfRegion(region).length === 0;
+}
+
+/**
  * The tests a change can reach. The package-level tests always run, because
  * they are the sweeps that read the tree rather than import a module; a shared
- * path widens the run to everything; otherwise a changed file contributes the
- * suites that import it and the suites named after its region.
+ * path widens the run to everything, and so does an asset no suite declares;
+ * otherwise a changed file contributes the suites that import it and the suites
+ * named after its region.
  */
 export function selectChanged(scope: Tree, changed: readonly string[], index: Map<string, string[]>): Selection {
 	const tests = new Set(scope.packageTests);
@@ -197,6 +218,10 @@ export function selectChanged(scope: Tree, changed: readonly string[], index: Ma
 	const shared = changed.filter((path) => SHARED.some((pattern) => pattern.test(path))).sort();
 	if (shared.length > 0) {
 		return selection(selectAll(scope).tests, [`shared ground: ${shared.join(", ")} > every suite`]);
+	}
+	const unclaimed = changed.filter(unclaimedAsset).sort();
+	if (unclaimed.length > 0) {
+		return selection(selectAll(scope).tests, [`unclaimed asset: ${unclaimed.join(", ")} > every suite`]);
 	}
 	for (const path of [...changed].sort()) {
 		const reached = index.get(path) ?? [];

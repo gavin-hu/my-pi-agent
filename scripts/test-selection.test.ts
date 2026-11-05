@@ -7,10 +7,11 @@
  * to the manifest" are two different claims.
  */
 
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { textOf } from "../test/helpers/scan.ts";
-import { EXTENSION_SUITES, LIB_SUITES, declaredSuiteFiles } from "../test/suite-manifest.ts";
+import { ASSET_SUITES, EXTENSION_SUITES, LIB_SUITES, declaredSuiteFiles } from "../test/suite-manifest.ts";
 import {
 	gatedAmong,
 	regionOf,
@@ -46,6 +47,9 @@ describe("the region a path belongs to", () => {
 			["lib/format.ts", "lib:format"],
 			["lib/format.test.ts", "lib:format"],
 			["scripts/render-bench.ts", "script:render-bench"],
+			["assets/cards/cards.css", "asset:cards"],
+			["assets/tools/board.png", "asset:tools"],
+			["assets/README.md", undefined],
 			["docs/development.md", undefined],
 			["README.md", undefined],
 			["package.json", undefined],
@@ -136,6 +140,33 @@ describe("--changed", () => {
 		const docs = selectChanged(fake, ["docs/development.md"], index);
 		expect(docs.tests).toEqual(["test/a.test.ts", "test/b.test.ts"]);
 		expect(docs.reasons).toContain("no suite reaches these paths > package-level tests only");
+	});
+});
+
+describe("a change under assets/", () => {
+	test("an asset a suite declares is a region, so an edit runs that suite", () => {
+		const chosen = selectChanged(tree(repo), ["assets/cards/cards.css"], reachIndex(repo));
+		const owners = ASSET_SUITES.cards ?? [];
+		expect(owners.length).toBeGreaterThan(0);
+		expect(chosen.tests).toContain("scripts/cards.test.ts");
+		expect(chosen.reasons).toContain(`region asset:cards > ${owners.length} suites`);
+		expect(chosen.tests.length).toBe(tree(repo).packageTests.length + owners.length);
+	});
+
+	test("an asset nothing declares widens the run, because a suite may read it by name", () => {
+		const chosen = selectChanged(tree(repo), ["assets/tools/board.png"], reachIndex(repo));
+		expect(chosen.tests).toEqual(selectAll(tree(repo)).tests);
+		expect(chosen.reasons).toEqual(["unclaimed asset: assets/tools/board.png > every suite"]);
+	});
+
+	test("every declared owner names a declared suite, in a directory that is still there", () => {
+		const declared = declaredSuiteFiles();
+		const stale = Object.values(ASSET_SUITES)
+			.flat()
+			.filter((file) => !declared.includes(file));
+		expect(stale, "an owner is a declared suite").toEqual([]);
+		const gone = Object.keys(ASSET_SUITES).filter((name) => !existsSync(join(repo, "assets", name)));
+		expect(gone, "an owner key names a directory under assets/").toEqual([]);
 	});
 });
 
