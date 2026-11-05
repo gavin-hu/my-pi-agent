@@ -20,7 +20,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `wechat`: `/wechat cancel` withdraws the waiting prompt without stopping the turn — the one control
   action that had no verb, so a session without the control screen (rpc, json, print) could only let it
   time out. The screen's `c` key and the verb share one runner, and `c` is in the hint row, where it
-  used to be the one action a reader had to already know.
+  used to be the one action a reader had to already know. The chat answers to the same thing: `/cancel`,
+  or the documented `/wechat cancel` typed into the chat, withdraws the waiting question with its
+  `问题已撤回。` / “That question was withdrawn.” notice, where before both were read as the answer — an
+  `input` prompt kept `/cancel` as its value and a `confirm` bounced it back as one it could not read.
 
 ### Changed
 

@@ -17,7 +17,7 @@ session is fabricated.
 | Inbound replay safety | automatic: the WeChat message id | A replayed message id is answered once, remembered for an hour across a reconnect or reload. A batch is acknowledged only once its messages reach the turn queue, so a kill or a close mid-download reads that message again instead of losing it. | Shipped |
 | Inbound text cap | `maxInboundChars` | Text past the configured cap is truncated with a marker instead of becoming an unbounded prompt. | Shipped |
 | Chat language | automatic: a message written in Chinese | Notices and `/help` answer in the chat's language, and a neutral reply does not switch it back. | Shipped |
-| Slash commands | `/new`, `/stop`, `/status`, `/history`, `/help` | The chat stops, inspects, or asks for help without spending a turn. | Shipped |
+| Slash commands | `/new`, `/stop`, `/cancel`, `/status`, `/history`, `/help` | The chat stops, withdraws the question it is waiting on, inspects, or asks for help without spending a turn. | Shipped |
 | Fresh session | `/wechat new` (terminal) | A new terminal session starts unbound; the chat is whatever session runs the bridge. | Shipped |
 | Typing indicator | `typingIndicator` | The phone can tell a long turn from a dead bridge. | Shipped |
 
@@ -29,7 +29,7 @@ session is fabricated.
 | Forwarded dialogs | automatic: a dialog in a chat turn | A question or plan review raised inside a chat turn is asked and answered in the chat. |
 | Questions | `question` | The chat answers its question, numbered, and a reply is routed to that prompt alone. |
 | Control screen | `/wechat` | Account, connection, queue, the running turn, refusals, and the waiting prompt on one live screen. |
-| Prompt cancellation | `/wechat cancel`, `c` on the control screen | The waiting question is withdrawn with a notice, without stopping the turn. |
+| Prompt cancellation | `/cancel` in the chat, `/wechat cancel`, `c` on the control screen | The waiting question is withdrawn with a notice, without stopping the turn. |
 
 ### Security and admission
 
@@ -214,6 +214,7 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 |---|---|
 | `/new` | Declined: the chat is this session, so replacing it would close the bridge. Run `/wechat new` in the terminal. |
 | `/stop` | Stop the running turn; the turn itself answers `已停止。` / `Stopped.`. |
+| `/cancel` | Withdraw the question waiting for your reply, without stopping the turn; the question itself answers `问题已撤回。` / `That question was withdrawn.`. |
 | `/status` | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth, or `Idle.`. |
 | `/history [n]` | The last `n` messages of this conversation (default 8, max 20), one line each. |
 | `/help` | Reply with the available commands. |
@@ -222,6 +223,9 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 - Matching is exact on the first token and case-insensitive; an unknown `/foo`
   (or a path-like `/usr/...`) falls through to the model as ordinary text, and a
   message carrying media is never treated as a command.
+- A command also answers to a longer spelling it declares: `/wechat cancel` — the
+  terminal verb, and the form a session with no screen is told to type — reaches
+  `/cancel`, and the words after it are that command's arguments.
 - Commands are answered only for the account's owner; anyone else is refused
   before the command is parsed. They act on the one conversation, so there is no
   sender to scope them to.
@@ -302,7 +306,7 @@ needs. Per action:
 | Reads a long answer | Streamed as it is produced — one part per paragraph, per two silent seconds, or per 400 characters — and a part longer than `maxReplyChars` is split and numbered (`[1/3] …`), the number counting against the limit. |
 | Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
 | Is asked a question | One prompt at a time: a reply answers the question the turn is blocked on. A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at the halfway point of its window and then cancelled: three minutes for a dialog, ten for a plan review, where the plan has to be read first. |
-| Types `/help`, `/stop`, or `/status` | The command list, a stopped answer, or the current state — including the dialog a blocked turn is waiting on. `/new` is declined: the chat is this session. A command works while a dialog waits: it is never read as an answer to it. |
+| Types `/help`, `/stop`, `/cancel`, or `/status` | The command list, a stopped answer, a withdrawn question, or the current state — including the dialog a blocked turn is waiting on. `/new` is declined: the chat is this session. A command works while a dialog waits: it is never read as an answer to it. |
 | Types `/history` | The last eight messages of this session (or the requested number, up to 20), one line each. |
 | Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
 | Sends the same message twice (a server replay) | Answered once: the WeChat message id is remembered for an hour, across a reconnect or reload. |
@@ -362,13 +366,13 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
   dialog cannot freeze the session. A dialog uses three minutes; the plan review
   uses ten. A timed-out plan review is treated like a dismissal: plan mode ends
   without approval, and the plan file remains.
-- A prompt that goes away before it is answered says so: the control screen's `c`,
-  or `/wechat cancel` where there is no screen, withdraws it with `问题已撤回。` /
-  “That question was withdrawn.”, a `/stop` ends its turn with `已停止。`, and a
-  shutdown reports the abandoned turn — the chat was not slow, the question or the
-  session left. A question never outlives the turn that asked it: the turn's end
-  drops it, so `/status` stops naming it and the next message starts a turn of its
-  own instead of arriving as its answer.
+- A prompt that goes away before it is answered says so: the chat's `/cancel`,
+  the control screen's `c`, or `/wechat cancel` where there is no screen, withdraws
+  it with `问题已撤回。` / “That question was withdrawn.”, a `/stop` ends its turn
+  with `已停止。`, and a shutdown reports the abandoned turn — the chat was not slow,
+  the question or the session left. A question never outlives the turn that asked
+  it: the turn's end drops it, so `/status` stops naming it and the next message
+  starts a turn of its own instead of arriving as its answer.
 
 A chat turn is marked on the host session's UI context while it runs, and
 `askHuman` reads that marker, so a `question` or a plan review raised inside it is
@@ -502,7 +506,7 @@ rooms are delivered, a question a group-chat design would have to answer first.
 - The chat can only be replied to after it has messaged first (the protocol
   supplies a `context_token` only then).
 - Slash commands are fixed built-ins; there is no user-defined snippet or action
-  list yet, and `/new`, `/stop`, `/status`, `/history`, and `/help` are
+  list yet, and `/new`, `/stop`, `/cancel`, `/status`, `/history`, and `/help` are
   registered.
 - The binding is local to the session branch that recorded it. A parent's
   binding does not follow a fork's own `/new`, and a session that was never
@@ -525,7 +529,7 @@ in-process).
 | Events | `session_start` (record the live context, then open the bridge when the branch bound an account); `session_tree` (reconcile the poller with the binding the landed branch carries); `session_shutdown` (await that start, then an idempotent stop, leaving the binding). The chat turn's own events — `message_update`, `turn_end`, `agent_settled`, `session_compact` — are relayed by `host/chat.ts`, and `before_agent_start` appends the channel contract while a chat turn is marked. |
 | Sessions | `host/chat.ts` is the chat's session, and it is this Pi session: `sendUserMessage` starts the turn, `message_update` deltas feed the reply pipeline, `agent_settled` settles it, and `ctx.abort()` stops it. A prompt waits for the session to be idle, so a terminal run cannot swallow a message. No session is created, so there is no loader, no session directory, and no second poller to exclude. |
 | Turn ownership | `conversation/turn.ts`: one queue, one turn at a time, `prompt`/`abort` on the chat session, the fallback line when a turn ends without text, an idle sweep, and the one notice an abandoning close sends. `dialog/interaction.ts` builds the single channel (`createChatChannel`) the bridge holds. |
-| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a command runs out-of-band and replies, and an unknown one falls through. Each acts on the one conversation through `SlashSessionControls` (`stop` → worker abort, `status` → worker state, `history` → a read-only read of this session's entries); `/new` declines, because the chat is the session it would replace. |
+| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a command runs out-of-band and replies, and an unknown one falls through. Each acts on the one conversation through `SlashSessionControls` (`stop` → worker abort, `cancel` → the channel's withdraw, `status` → worker state, `history` → a read-only read of this session's entries); `/new` declines, because the chat is the session it would replace. |
 | Chat dialogs | The chat turn is marked on this session's `ctx.ui` (`INTERACTION_TURN_KEY`), and `askHuman` reads that marker, so `question` and a plan review raised inside the turn reach the phone with their file/text preface. A terminal turn carries no marker, so its dialogs stay local. |
 | Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, a stop publishes nothing, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`, plus the one `wechat` branch entry that binds an account to a session; the bridge is not authoritative UI, so nothing else is stored in the transcript. |
@@ -631,7 +635,7 @@ guidance used to do.
 | `conversation/reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
 | `conversation/presence.ts` | Typing, acknowledgement, and the slow/busy lines: one slot per signal, cleared when the turn settles. |
 | `commands/commands.ts` | The one `/wechat` verb table: each row carries its runner, and the help text, the usage line, the completions, the command description, and the dispatch all derive from it; plus the panel, start/stop, login/logout, `cancel`, and `history`. `start`/`login`/`new`/`logout` decline and `status` degrades to the summary while a turn runs. |
-| `commands/slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls a command may invoke, and the pure parse and lookup helpers. |
+| `commands/slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/cancel`, `/status`, `/history`, `/help`), the session controls a command may invoke, and the pure parse and lookup helpers — `resolveSlash` matches a command's own name or a longer spelling it declares, so `/wechat cancel` reaches `/cancel` instead of the model. |
 | `commands/doctor.ts` | The plain-text `/wechat doctor` report: it renders a `StatusView`, so the connection, turn, and refusal facts are the ones `text/status.ts` owns; the poll, lock, and config lines are its own, and so is the remedy each state asks for. |
 | `commands/login.ts` | QR login state machine. |
 | `commands/history.ts` | Read-only `/history`: formats the last user/assistant messages of this session's own entries, and never writes. |
