@@ -12,7 +12,7 @@ import { createCipheriv } from "node:crypto";
 import type { BridgeDeps } from "../../../extensions/wechat/bridge.ts";
 import type { WechatClient } from "../../../extensions/wechat/transport/client.ts";
 import { DEFAULT_CONFIG } from "../../../extensions/wechat/config.ts";
-import type { PeerSession } from "../../../extensions/wechat/host/chat.ts";
+import type { ChatTurn } from "../../../extensions/wechat/host/chat.ts";
 import type { BotCredentials, UpdatesResponse, WechatState, WeixinMessage } from "../../../extensions/wechat/types.ts";
 import { tempDir } from "../env.ts";
 
@@ -184,7 +184,7 @@ export interface Script {
 }
 
 export interface FakePeer {
-	peerSession: PeerSession;
+	chatTurn: ChatTurn;
 	session: {
 		prompt: (text: string, options?: { images?: unknown }) => Promise<void>;
 		getLastAssistantText: () => string;
@@ -196,7 +196,7 @@ export interface FakePeer {
 	disposed: () => number;
 }
 
-/** A peer session double: records the prompt and answers with the script. */
+/** A chat-turn double: records the prompt and answers with the script. */
 export function fakePeer(script: Script): FakePeer {
 	const prompts: Array<{ text: string; images?: unknown }> = [];
 	const answers = [...(script.answers ?? ["pong"])];
@@ -228,7 +228,7 @@ export function fakePeer(script: Script): FakePeer {
 		},
 	};
 	return {
-		peerSession: { session, dispose: () => session.dispose() } as unknown as PeerSession,
+		chatTurn: { session, dispose: () => session.dispose() } as unknown as ChatTurn,
 		session,
 		prompts,
 		release: (answer?: string) => {
@@ -249,7 +249,7 @@ export function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = 
 	const deps: BridgeDeps = {
 		config: { ...DEFAULT_CONFIG },
 		now: () => 1000,
-		openSession: async () => {
+		openChat: async () => {
 			const peer = fakePeer(script);
 			const prompt = peer.session.prompt.bind(peer.session);
 			peer.session.prompt = async (text, options) => {
@@ -257,7 +257,7 @@ export function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = 
 				await prompt(text, options);
 			};
 			peers.push(peer);
-			return peer.peerSession;
+			return peer.chatTurn;
 		},
 		mediaDir: () => tempDir("wechat-files-"),
 		readHistory: async () => "",

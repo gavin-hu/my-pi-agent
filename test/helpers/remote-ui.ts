@@ -1,7 +1,7 @@
 /**
  * A context double whose shared `ui` reports a remote-answered turn.
  *
- * Mirrors the marker `createPeerUIContext` installs on a peer session's UI, so an
+ * Mirrors the marker a chat turn installs on the host UI context, so an
  * extension can be tested on its remote path (dialogs instead of a full-screen
  * component, with an optional file/text preface) without a bridge. See
  * `lib/interaction.ts`.

@@ -36,7 +36,7 @@ import type { PendingPromptInfo, WechatInteractionChannel } from "./dialog/inter
 import { defaultSleep, defaultTimer, type ArmTimer } from "./timer.ts";
 import { createTurnRunner, type TurnState, type TurnRunner } from "./conversation/turn.ts";
 import { sendOwnerMessage, type OwnerMessage, type SendResult } from "./owner-send.ts";
-import type { PeerSession } from "./host/chat.ts";
+import type { ChatTurn } from "./host/chat.ts";
 import { emptyState, ownerTarget } from "./state/state.ts";
 import { SLASH_COMMANDS, type SlashCommand } from "./commands/slash.ts";
 import type { BotCredentials, WechatState } from "./types.ts";
@@ -49,10 +49,10 @@ export interface BridgeDeps {
 	config: WechatConfig;
 	now: () => number;
 	/**
-	 * Open, resume, or restart one peer's own session. The bridge hands over its
-	 * channel so the session's dialogs reach that peer rather than the terminal.
+	 * Open this session as the chat's turn. The bridge hands over the channel so a
+	 * dialog raised inside the turn reaches the phone rather than the terminal.
 	 */
-	openSession: (peer: string, options: { channel: WechatInteractionChannel }) => Promise<PeerSession>;
+	openChat: (peer: string, options: { channel: WechatInteractionChannel }) => Promise<ChatTurn>;
 	/** Directory where inbound files are saved. */
 	mediaDir: () => string;
 	/** Read this conversation's recent messages for `/history`; read-only. */
@@ -162,7 +162,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const languageOf = createLanguageOf(languages);
 	const forgetToken = createForgetToken({ state: () => state, saveState: deps.saveState });
 
-	/** One worker per open connection: it owns the queues and the peer sessions. */
+	/** One turn runner per open connection: it owns the queue and the chat's turn. */
 	let worker: TurnRunner | undefined;
 	const pollTimeout = deps.pollTimeout ?? defaultPollTimeout;
 
@@ -272,7 +272,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		promptPending: () => channel?.hasPending() ?? false,
 	});
 
-	/** Inbound media resolution and the hand-off to a peer session. */
+	/** Inbound media resolution and the hand-off to the turn queue. */
 	const inbound = createInboundAdmission({
 		client: () => client,
 		signal: () => abort?.signal,
@@ -295,7 +295,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const budget = createTurnBudget(deps.config.maxTurnsPerHour, deps.now);
 	const admission = createAdmissionQueue({ admit: inbound.admit, notify });
 
-	/** The inbound path: admission, commands, and the hand-off to a peer's session. */
+	/** The inbound path: admission, commands, and the hand-off to the turn queue. */
 	const intake = createIntake({
 		state: () => state,
 		saveState: deps.saveState,
@@ -458,10 +458,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	return {
 		open(): void {
 			if (connection === "running") return;
-			// A run that expired keeps its worker (and therefore its peer sessions)
+			// A run that expired keeps its turn runner (and therefore its chat session)
 			// and may still have a loop parked in `getUpdates`. Both are replaced
 			// here, so the old ones must stop first: otherwise two pollers share one
-			// cursor, and the old peer sessions are never disposed.
+			// cursor, and the old adapter is never released.
 			abort?.abort();
 			abort = undefined;
 			void worker?.close();
@@ -493,7 +493,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			// a login (or a reconnect after an expiry) starts from a clean slate while
 			// each peer's history stays on disk.
 			worker = createTurnRunner({
-				openSession: (peer) => deps.openSession(peer, { channel: channelFor(peer) }),
+				openChat: (peer) => deps.openChat(peer, { channel: channelFor(peer) }),
 				// Each part is delivered as its own bubble; the worker puts the
 				// attachment line on the first one. A false result stops the stream.
 				send: (item, text, options) => reply(item, text, options?.signal),

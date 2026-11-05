@@ -6,7 +6,7 @@
  * `active`, `lastText`, `settle`, and the `isIdle` gate), which existed only
  * because WeChat turns had to wait for the terminal to be idle and replies were
  * captured from whatever run happened to finish. Here a peer's messages are
- * answered in order by that peer's session, independent of the terminal.
+ * answered in order by this session's turn, one at a time.
  *
  * Contract:
  *
@@ -30,7 +30,7 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { messageOf } from "../../../lib/errors.ts";
 import type { NoticeKind } from "../text/notices.ts";
-import type { PeerSession } from "../host/chat.ts";
+import type { ChatTurn } from "../host/chat.ts";
 import { createReplyPipeline, type ReplyPipeline } from "./reply-pipeline.ts";
 import { defaultTimer, type ArmTimer } from "../timer.ts";
 
@@ -53,8 +53,8 @@ export interface ChatItem {
 export type TurnFallback = Extract<NoticeKind, "stopped" | "abandoned" | "noText" | "failed" | "compacted">;
 
 export interface TurnRunnerDeps {
-	/** Open (or resume) one peer's session; the bridge owns the directory layout. */
-	openSession: (peer: string) => Promise<PeerSession>;
+	/** Open this session as the chat's: the bridge owns the channel and the dialogs. */
+	openChat: (peer: string) => Promise<ChatTurn>;
 	/** Deliver one line to the peer; false stops the rest of a stream. */
 	send: (item: ChatItem, text: string, options?: { signal?: AbortSignal }) => Promise<boolean>;
 	/** The fallback line for a turn that produced no text. */
@@ -79,7 +79,7 @@ export interface TurnState {
 	queued: number;
 	/** How long the running turn has been going, in milliseconds. */
 	runningMs?: number;
-	/** How long the peer's session has been open, when one is open. */
+	/** How long the chat's turn adapter has been open, when one is. */
 	sessionAgeMs?: number;
 }
 
@@ -110,10 +110,10 @@ interface PeerEntry {
 	running?: ChatItem;
 	/** Monotonic start time of the running turn, for `runningMs`. */
 	startedAt?: number;
-	session?: PeerSession;
+	session?: ChatTurn;
 	/** When the current session opened, for the doctor's session age. */
 	sessionSince?: number;
-	opening?: Promise<PeerSession>;
+	opening?: Promise<ChatTurn>;
 	disposeTimer?: () => void;
 }
 
@@ -160,7 +160,7 @@ export function createTurnRunner(deps: TurnRunnerDeps): TurnRunner {
 	}
 
 	/**
-	 * Let go of the peer's session: the extensions that opened per-session resources in
+	 * Let go of the chat's session adapter: nothing per-session was opened for it, so
 	 * `session_start` are told it is over, then the session itself goes. The entry
 	 * forgets the session at once, so no turn can be handed one that is shutting down.
 	 */
@@ -189,11 +189,11 @@ export function createTurnRunner(deps: TurnRunnerDeps): TurnRunner {
 		});
 	}
 
-	async function sessionFor(peer: string, target: PeerEntry): Promise<PeerSession> {
+	async function sessionFor(peer: string, target: PeerEntry): Promise<ChatTurn> {
 		if (target.session) return target.session;
 		if (!target.opening) {
 			target.opening = deps
-				.openSession(peer)
+				.openChat(peer)
 				.then(async (opened) => {
 					// The bridge may have closed (or reset this peer) while the session
 					// was being built; dispose it instead of leaking it.
@@ -220,7 +220,7 @@ export function createTurnRunner(deps: TurnRunnerDeps): TurnRunner {
 	 * decided once the run ends: an abort drops the unsent remainder, a finished
 	 * turn sends it, and a turn that produced nothing at all says so.
 	 */
-	async function runTurn(item: ChatItem, opened: PeerSession): Promise<void> {
+	async function runTurn(item: ChatItem, opened: ChatTurn): Promise<void> {
 		const session = opened.session;
 		let prefixed = false;
 		/** Once a part is rejected, the rest of the answer would fail too. */

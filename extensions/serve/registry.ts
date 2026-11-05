@@ -4,7 +4,7 @@
  *
  * The registry is the only place that knows what a session is serving: it binds on
  * the first mount, remembers the port so a closed page reopens where it was, keys
- * every server by Pi session id so a peer session never lands on the host's socket,
+ * every server by Pi session id so another session in this process never lands on the host's socket,
  * and closes a session's socket with its last mount. A page that goes away takes
  * only its own prefix with it.
  *

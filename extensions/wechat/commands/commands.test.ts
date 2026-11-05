@@ -2,7 +2,7 @@
  * The operator command surface and the peer-facing conversation pieces: the
  * `/wechat` verb table, its dialogs and login/logout handling, the inbound slash
  * commands, the notice catalog, prompt rendering and parsing, the interaction
- * channel, and the peer session's UI context.
+ * channel, and the chat turn's UI context.
  *
  * The bridge, the client, and the terminal context are doubles, so this suite
  * proves the wiring and the reply rules without a network, a session, or a real

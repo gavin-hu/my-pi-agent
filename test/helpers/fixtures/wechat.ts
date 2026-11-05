@@ -20,7 +20,7 @@ import wechat from "../../../extensions/wechat/index.ts";
 import { join } from "node:path";
 import type { WechatClient, WechatClientOptions } from "../../../extensions/wechat/transport/client.ts";
 import type { WechatInteractionChannel } from "../../../extensions/wechat/dialog/interaction.ts";
-import type { PeerSession } from "../../../extensions/wechat/host/chat.ts";
+import type { ChatTurn } from "../../../extensions/wechat/host/chat.ts";
 import type { BotCredentials, UpdatesResponse, WeixinMessage } from "../../../extensions/wechat/types.ts";
 import type { CommandDeps, StartOutcome } from "../../../extensions/wechat/commands/commands.ts";
 import { DEFAULT_CONFIG } from "../../../extensions/wechat/config.ts";
@@ -156,12 +156,12 @@ function aborted(signal: AbortSignal | undefined): Promise<void> {
 }
 
 /**
- * A peer session double for the extension's lifecycle tests: it answers every
+ * A chat-turn double for the extension's lifecycle tests: it answers every
  * prompt with one scripted line, so the bridge's reply path runs end to end
  * without loading extensions or calling a model.
  */
-export function fakePeerSession(answer: string | (() => string)): {
-	openSession: (peer: string, options: { channel: WechatInteractionChannel }) => Promise<PeerSession>;
+export function fakeChatTurn(answer: string | (() => string)): {
+	openChat: (peer: string, options: { channel: WechatInteractionChannel }) => Promise<ChatTurn>;
 	prompts: string[];
 	disposed: () => number;
 } {
@@ -181,8 +181,8 @@ export function fakePeerSession(answer: string | (() => string)): {
 		},
 	};
 	return {
-		openSession: async () => {
-			return { session, dispose: () => session.dispose() } as unknown as PeerSession;
+		openChat: async () => {
+			return { session, dispose: () => session.dispose() } as unknown as ChatTurn;
 		},
 		prompts,
 		disposed: () => disposals,
@@ -286,7 +286,7 @@ export function commandHarness(
 
 /**
  * The wechat extension over its own seams: a context, a scripted transport, and a
- * peer session, with no bridge opened yet.
+ * turn runner, with no bridge opened yet.
  *
  * `loadBridge` is the one seam a case holds: it defers the extension's own module
  * graph, so a case can act while a hand start is still building.
@@ -301,11 +301,11 @@ export function wechatExtension(
 ) {
 	const fake = createFakePi();
 	const client = fakeWechatClient(options.script ?? [updates()]);
-	const peers = fakePeerSession(options.answer ?? "hi from pi");
+	const peers = fakeChatTurn(options.answer ?? "hi from pi");
 	wechat(fake.pi, {
 		createClient: client.createClient,
 		sleep: client.sleep,
-		openSession: peers.openSession,
+		openChat: peers.openChat,
 		loadBridge: options.loadBridge,
 	});
 	const result = fakeCtx({ mode: "rpc", cwd: dir, ...options });

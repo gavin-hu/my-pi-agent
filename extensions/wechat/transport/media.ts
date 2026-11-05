@@ -7,7 +7,7 @@
  * HTTP transfer is injected through the client, and tests never touch the network.
  *
  * It also owns the one rule that turns a value from the wire into a filesystem
- * name (`sanitizePathSegment`), which a media filename and a peer's session
+ * name (`sanitizePathSegment`), which a media filename and an inbound path
  * directory both use.
  */
 

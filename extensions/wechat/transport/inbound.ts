@@ -1,5 +1,5 @@
 /**
- * Inbound media and the hand-off to a peer's session.
+ * Inbound media and the hand-off to the turn queue.
  *
  * An image is downloaded, decrypted, and attached as model image content; a file
  * is saved under the media directory and referenced by path. Every failure is

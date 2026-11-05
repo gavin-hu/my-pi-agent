@@ -3,7 +3,7 @@
  * that bound an account, answering inbound turns in the peer's own session, and
  * released on shutdown or stop.
  *
- * The transport, the sleep, and the peer session are the extension's own seams,
+ * The transport, the sleep, and the chat turn are the extension's own seams,
  * so the real bridge runs here without a network, a real timer, or a model.
  */
 
@@ -23,7 +23,7 @@ import {
 } from "../../test/helpers/fixtures/wechat.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import wechat from "./index.ts";
-import type { PeerSession } from "./host/chat.ts";
+import type { ChatTurn } from "./host/chat.ts";
 import { BINDING_ENTRY } from "./state/binding.ts";
 import { saveAccount } from "./state/credentials.ts";
 
@@ -183,7 +183,7 @@ describe("wechat lifecycle", () => {
 			wechat(fake.pi, {
 				createClient: client.createClient,
 				sleep: client.sleep,
-				openSession: async () => ({ session, dispose: async () => {} }) as unknown as PeerSession,
+				openChat: async () => ({ session, dispose: async () => {} }) as unknown as ChatTurn,
 			});
 			const { ctx, notifications, selects } = fakeCtx({
 				mode: "tui",
@@ -300,7 +300,7 @@ describe("wechat lifecycle", () => {
 			expect(first.client.clients()).toBe(1);
 			expect(second.client.clients()).toBe(1);
 
-			// The new runtime answers in its own peer session, not the host's.
+			// The new runtime answers through its own chat turn, not the host's.
 			await waitFor(() => second.client.sent.length === 1);
 			expect(second.client.sent[0]?.text).toBe("reconnected");
 			expect(second.fake.sentMessages).toEqual([]);

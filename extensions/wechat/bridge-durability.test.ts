@@ -1,7 +1,7 @@
 /**
  * What an interrupted inbound batch leaves behind.
  *
- * A batch is acknowledged only after its messages have reached a peer's session, so
+ * A batch is acknowledged only after its messages have reached the turn queue, so
  * this suite drives the two ways an acknowledgement used to run ahead of that: a close
  * during a media download (the message must be read again, not lost), and a poll loop
  * that dies (the connection must stop, not keep a green chip over nothing).

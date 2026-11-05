@@ -51,7 +51,7 @@ export interface SlashControlsDeps {
  * The controls one action runs against, for the peer that typed the command.
  *
  * The registry owns what a command may do; the bridge owns the queue and the
- * channels, so it supplies them here and keeps no per-peer session shape of its
+ * channel, so it supplies them here and keeps no session shape of its
  * own.
  */
 export function slashControls(peer: string, deps: SlashControlsDeps): SlashSessionControls {

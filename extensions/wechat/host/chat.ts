@@ -46,7 +46,7 @@ export type ChatSessionEvent =
 	| { type: "compaction_end"; aborted: boolean };
 
 /** A turn of the host session, held open until its run settles. */
-export interface PeerSession {
+export interface ChatTurn {
 	session: ChatSession;
 	/** Stop listening to the host's events; the session itself outlives the bridge. */
 	dispose(): Promise<void>;
@@ -84,10 +84,10 @@ export interface TextPart {
 /**
  * Open the host session as the chat's session.
  *
- * `peer` names the sender whose channel answers this turn's dialogs; there is one
- * conversation, so every caller passes the same one.
+ * `peer` is the sender whose channel answers this turn's dialogs — the account's
+ * owner, the one conversation there is.
  */
-export function openHostChat(peer: string, deps: HostChatDeps): PeerSession {
+export function openChatTurn(peer: string, deps: HostChatDeps): ChatTurn {
 	const listeners = new Set<(event: ChatSessionEvent) => void>();
 	/** The turn in flight, or undefined while the session is free. */
 	let turn: { resolve: () => void; reject: (error: Error) => void } | undefined;

@@ -1,5 +1,5 @@
 /**
- * The hourly turn budget and the per-peer admission chain: what a peer may spend,
+ * The hourly turn budget and the serial admission chain: what the chat may spend,
  * the order its own messages are resolved in, and `settled()` — the promise the poll
  * loop awaits before it acknowledges the batch it just fed in.
  *
@@ -54,7 +54,7 @@ describe("the admission queue", () => {
 		expect(queue.pending()).toBe(0);
 	});
 
-	test("settles at once for a peer with nothing in flight", async () => {
+	test("settles at once with nothing in flight", async () => {
 		// The loop asks after every batch, including an empty one, so this must not hang.
 		const { queue } = harness();
 		await queue.settled();

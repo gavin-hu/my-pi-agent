@@ -35,7 +35,7 @@ import {
 } from "./state/credentials.ts";
 import { loadBinding, persistBinding, type WechatBinding } from "./state/binding.ts";
 import type { WechatInteractionChannel } from "./dialog/interaction.ts";
-import type { HostEventName, PeerSession } from "./host/chat.ts";
+import type { HostEventName, ChatTurn } from "./host/chat.ts";
 import { registerTools } from "./tools.ts";
 
 /**
@@ -64,7 +64,7 @@ export interface WechatDeps {
 	 * Build the chat's session. Overridden in tests, which must not start a turn in
 	 * the host; production answers the chat in this session.
 	 */
-	openSession?: (peer: string, options: { channel: WechatInteractionChannel }) => Promise<PeerSession>;
+	openChat?: (peer: string, options: { channel: WechatInteractionChannel }) => Promise<ChatTurn>;
 	/** The bridge module; overridden in tests so a load can be counted. */
 	loadBridge?: () => Promise<typeof import("./bridge.ts")>;
 }
@@ -154,7 +154,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		const config = loadWechatConfig(ctx.cwd);
 		// Everything a live bridge composes loads here, so a session with no account
 		// never evaluates the bridge, the transport or the lock.
-		const [{ createBridge }, client, { openHostChat }, { INTERACTION_TURN_KEY }, { WECHAT_CHANNEL_PROMPT }] =
+		const [{ createBridge }, client, { openChatTurn }, { INTERACTION_TURN_KEY }, { WECHAT_CHANNEL_PROMPT }] =
 			await Promise.all([
 				bridgeModule.get(),
 				clientModule.get(),
@@ -184,10 +184,10 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			now: () => Date.now(),
 			// The chat is this session: an inbound message starts a turn here, and the
 			// dialogs raised inside it are answered on the phone.
-			openSession: (peer, options) => {
-				if (deps.openSession) return deps.openSession(peer, options);
+			openChat: (peer, options) => {
+				if (deps.openChat) return deps.openChat(peer, options);
 				return Promise.resolve(
-					openHostChat(peer, {
+					openChatTurn(peer, {
 						sendUserMessage: (content) => pi.sendUserMessage(content),
 						isIdle: () => ctx.isIdle(),
 						abortTurn: () => ctx.abort(),

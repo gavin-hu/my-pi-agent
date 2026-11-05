@@ -255,7 +255,7 @@ describe("bridge lifecycle", () => {
 });
 
 describe("bridge admission", () => {
-	test("answers an inbound message through the peer's session", async () => {
+	test("answers an inbound message through this session's turn", async () => {
 		const { client, sent } = makeClient([updates([inbound("ping")])]);
 		const { deps, peers } = makeDeps(client, {}, { hold: true });
 		const bridge = createBridge(deps);
@@ -352,7 +352,7 @@ describe("bridge admission", () => {
 		bridge2.open();
 		await settle();
 		await settle();
-		// The replay died on the persisted id, so no peer session was opened.
+		// The replay died on the persisted id, so no turn was opened.
 		expect(reopened.injected).toEqual([]);
 		await bridge2.close();
 	});

@@ -7,7 +7,7 @@ import { settle, waitFor } from "../../../test/helpers/process.ts";
 import type { ChatSession } from "../host/chat.ts";
 import { createTurnRunner, type ChatItem } from "./turn.ts";
 
-describe("peer worker", () => {
+describe("turn runner", () => {
 	function peerItem(text: string, peer = "alice@im.wechat"): ChatItem {
 		return { peer, text, language: "en" };
 	}
@@ -62,7 +62,7 @@ describe("peer worker", () => {
 			},
 		};
 		return {
-			peerSession: {
+			chatTurn: {
 				session: session as unknown as ChatSession,
 				dispose: async () => session.dispose(),
 			} as never,
@@ -101,7 +101,7 @@ describe("peer worker", () => {
 		const openWaiters: Array<() => void> = [];
 		const sendWaiters: Array<() => void> = [];
 		const worker = createTurnRunner({
-			openSession: async (peer) => {
+			openChat: async (peer) => {
 				opened.push({ peer });
 				if (options.holdOpen && opened.length === 1) {
 					await new Promise<void>((resolve) => openWaiters.push(resolve));
@@ -109,7 +109,7 @@ describe("peer worker", () => {
 				if (options.failFirstOpen && opened.length === 1) throw new Error("could not open the session");
 				const fake = workerSession(options);
 				sessions.push(fake);
-				return fake.peerSession;
+				return fake.chatTurn;
 			},
 			send: async (target, text, sendOptions) => {
 				sent.push({ peer: target.peer, text });
@@ -259,7 +259,7 @@ describe("peer worker", () => {
 		const disposed: number[] = [];
 		let resolveOpen: ((session: never) => void) | undefined;
 		const worker = createTurnRunner({
-			openSession: async () =>
+			openChat: async () =>
 				await new Promise<never>((resolve) => {
 					resolveOpen = resolve;
 				}),
@@ -313,7 +313,7 @@ describe("peer worker", () => {
 			await original(content);
 		};
 		const worker = createTurnRunner({
-			openSession: async () => fake.peerSession,
+			openChat: async () => fake.chatTurn,
 			send: async (target, text) => {
 				sent.push({ peer: target.peer, text });
 				return true;
@@ -332,7 +332,7 @@ describe("peer worker", () => {
 		const notices: string[] = [];
 		let calls = 0;
 		const worker = createTurnRunner({
-			openSession: async () => {
+			openChat: async () => {
 				const fake = workerSession({ answers: ["after"] });
 				const original = fake.session.prompt.bind(fake.session);
 				fake.session.prompt = async (content: unknown) => {
@@ -340,7 +340,7 @@ describe("peer worker", () => {
 					if (calls === 1) throw new Error("model exploded");
 					await original(content);
 				};
-				return fake.peerSession;
+				return fake.chatTurn;
 			},
 			send: async (target, text) => {
 				sent.push({ peer: target.peer, text });
