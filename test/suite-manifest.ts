@@ -272,6 +272,7 @@ export const LIB_SUITES: readonly string[] = [
 ];
 
 export const SCRIPT_SUITES: readonly string[] = [
+	"cards",
 	"check",
 	"junit",
 	"load-bench",
