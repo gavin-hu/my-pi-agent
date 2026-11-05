@@ -2,16 +2,18 @@
  * Cross-extension contract for routing interactive prompts to whichever channel
  * owns the current turn.
  *
- * A transport that answers prompts outside the terminal marks the UI context it
- * owns with its {@link InteractionChannel} under {@link INTERACTION_TURN_KEY}.
- * WeChat marks the *peer session's* own UI context, not the terminal's shared
- * `ctx.ui`, so a terminal turn always keeps its dialogs. Consumers never read
- * `ctx.mode` to choose a rich component vs. text dialogs; they call
+ * A transport that answers prompts outside the terminal takes over the turn's
+ * dialogs: {@link markRemoteTurn} installs `select` / `confirm` / `input` /
+ * `editor` on the session's UI context, answers them through the transport's
+ * channel, and marks it under {@link INTERACTION_TURN_KEY} for the one step up —
+ * {@link askHuman}'s preface, and the short prompt a caller chooses. The
+ * takeover lasts one turn, so a terminal turn keeps its dialogs. Consumers never
+ * read `ctx.mode` to choose a rich component vs. text dialogs; they call
  * {@link askHuman}, so a remote turn falls back to dialogs (with an optional file
  * or text preface) and a local TUI turn keeps its full-screen UI.
  *
  * Value-only: constants, types, and pure functions. The marker travels on the UI
- * context the transport created and is keyed by a string (not a Symbol) so it is
+ * context the transport marked and is keyed by a string (not a Symbol) so it is
  * identical across Pi's isolated extension module caches.
  */
 
@@ -101,9 +103,92 @@ export function remoteLanguage(ctx: UIContextCarrier): InteractionLanguage | und
 	return remoteChannel(ctx)?.language?.();
 }
 
+/** The language a prompt is written in: the remote channel's, or English at the terminal. */
+export function dialogLanguage(ctx: UIContextCarrier): InteractionLanguage {
+	return remoteLanguage(ctx) ?? "en";
+}
+
 /** Whether a full-screen `ctx.ui.custom` component may be used for this turn. */
 export function supportsCustomUI(ctx: UIContextCarrier): boolean {
 	return ctx.mode === "tui" && !isRemoteTurn(ctx);
+}
+
+/** The dialogs a remote turn takes over: the four members a prompt can be asked through. */
+const REMOTE_DIALOGS = ["select", "confirm", "input", "editor"] as const;
+
+type RemoteDialog = (typeof REMOTE_DIALOGS)[number];
+
+/**
+ * Take over the four dialogs of `ui` for one remote turn, and return the restore.
+ *
+ * A transport calls this as its turn starts: every prompt raised inside it — a
+ * tool's `confirm`, a review's `select` — is then answered through `channel`
+ * instead of on the terminal, which is what keeps the turn off a keyboard nobody
+ * is at. `custom` is not one of them: a full-screen component has nowhere to go
+ * on a phone, and {@link supportsCustomUI} already keeps {@link askHuman}'s
+ * callers off it.
+ *
+ * Each member and the marker are best-effort, so a sealed UI context keeps that
+ * dialog local rather than failing the turn. The restore is idempotent, and it
+ * leaves a member alone that something else replaced after this call — a newer
+ * takeover must not be undone by an older one's restore.
+ */
+export function markRemoteTurn(ui: Record<string, unknown>, channel: InteractionChannel): () => void {
+	const members: Pick<ExtensionUIContext, RemoteDialog> = {
+		select: async (title, options, opts) => {
+			const answer = await channel.request({ kind: "select", title, options }, opts?.signal);
+			return answer.kind === "value" ? answer.value : undefined;
+		},
+		confirm: async (title, message, opts) => {
+			const answer = await channel.request({ kind: "confirm", title, message }, opts?.signal);
+			return answer.kind === "confirmed" ? answer.confirmed : false;
+		},
+		input: async (title, placeholder, opts) => {
+			const answer = await channel.request({ kind: "input", title, placeholder }, opts?.signal);
+			return answer.kind === "value" ? answer.value : undefined;
+		},
+		editor: async (title, prefill) => {
+			const answer = await channel.request({ kind: "editor", title, prefill });
+			return answer.kind === "value" ? answer.value : undefined;
+		},
+	};
+	/** The undo for each write, in the order it was made. */
+	const undo: Array<() => void> = [];
+	for (const name of REMOTE_DIALOGS) {
+		try {
+			const previous = Object.getOwnPropertyDescriptor(ui, name);
+			const member = members[name];
+			ui[name] = member;
+			undo.push(() => {
+				// A member replaced after this call belongs to whoever replaced it.
+				if (ui[name] !== member) return;
+				if (previous) Object.defineProperty(ui, name, previous);
+				else delete ui[name];
+			});
+		} catch {
+			// A sealed context keeps the terminal's dialog; the turn still runs.
+		}
+	}
+	try {
+		ui[INTERACTION_TURN_KEY] = channel;
+		undo.push(() => {
+			if (ui[INTERACTION_TURN_KEY] === channel) delete ui[INTERACTION_TURN_KEY];
+		});
+	} catch {
+		// Without the marker only the preface is lost; the dialogs still answer.
+	}
+	let restored = false;
+	return () => {
+		if (restored) return;
+		restored = true;
+		for (const step of undo.reverse()) {
+			try {
+				step();
+			} catch {
+				// A context sealed after the takeover keeps what it holds.
+			}
+		}
+	};
 }
 
 export interface AskHumanOptions<T> {

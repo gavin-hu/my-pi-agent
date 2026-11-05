@@ -8,10 +8,11 @@
  *
  * Three contract points live here:
  *
- * - The turn is marked on `ctx.ui` while it runs (`INTERACTION_TURN_KEY`), which
- *   is how a dialog raised inside it — a `question`, a plan review — reaches the
- *   phone instead of a terminal nobody is watching. A terminal turn is not
- *   marked, so its dialogs stay local.
+ * - The turn takes over `ctx.ui`'s four dialogs while it runs: `markRemoteTurn`
+ *   answers them through the chat's channel and marks it (`INTERACTION_TURN_KEY`),
+ *   which is how a prompt raised inside the turn — a `question`, a plan review,
+ *   `plan` `enter`'s confirm — reaches the phone instead of a terminal nobody is
+ *   watching. A terminal turn is not marked, so its dialogs stay local.
  * - The phone-chat contract is appended to the system prompt for those turns
  *   only, through `before_agent_start` (see `index.ts`); the terminal's turns are
  *   not told they are answering on a phone.
@@ -25,7 +26,7 @@
  */
 
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { INTERACTION_TURN_KEY, type InteractionChannel } from "../../../lib/interaction.ts";
+import { markRemoteTurn, type InteractionChannel } from "../../../lib/interaction.ts";
 import { asRecord } from "../../../lib/json.ts";
 
 /** The session surface one WeChat turn drives. */
@@ -102,24 +103,20 @@ export function openChatTurn(peer: string, deps: HostChatDeps): ChatTurn {
 		for (const listener of listeners) listener(event);
 	}
 
+	/** Undo for the dialogs this turn took over, while it runs. */
+	let restoreDialogs: (() => void) | undefined;
+
 	/**
-	 * Mark the turn on the host's UI context. Best-effort: a context that refuses the
-	 * property leaves the dialogs local, which is what a session with no UI needs.
+	 * Take the turn's dialogs over. Best-effort per member: a context that refuses a
+	 * write leaves that dialog local, which is what a session with no UI needs.
 	 */
 	function mark(): void {
-		try {
-			deps.ui[INTERACTION_TURN_KEY] = deps.channel(peer);
-		} catch {
-			// A sealed UI context cannot carry the marker; the turn still runs.
-		}
+		restoreDialogs = markRemoteTurn(deps.ui, deps.channel(peer));
 	}
 
 	function unmark(): void {
-		try {
-			if (deps.ui[INTERACTION_TURN_KEY] === deps.channel(peer)) delete deps.ui[INTERACTION_TURN_KEY];
-		} catch {
-			// Nothing was marked, so there is nothing to clear.
-		}
+		restoreDialogs?.();
+		restoreDialogs = undefined;
 	}
 
 	/** Release the prompts waiting for an idle session. */

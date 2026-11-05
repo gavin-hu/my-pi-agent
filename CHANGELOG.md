@@ -35,12 +35,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `wechat`: the chat is this Pi session. An inbound message starts a turn here (`sendUserMessage`), its
   deltas stream back through the reply pipeline, and the run's settle ends it, so the phone and the
   terminal share one transcript, one model, and one toolset; a message that arrives mid-run waits for
-  that run. A dialog raised by a chat turn reaches the phone — the turn is marked on the UI context and
-  `askHuman` reads it — while a terminal turn keeps its own, and the phone-chat contract is appended to
-  the system prompt for chat turns only. Breaking: the session's mode, tools, and model apply to the
+  that run. A chat turn takes the session's UI context over for its length — `select`, `confirm`,
+  `input`, and `editor` are answered in the chat, so a question, a plan review, `plan` `enter`'s
+  consent, or a worktree confirm reaches the phone without knowing about WeChat — while a terminal turn
+  keeps its own dialogs, and the phone-chat contract is appended to the system prompt for chat turns
+  only. Breaking: the session's mode, tools, and model apply to the
   chat; `wechat/sessions/<peer>/` transcripts are no longer read or written, and `state.json`'s `peers`
   map becomes one `owner` record, so an upgraded install keeps its cursor and seen ids but re-records
   the reply token on the next inbound message.
+
 
 - `wechat`: the bridge is bound to one Pi session and started and stopped by hand — `/wechat start`
   writes a `wechat` branch entry and opens the poller; `/wechat stop` closes it, releases the poller

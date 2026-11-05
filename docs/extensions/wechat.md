@@ -26,7 +26,7 @@ session is fabricated.
 | Capability | How | What you get |
 |---|---|---|
 | Plan review over chat | automatic: a `plan` action `exit` on a WeChat turn | The plan arrives as a file, then one compact editor prompt with three actions. |
-| Forwarded dialogs | automatic: a dialog in a chat turn | A question or plan review raised inside a chat turn is asked and answered in the chat. |
+| Forwarded dialogs | automatic: a dialog in a chat turn | Any dialog a chat turn raises — a question, a plan review, a tool's `confirm` — is asked and answered in the chat. |
 | Questions | `question` | The chat answers its question, numbered, and a reply is routed to that prompt alone. |
 | Control screen | `/wechat` | Account, connection, queue, the running turn, refusals, and the waiting prompt on one live screen. |
 | Prompt cancellation | `/wechat cancel`, `c` on the control screen | The waiting question is withdrawn with a notice, without stopping the turn. |
@@ -348,9 +348,12 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
 - `confirm` — reply 是/否, 确定/不是, or yes/no.
 - `input` / `editor` — reply with the text.
 - Reply 取消 (or cancel, quit, exit, 退出) to dismiss. In a plan review a
-  dismissal leaves plan mode without approving, and a reply the three actions do
-  not name — `exit plan mode`, or 退出 plan 模式 — is feedback the model applies
-  before asking again.
+  dismissal leaves plan mode without approving.
+- A plan review is a numbered question of four choices — approve, keep planning,
+  exit, revise — asked after the plan file and a digest of its title, first steps,
+  and mode status. Revise is the fourth: it opens one editor for the feedback, so a
+  reply the options do not name re-asks instead of reaching the model as an
+  instruction.
 - Hints are rendered in the chat’s language, one language per prompt. A reply
   that cannot be read re-sends the prompt with a short “didn’t recognize that”
   notice instead of repeating it silently.
@@ -372,12 +375,15 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
   drops it, so `/status` stops naming it and the next message starts a turn of its
   own instead of arriving as its answer.
 
-A chat turn is marked on the host session's UI context while it runs, and
-`askHuman` reads that marker, so a `question` or a plan review raised inside it is
-asked and answered in the chat. A terminal turn carries no marker and keeps its
-own dialogs. A full-screen `custom` component has nothing to draw on a phone, so
-it stays unavailable during a chat turn, exactly as over RPC. See
-[Design notes](#design-notes).
+A chat turn takes the session's UI context over while it runs: `markRemoteTurn`
+installs `select` / `confirm` / `input` / `editor` on `ctx.ui` and answers them
+through the chat, so any tool that asks that way — `plan` `enter`, a plan review, a
+`question`, a `worktree` confirm — is answered on the phone even though it knows
+nothing about WeChat. The takeover lasts one turn, so a terminal turn keeps its
+own dialogs, and `askHuman` reads the same marker for the file and text it posts
+first. A full-screen `custom` component is not taken over: it still draws on the
+terminal, so an extension that mounts one inside a chat turn waits for someone at
+the keyboard — no shipped tool does. See [Design notes](#design-notes).
 
 ## Outbound files
 
@@ -498,9 +504,10 @@ rooms are delivered, a question a group-chat design would have to answer first.
 - Outbound **files** are supported (used by the plan review), and so are
   **images**, which `send_wechat` sends as a picture when given a local path whose
   bytes sniff as one. Outbound video and voice are not supported.
-- Remote prompts cover the standard dialogs (`select`/`confirm`/`input`/`editor`).
-  A full-screen `ctx.ui.custom` component cannot be answered over WeChat: the
-  session's UI context refuses it, exactly like RPC mode.
+- Remote prompts cover the standard dialogs (`select`/`confirm`/`input`/`editor`),
+  taken over on the session's UI context for each chat turn. A full-screen
+  `ctx.ui.custom` component is not forwarded: it still draws on the terminal, so an
+  extension that mounts one inside a chat turn waits for someone at the keyboard.
 - The chat can only be replied to after it has messaged first (the protocol
   supplies a `context_token` only then).
 - Slash commands are fixed built-ins; there is no user-defined snippet or action
@@ -528,7 +535,7 @@ in-process).
 | Sessions | `host/chat.ts` is the chat's session, and it is this Pi session: `sendUserMessage` starts the turn, `message_update` deltas feed the reply pipeline, `agent_settled` settles it, and `ctx.abort()` stops it. A prompt waits for the session to be idle, so a terminal run cannot swallow a message. No session is created, so there is no loader, no session directory, and no second poller to exclude. |
 | Turn ownership | `conversation/turn.ts`: one queue, one turn at a time, `prompt`/`abort` on the chat session, the fallback line when a turn ends without text, an idle sweep, and the one notice an abandoning close sends. `dialog/interaction.ts` builds the single channel (`createChatChannel`) the bridge holds. |
 | Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the one conversation through `SlashSessionControls` (`stop` → worker abort, `status` → worker state, `history` → a read-only read of this session's entries); `/new` declines, because the chat is the session it would replace. |
-| Chat dialogs | The chat turn is marked on this session's `ctx.ui` (`INTERACTION_TURN_KEY`), and `askHuman` reads that marker, so `question` and a plan review raised inside the turn reach the phone with their file/text preface. A terminal turn carries no marker, so its dialogs stay local. |
+| Chat dialogs | The chat turn takes this session's `ctx.ui` over (`markRemoteTurn`), so `select` / `confirm` / `input` / `editor` are answered in the chat for its length and `INTERACTION_TURN_KEY` marks it for `askHuman`'s file/text preface. A terminal turn keeps its own dialogs, and `custom` is never taken over. |
 | Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, a stop publishes nothing, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`, plus the one `wechat` branch entry that binds an account to a session; the bridge is not authoritative UI, so nothing else is stored in the transcript. |
 | Lifecycle | The factory only registers, and the bridge module loads on the first hand start: `session_start` keeps that start in one promise (a second start, a command, and a tool all join it) and `session_shutdown` awaits it before closing, so a bridge that lands after a shutdown is closed rather than left polling. The import is deferred behind the binding check, so a session that bound nothing never evaluates the bridge, the turn runner, the transport or the lock. `/wechat start` writes the branch entry after `open()` succeeds and `/wechat stop` writes the unbind, so the branch says what this runtime did. One bridge per extension runtime: it is built once, `open()` is a no-op while running (so the RPC double `session_start` on a session switch cannot start a second poller), and shutdown is idempotent, so the reload and replacement paths (`/reload`, `/new`, resume, fork — all of which re-run the factory and emit shutdown before the new start) each end with exactly one poller. `/wechat` screens use `ctx.ui.custom`, so they degrade (status) or decline (login, logout) while a turn runs. |
@@ -563,12 +570,11 @@ Media and typing stay at the boundary: downloads go to a fixed CDN with a size
 cap, filenames are sanitized before use, and typing is best-effort. The send tool
 is owner-only so untrusted generated text cannot be aimed at another account.
 
-Chat dialogs need one seam: the turn is marked on this session's `ctx.ui`
-(`INTERACTION_TURN_KEY`), and `askHuman` reads that marker, so `question` and a
-plan review raised inside the turn reach the phone with the optional file/text
-preface. A terminal turn carries no marker, so its dialogs stay local — the
-marker is per turn, not per session, which is what keeps one session's two
-audiences apart.
+Chat dialogs need one seam: the turn takes this session's `ctx.ui` over for its
+length (`markRemoteTurn`), which answers its four dialogs through the chat and
+leaves `INTERACTION_TURN_KEY` for `askHuman`'s file/text preface. A terminal turn
+takes nothing over, so its dialogs stay local — the takeover is per turn, not per
+session, which is what keeps one session's two audiences apart.
 
 Outbound files use the CDN upload flow (`getuploadurl`, AES-128-ECB ciphertext,
 `x-encrypted-param`) and reuse the same AES-128-ECB and key decoders as inbound
