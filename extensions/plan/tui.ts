@@ -6,8 +6,9 @@
  * the active Markdown theme, so headings, lists, code, links, and quotes match
  * the rest of the application; plan-authored control characters are stripped
  * first so the file cannot drive the terminal. Task checkboxes are recolored
- * and the footer colors the primary actions. Approving leaves plan mode and
- * starts the work, so it asks `y/N` first through the shared `ConfirmState`;
+ * and the footer colors the primary actions. Approving leaves plan mode, seeds the
+ * plan's steps into the todo list, and finalizes the session goal, so it asks `y/N`
+ * first through the shared `ConfirmState`, naming those three effects in the footer;
  * the plan stays mounted, and `Esc` backs out of the question before it backs
  * out of the review. It returns the chosen action through `onClose` so the
  * caller can act only after the screen is gone and input focus is free again.
@@ -45,6 +46,7 @@ import { emptyState, checkbox } from "../../lib/tui/rows.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
 import { changedSections, planDisplayText, type SectionDigest } from "./plan-text.ts";
+import type { ApprovalEffects } from "./types.ts";
 
 /** What the user chose from the read/review screen. */
 export type PlanViewAction = "approve" | "refine" | "keep" | "browser" | "cancel";
@@ -73,6 +75,11 @@ export interface PlanViewOptions {
 	 * one. Used only to mark the sections that changed since then.
 	 */
 	baseline?: SectionDigest[];
+	/**
+	 * What approving will do, so the question says it. Absent from a review that
+	 * cannot approve, and from a frame drawn without an approval behind it.
+	 */
+	approval?: ApprovalEffects;
 	theme: Theme;
 	/**
 	 * Called once when the screen closes. `refinement` carries the typed text
@@ -173,6 +180,23 @@ function scrollRow(
 		if (candidate !== "" && visibleWidth(candidate) <= width) return candidate;
 	}
 	return truncateToWidth(`  ${head}`, width);
+}
+
+/** What a review handed no approval facts may promise: plan mode off, nothing else. */
+const UNKNOWN_APPROVAL: ApprovalEffects = { steps: 0, setsGoal: false };
+
+/**
+ * The approval question, with what `y` does written after its answer.
+ *
+ * The question and its `y/N` lead, so a narrow footer cuts the consequences rather
+ * than the answer, the way the hints are dropped whole. A clause the approval will
+ * not carry out — no steps to seed, a goal that is already final — is left out
+ * rather than promised.
+ */
+function approvalQuestion(approval: ApprovalEffects = UNKNOWN_APPROVAL): string {
+	const steps = approval.steps === 0 ? "" : `, ${approval.steps} step${approval.steps === 1 ? "" : "s"} to todo`;
+	const goal = approval.setsGoal ? ", goal set" : "";
+	return `Approve & run the plan? y/N — plan mode off${steps}${goal}`;
 }
 
 /** Scrollable plan review screen opened by the `exit` action. */
@@ -347,7 +371,7 @@ export class PlanViewComponent implements Component {
 		else if (data === "n") this.jumpSection(1);
 		else if (data === "p") this.jumpSection(-1);
 		else if (data === "a") {
-			this.confirm.ask("Approve and run the plan? y/N", () => this.options.onClose("approve"));
+			this.confirm.ask(approvalQuestion(this.options.approval), () => this.options.onClose("approve"));
 			this.options.requestRender();
 		} else if (data === "r") this.startRefine();
 		else if (data === "w") this.options.onClose("browser");

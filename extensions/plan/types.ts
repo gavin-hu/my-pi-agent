@@ -45,6 +45,19 @@ export interface PlanModeEntry {
 	removed?: string[];
 }
 
+/**
+ * What approving a plan will do, so the review screen can say it before the human
+ * answers `y/N`: the steps that approval seeds into the todo list, and whether it
+ * finalizes the session goal from the plan. `exit` owns both facts, because it owns
+ * the seed and the goal; the screen only draws them.
+ */
+export interface ApprovalEffects {
+	/** Steps this approval seeds into the todo list; 0 when the plan has none. */
+	steps: number;
+	/** Whether approving records or updates the session goal from the plan. */
+	setsGoal: boolean;
+}
+
 /** Persisted (custom entry) review baseline for one plan. */
 export interface ReviewBaselineEntry {
 	/** Resolved path of the plan file the review showed. */
