@@ -16,7 +16,7 @@ session is fabricated.
 | Inbound media | automatic: an inbound image or file | Images arrive as model image content, files are saved and referenced by path, and voice uses the server's transcript. | Shipped |
 | Inbound replay safety | automatic: the WeChat message id | A replayed message id is answered once, remembered for an hour across a reconnect or reload. A batch is acknowledged only once its messages reach the turn queue, so a kill or a close mid-download reads that message again instead of losing it. | Shipped |
 | Inbound text cap | `maxInboundChars` | Text past the configured cap is truncated with a marker instead of becoming an unbounded prompt. | Shipped |
-| Chat language | automatic: a message written in Chinese | Notices and `/help` answer in the chat's language, and a neutral reply does not switch it back. | Shipped |
+| Chat language | automatic: a message written in Chinese | Notices, `/help`, and `/history`'s `你` / `我` line labels answer in the chat's language, and a neutral reply does not switch it back. | Shipped |
 | Slash commands | `/new`, `/stop`, `/cancel`, `/status`, `/history`, `/help` | The chat stops, withdraws the question it is waiting on, inspects, or asks for help without spending a turn. | Shipped |
 | Fresh session | `/wechat new` (terminal) | A new terminal session starts unbound; the chat is whatever session runs the bridge. | Shipped |
 | Typing indicator | `typingIndicator` | The phone can tell a long turn from a dead bridge. | Shipped |
@@ -215,9 +215,9 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 | `/new` | Declined: the chat is this session, so replacing it would close the bridge. Run `/wechat new` in the terminal. |
 | `/stop` | Stop the running turn; the turn itself answers `已停止。` / `Stopped.`. |
 | `/cancel` | Withdraw the question waiting for your reply, without stopping the turn; the question itself answers `问题已撤回。` / `That question was withdrawn.`. |
-| `/status` | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth, or `Idle.`. |
+| `/status` | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth, or `Idle.`. A question waiting on you is named instead of the turn, by its first line. |
 | `/history [n]` | The last `n` messages of this conversation (default 8, max 20), one line each. |
-| `/help` | Reply with the available commands. |
+| `/help` | Reply with the available commands, with the arguments each one takes. |
 
 - Each command runs locally and answers on WeChat without starting a turn.
 - Matching is exact on the first token and case-insensitive; an unknown `/foo`

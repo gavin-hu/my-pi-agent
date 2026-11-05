@@ -101,6 +101,11 @@ export interface SlashCommand {
 	summary: string;
 	/** Chinese one-line description; falls back to {@link summary}. */
 	summaryZh?: string;
+	/**
+	 * How `/help` spells the command when it takes arguments, without the slash, for
+	 * example `history [n]`; defaults to {@link name}.
+	 */
+	usage?: string;
 	/** Run instead of starting a turn. */
 	run: (ctx: SlashContext) => void | Promise<void>;
 }
@@ -241,8 +246,9 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 	},
 	{
 		name: "history",
-		summary: "Show recent messages in this conversation",
-		summaryZh: "查看最近几条对话",
+		usage: "history [n]",
+		summary: "Show recent messages (default 8, max 20)",
+		summaryZh: "查看最近几条对话（默认 8 条，最多 20 条）",
 		run: async (ctx) => {
 			const requested = Number.parseInt(ctx.args, 10);
 			const count = Math.min(20, Math.max(1, Number.isFinite(requested) ? requested : 8));
@@ -260,17 +266,18 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 	},
 ];
 
-/** The three fields `/help` reads, so a caller need not build a whole command. */
-export type HelpEntry = Pick<SlashCommand, "name" | "summary" | "summaryZh">;
+/** The fields `/help` reads, so a caller need not build a whole command. */
+export type HelpEntry = Pick<SlashCommand, "name" | "summary" | "summaryZh" | "usage">;
 
 /**
- * The reply `/help` sends: one line per command, and a note that ordinary text
- * reaches the agent.
+ * The reply `/help` sends: one line per command, its arguments with it so an
+ * option is discoverable from the chat, and a note that ordinary text reaches the
+ * agent.
  */
 export function helpText(commands: readonly HelpEntry[], lang: PeerLanguage = "en"): string {
 	const lines = commands.map((command) => {
 		const summary = (lang === "zh" ? command.summaryZh : undefined) ?? command.summary;
-		return `/${command.name} — ${summary}`;
+		return `/${command.usage ?? command.name} — ${summary}`;
 	});
 	const header = localized(lang, "可用命令：", "Available commands:");
 	const footer = localized(lang, "其他内容都会发送给助手。", "Anything else you type reaches the agent.");

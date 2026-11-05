@@ -10,6 +10,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	chunkText,
 	codePointSlice,
+	oneLine,
 	parseInbound,
 	peerKey,
 	peerLabel,
@@ -71,6 +72,13 @@ describe("counting in code points", () => {
 
 	test("a cut at the boundary keeps the pair whole", () => {
 		expect(codePointSlice("ab👍cd", 3)).toEqual({ slice: "ab👍", total: 5 });
+	});
+
+	test("one line keeps a title's first line and elides the rest", () => {
+		expect(oneLine("Plan ready for review\n1. Add parseConfig\nApprove?", 80)).toBe("Plan ready for review");
+		expect(oneLine("  Welcome  ", 80)).toBe("Welcome");
+		// Cut at the bound with one ellipsis, and the ellipsis is not inside it.
+		expect(oneLine("x".repeat(20), 12)).toBe(`${"x".repeat(12)}…`);
 	});
 });
 

@@ -47,6 +47,15 @@ describe("the interaction channel", () => {
 		expect(await asked.request({ kind: "input", title: "Name" })).toEqual({ kind: "cancelled" });
 	});
 
+	test("the status view gets a digest prompt's first line", async () => {
+		const { channel: asked } = channel();
+		const digest = ["Plan ready for review", "1. Add parseConfig", "2. Report a bad key", "Approve?"].join("\n");
+		const select = asked.request({ kind: "select", title: digest, options: ["Approve"] });
+		expect(asked.pendingInfo()?.title).toBe("Plan ready for review");
+		asked.handleInbound("1");
+		await select;
+	});
+
 	test("a prompt the transport throws on settles instead of waiting", async () => {
 		const { channel: asked } = channel({
 			send: async () => {

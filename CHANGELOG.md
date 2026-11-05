@@ -27,6 +27,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `wechat`: the chat commands say what they do in the space they have — `/status` names a waiting
+  prompt by its first line instead of pasting a plan review's whole digest into one bubble,
+  `/history` labels each line `你` / `我` for a Chinese peer instead of always `You` / `Me`, and
+  `/help` spells `/history [n]` with its argument, where only the bare name was discoverable.
+
 - `plan`: the review footer is ordered by what a reader cannot discover otherwise — the three ways the
   review ends (`Esc keep plan`, `a approve`, `x exit plan`), then `n/p section`, then `r refine` and
   `w browser`, then the scroll keys — because `screenHint` drops the tail. A sectioned plan at 60

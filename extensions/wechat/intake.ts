@@ -100,7 +100,7 @@ export interface IntakeDeps {
 	languageOf: (peer: string, text?: string) => PeerLanguage;
 	/** Send one bubble to a peer for the bridge's own notices. */
 	reply: (target: MessageTarget, text: string) => Promise<boolean>;
-	readHistory: (count: number) => Promise<string>;
+	readHistory: (count: number, lang?: PeerLanguage) => Promise<string>;
 	/** Senders refused since the connection opened, and their labels. */
 	refused: Counter;
 	refusedPeers: Set<string>;
@@ -141,7 +141,7 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 					void pending.cancel();
 					return true;
 				},
-				history: (_peer, count) => deps.readHistory(count),
+				history: (_peer, count) => deps.readHistory(count, languageOf(target.peer)),
 			}),
 		};
 		try {
