@@ -17,7 +17,7 @@
  */
 
 import { WechatError, type WechatClient } from "./transport/client.ts";
-import { createAdmissionQueue, createTurnBudget } from "./conversation/admission.ts";
+import { createAdmissionQueue, createTurnBudget, queuedWith } from "./conversation/admission.ts";
 import { createDeliverer, type MessageTarget } from "./transport/deliver.ts";
 import { createInboundAdmission } from "./transport/inbound.ts";
 import { createPollLoop, defaultPollTimeout } from "./transport/poll.ts";
@@ -312,6 +312,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		budget,
 		admission,
 		languageOf,
+		turnState: () => queuedWith(worker?.state(), admission.pending()),
 		reply: (target, text) => reply(target, text),
 		readHistory: deps.readHistory,
 		planMode: deps.planMode,
@@ -392,8 +393,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	function stopTurn(): StopOutcome {
 		const running = worker?.running();
 		const stopped = worker?.abort() ?? false;
-		// A stop is the chat's whole brake: the burst behind the bad answer goes too.
-		const dropped = worker?.drain() ?? 0;
+		// The whole burst the chat has not heard yet: what admission is still resolving — a message
+		// whose media is downloading holds a slot and no turn — goes with what the worker queued.
+		const dropped = admission.drain() + (worker?.drain() ?? 0);
 		if (stopped && running) channel?.reset();
 		return { stopped, dropped };
 	}
@@ -547,16 +549,16 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		},
 
 		turnState(): TurnState {
-			return worker?.state() ?? { status: "idle", queued: 0 };
+			return queuedWith(worker?.state(), admission.pending());
 		},
 
 		status(): BridgeStatus {
-			const turn = worker?.state();
+			const turn = queuedWith(worker?.state(), admission.pending());
 			return {
 				state: connection,
 				owner: state.ownerId ?? account?.ilinkUserId,
-				queued: turn?.queued ?? 0,
-				turnsRunning: turn?.status === "running",
+				queued: turn.queued,
+				turnsRunning: turn.status === "running",
 				turn,
 				refused: refused.value,
 				refusedPeers: [...refusedPeers],

@@ -214,9 +214,9 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 | Command | Effect |
 |---|---|
 | `/new` | Declined: the chat is this session, so replacing it would close the bridge. Run `/wechat new` in the terminal. |
-| `/stop` | Stop the running turn and drop the messages queued behind it; the turn answers `已停止。` / `Stopped.`, and the command adds `已丢弃排队的 N 条消息。` / `Dropped N queued message(s).` when there were any. |
+| `/stop` | Stop the running turn and drop the messages queued behind it — a message whose media is still downloading included; the turn answers `已停止。` / `Stopped.`, and the command adds `已丢弃排队的 N 条消息。` / `Dropped N queued message(s).` when there were any. |
 | `/cancel` | Withdraw the question waiting for your reply, without stopping the turn; the question itself answers `问题已撤回。` / `That question was withdrawn.`. |
-| `/status` | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth, or `Idle.`, and `计划模式已开启，暂时不能写入。` / `Plan mode is on — writes are disabled.` while the session is planning. A question waiting on you is named instead of the turn, by its first line. |
+| `/status` | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth — a message still downloading is one of them — or `Idle.`, and `计划模式已开启，暂时不能写入。` / `Plan mode is on — writes are disabled.` while the session is planning. A question waiting on you is named instead of the turn, by its first line. |
 | `/history [n]` | The last `n` messages of this conversation (default 8, max 20), one line each. |
 | `/help` | Reply with the available commands, with the arguments each one takes. |
 
@@ -232,8 +232,11 @@ becomes a turn, so a command never reaches the model unless it is unknown.
   sender to scope them to.
 - `/stop` is the chat's whole brake: the running turn ends and the burst waiting
   behind it goes with it, because a message still queued would otherwise start the
-  moment the stop settled. A message that arrives *after* the command, in the same
-  poll batch, still runs — the batch is handled in order.
+  moment the stop settled. A message whose media is still downloading is part of
+  that burst: its slot is reserved before the download, so the stop drops it too
+  rather than letting it start when the bytes land, and counts it in the dropped
+  total. A message that arrives *after* the command, in the same poll batch, still
+  runs — the batch is handled in order.
 
 ## Behaviour by mode
 
@@ -305,7 +308,7 @@ needs. Per action:
 | Sends several messages quickly | Each message is its own turn; one acknowledgement per wait, then the answers in order — until a `/stop` drops what is still queued. |
 | Sends while a turn runs | One line after four seconds, then one more at a minute (`前面还有一条正在处理…` / “Your message is queued behind another conversation…”), and its own answer once the running turn settles. |
 | Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在排队，轮到就回你。` / “Got it — queued; I’ll answer when it’s my turn.”; a turn still running at 30 seconds adds one `还在处理这条，发送 /stop 可取消。` / “Still working — send /stop to cancel.”, so the way out is named when it is wanted. |
-| Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. |
+| Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. Sent while a prompt waits, it is queued as its own turn instead of being read as the answer. |
 | Is sent an image by the bot | A picture in the chat, from `send_wechat` with a local path, not a document attachment. |
 | Sends a voice note or video | One line: voice without a transcript and video are not supported. |
 | Reads a long answer | Streamed as it is produced — one part per paragraph, per two silent seconds, or per 400 characters — and a part longer than `maxReplyChars` is split and numbered (`[1/3] …`), the number counting against the limit. |
@@ -376,7 +379,12 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
   the slash commands are matched first: `/status` names the waiting question and
   `/stop` stops the turn, where before both were parsed as an attempt to answer
   and bounced back as “didn’t recognize that”. Any other text is still the answer,
-  so a number, 是/否, or 取消 behaves as above.
+  so a number, 是/否, or 取消 behaves as above. Media is not an answer either: its
+  download is a turn of its own, so a photo sent at a waiting prompt neither
+  answers it nor dismisses it — the prompt keeps waiting, and the photo is read
+  when its turn runs. A message with nothing to read at all (a video, or a voice
+  note the server gave no transcript for) is answered with its own notice, and the
+  prompt is never consulted.
 - An unanswered prompt is bounded: a reminder goes out halfway and the question
   is cancelled at the end of its window with a one-line notice, so an ignored
   dialog cannot freeze the session. A dialog uses three minutes; the plan review

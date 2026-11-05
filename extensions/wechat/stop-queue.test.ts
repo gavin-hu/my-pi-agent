@@ -10,7 +10,15 @@ import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
 import { commandHarness } from "../../test/helpers/fixtures/wechat.ts";
-import { controllableClient, inbound, makeDeps } from "../../test/helpers/fixtures/wechat-bridge.ts";
+import {
+	controllableClient,
+	encrypt,
+	inbound,
+	inboundImage,
+	makeClient,
+	makeDeps,
+	updates,
+} from "../../test/helpers/fixtures/wechat-bridge.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import { createBridge } from "./bridge.ts";
 import { type CommandDeps, registerCommands } from "./commands/commands.ts";
@@ -113,6 +121,31 @@ describe("the bridge's stop", () => {
 		await waitFor(() => bridge.turnState().status === "idle");
 		expect(injected).toEqual(["ping"]);
 		expect(bridge.stop()).toEqual({ stopped: false, dropped: 0 });
+		await bridge.close();
+	});
+
+	test("a stop takes a message whose media is still downloading", async () => {
+		const client = makeClient([updates([inboundImage()]), updates([])], {
+			holdMedia: true,
+			media: { "https://cdn/i": encrypt(Buffer.from("PNGDATA")) },
+			noTicket: true,
+		});
+		const { deps, peers } = makeDeps(client.client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await client.mediaDownloading;
+
+		// The download holds a queue slot and no turn, so it is both what the surfaces count
+		// as queued and what a stop has to take: draining the worker alone would let it start.
+		expect(bridge.status().queued).toBe(1);
+		expect(bridge.turnState()).toMatchObject({ status: "queued", queued: 1 });
+		expect(bridge.stop()).toEqual({ stopped: false, dropped: 1 });
+
+		client.releaseMedia();
+		await settle();
+		await settle();
+		expect(peers).toEqual([]);
+		expect(bridge.turnState()).toMatchObject({ status: "idle", queued: 0 });
 		await bridge.close();
 	});
 });

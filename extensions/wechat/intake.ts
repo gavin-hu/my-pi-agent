@@ -13,7 +13,7 @@
  */
 
 import type { AdmissionQueue, TurnBudget } from "./conversation/admission.ts";
-import type { TurnRunner } from "./conversation/turn.ts";
+import type { TurnRunner, TurnState } from "./conversation/turn.ts";
 import type { Presence } from "./conversation/presence.ts";
 import type { WechatInteractionChannel } from "./dialog/interaction.ts";
 import { messageOf } from "../../lib/errors.ts";
@@ -96,6 +96,11 @@ export interface IntakeDeps {
 	notify: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** The live worker: a connect or disconnect replaces it. */
 	worker: () => TurnRunner | undefined;
+	/**
+	 * What the conversation is doing, a message still downloading included; `/status` reads
+	 * this rather than the worker, so the chat's queue depth and the control screen's agree.
+	 */
+	turnState: () => TurnState;
 	/** Stop the running turn and the queue behind it, and the dialog that turn was waiting on with it. */
 	stopTurn: () => StopOutcome;
 	/** The chat's one interaction channel: a reply answers its prompt, a command names it. */
@@ -127,17 +132,16 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 	/** Run a slash action out-of-band and reply to the sender; never starts a turn. */
 	async function runSlashAction(command: SlashCommand, target: MessageTarget, args: string): Promise<void> {
 		if (!command.run) return;
-		const worker = deps.worker();
 		const ctx: SlashContext = {
 			args,
 			peer: target.peer,
 			reply: async (text) => {
 				await deps.reply(target, text);
 			},
-			activeTurn: worker?.state().status === "running",
+			activeTurn: deps.turnState().status === "running",
 			language: languageOf(target.peer),
 			session: slashControls(target.peer, {
-				state: () => worker?.state() ?? { status: "idle", queued: 0 },
+				state: () => deps.turnState(),
 				prompt: () => channel()?.pendingInfo()?.title,
 				stop: () => deps.stopTurn(),
 				// The channel is the one that withdraws, because a withdrawal is a turn's
@@ -211,6 +215,16 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 		const commit = () => deps.saveState(state);
 
 		const target = { peer, contextToken: message.context_token ?? ownerRecord(state)?.lastContextToken };
+		const language = languageOf(peer, text);
+		const item: InboundItem = { ...target, text, media, language };
+		// Nothing to read is answered before anything can consume it as an answer: a voice note
+		// the server gave no transcript for, or a video, carries no text, and a waiting prompt
+		// must not read that emptiness as a reply — an `editor` reads "" as cancel.
+		if (!text && media.length === 0) {
+			if (unsupported > 0) void deps.reply(item, notice("unsupported", language));
+			commit();
+			return;
+		}
 		// A command is not an answer: while a dialog waits the model is blocked on it,
 		// so /stop, /cancel and /status must reach their handlers or the peer's only way
 		// out is the prompt timing out. A message with media is never a command, and an
@@ -222,17 +236,10 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 			return;
 		}
 		// A reply to a pending prompt is consumed here, before queueing, so it never
-		// starts a turn of its own. A duplicate answer was stopped by the id check.
-		if (channel()?.handleInbound(text) === true) {
-			commit();
-			return;
-		}
-		const language = languageOf(peer, text);
-		const item: InboundItem = { ...target, text, media, language };
-		if (!text && media.length === 0) {
-			// Nothing to read. A voice note without a transcript or a video is
-			// answered, so the peer knows it did not reach the agent.
-			if (unsupported > 0) void deps.reply(item, notice("unsupported", language));
+		// starts a turn of its own. A duplicate answer was stopped by the id check. Media is
+		// not an answer either: its download is a turn of its own, so a photo sent at a
+		// waiting prompt neither answers it nor dismisses it.
+		if (media.length === 0 && channel()?.handleInbound(text) === true) {
 			commit();
 			return;
 		}

@@ -14,10 +14,12 @@ import { createTurnBudget, type AdmissionQueue } from "./conversation/admission.
 import { createPresence } from "./conversation/presence.ts";
 import type { TurnRunner, TurnState } from "./conversation/turn.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
+import type { WechatInteractionChannel } from "./dialog/interaction.ts";
 import { createIntake, createLanguageOf, MAX_QUEUE } from "./intake.ts";
 import { notice } from "./text/notices.ts";
-import type { WechatState } from "./types.ts";
-import { inbound, owner } from "../../test/helpers/fixtures/wechat-bridge.ts";
+import { SLASH_COMMANDS, type SlashCommand } from "./commands/slash.ts";
+import type { WeixinMessage, WechatState } from "./types.ts";
+import { inbound, inboundImage, owner } from "../../test/helpers/fixtures/wechat-bridge.ts";
 import { settle } from "../../test/helpers/process.ts";
 
 /** The line a peer gets when the queue is full, as the notice words it. */
@@ -27,6 +29,37 @@ const OVERFLOW = notice("overflow", "en");
 interface Queue {
 	queued: number;
 	pending: number;
+}
+
+/** What a case may swap in: a waiting prompt, the conversation's state, the commands. */
+interface HarnessOptions {
+	channel?: WechatInteractionChannel;
+	turnState?: () => TurnState;
+	slashCommands?: readonly SlashCommand[];
+}
+
+/** A prompt waiting on the peer: it records what intake offers it as an answer. */
+function waitingPrompt(): { channel: WechatInteractionChannel; answers: string[] } {
+	const answers: string[] = [];
+	const channel = {
+		hasPending: () => true,
+		handleInbound: (text: string) => {
+			answers.push(text);
+			return true;
+		},
+		pendingInfo: () => ({ peer: owner, kind: "editor", title: "Edit it", startedAt: 1000 }),
+	} as unknown as WechatInteractionChannel;
+	return { channel, answers };
+}
+
+/** A video: nothing the bridge can read, so intake answers it instead of queueing. */
+function inboundVideo(): WeixinMessage {
+	return {
+		from_user_id: owner,
+		message_type: 1,
+		context_token: "ctx",
+		item_list: [{ video_item: { media: {} } }],
+	};
 }
 
 function fakeWorker(queue: Queue): TurnRunner {
@@ -50,13 +83,18 @@ function fakeAdmission(queue: Queue): AdmissionQueue {
 		},
 		pending: () => queue.pending,
 		settled: async () => {},
+		drain: () => {
+			const dropped = queue.pending;
+			queue.pending = 0;
+			return dropped;
+		},
 		reset: () => {
 			queue.pending = 0;
 		},
 	};
 }
 
-function harness() {
+function harness(options: HarnessOptions = {}) {
 	const queue: Queue = { queued: 0, pending: 0 };
 	const sent: string[] = [];
 	const state: WechatState = { cursor: "", ownerId: owner };
@@ -70,8 +108,9 @@ function harness() {
 		now: () => 1000,
 		notify: () => {},
 		worker: () => worker,
+		turnState: options.turnState ?? workerState,
 		stopTurn: () => ({ stopped: false, dropped: 0 }),
-		channel: () => undefined,
+		channel: () => options.channel,
 		presence: createPresence({
 			typingIndicator: () => false,
 			now: () => 1000,
@@ -82,7 +121,7 @@ function harness() {
 			statusOf: () => workerState().status,
 			languageOf: () => "en",
 			send: async () => true,
-			promptPending: () => false,
+			promptPending: () => options.channel?.hasPending() ?? false,
 		}),
 		budget: createTurnBudget(0, () => 1000),
 		admission: fakeAdmission(queue),
@@ -96,7 +135,7 @@ function harness() {
 		refused: { value: 0 },
 		refusedPeers: new Set(),
 		overflow: new Set(),
-		slashCommands: [],
+		slashCommands: options.slashCommands ?? [],
 	});
 	return { queue, sent, intake };
 }
@@ -133,5 +172,49 @@ describe("the flood cap", () => {
 		for (let i = 0; i < MAX_QUEUE + 1; i++) intake.handleMessage(inbound(`second ${i}`));
 		await settle();
 		expect(sent).toEqual([OVERFLOW, OVERFLOW]);
+	});
+});
+
+describe("what a waiting prompt may read", () => {
+	test("a photo is queued as its own turn, never offered as the answer", async () => {
+		const prompt = waitingPrompt();
+		const { queue, sent, intake } = harness({ channel: prompt.channel });
+		intake.handleMessage(inboundImage());
+		await settle();
+
+		expect(prompt.answers).toEqual([]);
+		expect(queue.pending).toBe(1);
+		expect(sent).toEqual([]);
+	});
+
+	test("a video with no text is answered, and the prompt keeps waiting", async () => {
+		const prompt = waitingPrompt();
+		const { queue, sent, intake } = harness({ channel: prompt.channel });
+		intake.handleMessage(inboundVideo());
+		await settle();
+
+		expect(prompt.answers).toEqual([]);
+		expect(queue.pending).toBe(0);
+		expect(sent).toEqual([notice("unsupported", "en")]);
+	});
+
+	test("text is still the answer", async () => {
+		const prompt = waitingPrompt();
+		const { intake } = harness({ channel: prompt.channel });
+		intake.handleMessage(inbound("hello"));
+		await settle();
+
+		expect(prompt.answers).toEqual(["hello"]);
+	});
+
+	test("/status reads the conversation's state, so a downloading message reads as queued", async () => {
+		const { sent, intake } = harness({
+			turnState: () => ({ status: "queued", queued: 1 }),
+			slashCommands: SLASH_COMMANDS,
+		});
+		intake.handleMessage(inbound("/status"));
+		await settle();
+
+		expect(sent).toEqual(["Queued — 1 message(s) waiting."]);
 	});
 });
