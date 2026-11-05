@@ -241,6 +241,10 @@ while plan mode is on — refine the plan with `write` instead.
 Leaves plan mode without a plan file or a review. Restores write access, records
 no todo items or goal, and keeps any saved plan. No fields.
 
+It reports once, in its transcript block: the block already says the mode is off
+and the plan was not approved, so no notice repeats it. The same holds for `x` on
+the review screen, whose exit block is `exit`'s.
+
 ### Transcript
 
 The blocks reuse the transcript component, and `exit` separates the plan body from
@@ -317,10 +321,11 @@ Sharing is the review page's job: **Share** prints the reviewer link and its QR,
 **New link** mints another, and **Stop sharing** revokes every link, so a phone-owned
 or remote session has no terminal spelling for it. Leaving without approving is
 `plan` action `cancel`, bare `/plan`, or `Shift+Tab`: write access returns and the
-plan file stays for a later review. `list` and `review` are the only reserved
-words — `list the untracked files` and `review the auth flow` stay tasks, as do
-`share the tokens` and `cancel that idea`, which `/plan` sends to the model like
-any other line.
+plan file stays for a later review. Each path reports once — the two `plan` actions
+in their transcript block, the two toggles in a notice, because they draw no
+block. `list` and `review` are the only reserved words — `list the untracked
+files` and `review the auth flow` stay tasks, as do `share the tokens` and
+`cancel that idea`, which `/plan` sends to the model like any other line.
 
 ### `/skill:init`
 
@@ -597,7 +602,7 @@ that apply.
   opens an inline editor beneath it (`Enter` submits, an empty buffer does
   nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the model
   the plan was not approved; `x` leaves plan mode without approving and keeps the
-  plan file; `w` opens the browser review.
+  plan file, reporting it in the exit block alone; `w` opens the browser review.
 - **Sections.** The screen splits the body at its headings, names the section you
   are in, and jumps between sections with `n`/`p`; the scroll row names the
   current section when the plan has more than one.
