@@ -38,6 +38,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   columns keeps its mode exit and its section jump, where before the exit went first and the jump
   needed about 112.
 
+- `plan`: the approval question says what `y` does — plan mode off, the steps it seeds into `todo`, and
+  `goal set` when the approval finalizes the session goal — where it asked `Approve and run the plan?
+  y/N` and nothing else. A clause the approval will not carry out is left out, and the question and
+  its `y/N` lead so a narrow footer cuts the consequences rather than the answer. A blank plan file is
+  refused before the review rather than offering an approval that recorded a goal named after its
+  slug.
+
 - `plan`: a second review marks every section that changed in the body, not only the one at the top —
   a `·` in accent replaces the body's first padding column on each changed section's first line, so a
   reader finds a revised section without `n`-ing through a long plan and a long heading never loses
