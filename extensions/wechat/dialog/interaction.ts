@@ -67,6 +67,54 @@ export interface WechatInteractionChannel extends InteractionChannel {
 }
 
 /** The waiting prompt, as the control screen reads it. */
+/** What the bridge supplies for the chat's one channel: the running turn's outbound path. */
+export interface ChatChannelDeps {
+	/** The conversation's id, echoed on the prompt the screen lists. */
+	peer: string;
+	/** Put buffered assistant text on the wire before a prompt or a file. */
+	flush: () => Promise<void>;
+	/** Send one dialog message as the turn's next bubble. */
+	send: (text: string, signal?: AbortSignal) => Promise<boolean>;
+	/** Send one local file. */
+	sendFile: (path: string, name: string, signal?: AbortSignal) => Promise<boolean>;
+	/** Whether a turn is running, so a prompt has somewhere to land. */
+	active: () => boolean;
+	/** The language the chat writes in, for the prompt and the timeout notices. */
+	language: () => PeerLanguage;
+	/** Arm a cancellable one-shot timer. Defaults to a real, unref'd `setTimeout`. */
+	armTimer?: ArmTimer;
+	/** Clock for the prompt's start time; defaults to `Date.now`. */
+	now?: () => number;
+}
+
+/**
+ * The chat's interaction channel: one conversation, so one channel. Dialog text is
+ * only sent while its prompt is registered; the timeout, waiting, and withdrawal
+ * lines force their way through.
+ */
+export function createChatChannel(deps: ChatChannelDeps): WechatInteractionChannel {
+	let channel: WechatInteractionChannel | undefined;
+	const allowed = (options?: { force?: boolean }): boolean => options?.force === true || channel?.hasPending() === true;
+	channel = createWechatInteractionChannel({
+		peer: deps.peer,
+		send: async (text, signal, options) => {
+			if (!allowed(options)) return false;
+			await deps.flush();
+			return deps.send(text, signal);
+		},
+		sendFile: async (path, name, signal, options) => {
+			if (!allowed(options)) return false;
+			await deps.flush();
+			return deps.sendFile(path, name, signal);
+		},
+		active: deps.active,
+		language: deps.language,
+		armTimer: deps.armTimer,
+		now: deps.now,
+	});
+	return channel;
+}
+
 export interface PendingPromptInfo {
 	peer: string;
 	kind: InteractionRequest["kind"];

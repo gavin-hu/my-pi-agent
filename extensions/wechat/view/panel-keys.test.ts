@@ -29,4 +29,11 @@ describe("the control screen's keys", () => {
 	test("every key is one character, so a press reaches it", () => {
 		for (const entry of PANEL_KEYS) expect(entry.key, entry.label).toHaveLength(1);
 	});
+
+	test("the key that withdraws a waiting prompt is named in the hint row", () => {
+		// `c` was the one peer action a reader had to already know: the verb is
+		// `/wechat cancel`, and the hint row is the only place the key is advertised.
+		const cancel = PANEL_KEYS.find((entry) => "inPlace" in entry.effect && entry.effect.inPlace === "cancelPrompt");
+		expect(cancel?.hint).toBe(true);
+	});
 });

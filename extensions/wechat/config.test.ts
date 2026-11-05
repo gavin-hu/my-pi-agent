@@ -15,11 +15,6 @@ describe("normalizeConfig", () => {
 		expect(config.maxReplyChars).toBe(20000);
 	});
 
-	test("keeps only non-empty string peers", () => {
-		const config = normalizeConfig({ allowedPeers: ["a", "", 3, "b"] }, DEFAULT_CONFIG);
-		expect(config.allowedPeers).toEqual(["a", "b"]);
-	});
-
 	test("caps botAgent at 256 characters", () => {
 		const config = normalizeConfig({ botAgent: "x".repeat(400) }, DEFAULT_CONFIG);
 		expect(config.botAgent.length).toBe(256);
@@ -39,11 +34,6 @@ describe("normalizeConfig", () => {
 		expect(normalizeConfig({ pollHoldMs: null }, inherited).pollHoldMs).toBe(9000);
 	});
 
-	test("accepts only a boolean remotePrompts", () => {
-		expect(normalizeConfig({ remotePrompts: false }, DEFAULT_CONFIG).remotePrompts).toBe(false);
-		expect(normalizeConfig({ remotePrompts: "yes" }, DEFAULT_CONFIG).remotePrompts).toBe(true);
-	});
-
 	test("clamps maxMediaBytes into range", () => {
 		const low = normalizeConfig({ maxMediaBytes: 1 }, DEFAULT_CONFIG);
 		const high = normalizeConfig({ maxMediaBytes: 999 * 1024 * 1024 }, DEFAULT_CONFIG);
@@ -55,21 +45,6 @@ describe("normalizeConfig", () => {
 		expect(normalizeConfig({ maxInboundChars: 10 }, DEFAULT_CONFIG).maxInboundChars).toBe(1000);
 		expect(normalizeConfig({ maxInboundChars: 999_999 }, DEFAULT_CONFIG).maxInboundChars).toBe(100_000);
 		expect(normalizeConfig({ maxInboundChars: 5000 }, DEFAULT_CONFIG).maxInboundChars).toBe(5000);
-	});
-
-	test("normalizes per-peer tool allowlists", () => {
-		const config = normalizeConfig(
-			{
-				peers: {
-					" alice ": { tools: ["read", " todo ", 7, ""] },
-					bob: {},
-					bad: "nope",
-					"": { tools: ["read"] },
-				},
-			},
-			DEFAULT_CONFIG,
-		);
-		expect(config.peers).toEqual({ alice: { tools: ["read", "todo"] }, bob: {} });
 	});
 
 	test("clamps maxTurnsPerHour", () => {
@@ -94,13 +69,9 @@ describe("loadWechatConfig", () => {
 		await withAgentDir(async () => {
 			const cwd = tempDir("wechat-cwd-");
 			mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
-			writeFileSync(
-				join(cwd, CONFIG_DIR_NAME, "bytefly.json"),
-				JSON.stringify({ wechat: { maxReplyChars: 12, allowedPeers: ["p"] } }),
-			);
+			writeFileSync(join(cwd, CONFIG_DIR_NAME, "bytefly.json"), JSON.stringify({ wechat: { maxReplyChars: 12 } }));
 			const config = loadWechatConfig(cwd);
 			expect(config.maxReplyChars).toBe(12);
-			expect(config.allowedPeers).toEqual(["p"]);
 			expect(config.botAgent).toBe(DEFAULT_CONFIG.botAgent);
 		});
 	});

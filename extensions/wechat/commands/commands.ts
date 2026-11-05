@@ -12,13 +12,10 @@
  */
 
 import {
-	CONFIG_DIR_NAME,
 	type ExtensionAPI,
 	type ExtensionCommandContext,
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { join } from "node:path";
-import { writeConfigValue } from "../../../lib/config.ts";
 import { sanitizeLine } from "../../../lib/format.ts";
 import { supportsCustomUI } from "../../../lib/interaction.ts";
 import type { Bridge } from "../bridge.ts";
@@ -29,8 +26,8 @@ import type { LoginViewState } from "../view/login-screen.ts";
 import type { LoginOutcome } from "./login.ts";
 import { doctorReport } from "./doctor.ts";
 import { messageOf } from "../../../lib/errors.ts";
-import { peerLabel, peerKey } from "../text/format.ts";
 import { bridgeRemedy } from "../text/remedy.ts";
+import { peerLabel } from "../text/format.ts";
 import { defaultSleep } from "../timer.ts";
 import { qrLines } from "../../../lib/qr.ts";
 import { statusLine, statusView, type StatusView } from "../text/status.ts";
@@ -52,8 +49,8 @@ export interface CommandDeps {
 	createLoginClient: (cwd: string) => Promise<WechatClient>;
 	saveAccount: (account: BotCredentials) => void;
 	storedAccount: () => BotCredentials | undefined;
-	/** Read a peer's recent messages for `/wechat history`; read-only. */
-	readHistory: (peer: string, count: number) => Promise<string>;
+	/** Read this conversation's recent messages for `/wechat history`; read-only. */
+	readHistory: (count: number) => Promise<string>;
 	logout: () => void | Promise<void>;
 	now: () => number;
 }
@@ -77,26 +74,17 @@ export const WECHAT_COMMANDS = [
 	{ verb: "login", description: "Log in by QR; a scan stores the account (then /wechat start)", run: runLogin },
 	{ verb: "new", description: "Start a fresh host session (peer conversations are independent)", run: runNew },
 	{ verb: "status", description: "Open the control screen (a one-line summary outside the TUI)", run: runPanel },
+	{ verb: "stop", description: "Stop the bridge on this session", run: runStop },
 	{
-		verb: "stop",
-		description: "Stop the bridge on this session, or one peer's turn: /wechat stop [peer]",
-		run: runStop,
+		verb: "cancel",
+		description: "Withdraw the waiting prompt without stopping the turn",
+		run: runCancel,
 	},
 	{ verb: "doctor", description: "Print a health report: token age, last poll, lock, peers, failures", run: runDoctor },
 	{
-		verb: "reset",
-		description: "Start a fresh conversation for one peer: /wechat reset <peer>",
-		run: (ctx, deps, args) => runPeerAction(ctx, deps, "reset", args),
-	},
-	{
 		verb: "history",
-		description: "Print one peer's recent messages: /wechat history <peer> [n]",
+		description: "Print this conversation's recent messages: /wechat history [n]",
 		run: (ctx, deps, args) => runHistory(ctx, deps, args),
-	},
-	{
-		verb: "allow",
-		description: "Allow a refused sender in the project config: /wechat allow [peer]",
-		run: (ctx, deps, args) => runAllow(ctx, deps, args || undefined),
 	},
 	{ verb: "logout", description: "Clear the stored account and stop the bridge", run: runLogout },
 	{
@@ -173,25 +161,21 @@ interface VerbOutcome {
  * screen's keys and the `/wechat <verb>` subcommands. A peer label carries text
  * the peer chose, so it is sanitized here rather than at each call site.
  */
-function peerStopMessage(bridge: Bridge, peer: string): VerbOutcome {
-	const label = sanitizeLine(peerLabel(peer));
-	return bridge.stop(peer)
-		? { message: `Stopping ${label}'s turn.`, kind: "info" }
-		: { message: `${label} has no running turn.`, kind: "info" };
+/** Stop the chat's running turn; the screen's `s` key and `/wechat cancel` differ only here. */
+function stopTurnOutcome(bridge: Bridge): VerbOutcome {
+	return bridge.stop()
+		? { message: "Stopping the running turn.", kind: "info" }
+		: { message: "Nothing is running right now.", kind: "info" };
 }
 
-function resetMessage(bridge: Bridge, peer: string): VerbOutcome {
-	const label = sanitizeLine(peerLabel(peer));
-	return bridge.reset(peer)
-		? { message: `Started a fresh conversation for ${label}.`, kind: "info" }
-		: { message: `${label} is running; stop it before starting a new conversation.`, kind: "info" };
-}
-
-function cancelPromptMessage(bridge: Bridge, peer: string): VerbOutcome {
-	if (!bridge.status().prompts.some((prompt) => prompt.peer === peer)) {
-		return { message: "No prompt is waiting.", kind: "info" };
-	}
-	void bridge.channel(peer).cancel();
+/**
+ * Withdraw the waiting prompt. There is one conversation, so there is one prompt:
+ * the screen's `c` key and `/wechat cancel` both read it, and a key and its verb
+ * cannot word the same action differently.
+ */
+function cancelPromptOutcome(bridge: Bridge): VerbOutcome {
+	if (bridge.status().prompts.length === 0) return { message: "No prompt is waiting.", kind: "info" };
+	void bridge.channel().cancel();
 	return { message: "Cancelled the waiting prompt.", kind: "info" };
 }
 
@@ -226,12 +210,6 @@ function withBridge<T>(deps: CommandDeps, absent: string, run: (bridge: Bridge) 
 	return bridge ? run(bridge) : absent;
 }
 
-/** The peers a subcommand can name, for a usage line: the live bridge's peer labels. */
-function knownPeers(bridge: Bridge | undefined): string {
-	const known = bridge?.status().peerStates.map((entry) => peerLabel(entry.peer)) ?? [];
-	return known.join(", ") || "none yet";
-}
-
 /** Start the bridge on this session, and bind it to the stored account. */
 async function runStart(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
 	if (busyWithPeerTurn(ctx, deps, "start")) return;
@@ -245,68 +223,37 @@ async function runStart(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 	ctx.ui.notify(outcome.message, outcome.kind);
 }
 
-/** Stop the bridge, or with a peer named, only that peer's running turn. */
-async function runStop(ctx: ExtensionCommandContext, deps: CommandDeps, args: string): Promise<void> {
-	const peer = args.trim();
-	if (peer) {
-		await runPeerAction(ctx, deps, "stop", peer);
+/**
+ * Withdraw a waiting prompt, from a session that may have no control screen to
+ * press `c` on. A peer turn running is exactly when a prompt waits, so this is
+ * not one of the verbs `busyWithPeerTurn` declines.
+ */
+async function runCancel(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
+	const bridge = deps.getBridge();
+	if (!bridge) {
+		ctx.ui.notify(
+			`No prompt is waiting: this session runs no bridge. ${bridgeRemedy(deps.storedAccount() !== undefined)}`,
+			"warning",
+		);
 		return;
 	}
+	const outcome = cancelPromptOutcome(bridge);
+	ctx.ui.notify(outcome.message, outcome.kind);
+}
+
+/** Stop the bridge on this session, which also releases the poller lock. */
+async function runStop(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
 	const outcome = await stopOutcome(deps);
 	ctx.ui.notify(outcome.message, outcome.kind);
 }
 
-/** Add a refused sender to the project config after the operator confirms. */
-async function runAllow(ctx: ExtensionContext, deps: CommandDeps, peerArg?: string): Promise<void> {
-	if (!ctx.hasUI) {
-		ctx.ui.notify("WeChat allow needs a confirmation dialog, which this mode has no UI for.", "warning");
-		return;
-	}
-	const candidate = peerArg?.trim() || (await chooseRefused(ctx, deps));
-	if (!candidate) return;
-	const config = deps.loadConfig(ctx.cwd);
-	// The admission rule lives with the bridge's intake, which a session that never
-	// runs `/wechat allow` does not load.
-	const { isAllowedPeer } = await import("../intake.ts");
-	if (isAllowedPeer(candidate, undefined, config.allowedPeers)) {
-		ctx.ui.notify(`${sanitizeLine(peerLabel(candidate))} is already allowed.`);
-		return;
-	}
-	const relative = join(CONFIG_DIR_NAME, "bytefly.json");
-	const label = sanitizeLine(peerLabel(candidate));
-	const confirmed = await ctx.ui.confirm(`Allow ${label}?`, `Add this sender to wechat.allowedPeers in ${relative}?`);
-	if (!confirmed) return;
-	try {
-		writeConfigValue(join(ctx.cwd, relative), "wechat", "allowedPeers", [...config.allowedPeers, candidate]);
-		ctx.ui.notify(`Saved ${label} to ${relative}. Run /reload or restart Pi to apply.`);
-	} catch (error) {
-		ctx.ui.notify(`Could not save the allowlist: ${messageOf(error)}`, "error");
-	}
-}
-
-/** Pick one of the refused senders, or explain that there is nothing to allow. */
-async function chooseRefused(ctx: ExtensionContext, deps: CommandDeps): Promise<string | undefined> {
-	const refused = deps.getBridge()?.status().refusedPeers ?? [];
-	if (refused.length === 0) {
-		ctx.ui.notify("No refused sender to allow.", "warning");
-		return undefined;
-	}
-	return ctx.ui.select("Allow which sender?", refused);
-}
-
-/** Print one peer's recent messages; read-only, and works without a live session. */
+/** Print this conversation's recent messages; read-only. */
 async function runHistory(ctx: ExtensionCommandContext, deps: CommandDeps, args: string): Promise<void> {
-	const [peer = "", countArg] = args.trim().split(/\s+/).filter(Boolean);
-	const bridge = deps.getBridge();
-	if (!peer) {
-		ctx.ui.notify(`Usage: /wechat history <peer> [n]. Known: ${knownPeers(bridge)}.`, "warning");
-		return;
-	}
-	const requested = Number.parseInt(countArg ?? "", 10);
+	const requested = Number.parseInt(args.trim(), 10);
 	const count = Math.min(20, Math.max(1, Number.isFinite(requested) ? requested : 10));
 	try {
-		const text = await deps.readHistory(peer, count);
-		ctx.ui.notify(text || `No history yet for ${peerLabel(peer)}.`);
+		const text = await deps.readHistory(count);
+		ctx.ui.notify(text || "No history yet in this conversation.");
 	} catch (error) {
 		ctx.ui.notify(`WeChat history failed: ${messageOf(error)}`, "warning");
 	}
@@ -398,12 +345,7 @@ export async function runNew(ctx: ExtensionCommandContext, deps: CommandDeps): P
 	// the peer would be left unanswered. The inbound `/new` declines the same case
 	// through `activeTurn`.
 	if (busyWithPeerTurn(ctx, deps, "new")) return;
-	const result = await ctx.newSession();
-	// The notice belongs to the session that was just started, which is why it is
-	// posted after the switch; a cancelled switch leaves this session running, and
-	// saying the bridge is gone from it would be false.
-	if (result.cancelled) return;
-	ctx.ui.notify("WeChat is not running in the new session. Run /wechat start to run the bridge here.");
+	await ctx.newSession();
 }
 
 /**
@@ -428,12 +370,9 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 				view,
 				onClose: done,
 				actions: {
-					stop: (peer) =>
-						withBridge(deps, "WeChat bridge is not running.", (bridge) => peerStopMessage(bridge, peer).message),
-					reset: (peer) =>
-						withBridge(deps, "WeChat bridge is not running.", (bridge) => resetMessage(bridge, peer).message),
-					cancelPrompt: (focused) =>
-						withBridge(deps, "No prompt is waiting.", (bridge) => cancelPromptMessage(bridge, focused).message),
+					stop: () => withBridge(deps, "WeChat bridge is not running.", (bridge) => stopTurnOutcome(bridge).message),
+					cancelPrompt: () =>
+						withBridge(deps, "No prompt is waiting.", (bridge) => cancelPromptOutcome(bridge).message),
 					toggleBridge: async () =>
 						(deps.getBridge()?.status().state === "running" ? await stopOutcome(deps) : await startOutcome(ctx, deps))
 							.message,
@@ -444,7 +383,7 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 	// The screen names a verb by the type the table declares, so a key and its
 	// subcommand share one runner; the peer it was pressed on is the verb's argument.
 	if (action === "close" || action === undefined) return;
-	await dispatch(action.verb, ctx, deps, action.peer ?? "");
+	await dispatch(action.verb, ctx, deps);
 }
 
 async function runLogout(ctx: ExtensionContext, deps: CommandDeps): Promise<void> {
@@ -465,31 +404,6 @@ function completeSubcommand(prefix: string): Array<{ value: string; label: strin
 	if (text.includes(" ")) return null;
 	const items = WECHAT_COMMANDS.filter((command) => command.verb.startsWith(text));
 	return items.length > 0 ? items.map(({ verb, description }) => ({ value: verb, label: verb, description })) : null;
-}
-
-/** Act on one peer from the terminal: stop its turn or reset its conversation. */
-async function runPeerAction(
-	ctx: ExtensionCommandContext,
-	deps: CommandDeps,
-	verb: "stop" | "reset",
-	args: string,
-): Promise<void> {
-	const bridge = deps.getBridge();
-	if (!bridge) {
-		ctx.ui.notify(`WeChat bridge is not started. ${bridgeRemedy(deps.storedAccount() !== undefined)}`, "warning");
-		return;
-	}
-	const wanted = args.trim();
-	const entry = wanted ? bridge.status().peerStates.find((row) => peerKey(row.peer) === peerKey(wanted)) : undefined;
-	if (!entry) {
-		ctx.ui.notify(`Unknown WeChat peer${wanted ? ` "${wanted}"` : ""}. Known: ${knownPeers(bridge)}.`, "warning");
-		return;
-	}
-	if (verb === "stop") {
-		ctx.ui.notify(peerStopMessage(bridge, entry.peer).message);
-		return;
-	}
-	ctx.ui.notify(resetMessage(bridge, entry.peer).message);
 }
 
 /** Run one verb. The control screen reuses this so a key and a subcommand agree. */

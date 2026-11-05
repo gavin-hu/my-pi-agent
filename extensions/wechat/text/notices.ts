@@ -25,7 +25,8 @@ export type NoticeKind =
 	| "timeout"
 	| "withdrawn"
 	| "failed"
-	| "newBusy";
+	| "newBusy"
+	| "newHost";
 
 const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 	ack: { zh: "收到，排队中，轮到就回。", en: "Queued — I'll answer next." },
@@ -73,6 +74,10 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 	newBusy: {
 		zh: "正在处理当前消息，稍后再发送 /new。",
 		en: "Still working on your last message — send /new again after it finishes.",
+	},
+	newHost: {
+		zh: "微信聊的就是当前 Pi 会话，在这里 /new 会关闭桥接；请在终端里执行。",
+		en: "The chat is this Pi session, so /new here would close the bridge. Run it in the terminal.",
 	},
 };
 

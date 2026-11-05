@@ -137,7 +137,7 @@ command, one widget, and branch replay. Past roughly twenty modules a role earns
 a directory, the way [`../extensions/bytefly/`](../extensions/bytefly/) groups
 `footer/`, `notice/`, `header/`, and `separator/`, and `plan` keeps its tool
 surface in `tools/`. Every extension past that size now holds role directories —
-[`../extensions/wechat/`](../extensions/wechat/) is the worked example, seven
+[`../extensions/wechat/`](../extensions/wechat/) is the worked example, role
 directories around the wiring — so the rule has no exception left to make.
 
 ## One turn
@@ -282,7 +282,7 @@ for the next session to reconcile it.**
 flowchart TD
   S["one Pi session"] --> A["this process · one loopback server with a mount per page, a job"]
   S --> B["child · a subagent, a verification run"]
-  S --> C["peer · a WeChat conversation"]
+  S --> C["the chat · a WeChat conversation, in this session"]
   A --> Z["the owner stops it, or reconciles and prunes it"]
   B --> Z
   C --> Z
@@ -293,7 +293,7 @@ flowchart TD
 | Loopback server | `serve` binds it on the first mount, and closes it on shutdown or when its last mount leaves; a page gives its own prefix back on the owner's command or on idle. | Nothing: the page describes a session that is still running. |
 | Background job or watcher | Started by a tool call, tracked in a registry with its own log, reconciled on shutdown. | The log and the registry entry, so a restarted session can list and stop what is still running. |
 | Child `pi` process | `subagent` spawns it, enforces a deadline, escalates and reports the exit. | The tool result, once the run ends. |
-| Peer session | The bridge opens one per admitted sender; logout or shutdown stops the bridge. | Each peer's history, on disk, apart from the host session. |
+| A WeChat conversation | Not a child: an inbound message is a turn in the host session, so logout or shutdown ends the bridge and the turn with it. | The session itself, which carries the conversation. |
 
 A job is a process plus a durable record, so a later session can re-attach to it and stop it; a
 watcher is a live position in a file or a pipe, held in memory for the session and gone with it.
@@ -323,7 +323,7 @@ which moves one is visible; the threat model and the policy for each are
 | A tool mutating the tree while planning | Default-deny classification in [`../lib/policy.ts`](../lib/policy.ts), plus the path backstop in `plan` | [`./security.md`](./security.md#read-only-plan-mode) |
 | A local page reaching beyond its session | [`../lib/http/`](../lib/http/): loopback binding, `Host` checks, page headers, read-only routes | [`./security.md`](./security.md#loopback-http-servers) |
 | An outbound request reaching this machine's own network | The redirect check in [`../extensions/web-access/fetch/ssrf.ts`](../extensions/web-access/fetch/ssrf.ts) | [`./security.md`](./security.md#outbound-web-access) |
-| A remote chat reaching the terminal's session | Admission, owner-only proactive messages, and a peer session per sender | [`./security.md`](./security.md#child-processes-and-remote-control) |
+| A remote chat reaching the terminal's session | Owner-only admission, and one conversation that *is* the session | [`./security.md`](./security.md#child-processes-and-remote-control) |
 
 A boundary that two extensions answer has exactly one policy module, in `lib/`.
 Two copies are how a header, a `Host` rule, or an allowlist drifts apart, which
@@ -378,7 +378,7 @@ If you are new to the tree, this order teaches one idea per stop.
 | [`../extensions/plan/`](../extensions/plan/) | Policy, cross-tool orchestration, injected context, and a second surface |
 | [`../extensions/worktree/`](../extensions/worktree/) | Re-rooting the host's file tools, and the shell guard shared with plan mode |
 | [`../extensions/job/`](../extensions/job/) | A registry, a log, and work that outlives a turn |
-| [`../extensions/wechat/`](../extensions/wechat/) | A transport, peer sessions, and a one-runtime lock |
+| [`../extensions/wechat/`](../extensions/wechat/) | A transport, one conversation in the host session, and a one-runtime lock |
 | [`../extensions/bytefly/`](../extensions/bytefly/) | Chrome and renderers: one extension that draws the others |
 | [`../lib/tui/`](../lib/tui/) | The design system every surface above draws through |
 
@@ -429,7 +429,7 @@ neither is repeated here.
 | `file-browse`: live status patches only the rows already drawn | A snapshot plus one reload control is honest; making every subfolder live is a different server. |
 | `open_path`: Windows reports only that the launcher started | `explorer` exits non-zero after a successful open and reports nothing for a hidden window. Revisit with a platform API that answers. |
 | `wechat`: an abandoned turn's notice is one attempt and needs a live connection | A notice the transport cannot deliver in five seconds is reported on the terminal, not retried: the session is gone, so there is nothing left to retry from. Revisit if a notice must outlive the session. |
-| `wechat`: two peers' turns run at once, not more | Every concurrent turn is a full model run on the user's budget, and a phone chat rarely has more than two conversations in flight; the rest wait in a fair queue and are acknowledged. Revisit if `PEER_CONCURRENCY` needs to follow the hardware instead of the conversation. |
+| `wechat`: one turn at a time, and no steering a running one | The chat is the host session, so a second turn would be a second run in one transcript. A message that arrives mid-turn waits for its own turn and is acknowledged; `deliverAs: "steer"` is unused. Revisit if the phone should interrupt a run instead of queueing behind it. |
 | `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. |
 | `bytefly`: themes and prompts are not picker sections | A theme is one active selection — a scalar, global setting — and a prompt template is a file Pi discovers; neither is the scoped enable list this screen writes. A decision, not a deferral: revisit if Pi exposes a scoped theme or prompt setting. |

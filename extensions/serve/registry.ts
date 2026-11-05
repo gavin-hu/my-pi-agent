@@ -4,17 +4,16 @@
  *
  * The registry is the only place that knows what a session is serving: it binds on
  * the first mount, remembers the port so a closed page reopens where it was, keys
- * every server by Pi session id so a peer session never lands on the host's socket,
+ * every server by Pi session id so another session in this process never lands on the host's socket,
  * and closes a session's socket with its last mount. A page that goes away takes
  * only its own prefix with it.
  *
  * The port is a preference, not a reservation: a session's first bind tries the port
  * it is pinned to, or the project's own number, and falls back to an OS-chosen one when
  * that port is taken. Pinning is the session's, not a page's: `serve.port` belongs to the
- * first session that binds, so a second session in this process (a WeChat peer loads every
- * other extension, `extensions/wechat/peer/peer-session.ts`) falls back to an OS-chosen
- * port instead of failing on the host's pin, and a second *process* is told the pin
- * is in use rather than moved off the address a bookmark names.
+ * first session that binds, so a second session in this process — a session that loads this
+ * bridge twice — falls back to an OS-chosen port instead of failing on the host's pin, and a
+ * second *process* is told the pin is in use rather than moved off the address a bookmark names.
  *
  * Value-only: every byte of state is in the returned closure.
  */

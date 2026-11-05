@@ -250,8 +250,6 @@ const SECTIONS: readonly SectionCase[] = [
 		defaults: DEFAULT_WECHAT_CONFIG,
 		normalize: (raw) => normalizeWechatConfig(raw, DEFAULT_WECHAT_CONFIG),
 		jsonOnly: {
-			allowedPeers: "a list of WeChat ids",
-			peers: "a per-peer map",
 			maxTurnsPerHour: "a bridge rate limit",
 			maxReplyChars: "a bridge reply limit",
 			botAgent: "a protocol identifier",
@@ -260,7 +258,6 @@ const SECTIONS: readonly SectionCase[] = [
 			maxMediaBytes: "a bridge transfer limit",
 			maxInboundChars: "a bridge transfer limit",
 			typingIndicator: "a bridge courtesy",
-			remotePrompts: "a bridge routing choice",
 		},
 	},
 	{

@@ -1,60 +1,54 @@
 /**
- * Per-peer admission bookkeeping: the rolling-hour turn budget and the serial
- * admission chain.
+ * Admission bookkeeping for the one conversation: the rolling-hour turn budget
+ * and the serial admission chain.
  *
  * A burst of media messages must keep its arrival order and count against the
  * queue cap before its download completes, so a slot is reserved when the
- * message is accepted and each peer's admissions run one after another. The
- * budget is in memory; a reload starts a fresh hour.
+ * message is accepted and the admissions run one after another. The budget is in
+ * memory; a reload starts a fresh hour.
  */
 
 import type { InboundItem } from "../types.ts";
-import { peerKey } from "../text/format.ts";
 
-/** A rolling-hour turn budget per peer. */
+/** A rolling-hour turn budget for the conversation. */
 export interface TurnBudget {
-	/** Reserve a turn; false when the peer has used its hourly allowance. */
-	allow(peer: string): boolean;
+	/** Reserve a turn; false when the hour's allowance is spent. */
+	allow(): boolean;
 	/** Drop every counter (a new connection). */
 	reset(): void;
 }
 
 export function createTurnBudget(limit: number, now: () => number): TurnBudget {
-	const turnTimes = new Map<string, number[]>();
+	let turnTimes: number[] = [];
 	return {
-		allow(peer: string): boolean {
+		allow(): boolean {
 			if (limit <= 0) return true;
-			const key = peerKey(peer);
 			const at = now();
 			const cutoff = at - 60 * 60 * 1000;
-			const times = (turnTimes.get(key) ?? []).filter((entry) => entry >= cutoff);
-			if (times.length >= limit) {
-				turnTimes.set(key, times);
-				return false;
-			}
-			times.push(at);
-			turnTimes.set(key, times);
+			turnTimes = turnTimes.filter((entry) => entry >= cutoff);
+			if (turnTimes.length >= limit) return false;
+			turnTimes.push(at);
 			return true;
 		},
 		reset(): void {
-			turnTimes.clear();
+			turnTimes = [];
 		},
 	};
 }
 
 export interface AdmissionQueueDeps {
-	/** Resolve media and hand the message to the peer's session. */
+	/** Resolve media and hand the message to the conversation. */
 	admit: (item: InboundItem) => Promise<void>;
 	/** A message that could not be admitted at all. */
 	notify: (message: string, kind?: "info" | "warning" | "error") => void;
 }
 
-/** The per-peer serial admission chain. */
+/** The serial admission chain. */
 export interface AdmissionQueue {
 	/** Reserve a slot and admit in arrival order. */
 	enqueue(item: InboundItem): void;
 	/** Slots reserved but not yet queued (downloads in flight). */
-	pending(peer: string): number;
+	pending(): number;
 	/** Resolves once every admission in flight right now has finished. */
 	settled(): Promise<void>;
 	/** Drop the bookkeeping (a new connection). */
@@ -63,15 +57,14 @@ export interface AdmissionQueue {
 
 export function createAdmissionQueue(deps: AdmissionQueueDeps): AdmissionQueue {
 	/** Messages being resolved (media download) before they reach the queue. */
-	const admitting = new Map<string, number>();
-	/** Per-peer admission chain, so two media messages keep their arrival order. */
-	const chains = new Map<string, Promise<void>>();
+	let admitting = 0;
+	/** The admission chain, so two media messages keep their arrival order. */
+	let chain: Promise<void> = Promise.resolve();
 
 	return {
 		enqueue(item: InboundItem): void {
-			const peer = item.peer;
-			admitting.set(peer, (admitting.get(peer) ?? 0) + 1);
-			const previous = chains.get(peer) ?? Promise.resolve();
+			admitting += 1;
+			const previous = chain;
 			const next = previous
 				.then(async () => {
 					await deps.admit(item);
@@ -84,18 +77,13 @@ export function createAdmissionQueue(deps: AdmissionQueueDeps): AdmissionQueue {
 					);
 				})
 				.finally(() => {
-					const left = (admitting.get(peer) ?? 1) - 1;
-					if (left > 0) admitting.set(peer, left);
-					else admitting.delete(peer);
+					admitting = Math.max(0, admitting - 1);
 				});
-			chains.set(peer, next);
-			void next.finally(() => {
-				if (chains.get(peer) === next) chains.delete(peer);
-			});
+			chain = next;
 		},
 
-		pending(peer: string): number {
-			return admitting.get(peer) ?? 0;
+		pending(): number {
+			return admitting;
 		},
 
 		/**
@@ -104,12 +92,12 @@ export function createAdmissionQueue(deps: AdmissionQueueDeps): AdmissionQueue {
 		 * cannot be counted as read.
 		 */
 		settled(): Promise<void> {
-			return Promise.all([...chains.values()]).then(() => undefined);
+			return chain.then(() => undefined);
 		},
 
 		reset(): void {
-			admitting.clear();
-			chains.clear();
+			admitting = 0;
+			chain = Promise.resolve();
 		},
 	};
 }

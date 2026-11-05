@@ -3,7 +3,7 @@
  *
  * It answers the operator's first question — why is the bot quiet or slow? — from
  * the facts `statusView` already derived: the connection, the token's age, the last
- * poll, the poller lock, per-peer activity, and the last send/poll failure. Only the
+ * poll, the poller lock, the turn's activity, and the last send/poll failure. Only the
  * config summary and the remedy each state asks for are the report's own, so the
  * report and the control screen cannot word a fact differently. Pure, so the
  * wording and the age math are unit-tested without a bridge.
@@ -13,7 +13,7 @@ import { formatDuration } from "../../../lib/format.ts";
 import { padTo } from "../../../lib/tui/columns.ts";
 import type { BridgeStatus } from "../bridge.ts";
 import type { WechatConfig } from "../config.ts";
-import { peerValue, refusedValue, type StatusView, statusView } from "../text/status.ts";
+import { refusedValue, type StatusView, statusView, turnValue } from "../text/status.ts";
 import type { BotCredentials } from "../types.ts";
 
 export interface DoctorInput {
@@ -64,15 +64,13 @@ function lockLine(view: StatusView): string {
 	return `pid ${view.lock.pid} · ${ago(view.lock.ageMs)}`;
 }
 
-function peers(view: StatusView): string[] {
-	if (view.peerRows.length === 0) return [row("Peers", "none")];
-	const running = view.peerRows.filter((entry) => entry.status === "running").length;
-	const lines = [row("Peers", `${view.peerRows.length} · ${running} running · ${view.queued} queued`)];
-	for (const entry of view.peerRows) {
-		const session = entry.sessionAgeMs === undefined ? "" : ` · session ${formatDuration(entry.sessionAgeMs)}`;
-		lines.push(row(`  ${entry.label}`, `${peerValue(entry)}${session}`));
-	}
-	return lines;
+function conversation(view: StatusView): string[] {
+	const turn = view.turn;
+	if (!turn) return [row("Turn", "idle")];
+	const session = turn.sessionAgeMs === undefined ? "" : ` · session ${formatDuration(turn.sessionAgeMs)}`;
+	// The doctor has no separate queue row, so the depth rides on the turn line here.
+	const queue = turn.queued > 0 ? `, ${turn.queued} queued` : "";
+	return [row("Turn", `${turnValue(turn)}${queue}${session}`)];
 }
 
 function recent(view: StatusView): string {
@@ -89,13 +87,8 @@ function media(view: StatusView): string {
 }
 
 function configLine(config: WechatConfig): string {
-	const overrides = Object.keys(config.peers).length;
 	const limits = config.maxTurnsPerHour > 0 ? `${config.maxTurnsPerHour} turns/h` : "no turn cap";
-	return row(
-		"Config",
-		`typing ${config.typingIndicator ? "on" : "off"} · prompts ${config.remotePrompts ? "on" : "off"} · ` +
-			`${config.allowedPeers.length} allowed · ${overrides} peer override(s) · ${limits}`,
-	);
+	return row("Config", `typing ${config.typingIndicator ? "on" : "off"} · ${limits}`);
 }
 
 /** The doctor report, one line per fact. */
@@ -107,7 +100,7 @@ export function doctorReport(input: DoctorInput): string {
 		row("Connection", connection(view)),
 		row("Poll", poll(view)),
 		row("Lock", lockLine(view)),
-		...peers(view),
+		...conversation(view),
 		recent(view),
 		media(view),
 		configLine(config),

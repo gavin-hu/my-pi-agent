@@ -1,5 +1,5 @@
 /**
- * The hourly turn budget and the per-peer admission chain: what a peer may spend,
+ * The hourly turn budget and the serial admission chain: what the chat may spend,
  * the order its own messages are resolved in, and `settled()` — the promise the poll
  * loop awaits before it acknowledges the batch it just fed in.
  *
@@ -51,14 +51,14 @@ describe("the admission queue", () => {
 		release();
 		await queue.settled();
 		expect(settled).toBe(true);
-		expect(queue.pending(ITEM.peer)).toBe(0);
+		expect(queue.pending()).toBe(0);
 	});
 
-	test("settles at once for a peer with nothing in flight", async () => {
+	test("settles at once with nothing in flight", async () => {
 		// The loop asks after every batch, including an empty one, so this must not hang.
 		const { queue } = harness();
 		await queue.settled();
-		expect(queue.pending(ITEM.peer)).toBe(0);
+		expect(queue.pending()).toBe(0);
 	});
 });
 
@@ -70,40 +70,31 @@ describe("turn budget", () => {
 	test("allows every turn when the cap is off", () => {
 		const clock = makeClock(1000);
 		const turns = budget(0, clock);
-		for (let index = 0; index < 20; index++) expect(turns.allow("alice")).toBe(true);
+		for (let index = 0; index < 20; index++) expect(turns.allow()).toBe(true);
 	});
 
-	test("refuses a peer past its rolling-hour allowance", () => {
+	test("refuses a turn past the rolling-hour allowance", () => {
 		const clock = makeClock(1000);
 		const turns = budget(2, clock);
-		expect(turns.allow("alice")).toBe(true);
-		expect(turns.allow("alice")).toBe(true);
-		expect(turns.allow("alice")).toBe(false);
-		expect(turns.allow("bob")).toBe(true);
-	});
-
-	test("counts either id form as one peer", () => {
-		const clock = makeClock(1000);
-		const turns = budget(2, clock);
-		expect(turns.allow("alice@im.wechat")).toBe(true);
-		expect(turns.allow("alice")).toBe(true);
-		expect(turns.allow("ALICE@im.wechat")).toBe(false);
+		expect(turns.allow()).toBe(true);
+		expect(turns.allow()).toBe(true);
+		expect(turns.allow()).toBe(false);
 	});
 
 	test("frees the allowance as the hour rolls", () => {
 		const clock = makeClock(1000);
 		const turns = budget(1, clock);
-		expect(turns.allow("alice")).toBe(true);
+		expect(turns.allow()).toBe(true);
 		clock.advance(60 * 60 * 1000 + 1);
-		expect(turns.allow("alice")).toBe(true);
+		expect(turns.allow()).toBe(true);
 	});
 
 	test("reset starts a fresh window", () => {
 		const clock = makeClock(1000);
 		const turns = budget(1, clock);
-		expect(turns.allow("alice")).toBe(true);
+		expect(turns.allow()).toBe(true);
 		turns.reset();
-		expect(turns.allow("alice")).toBe(true);
+		expect(turns.allow()).toBe(true);
 	});
 });
 
@@ -131,30 +122,21 @@ describe("admission queue", () => {
 		};
 	}
 
-	test("admits one peer's messages in arrival order even when the first is slow", async () => {
+	test("admits messages in arrival order even when the first is slow", async () => {
 		const { queue, admitted, release } = admissionHarness();
 		queue.enqueue(inboundItem("slow"));
 		queue.enqueue(inboundItem("fast"));
 		await settle();
 		expect(admitted).toEqual(["slow"]);
-		expect(queue.pending("alice@im.wechat")).toBe(2);
+		expect(queue.pending()).toBe(2);
 
 		release();
 		await settle();
 		expect(admitted).toEqual(["slow", "fast"]);
-		expect(queue.pending("alice@im.wechat")).toBe(0);
+		expect(queue.pending()).toBe(0);
 	});
 
-	test("admits different peers independently", async () => {
-		const { queue, admitted, release } = admissionHarness();
-		queue.enqueue(inboundItem("slow"));
-		queue.enqueue(inboundItem("fast", "bob@im.wechat"));
-		await settle();
-		expect(admitted).toEqual(["slow", "fast"]);
-		release();
-	});
-
-	test("reports a failed admission and keeps the peer's chain moving", async () => {
+	test("reports a failed admission and keeps the chain moving", async () => {
 		const { queue, admitted, notices } = admissionHarness();
 		queue.enqueue(inboundItem("bad"));
 		queue.enqueue(inboundItem("after"));
@@ -162,16 +144,16 @@ describe("admission queue", () => {
 		await settle();
 		expect(admitted).toEqual(["bad", "after"]);
 		expect(notices[0]).toContain("download failed");
-		expect(queue.pending("alice@im.wechat")).toBe(0);
+		expect(queue.pending()).toBe(0);
 	});
 
 	test("reset drops the reserved slots", async () => {
 		const { queue, release } = admissionHarness();
 		queue.enqueue(inboundItem("slow"));
 		await settle();
-		expect(queue.pending("alice@im.wechat")).toBe(1);
+		expect(queue.pending()).toBe(1);
 		queue.reset();
-		expect(queue.pending("alice@im.wechat")).toBe(0);
+		expect(queue.pending()).toBe(0);
 		release();
 	});
 });

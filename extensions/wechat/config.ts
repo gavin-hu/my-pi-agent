@@ -10,18 +10,8 @@
 import { clampInteger, cleanString } from "../../lib/json.ts";
 import { loadConfigSection } from "../../lib/config.ts";
 
-/** Per-peer overrides, keyed by id or label (both forms match). */
-export interface WechatPeerConfig {
-	/** Active tool names; absent keeps the full set, an empty list disables tools. */
-	tools?: string[];
-}
-
 export interface WechatConfig {
-	/** Extra peers allowed to drive the agent; the owner is always allowed. */
-	allowedPeers: string[];
-	/** Per-peer overrides; an id matches with or without the suffix. */
-	peers: Record<string, WechatPeerConfig>;
-	/** Turns allowed per peer in a rolling hour; 0 disables the cap. */
+	/** Turns allowed in a rolling hour; 0 disables the cap. */
 	maxTurnsPerHour: number;
 	/** Replies longer than this are split into multiple messages. */
 	maxReplyChars: number;
@@ -37,8 +27,6 @@ export interface WechatConfig {
 	maxInboundChars: number;
 	/** Send a typing indicator while an inbound turn is being generated. */
 	typingIndicator: boolean;
-	/** Route interactive dialogs raised during a WeChat turn back to WeChat. */
-	remotePrompts: boolean;
 	/**
 	 * Ask the server for this long-poll hold, in milliseconds. Unset means "use the
 	 * server's own", which is what every release before this option did; the
@@ -48,8 +36,6 @@ export interface WechatConfig {
 }
 
 export const DEFAULT_CONFIG: WechatConfig = {
-	allowedPeers: [],
-	peers: {},
 	maxTurnsPerHour: 0,
 	maxReplyChars: 4000,
 	botAgent: "pi-wechat",
@@ -58,7 +44,6 @@ export const DEFAULT_CONFIG: WechatConfig = {
 	maxMediaBytes: 20 * 1024 * 1024,
 	maxInboundChars: 8000,
 	typingIndicator: true,
-	remotePrompts: true,
 };
 
 /** A cleaned, slash-free base URL. */
@@ -66,46 +51,10 @@ function toBaseUrl(value: unknown, fallback: string): string {
 	return cleanString(value, fallback).replace(/\/+$/, "");
 }
 
-/** Per-peer overrides; malformed entries and ids are dropped, tools are cleaned. */
-function normalizePeers(value: unknown): Record<string, WechatPeerConfig> | undefined {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-	const peers: Record<string, WechatPeerConfig> = {};
-	for (const [rawId, raw] of Object.entries(value as Record<string, unknown>)) {
-		const id = rawId.trim();
-		if (!id || !raw || typeof raw !== "object" || Array.isArray(raw)) continue;
-		const tools = (raw as Record<string, unknown>).tools;
-		if (tools === undefined) {
-			peers[id] = {};
-			continue;
-		}
-		if (!Array.isArray(tools)) continue;
-		peers[id] = {
-			tools: tools
-				.filter((name): name is string => typeof name === "string")
-				.map((name) => name.trim())
-				.filter((name) => name !== "")
-				.slice(0, 200),
-		};
-	}
-	return Object.keys(peers).length > 0 ? peers : undefined;
-}
-
-function toStringArray(value: unknown): string[] | undefined {
-	if (!Array.isArray(value)) return undefined;
-	return value
-		.filter((entry): entry is string => typeof entry === "string")
-		.map((entry) => entry.trim())
-		.filter((entry) => entry !== "");
-}
-
 /** Validate/clamp a raw config object over a running base. */
 export function normalizeConfig(raw: Record<string, unknown> | undefined, base: WechatConfig): WechatConfig {
 	const config: WechatConfig = { ...base };
 	if (!raw) return config;
-	const peers = toStringArray(raw.allowedPeers);
-	if (peers) config.allowedPeers = peers;
-	const peerConfigs = normalizePeers(raw.peers);
-	if (peerConfigs) config.peers = peerConfigs;
 	if (raw.maxTurnsPerHour !== undefined) {
 		config.maxTurnsPerHour = clampInteger(raw.maxTurnsPerHour, base.maxTurnsPerHour, 0, 500);
 	}
@@ -129,9 +78,6 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	}
 	if (typeof raw.typingIndicator === "boolean") {
 		config.typingIndicator = raw.typingIndicator;
-	}
-	if (typeof raw.remotePrompts === "boolean") {
-		config.remotePrompts = raw.remotePrompts;
 	}
 	if (raw.pollHoldMs !== undefined) {
 		// A malformed value keeps an inherited hold, as every sibling field does; only a

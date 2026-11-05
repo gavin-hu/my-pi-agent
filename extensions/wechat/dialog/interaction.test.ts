@@ -1,5 +1,5 @@
 /**
- * The per-peer dialog channel, at its edges: a dialog that ends before its free
+ * The chat's dialog channel, at its edges: a dialog that ends before its free
  * text is used, and a prompt the transport refuses to carry.
  *
  * Both are about the same promise — a prompt that reached nobody must not keep

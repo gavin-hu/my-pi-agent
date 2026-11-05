@@ -1,5 +1,5 @@
 /**
- * Inbound media and the hand-off to a peer's session.
+ * Inbound media and the hand-off to the turn queue.
  *
  * An image is downloaded, decrypted, and attached as model image content; a file
  * is saved under the media directory and referenced by path. Every failure is
@@ -10,7 +10,7 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import type { InboundItem } from "../types.ts";
 import type { WechatClient } from "./client.ts";
-import type { PeerItem } from "../peer/peer-worker.ts";
+import type { ChatItem } from "../conversation/turn.ts";
 import { messageOf } from "../../../lib/errors.ts";
 import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
 import { notice } from "../text/notices.ts";
@@ -25,8 +25,8 @@ export interface InboundDeps {
 	notify: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** Answer a message that has nothing readable. */
 	reply: (item: InboundItem, text: string) => Promise<unknown>;
-	/** Hand a resolved message to the peer's own session. */
-	enqueue: (item: PeerItem) => void;
+	/** Hand a resolved message to the turn queue. */
+	enqueue: (item: ChatItem) => void;
 	pruneTyping: () => void;
 	isRunning: () => boolean;
 }
@@ -94,7 +94,7 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 
 	return {
 		/**
-		 * Resolve media, then hand the message to the peer's own session.
+		 * Resolve media, then hand the message to the turn queue.
 		 *
 		 * An attachment the bridge could not read is never silent: the model gets a
 		 * `[WeChat media skipped]` block and the peer's reply opens with one line, so a
@@ -132,7 +132,7 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 				if (resolved.files.length > 0) text = [text, ...resolved.files].filter(Boolean).join("\n");
 				images = resolved.images.length > 0 ? resolved.images : undefined;
 			}
-			const queued: PeerItem = {
+			const queued: ChatItem = {
 				peer: item.peer,
 				text,
 				images,

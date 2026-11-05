@@ -4,7 +4,7 @@
  *
  * The path is shared so Markdown flattening, part numbering, session expiry,
  * body-level rejection, and partial progress are decided once. A failure is
- * reported once per peer until a send gets through, and the peer's stored reply
+ * reported once per outage until a send gets through, and the chat's stored reply
  * token is forgotten so the next inbound message can replace it.
  */
 
@@ -106,22 +106,18 @@ export interface Deliverer {
 }
 
 export function createDeliverer(deps: DeliveryDeps): Deliverer {
-	/** Peers already reported as unable to receive, until a send gets through. */
-	const failureNotified = new Set<string>();
-	/** Per-peer FIFO: a reply, prompt, or file cannot start before the previous one. */
-	const queues = new Map<string, Promise<void>>();
+	/** Whether the chat was already reported unable to receive, until a send gets through. */
+	let failureNotified = false;
+	/** The FIFO: a reply, prompt, or file cannot start before the previous one. */
+	let queue: Promise<void> = Promise.resolve();
 
-	function serialize<T>(peer: string, work: () => Promise<T>): Promise<T> {
-		const previous = queues.get(peer) ?? Promise.resolve();
+	function serialize<T>(work: () => Promise<T>): Promise<T> {
+		const previous = queue;
 		const run = previous.then(work, work);
-		const settled = run.then(
+		queue = run.then(
 			() => undefined,
 			() => undefined,
 		);
-		queues.set(peer, settled);
-		void settled.finally(() => {
-			if (queues.get(peer) === settled) queues.delete(peer);
-		});
 		return run;
 	}
 
@@ -186,14 +182,14 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 			failed = true;
 			if (signal?.aborted) return;
 			deps.forgetToken(target.peer);
-			if (failureNotified.has(target.peer)) return;
-			failureNotified.add(target.peer);
+			if (failureNotified) return;
+			failureNotified = true;
 			const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
 			deps.onSendError?.(messageOf(error));
 			deps.notify(`WeChat ${label} failed${partial}: ${messageOf(error)}`, "warning");
 		});
 		if (!failed && delivery.ok) {
-			failureNotified.delete(target.peer);
+			failureNotified = false;
 			deps.onSent?.();
 		}
 		return delivery.ok;
@@ -206,13 +202,13 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 	 * this report the operator would never know the attachment was dropped.
 	 */
 	function media(
-		target: MessageTarget,
+		_target: MessageTarget,
 		label: "file" | "image",
 		name: string,
 		send: (client: WechatClient, account: BotCredentials, signal?: AbortSignal) => Promise<boolean>,
 		signal?: AbortSignal,
 	): Promise<boolean> {
-		return serialize(target.peer, async () => {
+		return serialize(async () => {
 			const client = deps.client();
 			const account = deps.account();
 			if (!client || !account) return false;
@@ -224,7 +220,7 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 			if (sent) {
 				// An attachment that arrived is delivery as much as a text is, so the peer's
 				// next failure is news again.
-				failureNotified.delete(target.peer);
+				failureNotified = false;
 				deps.onSent?.();
 			}
 			return sent;
@@ -233,11 +229,11 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 
 	return {
 		reply(target, text, signal) {
-			return serialize(target.peer, () => deliverWithNotice(target, text, "reply", signal));
+			return serialize(() => deliverWithNotice(target, text, "reply", signal));
 		},
 
 		prompt(target, text, signal) {
-			return serialize(target.peer, () => deliverWithNotice(target, text, "message delivery", signal));
+			return serialize(() => deliverWithNotice(target, text, "message delivery", signal));
 		},
 
 		file(target, filePath, fileName, signal) {
@@ -282,7 +278,7 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 		},
 
 		toOwner(owner, contextToken, text, signal) {
-			return serialize(owner, async () => {
+			return serialize(async () => {
 				let failure: string | undefined;
 				const delivery = await deliverText(owner, contextToken, text, signal, (error, progress) => {
 					const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
@@ -302,7 +298,7 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 		},
 
 		reset() {
-			failureNotified.clear();
+			failureNotified = false;
 		},
 	};
 }

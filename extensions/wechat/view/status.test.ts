@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { fakeTheme } from "../../../test/helpers/fakes.ts";
 import { bridgeStatus } from "../../../test/helpers/fixtures/wechat.ts";
 import { settle } from "../../../test/helpers/process.ts";
-import { connectionOf, statusLine, statusView, type StatusView } from "../text/status.ts";
+import { connectionOf, statusLine, statusView, type StatusView, turnValue } from "../text/status.ts";
 import { type StatusAction, type StatusActions, StatusScreenComponent, statusBody } from "./status-screen.ts";
 import type { BotCredentials } from "../types.ts";
 
@@ -20,9 +20,7 @@ function view(overrides: Partial<StatusView> = {}): StatusView {
 	return {
 		bridge: false,
 		connection: "closed",
-		peers: 0,
 		queued: 0,
-		peerRows: [],
 		refused: 0,
 		refusedPeers: [],
 		mediaDropped: 0,
@@ -45,159 +43,87 @@ describe("connectionOf", () => {
 });
 
 describe("statusView", () => {
-	test("reads the account, owner, counters, and prompt from the live status", () => {
+	test("reads the account, owner, counters, turn, and prompt from the live status", () => {
 		const built = statusView(
 			screenAccount,
 			bridgeStatus({
 				state: "running",
 				owner: "owner@im.wechat",
-				peerCount: 2,
 				queued: 1,
+				turnsRunning: true,
+				turn: { status: "running", queued: 1, runningMs: 2_000 },
 				promptPending: true,
-				prompts: [{ peer: "alice@im.wechat", kind: "select", title: "Pick", startedAt: 10 }],
+				prompts: [{ peer: "owner@im.wechat", kind: "select", title: "Pick", startedAt: 10 }],
 			}),
 			1000,
 		);
-		expect(built).toMatchObject({
-			bridge: true,
-			account: "owner",
-			connection: "open",
-			owner: "owner",
-			peers: 2,
-			queued: 1,
-			promptPending: true,
-			prompts: [{ peer: "alice", title: "Pick", startedAt: 10 }],
-			now: 1000,
-		});
+		expect(built.account).toBe("owner");
+		expect(built.owner).toBe("owner");
+		expect(built.queued).toBe(1);
+		expect(built.turn).toMatchObject({ status: "running", runningMs: 2_000 });
+		expect(built.prompts).toEqual([{ title: "Pick", startedAt: 10 }]);
 	});
 
-	test("reports no bridge when there is no status", () => {
-		expect(statusView(undefined, undefined, 0)).toMatchObject({ bridge: false, connection: "closed" });
+	test("strips control characters a peer put in a prompt title", () => {
+		const built = statusView(
+			undefined,
+			bridgeStatus({ prompts: [{ peer: "a", kind: "input", title: "x\u001b[31m", startedAt: 1 }] }),
+		);
+		expect(built.prompts[0]?.title).not.toContain("\u001b");
 	});
 });
 
 describe("statusLine", () => {
-	test("summarizes a closed, not-logged-in bridge", () => {
-		const line = statusLine(view());
-		expect(line).toContain("not logged in");
-		expect(line).toContain("closed");
-	});
-
-	test("includes the account, counters, owner, and running peer", () => {
+	test("summarizes a running conversation", () => {
 		const line = statusLine(
-			view({
-				bridge: true,
-				account: "owner",
-				owner: "owner",
-				connection: "open",
-				peers: 2,
-				queued: 1,
-				peerRows: [{ label: "alice", status: "running", queued: 0, runningMs: 1000 }],
-			}),
+			statusView(
+				screenAccount,
+				bridgeStatus({
+					state: "running",
+					owner: "owner@im.wechat",
+					queued: 2,
+					turn: { status: "running", queued: 2, runningMs: 1000 },
+				}),
+			),
 		);
-		expect(line).toContain("account owner");
-		expect(line).toContain("2 peer(s)");
-		expect(line).toContain("1 queued");
-		expect(line).toContain("owner owner");
-		expect(line).toContain("running alice");
+		expect(line).toContain("1 conversation");
+		expect(line).toContain("running 1s");
+		expect(line).not.toContain("peer");
 	});
 
-	test("points at the login and the start when expired", () => {
-		expect(statusLine(view({ bridge: true, account: "owner", connection: "expired" }))).toContain(
-			"run /wechat login, then /wechat start",
-		);
+	test("points at the login when the session expired", () => {
+		expect(statusLine(statusView(screenAccount, bridgeStatus({ state: "expired" })))).toContain("/wechat login");
+	});
+});
+
+describe("turnValue", () => {
+	test("names what the conversation is doing", () => {
+		expect(turnValue({ status: "running", queued: 0, runningMs: 4200 })).toBe("running 4s");
+		expect(turnValue({ status: "queued", queued: 3 })).toBe("queued 3");
+		expect(turnValue({ status: "idle", queued: 0 })).toBe("idle");
 	});
 });
 
 describe("statusBody", () => {
-	const rows = [
-		{ label: "alice", status: "running" as const, queued: 1, runningMs: 42_400 },
-		{ label: "bob", status: "queued" as const, queued: 2 },
-		{ label: "carol", status: "idle" as const, queued: 0 },
-	];
-
-	test("lists what each conversation is doing, with the elapsed time", () => {
-		const body = statusBody(view({ bridge: true, connection: "open", peerRows: rows }), fakeTheme, 60).join("\n");
-		expect(body).toContain("Conversations");
-		expect(body).toContain("running 42s, 1 queued");
-		expect(body).toContain("queued 2");
-		expect(body).toContain("idle");
-	});
-
-	test("caps the list and counts the rest", () => {
-		const many = Array.from({ length: 8 }, (_unused, index) => ({
-			label: `peer${index}`,
-			status: "idle" as const,
-			queued: 0,
-		}));
-		const body = statusBody(view({ bridge: true, connection: "open", peerRows: many }), fakeTheme, 60).join("\n");
-		expect(body).toContain("+3 more");
-	});
-
-	test("fits the width even for a long peer label", () => {
-		const long = [{ label: "a".repeat(40), status: "running" as const, queued: 0, runningMs: 1000 }];
-		for (const line of statusBody(view({ bridge: true, connection: "open", peerRows: long }), fakeTheme, 20)) {
-			expect(visibleWidth(line)).toBeLessThanOrEqual(20);
-		}
-	});
-
-	test("names the refused senders so one can be allowlisted", () => {
-		const body = statusBody(
-			view({ bridge: true, account: "owner", connection: "open", refused: 2, refusedPeers: ["alice", "bob"] }),
-			fakeTheme,
-			60,
-		).join("\n");
-		expect(body).toContain("alice, bob");
-		expect(statusLine(view({ bridge: true, refused: 2, refusedPeers: ["alice"] }))).toContain("(alice)");
-	});
-
-	test("colors the connection and shows the account", () => {
-		const body = statusBody(view({ account: "owner", connection: "open" }), coloringTheme, 40).join("\n");
-		expect(body).toContain("Account");
-		expect(body).toContain("[success]open");
-	});
-
-	test("hides the activity counters without a bridge", () => {
-		const body = statusBody(view({ account: "owner" }), fakeTheme, 40).join("\n");
-		expect(body).not.toContain("Peers");
-		expect(body).not.toContain("Queued");
-	});
-
-	test("shows the counters and a pending prompt with a bridge", () => {
+	test("shows the account, connection, turn, and one prompt row", () => {
 		const built = view({
 			bridge: true,
 			account: "owner",
 			connection: "open",
-			peers: 2,
 			queued: 1,
-			promptPending: true,
+			turn: { status: "running", queued: 1, runningMs: 2_000 },
+			prompts: [{ title: "Pick one", startedAt: 0 }],
+			now: 2_000,
 		});
-		const body = statusBody(built, fakeTheme, 60).join("\n");
-		expect(body).toContain("Peers");
-		expect(body).toContain("Prompt");
-		expect(body).toContain("waiting for a reply");
-	});
-
-	test("shows each waiting prompt's peer, title, and age", () => {
-		const built = view({
-			bridge: true,
-			account: "owner",
-			connection: "open",
-			promptPending: true,
-			prompts: [
-				{ peer: "alice", title: "Pick one", startedAt: 1_000 },
-				{ peer: "bob", title: "Continue?", startedAt: 41_000 },
-			],
-			now: 43_000,
-		});
-		const body = statusBody(built, fakeTheme, 60).join("\n");
-		// Two peers run at once, so two questions can wait: one line each.
-		expect(body).toContain("alice");
+		const body = statusBody(built, fakeTheme, 80).join("\n");
+		expect(body).toContain("Account");
+		expect(body).toContain("owner");
+		expect(body).toContain("running 2s");
+		expect(body).toContain("Queued");
 		expect(body).toContain("Pick one");
-		expect(body).toContain("42.0s");
-		expect(body).toContain("bob");
-		expect(body).toContain("Continue?");
-		expect(body).toContain("2.0s");
+		// One conversation: no per-peer list, no focus mark.
+		expect(body).not.toContain("Conversations");
+		expect(body).not.toContain("❯");
 	});
 
 	test("says how to start a bridge a stored account is not running", () => {
@@ -211,11 +137,18 @@ describe("statusBody", () => {
 		);
 		expect(expired).toContain("press l to log in, then t to start");
 		expect(statusBody(view(), fakeTheme, 60).join("\n")).toContain("Run /wechat login");
-		expect(statusBody(view({ account: "owner" }), fakeTheme, 60).join("\n")).toContain("press t to start the bridge");
 	});
 
 	test("fits every line to a narrow width", () => {
-		const built = view({ bridge: true, account: "a-very-long-account-name", connection: "open", peers: 12, queued: 3 });
+		const built = view({
+			bridge: true,
+			account: "a-very-long-account-name",
+			connection: "open",
+			queued: 12,
+			turn: { status: "running", queued: 12, runningMs: 1_000 },
+			refused: 3,
+			refusedPeers: ["stranger"],
+		});
 		for (const line of statusBody(built, fakeTheme, 8)) expect(visibleWidth(line)).toBeLessThanOrEqual(8);
 	});
 });
@@ -235,24 +168,14 @@ function component(current: StatusView, peerActions?: StatusActions) {
 	return { screen, actions, renders: () => renders };
 }
 
-const peers = [
-	{ id: "alice@im.wechat", label: "alice", status: "running" as const, queued: 0, runningMs: 1000 },
-	{ id: "bob@im.wechat", label: "bob", status: "idle" as const, queued: 0 },
-];
-
 function withActions() {
 	const stops: string[] = [];
-	const resets: string[] = [];
 	const cancels: string[] = [];
 	const toggles: string[] = [];
-	const built = component(view({ bridge: true, connection: "open", peerRows: peers }), {
-		stop: (peer) => {
-			stops.push(peer);
-			return `Stopping ${peer}.`;
-		},
-		reset: (peer) => {
-			resets.push(peer);
-			return `Reset ${peer}.`;
+	const built = component(view({ bridge: true, connection: "open" }), {
+		stop: () => {
+			stops.push("stop");
+			return "Stopping the running turn.";
 		},
 		cancelPrompt: () => {
 			cancels.push("cancel");
@@ -263,30 +186,16 @@ function withActions() {
 			return "Started the bridge.";
 		},
 	});
-	return { ...built, stops, resets, cancels, toggles };
+	return { ...built, stops, cancels, toggles };
 }
 
-describe("peer actions", () => {
-	test("stops the focused peer in place and flashes the result", () => {
+describe("turn actions", () => {
+	test("stops the running turn and flashes the result", () => {
 		const { screen, actions, stops } = withActions();
 		screen.handleInput("s");
-		expect(stops).toEqual(["alice@im.wechat"]);
+		expect(stops).toEqual(["stop"]);
 		expect(actions).toEqual([]);
-		expect(screen.render(60).join("\n")).toContain("Stopping alice@im.wechat.");
-	});
-
-	test("moves the focus with j and acts on the new row", () => {
-		const { screen, stops } = withActions();
-		screen.handleInput("j");
-		screen.handleInput("s");
-		expect(stops).toEqual(["bob@im.wechat"]);
-	});
-
-	test("resets the focused peer", () => {
-		const { screen, resets } = withActions();
-		screen.handleInput("d");
-		expect(resets).toEqual(["alice@im.wechat"]);
-		expect(screen.render(60).join("\n")).toContain("Reset alice@im.wechat.");
+		expect(screen.render(60).join("\n")).toContain("Stopping the running turn.");
 	});
 
 	test("cancels the waiting prompt on c and flashes the result", () => {
@@ -296,23 +205,19 @@ describe("peer actions", () => {
 				bridge: true,
 				connection: "open",
 				promptPending: true,
-				prompts: [{ peer: "alice", title: "Pick one", startedAt: 1_000 }],
-				// A prompt implies the peer's own turn is running, so it has a row.
-				peerRows: [{ id: "alice@im.wechat", label: "alice", status: "running", queued: 0 }],
+				prompts: [{ title: "Pick one", startedAt: 1_000 }],
 			}),
 			{
 				stop: () => "",
-				reset: () => "",
-				cancelPrompt: (peer) => {
-					cancels.push(peer);
+				cancelPrompt: () => {
+					cancels.push("cancel");
 					return "Cancelled the waiting prompt.";
 				},
 				toggleBridge: () => "Started the bridge.",
 			},
 		);
 		screen.handleInput("c");
-		// The focused peer's own prompt is withdrawn, never the other peer's.
-		expect(cancels).toEqual(["alice@im.wechat"]);
+		expect(cancels).toEqual(["cancel"]);
 		expect(screen.render(60).join("\n")).toContain("Cancelled the waiting prompt.");
 	});
 
@@ -323,12 +228,10 @@ describe("peer actions", () => {
 		expect(screen.render(60).join("\n")).toContain("No prompt waiting.");
 	});
 
-	test("asks to allow a refused sender on a", () => {
-		const { screen, actions } = component(
-			view({ bridge: true, connection: "open", refused: 1, refusedPeers: ["alice"] }),
-		);
-		screen.handleInput("a");
-		expect(actions).toEqual([{ verb: "allow" }]);
+	test("says the turn cannot be stopped when the screen has no actions", () => {
+		const { screen } = component(view({ bridge: true, connection: "open" }));
+		screen.handleInput("s");
+		expect(screen.render(60).join("\n")).toContain("Stopping the turn is unavailable here.");
 	});
 
 	test("starts or stops the bridge on t and flashes the result", () => {
@@ -342,7 +245,6 @@ describe("peer actions", () => {
 		let finish: ((line: string) => void) | undefined;
 		const { screen } = component(view({ account: "owner", connection: "closed" }), {
 			stop: () => "",
-			reset: () => "",
 			cancelPrompt: () => "",
 			toggleBridge: () =>
 				new Promise<string>((resolve) => {
@@ -356,83 +258,37 @@ describe("peer actions", () => {
 		expect(screen.render(60).join("\n")).toContain("Started the bridge.");
 	});
 
-	test("opens the focused peer's history", () => {
+	test("closes with the verb a global key names", () => {
 		const { screen, actions } = withActions();
-		screen.handleInput("h");
-		expect(actions).toEqual([{ verb: "history", peer: "alice@im.wechat" }]);
+		screen.handleInput("l");
+		expect(actions).toEqual([{ verb: "login" }]);
 	});
 
-	test("explains when there is no peer to act on", () => {
-		const { screen, actions } = component(view({ bridge: true, connection: "open" }));
-		screen.handleInput("s");
-		expect(actions).toEqual([]);
-		expect(screen.render(60).join("\n")).toContain("No peer conversation yet.");
-	});
-
-	test("marks the focused row", () => {
-		const { screen } = withActions();
-		screen.handleInput("j");
-		expect(screen.render(60).join("\n")).toContain("❯");
+	test("closes on escape", () => {
+		const { screen, actions } = withActions();
+		screen.handleInput("\u001b");
+		expect(actions).toEqual(["close"]);
 	});
 });
 
 describe("StatusScreenComponent", () => {
-	test("closes on escape", () => {
-		const { screen, actions } = component(view());
-		screen.handleInput("\u001b");
-		expect(actions).toEqual(["close"]);
-	});
-
-	test("asks to log in, start a new session, or log out", () => {
-		const login = component(view());
-		login.screen.handleInput("l");
-		expect(login.actions).toEqual([{ verb: "login" }]);
-
-		const session = component(view({ bridge: true, connection: "open" }));
-		session.screen.handleInput("n");
-		expect(session.actions).toEqual([{ verb: "new" }]);
-
-		const logout = component(view({ bridge: true, connection: "open" }));
-		logout.screen.handleInput("o");
-		expect(logout.actions).toEqual([{ verb: "logout" }]);
-	});
-
-	test("accepts the uppercase form of each action key", () => {
-		const login = component(view());
-		login.screen.handleInput("L");
-		expect(login.actions).toEqual([{ verb: "login" }]);
-		const session = component(view());
-		session.screen.handleInput("N");
-		expect(session.actions).toEqual([{ verb: "new" }]);
-		const logout = component(view());
-		logout.screen.handleInput("O");
-		expect(logout.actions).toEqual([{ verb: "logout" }]);
-		const refresh = component(view());
-		refresh.screen.handleInput("R");
-		expect(refresh.renders()).toBe(1);
-	});
-
-	test("does not close on a peer action key", () => {
-		const { screen, actions } = component(view({ bridge: true, connection: "open" }));
-		screen.handleInput("s");
-		expect(actions).toEqual([]);
-	});
-
-	test("refreshes on r", () => {
-		const { screen, renders } = component(view());
-		screen.handleInput("r");
-		expect(renders()).toBe(1);
+	test("hints only the keys it still has", () => {
+		const { screen } = withActions();
+		const hints = screen.render(100).at(-2) ?? "";
+		expect(hints).toContain("s stop");
+		expect(hints).toContain("c cancel prompt");
+		expect(hints).not.toContain("j/k");
+		expect(hints).not.toContain("d reset");
 	});
 
 	test("renders lines that fit the width", () => {
-		const { screen } = component(view({ bridge: true, account: "owner", connection: "open" }));
-		for (const line of screen.render(20)) expect(visibleWidth(line)).toBeLessThanOrEqual(20);
+		const { screen } = withActions();
+		for (const width of [40, 80, 120]) {
+			for (const line of screen.render(width)) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
 	});
 
 	test("exposes no member named focused for the host to overwrite", () => {
-		const { screen } = component(view({ bridge: true, connection: "open", peerRows: peers }));
-		// Pi's setFocus duck-types focusables with `"focused" in component` and then
-		// assigns a boolean there, which would shadow a method of that name.
-		expect("focused" in screen).toBe(false);
+		expect("focused" in component(view())).toBe(false);
 	});
 });

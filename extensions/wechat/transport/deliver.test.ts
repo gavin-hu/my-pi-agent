@@ -212,33 +212,4 @@ describe("deliverer ordering", () => {
 		await Promise.all([first, second]);
 		expect(order).toEqual(["one", "two"]);
 	});
-
-	test("does not let one peer block another", async () => {
-		const order: string[] = [];
-		let release: (() => void) | undefined;
-		const client = {
-			sendMessage: async (_account: unknown, args: { to: string; text: string }) => {
-				if (args.to === "slow") await new Promise<void>((resolve) => (release = resolve));
-				order.push(args.text);
-				return { ret: 0 };
-			},
-		} as unknown as WechatClient;
-		const deliverer = createDeliverer({
-			client: () => client,
-			account: () => ACCOUNT,
-			maxReplyChars: () => 1000,
-			cdnBaseUrl: "",
-			maxMediaBytes: 1024,
-			notify: () => {},
-			onExpired: () => {},
-			forgetToken: () => {},
-		});
-		const slow = deliverer.reply({ peer: "slow" }, "one");
-		const fast = deliverer.reply({ peer: "fast" }, "two");
-		await settle();
-		expect(order).toEqual(["two"]);
-		release?.();
-		await Promise.all([slow, fast]);
-		expect(order).toEqual(["two", "one"]);
-	});
 });

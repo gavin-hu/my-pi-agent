@@ -1,14 +1,12 @@
 /**
- * Read-only history for one peer's own conversation.
+ * Read-only history for the chat.
  *
- * `/history` must not create or resume a session: it opens the newest session
- * file in the peer's directory, reads its entries, and formats the last few
- * user/assistant messages. Nothing is written, so asking for history cannot
+ * The conversation is this Pi session's, so `/history` reads the session's own
+ * entries: nothing is opened, resumed, or written, and asking for history cannot
  * change the conversation it describes.
  */
 
-import { SessionManager, type SessionEntry, type SessionMessageEntry } from "@earendil-works/pi-coding-agent";
-import { peerSessionDir } from "../peer/peer-session.ts";
+import type { SessionEntry, SessionMessageEntry } from "@earendil-works/pi-coding-agent";
 
 /** Longest text one history line carries before it is elided. */
 export const HISTORY_LINE_CHARS = 160;
@@ -40,24 +38,4 @@ export function formatHistory(entries: SessionEntry[], count: number): string {
 		lines.push(`${who}: ${shown}`);
 	}
 	return lines.slice(-Math.max(0, count)).join("\n");
-}
-
-/**
- * The last `count` messages of the peer's newest conversation, or an empty
- * string when that peer has no session yet.
- */
-export async function readPeerHistory(cwd: string, sessionsDir: string, peer: string, count: number): Promise<string> {
-	let sessions;
-	try {
-		sessions = await SessionManager.list(cwd, peerSessionDir(sessionsDir, peer));
-	} catch {
-		return "";
-	}
-	const newest = sessions.sort((a, b) => b.modified.getTime() - a.modified.getTime())[0];
-	if (!newest) return "";
-	try {
-		return formatHistory(SessionManager.open(newest.path).getEntries(), count);
-	} catch {
-		return "";
-	}
 }

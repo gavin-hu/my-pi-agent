@@ -27,8 +27,6 @@ export interface SlashPeerState {
 
 /** The session controls an action may invoke; every one acts on the sender. */
 export interface SlashSessionControls {
-	/** Drop the conversation and start an empty one on the next message. */
-	newSession: () => void;
 	/** Stop the sender's running turn; false when nothing was running. */
 	stop: () => boolean;
 	/** What the sender's conversation is doing. */
@@ -43,8 +41,6 @@ export interface SlashControlsDeps {
 	state: (peer: string) => SlashPeerState;
 	/** The title of a dialog waiting on that peer, if one waits. */
 	prompt: (peer: string) => string | undefined;
-	/** Drop the peer's conversation, so the next message starts empty. */
-	reset: (peer: string) => void;
 	/** Stop the peer's running turn; false when nothing was running. */
 	stop: (peer: string) => boolean;
 	/** The last `count` messages of the peer's own conversation. */
@@ -55,14 +51,11 @@ export interface SlashControlsDeps {
  * The controls one action runs against, for the peer that typed the command.
  *
  * The registry owns what a command may do; the bridge owns the queue and the
- * channels, so it supplies them here and keeps no per-peer session shape of its
+ * channel, so it supplies them here and keeps no session shape of its
  * own.
  */
 export function slashControls(peer: string, deps: SlashControlsDeps): SlashSessionControls {
 	return {
-		newSession: () => {
-			deps.reset(peer);
-		},
 		stop: () => deps.stop(peer),
 		status: () => {
 			const waiting = deps.prompt(peer);
@@ -150,25 +143,14 @@ function localized(lang: PeerLanguage, zh: string, en: string): string {
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
 	{
 		name: "new",
-		summary: "Start a new session",
-		summaryZh: "开始新会话",
+		summary: "Start a new session (terminal only)",
+		summaryZh: "开始新会话（仅限终端）",
 		kind: "action",
 		ownerOnly: true,
 		run: async (ctx) => {
-			// A turn owns the session: restarting now would kill the run answering
-			// this very peer, so decline and let them ask again afterwards.
-			if (ctx.activeTurn) {
-				await ctx.reply(notice("newBusy", ctx.language));
-				return;
-			}
-			await ctx.reply(
-				localized(
-					ctx.language,
-					"正在开始新会话，微信稍后会自动重连。",
-					"Starting a new session. WeChat will reconnect in a moment.",
-				),
-			);
-			ctx.session.newSession();
+			// The chat is this session, so replacing it would emit `session_shutdown` and
+			// close the bridge under the peer who asked for a fresh start.
+			await ctx.reply(notice("newHost", ctx.language));
 		},
 	},
 	{
