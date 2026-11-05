@@ -81,13 +81,13 @@ const LONG_SUITES: Record<string, number> = {
 	"lib/web/web.test.ts": 810,
 	"scripts/screenshots.test.ts": 781,
 	"extensions/wechat/bridge.test.ts": 1204,
-	"extensions/wechat/commands/commands.test.ts": 897,
+	"extensions/wechat/commands/commands.test.ts": 760,
 	"extensions/wechat/conversation/turn.test.ts": 529,
 	"extensions/wechat/transport/client.test.ts": 707,
 };
 
 /** The named suites' total, written down so only a split can move it. */
-const LONG_SUITE_TOTAL = 46167;
+const LONG_SUITE_TOTAL = 46030;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 
