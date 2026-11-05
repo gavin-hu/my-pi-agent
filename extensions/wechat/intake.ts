@@ -101,6 +101,8 @@ export interface IntakeDeps {
 	/** Send one bubble to a peer for the bridge's own notices. */
 	reply: (target: MessageTarget, text: string) => Promise<boolean>;
 	readHistory: (count: number, lang?: PeerLanguage) => Promise<string>;
+	/** Whether plan mode is on for this session, for `/status`; the branch's flag. */
+	planMode: () => boolean;
 	/** Senders refused since the connection opened, and their labels. */
 	refused: Counter;
 	refusedPeers: Set<string>;
@@ -142,6 +144,7 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 					return true;
 				},
 				history: (_peer, count) => deps.readHistory(count, languageOf(target.peer)),
+				planMode: () => deps.planMode(),
 			}),
 		};
 		try {
