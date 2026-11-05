@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { type Card, MAX_NOTE } from "./card.ts";
-import { personActor } from "./lead.ts";
+import { PERSON_LABEL, personActor } from "./lead.ts";
 import {
 	accepted,
 	applyOp,
@@ -50,12 +50,15 @@ describe("approve", () => {
 		);
 	});
 
-	test("refuses a peer, and the person signs whatever the lead is called", () => {
+	test("refuses a peer, and the person signs as the lead's name, never the pronoun", () => {
 		const card = written();
 		// The sentence is `lead.test.ts`'s: what matters here is that the gate turned it away.
 		expect(refusal(applyOp(card, { kind: "approve" }, OTHER, NOW, boardOf(card)))).toContain("signed by the lead");
 		const personal = stepOf(card, { kind: "approve" }, personActor(), { ...CONFIG, lead: "nobody" });
-		expect(personal.contract?.approved?.by).toBe("you");
+		// The record names somebody a reader can act on: the person writes the lead's name and the
+		// mark that says the key, so no card file ever stores `you` (`PERSON_LABEL`).
+		expect(personal.contract?.approved).toEqual({ by: "nobody", at: NOW, person: true });
+		expect(personal.contract?.approved?.by).not.toBe(PERSON_LABEL);
 	});
 
 	test("refuses an incomplete contract, naming the missing lines", () => {
@@ -72,11 +75,17 @@ describe("approve", () => {
 		);
 	});
 
-	test("the same lead again is a no-op, and the person re-signs", () => {
+	test("the same lead again is a no-op, and the person re-signs with the mark", () => {
 		const card = approved();
 		expect(accepted(applyOp(card, { kind: "approve" }, LEAD, NOW, boardOf(card))).changed).toBe(false);
 		const next = stepOf(card, { kind: "approve" }, personActor());
-		expect(next.contract?.approved?.by).toBe("you");
+		expect(next.contract?.approved).toEqual({ by: CONFIG.lead, at: NOW, person: true });
+		// The person signing twice is the same signature: identity is the name *and* the mark.
+		expect(accepted(applyOp(next, { kind: "approve" }, personActor(), NOW, boardOf(next))).changed).toBe(false);
+		// A session wearing the lead's label is a different signer, so its sign is recorded — and the
+		// mark is gone, because the record says who wrote last.
+		const named = { id: "s-named", label: CONFIG.lead };
+		expect(stepOf(next, { kind: "approve" }, named).contract?.approved).toEqual({ by: CONFIG.lead, at: NOW });
 	});
 
 	test("records the note the signer wrote, in the same write", () => {
@@ -114,6 +123,12 @@ describe("review", () => {
 	test("records the spot-check, by the lead rather than the holder", () => {
 		const card = reviewed();
 		expect(card.review).toEqual({ by: LEAD.label, at: NOW });
+	});
+
+	test("the person spot-checks as the lead's name, and nobody reads it back as a pronoun", () => {
+		const card = stepOf(executing(), { kind: "review" }, personActor());
+		expect(card.review).toEqual({ by: CONFIG.lead, at: NOW, person: true });
+		expect(accepted(applyOp(card, { kind: "review" }, personActor(), NOW, boardOf(card))).changed).toBe(false);
 	});
 
 	test("refuses the holder, a peer, and a lane other than execute", () => {
@@ -157,7 +172,12 @@ describe("a spot-check made by instruction", () => {
 			{ kind: "review", override: "Closed on my instruction for 0.22.0." },
 			personActor(),
 		);
-		expect(card.review).toEqual({ by: "you", at: NOW, byInstruction: "Closed on my instruction for 0.22.0." });
+		expect(card.review).toEqual({
+			by: CONFIG.lead,
+			at: NOW,
+			person: true,
+			byInstruction: "Closed on my instruction for 0.22.0.",
+		});
 	});
 
 	test("refuses an override with no reason, and one on a card that is not finished", () => {

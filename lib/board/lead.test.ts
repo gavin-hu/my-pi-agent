@@ -17,7 +17,9 @@ import {
 	normalizeLead,
 	PERSON_LABEL,
 	personActor,
+	signMark,
 	signRefusal,
+	signedAs,
 	signedText,
 } from "./lead.ts";
 import type { Actor } from "./rules.ts";
@@ -51,6 +53,28 @@ describe("isLead and isPerson", () => {
 		expect(isPerson(personActor())).toBe(true);
 		expect(isPerson(PEER)).toBe(false);
 		expect(personActor()).toEqual({ id: "person:you", label: PERSON_LABEL });
+	});
+});
+
+describe("signMark and signedAs", () => {
+	test("the person signs as the lead's name, and the mark says the key wrote it", () => {
+		expect(signMark(personActor(), LEAD)).toEqual({ by: LEAD, person: true });
+		expect(signMark(PEER, LEAD)).toEqual({ by: PEER.label });
+	});
+
+	test("the mark is the identity, so a session wearing the lead's label is somebody else", () => {
+		// The person's sign and the same-named session's sign differ only by the mark, which is the
+		// whole reason a label compare was wrong: it read one back as the other.
+		const personal = { by: LEAD, at: 1, person: true } as const;
+		const sessionSign = { by: LEAD, at: 1 };
+		const leadSession: Actor = { id: "s-lead", label: LEAD };
+		expect(signedAs(personal, personActor(), LEAD)).toBe(true);
+		expect(signedAs(personal, leadSession, LEAD)).toBe(false);
+		expect(signedAs(sessionSign, leadSession, LEAD)).toBe(true);
+		expect(signedAs(sessionSign, personActor(), LEAD)).toBe(false);
+		expect(signedAs(undefined, personActor(), LEAD)).toBe(false);
+		// The person's label is not a name a card holds, so nothing signs back as it either.
+		expect(signedAs({ by: PERSON_LABEL, at: 1 }, personActor(), LEAD)).toBe(false);
 	});
 });
 
@@ -99,10 +123,10 @@ describe("askLead", () => {
 
 describe("signedText", () => {
 	test("the owner is told who signed and the move the sign unlocked", () => {
-		expect(signedText(CARD, "approve", THE_LEAD)).toBe(
+		expect(signedText(CARD, "approve", THE_LEAD.label)).toBe(
 			'Signature: #4 "feature 4" — its contract is approved by Team-Lead.\nNext: `execute` is open — board action "move" with lane "execute". `done` still needs the lead\'s `review`.',
 		);
-		expect(signedText(CARD, "review", THE_LEAD)).toBe(
+		expect(signedText(CARD, "review", THE_LEAD.label)).toBe(
 			'Signature: #4 "feature 4" — spot-checked by Team-Lead.\nNext: `done` is open — board action "move" with lane "done", while the plan it recorded is still in the store.',
 		);
 	});

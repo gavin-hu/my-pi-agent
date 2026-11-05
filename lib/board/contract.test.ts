@@ -109,6 +109,14 @@ describe("isContract and isSign", () => {
 		expect(isSign(undefined)).toBe(false);
 	});
 
+	test("a sign carries the person's mark, or nothing at all", () => {
+		// The mark says the key rather than a session wrote it, so `true` is the only value the write
+		// path produces: a hand-edited `false` is a record this build cannot read back as a sign.
+		expect(isSign({ by: "billing-lead", at: 0, person: true })).toBe(true);
+		expect(isSign({ by: "billing-lead", at: 0, person: false })).toBe(false);
+		expect(isContract({ ...COMPLETE, approved: { by: "billing-lead", at: 1, person: true } })).toBe(true);
+	});
+
 	test("a sign by instruction is trusted only as the line a signer would have written", () => {
 		expect(isSign({ by: "you", at: 0, byInstruction: "closed on my instruction" })).toBe(true);
 		// A stored sign the write path would never produce: an empty reason, a wrapping one, and a
