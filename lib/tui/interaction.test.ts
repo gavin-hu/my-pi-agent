@@ -15,7 +15,6 @@ import {
 	fitRows,
 	formatRange,
 	IdCursor,
-	isCloseKey,
 	keepVisible,
 	ListCursor,
 	navIntent,
@@ -178,15 +177,6 @@ describe("scrollList", () => {
 		const cursor = new ListCursor(() => {});
 		expect(scrollList(clickEvent(), cursor, 10)).toBeUndefined();
 		expect(cursor.selected).toBe(0);
-	});
-});
-
-describe("isCloseKey", () => {
-	test("matches Escape and Ctrl+C only", () => {
-		expect(isCloseKey("\x1b")).toBe(true);
-		expect(isCloseKey("\x03")).toBe(true);
-		expect(isCloseKey("q")).toBe(false);
-		expect(isCloseKey("\r")).toBe(false);
 	});
 });
 

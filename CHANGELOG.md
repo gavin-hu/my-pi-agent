@@ -27,6 +27,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: `Ctrl+C` on the review screen interrupts the turn instead of settling the review as “keep
+  planning”, which spent a model turn telling it to ask what to change. It ends the turn from wherever
+  the keyboard is — the screen, the `y/N` approval question, the inline refine editor — and leaves plan
+  mode on, write access off, and the plan unapproved, recorded as `Plan review interrupted`. `Esc` keeps
+  its layered meaning, so `isCloseKey` stays Esc-or-Ctrl+C for the screens where both close and the review
+  asks `isInterruptKey` first.
+
 - `plan`: the review footer is ordered by what a reader cannot discover otherwise — the three ways the
   review ends (`Esc keep plan`, `a approve`, `x exit plan`), then `n/p section`, then `r refine` and
   `w browser`, then the scroll keys — because `screenHint` drops the tail. A sectioned plan at 60

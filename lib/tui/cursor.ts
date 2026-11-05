@@ -243,9 +243,21 @@ export function scrollList(event: TuiMouseEvent, cursor: ListCursor, count: numb
 	return { handled: true };
 }
 
-/** Whether `data` is the screen-close key: Escape or Ctrl+C. */
+/**
+ * Whether `data` is the screen-close key: Escape or Ctrl+C.
+ *
+ * Both keys close a screen whose whole state is on it. A surface that ends
+ * something longer-lived than the screen — a turn — tells the two apart by
+ * testing {@link isInterruptKey} first, so Ctrl+C can interrupt while Escape
+ * backs out one layer.
+ */
 export function isCloseKey(data: string): boolean {
 	return matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"));
+}
+
+/** Whether `data` is the interrupt key, Ctrl+C, which stops the turn itself. */
+export function isInterruptKey(data: string): boolean {
+	return matchesKey(data, Key.ctrl("c"));
 }
 
 /** Shift+Tab arrives as this sequence on terminals without the Kitty protocol. */

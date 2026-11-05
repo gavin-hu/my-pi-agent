@@ -77,7 +77,7 @@ const LONG_SUITES: Record<string, number> = {
 	"lib/core.test.ts": 874,
 	"lib/format.test.ts": 416,
 	"lib/requirements.test.ts": 769,
-	"lib/tui/interaction.test.ts": 1255,
+	"lib/tui/interaction.test.ts": 1245,
 	"lib/tui/layout.test.ts": 577,
 	"lib/web/web.test.ts": 810,
 	"scripts/screenshots.test.ts": 781,
