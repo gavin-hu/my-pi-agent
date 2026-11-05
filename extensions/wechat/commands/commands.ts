@@ -268,7 +268,7 @@ export async function finishLogin(result: LoginOutcome, ctx: ExtensionContext, d
 	switch (result.kind) {
 		case "confirmed": {
 			deps.saveAccount(result.account);
-			const label = peerLabel(result.account.ilinkUserId);
+			const label = sanitizeLine(peerLabel(result.account.ilinkUserId));
 			ctx.ui.notify(`WeChat connected as ${label}. Run /wechat start to run the bridge on this session.`);
 			return;
 		}

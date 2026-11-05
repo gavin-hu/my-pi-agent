@@ -171,6 +171,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	],
 	"web-access": ["fetch/fetch", "fetch/structured", "search/search", "http"],
 	wechat: [
+		"boundary",
 		"bridge",
 		"bridge-durability",
 		"bridge-lock",
@@ -189,6 +190,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"commands/cancel",
 		"commands/commands",
 		"commands/doctor",
+		"commands/history",
 		"dialog/interaction",
 		"conversation/admission",
 		"conversation/turn",

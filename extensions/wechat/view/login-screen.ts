@@ -8,6 +8,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, visibleWidth } from "@earendil-works/pi-tui";
+import { sanitizeLine } from "../../../lib/format.ts";
 import { screenFooter, screenHint } from "../../../lib/tui/chrome.ts";
 import { clip } from "../../../lib/tui/columns.ts";
 import { isCloseKey } from "../../../lib/tui/cursor.ts";
@@ -43,15 +44,18 @@ export function statusLabel(status: string): string {
 /** The screen body: status or error, then the QR (or the URL) fitted to `width`. */
 export function loginBody(state: LoginViewState, width: number): string[] {
 	const target = Math.max(1, width);
+	// The status, the error, and the URL come from the server; the QR lines are blocks
+	// this process drew, so only the first three are sanitized before they are shown.
 	const lines: string[] = [];
-	if (state.error) lines.push(state.error);
-	else lines.push(statusLabel(state.status));
+	if (state.error) lines.push(sanitizeLine(state.error));
+	else lines.push(sanitizeLine(statusLabel(state.status)));
 
+	const url = sanitizeLine(state.url);
 	if (state.lines.length > 0 && visibleWidth(state.lines[0]) <= target) {
 		lines.push(...state.lines);
-	} else if (state.url) {
-		for (let index = 0; index < state.url.length; index += target) {
-			lines.push(state.url.slice(index, index + target));
+	} else if (url) {
+		for (let index = 0; index < url.length; index += target) {
+			lines.push(url.slice(index, index + target));
 		}
 	}
 	return lines.map((line) => clip(line, target));
