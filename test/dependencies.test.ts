@@ -271,7 +271,7 @@ function ruleOf(path: string): string {
  */
 const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/wechat/bridge.ts": "the bridge loads when a bound session starts it",
-	"extensions/plan/web.ts": "the browser review loads on /plan review, /plan share, or the plan tool's exit action",
+	"extensions/plan/web.ts": "the browser review loads on /plan review or the plan tool's exit action",
 	"extensions/plan/review.ts": "the review gate and its TUI screen load on the first /plan review or plan exit",
 	"extensions/plan/git-bash.ts": "the read-only git check loads when plan mode vets a bash call",
 	"extensions/plan/path-guard.ts": "the path backstop loads when plan mode vets a tool call",

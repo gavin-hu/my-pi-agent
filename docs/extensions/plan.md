@@ -23,7 +23,7 @@ executes.
 | Steps as todos | `plan` action `exit` | Approval seeds the plan's steps into the todo list, with the verification section as the last item; approving the same plan again replaces the items its earlier approval seeded. |
 | Plan kept current | `plan` action `steps` | Ticking a step rewrites its checkbox in the file and its todo item in one call. |
 | Stale-step protection | `expected` in `plan` action `steps` | A step whose number moved, is out of range, or no longer matches its text refuses the whole batch instead of ticking the wrong line. |
-| Cancel without a plan | `plan` action `cancel`, `/plan cancel` | Write access returns, and no todo items or goal are recorded. |
+| Cancel without a plan | `plan` action `cancel`, bare `/plan`, `Shift+Tab` | Write access returns, and no todo items or goal are recorded. |
 | Plans index | `/plan list` | Every saved plan with its title, modified time, and step progress, newest first, under a header naming the store's size and its oldest plan. |
 | Plan-store migration | `<repo>/.pi/plans` to the agent-dir store | A store left by an older version is moved in once, with a notice, so worktrees and main see the same index. |
 | Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. |
@@ -48,8 +48,8 @@ executes.
 
 | Capability | How | What you get |
 |---|---|---|
-| Shared review | `/plan share`, **Share** | A reviewer link, with a QR a phone can scan, opens the same plan from another machine on this Wi-Fi. |
-| One link per teammate | **New link**, **Revoke**, `/plan share stop` | Each teammate holds a link of their own, and one is revoked without disturbing the rest. |
+| Shared review | the page's **Share**, `POST /api/share` | A reviewer link, with a QR a phone can scan, opens the same plan from another machine on this Wi-Fi. |
+| One link per teammate | **New link**, **Revoke**, `POST /api/share/link` | Each teammate holds a link of their own, and one is revoked without disturbing the rest. |
 | Two roles | the owner's `token`, a reviewer's link | Only the owner saves, approves, cancels, and manages links; a reviewer reads and comments. |
 | Signed comments | the page's `name` control | A reviewer's name binds to her link on its first post, so her notes are hers and the file records who wrote them. |
 
@@ -275,8 +275,6 @@ plan exit 2026-10-09-1809-add-rate-limiting
 | `/plan <prompt>` | the user, with the task | immediate |
 | `/plan list` | the user, browsing the plans directory | immediate |
 | `/plan review [path]` | the user, reviewing a plan in the browser | immediate |
-| `/plan share [stop]` | the user, handing the review to a teammate | immediate |
-| `/plan cancel` | the user, leaving plan mode without approving | immediate |
 | `/skill:init` | the user, creating or updating `AGENTS.md` | enters plan mode; write waits for plan approval |
 | `Shift+Tab` (bytefly) | the user | immediate |
 | `--plan` | the user, at launch | immediate |
@@ -306,20 +304,21 @@ its plans hold and how old the oldest one is, both derived from the walk that ju
 happened. The directory stays the index: no registry file, nothing deletes a plan,
 and one bounded read per plan.
 
-`/plan review` is the only subcommand that takes a path; `/plan share` takes the
-one word `stop` after it, and `list` and `cancel` take nothing. Bare `/plan review`
-reviews the plan this session wrote, or, in a later session, the newest plan file
-in the plans directory (newest modification time); `/plan review <path>.md` (or a
-path with a separator) reviews that plan. A line that merely starts with the word
-— `review the auth flow` — is still treated as a planning task, so the subcommand
-never swallows one.
+`/plan review` is the only subcommand that takes a path, and `list` takes nothing.
+Bare `/plan review` reviews the plan this session wrote, or, in a later session,
+the newest plan file in the plans directory (newest modification time);
+`/plan review <path>.md` (or a path with a separator) reviews that plan. A line
+that merely starts with the word — `review the auth flow` — is still treated as a
+planning task, so the subcommand never swallows one.
 
-`/plan share` prints the reviewer link and its QR, and `/plan share stop` revokes
-every link; the page's **Share** button does the same. With no browser review open
-it says so and points at `/plan review`. `/plan cancel` leaves plan mode without
-approving, exactly like `cancel`: write access returns and the plan file
-stays for a later review. Both are exact words — `share the tokens` and `cancel
-that idea` stay tasks — as is `list`.
+Sharing is the review page's job: **Share** prints the reviewer link and its QR,
+**New link** mints another, and **Stop sharing** revokes every link, so a phone-owned
+or remote session has no terminal spelling for it. Leaving without approving is
+`plan` action `cancel`, bare `/plan`, or `Shift+Tab`: write access returns and the
+plan file stays for a later review. `list` and `review` are the only reserved
+words — `list the untracked files` and `review the auth flow` stay tasks, as do
+`share the tokens` and `cancel that idea`, which `/plan` sends to the model like
+any other line.
 
 ### `/skill:init`
 
@@ -760,12 +759,11 @@ The routes it serves are in [Routes](#routes).
 
 ## Shared review
 
-A review is not only the owner's. **Share** in the review header (or `/plan share`)
-mints a reviewer link, binds a second listener on the machine's first reachable
-IPv4 address, and shows the link with a QR a phone can scan. **New link** in the
-same dialog mints one more, so each teammate holds a link of their own. **Stop
-sharing** revokes every link and closes that listener; closing the review does
-both.
+A review is not only the owner's. **Share** in the review header mints a reviewer
+link, binds a second listener on the machine's first reachable IPv4 address, and
+shows the link with a QR a phone can scan. **New link** in the same dialog mints
+one more, so each teammate holds a link of their own. **Stop sharing** revokes
+every link and closes that listener; closing the review does both.
 
 - **Two roles, one token each.** The owner's token — the one the browser opened
   with — decides: it may comment, save (which returns to the model), approve,
@@ -889,7 +887,7 @@ both.
 | Integration point | How |
 |---|---|
 | Tools | one `plan` tool, active in both modes, with five actions: `enter`, `write`, `exit`, `steps`, `cancel`. It is `executionMode: "sequential"`, closed-world, and carries one annotation set — `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false` — because `write` overwrites a plan file: the actions that only change the mode are exempted by the guard in `index.ts`, the only place that can tell them apart. Each action returns typed `details` discriminated by `action` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `CancelPlanModeDetails`, `SetPlanStepsDetails`); a refusal carries `RefusedPlanDetails` (`refused`, `error`) and, where the state is what makes the refusal actionable, the action's own details as well — `exit`'s over-cap block names the plan it read so the block still shows what was not presented, and `enter`'s no-UI block carries `{ action: "enter", entered: false, unavailable: true }` so a caller can tell that refusal from another; no `outputSchema`/`structuredContent`. |
-| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `/plan share [stop]` (reviewer link), `/plan cancel` (leave without approving), `/skill:init` (skill-backed `AGENTS.md` bootstrap), `--plan` launch flag. `Shift+Tab` is bytefly's editor chord, not a registered shortcut: `app.thinking.cycle` is reserved, so the editor requests a toggle over the event bus instead. |
+| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `/skill:init` (skill-backed `AGENTS.md` bootstrap), `--plan` launch flag. `Shift+Tab` is bytefly's editor chord, not a registered shortcut: `app.thinking.cycle` is reserved, so the editor requests a toggle over the event bus instead. |
 | State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan writes a goal only at approval, through `ctx.executeTool("goal", { objective })` when the `goal` tool is registered: a `planning` goal is promoted to the plan's `## Goal`, a session with none is given the same objective, and an `active`/`achieved` goal is left alone — no path asks first. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
 | Entry requests | `pi.events` channels from `lib/plan-entry.ts`: `PLAN_ENTER_REQUEST` (the `goal` workflow asks, with the shared consent sentence, and plan enables the mode on the caller's context without a second dialog) and `PLAN_TOGGLE_REQUEST` (bytefly's Shift+Tab asks to flip it and gets the state back). Both share one `PlanModeRequest` payload and `isPlanExtensionLoaded`. Subscribed on `session_start`, released on `session_shutdown`. |
 | `board` while planning | The board is one action-shaped tool, so its annotation cannot say it reads: plan mode reads the action instead, through `lib/policy.ts`'s `isBoardRead` and `lib/board/actions.ts`'s table. The refusal is built by `boardWriteRefusal` in that same module — the board's words, because the sentence names the board's order: claim a card before you plan, and record its plan once it is approved. |
@@ -1053,12 +1051,12 @@ both.
 | `tools/` | One module per action (`enter.ts`, `write.ts`, `exit.ts`, `cancel.ts`, `steps.ts`), each exporting its `execute`/`call`/`text` seam; plus `refusal.ts` (the one rejected-call shape), `todo-seed.ts` (the two nested `todo` writes) and `nested.ts` (reading a nested result). |
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. It also owns the contract — `ReviewDecision`, `ReviewBaselines`, `ReviewPlanOptions` — which `review-lazy.ts` imports as types. |
 | `review-prompt.ts` | Pure rendering and parsing for the review's dialog presentation: the digest posted before the question, the four option labels in one table with their parser, and the editor a revision is asked with. |
-| `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, `/plan list`, `/plan share [stop]`, and `/plan cancel`. |
+| `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, and `/plan list`. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep). |
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (store size and oldest plan, title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks), and `contentBlockAt`: the block with content a comment beside blank space belongs to. |
 | `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `readFeedback`/`parseFeedback` (body, blocks, and comments out of one parse), `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `feedbackSummary`, and payload validation. |
-| `review-lazy.ts` | The review gate behind a dynamic import: `reviewPlan` and `runBrowserReview` load `review.ts` (and its TUI screen) on the first review, so registration, `/plan cancel`, and the tool schemas never do. It declares no contract of its own: the decision and options types are `review.ts`'s, imported type-only, which erases — so the facade pays nothing and cannot promise what the loop does not do. |
+| `review-lazy.ts` | The review gate behind a dynamic import: `reviewPlan` and `runBrowserReview` load `review.ts` (and its TUI screen) on the first review, so registration and the tool schemas never do. It declares no contract of its own: the decision and options types are `review.ts`'s, imported type-only, which erases — so the facade pays nothing and cannot promise what the loop does not do. |
 | `web-lazy.ts` | The review behind `lib/lazy`: `NO_SERVER_DEPS`, and the proxy `/plan` and the tools share, so `web.ts` loads on the first review and shutdown closes only an opened one |
 | `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the plan-file poll, the body cap, settle-after-flush, abort) over `lib/http`'s one loopback server, and the router wiring — the island is `web-payload.ts` and the writes are `web-write.ts`. |
 | `web-tokens.ts` | The token table: the role each token names, the collision rule that keeps two roles off one token, and the names the other live links have bound. |
@@ -1129,9 +1127,9 @@ Thirty-one co-located suites, declared in `test/suite-manifest.ts`:
   skips where no browser is installed, naming `PI_CHROME`.
 - `web-share.test.ts` — the LAN address selector, `shareUrl`, the link table with
   its cap, and the reasons a share is unavailable.
-- `commands.test.ts` — `/plan review`, `/plan list`, `/plan share`, and the one
-  review gate shared by `exit` and the browser, including the abort and
-  baseline rules.
+- `commands.test.ts` — `/plan review`, `/plan list`, the retired `share` and
+  `cancel` lines as tasks, and the one review gate shared by `exit` and the
+  browser, including the abort and baseline rules.
 - `runtime.test.ts` — tool gating, persistence and status, the `plan` tool's identity,
   the review baseline, branch restore, the read-only git allowlist, and the
   path-argument scan.

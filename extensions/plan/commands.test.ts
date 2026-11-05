@@ -9,7 +9,6 @@
 
 import { describe, expect, test } from "bun:test";
 import { registerCommands } from "./commands.ts";
-import type { ShareResult } from "./web-share.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanSummary, StoredPlan } from "./plans.ts";
@@ -141,117 +140,8 @@ function setup(
 	};
 }
 
-/** A web seam whose share calls are recorded, so the command's output is testable. */
-function shareWeb(result: ShareResult | undefined, stopped: ShareResult | undefined = result): PlanWebReview {
-	const calls: string[] = [];
-	return {
-		start: async () => undefined,
-		current: () => undefined,
-		share: async () => {
-			calls.push("share");
-			return result;
-		},
-		stopSharing: async () => {
-			calls.push("stop");
-			return stopped;
-		},
-		shareState: () => result?.state,
-		closeAll: async () => {},
-	};
-}
-
-describe("/plan share", () => {
-	test("prints the link and a QR for the running review", async () => {
-		const { runtime } = fakeRuntime({ file: plan() });
-		const web = shareWeb({
-			state: {
-				sharing: true,
-				origin: "http://192.168.1.24:51789",
-				links: [{ id: "link-1", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=abc" }],
-			},
-			svg: "<svg/>",
-		});
-		const pi = makePlanPi();
-		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = planCtx({ cwd: "/repo" });
-
-		await pi.commands.get("plan").handler("share", ctx);
-
-		const notice = notifications.join("\n");
-		expect(notice).toContain("http://192.168.1.24:51789/?token=abc");
-		expect(notice).toContain("█");
-	});
-
-	test("says why it cannot share when the machine has no address", async () => {
-		const { runtime } = fakeRuntime({ file: plan() });
-		const web = shareWeb({
-			state: { sharing: false, origin: "", links: [], reason: "no network address to share on." },
-		});
-		const pi = makePlanPi();
-		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = planCtx({ cwd: "/repo" });
-
-		await pi.commands.get("plan").handler("share", ctx);
-
-		expect(notifications.join("\n")).toContain("no network address");
-	});
-
-	test("reports when no review is open", async () => {
-		const { runtime } = fakeRuntime({ file: plan() });
-		const pi = makePlanPi();
-		registerCommands(pi.pi, runtime, shareWeb(undefined));
-		const { ctx, notifications } = planCtx({ cwd: "/repo" });
-
-		await pi.commands.get("plan").handler("share", ctx);
-
-		expect(notifications.join("\n")).toContain("no browser review is open");
-	});
-
-	test("names the newest link and the count once a team holds several", async () => {
-		const { runtime } = fakeRuntime({ file: plan() });
-		const web = shareWeb({
-			state: {
-				sharing: true,
-				origin: "http://192.168.1.24:51789",
-				links: [
-					{ id: "link-1", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=abc" },
-					{ id: "link-2", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=def" },
-				],
-			},
-		});
-		const pi = makePlanPi();
-		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = planCtx({ cwd: "/repo" });
-
-		await pi.commands.get("plan").handler("share", ctx);
-
-		const notice = notifications.join("\n");
-		expect(notice).toContain("token=def");
-		expect(notice).toContain("2 links shared");
-	});
-
-	test("stops sharing and says reviewers can no longer join", async () => {
-		const { runtime } = fakeRuntime({ file: plan() });
-		const web = shareWeb(
-			{
-				state: {
-					sharing: true,
-					origin: "http://192.168.1.24:51789",
-					links: [{ id: "link-1", address: "192.168.1.24", url: "http://x/?token=abc" }],
-				},
-			},
-			{ state: { sharing: false, origin: "", links: [] } },
-		);
-		const pi = makePlanPi();
-		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = planCtx({ cwd: "/repo" });
-
-		await pi.commands.get("plan").handler("share stop", ctx);
-
-		expect(notifications.join("\n")).toContain("can no longer open");
-	});
-
-	test("leaves a task that merely begins with share alone", async () => {
+describe("/plan retired subcommands", () => {
+	test("sends a line beginning with share to the model", async () => {
 		const { pi, runtime } = (() => {
 			const built = setup({ result: { status: "cancelled" } });
 			return { pi: built.pi, runtime: built.runtime };
@@ -262,6 +152,16 @@ describe("/plan share", () => {
 
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain("share the load");
+		expect(runtime.isEnabled()).toBe(true);
+	});
+
+	test("sends a line beginning with cancel to the model", async () => {
+		const { pi, runtime } = setup({ result: { status: "cancelled" } });
+		const { ctx } = planCtx({ cwd: "/repo" });
+
+		await pi.commands.get("plan").handler("cancel that idea", ctx);
+
+		expect(pi.sentMessages).toEqual([{ content: "cancel that idea", options: undefined }]);
 		expect(runtime.isEnabled()).toBe(true);
 	});
 });
@@ -497,24 +397,6 @@ describe("/plan list", () => {
 		expect(seen).toEqual([true, false]);
 	});
 
-	test("cancels plan mode without approving", async () => {
-		const { pi, ctx, notifications, runtime } = setup({ result: { status: "cancelled" }, enabled: true });
-
-		await pi.commands.get("plan").handler("cancel", ctx);
-
-		expect(runtime.isEnabled()).toBe(false);
-		expect(notifications.at(-1)).toContain("Plan mode off");
-	});
-
-	test("reports cancel when plan mode is already off", async () => {
-		const { pi, ctx, notifications, runtime } = setup({ result: { status: "cancelled" } });
-
-		await pi.commands.get("plan").handler("cancel", ctx);
-
-		expect(runtime.isEnabled()).toBe(false);
-		expect(notifications.at(-1)).toContain("already off");
-	});
-
 	test("treats a sentence starting with list as a task", async () => {
 		const { pi, ctx } = setup({ result: { status: "cancelled" }, summaries });
 
@@ -528,10 +410,11 @@ describe("/plan list", () => {
 		const complete = (prefix: string): string[] =>
 			(pi.commands.get("plan").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
 
-		expect(complete("")).toEqual(["list", "review", "share", "cancel"]);
+		expect(complete("")).toEqual(["list", "review"]);
 		expect(complete("li")).toEqual(["list"]);
 		expect(complete("r")).toEqual(["review"]);
-		expect(complete("c")).toEqual(["cancel"]);
+		expect(complete("s")).toEqual([]);
+		expect(complete("c")).toEqual([]);
 		expect(complete("review ")).toEqual([]);
 	});
 });

@@ -1,6 +1,6 @@
 /**
  * The shared review's second listener: one reviewer token, one address on this
- * network, and the state the owner's page and `/plan share` read.
+ * network, and the state the owner's page reads.
  *
  * Separate from `web.ts` because the review session's job is its own lifecycle —
  * open, settle, close — while this module owns the address, the links, and the
