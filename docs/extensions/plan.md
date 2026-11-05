@@ -606,9 +606,13 @@ line range it shows, and the footer lists only the keys that apply.
   range drops first on a narrow terminal); the gauge comes from the design
   system's `gaugeBar` and stays visible while the refine editor is open, since the
   body above is still clipped.
-- **Narrow widths.** Hints are dropped whole as the terminal narrows, and each
-  footer leads with its safe exit (`Esc keep plan` in the review, `Esc back to
-  plan` in the inline editor) so the exit survives even when only one hint fits.
+- **Narrow widths.** Hints are dropped whole as the terminal narrows, and the
+  footer is ordered by what a reader cannot discover otherwise: the three ways the
+  review ends (`Esc keep plan`, `a approve`, `x exit plan`), then `n/p section`,
+  then `r refine` and `w browser`, then the scroll keys. A sectioned plan at 60
+  columns therefore still shows its mode exit and its section jump, and the inline
+  editor leads with `Esc back to plan` so its exit survives even when only one
+  hint fits.
 
 ## Browser review
 
@@ -1097,7 +1101,7 @@ both.
 bun test extensions/plan
 ```
 
-Thirty co-located suites, declared in `test/suite-manifest.ts`:
+Thirty-one co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, the store's directory, atomic
   writes, `read`/`latest`/`index`, `setSteps`, `saveFeedback`, and step extraction;
@@ -1132,8 +1136,12 @@ Thirty co-located suites, declared in `test/suite-manifest.ts`:
   the review baseline, branch restore, the read-only git allowlist, and the
   path-argument scan.
 - `tui.test.ts` — the review screen at fixed widths: Markdown body, scrolling,
-  section navigation, the gauge, footer hints, the approve question, the inline
-  refine editor, and the changed-section markers.
+  section navigation, the gauge, the approve question, the inline refine editor,
+  and the changed-section markers.
+- `tui-footer.test.ts` — the hint row at each width: which keys survive as the
+  terminal narrows (the review's three exits and `n/p section` ahead of the scroll
+  keys), the section jump only when the plan has sections, the role each key is
+  painted in, and the inline editor's own entry line.
 - `sections.test.ts` — the fence-aware scan: heading shape, fences, the preamble,
 source lines and levels, and the occurrence key.
 - `extension.test.ts` — the Pi wiring: registration, the enter and toggle requests,

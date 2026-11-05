@@ -128,6 +128,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"git-bash",
 		"runtime",
 		"tui",
+		"tui-footer",
 		"sections",
 		"extension",
 		"subagent-background",
