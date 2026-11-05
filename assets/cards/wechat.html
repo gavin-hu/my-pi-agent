@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=1200" />
+		<title>One session, two windows — @gavin-hu/my-pi-agent</title>
+		<link rel="stylesheet" href="./cards.css" />
+	</head>
+	<body>
+		<main class="card card--glow">
+			<div class="brand">
+				<span><span class="brand__chip">@gavin-hu/my-pi-agent</span> · wechat</span>
+				<span class="brand__right">
+					<span class="live"><span class="live__dot"></span>✆ wechat · open</span>
+				</span>
+			</div>
+
+			<h1 class="title title--compact">
+				One session, two windows<br /><span class="title__zh">一个会话，两个窗口</span>
+			</h1>
+
+			<p class="lede">
+				A message from the phone is a turn in this Pi session — one transcript, one model context, one toolset.
+			</p>
+
+			<svg
+				class="diagram diagram--wechat"
+				viewBox="0 0 1104 344"
+				role="img"
+				aria-label="Two windows on one Pi session. On the left the terminal, where a prompt runs as a turn in the same session and a dialog raised there is asked there, because a terminal turn carries no chat marker. In the middle the session itself: one transcript holding your prompt, the chat's turn and the tool output; one model, one toolset, one mode; one queue holding one turn at a time, so a message that arrives mid-run waits for its own; and a dialog always asked in the window its turn came from. On the right the phone, where an inbound message crosses a dashed admission line, marked admit, to become that turn, and the answer leaves as streamed parts — a paragraph, two silent seconds, or 400 characters — flattened and numbered. The floors read: the terminal is the same session, with tool output, files and the workspace; the session is the whole answer, with no child session and no per-sender queue; a reply is parts of the one run, the message arriving after a long-poll hold of about eighteen seconds and a replayed message id answered once."
+			>
+				<defs>
+					<marker
+						id="tip"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+					<marker
+						id="tip-go"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip tip--go" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+				</defs>
+
+				<!-- The three lanes: two windows, and the one session both of them write to. -->
+				<rect class="lane" x="0" y="30" width="280" height="250" rx="16" />
+				<rect class="lane lane--session" x="326" y="30" width="414" height="250" rx="16" />
+				<rect class="lane" x="840" y="30" width="264" height="250" rx="16" />
+				<text class="lane-label" x="2" y="20">terminal · 终端</text>
+				<text class="lane-label lane-label--session" x="328" y="20">one pi session · 本会话</text>
+				<text class="lane-label" x="842" y="20">wechat · 微信 · owner</text>
+
+				<!-- The terminal: a turn here, and the dialogs a turn here keeps. -->
+				<rect class="node" x="14" y="62" width="252" height="64" rx="10" />
+				<text class="node-label node-label--start node-label--mono" x="28" y="88">❯ refactor billing</text>
+				<text class="verb-note" x="28" y="108">you · in this terminal</text>
+				<line class="edge" x1="268" y1="94" x2="334" y2="94" marker-end="url(#tip)" />
+				<text class="edge-label" x="302" y="84">a turn</text>
+
+				<rect class="node" x="14" y="150" width="252" height="88" rx="10" />
+				<text class="node-label node-label--start" x="28" y="176">a dialog raised here</text>
+				<text class="node-label node-label--start" x="28" y="196">is asked here</text>
+				<text class="verb-note" x="28" y="214">no marker · 提问留在本地</text>
+
+				<!-- The session: one transcript, one queue, one turn at a time. -->
+				<rect class="node" x="340" y="62" width="386" height="176" rx="12" />
+				<text class="node-label node-label--start" x="358" y="92">one transcript <tspan class="node-label--zh">· 一份记录</tspan></text>
+				<text class="verb-note" x="358" y="116">your prompt · the chat's turn · tools</text>
+				<text class="verb-note" x="358" y="142">one model · one toolset · one mode</text>
+				<text class="verb-note" x="358" y="168">one queue · one turn at a time</text>
+				<text class="verb-note" x="358" y="194">a mid-run message waits its turn</text>
+				<text class="verb-note verb-note--hi" x="358" y="218">a dialog is asked in its turn's window</text>
+
+				<!-- The phone: admission in, streamed parts out. -->
+				<line class="edge edge--loop" x1="790" y1="40" x2="790" y2="282" />
+				<text class="edge-label edge-label--loop" x="790" y="26">admit</text>
+
+				<rect class="node" x="852" y="62" width="240" height="64" rx="10" />
+				<text class="node-label node-label--start" x="866" y="88">12:04 · 这条能跑吗</text>
+				<text class="verb-note" x="866" y="108">an inbound message</text>
+				<line class="edge" x1="848" y1="94" x2="748" y2="94" marker-end="url(#tip)" />
+
+				<rect class="node" x="852" y="150" width="240" height="88" rx="10" />
+				<text class="node-label node-label--start" x="866" y="176">streamed parts</text>
+				<text class="verb-note" x="866" y="196">one part per paragraph</text>
+				<text class="verb-note" x="866" y="214">2 s quiet · 400 chars</text>
+				<line class="edge edge--go" x1="728" y1="188" x2="846" y2="188" marker-end="url(#tip-go)" />
+
+				<!-- Each lane's floor: what it holds, in the words the drawing cannot show. -->
+				<text class="verb-note verb-note--hi" x="14" y="302">the same session, at the terminal</text>
+				<text class="verb-note" x="14" y="322">tool output · files · workspace</text>
+				<text class="verb-note verb-note--hi" x="340" y="302">the session is the whole answer</text>
+				<text class="verb-note" x="340" y="322">no child session · no per-sender queue</text>
+				<text class="verb-note verb-note--hi" x="852" y="302">a reply is parts of one run</text>
+				<text class="verb-note" x="852" y="322">~18 s long poll · replay once</text>
+			</svg>
+
+			<div class="foot">
+				<div>
+					One transcript: the phone's turn is in your terminal.<br /><span class="foot__zh"
+						>手机上的这一轮，也写在终端记录里。</span
+					>
+				</div>
+				<div class="foot__right">
+					One boundary: a chat turn's dialogs are asked in the chat.<br /><span class="foot__zh"
+						>聊天里的提问问到手机，终端的留在本地。</span
+					>
+				</div>
+			</div>
+		</main>
+	</body>
+</html>

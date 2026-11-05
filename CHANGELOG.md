@@ -25,6 +25,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `问题已撤回。` / “That question was withdrawn.” notice, where before both were read as the answer — an
   `input` prompt kept `/cancel` as its value and a `confirm` bounced it back as one it could not read.
 
+- dev: `assets/cards/wechat.html` is the set's sixth posting card, drawn from the bridge as it is now
+  that one session answers both windows: `capture:cards wechat` writes a 1200×675 poster titled
+  `One session, two windows` — the English line, then the Chinese — with the terminal on the left, the
+  phone on the right, and the session both of them write to between them. A message from the phone
+  crosses a dashed `admit` line to become a turn in that session, the answer leaves as streamed parts,
+  a terminal turn keeps its own dialogs, and each lane's floor carries what the drawing cannot show —
+  one transcript and one queue with one turn at a time, no child session and no per-sender queue, a
+  reply in parts, and the ~18 s long-poll floor. `cards.css` gains the session lane's `--accent-alt`
+  role, the start-anchored node label a node of list lines needs, and the 344px box a two-line head
+  and a lede pay for.
+
 ### Changed
 
 - `plan`: `Ctrl+C` on the review screen interrupts the turn instead of settling the review as “keep
