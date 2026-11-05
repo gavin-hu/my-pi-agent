@@ -25,7 +25,7 @@ session is fabricated.
 
 | Capability | How | What you get |
 |---|---|---|
-| Plan review over chat | automatic: a `plan` action `exit` on a WeChat turn | The plan arrives as a file, then one compact editor prompt with three actions. |
+| Plan review over chat | automatic: a `plan` action `exit` on a WeChat turn | The plan arrives as a file, then a digest, then one numbered question of four choices — approve, keep planning, exit, revise — and an editor only for revise. |
 | Forwarded dialogs | automatic: a dialog in a chat turn | Any dialog a chat turn raises — a question, a plan review, a tool's `confirm` — is asked and answered in the chat. |
 | Questions | `question` | The chat answers its question, numbered, and a reply is routed to that prompt alone. |
 | Control screen | `/wechat` | Account, connection, queue, the running turn, refusals, and the waiting prompt on one live screen. |
@@ -349,11 +349,14 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
   so, so a plan review without it does not pretend free text is a choice.
 - `confirm` — reply 是/否, 确定/不是, or yes/no.
 - `input` / `editor` — reply with the text.
-- Reply 取消 (or cancel, quit, exit, 退出) to dismiss. In a plan review a
-  dismissal leaves plan mode without approving.
+- Reply 取消 (or cancel, quit, exit, 退出) to dismiss. A dismissed plan review is
+  a keep: plan mode stays on, write access stays off, and the model is told the
+  plan was not approved, so it asks what to change instead of acting.
 - A plan review is a numbered question of four choices — approve, keep planning,
   exit, revise — asked after the plan file and a digest of its title, first steps,
-  and mode status. Revise is the fourth: it opens one editor for the feedback, so a
+  and mode status. Pick exit by its number, `3`: 退出, `exit`, and “exit plan
+  mode” are dismissal words, matched before the options, so typing them keeps
+  planning. Revise is the fourth: it opens one editor for the feedback, so a
   reply the options do not name re-asks instead of reaching the model as an
   instruction.
 - Hints are rendered in the chat’s language, one language per prompt. A reply
@@ -367,8 +370,10 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
 - An unanswered prompt is bounded: a reminder goes out halfway and the question
   is cancelled at the end of its window with a one-line notice, so an ignored
   dialog cannot freeze the session. A dialog uses three minutes; the plan review
-  uses ten. A timed-out plan review is treated like a dismissal: plan mode ends
-  without approval, and the plan file remains.
+  uses ten, with the reminder at five. A timed-out plan review is read as a keep
+  too: plan mode stays on, write access stays off, and the plan file remains. The
+  notice names only the timeout — nothing on the phone reports the mode, so it is
+  read off the next review's digest or the terminal.
 - A prompt that goes away before it is answered says so: the chat's `/cancel`,
   the control screen's `c`, or `/wechat cancel` where there is no screen, withdraws
   it with `问题已撤回。` / “That question was withdrawn.”, a `/stop` ends its turn
@@ -390,17 +395,18 @@ the keyboard — no shipped tool does. See [Design notes](#design-notes).
 ## Outbound files
 
 A remote prompt can deliver a local file first. The plan review uses this: the
-plan file is sent before one compact editor prompt with the title, first steps,
-mode status, and three actions. Reply 2 to keep planning or 3 to exit; any other
-text is a refinement. If the upload fails, the plan text is sent instead. The
-plan file stays on disk. After a Keep decision the user can say “exit plan mode”; the model
-calls `plan` action `cancel`, which needs no plan path and records no todo or goal.
-The flow mirrors the
-reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the ciphertext
-(`Content-Type: application/octet-stream`) → read `x-encrypted-param` → send a
-`type: 4` file item. The plan review is the flow that uses it; `send_wechat`
-uploads an image over the same path as a `type: 2` item, while video and voice
-are not sent outbound.
+plan file is sent, then a digest of its title, first steps, and mode status, then
+one numbered question of four choices — approve, keep planning, exit, revise. If
+the upload fails, the plan text is sent instead, so the plan is above either way
+and the digest says so. The plan file stays on disk. Revise opens one editor for
+the feedback; a dismissal keeps plan mode on, as the reply contract above says.
+After a Keep decision the user can say “exit plan mode”; the model calls `plan`
+action `cancel`, which needs no plan path and records no todo or goal. The flow
+mirrors the reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the
+ciphertext (`Content-Type: application/octet-stream`) → read `x-encrypted-param`
+→ send a `type: 4` file item. The plan review is the flow that uses it;
+`send_wechat` uploads an image over the same path as a `type: 2` item, while video
+and voice are not sent outbound.
 
 ## The long-poll hold
 
