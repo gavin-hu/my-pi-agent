@@ -504,18 +504,6 @@ describe("bridge slash commands", () => {
 		await bridge.close();
 	});
 
-	test("expands a snippet command into the injected turn", async () => {
-		const { client } = makeClient([updates([inbound("/sum extra")])]);
-		const { deps, injected } = makeDeps(client, {
-			slashCommands: [{ name: "sum", summary: "s", kind: "snippet", snippet: "Summarize." }],
-		});
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-		expect(injected[0]).toBe("Summarize.\n\nextra");
-		await bridge.close();
-	});
-
 	test("runs an action and replies without injecting a turn", async () => {
 		const calls: string[] = [];
 		const { client, sent } = makeClient([updates([inbound("/hi a b")])]);
@@ -524,7 +512,6 @@ describe("bridge slash commands", () => {
 				{
 					name: "hi",
 					summary: "s",
-					kind: "action",
 					run: async (ctx) => {
 						calls.push(ctx.args);
 						await ctx.reply("hello there");
@@ -541,14 +528,12 @@ describe("bridge slash commands", () => {
 		await bridge.close();
 	});
 
-	test("ignores a command from a non-owner sender", async () => {
+	test("refuses a command from a non-owner sender before it runs", async () => {
 		const calls: string[] = [];
 		const peer = "friend@im.wechat";
 		const { client, sent } = makeClient([updates([inbound("/new", peer)])]);
 		const { deps, injected } = makeDeps(client, {
-			slashCommands: [
-				{ name: "new", summary: "s", kind: "action", ownerOnly: true, run: () => void calls.push("ran") },
-			],
+			slashCommands: [{ name: "new", summary: "s", run: () => void calls.push("ran") }],
 		});
 		const bridge = createBridge(deps);
 		bridge.open();
@@ -559,15 +544,13 @@ describe("bridge slash commands", () => {
 		await bridge.close();
 	});
 
-	test("accepts an owner-only command from the owner in either id form", async () => {
-		// Admission normalizes the `@im.wechat` suffix, so the owner check must too:
-		// a message that carries the suffix reaches an owner stored without it.
+	test("runs a command from the owner in either id form", async () => {
+		// Admission normalizes the `@im.wechat` suffix, so a message that carries it
+		// reaches an owner stored without it.
 		const calls: string[] = [];
 		const { client } = makeClient([updates([inbound("/new", "boss@im.wechat")])]);
 		const { deps } = makeDeps(client, {
-			slashCommands: [
-				{ name: "new", summary: "s", kind: "action", ownerOnly: true, run: () => void calls.push("ran") },
-			],
+			slashCommands: [{ name: "new", summary: "s", run: () => void calls.push("ran") }],
 			loadAccount: () => ({ ...account, ilinkUserId: "boss" }),
 		});
 		const bridge = createBridge(deps);
@@ -595,9 +578,7 @@ describe("bridge slash commands", () => {
 		const { client } = makeClient([updates([mixed])], { media: { "https://cdn/i": encrypt(plain) } });
 		const calls: string[] = [];
 		const { deps, peers } = makeDeps(client, {
-			slashCommands: [
-				{ name: "new", summary: "s", kind: "action", ownerOnly: true, run: () => void calls.push("ran") },
-			],
+			slashCommands: [{ name: "new", summary: "s", run: () => void calls.push("ran") }],
 		});
 		const bridge = createBridge(deps);
 		bridge.open();

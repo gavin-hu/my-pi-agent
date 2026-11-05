@@ -81,8 +81,8 @@ const LONG_SUITES: Record<string, number> = {
 	"lib/tui/layout.test.ts": 577,
 	"lib/web/web.test.ts": 810,
 	"scripts/screenshots.test.ts": 781,
-	"extensions/wechat/bridge.test.ts": 1223,
-	"extensions/wechat/commands/commands.test.ts": 1162,
+	"extensions/wechat/bridge.test.ts": 1204,
+	"extensions/wechat/commands/commands.test.ts": 1137,
 	"extensions/wechat/conversation/turn.test.ts": 529,
 	"extensions/wechat/transport/client.test.ts": 707,
 };

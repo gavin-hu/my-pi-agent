@@ -90,6 +90,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `activeAccount` pointer become the one stored account, and a bare `/wechat stop` now stops the bridge
   while `/wechat stop <peer>` still stops one peer's turn.
 
+- `wechat`: the chat's command registry is commands only — the `snippet` kind, `expandSnippet`, and the
+  branch that expanded a body into the turn are gone, since none had a registered user, and so is
+  `ownerOnly`, which could never fire: admission answers the account's owner or nobody, before a
+  command is parsed. `/help` lists `/new` without an “(owner only)” marker as a result.
+
 - `rewind`: the `/review` command is gone — the latest-turn changed-file list, the per-file diff, the
   file/batch revert, and the hunk checklist — with the modules only it read (`commands/review.ts`,
   `view/review-tui.ts`, `view/hunk-picker.ts`, `text/patch.ts`, and the runtime's `patch`,

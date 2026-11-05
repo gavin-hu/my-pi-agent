@@ -2,19 +2,15 @@
  * Inbound slash commands: a small built-in registry of commands a WeChat peer
  * can type in the chat.
  *
- * A command is either a `snippet` (a predefined body expanded into the user
- * turn) or an `action` (run locally and answered on WeChat, with no agent turn).
- * Parsing and lookup are pure, so the bridge can intercept inbound text without
- * I/O; the bridge builds the {@link SlashContext} that actions run against.
+ * A command runs locally and is answered on WeChat, with no agent turn, so
+ * parsing and lookup stay pure and the bridge can intercept inbound text without
+ * I/O; the bridge builds the {@link SlashContext} a command runs against.
  *
  * Value-only: no module-level state.
  */
 
 import { type PeerLanguage } from "../text/format.ts";
 import { notice } from "../text/notices.ts";
-
-/** The two command kinds. */
-export type SlashKind = "snippet" | "action";
 
 /** What the sender's own conversation is doing, for `/status`. */
 export interface SlashPeerState {
@@ -90,13 +86,8 @@ export interface SlashCommand {
 	summary: string;
 	/** Chinese one-line description; falls back to {@link summary}. */
 	summaryZh?: string;
-	kind: SlashKind;
-	/** `snippet` body, expanded into the turn. */
-	snippet?: string;
-	/** `action` handler, run instead of starting a turn. */
-	run?: (ctx: SlashContext) => void | Promise<void>;
-	/** When true, only the owner may run it. Default false. */
-	ownerOnly?: boolean;
+	/** Run instead of starting a turn. */
+	run: (ctx: SlashContext) => void | Promise<void>;
 }
 
 /** A parsed slash command: the lowercased name and the rest of the text. */
@@ -121,16 +112,6 @@ export function findSlashCommand(commands: readonly SlashCommand[], name: string
 }
 
 /**
- * The turn text a snippet expands to: its body, with any trailing args appended
- * as a separate paragraph. Just the body when there are no args.
- */
-export function expandSnippet(command: SlashCommand, args: string): string {
-	const body = command.snippet ?? "";
-	if (!args) return body;
-	return body ? `${body}\n\n${args}` : args;
-}
-
-/**
  * Pick the string for a peer's language, Chinese first when it writes Chinese.
  */
 function localized(lang: PeerLanguage, zh: string, en: string): string {
@@ -138,15 +119,13 @@ function localized(lang: PeerLanguage, zh: string, en: string): string {
 }
 
 /**
- * The built-in commands: `/new`, `/stop`, `/status`, and `/help`.
+ * The built-in commands: `/new`, `/stop`, `/status`, `/history`, and `/help`.
  */
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
 	{
 		name: "new",
 		summary: "Start a new session (terminal only)",
 		summaryZh: "开始新会话（仅限终端）",
-		kind: "action",
-		ownerOnly: true,
 		run: async (ctx) => {
 			// The chat is this session, so replacing it would emit `session_shutdown` and
 			// close the bridge under the peer who asked for a fresh start.
@@ -157,7 +136,6 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 		name: "stop",
 		summary: "Stop the running answer",
 		summaryZh: "停止当前回答",
-		kind: "action",
 		run: async (ctx) => {
 			// When a turn was stopped its own `已停止。` follows, so this only speaks
 			// when there was nothing to stop.
@@ -169,7 +147,6 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 		name: "status",
 		summary: "Show what this conversation is doing",
 		summaryZh: "查看当前处理状态",
-		kind: "action",
 		run: async (ctx) => {
 			const state = ctx.session.status();
 			// A waiting dialog is the whole status while it waits: the turn is blocked on
@@ -208,7 +185,6 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 		name: "history",
 		summary: "Show recent messages in this conversation",
 		summaryZh: "查看最近几条对话",
-		kind: "action",
 		run: async (ctx) => {
 			const requested = Number.parseInt(ctx.args, 10);
 			const count = Math.min(20, Math.max(1, Number.isFinite(requested) ? requested : 8));
@@ -220,23 +196,23 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 		name: "help",
 		summary: "List the chat commands",
 		summaryZh: "列出聊天命令",
-		kind: "action",
 		run: async (ctx) => {
 			await ctx.reply(helpText(SLASH_COMMANDS, ctx.language));
 		},
 	},
 ];
 
+/** The three fields `/help` reads, so a caller need not build a whole command. */
+export type HelpEntry = Pick<SlashCommand, "name" | "summary" | "summaryZh">;
+
 /**
- * The reply `/help` sends: one line per command, an owner-only marker, and a
- * note that ordinary text reaches the agent.
+ * The reply `/help` sends: one line per command, and a note that ordinary text
+ * reaches the agent.
  */
-export function helpText(commands: readonly SlashCommand[], lang: PeerLanguage = "en"): string {
-	const only = localized(lang, "（仅限所有者）", " (owner only)");
+export function helpText(commands: readonly HelpEntry[], lang: PeerLanguage = "en"): string {
 	const lines = commands.map((command) => {
-		const scope = command.ownerOnly ? only : "";
 		const summary = (lang === "zh" ? command.summaryZh : undefined) ?? command.summary;
-		return `/${command.name} — ${summary}${scope}`;
+		return `/${command.name} — ${summary}`;
 	});
 	const header = localized(lang, "可用命令：", "Available commands:");
 	const footer = localized(lang, "其他内容都会发送给助手。", "Anything else you type reaches the agent.");

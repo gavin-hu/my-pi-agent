@@ -17,7 +17,7 @@ session is fabricated.
 | Inbound replay safety | automatic: the WeChat message id | A replayed message id is answered once, remembered for an hour across a reconnect or reload. A batch is acknowledged only once its messages reach the turn queue, so a kill or a close mid-download reads that message again instead of losing it. | Shipped |
 | Inbound text cap | `maxInboundChars` | Text past the configured cap is truncated with a marker instead of becoming an unbounded prompt. | Shipped |
 | Chat language | automatic: a message written in Chinese | Notices and `/help` answer in the chat's language, and a neutral reply does not switch it back. | Shipped |
-| Slash commands | `/stop`, `/status`, `/history`, `/help` | The chat stops, inspects, or asks for help without spending a turn. | Shipped |
+| Slash commands | `/new`, `/stop`, `/status`, `/history`, `/help` | The chat stops, inspects, or asks for help without spending a turn. | Shipped |
 | Fresh session | `/wechat new` (terminal) | A new terminal session starts unbound; the chat is whatever session runs the bridge. | Shipped |
 | Typing indicator | `typingIndicator` | The phone can tell a long turn from a dead bridge. | Shipped |
 
@@ -210,17 +210,15 @@ merged into the running one, and `deliverAs: "steer"` is not used.
 The chat can type a slash command. The bridge intercepts it before it
 becomes a turn, so a command never reaches the model unless it is unknown.
 
-| Command | Kind | Effect |
-|---|---|---|
-| `/new` | action | Declined: the chat is this session, so replacing it would close the bridge. Run `/wechat new` in the terminal. |
-| `/stop` | action | Stop the running turn; the turn itself answers `已停止。` / `Stopped.`. |
-| `/status` | action | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth, or `Idle.`. |
-| `/history [n]` | action | The last `n` messages of this conversation (default 8, max 20), one line each. |
-| `/help` | action | Reply with the available commands. |
+| Command | Effect |
+|---|---|
+| `/new` | Declined: the chat is this session, so replacing it would close the bridge. Run `/wechat new` in the terminal. |
+| `/stop` | Stop the running turn; the turn itself answers `已停止。` / `Stopped.`. |
+| `/status` | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth, or `Idle.`. |
+| `/history [n]` | The last `n` messages of this conversation (default 8, max 20), one line each. |
+| `/help` | Reply with the available commands. |
 
-- **Snippets** expand a predefined body into the user turn (typing, queueing,
-  and reply capture are unchanged); none is registered yet.
-- **Actions** run locally and answer on WeChat without starting a turn.
+- Each command runs locally and answers on WeChat without starting a turn.
 - Matching is exact on the first token and case-insensitive; an unknown `/foo`
   (or a path-like `/usr/...`) falls through to the model as ordinary text, and a
   message carrying media is never treated as a command.
@@ -527,7 +525,7 @@ in-process).
 | Events | `session_start` (record the live context, then open the bridge when the branch bound an account); `session_tree` (reconcile the poller with the binding the landed branch carries); `session_shutdown` (await that start, then an idempotent stop, leaving the binding). The chat turn's own events — `message_update`, `turn_end`, `agent_settled`, `session_compact` — are relayed by `host/chat.ts`, and `before_agent_start` appends the channel contract while a chat turn is marked. |
 | Sessions | `host/chat.ts` is the chat's session, and it is this Pi session: `sendUserMessage` starts the turn, `message_update` deltas feed the reply pipeline, `agent_settled` settles it, and `ctx.abort()` stops it. A prompt waits for the session to be idle, so a terminal run cannot swallow a message. No session is created, so there is no loader, no session directory, and no second poller to exclude. |
 | Turn ownership | `conversation/turn.ts`: one queue, one turn at a time, `prompt`/`abort` on the chat session, the fallback line when a turn ends without text, an idle sweep, and the one notice an abandoning close sends. `dialog/interaction.ts` builds the single channel (`createChatChannel`) the bridge holds. |
-| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the one conversation through `SlashSessionControls` (`stop` → worker abort, `status` → worker state, `history` → a read-only read of this session's entries); `/new` declines, because the chat is the session it would replace. |
+| Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a command runs out-of-band and replies, and an unknown one falls through. Each acts on the one conversation through `SlashSessionControls` (`stop` → worker abort, `status` → worker state, `history` → a read-only read of this session's entries); `/new` declines, because the chat is the session it would replace. |
 | Chat dialogs | The chat turn is marked on this session's `ctx.ui` (`INTERACTION_TURN_KEY`), and `askHuman` reads that marker, so `question` and a plan review raised inside the turn reach the phone with their file/text preface. A terminal turn carries no marker, so its dialogs stay local. |
 | Status | The bridge's connection state (`running` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, a stop publishes nothing, and the status bar renders it on line 2. |
 | State | Files under `<agent-dir>/wechat/`, plus the one `wechat` branch entry that binds an account to a session; the bridge is not authoritative UI, so nothing else is stored in the transcript. |
@@ -633,7 +631,7 @@ guidance used to do.
 | `conversation/reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
 | `conversation/presence.ts` | Typing, acknowledgement, and the slow/busy lines: one slot per signal, cleared when the turn settles. |
 | `commands/commands.ts` | The one `/wechat` verb table: each row carries its runner, and the help text, the usage line, the completions, the command description, and the dispatch all derive from it; plus the panel, start/stop, login/logout, `cancel`, and `history`. `start`/`login`/`new`/`logout` decline and `status` degrades to the summary while a turn runs. |
-| `commands/slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
+| `commands/slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls a command may invoke, and the pure parse and lookup helpers. |
 | `commands/doctor.ts` | The plain-text `/wechat doctor` report: it renders a `StatusView`, so the connection, turn, and refusal facts are the ones `text/status.ts` owns; the poll, lock, and config lines are its own, and so is the remedy each state asks for. |
 | `commands/login.ts` | QR login state machine. |
 | `commands/history.ts` | Read-only `/history`: formats the last user/assistant messages of this session's own entries, and never writes. |
