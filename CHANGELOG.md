@@ -394,6 +394,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `0ms`. The frame benchmark leaves the running fixtures out of its session: a partial
   renderer may draw a live elapsed number, which the repeat-frame gate would fail. No
   image is recaptured here.
+- `wechat`: the queue-full line is per flood, not per connection. A peer told once that the queue
+  was full was never told again for the rest of the connection unless a turn settled after the
+  queue emptied, and a burst whose media downloads all failed — or a `/stop`, which drains what
+  was queued — emptied it without one. `intake` now re-arms the line on the first message that
+  finds room, so the entry it suppresses on lives exactly as long as the queue stays full.
 
 ## [0.24.0] - 2026-11-02
 
