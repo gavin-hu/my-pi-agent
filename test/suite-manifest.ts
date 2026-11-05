@@ -127,6 +127,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"commands",
 		"git-bash",
 		"runtime",
+		"runtime-restore",
 		"exit-answer",
 		"tui",
 		"tui-footer",

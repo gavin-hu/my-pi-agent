@@ -31,6 +31,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   screen answer in their transcript block alone, where each also raised a toast naming the same mode
   change; `/plan` and `Shift+Tab` keep their notice, because they draw no block to carry it.
 
+- `plan`: the footer chip names the plan the branch last wrote instead of forgetting it on `/resume`,
+  as it did while the path lived only in memory — a `/tree` hop likewise shows the plan that branch is
+  still holding, and a branch that wrote none stays a bare `≡ plan`. The name is replayed from the
+  `write` action's own result, so a rejected write and a plan merely reviewed with `/plan review
+  <path>` name nothing, and a bare `/plan review` reopens the plan it now remembers.
+
 - `wechat`: the chat commands say what they do in the space they have — `/status` names a waiting
   prompt by its first line instead of pasting a plan review's whole digest into one bubble,
   `/history` labels each line `你` / `我` for a Chinese peer instead of always `You` / `Me`, and
