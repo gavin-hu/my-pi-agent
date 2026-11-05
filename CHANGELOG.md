@@ -27,6 +27,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: entering the mode says one line — `Plan mode enabled — read-only until you approve or leave.` — instead
+  of carrying the read-only summary's 257 characters on every `/plan` and Shift+Tab, where leaving already said
+  its piece in 42. The mode is on the composer border and the footer chip, and the
+  guarantee itself stays where it is a decision: the `enter` consent question, the tool result, and the docs page.
+  A test pins the notice to one line at 80 columns and keeps it free of the summary, so it cannot grow back.
+
 - `wechat`: the chat commands say what they do in the space they have — `/status` names a waiting
   prompt by its first line instead of pasting a plan review's whole digest into one bubble,
   `/history` labels each line `你` / `我` for a Chinese peer instead of always `You` / `Me`, and

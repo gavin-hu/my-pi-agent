@@ -125,6 +125,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-stream",
 		"web-tokens",
 		"commands",
+		"notice",
 		"git-bash",
 		"runtime",
 		"tui",
