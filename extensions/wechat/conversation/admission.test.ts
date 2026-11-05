@@ -156,4 +156,62 @@ describe("admission queue", () => {
 		expect(queue.pending()).toBe(0);
 		release();
 	});
+
+	test("drain drops a download in flight instead of handing it over", async () => {
+		const handed: string[] = [];
+		const live: boolean[] = [];
+		let releaseDownload: (() => void) | undefined;
+		const download = new Promise<void>((resolve) => {
+			releaseDownload = resolve;
+		});
+		let releaseTail: (() => void) | undefined;
+		const tail = new Promise<void>((resolve) => {
+			releaseTail = resolve;
+		});
+		const queue = createAdmissionQueue({
+			admit: async (item, alive) => {
+				if (item.text === "slow") await tail;
+				await download;
+				live.push(alive());
+				if (alive()) handed.push(item.text);
+			},
+			notify: () => {},
+		});
+		queue.enqueue(inboundItem("held"));
+		queue.enqueue(inboundItem("slow"));
+		await settle();
+		expect(queue.pending()).toBe(2);
+
+		// The chat's `/stop` lands while the first download is in flight: both go.
+		expect(queue.drain()).toBe(2);
+		expect(queue.pending()).toBe(0);
+		// The loop's acknowledgement must not wait on a message the stop took.
+		await queue.settled();
+
+		releaseDownload?.();
+		releaseTail?.();
+		await settle();
+		await settle();
+		// The admission already in `admit` stood down at its own check, and the one still
+		// waiting for its turn in the chain never reached `admit` at all.
+		expect(live).toEqual([false]);
+		expect(handed).toEqual([]);
+		expect(queue.pending()).toBe(0);
+	});
+
+	test("a message admitted after a drain is handed over", async () => {
+		const handed: string[] = [];
+		const queue = createAdmissionQueue({
+			admit: async (item, alive) => {
+				if (alive()) handed.push(item.text);
+			},
+			notify: () => {},
+		});
+		queue.enqueue(inboundItem("dropped"));
+		queue.drain();
+		queue.enqueue(inboundItem("after"));
+		await queue.settled();
+		expect(handed).toEqual(["after"]);
+		expect(queue.pending()).toBe(0);
+	});
 });

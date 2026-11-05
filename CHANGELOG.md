@@ -416,6 +416,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   queue emptied, and a burst whose media downloads all failed — or a `/stop`, which drains what
   was queued — emptied it without one. `intake` now re-arms the line on the first message that
   finds room, so the entry it suppresses on lives exactly as long as the queue stays full.
+- `wechat`: a message carrying media is never read as an answer to a waiting prompt, and `/stop`
+  reaches a message whose media is still downloading. Intake kept media out of the command path
+  only, so a photo sent at an `editor` prompt was handed over as its empty caption — which an
+  editor reads as cancel — and `resolveMedia` never ran, so the attachment was never fetched and
+  the peer was told “That turn finished without any text to send”. A message with nothing to read
+  (a video, or a voice note the server gave no transcript for) is answered with its own notice
+  before the prompt is consulted. `admission` gives each message a liveness token and gains
+  `drain()`, so a stop takes the reserved slots and the download in flight with the worker's
+  queue and reports them in its dropped count, and the queue depth the control screen, `/status`,
+  and `/wechat doctor` show counts those slots too — a chat fetching a photo no longer reads as
+  idle.
 
 ## [0.24.0] - 2026-11-02
 

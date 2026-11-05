@@ -31,9 +31,14 @@ export interface InboundDeps {
 	isRunning: () => boolean;
 }
 
-/** Resolve inbound media and admit the message to the peer's queue. */
+/** Resolve inbound media and admit the message to the conversation. */
 export interface InboundAdmission {
-	admit(item: InboundItem): Promise<void>;
+	/**
+	 * Resolve media, then hand the message over. `live()` is false once a stop drained it, so
+	 * a download that outlived the burst it came in with drops the message instead of
+	 * handing over a turn the peer was told had gone.
+	 */
+	admit(item: InboundItem, live: () => boolean): Promise<void>;
 	/** Media the bridge dropped since this connection opened. */
 	dropped(): number;
 	/** Reset the dropped counter (a new connection). */
@@ -101,12 +106,17 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 		 * failed download cannot look like the model ignoring a photo. A message with
 		 * nothing readable is answered here instead of starting an empty turn.
 		 */
-		async admit(item: InboundItem): Promise<void> {
+		async admit(item: InboundItem, live: () => boolean): Promise<void> {
 			let text = item.text;
 			let images: ImageContent[] | undefined;
 			let prefix: string | undefined;
 			if (item.media.length > 0) {
 				const resolved = await resolveMedia(item);
+				if (!live()) {
+					// A stop landed while this was downloading. The stop has already said how many
+					// messages it took, so the message goes quietly and the hand-off never happens.
+					return;
+				}
 				if (!deps.isRunning()) {
 					// A close interrupted the download. Nothing has been written down for this
 					// message — neither the cursor nor its seen id — so the next connection reads
@@ -140,6 +150,8 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 				language: item.language,
 				contextToken: item.contextToken,
 			};
+			// The drain can also land across the answer a message with nothing readable gets.
+			if (!live()) return;
 			deps.enqueue(queued);
 		},
 
