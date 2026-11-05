@@ -634,7 +634,7 @@ describe("built-in /help", () => {
 		const replies: string[] = [];
 		await command?.run?.(context(replies));
 		expect(replies[0]).toContain("/new");
-		expect(replies[0]).toContain("/help");
+		expect(replies[0]).toMatch(/\/history \[n\] — .*[\s\S]*\/help — /);
 		// Admission is the owner's, so there is no second, per-command gate to announce.
 		expect(replies[0]).not.toContain("owner only");
 	});
@@ -653,10 +653,10 @@ describe("helpText", () => {
 	test("lists each command", () => {
 		const text = helpText([
 			{ name: "new", summary: "Start a new session" },
-			{ name: "help", summary: "List the chat commands" },
+			{ name: "help", usage: "help [topic]", summary: "List the chat commands" },
 		]);
 		expect(text).toContain("/new — Start a new session");
-		expect(text).toContain("/help — List the chat commands");
+		expect(text).toContain("/help [topic] — List the chat commands");
 		expect(text).toContain("reaches the agent");
 	});
 

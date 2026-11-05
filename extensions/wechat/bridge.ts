@@ -55,8 +55,8 @@ export interface BridgeDeps {
 	openChat: (peer: string, options: { channel: WechatInteractionChannel }) => Promise<ChatTurn>;
 	/** Directory where inbound files are saved. */
 	mediaDir: () => string;
-	/** Read this conversation's recent messages for `/history`; read-only. */
-	readHistory: (count: number) => Promise<string>;
+	/** Read this conversation's recent messages for `/history`; read-only. The language is the peer's, for the line labels. */
+	readHistory: (count: number, lang?: PeerLanguage) => Promise<string>;
 	/** Built-in inbound slash commands. Defaults to {@link SLASH_COMMANDS}. */
 	slashCommands?: readonly SlashCommand[];
 	loadAccount: () => BotCredentials | undefined;

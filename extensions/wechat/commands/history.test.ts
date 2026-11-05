@@ -34,4 +34,12 @@ describe("formatHistory", () => {
 		expect(line).toBe(`You: ${"👍".repeat(HISTORY_LINE_CHARS - 1)}…`);
 		expect([...line].length).toBe("You: ".length + HISTORY_LINE_CHARS);
 	});
+
+	test("labels each side in the peer's language", () => {
+		const entries = [entryOf("user", "你好"), entryOf("assistant", "你好，需要什么？")];
+		expect(formatHistory(entries, 2, "zh")).toBe("你: 你好\n我: 你好，需要什么？");
+		// The default stays English for a caller that reads no language, such as the
+		// terminal's `/wechat history`.
+		expect(formatHistory(entries, 2)).toBe("You: 你好\nMe: 你好，需要什么？");
+	});
 });

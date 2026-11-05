@@ -494,13 +494,13 @@ describe("bridge inbound media", () => {
 });
 
 describe("bridge slash commands", () => {
-	test("answers /history from this session's own entries", async () => {
+	test("answers /history from this session's own entries, in the peer's language", async () => {
 		const { client, sent } = makeClient([updates([inbound("/history")])]);
-		const { deps } = makeDeps(client, { readHistory: async (count) => `${count}\nYou: hi` });
+		const { deps } = makeDeps(client, { readHistory: async (count, lang) => `${count} ${lang}\nYou: hi` });
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toContain("You: hi");
+		expect(sent[0]?.text).toBe("8 en\nYou: hi");
 		await bridge.close();
 	});
 
