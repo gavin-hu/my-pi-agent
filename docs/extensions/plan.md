@@ -407,11 +407,12 @@ parser even from the page's own origin.
 The review screen is TUI-only: `exit` opens `PlanViewComponent`, and `w`
 on it opens the browser review. RPC and other non-interactive runs get no screen.
 
-Dialog-capable non-TUI modes (RPC/WeChat) use one editor prompt instead: on a
-remote turn the plan file is sent first, then a compact prompt carrying the
-title, step count, first steps, mode status, and three actions — `1` approve,
-`2` keep planning, `3` exit. If the upload fails, the plan's text is sent
-instead. Any other reply is a refinement, so "select Refine, then type" is gone.
+Dialog-capable non-TUI modes (RPC/WeChat) ask one question instead: on a remote
+turn the plan file is sent first, then a compact digest carrying the title, step
+count, first steps, and mode status, then a numbered choice of four outcomes —
+`1` approve, `2` keep planning, `3` exit, `4` revise — where only `4` opens the
+editor for the feedback, and a dismissed editor keeps planning. If the upload
+fails, the plan's text is sent instead.
 A reply that never comes is `2` keep planning, never `3` exit: an empty Enter, a
 dismissed prompt, and the ten-minute expiry all answer as nothing, and nothing is
 not a decision — leaving plan mode restores write access, so it takes an answer.
