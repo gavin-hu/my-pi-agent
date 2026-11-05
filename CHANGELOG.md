@@ -60,6 +60,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   guard fails a case that writes its budget as a literal. CI runs Linux serially beside macOS —
   ubuntu's parallel job parked 33 minutes — and every job states `timeout-minutes: 20`.
 
+- `check`: a change under `assets/` reaches the suites that read those bytes. The selection named a
+  region by path (`ext:`, `lib:`, `script:`) and then fell back to the import graph, so a file a suite
+  opens by name with `readFileSync` — `assets/cards/cards.css` — reached nothing, and an edit there ran
+  only the package-level tests. `ASSET_SUITES` beside the layout declares those readers, and a
+  directory nothing declares widens the run to every suite rather than narrowing it to none.
+
 - `dev`: `bun run check --changed` runs the script suites for a changed path under `scripts/` that no
   suite is named after — the frame record `scripts/screens/frames.json`, which
   `scripts/screens/frames.ts` opens by path, or `scripts/capture/crop-title-bar.js`, which `osascript`

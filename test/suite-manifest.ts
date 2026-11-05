@@ -7,6 +7,8 @@
  * `test/layout.test.ts` enforces that and requires each declared suite.
  * `declaredSuiteFiles` is the same layout as repo-relative paths, so the size bar
  * and the layout guard read one list rather than composing it twice.
+ * `ASSET_SUITES` is the same declaration for data no import edge reaches: which
+ * suites read a directory under `assets/`.
  */
 
 export const EXTENSION_SUITES: Record<string, readonly string[]> = {
@@ -282,6 +284,20 @@ export const SCRIPT_SUITES: readonly string[] = [
 	"test-selection",
 	"video",
 ];
+
+/**
+ * The suites whose assertions read a directory under `assets/`.
+ *
+ * An asset is data a suite opens by name (`readFileSync`), so no import edge
+ * reaches it and `--changed` cannot see who breaks when it changes; this keeps
+ * that fact where the layout is declared rather than in a second list. An owner
+ * may be any kind of suite, so each value is a repo-relative path rather than a
+ * stem. A directory nothing lists is not left unwatched: `selectChanged` widens
+ * an edit there to every suite instead of narrowing it to none.
+ */
+export const ASSET_SUITES: Record<string, readonly string[]> = {
+	cards: ["scripts/cards.test.ts"],
+};
 
 /** Every declared suite as a repo-relative path, sorted. */
 export function declaredSuiteFiles(): string[] {
