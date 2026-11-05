@@ -489,9 +489,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			connection = "running";
 			resetEphemeral();
 			startedAt = deps.now();
-			// One worker per connection: it owns the per-peer queues and sessions, so
+			// One turn runner per connection: it owns the queue and the chat's turn, so
 			// a login (or a reconnect after an expiry) starts from a clean slate while
-			// each peer's history stays on disk.
+			// the conversation itself stays in this session's transcript.
 			worker = createTurnRunner({
 				openChat: (peer) => deps.openChat(peer, { channel: channelFor(peer) }),
 				// Each part is delivered as its own bubble; the worker puts the

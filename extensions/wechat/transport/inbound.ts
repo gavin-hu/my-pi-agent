@@ -94,7 +94,7 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 
 	return {
 		/**
-		 * Resolve media, then hand the message to the peer's own session.
+		 * Resolve media, then hand the message to the turn queue.
 		 *
 		 * An attachment the bridge could not read is never silent: the model gets a
 		 * `[WeChat media skipped]` block and the peer's reply opens with one line, so a

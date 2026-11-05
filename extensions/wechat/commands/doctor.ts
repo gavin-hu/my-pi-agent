@@ -3,7 +3,7 @@
  *
  * It answers the operator's first question — why is the bot quiet or slow? — from
  * the facts `statusView` already derived: the connection, the token's age, the last
- * poll, the poller lock, per-peer activity, and the last send/poll failure. Only the
+ * poll, the poller lock, the turn's activity, and the last send/poll failure. Only the
  * config summary and the remedy each state asks for are the report's own, so the
  * report and the control screen cannot word a fact differently. Pure, so the
  * wording and the age math are unit-tested without a bridge.

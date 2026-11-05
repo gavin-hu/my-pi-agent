@@ -198,8 +198,8 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 				);
 			},
 			mediaDir: () => join(wechatDir(), "media"),
-			// There is no per-peer history file to read: `/history` reads this session's
-			// own entries, and asking cannot create or resume anything.
+			// There is no separate history file to read: `/history` reads this
+			// session's own entries, and asking cannot create or resume anything.
 			readHistory: async (count) => formatHistory(ctxRef?.sessionManager.getEntries() ?? [], count),
 			slashCommands: SLASH_COMMANDS,
 			loadAccount: () => storedAccount(),

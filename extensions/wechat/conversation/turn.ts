@@ -1,11 +1,10 @@
 /**
- * The per-peer worker: one serial queue per WeChat peer, driving that peer's own
- * session.
+ * The turn runner: one serial queue for the chat, driving this session's turn.
  *
  * This replaces the shared-session machinery the bridge used to need (`pump`,
  * `active`, `lastText`, `settle`, and the `isIdle` gate), which existed only
  * because WeChat turns had to wait for the terminal to be idle and replies were
- * captured from whatever run happened to finish. Here a peer's messages are
+ * captured from whatever run happened to finish. Here the chat's messages are
  * answered in order by this session's turn, one at a time.
  *
  * Contract:

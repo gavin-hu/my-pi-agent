@@ -10,8 +10,8 @@
  * It deliberately says nothing about individual tools: their own descriptions
  * and guidelines already cover how to use them, and the repository budget rule
  * is one channel, one job. It also states no length cap — the reply pipeline
- * already splits long answers — and no per-peer facts, which would make the
- * text dynamic for no benefit.
+ * already splits long answers — and no facts that change per message, which
+ * would make the text dynamic for no benefit.
  */
 
 /** The phone-chat contract appended to a chat turn's system prompt. */
