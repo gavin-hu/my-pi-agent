@@ -28,6 +28,7 @@
 
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { messageOf } from "../../../lib/errors.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
 import type { NoticeKind } from "../text/notices.ts";
 import type { ChatTurn } from "../host/chat.ts";
 import { createReplyPipeline, type ReplyPipeline } from "./reply-pipeline.ts";
@@ -114,6 +115,14 @@ interface PeerEntry {
 	sessionSince?: number;
 	opening?: Promise<ChatTurn>;
 	disposeTimer?: () => void;
+}
+
+/**
+ * The sender's id as a notice names it. It is wire-authored, so it is sanitized here
+ * rather than at each of the four notices that print it.
+ */
+function senderOf(item: ChatItem | undefined): string {
+	return sanitizeLine(item?.peer ?? "");
 }
 
 export function createTurnRunner(deps: TurnRunnerDeps): TurnRunner {
@@ -282,7 +291,7 @@ export function createTurnRunner(deps: TurnRunnerDeps): TurnRunner {
 			aborted = false;
 			reason = wasAborted ? "stopped" : "failed";
 			if (!wasAborted) {
-				deps.notify?.(`WeChat turn failed for ${item.peer}: ${messageOf(error)}`, "warning");
+				deps.notify?.(`WeChat turn failed for ${senderOf(item)}: ${messageOf(error)}`, "warning");
 			}
 		} finally {
 			unsubscribe();
@@ -308,7 +317,7 @@ export function createTurnRunner(deps: TurnRunnerDeps): TurnRunner {
 					const opened = await sessionFor(peer, target);
 					await runTurn(item, opened);
 				} catch (error) {
-					deps.notify?.(`WeChat session failed for ${item.peer}: ${messageOf(error)}`, "error");
+					deps.notify?.(`WeChat session failed for ${senderOf(item)}: ${messageOf(error)}`, "error");
 					// A closing worker says one line of its own instead: the peer does not need
 					// two reasons, and the second send may well fail on the dying connection.
 					if (!closed) await deps.send(item, deps.fallback(item, "failed"));
@@ -339,7 +348,7 @@ export function createTurnRunner(deps: TurnRunnerDeps): TurnRunner {
 			// A send the deadline cancelled rejects like any aborted request; that is the
 			// deadline's report. Anything else is the transport's own failure.
 			if (controller.signal.aborted) return true;
-			deps.notify?.(`WeChat could not tell ${item.peer} the session ended: ${messageOf(error)}`, "warning");
+			deps.notify?.(`WeChat could not tell ${senderOf(item)} the session ended: ${messageOf(error)}`, "warning");
 			return false;
 		} finally {
 			cancel();
@@ -359,7 +368,7 @@ export function createTurnRunner(deps: TurnRunnerDeps): TurnRunner {
 		for (const [index, timedOut] of gaveUp.entries()) {
 			if (!timedOut) continue;
 			deps.notify?.(
-				`WeChat could not tell ${items[index]?.peer ?? ""} the session ended: no reply in ${ABANDON_NOTICE_MS / 1000} s.`,
+				`WeChat could not tell ${senderOf(items[index])} the session ended: no reply in ${ABANDON_NOTICE_MS / 1000} s.`,
 				"warning",
 			);
 		}

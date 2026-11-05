@@ -17,6 +17,7 @@ import type { TurnRunner } from "./conversation/turn.ts";
 import type { Presence } from "./conversation/presence.ts";
 import type { WechatInteractionChannel } from "./dialog/interaction.ts";
 import { messageOf } from "../../lib/errors.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { ownerRecord, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
 import { codePointSlice, parseInbound, peerKey, peerLabel, peerLanguage, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
@@ -165,7 +166,10 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 			// keeps a spam run from filling the list.
 			if (deps.refusedPeers.size < REFUSED_LABEL_CAP && !deps.refusedPeers.has(label)) {
 				deps.refusedPeers.add(label);
-				notify(`WeChat refused a message from ${label}: only the account's owner is answered.`, "warning");
+				notify(
+					`WeChat refused a message from ${sanitizeLine(label)}: only the account's owner is answered.`,
+					"warning",
+				);
 			}
 			return;
 		}

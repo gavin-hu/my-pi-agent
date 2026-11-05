@@ -7,6 +7,7 @@
  */
 
 import type { SessionEntry, SessionMessageEntry } from "@earendil-works/pi-coding-agent";
+import { codePointSlice } from "../text/format.ts";
 
 /** Longest text one history line carries before it is elided. */
 export const HISTORY_LINE_CHARS = 160;
@@ -28,14 +29,19 @@ function textOf(entry: SessionMessageEntry): string {
 
 /** One line per message, oldest first, at most `count` messages. */
 export function formatHistory(entries: SessionEntry[], count: number): string {
+	const keep = Math.max(0, Math.trunc(count));
+	if (keep === 0) return "";
 	const lines: string[] = [];
 	for (const entry of entries) {
 		if (entry.type !== "message") continue;
 		const text = textOf(entry);
 		if (!text) continue;
 		const who = entry.message.role === "user" ? "You" : "Me";
-		const shown = text.length > HISTORY_LINE_CHARS ? `${text.slice(0, HISTORY_LINE_CHARS - 1)}…` : text;
+		// Counted in code points, so a cut cannot split a surrogate pair into a
+		// replacement glyph.
+		const { slice, total } = codePointSlice(text, HISTORY_LINE_CHARS - 1);
+		const shown = total > HISTORY_LINE_CHARS ? `${slice}…` : text;
 		lines.push(`${who}: ${shown}`);
 	}
-	return lines.slice(-Math.max(0, count)).join("\n");
+	return lines.slice(-keep).join("\n");
 }

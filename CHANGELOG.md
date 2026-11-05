@@ -96,6 +96,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: a sender's id and an account label are sanitized before they reach the terminal. The
+  refusal notice, the `connected as` line, and a turn or session failure that names the sender no
+  longer carry an escape through, and the login screen cleans the status, the error, and the URL it
+  shows — its QR is drawn here and stays untouched.
+- `wechat`: `/history` and `/wechat history` count an elided line in code points, so a long emoji
+  message is cut without a broken pair, and a count of zero prints nothing rather than every line.
 - `wechat`: every notice that reports a missing bridge names the step that is actually missing. A
   `/wechat stop` or `/wechat cancel` with no bridge says `/wechat start`, and a `/wechat login`
   before it when no account is stored, instead of a login that only stores one; the
