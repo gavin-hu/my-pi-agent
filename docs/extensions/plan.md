@@ -302,6 +302,12 @@ chip carries never reaches it. `auto` is Pi's default mode — every tool as it 
 writes included — so the chip says which mode the session is in, not that a decision
 was taken for you.
 
+Toggling says one line either way — `Plan mode enabled — read-only until you
+approve or leave.` and `Plan mode disabled — full access restored.` — because the
+mode is already visible on the border and the chip, while what read-only forbids
+is stated where it is a decision: the `enter` consent question and this page. Four
+wrapped lines never land in the notice area on a Shift+Tab.
+
 `/plan list` walks the plans directory and shows every plan with its title,
 modified time, and step progress, newest first — in the TUI as a docked list
 where `Enter` opens the plan's review, elsewhere as a notice with each plan's

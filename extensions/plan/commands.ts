@@ -10,7 +10,6 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isRemoteTurn } from "../../lib/interaction.ts";
-import { READ_ONLY_SUMMARY } from "../../lib/plan-entry.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { feedbackSummary } from "./feedback.ts";
 import { runBrowserReview } from "./review-lazy.ts";
@@ -19,7 +18,10 @@ import type { PlanSummary } from "./plans.ts";
 import { createLazyPlanWebReview, NO_SERVER_DEPS } from "./web-lazy.ts";
 import type { PlanWebReview } from "./web.ts";
 
-const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
+// One line each way: the mode is already on the composer border and in the footer
+// chip, and the read-only guarantee is the `enter` consent question's job (the tool
+// result and `docs/extensions/plan.md` restate it), so a toggle does not scroll it.
+const ENABLED_NOTICE = "Plan mode enabled — read-only until you approve or leave.";
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
 const REVIEW_PREFIX = "review";
 const LIST_PREFIX = "list";
