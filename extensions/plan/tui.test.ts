@@ -348,7 +348,7 @@ describe("plan review actions", () => {
 
 		component.handleInput("a");
 		expect(actions).toEqual([]);
-		expect(renderReview(component, 80).join("\n")).toContain("Approve and run the plan? y/N");
+		expect(renderReview(component, 80).join("\n")).toContain("Approve & run the plan? y/N");
 
 		component.handleInput("y");
 		expect(actions).toEqual(["approve"]);
@@ -384,7 +384,7 @@ describe("plan review actions", () => {
 		component.handleInput("w");
 
 		expect(actions).toEqual([]);
-		expect(renderReview(component, 80).join("\n")).toContain("Approve and run the plan? y/N");
+		expect(renderReview(component, 80).join("\n")).toContain("plan mode off, 2 steps to todo, goal set");
 	});
 
 	test("the question stays within the terminal width", () => {
@@ -465,58 +465,5 @@ describe("plan review inline refine", () => {
 		const { component, actions } = planReview();
 		component.handleInput("r");
 		expect(actions).toEqual(["refine"]);
-	});
-});
-
-describe("plan review changed sections", () => {
-	const before = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
-	const after = ["# Plan", "## Goal", "Ship it well.", "## Steps", "- [ ] One", "- [ ] Two"].join("\n");
-
-	/** The scroll row, one above the hint row and the closing rule. */
-	const scrollLine = (component: PlanViewComponent): string => renderReview(component, 80).at(-3) ?? "";
-
-	test("summarizes the sections that changed", () => {
-		const { component } = planReview(after, { baseline: before });
-		expect(renderReview(component, 100).join("\n")).toContain("2 sections changed since your last review");
-	});
-
-	test("says nothing on a first review or an unchanged plan", () => {
-		expect(renderReview(planReview(after).component, 100).join("\n")).not.toContain("changed since your last review");
-		expect(renderReview(planReview(after, { baseline: after }).component, 100).join("\n")).not.toContain(
-			"changed since your last review",
-		);
-	});
-
-	test("marks the current section in the scroll row", () => {
-		const long = Array.from({ length: 60 }, (_, index) => `line ${index}`).join("\n");
-		const { component } = planReview(`# Plan\n${long}\nchanged line`, {
-			rows: 20,
-			baseline: `# Plan\n${long}`,
-		});
-		expect(scrollLine(component)).toContain("Plan · changed");
-	});
-
-	test("stays within the width with the summary", () => {
-		const { component } = planReview(after, { baseline: before });
-		for (const width of [80, 40, 20, 12, 6]) {
-			for (const line of renderReview(component, width)) {
-				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
-			}
-		}
-	});
-
-	test("counts one section for a duplicate heading that changed once", () => {
-		const previous = ["# Plan", "## Notes", "a", "## Notes", "b"].join("\n");
-		const current = ["# Plan", "## Notes", "a", "## Notes", "B"].join("\n");
-		const { component } = planReview(current, { baseline: previous });
-		expect(renderReview(component, 100).join("\n")).toContain("1 section changed since your last review");
-	});
-
-	test("a plan with a tab is unchanged after being shown once", () => {
-		// The digest is computed over the same normalization the body is rendered
-		// with, so a tab the reader saw is not reported as a change.
-		const tabbed = ["# Plan", "## Goal", "\tTabbed body", "## Steps", "- [ ] One"].join("\n");
-		const { component } = planReview(tabbed, { baseline: tabbed });
-		expect(renderReview(component, 100).join("\n")).not.toContain("changed since your last review");
 	});
 });

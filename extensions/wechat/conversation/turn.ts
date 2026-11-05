@@ -16,6 +16,9 @@
  * - A turn's answer is the text it produced. A requested `/stop` says `stopped`
  *   and drops the partial answer, a finished turn with no text says `noText`,
  *   and a thrown turn says `failed` — never silence.
+ * - A stop is the chat's whole brake: `abort` ends the running turn and `drain`
+ *   takes the queue behind it, so a burst typed during a bad answer is not run
+ *   once it has been stopped.
  * - A close that abandons the session says `abandoned` once per peer that still
  *   had work, after its turn stops and before its session goes. The turn's own
  *   line is suppressed then, and each notice carries its own deadline, so a
@@ -91,6 +94,11 @@ export interface TurnRunner {
 	 * nothing was running.
 	 */
 	abort(): boolean;
+	/**
+	 * Drop every queued message, so a stop takes the burst waiting behind it too; how
+	 * many went.
+	 */
+	drain(): number;
 	/** The turn running right now, if any. */
 	running(): ChatItem | undefined;
 	/** Flush buffered assistant text before a prompt or a file. */
@@ -391,6 +399,14 @@ export function createTurnRunner(deps: TurnRunnerDeps): TurnRunner {
 			aborted = true;
 			void target.session?.session.abort();
 			return true;
+		},
+
+		drain(): number {
+			const target = conversation;
+			if (!target) return 0;
+			const dropped = target.queue.length;
+			target.queue.length = 0;
+			return dropped;
 		},
 
 		running(): ChatItem | undefined {

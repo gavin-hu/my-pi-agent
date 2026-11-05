@@ -307,7 +307,11 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
  * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 720.
+ * total is their sum, 721.
+ *
+ * `plan` went 56 -> 57: the transcript's approved-plan preview draws the review
+ * screen's task box through the kit's `checkbox` rather than keeping a second copy
+ * of the two roles, and the row grammar brings its own margin with it.
  *
  * `wechat`'s row went 30 -> 31 for `state/binding.ts`: the session's binding is a
  * pure reader of the branch that the lifecycle events consult before any bridge
@@ -341,7 +345,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
 	board: 59,
-	plan: 56,
+	plan: 57,
 	team: 49,
 	job: 45,
 	"session-bus": 44,

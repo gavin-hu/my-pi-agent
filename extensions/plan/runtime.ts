@@ -23,6 +23,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { sanitizeLine } from "../../lib/format.ts";
 import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
+import { toolResultDetails } from "../../lib/tool-result.ts";
 import { PLAN_TOOL as PLAN_TOOL_NAME } from "../../lib/tool-names.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
@@ -86,9 +87,11 @@ export interface PlanRuntime {
 	markSeeded(path: string, steps: readonly string[]): void;
 }
 
-/** What the branch carries: the last plan-mode state, and a baseline per plan. */
+/** What the branch carries: the last plan-mode state, a baseline per plan, and the plan it last wrote. */
 interface BranchState {
 	mode: PlanModeEntry | undefined;
+	/** The plan the branch last wrote, which is the name the footer chip shows. */
+	lastPlan: string | undefined;
 	baselines: Map<string, SectionDigest[]>;
 	/** The step texts each approval appended, per plan path. */
 	seeded: Map<string, string[]>;
@@ -117,14 +120,24 @@ function readSections(value: unknown): SectionDigest[] | undefined {
 }
 
 /**
- * The last plan-mode state and the last review baseline per plan on the branch.
- * One pass, because reading the branch walks the whole session.
+ * The last plan-mode state, the last review baseline per plan, and the plan last
+ * written. One pass, because reading the branch walks the whole session.
  */
 function readBranchState(ctx: ExtensionContext): BranchState {
 	let mode: PlanModeEntry | undefined;
+	let lastPlan: string | undefined;
 	const baselines = new Map<string, SectionDigest[]>();
 	const seeded = new Map<string, string[]>();
 	for (const raw of ctx.sessionManager.getBranch()) {
+		// A `write` result is where "the plan this branch last wrote" lives, so replaying it
+		// is what keeps the chip naming that plan after `/resume` or a `/tree` hop. Only the
+		// write: a baseline also names a plan, but `/plan review <path>` records one for a file
+		// the session never wrote, which is not a plan it is holding.
+		const write = toolResultDetails(raw, PLAN_TOOL);
+		if (write) {
+			if (write.action === "write" && typeof write.path === "string") lastPlan = resolve(write.path);
+			continue;
+		}
 		const entry = raw as { type?: string; customType?: string; data?: unknown };
 		if (entry.type !== "custom") continue;
 		if (entry.customType === STATE_TYPE) {
@@ -156,7 +169,7 @@ function readBranchState(ctx: ExtensionContext): BranchState {
 		// still answers a lookup for the plan it names.
 		if (sections) baselines.set(resolve(data.path), sections);
 	}
-	return { mode, baselines, seeded };
+	return { mode, lastPlan, baselines, seeded };
 }
 
 /** Compare two paths, resolving symlinks when possible so `/tmp` and `/private/tmp` match. */
@@ -271,8 +284,8 @@ export function createPlanRuntime(
 		disable: (ctx) => setEnabled(false, ctx, true),
 		toggle: (ctx) => setEnabled(!enabled, ctx, true),
 		restore: (ctx) => {
-			lastPlanPath = undefined;
 			const branch = readBranchState(ctx);
+			lastPlanPath = branch.lastPlan;
 			// The baseline belongs to the branch that was reviewed: a plan this branch
 			// never showed has no digest here, so nothing looks changed until it does.
 			reviewedPlans.clear();

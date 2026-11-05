@@ -3,7 +3,9 @@
  * text is used, and a prompt the transport refuses to carry.
  *
  * Both are about the same promise — a prompt that reached nobody must not keep
- * answering for the peer — and both were leaks a peer could feel as silence.
+ * answering for the peer — and both were leaks a peer could feel as silence. The
+ * third case runs the promise the other way: the words a prompt showed are
+ * answers, so a plan review's 退出 reaches it as a choice, not as a dismissal.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -47,6 +49,15 @@ describe("the interaction channel", () => {
 		expect(await asked.request({ kind: "input", title: "Name" })).toEqual({ kind: "cancelled" });
 	});
 
+	test("the status view gets a digest prompt's first line", async () => {
+		const { channel: asked } = channel();
+		const digest = ["Plan ready for review", "1. Add parseConfig", "2. Report a bad key", "Approve?"].join("\n");
+		const select = asked.request({ kind: "select", title: digest, options: ["Approve"] });
+		expect(asked.pendingInfo()?.title).toBe("Plan ready for review");
+		asked.handleInbound("1");
+		await select;
+	});
+
 	test("a prompt the transport throws on settles instead of waiting", async () => {
 		const { channel: asked } = channel({
 			send: async () => {
@@ -58,5 +69,19 @@ describe("the interaction channel", () => {
 		expect(asked.hasPending()).toBe(false);
 		// The peer's next message is the model's to answer, not a dead prompt's.
 		expect(asked.handleInbound("hello")).toBe(false);
+	});
+
+	test("a plan review's exit label arrives as that choice, not as a withdrawal", async () => {
+		const { channel: asked } = channel({ language: () => "zh" });
+		const review = asked.request({
+			kind: "select",
+			title: "审阅计划：",
+			options: ["批准", "继续规划", "退出", "修改意见"],
+		});
+
+		// The label the prompt shows is 退出, which is also a dismissal word: it has to
+		// reach the plan's own option parser as the third choice.
+		expect(asked.handleInbound("退出")).toBe(true);
+		expect(await review).toEqual({ kind: "value", value: "退出" });
 	});
 });

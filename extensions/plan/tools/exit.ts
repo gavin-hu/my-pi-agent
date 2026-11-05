@@ -15,11 +15,12 @@ import { lastGoal } from "../../../lib/goal-state.ts";
 import { GOAL_TOOL } from "../../../lib/tool-names.ts";
 import { failedResult } from "../../../lib/tool-result.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { checkbox } from "../../../lib/tui/rows.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, moreHint, type ToolCallText } from "../../../lib/tui/tool.ts";
 import { feedbackSummary } from "../feedback.ts";
 import { mergeSummary, overCap, preview, TICK_CALL, verificationNote } from "../format.ts";
-import { sanitizePlanText } from "../plan-text.ts";
+import { sanitizePlanText, taskMarker } from "../plan-text.ts";
 import { planTitle, type StoredPlan } from "../plans.ts";
 import { reviewPlan } from "../review-lazy.ts";
 import { PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
@@ -44,22 +45,31 @@ interface GoalOutcome {
 }
 
 /**
- * Finalise the session goal from the approved plan.
+ * What approving would do to the session goal, asked both before the review — so
+ * the screen can say it — and after it, so the act reads one rule.
  *
- * Approving the plan *is* the decision, so neither a `planning` goal nor a
- * session with none is asked again. A final goal (`active` or `achieved`) is the
- * user's own: approving ordinary work never rewrites it. Recording runs through
- * the goal tool when it is registered — validation and the widget stay goal's,
- * and no model turn is spent — and stays silent when that sibling extension is
- * not installed, because there is nothing to report and nothing to act on.
+ * Approving the plan *is* the decision, so neither a `planning` goal nor a session
+ * with none is asked again. A final goal (`active` or `achieved`) is the user's
+ * own: approving ordinary work never rewrites it. A missing `goal` tool leaves
+ * nothing to report and nothing to act on.
+ */
+function goalAction(pi: ExtensionAPI, ctx: ExtensionToolContext): GoalOutcome["action"] {
+	const current = lastGoal(ctx.sessionManager.getBranch());
+	if (current !== null && current.status !== "planning") return undefined;
+	if (!pi.getAllTools().some((tool) => tool.name === GOAL_TOOL)) return undefined;
+	return current === null ? "recorded" : "promoted";
+}
+
+/**
+ * Finalise the session goal from the approved plan, when {@link goalAction} says
+ * there is one to set. Recording runs through the goal tool — validation and the
+ * widget stay goal's, and no model turn is spent.
  */
 async function finalizeGoal(pi: ExtensionAPI, ctx: ExtensionToolContext, plan: StoredPlan): Promise<GoalOutcome> {
 	const objective = planObjective(plan);
-	const current = lastGoal(ctx.sessionManager.getBranch());
-	if (current !== null && current.status !== "planning") return { objective };
-	if (!pi.getAllTools().some((tool) => tool.name === GOAL_TOOL)) return { objective };
+	const action = goalAction(pi, ctx);
+	if (action === undefined) return { objective };
 	const outcome = await ctx.executeTool(GOAL_TOOL, { objective, status: "active" });
-	const action = current === null ? "recorded" : "promoted";
 	return outcome.isError ? { objective, action, error: firstTextLine(outcome) } : { objective, action };
 }
 
@@ -94,6 +104,16 @@ export async function executeExit(
 		return planRefusal(
 			"exit",
 			`No plan file at "${planPath}". Save the plan with \`plan\` action \`write\` first, then pass the returned path.`,
+		);
+	}
+
+	if (file.content.trim() === "") {
+		// Nothing to approve, and approving it would finalize a goal named after the
+		// file's slug. Refused here rather than on the review screen, so no surface —
+		// screen, dialog, or browser page — ever offers `a` for it.
+		return planRefusal(
+			"exit",
+			`The plan file ${file.relativePath} is empty, so there is nothing to approve. Write it with \`plan\` action \`write\` (pass plan_path to reuse that file), or leave plan mode with \`plan\` action \`cancel\`.`,
 		);
 	}
 
@@ -136,6 +156,7 @@ export async function executeExit(
 		plans: runtime.plans,
 		baselines: runtime,
 		plan: file,
+		approval: { steps: total, setsGoal: goalAction(pi, ctx) !== undefined },
 		signal,
 	});
 
@@ -203,7 +224,6 @@ export async function executeExit(
 	if (decision.action === "cancel") {
 		runtime.disable(ctx);
 		const shown = decision.plan.relativePath;
-		ctx.ui.notify("Plan mode off — full access restored. The plan was not approved.", "info");
 		return {
 			content: [
 				{
@@ -309,8 +329,28 @@ export function textExit(details: ExitPlanModeDetails, expanded: boolean, theme:
 	if (planText) {
 		const { body, more } = expanded ? { body: planText, more: 0 } : preview(planText);
 		// A blank line separates the header block from the plan body.
-		out += `\n\n${paint(theme, "toolOutput", body)}`;
+		out += `\n\n${planBody(theme, body)}`;
 		if (more > 0) out += `\n${moreHint(theme, more)}`;
 	}
 	return out;
+}
+
+/**
+ * The plan body as this block shows it: the plan's own text, with its task items
+ * drawn through the review screen's `◼`/`◻` boxes.
+ *
+ * Line by line because the box carries its own role: one `paint` over the whole body
+ * would end at the box's reset and leave the rest of that line plain.
+ */
+function planBody(theme: Theme, body: string): string {
+	return body
+		.split("\n")
+		.map((line) => {
+			const marker = taskMarker(line);
+			if (marker === null) return paint(theme, "toolOutput", line);
+			const pre = paint(theme, "toolOutput", marker.pre);
+			const post = paint(theme, "toolOutput", marker.post);
+			return `${pre}${checkbox(theme, marker.checked)}${post}`;
+		})
+		.join("\n");
 }

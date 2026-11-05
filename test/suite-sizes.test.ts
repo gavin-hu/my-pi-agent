@@ -51,9 +51,8 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/plan/extension.test.ts": 493,
 	"extensions/plan/feedback.test.ts": 499,
 	"extensions/plan/plans.test.ts": 1574,
-	"extensions/plan/runtime.test.ts": 422,
-	"extensions/plan/tools.test.ts": 1474,
-	"extensions/plan/tui.test.ts": 522,
+	"extensions/plan/tools.test.ts": 1472,
+	"extensions/plan/tui.test.ts": 469,
 	"extensions/plan/web-behaviour.test.ts": 574,
 	"extensions/plan/web-session.test.ts": 417,
 	"extensions/plan/web-shared-review.test.ts": 445,
@@ -82,13 +81,13 @@ const LONG_SUITES: Record<string, number> = {
 	"lib/web/web.test.ts": 810,
 	"scripts/screenshots.test.ts": 781,
 	"extensions/wechat/bridge.test.ts": 1204,
-	"extensions/wechat/commands/commands.test.ts": 1137,
+	"extensions/wechat/commands/commands.test.ts": 760,
 	"extensions/wechat/conversation/turn.test.ts": 529,
 	"extensions/wechat/transport/client.test.ts": 707,
 };
 
 /** The named suites' total, written down so only a split can move it. */
-const LONG_SUITE_TOTAL = 47217;
+const LONG_SUITE_TOTAL = 46030;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 

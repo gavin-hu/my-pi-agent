@@ -34,11 +34,61 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   its layered meaning, so `isCloseKey` stays Esc-or-Ctrl+C for the screens where both close and the review
   asks `isInterruptKey` first.
 
+- `wechat`: `/stop` is the chat's whole brake. It stops the running turn and drops the messages
+  still queued behind it, because those turns would otherwise start the moment the stop settled and
+  the queue is the one thing a phone cannot see to empty; the burst it took is reported as
+  `已丢弃排队的 N 条消息。` / “Dropped N queued message(s).” after the turn's own
+  `已停止。` / “Stopped.”, and `/help` names the drop on `/stop`'s line, so the contract is readable
+  before it is relied on. The control screen's `s` key goes through the same outcome, so the
+  terminal says what went with the stop as well. A message that arrives after the command,
+  in the same poll batch, still runs: the batch is handled in order.
+
+- `wechat`: `/status` names plan mode. The reply ends with `计划模式已开启，暂时不能写入。` / “Plan mode is on
+  — writes are disabled.” while the session is planning, read off the branch's own flag through the
+  bridge, so a phone can tell a read-only session from one that will act on its next instruction —
+  the terminal's `≡ plan` chip is not something the chat can see. Nothing else is added: no notify
+  reaches the chat, and a waiting question is still named alone, since a plan review's digest
+  already carried the mode.
+
+- `plan`: leaving plan mode without approving reports once. The `cancel` action and `x` on the review
+  screen answer in their transcript block alone, where each also raised a toast naming the same mode
+  change; `/plan` and `Shift+Tab` keep their notice, because they draw no block to carry it.
+
+- `plan`: the footer chip names the plan the branch last wrote instead of forgetting it on `/resume`,
+  as it did while the path lived only in memory — a `/tree` hop likewise shows the plan that branch is
+  still holding, and a branch that wrote none stays a bare `≡ plan`. The name is replayed from the
+  `write` action's own result, so a rejected write and a plan merely reviewed with `/plan review
+  <path>` name nothing, and a bare `/plan review` reopens the plan it now remembers.
+
+- `wechat`: the chat commands say what they do in the space they have — `/status` names a waiting
+  prompt by its first line instead of pasting a plan review's whole digest into one bubble,
+  `/history` labels each line `你` / `我` for a Chinese peer instead of always `You` / `Me`, and
+  `/help` spells `/history [n]` with its argument, where only the bare name was discoverable.
+
 - `plan`: the review footer is ordered by what a reader cannot discover otherwise — the three ways the
   review ends (`Esc keep plan`, `a approve`, `x exit plan`), then `n/p section`, then `r refine` and
   `w browser`, then the scroll keys — because `screenHint` drops the tail. A sectioned plan at 60
   columns keeps its mode exit and its section jump, where before the exit went first and the jump
   needed about 112.
+
+- `plan`: the approval question says what `y` does — plan mode off, the steps it seeds into `todo`, and
+  `goal set` when the approval finalizes the session goal — where it asked `Approve and run the plan?
+  y/N` and nothing else. A clause the approval will not carry out is left out, and the question and
+  its `y/N` lead so a narrow footer cuts the consequences rather than the answer. A blank plan file is
+  refused before the review rather than offering an approval that recorded a goal named after its
+  slug.
+
+- `plan`: a second review marks every section that changed in the body, not only the one at the top —
+  a `·` in accent replaces the body's first padding column on each changed section's first line, so a
+  reader finds a revised section without `n`-ing through a long plan and a long heading never loses
+  text to the mark. The count row and the scroll row's `· changed` say what the dot means, and the
+  mark is the kit's `GLYPHS.changed`, the dot the review page already paints beside a changed outline
+  entry.
+
+- `plan`: the transcript's approved-plan preview draws a task item with the review screen's `◼`/`◻`
+  boxes instead of the file's `- [ ]`. Both surfaces build the line from `plan-text.ts`'s `taskMarker`,
+  which keeps the two columns the narrower box frees as padding, so the item's text stays in the column
+  the file put it in.
 
 - `session-bus`: a session's automatic label names the repository it works in — the main checkout's
   directory, which `git worktree list` lists first — rather than the directory it sits in, and a Pi
@@ -145,6 +195,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   beginning with either word is a planning task again, as it is with `share the tokens`.
 
 ### Fixed
+
+- `board`: a sign records a person rather than the pronoun. `/board approve` and `/board review`
+  write the lead's name with `person: true` on the sign — the one name a card file can give
+  somebody who has no session — so no card stores `you`, and the event the owner is told names
+  the signer too. The identity a repeated sign is compared against is that name *and* the mark,
+  so the person signing twice writes nothing and a session wearing the lead's label is still
+  somebody else. `you` is left to the person's own line, `#4 approved by you`.
+
+- `wechat`: a dialog's own option beats its dismissal words, so a plan review's third choice — 退出, or
+  “Exit plan mode” — exits plan mode when it is typed on the phone, where the reply was read as a
+  dismissal and silently kept planning, leaving only the bare `3`. A dismissal word the waiting list does
+  not carry still dismisses, so a `question` option labelled 取消 and `worktree`'s `Cancel` are now the
+  answers they look like.
 
 - `wechat`: a sender's id and an account label are sanitized before they reach the terminal. The
   refusal notice, the `connected as` line, and a turn or session failure that names the sender no

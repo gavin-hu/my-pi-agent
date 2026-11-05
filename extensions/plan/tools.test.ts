@@ -522,19 +522,21 @@ describe("plan exit", () => {
 		expect(runtime.isEnabled()).toBe(true);
 	});
 
-	test("leaves plan mode through the Exit review option", async () => {
+	test("leaves plan mode through the Exit review option, reporting it once", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, planCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = planCtx({ select: "cancel", cwd: root });
+		const { ctx, notices } = planCtx({ select: "cancel", cwd: root });
 		const result = await callTool(exit, { plan_path: planPath }, ctx);
 		expect(result.details.cancelled).toBe(true);
 		expect(runtime.isEnabled()).toBe(false);
+		expect(notices).toEqual([]);
+		expect(result.content[0].text).toContain("The plan was not approved");
 		expect(existsSync(planPath)).toBe(true);
 	});
 
-	test("plan cancel restores write access without touching todos or goals", async () => {
+	test("plan cancel restores write access without touching todos or goals, reporting it once", async () => {
 		const { enter, cancel, runtime, activeTools, root } = setup();
 		await enterPlan(enter, runtime, root);
 
@@ -544,7 +546,8 @@ describe("plan exit", () => {
 		expect(runtime.isEnabled()).toBe(false);
 		expect(activeTools()).toContain("write");
 		expect(toolCalls).toEqual([]);
-		expect(notices.at(-1)?.message).toContain("full access restored");
+		expect(notices).toEqual([]);
+		expect(result.content[0].text).toContain("write access is restored");
 	});
 
 	test("remote entry names the mode and its exit", async () => {
@@ -1430,19 +1433,14 @@ describe("plan tool rendering", () => {
 
 	test("renders the relative plan path, not the absolute one", async () => {
 		const { exit } = setup();
-		const component = exit.renderResult(
-			{
-				details: {
-					action: "exit",
-					approved: true,
-					plan: "# P",
-					planPath: "/x/plans/p.md",
-					relativePath: ".pi/plans/p.md",
-				},
-			},
-			{ expanded: false },
-			fakeTheme,
-		);
+		const details = {
+			action: "exit",
+			approved: true,
+			plan: "# P",
+			planPath: "/x/plans/p.md",
+			relativePath: ".pi/plans/p.md",
+		};
+		const component = exit.renderResult({ details }, { expanded: false }, fakeTheme);
 		const text = component.render(80).join("\n");
 		expect(text).toContain(".pi/plans/p.md");
 		expect(text).not.toContain("/x/plans/p.md");

@@ -261,6 +261,7 @@ export function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = 
 		},
 		mediaDir: () => tempDir("wechat-files-"),
 		readHistory: async () => "",
+		planMode: () => false,
 		loadAccount: () => account,
 		loadState: () => ({ cursor: "", peers: {} }),
 		saveState: (state) => saved.push(state),

@@ -6,8 +6,9 @@
  * the active Markdown theme, so headings, lists, code, links, and quotes match
  * the rest of the application; plan-authored control characters are stripped
  * first so the file cannot drive the terminal. Task checkboxes are recolored
- * and the footer colors the primary actions. Approving leaves plan mode and
- * starts the work, so it asks `y/N` first through the shared `ConfirmState`;
+ * and the footer colors the primary actions. Approving leaves plan mode, seeds the
+ * plan's steps into the todo list, and finalizes the session goal, so it asks `y/N`
+ * first through the shared `ConfirmState`, naming those three effects in the footer;
  * the plan stays mounted, and `Esc` backs out of the question before it backs
  * out of the review. `Ctrl+C` is the one key that ends the turn instead: it
  * closes the screen with `interrupt`, whatever layer has the keyboard, so an
@@ -47,7 +48,8 @@ import { plainRule, titleRule } from "../../lib/tui/rules.ts";
 import { emptyState, checkbox } from "../../lib/tui/rows.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
-import { changedSections, planDisplayText, type SectionDigest } from "./plan-text.ts";
+import { changedSections, planDisplayText, taskMarker, type SectionDigest } from "./plan-text.ts";
+import type { ApprovalEffects } from "./types.ts";
 
 /** What the user chose from the read/review screen. */
 export type PlanViewAction = "approve" | "refine" | "keep" | "browser" | "cancel" | "interrupt";
@@ -76,6 +78,11 @@ export interface PlanViewOptions {
 	 * one. Used only to mark the sections that changed since then.
 	 */
 	baseline?: SectionDigest[];
+	/**
+	 * What approving will do, so the question says it. Absent from a review that
+	 * cannot approve, and from a frame drawn without an approval behind it.
+	 */
+	approval?: ApprovalEffects;
 	theme: Theme;
 	/**
 	 * Called once when the screen closes. `refinement` carries the typed text
@@ -120,30 +127,38 @@ const SECTION_HINTS: ScreenHint[] = ["n/p section"];
 /** Last tier: while the plan overflows, before the keys a reader tries anyway. */
 const SCROLL_HINTS: ScreenHint[] = ["j/k scroll", "space page", "g/G ends"];
 
-/** A task checkbox in a list marker: `- [x] `, `1. [ ] `. */
-const TASK_MARKER = /^([-*+]|\d+[.)])(\s+)(\[([ xX])\])(\s*)$/;
-
 /**
  * Wrap the Markdown theme so task checkboxes read at a glance with the shared
  * `◼`/`◻` vocabulary, the same box the bytefly screen and the question dialog
- * draw. The box is one column wide instead of the bracket's three, so the two
- * freed columns are kept as padding: pi-tui derives a continuation line's indent
- * from the original marker's width, and shortening the marker without padding
- * hangs every wrapped task line two columns too far right, where the width
- * truncation clips its tail.
+ * draw. The marker's own split, and the padding that keeps a wrapped task line
+ * under its own indent, belong to `taskMarker`: the transcript draws the same item
+ * without a Markdown theme.
  */
 function planMarkdownTheme(theme: Theme, base: MarkdownTheme): MarkdownTheme {
 	return {
 		...base,
 		listBullet: (text) => {
-			const match = TASK_MARKER.exec(text);
-			if (!match) return base.listBullet(text);
-			const [, bullet, gap, , mark, trail] = match;
-			const themed = `${base.listBullet(`${bullet}${gap}`)}${checkbox(theme, mark.toLowerCase() === "x")}`;
-			const pad = Math.max(0, visibleWidth(text) - visibleWidth(themed) - visibleWidth(trail));
-			return `${themed}${" ".repeat(pad)}${trail}`;
+			const marker = taskMarker(text);
+			if (marker === null) return base.listBullet(text);
+			return `${base.listBullet(marker.pre)}${checkbox(theme, marker.checked)}${marker.post}`;
 		},
 	};
+}
+
+/**
+ * Put the changed-section mark in the body's left margin.
+ *
+ * `build` renders a section alone, so its first line is the heading a reader is
+ * looking for; a suffix would compete with that heading for columns, while a margin
+ * mark costs none and sits where a diff's gutter does. The first padding column
+ * gives way to it, so the heading does not move; a body drawn at the very margin (a
+ * terminal under six columns) takes the mark in front and loses its tail instead.
+ */
+function markChanged(theme: Theme, rendered: string[], width: number): void {
+	const [first] = rendered;
+	if (first === undefined) return;
+	const mark = paint(theme, "accent", GLYPHS.changed);
+	rendered[0] = first.startsWith(" ") ? `${mark}${first.slice(1)}` : truncateToWidth(`${mark} ${first}`, width);
 }
 
 /** Scroll position below the body: a gauge, the percent, and the visible range. */
@@ -176,6 +191,23 @@ function scrollRow(
 		if (candidate !== "" && visibleWidth(candidate) <= width) return candidate;
 	}
 	return truncateToWidth(`  ${head}`, width);
+}
+
+/** What a review handed no approval facts may promise: plan mode off, nothing else. */
+const UNKNOWN_APPROVAL: ApprovalEffects = { steps: 0, setsGoal: false };
+
+/**
+ * The approval question, with what `y` does written after its answer.
+ *
+ * The question and its `y/N` lead, so a narrow footer cuts the consequences rather
+ * than the answer, the way the hints are dropped whole. A clause the approval will
+ * not carry out — no steps to seed, a goal that is already final — is left out
+ * rather than promised.
+ */
+function approvalQuestion(approval: ApprovalEffects = UNKNOWN_APPROVAL): string {
+	const steps = approval.steps === 0 ? "" : `, ${approval.steps} step${approval.steps === 1 ? "" : "s"} to todo`;
+	const goal = approval.setsGoal ? ", goal set" : "";
+	return `Approve & run the plan? y/N — plan mode off${steps}${goal}`;
 }
 
 /** Scrollable plan review screen opened by the `exit` action. */
@@ -224,6 +256,7 @@ export class PlanViewComponent implements Component {
 				offset: lines.length,
 				...(changed ? { changed: true } : {}),
 			});
+			if (changed) markChanged(this.theme, rendered, width);
 			lines.push(...rendered);
 			// Sections render independently, so restore the blank line a heading-only
 			// chunk omits before the next section.
@@ -356,7 +389,7 @@ export class PlanViewComponent implements Component {
 		else if (data === "n") this.jumpSection(1);
 		else if (data === "p") this.jumpSection(-1);
 		else if (data === "a") {
-			this.confirm.ask("Approve and run the plan? y/N", () => this.options.onClose("approve"));
+			this.confirm.ask(approvalQuestion(this.options.approval), () => this.options.onClose("approve"));
 			this.options.requestRender();
 		} else if (data === "r") this.startRefine();
 		else if (data === "w") this.options.onClose("browser");

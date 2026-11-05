@@ -100,6 +100,17 @@ export function codePointSlice(text: string, max: number): { slice: string; tota
 }
 
 /**
+ * The first line of `text`, trimmed and cut to at most `max` code points with one
+ * `…` when it was cut: what a status view can show where the whole text is a
+ * block. A title carrying a digest keeps its header and loses the body.
+ */
+export function oneLine(text: string, max: number): string {
+	const line = (text.split("\n", 1)[0] ?? "").trim();
+	const { slice, total } = codePointSlice(line, max);
+	return total > max ? `${slice}…` : line;
+}
+
+/**
  * Split `text` into chunks of at most `max` code points, preferring a line break
  * and never returning an empty chunk. A non-positive `max` returns the text whole.
  */

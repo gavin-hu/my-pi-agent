@@ -18,6 +18,7 @@ import { type ArtifactCheck, planForContract, planForExecute } from "../../lib/b
 import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
 import { movableLanes } from "../../lib/board/lanes.ts";
 import { indexOf } from "../../lib/board/links.ts";
+import { signMark } from "../../lib/board/lead.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
 import { readRoster, type RosterSession } from "../../lib/session-roster.ts";
@@ -236,7 +237,10 @@ export function registerTools(
 					case "approve":
 					case "review": {
 						const { announce, notifyOverBus } = await (signMessage ??= import("./announce.ts"));
-						const told = (card: Card) => announce(card, action, me, ctx, deps.notify ?? notifyOverBus);
+						// The name the sign will record, so the owner is told who signed rather than the
+						// label the writing actor is called by.
+						const signer = signMark(me, store.config().lead).by;
+						const told = (card: Card) => announce(card, action, signer, ctx, deps.notify ?? notifyOverBus);
 						return await mutate(
 							store,
 							action,

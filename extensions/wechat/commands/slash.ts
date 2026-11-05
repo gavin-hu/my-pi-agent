@@ -19,12 +19,26 @@ export interface SlashPeerState {
 	runningMs?: number;
 	/** The title of a dialog waiting on the sender, when one is. */
 	prompt?: string;
+	/**
+	 * Whether plan mode is on for this session, when the caller reads the flag. The
+	 * mode is the session's, not the conversation's, and there is one conversation.
+	 */
+	planMode?: boolean;
+}
+
+/** What a stop found: whether a turn was running, and how many queued messages went with it. */
+export interface StopOutcome {
+	stopped: boolean;
+	dropped: number;
 }
 
 /** The session controls an action may invoke; every one acts on the sender. */
 export interface SlashSessionControls {
-	/** Stop the sender's running turn; false when nothing was running. */
-	stop: () => boolean;
+	/**
+	 * Stop the sender's running turn and drop the queue behind it; nothing running and
+	 * nothing queued reads as a false `stopped` and a zero `dropped`.
+	 */
+	stop: () => StopOutcome;
 	/**
 	 * Withdraw the dialog waiting on the sender; false when none was waiting. Optional
 	 * because a context that binds no channel has nothing to withdraw, as `history` is
@@ -43,12 +57,14 @@ export interface SlashControlsDeps {
 	state: (peer: string) => SlashPeerState;
 	/** The title of a dialog waiting on that peer, if one waits. */
 	prompt: (peer: string) => string | undefined;
-	/** Stop the peer's running turn; false when nothing was running. */
-	stop: (peer: string) => boolean;
+	/** Stop the peer's running turn and the queue behind it. */
+	stop: (peer: string) => StopOutcome;
 	/** Withdraw the dialog waiting on the peer; false when none was waiting. */
 	cancel: (peer: string) => boolean;
 	/** The last `count` messages of the peer's own conversation. */
 	history: (peer: string, count: number) => Promise<string>;
+	/** Whether plan mode is on, from the session branch's flag. */
+	planMode: () => boolean;
 }
 
 /**
@@ -64,7 +80,7 @@ export function slashControls(peer: string, deps: SlashControlsDeps): SlashSessi
 		cancel: () => deps.cancel(peer),
 		status: () => {
 			const waiting = deps.prompt(peer);
-			const state = deps.state(peer);
+			const state = { ...deps.state(peer), planMode: deps.planMode() };
 			return waiting === undefined ? state : { ...state, prompt: waiting };
 		},
 		history: (count) => deps.history(peer, count),
@@ -101,6 +117,11 @@ export interface SlashCommand {
 	summary: string;
 	/** Chinese one-line description; falls back to {@link summary}. */
 	summaryZh?: string;
+	/**
+	 * How `/help` spells the command when it takes arguments, without the slash, for
+	 * example `history [n]`; defaults to {@link name}.
+	 */
+	usage?: string;
 	/** Run instead of starting a turn. */
 	run: (ctx: SlashContext) => void | Promise<void>;
 }
@@ -165,6 +186,15 @@ function localized(lang: PeerLanguage, zh: string, en: string): string {
 }
 
 /**
+ * `text` with `clause` after it as its own sentence, or `text` alone when there is none:
+ * a Chinese full stop separates the two already, an English one needs a space.
+ */
+function withClause(text: string, clause: string, lang: PeerLanguage): string {
+	if (!clause) return text;
+	return lang === "zh" ? `${text}${clause}` : `${text} ${clause}`;
+}
+
+/**
  * The built-in commands: `/new`, `/stop`, `/cancel`, `/status`, `/history`, and `/help`.
  */
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
@@ -180,12 +210,19 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 	},
 	{
 		name: "stop",
-		summary: "Stop the running answer",
-		summaryZh: "停止当前回答",
+		summary: "Stop the running answer and drop the queued messages",
+		summaryZh: "停止当前回答并丢弃排队的消息",
 		run: async (ctx) => {
-			// When a turn was stopped its own `已停止。` follows, so this only speaks
-			// when there was nothing to stop.
-			if (ctx.session.stop()) return;
+			const { stopped, dropped } = ctx.session.stop();
+			// When a turn was stopped its own `已停止。` follows; the command speaks only
+			// for what that line cannot say, which is the burst it took with it.
+			if (dropped > 0) {
+				await ctx.reply(
+					localized(ctx.language, `已丢弃排队的 ${dropped} 条消息。`, `Dropped ${dropped} queued message(s).`),
+				);
+				return;
+			}
+			if (stopped) return;
 			await ctx.reply(localized(ctx.language, "现在没有在处理的回答。", "Nothing is running right now."));
 		},
 	},
@@ -207,6 +244,13 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 		summaryZh: "查看当前处理状态",
 		run: async (ctx) => {
 			const state = ctx.session.status();
+			// Plan mode is otherwise the terminal's chip, which the chat cannot read, and it
+			// decides whether the peer's next instruction can be acted on at all: named while
+			// it is on, so the absence of the clause is the mode being off.
+			const plan =
+				state.planMode === true
+					? localized(ctx.language, "计划模式已开启，暂时不能写入。", "Plan mode is on — writes are disabled.")
+					: "";
 			// A waiting dialog is the whole status while it waits: the turn is blocked on
 			// it, so "working, 12s" would hide the one thing the peer can act on.
 			if (state.prompt !== undefined) {
@@ -221,13 +265,17 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 			}
 			if (state.status !== "running") {
 				await ctx.reply(
-					state.queued > 0
-						? localized(
-								ctx.language,
-								`排队中，还有 ${state.queued} 条。`,
-								`Queued — ${state.queued} message(s) waiting.`,
-							)
-						: localized(ctx.language, "空闲。", "Idle."),
+					withClause(
+						state.queued > 0
+							? localized(
+									ctx.language,
+									`排队中，还有 ${state.queued} 条。`,
+									`Queued — ${state.queued} message(s) waiting.`,
+								)
+							: localized(ctx.language, "空闲。", "Idle."),
+						plan,
+						ctx.language,
+					),
 				);
 				return;
 			}
@@ -235,14 +283,19 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 			const queued =
 				state.queued > 0 ? localized(ctx.language, `，后面还有 ${state.queued} 条`, `, ${state.queued} queued`) : "";
 			await ctx.reply(
-				localized(ctx.language, `正在处理，已用 ${seconds} 秒${queued}。`, `Working — ${seconds}s so far${queued}.`),
+				withClause(
+					localized(ctx.language, `正在处理，已用 ${seconds} 秒${queued}。`, `Working — ${seconds}s so far${queued}.`),
+					plan,
+					ctx.language,
+				),
 			);
 		},
 	},
 	{
 		name: "history",
-		summary: "Show recent messages in this conversation",
-		summaryZh: "查看最近几条对话",
+		usage: "history [n]",
+		summary: "Show recent messages (default 8, max 20)",
+		summaryZh: "查看最近几条对话（默认 8 条，最多 20 条）",
 		run: async (ctx) => {
 			const requested = Number.parseInt(ctx.args, 10);
 			const count = Math.min(20, Math.max(1, Number.isFinite(requested) ? requested : 8));
@@ -260,17 +313,18 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 	},
 ];
 
-/** The three fields `/help` reads, so a caller need not build a whole command. */
-export type HelpEntry = Pick<SlashCommand, "name" | "summary" | "summaryZh">;
+/** The fields `/help` reads, so a caller need not build a whole command. */
+export type HelpEntry = Pick<SlashCommand, "name" | "summary" | "summaryZh" | "usage">;
 
 /**
- * The reply `/help` sends: one line per command, and a note that ordinary text
- * reaches the agent.
+ * The reply `/help` sends: one line per command, its arguments with it so an
+ * option is discoverable from the chat, and a note that ordinary text reaches the
+ * agent.
  */
 export function helpText(commands: readonly HelpEntry[], lang: PeerLanguage = "en"): string {
 	const lines = commands.map((command) => {
 		const summary = (lang === "zh" ? command.summaryZh : undefined) ?? command.summary;
-		return `/${command.name} — ${summary}`;
+		return `/${command.usage ?? command.name} — ${summary}`;
 	});
 	const header = localized(lang, "可用命令：", "Available commands:");
 	const footer = localized(lang, "其他内容都会发送给助手。", "Anything else you type reaches the agent.");

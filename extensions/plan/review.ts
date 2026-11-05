@@ -19,6 +19,7 @@ import { FULL_SCREEN_OVERLAY } from "../../lib/tui/chrome.ts";
 import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import type { SectionDigest } from "./plan-text.ts";
+import type { ApprovalEffects } from "./types.ts";
 import {
 	planReviewDigest,
 	planReviewOptions,
@@ -69,6 +70,12 @@ export interface ReviewPlanOptions {
 	plans: Pick<PlanStore, "read">;
 	baselines: ReviewBaselines;
 	plan: StoredPlan;
+	/**
+	 * What approving will do, so the screen can say it. Absent from a review that
+	 * cannot approve — `/plan review` is comment-only — and from a caller with no
+	 * todo list or goal to offer.
+	 */
+	approval?: ApprovalEffects;
 	/** Aborting the turn closes a browser review and returns the plan unapproved. */
 	signal?: AbortSignal;
 }
@@ -76,7 +83,7 @@ export interface ReviewPlanOptions {
 /**
  * How long a remote review waits for its answer. Much longer than a plain dialog's
  * bound, because the human has to read the plan first and a phone is a slow place
- * to do it; an expiry here also ends plan mode, so it must not be easy to hit.
+ * to do it; the expiry answers keep, never exit, so waiting costs no mode.
  */
 export const PLAN_REVIEW_TIMEOUT_MS = 600_000;
 
@@ -99,6 +106,7 @@ async function askPlanReview(
 	ctx: ExtensionToolContext,
 	plan: StoredPlan,
 	baseline: SectionDigest[] | undefined,
+	approval: ApprovalEffects | undefined,
 ): Promise<PlanReviewChoice> {
 	const language = dialogLanguage(ctx);
 	return askHuman<PlanReviewChoice>(ctx, {
@@ -108,6 +116,7 @@ async function askPlanReview(
 					new PlanViewComponent({
 						plan,
 						baseline,
+						approval,
 						theme,
 						onClose: (action, refinement) => done({ action, refinement }),
 						requestRender: () => tui.requestRender(),
@@ -198,7 +207,7 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 		// Read the baseline before the screen and mark it after, so what the next
 		// review compares against is the content this one actually showed.
 		const baseline = baselines.reviewed(plan.path);
-		const choice = await askPlanReview(ctx, plan, baseline);
+		const choice = await askPlanReview(ctx, plan, baseline, options.approval);
 		baselines.markReviewed(plan.path, plan.content);
 
 		if (choice.action === "approve") return { action: "approve", plan, comments: [] };

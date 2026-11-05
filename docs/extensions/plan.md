@@ -38,7 +38,7 @@ executes.
 | Approval in the browser | the `/plan review` page's **Approve & run** | The plan is approved without returning to the terminal, and the steps are seeded. | Shipped |
 | Inline comments | the page's `+ Comment`, **Save feedback** | Comments are saved into the plan file as `> [!REVIEW]` lines and returned to the model. | Shipped |
 | Live page | the page's `events` stream, the plan-file poll | An edit made elsewhere repaints every open page without a reload. | Shipped |
-| Changed sections | the `exit` review screen, the `/plan review` outline | After a refinement, only the sections that changed are marked. | Shipped |
+| Changed sections | the `exit` review screen, the `/plan review` outline | After a refinement, only the sections that changed are marked: the screen counts them, puts a `·` in the body's margin beside each changed section's first line, and names the current one in the scroll row, where the page dots each changed outline entry. | Shipped |
 | Block-level change marks | the `/plan review` page's **Changed** view | After a refinement, each block that is new or edited is marked — an inserted step marks itself and leaves the rest of its section alone — and a section that lost blocks says how much shorter it became. **All** / **Changed** / **Comments** switch what the page shows, `v` cycles them, `n`/`N` walk the blocks that carry a comment, and a printed review is always the whole plan. | Unreleased |
 | Settled comments | the page's `Resolve` / `Reopen` on a note you wrote | The note keeps its place, its quote and its history and is written `> [!REVIEW resolved]`, where a later review and the model read it as closed; the panel counts `2 open · 1 resolved`, and every card names who wrote it. | Unreleased |
 | Section navigation | the review screen, `n`/`p` | The screen names the section you are in and jumps between headings. | Shipped |
@@ -173,7 +173,9 @@ the revision it kept.
 
 `plan_path` names the file `write` returned; the action reads it back and
 presents it for approval. A hand-edited or older file whose step list is over the
-cap is refused before the review screen. The user approves, keeps planning, asks
+cap is refused before the review screen, and so is a blank one: there is nothing
+to approve, and approving it would finalize a goal named after the file's slug, so
+`write` or `cancel` is named instead. The user approves, keeps planning, asks
 for a refinement, or exits plan mode without approving; the last keeps the plan
 file for a later review and records no todo items or goal. The same decision goes by
 three names, because each surface names its own control: `x exit plan` on the review
@@ -238,6 +240,10 @@ while plan mode is on — refine the plan with `write` instead.
 
 Leaves plan mode without a plan file or a review. Restores write access, records
 no todo items or goal, and keeps any saved plan. No fields.
+
+It reports once, in its transcript block: the block already says the mode is off
+and the plan was not approved, so no notice repeats it. The same holds for `x` on
+the review screen, whose exit block is `exit`'s.
 
 ### Transcript
 
@@ -315,10 +321,11 @@ Sharing is the review page's job: **Share** prints the reviewer link and its QR,
 **New link** mints another, and **Stop sharing** revokes every link, so a phone-owned
 or remote session has no terminal spelling for it. Leaving without approving is
 `plan` action `cancel`, bare `/plan`, or `Shift+Tab`: write access returns and the
-plan file stays for a later review. `list` and `review` are the only reserved
-words — `list the untracked files` and `review the auth flow` stay tasks, as do
-`share the tokens` and `cancel that idea`, which `/plan` sends to the model like
-any other line.
+plan file stays for a later review. Each path reports once — the two `plan` actions
+in their transcript block, the two toggles in a notice, because they draw no
+block. `list` and `review` are the only reserved words — `list the untracked
+files` and `review the auth flow` stay tasks, as do `share the tokens` and
+`cancel that idea`, which `/plan` sends to the model like any other line.
 
 ### `/skill:init`
 
@@ -400,11 +407,12 @@ parser even from the page's own origin.
 The review screen is TUI-only: `exit` opens `PlanViewComponent`, and `w`
 on it opens the browser review. RPC and other non-interactive runs get no screen.
 
-Dialog-capable non-TUI modes (RPC/WeChat) use one editor prompt instead: on a
-remote turn the plan file is sent first, then a compact prompt carrying the
-title, step count, first steps, mode status, and three actions — `1` approve,
-`2` keep planning, `3` exit. If the upload fails, the plan's text is sent
-instead. Any other reply is a refinement, so "select Refine, then type" is gone.
+Dialog-capable non-TUI modes (RPC/WeChat) ask one question instead: on a remote
+turn the plan file is sent first, then a compact digest carrying the title, step
+count, first steps, and mode status, then a numbered choice of four outcomes —
+`1` approve, `2` keep planning, `3` exit, `4` revise — where only `4` opens the
+editor for the feedback, and a dismissed editor keeps planning. If the upload
+fails, the plan's text is sent instead.
 A reply that never comes is `2` keep planning, never `3` exit: an empty Enter, a
 dismissed prompt, and the ten-minute expiry all answer as nothing, and nothing is
 not a decision — leaving plan mode restores write access, so it takes an answer.
@@ -572,37 +580,48 @@ agent file that overrides it.
 
 ## Review screen
 
-<img src="../../assets/screens/plan.png" alt="The terminal plan review: a Plan Review title rule, a notice that one section changed since the last review, the plan body with its headings and ◼/◻ task checkboxes, a scroll gauge naming the current section and the visible line range, and the Esc/a/r/w, scroll, and section-jump hints" width="100%">
+<img src="../../assets/screens/plan.png" alt="The terminal plan review: a Plan Review title rule, a notice that one section changed since the last review, the plan body with its headings, a `·` in the margin beside the changed `Steps` heading, and ◼/◻ task checkboxes, a scroll gauge naming the current section and the visible line range, and the Esc/a/r/w, scroll, and section-jump hints" width="100%">
 
 `exit` opens this screen on the plan file it just wrote. The body is
 rendered with Pi's own `Markdown` component and `getMarkdownTheme()`, so
 headings, lists, inline code, code blocks, links, and quotes carry the active
 theme's colours; task items get the shared `◼` (done) or `◻` (pending) marker,
-like the bytefly screen and the question dialog. A plan taller than the terminal
-scrolls under a gauge that names the section at the top of the viewport and the
-line range it shows, and the footer lists only the keys that apply.
+like the bytefly screen and the question dialog, and the transcript's
+approved-plan preview draws the same two boxes over the plan it shows. A plan
+taller than the terminal scrolls under a gauge that names the section at the top
+of the viewport and the line range it shows, and the footer lists only the keys
+that apply.
 
 - **Actions.** The footer colours the primary actions (`a approve & run` in
-  `success`, `r refine` in `accent`). `a` asks `y/N` in the footer, then ends
-  plan mode, restores write access, and seeds `todo`; `y` or `Enter` approves and
-  `n`, `q`, or `Esc` goes back to reading. `r` keeps the plan mounted and opens
-  an inline editor beneath it (`Enter` submits, an empty buffer does nothing,
-  `Esc` returns to the plan); `Esc` keeps planning and tells the model the plan
-  was not approved; `x` leaves plan mode without approving and keeps the plan
-  file; `w` opens the browser review. `Ctrl+C` is the interrupt, not another
-  Escape: it ends the turn from wherever the keyboard is — the screen, the `y/N`
-  question, the inline editor — so no review is settled and the model is never
-  told to ask what to change. Plan mode stays on, write access stays off, and the
-  result block reads `Plan review interrupted`.
+  `success`, `r refine` in `accent`). `a` asks `y/N` in the footer and says what
+  the answer does — `plan mode off`, the steps it seeds into `todo`, and `goal
+  set` when the approval finalizes the session goal — leaving out a clause that
+  approval will not carry out, so `y` is not a blind yes; the question and its
+  `y/N` lead, so a narrow footer cuts the consequences rather than the answer.
+  `y` or `Enter` approves and ends plan mode, restores write access, and seeds
+  `todo`; `n`, `q`, or `Esc` goes back to reading. `r` keeps the plan mounted and
+  opens an inline editor beneath it (`Enter` submits, an empty buffer does
+  nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the model
+  the plan was not approved; `x` leaves plan mode without approving and keeps the
+  plan file, reporting it in the exit block alone; `w` opens the browser review.
+  `Ctrl+C` is the interrupt, not another Escape: it ends the turn from wherever
+  the keyboard is — the screen, the `y/N` question, the inline editor — so no
+  review is settled and the model is never told to ask what to change. Plan mode
+  stays on, write access stays off, and the result block reads `Plan review
+  interrupted`.
 - **Sections.** The screen splits the body at its headings, names the section you
   are in, and jumps between sections with `n`/`p`; the scroll row names the
   current section when the plan has more than one.
 - **What changed since the last review.** After a refinement, the screen names
-  how many sections changed, marks the current one in the scroll row, and the
-  browser outline dots each changed section, so a re-review does not mean
-  re-reading the whole plan. The baseline is one digest per heading section of
-  what the previous review showed, kept as a session entry, so a resumed session
-  or a `/tree` restore marks only what changed on its own branch.
+  how many sections changed, puts a `·` in the body's margin beside each changed
+  section's first line, marks the current one in the scroll row, and the browser
+  outline dots each changed section, so a re-review does not mean re-reading the
+  whole plan or `n`-ing through it to find the one that moved. The margin mark
+  replaces the body's first padding column, so a heading keeps its column and a
+  long heading never loses its text to the mark. The baseline is one digest per
+  heading section of what the previous review showed, kept as a session entry, so
+  a resumed session or a `/tree` restore marks only what changed on its own
+  branch.
 - **Scrolling.** `↑`/`↓` or `j`/`k`, `space`/`b` or `PgUp`/`PgDn`, `d`/`u`,
   `g`/`G`, and the mouse wheel. When the plan overflows, a gauge row above the
   hints shows the scroll position, the percent, and the visible line range (the
@@ -892,7 +911,7 @@ every link and closes that listener; closing the review does both.
 |---|---|
 | Tools | one `plan` tool, active in both modes, with five actions: `enter`, `write`, `exit`, `steps`, `cancel`. It is `executionMode: "sequential"`, closed-world, and carries one annotation set — `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false` — because `write` overwrites a plan file: the actions that only change the mode are exempted by the guard in `index.ts`, the only place that can tell them apart. Each action returns typed `details` discriminated by `action` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `CancelPlanModeDetails`, `SetPlanStepsDetails`); a refusal carries `RefusedPlanDetails` (`refused`, `error`) and, where the state is what makes the refusal actionable, the action's own details as well — `exit`'s over-cap block names the plan it read so the block still shows what was not presented, and `enter`'s no-UI block carries `{ action: "enter", entered: false, unavailable: true }` so a caller can tell that refusal from another; no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `/skill:init` (skill-backed `AGENTS.md` bootstrap), `--plan` launch flag. `Shift+Tab` is bytefly's editor chord, not a registered shortcut: `app.thinking.cycle` is reserved, so the editor requests a toggle over the event bus instead. |
-| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan writes a goal only at approval, through `ctx.executeTool("goal", { objective })` when the `goal` tool is registered: a `planning` goal is promoted to the plan's `## Goal`, a session with none is given the same objective, and an `active`/`achieved` goal is left alone — no path asks first. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
+| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan writes a goal only at approval, through `ctx.executeTool("goal", { objective })` when the `goal` tool is registered: a `planning` goal is promoted to the plan's `## Goal`, a session with none is given the same objective, and an `active`/`achieved` goal is left alone — no path asks first. A review that shows the same content appends nothing. The footer chip names the plan the branch last wrote, replayed from that `write` result on the branch rather than remembered in memory, so `/resume` and `/tree` keep the name; a bare `/plan review` falls back to that plan first, then to the newest plan file in the directory. |
 | Entry requests | `pi.events` channels from `lib/plan-entry.ts`: `PLAN_ENTER_REQUEST` (the `goal` workflow asks, with the shared consent sentence, and plan enables the mode on the caller's context without a second dialog) and `PLAN_TOGGLE_REQUEST` (bytefly's Shift+Tab asks to flip it and gets the state back). Both share one `PlanModeRequest` payload and `isPlanExtensionLoaded`. Subscribed on `session_start`, released on `session_shutdown`. |
 | `board` while planning | The board is one action-shaped tool, so its annotation cannot say it reads: plan mode reads the action instead, through `lib/policy.ts`'s `isBoardRead` and `lib/board/actions.ts`'s table. The refusal is built by `boardWriteRefusal` in that same module — the board's words, because the sentence names the board's order: claim a card before you plan, and record its plan once it is approved. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context, with a pursued session goal read from the branch through `lib/goal-state.ts`; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
@@ -1049,14 +1068,14 @@ every link and closes that listener; closing the review does both.
 | `steps.ts` | Plan-document structure: the outline, step extraction and the `Steps`-section scope, the plan's own goal (`goalSection`), and the checkbox edit. |
 | `sections.ts` | The one fence-aware heading scan: `extractSections`, `sectionKeys` (the key that tells two identically titled sections apart), and the `HEADING` / `FENCE` / `normalizeHeadingText` vocabulary `blocks.ts` reads a heading through. |
 | `format.ts` | Pure result/approval text: the plan preview, the step-cap diagnosis, step labels, the merge summary, and the verification note. |
-| `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, and `changedSections`, which hands each section back with its flag. |
+| `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, `changedSections`, which hands each section back with its flag, and `taskMarker`, the split of a task item's line that the review screen and the transcript's preview both draw. |
 | `runtime.ts` | Enabled state, tool gating, persistence (mode and review baseline), the `plan` tool's identity and its place in the active set, footer status. |
 | `tools.ts` | The one registration: the flat action schema, the dispatch over the five actions, and the call and result blocks they draw. |
 | `tools/` | One module per action (`enter.ts`, `write.ts`, `exit.ts`, `cancel.ts`, `steps.ts`), each exporting its `execute`/`call`/`text` seam; plus `refusal.ts` (the one rejected-call shape), `todo-seed.ts` (the two nested `todo` writes) and `nested.ts` (reading a nested result). |
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. It also owns the contract — `ReviewDecision`, `ReviewBaselines`, `ReviewPlanOptions` — which `review-lazy.ts` imports as types. |
 | `review-prompt.ts` | Pure rendering and parsing for the review's dialog presentation: the digest posted before the question, the four option labels in one table with their parser, and the editor a revision is asked with. |
 | `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, and `/plan list`. |
-| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep/interrupt, and the `Ctrl+C` interrupt that closes every layer). |
+| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and the `·` margin mark on each changed section, the scroll row's `· changed`, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep/interrupt, and the `Ctrl+C` interrupt that closes every layer). |
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (store size and oldest plan, title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks), and `contentBlockAt`: the block with content a comment beside blank space belongs to. |
 | `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `readFeedback`/`parseFeedback` (body, blocks, and comments out of one parse), `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `feedbackSummary`, and payload validation. |
@@ -1103,7 +1122,7 @@ every link and closes that listener; closing the review does both.
 bun test extensions/plan
 ```
 
-Thirty-two co-located suites, declared in `test/suite-manifest.ts`:
+Thirty-five co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, the store's directory, atomic
   writes, `read`/`latest`/`index`, `setSteps`, `saveFeedback`, and step extraction;

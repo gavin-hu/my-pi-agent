@@ -154,14 +154,21 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		const config = loadWechatConfig(ctx.cwd);
 		// Everything a live bridge composes loads here, so a session with no account
 		// never evaluates the bridge, the transport or the lock.
-		const [{ createBridge }, client, { openChatTurn }, { INTERACTION_TURN_KEY }, { WECHAT_CHANNEL_PROMPT }] =
-			await Promise.all([
-				bridgeModule.get(),
-				clientModule.get(),
-				import("./host/chat.ts"),
-				import("../../lib/interaction.ts"),
-				import("./text/channel.ts"),
-			]);
+		const [
+			{ createBridge },
+			client,
+			{ openChatTurn },
+			{ INTERACTION_TURN_KEY },
+			{ WECHAT_CHANNEL_PROMPT },
+			{ isPlanModeEnabled },
+		] = await Promise.all([
+			bridgeModule.get(),
+			clientModule.get(),
+			import("./host/chat.ts"),
+			import("../../lib/interaction.ts"),
+			import("./text/channel.ts"),
+			import("../../lib/plan-state.ts"),
+		]);
 		// The phone-chat contract rides on the turns the chat started: the marker on the UI
 		// context is what says which those are, so a terminal turn is not told it is
 		// answering on a phone. Registered with the bridge, and dropped with it.
@@ -200,7 +207,10 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			mediaDir: () => join(wechatDir(), "media"),
 			// There is no separate history file to read: `/history` reads this
 			// session's own entries, and asking cannot create or resume anything.
-			readHistory: async (count) => formatHistory(ctxRef?.sessionManager.getEntries() ?? [], count),
+			readHistory: async (count, lang) => formatHistory(ctxRef?.sessionManager.getEntries() ?? [], count, lang),
+			// The mode is the branch's flag, the same reader `goal` and `rewind` use: the
+			// terminal's chip is not something the chat can see.
+			planMode: () => isPlanModeEnabled(ctxRef?.sessionManager.getBranch() ?? []),
 			slashCommands: SLASH_COMMANDS,
 			loadAccount: () => storedAccount(),
 			loadState: () => readState(statePath()),

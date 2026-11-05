@@ -21,13 +21,20 @@ import {
 	type InteractionChannel,
 	type InteractionRequest,
 } from "../../../lib/interaction.ts";
-import { type PeerLanguage } from "../text/format.ts";
+import { type PeerLanguage, oneLine } from "../text/format.ts";
 import { notice } from "../text/notices.ts";
 import { formatPrompt, parsePromptAnswer } from "./prompt.ts";
 import { defaultTimer, type ArmTimer } from "../timer.ts";
 
 /** How long a forwarded prompt waits before it is cancelled. */
 export const PROMPT_TIMEOUT_MS = 180_000;
+
+/**
+ * Longest waiting-prompt title a status view is given, in code points. A plan
+ * review's title is its whole compact digest, so the status view would otherwise
+ * carry a block where it promises a line.
+ */
+export const PROMPT_TITLE_CHARS = 80;
 
 export interface WechatInteractionDeps {
 	/** The one peer this channel asks. */
@@ -118,6 +125,7 @@ export function createChatChannel(deps: ChatChannelDeps): WechatInteractionChann
 export interface PendingPromptInfo {
 	peer: string;
 	kind: InteractionRequest["kind"];
+	/** The prompt's first line, elided to {@link PROMPT_TITLE_CHARS}. */
 	title: string;
 	/** When the prompt was registered, in epoch milliseconds. */
 	startedAt: number;
@@ -179,7 +187,7 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 				: {
 						peer: deps.peer,
 						kind: current.request.kind,
-						title: current.request.title,
+						title: oneLine(current.request.title, PROMPT_TITLE_CHARS),
 						startedAt: current.startedAt,
 					};
 		},

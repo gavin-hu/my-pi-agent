@@ -21,7 +21,13 @@ import { sanitizeLine } from "../../lib/format.ts";
 import { ownerRecord, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
 import { codePointSlice, parseInbound, peerKey, peerLabel, peerLanguage, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
-import { resolveSlash, slashControls, type SlashCommand, type SlashContext } from "./commands/slash.ts";
+import {
+	resolveSlash,
+	slashControls,
+	type SlashCommand,
+	type SlashContext,
+	type StopOutcome,
+} from "./commands/slash.ts";
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
 import type { MessageTarget } from "./transport/deliver.ts";
 import type { WechatConfig } from "./config.ts";
@@ -90,8 +96,8 @@ export interface IntakeDeps {
 	notify: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** The live worker: a connect or disconnect replaces it. */
 	worker: () => TurnRunner | undefined;
-	/** Stop the running turn, and the dialog that turn was waiting on with it. */
-	stopTurn: () => boolean;
+	/** Stop the running turn and the queue behind it, and the dialog that turn was waiting on with it. */
+	stopTurn: () => StopOutcome;
 	/** The chat's one interaction channel: a reply answers its prompt, a command names it. */
 	channel: () => WechatInteractionChannel | undefined;
 	presence: Presence;
@@ -100,7 +106,9 @@ export interface IntakeDeps {
 	languageOf: (peer: string, text?: string) => PeerLanguage;
 	/** Send one bubble to a peer for the bridge's own notices. */
 	reply: (target: MessageTarget, text: string) => Promise<boolean>;
-	readHistory: (count: number) => Promise<string>;
+	readHistory: (count: number, lang?: PeerLanguage) => Promise<string>;
+	/** Whether plan mode is on for this session, for `/status`; the branch's flag. */
+	planMode: () => boolean;
 	/** Senders refused since the connection opened, and their labels. */
 	refused: Counter;
 	refusedPeers: Set<string>;
@@ -141,7 +149,8 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 					void pending.cancel();
 					return true;
 				},
-				history: (_peer, count) => deps.readHistory(count),
+				history: (_peer, count) => deps.readHistory(count, languageOf(target.peer)),
+				planMode: () => deps.planMode(),
 			}),
 		};
 		try {
