@@ -1,4 +1,8 @@
 import { join } from "node:path";
+import { PLAN_TOOL } from "../../../lib/tool-names.ts";
+import { createPlanPolicy } from "../../../extensions/plan/policy.ts";
+import { createPlanRuntime, type PlanRuntime } from "../../../extensions/plan/runtime.ts";
+import { toolResultEntry } from "../entries.ts";
 import { createFakePi, type AnyHandler } from "../fakes.ts";
 import { fakeCtx, type FakeCtxOptions, type FakeCtxResult } from "../context.ts";
 
@@ -80,4 +84,26 @@ export function baselineEntry(
 	sections: Array<{ title: string; digest: string; blocks?: string[] }>,
 ): unknown {
 	return { type: "custom", customType: "plan-baseline", data: { path, sections } };
+}
+
+/** A successful `plan` `write` result, which is the one fact the footer chip replays after a restore. */
+export function writeEntry(path: string): unknown {
+	return toolResultEntry(PLAN_TOOL, { action: "write", path, relativePath: path, bytes: 12 });
+}
+
+/**
+ * A plan runtime over a fake pi, with the context that drives it and the branch a restore
+ * reads. The one shape both runtime suites build, so neither declares its own.
+ */
+export function planRuntimeSetup(
+	options: { active?: string[]; planFlag?: boolean; branch?: unknown[] } = {},
+): PlanPi & { runtime: PlanRuntime; ctx: FakeCtxResult["ctx"]; statusCalls: FakeCtxResult["statusCalls"] } {
+	const fake = makePlanPi({
+		active: options.active ?? ["read", "bash", "write", "edit", PLAN_TOOL, "todo"],
+		planFlag: options.planFlag,
+	});
+	if (options.planFlag) fake.flags.set("plan", { default: true });
+	const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
+	const { ctx, statusCalls } = planCtx({ branch: options.branch });
+	return { ...fake, runtime, ctx, statusCalls };
 }
