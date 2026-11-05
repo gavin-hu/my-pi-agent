@@ -180,6 +180,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a sign records a person rather than the pronoun. `/board approve` and `/board review`
+  write the lead's name with `person: true` on the sign — the one name a card file can give
+  somebody who has no session — so no card stores `you`, and the event the owner is told names
+  the signer too. The identity a repeated sign is compared against is that name *and* the mark,
+  so the person signing twice writes nothing and a session wearing the lead's label is still
+  somebody else. `you` is left to the person's own line, `#4 approved by you`.
+
 - `wechat`: a dialog's own option beats its dismissal words, so a plan review's third choice — 退出, or
   “Exit plan mode” — exits plan mode when it is typed on the phone, where the reply was read as a
   dismissal and silently kept planning, leaving only the bare `3`. A dismissal word the waiting list does

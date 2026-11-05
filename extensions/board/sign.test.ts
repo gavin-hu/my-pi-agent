@@ -35,7 +35,9 @@ describe("/board approve and /board review", () => {
 			1_000,
 		);
 		expect(await board.say("approve 1")).toBe(`board: #1 approved by you${NOT_TOLD}`);
-		expect((await store.read(board.id))?.contract?.approved?.by).toBe("you");
+		// The line is the person's own, and a pronoun; the card records a name and the mark that
+		// says the key wrote it, never the label the line prints.
+		expect((await store.read(board.id))?.contract?.approved).toEqual({ by: "lead", at: 1_000, person: true });
 		board.temps.flush();
 	});
 
@@ -57,7 +59,7 @@ describe("/board approve and /board review", () => {
 				.ok,
 		).toBe(true);
 		expect(await board.say("review 1")).toBe(`board: #1 reviewed by you${NOT_TOLD}`);
-		expect((await store.read(board.id))?.review?.by).toBe("you");
+		expect((await store.read(board.id))?.review).toEqual({ by: "lead", at: 1_000, person: true });
 		const done = await store.mutate(
 			board.id,
 			{ kind: "move", lane: "done", artifact: { path: board.plan } },
@@ -191,7 +193,8 @@ describe("/board review --override", () => {
 			`board: #1 reviewed by you · closed by instruction${NOT_TOLD}`,
 		);
 		expect((await board.store.read(board.id))?.review).toMatchObject({
-			by: "you",
+			by: "lead",
+			person: true,
 			byInstruction: "Closed On My Instruction",
 		});
 		board.temps.flush();

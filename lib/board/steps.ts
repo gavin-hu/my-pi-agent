@@ -39,7 +39,7 @@ import {
 	normalizeInstruction,
 } from "./contract.ts";
 import { type BoardConfig } from "./config.ts";
-import { holderRefusal, missingSign, signRefusal } from "./lead.ts";
+import { holderRefusal, missingSign, signMark, signRefusal, signedAs } from "./lead.ts";
 import { type WipLimits, wipRefusal } from "./limits.ts";
 import { LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import { type BoardIndex, dependedOn, normalizeDepends, waitingOn } from "./links.ts";
@@ -347,11 +347,13 @@ export function approve(card: Card, actor: Actor, now: number, config: BoardConf
 	}
 	const noted = signNote(card, text, actor, now);
 	if ("error" in noted) return { error: noted.error };
-	// A second sign from the same session says nothing new, so the contract keeps its stamp;
-	// the note still lands, because a caller who wrote one recorded a fact about the card.
-	const signed = contract.approved?.by === actor.label;
+	// A second sign from the same signer says nothing new, so the contract keeps its stamp; the
+	// note still lands, because a caller who wrote one recorded a fact about the card. Who the
+	// signer is takes the name *and* the person's mark (`lead.ts`), not the label: the person signs
+	// as the lead, so a label compare would read a lead's sign back as the person's and re-stamp it.
+	const signed = signedAs(contract.approved, actor, config.lead);
 	if (signed && !noted.wrote) return { changed: false, fields: null };
-	const approval = signed ? {} : { contract: { ...contract, approved: { by: actor.label, at: now } } };
+	const approval = signed ? {} : { contract: { ...contract, approved: { ...signMark(actor, config.lead), at: now } } };
 	return { changed: true, fields: { ...approval, ...noted.fields } };
 }
 
@@ -387,7 +389,7 @@ export function review(
 	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "review")}` };
 	const wrongSigner = signRefusal(card, actor, config.lead, "review");
 	if (wrongSigner !== undefined) return { error: wrongSigner };
-	const signed = card.review?.by === actor.label;
+	const signed = signedAs(card.review, actor, config.lead);
 	// A sign is a fact about a person and a moment, so an override never replaces one: it is how a
 	// card with no spot-check gets a record, not how a record gets a different author. The same
 	// signer, saying the same thing, is its own case — the sign is already the one it asked for.
@@ -401,8 +403,8 @@ export function review(
 	if (signed && !noted.wrote) return { changed: false, fields: null };
 	const stamp =
 		instruction === undefined
-			? { by: actor.label, at: now }
-			: { by: actor.label, at: now, byInstruction: instruction.text };
+			? { ...signMark(actor, config.lead), at: now }
+			: { ...signMark(actor, config.lead), at: now, byInstruction: instruction.text };
 	const spotCheck = signed ? {} : { review: stamp };
 	return { changed: true, fields: { ...spotCheck, ...noted.fields } };
 }

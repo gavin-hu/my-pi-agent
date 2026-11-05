@@ -29,10 +29,18 @@ export const MAX_CONTRACT = 400;
 
 /** Who read something and when: an approval of a contract, or a spot-check of finished work. */
 export interface Sign {
-	/** The session that signed, as the label a card records. */
+	/** Who signed, as the file records it: the session's label, or the lead's name for the person. */
 	by: string;
 	/** When it signed. */
 	at: number;
+	/**
+	 * `true` when the person at the keyboard signed, rather than a session.
+	 *
+	 * The name and the mark together are the identity a repeated sign is compared against:
+	 * the person signs as the lead's name, so without this a session wearing that label would
+	 * read back as the same signer.
+	 */
+	person?: true;
 	/**
 	 * The one line saying why the gate was overridden, in the signer's words, and absent when it
 	 * was not: a sign that carries this is a close made by instruction, and a reader says so.
@@ -126,6 +134,7 @@ export function isSign(value: unknown): value is Sign {
 	if (typeof sign.by !== "string" || sign.by === "" || typeof sign.at !== "number" || !Number.isInteger(sign.at)) {
 		return false;
 	}
+	if (sign.person !== undefined && sign.person !== true) return false;
 	if (sign.byInstruction === undefined) return true;
 	const reason = normalizeInstruction(sign.byInstruction);
 	return !("error" in reason) && reason.text === sign.byInstruction;

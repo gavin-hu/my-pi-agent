@@ -131,8 +131,8 @@ lead: board list round: true
 |---|---|---|
 | `/board` | the lead | Serves the page as the board's lead (`board.lead`, `lead` by default), or opens the one another session already serves — and opens it again when it is already up, so a closed tab is one command away. The line it prints names the repository and the address |
 | `/board team` | lead | The same, opened on the Team tab |
-| `/board approve <id>` | the person | Signs the card's contract as `you`, the other actor the gate takes: a session must be the lead (`board.lead`), and the holder may sign nothing at all. Only a card in `plan` with a complete contract can be signed, and the refusal is the tool's own sentence |
-| `/board review <id>` | the person | Records the spot-check of finished work as `you`; only a card in `execute` can be signed. `/board review <id> --override <why>` is the other case: it signs a card that is already `done` and has no sign, with one line saying why, and the record then reads `closed by instruction` |
+| `/board approve <id>` | the person | Signs the card's contract as the board's lead with `person: true` on the sign, the other actor the gate takes: a session must be the lead (`board.lead`), and the holder may sign nothing at all. Only a card in `plan` with a complete contract can be signed, and the refusal is the tool's own sentence. Its line is the person's own, so it says `approved by you` |
+| `/board review <id>` | the person | Records the spot-check of finished work the same way — the lead's name, `person: true` — and its line says `reviewed by you`; only a card in `execute` can be signed. `/board review <id> --override <why>` is the other case: it signs a card that is already `done` and has no sign, with one line saying why, and the record then reads `closed by instruction` |
 | `/board archive` | lead | Runs the same sweep the tool's bare `archive` runs, and says what it folded away and what it kept: a finished card an open card still waits on stays on the board |
 | `/board status` | both | One line: the seat, the repository, the port, how many tabs are watching, the store's path, and the team the last `/board` joined — or the page being watched, and whether the note behind it still answers |
 | `/board stop` | lead | Stops the page this session serves; a watched page that has stopped answering is dropped instead — and so is a note whose file is already gone, because there is nothing left to clear — while a watched page that is alive is its owner's to stop |
@@ -172,10 +172,14 @@ whoever holds the name.
 
 **The person's door.** A repository worked by one session would otherwise never get a card
 past `plan` or `execute`, so `/board approve` and `/board review` write the same two signs as
-`you` — a label, with no session id — whatever the lead is called and whether or not the
-session typing it holds the card. The card says who signed, and the two read differently
-because they are different: `you` is the person who read the plan, the lead is a second pair
-of eyes.
+the lead — the person signs under the lead's name, because that is the one name a card file
+can give somebody who has no session, and the sign carries `person: true` to say the key wrote
+it rather than a session. The pronoun is therefore only ever the person's own line
+(`#4 approved by you`): no card stores `you`, and neither does the event the owner is told
+with. The name and the mark together are the signer, which is what a repeated sign is
+compared against — a session that signed under the lead's label is somebody else, so a
+label compare would read its sign back as the person's. The two read differently because
+they are different: the person read the plan, the lead is a second pair of eyes.
 
 **A close by instruction.** A card can finish without passing the gate — somebody with the
 authority to skip it says so, and until this existed the only trace was a note, which reads
@@ -698,16 +702,17 @@ it always meant: when the card was last touched, which is not when it last chang
   snapshot instead of keeping a copy.
 - **The gates are a label check, and say so.** `approve` and `review` take the lead's name —
   `board.lead`, the page's seat by default — and refuse the card's own holder even when that holder is
-  the lead, which is the half of "somebody read this" a file can hold; the board cannot tell a
-  person from a session, and does not pretend it can. The name is a team name rather than a
+  the lead, which is the half of "somebody read this" a file can hold; it records which of the
+  two signed, and can no more verify that than it can verify the name. The name is a team name rather than a
   session, because that is what a pure rule can be handed and what a card file can record: a
   session signs by joining under it, and `board.lead` moving is the board saying who is
   accountable now. The person gets a door of their own — `/board approve` and `/board review`
-  write as `you`, a label with no session id — because one session alone would otherwise hold
-  a card it could never sign, and because a repository should not need a second process to
-  finish its work. The two read differently on the card, which is the honest way to say it:
-  `you` is the person who read the plan, the lead is a second pair of eyes. Either sign takes an
-  optional `text` note, written with the sign: the signer is the session `note` refuses on a
+  write the lead's name with `person: true` on the sign — because one session alone would
+  otherwise hold a card it could never sign, and because a repository should not need a second
+  process to finish its work. The two read differently on the card, which is the honest way to
+  say it: the person read the plan, the lead is a second pair of eyes. `you` stays the word the
+  person's own command line prints, and never a name a card or an inbox message carries. Either
+  sign takes an optional `text` note, written with the sign: the signer is the session `note` refuses on a
   held card, so without it a caveat has nowhere to go on the card. The contract is
   three one-line fields written by `contract`, and a changed line or a different plan file
   drops the sign, because the sign named the wording and which plan file, not the file's bytes
