@@ -7,6 +7,10 @@
  * not understood. The parser is deliberately total:
  * anything it cannot resolve reports `retry`, and free text on a `select` becomes
  * the {@link INTERACTION_OTHER_LABEL} option so the caller can collect it once.
+ *
+ * A `select`'s own labels are matched before the dismissal words, because the
+ * list is the vocabulary the prompt handed the peer: a plan review's 退出 is both
+ * its third choice and a cancel word, and typing it must pick the choice.
  */
 
 import { INTERACTION_OTHER_LABEL, type InteractionRequest } from "../../../lib/interaction.ts";
@@ -95,6 +99,15 @@ function isCancelIntent(text: string, lower: string): boolean {
 export function parsePromptAnswer(request: InteractionRequest, raw: string): PromptParse {
 	const text = sanitizeInbound(raw);
 	const lower = text.toLowerCase();
+	const options = request.options ?? [];
+
+	// The list a prompt showed is its vocabulary, so a reply naming an option is
+	// that choice even when the label is also a dismissal word. A cancel word the
+	// list does not carry still dismisses, as it does on every other prompt kind.
+	if (request.kind === "select") {
+		const label = options.find((option) => option.toLowerCase() === lower);
+		if (label !== undefined) return { kind: "value", value: label };
+	}
 
 	if (isCancelIntent(text, lower)) {
 		return request.kind === "confirm" ? { kind: "confirmed", confirmed: false } : { kind: "cancelled" };
@@ -108,7 +121,6 @@ export function parsePromptAnswer(request: InteractionRequest, raw: string): Pro
 		}
 		case "select": {
 			if (text === "") return { kind: "retry" };
-			const options = request.options ?? [];
 			// A bare number is always read as an option index; an out-of-range one is
 			// a likely typo, so retry rather than falling through to "Other".
 			if (/^\d+$/.test(text)) {
@@ -117,8 +129,6 @@ export function parsePromptAnswer(request: InteractionRequest, raw: string): Pro
 					? { kind: "value", value: options[asNumber - 1] }
 					: { kind: "retry" };
 			}
-			const match = options.find((label) => label.toLowerCase() === lower);
-			if (match) return { kind: "value", value: match };
 			if (options.at(-1) === INTERACTION_OTHER_LABEL) return { kind: "other", text };
 			return { kind: "retry" };
 		}

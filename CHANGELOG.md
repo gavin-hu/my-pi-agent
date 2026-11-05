@@ -173,6 +173,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: a dialog's own option beats its dismissal words, so a plan review's third choice — 退出, or
+  “Exit plan mode” — exits plan mode when it is typed on the phone, where the reply was read as a
+  dismissal and silently kept planning, leaving only the bare `3`. A dismissal word the waiting list does
+  not carry still dismisses, so a `question` option labelled 取消 and `worktree`'s `Cancel` are now the
+  answers they look like.
+
 - `wechat`: a sender's id and an account label are sanitized before they reach the terminal. The
   refusal notice, the `connected as` line, and a turn or session failure that names the sender no
   longer carry an escape through, and the login screen cleans the status, the error, and the URL it

@@ -198,6 +198,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"commands/doctor",
 		"commands/history",
 		"dialog/interaction",
+		"dialog/prompt",
 		"host/chat",
 		"conversation/admission",
 		"conversation/turn",
