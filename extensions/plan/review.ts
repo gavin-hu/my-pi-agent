@@ -50,7 +50,9 @@ export type ReviewDecision =
 	  }
 	| { action: "keep"; plan: StoredPlan }
 	/** Leave plan mode without approving; the plan file stays for a later review. */
-	| { action: "cancel"; plan: StoredPlan };
+	| { action: "cancel"; plan: StoredPlan }
+	/** The reader interrupted the turn, so the review settled nothing. */
+	| { action: "interrupt"; plan: StoredPlan };
 
 /** What the previous review showed, so this one can mark what changed. */
 export interface ReviewBaselines {
@@ -192,7 +194,8 @@ export async function runBrowserReview(
 
 /**
  * Ask the user about `plan` and return the decision. Approve and keep end the
- * review; a refinement is handed back to the model; a browser review that is
+ * review; a refinement is handed back to the model; an interrupt ends the turn
+ * the review was asked on; a browser review that is
  * cancelled returns to the screen it was opened from.
  */
 export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDecision> {
@@ -210,6 +213,9 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 		if (choice.action === "approve") return { action: "approve", plan, comments: [] };
 		if (choice.action === "keep") return { action: "keep", plan };
 		if (choice.action === "cancel") return { action: "cancel", plan };
+		// An interrupt ends the turn, so it settles nothing: plan mode stays on and
+		// the plan is neither approved nor rewritten.
+		if (choice.action === "interrupt") return { action: "interrupt", plan };
 		if (choice.action === "refine") {
 			const refinement = choice.refinement ?? (await askRefinement(ctx, dialogLanguage(ctx)));
 			// An empty or cancelled editor returns to the review screen instead of

@@ -199,6 +199,28 @@ export async function executeExit(
 			} satisfies ExitPlanModeDetails,
 		};
 	}
+	if (decision.action === "interrupt") {
+		// The reader asked for the turn to stop, not for a decision about the plan,
+		// so plan mode is left as it was and nothing is written down but this block.
+		// Aborting is what ends the turn; the result is the record it leaves.
+		ctx.abort();
+		return {
+			content: [
+				{
+					type: "text",
+					text: "The review was interrupted. Plan mode is still on, write access is still off, and the plan was not approved; nothing was recorded. Wait for the user's next message.",
+				},
+			],
+			details: {
+				action: "exit",
+				approved: false,
+				interrupted: true,
+				plan: decision.plan.content,
+				planPath: decision.plan.path,
+				relativePath: decision.plan.relativePath,
+			} satisfies ExitPlanModeDetails,
+		};
+	}
 	if (decision.action === "cancel") {
 		runtime.disable(ctx);
 		const shown = decision.plan.relativePath;
@@ -287,13 +309,15 @@ export function callExit(args: ExitPlanModeArgs, theme: Theme, last: unknown): T
 export function textExit(details: ExitPlanModeDetails, expanded: boolean, theme: Theme): string {
 	const heading = details.unavailable
 		? paint(theme, "warn", "No UI to approve the plan")
-		: details.cancelled
-			? paint(theme, "warn", "Plan mode off — plan not approved")
-			: details.approved
-				? paint(theme, "ok", `${GLYPHS.check} Plan approved`)
-				: details.refined
-					? paint(theme, "accent", "Refining the plan")
-					: paint(theme, "warn", "Plan not approved");
+		: details.interrupted
+			? paint(theme, "warn", "Plan review interrupted")
+			: details.cancelled
+				? paint(theme, "warn", "Plan mode off — plan not approved")
+				: details.approved
+					? paint(theme, "ok", `${GLYPHS.check} Plan approved`)
+					: details.refined
+						? paint(theme, "accent", "Refining the plan")
+						: paint(theme, "warn", "Plan not approved");
 	const extra =
 		details.refined && details.refinement
 			? `\n${paint(theme, "meta", `↳ ${sanitizePlanText(details.refinement)}`)}`
