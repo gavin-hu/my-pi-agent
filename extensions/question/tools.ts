@@ -3,7 +3,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { askHuman, remoteLanguage } from "../../lib/interaction.ts";
+import { askHuman, dialogLanguage } from "../../lib/interaction.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
@@ -24,7 +24,7 @@ function dialogUI(ctx: ExtensionContext): QuestionUI {
 		select: (title, options, opts) => ui.select(title, options, opts),
 		input: (title, placeholder, opts) => ui.input(title, placeholder, opts),
 		editor: (title, prefill) => ui.editor(title, prefill),
-		language: () => remoteLanguage(ctx) ?? "en",
+		language: () => dialogLanguage(ctx),
 	};
 }
 

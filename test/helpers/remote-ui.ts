@@ -15,7 +15,7 @@ export interface RemoteCtxResult extends FakeCtxResult {
 	posted: string[];
 	/** Files sent to the remote channel. */
 	files: Array<{ path: string; name: string }>;
-	/** Outbound events in call order: `file`, `post`, and `editor`. */
+	/** Outbound events in call order: `file`, `post`, `select`, and `editor`. */
 	events: string[];
 	/** Force the next `postFile` to succeed or fail. */
 	setFileResult(value: boolean): void;
@@ -53,6 +53,11 @@ export function remoteCtx(options: FakeCtxOptions = {}): RemoteCtxResult {
 	result.ctx.ui.editor = async (title: string, prefill?: string) => {
 		events.push("editor");
 		return editor(title, prefill);
+	};
+	const select = result.ctx.ui.select;
+	result.ctx.ui.select = async (title: string, labels: string[]) => {
+		events.push("select");
+		return select(title, labels);
 	};
 	return {
 		...result,

@@ -14,12 +14,18 @@
 
 import { basename } from "node:path";
 import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
-import { askHuman, isRemoteTurn, remoteLanguage } from "../../lib/interaction.ts";
+import { askHuman, dialogLanguage, type InteractionLanguage, isRemoteTurn } from "../../lib/interaction.ts";
 import { FULL_SCREEN_OVERLAY } from "../../lib/tui/chrome.ts";
 import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import type { SectionDigest } from "./plan-text.ts";
-import { planReviewPrompt, parsePlanReviewReply } from "./review-prompt.ts";
+import {
+	planReviewDigest,
+	planReviewOptions,
+	planReviewQuestion,
+	parsePlanReviewOption,
+	refinePrompt,
+} from "./review-prompt.ts";
 import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
 import type { PlanReviewResult, PlanReviewSession, PlanWebReview } from "./web.ts";
 
@@ -65,9 +71,6 @@ export interface ReviewPlanOptions {
 	signal?: AbortSignal;
 }
 
-/** Prompt shown by the dialog-based refine editor in non-TUI modes. */
-const REFINE_PROMPT = "Refine the plan — what should change? (Enter to save, Esc to cancel)";
-
 /**
  * How long a remote review waits for its answer. Much longer than a plain dialog's
  * bound, because the human has to read the plan first and a phone is a slow place
@@ -76,17 +79,26 @@ const REFINE_PROMPT = "Refine the plan — what should change? (Enter to save, E
 export const PLAN_REVIEW_TIMEOUT_MS = 600_000;
 
 /**
+ * Ask for the revision a review should get. An empty editor is not a request, so
+ * it answers undefined and the caller keeps planning.
+ */
+async function askRefinement(ctx: ExtensionToolContext, language: InteractionLanguage): Promise<string | undefined> {
+	const answer = (await ctx.ui.editor(refinePrompt(language), ""))?.trim();
+	return answer === undefined || answer === "" ? undefined : answer;
+}
+
+/**
  * Ask the user to review the plan file. The TUI opens the scrollable screen;
- * dialog-capable modes (RPC/WeChat) get one editor prompt. A reply that is not an
- * action is a refinement.
+ * dialog-capable modes (RPC/WeChat) get the digest and a numbered choice of its
+ * four outcomes — approve, keep planning, exit, revise — with an editor only when
+ * the human asks to revise.
  */
 async function askPlanReview(
 	ctx: ExtensionToolContext,
 	plan: StoredPlan,
 	baseline: SectionDigest[] | undefined,
 ): Promise<PlanReviewChoice> {
-	const language = remoteLanguage(ctx) ?? "en";
-	const remote = isRemoteTurn(ctx);
+	const language = dialogLanguage(ctx);
 	return askHuman<PlanReviewChoice>(ctx, {
 		custom: async () => {
 			const choice = await ctx.ui.custom<PlanReviewChoice | undefined>(
@@ -105,15 +117,21 @@ async function askPlanReview(
 			return choice ?? { action: "keep" };
 		},
 		dialogs: async () => {
-			// A dismissed or expired prompt answers with nothing; `parsePlanReviewReply` reads
-			// that as keep planning, so a silent human never leaves plan mode by inaction.
-			const answer = await ctx.ui.editor(planReviewPrompt(plan.content, language, remote), "");
-			return parsePlanReviewReply(answer ?? "");
+			// A dismissed or expired question keeps planning, so a silent human never
+			// leaves plan mode by inaction.
+			const answer = await ctx.ui.select(planReviewQuestion(language), planReviewOptions(language));
+			const outcome = answer === undefined ? undefined : parsePlanReviewOption(answer);
+			if (outcome === undefined || outcome === "keep") return { action: "keep" };
+			if (outcome !== "revise") return { action: outcome };
+			const refinement = await askRefinement(ctx, language);
+			return refinement === undefined ? { action: "keep" } : { action: "refine", refinement };
 		},
 		// The full plan is the artifact under review, so it goes out before the
-		// choices; if the upload fails, the same text is the fallback.
+		// choices, and the digest after it says what is being decided even when the
+		// attachment is never opened.
 		file: { path: plan.path, name: basename(plan.relativePath) },
 		body: plan.content,
+		note: planReviewDigest(plan.content, language, isRemoteTurn(ctx)),
 		timeoutMs: PLAN_REVIEW_TIMEOUT_MS,
 	});
 }
@@ -184,7 +202,7 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 		if (choice.action === "keep") return { action: "keep", plan };
 		if (choice.action === "cancel") return { action: "cancel", plan };
 		if (choice.action === "refine") {
-			const refinement = choice.refinement ?? (await ctx.ui.editor(REFINE_PROMPT, ""))?.trim();
+			const refinement = choice.refinement ?? (await askRefinement(ctx, dialogLanguage(ctx)));
 			// An empty or cancelled editor returns to the review screen instead of
 			// being reported as "not approved".
 			if (!refinement) continue;

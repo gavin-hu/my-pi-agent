@@ -1,53 +1,58 @@
 /**
- * Pure rendering and parsing for the compact remote plan review.
+ * Pure rendering and parsing for the plan review's dialog presentation: the digest
+ * a remote turn posts before the question, and the four options it asks.
  *
- * The prompt and its reply share one action table, so changing a number or a
- * localized label cannot leave the parser behind. File delivery and the review
- * lifecycle stay in `review.ts`.
+ * The options and their parser read one table, so a number, a label, and the
+ * outcome cannot drift apart. File delivery and the review lifecycle stay in
+ * `review.ts`.
  */
 
 import type { InteractionLanguage } from "../../lib/interaction.ts";
 import { extractPlanSteps } from "./steps.ts";
 
-/** The actions the compact prompt can resolve without a refinement. */
-export type PlanReviewAction = "approve" | "keep" | "cancel";
+/** The four outcomes a review offers, in the order the options are numbered. */
+export type PlanReviewOption = "approve" | "keep" | "cancel" | "revise";
 
-/** One editor reply: an action, or free text the model should apply. */
-export type PlanReviewReply =
-	| { action: "approve" }
-	| { action: "keep" }
-	| { action: "cancel" }
-	| { action: "refine"; refinement: string };
-
-interface ReviewAction {
-	key: string;
-	action: PlanReviewAction;
+/** One option: what the human reads, in both languages, and what it decides. */
+interface ReviewOption {
+	outcome: PlanReviewOption;
 	zh: string;
 	en: string;
-	words: readonly string[];
 }
 
-/** The action line and the parser read this one table, in display order. */
-const REVIEW_ACTIONS: readonly ReviewAction[] = [
-	{ key: "1", action: "approve", zh: "批准", en: "approve", words: ["approve", "批准", "同意"] },
-	{
-		key: "2",
-		action: "keep",
-		zh: "继续规划",
-		en: "keep planning",
-		words: ["keep", "keep planning", "继续", "继续规划"],
-	},
-	{ key: "3", action: "cancel", zh: "退出", en: "exit", words: ["exit", "cancel", "quit", "退出", "取消"] },
+const REVIEW_OPTIONS: readonly ReviewOption[] = [
+	{ outcome: "approve", zh: "批准", en: "Approve" },
+	{ outcome: "keep", zh: "继续规划", en: "Keep planning" },
+	{ outcome: "cancel", zh: "退出", en: "Exit plan mode" },
+	{ outcome: "revise", zh: "修改意见", en: "Revise" },
 ];
 
-/** How much of one step the remote digest shows. */
+/** How much of one step the digest shows. */
 const DIGEST_STEP_CHARS = 90;
 
+/** The labels a review asks with, in the chat's language and in offer order. */
+export function planReviewOptions(language: InteractionLanguage): string[] {
+	return REVIEW_OPTIONS.map((option) => option[language]);
+}
+
+/** The question above the options; the options themselves say what each one does. */
+export function planReviewQuestion(language: InteractionLanguage): string {
+	return language === "zh" ? "审阅计划：" : "Review the plan:";
+}
+
+/** The editor that follows a "revise" answer. */
+export function refinePrompt(language: InteractionLanguage): string {
+	return language === "zh"
+		? "计划要改什么？把修改意见作为一条消息发回；回复「取消」保持计划。"
+		: "What should the plan change? Send the feedback as one message; reply cancel to keep planning.";
+}
+
 /**
- * One compact remote prompt: title, first steps, mode status, and the action
- * line. The plan file is sent before it; a non-action reply refines the plan.
+ * One compact digest: title, first steps, mode status, and whether the file went
+ * out. The plan file is sent before it, so a reader who never opens the
+ * attachment still knows what is being asked.
  */
-export function planReviewPrompt(content: string, language: InteractionLanguage, attached: boolean): string {
+export function planReviewDigest(content: string, language: InteractionLanguage, attached: boolean): string {
 	const title = /^#\s+(.+)$/m.exec(content)?.[1]?.trim();
 	const steps = extractPlanSteps(content);
 	const count = steps.length;
@@ -68,30 +73,21 @@ export function planReviewPrompt(content: string, language: InteractionLanguage,
 			: "";
 	const status = language === "zh" ? "Plan 模式开启，写入已关闭。" : "Plan mode is on — write access is off.";
 	const attachment = attached ? (language === "zh" ? "计划已在上方。" : "The plan is above.") : "";
-	const choices = REVIEW_ACTIONS.map((action) => `${action.key} ${action[language]}`).join(
-		language === "zh" ? "，" : ", ",
-	);
-	const actions =
-		language === "zh"
-			? `回复 ${choices}；或直接输入修改意见（想做别的先退出或批准）。`
-			: `Reply ${choices} — or type feedback to revise. To ask something else, exit or approve first.`;
-	return [head, ...preview, more, status, attachment, actions].filter((line) => line !== "").join("\n");
+	return [head, ...preview, more, status, attachment].filter((line) => line !== "").join("\n");
 }
 
 /**
- * Parse the one editor reply. Only an exact number or action word is an action;
- * any other non-empty text is a refinement request.
- *
- * An empty reply — Esc, an empty Enter, or the prompt expiring unanswered — is
- * `keep`, not `cancel`: a silent prompt is not a decision, and nothing here may
- * end plan mode and hand write access back without one. Leaving takes an answer.
+ * Read one option back: the label in either language, or the outcome's own name,
+ * which is what a client that never saw the labels answers with. Anything else —
+ * a dismissal, a number the channel did not resolve, a stray word — is
+ * `undefined`, and the caller keeps planning rather than guessing.
  */
-export function parsePlanReviewReply(raw: string): PlanReviewReply {
-	const text = raw.trim();
-	if (text === "") return { action: "keep" };
+export function parsePlanReviewOption(answer: string): PlanReviewOption | undefined {
+	const text = answer.trim();
+	if (text === "") return undefined;
 	const key = text.toLowerCase();
-	for (const action of REVIEW_ACTIONS) {
-		if (key === action.key || action.words.includes(key)) return { action: action.action };
-	}
-	return { action: "refine", refinement: text };
+	const match = REVIEW_OPTIONS.find(
+		(option) => option.outcome === key || option.en.toLowerCase() === key || option.zh === text,
+	);
+	return match?.outcome;
 }

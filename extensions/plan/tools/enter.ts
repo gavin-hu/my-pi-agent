@@ -6,8 +6,8 @@
  */
 
 import type { AgentToolResult, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
-import { isRemoteTurn, remoteLanguage } from "../../../lib/interaction.ts";
-import { PLAN_CONSENT, PLAN_CONSENT_SHORT, PLAN_CONSENT_SHORT_ZH, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
+import { isRemoteTurn } from "../../../lib/interaction.ts";
+import { planConsent, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
 import { failedResult } from "../../../lib/tool-result.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
@@ -37,11 +37,7 @@ export async function executeEnter(
 		);
 	}
 
-	const consent = isRemoteTurn(ctx)
-		? remoteLanguage(ctx) === "zh"
-			? PLAN_CONSENT_SHORT_ZH
-			: PLAN_CONSENT_SHORT
-		: PLAN_CONSENT;
+	const consent = planConsent(ctx);
 	const approved = await ctx.ui.confirm("Enter plan mode?", consent);
 	if (!approved) {
 		return {

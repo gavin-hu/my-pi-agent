@@ -19,8 +19,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isPursuedGoal } from "../../lib/goal-state.ts";
-import { isRemoteTurn, remoteLanguage } from "../../lib/interaction.ts";
-import { PLAN_CONSENT, PLAN_CONSENT_SHORT, PLAN_CONSENT_SHORT_ZH, requestPlanMode } from "../../lib/plan-entry.ts";
+import { planConsent, requestPlanMode } from "../../lib/plan-entry.ts";
 import { isPlanModeEnabled } from "../../lib/plan-state.ts";
 import { PLAN_TOOL } from "../../lib/tool-names.ts";
 import type { Goal, GoalStatus } from "./types.ts";
@@ -46,12 +45,7 @@ export async function goalPhase(
 	if (!options.ask || !ctx.hasUI) return "active";
 	// Do not ask about a phase this session cannot enter.
 	if (!pi.getAllTools().some((tool) => tool.name === PLAN_TOOL)) return "active";
-	const consent = isRemoteTurn(ctx)
-		? remoteLanguage(ctx) === "zh"
-			? PLAN_CONSENT_SHORT_ZH
-			: PLAN_CONSENT_SHORT
-		: PLAN_CONSENT;
-	const approved = await ctx.ui.confirm(PLAN_ASK, consent);
+	const approved = await ctx.ui.confirm(PLAN_ASK, planConsent(ctx));
 	if (!approved) return "active";
 	return (await requestPlanMode(pi, ctx)) ? "planning" : "active";
 }

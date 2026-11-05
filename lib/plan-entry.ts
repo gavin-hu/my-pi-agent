@@ -17,6 +17,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type BusAnswer, requestOverBus } from "./bus-request.ts";
+import { dialogLanguage, isRemoteTurn, type UIContextCarrier } from "./interaction.ts";
 import { isPlanModeEnabled } from "./plan-state.ts";
 import { PLAN_TOOL } from "./tool-names.ts";
 
@@ -45,6 +46,17 @@ export const PLAN_CONSENT =
 export const PLAN_CONSENT_SHORT =
 	"Enter read-only plan mode? Writes and mutating tools are disabled until you approve a plan.";
 export const PLAN_CONSENT_SHORT_ZH = "进入只读 plan 模式？批准计划前会禁用写入和修改。";
+
+/**
+ * The consent sentence to ask with: the full one at the terminal, the short one in
+ * the chat's language for a turn answered on a phone, where the read-only summary
+ * would fill a bubble on its own. Both askers read it here, so `plan` and `goal`
+ * ask the same question one way.
+ */
+export function planConsent(ctx: UIContextCarrier): string {
+	if (!isRemoteTurn(ctx)) return PLAN_CONSENT;
+	return dialogLanguage(ctx) === "zh" ? PLAN_CONSENT_SHORT_ZH : PLAN_CONSENT_SHORT;
+}
 
 /**
  * The refusal a command shows when plan mode forbids what it does.

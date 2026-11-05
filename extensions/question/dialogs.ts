@@ -6,16 +6,19 @@
  * fake and reusable by any host.
  */
 
+import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import type { InteractionLanguage } from "../../lib/interaction.ts";
 import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult } from "./answers.ts";
 import type { Answer, AskResult, Question, Selection } from "./types.ts";
 
-export interface QuestionUI {
-	select(title: string, options: string[], opts?: { signal?: AbortSignal }): Promise<string | undefined>;
-	input(title: string, placeholder?: string, opts?: { signal?: AbortSignal }): Promise<string | undefined>;
-	editor(title: string, prefill?: string): Promise<string | undefined>;
+/**
+ * The dialogs a host must forward, in Pi's own shapes: a host that can answer
+ * `select`/`input`/`editor` can run this fallback.
+ */
+export type QuestionUI = Pick<ExtensionUIContext, "select" | "input" | "editor"> & {
 	/** Prompt language, when the host knows it. */
-	language?(): "zh" | "en";
-}
+	language?(): InteractionLanguage;
+};
 
 const MULTI_INSTRUCTIONS = "Enter one or more option numbers or labels, separated by commas.";
 
