@@ -38,7 +38,7 @@ import { createTurnRunner, type TurnState, type TurnRunner } from "./conversatio
 import { sendOwnerMessage, type OwnerMessage, type SendResult } from "./owner-send.ts";
 import type { ChatTurn } from "./host/chat.ts";
 import { emptyState, ownerTarget } from "./state/state.ts";
-import { SLASH_COMMANDS, type SlashCommand } from "./commands/slash.ts";
+import { SLASH_COMMANDS, type SlashCommand, type StopOutcome } from "./commands/slash.ts";
 import type { BotCredentials, WechatState } from "./types.ts";
 import type { WechatConfig } from "./config.ts";
 
@@ -126,7 +126,7 @@ export interface Bridge {
 	close(): Promise<void>;
 	shutdown(): Promise<void>;
 	/** Stop the chat's running turn; false when nothing is running. */
-	stop(): boolean;
+	stop(): StopOutcome;
 	/** What the conversation is doing, for `/status`. */
 	turnState(): TurnState;
 	status(): BridgeStatus;
@@ -383,18 +383,19 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	/**
-	 * Stop one peer's turn, and take the dialog that turn was waiting on with it.
+	 * Stop the conversation's running turn, and take the queue behind it with it.
 	 *
 	 * A prompt belongs to the turn that asked it, so a stopped turn cannot leave it
-	 * behind: `/status` would keep advertising a question nobody can answer, and the
-	 * peer's next message would be consumed as its reply instead of starting a turn.
-	 * The drop is silent because the stopped turn says so itself.
+	 * behind: `/status` would keep advertising a question nobody can answer. The drop
+	 * is silent here because the caller words it, and the count is its to report.
 	 */
-	function stopTurn(): boolean {
+	function stopTurn(): StopOutcome {
 		const running = worker?.running();
 		const stopped = worker?.abort() ?? false;
+		// A stop is the chat's whole brake: the burst behind the bad answer goes too.
+		const dropped = worker?.drain() ?? 0;
 		if (stopped && running) channel?.reset();
-		return stopped;
+		return { stopped, dropped };
 	}
 
 	function releaseSafe(): void {
@@ -544,7 +545,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			await this.close();
 		},
 
-		stop(): boolean {
+		stop(): StopOutcome {
 			return stopTurn();
 		},
 

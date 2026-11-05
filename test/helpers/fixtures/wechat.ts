@@ -226,7 +226,10 @@ export function commandHarness(
 		open?: () => void;
 		status?: BridgeStatus;
 		bridge?: boolean;
+		/** Whether the turn stop found something to stop; defaults to yes. */
 		stop?: boolean;
+		/** How many queued messages that stop takes with it. */
+		dropped?: number;
 		start?: StartOutcome;
 		startError?: string;
 		account?: BotCredentials;
@@ -248,7 +251,7 @@ export function commandHarness(
 		status: () => status,
 		stop: () => {
 			stops.push("stop");
-			return options.stop ?? true;
+			return { stopped: options.stop ?? true, dropped: options.dropped ?? 0 };
 		},
 	} as unknown as Bridge;
 	const exists = options.bridge ?? true;

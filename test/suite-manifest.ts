@@ -205,6 +205,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"conversation/turn",
 		"conversation/presence",
 		"conversation/reply-pipeline",
+		"stop-queue",
 		"state/binding",
 		"state/credentials",
 		"state/lock",

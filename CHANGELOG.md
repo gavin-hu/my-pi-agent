@@ -27,6 +27,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `wechat`: `/stop` is the chat's whole brake. It stops the running turn and drops the messages
+  still queued behind it, because those turns would otherwise start the moment the stop settled and
+  the queue is the one thing a phone cannot see to empty; the burst it took is reported as
+  `已丢弃排队的 N 条消息。` / “Dropped N queued message(s).” after the turn's own
+  `已停止。` / “Stopped.”, and `/help` names the drop on `/stop`'s line, so the contract is readable
+  before it is relied on. The control screen's `s` key goes through the same outcome, so the
+  terminal says what went with the stop as well. A message that arrives after the command,
+  in the same poll batch, still runs: the batch is handled in order.
+
 - `wechat`: `/status` names plan mode. The reply ends with `计划模式已开启，暂时不能写入。` / “Plan mode is on
   — writes are disabled.” while the session is planning, read off the branch's own flag through the
   bridge, so a phone can tell a read-only session from one that will act on its next instruction —
