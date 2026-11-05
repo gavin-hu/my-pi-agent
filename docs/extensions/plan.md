@@ -42,7 +42,7 @@ executes.
 | Block-level change marks | the `/plan review` page's **Changed** view | After a refinement, each block that is new or edited is marked — an inserted step marks itself and leaves the rest of its section alone — and a section that lost blocks says how much shorter it became. **All** / **Changed** / **Comments** switch what the page shows, `v` cycles them, `n`/`N` walk the blocks that carry a comment, and a printed review is always the whole plan. | Unreleased |
 | Settled comments | the page's `Resolve` / `Reopen` on a note you wrote | The note keeps its place, its quote and its history and is written `> [!REVIEW resolved]`, where a later review and the model read it as closed; the panel counts `2 open · 1 resolved`, and every card names who wrote it. | Unreleased |
 | Section navigation | the review screen, `n`/`p` | The screen names the section you are in and jumps between headings. | Shipped |
-| Remote review | `plan` action `exit` on a WeChat turn | The plan file is sent, then one compact prompt to approve, keep planning, or exit. | Shipped |
+| Remote review | `plan` action `exit` on a WeChat turn | The plan file is sent, then a digest, then one numbered question of four choices — approve, keep planning, exit, revise — and an editor only when the human picks revise. | Shipped |
 
 ### Collaboration
 
@@ -177,7 +177,7 @@ cap is refused before the review screen. The user approves, keeps planning, asks
 for a refinement, or exits plan mode without approving; the last keeps the plan
 file for a later review and records no todo items or goal. The same decision goes by
 three names, because each surface names its own control: `x exit plan` on the review
-screen's footer, `3 exit` in the remote prompt, and **Back to Pi** on the review page.
+screen's footer, **Exit plan mode** in the dialog, and **Back to Pi** on the review page.
 None of them approves anything.
 
 On approval, plan mode ends, write access returns, and the plan's steps go into
@@ -836,12 +836,12 @@ both.
 - The todo item for a step is matched by its text. An item renamed after
   approval no longer matches, so `steps` leaves it alone and says so in
   its result; the plan file is still updated.
-- A remote review prompt expires after ten minutes (`PLAN_REVIEW_TIMEOUT_MS`), on
+- A remote review question expires after ten minutes (`PLAN_REVIEW_TIMEOUT_MS`), on
   the assumption that the human has to read the plan first. An expiry is read as
-  `2` keep planning, so the plan stays under review and write access stays off. On
+  keep planning, so the plan stays under review and write access stays off. On
   WeChat the peer is nudged once at five minutes and then told `That question timed
   out.`, which says nothing about the plan's state: whoever meant to answer has to
-  ask again or reply `2`/approve to a fresh review.
+  ask again or answer a fresh review.
 - Browser review needs a local browser: the server is loopback-only, so a remote
   turn cannot drive it.
 - A browser that never connects leaves the review waiting until the user
@@ -904,8 +904,8 @@ both.
   cannot drift. A request that nobody answers resolves `false` rather than
   hanging, so `goal` loaded alone still works.
 - **One review loop owns the human gate.** `review.ts` asks however the session
-  is attached — TUI screen, dialog plus editor, remote file plus digest, or
-  browser — and returns one `ReviewDecision`, so `exit` and
+  is attached — TUI screen, a dialog of four outcomes plus the editor a revision
+  needs, or the browser — and returns one `ReviewDecision`, so `exit` and
   `/plan review` no longer carry two copies of the browser lifecycle and the
   tool's own `for(;;)` with a `continue` per outcome. The loop also owns the
   baseline rule (mark what the screen showed, after it showed it) and forwards
@@ -921,7 +921,8 @@ both.
 - **Review the file, decide in a screen.** The plan is a file, so it is the
   artifact already on screen. `ctx.ui.confirm()` is a non-scrollable selector
   that pushes buttons off-screen for a long plan, so the TUI gets a scrollable
-  review screen and dialog-capable modes get a `select` plus editor. The screen
+  review screen and dialog-capable modes get a `select` of its four outcomes plus
+  an editor, opened only when the human answers "revise". The screen
   renders the body with Pi's `Markdown` component so the plan reads like any
   other markdown in the app; the plan text is sanitized before it reaches the
   renderer, so only the theme's own ANSI survives.
@@ -1047,7 +1048,7 @@ both.
 | `tools.ts` | The one registration: the flat action schema, the dispatch over the five actions, and the call and result blocks they draw. |
 | `tools/` | One module per action (`enter.ts`, `write.ts`, `exit.ts`, `cancel.ts`, `steps.ts`), each exporting its `execute`/`call`/`text` seam; plus `refusal.ts` (the one rejected-call shape), `todo-seed.ts` (the two nested `todo` writes) and `nested.ts` (reading a nested result). |
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. It also owns the contract — `ReviewDecision`, `ReviewBaselines`, `ReviewPlanOptions` — which `review-lazy.ts` imports as types. |
-| `review-prompt.ts` | Pure rendering and parsing for the compact remote review: one action table behind both the prompt and the reply parser. |
+| `review-prompt.ts` | Pure rendering and parsing for the review's dialog presentation: the digest posted before the question, the four option labels in one table with their parser, and the editor a revision is asked with. |
 | `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, `/plan list`, `/plan share [stop]`, and `/plan cancel`. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep). |
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (store size and oldest plan, title, step progress, age, focused path; Enter reviews). |
@@ -1110,8 +1111,8 @@ Thirty co-located suites, declared in `test/suite-manifest.ts`:
 - `tool-registration.test.ts` — the registration itself: the flat action schema,
   the strictest-of-five annotations, and the refusal each action gives when it
   needs a field or runs outside its mode.
-- `review-prompt.test.ts` — the compact remote prompt and its reply parser
-  against one action table.
+- `review-prompt.test.ts` — the review's digest, its four option labels and their
+  parser against one table, and the editor prompt a revision is asked with.
 - `web-*.test.ts` — the browser review, one capability per suite: the comment
   codec and the router (`web-router`), the page roles and its shell (`web-page`),
   the client script's rules (`web-client`, `web-outline`, `web-composer`,

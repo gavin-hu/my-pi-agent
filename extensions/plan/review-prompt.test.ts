@@ -1,80 +1,87 @@
 import { describe, expect, test } from "bun:test";
-import { parsePlanReviewReply, planReviewPrompt } from "./review-prompt.ts";
+import {
+	parsePlanReviewOption,
+	planReviewDigest,
+	planReviewOptions,
+	planReviewQuestion,
+	refinePrompt,
+} from "./review-prompt.ts";
 
 const PLAN = ["# Test plan", "", "1. One", "2. Two", "3. Three", "4. Four"].join("\n");
 
-describe("planReviewPrompt", () => {
-	test("renders the English action line from the shared table", () => {
-		const prompt = planReviewPrompt(PLAN, "en", true);
-		expect(prompt).toContain("Plan: Test plan (4 steps)");
-		expect(prompt).toContain("1. One");
-		expect(prompt).toContain("2. Two");
-		expect(prompt).toContain("3. Three");
-		expect(prompt).toContain("… (1 more)");
-		expect(prompt).toContain("Plan mode is on — write access is off.");
-		expect(prompt).toContain("The plan is above.");
-		expect(prompt).toContain(
-			"Reply 1 approve, 2 keep planning, 3 exit — or type feedback to revise. To ask something else, exit or approve first.",
-		);
+describe("planReviewDigest", () => {
+	test("renders the English digest from the plan's title and first steps", () => {
+		const digest = planReviewDigest(PLAN, "en", true);
+		expect(digest).toContain("Plan: Test plan (4 steps)");
+		expect(digest).toContain("1. One");
+		expect(digest).toContain("2. Two");
+		expect(digest).toContain("3. Three");
+		expect(digest).toContain("… (1 more)");
+		expect(digest).toContain("Plan mode is on — write access is off.");
+		expect(digest).toContain("The plan is above.");
+		// The options carry the choices, so the digest never names them.
+		expect(digest).not.toContain("Reply 1");
 	});
 
-	test("renders the Chinese action line from the same table", () => {
-		const prompt = planReviewPrompt(PLAN, "zh", true);
-		expect(prompt).toContain("计划：Test plan（4 步）");
-		expect(prompt).toContain("… 还有 1 步");
-		expect(prompt).toContain("Plan 模式开启，写入已关闭。");
-		expect(prompt).toContain("计划已在上方。");
-		expect(prompt).toContain("回复 1 批准，2 继续规划，3 退出；或直接输入修改意见（想做别的先退出或批准）。");
+	test("renders the Chinese digest", () => {
+		const digest = planReviewDigest(PLAN, "zh", true);
+		expect(digest).toContain("计划：Test plan（4 步）");
+		expect(digest).toContain("… 还有 1 步");
+		expect(digest).toContain("Plan 模式开启，写入已关闭。");
+		expect(digest).toContain("计划已在上方。");
 	});
 
 	test("drops the attachment line when no file was sent", () => {
-		const prompt = planReviewPrompt(PLAN, "en", false);
-		expect(prompt).not.toContain("The plan is above.");
-		expect(prompt).toContain("Reply 1 approve, 2 keep planning, 3 exit");
+		const digest = planReviewDigest(PLAN, "en", false);
+		expect(digest).not.toContain("The plan is above.");
+		expect(digest).toContain("Plan mode is on");
 	});
 });
 
-describe("parsePlanReviewReply", () => {
-	const actions = [
-		["1", { action: "approve" }],
-		["approve", { action: "approve" }],
-		["批准", { action: "approve" }],
-		["同意", { action: "approve" }],
-		["2", { action: "keep" }],
-		["keep", { action: "keep" }],
-		["keep planning", { action: "keep" }],
-		["继续", { action: "keep" }],
-		["3", { action: "cancel" }],
-		["exit", { action: "cancel" }],
-		["cancel", { action: "cancel" }],
-		["退出", { action: "cancel" }],
+describe("the review's four options", () => {
+	test("offers approve, keep planning, exit, and revise in that order", () => {
+		expect(planReviewOptions("en")).toEqual(["Approve", "Keep planning", "Exit plan mode", "Revise"]);
+		expect(planReviewOptions("zh")).toEqual(["批准", "继续规划", "退出", "修改意见"]);
+	});
+
+	test("asks one question above them, and one editor for a revision", () => {
+		expect(planReviewQuestion("en")).toBe("Review the plan:");
+		expect(planReviewQuestion("zh")).toBe("审阅计划：");
+		expect(refinePrompt("en")).toContain("cancel");
+		expect(refinePrompt("zh")).toContain("取消");
+	});
+});
+
+describe("parsePlanReviewOption", () => {
+	const answers = [
+		["Approve", "approve"],
+		["approve", "approve"],
+		["批准", "approve"],
+		["Keep planning", "keep"],
+		["keep", "keep"],
+		["继续规划", "keep"],
+		["Exit plan mode", "cancel"],
+		["cancel", "cancel"],
+		["退出", "cancel"],
+		["Revise", "revise"],
+		["revise", "revise"],
+		["修改意见", "revise"],
 	] as const;
 
-	for (const [input, expected] of actions) {
-		test(`maps ${JSON.stringify(input)} to ${expected.action}`, () => {
-			expect(parsePlanReviewReply(`  ${input}  `)).toEqual(expected);
+	for (const [input, expected] of answers) {
+		test(`maps ${JSON.stringify(input)} to ${expected}`, () => {
+			expect(parsePlanReviewOption(`  ${input}  `)).toBe(expected);
 		});
 	}
 
-	test("treats any other non-empty text as a refinement", () => {
-		expect(parsePlanReviewReply("1. make step 2 smaller")).toEqual({
-			action: "refine",
-			refinement: "1. make step 2 smaller",
-		});
-		expect(parsePlanReviewReply("make it shorter")).toEqual({
-			action: "refine",
-			refinement: "make it shorter",
-		});
-	});
-
-	test("keeps planning when the reply is empty, so silence cannot leave plan mode", () => {
-		// Esc, an empty Enter, and the ten-minute expiry all arrive here as nothing. Each one
-		// used to end plan mode with write access restored and no approval, which is the one
-		// outcome a silent prompt must never produce.
-		expect(parsePlanReviewReply("")).toEqual({ action: "keep" });
-		expect(parsePlanReviewReply("   ")).toEqual({ action: "keep" });
-		// Leaving still takes an answer.
-		expect(parsePlanReviewReply("3")).toEqual({ action: "cancel" });
-		expect(parsePlanReviewReply("exit")).toEqual({ action: "cancel" });
+	test("answers undefined for anything it does not know, so the caller keeps planning", () => {
+		// Silence is Esc, an empty Enter, and the ten-minute expiry: each one used to end
+		// plan mode with write access restored and no approval, which is the one outcome
+		// a silent prompt must never produce.
+		expect(parsePlanReviewOption("")).toBeUndefined();
+		expect(parsePlanReviewOption("   ")).toBeUndefined();
+		// Free text is not an instruction here: the revision has its own option, so a
+		// mistyped word is re-asked instead of reaching the model as feedback.
+		expect(parsePlanReviewOption("make it shorter")).toBeUndefined();
 	});
 });

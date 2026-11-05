@@ -44,6 +44,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   map becomes one `owner` record, so an upgraded install keeps its cursor and seen ids but re-records
   the reply token on the next inbound message.
 
+- `plan`: a review outside the TUI screen is a numbered question of four outcomes — approve, keep
+  planning, exit, revise — asked after the plan file and a digest of its title, first steps, and mode
+  status, with the editor opened only when the human picks revise. A reply the options do not name is
+  re-asked instead of being handed to the model as a refinement, and the editor's prompt follows the
+  chat's language rather than being English-only.
+
 
 - `wechat`: the bridge is bound to one Pi session and started and stopped by hand — `/wechat start`
   writes a `wechat` branch entry and opens the poller; `/wechat stop` closes it, releases the poller
