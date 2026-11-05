@@ -15,11 +15,12 @@ import { lastGoal } from "../../../lib/goal-state.ts";
 import { GOAL_TOOL } from "../../../lib/tool-names.ts";
 import { failedResult } from "../../../lib/tool-result.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { checkbox } from "../../../lib/tui/rows.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, moreHint, type ToolCallText } from "../../../lib/tui/tool.ts";
 import { feedbackSummary } from "../feedback.ts";
 import { mergeSummary, overCap, preview, TICK_CALL, verificationNote } from "../format.ts";
-import { sanitizePlanText } from "../plan-text.ts";
+import { sanitizePlanText, taskMarker } from "../plan-text.ts";
 import { planTitle, type StoredPlan } from "../plans.ts";
 import { reviewPlan } from "../review-lazy.ts";
 import { PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
@@ -285,8 +286,28 @@ export function textExit(details: ExitPlanModeDetails, expanded: boolean, theme:
 	if (planText) {
 		const { body, more } = expanded ? { body: planText, more: 0 } : preview(planText);
 		// A blank line separates the header block from the plan body.
-		out += `\n\n${paint(theme, "toolOutput", body)}`;
+		out += `\n\n${planBody(theme, body)}`;
 		if (more > 0) out += `\n${moreHint(theme, more)}`;
 	}
 	return out;
+}
+
+/**
+ * The plan body as this block shows it: the plan's own text, with its task items
+ * drawn through the review screen's `◼`/`◻` boxes.
+ *
+ * Line by line because the box carries its own role: one `paint` over the whole body
+ * would end at the box's reset and leave the rest of that line plain.
+ */
+function planBody(theme: Theme, body: string): string {
+	return body
+		.split("\n")
+		.map((line) => {
+			const marker = taskMarker(line);
+			if (marker === null) return paint(theme, "toolOutput", line);
+			const pre = paint(theme, "toolOutput", marker.pre);
+			const post = paint(theme, "toolOutput", marker.post);
+			return `${pre}${checkbox(theme, marker.checked)}${post}`;
+		})
+		.join("\n");
 }

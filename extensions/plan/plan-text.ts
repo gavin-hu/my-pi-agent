@@ -11,6 +11,11 @@
  * The baseline is one digest per heading section rather than the previous plan
  * text, so it can live in a session entry without copying the plan file into the
  * branch on every review.
+ *
+ * One rule here is about drawing rather than comparing: `taskMarker` splits a task
+ * item's line, because the two surfaces that show a plan draw it without sharing a
+ * renderer — the review screen through a Markdown theme, the transcript's preview as
+ * plain text.
  */
 
 import { createHash } from "node:crypto";
@@ -233,4 +238,40 @@ export function changedSections(baseline: readonly SectionDigest[] | undefined, 
 		const prior = before.get(keys[at] ?? "");
 		return { section, changed: prior === undefined || prior !== digestOf(section.text) };
 	});
+}
+
+/** A list item whose marker is a task checkbox: the bullet or number, the box, and the rest. */
+const TASK_MARKER = /^(\s*(?:[-*+]|\d+[.)])\s+)(\[([ xX])\])(\s*)(.*)$/;
+
+/** Columns the one-column box frees from the three-column `[ ]`, kept as padding. */
+const BOX_PADDING = "  ";
+
+/** A task item's line, split into the parts a renderer draws differently. */
+export interface TaskMarker {
+	/** Indent, bullet, and the gap that follows it: `- `, `  1. `. */
+	pre: string;
+	/** Whether the plan ticks this item. */
+	checked: boolean;
+	/** The gap after the box, the item, and the padding the narrower box frees. */
+	post: string;
+}
+
+/**
+ * The parts of a task item's line, or `null` when the line is not one.
+ *
+ * Two renderers read a plan's task items and only one of them goes through a Markdown
+ * theme — the review screen's `listBullet`, and the transcript's approved-plan preview
+ * as plain text — so the rule that turns `[x]` into the shared box lives here rather
+ * than in the theme. The box is one column where the bracket was three, and the two
+ * freed columns are kept as padding: pi-tui derives a wrapped item's indent from the
+ * marker's width, and the preview keeps the item's text in the file's column.
+ */
+export function taskMarker(line: string): TaskMarker | null {
+	const match = TASK_MARKER.exec(line);
+	if (match === null) return null;
+	const pre = match[1] ?? "";
+	const checked = (match[3] ?? "").toLowerCase() === "x";
+	const trail = match[4] ?? "";
+	const rest = match[5] ?? "";
+	return { pre, checked, post: `${BOX_PADDING}${trail}${rest}` };
 }

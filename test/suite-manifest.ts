@@ -129,6 +129,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"runtime",
 		"tui",
 		"tui-footer",
+		"tui-change-marks",
 		"sections",
 		"extension",
 		"subagent-background",

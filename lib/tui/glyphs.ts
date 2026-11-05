@@ -37,6 +37,7 @@ export const GLYPHS = {
 	gaugeEmpty: "▱",
 	turnRule: "╌",
 	divider: "╎",
+	changed: "·",
 	check: "✓",
 	warn: "!",
 	cross: "✕",
