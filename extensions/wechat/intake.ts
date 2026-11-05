@@ -21,7 +21,7 @@ import { sanitizeLine } from "../../lib/format.ts";
 import { ownerRecord, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
 import { codePointSlice, parseInbound, peerKey, peerLabel, peerLanguage, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
-import { findSlashCommand, parseSlash, slashControls, type SlashCommand, type SlashContext } from "./commands/slash.ts";
+import { resolveSlash, slashControls, type SlashCommand, type SlashContext } from "./commands/slash.ts";
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
 import type { MessageTarget } from "./transport/deliver.ts";
 import type { WechatConfig } from "./config.ts";
@@ -132,6 +132,15 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 				state: () => worker?.state() ?? { status: "idle", queued: 0 },
 				prompt: () => channel()?.pendingInfo()?.title,
 				stop: () => deps.stopTurn(),
+				// The channel is the one that withdraws, because a withdrawal is a turn's
+				// bubble and not a bridge notice: it flushes the answer so far, then settles
+				// the dialog cancelled under the turn that asked it.
+				cancel: () => {
+					const pending = channel();
+					if (pending?.hasPending() !== true) return false;
+					void pending.cancel();
+					return true;
+				},
 				history: (_peer, count) => deps.readHistory(count),
 			}),
 		};
@@ -194,13 +203,12 @@ export function createIntake(deps: IntakeDeps): { handleMessage: (message: Weixi
 
 		const target = { peer, contextToken: message.context_token ?? ownerRecord(state)?.lastContextToken };
 		// A command is not an answer: while a dialog waits the model is blocked on it,
-		// so /stop and /status must reach their handlers or the peer's only way out is
-		// the prompt timing out. A message with media is never a command, and an
+		// so /stop, /cancel and /status must reach their handlers or the peer's only way
+		// out is the prompt timing out. A message with media is never a command, and an
 		// unknown command falls through to the model as ordinary text.
-		const slash = media.length === 0 ? parseSlash(text) : undefined;
-		const command = slash ? findSlashCommand(deps.slashCommands, slash.name) : undefined;
-		if (command && slash) {
-			void runSlashAction(command, target, slash.args);
+		const command = media.length === 0 ? resolveSlash(deps.slashCommands, text) : undefined;
+		if (command) {
+			void runSlashAction(command.command, target, command.args);
 			commit();
 			return;
 		}

@@ -25,6 +25,12 @@ export interface SlashPeerState {
 export interface SlashSessionControls {
 	/** Stop the sender's running turn; false when nothing was running. */
 	stop: () => boolean;
+	/**
+	 * Withdraw the dialog waiting on the sender; false when none was waiting. Optional
+	 * because a context that binds no channel has nothing to withdraw, as `history` is
+	 * for a context that reads no entries.
+	 */
+	cancel?: () => boolean;
 	/** What the sender's conversation is doing. */
 	status: () => SlashPeerState;
 	/** The last `count` messages of the sender's own conversation. */
@@ -39,6 +45,8 @@ export interface SlashControlsDeps {
 	prompt: (peer: string) => string | undefined;
 	/** Stop the peer's running turn; false when nothing was running. */
 	stop: (peer: string) => boolean;
+	/** Withdraw the dialog waiting on the peer; false when none was waiting. */
+	cancel: (peer: string) => boolean;
 	/** The last `count` messages of the peer's own conversation. */
 	history: (peer: string, count: number) => Promise<string>;
 }
@@ -53,6 +61,7 @@ export interface SlashControlsDeps {
 export function slashControls(peer: string, deps: SlashControlsDeps): SlashSessionControls {
 	return {
 		stop: () => deps.stop(peer),
+		cancel: () => deps.cancel(peer),
 		status: () => {
 			const waiting = deps.prompt(peer);
 			const state = deps.state(peer);
@@ -82,6 +91,12 @@ export interface SlashContext {
 export interface SlashCommand {
 	/** Name without the leading slash; matched case-insensitively. */
 	name: string;
+	/**
+	 * Whole-line spellings beside {@link name}, without the slash: the chat accepts the
+	 * terminal's `/wechat cancel`, because that is what a session with no screen is
+	 * told to type, and it is not an answer to the dialog it was typed to dismiss.
+	 */
+	aliases?: readonly string[];
 	/** One-line description. */
 	summary: string;
 	/** Chinese one-line description; falls back to {@link summary}. */
@@ -111,6 +126,37 @@ export function findSlashCommand(commands: readonly SlashCommand[], name: string
 	return commands.find((command) => command.name.toLowerCase() === lower);
 }
 
+/** A typed line resolved to the command it names, and the words it carried. */
+export interface ResolvedSlash {
+	command: SlashCommand;
+	args: string;
+}
+
+/**
+ * The command an inbound line names, and its arguments.
+ *
+ * A command answers to its own name and to any longer spelling it declares, matched
+ * as the line's first words so that trailing text stays the command's argument. The
+ * chat parses its own commands, so a form another surface documents reaches the same
+ * command here instead of being read as an answer to a waiting prompt.
+ */
+export function resolveSlash(commands: readonly SlashCommand[], text: string): ResolvedSlash | undefined {
+	const parsed = parseSlash(text);
+	if (!parsed) return undefined;
+	const named = findSlashCommand(commands, parsed.name);
+	if (named) return { command: named, args: parsed.args };
+	const typed = parsed.args === "" ? parsed.name : `${parsed.name} ${parsed.args}`;
+	const lower = typed.toLowerCase();
+	for (const command of commands) {
+		for (const alias of command.aliases ?? []) {
+			const spelling = alias.toLowerCase();
+			if (lower === spelling) return { command, args: "" };
+			if (lower.startsWith(`${spelling} `)) return { command, args: typed.slice(spelling.length + 1) };
+		}
+	}
+	return undefined;
+}
+
 /**
  * Pick the string for a peer's language, Chinese first when it writes Chinese.
  */
@@ -119,7 +165,7 @@ function localized(lang: PeerLanguage, zh: string, en: string): string {
 }
 
 /**
- * The built-in commands: `/new`, `/stop`, `/status`, `/history`, and `/help`.
+ * The built-in commands: `/new`, `/stop`, `/cancel`, `/status`, `/history`, and `/help`.
  */
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
 	{
@@ -141,6 +187,18 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 			// when there was nothing to stop.
 			if (ctx.session.stop()) return;
 			await ctx.reply(localized(ctx.language, "现在没有在处理的回答。", "Nothing is running right now."));
+		},
+	},
+	{
+		name: "cancel",
+		summary: "Withdraw the question waiting for your reply",
+		summaryZh: "撤回正在等你的问题",
+		aliases: ["wechat cancel"],
+		run: async (ctx) => {
+			// A withdrawal says so itself (`That question was withdrawn.`), so a cancel that
+			// found a question adds no second bubble — the rule /stop follows for `Stopped.`
+			if (ctx.session.cancel?.() === true) return;
+			await ctx.reply(localized(ctx.language, "现在没有等你回答的问题。", "No question is waiting for your reply."));
 		},
 	},
 	{
