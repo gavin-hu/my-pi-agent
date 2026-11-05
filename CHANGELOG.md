@@ -27,6 +27,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `wechat`: `/status` names plan mode. The reply ends with `计划模式已开启，暂时不能写入。` / “Plan mode is on
+  — writes are disabled.” while the session is planning, read off the branch's own flag through the
+  bridge, so a phone can tell a read-only session from one that will act on its next instruction —
+  the terminal's `≡ plan` chip is not something the chat can see. Nothing else is added: no notify
+  reaches the chat, and a waiting question is still named alone, since a plan review's digest
+  already carried the mode.
+
 - `plan`: leaving plan mode without approving reports once. The `cancel` action and `x` on the review
   screen answer in their transcript block alone, where each also raised a toast naming the same mode
   change; `/plan` and `Shift+Tab` keep their notice, because they draw no block to carry it.

@@ -19,6 +19,11 @@ export interface SlashPeerState {
 	runningMs?: number;
 	/** The title of a dialog waiting on the sender, when one is. */
 	prompt?: string;
+	/**
+	 * Whether plan mode is on for this session, when the caller reads the flag. The
+	 * mode is the session's, not the conversation's, and there is one conversation.
+	 */
+	planMode?: boolean;
 }
 
 /** The session controls an action may invoke; every one acts on the sender. */
@@ -49,6 +54,8 @@ export interface SlashControlsDeps {
 	cancel: (peer: string) => boolean;
 	/** The last `count` messages of the peer's own conversation. */
 	history: (peer: string, count: number) => Promise<string>;
+	/** Whether plan mode is on, from the session branch's flag. */
+	planMode: () => boolean;
 }
 
 /**
@@ -64,7 +71,7 @@ export function slashControls(peer: string, deps: SlashControlsDeps): SlashSessi
 		cancel: () => deps.cancel(peer),
 		status: () => {
 			const waiting = deps.prompt(peer);
-			const state = deps.state(peer);
+			const state = { ...deps.state(peer), planMode: deps.planMode() };
 			return waiting === undefined ? state : { ...state, prompt: waiting };
 		},
 		history: (count) => deps.history(peer, count),
@@ -170,6 +177,15 @@ function localized(lang: PeerLanguage, zh: string, en: string): string {
 }
 
 /**
+ * `text` with `clause` after it as its own sentence, or `text` alone when there is none:
+ * a Chinese full stop separates the two already, an English one needs a space.
+ */
+function withClause(text: string, clause: string, lang: PeerLanguage): string {
+	if (!clause) return text;
+	return lang === "zh" ? `${text}${clause}` : `${text} ${clause}`;
+}
+
+/**
  * The built-in commands: `/new`, `/stop`, `/cancel`, `/status`, `/history`, and `/help`.
  */
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
@@ -212,6 +228,13 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 		summaryZh: "查看当前处理状态",
 		run: async (ctx) => {
 			const state = ctx.session.status();
+			// Plan mode is otherwise the terminal's chip, which the chat cannot read, and it
+			// decides whether the peer's next instruction can be acted on at all: named while
+			// it is on, so the absence of the clause is the mode being off.
+			const plan =
+				state.planMode === true
+					? localized(ctx.language, "计划模式已开启，暂时不能写入。", "Plan mode is on — writes are disabled.")
+					: "";
 			// A waiting dialog is the whole status while it waits: the turn is blocked on
 			// it, so "working, 12s" would hide the one thing the peer can act on.
 			if (state.prompt !== undefined) {
@@ -226,13 +249,17 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 			}
 			if (state.status !== "running") {
 				await ctx.reply(
-					state.queued > 0
-						? localized(
-								ctx.language,
-								`排队中，还有 ${state.queued} 条。`,
-								`Queued — ${state.queued} message(s) waiting.`,
-							)
-						: localized(ctx.language, "空闲。", "Idle."),
+					withClause(
+						state.queued > 0
+							? localized(
+									ctx.language,
+									`排队中，还有 ${state.queued} 条。`,
+									`Queued — ${state.queued} message(s) waiting.`,
+								)
+							: localized(ctx.language, "空闲。", "Idle."),
+						plan,
+						ctx.language,
+					),
 				);
 				return;
 			}
@@ -240,7 +267,11 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 			const queued =
 				state.queued > 0 ? localized(ctx.language, `，后面还有 ${state.queued} 条`, `, ${state.queued} queued`) : "";
 			await ctx.reply(
-				localized(ctx.language, `正在处理，已用 ${seconds} 秒${queued}。`, `Working — ${seconds}s so far${queued}.`),
+				withClause(
+					localized(ctx.language, `正在处理，已用 ${seconds} 秒${queued}。`, `Working — ${seconds}s so far${queued}.`),
+					plan,
+					ctx.language,
+				),
 			);
 		},
 	},

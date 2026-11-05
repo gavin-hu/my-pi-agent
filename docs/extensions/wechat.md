@@ -215,7 +215,7 @@ becomes a turn, so a command never reaches the model unless it is unknown.
 | `/new` | Declined: the chat is this session, so replacing it would close the bridge. Run `/wechat new` in the terminal. |
 | `/stop` | Stop the running turn; the turn itself answers `已停止。` / `Stopped.`. |
 | `/cancel` | Withdraw the question waiting for your reply, without stopping the turn; the question itself answers `问题已撤回。` / `That question was withdrawn.`. |
-| `/status` | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth, or `Idle.`. A question waiting on you is named instead of the turn, by its first line. |
+| `/status` | `正在处理，已用 N 秒` / `Working — Ns so far`, with the queue depth, or `Idle.`, and `计划模式已开启，暂时不能写入。` / `Plan mode is on — writes are disabled.` while the session is planning. A question waiting on you is named instead of the turn, by its first line. |
 | `/history [n]` | The last `n` messages of this conversation (default 8, max 20), one line each. |
 | `/help` | Reply with the available commands, with the arguments each one takes. |
 
@@ -307,6 +307,7 @@ needs. Per action:
 | Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
 | Is asked a question | One prompt at a time: a reply answers the question the turn is blocked on. A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at the halfway point of its window and then cancelled: three minutes for a dialog, ten for a plan review, where the plan has to be read first. |
 | Types `/help`, `/stop`, `/cancel`, or `/status` | The command list, a stopped answer, a withdrawn question, or the current state — including the dialog a blocked turn is waiting on. `/new` is declined: the chat is this session. A command works while a dialog waits: it is never read as an answer to it. |
+| Types `/status` while the session is planning | The status line ends `计划模式已开启，暂时不能写入。` / “Plan mode is on — writes are disabled.”, so the mode the terminal shows as a chip is readable from the chat too. A question waiting on you is named alone: its own digest already carried the mode. |
 | Types `/history` | The last eight messages of this session (or the requested number, up to 20), one line each. |
 | Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
 | Sends the same message twice (a server replay) | Answered once: the WeChat message id is remembered for an hour, across a reconnect or reload. |
@@ -372,8 +373,8 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
   dialog cannot freeze the session. A dialog uses three minutes; the plan review
   uses ten, with the reminder at five. A timed-out plan review is read as a keep
   too: plan mode stays on, write access stays off, and the plan file remains. The
-  notice names only the timeout — nothing on the phone reports the mode, so it is
-  read off the next review's digest or the terminal.
+  notice names only the timeout, and `/status` (or the next review's digest) is
+  where the mode is read.
 - A prompt that goes away before it is answered says so: the chat's `/cancel`,
   the control screen's `c`, or `/wechat cancel` where there is no screen, withdraws
   it with `问题已撤回。` / “That question was withdrawn.”, a `/stop` ends its turn

@@ -57,6 +57,8 @@ export interface BridgeDeps {
 	mediaDir: () => string;
 	/** Read this conversation's recent messages for `/history`; read-only. The language is the peer's, for the line labels. */
 	readHistory: (count: number, lang?: PeerLanguage) => Promise<string>;
+	/** Whether plan mode is on, for `/status`: the session branch's flag. */
+	planMode: () => boolean;
 	/** Built-in inbound slash commands. Defaults to {@link SLASH_COMMANDS}. */
 	slashCommands?: readonly SlashCommand[];
 	loadAccount: () => BotCredentials | undefined;
@@ -312,6 +314,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		languageOf,
 		reply: (target, text) => reply(target, text),
 		readHistory: deps.readHistory,
+		planMode: deps.planMode,
 		refused,
 		refusedPeers,
 		overflow,
