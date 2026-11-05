@@ -124,7 +124,7 @@ describe("chat /cancel", () => {
 			activeTurn: waiting !== undefined,
 			language: options.language ?? "en",
 			session: {
-				stop: () => false,
+				stop: () => ({ stopped: false, dropped: 0 }),
 				status: () => ({ status: "running", queued: 0, prompt: waiting }) as SlashPeerState,
 				cancel: () => {
 					cancels += 1;

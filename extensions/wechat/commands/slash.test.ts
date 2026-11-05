@@ -21,6 +21,7 @@ import {
 	SLASH_COMMANDS,
 	type SlashContext,
 	type SlashPeerState,
+	type StopOutcome,
 } from "./slash.ts";
 
 describe("slash parsing", () => {
@@ -53,6 +54,7 @@ describe("built-in /stop, /status, and /history", () => {
 		overrides: Partial<SlashContext> = {},
 		state: SlashPeerState = { status: "idle", queued: 0 },
 		history: (count: number) => Promise<string> = async () => "",
+		outcome: StopOutcome = { stopped: state.status === "running", dropped: 0 },
 	) {
 		const replies: string[] = [];
 		let stopped = 0;
@@ -67,7 +69,7 @@ describe("built-in /stop, /status, and /history", () => {
 			session: {
 				stop: () => {
 					stopped += 1;
-					return stopped === 1 && state.status === "running";
+					return outcome;
 				},
 				status: () => state,
 				history,
@@ -84,6 +86,27 @@ describe("built-in /stop, /status, and /history", () => {
 		expect(stopped()).toBe(1);
 		// The stopped turn answers with its own `Stopped.`, so no second bubble.
 		expect(replies).toEqual([]);
+	});
+
+	test("/stop says how many queued messages went with the turn", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "stop");
+		const { ctx, replies } = context({}, { status: "running", queued: 2 }, async () => "", {
+			stopped: true,
+			dropped: 2,
+		});
+		await command?.run?.(ctx);
+		// `Stopped.` is the turn's line; this one is the queue the stop took with it.
+		expect(replies).toEqual(["Dropped 2 queued message(s)."]);
+	});
+
+	test("/stop says how many dropped even when nothing was running", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "stop");
+		const { ctx, replies } = context({}, { status: "queued", queued: 3 }, async () => "", {
+			stopped: false,
+			dropped: 3,
+		});
+		await command?.run?.(ctx);
+		expect(replies).toEqual(["Dropped 3 queued message(s)."]);
 	});
 
 	test("/stop says so when nothing is running", async () => {
@@ -200,7 +223,7 @@ describe("built-in /new", () => {
 			activeTurn: false,
 			language: "en",
 			session: {
-				stop: () => false,
+				stop: () => ({ stopped: false, dropped: 0 }),
 				status: () => ({ status: "idle", queued: 0 }),
 			},
 		};
@@ -233,7 +256,7 @@ describe("built-in /help", () => {
 			},
 			activeTurn: false,
 			language: "en",
-			session: { stop: () => false, status: () => ({ status: "idle", queued: 0 }) },
+			session: { stop: () => ({ stopped: false, dropped: 0 }), status: () => ({ status: "idle", queued: 0 }) },
 		};
 	}
 
@@ -243,6 +266,8 @@ describe("built-in /help", () => {
 		await command?.run?.(context(replies));
 		expect(replies[0]).toContain("/new");
 		expect(replies[0]).toMatch(/\/history \[n\] — .*[\s\S]*\/help — /);
+		// The stop's own line names the queue, so the brake is not a surprise on the phone.
+		expect(replies[0]).toContain("/stop — Stop the running answer and drop the queued messages");
 		// Admission is the owner's, so there is no second, per-command gate to announce.
 		expect(replies[0]).not.toContain("owner only");
 	});

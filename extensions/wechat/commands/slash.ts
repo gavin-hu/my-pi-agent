@@ -26,10 +26,19 @@ export interface SlashPeerState {
 	planMode?: boolean;
 }
 
+/** What a stop found: whether a turn was running, and how many queued messages went with it. */
+export interface StopOutcome {
+	stopped: boolean;
+	dropped: number;
+}
+
 /** The session controls an action may invoke; every one acts on the sender. */
 export interface SlashSessionControls {
-	/** Stop the sender's running turn; false when nothing was running. */
-	stop: () => boolean;
+	/**
+	 * Stop the sender's running turn and drop the queue behind it; nothing running and
+	 * nothing queued reads as a false `stopped` and a zero `dropped`.
+	 */
+	stop: () => StopOutcome;
 	/**
 	 * Withdraw the dialog waiting on the sender; false when none was waiting. Optional
 	 * because a context that binds no channel has nothing to withdraw, as `history` is
@@ -48,8 +57,8 @@ export interface SlashControlsDeps {
 	state: (peer: string) => SlashPeerState;
 	/** The title of a dialog waiting on that peer, if one waits. */
 	prompt: (peer: string) => string | undefined;
-	/** Stop the peer's running turn; false when nothing was running. */
-	stop: (peer: string) => boolean;
+	/** Stop the peer's running turn and the queue behind it. */
+	stop: (peer: string) => StopOutcome;
 	/** Withdraw the dialog waiting on the peer; false when none was waiting. */
 	cancel: (peer: string) => boolean;
 	/** The last `count` messages of the peer's own conversation. */
@@ -201,12 +210,19 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 	},
 	{
 		name: "stop",
-		summary: "Stop the running answer",
-		summaryZh: "停止当前回答",
+		summary: "Stop the running answer and drop the queued messages",
+		summaryZh: "停止当前回答并丢弃排队的消息",
 		run: async (ctx) => {
-			// When a turn was stopped its own `已停止。` follows, so this only speaks
-			// when there was nothing to stop.
-			if (ctx.session.stop()) return;
+			const { stopped, dropped } = ctx.session.stop();
+			// When a turn was stopped its own `已停止。` follows; the command speaks only
+			// for what that line cannot say, which is the burst it took with it.
+			if (dropped > 0) {
+				await ctx.reply(
+					localized(ctx.language, `已丢弃排队的 ${dropped} 条消息。`, `Dropped ${dropped} queued message(s).`),
+				);
+				return;
+			}
+			if (stopped) return;
 			await ctx.reply(localized(ctx.language, "现在没有在处理的回答。", "Nothing is running right now."));
 		},
 	},

@@ -161,11 +161,14 @@ interface VerbOutcome {
  * screen's keys and the `/wechat <verb>` subcommands. A peer label carries text
  * the peer chose, so it is sanitized here rather than at each call site.
  */
-/** Stop the chat's running turn; the screen's `s` key and `/wechat cancel` differ only here. */
+/** Stop the chat's running turn and the queue behind it, for the screen's `s` key. */
 function stopTurnOutcome(bridge: Bridge): VerbOutcome {
-	return bridge.stop()
-		? { message: "Stopping the running turn.", kind: "info" }
-		: { message: "Nothing is running right now.", kind: "info" };
+	const { stopped, dropped } = bridge.stop();
+	// The screen shows the queue, so the count belongs in its one line too: a stop that
+	// took the burst with it must not read as if it took the turn alone.
+	if (dropped > 0) return { message: `Dropped ${dropped} queued message(s).`, kind: "info" };
+	if (stopped) return { message: "Stopping the running turn.", kind: "info" };
+	return { message: "Nothing is running right now.", kind: "info" };
 }
 
 /**

@@ -21,7 +21,13 @@ import { sanitizeLine } from "../../lib/format.ts";
 import { ownerRecord, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
 import { codePointSlice, parseInbound, peerKey, peerLabel, peerLanguage, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
-import { resolveSlash, slashControls, type SlashCommand, type SlashContext } from "./commands/slash.ts";
+import {
+	resolveSlash,
+	slashControls,
+	type SlashCommand,
+	type SlashContext,
+	type StopOutcome,
+} from "./commands/slash.ts";
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
 import type { MessageTarget } from "./transport/deliver.ts";
 import type { WechatConfig } from "./config.ts";
@@ -90,8 +96,8 @@ export interface IntakeDeps {
 	notify: (message: string, kind?: "info" | "warning" | "error") => void;
 	/** The live worker: a connect or disconnect replaces it. */
 	worker: () => TurnRunner | undefined;
-	/** Stop the running turn, and the dialog that turn was waiting on with it. */
-	stopTurn: () => boolean;
+	/** Stop the running turn and the queue behind it, and the dialog that turn was waiting on with it. */
+	stopTurn: () => StopOutcome;
 	/** The chat's one interaction channel: a reply answers its prompt, a command names it. */
 	channel: () => WechatInteractionChannel | undefined;
 	presence: Presence;
