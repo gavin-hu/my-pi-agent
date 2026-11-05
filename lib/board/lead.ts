@@ -21,6 +21,7 @@
 
 import { normalizeLabel } from "../session-label.ts";
 import { cardRef, type Card } from "./card.ts";
+import type { Sign as SignRecord } from "./contract.ts";
 import type { Actor } from "./rules.ts";
 
 /** The lead's team name: the label a signature has to carry. */
@@ -29,8 +30,10 @@ export type Lead = string;
 /**
  * The person at the keyboard, as a write is made.
  *
- * `/board approve` and `/board review` write as this label, so a repository worked by one
- * session is not stuck behind its own holder rule, and the record says who signed.
+ * `/board approve` and `/board review` write as this actor, so a repository worked by one
+ * session is not stuck behind its own holder rule, and the card records the lead's name with
+ * the person's mark on the sign ({@link signMark}). This label is therefore what the person's
+ * own line prints, and never what a card file says.
  */
 export const PERSON_LABEL = "you";
 
@@ -45,6 +48,30 @@ export function personActor(): Actor {
 /** Whether `actor` is the person at the keyboard rather than a session. */
 export function isPerson(actor: Pick<Actor, "id">): boolean {
 	return actor.id === PERSON_ID;
+}
+
+/**
+ * What a sign records about the actor who wrote it: the name a reader acts on, and the person's mark.
+ *
+ * The person signs as the lead's name, because that is the one name a card file can give somebody
+ * who has no session — `PERSON_LABEL` is what the person's own line prints, never what a record
+ * stores. The mark is what tells the two apart afterwards.
+ */
+export function signMark(actor: Actor, lead: Lead): Pick<SignRecord, "by" | "person"> {
+	return isPerson(actor) ? { by: lead, person: true } : { by: actor.label };
+}
+
+/**
+ * Whether `sign` is this actor's own.
+ *
+ * The name *and* the mark: a session that signs under the lead's label is somebody else, so a
+ * comparison on the label alone would read its sign back as the person's — and a repeated sign
+ * would re-stamp instead of being the signature already there.
+ */
+export function signedAs(sign: SignRecord | undefined, actor: Actor, lead: Lead): boolean {
+	if (sign === undefined) return false;
+	const mark = signMark(actor, lead);
+	return sign.by === mark.by && sign.person === mark.person;
 }
 
 /**
@@ -168,10 +195,12 @@ export function missingSign(card: Card, lead: Lead, sign: Sign): string {
  *
  * The gate is the lead's and the card is worked by its owner, so the one session that can act on
  * the sign is the one told. Without it the owner learns by polling a board it has no reason to
- * read twice, and the lead learns which card is ready the same way.
+ * read twice, and the lead learns which card is ready the same way. `by` is the name the sign
+ * recorded rather than the actor's label, because the owner is being told who signed and the
+ * person's label is only ever what their own line prints.
  */
-export function signedText(card: Card, sign: Sign, by: Actor): string {
-	return SIGN_WORDS[sign].signed(card, by.label);
+export function signedText(card: Card, sign: Sign, by: string): string {
+	return SIGN_WORDS[sign].signed(card, by);
 }
 
 /**

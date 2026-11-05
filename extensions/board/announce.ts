@@ -14,7 +14,6 @@
 import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
 import { type Sign, notToldLine, signedText } from "../../lib/board/lead.ts";
-import type { Actor } from "../../lib/board/rules.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { type SendResult, send } from "../../lib/session-tool.ts";
 
@@ -37,11 +36,13 @@ export const notifyOverBus: Notify = send;
  *
  * A thrown send is caught here for the same reason a refused one is reported: the sign is
  * recorded either way, so the sentence says who did not hear it rather than undoing the write.
+ * `by` is the name the sign recorded rather than the actor's label: the owner is being told who
+ * signed, and the person's label is a pronoun only their own line prints.
  */
 export async function announce(
 	card: Card,
 	sign: Sign,
-	by: Actor,
+	by: string,
 	ctx: ExtensionToolContext,
 	notify: Notify,
 ): Promise<string | undefined> {
