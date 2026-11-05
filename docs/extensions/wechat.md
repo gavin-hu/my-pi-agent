@@ -605,6 +605,12 @@ screen still owns input focus. An unknown subcommand reports the valid verbs
 instead of silently falling back to status, which is what the old start/stop
 guidance used to do.
 
+The same claim drawn to be read at half width:
+
+<img src="../../assets/cards/wechat.png" alt="Two windows on one Pi session. Left, the terminal: a prompt runs as a turn in the same session, and a dialog raised there is asked there, because a terminal turn carries no chat marker. Middle, the session itself, in its own lane: one transcript holding your prompt, the chat's turn and the tool output; one model, one toolset, one mode; one queue with one turn at a time, so a message that arrives mid-run waits its turn; and a dialog always asked in the window its turn came from. Right, the phone: an inbound message crosses a dashed line marked admit and becomes that turn, and the answer leaves as streamed parts — one part per paragraph, after two silent seconds, or at 400 characters. Each lane's floor adds what the drawing cannot show: the terminal is the same session with the tool output, the files and the workspace; the session is the whole answer, with no child session and no per-sender queue; and a reply is parts of the one run, the message arriving after a long-poll hold of about eighteen seconds, a replayed message id answered once. The foot states the two consequences: the phone's turn is in your terminal's transcript, and only a dialog follows the window it was asked in" width="100%">
+
+*`wechat`: one session, two windows — the terminal's prompt and the phone's message are turns in the same transcript, and a dialog follows the window its turn came from (`capture:cards wechat`).*
+
 ## Files
 
 | File | Responsibility |

@@ -35,7 +35,7 @@ rule that a value is a path.
 | `bun run capture:board [--out <dir>]` | Render the board page and capture both tabs as full-page PNGs with Playwright driving the local Chrome. It starts the shipped board server over a fixture store in a temporary directory, so the image never names a real checkout; `--out`, `--width`, `--scale`, `--theme light\|dark`, `--wait`, and `--dialog card` (the card dialog — card 1, the fixture's fullest record — instead of the two tabs) tune the shot. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run capture:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with Playwright driving the local Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run capture:plan` <plan.md> | Render one plan through the browser review page and capture it as a full-page PNG with Playwright driving the local Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot, and `--as owner\|reviewer` picks the owner's page or the one a shared link opens. `--post <name>` posts one comment as that reviewer before the capture, so the frame shows the name bound to her link, and `--draft <text>` starts the tab with one unsaved comment, the state a reload restores; `--share` opens the owner's Share dialog with two links instead of the plan, so the per-person list is what the frame shows. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run capture:cards [flow\|graphic\|board\|team\|parallel]` | Capture the posting cards at 1200×675, 2× by default: the plan pair — `assets/cards/plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic-led — and the board three — `board.html`, the five lanes, one card's atoms and the lead's round, `board-team.html`, the three `team` verbs, and `board-parallel.html`, three cards planned side by side and then executed side by side, each row crossing the `approve` and `review` lines. Naming cards captures only those, and `-o` names the output for a single card; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run capture:cards [flow\|graphic\|board\|team\|parallel\|wechat]` | Capture the posting cards at 1200×675, 2× by default: the plan pair — `assets/cards/plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic-led — the board three — `board.html`, the five lanes, one card's atoms and the lead's round, `board-team.html`, the three `team` verbs, and `board-parallel.html`, three cards planned side by side and then executed side by side, each row crossing the `approve` and `review` lines — and `wechat.html`, one Pi session drawn between its two windows, the terminal and the phone. Naming cards captures only those, and `-o` names the output for a single card; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run capture:video` | Regenerate `assets/video/demo.mp4`, the `pi.video` gallery preview: six frames this repository already ships, cross-faded with one caption each, drawn on a canvas and encoded to H.264 by the local Chrome (`MediaRecorder`), so no video encoder is installed for it. `-o`, `--width`, `--height`, `--fps`, and `--bps` tune the shot; the storyboard is `MONTAGE` in `scripts/shots/video.ts`. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run capture:tools` | Regenerate the tool call/result gallery (`assets/screens/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. It is `bun run render:tools gallery assets/screens/tool-renderings.png`. |
 | `bun run capture:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
@@ -47,7 +47,7 @@ rule that a value is a path.
 
 `assets/` holds four directories, one per thing that writes them: `screens/`
 every captured frame — the terminal surfaces, the browser pages, and the tool
-gallery — `cards/` the five posting posters with their stylesheet, `tools/` the
+gallery — `cards/` the six posting posters with their stylesheet, `tools/` the
 one-PNG-per-tool files, and `video/` the montage `capture:video` encodes from six
 of those frames. A file belongs where its writer puts it, which is also the
 command in the table above that regenerates it.
@@ -109,15 +109,17 @@ has to be an absolute `raw.githubusercontent.com` URL.
 Not every headless capture is a screenshot of the product. The pages under
 `assets/cards/` are bilingual posters for posting a capability to a timeline: the
 plan pair — `plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic-led —
-and the board three — `board.html`, the five lanes, one card's atoms and the lead's round,
+the board three — `board.html`, the five lanes, one card's atoms and the lead's round,
 `board-team.html`, `assign`, `offer`, and `reclaim` as three bands, and
 `board-parallel.html`, three cards planned side by side and then executed side by side,
-every row crossing the `approve` and `review` lines. Every card is captured at 1200×675
+every row crossing the `approve` and `review` lines — and `wechat.html`, one session
+between its two windows, the terminal and the phone on either side of it and only a
+dialog following the window it was asked in. Every card is captured at 1200×675
 by `capture:cards`, and they share `assets/cards/cards.css`,
 whose shell — palette, `.card`, `.title`, the `.strip` row, `.foot` — is what
-keeps the set from drifting apart; the board three add their own atoms under a banner of
-their own. A card whose content outgrows its box fails the capture rather than being
-clipped.
+keeps the set from drifting apart; the board three and the wechat card add their own
+atoms under a banner of their own. A card whose content outgrows its box fails the
+capture rather than being clipped.
 
 The screenshot grid in the root `README.md` is a curated set rather than the
 full list; each screen is shown on its extension's page under

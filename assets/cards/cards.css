@@ -1,8 +1,9 @@
 /**
  * The shell every posting card shares: the plan pair — `plan-flow.html`, prose-led,
- * and `plan-flow-graphic.html`, graphic-led — and the board three — `board.html`,
- * `board-team.html`, and `board-parallel.html`. Every card is captured at 1200×675
- * by `capture:cards`.
+ * and `plan-flow-graphic.html`, graphic-led — the board three — `board.html`,
+ * `board-team.html`, and `board-parallel.html` — and `wechat.html`, the one session
+ * drawn with both of its windows. Every card is captured at 1200×675 by
+ * `capture:cards`.
  *
  * The palette is `themes/bytefly-dark.json` — the one the terminal theme, the
  * README hero, and the browser pages all draw from — copied here because a page
@@ -303,6 +304,12 @@ body {
 	height: 380px;
 }
 
+/* The wechat card pays the same two-line head and a one-line lede, so its drawing
+ * stands 36px shorter again: three lanes, one row of nodes, and two floor notes. */
+.diagram--wechat {
+	height: 344px;
+}
+
 .diagram text {
 	font-family: var(--font-sans);
 }
@@ -326,6 +333,13 @@ body {
 	stroke: rgba(var(--warn-rgb), 0.36);
 }
 
+/* The wechat card's middle lane is neither window but the session both windows write
+ * to, so it takes the second accent rather than the terminal's and the phone's. */
+.lane--session {
+	fill: rgba(var(--accent-alt-rgb), 0.055);
+	stroke: rgba(var(--accent-alt-rgb), 0.34);
+}
+
 .lane-label {
 	font-family: var(--font-mono);
 	font-size: 14px;
@@ -340,6 +354,10 @@ body {
 
 .lane-label--plan {
 	fill: var(--warn);
+}
+
+.lane-label--session {
+	fill: var(--accent-alt);
 }
 
 .node {
@@ -406,6 +424,13 @@ body {
 	font-size: 14px;
 	font-weight: 500;
 	fill: var(--muted);
+}
+
+/* The wechat card's nodes are lists rather than names — a window's two lines, the
+ * session's six — so their labels start at the box's padding instead of centring on a
+ * point, which is what `node-label` does for a one-word node. */
+.node-label--start {
+	text-anchor: start;
 }
 
 .edge-label {
