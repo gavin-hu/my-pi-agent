@@ -344,21 +344,25 @@ starts, and a reply is delivered when the run settles, not token by token.
 
 A dialog raised while a WeChat turn is in flight is forwarded to the sender:
 
-- `select` — a numbered list; reply with a number or the option text. Free text
-  becomes the “Other” answer only when the list carries that entry; the hint says
-  so, so a plan review without it does not pretend free text is a choice.
+- `select` — a numbered list; reply with a number or the option text. A label that
+  is also a dismissal word picks its option, because the list is the vocabulary
+  the prompt handed the peer. Free text becomes the “Other” answer only when the
+  list carries that entry; the hint says so, so a plan review without it does not
+  pretend free text is a choice.
 - `confirm` — reply 是/否, 确定/不是, or yes/no.
 - `input` / `editor` — reply with the text.
-- Reply 取消 (or cancel, quit, exit, 退出) to dismiss. A dismissed plan review is
+- Reply 取消 (or cancel, quit, exit, 退出) to dismiss, where the waiting list does
+  not carry that word as one of its options. A dismissed plan review is
   a keep: plan mode stays on, write access stays off, and the model is told the
   plan was not approved, so it asks what to change instead of acting.
 - A plan review is a numbered question of four choices — approve, keep planning,
   exit, revise — asked after the plan file and a digest of its title, first steps,
-  and mode status. Pick exit by its number, `3`: 退出, `exit`, and “exit plan
-  mode” are dismissal words, matched before the options, so typing them keeps
-  planning. Revise is the fourth: it opens one editor for the feedback, so a
-  reply the options do not name re-asks instead of reaching the model as an
-  instruction.
+  and mode status. Pick exit by its number, `3`, or by the label the prompt showed
+  — 退出, “Exit plan mode” — because a select's own labels are matched before the
+  dismissal words; a bare `exit` or 取消 the list does not carry is still a
+  dismissal, and a dismissed review keeps planning. Revise is the fourth: it opens
+  one editor for the feedback, so a reply the options do not name re-asks instead
+  of reaching the model as an instruction.
 - Hints are rendered in the chat’s language, one language per prompt. A reply
   that cannot be read re-sends the prompt with a short “didn’t recognize that”
   notice instead of repeating it silently.
