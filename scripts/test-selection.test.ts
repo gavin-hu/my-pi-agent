@@ -2,8 +2,8 @@
  * What a scope selects, on a tree small enough to state in the test.
  *
  * The selection is pure, so most cases here are a table over a two-file fake
- * tree rather than a walk of the real 235 declared suites. Two cases each pay
- * the real walk, because "the fake tree behaves" and "the tree is still wired
+ * tree rather than a walk of the real 235 declared suites. A few cases pay the
+ * real walk, because "the fake tree behaves" and "the tree is still wired
  * to the manifest" are two different claims.
  */
 
@@ -11,7 +11,13 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { textOf } from "../test/helpers/scan.ts";
-import { ASSET_SUITES, EXTENSION_SUITES, LIB_SUITES, declaredSuiteFiles } from "../test/suite-manifest.ts";
+import {
+	ASSET_SUITES,
+	EXTENSION_SUITES,
+	LIB_SUITES,
+	SCRIPT_SUITES,
+	declaredSuiteFiles,
+} from "../test/suite-manifest.ts";
 import {
 	gatedAmong,
 	regionOf,
@@ -129,6 +135,16 @@ describe("--changed", () => {
 		expect(chosen.reasons).toContain(`region ext:board > ${extSuites("board")} suites`);
 	});
 
+	test("an unclaimed script path brings the script suites, which is what a change to frames.json needs", () => {
+		const suites = SCRIPT_SUITES.map((stem) => `scripts/${stem}.test.ts`);
+		const chosen = selectChanged(fake, ["scripts/screens/frames.json"], index);
+		expect(chosen.tests).toEqual([...suites, "test/a.test.ts", "test/b.test.ts"].sort());
+		expect(chosen.reasons).toEqual([
+			"package-level > 2 files, always",
+			`unclaimed script: scripts/screens/frames.json > ${suites.length} script suites`,
+		]);
+	});
+
 	test("a shared path widens the run to every suite", () => {
 		const chosen = selectChanged(fake, ["test/helpers/env.ts"], index);
 		expect(chosen.tests).toEqual(selectAll(fake).tests);
@@ -187,6 +203,19 @@ describe("the reach index over the real tree", () => {
 		expect(outside, "a formatter is imported by the capture tooling, and by no other extension").toEqual([]);
 		expect(chosen.tests).toContain("extensions/watch/format.test.ts");
 		expect(chosen.tests.length).toBeLessThan(declaredSuiteFiles().length / 5);
+	});
+});
+
+describe("an unclaimed script path over the real tree", () => {
+	test("brings the script suites, and a top-level script still brings only its own", () => {
+		const index = reachIndex(repo);
+		const record = selectChanged(tree(repo), ["scripts/screens/frames.json"], index);
+		expect(record.tests).toContain("scripts/screenshots.test.ts");
+		expect(record.reasons).toContain(
+			`unclaimed script: scripts/screens/frames.json > ${SCRIPT_SUITES.length} script suites`,
+		);
+		const script = selectChanged(tree(repo), ["scripts/cards.ts"], index);
+		expect(script.tests.filter((file) => file.startsWith("scripts/"))).toEqual(["scripts/cards.test.ts"]);
 	});
 });
 
