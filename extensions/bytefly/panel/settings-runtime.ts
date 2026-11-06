@@ -122,14 +122,19 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 	 */
 	const write = async (scope: WriteScope, row: SettingDescriptor, raw: string): Promise<void> => {
 		if (row.source === "app") {
-			// Pi records a failed write instead of rejecting, and drops any write to a file
-			// it could not read, so both are checked rather than awaited.
-			const unreadable = deps.stores.global.loadErrors()[0];
+			// The store is re-read first: Pi takes a write in memory and then drops it on
+			// the way to a file it cannot parse, and it records a failed write instead of
+			// rejecting, so both are checked rather than awaited. Re-reading afterwards
+			// undoes a setter that ran before the queued write failed.
+			const unreadable = (await deps.stores.global.reload())[0];
 			if (unreadable) throw unreadable.error;
 			applyAppSetting(deps.stores.global, row, raw);
 			await deps.stores.global.flush();
 			const first = deps.stores.global.drainErrors()[0];
-			if (first) throw first.error;
+			if (first) {
+				await deps.stores.global.reload();
+				throw first.error;
+			}
 			return;
 		}
 		const config = row.config;

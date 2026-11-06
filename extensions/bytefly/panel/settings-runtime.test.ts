@@ -124,6 +124,23 @@ describe("settings runtime", () => {
 		expect(runtimeValue(runtime, "global", "byteflyUi")).toBe("false");
 	});
 
+	test("does not show a theme the file never took after a failed write", async () => {
+		const { runtime, globalStore, notices } = bootRuntime({ themes: ["system", "dark", "light"] });
+		globalStore.recordError(new Error("EACCES: permission denied"), "/agent/settings.json");
+
+		await runtime.change("global", "theme");
+		expect(notices.at(-1)).toContain("Could not save Theme");
+		// The failed write is undone at the store, not at the next app write: a
+		// `bytefly.json` row re-reads the snapshot without going through the store, so it
+		// would otherwise paint the theme the personal file never took.
+		expect(globalStore.global().theme).toBeUndefined();
+
+		expect(await runtime.setValue("global", "price.budget", "2.50")).toBe(true);
+
+		expect(globalStore.calls.setTheme).toEqual(["dark"]);
+		expect(runtimeValue(runtime, "global", "theme")).toBe("system");
+	});
+
 	test("refuses an app row while the personal file cannot be read", async () => {
 		const { runtime, globalStore, notices } = bootRuntime({
 			appLoadErrors: ["Unexpected token '}'"],

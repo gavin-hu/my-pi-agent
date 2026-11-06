@@ -263,3 +263,45 @@ describe("runtime after a write that did not land", () => {
 		expect(projectStore.project().extensions).toEqual([]);
 	});
 });
+
+describe("runtime once the settings file stops being readable", () => {
+	/**
+	 * The store is re-read before the setter runs, so a file that broke while the
+	 * screen was open is refused rather than written into memory and dropped.
+	 */
+	test("refuses the write and leaves the document as it was", async () => {
+		const globalStore = makeStore({ packages: ["npm:pkg"] });
+		const projectStore = makeStore({ global: globalStore.global() });
+		const { discovery } = makeDiscovery({
+			extensions: [packageExtension("todo", true)],
+			globalStore,
+			projectStore,
+			trusted: true,
+		});
+		const errors: string[] = [];
+		const runtime = createPickerRuntime({
+			discovery,
+			cwd: "/proj",
+			agentDir: "/agent",
+			onError: (message) => errors.push(message),
+		});
+
+		runtime.setScope("project");
+		const row = runtime.items("extensions")[0];
+		projectStore.failRead("Unexpected token '}'", "/proj/.pi/settings.json");
+		await runtime.toggle("extensions", row);
+
+		expect(errors).toEqual(["/proj/.pi/settings.json: Unexpected token '}'"]);
+		expect(projectStore.calls.setProjectPackages).toEqual([]);
+		expect(projectStore.project().packages).toBeUndefined();
+		expect(row.enabled).toBe(true);
+		expect(runtime.isDirty()).toBe(false);
+
+		// Nothing was written into the store, so there is no override to clear — and the
+		// second key refuses in the document's own terms rather than at the file.
+		await runtime.clearOverride("extensions", row);
+
+		expect(errors.at(-1)).toBe("No project override for todo/index.ts.");
+		expect(projectStore.calls.setProjectPackages).toEqual([]);
+	});
+});
