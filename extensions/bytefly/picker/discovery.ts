@@ -46,7 +46,6 @@ export function createSettingsStore(manager: SettingsManager): SettingsStore {
 	return {
 		globalSettings: () => manager.getGlobalSettings(),
 		projectSettings: () => manager.getProjectSettings(),
-		packages: () => manager.getPackages(),
 		setExtensionPaths: (paths) => manager.setExtensionPaths(paths),
 		setSkillPaths: (paths) => manager.setSkillPaths(paths),
 		setPackages: (packages) => manager.setPackages(packages),

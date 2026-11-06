@@ -44,7 +44,6 @@ export interface SettingsFailure {
 export interface SettingsStore {
 	globalSettings(): Settings;
 	projectSettings(): Settings;
-	packages(): PackageSource[];
 	setExtensionPaths(paths: string[]): void;
 	setSkillPaths(paths: string[]): void;
 	setPackages(packages: PackageSource[]): void;

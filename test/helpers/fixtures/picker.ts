@@ -127,7 +127,6 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 		store: {
 			globalSettings: () => globalSettings,
 			projectSettings: () => projectSettings,
-			packages: () => mergedPackages(),
 			loadErrors: () => loadErrors.map((message) => ({ error: new Error(message) })),
 			setExtensionPaths: (paths) => {
 				calls.setExtensionPaths.push(paths);

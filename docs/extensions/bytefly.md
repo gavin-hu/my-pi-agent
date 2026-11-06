@@ -1606,7 +1606,8 @@ rather than showing a wrong value.
   toggle starting from it would copy every personal entry into a file people
   commit. A row flips only when its write landed — `flush()` never rejects, so a
   recorded error, or a file that could not be loaded, is reported and the row
-  left alone.
+  left alone. The seam carries the per-document readers only, so the merged
+  reader the bug came through cannot be reached from a write again.
 - **The merge keys on a directory name only when it is unambiguous.** A
   subfolder resource displays as `web-access/index.ts` while its doctor report
   is named `web-access`, so the join starts from `basename(dirname(path))`. A
