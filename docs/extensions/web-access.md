@@ -11,7 +11,7 @@ reads a URL as text. Both are `direct`, active on registration, and read the
 | Capability | How | What you get | Status |
 |---|---|---|---|
 | Web search | `web_search` | Titles, URLs, snippets, and a direct answer when the provider has one. | Shipped |
-| Page reading | `web_fetch` | A URL's readable text, with links kept as `[text](url)`. | Shipped |
+| Page reading | `web_fetch` | A URL's readable text, with links kept as `[text](url)`, an image as `[alt]`, and a table row as `cell \| cell`. | Shipped |
 | Structured bodies | `web_fetch` | A JSON, CSV, or XML body arrives as an aligned table or an indented tree instead of the raw blob. | Unreleased |
 | Write-style fetch | `web_fetch` (`method`, `headers`, `body`) | POST with custom headers and a bounded body, so form and GraphQL endpoints are reachable; a body implies POST. | Shipped |
 | Paged output | `web_fetch`, `startIndex`, `maxChars` | A long page arrives in budgeted slices and names the offset that continues it. | Shipped |
@@ -291,8 +291,10 @@ the content type and size.
   SearXNG or `search.apiKeyEnv` for Brave to get full web results. Result quality
   follows the engines the provider uses.
 - **Heuristic extraction**: `web_fetch` strips scripts/styles/nav/footer and
-  prefers `<main>`/`<article>`, but is not a full readability engine. PDF
-  extraction is optional (`unpdf`) and off unless installed.
+  prefers `<main>`/`<article>`, but is not a full readability engine. A table row
+  reads as `cell | cell` and an image as its `alt`, so a merged cell, a nested
+  table, and an image with no `alt` are lost. PDF extraction is optional (`unpdf`)
+  and off unless installed.
 - **A structured body is rendered by a reader, not a parser.** JSON, CSV, and XML
   are read well enough to show a shape — CSV by RFC 4180 quoting, XML by balancing
   tags — but a body it cannot parse keeps its raw form rather than a partial one,
