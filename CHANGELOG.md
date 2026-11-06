@@ -58,6 +58,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `file-read`: `read_doc` opens any supported file the process can read, not only one under the working
+  directory. A relative path still resolves against the effective working root, and an absolute path — a
+  WeChat attachment under `<agent-dir>/wechat/media/`, say — is now read instead of refused, so it no longer
+  has to be copied into the checkout first. Symlinks are still resolved before the parser sees the path, the
+  size cap and extraction deadline are unchanged, and the worktree guard still refuses a path that leaves an
+  active worktree while `guard.blockReadEscapes` is on. The OS file permissions are now the boundary, and
+  `docs/security.md` says so.
+
 - `plan`: `Ctrl+C` on the review screen interrupts the turn instead of settling the review as “keep
   planning”, which spent a model turn telling it to ask what to change. It ends the turn from wherever
   the keyboard is — the screen, the `y/N` approval question, the inline refine editor — and leaves plan

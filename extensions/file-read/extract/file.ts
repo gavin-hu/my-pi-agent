@@ -13,9 +13,9 @@
 
 import { readFile } from "node:fs/promises";
 
-/** What an extractor receives: the real, root-confined absolute path. */
+/** What an extractor receives: the real, symlink-resolved absolute path. */
 export interface ExtractInput {
-	/** Absolute, symlink-resolved path inside the effective working root. */
+	/** Absolute, symlink-resolved path. */
 	path: string;
 	/** The active turn's abort signal, checked before any work. */
 	signal?: AbortSignal;

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-/** A scratch root for file-read tests, with an escape hatch next to it. */
+/** A scratch root for file-read tests, with an `outside/` directory and a symlink into it. */
 export interface ReadFixture {
 	root: string;
 	outside: string;
@@ -17,12 +17,12 @@ export function makeReadFixture(): ReadFixture {
 	const outside = join(base, "outside");
 	mkdirSync(root, { recursive: true });
 	mkdirSync(outside, { recursive: true });
-	writeFileSync(join(outside, "secret.txt"), "outside\n");
+	writeFileSync(join(outside, "outside.pdf"), "outside\n");
 
 	try {
-		symlinkSync(join(outside, "secret.txt"), join(root, "escape.pdf"));
+		symlinkSync(join(outside, "outside.pdf"), join(root, "escape.pdf"));
 	} catch {
-		// Symlinks may be unavailable (e.g. unprivileged Windows); the escape test skips.
+		// Symlinks may be unavailable (e.g. unprivileged Windows); the symlink read case skips.
 	}
 
 	return {
