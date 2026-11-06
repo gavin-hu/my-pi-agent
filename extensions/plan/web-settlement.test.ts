@@ -36,6 +36,8 @@ describe("review settlement", () => {
 			role: () => "owner",
 			mine: () => [{ anchor: 1 }],
 			annotations: () => [{ anchor: 1 }, { anchor: 2 }],
+			// The revision this page rendered: every write posts it back.
+			rev: () => "7cfd09448eea",
 			settled: () => false,
 			setStatus: (text: string, kind?: string) => painted.push({ text, kind }),
 			buttons: () => buttons,
@@ -79,8 +81,9 @@ describe("review settlement", () => {
 			return { ok: true, status: 200, body: null };
 		};
 		await submitAnnotations(reviewer.deps, "/api/comment", "posted", "failed: ", null);
-		// The reviewer's payload is her own write, not the page's whole comment list.
-		expect(sent).toEqual({ annotations: [{ anchor: 1 }] });
+		// The reviewer's payload is her own write, not the page's whole comment list — and it
+		// names the revision her page rendered, which is what the server anchors the write to.
+		expect(sent).toEqual({ annotations: [{ anchor: 1 }], rev: "7cfd09448eea" });
 	});
 
 	test("a success clears the draft, paints the sentence, and reports it once", async () => {

@@ -24,7 +24,7 @@ const postFrom = (
 	ctx: Parameters<typeof handleReviewRequest>[0],
 	path: string,
 	peer: string,
-	body: string = JSON.stringify({ annotations: [] }),
+	body: string = JSON.stringify({ annotations: [], rev: "0123456789ab" }),
 ) => handleReviewRequest(ctx, "POST", `${path}?token=tok`, { ...HOST, "content-type": "application/json" }, body, peer);
 
 /** The body a route needs to get past its own handler: revoke names a link, the rest settle. */

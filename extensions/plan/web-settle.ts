@@ -21,6 +21,14 @@ export interface SettleDeps {
 	/** The comments this writer may write: her own when she is a reviewer, all when owner. */
 	mine(): readonly { author?: string }[];
 	annotations(): readonly { author?: string }[];
+	/**
+	 * The revision this page rendered, which every write posts back.
+	 *
+	 * The server checks it inside the store's write turn, so a save from a page whose plan
+	 * moved is refused instead of landing comments under text nobody read — and one tab's
+	 * refetch cannot repair that for another.
+	 */
+	rev(): string;
 	/** Whether the review has already ended, by any of the three routes. */
 	settled(): boolean;
 	setStatus(text: string, kind?: string): void;
@@ -75,7 +83,7 @@ export function submitAnnotations(
 ): Promise<SettleResult> {
 	const payload = deps.role() === "reviewer" ? deps.mine() : deps.annotations();
 	return deps
-		.post(url + "?token=" + encodeURIComponent(deps.token()), { annotations: payload })
+		.post(url + "?token=" + encodeURIComponent(deps.token()), { annotations: payload, rev: deps.rev() })
 		.then((result) => {
 			if (result.ok) {
 				deps.markClean();

@@ -46,6 +46,7 @@ import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isContainedPlan, isPlanFileName, plansDirFor, resolvePlanArg } from "../../lib/plans/paths.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
 import { carryFeedback, formatFeedback, normalizeAuthor, type PlanAnnotation } from "./feedback.ts";
+import { pageRevision } from "./plan-text.ts";
 import { extractSections } from "./sections.ts";
 import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } from "./steps.ts";
 
@@ -76,6 +77,25 @@ export interface StoredPlan {
 	relativePath: string;
 	content: string;
 	bytes: number;
+}
+
+/**
+ * A save refused because the plan is not the revision the page rendered, with the two
+ * revisions that differ.
+ *
+ * A class because the answer is not a server fault: the page reloads and reviews again, and
+ * the write paths turn this into `409`. It is thrown from inside the per-plan queue, where
+ * the file is read for the write that would follow — so "did the plan move" and "write it"
+ * are one turn and no tick can land between them.
+ */
+export class PlanMovedError extends Error {
+	constructor(
+		readonly expected: string,
+		readonly actual: string,
+	) {
+		super("The plan changed on disk; reload the page and review again.");
+		this.name = "PlanMovedError";
+	}
 }
 
 /** A plan written to disk, carrying the title that named it. */
@@ -127,12 +147,16 @@ export interface PlanStore {
 	index(cwd: string): Promise<PlanSummary[]>;
 	/** Set the given top-level steps' checkboxes in an existing plan. Throws when the file or any step is invalid. */
 	setSteps(cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan>;
-	/** Replace the comments of `options.author` (the owner when absent) and keep every other writer's. */
+	/**
+	 * Replace the comments of `options.author` (the owner when absent) and keep every other
+	 * writer's, writing only into the revision `options.expect` names when it is given — the
+	 * check and the write share one turn of the per-plan queue.
+	 */
 	saveFeedback(
 		cwd: string,
 		planPath: string,
 		annotations: PlanAnnotation[],
-		options?: { author?: string },
+		options?: { author?: string; expect?: string },
 	): Promise<StoredPlan>;
 	/**
 	 * The line a one-time migration wants reported, or undefined.
@@ -417,7 +441,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		cwd: string,
 		planPath: string,
 		annotations: PlanAnnotation[],
-		options: { author?: string } = {},
+		options: { author?: string; expect?: string } = {},
 	): Promise<StoredPlan> => {
 		const resolved = await queueKey(cwd, planPath);
 		// The same per-plan turn `setSteps` takes: a tick that lands between this save's read and
@@ -425,6 +449,13 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		return withFileMutationQueue(resolved, async () => {
 			const plan = await read(cwd, planPath);
 			if (!plan) throw new Error("No plan file there; pass a plan_path written by `plan` action `write`.");
+			// The anchor, taken in the same turn as the write it guards: a save names the revision
+			// its page rendered, and a file that hashes to anything else is a page that would put
+			// its comments under text nobody read.
+			const actual = pageRevision(plan.content);
+			if (options.expect !== undefined && options.expect !== actual) {
+				throw new PlanMovedError(options.expect, actual);
+			}
 			const author = normalizeAuthor(options.author);
 			// An untagged entry is the writer's own; one tagged with a different name is
 			// another writer's comment, so it is dropped rather than re-signed.

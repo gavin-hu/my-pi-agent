@@ -290,9 +290,11 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 		 * neither touches another writer's markers, and both refuse a plan that
 		 * changed since the page was rendered.
 		 */
-		const save = async (annotations: PlanAnnotation[], caller: ReviewCaller): Promise<SaveResult> => {
+		const save = async (annotations: PlanAnnotation[], caller: ReviewCaller, rev: string): Promise<SaveResult> => {
 			const { role } = caller;
-			const write = { store, cwd, path: plan.path, pageText: () => pageText };
+			// The revision the request named travels with the write, so the store checks it and
+			// writes in one turn instead of trusting a value the session kept for other pages.
+			const write = { store, cwd, path: plan.path, rev };
 			if (role === "owner") {
 				const saved = await saveOwnerAnnotations(write, annotations);
 				if (!saved.ok) return saved;

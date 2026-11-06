@@ -14,6 +14,7 @@ import {
 	ownerShares,
 	reviewerPost,
 	reviewSuite,
+	servedRev,
 } from "../../test/helpers/fixtures/plan-web.ts";
 import { MAX_SHARE_LINKS, type ShareState } from "./web-share.ts";
 const { startShared } = reviewSuite();
@@ -54,7 +55,10 @@ describe("share links", () => {
 		const posted = await fetch(postUrl, {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: postUrl.origin },
-			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "her note", author: "priya" }] }),
+			body: JSON.stringify({
+				annotations: [{ anchor: 1, comment: "her note", author: "priya" }],
+				rev: await servedRev(first.url),
+			}),
 		});
 		expect(posted.status).toBe(200);
 		expect(content()).toContain("> [!REVIEW] @priya: her note");
@@ -73,13 +77,19 @@ describe("share links", () => {
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
+		// The page's revision, read while the page still answers.
+		const staleRev = await servedRev(link.url);
 		const stopped = await review.stopSharing();
 		expect(stopped?.state.sharing).toBe(false);
 
 		const refused = await fetch(apiOf(link.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "late", author: "alice" }] }),
+			body: JSON.stringify({
+				annotations: [{ anchor: 1, comment: "late", author: "alice" }],
+				// Read before the share stopped: the page is unreachable now, and the token is what refuses it.
+				rev: staleRev,
+			}),
 		}).then(
 			(response) => `answered ${response.status}`,
 			() => "refused",
@@ -143,7 +153,10 @@ describe("share links", () => {
 		await fetch(apiOf(first.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(first.url).origin },
-			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "a", author: "alice" }] }),
+			body: JSON.stringify({
+				annotations: [{ anchor: 1, comment: "a", author: "alice" }],
+				rev: await servedRev(first.url),
+			}),
 		});
 		await review.stopSharing();
 		const second = (await review.share())?.state.links[0];
@@ -152,7 +165,10 @@ describe("share links", () => {
 		const response = await fetch(apiOf(second.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(second.url).origin },
-			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "b", author: "alice" }] }),
+			body: JSON.stringify({
+				annotations: [{ anchor: 1, comment: "b", author: "alice" }],
+				rev: await servedRev(second.url),
+			}),
 		});
 
 		expect(response.status).toBe(200);

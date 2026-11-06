@@ -14,6 +14,7 @@ import {
 	nextFrame,
 	PATH,
 	reviewSuite,
+	servedRev,
 } from "../../test/helpers/fixtures/plan-web.ts";
 const { startShared } = reviewSuite();
 
@@ -30,7 +31,10 @@ describe("review stream", () => {
 		await fetch(apiOf(link.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "hello", author: "alice" }] }),
+			body: JSON.stringify({
+				annotations: [{ anchor: 1, comment: "hello", author: "alice" }],
+				rev: await servedRev(link.url),
+			}),
 		});
 
 		expect(await frame).toBe("comment");

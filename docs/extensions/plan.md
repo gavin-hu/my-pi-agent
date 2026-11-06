@@ -405,6 +405,9 @@ below names it: it answers `GET /` and `/events`, and every `POST` is refused.
 | `GET /client.js` | the first-party client script |
 | `GET /events?token=…` | Server-Sent Events stream: a `comment`, `plan`, or `share` frame when something changed, `closed` when the review ends, `revoked` when sharing stops, and a dropped stream to detect a closed tab |
 | `POST /api/comment?token=…` | reviewer only: write their own comments into the plan, replacing only their own; never ends the review |
+
+Every `POST` that writes comments carries `{ annotations, rev }`, where `rev` is the revision
+the page rendered: the plan must still hash to it, or the write is refused `409`.
 | `POST /api/feedback?token=…` | owner only: write the owner's comments and return to the model |
 | `POST /api/approve?token=…` | owner only: save, then approve |
 | `POST /api/cancel?token=…` | owner only: end the session without saving |
@@ -776,7 +779,12 @@ file and returns them to the model.
   survives a reload, a hand-off, and a save by its own author.
 - **Anchored to source.** `blocks.ts` splits the plan (fence-aware) into
   source-line ranges; a comment is placed after the whole anchored block, so a
-  fenced code block is never split. A fence that never closes is the one exception:
+  fenced code block is never split. Every write names the revision its page
+  rendered (`rev`, the island's own digest of the stripped plan), and the store
+  compares it inside its per-plan turn: a save from a page whose plan moved is a
+  `409` with nothing written — so a second tab's refetch cannot repair that for a
+  stale one — and a body naming no revision is refused `400` rather than written
+  into whatever the file holds now. A fence that never closes is the one exception:
   it runs to the end of the file, so the note goes above the block instead, where
   it is outside the code and both a reader and the codec can see it. A save
   re-checks the file against what the page rendered and answers `409`; the page
@@ -1143,7 +1151,7 @@ every link and closes that listener; closing the review does both.
 bun test extensions/plan
 ```
 
-Forty-three co-located suites, declared in `test/suite-manifest.ts`:
+Forty-four co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, the store's directory, atomic
   writes, `read`/`index`, `setSteps`, `saveFeedback`, and step extraction;
@@ -1152,6 +1160,8 @@ Forty-three co-located suites, declared in `test/suite-manifest.ts`:
 - `feedback.test.ts` — the comment codec: authored markers, stripping and
   parsing, who a reviewer's write is signed by, carrying feedback onto a
   revision, and displaying stored comments.
+- `web-anchor.test.ts` — the anchor a save is held to: a stale page refused after another
+  tab refreshed the session, a body that names no revision, and a current revision writing.
 - `plan-store-write.test.ts` — the store's write paths: the name a new plan
   claims, refining one, and the size limit both keep, including the 413 a save
   past it reaches the page as.
