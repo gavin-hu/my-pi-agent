@@ -505,8 +505,12 @@ rooms are delivered, a question a group-chat design would have to answer first.
   the same file is sent it hands over a key that never encrypted that blob, and the last block fails to
   decrypt. The bridge resolves a repeat to the copy it saved the first time, matched by the content hash
   in the saved name; when no copy was kept — pruned past `mediaRetentionDays`, or never saved because the
-  first send failed — nothing can recover it, and the peer has to send a changed copy. Images are not
-  affected: their `aeskey` is a top-level field that dedup leaves alone.
+  first send failed — nothing can recover it, and the peer has to send a changed copy. The chat is told so
+  in its own line, `WeChat kept the first upload of 1 attachment(s), so the same file cannot be opened
+  again — send a changed copy (a zip of it works) or describe it.`, beside the ordinary
+  `Couldn't open 1 attachment(s) — please resend or describe it.` — because a resend is the one thing that
+  cannot work for a repeat. Images are not affected: their `aeskey` is a top-level field that dedup leaves
+  alone.
 - **A WeChat message runs as a turn in the terminal but the phone never sees the
   answer.** The chat *is* this session, so its turn appears in the terminal
   transcript by design; a `/wechat new`, `/reload`, or process exit during that

@@ -12,6 +12,7 @@ import type { ImageContent } from "@earendil-works/pi-ai";
 import type { FileRef, ImageRef, InboundItem, MediaRef } from "../types.ts";
 import type { WechatClient } from "./client.ts";
 import type { ChatItem } from "../conversation/turn.ts";
+import type { PeerLanguage } from "../text/format.ts";
 import { messageOf } from "../../../lib/errors.ts";
 import { formatSize } from "../../../lib/format.ts";
 import {
@@ -64,16 +65,19 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 	 * Download, decrypt, and split what the peer sent into a prompt text and image
 	 * blocks. A file is saved and referenced by path, with the size and sniffed type
 	 * its own bytes give it; an image becomes model image content. Every failure is
-	 * counted so the peer can be told.
+	 * counted so the peer can be told, and a repeat counted apart, because resending
+	 * one can never work.
 	 */
 	async function resolveMedia(item: InboundItem): Promise<{
 		images: ImageContent[];
 		files: string[];
 		dropped: number;
+		repeated: number;
 	}> {
 		const images: ImageContent[] = [];
 		const files: string[] = [];
 		let dropped = 0;
+		let repeated = 0;
 		const client = deps.client();
 		for (const ref of item.media) {
 			if (!client) break;
@@ -87,10 +91,22 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 			} catch (error) {
 				mediaDropped += 1;
 				dropped += 1;
+				if (isRepeatOfStoredCopy(ref, error)) repeated += 1;
 				deps.notify(droppedMessage(ref, error), "warning");
 			}
 		}
-		return { images, files, dropped };
+		return { images, files, dropped, repeated };
+	}
+
+	/**
+	 * What the peer is told about attachments that could not be read: the ordinary count,
+	 * and the repeats counted apart, because resending one of those can never work.
+	 */
+	function droppedNotice(language: PeerLanguage, dropped: number, repeated: number): string | undefined {
+		const lines: string[] = [];
+		if (dropped > repeated) lines.push(notice("media", language, dropped - repeated));
+		if (repeated > 0) lines.push(notice("mediaRepeat", language, repeated));
+		return lines.length > 0 ? lines.join("\n") : undefined;
 	}
 
 	/** The line a turn is handed for a file on disk: what it is, how big, and where it landed. */
@@ -144,9 +160,17 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 		};
 	}
 
+	/**
+	 * Whether this failure is a file the server stored once: the key it sent never
+	 * encrypted those bytes, so the ref is the file and no other kind of attachment.
+	 */
+	function isRepeatOfStoredCopy(ref: MediaRef, error: unknown): ref is FileRef {
+		return ref.kind === "file" && isPaddingFailure(error);
+	}
+
 	/** How a dropped attachment is named: a repeat's dead key is the server's own dedup, not a fault here. */
 	function droppedMessage(ref: MediaRef, error: unknown): string {
-		if (ref.kind === "file" && isPaddingFailure(error)) {
+		if (isRepeatOfStoredCopy(ref, error)) {
 			return `WeChat media dropped: ${ref.fileName} — the server kept an earlier copy under another key, so this repeat cannot be read.`;
 		}
 		return `WeChat media dropped: ${messageOf(error)}`;
@@ -185,13 +209,13 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 				// The bridge has already refused a message with no text and no media, so
 				// this is the other case: media arrived but nothing in it could be read.
 				if (!text && resolved.images.length === 0 && resolved.files.length === 0) {
-					if (resolved.dropped > 0) prefix = notice("media", item.language, resolved.dropped);
+					prefix = droppedNotice(item.language, resolved.dropped, resolved.repeated);
 					await deps.reply(item, prefix ?? notice("unsupported", item.language));
 					deps.pruneTyping();
 					return;
 				}
 				if (resolved.dropped > 0) {
-					prefix = notice("media", item.language, resolved.dropped);
+					prefix = droppedNotice(item.language, resolved.dropped, resolved.repeated);
 					text = [text, `[WeChat media skipped: ${resolved.dropped}]`].filter(Boolean).join("\n");
 				}
 				if (resolved.files.length > 0) text = [text, ...resolved.files].filter(Boolean).join("\n");
