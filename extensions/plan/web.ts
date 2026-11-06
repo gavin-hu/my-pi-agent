@@ -59,6 +59,12 @@ export interface PlanReviewOptions {
 	signal?: AbortSignal;
 	/** Whether the browser may approve the plan (only the `plan` tool's `exit` flow). */
 	canApprove?: boolean;
+	/**
+	 * What the page is for: a review, whose page decides something, or a view, which only
+	 * reads. A view mints a `viewer` token, so the router refuses it every write route, and
+	 * its page carries no control that would ask for one. Default `review`.
+	 */
+	mode?: "review" | "view";
 	/** The section digests the previous review showed, so this page can mark changed sections. */
 	baseline?: SectionDigest[];
 	/**
@@ -143,15 +149,19 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 		options: PlanReviewOptions = {},
 	): Promise<PlanReviewSession | undefined> => {
 		const { signal } = options;
-		const canApprove = options.canApprove === true;
+		// A view is a page that reads: it mints a `viewer` token, which every write route in the
+		// table refuses because no route's access is a viewer's, and it never approves. A
+		// review is everything it was.
+		const viewing = options.mode === "view";
+		const canApprove = !viewing && options.canApprove === true;
 		// One cap for both listeners: a reviewer's page posts the same bodies as the
 		// owner's, so the shared one cannot be the stricter or the looser of the two.
 		const bodyLimit = deps.maxBodyBytes ?? MAX_BODY_BYTES;
-		// One token per holder: the owner's is minted here and never shared, and a
-		// reviewer token is minted by `share()`. The table owns the collision rule and
-		// the name each link has bound.
+		// One token per holder: the page's own is minted here and never shared, and a reviewer
+		// token is minted by `share()`. The table owns the collision rule and the name each link
+		// has bound. A view's token is a viewer's, which is the whole of its write policy.
 		const tokens = createTokens(deps.token);
-		const token = tokens.mint("owner");
+		const token = tokens.mint(viewing ? "viewer" : "owner");
 		// The review's own path segment: short, opaque, and stable for this review's life.
 		const id = mintToken().slice(0, 8);
 		let settled = false;
@@ -161,13 +171,19 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 		});
 		// Live event streams, used only to notice a closed owner tab: a reviewer's
 		// tab is not the review's lifetime. The explicit Cancel button and the abort
-		// signal are the deterministic paths.
+		// signal are the deterministic paths. A view has no decision to make, so its
+		// abandoned tab ends the session: nothing awaits `done` there, and only `close`
+		// releases the mount — see `abandon`, set once `close` exists.
 		const streams = createStreams({
-			onAbandoned: () => finish({ status: "cancelled" }),
+			onAbandoned: () => abandon(),
+			// Whose page ends this session: a review's owner, whose leaving is a decision about the
+			// plan, or a view's reader, who is the only page a view has.
+			lifetime: viewing ? "viewer" : "owner",
 			graceMs: deps.dropGraceMs ?? DROP_GRACE_MS,
 			schedule: deps.schedule ?? defaultTimer,
 			settled: () => settled,
 		});
+		let abandon: () => void = () => {};
 
 		let stopTicker: () => void = () => {};
 		const finish = (result: PlanReviewResult): void => {
@@ -211,7 +227,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 		/**
 		 * Notice a plan file this review did not write.
 		 *
-		 * A review owns the page, not the file: `/plan review` runs in normal mode, and
+		 * A review owns the page, not the file: a browser page opens in normal mode, and
 		 * the plan is a markdown file a user or another tool can rewrite while the page
 		 * is open. The check compares the stripped text with what the page rendered and
 		 * only announces — it never writes `pageText`, which is the anchor a save is
@@ -296,7 +312,11 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 
 		// The second listener, its reviewer token, and the state the page reads. It
 		// is handed the request handler, the role map, and the frame hooks, so
-		// sharing stays one concern instead of five fields here.
+		// sharing stays one concern instead of five fields here. A view builds it too,
+		// for the one thing it needs from it — `hosts()`, which answers with the loopback
+		// names until something is shared, and a view can never share: no page of its role
+		// reaches a share route, and it never joins `shares` below, so `web.shareState()`
+		// cannot describe a view either.
 		const shareSession = createShareSession({
 			mount,
 			base,
@@ -329,9 +349,6 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 			},
 		};
 
-		// Live event streams, used only to notice a closed owner tab: a reviewer's
-		// tab is not the review's lifetime. The explicit Cancel button and the abort
-		// signal are the deterministic paths.
 		/** One request, on either listener: the loopback page or a shared one. */
 		async function handleRequest(request: LoopbackRequest): Promise<LoopbackReply> {
 			let result: ServeResponse;
@@ -397,7 +414,13 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 
 		const session: PlanReviewSession = { url, port, done, close };
 		sessions.add(session);
-		shares.set(session, shareSession);
+		// A view has no share surface, so it never joins the map the share controls read: the
+		// page that would offer them is a review's, and a view's role is refused on every route
+		// that would mint one.
+		if (!viewing) shares.set(session, shareSession);
+		// Now that `close` exists, an abandoned tab can end a view. A review keeps the old
+		// path: its abandonment is a decision, and the caller that awaits `done` closes it.
+		abandon = viewing ? () => void close() : () => finish({ status: "cancelled" });
 
 		if (signal) {
 			abortHandler = (): void => void close();

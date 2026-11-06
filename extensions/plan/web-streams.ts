@@ -9,10 +9,12 @@
  * sink's own (a write after the end is a no-op), so the registry never asks the
  * socket whether it is still writable.
  *
- * The closed-tab rule lives here because it is a fact about streams: a reviewer's
- * tab opening or closing changes nothing, while the owner's own page going away
- * ends the review once the grace a reload needs has passed. The grace is a race
- * against that reload, so it takes the timer as a seam a test can drive by hand.
+ * The closed-tab rule lives here because it is a fact about streams: a tab whose role is
+ * not the session's `lifetime` changes nothing, while that page going away ends the session
+ * once the grace a reload needs has passed. The lifetime is a review's owner — a reviewer's
+ * tab is not the review's decision — and a view's viewer, which is the only page a view has.
+ * The grace is a race against that reload, so it takes the timer as a seam a test can drive
+ * by hand.
  */
 
 import type { EventSink } from "../../lib/http/index.ts";
@@ -33,13 +35,19 @@ export interface StreamFilter {
 
 /** What the registry needs from the session whose lifetime it reports on. */
 export interface StreamRegistryDeps {
-	/** The review is over because its owner's page went away. */
+	/** The session is over because the page it was for went away. */
 	onAbandoned: () => void;
-	/** How long a closed owner tab waits for a reload before it counts as gone. */
+	/**
+	 * The role whose page this session's lifetime belongs to: the owner of a review, who is
+	 * the only one whose leaving is a decision, or the viewer of a view, who is the only
+	 * reader it has.
+	 */
+	lifetime: ReviewRole;
+	/** How long a closed page waits for a reload before it counts as gone. */
 	graceMs: number;
 	/** The timer the grace is armed on. */
 	schedule: ArmTimer;
-	/** A settled review arms nothing, so a stream closing during teardown is silent. */
+	/** A settled session arms nothing, so a stream closing during teardown is silent. */
 	settled: () => boolean;
 }
 
@@ -47,7 +55,7 @@ export interface StreamRegistryDeps {
 export interface StreamRegistry {
 	/** Register a stream, and stand down a pending closed-tab grace. */
 	add(sink: EventSink, record: StreamRecord): void;
-	/** Forget a stream, arming the grace when it was the owner's last one. */
+	/** Forget a stream, arming the grace when it was the last one of the lifetime's role. */
 	remove(sink: EventSink): void;
 	/** Tell the open pages something changed. */
 	broadcast(kind: ReviewFrame, only?: StreamFilter): void;
@@ -57,18 +65,18 @@ export interface StreamRegistry {
 	clear(): void;
 	/** Stand down the closed-tab grace, because the review is ending anyway. */
 	cancelDrop(): void;
-	/** How many owner streams are open. */
-	ownerOpen(): number;
+	/** How many streams of the lifetime's role are open. */
+	pageOpen(): number;
 }
 
 export function createStreams(deps: StreamRegistryDeps): StreamRegistry {
 	const clients = new Map<EventSink, StreamRecord>();
-	let sawOwner = false;
+	let sawPage = false;
 	let cancelDrop: (() => void) | undefined;
 
-	const ownerOpen = (): number => {
+	const pageOpen = (): number => {
 		let open = 0;
-		for (const record of clients.values()) if (record.role === "owner") open += 1;
+		for (const record of clients.values()) if (record.role === deps.lifetime) open += 1;
 		return open;
 	};
 
@@ -78,10 +86,10 @@ export function createStreams(deps: StreamRegistryDeps): StreamRegistry {
 	};
 
 	const scheduleDrop = (): void => {
-		if (ownerOpen() > 0 || !sawOwner || deps.settled() || cancelDrop) return;
+		if (pageOpen() > 0 || !sawPage || deps.settled() || cancelDrop) return;
 		cancelDrop = deps.schedule(deps.graceMs, () => {
 			cancelDrop = undefined;
-			if (ownerOpen() === 0) deps.onAbandoned();
+			if (pageOpen() === 0) deps.onAbandoned();
 		});
 	};
 
@@ -95,15 +103,15 @@ export function createStreams(deps: StreamRegistryDeps): StreamRegistry {
 	return {
 		add(sink, record) {
 			clients.set(sink, record);
-			if (record.role === "owner") {
-				sawOwner = true;
+			if (record.role === deps.lifetime) {
+				sawPage = true;
 				cancel();
 			}
 		},
 		remove(sink) {
 			const record = clients.get(sink);
 			clients.delete(sink);
-			if (record?.role === "owner") scheduleDrop();
+			if (record?.role === deps.lifetime) scheduleDrop();
 		},
 		broadcast(kind, only) {
 			for (const [client, record] of clients) {
@@ -119,6 +127,6 @@ export function createStreams(deps: StreamRegistryDeps): StreamRegistry {
 		},
 		clear: () => clients.clear(),
 		cancelDrop: cancel,
-		ownerOpen,
+		pageOpen,
 	};
 }

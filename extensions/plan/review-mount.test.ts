@@ -1,13 +1,14 @@
 /**
- * Where a browser review's prefix comes from.
+ * Where a browser page's prefix comes from.
  *
- * A review binds no socket of its own: it asks `serve` for a prefix on the session's one
+ * A page binds no socket of its own: it asks `serve` for a prefix on the session's one
  * server, and the spec it asks with carries the Pi session's id. `serve` keys the socket,
  * the remembered port, and the pin by that id, and draws the port chip in the context it
  * filed with it, so an id the session did not give it is a port nobody names.
  *
- * The shipped `/plan review` path is driven with the mount substituted: the refusal stops
- * `start` before it would bind a socket or open a browser.
+ * The shipped door — `/plan list`'s Enter, which opens the read-only view — is driven with
+ * the mount substituted: the refusal stops the start before it would bind a socket or open
+ * a browser.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -25,7 +26,7 @@ describe("the review's mount", () => {
 	test("asks for its prefix under the session's own id", async () => {
 		await withAgentDir(async () => {
 			const fakePi = makePlanPi({ active: ["read", PLAN_TOOL] });
-			const { ctx } = planCtx({ cwd: "/repo", sessionId: "sess-review" });
+			const { ctx } = planCtx({ cwd: "/repo", sessionId: "sess-review", mode: "tui" });
 			const dir = await createPlanStore(fakePi.pi).dirFor(ctx.cwd);
 			mkdirSync(dir, { recursive: true });
 			writeFileSync(join(dir, "2026-10-08-1530-demo.md"), "# Plan\n\n## Steps\n- [ ] one\n");
@@ -37,8 +38,21 @@ describe("the review's mount", () => {
 				},
 			});
 			await emit(fakePi.pi, "session_start", { reason: "startup" }, ctx);
+			// The list's Enter selects the plan, which is what opens the view.
+			ctx.ui.custom = async (
+				factory: (tui: unknown, theme: unknown, keys: unknown, done: () => void) => { handleInput(data: string): void },
+			) => {
+				const component = factory(
+					{ requestRender: () => {}, terminal: { rows: 24, columns: 80 } },
+					ctx.ui.theme,
+					{},
+					() => {},
+				);
+				component.handleInput("\r");
+				return undefined;
+			};
 
-			await fakePi.commands.get("plan").handler("review", ctx);
+			await fakePi.commands.get("plan").handler("list", ctx);
 
 			expect(specs.map((spec) => spec.session)).toEqual(["sess-review"]);
 		});

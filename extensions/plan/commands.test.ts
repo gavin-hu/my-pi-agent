@@ -1,5 +1,5 @@
 /**
- * The plan command surface and the review gate: `/plan review`, `/plan list`,
+ * The plan command surface and the review gate: `/plan list`'s view,
  * and the one decision flow shared by the `exit` action and the browser.
  *
  * The runtime and the browser server are doubles, so nothing here writes a plan
@@ -31,7 +31,6 @@ function plan(content = "- one"): StoredPlan {
 
 interface RuntimeOptions {
 	file?: StoredPlan;
-	latest?: StoredPlan;
 	last?: string;
 	enabled?: boolean;
 	baseline?: string;
@@ -41,7 +40,6 @@ interface RuntimeOptions {
 /** The slice of `PlanRuntime` the command reads, with its calls recorded. */
 function fakeRuntime(options: RuntimeOptions = {}) {
 	const readCalls: string[] = [];
-	const latestCalls: string[] = [];
 	const indexCalls: string[] = [];
 	const enableCalls: string[] = [];
 	const marks: Array<{ path: string; content: string }> = [];
@@ -68,10 +66,6 @@ function fakeRuntime(options: RuntimeOptions = {}) {
 				readCalls.push(path);
 				return file;
 			},
-			latest: async (cwd: string) => {
-				latestCalls.push(cwd);
-				return options.latest;
-			},
 			index: async (cwd: string) => {
 				indexCalls.push(cwd);
 				return summaries;
@@ -80,10 +74,10 @@ function fakeRuntime(options: RuntimeOptions = {}) {
 			takeNotice: () => undefined,
 		},
 	};
-	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls, indexCalls, enableCalls, marks };
+	return { runtime: runtime as unknown as PlanRuntime, readCalls, indexCalls, enableCalls, marks };
 }
 
-function fakeWeb(result: PlanReviewResult) {
+function fakeWeb() {
 	const started: StoredPlan[] = [];
 	const starts: PlanReviewOptions[] = [];
 	const closeCalls: number[] = [];
@@ -94,7 +88,7 @@ function fakeWeb(result: PlanReviewResult) {
 			return {
 				url: "http://127.0.0.1:1234/?token=tok",
 				port: 1234,
-				done: Promise.resolve(result),
+				done: Promise.resolve({ status: "cancelled" } as PlanReviewResult),
 				close: async () => {
 					closeCalls.push(1);
 				},
@@ -109,18 +103,9 @@ function fakeWeb(result: PlanReviewResult) {
 	return { web, started, starts, closeCalls };
 }
 
-function saved(target: StoredPlan, annotations: PlanAnnotation[]): PlanReviewResult {
-	return { status: "saved", plan: target, annotations };
-}
-
-function setup(
-	options: RuntimeOptions & {
-		result: PlanReviewResult;
-		idle?: boolean;
-	},
-) {
-	const { runtime, readCalls, latestCalls, indexCalls, enableCalls, marks } = fakeRuntime(options);
-	const { web, started, starts, closeCalls } = fakeWeb(options.result);
+function setup(options: RuntimeOptions & { idle?: boolean } = {}) {
+	const { runtime, readCalls, indexCalls, enableCalls, marks } = fakeRuntime(options);
+	const { web, started, starts, closeCalls } = fakeWeb();
 	const pi = makePlanPi();
 	registerCommands(pi.pi, runtime, web);
 	const { ctx, notifications } = planCtx({ cwd: "/repo", isIdle: () => options.idle ?? true });
@@ -130,7 +115,6 @@ function setup(
 		notifications,
 		runtime,
 		readCalls,
-		latestCalls,
 		indexCalls,
 		enableCalls,
 		marks,
@@ -143,7 +127,7 @@ function setup(
 describe("/plan retired subcommands", () => {
 	test("sends a line beginning with share to the model", async () => {
 		const { pi, runtime } = (() => {
-			const built = setup({ result: { status: "cancelled" } });
+			const built = setup();
 			return { pi: built.pi, runtime: built.runtime };
 		})();
 		const { ctx } = planCtx({ cwd: "/repo" });
@@ -156,7 +140,7 @@ describe("/plan retired subcommands", () => {
 	});
 
 	test("sends a line beginning with cancel to the model", async () => {
-		const { pi, runtime } = setup({ result: { status: "cancelled" } });
+		const { pi, runtime } = setup();
 		const { ctx } = planCtx({ cwd: "/repo" });
 
 		await pi.commands.get("plan").handler("cancel that idea", ctx);
@@ -164,166 +148,16 @@ describe("/plan retired subcommands", () => {
 		expect(pi.sentMessages).toEqual([{ content: "cancel that idea", options: undefined }]);
 		expect(runtime.isEnabled()).toBe(true);
 	});
-});
 
-describe("/plan review", () => {
-	test("opens the most recent plan and sends saved comments to the model", async () => {
-		const file = plan();
-		const { pi, ctx, notifications, readCalls, started, closeCalls } = setup({
-			file,
-			result: saved(file, [{ anchor: 0, quote: "one", comment: "make it concrete" }]),
-		});
+	test("sends a line beginning with review to the model", async () => {
+		// The browser review is the exit screen's browser step now, so neither a bare
+		// `review` nor a path after it opens anything: both are planning tasks.
+		const { pi } = setup();
+		const { ctx } = planCtx({ cwd: "/repo" });
 
 		await pi.commands.get("plan").handler("review", ctx);
 
-		expect(readCalls).toEqual([file.path]);
-		expect(started).toEqual([file]);
-		expect(notifications.some((message) => message.includes("opened"))).toBe(true);
-		expect(closeCalls).toHaveLength(1);
-		expect(pi.sentMessages).toHaveLength(1);
-		expect(pi.sentMessages[0].content).toContain("make it concrete");
-		expect(pi.sentMessages[0].content).toContain("Update the plan file");
-	});
-
-	test("asks for a plan-mode revision when plan mode is on", async () => {
-		const file = plan();
-		const { pi, ctx } = setup({ file, enabled: true, result: saved(file, [{ anchor: 0, comment: "tighten this" }]) });
-
-		await pi.commands.get("plan").handler("review", ctx);
-
-		expect(pi.sentMessages[0]?.content).toContain("Stay in plan mode");
-	});
-
-	test("reviews an explicit path after the subcommand", async () => {
-		const file = plan();
-		const { pi, ctx, readCalls } = setup({ file, result: saved(file, [{ anchor: 0, comment: "note" }]) });
-
-		await pi.commands.get("plan").handler("review ~/.pi/agent/plans/a1f9c02/other.md", ctx);
-
-		expect(readCalls).toEqual(["~/.pi/agent/plans/a1f9c02/other.md"]);
-	});
-
-	test("falls back to the newest plan when the session has not written one", async () => {
-		const file = plan("- from an earlier session");
-		const { pi, ctx, latestCalls, readCalls, started } = setup({ latest: file, result: saved(file, []) });
-
-		await pi.commands.get("plan").handler("review", ctx);
-
-		expect(latestCalls).toEqual(["/repo"]);
-		expect(readCalls).toEqual([]);
-		expect(started).toEqual([file]);
-	});
-
-	test("prefers the session's own plan over the newest file", async () => {
-		const file = plan();
-		const other = plan("- newer on disk");
-		const { pi, ctx, latestCalls, readCalls, started } = setup({ file, latest: other, result: saved(file, []) });
-
-		await pi.commands.get("plan").handler("review", ctx);
-
-		expect(readCalls).toEqual([file.path]);
-		expect(latestCalls).toEqual([]);
-		expect(started).toEqual([file]);
-	});
-
-	test("hands the previous review's sections to the browser and marks what it shows", async () => {
-		const file = plan();
-		const { pi, ctx, starts, marks } = setup({ file, baseline: "# Old", result: { status: "cancelled" } });
-
-		await pi.commands.get("plan").handler("review", ctx);
-
-		expect(starts[0]?.baseline).toEqual(sectionDigests("# Old"));
-		expect(marks).toEqual([{ path: file.path, content: file.content }]);
-	});
-
-	test("stays quiet when the review is cancelled", async () => {
-		const file = plan();
-		const { pi, ctx, notifications } = setup({ file, result: { status: "cancelled" } });
-
-		await pi.commands.get("plan").handler("review", ctx);
-
-		expect(pi.sentMessages).toHaveLength(0);
-		expect(notifications.some((message) => message.includes("closed without saving"))).toBe(true);
-	});
-
-	test("sends nothing when the review saved no comments", async () => {
-		const file = plan();
-		const { pi, ctx, notifications } = setup({ file, result: saved(file, []) });
-
-		await pi.commands.get("plan").handler("review", ctx);
-
-		expect(pi.sentMessages).toHaveLength(0);
-		expect(notifications.some((message) => message.includes("no comments"))).toBe(true);
-	});
-
-	test("warns and sends nothing when there is no plan", async () => {
-		const { pi, ctx, notifications, started } = setup({ result: { status: "cancelled" } });
-
-		await pi.commands.get("plan").handler("review", ctx);
-
-		expect(started).toEqual([]);
-		expect(pi.sentMessages).toHaveLength(0);
-		expect(notifications.some((message) => message.includes("no plan"))).toBe(true);
-	});
-
-	test("refuses on a remote turn, where the loopback server cannot be reached", async () => {
-		const file = plan();
-		const { runtime } = fakeRuntime({ file });
-		const { web, started } = fakeWeb(saved(file, []));
-		const pi = makePlanPi();
-		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = remoteCtx({ cwd: "/repo" });
-
-		await pi.commands.get("plan").handler("review", ctx);
-
-		expect(started).toEqual([]);
-		expect(pi.sentMessages).toHaveLength(0);
-		expect(notifications.some((message) => message.includes("local machine"))).toBe(true);
-	});
-
-	test("a review server that cannot start leaves the baseline unmarked", async () => {
-		const file = plan();
-		const { runtime, marks } = fakeRuntime({ file });
-		const web: PlanWebReview = {
-			start: async () => {
-				throw new Error("bind failed");
-			},
-			current: () => undefined,
-			share: async () => undefined,
-			stopSharing: async () => undefined,
-			shareState: () => undefined,
-			closeAll: async () => {},
-		};
-		const pi = makePlanPi();
-		registerCommands(pi.pi, runtime, web);
-		const { ctx, notifications } = planCtx({ cwd: "/repo" });
-
-		await pi.commands.get("plan").handler("review", ctx);
-
-		expect(marks).toEqual([]);
-		expect(pi.sentMessages).toHaveLength(0);
-		expect(notifications).toContain("Plan review: could not start the browser review server.");
-	});
-
-	test("delivers the refinement as a follow-up while the agent is busy", async () => {
-		const file = plan();
-		const { pi, ctx } = setup({
-			file,
-			idle: false,
-			result: saved(file, [{ anchor: 0, comment: "tighten this" }]),
-		});
-
-		await pi.commands.get("plan").handler("review", ctx);
-
-		expect(pi.sentMessages[0]?.options).toEqual({ deliverAs: "followUp" });
-	});
-
-	test("treats a sentence starting with review as a task", async () => {
-		const { pi, ctx } = setup({ result: { status: "cancelled" } });
-
-		await pi.commands.get("plan").handler("review the auth flow", ctx);
-
-		expect(pi.sentMessages).toEqual([{ content: "review the auth flow", options: undefined }]);
+		expect(pi.sentMessages).toEqual([{ content: "review", options: undefined }]);
 	});
 });
 
@@ -340,7 +174,7 @@ describe("/plan list", () => {
 	];
 
 	test("lists the plans directory as a notice outside the TUI", async () => {
-		const { pi, ctx, notifications, indexCalls } = setup({ result: { status: "cancelled" }, summaries });
+		const { pi, ctx, notifications, indexCalls } = setup({ summaries });
 
 		await pi.commands.get("plan").handler("list", ctx);
 
@@ -350,12 +184,8 @@ describe("/plan list", () => {
 		expect(ctx.customCalls).toHaveLength(0);
 	});
 
-	test("opens a picker in the TUI and reviews the chosen plan", async () => {
-		const { pi, readCalls, started } = setup({
-			file: plan(),
-			summaries,
-			result: { status: "saved", plan: plan(), annotations: [] },
-		});
+	test("opens a picker in the TUI and reads the chosen plan", async () => {
+		const { pi, readCalls, started, starts, marks } = setup({ file: plan(), summaries });
 		const { ctx: tuiCtx, notifications } = planCtx({ mode: "tui", cwd: "/repo" });
 		// The screen selects the first plan immediately, as Enter on a focused row does.
 		tuiCtx.ui.custom = async (
@@ -381,12 +211,12 @@ describe("/plan list", () => {
 		await pi.commands.get("plan").handler("list", tuiCtx);
 
 		expect(readCalls).toEqual([summaries[0]?.path]);
-		expect(started).toHaveLength(1);
-		expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
+		expect({ started: started.length, mode: starts[0]?.mode, marks }).toEqual({ started: 1, mode: "view", marks: [] });
+		expect(notifications.some((line) => line.includes("Plan view:"))).toBe(true);
 	});
 
 	test("hides the goal and todo rails while the picker is open", async () => {
-		const { pi } = setup({ result: { status: "cancelled" }, summaries });
+		const { pi } = setup({ summaries });
 		const seen: unknown[] = [];
 		pi.pi.events.on("my-pi-agent/rails-screen", (value: unknown) => seen.push(value));
 		const { ctx: tuiCtx } = planCtx({ mode: "tui", cwd: "/repo" });
@@ -397,25 +227,49 @@ describe("/plan list", () => {
 		expect(seen).toEqual([true, false]);
 	});
 
+	test("refuses to open the browser on a remote turn", async () => {
+		const { pi, started } = setup({ file: plan(), summaries });
+		const { ctx: remote } = remoteCtx({ cwd: "/repo" });
+		// The screen selects the first plan, as Enter on a focused row does.
+		remote.ui.custom = async (
+			factory: (tui: unknown, theme: unknown, keys: unknown, done: () => void) => { handleInput(data: string): void },
+		) => {
+			const component = factory(
+				{ requestRender: () => {}, terminal: { rows: 24, columns: 80 } },
+				remote.ui.theme,
+				{},
+				() => {},
+			);
+			component.handleInput("\r");
+			return undefined;
+		};
+
+		await pi.commands.get("plan").handler("list", remote);
+
+		// The page would open on this machine's screen, in the middle of a conversation
+		// being answered from somewhere else: refused, and nothing is sent.
+		expect(started).toEqual([]);
+		expect(pi.sentMessages).toHaveLength(0);
+	});
+
 	test("treats a sentence starting with list as a task", async () => {
-		const { pi, ctx } = setup({ result: { status: "cancelled" }, summaries });
+		const { pi, ctx } = setup({ summaries });
 
 		await pi.commands.get("plan").handler("list the untracked files", ctx);
 
 		expect(pi.sentMessages).toEqual([{ content: "list the untracked files", options: undefined }]);
 	});
 
-	test("completes list alongside review", () => {
-		const { pi } = setup({ result: { status: "cancelled" } });
+	test("completes the one reserved word", () => {
+		const { pi } = setup();
 		const complete = (prefix: string): string[] =>
 			(pi.commands.get("plan").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
 
-		expect(complete("")).toEqual(["list", "review"]);
+		expect(complete("")).toEqual(["list"]);
 		expect(complete("li")).toEqual(["list"]);
-		expect(complete("r")).toEqual(["review"]);
+		expect(complete("r")).toEqual([]);
 		expect(complete("s")).toEqual([]);
 		expect(complete("c")).toEqual([]);
-		expect(complete("review ")).toEqual([]);
 	});
 });
 

@@ -1,7 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
 	existsSync,
-	lutimesSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -302,67 +301,6 @@ describe("plan store — read", () => {
 	});
 });
 
-describe("plan store — latest", () => {
-	test("returns the newest plan by modification time", async () => {
-		const root = tempDir();
-		const store = repoStore(root);
-		const older = await store.write(root, { title: "Older", content: "old" });
-		const newer = await store.write(root, { title: "Newer", content: "new" });
-		utimesSync(older.path, 1_700_000_000, 1_700_000_000);
-		utimesSync(newer.path, 1_700_000_100, 1_700_000_100);
-
-		expect((await store.latest(root))?.path).toBe(newer.path);
-		expect((await store.latest(root))?.content).toBe("new");
-	});
-
-	test("breaks a modification-time tie by file name, newest stamp first", async () => {
-		const root = tempDir();
-		const store = repoStore(root);
-		const dir = await store.dirFor(root);
-		mkdirSync(dir, { recursive: true });
-		const older = join(dir, "2026-10-01-0900-older.md");
-		const newer = join(dir, "2026-10-02-0900-newer.md");
-		for (const path of [older, newer]) {
-			writeFileSync(path, `# ${basename(path)}`);
-			utimesSync(path, 1_700_000_000, 1_700_000_000);
-		}
-
-		expect((await store.latest(root))?.path).toBe(newer);
-	});
-
-	test("ignores the plans directory's own files", async () => {
-		const root = tempDir();
-		const store = repoStore(root);
-		const file = await store.write(root, { title: "Kept", content: "body" });
-		const dir = await store.dirFor(root);
-		const notes = join(dir, "notes.txt");
-		writeFileSync(notes, "not a plan");
-		utimesSync(notes, 2_000_000_000, 2_000_000_000);
-
-		expect((await store.latest(root))?.path).toBe(file.path);
-	});
-
-	test("returns undefined before any plan is written", async () => {
-		const root = tempDir();
-		expect(await repoStore(root).latest(root)).toBeUndefined();
-	});
-
-	symlinkTest("skips a symlinked plan", async () => {
-		const root = tempDir();
-		const store = repoStore(root);
-		const file = await store.write(root, { title: "Real", content: "body" });
-		const dir = await store.dirFor(root);
-		const outside = join(root, "outside.md");
-		writeFileSync(outside, "secret");
-		const link = join(dir, "link.md");
-		symlinkSync(outside, link);
-		// The link itself is the newest entry by lstat, and must still be skipped.
-		lutimesSync(link, 2_000_000_000, 2_000_000_000);
-
-		expect((await store.latest(root))?.path).toBe(file.path);
-	});
-});
-
 describe("plan store — index", () => {
 	/** Write a plan file directly, so the test controls the name and mtime. */
 	function seed(root: string, name: string, content: string, mtimeSeconds: number, dir = storeDir(root)): string {
@@ -559,7 +497,6 @@ describe("plan store — the revision a refinement replaced", () => {
 		const refined = await store.write(root, { title: "Hidden", content: "v2", planPath: first.path });
 
 		expect((await store.index(root)).map((one) => one.path)).toEqual([first.path]);
-		expect((await store.latest(root))?.path).toBe(first.path);
 		expect(await store.read(root, refined.replaced?.path ?? "")).toBeUndefined();
 	});
 });

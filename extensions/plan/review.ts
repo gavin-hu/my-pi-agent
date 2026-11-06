@@ -4,8 +4,8 @@
  * A review has three presentations — the scrollable TUI screen, a dialog-only
  * editor, and a remote turn's compact editor prompt — and one optional browser
  * server. This module owns the loop that switches between
- * them, so the `plan` tool's `exit` action and `/plan review` share one lifecycle and only map
- * the returned {@link ReviewDecision} to their own result.
+ * them, so the `plan` tool's `exit` action owns the one lifecycle and only maps the
+ * returned {@link ReviewDecision} to its own result.
  *
  * It also owns the review baseline: a review marks the content the human was
  * actually shown, never content that was only about to be shown, and the abort
@@ -72,8 +72,8 @@ export interface ReviewPlanOptions {
 	plan: StoredPlan;
 	/**
 	 * What approving will do, so the screen can say it. Absent from a review that
-	 * cannot approve — `/plan review` is comment-only — and from a caller with no
-	 * todo list or goal to offer.
+	 * cannot approve — a browser page reached from the screen is comment-only — and
+	 * from a caller with no todo list or goal to offer.
 	 */
 	approval?: ApprovalEffects;
 	/** Aborting the turn closes a browser review and returns the plan unapproved. */

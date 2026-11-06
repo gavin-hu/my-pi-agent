@@ -46,6 +46,11 @@ export interface PlanRenderDeps {
 	clearPendingQuote(): void;
 	/** Whether the review has ended, so the rail offers no new comment. */
 	settled?(): boolean;
+	/**
+	 * Whether this page may add a comment at all; absent means it may. A viewer's page has no
+	 * composer and no route to send one, so its rail carries the count and no button.
+	 */
+	canComment?(): boolean;
 	/** The composer lifecycle, for the close a repaint begins with. */
 	composer(): ComposerDeps;
 	/** The block's content, from the Markdown half. */
@@ -98,9 +103,10 @@ export function renderPlanFrame(
 		const mine = deps.annotations().filter((annotation) => annotation.anchor === block.start);
 		if (mine.length > 0) wrap.classList.add("bf-block--commented");
 		const rail = el("div", "bf-block__rail");
-		// A settled review takes no new comment: this control would open a composer whose
-		// note could never be saved, so it is not drawn rather than drawn and refused.
-		if (deps.settled?.() !== true) {
+		// A settled review takes no new comment, and neither does a page that cannot write one:
+		// this control would open a composer whose note could never be saved, so it is not drawn
+		// rather than drawn and refused.
+		if (deps.settled?.() !== true && deps.canComment?.() !== false) {
 			const add = el("button", "bf-block__add");
 			add.type = "button";
 			add.textContent = "+";

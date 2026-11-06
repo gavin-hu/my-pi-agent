@@ -34,7 +34,7 @@ const RELATIVE = "~/.pi/agent/plans/a1f9c02/2026-10-14-1600-demo.md";
 interface ReviewIsland {
 	title: string;
 	token: string;
-	role: "owner" | "reviewer";
+	role: "owner" | "reviewer" | "viewer";
 	/** The reviewer's bound name, once this link has posted. */
 	author?: string;
 	/** Digest of the plan text the page rendered, which keys a tab's draft. */

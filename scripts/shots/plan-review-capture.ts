@@ -52,7 +52,6 @@ export function captureStore(plan: StoredPlan): { store: PlanStore; content: () 
 			write: readOnly,
 			setSteps: readOnly,
 			read: async () => current(),
-			latest: async () => current(),
 			index: async () => [],
 			takeNotice: () => undefined,
 			saveFeedback: async (

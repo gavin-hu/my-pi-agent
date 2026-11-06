@@ -21,6 +21,8 @@ import type { ReviewRole } from "./types.ts";
 
 /** What a key may do: one callback per action the page owns. */
 export interface KeyDeps {
+	/** Whose page it is, read from the island: the rows whose sentence depends on it say so. */
+	role: ReviewRole;
 	/** Whether a composer is open, and how to close it. */
 	composerOpen(): boolean;
 	closeComposer(): void;
@@ -133,6 +135,9 @@ export function webKeys(): readonly WebKey[] {
 		{
 			id: "comment",
 			keys: ["c"],
+			// A viewer has no composer to open and nothing to write: the row is not offered, and
+			// neither the hint nor the sheet names a key the page would ignore.
+			offered: (surface) => surface.role !== "viewer",
 			label: () => "Comment on the current block",
 			hint: () => "to comment",
 			run: (deps) => deps.commentOnActive(),
@@ -140,6 +145,7 @@ export function webKeys(): readonly WebKey[] {
 		{
 			id: "add",
 			keys: ["Enter"],
+			offered: (surface) => surface.role !== "viewer",
 			label: () => "Add the comment you are writing",
 		},
 		{
@@ -152,6 +158,7 @@ export function webKeys(): readonly WebKey[] {
 		{
 			id: "settle",
 			keys: ["s"],
+			offered: (surface) => surface.role !== "viewer",
 			label: (surface) =>
 				surface.role === "owner" ? "Save feedback and return to Pi" : "Post your comments to the plan",
 			hint: (surface) => (surface.role === "owner" ? "to save" : "to post"),
@@ -160,8 +167,10 @@ export function webKeys(): readonly WebKey[] {
 		{
 			id: "close",
 			keys: ["Esc"],
-			label: (surface) =>
-				surface.role === "owner" ? "Close the composer, the sheet, or the review" : "Close the composer or this sheet",
+			label: (surface) => {
+				if (surface.role === "owner") return "Close the composer, the sheet, or the review";
+				return surface.role === "reviewer" ? "Close the composer or this sheet" : "Close this sheet";
+			},
 		},
 		{
 			id: "sheet",
@@ -177,10 +186,18 @@ export function keyRows(surface: KeySurface): WebKey[] {
 	return webKeys().filter((row) => row.offered === undefined || row.offered(surface));
 }
 
-/** The surface a handler sees, read off the callbacks and controls it was given. */
+/**
+ * The surface a handler sees: the role the island named, and the controls and callbacks this
+ * page actually wired.
+ *
+ * The role is passed rather than inferred from which buttons exist: a viewer's page has no
+ * save control, and inferring `reviewer` from that absence is exactly how a reader would be
+ * told to post a comment the page cannot send. The controls still answer for `hasSaveControl`
+ * and `hasApproveControl`, which are about this page's wiring, not about who is looking.
+ */
 function surfaceOf(deps: KeyDeps): KeySurface {
 	return {
-		role: deps.hasSaveControl() ? "owner" : "reviewer",
+		role: deps.role,
 		canApprove: deps.hasApproveControl(),
 		hasCommentWalk: deps.moveComment !== undefined,
 		hasViewCycle: deps.cycleView !== undefined,

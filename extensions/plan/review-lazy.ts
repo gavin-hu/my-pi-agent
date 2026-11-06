@@ -2,9 +2,9 @@
  * The plan review gate, loaded when a review actually asks a human.
  *
  * `review.ts` owns the loop, the TUI screen (`tui.ts`), the compact remote prompt,
- * and the baseline rule — about 1,000 lines that registration never needs:
- * `/plan review` and the `plan` tool's `exit` action are the only two doors in. Both import this
- * module instead, so the loop loads once, on the first review of the session.
+ * and the baseline rule — about 1,000 lines that registration never needs: the `plan`
+ * tool's `exit` action is the only door in, so the loop loads once, on the first review
+ * of the session.
  *
  * The types are `review.ts`'s, imported here as types: an import of that kind is erased, so
  * the facade defers the loop without paying for it, and the two modules cannot disagree
@@ -27,7 +27,7 @@ export async function reviewPlan(options: ReviewPlanOptions, load?: ReviewLoader
 	return review.reviewPlan(options);
 }
 
-/** The browser-only review `/plan review` opens, loaded on first use. */
+/** The browser review `exit`'s screen opens, loaded on first use. */
 export async function runBrowserReview(
 	web: PlanWebReview,
 	cwd: string,

@@ -104,8 +104,6 @@ export interface PlanStore {
 	write(cwd: string, input: WritePlanInput): Promise<WrittenPlan>;
 	/** Read a plan inside the plans directory, or undefined when missing/outside. */
 	read(cwd: string, planPath: string): Promise<StoredPlan | undefined>;
-	/** The newest plan file in the plans directory, or undefined when there is none. */
-	latest(cwd: string): Promise<StoredPlan | undefined>;
 	/**
 	 * Every plan in the directory, newest first. The directory is the index, so
 	 * this is one `readdir`, one `stat` per file, and one bounded read per plan.
@@ -430,38 +428,6 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	};
 
 	/**
-	 * The newest plan file in the plans directory, for a bare `/plan review` in a
-	 * later session. Markdown non-dotfiles only, symlinks skipped like every other
-	 * read, newest mtime first with the name (which carries the stamp) as the tie
-	 * break.
-	 */
-	const latest = async (cwd: string): Promise<StoredPlan | undefined> => {
-		const dir = await dirFor(cwd);
-		let names: string[];
-		try {
-			names = readdirSync(dir);
-		} catch {
-			return undefined;
-		}
-		let newest: { path: string; mtime: number } | undefined;
-		for (const name of names) {
-			const path = join(dir, name);
-			if (!isPlanFileName(path)) continue;
-			try {
-				// lstat, not stat: a symlink is never a reviewable plan.
-				const stat = lstatSync(path);
-				if (!stat.isFile()) continue;
-				if (!newest || stat.mtimeMs > newest.mtime || (stat.mtimeMs === newest.mtime && path > newest.path)) {
-					newest = { path, mtime: stat.mtimeMs };
-				}
-			} catch {
-				// A vanished entry is not a candidate.
-			}
-		}
-		return newest ? read(cwd, newest.path) : undefined;
-	};
-
-	/**
 	 * Every plan in the directory, newest first: the directory is the index.
 	 *
 	 * One `readdir`, one `lstat`/`stat` per entry, and one `readFileSync` per plan
@@ -521,11 +487,11 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 				summaries.push(summary);
 			}
 		}
-		// Newest first, with the name (which carries the stamp) as the tie break —
-		// the same order `latest` picks from.
+		// Newest first, with the name (which carries the stamp) as the tie break, so the
+		// list's own first row is the plan a reader would call newest.
 		summaries.sort((a, b) => b.modified - a.modified || (a.path < b.path ? 1 : a.path > b.path ? -1 : 0));
 		return summaries;
 	};
 
-	return { dirFor, write, read, latest, index, setSteps, saveFeedback, takeNotice };
+	return { dirFor, write, read, index, setSteps, saveFeedback, takeNotice };
 }

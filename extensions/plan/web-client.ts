@@ -53,8 +53,10 @@ ${CLIENT_BASE_JS}
   }
   var token = typeof data.token === "string" ? data.token : "";
   var limits = data.limits || fallback.limits;
-  // Who the server says is looking: the owner approves, a reviewer comments.
-  var role = data.role === "reviewer" ? "reviewer" : "owner";
+  // Who the server says is looking: the owner approves, a reviewer comments, a viewer reads.
+  // A role this page does not know is an owner's, which is the stricter guess: it draws the
+  // controls, and the server refuses every write the browser then sends.
+  var role = data.role === "reviewer" || data.role === "viewer" ? data.role : "owner";
   var reviewerName = typeof data.author === "string" ? data.author : "";
   if (!reviewerName) {
     try { reviewerName = window.localStorage.getItem("bf-review-name") || ""; } catch (error) { reviewerName = ""; }
@@ -185,6 +187,9 @@ ${WEB_MARKDOWN_JS}
       clearPendingQuote: function () { pendingQuote = null; },
       settled: function () { return saved || approved || closed; },
       composer: composer,
+      // A viewer's page has nothing to write, so no rail button is drawn at all: a control
+      // that opened a composer whose note could never be saved is not omitted, it is absent.
+      canComment: function () { return role !== "viewer"; },
       renderBlock: renderBlockContent,
       renderComments: renderComments,
       renderCommentCards: renderCommentCards,
@@ -405,6 +410,7 @@ ${WEB_MARKDOWN_JS}
    */
   function keyActions() {
     return {
+      role: role,
       composerOpen: function () { return !!(planEl && planEl.querySelector(".bf-composer")); },
       closeComposer: closeOpenComposer,
       cancel: cancel,
@@ -468,11 +474,13 @@ ${WEB_MARKDOWN_JS}
   ${THEME_TOGGLE_JS}
 
   // A reload during a review keeps this tab's unsaved work: the comments it added
-  // and the composer it was typing into, which needs the blocks rendered first.
-  var restoredTyping = restoreDraft();
+  // and the composer it was typing into, which needs the blocks rendered first. A viewer
+  // writes nothing, so it has no draft to keep and none to restore.
+  var restoredTyping = role === "viewer" ? undefined : restoreDraft();
   renderName();
   renderAll();
-  reopenComposer(composer(), restoredTyping, { saved: saved, approved: approved, closed: closed }, blocks());
+  if (role !== "viewer")
+    reopenComposer(composer(), restoredTyping, { saved: saved, approved: approved, closed: closed }, blocks());
   updateProgress();
 })();
 `;

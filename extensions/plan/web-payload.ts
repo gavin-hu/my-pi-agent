@@ -75,7 +75,10 @@ export interface ReviewPageData {
 	limits: { comments: number; comment: number; quote: number };
 	/** Whether the review may approve the plan (only the `plan` tool's `exit` flow). */
 	canApprove: boolean;
-	/** Who is looking: `owner` may approve, `reviewer` may only comment. */
+	/**
+	 * Who is looking: `owner` may approve, `reviewer` may only comment, and `viewer`
+	 * may do neither — the page is a reader's, so it carries no control that writes.
+	 */
 	role: ReviewRole;
 	/**
 	 * The name a reviewer's link posts under, once it has been bound. Absent for the

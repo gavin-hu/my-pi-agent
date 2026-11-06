@@ -233,8 +233,11 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
   }
 
   // A comment belongs to whoever wrote it: an untagged one is the owner's, a
-  // tagged one is that reviewer's. Everyone else's is read-only on this page.
+  // tagged one is that reviewer's. Everyone else's is read-only on this page, and a
+  // viewer's is read-only to everyone: the name in this browser's storage may match a
+  // note's author, and that is not a claim to the note.
   function isMine(annotation) {
+    if (role === "viewer") return false;
     if (role === "owner") return !annotation.author;
     return !!reviewerName && annotation.author === reviewerName;
   }

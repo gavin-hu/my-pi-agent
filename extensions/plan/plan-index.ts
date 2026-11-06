@@ -5,8 +5,8 @@
  * A plan is a file, and the plans directory is its only index, so this module
  * presents what `PlanStore.index` walked: the title, the modified time, and how
  * far its steps got, newest first. Enter on the screen hands the focused plan
- * back to the caller, which reuses the browser review; every other mode gets the
- * same facts as one line per plan, with the path to reopen.
+ * back to the caller, which opens it in the browser as a read-only view; every
+ * other mode gets the same facts as one line per plan, with the path to reopen.
  *
  * Derived state only: the summaries are passed in, a reload replaces them, and a
  * render reads them — like the `/memory` picker.
@@ -104,7 +104,7 @@ export interface PlanIndexOptions {
 	/** Directory the plans live in, for the header. */
 	dir: string;
 	theme: Theme;
-	/** Enter on the focused plan; the caller opens its review after the screen closes. */
+	/** Enter on the focused plan; the caller opens its view after the screen closes. */
 	onSelect: (summary: PlanSummary) => void;
 	onClose: () => void;
 	/** `r`: re-read the directory. Resolves with the new rows. */
@@ -254,7 +254,7 @@ export class PlanIndexComponent implements Component {
 		const hint =
 			this.notice !== undefined
 				? clip(`  ${paint(theme, "meta", this.notice)}`, w)
-				: screenHint(theme, w, ["Esc close", { text: "Enter review", color: "accent" }, "r reload", "↑/↓", "g/G"]);
+				: screenHint(theme, w, ["Esc close", { text: "Enter read", color: "accent" }, "r reload", "↑/↓", "g/G"]);
 
 		return dockListFrame({
 			theme,
