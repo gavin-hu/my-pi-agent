@@ -2,9 +2,9 @@
  * Inbound media and the hand-off to the turn queue.
  *
  * An image is downloaded, decrypted, and attached as model image content; a file
- * is saved under the media directory and referenced by path. Every failure is
- * counted so the peer can be told, because an attachment the bridge could not
- * read must not look like the model ignoring a photo.
+ * is saved under the media directory and referenced by path, with the size and the
+ * type its bytes name. Every failure is counted so the peer can be told, because an
+ * attachment the bridge could not read must not look like the model ignoring a photo.
  */
 
 import type { ImageContent } from "@earendil-works/pi-ai";
@@ -12,7 +12,8 @@ import type { InboundItem } from "../types.ts";
 import type { WechatClient } from "./client.ts";
 import type { ChatItem } from "../conversation/turn.ts";
 import { messageOf } from "../../../lib/errors.ts";
-import { decodeMediaKey, decryptEcb, saveMedia, sniffImageMime } from "./media.ts";
+import { formatSize } from "../../../lib/format.ts";
+import { decodeMediaKey, decryptEcb, saveMedia, sniffFileMime, sniffImageMime } from "./media.ts";
 import { notice } from "../text/notices.ts";
 
 /** What the inbound side needs from the bridge; every value is read at call time. */
@@ -51,8 +52,9 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 
 	/**
 	 * Download, decrypt, and split what the peer sent into a prompt text and image
-	 * blocks. A file is saved and referenced by path; an image becomes model image
-	 * content. Every failure is counted so the peer can be told.
+	 * blocks. A file is saved and referenced by path, with the size and sniffed type
+	 * its own bytes give it; an image becomes model image content. Every failure is
+	 * counted so the peer can be told.
 	 */
 	async function resolveMedia(item: InboundItem): Promise<{
 		images: ImageContent[];
@@ -75,7 +77,11 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 					const plain = decryptEcb(cipher, decodeMediaKey(ref.media.aes_key));
 					mediaCounter += 1;
 					const path = saveMedia(deps.mediaDir(), `${deps.now()}-${mediaCounter}-${ref.fileName}`, plain);
-					files.push(`[WeChat file: ${ref.fileName} saved to ${path}]`);
+					// What the turn is told is the saved bytes': a `report.docx` that holds a PDF
+					// is named a PDF, and the size is the one a `read` of that path will find.
+					const mime = sniffFileMime(plain);
+					const label = [ref.fileName, formatSize(plain.length), ...(mime ? [mime] : [])].join(", ");
+					files.push(`[WeChat file: ${label}, saved to ${path}]`);
 				} else {
 					// Without a key the bytes are not the image the peer sent; attaching them
 					// anyway would hand the model a corrupt JPEG.

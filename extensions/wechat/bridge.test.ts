@@ -394,7 +394,7 @@ describe("bridge inbound media", () => {
 		await bridge.close();
 	});
 
-	test("saves an inbound file and references its path", async () => {
+	test("saves an inbound file and references its path with its size and type", async () => {
 		const plain = Buffer.from("file contents");
 		const mediaDir = tempDir("wechat-files-");
 		const { client } = makeClient([updates([inboundFile()])], { media: { "https://cdn/f": encrypt(plain) } });
@@ -402,7 +402,7 @@ describe("bridge inbound media", () => {
 		const bridge = createBridge(deps);
 		bridge.open();
 		await waitFor(() => injected.length === 1);
-		const prefix = "[WeChat file: notes.txt saved to ";
+		const prefix = "[WeChat file: notes.txt, 13 B, text/plain, saved to ";
 		expect(injected[0]?.startsWith(prefix)).toBe(true);
 		const path = (injected[0] ?? "").slice(prefix.length).replace(/\]$/, "");
 		expect(existsSync(path)).toBe(true);

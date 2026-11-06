@@ -13,7 +13,7 @@ session is fabricated.
 | Capability | How | What you get | Status |
 |---|---|---|---|
 | Per-message turn | automatic: the wait timers | Each message gets its own turn and answer; a wait is acknowledged once, and an empty or failed turn says so. | Shipped |
-| Inbound media | automatic: an inbound image or file | Images arrive as model image content, files are saved and referenced by path, and voice uses the server's transcript. | Shipped |
+| Inbound media | automatic: an inbound image or file | Images arrive as model image content, files are saved and referenced by path with their size and the type their bytes name, and voice uses the server's transcript. | Shipped |
 | Inbound replay safety | automatic: the WeChat message id | A replayed message id is answered once, remembered for an hour across a reconnect or reload. A batch is acknowledged only once its messages reach the turn queue, so a kill or a close mid-download reads that message again instead of losing it. | Shipped |
 | Inbound text cap | `maxInboundChars` | Text past the configured cap is truncated with a marker instead of becoming an unbounded prompt. | Shipped |
 | Chat language | automatic: a message written in Chinese | Notices, `/help`, and `/history`'s `你` / `我` line labels answer in the chat's language, and a neutral reply does not switch it back. | Shipped |
@@ -294,6 +294,11 @@ re-recorded from the next inbound message.
   the model, and a replayed message id is answered once. Nothing is executed.
 - An inbound file name is reduced to one path segment before it is saved, so a
   separator, a leading dot, or `..` cannot climb out of `media/`.
+- A saved file's size and type are read off its own bytes, never off the sender's
+  extension: the turn is handed `[WeChat file: notes.pdf, 240 kB, application/pdf,
+  saved to <path>]`, and a `report.docx` holding a PDF is named a PDF. The type is a
+  hint for which reader fits — a sniffed image is still a path, not model image
+  content — and a file nothing here recognizes keeps the name-and-size line.
 - Credentials are written `0600` and redacted from diagnostics; egress is only to
   the Weixin endpoint.
 - Automated or unofficial WeChat use can violate WeChat's terms and risk account
@@ -661,8 +666,8 @@ The same claim drawn to be read at half width:
 | `transport/poll.ts` | The long-poll loop: `getupdates`, the watchdog and retry, backoff, cursor persistence — after the hand-off, and only while the connection is still ours — and the expiry stop. |
 | `transport/deliver.ts` | The one outbound text path (reply, dialog preface, `send_wechat`) plus file and image delivery: flatten, split, number, expiry, rejection, and the once-per-outage notice. |
 | `transport/outbound.ts` | Upload and send local media: one hash/encrypt/`getUploadUrl`/upload body, then a file item or an image item, and an image must sniff as one. |
-| `transport/inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to the turn queue. |
-| `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, image MIME sniff (undefined when the bytes are no image), the wire-value-to-one-path-segment rule (`sanitizePathSegment`, with `sanitizeFileName` as its file case), and save helpers. |
+| `transport/inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to the turn queue; a saved file is referenced by path with its size and sniffed type. |
+| `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, image MIME sniff (undefined when the bytes are no image), the file sniff that names a document container or text for the inbound line (`sniffFileMime`), the wire-value-to-one-path-segment rule (`sanitizePathSegment`, with `sanitizeFileName` as its file case), and save helpers. |
 | `state/state.ts` | `state.json` (cursor, owner, the one conversation's reply token, recent message ids), written atomically. |
 | `state/credentials.ts` | `<agent-dir>/wechat/` and its `credentials.json` (`0600`, the one stored account), written atomically so a torn write cannot read back as “not logged in”; a file an older version wrote as an account map is read as the account it was polling and rewritten down to one by `migrateCredentials`. |
 | `state/binding.ts` | The session's binding: a `wechat` branch entry naming the account key, last one wins, `null` for a stop; pure over the replayed branch, so `/resume`, a fork, and a tree jump each read their own. |
