@@ -18,7 +18,7 @@
  * say what it did; a value that is not a path is that defect again.
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { posix, walkFiles } from "./helpers/files.ts";
@@ -50,8 +50,11 @@ const KINDS: Record<string, string> = {
 	migrate: "rewrite the machine's config, once",
 };
 
+/** The `scripts/` file a value runs, and the shape that captures which one it is. */
+const SCRIPT_FILE = /^bun run (scripts\/[\w./-]+\.ts)(?: |$)/;
+
 /** What a command may run: a file in this repository's `scripts/`, or a toolchain binary. */
-const RUNS: readonly RegExp[] = [/^bun run scripts\/[\w./-]+\.ts(?: |$)/, /^tsc(?: |$)/, /^biome(?: |$)/];
+const RUNS: readonly RegExp[] = [SCRIPT_FILE, /^tsc(?: |$)/, /^biome(?: |$)/];
 
 /**
  * A `bun run <name>` in a doc. A file path is matched too, on purpose: a command the
@@ -139,6 +142,16 @@ describe("the scripts surface", () => {
 					`package.json: \`${name}\` runs \`${value}\` — name the script file it runs, so the entry says what it does`,
 			);
 		expect(offenders).toEqual([]);
+	});
+
+	test("every file a value names is in the tree", () => {
+		const offenders = Object.entries(DECLARED).flatMap(([name, value]) => {
+			const target = SCRIPT_FILE.exec(value)?.[1];
+			if (target === undefined) return [];
+			const present = existsSync(join(repo, ...target.split("/")));
+			return present ? [] : [`package.json: \`${name}\` runs \`${target}\`, which a rename left out of the tree`];
+		});
+		expect(offenders, "a command that runs nothing is a command nobody can run").toEqual([]);
 	});
 
 	test("a colon-named command in a source string is a declared script", () => {

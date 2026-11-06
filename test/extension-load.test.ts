@@ -33,8 +33,15 @@ import { createFakePi } from "./helpers/fakes.ts";
 
 const root = join(import.meta.dir, "..");
 
+/** `package.json`, which states what the host supplies and what this pack loads. */
+const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")) as {
+	pi: { extensions: string[] };
+	dependencies?: Record<string, string>;
+	peerDependencies?: Record<string, string>;
+};
+
 /** The extension entry files the package manifest declares. */
-const manifest: string[] = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")).pi.extensions;
+const manifest: string[] = pkg.pi.extensions;
 
 /** Every directory under `extensions/`, as a manifest entry. */
 function declaredFromDisk(): string[] {
@@ -151,20 +158,35 @@ describe("every extension loads through the fake runtime", () => {
 	}
 });
 
-/** The factories run once per file, and the size test reads the same result. */
-let toolsPromise: Promise<Set<string>> | undefined;
+/**
+ * What a registration has to carry to reach the model on purpose rather than on Pi's
+ * restrictive default: the annotations `AGENTS.md` requires, and the snippet it names.
+ */
+export interface RegisteredTool {
+	annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean };
+	promptSnippet?: string;
+}
 
-/** Load every manifest extension and collect the tools it registers. */
-function registeredTools(): Promise<Set<string>> {
+/** One registration, with the manifest entry that made it, so a failure can name both. */
+interface Registration {
+	entry: string;
+	tool: RegisteredTool;
+}
+
+/** The factories run once per file, and every reader below shares the result. */
+let toolsPromise: Promise<Map<string, Registration>> | undefined;
+
+/** Load every manifest extension and collect the tools it registers, by name. */
+function registeredToolMap(): Promise<Map<string, Registration>> {
 	toolsPromise ??= (async () => {
-		const tools = new Set<string>();
+		const tools = new Map<string, Registration>();
 		for (const entry of manifest) {
 			const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
 			await withAgentDir(async () => {
 				await withEnv(ALL_EXTENSIONS_ENV, () => {
 					const fake = createFakePi();
 					module.default?.(fake.pi);
-					for (const name of fake.tools.keys()) tools.add(name);
+					for (const [name, tool] of fake.tools) tools.set(name, { entry, tool: tool as RegisteredTool });
 				});
 			});
 		}
@@ -173,8 +195,64 @@ function registeredTools(): Promise<Set<string>> {
 	return toolsPromise;
 }
 
+/** The entries that are Pi's own path tools, re-registered rather than added. */
+const pathTools = new Set<string>(ROOT_TOOL_NAMES);
+
+/** The tools this pack adds to the model's surface, which is what the guards below hold. */
+async function addedTools(): Promise<Array<[string, Registration]>> {
+	return [...(await registeredToolMap())].filter(([name]) => !pathTools.has(name));
+}
+
 /** The kinds of thing a page can say the pack has. */
 type Noun = "extensions" | "tools" | "skills" | "themes";
+
+describe("the tool surface", () => {
+	test("every added tool declares its hints, its snippet, and a destructive hint when it mutates", async () => {
+		const offenders: string[] = [];
+		for (const [name, { entry, tool }] of await addedTools()) {
+			const { readOnlyHint, destructiveHint, openWorldHint } = tool.annotations ?? {};
+			if (typeof readOnlyHint !== "boolean")
+				offenders.push(`${entry}: \`${name}\` declares no annotations.readOnlyHint`);
+			if (typeof openWorldHint !== "boolean")
+				offenders.push(`${entry}: \`${name}\` declares no annotations.openWorldHint`);
+			if (readOnlyHint === false && typeof destructiveHint !== "boolean") {
+				offenders.push(`${entry}: \`${name}\` mutates but declares no annotations.destructiveHint`);
+			}
+			if ((tool.promptSnippet ?? "").trim() === "") {
+				offenders.push(`${entry}: \`${name}\` declares no promptSnippet`);
+			}
+		}
+		expect(offenders, "every tool states what the model may assume about it").toEqual([]);
+	});
+});
+
+describe("the host packages", () => {
+	/** A package the Pi host supplies rather than this one shipping: `AGENTS.md`'s peer rule. */
+	const supplied = (name: string): boolean => name.startsWith("@earendil-works/pi-") || name === "typebox";
+
+	test("the host supplies every peer, so a peer is unbounded and never a runtime dependency", () => {
+		const offenders: string[] = [];
+		for (const [name, range] of Object.entries(pkg.peerDependencies ?? {})) {
+			if (!supplied(name)) offenders.push(`package.json: \`${name}\` is a peer but not a package the Pi host supplies`);
+			if (range !== "*") {
+				offenders.push(`package.json: \`${name}\` is pinned to ${range}; the host supplies it, so the range is \`*\``);
+			}
+		}
+		for (const [name, range] of Object.entries(pkg.dependencies ?? {})) {
+			if (!supplied(name)) continue;
+			offenders.push(`package.json: \`${name}\`@${range} is a runtime dependency; a second copy must not ship`);
+		}
+		expect(offenders, "a pinned or duplicated host package breaks a user on another Pi").toEqual([]);
+	});
+
+	test("every package the host supplies is declared as a peer", () => {
+		const peers = new Set(Object.keys(pkg.peerDependencies ?? {}));
+		const missing = Object.keys(pkg.dependencies ?? {})
+			.filter(supplied)
+			.filter((name) => !peers.has(name));
+		expect(missing).toEqual([]);
+	});
+});
 
 describe("the documented footprint", () => {
 	/** The pages that state how big the pack is, where a reader weighs it. */
@@ -200,17 +278,14 @@ describe("the documented footprint", () => {
 	]);
 
 	test("every count a page states is what the package actually loads", async () => {
-		const names = await registeredTools();
-
 		// Pi's path tools are re-registered by `worktree` so they follow the active
 		// root. They replace the model's existing tool of the same name rather than
 		// joining the list, so they are not part of what the pack adds.
-		const overridden = new Set<string>(ROOT_TOOL_NAMES);
-		const added = [...names].filter((name) => !overridden.has(name));
+		const tools = await addedTools();
 
 		const actual: Record<Noun, number> = {
 			extensions: manifest.length,
-			tools: added.length,
+			tools: tools.length,
 			skills: skillFiles().length,
 			themes: themeFiles().length,
 		};
