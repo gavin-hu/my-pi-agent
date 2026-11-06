@@ -440,11 +440,12 @@ const STATED: readonly { file: string; phrase: string }[] = [
 	{ file: "docs/extensions/bytefly.md", phrase: `the ${count(PROJECT_ROW_COUNT)} \`bytefly.json\` rows` },
 	{ file: "docs/extensions/bytefly.md", phrase: `at ${count(ROW_COUNT)} rows so the screen fits` },
 	{ file: "docs/extensions/bytefly.md", phrase: `catalogue: the ${count(ROW_COUNT)} descriptors` },
-	{ file: "docs/configuration.md", phrase: `${count(ROW_COUNT)} rows under five headings` },
+	{ file: "docs/configuration.md", phrase: `${count(ROW_COUNT)} rows under six headings` },
 ];
 
 /** The spellings those sentences carried before the last row landed, or before a reword. */
 const STALE: readonly string[] = [
+	`${count(ROW_COUNT)} rows under five headings`,
 	`${count(ROW_COUNT)} flat rows`,
 	`${count(ROW_COUNT - 1)} preferences`,
 	`${count(ROW_COUNT - 1)} flat rows`,

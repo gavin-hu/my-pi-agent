@@ -154,7 +154,7 @@ the file for the scope you want, and the next session reads it.
 | raise the board's WIP limits, or name the team lead whose signature the board's gates take | **Plan limit**, **Execute limit**, **Lead** in `/bytefly settings`, or `board` below |
 
 `/bytefly settings` is a shortlist of the preferences a session changes — fifteen
-rows under five headings (Startup, Notifications, Session, Board, and Price), named in
+rows under six headings (Startup, Notifications, Session, Board, Team, and Price), named in
 bold above. Everything else — the tuning numbers, the
 cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's
 screen; the rest of this page is the full list.
@@ -216,7 +216,8 @@ repository root rather than the active working directory.
 ## `board` — the shared feature board
 
 The board's own section: how many cards a lane holds, and the team name whose signature its two
-gates take. `/bytefly settings` edits all three. The section is read once, when the board's
+gates take. `/bytefly settings` edits all three — the two numbers under `Board` and the name
+under `Team`. The section is read once, when the board's
 store opens, so a change lands at the next session.
 
 | Key | Type | Default | Values | What it does |

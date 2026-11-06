@@ -77,7 +77,7 @@ Then, from inside Pi:
   key.
 - `/bytefly settings` opens the control center's Settings section: the fifteen
   preferences a session changes, grouped under Startup, Notifications, Session,
-  Board, and Price with each value in an aligned column, `Space`/`Enter` to change
+  Board, Team, and Price with each value in an aligned column, `Space`/`Enter` to change
   one and `s` for Global/Project scope. Every other key is a `bytefly.json` edit,
   listed in the configuration reference.
 - `/bytefly skills` opens the control center's Skills section: one row per Pi

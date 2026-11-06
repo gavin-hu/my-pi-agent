@@ -44,7 +44,7 @@ describe("settings catalogue", () => {
 
 	test("groups the rows as what a session starts with, tells you, keeps, and costs", () => {
 		expect(new Set(SETTING_ROWS.map((entry) => entry.group))).toEqual(
-			new Set(["Startup", "Notifications", "Session", "Board", "Price"]),
+			new Set(["Startup", "Notifications", "Session", "Board", "Team", "Price"]),
 		);
 		expect(SETTING_ROWS.map((entry) => entry.group)).toEqual([
 			"Startup",
@@ -59,7 +59,7 @@ describe("settings catalogue", () => {
 			"Session",
 			"Board",
 			"Board",
-			"Board",
+			"Team",
 			"Price",
 			"Price",
 		]);

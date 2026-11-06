@@ -82,7 +82,7 @@ its surface is the point: `board` and `team` join this session for you.
 
 | You are | Action | What happens |
 |---|---|---|
-| The lead | `/board` | The session joins as the board's lead (`board.lead`, `lead` by default) — the name the page serves as — and listens, so a handoff or an offer is reported at its next turn |
+| The lead | `/board` | The session joins as the board's lead (`board.lead`, `lead` by default, edited under **Team** in `/bytefly settings`) — the name the page serves as — and listens, so a handoff or an offer is reported at its next turn |
 | The lead, handing work out | `team` action `assign`, or the cardless `ask` | The session joins under the name it already holds and listens, so the peer's question, or its request for a sign, is reported at the lead's next turn — the same join a claim makes, once per session |
 | A teammate | the first card it claims | The session joins under the name it already holds, or a preset teammate name (`tom`, `lily`, `ben`) when it has none, and listens; Pi's footer keeps the name it already had |
 | A teammate who wants a name | `/team join billing-core` | The session joins as `billing-core`, and Pi's footer and `/resume` show that name — the one join that renames |

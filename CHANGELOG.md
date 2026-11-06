@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `bytefly`: `/bytefly settings` groups its fifteen rows under six headings — **Lead** moves out
+  of `Board` into its own `Team` group beside it, because the name the board's two gates take is
+  the team's rather than a card's. `Board` keeps the two WIP limits (`Board (2)`), the cap stays
+  at fifteen rows, and the screen wants a 29-row terminal to be seen whole.
+- docs: the extension page's Settings table lists all fifteen rows, `Board`'s three among them,
+  where it had listed twelve under a prose count of fifteen.
+
 - `board`: the work list and `team`'s lead round load like every other extension, so a
   session that never works a card carries their tool and command anyway, and
   `PI_DISABLED_EXTENSIONS` is the way to refuse them. `PI_ENABLED_EXTENSIONS`, the
