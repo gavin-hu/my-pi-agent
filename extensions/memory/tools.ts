@@ -112,14 +112,22 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 				}
 				if (action === "update") {
 					const to = normalizeEntryText(args.to, "to");
-					if (text === to) {
-						return memoryResult({ action, scope, ...runtime.entries(), changed: false, entry: text, to });
+					// Equal text says nothing about the store, so the read decides: "already set"
+					// is only true for a note this scope holds, and the store may hold it in the
+					// other scope or lack it entirely.
+					const notes = runtime.entries();
+					if (text === to && notes[scope].includes(text)) {
+						return memoryResult({ action, scope, ...notes, changed: false, entry: text, to });
 					}
 					const changed = await runtime.update(scope, text, to);
 					if (!changed) {
+						// `update` refuses an untrusted project before it writes, so a miss that
+						// reaches here is real: name the other scope when that is why it missed.
+						const other: MemoryScope = scope === "project" ? "global" : "project";
+						const elsewhere = notes[other].includes(text) ? ` (it is in ${scopeLabel(other)} memory)` : "";
 						return memoryResult(
-							{ action, scope, ...runtime.entries(), changed: false, entry: text, to },
-							`No ${scopeLabel(scope)} memory note matches: ${text}`,
+							{ action, scope, ...notes, changed: false, entry: text, to },
+							`No ${scopeLabel(scope)} memory note matches: ${text}${elsewhere}`,
 						);
 					}
 					return memoryResult({ action, scope, ...runtime.entries(), changed, entry: text, to });

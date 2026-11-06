@@ -246,6 +246,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `memory`: an `update` whose `text` and `to` are equal reads the stores before answering, so it
+  reports `Already set in project memory: <text>` only for a note that scope really holds. Before, the
+  equal-text shortcut returned before any read: a note that was absent, or that lived in `global`,
+  came back as a success the model had no reason to retry. It is now the same `No project memory note
+  matches: <text>` error as any other miss, naming the other scope when that is where the note is,
+  and an untrusted project still gets its own refusal rather than a miss.
+
 - `subagent`: aborting a run, or letting its deadline expire, stops what the child started. A child was
   spawned into Pi's process group and signalled by pid alone, so a `bun test` or `npm install` a worker
   had launched outlived the run and kept writing to the tree — and a descendant still holding the output

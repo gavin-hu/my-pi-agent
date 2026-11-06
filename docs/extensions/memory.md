@@ -81,7 +81,10 @@ Notes are normalized to a single line: control characters (including `ESC`)
 become spaces and whitespace runs collapse to one space, so a note cannot inject
 terminal sequences when it is injected or rendered. `update` and `forget` match
 the trimmed text exactly; `update` replaces every exact match of `text` with `to`
-in place (a no-op when they are equal), and `forget` removes every exact match.
+in place, and `forget` removes every exact match. An `update` whose `text`
+already equals `to` writes nothing and answers "already set" only when the scope
+really holds the note; a note it does not hold is the same "no match" error,
+naming the other scope when that is where the note lives.
 `add` skips a note that is already present — exactly, or as a near-duplicate
 under the comparison key below — returning the stored note in `existing`, so the
 model can call `update` instead of storing a reworded copy.
