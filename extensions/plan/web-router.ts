@@ -58,8 +58,11 @@ export interface ReviewContext {
 	hosts: () => readonly string[];
 	/** Whether the browser may approve the plan (only the `plan` tool's `exit` flow). */
 	canApprove: boolean;
-	/** Build the page data for the caller (recomputed per request). */
-	page: (caller: ReviewCaller) => Promise<ReviewPageData>;
+	/**
+	 * Build the page data for the caller and the token its request carried, so the page
+	 * echoes its own credential rather than the owner's (recomputed per request).
+	 */
+	page: (caller: ReviewCaller, token: string) => Promise<ReviewPageData>;
 	/** Persist the annotations as the caller and report the outcome. */
 	save: (annotations: PlanAnnotation[], caller: ReviewCaller) => Promise<SaveResult>;
 	/** Start sharing the review, or report why it cannot be shared. */
@@ -195,13 +198,15 @@ export async function handleReviewRequest(
 	if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
 	if (pathname === CLIENT_JS_PATH) return { status: 200, headers: scriptHeaders(), body: REVIEW_CLIENT_JS };
 
-	const caller = ctx.caller(search.get("token") ?? "");
+	const token = search.get("token") ?? "";
+	const caller = ctx.caller(token);
 	if (caller === undefined) return jsonError(403, "Invalid or missing token.");
 
 	// The page and its stream are the same for either role: a reviewer reads the plan she was
-	// invited to, and the island she is given is built for her role.
+	// invited to, and the island she is given is built for her role — and for her own token,
+	// which is the only credential her page will echo back.
 	if (pathname === "/" || pathname === "/index.html") {
-		return { status: 200, headers: pageHeaders(), body: renderReviewPage(await ctx.page(caller)) };
+		return { status: 200, headers: pageHeaders(), body: renderReviewPage(await ctx.page(caller, token)) };
 	}
 	if (pathname === "/events") return { status: 200, headers: eventHeaders(), stream: true };
 

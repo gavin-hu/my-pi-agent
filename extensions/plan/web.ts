@@ -228,17 +228,22 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 			if (stripFeedback(current.content) !== pageText) notifyPlanChange();
 		};
 
-		const page = async (caller: ReviewCaller): Promise<ReviewPageData> => {
+		/**
+		 * The island for one request, built from the token that request carried: the owner's
+		 * page echoes the owner's token and a reviewer's page her own link's, which is what
+		 * makes each page's posts and event stream answer as the role it was served for.
+		 */
+		const page = async (caller: ReviewCaller, pageToken: string): Promise<ReviewPageData> => {
 			const stored = await refreshPageText();
 			// The island is one function of what the page renders: the text, the baseline
-			// the previous review left, and who is asking.
+			// the previous review left, and who is asking — with the credential it asks with.
 			return reviewPageData({
 				base,
 				path: plan.relativePath,
 				content: stored.content,
 				baseline: options.baseline,
 				caller,
-				token,
+				token: pageToken,
 				canApprove,
 				share: () => shareSession.state(),
 			});
