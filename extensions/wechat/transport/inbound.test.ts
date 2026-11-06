@@ -1,9 +1,11 @@
 /**
- * The inbound file line: what a turn is handed for an attachment the bridge saved.
+ * The media an inbound message resolves: the file line a turn is handed, and the
+ * image blocks it is attached to.
  *
- * `createInboundAdmission` is driven directly with the fixture's client, so the line
- * is asserted where it is built — its size and type come from the bytes the bridge
- * wrote, not from the name the peer sent.
+ * `createInboundAdmission` is driven directly with the fixture's client, so the
+ * result is asserted where it is built — a file's size and type come from the bytes
+ * the bridge wrote, not from the name the peer sent, and an image is asserted as the
+ * bytes the key it arrived with produced.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -14,9 +16,12 @@ import type { ChatItem } from "../conversation/turn.ts";
 import type { InboundItem } from "../types.ts";
 import { createInboundAdmission, type InboundDeps } from "./inbound.ts";
 
-/** Admit one file's bytes under `fileName`, and report the text and path it produced. */
-async function admitFile(plain: Uint8Array, fileName: string): Promise<{ text: string; path: string }> {
-	const { client } = makeClient([], { media: { "https://cdn/f": encrypt(plain) } });
+/** A key as a sender writes it into `media.aes_key`: base64 of the hex string. */
+const wireKey = Buffer.from(key.toString("hex")).toString("base64");
+
+/** Admit one item, serving `url` the given ciphertext, and report what was queued. */
+async function admit(item: InboundItem, url: string, cipher: Buffer): Promise<ChatItem | undefined> {
+	const { client } = makeClient([], { media: { [url]: cipher } });
 	const mediaDir = tempDir("wechat-inbound-");
 	const queued: ChatItem[] = [];
 	const deps: InboundDeps = {
@@ -27,18 +32,23 @@ async function admitFile(plain: Uint8Array, fileName: string): Promise<{ text: s
 		now: () => 1000,
 		notify: () => {},
 		reply: async () => true,
-		enqueue: (item) => queued.push(item),
+		enqueue: (queuedItem) => queued.push(queuedItem),
 		pruneTyping: () => {},
 		isRunning: () => true,
 	};
+	await createInboundAdmission(deps).admit(item, () => true);
+	return queued[0];
+}
+
+/** Admit one file's bytes under `fileName`, and report the text and path it produced. */
+async function admitFile(plain: Uint8Array, fileName: string): Promise<{ text: string; path: string }> {
 	const item: InboundItem = {
 		peer: "owner",
 		text: "",
-		media: [{ kind: "file", media: { full_url: "https://cdn/f", aes_key: key.toString("base64") }, fileName }],
+		media: [{ kind: "file", media: { full_url: "https://cdn/f", aes_key: wireKey }, fileName }],
 		language: "en",
 	};
-	await createInboundAdmission(deps).admit(item, () => true);
-	const text = queued[0]?.text ?? "";
+	const text = (await admit(item, "https://cdn/f", encrypt(plain)))?.text ?? "";
 	return { text, path: /saved to (.*)\]$/.exec(text)?.[1] ?? "" };
 }
 
@@ -60,5 +70,19 @@ describe("the inbound file line", () => {
 		const ole2 = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
 		const { text } = await admitFile(ole2, "legacy.doc");
 		expect(text.startsWith("[WeChat file: legacy.doc, 8 B, saved to ")).toBe(true);
+	});
+});
+
+describe("the inbound image", () => {
+	test("decrypts with the key in media.aes_key, which arrives as base64 of the hex string", async () => {
+		const plain = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
+		const item: InboundItem = {
+			peer: "owner",
+			text: "",
+			media: [{ kind: "image", media: { full_url: "https://cdn/i", aes_key: wireKey } }],
+			language: "en",
+		};
+		const queued = await admit(item, "https://cdn/i", encrypt(plain));
+		expect(queued?.images).toEqual([{ type: "image", data: plain.toString("base64"), mimeType: "image/png" }]);
 	});
 });

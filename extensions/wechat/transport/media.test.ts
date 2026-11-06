@@ -1,10 +1,30 @@
 /**
- * The media helpers the bridge never reaches through a message of its own: the
- * sniff that names an inbound file's type for the line a turn is handed.
+ * The media helpers the bridge never reaches through a message of its own: the key
+ * decode a message's reference is opened with, and the sniff that names an inbound
+ * file's type for the line a turn is handed.
  */
 
 import { describe, expect, test } from "bun:test";
-import { sniffFileMime } from "./media.ts";
+import { decodeMediaKey, sniffFileMime } from "./media.ts";
+
+describe("the wire's media key", () => {
+	/** The reference key, in the three shapes a sender or a peer writes it. */
+	const raw = Buffer.from("00112233445566778899aabbccddeeff", "hex");
+
+	test("reads all three encodings as the same 16 bytes", () => {
+		// `image_item.aeskey` is the bare hex the reference prefers.
+		expect(decodeMediaKey(raw.toString("hex"))).toEqual(raw);
+		// `media.aes_key` is base64 of that hex string, which is what senders write.
+		expect(decodeMediaKey(Buffer.from(raw.toString("hex")).toString("base64"))).toEqual(raw);
+		// A peer may also send base64 of the raw 16 bytes.
+		expect(decodeMediaKey(raw.toString("base64"))).toEqual(raw);
+	});
+
+	test("refuses a value that decodes to neither key", () => {
+		expect(() => decodeMediaKey("abcd")).toThrow("not 16 bytes");
+		expect(() => decodeMediaKey("z".repeat(32))).toThrow("not 16 bytes");
+	});
+});
 
 describe("the file sniff", () => {
 	test("names an image, a document container, and text by their bytes", () => {

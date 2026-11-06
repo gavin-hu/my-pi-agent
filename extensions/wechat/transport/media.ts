@@ -18,12 +18,20 @@ import { join } from "node:path";
 import { stripControlChars } from "../../../lib/format.ts";
 import type { CDNMedia } from "../types.ts";
 
-/** Decode a Weixin media AES key from 32 hex chars or base64 to 16 bytes. */
+/**
+ * Decode a Weixin media AES key to 16 bytes: 32 hex characters, base64 of those
+ * characters, or base64 of the raw bytes, which are the three forms the wire and a
+ * peer send.
+ */
 export function decodeMediaKey(value: string): Buffer {
 	const trimmed = value.trim();
-	const key = /^[0-9a-fA-F]{32}$/.test(trimmed) ? Buffer.from(trimmed, "hex") : Buffer.from(trimmed, "base64");
-	if (key.length !== 16) throw new Error("WeChat media key is not 16 bytes.");
-	return key;
+	if (/^[0-9a-fA-F]{32}$/.test(trimmed)) return Buffer.from(trimmed, "hex");
+	const decoded = Buffer.from(trimmed, "base64");
+	// Senders encode the hex *string* as base64, so a 32-byte decode spells the key.
+	const hex = decoded.toString("latin1");
+	if (decoded.length === 32 && /^[0-9a-fA-F]{32}$/.test(hex)) return Buffer.from(hex, "hex");
+	if (decoded.length !== 16) throw new Error("WeChat media key is not 16 bytes.");
+	return decoded;
 }
 
 /** Decrypt AES-128-ECB with PKCS#7 padding. */

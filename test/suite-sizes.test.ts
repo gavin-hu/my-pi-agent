@@ -80,7 +80,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/wechat/bridge.test.ts": 1180,
 	"extensions/wechat/commands/commands.test.ts": 760,
 	"extensions/wechat/conversation/turn.test.ts": 529,
-	"extensions/wechat/transport/client.test.ts": 707,
+	"extensions/wechat/transport/client.test.ts": 691,
 };
 
 /** The named suites' total, written down so only a split can move it. */

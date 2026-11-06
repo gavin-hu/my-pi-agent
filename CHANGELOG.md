@@ -261,6 +261,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: an inbound image or file sent by a real WeChat client is no longer dropped as
+  `WeChat media key is not 16 bytes.` Senders put `media.aes_key` on the wire as base64 of the
+  32-character hex key, not base64 of the 16 raw bytes, and `decodeMediaKey` read only the
+  latter, so it decoded 32 bytes and refused them; the key is now read in any of the three
+  shapes, and the fixtures carry the wire's own so the inbound image and file lines are proved
+  against it.
+
 - `bytefly`: the settings stores are re-read before a write, so a settings file that stops being readable
   while the picker or the Settings section is open is refused instead of reported after the write — Pi
   takes a setter's value in memory and then drops it on the way to a file it cannot parse, which left the
