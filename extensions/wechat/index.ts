@@ -21,6 +21,7 @@ import { isPidAlive } from "../../lib/spawn.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { Bridge, BridgeState } from "./bridge.ts";
+import type { MediaSweep } from "./state/media-sweep.ts";
 import type { WechatClient, WechatClientOptions } from "./transport/client.ts";
 import { registerCommands, type CommandDeps, type StartOutcome } from "./commands/commands.ts";
 import { messageOf } from "../../lib/errors.ts";
@@ -86,6 +87,8 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	const clientModule = lazy(() => import("./transport/client.ts"));
 
 	let bridge: Bridge | undefined;
+	/** The inbound media sweep, built with the bridge and running with the connection. */
+	let sweep: MediaSweep | undefined;
 	/** A build in flight, so a command that races a start joins it instead of loading twice. */
 	let building: Promise<Bridge> | undefined;
 	/**
@@ -161,6 +164,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			{ INTERACTION_TURN_KEY },
 			{ WECHAT_CHANNEL_PROMPT },
 			{ isPlanModeEnabled },
+			{ createMediaSweep },
 		] = await Promise.all([
 			bridgeModule.get(),
 			clientModule.get(),
@@ -168,6 +172,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			import("../../lib/interaction.ts"),
 			import("./text/channel.ts"),
 			import("../../lib/plan-state.ts"),
+			import("./state/media-sweep.ts"),
 		]);
 		// The phone-chat contract rides on the turns the chat started: the marker on the UI
 		// context is what says which those are, so a terminal turn is not told it is
@@ -186,6 +191,16 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		const { readState, statePath, writeState } = await import("./state/state.ts");
 		const { SLASH_COMMANDS } = await import("./commands/slash.ts");
 		const { formatHistory } = await import("./commands/history.ts");
+		// The retention window is this connection's: the sweep reads the same config the
+		// bridge was built with, so a start prunes by the rule the docs name for it.
+		sweep = createMediaSweep({
+			mediaDir: () => join(wechatDir(), "media"),
+			retentionDays: () => config.mediaRetentionDays,
+			now: () => Date.now(),
+			notify: (line) => {
+				ctxRef?.ui.notify(line, "info");
+			},
+		});
 		return createBridge({
 			config,
 			now: () => Date.now(),
@@ -270,6 +285,8 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		bridge = undefined;
 		building = undefined;
 		boundTo = undefined;
+		sweep?.stop();
+		sweep = undefined;
 	};
 
 	/** Open the poller for an account the session binds, replacing what this runtime ran. */
@@ -277,6 +294,9 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		const built = bridge ?? (await ensure(ctx));
 		built.open();
 		boundTo = key;
+		// The sweep follows the connection: a start prunes what the last one left, and a
+		// close (through `forget`) ends the tick rather than reading a dead runtime.
+		sweep?.start();
 	};
 
 	/**

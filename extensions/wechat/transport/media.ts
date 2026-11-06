@@ -1,6 +1,7 @@
 /**
  * Media shared by both directions: the AES key and block codec, the CDN URLs, the
- * image and file sniff, the filename sanitize, and the one disk write an attachment needs.
+ * image and file sniff, the filename sanitize, the one disk write an attachment
+ * needs, and the sweep that takes an old one away.
  *
  * Weixin media are AES-128-ECB with PKCS#7 padding (Node's `node:crypto`), so
  * there is no extra dependency. Everything here is pure or filesystem-only; the
@@ -12,7 +13,7 @@
  */
 
 import { createCipheriv, createDecipheriv } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stripControlChars } from "../../../lib/format.ts";
 import type { CDNMedia } from "../types.ts";
@@ -168,4 +169,39 @@ export function saveMedia(dir: string, name: string, bytes: Uint8Array): string 
 	const path = join(dir, name);
 	writeFileSync(path, bytes);
 	return path;
+}
+
+/**
+ * Delete the files under `dir` whose mtime is older than `maxAgeMs`, and return how
+ * many went.
+ *
+ * Age is the rule rather than a count, because a turn may still hold the path of the
+ * message it is answering: the file it was handed was written seconds ago. A window of
+ * `0` or less keeps everything. What cannot be read is not this sweep's business — a
+ * directory that does not exist yet, a subdirectory, a file that vanished between the
+ * listing and the unlink — so the caller gets a count instead of an error.
+ */
+export function pruneMedia(dir: string, maxAgeMs: number, now: number): number {
+	if (maxAgeMs <= 0) return 0;
+	let names: string[];
+	try {
+		names = readdirSync(dir, { withFileTypes: true })
+			.filter((entry) => entry.isFile())
+			.map((entry) => entry.name);
+	} catch {
+		return 0;
+	}
+	let pruned = 0;
+	for (const name of names) {
+		const path = join(dir, name);
+		try {
+			if (now - statSync(path).mtimeMs < maxAgeMs) continue;
+			unlinkSync(path);
+			pruned += 1;
+		} catch {
+			// A file that vanished, a name that is not a file, a directory read that is
+			// not ours: one entry the sweep cannot take is not a failed sweep.
+		}
+	}
+	return pruned;
 }

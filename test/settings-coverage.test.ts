@@ -256,6 +256,7 @@ const SECTIONS: readonly SectionCase[] = [
 			channelVersion: "a protocol version",
 			cdnBaseUrl: "a protocol endpoint",
 			maxMediaBytes: "a bridge transfer limit",
+			mediaRetentionDays: "a retention age, tuned once",
 			maxInboundChars: "a bridge transfer limit",
 			typingIndicator: "a bridge courtesy",
 		},

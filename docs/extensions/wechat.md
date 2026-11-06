@@ -14,6 +14,7 @@ session is fabricated.
 |---|---|---|---|
 | Per-message turn | automatic: the wait timers | Each message gets its own turn and answer; a wait is acknowledged once, and an empty or failed turn says so. | Shipped |
 | Inbound media | automatic: an inbound image or file | Images arrive as model image content, files are saved and referenced by path with their size and the type their bytes name, and voice uses the server's transcript. | Shipped |
+| Media retention | automatic: `mediaRetentionDays` | An inbound file older than the window (7 days by default) is deleted at each bridge start and every six hours after it, so a long-lived bridge does not keep every photo forever; `0` keeps them all. | Shipped |
 | Inbound replay safety | automatic: the WeChat message id | A replayed message id is answered once, remembered for an hour across a reconnect or reload. A batch is acknowledged only once its messages reach the turn queue, so a kill or a close mid-download reads that message again instead of losing it. | Shipped |
 | Inbound text cap | `maxInboundChars` | Text past the configured cap is truncated with a marker instead of becoming an unbounded prompt. | Shipped |
 | Chat language | automatic: a message written in Chinese | Notices, `/help`, and `/history`'s `你` / `我` line labels answer in the chat's language, and a neutral reply does not switch it back. | Shipped |
@@ -264,6 +265,7 @@ default are in
   "channelVersion": "0.1.0", // sent as base_info.channel_version
   "cdnBaseUrl": "https://novac2c.cdn.weixin.qq.com/c2c", // CDN media base
   "maxMediaBytes": 20971520, // inbound media larger than this is skipped
+  "mediaRetentionDays": 7,  // inbound files older than this are pruned; 0 keeps them
   "maxInboundChars": 8000, // inbound text longer than this is truncated
   "typingIndicator": true,   // show typing while a turn is generated
   // "pollHoldMs": 3000      // experimental: request a shorter long-poll hold; unset by default
@@ -272,8 +274,9 @@ default are in
 
 State lives under `<agent-dir>/wechat/`: `credentials.json` (mode `0600`, the one
 stored account), `state.json` (cursor, owner, the reply token, and recently
-handled message ids), `media/` (downloaded inbound files), and `poller.lock`
-(stops two sessions polling one account). A `sessions/<peer>/` directory from an
+handled message ids), `media/` (downloaded inbound files, pruned once they pass
+`mediaRetentionDays`), and `poller.lock` (stops two sessions polling one
+account). A `sessions/<peer>/` directory from an
 older version is left on disk and never read again: those transcripts are the
 user's data and are not merged into this session, so the reply token is
 re-recorded from the next inbound message.
@@ -290,8 +293,11 @@ re-recorded from the next inbound message.
   transcript.
 - Inbound media is **untrusted**: images become model image content, and files
   are saved under `<agent-dir>/wechat/media/` with sanitized names and a size cap
-  (`maxMediaBytes`). Inbound text is capped by `maxInboundChars` before it reaches
-  the model, and a replayed message id is answered once. Nothing is executed.
+  (`maxMediaBytes`). The directory is not a permanent store: a file older than
+  `mediaRetentionDays` is deleted at the next bridge start or six-hour tick, so a
+  transcript that named one may find it gone. Inbound text is capped by
+  `maxInboundChars` before it reaches the model, and a replayed message id is
+  answered once. Nothing is executed.
 - An inbound file name is reduced to one path segment before it is saved, so a
   separator, a leading dot, or `..` cannot climb out of `media/`.
 - A saved file's size and type are read off its own bytes, never off the sender's
@@ -667,11 +673,12 @@ The same claim drawn to be read at half width:
 | `transport/deliver.ts` | The one outbound text path (reply, dialog preface, `send_wechat`) plus file and image delivery: flatten, split, number, expiry, rejection, and the once-per-outage notice. |
 | `transport/outbound.ts` | Upload and send local media: one hash/encrypt/`getUploadUrl`/upload body, then a file item or an image item, and an image must sniff as one. |
 | `transport/inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to the turn queue; a saved file is referenced by path with its size and sniffed type. |
-| `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, image MIME sniff (undefined when the bytes are no image), the file sniff that names a document container or text for the inbound line (`sniffFileMime`), the wire-value-to-one-path-segment rule (`sanitizePathSegment`, with `sanitizeFileName` as its file case), and save helpers. |
+| `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, image MIME sniff (undefined when the bytes are no image), the file sniff that names a document container or text for the inbound line (`sniffFileMime`), the wire-value-to-one-path-segment rule (`sanitizePathSegment`, with `sanitizeFileName` as its file case), and the two filesystem rules: `saveMedia` writes an attachment, `pruneMedia` takes the files past a window away. |
 | `state/state.ts` | `state.json` (cursor, owner, the one conversation's reply token, recent message ids), written atomically. |
 | `state/credentials.ts` | `<agent-dir>/wechat/` and its `credentials.json` (`0600`, the one stored account), written atomically so a torn write cannot read back as “not logged in”; a file an older version wrote as an account map is read as the account it was polling and rewritten down to one by `migrateCredentials`. |
 | `state/binding.ts` | The session's binding: a `wechat` branch entry naming the account key, last one wins, `null` for a stop; pure over the replayed branch, so `/resume`, a fork, and a tree jump each read their own. |
 | `state/lock.ts` | Poller lockfile. |
+| `state/media-sweep.ts` | The inbound media directory's retention: a sweep at each bridge start and every six hours while the connection lives, deleting the files past `mediaRetentionDays` and naming the count on the terminal. |
 | `host/chat.ts` | The chat's session, which is this Pi session: `sendUserMessage` for the turn, `message_update` deltas and the settle relayed back, the turn marked on `ctx.ui` so its dialogs reach the phone, and a prompt held until the session is idle so a terminal run cannot swallow a message. |
 | `conversation/turn.ts` | One queue, one turn at a time: prompt/abort on the chat session, streamed reply parts, the fallback line when a turn ends without text, the idle sweep, and the one notice an abandoning close sends. |
 | `conversation/admission.ts` | The rolling-hour turn budget and the serial admission chain, with `settled()` — the promise the poll loop awaits before it acknowledges a batch. |
