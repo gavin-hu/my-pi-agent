@@ -234,6 +234,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `question`: a Chinese batch reply is parsed in the format the zh prompt prints. The prompt separates
+  answers with `；` and the parser split on `;` alone, so a reply copied from the prompt was one chunk,
+  the single retry reprinted the same unusable format, and the model was told “User cancelled the
+  question.” with `answers: []`. A separator now breaks the reply only where the next numbered answer
+  starts, so `;` and `；` both work and a `；` used as prose stays inside its answer — the English
+  answer containing a `;` also survives — and a fullwidth `：` after the number and `，`/`、` inside a
+  multi-select value are read as their ASCII forms are.
+
 - `bytefly`: a `Space` in Project scope writes the project file's own package list, not the merged one.
   Pi's `getPackages()` reads both files merged, so on a project with no `packages` key the toggle copied
   every personal package entry into `.pi/settings.json` — a file people commit — and wrote the toggled

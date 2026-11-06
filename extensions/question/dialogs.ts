@@ -8,7 +8,7 @@
 
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import type { InteractionLanguage } from "../../lib/interaction.ts";
-import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult } from "./answers.ts";
+import { cancelledResult, collectAnswers, completedResult, OTHER_LABEL } from "./answers.ts";
 import type { Answer, AskResult, Question, Selection } from "./types.ts";
 
 /**
@@ -22,13 +22,26 @@ export type QuestionUI = Pick<ExtensionUIContext, "select" | "input" | "editor">
 
 const MULTI_INSTRUCTIONS = "Enter one or more option numbers or labels, separated by commas.";
 
+/** The separators inside one multi-select value, ASCII or from a Chinese IME. */
+const LIST_BREAK = /[,\n，、]/;
+
+/**
+ * Where one batch answer ends and the next begins: a separator the next
+ * numbered answer follows. The zh format line prints `；`, and Chinese prose
+ * uses it inside a sentence, so a `；` before prose stays in that answer.
+ */
+const CHUNK_BREAK = /[;\n；]+(?=\s*\d+\s*[:：.)-])/;
+
+/** One batch chunk: its question number and the answer after it. */
+const CHUNK_PREFIX = /^\s*(\d+)\s*[:：.)-]\s*([\s\S]*)$/;
+
 /** Parse a multi-select editor value into a selection, or undefined when empty. */
 export function parseMultiSelect(question: Question, text: string): Selection | undefined {
 	const trimmed = text.trim();
 	if (!trimmed) return undefined;
 
 	const tokens = trimmed
-		.split(/[,\n]/)
+		.split(LIST_BREAK)
 		.map((token) => token.trim())
 		.filter(Boolean);
 	if (tokens.length === 0) return undefined;
@@ -79,13 +92,14 @@ export function batchPrompt(questions: Question[], language: "zh" | "en" = "en")
 }
 
 /**
- * Parse one batch reply. Each line/semicolon chunk starts with the question
- * number; a chunk with no prefix makes the whole reply ambiguous.
+ * Parse one batch reply. A separator breaks it only where the next numbered
+ * answer starts, so a free-form answer may contain one; the first chunk must be
+ * numbered, and a chunk with no prefix makes the whole reply ambiguous.
  */
 export function parseBatchAnswers(questions: Question[], text: string): Map<string, Selection> | undefined {
 	const entries = new Map<number, string>();
-	for (const chunk of text.split(/[\n;]+/)) {
-		const match = /^\s*(\d+)\s*[:.)-]\s*(.*)$/.exec(chunk);
+	for (const chunk of text.split(CHUNK_BREAK)) {
+		const match = CHUNK_PREFIX.exec(chunk);
 		if (!match) {
 			if (chunk.trim() !== "") return undefined;
 			continue;
