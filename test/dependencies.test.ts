@@ -307,11 +307,16 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
  * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 722.
+ * total is their sum, 723.
  *
  * `plan` went 56 -> 57: the transcript's approved-plan preview draws the review
  * screen's task box through the kit's `checkbox` rather than keeping a second copy
  * of the two roles, and the row grammar brings its own margin with it.
+ *
+ * `session-bus` went 44 -> 45 for `send-request.ts`: the send a command makes has to be
+ * answerable before any tool or session start, exactly as the join request does, so the
+ * listener cannot defer behind a first call. It is the second surface a command context
+ * needs, and the row holds both.
  *
  * `subagent` went 33 -> 34: an aborted or timed-out run signals the process tree, so
  * `run.ts` asks `lib/spawn.ts` for a child in its own group and for the group kill, the
@@ -353,7 +358,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	plan: 57,
 	team: 49,
 	job: 45,
-	"session-bus": 44,
+	"session-bus": 45,
 	subagent: 34,
 	"web-access": 41,
 	worktree: 38,

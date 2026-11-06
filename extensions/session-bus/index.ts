@@ -21,6 +21,7 @@ import { createPendingReporter, registerPendingChannel } from "../../lib/report.
 import { registerCommands } from "./commands.ts";
 import { registerJoinRequests } from "./join-request.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
+import { registerSendRequests } from "./send-request.ts";
 import { registerTools } from "./tools.ts";
 import { mailNotice } from "./notice.ts";
 import type { BusMessage } from "./types.ts";
@@ -48,6 +49,9 @@ export default function sessionBus(pi: ExtensionAPI, deps: SessionBusDeps = {}):
 	// `board` and `team` join this session through one request: their commands cannot call
 	// a tool, and the user's surface for the team is theirs, not this extension's.
 	registerJoinRequests(pi, bus);
+	// The same limit, for the one thing a command has to say: `/board approve` tells the
+	// card's owner its gate was signed.
+	registerSendRequests(pi, bus);
 
 	registerPendingChannel(pi, {
 		reporter,

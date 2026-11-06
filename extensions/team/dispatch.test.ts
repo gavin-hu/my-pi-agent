@@ -24,6 +24,9 @@ import {
 	sessionDispatch,
 } from "./dispatch.ts";
 
+/** The host a nested call never asks: a tool's `send` answers before it reads `pi`. */
+const HOST = {} as Parameters<typeof sessionDispatch>[0];
+
 /** The lead a case hands the builder: the name a sign has to carry. */
 const LEAD = "billing-lead";
 
@@ -133,7 +136,11 @@ describe("sessionDispatch", () => {
 				result: { content: [], details: { action: "send", delivered: ["billing-core"], messageId: "m1" } },
 			};
 		};
-		const result = await sessionDispatch(ctx).send({ kind: "handoff", to: "billing-core", text: "Handoff: take #4" });
+		const result = await sessionDispatch(HOST, ctx).send({
+			kind: "handoff",
+			to: "billing-core",
+			text: "Handoff: take #4",
+		});
 		expect(result.delivered).toEqual(["billing-core"]);
 		expect(toolCalls[0]).toEqual({
 			name: "session",
@@ -143,15 +150,15 @@ describe("sessionDispatch", () => {
 
 	test("turns a failed outcome into a throw with the message the model would have read", async () => {
 		const { ctx } = fakeCtx({ executeError: 'no active session "billing-core".' });
-		await expect(sessionDispatch(ctx).send({ kind: "handoff", to: "billing-core", text: "text" })).rejects.toThrow(
-			'no active session "billing-core".',
-		);
+		await expect(
+			sessionDispatch(HOST, ctx).send({ kind: "handoff", to: "billing-core", text: "text" }),
+		).rejects.toThrow('no active session "billing-core".');
 	});
 
 	test("a failure with no text still says the send did not land", async () => {
 		const { ctx } = fakeCtx();
 		ctx.executeTool = async () => ({ isError: true, result: { content: [], details: undefined } });
-		await expect(sessionDispatch(ctx).send({ kind: "event", to: "*", text: "text" })).rejects.toThrow(
+		await expect(sessionDispatch(HOST, ctx).send({ kind: "event", to: "*", text: "text" })).rejects.toThrow(
 			"the session bus did not answer.",
 		);
 	});
@@ -181,7 +188,7 @@ describe("sessionDispatch", () => {
 			}
 			throw new Error("unexpected call");
 		};
-		expect(await sessionDispatch(ctx).peers()).toEqual([
+		expect(await sessionDispatch(HOST, ctx).peers()).toEqual([
 			{ id: "s-core", label: "billing-core", listening: true },
 			{ id: "s-web", label: "billing-web" },
 		]);
@@ -189,13 +196,15 @@ describe("sessionDispatch", () => {
 
 	test("a read that fails answers nothing rather than undoing a handoff", async () => {
 		const { ctx } = fakeCtx({ executeError: true });
-		expect(await sessionDispatch(ctx).peers()).toBeUndefined();
+		expect(await sessionDispatch(HOST, ctx).peers()).toBeUndefined();
 	});
 
 	test("an outcome without labels reports none, rather than inventing a recipient", async () => {
 		const { ctx } = fakeCtx();
 		ctx.executeTool = async () => ({ isError: false, result: { content: [], details: {} } });
-		expect((await sessionDispatch(ctx).send({ kind: "handoff", to: "peer", text: "text" })).delivered).toEqual([]);
+		expect((await sessionDispatch(HOST, ctx).send({ kind: "handoff", to: "peer", text: "text" })).delivered).toEqual(
+			[],
+		);
 	});
 });
 

@@ -16,6 +16,7 @@ import { makeTempTracker } from "./git.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import { BOARD_COMMAND, registerCommands } from "../../extensions/board/commands.ts";
+import type { Notify } from "../../extensions/board/announce.ts";
 import type { TeamJoin } from "../../extensions/board/join.ts";
 import type { BoardPage, BoardPageStatus, PageStart } from "../../extensions/board/page.ts";
 
@@ -127,7 +128,7 @@ export function pageWithNoRecording(): BoardPage {
 }
 
 /** A real board in a temp directory, and the command registered over it. */
-export async function signingBoard() {
+export async function signingBoard(options: { notify?: Notify } = {}) {
 	const temps = makeTempTracker();
 	const harness = boardHarness({ now: 1_000 });
 	const me = { id: "s-lead", label: "team-agent-slead" };
@@ -140,12 +141,17 @@ export async function signingBoard() {
 	const plan = join(dir, "one.md");
 	writeFileSync(plan, "# One\n");
 	const fake = createFakePi();
-	registerCommands(fake.pi, harness.runtime, fakeBoardPage().page, { team: fakeBoardTeam().team });
+	registerCommands(fake.pi, harness.runtime, fakeBoardPage().page, {
+		team: fakeBoardTeam().team,
+		...(options.notify === undefined ? {} : { notify: options.notify }),
+	});
 	const command = fake.commands.get(BOARD_COMMAND);
 	if (!command) throw new Error("the board command was not registered");
 	const { ctx, notifications } = fakeCtx({ cwd: harness.ctx.cwd });
+	// A command's context has no `executeTool`, which is why the sign's message is a request.
+	const { executeTool: _executeTool, ...commandContext } = ctx;
 	const say = async (args: string) => {
-		await command.handler(args, ctx);
+		await command.handler(args, commandContext);
 		return notifications.at(-1);
 	};
 	return { store, id: card.id, plan, say, temps, me, agentDir: harness.agentDir };

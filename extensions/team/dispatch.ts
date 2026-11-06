@@ -11,7 +11,7 @@
  * bus, and the one production implementation is `lib/session-tool.ts`'s.
  */
 
-import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
 import { cardRef, type CardOwner } from "../../lib/board/card.ts";
 import { askLead, type Lead } from "../../lib/board/lead.ts";
@@ -147,10 +147,10 @@ function withinLimit(text: string): string {
 }
 
 /** The production dispatch: `lib/session-tool.ts`, with a failure turned into a throw. */
-export function sessionDispatch(ctx: ExtensionToolContext): Dispatch {
+export function sessionDispatch(pi: Pick<ExtensionAPI, "events" | "getAllTools">, ctx: ExtensionToolContext): Dispatch {
 	return {
 		async send(input) {
-			const result = await sendTo(ctx, input);
+			const result = await sendTo(pi, ctx, input);
 			// `assign` and `offer` branch on a failed send, so this seam reports it the way
 			// they read it: the bus's sentence, as the reason the card was not handed over. A
 			// send that reached somebody is not a failure — it is a success with a list of the

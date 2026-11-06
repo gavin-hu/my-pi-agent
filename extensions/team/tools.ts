@@ -22,7 +22,7 @@
  * `reclaim` do not, and need not: one is answered by a claim, the other by nothing.
  */
 
-import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
 import { type Card, cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { indexOf } from "../../lib/board/links.ts";
@@ -162,13 +162,13 @@ function continuationIndent(line: string): string {
 /** What the tool needs from the outside, so a suite drives it without a bus. */
 export interface TeamToolsDeps {
 	/** Test seam: the handoff transport. */
-	dispatch?: (ctx: Parameters<typeof sessionDispatch>[0]) => Dispatch;
+	dispatch?: (ctx: ExtensionToolContext) => Dispatch;
 	/** Test seam: the join a verb makes, so a suite records it instead of asking a bus. */
 	team?: TeamJoin;
 }
 
 export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: TeamToolsDeps = {}): void {
-	const dispatchFor = deps.dispatch ?? sessionDispatch;
+	const dispatchFor = deps.dispatch ?? ((ctx: ExtensionToolContext) => sessionDispatch(pi, ctx));
 	/** The join, built on the first verb that needs it: a round that never asks pays nothing. */
 	let joinBuilder: Promise<TeamJoin> | undefined;
 	const teamFor = (): Promise<TeamJoin> => {

@@ -246,6 +246,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `/board approve` and `/board review` tell the card's owner its gate was signed, so the
+  person's door reads `#4 reviewed by you · told api-core` exactly as the tool's does. A command
+  context cannot call a tool, so the sign's message asks the bus over `pi.events` on a send request
+  `session-bus` answers — the transport `join` already had — and `sendOutcome` in the bus's protocol
+  decides what a send is worth for both doors, so neither claims a message the other would refuse.
+  Before, a person's sign reached nobody and the line said so, and the holder asked a lead for a
+  review that already existed.
+
 - `plan`: a plan edited on disk under an open browser review now repaints the section outline with
   the body, so the sidebar lists the headings the file holds and each section's comment count lands
   in a link the reader can see. `renderAll()` rebuilds the rail before the frame — the facts and the

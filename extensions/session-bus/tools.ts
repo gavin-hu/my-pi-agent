@@ -16,7 +16,7 @@ import { StringEnum } from "../../lib/tool-schema.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatClaim, formatInbox, formatJoin, formatRelease, formatSend, formatStatus } from "./format.ts";
-import { normalizeAction, normalizeLimit, TOOL_NAME } from "./protocol.ts";
+import { normalizeAction, normalizeLimit, sendOutcome, TOOL_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 import { collapsedLine, resultSections } from "./result.ts";
 import type { BusRow } from "./rows.ts";
@@ -117,11 +117,11 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 							kind: args.kind,
 							paths: args.paths,
 						});
-						// Something delivered is a success that names its failures; nothing delivered is a
-						// failure, because no recipient can be told a message landed. The line either way is
-						// one helper's, so the sentence cannot differ from `team`'s.
+						// What the send is worth is the protocol's answer, so a command's request reports it in
+						// the same words; the line either way is one helper's, so it cannot differ from `team`'s.
+						const outcome = sendOutcome(result);
+						if (!outcome.ok) return errorResult(action, outcome.error);
 						const line = notDeliveredLine(result.failed);
-						if (result.delivered.length === 0) return errorResult(action, line ?? "no recipient could be written.");
 						return textResult([formatSend(result.delivered, result.messageId), line].filter(Boolean).join("\n"), {
 							action,
 							delivered: result.delivered,
