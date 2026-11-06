@@ -115,8 +115,8 @@ question 2 questions (Auth, Scope)
 | `print` / `json` | The tool is registered inactive (`defaultActive: false`) and never switched on; if invoked anyway it returns a clear error telling the model to ask in prose |
 
 On a dialog-only host, two or more questions become one batch editor prompt and
-one reply (`1: 2; 2: A, B`), with one retry if the format is unclear; the TUI
-keeps its tabbed screen.
+one reply (`1: 2; 2: A, B`, or the fullwidth `1: 2；2: A, B` a Chinese reply
+uses), with one retry if the format is unclear; the TUI keeps its tabbed screen.
 
 Whether a turn uses the rich component or dialogs is decided by
 `askHuman(ctx, { custom, dialogs })` from
