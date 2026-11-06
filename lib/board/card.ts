@@ -419,11 +419,23 @@ export function normalizeBlock(rawKind: unknown, rawNote: unknown): { blocked: C
 	return { blocked: { kind: known, note } };
 }
 
-/** A card id as a caller writes it (`4`, `#4`), or undefined when it is not one. */
+/**
+ * A card id's canonical spelling, which is the file name's without the padding.
+ *
+ * The store allocates ids from 1 and pads the *name* to four digits, so a record carries
+ * `4` and its file is `0004.json`. Every id a caller writes is read as this spelling, so
+ * `0004` and `4` are one card — and it stays a digit string rather than going through
+ * `Number()`, which would spell a long enough id as `1e+21`.
+ */
+export function canonicalCardId(id: string): string {
+	return id.replace(/^0+(?=\d)/, "");
+}
+
+/** A card id as a caller writes it (`4`, `#4`, `0004`), in its canonical spelling. */
 export function normalizeCardId(raw: unknown): string | undefined {
 	if (typeof raw !== "string") return undefined;
 	const id = raw.trim().replace(/^#/, "");
-	return /^[0-9]+$/.test(id) ? id : undefined;
+	return /^[0-9]+$/.test(id) ? canonicalCardId(id) : undefined;
 }
 
 /** The id as everything user-facing writes it. */

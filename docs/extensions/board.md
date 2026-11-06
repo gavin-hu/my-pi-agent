@@ -265,7 +265,8 @@ name there is the project's, and the seat is read off the roster where it belong
 | `archive` | `card?` | the ids set aside — one finished card, or every archivable one when no card is named, which is every finished card no open card still waits on: archiving is one way, and a link a sweep stranded would name a card no read of the board opens; a card still in flight is refused. The result states the outcome — what moved, what a live link kept, what it failed on, or that the card was already aside — in its text and on the transcript's one line |
 | `drop` | `card` | the id that was dropped, whose number is now spent |
 
-`card` takes `4` or `#4`. A refused call is an error result that still carries the
+`card` takes `4` or `#4`, and a zero-padded `0004` is the same card: the file name pads,
+the id does not. A refused call is an error result that still carries the
 card, so the next attempt starts from the truth. A `list` that names a card refuses the
 fields that only narrow a listing — `lane`, `query`, `mine`, and `round` — because its
 answer is that one card; `archived` is kept, because it decides which pile the card is

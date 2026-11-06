@@ -234,6 +234,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a zero-padded card id names the card its digits name. The id a record carries is
+  unpadded — the *file name* is what pads to four digits — but `normalizeCardId` kept the padding a
+  caller wrote, so `list` with `card: "0004"` missed the board's own listing, the store's read (which
+  pads the name back up) found the card, and one call answered `#0004 is archived; pass archived:
+  true to read it` while the archive's read of that same id answered `#0004 is not in the archive.`
+  Two reads by id, two contradictory answers, nothing written, so nothing self-corrected. One
+  `canonicalCardId` in `lib/board/card.ts` is now the spelling rule, and the tool, `/board`, the
+  `team` tool and `dependsOn` links all read through it.
+
 - `question`: a Chinese batch reply is parsed in the format the zh prompt prints. The prompt separates
   answers with `；` and the parser split on `;` alone, so a reply copied from the prompt was one chunk,
   the single retry reprinted the same unusable format, and the model was told “User cancelled the
