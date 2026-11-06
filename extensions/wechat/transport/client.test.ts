@@ -39,7 +39,6 @@ import {
 import { LoginScreenComponent, loginBody, statusLabel } from "../view/login-screen.ts";
 import {
 	aesEcbPaddedSize,
-	decodeMediaKey,
 	decryptEcb,
 	encryptEcb,
 	mediaDownloadUrl,
@@ -518,21 +517,6 @@ describe("QR terminal lines", () => {
 });
 
 describe("media encoding", () => {
-	test("decodeMediaKey reads a 32-character hex key", () => {
-		expect(decodeMediaKey("00112233445566778899aabbccddeeff")).toEqual(
-			Buffer.from("00112233445566778899aabbccddeeff", "hex"),
-		);
-	});
-
-	test("decodeMediaKey reads a base64 key", () => {
-		const raw = Buffer.from("0123456789abcdef");
-		expect(decodeMediaKey(raw.toString("base64"))).toEqual(raw);
-	});
-
-	test("decodeMediaKey rejects a key that is not 16 bytes", () => {
-		expect(() => decodeMediaKey("abcd")).toThrow();
-	});
-
 	test("decryptEcb round-trips AES-128-ECB with PKCS#7 padding", () => {
 		const key = Buffer.from("0123456789abcdef");
 		const plaintext = Buffer.from("wechat media payload");

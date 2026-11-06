@@ -79,8 +79,7 @@ async function uploadLocal(args: SendLocalFileArgs, mediaType: number, plain: Bu
 		args.signal,
 	);
 
-	// The reference encodes the hex key string as base64 (not the raw 16 bytes);
-	// the download decoder accepts either.
+	// The wire carries the hex key string as base64, not the raw 16 bytes.
 	const media: CDNMedia = {
 		encrypt_query_param: downloadParam,
 		aes_key: Buffer.from(aeskey).toString("base64"),

@@ -69,7 +69,7 @@ export function inboundFile(peer = owner): WeixinMessage {
 			{
 				type: 4,
 				file_item: {
-					media: { full_url: "https://cdn/f", aes_key: key.toString("base64") },
+					media: { full_url: "https://cdn/f", aes_key: Buffer.from(key.toString("hex")).toString("base64") },
 					file_name: "notes.txt",
 				},
 			},
