@@ -85,7 +85,11 @@ export interface ReviewPageData {
 	author?: string;
 	/** A running share, so a reload re-renders the link the owner already minted. */
 	share?: ShareState;
-	/** Per-session secret the client echoes on every request. */
+	/**
+	 * The token this page carries, which the client echoes on every request: the owner's,
+	 * or the reviewer link's that opened the page, so its stream and its posts answer as
+	 * the role the page was served for.
+	 */
 	token: string;
 	/**
 	 * A short digest of the plan text the page rendered. It keys the unsaved draft a
@@ -107,7 +111,7 @@ export interface ReviewPayloadInput {
 	baseline?: readonly SectionDigest[];
 	/** Who is asking; the role decides what the page offers. */
 	caller: ReviewCaller;
-	/** The session secret the page echoes on every request. */
+	/** The token the request that asked for this page carried: the page's own credential. */
 	token: string;
 	/** Whether this review may approve the plan. */
 	canApprove: boolean;

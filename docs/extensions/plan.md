@@ -387,7 +387,9 @@ package, so load the whole package (`pi -e .`) or install it; loading only
 ## Routes
 
 The browser review serves these routes on its loopback origin; `…` is the
-session token, and the owner's token is the one that opened the page.
+request's own token — the owner's on the page that opened the review, and a
+reviewer link's on the page it serves — so each page answers as the role it was
+served for.
 
 | Route | Result |
 |---|---|

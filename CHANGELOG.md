@@ -234,6 +234,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a reviewer's page comments as herself. The island every page echoes carried the session's
+  owner token, so a shared link's page posted with the owner's credential — refused by the route
+  that exists for a reviewer, `Only a shared reviewer posts comments.` — and its event stream
+  registered as the owner's tab, which kept a `revoked` frame from ever reaching her. The island
+  now carries the token the request arrived with: the owner's page keeps the owner's, and a
+  reviewer's link its own.
+
 - `board`: a sign records a person rather than the pronoun. `/board approve` and `/board review`
   write the lead's name with `person: true` on the sign — the one name a card file can give
   somebody who has no session — so no card stores `you`, and the event the owner is told names
