@@ -36,13 +36,11 @@ export interface DiscoveryDeps {
 /**
  * Adapt Pi's `SettingsManager` to the narrow `SettingsStore` surface.
  *
- * The manager is fresh here and has written nothing, so anything already queued
- * is its file failing to load. Taking it now keeps that reason available to every
- * later write — Pi's own queue would hand it out once and then let a parse-failed
- * file swallow writes in silence.
+ * The seam re-reads through Pi's own `reload()`, which is the only public way to ask
+ * whether a file can be read now: it parses both files, records what it could not,
+ * and leaves the document a failed read was about exactly as it was.
  */
 export function createSettingsStore(manager: SettingsManager): SettingsStore {
-	const loadErrors = manager.drainErrors();
 	return {
 		globalSettings: () => manager.getGlobalSettings(),
 		projectSettings: () => manager.getProjectSettings(),
@@ -56,9 +54,11 @@ export function createSettingsStore(manager: SettingsManager): SettingsStore {
 		setTheme: (theme) => manager.setTheme(theme),
 		isProjectTrusted: () => manager.isProjectTrusted(),
 		flush: () => manager.flush(),
-		reload: () => manager.reload(),
+		reload: async () => {
+			await manager.reload();
+			return manager.drainErrors();
+		},
 		drainErrors: () => manager.drainErrors(),
-		loadErrors: () => loadErrors,
 	};
 }
 
