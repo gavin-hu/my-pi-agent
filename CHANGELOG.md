@@ -234,6 +234,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `file-browse`: `/browse <subpath>` serves when the session's checkout is reached through a symlink.
+  The command resolved the subpath against the raw working directory and the containment check
+  compared it with the realpath'd candidate, so on macOS anything under `/tmp` or `/var` was refused
+  as “outside the served folder” — the shell's `/tmp/repo` is `/private/tmp/repo` to `realpath`. The
+  root is now canonicalized once, before a subpath is resolved or a page mounted. `HEAD` of the live
+  status stream also answers its head: the mount rightly attached no sink for a `HEAD`, and the server
+  read the missing sink as a 500, so the head is decided before that contract for every page's stream.
+
 - `question`: a Chinese batch reply is parsed in the format the zh prompt prints. The prompt separates
   answers with `；` and the parser split on `;` alone, so a reply copied from the prompt was one chunk,
   the single retry reprinted the same unusable format, and the model was told “User cancelled the

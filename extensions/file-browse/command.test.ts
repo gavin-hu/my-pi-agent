@@ -5,7 +5,7 @@
  */
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
-import { realpathSync, rmSync } from "node:fs";
+import { realpathSync, rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS, ENV_ROOT } from "../../lib/env.ts";
 import { useEnv, withEnv } from "../../test/helpers/env.ts";
@@ -13,7 +13,7 @@ import { createFakePi, emit, type FakePi } from "../../test/helpers/fakes.ts";
 import { fileBrowseCtx, makeFixture, runCommand, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import fileBrowser from "./index.ts";
-import type { FileServer, FileServerResult } from "./transport/server.ts";
+import type { FileServer, FileServerOptions, FileServerResult } from "./transport/server.ts";
 
 const env = useEnv({ [ENV_ROOT]: undefined });
 afterAll(() => env.restore());
@@ -209,6 +209,30 @@ describe("browse command", () => {
 		const { ctx, notifications } = fileBrowseCtx(fixture.root);
 		await runCommand(pi, "browse", "a.txt", ctx);
 		expect(notifications.at(-1)?.level).toBe("error");
+	});
+
+	test("serves a subfolder of a root reached through a symlink", async () => {
+		fixture = makeFixture();
+		// A checkout under `/tmp` or `/var` is itself a symlink on macOS, so the root has to be
+		// canonical before a subpath is resolved against it: the containment check reads a raw
+		// root and the realpath'd candidate as an escape.
+		if (!fixture.hasSymlinks) return;
+		const link = join(fixture.outside, "linked-root");
+		symlinkSync(fixture.root, link);
+		let served = "";
+		const { pi } = createFakePi();
+		fileBrowser(pi, {
+			open: noOpen,
+			createServer: async (options: FileServerOptions) => {
+				served = options.root;
+				return fakeServer(options.root);
+			},
+		});
+		const { ctx, notifications } = fileBrowseCtx(link);
+		await runCommand(pi, "browse", "sub", ctx);
+
+		expect(notifications.at(-1)?.level).toBe("info");
+		expect(served).toBe(join(fixture.root, "sub"));
 	});
 
 	test("follows the session into the worktree it switched to", async () => {

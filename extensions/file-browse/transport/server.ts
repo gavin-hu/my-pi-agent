@@ -137,7 +137,7 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 			} catch {
 				return { result: textResponse(500, "Internal error") };
 			}
-			if (!result.stream || !live || request.method.toUpperCase() === "HEAD") return { result };
+			if (!result.stream || !live) return { result };
 			// Checked before the head is written: a refusal must not leave a stream the
 			// client would wait on. `204` is the one status an event source does not
 			// reconnect after, so a page beyond the cap goes quiet instead of retrying.

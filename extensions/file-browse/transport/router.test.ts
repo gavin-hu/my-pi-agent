@@ -1,11 +1,9 @@
 /**
- * The transport capability: request routing and its guards, the loopback server and
- * its live stream, and the status snapshot/channel. The `/browse` command's own
- * surface is `../command.test.ts`.
+ * The transport capability: request routing and its guards, the loopback server and its live
+ * stream, and the status snapshot/channel. The `/browse` command's surface is `../command.test.ts`.
  *
- * Routers are driven directly for request shapes; only the two server cases open
- * a real loopback socket. The live channel uses an injected ticker, so no test
- * waits on a wall clock.
+ * Routers are driven directly for request shapes; the loopback cases open a real socket.
+ * The live channel uses an injected ticker, so no test waits on a wall clock.
  */
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
@@ -719,7 +717,7 @@ describe("loopback server", () => {
 		fixture = makeFixture();
 		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
 		const origin = new URL(server.url).origin;
-		// The root is unclaimed by decision: `board` and a plan review leave it free too.
+		// The origin's root is unclaimed by decision: `board` and a plan review leave it free.
 		const root = await fetch(`${origin}/`);
 		expect(root.status).toBe(404);
 		// `/files` without its slash is redirected, so the page's relative URLs resolve under
@@ -748,12 +746,16 @@ describe("loopback server", () => {
 		expect((await tree.json()) as { path: string }).toMatchObject({ path: "sub" });
 	});
 
-	test("responds to HEAD without a body", async () => {
+	test("responds to HEAD without a body, a stream's head included", async () => {
 		fixture = makeFixture();
 		server = await servePage(fixture.root, DEFAULT_CONFIG);
 		const response = await fetch(server.url, { method: "HEAD" });
 		expect(response.status).toBe(200);
 		expect(await response.text()).toBe("");
+		// The status stream owes a HEAD its head alone: no sink, and no 500 for the missing one.
+		const events = await fetch(`${server.url}events`, { method: "HEAD" });
+		expect(events.status).toBe(200);
+		expect(events.headers.get("content-type")).toContain("text/event-stream");
 	});
 
 	test("streams a status frame as a page connects, and ends it on close", async () => {
@@ -805,9 +807,8 @@ describe("loopback server", () => {
 			stream: true,
 		};
 		server = await servePage(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false }, { handler: async () => stream });
-		// Held, not merely started: a response whose reader nothing references is collected, which
-		// tears its connection down and frees the slot it counted — the race this case lost under
-		// `--parallel`, and what the forced collection below reproduces on its own.
+		// Held, not started: a reader nothing references is collected, tearing its connection down and
+		// freeing the slot it counted — the `--parallel` race the forced collection below replays.
 		const held: unknown[] = [];
 		for (let page = 0; page < LIVE_MAX_CLIENTS; page++) {
 			const reply = await fetch(`${server.url}events`);
@@ -816,8 +817,7 @@ describe("loopback server", () => {
 			expect(reader).toBeDefined();
 			if (!reader) return;
 			held.push(reader);
-			// A frame reaches only an attached page, so the sink is attached before the next
-			// request is counted.
+			// A frame reaches only an attached page, so the sink is attached before the next request.
 			await reader.read();
 		}
 		Bun.gc(true);
