@@ -90,6 +90,48 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 		}
 	});
 
+	test("a plan frame that renames a heading repaints the outline beside it", async () => {
+		// The rail is how a reader navigates and where each section's comment count is painted, so
+		// a frame that rebuilt only the body left the sidebar on the headings it replaced. The
+		// counters `renderOutline` returns went with them: the count for the new section was
+		// written into the nodes of the list that was gone.
+		const current: ReviewPageData = { ...REVIEW_PAGE };
+		const local = await mountReview(() => current);
+		const page = await openReview(browser, local.url);
+		try {
+			await awaitConnected(page);
+			expect(await page.textContent('#outline-list a[href="#s-0"] .review-nav__link')).toBe("Add rate limiting");
+			// The model renamed the first heading and added a section a teammate commented in.
+			current.blocks = [
+				{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting now"] },
+				{ start: 1, end: 1, kind: "paragraph", lines: ["Start with the token bucket."] },
+				{ start: 2, end: 2, kind: "blank", lines: [] },
+				{ start: 3, end: 3, kind: "heading", lines: ["## Rollout"] },
+				{ start: 4, end: 4, kind: "paragraph", lines: ["Ship behind a flag."] },
+				{ start: 5, end: 5, kind: "heading", lines: ["## Limits"] },
+				{ start: 6, end: 6, kind: "paragraph", lines: ["Ten per second."] },
+			];
+			current.outline = [
+				{ id: "s-0", line: 0, level: 1, text: "Add rate limiting now" },
+				{ id: "s-3", line: 3, level: 2, text: "Rollout" },
+				{ id: "s-5", line: 5, level: 2, text: "Limits" },
+			];
+			current.annotations = [...REVIEW_PAGE.annotations, { anchor: 6, comment: "why ten?", author: "priya" }];
+			current.rev = "rev-2";
+			local.push("plan");
+			await awaitStatus(page, "The plan changed on disk; showing the new version.");
+			expect(
+				await page.$$eval("#outline-list .review-nav__link", (nodes) => nodes.map((node) => node.textContent)),
+			).toEqual(["Add rate limiting now", "Rollout", "Limits"]);
+			// The comment counts in the section the reader can see, not in a detached link.
+			expect(await page.textContent('#outline-list a[href="#s-5"] .review-nav__count')).toBe("1");
+			expect(await page.isVisible('#outline-list a[href="#s-5"] .review-nav__count')).toBe(true);
+		} finally {
+			await page.close();
+			await local.close();
+		}
+	});
+
 	test("a frame arriving over a half-written comment refuses and keeps the text", async () => {
 		// A repaint closes the composer, so a live change waits for the draft rather than
 		// dropping it: `draftTextarea()` was asked with no arguments, answered `null` every

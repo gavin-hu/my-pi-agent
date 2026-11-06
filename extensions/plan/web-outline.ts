@@ -55,16 +55,23 @@ export function sectionFor(entries: readonly OutlineEntry[], line: number): Outl
  * The caller keeps the returned map because the counters are updated later, when the
  * comments are counted per section; returning it is what lets this function be a pure
  * build with no handle on the client's state.
+ *
+ * A repaint is not a reset: the mark saying which section the reader is in is read off the
+ * list being replaced and put back on the link for the same heading, because the page
+ * rebuilds the rail whenever the plan does. A heading that moved has a new id, so the mark
+ * goes with the section it was on rather than landing on whatever now sits at its line.
  */
 export function renderOutline(list: ClientNode | null, entries: readonly OutlineEntry[]): Record<number, ClientNode> {
 	const counters: Record<number, ClientNode> = {};
 	if (!list) return counters;
+	const current = list.querySelector("[aria-current]")?.getAttribute("data-id") ?? "";
 	list.replaceChildren();
 	for (const item of entries) {
 		const li = el("li", "lvl-" + item.level);
 		const link = el("a");
 		link.href = "#" + item.id;
 		link.setAttribute("data-id", item.id);
+		if (item.id === current) link.setAttribute("aria-current", "true");
 		const label = el("span", "review-nav__link");
 		label.textContent = item.text;
 		link.appendChild(label);
