@@ -28,8 +28,11 @@ describe("share links", () => {
 		expect(link?.address).toBe("127.0.0.1");
 		expect(link?.url).toContain("token=");
 		expect(result?.svg).toContain("<svg");
-		// The owner's own link still answers: sharing adds a listener, never moves one.
-		expect((await fetch(session.url)).status).toBe(200);
+		// The owner's own link still answers, and hands back the owner's own token: sharing
+		// adds a listener, never moves one.
+		const ownerPage = await fetch(session.url);
+		expect(ownerPage.status).toBe(200);
+		expect(islandOf(await ownerPage.text()).token).toBe("tok");
 		expect(review.shareState()?.sharing).toBe(true);
 	});
 
