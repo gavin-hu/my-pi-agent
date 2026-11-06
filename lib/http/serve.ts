@@ -282,18 +282,24 @@ async function answer(
 		reply = { result: INTERNAL_ERROR };
 	}
 	const settle = once(reply.afterResponse);
+	// A `HEAD` of a stream is a plain response: there is no body to hold open, and the client
+	// would otherwise wait on frames it asked not to get. Decided before the sink contract, so a
+	// mount owes a `HEAD` the head alone and is not asked for the sink only a `GET` needs.
+	if (method.toUpperCase() === "HEAD") {
+		respond(request, response, reply.result, settle);
+		response.on("close", () => settle?.());
+		return;
+	}
 	if (reply.result.stream === true && reply.openSink === undefined) {
 		respond(request, response, STREAM_WITHOUT_SINK, settle);
 		response.on("close", () => settle?.());
 		return;
 	}
-	// A `HEAD` of a stream is a plain response: there is no body to hold open, and
-	// the client would otherwise wait on frames it asked not to get.
 	// A stream is a request like any other, and no guard runs here: by the time a sink is
 	// attached, the mount's router has already required of this request whatever it requires
 	// of a `GET` — the token a page carries, on `/events` as on its page. A mount that asks
 	// for none streams none.
-	if (reply.openSink !== undefined && method.toUpperCase() !== "HEAD") {
+	if (reply.openSink !== undefined) {
 		// The registry writes the head itself: the retry hint it carries belongs to the
 		// attempt this stream is, which only the thing counting attempts knows.
 		const sink = route.sinks.attach(response, reply.result);

@@ -60,6 +60,22 @@ describe("serveHttp", () => {
 		expect(await (await fetch(`${server.origin}/files/view/a.txt`)).text()).toBe("files /view/a.txt");
 	});
 
+	test("answers a HEAD of a stream with its head, where the same route as a GET needs a sink", async () => {
+		const server = await start();
+		// A `HEAD` has no body to hold open, so a mount owes it no sink; a `GET` of the same
+		// route without one is the server's own failure.
+		server.mount({
+			prefix: "/board",
+			handler: async () => ({ result: { status: 200, headers: eventHeaders(), stream: true } }),
+		});
+
+		const head = await fetch(`${server.origin}/board/events`, { method: "HEAD" });
+		expect(head.status).toBe(200);
+		expect(head.headers.get("content-type")).toContain("text/event-stream");
+		expect(await head.text()).toBe("");
+		expect((await fetch(`${server.origin}/board/events`)).status).toBe(500);
+	});
+
 	test("answers a prefix nobody claimed, and no path, as a 404", async () => {
 		const server = await start();
 		server.mount({ prefix: "/board", handler: async () => ({ result: textResponse(200, "ok") }) });
