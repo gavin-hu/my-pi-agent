@@ -210,10 +210,11 @@ describe("MATCHES_QUERY_JS", () => {
 });
 
 describe("normalizeCardId", () => {
-	test("accepts a bare or hashed id", () => {
-		expect(normalizeCardId("4")).toBe("4");
-		expect(normalizeCardId("#4")).toBe("4");
-		expect(normalizeCardId(" 0042 ")).toBe("0042");
+	test("accepts a bare, hashed, or zero-padded id, spelled the way a card's id is", () => {
+		// The file name pads to four digits; the id does not, so `0004` is the card `4`.
+		expect(["4", "#4", " 0042 ", "#0004", "0"].map(normalizeCardId)).toEqual(["4", "4", "42", "4", "0"]);
+		// A digit string, not a number: `Number()` would spell this one `1e+21`.
+		expect(normalizeCardId("1000000000000000000000")).toBe("1000000000000000000000");
 	});
 
 	test("refuses anything else", () => {

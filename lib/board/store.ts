@@ -35,6 +35,7 @@ import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
 import {
 	type Card,
+	canonicalCardId,
 	cardRef,
 	type EndedCard,
 	ENDED_VERSION,
@@ -410,7 +411,7 @@ type CardFileRead = { card: Card; bytes: number } | { skip: Skip; bytes: number 
 async function readCardFile(pileDir: string, entry: string): Promise<CardFileRead> {
 	const match = CARD_FILE.exec(entry);
 	if (!match) return { skip: { file: entry, why: "not a card id" }, bytes: 0 };
-	const id = String(Number(match[1]));
+	const id = canonicalCardId(match[1]);
 	const raw = await readFile(join(pileDir, entry)).catch(() => undefined);
 	if (raw === undefined) return { skip: { file: entry, id, why: "cannot be read" }, bytes: 0 };
 	// The read bytes are the file's size, so the size needs no `stat` of its own.
@@ -435,7 +436,7 @@ async function readCardFile(pileDir: string, entry: string): Promise<CardFileRea
 	if (card === undefined) return { skip: { file: entry, id, why: "not a card record" }, bytes };
 	// The file name is the id's canonical spelling: a padded id inside the record
 	// (or a record moved under another name) is a disagreement, not a card.
-	if (card.id !== String(Number(match[1]))) {
+	if (card.id !== canonicalCardId(match[1])) {
 		return { skip: { file: entry, id, why: `names card ${card.id}` }, bytes };
 	}
 	return { card, bytes };

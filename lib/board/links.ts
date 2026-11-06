@@ -130,9 +130,8 @@ export function normalizeDepends(
 	const held = dependsOf(card);
 	const dependsOn: string[] = [];
 	for (const entry of raw) {
-		const parsed = normalizeCardId(entry);
-		// The file name is the canonical spelling of an id, so `#04` and `4` are one card.
-		const dependency = parsed === undefined ? undefined : String(Number(parsed));
+		// An id is canonical at this boundary, so `#04` and `4` are one card.
+		const dependency = normalizeCardId(entry);
 		if (dependency === undefined) return { error: `${JSON.stringify(entry)} is not a card id.` };
 		if (dependency === card.id) return { error: `${cardRef(card.id)} cannot wait on itself.` };
 		if (!board.has(dependency) && !held.includes(dependency)) {

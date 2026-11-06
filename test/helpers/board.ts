@@ -17,6 +17,8 @@ import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { SHARED_CONFIG_FILE } from "../../lib/config.ts";
 import { openBoardSession, type BoardSession } from "../../lib/board/session.ts";
 import { BOARD_DIR_NAME } from "../../lib/board/store.ts";
+import { registerTools } from "../../extensions/board/tools.ts";
+import type { BoardDetails } from "../../extensions/board/types.ts";
 import { fakeCtx } from "./context.ts";
 import { createFakePi, type FakePiOptions } from "./fakes.ts";
 import { tempDir } from "./env.ts";
@@ -69,6 +71,36 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 		sessionName: options.sessionName ?? "billing-lead",
 	});
 	return { fake, runtime, ctx, notifications, cwd, agentDir, now };
+}
+
+/**
+ * A `board` result, as the details a suite reads rather than the rendered rows.
+ *
+ * The tool's `execute` answers `unknown`, and this names the guarantee a suite relies on:
+ * the result is the one `tools.ts` builds, so a case may read `details` off it.
+ */
+export interface BoardToolResult {
+	content: Array<{ text: string }>;
+	details: BoardDetails;
+}
+
+/**
+ * The `board` tool, registered on a board of its own, and the call a suite makes.
+ *
+ * One owner for the wiring, because two suites that each registered the tool would be two
+ * fixtures that drift — the rule `test/shared-helpers.test.ts` enforces over test files.
+ */
+export function boardTool(options: BoardHarnessOptions = {}) {
+	const board = boardHarness(options);
+	registerTools(board.fake.pi, board.runtime);
+	const tool = board.fake.pi.tools.get("board");
+	if (!tool) throw new Error("the board tool was not registered");
+	return {
+		board,
+		async call(args: Record<string, unknown>): Promise<BoardToolResult> {
+			return (await tool.execute("call-1", args, undefined, undefined, board.ctx)) as BoardToolResult;
+		},
+	};
 }
 
 /**

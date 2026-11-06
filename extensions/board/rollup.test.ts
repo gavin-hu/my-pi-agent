@@ -9,12 +9,10 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import type { Actor } from "../../lib/board/rules.ts";
-import { boardHarness } from "../../test/helpers/board.ts";
+import { boardTool } from "../../test/helpers/board.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { registerTools } from "./tools.ts";
-import type { BoardDetails } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -23,25 +21,6 @@ const NOW = 50_000;
 
 /** A session that is not this one: the card it holds is what a `mine` listing must not show. */
 const PEER: Actor = { id: "s-peer", label: "api-core" };
-
-interface Result {
-	content: Array<{ text: string }>;
-	details: BoardDetails;
-}
-
-/** The board tool on a board of its own, called as the session that opened it. */
-function boardTool() {
-	const board = boardHarness({ now: NOW, track: temps.track });
-	registerTools(board.fake.pi, board.runtime);
-	const tool = board.fake.pi.tools.get("board");
-	if (!tool) throw new Error("the board tool was not registered");
-	return {
-		board,
-		async call(args: Record<string, unknown>): Promise<Result> {
-			return (await tool.execute("call-1", args, undefined, undefined, board.ctx)) as Result;
-		},
-	};
-}
 
 /** A card the peer holds: written straight to the store, so the board has an owner besides this session. */
 async function peerCard(board: ReturnType<typeof boardTool>["board"], title: string): Promise<void> {
@@ -58,7 +37,7 @@ function halves(text: string): { listing: string; rollup: string } {
 
 describe("a listing with a rollup", () => {
 	test("counts the finished cards the listing leaves out", async () => {
-		const { board, call } = boardTool();
+		const { board, call } = boardTool({ now: NOW, track: temps.track });
 		await call({ action: "add", title: "Open one" });
 		await call({ action: "add", title: "Finished one" });
 		await advance(await board.runtime.store(board.ctx.cwd), "2", "done", { owner: PEER }, NOW);
@@ -68,7 +47,7 @@ describe("a listing with a rollup", () => {
 	});
 
 	test("keeps the cards its filter chose, and follows them with the whole board", async () => {
-		const { board, call } = boardTool();
+		const { board, call } = boardTool({ now: NOW, track: temps.track });
 		await call({ action: "add", title: "Mine one" });
 		await call({ action: "claim", card: "1" });
 		await peerCard(board, "Peer one");
@@ -87,7 +66,7 @@ describe("a listing with a rollup", () => {
 	});
 
 	test("says a filter matched nothing instead of calling the board empty", async () => {
-		const { board, call } = boardTool();
+		const { board, call } = boardTool({ now: NOW, track: temps.track });
 		await call({ action: "add", title: "One" });
 		await peerCard(board, "Peer one");
 
@@ -102,7 +81,7 @@ describe("a listing with a rollup", () => {
 	});
 
 	test("a round with no filter lists the board, then the rollup", async () => {
-		const { board, call } = boardTool();
+		const { board, call } = boardTool({ now: NOW, track: temps.track });
 		await call({ action: "add", title: "One" });
 		await peerCard(board, "Peer one");
 
