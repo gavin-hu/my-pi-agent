@@ -489,6 +489,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   quoted `>`, so `<a title="a > b" href=…>` no longer ends at the `>` in the title and spills
   `b" href=…>` into the page as text — the shared `stripTagsAndDecode` reads it the same way.
 
+- `plan`: a browser review asks `serve` for its prefix under the session that opened it, so the review
+  answers on that session's one port instead of under an empty id. The id was declared and read but
+  never assigned, so the mount was filed under no session: the footer's `◉ <port>` chip never appeared
+  for a review, the port pin and the repository's own port were read from the process's working
+  directory rather than the session's, and a second session in the same process could land on the same
+  socket. `session_start` now records the id before anything can ask, as `board` and `file-browse`
+  already did.
+
 ## [0.24.0] - 2026-11-02
 
 ### Added
