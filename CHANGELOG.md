@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-06
+
 ### Added
 
 - `wechat`: the inbound `media/` directory is no longer a permanent store. A file an inbound message left
@@ -235,8 +237,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `wechat`: `/wechat pause` and `/wechat resume` are gone, replaced by the hand start and stop on a
   bound session. The `paused` bridge state, its warning chip, and the control screen's `p` key go with
   them; the screen's `t` key starts or stops the bridge, `credentials.json`'s account map and
-  `activeAccount` pointer become the one stored account, and a bare `/wechat stop` now stops the bridge
-  while `/wechat stop <peer>` still stops one peer's turn.
+  `activeAccount` pointer become the one stored account, and `/wechat stop` stops the bridge.
 
 - `wechat`: the chat's command registry is commands only — the `snippet` kind, `expandSnippet`, and the
   branch that expanded a body into the turn are gone, since none had a registered user, and so is
@@ -480,12 +481,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of being consumed as that question's reply; the same drop happens whenever a turn
   ends with a prompt still waiting. A stop that lands while the answer is being delivered no
   longer leaks into the next turn, which used to answer “stopped” without ever prompting.
-- `wechat`: a peer session lets go of what its extensions opened. `AgentSession.dispose()` does
-  not emit `session_shutdown` — only the runtime teardown does, and a peer session has no runtime
-  — so `serve`'s socket, `file-browse`'s page server, `web-access`'s cache, and `job` and `watch`
-  children outlived the session and one more set stranded on every 30-minute idle sweep until the
-  host exited. The peer's extension runner is told the session is over before the session goes, and
-  a `/wechat stop` now waits for it, so a reset, an idle sweep, and a close release the same way.
 - `job`: `clear` removes a job's log only once the stream that held it has closed — Windows refused the
   unlink on a file a descriptor still held, and a stream whose open had not landed recreated the file
   just after it, so a cleared job could leave a log behind. The second attempt rides the stream's
@@ -515,19 +510,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   an owner whose only card is finished keeps its round group so the text line can count what it
   finished, and that group has nothing to draw. The owner is still named by that line, and the
   finished card still appears once under `Done`.
-- `wechat`: a peer's session directory is one sanitized path segment now, so a hostile peer id —
-  `../..`, a separator, a leading dot — can no longer name another peer's history or climb out of
-  `sessions/`. `sanitizePathSegment` is the one owner of the rule that turns a wire value into a
-  filesystem name, with `sanitizeFileName` as its file case; `peerKey` still decides identity, so a
-  legitimate peer resumes its own conversation.
-- `wechat`: the peer session's UI context is typed as the host's `ExtensionUIContext` instead of being cast
-  into place, so a member added to or renamed in that interface fails the build rather than disappearing
-  from a peer turn; the `askHuman` marker rides an intersection member, with no cast. Its theme is now an
-  identity double whose public surface is checked where it is built. What that fixes, against the stub it
-  replaces: `colors` was a function rather than a colour map, `getColorMode()` answered `""` rather than a
-  mode, and `bold`, `italic`, `underline`, `inverse`, `strikethrough` and `style` returned an empty string
-  instead of the text handed to them. `fg` and `bg` already returned the text and still do, with no escape
-  sequence.
 - `wechat`: `credentials.json` can no longer read back as “not logged in” after an interrupted
   write, so a cut-short login no longer costs a fresh QR scan: it is written `0600` through a
   sibling temp file renamed over the old one, the same shape `state.json` took.
@@ -568,8 +550,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `input` from the free text stashed for a `select`, and a prompt whose send throws settles instead
   of leaving the peer's messages unanswered until the bound expires. A lowered `pollHoldMs` tightens
   the poll watchdog again: the last server hint is used only for the hold it answered.
-- `wechat`: a `/stop` — `/wechat stop <peer>`, the peer's own `/stop`, or the control screen's key —
-  that lands while that peer's session is still opening is taken instead of answered with “nothing
+- `wechat`: a `/stop` — the terminal's `/wechat stop`, the chat's own `/stop`, or the control screen's
+  key — that lands while the session is still opening is taken instead of answered with “nothing
   is running”: the turn never starts, the peer hears one stopped line, and the intent is dropped if
   the open itself fails. `state.json` is now written through a sibling temp file and renamed into
   place, so a write cut short can no longer leave a file that reads as empty state and takes the
@@ -6271,7 +6253,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.21.0...v0.22.0
