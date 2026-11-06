@@ -200,6 +200,8 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"intake",
 		"transport/client",
 		"transport/deliver",
+		"transport/inbound",
+		"transport/media",
 		"transport/outbound",
 		"transport/poll",
 		"transport/poll-loop",
