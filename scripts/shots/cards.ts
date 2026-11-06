@@ -1,9 +1,9 @@
 /**
  * Capture the posting cards with headless Chrome (dev tooling).
  *
- * The pages under `assets/cards/` are posters, not app surfaces: a fixed 1200×675
- * box, no server, no script, and no webfont, so they open from `file://` and post
- * to X as a set. This finds the Chrome the machine already has (`PI_CHROME`
+ * The pages under `assets/cards/` are posters, not app surfaces: a fixed box —
+ * 1200×675, except the ends card's 1200×1500 portrait — with no server, no script,
+ * and no webfont, so they open from `file://` and post to X as a set. This finds the Chrome the machine already has (`PI_CHROME`
  * first, then the usual bundles) and writes the PNG a card is posted as — 2× by
  * default, so the text stays crisp where X scales it.
  *
@@ -11,8 +11,8 @@
  *   bun run capture:cards board        # one card
  *   bun run capture:cards flow -o /tmp/flow.png --scale 3
  *
- * A card that outgrows its own 1200×675 box fails the run with the measured
- * size instead of being captured clipped, because the image is the whole page.
+ * A card that outgrows its own box fails the run with the measured size instead
+ * of being captured clipped, because the image is the whole page.
  */
 
 import { fileURLToPath } from "node:url";
@@ -42,6 +42,7 @@ export const CARDS: Record<string, Card> = {
 	team: { page: "board-team.html", png: "board-team.png" },
 	parallel: { page: "board-parallel.html", png: "board-parallel.png" },
 	wechat: { page: "wechat.html", png: "wechat.png" },
+	ends: { page: "ends.html", png: "ends.png" },
 };
 
 /** `assets/cards/`, anchored to this script so a capture does not depend on the cwd. */
