@@ -59,6 +59,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   opt-in set behind it, and the `opt-in` enablement state are gone with it, so the
   disable list is the only switch left.
 
+- `test`: the dev floor is raised to Pi 1.5.0 (`bun.lock` follows), so the keybinding-hint
+  seams the 1.4 floor needed in the render-context fixtures and in the gallery's context are
+  gone — the host's `ToolRenderContext` carries `keyText` and `keyHint` itself.
+
 ## [0.25.0] - 2026-11-06
 
 ### Added

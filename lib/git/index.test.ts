@@ -49,9 +49,9 @@ function recordingRunner(responses: Map<string, Partial<GitResult>> | ((args: st
 // --- The execution runner ---------------------------------------------------
 
 /**
- * A `pi.exec` result for a double in this suite. Pi 1.5 added `truncated` and made it
- * required; the 1.4 floor has no such field. `createExecRunner` drops it either way,
- * so one helper keeps these doubles valid on both.
+ * A `pi.exec` result for a double in this suite: `truncated` is required of the host's
+ * result, and `createExecRunner` does not carry it on, so it is filled in here once
+ * instead of at every double.
  */
 function execResult(result: { stdout: string; stderr: string; code: number; killed: boolean }) {
 	return { ...result, truncated: false };

@@ -403,7 +403,7 @@ tests.
 
 ### Compatibility floor
 
-The dev dependencies pin a floor (`^1.4.0`, resolved by `bun.lock`); `bun run
+The dev dependencies pin a floor (`^1.5.0`, resolved by `bun.lock`); `bun run
 check` proves the package against exactly that. The floor is not the ceiling: the
 `compat` CI job installs the **newest published** peers and runs `check:types` and
 the serial suite against them, so a Pi release that breaks the package is visible

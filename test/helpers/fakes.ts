@@ -27,13 +27,6 @@ export type AnyHandler = (...args: any[]) => any;
 type RenderContext = Parameters<NonNullable<ToolDefinition["renderResult"]>>[3];
 
 /**
- * The keybinding hints Pi 1.5 passes on that context, and requires. Named here rather
- * than read off `RenderContext` so the fixture is the same shape on the 1.4 floor,
- * where the context does not carry them yet.
- */
-type KeyHintSeams = { keyText: typeof keyText; keyHint: typeof keyHint };
-
-/**
  * A render context for a suite that draws one block directly instead of driving a
  * session.
  *
@@ -42,7 +35,7 @@ type KeyHintSeams = { keyText: typeof keyText; keyHint: typeof keyHint };
  * starts reading another field gets a value rather than undefined.
  */
 export function toolRenderContext(options: { expanded?: boolean } = {}): RenderContext {
-	const context: RenderContext & KeyHintSeams = {
+	const context: RenderContext = {
 		args: {},
 		toolCallId: "call-1",
 		invalidate: () => {},
