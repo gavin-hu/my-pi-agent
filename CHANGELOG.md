@@ -36,6 +36,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   role, the start-anchored node label a node of list lines needs, and the 344px box a two-line head
   and a lede pay for.
 
+- dev: `assets/cards/ends.html` is the set's seventh posting card and its first product poster, and
+  the only one that is not 16:9: `capture:cards ends` writes a 1200×1500 portrait, the tallest frame
+  a timeline shows uncropped, titled `One session. Three screens.` above three windows — the browser
+  on top, the terminal between them, WeChat below — joined to the session by two dashed threads,
+  each through a `display` or an `input` gate. The browser widens what the terminal can show: a plan
+  with its comments and an `Approve`, the files, the board. The phone widens where it takes input:
+  text, a photo read as an image, a file saved and then read, and a voice note read in the server's
+  transcript, each one a turn in that same transcript. A `strip` prints
+  `pi install npm:@gavin-hu/my-pi-agent` with the re-run-it-to-upgrade hint, the set's first call to
+  action, so the card serves a reader who has never run it and one who is a version behind.
+  `cards.css` gains the portrait frame, the window frame and its dots, the success, diff and rail
+  lines a window shows, the chat bubble, the claim beside a band, and the accent a title's leading
+  phrase wears.
+
 ### Changed
 
 - `plan`: `Ctrl+C` on the review screen interrupts the turn instead of settling the review as “keep

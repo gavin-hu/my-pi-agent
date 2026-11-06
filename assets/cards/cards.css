@@ -1,9 +1,10 @@
 /**
  * The shell every posting card shares: the plan pair — `plan-flow.html`, prose-led,
  * and `plan-flow-graphic.html`, graphic-led — the board three — `board.html`,
- * `board-team.html`, and `board-parallel.html` — and `wechat.html`, the one session
- * drawn with both of its windows. Every card is captured at 1200×675 by
- * `capture:cards`.
+ * `board-team.html`, and `board-parallel.html` — `wechat.html`, the one session
+ * drawn with both of its windows — and `ends.html`, the product poster that shows
+ * its three ends. Every card is captured by `capture:cards` at 1200×675, except
+ * the ends card, which takes the 1200×1500 portrait a timeline shows uncropped.
  *
  * The palette is `themes/bytefly-dark.json` — the one the terminal theme, the
  * README hero, and the browser pages all draw from — copied here because a page
@@ -11,9 +12,10 @@
  * build step would make the posted PNG irreproducible. The hairline alphas are
  * that file's `border` and `borderMuted` at reduced opacity.
  *
- * Sizes are poster sizes, not UI sizes: the card posts at 1200×675 and is read
- * in a timeline at roughly half width, so body text starts at 16px and the
- * title at 60px. Everything is a fixed 1200×675 box with no scroll.
+ * Sizes are poster sizes, not UI sizes: a card posts at 1200×675 and is read in
+ * a timeline at roughly half width, so body text starts at 16px and the title at
+ * 60px; the portrait ends card buys the room for its 78px headline and 18px
+ * windows. Every card is a fixed box with no scroll.
  */
 
 :root {
@@ -118,6 +120,12 @@ body {
 	color: var(--muted);
 	font-weight: 600;
 	letter-spacing: 0;
+}
+
+/* The one word a card leads with, in the accent the rest of the set reserves for a
+ * live thing: the ends card names three screens, and that is what the drawing shows. */
+.title__accent {
+	color: var(--accent);
 }
 
 /* The graphic card leads with the drawing, so its title is a label. */
@@ -308,6 +316,13 @@ body {
  * stands 36px shorter again: three lanes, one row of nodes, and two floor notes. */
 .diagram--wechat {
 	height: 344px;
+}
+
+/* The ends card is the portrait, so its drawing is measured in the room a 1500px
+ * frame has: three windows and a caption each, the middle one taller and wider,
+ * with the two threads crossing the gaps above and below it. */
+.diagram--ends {
+	height: 940px;
 }
 
 .diagram text {
@@ -792,4 +807,177 @@ body {
 	fill: none;
 	stroke: var(--line);
 	stroke-dasharray: 5 7;
+}
+
+/* ---------------------------------------------------------- three ends card */
+
+/* The ends card is the set's product poster and the only frame that is not 16:9:
+ * it has to stop a timeline for someone who has never run the pack, so it takes
+ * the tallest frame X shows uncropped (4:5). The shell's 1200×675 box still holds
+ * the other six. */
+.card--poster {
+	height: 1500px;
+	padding: 52px 48px 40px;
+}
+
+/* The poster's headline is three lines — the claim, its accent, the Chinese — so
+ * the drawing below is read after a sentence rather than beside one. */
+.title--poster {
+	margin-top: 20px;
+	font-size: 78px;
+	line-height: 1.04;
+}
+
+.title--poster .title__zh {
+	display: block;
+	margin-left: 0;
+	margin-top: 10px;
+	font-size: 40px;
+}
+
+.card--poster .lede {
+	margin-top: 18px;
+	max-width: 1010px;
+	font-size: 21px;
+}
+
+/* The poster draws its windows at poster scale, so the shared drawing type is
+ * scaled here rather than in the atoms the other six cards also wear. */
+.card--poster .node-label--mono {
+	font-size: 18px;
+}
+
+.card--poster .verb-note {
+	font-size: 16px;
+}
+
+.card--poster .win__ok {
+	font-size: 18px;
+}
+
+.card--poster .win__diff {
+	font-size: 17px;
+}
+
+.card--poster .edge-label {
+	font-size: 14px;
+}
+
+/* A window on the card: a surface of its own, the way a window reads against the
+ * page under it, with the accent rim the terminal wears because the other two
+ * extend it. */
+.win {
+	fill: var(--surface);
+	stroke: var(--line-strong);
+	stroke-width: 1.5;
+}
+
+.win--hero {
+	stroke: rgba(var(--accent-rgb), 0.5);
+}
+
+/* Three dots, not traffic lights: the window chrome that says "this is a page". */
+.win__dot {
+	fill: rgba(var(--border-rgb), 0.55);
+}
+
+/* The rule under a window's title bar. */
+.win__bar {
+	stroke: var(--line);
+	stroke-width: 1;
+}
+
+/* A line a window shows as the session's own success — the approve, the passing
+ * run — so the poster keeps the roles the terminal theme gives them. */
+.win__ok {
+	font-family: var(--font-mono);
+	font-size: 14px;
+	fill: var(--success);
+}
+
+.win__diff {
+	font-family: var(--font-mono);
+	font-size: 14px;
+	fill: var(--muted);
+}
+
+/* A rule across a window that separates what the turn did from the rail beside
+ * it: the browser's pages, the terminal's todo. */
+.win__rail {
+	stroke: var(--line);
+	stroke-width: 1;
+	stroke-dasharray: 4 6;
+}
+
+/* The one line of a rail that is live — the page open, the step running — in the
+ * accent the terminal gives a running turn. */
+.win__live {
+	font-family: var(--font-mono);
+	font-size: 17px;
+	fill: var(--accent);
+}
+
+/* The two sides of the edit the terminal is showing: the change the turn made,
+ * in the roles a diff already has. */
+.win__add {
+	font-family: var(--font-mono);
+	font-size: 16px;
+	fill: var(--success);
+}
+
+.win__del {
+	font-family: var(--font-mono);
+	font-size: 16px;
+	fill: var(--danger);
+}
+
+/* A chat bubble in the WeChat window: the phone's tint in, the answer out, so the
+ * band reads as the conversation it is rather than a log. */
+.bubble {
+	fill: rgba(var(--accent-rgb), 0.12);
+	stroke: rgba(var(--accent-rgb), 0.38);
+	stroke-width: 1.2;
+}
+
+.bubble--out {
+	fill: rgba(var(--success-rgb), 0.1);
+	stroke: rgba(var(--success-rgb), 0.36);
+}
+
+/* A band's name, then its claim in English and Chinese: the limit that end lifts,
+ * under six words, because the poster is also read at feed width. */
+.claim--name {
+	font-family: var(--font-mono);
+	font-size: 20px;
+	letter-spacing: 0.06em;
+	fill: var(--accent);
+}
+
+/* The middle band is the session the two extensions hang off, so its name takes
+ * the accent the gates on the threads carry. */
+.claim--session {
+	fill: var(--accent-alt);
+}
+
+.claim__text {
+	font-size: 18px;
+	fill: var(--muted);
+}
+
+.claim__zh {
+	font-size: 16px;
+	fill: var(--dim);
+}
+
+/* The command strip at poster scale: the one line a reader has to type, so it is
+ * the largest mono on the card after the window titles. */
+.strip--poster {
+	margin-top: 24px;
+	padding-top: 16px;
+	font-size: 17px;
+}
+
+.strip--poster .chip {
+	font-size: 16px;
+	padding: 6px 12px;
 }

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=1200" />
+		<title>One session. Three screens. — @gavin-hu/my-pi-agent</title>
+		<link rel="stylesheet" href="./cards.css" />
+	</head>
+	<body>
+		<main class="card card--glow card--poster">
+			<div class="brand">
+				<span><span class="brand__chip">@gavin-hu/my-pi-agent</span> · three ends</span>
+				<span class="brand__right">
+					<span class="live"><span class="live__dot"></span>one session · live</span>
+				</span>
+			</div>
+
+			<h1 class="title title--poster">
+				One session.<br />
+				<span class="title__accent">Three screens.</span><br />
+				<span class="title__zh">一个会话，三块屏幕。</span>
+			</h1>
+
+			<p class="lede">
+				The terminal runs the turn; the browser shows you all of it, and the phone answers for you.
+			</p>
+
+			<svg
+				class="diagram diagram--ends"
+				viewBox="0 0 1104 940"
+				role="img"
+				aria-label="Three windows stacked on one session, in a 1200 by 1500 poster. On top the browser, inset on the right and joined to the session by a dashed thread through an up-arrow display gate: at localhost seven-seven-one-seven on loopback or the LAN, a plan review page — plan billing-core with its goal, acceptance, scope-out and three comments, dana asking that scope-out name the migration, and an Approve — beside a sidebar listing the plan review, the files, and the board, because a page holds what a terminal box cannot: a whole plan, tables, images, forty cards. In the middle the terminal, full width and the only window the accent rims: the prompt refactor billing-core at four of seven steps, the plan and the todo rail, tests forty-two passing with billing.ts eighteen lines added and six removed, the two lines of the edit itself, and what the turn keeps — one transcript, one model, one toolset, one queue with one turn at a time and no child session — with a rail of two finished steps, the billing tests running, and the card to close. Below it, joined by the second thread through an up-arrow input gate, WeChat, owner-only: what the phone can send — text, a photo read as an image, a file saved and then read, and a voice note read in the server's transcript — each a turn, answered with 跑通了。 42 个测试全绿。 in three streamed parts with the diff on the plan. The command strip prints the install command and says re-running it upgrades, and the footer says the browser and the phone are not a second agent: both write into the transcript the terminal has open."
+			>
+				<!-- ① browser: a page renders what the terminal's box cannot hold. -->
+				<text class="claim--name" x="26" y="20">browser <tspan class="verb-note">· 浏览器</tspan></text>
+				<text class="claim__text" x="380" y="20">the terminal's display, widened</text>
+				<text class="claim__zh" x="700" y="20">终端看不全的，浏览器展开。</text>
+
+				<rect class="win" x="26" y="32" width="928" height="244" rx="14" />
+				<circle class="win__dot" cx="50" cy="52" r="3.6" />
+				<circle class="win__dot" cx="64" cy="52" r="3.6" />
+				<circle class="win__dot" cx="78" cy="52" r="3.6" />
+				<text class="node-label node-label--mono node-label--start" x="100" y="57">localhost:7717</text>
+				<text class="verb-note" x="938" y="57" text-anchor="end">loopback · LAN</text>
+				<line class="win__bar" x1="26" y1="68" x2="954" y2="68" />
+				<text class="node-label node-label--mono node-label--start" x="50" y="104">plan · billing-core</text>
+				<text class="win__ok" x="730" y="104" text-anchor="end">✓ Approve</text>
+				<text class="verb-note" x="50" y="134">goal · acceptance · scopeOut · 3 comments</text>
+				<text class="verb-note verb-note--hi" x="50" y="182">dana · scope-out should name the migration</text>
+				<text class="verb-note verb-note--hi" x="50" y="212">you · approved from the lead's own link</text>
+				<text class="verb-note" x="50" y="248">
+					a page holds what a terminal box cannot: a whole plan, tables, images, forty cards
+				</text>
+				<line class="win__rail" x1="760" y1="82" x2="760" y2="262" />
+				<text class="win__live" x="784" y="112">plan review</text>
+				<text class="verb-note verb-note--hi" x="784" y="146">files</text>
+				<text class="verb-note verb-note--hi" x="784" y="180">board</text>
+				<text class="verb-note" x="784" y="226">the pages this session serves</text>
+
+				<!-- The thread up into the browser, gated on its way out of the session. -->
+				<line class="edge edge--loop" x1="954" y1="276" x2="970" y2="283" />
+				<line class="edge edge--loop" x1="1062" y1="319" x2="1078" y2="326" />
+				<rect class="gate" x="970" y="288" width="92" height="26" rx="13" />
+				<text class="edge-label edge-label--loop" x="1016" y="306">↑ display</text>
+
+				<!-- ② terminal: the session itself, and the width the other two extend. -->
+				<text class="claim--name claim--session" x="26" y="314">terminal <tspan class="verb-note">· 终端</tspan></text>
+				<text class="claim__text" x="380" y="314">the session the other two extend</text>
+				<text class="claim__zh" x="700" y="314">另外两块屏幕延伸的，就是它。</text>
+
+				<rect class="win win--hero" x="26" y="326" width="1052" height="320" rx="14" />
+				<circle class="win__dot" cx="50" cy="346" r="3.6" />
+				<circle class="win__dot" cx="64" cy="346" r="3.6" />
+				<circle class="win__dot" cx="78" cy="346" r="3.6" />
+				<text class="node-label node-label--mono node-label--start" x="100" y="351">❯ refactor billing-core</text>
+				<text class="claim--name" x="1060" y="351" text-anchor="end">4/7 steps</text>
+				<line class="win__bar" x1="26" y1="362" x2="1078" y2="362" />
+				<text class="node-label node-label--mono node-label--start" x="50" y="400">
+					▸ plan · todo rail · the build it started
+				</text>
+				<text class="win__ok" x="50" y="432">✓ tests 42 pass</text>
+				<text class="win__diff" x="300" y="432">± billing.ts +18 −6</text>
+				<text class="win__del" x="50" y="482">− if (card.lane === "plan") run(card);</text>
+				<text class="win__add" x="50" y="508">+ if (card.lane === "plan" &amp;&amp; card.approved) run(card);</text>
+				<line class="win__rail" x1="730" y1="376" x2="730" y2="630" />
+				<text class="verb-note" x="754" y="400">todo · 4/7</text>
+				<text class="win__ok" x="754" y="440">✓ read billing.ts</text>
+				<text class="win__ok" x="754" y="474">✓ update the guard</text>
+				<text class="win__live" x="754" y="508">▸ run the billing tests</text>
+				<text class="verb-note verb-note--hi" x="754" y="542">· close #4</text>
+				<text class="verb-note" x="754" y="596">the browser and the phone</text>
+				<text class="verb-note" x="754" y="620">see this same rail</text>
+				<text class="verb-note" x="50" y="556">one transcript · one model · one toolset · the workspace you keep</text>
+				<text class="verb-note" x="50" y="586">the browser and the phone write here, not into a copy</text>
+				<text class="verb-note" x="50" y="616">no child session · one queue · one turn at a time</text>
+
+				<!-- The thread back down, gated on its way into the session. -->
+				<line class="edge edge--loop" x1="1078" y1="646" x2="1062" y2="653" />
+				<line class="edge edge--loop" x1="970" y1="689" x2="954" y2="696" />
+				<rect class="gate" x="970" y="658" width="92" height="26" rx="13" />
+				<text class="edge-label edge-label--loop" x="1016" y="676">↑ input</text>
+
+				<!-- ③ wechat: a message from anywhere becomes a turn in that session. -->
+				<text class="claim--name" x="26" y="684">wechat <tspan class="verb-note">· 微信</tspan></text>
+				<text class="claim__text" x="380" y="684">the terminal's input, widened</text>
+				<text class="claim__zh" x="700" y="684">终端到不了的地方，微信接上。</text>
+
+				<rect class="win" x="26" y="696" width="928" height="244" rx="14" />
+				<circle class="win__dot" cx="50" cy="716" r="3.6" />
+				<circle class="win__dot" cx="64" cy="716" r="3.6" />
+				<circle class="win__dot" cx="78" cy="716" r="3.6" />
+				<text class="node-label node-label--mono node-label--start" x="100" y="721">wechat · owner only</text>
+				<text class="win__ok" x="938" y="721" text-anchor="end">✆ open</text>
+				<line class="win__bar" x1="26" y1="732" x2="954" y2="732" />
+				<!-- Four kinds of message, one session: what the chat widens is the input. -->
+				<text class="claim__zh" x="50" y="758">what the phone can send · 手机上能发什么</text>
+				<rect class="bubble" x="50" y="770" width="470" height="26" rx="10" />
+				<text class="node-label node-label--mono node-label--start" x="64" y="788">
+					<tspan class="win__live">text</tspan> 12:04 这条能跑吗
+				</text>
+				<rect class="bubble" x="50" y="800" width="470" height="26" rx="10" />
+				<text class="node-label node-label--mono node-label--start" x="64" y="818">
+					<tspan class="win__live">photo</tspan> the screenshot, read as an image
+				</text>
+				<rect class="bubble" x="50" y="830" width="470" height="26" rx="10" />
+				<text class="node-label node-label--mono node-label--start" x="64" y="848">
+					<tspan class="win__live">file</tspan> report.pdf, saved, then read
+				</text>
+				<rect class="bubble" x="50" y="860" width="470" height="26" rx="10" />
+				<text class="node-label node-label--mono node-label--start" x="64" y="878">
+					<tspan class="win__live">voice</tspan> 8s, in the server's transcript
+				</text>
+
+				<!-- One turn per message, and the answer streams back in parts. -->
+				<rect class="bubble bubble--out" x="560" y="770" width="368" height="138" rx="14" />
+				<text class="node-label node-label--mono node-label--start" x="580" y="802">跑通了。</text>
+				<text class="node-label node-label--mono node-label--start" x="580" y="832">42 个测试全绿。</text>
+				<text class="verb-note verb-note--hi" x="580" y="862">the diff is on the plan</text>
+				<text class="verb-note" x="580" y="888">three parts, streamed</text>
+
+				<text class="verb-note" x="50" y="924">any of the four is a turn here · the answer streams back in parts</text>
+			</svg>
+
+			<div class="strip strip--poster">
+				<div>
+					<code class="chip chip--accent">pi install npm:@gavin-hu/my-pi-agent</code>
+				</div>
+				<div><span>already installed? run it again to upgrade · 装过就重跑一次。</span></div>
+			</div>
+
+			<div class="foot">
+				<div>
+					The browser and the phone are not a second agent.<br /><span class="foot__zh"
+						>浏览器和手机不是第二个 agent。</span
+					>
+				</div>
+				<div class="foot__right">
+					Both write into the transcript the terminal has open.<br /><span class="foot__zh"
+						>两边写的，都是终端里开着的那份记录。</span
+					>
+				</div>
+			</div>
+		</main>
+	</body>
+</html>
