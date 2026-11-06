@@ -246,6 +246,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a plan edited on disk under an open browser review now repaints the section outline with
+  the body, so the sidebar lists the headings the file holds and each section's comment count lands
+  in a link the reader can see. `renderAll()` rebuilds the rail before the frame — the facts and the
+  section watcher both read what it makes — and `renderOutline` carries the current-section mark over
+  the rebuild, so a live frame, a view switch, or a name change no longer loses "you are here".
+
 - `memory`: an `update` whose `text` and `to` are equal reads the stores before answering, so it
   reports `Already set in project memory: <text>` only for a note that scope really holds. Before, the
   equal-text shortcut returned before any read: a note that was absent, or that lived in `global`,

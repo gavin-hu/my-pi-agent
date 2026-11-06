@@ -1,7 +1,8 @@
 /**
  * The plan web review's fixtures: the plan and its data island, a recording router
- * context, the client-source extractors, the share routes and the LAN interfaces,
- * and the session harness the suites that open a real listener share.
+ * context, the client-source extractors and the fake element builder a fragment's
+ * document rule is driven through, the share routes and the LAN interfaces, and the
+ * session harness the suites that open a real listener share.
  *
  * A review session owns a loopback socket, so `reviewSuite()` hands out `start` and
  * `startShared` and closes whatever they opened after every test.
@@ -14,6 +15,7 @@ import { testMountSource } from "../serve.ts";
 import { formatFeedback, type PlanAnnotation } from "../../../extensions/plan/feedback.ts";
 import type { PlanStore, StoredPlan } from "../../../extensions/plan/plans.ts";
 import { REVIEW_CLIENT_JS } from "../../../extensions/plan/web-client.ts";
+import { WEB_OUTLINE_JS } from "../../../extensions/plan/web-outline.ts";
 import { renderReviewPage, type ReviewPageData } from "../../../extensions/plan/web-page.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "../../../extensions/plan/web-router.ts";
 import type { LoopbackRequest, ServeResponse } from "../../../lib/http/index.ts";
@@ -183,6 +185,99 @@ function shippedSafeHref(): (url: string, base: string) => string | null {
 		url: string,
 		base: string,
 	) => string | null;
+}
+
+/** What a client fragment's fake element answers: the members the client's rules read. */
+export interface FakeClientNode {
+	tag: string;
+	className: string;
+	textContent: string | null;
+	hidden: boolean;
+	href: string;
+	title: string;
+	id: string;
+	children: FakeClientNode[];
+	attributes: Map<string, string>;
+	setAttribute(name: string, value: string): void;
+	getAttribute(name: string): string | null;
+	appendChild(child: FakeClientNode): void;
+	replaceChildren(): void;
+	querySelector(selector: string): FakeClientNode | null;
+	addEventListener(): void;
+}
+
+/**
+ * A fake `el` for a client fragment, recording what it built and every attribute set.
+ *
+ * A fragment's rule is a document rule — the outline reads the reader's section mark off the
+ * list it is about to replace — so the fake answers `querySelector` the way a page does:
+ * descendants, first match, for the one attribute selector a suite asks about.
+ */
+export function fakeClientDom(): {
+	/** What `build` was asked for, in order, for the assertion about the document it describes. */
+	made: Array<{ tag: string; className: string }>;
+	build(tag: string, className?: string): FakeClientNode;
+	/** The id of the link the list marks as the reader's section, or `""` for none. */
+	markedId(list: FakeClientNode): string;
+} {
+	const made: Array<{ tag: string; className: string }> = [];
+	const marked = (node: FakeClientNode): FakeClientNode | null => {
+		for (const child of node.children) {
+			if (child.getAttribute("aria-current") !== null) return child;
+			const inside = marked(child);
+			if (inside) return inside;
+		}
+		return null;
+	};
+	const build = (tag: string, className?: string): FakeClientNode => {
+		const node: FakeClientNode = {
+			tag,
+			className: className ?? "",
+			textContent: null,
+			hidden: false,
+			href: "",
+			title: "",
+			id: "",
+			children: [],
+			attributes: new Map<string, string>(),
+			setAttribute(name, value) {
+				node.attributes.set(name, value);
+			},
+			getAttribute(name) {
+				return node.attributes.get(name) ?? null;
+			},
+			appendChild(child) {
+				node.children.push(child);
+			},
+			replaceChildren() {
+				node.children = [];
+			},
+			querySelector(selector) {
+				return selector === "[aria-current]" ? marked(node) : null;
+			},
+			addEventListener() {},
+		};
+		made.push({ tag, className: node.className });
+		return node;
+	};
+	return { made, build, markedId: (list) => marked(list)?.getAttribute("data-id") ?? "" };
+}
+
+/**
+ * The shipped `renderOutline`, evaluated out of the fragment's source with a fake builder.
+ *
+ * The fragment is a `String.raw` string no compiler sees, and its body reaches `el` as a
+ * free name, so a suite drives the source rather than the typed import — the same thing the
+ * page does, minus the browser.
+ */
+export function shippedRenderOutline(): ReturnType<typeof fakeClientDom> & {
+	renderOutline: typeof import("../../../extensions/plan/web-outline.ts").renderOutline;
+} {
+	const dom = fakeClientDom();
+	const runtime = new Function("el", `${WEB_OUTLINE_JS}\nreturn { renderOutline: renderOutline };`)(dom.build) as {
+		renderOutline: typeof import("../../../extensions/plan/web-outline.ts").renderOutline;
+	};
+	return { ...dom, renderOutline: runtime.renderOutline };
 }
 
 export const linkFor = (url: string): string | null => shippedSafeHref()(url, REVIEW_ORIGIN);

@@ -258,7 +258,17 @@ ${WEB_MARKDOWN_JS}
     renderAll();
   }
 
+  /**
+   * Repaint the page: the rail first, then the frame that reads it.
+   *
+   * The outline is rebuilt before the frame because both the facts and the section watcher
+   * read the links and the counters it makes: a live plan change that repainted only the
+   * body left the sidebar listing the headings it replaced, and the comment counts went to
+   * the nodes those headings were in. This is the one repaint entry — every fragment, the
+   * view switch, and the boot path below come through it.
+   */
   function renderAll() {
+    outlineItems = renderOutline(outlineList, outlineEntries());
     sectionObserver = renderPlanFrame(planFrame(), closeOpenComposer, observeSections, sectionObserver);
     syncView();
   }
@@ -461,7 +471,6 @@ ${WEB_MARKDOWN_JS}
   // and the composer it was typing into, which needs the blocks rendered first.
   var restoredTyping = restoreDraft();
   renderName();
-  outlineItems = renderOutline(outlineList, outlineEntries());
   renderAll();
   reopenComposer(composer(), restoredTyping, { saved: saved, approved: approved, closed: closed }, blocks());
   updateProgress();

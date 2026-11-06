@@ -1108,12 +1108,12 @@ every link and closes that listener; closing the review does both.
 | `web-composer.ts` | The client's composer lifecycle as typed source (`WEB_COMPOSER_JS`): `closeComposer` (over one `ComposerDeps` the client builds where the state is), `reopenComposer` for the draft a reload interrupted, and `commentOnActive`, which returns the index so the client keeps its one `activeIndex`. |
 | `web-draft.ts` | The client's draft guard as typed source (`WEB_DRAFT_JS`): `draftTextarea` answers the open composer's textarea when it holds text, and `guardDraft` refuses the ways off the page, names the reason once, and puts the cursor back in it. |
 | `web-blocks.ts` | The client's block navigation as typed source (`WEB_BLOCKS_JS`): `blockElements`, `setActive` and `moveActive` — which return the index they computed, so the client keeps the one `activeIndex` — and `blockAtLine`, which needs both the rendered block and its island entry. |
-| `web-client.ts` | The `/client.js` source: the composition root, and nothing else by decision — the element handles, the state each rule is handed, one zero-argument adapter per rule, the listeners that attach them, the `EventSource` that keeps a tab's presence known, and the boot order. Every rule it used to hold lives in the `web-*.ts` modules below, where it can be typed and driven. |
+| `web-client.ts` | The `/client.js` source: the composition root, and nothing else by decision — the element handles, the state each rule is handed, one zero-argument adapter per rule, the listeners that attach them, the `EventSource` that keeps a tab's presence known, and the boot order. Every rule it used to hold lives in the `web-*.ts` modules below, where it can be typed and driven. Its `renderAll()` is the whole repaint a fragment calls: the rail, then the frame that reads its links and counters. |
 | `web-comments.ts` | The client's comment half: selection quotes, the composer, authored cards and who may edit them, delete-with-undo. |
 | `web-collab.ts` | The client's collaboration half: the link list with copy and per-link revoke, the reviewer's name, and the island refetch a stream frame triggers. |
 | `web-markdown.ts` | The client's block half: tables, fenced code, headings, quotes, and lists, with each block's text handed to the shared `renderInline` from `lib/web/markdown.ts` (interpolated into `web-client.ts`). |
 | `web-chrome.ts` | The client's chrome half: the state chip on the kit's live pill, the status line, the one reload control a stale page offers, and reading progress (interpolated into `web-client.ts`). |
-| `web-outline.ts` | The client's outline as typed source (`WEB_OUTLINE_JS`): `sectionFor` — the last heading at or before a line — `renderOutline`, which builds the list and hands back the counters it made, `observeSections`, which watches the blocks and returns the one watcher the client keeps, and `renderFacts`, which paints the step progress and counts each comment under its heading. |
+| `web-outline.ts` | The client's outline as typed source (`WEB_OUTLINE_JS`): `sectionFor` — the last heading at or before a line — `renderOutline`, which builds the list, keeps the reader's current-section mark across the rebuild, and hands back the counters it made, `observeSections`, which watches the blocks and returns the one watcher the client keeps, and `renderFacts`, which paints the step progress and counts each comment under its heading. |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/plan-entry.ts`](../../lib/plan-entry.ts) | Plan-mode entry shared with `goal`: the read-only summary, the consent sentence, and the `pi.events` request `plan` answers by enabling the mode. |
@@ -1161,9 +1161,10 @@ Thirty-five co-located suites, declared in `test/suite-manifest.ts`:
   skips where no browser is installed, naming `PI_CHROME`.
 - `web-live.test.ts` — the same page following its stream, with the mount's own frame in
   the case's hands: a plan frame that draws the new blocks and says the plan changed on
-  disk, a frame arriving over a half-written comment that refuses and keeps the text, and
-  the composer a reload reopens with its text. It shares the page, the browser, and the
-  mount with `web-behaviour.test.ts` through `test/helpers/plan-browser.ts`.
+  disk, a frame whose page renamed a heading and gained a commented section repainting the
+  outline beside the body, a frame arriving over a half-written comment that refuses and
+  keeps the text, and the composer a reload reopens with its text. It shares the page, the
+  browser, and the mount with `web-behaviour.test.ts` through `test/helpers/plan-browser.ts`.
 - `web-share.test.ts` — the LAN address selector, `shareUrl`, the link table with
   its cap, and the reasons a share is unavailable.
 - `commands.test.ts` — `/plan review`, `/plan list`, the retired `share` and

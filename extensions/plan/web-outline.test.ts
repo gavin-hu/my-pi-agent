@@ -5,6 +5,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { fakeClientDom, shippedRenderOutline } from "../../test/helpers/fixtures/plan-web.ts";
+import type { ClientNode } from "../../lib/web/client-runtime.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { applyView, blockAtLine, blockElements, moveActive, setActive, WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { draftTextarea, guardDraft, WEB_DRAFT_JS } from "./web-draft.ts";
@@ -33,6 +35,9 @@ describe("review outline", () => {
 		expect(WEB_OUTLINE_JS).not.toContain("${");
 		expect(WEB_OUTLINE_JS.split(String(sectionFor)).length).toBe(2);
 		expect(REVIEW_CLIENT_JS).toContain("renderOutline(outlineList, outlineEntries())");
+		// The fragment runs with nothing but the builder beside it: no reference to a helper
+		// it does not carry, which on the page is a throw at the first render.
+		expect(() => new Function("el", WEB_OUTLINE_JS)(fakeClientDom().build)).not.toThrow();
 	});
 
 	test("watches the blocks and marks the section the reader is in", () => {
@@ -163,37 +168,32 @@ describe("review outline", () => {
 	test("builds one list item per heading and returns the counters it made", () => {
 		// The fake builder records what it was asked for, so the assertion is about the
 		// document this function describes rather than about the strings in it.
-		const made: Array<{ tag: string; className: string }> = [];
-		const build = (tag: string, className?: string) => {
-			const node = {
-				tag,
-				className: className ?? "",
-				textContent: null as string | null,
-				hidden: false,
-				href: "",
-				title: "",
-				id: "",
-				children: [] as unknown[],
-				setAttribute() {},
-				addEventListener() {},
-				appendChild(child: unknown) {
-					node.children.push(child);
-				},
-				replaceChildren() {
-					node.children = [];
-				},
-			};
-			made.push({ tag, className: node.className });
-			return node;
-		};
-		const runtime = new Function("el", `${WEB_OUTLINE_JS}\nreturn { renderOutline: renderOutline };`)(build) as {
-			renderOutline: typeof import("./web-outline.ts").renderOutline;
-		};
-		const list = build("ul", "review-nav") as unknown as Parameters<typeof runtime.renderOutline>[0];
-		const counters = runtime.renderOutline(list, entries);
+		const { made, build, renderOutline } = shippedRenderOutline();
+		const counters = renderOutline(build("ul", "review-nav") as unknown as ClientNode, entries);
 		expect(Object.keys(counters)).toEqual(["1", "8", "20"]);
 		expect(made.filter((item) => item.tag === "li").map((item) => item.className)).toEqual(["lvl-1", "lvl-2", "lvl-1"]);
 		expect(counters[8]?.hidden).toBe(true);
+	});
+
+	test("keeps the reader's section marked across a repaint", () => {
+		// The page rebuilds the rail whenever the plan does, and a rebuild that dropped the mark
+		// would lose "you are here" on every live frame, view switch, and name change. A heading
+		// that moved has a new id, so the mark goes rather than landing on whatever is at its line.
+		const { build, markedId, renderOutline } = shippedRenderOutline();
+		const list = build("ul", "review-nav");
+		const client = list as unknown as ClientNode;
+		renderOutline(client, entries);
+		expect(markedId(list)).toBe("");
+		// The mark a rail click or the section watcher made, on the link for `## Steps`.
+		list.children[1]?.children[0]?.setAttribute("aria-current", "true");
+		renderOutline(client, entries);
+		expect(markedId(list)).toBe("s-8");
+		// The same list renumbered: `s-8` is gone, so the mark is not handed to its successor.
+		renderOutline(
+			client,
+			entries.map((item) => (item.id === "s-8" ? { ...item, id: "s-9", line: 9 } : item)),
+		);
+		expect(markedId(list)).toBe("");
 	});
 });
 
