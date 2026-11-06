@@ -387,7 +387,9 @@ package, so load the whole package (`pi -e .`) or install it; loading only
 ## Routes
 
 The browser review serves these routes on its loopback origin; `…` is the
-session token, and the owner's token is the one that opened the page.
+request's own token — the owner's on the page that opened the review, and a
+reviewer link's on the page it serves — so each page answers as the role it was
+served for.
 
 | Route | Result |
 |---|---|
@@ -1148,7 +1150,8 @@ Thirty-five co-located suites, declared in `test/suite-manifest.ts`:
   codec and the router (`web-router`), the page roles and its shell (`web-page`),
   the client script's rules (`web-client`, `web-outline`, `web-composer`,
   `web-settlement`), the stream and the plan-file poll (`web-stream`), the
-  loopback session (`web-session`), and the share rules (`web-shared-review`).
+  loopback session (`web-session`), the share rules (`web-shared-review`), and the
+  links a review mints, revokes, and stops (`web-share-links`).
 - `web-behaviour.test.ts` — the served review, driven in a real browser through
   the router: the blocks and the plan's name, a block's comment control opening the
   composer with Escape peeling it before the review, a stored comment in its block's
