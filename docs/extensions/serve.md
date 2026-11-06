@@ -14,12 +14,12 @@
 ## Quickstart
 
 There is nothing to run: `serve` is infrastructure, and the pages that use it are
-`/board`, `/browse`, and `/plan review`.
+`/board`, `/browse`, and the plan's browser page.
 
 ```bash
 /board          # http://127.0.0.1:<port>/board/?token=…
 /browse         # http://127.0.0.1:<port>/files/
-/plan review    # http://127.0.0.1:<port>/plan/3f9c21aa/?token=…
+/plan list      # Enter on a plan: …/plan/3f9c21aa/?token=…
 ```
 
 All three answer on that one port — the project's own, in `4780`–`5779` — and the

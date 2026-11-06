@@ -2,8 +2,8 @@
  * Screenshot the browser plan review page with headless Chrome (dev tooling).
  *
  * Renders a plan file through the real review page — the same server, router,
- * client bundle, theme bootstrap, and Markdown renderer a `/plan review` session
- * serves — and writes a full-page PNG, so the document's layout can be checked
+ * client bundle, theme bootstrap, and Markdown renderer a browser page serves — and
+ * writes a full-page PNG, so the document's layout can be checked
  * without opening a browser by hand. It is macOS-friendly (it finds Google
  * Chrome's bundle) and honours `PI_CHROME` for another Chrome or Chromium.
  *

@@ -61,7 +61,7 @@ share more than that: `envelopeRefusal` orders the method, `Host`, and origin
 checks once, `requireJsonBody` refuses a body a form could send, and `mintToken`
 with `tokenMatches` is the one credential, compared in constant time — so the two
 mutating pages cannot drift into different envelopes. A remote turn (for example
-over WeChat) cannot reach them; `/plan review` refuses there instead of opening a
+over WeChat) cannot reach them; `/plan list`'s Enter refuses there instead of opening a
 server nobody can use.
 
 ### Worktree and shell isolation

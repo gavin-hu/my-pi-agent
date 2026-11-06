@@ -131,8 +131,8 @@ function readBranchState(ctx: ExtensionContext): BranchState {
 	for (const raw of ctx.sessionManager.getBranch()) {
 		// A `write` result is where "the plan this branch last wrote" lives, so replaying it
 		// is what keeps the chip naming that plan after `/resume` or a `/tree` hop. Only the
-		// write: a baseline also names a plan, but `/plan review <path>` records one for a file
-		// the session never wrote, which is not a plan it is holding.
+		// write: a baseline also names a plan, and a view opened from `/plan list` names one
+		// the session may never have written, which is not a plan it is holding.
 		const write = toolResultDetails(raw, PLAN_TOOL);
 		if (write) {
 			if (write.action === "write" && typeof write.path === "string") lastPlan = resolve(write.path);

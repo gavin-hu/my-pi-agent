@@ -34,8 +34,8 @@ const MAX_REVISIONS = 5;
 /**
  * Write a plan atomically: a hidden sibling temp file, then a rename. A crash
  * or a full disk mid-write leaves the previous file intact instead of a
- * truncated plan, and the temp name is a dotfile, so neither `latest()` nor a
- * plan lookup ever mistakes it for a plan.
+ * truncated plan, and the temp name is a dotfile, so no index walk and no plan
+ * lookup ever mistakes it for a plan.
  */
 export function writeAtomic(path: string, content: string): void {
 	const temp = join(dirname(path), `.${basename(path)}.${randomBytes(6).toString("hex")}.tmp`);

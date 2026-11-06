@@ -208,7 +208,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	},
 	todo: {},
 	goal: {},
-	serve: { notes: ["Without it `/board`, `/browse`, and `/plan review` refuse, naming it."] },
+	serve: { notes: ["Without it `/board`, `/browse`, and the plan's browser page refuse, naming it."] },
 	board: {},
 	team: { notes: ["`assign` needs `session-bus` loaded to deliver a handoff; without it the card is untouched."] },
 	plan: {

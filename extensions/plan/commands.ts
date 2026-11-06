@@ -2,17 +2,15 @@
  * Slash command for the plan-mode extension.
  *
  * `/plan` toggles plan mode, or enters it and sends an optional task;
- * Shift+Tab toggles too, through bytefly's editor. Two subcommands are reserved:
- * `/plan review [path]` opens a plan in the browser to comment on it (and sends saved
- * comments to the model as a refinement), and `/plan list` shows the plans directory,
- * newest first with Enter opening a read-only view of one. Every other line is a task.
+ * Shift+Tab toggles too, through bytefly's editor. One subcommand is reserved:
+ * `/plan list` shows the plans directory, newest first with Enter opening a read-only
+ * view of one in the browser. Every other line is a task — including `review <path>`,
+ * because the browser review is the exit screen's **browser** step, not a command.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isRemoteTurn } from "../../lib/interaction.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
-import { feedbackSummary } from "./feedback.ts";
-import { runBrowserReview } from "./review-lazy.ts";
 import type { PlanRuntime } from "./runtime.ts";
 import type { PlanSummary, StoredPlan } from "./plans.ts";
 import { createLazyPlanWebReview, NO_SERVER_DEPS } from "./web-lazy.ts";
@@ -23,7 +21,6 @@ import type { PlanWebReview } from "./web.ts";
 // result and `docs/extensions/plan.md` restate it), so a toggle does not scroll it.
 const ENABLED_NOTICE = "Plan mode enabled — read-only until you approve or leave.";
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
-const REVIEW_PREFIX = "review";
 const LIST_PREFIX = "list";
 
 /** Notice text for the current mode; shared by `/plan` and the toggle request. */
@@ -38,12 +35,6 @@ function ensurePlanMode(runtime: PlanRuntime, ctx: ExtensionContext): void {
 	ctx.ui.notify(ENABLED_NOTICE, "info");
 }
 
-/** The plan path a `/plan review` line names, or undefined to review the newest plan. */
-function reviewTarget(args: string): string | undefined {
-	const target = args.slice(REVIEW_PREFIX.length).trim();
-	return target === "" ? undefined : target;
-}
-
 /**
  * Whether a command line is the reserved `list` subcommand. Exact match only, so
  * `list the untracked files` stays a task instead of silently listing plans.
@@ -53,98 +44,23 @@ function isListSubcommand(prompt: string): boolean {
 }
 
 /**
- * Whether a command line is the reserved `review` subcommand. Bare `review`
- * always is; a path after it is, but `review the auth flow` stays a task, so a
- * task that begins with the word "review" is not silently hijacked.
- */
-function isReviewSubcommand(prompt: string): boolean {
-	if (prompt === REVIEW_PREFIX) return true;
-	if (!prompt.startsWith(`${REVIEW_PREFIX} `)) return false;
-	const target = prompt.slice(REVIEW_PREFIX.length).trim();
-	return target.endsWith(".md") || target.includes("/") || target.includes("\\");
-}
-
-/** The word a browser door is called by, in its own notices. */
-type BrowserDoor = "review" | "view";
-
-/**
- * The plan a browser door should open, or undefined after saying why it cannot.
+ * The plan a `/plan list` selection names, or undefined after saying why it cannot open.
  *
- * Both doors take a path, fall back to the plan this session wrote, then to the newest
- * one on disk, and both refuse a remote turn: the page is served on loopback, so a WeChat
- * turn has no browser to drive.
+ * The row carries the path, so there is nothing to fall back to: reading a plan means
+ * picking one. A remote turn is refused before the server starts, because the page is
+ * served on loopback and a WeChat turn has no browser to drive.
  */
-async function planForBrowser(
-	runtime: PlanRuntime,
-	planPath: string | undefined,
-	ctx: ExtensionContext,
-	door: BrowserDoor,
-): Promise<StoredPlan | undefined> {
-	const path = planPath ?? runtime.lastPlanPath();
-	// A bare `/plan review` in a later session has no remembered path, so fall back
-	// to the newest plan file in the plans directory.
-	const file = path ? await runtime.plans.read(ctx.cwd, path) : await runtime.plans.latest(ctx.cwd);
+async function planToRead(runtime: PlanRuntime, path: string, ctx: ExtensionContext): Promise<StoredPlan | undefined> {
+	const file = await runtime.plans.read(ctx.cwd, path);
 	if (!file) {
-		if (path) ctx.ui.notify(`Plan ${door}: no plan file at ${path}`, "error");
-		else
-			ctx.ui.notify(
-				`Plan ${door}: no plan to ${door}; write one with \`plan\` action \`write\` or pass a path.`,
-				"warning",
-			);
+		ctx.ui.notify(`Plan view: no plan file at ${path}`, "error");
 		return undefined;
 	}
-	// The server is loopback-only, so a remote turn cannot drive it.
 	if (isRemoteTurn(ctx)) {
-		ctx.ui.notify(`Plan ${door}: the browser needs the local machine.`, "warning");
+		ctx.ui.notify("Plan view: the browser needs the local machine.", "warning");
 		return undefined;
 	}
 	return file;
-}
-
-/**
- * Open `planPath` in the browser and, if the user saves comments, hand them to
- * the model. A cancel is silent beyond a notice; nothing is sent.
- */
-async function reviewInBrowser(
-	pi: ExtensionAPI,
-	runtime: PlanRuntime,
-	web: PlanWebReview,
-	planPath: string | undefined,
-	ctx: ExtensionContext,
-): Promise<void> {
-	const file = await planForBrowser(runtime, planPath, ctx, "review");
-	if (!file) return;
-
-	const baseline = runtime.reviewed(file.path);
-	const result = await runBrowserReview(web, ctx.cwd, file, {
-		canApprove: false,
-		baseline,
-		// Mark only once the page is actually open: a failed start must not consume
-		// the baseline for a plan nobody saw.
-		onOpened: (session) => {
-			runtime.markReviewed(file.path, file.content);
-			ctx.ui.notify(`Plan review: opened ${session.url}`, "info");
-		},
-	});
-	if (!result) {
-		ctx.ui.notify("Plan review: could not start the browser review server.", "error");
-		return;
-	}
-
-	if (result.status === "cancelled") {
-		ctx.ui.notify("Plan review: closed without saving.", "info");
-		return;
-	}
-	const summary = feedbackSummary(result.annotations);
-	if (!summary) {
-		ctx.ui.notify("Plan review: saved with no comments.", "info");
-		return;
-	}
-	const message = runtime.isEnabled()
-		? `The user reviewed the plan ${result.plan.relativePath} in the browser and left feedback:\n${summary}\nStay in plan mode, revise the plan (\`plan\` action \`write\`, reusing plan_path), then call \`plan\` action \`exit\` again.`
-		: `The user reviewed the plan ${result.plan.relativePath} in the browser and left feedback:\n${summary}\nUpdate the plan file to address the feedback.`;
-	if (ctx.isIdle()) await pi.sendUserMessage(message);
-	else await pi.sendUserMessage(message, { deliverAs: "followUp" });
 }
 
 /**
@@ -160,10 +76,10 @@ async function reviewInBrowser(
 async function viewInBrowser(
 	runtime: PlanRuntime,
 	web: PlanWebReview,
-	planPath: string | undefined,
+	planPath: string,
 	ctx: ExtensionContext,
 ): Promise<void> {
-	const file = await planForBrowser(runtime, planPath, ctx, "view");
+	const file = await planToRead(runtime, planPath, ctx);
 	if (!file) return;
 	const session = await web.start(ctx.cwd, file, { mode: "view" }).catch(() => undefined);
 	if (!session) {
@@ -231,24 +147,20 @@ export function registerCommands(
 ): void {
 	pi.registerCommand("plan", {
 		description:
-			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans, read one in the browser, or review one to comment on it",
+			"Toggle plan mode (read-only exploration), enter it with an optional task, or list saved plans to read one in the browser",
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
-			const subcommands = [LIST_PREFIX, REVIEW_PREFIX].filter((name) => name.startsWith(text));
+			const subcommands = [LIST_PREFIX].filter((name) => name.startsWith(text));
 			return subcommands.length > 0 ? subcommands.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args, ctx) => {
 			const prompt = args.trim();
 
-			// `/plan list` and `/plan review [path]` are the reserved subcommands;
-			// everything else is a task.
+			// `/plan list` is the one reserved subcommand; everything else — `review <path>`
+			// included — is a task.
 			if (isListSubcommand(prompt)) {
 				await openPlanIndex(pi, runtime, web, ctx);
-				return;
-			}
-			if (isReviewSubcommand(prompt)) {
-				await reviewInBrowser(pi, runtime, web, reviewTarget(prompt), ctx);
 				return;
 			}
 
