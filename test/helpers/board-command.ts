@@ -100,7 +100,7 @@ export function fakeBoardTeam(
 export function fakeBoardSession(name = "team-agent-slead"): BoardSession & {
 	seat(): string | undefined;
 	/** Put a live record on the bus for this session, as a join would have written it. */
-	recorded(label?: string): void;
+	recorded(label?: string, watching?: { armed: boolean; wake: boolean }): void;
 } {
 	let seat: string | undefined;
 	let standing: JoinResult | undefined;
@@ -125,8 +125,8 @@ export function fakeBoardSession(name = "team-agent-slead"): BoardSession & {
 		},
 		team: { last: () => standing, record: (result) => void (standing = result) },
 		seat: () => seat,
-		recorded: (label = seat ?? name) => {
-			roster.push({ id: "s-lead", label, mode: "tui", lastSeen: 0, mail: 0 });
+		recorded: (label = seat ?? name, watching = { armed: true, wake: false }) => {
+			roster.push({ id: "s-lead", label, mode: "tui", lastSeen: 0, mail: 0, watching });
 		},
 	};
 }

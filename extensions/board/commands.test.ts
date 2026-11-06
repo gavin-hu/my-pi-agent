@@ -136,7 +136,7 @@ describe("/board", () => {
 		expect(notifications.at(-1)).toContain("no team (the session bus is not loaded)");
 	});
 
-	test("status repeats what the last open did about the team", async () => {
+	test("status names the team the last open left on the bus", async () => {
 		const { team } = fakeBoardTeam();
 		const fake = createFakePi();
 		const { page: target } = fakeBoardPage();
@@ -144,21 +144,31 @@ describe("/board", () => {
 		registerCommands(fake.pi, session, target, { team });
 		const command = fake.commands.get(BOARD_COMMAND);
 		if (!command) throw new Error("the board command was not registered");
-		const { ctx, notifications } = fakeCtx();
+		const { ctx, notifications } = fakeCtx({ sessionId: "s-lead" });
 		await command.handler("", ctx);
+		// The record the open's join writes; from here the bus, not the standing, is the word.
+		session.recorded("team-lead");
 		await command.handler("status", ctx);
 		expect(notifications.at(-1)).toContain("on the team as team-lead, listening");
 	});
 
-	test("status reports a team a claim joined, and the page does not need to be open", async () => {
-		// The standing is the session's, not the command's: a claim writes it, and this line
-		// reads it, so a session that never ran `/board` still says which team it is on.
+	test("status reads the record a claim's join left, and the page does not need to be open", async () => {
+		// The record a real join writes is what a peer resolves; the page is not required for it.
 		const session = fakeBoardSession();
-		session.team.record({ ok: true, label: "team-agent-slead", watching: { armed: true, wake: false } });
+		session.recorded("team-agent-slead");
 		const { notifications } = await run("status", { session });
 		expect(notifications.at(-1)).toBe(
 			"board: not running — /board opens it · on the team as team-agent-slead, listening",
 		);
+	});
+
+	test("does not repeat a join the bus no longer holds", async () => {
+		// The standing is this process's memory; with no record behind it, naming a team would
+		// tell the person a peer can reach a session the bus has forgotten.
+		const session = fakeBoardSession();
+		session.team.record({ ok: true, label: "team-agent-slead", watching: { armed: true, wake: false } });
+		const { notifications } = await run("status", { session });
+		expect(notifications.at(-1)).toBe("board: not running — /board opens it");
 	});
 
 	test("says why there is no team, on the same line", async () => {

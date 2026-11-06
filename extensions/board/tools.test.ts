@@ -1206,16 +1206,16 @@ describe("the team", () => {
 		expect(POOL).toContain(LEAD);
 	});
 
-	test("a claim writes as the name the session already holds, and joins under it", async () => {
+	test("a claim writes as the name the bus already holds, and asks nothing", async () => {
 		const { team, labels } = recordingTeam();
 		const { call, runtime, ctx } = harness({ team });
-		// `/team join core-claims` is the one door that renames a session, and the board's
-		// first claim must not take the name back by joining as the id-derived one.
+		// `/team join core-claims` is the one door that renames a session, and with that record on
+		// the bus the claim asks nothing: the join is the state the record already holds.
 		await call({ action: "add", title: "One" });
 		await joinBus(runtime, ctx, LEAD_ID, "core-claims");
 		const claimed = await call({ action: "claim", card: "1" });
 		expect(claimed.details.card?.owner).toEqual({ id: LEAD_ID, label: "core-claims" });
-		expect(labels).toEqual(["core-claims"]);
+		expect(labels).toEqual([]);
 	});
 
 	test("no other action joins: a read, a new card, a note or an edit enlists nobody", async () => {

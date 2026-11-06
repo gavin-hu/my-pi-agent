@@ -135,13 +135,48 @@ describe("joinTeam", () => {
 	});
 
 	test("asks again after a failure, which a later attempt replaces", async () => {
-		const { session, team, ctx, asked, busDir, standing } = harness({
+		const { session, team, ctx, asked, standing } = harness({
 			record: { ok: false, error: "the session bus is not loaded" },
 		});
-		recordLive(busDir);
 		await joinTeam(session, team, ctx, LABEL);
 		expect(asked).toEqual([{ label: LABEL }]);
 		expect(standing()?.ok).toBe(true);
+	});
+
+	test("a live record under the name answers a failed standing, which needs no repair", async () => {
+		// The bus already holds this session: a request whose answer was lost is not a reason to
+		// ask again, and the record's watch is what the line repeats.
+		const { session, team, ctx, asked, busDir } = harness({
+			record: { ok: false, error: "the request was lost" },
+		});
+		writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen: NOW, watching: { armed: false, wake: false } });
+		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ label: LABEL, listening: false });
+		expect(asked).toEqual([]);
+	});
+
+	test("skips without a standing when the record already holds the name", async () => {
+		// A session joined through `/session join` or the `/sessions` board never asked a board
+		// door, so there is no standing — but the bus's record is still the fact.
+		const { session, team, ctx, asked, busDir } = harness();
+		writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen: NOW, watching: { armed: false, wake: false } });
+		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ label: LABEL, listening: false });
+		expect(asked).toEqual([]);
+	});
+
+	test("a rename repeats the disarmed watch the record names, not the standing's silence", async () => {
+		// The watch was turned off through the bus, which this process never recorded; the record
+		// is the only word that the seat's rename must repeat it disarmed.
+		const { session, team, ctx, asked, busDir } = harness();
+		writeBusRecord(busDir, { id: ID, label: "core-claims", lastSeen: NOW, watching: { armed: false, wake: false } });
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([{ label: LABEL, listen: false }]);
+	});
+
+	test("a rename keeps the wake the record names", async () => {
+		const { session, team, ctx, asked, busDir } = harness();
+		writeBusRecord(busDir, { id: ID, label: "core-claims", lastSeen: NOW, watching: { armed: true, wake: true } });
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 	});
 
 	test("a live record that is not listening is the user's choice, not something to repair", async () => {
@@ -200,15 +235,27 @@ describe("joinTeam", () => {
 
 describe("teamStatus", () => {
 	test("reads the live record, so a disarm through the bus is not hidden by an old standing", async () => {
-		// The standing says the join armed a watch; the record is what a `/session listen off`
+		// The standing says the join armed a watch; the record is what a `join({listen: false})`
 		// rewrote afterwards, and the record is what a peer resolves.
 		const { session, ctx, busDir } = harness({ record: joined({ armed: true, wake: false }) });
 		writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen: NOW, watching: { armed: false, wake: false } });
 		expect(await teamStatus(session, ctx)).toEqual({ label: LABEL, listening: false });
 	});
 
-	test("falls back to the standing when the bus holds no record for this session", async () => {
-		const { session, ctx } = harness({ record: joined({ armed: false, wake: false }) });
+	test("does not repeat a join the bus no longer holds", async () => {
+		// The record was pruned or the bus stopped: an ok standing is history, and a line that
+		// repeated it would name a team no peer resolves.
+		const { session, ctx } = harness({ record: joined() });
+		expect(await teamStatus(session, ctx)).toBeUndefined();
+	});
+
+	test("keeps the standing when the roster cannot be read, which is no answer at all", async () => {
+		const { session, ctx } = harness({
+			record: joined({ armed: false, wake: false }),
+			roster: async () => {
+				throw new Error("no agent directory");
+			},
+		});
 		expect(await teamStatus(session, ctx)).toEqual({ label: LABEL, listening: false });
 	});
 

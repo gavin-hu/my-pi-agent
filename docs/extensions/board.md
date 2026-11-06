@@ -134,7 +134,7 @@ lead: board list round: true
 | `/board approve <id>` | the person | Signs the card's contract as the board's lead with `person: true` on the sign, the other actor the gate takes: a session must be the lead (`board.lead`), and the holder may sign nothing at all. Only a card in `plan` with a complete contract can be signed, and the refusal is the tool's own sentence. Its line is the person's own, so it says `approved by you` |
 | `/board review <id>` | the person | Records the spot-check of finished work the same way — the lead's name, `person: true` — and its line says `reviewed by you`; only a card in `execute` can be signed. `/board review <id> --override <why>` is the other case: it signs a card that is already `done` and has no sign, with one line saying why, and the record then reads `closed by instruction` |
 | `/board archive` | lead | Runs the same sweep the tool's bare `archive` runs, and says what it folded away and what it kept: a finished card an open card still waits on stays on the board |
-| `/board status` | both | One line: the seat, the repository, the port, how many tabs are watching, the store's path, and the team this session is on — the bus's live record where it has one, the last join otherwise, so a watch turned off with `/session listen off` reads `not listening` — or the page being watched, and whether the note behind it still answers |
+| `/board status` | both | One line: the seat, the repository, the port, how many tabs are watching, the store's path, and the team this session is on — the bus's live record where it has one, so a watch turned off with `join({listen: false})` reads `not listening`; a refusal from the last ask when there is none — or the page being watched, and whether the note behind it still answers. A session the bus no longer holds prints no team at all, rather than a name no peer resolves |
 | `/board stop` | lead | Stops the page this session serves; a watched page that has stopped answering is dropped instead — and so is a note whose file is already gone, because there is nothing left to clear — while a watched page that is alive is its owner's to stop |
 | `/team` | both | The round in the terminal: the rollup, the work a dead owner left behind, then who is live, who has gone quiet, and who is gone |
 
@@ -220,9 +220,10 @@ What each of those trusts is the bus, not the join it made earlier: a record tha
 there and `live` under the name being asked for is the answer, and anything else — the bus
 stopped, the TTL ended the record, the record holds a name from before this session served
 the page — is asked again, under the name the card is written as, which is the same name the
-roster the round reads will hold afterwards. A session whose mail watch was turned off stays
-off through that re-ask, because `/session listen off` is a choice and not a state to repair,
-and so does a watch that was armed with `wake`.
+roster the round reads will hold afterwards. The ask repeats the watch the record names, so a
+session whose mail watch was turned off — with `join({listen: false})` or the
+`/sessions` board — stays off through a rename into the seat, and a watch armed
+with `wake` keeps it; a refusal recorded the last time is asked again.
 
 **The two names.** A session's team name is the seat — the board's lead — while it serves the
 page, which is also what makes it the lead unless `board.lead` names someone else; otherwise

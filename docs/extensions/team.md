@@ -92,7 +92,7 @@ its surface is the point: `board` and `team` join this session for you.
 Joining is listening: mail is reported at that session's next turn, and **no turn is
 raised** for it, so being on the team never spends a turn. A door asks the bus only when it
 has to: a session the bus already holds under the name being asked for is left alone, one
-that serves the page is renamed to the seat, and a watch turned off with `/session listen off`
+that serves the page is renamed to the seat, and a watch turned off with `join({listen: false})`
 stays off through either. `/team join` with no name draws
 one when Pi has no name for the session — `lily` rather than the repository's basename — and
 renames nothing; a session Pi already names keeps that name. `/team` says who is live and

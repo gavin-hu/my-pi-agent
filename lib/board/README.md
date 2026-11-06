@@ -246,17 +246,18 @@ and a failed read is the caller's to report. `planDir(cwd)` is this repository's
 
 The one join every door asks for, so a claim through `board` and one through `team` cannot
 answer it differently, and neither can the page. `JoinSession` is the standing, the clock,
-and the roster — all the rule reads — and `joinTeam` asks while the standing says nothing
-good, again while the roster holds no `live` record for this session id, and again when the
-live record holds another name: a standing stays true after the bus stops, the TTL prunes the
-record, or `/resume` takes the seat over, so a claim that trusted it would write a card under
-a name peers no longer resolve, while a page opening on a session the bus holds as a
-teammate renames it to the seat. A join the user asked to leave disarmed is asked again the
-same way even through that rename, and a failed join never undoes the card it came after — a
-bus that is not loaded is a sentence, not an exception. The ask is recorded here, and
-`TeamState`/`standingOf` hand the line its words; `teamStatus` prefers the live record, so
-a watch turned off through `/session join` reads `not listening` even though this session's
-last join armed it.
+and the roster — all the rule reads — and `joinTeam` asks while the roster holds no `live`
+record under the name being asked for: a standing stays true after the bus stops, the TTL
+prunes the record, or `/resume` takes the seat over, so a claim that trusted it would write
+a card under a name peers no longer resolve, while a page opening on a session the bus holds
+as a teammate renames it to the seat. The record decides and the standing only fills in when
+the roster cannot be read — a session joined through `/session join` never asked a board door,
+and it is still on the team. The ask repeats the watch the record names, so a rename keeps a
+`join({listen: false})` and a wake the session had, and a failed join never undoes the card it
+came after — a bus that is not loaded is a sentence, not an exception. The ask is recorded
+here, and `TeamState`/`standingOf` hand the line its words; `teamStatus` prefers the live
+record too, and prints no team once the bus no longer holds the session, because a name no
+peer resolves is worse than no name at all.
 
 ### seat.ts
 

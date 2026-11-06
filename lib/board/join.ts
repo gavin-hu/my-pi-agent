@@ -29,7 +29,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../errors.ts";
 import { sessionIdOf } from "../session-label.ts";
 import { type RosterSession, rosterStateOf } from "../session-roster.ts";
-import type { JoinResult, TeamJoin, TeamJoinInput } from "../session-tool.ts";
+import type { JoinResult, TeamJoin, TeamJoinInput, Watching } from "../session-tool.ts";
 import type { BoardSession } from "./session.ts";
 
 /**
@@ -52,6 +52,9 @@ export type JoinSession = Pick<BoardSession, "team" | "roster" | "now">;
 export type TeamState = { label: string; listening?: boolean } | { error: string };
 
 /** A standing or a fresh answer, as the line reads it. */
+export function standingOf(result: JoinResult): TeamState;
+export function standingOf(result: undefined): undefined;
+export function standingOf(result: JoinResult | undefined): TeamState | undefined;
 export function standingOf(result: JoinResult | undefined): TeamState | undefined {
 	if (result === undefined) return undefined;
 	if (!result.ok) return { error: result.error };
@@ -61,7 +64,7 @@ export function standingOf(result: JoinResult | undefined): TeamState | undefine
 /** What one live record says: the name it holds, and its watch when the record carries one. */
 interface Held {
 	label: string;
-	listening?: boolean;
+	watching?: Watching;
 }
 
 /**
@@ -84,34 +87,43 @@ function sameLabel(a: string, b: string): boolean {
 
 /** A state from a live record, with the standing filling in a listening fact it cannot say. */
 function stateOfHeld(held: Held, known: TeamState | undefined): TeamState {
-	const listening = held.listening ?? (known !== undefined && "label" in known ? known.listening : undefined);
+	const listening = held.watching?.armed ?? (known !== undefined && "label" in known ? known.listening : undefined);
 	return listening === undefined ? { label: held.label } : { label: held.label, listening };
 }
 
 /**
- * Put this session on the team, unless the bus still holds it under the name asked for.
+ * Put this session on the team, unless the bus already holds it under the name asked for.
+ *
+ * The live record decides, and the standing only fills in when the record cannot be read:
+ * a session the bus holds under this name is on the team whatever this process remembers,
+ * and one it holds under another name is renamed — which is how opening the page takes the
+ * seat. A record under the name asked for is also the only evidence of a watch the user
+ * turned off, so a rename repeats *its* choice rather than arming mail afresh.
  *
  * A failure is recorded and asked again by the next door, and so is a success the roster
  * does not back any more; a join that threw is swallowed here for the same reason, because
- * the card it came after is already true. The ask is recorded rather than returned alone,
- * so no door has to remember to do it.
+ * the card it came after is already true. The ask is recorded rather than returned, so no
+ * door has to remember to do it.
  */
 export async function joinTeam(
 	session: JoinSession,
 	team: TeamJoin,
 	ctx: ExtensionContext,
 	label: string,
-): Promise<TeamState | undefined> {
+): Promise<TeamState> {
 	const standing = session.team.last();
 	const answer = await rosterAnswer(session, ctx);
-	if (standing?.ok === true) {
-		// No word from the bus keeps the standing: the record may be there and unreadable, and a
-		// join spent on a guess would rename a session the bus still holds.
-		if (answer.kind === "unknown") return standingOf(standing);
-		if (answer.kind === "held" && sameLabel(answer.held.label, label))
-			return stateOfHeld(answer.held, standingOf(standing));
+	if (answer.kind === "held" && sameLabel(answer.held.label, label)) {
+		return stateOfHeld(answer.held, standingOf(standing));
 	}
-	const joined = await ask(team, ctx, askAgain(standing, label));
+	// No word from the bus keeps a standing that landed: the record may be there and unreadable,
+	// and a join spent on a guess would rename a session the bus still holds.
+	if (answer.kind === "unknown" && standing?.ok === true) return standingOf(standing);
+	const joined = await ask(
+		team,
+		ctx,
+		askAgain(standing, label, answer.kind === "held" ? answer.held.watching : undefined),
+	);
 	session.team.record(joined);
 	return standingOf(joined);
 }
@@ -120,14 +132,17 @@ export async function joinTeam(
  * What this session's team is now, for `/board status`.
  *
  * The live record first: its label is what a peer resolves, and its `watching` is the fact a
- * disarm through `/session join` changes without telling this session. The standing answers
- * only when the bus cannot, so the line is right even when the last join is old.
+ * disarm through `/session join` changes without telling this session. A record the bus no
+ * longer holds is the bus saying this session is not on the team, so an old success is not
+ * repeated; only a refusal stays, because it is the reason there is no team. A roster that
+ * cannot be read is no answer at all, so there the standing is the best word there is.
  */
 export async function teamStatus(session: JoinSession, ctx: ExtensionContext): Promise<TeamState | undefined> {
 	const standing = session.team.last();
 	const answer = await rosterAnswer(session, ctx);
 	if (answer.kind === "held") return stateOfHeld(answer.held, standingOf(standing));
-	return standingOf(standing);
+	if (answer.kind === "unknown") return standingOf(standing);
+	return standing?.ok === false ? standingOf(standing) : undefined;
 }
 
 /** The one ask, so a thrown request is recorded like a refused one. */
@@ -160,21 +175,22 @@ async function rosterAnswer(session: JoinSession, ctx: ExtensionContext): Promis
 	if (record === undefined || rosterStateOf(record, session.now()) !== "live") return { kind: "absent" };
 	return {
 		kind: "held",
-		held: { label: record.label, ...(record.watching === undefined ? {} : { listening: record.watching.armed }) },
+		held: { label: record.label, ...(record.watching === undefined ? {} : { watching: record.watching }) },
 	};
 }
 
 /**
- * The join to ask again for, which repeats the choice the standing recorded.
+ * The join to ask for, repeating the choice already made: the bus's record first, because a
+ * re-ask through a door this process never asked still must not arm mail the user turned off,
+ * and the standing after it, for a record the bus no longer holds.
  *
- * `armed: false` is the user's `/session listen off`, not a failure to repair: a re-ask
- * that armed the watch would undo it, so the ask is the same disarmed join. A watch that
- * was armed is asked for again with the wake it had, so a session woken for its mail stays
- * woken.
+ * `armed: false` is the user's `join({listen: false})`, not a failure to repair, so the ask is
+ * the same disarmed join. A watch that was armed is asked for with the wake it had, so a
+ * session woken for its mail stays woken. Neither says anything, and the ask is a plain join.
  */
-function askAgain(standing: JoinResult | undefined, label: string): TeamJoinInput {
-	if (standing?.ok !== true) return { label };
-	const { armed, wake } = standing.watching;
-	if (!armed) return { label, listen: false };
-	return wake ? { label, wake } : { label };
+function askAgain(standing: JoinResult | undefined, label: string, watching?: Watching): TeamJoinInput {
+	const choice = watching ?? (standing?.ok === true ? standing.watching : undefined);
+	if (choice === undefined) return { label };
+	if (!choice.armed) return { label, listen: false };
+	return choice.wake ? { label, wake: true } : { label };
 }
