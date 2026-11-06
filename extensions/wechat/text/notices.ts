@@ -15,6 +15,7 @@ export type NoticeKind =
 	| "stillWorking"
 	| "overflow"
 	| "media"
+	| "mediaRepeat"
 	| "unsupported"
 	| "stopped"
 	| "abandoned"
@@ -40,6 +41,10 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 	media: {
 		zh: "有 {n} 个附件没能读取，可以重发或直接说明。",
 		en: "Couldn't open {n} attachment(s) — please resend or describe it.",
+	},
+	mediaRepeat: {
+		zh: "微信保留的是这 {n} 个附件第一次上传的副本，重发同一个文件仍然打不开——请稍作改动后再发（打包成 zip 即可），或直接说明。",
+		en: "WeChat kept the first upload of {n} attachment(s), so the same file cannot be opened again — send a changed copy (a zip of it works) or describe it.",
 	},
 	unsupported: {
 		zh: "语音（无转写）和视频暂不支持，请发文字或图片。",

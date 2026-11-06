@@ -261,6 +261,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: the chat is no longer told to resend a file it cannot re-open. A repeat the CDN stored once
+  gets its own notice — "WeChat kept the first upload of 1 attachment(s), so the same file cannot be
+  opened again — send a changed copy (a zip of it works) or describe it." — counted apart from the
+  ordinary `Couldn't open 1 attachment(s) — please resend or describe it.`, which still fits a transient
+  failure. A message carrying both says both, on two lines.
+
 - `wechat`: a file the peer sends twice is read the second time. The CDN keeps one blob per content, so
   a repeat arrives with a key that never encrypted it, PKCS#7 refuses the last block, and the terminal
   showed a bare `bad decrypt`. A saved file's name now carries `file_item.md5`, which is the same for

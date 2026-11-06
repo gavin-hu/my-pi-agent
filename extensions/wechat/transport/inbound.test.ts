@@ -23,9 +23,10 @@ const wireKey = Buffer.from(key.toString("hex")).toString("base64");
 /** A 16-byte key that never encrypted the fixture's bytes, as the wire writes it. */
 const otherKey = Buffer.from("ff".repeat(16)).toString("base64");
 
-/** One admission's outcome: what reached the turn queue, and what the terminal was told. */
+/** One admission's outcome: what reached the turn queue, what the peer was told, and what the terminal saw. */
 interface Admitted {
 	item: ChatItem | undefined;
+	replies: string[];
 	notices: string[];
 	dir: string;
 }
@@ -39,6 +40,7 @@ async function admit(
 ): Promise<Admitted> {
 	const { client } = makeClient([], { media: { [url]: cipher } });
 	const queued: ChatItem[] = [];
+	const replies: string[] = [];
 	const notices: string[] = [];
 	const deps: InboundDeps = {
 		client: () => client,
@@ -47,13 +49,13 @@ async function admit(
 		mediaDir: () => dir,
 		now: () => 1000,
 		notify: (message) => notices.push(message),
-		reply: async () => true,
+		reply: async (_item, text) => replies.push(text),
 		enqueue: (queuedItem) => queued.push(queuedItem),
 		pruneTyping: () => {},
 		isRunning: () => true,
 	};
 	await createInboundAdmission(deps).admit(item, () => true);
-	return { item: queued[0], notices, dir };
+	return { item: queued[0], replies, notices, dir };
 }
 
 /** One inbound file's reference, with the hash of its plaintext when the wire gave one. */
@@ -128,6 +130,41 @@ describe("a file the CDN deduplicated", () => {
 		expect(item?.text).toBe("look\n[WeChat media skipped: 1]");
 		expect(notices).toEqual([
 			"WeChat media dropped: rows.csv — the server kept an earlier copy under another key, so this repeat cannot be read.",
+		]);
+	});
+
+	test("tells the peer that sending the same file again cannot work", async () => {
+		const { replies } = await admit(
+			{ peer: "owner", text: "", media: [fileRef(plain, "rows.csv", otherKey)], language: "en" },
+			"https://cdn/f",
+			encrypt(plain),
+		);
+
+		expect(replies).toEqual([
+			"WeChat kept the first upload of 1 attachment(s), so the same file cannot be opened again — send a changed copy (a zip of it works) or describe it.",
+		]);
+	});
+
+	test("tells a repeat apart from an attachment that a resend could fix", async () => {
+		const { replies } = await admit(
+			{
+				peer: "owner",
+				text: "",
+				media: [
+					// An image with no key at all: nothing a change of bytes would fix.
+					{ kind: "image", media: { full_url: "https://cdn/i" } },
+					// The repeat: same blob, a key that never encrypted it.
+					{ ...fileRef(plain, "rows.csv", otherKey), media: { full_url: "https://cdn/i", aes_key: otherKey } },
+				],
+				language: "en",
+			},
+			"https://cdn/i",
+			encrypt(plain),
+		);
+
+		expect(replies).toEqual([
+			"Couldn't open 1 attachment(s) — please resend or describe it.\n" +
+				"WeChat kept the first upload of 1 attachment(s), so the same file cannot be opened again — send a changed copy (a zip of it works) or describe it.",
 		]);
 	});
 });
