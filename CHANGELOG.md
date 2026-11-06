@@ -180,6 +180,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   mapping, the run says `unclaimed script: <path> > 9 script suites`, and a top-level
   `scripts/<stem>.ts` still selects only its own suite.
 
+- `job`: a finished job's `logs` still says how many bytes its log dropped. The count lived only on
+  the write handle, which settling the job disposes, so the post-mortem read — the one a short segment
+  above all needs — reported a truncated log as complete; it moves onto the job's record now, so it
+  survives the exit, a reload, and a peer adopting the record. A rotation whose stream had already
+  errored reopens from the call that found it closed instead of arming a `close` that never comes,
+  which left the writer rotating for good and dropping every later chunk without a way back.
+
+- `job`: a `job.registryDir` that cannot be written no longer fails `job start`. The directory create
+  and the `O_EXCL` id reservation both degrade to the plain allocation the module already promised, so
+  a read-only registry costs the lock and the registry file rather than the job, which keeps running
+  in-process.
+
 ### Removed
 
 - `wechat`: `/new` is no longer a chat command. It was the one entry that only refused — the chat is
@@ -233,6 +245,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   beginning with either word is a planning task again, as it is with `share the tokens`.
 
 ### Fixed
+
+- `subagent`: aborting a run, or letting its deadline expire, stops what the child started. A child was
+  spawned into Pi's process group and signalled by pid alone, so a `bun test` or `npm install` a worker
+  had launched outlived the run and kept writing to the tree — and a descendant still holding the output
+  pipe kept Node's `close` from firing, so the SIGTERM → 5 s SIGKILL escalation hit a pid that was
+  already gone and the run could wait indefinitely. The child now leads its own group through
+  `lib/spawn.ts`'s `spawnOptions`, and both signals go to the tree (`kill(-pid)` on POSIX, `taskkill /T`
+  on Windows), with the child alone as the fallback when it never got a pid. In the same pass a chain
+  step's `{previous}` is capped at 24 KiB with the usual omission notice: the task is a single argv
+  element, and a first step that printed more made the next one die as `spawn E2BIG` on Linux — over
+  Windows' 32,767-character command line — instead of delivering its prompt.
 
 - `session-bus`: `session inbox` shows every body whole, so a read no longer consumes a tail it never
   printed. An inbox line clipped each body to 400 characters (800 for a handoff) while the read deleted

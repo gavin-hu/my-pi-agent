@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { listReservedIds, pruneReservations, releaseReservation, reserveId } from "./reservations.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -27,6 +29,16 @@ describe("job reservations", () => {
 	test("reserveId honours a floor from a stored counter", async () => {
 		const dir = temps.track(tempDir("pi-jobs-reserve-"));
 		expect(reserveId(dir, ["j1"], 10)).toBe("j10");
+	});
+
+	test("reserveId degrades to a plain allocation in a directory it cannot write", async () => {
+		const dir = temps.track(tempDir("pi-jobs-reserve-"));
+		// A path whose parent is a regular file: the lock cannot be created for any
+		// reason an unwritable registry directory would raise, and the id is still given.
+		const notADir = join(dir, "file");
+		writeFileSync(notADir, "");
+		expect(reserveId(notADir, ["j2"])).toBe("j3");
+		expect(listReservedIds(notADir)).toEqual([]);
 	});
 
 	test("releaseReservation removes the file and tolerates a missing one", async () => {

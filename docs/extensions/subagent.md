@@ -16,7 +16,7 @@ can also start in the background and be inspected, collected, or cancelled with
 | Plan-mode guard | `subagent`, plan mode | Plan mode forces every call read-only and refuses `/agents` until the plan is approved. |
 | Project-agent trust gate | `agentScope` with the trust gate | A `.pi/agents` file loads only when the project is trusted or confirmed, so a repository cannot inject a prompt by adding a file. |
 | Three delegation modes | `subagent` (`agent` + `task`, `tasks[]`, `chain[]`) | One agent, an independent batch, or an ordered chain whose steps receive `{previous}`. |
-| Parallel and chain bounds | `tasks[]`, `chain[]` | Parallel accepts up to 8 tasks with 4 running at once; a chain accepts up to 8 steps and stops at the first failure. |
+| Parallel and chain bounds | `tasks[]`, `chain[]` | Parallel accepts up to 8 tasks with 4 running at once; a chain accepts up to 8 steps and stops at the first failure, and the text a step hands the next through `{previous}` is capped at 24 KiB. |
 | Bounded model-facing output | `subagent`, every mode | What one result hands the model is capped at 50 KiB — a task's output, or a failed run's error text — with an omission notice and the full text in the tool details. |
 | Per-step working directory | `cwd` | A single run, each parallel task, or each chain step can name its working directory; a relative path resolves against the active root. |
 | Built-in agents | `subagent` (`agent`) | Recon, planning, review, and implementation without writing an agent file. |
@@ -25,7 +25,7 @@ can also start in the background and be inspected, collected, or cancelled with
 | Background concurrency cap | `backgroundMax` | At most four background children run at once; finished runs release their slot. |
 | Session-owned background run | `background: true` | `/tree` does not move the run and a restart cannot resume it; an unfinished start shows as `interrupted`. |
 | Live progress | `subagent` | Tool calls and progress update in the transcript while the child runs, with a `↳ N` footer chip and a finish notice. |
-| Bounded runs | `timeoutMs` | A child that hangs is killed at the deadline and reported as a failed run rather than rejecting the whole call. |
+| Bounded runs | `timeoutMs` | A child that hangs is killed at the deadline — its whole process group, so what it started dies with it — and reported as a failed run rather than rejecting the whole call. |
 | Inherited model | `subagent` | Children use the dispatching session's model and thinking level unless an agent overrides them. |
 
 ## Quickstart
@@ -97,10 +97,10 @@ the behaviour is here.
 
 - **`timeoutMs`** (default ten minutes, `0` disables) bounds one child run. The
   limit is per run, not per call, so a chain is bounded step by step and a
-  parallel batch bounds each task separately. On expiry the child gets the same
-  `SIGTERM`, then `SIGKILL` after 5 s, as a user abort — but the run fails
-  instead of throwing: a chain stops at that step, a parallel call counts a
-  failure, and the model sees `Timed out after 10m00s`.
+  parallel batch bounds each task separately. On expiry the child's whole
+  process group gets the same `SIGTERM`, then `SIGKILL` after 5 s, as a user
+  abort — but the run fails instead of throwing: a chain stops at that step, a
+  parallel call counts a failure, and the model sees `Timed out after 10m00s`.
 - **`backgroundMax`** (default 4, `1`–`8`) bounds concurrently running
   background children. Finished runs do not consume a slot. A run that is still
   running when the session ends is interrupted; the next `/agents` shows the
@@ -408,6 +408,15 @@ step's `Output`.
   closure serves both triggers, so the SIGTERM → 5 s SIGKILL escalation is
   identical; only the reporting differs, because a deadline must leave the
   finished steps in `details` while a user abort rejects the call.
+- **The signal reaches the tree, not the pid.** The child is spawned in its own
+  process group through `lib/spawn.ts`, so an abort or a deadline also stops a
+  `bun test` or `npm install` it started — a build that outlived the run kept
+  writing to the tree, and a descendant holding the output pipe could keep
+  `close` from firing and push the run past its escalation.
+- **A chain step's prompt is bounded.** The task is one argv element, and Linux
+  refuses a string over 128 KiB (`spawn E2BIG`) while Windows caps the whole
+  command line at 32,767 characters, so `{previous}` is truncated to 24 KiB with
+  the omission notice and the full output left in the tool details.
 - **Bounded model-facing output.** Every mode caps what one result hands the model at 50 KiB,
   appending an omission notice that points at the tool details, where the full result stays.
   The case that needs it is a failure, because `run.ts` buffers a child's `stderr` without a
@@ -481,9 +490,10 @@ Fourteen co-located suites, declared in `test/suite-manifest.ts`:
   whole while the entry keeps the first 4 KiB plus `…` — 4,097 characters — and a task at
   the cap is stored unmarked.
 - `spawn.test.ts` — the kill: a child that ignores SIGTERM is escalated to SIGKILL at the
-  grace, and one that closes inside it is not.
+  grace, and one that closes inside it is not; the child is spawned in its own group, and
+  both signals reach its tree rather than the `pi` pid.
 - `chain.test.ts` — `{previous}` is the prior output verbatim, `$&`, `` $` ``, `$'` and `$$`
-  included.
+  included, and one over 24 KiB arrives truncated instead of failing the step.
 - `sanitize.test.ts` — the child-authored `stopReason` and `model` cannot drive the terminal,
   a string `offset` is not printed as a line range, and one long line stays inside the
   collapsed block's budget.

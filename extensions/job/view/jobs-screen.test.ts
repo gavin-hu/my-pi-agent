@@ -20,6 +20,7 @@ function record(overrides: Partial<JobRecord> = {}): JobRecord {
 		startedAt: 0,
 		finishedAt: null,
 		logPath: "/tmp/j1.log",
+		droppedBytes: 0,
 		detached: false,
 		wake: false,
 		stdin: false,

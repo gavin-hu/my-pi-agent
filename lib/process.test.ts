@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import { mapConcurrent } from "./pool.ts";
 import { hasShellEscape, isShellEscapable } from "./shell.ts";
-import { applyKillPlan, isPidAlive, killPlan, spawnOptions } from "./spawn.ts";
+import { applyKillPlan, isPidAlive, killChildTree, killPlan, spawnOptions } from "./spawn.ts";
 import { defaultTimer } from "./timer.ts";
 import { settle } from "../test/helpers/process.ts";
 
@@ -97,6 +97,10 @@ describe("spawnOptions", () => {
 		const env = { PI_JOB_LOG: "/logs/j1.log" };
 		expect(spawnOptions({ cwd: "/work", env }, POSIX).env).toBe(env);
 	});
+
+	test("runs a binary asked with its own argv without a shell", () => {
+		expect(spawnOptions({ cwd: "/work", shell: false }, POSIX).shell).toBe(false);
+	});
 });
 
 describe("killPlan", () => {
@@ -176,6 +180,48 @@ describe("applyKillPlan", () => {
 		applyKillPlan(killPlan(4242, true, WINDOWS), "SIGTERM", seams);
 		expect(kills).toEqual([]);
 		expect(runs).toEqual([{ file: "taskkill", args: ["/pid", "4242", "/T", "/F"] }]);
+	});
+});
+
+describe("killChildTree", () => {
+	/** A tree-kill seam that records what it was asked to signal. */
+	function recorder() {
+		const sent: Array<{ pid: number; signal: string; force: boolean | undefined }> = [];
+		return {
+			sent,
+			killTree: (pid: number, signal: NodeJS.Signals, force?: boolean) => {
+				sent.push({ pid, signal, force });
+			},
+		};
+	}
+
+	test("signals the pid's tree, not the pid alone", () => {
+		const { sent, killTree } = recorder();
+		killChildTree({ pid: 4242, kill: () => true }, "SIGTERM", killTree);
+		expect(sent).toEqual([{ pid: 4242, signal: "SIGTERM", force: false }]);
+	});
+
+	test("forces the hard kill, which is the /F Windows needs", () => {
+		const { sent, killTree } = recorder();
+		killChildTree({ pid: 4242, kill: () => true }, "SIGKILL", killTree);
+		expect(sent).toEqual([{ pid: 4242, signal: "SIGKILL", force: true }]);
+	});
+
+	test("falls back to the child itself when no pid was assigned", () => {
+		const { sent, killTree } = recorder();
+		const signals: string[] = [];
+		killChildTree(
+			{
+				kill: (signal = "SIGTERM") => {
+					signals.push(signal);
+					return true;
+				},
+			},
+			"SIGTERM",
+			killTree,
+		);
+		expect(signals).toEqual(["SIGTERM"]);
+		expect(sent).toEqual([]);
 	});
 });
 

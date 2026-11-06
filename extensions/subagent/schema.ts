@@ -18,6 +18,15 @@ export const MAX_CHAIN_STEPS = 8;
 export const MAX_CONCURRENCY = 4;
 /** Model-facing bytes returned per task, per chain step, or for a failed run's error text. */
 export const MODEL_OUTPUT_CAP = 50 * 1024;
+/**
+ * Bytes of a prior step's output one chain step's prompt carries through `{previous}`.
+ *
+ * The task rides as a single argv element: Linux refuses a string over 128 KiB with
+ * `spawn E2BIG`, and Windows caps the whole command line at 32,767 characters. A first
+ * step that printed more would fail the next step instead of prompting it, so the
+ * substitution is bounded inside both, with the omitted part left in the tool details.
+ */
+export const PREVIOUS_OUTPUT_CAP = 24 * 1024;
 /** Display items shown per result before collapsing. */
 export const COLLAPSED_ITEM_COUNT = 10;
 /** Text lines shown per item in a collapsed result. */
