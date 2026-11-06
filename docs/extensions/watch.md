@@ -31,7 +31,7 @@ after a running turn settles.
 | Matched lines | `watch matches`, `/watch matches` | The matching lines, sanitized and read from a bounded history. |
 | Raw output | `watch logs`, `/watch logs` | The merged output tail, for checking a pattern that matches nothing. |
 | Watcher screen | `/watch` | A dock screen with the watcher list, the focused watcher's detail, and its matches pane. |
-| Stopping and cleanup | `watch stop`, `watch clear`, `/watch stop`, `/watch clear` | A running watcher stops, stopped ones are removed, and `all` takes the running ones too. |
+| Stopping and cleanup | `watch stop`, `watch clear`, `/watch stop`, `/watch clear` | A running watcher stops, stopped ones are removed, and `all` takes the running ones too. A stopped watcher ignores the output its command still emits while it winds down, so its counts, its matches, and its `wake` turn all end with the stop. |
 
 ## Quickstart
 
