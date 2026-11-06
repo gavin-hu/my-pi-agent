@@ -143,6 +143,21 @@ export function formatRacedOffer(card: Card, reason: string): string {
 }
 
 /**
+ * The broadcast landed and recording the offer then threw.
+ *
+ * The one failure where a card is not unchanged and no rule refused it: the peers have an
+ * event, and the store's own write threw half way — so what it answers is read afresh rather
+ * than guessed at, and the lead is sent to the card before acting again. A bare reason read
+ * as "nothing happened", and the retry it invited broadcast the same offer a second time.
+ */
+export function formatUnrecordedOffer(card: Card, reason: string): string {
+	return (
+		`${cardRef(card.id)} was offered, but recording the offer failed: ${reason}\n` +
+		"  The peers have the message; read the card with `board` action `list` before offering it again."
+	);
+}
+
+/**
  * The send landed and the assignment then lost a race.
  *
  * The peer has a message telling it the card is its, so the correction names the
@@ -152,6 +167,23 @@ export function formatRacedAssignment(card: Card, to: string, reason: string): s
 	return (
 		`${cardRef(card.id)} was handed off to ${to}, but the card changed before it could be assigned: ${reason}\n` +
 		`  ${to} should run \`board\` action \`claim\` with card "${card.id}".`
+	);
+}
+
+/**
+ * The handoff landed and the assignment's write then threw.
+ *
+ * The peer holds a message saying the card is its, and the store threw somewhere in the
+ * write it asked for — before or after the file landed, which only a read can say. So this
+ * is the one failure whose card is not "unchanged": the sentence names the send, gives the
+ * store's reason, and sends the lead to the card before assigning it again. The bare reason
+ * this replaces read as "nothing happened", and the retry it invited was refused as held —
+ * by a peer that had been told the card was already its.
+ */
+export function formatUnrecordedAssignment(card: Card, to: string, reason: string): string {
+	return (
+		`${cardRef(card.id)} was handed off to ${to}, but recording the owner failed: ${reason}\n` +
+		`  ${to} has the message; read the card with \`board\` action \`list\` before assigning it again.`
 	);
 }
 

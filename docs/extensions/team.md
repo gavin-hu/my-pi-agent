@@ -150,11 +150,15 @@ a call refused for its own arguments never draws the live line at all.
 | the card is missing, `done`, held by a third session, or waiting on unfinished work | untouched | the refusal, with no message sent at all |
 | the send | untouched — `backlog`, no owner | `#4 was not handed off to billing-core: …`, plus `The card is unchanged.` |
 | the assignment, after a successful send | whatever the other writer left | `#4 was handed off to billing-core, but the card changed before it could be assigned: …`, and the peer is told to `board claim` it |
+| the write itself, throwing after a successful send | whatever the store holds — the re-read is the answer | `#4 was handed off to billing-core, but recording the owner failed: …`, and `billing-core has the message; read the card with board action list` before assigning it again |
 
 `offer` broadcasts **before** it records, for the same reason: an offer nobody received
 must not leave a record claiming one happened. A refused broadcast leaves the card exactly
 as the rules read it, and the write that follows changes one field — when the offer was
-made. If the card changed in between, the peers already have the message, so the refusal
+made. A write that **throws** there is the one failure no rule refused and no card is
+unchanged by, so the error names the broadcast and the card is re-read: the peers have the
+event, and a second offer would wake them for a card the board may already have recorded.
+If the card changed in between, the peers already have the message, so the refusal
 says the offer stands as a message and the board is what it now says. The first `board
 claim` is what turns an offer into work, and the claim is what clears the record: every
 answer to an offer — a claim, an assignment, a release — takes it with it, so a record

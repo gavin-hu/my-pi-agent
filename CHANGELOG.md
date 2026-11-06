@@ -564,6 +564,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   served bundle for a bare call to a helper that declares parameters, and three browser cases drive
   the plan frame, the draft refusal, and the reopened composer.
 
+- `team`: a round whose message landed and whose card write then threw says both halves. `assign` and
+  `offer` wrapped only the send, so a store write that threw (`EACCES` on a read-only board directory,
+  a rename `EPERM`) fell through to the tool's own `catch` and became a bare `Error: <reason>` with no
+  card in the details — while the peer already held `#4 is yours`, and the retry the bare error invited
+  was refused as held by the peer that had been told the card was its. Both verbs now report that write
+  as the one half-apply no rule refused: the error names the send, carries the card as the board reads
+  it now plus the peers the message reached, and sends the lead to the card before acting again. One
+  helper keeps the re-read, so a store that will not answer falls back to the card the message was
+  written from.
+
 ## [0.24.0] - 2026-11-02
 
 ### Added

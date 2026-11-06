@@ -3,10 +3,11 @@
  * round needs — a recording dispatch and a join that never asks a bus.
  *
  * The board is real (a temp agent directory and a temp repository), so a case asserts the
- * card the store ends up with rather than a double's idea of it; only the bus is a seam,
- * because a handoff's order is what the tool owns. The caller owns the temp directories and
- * their teardown — a `bun:test` hook is per file — and every call builds its own closure, so
- * no two cases share a board, a message, or a join.
+ * card the store ends up with rather than a double's idea of it; the bus is a seam, because
+ * a handoff's order is what the tool owns, and the one failure a real board will not stage on
+ * demand — a write that throws after the message landed — is a second. The caller owns the
+ * temp directories and their teardown — a `bun:test` hook is per file — and every call builds
+ * its own closure, so no two cases share a board, a message, or a join.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -14,7 +15,7 @@ import { join } from "node:path";
 import { registerTools } from "../../../extensions/team/tools.ts";
 import type { Dispatch } from "../../../extensions/team/dispatch.ts";
 import type { TeamDetails } from "../../../extensions/team/types.ts";
-import { openBoardSession } from "../../../lib/board/session.ts";
+import { type BoardSession, openBoardSession } from "../../../lib/board/session.ts";
 import type { Peer, TeamJoin } from "../../../lib/session-tool.ts";
 import { removeBusRecord, writeBusRecord } from "../bus.ts";
 import { fakeCtx } from "../context.ts";
@@ -28,6 +29,13 @@ export const NOW = 90_000;
 export interface TeamSuiteOptions {
 	/** A send that throws this, so the failure path is the one under test. */
 	fail?: string;
+	/**
+	 * A store write that throws this, so the half-applied path is the one under test.
+	 *
+	 * The write is the message's second half, so this is the only seam that leaves the send
+	 * already made: the peers have the handoff or the offer and the card never learned it.
+	 */
+	failWrite?: string;
 	/**
 	 * Work another session does while this message is being delivered.
 	 *
@@ -63,6 +71,25 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 	}
 	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
 	const session = openBoardSession(fake.pi, { now: () => NOW, agentDir });
+	// A case that makes the write throw gets the same store with one method replaced: the
+	// fixture's own `store()` stays real, so an assertion reads the board the tool left behind
+	// rather than the report's copy of it.
+	const failWrite = options.failWrite;
+	const sessionForTool: BoardSession =
+		failWrite === undefined
+			? session
+			: {
+					...session,
+					async store(dir) {
+						const base = await session.store(dir);
+						return {
+							...base,
+							async mutate(): Promise<never> {
+								throw new Error(failWrite);
+							},
+						};
+					},
+				};
 	const sent: Array<{ kind: "handoff" | "event" | "ask"; to: string; text: string }> = [];
 	// A fixed team, because `assign` asks who a peer is before it sends: the bus's record is
 	// what the pre-check compares a holder against and what the card then records, so a stub
@@ -102,7 +129,7 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 			return { ok: true, label, watching: { armed: true, wake: false } };
 		},
 	};
-	registerTools(fake.pi, session, { dispatch: () => dispatch, team });
+	registerTools(fake.pi, sessionForTool, { dispatch: () => dispatch, team });
 	const tool = fake.tools.get("team");
 	if (!tool) throw new Error("the team tool was not registered");
 	const { ctx } = fakeCtx({ cwd, sessionId: "s-lead", sessionName: "billing-lead" });
