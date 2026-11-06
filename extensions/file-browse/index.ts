@@ -49,6 +49,17 @@ function realOrSelf(path: string): string {
 	}
 }
 
+/**
+ * The session's root as the page serves it, canonicalized.
+ *
+ * A checkout reached through a symlink — `/tmp` on macOS is `/private/tmp` — must be resolved
+ * before a subpath is matched against it: the containment check compares real paths, so a raw
+ * root and a realpath'd candidate read as an escape and the page is refused.
+ */
+function baseOf(ctx: ExtensionContext): string {
+	return realOrSelf(resolveEffectiveCwd(ctx.cwd));
+}
+
 export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}): void {
 	if (!isExtensionEnabled("file-browse")) return;
 	let running: RunningServer | undefined;
@@ -138,7 +149,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 	const follow = (): void => {
 		const current = running;
 		if (!current) return;
-		const nextBase = realOrSelf(resolveEffectiveCwd(current.ctx.cwd));
+		const nextBase = baseOf(current.ctx);
 		// Nothing moved: an event that repeats the tree already served costs no reads.
 		if (nextBase === current.base) return;
 		void reRoot(current, nextBase);
@@ -206,8 +217,8 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			return;
 		}
 
-		const cwd = resolveEffectiveCwd(ctx.cwd);
-		const resolved = await resolveRoot(target, cwd, ctx);
+		const base = baseOf(ctx);
+		const resolved = await resolveRoot(target, base, ctx);
 		if (resolved === undefined) return;
 		const { root, config } = resolved;
 
@@ -225,7 +236,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		}
 
 		await stop();
-		await openServer(realOrSelf(cwd), root, config, ctx);
+		await openServer(base, root, config, ctx);
 	};
 
 	pi.registerCommand("browse", {

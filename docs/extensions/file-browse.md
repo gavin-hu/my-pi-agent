@@ -65,6 +65,8 @@ selects the root.
 
 - The root is the effective cwd, so an active `worktree` session serves the
   worktree. `<path>` must resolve inside it.
+- The root is canonicalized before `<path>` is matched against it, so a checkout
+  reached through a symlink — `/tmp` and `/var` on macOS — serves its subdirectories.
 - A worktree switch re-roots the running page on what a fresh `/browse` would serve,
   on the same URL and port. A page started with `<path>` keeps that subfolder under the
   new tree when it is there, and otherwise lands on the new root; the open page reloads
@@ -470,10 +472,10 @@ stops at the first difference because the control, not the checker, is the fix.
 
 ## Design notes
 
-- **Lifecycle.** `/browse` resolves `resolveEffectiveCwd(ctx.cwd)`, loads config,
-  parses args, and mounts the page through `requestMount`: `realpath` the root, claim
-  `/files` on the session's server, return `{ url, port, root, close }`. The
-  port belongs to `serve` — `serve.port` pins the session's origin — so nothing here
+- **Lifecycle.** `/browse` resolves `resolveEffectiveCwd(ctx.cwd)`, canonicalizes it
+  once, loads config, parses args, and mounts the page through `requestMount`: `realpath`
+  the root, claim `/files` on the session's server, return `{ url, port, root, close }`.
+  The port belongs to `serve` — `serve.port` pins the session's origin — so nothing here
   picks or retries one. `/browse stop` and `session_shutdown` await the idempotent
   `close()`, which gives the prefix back. The page is the mount's only reader, so the
   channel reports the last page's departure after `IDLE_STOP_MS` and the command
