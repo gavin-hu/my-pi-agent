@@ -20,7 +20,7 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { fileURLToPath } from "node:url";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { requestMount } from "../../lib/http/mount.ts";
+import { requestMount, type MountSource } from "../../lib/http/mount.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { lastGoal, isPursuedGoal, type PublishedGoal } from "../../lib/goal-state.ts";
 import {
@@ -86,14 +86,26 @@ function isPlanModeContext(message: AgentMessage): boolean {
 	return (message as AgentMessage & { customType?: string }).customType === "plan-mode-context";
 }
 
-export default function planMode(pi: ExtensionAPI): void {
+/** What a caller may substitute for the shipped wiring; production passes nothing. */
+export interface PlanDeps {
+	/**
+	 * Where a review's prefix comes from: the session's one server, on `serve`.
+	 *
+	 * A review binds no socket of its own, so a suite substitutes this to see the spec the
+	 * review asks with — the session id it carries is the page's home — and answers a
+	 * refusal, which stops `start` before it would open a browser.
+	 */
+	mount?: MountSource;
+}
+
+export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 	if (!isExtensionEnabled("plan")) return;
 	const policy = createPlanPolicy(pi);
 	const runtime = createPlanRuntime(pi, policy, { entryPath: extensionEntryPath() });
 	/** The session this review serves as; its prefix lands on that session's one server. */
 	let sessionId = "";
 	const web = createLazyPlanWebReview(runtime.plans, {
-		mount: (spec) => requestMount(pi, spec),
+		mount: deps.mount ?? ((spec) => requestMount(pi, spec)),
 		session: () => sessionId,
 	});
 
@@ -135,6 +147,10 @@ export default function planMode(pi: ExtensionAPI): void {
 	};
 
 	pi.on("session_start", (_event, ctx) => {
+		// `serve` keys the socket, the remembered port, and the pin by this id, and draws
+		// the port chip in the context it filed with it: a review that asks under another
+		// one gets a port nobody names.
+		sessionId = ctx.sessionManager.getSessionId();
 		listenForRequests();
 		runtime.restore(ctx);
 	});
