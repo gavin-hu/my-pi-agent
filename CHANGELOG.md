@@ -246,6 +246,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`, `team`: every door that joins the team now records what it asked and asks the bus
+  before trusting it. `/board` no longer re-arms a mail watch the user turned off — a page open
+  goes through the same once-per-session join a claim does, and renames the bus record only while
+  it still holds another name, which is how the page takes the seat — and `/team join` records its
+  result, so `/board status` reports a team joined through it. `/board status` reads the bus's
+  record first, so a watch turned off with `/session listen off` or the `/sessions` board reads
+  `not listening` instead of repeating the last join. `lib/board/join.ts` is one `joinTeam` behind
+  all four doors, `BoardSession.roster` is the one read of the bus's records, and each entry builds
+  its team join once instead of once per module.
+
 - `board`: `/board approve` and `/board review` tell the card's owner its gate was signed, so the
   person's door reads `#4 reviewed by you · told api-core` exactly as the tool's does. A command
   context cannot call a tool, so the sign's message asks the bus over `pi.events` on a send request

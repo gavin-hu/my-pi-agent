@@ -83,16 +83,29 @@ export interface BoardSession {
 	/** The clock, so a test drives a deadline instead of waiting on one. */
 	now(): number;
 	/**
-	 * Where this repository's session bus files its records, for the roster.
+	 * Where this repository's session bus files its records.
 	 *
 	 * A path, not a dependency: the board reads those files when they are there and
 	 * behaves exactly as before when they are not, which is what keeps the page working
-	 * with `session-bus` unloaded. Three callers read it — the page's snapshot, `/team`'s
-	 * round, and the tool's rollup, which folds the owners a bus has no record of — and all
-	 * of them want the same directory. Resolved once per working directory, and asked again
+	 * with `session-bus` unloaded. Resolved once per working directory, and asked again
 	 * when the store it needs failed, because a failure is no more this cache's to keep.
 	 */
 	busDir(cwd: string): Promise<string>;
+	/**
+	 * Every session the bus has recorded for this repository, or `undefined` when it has
+	 * never recorded one here — read as data, so the board works with `session-bus`
+	 * unloaded.
+	 *
+	 * One method rather than a `busDir` call at each reader: `who` asks it for a label, the
+	 * join asks it whether the bus still holds this session, the rollup folds the owners a
+	 * bus has no record of, and `/team` prints who is here — so the directory is built in
+	 * one place and every caller renders the same answer. Never cached: a heartbeat is ten
+	 * seconds old at most, and a caller polls on its own clock.
+	 *
+	 * A `busDir` that fails is not swallowed here; the caller that cannot report a failure
+	 * is the caller that catches it.
+	 */
+	roster(cwd: string): Promise<RosterSession[] | undefined>;
 	/**
 	 * This repository's plan store, where a card's plan file has to live.
 	 *
@@ -218,7 +231,7 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			if (id === undefined) return { label: defaultLabel({ sessionName: sessionNameOf(ctx), cwd }) };
 			// The record is the bus's word for this session, so it is read rather than derived;
 			// a record that names nothing is no record, and draws like one.
-			const roster = await readRoster(await session.busDir(cwd));
+			const roster = await session.roster(cwd);
 			const held = normalizeLabel(roster?.find((entry) => entry.id === id)?.label, "");
 			if (held !== "") return { id, label: held };
 			// No record, so the team gives this session a preset name: the one its id draws,
@@ -232,6 +245,9 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			return rememberLoad(busDirs, cwd, () =>
 				session.store(cwd).then((store) => busDirFor(agentDir ?? getAgentDir(), store)),
 			);
+		},
+		async roster(cwd) {
+			return readRoster(await session.busDir(cwd));
 		},
 		planDir(cwd) {
 			return rememberLoad(planDirs, cwd, () =>

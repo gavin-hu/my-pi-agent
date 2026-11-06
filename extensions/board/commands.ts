@@ -15,10 +15,9 @@ import { plural } from "../../lib/board/round-text.ts";
 import { type BoardSession } from "../../lib/board/session.ts";
 import type { MutateResult } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
-import type { JoinResult } from "../../lib/session-tool.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import type { Notify } from "./announce.ts";
-import { teamLine } from "./join.ts";
+import { type TeamState, teamLine } from "./join.ts";
 import type { BoardPage, BoardPageStatus, StaleDrop } from "./page.ts";
 
 /** The command's name, which is also the word a user types. */
@@ -66,7 +65,10 @@ export function registerCommands(
 				return;
 			}
 			if (word === "status") {
-				ctx.ui.notify(statusLine(await page.status(), session.team.last()), "info");
+				// The bus's record answers first: a disarm through `/session join` never reaches this
+				// session, so the remembered standing is only the answer when the bus cannot give one.
+				const { teamStatus } = await import("../../lib/board/join.ts");
+				ctx.ui.notify(statusLine(await page.status(), await teamStatus(session, ctx)), "info");
 				return;
 			}
 			if (word === "stop") {
@@ -104,8 +106,11 @@ export function registerCommands(
 			// is the lead's one action.
 			if (started.kind === "failed") return;
 			session.serve(started.kind === "served" ? started.seat : undefined);
-			const joined = await team.join(ctx, { label: (await session.who(ctx, ctx.cwd)).label });
-			session.team.record(joined);
+			// The join is `lib/board/join.ts`'s one rule, loaded here so a session that never opens the
+			// page pays nothing for it: it asks when the bus does not hold this session under the seat's
+			// name, and repeats a disarmed watch as the disarmed join the user asked for.
+			const { joinTeam } = await import("../../lib/board/join.ts");
+			const joined = await joinTeam(session, team, ctx, (await session.who(ctx, ctx.cwd)).label);
 			// The address is on the line because the browser is not the only way in: a machine
 			// with no default browser prints it here, and a tab closed by mistake is one
 			// command from being opened again.
@@ -210,7 +215,7 @@ function signWords(words: readonly string[]): { id: string | undefined; override
 }
 
 /** One line for `/board status`: the page this session serves, watches, or does not have. */
-export function statusLine(status: BoardPageStatus, team?: JoinResult): string {
+export function statusLine(status: BoardPageStatus, team?: TeamState): string {
 	if (status.running) {
 		const watching = plural(status.watchers ?? 0, "tab");
 		return `board: ${status.seat} serving ${status.repo} on :${status.port} · ${watching} watching · ${status.where}${teamLine(team)}`;

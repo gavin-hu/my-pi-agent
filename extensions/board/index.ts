@@ -16,6 +16,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount } from "../../lib/http/mount.ts";
+import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { registerCommands } from "./commands.ts";
 import { createLazyBoardPage } from "./lazy-page.ts";
 import type { BoardPage } from "./page.ts";
@@ -27,11 +28,17 @@ export interface BoardDeps {
 	session?: BoardSession;
 	/** Test seam: the page lifecycle, so a test drives it without a socket. */
 	page?: BoardPage;
+	/** Test seam: the team join, so a suite drives the page's door without a bus. */
+	team?: TeamJoin;
 }
 
 export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	if (!isExtensionEnabled("board")) return;
 	const session = deps.session ?? openBoardSession(pi);
+	// One join for the tool and the command: both put this session on the team, and a second
+	// one would be two constructions of the same seam. A command cannot call a tool, so the
+	// object is a request over `pi.events` either way.
+	const team = deps.team ?? createTeamJoin(pi);
 	/** The session the page serves as; the mount lands on this session's one server. */
 	let sessionId = "";
 	const page =
@@ -40,8 +47,8 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 			mount: (spec) => requestMount(pi, spec),
 			session: () => sessionId,
 		});
-	registerTools(pi, session);
-	registerCommands(pi, session, page);
+	registerTools(pi, session, { team });
+	registerCommands(pi, session, page, { team });
 
 	pi.on("session_start", async (_event, ctx) => {
 		sessionId = ctx.sessionManager.getSessionId();

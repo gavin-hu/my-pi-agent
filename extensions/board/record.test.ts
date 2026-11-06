@@ -40,6 +40,7 @@ function board() {
 		store: (cwd: string) => harness.runtime.store(cwd),
 		planDir: (cwd: string) => harness.runtime.planDir(cwd),
 		busDir: (cwd: string) => harness.runtime.busDir(cwd),
+		roster: (cwd: string) => harness.runtime.roster(cwd),
 		now: () => NOW,
 		who: async () => ME,
 		serving: () => undefined,

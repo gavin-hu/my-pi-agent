@@ -21,7 +21,7 @@ import { indexOf } from "../../lib/board/links.ts";
 import { signMark } from "../../lib/board/lead.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
-import { readRoster, type RosterSession } from "../../lib/session-roster.ts";
+import type { RosterSession } from "../../lib/session-roster.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { listOf } from "../../lib/format.ts";
@@ -177,7 +177,7 @@ export function registerTools(
 						// The round folds the owners a bus has no record of, and the rollup is the only read
 						// that needs the bus for its own sake: a plain `list` reads no bus file beyond the
 						// record that names whoever is calling.
-						return await read(store, action, me, args, now, async () => readRoster(await runtime.busDir(ctx.cwd)));
+						return await read(store, action, me, args, now, () => runtime.roster(ctx.cwd));
 					case "add":
 						return await add(store, me, args, now);
 					case "claim": {
@@ -190,8 +190,8 @@ export function registerTools(
 						if (!refused(claimed)) {
 							// Loaded here, not at registration: the join is the claim's side effect, so a
 							// session that never claims pays nothing for it.
-							const { joinOnce } = await import("../../lib/board/join.ts");
-							await joinOnce(runtime, team, ctx, me.label);
+							const { joinTeam } = await import("../../lib/board/join.ts");
+							await joinTeam(runtime, team, ctx, me.label);
 						}
 						return claimed;
 					}

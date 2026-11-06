@@ -73,7 +73,8 @@ async function run(args: string, options: { page?: BoardPage; team?: TeamJoin; s
 	registerCommands(fake.pi, session, target, options.team === undefined ? {} : { team: options.team });
 	const command = fake.commands.get(BOARD_COMMAND);
 	if (!command) throw new Error("the board command was not registered");
-	const { ctx, notifications } = fakeCtx();
+	// The id the fixture's session reports, so the roster it seeds is the record a join left.
+	const { ctx, notifications } = fakeCtx({ sessionId: "s-lead" });
 	await command.handler(args, ctx);
 	return { calls, notifications, command, ctx, session };
 }
@@ -87,6 +88,30 @@ describe("/board", () => {
 		expect(notifications.at(-1)).toBe(
 			"board: team-lead serving my-pi-agent on :4812 · open http://127.0.0.1:4812/?token=abc · on the team as team-lead, listening",
 		);
+	});
+
+	test("opening the page again asks the bus once, now that it holds the seat", async () => {
+		const session = fakeBoardSession();
+		const { team, labels } = fakeBoardTeam();
+		await run("", { session, team });
+		// What the first join wrote on the bus: from here the record, not the page, is the fact.
+		session.recorded("team-lead");
+		await run("", { session, team });
+		expect(labels).toEqual(["team-lead"]);
+	});
+
+	test("repeats a disarmed join, so opening the page cannot turn mail back on", async () => {
+		const session = fakeBoardSession();
+		session.team.record({ ok: true, label: "team-lead", watching: { armed: false, wake: false } });
+		const { team, inputs } = fakeBoardTeam(() => ({
+			ok: true,
+			label: "team-lead",
+			watching: { armed: false, wake: false },
+		}));
+		const { notifications } = await run("", { session, team });
+		expect(inputs).toEqual([{ label: "team-lead", listen: false }]);
+		// And the line says what the bus holds, rather than claiming a watch nobody has.
+		expect(notifications.at(-1)).toContain("on the team as team-lead, not listening");
 	});
 
 	test("a viewer joins under its own label, because the seat is somebody else's", async () => {

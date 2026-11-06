@@ -171,6 +171,13 @@ describe("/team join", () => {
 		// Naming the session is the point of this door: a typed label is also Pi's own name.
 		expect(naming).toEqual([true]);
 		expect(notifications.at(-1)).toBe("team: on the team as billing-core, listening for handoffs.");
+		// The standing is the session's, not this command's: `/board status` reports the team
+		// whichever door put it there, so this door has to record what it did.
+		expect(board.runtime.team.last()).toEqual({
+			ok: true,
+			label: "billing-core",
+			watching: { armed: true, wake: false },
+		});
 	});
 
 	test("a bare join draws a preset name when Pi has no name for the session", async () => {

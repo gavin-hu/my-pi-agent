@@ -97,7 +97,7 @@ where it does, the sections a reader acts on, then its notes newest first
 | Read a board at its real size | the `Done` fold, an empty lane's rail, the Team tab's own folds | `Done` starts folded at six cards or more, its count in the head, and a reader's toggle decides from then on. A lane holding no cards narrows to its head, word, and count, and a lane of finished cards stops widening at three, so the lanes carrying work keep the width. On the Team tab the queue and the roster share one cap, so both stay on one screen, and the ids past the strip's sixth fold behind its count |
 | Open a card | the card, or `Enter` on a focused one | The whole card is the door — its title stays the focusable button — and it opens the dialog holding the card whole: why it sits where it does, its lane, its owner, its paths, what it waits for, its plan, the contract it promises and who signed it, and every note. A drag across a card's prose selects it instead of opening it |
 | See the lead's round at a glance | `/board team`, or `/team` with no browser | A queue of cards that need a decision, each with the reason and its way out, then who is on the team and what they hold |
-| Join the team | `/board`, the first card you claim, or the first handoff or question `team` sends | Opening the page joins this session to the team — as the lead's name when it serves the page, under the name it already holds when it opens one somebody else serves — and so does the first card it claims, and a `team` `assign` or `ask` that landed. Any of those reads the bus before it trusts an earlier join, so a session the bus stopped holding — a stopped bus, a record the TTL ended, a `/resume` that took the seat — joins again and its cards name a session peers can reach. Joining never renames Pi's session: the footer keeps the name you gave it, and a `/team join` name is kept rather than replaced by the id-derived one. `/board status` reports the team this session is on, whichever door it used |
+| Join the team | `/board`, the first card you claim, or the first handoff or question `team` sends | Opening the page joins this session to the team — as the lead's name when it serves the page, under the name it already holds when it opens one somebody else serves — and so does the first card it claims, and a `team` `assign` or `ask` that landed. Any of those reads the bus before it trusts an earlier join, so a session the bus stopped holding — a stopped bus, a record the TTL ended, a `/resume` that took the seat — joins again and its cards name a session peers can reach. A page opened by a session the bus still holds under another name renames that record to the seat, asks nothing when the record already holds it, and never turns a watch the user disarmed back on. Joining never renames Pi's session: the footer keeps the name you gave it, and a `/team join` name is kept rather than replaced by the id-derived one. `/board status` reports the team this session is on, whichever door it used |
 | See who is around | `/board team` | The Teammates list: every session this repository's bus has recorded, plus every owner a card names, each stating `live`, `quiet`, `no record`, or `—` when no bus is loaded. An owner the bus has no record of and that holds nothing is one row stating how many there are and what they finished, unfolded by a click — the list only grows, because a label that ever claimed a card stays an owner — while one that still holds a card keeps its own row |
 
 ## Quickstart
@@ -134,7 +134,7 @@ lead: board list round: true
 | `/board approve <id>` | the person | Signs the card's contract as the board's lead with `person: true` on the sign, the other actor the gate takes: a session must be the lead (`board.lead`), and the holder may sign nothing at all. Only a card in `plan` with a complete contract can be signed, and the refusal is the tool's own sentence. Its line is the person's own, so it says `approved by you` |
 | `/board review <id>` | the person | Records the spot-check of finished work the same way — the lead's name, `person: true` — and its line says `reviewed by you`; only a card in `execute` can be signed. `/board review <id> --override <why>` is the other case: it signs a card that is already `done` and has no sign, with one line saying why, and the record then reads `closed by instruction` |
 | `/board archive` | lead | Runs the same sweep the tool's bare `archive` runs, and says what it folded away and what it kept: a finished card an open card still waits on stays on the board |
-| `/board status` | both | One line: the seat, the repository, the port, how many tabs are watching, the store's path, and the team the last `/board` joined — or the page being watched, and whether the note behind it still answers |
+| `/board status` | both | One line: the seat, the repository, the port, how many tabs are watching, the store's path, and the team this session is on — the bus's live record where it has one, the last join otherwise, so a watch turned off with `/session listen off` reads `not listening` — or the page being watched, and whether the note behind it still answers |
 | `/board stop` | lead | Stops the page this session serves; a watched page that has stopped answering is dropped instead — and so is a note whose file is already gone, because there is nothing left to clear — while a watched page that is alive is its owner's to stop |
 | `/team` | both | The round in the terminal: the rollup, the work a dead owner left behind, then who is live, who has gone quiet, and who is gone |
 
@@ -217,10 +217,12 @@ that session's next turn, and no turn is raised, so being on the team never spen
 A session that has neither opened the board nor claimed a card nor sent through `team` is not on it.
 
 What each of those trusts is the bus, not the join it made earlier: a record that is still
-there and `live` is the answer, and anything else — the bus stopped, the TTL ended the record —
-is asked again, under the name the card is written as, which is the same name the roster the
-round reads will hold afterwards. A session whose mail watch was turned off stays off through
-that re-ask, because `/session listen off` is a choice and not a state to repair.
+there and `live` under the name being asked for is the answer, and anything else — the bus
+stopped, the TTL ended the record, the record holds a name from before this session served
+the page — is asked again, under the name the card is written as, which is the same name the
+roster the round reads will hold afterwards. A session whose mail watch was turned off stays
+off through that re-ask, because `/session listen off` is a choice and not a state to repair,
+and so does a watch that was armed with `wake`.
 
 **The two names.** A session's team name is the seat — the board's lead — while it serves the
 page, which is also what makes it the lead unless `board.lead` names someone else; otherwise
@@ -513,9 +515,10 @@ it always meant: when the card was last touched, which is not when it last chang
   context, which cannot call a tool: the join, and the message a sign sends the owner. It
   reads the bus's records otherwise, which is why the page works with the bus disabled. The
   join asks for the name the board already writes and never renames the session, so the
-  footer stays the user's. A failed join is a clause on the `/board` line, not a failed page.
-  The seat is the name the page is served and reported under, and `/board status` says which
-  session is on the team through it.
+  footer stays the user's. A page open asks only while the bus does not hold this session
+  under the seat's name, and repeats a disarmed watch as disarmed. A failed join is a clause
+  on the `/board` line, not a failed page. The seat is the name the page is served and reported
+  under, and `/board status` says which session is on the team through it.
 - **`plan`**: `board contract` records the file `plan` action `write` saved; the plan extension owns
   it, and `lib/plans/paths.ts` is the one statement of where it lives — the board reads the
   same module, so the two cannot disagree about what a plan path is. The board stays

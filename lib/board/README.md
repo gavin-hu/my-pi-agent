@@ -236,19 +236,27 @@ One session per *host*, not one per extension: `board` and `team` load with sepa
 caches, so two sessions would mean the seat `/board` sets is invisible to every write `team`
 makes. That state lives in the closure, never in a module variable, and `busDirFor` builds the
 bus's directory from the key the store carries, so the roster cannot be moved by regrouping
-the board's own files. `planDir(cwd)` is this repository's plan store through
+the board's own files. `roster(cwd)` is the one read of the records the bus files there —
+`who` asks it for a name, the join for the record that decides the ask, the rollup for the
+owners it folds, and `/team` for who is here — so no caller re-derives a directory or a parse,
+and a failed read is the caller's to report. `planDir(cwd)` is this repository's plan store through
 [`../plans/paths.ts`](../plans/paths.ts), which is what a card's plan file has to be inside.
 
 ### join.ts
 
-The one join both tools ask for, so a claim through `board` and one through `team` cannot
-answer it differently. `JoinSession` is the standing, the clock, and the bus's directory —
-all the rule reads — and `joinOnce` asks while the standing says nothing good, and again
-while the roster holds no `live` record for this session id: a standing stays true after the
-bus stops, the TTL prunes the record, or `/resume` takes the seat over, so a claim that
-trusted it would write a card under a name peers no longer resolve. A join the user asked to
-leave disarmed is asked again the same way, and a failed join never undoes the card it came
-after — a bus that is not loaded is a sentence, not an exception.
+The one join every door asks for, so a claim through `board` and one through `team` cannot
+answer it differently, and neither can the page. `JoinSession` is the standing, the clock,
+and the roster — all the rule reads — and `joinTeam` asks while the standing says nothing
+good, again while the roster holds no `live` record for this session id, and again when the
+live record holds another name: a standing stays true after the bus stops, the TTL prunes the
+record, or `/resume` takes the seat over, so a claim that trusted it would write a card under
+a name peers no longer resolve, while a page opening on a session the bus holds as a
+teammate renames it to the seat. A join the user asked to leave disarmed is asked again the
+same way even through that rename, and a failed join never undoes the card it came after — a
+bus that is not loaded is a sentence, not an exception. The ask is recorded here, and
+`TeamState`/`standingOf` hand the line its words; `teamStatus` prefers the live record, so
+a watch turned off through `/session join` reads `not listening` even though this session's
+last join armed it.
 
 ### seat.ts
 

@@ -11,7 +11,7 @@
 import type { Actor } from "../../lib/board/rules.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
-import { readRoster } from "../../lib/session-roster.ts";
+import type { RosterSession } from "../../lib/session-roster.ts";
 
 /** What a snapshot needs, all of it supplied by the page's lifecycle. */
 export interface SnapshotContext {
@@ -19,13 +19,13 @@ export interface SnapshotContext {
 	/** The actor every request is made and reported as: the page's seat. */
 	actor: () => Actor;
 	now: () => number;
-	/** Where this repository's bus files its records. */
-	busDir: () => Promise<string>;
+	/** The bus's records for this repository, or `undefined` when it has never recorded one. */
+	roster: () => Promise<RosterSession[] | undefined>;
 }
 
 /** The snapshot the page renders, and the body of `/api/board`. */
 export async function viewOf(context: SnapshotContext): Promise<BoardView> {
-	const roster = await readRoster(await context.busDir());
+	const roster = await context.roster();
 	// One read of the pile answers every question a frame asks: the cards, the files it refused,
 	// and the bytes they occupy. Asking `list` and `skipped` separately parsed every card twice,
 	// once a second, for as long as a tab is open.
