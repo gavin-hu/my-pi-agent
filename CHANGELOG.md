@@ -246,6 +246,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: a picker write that did not land no longer leaves the settings store holding a value
+  the file never took. Pi's setters change the document in memory before the queued write can fail,
+  so `x` on that row afterwards found a phantom project override and wrote the cleared list — on a
+  project file with no `packages` key, `packages: []` — reporting a change nobody made. The write
+  now re-reads the document through Pi's `SettingsManager.reload()` on both failure paths, so the
+  next toggle or `x` starts from what the file holds, and the fake store models its file so the
+  case is covered rather than invisible.
+
 - `board`, `team`: every door that joins the team now records what it asked and asks the bus
   before trusting it. `/board` no longer re-arms a mail watch the user turned off — a page open
   goes through the same once-per-session join a claim does, and renames the bus record only while
