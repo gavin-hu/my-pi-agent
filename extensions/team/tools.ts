@@ -6,8 +6,9 @@
  * sends the handoff **first** and sets the owner **second**: a card assigned without a
  * message is a card nobody knows about, while a message for a card that then changed is
  * one the peer can still claim. Either failure is reported with the card as it actually
- * is, so the lead's next call starts from the truth. `ask` is the one verb with no card
- * behind it, and the one that names nothing the board can answer.
+ * is — including the one no rule refused, where the store's own write threw after the
+ * message had landed — so the lead's next call starts from the truth. `ask` is the one verb
+ * with no card behind it, and the one that names nothing the board can answer.
  *
  * `claim` is the lead's own work, and it is the same store operation `board`'s claim
  * makes, so the lane rules, the WIP limit, and the offer record cleared are the store's —
@@ -27,7 +28,7 @@ import { type Card, cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { indexOf } from "../../lib/board/links.ts";
 import { type Actor, mayOp } from "../../lib/board/rules.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
-import type { BoardStore } from "../../lib/board/store.ts";
+import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
 import type { DeliveryFailure, TeamJoin } from "../../lib/session-tool.ts";
@@ -66,6 +67,8 @@ import {
 	formatRacedOffer,
 	formatRacedAssignment,
 	formatReclaimed,
+	formatUnrecordedAssignment,
+	formatUnrecordedOffer,
 	formatWorking,
 } from "./format.ts";
 import { TeamParams } from "./schema.ts";
@@ -84,6 +87,40 @@ type TeamArgs = Static<typeof TeamParams>;
 /** One refusal: the reason for the model, the state for the renderer. */
 function refusal(action: TeamAction, message: string, card?: Card): ToolFailure<TeamDetails> {
 	return failedResult(`Error: ${message}`, { action, error: message, ...(card === undefined ? {} : { card }) });
+}
+
+/** One store write, keeping a throw rather than throwing it: the caller owns the half-applied case. */
+async function writeOutcome(write: Promise<MutateResult>): Promise<{ result: MutateResult } | { thrown: unknown }> {
+	try {
+		return { result: await write };
+	} catch (thrown) {
+		return { thrown };
+	}
+}
+
+/**
+ * One half-applied round: the message landed and the write after it threw.
+ *
+ * The one failure a refusal cannot describe, because the card is not the card it was: the
+ * store threw somewhere inside the write, so what it now holds is read rather than assumed,
+ * and a store that will not read either leaves the card the message was written from. The
+ * peers the message reached travel with it, because they are the reason the lead cannot
+ * simply try again and pretend nothing was sent.
+ */
+async function unrecordedResult(
+	action: TeamAction,
+	store: BoardStore,
+	card: Card,
+	text: string,
+	delivered: readonly string[],
+): Promise<ToolFailure<TeamDetails>> {
+	const current = await store.read(card.id).catch(() => undefined);
+	return failedResult(`Error: ${text}`, {
+		action,
+		error: text,
+		card: current ?? card,
+		delivered: [...delivered],
+	});
 }
 
 /**
@@ -309,12 +346,20 @@ async function assignCard(
 	// The owner a handoff records: the resolved peer, whose id survives the peer renaming
 	// itself, or the label a message file was written for when the bus could not say who that
 	// is. The same read also says whether that peer will be woken by the message it just got.
-	const applied = await store.mutate(
-		id,
-		{ kind: "assign", to: target.id === undefined ? ownerFor(to, delivered) : target },
-		me,
-		now,
+	const written = await writeOutcome(
+		store.mutate(id, { kind: "assign", to: target.id === undefined ? ownerFor(to, delivered) : target }, me, now),
 	);
+	// A write that threw is not a write that was refused: the message is already in the peer's
+	// inbox, so the reason is reported with the card the board holds now rather than alone.
+	if ("thrown" in written)
+		return await unrecordedResult(
+			"assign",
+			store,
+			card,
+			formatUnrecordedAssignment(card, to, messageOf(written.thrown)),
+			delivered,
+		);
+	const applied = written.result;
 	if (!applied.ok)
 		return refusal("assign", formatRacedAssignment(applied.card ?? card, to, applied.error), applied.card ?? card);
 	// A handoff is the lead telling a peer to work and ask it questions, so the same call that
@@ -369,7 +414,19 @@ async function offerCard(
 	// The peers have the event, so a card that changed underneath is reported as raced
 	// rather than refused: the message is already in their inboxes. The same holds for the
 	// peer the broadcast missed — the offer is recorded, and the result names who did not hear.
-	const recorded = await store.mutate(id, { kind: "offer" }, me, now);
+	const written = await writeOutcome(store.mutate(id, { kind: "offer" }, me, now));
+	// The peers have the event, so a write that threw is reported as an offer that landed and
+	// a record that did not: a bare reason read as "nothing happened", and a retry broadcast it
+	// again.
+	if ("thrown" in written)
+		return await unrecordedResult(
+			"offer",
+			store,
+			card,
+			formatUnrecordedOffer(card, messageOf(written.thrown)),
+			delivered,
+		);
+	const recorded = written.result;
 	if (!recorded.ok) return refusal("offer", formatRacedOffer(recorded.card ?? card, recorded.error), recorded.card);
 	const peers = await dispatch.peers().catch(() => undefined);
 	const silent = notListening(peers, delivered);

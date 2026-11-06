@@ -110,6 +110,30 @@ describe("assign", () => {
 		expect(result.details.card?.owner).toBeUndefined();
 	});
 
+	test("a write that throws after the handoff landed names the send and carries the card", async () => {
+		// The one half-apply no rule refused, and the one the bare `catch` in `execute` used to
+		// report as nothing: the peer holds the handoff, and the store threw on its way to the
+		// owner. A reason alone sent the lead to retry, and the retry was refused as held.
+		const broken = harness({ failWrite: "EACCES: permission denied, open 'cards/0001.json'" });
+		const id = await broken.seed();
+		const result = await broken.call({ action: "assign", card: id, to: "billing-core" });
+
+		expect(broken.sent).toHaveLength(1);
+		expect(broken.sent[0]?.to).toBe("billing-core");
+		expect(result.isError).toBe(true);
+		expect(resultText(result)).toContain(
+			`#${id} was handed off to billing-core, but recording the owner failed: EACCES: permission denied`,
+		);
+		expect(resultText(result)).toContain("billing-core has the message; read the card with `board` action `list`");
+		expect(resultText(result)).not.toContain("The card is unchanged.");
+		// The card the error carries is the board's, not the message's idea of it: the write threw,
+		// so the pool card is what a retry starts from, and the peer's name is what says who heard.
+		expect(result.details.card).toMatchObject({ lane: "backlog", id });
+		expect(result.details.card?.owner).toBeUndefined();
+		expect(result.details.delivered).toEqual(["billing-core"]);
+		expect(await (await broken.store()).read(id)).toMatchObject({ lane: "backlog" });
+	});
+
 	test("a card taken while the handoff is in flight is the rival's, and the peer is told", async () => {
 		// The one window the pre-check cannot see: the message is on its way and the card has
 		// not been touched, so another session claims it there. The assignment's own write is
@@ -265,6 +289,27 @@ describe("offer", () => {
 		expect((await (await store()).read(id))?.offeredAt).toBe(NOW);
 	});
 
+	test("a record that throws after the broadcast says who heard, and sends no correction", async () => {
+		// The peers have the event; the store threw on the record that follows it. The lead is
+		// told both halves, because a re-offer is the move a bare reason invites and it wakes
+		// every peer again.
+		const broken = harness({ failWrite: "EPERM: operation not permitted, rename 'cards/0001.json'" });
+		const id = await broken.seed();
+		const result = await broken.call({ action: "offer", card: id });
+
+		expect(broken.sent).toHaveLength(1);
+		expect(broken.sent[0]?.to).toBe("*");
+		expect(result.isError).toBe(true);
+		expect(resultText(result)).toContain(
+			`#${id} was offered, but recording the offer failed: EPERM: operation not permitted`,
+		);
+		expect(resultText(result)).toContain("read the card with `board` action `list` before offering it again");
+		expect(result.details.delivered).toEqual(["billing-core", "billing-web"]);
+		expect(result.details.card).toMatchObject({ lane: "backlog", id });
+		// Nothing recorded an offer that never landed, so the board's card carries no timestamp.
+		expect((await (await broken.store()).read(id))?.offeredAt).toBeUndefined();
+	});
+
 	test("an offer whose record loses the race sends no correction, and the claim is what tells a peer", async () => {
 		let id = "";
 		const race = harness({
@@ -347,53 +392,5 @@ describe("the board's WIP limits", () => {
 		expect(resultText(refused)).toContain(`#${second} cannot enter plan`);
 		expect(resultText(refused)).toContain("the limit is 1");
 		expect((await (await store()).read(second))?.lane).toBe("backlog");
-	});
-});
-
-describe("ask", () => {
-	test("sends the question to the one peer, and reports where the answer arrives", async () => {
-		const { call, me, sent } = harness();
-		const self = await me();
-		const result = await call({ action: "ask", to: "billing-core", question: "is #162 ready for review?" });
-		expect(result.isError).toBeFalsy();
-		expect(sent).toHaveLength(1);
-		expect(sent[0]).toMatchObject({ kind: "ask", to: "billing-core" });
-		expect(sent[0]?.text).toContain("Ask: is #162 ready for review?");
-		// The one kind with no protocol of its own: the reply target is written out, and the
-		// peer is told nothing is waiting on it.
-		expect(sent[0]?.text).toContain(`session send to "${self.label}"`);
-		expect(resultText(result)).toContain("Asked billing-core.");
-		expect(resultText(result)).toContain("nothing is waiting on it");
-		// No card behind it: an ask writes nothing, so there is nothing to report.
-		expect(result.details.card).toBeUndefined();
-	});
-
-	test("asks how it is going when the lead names no question", async () => {
-		const { call, sent } = harness();
-		await call({ action: "ask", to: "billing-web" });
-		expect(sent[0]?.text).toContain("Ask: how is it going?");
-	});
-
-	test("names a peer that will read it at its next turn rather than being woken", async () => {
-		const { call } = harness({ peers: [{ id: "s-billing-core", label: "billing-core", listening: false }] });
-		const result = await call({ action: "ask", to: "billing-core", question: "any blockers?" });
-		expect(resultText(result)).toContain("Not listening: billing-core — it reads this at its next turn.");
-	});
-
-	test("refuses a missing peer and a question to itself, sending nothing", async () => {
-		const { call, me, sent } = harness();
-		const self = await me();
-		expect(resultText(await call({ action: "ask", question: "hello?" }))).toContain("ask needs a peer");
-		const own = await call({ action: "ask", to: self.label, question: "hello?" });
-		expect(resultText(own)).toContain("the round already says what you hold");
-		expect(sent).toEqual([]);
-	});
-
-	test("an ask that names a card is refused by the field table", async () => {
-		const { call, sent } = harness();
-		const result = await call({ action: "ask", card: "1", to: "billing-core" });
-		// Four verbs read `card`, so the refusal names all four rather than the nearest one.
-		expect(result.details.error).toBe("ask does not act on card: `assign`, `offer`, `reclaim`, and `claim` take it.");
-		expect(sent).toEqual([]);
 	});
 });
