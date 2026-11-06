@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-11-07
+
 - `plan`: `bun run capture:plan --as viewer` renders the read-only page `/plan list`'s Enter
   opens, so the view can be photographed by the shipped script instead of a one-off; `--post`,
   `--draft` and `--share` are refused for it, because a view has none of those controls.
@@ -58,6 +60,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `PI_DISABLED_EXTENSIONS` is the way to refuse them. `PI_ENABLED_EXTENSIONS`, the
   opt-in set behind it, and the `opt-in` enablement state are gone with it, so the
   disable list is the only switch left.
+
+- `test`: the dev floor is raised to Pi 1.5.0 (`bun.lock` follows), so the keybinding-hint
+  seams the 1.4 floor needed in the render-context fixtures and in the gallery's context are
+  gone — the host's `ToolRenderContext` carries `keyText` and `keyHint` itself.
 
 ## [0.25.0] - 2026-11-06
 
@@ -6307,6 +6313,7 @@ one installable Pi package.
   the native repo root.
 
 [Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.0...HEAD
+[0.25.1]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.22.0...v0.23.0

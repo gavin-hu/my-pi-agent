@@ -1,6 +1,6 @@
 {
   "name": "@gavin-hu/my-pi-agent",
-  "version": "0.25.0",
+  "version": "0.25.1",
   "description": "Personal Pi customizations, packaged as a Pi package: worktree isolation and rewind snapshots, question, todo, goal, plan, serve, subagent, job, watch, web-access, file-browse, file-open, file-read, memory, context, session-bus, board, team, wechat, and bytefly.",
   "keywords": [
     "pi-package",
@@ -163,10 +163,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
-    "@earendil-works/pi-agent-core": "^1.4.0",
-    "@earendil-works/pi-ai": "^1.4.0",
-    "@earendil-works/pi-coding-agent": "^1.4.0",
-    "@earendil-works/pi-tui": "^1.4.0",
+    "@earendil-works/pi-agent-core": "^1.5.0",
+    "@earendil-works/pi-ai": "^1.5.0",
+    "@earendil-works/pi-coding-agent": "^1.5.0",
+    "@earendil-works/pi-tui": "^1.5.0",
     "@types/bun": "latest",
     "@types/qrcode": "^1.5.5",
     "get-east-asian-width": "^1.6.0",
