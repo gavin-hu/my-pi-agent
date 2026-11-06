@@ -9,12 +9,12 @@
 import { existsSync, mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
-import { emit } from "../../test/helpers/fakes.ts";
-import { startWechat, writeAccount } from "../../test/helpers/fixtures/wechat.ts";
-import type { RepeatTimer } from "../../lib/timer.ts";
-import { pruneMedia } from "./transport/media.ts";
-import { createMediaSweep, MEDIA_SWEEP_MS } from "./state/media-sweep.ts";
+import { tempDir, withAgentDir } from "../../../test/helpers/env.ts";
+import { emit } from "../../../test/helpers/fakes.ts";
+import { startWechat, writeAccount } from "../../../test/helpers/fixtures/wechat.ts";
+import type { RepeatTimer } from "../../../lib/timer.ts";
+import { pruneMedia } from "../transport/media.ts";
+import { createMediaSweep, MEDIA_SWEEP_MS } from "./media-sweep.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** The clock a sweep is driven by, so an age in days is a number and not a wait. */
