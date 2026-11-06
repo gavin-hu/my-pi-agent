@@ -48,6 +48,7 @@ session is fabricated.
 | Abandoned-turn notice | automatic: shutdown, `/reload`, `/new`, logout | The chat gets one line saying the turn stopped, rather than silence. | Unreleased |
 | Outbound files | the upload flow, `askHuman` | A remote prompt can deliver a local file before its question, and a failed upload falls back to text. | Shipped |
 | Plain chat text | `maxReplyChars` | Markdown markers are flattened, and a long reply is split so each numbered part — `[1/3] ` included — fits the limit. | Shipped |
+| Repeat of a file | automatic: `file_item.md5` | The CDN keeps one blob per content and a resend carries a key that never encrypted it, so a repeat resolves to the copy saved the first time instead of being dropped. | Unreleased |
 
 ### Pairing and transport
 
@@ -499,6 +500,13 @@ rooms are delivered, a question a group-chat design would have to answer first.
 - **The terminal says a message arrived while the bridge was closing.** A media
   download that a close interrupted is not acknowledged: the message is read again
   when the bridge next starts, so nothing is lost and nothing is answered twice.
+- **The terminal says `WeChat media dropped: notes.pdf — the server kept an earlier copy under another
+  key, so this repeat cannot be read.`** WeChat's CDN stores one blob per file content, so the second time
+  the same file is sent it hands over a key that never encrypted that blob, and the last block fails to
+  decrypt. The bridge resolves a repeat to the copy it saved the first time, matched by the content hash
+  in the saved name; when no copy was kept — pruned past `mediaRetentionDays`, or never saved because the
+  first send failed — nothing can recover it, and the peer has to send a changed copy. Images are not
+  affected: their `aeskey` is a top-level field that dedup leaves alone.
 - **A WeChat message runs as a turn in the terminal but the phone never sees the
   answer.** The chat *is* this session, so its turn appears in the terminal
   transcript by design; a `/wechat new`, `/reload`, or process exit during that

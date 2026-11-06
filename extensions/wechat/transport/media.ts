@@ -1,7 +1,8 @@
 /**
  * Media shared by both directions: the AES key and block codec, the CDN URLs, the
  * image and file sniff, the filename sanitize, the one disk write an attachment
- * needs, and the sweep that takes an old one away.
+ * needs, the sweep that takes an old one away, and the name an inbound file is
+ * saved under, which is also how a repeat of it is found again.
  *
  * Weixin media are AES-128-ECB with PKCS#7 padding (Node's `node:crypto`), so
  * there is no extra dependency. Everything here is pure or filesystem-only; the
@@ -38,6 +39,15 @@ export function decodeMediaKey(value: string): Buffer {
 export function decryptEcb(cipher: Uint8Array, key: Buffer): Buffer {
 	const decipher = createDecipheriv("aes-128-ecb", key, null);
 	return Buffer.concat([decipher.update(cipher), decipher.final()]);
+}
+
+/**
+ * Whether `error` is OpenSSL refusing the last block, which is what a key that never
+ * encrypted these bytes produces. The cast is read only for the `code` property, and
+ * a value without one is not this failure.
+ */
+export function isPaddingFailure(error: unknown): boolean {
+	return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "ERR_OSSL_BAD_DECRYPT";
 }
 
 /** Encrypt AES-128-ECB with PKCS#7 padding (the mirror of {@link decryptEcb}). */
@@ -169,6 +179,37 @@ export function uploadUrlOf(
 	if (full) return full;
 	if (response.uploadParam) return buildUploadUrl(cdnBaseUrl, response.uploadParam, filekey);
 	throw new Error("WeChat upload URL missing (need upload_full_url or upload_param).");
+}
+
+/**
+ * The name an inbound file is saved under: the moment it arrived, a counter, the md5
+ * its own bytes hash to when the wire gives one, then the peer's name.
+ *
+ * The md5 is in the name because it is the same for a file sent twice, while the key
+ * is not: it is the only handle on the copy a deduplicated repeat should resolve to.
+ * `<now>-<counter>-<md5>-<fileName>` — `now` and `counter` are the leading segments
+ * {@link findSavedFile} checks before it trusts the third.
+ */
+export function savedFileName(now: number, counter: number, md5: string | undefined, fileName: string): string {
+	return [now, counter, ...(md5 ? [md5] : []), fileName].join("-");
+}
+
+/** The file saved earlier under this content hash, or `undefined` when the directory holds none. */
+export function findSavedFile(dir: string, md5: string | undefined): string | undefined {
+	if (!md5) return undefined;
+	let names: string[];
+	try {
+		names = readdirSync(dir);
+	} catch {
+		return undefined;
+	}
+	for (const name of names) {
+		const [stamp, counter, hash] = name.split("-");
+		// The first two segments are this module's own, so a peer's name cannot spell them.
+		if (hash !== md5 || !/^\d+$/.test(stamp ?? "") || !/^\d+$/.test(counter ?? "")) continue;
+		return join(dir, name);
+	}
+	return undefined;
 }
 
 /** Write `bytes` to `dir/name`, creating `dir`, and return the full path. */

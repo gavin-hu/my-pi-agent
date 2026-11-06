@@ -7,13 +7,23 @@
  * attachment the bridge could not read must not look like the model ignoring a photo.
  */
 
+import { readFileSync } from "node:fs";
 import type { ImageContent } from "@earendil-works/pi-ai";
-import type { InboundItem } from "../types.ts";
+import type { FileRef, ImageRef, InboundItem, MediaRef } from "../types.ts";
 import type { WechatClient } from "./client.ts";
 import type { ChatItem } from "../conversation/turn.ts";
 import { messageOf } from "../../../lib/errors.ts";
 import { formatSize } from "../../../lib/format.ts";
-import { decodeMediaKey, decryptEcb, saveMedia, sniffFileMime, sniffImageMime } from "./media.ts";
+import {
+	decodeMediaKey,
+	decryptEcb,
+	findSavedFile,
+	isPaddingFailure,
+	saveMedia,
+	savedFileName,
+	sniffFileMime,
+	sniffImageMime,
+} from "./media.ts";
 import { notice } from "../text/notices.ts";
 
 /** What the inbound side needs from the bridge; every value is read at call time. */
@@ -72,35 +82,74 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 					maxBytes: deps.maxMediaBytes(),
 					signal: deps.signal(),
 				});
-				if (ref.kind === "file") {
-					if (!ref.media.aes_key) throw new Error("missing AES key");
-					const plain = decryptEcb(cipher, decodeMediaKey(ref.media.aes_key));
-					mediaCounter += 1;
-					const path = saveMedia(deps.mediaDir(), `${deps.now()}-${mediaCounter}-${ref.fileName}`, plain);
-					// What the turn is told is the saved bytes': a `report.docx` that holds a PDF
-					// is named a PDF, and the size is the one a `read` of that path will find.
-					const mime = sniffFileMime(plain);
-					const label = [ref.fileName, formatSize(plain.length), ...(mime ? [mime] : [])].join(", ");
-					files.push(`[WeChat file: ${label}, saved to ${path}]`);
-				} else {
-					// Without a key the bytes are not the image the peer sent; attaching them
-					// anyway would hand the model a corrupt JPEG.
-					const key = ref.aeskey ?? ref.media.aes_key;
-					if (!key) throw new Error("missing AES key");
-					const plain = decryptEcb(cipher, decodeMediaKey(key));
-					images.push({
-						type: "image",
-						data: Buffer.from(plain).toString("base64"),
-						mimeType: sniffImageMime(plain) ?? "image/jpeg",
-					});
-				}
+				if (ref.kind === "file") files.push(saveFile(ref, cipher));
+				else images.push(attachImage(ref, cipher));
 			} catch (error) {
 				mediaDropped += 1;
 				dropped += 1;
-				deps.notify(`WeChat media dropped: ${messageOf(error)}`, "warning");
+				deps.notify(droppedMessage(ref, error), "warning");
 			}
 		}
 		return { images, files, dropped };
+	}
+
+	/** The line a turn is handed for a file on disk: what it is, how big, and where it landed. */
+	function fileLine(ref: FileRef, plain: Uint8Array, path: string): string {
+		// What the turn is told is the saved bytes': a `report.docx` that holds a PDF is
+		// named a PDF, and the size is the one a `read` of that path will find.
+		const mime = sniffFileMime(plain);
+		const label = [ref.fileName, formatSize(plain.length), ...(mime ? [mime] : [])].join(", ");
+		return `[WeChat file: ${label}, saved to ${path}]`;
+	}
+
+	/**
+	 * Decrypt one file, save it under its content hash, and return its line.
+	 *
+	 * The CDN keeps one blob per content, so the second time a peer sends the same file
+	 * the wire carries a key that never encrypted it and the last block is refused. The
+	 * hash in the name is what makes that repeat resolvable: the copy saved earlier is
+	 * the same bytes, so it is handed over rather than dropped.
+	 */
+	function saveFile(ref: FileRef, cipher: Uint8Array): string {
+		const dir = deps.mediaDir();
+		try {
+			if (!ref.media.aes_key) throw new Error("missing AES key");
+			const plain = decryptEcb(cipher, decodeMediaKey(ref.media.aes_key));
+			mediaCounter += 1;
+			const path = saveMedia(dir, savedFileName(deps.now(), mediaCounter, ref.md5, ref.fileName), plain);
+			return fileLine(ref, plain, path);
+		} catch (error) {
+			if (!isPaddingFailure(error)) throw error;
+			const saved = findSavedFile(dir, ref.md5);
+			if (!saved) throw error;
+			deps.notify(
+				`WeChat stored this repeat of ${ref.fileName} under a different key; used the copy saved earlier.`,
+				"info",
+			);
+			return fileLine(ref, readFileSync(saved), saved);
+		}
+	}
+
+	/** One image's model block: the bytes as decrypted, typed by their own header. */
+	function attachImage(ref: ImageRef, cipher: Uint8Array): ImageContent {
+		// Without a key the bytes are not the image the peer sent; attaching them anyway
+		// would hand the model a corrupt JPEG.
+		const key = ref.aeskey ?? ref.media.aes_key;
+		if (!key) throw new Error("missing AES key");
+		const plain = decryptEcb(cipher, decodeMediaKey(key));
+		return {
+			type: "image",
+			data: Buffer.from(plain).toString("base64"),
+			mimeType: sniffImageMime(plain) ?? "image/jpeg",
+		};
+	}
+
+	/** How a dropped attachment is named: a repeat's dead key is the server's own dedup, not a fault here. */
+	function droppedMessage(ref: MediaRef, error: unknown): string {
+		if (ref.kind === "file" && isPaddingFailure(error)) {
+			return `WeChat media dropped: ${ref.fileName} — the server kept an earlier copy under another key, so this repeat cannot be read.`;
+		}
+		return `WeChat media dropped: ${messageOf(error)}`;
 	}
 
 	return {

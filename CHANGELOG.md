@@ -261,6 +261,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `wechat`: a file the peer sends twice is read the second time. The CDN keeps one blob per content, so
+  a repeat arrives with a key that never encrypted it, PKCS#7 refuses the last block, and the terminal
+  showed a bare `bad decrypt`. A saved file's name now carries `file_item.md5`, which is the same for
+  both sends, so a repeat resolves to the copy saved the first time instead of being dropped; when no
+  copy was kept, the notice names the server's dedup rather than the OpenSSL error. Images were never
+  affected: `image_item.aeskey` survives dedup.
+
 - `wechat`: an inbound image or file sent by a real WeChat client is no longer dropped as
   `WeChat media key is not 16 bytes.` Senders put `media.aes_key` on the wire as base64 of the
   32-character hex key, not base64 of the 16 raw bytes, and `decodeMediaKey` read only the

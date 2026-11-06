@@ -132,11 +132,34 @@ describe("parsing an inbound message", () => {
 		expect(result.media).toEqual([{ kind: "image", media: { encrypt_query_param: "p" }, aeskey: "ab" }]);
 	});
 
-	test("collects a file with its sanitized name", () => {
+	test("collects a file with its sanitized name and its content hash", () => {
 		const result = parseInbound([
-			{ type: 4, file_item: { media: { full_url: "https://cdn/f" }, file_name: "a/b.txt" } },
+			{
+				type: 4,
+				file_item: {
+					media: { full_url: "https://cdn/f" },
+					file_name: "a/b.txt",
+					md5: "9DC4D908B20126A18377DC042F9920F0",
+				},
+			},
 		]);
-		expect(result.media).toEqual([{ kind: "file", media: { full_url: "https://cdn/f" }, fileName: "a_b.txt" }]);
+		expect(result.media).toEqual([
+			{
+				kind: "file",
+				media: { full_url: "https://cdn/f" },
+				fileName: "a_b.txt",
+				md5: "9dc4d908b20126a18377dc042f9920f0",
+			},
+		]);
+	});
+
+	test("leaves out a hash that is not an md5", () => {
+		const result = parseInbound([
+			{ type: 4, file_item: { media: { full_url: "https://cdn/f" }, file_name: "f.txt", md5: "not-a-hash" } },
+		]);
+		expect(result.media).toStrictEqual([
+			{ kind: "file", media: { full_url: "https://cdn/f" }, fileName: "f.txt", md5: undefined },
+		]);
 	});
 
 	test("counts video and unknown-but-unreadable items as unsupported", () => {
