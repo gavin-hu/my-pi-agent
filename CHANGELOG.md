@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the work list and `team`'s lead round load like every other extension, so a
+  session that never works a card carries their tool and command anyway, and
+  `PI_DISABLED_EXTENSIONS` is the way to refuse them. `PI_ENABLED_EXTENSIONS`, the
+  opt-in set behind it, and the `opt-in` enablement state are gone with it, so the
+  disable list is the only switch left.
+
 ## [0.25.0] - 2026-11-06
 
 ### Added

@@ -88,7 +88,7 @@ function withDecorations(base: Theme): Theme {
 const theme: Theme = withDecorations(baseTheme);
 
 /** The gallery draws every tool the pack registers, so the fake session it
- * builds loads the whole pack: nothing disabled, every opt-in extension named. */
+ * builds loads the whole pack: nothing disabled. */
 useEnv(ALL_EXTENSIONS_ENV);
 /** Columns the gallery blocks are wrapped at. */
 const DEFAULT_WIDTH = 100;

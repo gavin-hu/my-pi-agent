@@ -41,23 +41,14 @@ The steps of the work are deliberately *not* on the board. They live in the
 owner's plan and in `todo`; the board answers who is holding what, and what needs a
 decision.
 
-The board is **opt-in**. Its tool, its command, and its page belong to a workflow a
-session either runs or does not, so nothing is registered until the session asks for
-it:
-
-```bash
-PI_ENABLED_EXTENSIONS=board pi
-```
+The board loads like every other extension. Its tool and its command are registered at
+start-up, and the page — with the store and the socket behind it — opens on first use, so a
+session that never works a card writes nothing and binds nothing.
 
 `team` — the lead's half of the same workflow, and the only extension that can hand a
-card to a peer — is opt-in beside it, so a lead names both:
-`PI_ENABLED_EXTENSIONS=board,team`. They stay independent: one name never loads the
-other.
-
-The extension is still declared in the package manifest, so Pi discovers it and
-documents its surface with the rest; the gate is the variable, in `lib/env.ts` beside
-`PI_DISABLED_EXTENSIONS`, which still wins when it names `board`. `doctor` reports the
-row as an opt-in extension and names the switch.
+card to a peer — loads beside it and needs no name. They stay independent: neither needs
+the other, and `PI_DISABLED_EXTENSIONS` refuses either alone, as it refuses any extension.
+`doctor` reports a row that variable refuses as `env disabled`, and names it.
 
 <img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, a read-only chip and a live chip; a control bar with the Board and Team tabs, done-of-total progress and a filter; five lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, a note count and its age, path hints, and a reason line naming what the card waits for and what it holds up, with no button on any of them" width="100%">
 
@@ -779,7 +770,7 @@ it always meant: when the card was last touched, which is not when it last chang
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | The factory: gate on the opt-in switch (`PI_ENABLED_EXTENSIONS`) and `PI_DISABLED_EXTENSIONS`, build the runtime and the lazy page, register both, close on shutdown |
+| `index.ts` | The factory: gate on `PI_DISABLED_EXTENSIONS`, build the runtime and the lazy page, register both, close on shutdown |
 | `schema.ts` | The tool's parameters |
 | `types.ts` | The shapes the tool registers and reports — the actions and the fields each acts on, the card an action produced, the cards a list read, the rollup when it was asked for, and the card a refusal carries |
 | `tools.ts` | Action dispatch and the refusal shape |
