@@ -1,14 +1,13 @@
 /**
- * wechat — a bridge between Pi and WeChat, one session per admitted peer.
+ * wechat — a bridge between Pi and WeChat: one account, one conversation.
  *
- * Each peer's message becomes a turn in that peer's own Pi session (its own
- * history, model context, and tools), and that session's answer is sent back.
- * The terminal session is never injected into, so the two conversations cannot
- * mix. One account is bound to one Pi session and the bridge is started and
- * stopped by hand on it: `/wechat start` records the binding on the session
- * branch and opens the poller, `/wechat stop` closes it and records the stop, and
- * a stored account alone starts nothing. `/wechat` opens the control screen. See
- * `README.md`.
+ * The chat is this Pi session. An inbound message from the account's owner starts a
+ * turn here (`sendUserMessage`), the run's deltas stream back to the phone, and the
+ * run's settle ends it, so the phone and the terminal share one transcript, one
+ * model, and one toolset. The bridge is bound to the session and started and stopped
+ * by hand: `/wechat start` records the binding on the session branch and opens the
+ * poller, `/wechat stop` closes it and records the stop, and a stored account alone
+ * starts nothing. `/wechat` opens the control screen. See `README.md`.
  *
  * Load with:  pi --extension ./extensions/wechat
  */

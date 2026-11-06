@@ -1,5 +1,6 @@
 /**
- * The `/wechat` command: `start`, `stop`, `login`, `new`, `status`, `logout`, `allow`, `help`.
+ * The `/wechat` command: `start`, `login`, `new`, `status`, `stop`, `cancel`, `doctor`,
+ * `history`, `logout`, `help`.
  *
  * The command is the operator's single entry point. `/wechat` (or `/wechat
  * status`) opens the control screen, where every action is a key; the verb
@@ -73,7 +74,7 @@ export interface WechatCommand {
 export const WECHAT_COMMANDS = [
 	{ verb: "start", description: "Start the bridge on this session, bound to the stored account", run: runStart },
 	{ verb: "login", description: "Log in by QR; a scan stores the account (then /wechat start)", run: runLogin },
-	{ verb: "new", description: "Start a fresh host session (peer conversations are independent)", run: runNew },
+	{ verb: "new", description: "Start a fresh host session", run: runNew },
 	{ verb: "status", description: "Open the control screen (a one-line summary outside the TUI)", run: runPanel },
 	{ verb: "stop", description: "Stop the bridge on this session", run: runStop },
 	{
@@ -81,7 +82,7 @@ export const WECHAT_COMMANDS = [
 		description: "Withdraw the waiting prompt without stopping the turn",
 		run: runCancel,
 	},
-	{ verb: "doctor", description: "Print a health report: token age, last poll, lock, peers, failures", run: runDoctor },
+	{ verb: "doctor", description: "Print a health report: token age, last poll, lock, failures", run: runDoctor },
 	{
 		verb: "history",
 		description: "Print this conversation's recent messages: /wechat history [n]",
