@@ -78,6 +78,51 @@ describe("plan approval merge", () => {
 			"Wire the limiter into the router",
 		]);
 		expect(merged).toMatchObject({ replaced: 1, stale: 0, added: 1, skipped: 1 });
+		// The step already in the list stays owned, and the one it appended joins it: the
+		// record is what the next approval may replace, and the reader's item is not in it.
+		expect(merged.seeded).toEqual(["Add a token bucket", "Wire the limiter into the router"]);
+	});
+
+	test("records only what it appended, so a step the list already held stays the reader's", () => {
+		// The reader wrote the item first and the step only matches its text: recording the
+		// step's text here is what let a later refinement delete the reader's item.
+		const reader: ExistingTodo[] = [{ content: "Wire the limiter", status: "pending" }];
+		const first = mergeTodos(reader, [step("Wire the limiter")], DEFAULT_TODO_MAX);
+		expect(first.seeded).toEqual([]);
+		const refined = mergeTodos(
+			reader,
+			[step("Wire the limiter into the router")],
+			DEFAULT_TODO_MAX,
+			undefined,
+			first.seeded,
+		);
+		expect(refined.todos.map((todo) => todo.content)).toEqual(["Wire the limiter", "Wire the limiter into the router"]);
+		expect(refined).toMatchObject({ replaced: 0, stale: 0, added: 1, skipped: 0 });
+		expect(refined.seeded).toEqual(["Wire the limiter into the router"]);
+	});
+
+	test("keeps an item it seeded in the record, so a third approval still owns it", () => {
+		const first = mergeTodos([], [step("Add a token bucket")], DEFAULT_TODO_MAX);
+		expect(first.seeded).toEqual(["Add a token bucket"]);
+		const second = mergeTodos(
+			first.todos,
+			[step("Add a token bucket"), step("Add the tests")],
+			DEFAULT_TODO_MAX,
+			undefined,
+			first.seeded,
+		);
+		expect(second.seeded).toEqual(["Add a token bucket", "Add the tests"]);
+	});
+
+	test("records the verification item, so a refined one replaces the item it seeded", () => {
+		const verification = { content: "Verify: bun test", status: "pending" as const };
+		const first = mergeTodos([], [step("Add the cache")], 50, verification);
+		expect(first.seeded).toEqual(["Add the cache", "Verify: bun test"]);
+		const refined = { content: "Verify: bun run check", status: "pending" as const };
+		const second = mergeTodos(first.todos, [step("Add the cache")], 50, refined, first.seeded);
+		expect(second.todos.map((todo) => todo.content)).toEqual(["Add the cache", "Verify: bun run check"]);
+		expect(second).toMatchObject({ replaced: 1, trailing: "added" });
+		expect(second.seeded).toEqual(["Add the cache", "Verify: bun run check"]);
 	});
 
 	test("leaves a leftover someone started or finished, and says it is stale", () => {

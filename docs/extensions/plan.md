@@ -202,10 +202,12 @@ the todo list:
   todos, and its verification bullets are already covered.
 - Each seeded item is matched back to its step by text, so ticking a step with
   `steps` completes the item too.
-- An approval records the step texts it seeded, per plan path, as a `plan-seeded`
-  entry. A plan refined after approval is approved again — `write` needs plan
-  mode, so a second round is the way back — and that second approval **replaces the
-  leftovers its own earlier approval made**: an untouched item whose step was
+- An approval records the items it seeded, per plan path, as a `plan-seeded` entry
+  — the steps it appended and the verification line. A step whose text the list
+  already held is not one of them: that item is the reader's, however closely the
+  step matches it. A plan refined after approval is approved again — `write` needs
+  plan mode, so a second round is the way back — and that second approval **replaces
+  the leftovers its own earlier approval made**: an untouched item whose step was
   renamed or dropped goes, while one somebody started or finished is kept and
   named, because deleting it would erase work a reader did. `write` says the
   list is stale when it refines a plan that was approved before.

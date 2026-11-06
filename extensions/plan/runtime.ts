@@ -81,9 +81,9 @@ export interface PlanRuntime {
 	reviewed(path: string): SectionDigest[] | undefined;
 	/** Remember what a review just showed, as a session entry on this branch. */
 	markReviewed(path: string, content: string): void;
-	/** The step texts the last approval of this plan appended, or undefined. */
+	/** The todo items this plan's approvals seeded and still own, or undefined. */
 	seeded(path: string): string[] | undefined;
-	/** Record what this approval appended, so a re-approval can replace it. */
+	/** Record the items those approvals own now, so a re-approval can replace them. */
 	markSeeded(path: string, steps: readonly string[]): void;
 }
 
@@ -319,7 +319,11 @@ export function createPlanRuntime(
 		seeded: (path) => seededPlans.get(resolve(path)),
 		markSeeded: (path, steps) => {
 			const key = resolve(path);
+			const previous = seededPlans.get(key);
 			seededPlans.set(key, [...steps]);
+			// Approving the same text again must not grow the branch, the rule `markReviewed`
+			// follows below.
+			if (previous?.length === steps.length && previous.every((text, index) => text === steps[index])) return;
 			pi.appendEntry(SEEDED_TYPE, { path: key, steps: [...steps] } satisfies SeededStepsEntry);
 		},
 		markReviewed: (path, content) => {

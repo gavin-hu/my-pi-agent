@@ -32,6 +32,12 @@ export interface TodoMerge {
 	 * would erase work a reader did, so they are reported instead of replaced.
 	 */
 	stale: number;
+	/**
+	 * The items this plan owns after the merge: every item an earlier approval seeded that is
+	 * still in the list, plus what this one appended. The next approval may replace exactly
+	 * these — never an item the reader wrote, whose text a step only happened to match.
+	 */
+	seeded: string[];
 	/** Plan steps left out because the list reached its cap. */
 	deferred: number;
 	/**
@@ -120,6 +126,7 @@ export function mergeTodos(
 	let replaced = 0;
 	let stale = 0;
 	const kept: ExistingTodo[] = [];
+	const seeded: string[] = [];
 	for (const todo of existing) {
 		const key = contentKey(todo.content);
 		if (ours.has(key) && !current.has(key)) {
@@ -131,6 +138,10 @@ export function mergeTodos(
 			}
 			stale += 1;
 		}
+		// Ownership follows where the item came from, not whether it can go: an item this
+		// plan seeded stays its own until it leaves the list, so a later refinement still
+		// knows which leftovers it may replace.
+		if (ours.has(key)) seeded.push(todo.content);
 		kept.push(todo);
 	}
 	const todos: ExistingTodo[] = kept.map((todo) =>
@@ -153,6 +164,7 @@ export function mergeTodos(
 		}
 		seen.add(key);
 		todos.push({ content: step.content, status: step.status });
+		seeded.push(step.content);
 		added += 1;
 	}
 
@@ -164,6 +176,7 @@ export function mergeTodos(
 		else if (todos.length >= limit) trailingOutcome = "deferred";
 		else {
 			todos.push({ content: trailing.content, status: trailing.status });
+			seeded.push(trailing.content);
 			trailingOutcome = "added";
 		}
 	}
@@ -175,6 +188,7 @@ export function mergeTodos(
 		kept: existing.length - replaced,
 		replaced,
 		stale,
+		seeded,
 		deferred,
 		trailing: trailingOutcome,
 	};

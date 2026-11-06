@@ -373,31 +373,31 @@ describe("plan write", () => {
 });
 
 describe("a plan approved twice", () => {
-	test("replaces the items its first approval seeded, and says so", async () => {
+	test("replaces its own leftovers and leaves the reader's own item alone", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(
-			write,
-			planCtx({ cwd: root }).ctx,
-			"# Plan\n\n## Steps\n\n- [ ] Wire the limiter into the router",
-		);
-		// Approve it once, then read the list back as the branch would hold it. The seed
-		// record is the entry the first approval appended, keyed by the resolved path.
-		await callTool(exit, { plan_path: planPath }, planCtx({ select: "approve", cwd: root }).ctx);
-		expect(runtime.seeded(planPath)).toEqual(["Wire the limiter into the router"]);
-
-		// Approve a refined plan over a branch still holding the older step's item.
+		const ctx = planCtx({ cwd: root }).ctx;
+		const before = "# Plan\n\n## Steps\n\n- [ ] Wire the limiter\n\n## Verification\n\n- [ ] bun test";
+		const planPath = await savePlan(write, ctx, before);
+		// The reader's own item words the step the same way; claiming it here is what deleted it.
+		const mine = [{ content: "Wire the limiter", status: "pending" }];
+		const once = planCtx({ select: "approve", branch: todoBranch(mine), cwd: root });
+		await callTool(exit, { plan_path: planPath }, once.ctx);
+		expect(runtime.seeded(planPath)).toEqual(["Verify: bun test"]);
 		await enterPlan(enter, runtime, root);
-		const { ctx, toolCalls } = planCtx({
-			select: "approve",
-			branch: todoBranch([{ content: "Wire the limiter", status: "pending" }]),
-			cwd: root,
+		const after =
+			"# Plan\n\n## Steps\n\n- [ ] Wire the limiter into the router\n\n## Verification\n\n- [ ] bun run check";
+		await callTool(write, { title: "Test plan", content: after, plan_path: planPath }, ctx);
+		const left = [...mine, { content: "Verify: bun test", status: "pending" }];
+		const { ctx: again, toolCalls } = planCtx({ select: "approve", branch: todoBranch(left), cwd: root });
+		const result = await callTool(exit, { plan_path: planPath }, again);
+		expect(toolCalls[0]?.args).toEqual({
+			todos: [
+				{ content: "Wire the limiter", status: "pending" },
+				{ content: "Wire the limiter into the router", status: "pending" },
+				{ content: "Verify: bun run check", status: "pending" },
+			],
 		});
-		runtime.markSeeded(planPath, ["Wire the limiter"]);
-		const result = await callTool(exit, { plan_path: planPath }, ctx);
-
-		// The untouched leftover is replaced, not left beside the step that renamed it.
-		expect(toolCalls[0]?.args).toEqual({ todos: [{ content: "Wire the limiter into the router", status: "pending" }] });
 		expect(result.content[0].text).toContain("1 stale item from the earlier approval replaced");
 	});
 

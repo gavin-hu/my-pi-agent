@@ -497,6 +497,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   socket. `session_start` now records the id before anything can ask, as `board` and `file-browse`
   already did.
 
+- `plan`: a re-approval replaces only the todo items its own approvals appended. The record it kept was
+  every step the plan listed, the ones already in the list included, so an item the reader had written
+  whose text merely matched a step was treated as the plan's own and deleted when a refinement renamed
+  that step; the verification item was never recorded at all, so refining `## Verification` appended
+  another `Verify:` item on every approval. The record is now what the merge appended plus what an
+  earlier approval seeded and still owns, a step the list already held is never claimed, and an
+  unchanged record writes no branch entry.
+
 ## [0.24.0] - 2026-11-02
 
 ### Added

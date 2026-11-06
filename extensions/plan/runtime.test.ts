@@ -319,6 +319,20 @@ describe("plan runtime — review baseline", () => {
 	});
 });
 
+describe("plan runtime — seeded items", () => {
+	test("records the items an approval owns, and grows the branch only when they change", () => {
+		const seeded = "/repo/.pi/plans/a.md";
+		const { runtime, entries } = setup();
+		runtime.markSeeded(seeded, ["Add the cache"]);
+		// The same approval over the same list is not a new fact, so it is not a new entry.
+		runtime.markSeeded(seeded, ["Add the cache"]);
+		expect(entries).toHaveLength(1);
+		runtime.markSeeded(seeded, ["Add the cache", "Verify: bun test"]);
+		expect(runtime.seeded(seeded)).toEqual(["Add the cache", "Verify: bun test"]);
+		expect(entries).toHaveLength(2);
+	});
+});
+
 describe("path-argument scan", () => {
 	test("detects common path argument names", () => {
 		for (const input of [
