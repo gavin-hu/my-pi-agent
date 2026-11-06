@@ -206,10 +206,11 @@ export function signedText(card: Card, sign: Sign, by: string): string {
 /**
  * What a result says when the card's owner did not hear about a sign.
  *
- * Two doors write a sign: the tool, whose bus message can fail, and the person's `/board
- * approve`, whose command context cannot reach a peer at all. The sentence is one body so a
- * reader of either transcript is told the same fact in the same words — and the signature is
- * recorded either way, which is why this is a line on a result and never a refusal.
+ * Two doors write a sign — the tool, and the person's `/board approve` — and each sends by the
+ * one bus transport its context allows, so a bus that cannot answer costs both a line on the
+ * result. The sentence is one body so a reader of either transcript is told the same fact in
+ * the same words, and the signature is recorded either way, which is why this is a line on a
+ * result and never a refusal.
  */
 export function notToldLine(owner: string, reason: string): string {
 	return `${owner} was not told (${reason})`;

@@ -341,6 +341,7 @@ listening watch is what raises the turn.
 |---|---|
 | `index.ts` | Disable guard, registration, the pending-report channel, and the session hooks. |
 | `join-request.ts` | The `board`/`team` join request: one `bus.join` answer, and the label it settles becomes Pi's session name. |
+| `send-request.ts` | The send request a command context makes: one `bus.send` answer in the shape the tool reports, so `/board approve` tells a card's owner its gate was signed. |
 | `runtime.ts` | Lifecycle, repo key (`<agent-dir>/session-bus/<repo-key>/`), joining, heartbeat, and the session's own reads and writes. |
 | `label.ts` | The automatic label a session joins under: one git question at start for the repository's working trees, then the shared rule. |
 | `mail-watch.ts` | The armed inbox watch: the poll, the not-yet-reported queue, and its state. |

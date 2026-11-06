@@ -246,6 +246,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `/board approve` and `/board review` tell the card's owner its gate was signed, so the
+  person's door reads `#4 reviewed by you · told api-core` exactly as the tool's does. A command
+  context cannot call a tool, so the sign's message asks the bus over `pi.events` on a send request
+  `session-bus` answers — the transport `join` already had — and `sendOutcome` in the bus's protocol
+  decides what a send is worth for both doors, so neither claims a message the other would refuse.
+  Before, a person's sign reached nobody and the line said so, and the holder asked a lead for a
+  review that already existed.
+
 - `watch`: a stopped watcher stops consuming. Its child keeps delivering through the SIGTERM → SIGKILL
   grace, and every line of it was still counted: `linesRead`/`matchCount` rose after `Stopped w1`,
   the lines landed in `matches` and `logs`, the unreported-burst alert fired, and a `wake` watcher

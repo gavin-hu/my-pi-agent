@@ -10,8 +10,10 @@
  * There are two transports, and the difference is the context, not the caller's
  * choice: `join` travels as an in-process request on `pi.events` because a *command*
  * context has no `ctx.executeTool` — the same constraint `lib/plan-entry.ts` exists
- * for — while `peers` and `send` are nested tool calls, which only ever run inside a
- * tool. One function either way, so a caller never has to know which it is holding.
+ * for — `peers` is a nested tool call, and `send` is whichever its context allows: the
+ * nested call from a tool, where the bus's own validation and hooks run, and the same
+ * request from a command, so `/board approve` can tell a card's owner its gate was
+ * signed. One function either way, so a caller never has to know which it is holding.
  *
  * Every function returns a result and none throws: "the bus is not loaded", "a plan
  * is open", and "that label is taken" are all answers a caller reports, not reasons
@@ -79,6 +81,9 @@ export function notDeliveredLine(failed: readonly DeliveryFailure[]): string | u
 /** EventBus channel on which a caller asks `session-bus` to join the team for it. */
 export const TEAM_JOIN_REQUEST = "my-pi-agent/team-join/request";
 
+/** EventBus channel on which a caller asks `session-bus` to send its message for it. */
+export const SESSION_SEND_REQUEST = "my-pi-agent/session-send/request";
+
 /**
  * What a join asks for.
  *
@@ -113,6 +118,25 @@ export interface TeamJoinRequest {
  * the peers a file could not be written for, which is the only case that needs saying.
  */
 export type SendResult = { ok: true; delivered: string[]; failed: DeliveryFailure[] } | { ok: false; error: string };
+
+/** One message to send: its kind, who to, and the text. */
+export interface SendInput {
+	kind: "handoff" | "event" | "ask";
+	to: string;
+	text: string;
+}
+
+/**
+ * What a send asks of the bus when the caller holds a context with no `executeTool`.
+ *
+ * The bus starts through this context, so a command's send is the tool's send with one hop
+ * in between, and the answer is the same {@link SendResult} either way.
+ */
+export interface SessionSendRequest {
+	ctx: ExtensionContext;
+	input: SendInput;
+	respond(result: BusAnswer<SendResult>): void;
+}
 
 /** One nested call's answer: the details on success, the sentence on failure. */
 type Answer = { details: Record<string, unknown> } | { error: string };
@@ -216,11 +240,41 @@ export async function listPeers(ctx: ExtensionToolContext): Promise<Peer[] | und
 	return peers;
 }
 
-/** Send one message, and report the labels a message file was written for. */
+/**
+ * `ctx` as a tool context, when it is one.
+ *
+ * `executeTool` is the whole difference between the two kinds — a tool context has it, a
+ * command context does not — so its presence is what makes a nested call possible.
+ */
+function toolContext(ctx: ExtensionContext): ExtensionToolContext | undefined {
+	const candidate = ctx as Partial<ExtensionToolContext>;
+	return typeof candidate.executeTool === "function" ? (ctx as ExtensionToolContext) : undefined;
+}
+
+/**
+ * Send one message, and report the labels a message file was written for.
+ *
+ * A tool's context calls the `session` tool, which is the bus's own validation and hooks; a
+ * command's asks the bus over {@link SESSION_SEND_REQUEST}, because it cannot. Neither throws.
+ */
 export async function send(
-	ctx: ExtensionToolContext,
-	input: { kind: "handoff" | "event" | "ask"; to: string; text: string },
+	pi: Pick<ExtensionAPI, "events" | "getAllTools">,
+	ctx: ExtensionContext,
+	input: SendInput,
 ): Promise<SendResult> {
+	const nested = toolContext(ctx);
+	if (nested !== undefined) return nestedSend(nested, input);
+	if (!pi.getAllTools().some((tool) => tool.name === SESSION_TOOL)) return { ok: false, error: NO_BUS };
+	return requestOverBus<SendResult, SessionSendRequest>(pi, {
+		channel: SESSION_SEND_REQUEST,
+		payload: (respond) => ({ ctx, input, respond }),
+		unclaimed: () => ({ ok: false, error: NO_BUS }),
+		failed: (error) => ({ ok: false, error: messageOf(error) }),
+	});
+}
+
+/** The nested `session send`, as a tool's context makes it. */
+async function nestedSend(ctx: ExtensionToolContext, input: SendInput): Promise<SendResult> {
 	const answer = await call(ctx, { action: "send", kind: input.kind, to: input.to, text: input.text });
 	if ("error" in answer) return { ok: false, error: answer.error };
 	const labels = (value: unknown): string[] =>

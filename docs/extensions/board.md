@@ -79,7 +79,7 @@ where it does, the sections a reader acts on, then its notes newest first
 | Take a feature | `board` action `claim` | The card is pulled into `plan` and owned by this session — or refused, naming the count, when `plan` is full. The result names the next step, because the claim is what commits the session to a plan |
 | Hand it back | `board` action `release` | The card is back in `backlog` with no owner; the contract and its approval stay, because the plan did not change |
 | Write the contract | `board` action `contract` | The plan file and the three lines the card promises — `goal`, `acceptance`, `scopeOut` — written in one call; `path` is required, and it must be the plan `plan` action `write` saved in this repository's plan store, so a contract cannot name a file that does not exist. The approval covers the three lines and which file they are read against, not the file's bytes: a changed line or a different `path` drops it, and a plan refined in place keeps it |
-| Approve the contract | `board` action `approve`, or `/board approve <id>` | The lead records that the wording is right — a session that joined under `board.lead`, and never the holder — or the person at the keyboard signs; only then may the card enter `execute`. `text` on the tool adds a note, recorded with the sign, because a signer is exactly the session `note` refuses on a held card. The tool sends the card's owner the sign over the bus, so the session that can make the next move is told rather than left to poll; `/board approve` cannot reach a peer, so its line says the owner was not told and the owner reads the sign on its next `list` |
+| Approve the contract | `board` action `approve`, or `/board approve <id>` | The lead records that the wording is right — a session that joined under `board.lead`, and never the holder — or the person at the keyboard signs; only then may the card enter `execute`. `text` on the tool adds a note, recorded with the sign, because a signer is exactly the session `note` refuses on a held card. Both doors send the card's owner the sign over the bus, so the session that can make the next move is told rather than left to poll: the tool as a nested `session send`, the command as the request a command context can make |
 | Spot-check the work | `board` action `review`, or `/board review <id>` | The lead records that they looked at the finished work in `execute` — never the holder — or the person does; only then may the card be finished. `text` on the tool adds a note, recorded with the sign, so "checked, and this is still wrong" is one call. The tool tells the owner the same way, with `done` named; `/board review` says the same thing on its line for the same reason, so the owner reads it on its next `list` |
 | Change lane | `board` action `move` | Wherever the board allows from where the card is: `plan` to `execute` (no unfinished dependency, a complete contract, a plan that is still in the store, an approval by somebody other than the holder) or `blocked`, `execute` to `plan` (re-plan), `blocked`, or `done` (no unfinished dependency, spot-checked, the same plan check), `blocked` back to `plan` when that lane has room, or to `execute` once its contract is approved and its plan is there |
 | Record what happened | `board` action `note` | A note appended to the card's history, attributed and stamped — one line, at most 1000 characters; its holder writes it, or anyone while nobody holds the card, the way `edit` works |
@@ -194,17 +194,17 @@ A sign without that field was made at the gate, which is why nothing older neede
 
 **The sign tells the other side.** `approve` and `review` write the card and then send it to
 the card's owner: an event in that session's inbox naming the signer and the lane the sign
-opened, which is the same `session send` a handoff is — it waits, and starts no turn. A
-repeated sign writes nothing, so it sends nothing, and a bus that cannot answer costs a line
-on the result — `told api-core`, or `api-core was not told (…)`, which the transcript block
-draws after the card and the text carries indented below it — and never the signature,
-which is already on the card. The way to ask travels the same channel: the refusal for either
-gate names ``ask <lead> with `session send` ``, from the one phrase in `lib/board/lead.ts` that
-`team`'s handoff prints too. The two commands are the exception on purpose — a
-command context has no way to reach a peer, so the person's sign is the one that
-tells nobody, and its own line says so (`#4 approved by you · api-core was not told (a
-command cannot reach a peer — it reads the sign on its next list)`) instead of leaving the
-person to find out. Both sentences are one body, `notToldLine` in `lib/board/lead.ts`.
+opened, which is the same message a handoff is — it waits, and starts no turn. A repeated
+sign writes nothing, so it sends nothing, and a bus that cannot answer costs a line on the
+result — `told api-core`, or `api-core was not told (…)`, which the transcript block draws
+after the card and the text carries indented below it — and never the signature, which is
+already on the card. The way to ask travels the same channel: the refusal for either gate
+names ``ask <lead> with `session send` ``, from the one phrase in `lib/board/lead.ts` that
+`team`'s handoff prints too. Both doors send, and only the transport differs with the
+context: the tool nests `session send`, and `/board approve` asks the bus over `pi.events`
+because a command context cannot call a tool, so the person's line reads `#4 approved by
+you · told api-core` exactly as the tool's does. The one sentence either door prints when the
+bus cannot answer is `notToldLine` in `lib/board/lead.ts`.
 A repository read or a file write that throws is a line too (`board: approve #4 failed — …`,
 in the error tone), because a command has nowhere else to report it.
 
@@ -508,13 +508,14 @@ it always meant: when the card was last touched, which is not when it last chang
 ## Pi integration
 
 - **`session-bus`**: a card's owner is the session's team name, so a card names a session a
-  peer can be addressed by. The board calls one thing on it — the join, through
-  `lib/session-tool.ts`, because a command context cannot call a tool and the request
-  therefore travels on `pi.events` — and reads its records otherwise, which is why the
-  page works with the bus disabled. The join asks for the name the board already writes
-  and never renames the session, so the footer stays the user's. A failed join is a clause
-  on the `/board` line, not a failed page. The seat is the name the page is served and
-  reported under, and `/board status` says which session is on the team through it.
+  peer can be addressed by. The board calls two things on it, both through
+  `lib/session-tool.ts` and both a request on `pi.events` when the caller holds a command
+  context, which cannot call a tool: the join, and the message a sign sends the owner. It
+  reads the bus's records otherwise, which is why the page works with the bus disabled. The
+  join asks for the name the board already writes and never renames the session, so the
+  footer stays the user's. A failed join is a clause on the `/board` line, not a failed page.
+  The seat is the name the page is served and reported under, and `/board status` says which
+  session is on the team through it.
 - **`plan`**: `board contract` records the file `plan` action `write` saved; the plan extension owns
   it, and `lib/plans/paths.ts` is the one statement of where it lives — the board reads the
   same module, so the two cannot disagree about what a plan path is. The board stays
@@ -784,10 +785,10 @@ it always meant: when the card was last touched, which is not when it last chang
 | `lazy-page.ts` | The page behind `lib/lazy`: the command paths load `page.ts` once, and `closeAll` closes only a page that was already opened, so a session that never touches the board imports none of the server |
 | `page.ts` | The page's lifecycle: the `/board` prefix it holds on the session's server, the three closes (`/board stop`, the idle grace, and shutdown — each taking the note with it), and the probe behind `/board status` |
 | `snapshot.ts` | The page's snapshot: the cards, the bus's records, the store's size and path, and the repository's own name, handed to `buildView` |
-| `commands.ts` | `/board`, its words and their refusals, the case-insensitive completion, the one failure line a throwing store gets, and the line `/board status` prints |
+| `commands.ts` | `/board`, its words and their refusals, the case-insensitive completion, the one failure line a throwing store gets, the message a sign sends its card's owner, and the line `/board status` prints |
 | `archive.ts` | The one sweep behind `archive` and `/board archive`: what it takes, what it keeps, and the sentence that says both |
 | `join.ts` | The board's side of the team: when it asks (the page, or the first claimed card), the name it asks for, and how the outcome reads on a `/board` line |
-| `announce.ts` | The message a sign sends: the card's owner, told who signed and the lane the sign opened, over the same `session send` a handoff uses — and the line the result carries when the bus cannot answer, which never undoes the sign |
+| `announce.ts` | The message a sign sends: the card's owner, told who signed and the lane the sign opened, over the same transport a handoff uses for a tool and a request for a command — and the line the result carries when the bus cannot answer, which never undoes the sign |
 | `transport/router.ts` | The five reads — the document, the client script, the theme script, the snapshot, and the frame stream — with the token gate and the guards in front of them |
 | `transport/server.ts` | The loopback listener, the frame push — one read of the board per frame, and a failed read reported rather than thrown — and the close |
 | `view/page.ts` | The document: an inert shell the client fills, named after the repository it is a board of so the toolbar is not blank before the first frame, with no form on it |
