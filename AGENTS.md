@@ -61,8 +61,7 @@ change is not a release.
   environment review.
 - Push the tag with `main`: `git push origin vX.Y.Z main`. A `main`-first push
   races CI's `fetch-depth: 0` checkout and fails `test/release.test.ts`.
-- The `[Unreleased]` bullet lands in the same commit as its change; read it
-  against `git log <last-tag>..main` before a release.
+- The `[Unreleased]` bullet lands in the same commit as its change.
 
 ## Invariants
 
@@ -75,6 +74,10 @@ Not caught by types, and easy to get wrong.
   `lib/tui/glyphs.ts`.
 - An extension factory only registers. Start long-lived resources in
   `session_start` and release them in an idempotent `session_shutdown`.
+- A start pays what an entry imports: a surface nothing needs before the first
+  draw loads with `import()` in the call that needs it (`lib/lazy.ts`), and
+  `test/dependencies.test.ts` holds the budget, which may only fall
+  ([`docs/development.md#what-a-load-costs`](./docs/development.md#what-a-load-costs)).
 - State that must survive `/resume` and `/tree` lives in tool-result `details` or
   a custom entry, rebuilt from the session branch; widgets are derived, never
   authoritative.
@@ -84,8 +87,8 @@ Not caught by types, and easy to get wrong.
   and canonicalize before using one as a state key. A literal `a/b` assertion
   passes on macOS and fails on Windows.
 - A trust boundary two extensions answer — a loopback server, a served page —
-  has one policy module in `lib/` (`lib/http/`), never a copy each: two copies
-  are how a `Host` rule or an allowlist drifts apart.
+  has one policy module in `lib/http/`: two copies are how a `Host` rule or an
+  allowlist drifts apart.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
   with a `"*"` range.
 - Adding an extension touches the `pi` manifest, `package.json`, `REQUIREMENTS`
@@ -142,8 +145,7 @@ A surface is verified by rendering it. A terminal frame:
 `bun run render:tools render <tool> --width 80` for one block; a
 browser page: `bun run capture:plan <plan.md>` or `capture:file-browse`,
 each driving the shipped page. `bun run check` renders every screen at three
-widths, so an overflowing frame fails there. Re-capture `assets/screens/` only in
-the release phase; an `assets/cards/` poster follows its page.
+widths, so an overflowing frame fails there.
 
 ## Documentation
 
@@ -158,9 +160,8 @@ the release phase; an `assets/cards/` poster follows its page.
   `TODO` comment or a second list in Markdown.
 - Renaming a heading or moving a file means fixing every relative link and
   `#anchor`; `test/doc-links.test.ts` resolves them.
-- One doc per audience: per-area contracts live in
-  `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`,
-  `lib/board/README.md`, `scripts/README.md`, and `test/README.md`.
+- One doc per audience: per-area contracts are listed in
+  [`docs/development.md#one-doc-per-audience`](./docs/development.md#one-doc-per-audience).
 
 ## How to work
 
@@ -173,10 +174,8 @@ the release phase; an `assets/cards/` poster follows its page.
 ## Read more
 
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — checks, commits.
-- [`docs/development.md`](./docs/development.md) — scripts, test tiers, compat,
-  release steps.
-- [`docs/architecture.md`](./docs/architecture.md) — the target architecture, state,
-  and where code belongs.
+- [`docs/development.md`](./docs/development.md) — scripts, tests, compat, release.
+- [`docs/architecture.md`](./docs/architecture.md) — target architecture and code placement.
 - [`test/README.md`](./test/README.md) — test tiers, helpers, determinism.
 - [`docs/extensions/worktree.md`](./docs/extensions/worktree.md) — the
   worktree flow above.
