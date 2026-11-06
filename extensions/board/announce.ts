@@ -11,7 +11,7 @@
  * owner's next read would contradict it.
  */
 
-import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
 import { type Sign, notToldLine, signedText } from "../../lib/board/lead.ts";
 import { messageOf } from "../../lib/errors.ts";
@@ -20,16 +20,15 @@ import { type SendResult, send } from "../../lib/session-tool.ts";
 /**
  * How a sign reaches the card's owner: one bus message, or a suite's record of one.
  *
- * A nested `session send`, so it needs the tool's context — which is why `/board approve`,
- * signing from a command context, is the one door a sign leaves by that tells nobody.
+ * A `send` from the caller's own context — the nested tool call inside a tool, the request a
+ * command makes — so both doors a sign has tell the owner the same way.
  */
-export type Notify = (
-	ctx: ExtensionToolContext,
-	input: { kind: "event"; to: string; text: string },
-) => Promise<SendResult>;
+export type Notify = (ctx: ExtensionContext, input: { kind: "event"; to: string; text: string }) => Promise<SendResult>;
 
-/** The production bus: the same `session send` a handoff travels on. */
-export const notifyOverBus: Notify = send;
+/** The production bus, bound to the extension's `pi`: the same message a handoff travels on. */
+export function notifyOverBus(pi: Pick<ExtensionAPI, "events" | "getAllTools">): Notify {
+	return (ctx, input) => send(pi, ctx, input);
+}
 
 /**
  * Tell the card's owner that one of its gates is signed, and say so on the result.
@@ -43,7 +42,7 @@ export async function announce(
 	card: Card,
 	sign: Sign,
 	by: string,
-	ctx: ExtensionToolContext,
+	ctx: ExtensionContext,
 	notify: Notify,
 ): Promise<string | undefined> {
 	const owner = card.owner;

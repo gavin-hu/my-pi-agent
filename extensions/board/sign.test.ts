@@ -4,8 +4,8 @@
  * The sign is the same `mutate` the tool makes, with the person as the actor, so a session
  * that holds a card can still have it signed. What this suite pins is the line the door
  * prints: the state machine's own refusal, the failure a throwing store becomes, and the
- * half that says the owner was not told — a command context cannot make the nested
- * `session send` the tool's `announce` uses, so the owner reads the sign on its next `list`.
+ * half that says who was or was not told — a command context cannot make a nested
+ * `session send`, so `announce` asks the bus and this harness answers for it.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -15,14 +15,25 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeBoardSession, pageWithNoRecording, signingBoard } from "../../test/helpers/board-command.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
+import type { Notify } from "./announce.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 
 /**
- * The half a sign on somebody's card carries: the tool's nested `session send` is not
- * available to a command, so this door says out loud that the owner was not told.
+ * The clause a sign carries when nobody could be told: this harness registers no
+ * `session-bus`, so nothing answers the request and the line says so instead of claiming a
+ * message that was never written.
  */
-const NOT_TOLD =
-	" · team-agent-slead was not told (a command cannot reach a peer — it reads the sign on its next list)";
+const NOT_TOLD = " · team-agent-slead was not told (the session bus is not loaded)";
+
+/** A `notify` that answers with `answer`, recording what it was asked to send. */
+function toldBy(answer: { ok: true } | { ok: false; error: string }) {
+	const sent: Array<{ kind: string; to: string; text: string }> = [];
+	const notify: Notify = async (_ctx, input) => {
+		sent.push(input);
+		return answer.ok ? { ok: true, delivered: ["team-agent-slead"], failed: [] } : answer;
+	};
+	return { notify, sent };
+}
 
 describe("/board approve and /board review", () => {
 	test("signs the contract as the person, not as the session that holds the card", async () => {
@@ -95,8 +106,41 @@ describe("/board approve and /board review", () => {
 		board.temps.flush();
 	});
 
+	test("tells the card's owner when the bus answers, in the clause the tool prints", async () => {
+		const { notify, sent } = toldBy({ ok: true });
+		const board = await signingBoard({ notify });
+		await board.store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		expect(await board.say("approve 1")).toBe("board: #1 approved by you · told team-agent-slead");
+		// The owner is addressed by id, which survives a rename, and the message is the tool's.
+		expect(sent.map((input) => [input.kind, input.to])).toEqual([["event", "s-lead"]]);
+		expect(sent[0]?.text).toContain(`"One" — its contract is approved by lead`);
+		board.temps.flush();
+	});
+
+	test("a message that cannot be written costs the clause, never the sign", async () => {
+		const board = await signingBoard({ notify: toldBy({ ok: false, error: "the bus refused the write" }).notify });
+		await board.store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		expect(await board.say("approve 1")).toBe(
+			"board: #1 approved by you · team-agent-slead was not told (the bus refused the write)",
+		);
+		// The signature is on the card either way: a refusal here would report an unrecorded sign.
+		expect((await board.store.read(board.id))?.contract?.approved).toMatchObject({ by: "lead", person: true });
+		board.temps.flush();
+	});
+
 	test("says so when the sign is already there, rather than pretending to write", async () => {
-		const board = await signingBoard();
+		const { notify, sent } = toldBy({ ok: true });
+		const board = await signingBoard({ notify });
 		const store = board.store;
 		await store.mutate(
 			board.id,
@@ -105,7 +149,9 @@ describe("/board approve and /board review", () => {
 			1_000,
 		);
 		await board.say("approve 1");
-		expect(await board.say("approve 1")).toBe(`board: #1 is already approved by you${NOT_TOLD}`);
+		expect(await board.say("approve 1")).toBe("board: #1 is already approved by you");
+		// A repeated sign writes nothing, so it tells nobody — the rule the tool follows too.
+		expect(sent).toHaveLength(1);
 		board.temps.flush();
 	});
 
@@ -119,6 +165,7 @@ describe("/board approve and /board review", () => {
 		const session = {
 			...fakeBoardSession(),
 			store: async () => ({
+				config: () => ({ lead: "lead" }),
 				mutate: async () => ({ ok: true, card, changed: true, dropped: false, archived: false }),
 			}),
 		} as unknown as BoardSession;
@@ -154,6 +201,7 @@ describe("/board approve and /board review", () => {
 		const write = await signOver({
 			...fakeBoardSession(),
 			store: async () => ({
+				config: () => ({ lead: "lead" }),
 				mutate: async () => {
 					throw new Error("ENOSPC: no space left on device");
 				},

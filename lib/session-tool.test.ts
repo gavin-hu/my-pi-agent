@@ -2,11 +2,13 @@
  * The session-tool client: what a caller gets back, and what it never gets.
  *
  * `join` is an in-process request, so its cases drive a fake host that answers on the
- * channel; `listPeers` and `send` are nested calls, so theirs record what `executeTool`
- * was asked. Both halves share one rule: nothing throws.
+ * channel; `listPeers` and a tool's `send` are nested calls, so theirs record what
+ * `executeTool` was asked, and a command's `send` is the request that replaces it. Both
+ * halves share one rule: nothing throws.
  */
 
 import { describe, expect, test } from "bun:test";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fakeCtx } from "../test/helpers/context.ts";
 import {
 	join,
@@ -14,6 +16,8 @@ import {
 	MAX_MESSAGE_TEXT,
 	notDeliveredLine,
 	send,
+	SESSION_SEND_REQUEST,
+	type SessionSendRequest,
 	TEAM_JOIN_REQUEST,
 	type TeamJoinRequest,
 } from "./session-tool.ts";
@@ -38,8 +42,18 @@ function client(reply: (args: Record<string, unknown>) => Reply | Promise<Reply>
 /** A clean answer with these details. */
 const ok = (details: unknown): Reply => ({ result: { content: [], details } });
 
-/** A host whose `session` tool is (or is not) registered, and whose request reaches `answer`. */
-function host(answer?: (request: TeamJoinRequest) => void, options: { loaded?: boolean } = {}) {
+/** The host a tool's `send` never asks: the nested call answers before it reads `pi`. */
+function nestedHost(): never {
+	return host<SessionSendRequest>(undefined).host as never;
+}
+
+/**
+ * A host whose `session` tool is (or is not) registered, and whose request reaches `answer`.
+ *
+ * The request's shape is the caller's: `join` and `send` ask on two channels with two
+ * payloads, so a case says which one it is answering.
+ */
+function host<R>(answer?: (request: R) => void, options: { loaded?: boolean } = {}) {
 	const emitted: Array<{ channel: string; data: unknown }> = [];
 	return {
 		emitted,
@@ -48,7 +62,7 @@ function host(answer?: (request: TeamJoinRequest) => void, options: { loaded?: b
 				on: () => () => {},
 				emit: (channel: string, data: unknown) => {
 					emitted.push({ channel, data });
-					if (answer) answer(data as TeamJoinRequest);
+					if (answer) answer(data as R);
 				},
 			},
 			getAllTools: () => (options.loaded === false ? [] : [{ name: "session" }]),
@@ -58,7 +72,7 @@ function host(answer?: (request: TeamJoinRequest) => void, options: { loaded?: b
 
 describe("join", () => {
 	test("asks the bus once and reports the label and the watch it landed on", async () => {
-		const { host: pi, emitted } = host((request) =>
+		const { host: pi, emitted } = host<TeamJoinRequest>((request) =>
 			request.respond({ ok: true, label: "billing-core", watching: { armed: true, wake: false } }),
 		);
 		const result = await join(pi as never, {} as never, { label: "billing-core" });
@@ -69,7 +83,7 @@ describe("join", () => {
 	});
 
 	test("carries the wake and listen options through", async () => {
-		const { host: pi, emitted } = host((request) =>
+		const { host: pi, emitted } = host<TeamJoinRequest>((request) =>
 			request.respond({ ok: true, label: "frontend", watching: { armed: false, wake: false } }),
 		);
 		await join(pi as never, {} as never, { listen: false });
@@ -83,7 +97,7 @@ describe("join", () => {
 	});
 
 	test("answers with the bus's sentence when it refuses, and takes the first answer only", async () => {
-		const { host: pi } = host((request) => {
+		const { host: pi } = host<TeamJoinRequest>((request) => {
 			request.respond({ ok: false, error: "already in use" });
 			request.respond({ ok: true, label: "later", watching: { armed: true, wake: false } });
 		});
@@ -91,7 +105,7 @@ describe("join", () => {
 	});
 
 	test("says the bus is not loaded instead of waiting for a listener that is not there", async () => {
-		const { host: pi, emitted } = host(undefined, { loaded: false });
+		const { host: pi, emitted } = host<TeamJoinRequest>(undefined, { loaded: false });
 		expect(await join(pi as never, {} as never, { label: "billing-core" })).toEqual({
 			ok: false,
 			error: "the session bus is not loaded",
@@ -142,14 +156,17 @@ describe("listPeers", () => {
 });
 
 describe("send", () => {
-	test("sends the kind it was given and reports the labels written for", async () => {
+	test("a tool's context sends the kind it was given, as one nested call", async () => {
 		const { ctx, calls } = client(() => ok({ action: "send", delivered: ["billing-core", 7] }));
-		expect(await send(ctx, { kind: "event", to: "*", text: "handoff text" })).toEqual({
+		const { host: pi, emitted } = host<SessionSendRequest>(undefined);
+		expect(await send(pi as never, ctx, { kind: "event", to: "*", text: "handoff text" })).toEqual({
 			ok: true,
 			delivered: ["billing-core"],
 			failed: [],
 		});
 		expect(calls).toEqual([{ name: "session", action: "send", kind: "event", to: "*", text: "handoff text" }]);
+		// A tool context asks the bus's tool, never the channel a command needs.
+		expect(emitted).toEqual([]);
 	});
 
 	test("carries the peers a partial fan-out could not reach, and one sentence for them", async () => {
@@ -160,7 +177,7 @@ describe("send", () => {
 				failed: [{ label: "billing-web", error: "EEXIST: file already exists" }, { label: 7 }, "nonsense"],
 			}),
 		);
-		expect(await send(ctx, { kind: "event", to: "*", text: "x" })).toEqual({
+		expect(await send(nestedHost(), ctx, { kind: "event", to: "*", text: "x" })).toEqual({
 			ok: true,
 			delivered: ["billing-core"],
 			failed: [{ label: "billing-web", error: "EEXIST: file already exists" }],
@@ -179,7 +196,7 @@ describe("send", () => {
 			isError: true,
 			result: { content: [{ type: "text", text: "no active session." }] },
 		}));
-		expect(await send(ctx, { kind: "handoff", to: "ghost", text: "x" })).toEqual({
+		expect(await send(nestedHost(), ctx, { kind: "handoff", to: "ghost", text: "x" })).toEqual({
 			ok: false,
 			error: "no active session.",
 		});
@@ -191,9 +208,56 @@ describe("send", () => {
 				throw new Error("the session tool is not available");
 			},
 		};
-		expect(await send(ctx as never, { kind: "event", to: "*", text: "x" })).toEqual({
+		expect(await send(nestedHost(), ctx as never, { kind: "event", to: "*", text: "x" })).toEqual({
 			ok: false,
 			error: "the session tool is not available",
+		});
+	});
+});
+
+describe("send from a command context", () => {
+	/**
+	 * A command's context: `executeTool` destructured away, which is the whole difference
+	 * between the two — and the reason this transport exists.
+	 */
+	function command(): ExtensionContext {
+		const { executeTool: _executeTool, ...ctx } = fakeCtx().ctx;
+		return ctx as ExtensionContext;
+	}
+
+	test("asks the bus on the send channel, and reports what it answers", async () => {
+		const { host: pi, emitted } = host<SessionSendRequest>((request) =>
+			request.respond({ ok: true, delivered: ["api-core"], failed: [] }),
+		);
+		expect(await send(pi as never, command(), { kind: "event", to: "api-core", text: "#4 signed" })).toEqual({
+			ok: true,
+			delivered: ["api-core"],
+			failed: [],
+		});
+		expect(emitted.map((entry) => entry.channel)).toEqual([SESSION_SEND_REQUEST]);
+		expect((emitted[0]?.data as SessionSendRequest).input).toEqual({
+			kind: "event",
+			to: "api-core",
+			text: "#4 signed",
+		});
+	});
+
+	test("says the bus is not loaded instead of waiting for a listener that is not there", async () => {
+		const { host: pi, emitted } = host<SessionSendRequest>(undefined, { loaded: false });
+		expect(await send(pi as never, command(), { kind: "event", to: "api-core", text: "x" })).toEqual({
+			ok: false,
+			error: "the session bus is not loaded",
+		});
+		expect(emitted).toEqual([]);
+	});
+
+	test("a claim that rejects is its own sentence, not a hang", async () => {
+		const { host: pi } = host<SessionSendRequest>((request) =>
+			request.respond(Promise.reject(new Error("session bus is not started."))),
+		);
+		expect(await send(pi as never, command(), { kind: "event", to: "api-core", text: "x" })).toEqual({
+			ok: false,
+			error: "session bus is not started.",
 		});
 	});
 });

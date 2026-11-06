@@ -6,8 +6,9 @@
  */
 
 import { isAbsolute, relative, resolve, sep } from "node:path";
-import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
+import { notDeliveredLine, type SendResult, MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SESSION_TOOL } from "../../lib/tool-names.ts";
+import type { DeliveryFailure } from "./types.ts";
 
 /**
  * The label rules live in `lib/` because a label is shared vocabulary: the board
@@ -113,4 +114,19 @@ export function resolveRecipients(
 	if (byLabel.length === 1) return { recipients: byLabel };
 	if (byLabel.length > 1) return { error: `the label "${target}" is ambiguous; use a session id.` };
 	return { error: `no active session "${target}".` };
+}
+
+/**
+ * What one send is worth saying to a caller: its labels, or why nobody got it.
+ *
+ * Nothing delivered is a failure, because no recipient can be told a message landed, and a
+ * fan-out that missed some peers is a success carrying them. One body, because two doors
+ * report one send — the `session` tool's own action and the request a command makes — and a
+ * caller must read the same answer whichever it asked through.
+ */
+export function sendOutcome(sent: { delivered: readonly string[]; failed: readonly DeliveryFailure[] }): SendResult {
+	if (sent.delivered.length === 0) {
+		return { ok: false, error: notDeliveredLine(sent.failed) ?? "no recipient could be written." };
+	}
+	return { ok: true, delivered: [...sent.delivered], failed: [...sent.failed] };
 }

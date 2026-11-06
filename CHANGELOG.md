@@ -246,6 +246,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `/board approve` and `/board review` tell the card's owner its gate was signed, so the
+  person's door reads `#4 reviewed by you · told api-core` exactly as the tool's does. A command
+  context cannot call a tool, so the sign's message asks the bus over `pi.events` on a send request
+  `session-bus` answers — the transport `join` already had — and `sendOutcome` in the bus's protocol
+  decides what a send is worth for both doors, so neither claims a message the other would refuse.
+  Before, a person's sign reached nobody and the line said so, and the holder asked a lead for a
+  review that already existed.
+
 - `board`: two sessions writing one card take turns instead of one silently overwriting the other. A
   `mutate` re-read the card, checked its revision, and then renamed a new file over it with nothing
   held in between: a peer's write landing in that gap was replaced by the older copy, and both calls

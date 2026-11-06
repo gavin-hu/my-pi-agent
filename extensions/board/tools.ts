@@ -240,7 +240,7 @@ export function registerTools(
 						// The name the sign will record, so the owner is told who signed rather than the
 						// label the writing actor is called by.
 						const signer = signMark(me, store.config().lead).by;
-						const told = (card: Card) => announce(card, action, signer, ctx, deps.notify ?? notifyOverBus);
+						const told = (card: Card) => announce(card, action, signer, ctx, deps.notify ?? notifyOverBus(pi));
 						return await mutate(
 							store,
 							action,

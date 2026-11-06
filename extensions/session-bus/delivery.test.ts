@@ -12,21 +12,13 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { scratchDir } from "../../test/helpers/env.ts";
+import { blockInbox } from "../../test/helpers/bus.ts";
 import { busToolSession as session, joinBusSession as joins } from "../../test/helpers/fixtures/session-bus-tool.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
-
-/** Make one session's inbox unwritable by putting a file where its directory goes. */
-function blockInbox(dir: string, id: string): void {
-	mkdirSync(join(dir, "inbox"), { recursive: true });
-	writeFileSync(join(dir, "inbox", createHash("sha256").update(id).digest("hex").slice(0, 32)), "");
-}
 
 describe("a send that reached some peers", () => {
 	test("returns the peers it wrote for and the peers it could not", async () => {

@@ -10,13 +10,14 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
-import { notToldLine, PERSON_LABEL, personActor, type Sign, signOf } from "../../lib/board/lead.ts";
+import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
 import { plural } from "../../lib/board/round-text.ts";
 import { type BoardSession } from "../../lib/board/session.ts";
 import type { MutateResult } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
+import type { Notify } from "./announce.ts";
 import { teamLine } from "./join.ts";
 import type { BoardPage, BoardPageStatus, StaleDrop } from "./page.ts";
 
@@ -30,7 +31,7 @@ export function registerCommands(
 	pi: ExtensionAPI,
 	session: BoardSession,
 	page: BoardPage,
-	deps: { team?: TeamJoin } = {},
+	deps: { team?: TeamJoin; notify?: Notify } = {},
 ): void {
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
@@ -51,7 +52,7 @@ export function registerCommands(
 			const word = first.toLowerCase();
 			const sign = signOf(word);
 			if (sign !== undefined) {
-				const line = await signLine(session, sign, rest, ctx);
+				const line = await signLine(pi, session, sign, rest, ctx, deps.notify);
 				ctx.ui.notify(line.text, line.tone);
 				return;
 			}
@@ -132,27 +133,22 @@ interface SignLine {
 }
 
 /**
- * Why a sign from the command reaches nobody, in the words the line carries.
- *
- * The tool tells the owner through a nested `session send`; a command context has no
- * `ctx.executeTool`, so this door writes the sign and the owner reads it on its next `list`.
- */
-const NO_PEER = "a command cannot reach a peer — it reads the sign on its next list";
-
-/**
  * Sign one of the card's two gates as the person at the keyboard.
  *
  * The write is the same `mutate` the tool uses, so the rules are the state machine's: an
  * `approve` outside `plan`, a `review` outside `execute`, an unknown id, and a card already
  * signed are each refused with the sentence the tool would give. The one thing that differs
  * is the actor — the person, whose id no session can have — which is what makes the sign a
- * sign even when the session that typed it holds the card.
+ * sign even when the session that typed it holds the card. The message that follows is the
+ * tool's too: a command cannot call a tool, so `announce` sends by the request the bus answers.
  */
 async function signLine(
+	pi: ExtensionAPI,
 	session: BoardSession,
 	sign: Sign,
 	words: readonly string[],
 	ctx: ExtensionCommandContext,
+	notify: Notify | undefined,
 ): Promise<SignLine> {
 	const { id: rawCard, override } = signWords(words);
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
@@ -164,8 +160,10 @@ async function signLine(
 	// The store is a repository read and a file write, and a command has nowhere else to report
 	// what they throw: without this the person sees a raw command error instead of a line.
 	let result: MutateResult;
+	let lead: string;
 	try {
 		const store = await session.store(ctx.cwd);
+		lead = store.config().lead;
 		result = await store.mutate(
 			id,
 			override === undefined ? { kind: sign } : { kind: "review", override },
@@ -181,10 +179,14 @@ async function signLine(
 	const text = result.changed
 		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}`
 		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}`;
-	if (result.card.owner === undefined) return { text, tone: "info" };
-	// A command context has no nested `session send`, so a sign from here reaches nobody. Saying
-	// so is the only moment that trade-off costs something; the signature is recorded either way.
-	return { text: `${text} · ${notToldLine(result.card.owner.label, NO_PEER)}`, tone: "info" };
+	// The message is the tool's rule as well as its transport: a repeated sign writes nothing, so
+	// it tells nobody, and a card nobody holds has nobody to tell.
+	if (result.card.owner === undefined || !result.changed) return { text, tone: "info" };
+	const { announce, notifyOverBus } = await import("./announce.ts");
+	const sender = notify ?? notifyOverBus(pi);
+	const told = await announce(result.card, sign, signMark(personActor(), lead).by, ctx, sender);
+	const clause = told?.trim();
+	return { text: clause === undefined ? text : `${text} · ${clause}`, tone: "info" };
 }
 
 /** The flag that turns a `review` into the close a gate was not asked for. */
