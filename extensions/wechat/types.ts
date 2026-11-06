@@ -149,6 +149,13 @@ export interface FileRef {
 	kind: "file";
 	media: CDNMedia;
 	fileName: string;
+	/**
+	 * Hex md5 of the plaintext, from `file_item.md5`.
+	 *
+	 * The CDN stores one blob per content, so a repeat of a file carries a key that
+	 * never encrypted it, and this hash is what finds the copy already on disk.
+	 */
+	md5?: string;
 }
 
 /** A downloadable inbound attachment (video is not handled). */

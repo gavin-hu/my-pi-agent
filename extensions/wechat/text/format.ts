@@ -158,6 +158,11 @@ function hasMedia(ref: CDNMedia | undefined): ref is CDNMedia {
 	return !!ref && (!!ref.encrypt_query_param || !!ref.full_url);
 }
 
+/** A `file_item.md5` as the wire writes it, or `undefined` when it is not one. */
+function fileHash(value: string | undefined): string | undefined {
+	return value !== undefined && /^[0-9a-fA-F]{32}$/.test(value) ? value.toLowerCase() : undefined;
+}
+
 /**
  * Split an inbound `item_list` into text, downloadable media, and items the
  * bridge cannot read at all.
@@ -188,6 +193,7 @@ export function parseInbound(itemList: MessageItem[] | undefined): {
 				kind: "file",
 				media: item.file_item.media,
 				fileName: sanitizeFileName(item.file_item.file_name ?? "file"),
+				md5: fileHash(item.file_item.md5),
 			});
 		} else if (item.video_item) {
 			unsupported += 1;
