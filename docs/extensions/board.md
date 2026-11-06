@@ -547,7 +547,9 @@ it always meant: when the card was last touched, which is not when it last chang
 
 - **One JSON file per card**, in `<agent-dir>/board/<repo-key>/cards/`, one per ended
   card in `ended/`, and one per archived card in `archive/`. The listing is the index, so
-  a reader needs no cache and no daemon.
+  a reader needs no cache and no daemon. A card being written also leaves `cards/.lock-<id>`
+  for the length of one read and one rename: a dotfile the reader ignores, and the one name
+  every session that writes that card shares.
 - **The plan is proved, not asserted.** `contract` requires the path `plan` action `write` returned,
   `lib/board/artifact.ts` resolves it and checks that it is a markdown file inside this
   repository's plan store, and a move to `execute` or `done` re-checks that the file is still
@@ -585,9 +587,13 @@ it always meant: when the card was last touched, which is not when it last chang
   archive drew `0 cards` over a sentence saying the card was already aside; without the
   second, the block never said whether the owner heard.
 - **Create is exclusive**, by hard-linking a temporary file onto the target name,
-  so two adds cannot share an id. **Update** re-reads, re-checks the operation's
-  own preconditions, then renames over the old file: an operation means "apply when
-  this holds", never "force this state".
+  so two adds cannot share an id. **Update** takes the card's write lock, re-reads,
+  re-checks the operation's own preconditions, then renames over the old file: an operation
+  means "apply when this holds", never "force this state". The lock is what makes the check
+  and the rename one step, so a peer's write cannot land between them and be overwritten by
+  the copy that was checked — without it both calls reported success at one revision. A holder
+  needs milliseconds, so a lock still there two seconds later is taken over rather than waited
+  on, and the release is the holder's own token.
 - **The page is a dumb renderer** over one snapshot built on the server, pushed
   only when a card's revision, or a teammate's state, mail, or listening flag, moves: a
   heartbeat every ten seconds is not news, and a frame nobody needs costs the page a

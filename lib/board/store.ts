@@ -7,12 +7,14 @@
  * index. The key comes from `lib/repo-key.ts`, so every worktree of one repository
  * shares one board, and a directory outside git keys on itself.
  *
- * Two writes race safely without a lock. **Create** hard-links a temporary file
- * onto the target name, which fails when the name is taken, so two adds cannot
- * share an id and the loser simply retries with the next one. **Update** re-reads,
- * re-checks the operation's preconditions, and renames over the old file, so a
- * card that changed underneath is re-evaluated rather than overwritten: an
- * operation says "apply when this holds", never "force this state".
+ * **Create** needs no lock: it hard-links a temporary file onto the target name,
+ * which fails when the name is taken, so two adds cannot share an id and the loser
+ * simply retries with the next one. **Update** takes the card's write lock
+ * (`lock.ts`), re-reads it, re-checks the operation's preconditions, and renames
+ * over the old file, so a card that changed underneath is re-evaluated rather than
+ * overwritten — and a write cannot land between that check and the rename, where
+ * it would be lost while both calls reported success. An operation says "apply
+ * when this holds", never "force this state".
  *
  * A write reads the whole board once, because `rules.ts` needs another card to answer
  * three of its questions: is this dependency finished, would this link close a loop,
@@ -46,6 +48,7 @@ import {
 import { LANES } from "./lanes.ts";
 import { readCard } from "./read.ts";
 import { indexOf } from "./links.ts";
+import { lockCard } from "./lock.ts";
 import { type BoardConfig, DEFAULT_BOARD_CONFIG, readBoardConfig } from "./config.ts";
 import { type Actor, applyOp, type CardOp, createCard } from "./rules.ts";
 
@@ -205,12 +208,11 @@ export function createStore(
 		key?: string;
 		config?: BoardConfig;
 		/**
-		 * A suite's seam: called once an operation is ready to write and before the re-read that
-		 * decides whether it still may.
+		 * A suite's seam: called when a pass starts, before the card's lock is taken.
 		 *
-		 * A race between a write and a pile move cannot be made deterministic from outside — the
-		 * window is inside one `mutate` — so a test stands here and lets the other write land. The
-		 * product supplies nothing.
+		 * The pass reads, checks, and writes under the lock, so the only place another write can
+		 * land is before it: a test stands here and lets that write happen, and the pass then reads
+		 * what it left instead of overwriting it. The product supplies nothing.
 		 */
 		beforeWrite?: (id: string, kind: CardOp["kind"]) => Promise<void> | void;
 	} = {},
@@ -313,58 +315,64 @@ export function createStore(
 	const mutate = async (id: string, op: CardOp, actor: Actor, now: number): Promise<MutateResult> => {
 		let changedUnderneath = false;
 		for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-			const found = await locate(id);
-			if (!found) {
-				if (changedUnderneath) return { ok: false, error: `${cardRef(id)} was dropped.` };
-				// A file that is there and refused is not a card that does not exist: the
-				// reader is told which file to look at instead of being sent to add one.
-				const skip = (await scan()).skipped.find((entry) => entry.id === id);
-				return {
-					ok: false,
-					error:
-						skip === undefined
-							? `${cardRef(id)} does not exist.`
-							: `${cardRef(id)} is there and this build cannot read it (${skip.file}: ${skip.why}).`,
-				};
-			}
-			const { card, pile } = found;
-			// The preconditions are checked against the card as it is *now*, and against the
-			// board as it is now, so an operation re-applied to a card that changed is refused
-			// rather than forced.
-			const result = applyOp(card, op, actor, now, indexOf(await list()), config);
-			if (!result.ok) return { ok: false, error: result.error, card };
-			if (!result.changed) {
-				return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
-			}
-			// Last look before the write, asked for every path that writes: the card must still be
-			// where it was read and at the revision it had. A writer that landed in between is the
-			// re-read the next pass applies against — and the pile is part of the answer, because
-			// `archive` moves the file without moving its revision, so a write carrying a stale
-			// pile would recreate the card on the board beside its copy in the archive.
+			// The seam stands before the lock, so a suite can land a second write in the one window
+			// this pass cannot hold: the card is read, checked, and written under one lock, so a peer
+			// is either inside that window or waiting for it — and a write that arrived between the
+			// read and the rename, which both calls used to report as success at one revision, is
+			// not possible. The lock is one name per card, kept beside the board's cards, so a writer
+			// that finds the card in the archive shares it. A lock a live writer held throughout the
+			// wait is one more pass.
 			await options.beforeWrite?.(id, op.kind);
-			const current = await locate(id);
-			if (current === undefined || current.card.rev !== card.rev || current.pile !== pile) {
+			const lock = await lockCard(cardsDir, id);
+			if (lock === undefined) {
 				changedUnderneath = true;
 				continue;
 			}
-			if (op.kind === "drop") {
-				// The record lands first: a crash between the two leaves a card that still
-				// exists with a note explaining it, never a card that is gone unexplained.
-				await writeEnded(endedDir, result.card, actor, now);
-				await rm(join(pile, fileNameFor(id)), { force: true });
-				return { ok: true, card: result.card, changed: true, dropped: true, archived: false };
-			}
-			if (op.kind === "archive") {
-				// A card the board does not hold is already aside, and two sessions asking at
-				// once are one move rather than a second one.
-				if (pile === archiveDir) {
+			try {
+				const found = await locate(id);
+				if (!found) {
+					if (changedUnderneath) return { ok: false, error: `${cardRef(id)} was dropped.` };
+					// A file that is there and refused is not a card that does not exist: the
+					// reader is told which file to look at instead of being sent to add one.
+					const skip = (await scan()).skipped.find((entry) => entry.id === id);
+					return {
+						ok: false,
+						error:
+							skip === undefined
+								? `${cardRef(id)} does not exist.`
+								: `${cardRef(id)} is there and this build cannot read it (${skip.file}: ${skip.why}).`,
+					};
+				}
+				const { card, pile } = found;
+				// The preconditions are checked against the card as it is *now*, and against the board
+				// as it is now, under the lock that keeps both still, so an operation is refused rather
+				// than forced.
+				const result = applyOp(card, op, actor, now, indexOf(await list()), config);
+				if (!result.ok) return { ok: false, error: result.error, card };
+				if (!result.changed) {
 					return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
 				}
-				await moveCard(cardsDir, archiveDir, id);
-				return { ok: true, card: result.card, changed: true, dropped: false, archived: true };
+				if (op.kind === "drop") {
+					// The record lands first: a crash between the two leaves a card that still
+					// exists with a note explaining it, never a card that is gone unexplained.
+					await writeEnded(endedDir, result.card, actor, now);
+					await rm(join(pile, fileNameFor(id)), { force: true });
+					return { ok: true, card: result.card, changed: true, dropped: true, archived: false };
+				}
+				if (op.kind === "archive") {
+					// A card the board does not hold is already aside, and two sessions asking at
+					// once are one move rather than a second one.
+					if (pile === archiveDir) {
+						return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
+					}
+					await moveCard(cardsDir, archiveDir, id);
+					return { ok: true, card: result.card, changed: true, dropped: false, archived: true };
+				}
+				await writeCardFile(pile, id, result.card);
+				return { ok: true, card: result.card, changed: true, dropped: false, archived: false };
+			} finally {
+				await lock.release();
 			}
-			await writeCardFile(pile, id, result.card);
-			return { ok: true, card: result.card, changed: true, dropped: false, archived: false };
 		}
 		return {
 			ok: false,
