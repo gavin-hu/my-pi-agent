@@ -258,7 +258,15 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 		return true;
 	};
 
+	/**
+	 * Feed one chunk through the matcher.
+	 *
+	 * Only a running watcher consumes. Its child keeps delivering through the SIGTERM → SIGKILL
+	 * grace, and those dying lines are not matches: counting them would grow `matches`/`logs`
+	 * after `Stopped`, and a `wake` watcher would start a turn the user just stopped.
+	 */
 	const consume = (w: Internal, chunk: Buffer, time: number): void => {
+		if (w.status !== "running") return;
 		let matched = false;
 		for (const line of w.lines.push(chunk)) {
 			if (emit(w, line, time)) matched = true;

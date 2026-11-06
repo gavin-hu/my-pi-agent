@@ -235,6 +235,26 @@ describe("watch runtime", () => {
 		expect(h.kills[0]?.signal).toBe("SIGTERM");
 	});
 
+	test("a stopped watcher ignores output that arrives while its command winds down", () => {
+		const { h, ctx } = runtimeHarness(suite);
+		const woke: number[] = [];
+		h.runtime.onMatch = (matches) => woke.push(matches.length);
+		const watch = h.runtime.add({ command: "build", pattern: "FAIL", wake: true }, ctx);
+		h.children[0].write("FAIL one\n");
+
+		h.runtime.stop(watch.id);
+		// The child is signalled but still open until it closes, so its dying output reaches
+		// `onData`; a stopped watcher must not count it or wake a turn with it.
+		h.children[0].write("FAIL two\n");
+
+		const record = h.runtime.get(watch.id);
+		expect(record?.linesRead).toBe(1);
+		expect(record?.matchCount).toBe(1);
+		expect(h.runtime.matches(watch.id)?.lines).toEqual(["FAIL one"]);
+		expect(h.runtime.logs(watch.id)?.lines).toEqual(["FAIL one"]);
+		expect(woke).toEqual([1]);
+	});
+
 	test("a stopped command that never closes is escalated to SIGKILL", async () => {
 		const { h, ctx } = runtimeHarness(suite);
 		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);

@@ -246,6 +246,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `watch`: a stopped watcher stops consuming. Its child keeps delivering through the SIGTERM → SIGKILL
+  grace, and every line of it was still counted: `linesRead`/`matchCount` rose after `Stopped w1`,
+  the lines landed in `matches` and `logs`, the unreported-burst alert fired, and a `wake` watcher
+  could start a triggered turn the user had just stopped. `consume` now drops a chunk for a watcher
+  that is not running — the seam both `onData` and the file poller enter — while the partial line
+  `stop` flushes before it flips the status still belongs to the running watcher, which is why the
+  check sits there and not in `emit`.
+
 - `board`: two sessions writing one card take turns instead of one silently overwriting the other. A
   `mutate` re-read the card, checked its revision, and then renamed a new file over it with nothing
   held in between: a peer's write landing in that gap was replaced by the older copy, and both calls
