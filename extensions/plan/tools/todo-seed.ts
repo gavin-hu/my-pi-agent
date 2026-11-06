@@ -27,6 +27,42 @@ function todoMaxItems(pi: ExtensionAPI): number {
 }
 
 /**
+ * The merge an approval would make, before anything is written.
+ *
+ * One computation for two callers: the screen says how many steps the approval seeds, and
+ * the write does it, so both ask this. The number is what the run *adds* — a step the list
+ * already holds is the reader's item and is never added again, and a full list takes none —
+ * which is why the question cannot report the plan's own step count.
+ */
+function planMerge(pi: ExtensionAPI, ctx: ExtensionToolContext, plan: string, previous?: readonly string[]) {
+	// A todo item is one line, so the plan's own text is shortened here rather than in
+	// extraction: the file and the `steps` guard keep the whole step.
+	const steps = extractPlanSteps(plan).map((step) => ({ ...step, content: elideStep(step.content) }));
+	const verification = verificationItem(plan);
+	if (steps.length === 0 && !verification) return { steps };
+	const merged = mergeTodos(lastTodos(ctx.sessionManager.getBranch()), steps, todoMaxItems(pi), verification, previous);
+	return { steps, merged };
+}
+
+/**
+ * How many items an approval of `plan` would add: the number the question names.
+ *
+ * `ApprovalEffects.steps` is the steps the approval seeds, so a plan whose steps the list
+ * already holds adds nothing and the question drops the clause — the same answer the run
+ * then reports.
+ */
+export function seededCount(
+	pi: ExtensionAPI,
+	ctx: ExtensionToolContext,
+	plan: string,
+	previous?: readonly string[],
+): number {
+	const { merged } = planMerge(pi, ctx, plan, previous);
+	if (merged === undefined) return 0;
+	return merged.added + (merged.trailing === "added" ? 1 : 0);
+}
+
+/**
  * Record the plan's steps in the todo list. The list is whole-list replacement,
  * so the steps are merged into what the branch already holds: existing items
  * keep their place and status, duplicates are skipped, and the cap defers the
@@ -39,12 +75,8 @@ export async function seedTodos(
 	/** What an earlier approval of the same plan appended, when it was approved before. */
 	previous?: readonly string[],
 ): Promise<{ steps: PlanStep[]; merged?: TodoMerge; error?: string }> {
-	// A todo item is one line, so the plan's own text is shortened here rather than in
-	// extraction: the file and the `steps` guard keep the whole step.
-	const steps = extractPlanSteps(plan).map((step) => ({ ...step, content: elideStep(step.content) }));
-	const verification = verificationItem(plan);
-	if (steps.length === 0 && !verification) return { steps };
-	const merged = mergeTodos(lastTodos(ctx.sessionManager.getBranch()), steps, todoMaxItems(pi), verification, previous);
+	const { steps, merged } = planMerge(pi, ctx, plan, previous);
+	if (merged === undefined) return { steps };
 	// Nothing new to write: every step (and the verification item) is already in
 	// the list, or the list is full, so a rewrite would only churn the widget.
 	if (merged.added === 0 && merged.trailing !== "added" && merged.replaced === 0) return { steps, merged };

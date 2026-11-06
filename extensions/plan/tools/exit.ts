@@ -29,7 +29,7 @@ import type { ExitPlanModeDetails, PlanDetails } from "../types.ts";
 import type { PlanWebReview } from "../web.ts";
 import { firstTextLine } from "./nested.ts";
 import { planRefusal } from "./refusal.ts";
-import { seedTodos } from "./todo-seed.ts";
+import { seededCount, seedTodos } from "./todo-seed.ts";
 
 /** The fields `action: "exit"` reads. */
 export interface ExitPlanModeArgs {
@@ -148,6 +148,10 @@ export async function executeExit(
 		);
 	}
 
+	// What an approval would add, asked before anyone answers: the screen names the steps it
+	// seeds, not the plan's step count, so a re-approval whose items are already there drops
+	// the clause instead of promising a merge it will not make.
+	const seeded = seededCount(pi, ctx, file.content, runtime.seeded(file.path));
 	// One decision, however the session is attached; `review.ts` owns the loop,
 	// the baseline, and closing the browser review when the turn is aborted.
 	const decision = await reviewPlan({
@@ -156,7 +160,7 @@ export async function executeExit(
 		plans: runtime.plans,
 		baselines: runtime,
 		plan: file,
-		approval: { steps: total, setsGoal: goalAction(pi, ctx) !== undefined },
+		approval: { steps: seeded, setsGoal: goalAction(pi, ctx) !== undefined },
 		signal,
 	});
 

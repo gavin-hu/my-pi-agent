@@ -110,9 +110,22 @@ export function createAtomic(dir: string, base: string, content: string, seams: 
 	}
 }
 
-/** The prefix a plan's revisions share, so one chain is one `startsWith`. */
+/** The prefix a plan's revisions share: `.‹slug›-r`, then the number. */
 function revisionPrefix(path: string): string {
 	return `.${basename(path).replace(/\.md$/i, "")}-r`;
+}
+
+/**
+ * One plan's chain as a whole name, not a prefix.
+ *
+ * A plan called `draft-r1` writes revisions of its own whose names begin with `.draft-r`, so
+ * a prefix match would let `draft` count them as its chain — and then prune the neighbour's
+ * history as its own chain grew. Anchoring the slug and the number to the whole name leaves
+ * each plan exactly the files it wrote.
+ */
+function revisionPattern(path: string): RegExp {
+	const escaped = revisionPrefix(path).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	return new RegExp(`^${escaped}\\d+\\.md$`, "i");
 }
 
 /** The number a revision's name carries, so the newest is the highest. */
@@ -125,9 +138,10 @@ function revisionNumber(name: string): number {
 export function keepRevision(path: string, previous: string): string {
 	const dir = dirname(path);
 	const prefix = revisionPrefix(path);
+	const pattern = revisionPattern(path);
 	let names: string[];
 	try {
-		names = readdirSync(dir).filter((name) => name.startsWith(prefix) && revisionNumber(name) > 0);
+		names = readdirSync(dir).filter((name) => pattern.test(name));
 	} catch {
 		names = [];
 	}
@@ -135,8 +149,8 @@ export function keepRevision(path: string, previous: string): string {
 	const target = join(dir, `${prefix}${String(next).padStart(3, "0")}.md`);
 	writeAtomic(target, previous);
 	// Oldest first, so what stays is the newest chain.
-	const chain = [...names, basename(target)].sort((a, b) => revisionNumber(a) - revisionNumber(b));
-	for (const name of chain.slice(0, Math.max(0, chain.length - MAX_REVISIONS))) {
+	const kept = [...names, basename(target)].sort((a, b) => revisionNumber(a) - revisionNumber(b));
+	for (const name of kept.slice(0, Math.max(0, kept.length - MAX_REVISIONS))) {
 		try {
 			unlinkSync(join(dir, name));
 		} catch {

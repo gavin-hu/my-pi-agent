@@ -1143,7 +1143,7 @@ every link and closes that listener; closing the review does both.
 bun test extensions/plan
 ```
 
-Forty-two co-located suites, declared in `test/suite-manifest.ts`:
+Forty-three co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, the store's directory, atomic
   writes, `read`/`index`, `setSteps`, `saveFeedback`, and step extraction;
@@ -1152,6 +1152,9 @@ Forty-two co-located suites, declared in `test/suite-manifest.ts`:
 - `feedback.test.ts` — the comment codec: authored markers, stripping and
   parsing, who a reviewer's write is signed by, carrying feedback onto a
   revision, and displaying stored comments.
+- `plan-store-write.test.ts` — the store's write paths: the name a new plan
+  claims, refining one, and the size limit both keep, including the 413 a save
+  past it reaches the page as.
 - `feedback-marks.test.ts` — the marker as it is written and read back: one
   writer's save replacing only that writer's notes, an owner's `@name:` note
   staying the owner's, and where a note lands when the block it names is a fence

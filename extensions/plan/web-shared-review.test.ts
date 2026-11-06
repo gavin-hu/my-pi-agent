@@ -22,6 +22,51 @@ import type { ShareState } from "./web-share.ts";
 const { startShared } = reviewSuite();
 
 describe("shared review", () => {
+	test("a share started while the listener is going down binds one of its own", async () => {
+		// The bug this fixes: `stop()` cleared its listener before `unshare()` resolved, so a
+		// share in that window took back the mount on its way out and minted a dead link.
+		let release = (): void => {};
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		let gated = false;
+		const { review } = await startShared({
+			mount: async (spec) => {
+				const mounted = await testMountSource()(spec);
+				if (mounted.kind !== "mounted") return mounted;
+				return {
+					kind: "mounted",
+					mount: {
+						...mounted.mount,
+						unshare: async () => {
+							// Only the stop that races the share is held; a later one goes straight through.
+							if (!gated) {
+								gated = true;
+								await gate;
+							}
+							return mounted.mount.unshare();
+						},
+					},
+				};
+			},
+		});
+		expect((await review.share())?.state.links.length).toBe(1);
+
+		const stopping = review.stopSharing();
+		// Started while the listener is still on its way down: it must wait, not bind beside it.
+		const during = review.share();
+		await settle(20);
+		release();
+		await stopping;
+		const shared = await during;
+
+		// Either the share reports there is nothing bound yet, or the link it minted answers.
+		for (const link of shared?.state.links ?? []) {
+			expect((await fetch(link.url)).status).toBe(200);
+		}
+		expect(shared?.state.sharing === false || (shared?.state.links.length ?? 0) > 0).toBe(true);
+	});
+
 	test("reports why it cannot share when no listener answers for it", async () => {
 		// `serve` decides whether there is an address to bind; a review whose mount cannot
 		// offer one says so instead of inventing a link.

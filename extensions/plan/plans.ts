@@ -51,6 +51,21 @@ import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } f
 
 /** Largest plan accepted, in UTF-8 bytes. */
 export const MAX_PLAN_BYTES = 256 * 1024;
+
+/**
+ * A write the size limit refused, with the size that would have landed.
+ *
+ * A class rather than a bare `Error` because a caller has to be able to answer it as the
+ * refusal it is: the browser page shows 413 with this sentence, where any other throw from
+ * the store is a server fault. The cap belongs to the file, so both write paths throw this
+ * and neither can grow past it.
+ */
+export class PlanTooLargeError extends Error {
+	constructor(readonly bytes: number) {
+		super(`The plan is too large with its review comments (${bytes} bytes; the limit is ${MAX_PLAN_BYTES}).`);
+		this.name = "PlanTooLargeError";
+	}
+}
 /** Longest slug derived from a plan title. */
 const MAX_SLUG_LENGTH = 60;
 /** A plan read from disk. */
@@ -267,7 +282,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		if (!title) throw new Error("A plan title is required.");
 		const bytes = Buffer.byteLength(input.content, "utf-8");
 		if (bytes > MAX_PLAN_BYTES) {
-			throw new Error(`The plan is too large (${bytes} bytes; the limit is ${MAX_PLAN_BYTES}).`);
+			throw new PlanTooLargeError(bytes);
 		}
 
 		const dir = await dirFor(base);
@@ -280,7 +295,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 			const content = carryFeedback("", input.content);
 			const nextBytes = Buffer.byteLength(content, "utf-8");
 			if (nextBytes > MAX_PLAN_BYTES) {
-				throw new Error(`The plan is too large with its review comments (${nextBytes} bytes).`);
+				throw new PlanTooLargeError(nextBytes);
 			}
 			const path = createAtomic(dir, `${stamp(now())}-${slugify(title)}`, content);
 			// A name can still land on a dangling symlink; refuse to write through it.
@@ -306,7 +321,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 				previous === undefined ? carryFeedback("", input.content) : carryFeedback(previous, input.content);
 			const nextBytes = Buffer.byteLength(content, "utf-8");
 			if (nextBytes > MAX_PLAN_BYTES) {
-				throw new Error(`The plan is too large with its review comments (${nextBytes} bytes).`);
+				throw new PlanTooLargeError(nextBytes);
 			}
 
 			// Both are kept: the plan is what the review and the model read from now on, and the
@@ -418,13 +433,13 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 				return who === "" || who === author;
 			});
 			const content = formatFeedback(plan.content, own, { author });
+			// The same cap `write` keeps: a page can hold more comments than a plan may carry, and
+			// a file past this limit is one `write` then refuses to refine — the plan would be
+			// stuck behind its own comments. Checked here, inside the queue and before the write.
+			const bytes = Buffer.byteLength(content, "utf-8");
+			if (bytes > MAX_PLAN_BYTES) throw new PlanTooLargeError(bytes);
 			writeAtomic(plan.path, content);
-			return {
-				path: plan.path,
-				relativePath: plan.relativePath,
-				content,
-				bytes: Buffer.byteLength(content, "utf-8"),
-			};
+			return { path: plan.path, relativePath: plan.relativePath, content, bytes };
 		});
 	};
 

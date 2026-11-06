@@ -216,62 +216,6 @@ describe("plan store — directory resolution", () => {
 	});
 });
 
-describe("plan store — write", () => {
-	test("names the file by timestamp and slug in the keyed store", async () => {
-		const root = tempDir();
-		const store = repoStore(root);
-		const file = await store.write(root, { title: "Add rate limiting", content: "# Plan\n1. Do it" });
-
-		expect(file.path).toBe(join(storeDir(root), "2026-10-08-1530-add-rate-limiting.md"));
-		expect(readFileSync(file.path, "utf-8")).toContain("1. Do it");
-		expect(file.relativePath).toBe(shortenPath(file.path));
-		expect(file.bytes).toBeGreaterThan(0);
-	});
-
-	test("writes nothing into the checkout, not even an ignore file", async () => {
-		const root = tempDir();
-		await repoStore(root).write(root, { title: "Kept", content: "body" });
-
-		expect(readdirSync(root)).toEqual([]);
-	});
-
-	test("suffixes a colliding name instead of overwriting", async () => {
-		const root = tempDir();
-		const store = repoStore(root);
-		const first = await store.write(root, { title: "Same", content: "one" });
-		const second = await store.write(root, { title: "Same", content: "two" });
-		expect(second.path).not.toBe(first.path);
-		expect(second.path).toContain("-same-2.md");
-		expect(readFileSync(first.path, "utf-8")).toBe("one");
-	});
-
-	test("overwrites an existing in-directory plan when plan_path is given", async () => {
-		const root = tempDir();
-		const store = repoStore(root);
-		const first = await store.write(root, { title: "First", content: "one" });
-		const refined = await store.write(root, { title: "First", content: "two", planPath: first.path });
-		expect(refined.path).toBe(first.path);
-		expect(readFileSync(first.path, "utf-8")).toBe("two");
-	});
-
-	test("rejects a plan_path outside the plans directory", async () => {
-		const root = tempDir();
-		const store = repoStore(root);
-		await expect(store.write(root, { title: "x", content: "x", planPath: join(root, "escape.md") })).rejects.toThrow(
-			/inside the plans directory/,
-		);
-	});
-
-	test("rejects an oversized plan and an empty title", async () => {
-		const root = tempDir();
-		const store = repoStore(root);
-		await expect(store.write(root, { title: "big", content: "x".repeat(MAX_PLAN_BYTES + 1) })).rejects.toThrow(
-			/too large/,
-		);
-		await expect(store.write(root, { title: "   ", content: "x" })).rejects.toThrow(/title is required/);
-	});
-});
-
 describe("plan store — read", () => {
 	test("reads a written plan back", async () => {
 		const root = tempDir();

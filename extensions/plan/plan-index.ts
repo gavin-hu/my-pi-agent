@@ -76,10 +76,16 @@ function footprint(summaries: readonly PlanSummary[]): { bytes: number; oldest: 
 	return { bytes, oldest };
 }
 
-/** `2.4 kB — oldest 2d ago`, the store's footprint as the header and the screen say it. */
+/**
+ * `2.4 kB — oldest 2d ago`, the store's footprint as the header and the screen say it.
+ *
+ * An empty store has no oldest plan: the age is a fact about a file, so reporting the epoch
+ * would date the store to 1970 and read as "oldest 56y ago".
+ */
 function footprintText(summaries: readonly PlanSummary[], nowMs: number): string {
 	const { bytes, oldest } = footprint(summaries);
-	return `${formatSize(bytes)} — oldest ${relativeAge(oldest, nowMs)}`;
+	const size = formatSize(bytes);
+	return summaries.length === 0 ? size : `${size} — oldest ${relativeAge(oldest, nowMs)}`;
 }
 
 /**

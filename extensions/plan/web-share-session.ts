@@ -65,6 +65,15 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 		nameOf: deps.nameOf,
 	});
 	let reason: string | undefined;
+	/**
+	 * A stop whose listener is still on its way down.
+	 *
+	 * `shared` cannot be cleared before `unshare()` resolves: `ensureListener` reads "no
+	 * listener" as "bind one", and the registry hands back the mount it is about to withdraw,
+	 * so a share started in that window mints a link nobody can open. The promise is the
+	 * window's one owner — a share waits for it, then binds a listener of its own.
+	 */
+	let stopping: Promise<void> | undefined;
 	const hosts = (): readonly string[] => (shared ? [...LOOPBACK_HOSTS, shared.address] : [...LOOPBACK_HOSTS]);
 
 	/**
@@ -86,6 +95,9 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 	 * this runs once per share and the rest is bookkeeping.
 	 */
 	const ensureListener = async (): Promise<boolean> => {
+		// A stop in flight is a listener still bound: binding beside it would take back the
+		// mount on its way out, so this waits for the one that is leaving.
+		if (stopping !== undefined) await stopping;
 		if (shared !== undefined) return true;
 		shared = await deps.mount.share();
 		if (shared === undefined) {
@@ -144,13 +156,24 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 		// The reviewers are told before their listener goes away; the review itself
 		// stays open for its owner.
 		deps.endStreams("revoked", { role: "reviewer" });
-		shared = undefined;
 		reason = undefined;
-		await deps.mount.unshare();
+		stopping = deps.mount.unshare().then(
+			() => {
+				// Only now is there no listener, so only now may a share bind a new one.
+				shared = undefined;
+				stopping = undefined;
+			},
+			() => {
+				// The listener is still there if the withdraw failed, and a share may use it.
+				stopping = undefined;
+			},
+		);
+		await stopping;
 		return settle();
 	};
 
 	const close = async (): Promise<void> => {
+		if (stopping !== undefined) await stopping;
 		if (shared === undefined) return;
 		shared = undefined;
 		await deps.mount.unshare();

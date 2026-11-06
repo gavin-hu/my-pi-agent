@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: a browser save is refused when the comments would push the plan past the store's
+  256 kB limit — 413 with the reason, and the file untouched — instead of writing a plan the
+  next `write` then refuses to refine.
+- `plan`: **Stop sharing** holds its listener until it is really gone, so a link minted in that
+  window binds one of its own rather than a page nobody can open.
+- `plan`: an empty `/plan list` says `0 B`, not `oldest 56y ago`.
+- `plan`: the approval question counts the steps the approval actually seeds, so a step the
+  todo list already holds no longer makes it promise a merge that adds nothing.
+- `plan`: a plan's revision chain is matched by its whole file name, so a plan whose slug ends
+  `-r1` no longer shares its neighbour's chain or prunes that neighbour's history.
 - `plan`: an owner's note that begins `@alice:` is stored escaped, so it reads back as the
   owner's; the reviewer it named could otherwise replace every marker of her own and take the
   owner's text with them.

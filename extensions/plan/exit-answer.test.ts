@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { GOAL_TOOL } from "../../lib/tool-names.ts";
 import { useEnv } from "../../test/helpers/env.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
-import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
+import { resultEntry, todoEntry } from "../../test/helpers/fixtures/goal.ts";
 import { makePlanPi, planCtx } from "../../test/helpers/fixtures/plan.ts";
 import { planReview, REVIEW_TUI, renderReview } from "../../test/helpers/plan-view.ts";
 import { callTool } from "../../test/helpers/tools.ts";
@@ -148,6 +148,29 @@ describe("the facts exit hands the screen", () => {
 		await act(plan, "exit", { plan_path: path }, ctx);
 
 		expect(handedApproval(customCalls[0])).toEqual({ steps: 2, setsGoal: true });
+	});
+
+	test("names the steps the approval adds, not the plan's own count", async () => {
+		// The list already holds both steps, so an approval adds nothing: the question must
+		// drop the clause rather than promise a merge the run will not make.
+		const { plan, runtime } = harness();
+		await enter(plan, runtime);
+		const path = await savePlan(plan, "# Plan\n\n## Steps\n- [ ] one\n- [ ] two");
+
+		const { ctx, customCalls } = planCtx({
+			mode: "tui",
+			custom: { action: "keep" },
+			cwd: root,
+			branch: [
+				todoEntry([
+					{ content: "one", status: "pending" },
+					{ content: "two", status: "pending" },
+				]),
+			],
+		});
+		await act(plan, "exit", { plan_path: path }, ctx);
+
+		expect(handedApproval(customCalls[0])).toEqual({ steps: 0, setsGoal: true });
 	});
 
 	test("drops the goal when the user's own goal is already final", async () => {

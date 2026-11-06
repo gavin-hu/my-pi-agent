@@ -12,7 +12,7 @@
  */
 
 import { claimAuthor, normalizeAuthor, stripFeedback, type PlanAnnotation } from "./feedback.ts";
-import type { PlanStore, StoredPlan } from "./plans.ts";
+import { PlanTooLargeError, type PlanStore, type StoredPlan } from "./plans.ts";
 import type { ReviewCaller } from "./types.ts";
 import type { SaveResult } from "./web-router.ts";
 
@@ -42,6 +42,12 @@ const MOVED = {
 	message: "The plan changed on disk; reload the page and review again.",
 } as const;
 
+/** How one store write's refusal is answered: a size limit is the reader's fault, the rest is ours. */
+function refused(error: unknown): { ok: false; status: number; message: string } {
+	const message = error instanceof Error ? error.message : String(error);
+	return { ok: false, status: error instanceof PlanTooLargeError ? 413 : 500, message };
+}
+
 /** The file as it is now, when it still matches what the page rendered. */
 async function verified(
 	deps: WriteDeps,
@@ -68,7 +74,7 @@ export async function saveOwnerAnnotations(
 		const plan = await deps.store.saveFeedback(deps.cwd, deps.path, [...annotations]);
 		return { ok: true, plan };
 	} catch (error) {
-		return { ok: false, status: 500, message: error instanceof Error ? error.message : String(error) };
+		return refused(error);
 	}
 }
 
@@ -104,9 +110,6 @@ export async function postReviewerAnnotations(
 		await deps.store.saveFeedback(deps.cwd, deps.path, own, { author: claim.name });
 		return { save: { ok: true, author: claim.name }, count: own.length };
 	} catch (error) {
-		return {
-			save: { ok: false, status: 500, message: error instanceof Error ? error.message : String(error) },
-			count: 0,
-		};
+		return { save: refused(error), count: 0 };
 	}
 }

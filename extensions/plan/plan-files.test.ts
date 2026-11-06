@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { scratchDir, useEnv } from "../../test/helpers/env.ts";
 import { fixedPlanDate, planRepoPi } from "../../test/helpers/fixtures/plan.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { createAtomic } from "./plan-files.ts";
+import { createAtomic, keepRevision } from "./plan-files.ts";
 import { createPlanStore } from "./plans.ts";
 
 const temps = makeTempTracker();
@@ -126,5 +126,28 @@ describe("a plan's edits take turns", () => {
 		expect(b.content).toContain("- [x] One");
 		expect(readFileSync(first.path, "utf-8")).toContain("- [x] One");
 		expect(readFileSync(second.path, "utf-8")).toContain("- [x] One");
+	});
+});
+
+describe("a plan's revision chain", () => {
+	test("is the files that plan wrote, not its neighbour's whose slug begins the same", () => {
+		// `draft` and `draft-r1` sit in one directory, and `draft-r1`'s revisions begin with
+		// `.draft-r`: a prefix match handed them to `draft`'s chain, whose prune then deleted
+		// the neighbour's history as its own grew.
+		const dir = realpathSync.native(scratchDir(temps, "pi-plan-chain-"));
+		const plan = join(dir, "2026-10-08-1530-draft.md");
+		const neighbour = join(dir, ".2026-10-08-1530-draft-r1-r001.md");
+		writeFileSync(plan, "v1");
+		writeFileSync(neighbour, "the neighbour's own history");
+
+		for (let round = 0; round < 7; round++) keepRevision(plan, `copy ${round}`);
+
+		expect(readFileSync(neighbour, "utf-8")).toBe("the neighbour's own history");
+		// And this plan's own chain is its own: numbered from 001, and pruned to the newest few.
+		const mine = readdirSync(dir).filter(
+			(name) => name.startsWith(".2026-10-08-1530-draft-r") && name !== ".2026-10-08-1530-draft-r1-r001.md",
+		);
+		expect(mine).toHaveLength(5);
+		expect(mine).toContain(".2026-10-08-1530-draft-r007.md");
 	});
 });

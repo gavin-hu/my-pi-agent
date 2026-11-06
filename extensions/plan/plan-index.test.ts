@@ -94,6 +94,18 @@ describe("the name a row shows", () => {
 	});
 });
 
+describe("an empty store", () => {
+	test("names no oldest plan, because there is none", () => {
+		const { component } = screen([]);
+
+		const frame = component.render(80).join("\n");
+
+		expect(frame).toContain("No plans yet");
+		expect(frame).not.toContain("oldest");
+		expect(frame).not.toContain("56y");
+	});
+});
+
 describe("the row Enter opens", () => {
 	test("stays on the focused plan when a newer one appears above it", async () => {
 		const older = summary("older1");
