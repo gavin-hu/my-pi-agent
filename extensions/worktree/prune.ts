@@ -70,7 +70,9 @@ export async function pruneWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): P
 			kept.push(`${entry.path} (cannot verify)`);
 			continue;
 		}
-		const { hasWork, unverifiable } = await inspectWork(pi, entry.path, fork);
+		// Count the branch the removal would delete, not just the checkout: a detached
+		// HEAD or a second branch here would otherwise make the worktree look unused.
+		const { hasWork, unverifiable } = await inspectWork(pi, entry.path, fork, entry.branch);
 		if (hasWork || unverifiable) {
 			kept.push(`${entry.path} (has work)`);
 			continue;

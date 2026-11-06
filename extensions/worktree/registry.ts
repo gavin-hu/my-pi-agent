@@ -221,13 +221,22 @@ export async function statusOf(
 	// once a branch is merged, it and a branch that never committed are both ancestors of
 	// the base, so `ahead` reports 0 for each and cannot tell them apart. This can.
 	const since = options.record?.base.commit;
-	if (since) base.commits = await commitsAhead(pi, path, since);
+	if (since) {
+		const made = await commitsAhead(pi, path, since);
+		if (made !== undefined) base.commits = made;
+	}
 	if (baseRef) {
-		base.ahead = await commitsAhead(pi, path, baseRef);
-		base.behind = await commitsBehind(pi, path, baseRef);
-		// `merged` claims the work landed, so it needs commits that could have landed: a
-		// branch with none is an empty checkout, not a finished one.
-		base.merged = base.ahead === 0 && base.commits !== 0;
+		// A count git refused is not zero work: leave the numbers at their defaults and make
+		// no `merged` claim from a reading that never came back.
+		const ahead = await commitsAhead(pi, path, baseRef);
+		const behind = await commitsBehind(pi, path, baseRef);
+		if (ahead !== undefined && behind !== undefined) {
+			base.ahead = ahead;
+			base.behind = behind;
+			// `merged` claims the work landed, so it needs commits that could have landed: a
+			// branch with none is an empty checkout, not a finished one.
+			base.merged = ahead === 0 && base.commits !== 0;
+		}
 	}
 	return base;
 }

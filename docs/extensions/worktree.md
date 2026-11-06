@@ -82,9 +82,11 @@ created, whether that target already contains them, and the `git merge --no-ff`
 and `gh pr create` commands that finish the task. A branch with no commits of its
 own says so rather than claiming a merge — a worktree that never committed is an
 ancestor of its base, and "merged" would read as work that landed. The tool
-never commits, merges, pushes, or opens the PR. A branch that still holds work
-(uncommitted changes, or commits not reachable from the recorded base) is never
-force-deleted, even with `remove: true`.
+never commits, merges, pushes, or opens the PR. A branch is force-deleted only
+when its own commits were counted against the merge target and came to zero: a
+detached `HEAD` (a bisect, or another branch checked out here) neither hides
+those commits nor lends its own, and a count git refused keeps the branch and
+is reported as unread rather than as none.
 
 While isolated, `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` all resolve
 relative paths inside the worktree, and:
@@ -394,8 +396,10 @@ one read and two renderings.
   gone; the registry is reconciled against `git worktree list` on every
   management read and is never the source of truth.
 - **Never force out work.** `exit` never force-deletes a branch that
-  still holds uncommitted changes or commits not reachable from the recorded
-  base, even with `remove: true`.
+  still holds uncommitted changes or commits the merge target does not contain,
+  even with `remove: true`. The count is the branch's own, against the branch a
+  merge would land on, taken before the delete: a detached `HEAD` cannot hide it,
+  and a count git could not read counts as unknown work, never as none.
 - **A handoff is read, not performed.** The exit reports the branch's state and
   the command that finishes it, because a merge touches the main checkout and can
   conflict — the user should be the one in that state. The merge target is

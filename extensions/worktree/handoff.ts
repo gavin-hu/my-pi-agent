@@ -18,8 +18,11 @@ export interface Handoff {
 	branch: string | null;
 	/** The branch a merge would target, when it could be resolved. */
 	base: string | null;
-	/** Commits on the branch that the base does not contain. */
-	ahead: number;
+	/**
+	 * Commits on the branch that the base does not contain. Undefined when git could not
+	 * count them, which is not the same answer as zero: nothing is claimed from it.
+	 */
+	ahead: number | undefined;
 	/**
 	 * Commits the branch has made since the commit it was created at, when that was
 	 * recorded. Absent for a worktree this package did not create.
@@ -29,8 +32,9 @@ export interface Handoff {
 	merged: boolean;
 }
 
-/** Pluralized commit count, e.g. `1 commit` / `3 commits`. */
-function commits(count: number): string {
+/** Pluralized commit count, e.g. `1 commit` / `3 commits`, for a count that was read. */
+function commits(count: number | undefined): string {
+	if (count === undefined) return "commits that could not be counted";
 	return `${count} commit${count === 1 ? "" : "s"}`;
 }
 
@@ -46,6 +50,11 @@ export function handoffLines(handoff: Handoff): string[] {
 		return [
 			`Handoff: branch ${handoff.branch} holds ${commits(handoff.ahead)}; its base branch could not be resolved.`,
 		];
+	}
+	if (handoff.ahead === undefined) {
+		// A count git refused is not a branch with nothing on it: printing an empty handoff
+		// would invite the merge this cannot promise is safe.
+		return [`Handoff: ${handoff.branch} could not be counted against ${handoff.base} — check it before merging.`];
 	}
 	if (handoff.merged || handoff.ahead === 0) {
 		// "Merged" is a claim that work landed; a branch with no commits of its own never had
