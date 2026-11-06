@@ -306,7 +306,7 @@ describe("review router", () => {
 			"POST",
 			"/api/comment?token=tok",
 			headers,
-			JSON.stringify({ annotations: [{ anchor: 1, comment: "from the office" }] }),
+			JSON.stringify({ annotations: [{ anchor: 1, comment: "from the office" }], rev: "0123456789ab" }),
 			"10.0.0.7",
 		);
 
@@ -366,7 +366,7 @@ describe("review router", () => {
 				"sec-fetch-site": "same-origin",
 				"content-type": "application/json",
 			},
-			JSON.stringify({ annotations: [] }),
+			JSON.stringify({ annotations: [], rev: "0123456789ab" }),
 			LOOPBACK_PEER,
 		);
 		expect(own.status).toBe(200);

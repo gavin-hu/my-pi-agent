@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: a browser save is anchored to the revision its own page rendered. Every write names
+  it, the store compares it inside its per-plan turn, and a page whose plan moved is refused
+  `409` — so one tab's refetch can no longer place another tab's comments under text nobody
+  read, and a body naming no revision is refused `400` instead of written.
 - `plan`: a browser save is refused when the comments would push the plan past the store's
   256 kB limit — 413 with the reason, and the file untouched — instead of writing a plan the
   next `write` then refuses to refine.

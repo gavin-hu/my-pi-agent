@@ -94,6 +94,18 @@ export function planDigest(text: string): string {
 	return digestOf(text).slice(0, 12);
 }
 
+/**
+ * The revision a page rendered, as the server and the page both name it.
+ *
+ * The island carries this value and every save posts it back, so the comparison a save
+ * makes is between the text its page read and the text the file holds now — not between
+ * that text and whatever another tab has fetched since. One call, because a page's
+ * revision and the revision a save is checked against must never be two computations.
+ */
+export function pageRevision(content: string): string {
+	return planDigest(reviewText(content));
+}
+
 /** One digest per heading section, in document order, for a persisted baseline. */
 export function sectionDigests(content: string): SectionDigest[] {
 	return extractSections(reviewText(content)).map((section) => ({

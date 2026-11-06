@@ -302,6 +302,8 @@ ${WEB_MARKDOWN_JS}
       role: function () { return role; },
       mine: function () { return annotations.filter(isMine); },
       annotations: function () { return annotations; },
+      // The island's own revision: the server writes only into the plan this page read.
+      rev: function () { return typeof data.rev === "string" ? data.rev : ""; },
       settled: function () { return saved || approved || closed; },
       setStatus: setStatus,
       buttons: function () { return { approve: approveButton, save: saveButton, post: postButton }; },

@@ -18,6 +18,7 @@ import {
 	nextFrame,
 	pagePost,
 	reviewSuite,
+	servedRev,
 } from "../../test/helpers/fixtures/plan-web.ts";
 import { MAX_ANNOTATIONS, MAX_COMMENT_LENGTH, MAX_QUOTE_LENGTH } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
@@ -223,27 +224,26 @@ describe("review session", () => {
 			{
 				canApprove: false,
 				url: feedbackUrl,
-				body: JSON.stringify({ annotations: [{ anchor: 0, comment: "note" }] }),
+				annotations: [{ anchor: 0, comment: "note" }],
 				status: "saved",
 			},
 			{
 				canApprove: true,
 				url: approveUrl,
-				body: JSON.stringify({ annotations: [{ anchor: 0, comment: "go" }] }),
+				annotations: [{ anchor: 0, comment: "go" }],
 				status: "approved",
 			},
-			{ canApprove: false, url: cancelUrl, body: undefined, status: "cancelled" },
+			{ canApprove: false, url: cancelUrl, annotations: undefined, status: "cancelled" },
 		] as const;
 
 		for (const item of cases) {
 			const session = await start("# Plan\n", { canApprove: item.canApprove });
 			const init: RequestInit = { method: "POST" };
-			if (item.body) {
+			if (item.annotations) {
 				init.headers = { "Content-Type": "application/json" };
-				init.body = item.body;
+				init.body = JSON.stringify({ annotations: item.annotations, rev: await servedRev(session.url) });
 			}
 			const pending = fetch(item.url(session), init);
-
 			expect((await session.done).status).toBe(item.status);
 			await session.close();
 			expect((await pending).status).toBe(200);

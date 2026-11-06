@@ -17,6 +17,7 @@ import {
 	ownerShares,
 	reviewerPost,
 	reviewSuite,
+	servedRev,
 } from "../../test/helpers/fixtures/plan-web.ts";
 import type { ShareState } from "./web-share.ts";
 const { startShared } = reviewSuite();
@@ -96,7 +97,10 @@ describe("shared review", () => {
 		const response = await fetch(apiOf(link.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "name the ceiling", author: "alice" }] }),
+			body: JSON.stringify({
+				annotations: [{ anchor: 1, comment: "name the ceiling", author: "alice" }],
+				rev: await servedRev(link.url),
+			}),
 		});
 
 		expect(response.status).toBe(200);
@@ -120,7 +124,10 @@ describe("shared review", () => {
 		const response = await fetch(apiOf(link.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "name the ceiling", author: "alice" }] }),
+			body: JSON.stringify({
+				annotations: [{ anchor: 1, comment: "name the ceiling", author: "alice" }],
+				rev: await servedRev(link.url),
+			}),
 		});
 
 		expect(response.status).toBe(200);
@@ -141,11 +148,13 @@ describe("shared review", () => {
 		);
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
+		// The revision the page renders: the comment changes the file, not the text a page compares.
+		const rev = await servedRev(link.url);
 		const post = (comment: string) =>
 			fetch(apiOf(link.url, "/api/comment"), {
 				method: "POST",
 				headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-				body: JSON.stringify({ annotations: [{ anchor: 1, comment, author: "priya" }] }),
+				body: JSON.stringify({ annotations: [{ anchor: 1, comment, author: "priya" }], rev: rev }),
 			});
 
 		expect((await post("first note")).status).toBe(200);
@@ -197,6 +206,7 @@ describe("shared review", () => {
 					{ anchor: 1, comment: "one", author: "alice" },
 					{ anchor: 2, comment: "two", author: "alice" },
 				],
+				rev: await servedRev(link.url),
 			}),
 		});
 		expect(posted.status).toBe(200);
@@ -205,7 +215,7 @@ describe("shared review", () => {
 		await fetch(feedbackUrl(session), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(session.url).origin },
-			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "owner's" }] }),
+			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "owner's" }], rev: await servedRev(session.url) }),
 		});
 		expect(told).toEqual([["alice", 2]]);
 	});
@@ -230,6 +240,8 @@ describe("shared review", () => {
 					...page.annotations.filter((annotation) => annotation.author === "priya"),
 					{ anchor: 1, comment: "mine too", author: "priya" },
 				],
+				// The island's own revision, which is what her page would send.
+				rev: page.rev,
 			}),
 		});
 
@@ -245,11 +257,12 @@ describe("shared review", () => {
 		const { review } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
+		const rev = await servedRev(link.url);
 		const comment = (author: string, text: string) =>
 			fetch(apiOf(link.url, "/api/comment"), {
 				method: "POST",
 				headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-				body: JSON.stringify({ annotations: [{ anchor: 1, comment: text, author }] }),
+				body: JSON.stringify({ annotations: [{ anchor: 1, comment: text, author }], rev: rev }),
 			});
 
 		const first = await comment("alice", "first note");
@@ -268,11 +281,12 @@ describe("shared review", () => {
 		);
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
+		const rev = await servedRev(link.url);
 		const post = (author: string, text: string) =>
 			fetch(apiOf(link.url, "/api/comment"), {
 				method: "POST",
 				headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-				body: JSON.stringify({ annotations: [{ anchor: 1, comment: text, author }] }),
+				body: JSON.stringify({ annotations: [{ anchor: 1, comment: text, author }], rev }),
 			});
 
 		expect((await post("alice", "alice's note")).status).toBe(200);
@@ -303,11 +317,12 @@ describe("shared review", () => {
 		const { review, content } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
+		const rev = await servedRev(link.url);
 		const post = () =>
 			fetch(apiOf(link.url, "/api/comment"), {
 				method: "POST",
 				headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-				body: JSON.stringify({ annotations: [{ anchor: 1, comment: "note", author: "priya" }] }),
+				body: JSON.stringify({ annotations: [{ anchor: 1, comment: "note", author: "priya" }], rev: rev }),
 			});
 
 		expect((await post()).status).toBe(200);

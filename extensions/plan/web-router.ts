@@ -64,7 +64,13 @@ export interface ReviewContext {
 	 */
 	page: (caller: ReviewCaller, token: string) => Promise<ReviewPageData>;
 	/** Persist the annotations as the caller and report the outcome. */
-	save: (annotations: PlanAnnotation[], caller: ReviewCaller) => Promise<SaveResult>;
+	/**
+	 * Persist the annotations as the caller, into the revision the request named.
+	 *
+	 * The revision is the page's own (`ReviewPageData.rev`): a save that does not match it is
+	 * a page whose plan moved, and the store answers `409` from inside its write turn.
+	 */
+	save: (annotations: PlanAnnotation[], caller: ReviewCaller, rev: string) => Promise<SaveResult>;
 	/** Start sharing the review, or report why it cannot be shared. */
 	share: () => Promise<ShareResult>;
 	/** Mint one more reviewer link, so each teammate holds their own. */
@@ -124,11 +130,21 @@ export interface ReviewRoute {
 export const REVIEW_ROUTES: readonly ReviewRoute[] = [...OWNER_ROUTES, ...REVIEWER_ROUTES];
 
 /**
+ * The shape a revision may have: the island's digest, and nothing that could be a body.
+ *
+ * The value is opaque — the store compares it as a string — so this only says "a short
+ * token", which is what keeps a megabyte of text or a newline out of the comparison.
+ */
+const REVISION = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
  * Parse the body and save it as the caller, or report the refusal to send instead.
  *
  * Three routes persist annotations and differ only in what they do after the write; the
  * order — parse, refuse a malformed body, then save — is what keeps a bad request from
- * reaching the store, so it lives here once.
+ * reaching the store, so it lives here once. A body must also name the revision it rendered:
+ * a save with no page to check against cannot be anchored, so it is refused rather than
+ * written into whatever the file holds now.
  */
 async function settleAnnotations(ctx: ReviewContext, caller: ReviewCaller, body: string): Promise<Settled> {
 	let parsed: unknown;
@@ -137,9 +153,14 @@ async function settleAnnotations(ctx: ReviewContext, caller: ReviewCaller, body:
 	} catch {
 		return { response: jsonError(400, "The request body must be JSON.") };
 	}
-	const annotations = coerceAnnotations((parsed as { annotations?: unknown } | null)?.annotations);
+	const record = parsed as { annotations?: unknown; rev?: unknown } | null;
+	const annotations = coerceAnnotations(record?.annotations);
 	if (!annotations) return { response: jsonError(400, "The annotations are malformed.") };
-	const result = await ctx.save(annotations, caller);
+	const rev = typeof record?.rev === "string" && REVISION.test(record.rev) ? record.rev : undefined;
+	if (rev === undefined) {
+		return { response: jsonError(400, "The page did not say which revision it rendered; reload it and review again.") };
+	}
+	const result = await ctx.save(annotations, caller, rev);
 	if (!result.ok) return { response: jsonError(result.status, result.message) };
 	return { annotations, result };
 }

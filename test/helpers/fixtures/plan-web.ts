@@ -60,6 +60,16 @@ export function islandOf(html: string): ReviewIsland {
 
 export const HOST = { host: "127.0.0.1:1234" };
 
+/**
+ * The revision a served page carries: what a tab posts back with its write.
+ *
+ * A case that wants the stale case reads this *before* the plan changes, then posts the
+ * value it read — which is exactly what a tab left open does.
+ */
+export async function servedRev(url: string): Promise<string> {
+	return islandOf(await (await fetch(url)).text()).rev;
+}
+
 const PAGE_DATA: ReviewPageData = {
 	base: "",
 	title: "T",
@@ -129,9 +139,33 @@ export function router(overrides: Partial<ReviewContext> = {}) {
 export const LOOPBACK_PEER = "127.0.0.1";
 
 export const get = (url: string) => handleReviewRequest(router().ctx, "GET", url, HOST, "", LOOPBACK_PEER);
-/** One POST the way the page makes it: every body-taking route is sent JSON. */
-export const post = (ctx: ReviewContext, url: string, body = "") =>
-	handleReviewRequest(ctx, "POST", url, { ...HOST, "content-type": "application/json" }, body, LOOPBACK_PEER);
+/**
+ * One POST the way the page makes it: every body-taking route is sent JSON.
+ *
+ * A page always names the revision it rendered, so this adds one to a JSON body — a case
+ * about a stale save passes its own, and the case about a body naming none calls the router
+ * directly.
+ */
+export const post = (ctx: ReviewContext, url: string, body = "", rev = "0123456789ab") => {
+	// A case may pass a body that is not JSON at all, to prove the router refuses it: that body
+	// is sent exactly as given.
+	const named = (() => {
+		if (body === "" || rev === "") return undefined;
+		try {
+			return { ...(JSON.parse(body) as object), rev };
+		} catch {
+			return undefined;
+		}
+	})();
+	return handleReviewRequest(
+		ctx,
+		"POST",
+		url,
+		{ ...HOST, "content-type": "application/json" },
+		named === undefined ? body : JSON.stringify(named),
+		LOOPBACK_PEER,
+	);
+};
 
 /**
  * The router call a mount makes: the request's own values, peer address included.
@@ -300,12 +334,25 @@ export function ownerShares(session: PlanReviewSession, route: string, body?: un
 	});
 }
 
-/** A reviewer's comment through her own link's route. */
-export function reviewerPost(link: ShareLink, author: string, comment: string): Promise<Response> {
+/**
+ * A reviewer's comment through her own link's route.
+ *
+ * The body names the revision her page renders, read from that page. A link that no longer
+ * answers has no page to read and no revision to name — and it does not need one: a revoked
+ * token is refused before the body is parsed, which is what the case that posts through one
+ * is asserting.
+ */
+export async function reviewerPost(link: ShareLink, author: string, comment: string): Promise<Response> {
+	const page = await fetch(link.url).then(
+		(response) => (response.ok ? response.text() : ""),
+		() => "",
+	);
+	const annotations = [{ anchor: 1, comment, author }];
+	const body = page.includes('id="review-data"') ? { annotations, rev: islandOf(page).rev } : { annotations };
 	return fetch(apiOf(link.url, "/api/comment"), {
 		method: "POST",
 		headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-		body: JSON.stringify({ annotations: [{ anchor: 1, comment, author }] }),
+		body: JSON.stringify(body),
 	});
 }
 
@@ -465,10 +512,26 @@ export const approveUrl = (session: PlanReviewSession) => at(session, "/api/appr
 export const cancelUrl = (session: PlanReviewSession) => at(session, "/api/cancel");
 export const eventsUrl = (session: PlanReviewSession) => at(session, "/events");
 
-/** One JSON post from the page's own buttons, which is what the client sends. */
-export const pagePost = (session: PlanReviewSession, path: string, payload: unknown = {}): Promise<Response> =>
-	fetch(at(session, path), {
+/**
+ * One JSON post from the page's own buttons, which is what the client sends.
+ *
+ * The body carries the revision the served page renders, read from that page: a case that
+ * wants a stale save says so with `rev`, and everything else posts what a real tab does.
+ */
+export async function pagePost(
+	session: PlanReviewSession,
+	path: string,
+	payload: Record<string, unknown> = {},
+	rev?: string,
+): Promise<Response> {
+	const page = await fetch(session.url).then(
+		(response) => (response.ok ? response.text() : ""),
+		() => "",
+	);
+	const named = rev ?? (page.includes('id="review-data"') ? islandOf(page).rev : undefined);
+	return fetch(at(session, path), {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(payload),
+		body: JSON.stringify(named === undefined ? payload : { ...payload, rev: named }),
 	});
+}

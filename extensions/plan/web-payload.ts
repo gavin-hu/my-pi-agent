@@ -20,7 +20,7 @@ import {
 	type PlanAnnotation,
 } from "./feedback.ts";
 import { sanitizePlanText } from "./plan-text.ts";
-import { blockChangeMarks, changedSections, planDigest, type SectionDigest } from "./plan-text.ts";
+import { blockChangeMarks, changedSections, pageRevision, type SectionDigest } from "./plan-text.ts";
 import { extractPlanSteps } from "./steps.ts";
 import { planTitle } from "./plans.ts";
 import type { ReviewCaller, ReviewRole } from "./types.ts";
@@ -189,8 +189,9 @@ export function reviewPageData(input: ReviewPayloadInput): ReviewPageData {
 		limits: { comments: MAX_ANNOTATIONS, comment: MAX_COMMENT_LENGTH, quote: MAX_QUOTE_LENGTH },
 		token: input.token,
 		role,
-		// What the page keys this tab's unsaved draft on: same plan text, same draft.
-		rev: planDigest(current),
+		// What the page keys this tab's unsaved draft on, and what every save posts back: the
+		// revision this page rendered, computed the way the save guard computes it.
+		rev: pageRevision(input.content),
 		...(caller.name === undefined ? {} : { author: caller.name }),
 		canApprove: role === "owner" && input.canApprove,
 		share: role === "owner" ? input.share() : undefined,

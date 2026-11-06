@@ -118,6 +118,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"review-mount",
 		"review-prompt",
 		"web-lazy",
+		"web-anchor",
 		"web-behaviour",
 		"web-live",
 		"web-client",

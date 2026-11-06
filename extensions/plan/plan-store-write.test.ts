@@ -11,8 +11,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { stripFeedback } from "./feedback.ts";
-import { createPlanStore, MAX_PLAN_BYTES, PlanTooLargeError } from "./plans.ts";
+import { pageRevision } from "./plan-text.ts";
+import { createPlanStore, MAX_PLAN_BYTES, PlanMovedError, PlanTooLargeError } from "./plans.ts";
 import { saveOwnerAnnotations } from "./web-write.ts";
 import { repoKeyOf } from "../../lib/repo-key.ts";
 import { shortenPath } from "../../lib/format.ts";
@@ -109,14 +109,33 @@ describe("a save that would outgrow its limit", () => {
 		const root = tempDir("pi-plan-write-");
 		const store = createPlanStore(planRepoPi(root), { now: () => FIXED });
 		const file = await store.write(root, { title: "Tight", content: "# Plan\n\nBody.\n" });
-		const pageText = stripFeedback(file.content);
+		const rev = pageRevision(file.content);
 
-		const saved = await saveOwnerAnnotations({ store, cwd: root, path: file.path, pageText: () => pageText }, flood);
+		const saved = await saveOwnerAnnotations({ store, cwd: root, path: file.path, rev }, flood);
 
 		expect(saved).toEqual({
 			ok: false,
 			status: 413,
 			message: expect.stringContaining(`the limit is ${MAX_PLAN_BYTES}`),
 		});
+	});
+});
+
+describe("a save anchored to a revision", () => {
+	test("is refused against another revision, and written against its own", async () => {
+		const root = tempDir("pi-plan-write-");
+		const store = createPlanStore(planRepoPi(root), { now: () => FIXED });
+		const file = await store.write(root, { title: "Anchored", content: "# Plan\n\nBody.\n" });
+
+		await expect(
+			store.saveFeedback(root, file.path, [{ anchor: 2, comment: "wrong" }], { expect: "0123456789ab" }),
+		).rejects.toBeInstanceOf(PlanMovedError);
+		expect(readFileSync(file.path, "utf-8")).toBe("# Plan\n\nBody.\n");
+
+		// The revision the page would have posted: the text it rendered.
+		const saved = await store.saveFeedback(root, file.path, [{ anchor: 2, comment: "right" }], {
+			expect: pageRevision(file.content),
+		});
+		expect(saved.content).toContain("> [!REVIEW] right");
 	});
 });
