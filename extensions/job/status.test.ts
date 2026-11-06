@@ -61,14 +61,18 @@ describe("job status files", () => {
 	const realShell = process.platform !== "win32";
 
 	/**
-	 * The same spawn watchdog every other spawned process gets (`../../test/helpers/budget.ts`):
-	 * a real shell can be starved for seconds while a machine's worth of test files run at once —
-	 * the hazard AGENTS.md names for `--parallel`, and the reason CI runs the suite serially — so
-	 * the wait is bounded and reports that, instead of dying on the case's own budget with a test
-	 * name and no reason in it.
+	 * The shell's share of the clock, cut in two: its spawn, and the trap's write that lands past `close`.
+	 *
+	 * `SPAWN_WATCHDOG_MS` is the one clock for a spawned process (`../../test/helpers/budget.ts`), and a
+	 * starved machine can delay either half — the hazard AGENTS.md names for `--parallel`, and the reason
+	 * CI runs the suite serially. Splitting it means both waits sum to that watchdog, so a run of both
+	 * still fails inside the case budget rather than dying at it, and `waitFor`'s own expiry names the
+	 * test, its site and the budget. One hand-stated landing constant was the defect: 2 s for a write the
+	 * shell had not made yet, which a loaded full gate overran and then reported as nothing more than
+	 * "expected 7, received undefined".
 	 */
-	/** How long the trap's write gets to land: it runs as the shell exits, past `close`. */
-	const STATUS_LAND_MS = 2_000;
+	const SPAWN_MS = SPAWN_WATCHDOG_MS / 2;
+	const LANDING_MS = SPAWN_WATCHDOG_MS - SPAWN_MS;
 
 	/** Spawn `command` through a real shell with the status trap and wait for exit. */
 	async function run(command: string, statusPath: string): Promise<void> {
@@ -89,10 +93,12 @@ describe("job status files", () => {
 		try {
 			// `waitFor` is this suite's one clock; a spawn that never closes names itself
 			// here rather than at the runner's own timeout, which says only the test's name.
-			await waitFor(() => closed, SPAWN_WATCHDOG_MS);
-		} catch {
+			await waitFor(() => closed, SPAWN_MS);
+		} catch (error) {
+			// The report is `waitFor`'s and already names the test, the site and the budget: the
+			// only thing this half adds is the child it must not leave behind.
 			child.kill("SIGKILL");
-			throw new Error(`the shell did not exit within ${SPAWN_WATCHDOG_MS}ms`);
+			throw error;
 		}
 		if (failure) throw failure;
 	}
@@ -100,16 +106,13 @@ describe("job status files", () => {
 	/**
 	 * The code the trap recorded, once its write lands.
 	 *
-	 * The trap writes the file as the shell exits, so the write and the child's `close`
-	 * event race: read once and a slow machine reads nothing. `undefined` afterwards means
-	 * the trap never wrote, which is what the `exec` case asserts on its own.
+	 * The trap writes the file as the shell exits, so the write and the child's `close` event race:
+	 * read once and a slow machine reads nothing. An expired wait throws, naming this case and the
+	 * budget it spent; `undefined` after a landed wait means the trap never wrote, which is what the
+	 * `exec` case asserts on its own.
 	 */
 	async function exitStatusOf(statusPath: string): Promise<number | undefined> {
-		try {
-			await waitFor(() => readExitStatus(statusPath) !== undefined, STATUS_LAND_MS);
-		} catch {
-			return undefined;
-		}
+		await waitFor(() => readExitStatus(statusPath) !== undefined, LANDING_MS);
 		return readExitStatus(statusPath);
 	}
 
