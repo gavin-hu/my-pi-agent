@@ -44,7 +44,7 @@ describe("panel entries", () => {
 		expect(entries[3] && entryKey(entries[3])).toBe("auto:/agent/extensions/a.ts");
 	});
 
-	test("groups the Settings list under its five headings, in catalogue order", () => {
+	test("groups the Settings list under its six headings, in catalogue order", () => {
 		const entries = settingEntries(settingViews(settingsSnapshot(), "global"));
 
 		expect(entries.filter((entry) => entry.kind === "group").map((entry) => entry.label)).toEqual([
@@ -52,6 +52,7 @@ describe("panel entries", () => {
 			"Notifications",
 			"Session",
 			"Board",
+			"Team",
 			"Price",
 		]);
 		expect(entries.filter((entry) => entry.kind === "setting")).toHaveLength(15);

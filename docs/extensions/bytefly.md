@@ -33,7 +33,7 @@ default, and from `bytefly.json` otherwise.
 |---|---|---|
 | One frame, three sections | `/bytefly`, `/bytefly skills`, `/bytefly settings` | Extensions, skills, and settings in one dock: the worst problem in the header, each section's count on the tabs, the write scope at the right, and one body height for all three, so changing section never resizes the screen. |
 | Resource rows and the block | `Space`, `Enter`, `?` | A name-first row — `worktree`, not `worktree/index.ts` — with one checkbox, one status glyph and one verdict word, and the focused row's findings, path, source, state, and health beside the list at 96 columns and under it below. |
-| Grouped settings | `/bytefly settings` | Fifteen preferences under `Startup`, `Notifications`, `Session`, `Board`, and `Price`, each value in one aligned column and editable in place; `J` shows the stored JSON section. |
+| Grouped settings | `/bytefly settings` | Fifteen preferences under `Startup`, `Notifications`, `Session`, `Board`, `Team`, and `Price`, each value in one aligned column and editable in place; `J` shows the stored JSON section. |
 | Theme selection | the `Theme` row in `/bytefly settings` | `system` and the package's `bytefly-dark` and `bytefly-light` palettes are one selection; a reload applies it. |
 | Filters and scope | `/`, `!`, `s`, `x` | Narrow the rows by text or to what needs attention — the chips on the tab row say which — and choose where a toggle lands, the personal or project `settings.json`, with `x` clearing a project override. |
 | Reload after changes | `R` | `unsaved changes` joins the header while a write is pending, and `R` reloads to apply it instead of leaving the session to be restarted by hand. |
@@ -866,10 +866,10 @@ the reason.
 
 **Settings.** The third section is the same frame over the curated preferences,
 grouped by what they do rather than by which file holds them: `Startup (2)`,
-`Notifications (5)`, `Session (3)`, `Board (3)`, and `Price (2)`. It is the
+`Notifications (5)`, `Session (3)`, `Board (2)`, `Team (1)`, and `Price (2)`. It is the
 shortlist a session changes: fifteen preferences, each with its value in one
 aligned column instead of beside its label, so a column of values can be read
-down. Twenty entries — fifteen rows and their five headings — want a 28-row
+down. Twenty-one entries — fifteen rows and their six headings — want a 29-row
 terminal to be seen whole when the block sits beside the list; on a shorter or
 narrower one the list scrolls, says `showing 1–13 of 15`, and the block keeps its
 three rows. The frame never grows past the tallest section, however
@@ -883,7 +883,7 @@ description, and `Stored in <origin> · <file>` — `Global`, `Project`,
 otherwise). `J` on a `bytefly.json` row appends that section as the active scope
 stores it, under a `── notify ──` rule.
 
-<img src="../../assets/screens/bytefly-settings.png" alt="The /bytefly Settings section at 120 columns: the `Startup (2)`, `Notifications (5)`, `Session (3)`, `Board (3)` and `showing 1–11 of 15` rows with each value in one aligned column, the `Extensions 9 · Skills 3 · Settings 15` tabs with `writes Global` at the right, and the focused row's block beside the list — its value, description, and the file the value is stored in" width="100%">
+<img src="../../assets/screens/bytefly-settings.png" alt="The /bytefly Settings section at 120 columns: the `Startup (2)`, `Notifications (5)`, `Session (3)`, `Board (2)`, `Team (1)` and `Price (2)` headings with all fifteen rows and each value in one aligned column, the `Extensions 9 · Skills 3 · Settings 15` tabs with `writes Global` at the right, and the focused row's block beside the list — its value, description, and the file the value is stored in" width="100%">
 
 | Group | Row | Source | Values |
 |---|---|---|---|
@@ -897,6 +897,9 @@ stores it, under a `── notify ──` rule.
 | Session | Resume after a job | `job.wakeOnFinish` | Off, On |
 | Session | Snapshot before a turn | `rewind.autoSnapshots` | Off, On |
 | Session | Health check at startup | `doctor.proactive` | Off, On |
+| Board | Plan limit | `board.wip.plan` | a whole number, 1 to 20 |
+| Board | Execute limit | `board.wip.execute` | a whole number, 1 to 20 |
+| Team | Lead | `board.lead` | a team name, up to 40 characters |
 | Price | Currency | `price.currency.code` | `CNY (¥)`, `USD ($)` |
 | Price | Session budget | `price.budget` | `Off`, or the amount as `¥5.00` |
 
@@ -914,8 +917,8 @@ and is replaced by the next choice here, so manage those in Pi's `/settings` →
 **Theme**.
 
 `Space` (or `Enter`) changes the focused row: a boolean toggles, an enum cycles
-forward, and the one text row — **Session budget** — opens an inline editor on its
-amount. `u` deletes the focused row's key so its default applies again (`<row>
+forward, and a text row — **Plan limit**, **Execute limit**, **Lead**, or **Session
+budget** — opens an inline editor on its value. `u` deletes the focused row's key so its default applies again (`<row>
 is already at its default.` when nothing is stored in that scope; an inherited
 Project value says so instead, and an app row answers that Pi has no unset), and
 `J` appends the focused row's whole section as the active scope stores it — the
@@ -923,7 +926,7 @@ only view of the keys this screen leaves to JSON. A successful change marks the
 block `Saved · reload to apply` and puts `unsaved changes` in the header, and
 closing offers the same reload confirm as an extension or skill toggle.
 
-The list is capped at fifteen rows so the screen keeps fitting a 28-row
+The list is capped at fifteen rows so the screen keeps fitting a 29-row
 terminal: adding a setting means removing one (`panel/settings.test.ts` holds the
 ceiling, and a 24-row terminal scrolls the list rather than the frame). Everything
 else stays in `bytefly.json` — the tuning numbers, the
@@ -1231,7 +1234,7 @@ why the line says so, and each source the manager reports is shown while it runs
 - **The list is a shortlist, not the whole document.** A row is one boolean,
   enum, string, or number; the tuning numbers, the labels, and the Pi
   preferences `/settings` owns stay in their files, and the catalogue is capped
-  at fifteen rows so the screen fits a 28-row terminal. `doctor.skip` (an
+  at fifteen rows so the screen fits a 29-row terminal. `doctor.skip` (an
   array), the `rates` table, and `price.peak` (a nested object) could never be a
   row; the rest are declared JSON-only with their reason in
   `test/settings-coverage.test.ts`.
@@ -1745,7 +1748,7 @@ columns, gauge), so the look follows the active theme.
 | `panel/kit.ts` | What `/bytefly` reads only once it opens: the listing text, the panel and skills models, the price report, and the shipped theme names, re-exported so `commands.ts` can hold them behind one `import()` instead of in every start's registration graph. |
 | `panel/filter.ts` | The two filters as predicates and chips: a text query over a row's name, path, and source, the attention switch, and what the tab row says is on. |
 | `panel/format.ts` | Non-TUI text: the resource headline and grouped listing with a per-row verdict, the header's attention segments, the one `rowBadge` the screen and the listing share, the section segments and their order, the Settings counts/headline, and the flat Settings listing. |
-| `panel/settings.ts` | The curated Settings catalogue: the fifteen descriptors in screen order, their five groups, the value labels (`Off`, `¥5.00`) and display origins, value cycling, stored-value mapping, validation, plus the per-section readers that resolve a row's leaf over the global and project documents. |
+| `panel/settings.ts` | The curated Settings catalogue: the fifteen descriptors in screen order, their six groups, the value labels (`Off`, `¥5.00`) and display origins, value cycling, stored-value mapping, validation, plus the per-section readers that resolve a row's leaf over the global and project documents. |
 | `panel/settings-runtime.ts` | The Settings runtime: snapshot cache, scope guards, app setters, per-leaf `bytefly.json` writes, dirty state, and change listeners. |
 | `panel/themes.ts` | Which themes the Theme row offers: the host's resolved list narrowed to the palettes under this package's `themes/`, identified by directory rather than name. |
 | `panel/prices.ts` | The `/bytefly prices` report: the unpriced models by key, the records behind each, and the one line saying where the keys go. It quotes no price — a rate is the user's to state. |

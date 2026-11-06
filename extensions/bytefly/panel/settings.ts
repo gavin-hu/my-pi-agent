@@ -9,7 +9,7 @@
  * The catalogue is the shortlist a session changes, not the whole document: every
  * row is one a workflow differs on, and each states its own rule so a value the
  * screen accepts is a value the loader keeps. The catalogue order is the screen's
- * order, and it is capped — fifteen rows and their five headings want a 28-row
+ * order, and it is capped — fifteen rows and their six headings want a 29-row
  * terminal, and a shorter one scrolls the list rather than the frame
  * (`settings.test.ts` holds the ceiling); a new row has to displace one. Everything else stays
  * `bytefly.json` — a list (`doctor.skip`), a table (`price.rates`), a schedule
@@ -53,11 +53,12 @@ type SettingKind = "boolean" | "enum" | "text";
 type SettingOrigin = "default" | "global" | "project" | "inherited";
 
 /**
- * The heading a row sits under. The screen draws one heading per group, so twelve
- * rows read as four short lists: what a session starts with, what it tells you
- * about, what it keeps, and what it costs.
+ * The heading a row sits under. The screen draws one heading per group, so fifteen
+ * rows read as six short lists: what a session starts with, what it tells you
+ * about, what it keeps, what its board holds, who signs for the team, and what it
+ * costs.
  */
-export type SettingGroup = "Startup" | "Notifications" | "Session" | "Board" | "Price";
+export type SettingGroup = "Startup" | "Notifications" | "Session" | "Board" | "Team" | "Price";
 
 /** One curated value a row can take. */
 interface SettingOption {
@@ -331,7 +332,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "board.lead",
-		group: "Board",
+		group: "Team",
 		label: "Lead",
 		description:
 			"The team name whose signature approves a contract and spot-checks the work; a card's holder never signs.",

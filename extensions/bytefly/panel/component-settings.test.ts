@@ -302,20 +302,20 @@ describe("PanelComponent settings frame", () => {
 	});
 
 	test("scrolls the list on a 24-row terminal, saying how much it shows", () => {
-		// Fifteen rows and five headings are taller than a 24-row terminal, which is the trade the
+		// Fifteen rows and six headings are taller than a 24-row terminal, which is the trade the
 		// catalogue's cap states: the screen keeps its frame and scrolls the list.
 		const { component } = buildPanel({ items: [], section: "settings", rows: 24 });
 		const lines = component.render(96);
 
 		expect(lines).toHaveLength(24);
-		expect(lines.join("\n")).toContain("showing 1–13 of 15");
+		expect(lines.join("\n")).toContain("showing 1–12 of 15");
 	});
 
 	test("fits the whole catalogue on a terminal tall enough for it", () => {
 		const { component } = buildPanel({ items: [], section: "settings", rows: 40 });
 		const lines = component.render(96);
 
-		expect(lines).toHaveLength(26);
+		expect(lines).toHaveLength(27);
 		expect(lines.join("\n")).not.toContain("showing");
 		expect(lines.join("\n")).toContain("Session budget");
 	});

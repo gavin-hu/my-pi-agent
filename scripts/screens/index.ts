@@ -346,8 +346,10 @@ export const SCREENS: Record<string, Screen> = {
 	"bytefly-settings": {
 		asset: "bytefly-settings",
 		title: "π - my-pi-agent · /bytefly settings",
-		bounds: { left: 80, top: 80, right: 1080, bottom: 520 },
-		size: { width: 120, rows: 22 },
+		// Tall enough for the whole catalogue: six headings and their rows, so the picture
+		// shows every group rather than a list cut at the fold.
+		bounds: { left: 80, top: 80, right: 1080, bottom: 620 },
+		size: { width: 120, rows: 27 },
 		render: (width, rows) => {
 			// The Settings section over the real catalogue: no probe, no write.
 			return new PanelComponent({

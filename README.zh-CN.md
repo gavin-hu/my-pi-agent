@@ -67,7 +67,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
   结论词，启用或禁用一个扩展，并用 `x` 清除项目级覆盖；`/` 过滤行，`!` 只保留
   需要注意的行，`?` 显示全部按键。
 - `/bytefly settings` 打开控制中心的 Settings 区：一次会话会改动的十五项设置按
-  Startup、Notifications、Session、Board、Price 五组排列，值对齐在同一列；用
+  Startup、Notifications、Session、Board、Team、Price 六组排列，值对齐在同一列；用
   `Space`/`Enter` 修改一项，用 `s` 切换 Global/Project 作用域。其余键都是
   `bytefly.json` 编辑，见配置参考。
 - `/bytefly skills` 打开控制中心的 Skills 区：每个 Pi 技能一行，带启用复选框与
