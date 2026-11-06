@@ -553,6 +553,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   earlier approval seeded and still owns, a step the list already held is never claimed, and an
   unchanged record writes no branch entry.
 
+- `plan`: the review page's live refetch keeps its sentence. It called `renderFacts()` with no
+  arguments beside a four-argument declaration, so the repaint threw on its first line, the refetch's
+  own `.catch` swallowed it, and neither “The plan changed on disk; showing the new version.” nor
+  “Updated with a new comment.” ever appeared — the body had already repainted, so the page read as
+  one that simply said nothing. Two more calls in the same bundle dropped the plan element the same
+  way: the refetch's draft guard never fired, so a frame arriving over a half-written comment
+  repainted the composer away, and `typingOf()` never found the line the composer hangs under, so no
+  keystroke reached the tab's draft and a reload lost the text. `test/helpers/bundle.ts` now scans a
+  served bundle for a bare call to a helper that declares parameters, and three browser cases drive
+  the plan frame, the draft refusal, and the reopened composer.
+
 ## [0.24.0] - 2026-11-02
 
 ### Added

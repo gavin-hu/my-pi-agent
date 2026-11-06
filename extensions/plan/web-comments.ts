@@ -56,9 +56,11 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
    * draft that keeps the text and drops the quote would restore a different note.
    */
   function typingOf() {
-    var area = draftTextarea();
-    var wrap = area && area.closest ? area.closest(".bf-block") : null;
-    var anchor = wrap ? Number(wrap.getAttribute("data-line")) : -1;
+    var area = draftTextarea(planEl);
+    // The composer hangs under its block's thread box, and that box is what carries the
+    // line: the block itself is the box's previous sibling.
+    var box = area && area.closest ? area.closest(".bf-comments") : null;
+    var anchor = box ? Number(box.getAttribute("data-line")) : -1;
     if (!area || !(anchor >= 0) || area.value === "") return null;
     var composer = area.closest ? area.closest(".bf-composer") : null;
     return { anchor: anchor, text: area.value, quote: (composer && composer.getAttribute("data-quote")) || "" };

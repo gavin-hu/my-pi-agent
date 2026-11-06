@@ -93,8 +93,11 @@ describe("review client", () => {
 	test("keeps a half-typed comment in the same draft record", () => {
 		// The composer's text is not a comment yet, so it is the draft's second half:
 		// written on every keystroke, dropped when the composer closes, and reopened
-		// with its caret at the end after a reload.
-		expect(clientFunction("typingOf")).toContain('area.closest(".bf-block")');
+		// with its caret at the end after a reload. The line comes off the thread box the
+		// composer is drawn in, because the block itself is that box's sibling: this pin
+		// said `.bf-block` for as long as nothing drove it, and the browser suite now does.
+		expect(clientFunction("typingOf")).toContain('area.closest(".bf-comments")');
+		expect(clientFunction("typingOf")).toContain('box.getAttribute("data-line")');
 		expect(clientFunction("saveDraft")).toContain("record.typing = typing");
 		expect(clientFunction("openComposer")).toContain('area.addEventListener("input"');
 		expect(clientFunction("reopenComposer")).toContain("blockAtLine(deps.planEl, blocks, typing.anchor)");

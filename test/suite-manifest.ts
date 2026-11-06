@@ -115,6 +115,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"review-prompt",
 		"web-lazy",
 		"web-behaviour",
+		"web-live",
 		"web-client",
 		"web-composer",
 		"web-outline",

@@ -97,10 +97,11 @@ const BROWSER_SUITES = [
 	"extensions/board/view/behaviour.test.ts",
 	"extensions/board/view/repaint.test.ts",
 	"extensions/plan/web-behaviour.test.ts",
+	"extensions/plan/web-live.test.ts",
 ];
 
 /** The spellings a browser suite's boot is visible as, for the pin's own staleness check. */
-const BOOT_CALLS = ["chromium.launch", "openBoardBrowser"];
+const BOOT_CALLS = ["chromium.launch", "openBoardBrowser", "launchReviewBrowser"];
 
 /** Every `beforeAll`/`afterAll` in the file that states no usable budget. */
 export function hookBudgetProblems(source: Source): string[] {
