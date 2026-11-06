@@ -48,6 +48,8 @@ export interface SpawnedProcess {
 export interface SpawnOptions {
 	cwd: string;
 	env?: NodeJS.ProcessEnv;
+	/** Run the command through a shell (the default); off for a binary handed its own argv. */
+	shell?: boolean;
 	/** Give the child a stdin pipe instead of a closed stdin (no immediate EOF). */
 	stdin?: boolean;
 	/** The command writes its own output to a log; keep no parent pipe. */
@@ -72,17 +74,18 @@ export interface NodeSpawnOptions {
 }
 
 /**
- * The spawn options for one command: a shell in its own process group, so a
- * signal can reach the shell and its descendants together.
+ * The spawn options for one command, in its own process group so a signal can
+ * reach it and its descendants together.
  *
- * Stdin stays closed unless asked for, because a closed stdin gives the child
- * EOF — a `read` exits instead of blocking forever. `detachOutput` keeps no
- * parent pipe, for a child that writes its own log file.
+ * `shell` goes through a shell by default and is turned off for a binary that is
+ * handed its own argv. Stdin stays closed unless asked for, because a closed
+ * stdin gives the child EOF — a `read` exits instead of blocking forever.
+ * `detachOutput` keeps no parent pipe, for a child that writes its own log file.
  */
 export function spawnOptions(options: SpawnOptions, platform: NodeJS.Platform = process.platform): NodeSpawnOptions {
 	return {
 		cwd: options.cwd,
-		shell: true,
+		shell: options.shell ?? true,
 		detached: platform !== "win32",
 		stdio: [
 			options.stdin ? "pipe" : "ignore",
@@ -202,3 +205,23 @@ export const defaultSpawn: SpawnFn = (command, options) => nodeSpawn(command, sp
 export const defaultKillTree: KillTreeFn = (pid, signal, force = false) => {
 	applyKillPlan(killPlan(pid, force), signal, processSeams);
 };
+
+/** What a tree kill needs of a spawned child: its pid, and a direct kill without one. */
+export interface TreeChild {
+	pid?: number;
+	kill(signal?: NodeJS.Signals): boolean;
+}
+
+/**
+ * Send `signal` to a spawned child's whole process tree.
+ *
+ * A child from {@link spawnOptions} leads its own group off Windows, so the group
+ * signal reaches whatever it started. A child with no pid — a spawn that failed
+ * before one was assigned, or a scripted child in a test — can only be signalled
+ * directly. SIGKILL is sent forced, which is the `/F` Windows needs to end a
+ * process it cannot close gracefully.
+ */
+export function killChildTree(child: TreeChild, signal: NodeJS.Signals, killTree: KillTreeFn = defaultKillTree): void {
+	if (child.pid !== undefined) killTree(child.pid, signal, signal === "SIGKILL");
+	else child.kill(signal);
+}

@@ -246,6 +246,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `subagent`: aborting a run, or letting its deadline expire, stops what the child started. A child was
+  spawned into Pi's process group and signalled by pid alone, so a `bun test` or `npm install` a worker
+  had launched outlived the run and kept writing to the tree — and a descendant still holding the output
+  pipe kept Node's `close` from firing, so the SIGTERM → 5 s SIGKILL escalation hit a pid that was
+  already gone and the run could wait indefinitely. The child now leads its own group through
+  `lib/spawn.ts`'s `spawnOptions`, and both signals go to the tree (`kill(-pid)` on POSIX, `taskkill /T`
+  on Windows), with the child alone as the fallback when it never got a pid. In the same pass a chain
+  step's `{previous}` is capped at 24 KiB with the usual omission notice: the task is a single argv
+  element, and a first step that printed more made the next one die as `spawn E2BIG` on Linux — over
+  Windows' 32,767-character command line — instead of delivering its prompt.
+
 - `session-bus`: `session inbox` shows every body whole, so a read no longer consumes a tail it never
   printed. An inbox line clipped each body to 400 characters (800 for a handoff) while the read deleted
   exactly the messages it had shown, so anything past the ellipsis was lost for good — the store keeps

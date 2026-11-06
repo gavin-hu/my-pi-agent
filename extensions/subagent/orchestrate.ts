@@ -8,7 +8,7 @@ import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { failedResult, textResult } from "../../lib/tool-result.ts";
 import type { AgentConfig } from "./agents.ts";
 import type { RunOptions } from "./run.ts";
-import { MAX_CONCURRENCY, MODEL_OUTPUT_CAP, type SubagentArgs } from "./schema.ts";
+import { MAX_CONCURRENCY, MODEL_OUTPUT_CAP, PREVIOUS_OUTPUT_CAP, type SubagentArgs } from "./schema.ts";
 import {
 	createResult,
 	getFinalOutput,
@@ -53,8 +53,10 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 	for (let i = 0; i < chain.length; i++) {
 		const step = chain[i];
 		// A function, not a string: `String.replace` expands `$&`, `` $` ``, `$'`, `$1` and `$$` in
-		// the replacement, so a previous step that printed one would mangle this step's task.
-		const task = step.task.replace(/\{previous\}/g, () => previous);
+		// the replacement, so a previous step that printed one would mangle this step's task. The
+		// substitution is bounded because the step's task is one argv element, and an output over
+		// the platform's limit would fail the step instead of prompting it.
+		const task = step.task.replace(/\{previous\}/g, () => truncateOutput(previous, PREVIOUS_OUTPUT_CAP));
 		const chainUpdate: OnUpdateCallback | undefined = onUpdate
 			? (partial) => {
 					const current = partial.details?.results[0];

@@ -129,6 +129,8 @@ export type { KillTreeFn, LivenessFn, SpawnFn, StartTokenFn };
 export class SubagentChild extends EventEmitter {
 	stdout = new EventEmitter();
 	stderr = new EventEmitter();
+	/** Set only by a case that drives the tree kill; with no pid the runner signals the child. */
+	pid?: number;
 	killed = false;
 	killSignals: NodeJS.Signals[] = [];
 	command = "";
