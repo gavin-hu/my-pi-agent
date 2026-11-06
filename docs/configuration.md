@@ -477,6 +477,7 @@ one port for every session.
 | `channelVersion` | string | `"0.1.0"` | | Plugin version sent as `base_info.channel_version`. |
 | `cdnBaseUrl` | string | `"https://novac2c.cdn.weixin.qq.com/c2c"` | | Base URL for CDN media downloads and uploads; trailing slashes are stripped. |
 | `maxMediaBytes` | integer | `20971520` | `1024`–`104857600` | Inbound media larger than this is skipped. |
+| `mediaRetentionDays` | integer | `7` | `0`–`3650` | Inbound files older than this many days are pruned at each bridge start and every six hours; `0` keeps every one. |
 | `maxInboundChars` | integer | `8000` | `1000`–`100000` | Inbound text longer than this is truncated before it reaches the model. |
 | `typingIndicator` | boolean | `true` | | Send a typing indicator while an inbound turn is generated. |
 | `pollHoldMs` | integer | | `1000`–`120000`; below `1000` clears the setting | Long-poll hold to request from the server, in milliseconds. |
@@ -550,8 +551,9 @@ Do not set those by hand: they describe the session to its child processes.
 The `wechat` extension keeps runtime state under `<agent-dir>/wechat/`:
 `credentials.json` (mode `0600`, the one stored account this bridge runs),
 `state.json` (the poll cursor, the owner, per-peer reply tokens, and the recent
-message ids used to ignore a replay), `media/` (downloaded inbound files), and
-`poller.lock` (one runtime owns the account at a time). This is login and runtime
+message ids used to ignore a replay), `media/` (downloaded inbound files, pruned
+once they pass `mediaRetentionDays`), and `poller.lock` (one runtime owns the
+account at a time). This is login and runtime
 state, not configuration; each extension's page under
 [`docs/extensions/`](./extensions/) names the files it writes.
 

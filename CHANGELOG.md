@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: the inbound `media/` directory is no longer a permanent store. A file an inbound message left
+  under `<agent-dir>/wechat/media/` is deleted once it is older than `mediaRetentionDays` — 7 by default,
+  `0` keeps every one — at each bridge start and on a six-hour tick for as long as the connection runs, and
+  the terminal says how many went when a sweep takes anything. Age rather than a count, because a turn may
+  still hold the path of the message it is answering: the file it was handed was written seconds ago.
+
 - `wechat`: `send_wechat` sends one local file as a WeChat document, beside the text and the picture
   it already sends, and the shape is the argument's rather than the file's bytes — `file` is a
   document however the bytes would sniff, `image` is still a picture and still refuses a non-image,

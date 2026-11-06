@@ -41,6 +41,14 @@ describe("normalizeConfig", () => {
 		expect(high.maxMediaBytes).toBe(100 * 1024 * 1024);
 	});
 
+	test("clamps mediaRetentionDays into range, with 0 keeping every file", () => {
+		expect(normalizeConfig({ mediaRetentionDays: 0 }, DEFAULT_CONFIG).mediaRetentionDays).toBe(0);
+		expect(normalizeConfig({ mediaRetentionDays: -4 }, DEFAULT_CONFIG).mediaRetentionDays).toBe(0);
+		expect(normalizeConfig({ mediaRetentionDays: 90 }, DEFAULT_CONFIG).mediaRetentionDays).toBe(90);
+		expect(normalizeConfig({ mediaRetentionDays: 99_999 }, DEFAULT_CONFIG).mediaRetentionDays).toBe(3650);
+		expect(DEFAULT_CONFIG.mediaRetentionDays).toBe(7);
+	});
+
 	test("clamps maxInboundChars into range", () => {
 		expect(normalizeConfig({ maxInboundChars: 10 }, DEFAULT_CONFIG).maxInboundChars).toBe(1000);
 		expect(normalizeConfig({ maxInboundChars: 999_999 }, DEFAULT_CONFIG).maxInboundChars).toBe(100_000);

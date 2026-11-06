@@ -203,6 +203,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"transport/outbound",
 		"transport/poll",
 		"transport/poll-loop",
+		"media-sweep",
 		"commands/cancel",
 		"commands/commands",
 		"commands/doctor",
