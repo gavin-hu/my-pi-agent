@@ -14,6 +14,7 @@ import * as path from "node:path";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { formatDuration } from "../../lib/format.ts";
 import { LineSplitter } from "../../lib/lines.ts";
+import { defaultKillTree, killChildTree, type KillTreeFn, spawnOptions } from "../../lib/spawn.ts";
 import { BUILTIN_AGENTS, formatAgentList, type AgentConfig } from "./agents.ts";
 import { buildAgentArgs, getPiInvocation, READ_ONLY_NOTE } from "./invocation.ts";
 import { applyEvent, createResult, parseJsonLine } from "./stream.ts";
@@ -41,6 +42,8 @@ export interface RunOptions {
 	makeDetails: (results: SingleResult[]) => SubagentDetails;
 	/** Process factory; defaults to `node:child_process.spawn`. */
 	spawn?: SpawnFn;
+	/** Tree-kill seam; defaults to `lib/spawn.ts`'s, so a test can watch the signal instead. */
+	killTree?: KillTreeFn;
 	/** Per-run wall-clock limit in ms; `0` or absent disables it. */
 	timeoutMs?: number;
 	/** Grace before a killed child is escalated to SIGKILL; a test seam, not a setting. */
@@ -94,13 +97,16 @@ interface SpawnContext {
 	result: SingleResult;
 	onEvent: () => void;
 	spawn: SpawnFn;
+	killTree: KillTreeFn;
 }
 
 /** Spawn the child, parse stdout line-by-line, and resolve when it closes. */
 function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
-	const { command, args, cwd, timeoutMs, escalationMs, signal, result, onEvent, spawn } = context;
+	const { command, args, cwd, timeoutMs, escalationMs, signal, result, onEvent, spawn, killTree } = context;
 	return new Promise<SpawnOutcome>((resolve) => {
-		const proc = spawn(command, args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
+		// The child leads its own group, so the signals below reach whatever it started and not
+		// only the `pi` pid: a build it launched would otherwise outlive the run.
+		const proc = spawn(command, args, spawnOptions({ cwd, shell: false }));
 		const splitter = new LineSplitter();
 		let settled = false;
 		let abortRequested = false;
@@ -109,6 +115,14 @@ function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
 		let killTimer: ReturnType<typeof setTimeout> | undefined;
 		let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
 
+		const signalTree = (sig: NodeJS.Signals) => {
+			try {
+				killChildTree(proc, sig, killTree);
+			} catch {
+				// Best-effort: the child may already be gone, or not be ours to signal.
+			}
+		};
+
 		const kill = (reason: KillReason) => {
 			if (settled) return;
 			if (reason === "abort") abortRequested = true;
@@ -116,13 +130,13 @@ function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
 				timedOut = true;
 				result.timedOut = true;
 			}
-			proc.kill("SIGTERM");
+			signalTree("SIGTERM");
 			// `proc.killed` only says a signal was sent, so a child that ignores SIGTERM is alive
 			// with it set — liveness here is this call's own `settled`, set when `close` fires.
 			if (killTimer) clearTimeout(killTimer);
 			killTimer = setTimeout(() => {
 				killTimer = undefined;
-				if (!settled) proc.kill("SIGKILL");
+				if (!settled) signalTree("SIGKILL");
 			}, escalationMs ?? KILL_ESCALATION_MS);
 			killTimer.unref();
 		};
@@ -190,6 +204,7 @@ function spawnAndCollect(context: SpawnContext): Promise<SpawnOutcome> {
  */
 export async function runSingleAgent(options: RunOptions): Promise<SingleResult> {
 	const spawn = options.spawn ?? nodeSpawn;
+	const killTree = options.killTree ?? defaultKillTree;
 	const pool = options.agents ?? BUILTIN_AGENTS;
 	const agent = pool.find((candidate) => candidate.name === options.agentName);
 
@@ -247,6 +262,7 @@ export async function runSingleAgent(options: RunOptions): Promise<SingleResult>
 			result,
 			onEvent: emit,
 			spawn,
+			killTree,
 		});
 
 		result.exitCode = outcome.timedOut || outcome.aborted ? 1 : outcome.exitCode;

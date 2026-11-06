@@ -55,3 +55,40 @@ describe("the kill escalation", () => {
 		expect(children[0]?.killSignals).toEqual(["SIGTERM"]);
 	});
 });
+
+describe("the child's process group", () => {
+	test("spawns it in its own group, without a shell", async () => {
+		const { spawn, children } = makeFakeSpawn((child) => child.close(0));
+		await runSingleAgent(options({ spawn }));
+		// Own group off Windows, which has none: a group signal is what reaches what the child
+		// started, and the argv is the binary's own, so no shell is involved.
+		expect(children[0]?.options?.detached).toBe(process.platform !== "win32");
+		expect(children[0]?.options?.shell).toBe(false);
+	});
+
+	test("signals the tree, not the pid alone, and forces the escalation", async () => {
+		const sent: Array<{ pid: number; signal: string; force: boolean | undefined }> = [];
+		const killTree = (pid: number, signal: NodeJS.Signals, force?: boolean) => {
+			sent.push({ pid, signal, force });
+		};
+		const controller = new AbortController();
+		const { spawn, children } = makeFakeSpawn((child) => {
+			child.pid = 4821;
+		});
+
+		const promise = runSingleAgent(
+			options({ spawn, killTree, signal: controller.signal, abortAsResult: true, escalationMs: 20 }),
+		);
+		await waitFor(() => children.length === 1);
+		controller.abort();
+
+		await waitFor(() => sent.length > 0);
+		expect(sent[0]).toEqual({ pid: 4821, signal: "SIGTERM", force: false });
+		// The child ignores SIGTERM, so the grace ends in a forced kill of the same tree.
+		await waitFor(() => sent.length > 1);
+		expect(sent[1]).toEqual({ pid: 4821, signal: "SIGKILL", force: true });
+
+		children[0]?.close(0);
+		await promise;
+	});
+});
