@@ -14,6 +14,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { planReview, renderReview, scrollRow } from "../../test/helpers/plan-view.ts";
+import { formatFeedback } from "./feedback.ts";
 import { taskMarker } from "./plan-text.ts";
 import { textExit } from "./tools/exit.ts";
 
@@ -62,6 +63,19 @@ describe("plan review changed sections", () => {
 		const current = ["# Plan", "## Notes", "a", "## Notes", "B"].join("\n");
 		const { component } = planReview(current, { baseline: previous });
 		expect(renderReview(component, 100).join("\n")).toContain("1 section changed since your last review");
+	});
+
+	test("a plan holding a stored comment does not read as changed", () => {
+		// The body renders the comment as the quote it is (`> Review: …`), while the baseline
+		// digests the plan without it: comparing the two texts marked a commented section
+		// changed on every review, forever.
+		const plan = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
+		const commented = formatFeedback(plan, [{ anchor: 3, comment: "make it concrete" }]);
+		const { component } = planReview(commented, { baseline: commented });
+
+		const frame = renderReview(component, 100).join("\n");
+		expect(frame).not.toContain("changed since your last review");
+		expect(frame).toContain("Review: make it concrete");
 	});
 
 	test("a plan with a tab is unchanged after being shown once", () => {

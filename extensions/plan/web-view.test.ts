@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Browser } from "playwright-core";
 import type { ArmTimer } from "../../lib/timer.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
+import { testMountSource } from "../../test/helpers/serve.ts";
 import { eventsUrl, islandOf, reviewPage, reviewSuite, router } from "../../test/helpers/fixtures/plan-web.ts";
 import {
 	launchReviewBrowser,
@@ -154,6 +155,30 @@ describe("a view session", () => {
 		expect((await session.done).status).toBe("cancelled");
 		// Nothing awaits `done` in a view, so the release has to happen here: a session that
 		// only settled would hold its prefix and its socket for the session's whole life.
+		expect(
+			await fetch(session.url).then(
+				() => false,
+				() => true,
+			),
+		).toBe(true);
+	});
+
+	test("ends when the browser never comes up, so the port is not held all session", async () => {
+		// Nothing awaits a view's `done`, so without the mount's own grace a page that never
+		// attached holds its prefix and its plan poll for the rest of the session.
+		let armed: (() => void) | undefined;
+		const timer: ArmTimer = (_ms, fn) => {
+			armed = fn;
+			return () => {
+				if (armed === fn) armed = undefined;
+			};
+		};
+		const { session } = await startShared({ mountTimer: timer, mount: testMountSource() }, { mode: "view" });
+
+		// No page, and no stream: the mount's first grace is what the session waits on.
+		expect(armed).toBeDefined();
+		armed?.();
+		expect((await session.done).status).toBe("cancelled");
 		expect(
 			await fetch(session.url).then(
 				() => false,

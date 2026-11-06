@@ -112,6 +112,13 @@ export interface PlanWebReviewDeps {
 	/** Override the accepted body size; a test keeps it small. */
 	maxBodyBytes?: number;
 	/**
+	 * Override the timer the mount's idle grace is armed on.
+	 *
+	 * A view's first grace is a race against a browser's start-up, so a test drives it by
+	 * hand: a few tens of milliseconds of deadline fails when the machine is busy.
+	 */
+	mountTimer?: ArmTimer;
+	/**
 	 * Override the repeating timer that polls the plan file.
 	 *
 	 * A poll is a race against an edit made elsewhere, so a test drives it by hand
@@ -128,6 +135,15 @@ export interface PlanWebReviewDeps {
 const MAX_BODY_BYTES = 1024 * 1024;
 /** Grace period before an empty client set counts as a closed tab. */
 const DROP_GRACE_MS = 1500;
+/**
+ * How long a view may stand with no page ever attached before it ends itself.
+ *
+ * A view is opened with nothing awaiting it, so a browser that never comes up — a URL a
+ * dropped tab never loaded, a restored window that does not run the client — would hold
+ * its prefix and the plan poll for the rest of the session. Long enough for a cold browser
+ * and a slow disk; short enough that a reader notices the notice and opens it again.
+ */
+const VIEW_FIRST_IDLE_MS = 30_000;
 /**
  * How often a running review checks the plan file.
  *
@@ -184,6 +200,8 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 			settled: () => settled,
 		});
 		let abandon: () => void = () => {};
+		// Set once `close` exists: the idle grace for a view whose page never attached.
+		let endView: () => void = () => {};
 
 		let stopTicker: () => void = () => {};
 		const finish = (result: PlanReviewResult): void => {
@@ -304,6 +322,19 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 			session: deps.session(),
 			prefix: base,
 			maxBodyBytes: bodyLimit,
+			// A view has no decision to await, so a page that never attached is a session
+			// nobody will close: the mount's own grace does it, the way `serve` and the board
+			// already close a page a browser never loaded. `endView` is set once `close` exists.
+			...(viewing
+				? {
+						idle: {
+							ms: deps.dropGraceMs ?? DROP_GRACE_MS,
+							firstMs: VIEW_FIRST_IDLE_MS,
+							onIdle: () => endView(),
+						},
+						...(deps.mountTimer === undefined ? {} : { timer: deps.mountTimer }),
+					}
+				: {}),
 			handler: handleRequest,
 		});
 		if (outcome.kind === "refused") return undefined;
@@ -421,6 +452,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 		// Now that `close` exists, an abandoned tab can end a view. A review keeps the old
 		// path: its abandonment is a decision, and the caller that awaits `done` closes it.
 		abandon = viewing ? () => void close() : () => finish({ status: "cancelled" });
+		endView = () => void close();
 
 		if (signal) {
 			abortHandler = (): void => void close();

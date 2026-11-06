@@ -76,10 +76,16 @@ function footprint(summaries: readonly PlanSummary[]): { bytes: number; oldest: 
 	return { bytes, oldest };
 }
 
-/** `2.4 kB — oldest 2d ago`, the store's footprint as the header and the screen say it. */
+/**
+ * `2.4 kB — oldest 2d ago`, the store's footprint as the header and the screen say it.
+ *
+ * An empty store has no oldest plan: the age is a fact about a file, so reporting the epoch
+ * would date the store to 1970 and read as "oldest 56y ago".
+ */
 function footprintText(summaries: readonly PlanSummary[], nowMs: number): string {
 	const { bytes, oldest } = footprint(summaries);
-	return `${formatSize(bytes)} — oldest ${relativeAge(oldest, nowMs)}`;
+	const size = formatSize(bytes);
+	return summaries.length === 0 ? size : `${size} — oldest ${relativeAge(oldest, nowMs)}`;
 }
 
 /**
@@ -131,9 +137,14 @@ export class PlanIndexComponent implements Component {
 
 	/** Replace the rows after a reload, keeping the focused plan if it is still there. */
 	private setSummaries(next: readonly PlanSummary[]): void {
+		// The rows are newest first, so a plan written by another session moves every row below
+		// it: the index under the cursor would then name a different plan, and Enter would open
+		// the neighbour. The focus is the plan, so it is re-found by the path it showed.
+		const focused = this.summaries[this.cursor.selected]?.relativePath;
+		const at = focused === undefined ? -1 : next.findIndex((summary) => summary.relativePath === focused);
 		this.summaries = next;
 		this.cursor.sync(next.length);
-		this.cursor.selected = Math.min(this.cursor.selected, Math.max(0, next.length - 1));
+		this.cursor.selected = at >= 0 ? at : Math.min(this.cursor.selected, Math.max(0, next.length - 1));
 		this.requestRender();
 	}
 

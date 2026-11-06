@@ -75,6 +75,24 @@ function fenceEnd(lines: string[], open: number, marker: string, length: number)
 }
 
 /**
+ * Whether a code block's fence is closed, so a line after the block is outside it.
+ *
+ * A fence opened and never closed runs to the end of the file, which makes "after the
+ * block" a position inside the code: a comment placed there would be part of the code,
+ * and the review codec would never read it back. Every other kind of block is open below.
+ */
+export function hasClosingFence(block: PlanBlock): boolean {
+	if (block.kind !== "code") return true;
+	const opener = block.lines[0]?.match(FENCE);
+	const last = block.lines.length > 1 ? block.lines[block.lines.length - 1] : undefined;
+	const closer = last === undefined ? null : last.match(FENCE);
+	if (!opener || !closer) return false;
+	const opened = opener[1];
+	const closed = closer[1];
+	return closed[0] === opened[0] && closed.length >= opened.length;
+}
+
+/**
  * Split `plan` into source-line-anchored blocks. Line numbers are 0-based and
  * inclusive; `start`/`end` from one block never overlap the next.
  */

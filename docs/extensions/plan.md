@@ -313,7 +313,10 @@ wrapped lines never land in the notice area on a Shift+Tab.
 `/plan list` walks the plans directory and shows every plan with its title,
 modified time, and step progress, newest first — in the TUI as a docked list
 where `Enter` opens the plan in the browser to read, elsewhere as a notice with
-each plan's path. Reading is not reviewing: the view page has no control that
+each plan's path. The title is the document's own `#` heading as the fence-aware
+parser finds it, so a `#` comment inside a code sample never names a row; `r`
+re-reads the directory and keeps the cursor on the plan it was on, not on the row
+number a new plan would shift. Reading is not reviewing: the view page has no control that
 writes, and it spends no baseline, so a later review still has the changed marks
 to show. The header carries the store's own footprint for this repository: the bytes
 its plans hold and how old the oldest one is, both derived from the walk that just
@@ -750,6 +753,9 @@ file and returns them to the model.
   written on. Saving is
   idempotent per writer: that writer's previous markers are replaced and everyone
   else's are kept, so two people reviewing the same plan cannot erase each other.
+  An owner's note that itself begins `@alice:` is stored with one backslash in
+  front (`> [!REVIEW] \@alice: …`), so it reads back as the owner's rather than as
+  alice's — and her save cannot replace it.
   Stripping is fence-aware: a `> [!REVIEW]` line inside a code block is
   documentation, not feedback. The file is the only copy of a saved comment; the
   ones this tab has not saved yet live in its own `sessionStorage` and nowhere else.
@@ -770,9 +776,12 @@ file and returns them to the model.
   survives a reload, a hand-off, and a save by its own author.
 - **Anchored to source.** `blocks.ts` splits the plan (fence-aware) into
   source-line ranges; a comment is placed after the whole anchored block, so a
-  fenced code block is never split. A save re-checks the file against what the
-  page rendered and answers `409`; the page then offers a **Reload** action,
-  because only a reload can re-anchor the comments to the new text.
+  fenced code block is never split. A fence that never closes is the one exception:
+  it runs to the end of the file, so the note goes above the block instead, where
+  it is outside the code and both a reader and the codec can see it. A save
+  re-checks the file against what the page rendered and answers `409`; the page
+  then offers a **Reload** action, because only a reload can re-anchor the comments
+  to the new text.
 - **Back to the model.** A save from the review screen returns `refined: true`
   with the comments, so the model stays in plan mode and revises the same file. A
   save that carries no comments asks for nothing, so the review screen comes back
@@ -1134,7 +1143,7 @@ every link and closes that listener; closing the review does both.
 bun test extensions/plan
 ```
 
-Thirty-five co-located suites, declared in `test/suite-manifest.ts`:
+Forty-three co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, the store's directory, atomic
   writes, `read`/`index`, `setSteps`, `saveFeedback`, and step extraction;
@@ -1143,6 +1152,16 @@ Thirty-five co-located suites, declared in `test/suite-manifest.ts`:
 - `feedback.test.ts` — the comment codec: authored markers, stripping and
   parsing, who a reviewer's write is signed by, carrying feedback onto a
   revision, and displaying stored comments.
+- `plan-store-write.test.ts` — the store's write paths: the name a new plan
+  claims, refining one, and the size limit both keep, including the 413 a save
+  past it reaches the page as.
+- `feedback-marks.test.ts` — the marker as it is written and read back: one
+  writer's save replacing only that writer's notes, an owner's `@name:` note
+  staying the owner's, and where a note lands when the block it names is a fence
+  that never closes.
+- `plan-index.test.ts` — the name a row shows and the row `Enter` opens: a title
+  from the document rather than a fenced `#` line, and a reload that keeps the
+  focused plan when the directory gained or lost one.
 - `tools.test.ts` — all five actions against a real plan store, the approval merge into
   `todo`, the session goal, and the call/result renderings.
 - `tool-registration.test.ts` — the registration itself: the flat action schema,
