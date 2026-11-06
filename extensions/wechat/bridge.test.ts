@@ -588,19 +588,6 @@ describe("bridge slash commands", () => {
 		await bridge.close();
 	});
 
-	test("declines /new in the chat, which is the session it would replace", async () => {
-		const { client, sent, deliver } = controllableClient();
-		const { deps, injected } = makeDeps(client, {}, { hold: true });
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => injected.length === 1);
-
-		deliver(inbound("/new"));
-		await waitFor(() => sent.length >= 1);
-		expect(sent[0]?.text).toContain("The chat is this Pi session");
-		await bridge.close();
-	});
-
 	test("/status reports the dialog a blocked turn is waiting on", async () => {
 		const { client, sent, deliver } = controllableClient();
 		const { deps, injected } = makeDeps(client, {}, { hold: true });
@@ -666,17 +653,6 @@ describe("bridge slash commands", () => {
 		const answer = bridge.channel().request({ kind: "select", title: "Pick", options: ["A", "B"] });
 		deliver(inbound("1"));
 		expect(await answer).toEqual({ kind: "value", value: "A" });
-		await bridge.close();
-	});
-
-	test("/new is declined on an idle chat too, so the bridge is never unbound", async () => {
-		const { client, sent } = makeClient([updates([inbound("/new")])]);
-		const { deps } = makeDeps(client);
-		const bridge = createBridge(deps);
-		bridge.open();
-		await waitFor(() => sent.length === 1);
-		expect(sent[0]?.text).toContain("The chat is this Pi session");
-		expect(bridge.turnState()).toEqual({ status: "idle", queued: 0 });
 		await bridge.close();
 	});
 });

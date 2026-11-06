@@ -42,7 +42,8 @@ describe("slash parsing", () => {
 	});
 
 	test("findSlashCommand matches case-insensitively and ignores unknown names", () => {
-		expect(findSlashCommand(SLASH_COMMANDS, "NEW")?.name).toBe("new");
+		expect(findSlashCommand(SLASH_COMMANDS, "STOP")?.name).toBe("stop");
+		expect(findSlashCommand(SLASH_COMMANDS, "new")).toBeUndefined();
 		expect(findSlashCommand(SLASH_COMMANDS, "nope")).toBeUndefined();
 		// A path-like message parses to a name that is not registered.
 		expect(findSlashCommand(SLASH_COMMANDS, parseSlash("/usr/local")?.name ?? "")).toBeUndefined();
@@ -212,40 +213,6 @@ describe("built-in /stop, /status, and /history", () => {
 	});
 });
 
-describe("built-in /new", () => {
-	function context(events: string[]): SlashContext {
-		return {
-			args: "",
-			peer: "owner@im.wechat",
-			reply: async (text) => {
-				events.push(`reply:${text}`);
-			},
-			activeTurn: false,
-			language: "en",
-			session: {
-				stop: () => ({ stopped: false, dropped: 0 }),
-				status: () => ({ status: "idle", queued: 0 }),
-			},
-		};
-	}
-
-	test("declines in the chat, which is the session it would replace", async () => {
-		const command = findSlashCommand(SLASH_COMMANDS, "new");
-		const events: string[] = [];
-		await command?.run?.(context(events));
-		expect(events).toHaveLength(1);
-		expect(events[0]).toContain("The chat is this Pi session");
-	});
-
-	test("answers a Chinese peer in Chinese", async () => {
-		const command = findSlashCommand(SLASH_COMMANDS, "new");
-		const events: string[] = [];
-		await command?.run?.({ ...context(events), activeTurn: true, language: "zh" });
-		expect(events[0]).toContain("/new");
-		expect(events[0]).toMatch(/[\u3400-\u9fff]/);
-	});
-});
-
 describe("built-in /help", () => {
 	function context(events: string[]): SlashContext {
 		return {
@@ -264,7 +231,7 @@ describe("built-in /help", () => {
 		const command = findSlashCommand(SLASH_COMMANDS, "help");
 		const replies: string[] = [];
 		await command?.run?.(context(replies));
-		expect(replies[0]).toContain("/new");
+		expect(replies[0]).not.toContain("/new");
 		expect(replies[0]).toMatch(/\/history \[n\] — .*[\s\S]*\/help — /);
 		// The stop's own line names the queue, so the brake is not a surprise on the phone.
 		expect(replies[0]).toContain("/stop — Stop the running answer and drop the queued messages");
@@ -277,7 +244,7 @@ describe("built-in /help", () => {
 		const replies: string[] = [];
 		await command?.run?.({ ...context(replies), language: "zh" });
 		expect(replies[0]).toContain("可用命令：");
-		expect(replies[0]).toContain("/new — 开始新会话（仅限终端）");
+		expect(replies[0]).toContain("/stop — 停止当前回答并丢弃排队的消息");
 		expect(replies[0]).not.toContain("owner only");
 	});
 });

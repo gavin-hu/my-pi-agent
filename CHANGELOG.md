@@ -168,13 +168,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `wechat`: `/new` is no longer a chat command. It was the one entry that only refused — the chat is
+  the Pi session it would replace — so the registry now answers `/stop`, `/cancel`, `/status`,
+  `/history`, and `/help` alone, and a `/new` typed into the chat is ordinary text that reaches the
+  agent like any other unknown spelling instead of a bridge bubble. The terminal's `/wechat new` still
+  starts a fresh session, and the `newHost` and `newBusy` notices, both of which named an inbound
+  `/new`, go with the command.
+
 - `wechat`: the per-sender machinery is gone — a Pi session per sender, `PEER_CONCURRENCY` and its fair
   queue, the per-peer interaction-channel registry, `allowedPeers`, `peers[].tools`, and
   `remotePrompts`, plus the peer argument on every verb. Only the account's owner is answered;
   `/wechat allow` and `/wechat reset` are gone, `/wechat stop` stops the bridge, `/wechat history [n]`
-  prints this session's own messages, and `/wechat new` from the chat declines because it would close
-  the bridge (the terminal's `/wechat new` still starts a fresh session). The control screen is one
-  conversation: account, connection, queued, the running turn, refusals, and the waiting prompt.
+  prints this session's own messages, and `/wechat new` starts a fresh session from the terminal. The
+  control screen is one conversation: account, connection, queued, the running turn, refusals, and
+  the waiting prompt.
 
 - `wechat`: `/wechat pause` and `/wechat resume` are gone, replaced by the hand start and stop on a
   bound session. The `paused` bridge state, its warning chip, and the control screen's `p` key go with
@@ -185,7 +192,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `wechat`: the chat's command registry is commands only — the `snippet` kind, `expandSnippet`, and the
   branch that expanded a body into the turn are gone, since none had a registered user, and so is
   `ownerOnly`, which could never fire: admission answers the account's owner or nobody, before a
-  command is parsed. `/help` lists `/new` without an “(owner only)” marker as a result.
+  command is parsed. `/help` lists the commands without an “(owner only)” marker as a result.
 
 - `rewind`: the `/review` command is gone — the latest-turn changed-file list, the per-file diff, the
   file/batch revert, and the hunk checklist — with the modules only it read (`commands/review.ts`,

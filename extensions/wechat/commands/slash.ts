@@ -10,7 +10,6 @@
  */
 
 import { type PeerLanguage } from "../text/format.ts";
-import { notice } from "../text/notices.ts";
 
 /** What the sender's own conversation is doing, for `/status`. */
 export interface SlashPeerState {
@@ -195,19 +194,9 @@ function withClause(text: string, clause: string, lang: PeerLanguage): string {
 }
 
 /**
- * The built-in commands: `/new`, `/stop`, `/cancel`, `/status`, `/history`, and `/help`.
+ * The built-in commands: `/stop`, `/cancel`, `/status`, `/history`, and `/help`.
  */
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
-	{
-		name: "new",
-		summary: "Start a new session (terminal only)",
-		summaryZh: "开始新会话（仅限终端）",
-		run: async (ctx) => {
-			// The chat is this session, so replacing it would emit `session_shutdown` and
-			// close the bridge under the peer who asked for a fresh start.
-			await ctx.reply(notice("newHost", ctx.language));
-		},
-	},
 	{
 		name: "stop",
 		summary: "Stop the running answer and drop the queued messages",

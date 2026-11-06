@@ -218,3 +218,17 @@ describe("what a waiting prompt may read", () => {
 		expect(sent).toEqual(["Queued — 1 message(s) waiting."]);
 	});
 });
+
+describe("the chat's own commands", () => {
+	test("/new is not one, so it reaches the agent as a turn", async () => {
+		// The chat is this session, so the registry has no way to start a fresh one. Left
+		// unregistered, `/new` takes the same route as any other unknown spelling: it is
+		// queued as a turn and the model answers it, instead of a notice from the bridge.
+		const { queue, sent, intake } = harness({ slashCommands: SLASH_COMMANDS });
+		intake.handleMessage(inbound("/new"));
+		await settle();
+
+		expect(queue.pending).toBe(1);
+		expect(sent).toEqual([]);
+	});
+});

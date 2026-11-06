@@ -24,9 +24,7 @@ export type NoticeKind =
 	| "promptWaiting"
 	| "timeout"
 	| "withdrawn"
-	| "failed"
-	| "newBusy"
-	| "newHost";
+	| "failed";
 
 const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 	ack: { zh: "收到，排队中，轮到就回。", en: "Queued — I'll answer next." },
@@ -71,14 +69,6 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 	timeout: { zh: "问题超时，已取消。", en: "That question timed out." },
 	withdrawn: { zh: "问题已撤回。", en: "That question was withdrawn." },
 	failed: { zh: "处理失败，请稍后重试。", en: "Something went wrong — please try again." },
-	newBusy: {
-		zh: "正在处理当前消息，稍后再发送 /new。",
-		en: "Still working on your last message — send /new again after it finishes.",
-	},
-	newHost: {
-		zh: "微信聊的就是当前 Pi 会话，在这里 /new 会关闭桥接；请在终端里执行。",
-		en: "The chat is this Pi session, so /new here would close the bridge. Run it in the terminal.",
-	},
 };
 
 /** Every kind the bridge can send, so a check over the catalogue cannot miss one. */
