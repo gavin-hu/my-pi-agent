@@ -180,6 +180,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   mapping, the run says `unclaimed script: <path> > 9 script suites`, and a top-level
   `scripts/<stem>.ts` still selects only its own suite.
 
+- `job`: a finished job's `logs` still says how many bytes its log dropped. The count lived only on
+  the write handle, which settling the job disposes, so the post-mortem read — the one a short segment
+  above all needs — reported a truncated log as complete; it moves onto the job's record now, so it
+  survives the exit, a reload, and a peer adopting the record. A rotation whose stream had already
+  errored reopens from the call that found it closed instead of arming a `close` that never comes,
+  which left the writer rotating for good and dropping every later chunk without a way back.
+
+- `job`: a `job.registryDir` that cannot be written no longer fails `job start`. The directory create
+  and the `O_EXCL` id reservation both degrade to the plain allocation the module already promised, so
+  a read-only registry costs the lock and the registry file rather than the job, which keeps running
+  in-process.
+
 ### Removed
 
 - `wechat`: `/new` is no longer a chat command. It was the one entry that only refused — the chat is

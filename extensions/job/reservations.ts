@@ -46,7 +46,12 @@ export function reserveId(dir: string, taken: Iterable<string>, floor = 1): stri
 			writeFileSync(reservationPath(dir, id), "", { flag: "wx" });
 			return id;
 		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+			if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+				// The directory cannot be written — read-only, missing, or not a directory at
+				// all. A reservation is best-effort: hand out the plain allocation the lock
+				// exists to make safe rather than failing a job that runs fine in-process.
+				return id;
+			}
 			next++;
 		}
 	}

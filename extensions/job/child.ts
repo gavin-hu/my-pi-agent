@@ -236,9 +236,15 @@ export function createJobChildren(deps: JobChildrenDeps): JobChildren {
 			throw new Error("a detached job cannot take stdin; start it with `detached: false`.");
 		}
 		const store = deps.store();
-		// The registry directory must exist before `nextId`, which reserves the id
-		// with an `O_EXCL` lock file inside it.
-		mkdirSync(store.directory(), { recursive: true });
+		// The registry directory must exist before `nextId`, which reserves the id with an
+		// `O_EXCL` lock file inside it. Both are best-effort: a directory that cannot be
+		// created leaves the job running in-process, with the store and the reservation
+		// degrading to a read-only allocation.
+		try {
+			mkdirSync(store.directory(), { recursive: true });
+		} catch {
+			// Nothing to reserve in and nothing to persist to; the job still starts.
+		}
 		// `nextId` folds in the on-disk counters and ids from every session, so a peer
 		// that advanced the shared counter cannot hand us a live job's id — and the table's
 		// ids cover a record this session started and has not pruned yet.
@@ -312,6 +318,7 @@ export function createJobChildren(deps: JobChildrenDeps): JobChildren {
 			startedAt: deps.now(),
 			finishedAt: null,
 			logPath,
+			droppedBytes: 0,
 			statusPath,
 			detached,
 			wake: options.wake ?? config.wakeOnFinish,
@@ -417,6 +424,10 @@ export function createJobChildren(deps: JobChildrenDeps): JobChildren {
 		const handle = handles.get(job.id);
 		if (!handle) return;
 		for (const line of logWriter().flush(handle.log)) recordLine(job, line);
+		// The handle is about to be disposed, and with it the only count of what the
+		// log dropped; the record carries it from here so the post-mortem `logs` read
+		// still knows the segment is short.
+		job.droppedBytes = handle.log.droppedBytes;
 		// A detached job keeps no parent stream; read its last line from the log.
 		if (!handle.log.stream) {
 			const last = readLogTail(deps.store().safeLogPath(job), 1).lines.at(-1);
@@ -446,8 +457,9 @@ export function createJobChildren(deps: JobChildrenDeps): JobChildren {
 		if (last) job.lastLine = last;
 		const formatted = formatLogs(job, all, LOG_MODEL_CHARS);
 		// A rotation that outran its drain drops the oldest queued chunks; say so once
-		// rather than letting the gap look like a program that skipped output.
-		const dropped = handles.get(id)?.log.droppedBytes ?? 0;
+		// rather than letting the gap look like a program that skipped output. A live
+		// handle is the truth while we hold it; after the exit, the record it left is.
+		const dropped = handles.get(id)?.log.droppedBytes ?? job.droppedBytes;
 		const text =
 			dropped > 0
 				? `${formatted.text}\n… ${dropped} bytes dropped: the log rotated or could not be reopened.`

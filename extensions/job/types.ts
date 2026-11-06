@@ -36,6 +36,8 @@ export interface JobRecord {
 	finishedAt: number | null;
 	/** Absolute path of the append-only log file. */
 	logPath: string;
+	/** Bytes this job's log dropped, so `logs` can say so once the live handle is gone. */
+	droppedBytes: number;
 	/** Leave running when the session ends, so a later session can reattach. */
 	detached: boolean;
 	/** Wake the agent with one triggered turn when the job finishes. */

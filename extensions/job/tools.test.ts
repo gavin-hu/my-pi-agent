@@ -15,35 +15,14 @@ import jobs from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
 import type { JobRecord } from "./types.ts";
 import { createFakePi, fakeTheme as theme } from "../../test/helpers/fakes.ts";
-import { makeCtx, makeHarnessSuite, readLog } from "../../test/helpers/fixtures/job.ts";
+import { makeCtx, makeHarnessSuite, readLog, jobRecord } from "../../test/helpers/fixtures/job.ts";
 import { waitFor } from "../../test/helpers/process.ts";
 
 const suite = makeHarnessSuite();
 afterEach(() => suite.cleanup());
 
 function record(overrides: Partial<JobRecord> = {}): JobRecord {
-	return {
-		id: "j1",
-		label: "tests",
-		command: "bun test",
-		cwd: "/repo",
-		pid: 1234,
-		status: "running",
-		exitCode: null,
-		signal: null,
-		startedAt: 1000,
-		finishedAt: null,
-		logPath: "/tmp/j1.log",
-		detached: false,
-		wake: false,
-		stdin: false,
-		sessionId: "s1",
-		seen: false,
-		lastLine: "",
-		statusPath: null,
-		startToken: null,
-		...overrides,
-	};
+	return jobRecord({ label: "tests", command: "bun test", pid: 1234, startedAt: 1000, sessionId: "s1", ...overrides });
 }
 
 async function setup(options: Parameters<typeof suite.makeHarness>[0] = {}) {

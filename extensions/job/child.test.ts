@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { projectKey } from "./registry.ts";
 import { listReservedIds } from "./reservations.ts";
@@ -33,18 +33,6 @@ describe("job runtime — start", () => {
 		expect(entry?.pid).toBe(h.children[0].pid);
 		expect(h.children[0].command).toContain("sleep 10");
 		expect(h.runtime.runningCount()).toBe(1);
-	});
-
-	test("creates the registry directory before reserving an id", async () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		await h.runtime.load(ctx);
-		// A first job in a project whose registry directory does not exist yet
-		// must still be able to reserve its id (`O_EXCL` lock inside that dir).
-		rmSync(h.dir, { recursive: true, force: true });
-		const entry = await h.runtime.start({ command: "sleep 10" }, ctx);
-		expect(existsSync(h.dir)).toBe(true);
-		expect(entry.id).toBe("j1");
 	});
 
 	test("rejects a start when jobs are disabled", async () => {

@@ -113,6 +113,54 @@ export function createLogWriter(options: LogWriterOptions): LogWriter {
 	};
 
 	/**
+	 * Move the old segment aside and open a fresh one, then drain the backlog.
+	 *
+	 * Runs from the old stream's `close`, and directly when that stream has already
+	 * closed: a stream that errored emitted `close` before the rotation armed itself, and
+	 * a rotation waiting on an event that already happened would leave the handle rotating
+	 * for good, queueing every later chunk and dropping the oldest past the cap.
+	 *
+	 * The reopen opens its descriptor here, not on a later tick: a deferred open lands after
+	 * a `clear` that already unlinked both segments, recreating the log of a job that is
+	 * gone. Opening it in this call leaves nothing pending once it returns, so the unlink is
+	 * final.
+	 */
+	const reopenSegment = (handle: LogHandle, job: Job, logPath: string, rotated: string): void => {
+		// A killed or cleared job disposes its handle; never reopen for it.
+		if (handle.disposed) return;
+		try {
+			if (existsSync(rotated)) unlinkSync(rotated);
+			renameSync(logPath, rotated);
+		} catch {
+			// A failed rename leaves the oversized segment in place; keep appending.
+		}
+		let fd: number | undefined;
+		let reopened: WriteStream | undefined;
+		try {
+			fd = openSync(logPath, "a");
+			reopened = createWriteStream(logPath, { fd });
+			reopened.on("error", () => {});
+		} catch {
+			// A stream event must not carry a throw into the child's output path: an
+			// unwritable log leaves the job running with no stream, and the drain
+			// below still empties the queue. That promise covers the cleanup too, so
+			// `closeSync` is guarded — its own throw (EINTR, EIO) would surface from
+			// the close listener as an uncaught exception and take the session down.
+			if (fd !== undefined) {
+				try {
+					closeSync(fd);
+				} catch {
+					// The descriptor is the OS's to reclaim; the log is unwritable anyway.
+				}
+			}
+		}
+		handle.stream = reopened;
+		handle.rotating = false;
+		handle.logBytes = 0;
+		drain(handle, job);
+	};
+
+	/**
 	 * Move the live segment aside, queueing `chunk` ahead of the backlog, and reopen.
 	 *
 	 * Returns false when no rotation can start (no stream, or a record whose log
@@ -131,44 +179,11 @@ export function createLogWriter(options: LogWriterOptions): LogWriter {
 		// This chunk precedes whatever queued while the previous segment was closing.
 		enqueue(handle, chunk, true);
 		handle.rotating = true;
-		stream.once("close", () => {
-			// A killed or cleared job disposes its handle; never reopen for it.
-			if (handle.disposed) return;
-			try {
-				if (existsSync(rotated)) unlinkSync(rotated);
-				renameSync(logPath, rotated);
-			} catch {
-				// A failed rename leaves the oversized segment in place; keep appending.
-			}
-			// Reopen here, not on a later tick: a deferred open lands after a `clear`
-			// that already unlinked both segments, recreating the log of a job that is
-			// gone. Opening the descriptor in this callback leaves nothing pending once
-			// it returns, so the unlink is final.
-			let fd: number | undefined;
-			let reopened: WriteStream | undefined;
-			try {
-				fd = openSync(logPath, "a");
-				reopened = createWriteStream(logPath, { fd });
-				reopened.on("error", () => {});
-			} catch {
-				// A stream event must not carry a throw into the child's output path: an
-				// unwritable log leaves the job running with no stream, and the drain
-				// below still empties the queue. That promise covers the cleanup too, so
-				// `closeSync` is guarded — its own throw (EINTR, EIO) would surface from
-				// the close listener as an uncaught exception and take the session down.
-				if (fd !== undefined) {
-					try {
-						closeSync(fd);
-					} catch {
-						// The descriptor is the OS's to reclaim; the log is unwritable anyway.
-					}
-				}
-			}
-			handle.stream = reopened;
-			handle.rotating = false;
-			handle.logBytes = 0;
-			drain(handle, job);
-		});
+		if (stream.closed) {
+			reopenSegment(handle, job, logPath, rotated);
+			return true;
+		}
+		stream.once("close", () => reopenSegment(handle, job, logPath, rotated));
 		try {
 			stream.end();
 		} catch {
