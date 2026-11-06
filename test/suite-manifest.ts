@@ -39,6 +39,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"panel/update",
 		"panel/views",
 		"picker/picker",
+		"picker/runtime",
 		"update/update",
 		"working/working",
 		"extension",

@@ -34,11 +34,16 @@ export type Entry =
 	| { kind: "group"; key: string; label: string; count: number }
 	| { kind: "item"; key: string; item: ResourceItem; label: string };
 
+/** One settings-file failure, with the file it was about when the store knows it. */
+export interface SettingsFailure {
+	error: Error;
+	path?: string;
+}
+
 /** The settings-file surface the manager reads and writes. */
 export interface SettingsStore {
 	globalSettings(): Settings;
 	projectSettings(): Settings;
-	packages(): PackageSource[];
 	setExtensionPaths(paths: string[]): void;
 	setSkillPaths(paths: string[]): void;
 	setPackages(packages: PackageSource[]): void;
@@ -51,7 +56,10 @@ export interface SettingsStore {
 	setTheme(theme: string): void;
 	isProjectTrusted(): boolean;
 	flush(): Promise<void>;
-	drainErrors(): Array<{ error: Error }>;
+	/** A write Pi recorded instead of throwing; drained, so each report is read once. */
+	drainErrors(): SettingsFailure[];
+	/** Why the store could not read its file: no write can land while one stands. */
+	loadErrors(): SettingsFailure[];
 }
 
 /** Resolves every configured package into its resource lists. */

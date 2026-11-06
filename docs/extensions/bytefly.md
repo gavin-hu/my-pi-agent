@@ -813,7 +813,9 @@ finds the rows that need it.
 - Toggles the focused extension with `Space`, writing `+pattern` / `-pattern`
   into `extensions` (and package filter objects) in the write scope. A row in
   the trailing `Not resolved` group has no pattern to write, so `Space` says so
-  instead of doing nothing.
+  instead of doing nothing. A write that did not land — a save the store rejected,
+  or a settings file it could not read — is reported in the hint row and leaves the
+  checkbox as it was, so the screen never shows a value the file did not take.
 - Clears the focused extension's project override with `x` in Project scope: the
   `+`/`-` entry the toggle wrote is removed (with the plain path entry beside it
   for an inherited personal resource, and a project package entry the toggle
@@ -1598,7 +1600,14 @@ rather than showing a wrong value.
   (`project`) resources are resolved separately, mirroring `pi config`; the
   screen shows the view for the active scope and writes through the matching
   store. A project package override is written with `autoload: false`, so it
-  filters the personal entry instead of replacing it.
+  filters the personal entry instead of replacing it. Each write edits its
+  scope's own document: `getPackages()` reads the two files merged, so a project
+  file that sets no `packages` key reads as the personal list, and a project
+  toggle starting from it would copy every personal entry into a file people
+  commit. A row flips only when its write landed — `flush()` never rejects, so a
+  recorded error, or a file that could not be loaded, is reported and the row
+  left alone. The seam carries the per-document readers only, so the merged
+  reader the bug came through cannot be reached from a write again.
 - **The merge keys on a directory name only when it is unambiguous.** A
   subfolder resource displays as `web-access/index.ts` while its doctor report
   is named `web-access`, so the join starts from `basename(dirname(path))`. A
@@ -1754,11 +1763,11 @@ columns, gauge), so the look follows the active theme.
 | `panel/tui/settings-section.ts` | The Settings section's state only: the text editor, the JSON pane, the write chain, and the reset. |
 | `panel/tui/nav.ts` | The panel's cursor arithmetic and one read of a navigation key. |
 | `panel/commands.ts` | `/bytefly`: one command for the screen sections, the `doctor` report, the settings and skills listings, and their text modes. |
-| `picker/types.ts` | Picker host seams (`SettingsStore`, `ResourceResolver`, `Discovery`, `ResourceKind`), the app-settings setters, and row types. |
+| `picker/types.ts` | Picker host seams (`SettingsStore`, `ResourceResolver`, `Discovery`, `ResourceKind`, `SettingsFailure`), the app-settings setters, and row types. |
 | `picker/resources.ts` | Pure grouping, labels, display names per resource kind, and pattern helpers. |
 | `picker/toggle.ts` | Pure next-settings transforms for global and project toggles. |
-| `picker/discovery.ts` | Host wiring: builds both kinds' global and effective views from Pi's managers, and the two settings stores for the settings-only command path. |
-| `picker/runtime.ts` | Picker scope, live view copies, dirty tracking, and persistence, for both resource kinds through one ops table. |
+| `picker/discovery.ts` | Host wiring: builds both kinds' global and effective views from Pi's managers, the two settings stores for the settings-only command path, and the load errors a store keeps so a write that cannot land says why. |
+| `picker/runtime.ts` | Picker scope, live view copies, dirty tracking, and persistence, for both resource kinds through one ops table — each write reading its scope's own document, and a row flipped only once the write landed. |
 | `doctor/register.ts` | Registers `run_doctor` and the proactive session-start check; returns the runtime. |
 | `doctor/runtime.ts` | Host seams, the session cache, and the two probe modes. |
 | `doctor/tools.ts` | The `run_doctor` tool and its renderers. |
@@ -1812,8 +1821,9 @@ rewrites, `ToolBlock`'s memo, the generic and call fallbacks, and the resolver's
 shell override and self-shell carve-out.
 
 `picker/picker` covers discovery with an injected factory, the resolver and its
-entries, the pattern helpers, and the runtime's toggling, scope, and project
-override across the four list operations.
+entries, the pattern helpers, and the pure settings transforms. `picker/runtime`
+covers the runtime's scope, toggling, project override, and the write that must land
+before a row flips.
 
 `panel/…` covers the control centre, one suite per capability: `panel/model` (the
 two panes' merged model and the text formatter), `panel/filter` and its chips, the settings

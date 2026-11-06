@@ -25,6 +25,8 @@ interface RuntimeBootOptions {
 	projectDoc?: Record<string, unknown>;
 	trusted?: boolean;
 	themes?: readonly string[];
+	/** Why the personal settings file could not be read, as its store reports it. */
+	appLoadErrors?: string[];
 }
 
 function bootRuntime(options: RuntimeBootOptions = {}) {
@@ -38,7 +40,7 @@ function bootRuntime(options: RuntimeBootOptions = {}) {
 		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify(options.projectDoc));
 	}
 	const trusted = options.trusted ?? true;
-	const globalStore = makeStore({ global: options.app ?? {}, trusted });
+	const globalStore = makeStore({ global: options.app ?? {}, trusted, loadErrors: options.appLoadErrors });
 	const projectStore = makeStore({ trusted });
 	const notices: string[] = [];
 	const runtime = createSettingsRuntime({
@@ -120,6 +122,19 @@ describe("settings runtime", () => {
 		expect(notices.at(-1)).toContain("disk full");
 		expect(runtime.isDirty()).toBe(false);
 		expect(runtimeValue(runtime, "global", "byteflyUi")).toBe("false");
+	});
+
+	test("refuses an app row while the personal file cannot be read", async () => {
+		const { runtime, globalStore, notices } = bootRuntime({
+			appLoadErrors: ["Unexpected token '}'"],
+		});
+
+		await runtime.change("global", "theme");
+
+		expect(notices.at(-1)).toContain("Could not save Theme");
+		expect(notices.at(-1)).toContain("Unexpected token '}'");
+		expect(globalStore.calls.setTheme).toEqual([]);
+		expect(runtime.isDirty()).toBe(false);
 	});
 
 	test("writes one key to the global document and preserves siblings and metadata", async () => {

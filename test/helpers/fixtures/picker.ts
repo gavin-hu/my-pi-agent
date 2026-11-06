@@ -65,24 +65,41 @@ export interface FakeStore {
 	flushCount(): number;
 	global(): Settings;
 	project(): Settings;
+	/** The merged list Pi's `getPackages()` reads: the project document if it sets one. */
 	packages(): PackageSource[];
 	failFlush(error: Error): void;
+	/** Record a write failure the way Pi does — on `drainErrors()`, not by throwing. */
+	recordError(error: Error, path?: string): void;
 }
 
 export interface StoreOptions {
+	/** The personal document, as `~/.pi/agent/settings.json` holds it. */
 	global?: Settings;
+	/** The project document, as `.pi/settings.json` holds it. */
 	project?: Settings;
+	/** The personal document's `packages`, written into `global` under its own key. */
 	packages?: PackageSource[];
+	/** The project document's own `packages`; absent leaves the key unset. */
+	projectPackages?: PackageSource[];
+	/** Why the file could not be read, as `loadErrors()` reports it. */
+	loadErrors?: string[];
 	trusted?: boolean;
 }
 
-/** An in-memory `SettingsStore` recording every write. */
+/** An in-memory `SettingsStore` recording every write, over two documents. */
 export function makeStore(options: StoreOptions = {}): FakeStore {
-	let globalSettings: Settings = options.global ?? {};
-	let projectSettings: Settings = options.project ?? {};
-	let packageList: PackageSource[] = options.packages ?? [];
+	let globalSettings: Settings = { ...options.global, ...(options.packages ? { packages: options.packages } : {}) };
+	let projectSettings: Settings = {
+		...options.project,
+		...(options.projectPackages ? { packages: options.projectPackages } : {}),
+	};
+	let recorded: Array<{ error: Error; path?: string }> = [];
+	const loadErrors = options.loadErrors ?? [];
 	let flushes = 0;
 	let flushError: Error | undefined;
+
+	/** What Pi's merged settings document holds under `packages`, which replaces wholesale. */
+	const mergedPackages = (): PackageSource[] => projectSettings.packages ?? globalSettings.packages ?? [];
 
 	const calls: StoreCalls = {
 		setExtensionPaths: [],
@@ -100,14 +117,17 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 		flushCount: () => flushes,
 		global: () => globalSettings,
 		project: () => projectSettings,
-		packages: () => packageList,
+		packages: () => mergedPackages(),
 		failFlush: (error) => {
 			flushError = error;
+		},
+		recordError: (error, path) => {
+			recorded = [...recorded, { error, ...(path ? { path } : {}) }];
 		},
 		store: {
 			globalSettings: () => globalSettings,
 			projectSettings: () => projectSettings,
-			packages: () => packageList,
+			loadErrors: () => loadErrors.map((message) => ({ error: new Error(message) })),
 			setExtensionPaths: (paths) => {
 				calls.setExtensionPaths.push(paths);
 				globalSettings = { ...globalSettings, extensions: paths };
@@ -118,7 +138,7 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 			},
 			setPackages: (packages) => {
 				calls.setPackages.push(packages);
-				packageList = packages;
+				globalSettings = { ...globalSettings, packages };
 			},
 			setProjectExtensionPaths: (paths) => {
 				calls.setProjectExtensionPaths.push(paths);
@@ -130,7 +150,7 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 			},
 			setProjectPackages: (packages) => {
 				calls.setProjectPackages.push(packages);
-				packageList = packages;
+				projectSettings = { ...projectSettings, packages };
 			},
 			setQuietStartup: (quiet) => {
 				calls.setQuietStartup.push(quiet);
@@ -145,7 +165,11 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 				flushes += 1;
 				if (flushError) throw flushError;
 			},
-			drainErrors: () => [],
+			drainErrors: () => {
+				const drained = recorded;
+				recorded = [];
+				return drained;
+			},
 		},
 	};
 	return fake;
@@ -169,7 +193,9 @@ export function makeDiscovery(options: DiscoveryOptions = {}): {
 } {
 	const trusted = options.trusted ?? true;
 	const globalStore = options.globalStore ?? makeStore();
-	const projectStore = options.projectStore ?? (trusted ? makeStore() : globalStore);
+	// The project view reads one merged document, so its store starts from the personal
+	// one, exactly as Pi's `SettingsManager` melds the two files.
+	const projectStore = options.projectStore ?? (trusted ? makeStore({ global: globalStore.global() }) : globalStore);
 	const extensions = options.extensions ?? [];
 	const effectiveExtensions = options.effectiveExtensions ?? extensions;
 	const skills = options.skills ?? [];

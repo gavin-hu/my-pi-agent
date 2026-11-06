@@ -12,7 +12,6 @@ import {
 	isSelf,
 	nextSelectable,
 } from "./resources.ts";
-import { createPickerRuntime } from "./runtime.ts";
 import {
 	clearProjectPackages,
 	clearProjectTopLevelList,
@@ -23,7 +22,6 @@ import {
 } from "./toggle.ts";
 import type { ResourceItem } from "./types.ts";
 import {
-	makeDiscovery,
 	makeItem,
 	makeStore,
 	packageExtension,
@@ -32,7 +30,6 @@ import {
 } from "../../../test/helpers/fixtures/picker.ts";
 
 const item = (path: string) => makeItem({ path });
-const topLevel = (path: string) => makeItem({ path, metadata: { source: "auto", origin: "top-level", scope: "user" } });
 const packageItem = (path: string) =>
 	makeItem({
 		path,
@@ -204,199 +201,6 @@ describe("pattern helpers", () => {
 
 	test("names a package resource relative to the package base", () => {
 		expect(getPackageResourcePattern(packageItem("/pkg/extensions/b.ts"))).toBe("b.ts");
-	});
-});
-
-describe("runtime toggling", () => {
-	test("writes a top-level global disable pattern and flips the item", async () => {
-		const store = makeStore({ global: { extensions: [] } });
-		const { discovery } = makeDiscovery({ extensions: [topLevel("/agent/extensions/a.ts")], globalStore: store });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
-
-		const row = runtime.items("extensions")[0];
-		await runtime.toggle("extensions", row);
-
-		expect(store.calls.setExtensionPaths.at(-1)).toEqual(["-extensions/a.ts"]);
-		expect(row.enabled).toBe(false);
-		expect(runtime.isDirty()).toBe(true);
-		expect(runtime.disabledCount("extensions")).toBe(1);
-		expect(store.flushCount()).toBe(1);
-	});
-
-	test("writes a top-level skill pattern into the skills array", async () => {
-		const store = makeStore({ global: { skills: [] } });
-		const { discovery } = makeDiscovery({ skills: [skillItem("pdf")], globalStore: store });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
-
-		const row = runtime.items("skills")[0];
-		await runtime.toggle("skills", row);
-
-		expect(store.calls.setSkillPaths.at(-1)).toEqual(["-skills/pdf/SKILL.md"]);
-		expect(store.calls.setExtensionPaths).toEqual([]);
-		expect(row.enabled).toBe(false);
-		expect(runtime.disabledCount("skills")).toBe(1);
-	});
-
-	test("writes a package filter through setPackages", async () => {
-		const store = makeStore({ packages: ["npm:pkg"] });
-		const { discovery } = makeDiscovery({ extensions: [packageItem("/pkg/extensions/b.ts")], globalStore: store });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
-
-		await runtime.toggle("extensions", runtime.items("extensions")[0]);
-
-		expect(store.calls.setPackages.at(-1)).toEqual([{ source: "npm:pkg", extensions: ["-b.ts"] }]);
-	});
-
-	test("writes a package skill into the entry's skills filter", async () => {
-		const store = makeStore({ packages: ["npm:pkg"] });
-		const { discovery } = makeDiscovery({ skills: [packageSkill("pdf")], globalStore: store });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
-
-		await runtime.toggle("skills", runtime.items("skills")[0]);
-
-		expect(store.calls.setPackages.at(-1)).toEqual([{ source: "npm:pkg", skills: ["-skills/pdf/SKILL.md"] }]);
-	});
-
-	test("surfaces a write failure instead of flipping the item", async () => {
-		const store = makeStore({ global: { extensions: [] } });
-		store.failFlush(new Error("disk full"));
-		const errors: string[] = [];
-		const { discovery } = makeDiscovery({ extensions: [topLevel("/agent/extensions/a.ts")], globalStore: store });
-		const runtime = createPickerRuntime({
-			discovery,
-			cwd: "/proj",
-			agentDir: "/agent",
-			onError: (message) => errors.push(message),
-		});
-
-		const row = runtime.items("extensions")[0];
-		await runtime.toggle("extensions", row);
-
-		expect(errors).toEqual(["disk full"]);
-		expect(row.enabled).toBe(true);
-		expect(runtime.isDirty()).toBe(false);
-	});
-});
-
-describe("runtime scope", () => {
-	test("switches between global and project views when trusted", () => {
-		const { discovery } = makeDiscovery({
-			extensions: [topLevel("/agent/extensions/a.ts")],
-			effectiveExtensions: [topLevel("/proj/extensions/p.ts")],
-			trusted: true,
-		});
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
-
-		expect(runtime.items("extensions")[0].path).toBe("/agent/extensions/a.ts");
-		runtime.setScope("project");
-		expect(runtime.items("extensions")[0].path).toBe("/proj/extensions/p.ts");
-	});
-
-	test("switches both kinds together, so one scope drives the screen", () => {
-		const { discovery } = makeDiscovery({
-			skills: [skillItem("global-skill")],
-			effectiveSkills: [skillItem("project-skill")],
-			trusted: true,
-		});
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
-
-		expect(runtime.items("skills")[0].path).toContain("global-skill");
-		runtime.setScope("project");
-		expect(runtime.items("skills")[0].path).toContain("project-skill");
-	});
-
-	test("refuses the project scope when the project is untrusted", () => {
-		const { discovery } = makeDiscovery({ extensions: [topLevel("/agent/extensions/a.ts")], trusted: false });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
-
-		runtime.setScope("project");
-
-		expect(runtime.scope()).toBe("global");
-		expect(runtime.projectAvailable()).toBe(false);
-	});
-});
-
-describe("runtime clearing a project override", () => {
-	const inherited = topLevel("/agent/extensions/a.ts");
-
-	test("removes the project override and restores the inherited state", async () => {
-		const globalStore = makeStore({ global: { extensions: [] } });
-		const projectStore = makeStore({ project: { extensions: [] } });
-		const { discovery } = makeDiscovery({ extensions: [inherited], globalStore, projectStore, trusted: true });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
-
-		runtime.setScope("project");
-		const row = runtime.items("extensions")[0];
-		await runtime.toggle("extensions", row);
-		expect(row.enabled).toBe(false);
-		expect(projectStore.calls.setProjectExtensionPaths.at(-1)).toEqual([
-			"/agent/extensions/a.ts",
-			"-/agent/extensions/a.ts",
-		]);
-
-		await runtime.clearOverride("extensions", row);
-
-		expect(projectStore.calls.setProjectExtensionPaths.at(-1)).toEqual([]);
-		expect(row.enabled).toBe(true);
-		expect(runtime.isDirty()).toBe(true);
-		expect(projectStore.flushCount()).toBe(2);
-	});
-
-	test("clears a skill's project override through the skills array", async () => {
-		const globalSkill = skillItem("pdf");
-		const projectStore = makeStore({ project: { skills: [] } });
-		const { discovery } = makeDiscovery({ skills: [globalSkill], projectStore, trusted: true });
-		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
-
-		runtime.setScope("project");
-		const row = runtime.items("skills")[0];
-		await runtime.toggle("skills", row);
-		expect(projectStore.calls.setProjectSkillPaths.at(-1)).toEqual([
-			"/agent/skills/pdf/SKILL.md",
-			"-/agent/skills/pdf/SKILL.md",
-		]);
-
-		await runtime.clearOverride("skills", row);
-
-		expect(projectStore.calls.setProjectSkillPaths.at(-1)).toEqual([]);
-		expect(row.enabled).toBe(true);
-	});
-
-	test("reports a row with no override and writes nothing", async () => {
-		const errors: string[] = [];
-		const projectStore = makeStore({ project: { extensions: [] } });
-		const { discovery } = makeDiscovery({ extensions: [inherited], projectStore, trusted: true });
-		const runtime = createPickerRuntime({
-			discovery,
-			cwd: "/proj",
-			agentDir: "/agent",
-			onError: (message) => errors.push(message),
-		});
-
-		runtime.setScope("project");
-		await runtime.clearOverride("extensions", runtime.items("extensions")[0]);
-
-		expect(errors).toEqual(["No project override for a.ts."]);
-		expect(projectStore.calls.setProjectExtensionPaths).toEqual([]);
-		expect(runtime.isDirty()).toBe(false);
-	});
-
-	test("refuses in Global scope, which has no layer to fall back to", async () => {
-		const errors: string[] = [];
-		const store = makeStore({ global: { extensions: ["-extensions/a.ts"] } });
-		const { discovery } = makeDiscovery({ extensions: [topLevel("/agent/extensions/a.ts")], globalStore: store });
-		const runtime = createPickerRuntime({
-			discovery,
-			cwd: "/proj",
-			agentDir: "/agent",
-			onError: (message) => errors.push(message),
-		});
-
-		await runtime.clearOverride("extensions", runtime.items("extensions")[0]);
-
-		expect(errors).toEqual(["Overrides are cleared in Project scope; switch with Tab."]);
-		expect(store.calls.setExtensionPaths).toEqual([]);
-		expect(runtime.isDirty()).toBe(false);
 	});
 });
 
