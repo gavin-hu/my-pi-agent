@@ -7,6 +7,7 @@
  * reads `items(kind)` on every render, so it stays a derived view of this state.
  */
 
+import type { PackageSource } from "@earendil-works/pi-coding-agent";
 import { getDisplayName, getPackageResourcePattern, getResourcePattern } from "./resources.ts";
 import {
 	clearProjectPackages,
@@ -16,7 +17,15 @@ import {
 	nextProjectTopLevelList,
 	nextTopLevelList,
 } from "./toggle.ts";
-import type { Discovery, ResourceItem, ResourceKind, Settings, SettingsStore, WriteScope } from "./types.ts";
+import type {
+	Discovery,
+	ResourceItem,
+	ResourceKind,
+	Settings,
+	SettingsFailure,
+	SettingsStore,
+	WriteScope,
+} from "./types.ts";
 
 export interface RuntimeDeps {
 	discovery: Discovery;
@@ -46,6 +55,23 @@ function storeFor(discovery: Discovery, scope: WriteScope): SettingsStore {
 /** Whether two rows name the same resource, for an inherited-state lookup. */
 function sameResource(left: ResourceItem, right: ResourceItem): boolean {
 	return left.metadata.source === right.metadata.source && left.path === right.path;
+}
+
+/**
+ * The package list one document holds, which is what a toggle in that scope edits.
+ *
+ * Pi's `getPackages()` reads the merged document instead, and a project file that
+ * sets no `packages` key reads as the personal list — so a project write starting
+ * from it would copy every personal entry into a file people commit.
+ */
+function packagesIn(store: SettingsStore, scope: WriteScope): PackageSource[] {
+	const settings = scope === "global" ? store.globalSettings() : store.projectSettings();
+	return settings.packages ?? [];
+}
+
+/** A store failure as one line, naming the file it was about when the store knows it. */
+function describeFailure(failure: SettingsFailure): string {
+	return failure.path ? `${failure.path}: ${failure.error.message}` : failure.error.message;
 }
 
 /** How one resource kind is stored: its settings list and the writers beside it. */
@@ -99,7 +125,7 @@ export function createPickerRuntime(deps: RuntimeDeps): PickerRuntime {
 			return;
 		}
 		const pattern = getPackageResourcePattern(item);
-		store.setPackages(nextGlobalPackages(store.packages(), item.metadata.source, pattern, enabled, kind));
+		store.setPackages(nextGlobalPackages(packagesIn(store, "global"), item.metadata.source, pattern, enabled, kind));
 	};
 
 	const persistProject = (kind: ResourceKind, item: ResourceItem, enabled: boolean): void => {
@@ -110,29 +136,44 @@ export function createPickerRuntime(deps: RuntimeDeps): PickerRuntime {
 			ops.writeProject(store, nextProjectTopLevelList(currentPaths, item, enabled, cwd, agentDir));
 			return;
 		}
-		store.setProjectPackages(nextProjectPackages(store.packages(), item, enabled, cwd, agentDir, kind));
+		store.setProjectPackages(nextProjectPackages(packagesIn(store, "project"), item, enabled, cwd, agentDir, kind));
 	};
 
 	/**
-	 * Drop `item`'s project override, reporting whether anything was written. An
-	 * absent override returns `false` without touching the store, so a stray key
-	 * press cannot dirty the file.
+	 * The write that drops `item`'s project override, or `undefined` when it has none:
+	 * an absent override must not dirty the file on a stray key press.
 	 */
-	const clearFromStore = (kind: ResourceKind, item: ResourceItem): boolean => {
+	const overrideWrite = (kind: ResourceKind, item: ResourceItem): (() => void) | undefined => {
 		const store = storeFor(discovery, "project");
 		const ops = RESOURCE_OPS[kind];
 		if (item.metadata.origin === "top-level") {
 			const paths = ops.read(store.projectSettings());
 			const next = clearProjectTopLevelList(paths, item, cwd, agentDir);
-			if (next === paths) return false;
-			ops.writeProject(store, next);
-			return true;
+			return next === paths ? undefined : () => ops.writeProject(store, next);
 		}
-		const packages = store.packages();
+		const packages = packagesIn(store, "project");
 		const next = clearProjectPackages(packages, item, cwd, agentDir, kind);
-		if (next === packages) return false;
-		store.setProjectPackages(next);
-		return true;
+		return next === packages ? undefined : () => store.setProjectPackages(next);
+	};
+
+	/**
+	 * Write through `store`, and say why the write did not land.
+	 *
+	 * `flush()` never rejects — Pi records a failed write on `drainErrors()` — so the
+	 * only proof a write landed is that nothing comes back from it. A file that could not be read is refused before the store is touched, because
+	 * Pi would take the write in memory and then drop it on the way to the file.
+	 */
+	const land = async (store: SettingsStore, write: () => void): Promise<string | undefined> => {
+		const unreadable = store.loadErrors()[0];
+		if (unreadable !== undefined) return describeFailure(unreadable);
+		try {
+			write();
+			await store.flush();
+		} catch (error) {
+			return error instanceof Error ? error.message : String(error);
+		}
+		const rejected = store.drainErrors()[0];
+		return rejected === undefined ? undefined : describeFailure(rejected);
 	};
 
 	return {
@@ -149,14 +190,13 @@ export function createPickerRuntime(deps: RuntimeDeps): PickerRuntime {
 		isDirty: () => dirty,
 		toggle: async (kind, item) => {
 			const enabled = !item.enabled;
-			try {
+			const store = storeFor(discovery, scope);
+			const failure = await land(store, () => {
 				if (scope === "global") persistGlobal(kind, item, enabled);
 				else persistProject(kind, item, enabled);
-				const store = storeFor(discovery, scope);
-				await store.flush();
-				for (const error of store.drainErrors()) deps.onError?.(error.error.message);
-			} catch (error) {
-				deps.onError?.(error instanceof Error ? error.message : String(error));
+			});
+			if (failure !== undefined) {
+				deps.onError?.(failure);
 				return;
 			}
 			item.enabled = enabled;
@@ -169,15 +209,14 @@ export function createPickerRuntime(deps: RuntimeDeps): PickerRuntime {
 				return;
 			}
 			const store = storeFor(discovery, "project");
-			try {
-				if (!clearFromStore(kind, item)) {
-					deps.onError?.(`No project override for ${getDisplayName(item, kind)}.`);
-					return;
-				}
-				await store.flush();
-				for (const error of store.drainErrors()) deps.onError?.(error.error.message);
-			} catch (error) {
-				deps.onError?.(error instanceof Error ? error.message : String(error));
+			const write = overrideWrite(kind, item);
+			if (write === undefined) {
+				deps.onError?.(`No project override for ${getDisplayName(item, kind)}.`);
+				return;
+			}
+			const failure = await land(store, write);
+			if (failure !== undefined) {
+				deps.onError?.(failure);
 				return;
 			}
 			// With the override gone the row shows the inherited state again; a

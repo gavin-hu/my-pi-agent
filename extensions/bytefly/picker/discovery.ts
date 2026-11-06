@@ -33,8 +33,16 @@ export interface DiscoveryDeps {
 	factory?: DiscoveryFactory;
 }
 
-/** Adapt Pi's `SettingsManager` to the narrow `SettingsStore` surface. */
+/**
+ * Adapt Pi's `SettingsManager` to the narrow `SettingsStore` surface.
+ *
+ * The manager is fresh here and has written nothing, so anything already queued
+ * is its file failing to load. Taking it now keeps that reason available to every
+ * later write — Pi's own queue would hand it out once and then let a parse-failed
+ * file swallow writes in silence.
+ */
 export function createSettingsStore(manager: SettingsManager): SettingsStore {
+	const loadErrors = manager.drainErrors();
 	return {
 		globalSettings: () => manager.getGlobalSettings(),
 		projectSettings: () => manager.getProjectSettings(),
@@ -50,6 +58,7 @@ export function createSettingsStore(manager: SettingsManager): SettingsStore {
 		isProjectTrusted: () => manager.isProjectTrusted(),
 		flush: () => manager.flush(),
 		drainErrors: () => manager.drainErrors(),
+		loadErrors: () => loadErrors,
 	};
 }
 

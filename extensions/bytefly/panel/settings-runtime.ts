@@ -122,6 +122,10 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 	 */
 	const write = async (scope: WriteScope, row: SettingDescriptor, raw: string): Promise<void> => {
 		if (row.source === "app") {
+			// Pi records a failed write instead of rejecting, and drops any write to a file
+			// it could not read, so both are checked rather than awaited.
+			const unreadable = deps.stores.global.loadErrors()[0];
+			if (unreadable) throw unreadable.error;
 			applyAppSetting(deps.stores.global, row, raw);
 			await deps.stores.global.flush();
 			const first = deps.stores.global.drainErrors()[0];

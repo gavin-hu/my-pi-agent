@@ -234,6 +234,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: a `Space` in Project scope writes the project file's own package list, not the merged one.
+  Pi's `getPackages()` reads both files merged, so on a project with no `packages` key the toggle copied
+  every personal package entry into `.pi/settings.json` — a file people commit — and wrote the toggled
+  package without `autoload: false`, which replaced the personal entry instead of filtering it. `x`
+  likewise clears the override out of the project's own list, where before it could carry a personal
+  entry across. A write is also taken only when it landed: `flush()` never rejects, so a save the store
+  recorded, or a settings file it could not read, is reported in the hint row and leaves the checkbox as
+  it was, where it used to flip and say nothing.
+
 - `board`: a sign records a person rather than the pronoun. `/board approve` and `/board review`
   write the lead's name with `person: true` on the sign — the one name a card file can give
   somebody who has no session — so no card stores `you`, and the event the owner is told names
