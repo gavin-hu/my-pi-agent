@@ -33,6 +33,25 @@ describe("the load reading", () => {
 		expect(offenders, "a reading of nothing is a broken walker, not a cheap package").toEqual([]);
 	});
 
+	test("the shared list accounts for every repeated evaluation, and names each module once", () => {
+		const read = reading(ROOT);
+		// A module evaluated `k` times contributes `k - 1` to the duplicate count, so the list
+		// is the totals broken out rather than a second, hand-kept number beside them.
+		const repeated = read.shared.reduce((sum, module) => sum + module.entries - 1, 0);
+		expect(repeated).toBe(read.evaluations - read.unique);
+		expect(new Set(read.shared.map((module) => module.file)).size).toBe(read.shared.length);
+		expect(read.shared.every((module) => module.entries > 1)).toBe(true);
+	});
+
+	test("the shared list is most-shared first, and its paths are the docs' posix form", () => {
+		const read = reading(ROOT);
+		const counts = read.shared.map((module) => module.entries);
+		expect(counts).toEqual([...counts].sort((a, b) => b - a));
+		// The docs quote these paths, so a module is named from the package root on every
+		// platform; an absolute or backslashed one would be a sentence that only holds here.
+		expect(read.shared.filter((module) => module.file.startsWith("/") || module.file.includes("\\"))).toEqual([]);
+	});
+
 	test("the totals are the rows, and the duplication is counted not guessed", () => {
 		const read = reading(ROOT);
 		expect(read.evaluations).toBe(read.rows.reduce((sum, row) => sum + row.modules, 0));
