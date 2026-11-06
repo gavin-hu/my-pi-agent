@@ -5,7 +5,8 @@
  * whether the page works. This drives the shipped page and the shipped script through a
  * real browser: a block's comment control opens the composer, Escape peels the composer
  * before the review, a stored comment renders in its block's rail, and the outline jumps
- * to the section it names.
+ * to the section it names. What a frame from the stream changes is `web-live.test.ts`,
+ * which shares this page and this browser through `test/helpers/plan-browser.ts`.
  *
  * Every assertion reads the shipped ids and classes, so a rewrite of the template strings
  * that keeps the contract keeps this green. Where the machine has no browser the suite
@@ -13,133 +14,30 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type Browser, chromium, type Page } from "playwright-core";
-import { findChrome } from "../../scripts/capture/chrome.ts";
-import { LOOPBACK_HOSTS } from "../../lib/http/index.ts";
-import type { PlanAnnotation } from "./feedback.ts";
-import type { ReviewContext, SaveResult } from "./web-router.ts";
-import { reviewAt } from "../../test/helpers/fixtures/plan-web.ts";
-import { testMountSource } from "../../test/helpers/serve.ts";
+import type { Browser } from "playwright-core";
+import {
+	type Doc,
+	mountReview,
+	openReview,
+	REVIEW_CHROME,
+	REVIEW_PAGE,
+	REVIEW_PAINT_MS,
+	launchReviewBrowser,
+} from "../../test/helpers/plan-browser.ts";
 import type { ReviewPageData } from "./web-page.ts";
-
-/** The browser this machine has; absent means the whole suite is skipped. */
-const CHROME = findChrome();
-
-/** How long the page gets to paint what the fixture holds. */
-const PAINT_MS = 10_000;
-
-/**
- * The prefix the fixture review answers under: the review's own `/plan/<id>` shape, because the
- * mount is what strips it, and a page served at the origin's root would not prove the page's own
- * URLs are built from that prefix.
- */
-const BASE = "/plan/probe";
-
-/** A plan with two sections and one stored comment, which is the rail's whole reason. */
-const ANNOTATION: PlanAnnotation = { anchor: 0, comment: "needs a rollback step", author: "priya" };
-
-const PAGE: ReviewPageData = {
-	base: BASE,
-	title: "Add rate limiting",
-	path: "~/.pi/agent/plans/probe/add-rate-limiting.md",
-	blocks: [
-		{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting"] },
-		{ start: 1, end: 1, kind: "paragraph", lines: ["Start with the token bucket."] },
-		{ start: 2, end: 2, kind: "blank", lines: [] },
-		{ start: 3, end: 3, kind: "heading", lines: ["## Rollout"] },
-		{ start: 4, end: 4, kind: "paragraph", lines: ["Ship behind a flag."] },
-	],
-	annotations: [ANNOTATION],
-	outline: [
-		{ id: "s-0", line: 0, level: 1, text: "Add rate limiting" },
-		{ id: "s-3", line: 3, level: 2, text: "Rollout" },
-	],
-	steps: { done: 1, total: 3 },
-	code: {},
-	limits: { comments: 200, comment: 2000, quote: 500 },
-	canApprove: true,
-	role: "owner",
-	token: "tok",
-	rev: "rev-1",
-};
+import type { SaveResult } from "./web-router.ts";
 
 let browser: Browser;
 /** The page's own address, prefix included, and how a case gives the mount back. */
 let reviewUrl = "";
 let closeReview: () => Promise<void> = async () => {};
 
-/**
- * The sliver of the DOM a predicate reads.
- *
- * This project's TypeScript has no DOM lib — the client is a string, so nothing here ever
- * compiled against one — and a predicate handed to Playwright is serialized into the page,
- * so it reaches the document through this shape by name.
- */
-interface Doc {
-	querySelector(selector: string): { textContent: string | null } | null;
-	querySelectorAll(selector: string): { length: number };
-}
-
-/** The review's own router, answering the shipped page and its script over HTTP. */
-function context(page: ReviewPageData): ReviewContext {
-	return {
-		caller: (token) => (token === "tok" ? { role: "owner" } : undefined),
-		hosts: () => [...LOOPBACK_HOSTS],
-		canApprove: true,
-		page: async () => page,
-		save: async (): Promise<SaveResult> => ({ ok: true }),
-		share: async () => ({ state: { sharing: false, origin: "", links: [] } }),
-		invite: async () => ({ state: { sharing: false, origin: "", links: [] } }),
-		revoke: async () => ({ state: { sharing: false, origin: "", links: [] } }),
-		stopShare: async () => ({ state: { sharing: false, origin: "", links: [] } }),
-		onSaved: () => {},
-		onApprove: () => {},
-		onCancel: () => {},
-	};
-}
-
-/**
- * Serve one review: the shipped router, on the shipped mount.
- *
- * `testMountSource()` is the server `serve` runs, so the prefix stripping, the SSE head and
- * the close path are the real ones; the case owns the returned close.
- */
-async function serve(
-	page: ReviewPageData = PAGE,
-	overrides: Partial<ReviewContext> = {},
-): Promise<{ origin: string; url: string; close: () => Promise<void> }> {
-	const ctx = { ...context(page), ...overrides };
-	const mount = await testMountSource()({
-		session: "s1",
-		prefix: BASE,
-		// The mount reads the body, so a POST reaches the router with what the page wrote;
-		// the review's own cap is a megabyte.
-		maxBodyBytes: 1024 * 1024,
-		async handler(request) {
-			const answer = await reviewAt(request, ctx);
-			// The router answers a stream marker; the mount needs the sink that goes with it.
-			return answer.stream ? { result: answer, openSink: () => () => {} } : { result: answer };
-		},
-	});
-	if (mount.kind !== "mounted") throw new Error(`the review did not mount: ${mount.reason}`);
-	const { origin, base, release } = mount.mount;
-	return { origin, url: `${origin}${base}/?token=tok`, close: release };
-}
-
-/** One tab on the served review, waited until its blocks have painted. */
-async function openPage(): Promise<Page> {
-	const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
-	await page.goto(reviewUrl, { waitUntil: "load" });
-	await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
-	return page;
-}
-
-describe.skipIf(CHROME === undefined)("the served review", () => {
+describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 	beforeAll(async () => {
-		const started = await serve();
+		const started = await mountReview(REVIEW_PAGE);
 		reviewUrl = started.url;
 		closeReview = started.close;
-		browser = await chromium.launch({ executablePath: CHROME, headless: true });
+		browser = await launchReviewBrowser();
 	}, 30_000);
 
 	afterAll(async () => {
@@ -148,7 +46,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	}, 30_000);
 
 	test("draws the plan's blocks and names the plan in the header", async () => {
-		const page = await openPage();
+		const page = await openReview(browser, reviewUrl);
 		expect(await page.textContent("#plan-title")).toBe("Add rate limiting");
 		expect(await page.$$eval("#plan .bf-block", (nodes) => nodes.length)).toBe(4);
 		// A heading block is an anchor, because a comment's `anchor` is its line.
@@ -162,8 +60,8 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		// ReferenceError on the first render, and the keymap's is on every content key.
 		// The comment sits on a paragraph, so the filtered view has something to keep that
 		// is not a heading.
-		const local = await serve({
-			...PAGE,
+		const local = await mountReview({
+			...REVIEW_PAGE,
 			annotations: [{ anchor: 1, comment: "needs a rollback step", author: "priya" }],
 		});
 		const errors: string[] = [];
@@ -174,7 +72,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		});
 		try {
 			await page.goto(local.url, { waitUntil: "load" });
-			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
+			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			expect(errors).toEqual([]);
 
 			// `j` walks the blocks the page drew, and `k` walks back: the two keys that read the
@@ -208,8 +106,8 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		// One changed paragraph, one comment on a paragraph that did not change: the note has
 		// no text left to refer to, so it goes with its block, and the keyboard has no business
 		// landing on a block the reader cannot see.
-		const local = await serve({
-			...PAGE,
+		const local = await mountReview({
+			...REVIEW_PAGE,
 			changed: [1],
 			blockMarks: true,
 			annotations: [{ anchor: 4, comment: "needs a rollback step", author: "priya" }],
@@ -217,7 +115,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 		try {
 			await page.goto(local.url, { waitUntil: "load" });
-			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
+			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			await page.click('[data-view="changed"]');
 			expect(await page.$eval("#plan .bf-comments", (node) => node.hidden)).toBe(true);
 
@@ -243,8 +141,8 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		// typed form, her first comment would stop being hers to edit and her next post —
 		// which carries only what she still calls hers — would replace it with nothing.
 		const saves: unknown[][] = [];
-		const local = await serve(
-			{ ...PAGE, role: "reviewer", canApprove: false, annotations: [] },
+		const local = await mountReview(
+			{ ...REVIEW_PAGE, role: "reviewer", canApprove: false, annotations: [] },
 			{
 				caller: (token) => (token === "tok" ? { role: "reviewer" } : undefined),
 				save: async (annotations): Promise<SaveResult> => {
@@ -265,12 +163,12 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 						(globalThis as unknown as { document: Doc }).document.querySelector("#status")?.textContent ?? "",
 					),
 				undefined,
-				{ timeout: PAINT_MS },
+				{ timeout: REVIEW_PAINT_MS },
 			);
 		};
 		try {
 			await page.goto(local.url, { waitUntil: "load" });
-			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
+			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			await page.click("#reviewer-name");
 			await page.fill("#name-input", "@alice");
 			await page.click("#name-save");
@@ -298,7 +196,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	test("a view click refuses while a comment is half-written", async () => {
 		// The filter repaints the document, and the repaint closes the composer: the click
 		// answers with the same sentence the ways off the page use, and the text stays put.
-		const page = await openPage();
+		const page = await openReview(browser, reviewUrl);
 		await page.click('#plan .bf-block[data-line="1"] .bf-block__add');
 		await page.fill(".bf-composer textarea", "half a thought");
 		await page.click('[data-view="comments"]');
@@ -308,14 +206,14 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	});
 
 	test("a settled review offers no comment control, and the key opens nothing", async () => {
-		const page = await openPage();
+		const page = await openReview(browser, reviewUrl);
 		await page.click("#approve");
 		await page.click("#approve-confirm");
 		// The review ends without returning to the terminal, because the stub answers the post.
 		await page.waitForFunction(
 			() => (globalThis as unknown as { document: Doc }).document.querySelectorAll("#plan .bf-block__add").length === 0,
 			undefined,
-			{ timeout: PAINT_MS },
+			{ timeout: REVIEW_PAINT_MS },
 		);
 		expect(await page.textContent("#review-state")).toContain("approved");
 		expect(await page.textContent("#status")).toContain("Approved");
@@ -327,13 +225,13 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	});
 
 	test("v cycles what the page shows, and refuses over a half-written comment", async () => {
-		const local = await serve({ ...PAGE, changed: [1], blockMarks: true });
+		const local = await mountReview({ ...REVIEW_PAGE, changed: [1], blockMarks: true });
 		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 		const pressed = async (): Promise<string> =>
 			page.$eval('[data-view][aria-pressed="true"]', (node) => node.getAttribute("data-view") ?? "");
 		try {
 			await page.goto(local.url, { waitUntil: "load" });
-			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
+			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			expect(await pressed()).toBe("all");
 			await page.keyboard.press("v");
 			expect(await pressed()).toBe("changed");
@@ -368,8 +266,8 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	test("n walks the commented blocks, and steps over one the view hides", async () => {
 		// Three notes: the heading, the changed paragraph, and a paragraph the Changed view
 		// hides. The walk lands on the two it can show and never on the one it cannot.
-		const local = await serve({
-			...PAGE,
+		const local = await mountReview({
+			...REVIEW_PAGE,
 			changed: [1],
 			blockMarks: true,
 			annotations: [
@@ -383,7 +281,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			page.$eval("#plan .bf-block--active", (node) => node.getAttribute("data-line"));
 		try {
 			await page.goto(local.url, { waitUntil: "load" });
-			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
+			await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });
 			await page.keyboard.press("v");
 			await page.keyboard.press("n");
 			expect(await active()).toBe("0");
@@ -401,8 +299,8 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	});
 
 	test("Resolve settles the writer's own note, and the counts say so", async () => {
-		const local = await serve({
-			...PAGE,
+		const local = await mountReview({
+			...REVIEW_PAGE,
 			annotations: [
 				{ anchor: 1, comment: "mine to settle" },
 				{ anchor: 4, comment: "hers", author: "priya" },
@@ -411,7 +309,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 		try {
 			await page.goto(local.url, { waitUntil: "load" });
-			await page.waitForSelector("#plan .bf-comment", { timeout: PAINT_MS });
+			await page.waitForSelector("#plan .bf-comment", { timeout: REVIEW_PAINT_MS });
 			expect(await page.textContent("#comment-total")).toBe("2");
 			// The owner's own note offers the action; the reviewer's does not.
 			expect(await page.$$eval(".bf-comment__actions", (nodes) => nodes.length)).toBe(1);
@@ -432,10 +330,10 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	});
 
 	test("opens the composer from a block's control, and Escape peels it before the review", async () => {
-		const page = await openPage();
+		const page = await openReview(browser, reviewUrl);
 		// The control is one per block and is what a reader clicks; it is inside the rail.
 		await page.click('#plan .bf-block[data-line="1"] .bf-block__add');
-		await page.waitForSelector(".bf-composer textarea", { timeout: PAINT_MS });
+		await page.waitForSelector(".bf-composer textarea", { timeout: REVIEW_PAINT_MS });
 		await page.fill(".bf-composer textarea", "add a retry cap");
 		// Escape closes the composer and nothing else: the review is still open, so a
 		// second Escape would be the one that leaves it.
@@ -443,7 +341,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		await page.waitForFunction(
 			() => (globalThis as unknown as { document: Doc }).document.querySelector(".bf-composer") === null,
 			undefined,
-			{ timeout: PAINT_MS },
+			{ timeout: REVIEW_PAINT_MS },
 		);
 		expect(await page.$$eval(".bf-composer", (nodes) => nodes.length)).toBe(0);
 		expect(await page.$eval("#plan", (node) => node.isConnected)).toBe(true);
@@ -451,7 +349,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	});
 
 	test("shows a stored comment in its block's rail, and counts it", async () => {
-		const page = await openPage();
+		const page = await openReview(browser, reviewUrl);
 		expect(await page.textContent("#plan .bf-comment__label")).toContain("priya");
 		expect(await page.textContent(".bf-comment")).toContain("needs a rollback step");
 		// The block that carries it says so, and the header's count agrees.
@@ -466,14 +364,14 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 
 	test("marks a comment a refinement carried off the text it was written on", async () => {
 		const carried: ReviewPageData = {
-			...PAGE,
+			...REVIEW_PAGE,
 			annotations: [{ anchor: 1, comment: "needs a rollback step", author: "priya", moved: true }],
 		};
-		const local = await serve(carried);
+		const local = await mountReview(carried);
 		try {
 			const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 			await page.goto(local.url, { waitUntil: "load" });
-			await page.waitForSelector(".bf-comment__moved", { timeout: PAINT_MS });
+			await page.waitForSelector(".bf-comment__moved", { timeout: REVIEW_PAINT_MS });
 			const chip = page.locator(".bf-comment__moved");
 			expect(await chip.textContent()).toBe("moved");
 			// The refusal is in the tooltip as well as the chip: a reader who hovers learns
@@ -494,7 +392,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		// Two rules, both about a 260px panel: the hint line names the keys a reader reaches
 		// for first and leaves the rest to `?`, and no fact's label is squeezed into a column
 		// by the value beside it.
-		const page = await openPage();
+		const page = await openReview(browser, reviewUrl);
 		// A string expression evaluates to `unknown`; this is the shape the page returns,
 		// and the assertions below are what hold it to that.
 		const panel = (await page.evaluate(`(function () {
@@ -520,8 +418,8 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	test("draws a list marker with the kit's class, checked or not", async () => {
 		// The marker's width and muted colour come from the kit rule; a bare marker class
 		// matched nothing, so a plain bullet sat at a different width from a checked one.
-		const local = await serve({
-			...PAGE,
+		const local = await mountReview({
+			...REVIEW_PAGE,
 			blocks: [
 				{ start: 0, end: 0, kind: "heading", lines: ["# Steps"] },
 				{ start: 1, end: 1, kind: "list", lines: ["- a plain bullet"] },
@@ -533,7 +431,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 		try {
 			await page.goto(local.url, { waitUntil: "load" });
-			await page.waitForSelector("#plan .bf-block__li", { timeout: PAINT_MS });
+			await page.waitForSelector("#plan .bf-block__li", { timeout: REVIEW_PAINT_MS });
 			const markers = await page.$$eval("#plan .bf-block__li > span:first-child", (nodes) =>
 				nodes.map((node) => ({
 					cls: node.className,
@@ -555,7 +453,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 	});
 
 	test("jumps to the section the outline names", async () => {
-		const page = await openPage();
+		const page = await openReview(browser, reviewUrl);
 		const links = page.locator("#outline-list a");
 		expect(await links.count()).toBe(2);
 		await links.nth(1).click();
@@ -567,7 +465,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 					.querySelector('#outline-list a[aria-current="true"]')
 					?.textContent?.includes("Rollout") ?? false,
 			undefined,
-			{ timeout: PAINT_MS },
+			{ timeout: REVIEW_PAINT_MS },
 		);
 		await page.close();
 	});

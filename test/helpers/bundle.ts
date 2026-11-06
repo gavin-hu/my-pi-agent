@@ -2,13 +2,16 @@
  * Static checks for a served page's client bundle.
  *
  * A page's script is a string: the plan and board pages assemble theirs from fragments
- * that cross the boundary as source, so no compiler reads the result. Two failures are
- * invisible to every other check, and both are `ReferenceError`s at the page's first
- * render with the whole suite green:
+ * that cross the boundary as source, so no compiler reads the result. Each failure below is
+ * invisible to every other check, and each is a `ReferenceError` or a throw at the page's
+ * first render with the whole suite green:
  *
  * - a fragment declares a helper and the page calls it, but the fragment's source never
  *   reached the bundle (`extensions/plan/web-blocks.ts`'s `applyView` was called in the
  *   page's script and absent from it);
+ * - a fragment calls a helper with no arguments where it takes parameters, so the call
+ *   reads fields off nothing (`renderFacts()` beside a four-argument declaration cost the
+ *   review's refetch its banner, inside a `.catch` that swallowed the throw);
  * - a template rule is spliced by `__NAME__` replacement and one replacement is missing,
  *   so the served script carries the literal `__RUNTIME__` and dies where it is used
  *   (`extensions/board/view/render.ts` splices five);
@@ -69,6 +72,28 @@ export function declaredFunctions(directory: string, filePattern: RegExp): strin
 export function missingBundleBodies(bundle: string, names: readonly string[]): string[] {
 	return names
 		.filter((name) => new RegExp(`\\b${name}\\s*\\(`).test(bundle) && !bundle.includes(`function ${name}(`))
+		.sort();
+}
+
+/**
+ * The names `bundle` calls with no arguments though it declares them with some, sorted.
+ *
+ * The third failure the string boundary hides: `renderFacts()` shipped beside
+ * `function renderFacts(steps, comments, counters, entries)`, so the review's refetch
+ * threw on its first line, a trailing `.catch` ate it, and the sentence that was supposed
+ * to follow the repaint — the banner saying the plan changed on disk — never appeared.
+ *
+ * A bare call only: `deps.closeComposer()` reads a declaration on `deps`, which has a type
+ * of its own, so the scan stays on the boundary that has none.
+ */
+export function argumentlessCalls(bundle: string, names: readonly string[]): string[] {
+	return names
+		.filter(
+			(name) =>
+				new RegExp(`function ${name}\\(`).test(bundle) &&
+				!new RegExp(`function ${name}\\(\\)`).test(bundle) &&
+				new RegExp(`(?<![\\w.$])${name}\\(\\s*\\)`).test(bundle),
+		)
 		.sort();
 }
 

@@ -6,7 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../lib/web/index.ts";
-import { declaredFunctions, missingBundleBodies } from "../../test/helpers/bundle.ts";
+import { argumentlessCalls, declaredFunctions, missingBundleBodies } from "../../test/helpers/bundle.ts";
 import { islandOf, reviewPage } from "../../test/helpers/fixtures/plan-web.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { REVIEW_CSS } from "./web-page.ts";
@@ -287,5 +287,26 @@ describe("the client bundle", () => {
 		// of its own, and a scan that silently reported nothing would pass every page.
 		const bundle = "function drawn() { return 1; }\n	drawn();\n	missing();";
 		expect(missingBundleBodies(bundle, ["drawn", "missing", "unused"])).toEqual(["missing"]);
+	});
+
+	test("passes every bundle helper the arguments it declares", () => {
+		// `renderFacts()` was called beside `function renderFacts(steps, comments, counters,
+		// entries)`: the refetch threw, a trailing `.catch` ate it, and the plan-changed
+		// banner never appeared. The declaration reaches the bundle only as source, so this
+		// scan is the one checker that sees both halves of the call.
+		expect(argumentlessCalls(REVIEW_CLIENT_JS, fragments())).toEqual([]);
+	});
+
+	test("the scan reports a call that drops the arguments its helper declares", () => {
+		// A bare `renderFacts()` is the failure; `deps.renderFacts()` is another declaration
+		// with a type of its own, and a helper that takes nothing is called as it declares.
+		const bundle = [
+			"function renderFacts(steps, comments) { return steps.total + comments.length; }",
+			"function closeComposer() { return 1; }",
+			"renderFacts();",
+			"closeComposer();",
+			"deps.renderFacts();",
+		].join("\n");
+		expect(argumentlessCalls(bundle, ["renderFacts", "closeComposer", "unused"])).toEqual(["renderFacts"]);
 	});
 });

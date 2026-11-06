@@ -181,7 +181,7 @@ export const WEB_COLLAB_JS = String.raw`  /**
       return;
     }
     if (saved || approved || closed) return;
-    if (draftTextarea()) {
+    if (draftTextarea(planEl)) {
       setStatus("A change arrived; finish or discard your draft to see it.");
       return;
     }
@@ -197,9 +197,9 @@ export const WEB_COLLAB_JS = String.raw`  /**
         if (typeof next.author === "string" && next.author) adoptName(next.author);
         // This tab's own unsaved comments belong on top of what just arrived.
         restoreDraft();
+        // The whole repaint: the frame paints the facts and the header chip itself, so
+        // the one thing this page still owes the reader is why the plan changed.
         renderAll();
-        renderFacts();
-        updateState();
         setStatus(kind === "plan" ? "The plan changed on disk; showing the new version." : "Updated with a new comment.");
       })
       .catch(function () {});
