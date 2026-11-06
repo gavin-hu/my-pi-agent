@@ -619,8 +619,10 @@ and the plan-mode policy read, so keep them uniform across extensions:
   leaving one out is never a safe shortcut.
 - `executionMode`: set `"sequential"` on a tool that mutates session, UI, or
   in-memory runtime state, or whose calls are order-dependent. Omit it (the host
-  default, parallel) when calls are independent, such as reads or processes each
-  call spawns itself.
+  default, parallel) when calls are independent: a read, a process each call
+  spawns, an application each call launches. The mode answers a different
+  question from the hints — `readOnlyHint: false` keeps a side effect out of plan
+  mode's allowance, not calls out of a batch.
 - `exposure` / `defaultActive`: set them only when they differ from the default
   (`direct`, active on registration) — `model-only`, `codemode`, and a tool
   activated later from `session_start` say so explicitly.
