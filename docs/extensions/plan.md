@@ -1159,6 +1159,11 @@ Thirty-five co-located suites, declared in `test/suite-manifest.ts`:
   composer with Escape peeling it before the review, a stored comment in its block's
   rail and the header's count, and the outline jumping to the section it names. It
   skips where no browser is installed, naming `PI_CHROME`.
+- `web-live.test.ts` — the same page following its stream, with the mount's own frame in
+  the case's hands: a plan frame that draws the new blocks and says the plan changed on
+  disk, a frame arriving over a half-written comment that refuses and keeps the text, and
+  the composer a reload reopens with its text. It shares the page, the browser, and the
+  mount with `web-behaviour.test.ts` through `test/helpers/plan-browser.ts`.
 - `web-share.test.ts` — the LAN address selector, `shareUrl`, the link table with
   its cap, and the reasons a share is unavailable.
 - `commands.test.ts` — `/plan review`, `/plan list`, the retired `share` and
