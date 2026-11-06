@@ -160,14 +160,14 @@ export function createPickerRuntime(deps: RuntimeDeps): PickerRuntime {
 	 * Write through `store`, and say why the write did not land.
 	 *
 	 * `flush()` never rejects — Pi records a failed write on `drainErrors()` — so the
-	 * only proof a write landed is that nothing comes back from it. A file that could not be read is refused before the store is touched, because
-	 * Pi would take the write in memory and then drop it on the way to the file.
-	 * A write that did fail is undone by re-reading: Pi's setters change the document
-	 * before the queued write runs, so the store would otherwise hand the next read a
-	 * value the file never took.
+	 * only proof a write landed is that nothing comes back from it. The store is
+	 * re-read first, because a file it cannot read now would take the write in memory
+	 * and then drop it on the way to the file; and re-read after a failure, because a
+	 * setter changes the document before the queued write runs, so the store would
+	 * otherwise hand the next read a value the file never took.
 	 */
 	const land = async (store: SettingsStore, write: () => void): Promise<string | undefined> => {
-		const unreadable = store.loadErrors()[0];
+		const unreadable = (await store.reload())[0];
 		if (unreadable !== undefined) return describeFailure(unreadable);
 		try {
 			write();

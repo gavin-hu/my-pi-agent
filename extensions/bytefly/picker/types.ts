@@ -57,14 +57,15 @@ export interface SettingsStore {
 	isProjectTrusted(): boolean;
 	flush(): Promise<void>;
 	/**
-	 * Re-read both documents from their files, dropping a write the file never took:
-	 * Pi's setters change the in-memory document before the queued write can fail.
+	 * Re-read both documents from their files, and say why they cannot be read.
+	 *
+	 * A write asks this first, so a file that stopped being readable is refused before
+	 * a setter touches the document — and asks it again afterwards, because Pi's setters
+	 * change the document before the queued write can fail.
 	 */
-	reload(): Promise<void>;
+	reload(): Promise<SettingsFailure[]>;
 	/** A write Pi recorded instead of throwing; drained, so each report is read once. */
 	drainErrors(): SettingsFailure[];
-	/** Why the store could not read its file: no write can land while one stands. */
-	loadErrors(): SettingsFailure[];
 }
 
 /** Resolves every configured package into its resource lists. */

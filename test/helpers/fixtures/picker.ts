@@ -70,6 +70,8 @@ export interface FakeStore {
 	failFlush(error: Error): void;
 	/** Fail the queued write the way Pi does: nothing reaches the file, nothing throws, and the reason comes back from `drainErrors()`. */
 	recordError(error: Error, path?: string): void;
+	/** Stop being able to read the file: `reload()` reports this from then on. */
+	failRead(message: string, path?: string): void;
 }
 
 export interface StoreOptions {
@@ -81,7 +83,7 @@ export interface StoreOptions {
 	packages?: PackageSource[];
 	/** The project document's own `packages`; absent leaves the key unset. */
 	projectPackages?: PackageSource[];
-	/** Why the file could not be read, as `loadErrors()` reports it. */
+	/** Why the file cannot be read, as `reload()` reports it — from the start, until `failRead` changes it. */
 	loadErrors?: string[];
 	trusted?: boolean;
 }
@@ -100,7 +102,9 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 	let projectFile: Settings = projectSettings;
 	let recorded: Array<{ error: Error; path?: string }> = [];
 	let pending: { error: Error; path?: string } | undefined;
-	const loadErrors = options.loadErrors ?? [];
+	let readErrors: Array<{ error: Error; path?: string }> = (options.loadErrors ?? []).map((message) => ({
+		error: new Error(message),
+	}));
 	let flushes = 0;
 	let flushError: Error | undefined;
 
@@ -127,13 +131,15 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 		failFlush: (error) => {
 			flushError = error;
 		},
+		failRead: (message, path) => {
+			readErrors = [{ error: new Error(message), ...(path ? { path } : {}) }];
+		},
 		recordError: (error, path) => {
 			pending = { error, ...(path ? { path } : {}) };
 		},
 		store: {
 			globalSettings: () => globalSettings,
 			projectSettings: () => projectSettings,
-			loadErrors: () => loadErrors.map((message) => ({ error: new Error(message) })),
 			setExtensionPaths: (paths) => {
 				calls.setExtensionPaths.push(paths);
 				globalSettings = { ...globalSettings, extensions: paths };
@@ -179,8 +185,12 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 				projectFile = projectSettings;
 			},
 			reload: async () => {
+				// Pi's two branches: a file it cannot read leaves its document alone and says
+				// why, and a file it can read replaces the document with what it holds.
+				if (readErrors.length > 0) return readErrors;
 				globalSettings = globalFile;
 				projectSettings = projectFile;
+				return [];
 			},
 			drainErrors: () => {
 				const drained = recorded;

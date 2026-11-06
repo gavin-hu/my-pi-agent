@@ -246,6 +246,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: the settings stores are re-read before a write, so a settings file that stops being readable
+  while the picker or the Settings section is open is refused instead of reported after the write — Pi
+  takes a setter's value in memory and then drops it on the way to a file it cannot parse, which left the
+  document holding a value the file never took. `SettingsStore.reload()` now re-reads both files and says
+  what could not be read, replacing the snapshot `loadErrors()` took at screen open, and both the picker's
+  `land()` and the app rows check it before calling a setter and again after one fails.
+
 - `bytefly`: a picker write that did not land no longer leaves the settings store holding a value
   the file never took. Pi's setters change the document in memory before the queued write can fail,
   so `x` on that row afterwards found a phantom project override and wrote the cleared list — on a
