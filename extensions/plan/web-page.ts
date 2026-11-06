@@ -274,6 +274,10 @@ function nameDialog(): string {
  * jumped to.
  */
 function finishBlock(role: ReviewRole, canApprove: boolean): string {
+	// A viewer has no decision at all, so the sentence is about the page rather than about a
+	// button: there is nothing to press, and saying what is absent is the only useful fact.
+	if (role === "viewer")
+		return `<p class="review-finish"><strong>View only</strong> — reading the plan in the browser. Open it again to keep up as the plan changes.</p>`;
 	if (role === "reviewer")
 		return `<p class="review-finish"><strong>Post comments</strong> signs them with your name and returns them to the plan.</p>`;
 	if (canApprove)
@@ -291,10 +295,11 @@ export function renderReviewPage(data: ReviewPageData): string {
 	const hasOutline = data.outline.length > 0;
 	const bodyClass = hasOutline ? "bf-app__body" : "bf-app__body bf-app__body--single";
 	// The panel is the reader's own. A reviewer is named there, sees what their comments are
-	// signed with, and the comment count; the plan's step progress is the owner's, because it
-	// is the list approval seeds. The switch and the outline are the plan's, so both roles get
-	// them. A reviewer's name is a fact about them, not one of the page's actions, so it lives
-	// here rather than in the control bar.
+	// signed with, and the comment count; the plan's step progress is the owner's and a
+	// viewer's, because approval seeds it and a reader is reading the same steps. The switch
+	// and the outline are the plan's, so every role gets them. A reviewer's name is a fact
+	// about them, not one of the page's actions, so it lives here rather than in the control
+	// bar.
 	const identity =
 		data.role === "reviewer"
 			? `
@@ -322,41 +327,53 @@ ${reviewHints(data.role, data.canApprove)}
 	// keeps Save primary. A reviewer's one write action is Post, and nothing on
 	// their page closes the review or mints another link.
 	const isOwner = data.role === "owner";
+	const isViewer = data.role === "viewer";
 	const approveButton = data.canApprove
 		? `
 <button type="button" class="bf-btn bf-btn--primary" id="approve">Approve &amp; run</button>`
 		: "";
+	// A viewer's page writes nothing, so it gets no save control of either kind — and the bar
+	// itself is left out below when every control in it is absent.
 	const saveControl = isOwner
 		? `<button type="button" class="${data.canApprove ? "bf-btn" : "bf-btn bf-btn--primary"}" id="save">Save feedback</button>`
-		: `<button type="button" class="bf-btn bf-btn--primary" id="post">Post comments</button>`;
+		: isViewer
+			? ""
+			: `<button type="button" class="bf-btn bf-btn--primary" id="post">Post comments</button>`;
 	const closeControl = isOwner ? `<button type="button" class="bf-btn" id="cancel">Back to Pi</button>` : "";
 	// Sharing belongs to the owner; a reviewer's identity is a row in the panel.
 	const shareControl = isOwner ? `<button type="button" class="bf-btn" id="share">Share</button>` : "";
+	const controls = `${shareControl}${approveButton}${saveControl}${closeControl}`;
+	// An empty control bar is a rule with nothing above it: a viewer opens no bar at all, which
+	// is also what keeps the page from looking like a review that lost its buttons.
+	const controlBar = controls === "" ? "" : `<div class="bf-app__bar review-actions">${controls}</div>`;
+	// One name for the page, read from the role: a view is not a review, and the tab, the
+	// toolbar lockup, and the section of the docs that explains it must not disagree.
+	const pageName = isViewer ? "plan view" : "plan review";
 	return `<!doctype html>
 <html lang="en"${baseAttribute(data.base)}>
 <head>
-${docHead({ title: tabTitle("plan review", data.title), css: REVIEW_CSS, base: data.base })}
+${docHead({ title: tabTitle(pageName, data.title), css: REVIEW_CSS, base: data.base })}
 </head>
 <body class="bf-app">
 <a class="skip" href="#plan">Skip to the plan</a>
 <header class="bf-app__header"><div class="bf-toolbar review-bar">
-${brandLockup("plan review")}
+${brandLockup(pageName)}
 ${pageSubject({ id: "plan-title", label: data.title, title: data.path })}
 <div class="bf-toolbar__facts">
 ${liveChip({ id: "review-state", label: "connecting\u2026" })}
-${reloadChip({ title: "Reload to review the plan again" })}
+${reloadChip({ title: isViewer ? "Reload to read the plan again" : "Reload to review the plan again" })}
 <span class="bf-status" id="status" role="status" aria-live="polite"></span>
 </div>
 ${toolbarChrome()}
 </div><div class="review-progress" aria-hidden="true"><span class="review-progress__fill" id="progress-fill"></span></div></header>
-<div class="bf-app__bar review-actions">${shareControl}${approveButton}${saveControl}${closeControl}</div>
+${controlBar}
 <div class="${bodyClass}">
 ${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
 </div>
 ${pageFooter({ facts: `plan ${data.path}` })}
 ${keysSheet(reviewKeys(data.role, data.canApprove))}
 ${data.canApprove ? approveDialog() : ""}
-${data.role === "owner" ? shareDialog() : nameDialog()}
+${data.role === "owner" ? shareDialog() : data.role === "reviewer" ? nameDialog() : ""}
 <script type="application/json" id="review-data">${island}</script>
 <script src="${data.base}/client.js" defer></script>
 </body>
@@ -365,16 +382,17 @@ ${data.role === "owner" ? shareDialog() : nameDialog()}
 }
 
 /**
- * The review facts panel: the step progress an owner is owed and the comment total both
- * roles are. Static placeholders; the client fills them from the blocks it rendered and
- * skips a fact the markup does not carry.
+ * The review facts panel: the step progress an owner or a viewer is owed — approval is what
+ * an owner's list is seeded from, and a viewer is reading the same steps — and the comment
+ * total every role is. Static placeholders; the client fills them from the blocks it
+ * rendered and skips a fact the markup does not carry.
  */
 function reviewFacts(role: ReviewRole): string {
 	const steps =
-		role === "owner"
-			? `
-<div class="review-fact" id="step-fact"><span>Plan steps</span><span class="bf-progress"><span class="bf-progress__track"><span class="bf-progress__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>`
-			: "";
+		role === "reviewer"
+			? ""
+			: `
+<div class="review-fact" id="step-fact"><span>Plan steps</span><span class="bf-progress"><span class="bf-progress__track"><span class="bf-progress__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>`;
 	return `<div class="review-facts" id="review-facts">${steps}
 <div class="review-fact"><span>Comments</span><span class="review-fact__value" id="comment-total">0</span></div>
 </div>`;

@@ -33,6 +33,7 @@ executes.
 
 | Capability | How | What you get | Status |
 |---|---|---|---|
+| Plan view | `/plan list`, `Enter` | The chosen plan opens in the same reading page with nothing on it that writes: no approve, no comment composer, no share, and no plan mode. The terminal stays free while you read, the page follows the file as it changes, and it closes itself when its last tab does. It needs `serve` loaded, like a review. | Unreleased |
 | Review screen | `plan` action `exit` | A scrollable, themed plan with approve, refine, keep, browser, and exit in the footer. | Shipped |
 | Browser page | `/plan review`, `w` on the review screen | The plan opens in a local browser as a reading-first page with live section and step progress. It needs `serve` loaded to mint the prefix; on a shared review, only a reviewer's routes answer over the network — approve, cancel, save and the share controls answer on the serving machine alone. | Partial |
 | Approval in the browser | the `/plan review` page's **Approve & run** | The plan is approved without returning to the terminal, and the steps are seeded. | Shipped |
@@ -281,7 +282,7 @@ plan exit 2026-10-09-1809-add-rate-limiting
 | `plan` (action `enter`) | the model, before a non-trivial task | `ctx.ui.confirm` |
 | `/plan` | the user | immediate |
 | `/plan <prompt>` | the user, with the task | immediate |
-| `/plan list` | the user, browsing the plans directory | immediate |
+| `/plan list` | the user, browsing the plans directory; `Enter` on a plan opens its read-only view | immediate |
 | `/plan review [path]` | the user, reviewing a plan in the browser | immediate |
 | `/skill:init` | the user, creating or updating `AGENTS.md` | enters plan mode; write waits for plan approval |
 | `Shift+Tab` (bytefly) | the user | immediate |
@@ -312,8 +313,10 @@ wrapped lines never land in the notice area on a Shift+Tab.
 
 `/plan list` walks the plans directory and shows every plan with its title,
 modified time, and step progress, newest first — in the TUI as a docked list
-where `Enter` opens the plan's review, elsewhere as a notice with each plan's
-path. The header carries the store's own footprint for this repository: the bytes
+where `Enter` opens the plan in the browser to read, elsewhere as a notice with
+each plan's path. Reading is not reviewing: the view page has no control that
+writes, and it spends no baseline, so a later review still has the changed marks
+to show. The header carries the store's own footprint for this repository: the bytes
 its plans hold and how old the oldest one is, both derived from the walk that just
 happened. The directory stays the index: no registry file, nothing deletes a plan,
 and one bounded read per plan.
@@ -391,7 +394,8 @@ package, so load the whole package (`pi -e .`) or install it; loading only
 The browser review serves these routes on its loopback origin; `…` is the
 request's own token — the owner's on the page that opened the review, and a
 reviewer link's on the page it serves — so each page answers as the role it was
-served for.
+served for. A view's page carries a third role's token, `viewer`, and no route
+below names it: it answers `GET /` and `/events`, and every `POST` is refused.
 
 | Route | Result |
 |---|---|
@@ -1084,25 +1088,25 @@ every link and closes that listener; closing the review does both.
 | `tools/` | One module per action (`enter.ts`, `write.ts`, `exit.ts`, `cancel.ts`, `steps.ts`), each exporting its `execute`/`call`/`text` seam; plus `refusal.ts` (the one rejected-call shape), `todo-seed.ts` (the two nested `todo` writes) and `nested.ts` (reading a nested result). |
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. It also owns the contract — `ReviewDecision`, `ReviewBaselines`, `ReviewPlanOptions` — which `review-lazy.ts` imports as types. |
 | `review-prompt.ts` | Pure rendering and parsing for the review's dialog presentation: the digest posted before the question, the four option labels in one table with their parser, and the editor a revision is asked with. |
-| `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, and `/plan list`. |
+| `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, and `/plan list`, whose Enter opens the read-only view. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and the `·` margin mark on each changed section, the scroll row's `· changed`, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep/interrupt, and the `Ctrl+C` interrupt that closes every layer). |
-| `plan-index.ts` | `/plan list`: the notice text and the docked index screen (store size and oldest plan, title, step progress, age, focused path; Enter reviews). |
+| `plan-index.ts` | `/plan list`: the notice text and the docked index screen (store size and oldest plan, title, step progress, age, focused path; Enter reads). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks), and `contentBlockAt`: the block with content a comment beside blank space belongs to. |
 | `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `readFeedback`/`parseFeedback` (body, blocks, and comments out of one parse), `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `feedbackSummary`, and payload validation. |
 | `review-lazy.ts` | The review gate behind a dynamic import: `reviewPlan` and `runBrowserReview` load `review.ts` (and its TUI screen) on the first review, so registration and the tool schemas never do. It declares no contract of its own: the decision and options types are `review.ts`'s, imported type-only, which erases — so the facade pays nothing and cannot promise what the loop does not do. |
 | `web-lazy.ts` | The review behind `lib/lazy`: `NO_SERVER_DEPS`, and the proxy `/plan` and the tools share, so `web.ts` loads on the first review and shutdown closes only an opened one |
 | `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the plan-file poll, the body cap, settle-after-flush, abort) over `lib/http`'s one loopback server, and the router wiring — the island is `web-payload.ts` and the writes are `web-write.ts`. |
 | `web-tokens.ts` | The token table: the role each token names, the collision rule that keeps two roles off one token, and the names the other live links have bound. |
-| `web-streams.ts` | The event streams: who is listening, what a frame is addressed to, and the closed-tab grace that ends the review when the owner's page goes away. |
+| `web-streams.ts` | The event streams: who is listening, what a frame is addressed to, and the closed-tab grace that ends the session when the page its `lifetime` role names goes away — a review's owner, a view's viewer. |
 | `web-router.ts` | The dispatcher: token role, `Host` allowlist, origin, and method checks through one `routeRefusal`, then the page and its stream, then one lookup in `REVIEW_ROUTES`. It also owns the contract a route is handed — `ReviewRoute`, the `RouteRequest`, and the one `settle` that parses a body and saves it — so a route declares what it needs instead of composing a guard. |
 | `web-routes-owner.ts` | The owner's seven routes as table rows — cancel, share, share/link, share/stop, share/revoke, feedback, and approve — each declaring its access, whether it reads a body, and the sentence another role reads, then only what happens once the guards have passed; plus `linkIdOf` for the one route that names a link. |
 | `web-routes-reviewer.ts` | The reviewer's one route, `/api/comment`: a shared link's whole surface, which writes under the name the link bound and settles nothing. |
-| `web-page.ts` | The review page shell — the kit toolbar (`pageSubject`, `liveChip`, `reloadChip`, `toolbarChrome`), the control bar, the role-aware panel (finish block, facts, the segmented view switch, the outline), the reading progress, the shortcut sheet, and the approve, share, and name dialogs — and the page's inline CSS. |
+| `web-page.ts` | The page shell — the kit toolbar (`pageSubject`, `liveChip`, `reloadChip`, `toolbarChrome`), the control bar a review gets and a view does not, the role-aware panel (finish block, facts, the segmented view switch, the outline), the reading progress, the shortcut sheet, and the approve, share, and name dialogs — and the page's inline CSS. |
 | `web-payload.ts` | The page's data island: `ReviewPageData` and `reviewPageData`, which builds every fact the browser renders — the blocks, the stored comments, the outline and its change marks, the step progress, the plan's own path, the highlighted code, the caps, and who is asking — from one read of the plan, with no server or socket in sight. |
 | `web-write.ts` | The review's two write paths over the plan store: `saveOwnerAnnotations` (the owner's save, which returns the plan it wrote) and `postReviewerAnnotations` (a reviewer's post, signed and scoped to its link), sharing one 404/409 check so a comment can never land beside text nobody read. |
 | `web-share.ts` | Pure sharing rules: the reachable LAN addresses from an injected snapshot, one tokenized URL, the link table (mint, find, revoke, list, state) with its cap, and the reasons a share is unavailable. |
 | `web-share-session.ts` | The shared listener: its bound address, the link table over the session's tokens, `ShareState`, and invite/revoke/stop/close, injected with the request handler, role map, and frame hooks. |
-| `web-keys.ts` | The client's keyboard as typed source (`WEB_KEYS_JS`), and the one table the page's keys come from: `webKeys()` gives each binding its keys, the shortcut sheet's sentence, the sidebar hint's words and whether the page offers it — a function rather than a constant, because the bundle carries a body and `String()` of a table would drop the closures — read by `handleKey` (Esc peels the composer before closing, a field and the sheet own their keys, `s` is the write the page offers) and by the sheet and hint line the page renders; plus `rememberSelection`, which keeps the text a reader selected as the next comment's quote, and the `keyRows`/`surfaceOf` the handler and the page's own sheet both read, spliced with them for the same reason. |
+| `web-keys.ts` | The client's keyboard as typed source (`WEB_KEYS_JS`), and the one table the page's keys come from: `webKeys()` gives each binding its keys, the shortcut sheet's sentence, the sidebar hint's words and whether the page offers it — a function rather than a constant, because the bundle carries a body and `String()` of a table would drop the closures — read by `handleKey` (Esc peels the composer before closing, a field and the sheet own their keys, `s` is the write the page offers) and by the sheet and hint line the page renders; plus `rememberSelection`, which keeps the text a reader selected as the next comment's quote, and the `keyRows`/`surfaceOf` the handler and the page's own sheet both read, spliced with them for the same reason. `surfaceOf` reads the role from the island rather than inferring it from which buttons exist, which is what keeps a viewer's page from being offered a reviewer's write. |
 | `web-settle.ts` | The client's settlement as typed source (`WEB_SETTLE_JS`): `submitAnnotations` — one POST shape whose 409 disables the writes, offers a reload and says the server's own sentence — and the four ways a review ends, of which only the owner's save, approve and close settle it. |
 | `web-plan.ts` | The client's frame as typed source (`WEB_PLAN_JS`, `renderPlanFrame`): it draws every block and its comment rail, then puts the reader back — focus only when it was inside the plan, the active block in place rather than by scrolling. Reads arrive as getters, mutations leave as callbacks, so the bundle keeps every variable. |
 | `web-composer.ts` | The client's composer lifecycle as typed source (`WEB_COMPOSER_JS`): `closeComposer` (over one `ComposerDeps` the client builds where the state is), `reopenComposer` for the draft a reload interrupted, and `commentOnActive`, which returns the index so the client keeps its one `activeIndex`. |

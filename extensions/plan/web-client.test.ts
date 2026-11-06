@@ -87,7 +87,9 @@ describe("review client", () => {
 		expect(REVIEW_CLIENT_JS).toContain("window.sessionStorage.setItem(DRAFT_KEY");
 		expect(REVIEW_CLIENT_JS).toContain('draft.rev !== String(data.rev || "")');
 		expect(REVIEW_CLIENT_JS).toContain("var mine = annotations.filter(isMine);");
-		expect(REVIEW_CLIENT_JS).toContain("var restoredTyping = restoreDraft();");
+		// A viewer writes nothing, so it keeps no draft to restore: the reader's page has no
+		// composer for one to belong to.
+		expect(REVIEW_CLIENT_JS).toContain('var restoredTyping = role === "viewer" ? undefined : restoreDraft();');
 	});
 
 	test("keeps a half-typed comment in the same draft record", () => {

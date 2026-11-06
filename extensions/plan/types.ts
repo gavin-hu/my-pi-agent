@@ -10,11 +10,15 @@ export type { PlanAction };
 import type { StepUpdate } from "./steps.ts";
 
 /**
- * Who is looking at a running review: the session that opened it (`owner`, the
- * only role that can approve), or someone the link was shared with (`reviewer`,
- * who may comment).
+ * Who is looking at a plan page: the session that opened it (`owner`, the only
+ * role that can approve), someone the link was shared with (`reviewer`, who may
+ * comment), or a reader who opened it to read (`viewer`, who may do neither).
+ *
+ * The router's role check is what refuses a viewer every write route: no route's
+ * access is `viewer`, so the page's own surface is the only thing a view needs to
+ * omit — nothing here guards it a second time.
  */
-export type ReviewRole = "owner" | "reviewer";
+export type ReviewRole = "owner" | "reviewer" | "viewer";
 
 /**
  * What a review token names: its role, and — for a reviewer — the name it posts

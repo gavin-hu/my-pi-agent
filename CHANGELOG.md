@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: `/plan list`'s **Enter** now opens the chosen plan in the browser as a read-only
+  view — the same page a review renders, with no approve, no comment composer, no share, and no
+  plan mode — and the terminal stays free while you read. It follows the file live and closes
+  itself when its last tab does. `/plan review [path]` is unchanged and is still the door that
+  comments on a plan.
 - `bytefly`: `/bytefly settings` groups its fifteen rows under six headings — **Lead** moves out
   of `Board` into its own `Team` group beside it, because the name the board's two gates take is
   the team's rather than a card's. `Board` keeps the two WIP limits (`Board (2)`), the cap stays

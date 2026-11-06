@@ -171,6 +171,9 @@ describe("review keyboard", () => {
 	const harness = (over: Record<string, unknown> = {}) => {
 		const calls: string[] = [];
 		const deps = {
+			// The role is the island's, not the controls': a page whose role says `viewer`
+			// offers the reading keys whatever buttons happen to be on it.
+			role: "owner",
 			composerOpen: () => false,
 			closeComposer: () => calls.push("closeComposer"),
 			cancel: () => calls.push("cancel"),
@@ -275,7 +278,7 @@ describe("review keyboard", () => {
 		handleKey({ key: "s", preventDefault() {} }, owner.deps);
 		expect(owner.calls).toEqual(["save"]);
 
-		const reviewer = harness({ hasSaveControl: () => false });
+		const reviewer = harness({ role: "reviewer", hasSaveControl: () => false });
 		handleKey({ key: "s", preventDefault() {} }, reviewer.deps);
 		expect(reviewer.calls).toEqual(["post"]);
 	});

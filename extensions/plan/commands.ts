@@ -3,9 +3,9 @@
  *
  * `/plan` toggles plan mode, or enters it and sends an optional task;
  * Shift+Tab toggles too, through bytefly's editor. Two subcommands are reserved:
- * `/plan review [path]` opens a plan in the browser (and sends saved comments to
- * the model as a refinement), and `/plan list` shows the plans directory, newest
- * first with Enter opening a review. Every other line is a task.
+ * `/plan review [path]` opens a plan in the browser to comment on it (and sends saved
+ * comments to the model as a refinement), and `/plan list` shows the plans directory,
+ * newest first with Enter opening a read-only view of one. Every other line is a task.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -14,7 +14,7 @@ import { withRailsSuppressed } from "../../lib/rails.ts";
 import { feedbackSummary } from "./feedback.ts";
 import { runBrowserReview } from "./review-lazy.ts";
 import type { PlanRuntime } from "./runtime.ts";
-import type { PlanSummary } from "./plans.ts";
+import type { PlanSummary, StoredPlan } from "./plans.ts";
 import { createLazyPlanWebReview, NO_SERVER_DEPS } from "./web-lazy.ts";
 import type { PlanWebReview } from "./web.ts";
 
@@ -64,6 +64,43 @@ function isReviewSubcommand(prompt: string): boolean {
 	return target.endsWith(".md") || target.includes("/") || target.includes("\\");
 }
 
+/** The word a browser door is called by, in its own notices. */
+type BrowserDoor = "review" | "view";
+
+/**
+ * The plan a browser door should open, or undefined after saying why it cannot.
+ *
+ * Both doors take a path, fall back to the plan this session wrote, then to the newest
+ * one on disk, and both refuse a remote turn: the page is served on loopback, so a WeChat
+ * turn has no browser to drive.
+ */
+async function planForBrowser(
+	runtime: PlanRuntime,
+	planPath: string | undefined,
+	ctx: ExtensionContext,
+	door: BrowserDoor,
+): Promise<StoredPlan | undefined> {
+	const path = planPath ?? runtime.lastPlanPath();
+	// A bare `/plan review` in a later session has no remembered path, so fall back
+	// to the newest plan file in the plans directory.
+	const file = path ? await runtime.plans.read(ctx.cwd, path) : await runtime.plans.latest(ctx.cwd);
+	if (!file) {
+		if (path) ctx.ui.notify(`Plan ${door}: no plan file at ${path}`, "error");
+		else
+			ctx.ui.notify(
+				`Plan ${door}: no plan to ${door}; write one with \`plan\` action \`write\` or pass a path.`,
+				"warning",
+			);
+		return undefined;
+	}
+	// The server is loopback-only, so a remote turn cannot drive it.
+	if (isRemoteTurn(ctx)) {
+		ctx.ui.notify(`Plan ${door}: the browser needs the local machine.`, "warning");
+		return undefined;
+	}
+	return file;
+}
+
 /**
  * Open `planPath` in the browser and, if the user saves comments, hand them to
  * the model. A cancel is silent beyond a notice; nothing is sent.
@@ -75,21 +112,8 @@ async function reviewInBrowser(
 	planPath: string | undefined,
 	ctx: ExtensionContext,
 ): Promise<void> {
-	const path = planPath ?? runtime.lastPlanPath();
-	// A bare `/plan review` in a later session has no remembered path, so fall back
-	// to the newest plan file in the plans directory.
-	const file = path ? await runtime.plans.read(ctx.cwd, path) : await runtime.plans.latest(ctx.cwd);
-	if (!file) {
-		if (path) ctx.ui.notify(`Plan review: no plan file at ${path}`, "error");
-		else
-			ctx.ui.notify("Plan review: no plan to review; write one with `plan` action `write` or pass a path.", "warning");
-		return;
-	}
-	// The server is loopback-only, so a remote turn cannot drive it.
-	if (isRemoteTurn(ctx)) {
-		ctx.ui.notify("Plan review: browser review needs the local machine.", "warning");
-		return;
-	}
+	const file = await planForBrowser(runtime, planPath, ctx, "review");
+	if (!file) return;
 
 	const baseline = runtime.reviewed(file.path);
 	const result = await runBrowserReview(web, ctx.cwd, file, {
@@ -124,9 +148,35 @@ async function reviewInBrowser(
 }
 
 /**
+ * Open `planPath` in the browser as a read-only view: the page a review renders, with
+ * nothing on it that writes.
+ *
+ * It returns as soon as the page is up — a view is not a decision, so the turn does not
+ * wait for the tab — and the server ends itself when the last tab goes away, or at
+ * session shutdown. It deliberately does not mark the review baseline: reading a plan is
+ * not reviewing it, and a view that spent the marks would leave the next review with
+ * nothing to compare against.
+ */
+async function viewInBrowser(
+	runtime: PlanRuntime,
+	web: PlanWebReview,
+	planPath: string | undefined,
+	ctx: ExtensionContext,
+): Promise<void> {
+	const file = await planForBrowser(runtime, planPath, ctx, "view");
+	if (!file) return;
+	const session = await web.start(ctx.cwd, file, { mode: "view" }).catch(() => undefined);
+	if (!session) {
+		ctx.ui.notify("Plan view: could not start the browser server.", "error");
+		return;
+	}
+	ctx.ui.notify(`Plan view: opened ${session.url}`, "info");
+}
+
+/**
  * `/plan list`: show the plans directory, newest first. The TUI gets a docked
- * list whose Enter opens the focused plan's review; every other mode gets the
- * same facts as a notice, with each plan's path.
+ * list whose Enter opens the focused plan in the browser to read; every other
+ * mode gets the same facts as a notice, with each plan's path.
  */
 async function openPlanIndex(
 	pi: ExtensionAPI,
@@ -148,7 +198,7 @@ async function openPlanIndex(
 		return;
 	}
 
-	// The review runs after the screen closes, so the input focus is free again.
+	// The view runs after the screen closes, so the input focus is free again.
 	let selected: (PlanSummary | undefined) | undefined;
 	// A dock list shares the editor slot with the goal and todo rails, so it takes
 	// the dock to itself for as long as it is open, like the other list screens.
@@ -171,7 +221,7 @@ async function openPlanIndex(
 			return component;
 		}),
 	);
-	if (selected) await reviewInBrowser(pi, runtime, web, selected.path, ctx);
+	if (selected) await viewInBrowser(runtime, web, selected.path, ctx);
 }
 
 export function registerCommands(
@@ -181,7 +231,7 @@ export function registerCommands(
 ): void {
 	pi.registerCommand("plan", {
 		description:
-			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans, or review one in the browser",
+			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans, read one in the browser, or review one to comment on it",
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;

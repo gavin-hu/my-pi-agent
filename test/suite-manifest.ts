@@ -130,6 +130,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-shared-review",
 		"web-stream",
 		"web-tokens",
+		"web-view",
 		"commands",
 		"notice",
 		"git-bash",

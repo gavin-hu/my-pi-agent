@@ -350,11 +350,11 @@ describe("/plan list", () => {
 		expect(ctx.customCalls).toHaveLength(0);
 	});
 
-	test("opens a picker in the TUI and reviews the chosen plan", async () => {
-		const { pi, readCalls, started } = setup({
+	test("opens a picker in the TUI and reads the chosen plan", async () => {
+		const { pi, readCalls, started, starts, marks } = setup({
 			file: plan(),
 			summaries,
-			result: { status: "saved", plan: plan(), annotations: [] },
+			result: { status: "cancelled" },
 		});
 		const { ctx: tuiCtx, notifications } = planCtx({ mode: "tui", cwd: "/repo" });
 		// The screen selects the first plan immediately, as Enter on a focused row does.
@@ -381,8 +381,8 @@ describe("/plan list", () => {
 		await pi.commands.get("plan").handler("list", tuiCtx);
 
 		expect(readCalls).toEqual([summaries[0]?.path]);
-		expect(started).toHaveLength(1);
-		expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
+		expect({ started: started.length, mode: starts[0]?.mode, marks }).toEqual({ started: 1, mode: "view", marks: [] });
+		expect(notifications.some((line) => line.includes("Plan view:"))).toBe(true);
 	});
 
 	test("hides the goal and todo rails while the picker is open", async () => {
