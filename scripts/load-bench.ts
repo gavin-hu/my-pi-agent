@@ -7,9 +7,9 @@
  * asks two different questions about that cost, and keeps them apart:
  *
  * - **Deterministic, and gated:** how many local modules an entry statically
- *   evaluates. `test/helpers/graph.ts` walks the graph, `ENTRY_BUDGET` in
- *   `test/dependencies.test.ts` holds each entry's height, and `bun run check`
- *   fails the entry that crosses it. Nothing here gates on time.
+ *   evaluates, and which modules more than one entry evaluates. `test/helpers/graph.ts` walks
+ *   the graph, `ENTRY_BUDGET` in `test/dependencies.test.ts` holds each entry's height, and
+ *   `bun run check` fails the entry that crosses it. Nothing here gates on time.
  * - **Wall-clock, and read by a person:** what those modules cost to transform and
  *   evaluate. The host packages are warmed in the child first, because every
  *   session pays them once whatever this package does; the number that varies is
@@ -20,7 +20,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { manifestEntries, packageOf, staticGraph, staticSpecifiers } from "../test/helpers/graph.ts";
 import { printTable } from "./cli.ts";
 
@@ -41,6 +41,17 @@ export interface GraphRow {
 	shared: number;
 }
 
+/** How many of the most-shared modules the second table prints. */
+export const SHARED_ROWS = 10;
+
+/** One module more than one entry evaluates: the duplication, named. */
+export interface SharedModule {
+	/** Its path from the package root, posix-spelled — the form the docs quote. */
+	file: string;
+	/** How many entries evaluate it. */
+	entries: number;
+}
+
 /** What the whole manifest evaluates, and how much of it is the same module twice. */
 export interface Reading {
 	rows: GraphRow[];
@@ -48,6 +59,14 @@ export interface Reading {
 	evaluations: number;
 	/** Distinct modules behind them. */
 	unique: number;
+	/**
+	 * Every module more than one entry evaluates, most-shared first.
+	 *
+	 * The list is the same count the totals agree with — a module evaluated `k` times
+	 * contributes `k - 1` to `evaluations - unique` — so the paragraph that names the hot
+	 * modules quotes one reading rather than a second, hand-kept number.
+	 */
+	shared: SharedModule[];
 }
 
 /** The extension name an entry belongs to: `extensions/<name>/index.ts`. */
@@ -87,7 +106,21 @@ export function reading(packageRoot: string): Reading {
 		rows: graphs.map(([entry, graph]) => rowOf(entry, graph, packageRoot, times)),
 		evaluations,
 		unique: distinct.size,
+		shared: sharedOf(times, packageRoot),
 	};
+}
+
+/** A module's path from the package root, posix-spelled so it reads the same on every platform. */
+function displayPath(packageRoot: string, file: string): string {
+	return relative(packageRoot, file).split(sep).join("/");
+}
+
+/** The modules more than one entry evaluates, most-shared first. */
+function sharedOf(times: ReadonlyMap<string, number>, packageRoot: string): SharedModule[] {
+	return [...times.entries()]
+		.filter(([, count]) => count > 1)
+		.map(([file, entries]) => ({ file: displayPath(packageRoot, file), entries }))
+		.sort((a, b) => b.entries - a.entries || a.file.localeCompare(b.file));
 }
 
 /**
@@ -142,7 +175,7 @@ export function importMs(packageRoot: string, entry: string, hosts: readonly str
 /** `bun run bench:load` */
 if (import.meta.main) {
 	const root = join(import.meta.dir, "..");
-	const { rows, evaluations, unique } = reading(root);
+	const { rows, evaluations, unique, shared } = reading(root);
 	const hosts = hostSpecifiers(root);
 	// Most expensive first: the reading is for finding the entry that grew.
 	const timed = rows
@@ -165,6 +198,16 @@ if (import.meta.main) {
 		`${rows.length} entries · ${evaluations} static evaluations over ${unique} unique modules (×${(evaluations / unique).toFixed(2)})`,
 	);
 	console.log(`host packages warmed before each entry · ${RUNS} runs, fastest`);
+
+	// Third block: the duplication, named. The totals above say how much of it there is; this
+	// says which modules it is, so a sentence that quotes one (`lib/env.ts` by every entry)
+	// can be checked against the same run rather than kept by hand beside it.
+	console.log("");
+	printTable(
+		["module", "entries"],
+		shared.slice(0, SHARED_ROWS).map((module) => [module.file, String(module.entries)]),
+	);
+	if (shared.length > SHARED_ROWS) console.log(`… and ${shared.length - SHARED_ROWS} more shared modules`);
 
 	// The gate's own failure mode: a walker that resolved nothing would print a
 	// table of zeroes and read as a cheap package.

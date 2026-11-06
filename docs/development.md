@@ -291,9 +291,10 @@ Pi imports each extension with its own module cache
 (`createJiti(…, { moduleCache: false })`), so a shared `lib/` module is
 transformed and evaluated once *per importing entry* — 21 entries evaluate 725
 local modules over 379 distinct ones today. `bun run bench:load` measures that per
-entry: the modules its entry statically evaluates, how many are `lib/`, how many
+entry — the modules its entry statically evaluates, how many are `lib/`, how many
 another entry pays again, and what the graph costs to import with the host
-packages already warm.
+packages already warm — and then names the modules more than one entry evaluates,
+most-shared first: the duplication the totals count, said as a list.
 
 ```bash
 bun run bench:load
@@ -368,10 +369,11 @@ runs it.
   `bench:load`'s `ENTRY_BUDGET` row gates — and the milliseconds are the machine's,
   while the module count is what transfers between them.
 - **The duplication is the ceiling:** 725 evaluations over 379 modules means 346
-  are the same module paid again: `lib/env.ts` is evaluated by all 21 entries,
-  `lib/tui/glyphs.ts`, `lib/tui/tokens.ts` and `lib/format.ts` by 19, `lib/config.ts` by 17,
-  six more `lib/tui/*` by 16. A module removed from an entry's registration graph is
-  saved *N* times, and `bench:load`'s `ENTRY_BUDGET` row is what proves it fell. That is
+  are the same module paid again, and the run names them: `lib/env.ts` by all 21 entries,
+  `lib/format.ts`, `lib/tui/glyphs.ts` and `lib/tui/tokens.ts` by 18, `lib/json.ts` by 16, and
+  `lib/config.ts` with four more `lib/tui/*` by 15 — 66 shared modules in all. A module removed
+  from an entry's registration graph is saved *N* times, and `bench:load`'s `ENTRY_BUDGET` row
+  is what proves it fell. That is
   the graph lever, and it is per entry: a dynamic `import()` on the registration path,
   not a feature deleted. Dropping an extension is the last resort — it buys one entry's
   graph at the price of the feature, and the duplication falls only by that entry's
