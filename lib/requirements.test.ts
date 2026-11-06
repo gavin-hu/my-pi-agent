@@ -209,12 +209,9 @@ describe("the report shape", () => {
 	});
 
 	test("prints the seam's reason, so the switch it names is the one that would change it", async () => {
-		const report = await probeExtension(
-			"board",
-			seams({ disabledReason: () => "an opt-in extension; load it with PI_ENABLED_EXTENSIONS=board" }),
-		);
+		const report = await probeExtension("board", seams({ disabledReason: () => "held back by the test's own seam" }));
 		expect(report.enabled).toBe(false);
-		expect(report.findings[0]?.detail).toContain("PI_ENABLED_EXTENSIONS=board");
+		expect(report.findings[0]?.detail).toContain("held back by the test's own seam");
 	});
 
 	test("flags an extension with no declaration", async () => {

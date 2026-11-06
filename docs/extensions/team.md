@@ -14,15 +14,14 @@ turn, so `assign`, `offer`, and `ask` are messages, not launches — and `ask` i
 waits for nothing at all: a question nobody answers leaves the lead exactly where the
 round already put it.
 
-Both halves are **opt-in**, because the board is a workflow a session either runs or does
-not. A lead names both — `PI_ENABLED_EXTENSIONS=board,team` — and a worker session that
-only works cards names neither. They stay independent at runtime: naming one never loads
-the other, and `team` is refused by `PI_DISABLED_EXTENSIONS` like every extension.
+Both halves load like the rest of the pack. They stay independent at runtime — `team`
+needs no `board` to register, and `PI_DISABLED_EXTENSIONS` refuses either alone as it
+refuses any extension.
 
-Naming `team` alone is legal and stays so — the factory needs no board to register — but
-it is the crippled case: every card it moves is one no `board` tool can read. `doctor`
-reports the board row as opt-in and names the switch that adds it, which is the one place
-a reader who took that shortcut is told.
+A session that loads `team` with `board` disabled is legal and stays so, but it is the
+crippled case: every card it moves is one no `board` tool can read. `doctor` reports the
+board row as `env disabled` and names the variable, which is the one place a reader who
+took that shortcut is told.
 
 <img src="../../assets/screens/team.png" alt="The Team tab as a dashboard: on the left, a Needs a decision queue of rows with a coloured kind edge, the reason on its own line, and the owner as a chip on the row's right; on the right, a Teammates list of one-line rows, each a state dot, a label, a you chip, a mail badge, a not listening chip on a peer whose watch is off, and what that teammate holds at the row's right; and one muted Done line under both" width="100%">
 
@@ -259,8 +258,7 @@ moves, and finish are `board`'s in this same session.
 - **`board`**: the same store, the same cards, the same rules — `team` calls `lib/board/`
   directly, so a card it hands over is one `board` can see. Either extension works without
   the other: without `team` the page still reclaims, and without `board` there is nothing
-  to assign — which is why the lead enables both, and why enabling one never loads the
-  other.
+  to assign.
 - **`session-bus`**: the transport, and the one extension `team` talks to — through
   `lib/session-tool.ts`, whose `join` is an in-process request (a command context cannot
   call a tool) and whose `peers` and `send` are nested tool calls. The bus's actions and
@@ -317,7 +315,7 @@ moves, and finish are `board`'s in this same session.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | The factory: gate on the opt-in switch (`PI_ENABLED_EXTENSIONS`) and `PI_DISABLED_EXTENSIONS`, build the session, register the tool and the command |
+| `index.ts` | The factory: gate on `PI_DISABLED_EXTENSIONS`, build the session, register the tool and the command |
 | `schema.ts` | The tool's four actions and their parameters |
 | `tools.ts` | The dispatch order, the refusals, and the report |
 | `dispatch.ts` | The handoff and offer text, the bus behind a seam, and who is not listening |

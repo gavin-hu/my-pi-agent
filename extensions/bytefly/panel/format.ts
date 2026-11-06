@@ -9,9 +9,9 @@
  * from a probe or a settings file is sanitized before it is printed.
  *
  * A row has two enablement axes: the picker's settings (`◼`/`◻`) and this
- * session's environment — the disable list, and the opt-in list a default-off
- * extension needs. `rowBadge` is the one place that decides how they read, so
- * the screen, the text listing, and the counts cannot contradict each other.
+ * session's environment, which its disable list can switch off. `rowBadge` is the
+ * one place that decides how they read, so the screen, the text listing, and the
+ * counts cannot contradict each other.
  */
 
 import { sanitizeLine } from "../../../lib/format.ts";

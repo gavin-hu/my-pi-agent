@@ -2,13 +2,12 @@
  * The factory: what it registers, what it refuses to register, and what a shutdown
  * closes.
  *
- * The extension is opt-in, so the two properties that matter are that it registers
- * nothing until the session asks for it, and that it registers without a session
- * (a tool and a command, no listener, no socket) once it does.
+ * The two properties that matter are that it registers without a session (a tool and
+ * a command, no listener, no socket), and that `PI_DISABLED_EXTENSIONS` still stops it.
  */
 
 import { describe, expect, test } from "bun:test";
-import { ENV_DISABLED_EXTENSIONS, ENV_ENABLED_EXTENSIONS } from "../../lib/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { stubSession } from "../../test/helpers/board.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
@@ -43,24 +42,14 @@ function stubPage(calls: string[]): BoardPage {
 }
 
 /**
- * The environment that opts the board in: the switch it is gated on, beside the
- * empty disable list every test here wants.
+ * The environment every test here wants: the empty disable list, so the factory
+ * registers.
  */
-const OPTED_IN = { [ENV_DISABLED_EXTENSIONS]: "", [ENV_ENABLED_EXTENSIONS]: "board" };
+const ENABLED = { [ENV_DISABLED_EXTENSIONS]: "" };
 
 describe("the board extension", () => {
-	test("registers nothing until the session opts in", async () => {
-		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "", [ENV_ENABLED_EXTENSIONS]: "" }, () => {
-			const fake = createFakePi();
-			board(fake.pi, { session: stubSession(), page: stubPage([]) });
-			expect(fake.tools.size).toBe(0);
-			expect(fake.commands.size).toBe(0);
-			expect(fake.handlers.size).toBe(0);
-		});
-	});
-
 	test("registers one tool and one command, and starts nothing", async () => {
-		await withEnv(OPTED_IN, () => {
+		await withEnv(ENABLED, () => {
 			const fake = createFakePi();
 			const calls: string[] = [];
 			board(fake.pi, { session: stubSession(), page: stubPage(calls) });
@@ -71,7 +60,7 @@ describe("the board extension", () => {
 	});
 
 	test("closes the page on session shutdown", async () => {
-		await withEnv(OPTED_IN, async () => {
+		await withEnv(ENABLED, async () => {
 			const fake = createFakePi();
 			const calls: string[] = [];
 			board(fake.pi, { session: stubSession(), page: stubPage(calls) });
@@ -83,7 +72,7 @@ describe("the board extension", () => {
 	});
 
 	test("registers nothing when the package disabled it", async () => {
-		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "board", [ENV_ENABLED_EXTENSIONS]: "board" }, () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "board" }, () => {
 			const fake = createFakePi();
 			board(fake.pi, { session: stubSession(), page: stubPage([]) });
 			expect(fake.tools.size).toBe(0);

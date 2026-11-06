@@ -9,18 +9,15 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ENV_DISABLED_EXTENSIONS, ENV_ENABLED_EXTENSIONS, OPT_IN_EXTENSIONS } from "../../lib/env.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 
 /**
  * The environment a session needs to load every extension the manifest
- * declares: nothing disabled, and every opt-in extension named. A harness that
- * registers every factory applies this rather than naming the opt-in extensions
- * itself, so a second one needs no harness edit — and a surface that silently
- * came back empty cannot pass a doc guard.
+ * declares: nothing disabled. A harness that registers every factory applies
+ * this, so a surface that silently came back empty cannot pass a doc guard.
  */
 export const ALL_EXTENSIONS_ENV: Record<string, string> = {
 	[ENV_DISABLED_EXTENSIONS]: "",
-	[ENV_ENABLED_EXTENSIONS]: [...OPT_IN_EXTENSIONS].join(","),
 };
 
 /** A fresh temp directory under the OS temp root. */

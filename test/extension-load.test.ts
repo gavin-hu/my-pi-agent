@@ -145,8 +145,8 @@ describe("every extension loads through the fake runtime", () => {
 			expect(typeof module.default).toBe("function");
 
 			// A fresh double per extension, a temp agent directory so no extension can
-			// read or write the real one, and the environment that loads the whole pack:
-			// nothing disabled, every opt-in extension named.
+			// read or write the real one, and the environment that loads the whole pack;
+			// nothing disabled.
 			await withAgentDir(async () => {
 				await withEnv(ALL_EXTENSIONS_ENV, () => {
 					const fake = createFakePi();
