@@ -246,6 +246,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: two sessions writing one card take turns instead of one silently overwriting the other. A
+  `mutate` re-read the card, checked its revision, and then renamed a new file over it with nothing
+  held in between: a peer's write landing in that gap was replaced by the older copy, and both calls
+  reported success at the same revision. The read, the check, and the rename now run under one lock
+  per card — `cards/.lock-<id>`, taken exclusively, waited for, and taken over once it is old enough
+  that its holder died inside the window — so a peer either writes before the pass reads or after it
+  writes. `drop` can no longer remove a note written in the gap, and the archive move cannot be
+  overwritten by a note that carried the pile it read. Six notes fired at one card from three
+  sessions now all land, where before one did.
 - `plan`: a plan edited on disk under an open browser review now repaints the section outline with
   the body, so the sidebar lists the headings the file holds and each section's comment count lands
   in a link the reader can see. `renderAll()` rebuilds the rail before the frame — the facts and the

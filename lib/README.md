@@ -59,7 +59,8 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`board/rules.ts`](./board/rules.ts) | The lifecycle as a pure dispatch: `createCard`, `mayOp`, `applyOp`, and the one write that bumps the revision. |
 | [`board/steps.ts`](./board/steps.ts) | What each operation does, each answering a refusal, a no-op, or the fields a write applies. |
 | [`board/actions.ts`](./board/actions.ts) | The action list and which of them only read it — the one table the tool and the read-only policy share. |
-| [`board/store.ts`](./board/store.ts) | The backend and the only writer: the card files, the id allocator, `mutate`'s re-check, `scan`, and the archive pile. |
+| [`board/store.ts`](./board/store.ts) | The backend and the only writer: the card files, the id allocator, `mutate`'s locked re-check, `scan`, and the archive pile. |
+| [`board/lock.ts`](./board/lock.ts) | One card's write lock: `lockCard` creates `cards/.lock-<id>` exclusively, waits `LOCK_WAIT_MS` for a live holder, takes over one older than `LOCK_STALE_MS`, and releases only its own token — so `mutate`'s read, check, and rename are one step to a rival session. |
 | [`board/config.ts`](./board/config.ts) | The `board` section of `bytefly.json`, read once and handed to `applyOp` whole. |
 | [`board/session.ts`](./board/session.ts) | The session a call works as: one store per directory, the seat, the id a card records, and the bus's directory. |
 | [`board/join.ts`](./board/join.ts) | The one join both tools ask for, so `board` and `team` cannot answer it differently. |
