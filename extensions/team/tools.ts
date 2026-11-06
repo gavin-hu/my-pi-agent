@@ -31,7 +31,7 @@ import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
-import type { DeliveryFailure, TeamJoin } from "../../lib/session-tool.ts";
+import { createTeamJoin, type DeliveryFailure, type TeamJoin } from "../../lib/session-tool.ts";
 import { failedResult, type ToolFailure, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -169,13 +169,7 @@ export interface TeamToolsDeps {
 
 export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: TeamToolsDeps = {}): void {
 	const dispatchFor = deps.dispatch ?? ((ctx: ExtensionToolContext) => sessionDispatch(pi, ctx));
-	/** The join, built on the first verb that needs it: a round that never asks pays nothing. */
-	let joinBuilder: Promise<TeamJoin> | undefined;
-	const teamFor = (): Promise<TeamJoin> => {
-		if (deps.team !== undefined) return Promise.resolve(deps.team);
-		joinBuilder ??= import("../../lib/session-tool.ts").then(({ createTeamJoin }) => createTeamJoin(pi));
-		return joinBuilder;
-	};
+	const team = deps.team ?? createTeamJoin(pi);
 
 	/**
 	 * Put this session on the team, once, for the verbs a peer answers by mail.
@@ -186,8 +180,8 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 	 * watch. Loaded on demand, like the claim's join was, so registration stays as small as it is.
 	 */
 	const joinRound = async (ctx: ExtensionContext, label: string): Promise<void> => {
-		const { joinOnce } = await import("../../lib/board/join.ts");
-		await joinOnce(session, await teamFor(), ctx, label);
+		const { joinTeam } = await import("../../lib/board/join.ts");
+		await joinTeam(session, team, ctx, label);
 	};
 
 	pi.registerTool({

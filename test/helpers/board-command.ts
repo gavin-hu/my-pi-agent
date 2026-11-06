@@ -14,7 +14,8 @@ import { fakeCtx } from "./context.ts";
 import { createFakePi } from "./fakes.ts";
 import { makeTempTracker } from "./git.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
-import type { JoinResult } from "../../lib/session-tool.ts";
+import type { JoinResult, TeamJoinInput } from "../../lib/session-tool.ts";
+import type { RosterSession } from "../../lib/session-roster.ts";
 import { BOARD_COMMAND, registerCommands } from "../../extensions/board/commands.ts";
 import type { Notify } from "../../extensions/board/announce.ts";
 import type { TeamJoin } from "../../extensions/board/join.ts";
@@ -67,7 +68,7 @@ export function fakeBoardPage(): { page: BoardPage; calls: string[] } {
 	return { page, calls };
 }
 
-/** A team join that records the labels it was asked for, and answers with `answer`. */
+/** A team join that records what it was asked, and answers with `answer`. */
 export function fakeBoardTeam(
 	answer: (label: string | undefined) => JoinResult = (label) => ({
 		ok: true,
@@ -76,24 +77,34 @@ export function fakeBoardTeam(
 	}),
 ) {
 	const labels: Array<string | undefined> = [];
+	const inputs: Array<TeamJoinInput | undefined> = [];
 	const team: TeamJoin = {
 		join: async (_ctx, input) => {
 			labels.push(input?.label);
+			inputs.push(input);
 			return answer(input?.label);
 		},
 	};
-	return { team, labels };
+	return { team, labels, inputs };
 }
 
 /**
- * A session's team half: the name it writes as, the seat it serves, and its standing.
+ * A session's team half: the name it writes as, the seat it serves, its standing, and the
+ * bus's records as `recorded` writes them.
  *
  * The seat is held here the way the real session holds it, so a served page changes the
- * name the join asks for.
+ * name the join asks for. The roster starts as a repository no bus has recorded, because
+ * that is the state a first open is in; `recorded` puts the live record a real join would
+ * have written, which is the other half of the rule the join asks.
  */
-export function fakeBoardSession(name = "team-agent-slead"): BoardSession & { seat(): string | undefined } {
+export function fakeBoardSession(name = "team-agent-slead"): BoardSession & {
+	seat(): string | undefined;
+	/** Put a live record on the bus for this session, as a join would have written it. */
+	recorded(label?: string, watching?: { armed: boolean; wake: boolean }): void;
+} {
 	let seat: string | undefined;
 	let standing: JoinResult | undefined;
+	const roster: RosterSession[] = [];
 	return {
 		// The page's words open no store and read no clock of their own.
 		store: () => {
@@ -103,8 +114,9 @@ export function fakeBoardSession(name = "team-agent-slead"): BoardSession & { se
 			throw new Error("the page's words must not read the plan store");
 		},
 		busDir: async () => {
-			throw new Error("the page's words must not read the bus");
+			throw new Error("the page's words must not read the bus directory");
 		},
+		roster: async () => (roster.length === 0 ? undefined : roster),
 		now: () => 0,
 		who: async () => ({ id: "s-lead", label: seat ?? name }),
 		serving: () => seat,
@@ -113,6 +125,9 @@ export function fakeBoardSession(name = "team-agent-slead"): BoardSession & { se
 		},
 		team: { last: () => standing, record: (result) => void (standing = result) },
 		seat: () => seat,
+		recorded: (label = seat ?? name, watching = { armed: true, wake: false }) => {
+			roster.push({ id: "s-lead", label, mode: "tui", lastSeen: 0, mail: 0, watching });
+		},
 	};
 }
 

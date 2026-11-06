@@ -14,7 +14,7 @@ import { buildRound, type RoundSummary } from "../../lib/board/round.ts";
 import { formatRound, holdingLine, plural } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
-import { readRoster, type RosterSession, rosterStateOf } from "../../lib/session-roster.ts";
+import { type RosterSession, rosterStateOf } from "../../lib/session-roster.ts";
 import { sessionNameOf } from "../../lib/session-label.ts";
 import { formatJoined, formatNotJoined } from "./format.ts";
 
@@ -48,6 +48,9 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 				// because it is the team's, not the user's.
 				const input: TeamJoinInput = label === "" ? await unnamedJoin(session, ctx) : { label, name: true };
 				const joined = await team.join(ctx, input);
+				// The standing is the session's, not this command's: `/board status` reports the team
+				// whichever door put it there, and a typed label is the one door that always asks.
+				session.team.record(joined);
 				ctx.ui.notify(joinedLine(joined), joined.ok ? "info" : "warning");
 				return;
 			}
@@ -62,7 +65,7 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			const cards = await store.list();
 			// The roster is read as data, so a repository with no bus prints the round and
 			// says nothing about who is here rather than failing.
-			const roster = await readRoster(await session.busDir(ctx.cwd));
+			const roster = await session.roster(ctx.cwd);
 			ctx.ui.notify(roundText(cards, session.now(), roster), "info");
 		},
 	});

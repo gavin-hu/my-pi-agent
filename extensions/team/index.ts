@@ -18,17 +18,23 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type BoardSession, openBoardSession } from "../../lib/board/session.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { registerCommands } from "./commands.ts";
 import { registerTools } from "./tools.ts";
 
 export interface TeamDeps {
 	/** Test seam: a session with a temp agent directory and a fixed clock. */
 	session?: BoardSession;
+	/** Test seam: the join, so a suite records it instead of asking a bus. */
+	team?: TeamJoin;
 }
 
 export default function team(pi: ExtensionAPI, deps: TeamDeps = {}): void {
 	if (!isExtensionEnabled("team")) return;
 	const session = deps.session ?? openBoardSession(pi);
-	registerTools(pi, session);
-	registerCommands(pi, session);
+	// One join for the tool and the command: a round's claim and `/team join` are two doors to
+	// the same team, and the command is a request over `pi.events` because it cannot call a tool.
+	const team = deps.team ?? createTeamJoin(pi);
+	registerTools(pi, session, { team });
+	registerCommands(pi, session, { team });
 }

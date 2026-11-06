@@ -3,7 +3,7 @@
  *
  * Every session writes its own record, every message is its own file, and the fields are
  * the bus's own: two board questions are answered by these files — what name this session
- * writes as (`BoardSession.who`) and whether the bus still holds it (`joinOnce`) — so a
+ * writes as (`BoardSession.who`) and whether the bus still holds it (`joinTeam`) — so a
  * suite that wants either has to leave the record a join leaves: the bus's directory, the
  * bus's field names, and a heartbeat its own clock judges. Two writers of that shape are
  * how a suite passes against a layout the bus no longer uses. The blocked inbox is here for
