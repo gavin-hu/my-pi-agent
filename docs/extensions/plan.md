@@ -1150,7 +1150,8 @@ Thirty-five co-located suites, declared in `test/suite-manifest.ts`:
   codec and the router (`web-router`), the page roles and its shell (`web-page`),
   the client script's rules (`web-client`, `web-outline`, `web-composer`,
   `web-settlement`), the stream and the plan-file poll (`web-stream`), the
-  loopback session (`web-session`), and the share rules (`web-shared-review`).
+  loopback session (`web-session`), the share rules (`web-shared-review`), and the
+  links a review mints, revokes, and stops (`web-share-links`).
 - `web-behaviour.test.ts` — the served review, driven in a real browser through
   the router: the blocks and the plan's name, a block's comment control opening the
   composer with Escape peeling it before the review, a stored comment in its block's

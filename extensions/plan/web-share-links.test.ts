@@ -61,8 +61,9 @@ describe("share links", () => {
 
 		// Her stream is keyed by that same token, so the frame addressed to her link reaches
 		// her rather than a tab the review counts as its owner's.
-		const stream = await fetch(apiOf(first.url, "/events"));
-		const frame = nextFrame(stream.body);
+		const herEvents = new URL(apiOf(first.url, "/events"));
+		herEvents.searchParams.set("token", island.token);
+		const frame = nextFrame((await fetch(herEvents)).body);
 		expect((await ownerShares(session, "/api/share/revoke", { id: first.id })).status).toBe(200);
 		expect(await frame).toBe("revoked");
 	});
@@ -133,6 +134,29 @@ describe("share links", () => {
 		expect(review.shareState()?.sharing).toBe(false);
 		// The shared listener is gone, so even a remembered token cannot reach it.
 		await expect(fetch(link.url)).rejects.toThrow();
+	});
+
+	test("a re-shared link may claim a name the revoked one released", async () => {
+		const { review } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
+		const first = (await review.share())?.state.links[0];
+		if (!first) throw new Error("no share link");
+		await fetch(apiOf(first.url, "/api/comment"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(first.url).origin },
+			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "a", author: "alice" }] }),
+		});
+		await review.stopSharing();
+		const second = (await review.share())?.state.links[0];
+		if (!second) throw new Error("no second share link");
+
+		const response = await fetch(apiOf(second.url, "/api/comment"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(second.url).origin },
+			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "b", author: "alice" }] }),
+		});
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ ok: true, author: "alice" });
 	});
 
 	test("refuses a link id the review does not hold, and a body that names none", async () => {

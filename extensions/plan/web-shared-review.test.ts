@@ -1,6 +1,7 @@
 /**
- * Sharing a review over the LAN: the links it mints, the names they bind, the
- * routes a reviewer may call, and the ones only the owner can.
+ * Sharing a review over the LAN: the names a link binds, the routes a reviewer may
+ * call, and the ones only the owner can. The links themselves — minting one, the
+ * cap, revoking it, stopping the share — are `web-share-links.test.ts`.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -238,29 +239,6 @@ describe("shared review", () => {
 		const text = content();
 		expect(text).toContain("> [!REVIEW] @bob: theirs");
 		expect(text).not.toContain("not mine");
-	});
-
-	test("a re-shared link may claim a name the revoked one released", async () => {
-		const { review } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
-		const first = (await review.share())?.state.links[0];
-		if (!first) throw new Error("no share link");
-		await fetch(apiOf(first.url, "/api/comment"), {
-			method: "POST",
-			headers: { "content-type": "application/json", origin: new URL(first.url).origin },
-			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "a", author: "alice" }] }),
-		});
-		await review.stopSharing();
-		const second = (await review.share())?.state.links[0];
-		if (!second) throw new Error("no second share link");
-
-		const response = await fetch(apiOf(second.url, "/api/comment"), {
-			method: "POST",
-			headers: { "content-type": "application/json", origin: new URL(second.url).origin },
-			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "b", author: "alice" }] }),
-		});
-
-		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ ok: true, author: "alice" });
 	});
 
 	test("a repeating token generator cannot turn the owner's page into a reviewer's", async () => {
