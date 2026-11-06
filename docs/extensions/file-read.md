@@ -4,9 +4,10 @@
 `.docx`, `.doc`, `.odt`, `.rtf`, or `.xlsx` file, paged with `startIndex` /
 `maxChars`. Extraction runs in process through JavaScript libraries (`unpdf`,
 `mammoth`, `word-extractor`, `fflate` + `fast-xml-parser`, `rtf-parser`,
-`exceljs`); the extension needs no external executable. Reads are confined to
-the effective working directory with the same symlink-aware guard the built-in
-path tools use.
+`exceljs`); the extension needs no external executable. A relative path resolves
+against the effective working directory and an absolute one may sit anywhere the
+process can read, so a document another extension wrote outside the checkout is
+readable without copying it first.
 
 ## Capabilities
 
@@ -15,7 +16,7 @@ path tools use.
 | Document extraction | `read_doc` | Plain text from a document or workbook whose bytes the built-in `read` cannot decode. |
 | Paged reading | `read_doc` (`startIndex`, `maxChars`) | A long file arrives in slices, and a truncated result names the offset to ask for next. |
 | Workbook text | `read_doc` on `.xlsx` | One `[Sheet]` heading per worksheet followed by tab-separated rows, so the shape of the file survives. |
-| Confined reads | `read_doc` | A path outside the effective working directory is refused, symlinks resolved, before any parser runs. |
+| Any local path | `read_doc` | A relative path resolves against the effective working directory and an absolute one may sit anywhere; the symlink-resolved file is what the parser receives. |
 | Progress and cancellation | `startToolProgress`, the abort signal | A slow extraction shows `Reading... <elapsed>` and can be cancelled instead of looking dead. |
 | Bounded extraction | `file-read.maxFileBytes`, `file-read.extractTimeoutMs` | An over-size file or a parser past its deadline fails the read instead of parking the turn. |
 | Per-format switches | `file-read.formats` | Any of the six formats can be turned off, and a disabled read names the key that did it. |
@@ -49,7 +50,7 @@ network). It takes one file and returns that file's text.
 
 | Parameter | Type | Meaning |
 |---|---|---|
-| `path` | string, required, 1–4096 chars | Path to a `.pdf`, `.docx`, `.doc`, `.odt`, `.rtf`, or `.xlsx`, relative to the working directory (or absolute inside it). |
+| `path` | string, required, 1–4096 chars | Path to a `.pdf`, `.docx`, `.doc`, `.odt`, `.rtf`, or `.xlsx`, relative to the working directory or absolute anywhere. |
 | `startIndex` | integer ≥ 0 | Code-point offset to start from. Defaults to `0`. |
 | `maxChars` | integer 200–100000 | Characters to return. Defaults to the configured `maxChars`. |
 
@@ -143,10 +144,10 @@ reads only `file-read`, and `bun run migrate:config` renames an existing
 
 - **Local files only.** The tool reads bytes from disk and never opens a socket;
   the parsers work offline.
-- **Confined to the effective root.** Relative paths resolve against
-  `resolveEffectiveCwd`; absolute paths are allowed only inside it. Containment
-  is symlink-aware (`isInsideReal`), and the real, resolved path is what the
-  parser receives.
+- **Bounded by the process, not a root.** Relative paths resolve against
+  `resolveEffectiveCwd`; an absolute path is read wherever the process can, so
+  the OS file permissions are the limit. The path is symlink-resolved
+  (`realPathOfNearest`) and that real path is what the parser receives.
 - **Size-capped and time-bounded.** Files larger than `maxFileBytes` are rejected
   before any parser runs, and a parser that outlasts `extractTimeoutMs` is
   abandoned so the turn is not held open by one file.
@@ -236,7 +237,7 @@ config defaults, and error listing all derive from it.
 | Tool | `read_doc`, direct exposure and active on registration (the defaults), default (`parallel`) execution, `annotations: { readOnlyHint: true, openWorldHint: false }`, TypeBox `parameters` and `outputSchema`, and `renderCall`/`renderResult` (reuse `context.lastComponent`; read `context.cwd` and `context.isError`). |
 | State | None persisted. Per-result state lives in the tool-result `details` / `structuredContent`; the renderer reads only that. |
 | Lifecycle | No `session_start` / `session_shutdown` hooks: each read imports a parser, runs it, and holds no long-lived resources. |
-| Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigSection` (`lib/config.ts`), `stripControlChars` / `sanitize` / `formatTokens` (`lib/format.ts`), `SEPARATORS` (`lib/tui/glyphs.ts`). |
+| Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `realPathOfNearest` (`lib/path.ts`), `loadConfigSection` (`lib/config.ts`), `stripControlChars` / `sanitize` / `formatTokens` (`lib/format.ts`), `SEPARATORS` (`lib/tui/glyphs.ts`). |
 | Config | The `file-read` section of the shared `bytefly.json` via `loadConfigSection` (`~/.pi/agent`, `<cwd>/.pi`). |
 
 ## Design notes

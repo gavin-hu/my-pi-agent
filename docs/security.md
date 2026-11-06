@@ -82,10 +82,16 @@ created inside the plans directory and never through a symlink.
 
 ### Local file confinement
 
-[`file-read`](../extensions/file-read/) confines `read_doc` to the effective
-working directory (symlink-aware). [`file-browse`](../extensions/file-browse/)
-serves only from its root. Both reuse the containment predicates in
-`lib/path.ts`.
+[`file-browse`](../extensions/file-browse/) serves only from its root, and the
+built-in `read`, `grep`, `find`, and `ls` stay inside the working directory.
+[`file-read`](../extensions/file-read/)'s `read_doc` is the deliberate
+exception: a document another extension wrote outside the checkout — a WeChat
+attachment under the agent directory, say — is otherwise unreachable, so it
+reads any path the process can and returns extracted text. The OS file
+permissions are that tool's boundary; symlinks are resolved before reading, and
+inside a worktree the guard still refuses a path that leaves the checkout while
+`guard.blockReadEscapes` is on. The containment predicates the confined
+extensions share live in `lib/path.ts`.
 
 ### Outbound web access
 

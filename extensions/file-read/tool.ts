@@ -1,20 +1,21 @@
 /**
  * The `read_doc` tool.
  *
- * Reads a local `.pdf`, `.docx`, `.doc`, `.odt`, `.rtf`, or `.xlsx` under the
- * effective working root and returns its extracted text, pageable with
- * `startIndex`/`maxChars`. The format table in `formats.ts` decides which
- * in-process extractor runs; no external tools are required. Reads are confined
- * to the effective root with symlink-aware containment, matching the worktree
- * guard.
+ * Reads a local `.pdf`, `.docx`, `.doc`, `.odt`, `.rtf`, or `.xlsx` file and
+ * returns its extracted text, pageable with `startIndex`/`maxChars`. The format
+ * table in `formats.ts` decides which in-process extractor runs; no external
+ * tools are required. A relative path resolves against the effective working
+ * root and an absolute one may sit anywhere, so a file another extension wrote
+ * outside the checkout is readable; the parser always receives the
+ * symlink-resolved path.
  */
 
 import { stat } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { sanitizeLine, shortenPath } from "../../lib/format.ts";
-import { isInsideReal, realPathOfNearest } from "../../lib/path.ts";
+import { sanitizeLine } from "../../lib/format.ts";
+import { realPathOfNearest } from "../../lib/path.ts";
 import { reuseText } from "../../lib/tui/chrome.ts";
 import { elapsedSuffix, reuseCallText, startToolProgress, syncElapsedTimer } from "../../lib/tui/tool.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
@@ -25,20 +26,14 @@ import { formatPage } from "./paging.ts";
 import { formatReadCall, formatReadResult } from "./render.ts";
 import { ReadOutput, ReadParams, MAX_CHARS, MIN_CHARS, TOOL_NAME, type ReadArgs, type ReadResult } from "./schema.ts";
 
-/** Resolve a request path under `root`, refusing anything that escapes it. */
+/** Resolve a request path against `root`, canonicalized so the parser reads the real file. */
 function resolveReadPath(root: string, rawPath: string): { display: string; abs: string } {
-	// Resolve on the raw path; sanitize only the displayed/error strings, so a
+	// Resolve on the raw path; sanitize only the displayed string, so a
 	// pathological control character cannot hide a path or forge a transcript line.
 	const trimmed = rawPath.trim();
 	if (!trimmed) throw new Error("path is required.");
 	const candidate = isAbsolute(trimmed) ? trimmed : join(root, trimmed);
-	const abs = realPathOfNearest(candidate);
-	if (!isInsideReal(root, abs)) {
-		throw new Error(
-			`Refusing to read "${sanitizeLine(trimmed)}" outside the working directory (${sanitizeLine(shortenPath(root))}). Copy the file under it or pass a path inside it.`,
-		);
-	}
-	return { display: sanitizeLine(trimmed), abs };
+	return { display: sanitizeLine(trimmed), abs: realPathOfNearest(candidate) };
 }
 
 /** Stat the file and raise a model-readable error for a missing/unreadable target. */
@@ -72,8 +67,9 @@ export function registerReadTool(pi: ExtensionAPI, deps: ReadToolDeps = {}): voi
 		label: "Read document",
 		description:
 			"Read a local PDF, DOCX, DOC, ODT, RTF, or XLSX file and return its extracted text, pageable with " +
-			"startIndex/maxChars. Extraction runs in process, so no external tools are needed; a read that outlasts " +
-			"file-read.extractTimeoutMs fails with the limit named.",
+			"startIndex/maxChars. A relative path resolves against the working directory; an absolute path may sit " +
+			"anywhere the process can read. Extraction runs in process, so no external tools are needed; a read " +
+			"that outlasts file-read.extractTimeoutMs fails with the limit named.",
 		promptSnippet: "Read a PDF, DOCX, DOC, ODT, RTF, or XLSX as text, paged with startIndex/maxChars.",
 		promptGuidelines: [
 			"Use read_doc for .pdf, .docx, .doc, .odt, .rtf, and .xlsx; the built-in read tool is for text and images.",

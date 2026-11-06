@@ -17,7 +17,7 @@ export const ReadParams = Type.Object({
 	path: Type.String({
 		minLength: 1,
 		maxLength: MAX_PATH_LENGTH,
-		description: "Path to a supported file, relative to the working directory or absolute inside it.",
+		description: "Path to a supported file, relative to the working directory or any absolute path.",
 	}),
 	startIndex: Type.Optional(
 		Type.Integer({

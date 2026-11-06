@@ -573,14 +573,13 @@ describe("read_doc guards", () => {
 		await expect(run(installTool(), { path: "dir.pdf" })).rejects.toThrow(/Not a file: dir\.pdf/);
 	});
 
-	test("refuses a path that escapes the root", async () => {
-		await expect(run(installTool(), { path: "../outside/secret.txt" })).rejects.toThrow(
-			/outside the working directory/,
-		);
-	});
-
-	symlinkTest("refuses a symlink that leaves the root", async () => {
-		await expect(run(installTool(), { path: "escape.pdf" })).rejects.toThrow(/outside the working directory/);
+	symlinkTest("reads an absolute path outside the root and resolves a symlink first", async () => {
+		const seen: string[] = [];
+		const tool = installTool({ pdf: async (input) => (seen.push(input.path), "outside text") });
+		const outside = join(fixture.outside, "outside.pdf");
+		expect((await run(tool, { path: outside })).details.path).toBe(outside);
+		expect((await run(tool, { path: "escape.pdf" })).details.text).toBe("outside text");
+		expect(seen).toEqual([outside, outside]);
 	});
 });
 
