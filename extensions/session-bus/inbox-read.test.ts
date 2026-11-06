@@ -41,6 +41,28 @@ describe("an inbox read", () => {
 		await backend.bus.stop();
 	});
 
+	test("a body past the old clip is read whole, and only then consumed", async () => {
+		const dir = scratchDir(temps, "pi-session-bus-");
+		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
+		const backend = session(dir, "/repo/backend", "s2", "backend");
+		await joins(frontend);
+		await joins(backend);
+		// 400 characters is where the read used to stop printing and start deleting.
+		const text = "head ".repeat(200).trim();
+		await frontend.bus.send({ to: "backend", text });
+
+		const read = await backend.tool.execute("call", { action: "inbox" }, undefined, undefined, backend.ctx);
+		expect(read.details.messages).toHaveLength(1);
+		expect(read.content[0]?.text).toContain(text);
+		expect(read.content[0]?.text).not.toContain("…");
+
+		// Consumed, and what it consumed is exactly what it showed.
+		const again = await backend.tool.execute("call", { action: "inbox" }, undefined, undefined, backend.ctx);
+		expect(again.content[0]?.text).toBe("Inbox empty.");
+		await frontend.bus.stop();
+		await backend.bus.stop();
+	});
+
 	test("expanded inbox lists what was consumed", () => {
 		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
 		const rendered = frontend.tool.renderResult(
@@ -84,11 +106,11 @@ describe("an inbox read", () => {
 		const first = await backend.tool.execute("call", { action: "inbox" }, undefined, undefined, backend.ctx);
 		const shown = first.details.messages.length;
 		const text = first.content[0]?.text ?? "";
-		expect(shown).toBeGreaterThan(1);
-		expect(shown).toBeLessThan(20);
-		// One message's worth of context, not twenty times four thousand characters.
+		// One full-length body, not twenty times four thousand characters: the ceiling takes whole
+		// messages, so a burst of long ones costs one call each rather than twenty slivers.
+		expect(shown).toBe(1);
 		expect(text.length).toBeLessThan(5_000);
-		expect(text).not.toContain(body);
+		expect(text).toContain(`0 ${body}`);
 		expect(text).toContain(`… ${20 - shown} more in the inbox — run \`inbox\` again.`);
 		// The details are what the rows render from, so they keep the whole body.
 		expect(first.details.messages[0]?.text).toContain(body);

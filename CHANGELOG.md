@@ -234,6 +234,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: `session inbox` shows every body whole, so a read no longer consumes a tail it never
+  printed. An inbox line clipped each body to 400 characters (800 for a handoff) while the read deleted
+  exactly the messages it had shown, so anything past the ellipsis was lost for good — the store keeps
+  one file per message, and nothing told the sender. The 4,000-character ceiling now bounds how many
+  whole messages one read takes rather than how much of one it prints, so a full-length body costs one
+  call and short mail still fills a page: what the text showed and what the store deleted are the same
+  set.
+
 - `file-browse`: `/browse <subpath>` serves when the session's checkout is reached through a symlink.
   The command resolved the subpath against the raw working directory and the containment check
   compared it with the realpath'd candidate, so on macOS anything under `/tmp` or `/var` was refused

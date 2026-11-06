@@ -15,7 +15,6 @@ import {
 	formatRelease,
 	formatSend,
 	formatStatus,
-	INBOX_BODY,
 	INBOX_BUDGET,
 } from "./format.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
@@ -145,28 +144,32 @@ describe("inbox", () => {
 		expect(remainder.text).toContain("… 2 more in the inbox");
 	});
 
-	test("clips a body, and a handoff keeps more of its instruction", () => {
+	test("renders a body whole, so a read cannot consume a tail it never showed", () => {
 		const long = "x".repeat(4_000);
-		const [body] = formatInbox([message({ text: long })]).text.split("\n");
-		expect(body).toBe(`1. frontend · message · ${"x".repeat(INBOX_BODY)}…`);
+		const read = formatInbox([message({ text: long })]);
+		// The read displays a body and then deletes it, so a clip here loses the tail for good.
+		expect(read.text.split("\n")[0]).toBe(`1. frontend · message · ${long}`);
+		expect(read.text).not.toContain("…");
 
-		const [handoff] = formatInbox([message({ kind: "handoff", text: long })]).text.split("\n");
-		// A handoff is an instruction: an inbox read never shows less of it than the notice did.
-		expect(handoff?.length).toBeGreaterThan(body?.length ?? 0);
-		expect(handoff).toContain("…");
+		const handoff = formatInbox([message({ kind: "handoff", text: long })]);
+		expect(handoff.text.split("\n")[0]).toBe(`1. frontend · handoff · ${long}`);
 	});
 
-	test("stops at the budget, and names what it left in the inbox", () => {
+	test("stops at the ceiling, and names the whole messages it left in the inbox", () => {
 		const burst = Array.from({ length: 20 }, (_, index) =>
 			message({ id: `10${index}-a`, text: `${index} `.padEnd(4_000, "x") }),
 		);
 		const read = formatInbox(burst);
 		const lines = read.text.split("\n");
-		expect(read.shown).toBeGreaterThan(1);
-		expect(read.shown).toBeLessThan(burst.length);
+		// One full-length body is the ceiling: the read takes it whole rather than a sliver of each.
+		expect(read.shown).toBe(1);
+		expect(lines[0]).toContain(burst[0]?.text ?? "");
 		expect(lines.at(-1)).toBe(`… ${burst.length - read.shown} more in the inbox — run \`inbox\` again.`);
-		// One body's worth of context, not twenty: the ceiling is what the read costs.
-		expect(read.text.length).toBeLessThan(INBOX_BUDGET + INBOX_BODY + 100);
+		expect(read.text.length).toBeLessThan(INBOX_BUDGET + 200);
+
+		// Short mail is unaffected: the ceiling counts whole bodies, and twenty short ones fit.
+		const short = Array.from({ length: 20 }, (_, index) => message({ id: `11${index}-a`, text: `note ${index}` }));
+		expect(formatInbox(short).shown).toBe(20);
 	});
 
 	test("counts the mail the caller's limit left behind into the same tail", () => {

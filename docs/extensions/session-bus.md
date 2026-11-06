@@ -57,7 +57,7 @@ summary — the same session, gone, unread, claim, watch, and not-on-the-bus cel
 |---|---|---|
 | `status` | — | Active sessions with unread counts, their state, claims, and this session's identity. A session whose process is gone is listed as `gone` until its heartbeat ages out, and its claims are not listed at all. Prunes stale records. A read: it never adds this session to the bus. |
 | `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient, and reports what happened to each: a partial fan-out names the peers it could not write for (`Not delivered to <label> (<reason>)`) and still succeeds, while reaching nobody is a failure. `to: "*"` is only valid with `kind: "event"`. A session whose process is gone is not a recipient: naming it is refused, and a broadcast skips it. |
-| `inbox` | optional `limit` | Consumes up to `limit` messages, oldest first by arrival (default 20, max 50). Each body is clipped and the whole read stops at a 4,000-character budget; the mail it did not reach stays in the inbox and is named in one `… N more` line. A file this build cannot read is not consumed and not counted as inbox space: it stays on disk for a build that can read it, is named in the read and under `Unreadable mail` in the block, and the message TTL ends it. An expanded block draws a message body wrapped under its sender, so a handoff is readable rather than clipped to the row. |
+| `inbox` | optional `limit` | Consumes up to `limit` messages, oldest first by arrival (default 20, max 50). Every body is shown whole and the read stops at a 4,000-character budget, so a full-length body is one call; the mail it did not reach stays in the inbox and is named in one `… N more` line. A file this build cannot read is not consumed and not counted as inbox space: it stays on disk for a build that can read it, is named in the read and under `Unreadable mail` in the block, and the message TTL ends it. An expanded block draws a message body wrapped under its sender, so a handoff is readable rather than clipped to the row. |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
 | `join` | optional `label`, `wake`, `listen` | Joins the bus, names this session on it and in Pi when a label is given — the same path and uniqueness rule as `/team join`, so `/resume` agrees with the record peers address — and starts listening for mail. The footer draws the label either way, so a plain join changes the name on the bar without renaming the session. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; `listen: false` joins without listening. A label a live session holds is refused, naming the session that holds it — its id, since the label it holds is the one you asked for — and the refusal leaves both names and the watch alone. The result reports the label the bus settled on and whether mail will reach this session. |
@@ -126,7 +126,7 @@ a `wake` raises that session’s own turn, not a phone notification.
 ## Configuration
 
 None in v1. The heartbeat (10 s), watch poll (2 s), session TTL (10 min), message
-TTL (24 h), text cap, inbox limit, body clip, and inbox ceiling are fixed, not
+TTL (24 h), text cap, inbox limit, and inbox ceiling are fixed, not
 configurable.
 The bus lives under the agent directory, not the project, so it is never committed.
 
@@ -320,15 +320,16 @@ listening watch is what raises the turn.
 - **The notice reuses the shared report channel.** `lib/report.ts` already owns
   whether an outcome may raise a turn; the bus supplies the pending mail and the
   text, and bytefly renders the notice like a `job` or `watch` one.
-- **One read is bounded, and consumes only what it shows.** `inbox` is the surface the
-  prompt tells a model to run, so it is the one that could cost the most context: each
-  body is clipped — 400 characters, 800 for a handoff, never less than the notice already
-  showed — and the read stops at 4,000 characters, where a burst of full bodies was 80,000
-  at the default limit. The mail past that point, or past `limit`, is named in one
-  `… N more` line rather than rendered. The read peeks at the front of the inbox, then
-  deletes exactly the messages it showed: the front is a queue, so the mail behind the
-  line is what the next call returns, and a ceiling can never be mail deleted unseen. The
-  count in that line comes from the inbox's own file count, not from the peek — `peek`
+- **One read is bounded, and consumes only what it shows whole.** `inbox` is the surface
+  the prompt tells a model to run, so it is the one that could cost the most context: every
+  body is rendered whole — the read deletes what it displayed, so a clipped body would
+  destroy the rest of a message the model never read — and the read stops at 4,000
+  characters, one message's maximum body. A body at that cap is therefore one call, while a
+  burst of short ones still fills a page. The mail past the ceiling, or past `limit`, is
+  named in one `… N more` line rather than rendered. The read peeks at the front of the
+  inbox, then deletes exactly the messages it showed: the front is a queue, so the mail
+  behind the line is what the next call returns, and a ceiling can never be mail deleted
+  unseen. The count in that line comes from the inbox's own file count, not from the peek — `peek`
   stops at 50, and a tail taken from it would saturate and read as closer to caught up
   than the session is. The peek and the delete are two reads, and the queue is arrival order, so
   a message that arrives between them lands behind the front instead of inside the page: nothing
