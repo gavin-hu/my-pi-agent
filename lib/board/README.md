@@ -181,10 +181,11 @@ and the one construction point `openBoard`. `BOARD_DIR_NAME` / `CARDS_DIR_NAME` 
 is the hash it was filed under, carried rather than read back off the directory's last segment
 because `session-bus` files this repository's records under the same key.
 
-Two writes race safely without a lock. `create` hard-links a temp file onto the name, so two
-adds cannot share an id and the loser retries with the next one. `mutate` re-reads the board,
-re-checks an operation whose card changed underneath, and renames over the old file — a write
-says "apply when this holds", never "force this state". `scan` is one pass answering the cards,
+Two writes take turns. `create` hard-links a temp file onto the name, so two adds cannot share
+an id and the loser retries with the next one. `mutate` takes the card's write lock, re-reads the
+card and the board, and renames over the old file — a write says "apply when this holds", never
+"force this state", and the lock is what keeps a peer's write from landing between the check and
+the rename. `scan` is one pass answering the cards,
 the files it refused (`Skip`), and the bytes they occupy, so a page's frame reads the board
 once; `list` and `skipped` are its two halves, and `list` orders a lane by priority then id.
 
@@ -193,6 +194,20 @@ rewriting it, so `read` finds a card in either pile and writes it back to that o
 `list` still reads the board alone. `archived()` / `archivedCount()` are the pile on request
 and its count, a number spent by an ended or archived card is never handed out again, and nothing
 prunes: `archive` and `drop` are the two ways a card leaves the board.
+
+### lock.ts
+
+One card's write lock: `lockCard` creates `cards/.lock-<id>` exclusively, waits `LOCK_WAIT_MS`
+for a live holder, takes over a lock older than `LOCK_STALE_MS` — a holder needs one read and one
+rename, so a file still there seconds later is a process that died inside its window — and hands
+back the `release` that clears it. `lockPathFor` is that one name per card, so a writer that finds
+the card in the archive contends with one that found it on the board.
+
+The exclusive create is the decision, not a read before it. `release` removes a file only while it
+still carries its own token, so the victim of a takeover cannot open the card to a third writer.
+The lock is not a lock on the repository — two cards are two files, and `create` needs none — it
+exists because the compare-and-set `mutate` makes is a read, a check, and a rename, and the
+filesystem cannot make those one step.
 
 ### config.ts
 

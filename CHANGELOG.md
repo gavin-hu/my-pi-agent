@@ -246,6 +246,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: two sessions writing one card take turns instead of one silently overwriting the other. A
+  `mutate` re-read the card, checked its revision, and then renamed a new file over it with nothing
+  held in between: a peer's write landing in that gap was replaced by the older copy, and both calls
+  reported success at the same revision. The read, the check, and the rename now run under one lock
+  per card — `cards/.lock-<id>`, taken exclusively, waited for, and taken over once it is old enough
+  that its holder died inside the window — so a peer either writes before the pass reads or after it
+  writes. `drop` can no longer remove a note written in the gap, and the archive move cannot be
+  overwritten by a note that carried the pile it read. Six notes fired at one card from three
+  sessions now all land, where before one did.
+
 - `memory`: an `update` whose `text` and `to` are equal reads the stores before answering, so it
   reports `Already set in project memory: <text>` only for a note that scope really holds. Before, the
   equal-text shortcut returned before any read: a note that was absent, or that lived in `global`,

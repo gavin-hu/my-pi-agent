@@ -307,7 +307,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
  * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 722.
+ * total is their sum, 724.
  *
  * `plan` went 56 -> 57: the transcript's approved-plan preview draws the review
  * screen's task box through the kit's `checkbox` rather than keeping a second copy
@@ -317,6 +317,11 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * `run.ts` asks `lib/spawn.ts` for a child in its own group and for the group kill, the
  * rule `job` and `watch` already share, instead of a second copy of `kill(-pid)` and
  * `taskkill /T` in the runner.
+ *
+ * `board` went 59 -> 60 and `team` 49 -> 50 for `lib/board/lock.ts`: the window a
+ * card's write is checked and renamed in is one responsibility, and the module bar
+ * keeps it out of `board/store.ts` — nor can it be deferred, because it is the path
+ * every write takes rather than a surface a session may never open.
  *
  * `wechat`'s row went 30 -> 31 for `state/binding.ts`: the session's binding is a
  * pure reader of the branch that the lifecycle events consult before any bridge
@@ -349,9 +354,9 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
-	board: 59,
+	board: 60,
 	plan: 57,
-	team: 49,
+	team: 50,
 	job: 45,
 	"session-bus": 44,
 	subagent: 34,
