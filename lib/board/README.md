@@ -252,7 +252,9 @@ prunes the record, or `/resume` takes the seat over, so a claim that trusted it 
 a card under a name peers no longer resolve, while a page opening on a session the bus holds
 as a teammate renames it to the seat. The record decides and the standing only fills in when
 the roster cannot be read — a session joined through `/session join` never asked a board door,
-and it is still on the team. The ask repeats the watch the record names, so a rename keeps a
+and it is still on the team — and the record has to be this process's own: two panes opened on
+one session id write one record each, and the other pane's watch is not this one's, so a door
+here asks and arms its own. The ask repeats the watch the record names, so a rename keeps a
 `join({listen: false})` and a wake the session had, and a failed join never undoes the card it
 came after — a bus that is not loaded is a sentence, not an exception. The ask is recorded
 here, and `TeamState`/`standingOf` hand the line its words; `teamStatus` prefers the live

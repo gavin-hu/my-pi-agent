@@ -92,6 +92,29 @@ describe("joinTeam", () => {
 		expect(asked).toEqual([]);
 	});
 
+	test("asks when the live record is another process's, which a second pane writes", async () => {
+		// Two panes share one session id: the other pane's record carries its pid, so the label is
+		// right and the watch is not this pane's. A record whose process is gone never reaches
+		// here, because the roster already reads it as `gone`.
+		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
+		writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen: NOW, pid: process.ppid });
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([{ label: LABEL }]);
+	});
+
+	test("keeps a record this process wrote, which is this pane's own watch", async () => {
+		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
+		writeBusRecord(busDir, {
+			id: ID,
+			label: LABEL,
+			lastSeen: NOW,
+			pid: process.pid,
+			watching: { armed: false, wake: false },
+		});
+		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ label: LABEL, listening: false });
+		expect(asked).toEqual([]);
+	});
+
 	test("asks again when the bus holds another name, which is what the page's seat does", async () => {
 		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
 		// A session the bus holds live under the name it joined as, now serving the page as the

@@ -217,10 +217,12 @@ that session's next turn, and no turn is raised, so being on the team never spen
 A session that has neither opened the board nor claimed a card nor sent through `team` is not on it.
 
 What each of those trusts is the bus, not the join it made earlier: a record that is still
-there and `live` under the name being asked for is the answer, and anything else — the bus
-stopped, the TTL ended the record, the record holds a name from before this session served
-the page — is asked again, under the name the card is written as, which is the same name the
-roster the round reads will hold afterwards. The ask repeats the watch the record names, so a
+there, `live`, and this process's own, under the name being asked for, is the answer — a
+second pane opened on one session id writes its own record, so its watch is not this pane's —
+and anything else — the bus stopped, the TTL ended the record, the record holds a name from
+before this session served the page — is asked again, under the name the card is written as,
+which is the same name the roster the round reads will hold afterwards. The ask repeats the
+watch the record names, so a
 session whose mail watch was turned off — with `join({listen: false})` or the
 `/sessions` board — stays off through a rename into the seat, and a watch armed
 with `wake` keeps it; a refusal recorded the last time is asked again.

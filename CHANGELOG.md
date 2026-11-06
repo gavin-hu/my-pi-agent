@@ -252,8 +252,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it still holds another name, which is how the page takes the seat — and `/team join` records its
   result, so `/board status` reports a team joined through it. The bus's record is the fact behind
   all of it: a door asks only while no live record holds the session under the name being asked
-  for, a rename repeats the watch that record names, and a record under the name answers a
-  standing that failed, so a session joined through `session join` is left alone. `/board status`
+  for and in this process (a second pane opened on one session id writes its own record, and its
+  watch is not the other pane's), a rename repeats the watch that record names, and a record
+  under the name answers a standing that failed, so a session joined through `session join` is
+  left alone. `/board status`
   reads the record first — a watch turned off with `join({listen: false})` or the `/sessions`
   board reads `not listening` — and prints no team once the bus no longer holds the session,
   rather than a name no peer resolves. `lib/board/join.ts` is one `joinTeam` behind all four

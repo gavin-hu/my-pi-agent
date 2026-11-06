@@ -61,10 +61,12 @@ export function standingOf(result: JoinResult | undefined): TeamState | undefine
 	return { label: result.label, listening: result.watching.armed };
 }
 
-/** What one live record says: the name it holds, and its watch when the record carries one. */
+/** What one live record says: the name it holds, its watch, and the process that wrote it. */
 interface Held {
 	label: string;
 	watching?: Watching;
+	/** The process that owns the record; absent is a record older than the field, or one no process holds. */
+	pid?: number;
 }
 
 /**
@@ -92,7 +94,19 @@ function stateOfHeld(held: Held, known: TeamState | undefined): TeamState {
 }
 
 /**
- * Put this session on the team, unless the bus already holds it under the name asked for.
+ * Whether the record is this process's own, which is the half a label cannot tell.
+ *
+ * A second pane opened on the same session id writes its own record, so a peer is reachable
+ * and the label is right, but the watch is the other pane's: asking here is what arms this
+ * pane's mail, the way the page did before a join learned to ask once. A record that names no
+ * process is judged by its name alone, since there is nothing else to compare.
+ */
+function heldHere(held: Held): boolean {
+	return held.pid === undefined || held.pid === process.pid;
+}
+
+/**
+ * Put this session on the team, unless the bus already holds it here, under the name asked for.
  *
  * The live record decides, and the standing only fills in when the record cannot be read:
  * a session the bus holds under this name is on the team whatever this process remembers,
@@ -113,7 +127,7 @@ export async function joinTeam(
 ): Promise<TeamState> {
 	const standing = session.team.last();
 	const answer = await rosterAnswer(session, ctx);
-	if (answer.kind === "held" && sameLabel(answer.held.label, label)) {
+	if (answer.kind === "held" && heldHere(answer.held) && sameLabel(answer.held.label, label)) {
 		return stateOfHeld(answer.held, standingOf(standing));
 	}
 	// No word from the bus keeps a standing that landed: the record may be there and unreadable,
@@ -175,7 +189,11 @@ async function rosterAnswer(session: JoinSession, ctx: ExtensionContext): Promis
 	if (record === undefined || rosterStateOf(record, session.now()) !== "live") return { kind: "absent" };
 	return {
 		kind: "held",
-		held: { label: record.label, ...(record.watching === undefined ? {} : { watching: record.watching }) },
+		held: {
+			label: record.label,
+			...(record.watching === undefined ? {} : { watching: record.watching }),
+			...(record.pid === undefined ? {} : { pid: record.pid }),
+		},
 	};
 }
 
