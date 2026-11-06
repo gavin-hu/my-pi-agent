@@ -246,15 +246,13 @@ export async function executeExit(
 
 	runtime.disable(ctx);
 	// A plan refined and approved again seeds over the list its first approval made:
-	// the steps that approval appended are the ones this one may replace.
+	// the items those approvals appended are the ones this one may replace.
 	const previous = runtime.seeded(decision.plan.path);
 	const { steps, merged, error } = await seedTodos(pi, ctx, decision.plan.content, previous);
-	if (error === undefined && steps.length > 0) {
-		runtime.markSeeded(
-			decision.plan.path,
-			steps.map((step) => step.content),
-		);
-	}
+	// The record is the items this plan owns, not the plan's steps: a step the list
+	// already held is the reader's item and is never claimed, and the verification line is
+	// recorded because it is seeded like a step is.
+	if (error === undefined && merged !== undefined) runtime.markSeeded(decision.plan.path, merged.seeded);
 	const goal = await finalizeGoal(pi, ctx, decision.plan);
 	const listing =
 		steps.length > 0
