@@ -218,8 +218,12 @@ export interface SectionMark {
  * parsed separately — the section list and its marks come out of one scan, in
  * document order. Duplicate headings are told apart by occurrence rather than by
  * title. An absent baseline marks nothing, which is what a first review of a plan
- * looks like; `stripFeedback` only ever drops quote-marker lines, so the marks stay
- * aligned with the sections a screen renders from the same content.
+ * looks like.
+ *
+ * `current` must be the text the baseline was recorded from — the stripped plan, not the
+ * one a terminal renders, where a stored comment reads as the quote it is. A surface that
+ * renders one text and compares another asks {@link changedFlags} for the flags and pairs
+ * them with its own sections.
  */
 export function changedSections(baseline: readonly SectionDigest[] | undefined, current: string): SectionMark[] {
 	const sections = extractSections(reviewText(current));
@@ -238,6 +242,21 @@ export function changedSections(baseline: readonly SectionDigest[] | undefined, 
 		const prior = before.get(keys[at] ?? "");
 		return { section, changed: prior === undefined || prior !== digestOf(section.text) };
 	});
+}
+
+/**
+ * One flag per section, for a surface that renders a different text than it compares.
+ *
+ * The terminal review draws `planDisplayText` — where a stored comment reads as the quote
+ * it is — while the baseline it compares against was recorded from the stripped plan. The
+ * two parses see the same sections in the same order (a marker is a blockquote, never a
+ * heading), so the flags pair with either list by index. A caller whose two parses
+ * disagreed gets no marks rather than a wrong one: a section count that moved means the
+ * document changed shape, and a guess there would mark the wrong text.
+ */
+export function changedFlags(baseline: readonly SectionDigest[] | undefined, current: string): boolean[] {
+	const marks = changedSections(baseline, current);
+	return marks.map((mark) => mark.changed);
 }
 
 /** A list item whose marker is a task checkbox: the bullet or number, the box, and the rest. */

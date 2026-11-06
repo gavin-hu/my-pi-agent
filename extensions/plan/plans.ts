@@ -46,6 +46,7 @@ import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isContainedPlan, isPlanFileName, plansDirFor, resolvePlanArg } from "../../lib/plans/paths.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
 import { carryFeedback, formatFeedback, normalizeAuthor, type PlanAnnotation } from "./feedback.ts";
+import { extractSections } from "./sections.ts";
 import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } from "./steps.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
@@ -473,8 +474,10 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 			}
 			try {
 				const content = readFileSync(path, "utf-8");
-				const heading = /^ {0,3}#\s+(.+)$/m.exec(content)?.[1];
-				const title = heading === undefined ? "" : sanitizeLine(heading).trim();
+				// The document's own H1, through the fence-aware parser: a `#` inside a code
+				// sample is not a heading, and the row's name must be the one a reader sees.
+				const heading = extractSections(content).find((section) => section.level === 1)?.title ?? "";
+				const title = sanitizeLine(heading).trim();
 				const steps = extractPlanSteps(content);
 				summaries.push({
 					...summary,

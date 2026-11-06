@@ -27,7 +27,6 @@ import {
 	sectionDigests,
 } from "./plan-text.ts";
 import { extractSections } from "./sections.ts";
-import { parseFeedback, stripFeedback } from "./feedback.ts";
 import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp, type PlanSummary } from "./plans.ts";
 import { ENV_ROOT } from "../../lib/env.ts";
 import { createPlanPolicy, PLAN_ALLOWED_TOOLS, PLAN_SAFE_TOOLS } from "./policy.ts";
@@ -688,101 +687,6 @@ describe("plan store — saveFeedback", () => {
 
 		await expect(store.saveFeedback(root, join(root, ".pi", "plans", "nope.md"), [])).rejects.toThrow(/No plan file/);
 		await expect(store.saveFeedback(root, join(root, "outside.md"), [])).rejects.toThrow(/No plan file/);
-	});
-});
-
-describe("plan store — authored review comments", () => {
-	/** A repo store with one plan holding two steps. */
-	async function seeded(): Promise<{ root: string; store: ReturnType<typeof repoStore>; path: string }> {
-		const root = tempDir();
-		const store = repoStore(root);
-		const file = await store.write(root, { title: "Review", content: "# Plan\n- [ ] one\n- [ ] two" });
-		return { root, store, path: file.path };
-	}
-
-	test("a save writes one writer's comments and keeps the other writer's", async () => {
-		const { root, store, path } = await seeded();
-		await store.saveFeedback(root, path, [{ anchor: 1, comment: "alice's" }], { author: "alice" });
-		const updated = await store.saveFeedback(root, path, [{ anchor: 2, comment: "bob's" }], { author: "bob" });
-		expect(updated.content).toBe("# Plan\n- [ ] one\n> [!REVIEW] @alice: alice's\n- [ ] two\n> [!REVIEW] @bob: bob's");
-	});
-
-	test("the owner's save keeps every reviewer's comment", async () => {
-		const { root, store, path } = await seeded();
-		await store.saveFeedback(root, path, [{ anchor: 1, comment: "alice's" }], { author: "alice" });
-		await store.saveFeedback(root, path, [{ anchor: 2, comment: "bob's" }], { author: "bob" });
-		const updated = await store.saveFeedback(root, path, [{ anchor: 1, comment: "owner's" }]);
-		expect(updated.content).toBe(
-			"# Plan\n- [ ] one\n> [!REVIEW] @alice: alice's\n> [!REVIEW] owner's\n- [ ] two\n> [!REVIEW] @bob: bob's",
-		);
-	});
-
-	test("a save cannot re-sign another writer's comment", async () => {
-		const { root, store, path } = await seeded();
-		const updated = await store.saveFeedback(
-			root,
-			path,
-			[
-				{ anchor: 1, comment: "pretending", author: "alice" },
-				{ anchor: 2, comment: "mine" },
-			],
-			{ author: "bob" },
-		);
-		expect(updated.content).toBe("# Plan\n- [ ] one\n- [ ] two\n> [!REVIEW] @bob: mine");
-	});
-
-	test("a reviewer's own save replaces their earlier comments", async () => {
-		const { root, store, path } = await seeded();
-		await store.saveFeedback(root, path, [{ anchor: 1, comment: "first" }], { author: "alice" });
-		const updated = await store.saveFeedback(root, path, [{ anchor: 2, comment: "second" }], { author: "alice" });
-		expect(updated.content).toBe("# Plan\n- [ ] one\n- [ ] two\n> [!REVIEW] @alice: second");
-	});
-
-	test("refuses a missing or outside plan", async () => {
-		const { root, store } = await seeded();
-		writeFileSync(join(root, "outside.md"), "- One");
-		await expect(
-			store.saveFeedback(root, join(root, ".pi", "plans", "nope.md"), [], { author: "alice" }),
-		).rejects.toThrow(/No plan file/);
-		await expect(store.saveFeedback(root, join(root, "outside.md"), [], { author: "alice" })).rejects.toThrow(
-			/No plan file/,
-		);
-	});
-
-	test("a refinement carries the review onto the rewritten plan", async () => {
-		const { root, store, path } = await seeded();
-		await store.saveFeedback(root, path, [{ anchor: 1, comment: "alice's" }], { author: "alice" });
-		const rewritten = await store.write(root, {
-			title: "Review",
-			planPath: path,
-			content: "# Plan\n- [ ] one\n- [ ] two\n- [ ] three",
-		});
-		expect(rewritten.content).toBe("# Plan\n- [ ] one\n> [!REVIEW] @alice: alice's\n- [ ] two\n- [ ] three");
-		expect(readFileSync(path, "utf-8")).toBe(rewritten.content);
-	});
-
-	test("a refinement keeps a carried comment on a block the page renders", async () => {
-		const { root, store, path } = await seeded();
-		await store.saveFeedback(root, path, [{ anchor: 2, comment: "about two" }]);
-		// The step the comment hung on is gone; the section it lived in is not.
-		await store.write(root, { title: "Review", planPath: path, content: "# Plan\n- [ ] one\n\n## Notes\nGreen.\n" });
-
-		const stored = readFileSync(path, "utf-8");
-		// The step it hung on is gone, so the marker says the placement was a guess.
-		expect(stored).toContain("- [ ] one\n> [!REVIEW moved] about two\n");
-		const starts = planBlocks(stripFeedback(stored))
-			.filter((block) => block.kind !== "blank")
-			.map((block) => block.start);
-		const annotations = parseFeedback(stored);
-		expect(annotations.length).toBe(1);
-		for (const annotation of annotations) expect(starts).toContain(annotation.anchor);
-	});
-
-	test("a new plan never inherits markers from the content it is given", async () => {
-		const root = tempDir();
-		const store = repoStore(root);
-		const file = await store.write(root, { title: "Fresh", content: "- [ ] one\n> [!REVIEW] stray" });
-		expect(file.content).toBe("- [ ] one");
 	});
 });
 

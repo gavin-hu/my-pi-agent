@@ -48,7 +48,8 @@ import { plainRule, titleRule } from "../../lib/tui/rules.ts";
 import { emptyState, checkbox } from "../../lib/tui/rows.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
-import { changedSections, planDisplayText, taskMarker, type SectionDigest } from "./plan-text.ts";
+import { changedFlags, planDisplayText, reviewText, taskMarker, type SectionDigest } from "./plan-text.ts";
+import { extractSections } from "./sections.ts";
 import type { ApprovalEffects } from "./types.ts";
 
 /** What the user chose from the read/review screen. */
@@ -241,11 +242,17 @@ export class PlanViewComponent implements Component {
 		const padding = width >= MIN_PADDED_WIDTH ? BODY_PADDING : 0;
 		const base = this.options.markdownTheme ?? getMarkdownTheme();
 		const theme = planMarkdownTheme(this.theme, base);
-		const current = planDisplayText(this.options.plan.content);
-		const marks = changedSections(this.options.baseline, current);
+		// The body is the display text — a stored comment reads as the quote it is — while the
+		// marks compare the text the baseline was recorded from. Pairing the two by index is
+		// what keeps a commented section from reading as changed on every review; a parse that
+		// disagreed on the count marks nothing rather than the wrong section.
+		const chunks = extractSections(planDisplayText(this.options.plan.content));
+		const flags = changedFlags(this.options.baseline, reviewText(this.options.plan.content));
+		const changed = flags.length === chunks.length ? flags : chunks.map(() => false);
 		const lines: string[] = [];
 		const sections: SectionOffset[] = [];
-		marks.forEach(({ section: chunk, changed }, index) => {
+		chunks.forEach((chunk, index) => {
+			const moved = changed[index] === true;
 			// Markdown pads every line to the full width for backgrounds; this screen
 			// draws no background, so the padding is dropped.
 			const rendered = new Markdown(chunk.text, padding, 0, theme)
@@ -254,15 +261,15 @@ export class PlanViewComponent implements Component {
 			sections.push({
 				title: chunk.title,
 				offset: lines.length,
-				...(changed ? { changed: true } : {}),
+				...(moved ? { changed: true } : {}),
 			});
-			if (changed) markChanged(this.theme, rendered, width);
+			if (moved) markChanged(this.theme, rendered, width);
 			lines.push(...rendered);
 			// Sections render independently, so restore the blank line a heading-only
 			// chunk omits before the next section.
-			if (index < marks.length - 1 && lines.length > 0 && lines[lines.length - 1] !== "") lines.push("");
+			if (index < chunks.length - 1 && lines.length > 0 && lines[lines.length - 1] !== "") lines.push("");
 		});
-		this.cache = { width, lines, sections, changedCount: marks.filter((mark) => mark.changed).length };
+		this.cache = { width, lines, sections, changedCount: changed.filter(Boolean).length };
 		return this.cache;
 	}
 

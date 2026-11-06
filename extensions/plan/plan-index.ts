@@ -131,9 +131,14 @@ export class PlanIndexComponent implements Component {
 
 	/** Replace the rows after a reload, keeping the focused plan if it is still there. */
 	private setSummaries(next: readonly PlanSummary[]): void {
+		// The rows are newest first, so a plan written by another session moves every row below
+		// it: the index under the cursor would then name a different plan, and Enter would open
+		// the neighbour. The focus is the plan, so it is re-found by the path it showed.
+		const focused = this.summaries[this.cursor.selected]?.relativePath;
+		const at = focused === undefined ? -1 : next.findIndex((summary) => summary.relativePath === focused);
 		this.summaries = next;
 		this.cursor.sync(next.length);
-		this.cursor.selected = Math.min(this.cursor.selected, Math.max(0, next.length - 1));
+		this.cursor.selected = at >= 0 ? at : Math.min(this.cursor.selected, Math.max(0, next.length - 1));
 		this.requestRender();
 	}
 

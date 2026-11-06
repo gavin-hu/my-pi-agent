@@ -21,7 +21,7 @@
  */
 
 import { sanitizeLine } from "../../lib/format.ts";
-import { blockAt, contentBlockAt, planBlocks, type PlanBlock } from "./blocks.ts";
+import { blockAt, contentBlockAt, hasClosingFence, planBlocks, type PlanBlock } from "./blocks.ts";
 import { extractSections, sectionKeys } from "./sections.ts";
 
 /** Marker that opens every stored feedback line. */
@@ -72,6 +72,44 @@ export type AuthorClaim = { name: string } | { status: number; message: string }
 const MARKER_LINE = /^\s*>\s*\[!REVIEW((?:\s+(?:moved|resolved))*)\]\s?(.*)$/;
 /** The author prefix inside a marker body (`@alice: note`). */
 const AUTHOR_PREFIX = /^@([^:]{1,40}):\s?(.*)$/;
+/**
+ * The backslash that keeps an owner's own note from reading as a name's.
+ *
+ * A marker body is `@alice: note` when the note belongs to alice, so an owner's note that
+ * happens to begin `@alice:` would read back as hers — and her next save replaces every
+ * marker of her own, which would drop the owner's text. One backslash in front is the
+ * whole escape, and a body that already begins `\@alice:` carries two, so the pair
+ * round-trips exactly.
+ */
+const ESCAPE = "\\";
+
+/**
+ * Whether a body would read back as a name's note, escaped or not.
+ *
+ * Both directions of the codec ask this one question, so a body the writer chooses to
+ * escape is exactly a body the reader chooses to unescape.
+ */
+function readsAsAuthor(body: string): boolean {
+	return AUTHOR_PREFIX.test(body) || (body.startsWith(ESCAPE) && AUTHOR_PREFIX.test(body.slice(1)));
+}
+
+/** Who a stored marker body belongs to, and the note itself. */
+function splitBody(body: string): { author: string; comment: string } {
+	if (body.startsWith(ESCAPE) && readsAsAuthor(body.slice(1))) {
+		return { author: "", comment: body.slice(1).trim() };
+	}
+	const authored = AUTHOR_PREFIX.exec(body);
+	if (!authored) return { author: "", comment: body.trim() };
+	return { author: normalizeAuthor(authored[1]), comment: (authored[2] ?? "").trim() };
+}
+
+/** The body one marker line carries, escaped when an untagged note would read as a name's. */
+function storedBody(author: string, comment: string): string {
+	const body = sanitizeLine(comment);
+	// A tagged note names its writer before the comment starts, so only an untagged one can
+	// be mistaken for `@someone:`'s.
+	return author === "" && readsAsAuthor(body) ? `${ESCAPE}${body}` : body;
+}
 
 /**
  * A reviewer name as it is stored and displayed: one sanitized line, no leading
@@ -157,9 +195,7 @@ function scanMarkers(plan: string): { clean: string; markers: StoredMarker[] } {
 		}
 		const body = (match[2] ?? "").trim();
 		if (body === "") return;
-		const authored = AUTHOR_PREFIX.exec(body);
-		const author = authored ? normalizeAuthor(authored[1]) : "";
-		const comment = (authored ? authored[2] : body).trim();
+		const { author, comment } = splitBody(body);
 		// The tag carries a set of flags, not one keyword: a note can be carried off its text
 		// and settled in the same write, and an older build reading it still finds the comment.
 		const flags = new Set((match[1] ?? "").trim().split(/\s+/).filter(Boolean));
@@ -176,9 +212,21 @@ function scanMarkers(plan: string): { clean: string; markers: StoredMarker[] } {
 	return { clean: clean.join("\n"), markers };
 }
 
+/**
+ * The line a marker for `block` is placed after.
+ *
+ * A marker reads as a note *under* the text it is about, so the block's last line is the
+ * answer — except for a fence that never closes, where everything below is inside the
+ * code. There the note goes above the block instead, which is the only side both a reader
+ * and `scanMarkers` can see.
+ */
+function outsideEnd(block: PlanBlock): number {
+	return hasClosingFence(block) ? block.end : block.start - 1;
+}
+
 /** One marker line in its stored form. */
 function markerLine(author: string, comment: string, moved = false, resolved = false): string {
-	const body = sanitizeLine(comment);
+	const body = storedBody(author, comment);
 	// The flags ride inside the tag, in a fixed order, where they cannot be confused with the
 	// comment: after the closing bracket, a comment that begins "moved …" would read as one.
 	const tag = moved || resolved ? `[!REVIEW${moved ? " moved" : ""}${resolved ? " resolved" : ""}]` : REVIEW_MARKER;
@@ -304,12 +352,15 @@ export function formatFeedback(plan: string, annotations: PlanAnnotation[], opti
 			line: markerLine(marker.author, marker.comment, marker.moved, marker.resolved),
 		}));
 	const blocks = planBlocks(clean);
-	const added = storableComments(annotations).map((item) => ({
-		// A marker beside a block, never after a blank line: an anchor that names
-		// blank space is written where the page can read it back as a thread.
-		at: contentBlockAt(blocks, item.anchor)?.end ?? -1,
-		line: markerLine(author, item.comment, item.moved, item.resolved),
-	}));
+	const added = storableComments(annotations).map((item) => {
+		const block = contentBlockAt(blocks, item.anchor);
+		return {
+			// A marker beside a block, never after a blank line: an anchor that names
+			// blank space is written where the page can read it back as a thread.
+			at: block === undefined ? -1 : outsideEnd(block),
+			line: markerLine(author, item.comment, item.moved, item.resolved),
+		};
+	});
 	return compose(clean, [...kept, ...added]);
 }
 
@@ -446,7 +497,8 @@ export function carryFeedback(previous: string, next: string): string {
 	const lastLine = cleanNext === "" ? -1 : cleanNext.split("\n").length - 1;
 	// Where a comment goes when nothing about it survived: beside the plan's last
 	// block, never after the blank line a trailing newline leaves.
-	const tail = contentBlockAt(nextBlocks, lastLine)?.end ?? lastLine;
+	const tailBlock = contentBlockAt(nextBlocks, lastLine);
+	const tail = tailBlock === undefined ? lastLine : outsideEnd(tailBlock);
 
 	/** One alignment per section, reused by every comment that lands in it. */
 	const alignments = new Map<string, number[]>();
@@ -467,12 +519,16 @@ export function carryFeedback(previous: string, next: string): string {
 				alignments.set(key, aligned);
 			}
 			const became = aligned[index];
-			if (became >= 0) return after.blocks[became].end;
+			if (became >= 0) return outsideEnd(after.blocks[became]);
 			// The gap it left is right after the block before its nearest surviving
 			// successor: for the first block of a section, that is the heading.
 			const successor = aligned.findIndex((at, from) => from > index && at >= 0);
 			const gap = successor >= 0 ? after.blocks[aligned[successor] - 1] : undefined;
-			return gap?.end ?? after.end;
+			if (gap !== undefined) return outsideEnd(gap);
+			// The section's own end, unless its last block is a fence open to the end of the
+			// file: then the note goes above that fence, where the write path places it too.
+			const last = after.blocks[after.blocks.length - 1];
+			return last === undefined ? after.end : outsideEnd(last);
 		}
 		return undefined;
 	};
@@ -488,7 +544,7 @@ export function carryFeedback(previous: string, next: string): string {
 		if (block === undefined) return { at: tail, line: keep(true) };
 		if (block.kind !== "blank") {
 			const match = queues.get(blockKey(block))?.shift();
-			if (match !== undefined) return { at: match.end, line: keep(false) };
+			if (match !== undefined) return { at: outsideEnd(match), line: keep(false) };
 		}
 		return { at: bySection(block) ?? tail, line: keep(true) };
 	});
@@ -511,9 +567,7 @@ export function displayFeedback(plan: string): string {
 			if (!match) return line;
 			const body = (match[2] ?? "").trim();
 			if (body === "") return line;
-			const authored = AUTHOR_PREFIX.exec(body);
-			const author = authored ? normalizeAuthor(authored[1]) : "";
-			const comment = (authored ? authored[2] : body).trim();
+			const { author, comment } = splitBody(body);
 			if (!comment) return line;
 			return author ? `> @${author}: ${comment}` : `> Review: ${comment}`;
 		})

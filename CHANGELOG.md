@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: an owner's note that begins `@alice:` is stored escaped, so it reads back as the
+  owner's; the reviewer it named could otherwise replace every marker of her own and take the
+  owner's text with them.
+- `plan`: a comment on a code fence that never closes is written above the block instead of
+  after it, where the unclosed fence ran to the end of the file and the note became code the
+  review could no longer read.
+- `plan`: the terminal review marks only the sections that really changed — a plan holding a
+  stored comment read as changed on every review, because the screen digested its rendered
+  quotes while the baseline held the stripped text.
+- `plan`: a `/plan list` reload keeps the cursor on the plan it was on, so `Enter` opens that
+  plan rather than the row a newer plan above it shifted into.
+- `plan`: a row in `/plan list` is named by the document's own `#` heading as the fence-aware
+  parser finds it, so a `#` comment inside a code sample no longer names the plan.
+- `plan`: a browser view whose page never loads ends itself after 30 s instead of holding its
+  prefix and its plan poll for the rest of the session.
 - `plan`: `/plan list`'s **Enter** opens the chosen plan in the browser as a read-only view —
   the same page a review renders, with no approve, no comment composer, no share, and no plan
   mode — and the terminal stays free while you read. It follows the file live and closes itself
