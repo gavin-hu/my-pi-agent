@@ -33,6 +33,8 @@ export interface MemorySuite {
 	write(scope: Scope, content: string): void;
 	read(scope: Scope): string;
 	exists(scope: Scope): boolean;
+	/** The registered `/memory` command, for a case that drives a subcommand. */
+	command(): any;
 	/** Emit `session_start` with the suite's current trust state. */
 	start(reason?: string): Promise<void>;
 	/** Emit an event, returning every handler result. */
@@ -98,6 +100,7 @@ export function memorySuite(): MemorySuite {
 			mkdirSync(dirname(pathFor(scope)), { recursive: true });
 			writeFileSync(pathFor(scope), content, "utf-8");
 		},
+		command: () => pi.commands.get("memory"),
 		read: (scope) => readFileSync(pathFor(scope), "utf-8"),
 		exists: (scope) => existsSync(pathFor(scope)),
 		start: async (reason = "startup") => {
