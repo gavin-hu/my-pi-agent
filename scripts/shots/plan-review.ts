@@ -8,15 +8,17 @@
  * Chrome's bundle) and honours `PI_CHROME` for another Chrome or Chromium.
  *
  *   bun run capture:plan <plan.md> [-o out.png] [--width 1280]
- *     [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer]
+ *     [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer|viewer]
  *     [--post <name>] [--draft <text>] [--share]
  *
  * The plan path is any Markdown file; the review page, not the CLI, decides how
  * it renders. Output defaults to `<plan-stem>.png` in the working directory.
- * `--as reviewer` captures the page a shared link opens, `--post <name>` posts one
- * comment as that reviewer first (so the frame shows the name bound to the link),
- * `--draft <text>` starts the tab with one unsaved comment, the state a reload
- * produces, and `--share` captures the owner's Share dialog with two links.
+ * `--as reviewer` captures the page a shared link opens, `--as viewer` the read-only
+ * page `/plan list`'s Enter opens — the review page with nothing on it that writes, so
+ * `--post`, `--draft` and `--share` are refused there. `--post <name>` posts one comment
+ * as that reviewer first (so the frame shows the name bound to the link), `--draft <text>`
+ * starts the tab with one unsaved comment, the state a reload produces, and `--share`
+ * captures the owner's Share dialog with two links.
  */
 
 import { readFileSync } from "node:fs";
@@ -28,7 +30,7 @@ import { anchorOf, captureStore, draftSeed, postAsReviewer, storedPlan } from ".
 import { type PageShotOptions, capturePage } from "../capture/page.ts";
 
 /** Which role's page to capture. */
-export type ShotRole = "owner" | "reviewer";
+export type ShotRole = "owner" | "reviewer" | "viewer";
 
 /** The token every capture uses, so a minted link's URL is stable in a frame. */
 const TOKEN = "screenshot";
@@ -37,7 +39,7 @@ const TOKEN = "screenshot";
 export interface ShotOptions extends PageShotOptions {
 	/** Absolute plan path. */
 	plan: string;
-	/** Whose page to capture: the owner's own, or the link a reviewer opens. */
+	/** Whose page to capture: the owner's own, the link a reviewer opens, or the read-only view. */
 	role: ShotRole;
 	/** Reviewer name to post a comment as before the capture, binding the link. */
 	post?: string;
@@ -59,9 +61,11 @@ export function parseArgs(argv: string[]): ShotOptions {
 	const plan = parsed.positional[0] ?? "";
 	if (!plan) throw new Error("a plan path is required");
 	const role = parsed.values["--as"] ?? "owner";
-	if (role !== "owner" && role !== "reviewer") throw new Error("--as must be owner or reviewer");
+	if (role !== "owner" && role !== "reviewer" && role !== "viewer") {
+		throw new Error("--as must be owner, reviewer, or viewer");
+	}
 	const share = parsed.flags.has("--share");
-	// The dialog is the owner's own surface: a reviewer's page has no Share button.
+	// The dialog is the owner's own surface: no other page has a Share button.
 	if (share && role !== "owner") throw new Error("--share captures the owner's Share dialog, not a reviewer's page");
 	// A name is bound by posting through a reviewer link, which a reviewer page and a
 	// shared dialog both have; nothing else binds one.
@@ -73,6 +77,7 @@ export function parseArgs(argv: string[]): ShotOptions {
 	// A bound link already has its name, so the two states cannot share a frame.
 	const draft = parsed.values["--draft"];
 	if (draft !== undefined && post !== undefined) throw new Error("--draft cannot be combined with --post");
+	if (draft !== undefined && role === "viewer") throw new Error("--draft needs a page that can write");
 	if (draft !== undefined && draft.trim() === "") throw new Error("--draft needs the comment text");
 	const planPath = resolve(plan);
 	return {
@@ -125,7 +130,12 @@ async function capture(options: ShotOptions): Promise<void> {
 		mount: testMountSource(),
 		session: () => "screenshot",
 	});
-	const session = await review.start(process.cwd(), plan, { canApprove: true });
+	// A view is not a review: the shipped server mints it a viewer token, and its page has no
+	// control that writes, which is the whole reason to photograph it.
+	const session = await review.start(process.cwd(), plan, {
+		canApprove: true,
+		...(options.role === "viewer" ? { mode: "view" as const } : {}),
+	});
 	if (!session) throw new Error("could not bind the review server");
 	try {
 		// The reviewer's page is the one its own link serves, so the shot mints one
