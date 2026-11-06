@@ -80,8 +80,7 @@ export interface StoredPlan {
 }
 
 /**
- * A save refused because the plan is not the revision the page rendered, with the two
- * revisions that differ.
+ * A save refused because the plan is not the revision the page rendered.
  *
  * A class because the answer is not a server fault: the page reloads and reviews again, and
  * the write paths turn this into `409`. It is thrown from inside the per-plan queue, where
@@ -89,10 +88,7 @@ export interface StoredPlan {
  * are one turn and no tick can land between them.
  */
 export class PlanMovedError extends Error {
-	constructor(
-		readonly expected: string,
-		readonly actual: string,
-	) {
+	constructor() {
 		super("The plan changed on disk; reload the page and review again.");
 		this.name = "PlanMovedError";
 	}
@@ -454,7 +450,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 			// its comments under text nobody read.
 			const actual = pageRevision(plan.content);
 			if (options.expect !== undefined && options.expect !== actual) {
-				throw new PlanMovedError(options.expect, actual);
+				throw new PlanMovedError();
 			}
 			const author = normalizeAuthor(options.author);
 			// An untagged entry is the writer's own; one tagged with a different name is

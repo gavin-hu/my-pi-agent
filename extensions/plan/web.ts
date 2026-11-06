@@ -247,10 +247,11 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): 
 		 *
 		 * A review owns the page, not the file: a browser page opens in normal mode, and
 		 * the plan is a markdown file a user or another tool can rewrite while the page
-		 * is open. The check compares the stripped text with what the page rendered and
-		 * only announces — it never writes `pageText`, which is the anchor a save is
-		 * validated against. So an edit under an open page reaches every reader, and the
-		 * review's own save, whose text is unchanged, says nothing.
+		 * is open. The check compares the stripped text with what this session last rendered
+		 * and only announces — it never writes `pageText`, which is this poll's own baseline
+		 * and nothing else: a save is anchored to the revision its page named, not to the
+		 * session's text. So an edit under an open page reaches every reader, and the review's
+		 * own save, whose text is unchanged, says nothing.
 		 *
 		 * A poll rather than an `fs.watch`: the house rule, and one stat plus one read
 		 * per interval costs less than the watcher's platform-dependent event

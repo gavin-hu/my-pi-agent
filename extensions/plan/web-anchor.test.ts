@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { pagePost, reviewSuite, servedRev } from "../../test/helpers/fixtures/plan-web.ts";
+import { feedbackUrl, pagePost, reviewSuite, servedRev } from "../../test/helpers/fixtures/plan-web.ts";
 import { testMountSource } from "../../test/helpers/serve.ts";
 
 const { startShared } = reviewSuite();
@@ -59,7 +59,7 @@ describe("a save is anchored to its own page", () => {
 	test("refuses a body that names no revision, and says what to do", async () => {
 		const { session, content } = await startShared({ mount: testMountSource("127.0.0.1") });
 
-		const response = await fetch(session.url.replace(/\/?\?/, "/api/feedback?"), {
+		const response = await fetch(feedbackUrl(session), {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "unanchored" }] }),

@@ -67,7 +67,7 @@ async function verified(
 	const current = await deps.store.read(deps.cwd, deps.path);
 	if (!current) return GONE;
 	if (pageRevision(current.content) !== deps.rev) {
-		return refused(new PlanMovedError(deps.rev, pageRevision(current.content)));
+		return refused(new PlanMovedError());
 	}
 	return { ok: true, plan: current };
 }
