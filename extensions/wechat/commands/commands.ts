@@ -6,8 +6,9 @@
  * subcommands are shortcuts for RPC and scripts. `start` binds the stored account
  * to this session and opens the bridge, and `stop` closes it and records the
  * stop; nothing starts on its own, so a login only stores the account. `new`
- * starts a fresh session (an inbound `/new` dispatches it), and `logout` discards
- * the account and stops the bridge. Every dialog-backed verb declines while a
+ * starts a fresh session, and is the terminal's alone: the chat is the session it
+ * would replace, so a `/new` typed there reaches the agent as ordinary text. `logout`
+ * discards the account and stops the bridge. Every dialog-backed verb declines while a
  * WeChat peer turn is running.
  */
 
@@ -339,14 +340,13 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 
 /**
  * Start a fresh host session for `/wechat new`. The new session carries no binding,
- * so the bridge stays stopped there until `/wechat start`: peer conversations are
- * independent and stay on disk.
+ * so the bridge stays stopped there until `/wechat start`: the conversation's
+ * messages stay on disk.
  */
 export async function runNew(ctx: ExtensionCommandContext, deps: CommandDeps): Promise<void> {
 	// A WeChat peer turn is a real run on this bridge: replacing the host session
 	// emits `session_shutdown`, which stops the poller and abandons that turn, so
-	// the peer would be left unanswered. The inbound `/new` declines the same case
-	// through `activeTurn`.
+	// the peer would be left unanswered.
 	if (busyWithPeerTurn(ctx, deps, "new")) return;
 	await ctx.newSession();
 }
