@@ -121,6 +121,7 @@ export function jobRecord(overrides: Partial<JobRecord> = {}): JobRecord {
 		startedAt: 1,
 		finishedAt: null,
 		logPath: "/tmp/j1.log",
+		droppedBytes: 0,
 		statusPath: null,
 		detached: false,
 		wake: false,

@@ -1,14 +1,44 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadRegistries, REGISTRY_VERSION, saveRegistry } from "./registry.ts";
 import { createJobStore } from "./store.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { jobRecord, job } from "../../test/helpers/fixtures/job.ts";
+import { job, jobRecord, makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/job.ts";
 
+const suite = makeHarnessSuite();
 const temps = makeTempTracker();
 afterEach(() => {
+	suite.cleanup();
 	temps.flush();
+});
+
+describe("job registry directory", () => {
+	test("start creates the directory before reserving an id", async () => {
+		const h = suite.makeHarness();
+		const { ctx } = makeCtx();
+		await h.runtime.load(ctx);
+		// A first job in a project whose registry directory does not exist yet
+		// must still be able to reserve its id (`O_EXCL` lock inside that dir).
+		rmSync(h.dir, { recursive: true, force: true });
+		const entry = await h.runtime.start({ command: "sleep 10" }, ctx);
+		expect(existsSync(h.dir)).toBe(true);
+		expect(entry.id).toBe("j1");
+	});
+
+	test("start runs a job when the directory cannot be written", async () => {
+		const h = suite.makeHarness();
+		const { ctx } = makeCtx();
+		await h.runtime.load(ctx);
+		// A regular file where the registry directory belongs: the mkdir, the id lock and
+		// the registry write all fail, and the job must start all the same.
+		rmSync(h.dir, { recursive: true, force: true });
+		writeFileSync(h.dir, "");
+		const entry = await h.runtime.start({ command: "sleep 10" }, ctx);
+		expect(entry.id).toBe("j1");
+		expect(entry.status).toBe("running");
+	});
 });
 
 describe("job store", () => {

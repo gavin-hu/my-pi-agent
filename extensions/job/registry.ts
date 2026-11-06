@@ -57,7 +57,8 @@ function isJobRecord(value: unknown): value is JobRecord {
 		(job.signal === null || typeof job.signal === "string") &&
 		(job.finishedAt === null || typeof job.finishedAt === "number") &&
 		(job.statusPath === undefined || job.statusPath === null || typeof job.statusPath === "string") &&
-		(job.startToken === undefined || job.startToken === null || typeof job.startToken === "string")
+		(job.startToken === undefined || job.startToken === null || typeof job.startToken === "string") &&
+		(job.droppedBytes === undefined || typeof job.droppedBytes === "number")
 	);
 }
 
@@ -70,6 +71,9 @@ function normalizeRecord(record: JobRecord): JobRecord {
 		// A registry written before stdin support has no such flag; such a job was
 		// started without a pipe, and its session is long gone anyway.
 		stdin: record.stdin === true,
+		// A record written before the drop counter was kept fell back on its handle,
+		// which a settled job no longer has; nothing was recorded, so it reports none.
+		droppedBytes: record.droppedBytes ?? 0,
 	};
 }
 

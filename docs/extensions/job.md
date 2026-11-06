@@ -305,8 +305,10 @@ rewritten.
   again from the ended stream's `close`: Windows refuses to unlink a file a
   descriptor still holds, and a stream whose open has not landed yet recreates the
   file just after the first attempt. Bytes a failed reopen could not write are
-  counted as dropped rather than leaving a short log that reads as complete; a
-  detached job has no parent stream and loses nothing that way.
+  counted as dropped rather than leaving a short log that reads as complete, and
+  the count moves onto the job's record when the handle is disposed, so the read
+  a finished job gets still says the segment is short; a detached job has no
+  parent stream and loses nothing that way.
 - **Stdin is an opt-in pipe.** `start` keeps the child's stdin closed by
   default, so it gets EOF immediately and a `read` exits instead of blocking;
   `stdin: true` swaps in a pipe that `send` writes to and `eof` closes. The pipe
@@ -330,7 +332,11 @@ rewritten.
 - **Ids are reserved atomically.** Because ids are project-global but files are
   per session, `start` claims the next `j<n>` with an `O_EXCL` `<id>.lock`
   before spawning, so two sessions cannot pick the same id from a stale read;
-  the reservation is pruned once the id is committed to a registry file.
+  the reservation is pruned once the id is committed to a registry file. Both
+  the directory and the lock are best-effort: a `registryDir` that cannot be
+  created or written — read-only, or a path that is not a directory — falls back
+  to the plain allocation the lock exists to make safe, so `start` still runs a
+  job whose registry cannot be reached.
 - **Sessions heartbeat; ownership is the process.** Each session writes a liveness
   marker (its pid, that process's start time, and its last beat), and the beat only
   ticks while a job runs — so a session that has finished its work goes quiet rather

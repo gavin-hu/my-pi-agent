@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LineSplitter } from "../../lib/lines.ts";
@@ -208,6 +208,43 @@ describe("job runtime — log writer accounting", () => {
 		const detached = writer.create(undefined);
 		writer.write(detached, record, Buffer.from("dddd\n"));
 		expect(detached.droppedBytes).toBe(0);
+	});
+
+	test("reports the bytes its log dropped after the handle is gone", async () => {
+		const h = suite.makeHarness({ config: { maxLogBytes: 4 } });
+		await startJob(h);
+		h.children[0].write("aaaa\n");
+		// The registry directory goes away, so the rotation's rename and its reopen both
+		// fail: the job runs on, and every byte after that is lost.
+		rmSync(h.dir, { recursive: true, force: true });
+		h.children[0].write("bbbb\n");
+		// Waited on the live handle, which is the only count until the job settles.
+		await waitFor(() => h.runtime.logs("j1")?.text.includes("bytes dropped") === true);
+		h.children[0].close(0);
+		// Settling disposes the handle, so the record has to carry the count from here.
+		expect(h.runtime.get("j1")?.droppedBytes).toBeGreaterThan(0);
+		expect(h.runtime.logs("j1")?.text).toContain("bytes dropped");
+	});
+
+	test("reopens a rotation whose stream had already closed", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "pi-jobs-writer-"));
+		scratch.push(dir);
+		const online = join(dir, "live");
+		const logPath = () => join(online, "j1.log");
+		// The segment's directory does not exist yet, so the stream's open fails and the
+		// stream closes before any rotation starts: a rotation that armed a `close` it
+		// has already had would queue every later chunk and never reopen.
+		const writer = makeWriter(dir, logPath);
+		const handle = writer.create(logPath());
+		await waitFor(() => handle.stream?.closed === true);
+		mkdirSync(online, { recursive: true });
+
+		const record = job();
+		writer.write(handle, record, Buffer.from("aaaa\n"));
+		writer.write(handle, record, Buffer.from("bbbb\n"));
+		expect(handle.rotating).toBe(false);
+		expect(handle.droppedBytes).toBe(0);
+		await waitFor(() => readLog(logPath()).includes("bbbb"));
 	});
 
 	test("clear unlinks a log whose stream is still closing", async () => {
