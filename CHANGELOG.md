@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: `bun run capture:plan --as viewer` renders the read-only page `/plan list`'s Enter
+  opens, so the view can be photographed by the shipped script instead of a one-off; `--post`,
+  `--draft` and `--share` are refused for it, because a view has none of those controls.
 - `plan`: a browser save is anchored to the revision its own page rendered. Every write names
   it, the store compares it inside its per-plan turn, and a page whose plan moved is refused
   `409` — so one tab's refetch can no longer place another tab's comments under text nobody
