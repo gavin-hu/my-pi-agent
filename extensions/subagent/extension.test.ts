@@ -64,11 +64,11 @@ describe("subagent registration", () => {
 		});
 	});
 
-	test("registers a direct, active tool with its safety annotations", () => {
+	test("registers a direct, parallel tool with its safety annotations", () => {
 		const tool = register(async (options) => success(options.agentName, "ok"));
 		expect(tool).toBeDefined();
-		expect(tool.exposure).toBeUndefined();
-		expect(tool.defaultActive).toBeUndefined();
+		expect([tool.exposure, tool.defaultActive]).toEqual([undefined, undefined]);
+		expect(tool.executionMode).toBeUndefined();
 		expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
 	});
 

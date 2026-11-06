@@ -129,7 +129,7 @@ Reveal has no native meaning on Linux, so there the containing directory opens.
 | Aspect | Contract |
 |---|---|
 | Registration | `fileOpen(pi)` in `index.ts` registers `open_path` and the `/open` command. The factory only registers. |
-| Tool | `open_path`, `exposure: "codemode"` (inactive by default), default (`parallel`) execution, `annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }`, TypeBox `parameters` and `outputSchema`. No custom renderer. |
+| Tool | `open_path`, `exposure: "codemode"` (inactive by default), default (`parallel`) execution — one OS process per call — `annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }`, TypeBox `parameters` and `outputSchema`. No custom renderer. |
 | Command | `/open [path]` and `/open -r [path]`; reports through `ctx.ui.notify`. |
 | State | None persisted, and none needed: every call is independent. |
 | Lifecycle | No `session_start` / `session_shutdown` hooks; the factory holds no long-lived resources. |

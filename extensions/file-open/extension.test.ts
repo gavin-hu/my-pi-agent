@@ -161,6 +161,7 @@ describe("file-open extension", () => {
 		expect(tool.exposure).toBe("codemode");
 		expect(tool.outputSchema).toBeDefined();
 		expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, openWorldHint: true });
+		expect(tool.executionMode).toBeUndefined();
 		expect(tool.promptSnippet?.trim().length).toBeGreaterThan(0);
 		expect(commands.has("open")).toBe(true);
 	});

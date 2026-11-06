@@ -54,7 +54,9 @@ export default function fileOpen(pi: ExtensionAPI, deps: FileOpenDeps = {}): voi
 		exposure: "codemode",
 		// `readOnlyHint: false` even though opening a path writes nothing: the
 		// tool launches an external application, and plan mode allows tools by
-		// this hint, so opening must stay behind the normal policy.
+		// this hint, so opening must stay behind the normal policy. That is a
+		// permission fact, not ordering: each call is its own OS process, so no
+		// `executionMode`.
 		annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
