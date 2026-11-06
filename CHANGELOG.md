@@ -472,6 +472,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   queue and reports them in its dropped count, and the queue depth the control screen, `/status`,
   and `/wechat doctor` show counts those slots too — a chat fetching a photo no longer reads as
   idle.
+- `worktree`: `exit` deletes a branch only when it has counted that branch's commits against the branch a
+  merge would land on, and keeps it when git could not answer. The count came from the worktree's `HEAD`
+  against the commit recorded at entry, while the branch deleted was the recorded one, so a detached
+  `HEAD` — a bisect, or a second branch checked out here — made a branch holding commits look empty and
+  `git branch -D` took them, with the handoff line right after still reporting them as ahead of `main`.
+  A refused count read as zero for `exit` and `prune` alike, and a worktree rebased onto a newer base
+  counted the base's own commits as its own and was kept forever. Both sides now read one count, taken
+  before the delete: the handoff says a branch it could not count instead of printing none of them, and
+  the status list no longer claims `merged` from a count that never came back.
 
 ## [0.24.0] - 2026-11-02
 

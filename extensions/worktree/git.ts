@@ -173,16 +173,19 @@ export async function worktreeExists(pi: ExtensionAPI, dir: string): Promise<boo
 }
 
 /**
- * `rev-list --count` for one range, e.g. `main..HEAD`; 0 when git cannot answer.
+ * `rev-list --count` over one or more ranges, e.g. `main..HEAD`; undefined when git
+ * cannot answer.
  *
- * The three counts below are the same command with a different range, and a caller that
- * reads a count as "no work here" must not have a failed read look like zero work.
+ * Every count below is this command with a different range, and a caller that reads a
+ * count as "no work here" must not have a failed read look like zero work: a zero is an
+ * answer git gave, and a refusal is not. Several ranges in one call count the commits
+ * reachable from any of their tips, so two refs that may hold work are asked once.
  */
-async function revListCount(pi: ExtensionAPI, dir: string, range: string): Promise<number> {
-	const result = await git(pi, ["rev-list", "--count", range], dir);
-	if (result.code !== 0) return 0;
+async function revListCount(pi: ExtensionAPI, dir: string, ranges: string[]): Promise<number | undefined> {
+	const result = await git(pi, ["rev-list", "--count", ...ranges], dir);
+	if (result.code !== 0) return undefined;
 	const count = Number.parseInt(result.stdout.trim(), 10);
-	return Number.isFinite(count) ? count : 0;
+	return Number.isFinite(count) ? count : undefined;
 }
 
 /**
@@ -191,8 +194,13 @@ async function revListCount(pi: ExtensionAPI, dir: string, range: string): Promi
  * Takes the branch by name rather than reading `HEAD`, because a handoff is read
  * after the worktree may already be gone while its branch refs outlive it.
  */
-export async function commitsAheadOf(pi: ExtensionAPI, dir: string, branch: string, base: string): Promise<number> {
-	return revListCount(pi, dir, `${base}..${branch}`);
+export async function commitsAheadOf(
+	pi: ExtensionAPI,
+	dir: string,
+	branch: string,
+	base: string,
+): Promise<number | undefined> {
+	return revListCount(pi, dir, [`${base}..${branch}`]);
 }
 
 /** Whether `ref` resolves here: a branch, a remote-tracking ref, or a tag. */
@@ -266,14 +274,14 @@ export async function statusEntries(pi: ExtensionAPI, dir: string): Promise<stri
 	return result.stdout.split("\n").filter((line) => line.trim().length > 0);
 }
 
-/** Count of commits reachable from HEAD but not from `base`. */
-export async function commitsAhead(pi: ExtensionAPI, dir: string, base: string): Promise<number> {
-	return revListCount(pi, dir, `${base}..HEAD`);
+/** Count of commits reachable from HEAD but not from `base`; undefined when git cannot count them. */
+export async function commitsAhead(pi: ExtensionAPI, dir: string, base: string): Promise<number | undefined> {
+	return revListCount(pi, dir, [`${base}..HEAD`]);
 }
 
-/** Count of commits reachable from `base` but not from HEAD. */
-export async function commitsBehind(pi: ExtensionAPI, dir: string, base: string): Promise<number> {
-	return revListCount(pi, dir, `HEAD..${base}`);
+/** Count of commits reachable from `base` but not from HEAD; undefined when git cannot count them. */
+export async function commitsBehind(pi: ExtensionAPI, dir: string, base: string): Promise<number | undefined> {
+	return revListCount(pi, dir, [`HEAD..${base}`]);
 }
 
 /** Whether `branch` is fully contained in `ref` (already merged). */
@@ -341,25 +349,45 @@ export async function submoduleChanges(pi: ExtensionAPI, dir: string): Promise<{
 
 export interface WorkInspection {
 	dirty: string[];
-	ahead: number;
+	/**
+	 * Commits the checkout or `branch` holds that `base` does not, counted together so a
+	 * detached HEAD cannot hide the branch's work or the other way around. Undefined when
+	 * `base` was not recorded or git could not count them.
+	 */
+	ahead: number | undefined;
 	sub: { known: boolean; count: number };
-	/** Any uncommitted change, commit ahead of `base`, or submodule change. */
+	/** Any uncommitted change, counted commit ahead of `base`, or submodule change. */
 	hasWork: boolean;
-	/** Submodules could not be inspected, so "clean" is unverified. */
+	/** Something could not be inspected (submodules, or the commit count), so "clean" is unverified. */
 	unverifiable: boolean;
 }
 
-/** Inspect a worktree for work relative to `base` (commits reachable from HEAD but not it). */
-export async function inspectWork(pi: ExtensionAPI, dir: string, base?: string): Promise<WorkInspection> {
+/**
+ * Inspect a worktree for work relative to `base`: commits `branch` or the checkout hold
+ * that it does not, plus uncommitted and submodule changes.
+ */
+export async function inspectWork(
+	pi: ExtensionAPI,
+	dir: string,
+	base?: string,
+	branch?: string,
+): Promise<WorkInspection> {
 	const dirty = await statusEntries(pi, dir);
-	const ahead = base ? await commitsAhead(pi, dir, base) : 0;
+	const refs = [...new Set([branch ?? "HEAD", "HEAD"])];
+	const ahead = base
+		? await revListCount(
+				pi,
+				dir,
+				refs.map((ref) => `${base}..${ref}`),
+			)
+		: undefined;
 	const sub = await submoduleChanges(pi, dir);
 	return {
 		dirty,
 		ahead,
 		sub,
-		unverifiable: !sub.known,
-		hasWork: dirty.length > 0 || ahead > 0 || sub.count > 0,
+		unverifiable: !sub.known || (base !== undefined && ahead === undefined),
+		hasWork: dirty.length > 0 || (ahead ?? 0) > 0 || sub.count > 0,
 	};
 }
 
