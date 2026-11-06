@@ -68,7 +68,7 @@ export interface FakeStore {
 	/** The merged list Pi's `getPackages()` reads: the project document if it sets one. */
 	packages(): PackageSource[];
 	failFlush(error: Error): void;
-	/** Record a write failure the way Pi does — on `drainErrors()`, not by throwing. */
+	/** Fail the queued write the way Pi does: nothing reaches the file, nothing throws, and the reason comes back from `drainErrors()`. */
 	recordError(error: Error, path?: string): void;
 }
 
@@ -86,14 +86,20 @@ export interface StoreOptions {
 	trusted?: boolean;
 }
 
-/** An in-memory `SettingsStore` recording every write, over two documents. */
+/** An in-memory `SettingsStore` recording every write, over two documents and the file each is saved to. */
 export function makeStore(options: StoreOptions = {}): FakeStore {
 	let globalSettings: Settings = { ...options.global, ...(options.packages ? { packages: options.packages } : {}) };
 	let projectSettings: Settings = {
 		...options.project,
 		...(options.projectPackages ? { packages: options.projectPackages } : {}),
 	};
+	// What each file holds. The setters move the documents ahead of it, the way
+	// Pi's do, and only a clean `flush()` puts them on disk — so a write that
+	// failed leaves the documents showing a value the file never took.
+	let globalFile: Settings = globalSettings;
+	let projectFile: Settings = projectSettings;
 	let recorded: Array<{ error: Error; path?: string }> = [];
+	let pending: { error: Error; path?: string } | undefined;
 	const loadErrors = options.loadErrors ?? [];
 	let flushes = 0;
 	let flushError: Error | undefined;
@@ -122,7 +128,7 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 			flushError = error;
 		},
 		recordError: (error, path) => {
-			recorded = [...recorded, { error, ...(path ? { path } : {}) }];
+			pending = { error, ...(path ? { path } : {}) };
 		},
 		store: {
 			globalSettings: () => globalSettings,
@@ -164,6 +170,17 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 			flush: async () => {
 				flushes += 1;
 				if (flushError) throw flushError;
+				if (pending) {
+					recorded = [...recorded, pending];
+					pending = undefined;
+					return;
+				}
+				globalFile = globalSettings;
+				projectFile = projectSettings;
+			},
+			reload: async () => {
+				globalSettings = globalFile;
+				projectSettings = projectFile;
 			},
 			drainErrors: () => {
 				const drained = recorded;

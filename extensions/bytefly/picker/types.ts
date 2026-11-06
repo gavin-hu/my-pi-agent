@@ -56,6 +56,11 @@ export interface SettingsStore {
 	setTheme(theme: string): void;
 	isProjectTrusted(): boolean;
 	flush(): Promise<void>;
+	/**
+	 * Re-read both documents from their files, dropping a write the file never took:
+	 * Pi's setters change the in-memory document before the queued write can fail.
+	 */
+	reload(): Promise<void>;
 	/** A write Pi recorded instead of throwing; drained, so each report is read once. */
 	drainErrors(): SettingsFailure[];
 	/** Why the store could not read its file: no write can land while one stands. */

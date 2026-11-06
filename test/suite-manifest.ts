@@ -38,6 +38,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"panel/skills",
 		"panel/update",
 		"panel/views",
+		"picker/override",
 		"picker/picker",
 		"picker/runtime",
 		"update/update",

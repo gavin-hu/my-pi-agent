@@ -815,7 +815,9 @@ finds the rows that need it.
   the trailing `Not resolved` group has no pattern to write, so `Space` says so
   instead of doing nothing. A write that did not land — a save the store rejected,
   or a settings file it could not read — is reported in the hint row and leaves the
-  checkbox as it was, so the screen never shows a value the file did not take.
+  checkbox as it was, so the screen never shows a value the file did not take; the
+  store's document is re-read on that path, so the next key starts from the file
+  rather than from the value Pi kept in memory.
 - Clears the focused extension's project override with `x` in Project scope: the
   `+`/`-` entry the toggle wrote is removed (with the plain path entry beside it
   for an inherited personal resource, and a project package entry the toggle
@@ -1767,7 +1769,7 @@ columns, gauge), so the look follows the active theme.
 | `picker/resources.ts` | Pure grouping, labels, display names per resource kind, and pattern helpers. |
 | `picker/toggle.ts` | Pure next-settings transforms for global and project toggles. |
 | `picker/discovery.ts` | Host wiring: builds both kinds' global and effective views from Pi's managers, the two settings stores for the settings-only command path, and the load errors a store keeps so a write that cannot land says why. |
-| `picker/runtime.ts` | Picker scope, live view copies, dirty tracking, and persistence, for both resource kinds through one ops table — each write reading its scope's own document, and a row flipped only once the write landed. |
+| `picker/runtime.ts` | Picker scope, live view copies, dirty tracking, and persistence, for both resource kinds through one ops table — each write reading its scope's own document, a row flipped only once the write landed, and the store re-read after a failure so the next key starts from the file. |
 | `doctor/register.ts` | Registers `run_doctor` and the proactive session-start check; returns the runtime. |
 | `doctor/runtime.ts` | Host seams, the session cache, and the two probe modes. |
 | `doctor/tools.ts` | The `run_doctor` tool and its renderers. |

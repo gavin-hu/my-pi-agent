@@ -56,6 +56,7 @@ export function createSettingsStore(manager: SettingsManager): SettingsStore {
 		setTheme: (theme) => manager.setTheme(theme),
 		isProjectTrusted: () => manager.isProjectTrusted(),
 		flush: () => manager.flush(),
+		reload: () => manager.reload(),
 		drainErrors: () => manager.drainErrors(),
 		loadErrors: () => loadErrors,
 	};
