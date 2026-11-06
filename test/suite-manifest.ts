@@ -179,7 +179,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"resolve",
 		"extension",
 	],
-	"web-access": ["fetch/fetch", "fetch/structured", "search/search", "http"],
+	"web-access": ["fetch/extract", "fetch/fetch", "fetch/structured", "search/search", "http"],
 	wechat: [
 		"boundary",
 		"bridge",

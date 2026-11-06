@@ -482,6 +482,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   before the delete: the handoff says a branch it could not count instead of printing none of them, and
   the status list no longer claims `merged` from a count that never came back.
 
+- `web-access`: `web_fetch` keeps a table row's cells apart, one row per line (`Ada | 42`), where
+  `<td>`/`<th>`/`<tr>` openers used to vanish and the cells ran together as `Ada42`. An image
+  wrapped in a link keeps its caption (`[Chart of retries](url)`) rather than collapsing to nothing,
+  since the anchor's text was read before the image's `alt` was. And a tag's attribute span skips a
+  quoted `>`, so `<a title="a > b" href=…>` no longer ends at the `>` in the title and spills
+  `b" href=…>` into the page as text — the shared `stripTagsAndDecode` reads it the same way.
+
 ## [0.24.0] - 2026-11-02
 
 ### Added

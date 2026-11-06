@@ -18,9 +18,16 @@ const NAMED_ENTITIES: Record<string, string> = {
 	ndash: "–",
 };
 
+/**
+ * A tag's attribute span, from after its name to the closing `>`. Quoted values
+ * are consumed whole, so a `>` inside one does not end the tag early; an unpaired
+ * quote falls through to the plain-character branch.
+ */
+export const TAG_ATTRIBUTES = `(?:"[^"]*"|'[^']*'|[^>])*`;
+
 /** Strip tags (replacing each with `separator`) and decode entities. */
 export function stripTagsAndDecode(html: string, separator = ""): string {
-	return decodeEntities(html.replace(/<[^>]*>/g, separator));
+	return decodeEntities(html.replace(new RegExp(`<${TAG_ATTRIBUTES}>`, "g"), separator));
 }
 
 /** Decode named and numeric HTML entities. Unknown entities are left as-is. */

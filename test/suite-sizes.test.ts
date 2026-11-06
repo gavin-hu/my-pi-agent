@@ -64,7 +64,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/subagent/render.test.ts": 599,
 	"extensions/subagent/run.test.ts": 917,
 	"extensions/todo/runtime.test.ts": 459,
-	"extensions/web-access/fetch/fetch.test.ts": 1181,
+	"extensions/web-access/fetch/fetch.test.ts": 1097,
 	"extensions/web-access/search/search.test.ts": 975,
 	"extensions/worktree/flow.test.ts": 825,
 	"extensions/worktree/git.test.ts": 893,
@@ -85,7 +85,7 @@ const LONG_SUITES: Record<string, number> = {
 };
 
 /** The named suites' total, written down so only a split can move it. */
-const LONG_SUITE_TOTAL = 44778;
+const LONG_SUITE_TOTAL = 44694;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 
