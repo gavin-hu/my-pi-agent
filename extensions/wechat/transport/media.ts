@@ -1,6 +1,6 @@
 /**
  * Media shared by both directions: the AES key and block codec, the CDN URLs, the
- * image sniff, the filename sanitize, and the one disk write an attachment needs.
+ * image and file sniff, the filename sanitize, and the one disk write an attachment needs.
  *
  * Weixin media are AES-128-ECB with PKCS#7 padding (Node's `node:crypto`), so
  * there is no extra dependency. Everything here is pure or filesystem-only; the
@@ -70,6 +70,55 @@ export function sniffImageMime(bytes: Uint8Array): string | undefined {
 	) {
 		return "image/webp";
 	}
+	return undefined;
+}
+
+/** Whether `bytes` begin with `prefix`. */
+function hasPrefix(bytes: Uint8Array, prefix: readonly number[]): boolean {
+	if (bytes.length < prefix.length) return false;
+	return prefix.every((byte, index) => bytes[index] === byte);
+}
+
+/** How much of a file is probed for printable bytes before the whole of it is decoded. */
+const TEXT_PROBE_BYTES = 8192;
+
+/** True when the first bytes hold no NUL and nothing a text editor would call a control character. */
+function looksPrintable(bytes: Uint8Array): boolean {
+	for (let index = 0; index < Math.min(bytes.length, TEXT_PROBE_BYTES); index++) {
+		const byte = bytes[index] ?? 0;
+		if (byte < 0x09 || (byte > 0x0d && byte < 0x20)) return false;
+	}
+	return true;
+}
+
+/** True when the whole of `bytes` decodes as UTF-8. */
+function isUtf8(bytes: Uint8Array): boolean {
+	try {
+		new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * The MIME an inbound file's bytes name, for the line a turn is handed: an image
+ * by {@link sniffImageMime}, then a document container, then text.
+ *
+ * The answer is the bytes', never the sender's: a `report.docx` that holds a PDF is
+ * named a PDF. `undefined` is a file nothing here recognizes, and the caller leaves
+ * the type out rather than repeating an extension it did not check. A legacy OLE2
+ * document (`D0 CF 11 E0`) is deliberately not named — `.doc`, `.xls`, and `.ppt`
+ * share that header, so one MIME would be wrong for two of them.
+ */
+export function sniffFileMime(bytes: Uint8Array): string | undefined {
+	const image = sniffImageMime(bytes);
+	if (image) return image;
+	if (hasPrefix(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d])) return "application/pdf";
+	// OOXML (.docx, .xlsx, .pptx), ODF, and a plain archive are all ZIP containers.
+	if (hasPrefix(bytes, [0x50, 0x4b, 0x03, 0x04])) return "application/zip";
+	if (hasPrefix(bytes, [0x1f, 0x8b])) return "application/gzip";
+	if (looksPrintable(bytes) && isUtf8(bytes)) return "text/plain";
 	return undefined;
 }
 

@@ -192,6 +192,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a read-only registry costs the lock and the registry file rather than the job, which keeps running
   in-process.
 
+- `wechat`: an inbound file reaches the turn as `[WeChat file: notes.pdf, 240 kB, application/pdf,
+  saved to <path>]`, so the turn knows what it was handed before it reads the path — previously a name
+  and a path only, and the size and type cost a `read` that then discovered it needed `read_doc`. Both
+  facts are the saved bytes' own (`sniffFileMime` over `sniffImageMime`, the document containers, and a
+  UTF-8 text probe; `formatSize` for the size), so a `report.docx` holding a PDF is named a PDF and a
+  `type: 4` image is named `image/png` instead of staying an unlabeled path. A legacy OLE2 document and
+  anything else unrecognized keep the name-and-size line rather than a guessed extension, and nothing
+  becomes model image content on this path that was not one before.
+
 ### Removed
 
 - `wechat`: `/new` is no longer a chat command. It was the one entry that only refused — the chat is
