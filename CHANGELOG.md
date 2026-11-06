@@ -234,6 +234,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: `session inbox` shows every body whole, so a read no longer consumes a tail it never
+  printed. An inbox line clipped each body to 400 characters (800 for a handoff) while the read deleted
+  exactly the messages it had shown, so anything past the ellipsis was lost for good — the store keeps
+  one file per message, and nothing told the sender. The 4,000-character ceiling now bounds how many
+  whole messages one read takes rather than how much of one it prints, so a full-length body costs one
+  call and short mail still fills a page: what the text showed and what the store deleted are the same
+  set.
+
 - `board`: a zero-padded card id names the card its digits name. The id a record carries is
   unpadded — the *file name* is what pads to four digits — but `normalizeCardId` kept the padding a
   caller wrote, so `list` with `card: "0004"` missed the board's own listing, the store's read (which

@@ -22,18 +22,18 @@ export function idSuffix(id: string): string {
 /**
  * A body clipped for the model, with the ellipsis that says so.
  *
- * One rule for the two surfaces that hand a model a message body — the mail notice and
- * an inbox read — because a clip that differed between them would show less of a
- * message when it was asked for than when it was announced.
+ * The mail notice's own rule: a preview announces a message, and the read that follows is
+ * what carries it whole. Nothing that consumes mail may clip — a clipped body that was
+ * then deleted is a tail no later call could return.
  */
 export function clipText(text: string, limit: number): string {
 	return text.length > limit ? `${text.slice(0, limit)}…` : text;
 }
 
 /**
- * A handoff is an instruction rather than a notification, so the model reads this much of
- * it in the notice and in the inbox: the card, its paths, and the step to take all sit
- * past the point where a message preview stops.
+ * A handoff is an instruction rather than a notification, so the notice reads this much of
+ * it: the card, its paths, and the step to take all sit past the point where a message
+ * preview stops.
  */
 export const HANDOFF_PREVIEW = 800;
 
@@ -78,17 +78,13 @@ export function formatJoin(label: string, watching: { armed: boolean; wake: bool
 		: `${who}, listening: new messages appear at your next turn.`;
 }
 
-/** A message body in an inbox read: twice the notice's preview, because this is where mail is read. */
-export const INBOX_BODY = 400;
-
-/** A handoff in an inbox read, never less than the notice already showed. */
-export const INBOX_HANDOFF = HANDOFF_PREVIEW;
-
 /**
- * The whole read is bounded, at one message's maximum body: `inbox` is the surface the
+ * The whole read is bounded at one message's maximum body: `inbox` is the surface the
  * prompt tells the model to run, so it is also the largest thing the bus can put in a
- * context. A burst of 4,000-character bodies is 80,000 characters at the default limit and
- * 200,000 at the maximum; a notice of the same burst is 1,200.
+ * context. `send` caps a body at 4,000 characters and a read never clips one, so a read
+ * costs at most one full-length message — a burst of them is one message per call, where
+ * a page that clipped each body would have shown a sliver of every one and deleted the
+ * rest.
  */
 export const INBOX_BUDGET = 4_000;
 
@@ -98,25 +94,28 @@ export interface InboxRead {
 	shown: number;
 }
 
-/** One message as a numbered line, its body clipped and its paths on a second line. */
+/** One message as a numbered line, its body whole and its paths on a second line. */
 function inboxLine(message: BusMessage, index: number): string {
 	const paths = message.paths?.length
 		? `\n   paths: ${message.paths.map((path) => sanitizeLine(path)).join(", ")}`
 		: "";
 	const from = sanitizeLine(message.fromLabel);
-	const body = clipText(sanitizeLine(message.text), message.kind === "handoff" ? INBOX_HANDOFF : INBOX_BODY);
+	const body = sanitizeLine(message.text);
 	return `${index + 1}. ${from} · ${sanitizeLine(message.kind)} · ${body}${paths}`;
 }
 
 /**
- * One consumed inbox, oldest first and bounded.
+ * One inbox read, oldest first and bounded.
  *
- * Every body is clipped, and the read stops at `INBOX_BUDGET`, so a burst costs a known
- * amount of context instead of the sum of its bodies. The messages past that point are
- * named rather than rendered, and `shown` is what the caller may consume — the tail is
- * true because the mail behind it is left in the inbox for the next read. The first
- * message is rendered whatever its size: a cap that showed nothing would leave a caller
- * holding unread mail it can neither see nor name.
+ * Every body is rendered whole. A read displays and then consumes exactly what it showed,
+ * so a clipped body would delete the rest of a message the model never read; the ceiling
+ * therefore bounds how many whole messages one read takes, not how much of one it prints.
+ * The first message is rendered whatever its size: a cap that showed nothing would leave a
+ * caller holding unread mail it can neither see nor name.
+ *
+ * `shown` is what the caller may consume, and every message it counts reached the text in
+ * full. The messages past that point are named rather than rendered, so the tail is true
+ * because the mail behind it is left in the inbox for the next read.
  *
  * `waiting` is the mail outside this window for another reason — the caller's `limit`, or
  * mail the caller did not load — and it is counted into the same tail, because it is the
