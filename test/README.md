@@ -378,7 +378,7 @@ test/
   prerequisites.test.ts    # REQUIREMENTS, and the config files each extension declares
   doc-links.test.ts        # every relative link, anchor, and table cell in the doc tree
   suite-sizes.test.ts      # the 400-line suite bar: every oversized suite named at its height, and a falling total
-  drift.test.ts            # lib/README index and AGENTS.md word budget
+  drift.test.ts            # lib/README index, AGENTS.md and entry README catalog word budgets
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
   site-docs.test.ts        # the docs site: the navigation table against the tree, the Pages config, and the copied assets

@@ -18,8 +18,9 @@
 ## 目录
 
 - [为什么选择这个包](#为什么选择这个包)
-- [快速开始](#快速开始)
+- [安装](#安装)
 - [包含内容](#包含内容)
+- [包会自行做的事](#包会自行做的事)
 - [配置](#配置)
 - [文档](#文档)
 - [参与贡献](#参与贡献)
@@ -30,22 +31,17 @@
 Pi 提供一个精简而锐利的内核。这个包是在其之上的一层，面向希望智能体*先思考、
 再安全行动*的人：
 
-- **先规划，再执行。** 只读的规划模式把一次任务变成一份可审阅的计划文件，智能体
-  随后按步骤执行。
-- **委派与并行。** 在各自的 Pi 进程中运行专职子智能体，把耗时构建交给后台任务，
-  让 watcher 盯住日志直到出现关键行，还能让同一仓库上的多个会话通过共享总线协作、
-  各自负责自己的一摊 —— 你继续把握主线。
+- **先规划，再执行。** 只读模式把一次任务变成一份可审阅的计划文件，智能体随后
+  按步骤执行。
+- **委派与并行。** 专职子智能体运行在各自的 Pi 进程里，耗时构建交给后台任务，
+  同一仓库上的多个会话通过共享总线协作。
 - **绝不搞乱检出区。** 隔离只需一条命令：任务切到自己分支的 `git worktree` 中，
   每次提示的首次改动都会生成快照，因此一次糟糕的回合只需一个 `/rewind` 就能回退。
 - **跨会话记忆。** 持久笔记以纯 Markdown 保存，可读、可改、可纳入版本控制。
 - **连通网络与文件。** 在会话内搜索、抓取、浏览、打开和读取文档与表格，还可通过桥接
   在微信里直接回答当前会话。
 
-一切都是可选的，且可独立开关。没有任何东西被分叉，也没有写入任何已安装的 Pi 文件：
-Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资源，因此
-该包能像其他包一样随 Pi 一起升级。
-
-## 快速开始
+## 安装
 
 需要一个可用的 [Pi](https://pi.dev) 安装。
 
@@ -59,34 +55,16 @@ pi install git:github.com/gavin-hu/my-pi-agent@v0.25.1      # 固定版本
 `/bytefly doctor` 会指出缺少什么，包括可选的运行时组件。
 Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都会执行。
 
+一切都是可选的，且可独立开关。没有任何东西被分叉，也没有写入任何已安装的 Pi 文件：
+Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资源，因此
+该包能像其他包一样随 Pi 一起升级。
+
 然后在 Pi 中：
 
-- `/bytefly [extension] [refresh]` 打开控制中心的 Extensions 区：三个区共用一个
-  框架，头部横线的右端写着需要注意的事项（没有问题时为 `all clear`），一行 tab
-  标出各区的数量与写入作用域。它按名称列出每个已加载扩展及其复选框与至多一个
-  结论词，启用或禁用一个扩展，并用 `x` 清除项目级覆盖；`/` 过滤行，`!` 只保留
-  需要注意的行，`?` 显示全部按键。
-- `/bytefly settings` 打开控制中心的 Settings 区：一次会话会改动的十五项设置按
-  Startup、Notifications、Session、Board、Team、Price 六组排列，值对齐在同一列；用
-  `Space`/`Enter` 修改一项，用 `s` 切换 Global/Project 作用域。其余键都是
-  `bytefly.json` 编辑，见配置参考。
-- `/bytefly skills` 打开控制中心的 Skills 区：每个 Pi 技能一行，带启用复选框与
-  至多一个结论词，`SKILL.md` 声明的描述显示在旁边的区块中，用 `Space` 在当前
-  作用域开关它。
-- `/bytefly doctor [extension] [refresh]` 打印 doctor 报告（`run_doctor` 的文本），
-  检查每个已启用扩展在运行时是否具备所需条件。
-- `/bytefly update` 立即重跑包更新检查，报告可更新的包、本包版本与 release URL，
-  或跳过原因。
+- `/bytefly` 打开控制中心：一次会话会改动的十五项设置、每个已加载的扩展与技能及其
+  复选框，以及指出运行时缺项的 doctor 报告。
 - `/plan <任务>` 以只读规划模式开始一个任务。
-- `/skill:init` 通过内置的简短访谈和先审阅的计划创建或更新 Pi 实际读取的指令文件。
-
-还有一件包会自行做的事：每次交互式会话启动时，`bytefly` 询问 Pi 的包管理器
-哪些已配置的包有更新，抑制 Pi 自己的启动更新块，并用主题化 notice 列出它们
-和 `pi update --extensions`；Pi 自身的新版本也由它绘制，提示 `pi update` 与
-changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不会发送任何会话内容：
-Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自一次固定的 npm
-`latest` 请求，`PI_OFFLINE` 可跳过检查；信任边界见
-[`docs/security.md`](./docs/security.md)。
+- `/skill:init` 通过内置的简短访谈和先审阅的计划，创建或更新 Pi 实际读取的指令文件。
 
 ## 包含内容
 
@@ -97,42 +75,42 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`plan`](./docs/extensions/plan.md) | `plan`, `/plan`, `--plan` | 只读规划：一个工具的五个动作 —— `enter`、`write`、`exit`、`steps`、`cancel`。模型先调研，把计划保存到 `~/.pi/agent/plans/<repo-key>` 下（每个仓库一份，各 worktree 共享），你在写入任何内容前先批准。可在 TUI 中审阅，也可在浏览器里留下行内评论（`/plan list` 里按 Enter 则以只读视图打开任意计划，没有批准、评论与分享）：页面跟随计划文件实时更新，穿着与 `/board`、`/browse` 相同的工具栏、控制栏和页脚，侧栏则按角色给事实 —— owner 看到决策说明与步骤进度，审阅者看到自己的署名与评论数 —— 每位同事各持一个审阅链接，以自己的名义评论。`init` 技能复用同一审阅流程来创建或更新项目的 `AGENTS.md`。 |
-| [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | 把任务委派给专职智能体（`explorer`、`planner`、`reviewer`、`worker`），运行在它自己的 Pi 进程中 —— 单个、并行、链式或在后台运行；后台运行时在页脚显示数量，完成后发出提示。 |
-| [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | 持久任务列表（`pending` / `in_progress` / `completed`），配一行式 widget。 |
+| [`plan`](./docs/extensions/plan.md) | `plan`, `/plan`, `--plan` | 只读规划：模型先调研，计划经你批准后才写入任何内容。 |
+| [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | 把任务委派给运行在自己 Pi 进程中的专职智能体 —— 单个、并行、链式或在后台。 |
+| [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | 持久任务列表，同一时刻一项进行中，以一行式 widget 显示。 |
 | [`goal`](./docs/extensions/goal.md) | `goal`, `/goal` | 持久会话目标，保存在 widget 中，并在每个回合前重述。 |
-| [`question`](./docs/extensions/question.md) | `question` | 向你提出一个或多个结构化问题（带标签的选项外加自由填写的“其他”）并等待回答。 |
+| [`question`](./docs/extensions/question.md) | `question` | 向你提出带标签选项的结构化问题，并等待回答。 |
 | [`job`](./docs/extensions/job.md) | `job`, `/jobs` | 在后台运行长时 shell 命令；查看日志、等待或结束它们。 |
-| [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | 跟踪文件或命令输出，按模式匹配行，并提醒你或把匹配的行交给智能体。 |
-| [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions`（屏幕） | 在同一仓库的多个 Pi 会话之间协调：发现彼此、交换简短消息/事件、读取收件箱、编辑前声明路径；`/sessions` 是显示对等会话、未读邮件和路径声明的实时面板。本地、默认拉取式；收件箱监视需会话自行开启，空闲时会唤起本会话的一轮，从不创建智能体。 |
-| [`serve`](./docs/extensions/serve.md) | — | 每个 session 一个 loopback 服务：`/board`、`/browse` 和浏览器里的 plan review 都在它上面挂载路径前缀，而不是各自监听端口，因此一个 session 只有一个端口、一个 chip、一条关闭路径 —— 而第二个 session 依然有自己的端口。端口是项目自身的编号，由仓库 key 哈希到 `4780`–`5779`，因此收藏的地址在重启后依然有效；`bytefly.json` 里的 `serve.port` 可以覆盖它；共享 review 只为发起共享的那一个页面借用同一个网段上的一个地址。 |
-| [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板：一张卡片代表一个 feature —— 它的类型、owner、优先级、在等哪几张卡片，以及解释它的历史 —— 在 `backlog`、`plan`、`execute`、`blocked`、`done` 五条车道间移动。契约（`goal`、`acceptance`、`scopeOut`）写明本仓库 plan store 里的一份 plan，由 lead（`bytefly.json` 里的 `board.lead`，默认 `lead`，且不能是卡片持有者）或本人用 `/board approve` 签名之后，卡片才能进入执行；收尾要经过 `/board review` 抽检 —— 绕过闸门的收尾则用 `/board review <id> --override <why>` 事后补签，记录上会写 `closed by instruction` —— `plan` 与 `execute` 受 WIP 上限约束，签名会通知卡片的 owner。已完成的卡片进入 `archive/`，其注记与 plan 仍可读。同一个看板在 `/board` 的页面上以 **Board** 与 **Team** 两个 tab 实时显示，只读 —— 写入只走工具 —— 以看板 lead 的席位对外服务，因此第二个 session 打开的是同一张页面；Team tab 会把 bus 没有记录的 owner 收成一行。步骤留在 owner 的 plan 和 `todo` 里。 |
-| [`team`](./docs/extensions/team.md) | `team`、`/team` | 同一块看板上的 lead 轮次：`/team join <label>` 让一个 session 加入团队，lead 打开 `/board` 时则以页面席位之名自动加入；随后 `assign` 把一个 feature 交给运行中的 session，`offer` 交给谁有空谁接 —— 广播而不写卡片，由第一个认领的人拿走 —— `reclaim` 把卡片收回 Backlog，`claim` 则让 lead 自己接手，之后的 plan 与 contract 交给 `board`，`ask` 则向某个同伴问一句看板回答不了的话，回复以普通邮件形式回来。结果会说明谁会因此被叫醒、谁会在下一轮才读到，`/team` 在终端里打印同一份轮次。不启动任何进程。 |
-| [`context`](./docs/extensions/context.md) | `/context` | 显示上下文窗口的去向 —— 系统提示、工具定义、按角色拆分的对话、注入的笔记 —— 并从报告中触发压缩，给出压缩前后的数字。 |
+| [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | 跟踪文件或命令输出，匹配到行时提醒你，或把该行交给智能体。 |
+| [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions`（屏幕） | 协调同一仓库上的并行会话：对等会话、简短消息、收件箱与路径声明。 |
+| [`serve`](./docs/extensions/serve.md) | — | 本会话唯一的 loopback 服务，`/board`、`/browse` 与 plan review 共用一个端口。 |
+| [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板，卡片发运前需要两次签名。 |
+| [`team`](./docs/extensions/team.md) | `team`、`/team` | 看板上的 lead 轮次：assign、offer、reclaim、claim、ask —— 不启动任何进程。 |
+| [`context`](./docs/extensions/context.md) | `/context` | 显示上下文窗口的去向，并从报告中触发压缩。 |
 
 ### 保护你的工作
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`worktree`](./docs/extensions/worktree.md) | `worktree`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作（一个工具四个动作：`enter`、`exit`、`list`、`prune`）；内置的 read/write/edit/bash 工具会跟随，清理时也不会丢弃工作。 |
-| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `↺ N` 状态标记 | 在每次提示的首次改动前于 `refs/pi/rewind` 下对仓库生成快照，可从更早的提示恢复代码、对话或两者。 |
-| [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | 跨会话的持久笔记，以可人工编辑的 Markdown 保存，注入每次运行，并通过 `/memory` 选择器管理。 |
+| [`worktree`](./docs/extensions/worktree.md) | `worktree`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作；内置工具会跟随。 |
+| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `↺ N` 状态标记 | 在每次提示的首次改动前生成快照，可恢复代码、对话或两者。 |
+| [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | 跨会话的持久笔记，以可读、可改、可纳入版本控制的 Markdown 保存。 |
 
 ### 连通外部世界
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`web-access`](./docs/extensions/web-access.md) | `web_search`, `web_fetch` | 搜索网络（默认无密钥的 DuckDuckGo，可选 SearXNG 或 Brave），并把页面抓取为可读文本，支持分页、`find`、逐跳 SSRF 检查、把 JSON/CSV/XML 正文渲染为表格或树状结构，以及可选的 PDF 支持。 |
-| [`file-browse`](./docs/extensions/file-browse.md) | `/browse` | 启动一个以工作目录为根的本地回环、只读文件浏览器，带 Markdown 预览、模糊快速打开面板、从选区复制 `path:12-30` 引用、为常开页面提供的实时状态，以及所列目录变化时的重新加载提示。 |
+| [`web-access`](./docs/extensions/web-access.md) | `web_search`, `web_fetch` | 搜索网络并把页面抓取为可读文本，支持分页、`find` 与 SSRF 检查。 |
+| [`file-browse`](./docs/extensions/file-browse.md) | `/browse` | 以工作目录为根的回环只读浏览器，带 Markdown 预览与快速打开。 |
 | [`file-read`](./docs/extensions/file-read.md) | `read_doc` | 在进程内从本地 PDF、DOCX、DOC、ODT、RTF 或 XLSX 提取文本，支持分页。 |
 | [`file-open`](./docs/extensions/file-open.md) | `/open`, `open_path` | 用操作系统原生应用打开或定位文件/目录。 |
-| [`wechat`](./docs/extensions/wechat.md) | `/wechat`, `send_wechat` | 通过微信 iLink 机器人 API 把微信聊天桥接到实时会话；入站文本、图片和文件会变成回合，桥接绑定到一个会话并由手动启动。 |
+| [`wechat`](./docs/extensions/wechat.md) | `/wechat`, `send_wechat` | 把一段微信聊天桥接到实时会话：入站消息进入，回答流式返回。 |
 
 ### 界面与维护
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`bytefly`](./docs/extensions/bytefly.md) | `/bytefly`（`doctor`、`settings`、`skills`、`update`、`upgrade` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，输入框边框有实时运行行（`working` 计数、本次运行的工具与计时），转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 开关扩展与技能并集中存放精选设置，`/bytefly upgrade` 在确认后通过 Pi 自己的包管理器安装待更新版本。可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知，Pi 自己的启动更新块也会变成主题化 notice 与头部标记。`bytefly.json` 是每个扩展都会读取的配置文档。 |
+| [`bytefly`](./docs/extensions/bytefly.md) | `/bytefly`（`doctor`、`settings`、`skills`、`update`、`upgrade` 子命令）、`run_doctor` | 可见的那一层：头部、页脚、转录块、设置界面、通知 —— 以及每个扩展都会读取的配置 `bytefly.json`。 |
 
 ### 技能
 
@@ -140,9 +118,9 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 
 | 技能 | 说明 |
 |---|---|
-| [`init`](./skills/init/SKILL.md) | 通过内置的交互式访谈和计划审阅，基于仓库证据创建或更新 Pi 实际读取的指令文件（`AGENTS.md`；存在覆盖它的 `AGENTS.override.md` 时则是该文件），并从仓库推导命令、生成路径与包范围。 |
-| [`refactor`](./skills/refactor/SKILL.md) | 审计项目或路径中的重构机会：重复代码、过大的模块、耦合、结构漂移，以及测试薄弱且改动频繁的代码。随包的 `scripts/inventory.ts` 会量出体积、扇入、churn 和测试邻近度，让每条发现都带来源，排序清单附证据和验证命令；选定一个候选项后，它会把该重构带到不改行为地完成，而审计本身只读。 |
-| [`next`](./skills/next/SKILL.md) | 按优先级建议接下来的待办——未收尾的工作、已破坏或未兑现的承诺——会话已有工作时基于本次会话，仅当会话为空时才基于代码树；命令后的文字说明问什么、路径说明看哪里。只读，输出带证据和启动命令的简短编号清单。 |
+| [`init`](./skills/init/SKILL.md) | 通过交互式访谈与先审阅的计划，创建或更新 Pi 实际读取的指令文件。 |
+| [`refactor`](./skills/refactor/SKILL.md) | 审计重复代码、过大模块、耦合与结构漂移，并把你选定的重构带到完成。 |
+| [`next`](./skills/next/SKILL.md) | 从本次会话建议接下来做什么；会话为空时则基于代码树。 |
 
 ### 主题
 
@@ -154,9 +132,19 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 使用 `bytefly-dark`。
 
 其余截图 —— 终端各屏幕、浏览器里的三个页面，以及每个工具一块 —— 都在各扩展自己
-位于 [`docs/extensions/`](./docs/extensions/) 下的页面里，页面开头便说明它做什么、
-对应哪些按键；`bun run capture:tools` 会把工具画廊重新生成到
-[`assets/tools/`](./assets/tools)。
+位于 [`docs/extensions/`](./docs/extensions/) 下的页面里。`bun run capture:tools`
+会把工具画廊重新生成到 [`assets/tools/`](./assets/tools)。
+
+## 包会自行做的事
+
+每次交互式会话启动时，`bytefly` 询问 Pi 的包管理器哪些已配置的包有更新，抑制
+Pi 自己的启动更新块，并用主题化 notice 列出它们和 `pi update --extensions`；
+Pi 自身的新版本也由它绘制，提示 `pi update` 与 changelog。新版本还会标在头部 ——
+本包的与 Pi 自己的。
+
+不会发送任何会话内容：Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自一次
+固定的 npm `latest` 请求。`PI_OFFLINE` 可跳过检查；信任边界见
+[`docs/security.md`](./docs/security.md)。
 
 ## 配置
 
@@ -182,6 +170,7 @@ PI_DISABLED_EXTENSIONS=todo,job pi -e .
 | 指南 | 内容 |
 |---|---|
 | [文档站点](https://gavin-hu.github.io/my-pi-agent/) | 浏览器版本：首页、安装与配置，以及覆盖每个扩展页面的侧边栏。 |
+| [安装](./docs/install.md) | 添加本包、固定版本、升级与移除。 |
 | [配置](./docs/configuration.md) | 解析规则、设置界面，以及 `bytefly.json` 每个键的默认值与取值范围。 |
 | [扩展文档](./docs/extensions/) | 每个扩展一页：它做什么、如何上手，以及参考部分；每个工作流各配一篇教程。 |
 | [安全](./docs/security.md) | 回环与远程界面的信任边界。 |
