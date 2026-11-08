@@ -1,27 +1,27 @@
 /**
- * Contract guard for the extension docs.
+ * Contract guard for the extension pages.
  *
- * The template lives in `docs/development.md#one-doc-per-extension`; this file
- * is what makes it a rule rather than a habit. Three failures it is built for:
+ * Every page is written for a reader who uses the pack rather than changes it, so
+ * this file holds what makes that a rule rather than a habit:
  *
- * - a page whose sections drift back out of order, so the thing a reader arrives
- *   for — the capabilities — is no longer first;
- * - a capability the extension ships but the page never names, because a tool was
- *   added and its row was not;
- * - a Files row the tree has outgrown: a module with no row, or a row naming a file
- *   that is gone, which is how a page keeps describing a tree that no longer exists;
- * - a second copy of the doc creeping back beside the code: the `extensions/`
- *   tree holds code and tests only, and this file is what keeps it that way.
+ * - a page whose sections drift, so the thing a reader arrives for is no longer
+ *   first, or which grows a contributor section back;
+ * - a page that grows into a manual, past the length a short page can hold;
+ * - a capability the extension ships but the page never names, because a tool or
+ *   command was added and the page was not;
+ * - a page that outgrows the index, or an extension whose page is a file beside
+ *   the code instead of one page in `docs/extensions/`;
+ * - a store under the agent directory with no page that says where it lives.
  *
  * It loads every factory through the fake runtime for the same reason
- * `extension-load.test.ts` does: the registered surface is the fact a doc has to
+ * `extension-load.test.ts` does: the registered surface is the fact a page has to
  * match, not a list a contributor maintains twice.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { CONVERTED_EXTENSION_PAGES, headingsOf, sectionOf, tablesOf } from "./helpers/docs.ts";
+import { headingsOf, sectionOf, tablesOf } from "./helpers/docs.ts";
 import { walkFiles } from "./helpers/files.ts";
 import { registeredSurface } from "./helpers/surface.ts";
 
@@ -38,53 +38,11 @@ function nameOf(entry: string): string {
 
 const names = manifest.map(nameOf).sort();
 
-/** The pages still on the contributor template; a rewritten page leaves this set. */
-const contributorPages = names.filter((name) => !CONVERTED_EXTENSION_PAGES.has(name));
-
-/** The pages rewritten for end users, on the short template. */
-const userPages = names.filter((name) => CONVERTED_EXTENSION_PAGES.has(name));
-
-/** A page's text, with its heading list read the way GitHub renders it. */
+/** A page's text. */
 function pageOf(name: string): string {
 	return readFileSync(join(docsDir, `${name}.md`), "utf-8");
 }
 
-/** The paths a Files row's first cell names: a link's target, else its files. */
-function fileTargetsOf(cell: string): string[] {
-	const linked = /\[[^\]]*\]\(([^)]+)\)/.exec(cell)?.[1];
-	if (linked !== undefined) return [linked];
-	// A page groups rows two ways — `a.ts / b.ts`, and `` `a.ts`, `b.ts` `` — so a
-	// path with a directory in it (`search/tool.ts`) is never split.
-	return cell
-		.split(/\s*,\s*|\s+\/\s+/)
-		.map((part) => part.replaceAll("`", "").trim())
-		.filter((part) => part !== "");
-}
-
-/**
- * Whether a Files row names something on disk.
- *
- * An extension's own module is written bare and resolves inside `extensions/<name>/`,
- * while the shared module it leans on is written as a link or a `lib/` path and
- * resolves from the repository root.
- */
-function namesAFile(target: string, name: string): boolean {
-	const fromRoot = target.startsWith("../") || target.startsWith("lib/") || target.startsWith("extensions/");
-	const candidates = fromRoot
-		? [resolve(docsDir, target), resolve(root, target)]
-		: [resolve(root, "extensions", name, target), resolve(root, target)];
-	return candidates.some((path) => existsSync(path));
-}
-
-/** The page headings that are the template's own, and the surface ones among them. */
-const SURFACE = new Set(["Tool", "Tools", "Commands", "Commands and flags", "Routes"]);
-const FRONT = new Set([...SURFACE, "Behaviour by mode", "Configuration", "Security", "Limitations", "Non-goals"]);
-const SUFFIX = ["Limitations", "Non-goals", "Pi integration", "Design notes", "Files", "Testing"];
-const REQUIRED = ["Capabilities", "Quickstart", "Pi integration", "Design notes", "Files"];
-/** An optional fourth column; a page uses it only when a capability is unreleased. */
-const STATUSES = new Set(["Shipped", "Unreleased", "Partial"]);
-
-/** The index page, and a Markdown-free extension tree. */
 describe("the extension doc set", () => {
 	test("has one page per manifest extension, and no orphan page", () => {
 		const pages = [...new Bun.Glob("*.md").scanSync(docsDir)]
@@ -106,68 +64,18 @@ describe("the extension doc set", () => {
 	});
 });
 
-describe("the template every page follows", () => {
-	for (const name of contributorPages) {
-		test(`${name}.md`, () => {
-			const text = pageOf(name);
-			const headings = headingsOf(text);
-
-			expect(headings[0], "the capabilities come first").toBe("Capabilities");
-			expect(headings[1], "then the quickstart").toBe("Quickstart");
-			expect(text.startsWith(`# ${name} — `), "the title names the extension").toBe(true);
-
-			for (const heading of REQUIRED) expect(headings, `missing ## ${heading}`).toContain(heading);
-
-			// The surface sections sit between the quickstart and the deep dives.
-			const surface = headings.map((heading, at) => (SURFACE.has(heading) ? at : -1)).filter((at) => at !== -1);
-			expect(surface.length, "no tool or command section").toBeGreaterThan(0);
-			const firstFront = headings.findIndex((heading) => FRONT.has(heading) && !SURFACE.has(heading));
-			const lastSurface = surface.at(-1) ?? 0;
-			if (firstFront !== -1) expect(lastSurface, "a surface section after the deep dives").toBeLessThan(firstFront);
-
-			// Behaviour, configuration, and security keep their relative order.
-			const optional = headings.map((heading, at) =>
-				["Behaviour by mode", "Configuration", "Security"].includes(heading) ? at : -1,
-			);
-			const present = optional.filter((at) => at !== -1);
-			expect(present, "behaviour, configuration, and security are out of order").toEqual(
-				[...present].sort((a, b) => a - b),
-			);
-
-			// The contributor sections come last, in the template's order, with no deep
-			// dive after them.
-			const suffix = headings.map((heading, at) => (SUFFIX.includes(heading) ? at : -1)).filter((at) => at !== -1);
-			const spelled = suffix.map((at) => headings[at]);
-			expect(spelled, "the contributor sections are out of order").toEqual(
-				SUFFIX.filter((heading) => spelled.includes(heading)),
-			);
-			const firstSuffix = suffix[0] ?? headings.length;
-			const afterPi = headings.slice(headings.indexOf("Pi integration") + 1);
-			expect(
-				afterPi.filter((heading) => !SUFFIX.includes(heading)),
-				"a deep dive after the contract",
-			).toEqual([]);
-			// A surface heading never follows the first contributor heading either.
-			expect(
-				surface.filter((at) => at > firstSuffix),
-				"a surface section after Limitations",
-			).toEqual([]);
-		});
-	}
-});
-
 /**
- * The end-user page: what the reader can do, how to try it, and one reference
- * half under it. The allowlist is the point — a contributor section cannot creep
- * back in, and the page cannot grow back into a manual, without failing here.
+ * The page: what the reader can do, how to try it, and one reference half under
+ * it. The allowlist is the point — a contributor section cannot creep back in, and
+ * a page cannot grow back into a manual, without failing here.
  */
 const USER_SECTIONS = ["What you can do", "Try it", "Reference", "Limits", "Settings", "Learn more"];
 
-/** A rewritten page stays short; the walkthrough belongs in `docs/tutorials/`. */
+/** A page stays short; the walkthrough belongs in `docs/tutorials/`. */
 const USER_PAGE_LINES = 120;
 
 describe("the end-user template", () => {
-	for (const name of userPages) {
+	for (const name of names) {
 		test(`${name}.md`, () => {
 			const text = pageOf(name);
 			const headings = headingsOf(text);
@@ -199,117 +107,15 @@ describe("the end-user template", () => {
 	}
 });
 
-describe("the capabilities table", () => {
-	for (const name of contributorPages) {
-		test(`${name}.md`, () => {
-			const section = sectionOf(pageOf(name), "Capabilities");
-			const tables = tablesOf(section);
-			expect(tables.length, "no capabilities table").toBeGreaterThan(0);
-
-			for (const [at, table] of tables.entries()) {
-				const header = table[0] ?? [];
-				const hasStatus = header.length === 4 && header[3] === "Status";
-				expect(header, `table ${at + 1}: the header`).toEqual(
-					hasStatus ? ["Capability", "How", "What you get", "Status"] : ["Capability", "How", "What you get"],
-				);
-				const rows = table.slice(1);
-				expect(rows.length, `table ${at + 1}: no rows`).toBeGreaterThan(0);
-				for (const [row, cells] of rows.entries()) {
-					expect([name, at + 1, row + 1, cells.length]).toEqual([name, at + 1, row + 1, header.length]);
-					const how = cells[1] ?? "";
-					expect(how, `${name}: row ${row + 1} names no surface in backticks`).toMatch(/^automatic:|`[^`]+`/);
-					if (hasStatus) {
-						expect(STATUSES, `${name}: row ${row + 1} has an unknown status`).toContain(cells[3] ?? "");
-					}
-				}
-			}
-		});
-	}
-});
-
-describe("the registered surface is in the capabilities", () => {
+describe("the registered surface is on the page", () => {
 	for (const entry of manifest) {
 		test(entry, async () => {
-			const name = nameOf(entry);
-			// A rewritten page names its surface in the page's own prose, not in a
-			// capabilities table, so the whole page is the scope it must appear in.
-			const scope = CONVERTED_EXTENSION_PAGES.has(name) ? pageOf(name) : sectionOf(pageOf(name), "Capabilities");
+			const text = pageOf(nameOf(entry));
 			const { tools, commands } = await registeredSurface(entry);
 
-			const missingTools = tools.filter((tool) => !new RegExp(`\`[^\`]*\\b${tool}\\b[^\`]*\``).test(scope));
-			const missingCommands = commands.filter((command) => !scope.includes(`\`/${command}`));
+			const missingTools = tools.filter((tool) => !new RegExp(`\`[^\`]*\\b${tool}\\b[^\`]*\``).test(text));
+			const missingCommands = commands.filter((command) => !text.includes(`\`/${command}`));
 			expect({ tools: missingTools, commands: missingCommands }).toEqual({ tools: [], commands: [] });
-		});
-	}
-});
-
-/** Every module under `extensions/<name>/`, as paths relative to the extension. */
-function modulesOf(name: string): string[] {
-	const walk = (directory: string, prefix: string): string[] =>
-		readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-			const relative = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
-			if (entry.isDirectory()) return walk(join(directory, entry.name), relative);
-			if (!entry.name.endsWith(".ts") || entry.name.endsWith(".test.ts")) return [];
-			return [relative];
-		});
-	// Recursive on purpose: a nested module is the one a table forgets, because the
-	// page's prose keeps talking about the directory it lives in.
-	return walk(join(root, "extensions", name), "").sort();
-}
-
-describe("the Files table", () => {
-	for (const name of contributorPages) {
-		test(`${name}.md`, () => {
-			const rows = (tablesOf(sectionOf(pageOf(name), "Files"))[0] ?? []).slice(1);
-			// Only the first column: a module named in a responsibility sentence is
-			// not a row, and would hide the one next to it that is missing.
-			const extensionDir = resolve(root, "extensions", name);
-			// Coverage is by target, not by text: a row names a file — written bare, or as a
-			// link into the tree — or a directory it groups (`tools/`, whose modules the next
-			// cell lists). Matching the cell for a file name instead would let `web-write.ts`
-			// cover `tools/write.ts`, and would miss a grouped row that names its modules in
-			// prose.
-			const local = rows
-				.flatMap((row) => fileTargetsOf(row[0] ?? ""))
-				.map((target) => {
-					// Containment is compared with the platform's own separator: `resolve` builds a
-					// native path, and a literal "/" made every row look like it named nothing on
-					// Windows, where the whole table then read as unrowed.
-					const inside = [resolve(extensionDir, target), resolve(docsDir, target)].find(
-						(path) => path.startsWith(extensionDir + sep) && existsSync(path),
-					);
-					return inside
-						?.slice(extensionDir.length + 1)
-						.replaceAll("\\", "/")
-						.replace(/\/+$/, "");
-				})
-				.filter((target): target is string => target !== undefined && target !== "");
-			const unnamed = modulesOf(name).filter((module) => {
-				if (local.includes(module)) return false;
-				return !local.some((target) => module.startsWith(`${target}/`));
-			});
-			expect(unnamed, "a module with no Files row").toEqual([]);
-
-			const broken = rows.flatMap((row) => fileTargetsOf(row[0] ?? "")).filter((target) => !namesAFile(target, name));
-			expect(broken, "a Files row naming no file or directory").toEqual([]);
-		});
-	}
-});
-
-describe("the Testing section names suites that exist", () => {
-	/** A token the section writes as a suite stem: lowercase, hyphenated, with a path. */
-	const STEM = /^[a-z][a-z0-9-]*(?:\/[a-z0-9-]+)+$/;
-
-	for (const name of contributorPages) {
-		test(`${name}.md`, () => {
-			// Backticked tokens with a slash, and only those: a bare `chrome` reads the same
-			// as a word, while a stale stem without one is what a consolidation leaves
-			// behind — `footer/render/format` after the footer's one suite absorbed it.
-			const stems = [...sectionOf(pageOf(name), "Testing").matchAll(/`([^`]+)`/g)]
-				.map((match) => match[1] ?? "")
-				.filter((token) => STEM.test(token));
-			const missing = stems.filter((stem) => !existsSync(join(root, "extensions", name, `${stem}.test.ts`)));
-			expect(missing, "a Testing stem with no suite").toEqual([]);
 		});
 	}
 });
@@ -317,15 +123,15 @@ describe("the Testing section names suites that exist", () => {
 /**
  * One place a module puts state under the agent directory, and what the page says about it.
  *
- * The row is the location as a page spells it; `page` is the page whose Files row must name
- * it; `names` is the literal the module itself has to still contain, so a moved directory
- * fails here rather than in a reader's terminal. `lib/`'s stores carry no `page`: their row
- * is in `lib/README.md`, so they are declared here for the ratchet and checked on the code.
+ * The row is the location as the tree spells it; `page` is the page that must name it,
+ * empty for a `lib/` store whose row is in `lib/README.md`; `names` is the literal the
+ * module itself has to still contain, so a moved directory fails here rather than in a
+ * reader's terminal.
  */
 interface StoreRow {
 	/** The location, written the way the extension pages write it. */
 	location: string;
-	/** The page whose Files row for this module must name the location; empty for `lib/`. */
+	/** The page that names the location in the reader's spelling; empty for `lib/`. */
 	page: string;
 	/** The module that decides where it goes, relative to the repository root. */
 	module: string;
@@ -407,13 +213,6 @@ function modulesIn(directory: string): string[] {
 }
 
 describe("the stores under the agent directory", () => {
-	/** The row a page gives a module, as its cells, or undefined when it has none. */
-	function rowOf(file: string, module: string): string[] | undefined {
-		const stem = module.replace(/^extensions\/[^/]+\//, "");
-		const rows = (tablesOf(sectionOf(pageOf(file.replace(/\.md$/, "")), "Files"))[0] ?? []).slice(1);
-		return rows.find((row) => fileTargetsOf(row[0] ?? "").some((target) => target === stem));
-	}
-
 	test("declares every module that anchors on the agent directory", () => {
 		const anchored = [...modulesIn("extensions"), ...modulesIn("lib")]
 			.filter((module) => /getAgentDir|CONFIG_DIR_NAME/.test(readFileSync(join(root, module), "utf-8")))
@@ -431,9 +230,9 @@ describe("the stores under the agent directory", () => {
 	});
 
 	test("spells an agent-directory location one way", () => {
-		// The rule in `docs/development.md` is one spelling, and prose is where it drifted:
-		// three sweeps each fixed the page they were reading and left `<agentDir>` in the rest,
-		// because only a store row was ever checked. This reads every page and every comment.
+		// Prose is where the spelling drifted: every sweep fixed the page it was reading
+		// and left `<agentDir>` in the rest, because only a store row was ever checked. A
+		// page says `~/.pi/agent/…`; a row or a comment says `<agent-dir>/…`.
 		const scanned = ["docs", "extensions", "lib", "scripts", "skills"].flatMap((directory) =>
 			walkFiles(join(root, directory)),
 		);
@@ -441,30 +240,18 @@ describe("the stores under the agent directory", () => {
 			.filter((file) => file.endsWith(".md") || file.endsWith(".ts"))
 			.filter((file) => readFileSync(file, "utf-8").includes("<agentDir>"))
 			.map((file) => relative(root, file));
-		expect(offenders, "write `<agent-dir>`").toEqual([]);
+		expect(offenders, "write `<agent-dir>` in a row or a comment, `~/.pi/agent` in a page").toEqual([]);
 	});
 
-	test("names each store's location in the Files row for its module", () => {
+	test("names each store's location on its page", () => {
+		// A page has no Files table to carry the row, so it says where the store lives in
+		// the reader's own spelling: `~/.pi/agent/…`.
 		const missing: string[] = [];
 		for (const store of STORES) {
 			if (store.page === "") continue;
-			if (CONVERTED_EXTENSION_PAGES.has(store.page.replace(/\.md$/, ""))) {
-				// A rewritten page has no Files table: it says where the store lives in
-				// the reader's own spelling, `~/.pi/agent/...`, which is the tree's one
-				// way of writing an agent-directory path to a person.
-				const spelled = store.location.replace("<agent-dir>/", "~/.pi/agent/");
-				if (!pageOf(store.page.replace(/\.md$/, "")).includes(spelled)) {
-					missing.push(`${store.page}: the page never says ${spelled}`);
-				}
-				continue;
-			}
-			const row = rowOf(store.page, store.module);
-			if (row === undefined) {
-				missing.push(`${store.page}: no Files row for ${store.module}`);
-				continue;
-			}
-			if (!row.join(" ").includes(store.location)) {
-				missing.push(`${store.page}: ${store.module} row omits ${store.location}`);
+			const spelled = store.location.replace("<agent-dir>/", "~/.pi/agent/");
+			if (!pageOf(store.page.replace(/\.md$/, "")).includes(spelled)) {
+				missing.push(`${store.page}: the page never says ${spelled}`);
 			}
 		}
 		expect(missing, "a store whose page does not say where it lives").toEqual([]);
