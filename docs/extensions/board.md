@@ -29,7 +29,7 @@ can ship.
 | Sign off finished work | `/board review 4`, then `board move 4 done` |
 | Explain something | `board note 4 "why the retry is capped at three"` |
 | Set finished work aside | `/board archive` |
-| Read the round | `board list round: true`, or `/team` |
+| Read the round: owners, unassigned, awaiting approval, awaiting review | `board list round: true`, or `/team` |
 
 ## Try it
 
@@ -40,7 +40,9 @@ board claim 1
 
 The claim's result names the next step — design it in plan mode, save the plan,
 record the contract — and `board approve 1` will refuse it until the contract
-names a plan file in this repository's store.
+names a plan file in this repository's store. The round is one line — owners,
+unassigned, unplanned, awaiting approval, awaiting review, blocked, and done —
+and `/team` prints it in the terminal.
 
 A full walkthrough through both gates is [Your first
 board](../tutorials/first-board.md).
@@ -67,12 +69,12 @@ the page serves as that name. A session signs only while it is the lead and neve
 while it holds the card; `/board approve` and `/board review` sign as the person,
 marked `person: true`, which is how a one-session repository finishes work.
 
-**Where it lives.** `<agent-dir>/board/<repo-key>/` — one card per file, plus an
-`archive/` pile. The page's note beside the cards is how a second session finds
-the page already being served rather than starting a rival one.
+**Where it lives.** `~/.pi/agent/board/<repo-key>/` — one card per file, plus an
+`archive/` pile. A note beside the cards is how a second session finds the page
+already being served instead of starting a second one.
 
-**WIP limits.** Three cards in `plan` and five in `execute` by default; a claim
-past either is refused with the count and the ways out.
+**Limits per lane.** Three cards in `plan` and five in `execute` by default; a
+claim past either is refused with the count and the ways out.
 
 ## Limits
 
@@ -80,7 +82,8 @@ past either is refused with the count and the ways out.
   the new card takes a new number.
 - Nothing prunes itself — `done` cards cost a read until `archive` sets them
   aside.
-- Ownership is advisory, not a lock; only `session-bus` path claims are a lock.
+- Ownership is a label, not a lock: two sessions can still touch one file. Only
+  `session-bus` path claims are a lock.
 - The page is read-only by design, so the one thing a browser cannot do is assign
   a card without messaging its owner.
 - A card keeps the last eight lane transitions; a card file a newer build wrote is
@@ -95,7 +98,8 @@ past either is refused with the count and the ways out.
 | `wip.execute` | `5` | Cards a repository may hold in `execute` at once (1–20). |
 
 They live in the `board` section of `bytefly.json`; `/bytefly settings` edits all
-three ([configuration](../configuration.md#board--the-shared-feature-board)).
+three ([configuration](../configuration.md#board--the-shared-feature-board)). To
+switch the extension off entirely, toggle `board` in `/bytefly`.
 
 ## Learn more
 
