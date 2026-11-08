@@ -38,6 +38,12 @@
       "summary": "Work a task in its own checkout, then land the branch safely."
     },
     {
+      "path": "tutorials/first-browse.md",
+      "title": "Browse files",
+      "group": "Tutorials",
+      "summary": "Read the project in a browser: quick open, previews, a diff, and a line reference."
+    },
+    {
       "path": "configuration.md",
       "title": "Configuration",
       "group": "Guides",
