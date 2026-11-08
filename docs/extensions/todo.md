@@ -33,7 +33,7 @@ Refactor the uploader to retry three times, and add tests.
 /todos
 ```
 
-<img src="../../assets/screens/todo.png" alt="The /todos screen: three of seven tasks done, one in progress, the other three pending, under a 3/7 completed summary" width="100%">
+<img src="../../assets/screens/todo.png" alt="The /todos screen: three of seven tasks done, one in progress, the other three pending, under a 3/7 completed summary" width="1680" height="476">
 
 Each row is one line: `✓` done, `◒` in progress, `◌` pending. The screen keeps the
 order the model wrote it in, so it reads as the plan rather than as history.

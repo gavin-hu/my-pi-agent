@@ -5,7 +5,7 @@ to a peer that is already running, offer one to whoever is free, take one back
 when its owner is gone, claim one for yourself, or ask a peer a question. Nothing
 here starts a process — every action is a message the peer reads at its next turn.
 
-<img src="../../assets/screens/team.png" alt="The Team tab: a Needs a decision queue of rows with a reason line, then a Teammates list of one-line rows with state dots, labels, mail badges, and what each holds" width="100%">
+<img src="../../assets/screens/team.png" alt="The Team tab: a Needs a decision queue of rows with a reason line, then a Teammates list of one-line rows with state dots, labels, mail badges, and what each holds" width="1280" height="671">
 
 - **A message, not a launch.** `assign`, `offer`, and `ask` land in an inbox and
   raise no turn.

@@ -29,6 +29,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sentence and the call it makes, with the one list of `/board` words a reader types — and the
   walkthrough now names session ownership, the plan path a contract needs, the `blocked` lane,
   one-way archiving, and the claim refusal in its own words.
+- `docs`: the site shows where the reader is — the sidebar scrolls to the open page, the drawer
+  closes with an ✕, keeps Tab among its links, and closes when the window outgrows it, the
+  on-this-page rail marks nothing above the first section, search results span a phone's width,
+  and a long command wraps instead of running off the edge — and `test/site-docs.test.ts` fails a
+  link the site cannot serve, after seven that climbed out of `docs/` or behind a wrapped label
+  were repointed.
 
 ## [0.25.1] - 2026-11-07
 

@@ -532,7 +532,7 @@ the extension and need no attention.
 
 | Variable | Meaning |
 |---|---|
-| `PI_DISABLED_EXTENSIONS` | Comma- or whitespace-separated extension names to load without; case-insensitive, unknown names ignored. See [README → Configuration](../README.md#configuration). |
+| `PI_DISABLED_EXTENSIONS` | Comma- or whitespace-separated extension names to load without; case-insensitive, unknown names ignored. See [README → Configuration](https://github.com/gavin-hu/my-pi-agent#configuration). |
 | `PI_OFFLINE` | Turns off Pi's automatic network activity; `bytefly`'s update check reads it too, so an offline session makes no package-update or version request. |
 | `PI_CODING_AGENT_DIR` | The agent directory the global document resolves against. |
 
@@ -554,8 +554,8 @@ The `wechat` extension keeps runtime state under `<agent-dir>/wechat/`:
 message ids used to ignore a replay), `media/` (downloaded inbound files, pruned
 once they pass `mediaRetentionDays`), and `poller.lock` (one runtime owns the
 account at a time). This is login and runtime
-state, not configuration; each extension's page under
-[`docs/extensions/`](./extensions/) names the files it writes.
+state, not configuration; [each extension's page](./extensions/README.md) names
+the files it writes.
 
 ## Related docs
 
@@ -563,4 +563,4 @@ state, not configuration; each extension's page under
 |---|---|
 | Changing settings on screen, for a user | [`bytefly`](./extensions/bytefly.md) |
 | Trust boundaries around state and credentials | [Security](./security.md) |
-| One extension's own configuration section | [`docs/extensions/<name>.md`](./extensions/) |
+| One extension's own configuration section | [each extension's page](./extensions/README.md) |

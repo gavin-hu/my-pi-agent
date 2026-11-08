@@ -724,6 +724,36 @@ body.is-nav-open {
 		display: inline-flex;
 	}
 
+	.nav-toggle[aria-expanded="true"] {
+		color: var(--text);
+		background: var(--canvas-subtle);
+		border-color: var(--border);
+	}
+
+	/* A wide screen anchors the results to the field; a phone's field is a third
+	   of the width, so they take the viewport instead of wrapping every summary
+	   into a ribbon. The header is sticky at the top, which is where `top` puts
+	   them either way the browser resolves the containing block. */
+	.search-results {
+		position: fixed;
+		top: var(--header-height);
+		right: 0.75rem;
+		left: 0.75rem;
+	}
+
+	/* A phone shows no scrollbar over a code block, so an overflowing command is
+	   cut with nothing to say it continues; wrap it instead. The two fenced
+	   diagrams are laid out in columns, so they keep their shape and scroll. */
+	.prose pre {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
+	.prose pre code.language-mermaid {
+		white-space: pre;
+		overflow-wrap: normal;
+	}
+
 	.nav-scrim {
 		position: fixed;
 		inset: var(--header-height) 0 0;

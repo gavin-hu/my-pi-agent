@@ -8,10 +8,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 {%- comment -%}
   The home page titles the site; every other page titles itself. `doc_title`
-  comes from `_data/docs.json`, so this needs no front matter in the body.
+  comes from `_data/docs.json`, so this needs no front matter in the body. A
+  page the table does not list — the not-found page — brings its own `title`,
+  or the fallback would name the site twice.
 {%- endcomment -%}
 {%- if page.path == "index.md" -%}
   {%- assign page_title = site.title | append: " — " | append: site.description -%}
+{%- elsif doc_title == site.title and page.title -%}
+  {%- assign page_title = page.title | append: " — " | append: site.title -%}
 {%- else -%}
   {%- assign page_title = doc_title | append: " — " | append: site.title -%}
 {%- endif %}

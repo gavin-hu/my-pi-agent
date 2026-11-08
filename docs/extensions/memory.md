@@ -4,7 +4,7 @@
 convention, an environment quirk, a decision. They live in plain markdown you can
 read and edit, and they survive `/new`, `/resume`, and `/tree`.
 
-<img src="../../assets/screens/memory.png" alt="The /memory picker: a Memory title rule, an All summary counting project and global notes, notes tagged by scope with the focused one marked, and the key hints" width="100%">
+<img src="../../assets/screens/memory.png" alt="The /memory picker: a Memory title rule, an All summary counting project and global notes, notes tagged by scope with the focused one marked, and the key hints" width="1680" height="436">
 
 - **Two scopes**: global, or this project. One file each.
 - **Recall is automatic** — stored notes arrive before each run, without you

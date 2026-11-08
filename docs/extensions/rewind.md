@@ -4,7 +4,7 @@
 turn is one screen away. From the timeline you choose a prompt and restore the
 **code**, the **conversation**, or **both**.
 
-<img src="../../assets/screens/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and a detail line naming the snapshot the focused prompt holds" width="100%">
+<img src="../../assets/screens/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and a detail line naming the snapshot the focused prompt holds" width="1680" height="476">
 
 - **Automatic.** One snapshot per prompt, taken before anything is written.
 - **Git refs, not stashes.** Snapshots live under `refs/pi/rewind`, so restoring

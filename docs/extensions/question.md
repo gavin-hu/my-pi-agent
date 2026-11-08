@@ -4,7 +4,7 @@ Sometimes the model needs a decision before it can continue. `question` is how i
 asks: one to four questions, each with labelled options, answered in a small
 dialog instead of a wall of prose.
 
-<img src="../../assets/screens/question.png" alt="The question dialog: Auth and Scope tabs, a question, four numbered options with descriptions, and the navigation hint" width="100%">
+<img src="../../assets/screens/question.png" alt="The question dialog: Auth and Scope tabs, a question, four numbered options with descriptions, and the navigation hint" width="1600" height="576">
 
 - **You answer; you never call it.** The model decides when a decision is needed.
 - **Options, plus your own words**: every question carries an `Other` row you can

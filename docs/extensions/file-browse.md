@@ -4,7 +4,7 @@
 tree, file previews, a fuzzy quick open, and a read-only git diff. Nothing on the
 page writes.
 
-<img src="../../assets/screens/file-browse.png" alt="The file browser: a path filter above a collapsible tree, and a rendered Markdown file in the right pane" width="100%">
+<img src="../../assets/screens/file-browse.png" alt="The file browser: a path filter above a collapsible tree, and a rendered Markdown file in the right pane" width="1280" height="1100">
 
 - **Read-only.** The server answers `GET` and `HEAD`, binds `127.0.0.1`, and
   never edits a file.
