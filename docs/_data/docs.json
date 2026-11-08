@@ -1,5 +1,5 @@
 {
-  "groups": ["Get started", "Guides", "Extensions"],
+  "groups": ["Get started", "Tutorials", "Guides", "Extensions"],
   "pages": [
     {
       "path": "index.md",
@@ -12,6 +12,12 @@
       "title": "Install",
       "group": "Get started",
       "summary": "Add the pack to Pi, pin a release, upgrade it, and check what it needs."
+    },
+    {
+      "path": "tutorials/first-task.md",
+      "title": "Track a task",
+      "group": "Tutorials",
+      "summary": "Watch the task list work on a real job, and change the plan in words."
     },
     {
       "path": "configuration.md",

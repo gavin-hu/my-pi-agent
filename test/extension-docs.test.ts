@@ -21,6 +21,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { CONVERTED_EXTENSION_PAGES, headingsOf, sectionOf, tablesOf } from "./helpers/docs.ts";
 import { walkFiles } from "./helpers/files.ts";
 import { registeredSurface } from "./helpers/surface.ts";
 
@@ -37,36 +38,15 @@ function nameOf(entry: string): string {
 
 const names = manifest.map(nameOf).sort();
 
+/** The pages still on the contributor template; a rewritten page leaves this set. */
+const contributorPages = names.filter((name) => !CONVERTED_EXTENSION_PAGES.has(name));
+
+/** The pages rewritten for end users, on the short template. */
+const userPages = names.filter((name) => CONVERTED_EXTENSION_PAGES.has(name));
+
 /** A page's text, with its heading list read the way GitHub renders it. */
 function pageOf(name: string): string {
 	return readFileSync(join(docsDir, `${name}.md`), "utf-8");
-}
-
-const HEADING = /^##\s+(.+?)\s*$/;
-const FENCE = /^\s*(?:```|~~~)/;
-
-/** The `##` headings of a page, in order, ignoring fenced code. */
-function headingsOf(text: string): string[] {
-	const headings: string[] = [];
-	let fenced = false;
-	for (const line of text.split("\n")) {
-		if (FENCE.test(line)) {
-			fenced = !fenced;
-			continue;
-		}
-		const heading = fenced ? null : HEADING.exec(line)?.[1];
-		if (heading !== undefined && heading !== null) headings.push(heading);
-	}
-	return headings;
-}
-
-/** One page's `## <heading>` section, from its heading to the next `##`. */
-function sectionOf(text: string, heading: string): string {
-	const lines = text.split("\n");
-	const start = lines.findIndex((line) => HEADING.exec(line)?.[1] === heading);
-	if (start === -1) return "";
-	const end = lines.findIndex((line, at) => at > start && /^##\s/.test(line));
-	return lines.slice(start + 1, end === -1 ? undefined : end).join("\n");
 }
 
 /** The paths a Files row's first cell names: a link's target, else its files. */
@@ -94,33 +74,6 @@ function namesAFile(target: string, name: string): boolean {
 		? [resolve(docsDir, target), resolve(root, target)]
 		: [resolve(root, "extensions", name, target), resolve(root, target)];
 	return candidates.some((path) => existsSync(path));
-}
-
-/** One table inside a section, as its rows of cells. */
-function tablesOf(section: string): string[][][] {
-	const blocks: string[][] = [];
-	let current: string[] = [];
-	for (const line of section.split("\n")) {
-		if (line.startsWith("|")) current.push(line);
-		else if (current.length > 0) {
-			blocks.push(current);
-			current = [];
-		}
-	}
-	if (current.length > 0) blocks.push(current);
-	// A cell may hold an escaped pipe (`[off\\|wake]`), which the renderer does not
-	// treat as a column break, so neither does this.
-	return blocks.map((block) =>
-		block
-			.filter((line) => !/^\|[\s|:-]+\|$/.test(line))
-			.map((line) =>
-				line
-					.replaceAll("\\|", "\u0000")
-					.split("|")
-					.slice(1, -1)
-					.map((cell) => cell.replaceAll("\u0000", "|").trim()),
-			),
-	);
 }
 
 /** The page headings that are the template's own, and the surface ones among them. */
@@ -154,7 +107,7 @@ describe("the extension doc set", () => {
 });
 
 describe("the template every page follows", () => {
-	for (const name of names) {
+	for (const name of contributorPages) {
 		test(`${name}.md`, () => {
 			const text = pageOf(name);
 			const headings = headingsOf(text);
@@ -203,8 +156,51 @@ describe("the template every page follows", () => {
 	}
 });
 
+/**
+ * The end-user page: what the reader can do, how to try it, and one reference
+ * half under it. The allowlist is the point — a contributor section cannot creep
+ * back in, and the page cannot grow back into a manual, without failing here.
+ */
+const USER_SECTIONS = ["What you can do", "Try it", "Reference", "Limits", "Settings", "Learn more"];
+
+/** A rewritten page stays short; the walkthrough belongs in `docs/tutorials/`. */
+const USER_PAGE_LINES = 120;
+
+describe("the end-user template", () => {
+	for (const name of userPages) {
+		test(`${name}.md`, () => {
+			const text = pageOf(name);
+			const headings = headingsOf(text);
+
+			expect(text.startsWith(`# ${name} — `), "the title names the extension").toBe(true);
+			expect(headings[0], "what the reader can do comes first").toBe("What you can do");
+			expect(headings[1], "then how to try it").toBe("Try it");
+			expect(headings, "the page sends the reader onward").toContain("Learn more");
+
+			expect(
+				headings.filter((heading) => !USER_SECTIONS.includes(heading)),
+				"a contributor section crept back in",
+			).toEqual([]);
+			const order = headings.map((heading) => USER_SECTIONS.indexOf(heading));
+			expect(order, "the sections are out of order").toEqual([...order].sort((left, right) => left - right));
+
+			const table = tablesOf(sectionOf(text, "What you can do"))[0] ?? [];
+			expect(table[0], "the table says what the reader wants and what to do").toEqual(["What you want", "What to do"]);
+			expect(table.length, "the table has at least one row").toBeGreaterThan(1);
+
+			const learnMore = sectionOf(text, "Learn more");
+			expect(learnMore, "a link onward").toMatch(/\]\(\.{1,2}\/[^)\s]+\.md\)/);
+
+			expect(
+				text.split("\n").length,
+				"a rewritten page stays short; the walkthrough lives in docs/tutorials",
+			).toBeLessThanOrEqual(USER_PAGE_LINES);
+		});
+	}
+});
+
 describe("the capabilities table", () => {
-	for (const name of names) {
+	for (const name of contributorPages) {
 		test(`${name}.md`, () => {
 			const section = sectionOf(pageOf(name), "Capabilities");
 			const tables = tablesOf(section);
@@ -235,11 +231,13 @@ describe("the registered surface is in the capabilities", () => {
 	for (const entry of manifest) {
 		test(entry, async () => {
 			const name = nameOf(entry);
-			const section = sectionOf(pageOf(name), "Capabilities");
+			// A rewritten page names its surface in the page's own prose, not in a
+			// capabilities table, so the whole page is the scope it must appear in.
+			const scope = CONVERTED_EXTENSION_PAGES.has(name) ? pageOf(name) : sectionOf(pageOf(name), "Capabilities");
 			const { tools, commands } = await registeredSurface(entry);
 
-			const missingTools = tools.filter((tool) => !new RegExp(`\`[^\`]*\\b${tool}\\b[^\`]*\``).test(section));
-			const missingCommands = commands.filter((command) => !section.includes(`\`/${command}`));
+			const missingTools = tools.filter((tool) => !new RegExp(`\`[^\`]*\\b${tool}\\b[^\`]*\``).test(scope));
+			const missingCommands = commands.filter((command) => !scope.includes(`\`/${command}`));
 			expect({ tools: missingTools, commands: missingCommands }).toEqual({ tools: [], commands: [] });
 		});
 	}
@@ -260,7 +258,7 @@ function modulesOf(name: string): string[] {
 }
 
 describe("the Files table", () => {
-	for (const name of names) {
+	for (const name of contributorPages) {
 		test(`${name}.md`, () => {
 			const rows = (tablesOf(sectionOf(pageOf(name), "Files"))[0] ?? []).slice(1);
 			// Only the first column: a module named in a responsibility sentence is
@@ -302,7 +300,7 @@ describe("the Testing section names suites that exist", () => {
 	/** A token the section writes as a suite stem: lowercase, hyphenated, with a path. */
 	const STEM = /^[a-z][a-z0-9-]*(?:\/[a-z0-9-]+)+$/;
 
-	for (const name of names) {
+	for (const name of contributorPages) {
 		test(`${name}.md`, () => {
 			// Backticked tokens with a slash, and only those: a bare `chrome` reads the same
 			// as a word, while a stale stem without one is what a consolidation leaves

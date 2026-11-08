@@ -358,6 +358,7 @@ test/
     fakes.ts  context.ts  process.ts  env.ts  entries.ts  config.ts
     git.ts    platform.ts  preload.ts  clock.ts  files.ts  comments.ts
     surface.ts             # the catalog and the registered surface, counted from the tree
+    docs.ts                # the Markdown readers both page templates share, and the converted-page set
     board-page.ts          # the shipped board page, served over a fixture store
     board-browser.ts       # that page in a browser, over a board a suite seeds
     board-dom.ts           # the DOM shape a board suite's page predicates read, and the reads over it
@@ -383,7 +384,7 @@ test/
   site-docs.test.ts        # the docs site: the navigation table against the tree, the Pages config, and the copied assets
   architecture-doc.test.ts # docs/architecture.md: the paths it names, and every lib/ layer
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
-  extension-docs.test.ts   # docs/extensions/: the template's order, the capabilities table, the registered surface in it, a Files row for every module (nested ones too), and a suite behind every `## Testing` stem
+  extension-docs.test.ts   # docs/extensions/: both page templates — the contributor one's order, capabilities table, Files rows and `## Testing` stems, and the end-user one's short shape — plus the registered surface on either
   refactor-skill.test.ts   # the `refactor` skill's inventory script: measures, graph, churn, budget
   shared-helpers.test.ts   # no re-declared lib or test/helpers export, and no body two files share
   prompt-budget.test.ts    # injected-context size ceilings
