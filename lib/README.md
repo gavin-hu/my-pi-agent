@@ -50,6 +50,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`screen-session.ts`](./screen-session.ts) | `withPolledScreen`: mount one `ctx.ui.custom` dock screen — rails suppressed for its lifetime, an optional repaint tick through an injected `RepeatTimer`, and one teardown — handing the mount the host's `tui`, `theme`, `requestRender`, `close`, and `viewportRows`. Shared by `/jobs`, `/watch`, and `/memory`, whose rails window and timer window were the same one. |
 | [`board/`](./board/) | The shared feature board — the record, its lifecycle, the store, and the shapes every surface renders — whose per-module reasoning is its own doc: [`board/README.md`](./board/README.md). |
 | [`board/card.ts`](./board/card.ts) | The card record and its boundary: `Card`, the field caps, the `normalize*` rules, priority, `matchesQuery`, and `laneSince`. |
+| [`board/kind.ts`](./board/kind.ts) | What kind of work a card is and whether it breaks an existing user: `CARD_TYPES`, `normalizeType`, `normalizeBreaking`, and `breakingOf`, which reads an absent marker as not breaking. |
 | [`board/read.ts`](./board/read.ts) | The one gate a card file read passes: `readCard`, which maps a past shape onto this build instead of dropping the card. |
 | [`board/lanes.ts`](./board/lanes.ts) | The lanes as data: `LANES`, `LANE_RULES`, and `TRANSITIONS`, the table the tool's targets and the moves both read. |
 | [`board/contract.ts`](./board/contract.ts) | What a card promises before execution: the three fields, the completeness gate, and the sign an edit drops. |

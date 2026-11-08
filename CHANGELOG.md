@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card records what kind of work it is — `feature`, `bug`, `refactor`, `docs`,
+  `test`, or `chore` — and whether it is a breaking change, set by `add` and `edit` with
+  `type` and `breaking`; both draw as one quiet label on the card face, in its dialog, and in
+  the lead's queue, `list`'s `query` and the page's filter match them, `breaking: false`
+  clears the marker, and a card that recorded neither draws nothing.
+
 ## [0.25.1] - 2026-11-07
 
 - `plan`: `bun run capture:plan --as viewer` renders the read-only page `/plan list`'s Enter

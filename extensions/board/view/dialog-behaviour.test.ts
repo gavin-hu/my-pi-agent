@@ -142,7 +142,9 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		await page.click("#lane-execute .board-card__title");
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-id")).toBe("#3");
-		// The head keeps what the face led with — the person, the order — so nothing is lost.
+		// The head keeps what the face led with — the kind, the person, the order — so nothing
+		// is lost, and the breaking half rides inside the same label the face wears.
+		expect(await page.textContent("#card-dialog-kind")).toBe("feature \u00b7 breaking");
 		expect(await page.textContent("#card-dialog-owner")).toContain("billing-core");
 		expect(await page.textContent("#card-dialog-priority")).toBe("high");
 		// The page's own clock, so the shape only — and the author rides the same row.
@@ -187,6 +189,16 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		expect(await hidden(page, "#card-dialog-sign")).toBe(false);
 		// And no row in the record carries the promise a second time.
 		expect(await page.textContent("#card-dialog-record-section")).not.toContain("A webhook order is stored once");
+		await page.close();
+	});
+
+	test("draws no kind and no breaking word on a card that recorded neither", async () => {
+		// An untyped card is a card, not a guess: the head says nothing rather than defaulting
+		// to a kind nobody chose, and the record's own row list does not grow either.
+		const page = await openPage();
+		await page.click('#lane-backlog .board-card[data-card="1"] .board-card__title');
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		expect(await hidden(page, "#card-dialog-kind")).toBe(true);
 		await page.close();
 	});
 

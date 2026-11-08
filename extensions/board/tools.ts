@@ -61,10 +61,9 @@ function verbHelp(): string {
  */
 export const BOARD_DESCRIPTION =
 	"The shared feature list for this repository: one card per feature, which any session reads and writes. " +
-	"A card moves through five lanes - backlog, plan, execute, blocked, done - and carries the feature's " +
-	"outcome, the session that holds it, the contract it promises (goal, acceptance, scopeOut), the plan it " +
-	`is executed against, its priority, what it waits for, and its notes. ${verbHelp()} A card's steps do not ` +
-	"belong on the board - they belong in the plan and in `todo`.";
+	"A card moves through five lanes - backlog, plan, execute, blocked, done - and carries its outcome, holder, " +
+	"contract (goal, acceptance, scopeOut), plan, priority, type, breaking marker, links, and notes. " +
+	`${verbHelp()} A card's steps do not belong on the board - they belong in the plan and in \`todo\`.`;
 
 /**
  * The three rules that are not already in the schema, the description, or the action docs.
@@ -257,15 +256,19 @@ export function registerTools(
 						if (
 							args.title === undefined &&
 							args.paths === undefined &&
+							args.type === undefined &&
+							args.breaking === undefined &&
 							args.priority === undefined &&
 							args.dependsOn === undefined
 						) {
-							return refusal(action, me, "edit needs a title, paths, priority, or dependsOn.");
+							return refusal(action, me, "edit needs a title, paths, type, breaking, priority, or dependsOn.");
 						}
 						return await mutate(store, action, me, now, args, {
 							kind: "edit",
 							title: args.title,
 							paths: args.paths,
+							type: args.type,
+							breaking: args.breaking,
 							priority: args.priority,
 							dependsOn: args.dependsOn,
 						});
@@ -472,7 +475,14 @@ async function add(
 	args: BoardArgs,
 	now: number,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	const parsed = createInput({ title: args.title, paths: args.paths, priority: args.priority, note: args.note });
+	const parsed = createInput({
+		title: args.title,
+		paths: args.paths,
+		type: args.type,
+		breaking: args.breaking,
+		priority: args.priority,
+		note: args.note,
+	});
 	if ("error" in parsed) return refusal("add", me, parsed.error);
 	const card = await store.create(parsed.input, me, now);
 	return textResult(formatCard(card), { action: "add", me, card });
