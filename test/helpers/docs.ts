@@ -74,5 +74,6 @@ export const CONVERTED_EXTENSION_PAGES: ReadonlySet<string> = new Set([
 	"plan",
 	"serve",
 	"todo",
+	"web-access",
 	"worktree",
 ]);

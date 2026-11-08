@@ -1,436 +1,92 @@
-# web-access — model-facing web access for Pi
+# web-access — search the web and read a page
 
-One extension, two tools, keyless and dependency-free (native `fetch`, no
-`curl`): `web_search` runs general web search through a pluggable provider
-(keyless DuckDuckGo by default; optional SearXNG or Brave), and `web_fetch`
-reads a URL as text. Both are `direct`, active on registration, and read the
-`web-access` section of the shared `bytefly.json`.
+The model gets two tools for the outside world: `web_search` for a question and
+`web_fetch` for one URL. Both work with no key and no configuration, and both
+return text rather than HTML.
 
-## Capabilities
+- **You ask; the model calls them.** "Check the changelog for the latest release"
+  or "fetch https://pi.dev" is all it takes.
+- **Nothing to install.** Native fetch, no `curl`, no account.
+- **Private addresses are refused**, on the first request and on every redirect.
+- **Fetched text is untrusted** — pages can say anything, including things that
+  look like instructions.
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Web search | `web_search` | Titles, URLs, snippets, and a direct answer when the provider has one. | Shipped |
-| Page reading | `web_fetch` | A URL's readable text, with links kept as `[text](url)`, an image as `[alt]`, and a table row as `cell \| cell`. | Shipped |
-| Structured bodies | `web_fetch` | A JSON, CSV, or XML body arrives as an aligned table or an indented tree instead of the raw blob. | Unreleased |
-| Write-style fetch | `web_fetch` (`method`, `headers`, `body`) | POST with custom headers and a bounded body, so form and GraphQL endpoints are reachable; a body implies POST. | Shipped |
-| Paged output | `web_fetch`, `startIndex`, `maxChars` | A long page arrives in budgeted slices and names the offset that continues it. | Shipped |
-| Passage search | `web_fetch`, `find`, `contextChars` | Matching passages instead of the whole page, with a note when a cap hid the rest. | Shipped |
-| Private-address refusal | `web_fetch`, `fetch.allowPrivateHosts` | Loopback, private, link-local, and metadata targets are refused on the first request and on every redirect hop. | Shipped |
-| Charset-aware decoding | `web_fetch` | A GBK/GB18030 or `<meta charset>` page reads as text instead of replacement characters. | Shipped |
-| Page cache | `web_fetch`, `refresh`, `fetch.cacheEnabled` | Paging and `find` reuse one fetch, and `refresh: true` bypasses a stale entry. | Shipped |
-| PDF extraction | `web_fetch`, `fetch.pdfEnabled` | A PDF becomes text once the optional `unpdf` package is installed. | Shipped |
-| Provider choice | `search.provider`, `search.endpoint`, `search.apiKeyEnv` | The keyless default works with no configuration; SearXNG or Brave add full result lists. | Shipped |
-| Structured result | `nextIndex`, `matchesTruncated`, `cached` | A caller can continue paging and tell a capped match set from a complete one without parsing the text. | Shipped |
-| Politeness throttle | `minIntervalMs` | Search requests are spaced instead of hammering a provider on a rapid series of calls. | Shipped |
+## What you can do
 
-## Quickstart
-
-```bash
-pi --extension ./extensions/web-access    # load just this extension
-pi -e .                                   # load the whole @gavin-hu/my-pi-agent package
-pi install ./                             # or install the package
-```
-
-```text
-web_search({ query: "pi coding agent" })  # keyless, no configuration
-web_fetch({ url: "https://pi.dev/" })     # the page as readable text
-```
-
-## Tools
-
-<img src="../../assets/tools/web_search.png" alt="The web_search tool's call and result: the call line and an indented body with the query and the ranked results" width="100%">
-
-<img src="../../assets/tools/web_fetch.png" alt="The web_fetch tool's call and result: the call line and an indented body with the URL, title, and fetched text preview" width="100%">
-
-Both tools are `direct` (the default) and active on registration; neither needs
-configuration to run.
-
-| Tool | What it does |
+| What you want | What to do |
 |---|---|
-| `web_search` | General web search; keyless by default, SearXNG or Brave optional. |
-| `web_fetch` | Fetch a URL and return readable text, pageable and searchable. |
+| Answer a question from the web | ask it; the model searches |
+| Read one page | name the URL and ask for what you need |
+| Only the relevant part | ask to find a section or a phrase |
+| Continue a long page | ask for the next part; the result names where to continue |
+| Re-read a page that changed | ask for a refresh |
+| Query an API with a body | ask for a POST with the headers and body |
+| Read a PDF | ask for it; extraction works when the optional `unpdf` package is installed |
+| Get a full result list instead of an answer | configure SearXNG or Brave |
+
+## Try it
 
 ```text
-web_search({ query: "pi coding agent" })
-web_fetch({ url: "https://pi.dev/" })
-web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"] })
-```
-
-### Transcript
-
-The call line names the query or URL and states the requested limit
-(`(max 8)`), so it never reads as the number of results returned. It stays one
-physical line; a long URL clips in the middle so host and path both survive. The
-result separates the header from its body and sanitizes untrusted web text
-(answers, titles, fetched titles and errors) to one line before it reaches the
-terminal. A search result labels its answer and lists one URL per result;
-expanding reveals snippets and the full result list. While a request is in
-flight it draws a railed `Searching… 8s` or `Fetching example.com… 3s` line, and
-a finished call appends its duration. A failed page or a host-rejected call
-renders one sanitized `Error:` line in the error role.
-
-```text
-web_search "pi coding agent" (max 8)
-
-via searxng · 8 results · 2.1s
-Answer: Pi is a coding agent harness …
-1. Pi — a coding agent harness
-   https://pi.dev/
-2. GitHub - earendil-works/pi
-   https://github.com/earendil-works/pi
-+3 more (ctrl+o to expand)
+What changed in the latest Pi release? Check the changelog.
 ```
 
 ```text
-web_fetch https://pi.dev/
-Pi — a coding-agent component · 200 · 12k chars (cached) · 3.4s
+Fetch https://pi.dev/ and tell me the install command.
 ```
 
-A redirect adds its target (`· → https://pi.dev/docs`), so the transcript shows
-which URL supplied the text.
+The first call searches and opens a result; the second reads one page. In the
+transcript each call leads with its line and folds its result underneath.
 
-## Configuration
+[Search and read the web](../tutorials/first-web.md) walks both.
 
-The `web-access` section of the shared `bytefly.json`: `search` configures
-`web_search`, `fetch` configures `web_fetch`. Resolution rules are in
-[`../configuration.md#web-access--search-and-fetch`](../configuration.md#web-access--search-and-fetch),
-which also lists every key with its default and accepted values.
+## Reference
 
-```jsonc
-// bytefly.json → "web-access"
-{
-  "search": {
-    "provider": "auto",                                    // "auto" | "duckduckgo" | "searxng" | "brave"
-    "endpoint": "",                                        // SearXNG base URL, e.g. "http://localhost:8080"; "" means SearXNG is unavailable
-    "language": "auto",                                     // SearXNG: "auto" (zh-CN for Han, else en) | language code
-    "safeSearch": 0,                                        // SearXNG: 0 off, 1 moderate, 2 strict
-    "categories": "general",                                // SearXNG categories
-    "apiKeyEnv": "",                                        // env var naming a key (Brave, or an auth proxy)
-    "apiKey": "",                                           // literal fallback key
-    "maxResults": 8,                                        // 1–20
-    "timeoutMs": 15000,                                     // 1000–120000
-    "maxBytes": 5000000,                                    // response size cap
-    "minIntervalMs": 500,                                   // spacing between requests
-    "maxOutputChars": 12000,                                // model-facing budget
-    "userAgent": "my-pi-agent/0.1 (+https://github.com/gavin-hu/my-pi-agent)"
-  },
-  "fetch": {
-    "timeoutMs": 20000,                                     // 1000–120000
-    "maxBytes": 5000000,                                    // response size cap
-    "maxOutputChars": 20000,                                // default/ceiling for maxChars
-    "userAgent": "my-pi-agent/0.1 (+https://github.com/gavin-hu/my-pi-agent)",
-    "acceptLanguage": "zh-CN,zh;q=0.9,en;q=0.8",
-    "allowPrivateHosts": false,                             // true disables the SSRF guard
-    "maxRedirects": 5,                                      // 0–10 hops, each re-validated
-    "maxBodyChars": 100000,                                 // request body cap (POST)
-    "pdfEnabled": true,                                     // extract PDFs (needs unpdf)
-    "cacheEnabled": true,
-    "cacheTtlMs": 300000,                                   // 0 = never expire
-    "cacheMaxEntries": 8,
-    "cacheMaxBytes": 8000000
-  }
-}
-```
-
-`search.language`, `safeSearch`, and `categories` apply to the SearXNG provider
-only. `apiKeyEnv` names an environment variable holding a key (preferred);
-`apiKey` is a literal fallback. For SearXNG behind an auth proxy the key is sent
-as `Authorization: Bearer <key>`; for Brave it is sent as
-`X-Subscription-Token`.
-
-## Security
-
-- Fetched page text and search snippets are untrusted and may contain
-  prompt-injection content; both tools return it as-is.
-- **Transcript sanitization.** The web strings the transcript draws (search
-  answers and titles, fetched page titles and errors, URLs and `find` terms) are
-  collapsed to one sanitized line before a theme colour is applied, so control
-  characters from a page cannot restyle or corrupt the terminal.
-- `web_fetch` requires http(s), rejects obvious internal hostnames, and refuses
-  any host that resolves to a loopback, RFC1918, link-local, unique-local,
-  multicast, or metadata address. `allowPrivateHosts: true` opts out.
-- Redirects are followed manually and every hop is re-validated, so a public URL
-  cannot redirect into a private address.
-- Transport headers (`Host`, `Content-Length`, `Connection`, `Transfer-Encoding`,
-  and similar) are refused, and request bodies are capped.
-- `maxBytes` is enforced while the body streams in: a chunked or compressed
-  response is abandoned at the limit instead of being buffered whole.
-
-## `web_search`
-
-`web_search` runs through one pluggable provider, selected by `search.provider`
-(`"auto"` by default).
-
-| Provider | Transport | Configuration | Returns |
-|---|---|---|---|
-| `duckduckgo` | Instant Answer JSON API, keyless | none | a direct answer and related topics — **not** a general result list |
-| `searxng` | SearXNG JSON API (`format=json`) | `search.endpoint` | general results (title/URL/snippet) and answers |
-| `brave` | Brave Search API, keyed | `search.apiKeyEnv` / `search.apiKey` | general results |
-
-Under `"auto"`, the first configured non-default provider wins — SearXNG when
-`endpoint` is set, else Brave when a key is set — and otherwise the keyless
-DuckDuckGo provider is used, so `web_search` always works with no configuration.
-There is **no failover**: exactly one provider runs, and a failure is reported.
-
-Honest limitation of the keyless default: DuckDuckGo's Instant Answer API returns
-answers and related topics, not a paginated list of web results. For full result
-lists, configure SearXNG or Brave.
-
-The SearXNG instance must have the **JSON API enabled** (`format=json` in its
-`settings.yml`); most public instances disable it, so a self-hosted instance is
-recommended. If the response is not JSON, the error says so.
-
-`run_doctor` reports what this session actually resolved to — the provider id and
-whether it came from an explicit choice, the `auto` rule, or the keyless default;
-the API-key variable when the provider takes one and no literal `apiKey` is set,
-and whether that variable is present; and, only on an explicit `refresh`, whether
-the configured `endpoint` answers. The key is never reported, only its variable
-name. See [`bytefly`](./bytefly.md#capabilities) for the report.
-
-| Parameter | Type | Notes |
+| Tool | Takes | Returns |
 |---|---|---|
-| `query` | string | 1–400 chars, required, any language |
-| `maxResults` | integer | 1–20, capped by the configured maximum (default 8) |
+| `web_search` | `query`, `maxResults` | titles, URLs, snippets, and a direct answer when the provider has one |
+| `web_fetch` | `url`, `method`, `headers`, `body`, `startIndex`, `maxChars`, `find`, `contextChars`, `refresh` | the page's readable text, pageable and searchable |
 
-```
-web_search({ query: "pi coding agent" })
-web_search({ query: "广州 早茶 文化" })           // Han text → SearXNG language zh-CN
-web_search({ query: "python list comprehension", maxResults: 3 })
-```
+`find` returns matching passages with context instead of the whole page;
+`startIndex` continues from the offset a previous result named; `refresh`
+bypasses the session cache. A `body` implies `POST`.
 
-## `web_fetch`
+**Politeness and caps.** Searches are spaced by `minIntervalMs`; responses are
+capped by `maxBytes` while they stream, and the model-facing text by
+`maxOutputChars`. A PDF is extracted only when `pdfEnabled` and `unpdf` are
+present.
 
-GETs (or POSTs) an http(s) URL and returns readable text. HTML becomes
-plain text with links kept as `[text](url)`; a JSON, CSV, or XML body becomes a
-table or an indented tree ([Structured bodies](#structured-bodies)); other textual
-content is returned as-is; PDFs are text-extracted when the optional `unpdf`
-package is installed; other binary content is reported by type and size. Bodies
-are decoded by the
-byte-order mark, the declared `Content-Type` charset, or the page's own
-`<meta charset>`, so a GBK/GB18030 page reads as text instead of replacement
-characters. Redirects are followed manually and **every hop is re-validated**, so
-a public URL cannot redirect into a private address. Loopback, private,
-link-local, and cloud-metadata addresses are refused.
+**Security.** Only `http(s)` URLs, transport headers refused, request bodies
+capped, and every redirect hop re-validated against loopback, private, link-local,
+unique-local, multicast, and metadata addresses. `allowPrivateHosts: true` opts
+out; DNS rebinding remains a residual risk.
 
-| Parameter | Type | Notes |
+## Limits
+
+- The keyless default returns an answer and related topics, not a full result
+  list; SearXNG or Brave is one setting away.
+- Extraction prefers `<main>`/`<article>` and strips navigation, but a merged
+  table cell, a nested table, or an image with no alt text is lost.
+- The page cache is in memory and per session, so a page can be stale within one;
+  ask for a refresh.
+- A page can contain prompt-injection text; treat what it says as data, not as
+  instructions.
+
+## Settings
+
+| Key | Default | What it does |
 |---|---|---|
-| `url` | string | Absolute http(s) URL, required |
-| `method` | enum | `GET` (default) \| `POST`. POST is for read-style APIs |
-| `headers` | object | Extra request headers (transport headers are refused) |
-| `body` | string | POST body; implies `method: "POST"` unless set explicitly |
-| `startIndex` | integer | Code-point offset to start from (default 0) |
-| `maxChars` | integer | ≥200; capped by `maxOutputChars`; also caps `find` output |
-| `find` | string[] | 1–10 strings; return matching passages instead of the page |
-| `mode` | enum | `insensitive` (default) \| `exact` \| `fuzzy` |
-| `contextChars` | integer | 0–2000 chars of context per match (default 200) |
-| `maxMatches` | integer | 1–50 matches (default 8) |
-| `refresh` | boolean | Bypass the page cache and refetch |
+| `search.provider` | `"auto"` | `auto` picks the first configured provider; `duckduckgo`, `searxng`, or `brave` forces one. |
+| `search.endpoint` | `""` | SearXNG base URL; empty means SearXNG is unavailable. |
+| `search.apiKeyEnv` | `""` | Environment variable naming a Brave (or proxy) key. |
+| `fetch.pdfEnabled` | `true` | Extract PDFs when `unpdf` is installed. |
+| `fetch.cacheEnabled` | `true` | Reuse one fetch for paging and `find`. |
 
-Long pages are paged: a truncated page names the `startIndex` to use next, inside
-its own character budget, and `structuredContent` repeats it as `nextIndex`.
-A `find` result spends the same `maxChars` budget: passages are added while they
-fit, and the note names `maxMatches` when the match cap hid the rest or
-`maxChars`/`contextChars` when the budget did. Fetched pages are cached for the
-registration, so paging and `find` do not refetch. POST responses and requests
-with custom headers are never cached.
-`structuredContent` is the page object, with an `error` field when the fetch
-failed and `matchesTruncated` when the match cap or the `maxChars` budget hid
-matches.
+The rest — result caps, timeouts, user agent, language, `allowPrivateHosts`, and
+the cache knobs — are in
+[configuration](../configuration.md#web-access--search-and-fetch). To switch the
+extension off, toggle `web-access` in `/bytefly`; the two tools go with it.
 
-```
-web_fetch({ url: "https://pi.dev/" })
-web_fetch({ url: "https://example.com/long-article", startIndex: 20000 })
-web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"] })
-web_fetch({ url: "https://api.example/graphql", method: "POST", headers: { "Content-Type": "application/json" }, body: '{"query":"{ viewer { login } }"}' })
-```
+## Learn more
 
-### Structured bodies
-
-A JSON, CSV, or XML body is rendered as text instead of the blob it downloaded: an
-array of records becomes a table with the union of their keys and padded columns,
-an object becomes indented `key: value` lines, comma-separated rows become the same
-table, and XML becomes an indented tree with attributes as `@name`. The declared
-content type decides first; a body that declares nothing usable (`text/plain`) is
-sniffed only when it has a shape — an opening brace, a uniform comma count, a root
-tag — and anything that does not parse keeps its raw form, so a malformed document
-is never made harder to read than it already was.
-
-```text
-URL: https://api.example/users
-Status: 200 (application/json)
-
-id  name   role
-1   Ada    admin
-2   Grace  user
-```
-
-Rendering happens once per fetch, before the result is cached, so `startIndex`,
-`find`, and a second call all read the same string. Two bounds keep it honest: a
-body past `MAX_SOURCE_CHARS` is returned raw, because a paged raw body beats a
-rendered one, and the rendered text stops at `MAX_RENDERED_CHARS` with a note saying
-so — both constants live in `fetch/structured.ts`.
-
-### Optional dependencies
-
-PDF extraction needs a package that is not installed by default; it is loaded
-lazily, so the extension stays dependency-free until you enable it.
-
-| Feature | Package | Enable |
-|---|---|---|
-| PDF text extraction | `unpdf` | `npm i unpdf` (on by default once installed) |
-
-When `unpdf` is missing, the PDF path falls back to a plain binary note naming
-the content type and size.
-
-## Limitations
-
-- **SearXNG needs the JSON API enabled.** `web_search` runs keyless by default
-  (DuckDuckGo Instant Answer), which returns answers and related topics rather
-  than a general result list; configure `search.endpoint` for a self-hosted
-  SearXNG or `search.apiKeyEnv` for Brave to get full web results. Result quality
-  follows the engines the provider uses.
-- **Heuristic extraction**: `web_fetch` strips scripts/styles/nav/footer and
-  prefers `<main>`/`<article>`, but is not a full readability engine. A table row
-  reads as `cell | cell` and an image as its `alt`, so a merged cell, a nested
-  table, and an image with no `alt` are lost. PDF extraction is optional (`unpdf`)
-  and off unless installed.
-- **A structured body is rendered by a reader, not a parser.** JSON, CSV, and XML
-  are read well enough to show a shape — CSV by RFC 4180 quoting, XML by balancing
-  tags — but a body it cannot parse keeps its raw form rather than a partial one,
-  and the `text/plain` sniff is a heuristic: a page of prose with a uniform comma
-  in every line reads as a one-row table.
-- **`find` output is budgeted.** With `maxMatches: 50` and `contextChars: 2000`
-  the passages alone would exceed `maxOutputChars`; the result shows the passages
-  that fit and names the knob to change.
-- **The page cache is in-memory and per registration**; a page can be stale
-  within a session. `refresh: true` refetches, and it is cleared on
-  `session_start` and `session_shutdown`.
-- **Untrusted content**: fetched page text may contain prompt-injection attempts;
-  treat it as data, not instructions.
-- The SSRF guard covers every redirect hop, but DNS rebinding is a residual
-  risk.
-
-## Non-goals
-
-- `web_search` does not scrape a search-results page: each provider speaks a
-  JSON API (DuckDuckGo Instant Answer, SearXNG, or Brave). No keys are required
-  for the keyless default.
-- `web_fetch` does no model call; it returns text and lets the model reason.
-- PDF extraction exists only through the optional, lazily loaded `unpdf`
-  package, never as a required dependency.
-
-## Pi integration
-
-| Integration point | Value |
-|---|---|
-| Tools | `web_search`, `web_fetch`; direct exposure, active on registration (the defaults, so not declared) |
-| Execution mode | `web_search`: `sequential`; `web_fetch`: default |
-| Annotations | both `readOnlyHint: true`, `openWorldHint: true`; a read-only tool declares no `destructiveHint` |
-| Output | `outputSchema` (`WebSearchOutput` / `WebFetchOutput`) plus matching `structuredContent` |
-| State | none in the session branch; one fetch page cache per registration (`web_search` keeps a per-instance throttle) |
-| Lifecycle | the factory only registers (`index.ts`); `registerFetchTool` owns the page cache and clears it on `session_start` and idempotent `session_shutdown` |
-
-## Design notes
-
-- **Two self-contained halves.** `search/` and `fetch/` each own their
-  `config.ts`, `schema.ts`, `types.ts`, `format.ts`, and `tool.ts`, and do not
-  import each other; `index.ts` only registers. Shared text and HTML helpers
-  live at the top level (`text.ts`, `html.ts`, `transcript.ts`, `http.ts`).
-- **Shared transport.** [`http.ts`](../../extensions/web-access/http.ts) holds the fetch runner
-  (`HttpRunner`, `createFetchRunner`, HTTP error types), used by both halves and
-  injectable for tests. It reads the body through a byte-counting stream, so
-  `maxBytes` stops a chunked or compressed response before it is buffered whole.
-- **Charset-aware decoding.** [`charset.ts`](../../extensions/web-access/charset.ts) is the one place a
-  byte body becomes text: BOM first, then the declared `Content-Type` charset,
-  then the page's own `<meta charset>`, then UTF-8. An unknown label falls back
-  to UTF-8 instead of failing the fetch.
-- **One config file, isolated sections.** `config.ts` reads the global then
-  project file and validates each section with its half's normalizer; unknown
-  keys and malformed files are ignored.
-- **Native fetch, no required dependencies.** PDF extraction loads `unpdf`
-  lazily and falls back to a binary note when it is absent.
-- **Per-hop SSRF validation.** Redirects are followed with `redirect: "manual"`
-  under one shared deadline, re-resolving and re-checking each `Location`.
-- **Pluggable search providers.** [`registry.ts`](../../extensions/web-access/search/registry.ts) holds a
-  value-only provider list (`duckduckgo`, `searxng`, `brave`) and a pure
-  `resolveProvider`; [`search.ts`](../../extensions/web-access/search/search.ts) owns selection, key
-  resolution, a per-instance throttle, and error mapping. A provider with no
-  answer and no results reports `provider: "none"`.
-- **Find-in-page.** `exact` is case-sensitive, `insensitive` lowercases both
-  sides, and `fuzzy` scores lines by the fraction of query terms they contain
-  (a spaceless CJK term expands to its characters), keeping lines ≥ 50%.
-  Offsets line up with `startIndex` so a hit can be read with a second call.
-- **Injected seams, no module state.** `registerSearchTool`/`registerFetchTool`
-  take deps: the search half a runner and throttle, the fetch half a
-  `FetchDeps` (`http`, `pdf`, `render`) plus its own page cache. Nothing
-  mutable is held at module scope.
-- **The paging budget is explicit.** `formatPage` counts the header and the
-  truncation note against `maxChars`, so a paged page always carries its
-  `startIndex` hint inside the limit. `formatMatches` applies the same rule to
-  `find`: it includes the passages that fit and names the knob that hid the rest.
-- **Code points without a copy.** [`text.ts`](../../extensions/web-access/text.ts) counts and slices by
-  walking the string in place, so a multi-megabyte page is never expanded into an
-  array of one-character strings on every call.
-- **One JSON boundary per concern.** `search/json.ts` owns `requestJson` (status
-  check and parse error) and `collectResults` (title + http(s) URL + de-dupe), so
-  the three providers cannot drift on either.
-- **Page cache.** [`fetch/cache.ts`](../../extensions/web-access/fetch/cache.ts) is a factory
-  (`createPageCache`) holding an LRU/TTL map keyed by requested URL, so paging and
-  find are a single fetch; entries evict by count and total bytes, and one
-  instance belongs to one registration.
-- **Transcript sanitization and reuse.** [`transcript.ts`](../../extensions/web-access/transcript.ts)
-  holds `oneLine`, shared by both tools to collapse untrusted web text to one
-  sanitized, optionally clipped line; the renderers reuse
-  `context.lastComponent` instead of allocating each render.
-
-## Files
-
-| File | Purpose |
-|---|---|
-| `index.ts` | Register both tools |
-| `config.ts` | The `web-access` section of `bytefly.json` loader (via `lib/config.ts`) |
-| `http.ts` | Shared fetch runner and HTTP error types; caps the body while streaming |
-| `charset.ts` | Charset-aware body decoding (BOM, header, `<meta>`, UTF-8 fallback) |
-| `text.ts` | Shared code-point length, slice, and truncation helpers |
-| `html.ts` | Shared HTML entity decoding |
-| `transcript.ts` | Shared `oneLine` sanitizer for both transcript renderers |
-| `search/tool.ts` | `web_search` definition, activation, rendering |
-| `search/provider.ts` | Provider interface (`SearchProvider`, `ProviderContext`) |
-| `search/registry.ts` | Value-only provider list, `resolveProvider`, labels |
-| `search/facts.ts` | What this session resolved to, published for `doctor` (`providerFacts`) |
-| `search/config.ts` | Search config type, defaults, clamping, API-key resolution |
-| `search/schema.ts` | Params/output schema, `resolveRequest()` |
-| `search/search.ts` | Provider resolution, throttle, and outcome mapping |
-| `search/providers/duckduckgo.ts` | Keyless Instant Answer JSON provider |
-| `search/providers/searxng.ts` | SearXNG URL builder, response parser, and client |
-| `search/providers/brave.ts` | Brave keyed JSON provider |
-| `search/json.ts` | Shared provider JSON fetch (`requestJson`) and result collection |
-| `search/format.ts`, `search/types.ts` | Result text and data types |
-| `fetch/tool.ts` | `web_fetch` definition, activation, rendering |
-| `fetch/config.ts` | Fetch config type, defaults, clamping |
-| `fetch/schema.ts` | Params/output schema, `resolveRequest()` |
-| `fetch/page.ts` | Fetch + redirect-following + content-type routing; PDF extraction is injected via `FetchDeps` from the shared `lib/pdf.ts`. Loaded by the tool's execute, so a session that never fetches pays nothing |
-| `fetch/structured.ts` | JSON/CSV/XML body → readable text, or `undefined` to keep the raw body |
-| `fetch/ssrf.ts` | URL/host validation and private-address blocking |
-| `fetch/extract.ts` | HTML → title + readable text |
-| `fetch/find.ts` | Passage search (exact/insensitive/fuzzy); loaded by the tool's execute |
-| `fetch/cache.ts` | Per-registration LRU/TTL page cache (`createPageCache`) |
-| `fetch/format.ts`, `fetch/types.ts` | Result text and data types |
-
-## Testing
-
-`extensions/web-access/` mirrors the halves (`search/`, `fetch/`) plus the
-`http.test.ts` suite for the shared runner, charset, config, and registration.
-It covers the injected `fetch` runner, the provider registry and resolution, each provider's URL builder and
-parser (DuckDuckGo, SearXNG, Brave), the orchestration pipeline and throttle,
-charset decoding (declared, `<meta>`, and BOM precedence), a streamed body over
-the byte cap, redirect re-validation (per-hop SSRF with literal IPs),
-method/header/body validation, the nested config merge and section isolation,
-extraction, formatting/paging through the tool (including a regression test that
-a truncated page keeps its `startIndex` hint), structured rendering per format and
-its malformed fallbacks, find and its cap/budget notices,
-the per-registration cache, the SSRF guard, the injected PDF dependency, and both
-tools' registration/execution. Tests inject the runner, throttle, and PDF extractor
-through the tools' dependencies, so no network or PDF library is needed; the
-runtime smoke test only asserts registration.
+- [Search and read the web](../tutorials/first-web.md) — the walkthrough.
+- [Security](../security.md) — the address rules and what a fetch refuses.

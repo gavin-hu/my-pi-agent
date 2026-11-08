@@ -44,6 +44,12 @@
       "summary": "Read the project in a browser: quick open, previews, a diff, and a line reference."
     },
     {
+      "path": "tutorials/first-web.md",
+      "title": "Search the web",
+      "group": "Tutorials",
+      "summary": "Ask for a fact, read one page, and pull out only the section you need."
+    },
+    {
       "path": "configuration.md",
       "title": "Configuration",
       "group": "Guides",
