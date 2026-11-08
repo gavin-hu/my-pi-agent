@@ -47,27 +47,39 @@
 
 	var navToggle = document.querySelector(".nav-toggle");
 	var nav = document.getElementById("nav");
+	var scrim = document.getElementById("nav-scrim");
+
+	function setNav(open, restoreFocus) {
+		if (!nav) return;
+		nav.classList.toggle("is-open", open);
+		document.body.classList.toggle("is-nav-open", open);
+		if (scrim) scrim.hidden = !open;
+		if (navToggle) {
+			navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+			navToggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+		}
+		if (open) {
+			var first = nav.querySelector("a");
+			if (first) first.focus();
+		} else if (restoreFocus && navToggle) {
+			navToggle.focus();
+		}
+	}
 
 	function closeNav() {
 		if (!nav || !nav.classList.contains("is-open")) return;
-		nav.classList.remove("is-open");
-		if (navToggle) {
-			navToggle.setAttribute("aria-expanded", "false");
-			navToggle.setAttribute("aria-label", "Open navigation");
-		}
+		setNav(false, true);
 	}
 
 	if (navToggle && nav) {
 		navToggle.addEventListener("click", function () {
-			var open = !nav.classList.contains("is-open");
-			nav.classList.toggle("is-open", open);
-			navToggle.setAttribute("aria-expanded", open ? "true" : "false");
-			navToggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+			setNav(!nav.classList.contains("is-open"), true);
 		});
 		nav.addEventListener("click", function (event) {
-			if (event.target instanceof Element && event.target.closest("a")) closeNav();
+			if (event.target instanceof Element && event.target.closest("a")) setNav(false, false);
 		});
 	}
+	if (scrim) scrim.addEventListener("click", closeNav);
 
 	document.addEventListener("keydown", function (event) {
 		if (event.key !== "Escape") return;
@@ -126,6 +138,7 @@
 
 	var input = document.getElementById("search-input");
 	var list = document.getElementById("search-results");
+	var status = document.getElementById("search-status");
 
 	if (!input || !list) return;
 
@@ -143,7 +156,12 @@
 	function close() {
 		list.hidden = true;
 		input.setAttribute("aria-expanded", "false");
+		input.removeAttribute("aria-activedescendant");
 		selected = -1;
+	}
+
+	function announce(message) {
+		if (status) status.textContent = message;
 	}
 
 	function load() {
@@ -177,13 +195,16 @@
 		return total;
 	}
 
-	function resultFor(doc) {
+	function resultFor(doc, index) {
 		var item = document.createElement("li");
 		var link = document.createElement("a");
 		var group = document.createElement("span");
 		var title = document.createElement("span");
 		var summary = document.createElement("span");
 
+		item.id = "search-option-" + index;
+		item.setAttribute("role", "option");
+		item.setAttribute("aria-selected", "false");
 		link.className = "search-result";
 		link.href = doc.url;
 		group.className = "search-result-group";
@@ -207,6 +228,7 @@
 		selected = -1;
 		if (query === "") {
 			close();
+			announce("");
 			return;
 		}
 		var terms = query.split(/\s+/).filter(Boolean);
@@ -229,23 +251,31 @@
 			list.appendChild(empty);
 			list.hidden = false;
 			input.setAttribute("aria-expanded", "true");
+			announce(docs ? "No page matches that." : "Loading the index.");
 			return;
 		}
 
-		ranked.forEach(function (entry) {
-			var item = resultFor(entry.doc);
+		ranked.forEach(function (entry, index) {
+			var item = resultFor(entry.doc, index);
 			list.appendChild(item);
 			options.push(item.querySelector("a"));
 		});
 		open();
+		announce(ranked.length + (ranked.length === 1 ? " result." : " results."));
 	}
 
 	function select(delta) {
 		if (options.length === 0) return;
-		if (selected >= 0) options[selected].classList.remove("is-selected");
+		if (selected >= 0) {
+			options[selected].classList.remove("is-selected");
+			options[selected].parentElement?.setAttribute("aria-selected", "false");
+		}
 		selected = (selected + delta + options.length) % options.length;
-		options[selected].classList.add("is-selected");
-		options[selected].scrollIntoView({ block: "nearest" });
+		var option = options[selected];
+		option.classList.add("is-selected");
+		option.parentElement?.setAttribute("aria-selected", "true");
+		if (option.parentElement?.id) input.setAttribute("aria-activedescendant", option.parentElement.id);
+		option.scrollIntoView({ block: "nearest" });
 	}
 
 	input.addEventListener("focus", load);

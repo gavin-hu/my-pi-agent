@@ -10,13 +10,14 @@ installed file, so an upgrade is a package upgrade and nothing else.
 |---|---|
 | [Pi](https://pi.dev) | The host the pack extends. |
 | `git` on `PATH` | `worktree` creates real worktrees and `rewind` keeps real snapshots. Without it both refuse cleanly; every other extension still loads. |
-| Node.js 22.14 or newer | Only for the WeChat bridge, which drives the Weixin iLink client. |
 | Windows, macOS, or Linux | All three are supported and the whole test suite runs on each in CI. |
 
 Everything else is optional and degrades on its own: `web-access` fetches without
-a key, `file-browse` and `board` need only a loopback socket, and `notify` falls
-back to no notification when the OS has no channel. `/bytefly doctor` lists what
-each enabled extension needs and what is missing.
+a key, `file-browse` and `board` need only a loopback socket, `wechat` installs
+nothing extra (its `/wechat login` scans a QR code, which needs the interactive
+terminal UI), and `notify` falls back to no notification when the OS has no
+channel. `/bytefly doctor` lists what each enabled extension needs and what is
+missing.
 
 ## Install
 

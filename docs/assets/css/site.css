@@ -133,6 +133,15 @@ a:hover {
 	transform: translateY(0.5rem);
 }
 
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
 /* Header ---------------------------------------------------------------- */
 
 .header {
@@ -176,17 +185,9 @@ a:hover {
 .search {
 	position: relative;
 	flex: 1 1 24rem;
+	min-width: 0;
 	max-width: 32rem;
 	margin-left: 0.5rem;
-}
-
-.search-label {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip-path: inset(50%);
-	white-space: nowrap;
 }
 
 .search-input {
@@ -315,6 +316,14 @@ a:hover {
 	padding: 1.75rem 0.75rem 2rem 0;
 	overflow-y: auto;
 	border-right: 1px solid var(--border-soft);
+}
+
+.nav-scrim {
+	display: none;
+}
+
+body.is-nav-open {
+	overflow: hidden;
 }
 
 .nav-group + .nav-group {
@@ -708,11 +717,23 @@ a:hover {
 	}
 
 	.brand-name {
-		display: none;
+		font-size: 0.9rem;
 	}
 
 	.nav-toggle {
 		display: inline-flex;
+	}
+
+	.nav-scrim {
+		position: fixed;
+		inset: var(--header-height) 0 0;
+		z-index: 8;
+		display: block;
+		background: rgba(13, 17, 23, 0.45);
+	}
+
+	.nav-scrim[hidden] {
+		display: none;
 	}
 
 	.shell {
@@ -723,14 +744,16 @@ a:hover {
 
 	.nav {
 		position: fixed;
-		inset: var(--header-height) 0 auto 0;
+		inset: var(--header-height) auto 0 0;
 		z-index: 9;
 		display: none;
+		width: min(85vw, 20rem);
 		max-height: calc(100vh - var(--header-height));
 		padding: 1rem 1rem 2rem;
 		background: var(--canvas);
-		border-right: 0;
+		border-right: 1px solid var(--border);
 		border-bottom: 1px solid var(--border);
+		box-shadow: var(--shadow);
 	}
 
 	.nav.is-open {

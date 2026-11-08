@@ -1,10 +1,9 @@
-# Extension docs
+# Extensions
 
-One page per extension, in the order the
-[catalog](../../README.md#what-you-get) lists them. Every page opens with its **Capabilities** table — one row per thing
-the extension can do, the tool, command, or key that delivers it, and what you
-get — then the Quickstart, the surface, the behaviour, and the contributor
-sections behind them.
+One page per extension, in the order the [catalog](../../README.md#what-you-get)
+lists them. Every page opens with what the extension can do and the tool,
+command, or key that delivers it, then the Quickstart, the surface, and the
+notes behind them.
 
 - [`plan`](./plan.md)
 - [`subagent`](./subagent.md)

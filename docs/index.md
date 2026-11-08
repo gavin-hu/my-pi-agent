@@ -7,7 +7,7 @@ own manifest, so the pack upgrades like any other package.
 
 Everything in it is optional and independently switchable.
 
-![The my-pi-agent header, footer, and transcript blocks](./assets/screens/chrome.png)
+<img src="./assets/screens/chrome.webp" width="1280" height="964" alt="The my-pi-agent header, footer, and transcript blocks" fetchpriority="high">
 
 ## Install
 

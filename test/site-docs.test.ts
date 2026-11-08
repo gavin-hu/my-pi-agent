@@ -76,6 +76,28 @@ function resolveFrom(pagePath: string, target: string): string {
 	return stack.join("/");
 }
 
+/**
+ * A PNG's or WebP's pixel size, read from its header. Enough for the one
+ * derivative the site serves; a format that appears later returns `undefined`
+ * and fails the case rather than passing silently.
+ */
+function imageSize(file: string): { width: number; height: number } | undefined {
+	const bytes = readFileSync(file);
+	if (bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+		return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+	}
+	if (bytes.subarray(0, 4).toString("ascii") !== "RIFF") return undefined;
+	const chunk = bytes.subarray(12, 16).toString("ascii");
+	if (chunk === "VP8X") {
+		return { width: 1 + bytes.readUIntLE(24, 3), height: 1 + bytes.readUIntLE(27, 3) };
+	}
+	if (chunk === "VP8L") {
+		const bits = bytes.readUInt32LE(21);
+		return { width: 1 + (bits & 0x3fff), height: 1 + ((bits >> 14) & 0x3fff) };
+	}
+	return undefined;
+}
+
 describe("the navigation table", () => {
 	test("lists every site page, and names only pages that exist", () => {
 		const listed = nav.pages.map((row) => row.path).sort();
@@ -106,6 +128,28 @@ describe("the navigation table", () => {
 describe("the build", () => {
 	const config = readFileSync(join(docs, "_config.yml"), "utf-8");
 
+	test("keeps every unlisted page out of the build", () => {
+		// A page the sidebar does not list is still served at its own URL and crawls
+		// like any other, so the contributor guides stay out of the build until the
+		// content rewrite replaces them.
+		// The key runs to the end of the file or to the next top-level key.
+		const lines = config.split("\n");
+		const start = lines.findIndex((line) => line.startsWith("exclude:"));
+		const block: string[] = [];
+		for (const line of lines.slice(start + 1)) {
+			if (/^\S/.test(line)) break;
+			block.push(line);
+		}
+		const excluded = new Set(
+			block
+				.map((line) => /^\s+-\s+(.+)$/.exec(line)?.[1]?.trim())
+				.filter((entry): entry is string => entry !== undefined),
+		);
+		const unbuilt = [...UNLISTED].filter((page) => !excluded.has(page));
+		const strayed = [...excluded].filter((entry) => entry.endsWith(".md")).filter((entry) => !UNLISTED.has(entry));
+		expect({ unbuilt, strayed }).toEqual({ unbuilt: [], strayed: [] });
+	});
+
 	test("serves the project site under its own baseurl, and asks for clean URLs", () => {
 		// Pages serves a project site at /<repo>/, so a root-absolute URL without
 		// `relative_url` would 404 in production and work locally.
@@ -135,6 +179,15 @@ describe("the build", () => {
 });
 
 describe("the assets the site shows", () => {
+	/**
+	 * Pictures the site serves in a lighter form than the one the capture scripts
+	 * write: a recapture leaves the derivative stale, so its shape is checked
+	 * against the source rather than its bytes.
+	 */
+	const DERIVATIVES: ReadonlyArray<[derivative: string, source: string]> = [
+		["assets/screens/chrome.webp", "assets/screens/chrome.png"],
+	];
+
 	test("are byte-identical to the assets the capture scripts write", () => {
 		const copies = walkFiles(join(docs, "assets")).filter((file) => /\.(png|jpe?g|gif|svg|webp)$/.test(file));
 		const stale = copies
@@ -143,6 +196,29 @@ describe("the assets the site shows", () => {
 			.filter(({ copy, source }) => !readFileSync(copy).equals(readFileSync(source)))
 			.map(({ copy, source }) => `${relative(docs, copy)} differs from ${relative(root, source)}; copy it again`);
 		expect(stale).toEqual([]);
+	});
+
+	test("keep a lighter form in the source's shape, and no bigger", () => {
+		const problems = DERIVATIVES.flatMap(([derivative, source]) => {
+			const copy = join(docs, derivative);
+			const original = join(root, source);
+			if (!existsSync(copy) || !existsSync(original)) return [`${derivative}: the copy or ${source} is missing`];
+			const lighter = imageSize(copy);
+			const full = imageSize(original);
+			if (lighter === undefined || full === undefined) return [`${derivative}: no readable size`];
+			const problems: string[] = [];
+			if (readFileSync(copy).byteLength >= readFileSync(original).byteLength) {
+				problems.push(`${derivative} is not lighter than ${source}`);
+			}
+			const ratio = (size: { width: number; height: number }): number => size.width / size.height;
+			if (Math.abs(ratio(lighter) - ratio(full)) > 0.01) {
+				problems.push(
+					`${derivative} is ${lighter.width}×${lighter.height} against ${source}'s ${full.width}×${full.height}; recopy it`,
+				);
+			}
+			return problems;
+		});
+		expect(problems).toEqual([]);
 	});
 
 	test("are reachable from the page at the URL the site serves", () => {
