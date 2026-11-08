@@ -50,6 +50,12 @@
       "summary": "Ask for a fact, read one page, and pull out only the section you need."
     },
     {
+      "path": "tutorials/first-wechat.md",
+      "title": "Chat from WeChat",
+      "group": "Tutorials",
+      "summary": "Pair an account, answer the session from your phone, and approve a plan there."
+    },
+    {
       "path": "configuration.md",
       "title": "Configuration",
       "group": "Guides",

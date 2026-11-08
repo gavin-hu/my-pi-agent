@@ -75,5 +75,6 @@ export const CONVERTED_EXTENSION_PAGES: ReadonlySet<string> = new Set([
 	"serve",
 	"todo",
 	"web-access",
+	"wechat",
 	"worktree",
 ]);
