@@ -20,13 +20,13 @@ bun run bench:render              # render benchmark
 ```
 
 - A narrow change: `bun run check --changed`, which prints its selection.
-  Landing: the whole `bun run check`. Scopes are flags in `docs/development.md`.
+  Landing: the whole `bun run check`. Scopes are flags in `test/README.md`.
 - `rewind`, `worktree`, and `session-bus`'s real-repository tests skip unless
   `CI` or `PI_SLOW_TESTS=1` is set. Touching one means running it explicitly.
 - A new package-level test goes into `ROOT_TEST_FILES` in
   `test/layout.test.ts`: that set is compared exactly.
 - A peer change is proved against the newest published Pi by the `compat` CI job;
-  `docs/development.md` reproduces it locally. Never commit the peer bump.
+  `CONTRIBUTING.md#compatibility` reproduces it locally. Never commit the peer bump.
 
 ## Git workflow
 
@@ -55,7 +55,7 @@ plus a GitHub release whose body is that version's changelog section; landing a
 change is not a release.
 
 - Follow the normative steps in
-  [`docs/development.md#release`](./docs/development.md#release).
+  [`CONTRIBUTING.md#release`](./CONTRIBUTING.md#release).
 - Publish only through `publish.yml`, never `npm publish` locally. Get the user's
   approval for each dispatch — an earlier one expires — and wait for the
   environment review.
@@ -76,8 +76,7 @@ Not caught by types, and easy to get wrong.
   `session_start` and release them in an idempotent `session_shutdown`.
 - A start pays what an entry imports: a surface nothing needs before the first
   draw loads with `import()` in the call that needs it (`lib/lazy.ts`), and
-  `test/dependencies.test.ts` holds the budget, which may only fall
-  ([`docs/development.md#what-a-load-costs`](./docs/development.md#what-a-load-costs)).
+  `test/dependencies.test.ts` holds the budget, which may only fall.
 - State that must survive `/resume` and `/tree` lives in tool-result `details` or
   a custom entry, rebuilt from the session branch; widgets are derived, never
   authoritative.
@@ -106,7 +105,7 @@ Every tool declares `annotations.readOnlyHint` and `openWorldHint`, plus
 value. `executionMode: "sequential"` when a tool mutates session, UI, or runtime
 state. Every registered tool has a `promptSnippet`, and no channel restates
 another's job. `test/prompt-budget.test.ts` holds the ceilings; see
-[`docs/development.md#tool-and-prompt-surface`](./docs/development.md#tool-and-prompt-surface).
+[`CONTRIBUTING.md#tool-and-prompt-surface`](./CONTRIBUTING.md#tool-and-prompt-surface).
 
 A tool rename updates `test/naming.test.ts` and the catalog table in both entry
 READMEs; a command rename updates its `docs/extensions/` page.
@@ -151,8 +150,8 @@ widths, so an overflowing frame fails there.
 
 - `README.md` is the user front door and `README.zh-CN.md` mirrors it;
   `test/docs-parity.test.ts` compares headings, table rows, and links.
-- An extension's doc is `docs/extensions/<name>.md` (capabilities first, per
-  [`docs/development.md#one-doc-per-extension`](./docs/development.md#one-doc-per-extension));
+- An extension's doc is `docs/extensions/<name>.md`, on the page template in
+  [`CONTRIBUTING.md#writing-an-extension-page`](./CONTRIBUTING.md#writing-an-extension-page);
   no Markdown beside the code.
 - A behaviour change updates the catalog in both entry READMEs, the
   relevant `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
@@ -161,7 +160,7 @@ widths, so an overflowing frame fails there.
 - Renaming a heading or moving a file means fixing every relative link and
   `#anchor`; `test/doc-links.test.ts` resolves them.
 - One doc per audience: per-area contracts are listed in
-  [`docs/development.md#one-doc-per-audience`](./docs/development.md#one-doc-per-audience).
+  [`CONTRIBUTING.md#one-doc-per-audience`](./CONTRIBUTING.md#one-doc-per-audience).
 
 ## How to work
 
@@ -174,8 +173,7 @@ widths, so an overflowing frame fails there.
 ## Read more
 
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — checks, commits.
-- [`docs/development.md`](./docs/development.md) — scripts, tests, compat, release.
-- [`docs/architecture.md`](./docs/architecture.md) — target architecture and code placement.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — conventions, page template, compat, release.
+- [`scripts/README.md`](./scripts/README.md) — the commands; [`test/README.md`](./test/README.md) — tiers.
 - [`test/README.md`](./test/README.md) — test tiers, helpers, determinism.
-- [`docs/extensions/worktree.md`](./docs/extensions/worktree.md) — the
-  worktree flow above.
+- [`CONTRIBUTING.md#branch-flow`](./CONTRIBUTING.md#branch-flow) — the worktree flow above.

@@ -12,7 +12,7 @@ its transport, and the browser bundle, which receives `view.ts`'s snapshot as it
 the spliced rules below as its source. The user-facing contract is
 [`docs/extensions/board.md`](../../docs/extensions/board.md); the decisions behind these
 rules, with the conditions that would revisit them, are
-[`docs/architecture.md#documented-limits-with-no-planned-card`](../../docs/architecture.md#documented-limits-with-no-planned-card).
+`AGENTS.md` for the rules, and the code for the limits it states.
 
 Each module below owns one paragraph: what it is, and the couple it must not drift out of.
 The one-line index of the same modules is the `board/` block of [`../README.md`](../README.md).

@@ -1,7 +1,7 @@
 /**
  * Release consistency guard.
  *
- * The release flow (see `docs/development.md#release`) is mechanical: bump
+ * The release flow (see `CONTRIBUTING.md#release`) is mechanical: bump
  * `package.json`, move the `[Unreleased]` entries under a dated `## [X.Y.Z]`
  * heading, tag `main`, and push the tag with `main`. Nothing else checks that
  * those three agree, so a missed bump or a mistyped tag would ship silently.
@@ -351,7 +351,7 @@ describe("the publish workflow", () => {
 });
 
 describe("the release guide", () => {
-	const guide = readFileSync(join(repo, "docs", "development.md"), "utf-8");
+	const guide = readFileSync(join(repo, "CONTRIBUTING.md"), "utf-8");
 	const agents = readFileSync(join(repo, "AGENTS.md"), "utf-8");
 
 	test("names the workflow and provenance", () => {

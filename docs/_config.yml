@@ -44,8 +44,3 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - vendor
-  # Contributor pages the navigation does not list, kept out of the built site
-  # until the content rewrite replaces them.
-  - README.md
-  - architecture.md
-  - development.md

@@ -43,8 +43,6 @@ const nav = JSON.parse(readFileSync(join(docs, "_data", "docs.json"), "utf-8")) 
  * site but kept until the content rewrite, so they are listed here rather than
  * linked: the navigation stays end-user.
  */
-const UNLISTED = new Set(["README.md", "architecture.md", "development.md"]);
-
 /** Every site page, relative to `docs/`, in walk order. */
 function sitePages(): string[] {
 	return walkFiles(docs)
@@ -101,7 +99,7 @@ function imageSize(file: string): { width: number; height: number } | undefined 
 describe("the navigation table", () => {
 	test("lists every site page, and names only pages that exist", () => {
 		const listed = nav.pages.map((row) => row.path).sort();
-		const missing = sitePages().filter((page) => !listed.includes(page) && !UNLISTED.has(page));
+		const missing = sitePages().filter((page) => !listed.includes(page));
 		const dangling = listed.filter((page) => !existsSync(join(docs, page)));
 		expect({ missing, dangling }).toEqual({ missing: [], dangling: [] });
 	});
@@ -127,28 +125,6 @@ describe("the navigation table", () => {
 
 describe("the build", () => {
 	const config = readFileSync(join(docs, "_config.yml"), "utf-8");
-
-	test("keeps every unlisted page out of the build", () => {
-		// A page the sidebar does not list is still served at its own URL and crawls
-		// like any other, so the contributor guides stay out of the build until the
-		// content rewrite replaces them.
-		// The key runs to the end of the file or to the next top-level key.
-		const lines = config.split("\n");
-		const start = lines.findIndex((line) => line.startsWith("exclude:"));
-		const block: string[] = [];
-		for (const line of lines.slice(start + 1)) {
-			if (/^\S/.test(line)) break;
-			block.push(line);
-		}
-		const excluded = new Set(
-			block
-				.map((line) => /^\s+-\s+(.+)$/.exec(line)?.[1]?.trim())
-				.filter((entry): entry is string => entry !== undefined),
-		);
-		const unbuilt = [...UNLISTED].filter((page) => !excluded.has(page));
-		const strayed = [...excluded].filter((entry) => entry.endsWith(".md")).filter((entry) => !UNLISTED.has(entry));
-		expect({ unbuilt, strayed }).toEqual({ unbuilt: [], strayed: [] });
-	});
 
 	test("serves the project site under its own baseurl, and asks for clean URLs", () => {
 		// Pages serves a project site at /<repo>/, so a root-absolute URL without

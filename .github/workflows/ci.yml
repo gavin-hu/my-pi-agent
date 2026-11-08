@@ -55,7 +55,6 @@ jobs:
       # 41560292494 and passed in 68 s on re-dispatch, which is why the Linux job
       # and the compat job below both run serially. Only Windows keeps
       # --parallel=4, so the parallel path stays covered by a run every day.
-      # `docs/architecture.md` carries the same gap, with the condition to revisit.
       # The default shell per OS is intentional: forcing bash on Windows would
       # reintroduce Git-Bash path conversion, which is itself platform-specific.
       # format:check, typecheck, test

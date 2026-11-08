@@ -16,7 +16,7 @@ bun test <path>                  # one file or directory, straight to bun, same 
 
 A scope is a flag on the two entry scripts (`--ext`, `--lib`, `--root`, `--slow`,
 `--changed`, `--static`, `--serial`, `--watch`, `--dry-run`);
-[`../docs/development.md#scoped-runs`](../docs/development.md#scoped-runs) says
+[`../scripts/README.md#commands`](../scripts/README.md#commands) says
 which one a change needs.
 
 One case budget reaches both invocations. `helpers/budget.ts` states
@@ -382,7 +382,6 @@ test/
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
   site-docs.test.ts        # the docs site: the navigation table against the tree, the Pages config, and the copied assets
-  architecture-doc.test.ts # docs/architecture.md: the paths it names, and every lib/ layer
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   extension-docs.test.ts   # docs/extensions/: the page template's order, its 120-line cap, the registered surface on the page, the index, and a store's location on the page that owns it
   refactor-skill.test.ts   # the `refactor` skill's inventory script: measures, graph, churn, budget
