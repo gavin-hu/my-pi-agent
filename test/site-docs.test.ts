@@ -59,6 +59,23 @@ function pageText(path: string): string {
 	return textOf(join(docs, path));
 }
 
+/**
+ * A URL the page asks for, as a path under `docs/`, resolved the way the browser
+ * does: from the page's own URL, which `permalink: pretty` puts at the page's
+ * directory.
+ */
+function resolveFrom(pagePath: string, target: string): string {
+	const stem = pagePath.replace(/\.(?:md|html)$/, "");
+	const directory = stem === "index" ? [] : stem.split("/").slice(0, -1);
+	const stack = [...directory];
+	for (const part of target.split("#")[0].split("?")[0].split("/")) {
+		if (part === "" || part === ".") continue;
+		if (part === "..") stack.pop();
+		else stack.push(part);
+	}
+	return stack.join("/");
+}
+
 describe("the navigation table", () => {
 	test("lists every site page, and names only pages that exist", () => {
 		const listed = nav.pages.map((row) => row.path).sort();
@@ -128,14 +145,24 @@ describe("the assets the site shows", () => {
 		expect(stale).toEqual([]);
 	});
 
-	test("are reachable from the pages that show them", () => {
-		const missing = nav.pages
-			.map((row) => row.path)
-			.flatMap((page) => [...pageText(page).matchAll(/\]\(([^)\s]+\.(?:png|jpe?g|gif|svg|webp))\)/g)])
-			.map((match) => match[1] ?? "")
-			.filter((target) => !target.startsWith("http"))
-			.filter((target) => !existsSync(join(docs, target.replace(/^\.?\//, ""))))
-			.map((target) => `${target} is not under docs/`);
+	test("are reachable from the page at the URL the site serves", () => {
+		// A page's images are written for GitHub, where `../../assets/` climbs from
+		// `docs/extensions/` to the repository root. The site serves that page at
+		// `/extensions/<name>/`, so the same path climbs from the site root instead —
+		// which is `docs/`, and the file has to be copied there for the picture to
+		// appear. Resolving it the way the browser does is the only check that sees it.
+		const missing = nav.pages.flatMap((row) => {
+			const targets = [...pageText(row.path).matchAll(/\]\(([^)\s]+)\)|src="([^"]+)"/g)].map(
+				(match) => match[1] ?? match[2] ?? "",
+			);
+			return targets
+				.filter((target) => target !== "" && !/^(?:https?:|mailto:|#|\/\/)/.test(target))
+				.filter((target) => !target.startsWith("/") && target.includes("."))
+				.map((target) => ({ page: row.path, target, resolved: resolveFrom(row.path, target) }))
+				.filter((entry) => /\.(?:png|jpe?g|gif|svg|webp)$/.test(entry.resolved))
+				.filter((entry) => !existsSync(join(docs, entry.resolved)))
+				.map((entry) => `${entry.page}: ${entry.target} is not in docs/${entry.resolved}`);
+		});
 		expect(missing).toEqual([]);
 	});
 });
