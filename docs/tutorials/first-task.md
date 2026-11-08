@@ -3,6 +3,8 @@
 This walkthrough shows the task list working on a real job: what the model
 keeps, what you see, and how to change the plan without touching it yourself.
 
+You need Pi and this package installed — see [Install](../install.md).
+
 ## Give it something with steps
 
 Ask for work that takes more than one move:
@@ -17,9 +19,9 @@ As soon as the model starts, a one-line rail appears above your editor:
 Todos · 1/3 · Writing the retry tests
 ```
 
-That is the whole status: how many items are done, and the one in progress. The
-rail disappears by itself when the last item is done, so a finished job leaves
-your screen clean.
+That is the whole status: how many items are done, and the one in progress. When
+the last item is done the rail reads `Todos · 3/3 completed`, and it leaves your
+screen when the list is cleared, so a finished job ends clean.
 
 ## Read the whole plan
 

@@ -4,6 +4,8 @@ A worktree is a second checkout of the same repository on its own branch. Pi's
 own built-in tools keep taking ordinary relative paths — they just resolve inside
 the worktree from now on, so a task is isolated without changing how you work.
 
+You need Pi and this package installed — see [Install](../install.md).
+
 ## Start one
 
 ```text
@@ -57,8 +59,13 @@ text.
 A clean worktree this session created is removed. One holding uncommitted changes
 or new commits asks first — and in a non-interactive run it is kept rather than
 deleted. The result ends with a handoff: the branch, how many commits it holds
-beyond the merge target, and the `git merge --no-ff` and `gh pr create` commands
-that finish it.
+beyond the merge target, and the commands that finish it.
+
+```text
+Handoff: worktree-feature-auth is 1 commit ahead of main.
+  merge:  git switch main && git merge --no-ff worktree-feature-auth
+  or PR:  gh pr create --head worktree-feature-auth --fill
+```
 
 To clean up after yourself later:
 
@@ -79,8 +86,8 @@ List them in a `.worktreeinclude` file at the repository root, or in
 
 The guard covers Pi's own tools, not the operating system:
 
-- a shell you run yourself (`!` in the TUI) still runs in the main checkout,
-  because a session has no mutable working directory to change;
+- a shell you run yourself (`!` in the TUI) runs where the TUI was started, not
+  in the worktree — the guard covers Pi's tools, not the terminal's own process;
 - command substitution, `eval`, and `sh -c` are only covered with
   `guard.blockUnparsableCommands` on;
 - Windows' `powershell` is refused while isolated, not parsed.

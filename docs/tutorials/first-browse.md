@@ -4,6 +4,8 @@
 the fastest way to read a Markdown file as a page, look at an image, or check a
 diff without leaving the terminal.
 
+You need Pi and this package installed — see [Install](../install.md).
+
 ## Open it
 
 ```text
@@ -46,7 +48,13 @@ The diff view reads the working tree, the staged changes, or `HEAD`:
 
 The page re-roots itself when the session moves: enter a worktree with
 `worktree enter` and the open page reloads onto the new tree, on the same URL and
-port. If you started it on a subdirectory, that subdirectory is kept when the
+port. The session says so once:
+
+```text
+browse: followed to /repo/.pi/worktrees/feature-auth at http://127.0.0.1:4780/files/
+```
+
+If you started it on a subdirectory, that subdirectory is kept when the
 new tree has one.
 
 While the page is open it keeps its branch and change markers current. A file

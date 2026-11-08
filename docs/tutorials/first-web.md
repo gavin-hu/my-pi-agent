@@ -4,6 +4,8 @@ Two tools let the model look things up while it works: `web_search` for a
 question, and `web_fetch` for one page. Neither needs a key, an account, or an
 API token to start.
 
+You need Pi and this package installed — see [Install](../install.md).
+
 ## You ask, it fetches
 
 There is no command for either tool — say what you want and the model decides
@@ -14,7 +16,9 @@ What changed in the latest Pi release? Check the changelog.
 ```
 
 The model searches, opens the page that matters, and answers from its text. You
-see each call in the transcript with its result folded under it.
+see each call in the transcript with its result folded under it. What you should
+see is the answer itself: the release notes quoted, a date named, a version —
+not a list of links to read yourself.
 
 ## Read one page on purpose
 

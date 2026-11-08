@@ -4,6 +4,8 @@ The board is a shared list of features for one repository. This walkthrough take
 one feature from an idea to `done`, through the two signatures it needs on the
 way.
 
+You need Pi and this package installed — see [Install](../install.md).
+
 ## Open the board
 
 ```text
@@ -25,9 +27,16 @@ notes, newest first.
 board add "Billing webhook accepts orders" paths ["src/billing"]
 ```
 
+The card comes back as one line:
+
+```text
+#1 backlog · Billing webhook accepts orders
+```
+
 A new card lands in `backlog` — the pool nobody holds. `paths` are hints about
-where the work lives; `priority` is `high`, `normal`, or `low`, and `edit` links
-one card to another with `dependsOn`.
+where the work lives; `priority` is `high`, `normal`, or `low`; `type` is
+`feature`, `bug`, `refactor`, `docs`, `test`, or `chore`; `breaking` marks a change
+an existing user must act on. `edit` links one card to another with `dependsOn`.
 
 ## Take it and design it
 
@@ -42,8 +51,8 @@ plan mode, save the plan, then record what the card promises.
 /plan add the webhook endpoint and its signature check
 ```
 
-When you approve the plan, the card gets its contract — `goal`, `acceptance`,
-`scopeOut`, and the plan file itself:
+Approving the plan seeds your todo list and leaves plan mode. Next, record what
+the card promises — `goal`, `acceptance`, `scopeOut`, and the plan file itself:
 
 ```text
 board contract 1 \
@@ -81,14 +90,15 @@ When the work is done, the lead — or you — looks at it once:
 board move 1 done
 ```
 
-The holder never signs its own card: a session that holds a card releases it
-before signing. Every sign tells the owner over the session bus, so the person
+A session never signs a card it holds: it releases the card before signing. You
+can sign your own, because the slash commands above write the person's signature,
+not the session's. Every sign tells the owner over the session bus, so the person
 waiting knows the lane opened.
 
 ## Look at it from the page
 
 `/board` stays live: a card a session claimed, moved, or noted shows up without a
-reload. Filter the lanes, fold `done` away, or open the **Team** tab to see who
+reload. Filter the cards, fold `done` away, or open the **Team** tab to see who
 is live, quiet, or gone — and which cards are waiting on a decision.
 
 ## Set finished work aside
