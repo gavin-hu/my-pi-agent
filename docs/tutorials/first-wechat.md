@@ -4,6 +4,8 @@ The bridge connects one WeChat account to one Pi session. A message you send
 from your phone starts a turn in the terminal session, and its answer streams
 back to the chat — one transcript, one context, one toolset.
 
+You need Pi and this package installed — see [Install](../install.md).
+
 ## Pair the account
 
 ```text
@@ -18,7 +20,8 @@ nothing else happens — the bridge never opens by itself.
 ```
 
 That binds this session to the account and starts polling. From then on, a
-message to the bot is a turn in this session.
+message to the bot is a turn in this session; `/wechat status` shows the account
+and `Connection open` on the control screen.
 
 ## Talk to it
 

@@ -4,6 +4,8 @@ Plan mode keeps the session read-only while the model investigates, then hands
 you a plan to approve. This walkthrough takes one change from "start" to
 "approved and running".
 
+You need Pi and this package installed — see [Install](../install.md).
+
 ## Start with the change
 
 ```text
