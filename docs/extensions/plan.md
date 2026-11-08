@@ -5,9 +5,14 @@ you a plan to approve. Nothing lands in your tree until you say yes.
 
 <img src="../../assets/screens/plan.png" alt="The terminal plan review: a Plan Review title rule, a changed-section notice, the plan body with ◼/◻ step boxes, a scroll gauge naming the section and line range, and the Esc/a/r/w, scroll, and section-jump hints" width="100%">
 
+On that screen `◼` is a done step and `◻` a pending one, and after a
+refinement a midline dot in the margin marks each section that changed.
+
 - **Use it for** any change you would want to read before it lands.
 - **`/plan <task>`** starts one; `Shift+Tab` toggles plan mode too.
-- **Nothing is written** — not a file, not a command — until you approve.
+- **Nothing in your tree is written** until you approve — no file, no command,
+  no commit. The one thing planning writes is the plan file itself, outside the
+  checkout.
 
 ## What you can do
 
@@ -15,12 +20,12 @@ you a plan to approve. Nothing lands in your tree until you say yes.
 |---|---|
 | Start a task read-only | `/plan add rate limiting to the public API` |
 | Switch plan mode on or off | `/plan`, or `Shift+Tab` with bytefly |
-| Let the model propose it | it asks first; decline and the session keeps write access |
+| Let the model start plan mode | it asks first; declining keeps write access |
 | Read the plan | the review screen: `n`/`p` between sections, scroll keys for the body |
 | Approve and start | `a`, then `y` — steps become your todo list |
 | Ask for a change | `r` to refine, or comment in the browser |
-| Review with a teammate | `w` for the browser page, then **Share** for a QR or link |
-| Leave without approving | `Esc` keeps the plan, `x` leaves plan mode |
+| Review with a teammate | `w` for the browser page, then **Share** for a QR or link on this Wi-Fi |
+| Leave without approving | `Esc` sends it back for another round; `x` leaves plan mode — the plan file stays either way |
 | Read an older plan | `/plan list`, then `Enter` |
 
 ## Try it
@@ -60,19 +65,23 @@ repository, shared by its worktrees. Each refinement keeps the previous text
 beside it as a hidden file, five deep, so two rounds can be compared. The plan is
 what the model follows: approving it seeds its steps into your todo list, and
 finalizes a session goal that was only drafted, from the plan's own `Goal`.
+Approving a refined plan again replaces the items the earlier approval added that
+nobody has started, so the list matches the plan you last read.
 
 **Review screen keys.** `a` approve (`y`/`Enter` confirms), `r` refine inline,
 `Esc` keep planning, `x` exit without approving, `w` open the browser review,
 `n`/`p` jump sections. `Ctrl+C` interrupts without approving or rejecting
 anything: plan mode stays on.
 
-**Browser review.** The page carries the plan's title, the live comment count,
-**Approve & run**, **Save feedback**, and **Back to Pi**; a comment-only review
-has no approve action. Hover a block for **+ Comment**, or select text to quote
-it. **Share** opens the review on this Wi-Fi with a link and QR per teammate (at
-most eight), each binding the reviewer's name on its first post; **Revoke** drops
-one link. Only the machine that opened the review may approve, cancel, save, or
-share; a reviewer reads and comments.
+**Browser review.** `w` opens the same plan as a page: the title, the live comment
+count, **Approve & run**, **Save feedback**, and **Back to Pi**. Hover a block for
+**+ Comment**, or select text to quote it, then **Save feedback** to send the
+comments back. A comment-only review has no approve action.
+
+**Sharing.** **Share** mints a link and QR for this Wi-Fi, one per teammate (at
+most eight), and each link binds the reviewer's name on its first post;
+**Revoke** drops one. Only the machine that opened the review may approve,
+cancel, save, or share — a reviewer reads and comments.
 
 **Read-only means:** the model keeps what reads and loses what writes. It can
 still look at the repository's git status and history; a write, an edit, a shell
