@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   half, and how to switch the extension off.
 - `docs`: the contributor guides are retired; the conventions, the page template, and the
   release steps live in `CONTRIBUTING.md`, and the command table in `scripts/README.md`.
+- `docs`: the two entry READMEs are a catalog a reader scans — each extension is a name, its
+  commands, and one sentence, with the reference left to the page that owns it — and
+  `test/drift.test.ts` holds the catalog's word budget so a table cell cannot grow back into
+  a copy of that page.
 
 ## [0.25.1] - 2026-11-07
 

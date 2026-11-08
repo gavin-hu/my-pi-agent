@@ -1,16 +1,19 @@
 /**
  * Drift guard for the two things the shared-helper gate cannot see.
  *
- * `test/shared-helpers.test.ts` answers "is this helper written twice". These two
+ * `test/shared-helpers.test.ts` answers "is this helper written twice". These three
  * answer the slower failures around it:
  *
  * - a shared module nobody can find, because the `lib/README.md` index and the
  *   modules on disk drifted apart, so the next session writes a fourth copy;
  * - `AGENTS.md` growing back into a second manual, which is how the rules stop
- *   being read at all.
+ *   being read at all;
+ * - the entry README's catalog growing back into a manual too, one long table cell
+ *   at a time, which is how a reader stops scanning it and the page starts
+ *   restating the extension pages beside it.
  *
- * Both are ratchets: the index is compared against the tree, and the word budget
- * only ever falls. A duplicate body is not repeated here; that gate owns it.
+ * All three are ratchets: the index is compared against the tree, and the two word
+ * budgets only ever fall. A duplicate body is not repeated here; that gate owns it.
  */
 
 import { readFileSync } from "node:fs";
@@ -67,6 +70,58 @@ describe("the shared surface index", () => {
 			})
 			.map((file) => `${relative(file)}: no table row in lib/README.md; a helper nobody can find gets written again`);
 		expect(missing).toEqual([]);
+	});
+});
+
+/**
+ * The body rows of every table between `## What you get` and the next `## `, and
+ * how many words each one holds. A separator row is punctuation, not a row.
+ */
+function catalogRows(markdown: string): string[] {
+	const lines = markdown.split("\n");
+	const start = lines.findIndex((line) => line.trim() === "## What you get");
+	if (start < 0) return [];
+	const end = lines.findIndex((line, index) => index > start && line.startsWith("## "));
+	return lines
+		.slice(start, end < 0 ? undefined : end)
+		.map((line) => line.trim())
+		.filter((line) => line.startsWith("|") && !/^[\s|:-]+$/.test(line));
+}
+
+/** The words in one Markdown line, by the same split every budget here uses. */
+function words(line: string): number {
+	return line.split(/\s+/).filter(Boolean).length;
+}
+
+describe("the entry README catalog", () => {
+	/**
+	 * The catalog is what a reader scans to pick an extension: a name, its commands,
+	 * and one line about what it buys. `board`'s row reached 207 words once, holding
+	 * a copy of `docs/extensions/board.md` in a table cell — this is the ratchet that
+	 * keeps that copy from coming back. Both ceilings may only fall; lower each one
+	 * when the page shrinks.
+	 *
+	 * Only the English README is measured. CJK words are not whitespace separated, so
+	 * a word count over the mirror would be a number about nothing; the mirror's row
+	 * count is held by `docs-parity.test.ts` and its length by review.
+	 */
+	const CATALOG_WORDS = 566;
+	const ROW_WORDS = 35;
+
+	const rows = catalogRows(readFileSync(join(repo, "README.md"), "utf-8"));
+
+	test("measures the catalog, so a section renamed out from under it fails here", () => {
+		expect(rows.length, "no table rows under `## What you get`").toBeGreaterThan(0);
+	});
+
+	test("keeps the catalog inside its word budget", () => {
+		const total = rows.reduce((sum, row) => sum + words(row), 0);
+		expect(total, "move the detail onto the extension's page and link it").toBeLessThanOrEqual(CATALOG_WORDS);
+	});
+
+	test("keeps every catalog row to one line", () => {
+		const longest = rows.reduce((widest, row) => (words(row) > words(widest) ? row : widest), "");
+		expect(words(longest), `the longest row: ${longest.slice(0, 60)}`).toBeLessThanOrEqual(ROW_WORDS);
 	});
 });
 
