@@ -68,4 +68,4 @@ export function tablesOf(section: string): string[][][] {
  * it. A page moves here when it is rewritten, and the contributor template's
  * cases stop applying to it; the set only grows, and the legacy set only falls.
  */
-export const CONVERTED_EXTENSION_PAGES: ReadonlySet<string> = new Set(["todo"]);
+export const CONVERTED_EXTENSION_PAGES: ReadonlySet<string> = new Set(["plan", "todo"]);

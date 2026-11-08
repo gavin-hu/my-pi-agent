@@ -448,6 +448,16 @@ describe("the stores under the agent directory", () => {
 		const missing: string[] = [];
 		for (const store of STORES) {
 			if (store.page === "") continue;
+			if (CONVERTED_EXTENSION_PAGES.has(store.page.replace(/\.md$/, ""))) {
+				// A rewritten page has no Files table: it says where the store lives in
+				// the reader's own spelling, `~/.pi/agent/...`, which is the tree's one
+				// way of writing an agent-directory path to a person.
+				const spelled = store.location.replace("<agent-dir>/", "~/.pi/agent/");
+				if (!pageOf(store.page.replace(/\.md$/, "")).includes(spelled)) {
+					missing.push(`${store.page}: the page never says ${spelled}`);
+				}
+				continue;
+			}
 			const row = rowOf(store.page, store.module);
 			if (row === undefined) {
 				missing.push(`${store.page}: no Files row for ${store.module}`);
