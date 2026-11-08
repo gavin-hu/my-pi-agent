@@ -20,6 +20,12 @@
       "summary": "Watch the task list work on a real job, and change the plan in words."
     },
     {
+      "path": "tutorials/first-goal.md",
+      "title": "Set a goal",
+      "group": "Tutorials",
+      "summary": "Give the session one objective, answer the planning question, and finish it against the task list."
+    },
+    {
       "path": "tutorials/first-plan.md",
       "title": "Plan a change",
       "group": "Tutorials",
@@ -48,6 +54,24 @@
       "title": "Search the web",
       "group": "Tutorials",
       "summary": "Ask for a fact, read one page, and pull out only the section you need."
+    },
+    {
+      "path": "tutorials/first-delegate.md",
+      "title": "Delegate a task",
+      "group": "Tutorials",
+      "summary": "Hand one task to a specialist agent in its own context, alone, in parallel, or in a chain."
+    },
+    {
+      "path": "tutorials/first-background.md",
+      "title": "Run work in the background",
+      "group": "Tutorials",
+      "summary": "Start a long command as a job, be told when it ends, and watch a log for the line that matters."
+    },
+    {
+      "path": "tutorials/first-rewind.md",
+      "title": "Rewind a prompt",
+      "group": "Tutorials",
+      "summary": "Go back to an earlier prompt and restore the code, the conversation, or both."
     },
     {
       "path": "tutorials/first-wechat.md",
