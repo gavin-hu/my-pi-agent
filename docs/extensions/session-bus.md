@@ -4,7 +4,7 @@ Two Pi sessions on the same repository can get in each other's way. The bus is
 the local channel that prevents it: sessions discover each other, exchange short
 messages, consume an inbox, and claim paths before editing them.
 
-<img src="../../assets/screens/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, and the focused session's working directory, claims, and identity" width="100%">
+<img src="../../assets/screens/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, and the focused session's working directory, claims, and identity" width="1840" height="476">
 
 - **Local and pull-based.** Same machine, same OS user, files under the agent
   directory — no service, no network, no hidden context.

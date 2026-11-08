@@ -5,7 +5,7 @@ it. A card carries what kind of work it is, its owner, its priority, what it wai
 on, the contract it promises, and the notes that explain it — and two signatures
 are needed before it can ship.
 
-<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, a read-only and a live chip; Board and Team tabs, done-of-total progress and a filter; five lane trays with counts and fold controls; and cards carrying an owner chip, a note count, path hints, and a reason line" width="100%">
+<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, a read-only and a live chip; Board and Team tabs, done-of-total progress and a filter; five lane trays with counts and fold controls; and cards carrying an owner chip, a note count, path hints, and a reason line" width="1280" height="597">
 
 - **One board per repository**, and one page: the first `/board` serves it, every
   other session opens that same page.
@@ -49,8 +49,8 @@ opening a card: `contract ready — needs approval`, `executing — no spot-chec
 yet`, `offered 2h ago — nobody took it`. The round is one line, and `/team`
 prints it in the terminal.
 
-A full walkthrough through both gates is [Your first
-board](../tutorials/first-board.md).
+A full walkthrough through both gates is
+[Your first board](../tutorials/first-board.md).
 
 ## Reference
 

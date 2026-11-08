@@ -22,7 +22,7 @@
 			);
 			themeButton.setAttribute("title", theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme");
 		}
-		if (themeIcon) themeIcon.textContent = theme === "dark" ? "☀" : "◐";
+		if (themeIcon) themeIcon.textContent = theme === "dark" ? "☀" : "☾";
 	}
 
 	function applyTheme(theme) {
@@ -46,8 +46,28 @@
 	/* Navigation drawer ---------------------------------------------------- */
 
 	var navToggle = document.querySelector(".nav-toggle");
+	var navGlyph = navToggle ? navToggle.querySelector(".nav-toggle-glyph") : null;
 	var nav = document.getElementById("nav");
 	var scrim = document.getElementById("nav-scrim");
+
+	function activeNavLink() {
+		return nav ? nav.querySelector(".nav-link.is-active") : null;
+	}
+
+	/**
+	 * Bring the reader's own page into the sidebar. The sidebar is taller than the
+	 * window and its scroll is the reader's alone, so without this the active link
+	 * sits below the fold on any page deep in the list and the sidebar says nothing
+	 * about where the reader is. The drawer is `display: none` while closed, so it
+	 * can only be centered once it is open.
+	 */
+	function centerActiveNavLink() {
+		if (!nav || nav.clientHeight === 0) return;
+		var link = activeNavLink();
+		if (!link) return;
+		var target = link.offsetTop - (nav.clientHeight - link.offsetHeight) / 2;
+		nav.scrollTop = Math.max(0, Math.min(target, nav.scrollHeight - nav.clientHeight));
+	}
 
 	function setNav(open, restoreFocus) {
 		if (!nav) return;
@@ -58,9 +78,14 @@
 			navToggle.setAttribute("aria-expanded", open ? "true" : "false");
 			navToggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
 		}
+		if (navGlyph) navGlyph.textContent = open ? "✕" : "☰";
 		if (open) {
-			var first = nav.querySelector("a");
-			if (first) first.focus();
+			// Focus the reader's own page rather than the first link: it is the item the
+			// centering below puts in view, and focusing an anchor scrolls the drawer to
+			// it anyway, so the first link's focus ring would land where nobody looks.
+			var target = activeNavLink() || nav.querySelector("a");
+			if (target) target.focus({ preventScroll: true });
+			centerActiveNavLink();
 		} else if (restoreFocus && navToggle) {
 			navToggle.focus();
 		}
@@ -82,10 +107,37 @@
 	if (scrim) scrim.addEventListener("click", closeNav);
 
 	document.addEventListener("keydown", function (event) {
+		if (event.key === "Tab" && nav && nav.classList.contains("is-open")) {
+			// The drawer's links are a ring: Tab off the last one lands on the first. The
+			// header above the scrim stays live, so focus already outside the drawer is
+			// left where the reader put it.
+			var links = nav.querySelectorAll("a");
+			if (links.length === 0) return;
+			var first = links[0];
+			var last = links[links.length - 1];
+			if (event.shiftKey && document.activeElement === first) {
+				event.preventDefault();
+				last.focus();
+			} else if (!event.shiftKey && document.activeElement === last) {
+				event.preventDefault();
+				first.focus();
+			}
+			return;
+		}
 		if (event.key !== "Escape") return;
 		closeNav();
 		var searchInput = document.getElementById("search-input");
 		if (searchInput) searchInput.blur();
+	});
+
+	centerActiveNavLink();
+
+	// The drawer sets `body.is-nav-open`, which hides the page's overflow wherever the
+	// window is; left set across the wide breakpoint it would lock the page with no
+	// visible close button, so the query that ends the drawer ends it too.
+	var drawerBreakpoint = window.matchMedia("(min-width: 60rem)");
+	drawerBreakpoint.addEventListener("change", function (event) {
+		if (event.matches) setNav(false, false);
 	});
 
 	/* On this page --------------------------------------------------------- */
@@ -114,16 +166,18 @@
 		function markActive() {
 			ticking = false;
 			var offset = window.scrollY + 120;
-			var current = headings[0];
+			// Nothing is marked until a section is really under the header: the page's
+			// own opening is not the first section, and marking it would claim the
+			// reader is somewhere they are not.
+			var current = null;
 			for (var i = 0; i < headings.length; i++) {
 				if (headings[i].offsetTop <= offset) current = headings[i];
 			}
-			if (!current) return;
-			var link = tocById[current.id];
-			if (!link || link === active) return;
+			var link = current ? tocById[current.id] : null;
+			if (link === active) return;
 			if (active) active.classList.remove("is-active");
-			link.classList.add("is-active");
 			active = link;
+			if (link) link.classList.add("is-active");
 		}
 
 		window.addEventListener("scroll", function () {

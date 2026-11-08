@@ -35,8 +35,8 @@ transcript, one context, and one toolset. Only the account's owner is answered.
 ```
 
 Then message the account: "what is the state of the uploader task?" and the
-session answers in the chat. A full walkthrough is [Chat with your session from
-WeChat](../tutorials/first-wechat.md).
+session answers in the chat. A full walkthrough is
+[Chat with your session from WeChat](../tutorials/first-wechat.md).
 
 ## Reference
 

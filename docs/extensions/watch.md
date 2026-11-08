@@ -4,7 +4,7 @@
 pattern, and keeps the matches. You can be told at the next turn, woken when a
 match lands, or get an OS notification — instead of polling a log by hand.
 
-<img src="../../assets/screens/watch.png" alt="The /watch screen: a Watch title rule with a running and match summary, a selected file watcher and a finished command watcher, the focused watcher's path and pattern with its line and match counts, and the key hints" width="100%">
+<img src="../../assets/screens/watch.png" alt="The /watch screen: a Watch title rule with a running and match summary, a selected file watcher and a finished command watcher, the focused watcher's path and pattern with its line and match counts, and the key hints" width="1680" height="436">
 
 - **Files or commands**: a file is followed from its end, a command's merged
   output is streamed.

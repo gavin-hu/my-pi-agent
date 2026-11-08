@@ -1,9 +1,9 @@
 # Extensions
 
-One page per extension, in the order the [catalog](../../README.md#what-you-get)
-lists them. Every page opens with what you can do with it, then how to try it,
-then one reference half — the commands, the keys, the limits, and the settings
-worth changing.
+One page per extension, in the order the
+[catalog](https://github.com/gavin-hu/my-pi-agent#what-you-get) lists them. Every
+page opens with what you can do with it, then how to try it, then one reference
+half — the commands, the keys, the limits, and the settings worth changing.
 
 - [`plan`](./plan.md)
 - [`subagent`](./subagent.md)
@@ -28,4 +28,4 @@ worth changing.
 - [`bytefly`](./bytefly.md)
 
 The template every page follows is
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md#writing-an-extension-page).
+[`CONTRIBUTING.md`](https://github.com/gavin-hu/my-pi-agent/blob/main/CONTRIBUTING.md#writing-an-extension-page).

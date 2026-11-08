@@ -5,7 +5,7 @@ footer, the user-message nameplate, the rule that closes each turn, the frame ev
 tool block is drawn in, the working line on the composer, and the `/bytefly`
 control center where extensions, skills, and settings are switched.
 
-<img src="../../assets/screens/chrome.png" alt="A session wearing bytefly: the startup nameplate, the user message label and rule, a tool block with its result on the rail, and the footer with location, modes, context, spend, and model" width="100%">
+<img src="../../assets/screens/chrome.png" alt="A session wearing bytefly: the startup nameplate, the user message label and rule, a tool block with its result on the rail, and the footer with location, modes, context, spend, and model" width="1678" height="1264">
 
 - **One theme for the whole chrome** — `bytefly-dark` or `bytefly-light`, or the
   system's preference.

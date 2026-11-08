@@ -22,6 +22,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   commands, and one sentence, with the reference left to the page that owns it — and
   `test/drift.test.ts` holds the catalog's word budget so a table cell cannot grow back into
   a copy of that page.
+- `docs`: the site shows where the reader is — the sidebar scrolls to the open page, the drawer
+  closes with an ✕, keeps Tab among its links, and closes when the window outgrows it, the
+  on-this-page rail marks nothing above the first section, search results span a phone's width,
+  and a long command wraps instead of running off the edge — and `test/site-docs.test.ts` fails a
+  link the site cannot serve, after seven that climbed out of `docs/` or behind a wrapped label
+  were repointed.
 
 ## [0.25.1] - 2026-11-07
 

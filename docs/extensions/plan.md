@@ -3,7 +3,7 @@
 Plan mode keeps the session read-only while the model investigates, then hands
 you a plan to approve. Nothing lands in your tree until you say yes.
 
-<img src="../../assets/screens/plan.png" alt="The terminal plan review: a Plan Review title rule, a changed-section notice, the plan body with ◼/◻ step boxes, a scroll gauge naming the section and line range, and the Esc/a/r/w, scroll, and section-jump hints" width="100%">
+<img src="../../assets/screens/plan.png" alt="The terminal plan review: a Plan Review title rule, a changed-section notice, the plan body with ◼/◻ step boxes, a scroll gauge naming the section and line range, and the Esc/a/r/w, scroll, and section-jump hints" width="2000" height="1582">
 
 On that screen `◼` is a done step and `◻` a pending one, and after a
 refinement a midline dot in the margin marks each section that changed.
