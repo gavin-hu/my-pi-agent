@@ -356,12 +356,16 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * `wechat`'s 30 already held one of slack over its 29, so the total went 704 -> 718. That
  * is what the seam costs. What it buys is `session-bus`: the one entry that needs the
  * boundary and no document, which swaps `config.ts` for `json.ts` at the same count.
+ * `board`'s and `team`'s rows go up one for `lib/board/kind.ts`: the card's kind and its two
+ * normalizers are read by the record's parser and by every write that records a card, so
+ * they cannot defer behind the call that needs one, and moving them out of `card.ts` is what
+ * keeps that module under the line bar.
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
-	board: 60,
+	board: 61,
 	plan: 57,
-	team: 50,
+	team: 51,
 	job: 45,
 	"session-bus": 45,
 	subagent: 34,

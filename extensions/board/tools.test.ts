@@ -653,7 +653,7 @@ describe("edit and the links between cards", () => {
 		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		expect(resultText(await lead.call({ action: "edit", card: "1" }))).toContain(
-			"edit needs a title, paths, priority, or dependsOn.",
+			"edit needs a title, paths, type, breaking, priority, or dependsOn.",
 		);
 		await peer.call({ action: "claim", card: "1" });
 		const refused = await lead.call({ action: "edit", card: "1", title: "mine now" });

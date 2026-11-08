@@ -141,6 +141,24 @@ __RUNTIME__
   }
 
   /**
+   * The kind a card is, and — inside the same label — whether it breaks an existing user.
+   *
+   * One label rather than two facts: feature · breaking says something about the kind, and a
+   * second word of the same weight read as another kind of card. It is drawn here because the
+   * face, the record, and the lead's queue all wear it, and three fragments building one label
+   * is three ways for it to drift.
+   */
+  function kindLabel(card) {
+    if (card.type === undefined && card.breaking !== true) return undefined;
+    var label = el("span", N.kind, card.type === undefined ? "" : card.type);
+    if (card.breaking === true) {
+      if (card.type !== undefined) label.appendChild(document.createTextNode(" \u00b7 "));
+      label.appendChild(el("span", N.kindBreaking, "breaking"));
+    }
+    return label;
+  }
+
+  /**
    * "12m", "3h", "2d" — an age, compact enough for a meta line.
    *
    * The transcript prints the same rule for the same fact, so the body is spliced in from
@@ -452,6 +470,7 @@ __RUNTIME__
   board.el = el;
   board.typing = typing;
   board.chip = chip;
+  board.kindLabel = kindLabel;
   board.ago = ago;
   board.findCard = findCard;
   board.drawnCards = drawnCards;

@@ -109,6 +109,7 @@ ${pageFooter({ factsId: "board-where", facts: `store ${input.where}` })}
       <span class="${N.dialogId}" id="card-dialog-id"></span>
       <h2 id="card-dialog-title"></h2>
       <span class="bf-spacer"></span>
+      <span id="card-dialog-kind" hidden></span>
       <span id="card-dialog-owner"></span>
       <span class="${N.cardPriority}" id="card-dialog-priority" hidden></span>
       <span class="${N.dialogState}" id="card-dialog-state"><span id="card-dialog-state-label"></span><span class="${N.dialogAge}" id="card-dialog-since" hidden></span></span>

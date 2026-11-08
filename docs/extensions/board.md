@@ -1,9 +1,9 @@
 # board — one shared feature board per repository
 
 The board is one list of features for a repository, worked by every session on
-it. A card carries its owner, its priority, what it waits on, the contract it
-promises, and the notes that explain it — and two signatures are needed before it
-can ship.
+it. A card carries what kind of work it is, its owner, its priority, what it waits
+on, the contract it promises, and the notes that explain it — and two signatures
+are needed before it can ship.
 
 <img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, a read-only and a live chip; Board and Team tabs, done-of-total progress and a filter; five lane trays with counts and fold controls; and cards carrying an owner chip, a note count, path hints, and a reason line" width="100%">
 
@@ -21,6 +21,8 @@ can ship.
 |---|---|
 | See the board | `/board` — Board and Team tabs, live |
 | Put a feature on it | `board add "<title>" paths ["src/area"]` |
+| Say what kind of work it is | `type` on `add` or `edit`: `feature`, `bug`, `refactor`, `docs`, `test`, or `chore` |
+| Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
 | Take a card | `board claim 4` — into `plan`, owned by this session |
 | Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut …` |
 | Approve the contract | `/board approve 4`, or the lead's `board approve 4` |
@@ -56,7 +58,9 @@ board allows from where the card is; no lane can be skipped.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`,
 `reclaim`, `move`, `note`, `contract`, `approve`, `review`, `edit`, `archive`,
-`drop`. `review` takes an `override` — one line saying why — for a card closed
+`drop`. `add` and `edit` record the kind of work (`type`) and the breaking marker
+(`breaking`); both draw as one quiet label on the card, and `list query` matches
+them. `review` takes an `override` — one line saying why — for a card closed
 without the gate; the record then reads `closed by instruction`.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);

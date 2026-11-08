@@ -33,6 +33,7 @@ export const FIXTURE_CARDS = [
 		planPath: fixturePlanPath("billing-webhook"),
 		owner: CORE,
 		lane: "execute" as const,
+		type: "feature" as const,
 		notes: ["routes wired; tests next", "no retries yet"],
 	},
 	{
@@ -42,6 +43,7 @@ export const FIXTURE_CARDS = [
 		owner: CORE,
 		lane: "execute" as const,
 		priority: "high" as const,
+		type: "chore" as const,
 		notes: ["needs a plan before it goes further"],
 	},
 	{
@@ -50,6 +52,7 @@ export const FIXTURE_CARDS = [
 		planPath: fixturePlanPath("totals-rounding"),
 		owner: CORE,
 		lane: "plan" as const,
+		type: "bug" as const,
 		notes: ["contract written, waiting on the lead to read it"],
 	},
 	{
@@ -57,6 +60,8 @@ export const FIXTURE_CARDS = [
 		paths: ["src/api/gateway"],
 		owner: CORE,
 		lane: "blocked" as const,
+		type: "bug" as const,
+		breaking: true,
 		notes: ["waiting on the gateway owner to confirm the algorithm"],
 	},
 	{
@@ -65,18 +70,21 @@ export const FIXTURE_CARDS = [
 		planPath: fixturePlanPath("export-orders"),
 		owner: OTHER,
 		lane: "done" as const,
+		type: "feature" as const,
 		notes: ["shipped behind a flag"],
 	},
 	{
 		title: "Invoice totals round the wrong way",
 		paths: ["src/billing/totals"],
 		lane: "backlog" as const,
+		type: "bug" as const,
 		notes: ["from the support thread"],
 	},
 	{
 		title: "Document the retry policy",
 		paths: ["docs/extensions"],
 		lane: "backlog" as const,
+		type: "docs" as const,
 		// The one card that waits: an order is the reason a lead cannot just claim it.
 		dependsOn: ["2"],
 		notes: ["after the retry branches land"],
@@ -120,6 +128,8 @@ export async function seedStore(directory: string): Promise<void> {
 				paths: spec.paths,
 				note: spec.notes[0],
 				...("priority" in spec && spec.priority !== undefined ? { priority: spec.priority } : {}),
+				...("type" in spec && spec.type !== undefined ? { type: spec.type } : {}),
+				...("breaking" in spec && spec.breaking === true ? { breaking: true } : {}),
 			},
 			LEAD,
 			at,

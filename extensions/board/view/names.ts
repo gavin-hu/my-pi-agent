@@ -54,6 +54,12 @@ export const BOARD_CLASS = {
 	cardPriority: "board-card__priority",
 	cardPriorityHigh: "board-card__priority--high",
 	cardPriorityLow: "board-card__priority--low",
+	// A kind is a label the card carries rather than a state it is in, so the one pill on the
+	// row stays the person and the kind stays a word.
+	kind: "board-kind",
+	// The marker rides inside the kind's own label: `feature · breaking` is one statement, and
+	// the half that a release must say out loud is the half that is coloured.
+	kindBreaking: "board-kind__breaking",
 
 	// The card dialog: the record of one card — its reason, a ladder of facts, the contract
 	// it promises, and its notes.

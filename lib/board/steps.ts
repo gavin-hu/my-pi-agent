@@ -30,6 +30,7 @@ import {
 	normalizeTitle,
 	priorityOf,
 } from "./card.ts";
+import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
 import { type ArtifactCheck, contractRoute } from "./artifact.ts";
 import {
 	CONTRACT_FIELDS,
@@ -428,7 +429,7 @@ function signNote(
 }
 
 /**
- * Fix what a card says: its title, its hints, its priority, and what it waits for.
+ * Fix what a card says: its title, its hints, its kind, its priority, and what it waits for.
  *
  * The holder decides for a held card and anyone decides for an unclaimed one — and
  * that includes a `done` card, because a title is what a reader reads, not a step of
@@ -449,6 +450,18 @@ export function edit(card: Card, op: Extract<CardOp, { kind: "edit" }>, actor: A
 		const parsed = normalizePathHints(op.paths);
 		if ("error" in parsed) return { error: parsed.error };
 		if (!sameList(parsed.paths, card.paths)) fields.paths = parsed.paths;
+	}
+	if (op.type !== undefined) {
+		const parsed = normalizeType(op.type);
+		if ("error" in parsed) return { error: parsed.error };
+		if (parsed.type !== card.type) fields.type = parsed.type;
+	}
+	if (op.breaking !== undefined) {
+		const parsed = normalizeBreaking(op.breaking);
+		if ("error" in parsed) return { error: parsed.error };
+		// Clearing the marker removes the key rather than writing `false`, so a card that was
+		// never breaking reads back exactly like one that stopped being.
+		if (parsed.breaking !== breakingOf(card)) fields.breaking = parsed.breaking ? true : undefined;
 	}
 	if (op.priority !== undefined) {
 		const parsed = normalizePriority(op.priority);

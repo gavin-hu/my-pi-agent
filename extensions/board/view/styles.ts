@@ -158,6 +158,13 @@ ${DECISION_WHY_CSS}
 .board-card__priority{font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.02em}
 .board-card__priority--high{color:var(--warn)}
 .board-card__priority--low{color:var(--dim)}
+/* A kind is a label the card carries, not a state it is in: a quiet uppercase word, so the
+   lane's dot, the priority's colour, and the reason's tone stay the only colour on the face,
+   and the one pill on a row is still the person. The breaking marker rides inside the label,
+   because feature · breaking is one statement about the kind. */
+.board-kind{font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+/* The half a release must say out loud: the one word about a kind that earns a colour. */
+.board-kind__breaking{color:var(--warn)}
 .board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:0;padding:0;list-style:none}
 /* A chip is one line and nowrap by design, so an owner label or a path longer than the card
    would spill past its border and across the lane beside it: clipped to the card instead,
@@ -338,6 +345,9 @@ ${DIALOG_TONE_CSS}
   .board-bar .bf-spacer{display:none}
   .board-filter{order:9;width:100%}
   .board-team__foot{flex-wrap:wrap}
+  /* The kind label shares the row's first line, so a phone left the title elided to its first
+     two words: two lines keep the card identifiable and the label still reads above it. */
+  .board-team__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 }
 /* Five lane names do not fit a phone: the strip becomes wrapped pills rather than a
    horizontal scroller that can hide the lane a reader is on. */

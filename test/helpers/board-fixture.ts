@@ -38,6 +38,10 @@ export async function seedWorkingBoard(store: BoardStore, now: number): Promise<
 			paths: ["src/billing", "src/api"],
 			note: "routes wired",
 			priority: "high",
+			// The card the face and its dialog are read from, so it carries both of the card's
+			// kinds of fact: what it changes, and that an existing user must act.
+			type: "feature",
+			breaking: true,
 		},
 		LEAD,
 		now - 120_000,

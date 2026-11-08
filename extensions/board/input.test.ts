@@ -15,6 +15,8 @@ describe("createInput", () => {
 		const parsed = createInput({
 			title: "  Billing webhook\naccepts orders  ",
 			paths: ["./src\\billing\\"],
+			type: " BUG ",
+			breaking: true,
 			priority: "HIGH",
 			note: "routes wired;\ntests next",
 		});
@@ -22,6 +24,8 @@ describe("createInput", () => {
 			input: {
 				title: "Billing webhook accepts orders",
 				paths: ["src/billing"],
+				type: "bug",
+				breaking: true,
 				priority: "high",
 				note: "routes wired; tests next",
 			},
@@ -30,7 +34,7 @@ describe("createInput", () => {
 
 	test("an absent field is its default, and an absent note is no note", () => {
 		expect(createInput({ title: "One" })).toEqual({
-			input: { title: "One", paths: [], priority: "normal" },
+			input: { title: "One", paths: [], priority: "normal", breaking: false },
 		});
 	});
 
@@ -41,6 +45,12 @@ describe("createInput", () => {
 		});
 		expect(createInput({ title: "One", paths: ["/etc/passwd"] })).toEqual({
 			error: 'path "/etc/passwd" is absolute; use a repository-relative path.',
+		});
+		expect(createInput({ title: "One", type: "perf" })).toEqual({
+			error: "type must be one of feature, bug, refactor, docs, test, chore.",
+		});
+		expect(createInput({ title: "One", breaking: "yes" })).toEqual({
+			error: "breaking must be true or false.",
 		});
 		expect(createInput({ title: "One", priority: "urgent" })).toEqual({
 			error: "priority must be one of high, normal, low.",

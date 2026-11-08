@@ -47,6 +47,17 @@ reads a card's own links. `laneSince` says
 when the card entered the lane it is in, computed from the lane log because a stored clock
 would be one more field to keep true.
 
+### kind.ts
+
+What kind of work a card is (`type`) and whether it breaks an existing user (`breaking`),
+the two facts a changelog line answers. `CARD_TYPES` is the closed table — feature, bug,
+refactor, docs, test, chore — and `normalizeType` refuses anything else rather than defaulting
+to a kind nobody chose, so an unclassified card draws nothing. `normalizeBreaking` takes a
+boolean and `breakingOf` reads an absent marker as not breaking, because the record writes
+the key only when it is true. Both fields are optional, so a card written before the kind
+existed is still a card; `card.ts` holds the two keys and imports the type, which is why this
+is its own module rather than four more rules in that record's row.
+
 ### read.ts
 
 The one gate a card file read passes. `readCard` maps every version this build can read

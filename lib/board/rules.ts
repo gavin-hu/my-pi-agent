@@ -31,6 +31,7 @@
 
 import type { ArtifactCheck } from "./artifact.ts";
 import { type Card, type CardBlock, CARD_VERSION, DEFAULT_PRIORITY, MAX_LOG, type Priority } from "./card.ts";
+import type { CardType } from "./kind.ts";
 import { type BoardConfig, DEFAULT_BOARD_CONFIG } from "./config.ts";
 import type { Lane } from "./lanes.ts";
 import type { BoardIndex } from "./links.ts";
@@ -95,7 +96,15 @@ export type CardOp =
 	| { kind: "review"; text?: unknown; override?: unknown }
 	// Every field but `kind` is optional, and an absent one is left as it was: the page
 	// sends the three it can show, and omitting a link must not clear it.
-	| { kind: "edit"; title?: unknown; paths?: unknown; priority?: unknown; dependsOn?: unknown }
+	| {
+			kind: "edit";
+			title?: unknown;
+			paths?: unknown;
+			type?: unknown;
+			breaking?: unknown;
+			priority?: unknown;
+			dependsOn?: unknown;
+	  }
 	| { kind: "reclaim" }
 	/**
 	 * Record that the card was offered to the team: `team offer` broadcasts it on the bus
@@ -118,7 +127,7 @@ export type Prepared = { error: string } | { fields: Partial<Card> | null; chang
 /** A card's first state: `backlog`, no owner, one note at most. */
 export function createCard(
 	id: string,
-	input: { title: string; paths: string[]; note?: string; priority?: Priority },
+	input: { title: string; paths: string[]; note?: string; priority?: Priority; type?: CardType; breaking?: boolean },
 	actor: Actor,
 	now: number,
 ): Card {
@@ -131,6 +140,12 @@ export function createCard(
 		// A new card says its priority out loud, even when it is the ordinary one, so a
 		// file on disk tells a reader the whole story without a default to know.
 		priority: input.priority ?? DEFAULT_PRIORITY,
+		// Its type is recorded only when somebody named one: absence draws nothing, so there
+		// is no default to write and no word on the face that nobody chose.
+		...(input.type === undefined ? {} : { type: input.type }),
+		// Breaking is the one exception to "say the ordinary value out loud": `false` is the
+		// overwhelming answer, and a key on every card would be noise in every file.
+		...(input.breaking === true ? { breaking: true } : {}),
 		notes: input.note === undefined ? [] : [{ by: actor.label, at: now, text: input.note }],
 		notesDropped: 0,
 		// A card is born in `backlog`, and that is a transition like any other: a reader
@@ -266,8 +281,9 @@ function write(card: Card, actor: Actor, now: number, fields: Partial<Card>): Ca
 	if ("owner" in fields && fields.owner === undefined) delete next.owner;
 	// The same for a block and a spot-check: a card that left `blocked` has no reason and no
 	// kind, and one that left `execute` is not reviewed, so a key holding undefined would be
-	// one more shape for a reader to know about.
-	for (const field of ["blocked", "offeredAt", "review"] as const) {
+	// one more shape for a reader to know about. A cleared breaking marker is the same case:
+	// the record reads an absent key as not breaking.
+	for (const field of ["blocked", "offeredAt", "review", "breaking"] as const) {
 		if (field in fields && fields[field] === undefined) delete next[field];
 	}
 	// `blocked` is a fact about the `blocked` lane and nothing else: a card back in the pool, or

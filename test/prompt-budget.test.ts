@@ -91,7 +91,9 @@ describe("the board tool surface", () => {
 		// three that are not already in the schema, the description, or the action docs cost.
 		// 7,200 held until `review` took the one-line `override`, which is the record a card
 		// closed outside the gate had no way to carry: that parameter costs ~200 and buys the
-		// difference between a forced close and a signed one.
+		// difference between a forced close and a signed one. A card's `type` and `breaking`
+		// cost ~330 more, paid by the description's facet list and by dropping the parameter
+		// descriptions that restated the action docs; 7,387 is what the surface measures now.
 		expect(boardSurface()).toBeLessThanOrEqual(7_400);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
