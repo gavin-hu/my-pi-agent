@@ -1,12 +1,9 @@
 /**
- * Markdown readers for the extension pages, and the pages that have moved to
- * the end-user template.
+ * Markdown readers for the extension pages.
  *
- * The docs tree carries two page contracts while the rewrite is in flight: the
- * contributor template every page was written to, and the short end-user page a
- * rewritten one follows. `test/extension-docs.test.ts` holds both, and both read
- * a page the same way — so the rules about fences, escaped pipes, and heading
- * ranges are written here once rather than in two guards.
+ * `test/extension-docs.test.ts` holds the page contract; these are the readers it
+ * needs, so the rules about fences, escaped pipes, and heading ranges are written
+ * once and any later guard shares them.
  */
 
 const HEADING = /^##\s+(.+?)\s*$/;
@@ -62,25 +59,3 @@ export function tablesOf(section: string): string[][][] {
 			),
 	);
 }
-
-/**
- * The extension pages written for a reader who uses the pack rather than changes
- * it. A page moves here when it is rewritten, and the contributor template's
- * cases stop applying to it; the set only grows, and the legacy set only falls.
- */
-export const CONVERTED_EXTENSION_PAGES: ReadonlySet<string> = new Set([
-	"board",
-	"context",
-	"file-browse",
-	"file-open",
-	"file-read",
-	"goal",
-	"memory",
-	"plan",
-	"question",
-	"serve",
-	"todo",
-	"web-access",
-	"wechat",
-	"worktree",
-]);

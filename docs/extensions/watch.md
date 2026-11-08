@@ -1,285 +1,92 @@
-# watch — tail a file or command and alert on pattern matches
+# watch — react to a line, not to a job
 
-Tail a file or a command's merged output, match each new line against a regular
-expression, and keep the matching lines. Matches are sanitized and alerted in
-the TUI, reported to the model at the next turn, or — when a watcher opts into
-`wake` — raise one triggered turn as soon as the agent is idle, including right
-after a running turn settles.
+`watch` tails a file or a command's output, matches each new line against a
+pattern, and keeps the matches. You can be told at the next turn, woken when a
+match lands, or get an OS notification — instead of polling a log by hand.
 
-## Capabilities
+<img src="../../assets/screens/watch.png" alt="The /watch screen: a Watch title rule with a running and match summary, a selected file watcher and a finished command watcher, the focused watcher's path and pattern with its line and match counts, and the key hints" width="100%">
 
-### Watching
+- **Files or commands**: a file is followed from its end, a command's merged
+  output is streamed.
+- **Patterns, with an exclude list**, case-sensitive only if you ask.
+- **A match can wake the agent** — once, when it is idle — or simply be reported
+  at the next turn.
+- **Everything is bounded**: matches per watcher, raw lines, long lines, and the
+  number of watchers.
 
-| Capability | How | What you get |
-|---|---|---|
-| Tail a source | `watch add` | A file is followed from its current end unless `fromStart` is set, and a shrinking file is re-read from the start; a command's merged stdout/stderr is streamed. |
-| Line matching | `watch add` | An include pattern with an optional exclude list, case-insensitive unless `caseSensitive` is set. A pattern written the way the tool prints one — `/ERROR/`, `/ERROR/i` — is read as that expression: the delimiters are not text, and the flags decide case. |
-| Match delivery | `watch add`, `watch matches` | Pending matches are reported to the model at the start of the next turn. |
-| Wake turn | `watch add`, the `wakeOnMatch` key | One triggered turn as soon as the agent is idle, including right after a running turn settles. |
-| Desktop alert | `my-pi-agent/watch-match`, `notify.enabled`, `notify.matchFound` | A wake match leaves the terminal as an OS notification. |
-| Live status | `watch add`, the `showStatus` key | A `⊚ N` running chip and a `! N` unreported-match chip, plus one alert per unreported burst. |
-| Command outcome | `watch status`, `watch list` | A command watcher reports its exit code or error, including the captured signal, instead of only "stopped". |
-| Liveness detail | `watch list`, `watch status` | A running watcher names its pid and elapsed time; list rows sort running watchers first, newest next. |
-| Transcript rendering | the `watch` transcript block | The outcome line, at most eight rows, and a `(ctrl+o to expand)` hint keep the transcript compact. |
-| Sanitized output | `watch matches`, `/watch matches` | Model- and remote-authored output is stripped of control characters before it reaches a terminal or a notification. |
+## What you can do
 
-### Reading and managing
+| What you want | What to do |
+|---|---|
+| Watch a log for errors | ask: "watch server.log for ERROR and tell me" |
+| Watch a command's output | ask for a watcher on the command |
+| Be woken by a match | ask for a wake, or set `wakeOnMatch` |
+| Read the matches | `/watch matches <id>` |
+| Read the raw tail | `/watch logs <id>` where a pattern matched nothing |
+| See every watcher | `/watch` — the screen, or the list outside the TUI |
+| Stop one | `/watch stop <id>`, or `x` on the screen |
+| Remove stopped ones | `/watch clear` |
 
-| Capability | How | What you get |
-|---|---|---|
-| Watcher inventory | `watch list`, `watch status`, `/watch list` | Each watcher's source, state, and line and match counts, singly or as a table. |
-| Matched lines | `watch matches`, `/watch matches` | The matching lines, sanitized and read from a bounded history. |
-| Raw output | `watch logs`, `/watch logs` | The merged output tail, for checking a pattern that matches nothing. |
-| Watcher screen | `/watch` | A dock screen with the watcher list, the focused watcher's detail, and its matches pane. |
-| Stopping and cleanup | `watch stop`, `watch clear`, `/watch stop`, `/watch clear` | A running watcher stops, stopped ones are removed, and `all` takes the running ones too. A stopped watcher ignores the output its command still emits while it winds down, so its counts, its matches, and its `wake` turn all end with the stop. |
-
-## Quickstart
-
-```bash
-pi --extension ./extensions/watch    # load just this extension
-pi -e .                              # load the whole @gavin-hu/my-pi-agent package
-pi install ./                        # install the package
-```
+## Try it
 
 ```text
-watch add { "path": "server.log", "pattern": "ERROR|FATAL", "label": "server" }
-/watch
+Watch the dev server's output for ERROR or Traceback.
 ```
 
-## Tool
+Then, in a later turn, the matched lines are there. `/watch` lists the watcher
+with its line and match counts, and `Enter` opens its matches.
 
-<img src="../../assets/tools/watch.png" alt="The watch tool's result: the call line and an indented body with a running file watcher and an exited command watcher" width="100%">
+## Reference
 
-`watch` — `exposure: "direct"` (the default), `executionMode: "sequential"`,
-read-write, destructive, open-world, not idempotent. One tool with seven
-actions; a watcher outlives the call, so `add` returns an id immediately and the
-rest read it back.
+**Actions.** `watch add` takes the source (`path` or a command), an include
+pattern, optional `exclude`, `caseSensitive`, `fromStart`, and `wake`;
+`list`, `status`, `matches`, `logs`, `stop`, and `clear` manage what exists.
+A pattern written the way the tool prints it — `/ERROR/`, `/ERROR/i` — is read as
+that expression, delimiters included.
 
-| Field | Value |
-|---|---|
-| `name` | `watch` |
-| `action` | `add` \| `list` \| `status` \| `matches` \| `logs` \| `stop` \| `clear` |
-| `path` | Regular file to tail (`add`); exactly one of `path`/`command`. |
-| `command` | Shell command whose output to tail (`add`). |
-| `cwd` | Working directory for a command source; defaults to the effective cwd. |
-| `pattern` | Regular expression a line must match (`add`, required). A `/…/` or `/…/i` form is read as `formatPattern` prints it: no `i` means case-sensitive. Any other flag is refused rather than matched as text. So a pattern that is entirely slash-shaped — `/api/` — is now `api` case-sensitively; write `\/api\/` to match the slashes themselves. An expression that repeats a group whose own end repeats without a bound — `(a+)+`, `(\w+)+` — is refused at `add`, because it is exponential in the line it is run against. |
-| `exclude` | Regular expressions that suppress a match (`add`, optional). An exclude has no flags of its own — it follows the watcher's `caseSensitive` — so `/keep/` and `keep` mean the same thing and `/keep/i` is refused. |
-| `caseSensitive` | Match case-sensitively; default `false`. |
-| `label` | Short display label (`add`); defaults to the source. |
-| `wake` | Wake the agent with one triggered turn on a match (`add`). |
-| `fromStart` | Scan a file's existing content instead of tailing from the end (`add`). |
-| `id` | Watcher id such as `w1` (`status`/`matches`/`logs`/`stop`). |
-| `lines` | Lines to return (`matches`/`logs`, 1–2000). |
-| `all` | With `clear`, also stop and remove running watchers. |
+**Commands.** `/watch` (screen or list), `/watch list`, `/watch matches <id>`,
+`/watch logs <id>`, `/watch stop <id>`, `/watch clear [all]`. On the screen:
+`j`/`k` move, `Enter`/`l` opens matches, `x`/`K` stops behind a `y`/`N` confirm,
+`d` clears stopped ones, `Esc` closes.
 
-Example: watch a log for errors and wake on a match.
+**Delivery.** Matches are reported to the model at the start of the next turn. A
+watcher with `wake` raises one triggered turn as soon as the agent is idle,
+including right after a running turn settles; with `notify` on, that match also
+leaves the terminal as a desktop notification.
 
-```
-watch add  { "path": "server.log", "pattern": "ERROR|FATAL", "label": "server", "wake": true }   → w1
-watch list
-watch matches { "id": "w1", "lines": 50 }
-watch logs    { "id": "w1" }
-watch stop    { "id": "w1" }
-watch clear   { "all": true }
-```
+**Bounds.** `maxMatches` per watcher, `maxLogLines` for the raw tail,
+`matchChars` for what a pattern is run against, `maxWatchers` live at once, and
+`maxRecords` in the table. A file watcher polls every `pollMs`.
 
-Validation is pure and runs before any side effect, so `codemode` callers that
-bypass the TypeBox schema cannot start a watcher with a missing source or an
-invalid regular expression.
+## Limits
 
-Each result carries a `WatchDetails` object in tool-result `details`:
+- A file watcher polls, so a line can take up to `pollMs` to surface; it is not
+  an inotify watcher.
+- Matching is per line: a pattern cannot span a newline, and a line longer than
+  `matchChars` is matched on its first `matchChars` characters.
+- A pattern's safety check is a shape check, not a proof: a pathological
+  expression that gets past `add` is bounded by `matchChars` but not timed out.
+- Watchers hold live state in memory and stop with the session; a resumed session
+  starts with none.
+- Only a **wake** match notifies the desktop, and only when `notify` is on.
 
-```
-WatchDetails {
-  action: WatchAction
-  watch?: WatchRecord      // add/status/matches/logs/stop
-  watches?: WatchRecord[]  // list/clear
-  matches?: string         // sanitized matched lines, newline-joined
-  logs?: string            // sanitized raw tail, newline-joined
-  truncated?: boolean
-  stopped?: boolean        // stop found a running watcher
-  cleared?: number
-  error?: string
-}
-```
+## Settings
 
-`WatchRecord` is the serializable watcher state: `id`, `label`, `source`
-(`{ kind: "file", path }` or `{ kind: "command", command, cwd }`), `pattern`,
-`exclude`, `caseSensitive`, `wake`, `fromStart`, `status`
-(`running`/`stopped`/`exited`/`error`), timestamps, `linesRead`, `matchCount`,
-and the command's `pid`/`exitCode`/`signal` when applicable.
-
-### Transcript
-
-`add` and `stop` render one outcome line; `list` renders the `/watch` rows
-capped at eight rows, minus the selection-marker column (`listRow`'s
-`marker: false`) that only the interactive screen needs; `matches` and `logs`
-render the tail of the sanitized lines, with the hidden count noted above and
-`(ctrl+o to expand)`.
-
-## Commands
-
-`/watch` manages watchers in every mode; a bare `/watch` opens the screen in the
-TUI and prints the list everywhere else.
-
-| Command | Effect |
-|---|---|
-| `/watch` | Open the screen (TUI) or print the list. |
-| `/watch list` | Print the list. |
-| `/watch matches <id>` | Print the watcher's matched lines. |
-| `/watch logs <id>` | Print the watcher's raw output tail. |
-| `/watch stop <id>` | Stop a watcher. |
-| `/watch clear [all]` | Remove stopped watchers, or every watcher with `all`. |
-
-<img src="../../assets/screens/watch.png" alt="The /watch screen: a Watch title rule, a `2 watchers · 1 running · 3 matches` summary, a selected file watcher and a finished command watcher, the focused watcher's path and pattern with its line and match counts, and the key hints" width="100%">
-
-A bare `/watch` opens a dock screen listing watchers. `j`/`k` (and the wheel)
-move, `Enter`/`l` opens a watcher's matches, `x`/`K` stops a running watcher
-behind a `y/N` confirm, `d` clears stopped ones behind a `y/N` confirm, `Esc`
-closes, and `g`/`G` and PgUp/PgDn scroll the matches pane.
-
-## Behaviour by mode
-
-- **tui** — the status chips, the match alert, and the `/watch` dock screen.
-  `/watch matches` and `/watch logs` print through a notification.
-- **rpc / json / print** — the tool and every `/watch` subcommand work, and the
-  status chips and alerts no-op; a bare `/watch` prints the list.
-
-## Configuration
-
-The `watch` section of the shared `bytefly.json`; resolution rules in
-[`../configuration.md`](../configuration.md#watch--file-and-command-watchers).
-Every value is clamped; a missing or malformed document is ignored.
-
-| Key | Default | Meaning |
+| Key | Default | What it does |
 |---|---|---|
-| `enabled` | `true` | Allow `add`; `false` refuses to start a watcher. |
-| `showStatus` | `true` | Show the two status chips. |
-| `wakeOnMatch` | `false` | Default for a new watcher's `wake`; a per-watcher `wake` overrides it. |
-| `maxWatchers` | `20` | Live watchers before `add` is refused. |
-| `maxRecords` | `50` | Records kept in the table, running and finished together; past it `add` drops the oldest finished watcher, because a finished one still holds its matches and raw lines. |
+| `wakeOnMatch` | `false` | Default wake for a new watcher; a per-watcher `wake` overrides it. |
 | `maxMatches` | `200` | Matches kept per watcher before the oldest are dropped. |
-| `maxLogLines` | `500` | Raw lines kept per watcher for `logs`. |
-| `matchLines` | `50` | Lines returned by `matches`/`logs` when `lines` is omitted. |
-| `matchChars` | `16384` | Longest prefix of a line a pattern or exclude is run against (clamped 1024–262144). Every surface clips a line to 200 characters, so this is a bound on the work, not on what a reader sees. |
-| `pollMs` | `500` | File poll interval. |
+| `pollMs` | `500` | How often a file watcher checks. |
+| `enabled` | `true` | Allow `add` at all. |
+| `showStatus` | `true` | Show the `⊚ N` and `! N` chips. |
 
-```json
-{
-  "watch": { "pollMs": 250, "maxMatches": 500 }
-}
-```
+The rest — `maxWatchers`, `maxRecords`, `maxLogLines`, `matchLines`, and
+`matchChars` — are in
+[configuration](../configuration.md#watch--file-and-command-watchers). To switch
+the extension off, toggle `watch` in `/bytefly`.
 
-## Security
+## Learn more
 
-A command watcher runs a shell command chosen by the model, exactly like `job`
-or `bash`; treat a `watch add` with a `command` as arbitrary code execution in
-the session. A file watcher only reads a path. File and command output is
-untrusted: every line that reaches a widget or the model is stripped of ANSI
-escapes and control characters and clipped, so a crafted log cannot restyle or
-corrupt the terminal. The session's permission policy can gate the tool like any
-other.
-
-## Limitations
-
-- A file watcher polls, so a new line can take up to `pollMs` to surface; it does
-  not use `fs.watch`.
-- `add` requires a path that exists and is a regular file; a directory, FIFO, or
-  a file created after the call is refused.
-- A watcher holds live state in memory and is stopped on shutdown; a detached or
-  resumed session starts with no watchers.
-- `matches` and `logs` keep bounded histories (`maxMatches`/`maxLogLines`), so
-  older lines are dropped.
-- A line longer than `matchChars` is matched on its first `matchChars` characters, and
-  the cut changes what an anchor means in both directions: a match that only exists past
-  the cut is lost, and `$` or `\b` can match **early**, at the cut, where the line
-  continues — a false match as well as a missing one. The cut is far past anything printed
-  (every surface shows at most 200 characters), `logs` still reads the whole line, and only
-  what the pattern is run against is bounded.
-- The nested-repeat refusal is a check on the pattern's *shape*, and it is knowingly
-  incomplete: a pattern that passes `add` is not thereby proved safe. `(a|ab)+`, a group
-  that can match empty (`((a+)?)+`), and a slow alternation inside a bounded repeat all
-  pass it. `matchChars` bounds those, and there is no per-line timeout or circuit breaker:
-  a pattern that is slow within the cap is slow on every line it meets.
-- A file replaced by a rotation (`logrotate create`: the old one renamed away, a new
-  one written at the same path) is read again from its start, whatever its size —
-  the poller notices the inode and birth time moved. A `copytruncate` rotation, which
-  truncates and rewrites the same file, is only noticed when a poll catches it
-  shorter than what has been read; one that regrows past that offset between two
-  polls keeps the old offset, and its head is missed.
-- Matching is per line; a pattern cannot span a newline. A pattern whose body holds a slash —
-  `/api/v1/` — is the expression itself, because the printer's form has no slash inside.
-- Only a **wake** match raises an OS notification, and only when bytefly's
-  `notify.enabled` and `notify.matchFound` are on. A match collected while the
-  agent was busy notifies once that run settles, and `watch` itself never sends
-  one — it announces the match and bytefly owns delivery.
-
-## Non-goals
-
-- Persisting or reattaching watchers across sessions.
-- Multiline or stateful matching, log rotation hooks, and per-watcher poll
-  intervals.
-
-## Pi integration
-
-| Point | Contract |
-|---|---|
-| Tool | One tool, `watch`; `exposure` default (`direct`), active on registration. |
-| Execution mode | `sequential` — it mutates the session-scoped watcher table and UI. |
-| Annotations | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: true`. |
-| `outputSchema` | None; the result carries `details` only (no `structuredContent` mirror). |
-| State storage | In-memory runtime closure; no registry, no `getBranch()` rebuild. |
-| Injected context | A shared transcript notice (`my-pi-agent/notice`), rendered by bytefly; pending matches are read from the runtime, never from the transcript. |
-| Lifecycle | `session_start` loads config and re-arms `onMatch`; `session_tree` repaints; `agent_start`/`agent_settled` track busy; `before_agent_start` posts pending matches as a notice; `context` prunes stale notices of its own source; `session_shutdown` kills commands and clears chips. |
-
-`watch` is gated by `PI_DISABLED_EXTENSIONS` like every extension.
-
-## Design notes
-
-The shared seams are `lib/`'s: `lib/spawn.ts` (spawn, tree-kill), `lib/lines.ts`
-(the byte-safe splitter), `lib/format.ts` (`sanitizeUntrustedLine`),
-`lib/report.ts` (pending matches → notice → one wake turn),
-`lib/tui/status-controller.ts` (chips and the alert), and
-`lib/tui/dock-screen.ts` (the `/watch` frame, navigation, and confirm layer).
-What stays here is the watcher policy: the tailer, the matcher, the source
-model, and the watcher vocabulary; the command-child lifecycle is
-`lib/child.ts`, which `job` drives too.
-
-The file tailer polls and exposes `tick()` publicly; the interval is a thin
-wrapper over `tick()`, so tests drive matching deterministically with no real
-timer. A command tailer is event-driven and feeds both output streams through
-the same byte-oriented line matcher, which only decodes complete lines so a
-UTF-8 sequence split across a read boundary is never mangled. State is
-session-only by design: a watcher is a live process or file position, not
-transcript state, so it cannot be faithfully rebuilt from a `/tree` fork. Match
-delivery mirrors `job` — reported at the next turn, with `wake` triggering one
-turn as soon as the agent is idle — so a match is never dropped when the wake
-window is busy; a mid-turn wake is raised once that run settles. Stopping a
-command sends SIGTERM to its process group and escalates to SIGKILL after a 2 s
-grace; shutdown waits the same grace, so a command that ignores SIGTERM cannot
-outlive the session.
-
-## Files
-
-| Module | Responsibility |
-|---|---|
-| `index.ts` | Extension factory: registers the tool and command, wires the lifecycle, the shared `lib/report.ts` match reporter, and the shared notices. |
-| `tools.ts` | The `watch` tool definition, execution, and transcript rendering. |
-| `schema.ts` | TypeBox parameters and pure `normalizeCall` validation. |
-| `types.ts` | `WatchAction`/`WatchStatus`, `WatchRecord`, `WatchDetails`, `PendingMatch`. |
-| `runtime.ts` | The session-scoped watcher table, matcher, poll tick, and shutdown; spawning and tree-kill come from `lib/child.ts`, line splitting from `lib/lines.ts`. |
-| `format.ts` | Pure text formatting, including the watcher row both surfaces draw; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
-| `ui.ts` | Status chips and the match alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
-| `render.ts` | The `WatchResult` transcript block over the shared `TailResult`. |
-| `view/watch-screen.ts` | The `/watch` screen as a `DockListScreen` subclass: watcher rows, focus block, counts, verbs, loaded on first use. |
-| `commands.ts` | The `/watch` command and its completions. |
-| `config.ts` | The `watch` config section load and normalization. |
-
-## Testing
-
-`runtime.test.ts` covers config, schema, and the tailer with a fake clock and
-fake children; `tools.test.ts` covers the tool and command; `format.test.ts` covers
-the text `format.ts` builds; `view/watch-screen.test.ts` covers registration, the status
-chips, and the screen through the shared `createFakePi`/`fakeCtx` doubles. The test
-harness is `test/helpers/fixtures/watch.ts`, which also builds the `WatchRecord` a
-test varies one field of.
+- [`job`](../extensions/job.md) — run the command the watcher is reading.
+- [`notify`](../extensions/bytefly.md) — where the desktop alert comes from.
+- [`question`](../extensions/question.md) — the other way a turn can wait for you.
