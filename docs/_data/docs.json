@@ -26,6 +26,12 @@
       "summary": "Take one change from a read-only investigation to an approved plan."
     },
     {
+      "path": "tutorials/first-board.md",
+      "title": "Work a board",
+      "group": "Tutorials",
+      "summary": "Take one feature from backlog to done, through both signatures."
+    },
+    {
       "path": "configuration.md",
       "title": "Configuration",
       "group": "Guides",
