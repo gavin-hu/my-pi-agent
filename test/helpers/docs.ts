@@ -70,8 +70,14 @@ export function tablesOf(section: string): string[][][] {
  */
 export const CONVERTED_EXTENSION_PAGES: ReadonlySet<string> = new Set([
 	"board",
+	"context",
 	"file-browse",
+	"file-open",
+	"file-read",
+	"goal",
+	"memory",
 	"plan",
+	"question",
 	"serve",
 	"todo",
 	"web-access",
