@@ -6,6 +6,11 @@ way.
 
 You need Pi and this package installed — see [Install](../install.md).
 
+Two kinds of line appear below. What you **type** is a command — `/board`, or
+`/plan` while a change is designed. What you **say** is a sentence, and the model
+turns it into a `board` tool call: the board's actions are the tool's, so none of
+this is a shell command.
+
 ## Open the board
 
 ```text
@@ -13,21 +18,23 @@ You need Pi and this package installed — see [Install](../install.md).
 ```
 
 The first session in a repository serves the page on `127.0.0.1`; every other
-session opens the same page instead of a second one. The page is a **view** — it
-reads the cards and cannot change them, so the terminal and the browser cannot
-disagree.
+session opens the same page instead of a second one. The command prints the
+address, so a machine with no default browser still has the way in, and `/board
+status` prints it again. The page is a **view** — it reads the cards and cannot
+change them, so the terminal and the browser cannot disagree.
 
-Two tabs: **Board**, the five lanes, and **Team**, the people holding cards.
-Opening a card shows its contract, the plan it is executed against, and its
-notes, newest first.
+Two tabs: **Board**, the five lanes, and **Team**, the queue of decisions and the
+people holding cards. Opening a card shows its contract, the plan it is executed
+against, and its notes, newest first.
 
 ## Put a feature on it
 
 ```text
-board add "Billing webhook accepts orders" paths ["src/billing"]
+Put a feature on the board: the billing webhook accepts orders, under src/billing.
 ```
 
-The card comes back as one line:
+The model calls the tool's `add` action with those three facts, and the card comes
+back as one line:
 
 ```text
 #1 backlog · Billing webhook accepts orders
@@ -41,11 +48,14 @@ an existing user must act on. `edit` links one card to another with `dependsOn`.
 ## Take it and design it
 
 ```text
-board claim 1
+Claim card 1 and design the change before writing anything.
 ```
 
-The card is yours, in `plan`, and the result names the next step: design it in
-plan mode, save the plan, then record what the card promises.
+The card is yours, in `plan` — and "yours" means this session's. Ownership is a
+session id, so a session that ends leaves a card nobody can move or note; another
+session has to reclaim it, and a reclaim drops any spot-check the card already
+carries. A claim also names the next step: design the change in plan mode, save
+the plan, then record what the card promises.
 
 ```text
 /plan add the webhook endpoint and its signature check
@@ -55,16 +65,24 @@ Approving the plan seeds your todo list and leaves plan mode. Next, record what
 the card promises — `goal`, `acceptance`, `scopeOut`, and the plan file itself:
 
 ```text
-board contract 1 \
-  path ~/.pi/agent/plans/a1f9c02/2026-11-08-2140-webhook.md \
-  goal "A retried delivery is accepted once" \
-  acceptance "A duplicate event id returns 200 and writes nothing" \
-  scopeOut "No new event types"
+Record the contract for card 1 from the plan we just approved.
 ```
 
-The plan file must exist in this repository's plan store. `plan` and `execute`
-hold a limited number of cards: three in `plan` and five in `execute` by default,
-so a claim says "make room" instead of piling up work.
+```text
+board({ action: "contract", card: "1", path: "<the path plan returned>",
+  goal: "A retried delivery is accepted once",
+  acceptance: "A duplicate event id returns 200 and writes nothing",
+  scopeOut: "No new event types" })
+```
+
+`path` is the file `plan` action `write` returned — not one retyped from another
+repository's store. It must be in this repository's plan store, and it must still
+be there when the card moves to `execute`: a plan deleted after it was recorded
+refuses the move.
+
+`plan` and `execute` hold a limited number of cards: three in `plan` and five in
+`execute` by default. A claim past either is refused and says how many are already
+there, and to finish, block, or release one first.
 
 ## Pass the two gates
 
@@ -73,27 +91,45 @@ until the work is spot-checked. Both signatures are the lead's — `board.lead`,
 `lead` by default — and the person at the keyboard is the other way in:
 
 ```text
-/board approve 1        approved by you
-board move 1 execute
+/board approve 1
 ```
 
-Work happens now. Notes are how the card explains itself:
+```text
+board: #1 approved by you · told gavin
+```
+
+The clause after the sign names the owner the bus reached, or says it could not.
+Then the work itself starts:
 
 ```text
-board note 1 "Signature check covers the retry path; fixture added"
+board({ action: "move", card: "1", lane: "execute" })
+```
+
+A card that is not ready to execute can be parked instead. `blocked` waits on a
+person, and the card records the one line it waits on — a decision, a dependency,
+or a contract that is not written yet. Resuming it goes back to `plan`, or
+straight to `execute` when it was already approved before it was parked.
+
+Notes are how the card explains itself while it is worked:
+
+```text
+Note on card 1 that the signature check covers the retry path, and that the fixture is in.
 ```
 
 When the work is done, the lead — or you — looks at it once:
 
 ```text
 /board review 1
-board move 1 done
 ```
 
-A session never signs a card it holds: it releases the card before signing. You
-can sign your own, because the slash commands above write the person's signature,
-not the session's. Every sign tells the owner over the session bus, so the person
-waiting knows the lane opened.
+```text
+board: #1 reviewed by you
+```
+
+Then the card moves to `done`. A session never signs a card it holds: it releases
+the card before signing. You can sign your own, because the slash commands above
+write the person's signature, not the session's. Every sign tells the owner over
+the session bus, so the person waiting knows the lane opened.
 
 ## Look at it from the page
 
@@ -107,8 +143,9 @@ is live, quiet, or gone — and which cards are waiting on a decision.
 /board archive
 ```
 
-`done` cards leave the board for an archive that keeps their notes and plan. A
-finished card an open card still waits on stays where it is, and the command
+`done` cards leave the board for an archive that keeps their notes and plan. It is
+one way: nothing un-archives a card, so sweep when the history is ready to leave.
+A finished card an open card still waits on stays where it is, and the command
 says which.
 
 ## Where to go next
