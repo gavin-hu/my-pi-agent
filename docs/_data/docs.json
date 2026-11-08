@@ -32,6 +32,12 @@
       "summary": "Take one feature from backlog to done, through both signatures."
     },
     {
+      "path": "tutorials/first-worktree.md",
+      "title": "Isolate a task",
+      "group": "Tutorials",
+      "summary": "Work a task in its own checkout, then land the branch safely."
+    },
+    {
       "path": "configuration.md",
       "title": "Configuration",
       "group": "Guides",
