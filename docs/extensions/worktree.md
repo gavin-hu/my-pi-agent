@@ -68,9 +68,9 @@ worktree.
 it. A clean, unused worktree older than `pruneAfterDays` is eligible; everything
 else is kept and named.
 
-**Child sessions.** A `pi` started from a tool binds to the same worktree through
-`PI_WORKTREE_ROOT`, `PI_WORKTREE_BRANCH`, and `PI_WORKTREE_MAIN`, read-only for
-the lifecycle.
+**Child sessions.** A `pi` started from inside a session binds to the same
+worktree, read-only for the lifecycle, so a delegated run cannot exit or prune
+it behind your back.
 
 ## Limits
 
@@ -80,8 +80,8 @@ the lifecycle.
 - `powershell` is refused while isolated rather than parsed; with
   `guard.blockPowershell: false` it is allowed and unguarded, and `/worktree`
   reports that gap.
-- The tool cannot be used while planning: plan mode hides it whole, and
-  `/worktree` reads the inventory instead.
+- The tool is unavailable while planning: plan mode hides the whole tool, and
+  `/worktree` still reads the inventory.
 - It is not a branch manager: no rename, rebase, merge, or push.
 - If another extension owns `bash`, set `skipOverrides` and that tool runs in the
   main checkout, unguarded for relative paths.
@@ -98,7 +98,9 @@ the lifecycle.
 
 The rest — `branchPrefix`, `fetchRemote`, `fetchTimeoutMs`, `skipOverrides`, and
 the five `guard.*` switches — are in
-[configuration](../configuration.md#worktree--isolated-worktrees).
+[configuration](../configuration.md#worktree--isolated-worktrees). To switch the
+extension off, toggle `worktree` in `/bytefly`; the session then works in the
+main checkout.
 
 ## Learn more
 
