@@ -61,6 +61,8 @@ list is replaced each time, there is no half-edited item and no id to quote.
 
 ## Where to go next
 
+- [Give the session a goal](./first-goal.md) — the other rail, and why `/goal
+  done` reads this list.
 - [`todo`](../extensions/todo.md) — the command, the rules the model works
   under, and the one setting.
 - [`goal`](../extensions/goal.md) — a single objective kept in view.

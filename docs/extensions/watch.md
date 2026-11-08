@@ -35,6 +35,8 @@ Watch the dev server's output for ERROR or Traceback.
 
 Then, in a later turn, the matched lines are there. `/watch` lists the watcher
 with its line and match counts, and `Enter` opens its matches.
+[Run long work in the background](../tutorials/first-background.md) walks a job
+and the watcher that reads its log.
 
 ## Reference
 
@@ -87,6 +89,8 @@ the extension off, toggle `watch` in `/bytefly`.
 
 ## Learn more
 
+- [Run long work in the background](../tutorials/first-background.md) — the
+  walkthrough.
 - [`job`](../extensions/job.md) — run the command the watcher is reading.
 - [`notify`](../extensions/bytefly.md) — where the desktop alert comes from.
 - [`question`](../extensions/question.md) — the other way a turn can wait for you.

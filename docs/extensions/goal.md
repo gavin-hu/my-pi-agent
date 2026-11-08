@@ -31,6 +31,8 @@ list is the *how*.
 
 The goal is restated and, if it is unclear, asked about before it is recorded.
 The rail then stays above the editor while it is pursued.
+[Give the session a goal](../tutorials/first-goal.md) walks the restatement, the
+planning question, and the completion that reads the task list.
 
 ## Reference
 
@@ -68,6 +70,6 @@ To switch the extension off, toggle `goal` in `/bytefly`.
 
 ## Learn more
 
+- [Give the session a goal](../tutorials/first-goal.md) — the walkthrough.
 - [`todo`](../extensions/todo.md) — the steps under the objective.
 - [`plan`](../extensions/plan.md) — where a draft goal is finalized.
-- [Track your first task](../tutorials/first-task.md) — both rails in one walkthrough.

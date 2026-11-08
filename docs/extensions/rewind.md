@@ -37,6 +37,8 @@ focused prompt. The screen closes, then asks what to restore; a code restore wit
 several changed paths asks **Everything (N files)** or **Choose paths…**, and the
 checklist takes `Space` per file, `a`/`n` for all or none, and `Enter` to confirm.
 A confirmation with the diff preview is the last step.
+[Go back to an earlier prompt](../tutorials/first-rewind.md) walks a code restore,
+a conversation restore, and the undo.
 
 ## Reference
 
@@ -82,6 +84,7 @@ off, toggle `rewind` in `/bytefly`.
 
 ## Learn more
 
+- [Go back to an earlier prompt](../tutorials/first-rewind.md) — the walkthrough.
 - [`worktree`](../extensions/worktree.md) — where a rewind happens when a task is
   isolated.
 - [`plan`](../extensions/plan.md) — design before writing, so fewer rewinds.

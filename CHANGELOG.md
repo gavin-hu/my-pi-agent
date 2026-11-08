@@ -22,6 +22,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   commands, and one sentence, with the reference left to the page that owns it — and
   `test/drift.test.ts` holds the catalog's word budget so a table cell cannot grow back into
   a copy of that page.
+- `docs`: four walkthroughs join the tutorial set — handing a task to a specialist agent,
+  running long work in the background with a watcher on its log, rewinding to an earlier
+  prompt, and giving the session a goal — each linked from the extension page that owns it.
 
 ## [0.25.1] - 2026-11-07
 

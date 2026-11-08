@@ -42,6 +42,8 @@ Then:
 `↑`/`↓` or `j`/`k` select, `Enter`/`l` opens the log (`g`/`G` jump, `Esc`
 returns), `d` kills after a `y`/`N` prompt, `x` clears finished jobs after one,
 and `Esc` closes the list.
+[Run long work in the background](../tutorials/first-background.md) walks a job,
+its screen, and the watcher that reads the same log.
 
 ## Reference
 
@@ -94,5 +96,7 @@ extension off, toggle `job` in `/bytefly`.
 
 ## Learn more
 
+- [Run long work in the background](../tutorials/first-background.md) — the
+  walkthrough.
 - [`watch`](../extensions/watch.md) — react to a line, not a whole job.
 - [`subagent`](../extensions/subagent.md) — hand a long task to another agent.
