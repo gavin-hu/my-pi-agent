@@ -1,5 +1,5 @@
 /**
- * A card body as `add` reads it: the four fields the tool creates a card from.
+ * A card body as `add` reads it: the six fields the tool creates a card from.
  *
  * The normalization, the order the refusals come in, and the shape handed to the store are
  * one body, so a field added to `add` cannot reach the store unnormalized. This is the
@@ -13,6 +13,7 @@ import {
 	normalizePriority,
 	normalizeTitle,
 } from "../../lib/board/card.ts";
+import { normalizeBreaking, normalizeType } from "../../lib/board/kind.ts";
 import type { CreateInput } from "../../lib/board/store.ts";
 
 /** The first note, or nothing when the body carries none. */
@@ -34,6 +35,10 @@ export function createInput(body: Record<string, unknown>): { input: CreateInput
 	if ("error" in title) return title;
 	const paths = normalizePathHints(body.paths);
 	if ("error" in paths) return paths;
+	const type = normalizeType(body.type);
+	if ("error" in type) return type;
+	const breaking = normalizeBreaking(body.breaking);
+	if ("error" in breaking) return breaking;
 	const priority = normalizePriority(body.priority);
 	if ("error" in priority) return priority;
 	const note = noteOf(body.note);
@@ -43,6 +48,8 @@ export function createInput(body: Record<string, unknown>): { input: CreateInput
 			title: title.title,
 			paths: paths.paths,
 			priority: priority.priority,
+			breaking: breaking.breaking,
+			...(type.type === undefined ? {} : { type: type.type }),
 			...(note.text === undefined ? {} : { note: note.text }),
 		},
 	};

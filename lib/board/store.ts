@@ -45,6 +45,7 @@ import {
 	priorityRank,
 	SUPPORTED_VERSIONS,
 } from "./card.ts";
+import type { CardType } from "./kind.ts";
 import { LANES } from "./lanes.ts";
 import { readCard } from "./read.ts";
 import { indexOf } from "./links.ts";
@@ -81,13 +82,17 @@ const TEMP_STALE_MS = 60 * 60 * 1_000;
 /** How many times an id collision or a changed card is retried before giving up. */
 const ATTEMPTS = 4;
 
-/** A card to add. The fields are already normalized by `card.ts`. */
+/** A card to add. The fields are already normalized by `card.ts` and `kind.ts`. */
 export interface CreateInput {
 	title: string;
 	paths: string[];
 	note?: string;
 	/** Absent is `normal`, so an add that says nothing about urgency says the ordinary thing. */
 	priority?: Priority;
+	/** Absent draws nothing: a card nobody classified is one, not a guess at `feature`. */
+	type?: CardType;
+	/** Absent is false; only a true marker is written, because most cards break nobody. */
+	breaking?: boolean;
 }
 
 /** What a mutation did, or why it was refused. */

@@ -22,6 +22,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
   var chip = board.chip;
+  var kindLabel = board.kindLabel;
   var ago = board.ago;
   var plural = board.plural;
   var reasonFor = board.reasonFor;
@@ -154,6 +155,11 @@ export const BOARD_CARD_JS = String.raw`(function () {
     var described = [];
 
     var meta = el("p", N.cardMeta);
+    // What kind of work the card is, with its breaking marker inside the same label: the one
+    // fact a reader classifies by, drawn before the person who holds it. A card that recorded
+    // neither draws neither, because the face says what the record says and never a guess.
+    var kind = kindLabel(card);
+    if (kind !== undefined) meta.appendChild(kind);
     // Who holds it is a name, not an action: the pill is neutral, so the accent colour on a card
     // means the lane it is in or the card the reader is on, and never a person.
     meta.appendChild(card.owner ? chip(card.owner.label, "outline") : el("span", "", "unassigned"));

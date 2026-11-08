@@ -23,7 +23,7 @@ crippled case: every card it moves is one no `board` tool can read. `doctor` rep
 board row as `env disabled` and names the variable, which is the one place a reader who
 took that shortcut is told.
 
-<img src="../../assets/screens/team.png" alt="The Team tab as a dashboard: on the left, a Needs a decision queue of rows with a coloured kind edge, the reason on its own line, and the owner as a chip on the row's right; on the right, a Teammates list of one-line rows, each a state dot, a label, a you chip, a mail badge, a not listening chip on a peer whose watch is off, and what that teammate holds at the row's right; and one muted Done line under both" width="100%">
+<img src="../../assets/screens/team.png" alt="The Team tab as a dashboard: on the left, a Needs a decision queue of rows with a coloured kind edge, the id, its kind label and the title on the first line, the reason on its own line, and the owner as a chip on the row's right; on the right, a Teammates list of one-line rows, each a state dot, a label, a you chip, a mail badge, a not listening chip on a peer whose watch is off, and what that teammate holds at the row's right; and one muted Done line under both" width="100%">
 
 *The Team tab: the cards that need the lead, then who is on the team — including an
 owner whose label nothing answers to, and a teammate that is not listening. A row is one

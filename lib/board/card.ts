@@ -16,6 +16,7 @@
 
 import { sanitizeLine } from "../format.ts";
 import { type Contract, isContract, isSign, type Sign } from "./contract.ts";
+import { CARD_TYPES, type CardType } from "./kind.ts";
 import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
 
 /** The schema version this build writes. A file with another value is refused, never migrated in place. */
@@ -193,6 +194,15 @@ export interface Card {
 	offeredAt?: number;
 	/** How urgent the feature is; absent reads as {@link DEFAULT_PRIORITY}. */
 	priority?: Priority;
+	/** What the card changes about the package, when it was recorded; absent draws nothing. */
+	type?: CardType;
+	/**
+	 * Whether an existing user must change something because of this card.
+	 *
+	 * Independent of the type — a feature can add and break, a fix can fix and break, a
+	 * refactor cannot — and absent reads as false, because most cards break nobody.
+	 */
+	breaking?: boolean;
 	/** Ids of the cards this one waits for; absent reads as none. */
 	dependsOn?: string[];
 	/** The last {@link MAX_NOTES} notes, oldest first. */
@@ -347,7 +357,8 @@ export function priorityRank(card: Card): number {
 }
 
 /**
- * Whether `query` names `card`: its title, its holder, a path hint, its plan, or a note.
+ * Whether `query` names `card`: its title, its holder, its kind, a path hint, its plan, or a
+ * note.
  *
  * The page's filter and `board list`'s `query` are the same question, so they are the
  * same rule here — and the same *body*: this function's source is spliced into the
@@ -355,14 +366,17 @@ export function priorityRank(card: Card): number {
  * and no backtick. A second copy in the page is exactly what drifted before.
  *
  * The order is the answer's weight: a title hit is what a reader meant, then who holds
- * it, then where it lives, and only then the reasoning — a plan path and the notes,
- * which are the two fields that make a card findable by what it says.
+ * it and what kind of work it is, then where it lives, and only then the reasoning — a
+ * plan path and the notes, which are the two fields that make a card findable by what it
+ * says. The kind is here because a label a reader can see is a word they will type.
  */
 export function matchesQuery(card: Card, query: string): boolean {
 	const needle = query.trim().toLowerCase();
 	if (needle === "") return true;
 	if (card.title.toLowerCase().includes(needle)) return true;
 	if (card.owner !== undefined && card.owner.label.toLowerCase().includes(needle)) return true;
+	if (card.type !== undefined && card.type.includes(needle)) return true;
+	if (card.breaking === true && "breaking".includes(needle)) return true;
 	if (card.paths.some((path) => path.toLowerCase().includes(needle))) return true;
 	if (card.planPath !== undefined && card.planPath.toLowerCase().includes(needle)) return true;
 	return card.notes.some((note) => note.text.toLowerCase().includes(needle));
@@ -501,6 +515,8 @@ export function isCard(value: unknown): value is Card {
 		return false;
 	}
 	if (card.priority !== undefined && !PRIORITIES.includes(card.priority as Priority)) return false;
+	if (card.type !== undefined && !CARD_TYPES.includes(card.type as CardType)) return false;
+	if (card.breaking !== undefined && typeof card.breaking !== "boolean") return false;
 	if (card.dependsOn !== undefined && !isDepends(card.dependsOn)) return false;
 	if (!Array.isArray(card.notes) || card.notes.length > MAX_NOTES) return false;
 	if (!card.notes.every(isNote)) return false;

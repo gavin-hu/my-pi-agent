@@ -46,6 +46,7 @@ const teamTemplate = String.raw`(function () {
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
   var chip = board.chip;
+  var kindLabel = board.kindLabel;
   var ago = board.ago;
   var plural = board.plural;
   var rankOf = board.rankOf;
@@ -216,6 +217,10 @@ __HOLDING__
     open.type = "button";
     open.setAttribute("aria-haspopup", "dialog");
     open.appendChild(el("span", N.teamRef, "#" + card.id));
+    // The kind a card is, in the same label the face and the record wear: the lead's queue is
+    // where a decision is made, and a breaking change is the one fact it must not hide.
+    var kind = kindLabel(card);
+    if (kind !== undefined) open.appendChild(kind);
     var title = el("span", N.teamTitle, card.title);
     // A clamped title has no other way to be read, so it carries its own tooltip.
     title.title = card.title;

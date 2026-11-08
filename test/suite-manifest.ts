@@ -48,6 +48,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	board: [
 		"card-id",
 		"input",
+		"kind",
 		"record",
 		"render",
 		"result",
@@ -65,6 +66,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/behaviour",
 		"view/dialog",
 		"view/dialog-behaviour",
+		"view/kind",
 		"view/repaint",
 		"view/pages",
 		"view/chrome",
@@ -242,6 +244,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/config",
 	"board/contract",
 	"board/join",
+	"board/kind",
 	"board/lanes",
 	"board/lead",
 	"board/limits",

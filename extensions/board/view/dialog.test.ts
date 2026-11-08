@@ -27,6 +27,7 @@ describe("the dialog's document", () => {
 			"card-dialog-id",
 			"card-dialog-where",
 			// The head: the facts the card face leads with, and the lane with its age.
+			"card-dialog-kind",
 			"card-dialog-owner",
 			"card-dialog-priority",
 			"card-dialog-state",

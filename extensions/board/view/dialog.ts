@@ -40,6 +40,7 @@ const dialogTemplate = String.raw`(function () {
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
   var chip = board.chip;
+  var kindLabel = board.kindLabel;
   var ago = board.ago;
 
   /** The sections a rung can belong to, in the order the body draws them. */
@@ -71,10 +72,14 @@ __INLINE_MARKDOWN__
     document.getElementById("card-dialog-title").textContent = card.title;
     document.getElementById("card-dialog-id").textContent = "#" + card.id;
 
-    // The head repeats what the card face leads with, in the shapes the face leads with: a
-    // neutral pill for who holds it, and the face's own priority word, from the face's own
-    // table. Opening a record used to lose both, so a reader had to remember the face they
-    // came from.
+    // The head repeats what the card face leads with, in the shapes the face leads with: the
+    // kind label, a neutral pill for who holds it, and the face's own priority word. Opening a
+    // record used to lose all of it, so a reader had to remember the face they came from.
+    var kind = document.getElementById("card-dialog-kind");
+    kind.textContent = "";
+    var label = kindLabel(card);
+    kind.hidden = label === undefined;
+    if (label !== undefined) kind.appendChild(label);
     var owner = document.getElementById("card-dialog-owner");
     owner.textContent = "";
     owner.appendChild(card.owner ? chip(card.owner.label, "outline") : document.createTextNode("unassigned"));
