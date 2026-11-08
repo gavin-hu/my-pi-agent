@@ -25,13 +25,13 @@ are needed before it can ship.
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
 | Take a card | `board claim 4` — into `plan`, owned by this session |
 | Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut …` |
-| Approve the contract | `/board approve 4`, or the lead's `board approve 4` |
+| Approve the contract | `/board approve 4` as the person, or the lead with the `board` action `approve` |
 | Start the work | `board move 4 execute` |
 | Park a card | `board move 4 blocked blocker decision blockedBy "waiting on the API owner"` |
 | Sign off finished work | `/board review 4`, then `board move 4 done` |
 | Explain something | `board note 4 "why the retry is capped at three"` |
 | Set finished work aside | `/board archive` |
-| Read the round: owners, unassigned, awaiting approval, awaiting review | `board list round: true`, or `/team` |
+| Read the round | `board list round: true`, or `/team` — owners, unassigned, unplanned, awaiting approval, awaiting review, blocked, done |
 
 ## Try it
 
@@ -42,9 +42,12 @@ board claim 1
 
 The claim's result names the next step — design it in plan mode, save the plan,
 record the contract — and `board approve 1` will refuse it until the contract
-names a plan file in this repository's store. The round is one line — owners,
-unassigned, unplanned, awaiting approval, awaiting review, blocked, and done —
-and `/team` prints it in the terminal.
+names a plan file in this repository's store.
+
+Every card's last line says what it needs next, so a lane can be read without
+opening a card: `contract ready — needs approval`, `executing — no spot-check
+yet`, `offered 2h ago — nobody took it`. The round is one line, and `/team`
+prints it in the terminal.
 
 A full walkthrough through both gates is [Your first
 board](../tutorials/first-board.md).
