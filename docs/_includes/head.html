@@ -1,0 +1,28 @@
+{%- comment -%}
+  Everything the browser needs before the first paint: the document title and
+  description from the navigation table, the theme the reader last chose (read
+  before the stylesheet, so the page never flashes the wrong one), and the
+  stylesheet itself.
+{%- endcomment -%}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if doc_title == site.title %}{{ site.title }} — {{ site.description }}{% else %}{{ doc_title }} — {{ site.title }}{% endif %}</title>
+{%- if doc_summary != "" %}
+<meta name="description" content="{{ doc_summary | escape }}">
+{%- endif %}
+<link rel="canonical" href="{{ page.url | absolute_url }}">
+<link rel="icon" href="{{ '/assets/favicon.svg' | relative_url }}" type="image/svg+xml">
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+<script>
+  (function () {
+    var stored;
+    try {
+      stored = localStorage.getItem("theme");
+    } catch (error) {
+      stored = null;
+    }
+    var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.theme =
+      stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";
+  })();
+</script>

@@ -181,6 +181,7 @@ PI_DISABLED_EXTENSIONS=todo,job pi -e .
 
 | 指南 | 内容 |
 |---|---|
+| [文档站点](https://gavin-hu.github.io/my-pi-agent/) | 浏览器版本：首页、安装与配置，以及覆盖每个扩展页面的侧边栏。 |
 | [配置](./docs/configuration.md) | 解析规则、设置界面，以及 `bytefly.json` 每个键的默认值与取值范围。 |
 | [架构](./docs/architecture.md) | 目标形态：加载路径、扩展契约、一次回合、状态、分层、长生命周期，以及改动应放在哪里。 |
 | [扩展文档](./docs/extensions/) | 每个扩展一页，以能力表开头：工具与命令面、集成契约，以及设计说明。 |

@@ -36,6 +36,7 @@ const ROOT_TEST_FILES = new Set([
 	"scripts-surface.test.ts",
 	"settings-coverage.test.ts",
 	"shared-helpers.test.ts",
+	"site-docs.test.ts",
 	"skill-bank.test.ts",
 	"suite-sizes.test.ts",
 	"theme.test.ts",

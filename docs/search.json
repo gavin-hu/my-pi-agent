@@ -1,0 +1,25 @@
+---
+layout: null
+permalink: /search.json
+---
+{%- comment -%}
+  The search index, built from the navigation table so it covers exactly the
+  pages the sidebar lists. `site.js` fetches it on the first keystroke.
+{%- endcomment -%}
+{%- assign first = true -%}
+[
+{%- for doc in site.data.docs.pages -%}
+  {%- assign found = site.pages | where: "path", doc.path | first -%}
+  {%- if found -%}
+    {%- unless first %},{% endunless -%}
+    {%- assign first = false -%}
+    {
+      "title": {{ doc.title | jsonify }},
+      "group": {{ doc.group | jsonify }},
+      "summary": {{ doc.summary | jsonify }},
+      "url": {{ found.url | relative_url | jsonify }},
+      "text": {{ found.content | markdownify | strip_html | normalize_whitespace | truncate: 4000 | jsonify }}
+    }
+  {%- endif -%}
+{%- endfor -%}
+]

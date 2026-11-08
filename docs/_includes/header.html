@@ -1,0 +1,28 @@
+{%- comment -%}The brand, the search field, and the two controls: theme and menu.{%- endcomment -%}
+<header class="header">
+  <a class="brand" href="{{ '/' | relative_url }}">
+    <span class="brand-mark" aria-hidden="true">❯</span>
+    <span class="brand-name">my-pi-agent</span>
+  </a>
+  <div class="search" role="search">
+    <label class="search-label" for="search-input">Search</label>
+    <input
+      class="search-input"
+      id="search-input"
+      type="search"
+      placeholder="Search the docs"
+      autocomplete="off"
+      spellcheck="false"
+      aria-controls="search-results"
+      aria-expanded="false"
+      data-search-index="{{ '/search.json' | relative_url }}"
+    >
+    <ul class="search-results" id="search-results" hidden></ul>
+  </div>
+  <button class="header-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
+    <span class="theme-icon" aria-hidden="true">◐</span>
+  </button>
+  <button class="header-button nav-toggle" type="button" aria-label="Open navigation" aria-controls="nav" aria-expanded="false">
+    <span aria-hidden="true">☰</span>
+  </button>
+</header>

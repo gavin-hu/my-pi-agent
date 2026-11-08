@@ -1,0 +1,32 @@
+{%- comment -%}
+  The site shell: header, sidebar, content column, on-this-page rail, footer.
+  The page's title, summary, and group come from `_data/docs.json`, so a page
+  body carries no front matter of its own.
+{%- endcomment -%}
+{%- assign doc_title = site.title -%}
+{%- assign doc_summary = site.description -%}
+{%- assign doc_group = "" -%}
+{%- for doc in site.data.docs.pages -%}
+  {%- if doc.path == page.path -%}
+    {%- assign doc_title = doc.title -%}
+    {%- assign doc_summary = doc.summary -%}
+    {%- assign doc_group = doc.group -%}
+  {%- endif -%}
+{%- endfor -%}
+<!doctype html>
+<html lang="en">
+  <head>
+    {% include head.html %}
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    {% include header.html %}
+    <div class="shell">
+      {% include nav.html %}
+      <main class="content" id="content">{{ content }}</main>
+      {% include toc.html %}
+    </div>
+    {% include footer.html %}
+    <script src="{{ '/assets/js/site.js' | relative_url }}" defer></script>
+  </body>
+</html>

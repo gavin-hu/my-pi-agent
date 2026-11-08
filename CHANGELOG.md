@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the documentation is a Jekyll site built by GitHub Pages from `docs/`, with a
+  home page, an install guide, a theme of its own, and a sidebar over the existing guides.
+
 ## [0.25.1] - 2026-11-07
 
 - `plan`: `bun run capture:plan --as viewer` renders the read-only page `/plan list`'s Enter

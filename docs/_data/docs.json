@@ -1,0 +1,161 @@
+{
+  "groups": ["Get started", "Guides", "Extensions"],
+  "pages": [
+    {
+      "path": "index.md",
+      "title": "Welcome",
+      "group": "Get started",
+      "summary": "A Pi package of extensions, skills, and themes for working in a terminal."
+    },
+    {
+      "path": "install.md",
+      "title": "Install",
+      "group": "Get started",
+      "summary": "Add the pack to Pi, pin a release, upgrade it, and check what it needs."
+    },
+    {
+      "path": "configuration.md",
+      "title": "Configuration",
+      "group": "Guides",
+      "summary": "Where a setting lives, how to change one, and every key with its default."
+    },
+    {
+      "path": "security.md",
+      "title": "Security",
+      "group": "Guides",
+      "summary": "What the pack opens on your machine, and how each surface is gated."
+    },
+    {
+      "path": "extensions/README.md",
+      "title": "All extensions",
+      "group": "Extensions",
+      "summary": "One page per extension: capabilities, the tool surface, and its keys."
+    },
+    {
+      "path": "extensions/plan.md",
+      "title": "plan",
+      "group": "Extensions",
+      "summary": "Read-only planning: investigate, save a plan, approve it before anything is written."
+    },
+    {
+      "path": "extensions/subagent.md",
+      "title": "subagent",
+      "group": "Extensions",
+      "summary": "Delegate a task to a specialist Pi process, alone or in parallel."
+    },
+    {
+      "path": "extensions/todo.md",
+      "title": "todo",
+      "group": "Extensions",
+      "summary": "A persistent task list with a one-line widget."
+    },
+    {
+      "path": "extensions/goal.md",
+      "title": "goal",
+      "group": "Extensions",
+      "summary": "A session objective kept in view and restated before each turn."
+    },
+    {
+      "path": "extensions/question.md",
+      "title": "question",
+      "group": "Extensions",
+      "summary": "Structured questions with labelled options, answered before the turn continues."
+    },
+    {
+      "path": "extensions/job.md",
+      "title": "job",
+      "group": "Extensions",
+      "summary": "Long-lived shell commands in the background, with logs, waits, and kills."
+    },
+    {
+      "path": "extensions/watch.md",
+      "title": "watch",
+      "group": "Extensions",
+      "summary": "Tail a file or a command and match each new line against patterns."
+    },
+    {
+      "path": "extensions/session-bus.md",
+      "title": "session-bus",
+      "group": "Extensions",
+      "summary": "Coordinate parallel Pi sessions on one repository."
+    },
+    {
+      "path": "extensions/serve.md",
+      "title": "serve",
+      "group": "Extensions",
+      "summary": "The session's one loopback server, shared by every browser surface."
+    },
+    {
+      "path": "extensions/board.md",
+      "title": "board",
+      "group": "Extensions",
+      "summary": "One shared feature board per repository, with the two signs a card needs."
+    },
+    {
+      "path": "extensions/team.md",
+      "title": "team",
+      "group": "Extensions",
+      "summary": "The lead's round over the board: assign, offer, reclaim, claim, ask."
+    },
+    {
+      "path": "extensions/context.md",
+      "title": "context",
+      "group": "Extensions",
+      "summary": "See where the context window goes, and compact from the report."
+    },
+    {
+      "path": "extensions/worktree.md",
+      "title": "worktree",
+      "group": "Extensions",
+      "summary": "Work in an isolated git worktree on its own branch."
+    },
+    {
+      "path": "extensions/rewind.md",
+      "title": "rewind",
+      "group": "Extensions",
+      "summary": "Snapshot before each prompt's first change, then restore code or conversation."
+    },
+    {
+      "path": "extensions/memory.md",
+      "title": "memory",
+      "group": "Extensions",
+      "summary": "Durable cross-session notes as human-editable markdown."
+    },
+    {
+      "path": "extensions/web-access.md",
+      "title": "web-access",
+      "group": "Extensions",
+      "summary": "Search the web and fetch a page as readable text."
+    },
+    {
+      "path": "extensions/file-browse.md",
+      "title": "file-browse",
+      "group": "Extensions",
+      "summary": "A loopback, read-only browser rooted at the working directory."
+    },
+    {
+      "path": "extensions/file-read.md",
+      "title": "file-read",
+      "group": "Extensions",
+      "summary": "Extract text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX."
+    },
+    {
+      "path": "extensions/file-open.md",
+      "title": "file-open",
+      "group": "Extensions",
+      "summary": "Open or reveal a file or directory in the OS-native app."
+    },
+    {
+      "path": "extensions/wechat.md",
+      "title": "wechat",
+      "group": "Extensions",
+      "summary": "Bridge one WeChat conversation to the live session."
+    },
+    {
+      "path": "extensions/bytefly.md",
+      "title": "bytefly",
+      "group": "Extensions",
+      "summary": "The visible layer: header, footer, transcript blocks, and the control center."
+    }
+  ]
+}

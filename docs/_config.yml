@@ -1,0 +1,46 @@
+# The documentation site. GitHub Pages builds this folder from `main` /docs,
+# so `baseurl` must stay the repository name: the project site lives under
+# https://gavin-hu.github.io/my-pi-agent/, and every generated URL goes through
+# `relative_url`.
+title: my-pi-agent
+description: A Pi package of extensions, skills, and themes for working in a terminal.
+url: "https://gavin-hu.github.io"
+baseurl: "/my-pi-agent"
+
+markdown: kramdown
+permalink: pretty
+
+# The one plugin: it rewrites a relative `.md` link to the page's real URL, so
+# the Markdown stays readable on GitHub and still resolves on the site.
+plugins:
+  - jekyll-relative-links
+
+relative_links:
+  enabled: true
+  collections: true
+
+# Every page wears the site's layout; a page body therefore carries no front
+# matter and still renders cleanly in the repository.
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: "page"
+  - scope:
+      path: "404.html"
+    values:
+      layout: "default"
+  - scope:
+      path: "search.json"
+    values:
+      layout: null
+  # The extension index is a directory's front door, not a file named README.
+  - scope:
+      path: "extensions/README.md"
+    values:
+      permalink: "/extensions/"
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor

@@ -10,6 +10,9 @@
     "indentStyle": "tab",
     "lineWidth": 120
   },
+  "files": {
+    "includes": ["**", "!docs/search.json"]
+  },
   "javascript": {
     "formatter": {
       "quoteStyle": "double",

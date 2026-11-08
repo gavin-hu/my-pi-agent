@@ -206,6 +206,7 @@ only stops those factories from registering; to drop the whole package, use Pi's
 
 | Guide | What it covers |
 |---|---|
+| [Documentation site](https://gavin-hu.github.io/my-pi-agent/) | The browser edition: a home page, install and configuration, and a sidebar over every extension page. |
 | [Configuration](./docs/configuration.md) | Resolution, the settings screen, and every `bytefly.json` key with its default and bounds. |
 | [Architecture](./docs/architecture.md) | The target shape: the load path, the extension contract, the turn, state, layers, lifetimes, and where a change belongs. |
 | [Extension docs](./docs/extensions/) | One page per extension, opening with its capabilities: the tool and command surface, the integration contract, and the design notes. |

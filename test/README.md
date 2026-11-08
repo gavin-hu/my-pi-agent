@@ -118,7 +118,7 @@ gate is stated in the test.
    `test/doc-counts.test.ts`,
    `test/config-docs.test.ts`, `test/settings-coverage.test.ts`,
    `test/dependencies.test.ts`, `test/skill-bank.test.ts`,
-   `test/scripts-surface.test.ts`) — cross-cutting
+   `test/scripts-surface.test.ts`, `test/site-docs.test.ts`) — cross-cutting
    contracts. No capability suite may duplicate these. `shared-helpers.test.ts`
    fails an extension that reimplements what `lib/` owns, by name or by body, a
    test that re-declares or copies a `test/helpers` export, and one test file
@@ -380,6 +380,7 @@ test/
   drift.test.ts            # lib/README index and AGENTS.md word budget
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
+  site-docs.test.ts        # the docs site: the navigation table against the tree, the Pages config, and the copied assets
   architecture-doc.test.ts # docs/architecture.md: the paths it names, and every lib/ layer
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   extension-docs.test.ts   # docs/extensions/: the template's order, the capabilities table, the registered surface in it, a Files row for every module (nested ones too), and a suite behind every `## Testing` stem
