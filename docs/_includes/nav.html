@@ -1,0 +1,25 @@
+{%- comment -%}
+  The sidebar: one group per `_data/docs.json` group, one link per page. A link's
+  URL is read from the page itself, so a page is never linked by a guessed path.
+{%- endcomment -%}
+<nav class="nav" id="nav" aria-label="Documentation">
+  {%- for group in site.data.docs.groups %}
+  <section class="nav-group">
+    <p class="nav-group-title">{{ group }}</p>
+    <ul class="nav-list">
+      {%- for doc in site.data.docs.pages -%}
+        {%- if doc.group == group -%}
+          {%- assign doc_page = site.pages | where: "path", doc.path | first -%}
+          <li>
+            <a
+              class="nav-link{% if doc.path == page.path %} is-active{% endif %}"
+              href="{{ doc_page.url | relative_url }}"
+              {% if doc.path == page.path %}aria-current="page"{% endif %}
+            >{{ doc.title }}</a>
+          </li>
+        {%- endif -%}
+      {%- endfor %}
+    </ul>
+  </section>
+  {%- endfor %}
+</nav>

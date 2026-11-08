@@ -18,7 +18,7 @@
  * - **Wall-clock and cache hits, and read by a person:** both depend on the
  *   machine and on which host renderers build fresh arrays (Pi's `Container`
  *   does, by design), so they are a pre-release reading compared against the
- *   budget in `docs/development.md`, never a CI threshold.
+ *   budget in `CONTRIBUTING.md`, never a CI threshold.
  *
  *   render-bench.ts            the table above, plus the determinism gate
  */
@@ -37,7 +37,7 @@ export interface BenchCase {
 	width: number;
 }
 
-/** The sizes and widths `docs/development.md` names as the budget. */
+/** The sizes and widths `CONTRIBUTING.md` names as the budget. */
 export const CASES: readonly BenchCase[] = [
 	{ blocks: 500, width: 80 },
 	{ blocks: 500, width: 120 },
@@ -178,7 +178,7 @@ export interface PriceCase {
 	rates: "default" | "wide";
 }
 
-/** Shapes `docs/development.md` names as the pricing budget. */
+/** Shapes `CONTRIBUTING.md` names as the pricing budget. */
 export const PRICE_CASES: readonly PriceCase[] = [
 	{ records: 500, rates: "default" },
 	{ records: 3000, rates: "default" },

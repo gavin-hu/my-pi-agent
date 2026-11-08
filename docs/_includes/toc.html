@@ -1,0 +1,9 @@
+{%- comment -%}
+  The on-this-page rail. It is empty here on purpose: `site.js` fills it from the
+  rendered headings, so a page never carries a second copy of its own outline,
+  and a page with fewer than two headings hides the rail.
+{%- endcomment -%}
+<aside class="toc" id="toc" aria-label="On this page" hidden>
+  <p class="toc-title">On this page</p>
+  <nav class="toc-links" id="toc-links"></nav>
+</aside>

@@ -76,7 +76,7 @@ describe("the agent contract", () => {
 	 * in the guides it links. This is the ceiling that keeps a new paragraph from
 	 * turning it back into a manual — lower it when the file shrinks.
 	 */
-	const CEILING = 1290;
+	const CEILING = 1288;
 
 	test("AGENTS.md stays inside its word budget", () => {
 		const words = readFileSync(join(repo, "AGENTS.md"), "utf-8").split(/\s+/).filter(Boolean).length;

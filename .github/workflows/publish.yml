@@ -9,7 +9,7 @@
 # `--provenance` states the intent, and npm would reject it outside a supported
 # CI provider rather than ship an unsigned tarball.
 #
-# One-time setup, in docs/development.md#release:
+# One-time setup, in CONTRIBUTING.md#release:
 #   - npmjs.com → the package → Settings → Trusted publishing: organization
 #     `gavin-hu`, repository `my-pi-agent`, workflow `publish.yml`, environment
 #     `npm`, and **Allow npm publish** (configurations created after 2026-09-03

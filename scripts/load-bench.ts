@@ -159,7 +159,7 @@ function probe(entry: string, hosts: readonly string[]): string {
  *
  * Indicative by construction: it depends on the machine, on the runtime's
  * transform cache, and on the loader, so it is compared with the budget in
- * `docs/development.md` and never asserted in a test.
+ * `CONTRIBUTING.md` and never asserted in a test.
  */
 export function importMs(packageRoot: string, entry: string, hosts: readonly string[]): number | undefined {
 	const source = probe(entry, hosts);

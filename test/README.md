@@ -16,7 +16,7 @@ bun test <path>                  # one file or directory, straight to bun, same 
 
 A scope is a flag on the two entry scripts (`--ext`, `--lib`, `--root`, `--slow`,
 `--changed`, `--static`, `--serial`, `--watch`, `--dry-run`);
-[`../docs/development.md#scoped-runs`](../docs/development.md#scoped-runs) says
+[`../scripts/README.md#commands`](../scripts/README.md#commands) says
 which one a change needs.
 
 One case budget reaches both invocations. `helpers/budget.ts` states
@@ -118,7 +118,7 @@ gate is stated in the test.
    `test/doc-counts.test.ts`,
    `test/config-docs.test.ts`, `test/settings-coverage.test.ts`,
    `test/dependencies.test.ts`, `test/skill-bank.test.ts`,
-   `test/scripts-surface.test.ts`) — cross-cutting
+   `test/scripts-surface.test.ts`, `test/site-docs.test.ts`) — cross-cutting
    contracts. No capability suite may duplicate these. `shared-helpers.test.ts`
    fails an extension that reimplements what `lib/` owns, by name or by body, a
    test that re-declares or copies a `test/helpers` export, and one test file
@@ -358,6 +358,7 @@ test/
     fakes.ts  context.ts  process.ts  env.ts  entries.ts  config.ts
     git.ts    platform.ts  preload.ts  clock.ts  files.ts  comments.ts
     surface.ts             # the catalog and the registered surface, counted from the tree
+    docs.ts                # the Markdown readers the page contract shares (headings, sections, tables)
     board-page.ts          # the shipped board page, served over a fixture store
     board-browser.ts       # that page in a browser, over a board a suite seeds
     board-dom.ts           # the DOM shape a board suite's page predicates read, and the reads over it
@@ -380,9 +381,9 @@ test/
   drift.test.ts            # lib/README index and AGENTS.md word budget
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
-  architecture-doc.test.ts # docs/architecture.md: the paths it names, and every lib/ layer
+  site-docs.test.ts        # the docs site: the navigation table against the tree, the Pages config, and the copied assets
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
-  extension-docs.test.ts   # docs/extensions/: the template's order, the capabilities table, the registered surface in it, a Files row for every module (nested ones too), and a suite behind every `## Testing` stem
+  extension-docs.test.ts   # docs/extensions/: the page template's order, its 120-line cap, the registered surface on the page, the index, and a store's location on the page that owns it
   refactor-skill.test.ts   # the `refactor` skill's inventory script: measures, graph, churn, budget
   shared-helpers.test.ts   # no re-declared lib or test/helpers export, and no body two files share
   prompt-budget.test.ts    # injected-context size ceilings

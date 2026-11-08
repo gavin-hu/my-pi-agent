@@ -256,9 +256,10 @@ describe("the host packages", () => {
 
 describe("the documented footprint", () => {
 	/** The pages that state how big the pack is, where a reader weighs it. */
-	const pages = [join(root, "README.md"), join(root, "README.zh-CN.md"), join(root, "docs", "architecture.md")].map(
-		(file) => ({ file: relative(root, file), text: readFileSync(file, "utf-8") }),
-	);
+	const pages = [join(root, "README.md"), join(root, "README.zh-CN.md")].map((file) => ({
+		file: relative(root, file),
+		text: readFileSync(file, "utf-8"),
+	}));
 
 	/** A size a page states: `17 extensions`, `22 tools`, `17 个扩展`, `2 个随包技能`. */
 	const CLAIM = /(\d+)\s*(extensions|tools|skills|themes|个(?:随包)?(?:扩展|技能|工具|主题))(?![a-z0-9])/g;

@@ -56,7 +56,7 @@ describe("the region a path belongs to", () => {
 			["assets/cards/cards.css", "asset:cards"],
 			["assets/tools/board.png", "asset:tools"],
 			["assets/README.md", undefined],
-			["docs/development.md", undefined],
+			["docs/configuration.md", undefined],
 			["README.md", undefined],
 			["package.json", undefined],
 		];
@@ -153,7 +153,7 @@ describe("--changed", () => {
 
 	test("a clean tree runs the package-level tests, and a path no suite claims says so", () => {
 		expect(selectChanged(fake, [], index).tests).toEqual(["test/a.test.ts", "test/b.test.ts"]);
-		const docs = selectChanged(fake, ["docs/development.md"], index);
+		const docs = selectChanged(fake, ["docs/configuration.md"], index);
 		expect(docs.tests).toEqual(["test/a.test.ts", "test/b.test.ts"]);
 		expect(docs.reasons).toContain("no suite reaches these paths > package-level tests only");
 	});

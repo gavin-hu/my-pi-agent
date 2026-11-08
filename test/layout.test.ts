@@ -15,7 +15,6 @@ import { dirsOf, extensionsDir, filesIn, libDir, repo, testDir } from "./helpers
 import { EXTENSION_SUITES, declaredSuiteFiles } from "./suite-manifest.ts";
 
 const ROOT_TEST_FILES = new Set([
-	"architecture-doc.test.ts",
 	"boundaries.test.ts",
 	"config-docs.test.ts",
 	"conventions.test.ts",
@@ -36,6 +35,7 @@ const ROOT_TEST_FILES = new Set([
 	"scripts-surface.test.ts",
 	"settings-coverage.test.ts",
 	"shared-helpers.test.ts",
+	"site-docs.test.ts",
 	"skill-bank.test.ts",
 	"suite-sizes.test.ts",
 	"theme.test.ts",

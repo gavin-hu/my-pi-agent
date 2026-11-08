@@ -1,0 +1,46 @@
+{%- comment -%}
+  Everything the browser needs before the first paint: the document title and
+  description from the navigation table, the theme the reader last chose (read
+  before the stylesheet, so the page never flashes the wrong one), and the
+  stylesheet itself.
+{%- endcomment -%}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{%- comment -%}
+  The home page titles the site; every other page titles itself. `doc_title`
+  comes from `_data/docs.json`, so this needs no front matter in the body.
+{%- endcomment -%}
+{%- if page.path == "index.md" -%}
+  {%- assign page_title = site.title | append: " — " | append: site.description -%}
+{%- else -%}
+  {%- assign page_title = doc_title | append: " — " | append: site.title -%}
+{%- endif %}
+<title>{{ page_title }}</title>
+{%- if doc_summary != "" %}
+<meta name="description" content="{{ doc_summary | escape }}">
+{%- endif %}
+<meta property="og:site_name" content="{{ site.title }}">
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ page_title | escape }}">
+<meta property="og:description" content="{{ doc_summary | escape }}">
+<meta property="og:url" content="{{ page.url | absolute_url }}">
+<meta property="og:image" content="{{ '/assets/screens/chrome.webp' | absolute_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="{{ page.url | absolute_url }}">
+<link rel="icon" href="{{ '/assets/favicon.svg' | relative_url }}" type="image/svg+xml">
+<link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
+<script>
+  (function () {
+    var stored;
+    try {
+      stored = localStorage.getItem("theme");
+    } catch (error) {
+      stored = null;
+    }
+    var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.theme =
+      stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";
+  })();
+</script>

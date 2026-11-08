@@ -74,8 +74,8 @@ function docs(): string[] {
 }
 
 describe("the scripts surface", () => {
-	test("the scripts table in docs/development.md lists every entry", () => {
-		const rows = readFileSync(join(repo, "docs", "development.md"), "utf-8")
+	test("the scripts table in scripts/README.md lists every entry", () => {
+		const rows = readFileSync(join(repo, "scripts", "README.md"), "utf-8")
 			.split("\n")
 			.map((line) => /^\| `bun run ([A-Za-z0-9:_-]+)/.exec(line)?.[1])
 			.filter((name) => name !== undefined);
@@ -84,7 +84,7 @@ describe("the scripts surface", () => {
 		);
 		const undeclared = rows
 			.filter((name) => !SCRIPTS.includes(name))
-			.map((name) => `docs/development.md: the table names \`${name}\`, which package.json does not declare`);
+			.map((name) => `scripts/README.md: the table names \`${name}\`, which package.json does not declare`);
 		expect([...undocumented, ...undeclared]).toEqual([]);
 	});
 

@@ -1,0 +1,39 @@
+---
+layout: default
+---
+{%- comment -%}
+  A documentation page: the rendered Markdown, then the previous/next pair from
+  the navigation table. The Markdown keeps its own H1, so the page reads the
+  same in the repository and on the site.
+{%- endcomment -%}
+<article class="page">
+  <div class="prose">{{ content }}</div>
+  {%- assign flat = site.data.docs.pages -%}
+  {%- assign at = -1 -%}
+  {%- for doc in flat -%}
+    {%- if doc.path == page.path -%}{%- assign at = forloop.index0 -%}{%- endif -%}
+  {%- endfor -%}
+  {%- if at >= 0 -%}
+    {%- assign last = flat.size | minus: 1 -%}
+    <nav class="pager" aria-label="Previous and next page">
+      {%- if at > 0 -%}
+        {%- assign previous_index = at | minus: 1 -%}
+        {%- assign previous_doc = flat[previous_index] -%}
+        {%- assign previous_page = site.pages | where: "path", previous_doc.path | first -%}
+        <a class="pager-previous" href="{{ previous_page.url | relative_url }}">
+          <span class="pager-label">Previous</span>
+          <span class="pager-title">{{ previous_doc.title }}</span>
+        </a>
+      {%- endif -%}
+      {%- if at < last -%}
+        {%- assign next_index = at | plus: 1 -%}
+        {%- assign next_doc = flat[next_index] -%}
+        {%- assign next_page = site.pages | where: "path", next_doc.path | first -%}
+        <a class="pager-next" href="{{ next_page.url | relative_url }}">
+          <span class="pager-label">Next</span>
+          <span class="pager-title">{{ next_doc.title }}</span>
+        </a>
+      {%- endif -%}
+    </nav>
+  {%- endif -%}
+</article>

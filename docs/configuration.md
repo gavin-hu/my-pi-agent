@@ -562,6 +562,5 @@ state, not configuration; each extension's page under
 | Topic | Document |
 |---|---|
 | Changing settings on screen, for a user | [`bytefly`](./extensions/bytefly.md) |
-| Where configuration sits in the runtime | [Architecture](./architecture.md) |
 | Trust boundaries around state and credentials | [Security](./security.md) |
 | One extension's own configuration section | [`docs/extensions/<name>.md`](./extensions/) |

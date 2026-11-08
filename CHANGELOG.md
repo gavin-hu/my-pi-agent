@@ -11,6 +11,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `type` and `breaking`; both draw as one quiet label on the card face, in its dialog, and in
   the lead's queue, `list`'s `query` and the page's filter match them, `breaking: false`
   clears the marker, and a card that recorded neither draws nothing.
+- `docs`: the documentation is a Jekyll site built by GitHub Pages from `docs/`, with a
+  home page, an install guide, a theme of its own, and a sidebar over every page.
+- `docs`: every extension page is rewritten for a reader who uses the pack — what you can
+  do, one command to try, an optional walkthrough in `docs/tutorials/`, one reference
+  half, and how to switch the extension off.
+- `docs`: the contributor guides are retired; the conventions, the page template, and the
+  release steps live in `CONTRIBUTING.md`, and the command table in `scripts/README.md`.
 
 ## [0.25.1] - 2026-11-07
 
@@ -2854,9 +2861,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `docs`: the catalog now says its groups are the
   promises the roadmap tracks and that the
   user guide (`docs/user-guide/`) covers the same ground chapter by chapter; and the
-  Documentation table gains the [documentation index](./docs/README.md). The
+  Documentation table gains the [documentation index](`docs/README.md`). The
   capture rule moves to
-  [`docs/development.md`](./docs/development.md#screenshots), which now says the
+  ``docs/development.md`(`docs/development.md#screenshots), which now says the
   hero prints the floor `bun.lock` resolved and not the `pi` on `PATH`. The
   `worktree` catalogue row's unescaped pipes, which split it into four columns
   wherever the table is rendered, are escaped in both entry READMEs.
@@ -2876,10 +2883,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   folds its command table and alphabetical index into one three-column table,
   which also settles the five descriptions the two copies had drifted on.
 - `docs`: every extension's doc is one page under
-  [`docs/extensions/`](./docs/extensions/), and it opens with its capabilities —
+  [`docs/extensions/`` (`./docs/extensions/`), and it opens with its capabilities —
   one row per capability, the tool, command, or key that delivers it, and what
   you get. The template in
-  [`docs/development.md`](./docs/development.md#one-doc-per-extension) is rebuilt
+  [`docs/development.md`(`docs/development.md#one-doc-per-extension) is rebuilt
   around that section, the `README.md` beside each extension's code is gone, so
   the page is its only doc, and `test/extension-docs.test.ts` holds the heading
   order, the capability table, the Markdown-free `extensions/` tree, and the
@@ -2932,7 +2939,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   flat past the size: behaviour, the manifest entry, and every test are unchanged,
   and the count the roadmap states is still the tree's 34, held by
   `test/roadmap.test.ts`.
-- `docs`: [`docs/architecture.md`](./docs/architecture.md) is rewritten as the target
+- `docs`: [`docs/architecture.md`](`docs/architecture.md`) is rewritten as the target
   architecture rather than a snapshot of the tree: what the host loads, the four
   moments of an extension's life, the hook families, state and derived views, the
   three cooperation mechanisms, the four layers, the process shapes, the trust
@@ -3961,7 +3968,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   deleted memory note has no undo, and a busy browser port is reported rather than
   re-picked.
 
-- docs: [`docs/architecture.md`](./docs/architecture.md) is redesigned for a
+- docs: [`docs/architecture.md`](`docs/architecture.md`) is redesigned for a
   contributor — five diagrams (the load path, an extension's anatomy, a turn, the
   process shapes, and where new code belongs), the state stores, the three ways
   extensions cooperate, and a reading tour — explaining the reasons and linking
@@ -4213,7 +4220,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   command and points at getting started for git, a
   pinned release, a project-local install, and a trial that writes nothing, so
   the copy-paste options have one home; the `@vX.Y.Z` pin now lives on that page
-  alone, and the release steps in [`docs/development.md`](./docs/development.md)
+  alone, and the release steps in [`docs/development.md`](`docs/development.md`)
   say so.
 
 ## [0.13.1] - 2026-10-18
