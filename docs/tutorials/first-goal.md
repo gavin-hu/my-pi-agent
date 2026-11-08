@@ -39,7 +39,7 @@ Goal · active · make the uploader retry-safe, with tests, before Friday
 ```
 
 That is the whole widget: the phase, then the objective, clipped to the width.
-The model gets the same words as a `[SESSION GOAL]` bullet before each turn,
+The model gets the same words on a `[SESSION GOAL]` line before each turn,
 which is why the goal does not need repeating in every prompt — and why it stays
 out of the transcript.
 
@@ -61,10 +61,11 @@ for.
 
 ## Change it without starting work
 
-- `/goal set <text>` records the new wording and starts nothing;
+- `/goal set <text>` runs the same restatement and editor, then records it
+  without sending a turn;
 - `/goal edit` opens the current objective in an editor — `Enter` saves, `Esc`
   keeps the old one;
-- `/goal edit <text>` records the new wording and starts nothing either.
+- `/goal edit <text>` is the restatement path again, recorded without a turn.
 
 None of the three asks the planning question, because no work begins.
 
@@ -95,10 +96,11 @@ line.
 
 ## What survives
 
-The goal is written to the tool result and a session entry, so `/resume` and
-`/tree` restore the goal that belongs to the branch you land on; a branch you
-abandon takes its goal with it. One goal at a time: a new objective replaces the
-old one whole, and there are no sub-goals — that is what the task list is for.
+A tool call writes the goal to its result, and a `/goal` command to a session
+entry; either way it belongs to the branch, so `/resume` and `/tree` restore the
+one you land on and an abandoned branch takes its goal with it. One goal at a
+time: a new objective replaces the old whole, and there are no sub-goals — that
+is what the task list is for.
 
 ## Where to go next
 

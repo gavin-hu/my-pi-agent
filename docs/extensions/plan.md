@@ -43,8 +43,9 @@ plan exit 2026-10-09-1809-add-rate-limiting
 ✓ Plan approved
 ```
 
-Approving ends plan mode, hands write access back, and puts the plan's steps at
-the top of `/todos` — the same list you watch while the work runs. A full
+Approving ends plan mode, hands write access back, and puts the plan's steps into
+`/todos` — appended after any items already there, so the list is the one you
+watch while the work runs. A full
 walkthrough — refining, commenting, sharing with a teammate — is
 [Your first plan](../tutorials/first-plan.md).
 
@@ -74,8 +75,9 @@ nobody has started, so the list matches the plan you last read.
 anything: plan mode stays on.
 
 **Browser review.** `w` opens the same plan as a page: the title, the live comment
-count, **Approve & run**, **Save feedback**, and **Back to Pi**. Hover a block for
-**+ Comment**, or select text to quote it, then **Save feedback** to send the
+count, **Approve & run**, **Save feedback**, and **Back to Pi**. Hover a block and
+press the `+` in its margin (a button named "Comment on this block"), or select text
+to quote it, then **Save feedback** to send the
 comments back. A comment-only review has no approve action.
 
 **Sharing.** **Share** mints a link and QR for this Wi-Fi, one per teammate (at

@@ -33,8 +33,8 @@ match lands, or get an OS notification — instead of polling a log by hand.
 Watch the dev server's output for ERROR or Traceback.
 ```
 
-Then, in a later turn, the matched lines are there. `/watch` lists the watcher
-with its line and match counts, and `Enter` opens its matches.
+Then, in a later turn, the matched lines are there. `/watch` lists each watcher
+with its match count, and `Enter` opens its matches.
 [Run long work in the background](../tutorials/first-background.md) walks a job
 and the watcher that reads its log.
 

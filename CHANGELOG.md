@@ -29,6 +29,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sentence and the call it makes, with the one list of `/board` words a reader types — and the
   walkthrough now names session ownership, the plan path a contract needs, the `blocked` lane,
   one-way archiving, and the claim refusal in its own words.
+- `docs`: the walkthroughs stop describing screens the code does not draw — the rewind scopes and what a
+  non-terminal run does, `/goal set` and `edit` running the restatement, `/agents` ordering, the `/jobs`
+  row against its focus pane, the `/watch` row's match count alone, the todo rail hiding on completion,
+  `plan exit` opening the review, the 12-character repo key, where approved steps land in an existing
+  list, and the `+` in the browser review's margin — and `job`, `watch`, and `plan` say the same.
 - `docs`: the site shows where the reader is — the sidebar scrolls to the open page, the drawer
   closes with an ✕, keeps Tab among its links, and closes when the window outgrows it, the
   on-this-page rail marks nothing above the first section, search results span a phone's width,

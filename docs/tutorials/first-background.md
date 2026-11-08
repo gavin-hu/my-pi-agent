@@ -18,24 +18,25 @@ Run the full test suite in the background and tell me when it fails.
 The model starts it as a job. The command runs with stdout and stderr streamed to
 a log that rotates instead of filling the disk, and the turn comes back
 immediately — so you can read, edit, and ask questions while it runs.
-
 ## Look in on it
 
 ```text
 /jobs
 ```
 
-Running jobs come first, then recent ones, each with its command, directory,
-outcome, and last output line:
+Running jobs come first, then recent ones, each row carrying its id, a label for
+its command, and how long it has run. The focused row adds the rest — directory,
+outcome, and last line:
 
 | Key | What it does |
 |---|---|
 | `↑`/`↓` or `j`/`k` | select |
 | `Enter` or `l` | open the log (`g`/`G` jump, `Esc` returns) |
 | `d` | kill, after a `y`/`N` prompt |
-| `x` | clear finished jobs |
+| `x` | clear this session's finished jobs, after a prompt |
 | `Esc` | close the list |
 
+Clearing is not free: a result it had not reported to the model goes with it.
 A job another session started is shown tagged `peer`: its log opens, but it
 cannot be killed or cleared from here.
 
@@ -70,25 +71,27 @@ Watch the dev server's output for ERROR or Traceback.
 
 A file watcher follows a log from its end, a command watcher streams the command's
 merged output, and both take an exclude list and `caseSensitive: true` when the
-pattern needs it.
+pattern needs it. Then `/watch` lists them, one row each with its match count:
 
 ```text
 /watch
 ```
 
-lists every watcher with its line and match counts; `Enter` on a row opens its
-matches, `/watch matches <id>` prints them, and `/watch logs <id>` shows the raw
-tail when a pattern matched nothing. A watcher added with a wake raises a turn on
-its first match, and with `notify` on that match also leaves a desktop
-notification.
+`Enter` on a row opens its matches — the focused row is where the line count and
+the pattern are — and `/watch matches <id>` prints them, while `/watch logs <id>`
+shows the raw tail when a pattern matched nothing. A watcher added with a wake
+raises one turn as soon as the agent is idle, carrying every match that landed;
+with `notify` on, that turn also leaves a desktop notification.
 
 ## Leave it behind
 
 A detached job survives the session on POSIX; Windows refuses the flag rather
-than pretending, and a job there may settle as `unknown`. Detached or not, the
-registry and one log per job live under `~/.pi/agent/jobs/<project>/`, which is
-why a job reattached after a restart still has its output — and its real exit
-code, recorded by a shell `EXIT` trap.
+than pretending, and a job there may settle as `unknown`. Detached or not, one
+registry file per session, a marker per session, and one log per job live under
+`~/.pi/agent/jobs/<project>/`, which is why a job reattached after a restart
+still has its output — and its real exit code, recorded by a shell `EXIT` trap.
+A detached job writes its own log, with nothing to rotate it, so it grows until
+you clear it.
 
 ## Where to go next
 
