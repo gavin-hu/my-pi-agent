@@ -20,8 +20,9 @@ Todos · 1/3 · Writing the retry tests
 ```
 
 That is the whole status: how many items are done, and the one in progress. When
-the last item is done the rail reads `Todos · 3/3 completed`, and it leaves your
-screen when the list is cleared, so a finished job ends clean.
+the last item is done the rail leaves your screen — `hideWhenComplete` is on by
+default — so a finished job ends clean. Turn it off and the rail stays, reading
+`Todos · 3/3 completed`.
 
 ## Read the whole plan
 

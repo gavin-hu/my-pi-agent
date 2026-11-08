@@ -6,8 +6,9 @@ read its log, wait for it, or kill it.
 
 - **Started immediately, in the background**, with stdout and stderr streamed to
   a log that rotates instead of filling the disk.
-- **`/jobs` is the one screen**: running jobs first, then recent ones, each with
-  its command, directory, outcome, and last output line.
+- **`/jobs` is the one screen**: running jobs first, then recent ones, each row
+  showing its id, a command label, and how long it has run, with the focused row
+  adding the directory, outcome, and last output line.
 - **A finish can reach you**: reported at the next turn, or — with `wake` — it
   raises a turn as soon as the agent is idle.
 - **`detached` survives the session** on POSIX; Windows refuses it rather than

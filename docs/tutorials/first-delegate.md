@@ -59,8 +59,8 @@ For work that outlasts the turn, ask for it in the background:
 Have a worker write the tests in the background while I keep reading this diff.
 ```
 
-The call returns at once with a run id, and the child keeps going. Type `/agents`
-to see it:
+The call returns at once with a run id, and the child keeps going. `/agents`
+lists it:
 
 | Key | What it does |
 |---|---|
@@ -68,23 +68,27 @@ to see it:
 | `c` | collect a finished result into the conversation |
 | `x` | cancel a running one, killing its process group |
 
-`/agents` lists running runs first, then finished ones — also the runs whose
-session is gone. Up to four background children run at once; a finished run's
-collected output is capped at 50 KiB.
+The list is newest first, from this session's branch, so a run that never
+finished reads `interrupted` — a restart cannot resume it. Up to four background
+children run at once; what one hands back is capped at 50 KiB of text.
 
-## Keep the child on a leash
+## Ask for a narrower child
 
-Three parameters do most of the work, and you can ask for them by name:
+When the answer is all you want, say so in the sentence — the parameters are
+called by name when you do:
 
-- `readOnly: true` forces the reader toolset, whatever the agent file says.
-  Plan mode does this for you — while a plan is unapproved, every call is
-  read-only and a background run is refused.
-- `agentScope` decides where agent files come from: your own (`user`), the
-  project's `.pi/agents` (`project`), or both. A project directory loads only
-  when the project is trusted, so a repository cannot inject a prompt by adding
-  a file.
-- `cwd` roots one task or one step somewhere else — the worktree a `worker`
-  should write in, for instance.
+```text
+Have a read-only agent check whether any caller of the retry helper passes a
+negative count, and do not let it write anything.
+```
+
+That is `readOnly: true`: the reader toolset, whatever the agent file says. Plan
+mode turns it on for you, and while a plan is unapproved a background run is
+refused too. `agentScope` is the other one you may want: `user` for your own
+agent files, `project` for the repository's `.pi/agents`, or both — and an
+untrusted project's agents are offered, not assumed, so the dialog names them
+before any runs. `cwd` roots one task or step elsewhere: the worktree a `worker`
+should write in.
 
 An agent name that resolves to nothing is refused with the roster it did find.
 

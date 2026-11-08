@@ -23,16 +23,17 @@ delegated agent runs with writing forced off.
 
 ## Read the plan
 
-The model investigates, then saves a plan file and opens the review screen:
+The model investigates, then saves the plan file:
 
 ```text
 plan write Add rate limiting
-✓ Saved plan ~/.pi/agent/plans/a1f9c02/2026-10-09-1809-add-rate-limiting.md
+✓ Saved plan ~/.pi/agent/plans/a1f9c02b3d4e/2026-10-09-1809-add-rate-limiting.md
 ```
 
-On the screen: `n`/`p` jump between sections, the usual scroll keys move through
-the body, and the footer lists only the keys that apply. A plan you refined since
-the last look marks just the sections that changed.
+`plan exit` is what opens the review screen on that file. On the screen: `n`/`p`
+jump between sections, the usual scroll keys move through the body, and the footer
+lists only the keys that apply. A plan you refined since the last look marks just
+the sections that changed.
 
 | Key | What it does |
 |---|---|
@@ -45,19 +46,19 @@ the last look marks just the sections that changed.
 ## Approve it
 
 `a` asks once, naming what the answer does — plan mode off and how many steps it
-seeds into `todo` — and `y` or `Enter` confirms. Your task list now starts with
-the plan's steps, in order, with its verification section last. A session goal
-you had left as a draft is finalized from the plan's `## Goal`, without another
-dialog.
+seeds into `todo` — and `y` or `Enter` confirms. Your task list gains the plan's
+steps in order, appended after anything already on it and with the verification
+item last; on an empty list they are the whole list. A session goal you had left
+as a draft is finalized from the plan's `## Goal`, without another dialog.
 
 From here the model executes the plan it wrote; `plan steps` ticks a step in the
 file and in your todo list together.
 
 ## Comment in the browser
 
-`w` opens the review page on `127.0.0.1`. Hover a block for **+ Comment**, or
-select text first to quote it; **Save feedback** writes the comments into the
-plan file and returns them to the model as review notes.
+`w` opens the review page on `127.0.0.1`. Hover a block and press the `+` in its
+margin, or select text first to quote it; **Save feedback** writes the comments
+into the plan file and returns them to the model as review notes.
 
 For a teammate, **Share** prints a reviewer link and a QR code a phone can scan.
 Each person gets a link of their own (**New link**), a reviewer's first post binds
