@@ -39,6 +39,8 @@ subagent({ agent: "explorer", task: "Find where HTTP is retried" })
 ```
 
 The child works in its own process; the reply is the summary, with its usage.
+[Hand a task to another agent](../tutorials/first-delegate.md) walks one agent, a
+parallel batch, a chain, and a background run you collect from `/agents`.
 
 ## Reference
 
@@ -95,6 +97,7 @@ extension off, toggle `subagent` in `/bytefly`; the tool and `/agents` go with i
 
 ## Learn more
 
+- [Hand a task to another agent](../tutorials/first-delegate.md) — the walkthrough.
 - [`plan`](../extensions/plan.md) — read-only delegation while planning.
 - [`team`](../extensions/team.md) — delegating between sessions, not agents.
 - [`worktree`](../extensions/worktree.md) — where a worker's writes land.

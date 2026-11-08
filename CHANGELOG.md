@@ -22,6 +22,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   commands, and one sentence, with the reference left to the page that owns it — and
   `test/drift.test.ts` holds the catalog's word budget so a table cell cannot grow back into
   a copy of that page.
+- `docs`: four walkthroughs join the tutorial set — handing a task to a specialist agent,
+  running long work in the background with a watcher on its log, rewinding to an earlier
+  prompt, and giving the session a goal — each linked from the extension page that owns it.
+- `docs`: the board's walkthrough and its page stop presenting the tool's actions as commands — a
+  sentence and the call it makes, with the one list of `/board` words a reader types — and the
+  walkthrough now names session ownership, the plan path a contract needs, the `blocked` lane,
+  one-way archiving, and the claim refusal in its own words.
 - `docs`: the site shows where the reader is — the sidebar scrolls to the open page, the drawer
   closes with an ✕, keeps Tab among its links, and closes when the window outgrows it, the
   on-this-page rail marks nothing above the first section, search results span a phone's width,

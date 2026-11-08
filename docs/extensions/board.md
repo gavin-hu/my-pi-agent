@@ -36,12 +36,15 @@ are needed before it can ship.
 ## Try it
 
 ```text
-board add "Billing webhook accepts orders" paths ["src/billing"]
-board claim 1
+Put the billing webhook's order acceptance on the board, under src/billing.
 ```
 
+The model calls `board({ action: "add", … })` and then, when you say so,
+`board({ action: "claim", card: "1" })`. Those are tool actions, not commands:
+you type only `/board archive|approve|review|status|stop|team`.
+
 The claim's result names the next step — design it in plan mode, save the plan,
-record the contract — and `board approve 1` will refuse it until the contract
+record the contract — and `/board approve 1` will refuse it until the contract
 names a plan file in this repository's store.
 
 Every card's last line says what it needs next, so a lane can be read without
