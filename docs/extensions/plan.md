@@ -33,7 +33,14 @@ The model reads the code and the git history, never the write path. When it is
 done it saves a plan under `~/.pi/agent/plans/<repo-key>/` and opens the review
 screen; `a` approves it, `r` sends it back for a change.
 
-A full walkthrough — refining, commenting, sharing with a teammate — is
+```text
+plan exit 2026-10-09-1809-add-rate-limiting
+✓ Plan approved
+```
+
+Approving ends plan mode, hands write access back, and puts the plan's steps at
+the top of `/todos` — the same list you watch while the work runs. A full
+walkthrough — refining, commenting, sharing with a teammate — is
 [Your first plan](../tutorials/first-plan.md).
 
 ## Reference
@@ -43,32 +50,34 @@ The `plan` tool has five actions; `/plan` is the command that drives it.
 | Action | What it does |
 |---|---|
 | `enter` | take write access away, after asking you |
-| `write` | save the plan file; `plan_path` refines an existing one |
+| `write` | save the plan file; pass the file it returned to refine it |
 | `exit` | read the plan back and present it for approval |
 | `steps` | tick a step in the file and in its todo item, in one call |
 | `cancel` | leave plan mode, keeping any saved plan |
 
-**The plan file.** `<agent-dir>/plans/<repo-key>/<date>-<slug>.md`, one store per
-repository, shared by its worktrees. A refinement keeps the previous text beside
-it as a dotfile, up to five revisions, so two rounds are diffable. The file is
-the artifact the model executes; approval records its steps in `todo` and, when
-a goal was only drafted, sets the session goal from the plan's `## Goal`.
+**The plan file.** `~/.pi/agent/plans/<repo-key>/<date>-<slug>.md` — one store per
+repository, shared by its worktrees. Each refinement keeps the previous text
+beside it as a hidden file, five deep, so two rounds can be compared. The plan is
+what the model follows: approving it seeds its steps into your todo list, and
+finalizes a session goal that was only drafted, from the plan's own `Goal`.
 
 **Review screen keys.** `a` approve (`y`/`Enter` confirms), `r` refine inline,
 `Esc` keep planning, `x` exit without approving, `w` open the browser review,
-`n`/`p` jump sections. `Ctrl+C` interrupts without settling the review: plan mode
-stays on.
+`n`/`p` jump sections. `Ctrl+C` interrupts without approving or rejecting
+anything: plan mode stays on.
 
 **Browser review.** The page carries the plan's title, the live comment count,
 **Approve & run**, **Save feedback**, and **Back to Pi**; a comment-only review
 has no approve action. Hover a block for **+ Comment**, or select text to quote
 it. **Share** opens the review on this Wi-Fi with a link and QR per teammate (at
 most eight), each binding the reviewer's name on its first post; **Revoke** drops
-one link. Only the serving machine may approve, cancel, save, or share.
+one link. Only the machine that opened the review may approve, cancel, save, or
+share; a reviewer reads and comments.
 
-**Read-only means:** readers stay, writers go; `git status`, `diff`, `log`, and
-`show` still run through `bash`, and any other command, redirect, or path outside
-the project is refused. A delegated agent runs with `readOnly: true`.
+**Read-only means:** the model keeps what reads and loses what writes. It can
+still look at the repository's git status and history; a write, an edit, a shell
+redirect, or a path outside the project is refused. A delegated agent runs with
+writing forced off.
 
 ## Limits
 
@@ -81,6 +90,11 @@ the project is refused. A delegated agent runs with `readOnly: true`.
 - The browser review needs `serve` and a local browser; a reviewer's page is only
   reachable while its link is shared.
 - The plans directory is the only index — nothing deletes a plan for you.
+
+## Settings
+
+Plan mode has no `bytefly.json` keys — the mode is the extension. To switch it
+off, toggle `plan` in `/bytefly`; the tool, the command, and the mode go with it.
 
 ## Learn more
 
