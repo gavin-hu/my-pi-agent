@@ -3,10 +3,11 @@
  *
  * `board-page.ts` serves the page; this boots the reader's side of it — a temp board, a
  * headless Chrome with no profile of its own, and a tab waited until its first frame has
- * landed. Two suites drive that page now (what a reader can do on it, and what a frame
- * repaints), and a bootstrap written twice is how one of them ends up waiting on something
- * the other has moved: a suite passes the board it wants and the clock it is read against,
- * and everything below that is one statement.
+ * landed. Four suites drive that page now (what a reader can do on it, the card dialog, the
+ * kind a face wears, and what a frame repaints), each through the one tab `reuse()` hands
+ * out, and a bootstrap written twice is how one of them ends up waiting on something the
+ * other has moved: a suite passes the board it wants and the clock it is read against, and
+ * everything below that is one statement.
  *
  * A machine with no browser has `BOARD_CHROME === undefined`, which a suite hands to
  * `describe.skipIf` so `bun run check` stays green there and still says why nothing ran.
@@ -56,18 +57,16 @@ export interface BoardBrowser {
 	store: BoardStore;
 	/** The store's directory, for a suite that writes a file beside the cards. */
 	directory: string;
-	/** A fresh tab on the served page, waited until its first frame has landed. */
-	open(): Promise<Page>;
 	/**
 	 * The one tab this suite reads, its document reloaded for every case.
 	 *
-	 * `open()` buys a tab each time, and the tab is the expensive half of that boot — measured
-	 * on a machine with Chrome, ~400 ms against ~65 ms for a reload of one already open. What a
-	 * case needs is a document that inherited nothing from the last: no stream, no repaint in
-	 * flight, no filter, fold, tab, mark, or focus. A reload gives exactly that, and the one
-	 * thing Playwright keeps across it — the viewport, because it belongs to the tab and not to
-	 * the document — is put back before the reload. The caller must not close the page:
-	 * `close()` closes the browser, which closes it.
+	 * A tab is the expensive half of a boot — measured on a machine with Chrome, ~400 ms against
+	 * ~65 ms to reload one already open — so a suite buys one and reloads its document. That is
+	 * what a case needs anyway: a document that inherited nothing from the last, with no stream,
+	 * no repaint in flight, no filter, fold, tab, mark, or focus. The one thing Playwright keeps
+	 * across a reload — the viewport, because it belongs to the tab and not to the document — is
+	 * put back before it. The caller must not close the page: `close()` closes the browser, which
+	 * closes it.
 	 */
 	reuse(): Promise<Page>;
 	/**
@@ -131,7 +130,6 @@ export async function openBoardBrowser(options: BoardBrowserOptions): Promise<Bo
 	return {
 		store,
 		directory,
-		open: () => tab(server.url),
 		tab,
 		reuse: async () => {
 			if (shared === undefined) {

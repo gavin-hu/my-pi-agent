@@ -63,7 +63,7 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 	}, 30_000);
 
 	test("repaints a card that gains a card waiting on it", async () => {
-		const page = await board.open();
+		const page = await board.reuse();
 		// The other half of a link is the reason line's, after a middot: one row for one edge.
 		const holds = () => page.textContent('#lane-execute .board-card[data-card="2"] .board-card__reason');
 		await expect(holds()).resolves.toContain("holds up #1 (backlog) Export orders as CSV");
@@ -81,11 +81,10 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		await expect(holds()).resolves.toContain(
 			"holds up #1 (backlog) Export orders as CSV, #3 (backlog) Invoice totals round the wrong way",
 		);
-		await page.close();
 	});
 
 	test("repaints a card that stops waiting when its blocker is finished", async () => {
-		const page = await board.open();
+		const page = await board.reuse();
 		const reason = () => page.textContent('#lane-backlog .board-card[data-card="1"] .board-card__reason');
 		await expect(reason()).resolves.toBe("waits on #2 (execute) Wire retries into the webhook");
 		// Another session finishes the blocker: its revision moves and the waiting card's own
@@ -95,6 +94,5 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		await page.locator('#lane-done .board-card[data-card="2"]').waitFor({ state: "attached", timeout: PAINT_MS });
 		// It waits on nothing now, so the line is the card's own last note again.
 		await expect(reason()).resolves.toBe(NOTE);
-		await page.close();
 	});
 });

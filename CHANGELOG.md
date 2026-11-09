@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `dev`: the board page's other three browser suites read it through the one tab too —
+  `dialog-behaviour` (12 tabs), `kind` (4) and `repaint` (2) — so `BoardBrowser.open()` is gone
+  and a suite buys a tab once. Paired runs alternating old and new: 14.26 s / 20.88 s wall and
+  14.7 s / 15.7 s CPU before, 10.70 s / 16.85 s wall and 5.9 s / 6.7 s CPU after.
+
 - `worktree`: `enter` reads a worktree's lock before it touches it, so a second session can no
   longer reopen — or `reset --hard` — a checkout a first session is working in. A live session's
   lock is a refusal naming its `pi:<pid>:<session>` reason and leaving the checkout where it was;
