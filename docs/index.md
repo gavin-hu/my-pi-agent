@@ -31,9 +31,10 @@ or off, its settings changed, and `/bytefly doctor` names anything missing.
 ## What you get
 
 21 extensions, 3 packaged skills, and 2 themes, grouped by the promises this
-page makes. The [extension index](./extensions/README.md) lists every one, and
-the [README](https://github.com/gavin-hu/my-pi-agent#what-you-get) carries the
-same catalog with the tools and commands each delivers.
+page makes. The [extension index](./extensions/README.md) and the
+[skill index](./skills/README.md) list every one, and the
+[README](https://github.com/gavin-hu/my-pi-agent#what-you-get) carries the same
+catalog with the tools and commands each delivers.
 
 - **Plan before writing.** `plan` keeps a task in read-only planning mode, saves a
   plan under `~/.pi/agent/plans/<repo-key>`, and waits for your approval.
@@ -58,9 +59,9 @@ advertised to the model, and its instructions load only when the task matches
 
 | Skill | What it does |
 |---|---|
-| `init` | Creates or updates the instruction file Pi reads, through an interactive interview and a plan you review. |
-| `refactor` | Audits for duplication, oversized modules, coupling, and drift, then carries the refactor you pick. |
-| `next` | Suggests what to do next from this conversation, or from the tree when it is empty. |
+| [`init`](./skills/init.md) | Creates or updates the instruction file Pi reads, through an interactive interview and a plan you review. |
+| [`refactor`](./skills/refactor.md) | Audits for duplication, oversized modules, coupling, and drift, then carries the refactor you pick. |
+| [`next`](./skills/next.md) | Suggests what to do next from this conversation, or from the tree when it is empty. |
 
 ### Themes
 
