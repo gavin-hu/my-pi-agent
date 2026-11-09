@@ -11,7 +11,7 @@ import {
 } from "./agents.ts";
 import { finishedEvent } from "./accounting.ts";
 import { DEFAULT_SUBAGENT_CONFIG, loadSubagentConfig, normalizeSubagentConfig } from "./config.ts";
-import { buildAgentArgs, getPiInvocation } from "./invocation.ts";
+import { buildAgentArgs, getPiInvocation, READ_ONLY_TOOLS } from "./invocation.ts";
 import { MAX_CHAIN_STEPS, MAX_PARALLEL_TASKS, resolveMode, SubagentParams } from "./schema.ts";
 import { emptyUsage } from "./stream.ts";
 import type { SingleResult } from "./types.ts";
@@ -372,18 +372,17 @@ describe("buildAgentArgs", () => {
 		expect(valueAfter(args, "--append-system-prompt")).toBe("/tmp/prompt.md");
 	});
 
-	test("readOnly narrows an agent's tools to the reader allowlist", () => {
-		const args = buildAgentArgs(worker, "t", {}, null, true);
-		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,read_doc");
+	test("readOnly narrows declared tools to the reader allowlist, and forces it for none", () => {
+		const narrowed = buildAgentArgs(worker, "t", {}, null, true);
+		expect(valueAfter(narrowed, "--tools")).toBe("read,grep,find,ls,read_doc");
+		const inherited = buildAgentArgs({ ...worker, tools: undefined }, "t", {}, null, true);
+		expect(valueAfter(inherited, "--tools")).toBe("read,grep,find,ls,read_doc,web_search");
 	});
 
-	test("readOnly forces the reader allowlist for an agent with no tools", () => {
-		const inherit = { ...worker, tools: undefined };
-		const args = buildAgentArgs(inherit, "t", {}, null, true);
-		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,read_doc,web_search,web_fetch");
-	});
-
-	test("readOnly never passes a writing or shell tool", () => {
+	test("readOnly never passes a writing, shell, or fetching tool", () => {
+		const declared = { ...worker, tools: ["read", "web_fetch"] };
+		expect(valueAfter(buildAgentArgs(declared, "t", {}, null, true), "--tools")).toBe("read");
+		expect([...READ_ONLY_TOOLS]).not.toContain("web_fetch");
 		const tools = valueAfter(buildAgentArgs(worker, "t", {}, null, true), "--tools")!.split(",");
 		for (const denied of ["write", "edit", "bash", "powershell", "subagent"]) {
 			expect(tools).not.toContain(denied);

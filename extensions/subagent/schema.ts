@@ -72,7 +72,9 @@ export const SubagentParams = Type.Object({
 	),
 	readOnly: Type.Optional(
 		Type.Boolean({
-			description: "Force a read-only tool set (readers only). Plan mode sets this.",
+			description:
+				"Force a read-only tool set: the workspace readers, `read_doc`, and `web_search` — no writing tool " +
+				"and no `web_fetch`. Plan mode sets this.",
 		}),
 	),
 	background: Type.Optional(
