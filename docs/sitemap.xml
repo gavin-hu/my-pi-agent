@@ -1,0 +1,20 @@
+---
+layout: null
+permalink: /sitemap.xml
+---
+<?xml version="1.0" encoding="UTF-8"?>
+{%- comment -%}
+  The pages a crawler may index, built from `_data/docs.json` so the sitemap and the
+  sidebar cannot disagree about which pages exist: a page added to the table is in both,
+  and one the table drops leaves both. The URL comes from the page `site.pages` reports —
+  the way `search.json` resolves it — because `permalink: pretty` gives a page a URL that
+  is not its file name. The not-found page has no row, and is not a page to index.
+{%- endcomment -%}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{%- for doc in site.data.docs.pages %}
+  {%- assign found = site.pages | where: "path", doc.path | first %}
+  {%- if found %}
+    <url><loc>{{ found.url | absolute_url }}</loc></url>
+  {%- endif %}
+{%- endfor %}
+</urlset>

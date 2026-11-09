@@ -3,6 +3,12 @@
 # https://gavin-hu.github.io/my-pi-agent/, and every generated URL goes through
 # `relative_url`.
 title: my-pi-agent
+# The home page's title tail, read against the brand, so it has to fit a search
+# result where the description below does not.
+tagline: A personal Pi coding-agent package
+# What a page the navigation table does not list falls back to: the not-found page,
+# and any share of it. A listed page's own summary in `_data/docs.json` is its
+# description, so this one is not the site's description as such.
 description: A Pi package of extensions, skills, and themes for working in a terminal.
 url: "https://gavin-hu.github.io"
 baseurl: "/my-pi-agent"

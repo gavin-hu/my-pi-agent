@@ -13,7 +13,7 @@
   or the fallback would name the site twice.
 {%- endcomment -%}
 {%- if page.path == "index.md" -%}
-  {%- assign page_title = site.title | append: " — " | append: site.description -%}
+  {%- assign page_title = site.title | append: " — " | append: site.tagline -%}
 {%- elsif doc_title == site.title and page.title -%}
   {%- assign page_title = page.title | append: " — " | append: site.title -%}
 {%- else -%}
@@ -23,16 +23,41 @@
 {%- if doc_summary != "" %}
 <meta name="description" content="{{ doc_summary | escape }}">
 {%- endif %}
+{%- assign share_alt = "A Pi session wearing the my-pi-agent header, footer, and transcript blocks." %}
+{%- comment -%}
+  What a share of this page looks like in the chat it is pasted into: a title, one
+  sentence, and a picture the unfurler can render. The picture is the PNG rather than the
+  page's lighter WebP, because an unfurler older than the format ignores it, and its size
+  is declared so the card is laid out before the image arrives. `twitter:*` repeats the
+  og values instead of carrying its own copy: a card and a preview of the same URL should
+  not disagree. The home page is the site, so it alone declares `og:type` website; every
+  other page is a document on it.
+{%- endcomment %}
 <meta property="og:site_name" content="{{ site.title }}">
-<meta property="og:type" content="article">
+<meta property="og:type" content="{% if page.path == "index.md" %}website{% else %}article{% endif %}">
+<meta property="og:locale" content="en_US">
 <meta property="og:title" content="{{ page_title | escape }}">
 <meta property="og:description" content="{{ doc_summary | escape }}">
 <meta property="og:url" content="{{ page.url | absolute_url }}">
-<meta property="og:image" content="{{ '/assets/screens/chrome.webp' | absolute_url }}">
+<meta property="og:image" content="{{ '/assets/screens/chrome.png' | absolute_url }}">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1678">
+<meta property="og:image:height" content="1264">
+<meta property="og:image:alt" content="{{ share_alt }}">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ page_title | escape }}">
+<meta name="twitter:description" content="{{ doc_summary | escape }}">
+<meta name="twitter:image" content="{{ '/assets/screens/chrome.png' | absolute_url }}">
+<meta name="twitter:image:alt" content="{{ share_alt }}">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+{%- comment -%}
+  The not-found page answers under whichever URL was asked for, so a canonical for it
+  would name a page nobody requested.
+{%- endcomment %}
+{%- unless page.path == "404.html" %}
 <link rel="canonical" href="{{ page.url | absolute_url }}">
+{%- endunless %}
 <link rel="icon" href="{{ '/assets/favicon.svg' | relative_url }}" type="image/svg+xml">
 <link rel="stylesheet" href="{{ '/assets/css/site.css' | relative_url }}">
 <script>

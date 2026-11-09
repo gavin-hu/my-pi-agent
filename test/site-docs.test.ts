@@ -285,6 +285,111 @@ describe("the build", () => {
 	});
 });
 
+/**
+ * The meta a page declares about itself: what a search result reads, and what a share of
+ * the link looks like once it is pasted into a chat.
+ *
+ * The Liquid is reviewed rather than run, so what is held here is the facts the templates
+ * promise — which files exist, what they loop, which size they claim — and the rendered
+ * HTML is left to that review, the same bargain as the build cases above.
+ */
+describe("the meta the site emits", () => {
+	/** The one include every page wears: a tag is written once, here, not per page. */
+	const head = pageText("_includes/head.html");
+
+	/** A `<meta>` tag's content, by the `property` or `name` that names it. */
+	function meta(key: string): string {
+		return new RegExp(`<meta (?:property|name)="${key}" content="([\\s\\S]*?)">`).exec(head)?.[1] ?? "";
+	}
+
+	/** The site file `og:image` names, as a path under `docs/`. */
+	function shareImage(): string {
+		return /<meta property="og:image" content="\{\{ '\/([^']+)' \| absolute_url \}\}">/.exec(head)?.[1] ?? "";
+	}
+
+	test("shares the screenshot as a raster image, at the size the file reports", () => {
+		// An unfurler older than WebP renders nothing for the page's own lighter copy, and the
+		// width and height are what the card reserves before the image arrives: a recapture that
+		// changes the frame has to move them in the same commit.
+		const image = shareImage();
+		const file = join(docs, image);
+		expect(image, "head.html: og:image names no site asset").toMatch(/\.(?:png|jpe?g)$/);
+		expect(existsSync(file), `head.html: og:image names ${image}, which is not under docs/`).toBe(true);
+		const size = imageSize(file);
+		expect(size, `${image}: no readable pixel size`).toBeDefined();
+		expect(
+			{ width: meta("og:image:width"), height: meta("og:image:height"), type: meta("og:image:type") },
+			`head.html: the declared og:image size is not ${image}'s`,
+		).toEqual({
+			width: String(size?.width),
+			height: String(size?.height),
+			type: image.endsWith(".png") ? "image/png" : "image/jpeg",
+		});
+		// The card and the preview are one picture, so a re-point moves both or neither.
+		expect(meta("twitter:image"), "head.html: twitter:image disagrees with og:image").toContain(`'/${image}'`);
+		// Alt text describes the frame; the page's summary is already on the description tags.
+		expect(head, "head.html: the share image carries no alt text").toMatch(/assign share_alt = "[^"]{20,}"/);
+	});
+
+	test("calls the home page a website, and every other page an article", () => {
+		// One document is the site and the rest are pages on it, which is the distinction an
+		// unfurler lays its card out by.
+		const type = meta("og:type");
+		expect(type, "head.html: og:type names no page kind").toContain("website");
+		expect(type, "head.html: og:type names no second page kind").toContain("article");
+		expect(type, "head.html: og:type does not branch on the home page").toContain('page.path == "index.md"');
+	});
+
+	test("keeps the not-found page out of the canonical", () => {
+		// Pages serves this document under whichever path was mistyped, so a canonical would
+		// name a page nobody asked for — and two of them would tell a crawler nothing at all.
+		const guarded =
+			/\{%-?\s*unless page\.path == "404\.html"\s*-?%\}([\s\S]*?)\{%-?\s*endunless\s*-?%\}/.exec(head)?.[1] ?? "";
+		expect(guarded, "head.html: the canonical is not guarded against the not-found page").toContain('rel="canonical"');
+		expect(head.match(/rel="canonical"/g)?.length, "head.html: more than one canonical").toBe(1);
+	});
+
+	test("titles the home page from a tagline that fits, and keeps the description as the fallback", () => {
+		// The description is a sentence for a snippet; the title is a line the brand shares with
+		// it, and a search result cuts around 60 columns.
+		const config = readFileSync(join(docs, "_config.yml"), "utf-8");
+		const tagline = /^tagline:\s*(\S.*)$/m.exec(config)?.[1].trim() ?? "";
+		expect(tagline, "_config.yml: no tagline for the home title").not.toBe("");
+		expect(
+			`my-pi-agent — ${tagline}`.length,
+			"_config.yml: the home title is longer than a search result shows",
+		).toBeLessThanOrEqual(60);
+		expect(head, "head.html: the home title appends the description, not the tagline").toContain(
+			"append: site.tagline",
+		);
+		expect(/^description:\s*\S/m.test(config), "_config.yml: the unlisted-page fallback went missing").toBe(true);
+	});
+
+	test("ships a sitemap over the navigation table, and lists nothing the sidebar does not", () => {
+		// Built from `_data/docs.json` rather than walked, so a page added to the table is in the
+		// sitemap and a page the table drops leaves it; `site.pages` supplies the URL, as
+		// `search.json` does, because `permalink: pretty` makes it something other than the file
+		// name. One `<url>` in the template means the loop is the only source of one.
+		const sitemap = pageText("sitemap.xml");
+		expect(sitemap.startsWith("---\nlayout: null\npermalink: /sitemap.xml\n---\n<?xml")).toBe(true);
+		expect(sitemap, "sitemap.xml: not built from the navigation table").toContain("for doc in site.data.docs.pages");
+		expect(sitemap, "sitemap.xml: does not resolve the row's URL").toContain('site.pages | where: "path", doc.path');
+		expect(sitemap).toContain("{{ found.url | absolute_url }}");
+		expect(sitemap.match(/<url>/g)?.length, "sitemap.xml: a URL outside the navigation loop").toBe(1);
+	});
+
+	test("points robots.txt at the sitemap, absolutely", () => {
+		// The protocol has no base to resolve a relative path against, and the site lives under a
+		// baseurl, so `absolute_url` is the only form that reaches the file.
+		const robots = pageText("robots.txt");
+		expect(robots.startsWith("---\nlayout: null\npermalink: /robots.txt\n---\n")).toBe(true);
+		expect(robots).toContain("User-agent: *");
+		expect(robots, "robots.txt: the sitemap is not named absolutely").toContain(
+			"Sitemap: {{ '/sitemap.xml' | absolute_url }}",
+		);
+	});
+});
+
 describe("the assets the site shows", () => {
 	/**
 	 * Pictures the site serves in a lighter form than the one the capture scripts
