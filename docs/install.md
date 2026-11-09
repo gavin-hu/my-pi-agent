@@ -76,9 +76,10 @@ pi remove npm:@gavin-hu/my-pi-agent
 ```
 
 To keep the package and switch a part off, use `/bytefly` — an extension's
-checkbox applies to the global scope, or to the project scope with `s` — or edit
-`bytefly.json` directly. Every extension, skill, and theme can be turned off
-without touching the others.
+checkbox applies to the global scope, or to the project scope with `s` — or set
+`PI_DISABLED_EXTENSIONS` for one run. Every extension, skill, and theme can be
+turned off without touching the others, and
+[A minimal install](./minimal-install.md) is the page that says which to keep.
 
 ## Next steps
 

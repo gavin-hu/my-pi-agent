@@ -104,6 +104,18 @@
       "summary": "What the pack opens on your machine, and how each surface is gated."
     },
     {
+      "path": "multi-session.md",
+      "title": "Several sessions",
+      "group": "Guides",
+      "summary": "Coordinate two or more sessions on one repository: the cards, the bus, and the lead's round."
+    },
+    {
+      "path": "minimal-install.md",
+      "title": "A minimal install",
+      "group": "Guides",
+      "summary": "What each part costs while it is on, and how to run the pack with most of it switched off."
+    },
+    {
       "path": "extensions/README.md",
       "title": "All extensions",
       "group": "Extensions",
