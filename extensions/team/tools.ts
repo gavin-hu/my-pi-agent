@@ -226,7 +226,14 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			// Past the argument refusals, every branch below waits — on the store, on the bus, or on
 			// the join — so the row says it is working from here rather than staying motionless.
 			startToolProgress(onUpdate);
-			const me = await session.who(ctx, ctx.cwd);
+			// Reading the name fails like anything else can, and that failure is a refusal: a team
+			// verb that throws is one the transcript cannot draw and the lead cannot read.
+			const actor = await session.who(ctx, ctx.cwd).then(
+				(known) => known,
+				(error: unknown) => messageOf(error),
+			);
+			if (typeof actor === "string") return refusal(action, actor);
+			const me = actor;
 			// The join every verb a peer answers by mail asks for, built once per call from the
 			// name the reply line names — so the round never keeps a second copy of its label.
 			const join = (): Promise<void> => joinRound(ctx, me.label);

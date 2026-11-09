@@ -134,6 +134,21 @@ describe("the window the store holds it for", () => {
 		expect(existsSync(lockPathFor(dir))).toBe(false);
 	});
 
+	test("names the board, not the card, when a write never got the lock", async () => {
+		const dir = board();
+		const store = createStore(dir);
+		const card = await store.create({ title: "T", paths: [] }, LEAD, NOW);
+		// A live holder for the whole wait: every attempt loses the board, and none of them learns
+		// anything about the card — which is why the sentence names what kept it out.
+		const held = await lockBoard(dir, { waitMs: 0 });
+		if (held === undefined) throw new Error("expected the lock");
+		const result = await store.mutate(card.id, { kind: "note", text: "late" }, LEAD, NOW);
+		await held.release();
+		expect(result.ok).toBe(false);
+		expect(result.ok ? "" : result.error).toBe(`#${card.id} was being written by another session; read it again.`);
+		expect((await store.read(card.id))?.notes).toEqual([]);
+	});
+
 	test("a lock file beside the cards is neither a card nor a skip", async () => {
 		const dir = board();
 		const store = createStore(dir);

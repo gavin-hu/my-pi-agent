@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the sentence a write that never got the board's lock returns now says so —
+  "another session's write got there first" — rather than claiming the card itself changed,
+  which with one lock per board was the less likely of the two causes. The way out is the
+  same: read it again.
+
+- `board` and `team`: reading the session's own name is a refusal now, not a throw. A roster
+  or store failure before the first write took the whole call down, so the transcript had no
+  row to draw and no details to replay; both tools turn it into the same error result every
+  other failure path produces, the board naming itself as the actor because the session
+  could not.
+
 - `board`: an archived card's record is closed — `note`, `edit` and `review --override` were
   applied to a card in the archive pile, changing a title or a note that neither `list`, the
   round, nor the page would ever show again, because the pile a write carried was never asked
