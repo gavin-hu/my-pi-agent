@@ -7,9 +7,6 @@
  * lives in `../capture/`, and the command that drives both is `../screenshots.ts`.
  */
 
-import { CompactionSummaryMessageComponent, getMarkdownTheme } from "@earendil-works/pi-coding-agent";
-import { PanelComponent } from "../../extensions/bytefly/panel/tui.ts";
-import { createPickerRuntime } from "../../extensions/bytefly/picker/runtime.ts";
 import { JobListComponent } from "../../extensions/job/view/jobs-screen.ts";
 import { MemoryPickerComponent } from "../../extensions/memory/view/memory-picker.ts";
 import { PlanViewComponent } from "../../extensions/plan/tui.ts";
@@ -24,20 +21,12 @@ import { WorktreeListComponent } from "../../extensions/worktree/screen.ts";
 import { StatusScreenComponent } from "../../extensions/wechat/view/status-screen.ts";
 import { pageColors, setThemeInstance, theme } from "../theme.ts";
 import { frameLines } from "./frames.ts";
-import { makeDiscovery, makeStore } from "../../test/helpers/fixtures/picker.ts";
 import {
 	AGENT_RUNS,
 	BUS_BOARD,
 	CONTEXT_REPORT,
 	JOBS,
 	MEMORY_CALLBACKS,
-	PANEL_AGENT_DIR,
-	PANEL_CWD,
-	PANEL_ITEMS,
-	PANEL_REPORTS,
-	PANEL_SETTING_VIEWS,
-	PANEL_SKILL_INDEX,
-	PANEL_SKILL_ITEMS,
 	PLAN,
 	PLAN_BASELINE,
 	QUESTIONS,
@@ -50,9 +39,8 @@ import {
 	WATCHES,
 	WECHAT_VIEW,
 	WORKTREE_SNAPSHOT,
-	focusRow,
 } from "./fixtures/index.ts";
-import { renderHeroFrame, renderTranscriptFrame } from "./whole-window.ts";
+import { renderHeroFrame } from "./whole-window.ts";
 
 export interface Screen {
 	asset: string;
@@ -72,57 +60,7 @@ export interface Screen {
 	render(width: number, rows: number): string[];
 }
 
-/**
- * The control center's runtime: the fixture discovery with its two skills, over
- * a store that refuses every write. A fresh one per render, so no screen probes
- * or records anything a later one could read.
- */
-function panelRuntime(): ReturnType<typeof createPickerRuntime> {
-	const { discovery } = makeDiscovery({
-		extensions: PANEL_ITEMS,
-		skills: PANEL_SKILL_ITEMS,
-		globalStore: makeStore(),
-		trusted: true,
-	});
-	return createPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
-}
-
 export const SCREENS: Record<string, Screen> = {
-	compaction: {
-		asset: "compaction",
-		title: "π - my-pi-agent · /compact",
-		bounds: { left: 80, top: 80, right: 920, bottom: 333 },
-		size: { width: 100, rows: 12 },
-		render: (width) => {
-			setThemeInstance(theme);
-			const message = {
-				role: "compactionSummary",
-				summary: [
-					"### Summary",
-					"",
-					"- Built the retry wrapper in `src/http.ts` with three attempts and exponential backoff.",
-					"- Moved the timeout into the wrapper; `src/cli.ts` still imports `run` from `./run.js`.",
-					"- `bun run check` fails on the missing `run` export, not on the wrapper.",
-					"- Next: add the export, then re-run the check.",
-				].join("\n"),
-				tokensBefore: 42_817,
-				timestamp: 0,
-			} as const;
-			const component = new CompactionSummaryMessageComponent(message as never, getMarkdownTheme(), 1);
-			component.setExpanded(true);
-			return component.render(width);
-		},
-	},
-	transcript: {
-		asset: "transcript",
-		title: "π - my-pi-agent · transcript",
-		// A wide, short window: the footer's right column is long enough that the
-		// default width could clip it, and the body is short enough that a tall
-		// window would leave empty rows under the footer.
-		bounds: { left: 80, top: 80, right: 1080, bottom: 483 },
-		size: { width: 100, rows: 24 },
-		render: (width, rows) => renderTranscriptFrame(width, rows),
-	},
 	todo: {
 		asset: "todo",
 		title: "π - my-pi-agent · /todos",
@@ -281,93 +219,6 @@ export const SCREENS: Record<string, Screen> = {
 		size: { width: 100, rows: 11 },
 		render: (width, rows) =>
 			new MemoryPickerComponent(SCREEN_TUI, theme, MEMORY_CALLBACKS, noop, noop, () => rows).render(width),
-	},
-	"bytefly-extensions": {
-		asset: "bytefly-extensions",
-		title: "π - my-pi-agent · /bytefly",
-		// The frame pads its body to the tallest section, so the window is exactly
-		// the frame: six rows of chrome plus sixteen body rows.
-		bounds: { left: 80, top: 80, right: 1080, bottom: 520 },
-		size: { width: 120, rows: 22 },
-		render: (width, rows) => {
-			const panel = new PanelComponent({
-				runtime: panelRuntime(),
-				reports: () => PANEL_REPORTS,
-				// The tab row counts the settings, so the extensions screen reads the
-				// real catalogue too; nothing here can write through it.
-				settings: PANEL_SETTING_VIEWS,
-				skills: () => PANEL_SKILL_INDEX,
-				theme,
-				agentDir: PANEL_AGENT_DIR,
-				cwd: PANEL_CWD,
-				viewportRows: () => rows,
-				requestRender: noop,
-				refresh: noop,
-				reload: noop,
-				onClose: noop,
-			});
-			// The focused row is the one with a finding: the side pane is the reason
-			// the frame has two columns, so the picture has to show it saying something.
-			focusRow(panel, "worktree", width);
-			return panel.render(width);
-		},
-	},
-	"bytefly-skills": {
-		asset: "bytefly-skills",
-		title: "π - my-pi-agent · /bytefly skills",
-		// The frame is the same three-section dock, so it shares the Extensions
-		// screen's window: six rows of chrome and sixteen body rows under a short
-		// list, which is what shows the whole block beside it.
-		bounds: { left: 80, top: 80, right: 1080, bottom: 520 },
-		size: { width: 120, rows: 22 },
-		render: (width, rows) => {
-			const panel = new PanelComponent({
-				runtime: panelRuntime(),
-				reports: () => PANEL_REPORTS,
-				settings: PANEL_SETTING_VIEWS,
-				skills: () => PANEL_SKILL_INDEX,
-				section: "skills",
-				theme,
-				agentDir: PANEL_AGENT_DIR,
-				cwd: PANEL_CWD,
-				viewportRows: () => rows,
-				requestRender: noop,
-				refresh: noop,
-				reload: noop,
-				onClose: noop,
-			});
-			// The focused row is the one whose verdict only this section can state: a skill
-			// hidden from the model, which the block spells out under `Model`.
-			focusRow(panel, "init", width);
-			panel.handleInput("\r");
-			return panel.render(width);
-		},
-	},
-	"bytefly-settings": {
-		asset: "bytefly-settings",
-		title: "π - my-pi-agent · /bytefly settings",
-		// Tall enough for the whole catalogue: six headings and their rows, so the picture
-		// shows every group rather than a list cut at the fold.
-		bounds: { left: 80, top: 80, right: 1080, bottom: 620 },
-		size: { width: 120, rows: 27 },
-		render: (width, rows) => {
-			// The Settings section over the real catalogue: no probe, no write.
-			return new PanelComponent({
-				runtime: panelRuntime(),
-				reports: () => PANEL_REPORTS,
-				settings: PANEL_SETTING_VIEWS,
-				skills: () => PANEL_SKILL_INDEX,
-				section: "settings",
-				theme,
-				agentDir: PANEL_AGENT_DIR,
-				cwd: PANEL_CWD,
-				viewportRows: () => rows,
-				requestRender: noop,
-				refresh: noop,
-				reload: noop,
-				onClose: noop,
-			}).render(width);
-		},
 	},
 	wechat: {
 		asset: "wechat",

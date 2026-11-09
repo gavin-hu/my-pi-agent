@@ -1,23 +1,21 @@
 /**
- * The two frames that are a whole window rather than one component (dev tooling).
+ * The frame that is a whole window rather than one component (dev tooling).
  *
  * `screens/index.ts` is the registry of capturable surfaces and `fixtures/` is
- * the data; this module draws the pair that stands for a session: a padded
- * transcript under the header with the footer at the window's bottom. A full
- * frame carries no version of its own except through the header, so the two
- * halves stay here where the bottom margin is computed once.
+ * the data; this module draws the one that stands for a session: a header above
+ * one whole turn, with the rails and the footer at the window's bottom. The turn
+ * carries no version of its own except through the header, so the halves stay here
+ * where the bottom margin is computed once.
  *
- * The hero is the chrome frame: one whole turn — the nameplate, the answer, a
- * tool block, the notice, the turn rule, the two rails, and the footer.
+ * It is the chrome frame: the nameplate, the answer, a tool block, the notice,
+ * the turn rule, the two rails, and the footer.
  */
 
 import { getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
-import { Editor, KeybindingsManager, Markdown, setKeybindings, Text, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
-import { ToolBlock } from "../../extensions/bytefly/block/component.ts";
+import { Editor, KeybindingsManager, Markdown, setKeybindings, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { cacheHitRateOf } from "../../extensions/bytefly/footer/collect/entries.ts";
 import { CURRENCY_DEFAULTS, DEFAULT_RATES_USD } from "../../extensions/bytefly/footer/price/config.ts";
 import { createPricer } from "../../extensions/bytefly/footer/price/price.ts";
-import { DEFAULT_RAIL_GLYPH, railGlyph } from "../../extensions/bytefly/chrome.ts";
 import { renderLine } from "../../extensions/bytefly/footer/render/layout.ts";
 import { buildLines } from "../../extensions/bytefly/footer/render/lines.ts";
 import type { StatusSnapshot } from "../../extensions/bytefly/footer/types.ts";
@@ -147,61 +145,9 @@ function editorLines(width: number): string[] {
 	return stripCursorMarkers(editor.render(width));
 }
 
-/** The transcript's opening line, for the frame that leaves the nameplate empty. */
-const TRANSCRIPT_HINT = "Ready when you are.";
-
 /** The footer block: the two lines every whole-window frame draws at its bottom. */
 function footerLines(width: number): string[] {
 	return buildLines(CHROME_SNAPSHOT, theme, DEMO_HOME).map((line) => renderLine(line, width, theme));
-}
-
-/**
- * Draw the transcript body as one frame: the user nameplate, a tool block, a
- * notice, the turn rule, and the two-line footer. No header, so the frame carries
- * no version string; the hero frame puts a header above it.
- */
-export function renderTranscriptFrame(width: number, rows?: number): string[] {
-	setThemeInstance(theme);
-	setKeybindings(new KeybindingsManager({ ...TUI_KEYBINDINGS, ...APP_BINDINGS }));
-	// Draw at Pi's default output pad, so the frame has a real session's margins.
-	const pad = DEFAULT_HOST_PAD;
-	const lines: string[] = [];
-
-	// The transformer sees the Markdown's content width, not the padded frame.
-	const plate = nameplate(width - pad * 2);
-	if (plate) lines.push(...new Markdown(plate, pad, 0, getMarkdownTheme()).render(width));
-	lines.push("", `${" ".repeat(pad)}${theme.fg("text", TRANSCRIPT_HINT)}`, "");
-
-	// A tool block: the call leads as the headline, the result rails under it.
-	lines.push(
-		...new ToolBlock(new Text("read src/app.ts", 0, 0), pad, {
-			headline: true,
-			toolName: "read",
-		}).render(width),
-	);
-	lines.push(
-		...new ToolBlock(new Text("const answer = 42;", 0, 0), pad, {
-			trimLeading: true,
-			rail: railGlyph(theme, "faint", DEFAULT_RAIL_GLYPH),
-		}).render(width),
-	);
-	lines.push("");
-
-	lines.push(...new NoticeComponent(TRANSCRIPT_NOTICE, theme, pad).render(width));
-	lines.push("");
-	lines.push(
-		...new SeparatorComponent({ turn: 3, durationMs: 72_000, tools: HERO_CALLS.length }, theme, pad).render(width),
-	);
-	lines.push("");
-
-	const footer = footerLines(width);
-	// A real session keeps the footer at the bottom of the window, with the
-	// transcript growing above it; pad to that shape when the frame has a height.
-	if (rows !== undefined) {
-		for (let i = 0; i < rows - lines.length - footer.length; i++) lines.push("");
-	}
-	lines.push(...footer);
-	return lines;
 }
 
 /**
