@@ -5,7 +5,7 @@
  * behaviour, and the worker suite is a named height that may only fall.
  */
 
-import { readdirSync, writeFileSync } from "node:fs";
+import { readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../../../test/helpers/env.ts";
@@ -103,5 +103,11 @@ describe("state", () => {
 			seen: [{ id: 1, at: 5 }, { id: "x", at: 5 } as never, { id: 2 } as never],
 		});
 		expect(readState(path).seen).toEqual([{ id: 1, at: 5 }]);
+	});
+
+	test.skipIf(process.platform === "win32")("writes the state file with mode 0600", () => {
+		const path = newPath();
+		writeState(path, { cursor: "c1", owner: { lastContextToken: "token", lastSeen: 1 } });
+		expect(statSync(path).mode & 0o777).toBe(0o600);
 	});
 });

@@ -212,11 +212,13 @@ export function findSavedFile(dir: string, md5: string | undefined): string | un
 	return undefined;
 }
 
-/** Write `bytes` to `dir/name`, creating `dir`, and return the full path. */
+/** Write `bytes` to `dir/name`, owner-only, creating `dir`, and return the full path. */
 export function saveMedia(dir: string, name: string, bytes: Uint8Array): string {
 	mkdirSync(dir, { recursive: true });
 	const path = join(dir, name);
-	writeFileSync(path, bytes);
+	// An inbound attachment is the account's: it lands `0600` like the state and the
+	// credentials beside it, and a turn reads it back as the same user whatever the mode.
+	writeFileSync(path, bytes, { mode: 0o600 });
 	return path;
 }
 

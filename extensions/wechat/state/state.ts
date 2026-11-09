@@ -73,14 +73,16 @@ export function readState(path: string): WechatState {
 }
 
 /**
- * Write state to disk by the one atomic JSON write.
+ * Write state to disk by the one atomic JSON write, mode `0600`.
  *
  * A torn write would leave a file `readState` cannot parse, and its fallback is empty
  * state — the cursor and the remembered ids would go with it, so the server would
- * replay and already-answered messages would be answered again.
+ * replay and already-answered messages would be answered again. The mode is the other
+ * half: the file carries the conversation's reply token, so it is as private as the
+ * credentials beside it.
  */
 export function writeState(path: string, state: WechatState): void {
-	writeJsonFile(path, state);
+	writeJsonFile(path, state, { mode: 0o600 });
 }
 
 /** The conversation's record: the reply token and the last inbound time. */

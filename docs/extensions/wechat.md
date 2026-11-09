@@ -61,9 +61,10 @@ owner. A text send is refused while a turn with the owner is in flight; an image
 is allowed.
 
 **State.** `~/.pi/agent/wechat/` holds `credentials.json` (mode `0600`, one
-account), `state.json` (cursor, owner, reply token, recently handled ids),
-`media/` (inbound files, pruned after `mediaRetentionDays`), and `poller.lock`,
-which keeps a second `pi` process from stealing the account's messages.
+account), `state.json` (cursor, owner, reply token, recently handled ids; mode
+`0600`, because the reply token is a credential), `media/` (inbound files, mode
+`0600`, pruned after `mediaRetentionDays`), and `poller.lock`, which keeps a second
+`pi` process from stealing the account's messages.
 
 ## Limits
 

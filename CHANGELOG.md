@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `wechat`: `state.json` and the inbound media are written `0600` like the credentials —
+  the state carries the conversation's reply token — and the security page and the
+  extension page name which files are owner-only.
 - `test`: the gate takes a machine-wide lock — `scripts/check-lock.ts` — so a second
   `bun run check` on the same machine waits and names the holder instead of starving the
   first one's spawned shells and `git` calls; `--no-lock` runs beside it, and a lock a
