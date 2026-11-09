@@ -9,8 +9,10 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ArtifactCheck } from "../../lib/board/artifact.ts";
 import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
+import type { CardOp } from "../../lib/board/rules.ts";
 import { plural } from "../../lib/board/round-text.ts";
 import { type BoardSession } from "../../lib/board/session.ts";
 import type { MutateResult } from "../../lib/board/store.ts";
@@ -169,12 +171,12 @@ async function signLine(
 	try {
 		const store = await session.store(ctx.cwd);
 		lead = store.config().lead;
-		result = await store.mutate(
-			id,
-			override === undefined ? { kind: sign } : { kind: "review", override },
-			personActor(),
-			session.now(),
-		);
+		// An approval covers the plan the card names as well as its wording, so it is proved before
+		// the write — the same proof the tool hands in, from the one module that reads it. A
+		// spot-check needs none: the `done` move proves the plan then.
+		const proof = sign === "approve" ? await import("./proof.ts") : undefined;
+		const artifact = proof === undefined ? undefined : await proof.provedPlan(session, ctx.cwd, store, id);
+		result = await store.mutate(id, signOp(sign, override, artifact), personActor(), session.now());
 	} catch (error) {
 		return { text: `board: ${sign} ${cardRef(id)} failed — ${messageOf(error)}`, tone: "error" };
 	}
@@ -195,6 +197,12 @@ async function signLine(
 	const told = await announce(result.card, sign, signMark(personActor(), lead).by, ctx, sender);
 	const clause = told?.trim();
 	return { text: clause === undefined ? text : `${text} · ${clause}`, tone: "info" };
+}
+
+/** The operation one `/board` line makes: the word, the reason it may carry, and the plan it proved. */
+function signOp(sign: Sign, override: string | undefined, artifact: ArtifactCheck | undefined): CardOp {
+	if (sign === "review") return override === undefined ? { kind: "review" } : { kind: "review", override };
+	return { kind: "approve", ...(artifact === undefined ? {} : { artifact }) };
 }
 
 /** The flag that turns a `review` into the close a gate was not asked for. */

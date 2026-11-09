@@ -77,7 +77,7 @@ describe("/board approve and /board review", () => {
 			1_000,
 		);
 		// The holder's own approval is refused, which is why the person has a door.
-		const own = await store.mutate(board.id, { kind: "approve" }, board.me, 1_000);
+		const own = await store.mutate(board.id, { kind: "approve", artifact: { path: board.plan } }, board.me, 1_000);
 		expect(own.ok).toBe(false);
 		expect(await board.say("approve 1")).toContain("approved by you");
 		expect(
@@ -181,6 +181,8 @@ describe("/board approve and /board review", () => {
 			...fakeBoardSession(),
 			store: async () => ({
 				config: () => ({ lead: "lead" }),
+				// The approval proves the plan the card names, so the door reads the card first.
+				read: async () => undefined,
 				mutate: async () => ({ ok: true, card, changed: true, dropped: false, archived: false }),
 			}),
 		} as unknown as BoardSession;
@@ -217,6 +219,7 @@ describe("/board approve and /board review", () => {
 			...fakeBoardSession(),
 			store: async () => ({
 				config: () => ({ lead: "lead" }),
+				read: async () => undefined,
 				mutate: async () => {
 					throw new Error("ENOSPC: no space left on device");
 				},
@@ -248,7 +251,12 @@ describe("/board review --override", () => {
 			me,
 			1_000,
 		);
-		await board.store.mutate(board.id, { kind: "approve" }, { id: "person:you", label: "you" }, 1_000);
+		await board.store.mutate(
+			board.id,
+			{ kind: "approve", artifact: { path: board.plan } },
+			{ id: "person:you", label: "you" },
+			1_000,
+		);
 		await board.store.mutate(board.id, { kind: "move", lane: "execute", artifact: { path: board.plan } }, me, 1_000);
 		await board.store.mutate(board.id, { kind: "review" }, { id: "person:you", label: "you" }, 1_000);
 		await board.store.mutate(board.id, { kind: "move", lane: "done", artifact: { path: board.plan } }, me, 1_000);

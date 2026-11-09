@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: `approve` now covers the plan the card names, not only its wording. `contract` and
+  `plan -> execute` both proved that file, so the board could approve a promise that was already
+  unexecutable and only say so at the move; the approval asks the same question with the same
+  sentence, after the signer and before the sign, and both doors (the tool and `/board approve`)
+  prove it through one helper (`extensions/board/proof.ts`) that `move` uses too.
+
 - `board`: the sentence a write that never got the board's lock returns now says so —
   "another session's write got there first" — rather than claiming the card itself changed,
   which with one lock per board was the less likely of the two causes. The way out is the

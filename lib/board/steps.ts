@@ -331,7 +331,14 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
  * `text` is the note the signer leaves with the sign, in the same write: a signer is exactly
  * the caller `note` refuses on a held card, so this is where a caveat has somewhere to go.
  */
-export function approve(card: Card, actor: Actor, now: number, config: BoardConfig, text?: unknown): Prepared {
+export function approve(
+	card: Card,
+	op: Extract<CardOp, { kind: "approve" }>,
+	actor: Actor,
+	now: number,
+	board: BoardIndex,
+	config: BoardConfig,
+): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; its contract is closed.` };
 	if (card.lane !== "plan") return { error: `${cardRef(card.id)} is in ${card.lane}; a contract is approved in plan.` };
 	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "approve")}` };
@@ -341,12 +348,18 @@ export function approve(card: Card, actor: Actor, now: number, config: BoardConf
 	const missing = missingContractFields(contract);
 	// One refusal for both shapes: a card with no contract names every field, and one with a
 	// line still blank names the blank one. A complete contract is never undefined, so the
-	// check above is also what narrows it.
+	// check above is also what narrows it. The wording is asked about before the plan, because
+	// a card without one has no plan to have lost — `contract` records the two together.
 	if (contract === undefined || missing.length > 0) {
 		const gaps = missing.length === 0 ? "" : `: ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} missing`;
 		return { error: `${cardRef(card.id)} has no contract to approve yet${gaps}.` };
 	}
-	const noted = signNote(card, text, actor, now);
+	// The sign covers the file as well as the promise, so the plan is proved here too: the move
+	// asks the same question later with the same sentence, and an approval that covered a plan
+	// already gone would be a signature on nothing. Order matches `move`'s requirement list.
+	const unproved = unmet("artifact", card, board, op.artifact, config);
+	if (unproved !== undefined) return { error: unproved };
+	const noted = signNote(card, op.text, actor, now);
 	if ("error" in noted) return { error: noted.error };
 	// A second sign from the same signer says nothing new, so the contract keeps its stamp; the
 	// note still lands, because a caller who wrote one recorded a fact about the card. Who the
