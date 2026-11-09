@@ -1,5 +1,5 @@
 {
-  "groups": ["Get started", "Tutorials", "Guides", "Extensions"],
+  "groups": ["Get started", "Tutorials", "Guides", "Extensions", "Skills"],
   "pages": [
     {
       "path": "index.md",
@@ -222,6 +222,30 @@
       "title": "bytefly",
       "group": "Extensions",
       "summary": "The visible layer: header, footer, transcript blocks, and the control center."
+    },
+    {
+      "path": "skills/README.md",
+      "title": "All skills",
+      "group": "Skills",
+      "summary": "The three packaged workflows, loaded on demand and forced with /skill:<name>."
+    },
+    {
+      "path": "skills/init.md",
+      "title": "init",
+      "group": "Skills",
+      "summary": "Write or refresh the project's agent instructions through an interview and an approved plan."
+    },
+    {
+      "path": "skills/next.md",
+      "title": "next",
+      "group": "Skills",
+      "summary": "Suggest what to do next from this conversation, or from the tree when it is empty."
+    },
+    {
+      "path": "skills/refactor.md",
+      "title": "refactor",
+      "group": "Skills",
+      "summary": "Audit for duplication, size, coupling, and drift, then carry the refactor you pick."
     }
   ]
 }

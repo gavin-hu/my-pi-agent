@@ -21,7 +21,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { headingsOf, sectionOf, tablesOf } from "./helpers/docs.ts";
+import { headingsOf, pageTextIn, sectionOf, tablesOf } from "./helpers/docs.ts";
 import { walkFiles } from "./helpers/files.ts";
 import { registeredSurface } from "./helpers/surface.ts";
 
@@ -37,11 +37,6 @@ function nameOf(entry: string): string {
 }
 
 const names = manifest.map(nameOf).sort();
-
-/** A page's text. */
-function pageOf(name: string): string {
-	return readFileSync(join(docsDir, `${name}.md`), "utf-8");
-}
 
 describe("the extension doc set", () => {
 	test("has one page per manifest extension, and no orphan page", () => {
@@ -77,7 +72,7 @@ const USER_PAGE_LINES = 120;
 describe("the end-user template", () => {
 	for (const name of names) {
 		test(`${name}.md`, () => {
-			const text = pageOf(name);
+			const text = pageTextIn(docsDir, name);
 			const headings = headingsOf(text);
 
 			expect(text.startsWith(`# ${name} — `), "the title names the extension").toBe(true);
@@ -110,7 +105,7 @@ describe("the end-user template", () => {
 describe("the registered surface is on the page", () => {
 	for (const entry of manifest) {
 		test(entry, async () => {
-			const text = pageOf(nameOf(entry));
+			const text = pageTextIn(docsDir, nameOf(entry));
 			const { tools, commands } = await registeredSurface(entry);
 
 			const missingTools = tools.filter((tool) => !new RegExp(`\`[^\`]*\\b${tool}\\b[^\`]*\``).test(text));
@@ -250,7 +245,7 @@ describe("the stores under the agent directory", () => {
 		for (const store of STORES) {
 			if (store.page === "") continue;
 			const spelled = store.location.replace("<agent-dir>/", "~/.pi/agent/");
-			if (!pageOf(store.page.replace(/\.md$/, "")).includes(spelled)) {
+			if (!pageTextIn(docsDir, store.page.replace(/\.md$/, "")).includes(spelled)) {
 				missing.push(`${store.page}: the page never says ${spelled}`);
 			}
 		}

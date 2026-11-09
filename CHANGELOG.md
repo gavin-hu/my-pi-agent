@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the three packaged skills get pages of their own on the site — `init`, `next`, and
+  `refactor`, on the extension page template, in a `Skills` group in the sidebar — the two
+  themes are explained beside the `chrome` section of the configuration reference, and
+  `test/skill-docs.test.ts` holds the page set.
 - `board`: a card records what kind of work it is — `feature`, `bug`, `refactor`, `docs`,
   `test`, or `chore` — and whether it is a breaking change, set by `add` and `edit` with
   `type` and `breaking`; both draw as one quiet label on the card face, in its dialog, and in

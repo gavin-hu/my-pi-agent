@@ -149,6 +149,16 @@ the extension page, rather than growing the page into a manual. A doc states no
 total for the pack's tools; the entry README's catalog is compared with the
 registered set by `test/naming.test.ts`, which is the fact held exactly.
 
+## Adding a packaged skill
+
+A skill is `skills/<name>/SKILL.md` whose frontmatter carries `name` and
+`description`, plus its row in both entry READMEs' skill tables. It also ships
+the reader's page, `docs/skills/<name>.md`, on the template above — a skill
+registers no tool, so its page names `/skill:<name>` and how the skill starts
+instead of a tool table — listed in [`docs/skills/README.md`](./docs/skills/README.md)
+and in `docs/_data/docs.json`. `test/skill-docs.test.ts` holds the page set, the
+template's order, and the 120-line cap.
+
 ## One doc per audience
 
 Do not duplicate across these:
@@ -159,9 +169,10 @@ Do not duplicate across these:
   `test/docs-parity.test.ts` enforces the shared headings, table rows, and
   relative links. Deep docs stay English until a translation owner exists.
 - `docs/` — the documentation site: `index.md` (the front door), `install.md`,
-  `tutorials/` (one walkthrough per flow), `configuration.md`, `security.md`, and
-  `extensions/<name>.md`. The page template and the guard that holds it are
-  above. Navigation is `docs/_data/docs.json`, so a new page is a row there.
+  `tutorials/` (one walkthrough per flow), `configuration.md`, `security.md`,
+  `extensions/<name>.md`, and `skills/<name>.md`. The page template and the guard
+  that holds it are above. Navigation is `docs/_data/docs.json`, so a new page is
+  a row there.
 - `CONTRIBUTING.md` — this file: the human contributor entry point, this file's
   sections, and the release process.
 - `AGENTS.md` — the machine-facing entry point: the rules, the gates that hold
