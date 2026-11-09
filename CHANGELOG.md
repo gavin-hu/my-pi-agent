@@ -11,6 +11,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reader who still has legacy `<name>.json` files; the fence now clones and installs the
   repository first, and says the checkout migrates the same agent directory `pi` writes.
 
+- `docs`: the configuration guides say what the loaders do — a newer `version` is not read
+  and only `migrate:config` stamps it, `u` refuses for Pi's own **Startup screen** and
+  **Theme** rows and for a Project row that only inherits Global, the wechat `state.json`
+  holds one conversation's reply token rather than per-peer tokens, six extensions read
+  no configuration rather than two, and a `price.rates` key past the 200th is ignored.
+
 - `docs`: three pages stop saying that switching `session-bus` off takes the board with it.
   The cards, `board`, and `/board` keep working; what goes is the team — the round's verbs,
   the page's Team tab, and a sign's announcement to the card's owner — and the board's page

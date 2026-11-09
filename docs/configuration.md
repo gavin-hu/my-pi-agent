@@ -60,8 +60,9 @@ Three exceptions are worth knowing:
   carried — output padding and the hardware cursor — stay in Pi's own `/settings`.
 - **One key at a time.** The screen writes only the key you changed, preserving
   every sibling, other section, and metadata key.
-- **Metadata.** `$schema` is ignored by the loaders; `version` defaults to `1` and
-  a newer value only warns. See [Document metadata](./configuration-reference.md#document-metadata).
+- **Metadata.** `$schema` and `version` are ignored by the loaders: `migrate:config`
+  stamps `version` when it is missing, and nothing warns about it. See
+  [Document metadata](./configuration-reference.md#document-metadata).
 
 A missing or malformed document is ignored, so a broken file never blocks a
 session; `/bytefly doctor` reports the file that failed to parse.
@@ -92,8 +93,9 @@ the file for the scope you want, and the next session reads it.
 2. Press `s` to choose **Global** or **Project** scope.
 3. Move with `↑`/`↓`, then `Space` or `Enter` to change the value: a switch
    toggles, a choice cycles, and a text row opens an editor saved with `Enter`.
-4. `u` removes the key so its default applies again; `J` shows the stored
-   section as JSON.
+4. `u` removes the key so its default applies again; it refuses for **Startup
+   screen** and **Theme**, which are Pi's own rows, and for a Project row that
+   only inherits Global. `J` shows the stored section as JSON.
 5. Close the screen and accept the reload it offers.
 
 **By hand.**
@@ -187,10 +189,10 @@ Do not set those by hand: they describe the session to its child processes.
 
 The `wechat` extension keeps runtime state under `<agent-dir>/wechat/`:
 `credentials.json` (mode `0600`, the one stored account this bridge runs),
-`state.json` (the poll cursor, the owner, per-peer reply tokens, and the recent
-message ids used to ignore a replay), `media/` (downloaded inbound files, pruned
-once they pass `mediaRetentionDays`), and `poller.lock` (one runtime owns the
-account at a time). This is login and runtime
+`state.json` (the poll cursor, the one conversation's reply token and last
+inbound time, and the recent message ids used to ignore a replay), `media/`
+(downloaded inbound files, pruned once they pass `mediaRetentionDays`), and
+`poller.lock` (one runtime owns the account at a time). This is login and runtime
 state, not configuration; [each extension's page](./extensions/README.md) names
 the files it writes.
 
