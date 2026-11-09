@@ -14,6 +14,7 @@ import {
 	accepted,
 	applyOp,
 	approved,
+	approveOf,
 	boardOf,
 	claimed,
 	CONFIG,
@@ -40,12 +41,12 @@ describe("approve", () => {
 
 	test("refuses the session that holds the card", () => {
 		const card = written();
-		expect(refusal(applyOp(card, { kind: "approve" }, CORE, NOW, boardOf(card)))).toBe(
+		expect(refusal(applyOp(card, approveOf(card), CORE, NOW, boardOf(card)))).toBe(
 			"#4 is held by billing-core. Its contract is signed by the lead, who does not hold it.",
 		);
 		// The lead is the one holder whose fix is its own: release the card, then sign it.
 		const own = written(LEAD);
-		expect(refusal(applyOp(own, { kind: "approve" }, LEAD, NOW, boardOf(own)))).toBe(
+		expect(refusal(applyOp(own, approveOf(own), LEAD, NOW, boardOf(own)))).toBe(
 			"#4 is held by billing-lead. A lead releases a card before signing it.",
 		);
 	});
@@ -53,67 +54,84 @@ describe("approve", () => {
 	test("refuses a peer, and the person signs as the lead's name, never the pronoun", () => {
 		const card = written();
 		// The sentence is `lead.test.ts`'s: what matters here is that the gate turned it away.
-		expect(refusal(applyOp(card, { kind: "approve" }, OTHER, NOW, boardOf(card)))).toContain("signed by the lead");
-		const personal = stepOf(card, { kind: "approve" }, personActor(), { ...CONFIG, lead: "nobody" });
+		expect(refusal(applyOp(card, approveOf(card), OTHER, NOW, boardOf(card)))).toContain("signed by the lead");
+		const personal = stepOf(card, approveOf(card), personActor(), { ...CONFIG, lead: "nobody" });
 		// The record names somebody a reader can act on: the person writes the lead's name and the
 		// mark that says the key, so no card file ever stores `you` (`PERSON_LABEL`).
 		expect(personal.contract?.approved).toEqual({ by: "nobody", at: NOW, person: true });
 		expect(personal.contract?.approved?.by).not.toBe(PERSON_LABEL);
 	});
 
+	test("refuses a plan it was not shown, and one proved for a file the card does not name", () => {
+		const card = written();
+		// The doors prove the plan they hand in; a caller that skips that hands in nothing, and an
+		// approval written on it would cover a file nobody looked at.
+		expect(refusal(applyOp(card, { kind: "approve" }, LEAD, NOW, boardOf(card)))).toBe(
+			"#4's plan was not checked; record it with `contract`.",
+		);
+		// A fact proved for one path cannot open a card whose record names another, so a plan
+		// re-recorded between the read and the sign is a card to read again.
+		const other = { kind: "approve" as const, artifact: { path: "plans/other.md", recorded: "plans/other.md" } };
+		expect(refusal(applyOp(card, other, LEAD, NOW, boardOf(card)))).toBe(
+			"#4's plan changed while it was being read; record it with `contract`.",
+		);
+	});
+
 	test("refuses an incomplete contract, naming the missing lines", () => {
 		const card = stepOf(claimed(), { kind: "contract", artifact: proved("p.md"), goal: "G" }, CORE);
-		expect(refusal(applyOp(card, { kind: "approve" }, LEAD, NOW, boardOf(card)))).toBe(
+		expect(refusal(applyOp(card, approveOf(card), LEAD, NOW, boardOf(card)))).toBe(
 			"#4 has no contract to approve yet: acceptance, scopeOut are missing.",
 		);
 	});
 
 	test("refuses a lane other than plan", () => {
 		const card = executing();
-		expect(refusal(applyOp(card, { kind: "approve" }, LEAD, NOW, boardOf(card)))).toBe(
+		expect(refusal(applyOp(card, approveOf(card), LEAD, NOW, boardOf(card)))).toBe(
 			"#4 is in execute; a contract is approved in plan.",
 		);
 	});
 
 	test("the same lead again is a no-op, and the person re-signs with the mark", () => {
 		const card = approved();
-		expect(accepted(applyOp(card, { kind: "approve" }, LEAD, NOW, boardOf(card))).changed).toBe(false);
-		const next = stepOf(card, { kind: "approve" }, personActor());
+		expect(accepted(applyOp(card, approveOf(card), LEAD, NOW, boardOf(card))).changed).toBe(false);
+		const next = stepOf(card, approveOf(card), personActor());
 		expect(next.contract?.approved).toEqual({ by: CONFIG.lead, at: NOW, person: true });
 		// The person signing twice is the same signature: identity is the name *and* the mark.
-		expect(accepted(applyOp(next, { kind: "approve" }, personActor(), NOW, boardOf(next))).changed).toBe(false);
+		expect(accepted(applyOp(next, approveOf(next), personActor(), NOW, boardOf(next))).changed).toBe(false);
 		// A session wearing the lead's label is a different signer, so its sign is recorded — and the
 		// mark is gone, because the record says who wrote last.
 		const named = { id: "s-named", label: CONFIG.lead };
-		expect(stepOf(next, { kind: "approve" }, named).contract?.approved).toEqual({ by: CONFIG.lead, at: NOW });
+		expect(stepOf(next, approveOf(next), named).contract?.approved).toEqual({ by: CONFIG.lead, at: NOW });
 	});
 
 	test("records the note the signer wrote, in the same write", () => {
 		// A signer is exactly the session `note` refuses on a held card, so the sign is the door a
 		// caveat comes through: one line, its newline folded like any other note's.
-		const card = stepOf(written(), { kind: "approve", text: "The acceptance is thin,\nthe plan is sound." }, LEAD);
+		const drafted = written();
+		const card = stepOf(drafted, { ...approveOf(drafted), text: "The acceptance is thin,\nthe plan is sound." }, LEAD);
 		expect(card.contract?.approved).toEqual({ by: LEAD.label, at: NOW });
 		expect(card.notes.at(-1)).toEqual({ by: LEAD.label, at: NOW, text: "The acceptance is thin, the plan is sound." });
 	});
 
 	test("refuses a note it cannot record, and signs nothing", () => {
-		expect(refusal(applyOp(written(), { kind: "approve", text: "   " }, LEAD, NOW, boardOf(written())))).toBe(
+		const blank = written();
+		expect(refusal(applyOp(blank, { ...approveOf(blank), text: "   " }, LEAD, NOW, boardOf(blank)))).toBe(
 			"text is required.",
 		);
 		const long = written();
-		expect(refusal(applyOp(long, { kind: "approve", text: "x".repeat(MAX_NOTE + 1) }, LEAD, NOW, boardOf(long)))).toBe(
-			`text must be at most ${MAX_NOTE} characters.`,
-		);
+		expect(
+			refusal(applyOp(long, { ...approveOf(long), text: "x".repeat(MAX_NOTE + 1) }, LEAD, NOW, boardOf(long))),
+		).toBe(`text must be at most ${MAX_NOTE} characters.`);
 		// The gate's sentence is the one worth reading first, so it answers before the note does.
 		const moving = executing();
-		expect(refusal(applyOp(moving, { kind: "approve", text: "" }, LEAD, NOW, boardOf(moving)))).toBe(
+		expect(refusal(applyOp(moving, { ...approveOf(moving), text: "" }, LEAD, NOW, boardOf(moving)))).toBe(
 			"#4 is in execute; a contract is approved in plan.",
 		);
 	});
 
 	test("a second sign from the lead keeps the first stamp, and still records its note", () => {
 		const first = approved();
-		const card = stepOf(first, { kind: "approve", text: "one more look" }, LEAD);
+		const card = stepOf(first, { ...approveOf(first), text: "one more look" }, LEAD);
 		expect(card.contract?.approved).toEqual(first.contract?.approved);
 		expect(card.notes.at(-1)?.text).toBe("one more look");
 	});

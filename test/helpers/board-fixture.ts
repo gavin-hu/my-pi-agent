@@ -62,7 +62,7 @@ export async function seedWorkingBoard(store: BoardStore, now: number): Promise<
 		now - 119_500,
 	);
 	await store.mutate(doing.id, { kind: "note", text: "no retries yet" }, CORE, now - 118_000);
-	await store.mutate(doing.id, { kind: "approve" }, LEAD, now - 118_500);
+	await store.mutate(doing.id, { kind: "approve", artifact: { path: WORKING_PLAN } }, LEAD, now - 118_500);
 	await store.mutate(
 		doing.id,
 		{ kind: "move", lane: "execute", artifact: { path: WORKING_PLAN } },

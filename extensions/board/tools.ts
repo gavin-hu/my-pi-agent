@@ -14,7 +14,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
-import { type ArtifactCheck, planForContract, planForExecute } from "../../lib/board/artifact.ts";
+import { planForContract } from "../../lib/board/artifact.ts";
 import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
 import { movableLanes } from "../../lib/board/lanes.ts";
 import { indexOf } from "../../lib/board/links.ts";
@@ -143,6 +143,9 @@ export function registerTools(
 	// Loaded at the first sign, not at registration: a board that never signs pays nothing for the
 	// message, and the registration graph stays the size it was.
 	let signMessage: Promise<typeof import("./announce.ts")> | undefined;
+	// The same rule for the plan proof: `contract`, `move` and `approve` each ask for one, and a
+	// session that only lists cards pays nothing for the module that reads the plan store.
+	let proofModule: Promise<typeof import("./proof.ts")> | undefined;
 	pi.registerTool({
 		name: BOARD_TOOL,
 		label: "Board",
@@ -171,6 +174,9 @@ export function registerTools(
 			);
 			if (typeof actor === "string") return refusal(action, { label: BOARD_TOOL }, actor);
 			const me = actor;
+			/** What `store.mutate` should be told about the card's plan, proved the way the tool proves it. */
+			const proofOf = (store: BoardStore, rawCard: string | undefined) =>
+				(proofModule ??= import("./proof.ts")).then((module) => module.provedPlan(runtime, ctx.cwd, store, rawCard));
 			try {
 				// Before the join and before a card is read: a refused call has written nothing, so it
 				// cannot have enlisted this session as a teammate on its way to the refusal.
@@ -213,10 +219,7 @@ export function registerTools(
 						}
 						// `execute` and `done` carry the proof that the plan the card recorded is still
 						// there, and a board outside a repository simply has no proof to check.
-						const proved =
-							lane === "execute" || lane === "done"
-								? await recordedPlan(runtime, ctx.cwd, store, args.card)
-								: undefined;
+						const proved = lane === "execute" || lane === "done" ? await proofOf(store, args.card) : undefined;
 						return await mutate(store, action, me, now, args, {
 							kind: "move",
 							lane,
@@ -247,17 +250,15 @@ export function registerTools(
 						// label the writing actor is called by.
 						const signer = signMark(me, store.config().lead).by;
 						const told = (card: Card) => announce(card, action, signer, ctx, deps.notify ?? notifyOverBus(pi));
-						return await mutate(
-							store,
-							action,
-							me,
-							now,
-							args,
+						// An approval covers the plan the card names as well as its wording, so it carries
+						// the same proof a move does. A spot-check is about work already done, and the
+						// `done` move proves the plan then, so it pays for nothing here.
+						const artifact = action === "approve" ? await proofOf(store, args.card) : undefined;
+						const op =
 							action === "review"
-								? { kind: "review", text: args.text, override: args.override }
-								: { kind: "approve", text: args.text },
-							{ told },
-						);
+								? { kind: "review" as const, text: args.text, override: args.override }
+								: { kind: "approve" as const, text: args.text, ...(artifact === undefined ? {} : { artifact }) };
+						return await mutate(store, action, me, now, args, op, { told });
 					}
 					case "edit": {
 						if (
@@ -316,27 +317,6 @@ export function registerTools(
 			return view;
 		},
 	});
-}
-
-/**
- * The plan file a card entering `execute` recorded, proved to be there.
- *
- * A `move` names the card, not its plan, so the tool reads the card — one read, on the one
- * lane whose gate needs it — and hands `steps.ts` the fact. A card with no plan recorded
- * gets no fact and the state machine refuses it; a recorded plan that is gone, or outside
- * this repository's store, is refused here with the sentence that names the card and the
- * way out.
- */
-async function recordedPlan(
-	runtime: BoardSession,
-	cwd: string,
-	store: BoardStore,
-	rawCard: string | undefined,
-): Promise<ArtifactCheck | undefined> {
-	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
-	const card = id === undefined ? undefined : await store.read(id);
-	if (card?.planPath === undefined) return undefined;
-	return planForExecute(await runtime.planDir(cwd), card);
 }
 
 /** The `list` fields that narrow a listing, in the order a refusal names them. */

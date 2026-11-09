@@ -9,7 +9,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { tempDir } from "../../test/helpers/env.ts";
@@ -121,6 +121,24 @@ describe("a sign's note", () => {
 		expect(checked.details.card?.review?.by).toBe(LEAD);
 		expect(checked.details.card?.notes.at(-1)).toMatchObject({ by: LEAD, text: "Checked: the gate bites." });
 		expect((await board.peer.call({ action: "move", card: "1", lane: "done" })).details.card?.lane).toBe("done");
+	});
+});
+
+describe("an approval covers the plan", () => {
+	test("refuses the card whose plan is gone, before the move that would say so", async () => {
+		const board = bench();
+		await claimedWithContract(board);
+		const listed = await board.lead.call({ action: "list", card: "1" });
+		const plan = listed.details.card?.planPath;
+		if (plan === undefined) throw new Error("the contract recorded no plan");
+		// The file the wording is executed against is deleted underneath the card: the approval is
+		// the first door that can say so, and it says what the move would have said later.
+		rmSync(plan);
+		const refused = await board.lead.call({ action: "approve", card: "1" });
+		expect(refused.isError).toBe(true);
+		expect(refused.details.error).toContain("is gone");
+		// And nothing was signed: the refusal half-applies nothing.
+		expect((await board.lead.call({ action: "list", card: "1" })).details.card?.contract?.approved).toBeUndefined();
 	});
 });
 

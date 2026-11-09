@@ -106,9 +106,21 @@ export function written(owner: Actor = CORE, contract: Partial<Contract> = {}): 
 	return stepOf(claimed(owner), { kind: "contract", artifact: proved(), ...CONTRACT, ...contract }, owner);
 }
 
+/**
+ * The approval op one card takes, carrying the proof the doors hand in: its own recorded plan.
+ *
+ * An approval covers the plan a card names as well as its wording, so a case that means to
+ * approve states the fact the tool would have proved — in one place, because fifteen literals
+ * would each be a chance to forget it.
+ */
+export function approveOf(card: Card) {
+	return { kind: "approve" as const, artifact: provedFor(card) };
+}
+
 /** A card whose contract the lead has approved, still in `plan`. */
 export function approved(owner: Actor = CORE, approver: Actor = LEAD): Card {
-	return stepOf(written(owner), { kind: "approve" }, approver);
+	const card = written(owner);
+	return stepOf(card, approveOf(card), approver);
 }
 
 /** A card executing: past the contract gate. */
@@ -140,5 +152,5 @@ export function pulled(id: string, owner: Actor): Card {
 /** A card in `plan` with its contract written and approved, ready for `execute`. */
 export function ready(id: string, owner: Actor): Card {
 	const card = stepOf(pulled(id, owner), { kind: "contract", artifact: proved(`plans/${id}.md`), ...CONTRACT }, owner);
-	return stepOf(card, { kind: "approve" }, LEAD);
+	return stepOf(card, approveOf(card), LEAD);
 }

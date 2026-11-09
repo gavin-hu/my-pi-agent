@@ -100,8 +100,12 @@ export type CardOp =
 	 * so a caller cannot skip the check by omitting it.
 	 */
 	| { kind: "contract"; artifact?: ArtifactCheck; goal?: unknown; acceptance?: unknown; scopeOut?: unknown }
-	/** Read the contract and approve it: the lead, and never the card's holder; `text` is noted with the sign. */
-	| { kind: "approve"; text?: unknown }
+	/**
+	 * Read the contract *and* the plan it names, and approve them: the lead, and never the card's
+	 * holder; `text` is noted with the sign. `artifact` is what the caller proved about the plan, as
+	 * `move` hands it in, so an approval cannot cover a plan file that is already gone.
+	 */
+	| { kind: "approve"; text?: unknown; artifact?: ArtifactCheck }
 	/** Spot-check the finished work: the lead, in `execute`, and never the card's holder; `text` is noted with the sign. */
 	| { kind: "review"; text?: unknown; override?: unknown }
 	// Every field but `kind` is optional, and an absent one is left as it was: the page
@@ -247,7 +251,7 @@ function prepare(
 		case "contract":
 			return contractOp(card, op, actor);
 		case "approve":
-			return approve(card, actor, now, config, op.text);
+			return approve(card, op, actor, now, board, config);
 		case "review":
 			return review(card, actor, now, config, op.text, op.override);
 		case "edit":

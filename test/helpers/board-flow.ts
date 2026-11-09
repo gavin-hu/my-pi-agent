@@ -75,7 +75,10 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	}
 	const written = await read();
 	if (written.contract?.approved === undefined) {
-		const result = await store.mutate(id, { kind: "approve" }, personActor(), now);
+		// An approval covers the plan the card names, so the seed proves what the record holds —
+		// the same fact the tool would have proved from the file.
+		const proof = written.planPath === undefined ? {} : { artifact: { path: written.planPath } };
+		const result = await store.mutate(id, { kind: "approve", ...proof }, personActor(), now);
 		if (!result.ok) fail(result.error);
 	}
 	const contract = (await read()).planPath;

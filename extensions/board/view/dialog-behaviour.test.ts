@@ -229,7 +229,12 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 
 			// Once the lead has read the wording, the sentence the reason line would print is the
 			// signature under the contract, so the line steps aside: one fact, said once.
-			await store.mutate("2", { kind: "approve" }, LEAD, now);
+			await store.mutate(
+				"2",
+				{ kind: "approve", artifact: { path: (await store.read("2"))?.planPath ?? "" } },
+				LEAD,
+				now,
+			);
 			await page.waitForSelector("#card-dialog-sign:not([hidden])", { timeout: PAINT_MS });
 			expect(await page.textContent("#card-dialog-sign")).toMatch(/^approved by billing-lead \u00b7 \d+[a-z]$/);
 			expect(await hidden(page, "#card-dialog-reason")).toBe(true);
