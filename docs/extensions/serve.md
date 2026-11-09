@@ -97,3 +97,4 @@ instead of opening.
 - [`board`](../extensions/board.md) — the page on `/board/`.
 - [`plan`](../extensions/plan.md) — the review page.
 - [Security](../security.md) — what a shared link exposes.
+- [Troubleshooting](../troubleshooting.md) — when a page does not open at all.

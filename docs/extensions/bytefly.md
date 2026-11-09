@@ -110,3 +110,4 @@ footer, and tool blocks take over, and every other extension keeps working.
 - [`serve`](../extensions/serve.md) — the chip in the footer while a page is open.
 - [`plan`](../extensions/plan.md) — the `Shift+Tab` chord the editor binds.
 - [Install](../install.md) — `/bytefly doctor` after a fresh install.
+- [Troubleshooting](../troubleshooting.md) — what a `doctor` row means when it says `env disabled`.

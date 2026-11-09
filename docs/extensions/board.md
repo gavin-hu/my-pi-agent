@@ -93,8 +93,7 @@ claim past either is refused with the count and the ways out.
 - Nothing prunes itself — `done` cards cost a read until `archive` sets them
   aside.
 - Ownership is a label, not a lock: only `session-bus` path claims are.
-- The page is read-only by design, so the one thing a browser cannot do is assign
-  a card without messaging its owner.
+- The page is read-only: a browser cannot assign a card without messaging its owner.
 - A card keeps the last eight lane transitions; a card file a newer build wrote is
   reported rather than silently skipped.
 
@@ -117,3 +116,4 @@ switch the extension off entirely, toggle `board` in `/bytefly`.
 - [`team`](../extensions/team.md) — handing a card to a peer.
 - [`session-bus`](../extensions/session-bus.md) — the bus the signs travel on.
 - [`plan`](../extensions/plan.md) — the plan a contract points at.
+- [Troubleshooting](../troubleshooting.md) — when a card refuses the session that holds it.
