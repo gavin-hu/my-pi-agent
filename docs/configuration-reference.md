@@ -56,21 +56,21 @@ repository root rather than the active working directory.
 
 | Extension | Section | Covers |
 |---|---|---|
-| [`board`](../extensions/board/) | `board` | WIP limits for `plan` and `execute`, and the team name whose signature the board's two gates take. |
-| [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
-| [`serve`](../extensions/serve/) | `serve` | The port every page of a session shares. |
-| [`file-read`](../extensions/file-read/) | `file-read` | Read limits, enabled formats. |
-| [`file-browse`](../extensions/file-browse/) | `file-browse` | Page limits. |
-| [`goal`](../extensions/goal/) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
-| [`job`](../extensions/job/) | `job` | Log-tail size and other job limits. |
-| [`watch`](../extensions/watch/) | `watch` | Watch limits, wake behaviour, and poll interval. |
-| [`memory`](../extensions/memory/) | `memory` | Note injection limits. |
-| [`rewind`](../extensions/rewind/) | `rewind` | Snapshot scope and retention. |
-| [`subagent`](../extensions/subagent/) | `subagent` | Run deadline, transcript retention. |
-| [`todo`](../extensions/todo/) | `todo` | Widget behaviour. |
-| [`web-access`](../extensions/web-access/) | `web-access` | Search provider and fetch limits (`search` and `fetch` groups). |
-| [`wechat`](../extensions/wechat/) | `wechat` | Bridge, media, and peer-feedback settings. |
-| [`worktree`](../extensions/worktree/) | `worktree` | Worktree directory name and behaviour. |
+| [`board`](extensions/board.md) | `board` | WIP limits for `plan` and `execute`, and the team name whose signature the board's two gates take. |
+| [`bytefly`](extensions/bytefly.md) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
+| [`serve`](extensions/serve.md) | `serve` | The port every page of a session shares. |
+| [`file-read`](extensions/file-read.md) | `file-read` | Read limits, enabled formats. |
+| [`file-browse`](extensions/file-browse.md) | `file-browse` | Page limits. |
+| [`goal`](extensions/goal.md) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
+| [`job`](extensions/job.md) | `job` | Log-tail size and other job limits. |
+| [`watch`](extensions/watch.md) | `watch` | Watch limits, wake behaviour, and poll interval. |
+| [`memory`](extensions/memory.md) | `memory` | Note injection limits. |
+| [`rewind`](extensions/rewind.md) | `rewind` | Snapshot scope and retention. |
+| [`subagent`](extensions/subagent.md) | `subagent` | Run deadline, transcript retention. |
+| [`todo`](extensions/todo.md) | `todo` | Widget behaviour. |
+| [`web-access`](extensions/web-access.md) | `web-access` | Search provider and fetch limits (`search` and `fetch` groups). |
+| [`wechat`](extensions/wechat.md) | `wechat` | Bridge, media, and peer-feedback settings. |
+| [`worktree`](extensions/worktree.md) | `worktree` | Worktree directory name and behaviour. |
 
 `question` and `file-open` read no configuration.
 
@@ -170,7 +170,7 @@ The palette beside that rail is Pi's, not this document's. The pack ships two �
 `bytefly-dark` and `bytefly-light` — and installing it changes nothing until you
 pick one: the **Theme** row in `/bytefly settings` writes Pi's own `settings.json`,
 and `"theme": "bytefly-light/bytefly-dark"` there follows the system's light/dark
-preference. [bytefly](../extensions/bytefly/) covers the screen.
+preference. [bytefly](extensions/bytefly.md) covers the screen.
 
 ## `file-read` — document and spreadsheet extraction
 
