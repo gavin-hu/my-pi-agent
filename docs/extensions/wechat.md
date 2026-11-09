@@ -89,7 +89,7 @@ which keeps a second `pi` process from stealing the account's messages.
 | `maxTurnsPerHour` | `0` | Caps turns per rolling hour; `0` is unlimited. |
 
 The rest — `maxMediaBytes`, `botAgent`, `channelVersion`, and the CDN base — are
-in [configuration](../configuration.md#wechat--the-wechat-bridge). To switch the
+in [configuration](../configuration-reference.md#wechat--the-wechat-bridge). To switch the
 extension off, toggle `wechat` in `/bytefly`; the bridge closes and the chat
 stops being answered.
 

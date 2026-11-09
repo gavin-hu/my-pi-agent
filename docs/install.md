@@ -82,8 +82,9 @@ without touching the others.
 
 ## Next steps
 
-- [Configuration](./configuration.md) — where a setting lives, how to change one,
-  and every key with its default.
+- [Configuration](./configuration.md) — where a setting lives, and how to change one.
+- [Configuration keys](./configuration-reference.md) — every `bytefly.json` key, with
+  its default and bounds.
 - [All extensions](./extensions/README.md) — what each one does, and the tools and
   commands that deliver it.
 - [Security](./security.md) — the loopback surfaces, tokens, and the trust

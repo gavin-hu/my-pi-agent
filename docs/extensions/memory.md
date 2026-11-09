@@ -69,7 +69,7 @@ and move are in place, `/` filters, `r` reloads.
 | `maxInjectBytes` | `8192` | Largest injected body, in UTF-8 bytes (512–32768). |
 
 They live in the `memory` section of `bytefly.json`
-([configuration](../configuration.md#memory--durable-notes)). To switch the
+([configuration](../configuration-reference.md#memory--durable-notes)). To switch the
 extension off, toggle `memory` in `/bytefly`; the files stay on disk.
 
 ## Learn more

@@ -169,8 +169,9 @@ Do not duplicate across these:
   `test/docs-parity.test.ts` enforces the shared headings, table rows, and
   relative links. Deep docs stay English until a translation owner exists.
 - `docs/` — the documentation site: `index.md` (the front door), `install.md`,
-  `tutorials/` (one walkthrough per flow), `configuration.md`, `security.md`,
-  `extensions/<name>.md`, and `skills/<name>.md`. The page template and the guard
+  `tutorials/` (one walkthrough per flow), `configuration.md` and its
+  `configuration-reference.md`, `security.md`, `extensions/<name>.md`, and
+  `skills/<name>.md`. The page template and the guard
   that holds it are above. Navigation is `docs/_data/docs.json`, so a new page is
   a row there.
 - `CONTRIBUTING.md` — this file: the human contributor entry point, this file's

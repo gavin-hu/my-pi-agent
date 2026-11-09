@@ -98,7 +98,7 @@ it behind your back.
 
 The rest — `branchPrefix`, `fetchRemote`, `fetchTimeoutMs`, `skipOverrides`, and
 the five `guard.*` switches — are in
-[configuration](../configuration.md#worktree--isolated-worktrees). To switch the
+[configuration](../configuration-reference.md#worktree--isolated-worktrees). To switch the
 extension off, toggle `worktree` in `/bytefly`; the session then works in the
 main checkout.
 

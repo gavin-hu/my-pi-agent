@@ -83,7 +83,13 @@
       "path": "configuration.md",
       "title": "Configuration",
       "group": "Guides",
-      "summary": "Where a setting lives, how to change one, and every key with its default."
+      "summary": "Where a setting lives, and how to change one."
+    },
+    {
+      "path": "configuration-reference.md",
+      "title": "Configuration keys",
+      "group": "Guides",
+      "summary": "Every bytefly.json key, section by section, with its type, default, and bounds."
     },
     {
       "path": "security.md",

@@ -67,7 +67,7 @@ nothing at startup.
 | `formats.<id>` | `true` | Enable or disable each of the six formats. |
 
 They live in the `file-read` section of `bytefly.json`
-([configuration](../configuration.md#file-read--document-and-spreadsheet-extraction)).
+([configuration](../configuration-reference.md#file-read--document-and-spreadsheet-extraction)).
 To switch the extension off, toggle `file-read` in `/bytefly`.
 
 ## Learn more

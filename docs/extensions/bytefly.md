@@ -98,17 +98,17 @@ Startup, Notifications, Session, Board, Team, Price — plus the thirteen
 `bytefly.json` rows it can write. The list is capped at fifteen rows so the
 screen fits a 29-row terminal, and the scope line reads
 `bytefly: Settings · Global · 15 settings`. The sections behind this page are
-[`chrome`](../configuration.md#chrome--transcript-chrome),
-[`price`](../configuration.md#price--cost-calculation),
-[`notify`](../configuration.md#notify--os-notifications), and
-[`doctor`](../configuration.md#doctor--diagnostics).
+[`chrome`](../configuration-reference.md#chrome--transcript-chrome),
+[`price`](../configuration-reference.md#price--cost-calculation),
+[`notify`](../configuration-reference.md#notify--os-notifications), and
+[`doctor`](../configuration-reference.md#doctor--diagnostics).
 
 To switch the extension off, toggle `bytefly` in `/bytefly`: Pi's own header,
 footer, and tool blocks take over, and every other extension keeps working.
 
 ## Learn more
 
-- [Configuration](../configuration.md) — every key, with its default.
+- [Configuration keys](../configuration-reference.md) — every key, with its default.
 - [`serve`](../extensions/serve.md) — the chip in the footer while a page is open.
 - [`plan`](../extensions/plan.md) — the `Shift+Tab` chord the editor binds.
 - [Install](../install.md) — `/bytefly doctor` after a fresh install.
