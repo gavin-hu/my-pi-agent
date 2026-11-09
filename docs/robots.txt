@@ -1,0 +1,13 @@
+---
+layout: null
+permalink: /robots.txt
+---
+{%- comment -%}
+  Everything here is meant to be read, so nothing is disallowed; the one line that earns
+  its place is the sitemap, written absolutely because the protocol has no base to resolve
+  it against. The site lives under `/my-pi-agent/`, which `absolute_url` knows.
+{%- endcomment -%}
+User-agent: *
+Allow: /
+
+Sitemap: {{ '/sitemap.xml' | absolute_url }}

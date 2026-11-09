@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the site declares the meta a crawler and a share need — `sitemap.xml` and
+  `robots.txt` built from the navigation table, the screenshot shared as a PNG at the
+  1678×1264 it states, `og:type` website on the home page and article elsewhere, a
+  canonical the not-found page does not carry, and a `tagline` so the home `<title>` fits
+  a search result instead of repeating the description.
 - `docs`: the front door says where its frames come from — `capture:tools` writes
   `assets/screens/tool-renderings.png` and `capture:tool-pngs` writes `assets/tools/`,
   no page carries a per-tool block, the catalog is grouped by the work it serves
