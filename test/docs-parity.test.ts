@@ -1,10 +1,16 @@
 /**
- * Parity guard for the two entry READMEs.
+ * Parity guard for the front doors.
  *
  * `README.md` is the front door and `README.zh-CN.md` mirrors it: a reader of
  * either should get the same map of the package. Translated prose cannot be
  * compared, so this checks the language-independent shape instead — section
  * structure, table rows, and the relative links and images a reader is sent to.
+ *
+ * The site's home page, `docs/index.md`, is the second front door, and it cannot
+ * reach `skills/` or `themes/` from `docs/`, so it names them instead of linking
+ * them. The cases at the end hold it to the tree: a packaged skill or theme the
+ * home page does not mention fails there rather than shipping a page that
+ * promises less than the README does.
  *
  * Policy: the two entry READMEs stay in sync; deep docs (`docs/`,
  * `docs/extensions/<name>.md`, `lib/`, `test/`) stay English until a
@@ -23,13 +29,21 @@
  * so the two cannot disagree with it or with each other.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 const root = join(import.meta.dir, "..");
 const english = readFileSync(join(root, "README.md"), "utf-8");
 const chinese = readFileSync(join(root, "README.zh-CN.md"), "utf-8");
+const siteIndex = readFileSync(join(root, "docs", "index.md"), "utf-8");
+
+/** The names a directory holds, by the rule that makes one an entry of its kind. */
+function names(directory: string, keep: (name: string) => boolean): string[] {
+	return readdirSync(join(root, directory))
+		.filter((name) => keep(name))
+		.sort();
+}
 
 /** A language-independent outline of one README. */
 export interface DocShape {
@@ -181,5 +195,32 @@ describe("entry README parity", () => {
 	test("ignores fences, anchors, absolute URLs, and the switcher in both", () => {
 		const markdown = "# A\n\n[en](./README.zh-CN.md) [x](#anchor) [y](https://pi.dev)\n\n```\n## not a heading\n```\n";
 		expect(shape(markdown)).toEqual({ headings: [1], tables: [], targets: [] });
+	});
+});
+
+/** The packaged skills, by the manifest's rule: a directory holding a `SKILL.md`. */
+const packagedSkills = names("skills", (name) => existsSync(join(root, "skills", name, "SKILL.md")));
+
+/** The packaged themes: the JSON files the themes directory holds, without the suffix. */
+const packagedThemes = names("themes", (name) => name.endsWith(".json")).map((name) => name.slice(0, -".json".length));
+
+describe("site front door parity", () => {
+	test("names every packaged skill and theme the tree holds", () => {
+		// The READMEs' skill rows are `extension-load.test.ts`'s to hold; this is the one
+		// front door it does not read, and the only place the themes are named twice.
+		const unnamed = [...packagedSkills, ...packagedThemes].filter((name) => !siteIndex.includes(`\`${name}\``));
+		expect(unnamed, "docs/index.md: a packaged skill or theme the home page does not name").toEqual([]);
+	});
+
+	test("derives those names, so a rename fails here instead of passing", () => {
+		for (const [name, list] of Object.entries({ skills: packagedSkills, themes: packagedThemes })) {
+			expect(list.length, name).toBeGreaterThan(0);
+		}
+	});
+
+	test("sends the reader to the extension index rather than listing the catalog twice", () => {
+		// The site home names the count and links the page that owns the rows: a second
+		// ordered copy of README's table is the drift this guard exists to prevent.
+		expect(siteIndex).toContain("](./extensions/README.md)");
 	});
 });

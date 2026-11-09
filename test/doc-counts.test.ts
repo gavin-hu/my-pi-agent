@@ -47,7 +47,7 @@ interface Counts {
 	themes: number;
 }
 
-/** The three places a count of the code is stated. */
+/** The four places a count of the code is stated: the two entry READMEs and the site's home page. */
 const CLAIMS: Claim[] = [
 	{
 		file: "README.md",
@@ -57,6 +57,11 @@ const CLAIMS: Claim[] = [
 	{
 		file: "README.zh-CN.md",
 		pattern: /(\d+) 个扩展、(\d+) 个随包技能，以及 (\d+) 个主题/,
+		counts: ["extensions", "skills", "themes"],
+	},
+	{
+		file: "docs/index.md",
+		pattern: /(\d+) extensions, (\d+) packaged skills, and (\d+) themes/,
 		counts: ["extensions", "skills", "themes"],
 	},
 ];

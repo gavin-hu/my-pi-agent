@@ -48,6 +48,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and a long command wraps instead of running off the edge — and `test/site-docs.test.ts` fails a
   link the site cannot serve, after seven that climbed out of `docs/` or behind a wrapped label
   were repointed.
+- `docs`: the site's home page carries the promises the README makes instead of a subset of them —
+  the catalog counts with a link to the extension index, a table per packaged skill, both themes,
+  and a "What runs on its own" beside the `PI_OFFLINE` and security notes — and
+  `test/doc-counts.test.ts` and `test/docs-parity.test.ts` fail when a new extension, skill, or
+  theme lands without it.
 
 ## [0.25.1] - 2026-11-07
 
