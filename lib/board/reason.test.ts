@@ -25,9 +25,20 @@ const owner = { label: "billing-core" };
 
 describe("reasonFor", () => {
 	test("a pool card says its offer's age, or its last note, or nothing", () => {
+		// The age rides as a stamp too: `at` is the moment, and `wording` is the same sentence
+		// with the age left as a hole, which is what the page's ticker refills.
 		expect(reasonFor(card({ offeredAt: NOW - 120_000 }), ago)).toEqual({
 			kind: "offered",
+			at: NOW - 120_000,
+			wording: "offered {age} — nobody took it",
 			text: "offered 2m ago — nobody took it",
+		});
+		// A card offered this second says "just now", never "now ago".
+		expect(reasonFor(card({ offeredAt: NOW }), () => "now")).toEqual({
+			kind: "offered",
+			at: NOW,
+			wording: "offered {age} — nobody took it",
+			text: "offered just now — nobody took it",
 		});
 		expect(reasonFor(card({ notes: [{ by: "x", at: NOW, text: "start here" }] }), ago)).toEqual({
 			kind: "note",

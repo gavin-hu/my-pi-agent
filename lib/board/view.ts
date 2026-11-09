@@ -120,7 +120,13 @@ export interface BoardView {
 	 * names and reasons are what let a reader open the file, so the page carries them whole.
 	 */
 	skipped: readonly Skip[];
-	/** Changes when a card's revision, a teammate's state, or its mail does. */
+	/**
+	 * Changes when a card's revision, a teammate's state, or its mail does — and when the
+	 * rollup's clock pushes a card into `unwritten`.
+	 *
+	 * A membership that time alone decides has to be in here, or the ticker compares two
+	 * equal signatures and the tab never hears that a card went quiet.
+	 */
 	sig: string;
 	/** The root's last segment, e.g. `my-pi-agent`: what the tab and the footer lead with. */
 	repo: string;
@@ -182,10 +188,13 @@ export function buildView(input: ViewInput): BoardView {
 	});
 	const reader = input.me;
 	const teammates = input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.now);
+	// Before the signature, because one of its facts is the rollup's: `unwritten` is the one
+	// membership the clock decides, and a frame that is never pushed leaves the queue short.
+	const round = buildRound(cards, input.now);
 	return {
 		lanes,
 		total: cards.length,
-		round: buildRound(cards, input.now),
+		round,
 		...(teammates === undefined ? {} : { teammates }),
 		bytes: input.bytes,
 		skipped: input.skipped ?? [],
@@ -197,7 +206,8 @@ export function buildView(input: ViewInput): BoardView {
 		sig:
 			signatureOf(input.cards) +
 			rosterSignature(teammates) +
-			`|skipped:${(input.skipped ?? []).map((entry) => `${entry.file}:${entry.why}`).join(",")}`,
+			`|skipped:${(input.skipped ?? []).map((entry) => `${entry.file}:${entry.why}`).join(",")}` +
+			`|unwritten:${round.unwritten.map((card) => card.id).join(",")}`,
 		repo: input.repo,
 		root: input.root,
 		where: input.where,

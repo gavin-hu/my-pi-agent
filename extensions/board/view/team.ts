@@ -159,7 +159,14 @@ __HOLDING__
     function add(cards, why, kind) {
       for (var i = 0; i < cards.length; i++) {
         var card = cards[i];
-        var entry = { card: card, why: why(card), kind: kind };
+        var said = why(card);
+        // A callback returns the sentence, or the whole reason when it came from reasonFor:
+        // the text is what the row and its signature read, and at/wording are what let the row
+        // be a stamp when the sentence carries an age.
+        var entry =
+          typeof said === "string"
+            ? { card: card, why: said, kind: kind }
+            : { card: card, why: said.text, at: said.at, wording: said.wording, kind: kind };
         var seen = byCard[card.id];
         if (seen === undefined) {
           byCard[card.id] = entry;
@@ -174,7 +181,7 @@ __HOLDING__
     // the same body, so a block and a contract cannot be described two ways.
     function why(card, fallback) {
       var reason = board.reasonFor(card, ago);
-      return reason === undefined ? fallback : reason.text;
+      return reason === undefined ? fallback : reason;
     }
     add(round.blocked, function (card) { return why(card, "blocked"); }, "blocked");
     // A complete contract nobody has read is the lead's decision, and the one the flow
@@ -206,9 +213,11 @@ __HOLDING__
     // An offer outranks plain silence: the lead has already tried to hand this card out,
     // and the age is the difference between nobody having looked and nobody taking it. A
     // card that waits keeps that reason, because the claim would be refused either way.
+    // The offered row's sentence is reason.ts's, like every other one here: a second copy of
+    // it was how the page came to say "offered now ago".
     add(
       round.unassigned.filter(function (card) { return card.offeredAt !== undefined; }),
-      function (card) { return "offered " + ago(card.offeredAt) + " ago — nobody took it"; },
+      function (card) { return why(card, "offered — nobody took it"); },
       "waiting",
     );
     return entries;
@@ -248,7 +257,10 @@ __HOLDING__
 
     // The reason gets the row's whole width and two lines; the tooltip carries the
     // rest, because this sentence is the lead's whole reason to look at the row.
-    var why = el("p", N.teamWhy, entry.why);
+    var why = el("p", N.teamWhy, "");
+    var sentence = entry.at === undefined ? undefined : board.reasonNode({ text: entry.why, at: entry.at, wording: entry.wording });
+    if (sentence === undefined) why.textContent = entry.why;
+    else why.appendChild(sentence);
     why.title = entry.why;
     node.appendChild(why);
     return node;

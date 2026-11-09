@@ -296,7 +296,7 @@ describe("the client bundle", () => {
 		// that assumed "updated" would relabel the second one within a minute.
 		expect(BOARD_CLIENT_JS).toContain('stamp(card.updatedAt, "updated {age}")');
 		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-at-title", wording)');
-		expect(BOARD_CLIENT_JS).toContain("board.sentence(wording, next)");
+		expect(BOARD_CLIENT_JS).toContain("board.sentence(wording, ago(at))");
 	});
 
 	test("marks the read card and the current one through tokens, not literals", () => {

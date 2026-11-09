@@ -152,7 +152,8 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 	// An offer's age is the fact a reader acts on, which is the one place an age belongs in
 	// this text: the value is whether anybody has had time to answer.
 	if (card.offeredAt !== undefined && now !== undefined) {
-		lines.push(`  offered: ${formatAge(now, card.offeredAt)} ago, and nobody took it`);
+		const age = formatAge(now, card.offeredAt);
+		lines.push(`  offered: ${age === "now" ? "just now" : `${age} ago`}, and nobody took it`);
 	}
 	if (card.blocked !== undefined) lines.push(`  blocked: ${blockText(card.blocked)}`);
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);
