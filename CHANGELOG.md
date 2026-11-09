@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: a search result is one listbox option — the link itself, named by the field's
+  `aria-activedescendant` and kept out of the tab order with `tabindex="-1"` — instead
+  of an option wrapping a focusable link, and the empty row is presentational so the
+  listbox holds nothing but options.
 - `docs`: the site masthead sits on the page's column — the brand lines up with the
   sidebar instead of the viewport edge, the theme switch closes the rail's right edge
   instead of stopping where the search field's cap ends, and a 320px phone drops the
