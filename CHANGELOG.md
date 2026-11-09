@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the bytefly page stops calling `/bytefly upgrade` unreleased — its Limits no longer
+  sends the reader to `pi update --extensions` for software that shipped in 0.19.0.
+
 - `docs`: a name you half remember is now one page — `docs/tools-and-commands.md` lists
   every tool and slash command the pack registers, each row linking the page that owns
   it, and `test/extension-docs.test.ts` holds both tables to the factories in both
