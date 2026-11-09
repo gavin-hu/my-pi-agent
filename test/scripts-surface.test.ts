@@ -47,6 +47,7 @@ const KINDS: Record<string, string> = {
 	render: "draw on stdout or into a file",
 	capture: "write an asset under `assets/`",
 	report: "print a fact, and write nothing",
+	sync: "make one copy match the thing it copies",
 	migrate: "rewrite the machine's config, once",
 };
 

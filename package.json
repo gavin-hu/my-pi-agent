@@ -142,6 +142,7 @@
     "capture:tool-pngs": "bun run scripts/tools/index.ts tools assets/tools",
     "report:versions": "bun run scripts/peer-versions.ts",
     "report:notes": "bun run scripts/release-notes.ts",
+    "sync:docs": "bun run scripts/docs-assets.ts",
     "migrate:config": "bun run scripts/migrate-config.ts"
   },
   "dependencies": {
