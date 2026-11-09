@@ -78,6 +78,11 @@ interface Theme {
 	export?: Record<string, string | number>;
 }
 
+/** A theme file, parsed: the pair's loader, and the site palette's. */
+function loadTheme(file: string): Theme {
+	return JSON.parse(readFileSync(fileURLToPath(new URL(`../themes/${file}`, import.meta.url)), "utf8")) as Theme;
+}
+
 /** The variable that names the terminal canvas, which no color token stands for. */
 const CANVAS = "canvas";
 
@@ -357,10 +362,8 @@ describe("contrast metric", () => {
 
 /** One role mapping, two palettes: the pair must not drift apart. */
 describe("theme pair", () => {
-	const load = (file: string): Theme =>
-		JSON.parse(readFileSync(fileURLToPath(new URL(`../themes/${file}`, import.meta.url)), "utf8")) as Theme;
-	const dark = load("bytefly-dark.json");
-	const light = load("bytefly-light.json");
+	const dark = loadTheme("bytefly-dark.json");
+	const light = loadTheme("bytefly-light.json");
 
 	test("the two files share one role mapping", () => {
 		expect(light.colors).toEqual(dark.colors);
@@ -368,5 +371,110 @@ describe("theme pair", () => {
 
 	test("the two files declare the same variables", () => {
 		expect(Object.keys(light.vars).sort()).toEqual(Object.keys(dark.vars).sort());
+	});
+});
+
+/** The site's stylesheet, whose two palettes say they are these two themes. */
+const SITE_CSS = fileURLToPath(new URL("../docs/assets/css/site.css", import.meta.url));
+
+/** The selector that opens each palette in the stylesheet, and the theme it claims to be. */
+const SITE_PALETTES = [
+	{ file: "bytefly-light.json", selector: ":root" },
+	{ file: "bytefly-dark.json", selector: ':root[data-theme="dark"]' },
+] as const;
+
+/**
+ * Each colour token the site declares, and the theme variable that owns it. A
+ * `null` is the site's own ramp — a colour the themes do not carry — so a token is
+ * either held to its owner's value or named as the site's, never left unowned.
+ */
+const SITE_TOKENS: ReadonlyArray<readonly [token: string, owner: string | null]> = [
+	["canvas", "canvas"],
+	["canvas-subtle", "canvasSubtle"],
+	["canvas-inset", null],
+	["text", "text"],
+	["muted", "muted"],
+	["dim", "dim"],
+	["border", null],
+	["border-soft", null],
+	["border-strong", "border"],
+	["accent", "blue"],
+	["accent-soft", "selectionBg"],
+	["success", "green"],
+	["success-soft", "successBg"],
+	["warning", "yellow"],
+	["warning-soft", "searchBg"],
+	["danger", "red"],
+	["danger-soft", "errorBg"],
+	["purple", "purple"],
+	["code-text", "pink"],
+	["selection", "selectionBg"],
+];
+
+/** One palette's colour tokens, from the `--name: #hex` declarations in its block. */
+function paletteOf(css: string, selector: string): Map<string, string> {
+	const start = css.indexOf(`${selector} {`);
+	if (start < 0) throw new Error(`docs/assets/css/site.css: no ${selector} block`);
+	const body = css.slice(start, css.indexOf("}", start));
+	const tokens = new Map<string, string>();
+	for (const [, name, value] of body.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})/g)) {
+		if (name !== undefined && value !== undefined) tokens.set(name, value);
+	}
+	return tokens;
+}
+
+/**
+ * The site serves the package's own colours, so its palette is a copy of the theme
+ * files rather than a second design. Nothing compared the two, which is how a theme
+ * colour could change and leave the documentation on the old one.
+ */
+describe("the site palette", () => {
+	const css = readFileSync(SITE_CSS, "utf8");
+	const palettes = SITE_PALETTES.map((palette) => ({
+		...palette,
+		theme: loadTheme(palette.file),
+		tokens: paletteOf(css, palette.selector),
+	}));
+	const declared = SITE_TOKENS.map(([token]) => token);
+	const shared = SITE_TOKENS.flatMap(([token, owner]) => (owner === null ? [] : [[token, owner] as const]));
+	const own = SITE_TOKENS.flatMap(([token, owner]) => (owner === null ? [token] : []));
+
+	test("declares the site's tokens in both palettes, and no others", () => {
+		const problems = palettes.flatMap(({ selector, tokens }) => {
+			const unknown = [...tokens.keys()].filter((token) => !declared.includes(token));
+			const missing = declared.filter((token) => !tokens.has(token));
+			return [
+				...unknown.map((token) => `${selector}: --${token} has no row in SITE_TOKENS`),
+				...missing.map((token) => `${selector}: SITE_TOKENS lists --${token}, the stylesheet does not`),
+			];
+		});
+		expect(problems).toEqual([]);
+	});
+
+	test("carries each shared token's theme value", () => {
+		const drifted = palettes.flatMap(({ file, theme, tokens }) =>
+			shared
+				.filter(([token, owner]) => tokens.get(token) !== theme.vars[owner])
+				.map(
+					([token, owner]) =>
+						`${file} vars.${owner}: --${token} is ${tokens.get(token)}, the theme's is ${theme.vars[owner]}`,
+				),
+		);
+		expect(drifted, "docs/assets/css/site.css: copy the theme's value, or name the token as the site's own").toEqual(
+			[],
+		);
+	});
+
+	test("names the colours the themes do not carry, instead of copying one", () => {
+		const copied = palettes.flatMap(({ file, theme, tokens }) => {
+			const carried = new Set(Object.values(theme.vars).filter((value): value is string => typeof value === "string"));
+			return own.flatMap((token) => {
+				const value = tokens.get(token);
+				return value !== undefined && carried.has(value)
+					? [`${file}: --${token} is ${value}, which vars carries; name that variable as its owner`]
+					: [];
+			});
+		});
+		expect(copied).toEqual([]);
 	});
 });
