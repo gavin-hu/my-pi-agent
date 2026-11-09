@@ -27,7 +27,7 @@ const SUITE_BAR = 400;
 const LONG_SUITES: Record<string, number> = {
 	"extensions/board/page.test.ts": 521,
 	"extensions/board/tools.test.ts": 1257,
-	"extensions/board/view/behaviour.test.ts": 792,
+	"extensions/board/view/behaviour.test.ts": 776,
 	"extensions/board/view/pages.test.ts": 704,
 	"extensions/bytefly/block/block.test.ts": 561,
 	"extensions/bytefly/chrome.test.ts": 1185,

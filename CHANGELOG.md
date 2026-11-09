@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `dev`: the board page's browser suite keeps one tab and reloads its document instead of buying a
+  tab per case. `newPage` is the expensive half of a boot — measured 323–480 ms against 47–82 ms
+  to reload a tab already open — and the reload is what a case needs anyway: a document that
+  inherited no stream, no repaint in flight, no filter, fold, tab, mark, or focus. The one thing
+  Playwright keeps is the viewport, because it belongs to the tab, so `BoardBrowser.reuse()` puts
+  it back before the reload. `extensions/board/view/behaviour.test.ts` falls from 19.8 s to 12.0 s
+  wall and from 18.1 s to 4.7 s CPU across paired runs.
+
 - `docs`: a frame is shown by a page or it is not captured. Four extension pages open with
   the picture their screen already had — `job`, `wechat`, `context`, and `subagent` — and
   `card-dialog.png` and `plan-review.png` join the walkthroughs that describe them, so
