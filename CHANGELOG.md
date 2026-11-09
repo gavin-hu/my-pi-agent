@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `dev`: the gate's one clock is 90 s. `CASE_BUDGET_MS` rose from 60 s after a spawned `git` in
+  `extensions/plan/git-bash.test.ts` spent 55.11 s beside a second gate on one box — its watchdog
+  to the millisecond — and a loopback page in `extensions/file-browse/transport/root-move.test.ts`
+  reached the case deadline in another session; the spawn watchdog follows to 85 s, and every
+  case, hook, and `--timeout` still reads the one number.
+
 - `dev`: the worktree page's "six `guard.*` switches" is a tested claim now —
   `test/doc-counts.test.ts` reads the word or digit the page states and compares it with
   `DEFAULT_CONFIG.guard`, so a guard added to or dropped from
