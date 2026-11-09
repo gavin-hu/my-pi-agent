@@ -17,10 +17,10 @@ read from outside it. Each one is built around an explicit boundary.
 ### Loopback HTTP servers
 
 One loopback server per session serves every page, and each page mounts a path prefix on
-  it: [`serve`](../extensions/serve/) binds `127.0.0.1` once and hands out those prefixes,
+  it: [`serve`](extensions/serve.md) binds `127.0.0.1` once and hands out those prefixes,
   so the unit of exposure is the mount rather than the socket.
 
-- [`file-browse`](../extensions/file-browse/) holds the `/files` prefix, is
+- [`file-browse`](extensions/file-browse.md) holds the `/files` prefix, is
   read-only, and is rooted at the working directory. It is the one mount with no
   token: it serves a directory its readers already own, so its boundary is the
   root it resolves against and the OS permissions behind it, and any process
@@ -28,7 +28,7 @@ One loopback server per session serves every page, and each page mounts a path p
   Its `/events` stream carries the same status the page already renders — a
   branch, changed paths, an uptime, a request count — and can only be read; at
   most eight pages may hold it.
-- [`board`](../extensions/board/)'s page mounts `/board` and is a **read view**: the
+- [`board`](extensions/board.md)'s page mounts `/board` and is a **read view**: the
   method list is `GET` and `HEAD`, so a `POST` or a `DELETE` is refused by the envelope
   before the token is even read, and no route reaches the board store. It mints one
   128-bit token when it starts, compared in constant time, and the URL the browser was
@@ -46,7 +46,7 @@ One loopback server per session serves every page, and each page mounts a path p
   card is the tools' work, made as the session that called them, never as the page:
   `claim`, `reclaim`, `drop`, and `assign` confirm in the terminal because a browser is
   not an identity.
-- [`plan`](../extensions/plan/)'s browser review mounts `/plan/<id>`, is
+- [`plan`](extensions/plan.md)'s browser review mounts `/plan/<id>`, is
   tokenized, and gives its prefix back on the owner's save or cancel, the owner's page
   going away, or session shutdown. Sharing asks that mount for a second listener on one address
   this machine has, only while the owner has sharing on; it serves the same routes
@@ -70,15 +70,15 @@ server nobody can use.
 
 ### Worktree and shell isolation
 
-[`worktree`](../extensions/worktree/) rebinds the session's working root and
+[`worktree`](extensions/worktree.md) rebinds the session's working root and
 guards against paths that escape it. The same shell-escape rule
-(`lib/shell.ts`) backs [`plan`](../extensions/plan/)'s read-only git guard, so a
+(`lib/shell.ts`) backs [`plan`](extensions/plan.md)'s read-only git guard, so a
 command that would leave the sandbox is rejected rather than run. Cleanup never
 discards a worktree that still holds work.
 
 ### Read-only plan mode
 
-[`plan`](../extensions/plan/) classifies tools with a default-deny policy
+[`plan`](extensions/plan.md) classifies tools with a default-deny policy
 (`lib/policy.ts`) driven by the MCP `readOnlyHint`. Unknown tools are denied,
 `powershell` is blocked outright, and shell access is limited to read-only git
 commands. The only permitted write is the plan file itself, which can only be
@@ -86,28 +86,28 @@ created inside the plans directory and never through a symlink.
 
 ### Local file confinement
 
-[`file-browse`](../extensions/file-browse/) serves only from its root, and that
+[`file-browse`](extensions/file-browse.md) serves only from its root, and that
 root is its boundary. The readers are not confined: the built-in `read`, `grep`,
-`find`, and `ls`, and [`file-read`](../extensions/file-read/)'s `read_doc`, read
+`find`, and `ls`, and [`file-read`](extensions/file-read.md)'s `read_doc`, read
 whatever the process can, with symlinks resolved first. `read_doc` is why that
 reach is deliberate — a document another extension wrote outside the checkout, a
 WeChat attachment under the agent directory say, is otherwise unreachable — but the
 boundary is the same for all of them: the OS file permissions.
 
-Inside an active worktree, [`worktree`](../extensions/worktree/) refuses a `write`,
+Inside an active worktree, [`worktree`](extensions/worktree.md) refuses a `write`,
 an `edit`, or an output redirection that resolves outside the checkout, and
 `guard.blockReadEscapes` — off by default — extends that to the readers and input
 redirection. The containment predicates those surfaces share live in `lib/path.ts`.
 
 ### Outbound web access
 
-[`web-access`](../extensions/web-access/) resolves a host before connecting and
+[`web-access`](extensions/web-access.md) resolves a host before connecting and
 re-validates every redirect hop, refusing loopback, private, link-local,
 unique-local, multicast, and metadata addresses. It guards against a mistaken or
 steered link rather than a sandbox: DNS can change between the check and the
 connection, and `fetch.allowPrivateHosts` turns the guard off.
 
-[`bytefly`](../extensions/bytefly/) asks Pi's package manager which configured
+[`bytefly`](extensions/bytefly.md) asks Pi's package manager which configured
 packages are behind, so it runs the same npm/git checks Pi would run. When this
 package is one of them, it also makes one fixed `GET` of npm's `latest`
 document to name the version and release URL. Neither path carries session data,
@@ -115,17 +115,17 @@ and `PI_OFFLINE` turns both off.
 
 ### Child processes and remote control
 
-- [`subagent`](../extensions/subagent/) launches a child `pi` process; its
+- [`subagent`](extensions/subagent.md) launches a child `pi` process; its
   `readOnly` mode passes the workspace readers, `read_doc`, and `web_search` — no
   writing tool and no `web_fetch`, because a fetch is an outbound channel. That
   narrows what a child may do; it is not a sandbox: `read_doc` still reads any
   document the process can, with the OS permissions that go with it.
-- [`wechat`](../extensions/wechat/) answers only the stored account's owner — the
+- [`wechat`](extensions/wechat.md) answers only the stored account's owner — the
   chat is that Pi session, with its tools — and keeps its state under
   `<agent-dir>/wechat/` with mode `0600`: the credentials, the cursor and reply token
   in `state.json`, and the inbound media. Anyone else is refused and counted, and the
   `send_wechat` tool can message only the owner.
-- [`memory`](../extensions/memory/) injects notes into the model context; note
+- [`memory`](extensions/memory.md) injects notes into the model context; note
   text is sanitized at the boundary like any other model- or file-authored
   text.
 

@@ -389,6 +389,39 @@ describe("the URLs the site emits", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	test("keeps a relative target off a directory, which is a source tree on GitHub", () => {
+		// Each guard was right about its own half, which is how the defect survived: the
+		// browser resolves `../extensions/serve/` to a page this site serves, while GitHub
+		// resolves it to `extensions/serve/`, the code. Naming the page's `.md` target is
+		// the one form both readers agree on — the plugin rewrites it for the site.
+		//
+		// The path is walked from the repository root rather than from `docs/`, because the
+		// target that matters climbs out of `docs/` and `resolveIn` reports that as escaping.
+		const directoryOf = (page: string, target: string): string | undefined => {
+			const stack = ["docs", ...fileBase(page)];
+			for (const part of target.split("#")[0].split("?")[0].split("/")) {
+				if (part === "" || part === ".") continue;
+				if (part === "..") {
+					if (stack.length === 0) return undefined;
+					stack.pop();
+				} else stack.push(part);
+			}
+			const file = join(root, ...stack);
+			return existsSync(file) && statSync(file).isDirectory() ? stack.join("/") : undefined;
+		};
+		const offenders = listedPages().flatMap((path) =>
+			pageTargets(path)
+				.filter((target) => isRelative(target) && !target.split("#")[0].endsWith(".md"))
+				.map((target) => ({ target, directory: directoryOf(path, target) }))
+				.filter(({ directory }) => directory !== undefined)
+				.map(
+					({ target, directory }) =>
+						`${path}: ${target} is the directory ${directory}/; name the page's .md target, or an absolute GitHub URL for the code`,
+				),
+		);
+		expect(offenders).toEqual([]);
+	});
+
 	test("resolve every other relative target to a page or file the site serves", () => {
 		// A URL-shaped target is the browser's to resolve, from the page's URL: a page
 		// at `/security/` climbing `../extensions/plan/` is right, one at

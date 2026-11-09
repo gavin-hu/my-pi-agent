@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: a link from `docs/` to an extension page names the page's `.md` target instead
+  of the source directory — `extensions/serve/` was the code on GitHub and the page on
+  the site — for 31 links across `security.md` and `configuration-reference.md`;
+  `test/site-docs.test.ts` now refuses a relative target that resolves to a directory.
 - `wechat`: `state.json` and the inbound media are written `0600` like the credentials —
   the state carries the conversation's reply token — and the security page and the
   extension page name which files are owner-only.
