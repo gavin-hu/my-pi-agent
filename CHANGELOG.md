@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `dev`: the worktree page's "six `guard.*` switches" is a tested claim now —
+  `test/doc-counts.test.ts` reads the word or digit the page states and compares it with
+  `DEFAULT_CONFIG.guard`, so a guard added to or dropped from
+  `extensions/worktree/config.ts` fails naming the page instead of leaving a count behind.
+  The install pin stays `test/release.test.ts`'s job, and the file's header says so rather
+  than claiming one fact twice.
+
 - `docs`: the configuration guides say what the loaders do — a newer `version` is not read
   and only `migrate:config` stamps it, `u` refuses for Pi's own **Startup screen** and
   **Theme** rows and for a Project row that only inherits Global, the wechat `state.json`
