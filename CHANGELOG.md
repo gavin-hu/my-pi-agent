@@ -12,6 +12,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `bash` and only its prompt keeps that to inspection, `plan` names the
   `<YYYY-MM-DD-HHmm>` stamp its files carry, and `session-bus` says every action
   except `status` joins a session instead of any call at all.
+- `docs`: the bytefly page stops calling `/bytefly upgrade` unreleased — its Limits no longer
+  sends the reader to `pi update --extensions` for software that shipped in 0.19.0.
+- `memory`: a note store is written owner-only (`0600`), so `docs/security.md` stops
+  promising a mode the writer did not set: the write sets it on the temp file it renames
+  into place, and a store an older build left at the umask is tightened by its next
+  mutation even when the note text is unchanged.
 
 - `docs`: a name you half remember is now one page — `docs/tools-and-commands.md` lists
   every tool and slash command the pack registers, each row linking the page that owns
