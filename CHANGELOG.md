@@ -74,6 +74,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `docs/minimal-install.md` is what each part costs while it is on, the shapes to pick from, and
   what switching one off takes away — with `install.md` sending the reasoning there instead of
   claiming `bytefly.json` switches an extension off.
+- `docs`: the loopback pages say which one carries no token — `board` and a plan review mint one per
+  page, and `file-browse` mints none because it serves a directory its reader already owns, so its
+  boundary is the served root and the OS permissions behind it; `serve.md`, `security.md`, and the
+  file browser's own Limits stop implying the three are gated the same way.
 
 ## [0.25.1] - 2026-11-07
 

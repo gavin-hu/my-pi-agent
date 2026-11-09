@@ -21,9 +21,13 @@ One loopback server per session serves every page, and each page mounts a path p
   so the unit of exposure is the mount rather than the socket.
 
 - [`file-browse`](../extensions/file-browse/) holds the `/files` prefix, is
-  read-only, and is rooted at the working directory. Its `/events` stream carries
-  the same status the page already renders — a branch, changed paths, an uptime,
-  a request count — and can only be read; at most eight pages may hold it.
+  read-only, and is rooted at the working directory. It is the one mount with no
+  token: it serves a directory its readers already own, so its boundary is the
+  root it resolves against and the OS permissions behind it, and any process
+  running as you can read what it serves — as it could from the filesystem.
+  Its `/events` stream carries the same status the page already renders — a
+  branch, changed paths, an uptime, a request count — and can only be read; at
+  most eight pages may hold it.
 - [`board`](../extensions/board/)'s page mounts `/board` and is a **read view**: the
   method list is `GET` and `HEAD`, so a `POST` or a `DELETE` is refused by the envelope
   before the token is even read, and no route reaches the board store. It mints one
