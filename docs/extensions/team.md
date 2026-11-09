@@ -91,6 +91,8 @@ can still move cards itself.
 
 ## Learn more
 
+- [Several sessions](../multi-session.md) — the whole round, from the first claim
+  to the second signature.
 - [`board`](../extensions/board.md) — the cards this round moves.
 - [`session-bus`](../extensions/session-bus.md) — the bus every message travels on.
 - [Work a board](../tutorials/first-board.md) — one card through both signs.

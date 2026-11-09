@@ -83,6 +83,10 @@ about the session is sent, and `PI_OFFLINE` skips the check —
 - [Configuration](./configuration.md) — where a setting lives, and how to change one.
 - [Configuration keys](./configuration-reference.md) — every `bytefly.json` key, with
   its default and bounds.
+- [Several sessions](./multi-session.md) — one repository, more than one session,
+  and the round the cards, the bus, and the lead's turns make together.
+- [A minimal install](./minimal-install.md) — what each part costs while it is on,
+  and how to run the pack with most of it switched off.
 - [All extensions](./extensions/README.md) — one page per extension, opening with
   what it does and the tools and commands that deliver it.
 - [Skills](./skills/README.md) — the three packaged workflows, and when to reach

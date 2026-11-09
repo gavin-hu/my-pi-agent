@@ -90,6 +90,8 @@ coordination surface go with it.
 
 ## Learn more
 
+- [Several sessions](../multi-session.md) — what the bus, the cards, and the
+  lead's round do together.
 - [`team`](../extensions/team.md) — the lead's round, over this bus.
 - [`board`](../extensions/board.md) — the cards a handoff moves.
 - [`subagent`](../extensions/subagent.md) — delegation inside one session.

@@ -92,8 +92,7 @@ claim past either is refused with the count and the ways out.
   the new card takes a new number.
 - Nothing prunes itself — `done` cards cost a read until `archive` sets them
   aside.
-- Ownership is a label, not a lock: two sessions can still touch one file. Only
-  `session-bus` path claims are a lock.
+- Ownership is a label, not a lock: only `session-bus` path claims are.
 - The page is read-only by design, so the one thing a browser cannot do is assign
   a card without messaging its owner.
 - A card keeps the last eight lane transitions; a card file a newer build wrote is
@@ -114,6 +113,7 @@ switch the extension off entirely, toggle `board` in `/bytefly`.
 ## Learn more
 
 - [Your first board](../tutorials/first-board.md) — one feature through both gates.
+- [Several sessions](../multi-session.md) — the round the cards, the bus, and the lead make together.
 - [`team`](../extensions/team.md) — handing a card to a peer.
 - [`session-bus`](../extensions/session-bus.md) — the bus the signs travel on.
 - [`plan`](../extensions/plan.md) — the plan a contract points at.

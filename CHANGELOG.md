@@ -60,6 +60,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   how-to (where a setting lives, how to change one, migration, environment, state) and
   `docs/configuration-reference.md` is the key list, twenty section tables behind their own nav row
   — with all twenty deep links repointed and `test/config-docs.test.ts` pinning the reference.
+- `docs`: two concepts that no single extension owns get a page each — `docs/multi-session.md` is
+  the round that `board`, `team`, and `session-bus` make together (a card from claim to the second
+  signature, what each session holds and for how long, and what none of the three promises), and
+  `docs/minimal-install.md` is what each part costs while it is on, the shapes to pick from, and
+  what switching one off takes away — with `install.md` sending the reasoning there instead of
+  claiming `bytefly.json` switches an extension off.
 
 ## [0.25.1] - 2026-11-07
 
