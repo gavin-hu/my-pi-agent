@@ -13,6 +13,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The install pin stays `test/release.test.ts`'s job, and the file's header says so rather
   than claiming one fact twice.
 
+- `docs`: the config migration recipe names the checkout it needs. `scripts/` is not in the
+  tarball `pi install npm:` unpacks, so `migrate:config` never existed for the installed
+  reader who still has legacy `<name>.json` files; the fence now clones and installs the
+  repository first, and says the checkout migrates the same agent directory `pi` writes.
+
 - `docs`: the configuration guides say what the loaders do — a newer `version` is not read
   and only `migrate:config` stamps it, `u` refuses for Pi's own **Startup screen** and
   **Theme** rows and for a Project row that only inherits Global, the wechat `state.json`

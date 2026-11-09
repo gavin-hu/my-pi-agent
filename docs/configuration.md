@@ -145,18 +145,22 @@ screen; the full list is on
 ## Migrating from older versions
 
 Before the shared document, each extension read its own `<name>.json`
-(`document.json`, `jobs.json`, `web-access.json`, …). Run the migration once per
-machine and per repository:
+(`document.json`, `jobs.json`, `web-access.json`, …). The migration ships with the
+repository rather than with the published package — `scripts/` is not in the tarball
+`pi install npm:` unpacks — so run it from a checkout, once per machine and per
+repository:
 
 ```bash
-bun run migrate:config --project <repo-root>   # add --dry-run to preview, --keep to keep the old files
+git clone https://github.com/gavin-hu/my-pi-agent && cd my-pi-agent && bun install
+bun run migrate:config --project <repo-root>   # --dry-run previews, --keep keeps the old files
 ```
 
 It moves each legacy file into its section, renames an already-migrated
 `document` section to `file-read`, moves bytefly's former top-level
 `currency`/`rates`/`peak` under `price`, stamps `version`, and deletes the legacy
 files. It skips an existing section and refuses to touch a malformed document,
-so it is safe to re-run.
+so it is safe to re-run. It reads the same agent directory an installed `pi`
+writes, so the checkout migrates what the package left behind.
 
 ## Environment variables
 
