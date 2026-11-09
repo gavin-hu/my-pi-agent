@@ -61,7 +61,10 @@ function holderAt(file: string): GateHolder | undefined {
 
 describe("the lock file", () => {
 	test("lives in the temp directory by default, and in a named one on request", () => {
-		expect(lockPath("/tmp/x")).toBe("/tmp/x/my-pi-agent-check.lock");
+		// The lock is built with the platform's joiner, so the expectation is too: a
+		// `/tmp/x` literal is drive-less on Windows and the native path never equals it.
+		const dir = join(tmpdir(), "x");
+		expect(lockPath(dir)).toBe(join(dir, "my-pi-agent-check.lock"));
 		expect(lockPath()).toContain("my-pi-agent-check.lock");
 	});
 

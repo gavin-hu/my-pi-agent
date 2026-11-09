@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `dev`: the two assertions that kept `check (windows-latest)` red. `scripts/check-lock.test.ts`
+  expected the POSIX literal `/tmp/x/my-pi-agent-check.lock` from `lockPath`, which joins with
+  the platform's separator; the `test/site-docs.test.ts` assets case compared `relative()`'s
+  native spelling against the `/`-paths `siteImages` returns, so every asset read as one no page
+  names. The first is joined, the second normalized through `posix` — the helper `walkFiles`
+  already answers in — and the Windows job can go green.
+
 - `docs`: the site declares the meta a crawler and a share need — `sitemap.xml` and
   `robots.txt` built from the navigation table, the screenshot shared as a PNG at the
   1678×1264 it states, `og:type` website on the home page and article elsewhere, a
