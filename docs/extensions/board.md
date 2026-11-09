@@ -88,14 +88,14 @@ claim past either is refused with the count and the ways out.
 
 ## Limits
 
-- `done` is terminal: a card finished by mistake is dropped and added again, and
-  the new card takes a new number.
+- `done` is terminal: a card finished by mistake is dropped and re-added at a new number.
 - Nothing prunes itself: `done` cards cost a read until `archive` takes them, which it only
   does for a card nothing open waits on — and an archived record is closed but for `drop`.
+- The lead is a name, not an authority: any session can join it, and a lead holding a card
+  can release it, sign it, and claim it again. A gate is a reading, not a permission.
 - Ownership is a label, not a lock: only `session-bus` path claims are.
 - The page is read-only: a browser cannot assign a card without messaging its owner.
-- A card keeps the last eight lane transitions; a card file a newer build wrote is
-  reported rather than silently skipped.
+- A card keeps eight lane transitions; an unreadable card file is reported, not skipped.
 
 ## Settings
 
