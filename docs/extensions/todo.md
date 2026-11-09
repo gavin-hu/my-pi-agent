@@ -76,7 +76,7 @@ interactive terminal; a scripted run gets the tool result only.
 
 It is a `bytefly.json` edit — the settings screen does not list it; the
 resolution rules are in
-[configuration](../configuration.md#todo--the-todo-widget). To switch the
+[configuration](../configuration-reference.md#todo--the-todo-widget). To switch the
 extension off entirely, toggle `todo` in `/bytefly`.
 
 ## Learn more

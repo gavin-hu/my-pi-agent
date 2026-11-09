@@ -80,8 +80,9 @@ about the session is sent, and `PI_OFFLINE` skips the check —
 ## Start here
 
 - [Install](./install.md) — add the pack to Pi, pin a version, upgrade it.
-- [Configuration](./configuration.md) — where a setting lives, how to change one,
-  and every key with its default.
+- [Configuration](./configuration.md) — where a setting lives, and how to change one.
+- [Configuration keys](./configuration-reference.md) — every `bytefly.json` key, with
+  its default and bounds.
 - [All extensions](./extensions/README.md) — one page per extension, opening with
   what it does and the tools and commands that deliver it.
 - [Skills](./skills/README.md) — the three packaged workflows, and when to reach

@@ -89,7 +89,7 @@ moving — a worktree switch — reloads the page onto the new tree.
 
 The rest — thumbnail, listing, and diff caps, `maxIndexEntries`, `diffContext`,
 and `liveIntervalMs` — are in
-[configuration](../configuration.md#file-browse--the-local-file-server). To
+[configuration](../configuration-reference.md#file-browse--the-local-file-server). To
 switch the extension off, toggle `file-browse` in `/bytefly`.
 
 ## Learn more

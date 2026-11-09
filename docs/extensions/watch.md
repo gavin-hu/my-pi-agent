@@ -84,7 +84,7 @@ leaves the terminal as a desktop notification.
 
 The rest — `maxWatchers`, `maxRecords`, `maxLogLines`, `matchLines`, and
 `matchChars` — are in
-[configuration](../configuration.md#watch--file-and-command-watchers). To switch
+[configuration](../configuration-reference.md#watch--file-and-command-watchers). To switch
 the extension off, toggle `watch` in `/bytefly`.
 
 ## Learn more

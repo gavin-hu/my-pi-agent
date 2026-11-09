@@ -79,7 +79,7 @@ gets conversation rewinds; only code snapshots need git.
 | `showStatus` | `true` | Draw the `↺ N` chip. |
 
 The rest — `autoPrune`, `refNamespace`, `watch`, and `ignore` — are in
-[configuration](../configuration.md#rewind--snapshots). To switch the extension
+[configuration](../configuration-reference.md#rewind--snapshots). To switch the extension
 off, toggle `rewind` in `/bytefly`.
 
 ## Learn more

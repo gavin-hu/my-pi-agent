@@ -92,7 +92,7 @@ its log grows until you clear it.
 
 The rest — `enabled`, `detachedByDefault`, `maxLogLines`, `repaintMs`,
 `sessionTtlMs`, and `registryDir` — are in
-[configuration](../configuration.md#job--background-jobs). To switch the
+[configuration](../configuration-reference.md#job--background-jobs). To switch the
 extension off, toggle `job` in `/bytefly`.
 
 ## Learn more

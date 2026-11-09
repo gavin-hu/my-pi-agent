@@ -83,7 +83,7 @@ carries only that review's prefixes.
 | `port` | `0` | `0` takes the project's own port; a positive value pins it so a bookmarked address survives a restart. |
 
 It lives in the `serve` section of `bytefly.json`
-([configuration](../configuration.md#serve--the-sessions-page-server)). To switch
+([configuration](../configuration-reference.md#serve--the-sessions-page-server)). To switch
 `serve` off, toggle it in `/bytefly` — every page that needs it then says so
 instead of opening.
 

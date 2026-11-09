@@ -65,7 +65,7 @@ each turn; it does not enter the transcript.
 |---|---|---|
 | `achieved` | `"hide"` | How an achieved goal renders: `show` keeps the dimmed line, `hide` removes it. |
 
-It is a `bytefly.json` edit ([configuration](../configuration.md#goal--the-goal-widget)).
+It is a `bytefly.json` edit ([configuration](../configuration-reference.md#goal--the-goal-widget)).
 To switch the extension off, toggle `goal` in `/bytefly`.
 
 ## Learn more

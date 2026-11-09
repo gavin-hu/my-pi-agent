@@ -10,7 +10,7 @@ relative paths; only the root they resolve against changes.
 - **The built-ins follow.** `read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`.
 - **Writes may not leave the checkout**, through a symlink or a redirect; reads stay
   put only with `guard.blockReadEscapes` in
-  [configuration](../configuration.md#worktree--isolated-worktrees).
+  [configuration](../configuration-reference.md#worktree--isolated-worktrees).
 - **It never commits, merges, or pushes** — the exit handoff prints those commands.
 
 ## What you can do
@@ -100,7 +100,7 @@ it behind your back.
 
 The rest — `branchPrefix`, `fetchRemote`, `fetchTimeoutMs`, `skipOverrides`, and
 the five `guard.*` switches — are in
-[configuration](../configuration.md#worktree--isolated-worktrees). To switch the
+[configuration](../configuration-reference.md#worktree--isolated-worktrees). To switch the
 extension off, toggle `worktree` in `/bytefly`; the session then works in the
 main checkout.
 

@@ -56,6 +56,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and a "What runs on its own" beside the `PI_OFFLINE` and security notes — and
   `test/doc-counts.test.ts` and `test/docs-parity.test.ts` fail when a new extension, skill, or
   theme lands without it.
+- `docs`: the configuration page is two pages with one job each — `docs/configuration.md` is the
+  how-to (where a setting lives, how to change one, migration, environment, state) and
+  `docs/configuration-reference.md` is the key list, twenty section tables behind their own nav row
+  — with all twenty deep links repointed and `test/config-docs.test.ts` pinning the reference.
 
 ## [0.25.1] - 2026-11-07
 

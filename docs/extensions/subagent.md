@@ -99,7 +99,7 @@ trusted, so a repository cannot inject a prompt by adding a file.
 | `backgroundMax` | `4` | Concurrent background children (1–8). |
 
 They live in the `subagent` section of `bytefly.json`
-([configuration](../configuration.md#subagent--delegated-runs)). To switch the
+([configuration](../configuration-reference.md#subagent--delegated-runs)). To switch the
 extension off, toggle `subagent` in `/bytefly`; the tool and `/agents` go with it.
 
 ## Learn more

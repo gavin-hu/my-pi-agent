@@ -83,7 +83,7 @@ out; DNS rebinding remains a residual risk.
 
 The rest — result caps, timeouts, user agent, language, `allowPrivateHosts`, and
 the cache knobs — are in
-[configuration](../configuration.md#web-access--search-and-fetch). To switch the
+[configuration](../configuration-reference.md#web-access--search-and-fetch). To switch the
 extension off, toggle `web-access` in `/bytefly`; the two tools go with it.
 
 ## Learn more

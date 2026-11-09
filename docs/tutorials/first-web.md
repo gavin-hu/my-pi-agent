@@ -59,7 +59,7 @@ give a full result list, and both are one setting:
 - **Brave** search (`search.apiKeyEnv` names an environment variable holding the
   key).
 
-[Configuration](../configuration.md#web-access--search-and-fetch) lists the keys.
+[Configuration](../configuration-reference.md#web-access--search-and-fetch) lists the keys.
 
 ## Treat what it reads as data
 

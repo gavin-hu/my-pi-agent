@@ -192,7 +192,7 @@ only stops those factories from registering; to drop the whole package, use Pi's
 |---|---|
 | [Documentation site](https://gavin-hu.github.io/my-pi-agent/) | The browser edition: a home page, install and configuration, and a sidebar over every extension page. |
 | [Install](./docs/install.md) | Adding the pack, pinning a release, upgrading, and removing it. |
-| [Configuration](./docs/configuration.md) | Resolution, the settings screen, and every `bytefly.json` key with its default and bounds. |
+| [Configuration](./docs/configuration.md) | Resolution and the settings screen; [`configuration-reference.md`](./docs/configuration-reference.md) lists every key with its default and bounds. |
 | [Extension docs](./docs/extensions/) | One page per extension: what it does, how to try it, and the reference half — with a tutorial for each workflow. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
 | [Contributing](./CONTRIBUTING.md) | Setup, the branch flow, the checks, and the release process. |

@@ -1,11 +1,12 @@
 /**
- * Contract guard for `docs/configuration.md`.
+ * Contract guard for `docs/configuration-reference.md`.
  *
- * The page replaced `assets/bytefly.schema.json`, so it is now the list a hand
- * edit is checked against. This test pins every section to the defaults its
- * loader exports: a documented key must exist in the defaults, a default key
- * must be documented, and a scalar or empty-container default must match the
- * JSON literal in the table.
+ * The reference replaced `assets/bytefly.schema.json`, so it is now the list a
+ * hand edit is checked against; `docs/configuration.md` is the how-to beside it
+ * and states no keys. This test pins every section to the defaults its loader
+ * exports: a documented key must exist in the defaults, a default key must be
+ * documented, and a scalar or empty-container default must match the JSON
+ * literal in the table.
  *
  * A default that is a non-empty object or array (`price.rates`,
  * `price.peak.windows`, `web-access.search`) is described in prose under its
@@ -37,9 +38,7 @@ import { DEFAULT_CONFIG as DEFAULT_WORKTREE_CONFIG } from "../extensions/worktre
 import { DEFAULT_BOARD_CONFIG } from "../lib/board/config.ts";
 
 const docs = join(import.meta.dir, "..", "docs");
-const configuration = readFileSync(join(docs, "configuration.md"), "utf-8");
-/** The same page carries the key tables and the section index. */
-const reference = configuration;
+const reference = readFileSync(join(docs, "configuration-reference.md"), "utf-8");
 
 /** The reference's top-level headings, in order. */
 const headings = reference
@@ -104,7 +103,7 @@ function keyPaths(value: unknown, prefix = ""): Array<[path: string, value: unkn
 function documentedRows(section: string): Map<string, unknown> {
 	const lines = reference.split("\n");
 	const start = lines.findIndex((line) => line.startsWith(`## \`${section}\``));
-	if (start === -1) throw new Error(`No \`## ${section}\` section in configuration.md`);
+	if (start === -1) throw new Error(`No \`## ${section}\` section in configuration-reference.md`);
 	const rows = new Map<string, unknown>();
 	for (const line of lines.slice(start + 1)) {
 		if (line.startsWith("## ")) break;
@@ -143,9 +142,9 @@ function defaultsOf(section: string): Array<[path: string, value: unknown]> {
 
 /** The section names a `## Section index` table lists, split out of its cells. */
 function indexedSections(): string[] {
-	const lines = configuration.split("\n");
+	const lines = reference.split("\n");
 	const start = lines.findIndex((line) => line.startsWith("## Section index"));
-	if (start === -1) throw new Error("No `## Section index` in configuration.md");
+	if (start === -1) throw new Error("No `## Section index` in configuration-reference.md");
 	const sections: string[] = [];
 	for (const line of lines.slice(start + 1)) {
 		if (line.startsWith("## ")) break;
@@ -205,7 +204,7 @@ describe("configuration reference", () => {
 	});
 
 	test("leaves no section unchecked", () => {
-		// A board section means a new entry here and its page in configuration.md.
+		// A board section means a new entry here and its page in configuration-reference.md.
 		expect(Object.keys(SECTIONS)).toHaveLength(18);
 	});
 });

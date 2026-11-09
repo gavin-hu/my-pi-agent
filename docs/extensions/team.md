@@ -85,7 +85,7 @@ by name; `board list` still reads. Assign after the plan is approved.
 
 `team` has no keys of its own; the lead name it writes under is `board.lead` in
 the `board` section of `bytefly.json`
-([configuration](../configuration.md#board--the-shared-feature-board)). To switch
+([configuration](../configuration-reference.md#board--the-shared-feature-board)). To switch
 the extension off, toggle `team` in `/bytefly`; a session that keeps `board` alone
 can still move cards itself.
 
