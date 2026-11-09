@@ -8,7 +8,9 @@ relative paths; only the root they resolve against changes.
 
 - **One task, one checkout.** `<repo>/.pi/worktrees/<name>` on `worktree-<name>`.
 - **The built-ins follow.** `read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`.
-- **Escapes are refused**, including a symlink that points at the main checkout.
+- **Writes may not leave the checkout**, through a symlink or a redirect; reads stay
+  put only with `guard.blockReadEscapes` in
+  [configuration](../configuration.md#worktree--isolated-worktrees).
 - **It never commits, merges, or pushes** — the exit handoff prints those commands.
 
 ## What you can do

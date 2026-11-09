@@ -17,8 +17,8 @@ the first turn already runs read-only. Without bytefly, bare `/plan` toggles the
 mode; with bytefly loaded, `Shift+Tab` does the same from the editor.
 
 What "read-only" means while you are here: the model keeps its readers and loses
-its writers. `git status`, `diff`, `log`, and `show` still work; a write, an
-edit, a shell redirect, or a path outside the project is refused, and a
+its writers. `git status`, `diff`, `log`, and `show` still work; a write, an edit,
+and a shell redirect are refused. Reads are not confined to the project, and a
 delegated agent runs with writing forced off.
 
 ## Read the plan

@@ -86,9 +86,10 @@ most eight), and each link binds the reviewer's name on its first post;
 cancel, save, or share — a reviewer reads and comments.
 
 **Read-only means:** the model keeps what reads and loses what writes. It can
-still look at the repository's git status and history; a write, an edit, a shell
-redirect, or a path outside the project is refused. A delegated agent runs with
-writing forced off.
+still look at the repository's git status and history; a write, an edit, and a shell
+redirect are refused. Reads are not confined — the readers reach whatever the process
+can, as the Limits below say — and a worktree's `guard.blockReadEscapes` is where
+that changes. A delegated agent runs with writing forced off.
 
 ## Limits
 

@@ -82,16 +82,18 @@ created inside the plans directory and never through a symlink.
 
 ### Local file confinement
 
-[`file-browse`](../extensions/file-browse/) serves only from its root, and the
-built-in `read`, `grep`, `find`, and `ls` stay inside the working directory.
-[`file-read`](../extensions/file-read/)'s `read_doc` is the deliberate
-exception: a document another extension wrote outside the checkout — a WeChat
-attachment under the agent directory, say — is otherwise unreachable, so it
-reads any path the process can and returns extracted text. The OS file
-permissions are that tool's boundary; symlinks are resolved before reading, and
-inside a worktree the guard still refuses a path that leaves the checkout while
-`guard.blockReadEscapes` is on. The containment predicates the confined
-extensions share live in `lib/path.ts`.
+[`file-browse`](../extensions/file-browse/) serves only from its root, and that
+root is its boundary. The readers are not confined: the built-in `read`, `grep`,
+`find`, and `ls`, and [`file-read`](../extensions/file-read/)'s `read_doc`, read
+whatever the process can, with symlinks resolved first. `read_doc` is why that
+reach is deliberate — a document another extension wrote outside the checkout, a
+WeChat attachment under the agent directory say, is otherwise unreachable — but the
+boundary is the same for all of them: the OS file permissions.
+
+Inside an active worktree, [`worktree`](../extensions/worktree/) refuses a `write`,
+an `edit`, or an output redirection that resolves outside the checkout, and
+`guard.blockReadEscapes` — off by default — extends that to the readers and input
+redirection. The containment predicates those surfaces share live in `lib/path.ts`.
 
 ### Outbound web access
 
