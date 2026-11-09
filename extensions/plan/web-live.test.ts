@@ -13,7 +13,8 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { Browser, Page } from "playwright-core";
+import type { Page } from "playwright-core";
+import { type TestBrowser } from "../../test/helpers/browser.ts";
 import {
 	type Doc,
 	mountReview,
@@ -25,7 +26,7 @@ import {
 } from "../../test/helpers/plan-browser.ts";
 import type { ReviewPageData } from "./web-page.ts";
 
-let browser: Browser;
+let browser: TestBrowser;
 
 /**
  * Wait until the page's own stream is open.

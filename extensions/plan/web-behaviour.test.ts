@@ -14,7 +14,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { Browser } from "playwright-core";
+import { type TestBrowser } from "../../test/helpers/browser.ts";
 import {
 	type Doc,
 	mountReview,
@@ -27,7 +27,7 @@ import {
 import type { ReviewPageData } from "./web-page.ts";
 import type { SaveResult } from "./web-router.ts";
 
-let browser: Browser;
+let browser: TestBrowser;
 /** The page's own address, prefix included, and how a case gives the mount back. */
 let reviewUrl = "";
 let closeReview: () => Promise<void> = async () => {};

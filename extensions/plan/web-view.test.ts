@@ -13,8 +13,8 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { Browser } from "playwright-core";
 import type { ArmTimer } from "../../lib/timer.ts";
+import { type TestBrowser } from "../../test/helpers/browser.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import { testMountSource } from "../../test/helpers/serve.ts";
 import { eventsUrl, islandOf, reviewPage, reviewSuite, router } from "../../test/helpers/fixtures/plan-web.ts";
@@ -195,7 +195,7 @@ describe("a view session", () => {
 });
 
 describe.skipIf(REVIEW_CHROME === undefined)("the served view", () => {
-	let browser: Browser;
+	let browser: TestBrowser;
 	let viewUrl = "";
 	let closeView: () => Promise<void> = async () => {};
 

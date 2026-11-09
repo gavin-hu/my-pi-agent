@@ -12,9 +12,10 @@
  * `describe.skipIf` so `bun run check` stays green there and still says why nothing ran.
  */
 
-import { type Browser, chromium, type Page } from "playwright-core";
+import { type Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
 import { LOOPBACK_HOSTS } from "../../lib/http/index.ts";
+import { launchBrowser, type TestBrowser } from "./browser.ts";
 import type { PlanAnnotation } from "../../extensions/plan/feedback.ts";
 import type { ReviewPageData } from "../../extensions/plan/web-page.ts";
 import type { ReviewContext, SaveResult } from "../../extensions/plan/web-router.ts";
@@ -154,12 +155,12 @@ export async function mountReview(
 }
 
 /** The browser a review suite drives. */
-export async function launchReviewBrowser(): Promise<Browser> {
-	return chromium.launch({ executablePath: REVIEW_CHROME, headless: true });
+export async function launchReviewBrowser(): Promise<TestBrowser> {
+	return launchBrowser(REVIEW_CHROME);
 }
 
 /** One tab on the served review, waited until its blocks have painted. */
-export async function openReview(browser: Browser, url: string): Promise<Page> {
+export async function openReview(browser: TestBrowser, url: string): Promise<Page> {
 	const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 	await page.goto(url, { waitUntil: "load" });
 	await page.waitForSelector("#plan .bf-block", { timeout: REVIEW_PAINT_MS });

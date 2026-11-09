@@ -15,11 +15,12 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Browser, chromium, type Page } from "playwright-core";
+import { type Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
 import { DEFAULT_WIP } from "../../lib/board/limits.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { type BoardStore, createStore } from "../../lib/board/store.ts";
+import { launchBrowser } from "./browser.ts";
 import { type PageDisplay, serveBoardPage } from "./board-page.ts";
 
 /** The browser this machine has; absent means a browser suite is skipped, naming `PI_CHROME`. */
@@ -73,9 +74,6 @@ interface Lanes {
 
 /** Boot one board and one browser, and hand back the tabs on it. */
 export async function openBoardBrowser(options: BoardBrowserOptions): Promise<BoardBrowser> {
-	// A suite that forgot its skip says so, rather than launching a browser this package does
-	// not ship and reading a build error out of Playwright.
-	if (BOARD_CHROME === undefined) throw new Error("no browser on this machine: PI_CHROME names one");
 	const directory = mkdtempSync(join(tmpdir(), "pi-board-page-"));
 	// The lead is the one setting a browser suite states: it is the name the page signs as.
 	const store =
@@ -90,7 +88,7 @@ export async function openBoardBrowser(options: BoardBrowserOptions): Promise<Bo
 		...(options.display === undefined ? {} : { display: options.display }),
 		...(options.roster === undefined ? {} : { roster: options.roster }),
 	});
-	const browser: Browser = await chromium.launch({ executablePath: BOARD_CHROME, headless: true });
+	const browser = await launchBrowser(BOARD_CHROME);
 	// The placeholders go when the first frame lands, which is what a suite's first assertion
 	// needs: a lane drawn from the snapshot, not from the document's head. The marker rather
 	// than the panel, because the panel is hidden on the tab a suite may have asked for.
