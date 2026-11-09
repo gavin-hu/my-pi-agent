@@ -19,8 +19,10 @@ page's column.{%- endcomment -%}
         aria-autocomplete="list"
         aria-expanded="false"
         aria-controls="search-results"
+        aria-keyshortcuts="/ Meta+K Control+K"
         data-search-index="{{ '/search.json' | relative_url }}"
       >
+      <kbd class="search-hint" aria-hidden="true">/</kbd>
       <ul class="search-results" id="search-results" role="listbox" aria-label="Search results" hidden></ul>
       <p class="visually-hidden" id="search-status" role="status" aria-live="polite"></p>
     </div>

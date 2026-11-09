@@ -230,13 +230,46 @@ a:hover {
 .search-input {
 	width: 100%;
 	height: 2.25rem;
-	padding: 0 0.75rem 0 2rem;
+	padding: 0 1.85rem 0 2rem;
 	color: var(--text);
 	background: var(--canvas-subtle);
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
 	font: inherit;
 	font-size: 0.9rem;
+}
+
+/*
+ * The shortcut's hint, so the key is discoverable without a click. It leaves while the reader
+ * is in the field: there it covers the caret's line, and a reader already typing needs no
+ * telling.
+ */
+.search-hint {
+	position: absolute;
+	top: 50%;
+	right: 0.55rem;
+	transform: translateY(-50%);
+	padding: 0 0.3rem;
+	color: var(--dim);
+	background: var(--canvas);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	line-height: 1.5;
+	pointer-events: none;
+}
+
+.search-input:focus ~ .search-hint,
+.search-input:not(:placeholder-shown) ~ .search-hint {
+	opacity: 0;
+}
+
+@media (max-width: 40rem) {
+	/* The field has no room for the hint beside the query once the header narrows. */
+	.search-hint {
+		display: none;
+	}
 }
 
 .search-input:focus {

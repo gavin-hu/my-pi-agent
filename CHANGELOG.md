@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the site's search field has a shortcut — `/` or Cmd/Ctrl+K focuses and selects it from
+  anywhere on a page, with a `/` hint in the field that leaves once the reader is typing. It does
+  nothing while focus is in a field or behind the open drawer's Tab ring, and a second modifier is
+  left to the browser.
+
 - `dev`: the gate's one clock is 90 s. `CASE_BUDGET_MS` rose from 60 s after a spawned `git` in
   `extensions/plan/git-bash.test.ts` spent 55.11 s beside a second gate on one box — its watchdog
   to the millisecond — and a loopback page in `extensions/file-browse/transport/root-move.test.ts`
