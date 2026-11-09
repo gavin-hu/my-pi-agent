@@ -18,8 +18,7 @@
 
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { chromium } from "playwright-core";
-import { chromeBinary } from "../capture/chrome.ts";
+import { chromeBinary, launchChrome } from "../capture/chrome.ts";
 import { runCli } from "../cli.ts";
 import { repo } from "../theme.ts";
 
@@ -338,7 +337,7 @@ export async function renderMontage(
 	montage: readonly MontageFrame[] = MONTAGE,
 ): Promise<Uint8Array> {
 	const request = montageRequest(slides(montage), options);
-	const browser = await chromium.launch({ executablePath: chromeBinary(), headless: true });
+	const browser = await launchChrome(chromeBinary());
 	try {
 		const page = await browser.newPage({ viewport: { width: options.width, height: options.height } });
 		await page.setContent("<!doctype html><title>montage</title><body></body>");

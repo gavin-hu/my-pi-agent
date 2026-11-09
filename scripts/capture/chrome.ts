@@ -14,7 +14,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { type Page, chromium } from "playwright-core";
+import { type Browser, type Page, chromium } from "playwright-core";
 
 /**
  * Where Chrome usually lives, plus the `PI_CHROME` override.
@@ -47,6 +47,37 @@ export function chromeBinary(): string {
 	const binary = findChrome();
 	if (binary === undefined) throw new Error("Chrome not found; set PI_CHROME to a Chrome or Chromium binary.");
 	return binary;
+}
+
+/** A headless browser a capture drives, and the close that does not wait on Chrome. */
+export interface BrowserHandle {
+	/** A fresh tab in this browser. */
+	newPage: Browser["newPage"];
+	/** Kill the browser and drop the connection; resolves in milliseconds. */
+	close(): Promise<void>;
+}
+
+/**
+ * Boot one headless browser, closed by killing it.
+ *
+ * Chrome's own shutdown asks four seconds once a page is open — measured, and no launch flag
+ * shortens it — and a capture launches one browser per shot, so a run of the screens pays it
+ * once per image. `launchServer` is the only handle on that process: a SIGKILL drops the
+ * browser and its helper processes in ten milliseconds, with Playwright still removing the
+ * profile it made. Nothing reads back from a capture's browser after its image is written.
+ */
+export async function launchChrome(executablePath: string, args: readonly string[] = []): Promise<BrowserHandle> {
+	const launched = await chromium.launchServer({ executablePath, headless: true, args: [...args] });
+	const browser = await chromium.connect(launched.wsEndpoint());
+	return {
+		newPage: (options) => browser.newPage(options),
+		close: async () => {
+			launched.process()?.kill("SIGKILL");
+			// Both resolve at once once the process is gone: the wait was the process exiting.
+			await browser.close();
+			await launched.close();
+		},
+	};
 }
 
 /** One expression evaluated in the page before the capture. A promise is awaited. */
@@ -127,11 +158,7 @@ export function readyWhen(condition: string, timeoutMs: number): string {
  * there would silently do nothing and the shot would show an empty shell.
  */
 export async function captureFullPage(options: ChromeShotOptions): Promise<void> {
-	const browser = await chromium.launch({
-		executablePath: chromeBinary(),
-		headless: true,
-		args: ["--hide-scrollbars", "--force-prefers-reduced-motion"],
-	});
+	const browser = await launchChrome(chromeBinary(), ["--hide-scrollbars", "--force-prefers-reduced-motion"]);
 	try {
 		const page = await browser.newPage({
 			viewport: { width: options.width, height: VIEWPORT_HEIGHT },

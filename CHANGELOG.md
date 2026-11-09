@@ -28,12 +28,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reached the case deadline in another session; the spawn watchdog follows to 85 s, and every
   case, hook, and `--timeout` still reads the one number.
 
-- `dev`: the browser suites stop waiting on Chrome to shut down. Chrome asks four seconds once a
-  page is open — measured, and no launch flag shortens it — and each of the eight suites that
-  boots one paid that in `afterAll`; `test/helpers/browser.ts` now launches through
-  `launchServer` and closes by killing the process, which drops the browser and its helper
-  processes in ten milliseconds with the profile still removed. The eight suites fall from
-  63.1 s to 40.3 s together, and no browser outlives the run.
+- `dev`: nothing waits on Chrome's own shutdown any more. Chrome asks four seconds once a page is
+  open — measured, and no launch flag shortens it — and each of the eight suites that boots one
+  paid that in `afterAll`, as did every frame a capture took. `scripts/capture/chrome.ts` now
+  launches through `launchServer` and closes by killing the process, which drops the browser and
+  its helper processes in ten milliseconds with the profile still removed; `test/helpers/browser.ts`
+  is the suites' half of the same launch. The eight suites fall from 63.1 s to 40.3 s together,
+  and `capture:cards` and `capture:tools` stop paying it per shot.
 
 - `docs`: a surface that does not work has one page. `docs/troubleshooting.md` is a symptom,
   cause, fix and owning-page table over the five failures that were each a Limits bullet on a
