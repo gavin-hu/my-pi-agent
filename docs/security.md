@@ -101,9 +101,11 @@ redirection. The containment predicates those surfaces share live in `lib/path.t
 
 ### Outbound web access
 
-[`web-access`](../extensions/web-access/) checks every redirect hop against
-private and internal address ranges before following it, so `web_fetch` cannot
-be pointed at loopback, link-local, or metadata endpoints.
+[`web-access`](../extensions/web-access/) resolves a host before connecting and
+re-validates every redirect hop, refusing loopback, private, link-local,
+unique-local, multicast, and metadata addresses. It guards against a mistaken or
+steered link rather than a sandbox: DNS can change between the check and the
+connection, and `fetch.allowPrivateHosts` turns the guard off.
 
 [`bytefly`](../extensions/bytefly/) asks Pi's package manager which configured
 packages are behind, so it runs the same npm/git checks Pi would run. When this

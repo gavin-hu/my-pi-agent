@@ -86,6 +86,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Keep your work safe, Reach the world, Chrome and upkeep — and `test/site-docs.test.ts` now derives
   that order and grouping from the README's catalog, so a page filed under another promise or a
   reordered sidebar fails instead of drifting; `docs/extensions/README.md` is held to the same order.
+- `docs`: `security.md` stops claiming `web_fetch` "cannot" reach loopback or metadata endpoints and
+  states the guard the code is — the host is resolved and every hop re-validated, DNS can change
+  before the connection, and `fetch.allowPrivateHosts` turns it off — matching the extension page.
 
 ## [0.25.1] - 2026-11-07
 
