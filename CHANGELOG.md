@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the configuration guides say what the loaders do — a newer `version` is not read
+  and only `migrate:config` stamps it, `u` refuses for Pi's own **Startup screen** and
+  **Theme** rows and for a Project row that only inherits Global, the wechat `state.json`
+  holds one conversation's reply token rather than per-peer tokens, six extensions read
+  no configuration rather than two, and a `price.rates` key past the 200th is ignored.
+
 - `docs`: five extension pages stop stating facts the code does not hold — the board's
   cards live under `cards/` with `ended/` and `page.json` beside them, `worktree` says
   the six `guard.*` switches it has, `subagent` says `reviewer` is granted the real
