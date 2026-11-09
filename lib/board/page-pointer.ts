@@ -75,6 +75,9 @@ export interface PagePointer {
 /** The fetch a probe uses: the global one in production, a stub in a test. */
 export type ProbeFetch = (url: string, init: { signal: AbortSignal }) => Promise<{ ok: boolean; status?: number }>;
 
+/** The wait between two looks: the shipped sleep in production, one that costs a tick in a test. */
+export type PollSleep = (ms: number) => Promise<void>;
+
 /** The URL for this page, wherever it is opened from. */
 export function urlOf(pointer: PagePointer): string {
 	return `http://127.0.0.1:${pointer.port}${BOARD_BASE}/?token=${pointer.token}`;
@@ -232,8 +235,16 @@ export type PointerOutcome =
  * probes again rather than reporting a page it never asked about. A failure here names
  * the file, because "another session is serving" is a thing this function can see and
  * therefore must not guess.
+ *
+ * `sleep` is the wait between two looks, and nothing else: the counts either side of it are
+ * the ladder itself, so a test compresses the clock and still runs the schedule.
  */
-export async function settlePointer(dir: string, note: PagePointer, probe?: ProbeFetch): Promise<PointerOutcome> {
+export async function settlePointer(
+	dir: string,
+	note: PagePointer,
+	probe?: ProbeFetch,
+	sleep: PollSleep = abortableSleep,
+): Promise<PointerOutcome> {
 	let took: PagePointer | undefined;
 	let attempts = 0;
 	let looks = 0;
@@ -251,11 +262,11 @@ export async function settlePointer(dir: string, note: PagePointer, probe?: Prob
 			if (await noteExists(dir)) return { kind: "unreadable" };
 			if (looks >= EMPTY_LOOKS) return { kind: "busy" };
 			looks += 1;
-			await abortableSleep(EMPTY_LOOK_MS);
+			await sleep(EMPTY_LOOK_MS);
 			continue;
 		}
 		attempts += 1;
-		if (await answerOrWait(winner, probe)) return { kind: "attached", pointer: winner };
+		if (await answerOrWait(winner, probe, sleep)) return { kind: "attached", pointer: winner };
 		// Only that exact note: a note a newer page wrote is not this caller's to take. A
 		// refused clear means somebody else got there first, so the next attempt re-reads.
 		if (await clearPointer(dir, winner.token)) took = winner;
@@ -274,10 +285,10 @@ export async function settlePointer(dir: string, note: PagePointer, probe?: Prob
  * reports a page that exists as one that did not start. The poll is bounded at the same
  * 600 ms a probe itself may spend, so a note whose page is really gone is still taken over.
  */
-async function answerOrWait(pointer: PagePointer, probe?: ProbeFetch): Promise<boolean> {
+async function answerOrWait(pointer: PagePointer, probe: ProbeFetch | undefined, sleep: PollSleep): Promise<boolean> {
 	for (let attempt = 0; attempt < YOUNG_POLLS; attempt++) {
 		if (await probePage(pointer, probe)) return true;
-		await abortableSleep(YOUNG_POLL_MS);
+		await sleep(YOUNG_POLL_MS);
 	}
 	return false;
 }
