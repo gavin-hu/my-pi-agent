@@ -12,6 +12,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reached the case deadline in another session; the spawn watchdog follows to 85 s, and every
   case, hook, and `--timeout` still reads the one number.
 
+- `docs`: a surface that does not work has one page. `docs/troubleshooting.md` is a symptom,
+  cause, fix and owning-page table over the five failures that were each a Limits bullet on a
+  different page — no page at all, a pinned port another process holds, `✆ wechat expired`, a
+  doctor row reading `env disabled`, and a card refusing the session that holds it — linked from
+  the front door and from `serve`, `wechat`, `bytefly` and `board`.
+
 - `dev`: the worktree page's "six `guard.*` switches" is a tested claim now —
   `test/doc-counts.test.ts` reads the word or digit the page states and compares it with
   `DEFAULT_CONFIG.guard`, so a guard added to or dropped from

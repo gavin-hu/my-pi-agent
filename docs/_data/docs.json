@@ -137,6 +137,12 @@
       "summary": "What each part costs while it is on, and how to run the pack with most of it switched off."
     },
     {
+      "path": "troubleshooting.md",
+      "title": "Troubleshooting",
+      "group": "Guides",
+      "summary": "Start from the sentence your terminal printed: the cause, the fix, and the page that owns it."
+    },
+    {
       "path": "extensions/plan.md",
       "title": "plan",
       "group": "Plan and delegate",

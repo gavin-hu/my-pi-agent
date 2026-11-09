@@ -101,3 +101,4 @@ stops being answered.
 - [`plan`](../extensions/plan.md) — a plan review you can approve in the chat.
 - [`question`](../extensions/question.md) — the prompts that can reach the phone.
 - [Security](../security.md) — what the stored account can reach.
+- [Troubleshooting](../troubleshooting.md) — when the chip reads `✆ wechat expired`.

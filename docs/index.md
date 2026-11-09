@@ -88,6 +88,8 @@ about the session is sent, and `PI_OFFLINE` skips the check —
   and the round the cards, the bus, and the lead's turns make together.
 - [A minimal install](./minimal-install.md) — what each part costs while it is on,
   and how to run the pack with most of it switched off.
+- [Troubleshooting](./troubleshooting.md) — when a surface does not work: the sentence
+  it printed, why, the fix, and the page that owns it.
 - [All extensions](./extensions/README.md) — one page per extension, opening with
   what it does and the tools and commands that deliver it.
 - [Tools and commands](./tools-and-commands.md) — every tool and slash command the
@@ -100,6 +102,9 @@ about the session is sent, and `PI_OFFLINE` skips the check —
   surface is gated.
 
 ## Where to get help
+
+A surface that does not work has one page: [Troubleshooting](./troubleshooting.md) starts
+from the sentence the terminal printed and names the fix and the page that owns it.
 
 `/bytefly doctor` prints what each enabled extension needs at runtime and what is
 missing. The [repository](https://github.com/gavin-hu/my-pi-agent) carries the
