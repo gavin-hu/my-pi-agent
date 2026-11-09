@@ -8,7 +8,16 @@
  * read-modify-write under the host's file-mutation queue and land atomically.
  */
 
-import { existsSync, lstatSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	lstatSync,
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import {
 	CONFIG_DIR_NAME,
@@ -21,6 +30,9 @@ import { repoRootFor } from "../../lib/git/index.ts";
 
 /** Largest memory file read into memory, in bytes. */
 export const MAX_MEMORY_BYTES = 256 * 1024;
+
+/** A note is instruction the session trusts, so the store is the owner's alone. */
+const FILE_MODE = 0o600;
 
 const FILE_NAME = "memory.md";
 const HEADER = "<!-- Pi memory: one note per bullet; written by the memory tool and /memory -->";
@@ -239,8 +251,15 @@ export function applyClear(content: string): FileChange {
 function writeAtomic(path: string, content: string): void {
 	mkdirSync(dirname(path), { recursive: true });
 	const temp = `${path}.tmp`;
-	writeFileSync(temp, content, "utf-8");
+	writeFileSync(temp, content, { encoding: "utf-8", mode: FILE_MODE });
+	// `mode` applies only to a file it creates, so a leftover temp keeps its own.
+	chmodSync(temp, FILE_MODE);
 	renameSync(temp, path);
+}
+
+/** Owner-only: a store written before the mode was set is still wider than it claims. */
+function tightenMode(path: string): void {
+	if (existsSync(path) && (statSync(path).mode & 0o777) !== FILE_MODE) chmodSync(path, FILE_MODE);
 }
 
 interface MutationResult {
@@ -261,6 +280,7 @@ export async function mutateMemoryFile(
 	return withFileMutationQueue(path, async () => {
 		const result = transform(readMemoryFile(path));
 		if (result.changed) writeAtomic(path, result.content);
+		else tightenMode(path);
 		const entries = parseEntries(result.content);
 		return result.existing === undefined
 			? { entries, changed: result.changed }

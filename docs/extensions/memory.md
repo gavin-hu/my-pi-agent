@@ -42,7 +42,9 @@ does not fill with paraphrases.
 
 **The stores.** The global file is `~/.pi/agent/memory.md`. The project store is
 anchored at the repository root, so a subdirectory and every worktree read the
-same file; it is read and written only while the project is trusted.
+same file; it is read and written only while the project is trusted. Either store
+is written owner-only (`0600`), because a note is instruction the next session
+trusts.
 
 **Recall.** Notes are injected as a `[MEMORY]` context block before each run,
 bounded by a byte cap; `/memory doctor` reports the budget and anything the cap

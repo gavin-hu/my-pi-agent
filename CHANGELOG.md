@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `memory`: a note store is written owner-only (`0600`), so `docs/security.md` stops
+  promising a mode the writer did not set: the write sets it on the temp file it renames
+  into place, and a store an older build left at the umask is tightened by its next
+  mutation even when the note text is unchanged.
+
 - `docs`: a name you half remember is now one page — `docs/tools-and-commands.md` lists
   every tool and slash command the pack registers, each row linking the page that owns
   it, and `test/extension-docs.test.ts` holds both tables to the factories in both
