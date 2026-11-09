@@ -9,7 +9,8 @@ messages, consume an inbox, and claim paths before editing them.
 - **Local and pull-based.** Same machine, same OS user, files under the agent
   directory — no service, no network, no hidden context.
 - **Joining is explicit.** The board opens empty; a session appears only when it
-  joins, which `/board`, `/team join`, the first claim, or a `session` call does.
+  joins, which `/board`, `/team join`, the first claim, `session send`, `claim`,
+  and `join` do.
 - **Listening is a mode**: mail reported at the next turn, or — with `wake` — one
   raised turn as soon as the agent is idle.
 - **Claims are all-or-nothing**, on a file or a directory prefix, and they expire

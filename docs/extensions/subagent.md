@@ -50,7 +50,7 @@ parallel batch, a chain, and a background run you collect from `/agents`.
 |---|---|---|
 | `explorer` | read, grep, find, ls, read_doc | recon: files, line ranges, where to start |
 | `planner` | the same readers | planning in an isolated context; never edits |
-| `reviewer` | readers, plus read-only `git diff/log/show` | bugs, security, maintainability |
+| `reviewer` | readers, plus `bash`, which its prompt keeps to inspection | bugs, security, maintainability |
 | `worker` | read, write, edit, bash, grep, find, ls, read_doc | general execution; reports what changed |
 
 **The call.** One mode per call: `agent` + `task`; `tasks[]` for a parallel batch;
@@ -90,6 +90,8 @@ trusted, so a repository cannot inject a prompt by adding a file.
 - There is no OS notification for a finished run; a TUI notice and `/agents` are
   the record.
 - Children inherit your model and thinking level unless the agent overrides them.
+- A subagent's tools are granted, not filtered: `reviewer` holds the same `bash` a
+  `worker` does, and only its prompt keeps it to `git diff/log/show`.
 
 ## Settings
 
