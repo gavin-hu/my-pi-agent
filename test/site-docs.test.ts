@@ -17,7 +17,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { SHELL_IMAGES, siteImages } from "../scripts/docs-assets.ts";
-import { walkFiles } from "./helpers/files.ts";
+import { posix, walkFiles } from "./helpers/files.ts";
 import { textOf } from "./helpers/scan.ts";
 
 const root = join(import.meta.dir, "..");
@@ -49,7 +49,7 @@ const nav = JSON.parse(readFileSync(join(docs, "_data", "docs.json"), "utf-8")) 
 function sitePages(): string[] {
 	return walkFiles(docs)
 		.filter((file) => file.endsWith(".md"))
-		.map((file) => relative(docs, file).replaceAll("\\", "/"))
+		.map((file) => posix(relative(docs, file)))
 		.filter((path) => !path.split("/").some((part) => part.startsWith("_") || part.startsWith(".")))
 		.sort();
 }
@@ -483,7 +483,9 @@ describe("the assets the site shows", () => {
 		const named = new Set(siteImages(docs).map((reference) => reference.path));
 		const unserved = walkFiles(join(docs, "assets"))
 			.filter((file) => /\.(png|jpe?g|gif|svg|webp)$/.test(file))
-			.map((file) => relative(docs, file))
+			// `siteImages` names a file the way a page's URL does; `relative` answers with
+			// the platform's separator, which on Windows read every asset as unserved.
+			.map((file) => posix(relative(docs, file)))
 			.filter((path) => !named.has(path) && !SHELL_IMAGES.includes(path))
 			.map((path) => `docs/${path}: no page names it; run \`bun run sync:docs\` to remove it`);
 		expect(unserved).toEqual([]);
