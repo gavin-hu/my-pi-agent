@@ -508,7 +508,7 @@ is a `bytefly.json` edit.
 | `include` | string[] | `[]` | | Gitignored files copied into a new worktree; the fallback when `.worktreeinclude` is absent. |
 | `skipOverrides` | string[] | `[]` | | Built-in tool names not to re-register, so another extension can own them. |
 | `guard.blockFileEscapes` | boolean | `true` | | Block `write`/`edit` whose resolved path leaves the active worktree. |
-| `guard.blockReadEscapes` | boolean | `false` | | Also block read-only tools (`read`, `grep`, `find`, `ls`) from leaving it. |
+| `guard.blockReadEscapes` | boolean | `false` | | Also confine the readers (`read`, `grep`, `find`, `ls`, `read_doc`) and input redirection to the active worktree. |
 | `guard.blockGitRedirects` | boolean | `true` | | Block git commands aimed at the main checkout. |
 | `guard.blockSymlinkEscapes` | boolean | `true` | | Block writes whose real path leaves the worktree through a symlink. |
 | `guard.blockUnparsableCommands` | boolean | `false` | | Block shell commands whose git behaviour cannot be verified. |

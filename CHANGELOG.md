@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the confinement sentences say what the defaults give — an active worktree
+  refuses a write or an output redirection that leaves the checkout, reads only with
+  `guard.blockReadEscapes`, and plan mode confines writes rather than reads.
 - `subagent`: a read-only child no longer gets `web_fetch` — the set is the workspace
   readers, `read_doc`, and `web_search` — because a fetch is an outbound channel a
   prompt-injected child could carry a document out on; the parameter and the two pages now
