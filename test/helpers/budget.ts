@@ -10,10 +10,15 @@
  *
  * The number is measured, not guessed. While eight busy loops ran on an eight-core box (load
  * 20-40) the card's two starvations were a `git init` settle at 20.15 s and the `job` exit trap's
- * shell at 25.6 s, both green under `--serial`; the worst of those doubled is where this sits.
+ * shell at 25.6 s, both green under `--serial`; the worst of those doubled is where this sat.
+ * It rose to 90 s on 2026-11-09, when a spawned `git` in `extensions/plan/git-bash.test.ts` spent
+ * 55.11 s — exactly the watchdog this budget derives — beside a second gate on one box, and a
+ * loopback page in `extensions/file-browse/transport/root-move.test.ts` reached the case's own
+ * deadline in another session; both were green alone and on the re-run, and neither reproduced
+ * once the machine-wide gate lock was in place, which is why this is time rather than retries.
  * Raising it is one edit here rather than a third bump of one surface's constant.
  */
-export const CASE_BUDGET_MS = 60_000;
+export const CASE_BUDGET_MS = 90_000;
 
 /**
  * What a watchdog leaves its case: room to print the failure, land a trap's write, and tear down.
