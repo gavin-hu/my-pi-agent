@@ -61,9 +61,9 @@ the recipient's next turn, so a session that is not running stays not running.
 ## Turning it on, and off
 
 `/board` joins the leading session, and `session status` reads the bus without
-joining it. To stop coordinating, toggle `session-bus` in `/bytefly` — the board
-and every other coordination surface go with it. What that costs, and what the
-other extensions cost while they run, is [A minimal install](./minimal-install.md).
+joining it. To stop coordinating, toggle `session-bus` in `/bytefly`: the team goes,
+and the cards stay workable without it. What that costs, and what the other
+extensions cost while they run, is [A minimal install](./minimal-install.md).
 
 ## Learn more
 

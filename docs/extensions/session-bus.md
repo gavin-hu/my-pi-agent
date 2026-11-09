@@ -87,8 +87,9 @@ agent directory, never in the project, so it is never committed.
 
 The bus has no keys in this version: the heartbeat (10 s), watch poll (2 s), session
 TTL (10 min), message TTL (24 h), text cap, and inbox limits are fixed. To switch
-the extension off, toggle `session-bus` in `/bytefly`; the board and every other
-coordination surface go with it.
+the extension off, toggle `session-bus` in `/bytefly`: the team goes, while the board
+and its cards stay workable without it
+([what that costs](../minimal-install.md#what-switching-one-off-costs)).
 
 ## Learn more
 

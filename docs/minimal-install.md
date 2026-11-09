@@ -53,9 +53,11 @@ off takes only its rail and its notes out of the session.
 - **The files stay.** Settings live in `bytefly.json`, and notes, cards, plans, and
   jobs are files under the agent directory, so switching an extension back on
   finds what it saw before.
-- **Some parts need another.** `team` and the board's page run on `session-bus` and
-  `serve`; with `session-bus` off, every coordination surface goes with it,
-  including the cards.
+- **Some parts need another.** The board's page needs `serve` for its port, and the
+  lead's round needs `session-bus`. With the bus off the board still works — the
+  cards are files, and `board` and `/board` read and write them — but the team goes:
+  `team`'s verbs refuse with "the session bus is not loaded", the page's Team tab says
+  so, and a sign is recorded without being announced to the card's owner.
 
 ## Learn more
 
