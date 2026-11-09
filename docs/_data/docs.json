@@ -14,6 +14,12 @@
       "summary": "Add the pack to Pi, pin a release, upgrade it, and check what it needs."
     },
     {
+      "path": "tutorials/README.md",
+      "title": "All tutorials",
+      "group": "Tutorials",
+      "summary": "Eleven walkthroughs in the order a new reader meets them, and which one to start with."
+    },
+    {
       "path": "tutorials/first-task.md",
       "title": "Track a task",
       "group": "Tutorials",

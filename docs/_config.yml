@@ -34,8 +34,8 @@ defaults:
       path: "search.json"
     values:
       layout: null
-  # The extension and skill indexes are a directory's front door, not a file named
-  # README.
+  # The extension, skill, and tutorial indexes are a directory's front door, not a
+  # file named README.
   - scope:
       path: "extensions/README.md"
     values:
@@ -44,6 +44,10 @@ defaults:
       path: "skills/README.md"
     values:
       permalink: "/skills/"
+  - scope:
+      path: "tutorials/README.md"
+    values:
+      permalink: "/tutorials/"
 
 exclude:
   - Gemfile

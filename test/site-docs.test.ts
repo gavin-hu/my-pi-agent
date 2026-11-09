@@ -168,6 +168,24 @@ describe("the navigation table", () => {
 	});
 });
 
+describe("the tutorials index", () => {
+	/** Every walkthrough, from the tree: the tutorials minus the index that lists them. */
+	const tutorials = sitePages().filter((page) => page.startsWith("tutorials/") && page !== "tutorials/README.md");
+
+	test("lists every walkthrough, and names none that is not one", () => {
+		// The index is where a reader who does not yet know the names starts, so a
+		// twelfth walkthrough that only reaches the sidebar is a page nobody meets in
+		// order. Split in two so the failure says which way it drifted.
+		const listed = [...pageText("tutorials/README.md").matchAll(/\]\(\.\/(first-[\w-]+\.md)\)/g)].map(
+			(match) => `tutorials/${match[1]}`,
+		);
+		expect({
+			missing: tutorials.filter((page) => !listed.includes(page)),
+			extra: listed.filter((page) => !tutorials.includes(page)),
+		}).toEqual({ missing: [], extra: [] });
+	});
+});
+
 describe("the build", () => {
 	const config = readFileSync(join(docs, "_config.yml"), "utf-8");
 
