@@ -76,23 +76,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   object read the un-written key as inherited and true — and the lead's queue no longer calls such
   an owner not running.
 
-- `dev`: the board page's other three browser suites read it through the one tab too —
-  `dialog-behaviour` (12 tabs), `kind` (4) and `repaint` (2) — so `BoardBrowser.open()` is gone
-  and a suite buys a tab once. Paired runs alternating old and new: 14.26 s / 20.88 s wall and
-  14.7 s / 15.7 s CPU before, 10.70 s / 16.85 s wall and 5.9 s / 6.7 s CPU after.
-
 - `worktree`: `enter` reads a worktree's lock before it touches it, so a second session can no
   longer reopen — or `reset --hard` — a checkout a first session is working in. A live session's
   lock is a refusal naming its `pi:<pid>:<session>` reason and leaving the checkout where it was;
   a lock whose owner is gone is taken over, and the re-lock that follows names the reusing session.
 
-- `dev`: the board page's browser suite keeps one tab and reloads its document instead of buying a
-  tab per case. `newPage` is the expensive half of a boot — measured 323–480 ms against 47–82 ms
-  to reload a tab already open — and the reload is what a case needs anyway: a document that
-  inherited no stream, no repaint in flight, no filter, fold, tab, mark, or focus. The one thing
-  Playwright keeps is the viewport, because it belongs to the tab, so `BoardBrowser.reuse()` puts
-  it back before the reload. `extensions/board/view/behaviour.test.ts` falls from 19.8 s to 12.0 s
-  wall and from 18.1 s to 4.7 s CPU across paired runs.
+- `dev`: the board page's browser suites keep one tab between cases and reload its document
+  instead of buying a tab each time. `newPage` is the expensive half of a boot — measured
+  323–480 ms against 47–82 ms to reload a tab already open — and the reload is what a case needs
+  anyway: a document that inherited no stream, no repaint in flight, no filter, fold, tab, mark,
+  or focus. `BoardBrowser.open()` is gone, so a suite buys a tab once: `behaviour` falls from
+  19.8 s to 12.0 s wall and 18.1 s to 4.7 s CPU, and `dialog-behaviour` (12 tabs), `kind` (4) and
+  `repaint` (2) read the one tab too. Paired runs alternating old and new: 14.26 s / 20.88 s wall
+  and 14.7 s / 15.7 s CPU before, 10.70 s / 16.85 s wall and 5.9 s / 6.7 s CPU after.
 
 - `docs`: a frame is shown by a page or it is not captured. Four extension pages open with
   the picture their screen already had — `job`, `wechat`, `context`, and `subagent` — and
@@ -218,17 +214,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `aria-activedescendant` and kept out of the tab order with `tabindex="-1"` — instead
   of an option wrapping a focusable link, and the empty row is presentational so the
   listbox holds nothing but options.
-- `docs`: the site masthead sits on the page's column — the brand lines up with the
-  sidebar instead of the viewport edge, the theme switch closes the rail's right edge
-  instead of stopping where the search field's cap ends, and a 320px phone drops the
-  brand name so the field keeps its placeholder — and the search glyph is drawn from a
-  role, with an opaque, prefixed fallback under the translucent bar.
-- `docs`: the site footer sits on the page's column too — its row repeats the shell's
-  78rem box, so the licence line lines up with the sidebar instead of the window edge
-  (96px off at 1440, 336px at 1920) and the links close the rail's, a phone gets the
-  shell's 1rem gutter and a touch's height on each link, and a short page keeps the
-  footer at the bottom instead of mid-screen; `test/site-docs.test.ts` holds the row to
-  the shell's box.
+- `docs`: the site's masthead and footer sit on the page's column — both rows repeat the
+  shell's 78rem box, so the brand and the licence line line up with the sidebar instead of the
+  window edge (96px off at 1440, 336px at 1920), the theme switch and the footer's links close
+  the rail's right edge, a 320px phone drops the brand name so the search field keeps its
+  placeholder, the footer takes the shell's 1rem gutter with a touch's height on each link, and a
+  short page keeps the footer at the bottom instead of mid-screen. The search glyph is drawn from
+  a role, with an opaque, prefixed fallback under the translucent bar;
+  `test/site-docs.test.ts` holds both rows to the shell's box.
 - `docs`: a link from `docs/` to an extension page names the page's `.md` target instead
   of the source directory — `extensions/serve/` was the code on GitHub and the page on
   the site — for 31 links across `security.md` and `configuration-reference.md`;
