@@ -43,7 +43,7 @@ import { type BoardConfig } from "./config.ts";
 import { holderRefusal, missingSign, signMark, signRefusal, signedAs } from "./lead.ts";
 import { type WipLimits, wipRefusal } from "./limits.ts";
 import { LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
-import { type BoardIndex, dependedOn, normalizeDepends, waitingOn } from "./links.ts";
+import { type BoardIndex, dependedOn, lanesText, normalizeDepends, openDependentsOf, waitingOn } from "./links.ts";
 import type { Actor, CardOp, Prepared } from "./rules.ts";
 
 /** Pull a backlog card into `plan`: the one door into the work. */
@@ -503,10 +503,24 @@ export function offer(card: Card, now: number, board: BoardIndex, limits: WipLim
  * Only a finished card leaves this way. No field moves and no transition is appended — the
  * record is unchanged, and what changed is which pile its file lies in, which is the
  * store's write. `changed` is still true, because the board lost a card.
+ *
+ * A card an open card still waits on stays, and the board is a parameter for that one
+ * question: `archive` is one state with two doors — this one and the sweep — and the sweep
+ * answers it from `round.archivable`. A named card was held to the lane rule alone, so the
+ * same call the sweep refuses went through and left a `dependsOn` naming a card no read of
+ * the board opens. Nothing is lost by refusing it: the link is a decision the holder can
+ * undo in one `edit`.
  */
-export function archive(card: Card): Prepared {
+export function archive(card: Card, board: BoardIndex): Prepared {
 	if (!LANE_RULES[card.lane].terminal) {
 		return { error: `${cardRef(card.id)} is in ${card.lane}; only a finished card can be archived.` };
+	}
+	const waiting = openDependentsOf(card.id, board);
+	if (waiting.length > 0) {
+		const waits = waiting.length === 1 ? "waits" : "wait";
+		return {
+			error: `${cardRef(card.id)} is finished, and ${lanesText(waiting)} still ${waits} on it: clear the link first, or the dependency would name a card the board no longer opens.`,
+		};
 	}
 	return { changed: true, fields: null };
 }

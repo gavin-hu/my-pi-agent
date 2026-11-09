@@ -226,7 +226,7 @@ function prepare(card: Card, op: CardOp, actor: Actor, now: number, board: Board
 		case "offer":
 			return offer(card, now, board, config.wip);
 		case "archive":
-			return archive(card);
+			return archive(card, board);
 		case "drop":
 			return drop(card, actor, board);
 		default:

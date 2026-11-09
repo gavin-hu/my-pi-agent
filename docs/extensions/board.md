@@ -90,8 +90,8 @@ claim past either is refused with the count and the ways out.
 
 - `done` is terminal: a card finished by mistake is dropped and added again, and
   the new card takes a new number.
-- Nothing prunes itself — `done` cards cost a read until `archive` sets them
-  aside.
+- Nothing prunes itself — `done` cards cost a read until `archive` sets them aside,
+  and it takes only a card nothing open still waits on, named or swept.
 - Ownership is a label, not a lock: only `session-bus` path claims are.
 - The page is read-only: a browser cannot assign a card without messaging its owner.
 - A card keeps the last eight lane transitions; a card file a newer build wrote is

@@ -198,4 +198,22 @@ describe("the archive result", () => {
 		expect(swept.details.archive).toEqual({ moved: [], kept: [kept.id], failed: [] });
 		expect(resultText(swept)).toContain(`1 card kept: an open card still waits on #${kept.id}.`);
 	});
+
+	test("refuses by name the card a live link kept, so the two doors agree", async () => {
+		const { call, store } = await archiveTool();
+		const kept = await store.create({ title: "Finished, still waited on", paths: [] }, ME, NOW);
+		const waiting = await store.create({ title: "Waiting one", paths: [] }, ME, NOW);
+		await advance(store, kept.id, "done", { owner: ME }, NOW);
+		await store.mutate(waiting.id, { kind: "edit", dependsOn: [kept.id] }, ME, NOW);
+		// The sweep keeps it, so naming it must not be the way round the same rule: archiving here
+		// would leave a `dependsOn` pointing at a card no read of the board opens.
+		const named = await call({ action: "archive", card: kept.id });
+		expect(named.details.error).toBe(
+			`#${kept.id} is finished, and #${waiting.id} (backlog) still waits on it: clear the link first, or the dependency would name a card the board no longer opens.`,
+		);
+		// Nothing half-applied, and the way out is one edit by the card that waits.
+		expect((await store.list()).map((card) => card.id)).toContain(kept.id);
+		await store.mutate(waiting.id, { kind: "edit", dependsOn: [] }, ME, NOW);
+		expect((await call({ action: "archive", card: kept.id })).details.archive?.moved).toEqual([kept.id]);
+	});
 });
