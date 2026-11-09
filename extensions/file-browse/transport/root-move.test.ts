@@ -20,6 +20,33 @@ import { makeFixture, servePage, type Fixture } from "../../../test/helpers/fixt
 let fixture: Fixture | undefined;
 let server: FileServer | undefined;
 
+/** The one verb this case needs from a stream: the next chunk. */
+interface ChunkReader {
+	read(): Promise<{ done: boolean; value?: Uint8Array }>;
+}
+
+/**
+ * The stream read to the frame that says the root moved.
+ *
+ * Every page that attaches is sent a status frame, fanned out to all of them, so the second
+ * page's attach writes one more status frame to the first. Which of that and the announcement
+ * arrives first is socket timing, not the contract this case states, so the frame is read to
+ * rather than assumed to be next.
+ */
+async function movedFrame(reader: ChunkReader | undefined): Promise<string> {
+	if (reader === undefined) throw new Error("the events stream had no body");
+	const decoder = new TextDecoder();
+	const seen: string[] = [];
+	// A handful of chunks: an attach frame per page, a status tick, and the announcement.
+	for (let chunk = 0; chunk < 8; chunk++) {
+		const { value } = await reader.read();
+		const frame = decoder.decode(value);
+		seen.push(frame);
+		if (frame.includes("event: moved")) return frame;
+	}
+	throw new Error(`the stream never announced the move; it sent ${JSON.stringify(seen)}`);
+}
+
 afterEach(async () => {
 	await server?.close();
 	server = undefined;
@@ -44,16 +71,13 @@ describe("the served root moving", () => {
 
 		const streams = [await fetch(`${started.url}events`), await fetch(`${started.url}events`)];
 		const readers = streams.map((reply) => reply.body?.getReader());
-		for (const reader of readers) await reader?.read();
 
 		started.reroot(join(fixture.root, "sub"), { git: async () => ({ branch: "feature" }) });
 
 		// One announcement reaches every attached page: the channel fans out, the page
 		// reloads, and it is the only page that moves.
 		for (const reader of readers) {
-			const moved = new TextDecoder().decode((await reader?.read())?.value);
-			expect(moved).toContain("event: moved");
-			expect(moved).toContain(JSON.stringify({ root: join(fixture.root, "sub") }));
+			expect(await movedFrame(reader)).toContain(JSON.stringify({ root: join(fixture.root, "sub") }));
 		}
 
 		expect(started.root).toBe(join(fixture.root, "sub"));
