@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the config migration recipe names the checkout it needs. `scripts/` is not in the
+  tarball `pi install npm:` unpacks, so `migrate:config` never existed for the installed
+  reader who still has legacy `<name>.json` files; the fence now clones and installs the
+  repository first, and says the checkout migrates the same agent directory `pi` writes.
+
 - `docs`: three pages stop saying that switching `session-bus` off takes the board with it.
   The cards, `board`, and `/board` keep working; what goes is the team — the round's verbs,
   the page's Team tab, and a sign's announcement to the card's owner — and the board's page
