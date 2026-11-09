@@ -8,7 +8,7 @@ import { createDecipheriv, createCipheriv } from "node:crypto";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { tempDir } from "../../../test/helpers/env.ts";
+import { modeOfOwnerOnlyWrite, tempDir } from "../../../test/helpers/env.ts";
 import { decodeMediaKey, findSavedFile, isPaddingFailure, savedFileName, saveMedia, sniffFileMime } from "./media.ts";
 
 describe("the wire's media key", () => {
@@ -109,6 +109,11 @@ describe("the saved media file", () => {
 	test.skipIf(process.platform === "win32")("writes it owner-only, like the state it belongs to", () => {
 		const dir = tempDir("wechat-media-");
 		const path = saveMedia(dir, "1-0-abc", new Uint8Array([1]));
-		expect(statSync(path).mode & 0o777).toBe(0o600);
+		const mode = statSync(path).mode & 0o777;
+		const ownerOnly = modeOfOwnerOnlyWrite();
+		expect(
+			mode,
+			`umask 0${process.umask().toString(8)}, probe 0${ownerOnly.toString(8)}, file 0${mode.toString(8)}`,
+		).toBe(ownerOnly);
 	});
 });

@@ -6,7 +6,7 @@
  * environment that loads the whole pack.
  */
 
-import { mkdtempSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
@@ -23,6 +23,33 @@ export const ALL_EXTENSIONS_ENV: Record<string, string> = {
 /** A fresh temp directory under the OS temp root. */
 export function tempDir(prefix: string): string {
 	return mkdtempSync(join(tmpdir(), prefix));
+}
+
+/**
+ * The mode this machine actually gives a file it is asked to write owner-only.
+ *
+ * A case that asserts a file's mode is asserting what `mode: 0o600` does *here*, and
+ * that is the process umask applied to it: `0o600` under a normal umask, something
+ * else under a masking one, and one value for every file on a filesystem with no
+ * POSIX modes. Probing a control file in the same world means the case can compare the
+ * product's file with the environment's own answer — which still fails a write that
+ * names no mode, because the control keeps `0o600` — instead of failing as if the
+ * product were wrong when the machine is the thing that differs.
+ *
+ * The directory is chmodded to `0o700` because `mkdtemp`'s own mode is masked by the
+ * same umask this is here to survive: under a hostile one the directory would be
+ * unusable and the probe would answer an error rather than a mode.
+ */
+export function modeOfOwnerOnlyWrite(prefix = "pi-mode-probe-"): number {
+	const dir = mkdtempSync(join(tmpdir(), prefix));
+	try {
+		chmodSync(dir, 0o700);
+		const probe = join(dir, "probe");
+		writeFileSync(probe, "", { mode: 0o600 });
+		return statSync(probe).mode & 0o777;
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 }
 
 /**
