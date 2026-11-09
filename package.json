@@ -82,8 +82,15 @@
     "assets/screens/board.png",
     "assets/screens/chrome.png",
     "assets/screens/file-browse.png",
-    "assets/screens/plan-review.png",
+    "assets/screens/memory.png",
     "assets/screens/plan.png",
+    "assets/screens/question.png",
+    "assets/screens/rewind.png",
+    "assets/screens/session.png",
+    "assets/screens/team.png",
+    "assets/screens/todo.png",
+    "assets/screens/watch.png",
+    "assets/screens/worktree.png",
     "!**/*.test.ts"
   ],
   "publishConfig": {

@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the tarball publishes every screenshot a packaged page shows. Twelve
+  `docs/extensions/**` pages carry a raw `<img>` and `files` listed five, so eight pages opened
+  with a broken image in an installed copy while `plan-review.png` shipped with no page naming it;
+  `test/release.test.ts` now holds the set in both directions from the packaged pages themselves.
+
 - `docs`: the once-a-session update check has one owner — `bytefly`'s page says what it
   does (the header marker on both versions, the one notice, the cache), and the README,
   the site home, and the install guide keep a summary and a link; the same for
