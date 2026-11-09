@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `worktree`: `enter` reads a worktree's lock before it touches it, so a second session can no
+  longer reopen — or `reset --hard` — a checkout a first session is working in. A live session's
+  lock is a refusal naming its `pi:<pid>:<session>` reason and leaving the checkout where it was;
+  a lock whose owner is gone is taken over, and the re-lock that follows names the reusing session.
+
 - `dev`: the board page's browser suite keeps one tab and reloads its document instead of buying a
   tab per case. `newPage` is the expensive half of a boot — measured 323–480 ms against 47–82 ms
   to reload a tab already open — and the reload is what a case needs anyway: a document that

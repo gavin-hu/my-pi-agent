@@ -16,6 +16,7 @@ import {
 	repoRootFor,
 	revParse,
 	type RunGitOptions,
+	type WorktreeEntry,
 	worktrees,
 } from "../../lib/git/index.ts";
 import { isInside, realPathOfNearest } from "../../lib/path.ts";
@@ -163,13 +164,23 @@ export function worktreePath(repoRoot: string, config: WorktreeConfig, name: str
 	return realPathOfNearest(resolve(repoRoot, config.dir, name));
 }
 
-export async function worktreeExists(pi: ExtensionAPI, dir: string): Promise<boolean> {
+/** The `git worktree list` entry for the checkout rooted at `dir`, when `dir` is one. */
+async function worktreeEntry(pi: ExtensionAPI, dir: string): Promise<WorktreeEntry | undefined> {
 	const want = realPathOfNearest(dir);
-	const result = await git(pi, ["worktree", "list", "--porcelain"], dir);
-	if (result.code !== 0) return false;
-	return result.stdout
-		.split("\n")
-		.some((line) => line.startsWith("worktree ") && realPathOfNearest(line.slice("worktree ".length).trim()) === want);
+	return (await worktrees(createExecRunner(pi), dir)).find((candidate) => realPathOfNearest(candidate.path) === want);
+}
+
+export async function worktreeExists(pi: ExtensionAPI, dir: string): Promise<boolean> {
+	return (await worktreeEntry(pi, dir)) !== undefined;
+}
+
+/**
+ * The lock on the worktree at `dir`: its reason, `""` when git recorded none, and
+ * undefined when it is not locked. Enter reads this before it touches a checkout, so a
+ * live session's lock is a claim the second session respects.
+ */
+export async function worktreeLock(pi: ExtensionAPI, dir: string): Promise<string | undefined> {
+	return (await worktreeEntry(pi, dir))?.locked;
 }
 
 /**

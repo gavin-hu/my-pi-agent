@@ -234,7 +234,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/panel-keys",
 		"view/status",
 	],
-	worktree: ["git", "exit", "flow", "tools", "ui"],
+	worktree: ["git", "enter", "exit", "flow", "tools", "ui"],
 };
 
 export const LIB_SUITES: readonly string[] = [
