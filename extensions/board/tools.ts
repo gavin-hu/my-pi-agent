@@ -163,7 +163,14 @@ export function registerTools(
 					`unknown action "${String(args.action)}"; use ${BOARD_ACTIONS.join(", ")}.`,
 				);
 			}
-			const me = await runtime.who(ctx, ctx.cwd);
+			// The actor names every refusal below, and reading it fails like anything else can: a
+			// failure is a refusal carrying the tool's own name, not a call the transcript cannot draw.
+			const actor = await runtime.who(ctx, ctx.cwd).then(
+				(known) => known,
+				(error: unknown) => messageOf(error),
+			);
+			if (typeof actor === "string") return refusal(action, { label: BOARD_TOOL }, actor);
+			const me = actor;
 			try {
 				// Before the join and before a card is read: a refused call has written nothing, so it
 				// cannot have enlisted this session as a teammate on its way to the refusal.

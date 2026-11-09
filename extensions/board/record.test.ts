@@ -241,3 +241,26 @@ describe("the archive result", () => {
 		expect((await call({ action: "drop", card: card.id })).details.dropped).toBe(card.id);
 	});
 });
+
+describe("a session that cannot say who it is", () => {
+	test("is refused carrying the tool's name, not thrown", async () => {
+		const { harness } = board();
+		// The roster is a file, so reading it fails like any other read: a tool that throws is a call
+		// the transcript cannot draw, and the refusal is the same failure with somewhere to put it.
+		const blind: BoardSession = {
+			...harness.runtime,
+			who: async () => {
+				throw new Error("the roster is unreadable");
+			},
+		};
+		registerTools(harness.fake.pi, blind);
+		const tool = harness.fake.pi.tools.get(BOARD_TOOL);
+		if (!tool) throw new Error("the board tool was not registered");
+		const result = (await tool.execute("call-1", { action: "list" }, undefined, undefined, harness.ctx)) as {
+			content: Array<{ type: string; text: string }>;
+			details: BoardDetails;
+		};
+		expect(result.details.error).toBe("the roster is unreadable");
+		expect(result.details.me.label).toBe(BOARD_TOOL);
+	});
+});

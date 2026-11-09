@@ -52,6 +52,21 @@ describe("/board approve and /board review", () => {
 		board.temps.flush();
 	});
 
+	test("says nothing about a close when the word is an approval", async () => {
+		const board = await signingBoard();
+		await board.store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		reviewedInPlan(board);
+		// An approval has no instruction to record, so the clause is the review's alone: the line
+		// prints the sign the person made and nothing about a gate it never used.
+		expect(await board.say("approve 1")).toBe(`board: #1 approved by you${NOT_TOLD}`);
+		board.temps.flush();
+	});
+
 	test("walks a one-session card past both gates, which the holder alone could not", async () => {
 		const board = await signingBoard();
 		const store = board.store;
@@ -213,6 +228,16 @@ describe("/board approve and /board review", () => {
 		});
 	});
 });
+
+/** A card in plan whose file also carries a review: a record no path writes, and the one a clause
+ * read from the wrong field would show up on.
+ */
+function reviewedInPlan(board: Awaited<ReturnType<typeof signingBoard>>): void {
+	const file = cardFile(board.agentDir, board.id);
+	const card = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+	card.review = { by: "lead", at: 1_000, byInstruction: "Closed On My Instruction" };
+	writeFileSync(file, JSON.stringify(card));
+}
 
 describe("/board review --override", () => {
 	/** A card this fixture finished through the gate, with its sign taken back off afterward. */

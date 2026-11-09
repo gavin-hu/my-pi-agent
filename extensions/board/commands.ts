@@ -180,7 +180,10 @@ async function signLine(
 	}
 	if (!result.ok) return { text: `board: ${result.error}`, tone: "info" };
 	const done = sign === "approve" ? "approved" : "reviewed";
-	const how = result.card.review?.byInstruction === undefined ? "" : " · closed by instruction";
+	// The close is a review's fact and never an approval's, so the word decides whether the card is
+	// asked at all: a card in plan that carries a review — a hand-edited file, since no path writes
+	// one — must not put its reason on the line an approval prints.
+	const how = sign === "review" && result.card.review?.byInstruction !== undefined ? " · closed by instruction" : "";
 	const text = result.changed
 		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}`
 		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}`;

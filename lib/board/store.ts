@@ -383,7 +383,7 @@ export function createStore(
 		}
 		return {
 			ok: false,
-			error: `${cardRef(id)} kept changing while it was written; read it again.`,
+			error: `${cardRef(id)} was being written by another session; read it again.`,
 			card: await read(id),
 		};
 	};
