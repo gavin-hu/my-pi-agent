@@ -108,7 +108,10 @@ and `PI_OFFLINE` turns both off.
 ### Child processes and remote control
 
 - [`subagent`](../extensions/subagent/) launches a child `pi` process; its
-  `readOnly` mode passes only reader tools to the child.
+  `readOnly` mode passes the workspace readers, `read_doc`, and `web_search` — no
+  writing tool and no `web_fetch`, because a fetch is an outbound channel. That
+  narrows what a child may do; it is not a sandbox: `read_doc` still reads any
+  document the process can, with the OS permissions that go with it.
 - [`wechat`](../extensions/wechat/) answers only the stored account's owner — the
   chat is that Pi session, with its tools — and keeps credentials under
   `<agent-dir>/wechat/` with mode `0600`. Anyone else is refused and counted, and

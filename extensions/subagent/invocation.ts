@@ -7,18 +7,24 @@
  */
 
 import { WORKSPACE_READERS } from "../../lib/policy.ts";
-import { WEB_FETCH_TOOL, WEB_SEARCH_TOOL } from "../../lib/tool-names.ts";
+import { WEB_SEARCH_TOOL } from "../../lib/tool-names.ts";
 import type { AgentConfig } from "./agents.ts";
 import type { DispatchDefaults } from "./types.ts";
 
 export { getPiInvocation, type PiInvocation } from "../../lib/pi-invocation.ts";
 
-/** Tools a read-only delegation may use: structured readers, documents, and web readers only. */
-export const READ_ONLY_TOOLS = [...WORKSPACE_READERS, WEB_SEARCH_TOOL, WEB_FETCH_TOOL] as const;
+/**
+ * Tools a read-only delegation may use: the structured readers, the document reader,
+ * and search. `web_fetch` is deliberately absent — a fetch is an outbound channel, so a
+ * prompt-injected child could carry a document it read out of the machine on a body or a
+ * query string. The parent fetches the page and hands the child the text.
+ */
+export const READ_ONLY_TOOLS = [...WORKSPACE_READERS, WEB_SEARCH_TOOL] as const;
 
 /** Appended to a read-only agent's system prompt; the `--tools` list is the real gate. */
 export const READ_ONLY_NOTE =
-	"Read-only mode: you cannot write, edit, or run shell commands. Investigate and report findings only.";
+	"Read-only mode: you cannot write, edit, run shell commands, or fetch a URL. Investigate and report " +
+	"findings only; ask for a page to be fetched for you when you need one.";
 
 /**
  * Build the argument list for one subagent run.
