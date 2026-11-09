@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: three pages stop saying that switching `session-bus` off takes the board with it.
+  The cards, `board`, and `/board` keep working; what goes is the team — the round's verbs,
+  the page's Team tab, and a sign's announcement to the card's owner — and the board's page
+  needs `serve` for its port, not the bus.
+
 - `docs`: five extension pages stop stating facts the code does not hold — the board's
   cards live under `cards/` with `ended/` and `page.json` beside them, `worktree` says
   the six `guard.*` switches it has, `subagent` says `reviewer` is granted the real
