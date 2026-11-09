@@ -66,9 +66,10 @@ moving — a worktree switch — reloads the page onto the new tree.
 
 ## Limits
 
-- Loopback only, with no auth: a malicious local page could probe the port. The
-  `Host` allowlist, the absent CORS headers, and a read-only server are the
-  mitigation; there is no LAN exposure.
+- Loopback only, and no token: any process running as you can read what the page
+  serves, exactly as it could from the filesystem. What bounds it is the working
+  directory it is rooted at, a server that answers only `GET` and `HEAD`, and the
+  `Host` allowlist, with no CORS headers; there is no LAN exposure.
 - Live status patches what the page already has. A new file on disk needs the
   page's `⟳ reload`; the check covers the listed folder by name, not the folders
   inside it, a listed file's contents, or a file page's diff.

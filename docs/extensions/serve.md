@@ -58,9 +58,13 @@ name instead of being moved silently. A second session of the same repository
 prefers the same number and takes an OS-chosen port when the first holds it, so
 two sessions never fight over one address.
 
-**Security.** Each page keeps its own token, its own `Host` allowlist, and its
-own method list — being on one server does not share a credential. A page opens
-one stream and the token is checked on it like any other route. The single
+**Security.** Each page keeps its own `Host` allowlist and its own method list,
+so being on one server does not share a policy. `board` and a plan review add a
+128-bit token minted when that page starts, compared in constant time and checked
+on their stream like any other route. `file-browse` mints none: it serves a
+directory you already own and read, `GET` and `HEAD` only, so the root it resolves
+against and the OS permissions behind it are its boundary — any process running as
+you can read what it serves, exactly as it could from the filesystem. The other
 exception is a shared review, which asks for a listener on one LAN address and
 carries only that review's prefixes.
 
