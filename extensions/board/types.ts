@@ -49,8 +49,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	review:
 		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`, which is what `done` requires, and `text` records what the signer saw; the sign is announced to the card's owner in its inbox, so a session that needs one asks the lead with `session send`. `override` instead signs a finished card nobody signed, naming why",
 	edit: "fixes what the card says — title, path hints, type, breaking, priority, and what it waits for",
-	archive:
-		"sets a finished card aside, out of the board and still readable, or every archivable one when no `card` is named",
+	archive: "sets a finished card aside, still readable — never one an open card waits on; every one if none is named",
 	drop: "deletes a `backlog` or a `done` card, or one you hold",
 };
 

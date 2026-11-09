@@ -437,18 +437,18 @@ describe("archive", () => {
 	test("keeps a link that names a card which has since been archived", async () => {
 		const { store } = scratchStore();
 		const dependency = await finished(store, "Finished first");
-		const waiter = await store.create({ title: "Waits on it", paths: [] }, LEAD, NOW);
-		const linked = await store.mutate(waiter.id, { kind: "edit", dependsOn: [dependency] }, LEAD, NOW + 1);
+		const waiter = await finished(store, "Waits on it");
+		const linked = await store.mutate(waiter, { kind: "edit", dependsOn: [dependency] }, CORE, NOW + 1);
 		if (!linked.ok) throw new Error(linked.error);
 		await store.mutate(dependency, { kind: "archive" }, LEAD, NOW + 2);
-		// The card still says what it says: re-sending the same list is a no-op, not a refusal
-		// for an id the board no longer holds.
-		const kept = await store.mutate(waiter.id, { kind: "edit", dependsOn: [dependency] }, LEAD, NOW + 3);
+		// Both cards are finished, so the archive is allowed; the waiter still says what it says —
+		// re-sending that list is a no-op, not a refusal for an id the board no longer holds.
+		const kept = await store.mutate(waiter, { kind: "edit", dependsOn: [dependency] }, CORE, NOW + 3);
 		if (!kept.ok) throw new Error(kept.error);
 		expect(kept.changed).toBe(false);
 		// Clearing it is the way out, and the id cannot be named again afterwards.
-		await store.mutate(waiter.id, { kind: "edit", dependsOn: [] }, LEAD, NOW + 4);
-		const again = await store.mutate(waiter.id, { kind: "edit", dependsOn: [dependency] }, LEAD, NOW + 5);
+		await store.mutate(waiter, { kind: "edit", dependsOn: [] }, CORE, NOW + 4);
+		const again = await store.mutate(waiter, { kind: "edit", dependsOn: [dependency] }, CORE, NOW + 5);
 		if (again.ok) throw new Error("expected a refusal");
 		expect(again.error).toBe(`#${dependency} does not exist.`);
 	});

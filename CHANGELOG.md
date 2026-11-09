@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a finished card an open card still waits on stays on the board whichever door is used.
+  Naming it in `archive` was held to the lane rule alone, so the sweep kept such a card while the
+  same call naming it moved it — leaving a `dependsOn` pointing at a card no board read opens and a
+  `waitingOn` that read the vanished link as satisfied. `steps.archive` now takes the board and
+  refuses with the dependent named, and the way out is one `edit`.
+
 - `dev`: the board page's other three browser suites read it through the one tab too —
   `dialog-behaviour` (12 tabs), `kind` (4) and `repaint` (2) — so `BoardBrowser.open()` is gone
   and a suite buys a tab once. Paired runs alternating old and new: 14.26 s / 20.88 s wall and
