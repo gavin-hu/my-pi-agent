@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: a surface that does not work has one page. `docs/troubleshooting.md` is a symptom,
+  cause, fix and owning-page table over the five failures that were each a Limits bullet on a
+  different page — no page at all, a pinned port another process holds, `✆ wechat expired`, a
+  doctor row reading `env disabled`, and a card refusing the session that holds it — linked from
+  the front door and from `serve`, `wechat`, `bytefly` and `board`.
+
 - `docs`: the config migration recipe names the checkout it needs. `scripts/` is not in the
   tarball `pi install npm:` unpacks, so `migrate:config` never existed for the installed
   reader who still has legacy `<name>.json` files; the fence now clones and installs the
