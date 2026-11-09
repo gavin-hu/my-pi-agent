@@ -203,8 +203,9 @@ the files it refused (`Skip`), and the bytes they occupy, so a page's frame read
 once; `list` and `skipped` are its two halves, and `list` orders a lane by priority then id.
 
 `archive` renames a finished card's file into the `archive/` pile beside the cards without
-rewriting it, so `read` finds a card in either pile and writes it back to that one while
-`list` still reads the board alone. `archived()` / `archivedCount()` are the pile on request
+rewriting it, so `read` finds a card in either pile while `list` still reads the board alone —
+and only the board's pile is writable: `mutate` hands `applyOp` the place it found the card
+(`Place`), and every operation but `drop` is refused there. `archived()` / `archivedCount()` are the pile on request
 and its count, a number spent by an ended or archived card is never handed out again, and nothing
 prunes: `archive` and `drop` are the two ways a card leaves the board.
 

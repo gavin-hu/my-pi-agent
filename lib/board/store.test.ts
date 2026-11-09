@@ -401,7 +401,7 @@ describe("archive", () => {
 		expect(again.archived).toBe(false);
 	});
 
-	test("a note that lands after the file moves follows it into the archive", async () => {
+	test("a note that loses to an archive is refused, and the card stays closed", async () => {
 		let armed = false;
 		const { dir, store } = scratchStore({
 			beforeWrite: async (id, kind) => {
@@ -415,13 +415,12 @@ describe("archive", () => {
 		const id = await finished(store);
 		armed = true;
 		const noted = await store.mutate(id, { kind: "note", text: "late" }, CORE, NOW + 2);
-		if (!noted.ok) throw new Error(noted.error);
-		// The note follows the card instead of resurrecting it: one file, in the archive, and the
-		// board reads as empty — the pile a write carried is part of the compare-and-set.
+		// The card moved while the note waited, and a closed record takes no write: the note is
+		// refused rather than resurrected into the pile, and the board still reads as empty.
+		expect(noted.ok).toBe(false);
 		expect(filesOf(dir)).toEqual([]);
-		expect(archivedFilesOf(dir)).toEqual(["0001.json"]);
 		const archived = JSON.parse(readFileSync(join(dir, "archive", "0001.json"), "utf-8")) as Card;
-		expect(archived.notes.at(-1)?.text).toBe("late");
+		expect(archived.notes.map((note) => note.text)).not.toContain("late");
 		expect(await store.list()).toEqual([]);
 	});
 
@@ -461,20 +460,17 @@ describe("archive", () => {
 		expect(next.id).toBe("2");
 	});
 
-	test("writes an edit back to the pile the card was read from", async () => {
+	test("closes the record: an edit or a note on an archived card is refused", async () => {
 		const { dir, store } = scratchStore();
-		const id = await finished(store);
+		const id = await finished(store, "Finished one");
 		await store.mutate(id, { kind: "archive" }, LEAD, NOW);
-		const edited = await store.mutate(
-			id,
-			{ kind: "edit", title: "Finished one, restated", paths: undefined, priority: undefined, dependsOn: undefined },
-			CORE,
-			NOW + 1,
-		);
-		if (!edited.ok) throw new Error(edited.error);
-		expect(edited.card.title).toBe("Finished one, restated");
-		expect(existsSync(join(dir, "cards", "0001.json"))).toBe(false);
-		expect(JSON.parse(readFileSync(join(dir, "archive", "0001.json"), "utf-8")).title).toBe("Finished one, restated");
+		const edited = await store.mutate(id, { kind: "edit", title: "Restated" }, CORE, NOW + 1);
+		// History: the title the archive holds is the one that was folded away, and the refusal
+		// names the one operation a closed record still takes.
+		expect(edited.ok).toBe(false);
+		expect(edited.ok ? "" : edited.error).toContain("its record is read-only");
+		expect(JSON.parse(readFileSync(join(dir, "archive", "0001.json"), "utf-8")).title).toBe("Finished one");
+		expect((await store.mutate(id, { kind: "note", text: "late" }, CORE, NOW + 2)).ok).toBe(false);
 	});
 
 	test("a drop takes an archived card, leaving the record that ended it", async () => {
