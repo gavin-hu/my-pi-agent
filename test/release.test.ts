@@ -33,7 +33,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, posix as pathPosix, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { posix, walkFiles } from "./helpers/files.ts";
 
@@ -165,34 +165,87 @@ const manifest = JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) a
 /** What `files` publishes, without the negations that narrow it. */
 const published = (manifest.files ?? []).filter((entry) => !entry.startsWith("!"));
 
+/** One image a packaged page loads, and how the page names it. */
+interface PageImage {
+	/** The image's path from the package root, for example `assets/screens/board.png`. */
+	path: string;
+	/** The page that names it, relative to the package root. */
+	page: string;
+	/** `markdown` is the shape the gallery rewrites to the npm CDN; `html` is a raw `<img src>`. */
+	kind: "markdown" | "html";
+}
+
 /** The two entry READMEs, which the gallery renders at the published version. */
 const ENTRY_READMES = ["README.md", "README.zh-CN.md"];
 
+/** A Markdown image, a raw `src`, and the extensions a page loads as a picture. */
+const MARKDOWN_IMAGE = /!\[[^\]]*\]\(([^)\s]+)\)/g;
+const HTML_IMAGE = /<img[^>]+src="([^"]+)"/g;
+const PAGE_IMAGE = /\.(?:png|jpe?g|gif|svg|webp)$/i;
+
 /**
- * Every relative Markdown image target in the entry READMEs, as `file: target`.
+ * Every image a packaged page loads, resolved from the page that names it.
  *
- * These are the images the gallery keeps: it rewrites a `![…](path)` to the npm
- * CDN and drops a raw `<img>` tag, so a preview written as HTML is GitHub's
- * alone and one written as Markdown has to exist in the tarball.
+ * Both shapes count, because both are what a reader opens: the gallery rewrites a
+ * Markdown `![…](path)` to the npm CDN, and a raw `<img src>` in `docs/extensions/`
+ * resolves inside the unpacked package. A *link* to an image is not one of them — a
+ * reader can follow it to GitHub, but the page never loads it, which is why the 2 MB
+ * `tool-renderings.png` sheet stays out of the pack.
  */
-function rewrittenImages(): string[] {
-	const images: string[] = [];
-	for (const name of ENTRY_READMES) {
-		for (const match of readFileSync(join(repo, name), "utf-8").matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
-			if (/^(?:https?:|\/\/)/i.test(match[1])) continue;
-			images.push(`${name}: ${match[1]}`);
+function packagedPageImages(): PageImage[] {
+	const pages = [
+		...ENTRY_READMES.map((name) => join(repo, name)),
+		...walkFiles(join(repo, "docs", "extensions")).filter((file) => file.endsWith(".md")),
+	];
+	const images: PageImage[] = [];
+	for (const file of pages) {
+		const page = posix(relative(repo, file));
+		const text = readFileSync(file, "utf-8");
+		for (const [kind, pattern] of [
+			["markdown", MARKDOWN_IMAGE],
+			["html", HTML_IMAGE],
+		] as const) {
+			for (const match of text.matchAll(pattern)) {
+				const target = match[1];
+				if (!PAGE_IMAGE.test(target) || /^(?:https?:|\/\/|\/)/i.test(target)) continue;
+				images.push({ path: pathPosix.normalize(pathPosix.join(pathPosix.dirname(page), target)), page, kind });
+			}
 		}
 	}
 	return images;
 }
 
+/** Whether `files` publishes a path, by the glob rules the manifest uses. */
+function publishes(path: string): boolean {
+	return published.some((entry) => new Bun.Glob(entry).match(path));
+}
+
 describe("the published tarball", () => {
 	test("publishes every README image the gallery rewrites to the npm CDN", () => {
-		const unpublished = rewrittenImages().filter((image) => {
-			const target = image.slice(image.indexOf(": ") + 2);
-			return !published.some((entry) => new Bun.Glob(entry).match(target));
-		});
+		// The gallery rewrites a Markdown image and drops a raw `<img>` tag, so a preview
+		// written as HTML is GitHub's alone and one written as Markdown must be published.
+		const gallery = packagedPageImages().filter(
+			(image) => image.kind === "markdown" && ENTRY_READMES.includes(image.page),
+		);
+		const unpublished = gallery
+			.filter((image) => !publishes(image.path))
+			.map((image) => `${image.page}: ${image.path}`);
 		expect(unpublished, "add it to package.json files, or the gallery renders a 404").toEqual([]);
+	});
+
+	test("publishes every image a packaged page shows", () => {
+		// A packaged page is one the tarball carries, so its frame has to resolve inside the
+		// unpacked package: eight pages shipped a dead `<img>` while only the READMEs were read.
+		const unpublished = packagedPageImages()
+			.filter((image) => !publishes(image.path))
+			.map((image) => `${image.page}: ${image.path}`);
+		expect(unpublished, "add it to package.json files, or the unpacked page shows a broken image").toEqual([]);
+	});
+
+	test("publishes no screenshot a packaged page does not show", () => {
+		const shown = new Set(packagedPageImages().map((image) => image.path));
+		const unused = published.filter((entry) => entry.startsWith("assets/screens/") && !shown.has(entry));
+		expect(unused, "delete it from package.json files, or show it on a packaged page").toEqual([]);
 	});
 
 	test("points pi.image at an absolute raw screenshot that exists", () => {
@@ -220,8 +273,8 @@ describe("the published tarball", () => {
 	});
 
 	test("has an image to publish", () => {
-		// A regex that stopped matching would make the case above vacuously pass.
-		expect(rewrittenImages().length).toBeGreaterThan(0);
+		// A regex that stopped matching would make the cases above vacuously pass.
+		expect(packagedPageImages().length).toBeGreaterThan(0);
 	});
 });
 

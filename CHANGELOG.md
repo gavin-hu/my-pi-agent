@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the tarball publishes every screenshot a packaged page shows. Twelve
+  `docs/extensions/**` pages carry a raw `<img>` and `files` listed five, so eight pages opened
+  with a broken image in an installed copy while `plan-review.png` shipped with no page naming it;
+  `test/release.test.ts` now holds the set in both directions from the packaged pages themselves.
+
 - `docs`: the site's search field has a shortcut — `/` or Cmd/Ctrl+K focuses and selects it from
   anywhere on a page, with a `/` hint in the field that leaves once the reader is typing. It does
   nothing while focus is in a field or behind the open drawer's Tab ring, and a second modifier is
