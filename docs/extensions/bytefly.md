@@ -73,9 +73,10 @@ line and hangs its result on the rail. Notices from any extension draw at the
 transcript margin with a severity rail.
 
 **Updates.** Once per session a check names the packages that are behind and marks
-the header; Pi's own newer version gets the same notice without a second check.
-The result is cached in `~/.pi/agent/bytefly/update.json`. `PI_OFFLINE` skips it,
-and nothing about the session is sent.
+the header with this package's marker and Pi's own, replacing Pi's startup update
+blocks with the one themed notice. The result is cached in
+`~/.pi/agent/bytefly/update.json`. `PI_OFFLINE` skips it, and nothing about the
+session is sent: [security](../security.md) says what leaves the machine.
 
 ## Limits
 

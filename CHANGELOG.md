@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the once-a-session update check has one owner — `bytefly`'s page says what it
+  does (the header marker on both versions, the one notice, the cache), and the README,
+  the site home, and the install guide keep a summary and a link; the same for
+  `PI_DISABLED_EXTENSIONS`, whose rules now live only in the configuration reference,
+  with the README and the minimal install linking them.
+
 - `docs`: the site's search field has a shortcut — `/` or Cmd/Ctrl+K focuses and selects it from
   anywhere on a page, with a `/` hint in the field that leaves once the reader is typing. It does
   nothing while focus is in a field or behind the open drawer's Tab ring, and a second modifier is

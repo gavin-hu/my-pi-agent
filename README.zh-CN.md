@@ -141,14 +141,11 @@ PNG 写入 [`assets/tools/`](./assets/tools)。
 
 ## 包会自行做的事
 
-每次交互式会话启动时，`bytefly` 询问 Pi 的包管理器哪些已配置的包有更新，抑制
-Pi 自己的启动更新块，并用主题化 notice 列出它们和 `pi update --extensions`；
-Pi 自身的新版本也由它绘制，提示 `pi update` 与 changelog。新版本还会标在头部 ——
-本包的与 Pi 自己的。
-
-不会发送任何会话内容：Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自一次
-固定的 npm `latest` 请求。`PI_OFFLINE` 可跳过检查；信任边界见
-[`docs/security.md`](./docs/security.md)。
+每次交互式会话启动时，`bytefly` 询问 Pi 的包管理器哪些已配置的包有更新，并用主题化
+notice 提示 `pi update --extensions`；Pi 自身的新版本则提示 `pi update`。不会发送
+任何会话内容，`PI_OFFLINE` 可跳过检查 ——
+[`bytefly` 页面](./docs/extensions/bytefly.md) 说明头部的版本标记与缓存，
+[`docs/security.md`](./docs/security.md) 说明信任边界。
 
 ## 配置
 
@@ -158,16 +155,16 @@ Pi 自身的新版本也由它绘制，提示 `pi update` 与 changelog。新版
 [`docs/configuration.md`](./docs/configuration.md) 则给出解析规则、设置界面操作方式，
 以及每个 section 的键、类型、默认值和取值范围。
 
-所有扩展默认都开启。若要在加载整包时排除一些扩展，把 `PI_DISABLED_EXTENSIONS`
-设为一个以逗号或空白分隔的扩展名列表（即 [`extensions/`](./extensions/) 下的目录
-名）：
+所有扩展默认都开启。若要在加载整包时排除一些扩展，在 `PI_DISABLED_EXTENSIONS`
+中列出它们的名字（即 [`extensions/`](./extensions/) 下的目录名）：
 
 ```bash
 PI_DISABLED_EXTENSIONS=todo,job pi -e .
 ```
 
-名称比较不区分大小写，未知名称会被忽略。该变量只会阻止这些工厂注册；若要移除整包，
-请使用 Pi 的 `--no-extensions`，或从你的设置中删除该包。
+该变量只会阻止这些工厂注册，具体规则见
+[配置](./docs/configuration.md#environment-variables)；若要移除整包，请使用 Pi 的
+`--no-extensions`，或从你的设置中删除该包。
 
 ## 文档
 
