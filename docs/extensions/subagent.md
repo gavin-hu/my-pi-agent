@@ -4,6 +4,8 @@
 The child gets a fresh context window, so a broad search or a second opinion does
 not fill your conversation; only its final reply comes back.
 
+<img src="../../assets/screens/agents.png" alt="The /agents screen: three runs with one running, an explorer still working, a finished reviewer carrying its tokens, a failed worker, and the close, detail, cancel, and select hints" width="1680" height="338">
+
 - **Isolated by design**: each agent has its own context and an explicit tool
   allowlist, so a `worker` cannot reach back into `subagent`.
 - **Four built-ins**, no files needed: `explorer`, `planner`, `reviewer`,

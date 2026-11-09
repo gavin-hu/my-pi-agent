@@ -4,6 +4,8 @@
 tool definitions, the conversation by role, injected notes, summaries, and shell
 output. When the window is nearly full, the same report is where you compact.
 
+<img src="../../assets/screens/context.png" alt="The /context report: 124k of 200k at 62% with the free space and the auto-compact threshold, a composition table of seven parts each with its gauge, the estimate drift line, the compaction count with what its last one cut, the largest messages, and the compact, refresh, scroll, and close hints" width="1680" height="1056">
+
 - **A report, not a tool** — the model's prompt budget is untouched.
 - **Where it went, not just how full**: the parts are named, and the difference
   between Pi's total and the estimate is shown rather than hidden.

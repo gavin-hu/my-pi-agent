@@ -4,6 +4,8 @@ A build, a test suite, a dev server, a watcher: `job` starts it in the backgroun
 and keeps the turn free. The command keeps running across tool calls — poll it,
 read its log, wait for it, or kill it.
 
+<img src="../../assets/screens/job.png" alt="The /jobs screen: a title rule with four jobs and two running, one failed; rows carrying j2, j1, j3, and j4 with their commands and elapsed times; the focused job's command, working directory, pid, and last output line; and the close, select, logs, kill, and clear hints" width="1600" height="576">
+
 - **Started immediately, in the background**, with stdout and stderr streamed to
   a log that rotates instead of filling the disk.
 - **`/jobs` is the one screen**: running jobs first, then recent ones, each row
