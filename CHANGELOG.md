@@ -44,6 +44,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   processes in ten milliseconds with the profile still removed. The eight suites fall from
   63.1 s to 40.3 s together, and no browser outlives the run.
 
+- `dev`: the page-pointer cases stop sleeping through the poll schedule. `settlePointer` takes
+  its wait between two looks as a trailing `sleep` (`abortableSleep` in production), so
+  `lib/board/page-pointer.test.ts` drives the same attempts, looks and probes with a wait that
+  costs a tick: the file falls from 6.22 s to 0.12 s, and the shipped budget — three attempts,
+  eight polls of 75 ms, twenty looks of 25 ms — is untouched.
+
 - `docs`: a surface that does not work has one page. `docs/troubleshooting.md` is a symptom,
   cause, fix and owning-page table over the five failures that were each a Limits bullet on a
   different page — no page at all, a pinned port another process holds, `✆ wechat expired`, a

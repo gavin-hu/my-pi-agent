@@ -3,7 +3,8 @@
  *
  * The cases run against a real directory, because the property that matters — one
  * pointer, whoever writes first — is the filesystem's, not a mock's. The probe runs
- * against a stub `fetch`, so a timeout is a throw and not a wait.
+ * against a stub `fetch`, so a timeout is a throw and not a wait; the ladder's own waits
+ * are the shipped schedule driven through a sleep that costs a tick.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -16,6 +17,7 @@ import {
 	createPointer,
 	PAGE_FILE,
 	type PagePointer,
+	type PollSleep,
 	probePage,
 	readPointer,
 	settlePointer,
@@ -24,6 +26,12 @@ import {
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
+
+/**
+ * The wait between two looks, with the clock taken out: every count the ladder spends it on
+ * still runs, so a case proves the outcome and not how long it took.
+ */
+const noWait: PollSleep = async () => {};
 
 /** A fresh board directory. */
 function scratch(): string {
@@ -102,7 +110,7 @@ describe("settling the note for a page that is starting", () => {
 		const dir = scratch();
 		const gone = pointer({ port: 4783, token: "dddddddddddddddddddddddddddddddd" });
 		await createPointer(dir, gone);
-		const outcome = await settlePointer(dir, pointer(), dead);
+		const outcome = await settlePointer(dir, pointer(), dead, noWait);
 		expect(outcome).toEqual({ kind: "written", took: gone });
 		expect((await readPointer(dir))?.token).toBe(pointer().token);
 	});
@@ -116,15 +124,20 @@ describe("settling the note for a page that is starting", () => {
 		// that answers. Before this, that caller was told "another session is serving" and
 		// never opened anything.
 		const winner = pointer({ port: 4784, token: "ffffffffffffffffffffffffffffffff" });
-		const outcome = await settlePointer(dir, pointer({ port: 4785 }), async (url) => {
-			if (url.includes(":4781/")) {
-				// The dead note: every look says so, and another session replaces the file while
-				// this caller is still waiting on it.
-				writeFileSync(join(dir, PAGE_FILE), JSON.stringify(winner));
-				return { ok: false };
-			}
-			return { ok: true };
-		});
+		const outcome = await settlePointer(
+			dir,
+			pointer({ port: 4785 }),
+			async (url) => {
+				if (url.includes(":4781/")) {
+					// The dead note: every look says so, and another session replaces the file while
+					// this caller is still waiting on it.
+					writeFileSync(join(dir, PAGE_FILE), JSON.stringify(winner));
+					return { ok: false };
+				}
+				return { ok: true };
+			},
+			noWait,
+		);
 		expect(outcome).toEqual({ kind: "attached", pointer: winner });
 		expect(await readPointer(dir)).toEqual(winner);
 	});
@@ -138,11 +151,16 @@ describe("settling the note for a page that is starting", () => {
 		const winner = pointer({ port: 4793, token: "f".repeat(32) });
 		await createPointer(dir, winner);
 		let probes = 0;
-		const outcome = await settlePointer(dir, pointer({ port: 4794 }), async (url) => {
-			if (!url.includes(":4793/")) return { ok: false };
-			probes += 1;
-			return { ok: probes > 1 };
-		});
+		const outcome = await settlePointer(
+			dir,
+			pointer({ port: 4794 }),
+			async (url) => {
+				if (!url.includes(":4793/")) return { ok: false };
+				probes += 1;
+				return { ok: probes > 1 };
+			},
+			noWait,
+		);
 		expect(outcome).toEqual({ kind: "attached", pointer: winner });
 		expect(await readPointer(dir)).toEqual(winner);
 	});
@@ -156,8 +174,8 @@ describe("settling the note for a page that is starting", () => {
 			await createPointer(dir, pointer({ port: 4783, token: "d".repeat(32) }));
 			const probe = async (url: string) => ({ ok: !url.includes(":4783/") });
 			const outcomes = await Promise.all([
-				settlePointer(dir, pointer({ port: 4790, token: "a".repeat(32) }), probe),
-				settlePointer(dir, pointer({ port: 4791, token: "b".repeat(32) }), probe),
+				settlePointer(dir, pointer({ port: 4790, token: "a".repeat(32) }), probe, noWait),
+				settlePointer(dir, pointer({ port: 4791, token: "b".repeat(32) }), probe, noWait),
 			]);
 			const served = outcomes.filter((outcome) => outcome.kind === "written");
 			expect(served.length, `round ${round}: ${JSON.stringify(outcomes)}`).toBe(1);
@@ -179,12 +197,17 @@ describe("settling the note for a page that is starting", () => {
 		let rival = pointer({ token: "d".repeat(32) });
 		writeFileSync(join(dir, PAGE_FILE), JSON.stringify(rival));
 		let probes = 0;
-		const outcome = await settlePointer(dir, pointer(), async () => {
-			probes += 1;
-			rival = pointer({ port: 4790 + probes, token: `${probes}`.repeat(32).slice(0, 32) });
-			writeFileSync(join(dir, PAGE_FILE), JSON.stringify(rival));
-			return { ok: false };
-		});
+		const outcome = await settlePointer(
+			dir,
+			pointer(),
+			async () => {
+				probes += 1;
+				rival = pointer({ port: 4790 + probes, token: `${probes}`.repeat(32).slice(0, 32) });
+				writeFileSync(join(dir, PAGE_FILE), JSON.stringify(rival));
+				return { ok: false };
+			},
+			noWait,
+		);
 		expect(probes).toBeGreaterThan(1);
 		expect(outcome).toEqual({ kind: "stale", pointer: rival });
 		// Nothing was cleared on the final pass: the file is still somebody else's to explain.
