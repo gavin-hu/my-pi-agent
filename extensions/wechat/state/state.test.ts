@@ -8,7 +8,7 @@
 import { readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { tempDir } from "../../../test/helpers/env.ts";
+import { modeOfOwnerOnlyWrite, tempDir } from "../../../test/helpers/env.ts";
 import type { WechatState } from "../types.ts";
 import {
 	emptyState,
@@ -105,9 +105,16 @@ describe("state", () => {
 		expect(readState(path).seen).toEqual([{ id: 1, at: 5 }]);
 	});
 
-	test.skipIf(process.platform === "win32")("writes the state file with mode 0600", () => {
+	test.skipIf(process.platform === "win32")("writes the state file owner-only", () => {
 		const path = newPath();
 		writeState(path, { cursor: "c1", owner: { lastContextToken: "token", lastSeen: 1 } });
-		expect(statSync(path).mode & 0o777).toBe(0o600);
+		const mode = statSync(path).mode & 0o777;
+		// The claim is "what an owner-only write gives on this machine", so the control is
+		// the machine's own answer: a write that named no mode still parts from it.
+		const ownerOnly = modeOfOwnerOnlyWrite();
+		expect(
+			mode,
+			`umask 0${process.umask().toString(8)}, probe 0${ownerOnly.toString(8)}, file 0${mode.toString(8)}`,
+		).toBe(ownerOnly);
 	});
 });
