@@ -78,6 +78,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   page, and `file-browse` mints none because it serves a directory its reader already owns, so its
   boundary is the served root and the OS permissions behind it; `serve.md`, `security.md`, and the
   file browser's own Limits stop implying the three are gated the same way.
+- `docs`: the sidebar's extension links are grouped by the catalog's own promises — Plan and delegate,
+  Keep your work safe, Reach the world, Chrome and upkeep — and `test/site-docs.test.ts` now derives
+  that order and grouping from the README's catalog, so a page filed under another promise or a
+  reordered sidebar fails instead of drifting; `docs/extensions/README.md` is held to the same order.
 
 ## [0.25.1] - 2026-11-07
 

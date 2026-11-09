@@ -1,5 +1,15 @@
 {
-  "groups": ["Get started", "Tutorials", "Guides", "Extensions", "Skills"],
+  "groups": [
+    "Get started",
+    "Tutorials",
+    "Guides",
+    "Extensions",
+    "Plan and delegate",
+    "Keep your work safe",
+    "Reach the world",
+    "Chrome and upkeep",
+    "Skills"
+  ],
   "pages": [
     {
       "path": "index.md",
@@ -124,127 +134,127 @@
     {
       "path": "extensions/plan.md",
       "title": "plan",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "Read-only planning: investigate, save a plan, approve it before anything is written."
     },
     {
       "path": "extensions/subagent.md",
       "title": "subagent",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "Delegate a task to a specialist Pi process, alone or in parallel."
     },
     {
       "path": "extensions/todo.md",
       "title": "todo",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "A persistent task list with a one-line widget."
     },
     {
       "path": "extensions/goal.md",
       "title": "goal",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "A session objective kept in view and restated before each turn."
     },
     {
       "path": "extensions/question.md",
       "title": "question",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "Structured questions with labelled options, answered before the turn continues."
     },
     {
       "path": "extensions/job.md",
       "title": "job",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "Long-lived shell commands in the background, with logs, waits, and kills."
     },
     {
       "path": "extensions/watch.md",
       "title": "watch",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "Tail a file or a command and match each new line against patterns."
     },
     {
       "path": "extensions/session-bus.md",
       "title": "session-bus",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "Coordinate parallel Pi sessions on one repository."
     },
     {
       "path": "extensions/serve.md",
       "title": "serve",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "The session's one loopback server, shared by every browser surface."
     },
     {
       "path": "extensions/board.md",
       "title": "board",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "One shared feature board per repository, with the two signs a card needs."
     },
     {
       "path": "extensions/team.md",
       "title": "team",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "The lead's round over the board: assign, offer, reclaim, claim, ask."
     },
     {
       "path": "extensions/context.md",
       "title": "context",
-      "group": "Extensions",
+      "group": "Plan and delegate",
       "summary": "See where the context window goes, and compact from the report."
     },
     {
       "path": "extensions/worktree.md",
       "title": "worktree",
-      "group": "Extensions",
+      "group": "Keep your work safe",
       "summary": "Work in an isolated git worktree on its own branch."
     },
     {
       "path": "extensions/rewind.md",
       "title": "rewind",
-      "group": "Extensions",
+      "group": "Keep your work safe",
       "summary": "Snapshot before each prompt's first change, then restore code or conversation."
     },
     {
       "path": "extensions/memory.md",
       "title": "memory",
-      "group": "Extensions",
+      "group": "Keep your work safe",
       "summary": "Durable cross-session notes as human-editable markdown."
     },
     {
       "path": "extensions/web-access.md",
       "title": "web-access",
-      "group": "Extensions",
+      "group": "Reach the world",
       "summary": "Search the web and fetch a page as readable text."
     },
     {
       "path": "extensions/file-browse.md",
       "title": "file-browse",
-      "group": "Extensions",
+      "group": "Reach the world",
       "summary": "A loopback, read-only browser rooted at the working directory."
     },
     {
       "path": "extensions/file-read.md",
       "title": "file-read",
-      "group": "Extensions",
+      "group": "Reach the world",
       "summary": "Extract text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX."
     },
     {
       "path": "extensions/file-open.md",
       "title": "file-open",
-      "group": "Extensions",
+      "group": "Reach the world",
       "summary": "Open or reveal a file or directory in the OS-native app."
     },
     {
       "path": "extensions/wechat.md",
       "title": "wechat",
-      "group": "Extensions",
+      "group": "Reach the world",
       "summary": "Bridge one WeChat conversation to the live session."
     },
     {
       "path": "extensions/bytefly.md",
       "title": "bytefly",
-      "group": "Extensions",
+      "group": "Chrome and upkeep",
       "summary": "The visible layer: header, footer, transcript blocks, and the control center."
     },
     {
