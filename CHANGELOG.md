@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `dev`: the board page's other three browser suites read it through the one tab too —
+  `dialog-behaviour` (12 tabs), `kind` (4) and `repaint` (2) — so `BoardBrowser.open()` is gone
+  and a suite buys a tab once. Paired runs alternating old and new: 14.26 s / 20.88 s wall and
+  14.7 s / 15.7 s CPU before, 10.70 s / 16.85 s wall and 5.9 s / 6.7 s CPU after.
+
 - `dev`: the board page's browser suite keeps one tab and reloads its document instead of buying a
   tab per case. `newPage` is the expensive half of a boot — measured 323–480 ms against 47–82 ms
   to reload a tab already open — and the reload is what a case needs anyway: a document that

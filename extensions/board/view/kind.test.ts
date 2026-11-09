@@ -53,7 +53,7 @@ describe.skipIf(CHROME === undefined)("the kind on the served page", () => {
 	}, 30_000);
 
 	test("labels the executing card with its kind, and breaks it inside the label", async () => {
-		const page = await board.open();
+		const page = await board.reuse();
 		const meta = "#lane-execute .board-card .board-card__meta";
 		expect(await page.$eval(`${meta} .board-kind`, (node) => node.textContent)).toBe("feature \u00b7 breaking");
 		// The rule uppercases it; the text stays the record's own words, so a screen reader
@@ -67,31 +67,28 @@ describe.skipIf(CHROME === undefined)("the kind on the served page", () => {
 					).getComputedStyle(node).textTransform,
 			),
 		).toBe("uppercase");
-		await page.close();
 	});
 
 	test("draws no kind on a card that recorded none", async () => {
-		const page = await board.open();
+		const page = await board.reuse();
 		const card = '#lane-backlog .board-card[data-card="1"]';
 		expect(await page.$$eval(`${card} .board-kind`, (nodes) => nodes.length)).toBe(0);
-		await page.close();
 	});
 
 	test("wears the same label in the lead's queue", async () => {
-		const page = await board.open();
+		const page = await board.reuse();
 		await page.click("#tab-team");
 		await page.waitForSelector("#panel-team:not([hidden]) .board-team__decision", { timeout: 5_000 });
 		const labels = await page.$$eval("#panel-team .board-team__decision .board-kind", (nodes) =>
 			Array.from(nodes as ArrayLike<ElementLike>, (node) => node.textContent ?? ""),
 		);
 		expect(labels).toContain("feature \u00b7 breaking");
-		await page.close();
 	});
 
 	test("is a word the filter box matches, so a label a reader sees finds its card", async () => {
 		// The executing card's title has no `feature` in it: the only thing that answers is the
 		// kind it recorded, which is the point of teaching `matchesQuery` the word.
-		const page = await board.open();
+		const page = await board.reuse();
 		await page.fill("#board-filter", "feature");
 		await page.waitForFunction(
 			() => {
@@ -104,6 +101,5 @@ describe.skipIf(CHROME === undefined)("the kind on the served page", () => {
 			undefined,
 			{ timeout: 5_000 },
 		);
-		await page.close();
 	});
 });

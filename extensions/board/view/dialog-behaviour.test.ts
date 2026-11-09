@@ -33,8 +33,8 @@ const clock = makeClock(1_760_000_000_000);
 let board: BoardBrowser;
 let store: BoardBrowser["store"];
 
-/** One fresh tab on the served page, waited until its lanes have painted. */
-const openPage = (): Promise<Page> => board.open();
+/** The suite's one tab, its document reloaded for each case: nothing a case leaves behind survives. */
+const openPage = (): Promise<Page> => board.reuse();
 
 describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 	beforeAll(async () => {
@@ -62,7 +62,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 
 		await page.keyboard.press("Escape");
 		expect(await hidden(page, "#board-card-dialog")).toBe(true);
-		await page.close();
 	});
 
 	test("keeps Tab and Shift+Tab inside the card dialog", async () => {
@@ -82,7 +81,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		expect(await focusedId(page)).toBe("card-dialog-close");
 		await page.keyboard.press("Tab");
 		expect(await focusedClass(page)).toContain("board-dialog__panel");
-		await page.close();
 	});
 
 	test("keeps the board's own keys out of a dialog", async () => {
@@ -111,7 +109,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		expect(await page.textContent("#card-dialog-title")).not.toBe(opened);
 		await page.keyboard.press("Escape");
 		expect(await hidden(page, "#board-card-dialog")).toBe(true);
-		await page.close();
 	});
 
 	test("opens a card from anywhere on it, and a drag is not a click", async () => {
@@ -134,7 +131,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });
 		await page.mouse.up();
 		expect(await hidden(page, "#board-card-dialog")).toBe(true);
-		await page.close();
 	});
 
 	test("reads the card in the order a reader acts on it, one fact a row", async () => {
@@ -189,7 +185,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		expect(await hidden(page, "#card-dialog-sign")).toBe(false);
 		// And no row in the record carries the promise a second time.
 		expect(await page.textContent("#card-dialog-record-section")).not.toContain("A webhook order is stored once");
-		await page.close();
 	});
 
 	test("draws no kind and no breaking word on a card that recorded neither", async () => {
@@ -199,7 +194,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		await page.click('#lane-backlog .board-card[data-card="1"] .board-card__title');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await hidden(page, "#card-dialog-kind")).toBe(true);
-		await page.close();
 	});
 
 	test("says what a blocked or unsigned card is waiting for, and leaves a signed one to the signature", async () => {
@@ -255,7 +249,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 				{ timeout: PAINT_MS },
 			);
 			expect(await page.getAttribute("#card-dialog-reason", "data-tone")).toBe("danger");
-			await page.close();
 		} finally {
 			await store.mutate("2", { kind: "move", lane: "plan" }, CORE, now);
 			await store.mutate("2", { kind: "release" }, CORE, now);
@@ -276,7 +269,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 			// A pool card holds no promise yet, so the contract takes its heading with it.
 			expect(await hidden(page, "#card-dialog-contract-section")).toBe(true);
 			await page.keyboard.press("Escape");
-			await page.close();
 		} finally {
 			// A claim answers the offer; the release then leaves the card as the fixture had it.
 			await store.mutate("1", { kind: "claim" }, LEAD, now);
@@ -300,7 +292,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		// A second finished card says the same thing, because a close is who closed it.
 		expect(await page.textContent("#card-dialog-reason")).toBe("\u2713 done by billing-core");
-		await page.close();
 	});
 
 	test("says how long the card has held its lane, in the head", async () => {
@@ -316,7 +307,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		await page.click('#lane-backlog .board-card__title:text-is("Export orders as CSV")');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-state")).toMatch(/^Backlog · (\d+[mhd]|now)$/);
-		await page.close();
 	});
 
 	test("shows a card's own cost: the cards waiting on it", async () => {
@@ -352,7 +342,6 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 			expect(await page.textContent("#card-dialog-depends")).toBe("#1 (backlog) Export orders as CSV");
 			expect(await hidden(page, "#card-dialog-dependents")).toBe(true);
-			await page.close();
 		} finally {
 			await store.mutate(
 				"2",
@@ -390,6 +379,5 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		expect(await page.textContent("#card-dialog-where")).toMatch(/^card 3 of 3: /);
 		await page.keyboard.press("Escape");
 		expect(await hidden(page, "#board-card-dialog")).toBe(true);
-		await page.close();
 	});
 });
