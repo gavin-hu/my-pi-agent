@@ -286,6 +286,70 @@ describe("the build", () => {
 });
 
 /**
+ * The page's column: the one box every band is drawn in.
+ *
+ * A band paints edge to edge while the pages sit in a centred 78rem column, so the
+ * row inside a band repeats that column's box. The footer's row was missing and its
+ * licence line sat 96px left of the sidebar on a 1440 and 336px on a 1920, which no
+ * compiler sees: the stylesheet is not run and the Liquid is reviewed by eye.
+ */
+describe("the page's column", () => {
+	const css = readFileSync(join(docs, "assets", "css", "site.css"), "utf-8");
+	const footer = pageText("_includes/footer.html");
+
+	/** One selector's declarations, from the first rule that opens with it. */
+	function declarations(source: string, selector: string): Map<string, string> | undefined {
+		const opener = new RegExp(`^\\s*${selector.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{`, "m");
+		const at = opener.exec(source);
+		if (at === null) return undefined;
+		const body = source.slice(at.index + at[0].length, source.indexOf("}", at.index));
+		return new Map([...body.matchAll(/([\w-]+):\s*([^;]+);/g)].map(([, name, value]) => [name.trim(), value.trim()]));
+	}
+
+	/** A `padding` shorthand's four sides, in CSS order. */
+	function sides(value: string): string[] {
+		const parts = value.split(/\s+/);
+		if (parts.length === 1) return [parts[0], parts[0], parts[0], parts[0]];
+		if (parts.length === 2) return [parts[0], parts[1], parts[0], parts[1]];
+		if (parts.length === 3) return [parts[0], parts[1], parts[2], parts[1]];
+		return parts.slice(0, 4);
+	}
+
+	/** A media query's body, which never nests. */
+	function media(query: string): string {
+		const at = css.indexOf(`@media (${query})`);
+		if (at < 0) throw new Error(`docs/assets/css/site.css: no @media (${query}) block`);
+		return css.slice(at, css.indexOf("\n}", at));
+	}
+
+	test("draws the footer on the shell's box, like the masthead", () => {
+		const shell = declarations(css, ".shell");
+		const inner = declarations(css, ".footer-inner");
+		expect(footer, "_includes/footer.html: no .footer-inner row, so the band is measured from the viewport").toContain(
+			'class="footer-inner"',
+		);
+		expect(inner?.get("max-width"), "site.css: .footer-inner's column is not the shell's").toBe(
+			shell?.get("max-width"),
+		);
+		expect(inner?.get("margin"), "site.css: .footer-inner is not centred on the band").toBe("0 auto");
+		expect(
+			declarations(css, ".footer")?.get("padding"),
+			"site.css: the band insets its row a second time",
+		).toBeUndefined();
+	});
+
+	test("insets the footer by the phone's gutter, which is the shell's", () => {
+		const phone = media("max-width: 59.99rem");
+		const inner = sides(declarations(phone, ".footer-inner")?.get("padding") ?? "");
+		const shell = sides(declarations(phone, ".shell")?.get("padding") ?? "");
+		expect(
+			{ right: inner[1], left: inner[3] },
+			"site.css: on a phone the footer's text steps off the content's edge",
+		).toEqual({ right: shell[1], left: shell[3] });
+	});
+});
+
+/**
  * The meta a page declares about itself: what a search result reads, and what a share of
  * the link looks like once it is pasted into a chat.
  *
