@@ -28,6 +28,7 @@ import { availableParallelism } from "node:os";
 import { dirname, join } from "node:path";
 import { CASE_BUDGET_MS } from "../test/helpers/budget.ts";
 import { runSlowSuites } from "../test/helpers/slow-suite.ts";
+import { giveUpLine, takeOverLine, waitingLine, withGateLock } from "./check-lock.ts";
 import { runCli } from "./cli.ts";
 import { reportDigest, reportPath } from "./junit.ts";
 import {
@@ -203,6 +204,8 @@ export interface Plan {
 	testsOnly: boolean;
 	/** Print the plan and run nothing. */
 	dryRun: boolean;
+	/** Run beside another check on this machine instead of waiting for it. */
+	noLock: boolean;
 }
 
 /** The flags this command accepts, which is what a doc may name. */
@@ -215,13 +218,14 @@ export const FLAGS = [
 	"--slow",
 	"--static",
 	"--serial",
+	"--no-lock",
 	"--watch",
 	"--tests",
 	"--dry-run",
 ] as const;
 
 const USAGE = `usage: bun run check [--static | --changed [--base <ref>] | --ext <name...> | --lib <area...> | --root | --slow]
-                    [--serial | --watch] [--dry-run]
+                    [--serial | --watch] [--no-lock] [--dry-run]
        bun run check:tests  the same scopes without the static half`;
 
 const SCOPE_FLAGS: Record<string, Scope> = {
@@ -247,6 +251,7 @@ export function parseArgs(argv: string[]): Plan {
 		watch: false,
 		testsOnly: false,
 		dryRun: false,
+		noLock: false,
 	};
 	let scopeFlag: string | undefined;
 	let gaveBase = false;
@@ -266,6 +271,7 @@ export function parseArgs(argv: string[]): Plan {
 			plan.base = value();
 			gaveBase = true;
 		} else if (arg === "--serial") plan.serial = true;
+		else if (arg === "--no-lock") plan.noLock = true;
 		else if (arg === "--watch") plan.watch = true;
 		else if (arg === "--tests") plan.testsOnly = true;
 		else if (arg === "--dry-run") plan.dryRun = true;
@@ -368,7 +374,18 @@ async function main(): Promise<void> {
 		...(plan.watch ? {} : { report }),
 	});
 	const started = performance.now();
-	const results = await runPhases(phases, spawnPhase);
+	// One gate per machine: two checkouts checking at once starve each other's spawns, and the
+	// suites that wait on a child are the ones that break. `--watch` and `--dry-run` never take it.
+	const results = await withGateLock(
+		{
+			skip: plan.noLock || plan.watch,
+			path: root,
+			onWait: (holder) => console.log(waitingLine(holder)),
+			onTakeOver: (stale) => console.log(takeOverLine(stale)),
+			onGiveUp: (holder, waitedMs) => console.log(giveUpLine(holder, waitedMs)),
+		},
+		() => runPhases(phases, spawnPhase),
+	);
 	const summary = summarize(results, (performance.now() - started) / 1000, workers, plan.serial);
 	// A test failure names its cases; the other phases dump what they printed, and both can be
 	// true of one run.
