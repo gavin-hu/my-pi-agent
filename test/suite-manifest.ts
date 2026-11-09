@@ -104,7 +104,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/jobs-screen",
 		"extension",
 	],
-	memory: ["store", "format", "tools", "context", "commands", "view/memory-picker"],
+	memory: ["store", "store-mode", "format", "tools", "context", "commands", "view/memory-picker"],
 	plan: [
 		"plans",
 		"plan-store-write",
