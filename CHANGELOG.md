@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the site gains a tutorials index — eleven walkthroughs in the order a new
+  reader meets them, the first three named as the start and the rest grouped by the
+  work they serve — linked from the home page's Start here list, with
+  `test/site-docs.test.ts` failing an unlisted walkthrough.
 - `docs`: the confinement sentences say what the defaults give — an active worktree
   refuses a write or an output redirection that leaves the checkout, reads only with
   `guard.blockReadEscapes`, and plan mode confines writes rather than reads.

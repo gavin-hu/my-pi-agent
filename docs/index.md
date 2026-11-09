@@ -85,6 +85,8 @@ about the session is sent, and `PI_OFFLINE` skips the check —
   its default and bounds.
 - [All extensions](./extensions/README.md) — one page per extension, opening with
   what it does and the tools and commands that deliver it.
+- [Tutorials](./tutorials/README.md) — eleven walkthroughs, the three to read first,
+  and the rest grouped by what you are doing.
 - [Skills](./skills/README.md) — the three packaged workflows, and when to reach
   for one instead of asking in words.
 - [Security](./security.md) — what the pack opens on your machine, and how each
