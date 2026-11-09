@@ -121,9 +121,10 @@ and `PI_OFFLINE` turns both off.
   narrows what a child may do; it is not a sandbox: `read_doc` still reads any
   document the process can, with the OS permissions that go with it.
 - [`wechat`](../extensions/wechat/) answers only the stored account's owner — the
-  chat is that Pi session, with its tools — and keeps credentials under
-  `<agent-dir>/wechat/` with mode `0600`. Anyone else is refused and counted, and
-  the `send_wechat` tool can message only the owner.
+  chat is that Pi session, with its tools — and keeps its state under
+  `<agent-dir>/wechat/` with mode `0600`: the credentials, the cursor and reply token
+  in `state.json`, and the inbound media. Anyone else is refused and counted, and the
+  `send_wechat` tool can message only the owner.
 - [`memory`](../extensions/memory/) injects notes into the model context; note
   text is sanitized at the boundary like any other model- or file-authored
   text.

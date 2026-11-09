@@ -5,11 +5,11 @@
  */
 
 import { createDecipheriv, createCipheriv } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../../../test/helpers/env.ts";
-import { decodeMediaKey, findSavedFile, isPaddingFailure, savedFileName, sniffFileMime } from "./media.ts";
+import { decodeMediaKey, findSavedFile, isPaddingFailure, savedFileName, saveMedia, sniffFileMime } from "./media.ts";
 
 describe("the wire's media key", () => {
 	/** The reference key, in the three shapes a sender or a peer writes it. */
@@ -95,5 +95,20 @@ describe("a padding failure", () => {
 		expect(isPaddingFailure(failure)).toBe(true);
 		expect(isPaddingFailure(new Error("missing AES key"))).toBe(false);
 		expect(isPaddingFailure("error:1C800064")).toBe(false);
+	});
+});
+
+describe("the saved media file", () => {
+	test("writes the bytes under the name it is given", () => {
+		const dir = tempDir("wechat-media-");
+		const path = saveMedia(dir, "1-0-abc", new Uint8Array([1, 2, 3]));
+		expect(path).toBe(join(dir, "1-0-abc"));
+		expect(readFileSync(path)).toEqual(Buffer.from([1, 2, 3]));
+	});
+
+	test.skipIf(process.platform === "win32")("writes it owner-only, like the state it belongs to", () => {
+		const dir = tempDir("wechat-media-");
+		const path = saveMedia(dir, "1-0-abc", new Uint8Array([1]));
+		expect(statSync(path).mode & 0o777).toBe(0o600);
 	});
 });
