@@ -193,10 +193,12 @@ is the hash it was filed under, carried rather than read back off the directory'
 because `session-bus` files this repository's records under the same key.
 
 Two writes take turns. `create` hard-links a temp file onto the name, so two adds cannot share
-an id and the loser retries with the next one. `mutate` takes the card's write lock, re-reads the
+an id and the loser retries with the next one. `mutate` takes the board's write lock, re-reads the
 card and the board, and renames over the old file — a write says "apply when this holds", never
 "force this state", and the lock is what keeps a peer's write from landing between the check and
-the rename. `scan` is one pass answering the cards,
+the rename. The lock is the board's because the questions a check asks are about other cards: has
+this lane a slot, would this link close a loop, does anything wait on the card being dropped.
+`scan` is one pass answering the cards,
 the files it refused (`Skip`), and the bytes they occupy, so a page's frame reads the board
 once; `list` and `skipped` are its two halves, and `list` orders a lane by priority then id.
 
@@ -208,17 +210,17 @@ prunes: `archive` and `drop` are the two ways a card leaves the board.
 
 ### lock.ts
 
-One card's write lock: `lockCard` creates `cards/.lock-<id>` exclusively, waits `LOCK_WAIT_MS`
-for a live holder, takes over a lock older than `LOCK_STALE_MS` — a holder needs one read and one
-rename, so a file still there seconds later is a process that died inside its window — and hands
-back the `release` that clears it. `lockPathFor` is that one name per card, so a writer that finds
-the card in the archive contends with one that found it on the board.
+The board's write lock: `lockBoard` creates `<board>/.lock-board` exclusively, waits
+`LOCK_WAIT_MS` for a live holder, takes over a lock older than `LOCK_STALE_MS` — a holder needs
+one board read and one rename, so a file still there seconds later is a process that died inside
+its window — and hands back the `release` that clears it. `lockPathFor` is that one name, shared
+by every writer whichever pile the card it touches lies in.
 
 The exclusive create is the decision, not a read before it. `release` removes a file only while it
-still carries its own token, so the victim of a takeover cannot open the card to a third writer.
-The lock is not a lock on the repository — two cards are two files, and `create` needs none — it
-exists because the compare-and-set `mutate` makes is a read, a check, and a rename, and the
-filesystem cannot make those one step.
+still carries its own token, so the victim of a takeover cannot open the board to a third writer.
+The unit is the board, not the card — `mutate` reads the whole board, so a per-card lock let two
+writers answer one rule from two snapshots, a rule passed twice rather than a file overwritten —
+and `concurrency.test.ts` is that pair. `create` takes none, and neither does a read.
 
 ### config.ts
 

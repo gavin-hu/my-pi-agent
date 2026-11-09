@@ -242,6 +242,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/actions",
 	"board/artifact",
 	"board/card",
+	"board/concurrency",
 	"board/config",
 	"board/contract",
 	"board/join",

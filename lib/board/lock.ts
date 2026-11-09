@@ -1,19 +1,28 @@
 /**
- * One card's write lock: the file a mutation holds across the read, the check it
- * makes against it, and the write that follows, so two sessions on one card take
- * turns instead of one overwriting the other while both report success.
+ * One board's write lock: the file a mutation holds across the read of the board, the check it
+ * makes against that read, and the write that follows.
  *
- * The exclusive create is the decision, not a read before it: two sessions that
- * both see a free lock cannot both write it, because the second `wx` fails. The
- * lock names the card rather than the writer and keeps one name per card, so a
- * writer that finds the card in the archive contends with one that found it on the
- * board — the same card, whatever pile its file lies in.
+ * **The unit is the board, not the card.** A mutation reads the whole board because the rules
+ * ask about *other* cards — would this link close a loop, does anything still wait on the card
+ * being dropped, has this lane a slot left — so a per-card lock guarded half of one question:
+ * two writers on two cards held two locks, read two snapshots, and both passed a rule neither
+ * could have passed alone. `#1 dependsOn [2]` beside `#2 dependsOn [1]` closed a loop that
+ * `wouldCycle` refuses for one caller, and two claims each read `plan: 2/3` and both entered.
+ * One name per board is the smallest window those questions fit in, and a board is tens of
+ * files, so what the wider window costs is the contention of one rename.
  *
- * A holder only needs one read and one rename, so a lock still there seconds later
- * is a process that died inside that window: it is taken over rather than waited
- * on. The takeover is not free — a holder that was merely slow loses the write it
- * was about to make — so the bar is seconds, not milliseconds, and only the
- * holder's own token lets it release a file.
+ * The exclusive create is the decision, not a read before it: two sessions that both see a
+ * free lock cannot both write it, because the second `wx` fails. A holder needs one board read
+ * and one rename, so a file still there seconds later is a process that died inside that
+ * window — it is taken over rather than waited on, and only the holder's own token lets it
+ * release a file.
+ *
+ * Three things this lock is deliberately not. `create` takes none: it allocates an id nobody
+ * has used and reads directory names, so it cannot break a board-wide rule, and an add landing
+ * beside a claim is the one pair that is free. Reads take none: a snapshot is a read, and the
+ * next one is true. And a mutation must not start another while it holds this lock — it would
+ * wait out its own window and its own retries — which is why `store.mutate`'s suite seam is
+ * called before the lock is taken, not inside it.
  */
 
 import { randomUUID } from "node:crypto";
@@ -21,10 +30,10 @@ import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
 
-/** How long one acquisition waits for a live lock before answering nothing. */
+/** How long one acquisition waits for a live holder before answering nothing. */
 export const LOCK_WAIT_MS = 100;
 
-/** An age past which a lock is abandoned: a read and a rename never take this long. */
+/** An age past which a lock is abandoned: a board read and a rename never take this long. */
 export const LOCK_STALE_MS = 2_000;
 
 /** How long one acquisition sleeps between attempts. */
@@ -36,26 +45,29 @@ const TAKEOVERS = 2;
 /** A lock is a private record of a process: the user's eyes only, like a card. */
 const LOCK_MODE = 0o600;
 
-/** What one holder of the lock wrote: who, and the token that makes it theirs. */
+/** The lock's one name, beside the board's `cards/` and `archive/` piles. */
+export const BOARD_LOCK_NAME = ".lock-board";
+
+/** What one holder wrote: who, and the token that makes it theirs. */
 interface Held {
 	pid: number;
 	token: string;
 }
 
 /** A lock this acquisition holds, and the one call that gives it back. */
-export interface CardLock {
+export interface BoardLock {
 	/** Remove the lock file, if it still carries this acquisition's token. */
 	release(): Promise<void>;
 }
 
-/** The lock file for one card: a dotfile, so no reader lists it as a card. */
-export function lockPathFor(dir: string, id: string): string {
-	return join(dir, `.lock-${id}`);
+/** The lock file for one board: a dotfile at its root, so no pile lists it as a card. */
+export function lockPathFor(dir: string): string {
+	return join(dir, BOARD_LOCK_NAME);
 }
 
 /** What a caller may vary: a suite proves the age rule without waiting for it. */
 export interface LockOptions {
-	/** How long to wait for a live lock. */
+	/** How long to wait for a live holder. */
 	waitMs?: number;
 	/** The age past which a lock is abandoned. */
 	staleMs?: number;
@@ -64,20 +76,19 @@ export interface LockOptions {
 }
 
 /**
- * Take one card's write lock, or answer nothing when a live writer held it for
- * the whole wait.
+ * Take the board's write lock, or answer nothing when a live writer held it for the whole wait.
  *
- * The answer is the lock itself: a caller that got one holds the card, and a
- * caller that got nothing has not written and is free to read again.
+ * The answer is the lock itself: a caller that got one holds the board, and a caller that got
+ * nothing has not written and is free to read again.
  */
-export async function lockCard(dir: string, id: string, options: LockOptions = {}): Promise<CardLock | undefined> {
-	const path = lockPathFor(dir, id);
+export async function lockBoard(dir: string, options: LockOptions = {}): Promise<BoardLock | undefined> {
+	const path = lockPathFor(dir);
 	const waitMs = options.waitMs ?? LOCK_WAIT_MS;
 	const staleMs = options.staleMs ?? LOCK_STALE_MS;
 	const now = options.now ?? Date.now;
 	const held: Held = { pid: process.pid, token: randomUUID() };
 	const text = JSON.stringify(held);
-	// The directory is the one the card's file lives in, so it is there; the create is still
+	// The board directory is the one the cards live in, so it is there; the create is still
 	// asked to make it, because a missing directory would fail as an error, not as a taken name.
 	await mkdir(dir, { recursive: true });
 	const deadline = now() + waitMs;
@@ -113,9 +124,9 @@ async function abandoned(path: string, now: () => number, staleMs: number): Prom
 /**
  * Give the lock back, if it is still this acquisition's.
  *
- * A takeover leaves the old holder with a token that is no longer in the file, so its
- * release finds somebody else's record and leaves it: the writer that took over is the
- * one that holds the card now, and a late release must not open it to a third.
+ * A takeover leaves the old holder with a token that is no longer in the file, so its release
+ * finds somebody else's record and leaves it: the writer that took over is the one that holds
+ * the board now, and a late release must not open it to a third.
  */
 async function clearLock(path: string, token: string): Promise<void> {
 	const raw = await readFile(path, "utf-8").catch(() => undefined);
