@@ -18,6 +18,7 @@ import {
 	fetchPrRef,
 	hasCommits,
 	isIgnored,
+	isStaleLock,
 	lockWorktree,
 	mergeBase,
 	parsePrReference,
@@ -26,8 +27,10 @@ import {
 	resetHard,
 	resolveBaseRef,
 	statusEntries,
+	unlockWorktree,
 	worktreeAdd,
 	worktreeExists,
+	worktreeLock,
 	worktreePath,
 } from "./git.ts";
 import { copyIncludes, includePatterns } from "./include.ts";
@@ -172,6 +175,21 @@ export async function enterWorktree(
 	let baseRefMode: "fresh" | "head" = "head";
 	let baseCommit: string | undefined;
 	const existed = await worktreeExists(pi, target);
+	const lockReason = lockReasonFor(ctx);
+	// A lock is another session's claim on this checkout, and the reuse rules below can
+	// move it with `reset --hard`: read it before deciding anything. A lock whose owner is
+	// gone is taken over, as `prune` does, so a reused worktree ends up locked by us.
+	const heldLock = existed ? await worktreeLock(pi, target) : undefined;
+	if (heldLock !== undefined && heldLock !== lockReason) {
+		if (!isStaleLock(heldLock)) {
+			throw new Error(
+				`Refusing to enter ${target}: it is locked by a live session ` +
+					`(${heldLock || "no reason recorded"}), which may be working there. ` +
+					`Enter it after that session exits, or use a different name.`,
+			);
+		}
+		await unlockWorktree(pi, root, target);
+	}
 
 	if (!existed) {
 		if (prRef) {
@@ -241,8 +259,12 @@ export async function enterWorktree(
 		baseCommit,
 		createdByUs,
 	};
-	const lockReason = lockReasonFor(ctx);
-	if (createdByUs && (await lockWorktree(pi, root, target, lockReason))) {
+	// A stale lock we just took over is a claim this session now holds, whether or not it
+	// created the checkout: leaving it unlocked would let a second enter reset it again.
+	if (
+		(createdByUs || heldLock !== undefined) &&
+		(heldLock === lockReason || (await lockWorktree(pi, root, target, lockReason)))
+	) {
 		state.lockReason = lockReason;
 	}
 	setActive(state);

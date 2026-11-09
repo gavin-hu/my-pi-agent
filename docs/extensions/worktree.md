@@ -67,8 +67,12 @@ tools. A write or edit outside it is refused, a symlinked escape is refused, and
 worktree.
 
 **Locking.** A worktree in use is locked, so another session's prune cannot remove
-it. A clean, unused worktree older than `pruneAfterDays` is eligible; everything
-else is kept and named.
+it, and `enter` refuses one whose lock belongs to a live session — by `name` and by
+`path` alike — rather than reopening or resetting it underneath that session. A lock
+whose owner is gone is taken over. That lock is held by a worktree the session
+created or took over; entering an unlocked checkout by path does not lock it. A
+clean, unused worktree older than `pruneAfterDays` is eligible; everything else is
+kept and named.
 
 **Child sessions.** A `pi` started from inside a session binds to the same
 worktree, read-only for the lifecycle, so a delegated run cannot exit or prune

@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `worktree`: `enter` reads a worktree's lock before it touches it, so a second session can no
+  longer reopen — or `reset --hard` — a checkout a first session is working in. A live session's
+  lock is a refusal naming its `pi:<pid>:<session>` reason and leaving the checkout where it was;
+  a lock whose owner is gone is taken over, and the re-lock that follows names the reusing session.
+
 - `docs`: a frame is shown by a page or it is not captured. Four extension pages open with
   the picture their screen already had — `job`, `wechat`, `context`, and `subagent` — and
   `card-dialog.png` and `plan-review.png` join the walkthroughs that describe them, so
