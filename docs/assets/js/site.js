@@ -249,18 +249,24 @@
 		return total;
 	}
 
+	/*
+	 * The result is the option: the link is the node the field points at, and the `li`
+	 * around it is only presentational. `tabindex="-1"` keeps the popup out of the tab
+	 * order, which is what the combobox pattern wants — focus stays in the field and
+	 * the arrows move the selection.
+	 */
 	function resultFor(doc, index) {
-		var item = document.createElement("li");
-		var link = document.createElement("a");
+		var option = document.createElement("a");
 		var group = document.createElement("span");
 		var title = document.createElement("span");
 		var summary = document.createElement("span");
 
-		item.id = "search-option-" + index;
-		item.setAttribute("role", "option");
-		item.setAttribute("aria-selected", "false");
-		link.className = "search-result";
-		link.href = doc.url;
+		option.id = "search-option-" + index;
+		option.setAttribute("role", "option");
+		option.setAttribute("aria-selected", "false");
+		option.tabIndex = -1;
+		option.className = "search-result";
+		option.href = doc.url;
 		group.className = "search-result-group";
 		group.textContent = doc.group || "";
 		title.className = "search-result-title";
@@ -268,11 +274,10 @@
 		summary.className = "search-result-summary";
 		summary.textContent = doc.summary || "";
 
-		link.appendChild(group);
-		link.appendChild(title);
-		link.appendChild(summary);
-		item.appendChild(link);
-		return item;
+		option.appendChild(group);
+		option.appendChild(title);
+		option.appendChild(summary);
+		return option;
 	}
 
 	function search(value) {
@@ -300,6 +305,7 @@
 
 		if (ranked.length === 0) {
 			var empty = document.createElement("li");
+			empty.setAttribute("role", "presentation");
 			empty.className = "search-empty";
 			empty.textContent = docs ? "No page matches that." : "Loading the index…";
 			list.appendChild(empty);
@@ -310,9 +316,12 @@
 		}
 
 		ranked.forEach(function (entry, index) {
-			var item = resultFor(entry.doc, index);
+			var item = document.createElement("li");
+			var option = resultFor(entry.doc, index);
+			item.setAttribute("role", "presentation");
+			item.appendChild(option);
 			list.appendChild(item);
-			options.push(item.querySelector("a"));
+			options.push(option);
 		});
 		open();
 		announce(ranked.length + (ranked.length === 1 ? " result." : " results."));
@@ -322,13 +331,13 @@
 		if (options.length === 0) return;
 		if (selected >= 0) {
 			options[selected].classList.remove("is-selected");
-			options[selected].parentElement?.setAttribute("aria-selected", "false");
+			options[selected].setAttribute("aria-selected", "false");
 		}
 		selected = (selected + delta + options.length) % options.length;
 		var option = options[selected];
 		option.classList.add("is-selected");
-		option.parentElement?.setAttribute("aria-selected", "true");
-		if (option.parentElement?.id) input.setAttribute("aria-activedescendant", option.parentElement.id);
+		option.setAttribute("aria-selected", "true");
+		input.setAttribute("aria-activedescendant", option.id);
 		option.scrollIntoView({ block: "nearest" });
 	}
 
