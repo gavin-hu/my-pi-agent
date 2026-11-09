@@ -12,6 +12,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   doctor row reading `env disabled`, and a card refusing the session that holds it — linked from
   the front door and from `serve`, `wechat`, `bytefly` and `board`.
 
+- `dev`: the worktree page's "six `guard.*` switches" is a tested claim now —
+  `test/doc-counts.test.ts` reads the word or digit the page states and compares it with
+  `DEFAULT_CONFIG.guard`, so a guard added to or dropped from
+  `extensions/worktree/config.ts` fails naming the page instead of leaving a count behind.
+  The install pin stays `test/release.test.ts`'s job, and the file's header says so rather
+  than claiming one fact twice.
+
 - `docs`: the config migration recipe names the checkout it needs. `scripts/` is not in the
   tarball `pi install npm:` unpacks, so `migrate:config` never existed for the installed
   reader who still has legacy `<name>.json` files; the fence now clones and installs the
