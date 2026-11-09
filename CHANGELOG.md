@@ -96,6 +96,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `docs`: `security.md` stops claiming `web_fetch` "cannot" reach loopback or metadata endpoints and
   states the guard the code is — the host is resolved and every hop re-validated, DNS can change
   before the connection, and `fetch.allowPrivateHosts` turns it off — matching the extension page.
+- `docs`: the site's home page links each of its three skill rows to the page that explains it, and
+  its opening paragraph points at the skill index beside the extension index, now that the skill
+  pages exist.
 
 ## [0.25.1] - 2026-11-07
 
