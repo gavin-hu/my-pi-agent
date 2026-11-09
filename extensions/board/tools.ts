@@ -344,10 +344,9 @@ async function read(
 	roster: () => Promise<readonly RosterSession[] | undefined>,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	if (args.archived === true) return readArchive(store, action, me, args, now);
-	const cards = await store.list();
-	// Read once: a card file the reader refused is the difference between "not there"
-	// and "there, and this build cannot read it".
-	const skipped = await store.skipped();
+	// One read of the pile answers both questions a listing asks — the cards, and the files the
+	// reader refused, which is the difference between "not there" and "there, and unreadable".
+	const { cards, skipped } = await store.scan();
 	// A directory listing, not a read: a listing says what it left aside without opening one.
 	const archived = await store.archivedCount();
 	if (args.card !== undefined) {

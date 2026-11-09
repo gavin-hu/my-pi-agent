@@ -127,17 +127,19 @@ export function formatOfferFailure(card: Card, reason: string): string {
 }
 
 /**
- * The broadcast landed and recording the offer then lost a race.
+ * The broadcast landed and recording the offer was then refused.
  *
- * The peers have an event for a card somebody else has since claimed, moved, or taken
- * over, so the correction says the offer stands as a message and the card is what the
- * board now says — not that nothing happened. No second message follows it: an offer's only
- * next step is a claim, and a claim for a card somebody holds is refused naming the holder,
- * so the stale text cannot send a peer anywhere the store will not correct it.
+ * The peers have an event and the board would not take the record, so the correction says
+ * the offer stands as a message and the card is what the board now says — not that nothing
+ * happened. It names the refusal and not its cause: a write can lose to another session's
+ * write on the card *or* to another session holding the board, and only the store's own
+ * sentence can say which. No second message follows it: an offer's only next step is a
+ * claim, and a claim for a card somebody holds is refused naming the holder, so the stale
+ * text cannot send a peer anywhere the store will not correct it.
  */
 export function formatRacedOffer(card: Card, reason: string): string {
 	return (
-		`${cardRef(card.id)} was offered, but the card changed before the offer could be recorded: ${reason}\n` +
+		`${cardRef(card.id)} was offered, but recording the offer was refused: ${reason}\n` +
 		"  The peers have the message; the card is as the board shows it now."
 	);
 }
@@ -158,14 +160,17 @@ export function formatUnrecordedOffer(card: Card, reason: string): string {
 }
 
 /**
- * The send landed and the assignment then lost a race.
+ * The send landed and recording the owner was then refused.
  *
- * The peer has a message telling it the card is its, so the correction names the
- * claim rather than pretending nothing happened.
+ * The peer has a message telling it the card is its, so the correction names the claim rather
+ * than pretending nothing happened — and the claim is right either way: a card another session
+ * took refuses it naming the holder, while a card left unowned because the board was busy is
+ * the card the lead meant to hand over. The sentence states the refusal and lets the store's
+ * own words say why, rather than asserting a cause it cannot see.
  */
 export function formatRacedAssignment(card: Card, to: string, reason: string): string {
 	return (
-		`${cardRef(card.id)} was handed off to ${to}, but the card changed before it could be assigned: ${reason}\n` +
+		`${cardRef(card.id)} was handed off to ${to}, but recording the owner was refused: ${reason}\n` +
 		`  ${to} should run \`board\` action \`claim\` with card "${card.id}".`
 	);
 }

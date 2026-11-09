@@ -127,6 +127,20 @@ describe("roundText", () => {
 		expect(lines.some((line) => line.startsWith("billing-older"))).toBe(false);
 	});
 
+	test("prints its tail on top of the cap, which counts the rollup's own lines", () => {
+		const cards = Array.from({ length: 20 }, (_, index) =>
+			card(String(index + 1), { lane: "execute", owner: { label: `owner-${index}` } }),
+		);
+		cards.push(card("21", { lane: "execute", owner: { label: "ops-helper" } }));
+		const lines = roundText(cards, NOW, [dead("ops-helper")]).split("\n");
+		// The cap holds the rollup, and the two lines that say what to do about dead work ride on top:
+		// the count in "… N more" is the rollup's overflow alone, so a reader can act on it.
+		expect(lines).toHaveLength(MAX_ROUND_LINES + 3);
+		expect(lines[MAX_ROUND_LINES]).toMatch(/^… \d+ lines more$/);
+		expect(lines[MAX_ROUND_LINES + 1]).toBe("reclaim #21 — ops-helper is not running");
+		expect(lines.at(-1)).toContain("gone: ops-helper");
+	});
+
 	test("caps a long round and says how many lines it left out", () => {
 		const cards = Array.from({ length: 20 }, (_, index) =>
 			card(String(index + 1), { lane: "execute", owner: { label: `owner-${index}` } }),

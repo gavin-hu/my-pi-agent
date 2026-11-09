@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `team`: a handoff whose write is refused stops calling itself a race. Both "recording the
+  owner" sentences asserted that the card had changed, which a write can lose to without the
+  card moving — another session holding the board is the other way, and since the board's one
+  lock landed the more likely one. The sentences name the refusal and let the store's own words
+  say why; the advice they carry (the peer claims, the lead reads the card) is right either way.
+
 - `board`: the page hears about a card going quiet. A frame is pushed only when the snapshot's
   signature moves, and the one membership time alone decides — the rollup's `unwritten`, half an
   hour without a write — was not in it, so the lead's queue never gained the row while the board
