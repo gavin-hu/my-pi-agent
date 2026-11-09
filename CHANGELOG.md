@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the `wechat` page and its tutorial now name all three shapes `send_wechat` takes —
+  a text, an image as a picture, or a file as a document — and say that only a text send is
+  refused while the owner's turn is in flight, so a reader can find the file send the tool
+  has carried since 0.25.0.
+
 - `memory`: a note store is written owner-only (`0600`), so `docs/security.md` stops
   promising a mode the writer did not set: the write sets it on the temp file it renames
   into place, and a store an older build left at the umask is tightened by its next

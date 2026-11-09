@@ -59,8 +59,9 @@ The model can send you something on its own:
 send me the test summary when the build finishes
 ```
 
-That is the `send_wechat` tool — one text or one local image as a picture, always
-to the account's owner, because the recipient is not a parameter.
+That is the `send_wechat` tool — one text, one local image as a picture, or one
+local file as a document, always to the account's owner, because the recipient is
+not a parameter.
 
 ## Stop, and start again
 
