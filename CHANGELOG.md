@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the front door says where its frames come from — `capture:tools` writes
+  `assets/screens/tool-renderings.png` and `capture:tool-pngs` writes `assets/tools/`,
+  no page carries a per-tool block, the catalog is grouped by the work it serves
+  rather than by a promise list it does not follow, and the theme key names Pi's
+  `settings.json`.
 - `docs`: a search result is one listbox option — the link itself, named by the field's
   `aria-activedescendant` and kept out of the tab order with `tabindex="-1"` — instead
   of an option wrapping a focusable link, and the empty row is presentational so the

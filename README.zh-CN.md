@@ -68,7 +68,7 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 
 ## 包含内容
 
-21 个扩展、3 个随包技能，以及 2 个主题，按本 README 的承诺分组。
+21 个扩展、3 个随包技能，以及 2 个主题，按它们所服务的工作分组。
 每个扩展在 `docs/extensions/` 下的页面提供完整的工具与命令说明，并以能力表开头。
 
 ### 规划与委派
@@ -128,12 +128,16 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 [`bytefly-light`](./themes/bytefly-light.json) 是其浅色搭档，并支持可选的自动
 浅色/深色切换。安装本包不会改变你的主题：通过 `/settings` → **Theme**（或
 `/bytefly settings` → **Theme**）选择，
-或设置 `"theme": "bytefly-light/bytefly-dark"` 以自动切换。上方的截图
+或在 Pi 的 `settings.json` 中把 `"theme"` 设为 `"bytefly-light/bytefly-dark"`
+以自动切换。上方的截图
 使用 `bytefly-dark`。
 
-其余截图 —— 终端各屏幕、浏览器里的三个页面，以及每个工具一块 —— 都在各扩展自己
-位于 [`docs/extensions/`](./docs/extensions/) 下的页面里。`bun run capture:tools`
-会把工具画廊重新生成到 [`assets/tools/`](./assets/tools)。
+截图来自 [`assets/screens/`](./assets/screens/)，各扩展位于
+[`docs/extensions/`](./docs/extensions/) 下的页面在需要展示其效果时使用它们。
+工具是一张画廊图
+[`assets/screens/tool-renderings.png`](./assets/screens/tool-renderings.png)：
+`bun run capture:tools` 重新生成它，`bun run capture:tool-pngs` 则把每个工具一张的
+PNG 写入 [`assets/tools/`](./assets/tools)。
 
 ## 包会自行做的事
 

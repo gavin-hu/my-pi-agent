@@ -30,8 +30,8 @@ or off, its settings changed, and `/bytefly doctor` names anything missing.
 
 ## What you get
 
-21 extensions, 3 packaged skills, and 2 themes, grouped by the promises this
-page makes. The [extension index](./extensions/README.md) and the
+21 extensions, 3 packaged skills, and 2 themes, grouped by the work they serve.
+The [extension index](./extensions/README.md) and the
 [skill index](./skills/README.md) list every one, and the
 [README](https://github.com/gavin-hu/my-pi-agent#what-you-get) carries the same
 catalog with the tools and commands each delivers.
@@ -68,7 +68,7 @@ advertised to the model, and its instructions load only when the task matches
 `bytefly-dark` is a GitHub-inspired dark palette and `bytefly-light` its light
 companion, with optional automatic light/dark switching. Installing the pack does
 not change your theme: pick one through `/bytefly settings` → **Theme**, or set
-`"theme": "bytefly-light/bytefly-dark"` for switching.
+`"theme"` in Pi's `settings.json` to `"bytefly-light/bytefly-dark"` for switching.
 
 ## What runs on its own
 

@@ -78,8 +78,8 @@ Then, from inside Pi:
 
 ## What you get
 
-21 extensions, 3 packaged skills, and 2 themes, grouped by the promises this
-README makes. Each extension's own page in `docs/extensions/` has the full tool
+21 extensions, 3 packaged skills, and 2 themes, grouped by the work they serve.
+Each extension's own page in `docs/extensions/` has the full tool
 and command surface, opening with its capabilities.
 
 ### Plan and delegate
@@ -141,14 +141,16 @@ advertised to the model, and its instructions load only when the task matches
 and [`bytefly-light`](./themes/bytefly-light.json) its light companion, with
 optional automatic light/dark switching. Installing the pack does not change
 your theme: pick one through `/settings` → **Theme** (or `/bytefly settings` →
-**Theme**), or set
-`"theme": "bytefly-light/bytefly-dark"` for switching. The screenshot above
+**Theme**), or set `"theme"` in Pi's `settings.json` to
+`"bytefly-light/bytefly-dark"` for switching. The screenshot above
 uses `bytefly-dark`.
 
-Every other frame — the terminal screens, the three browser pages, and one block
-per tool — lives on the page for its extension under
-[`docs/extensions/`](./docs/extensions/). `bun run capture:tools` regenerates the
-tool gallery into [`assets/tools/`](./assets/tools).
+Frames come from [`assets/screens/`](./assets/screens/), and the pages under
+[`docs/extensions/`](./docs/extensions/) use them where a screen shows what the
+extension does. The tools are one gallery,
+[`assets/screens/tool-renderings.png`](./assets/screens/tool-renderings.png):
+`bun run capture:tools` regenerates it, and `bun run capture:tool-pngs` writes one
+PNG per tool into [`assets/tools/`](./assets/tools).
 
 ## What runs on its own
 
