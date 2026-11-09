@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: a name you half remember is now one page — `docs/tools-and-commands.md` lists
+  every tool and slash command the pack registers, each row linking the page that owns
+  it, and `test/extension-docs.test.ts` holds both tables to the factories in both
+  directions, so a rename fails there instead of vanishing from the list. The sidebar
+  drops the one-row `Extensions` group, its index joining the other front doors under
+  Get started, and walks the tutorials in the order the index prescribes —
+  `test/site-docs.test.ts` holds that order, and the promise that every walkthrough is
+  linked from an extension page.
+
 - `dev`: the two assertions that kept `check (windows-latest)` red. `scripts/check-lock.test.ts`
   expected the POSIX literal `/tmp/x/my-pi-agent-check.lock` from `lockPath`, which joins with
   the platform's separator; the `test/site-docs.test.ts` assets case compared `relative()`'s

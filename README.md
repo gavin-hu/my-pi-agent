@@ -196,6 +196,7 @@ only stops those factories from registering; to drop the whole package, use Pi's
 | [Install](./docs/install.md) | Adding the pack, pinning a release, upgrading, and removing it. |
 | [Configuration](./docs/configuration.md) | Resolution and the settings screen; [`configuration-reference.md`](./docs/configuration-reference.md) lists every key with its default and bounds. |
 | [Extension docs](./docs/extensions/) | One page per extension: what it does, how to try it, and the reference half — with a tutorial for each workflow. |
+| [Tools and commands](./docs/tools-and-commands.md) | Every tool and slash command the pack registers, by name, with the page that owns it. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
 | [Contributing](./CONTRIBUTING.md) | Setup, the branch flow, the checks, and the release process. |
 

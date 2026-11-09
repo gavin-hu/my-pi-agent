@@ -170,7 +170,8 @@ Do not duplicate across these:
   relative links. Deep docs stay English until a translation owner exists.
 - `docs/` — the documentation site: `index.md` (the front door), `install.md`,
   `tutorials/` (one walkthrough per flow), `configuration.md` and its
-  `configuration-reference.md`, `security.md`, `multi-session.md` and
+  `configuration-reference.md`, `tools-and-commands.md` (every registered name, with
+  the page that owns it), `security.md`, `multi-session.md` and
   `minimal-install.md` (the concepts no single extension owns),
   `extensions/<name>.md`, and `skills/<name>.md`. The page template and the guard
   that holds it are above. Navigation is `docs/_data/docs.json`, so a new page is

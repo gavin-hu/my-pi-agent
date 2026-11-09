@@ -90,6 +90,8 @@ about the session is sent, and `PI_OFFLINE` skips the check —
   and how to run the pack with most of it switched off.
 - [All extensions](./extensions/README.md) — one page per extension, opening with
   what it does and the tools and commands that deliver it.
+- [Tools and commands](./tools-and-commands.md) — every tool and slash command the
+  pack registers, by name, with the page that owns it.
 - [Tutorials](./tutorials/README.md) — eleven walkthroughs, the three to read first,
   and the rest grouped by what you are doing.
 - [Skills](./skills/README.md) — the three packaged workflows, and when to reach

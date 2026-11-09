@@ -252,6 +252,34 @@ describe("the tutorials index", () => {
 			extra: listed.filter((page) => !tutorials.includes(page)),
 		}).toEqual({ missing: [], extra: [] });
 	});
+
+	test("walks the sidebar in the order the index prescribes", () => {
+		// The index says which three to read first and groups the rest by the work in
+		// front of you; the sidebar is the same list, so a reader who arrives there
+		// instead gets that order rather than one a contributor happened to add.
+		const walked = [
+			...new Set(
+				[...pageText("tutorials/README.md").matchAll(/\]\(\.\/(first-[\w-]+\.md)\)/g)].map(
+					(match) => `tutorials/${match[1]}`,
+				),
+			),
+		];
+		const sidebar = nav.pages
+			.map((row) => row.path)
+			.filter((path) => path.startsWith("tutorials/") && path !== "tutorials/README.md");
+		expect(sidebar, "docs/_data/docs.json: the walkthroughs are out of the index's order").toEqual(walked);
+	});
+
+	test("links every walkthrough from an extension page", () => {
+		// The index promises each walkthrough is linked from the page that owns the
+		// commands it uses; nothing else sends a reader who is already on that page.
+		const extensionPages = sitePages().filter(
+			(path) => /^extensions\/[^/]+\.md$/.test(path) && path !== "extensions/README.md",
+		);
+		const text = extensionPages.map((path) => pageText(path)).join("\n");
+		const unlinked = tutorials.filter((page) => !text.includes(`](../${page})`));
+		expect(unlinked, "a walkthrough no extension page links").toEqual([]);
+	});
 });
 
 describe("the build", () => {
