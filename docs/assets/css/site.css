@@ -89,6 +89,10 @@ html {
 
 body {
 	margin: 0;
+	min-height: 100vh;
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
 	background: var(--canvas);
 	color: var(--text);
 	font-family: var(--font-sans);
@@ -339,6 +343,8 @@ a:hover {
 	display: grid;
 	grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
 	gap: 2.5rem;
+	flex: 1;
+	width: 100%;
 	max-width: 78rem;
 	margin: 0 auto;
 	padding: 0 1.25rem;
@@ -699,17 +705,28 @@ body.is-nav-open {
 
 /* Footer ---------------------------------------------------------------- */
 
+/*
+ * The band paints edge to edge, like the masthead's; this row is the box the pages
+ * are drawn in, so the licence line sits on the sidebar's edge and the links close
+ * the rail's. Measured from the viewport they drift apart on every screen past
+ * 1288px: 96px at 1440, and 336px at 1920.
+ */
 .footer {
+	margin-top: 2rem;
+	border-top: 1px solid var(--border-soft);
+	color: var(--muted);
+	font-size: 0.85rem;
+}
+
+.footer-inner {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.75rem 1.5rem;
 	align-items: center;
 	justify-content: space-between;
-	margin-top: 2rem;
+	max-width: 78rem;
+	margin: 0 auto;
 	padding: 1.5rem 1.25rem 2.5rem;
-	border-top: 1px solid var(--border-soft);
-	color: var(--muted);
-	font-size: 0.85rem;
 }
 
 .footer-line {
@@ -836,6 +853,22 @@ body.is-nav-open {
 
 	.pager-next {
 		grid-column: 1;
+	}
+
+	.footer-inner {
+		padding: 1.5rem 1rem 2.5rem;
+	}
+
+	/* The footer's links are the last thing a thumb reaches, and 13.6px of text is
+	   a 22px target; the pad grows each one to a touch's height and the row gap
+	   keeps them from reading as one. */
+	.footer-links {
+		gap: 0.25rem 1rem;
+	}
+
+	.footer-links a {
+		display: inline-block;
+		padding: 0.65rem 0;
 	}
 }
 

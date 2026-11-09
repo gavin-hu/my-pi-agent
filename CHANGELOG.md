@@ -25,6 +25,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of stopping where the search field's cap ends, and a 320px phone drops the
   brand name so the field keeps its placeholder — and the search glyph is drawn from a
   role, with an opaque, prefixed fallback under the translucent bar.
+- `docs`: the site footer sits on the page's column too — its row repeats the shell's
+  78rem box, so the licence line lines up with the sidebar instead of the window edge
+  (96px off at 1440, 336px at 1920) and the links close the rail's, a phone gets the
+  shell's 1rem gutter and a touch's height on each link, and a short page keeps the
+  footer at the bottom instead of mid-screen; `test/site-docs.test.ts` holds the row to
+  the shell's box.
 - `docs`: a link from `docs/` to an extension page names the page's `.md` target instead
   of the source directory — `extensions/serve/` was the code on GitHub and the page on
   the site — for 31 links across `security.md` and `configuration-reference.md`;
