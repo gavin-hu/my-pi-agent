@@ -142,6 +142,7 @@ the file for the scope you want, and the next session reads it.
 | see costs in another currency, or set a budget | **Currency**, **Session budget** |
 | set the cost precision after choosing a currency | `price.currency.decimals` below |
 | change the rail glyph beside tool results | `chrome.rail` below |
+| use the light palette, or follow the system's preference | **Theme** in `/bytefly settings`, or `theme` in Pi's own settings |
 | keep an achieved goal visible | `goal.achieved` below |
 | keep more snapshots, or turn off the pre-restore one | `rewind.max`, `rewind.safetySnapshot` below |
 | wake the agent when a job finishes, or keep jobs after exit | **Resume after a job**, `job.detachedByDefault` |
@@ -297,6 +298,12 @@ settings screen; `rail` is a `bytefly.json` edit.
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `rail` | string | `"╎"` | Exactly one visible column | Glyph that leads a tool result and a notice body. |
+
+The palette beside that rail is Pi's, not this document's. The pack ships two —
+`bytefly-dark` and `bytefly-light` — and installing it changes nothing until you
+pick one: the **Theme** row in `/bytefly settings` writes Pi's own `settings.json`,
+and `"theme": "bytefly-light/bytefly-dark"` there follows the system's light/dark
+preference. [bytefly](../extensions/bytefly/) covers the screen.
 
 ## `file-read` — document and spreadsheet extraction
 

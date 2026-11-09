@@ -1,13 +1,22 @@
 /**
- * Markdown readers for the extension pages.
+ * Markdown readers for the doc pages.
  *
- * `test/extension-docs.test.ts` holds the page contract; these are the readers it
- * needs, so the rules about fences, escaped pipes, and heading ranges are written
- * once and any later guard shares them.
+ * `test/extension-docs.test.ts` and `test/skill-docs.test.ts` hold the page
+ * contracts; these are the readers they need, so the rules about fences, escaped
+ * pipes, heading ranges, and reading a page by its name are written once and any
+ * later guard shares them.
  */
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const HEADING = /^##\s+(.+?)\s*$/;
 const FENCE = /^\s*(?:```|~~~)/;
+
+/** A page's text, from the directory it lives in and its name without the suffix. */
+export function pageTextIn(dir: string, name: string): string {
+	return readFileSync(join(dir, `${name}.md`), "utf-8");
+}
 
 /** The `##` headings of a page, in order, ignoring fenced code. */
 export function headingsOf(text: string): string[] {

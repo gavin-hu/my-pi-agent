@@ -52,6 +52,8 @@ or off, its settings changed, and `/bytefly doctor` names anything missing.
   and every key with its default.
 - [All extensions](./extensions/README.md) — one page per extension, opening with
   what it does and the tools and commands that deliver it.
+- [Skills](./skills/README.md) — the three packaged workflows, and when to reach
+  for one instead of asking in words.
 - [Security](./security.md) — what the pack opens on your machine, and how each
   surface is gated.
 
