@@ -76,7 +76,8 @@ Once per interactive session, `bytefly` asks Pi's package manager which
 configured packages are behind, and posts one themed notice naming
 `pi update --extensions`; a newer Pi gets a notice naming `pi update`. Nothing
 about the session is sent, and `PI_OFFLINE` skips the check —
-[Security](./security.md) covers the trust boundaries.
+[`bytefly`](./extensions/bytefly.md) has the mechanics and
+[Security](./security.md) the trust boundaries.
 
 ## Start here
 

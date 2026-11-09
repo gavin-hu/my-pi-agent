@@ -171,7 +171,7 @@ the extension and need no attention.
 
 | Variable | Meaning |
 |---|---|
-| `PI_DISABLED_EXTENSIONS` | Comma- or whitespace-separated extension names to load without; case-insensitive, unknown names ignored. See [README → Configuration](https://github.com/gavin-hu/my-pi-agent#configuration). |
+| `PI_DISABLED_EXTENSIONS` | Comma- or whitespace-separated extension names to load without; case-insensitive, unknown names ignored. |
 | `PI_OFFLINE` | Turns off Pi's automatic network activity; `bytefly`'s update check reads it too, so an offline session makes no package-update or version request. |
 | `PI_CODING_AGENT_DIR` | The agent directory the global document resolves against. |
 
