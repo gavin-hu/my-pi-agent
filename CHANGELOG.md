@@ -10,8 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   cards live under `cards/` with `ended/` and `page.json` beside them, `worktree` says
   the six `guard.*` switches it has, `subagent` says `reviewer` is granted the real
   `bash` and only its prompt keeps that to inspection, `plan` names the
-  `<YYYY-MM-DD-HHmm>` stamp its files carry, and `session-bus` names the actions that
-  join a session instead of any call at all.
+  `<YYYY-MM-DD-HHmm>` stamp its files carry, and `session-bus` says every action
+  except `status` joins a session instead of any call at all.
 
 - `docs`: a name you half remember is now one page — `docs/tools-and-commands.md` lists
   every tool and slash command the pack registers, each row linking the page that owns
