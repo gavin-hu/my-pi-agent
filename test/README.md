@@ -386,9 +386,9 @@ test/
   drift.test.ts            # lib/README index, AGENTS.md and entry README catalog word budgets
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
-  site-docs.test.ts        # the docs site: the navigation table against the tree, the Pages config, and the copied assets
+  site-docs.test.ts        # the docs site: the navigation table against the tree, the tutorial walk order and its links, the Pages config, and the copied assets
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
-  extension-docs.test.ts   # docs/extensions/: the page template's order, its 120-line cap, the registered surface on the page, the index, and a store's location on the page that owns it
+  extension-docs.test.ts   # docs/extensions/: the page template's order, its 120-line cap, the registered surface on the page, the surface index against the same set, the index, and a store's location on the page that owns it
   skill-docs.test.ts       # docs/skills/: one page per packaged skill, the template's order, the 120-line cap, the index, and how the skill starts
   refactor-skill.test.ts   # the `refactor` skill's inventory script: measures, graph, churn, budget
   shared-helpers.test.ts   # no re-declared lib or test/helpers export, and no body two files share

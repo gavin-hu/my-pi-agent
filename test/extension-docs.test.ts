@@ -11,6 +11,8 @@
  *   command was added and the page was not;
  * - a page that outgrows the index, or an extension whose page is a file beside
  *   the code instead of one page in `docs/extensions/`;
+ * - a name `docs/tools-and-commands.md` lists that no extension registers, one it
+ *   leaves out, or a row filed under the wrong extension;
  * - a store under the agent directory with no page that says where it lives.
  *
  * It loads every factory through the fake runtime for the same reason
@@ -113,6 +115,86 @@ describe("the registered surface is on the page", () => {
 			expect({ tools: missingTools, commands: missingCommands }).toEqual({ tools: [], commands: [] });
 		});
 	}
+});
+
+/**
+ * One row of the surface index, as the page writes it: the name in backticks, the
+ * extension page it links, and the one clause that says what it does.
+ */
+interface SurfaceRow {
+	/** The page's own spelling: `` `board` `` for a tool, `` `/board` `` for a command. */
+	spelled: string;
+	/** The name alone, with a command's leading slash removed. */
+	name: string;
+	/** The extension that registers it, when the row's link names one. */
+	service: string;
+	/** Every cell, so a row of the wrong width fails with the row in the message. */
+	cells: string[];
+}
+
+/** The rows of one section's first table, read by the names the page is meant to carry. */
+function surfaceRows(page: string, section: string): SurfaceRow[] {
+	const table = tablesOf(sectionOf(page, section))[0] ?? [];
+	return table.slice(1).map((cells) => ({
+		spelled: cells[0] ?? "",
+		name: /^`\/?([^`]+)`$/.exec(cells[0] ?? "")?.[1] ?? "",
+		service: /^\[[^\]]*\]\(\.\/extensions\/([^)/]+)\.md\)$/.exec(cells[1] ?? "")?.[1] ?? "",
+		cells,
+	}));
+}
+
+/**
+ * The surface index: every name the pack registers, in one list, each on the page
+ * that owns it.
+ *
+ * The extension pages are held to their own surface one at a time; this is the set
+ * as a whole, which is what a reader who remembers `/browse` and not `file-browse`
+ * needs. The clause beside a name is prose and not compared, because an index is a
+ * sentence about where to look, not a second copy of what each tool does.
+ */
+describe("the surface index", () => {
+	const page = readFileSync(join(root, "docs", "tools-and-commands.md"), "utf-8");
+	const tables = { Tools: surfaceRows(page, "Tools"), Commands: surfaceRows(page, "Commands") };
+
+	test("names every registered tool and command, on the page that registers it", async () => {
+		const expected: Record<keyof typeof tables, Array<[string, string]>> = { Tools: [], Commands: [] };
+		for (const entry of manifest) {
+			const { tools, commands } = await registeredSurface(entry);
+			expected.Tools.push(...tools.map((tool): [string, string] => [tool, nameOf(entry)]));
+			expected.Commands.push(...commands.map((command): [string, string] => [command, nameOf(entry)]));
+		}
+		// Both directions in one comparison: a name the page misses, a name it lists that
+		// nothing registers, and a row filed under the wrong extension each name themselves.
+		const listed = (rows: SurfaceRow[]) => rows.map((row): [string, string] => [row.name, row.service]);
+		const byName = (left: [string, string], right: [string, string]) => left[0].localeCompare(right[0]);
+		expect(listed(tables.Tools).sort(byName), "docs/tools-and-commands.md: the tool list drifted").toEqual(
+			expected.Tools.sort(byName),
+		);
+		expect(listed(tables.Commands).sort(byName), "docs/tools-and-commands.md: the command list drifted").toEqual(
+			expected.Commands.sort(byName),
+		);
+	});
+
+	test("writes each row the way a reader types it", () => {
+		for (const [section, rows] of Object.entries(tables)) {
+			// A scan that stopped matching would make the case above compare two empty lists.
+			expect(rows.length, `${section} has a table`).toBeGreaterThan(0);
+			const shape = section === "Commands" ? /^`\/[a-z][a-z0-9]*`$/ : /^`[a-z][a-z0-9_]*`$/;
+			const problems = rows
+				.filter((row) => !shape.test(row.spelled) || row.name === "" || row.service === "")
+				.map((row) => `${section}: ${row.cells.join(" | ")}`);
+			expect(problems, "a row with no name, no owning page, or the wrong spelling").toEqual([]);
+		}
+	});
+
+	test("says what each name does, in one clause", () => {
+		const problems = Object.entries(tables).flatMap(([section, rows]) =>
+			rows
+				.filter((row) => row.cells.length !== 3 || (row.cells[2] ?? "") === "")
+				.map((row) => `${section}: ${row.cells.join(" | ")}`),
+		);
+		expect(problems, "a row with no clause, or a column too many").toEqual([]);
+	});
 });
 
 /**

@@ -3,7 +3,6 @@
     "Get started",
     "Tutorials",
     "Guides",
-    "Extensions",
     "Plan and delegate",
     "Keep your work safe",
     "Reach the world",
@@ -24,6 +23,12 @@
       "summary": "Add the pack to Pi, pin a release, upgrade it, and check what it needs."
     },
     {
+      "path": "extensions/README.md",
+      "title": "All extensions",
+      "group": "Get started",
+      "summary": "One page per extension: capabilities, the tool surface, and its keys."
+    },
+    {
       "path": "tutorials/README.md",
       "title": "All tutorials",
       "group": "Tutorials",
@@ -36,16 +41,16 @@
       "summary": "Watch the task list work on a real job, and change the plan in words."
     },
     {
-      "path": "tutorials/first-goal.md",
-      "title": "Set a goal",
-      "group": "Tutorials",
-      "summary": "Give the session one objective, answer the planning question, and finish it against the task list."
-    },
-    {
       "path": "tutorials/first-plan.md",
       "title": "Plan a change",
       "group": "Tutorials",
       "summary": "Take one change from a read-only investigation to an approved plan."
+    },
+    {
+      "path": "tutorials/first-goal.md",
+      "title": "Set a goal",
+      "group": "Tutorials",
+      "summary": "Give the session one objective, answer the planning question, and finish it against the task list."
     },
     {
       "path": "tutorials/first-board.md",
@@ -60,18 +65,6 @@
       "summary": "Work a task in its own checkout, then land the branch safely."
     },
     {
-      "path": "tutorials/first-browse.md",
-      "title": "Browse files",
-      "group": "Tutorials",
-      "summary": "Read the project in a browser: quick open, previews, a diff, and a line reference."
-    },
-    {
-      "path": "tutorials/first-web.md",
-      "title": "Search the web",
-      "group": "Tutorials",
-      "summary": "Ask for a fact, read one page, and pull out only the section you need."
-    },
-    {
       "path": "tutorials/first-delegate.md",
       "title": "Delegate a task",
       "group": "Tutorials",
@@ -84,6 +77,18 @@
       "summary": "Start a long command as a job, be told when it ends, and watch a log for the line that matters."
     },
     {
+      "path": "tutorials/first-browse.md",
+      "title": "Browse files",
+      "group": "Tutorials",
+      "summary": "Read the project in a browser: quick open, previews, a diff, and a line reference."
+    },
+    {
+      "path": "tutorials/first-web.md",
+      "title": "Search the web",
+      "group": "Tutorials",
+      "summary": "Ask for a fact, read one page, and pull out only the section you need."
+    },
+    {
       "path": "tutorials/first-rewind.md",
       "title": "Rewind a prompt",
       "group": "Tutorials",
@@ -94,6 +99,12 @@
       "title": "Chat from WeChat",
       "group": "Tutorials",
       "summary": "Pair an account, answer the session from your phone, and approve a plan there."
+    },
+    {
+      "path": "tools-and-commands.md",
+      "title": "Tools and commands",
+      "group": "Guides",
+      "summary": "Every tool and slash command the pack registers, by name, with the page that owns it."
     },
     {
       "path": "configuration.md",
@@ -124,12 +135,6 @@
       "title": "A minimal install",
       "group": "Guides",
       "summary": "What each part costs while it is on, and how to run the pack with most of it switched off."
-    },
-    {
-      "path": "extensions/README.md",
-      "title": "All extensions",
-      "group": "Extensions",
-      "summary": "One page per extension: capabilities, the tool surface, and its keys."
     },
     {
       "path": "extensions/plan.md",

@@ -29,3 +29,6 @@ half — the commands, the keys, the limits, and the settings worth changing.
 
 The template every page follows is
 [`CONTRIBUTING.md`](https://github.com/gavin-hu/my-pi-agent/blob/main/CONTRIBUTING.md#writing-an-extension-page).
+A name you half remember — `/browse`, `read_doc` — is in
+[Tools and commands](../tools-and-commands.md), which lists every one with the page
+that owns it.

@@ -177,6 +177,7 @@ PI_DISABLED_EXTENSIONS=todo,job pi -e .
 | [安装](./docs/install.md) | 添加本包、固定版本、升级与移除。 |
 | [配置](./docs/configuration.md) | 解析规则与设置界面；[`configuration-reference.md`](./docs/configuration-reference.md) 列出 `bytefly.json` 每个键的默认值与取值范围。 |
 | [扩展文档](./docs/extensions/) | 每个扩展一页：它做什么、如何上手，以及参考部分；每个工作流各配一篇教程。 |
+| [工具与命令](./docs/tools-and-commands.md) | 本包注册的每个工具、斜杠命令与界面，按名称列出，并指向拥有它的页面。 |
 | [安全](./docs/security.md) | 回环与远程界面的信任边界。 |
 | [参与贡献](./CONTRIBUTING.md) | 本地设置、分支流程、检查项与发布流程。 |
 
