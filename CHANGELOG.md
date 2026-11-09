@@ -12,14 +12,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   holds one conversation's reply token rather than per-peer tokens, six extensions read
   no configuration rather than two, and a `price.rates` key past the 200th is ignored.
 
+- `docs`: three pages stop saying that switching `session-bus` off takes the board with it.
+  The cards, `board`, and `/board` keep working; what goes is the team — the round's verbs,
+  the page's Team tab, and a sign's announcement to the card's owner — and the board's page
+  needs `serve` for its port, not the bus.
+
 - `docs`: five extension pages stop stating facts the code does not hold — the board's
   cards live under `cards/` with `ended/` and `page.json` beside them, `worktree` says
   the six `guard.*` switches it has, `subagent` says `reviewer` is granted the real
   `bash` and only its prompt keeps that to inspection, `plan` names the
   `<YYYY-MM-DD-HHmm>` stamp its files carry, and `session-bus` says every action
   except `status` joins a session instead of any call at all.
+
+- `docs`: the `wechat` page and its tutorial now name all three shapes `send_wechat` takes —
+  a text, an image as a picture, or a file as a document — and say that only a text send is
+  refused while the owner's turn is in flight, so a reader can find the file send the tool
+  has carried since 0.25.0.
+
 - `docs`: the bytefly page stops calling `/bytefly upgrade` unreleased — its Limits no longer
   sends the reader to `pi update --extensions` for software that shipped in 0.19.0.
+
 - `memory`: a note store is written owner-only (`0600`), so `docs/security.md` stops
   promising a mode the writer did not set: the write sets it on the temp file it renames
   into place, and a store an older build left at the umask is tightened by its next
