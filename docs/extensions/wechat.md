@@ -55,10 +55,11 @@ across a reconnect.
 asked in the chat, numbered, and only that prompt receives the reply. A failed
 wait is acknowledged once rather than silently dropped.
 
-**The tool.** `send_wechat` takes exactly one of `text` (1–4000 characters) or
-`image` (a local path whose bytes sniff as an image) and always messages the
-owner. A text send is refused while a turn with the owner is in flight; an image
-is allowed.
+**The tool.** `send_wechat` takes exactly one of `text` (1–4000 characters),
+`image` (a local path whose bytes sniff as an image), or `file` (a local path sent
+as a document under its base name, so an image sent this way still arrives as a
+document), and always messages the owner. A text send is refused while a turn with
+the owner is in flight; an image or a file is allowed.
 
 **State.** `~/.pi/agent/wechat/` holds `credentials.json` (mode `0600`, one
 account), `state.json` (cursor, owner, reply token, recently handled ids; mode

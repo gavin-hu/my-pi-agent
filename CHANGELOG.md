@@ -12,8 +12,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `bash` and only its prompt keeps that to inspection, `plan` names the
   `<YYYY-MM-DD-HHmm>` stamp its files carry, and `session-bus` says every action
   except `status` joins a session instead of any call at all.
+
+- `docs`: the `wechat` page and its tutorial now name all three shapes `send_wechat` takes —
+  a text, an image as a picture, or a file as a document — and say that only a text send is
+  refused while the owner's turn is in flight, so a reader can find the file send the tool
+  has carried since 0.25.0.
+
 - `docs`: the bytefly page stops calling `/bytefly upgrade` unreleased — its Limits no longer
   sends the reader to `pi update --extensions` for software that shipped in 0.19.0.
+
 - `memory`: a note store is written owner-only (`0600`), so `docs/security.md` stops
   promising a mode the writer did not set: the write sets it on the temp file it renames
   into place, and a store an older build left at the umask is tightened by its next
