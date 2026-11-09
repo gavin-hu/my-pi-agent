@@ -16,6 +16,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { SHELL_IMAGES, siteImages } from "../scripts/docs-assets.ts";
 import { walkFiles } from "./helpers/files.ts";
 import { textOf } from "./helpers/scan.ts";
 
@@ -300,8 +301,23 @@ describe("the assets the site shows", () => {
 			.map((copy) => ({ copy, source: join(root, relative(docs, copy)) }))
 			.filter(({ source }) => existsSync(source))
 			.filter(({ copy, source }) => !readFileSync(copy).equals(readFileSync(source)))
-			.map(({ copy, source }) => `${relative(docs, copy)} differs from ${relative(root, source)}; copy it again`);
+			.map(
+				({ copy, source }) =>
+					`${relative(docs, copy)} differs from ${relative(root, source)}; run \`bun run sync:docs\``,
+			);
 		expect(stale).toEqual([]);
+	});
+
+	test("serve only the images a page names", () => {
+		// The set is the pages' references, not a copy of everything captured: a file here
+		// that no page names is weight the repository carries for no reader.
+		const named = new Set(siteImages(docs).map((reference) => reference.path));
+		const unserved = walkFiles(join(docs, "assets"))
+			.filter((file) => /\.(png|jpe?g|gif|svg|webp)$/.test(file))
+			.map((file) => relative(docs, file))
+			.filter((path) => !named.has(path) && !SHELL_IMAGES.includes(path))
+			.map((path) => `docs/${path}: no page names it; run \`bun run sync:docs\` to remove it`);
+		expect(unserved).toEqual([]);
 	});
 
 	test("keep a lighter form in the source's shape, and no bigger", () => {

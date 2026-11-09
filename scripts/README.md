@@ -33,6 +33,7 @@ rule that a value is a path.
 | `bun run capture:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
 | `bun run report:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run report:notes X.Y.Z` | Print one changelog section for `gh release create`. |
+| `bun run sync:docs [--dry-run]` | Make `docs/assets/` hold exactly the images the site's pages reference: each one is copied from this repository's `assets/`, a file no page names is removed, and a reference with no source (the `chrome.webp` derivative) is left alone. `--dry-run` prints the same table and writes nothing. |
 | `bun run migrate:config [--project <dir>]` | Move each per-extension `<name>.json` into the shared `bytefly.json`, once per machine and repository; `--dry-run` previews and `--keep` leaves the old files. How it behaves is in [`docs/configuration.md`](../docs/configuration.md#migrating-from-older-versions). |
 
 ## Layout
@@ -49,6 +50,7 @@ rule that a value is a path.
 | [`junit.ts`](./junit.ts) | The red gate's report: `reportPath` (`.pi/cache/test-report.xml`), `readReport` — a bounded scan of bun's JUnit XML for the run's totals and the cases carrying a `<failure>`, not a general parser — and `reportDigest`, the `file:line — suite > case` lines a failing test phase prints. `check.ts` is its only caller. |
 | [`check.ts`](./check.ts), [`test-selection.ts`](./test-selection.ts), [`check-lock.ts`](./check-lock.ts) | The gate, `bun run check` / `bun run check:tests`: its phases at once, its exit code the one that matters, and the scope flags it takes — which `test-selection.ts` answers from the manifest and the import walker. `check-lock.ts` is the one-gate-per-machine lock it holds while it runs. What a scope covers is [`test/README.md#running`](../test/README.md#running). |
 | `migrate-config.ts`, `release-notes.ts`, `peer-versions.ts`, `render-bench.ts`, `load-bench.ts` | One command each, under [Commands](#commands). |
+| [`docs-assets.ts`](./docs-assets.ts) | The site's copies: `siteImages` reads the image each page references, resolved from the page's URL rather than its file, and `syncDocsAssets` copies what is missing or stale and removes what no page names. `test/site-docs.test.ts` reads the same rule, so the guard and the command cannot disagree. |
 
 ## The two capture mechanisms
 
