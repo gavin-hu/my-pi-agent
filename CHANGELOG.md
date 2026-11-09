@@ -11,6 +11,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   nothing while focus is in a field or behind the open drawer's Tab ring, and a second modifier is
   left to the browser.
 
+- `dev`: the gate's one clock is 90 s. `CASE_BUDGET_MS` rose from 60 s after a spawned `git` in
+  `extensions/plan/git-bash.test.ts` spent 55.11 s beside a second gate on one box — its watchdog
+  to the millisecond — and a loopback page in `extensions/file-browse/transport/root-move.test.ts`
+  reached the case deadline in another session; the spawn watchdog follows to 85 s, and every
+  case, hook, and `--timeout` still reads the one number.
+
 - `docs`: a surface that does not work has one page. `docs/troubleshooting.md` is a symptom,
   cause, fix and owning-page table over the five failures that were each a Limits bullet on a
   different page — no page at all, a pinned port another process holds, `✆ wechat expired`, a
