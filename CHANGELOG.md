@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: an archived card's record is closed — `note`, `edit` and `review --override` were
+  applied to a card in the archive pile, changing a title or a note that neither `list`, the
+  round, nor the page would ever show again, because the pile a write carried was never asked
+  about. `store.mutate` now hands `applyOp` the place it read the card from, and `prepare`
+  refuses every operation there but `drop` (the one way out of a card archived by mistake,
+  since nothing un-archives) and the idempotent `archive`. A write that loses a race to a sweep
+  is refused rather than landing in the cold pile.
+
 - `board`: a write now locks the board instead of one card, because the rules it checks are the
   board's: two writers on two cards read two snapshots, so `#1 dependsOn [2]` beside
   `#2 dependsOn [1]` closed a loop `wouldCycle` refuses for one caller, and two claims each saw

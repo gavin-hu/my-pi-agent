@@ -38,6 +38,7 @@ import type { BoardIndex } from "./links.ts";
 import {
 	approve,
 	archive,
+	closedArchive,
 	assign,
 	claim,
 	contractOp,
@@ -56,6 +57,15 @@ export interface Actor {
 	id?: string;
 	label: string;
 }
+
+/**
+ * The pile the card was read from: the board, or the archive beside it.
+ *
+ * A state the record does not carry, because the pile *is* the state — `archive` renames a
+ * finished card's file and writes nothing — so the caller that looked for the card is the one
+ * that can say, and it hands the fact in the way it hands in the plan proof.
+ */
+export type Place = "board" | "archive";
 
 /** One named mutation of one card. */
 export type CardOp =
@@ -172,8 +182,9 @@ export function mayOp(
 	actor: Actor,
 	board: BoardIndex,
 	config: BoardConfig = DEFAULT_BOARD_CONFIG,
+	place: Place = "board",
 ): string | undefined {
-	const prepared = prepare(card, op, actor, 0, board, config);
+	const prepared = prepare(card, op, actor, 0, board, config, place);
 	return "error" in prepared ? prepared.error : undefined;
 }
 
@@ -190,8 +201,9 @@ export function applyOp(
 	now: number,
 	board: BoardIndex,
 	config: BoardConfig = DEFAULT_BOARD_CONFIG,
+	place: Place = "board",
 ): OpResult {
-	const prepared = prepare(card, op, actor, now, board, config);
+	const prepared = prepare(card, op, actor, now, board, config, place);
 	if ("error" in prepared) return { ok: false, error: prepared.error };
 	if (!prepared.changed) return { ok: true, card, changed: false };
 	// `archive` changes the pile a card's file lies in and no field at all, which is why
@@ -200,8 +212,27 @@ export function applyOp(
 	return { ok: true, card: write(card, actor, now, prepared.fields), changed: true };
 }
 
-/** The one place an operation becomes a write: each `step*` decides, this applies. */
-function prepare(card: Card, op: CardOp, actor: Actor, now: number, board: BoardIndex, config: BoardConfig): Prepared {
+/**
+ * The one place an operation becomes a write: each `step*` decides, this applies.
+ *
+ * The closed record is asked about here rather than in a step, because it is a fact about
+ * where the card is rather than about the card: every operation has to answer it, and a step
+ * that forgot would be a write into the archive.
+ */
+function prepare(
+	card: Card,
+	op: CardOp,
+	actor: Actor,
+	now: number,
+	board: BoardIndex,
+	config: BoardConfig,
+	place: Place,
+): Prepared {
+	// A card set aside is history, and the pile its file lies in is the whole of that state:
+	// nothing on the board, in the round, or on the page reads what a write there would change.
+	// `drop` is the one operation it still takes — a card archived by mistake has no other way
+	// out, since nothing un-archives — and `archive` again is the no-op the caller reports.
+	if (place === "archive" && op.kind !== "drop" && op.kind !== "archive") return { error: closedArchive(card) };
 	switch (op.kind) {
 		case "claim":
 			return claim(card, actor, board, config.wip);

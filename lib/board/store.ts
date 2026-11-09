@@ -351,8 +351,9 @@ export function createStore(
 				const { card, pile } = found;
 				// The preconditions are checked against the card as it is *now*, and against the board
 				// as it is now, under the one lock that keeps both still, so an operation is refused
-				// rather than forced.
-				const result = applyOp(card, op, actor, now, indexOf(await list()), config);
+				// rather than forced. The pile is handed on too: only the store can say which one it read.
+				const place = pile === archiveDir ? "archive" : "board";
+				const result = applyOp(card, op, actor, now, indexOf(await list()), config, place);
 				if (!result.ok) return { ok: false, error: result.error, card };
 				if (!result.changed) {
 					return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
@@ -373,7 +374,8 @@ export function createStore(
 					await moveCard(cardsDir, archiveDir, id);
 					return { ok: true, card: result.card, changed: true, dropped: false, archived: true };
 				}
-				await writeCardFile(pile, id, result.card);
+				// Written back to the board and nowhere else: an archived record refuses every write.
+				await writeCardFile(cardsDir, id, result.card);
 				return { ok: true, card: result.card, changed: true, dropped: false, archived: false };
 			} finally {
 				await lock.release();

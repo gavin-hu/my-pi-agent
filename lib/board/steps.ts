@@ -498,6 +498,18 @@ export function offer(card: Card, now: number, board: BoardIndex, limits: WipLim
 }
 
 /**
+ * What a card set aside answers to a write, wherever the call came from.
+ *
+ * The archive is one way, so a card in it is history rather than work: `drop` is the only
+ * operation that still applies, and it exists because a card archived by mistake has to have
+ * some way out. The sentence is stated once, in the module that owns the refusals, and
+ * `rules.ts` asks it before any step runs.
+ */
+export function closedArchive(card: Card): string {
+	return `${cardRef(card.id)} is archived: its record is read-only, and \`drop\` removes it for good.`;
+}
+
+/**
  * Set a finished card aside, out of the board and into the archive beside it.
  *
  * Only a finished card leaves this way. No field moves and no transition is appended — the
