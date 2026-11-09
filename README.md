@@ -155,15 +155,11 @@ PNG per tool into [`assets/tools/`](./assets/tools).
 ## What runs on its own
 
 Once per interactive session, `bytefly` asks Pi's package manager which
-configured packages are behind, suppresses Pi's own startup update blocks, and
-posts one themed notice naming `pi update --extensions`, plus one for a newer Pi
-that names `pi update` and the changelog; a new version also marks the header —
-this package's, and Pi's own.
-
-Nothing about the session is sent: Pi's own release request is re-rendered, and
-this package's newest version comes from one fixed `GET` of npm's `latest`
-document. `PI_OFFLINE` skips the check;
-[`docs/security.md`](./docs/security.md) covers the trust boundaries.
+configured packages are behind and posts one themed notice naming
+`pi update --extensions`; a newer Pi gets one naming `pi update`. Nothing about
+the session is sent, and `PI_OFFLINE` skips the check —
+[`bytefly`'s page](./docs/extensions/bytefly.md) has the header marker and the
+cache, [`docs/security.md`](./docs/security.md) the trust boundaries.
 
 ## Configuration
 
@@ -176,17 +172,16 @@ the behaviour around its keys, and
 settings screen walkthrough, and every section's keys with their type, default,
 and bounds.
 
-Every extension is on by default. To load the pack without some of them, set
-`PI_DISABLED_EXTENSIONS` to a comma- or whitespace-separated list of extension
-names (the directory names under [`extensions/`](./extensions/)):
+Every extension is on by default. To load the pack without some of them, name them
+in `PI_DISABLED_EXTENSIONS` (the directory names under [`extensions/`](./extensions/)):
 
 ```bash
 PI_DISABLED_EXTENSIONS=todo,job pi -e .
 ```
 
-Names are compared case-insensitively and unknown names are ignored. The variable
-only stops those factories from registering; to drop the whole package, use Pi's
-`--no-extensions` or remove the package from your settings.
+The variable only stops those factories from registering, and
+[configuration](./docs/configuration.md#environment-variables) has its rules; to
+drop the whole package, use Pi's `--no-extensions` or remove it from your settings.
 
 ## Documentation
 

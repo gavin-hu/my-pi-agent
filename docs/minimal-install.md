@@ -11,8 +11,9 @@ removing the package itself is [Install](./install.md).
   switches the scope, so a row can be off for this project only, and `x` drops
   that project override again.
 - **For one run.** `PI_DISABLED_EXTENSIONS=todo,job pi` loads the pack without
-  those extensions. Names are comma- or whitespace-separated, compared
-  case-insensitively, and an unknown name is ignored; nothing is written.
+  those extensions, and
+  [configuration](./configuration.md#environment-variables) has the variable's
+  rules; nothing is written.
 - **The whole package.** Pi's `--no-extensions` loads no extension at all, this
   pack's included, and `pi remove npm:@gavin-hu/my-pi-agent` uninstalls the pack.
 

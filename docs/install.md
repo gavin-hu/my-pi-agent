@@ -64,8 +64,9 @@ pi update --extensions
 ```
 
 Once per interactive session the pack also asks Pi's package manager which
-configured packages are behind and posts one themed notice naming that command.
-`PI_OFFLINE` skips the check; nothing about the session is sent.
+configured packages are behind and posts one themed notice naming that command;
+`PI_OFFLINE` skips the check and nothing about the session is sent, and
+[`bytefly`](./extensions/bytefly.md) has the mechanics.
 
 ## Remove, or switch parts off
 

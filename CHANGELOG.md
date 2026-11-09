@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the once-a-session update check has one owner — `bytefly`'s page says what it
+  does (the header marker on both versions, the one notice, the cache), and the README,
+  the site home, and the install guide keep a summary and a link; the same for
+  `PI_DISABLED_EXTENSIONS`, whose rules now live only in the configuration reference,
+  with the README and the minimal install linking them.
+
 - `dev`: the gate's one clock is 90 s. `CASE_BUDGET_MS` rose from 60 s after a spawned `git` in
   `extensions/plan/git-bash.test.ts` spent 55.11 s beside a second gate on one box — its watchdog
   to the millisecond — and a loopback page in `extensions/file-browse/transport/root-move.test.ts`
