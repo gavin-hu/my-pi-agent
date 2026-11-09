@@ -12,6 +12,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `waitingOn` that read the vanished link as satisfied. `steps.archive` now takes the board and
   refuses with the dependent named, and the way out is one `edit`.
 
+- `board`: a listing narrowed by `query` or `mine` whose only match is finished says
+  `No open cards match.` rather than `No cards match.` above the count of hidden done cards, which
+  contradicted it.
+
 - `dev`: the board page's other three browser suites read it through the one tab too —
   `dialog-behaviour` (12 tabs), `kind` (4) and `repaint` (2) — so `BoardBrowser.open()` is gone
   and a suite buys a tab once. Paired runs alternating old and new: 14.26 s / 20.88 s wall and

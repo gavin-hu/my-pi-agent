@@ -80,6 +80,20 @@ describe("a listing with a rollup", () => {
 		expect(result.details.narrowed).toBe(true);
 	});
 
+	test("says no open card matched, when the one that did is finished", async () => {
+		const { board, call } = boardTool({ now: NOW, track: temps.track });
+		await call({ action: "add", title: "Open one" });
+		await call({ action: "add", title: "Finished one" });
+		await advance(await board.runtime.store(board.ctx.cwd), "2", "done", { owner: PEER }, NOW);
+
+		const result = await call({ action: "list", query: "Finished" });
+		// A filter answered with nothing by the lane rule is not a filter that matched nothing: the
+		// count under this line names the card it found, and the old wording contradicted it.
+		expect(resultText(result)).toBe('No open cards match.\n1 done card hidden; pass lane: "done" to read it.');
+		expect(result.details.cards).toEqual([]);
+		expect(result.details.narrowed).toBe(true);
+	});
+
 	test("a round with no filter lists the board, then the rollup", async () => {
 		const { board, call } = boardTool({ now: NOW, track: temps.track });
 		await call({ action: "add", title: "One" });
