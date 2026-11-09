@@ -24,7 +24,13 @@ export const TEAM_COMMAND = "team";
 /** The words the command accepts besides the round itself. */
 export const TEAM_WORDS = ["join"] as const;
 
-/** How many lines a round may print before it says how many it left out. */
+/**
+ * How many of the round's own lines print before it says how many it left out.
+ *
+ * The work a dead owner left behind and the presence line print on top of it: those are the
+ * reason a lead reads the round, and cutting them to hold a number would be the wrong trade.
+ * The elision counts the rollup alone, so "… N more" is a count a reader can act on.
+ */
 export const MAX_ROUND_LINES = 10;
 
 export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: { team?: TeamJoin } = {}): void {
@@ -97,6 +103,7 @@ export function joinedLine(result: JoinResult): string {
 export function roundText(cards: readonly Card[], now: number, roster?: readonly RosterSession[]): string {
 	if (cards.length === 0) return "team: nothing to report — the board is empty";
 	const round = buildRound(cards, now);
+	// The cap covers the rollup: what a dead owner left, and who is here at all, follow it whole.
 	const lines = formatRound(cards, round, roster).split("\n");
 	const shown = lines.slice(0, MAX_ROUND_LINES);
 	if (lines.length > MAX_ROUND_LINES) shown.push(`… ${plural(lines.length - MAX_ROUND_LINES, "line")} more`);

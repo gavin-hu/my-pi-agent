@@ -156,9 +156,7 @@ describe("assign", () => {
 		expect(race.sent).toHaveLength(1);
 		expect(race.sent[0]?.text).toContain("If the board shows another owner");
 		expect(result.isError).toBe(true);
-		expect(resultText(result)).toContain(
-			`#${id} was handed off to billing-core, but the card changed before it could be assigned`,
-		);
+		expect(resultText(result)).toContain(`#${id} was handed off to billing-core, but recording the owner was refused`);
 		expect(result.details.card).toMatchObject({ owner: { label: "billing-web" }, lane: "plan" });
 	});
 
@@ -327,7 +325,7 @@ describe("offer", () => {
 		expect(race.sent).toHaveLength(1);
 		expect(race.sent[0]?.to).toBe("*");
 		expect(result.isError).toBe(true);
-		expect(resultText(result)).toContain("was offered, but the card changed before the offer could be recorded");
+		expect(resultText(result)).toContain("was offered, but recording the offer was refused");
 		expect(result.details.card).toMatchObject({ owner: { label: "billing-web" } });
 
 		const late = await (await race.store()).mutate(id, { kind: "claim" }, { label: "billing-core" }, NOW + 2);
