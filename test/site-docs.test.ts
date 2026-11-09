@@ -168,6 +168,73 @@ describe("the navigation table", () => {
 	});
 });
 
+/** One catalog section: its heading, and the extension pages its rows link. */
+interface CatalogSection {
+	heading: string;
+	extensions: string[];
+}
+
+/**
+ * The entry README's promise sections, in order, with the extensions each one lists.
+ *
+ * The catalog is what a reader picks from, so it is the order the sidebar, the
+ * extension index, and this file all mean by "the catalog's order". A section that
+ * links no extension page — Skills, Themes — is dropped, which is what makes a
+ * renamed promise heading fail the count below instead of passing as empty.
+ */
+function catalogSections(): CatalogSection[] {
+	const lines = readFileSync(join(root, "README.md"), "utf-8").split("\n");
+	const start = lines.findIndex((line) => line.trim() === "## What you get");
+	const end = lines.findIndex((line, index) => index > start && line.startsWith("## "));
+	const sections: CatalogSection[] = [];
+	for (const line of lines.slice(start, end < 0 ? undefined : end)) {
+		const heading = /^###\s+(.+?)\s*$/.exec(line)?.[1];
+		if (heading !== undefined && heading !== null) {
+			sections.push({ heading, extensions: [] });
+			continue;
+		}
+		const name = /^\|\s*\[`[^`]+`\]\(\.\/docs\/extensions\/([^)/]+)\.md\)/.exec(line)?.[1];
+		if (name !== undefined && name !== null) sections.at(-1)?.extensions.push(name);
+	}
+	return sections.filter((section) => section.extensions.length > 0);
+}
+
+/** The extension pages the sidebar lists, in nav order, with the group each sits under. */
+function navExtensionRows(): Array<{ name: string; group: string }> {
+	return nav.pages
+		.filter((row) => /^extensions\/[^/]+\.md$/.test(row.path) && row.path !== "extensions/README.md")
+		.map((row) => ({ name: row.path.slice("extensions/".length, -".md".length), group: row.group }));
+}
+
+describe("the navigation's extension list", () => {
+	const catalog = catalogSections();
+	const names = catalog.flatMap((section) => section.extensions);
+
+	test("finds the catalog, so a renamed section fails here rather than comparing nothing", () => {
+		expect(catalog.length, "no promise section in README.md lists an extension page").toBeGreaterThan(1);
+		expect(names.length, "README.md and the sidebar disagree on how many extensions there are").toBe(
+			navExtensionRows().length,
+		);
+	});
+
+	test("orders and groups the extension pages the way the catalog does", () => {
+		// Order and grouping in one comparison: a sidebar re-sorted, or a page filed under
+		// another promise, names itself in the failure. Adding an extension means adding its
+		// README row first — that row is what this reads.
+		const wanted = catalog.flatMap((section) => section.extensions.map((name) => ({ name, group: section.heading })));
+		expect(navExtensionRows(), "docs/_data/docs.json: catalog order or group drifted").toEqual(wanted);
+	});
+
+	test("holds the extension index to the same order", () => {
+		// The index repeats the list so a reader who lands on it gets the reading order;
+		// its own sentence calls that "the order the catalog lists them".
+		const listed = [...pageText("extensions/README.md").matchAll(/^-\s+\[`[^`]+`\]\(\.\/([^)/]+)\.md\)/gm)].map(
+			(match) => match[1],
+		);
+		expect(listed, "docs/extensions/README.md: out of catalog order").toEqual(names);
+	});
+});
+
 describe("the tutorials index", () => {
 	/** Every walkthrough, from the tree: the tutorials minus the index that lists them. */
 	const tutorials = sitePages().filter((page) => page.startsWith("tutorials/") && page !== "tutorials/README.md");
