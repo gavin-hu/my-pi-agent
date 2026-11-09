@@ -70,6 +70,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/repaint",
 		"view/pages",
 		"view/chrome",
+		"view/team",
 	],
 	context: ["report", "view/context-report", "extension"],
 	"file-read": ["extract/extract", "tool"],

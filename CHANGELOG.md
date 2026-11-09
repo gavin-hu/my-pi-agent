@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `No open cards match.` rather than `No cards match.` above the count of hidden done cards, which
   contradicted it.
 
+- `board`: the Team tab keys its label maps on a null prototype, so a session that joins as
+  `constructor`, `toString`, or `__proto__` is listed instead of vanishing from the tab — a plain
+  object read the un-written key as inherited and true — and the lead's queue no longer calls such
+  an owner not running.
+
 - `dev`: the board page's other three browser suites read it through the one tab too —
   `dialog-behaviour` (12 tabs), `kind` (4) and `repaint` (2) — so `BoardBrowser.open()` is gone
   and a suite buys a tab once. Paired runs alternating old and new: 14.26 s / 20.88 s wall and

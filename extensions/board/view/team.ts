@@ -130,10 +130,21 @@ __HOLDING__
    * one row, and the strongest reason is the one it keeps: a blocker outranks silence,
    * which outranks a missing plan, which outranks nobody holding it.
    */
+  /**
+   * A map keyed by a session label, which the page does not choose.
+   *
+   * A label is a name a session asks for -- a peer may join as "constructor" -- and a plain
+   * object inherits constructor, toString, __proto__ and the rest, so a label that spells one
+   * read as a hit that was never written: the owner's row vanished from the list (seen[key]
+   * was inherited-truthy) and the queue reported it as gone. A null prototype has no members
+   * to fall back on, which is the whole of the fix.
+   */
+  function labelMap() { return Object.create(null); }
+
   /** The labels of the sessions whose process is gone, in the roster's own spelling. */
   function goneLabels(view) {
     var roster = view.teammates;
-    var gone = {};
+    var gone = labelMap();
     if (roster === undefined) return gone;
     for (var i = 0; i < roster.length; i++) {
       if (roster[i].state === "gone") gone[roster[i].label.toLowerCase()] = roster[i].label;
@@ -256,7 +267,7 @@ __HOLDING__
    */
   function teammates(view, roster) {
     var round = view.round;
-    var byLabel = {};
+    var byLabel = labelMap();
     var rows = [];
     function labelOf(label) { return label.toLowerCase(); }
 
@@ -264,7 +275,7 @@ __HOLDING__
       var group = round.owners[i];
       byLabel[labelOf(group.label)] = { label: group.label, live: group.cards, done: group.done };
     }
-    var seen = {};
+    var seen = labelMap();
     if (roster !== null) {
       for (var j = 0; j < roster.length; j++) {
         var entry = roster[j];
