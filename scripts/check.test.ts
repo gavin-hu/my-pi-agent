@@ -119,6 +119,7 @@ describe("the scope a command line names", () => {
 		watch: false,
 		testsOnly: false,
 		dryRun: false,
+		noLock: false,
 	};
 
 	test("no argument is the whole gate, in parallel, against main", () => {
@@ -138,6 +139,7 @@ describe("the scope a command line names", () => {
 			[["--serial"], { serial: true }],
 			[["--watch"], { watch: true }],
 			[["--dry-run"], { dryRun: true }],
+			[["--no-lock"], { noLock: true }],
 		];
 		const wrong = cases
 			.map(([argv, expected]) => ({ got: parseArgs(argv), expected: { ...all, ...expected } }))
@@ -268,7 +270,16 @@ describe("a selection that carries the gate", () => {
 
 	test("says how many of its files skip without the gate, and what runs them", () => {
 		const lines = planLines(
-			{ scope: "all", names: [], base: "main", serial: false, watch: false, testsOnly: true, dryRun: false },
+			{
+				scope: "all",
+				names: [],
+				base: "main",
+				serial: false,
+				watch: false,
+				testsOnly: true,
+				dryRun: false,
+				noLock: false,
+			},
 			selection,
 			2,
 		);
@@ -286,6 +297,7 @@ describe("a selection that carries the gate", () => {
 			watch: false,
 			testsOnly: true,
 			dryRun: false,
+			noLock: false,
 		};
 		expect(planLines(plan, selection).at(-1)).toBe("tests > 1 files (parallel)");
 		expect(planLines(plan, selection, 1).at(-1)).toContain("1 of them is a gated suite");

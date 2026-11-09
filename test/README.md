@@ -15,9 +15,14 @@ bun test <path>                  # one file or directory, straight to bun, same 
 ```
 
 A scope is a flag on the two entry scripts (`--ext`, `--lib`, `--root`, `--slow`,
-`--changed`, `--static`, `--serial`, `--watch`, `--dry-run`);
+`--changed`, `--static`, `--serial`, `--watch`, `--dry-run`, `--no-lock`);
 [`../scripts/README.md#commands`](../scripts/README.md#commands) says
 which one a change needs.
+
+The gate takes one machine-wide lock (`scripts/check-lock.ts`): a second `bun run
+check` on the same machine prints who holds it and waits, because two gates' spawns
+starve each other's wall clocks and the suites that wait on a child are the ones that
+break. `--no-lock` runs beside it, and `--watch` and `--dry-run` never take it.
 
 One case budget reaches both invocations. `helpers/budget.ts` states
 `CASE_BUDGET_MS`; `helpers/preload.ts` hands it to every case with

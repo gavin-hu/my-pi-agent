@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `test`: the gate takes a machine-wide lock — `scripts/check-lock.ts` — so a second
+  `bun run check` on the same machine waits and names the holder instead of starving the
+  first one's spawned shells and `git` calls; `--no-lock` runs beside it, and a lock a
+  dead gate left behind is replaced by pid rather than by age.
 - `docs`: security.md names the agent directory as a trust boundary — memory, session
   bus mail, board cards, plans, agent definitions, and `bytefly.json` are read as
   instruction, `0600` separates users rather than processes, and the loopback page
