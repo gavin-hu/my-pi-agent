@@ -34,6 +34,12 @@ import {
 
 const repo = join(import.meta.dir, "..");
 
+/**
+ * The one walk of the real tree's imports: the cases that read it below all answer the
+ * same tree, so it is indexed once rather than per case.
+ */
+const reached = reachIndex(repo);
+
 /** A tree of two package-level tests, so a selection's `always` half is visible. */
 const fake = { root: "/repo", packageTests: ["test/a.test.ts", "test/b.test.ts"] };
 
@@ -161,7 +167,7 @@ describe("--changed", () => {
 
 describe("a change under assets/", () => {
 	test("an asset a suite declares is a region, so an edit runs that suite", () => {
-		const chosen = selectChanged(tree(repo), ["assets/cards/cards.css"], reachIndex(repo));
+		const chosen = selectChanged(tree(repo), ["assets/cards/cards.css"], reached);
 		const owners = ASSET_SUITES.cards ?? [];
 		expect(owners.length).toBeGreaterThan(0);
 		expect(chosen.tests).toContain("scripts/cards.test.ts");
@@ -170,7 +176,7 @@ describe("a change under assets/", () => {
 	});
 
 	test("an asset nothing declares widens the run, because a suite may read it by name", () => {
-		const chosen = selectChanged(tree(repo), ["assets/tools/board.png"], reachIndex(repo));
+		const chosen = selectChanged(tree(repo), ["assets/tools/board.png"], reached);
 		expect(chosen.tests).toEqual(selectAll(tree(repo)).tests);
 		expect(chosen.reasons).toEqual(["unclaimed asset: assets/tools/board.png > every suite"]);
 	});
@@ -188,7 +194,6 @@ describe("a change under assets/", () => {
 
 describe("the reach index over the real tree", () => {
 	test("a suite is filed under the module it imports, and no key leaves the repository", () => {
-		const reached = reachIndex(repo);
 		expect(reached.get("lib/format.ts")).toContain("lib/format.test.ts");
 		expect(reached.get("lib/board/store.ts")).toContain("lib/board/store.test.ts");
 		const escaped = [...reached.keys()].filter((file) => file.startsWith("..") || file.startsWith("/"));
@@ -196,7 +201,7 @@ describe("the reach index over the real tree", () => {
 	});
 
 	test("a leaf change stays inside its extension instead of running the suite", () => {
-		const chosen = selectChanged(tree(repo), ["extensions/watch/format.ts"], reachIndex(repo));
+		const chosen = selectChanged(tree(repo), ["extensions/watch/format.ts"], reached);
 		const outside = chosen.tests.filter(
 			(file) => !file.startsWith("extensions/watch/") && !file.startsWith("test/") && !file.startsWith("scripts/"),
 		);
@@ -208,13 +213,12 @@ describe("the reach index over the real tree", () => {
 
 describe("an unclaimed script path over the real tree", () => {
 	test("brings the script suites, and a top-level script still brings only its own", () => {
-		const index = reachIndex(repo);
-		const record = selectChanged(tree(repo), ["scripts/screens/frames.json"], index);
+		const record = selectChanged(tree(repo), ["scripts/screens/frames.json"], reached);
 		expect(record.tests).toContain("scripts/screenshots.test.ts");
 		expect(record.reasons).toContain(
 			`unclaimed script: scripts/screens/frames.json > ${SCRIPT_SUITES.length} script suites`,
 		);
-		const script = selectChanged(tree(repo), ["scripts/cards.ts"], index);
+		const script = selectChanged(tree(repo), ["scripts/cards.ts"], reached);
 		expect(script.tests.filter((file) => file.startsWith("scripts/"))).toEqual(["scripts/cards.test.ts"]);
 	});
 });
