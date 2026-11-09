@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a write now locks the board instead of one card, because the rules it checks are the
+  board's: two writers on two cards read two snapshots, so `#1 dependsOn [2]` beside
+  `#2 dependsOn [1]` closed a loop `wouldCycle` refuses for one caller, and two claims each saw
+  `plan: 2/3` and both entered. `lockBoard` keeps one name (`<board>/.lock-board`), the same wait
+  and takeover, and `mutate` takes it once around its read-check-rename — so `create` still needs
+  none and a read still takes none.
+
 - `board`: a finished card an open card still waits on stays on the board whichever door is used.
   Naming it in `archive` was held to the lane rule alone, so the sweep kept such a card while the
   same call naming it moved it — leaving a `dependsOn` pointing at a card no board read opens and a

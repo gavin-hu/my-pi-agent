@@ -9,12 +9,11 @@
  *
  * **Create** needs no lock: it hard-links a temporary file onto the target name,
  * which fails when the name is taken, so two adds cannot share an id and the loser
- * simply retries with the next one. **Update** takes the card's write lock
- * (`lock.ts`), re-reads it, re-checks the operation's preconditions, and renames
- * over the old file, so a card that changed underneath is re-evaluated rather than
- * overwritten — and a write cannot land between that check and the rename, where
- * it would be lost while both calls reported success. An operation says "apply
- * when this holds", never "force this state".
+ * simply retries with the next one. **Update** takes the board's write lock
+ * (`lock.ts`), re-reads the card *and* the board, re-checks the preconditions, and
+ * renames over the old file — the board's lock because three of the questions asked
+ * are about other cards, and a per-card one let two writers answer them from two
+ * snapshots. An operation says "apply when this holds", never "force this state".
  *
  * A write reads the whole board once, because `rules.ts` needs another card to answer
  * three of its questions: is this dependency finished, would this link close a loop,
@@ -49,7 +48,7 @@ import type { CardType } from "./kind.ts";
 import { LANES } from "./lanes.ts";
 import { readCard } from "./read.ts";
 import { indexOf } from "./links.ts";
-import { lockCard } from "./lock.ts";
+import { lockBoard } from "./lock.ts";
 import { type BoardConfig, DEFAULT_BOARD_CONFIG, readBoardConfig } from "./config.ts";
 import { type Actor, applyOp, type CardOp, createCard } from "./rules.ts";
 
@@ -213,11 +212,13 @@ export function createStore(
 		key?: string;
 		config?: BoardConfig;
 		/**
-		 * A suite's seam: called when a pass starts, before the card's lock is taken.
+		 * A suite's seam: called when a pass starts, before the board's lock is taken.
 		 *
 		 * The pass reads, checks, and writes under the lock, so the only place another write can
 		 * land is before it: a test stands here and lets that write happen, and the pass then reads
-		 * what it left instead of overwriting it. The product supplies nothing.
+		 * what it left instead of overwriting it. Before the lock, not inside it, because a call
+		 * from here would otherwise wait out the lock it stands on — which is how a nested
+		 * mutation stays possible. The product supplies nothing.
 		 */
 		beforeWrite?: (id: string, kind: CardOp["kind"]) => Promise<void> | void;
 	} = {},
@@ -321,14 +322,13 @@ export function createStore(
 		let changedUnderneath = false;
 		for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
 			// The seam stands before the lock, so a suite can land a second write in the one window
-			// this pass cannot hold: the card is read, checked, and written under one lock, so a peer
-			// is either inside that window or waiting for it — and a write that arrived between the
-			// read and the rename, which both calls used to report as success at one revision, is
-			// not possible. The lock is one name per card, kept beside the board's cards, so a writer
-			// that finds the card in the archive shares it. A lock a live writer held throughout the
-			// wait is one more pass.
+			// this pass cannot hold: the board is read, checked, and written under one lock, so a peer
+			// is either inside that window or waiting for it. The lock is one name per board, so a
+			// peer writing a different card is inside the same window — the limit it is counted
+			// against and the link it would close are the board's facts, not the card's. A lock a
+			// live writer held throughout the wait is one more pass.
 			await options.beforeWrite?.(id, op.kind);
-			const lock = await lockCard(cardsDir, id);
+			const lock = await lockBoard(dir);
 			if (lock === undefined) {
 				changedUnderneath = true;
 				continue;
@@ -350,8 +350,8 @@ export function createStore(
 				}
 				const { card, pile } = found;
 				// The preconditions are checked against the card as it is *now*, and against the board
-				// as it is now, under the lock that keeps both still, so an operation is refused rather
-				// than forced.
+				// as it is now, under the one lock that keeps both still, so an operation is refused
+				// rather than forced.
 				const result = applyOp(card, op, actor, now, indexOf(await list()), config);
 				if (!result.ok) return { ok: false, error: result.error, card };
 				if (!result.changed) {
