@@ -72,14 +72,15 @@ repository root rather than the active working directory.
 | [`wechat`](extensions/wechat.md) | `wechat` | Bridge, media, and peer-feedback settings. |
 | [`worktree`](extensions/worktree.md) | `worktree` | Worktree directory name and behaviour. |
 
-`question` and `file-open` read no configuration.
+`context`, `file-open`, `plan`, `question`, `session-bus`, and `team` read no
+configuration.
 
 ## Document metadata
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `$schema` | string | | | Editor-schema pointer; ignored by the loaders. |
-| `version` | integer | `1` | `1` or newer | Document schema version; a newer value warns, an older one is read as-is. |
+| `version` | integer | `1` | `1` or newer | Document schema version; `migrate:config` stamps it and no loader reads it. |
 
 ## `board` — the shared feature board
 
@@ -109,7 +110,7 @@ that.
 | `currency.code` | string | `"CNY"` | `CNY`, `USD` | Pricing algorithm, and which built-in table `rates` starts from. Both apply `peak`; only `USD` falls back to Pi's recorded dollars for an unmatched model. |
 | `currency.decimals` | integer | `2` | `0`–`4` | Digits after the decimal point. |
 | `budget` | number | `0` | `0`–`10000000` | Session spend that triggers one warning, in the selected currency; `0` turns the guardrail off. The footer shows the session total against it (`$0.31/$5`) and turns it warning-coloured at the threshold. It warns; it never stops a turn. |
-| `rates` | object | DeepSeek's published rates in the selected currency | One entry per `provider/model` | Per-million-token prices; merged key by key across the global and project documents. |
+| `rates` | object | DeepSeek's published rates in the selected currency | One entry per `provider/model`, up to 200 keys | Per-million-token prices; merged key by key across the global and project documents, and a key past the 200th is ignored. |
 | `peak.timezone` | string | `"Asia/Shanghai"` | An IANA zone | Zone the peak windows are stated in; an unknown zone drops the whole schedule. |
 | `peak.windows` | array | DeepSeek's weekday windows | Up to 16 entries | The peak windows. |
 
@@ -121,7 +122,8 @@ a `rates` stated in the same section as the code merges over it. Choosing a
 currency also writes its default precision; that can be overridden afterwards. The symbol follows the code and is not configurable. A `rates` entry takes `input`, `output`, `cacheRead`, and `cacheWrite` (number,
 `0`–`1000000`, default `0`) and `offPeakMultiplier` (number, `0`–`1`, default
 `1`). A key present in both documents replaces the other. An entry stating none
-of the five numbers is ignored.
+of the five numbers is ignored, and so is a key added once the merged table holds
+200.
 
 A `peak.windows` entry takes `from` and `to` (`HH:MM`, both required) and `days`
 (ISO weekdays `1`–`7`, `1` = Monday; omitted means every day). `from` is
