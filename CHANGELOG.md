@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the bytefly page stops calling `/bytefly upgrade` unreleased — its Limits no longer
+  sends the reader to `pi update --extensions` for software that shipped in 0.19.0.
 - `memory`: a note store is written owner-only (`0600`), so `docs/security.md` stops
   promising a mode the writer did not set: the write sets it on the temp file it renames
   into place, and a store an older build left at the umask is tightened by its next
