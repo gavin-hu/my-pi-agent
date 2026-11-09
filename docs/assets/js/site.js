@@ -369,4 +369,31 @@
 	document.addEventListener("click", function (event) {
 		if (event.target instanceof Element && !event.target.closest(".search")) close();
 	});
+
+	// A reader who has not found the field cannot click it, so `/` — the habit GitHub trained —
+	// and Cmd/Ctrl+K reach it from anywhere on the page. Registered on `document`, not on the
+	// field: a keydown on `input` only fires once the field already has focus, which is the
+	// situation this shortcut exists to end. The guards keep the page's own keys: the drawer's
+	// Tab ring stays the live surface behind the scrim, `/` in a field the reader is typing in
+	// is a slash, and a second modifier is a browser chord rather than this one.
+	document.addEventListener("keydown", function (event) {
+		if (event.shiftKey || event.altKey) return;
+		if (document.body.classList.contains("is-nav-open")) return;
+		var active = document.activeElement;
+		if (
+			active &&
+			(active.tagName === "INPUT" ||
+				active.tagName === "TEXTAREA" ||
+				active.tagName === "SELECT" ||
+				active.isContentEditable)
+		)
+			return;
+		var slash = event.key === "/" && !event.metaKey && !event.ctrlKey;
+		var chord = event.key.toLowerCase() === "k" && event.metaKey !== event.ctrlKey;
+		if (!slash && !chord) return;
+		event.preventDefault();
+		input.focus();
+		// Selected, so a second shortcut replaces the query instead of appending to it.
+		input.select();
+	});
 })();

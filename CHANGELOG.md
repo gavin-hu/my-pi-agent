@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the site's search field has a shortcut — `/` or Cmd/Ctrl+K focuses and selects it from
+  anywhere on a page, with a `/` hint in the field that leaves once the reader is typing. It does
+  nothing while focus is in a field or behind the open drawer's Tab ring, and a second modifier is
+  left to the browser.
+
 - `docs`: a surface that does not work has one page. `docs/troubleshooting.md` is a symptom,
   cause, fix and owning-page table over the five failures that were each a Limits bullet on a
   different page — no page at all, a pinned port another process holds, `✆ wechat expired`, a

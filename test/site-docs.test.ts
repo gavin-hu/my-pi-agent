@@ -691,3 +691,72 @@ describe("the URLs the site emits", () => {
 		expect(offenders).toEqual([]);
 	});
 });
+
+/**
+ * The shortcut into quick search, held as the four facts it is made of: the key list the field
+ * advertises, the hint beside it, the listener's registration, and one case per guard. Nothing
+ * runs `site.js` — the site needs Ruby to build — so each fact is pinned where it is written
+ * rather than through a page.
+ */
+describe("the quick-search shortcut", () => {
+	const site = readFileSync(join(docs, "assets", "js", "site.js"), "utf-8");
+	const header = readFileSync(join(docs, "_includes", "header.html"), "utf-8");
+	const css = readFileSync(join(docs, "assets", "css", "site.css"), "utf-8");
+
+	/** The shortcut's own listener: from the registration that precedes its `select()` to that call's close. */
+	const selected = site.indexOf("input.select();");
+	const registered = site.lastIndexOf('document.addEventListener("keydown"', selected);
+	const listener = site.slice(registered, site.indexOf("\t});", selected));
+
+	test("the field advertises the keys the handler binds", () => {
+		const advertised = /id="search-input"[\s\S]*?aria-keyshortcuts="([^"]+)"/.exec(header)?.[1]?.split(/\s+/);
+		expect(advertised, "header.html: #search-input has no aria-keyshortcuts").toEqual(["/", "Meta+K", "Control+K"]);
+		const binds = ['event.key === "/"', 'event.key.toLowerCase() === "k"'];
+		const missing = binds.filter((binding) => !site.includes(binding));
+		expect(missing, "site.js: a key the field advertises is not bound").toEqual([]);
+	});
+
+	test("the hint beside the field is decorative, so a screen reader reads the field once", () => {
+		expect(header, 'header.html: no <kbd class="search-hint">').toContain(
+			'<kbd class="search-hint" aria-hidden="true">/</kbd>',
+		);
+	});
+
+	test("the listener is on the document, not on the field it means to reach", () => {
+		// A keydown bound to `input` fires only after the field already has focus, which is
+		// the situation the shortcut exists to end.
+		expect(listener, "site.js: the shortcut listener is not on document").toBeDefined();
+		expect(listener, "site.js: the shortcut reads as an input listener").not.toContain(
+			'input.addEventListener("keydown"',
+		);
+	});
+
+	test("refuses a second modifier, so Cmd+Shift+K stays the browser's", () => {
+		expect(listener, "site.js: the shortcut fires with a second modifier").toContain(
+			"if (event.shiftKey || event.altKey) return;",
+		);
+		expect(listener, "site.js: Cmd+Ctrl+K is accepted as one shortcut").toContain("event.metaKey !== event.ctrlKey");
+	});
+
+	test("does nothing behind the open drawer, where Tab's ring is the live surface", () => {
+		expect(listener, "site.js: the shortcut fires behind the drawer").toContain(
+			'if (document.body.classList.contains("is-nav-open")) return;',
+		);
+	});
+
+	test("does nothing while the reader is already typing in a field", () => {
+		// `/` in a field, a textarea, a select, or a contenteditable is a character.
+		for (const guard of ['active.tagName === "INPUT"', 'active.tagName === "TEXTAREA"', "active.isContentEditable"]) {
+			expect(listener, `site.js: the shortcut fires over ${guard}`).toContain(guard);
+		}
+	});
+
+	test("hides the hint where it would cover the query", () => {
+		expect(css, "site.css: the hint stays over the field the reader is typing in").toMatch(
+			/\.search-input:focus ~ \.search-hint,\s*\n\.search-input:not\(:placeholder-shown\) ~ \.search-hint \{\s*\n\s*opacity: 0;/,
+		);
+		expect(css, "site.css: the hint survives the phone's width").toMatch(
+			/@media \(max-width: 40rem\) \{\s*\n\s*\/\*[^*]*\*\/\s*\n\s*\.search-hint \{\s*\n\s*display: none;/,
+		);
+	});
+});
