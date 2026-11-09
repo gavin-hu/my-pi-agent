@@ -81,9 +81,11 @@ export const BOARD_KEYS_JS = String.raw`(function () {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       var target = event.target;
       // A dialog is modal for the pointer and for the keyboard alike: "/", "t", and "?"
-      // reach the page behind the scrim from nowhere else, so a modal keeps them and the
-      // keys that move inside it -- j, k, Enter, Esc -- are the ones still read.
+      // reach the page behind the scrim from nowhere else, so a modal keeps them. A card
+      // dialog still takes j, k, Enter and Esc, which move inside it; the keys sheet is a
+      // cheat sheet that nothing walks, so it keeps only Esc.
       var modal = (board.dialogOpen && board.dialogOpen()) || (board.keysOpen && board.keysOpen());
+      var sheet = board.keysOpen !== undefined && board.keysOpen();
       if (event.key === "?" && !typing(target) && !modal) {
         event.preventDefault();
         board.openKeys();
@@ -121,9 +123,11 @@ export const BOARD_KEYS_JS = String.raw`(function () {
         event.preventDefault();
         board.focusFilter();
       } else if (event.key === "j") {
+        if (sheet) return;
         event.preventDefault();
         step(1);
       } else if (event.key === "k") {
+        if (sheet) return;
         event.preventDefault();
         step(-1);
       } else if (event.key === "t") {

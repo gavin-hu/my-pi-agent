@@ -51,6 +51,10 @@ async function seedBoard(store: BoardStore, now: number): Promise<void> {
 		LEAD,
 		now + 4_000,
 	);
+	// And one card offered to a team that never took it: its reason line is the one sentence on the
+	// page with an age inside it, which is what the ticker has to keep honest.
+	const offered = await store.create({ title: "Refunds land in the wrong currency", paths: [] }, LEAD, now + 5_000);
+	await store.mutate(offered.id, { kind: "offer" }, LEAD, now + 6_000);
 }
 
 describe.skipIf(CHROME === undefined)("a frame", () => {
@@ -80,6 +84,30 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		await page.locator('#lane-backlog .board-card[data-card="3"] .board-card__reason').waitFor({ timeout: PAINT_MS });
 		await expect(holds()).resolves.toContain(
 			"holds up #1 (backlog) Export orders as CSV, #3 (backlog) Invoice totals round the wrong way",
+		);
+	});
+
+	test("stamps a reason line whose sentence carries an age", async () => {
+		const page = await board.reuse();
+		// One sentence on the board has an age inside it, so it is a sentence stamp rather than a
+		// plain node: the ticker that moves the meta's age re-reads this whole line, and no frame has
+		// to arrive for it to stay true.
+		const stamp = await page.$eval(
+			'#lane-backlog .board-card[data-card="4"] .board-card__reason [data-at]',
+			(node) => ({
+				at: node.getAttribute("data-at"),
+				wording: node.getAttribute("data-at-title"),
+				sentence: node.getAttribute("data-at-sentence"),
+				text: node.textContent ?? "",
+			}),
+		);
+		expect(stamp.wording).toBe("offered {age} — nobody took it");
+		expect(stamp.sentence).toBe("1");
+		expect(stamp.at).not.toBeNull();
+		expect(stamp.text).toMatch(/^offered .+ — nobody took it$/);
+		// And the line is that sentence once, not once plus a stale copy beside it.
+		expect((await page.textContent('#lane-backlog .board-card[data-card="4"] .board-card__reason'))?.trim()).toMatch(
+			/^offered .+ — nobody took it$/,
 		);
 	});
 

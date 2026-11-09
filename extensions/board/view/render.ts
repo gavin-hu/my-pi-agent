@@ -272,10 +272,14 @@ __RUNTIME__
   function refreshAges() {
     var nodes = document.querySelectorAll("[data-at]");
     for (var i = 0; i < nodes.length; i++) {
-      var next = ago(Number(nodes[i].getAttribute("data-at")));
-      if (nodes[i].textContent !== next) nodes[i].textContent = next;
+      var at = Number(nodes[i].getAttribute("data-at"));
       var wording = nodes[i].getAttribute("data-at-title");
-      if (wording !== null) nodes[i].title = board.sentence(wording, next);
+      // A stamp prints the age alone — the meta line's "5m" — unless it says it is a sentence, and
+      // then it re-reads the whole wording with the age in it, which is what a reason line is.
+      var sentenceStamp = nodes[i].getAttribute("data-at-sentence") !== null;
+      var next = sentenceStamp && wording !== null ? board.sentence(wording, ago(at)) : ago(at);
+      if (nodes[i].textContent !== next) nodes[i].textContent = next;
+      if (wording !== null) nodes[i].title = board.sentence(wording, ago(at));
     }
   }
 

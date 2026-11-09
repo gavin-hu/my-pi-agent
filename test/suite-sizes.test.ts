@@ -69,7 +69,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/worktree/git.test.ts": 893,
 	"lib/board/rules.test.ts": 713,
 	"lib/board/store.test.ts": 606,
-	"lib/board/view.test.ts": 475,
+	"lib/board/view.test.ts": 418,
 	"lib/core.test.ts": 844,
 	"lib/format.test.ts": 416,
 	"lib/requirements.test.ts": 766,

@@ -1,14 +1,14 @@
 /**
- * The snapshot the page renders: lanes, the total, the rollup, and the signature that
- * decides whether a frame is pushed at all.
+ * The snapshot the page renders: lanes, the total, and the rollup.
  *
  * The point of these cases is that the page cannot invent a state: every lane holds
- * exactly its own cards and carries its own words and limit, `total` is the cards the
- * lanes carry rather than a count of its own, and `sig` moves only when a revision does.
+ * exactly its own cards and carries its own words and limit, and `total` is the cards the
+ * lanes carry rather than a count of its own. What decides whether a frame is pushed at all
+ * is `signature.test.ts` — the signature is a second question about the same record.
  */
 
 import { describe, expect, test } from "bun:test";
-import { type Card, signatureOf } from "./card.ts";
+import { type Card } from "./card.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { buildView } from "./view.ts";
 
@@ -275,33 +275,6 @@ describe("buildView", () => {
 		expect(view).not.toHaveProperty("me");
 	});
 
-	test("signature starts from the cards' signature, so a bump or a drop moves it", () => {
-		const one = card("1");
-		const view = buildView({ me: ME, cards: [one], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT });
-		expect(view.sig.startsWith(signatureOf([one]))).toBe(true);
-		const bumped = buildView({
-			me: ME,
-			cards: [{ ...one, rev: 2 }],
-			now: NOW,
-			bytes: 0,
-			where: WHERE,
-			repo: REPO,
-			root: ROOT,
-		});
-		expect(bumped.sig).not.toBe(view.sig);
-		const dropped = buildView({
-			me: ME,
-			cards: [],
-			now: NOW,
-			bytes: 0,
-			skipped: [],
-			where: WHERE,
-			repo: REPO,
-			root: ROOT,
-		});
-		expect(dropped.sig).not.toBe(view.sig);
-	});
-
 	test("carries the files it could not read, so the footer can name them", () => {
 		const skips = [
 			{ file: "0042.json", why: "bad JSON" },
@@ -435,36 +408,6 @@ describe("buildView", () => {
 		// A bus appearing is news — the State column stops saying "unknown" — so the two
 		// must not share a signature and leave the page without a frame.
 		expect(absent.sig).not.toBe(empty.sig);
-	});
-
-	test("signature moves on a join, a quiet, and mail, and not on a heartbeat", () => {
-		const at = (roster: Parameters<typeof buildView>[0]["roster"]) =>
-			buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT, roster }).sig;
-		const base = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 1_000, mail: 0 }]);
-		const heartbeat = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 }]);
-		expect(heartbeat).toBe(base);
-		const joined = at([
-			{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 },
-			{ id: "s-new", label: "api", mode: "tui", lastSeen: NOW, mail: 0 },
-		]);
-		expect(joined).not.toBe(base);
-		const mailed = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 1 }]);
-		expect(mailed).not.toBe(base);
-		const quiet = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 20 * 60_000, mail: 0 }]);
-		expect(quiet).not.toBe(base);
-		// Listening is news too: a peer arming its watch changes what the row says, and the
-		// frame has to be drawn again or the mark would be a frame behind.
-		const listening = at([
-			{
-				id: "s-core",
-				label: "billing-core",
-				mode: "tui",
-				lastSeen: NOW,
-				mail: 0,
-				watching: { armed: true, wake: false },
-			},
-		]);
-		expect(listening).not.toBe(base);
 	});
 
 	test("an empty board is five empty lanes", () => {

@@ -78,6 +78,28 @@ export const BOARD_CARD_JS = String.raw`(function () {
     return node;
   }
 
+  /**
+   * A reason sentence as a node: a stamp when it carries an age, plain text when it does not.
+   *
+   * One body for the three surfaces that print it — the card face, the dialog, and the lead's
+   * queue — because the age is the one part of a sentence that moves without a frame, and a
+   * second copy is a second place to forget the stamp.
+   */
+  function reasonNode(reason) {
+    if (reason === undefined) return undefined;
+    if (reason.at === undefined) return document.createTextNode(reason.text);
+    // A sentence stamp, not an age stamp: the meta line prints the age alone, and this prints the
+    // whole sentence with the age inside it, so the ticker has to know which it is.
+    var node = el("span", "", sentence(reason.wording, ago(reason.at)));
+    node.setAttribute("data-at", String(reason.at));
+    node.setAttribute("data-at-title", reason.wording);
+    node.setAttribute("data-at-sentence", "1");
+    node.title = sentence(reason.wording, ago(reason.at));
+    return node;
+  }
+
+  board.reasonNode = reasonNode;
+
   /** The one line under a card's meta: why it sits where it does. */
   function reasonOf(card) {
     // An order is the strongest reason a card is not being worked on, and the one a
@@ -204,7 +226,12 @@ export const BOARD_CARD_JS = String.raw`(function () {
       // The tone is a lookup, not a suffix: a name assembled from a prefix is a name no
       // test can compare with the stylesheet. A card that only holds others up is drawn in
       // the tone a waiting card wears, because it is the same edge read the other way.
-      var line = el("p", N.cardReason + " " + TONE_CLASS[reasonTone(reason === undefined ? "waiting" : reason.kind)], why);
+      var line = el("p", N.cardReason + " " + TONE_CLASS[reasonTone(reason === undefined ? "waiting" : reason.kind)], "");
+      // The sentence is a node, not a string: one that carries an age is stamped so the ticker
+      // moves it with the lane age beside it.
+      var sentenceNode = reasonNode(reason);
+      if (sentenceNode !== undefined) line.appendChild(sentenceNode);
+      if (holds !== undefined) line.appendChild(document.createTextNode(sentenceNode === undefined ? holds : " \u00b7 " + holds));
       line.id = "card-reason-" + card.id;
       // It clamps on the card, so the full sentence is the tooltip.
       line.title = why;

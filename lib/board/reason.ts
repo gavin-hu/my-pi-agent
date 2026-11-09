@@ -38,7 +38,19 @@ export type ReasonKind = (typeof REASON_KINDS)[number];
 /** One reason line: what it is about, and the sentence a reader gets. */
 export interface Reason {
 	kind: ReasonKind;
+	/** The sentence as it reads now. A snapshot: a transcript line, a tooltip, a queue's title. */
 	text: string;
+	/**
+	 * The moment the sentence is about, when it carries an age, and the sentence as a template
+	 * with `{age}` where the age goes.
+	 *
+	 * A page stamps these instead of writing `text`, so its one ticker keeps the sentence
+	 * honest: the reason line and the lane age beside it move together, and a board nobody has
+	 * written to for an hour stops saying "offered 1m ago". Absent for every sentence with no
+	 * age in it, which is all of them but one.
+	 */
+	at?: number;
+	wording?: string;
 }
 
 /**
@@ -65,7 +77,15 @@ export function reasonFor(card: Card, ago: (at: number) => string): Reason | und
 	}
 	if (card.lane === "backlog") {
 		if (card.offeredAt !== undefined) {
-			return { kind: "offered", text: "offered " + ago(card.offeredAt) + " ago — nobody took it" };
+			const age = ago(card.offeredAt);
+			return {
+				kind: "offered",
+				at: card.offeredAt,
+				wording: "offered {age} — nobody took it",
+				// The age reads "just now", never "now ago": the rule `card.ts`'s `sentence` keeps
+				// for a stamp, spelled here because this body is spliced without it.
+				text: "offered " + (age === "now" ? "just now" : age + " ago") + " — nobody took it",
+			};
 		}
 		return last === undefined ? undefined : { kind: "note", text: last.text };
 	}

@@ -350,7 +350,9 @@ root, and the store's path) — and the one shape a client is allowed to know. E
 as a `ViewCard` carrying the priority it acts on, the moment it entered its lane (`since`), and
 `waits` when something unfinished blocks it, so the browser renders an answer instead of
 re-deciding one. `sig` is what makes a push cheap: the page is re-sent only when a card's
-revision moved, and a client cannot invent a state the model surface would not report.
+revision moved, a teammate's state did, or the rollup's clock pushed a card into `unwritten` —
+a membership time alone decides has to be in there, or the tab keeps a frame that is no longer
+true. A client cannot invent a state the model surface would not report.
 
 ### page-pointer.ts
 
@@ -394,6 +396,11 @@ an unanswered offer, a blocked card's recorded reason, a contract's missing line
 nobody gave, a spot-check nobody did, and a finished card's commit. The card face, the lead's
 queue, and the transcript read this one body, because the states it names would otherwise be
 three sentences that drift.
+
+The offered sentence is the one reason that carries an age, so it answers `at` and `wording`
+(a `{age}` template) beside its `text`: the page stamps those instead of writing the sentence,
+and its one ticker keeps the line true without a frame. `text` stays the snapshot a transcript
+line and a tooltip read.
 
 `REASON_FOR_JS` is why it is self-contained: it reads the card and a formatter for relative
 times and nothing else, and the clock is a parameter because the two callers read an age

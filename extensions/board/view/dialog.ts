@@ -113,7 +113,12 @@ __INLINE_MARKDOWN__
     // signature below already says it does not read it twice.
     var showReason = reason !== undefined && !drawnBelow(card, reason.kind);
     why.hidden = !showReason;
-    why.textContent = showReason ? reason.text : "";
+    // The sentence is a node for the same reason the face's is: one that carries an age is a
+    // stamp, and the page's one ticker keeps the dialog's line and the board's moving together.
+    why.textContent = "";
+    var shown = showReason ? board.reasonNode(reason) : undefined;
+    if (shown !== undefined) why.appendChild(shown);
+    why.title = showReason ? reason.text : "";
     if (showReason) why.setAttribute("data-tone", board.reasonTone(reason.kind));
     else why.removeAttribute("data-tone");
 

@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the page hears about a card going quiet. A frame is pushed only when the snapshot's
+  signature moves, and the one membership time alone decides — the rollup's `unwritten`, half an
+  hour without a write — was not in it, so the lead's queue never gained the row while the board
+  sat still. The signature now carries that set, and nothing else about the frame changed.
+
+- `board`: a reason line with an age in it ticks. "offered 2h ago — nobody took it" is the one
+  reason sentence that carries a time, and it was a plain text node while the lane age beside it
+  was a stamp the ticker rewrote — so the line froze at the frame's clock, and read "offered now
+  ago" for its first minute. It is a sentence stamp now, on the card face, in the dialog and in
+  the Team queue, from one node builder and one sentence; `j` and `k` also stop escaping the keys
+  sheet, which `/` and `t` never did.
+
 - `docs`: the board's page says what its two gates are not — the lead is a name any session may
   join, and a lead holding a card may release it, sign it and claim it again. The rule was in
   `lead.ts` and in the refusals a peer reads, but a reader of the page could take "the lead

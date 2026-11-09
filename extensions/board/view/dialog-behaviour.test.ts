@@ -52,6 +52,18 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		await board?.close();
 	}, 30_000);
 
+	test("keeps j and k inside the keys sheet, as it already keeps / and t", async () => {
+		const page = await openPage();
+		await page.keyboard.press("?");
+		await page.waitForSelector("#keys-dialog:not([hidden])", { timeout: PAINT_MS });
+		// The sheet is modal for the keyboard: a key that walks the board does not reach behind it.
+		// It used to, because `/` and `t` read the modal flag and `j`/`k` did not.
+		await page.keyboard.press("j");
+		expect(await focusedClass(page)).not.toContain("board-card");
+		await page.keyboard.press("Escape");
+		await page.waitForSelector("#keys-dialog", { state: "hidden", timeout: PAINT_MS });
+	});
+
 	test("opens a card from its title, and Esc closes it", async () => {
 		const page = await openPage();
 		await page.click("#lane-execute .board-card__title");
