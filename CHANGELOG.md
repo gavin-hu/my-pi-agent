@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: five extension pages stop stating facts the code does not hold — the board's
+  cards live under `cards/` with `ended/` and `page.json` beside them, `worktree` says
+  the six `guard.*` switches it has, `subagent` says `reviewer` is granted the real
+  `bash` and only its prompt keeps that to inspection, `plan` names the
+  `<YYYY-MM-DD-HHmm>` stamp its files carry, and `session-bus` says every action
+  except `status` joins a session instead of any call at all.
 - `docs`: the bytefly page stops calling `/bytefly upgrade` unreleased — its Limits no longer
   sends the reader to `pi update --extensions` for software that shipped in 0.19.0.
 - `memory`: a note store is written owner-only (`0600`), so `docs/security.md` stops

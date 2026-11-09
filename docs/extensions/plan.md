@@ -61,11 +61,11 @@ The `plan` tool has five actions; `/plan` is the command that drives it.
 | `steps` | tick a step in the file and in its todo item, in one call |
 | `cancel` | leave plan mode, keeping any saved plan |
 
-**The plan file.** `~/.pi/agent/plans/<repo-key>/<date>-<slug>.md` — one store per
-repository, shared by its worktrees. Each refinement keeps the previous text
-beside it as a hidden file, five deep, so two rounds can be compared. The plan is
-what the model follows: approving it seeds its steps into your todo list, and
-finalizes a session goal that was only drafted, from the plan's own `Goal`.
+**The plan file.** `~/.pi/agent/plans/<repo-key>/<YYYY-MM-DD-HHmm>-<slug>.md` — one
+store per repository, shared by its worktrees. Each refinement keeps the previous
+text beside it as a hidden file, five deep, so two rounds can be compared. The
+plan is what the model follows: approving it seeds its steps into your todo list,
+and finalizes a session goal that was only drafted, from the plan's own `Goal`.
 Approving a refined plan again replaces the items the earlier approval added that
 nobody has started, so the list matches the plan you last read.
 

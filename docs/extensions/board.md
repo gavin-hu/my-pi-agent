@@ -79,9 +79,9 @@ the page serves as that name. A session signs only while it is the lead and neve
 while it holds the card; `/board approve` and `/board review` sign as the person,
 marked `person: true`, which is how a one-session repository finishes work.
 
-**Where it lives.** `~/.pi/agent/board/<repo-key>/` — one card per file, plus an
-`archive/` pile. A note beside the cards is how a second session finds the page
-already being served instead of starting a second one.
+**Where it lives.** `~/.pi/agent/board/<repo-key>/` — one card per file under
+`cards/`, with `archive/` and `ended/` beside it. The `page.json` a served page
+leaves is how a second session finds it instead of starting another.
 
 **Limits per lane.** Three cards in `plan` and five in `execute` by default; a
 claim past either is refused with the count and the ways out.

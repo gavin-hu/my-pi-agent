@@ -99,7 +99,7 @@ it behind your back.
 | `pruneAfterDays` | `7` | Age after which `prune` may remove a clean, unused worktree. |
 
 The rest — `branchPrefix`, `fetchRemote`, `fetchTimeoutMs`, `skipOverrides`, and
-the five `guard.*` switches — are in
+the six `guard.*` switches — are in
 [configuration](../configuration-reference.md#worktree--isolated-worktrees). To switch the
 extension off, toggle `worktree` in `/bytefly`; the session then works in the
 main checkout.
