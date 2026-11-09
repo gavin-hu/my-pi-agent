@@ -87,8 +87,6 @@ and nothing about the session is sent.
 - The update check is a suggestion, never an automatic install.
 - `run_doctor` probes enabled extensions; a disabled one is reported as
   `env disabled` rather than probed.
-- `/bytefly upgrade` is not in the current tagged release yet; until it is,
-  `pi update --extensions` is the way to upgrade.
 
 ## Settings
 
