@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the board's page says what its two gates are not — the lead is a name any session may
+  join, and a lead holding a card may release it, sign it and claim it again. The rule was in
+  `lead.ts` and in the refusals a peer reads, but a reader of the page could take "the lead
+  approves" for a permission system or for enforcement of a single signer.
+
 - `board`: `approve` now covers the plan the card names, not only its wording. `contract` and
   `plan -> execute` both proved that file, so the board could approve a promise that was already
   unexecutable and only say so at the move; the approval asks the same question with the same
