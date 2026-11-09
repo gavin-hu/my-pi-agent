@@ -46,8 +46,15 @@ const WHERE = "~/.pi/agent/board/behaviour";
 const ROOT = "/Users/someone/my-pi-agent";
 const REPO = "my-pi-agent";
 
-/** One fresh tab on the served page, waited until its lanes have painted. */
-const openPage = (): Promise<Page> => board.open();
+/**
+ * The suite's one tab, its document reloaded for every case.
+ *
+ * A reload is what makes a case start clean: no stream, no repaint in flight, no filter,
+ * fold, tab, mark, or focus survives it. The tab itself does, because a boot's expensive
+ * half is the tab rather than the load, so `reuse()` puts the one tab-level fact — the
+ * viewport — back and reloads. Nothing here closes it: `afterAll` closes the browser.
+ */
+const openPage = (): Promise<Page> => board.reuse();
 
 /** The titles a lane currently shows, in the order it shows them. */
 async function titlesIn(page: Page, lane: string): Promise<string[]> {
@@ -95,7 +102,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// but hidden: a reader clicks the head to see them.
 		expect(await page.$eval("#lane-head-done", (node) => node.getAttribute("aria-expanded"))).toBe("false");
 		expect(await hidden(page, "#lane-done")).toBe(true);
-		await page.close();
 	});
 
 	test("names itself in the tab, and links the mark the header draws", async () => {
@@ -138,7 +144,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				}),
 		);
 		expect(drawn).toBeGreaterThan(0);
-		await page.close();
 	});
 
 	test("switches the two tabs from the keyboard, with one in the Tab order", async () => {
@@ -164,7 +169,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.keyboard.press("Home");
 		expect(await hidden(page, "#panel-team")).toBe(true);
 		expect(await page.$eval("#tab-board", (node) => node.getAttribute("aria-selected"))).toBe("true");
-		await page.close();
 	});
 
 	test("filters on a note's words, which the tool's query reads too", async () => {
@@ -175,7 +179,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await cardCount(page, "execute", 1);
 		expect(await titlesIn(page, "execute")).toEqual(["Billing webhook accepts orders"]);
 		await cardCount(page, "backlog", 0);
-		await page.close();
 	});
 
 	test("narrows the lanes from the one filter box", async () => {
@@ -187,7 +190,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// Clearing it puts the board back: the filter is a view, never a store read.
 		await page.fill("#board-filter", "");
 		await cardCount(page, "backlog", 2);
-		await page.close();
 	});
 
 	test("folds Done past six cards, and unfolds it on a click", async () => {
@@ -199,7 +201,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 		await page.click("#lane-head-done");
 		expect(await hidden(page, "#lane-done")).toBe(true);
-		await page.close();
 	});
 
 	test("switches lanes from the picker when the board is one column", async () => {
@@ -226,7 +227,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		expect(await page.isVisible('.board-lane[data-lane="execute"]')).toBe(true);
 		expect(await page.$eval('[data-picker-lane="execute"]', (n) => n.getAttribute("aria-pressed"))).toBe("true");
 		expect(await page.$eval('[data-picker-lane="backlog"]', (n) => n.getAttribute("aria-pressed"))).toBe("false");
-		await page.close();
 	});
 
 	test("names a lane's count in words, so the heading is not one glued word", async () => {
@@ -254,7 +254,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		);
 		expect(captions[0]).toMatch(/^Needs a decision, \d+$/);
 		expect(captions[1]).toMatch(/^Teammates, \d+$/);
-		await page.close();
 	});
 
 	test("says when the filter matches nothing, and gives the way back", async () => {
@@ -285,7 +284,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				).document.activeElement?.getAttribute("id"),
 			),
 		).toBe("board-filter");
-		await page.close();
 	});
 
 	test("says what a card's age is, on the hover, and keeps it honest", async () => {
@@ -297,7 +295,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// The text is the compact age the row needs; the hover is the same fact in a sentence.
 		expect(age.text).toMatch(/^\d+[mhd]$|^now$/);
 		expect(age.title).toMatch(/^updated (just now|\d+[mhd] ago)$/);
-		await page.close();
 	});
 
 	test("wears its priority and its paths as fields, not as prose", async () => {
@@ -314,7 +311,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				.fontFamily.toLowerCase(),
 		);
 		expect(mono).toContain("mono");
-		await page.close();
 	});
 
 	test("names the hints behind its +N chip, and lists them for a reader who never hovers", async () => {
@@ -339,7 +335,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			);
 			expect(listed).toEqual(["src/d.ts", "src/e.ts"]);
 			expect(await page.getAttribute(`${card} .board-card__title`, "aria-describedby")).toBe(`card-paths-${added.id}`);
-			await page.close();
 		} finally {
 			await store.mutate(added.id, { kind: "drop" }, CORE, clock.now());
 		}
@@ -360,7 +355,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		expect(await page.textContent(`#card-reason-${id}`)).toBe(reason ?? "");
 		await page.focus(`.board-card[data-card="${id}"] .board-card__title`);
 		expect(await focusedClass(page)).toContain("board-card__title");
-		await page.close();
 	});
 
 	test("says how many notes a card carries, and the last note's age only when it adds a fact", async () => {
@@ -409,7 +403,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			} finally {
 				await store.mutate(bare.id, { kind: "drop" }, CORE, clock.now());
 			}
-			await page.close();
 		} finally {
 			await store.mutate(busy.id, { kind: "drop" }, CORE, clock.now());
 			await store.mutate(quiet.id, { kind: "drop" }, CORE, clock.now());
@@ -445,7 +438,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			expect(await page.textContent(text)).toContain("[x](javascript:alert(1))");
 			expect(await page.$$eval(`${text} [href^="javascript:"]`, (nodes) => nodes.length)).toBe(0);
 			await page.keyboard.press("Escape");
-			await page.close();
 		} finally {
 			await store.mutate(added.id, { kind: "drop" }, CORE, clock.now());
 		}
@@ -479,7 +471,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// k walks back, and the card is current again with its read mark intact.
 		await page.keyboard.press("k");
 		expect(await markOf("1")).toEqual({ current: "true", visited: "true" });
-		await page.close();
 	});
 
 	test("keeps a 24px target and a whole lane switch on a phone", async () => {
@@ -505,7 +496,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			return { scrollWidth: box?.scrollWidth ?? 0, clientWidth: box?.clientWidth ?? 0 };
 		});
 		expect(picker.scrollWidth).toBeLessThanOrEqual(picker.clientWidth + 1);
-		await page.close();
 	});
 
 	test("says an offer nobody took, in the words the queue uses", async () => {
@@ -524,7 +514,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			// test, which is the only place it can be pinned without a clock.
 			expect(reason.text).toMatch(/^offered \d+[a-z] ago \u2014 nobody took it$/);
 			expect(reason.tone).toContain("board-card__reason");
-			await page.close();
 		} finally {
 			// A claim answers the offer; the release then leaves the card as the fixture had it.
 			await store.mutate("1", { kind: "claim" }, LEAD, now);
@@ -546,7 +535,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			);
 		} finally {
 			await store.mutate(added.id, { kind: "drop" }, CORE, clock.now());
-			await page.close();
 		}
 	});
 
@@ -568,7 +556,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			expect(spills).toEqual([]);
 		} finally {
 			await store.mutate(added.id, { kind: "drop" }, CORE, clock.now());
-			await page.close();
 		}
 	});
 
@@ -581,7 +568,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		expect(await page.getAttribute("#board-repo", "title")).toBe(ROOT);
 		expect(await page.$("#board-me")).toBeNull();
 		expect(await page.textContent("header")).not.toContain("team-lead");
-		await page.close();
 	});
 
 	test("names the store, its cards, and its size in the footer — and what it could not read", async () => {
@@ -623,7 +609,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			expect(title).toContain("not a card record");
 		} finally {
 			rmSync(unreadable, { force: true });
-			await page.close();
 		}
 	});
 
@@ -784,7 +769,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			);
 			expect(await peopleSig()).not.toBe(settled);
 		} finally {
-			await page.close();
 			await long.close();
 			rmSync(folder, { recursive: true, force: true });
 		}

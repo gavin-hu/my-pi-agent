@@ -29,6 +29,9 @@ export const BOARD_CHROME = findChrome();
 /** How long a page gets to show what its fixture holds. */
 export const BOARD_PAINT_MS = 10_000;
 
+/** The window every tab opens at: wide enough for the five lanes, tall enough for the board. */
+const VIEWPORT = { width: 1280, height: 900 } as const;
+
 /** What a suite tells the helper about its own board. */
 export interface BoardBrowserOptions {
 	/** Register the cards the page draws: called once, over the store and the clock. */
@@ -56,6 +59,18 @@ export interface BoardBrowser {
 	/** A fresh tab on the served page, waited until its first frame has landed. */
 	open(): Promise<Page>;
 	/**
+	 * The one tab this suite reads, its document reloaded for every case.
+	 *
+	 * `open()` buys a tab each time, and the tab is the expensive half of that boot — measured
+	 * on a machine with Chrome, ~400 ms against ~65 ms for a reload of one already open. What a
+	 * case needs is a document that inherited nothing from the last: no stream, no repaint in
+	 * flight, no filter, fold, tab, mark, or focus. A reload gives exactly that, and the one
+	 * thing Playwright keeps across it — the viewport, because it belongs to the tab and not to
+	 * the document — is put back before the reload. The caller must not close the page:
+	 * `close()` closes the browser, which closes it.
+	 */
+	reuse(): Promise<Page>;
+	/**
 	 * A fresh tab on another page in the same browser, for a suite that serves a second one.
 	 *
 	 * The browser is the expensive half of a boot, and a second board — a bus's records, a
@@ -70,6 +85,23 @@ export interface BoardBrowser {
 /** The sliver of the DOM the first-frame wait reads. */
 interface Lanes {
 	hasAttribute(name: string): boolean;
+}
+
+/**
+ * Wait until the page's first frame has landed, which is what a suite's first assertion needs: a
+ * lane drawn from the snapshot rather than from the document's head. The marker is what is read
+ * rather than the panel, because the panel is hidden on the tab a suite may have asked for.
+ */
+async function landed(page: Page): Promise<Page> {
+	await page.waitForFunction(
+		() =>
+			(globalThis as unknown as { document: { getElementById(id: string): Lanes | null } }).document
+				.getElementById("board-lanes")
+				?.hasAttribute("data-skeleton") === false,
+		undefined,
+		{ timeout: BOARD_PAINT_MS },
+	);
+	return page;
 }
 
 /** Boot one board and one browser, and hand back the tabs on it. */
@@ -89,27 +121,29 @@ export async function openBoardBrowser(options: BoardBrowserOptions): Promise<Bo
 		...(options.roster === undefined ? {} : { roster: options.roster }),
 	});
 	const browser = await launchBrowser(BOARD_CHROME);
-	// The placeholders go when the first frame lands, which is what a suite's first assertion
-	// needs: a lane drawn from the snapshot, not from the document's head. The marker rather
-	// than the panel, because the panel is hidden on the tab a suite may have asked for.
 	const tab = async (url: string): Promise<Page> => {
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const page = await browser.newPage({ viewport: VIEWPORT, reducedMotion: "reduce" });
 		await page.goto(url, { waitUntil: "load" });
-		await page.waitForFunction(
-			() =>
-				(globalThis as unknown as { document: { getElementById(id: string): Lanes | null } }).document
-					.getElementById("board-lanes")
-					?.hasAttribute("data-skeleton") === false,
-			undefined,
-			{ timeout: BOARD_PAINT_MS },
-		);
-		return page;
+		return landed(page);
 	};
+	/** The tab `reuse()` hands out, made on the first call and reloaded on every one after it. */
+	let shared: Page | undefined;
 	return {
 		store,
 		directory,
 		open: () => tab(server.url),
 		tab,
+		reuse: async () => {
+			if (shared === undefined) {
+				shared = await tab(server.url);
+				return shared;
+			}
+			// The viewport is the tab's, not the document's, so a case that shrank it would draw the
+			// next one's document at that width: put it back before the reload.
+			await shared.setViewportSize(VIEWPORT);
+			await shared.reload({ waitUntil: "load" });
+			return landed(shared);
+		},
 		close: async () => {
 			await browser.close();
 			await server.close();
