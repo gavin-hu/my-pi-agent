@@ -4,6 +4,8 @@ The bridge connects one WeChat account to one Pi session: a message from the cha
 starts a turn in the terminal, the answer streams back, and both sides share one
 transcript, one context, and one toolset. Only the account's owner is answered.
 
+<img src="../../assets/screens/wechat.png" alt="The /wechat control screen: a title rule, then the account, an open connection, two queued messages, a turn running 48s, a refused stranger, and the waiting prompt with its age, over the close, stop, cancel prompt, login, new, logout, and refresh hints" width="1680" height="576">
+
 - **Started by hand.** `/wechat login` scans and stores the account; `/wechat
   start` binds the session and polls. A stored account on its own polls nothing.
 - **One account, one session**, bound through the session branch, so `/resume`

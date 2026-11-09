@@ -3,9 +3,9 @@
  * (dev tooling).
  *
  * Each one is hand-written data for a real component: the todo list, a job
- * table, a rewind timeline, a plan, a watch list, the picker
- * panel. They live here so `index.ts` one level up is the frames and the capture
- * is a separate module, and so a test can render every frame without either.
+ * table, a rewind timeline, a plan, a watch list. They live here so `index.ts`
+ * one level up is the frames and the capture is a separate module, and so a test
+ * can render every frame without either.
  *
  * Nothing here touches a host surface or this machine: every path, domain, and
  * name is invented, so no capture prints a real checkout.
@@ -16,17 +16,6 @@ export { CONTEXT_REPORT } from "./context.ts";
 export { HERO_GOAL, HERO_TODOS } from "./hero.ts";
 export { JOBS } from "./jobs.ts";
 export { MEMORY_CALLBACKS, MEMORY_ENTRIES } from "./memory.ts";
-export {
-	PANEL_AGENT_DIR,
-	PANEL_CWD,
-	PANEL_ITEMS,
-	PANEL_REPORTS,
-	PANEL_SETTING_VIEWS,
-	PANEL_SETTINGS,
-	PANEL_SKILL_INDEX,
-	PANEL_SKILL_ITEMS,
-	focusRow,
-} from "./panel.ts";
 export { PLAN, PLAN_BASELINE, PLAN_CONTENT, PLAN_PATH } from "./plan.ts";
 export { QUESTIONS } from "./questions.ts";
 export { REWIND_POINTS } from "./rewind.ts";

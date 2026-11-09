@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: a frame is shown by a page or it is not captured. Four extension pages open with
+  the picture their screen already had — `job`, `wechat`, `context`, and `subagent` — and
+  `card-dialog.png` and `plan-review.png` join the walkthroughs that describe them, so
+  `package.json` `files` publishes exactly the frames a packaged page shows. The five
+  nothing showed — `bytefly-extensions`, `bytefly-settings`, `bytefly-skills`,
+  `compaction`, and `transcript` — are deleted with their `SCREENS` entries, their
+  fingerprints, and the fixtures only they read, rather than recaptured and render-checked
+  for a reader who never sees them.
+
 - `docs`: the tarball publishes every screenshot a packaged page shows. Twelve
   `docs/extensions/**` pages carry a raw `<img>` and `files` listed five, so eight pages opened
   with a broken image in an installed copy while `plan-review.png` shipped with no page naming it;
