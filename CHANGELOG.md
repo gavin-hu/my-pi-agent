@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the site masthead sits on the page's column — the brand lines up with the
+  sidebar instead of the viewport edge, the theme switch closes the rail's right edge
+  instead of stopping where the search field's cap ends, and a 320px phone drops the
+  brand name so the field keeps its placeholder — and the search glyph is drawn from a
+  role, with an opaque, prefixed fallback under the translucent bar.
 - `docs`: a link from `docs/` to an extension page names the page's `.md` target instead
   of the source directory — `extensions/serve/` was the code on GitHub and the page on
   the site — for 31 links across `security.md` and `configuration-reference.md`;

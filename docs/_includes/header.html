@@ -1,31 +1,34 @@
-{%- comment -%}The brand, the search field, the theme switch, and the menu button.{%- endcomment -%}
+{%- comment -%}The brand, the search field, the theme switch, and the menu button, on the
+page's column.{%- endcomment -%}
 <header class="header">
-  <a class="brand" href="{{ '/' | relative_url }}">
-    <span class="brand-mark" aria-hidden="true">❯</span>
-    <span class="brand-name">my-pi-agent</span>
-  </a>
-  <div class="search" role="search">
-    <label class="visually-hidden" for="search-input">Search the docs</label>
-    <input
-      class="search-input"
-      id="search-input"
-      type="search"
-      placeholder="Search"
-      autocomplete="off"
-      spellcheck="false"
-      role="combobox"
-      aria-autocomplete="list"
-      aria-expanded="false"
-      aria-controls="search-results"
-      data-search-index="{{ '/search.json' | relative_url }}"
-    >
-    <ul class="search-results" id="search-results" role="listbox" aria-label="Search results" hidden></ul>
-    <p class="visually-hidden" id="search-status" role="status" aria-live="polite"></p>
+  <div class="header-inner">
+    <a class="brand" href="{{ '/' | relative_url }}" aria-label="my-pi-agent — documentation home">
+      <span class="brand-mark" aria-hidden="true">❯</span>
+      <span class="brand-name">my-pi-agent</span>
+    </a>
+    <div class="search" role="search">
+      <label class="visually-hidden" for="search-input">Search the docs</label>
+      <input
+        class="search-input"
+        id="search-input"
+        type="search"
+        placeholder="Search"
+        autocomplete="off"
+        spellcheck="false"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded="false"
+        aria-controls="search-results"
+        data-search-index="{{ '/search.json' | relative_url }}"
+      >
+      <ul class="search-results" id="search-results" role="listbox" aria-label="Search results" hidden></ul>
+      <p class="visually-hidden" id="search-status" role="status" aria-live="polite"></p>
+    </div>
+    <button class="header-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
+      <span class="theme-icon" aria-hidden="true">☾</span>
+    </button>
+    <button class="header-button nav-toggle" type="button" aria-label="Open navigation" aria-controls="nav" aria-expanded="false">
+      <span class="nav-toggle-glyph" aria-hidden="true">☰</span>
+    </button>
   </div>
-  <button class="header-button theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
-    <span class="theme-icon" aria-hidden="true">☾</span>
-  </button>
-  <button class="header-button nav-toggle" type="button" aria-label="Open navigation" aria-controls="nav" aria-expanded="false">
-    <span class="nav-toggle-glyph" aria-hidden="true">☰</span>
-  </button>
 </header>

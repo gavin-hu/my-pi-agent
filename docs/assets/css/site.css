@@ -148,14 +148,26 @@ a:hover {
 	position: sticky;
 	top: 0;
 	z-index: 10;
+	background: var(--canvas-subtle);
+	background: color-mix(in srgb, var(--canvas) 88%, transparent);
+	border-bottom: 1px solid var(--border);
+	-webkit-backdrop-filter: saturate(160%) blur(8px);
+	backdrop-filter: saturate(160%) blur(8px);
+}
+
+/*
+ * The band paints edge to edge; this row is the box the pages are drawn in, so the
+ * brand sits on the sidebar's edge and the actions close the rail's. Viewport-wide,
+ * the two drift apart on every screen past 1248px.
+ */
+.header-inner {
 	display: flex;
 	align-items: center;
 	gap: 0.75rem;
 	height: var(--header-height);
+	max-width: 78rem;
+	margin: 0 auto;
 	padding: 0 1.25rem;
-	background: color-mix(in srgb, var(--canvas) 88%, transparent);
-	border-bottom: 1px solid var(--border);
-	backdrop-filter: saturate(160%) blur(8px);
 }
 
 .brand {
@@ -187,7 +199,28 @@ a:hover {
 	flex: 1 1 24rem;
 	min-width: 0;
 	max-width: 32rem;
-	margin-left: 0.5rem;
+}
+
+/*
+ * The glyph is a mask filled by a role, so it follows the palette. As a stroke baked
+ * into the field's background it froze one theme's grey.
+ */
+.search::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 0.55rem;
+	width: 1rem;
+	height: 1rem;
+	transform: translateY(-50%);
+	background-color: var(--dim);
+	-webkit-mask:
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")
+		no-repeat center / contain;
+	mask:
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")
+		no-repeat center / contain;
+	pointer-events: none;
 }
 
 .search-input {
@@ -195,10 +228,7 @@ a:hover {
 	height: 2.25rem;
 	padding: 0 0.75rem 0 2rem;
 	color: var(--text);
-	background:
-		var(--canvas-subtle)
-		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e7781' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")
-		no-repeat 0.55rem center / 1rem;
+	background: var(--canvas-subtle);
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
 	font: inherit;
@@ -274,8 +304,8 @@ a:hover {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 2.25rem;
-	height: 2.25rem;
+	width: 2.5rem;
+	height: 2.5rem;
 	flex: 0 0 auto;
 	padding: 0;
 	color: var(--muted);
@@ -291,6 +321,12 @@ a:hover {
 	color: var(--text);
 	background: var(--canvas-subtle);
 	border-color: var(--border);
+}
+
+/* The field grows to its cap and the leftover width becomes the gap before the
+   actions, which is where a phone already holds them. */
+.theme-toggle {
+	margin-left: auto;
 }
 
 .nav-toggle {
@@ -711,9 +747,9 @@ body.is-nav-open {
 /* Narrow screens fold the sidebar into a drawer ------------------------- */
 
 @media (max-width: 59.99rem) {
-	.header {
+	.header-inner {
 		gap: 0.5rem;
-		padding: 0 0.75rem;
+		padding: 0 1rem;
 	}
 
 	.brand-name {
@@ -800,6 +836,14 @@ body.is-nav-open {
 
 	.pager-next {
 		grid-column: 1;
+	}
+}
+
+/* A 320px phone has no width to spare and the brand name is the only thing that can
+   give way; the mark keeps the link and its aria-label keeps the name. */
+@media (max-width: 22rem) {
+	.brand-name {
+		display: none;
 	}
 }
 
