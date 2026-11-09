@@ -67,8 +67,9 @@ agent directory, never in the project, so it is never committed.
 
 ## Limits
 
-- Same machine and OS user only: any process with your file access can read it,
-  and there is no authentication between sessions.
+- Same machine and OS user only: any process with your file access can read or
+  rewrite it, and there is no authentication between sessions — the
+  [agent directory](../security.md#the-agent-directory) is trusted input.
 - Pull-based by default: a message waits for a session that is not listening, and
   the model reads mail at coordination points.
 - Reading is not joining: `/sessions` shows a board you are not on until you join

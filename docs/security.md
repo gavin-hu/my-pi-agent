@@ -122,6 +122,26 @@ and `PI_OFFLINE` turns both off.
   text is sanitized at the boundary like any other model- or file-authored
   text.
 
+### The agent directory
+
+Everything under `<agent-dir>` — `~/.pi/agent`, or wherever `PI_CODING_AGENT_DIR`
+points — is input a session trusts, and most of it is read as instruction: `memory.md`
+is injected into every run, a session-bus message is a message to act on, a board card
+and its notes are work a session picks up, a plan under `plans/` is reviewed and
+approved, an agent definition under `agents/` is a prompt a subagent runs, and
+`bytefly.json` decides which extensions are on and what they may do.
+
+File modes separate **users, not processes**. `memory.md`, the bus, and the board's
+`page.json` are owner-only (`0600`), which stops another account on this machine and
+nothing else. A process running as you — a second tool, a compromised dependency, a
+lifecycle script — can rewrite any of those files, and can read the page token in
+`page.json` and the credentials under `wechat/`. It does not have to defeat a loopback
+token when the token sits in a file it can read.
+
+So the boundary is the OS account, not the pack: run it under an account you would
+trust with those files, and do not treat a message, a card, or a note as authenticated
+because it arrived in a file you own. Nothing in the pack checks who wrote one.
+
 ### Model- and file-authored text
 
 Any text that reaches a widget or the terminal passes through `sanitizeLine`

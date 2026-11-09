@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: security.md names the agent directory as a trust boundary — memory, session
+  bus mail, board cards, plans, agent definitions, and `bytefly.json` are read as
+  instruction, `0600` separates users rather than processes, and the loopback page
+  token is readable by any process running as you.
 - `docs`: the site gains a tutorials index — eleven walkthroughs in the order a new
   reader meets them, the first three named as the start and the rest grouped by the
   work they serve — linked from the home page's Start here list, with
