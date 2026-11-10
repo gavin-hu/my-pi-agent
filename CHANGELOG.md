@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card's lane is a claim, and a session's cards are visible. `move` into `execute`
+  now claims the card's `paths` on the session bus and leaving the lane releases them, so the
+  files a card names are held by whoever is working it and a conflict is named on the result
+  instead of discovered later. A session is also told once, before its first turn, which cards
+  it holds and what each owes next — the resume case, where the work continued while the card
+  sat in `plan` because nothing ever restated it. `AGENTS.md` carries the rule the two make
+  visible: a feature is worked on its card, `execute` before editing.
+
 - `board`: a sign says who heard it. The result read `told api-core` for a message written into a
   peer's inbox, so a session that was not listening — the one thing a lead could act on — read as
   told, and the line named the label the card kept rather than the peer the bus reached. The

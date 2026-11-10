@@ -12,8 +12,7 @@
  * through `applyOp`.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { Static } from "typebox";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { planForContract } from "../../lib/board/artifact.ts";
 import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
 import { movableLanes } from "../../lib/board/lanes.ts";
@@ -22,21 +21,22 @@ import { signMark } from "../../lib/board/lead.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
-import type { BoardStore } from "../../lib/board/store.ts";
+import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { listOf } from "../../lib/format.ts";
 import { strayField } from "../../lib/stray-fields.ts";
-import { failedResult, textResult } from "../../lib/tool-result.ts";
+import { textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatRound } from "../../lib/board/round-text.ts";
-import { CLAIM_NEXT, formatArchive, formatArchived, formatBoard, formatCard, formatDropped } from "./format.ts";
+import { CLAIM_NEXT, formatArchive, formatArchived, formatBoard, formatCard } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
-import { collapsedLine, resultInput } from "./result.ts";
+import { collapsedLine, refusal, resultInput } from "./result.ts";
+import { dropCard, mutate } from "./write.ts";
 import type { Notify } from "./announce.ts";
-import { createInput } from "./input.ts";
+import type { Claims } from "./claims.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
-import { BoardParams } from "./schema.ts";
+import { type BoardArgs, BoardParams } from "./schema.ts";
 import {
 	ACTION_FIELDS,
 	BOARD_ACTION_DOCS,
@@ -85,8 +85,6 @@ export const BOARD_GUIDELINES = [
 export const BOARD_SNIPPET = `The shared feature list for this repository: ${BOARD_ACTIONS.join(", ")}.`;
 
 /** The parameters as the schema validates them. */
-type BoardArgs = Static<typeof BoardParams>;
-
 /**
  * The call line's subject: the verb and what it acts on.
  *
@@ -113,16 +111,6 @@ function callSubject(action: BoardAction, args: Record<string, unknown>): string
 	return `${action} ${card}${lane}`;
 }
 
-/** One refusal: the reason for the model, the state for the renderer. */
-function refusal(action: BoardAction, me: BoardDetails["me"], message: string, card?: BoardDetails["card"]) {
-	return failedResult(`Error: ${message}`, {
-		action,
-		me,
-		error: message,
-		...(card === undefined ? {} : { card }),
-	});
-}
-
 /**
  * Whether a result this tool built is a refusal.
  *
@@ -137,9 +125,18 @@ function refused(result: unknown): boolean {
 export function registerTools(
 	pi: ExtensionAPI,
 	runtime: BoardSession,
-	deps: { team?: TeamJoin; notify?: Notify } = {},
+	deps: { team?: TeamJoin; notify?: Notify; claims?: Claims } = {},
 ): void {
 	const team = deps.team ?? createTeamJoin(pi);
+	/**
+	 * What one write's lane crossing claimed or released, or nothing when it stayed put. Loaded
+	 * at the first crossing, so a session that never moves a card pays nothing for the bus.
+	 */
+	let claimsModule: Promise<typeof import("./claims.ts")> | undefined;
+	const hold = (ctx: ExtensionContext, result: MutateResult): Promise<string | undefined> =>
+		(claimsModule ??= import("./claims.ts"))
+			.then((module) => module.holdPaths(deps.claims ?? module.busClaims(pi), ctx, result))
+			.catch(() => undefined);
 	// Loaded at the first sign, not at registration: a board that never signs pays nothing for the
 	// message, and the registration graph stays the size it was.
 	let signMessage: Promise<typeof import("./announce.ts")> | undefined;
@@ -177,6 +174,8 @@ export function registerTools(
 			/** What `store.mutate` should be told about the card's plan, proved the way the tool proves it. */
 			const proofOf = (store: BoardStore, rawCard: string | undefined) =>
 				(proofModule ??= import("./proof.ts")).then((module) => module.provedPlan(runtime, ctx.cwd, store, rawCard));
+			/** The crossing this call can make, bound to its context once. */
+			const cross = (result: MutateResult) => hold(ctx, result);
 			try {
 				// Before the join and before a card is read: a refused call has written nothing, so it
 				// cannot have enlisted this session as a teammate on its way to the refusal.
@@ -208,9 +207,9 @@ export function registerTools(
 						return claimed;
 					}
 					case "release":
-						return await mutate(store, action, me, now, args, { kind: "release" });
+						return await mutate(store, action, me, now, args, { kind: "release" }, { cross });
 					case "reclaim":
-						return await mutate(store, action, me, now, args, { kind: "reclaim" });
+						return await mutate(store, action, me, now, args, { kind: "reclaim" }, { cross });
 					case "move": {
 						if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
 						const lane = args.lane;
@@ -220,13 +219,14 @@ export function registerTools(
 						// `execute` and `done` carry the proof that the plan the card recorded is still
 						// there, and a board outside a repository simply has no proof to check.
 						const proved = lane === "execute" || lane === "done" ? await proofOf(store, args.card) : undefined;
-						return await mutate(store, action, me, now, args, {
+						const op: CardOp = {
 							kind: "move",
 							lane,
 							...(args.blockedBy === undefined ? {} : { blockedBy: args.blockedBy }),
 							...(args.blocker === undefined ? {} : { blocker: args.blocker }),
 							...(proved === undefined ? {} : { artifact: proved }),
-						});
+						};
+						return await mutate(store, action, me, now, args, op, { cross });
 					}
 					case "note":
 						return await mutate(store, action, me, now, args, { kind: "note", text: args.text });
@@ -291,7 +291,7 @@ export function registerTools(
 						});
 					}
 					case "drop":
-						return await dropCard(store, me, args, now);
+						return await dropCard(store, me, args, now, cross);
 					case "archive":
 						return await archiveCards(store, me, args, now);
 				}
@@ -470,6 +470,9 @@ async function add(
 	args: BoardArgs,
 	now: number,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
+	// Loaded here rather than at registration: `add` is the only caller, and a session that
+	// never adds a card pays nothing for the argument boundary.
+	const { createInput } = await import("./input.ts");
 	const parsed = createInput({
 		title: args.title,
 		paths: args.paths,
@@ -481,40 +484,6 @@ async function add(
 	if ("error" in parsed) return refusal("add", me, parsed.error);
 	const card = await store.create(parsed.input, me, now);
 	return textResult(formatCard(card), { action: "add", me, card });
-}
-
-/** The actions that change a card the caller names. */
-async function mutate(
-	store: BoardStore,
-	action: BoardAction,
-	me: BoardDetails["me"],
-	now: number,
-	args: BoardArgs,
-	op: CardOp,
-	/**
-	 * What the call says besides the card: `next` after any successful write, and `told` only after
-	 * one that changed something — a repeated sign is the same signature, and the owner does not
-	 * need to hear it twice. The second argument is the store's `signed`: a note added to a card
-	 * that was already signed is a write with no new stamp behind it, and the message a sign sends
-	 * is about the stamp. Both the text and the transcript block carry the `told` line: the text as
-	 * an indented continuation, the details as the sentence the one-line block draws.
-	 */
-	report: { next?: string; told?: (card: Card, signed: boolean) => Promise<string | undefined> } = {},
-): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
-	const id = normalizeCardId(args.card);
-	if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
-	const result = await store.mutate(id, op, me, now);
-	if (!result.ok) return refusal(action, me, result.error, result.card);
-	const told = result.changed ? await report.told?.(result.card, result.signed === true) : undefined;
-	const lines = [formatCard(result.card), ...(report.next === undefined ? [] : [report.next])];
-	const announcement = told?.trim();
-	return textResult([...lines, ...(told === undefined ? [] : [told])].join("\n"), {
-		action,
-		me,
-		card: result.card,
-		...(announcement === undefined ? {} : { told: announcement }),
-	});
 }
 
 /**
@@ -561,19 +530,4 @@ async function archiveCards(
 		});
 	}
 	return textResult(sweepText(swept), { action: "archive", me, archive: swept });
-}
-
-/** `drop`: the card and its notes leave together, so the report is the id. */
-async function dropCard(
-	store: BoardStore,
-	me: BoardDetails["me"],
-	args: BoardArgs,
-	now: number,
-): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	if (args.card === undefined) return refusal("drop", me, 'card is required: pass the id, e.g. "4".');
-	const id = normalizeCardId(args.card);
-	if (id === undefined) return refusal("drop", me, `"${args.card}" is not a card id.`);
-	const result = await store.mutate(id, { kind: "drop" }, me, now);
-	if (!result.ok) return refusal("drop", me, result.error, result.card);
-	return textResult(formatDropped(id), { action: "drop", me, dropped: id });
 }

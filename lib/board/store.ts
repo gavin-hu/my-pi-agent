@@ -94,9 +94,9 @@ export interface CreateInput {
 	breaking?: boolean;
 }
 
-/** What a mutation did, or why it was refused. */
+/** What a mutation did, or why it was refused; `previous` is the card this write read. */
 export type MutateResult =
-	| { ok: true; card: Card; changed: boolean; dropped: boolean; archived: boolean; signed?: true }
+	| { ok: true; card: Card; changed: boolean; dropped: boolean; archived: boolean; signed?: true; previous?: Card }
 	| { ok: false; error: string; card?: Card };
 
 /**
@@ -363,7 +363,7 @@ export function createStore(
 					// exists with a note explaining it, never a card that is gone unexplained.
 					await writeEnded(endedDir, result.card, actor, now);
 					await rm(join(pile, fileNameFor(id)), { force: true });
-					return { ok: true, card: result.card, changed: true, dropped: true, archived: false };
+					return { ok: true, card: result.card, changed: true, dropped: true, archived: false, previous: card };
 				}
 				if (op.kind === "archive") {
 					// A card the board does not hold is already aside, and two sessions asking at
@@ -372,11 +372,11 @@ export function createStore(
 						return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
 					}
 					await moveCard(cardsDir, archiveDir, id);
-					return { ok: true, card: result.card, changed: true, dropped: false, archived: true };
+					return { ok: true, card: result.card, changed: true, dropped: false, archived: true, previous: card };
 				}
 				// Written back to the board and nowhere else: an archived record refuses every write.
 				await writeCardFile(cardsDir, id, result.card);
-				return { ...result, dropped: false, archived: false };
+				return { ...result, dropped: false, archived: false, previous: card };
 			} finally {
 				await lock.release();
 			}

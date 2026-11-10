@@ -116,6 +116,12 @@ export interface BoardDetails {
 	 * owner, or a sign that wrote no fresh stamp.
 	 */
 	told?: string;
+	/**
+	 * What the bus's path claims did as this write crossed a lane — `claimed 2 paths`, a path
+	 * another session holds, or the sentence saying the claim could not be made. Absent when the
+	 * write stayed in its lane, the card names no paths, or no bus is loaded.
+	 */
+	held?: string;
 	/** A refusal's reason, which the renderer draws instead of the details. */
 	error?: string;
 }

@@ -17,7 +17,8 @@ import { plural } from "../../lib/board/round-text.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { boardRowLineFor } from "./rows.ts";
 import { TONE_ROLE } from "./tone.ts";
-import type { ArchiveOutcome, BoardDetails } from "./types.ts";
+import { failedResult } from "../../lib/tool-result.ts";
+import type { ArchiveOutcome, BoardAction, BoardDetails } from "./types.ts";
 
 /** One section of the expanded block, drawn as the session that asked for it. */
 function section(label: string | undefined, cards: readonly Card[], rowLine: TailRowLine<Card>): TailSection<Card> {
@@ -74,6 +75,21 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
 }
 
 /**
+ * One refusal: the reason for the model, the state for the renderer.
+ *
+ * A refusal carries the card it left alone, because the store hands one back for a refused write:
+ * the next call starts from the truth rather than from the caller's guess.
+ */
+export function refusal(action: BoardAction, me: BoardDetails["me"], message: string, card?: BoardDetails["card"]) {
+	return failedResult(`Error: ${message}`, {
+		action,
+		me,
+		error: message,
+		...(card === undefined ? {} : { card }),
+	});
+}
+
+/**
  * The one line a reader sees without expanding.
  *
  * It states the outcome of the call — what happened, to which card, in which lane —
@@ -86,7 +102,8 @@ export function collapsedLine(theme: Theme, details: BoardDetails): string {
 	if (details.dropped)
 		return `${paint(theme, "label", `${cardRef(details.dropped)} dropped`)} ${SEPARATORS.item} ${me}`;
 	const card = details.card;
-	if (card) return `${cardLine(theme, card)} ${SEPARATORS.item} ${me}${toldLine(theme, details.told)}`;
+	if (card)
+		return `${cardLine(theme, card)} ${SEPARATORS.item} ${me}${sideLine(theme, details.held)}${sideLine(theme, details.told)}`;
 	const count = details.cards?.length ?? 0;
 	const round = details.round;
 	if (!round) return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${me}`;
@@ -123,14 +140,12 @@ function archiveLine(theme: Theme, outcome: ArchiveOutcome): string {
 }
 
 /**
- * The sign's sentence, after the actor: `· told api-core`, or who was not told.
- *
- * One clause for both answers, because `announce` writes one sentence — and the person's
- * command prints the same clause after its card (`#4 approved by you · api-core was not told
- * (…)`), so the two doors a sign has read alike.
+ * One clause after the actor: the paths a lane crossing claimed or lost, or who was told of a
+ * sign. Both are written by the write that produced them, so the block and the text carry the
+ * same sentence; a call has at most one of them.
  */
-function toldLine(theme: Theme, told: string | undefined): string {
-	return told === undefined ? "" : ` ${SEPARATORS.item} ${paint(theme, "meta", sanitizeLine(told))}`;
+function sideLine(theme: Theme, clause: string | undefined): string {
+	return clause === undefined ? "" : ` ${SEPARATORS.item} ${paint(theme, "meta", sanitizeLine(clause))}`;
 }
 
 /**

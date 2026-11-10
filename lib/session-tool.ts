@@ -187,6 +187,17 @@ export function createTeamJoin(pi: Pick<ExtensionAPI, "events" | "getAllTools">)
 const NO_BUS = "the session bus is not loaded";
 
 /**
+ * Whether the `session` tool is loaded at all.
+ *
+ * The difference a caller acts on: no bus is a sentence a board still works through, while a
+ * bus that refused is a failure worth reporting. One probe, so the three callers that ask it
+ * cannot disagree about what "not loaded" means.
+ */
+export function busLoaded(pi: Pick<ExtensionAPI, "getAllTools">): boolean {
+	return pi.getAllTools().some((tool) => tool.name === SESSION_TOOL);
+}
+
+/**
  * Join the team: on the bus, named when a label is given, and listening for mail.
  *
  * One call for all three, because that is one act — see `join` in
@@ -204,7 +215,7 @@ export async function join(
 	ctx: ExtensionContext,
 	input: TeamJoinInput = {},
 ): Promise<JoinResult> {
-	if (!pi.getAllTools().some((tool) => tool.name === SESSION_TOOL)) return { ok: false, error: NO_BUS };
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS };
 	return requestOverBus<JoinResult, TeamJoinRequest>(pi, {
 		channel: TEAM_JOIN_REQUEST,
 		payload: (respond) => ({ ctx, input, respond }),
@@ -264,7 +275,7 @@ export async function send(
 ): Promise<SendResult> {
 	const nested = toolContext(ctx);
 	if (nested !== undefined) return nestedSend(nested, input);
-	if (!pi.getAllTools().some((tool) => tool.name === SESSION_TOOL)) return { ok: false, error: NO_BUS };
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS };
 	return requestOverBus<SendResult, SessionSendRequest>(pi, {
 		channel: SESSION_SEND_REQUEST,
 		payload: (respond) => ({ ctx, input, respond }),
@@ -291,4 +302,75 @@ async function nestedSend(ctx: ExtensionToolContext, input: SendInput): Promise<
 				})
 			: [],
 	};
+}
+
+/** One path another session already holds, as the bus reports it. */
+export interface ClaimConflict {
+	path: string;
+	owner: string;
+	ownerLabel: string;
+}
+
+/**
+ * What claiming a card's paths did.
+ *
+ * A conflict is not a failure: the paths were asked for and somebody else holds them, which is
+ * the fact the caller reports. The claim itself is all-or-nothing — the bus touches no file
+ * when any path is taken — so `claimed` is empty whenever `conflicts` is not.
+ */
+export type ClaimPathsResult =
+	| { ok: true; claimed: string[]; conflicts: ClaimConflict[] }
+	| { ok: false; error: string };
+
+/** What releasing them did. `notOwned` is ordinary: nothing was held under that path. */
+export type ReleasePathsResult = { ok: true; released: string[]; notOwned: string[] } | { ok: false; error: string };
+
+/**
+ * Claim paths for this session, as the board holds the files a card names.
+ *
+ * A nested call only: the board's `move` is a tool, so there is no command door to serve. The
+ * empty list short-circuits, because most cards name no paths and the bus's answer would be
+ * "Nothing claimed." either way.
+ */
+export async function claimPaths(ctx: ExtensionContext, paths: readonly string[]): Promise<ClaimPathsResult> {
+	if (paths.length === 0) return { ok: true, claimed: [], conflicts: [] };
+	const nested = toolContext(ctx);
+	if (nested === undefined) return { ok: false, error: "a path claim needs a tool context" };
+	const answer = await call(nested, { action: "claim", paths: [...paths] });
+	if ("error" in answer) return { ok: false, error: answer.error };
+	return {
+		ok: true,
+		claimed: stringsOf(answer.details.claimed),
+		conflicts: conflictsOf(answer.details.conflicts),
+	};
+}
+
+/** Release this session's claims on `paths`. Not holding one is an answer, not a failure. */
+export async function releasePaths(ctx: ExtensionContext, paths: readonly string[]): Promise<ReleasePathsResult> {
+	if (paths.length === 0) return { ok: true, released: [], notOwned: [] };
+	const nested = toolContext(ctx);
+	if (nested === undefined) return { ok: false, error: "a path release needs a tool context" };
+	const answer = await call(nested, { action: "release", paths: [...paths] });
+	if ("error" in answer) return { ok: false, error: answer.error };
+	return {
+		ok: true,
+		released: stringsOf(answer.details.released),
+		notOwned: stringsOf(answer.details.notOwned),
+	};
+}
+
+/** The strings in a details field, when it is a list of them. */
+function stringsOf(value: unknown): string[] {
+	return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
+}
+
+/** The conflicts in a details field, when it is the bus's shape. */
+function conflictsOf(value: unknown): ClaimConflict[] {
+	if (!Array.isArray(value)) return [];
+	return value.flatMap((entry) => {
+		if (typeof entry !== "object" || entry === null) return [];
+		const { path, owner, ownerLabel } = entry as Record<string, unknown>;
+		if (typeof path !== "string" || typeof owner !== "string" || typeof ownerLabel !== "string") return [];
+		return [{ path, owner, ownerLabel }];
+	});
 }

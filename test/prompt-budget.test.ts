@@ -11,6 +11,8 @@
 import { describe, expect, test } from "bun:test";
 import { BoardParams } from "../extensions/board/schema.ts";
 import { BOARD_DESCRIPTION, BOARD_GUIDELINES, BOARD_SNIPPET } from "../extensions/board/tools.ts";
+import { buildBoardContext, MAX_CONTEXT_CHARS, MAX_CONTEXT_CARDS } from "../extensions/board/context.ts";
+import { numberedCard } from "./helpers/fixtures/board.ts";
 import { GOAL_CONTEXT_MARKER, buildGoalContext } from "../extensions/goal/index.ts";
 import { planModeContext, PLAN_MODE_MARKER } from "../extensions/plan/index.ts";
 import { WECHAT_CHANNEL_PROMPT } from "../extensions/wechat/text/channel.ts";
@@ -104,5 +106,14 @@ describe("the board tool surface", () => {
 			expect(guideline.endsWith(".")).toBe(true);
 			expect(guideline.length).toBeLessThanOrEqual(170);
 		}
+	});
+
+	test("the first-turn line stays inside its own ceiling", () => {
+		// Injected once per session, before its first turn: it is spent once, but it is spent in
+		// every session that holds a card, so it is held to the same kind of budget as plan mode.
+		const held = [1, 2, 3, 4, 5].map((n) => numberedCard(String(n), { lane: "plan", owner: { label: "api-core" } }));
+		const line = buildBoardContext(held) ?? "";
+		expect(line.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
+		expect(line.split("\n").length).toBeLessThanOrEqual(MAX_CONTEXT_CARDS + 2);
 	});
 });
