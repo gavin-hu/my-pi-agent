@@ -102,6 +102,14 @@ describe("the bar under it", () => {
 });
 
 describe("the footer", () => {
+	test("calls a refused card file a file, as the tool does", () => {
+		// `board list` says "N files this build cannot read", and this line said "cards" while its
+		// own hover said files: one fact, one noun.
+		expect(BOARD_CLIENT_JS).toContain('plural(view.skipped.length, "file")');
+		expect(BOARD_CLIENT_JS).toContain('" could not be read"');
+		expect(BOARD_CLIENT_JS).not.toContain('plural(view.skipped.length, "card")');
+	});
+
 	test("names the store before the first frame arrives", () => {
 		// The store is the one footer fact the document can state, so a slow frame leaves a
 		// line that names the board rather than an empty bar; the counts follow with the frame.

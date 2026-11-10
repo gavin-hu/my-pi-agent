@@ -116,6 +116,8 @@ export function dialogScript(options: DialogOptions): string {
   var dialog = document.getElementById("${options.dialogId}");
   if (!dialog) return;
   var opener = null;
+  /** The id the opener carried, which outlives the node a frame may replace. */
+  var openerId = "";
 
   function isOpen() {
     return !dialog.hidden;
@@ -139,11 +141,17 @@ export function dialogScript(options: DialogOptions): string {
     dialog.hidden = !open;
     if (open) {
       opener = document.activeElement;
+      openerId = opener && opener.id ? opener.id : "";
       var first = focusables()[0];
       if (first) first.focus();
-    } else if (opener && opener.focus) {
-      opener.focus();
+    } else if (opener) {
+      // A frame can replace the node that opened this — the board rebuilds a lane when a card in
+      // it moves — so a detached opener is looked up again by id, and focus returns to the card
+      // rather than to the document.
+      var target = opener.isConnected === false && openerId !== "" ? document.getElementById(openerId) : opener;
+      if (target && target.focus) target.focus();
       opener = null;
+      openerId = "";
     }
   }
 

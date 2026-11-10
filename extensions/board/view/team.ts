@@ -199,6 +199,9 @@ __HOLDING__
       function (card) { return (card.owner ? card.owner.label : "its owner") + " is not running — the card is free"; },
       "gone",
     );
+    // The one sentence with an age that is not a stamp: it needs a bare age in the middle, and
+    // sentence() expands {age} to "30m ago" — "no writes for 30m ago" is worse than a stale
+    // minute, and the row is refilled on any change to the card.
     add(round.unwritten, function (card) { return "no writes for " + ago(card.updatedAt); }, "unwritten");
     // The board card says the same words for the same fact: one voice for one state.
     add(round.unplanned, function (card) { return why(card, "no contract yet"); }, "unplanned");

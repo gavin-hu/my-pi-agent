@@ -140,7 +140,8 @@ describe("the dialog's client", () => {
 		expect(BOARD_CLIENT_JS).toContain("!drawnBelow(card, reason.kind)");
 		expect(BOARD_CLIENT_JS).toContain('if (kind === "approval") return card.contract !== undefined');
 		// The approval is the signature under the three lines, in the tone the board gives a sign.
-		expect(BOARD_CLIENT_JS).toContain('"approved by " + approved.by + " \\u00b7 " + ago(approved.at)');
+		expect(BOARD_CLIENT_JS).toContain('"approved by " + approved.by + " \\u00b7 "');
+		expect(BOARD_CLIENT_JS).toContain('board.stamp(approved.at, "approved {age}")');
 		expect(BOARD_CLIENT_JS).toContain('board.reasonTone("approval")');
 		// A spot-check says who and when, and says so when the close was made by instruction: the
 		// reason itself is the reason line above it, which is the shared body.

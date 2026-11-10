@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card's record ticks. The dialog is filled once per frame and a frame only arrives
+  when a card moves, so every age inside it — how long the card has held its lane, the contract's
+  signature, the last write, the review, and each note's stamp — was a string frozen where that
+  frame caught it, while the face behind it counted up. They are the same `<span data-at>` the
+  face uses, from the one builder, so the page's single ticker keeps them. The footer also calls
+  a card file it could not read a file, as the tool and its own hover already did.
+
+- `lib`: a dialog closed after a frame rebuilt its opener returns focus to it. The kit stored the
+  element that opened the dialog and focused it on close, but the board rebuilds a lane whenever
+  a card in it moves, which detaches that element — so Esc landed on the document. The kit now
+  remembers the opener's id and looks it up again when the node is gone, and a card's title
+  button carries one.
+
 - `team`: a handoff whose write is refused stops calling itself a race. Both "recording the
   owner" sentences asserted that the card had changed, which a write can lose to without the
   card moving — another session holding the board is the other way, and since the board's one

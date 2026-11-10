@@ -165,6 +165,9 @@ export const BOARD_CARD_JS = String.raw`(function () {
     // the one handler and the button needs none.
     var title = el("button", N.cardTitle, card.title);
     title.type = "button";
+    // The id outlives the node: a frame rebuilds a lane when any face in it moves, and a dialog
+    // opened from this button is restored to the card by looking the id up again.
+    title.id = "card-title-" + card.id;
     head.appendChild(title);
     item.appendChild(head);
     item.addEventListener("click", function () {
@@ -249,6 +252,9 @@ export const BOARD_CARD_JS = String.raw`(function () {
 
   board.cardNode = cardNode;
   board.sentence = sentence;
+  // The one builder a surface uses when a fact carries an age: the dialog's rows read it too, so
+  // a record's clock is the ticker's business and not a second one of its own.
+  board.stamp = stamp;
   board.priorityClass = PRIORITY_CLASS;
 
   /** Set a mark on a card, or drop it, so one that lost it does not keep it. */

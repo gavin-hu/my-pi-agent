@@ -596,7 +596,7 @@ describe("web theme runtime", () => {
 		// the rest, so a browser's own backwards step from the last node leaves the dialog.
 		expect(script).toContain("nodes.indexOf(document.activeElement)");
 		expect(script).toContain("nodes[next].focus();");
-		expect(script).toContain("opener.focus()");
+		expect(script).toMatch(/opener\.isConnected === false[\s\S]*target\.focus\(\)/);
 		expect(script).toContain("}, true);");
 		expect(script).toContain("event.stopPropagation();");
 		expect(() => new Function(script)).not.toThrow();
