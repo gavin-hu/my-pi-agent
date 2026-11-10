@@ -602,7 +602,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				undefined,
 				{ timeout: PAINT_MS },
 			);
-			expect(await footer()).toContain("1 card could not be read");
+			expect(await footer()).toContain("1 file could not be read");
 			const title = (await page.getAttribute("#board-where", "title")) ?? "";
 			expect(title).not.toContain(ROOT);
 			expect(title).toContain("0099.json");

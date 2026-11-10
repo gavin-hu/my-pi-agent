@@ -15,6 +15,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Actor } from "../../../lib/board/rules.ts";
 import type { BoardStore } from "../../../lib/board/store.ts";
+import { focusedId } from "../../../test/helpers/board-dom.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { advance } from "../../../test/helpers/board-flow.ts";
 import {
@@ -85,6 +86,46 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		await expect(holds()).resolves.toContain(
 			"holds up #1 (backlog) Export orders as CSV, #3 (backlog) Invoice totals round the wrong way",
 		);
+	});
+
+	test("stamps every age in an open record, so the record's clock moves", async () => {
+		const page = await board.reuse();
+		// The record is filled once per frame, and a frame arrives only when a card moves — so an
+		// age written as text froze where its last frame caught it, while the face behind it ticked.
+		await page.click('#lane-execute .board-card[data-card="2"] .board-card__title');
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		const titles = await page.$$eval("#board-card-dialog [data-at]", (nodes) =>
+			nodes.map((node) => node.getAttribute("data-at-title") ?? ""),
+		);
+		expect(titles).toContain("in this lane {age}");
+		expect(titles).toContain("approved {age}");
+		expect(titles).toContain("updated {age}");
+		// The lane age rides the state line the head already draws, as the middot it always was.
+		expect(await page.textContent("#card-dialog-since")).toMatch(/^ · \S+$/);
+		// A note's stamp is one too, on the card that carries a note.
+		await page.keyboard.press("Escape");
+		await page.waitForSelector("#board-card-dialog", { state: "hidden", timeout: PAINT_MS });
+		await page.click('#lane-backlog .board-card[data-card="1"] .board-card__title');
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		expect(
+			await page.$$eval("#card-dialog-notes [data-at]", (nodes) =>
+				nodes.map((node) => node.getAttribute("data-at") ?? ""),
+			),
+		).not.toEqual([]);
+	});
+
+	test("returns Esc's focus to the card after a frame rebuilt its lane", async () => {
+		const page = await board.reuse();
+		await page.click('#lane-backlog .board-card[data-card="1"] .board-card__title');
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		// A peer's note on another card of the same lane rebuilds the lane the open record came from:
+		// the node the dialog was opened from is gone by the time Esc looks for it.
+		await board.store.mutate("3", { kind: "note", text: "read by a peer" }, LEAD, clock.now() + 30_000);
+		await page.locator('#lane-backlog .board-card[data-card="3"] .board-card__reason').waitFor({ timeout: PAINT_MS });
+		await page.keyboard.press("Escape");
+		await page.waitForSelector("#board-card-dialog", { state: "hidden", timeout: PAINT_MS });
+		// The id outlives the node: focus lands on the rebuilt title button, not on the document.
+		expect(await focusedId(page)).toBe("card-title-1");
 	});
 
 	test("stamps a reason line whose sentence carries an age", async () => {

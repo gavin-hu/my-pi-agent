@@ -238,7 +238,7 @@ __RUNTIME__
       // room for a file and a reason each, and a count alone is a fact a reader cannot act on.
       where.textContent =
         "store " + view.where + " · " + plural(view.total, "card") + " · " + size(view.bytes) +
-        (view.skipped.length > 0 ? " · " + plural(view.skipped.length, "card") + " could not be read" : "");
+        (view.skipped.length > 0 ? " · " + plural(view.skipped.length, "file") + " could not be read" : "");
       if (view.skipped.length > 0) where.title = skippedText(view.skipped);
       else where.removeAttribute("title");
     }

@@ -99,7 +99,11 @@ __INLINE_MARKDOWN__
     state.setAttribute("data-lane", card.lane);
     document.getElementById("card-dialog-state-label").textContent = lane === undefined ? card.lane : lane.label;
     var since = document.getElementById("card-dialog-since");
-    since.textContent = card.since === undefined ? "" : " \u00b7 " + ago(card.since);
+    since.textContent = "";
+    if (card.since !== undefined) {
+      since.appendChild(document.createTextNode(" \u00b7 "));
+      since.appendChild(board.stamp(card.since, "in this lane {age}"));
+    }
     since.hidden = card.since === undefined;
 
     // The sentence the card face prints under its meta, from the same body: the one fact that
@@ -132,9 +136,24 @@ __INLINE_MARKDOWN__
       if (dd) dd.hidden = !shown;
       return dd;
     };
+    /** One rung whose value carries an age: a leading word, the stamped age, a trailing one. */
+    var stampedRow = function (lead, at, wording, tail) {
+      var row = document.createDocumentFragment();
+      if (lead !== "") row.appendChild(document.createTextNode(lead));
+      row.appendChild(board.stamp(at, wording));
+      if (tail !== "") row.appendChild(document.createTextNode(tail));
+      return row;
+    };
+
+    // A row is a string or a fragment: an age inside one is a stamp, so the ticker moves it,
+    // and the words around it are text nodes the row keeps as they read.
     var setRow = function (name, shown, value, full) {
       var dd = pair(name, shown);
-      dd.textContent = shown ? value : "";
+      dd.textContent = "";
+      if (shown) {
+        if (typeof value === "string") dd.textContent = value;
+        else dd.appendChild(value);
+      }
       if (full === undefined) dd.removeAttribute("title");
       else dd.setAttribute("title", full);
     };
@@ -157,7 +176,11 @@ __INLINE_MARKDOWN__
     var sign = document.getElementById("card-dialog-sign");
     var approved = contract === undefined ? undefined : contract.approved;
     sign.hidden = approved === undefined;
-    sign.textContent = approved === undefined ? "" : "approved by " + approved.by + " \u00b7 " + ago(approved.at);
+    sign.textContent = "";
+    if (approved !== undefined) {
+      sign.appendChild(document.createTextNode("approved by " + approved.by + " \u00b7 "));
+      sign.appendChild(board.stamp(approved.at, "approved {age}"));
+    }
     if (approved === undefined) sign.removeAttribute("data-tone");
     else sign.setAttribute("data-tone", board.reasonTone("approval"));
 
@@ -174,12 +197,14 @@ __INLINE_MARKDOWN__
 
     // When it was last touched and who touched it are one moment, so they are one rung: two
     // rows spent a line saying half of the same fact each.
-    setRow("updated", true, ago(card.updatedAt) + " by " + card.by);
+    setRow("updated", true, stampedRow("", card.updatedAt, "updated {age}", " by " + card.by));
     var reviewed = card.review;
     setRow(
       "reviewed",
       reviewed !== undefined,
-      reviewed === undefined ? "" : reviewed.by + " \u00b7 " + ago(reviewed.at) + (reviewed.byInstruction === undefined ? "" : " \u00b7 by instruction")
+      reviewed === undefined
+        ? ""
+        : stampedRow(reviewed.by + " \u00b7 ", reviewed.at, "reviewed {age}", reviewed.byInstruction === undefined ? "" : " \u00b7 by instruction")
     );
 
     pair("paths", card.paths.length > 0);
@@ -212,7 +237,11 @@ __INLINE_MARKDOWN__
       row.appendChild(text);
       var foot = el("p", N.dialogNoteFoot);
       foot.appendChild(el("span", N.dialogNoteBy, note.by));
-      foot.appendChild(el("span", N.dialogNoteAt, ago(note.at)));
+      // The note's stamp is an age, so it is a stamp: a record left open on a quiet board counts
+      // up with everything else rather than freezing where its last frame caught it.
+      var at = el("span", N.dialogNoteAt, "");
+      at.appendChild(board.stamp(note.at, "written {age}"));
+      foot.appendChild(at);
       row.appendChild(foot);
       notes.appendChild(row);
     }
