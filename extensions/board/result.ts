@@ -99,8 +99,10 @@ export function refusal(action: BoardAction, me: BoardDetails["me"], message: st
 export function collapsedLine(theme: Theme, details: BoardDetails): string {
 	const me = paint(theme, "faint", sanitizeLine(details.me.label));
 	if (details.archive) return `${archiveLine(theme, details.archive)} ${SEPARATORS.item} ${me}`;
+	// A dropped card is the one answer whose clause hangs off an id rather than a card, and it is
+	// still the write's: a release the bus refused is the fact that keeps a peer off those paths.
 	if (details.dropped)
-		return `${paint(theme, "label", `${cardRef(details.dropped)} dropped`)} ${SEPARATORS.item} ${me}`;
+		return `${paint(theme, "label", `${cardRef(details.dropped)} dropped`)} ${SEPARATORS.item} ${me}${sideLine(theme, details.held)}`;
 	const card = details.card;
 	if (card)
 		return `${cardLine(theme, card)} ${SEPARATORS.item} ${me}${sideLine(theme, details.held)}${sideLine(theme, details.told)}`;

@@ -68,6 +68,12 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		read = false;
 	});
 
+	// A tree jump rebuilds the history from the branch it landed on, so the line a jump went back
+	// behind is gone from the transcript: reading again is what puts it back, once.
+	pi.on("session_tree", () => {
+		read = false;
+	});
+
 	// What a session is told about its own cards, once, before its first turn: which they are, and
 	// what each owes next. One read, because every later write reports itself — the claim, the
 	// move, and the sign each say their own next step — and a board already parsed every turn on
@@ -80,11 +86,16 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		// an empty session, and only an answer is worth remembering.
 		if (held === undefined) return undefined;
 		read = true;
-		if (held.length > 0) {
-			const claims = await (claimsModule ??= import("./claims.ts"));
-			await claims.reclaimHeld(deps.claims ?? claims.busClaims(pi), ctx, held);
-		}
-		const content = context.buildBoardContext(held);
+		// The one write a turn start makes: the bus forgets a session's claims when it stops, so a
+		// resumed session takes back the paths of the cards it is already executing — and says the
+		// one thing that did not work, because a failure nothing reports is how this was a no-op.
+		const note =
+			held.length === 0
+				? undefined
+				: await (claimsModule ??= import("./claims.ts")).then((claims) =>
+						claims.reclaimHeld(deps.claims ?? claims.busClaims(pi), ctx, held),
+					);
+		const content = context.buildBoardContext(held, note);
 		return content === undefined
 			? undefined
 			: { message: { customType: context.BOARD_CONTEXT_TYPE, content, display: false } };

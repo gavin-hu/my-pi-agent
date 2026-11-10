@@ -318,6 +318,10 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * listener cannot defer behind a first call. It is the second surface a command context
  * needs, and the row holds both.
  *
+ * `session-bus` 45 -> 46 for `claim-request.ts`, on the same terms: a path claim is asked for
+ * by a turn start (`board`'s re-claim) and by a command, and neither has a nested tool call,
+ * so the listener is registered with the join and the send ones rather than deferred.
+ *
  * `subagent` went 33 -> 34: an aborted or timed-out run signals the process tree, so
  * `run.ts` asks `lib/spawn.ts` for a child in its own group and for the group kill, the
  * rule `job` and `watch` already share, instead of a second copy of `kill(-pid)` and
@@ -367,7 +371,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	plan: 57,
 	team: 51,
 	job: 45,
-	"session-bus": 45,
+	"session-bus": 46,
 	subagent: 34,
 	"web-access": 41,
 	worktree: 38,

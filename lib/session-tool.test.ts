@@ -19,7 +19,11 @@ import {
 	notDeliveredLine,
 	releasePaths,
 	send,
+	SESSION_CLAIM_REQUEST,
+	SESSION_RELEASE_REQUEST,
 	SESSION_SEND_REQUEST,
+	type SessionClaimRequest,
+	type SessionReleaseRequest,
 	type SessionSendRequest,
 	TEAM_JOIN_REQUEST,
 	type TeamJoinRequest,
@@ -48,6 +52,12 @@ const ok = (details: unknown): Reply => ({ result: { content: [], details } });
 /** The host a tool's `send` never asks: the nested call answers before it reads `pi`. */
 function nestedHost(): never {
 	return host<SessionSendRequest>(undefined).host as never;
+}
+
+/** A context with no `executeTool`, which is every event handler and every command. */
+function commandCtx(): ExtensionContext {
+	const { executeTool: _executeTool, ...rest } = fakeCtx().ctx as Record<string, unknown>;
+	return rest as unknown as ExtensionContext;
 }
 
 /**
@@ -166,7 +176,7 @@ describe("claimPaths", () => {
 				conflicts: [{ path: "src/api", owner: "fedcba654321", ownerLabel: "billing-core" }, { path: "src/web" }],
 			}),
 		);
-		expect(await claimPaths(ctx, ["src/api"])).toEqual({
+		expect(await claimPaths(nestedHost(), ctx, ["src/api"])).toEqual({
 			ok: true,
 			claimed: [],
 			conflicts: [{ path: "src/api", owner: "fedcba654321", ownerLabel: "billing-core" }],
@@ -176,23 +186,53 @@ describe("claimPaths", () => {
 
 	test("a claimed list comes back whole, and a refusal keeps the bus's sentence", async () => {
 		const claimed = client(() => ok({ claimed: ["src/api"], conflicts: [] }));
-		expect(await claimPaths(claimed.ctx, ["src/api"])).toEqual({ ok: true, claimed: ["src/api"], conflicts: [] });
+		expect(await claimPaths(nestedHost(), claimed.ctx, ["src/api"])).toEqual({
+			ok: true,
+			claimed: ["src/api"],
+			conflicts: [],
+		});
 		const refused = client(() => ({
 			isError: true,
 			result: { content: [{ type: "text", text: "Error: the bus refused" }] },
 		}));
-		expect(await claimPaths(refused.ctx, ["src/api"])).toEqual({ ok: false, error: "the bus refused" });
+		expect(await claimPaths(nestedHost(), refused.ctx, ["src/api"])).toEqual({ ok: false, error: "the bus refused" });
 	});
 
-	test("nothing to claim asks nothing, and a context that cannot call a tool says so", async () => {
+	test("nothing to claim asks nothing, and a context with no nested call asks the bus", async () => {
 		const { ctx, calls } = client(() => ok({}));
-		expect(await claimPaths(ctx, [])).toEqual({ ok: true, claimed: [], conflicts: [] });
+		expect(await claimPaths(nestedHost(), ctx, [])).toEqual({ ok: true, claimed: [], conflicts: [] });
 		expect(calls).toEqual([]);
-		const { ctx: command } = fakeCtx();
-		const { executeTool: _executeTool, ...rest } = command as Record<string, unknown>;
-		expect(await claimPaths(rest as never, ["src/api"])).toEqual({
+		// The gap this transport exists for: `before_agent_start` hands an event context, which
+		// has no `executeTool`, so the claim has to be a request or it is nothing at all.
+		const asker = host<SessionClaimRequest>((request) =>
+			request.respond({ ok: true, claimed: ["src/api"], conflicts: [] }),
+		);
+		expect(await claimPaths(asker.host as never, commandCtx(), ["src/api"])).toEqual({
+			ok: true,
+			claimed: ["src/api"],
+			conflicts: [],
+		});
+		expect(asker.emitted).toHaveLength(1);
+		expect(asker.emitted[0]?.channel).toBe(SESSION_CLAIM_REQUEST);
+		expect((asker.emitted[0]?.data as SessionClaimRequest).paths).toEqual(["src/api"]);
+	});
+
+	test("a bus that is not loaded is the sentence, and asks nobody", async () => {
+		const quiet = host<SessionClaimRequest>(undefined, { loaded: false });
+		expect(await claimPaths(quiet.host as never, commandCtx(), ["src/api"])).toEqual({
 			ok: false,
-			error: "a path claim needs a tool context",
+			error: "the session bus is not loaded",
+		});
+		expect(quiet.emitted).toEqual([]);
+	});
+
+	test("a listener that fails is a sentence, not a rejection", async () => {
+		const broken = host<SessionClaimRequest>((request) =>
+			request.respond(Promise.reject(new Error("the bus went away"))),
+		);
+		expect(await claimPaths(broken.host as never, commandCtx(), ["src/api"])).toEqual({
+			ok: false,
+			error: "the bus went away",
 		});
 	});
 });
@@ -200,7 +240,7 @@ describe("claimPaths", () => {
 describe("releasePaths", () => {
 	test("releases as one nested call, and a path nobody held is an answer", async () => {
 		const { ctx, calls } = client(() => ok({ released: ["src/api"], notOwned: ["src/web"] }));
-		expect(await releasePaths(ctx, ["src/api", "src/web"])).toEqual({
+		expect(await releasePaths(nestedHost(), ctx, ["src/api", "src/web"])).toEqual({
 			ok: true,
 			released: ["src/api"],
 			notOwned: ["src/web"],
@@ -210,13 +250,25 @@ describe("releasePaths", () => {
 
 	test("nothing to release asks nothing, and a failure is reported", async () => {
 		const { ctx, calls } = client(() => ok({}));
-		expect(await releasePaths(ctx, [])).toEqual({ ok: true, released: [], notOwned: [] });
+		expect(await releasePaths(nestedHost(), ctx, [])).toEqual({ ok: true, released: [], notOwned: [] });
 		expect(calls).toEqual([]);
 		const failed = client(() => ({ isError: true, result: { content: [] } }));
-		expect(await releasePaths(failed.ctx, ["src/api"])).toEqual({
+		expect(await releasePaths(nestedHost(), failed.ctx, ["src/api"])).toEqual({
 			ok: false,
 			error: "the session bus did not answer.",
 		});
+	});
+
+	test("a context with no nested call releases by request, and maps the answer", async () => {
+		const asker = host<SessionReleaseRequest>((request) =>
+			request.respond({ ok: true, released: ["src/api"], notOwned: ["src/web"] }),
+		);
+		expect(await releasePaths(asker.host as never, commandCtx(), ["src/api", "src/web"])).toEqual({
+			ok: true,
+			released: ["src/api"],
+			notOwned: ["src/web"],
+		});
+		expect(asker.emitted.map((entry) => entry.channel)).toEqual([SESSION_RELEASE_REQUEST]);
 	});
 });
 

@@ -8,7 +8,8 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { boardHarness } from "../../test/helpers/board.ts";
+import { readFileSync, writeFileSync } from "node:fs";
+import { boardHarness, cardFile } from "../../test/helpers/board.ts";
 import { pageWithNoRecording } from "../../test/helpers/board-command.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withEnv } from "../../test/helpers/env.ts";
@@ -16,7 +17,12 @@ import { makeTempTracker } from "../../test/helpers/git.ts";
 import { billingCard, numberedCard } from "../../test/helpers/fixtures/board.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import type { Card } from "../../lib/board/card.ts";
-import type { ClaimPathsResult, ReleasePathsResult } from "../../lib/session-tool.ts";
+import {
+	type ClaimPathsResult,
+	type ReleasePathsResult,
+	SESSION_CLAIM_REQUEST,
+	type SessionClaimRequest,
+} from "../../lib/session-tool.ts";
 import type { Claims } from "./claims.ts";
 import {
 	BOARD_CONTEXT_MARKER,
@@ -108,6 +114,23 @@ describe("the line", () => {
 		for (const bullet of line.split("\n").slice(1, -1)) expect(bullet.endsWith("…")).toBe(false);
 	});
 
+	test("spends the re-claim's one sentence inside the same ceiling", () => {
+		// A bus that refused a path is the fact a resumed session has to hear, and it is spent on a
+		// bullet like any other: clipped to one line's height, and never past the message's ceiling.
+		const note = "#4: not claimed (the session bus did not answer)";
+		const line = buildBoardContext([inLane("execute")], note) ?? "";
+		expect(line.split("\n").at(-1)).toBe(`- ${note}`);
+		expect(line.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
+
+		const long = buildBoardContext([inLane("execute")], "#4: not claimed (a bus with a very long story)") ?? "";
+		expect(long.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
+		// Three cards and a note cannot all fit: the note wins, because it is the one that failed.
+		const many = [1, 2, 3].map((n) => numberedCard(String(n), { lane: "execute", owner: { label: "api-core" } }));
+		const clipped = buildBoardContext(many, "#4: 2 paths already held by billing-core") ?? "";
+		expect(clipped.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
+		expect(clipped.split("\n").at(-1)).toBe("- #4: 2 paths already held by billing-core");
+	});
+
 	test("is recognized by its custom type, and only that", () => {
 		expect(isBoardContext({ customType: BOARD_CONTEXT_TYPE })).toBe(true);
 		expect(isBoardContext({ customType: "goal-context" })).toBe(false);
@@ -175,6 +198,92 @@ describe("the factory's turn", () => {
 			await call({ action: "add", title: "Two", paths: [] });
 			await call({ action: "claim", card: "2" });
 			expect(await starters[0]?.({}, harness.ctx)).toBeUndefined();
+		});
+	});
+
+	test("re-claims a resumed session's paths by request, because a turn start has no nested call", async () => {
+		await withEnv(ENABLED, async () => {
+			const harness = boardHarness({ now: NOW, lead: LEAD, track: temps.track });
+			// The bus is loaded, as it is in a session that has one; what it is asked for is recorded
+			// here rather than written, because this case is about the transport.
+			harness.fake.pi.registerTool({ name: "session" });
+			const asked: string[][] = [];
+			harness.fake.pi.events.on(SESSION_CLAIM_REQUEST, (data: unknown) => {
+				const request = data as SessionClaimRequest;
+				asked.push([...request.paths]);
+				request.respond({ ok: true, claimed: [...request.paths], conflicts: [] });
+			});
+			// No `claims` seam: the production one, which is the thing this case exists to prove.
+			board(harness.fake.pi, { session: harness.runtime, page: pageWithNoRecording() });
+			const tool = harness.fake.pi.tools.get("board");
+			if (!tool) throw new Error("the board tool was not registered");
+			const call = (args: Record<string, unknown>) => tool.execute("call-1", args, undefined, undefined, harness.ctx);
+			await call({ action: "add", title: "One", paths: ["src/api"] });
+			await call({ action: "claim", card: "1" });
+			// The lane the gates put a card in, written straight: this case is about the turn start,
+			// and the two signs are proved by their own suites.
+			const file = cardFile(harness.agentDir, "1");
+			const written = JSON.parse(readFileSync(file, "utf8")) as { rev: number };
+			writeFileSync(file, JSON.stringify({ ...written, lane: "execute", rev: written.rev + 1 }));
+
+			const starters = harness.fake.handlers.get("before_agent_start") ?? [];
+			// The context a turn start gets: an event context, with no `executeTool`. Handing it the
+			// tool's context is how the first version of this passed while the shipped path did nothing.
+			const { executeTool: _executeTool, ...event } = harness.ctx as Record<string, unknown>;
+			const first = (await starters[0]?.({}, event)) as { message: { content: string } } | undefined;
+			expect(asked).toEqual([["src/api"]]);
+			expect(first?.message.content).toContain("#1 (execute)");
+		});
+	});
+
+	test("says the one path it could not take, on the line the resumed session reads", async () => {
+		await withEnv(ENABLED, async () => {
+			const harness = boardHarness({ now: NOW, lead: LEAD, track: temps.track });
+			board(harness.fake.pi, {
+				session: harness.runtime,
+				page: pageWithNoRecording(),
+				claims: {
+					loaded: () => true,
+					claim: async () => ({
+						ok: true as const,
+						claimed: [],
+						conflicts: [{ path: "src/api", owner: "s-2", ownerLabel: "billing-core" }],
+					}),
+					release: async () => ({ ok: true as const, released: [], notOwned: [] }),
+				},
+			});
+			const tool = harness.fake.pi.tools.get("board");
+			if (!tool) throw new Error("the board tool was not registered");
+			const call = (args: Record<string, unknown>) => tool.execute("call-1", args, undefined, undefined, harness.ctx);
+			await call({ action: "add", title: "One", paths: ["src/api"] });
+			await call({ action: "claim", card: "1" });
+			const file = cardFile(harness.agentDir, "1");
+			const written = JSON.parse(readFileSync(file, "utf8")) as { rev: number };
+			writeFileSync(file, JSON.stringify({ ...written, lane: "execute", rev: written.rev + 1 }));
+
+			const starters = harness.fake.handlers.get("before_agent_start") ?? [];
+			const first = (await starters[0]?.({}, harness.ctx)) as { message: { content: string } } | undefined;
+			expect(first?.message.content).toContain("- #1: 1 path already held by billing-core");
+		});
+	});
+
+	test("reads again after a tree jump, which rebuilds the branch behind the line", async () => {
+		await withEnv(ENABLED, async () => {
+			const harness = boardHarness({ now: NOW, lead: LEAD, track: temps.track });
+			board(harness.fake.pi, { session: harness.runtime, page: pageWithNoRecording(), claims: claims() });
+			const tool = harness.fake.pi.tools.get("board");
+			if (!tool) throw new Error("the board tool was not registered");
+			const call = (args: Record<string, unknown>) => tool.execute("call-1", args, undefined, undefined, harness.ctx);
+			await call({ action: "add", title: "One", paths: [] });
+			await call({ action: "claim", card: "1" });
+			const starters = harness.fake.handlers.get("before_agent_start") ?? [];
+			expect(await starters[0]?.({}, harness.ctx)).toBeDefined();
+			expect(await starters[0]?.({}, harness.ctx)).toBeUndefined();
+
+			const jump = harness.fake.handlers.get("session_tree") ?? [];
+			expect(jump).toHaveLength(1);
+			await jump[0]?.({}, harness.ctx);
+			expect(await starters[0]?.({}, harness.ctx)).toBeDefined();
 		});
 	});
 

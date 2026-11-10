@@ -251,23 +251,38 @@ describe("through the board tool", () => {
 });
 
 describe("reclaimHeld", () => {
-	test("claims only the paths of the cards held in execute", async () => {
+	test("claims only the paths of the cards held in execute, and says nothing on success", async () => {
 		const claims = bus();
-		await reclaimHeld(claims, CTX, [
-			card("execute"),
-			card("plan", ["src/plan"]),
-			card("execute", []),
-			card("done", ["src/done"]),
-		]);
+		expect(
+			await reclaimHeld(claims, CTX, [
+				card("execute"),
+				card("plan", ["src/plan"]),
+				card("execute", []),
+				card("done", ["src/done"]),
+			]),
+		).toBeUndefined();
 		expect(claims.sent).toEqual([{ call: "claim", paths: ["src/api", "src/web"] }]);
 	});
 
-	test("asks nothing without a bus, and never throws", async () => {
+	test("names the path a peer holds, instead of dropping the answer", async () => {
+		// The answer was discarded before this case existed, which is how a re-claim that could not
+		// happen at all stayed invisible.
+		const claims = bus({
+			claim: {
+				ok: true,
+				claimed: [],
+				conflicts: [{ path: "src/api", owner: "s-2", ownerLabel: "billing-core" }],
+			},
+		});
+		expect(await reclaimHeld(claims, CTX, [card("execute")])).toBe("#4: 1 path already held by billing-core");
+	});
+
+	test("asks nothing without a bus, and turns a throw into its sentence", async () => {
 		const quiet = bus({ loaded: false });
-		await reclaimHeld(quiet, CTX, [card("execute")]);
+		expect(await reclaimHeld(quiet, CTX, [card("execute")])).toBeUndefined();
 		expect(quiet.sent).toEqual([]);
 		const broken = bus({ throws: true });
-		await reclaimHeld(broken, CTX, [card("execute")]);
+		expect(await reclaimHeld(broken, CTX, [card("execute")])).toBe("#4: not claimed (the bus went away)");
 		expect(broken.sent).toHaveLength(1);
 		temps.flush();
 	});

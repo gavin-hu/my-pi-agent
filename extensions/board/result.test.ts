@@ -131,6 +131,17 @@ describe("the collapsed line", () => {
 		expect(line.indexOf("told api-core")).toBeGreaterThan(line.indexOf(ME.label));
 	});
 
+	test("draws a drop's clause too, which only the text used to carry", () => {
+		// The defect: the `dropped` arm returned before the clause, so a release the bus refused was
+		// in the result's text and nowhere in the block a reader sees without expanding.
+		const held = "paths not released (the bus refused the write)";
+		const line = collapsedLine(coloringTheme, { action: "drop", me: ME, dropped: "4", held });
+		expect(line).toContain(held);
+		expect(line.indexOf(held)).toBeGreaterThan(line.indexOf(ME.label));
+		// The ordinary drop says nothing more than it did: a release that worked has no clause.
+		expect(collapsedLine(coloringTheme, { action: "drop", me: ME, dropped: "4" })).not.toContain("not released");
+	});
+
 	test("draws a sign that reached nobody, which only the text used to carry", () => {
 		const told = "api-core was not told (the session bus is not loaded)";
 		const line = collapsedLine(coloringTheme, { action: "review", me: ME, card: card(), told });

@@ -20,7 +20,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { Card } from "../../lib/board/card.ts";
+import { type Card, cardRef } from "../../lib/board/card.ts";
 import { plural } from "../../lib/board/round-text.ts";
 import type { MutateResult } from "../../lib/board/store.ts";
 import { sanitizeLine } from "../../lib/format.ts";
@@ -41,11 +41,11 @@ export interface Claims {
 }
 
 /** The production seam, bound to the extension's `pi`. */
-export function busClaims(pi: Pick<ExtensionAPI, "getAllTools">): Claims {
+export function busClaims(pi: Pick<ExtensionAPI, "events" | "getAllTools">): Claims {
 	return {
 		loaded: () => busLoaded(pi),
-		claim: (ctx, paths) => claimPaths(ctx, paths),
-		release: (ctx, paths) => releasePaths(ctx, paths),
+		claim: (ctx, paths) => claimPaths(pi, ctx, paths),
+		release: (ctx, paths) => releasePaths(pi, ctx, paths),
 	};
 }
 
@@ -74,28 +74,49 @@ export async function holdPaths(
 }
 
 /**
- * Claim the paths of the cards this session already holds in `execute`.
+ * Claim the paths of the cards this session already holds in `execute`, and say what was not held.
  *
  * The first turn after a session starts is the one write this module makes without a lane
  * crossing: the bus forgets a session's claims when it stops, and a resumed session is holding
  * the same card. Best-effort by design — the first turn must not fail on a bus, and the claim
- * it repeats is idempotent.
+ * it repeats is idempotent — but not silent: a refusal or a conflict is one clause the injected
+ * line carries, because a failure nobody hears is what made this re-claim a no-op in the first
+ * place. `undefined` is every ordinary answer: no bus, no execute card with paths, or all held.
  */
-export async function reclaimHeld(claims: Claims, ctx: ExtensionContext, held: readonly Card[]): Promise<void> {
-	if (!claims.loaded()) return;
+export async function reclaimHeld(
+	claims: Claims,
+	ctx: ExtensionContext,
+	held: readonly Card[],
+): Promise<string | undefined> {
+	if (!claims.loaded()) return undefined;
+	const failed: string[] = [];
 	for (const card of held) {
 		if (card.lane !== "execute" || card.paths.length === 0) continue;
-		await claims.claim(ctx, card.paths).catch(() => undefined);
+		const clause = reclaimClause(await claims.claim(ctx, card.paths).catch(failedClaim));
+		if (clause !== undefined) failed.push(`${cardRef(card.id)}: ${clause}`);
 	}
+	return failed.length === 0 ? undefined : failed.join("; ");
+}
+
+/** A seam that threw, as the answer it would have given: a bus that went away is a refusal. */
+function failedClaim(error: unknown): { ok: false; error: string } {
+	return { ok: false, error: error instanceof Error ? error.message : String(error) };
+}
+
+/**
+ * What a re-claim answered with something other than "held": the refusal, or the paths another
+ * session has. Shorter than the crossing's clause because the card id it follows is the subject.
+ */
+function reclaimClause(answer: ClaimPathsResult): string | undefined {
+	if (!answer.ok) return `not claimed (${sanitizeLine(answer.error)})`;
+	if (answer.conflicts.length === 0) return undefined;
+	return `${plural(answer.conflicts.length, "path")} already held by ${holdersOf(answer.conflicts)}`;
 }
 
 /** What a claim did, as one clause: the paths it took, the ones it could not, or why not. */
 async function claimedClause(claims: Claims, ctx: ExtensionContext, card: Card): Promise<string | undefined> {
 	if (card.paths.length === 0) return undefined;
-	const answer = await claims.claim(ctx, card.paths).catch((error: unknown) => ({
-		ok: false as const,
-		error: error instanceof Error ? error.message : String(error),
-	}));
+	const answer = await claims.claim(ctx, card.paths).catch(failedClaim);
 	if (!answer.ok) return `paths not claimed (${sanitizeLine(answer.error)})`;
 	if (answer.conflicts.length === 0) return `claimed ${plural(answer.claimed.length, "path")}`;
 	return `${plural(answer.conflicts.length, "path")} already held by ${holdersOf(answer.conflicts)}`;
@@ -109,10 +130,7 @@ async function claimedClause(claims: Claims, ctx: ExtensionContext, card: Card):
  */
 async function releasedClause(claims: Claims, ctx: ExtensionContext, card: Card): Promise<string | undefined> {
 	if (card.paths.length === 0) return undefined;
-	const answer = await claims.release(ctx, card.paths).catch((error: unknown) => ({
-		ok: false as const,
-		error: error instanceof Error ? error.message : String(error),
-	}));
+	const answer = await claims.release(ctx, card.paths).catch(failedClaim);
 	return answer.ok ? undefined : `paths not released (${sanitizeLine(answer.error)})`;
 }
 
