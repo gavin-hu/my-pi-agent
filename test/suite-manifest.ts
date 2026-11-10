@@ -50,6 +50,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"input",
 		"kind",
 		"record",
+		"recipient",
 		"render",
 		"result",
 		"rollup",

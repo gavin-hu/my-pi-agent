@@ -368,7 +368,9 @@ export function approve(
 	const signed = signedAs(contract.approved, actor, config.lead);
 	if (signed && !noted.wrote) return { changed: false, fields: null };
 	const approval = signed ? {} : { contract: { ...contract, approved: { ...signMark(actor, config.lead), at: now } } };
-	return { changed: true, fields: { ...approval, ...noted.fields } };
+	// A note on its own is a card write without a signature, so the message the sign sends is not
+	// one this write owes: only the arm that stamps says so.
+	return { changed: true, fields: { ...approval, ...noted.fields }, ...(signed ? {} : { signed: true as const }) };
 }
 
 /**
@@ -420,7 +422,9 @@ export function review(
 			? { ...signMark(actor, config.lead), at: now }
 			: { ...signMark(actor, config.lead), at: now, byInstruction: instruction.text };
 	const spotCheck = signed ? {} : { review: stamp };
-	return { changed: true, fields: { ...spotCheck, ...noted.fields } };
+	// As with `approve`: a second signer's note moves the card, and only a fresh stamp is a fact
+	// the owner has not been told yet.
+	return { changed: true, fields: { ...spotCheck, ...noted.fields }, ...(signed ? {} : { signed: true as const }) };
 }
 
 /**

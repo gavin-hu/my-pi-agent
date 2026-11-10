@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a sign says who heard it. The result read `told api-core` for a message written into a
+  peer's inbox, so a session that was not listening — the one thing a lead could act on — read as
+  told, and the line named the label the card kept rather than the peer the bus reached. The
+  message is addressed through the bus's live records now (a card whose holder id has aged out
+  still reaches the session holding its label), the clause says when that watch is off, and a
+  repeated sign that only added a note no longer announces the signature again.
+
 - `board`: a card's record ticks. The dialog is filled once per frame and a frame only arrives
   when a card moves, so every age inside it — how long the card has held its lane, the contract's
   signature, the last write, the review, and each note's stamp — was a string frozen where that

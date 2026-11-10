@@ -169,5 +169,15 @@ export async function signingBoard(options: { notify?: Notify } = {}) {
 		await command.handler(args, commandContext);
 		return notifications.at(-1);
 	};
-	return { store, id: card.id, plan, say, temps, me, agentDir: harness.agentDir };
+	return {
+		store,
+		id: card.id,
+		plan,
+		say,
+		temps,
+		me,
+		agentDir: harness.agentDir,
+		cwd: harness.ctx.cwd,
+		runtime: harness.runtime,
+	};
 }

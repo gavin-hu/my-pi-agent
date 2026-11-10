@@ -6,6 +6,14 @@
  * handoff does: an event that waits in the inbox and starts no turn, instead of a board the
  * owner has no reason to read twice.
  *
+ * Three facts make the result honest, and each is a question this module asks before it says
+ * anything. Who: the peer the roster lists under the card's owner, so a card whose holder id
+ * has aged out still reaches the session that holds the label (`recipient.ts`). Whether it will
+ * be read: a record with its watch off reports mail at its next turn rather than raising one,
+ * which is the one thing a lead can act on, and the page's Team tab already says it. And when:
+ * only a fresh stamp owes a message — a note on a card that was already signed is a write the
+ * owner has nothing to hear about.
+ *
  * It is sent after the write, so a bus that fails costs a line on the result and never the
  * signature: a refusal here would report an unrecorded sign that the card holds, and the
  * owner's next read would contradict it.
@@ -15,7 +23,9 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import type { Card } from "../../lib/board/card.ts";
 import { type Sign, notToldLine, signedText } from "../../lib/board/lead.ts";
 import { messageOf } from "../../lib/errors.ts";
+import type { RosterSession } from "../../lib/session-roster.ts";
 import { type SendResult, send } from "../../lib/session-tool.ts";
+import { type Recipient, recipientOf } from "./recipient.ts";
 
 /**
  * How a sign reaches the card's owner: one bus message, or a suite's record of one.
@@ -24,6 +34,18 @@ import { type SendResult, send } from "../../lib/session-tool.ts";
  * command makes — so both doors a sign has tell the owner the same way.
  */
 export type Notify = (ctx: ExtensionContext, input: { kind: "event"; to: string; text: string }) => Promise<SendResult>;
+
+/**
+ * What the caller knows about the team, both parts optional.
+ *
+ * `roster` is the bus's records read as data, which works with `session-bus` unloaded; `now` is
+ * the clock the roster's liveness rule is judged on. A caller with neither still sends — the
+ * card's own word addresses it, and the bus's answer is the fact reported.
+ */
+export interface Audience {
+	roster?: () => Promise<readonly RosterSession[] | undefined>;
+	now?: () => number;
+}
 
 /** The production bus, bound to the extension's `pi`: the same message a handoff travels on. */
 export function notifyOverBus(pi: Pick<ExtensionAPI, "events" | "getAllTools">): Notify {
@@ -44,13 +66,42 @@ export async function announce(
 	by: string,
 	ctx: ExtensionContext,
 	notify: Notify,
+	audience: Audience = {},
 ): Promise<string | undefined> {
 	const owner = card.owner;
 	if (owner === undefined) return undefined;
-	const to = owner.id ?? owner.label;
-	const answer = await notify(ctx, { kind: "event", to, text: signedText(card, sign, by) }).catch((error: unknown) => ({
-		ok: false as const,
-		error: messageOf(error),
-	}));
-	return answer.ok ? `  told ${owner.label}` : `  ${notToldLine(owner.label, answer.error)}`;
+	const recipient = recipientOf(owner, await rosterOf(audience), audience.now?.() ?? 0);
+	const answer = await notify(ctx, { kind: "event", to: recipient.to, text: signedText(card, sign, by) }).catch(
+		(error: unknown) => ({ ok: false as const, error: messageOf(error) }),
+	);
+	if (!answer.ok) return `  ${notToldLine(recipient.label, answer.error)}`;
+	// The label the bus wrote for, not the one the card kept: a rename between the claim and the
+	// sign is exactly the case the roster resolved, and the result should name the peer it reached.
+	const told = answer.delivered[0] ?? recipient.label;
+	return `  told ${told}${notListening(recipient)}`;
+}
+
+/**
+ * The clause for a peer whose watch is off: it holds the message, and reads it at its next turn.
+ *
+ * Only a record that says so earns this — an absent fact is not "nobody will read it", the rule
+ * `lib/board/view.ts` states for the page's chip.
+ */
+function notListening(recipient: Recipient): string {
+	return recipient.listening === false ? " (not listening: it reads this at its next turn)" : "";
+}
+
+/**
+ * The roster a caller offered, or nothing when it cannot answer.
+ *
+ * The read is a bus directory that may not be there, and it runs after a card was written: a
+ * roster that fails costs the two facts it would have added, never the sign or its message.
+ */
+async function rosterOf(audience: Audience): Promise<readonly RosterSession[] | undefined> {
+	if (audience.roster === undefined) return undefined;
+	try {
+		return await audience.roster();
+	} catch {
+		return undefined;
+	}
 }
