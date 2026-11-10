@@ -13,6 +13,8 @@ are needed before it can ship.
 - **Two signatures**: the lead approves a contract before `execute`, and
   spot-checks the work before `done`. The person at the keyboard can give either
   with `/board approve` and `/board review`.
+- **The lane is the record, and a session is told which cards are its own** — once,
+  before its first turn, with what each owes next.
 - **Steps stay out of it** — they live in the owner's plan and `todo`.
 
 ## What you can do
@@ -43,17 +45,13 @@ The model calls `board({ action: "add", … })` and then, when you say so,
 `board({ action: "claim", card: "1" })`. Those are tool actions, not commands:
 you type only `/board archive|approve|review|status|stop|team`.
 
-The claim's result names the next step — design it in plan mode, save the plan,
-record the contract — and `/board approve 1` will refuse it until the contract
-names a plan file in this repository's store.
+The claim's result names the next step, and `/board approve 1` refuses until the
+contract names a plan file in this repository's store.
 
 Every card's last line says what it needs next, so a lane can be read without
 opening a card: `contract ready — needs approval`, `executing — no spot-check
 yet`, `offered 2h ago — nobody took it`. The round is one line, and `/team`
 prints it in the terminal.
-
-A full walkthrough through both gates is
-[Your first board](../tutorials/first-board.md).
 
 ## Reference
 
@@ -93,7 +91,9 @@ claim past either is refused with the count and the ways out.
   does for a card nothing open waits on — and an archived record is closed but for `drop`.
 - The lead is a name, not an authority: any session can join it, and a lead holding a card
   can release it, sign it, and claim it again. A gate is a reading, not a permission.
-- Ownership is a label, not a lock: only `session-bus` path claims are.
+- Ownership is a label, not a lock: only `session-bus` path claims are. A card in `execute`
+  holds its `paths`, and the session that claimed them releases them when the lane changes —
+  so a `reclaim` leaves them held, and an `edit` to `paths` waits for the next crossing.
 - The page is read-only: a browser cannot assign a card without messaging its owner.
 - A card keeps eight lane transitions; an unreadable card file is reported, not skipped.
 

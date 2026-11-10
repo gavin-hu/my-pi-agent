@@ -13,7 +13,10 @@
  * for — `peers` is a nested tool call, and `send` is whichever its context allows: the
  * nested call from a tool, where the bus's own validation and hooks run, and the same
  * request from a command, so `/board approve` can tell a card's owner its gate was
- * signed. One function either way, so a caller never has to know which it is holding.
+ * signed. A path claim and a release are the same pair, and their second transport is
+ * `before_agent_start`'s: a board re-claims a resumed session's paths from an event
+ * handler, which has no nested call either. One function either way, so a caller never
+ * has to know which it is holding.
  *
  * Every function returns a result and none throws: "the bus is not loaded", "a plan
  * is open", and "that label is taken" are all answers a caller reports, not reasons
@@ -187,6 +190,17 @@ export function createTeamJoin(pi: Pick<ExtensionAPI, "events" | "getAllTools">)
 const NO_BUS = "the session bus is not loaded";
 
 /**
+ * Whether the `session` tool is loaded at all.
+ *
+ * The difference a caller acts on: no bus is a sentence a board still works through, while a
+ * bus that refused is a failure worth reporting. One probe, so the three callers that ask it
+ * cannot disagree about what "not loaded" means.
+ */
+export function busLoaded(pi: Pick<ExtensionAPI, "getAllTools">): boolean {
+	return pi.getAllTools().some((tool) => tool.name === SESSION_TOOL);
+}
+
+/**
  * Join the team: on the bus, named when a label is given, and listening for mail.
  *
  * One call for all three, because that is one act — see `join` in
@@ -204,7 +218,7 @@ export async function join(
 	ctx: ExtensionContext,
 	input: TeamJoinInput = {},
 ): Promise<JoinResult> {
-	if (!pi.getAllTools().some((tool) => tool.name === SESSION_TOOL)) return { ok: false, error: NO_BUS };
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS };
 	return requestOverBus<JoinResult, TeamJoinRequest>(pi, {
 		channel: TEAM_JOIN_REQUEST,
 		payload: (respond) => ({ ctx, input, respond }),
@@ -264,7 +278,7 @@ export async function send(
 ): Promise<SendResult> {
 	const nested = toolContext(ctx);
 	if (nested !== undefined) return nestedSend(nested, input);
-	if (!pi.getAllTools().some((tool) => tool.name === SESSION_TOOL)) return { ok: false, error: NO_BUS };
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS };
 	return requestOverBus<SendResult, SessionSendRequest>(pi, {
 		channel: SESSION_SEND_REQUEST,
 		payload: (respond) => ({ ctx, input, respond }),
@@ -291,4 +305,123 @@ async function nestedSend(ctx: ExtensionToolContext, input: SendInput): Promise<
 				})
 			: [],
 	};
+}
+
+/** EventBus channel on which a caller asks `session-bus` to claim paths for it. */
+export const SESSION_CLAIM_REQUEST = "my-pi-agent/session-claim/request";
+
+/** EventBus channel on which a caller asks `session-bus` to release its claims. */
+export const SESSION_RELEASE_REQUEST = "my-pi-agent/session-release/request";
+
+/** One path another session already holds, as the bus reports it. */
+export interface ClaimConflict {
+	path: string;
+	owner: string;
+	ownerLabel: string;
+}
+
+/**
+ * What claiming a card's paths did.
+ *
+ * A conflict is not a failure: the paths were asked for and somebody else holds them, which is
+ * the fact the caller reports. The claim itself is all-or-nothing — the bus touches no file
+ * when any path is taken — so `claimed` is empty whenever `conflicts` is not.
+ */
+export type ClaimPathsResult =
+	| { ok: true; claimed: string[]; conflicts: ClaimConflict[] }
+	| { ok: false; error: string };
+
+/** What releasing them did. `notOwned` is ordinary: nothing was held under that path. */
+export type ReleasePathsResult = { ok: true; released: string[]; notOwned: string[] } | { ok: false; error: string };
+
+/** What a claim asks of the bus when the caller's context cannot make a nested call. */
+export interface SessionClaimRequest {
+	/** The caller's context; the bus starts through it, as it does for a join. */
+	ctx: ExtensionContext;
+	paths: readonly string[];
+	/** Claimed once, with what the bus answered. */
+	respond(result: BusAnswer<ClaimPathsResult>): void;
+}
+
+/** What a release asks of the bus, on the same terms. */
+export interface SessionReleaseRequest {
+	ctx: ExtensionContext;
+	paths: readonly string[];
+	respond(result: BusAnswer<ReleasePathsResult>): void;
+}
+
+/**
+ * Claim paths for this session, as the board holds the files a card names.
+ *
+ * Two transports, and the context decides: a tool's context makes the nested call, where the
+ * bus's own validation and hooks run, and any other asks {@link SESSION_CLAIM_REQUEST} — the
+ * board's re-claim runs in `before_agent_start`, which has no `executeTool`, and that gap is
+ * what made it answer "needs a tool context" and do nothing. The empty list short-circuits,
+ * because most cards name no paths and the bus's answer would be "Nothing claimed." either way.
+ */
+export async function claimPaths(
+	pi: Pick<ExtensionAPI, "events" | "getAllTools">,
+	ctx: ExtensionContext,
+	paths: readonly string[],
+): Promise<ClaimPathsResult> {
+	if (paths.length === 0) return { ok: true, claimed: [], conflicts: [] };
+	const nested = toolContext(ctx);
+	if (nested !== undefined) {
+		const answer = await call(nested, { action: "claim", paths: [...paths] });
+		if ("error" in answer) return { ok: false, error: answer.error };
+		return {
+			ok: true,
+			claimed: stringsOf(answer.details.claimed),
+			conflicts: conflictsOf(answer.details.conflicts),
+		};
+	}
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS };
+	return requestOverBus<ClaimPathsResult, SessionClaimRequest>(pi, {
+		channel: SESSION_CLAIM_REQUEST,
+		payload: (respond) => ({ ctx, paths: [...paths], respond }),
+		unclaimed: () => ({ ok: false, error: NO_BUS }),
+		failed: (error) => ({ ok: false, error: messageOf(error) }),
+	});
+}
+
+/** Release this session's claims on `paths`. Not holding one is an answer, not a failure. */
+export async function releasePaths(
+	pi: Pick<ExtensionAPI, "events" | "getAllTools">,
+	ctx: ExtensionContext,
+	paths: readonly string[],
+): Promise<ReleasePathsResult> {
+	if (paths.length === 0) return { ok: true, released: [], notOwned: [] };
+	const nested = toolContext(ctx);
+	if (nested !== undefined) {
+		const answer = await call(nested, { action: "release", paths: [...paths] });
+		if ("error" in answer) return { ok: false, error: answer.error };
+		return {
+			ok: true,
+			released: stringsOf(answer.details.released),
+			notOwned: stringsOf(answer.details.notOwned),
+		};
+	}
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS };
+	return requestOverBus<ReleasePathsResult, SessionReleaseRequest>(pi, {
+		channel: SESSION_RELEASE_REQUEST,
+		payload: (respond) => ({ ctx, paths: [...paths], respond }),
+		unclaimed: () => ({ ok: false, error: NO_BUS }),
+		failed: (error) => ({ ok: false, error: messageOf(error) }),
+	});
+}
+
+/** The strings in a details field, when it is a list of them. */
+function stringsOf(value: unknown): string[] {
+	return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
+}
+
+/** The conflicts in a details field, when it is the bus's shape. */
+function conflictsOf(value: unknown): ClaimConflict[] {
+	if (!Array.isArray(value)) return [];
+	return value.flatMap((entry) => {
+		if (typeof entry !== "object" || entry === null) return [];
+		const { path, owner, ownerLabel } = entry as Record<string, unknown>;
+		if (typeof path !== "string" || typeof owner !== "string" || typeof ownerLabel !== "string") return [];
+		return [{ path, owner, ownerLabel }];
+	});
 }

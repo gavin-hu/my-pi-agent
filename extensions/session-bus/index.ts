@@ -18,6 +18,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { createPendingReporter, registerPendingChannel } from "../../lib/report.ts";
+import { registerClaimRequests } from "./claim-request.ts";
 import { registerCommands } from "./commands.ts";
 import { registerJoinRequests } from "./join-request.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
@@ -52,6 +53,9 @@ export default function sessionBus(pi: ExtensionAPI, deps: SessionBusDeps = {}):
 	// The same limit, for the one thing a command has to say: `/board approve` tells the
 	// card's owner its gate was signed.
 	registerSendRequests(pi, bus);
+	// And the same limit again for path claims: a lane crossing from a tool is one nested call,
+	// but the re-claim a resumed session makes runs before its first turn, where there is none.
+	registerClaimRequests(pi, bus);
 
 	registerPendingChannel(pi, {
 		reporter,

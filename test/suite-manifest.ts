@@ -47,6 +47,8 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	],
 	board: [
 		"card-id",
+		"claims",
+		"context",
 		"input",
 		"kind",
 		"record",
@@ -185,6 +187,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"watching",
 		"delivery",
 		"send-request",
+		"claim-request",
 		"result",
 		"view/session-list",
 		"tools",

@@ -32,16 +32,15 @@ bun run bench:render              # render benchmark
 
 `main` is protected by convention.
 
-- Start every task in a worktree, before plan mode, which refuses
-  `worktree`. Under Pi, `worktree` with `action: "enter"`; otherwise
-  `git worktree add .pi/worktrees/<name> -b worktree-<name>`. It cuts from
-  `origin/main`; never rebase it — the merge settles divergence.
+- Start every task in a worktree, before plan mode: `worktree` action `enter`, or
+  `git worktree add .pi/worktrees/<name> -b worktree-<name>`. Cuts from `origin/main`;
+  never rebase — the merge settles divergence.
 - Never commit unless the user asks; before `worktree` exits, ask how to reconcile
   the branch (commit, merge, keep, discard).
 - Commit as steps finish; when `main` moves, merge it in and run `bun run
   check` on that merge.
-- Land from a checkout on `main`: `git merge --no-ff <branch>`, then `git push
-  origin main`; never push a branch head to `main`.
+- Land from `main`: `git merge --no-ff <branch>`, then `git push origin main`; never push a
+  branch head to `main`.
 - Stage explicit paths; never `git add -A` or `git add .`. Never `git reset
   --hard`, `git checkout .`, `git clean -fd`, `git stash`, `git commit
   --no-verify`, or force-push `main`.
@@ -164,6 +163,8 @@ widths, so an overflowing frame fails there.
 
 ## How to work
 
+- Work a feature on its card: claim, contract, sign, `execute` before editing; with no card,
+  open one.
 - Be short and direct: answer before editing, state agreement or disagreement.
 - Ask before adding a runtime dependency to `package.json`.
 - Ask before removing functionality that looks intentional; add no backward
@@ -172,8 +173,6 @@ widths, so an overflowing frame fails there.
 
 ## Read more
 
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — checks, commits.
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — conventions, page template, compat, release.
-- [`scripts/README.md`](./scripts/README.md) — the commands; [`test/README.md`](./test/README.md) — tiers.
-- [`test/README.md`](./test/README.md) — test tiers, helpers, determinism.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — checks, commits, conventions, page template, compat, release.
+- [`scripts/README.md`](./scripts/README.md) — the commands; [`test/README.md`](./test/README.md) — tiers, helpers, determinism.
 - [`CONTRIBUTING.md#branch-flow`](./CONTRIBUTING.md#branch-flow) — the worktree flow above.

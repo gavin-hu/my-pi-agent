@@ -7,6 +7,7 @@
  * boundary (`card.ts`) is where that is normalized.
  */
 
+import type { Static } from "typebox";
 import { Type } from "typebox";
 import { MAX_NOTE, PRIORITIES } from "../../lib/board/card.ts";
 import { CARD_TYPES } from "../../lib/board/kind.ts";
@@ -139,3 +140,6 @@ export const BoardParams = Type.Object({
 		}),
 	),
 });
+
+/** The parameters as the schema validates them. */
+export type BoardArgs = Static<typeof BoardParams>;
