@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { boardHarness, cardFile } from "../../test/helpers/board.ts";
+import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { presetNameFor } from "../../lib/session-label.ts";
 import { registerTools } from "./tools.ts";
@@ -25,6 +26,9 @@ afterAll(() => temps.flush());
 const LEAD_ID = "s-lead";
 /** The name a session with that id joins under, which is the label the board signs with. */
 const LEAD = presetNameFor(LEAD_ID) ?? LEAD_ID;
+/** The peer that claims the bench's card, and the name its card records. */
+const PEER_ID = "s-peer";
+const PEER = presetNameFor(PEER_ID) ?? PEER_ID;
 const NOW = 50_000;
 
 /** The board tool's dependency seam, as `registerTools` takes it. */
@@ -41,12 +45,22 @@ interface Sent {
 }
 
 /** The bus, recorded: what a sign sent, or the sentence a bus that cannot answer gives. */
-function bus(options: { sent?: Sent[]; fail?: string } = {}): Notify {
+function bus(options: { sent?: Sent[]; fail?: string; delivered?: string } = {}): Notify {
 	return async (_ctx, input) => {
 		if (options.fail !== undefined) return { ok: false, error: options.fail };
 		options.sent?.push(input);
-		return { ok: true, delivered: [input.to], failed: [] };
+		// A bus answers with the labels it wrote for, not with what it was addressed by — the ids —
+		// which is the fact a sign reports back to its caller.
+		return { ok: true, delivered: [options.delivered ?? presetNameFor(input.to) ?? input.to], failed: [] };
 	};
+}
+
+/** One live record on this repository's bus, as a join writes it. */
+async function onBus(
+	who: Session,
+	record: { id: string; label: string; watching?: { armed: boolean; wake: boolean } },
+): Promise<void> {
+	writeBusRecord(await who.board.runtime.busDir(who.board.ctx.cwd), { lastSeen: NOW, ...record });
 }
 
 /** One repository, its agent directory, and the two sessions that act on one board. */
@@ -192,6 +206,44 @@ describe("a sign tells the other side", () => {
 		expect(signed.details.card?.contract?.approved?.by).toBe(LEAD);
 		expect(resultText(signed)).toContain("was not told (the session bus is not loaded)");
 		expect(signed.details.told).toContain("was not told (the session bus is not loaded)");
+	});
+
+	test("says the owner is not listening, which is the one thing a lead can act on", async () => {
+		const sent: Sent[] = [];
+		const board = bench({ notify: bus({ sent }) });
+		await claimedWithContract(board);
+		// The page's Team tab already draws this, and the handoff reports it: a watch that is off
+		// means mail waits for the owner's next turn instead of raising one.
+		await onBus(board.peer, { id: PEER_ID, label: PEER, watching: { armed: false, wake: false } });
+		const signed = await board.lead.call({ action: "approve", card: "1" });
+		expect(signed.details.told).toBe(`told ${PEER} (not listening: it reads this at its next turn)`);
+		expect(sent).toHaveLength(1);
+	});
+
+	test("reaches the session that holds the label when the card's id names nobody", async () => {
+		const sent: Sent[] = [];
+		const board = bench({ notify: bus({ sent, delivered: PEER }) });
+		await claimedWithContract(board);
+		// The holder's process is gone and a later session took its name. The bus refuses an
+		// unknown id rather than trying the label, so the roster is the only way there.
+		await onBus(board.lead, { id: "s-new", label: PEER, watching: { armed: true, wake: false } });
+		const signed = await board.lead.call({ action: "approve", card: "1" });
+		expect(sent[0]?.to).toBe("s-new");
+		expect(signed.details.told).toBe(`told ${PEER}`);
+	});
+
+	test("a repeated sign that only added a note says nothing", async () => {
+		const sent: Sent[] = [];
+		const board = bench({ notify: bus({ sent }) });
+		await claimedWithContract(board);
+		await board.lead.call({ action: "approve", card: "1" });
+		sent.length = 0;
+		const again = await board.lead.call({ action: "approve", card: "1", text: "Read it again; still fine." });
+		// The note landed, so the card moved — but the signature did not, and the message a sign
+		// sends is about the stamp rather than about the file.
+		expect(again.details.card?.notes.at(-1)?.text).toBe("Read it again; still fine.");
+		expect(sent).toHaveLength(0);
+		expect(again.details.told).toBeUndefined();
 	});
 });
 

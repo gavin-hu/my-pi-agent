@@ -190,11 +190,16 @@ async function signLine(
 		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}`
 		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}`;
 	// The message is the tool's rule as well as its transport: a repeated sign writes nothing, so
-	// it tells nobody, and a card nobody holds has nobody to tell.
+	// it tells nobody, and a card nobody holds has nobody to tell. A note is the one write this
+	// door cannot make — `signOp` carries no text — so `changed` here already means a fresh stamp,
+	// which is the narrower fact the tool's own gate reads.
 	if (result.card.owner === undefined || !result.changed) return { text, tone: "info" };
 	const { announce, notifyOverBus } = await import("./announce.ts");
 	const sender = notify ?? notifyOverBus(pi);
-	const told = await announce(result.card, sign, signMark(personActor(), lead).by, ctx, sender);
+	const told = await announce(result.card, sign, signMark(personActor(), lead).by, ctx, sender, {
+		roster: () => session.roster(ctx.cwd),
+		now: () => session.now(),
+	});
 	const clause = told?.trim();
 	return { text: clause === undefined ? text : `${text} · ${clause}`, tone: "info" };
 }

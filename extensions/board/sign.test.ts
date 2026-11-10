@@ -11,6 +11,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { cardFile } from "../../test/helpers/board.ts";
+import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeBoardSession, pageWithNoRecording, signingBoard } from "../../test/helpers/board-command.ts";
@@ -134,6 +135,29 @@ describe("/board approve and /board review", () => {
 		// The owner is addressed by id, which survives a rename, and the message is the tool's.
 		expect(sent.map((input) => [input.kind, input.to])).toEqual([["event", "s-lead"]]);
 		expect(sent[0]?.text).toContain(`"One" — its contract is approved by lead`);
+		board.temps.flush();
+	});
+
+	test("says the owner's watch is off, in the clause the tool prints too", async () => {
+		const { notify } = toldBy({ ok: true });
+		const board = await signingBoard({ notify });
+		// The card is held by this very session, so a record on the bus is the only word on its watch:
+		// mail that waits for its next turn rather than raising one.
+		writeBusRecord(await board.runtime.busDir(board.cwd), {
+			id: "s-lead",
+			label: "team-agent-slead",
+			lastSeen: 1_000,
+			watching: { armed: false, wake: false },
+		});
+		await board.store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		expect(await board.say("approve 1")).toBe(
+			"board: #1 approved by you · told team-agent-slead (not listening: it reads this at its next turn)",
+		);
 		board.temps.flush();
 	});
 

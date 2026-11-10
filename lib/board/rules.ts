@@ -132,11 +132,17 @@ export type CardOp =
 	| { kind: "archive" }
 	| { kind: "drop" };
 
-/** What an operation did: the new card, or the reason it was refused. */
-export type OpResult = { ok: true; card: Card; changed: boolean } | { ok: false; error: string };
+/**
+ * What an operation did: the new card, or the reason it was refused.
+ *
+ * `signed` is the one fact `changed` cannot carry: a repeated sign that added a note writes the
+ * card without stamping a signature, and the message a sign sends belongs to the stamp rather
+ * than to the file.
+ */
+export type OpResult = { ok: true; card: Card; changed: boolean; signed?: true } | { ok: false; error: string };
 
 /** What one operation would write, or why it may not. */
-export type Prepared = { error: string } | { fields: Partial<Card> | null; changed: boolean };
+export type Prepared = { error: string } | { fields: Partial<Card> | null; changed: boolean; signed?: true };
 
 /** A card's first state: `backlog`, no owner, one note at most. */
 export function createCard(
@@ -210,10 +216,11 @@ export function applyOp(
 	const prepared = prepare(card, op, actor, now, board, config, place);
 	if ("error" in prepared) return { ok: false, error: prepared.error };
 	if (!prepared.changed) return { ok: true, card, changed: false };
+	const signed = prepared.signed === true ? { signed: true as const } : {};
 	// `archive` changes the pile a card's file lies in and no field at all, which is why
 	// its step has nothing to write and the store's move is the whole of the operation.
-	if (prepared.fields === null) return { ok: true, card, changed: true };
-	return { ok: true, card: write(card, actor, now, prepared.fields), changed: true };
+	if (prepared.fields === null) return { ok: true, card, changed: true, ...signed };
+	return { ok: true, card: write(card, actor, now, prepared.fields), changed: true, ...signed };
 }
 
 /**

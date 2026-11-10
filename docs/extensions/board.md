@@ -74,10 +74,10 @@ without the gate; the record then reads `closed by instruction`.
 `/board archive` runs the sweep; `/board status` prints the seat, repository,
 port, watching tabs, and store; `/board stop` stops the page this session serves.
 
-**Who signs.** The lead is `board.lead` in `bytefly.json` (`lead` by default), and
-the page serves as that name. A session signs only while it is the lead and never
-while it holds the card; `/board approve` and `/board review` sign as the person,
-marked `person: true`, which is how a one-session repository finishes work.
+**Who signs.** The lead is `board.lead` in `bytefly.json` (`lead` by default), and the page serves
+as that name. A session signs only while it is the lead and never while it holds the card;
+`/board approve` and `/board review` sign as the person, marked `person: true` — how a one-session
+repository finishes work. The sign then names the peer it reached, or that it is not listening.
 
 **Where it lives.** `~/.pi/agent/board/<repo-key>/` — one card per file under
 `cards/`, with `archive/` and `ended/` beside it. The `page.json` a served page

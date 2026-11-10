@@ -129,7 +129,7 @@ const SIGN_WORDS: Record<Sign, SignWords> = {
 			`${cardRef(card.id)} is in plan; its contract is not approved yet. The lead (${lead}) approves with \`approve\` (${askLead(lead)}), or the person with \`/board approve ${card.id}\`.`,
 		signed: (card, by) =>
 			`Signature: ${cardRef(card.id)} "${card.title}" — its contract is approved by ${by}.\n` +
-			`Next: \`execute\` is open — board action "move" with lane "execute". \`done\` still needs the lead's \`review\`.`,
+			`Next: \`execute\` is open — board action "move" with lane "execute", while the lane has room. \`done\` still needs the lead's \`review\`.`,
 	},
 	review: {
 		notSigner: (card, actor, lead) =>

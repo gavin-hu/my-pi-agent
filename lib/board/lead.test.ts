@@ -124,7 +124,7 @@ describe("askLead", () => {
 describe("signedText", () => {
 	test("the owner is told who signed and the move the sign unlocked", () => {
 		expect(signedText(CARD, "approve", THE_LEAD.label)).toBe(
-			'Signature: #4 "feature 4" — its contract is approved by Team-Lead.\nNext: `execute` is open — board action "move" with lane "execute". `done` still needs the lead\'s `review`.',
+			'Signature: #4 "feature 4" — its contract is approved by Team-Lead.\nNext: `execute` is open — board action "move" with lane "execute", while the lane has room. `done` still needs the lead\'s `review`.',
 		);
 		expect(signedText(CARD, "review", THE_LEAD.label)).toBe(
 			'Signature: #4 "feature 4" — spot-checked by Team-Lead.\nNext: `done` is open — board action "move" with lane "done", while the plan it recorded is still in the store.',

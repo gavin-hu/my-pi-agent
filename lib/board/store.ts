@@ -96,7 +96,7 @@ export interface CreateInput {
 
 /** What a mutation did, or why it was refused. */
 export type MutateResult =
-	| { ok: true; card: Card; changed: boolean; dropped: boolean; archived: boolean }
+	| { ok: true; card: Card; changed: boolean; dropped: boolean; archived: boolean; signed?: true }
 	| { ok: false; error: string; card?: Card };
 
 /**
@@ -376,7 +376,7 @@ export function createStore(
 				}
 				// Written back to the board and nowhere else: an archived record refuses every write.
 				await writeCardFile(cardsDir, id, result.card);
-				return { ok: true, card: result.card, changed: true, dropped: false, archived: false };
+				return { ...result, dropped: false, archived: false };
 			} finally {
 				await lock.release();
 			}

@@ -249,7 +249,16 @@ export function registerTools(
 						// The name the sign will record, so the owner is told who signed rather than the
 						// label the writing actor is called by.
 						const signer = signMark(me, store.config().lead).by;
-						const told = (card: Card) => announce(card, action, signer, ctx, deps.notify ?? notifyOverBus(pi));
+						// Only a fresh stamp owes the owner a message: a note on a card that was already signed
+						// moves the file without saying anything the owner has not heard. The roster is read
+						// here rather than up front so a call the store refused pays nothing for it.
+						const told = (card: Card, signed: boolean) =>
+							signed
+								? announce(card, action, signer, ctx, deps.notify ?? notifyOverBus(pi), {
+										roster: () => runtime.roster(ctx.cwd),
+										now: () => runtime.now(),
+									})
+								: Promise.resolve(undefined);
 						// An approval covers the plan the card names as well as its wording, so it carries
 						// the same proof a move does. A spot-check is about work already done, and the
 						// `done` move proves the plan then, so it pays for nothing here.
@@ -485,17 +494,19 @@ async function mutate(
 	/**
 	 * What the call says besides the card: `next` after any successful write, and `told` only after
 	 * one that changed something — a repeated sign is the same signature, and the owner does not
-	 * need to hear it twice. Both the text and the transcript block carry the `told` line: the
-	 * text as an indented continuation, the details as the sentence the one-line block draws.
+	 * need to hear it twice. The second argument is the store's `signed`: a note added to a card
+	 * that was already signed is a write with no new stamp behind it, and the message a sign sends
+	 * is about the stamp. Both the text and the transcript block carry the `told` line: the text as
+	 * an indented continuation, the details as the sentence the one-line block draws.
 	 */
-	report: { next?: string; told?: (card: Card) => Promise<string | undefined> } = {},
+	report: { next?: string; told?: (card: Card, signed: boolean) => Promise<string | undefined> } = {},
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
 	const id = normalizeCardId(args.card);
 	if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
 	const result = await store.mutate(id, op, me, now);
 	if (!result.ok) return refusal(action, me, result.error, result.card);
-	const told = result.changed ? await report.told?.(result.card) : undefined;
+	const told = result.changed ? await report.told?.(result.card, result.signed === true) : undefined;
 	const lines = [formatCard(result.card), ...(report.next === undefined ? [] : [report.next])];
 	const announcement = told?.trim();
 	return textResult([...lines, ...(told === undefined ? [] : [told])].join("\n"), {

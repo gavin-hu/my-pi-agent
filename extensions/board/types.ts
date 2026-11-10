@@ -111,8 +111,9 @@ export interface BoardDetails {
 	/** What an `archive` did, card by card: the outcome the collapsed line states. */
 	archive?: ArchiveOutcome;
 	/**
-	 * What a sign's message to the card's owner produced: `told api-core`, or the sentence
-	 * saying it was not told. Absent when nothing was sent — no owner, or a repeated sign.
+	 * What a sign's message to the card's owner produced: `told api-core`, that sentence with the
+	 * peer's watch in it, or the one saying it was not told. Absent when nothing was sent — no
+	 * owner, or a sign that wrote no fresh stamp.
 	 */
 	told?: string;
 	/** A refusal's reason, which the renderer draws instead of the details. */
