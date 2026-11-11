@@ -47,6 +47,7 @@ function board() {
 		serving: () => undefined,
 		serve: () => {},
 		team: { last: () => undefined, record: () => {} },
+		cross: async () => undefined,
 	};
 	return { harness, session };
 }

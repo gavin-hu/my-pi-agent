@@ -17,7 +17,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount } from "../../lib/http/mount.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
-import type { Claims } from "./claims.ts";
+import type { Claims } from "../../lib/board/claims.ts";
 import { registerCommands } from "./commands.ts";
 import { createLazyBoardPage } from "./lazy-page.ts";
 import type { BoardPage } from "./page.ts";
@@ -31,13 +31,16 @@ export interface BoardDeps {
 	page?: BoardPage;
 	/** Test seam: the team join, so a suite drives the page's door without a bus. */
 	team?: TeamJoin;
-	/** Test seam: the path claims a lane crossing makes. */
+	/**
+	 * Test seam: the bus a lane crossing writes to. It reaches the crossing through the session, so
+	 * a suite that hands in `session` of its own carries the seam there instead.
+	 */
 	claims?: Claims;
 }
 
 export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	if (!isExtensionEnabled("board")) return;
-	const session = deps.session ?? openBoardSession(pi);
+	const session = deps.session ?? openBoardSession(pi, deps.claims === undefined ? {} : { claims: deps.claims });
 	// One join for the tool and the command: both put this session on the team, and a second
 	// one would be two constructions of the same seam. A command cannot call a tool, so the
 	// object is a request over `pi.events` either way.
@@ -45,11 +48,9 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	/** The session the page serves as; the mount lands on this session's one server. */
 	let sessionId = "";
 	/**
-	 * The two surfaces this extension opens after a turn starts, not at registration: the
-	 * claims a lane crossing makes, and the first turn's line. Both are loaded on first use, so a
-	 * session that never touches a card pays nothing for them and the registration graph stays small.
+	 * The one surface this extension opens after a turn starts, not at registration: the first
+	 * turn's line, loaded on first use so a session that never touches a card pays nothing for it.
 	 */
-	let claimsModule: Promise<typeof import("./claims.ts")> | undefined;
 	let contextModule: Promise<typeof import("./context.ts")> | undefined;
 	const page =
 		deps.page ??
@@ -57,7 +58,7 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 			mount: (spec) => requestMount(pi, spec),
 			session: () => sessionId,
 		});
-	registerTools(pi, session, { team, claims: deps.claims });
+	registerTools(pi, session, { team });
 	registerCommands(pi, session, page, { team });
 
 	/** Whether the first turn has read this session's cards, so later turns do not read them again. */
@@ -92,7 +93,7 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		const note =
 			held.length === 0
 				? undefined
-				: await (claimsModule ??= import("./claims.ts")).then((claims) =>
+				: await import("../../lib/board/claims.ts").then((claims) =>
 						claims.reclaimHeld(deps.claims ?? claims.busClaims(pi), ctx, held),
 					);
 		const content = context.buildBoardContext(held, note);

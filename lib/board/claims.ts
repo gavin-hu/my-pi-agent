@@ -17,20 +17,25 @@
  *
  * The claim is per session, and the bus drops a session's claims when it stops, so a resumed
  * session re-claims once (`reclaimHeld`) rather than on every turn.
+ *
+ * A release frees the writer's claims and nobody else's — `releasePaths` names a session — so a
+ * card taken out of `execute` by another one keeps the holder's claims until that holder stops.
+ * The clause names them rather than saying nothing, because the new owner's next claim is refused
+ * over exactly those paths and only the old holder can free them.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { type Card, cardRef } from "../../lib/board/card.ts";
-import { plural } from "../../lib/board/round-text.ts";
-import type { MutateResult } from "../../lib/board/store.ts";
-import { sanitizeLine } from "../../lib/format.ts";
+import { type Card, cardRef } from "./card.ts";
+import { plural } from "./round-text.ts";
+import type { MutateResult } from "./store.ts";
+import { sanitizeLine } from "../format.ts";
 import {
 	busLoaded,
 	type ClaimPathsResult,
 	claimPaths,
 	type ReleasePathsResult,
 	releasePaths,
-} from "../../lib/session-tool.ts";
+} from "../session-tool.ts";
 
 /** The bus calls this module needs, as one seam a suite can answer. */
 export interface Claims {
@@ -70,7 +75,7 @@ export async function holdPaths(
 	const leaving = before.lane === "execute" && (result.dropped || after.lane !== "execute");
 	if (!entering && !leaving) return undefined;
 	if (!claims.loaded()) return undefined;
-	return entering ? await claimedClause(claims, ctx, after) : await releasedClause(claims, ctx, after);
+	return entering ? await claimedClause(claims, ctx, after) : await releasedClause(claims, ctx, result);
 }
 
 /**
@@ -123,15 +128,32 @@ async function claimedClause(claims: Claims, ctx: ExtensionContext, card: Card):
 }
 
 /**
- * What a release did: nothing worth a line on success, and the refusal when the bus said no.
+ * What a release did: nothing on a clean release, and what stays held when the paths are not the
+ * writer's to free.
  *
- * Releasing is cleanup — a peer blocked by a finished card's claim is the failure, not the
- * absence of a confirmation.
+ * `releasePaths` frees the caller's own claims only, so a card taken out of `execute` by another
+ * session — the lead's `reclaim`, or a `drop` — leaves the holder's claims where they were until
+ * that session stops. Releasing is otherwise cleanup, and a peer blocked by a finished card's
+ * claim is the failure rather than the absence of a confirmation; but the paths it could not
+ * free are the reason that peer's next claim is refused, so they are the one thing worth a line.
  */
-async function releasedClause(claims: Claims, ctx: ExtensionContext, card: Card): Promise<string | undefined> {
+async function releasedClause(
+	claims: Claims,
+	ctx: ExtensionContext,
+	result: Extract<MutateResult, { ok: true }>,
+): Promise<string | undefined> {
+	const card = result.card;
 	if (card.paths.length === 0) return undefined;
 	const answer = await claims.release(ctx, card.paths).catch(failedClaim);
-	return answer.ok ? undefined : `paths not released (${sanitizeLine(answer.error)})`;
+	if (!answer.ok) return `paths not released (${sanitizeLine(answer.error)})`;
+	if (answer.notOwned.length === 0) return undefined;
+	const holder = result.previous?.owner;
+	// A writer taking its own card back is not this: whatever it could not release is a third
+	// session's, already named when the card entered. The compare is a label rather than `holds`,
+	// so a peer wearing the holder's name reads as the holder and stays silent.
+	if (holder === undefined || holder.label.toLowerCase() === card.by.toLowerCase()) return undefined;
+	const verb = answer.notOwned.length === 1 ? "stays" : "stay";
+	return `${plural(answer.notOwned.length, "path")} ${verb} held by ${sanitizeLine(holder.label)} until it stops`;
 }
 
 /** The sessions holding a conflict, each named once, in the order the bus listed them. */

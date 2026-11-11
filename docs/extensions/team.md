@@ -51,7 +51,9 @@ lead's round now shows it as held.
 **Actions.** `assign` (card, `to`, `note?`) joins, then sends a handoff, then records the
 owner; `offer` (card, `note?`) broadcasts the card and records only the moment it
 was offered, so the first peer to claim it wins; `reclaim` (card) clears the owner
-and returns the card to Backlog with its notes and contract — a peer only from an
+and returns the card to Backlog with its notes and contract, and its result names the
+paths the old holder still has (`2 paths stay held by api-core until it stops`) — a peer
+only from an
 owner whose record says it stopped, while the lead takes anybody's and keeps the
 spot-check only its own signer withdraws; `claim` (card) takes a pool card into
 `plan` for this session; `ask` (`to`, `question?`) sends one peer a question and

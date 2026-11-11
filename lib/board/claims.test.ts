@@ -1,31 +1,21 @@
 /**
  * The lane/claim rule: a card in `execute` holds its paths, and nothing else does.
  *
- * The first cases drive the `Claims` seam rather than a bus, so what is proved is the crossing,
- * the silence without a bus, and the one clause a conflict earns. The last two go through the
- * tool, because the wiring — which actions take a crossing, and where the clause lands — is not
- * something the seam's own cases can see.
+ * The cases drive the `Claims` seam rather than a bus, so what is proved is the crossing, the
+ * silence without a bus, the clause a conflict earns, and the one a release earns when the paths
+ * were never the writer's to free. The wiring — which doors cross, and where the clause lands — is
+ * `extensions/board/reclaim.test.ts` and `extensions/team/reclaim.test.ts`, because that is the
+ * tool's contract rather than this rule's.
  */
 
-import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { boardHarness } from "../../test/helpers/board.ts";
-import { makeTempTracker } from "../../test/helpers/git.ts";
-import { registerTools } from "./tools.ts";
-import { provedPlan } from "./proof.ts";
-import type { Card } from "../../lib/board/card.ts";
-import type { MutateResult } from "../../lib/board/store.ts";
-import type { ClaimPathsResult, ReleasePathsResult } from "../../lib/session-tool.ts";
+import { describe, expect, test } from "bun:test";
+import type { Card } from "./card.ts";
+import type { MutateResult } from "./store.ts";
+import type { ClaimPathsResult, ReleasePathsResult } from "../session-tool.ts";
 import { type Claims, holdPaths, reclaimHeld } from "./claims.ts";
-import type { BoardDetails } from "./types.ts";
 
-const temps = makeTempTracker();
-afterAll(() => temps.flush());
-
-const NOW = 50_000;
-/** A lead no session in this suite is, so the sign is somebody else's and the holder can move. */
-const LEAD = "board-lead";
+/** The label a write made by another session carries: the lead, in a reclaim from a peer. */
+const OTHER = "board-lead";
 
 /** A card with the two facts a crossing reads. */
 function card(lane: Card["lane"], paths: string[] = ["src/api", "src/web"]): Card {
@@ -88,44 +78,6 @@ function wrote(before: Card, after: Card, extra: { dropped?: boolean } = {}): Mu
 
 const CTX = {} as never;
 
-/** One board whose card is ready to enter `execute`, and the claims it reports. */
-async function executable(): Promise<{
-	call: (args: Record<string, unknown>) => Promise<{ details: BoardDetails; text: string }>;
-	claims: Claims & { sent: Sent[] };
-}> {
-	const claims = bus();
-	const board = boardHarness({ now: NOW, lead: LEAD, track: temps.track });
-	registerTools(board.fake.pi, board.runtime, { claims });
-	const tool = board.fake.pi.tools.get("board");
-	if (!tool) throw new Error("the board tool was not registered");
-	const call = async (args: Record<string, unknown>): Promise<{ details: BoardDetails; text: string }> => {
-		const result = (await tool.execute("call-1", args, undefined, undefined, board.ctx)) as {
-			content: Array<{ text: string }>;
-			details: BoardDetails;
-		};
-		return { details: result.details, text: result.content[0]?.text ?? "" };
-	};
-	await call({ action: "add", title: "One", paths: ["src/api"] });
-	await call({ action: "claim", card: "1" });
-	// A plan file in this repository's store, which `contract` requires and `move` proves.
-	const dir = await board.runtime.planDir(board.ctx.cwd);
-	mkdirSync(dir, { recursive: true });
-	const plan = join(dir, "one.md");
-	writeFileSync(plan, "# One\n");
-	await call({ action: "contract", card: "1", path: plan, goal: "g", acceptance: "a", scopeOut: "s" });
-	// The lead signs through the store, because this suite's session is the holder: `approve`
-	// refuses a holder, which is the gate the tool's own case in `signs.test.ts` proves.
-	const store = await board.runtime.store(board.ctx.cwd);
-	const approved = await store.mutate(
-		"1",
-		{ kind: "approve", artifact: await provedPlan(board.runtime, board.ctx.cwd, store, "1") },
-		{ label: LEAD },
-		NOW,
-	);
-	if (!approved.ok) throw new Error(`the lead could not sign: ${approved.error}`);
-	return { call, claims };
-}
-
 describe("the lane crossing", () => {
 	test("entering execute claims the paths the card names, and says how many", async () => {
 		const claims = bus();
@@ -165,6 +117,43 @@ describe("the lane crossing", () => {
 			undefined,
 		);
 		expect(released.sent).toEqual([{ call: "release", paths: ["src/api", "src/web"] }]);
+	});
+});
+
+describe("what a release could not free", () => {
+	test("names the paths the old holder keeps, and how long it keeps them", async () => {
+		// `releasePaths` names its caller, so a card taken out of `execute` by another session
+		// leaves the holder's claims where they were: the new owner's next claim is refused over
+		// exactly these paths, which is the one thing worth a line on the result.
+		const claims = bus({ release: { ok: true, released: [], notOwned: ["src/api", "src/web"] } });
+		const after = { ...card("backlog"), owner: undefined, by: OTHER };
+		expect(await holdPaths(claims, CTX, wrote(card("execute"), after))).toBe(
+			"2 paths stay held by api-core until it stops",
+		);
+		expect(claims.sent).toEqual([{ call: "release", paths: ["src/api", "src/web"] }]);
+	});
+
+	test("one path reads as one path", async () => {
+		const claims = bus({ release: { ok: true, released: ["src/web"], notOwned: ["src/api"] } });
+		const after = { ...card("backlog"), owner: undefined, by: OTHER };
+		expect(await holdPaths(claims, CTX, wrote(card("execute"), after))).toBe(
+			"1 path stays held by api-core until it stops",
+		);
+	});
+
+	test("a holder taking its own card back says nothing about what it could not free", async () => {
+		// The writer is the holder, so the paths the release missed are a third session's and were
+		// named when the card entered — `by` against the owner is the only comparison available,
+		// which is why a peer wearing the holder's name reads the same way.
+		const claims = bus({ release: { ok: true, released: ["src/api"], notOwned: ["src/web"] } });
+		const after = { ...card("backlog"), owner: undefined };
+		expect(await holdPaths(claims, CTX, wrote(card("execute"), after))).toBeUndefined();
+	});
+
+	test("a card nobody owned keeps the silence", async () => {
+		const claims = bus({ release: { ok: true, released: [], notOwned: ["src/api"] } });
+		const after = { ...card("backlog"), owner: undefined, by: OTHER };
+		expect(await holdPaths(claims, CTX, wrote({ ...card("execute"), owner: undefined }, after))).toBeUndefined();
 	});
 });
 
@@ -227,29 +216,6 @@ describe("when the bus refuses", () => {
 	});
 });
 
-describe("through the board tool", () => {
-	test("a move into execute carries the claim on the result", async () => {
-		const { call, claims } = await executable();
-		const moved = await call({ action: "move", card: "1", lane: "execute" });
-		expect(moved.details.card?.lane).toBe("execute");
-		expect(moved.details.held).toBe("claimed 1 path");
-		// The clause carries the continuation indent its neighbours do, so it reads as a line of
-		// the card rather than as a second card.
-		expect(moved.text).toContain("\n  claimed 1 path");
-		expect(claims.sent).toEqual([{ call: "claim", paths: ["src/api"] }]);
-	});
-
-	test("leaving execute releases them, and says nothing", async () => {
-		const { call, claims } = await executable();
-		await call({ action: "move", card: "1", lane: "execute" });
-		claims.sent.length = 0;
-		const parked = await call({ action: "move", card: "1", lane: "blocked", blocker: "decision" });
-		expect(parked.details.card?.lane).toBe("blocked");
-		expect(parked.details.held).toBeUndefined();
-		expect(claims.sent).toEqual([{ call: "release", paths: ["src/api"] }]);
-	});
-});
-
 describe("reclaimHeld", () => {
 	test("claims only the paths of the cards held in execute, and says nothing on success", async () => {
 		const claims = bus();
@@ -284,6 +250,5 @@ describe("reclaimHeld", () => {
 		const broken = bus({ throws: true });
 		expect(await reclaimHeld(broken, CTX, [card("execute")])).toBe("#4: not claimed (the bus went away)");
 		expect(broken.sent).toHaveLength(1);
-		temps.flush();
 	});
 });

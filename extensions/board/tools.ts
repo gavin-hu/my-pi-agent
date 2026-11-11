@@ -12,7 +12,7 @@
  * through `applyOp`.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { planForContract, planIsGone } from "../../lib/board/artifact.ts";
 import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
 import { movableLanes } from "../../lib/board/lanes.ts";
@@ -34,7 +34,6 @@ import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, refusal, resultInput } from "./result.ts";
 import { dropCard, mutate, reclaimOp } from "./write.ts";
 import type { Notify } from "./announce.ts";
-import type { Claims } from "./claims.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { type BoardArgs, BoardParams } from "./schema.ts";
 import {
@@ -114,18 +113,9 @@ function callSubject(action: BoardAction, args: Record<string, unknown>): string
 export function registerTools(
 	pi: ExtensionAPI,
 	runtime: BoardSession,
-	deps: { team?: TeamJoin; notify?: Notify; claims?: Claims } = {},
+	deps: { team?: TeamJoin; notify?: Notify } = {},
 ): void {
 	const team = deps.team ?? createTeamJoin(pi);
-	/**
-	 * What one write's lane crossing claimed or released, or nothing when it stayed put. Loaded
-	 * at the first crossing, so a session that never moves a card pays nothing for the bus.
-	 */
-	let claimsModule: Promise<typeof import("./claims.ts")> | undefined;
-	const hold = (ctx: ExtensionContext, result: MutateResult): Promise<string | undefined> =>
-		(claimsModule ??= import("./claims.ts"))
-			.then((module) => module.holdPaths(deps.claims ?? module.busClaims(pi), ctx, result))
-			.catch(() => undefined);
 	// Loaded at the first sign, not at registration: a board that never signs pays nothing for the
 	// message, and the registration graph stays the size it was.
 	let signMessage: Promise<typeof import("./announce.ts")> | undefined;
@@ -164,7 +154,7 @@ export function registerTools(
 			const proofOf = (store: BoardStore, rawCard: string | undefined) =>
 				(proofModule ??= import("./proof.ts")).then((module) => module.provedPlan(runtime, ctx.cwd, store, rawCard));
 			/** The crossing this call can make, bound to its context once. */
-			const cross = (result: MutateResult) => hold(ctx, result);
+			const cross = (result: MutateResult) => runtime.cross(ctx, result).catch(() => undefined);
 			try {
 				// Before the join and before a card is read: a refused call has written nothing, so it
 				// cannot have enlisted this session as a teammate on its way to the refusal.
