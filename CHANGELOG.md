@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the pages agree about waking. `session-bus.md` owns the rule — any mail, a handoff and
+  an ask included, raises one turn for a session listening with `wake` — and `team.md` and
+  `multi-session.md` defer to it instead of saying no message starts a turn. `team.md` also names
+  the actions that join (claim, assign, ask; offer and reclaim join nothing), and `board.md` says
+  an unreadable card file is skipped and named rather than "reported, not skipped".
+
 - `docs`: the site counts pageviews with GoatCounter — one `async` tag at the tail of the shared
   head, its URL built from the account named once in `_config.yml`, and one cookieless disclosure
   line in the footer. The pages the extensions serve carry none: their CSP is `script-src

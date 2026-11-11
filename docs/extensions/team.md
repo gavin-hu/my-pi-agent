@@ -3,14 +3,16 @@
 `board` owns the cards; `team` is how a lead moves them between sessions: hand one
 to a peer that is already running, offer one to whoever is free, take one back
 when its owner is gone, claim one for yourself, or ask a peer a question. Nothing
-here starts a process — every action is a message the peer reads at its next turn.
+here starts a process — every action is a message, and a peer listening with `wake`
+is woken for it ([`session-bus`](session-bus.md) owns that rule).
 
 <img src="../../assets/screens/team.png" alt="The Team tab: a Needs a decision queue of rows with a reason line, then a Teammates list of one-line rows with state dots, labels, mail badges, and what each holds" width="1280" height="671">
 
 - **A message, not a launch.** `assign`, `offer`, and `ask` land in an inbox and
-  raise no turn.
-- **Joining is automatic**: `/board`, your first claim, or the first `team` call
-  puts the session on the team.
+  start no process; a session listening with `wake` is woken by them exactly as by
+  any other message.
+- **Joining is automatic**: `/board`, a claim, an `assign`, or an `ask` puts the
+  session on the team; `offer` and `reclaim` join nothing.
 - **`/team join <label>`** is the one door that renames the session.
 - **Nothing is spawned** — a peer that is not running stays not running.
 
@@ -78,8 +80,8 @@ by name; `board list` still reads. Assign after the plan is approved.
 
 ## Limits
 
-- Nothing here can start a peer's turn, and a peer that never joined cannot be
-  handed a card.
+- Nothing here starts a peer's process: a peer that never joined cannot be handed a
+  card, and one listening with `wake` is woken by its mail.
 - A card somebody already holds is not assignable: `reclaim` it, then assign.
 - An offer is advice — a card can stay offered indefinitely, counted as
   unassigned, which is the honest signal.
