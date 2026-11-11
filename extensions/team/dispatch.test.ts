@@ -268,10 +268,22 @@ describe("actorFor", () => {
 });
 
 describe("ownerFor", () => {
+	const handoff = { at: 7, told: { at: 7 } };
+
 	test("records the label the bus wrote for, and the requested one when there is none", () => {
-		expect(ownerFor("billing-core", ["billing-core"])).toEqual({ label: "billing-core" });
-		expect(ownerFor("billing-core", [])).toEqual({ label: "billing-core" });
-		expect(ownerFor("s-core", ["billing-core"])).toEqual({ label: "billing-core" });
+		expect(ownerFor("billing-core", ["billing-core"], handoff)).toEqual({
+			label: "billing-core",
+			handoff: { at: 7, told: { at: 7 }, unresolved: true },
+		});
+		expect(ownerFor("billing-core", [], handoff).label).toBe("billing-core");
+		expect(ownerFor("s-core", ["billing-core"], handoff).label).toBe("billing-core");
+	});
+
+	test("marks the handoff unresolved, because the label is all it could learn", () => {
+		// The marker is what stops `holds` falling back to the label: without it the next session to
+		// draw that label would inherit every write on the card.
+		expect(ownerFor("billing-core", [], { at: 9 }).handoff).toEqual({ at: 9, unresolved: true });
+		expect(ownerFor("billing-core", [], { at: 9 }).id).toBeUndefined();
 	});
 });
 

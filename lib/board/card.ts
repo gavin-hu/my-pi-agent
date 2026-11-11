@@ -480,15 +480,15 @@ export function signatureOf(cards: readonly Card[]): string {
  * Whether `actor` is the owner of `card`.
  *
  * The id decides when both sides have one — a session that renamed itself is still the same
- * holder — and the label decides otherwise, case-insensitively, the way the bus resolves a
- * target. A signature that takes the actor structurally is what lets the record own this
- * rule while `rules.ts` and `steps.ts` share it without importing each other.
+ * holder — and the label decides otherwise, case-insensitively; a handoff the bus could not
+ * resolve withdraws that, so the label is where mail goes and not who writes. A structural actor
+ * is what lets the record own this rule while `rules.ts` and `steps.ts` share it.
  */
 export function holds(card: Card, actor: { id?: string; label: string }): boolean {
 	const owner = card.owner;
 	if (owner === undefined) return false;
 	if (owner.id !== undefined && actor.id !== undefined) return owner.id === actor.id;
-	return owner.label.toLowerCase() === actor.label.toLowerCase();
+	return owner.handoff?.unresolved !== true && owner.label.toLowerCase() === actor.label.toLowerCase();
 }
 
 /**

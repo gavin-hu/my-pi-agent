@@ -15,6 +15,7 @@ import { randomBytes } from "node:crypto";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
 import { cardRef, type CardOwner } from "../../lib/board/card.ts";
+import type { Handoff } from "../../lib/board/contract.ts";
 import { askLead, type Lead } from "../../lib/board/lead.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import {
@@ -259,10 +260,14 @@ export function actorFor(peers: readonly Peer[] | undefined, to: string): Actor 
 }
 
 /**
- * The peer a handoff names, as the card records it when the bus cannot say who that
- * is: the label a message file was written for, else the one that was asked for.
+ * The peer a handoff names, as the card records it when the bus cannot say who that is: the label a
+ * message file was written for, else the one that was asked for, and `unresolved` on the handoff.
+ *
+ * The marker is the point. Without it the record would be a label alone, and `holds` falls back to
+ * comparing labels — so the next session to draw that label would inherit every write on the card.
+ * With it the record still names where mail goes, and authorises nothing.
  */
-export function ownerFor(to: string, delivered: readonly string[]): CardOwner {
+export function ownerFor(to: string, delivered: readonly string[], handoff: Handoff): CardOwner {
 	const label = delivered[0] ?? to;
-	return { label };
+	return { label, handoff: { ...handoff, unresolved: true } };
 }

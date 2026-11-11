@@ -36,8 +36,24 @@ const LEGACY_LANES: Readonly<Record<string, Lane>> = { todo: "backlog", doing: "
  * build's is the store's refusal to name, not this function's.
  */
 export function readCard(value: unknown): Card | undefined {
-	const record = migrated(value);
+	const record = unresolvedOwner(migrated(value));
 	return isCard(record) ? record : undefined;
+}
+
+/**
+ * An owner that came from a handoff the bus could not resolve: a handoff, and no session id.
+ *
+ * The one fact a stored record cannot say for itself — only the write that sent the handoff could
+ * know it — so it is read rather than written, and no file is rewritten. It withdraws authority,
+ * never addressability: the label the owner carries is still where its mail goes.
+ */
+function unresolvedOwner(value: unknown): unknown {
+	if (typeof value !== "object" || value === null) return value;
+	const { owner, ...rest } = value as Record<string, unknown>;
+	if (typeof owner !== "object" || owner === null) return value;
+	const { handoff, ...held } = owner as Record<string, unknown>;
+	if (typeof handoff !== "object" || handoff === null || held.id !== undefined) return value;
+	return { ...rest, owner: { ...held, handoff: { ...handoff, unresolved: true } } };
 }
 
 /** A v1 record as this build's shape: the renames, and the version stamp. */

@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `team`: a handoff the bus could not name no longer hands over a card. When `peers()` cannot
+  answer, the owner is recorded with a label and `handoff.unresolved`, and `holds` refuses the label
+  fallback for it — so a session that later draws that label cannot inherit the card's writes. The
+  marker withdraws authority, not addressability: mail still goes to the label, the lead or the
+  person reclaims the card, and the peer's claim then records the id it was owed. Cards already
+  carrying a label-only handoff owner are flagged on read rather than rewritten, and `board list`
+  says `· unresolved` on the owner line.
+
 - `team`: an ask names itself and the session to answer it. `ask` mints a short id before it
   composes, so the question reads `Ask a1b2c3d4: …` and the reply line carries the asker's session id
   — not the label it happened to hold — with the label as a fallback the sentence admits to. A lead

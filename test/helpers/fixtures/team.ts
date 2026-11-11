@@ -45,8 +45,13 @@ export interface TeamSuiteOptions {
 	 * the message is on its way and the card is not yet touched.
 	 */
 	duringSend?: (input: { kind: "handoff" | "event" | "ask"; to: string; text: string }) => Promise<void> | void;
-	/** The team the bus lists, when the default pair is not the case. */
-	peers?: Peer[];
+	/**
+	 * The team the bus lists, when the default pair is not the case.
+	 *
+	 * `null` is the bus that cannot answer — the record is unreadable, or no bus is loaded — which is
+	 * a different fact from an empty list and the one `assign` records an unresolved owner for.
+	 */
+	peers?: Peer[] | null;
 	/** The label a join lands on, when it is not the lead's own. */
 	joinLabel?: string;
 	/** The lead the repository names, when the default is not the case under test. */
@@ -107,10 +112,13 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 	// A fixed team, because `assign` asks who a peer is before it sends: the bus's record is
 	// what the pre-check compares a holder against and what the card then records, so a stub
 	// derived from what was already sent would answer nothing at the moment it is asked.
-	const listed: Peer[] = options.peers ?? [
-		{ id: "s-billing-core", label: "billing-core", listening: true },
-		{ id: "s-billing-web", label: "billing-web", listening: true },
-	];
+	const listed: Peer[] | undefined =
+		options.peers === null
+			? undefined
+			: (options.peers ?? [
+					{ id: "s-billing-core", label: "billing-core", listening: true },
+					{ id: "s-billing-web", label: "billing-web", listening: true },
+				]);
 	const dispatch: Dispatch = {
 		async send(input) {
 			if (options.fail !== undefined) throw new Error(options.fail);

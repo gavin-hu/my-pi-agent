@@ -163,13 +163,26 @@ export interface Handoff {
 	at: number;
 	/** When the bus settled the message it carried; absent while it never did. */
 	told?: { at: number };
+	/**
+	 * The bus could not name the session this handoff was written for, so the owner has no id.
+	 *
+	 * It withdraws authority, never addressability: `holds` refuses a label match against this owner,
+	 * while the announce path still sends to the label it carries. A reader that took "unresolved"
+	 * for "unreachable" would look for a bug that is not there.
+	 */
+	unresolved?: true;
 }
 
 /** Whether `value` is a handoff this build wrote: a stamp, and a settled message or none. */
 export function isHandoff(value: unknown): value is Handoff {
 	if (typeof value !== "object" || value === null) return false;
-	const { at, told } = value as Record<string, unknown>;
-	return typeof at === "number" && Number.isInteger(at) && (told === undefined || isTold(told));
+	const { at, told, unresolved } = value as Record<string, unknown>;
+	return (
+		typeof at === "number" &&
+		Number.isInteger(at) &&
+		(told === undefined || isTold(told)) &&
+		(unresolved === undefined || unresolved === true)
+	);
 }
 
 /**
