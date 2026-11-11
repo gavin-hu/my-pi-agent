@@ -30,7 +30,7 @@ import {
 } from "../../../lib/web/index.ts";
 import { PLURAL_JS, HISTORY_LINE_JS, HISTORY_OWNER_JS, HOLDING_OF_JS } from "../../../lib/board/round-text.ts";
 import { skippedText } from "../../../lib/board/skipped.ts";
-import { FORMAT_AGE_JS } from "../../../lib/format.ts";
+import { FORMAT_AGE_JS, SHORTEN_PATH_JS } from "../../../lib/format.ts";
 import { BOARD_CARD_JS } from "./card.ts";
 import { BOARD_CLASS } from "./names.ts";
 import { BOARD_EMPTY_JS } from "./empty.ts";
@@ -55,7 +55,7 @@ ${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_J
 ${teamJs({ historyOwner: HISTORY_OWNER_JS, historyLine: HISTORY_LINE_JS, holding: HOLDING_OF_JS })}
 ${BOARD_CARD_JS}
 ${BOARD_EMPTY_JS}
-${dialogJs({ inlineMarkdown: INLINE_MARKDOWN_JS })}
+${dialogJs({ inlineMarkdown: INLINE_MARKDOWN_JS, shortenPath: SHORTEN_PATH_JS })}
 ${BOARD_KEYS_JS}
 ${BOARD_LIVE_JS}
 ${THEME_TOGGLE_JS}

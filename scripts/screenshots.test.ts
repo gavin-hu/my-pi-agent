@@ -25,7 +25,7 @@ import { CURRENCY_DEFAULTS, DEFAULT_RATES_USD } from "../extensions/bytefly/foot
 import { createPricer } from "../extensions/bytefly/footer/price/price.ts";
 import { TRANSCRIPT_NOTICE } from "./transcript-fixture.ts";
 import { FIXTURE_CARDS } from "./tools/fixtures/board-store.ts";
-import { FIXTURE_PLAN_STORE } from "./tools/fixtures/board.ts";
+import { fixturePlanDir, fixturePlanPath } from "./tools/fixtures/board.ts";
 import { JOB_RECORDS } from "./tools/fixtures/index.ts";
 import { HERO_GOAL, HERO_TODOS } from "./screens/fixtures/index.ts";
 import { GoalWidget } from "../extensions/goal/tui.ts";
@@ -34,6 +34,8 @@ import { pageColors, readPageColors, repo, setThemeInstance, theme } from "./the
 import { FIXTURES } from "./tools/fixtures/index.ts";
 import { galleryHtml, registeredToolNames, renderingFor, renderings } from "./tools/index.ts";
 import { planForContract } from "../lib/board/artifact.ts";
+import { isInside } from "../lib/path.ts";
+import { resolvePlanArg } from "../lib/plans/paths.ts";
 import { GLYPHS, SEPARATORS } from "../lib/tui/glyphs.ts";
 
 /** Every capturable frame, the whole-chrome preview included. */
@@ -421,49 +423,47 @@ describe("tool fixtures", () => {
 /**
  * The plan paths the board's fixtures record.
  *
- * The shipped `contract` records only a plan inside this repository's store, so a fixture
- * that named one anywhere else would picture a call the tool refuses. The spelling starts at
- * `~` — the capture machine's home — so the store is laid out in a temp directory instead
- * and the proof does not depend on whose machine runs it.
+ * The shipped `contract` records only a plan inside this repository's store, and every spelling
+ * here is built from the store it is proved against — which is what lets the seed run against a
+ * temp directory here and against the real one in a capture.
  */
 describe("board fixture plan paths", () => {
 	/** An empty plan store of the fixture's own shape: `<agent-dir>/plans/<key>`. */
 	function storeDir(): string {
-		const dir = join(mkdtempSync(join(tmpdir(), "pi-board-fixture-plans-")), "plans", basename(FIXTURE_PLAN_STORE));
+		const dir = join(mkdtempSync(join(tmpdir(), "pi-board-fixture-plans-")), "plans", basename(fixturePlanDir()));
 		mkdirSync(dir, { recursive: true });
 		return dir;
 	}
 
-	/** Every plan the fixtures record: the page's cards, and the gallery's contract call. */
-	function recorded(): string[] {
-		const spelled = FIXTURE_CARDS.flatMap((card) => {
-			const plan = "planPath" in card ? card.planPath : undefined;
-			return plan === undefined ? [] : [plan];
-		});
-		for (const fixture of FIXTURES) {
-			if ((fixture.tool ?? fixture.name) !== "board") continue;
-			const args: unknown = fixture.args;
-			if (typeof args !== "object" || args === null) continue;
-			if (!("action" in args) || args.action !== "contract") continue;
-			if ("path" in args && typeof args.path === "string") spelled.push(args.path);
-		}
-		return spelled;
-	}
+	/** The plan each page card records, spelled against `dir` as the seeder spells it. */
+	const recorded = (dir: string): string[] =>
+		FIXTURE_CARDS.flatMap((card) =>
+			"plan" in card && card.plan !== undefined ? [fixturePlanPath(dir, card.plan)] : [],
+		);
 
 	test("every plan a fixture records is one the shipped contract accepts", () => {
 		const dir = storeDir();
-		const plans = recorded();
-		// Four of the page's cards record a plan and the gallery's contract call names a fifth:
-		// a shape proved on nothing would pass as readily as one proved on the whole set.
-		expect(plans.length).toBe(5);
+		const plans = recorded(dir);
+		// The four cards that leave the pool: a shape proved on nothing would pass as readily.
+		expect(plans.length).toBe(4);
 		for (const spelled of plans) {
-			expect(spelled.startsWith(`${FIXTURE_PLAN_STORE}/`), spelled).toBe(true);
-			const name = spelled.slice(FIXTURE_PLAN_STORE.length + 1);
 			// One file directly in the store: `plan` action `write` makes no subdirectory of it.
-			expect(name.includes("/"), spelled).toBe(false);
+			const name = spelled.slice(spelled.lastIndexOf("/") + 1);
+			expect(name.endsWith(".md"), spelled).toBe(true);
 			writeFileSync(join(dir, name), "# A fixture plan\n- [ ] one\n");
-			expect(planForContract(dir, join(dir, name)), spelled).toEqual({ path: join(dir, name) });
+			expect(planForContract(dir, spelled), spelled).toEqual({ path: join(dir, name) });
 		}
+	});
+
+	test("every plan the gallery names sits in the store the fixture derives", () => {
+		// The gallery draws a `contract` call and proves nothing, so its path only has to name the
+		// store a reader would open — the one `plan` action `write` saves into.
+		const dir = fixturePlanDir();
+		const named = FIXTURES.filter((fixture) => (fixture.tool ?? fixture.name) === "board")
+			.map((fixture) => (fixture.args as { path?: unknown } | undefined)?.path)
+			.filter((path): path is string => typeof path === "string");
+		expect(named.length).toBeGreaterThan(0);
+		for (const path of named) expect(isInside(dir, resolvePlanArg(dir, path)), path).toBe(true);
 	});
 
 	test("the relative spelling the fixtures used to carry is refused", () => {

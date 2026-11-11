@@ -124,7 +124,7 @@ ${pageFooter({ factsId: "board-where", facts: `store ${input.where}` })}
           <dt>goal</dt><dd id="card-dialog-goal" hidden></dd>
           <dt>acceptance</dt><dd id="card-dialog-acceptance" hidden></dd>
           <dt>scope out</dt><dd id="card-dialog-scope-out" hidden></dd>
-          <dt>verify</dt><dd id="card-dialog-verify" hidden></dd>
+          <dt id="card-dialog-verify-label" hidden>verify</dt><dd id="card-dialog-verify" hidden></dd>
         </dl>
         <p class="${N.dialogSign}" id="card-dialog-sign" hidden></p>
       </section>

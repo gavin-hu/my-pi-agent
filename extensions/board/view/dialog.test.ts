@@ -121,6 +121,9 @@ describe("the dialog's client", () => {
 		// the label and the value are found from it, so a row cannot ship with one half hidden.
 		expect(BOARD_CLIENT_JS).toContain('"card-dialog-" + name + "-label"');
 		expect([...BOARD_CLIENT_JS.matchAll(/setRow\(\s*"([a-z-]+)"/g)].map((match) => match[1])).toEqual([
+			// The contract's one optional row: it leaves with its label when the promise names no
+			// command, which is the rule of a rung applied inside a block of required lines.
+			"verify",
 			"plan",
 			"depends",
 			"dependents",
@@ -128,7 +131,7 @@ describe("the dialog's client", () => {
 			"reviewed",
 		]);
 		// The contract is a block instead, so the ladder never writes its rows: three lines at
-		// body size, which a card without a contract leaves hidden.
+		// body size, which a card without a contract leaves hidden, and the command above them.
 		expect(BOARD_CLIENT_JS).toContain('var CONTRACT_ROWS = ["goal", "acceptance", "scope-out", "verify"];');
 		expect(BOARD_CLIENT_JS).toContain('document.getElementById("card-dialog-" + CONTRACT_ROWS[f]).hidden');
 		// The dialog opens with the card face's reason sentence, from the same body, and steps

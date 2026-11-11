@@ -43,6 +43,8 @@ export interface PageDisplay {
 	root?: string;
 	/** The store's directory, shortened. */
 	where?: string;
+	/** The home a displayed path is shortened against; absent reads as this machine's home. */
+	home?: string;
 }
 
 /** What a fixture page needs from its caller. */
@@ -99,6 +101,7 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 			repo,
 			root,
 			where: display.where ?? store.where(),
+			...(display.home === undefined ? {} : { home: display.home }),
 		});
 	};
 	// The page mounts on a real server, which is the socket `serve` would have given it.

@@ -8,8 +8,12 @@
  * and the page describe the same board.
  */
 
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { join } from "node:path";
+import { shortenPath } from "../../../lib/format.ts";
 import type { Card } from "../../../lib/board/card.ts";
 import { buildRound } from "../../../lib/board/round.ts";
+import { plansDirFor } from "../../../lib/plans/paths.ts";
 import type { BoardDetails } from "../../../extensions/board/types.ts";
 import type { TeamDetails } from "../../../extensions/team/types.ts";
 import type { ToolFixture } from "./types.ts";
@@ -21,13 +25,24 @@ const NOW = 1_760_000_000_000;
  *
  * The `plan` tool's `write` action saves into `<agent-dir>/plans/<repo-key>`; the board's `contract` records only
  * a file there, so this is the one spelling both halves of the fixture use — a path outside it
- * is one the shipped tool refuses.
+ * is one the shipped tool refuses. It is derived from the shipped rule rather than written
+ * out, so an agent directory that is not the default still names the store the gate proves.
  */
-export const FIXTURE_PLAN_STORE = "~/.pi/agent/plans/8872d3adda0e";
+const FIXTURE_REPO_KEY = "8872d3adda0e";
 
-/** One plan the fixture's cards are executed against, one file directly in that store. */
-export function fixturePlanPath(slug: string): string {
-	return `${FIXTURE_PLAN_STORE}/${slug}.md`;
+/** The plan store the fixture proves against, on this machine's agent directory. */
+export function fixturePlanDir(): string {
+	return plansDirFor(getAgentDir(), { key: FIXTURE_REPO_KEY, fromGit: true });
+}
+
+/**
+ * One plan the fixture's cards are executed against, one file directly in `planDir`.
+ *
+ * Shortened only when the real home prefixes it: the record and the stat then name one store,
+ * and a plan dir outside the home prints as itself instead of as a `~` that would not resolve back.
+ */
+export function fixturePlanPath(planDir: string, slug: string): string {
+	return shortenPath(join(planDir, `${slug}.md`));
 }
 
 /** One card, built the way the store would hold it. */
@@ -58,7 +73,7 @@ const PLANNED = card({
 	lane: "execute",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/billing", "src/api"],
-	planPath: fixturePlanPath("billing-webhook"),
+	planPath: fixturePlanPath(fixturePlanDir(), "billing-webhook"),
 	contract: { ...CONTRACT, approved: { by: "billing-lead", at: NOW - 200_000 } },
 	review: { by: "billing-lead", at: NOW - 90_000 },
 	notes: [{ by: "billing-core", at: NOW - 120_000, text: "routes wired; tests next" }],
@@ -83,7 +98,7 @@ const AWAITING = card({
 	lane: "plan",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/billing/totals"],
-	planPath: fixturePlanPath("totals-rounding"),
+	planPath: fixturePlanPath(fixturePlanDir(), "totals-rounding"),
 	contract: CONTRACT,
 	rev: 4,
 	by: "billing-core",
@@ -107,7 +122,7 @@ const DONE = card({
 	lane: "done",
 	owner: { id: "s-other", label: "billing-other" },
 	paths: ["src/reports"],
-	planPath: fixturePlanPath("export-orders"),
+	planPath: fixturePlanPath(fixturePlanDir(), "export-orders"),
 	contract: { ...CONTRACT, approved: { by: "billing-lead", at: NOW - 4_000_000 } },
 	review: { by: "billing-lead", at: NOW - 3_700_000 },
 	notes: [{ by: "billing-other", at: NOW - 3_600_000, text: "shipped behind a flag" }],
@@ -215,7 +230,7 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		tool: "board",
 		group: "package",
 		label: "a contract written, waiting for a session that does not hold the card",
-		args: { action: "contract", card: "6", path: fixturePlanPath("totals-rounding") },
+		args: { action: "contract", card: "6", path: fixturePlanPath(fixturePlanDir(), "totals-rounding") },
 		result: {
 			content: [{ type: "text", text: "#6 plan · Round invoice totals at the boundary" }],
 			details: { action: "contract", me: ME, card: AWAITING } as BoardDetails,

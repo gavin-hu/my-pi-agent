@@ -16,6 +16,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   path still closes; a card whose contract names no command keeps the gate it had. The transcript
   and the card dialog draw the command and the run from the same fields.
 
+- `board`: the card dialog says a plan path the way the transcript does. A recorded path is
+  absolute — `contract` writes the file the proof resolved — so the dialog printed
+  `/home/you/.pi/agent/plans/<key>/…` while `board list` printed the same file as `~/…`; the row
+  now shortens through the one `shortenPath` the listing uses, text and hover title alike, against
+  the home the frame carries, so a reader who copies it gets a path the plan tools still take. A
+  path outside the home is left exactly as recorded. The record is unchanged: this is the page's
+  spelling, not the store's.
+
+- `board`: a contract that names no `verify` command draws no `verify` label. The row was
+  optional in a block whose headings were not, so a three-line promise showed a fourth heading
+  over nothing; the heading now leaves with the value.
+
 ## [0.26.0] - 2026-11-11
 
 ### Added
