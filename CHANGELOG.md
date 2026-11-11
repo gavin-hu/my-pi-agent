@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card whose owner's session ended is released at the next session's first turn. The
+  sweep reads the roster once and asks the same pid-checked `gone` rule the reclaim gate already
+  trusts, then writes the ordinary `reclaim` — so the store decides, a raced refusal is skipped,
+  and a `quiet` owner is left to a person. The first-turn line says what it freed, alone when the
+  session holds no card of its own.
+
 - `docs`: the board page states the gates the code has. `reclaim`'s three-way rule (holder, person and lead always; a peer only while that owner's record says quiet or gone), the plan re-read at `execute` and `done` with the face's `its plan is gone`, `· not told` on a live sign, and the lane cap that refuses `claim`, `move` and `assign` alike. Ownership reads as a session id on `board.md` and `multi-session.md`, as the code and the tutorial already had it. `troubleshooting.md` gains the reclaim, gone-plan and handed-to-yourself rows, and `session-bus.md` names the `live`/`quiet`/`gone` state `session status` reports.
 
 - `docs`: the pages agree about waking. `session-bus.md` owns the rule — any mail, a handoff and

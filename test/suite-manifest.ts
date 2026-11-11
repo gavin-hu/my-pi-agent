@@ -49,6 +49,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"card-id",
 		"claims",
 		"context",
+		"ended",
 		"input",
 		"kind",
 		"plan-gone",
