@@ -39,7 +39,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	add: "creates a `backlog` card",
 	claim: "pulls one into `plan` for this session, when `plan` has room",
 	release: "gives it back to `backlog`",
-	reclaim: "takes it from whoever holds it, back to `backlog`",
+	reclaim: "takes it back to `backlog`; a peer only from a stopped owner",
 	move: "changes lane, through the one transition the board allows from where the card is; a card enters `execute` or `done` only while the plan it recorded is still in the store",
 	note: "appends to its history",
 	contract:

@@ -58,7 +58,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`board/limits.ts`](./board/limits.ts) | The WIP arithmetic and its refusal; the numbers themselves are `board/config.ts`'s. |
 | [`board/artifact.ts`](./board/artifact.ts) | Whether a path is a plan of this repository: the one thing the board asks of the plan store. |
 | [`board/rules.ts`](./board/rules.ts) | The lifecycle as a pure dispatch: `createCard`, `mayOp`, `applyOp`, and the one write that bumps the revision. |
-| [`board/steps.ts`](./board/steps.ts) | What each operation does, each answering a refusal, a no-op, or the fields a write applies. |
+| [`board/steps.ts`](./board/steps.ts) | What each operation a card alone decides does, each answering a refusal, a no-op, or the fields a write applies. |
 | [`board/actions.ts`](./board/actions.ts) | The action list and which of them only read it — the one table the tool and the read-only policy share. |
 | [`board/store.ts`](./board/store.ts) | The backend and the only writer: the card files, the id allocator, `mutate`'s locked re-check, `scan`, and the archive pile. |
 | [`board/lock.ts`](./board/lock.ts) | One card's write lock: `lockCard` creates `cards/.lock-<id>` exclusively, waits `LOCK_WAIT_MS` for a live holder, takes over one older than `LOCK_STALE_MS`, and releases only its own token — so `mutate`'s read, check, and rename are one step to a rival session. |
@@ -66,7 +66,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`board/session.ts`](./board/session.ts) | The session a call works as: one store per directory, the seat, the id a card records, the bus's directory and its records. |
 | [`board/join.ts`](./board/join.ts) | The one join every door asks for: `joinTeam` (ask once, and again when the roster holds no live record under the name asked for), `TeamState` and `standingOf`/`teamStatus` for the `/board` line, and the re-ask that repeats a disarmed join as disarmed. |
 | [`board/seat.ts`](./board/seat.ts) | The actor a page reads as, derived from `board.lead`. |
-| [`board/lead.ts`](./board/lead.ts) | Who may sign the two gates, and every sentence a refusal or a sign says. |
+| [`board/lead.ts`](./board/lead.ts) | Who may sign the two gates and take a card back, and every sentence a refusal or a sign says. |
 | [`board/round.ts`](./board/round.ts) | The lead's rollup over the cards alone: owners, unplanned, unapproved, unreviewed, blocked, done. |
 | [`board/round-text.ts`](./board/round-text.ts) | That rollup as sentences, and what a session is holding, shared by the tool, `/team`, and the page. |
 | [`board/skipped.ts`](./board/skipped.ts) | The sentence for the card files a board refused. |

@@ -12,7 +12,6 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import type { Card } from "../../lib/board/card.ts";
-import { advance } from "../../test/helpers/board-flow.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { NOW, type TeamSuite, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
 import { fakeTheme, toolRenderContext } from "../../test/helpers/fakes.ts";
@@ -254,43 +253,6 @@ describe("the join a round makes", () => {
 		expect((await call({ action: "ask" })).isError).toBe(true);
 		expect((await call({ action: "claim", card: "9" })).isError).toBe(true);
 		expect(joined).toEqual([]);
-	});
-});
-
-describe("reclaim", () => {
-	test("clears the owner and keeps the notes", async () => {
-		const { call, seed, store } = harness();
-		const id = await seed();
-		const board = await store();
-		await board.mutate(id, { kind: "claim" }, { label: "billing-core" }, NOW);
-		await board.mutate(id, { kind: "note", text: "half done" }, { label: "billing-core" }, NOW);
-
-		const result = await call({ action: "reclaim", card: id });
-		expect(result.isError).toBeFalsy();
-		expect(result.details.card).toMatchObject({ lane: "backlog" });
-		expect(result.details.card?.owner).toBeUndefined();
-		expect(result.details.card?.notes.map((note) => note.text)).toEqual(["half done"]);
-		expect(resultText(result)).toContain("#1 reclaimed from billing-core");
-	});
-
-	test("refuses a card nobody holds, and one that is finished", async () => {
-		const { call, seed, store } = harness();
-		const id = await seed();
-		expect(resultText(await call({ action: "reclaim", card: id }))).toContain("has no owner to reclaim.");
-
-		const board = await store();
-		const other = await board.create({ title: "Second", paths: [] }, { label: "billing-lead" }, NOW);
-		await advance(board, other.id, "done", { owner: { label: "billing-core" } }, NOW);
-		expect(resultText(await call({ action: "reclaim", card: other.id }))).toContain("is done");
-	});
-
-	test("sends nothing", async () => {
-		const { call, seed, store, sent } = harness();
-		const id = await seed();
-		const board = await store();
-		await board.mutate(id, { kind: "claim" }, { label: "billing-core" }, NOW);
-		await call({ action: "reclaim", card: id });
-		expect(sent).toEqual([]);
 	});
 });
 

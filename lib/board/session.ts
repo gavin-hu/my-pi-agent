@@ -33,8 +33,10 @@ import {
 	sessionIdOf,
 	sessionNameOf,
 } from "../session-label.ts";
-import { BUS_DIR_NAME, readRoster, type RosterSession, rosterStateOf } from "../session-roster.ts";
+import { BUS_DIR_NAME, presenceOf, readRoster, type RosterSession, rosterStateOf } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
+import type { Card } from "./card.ts";
+import type { HolderFact } from "./lead.ts";
 import type { Actor } from "./rules.ts";
 import { type BoardStore, openBoard } from "./store.ts";
 
@@ -106,6 +108,14 @@ export interface BoardSession {
 	 * is the caller that catches it.
 	 */
 	roster(cwd: string): Promise<RosterSession[] | undefined>;
+	/**
+	 * What the bus says about the session holding `card`, bound to the owner it is about.
+	 *
+	 * The one question a board rule asks outside the card, built here because the roster is this
+	 * session's: `undefined` is "cannot tell" — no bus here, or a read that failed — and a caller
+	 * that cannot report that failure is the caller that catches it.
+	 */
+	holder(cwd: string, card: Card): Promise<HolderFact | undefined>;
 	/**
 	 * This repository's plan store, where a card's plan file has to live.
 	 *
@@ -248,6 +258,14 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 		},
 		async roster(cwd) {
 			return readRoster(await session.busDir(cwd));
+		},
+		async holder(cwd, card) {
+			const owner = card.owner;
+			if (owner === undefined) return undefined;
+			// A bus that cannot be read is not a session that stopped, so the answer stays a question.
+			const roster = await session.roster(cwd).catch(() => undefined);
+			const state = presenceOf(roster, owner, session.now());
+			return state === undefined ? undefined : { owner, state };
 		},
 		planDir(cwd) {
 			return rememberLoad(planDirs, cwd, () =>

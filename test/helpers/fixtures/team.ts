@@ -149,6 +149,8 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 		},
 		/** The store this session works on, so a case seeds the same board it reads. */
 		store: () => session.store(cwd),
+		/** Where this repository's bus files a record, so a case can leave one the rule reads. */
+		busDir: () => session.busDir(cwd),
 		/** Publish one card on that board and return its id. */
 		async seed(title = "Billing webhook accepts orders"): Promise<string> {
 			const store = await session.store(cwd);

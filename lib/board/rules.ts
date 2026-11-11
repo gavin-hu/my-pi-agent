@@ -47,10 +47,10 @@ import {
 	move,
 	note,
 	offer,
-	reclaim,
 	release,
 	review,
 } from "./steps.ts";
+import { type HolderFact, reclaim } from "./lead.ts";
 
 /** Who is attempting an operation: a session when it has one, and the label it is addressed by. */
 export interface Actor {
@@ -119,7 +119,13 @@ export type CardOp =
 			priority?: unknown;
 			dependsOn?: unknown;
 	  }
-	| { kind: "reclaim" }
+	/**
+	 * Take a card back to `backlog`: the holder's own, the person's, the lead's, or — for anybody
+	 * else — only when the bus says the owner has stopped. `holder` is what the caller found out
+	 * about that session, bound to the owner it is about; absent is "cannot tell", and a caller
+	 * that cannot tell only lets the lead take the card.
+	 */
+	| { kind: "reclaim"; holder?: HolderFact }
 	/**
 	 * Record that the card was offered to the team: `team offer` broadcasts it on the bus
 	 * and then writes this, because an event nobody answers otherwise leaves no trace.
@@ -264,7 +270,7 @@ function prepare(
 		case "edit":
 			return edit(card, op, actor, board);
 		case "reclaim":
-			return reclaim(card);
+			return reclaim(card, actor, config, op.holder);
 		case "offer":
 			return offer(card, now, board, config.wip);
 		case "archive":

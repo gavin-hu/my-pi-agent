@@ -153,7 +153,7 @@ describe("assign", () => {
 	});
 });
 
-describe("release and reclaim", () => {
+describe("release", () => {
 	test("release returns a card to the backlog with no owner", () => {
 		const card = claimed();
 		const back = stepOf(card, { kind: "release" }, CORE);
@@ -180,19 +180,6 @@ describe("release and reclaim", () => {
 		expect(refusal(applyOp(done, { kind: "release" }, CORE, NOW, boardOf(done)))).toBe(
 			"#4 is done; it cannot be released.",
 		);
-	});
-
-	test("reclaim takes the card back from whoever holds it, and keeps its notes", () => {
-		const card = stepOf(claimed(), { kind: "note", text: "halfway" }, CORE);
-		const back = stepOf(card, { kind: "reclaim" }, LEAD);
-		expect(back).toMatchObject({ lane: "backlog", by: LEAD.label });
-		expect("owner" in back).toBe(false);
-		expect(back.notes.at(-1)?.text).toBe("halfway");
-	});
-
-	test("reclaim refuses a card nobody holds", () => {
-		const pool = created();
-		expect(refusal(applyOp(pool, { kind: "reclaim" }, LEAD, NOW, boardOf(pool)))).toBe("#4 has no owner to reclaim.");
 	});
 });
 

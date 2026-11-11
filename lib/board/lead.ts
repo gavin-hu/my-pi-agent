@@ -1,5 +1,6 @@
 /**
- * Who may sign a card's two gates: the lead, and the person at the keyboard.
+ * Who may act on a card's two gates and its return to the pool: the lead, and the person at the
+ * keyboard.
  *
  * `approve` and `review` are the board's one human judgement — a contract somebody read and a
  * piece of work somebody looked at — so the signature has to belong to somebody accountable
@@ -16,13 +17,22 @@
  * signature cannot drift into four slightly different sentences: a refusal names `askLead` as the
  * way to ask, and `signedText` is what the sign sends the card's owner.
  *
+ * `reclaim` is the third decision here, because it is the same question asked of another verb: the
+ * holder may always take its own card back, the lead takes anybody's as a repair, and a peer takes
+ * one only from a session the bus says has stopped. What the return keeps is the one rule about a
+ * signature that is not about making it — a spot-check is evidence, so only its own signer
+ * withdraws it.
+ *
  * Pure: a name compare and a sentence, no clock and no file.
  */
 
 import { normalizeLabel } from "../session-label.ts";
-import { cardRef, type Card } from "./card.ts";
+import { cardRef, type Card, type CardOwner, holds, laneSince } from "./card.ts";
 import type { Sign as SignRecord } from "./contract.ts";
-import type { Actor } from "./rules.ts";
+import type { BoardConfig } from "./config.ts";
+import { LANE_RULES } from "./lanes.ts";
+import type { Actor, Prepared } from "./rules.ts";
+import type { SessionPresence } from "../session-roster.ts";
 
 /** The lead's team name: the label a signature has to carry. */
 export type Lead = string;
@@ -191,6 +201,26 @@ export function missingSign(card: Card, lead: Lead, sign: Sign): string {
 }
 
 /**
+ * The spot-check that speaks for the work in the lane the card is in now.
+ *
+ * A sign kept across a `reclaim` — which is what happens when somebody other than its signer takes
+ * the card back — is evidence that a spot-check happened, and not evidence about the execution the
+ * card is in today. So the meaning of the sign follows the lane: in `execute` it answers only when
+ * it was made after the card entered, and a new execution owes the lead a new look. Everywhere else
+ * the sign is a fact about the work the card finished, and a finished card's sign is the one that
+ * closed it.
+ *
+ * A card whose history was elided has no entry to compare against, so it keeps its sign: an
+ * unreadable record is not a reason to demand a signature that may already be there.
+ */
+export function currentReview(card: Card): SignRecord | undefined {
+	const review = card.review;
+	if (review === undefined) return undefined;
+	const since = card.lane === "execute" ? laneSince(card) : undefined;
+	return since === undefined || review.at >= since ? review : undefined;
+}
+
+/**
  * What a sign sends the card's owner: who signed, and the move it unlocked.
  *
  * The gate is the lead's and the card is worked by its owner, so the one session that can act on
@@ -214,4 +244,84 @@ export function signedText(card: Card, sign: Sign, by: string): string {
  */
 export function notToldLine(owner: string, reason: string): string {
 	return `${owner} was not told (${reason})`;
+}
+
+/**
+ * What the caller found out about the session holding a card, bound to the owner it is about.
+ *
+ * The binding is the point: a fact about one session must not take another session's card, so a
+ * fact computed for an owner the lock no longer reads is no fact at all.
+ */
+export interface HolderFact {
+	/** The owner the state was computed for. */
+	owner: CardOwner;
+	/** What the bus said about it; `quiet` and `gone` are the two that let a peer take the card. */
+	state: SessionPresence;
+}
+
+/**
+ * Take a card back to the pool, for the callers this module already answers for.
+ *
+ * The holder may always (a release by another name), the person and the lead may take anybody's,
+ * and a peer only when the bus says the owner has stopped — `quiet` or `gone`. `absent` is refused
+ * with no fact at all: a live session that never joined this bus has no record either, so no record
+ * is not an answer.
+ */
+export function reclaim(card: Card, actor: Actor, config: BoardConfig, holder?: HolderFact): Prepared {
+	if (LANE_RULES[card.lane].terminal) {
+		return { error: `${cardRef(card.id)} is done; there is nothing to reclaim.` };
+	}
+	if (card.owner === undefined) return { error: `${cardRef(card.id)} has no owner to reclaim.` };
+	const state = stateOf(card, holder);
+	if (!mayTakeBack(card, actor, config.lead, state)) return { error: heldStill(card, config.lead, state) };
+	return { changed: true, fields: backToPool(card, actor, config.lead) };
+}
+
+/** Whether this caller may take the card back. */
+function mayTakeBack(card: Card, actor: Actor, lead: Lead, state: SessionPresence | undefined): boolean {
+	if (holds(card, actor) || isPerson(actor) || isLead(actor, lead)) return true;
+	return state === "quiet" || state === "gone";
+}
+
+/** The bus's answer about the card's holder, when the fact belongs to the owner the card names. */
+function stateOf(card: Card, holder: HolderFact | undefined): SessionPresence | undefined {
+	const owner = card.owner;
+	if (owner === undefined || holder === undefined) return undefined;
+	// The order `holds` compares in: the two ids when both sides have one, else the label.
+	const same =
+		owner.id !== undefined && holder.owner.id !== undefined
+			? owner.id === holder.owner.id
+			: owner.label.toLowerCase() === holder.owner.label.toLowerCase();
+	return same ? holder.state : undefined;
+}
+
+/** What a card looks like back in the pool: nobody's, and its spot-check unless its signer took it. */
+function backToPool(card: Card, actor: Actor, lead: Lead): Partial<Card> {
+	return {
+		lane: "backlog",
+		owner: undefined,
+		offeredAt: undefined,
+		// A spot-check is evidence that somebody looked at the work, and taking the card back is not
+		// a look: only the signer withdraws their own sign, so a third session keeps what it found.
+		review: signedAs(card.review, actor, lead) ? undefined : card.review,
+	};
+}
+
+/**
+ * Why this caller may not take the card back, in the three shapes the bus leaves.
+ *
+ * A sentence each, because the caller's next move differs: a running peer is asked to release, a
+ * session the bus has never recorded cannot be asked, and a board with no bus at all has nothing
+ * to go on.
+ */
+function heldStill(card: Card, lead: Lead, state: SessionPresence | undefined): string {
+	const owner = card.owner?.label ?? "another session";
+	const held = `${cardRef(card.id)} is held by ${owner}.`;
+	if (state === "live") {
+		return `${held} That session is running, so only the lead (${lead}) takes a live peer's card back — ask ${owner} to release it, or ${askLead(lead)}.`;
+	}
+	if (state === "absent") {
+		return `${held} The bus has no record of that session, and nothing says it stopped: only the lead (${lead}) takes the card back.`;
+	}
+	return `${held} Nothing here says whether that session is running, so only the lead (${lead}) takes the card back.`;
 }

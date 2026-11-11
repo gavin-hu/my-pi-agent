@@ -12,6 +12,7 @@ import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
+import { billingCard } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { repoKeyOf } from "../repo-key.ts";
 import { presetNameFor, TEAMMATE_NAMES } from "../session-label.ts";
@@ -301,6 +302,53 @@ describe("busDir", () => {
 			join(agentDir, "session-bus", (await runtime.store("/repo/billing")).key),
 		);
 		expect(attempts).toBe(2);
+	});
+});
+
+describe("holder", () => {
+	/** A card held by a session the bus may or may not have recorded. */
+	const heldBy = (id: string, label: string) => billingCard({ lane: "plan", owner: { id, label } });
+
+	test("binds the bus's answer to the owner it was read for", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-cwd-"));
+		const runtime = runtimeFor(agentDir);
+		await recordOnBus(runtime, cwd, { id: "s-core", label: "billing-core" });
+		const card = heldBy("s-core", "billing-core");
+		expect(await runtime.holder(cwd, card)).toEqual({ owner: { id: "s-core", label: "billing-core" }, state: "live" });
+	});
+
+	test("answers absent for an owner the bus has recorded nobody under", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-cwd-"));
+		const runtime = runtimeFor(agentDir);
+		await recordOnBus(runtime, cwd, { id: "s-lead", label: "billing-lead" });
+		const card = heldBy("s-core", "billing-core");
+		expect(await runtime.holder(cwd, card)).toEqual({
+			owner: { id: "s-core", label: "billing-core" },
+			state: "absent",
+		});
+	});
+
+	test("answers nothing for a board with no bus, and for a card nobody holds", async () => {
+		// No bus is a question: a machine that has recorded nobody cannot say a session stopped.
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-cwd-"));
+		const runtime = runtimeFor(agentDir);
+		expect(await runtime.holder(cwd, heldBy("s-core", "billing-core"))).toBeUndefined();
+		expect(await runtime.holder(cwd, billingCard())).toBeUndefined();
+	});
+
+	test("a bus that cannot be read is a question rather than a stopped session", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const runtime = openBoardSession(offlinePi().pi, {
+			now: () => NOW,
+			agentDir,
+			open: async () => {
+				throw new Error("the store could not be opened");
+			},
+		});
+		expect(await runtime.holder("/repo/billing", heldBy("s-core", "billing-core"))).toBeUndefined();
 	});
 });
 

@@ -76,8 +76,21 @@ describe("roundText", () => {
 			"unassigned (1): #1 backlog",
 			"unreviewed (1): #2 execute unplanned",
 			"blocked (1): #3 blocked — gateway",
-			"live: billing-lead — idle · quiet: ops-helper — idle",
+			"live: billing-lead — idle · quiet: ops-helper — idle · not on the bus: billing-core — #2 execute +1",
 		]);
+	});
+
+	test("names a quiet owner's cards, and leaves an owner with no record to the fact line", () => {
+		const cards = [
+			card("1", { lane: "execute", owner: { label: "ops-helper" } }),
+			card("2", { lane: "plan", owner: { label: "nobody-home" } }),
+		];
+		const lines = roundText(cards, NOW, [mate("ops-helper", NOW - 20 * 60_000)]).split("\n");
+		// Quiet is one of the two states the board lets a peer take a card from. A label the bus has no
+		// record of is not: a live session that never joined looks exactly the same.
+		expect(lines).toContain("reclaim #1 — ops-helper has gone quiet");
+		expect(lines.some((line) => line.startsWith("reclaim ") && line.includes("nobody-home"))).toBe(false);
+		expect(lines.at(-1)).toContain("not on the bus: nobody-home — #2 plan");
 	});
 
 	test("names a live peer that is not listening, and only when its record says so", () => {

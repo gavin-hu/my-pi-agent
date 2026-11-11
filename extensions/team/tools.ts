@@ -192,7 +192,8 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			"(`to` is a teammate's label or id, as `/team` lists them); `offer` broadcasts an unclaimed card to every other " +
 			"live session, then records the moment it was made — the lane and the owner stay put — so the first to claim " +
 			"it takes it, and a lead can tell an offer nobody took from a card nobody has looked at; `reclaim` takes a card " +
-			"back to Backlog and sends nothing, so it needs no team; `claim` takes one for yourself, and the card's plan, " +
+			"back to Backlog — a peer only from an owner whose record says it stopped, the lead from anyone — and sends " +
+			"nothing, so it needs no team; `claim` takes one for yourself, and the card's plan, " +
 			"contract, moves, and finish are `board`'s; `ask` sends one peer a question and reports what the bus did with " +
 			"it — delivered, or waiting for that peer's next turn — so the answer arrives as mail and nothing waits on it. " +
 			"Nothing here starts a peer's turn: a message waits in its inbox, and a peer that is listening reports it at " +
@@ -206,8 +207,8 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			"Ask a peer with `ask` when a card cannot answer the question: the round says what a session holds, not how " +
 				"the work is going. The reply arrives as mail, so read the inbox before asking again.",
 			"When a result says `Not listening`, say so: the message waits for that peer's next turn.",
-			"Reclaim a card whose owner is gone or has gone quiet rather than editing someone else's work. A " +
-				"`gone:` owner's process is not running, so what it held is anyone's to reclaim.",
+			"Reclaim a card whose record says its owner stopped — gone or quiet — rather than editing someone else's " +
+				"work; a live peer's card is the lead's to take back.",
 		],
 		parameters: TeamParams,
 		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
@@ -252,7 +253,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 				}
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
-				if (action === "reclaim") return await reclaimCard(store, me, id, now);
+				if (action === "reclaim") return await reclaimCard(session, store, me, id, now, ctx.cwd);
 				if (action === "offer") return await offerCard(store, me, id, args.note, now, dispatchFor(ctx));
 				if (action === "claim") return await claimCard(store, me, id, now, join);
 				const to = typeof args.to === "string" ? args.to.trim() : "";
@@ -513,18 +514,27 @@ async function claimCard(
 	return textResult(formatClaimed(result.card), { action: "claim", card: result.card });
 }
 
-/** `reclaim`: the owner clears and the card returns to the pool, notes and all. */
+/**
+ * `reclaim`: the owner clears and the card returns to the pool, notes and all.
+ *
+ * The card is read first for the two facts the call needs: whose record to ask the bus about, and
+ * whether there is a holder to take it back from. The op carries what the bus said, bound to that
+ * owner, so a card that changed hands under the read is taken on no fact at all.
+ */
 async function reclaimCard(
+	session: BoardSession,
 	store: BoardStore,
 	me: Actor,
 	id: string,
 	now: number,
+	cwd: string,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	const before = await store.read(id);
 	if (!before) return refusal("reclaim", `${cardRef(id)} does not exist.`);
 	const previous = before.owner?.label;
 	if (previous === undefined) return refusal("reclaim", `${cardRef(id)} has no owner to reclaim.`, before);
-	const result = await store.mutate(id, { kind: "reclaim" }, me, now);
+	const holder = await session.holder(cwd, before);
+	const result = await store.mutate(id, { kind: "reclaim", ...(holder === undefined ? {} : { holder }) }, me, now);
 	if (!result.ok) return refusal("reclaim", result.error, result.card ?? before);
 	return textResult(formatReclaimed(result.card, previous), { action: "reclaim", card: result.card });
 }

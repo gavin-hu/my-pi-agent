@@ -14,7 +14,7 @@ import { buildRound, type RoundSummary } from "../../lib/board/round.ts";
 import { formatRound, holdingLine, plural } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
-import { type RosterSession, rosterStateOf } from "../../lib/session-roster.ts";
+import { type RosterSession, presenceOf, rosterStateOf } from "../../lib/session-roster.ts";
 import { sessionNameOf } from "../../lib/session-label.ts";
 import { formatJoined, formatNotJoined } from "./format.ts";
 
@@ -107,35 +107,37 @@ export function roundText(cards: readonly Card[], now: number, roster?: readonly
 	const lines = formatRound(cards, round, roster).split("\n");
 	const shown = lines.slice(0, MAX_ROUND_LINES);
 	if (lines.length > MAX_ROUND_LINES) shown.push(`… ${plural(lines.length - MAX_ROUND_LINES, "line")} more`);
-	for (const line of goneLines(cards, roster, now)) shown.push(line);
+	for (const line of stalledLines(cards, roster, now)) shown.push(line);
 	const who = presenceLine(roster, now, round);
 	if (who !== undefined) shown.push(who);
 	return shown.join("\n");
 }
 
 /**
- * The work a dead owner left behind, as the line that says who takes it.
+ * The cards a lead can take back, as the line that says who from.
  *
- * One line per gone owner that still holds cards, before the presence line: `gone: b` at
- * the end of that line says who died, and this one says what to do about it. Every card
- * that owner holds is named, including one that waits on another: the board's dependency
- * rule refuses a claim or a move, and `reclaim` is neither.
+ * One line per owner whose record says it has stopped, naming every unfinished card it holds —
+ * including one that waits on another, since the board's dependency rule refuses a claim and a move
+ * but `reclaim` is neither. Quiet is here because the rule lets a peer take a quiet owner's card.
+ * An owner the bus has no record of is not: a live session that never joined writes no record
+ * either, so the presence line states that as a fact instead of offering the verb.
  */
-function goneLines(cards: readonly Card[], roster: readonly RosterSession[] | undefined, now: number): string[] {
+function stalledLines(cards: readonly Card[], roster: readonly RosterSession[] | undefined, now: number): string[] {
 	if (roster === undefined) return [];
-	const gone = new Map<string, string>();
-	for (const session of roster) {
-		if (rosterStateOf(session, now) === "gone") gone.set(session.label.toLowerCase(), session.label);
-	}
-	if (gone.size === 0) return [];
-	const byOwner = new Map<string, string[]>();
+	const byOwner = new Map<string, { label: string; state: "quiet" | "gone"; refs: string[] }>();
 	for (const card of cards) {
 		if (card.owner === undefined || card.lane === "done") continue;
-		const label = gone.get(card.owner.label.toLowerCase());
-		if (label === undefined) continue;
-		byOwner.set(label, [...(byOwner.get(label) ?? []), cardRef(card.id)]);
+		const state = presenceOf(roster, card.owner, now);
+		if (state !== "quiet" && state !== "gone") continue;
+		const key = card.owner.label.toLowerCase();
+		const entry = byOwner.get(key) ?? { label: card.owner.label, state, refs: [] };
+		entry.refs.push(cardRef(card.id));
+		byOwner.set(key, entry);
 	}
-	return [...byOwner.entries()].map(([label, refs]) => `reclaim ${refs.join(", ")} — ${label} is not running`);
+	return [...byOwner.values()].map(({ label, state, refs }) => {
+		const why = state === "gone" ? "is not running" : "has gone quiet";
+		return `reclaim ${refs.join(", ")} — ${label} ${why}`;
+	});
 }
 
 /**
@@ -153,7 +155,10 @@ function goneLines(cards: readonly Card[], roster: readonly RosterSession[] | un
  * not listening reads mail at its next turn rather than being woken for it. It is only
  * named when its record says so — a session that never wrote the field is not accused of
  * ignoring anything. `gone` is the loudest and comes last, because it is the one a lead
- * answers by reclaiming rather than by waiting.
+ * answers by reclaiming rather than by waiting. `not on the bus` is the fifth and a different
+ * kind: an owner the board names, the bus has no record of, and that holds cards — the row the
+ * page draws as `absent`. A session that never joined looks the same, so it states the fact
+ * and offers no verb.
  */
 function presenceLine(
 	roster: readonly RosterSession[] | undefined,
@@ -169,6 +174,7 @@ function presenceLine(
 	const quiet: string[] = [];
 	const dead: string[] = [];
 	const silent: string[] = [];
+	const recorded = new Set(roster.map((record) => record.label.toLowerCase()));
 	for (const record of roster) {
 		const state = rosterStateOf(record, now);
 		if (state === "gone") {
@@ -182,10 +188,16 @@ function presenceLine(
 		live.push(session(record.label));
 		if (record.watching?.armed === false) silent.push(record.label);
 	}
+	// The owners the bus holds no record of, as the board knows them: only the ones holding work are
+	// worth a row, because an owner holding nothing is history and `formatRound` folds it.
+	const unrecorded = round.owners
+		.filter((group) => group.cards.length > 0 && !recorded.has(group.label.toLowerCase()))
+		.map((group) => holdingLine(group.label, group.cards));
 	const parts = [
 		live.length > 0 ? `live: ${live.join(", ")}` : "",
 		silent.length > 0 ? `not listening: ${silent.join(", ")}` : "",
 		quiet.length > 0 ? `quiet: ${quiet.join(", ")}` : "",
+		unrecorded.length > 0 ? `not on the bus: ${unrecorded.join(", ")}` : "",
 		dead.length > 0 ? `gone: ${dead.join(", ")}` : "",
 	];
 	return parts.filter((part) => part !== "").join(" · ");

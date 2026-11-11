@@ -152,10 +152,10 @@ makes a concurrent writer lose.
 
 ### steps.ts
 
-What each operation does — the gates, the lane changes, and the sentence a refusal carries
-— split from the table that dispatches it so the dispatch reads as one switch and the rules
-read as one decision per operation. `claim` pulls a pool card into `plan`; `assign` hands
-one over and moves only a pool card's lane; `release` / `reclaim` return it; `move` walks
+What each operation a card alone can decide does — the gates, the lane changes, and the sentence
+a refusal carries — split from the table that dispatches it so the dispatch reads as one switch
+and the rules read as one decision per operation. `claim` pulls a pool card into `plan`; `assign`
+hands one over and moves only a pool card's lane; `release` returns it; `move` walks
 `TRANSITIONS` and asks every gate; `contractOp` writes the three lines and the plan path;
 `approve` / `review` record the two human gates, both refused to the card's own holder, and
 `review` also signs a card already in `done` when an override gives the one line saying why;
@@ -165,6 +165,20 @@ while something waits on the card.
 Each answers a `Prepared`: a refusal sentence, a no-op, or the fields a write would apply.
 `{ fields: null, changed: true }` is the one operation that changes the board without
 changing the record — `archive` moves the file, and that is the store's write.
+
+### reclaim, in lead.ts
+
+The one operation `steps.ts` cannot hold, because its gate reads a fact the card does not carry:
+whether the session holding it is still running. A session takes its own card back (a release by
+another name), the lead takes anybody's, and a peer takes one only from an owner whose record says
+it stopped — `quiet` or `gone`. `absent` is refused with no fact at all, because a session that
+never joined this bus writes no record either. The fact is bound to the owner it was read for, so a
+card that changed hands under the read is taken on nothing.
+
+What returns to the pool keeps the notes and the contract, and keeps a spot-check unless the
+reclaimer is its signer: the sign is evidence, and only the person who made it withdraws it. It
+lives in `lead.ts` because that module already answers who may act on a card's two gates, and this
+is the same question asked of another verb.
 
 ### actions.ts
 
