@@ -75,6 +75,14 @@ export interface ViewCard extends Card {
 	 * one from `updatedAt`, which moves on every write.
 	 */
 	since?: number;
+	/**
+	 * The plan it recorded is no longer in the plan store.
+	 *
+	 * Derived by the server, which is the only side that can stat: the reason body is spliced into
+	 * the browser and cannot read a file. Absent is the ordinary answer — a card with no plan, a
+	 * card whose plan is there, and a card in a lane no gate asks the question from.
+	 */
+	planGone?: true;
 }
 
 /**
@@ -158,6 +166,13 @@ export interface ViewInput {
 	root: string;
 	/** The bus's records, when the page could read them at all. */
 	roster?: readonly RosterSession[];
+	/**
+	 * The cards whose recorded plan is gone, from `artifact.ts`'s one stat.
+	 *
+	 * Supplied rather than computed here: resolving a plan path is the plan store's rule, and this
+	 * module builds a frame from facts. Absent reads as none, which is the ordinary board.
+	 */
+	gonePlans?: ReadonlySet<string>;
 	/** The board's WIP limits, so a head can say `n/limit`; absent reads as the defaults. */
 	limits?: WipLimits;
 }
@@ -167,10 +182,11 @@ export function buildView(input: ViewInput): BoardView {
 	// One index for the whole snapshot: a card's lane and its blockers are read from the
 	// same board, so a dependency and its dependent cannot be told two different stories.
 	const index = indexOf(input.cards);
+	const gone = input.gonePlans ?? new Set<string>();
 	// One mapped list feeds both halves of the snapshot: the rollup's groups carry the same
 	// card the lane does, so a client reading `round.unassigned` is not handed a card
 	// missing the facts every other card has.
-	const cards = input.cards.map((card) => viewCardOf(card, index));
+	const cards = input.cards.map((card) => viewCardOf(card, index, gone.has(card.id)));
 	const limits = input.limits ?? DEFAULT_WIP;
 	const lanes = LANES.map((key) => {
 		const rule = LANE_RULES[key];
@@ -207,7 +223,10 @@ export function buildView(input: ViewInput): BoardView {
 			signatureOf(input.cards) +
 			rosterSignature(teammates) +
 			`|skipped:${(input.skipped ?? []).map((entry) => `${entry.file}:${entry.why}`).join(",")}` +
-			`|unwritten:${round.unwritten.map((card) => card.id).join(",")}`,
+			`|unwritten:${round.unwritten.map((card) => card.id).join(",")}` +
+			// A plan file going away moves no card's revision, and the face says so: without this the
+			// tab would keep a frame that still reads the plan as there.
+			`|gone:${[...gone].sort().join(",")}`,
 		repo: input.repo,
 		root: input.root,
 		where: input.where,
@@ -220,7 +239,7 @@ export function buildView(input: ViewInput): BoardView {
  * The card is copied rather than annotated — the caller's cards are the store's, and a
  * derived field written onto one would outlive the read that made it.
  */
-function viewCardOf(card: Card, index: ReadonlyMap<string, Card>): ViewCard {
+function viewCardOf(card: Card, index: ReadonlyMap<string, Card>, planGone: boolean): ViewCard {
 	// The page draws these two as its own lines, and a reader has to know *which* card: the
 	// lane alone is a state, and the title is the card. The transcript asks for no titles —
 	// a refusal is a row, and the sentence is the point there.
@@ -233,6 +252,7 @@ function viewCardOf(card: Card, index: ReadonlyMap<string, Card>): ViewCard {
 		...(waits === "" ? {} : { waits }),
 		...(dependents === "" ? {} : { dependents }),
 		...(since === undefined ? {} : { since }),
+		...(planGone ? { planGone: true as const } : {}),
 	};
 }
 

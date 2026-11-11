@@ -29,7 +29,7 @@
  * state the other operations never produce.
  */
 
-import type { ArtifactCheck } from "./artifact.ts";
+import type { ArtifactProof } from "./artifact.ts";
 import { type Card, type CardBlock, CARD_VERSION, DEFAULT_PRIORITY, MAX_LOG, type Priority } from "./card.ts";
 import type { CardType } from "./kind.ts";
 import { type BoardConfig, DEFAULT_BOARD_CONFIG } from "./config.ts";
@@ -81,14 +81,15 @@ export type CardOp =
 	/**
 	 * Change lane. `blockedBy` and `blocker` are what a block records, and `artifact` is the
 	 * plan proof a card entering `execute` or `done` carries: each is read only by the lanes
-	 * that ask for it.
+	 * that ask for it. The proof is a question as often as an answer: a door hands over the way
+	 * to find out, and the rule takes it where it asks — inside the store's locked pass.
 	 */
 	| {
 			kind: "move";
 			lane: Lane;
 			blockedBy?: unknown;
 			blocker?: unknown;
-			artifact?: ArtifactCheck;
+			artifact?: ArtifactProof;
 	  }
 	// `text` and the contract fields are whatever the model sent: the modules that own
 	// them validate them, and the refusal they produce is the one the caller shows.
@@ -99,13 +100,13 @@ export type CardOp =
 	 * decides — nothing here touches a filesystem — and a contract naming neither is refused,
 	 * so a caller cannot skip the check by omitting it.
 	 */
-	| { kind: "contract"; artifact?: ArtifactCheck; goal?: unknown; acceptance?: unknown; scopeOut?: unknown }
+	| { kind: "contract"; artifact?: ArtifactProof; goal?: unknown; acceptance?: unknown; scopeOut?: unknown }
 	/**
 	 * Read the contract *and* the plan it names, and approve them: the lead, and never the card's
 	 * holder; `text` is noted with the sign. `artifact` is what the caller proved about the plan, as
 	 * `move` hands it in, so an approval cannot cover a plan file that is already gone.
 	 */
-	| { kind: "approve"; text?: unknown; artifact?: ArtifactCheck }
+	| { kind: "approve"; text?: unknown; artifact?: ArtifactProof }
 	/** Spot-check the finished work: the lead, in `execute`, and never the card's holder; `text` is noted with the sign. */
 	| { kind: "review"; text?: unknown; override?: unknown }
 	// Every field but `kind` is optional, and an absent one is left as it was: the page

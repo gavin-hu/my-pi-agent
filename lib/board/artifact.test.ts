@@ -10,7 +10,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import { shortenPath } from "../format.ts";
 import type { Card } from "./card.ts";
-import { contractRoute, planForContract, planForExecute } from "./artifact.ts";
+import { contractRoute, gonePlans, planForContract, planForExecute, planIsGone, proved } from "./artifact.ts";
 
 const ROOT = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-board-artifact-")));
 const STORE = join(ROOT, "plans", "abc123");
@@ -155,5 +155,50 @@ describe("contractRoute", () => {
 		// From the pool the missing step is the claim, not the move.
 		expect(contractRoute({ lane: "backlog" })).toBe("claim it, then record it with `contract`.");
 		expect(contractRoute({ lane: "done" })).toBe("a finished card's plan cannot change.");
+	});
+});
+
+describe("proved", () => {
+	test("takes a fact and a question alike", () => {
+		const fact = planForExecute(STORE, card("execute", plan()));
+		expect(proved(fact)).toEqual(fact);
+		expect(proved(() => fact)).toEqual(fact);
+	});
+
+	test("a question taken after the file went answers for the moment it was taken", () => {
+		// The whole point of the thunk: a door proves before the store's lock, so the answer has to be
+		// read where the write happens rather than where the door was.
+		const path = plan("vanishes.md");
+		const deferred = () => planForExecute(STORE, card("execute", path));
+		expect(proved(deferred)).toMatchObject({ recorded: path });
+		rmSync(path, { force: true });
+		expect(proved(deferred)).toMatchObject({ error: expect.stringContaining("is gone") });
+	});
+});
+
+describe("planIsGone", () => {
+	test("names a recorded plan that is no longer there, in the lanes a gate is asked from", () => {
+		const path = plan("lost.md");
+		rmSync(path, { force: true });
+		expect(planIsGone(card("execute", path))).toBe(true);
+		expect(planIsGone(card("plan", path))).toBe(true);
+		// A finished card on a dead plan is history, and a pool card re-plans on its next claim.
+		expect(planIsGone(card("done", path))).toBe(false);
+		expect(planIsGone(card("backlog", path))).toBe(false);
+		expect(planIsGone(card("execute", undefined))).toBe(false);
+	});
+
+	test("a surviving plan is not gone, and a set names only the cards that lost one", () => {
+		const kept = plan("kept.md");
+		const lost = plan("lost-again.md");
+		rmSync(lost, { force: true });
+		expect(planIsGone(card("execute", kept))).toBe(false);
+		expect(
+			gonePlans([
+				{ id: "1", lane: "execute", planPath: kept },
+				{ id: "2", lane: "execute", planPath: lost },
+				{ id: "3", lane: "done", planPath: lost },
+			]),
+		).toEqual(new Set(["2"]));
 	});
 });

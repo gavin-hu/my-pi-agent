@@ -9,7 +9,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { ArtifactCheck } from "../../lib/board/artifact.ts";
+import type { ArtifactProof } from "../../lib/board/artifact.ts";
 import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
@@ -205,7 +205,7 @@ async function signLine(
 }
 
 /** The operation one `/board` line makes: the word, the reason it may carry, and the plan it proved. */
-function signOp(sign: Sign, override: string | undefined, artifact: ArtifactCheck | undefined): CardOp {
+function signOp(sign: Sign, override: string | undefined, artifact: ArtifactProof | undefined): CardOp {
 	if (sign === "review") return override === undefined ? { kind: "review" } : { kind: "review", override };
 	return { kind: "approve", ...(artifact === undefined ? {} : { artifact }) };
 }

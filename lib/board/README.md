@@ -132,6 +132,13 @@ the recorded plan to still be there, named with the card and `contractRoute` as 
 The path rules come from [`../plans/paths.ts`](../plans/paths.ts), so the board and the plan
 tool cannot disagree about what a plan path is; the board still never reads a plan.
 
+`ArtifactProof` is why the fact is a question as often as an answer: a door proves a plan before
+`store.mutate` takes the board's lock, so a fact taken there is a fact about a moment the write
+has left. `proved` takes the deferred answer where the rule asks for it — inside the locked pass —
+and a caller that already holds one may hand the fact itself. `planIsGone` and `gonePlans` are the
+same stat asked for the drawing side: the `plan` and `execute` lanes only, because those are the
+cards a reader can still rescue.
+
 ## The lifecycle
 
 ### rules.ts
@@ -410,6 +417,11 @@ an unanswered offer, a blocked card's recorded reason, a contract's missing line
 nobody gave, a spot-check nobody did, and a finished card's commit. The card face, the lead's
 queue, and the transcript read this one body, because the states it names would otherwise be
 three sentences that drift.
+
+`ReasonCard` is the record plus the one fact only the server can add: `planGone`, which says the
+plan the card recorded is no longer in the store. In `execute` it outranks the spot-check sentence,
+because a card that cannot land is not a card to sign; in `plan` it comes after the approval, since
+the next move is the one that would refuse. A plain card — the transcript's — is read as it was.
 
 The offered sentence is the one reason that carries an age, so it answers `at` and `wording`
 (a `{age}` template) beside its `text`: the page stamps those instead of writing the sentence,

@@ -54,12 +54,20 @@ export interface Reason {
 }
 
 /**
+ * What a reason reads of a card: the record, plus the one fact a reader with the plan store adds.
+ *
+ * `planGone` is the server's, because this body is the browser's too and a browser cannot stat:
+ * a plain card is read exactly as it was before the field existed.
+ */
+export type ReasonCard = Card & { planGone?: boolean };
+
+/**
  * The one line under a card, or `undefined` when the card has nothing to say.
  *
  * The order inside a lane is the weight of the fact: an unfinished dependency outranks
  * everything (a claim would be refused), then the lane's own decision, then the last note.
  */
-export function reasonFor(card: Card, ago: (at: number) => string): Reason | undefined {
+export function reasonFor(card: ReasonCard, ago: (at: number) => string): Reason | undefined {
 	const last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
 	if (card.lane === "blocked") {
 		// The recorded block is the reason: its sentence if one was written, else the kind,
@@ -106,9 +114,17 @@ export function reasonFor(card: Card, ago: (at: number) => string): Reason | und
 		// A card planned before the plan was required: its contract names no artifact, which
 		// `execute` now refuses, so the line says what is missing rather than who signed.
 		if (card.planPath === undefined) return { kind: "contract", text: "contract approved — no plan recorded" };
+		// The next move is the one that would refuse, so the missing plan is read before the name of
+		// whoever signed the contract it was approved with.
+		if (card.planGone === true) return { kind: "contract", text: "contract approved — its plan is gone" };
 		return { kind: "approval", text: "contract approved by " + approved.by };
 	}
 	if (card.lane === "execute") {
+		// The strongest fact in this lane: a card whose plan is gone cannot land at all, signed or
+		// not, so the spot-check it carries is not the thing a reader should be told about it.
+		if (card.planGone === true) {
+			return { kind: "contract", text: "its plan is gone — move it back to plan, then record it again" };
+		}
 		if (card.review !== undefined) return { kind: "review", text: "spot-checked by " + card.review.by };
 		if (card.planPath === undefined) return { kind: "contract", text: "no plan recorded" };
 		return { kind: "executing", text: "executing — no spot-check yet" };

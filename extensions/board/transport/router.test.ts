@@ -163,7 +163,10 @@ describe("the snapshot", () => {
 		const { ctx } = context();
 		const response = await handleBoardRequest(ctx, "GET", url("/api/board"), SAME_ORIGIN);
 		expect(response.status).toBe(200);
-		expect(JSON.parse(String(response.body ?? "{}"))).toMatchObject({ sig: "4:1|skipped:|unwritten:", total: 1 });
+		expect(JSON.parse(String(response.body ?? "{}"))).toMatchObject({
+			sig: "4:1|skipped:|unwritten:|gone:",
+			total: 1,
+		});
 	});
 
 	test("opens the stream route as a stream", async () => {
