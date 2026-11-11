@@ -373,10 +373,8 @@ async function assignCard(
 	// with none carries the record without it — the card then says the owner never heard, which
 	// is the fact a reader needs and the one a re-send would be owed.
 	const handoff = { at: now, ...(delivered.length === 0 ? {} : { told: { at: now } }) };
-	const owner: CardOwner = {
-		...(target.id === undefined ? ownerFor(to, delivered) : { id: target.id, label: target.label }),
-		handoff,
-	};
+	const owner: CardOwner =
+		target.id === undefined ? ownerFor(to, delivered, handoff) : { id: target.id, label: target.label, handoff };
 	const written = await writeOutcome(store.mutate(id, { kind: "assign", to: owner }, me, now));
 	// A write that threw is not a write that was refused: the message is already in the peer's
 	// inbox, so the reason is reported with the card the board holds now rather than alone.

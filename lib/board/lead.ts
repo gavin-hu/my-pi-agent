@@ -292,6 +292,8 @@ function mayTakeBack(card: Card, actor: Actor, lead: Lead, state: SessionPresenc
 function stateOf(card: Card, holder: HolderFact | undefined): SessionPresence | undefined {
 	const owner = card.owner;
 	if (owner === undefined || holder === undefined) return undefined;
+	// A handoff the bus could not resolve is nobody's by label, so the fact binds to no caller.
+	if (owner.handoff?.unresolved === true) return undefined;
 	// The order `holds` compares in: the two ids when both sides have one, else the label.
 	const same =
 		owner.id !== undefined && holder.owner.id !== undefined

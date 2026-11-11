@@ -66,12 +66,11 @@ the action that takes it — `offer` does not take `to`.
 **Who is who.** `/team` lists who is live, who is live but not listening, who has
 gone quiet (a heartbeat older than ten minutes), and who is not on the bus at all —
 an owner a card names that no record answers. A label nobody answers to cannot be
-handed a card; the result says so. A card a quiet owner holds is named as
-reclaimable, because its record says it stopped; one held by a session the bus has
-no record of is not, because a live session that never joined looks the same. A
-handoff, offer, or ask that reaches a quiet peer says so, because a written message
-is not a heard one, and a session that is not listening reads its mail at its next
-turn.
+handed a card; the result says so. A handoff the bus could not name records the owner
+`unresolved`: mail still goes to the label, but only the lead moves the card. A card a
+quiet owner holds is reclaimable; one held by a session with no record is not, because a
+live session that never joined looks the same. A message to a quiet or not-listening peer
+says so, because written is not heard.
 
 **Joining.** `/board` joins you as the board's lead (`board.lead`, `lead` by
 default). Another session joins under its own name — `/team join <label>` picks it,

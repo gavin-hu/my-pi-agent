@@ -43,6 +43,7 @@ export function formatHandoff(
 		`  ${card.title}`,
 		card.paths.length > 0 ? `  paths: ${card.paths.join(", ")}` : undefined,
 		"  The card is already owned by the peer; the handoff is in its inbox.",
+		card.owner?.handoff?.unresolved === true ? UNRESOLVED_LINE : undefined,
 		notListeningLine(notListening),
 		quietLine(quiet),
 		indent(notDeliveredLine(failed)),
@@ -50,6 +51,16 @@ export function formatHandoff(
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
 }
+
+/**
+ * What a sender reads when the bus could not name the peer the handoff went to.
+ *
+ * The card is real and the message is in an inbox; what is missing is the session it belongs to,
+ * so the only write left is the lead's or the person's reclaim, and the peer claims it back with
+ * an id. The sentence says that rather than leaving the sender to find out at its next move.
+ */
+const UNRESOLVED_LINE =
+	"  The bus could not name that session: only the lead can move the card — ask the lead to reclaim it, then claim it.";
 
 /**
  * The line that names a peer which will not be woken, or nothing when every peer is
