@@ -13,8 +13,9 @@ page has its commands in full.
 | [`board`](./extensions/board.md) | the work: one card per feature, and two signatures before it ships |
 | [`team`](./extensions/team.md) | the lead's round over the cards — assign, offer, reclaim, claim, ask |
 
-Nothing in the three starts a process. A message lands in an inbox and is read at
-the recipient's next turn, so a session that is not running stays not running.
+Nothing in the three starts a process. A message lands in an inbox, so a session
+that is not running stays not running — and one listening with `wake` is woken for
+it, a handoff and an ask included.
 
 ## A round, in order
 

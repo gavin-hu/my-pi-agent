@@ -12,7 +12,8 @@ messages, consume an inbox, and claim paths before editing them.
   joins, which every `session` action except `status` does — `/board` and
   `/team join` join too.
 - **Listening is a mode**: mail reported at the next turn, or — with `wake` — one
-  raised turn as soon as the agent is idle.
+  raised turn as soon as the agent is idle. Any mail does it: a handoff, an offer, an
+  ask, or a sign wakes a `wake` listener exactly as any other message does.
 - **Claims are all-or-nothing**, on a file or a directory prefix, and they expire
   with the session.
 

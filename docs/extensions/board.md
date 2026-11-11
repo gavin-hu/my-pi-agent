@@ -95,7 +95,7 @@ claim past either is refused with the count and the ways out.
   holds its `paths`, and the session that claimed them releases them when the lane changes —
   so a `reclaim` leaves them held, and an `edit` to `paths` waits for the next crossing.
 - The page is read-only: a browser cannot assign a card without messaging its owner.
-- A card keeps eight lane transitions; an unreadable card file is reported, not skipped.
+- A card keeps eight lane transitions; an unreadable card file is skipped, and named in the listing.
 
 ## Settings
 
@@ -116,4 +116,4 @@ switch the extension off entirely, toggle `board` in `/bytefly`.
 - [`team`](../extensions/team.md) — handing a card to a peer.
 - [`session-bus`](../extensions/session-bus.md) — the bus the signs travel on.
 - [`plan`](../extensions/plan.md) — the plan a contract points at.
-- [Troubleshooting](../troubleshooting.md) — when a card refuses the session that holds it.
+- [Troubleshooting](../troubleshooting.md) — when a gate refuses the session that holds the card.
