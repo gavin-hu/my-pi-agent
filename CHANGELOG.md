@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `team` and `board`: a reclaim reports the paths it could not free. A lane crossing's rule moved
+  from `extensions/board/claims.ts` to `lib/board/claims.ts`, and `BoardSession.cross` is the one
+  crossing both doors report — the board's `move`, `release`, `reclaim` and `drop`, and the
+  round's `reclaim`, which until now bypassed the rule entirely. `releasePaths` frees the caller's
+  claims and nobody else's, so a card taken back from a peer keeps that peer's path claims until
+  its session stops; the result now says so — `2 paths stay held by api-core until it stops` —
+  instead of leaving the new owner's next claim refused with no word about why. A holder taking
+  its own card back still prints nothing extra, and no bus capability was added.
+
 - `lib`: a request over `pi.events` can no longer hang a turn. The handshake bounded only the case
   where nobody claimed it, so a listener that claimed and then never answered left a `board` or
   `team` call pending forever; a claim now settles on `ANSWER_BOUND_MS` with the caller's

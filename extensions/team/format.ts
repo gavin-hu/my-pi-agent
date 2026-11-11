@@ -226,9 +226,21 @@ export function formatUnrecordedAssignment(card: Card, to: string, reason: strin
 	);
 }
 
-/** A card taken back to the pool. */
-export function formatReclaimed(card: Card, previous: string): string {
-	return `${cardRef(card.id)} reclaimed from ${previous} and back in Backlog; its notes are kept.\n  ${card.title}`;
+/**
+ * A card taken back to the pool.
+ *
+ * `held` is what the crossing could not free: a release names its caller, so the old holder's own
+ * path claims stay until that session stops, and the new owner's next claim is refused over them.
+ * The clause is `lib/board/claims.ts`'s, so the board's door prints the same words.
+ */
+export function formatReclaimed(card: Card, previous: string, held?: string): string {
+	return [
+		`${cardRef(card.id)} reclaimed from ${previous} and back in Backlog; its notes are kept.`,
+		`  ${card.title}`,
+		held === undefined ? undefined : `  ${held}`,
+	]
+		.filter((line): line is string => line !== undefined)
+		.join("\n");
 }
 
 /**

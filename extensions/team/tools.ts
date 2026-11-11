@@ -264,7 +264,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 				}
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
-				if (action === "reclaim") return await reclaimCard(session, store, me, id, now, ctx.cwd);
+				if (action === "reclaim") return await reclaimCard(session, store, me, id, now, ctx);
 				if (action === "offer") return await offerCard(store, me, id, args.note, now, dispatchFor(ctx));
 				if (action === "claim") return await claimCard(store, me, id, now, join);
 				const to = typeof args.to === "string" ? args.to.trim() : "";
@@ -554,16 +554,19 @@ async function reclaimCard(
 	me: Actor,
 	id: string,
 	now: number,
-	cwd: string,
+	ctx: ExtensionToolContext,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	const before = await store.read(id);
 	if (!before) return refusal("reclaim", `${cardRef(id)} does not exist.`);
 	const previous = before.owner?.label;
 	if (previous === undefined) return refusal("reclaim", `${cardRef(id)} has no owner to reclaim.`, before);
-	const holder = await session.holder(cwd, before);
+	const holder = await session.holder(ctx.cwd, before);
 	const result = await store.mutate(id, { kind: "reclaim", ...(holder === undefined ? {} : { holder }) }, me, now);
 	if (!result.ok) return refusal("reclaim", result.error, result.card ?? before);
-	return textResult(formatReclaimed(result.card, previous), { action: "reclaim", card: result.card });
+	// The round's own crossing: a card leaving `execute` holds nothing, and the paths it cannot free
+	// — the old holder's, since a release names its caller — are the clause the result carries.
+	const held = await session.cross(ctx, result).catch(() => undefined);
+	return textResult(formatReclaimed(result.card, previous, held), { action: "reclaim", card: result.card });
 }
 
 /** The collapsed line for a successful call, from its details. */

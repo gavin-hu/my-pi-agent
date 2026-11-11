@@ -23,7 +23,7 @@ import {
 	SESSION_CLAIM_REQUEST,
 	type SessionClaimRequest,
 } from "../../lib/session-tool.ts";
-import type { Claims } from "./claims.ts";
+import type { Claims } from "../../lib/board/claims.ts";
 import {
 	BOARD_CONTEXT_MARKER,
 	BOARD_CONTEXT_TYPE,

@@ -7,6 +7,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import type { Claims } from "../../lib/board/claims.ts";
 import { presetNameFor } from "../../lib/session-label.ts";
 import { SESSION_TTL_MS } from "../../lib/session-roster.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
@@ -25,6 +26,22 @@ const LEAD = presetNameFor("s-lead") ?? "s-lead";
 
 /** A heartbeat past the bus's window, which is the answer that lets a peer take a card back. */
 const QUIET = NOW - SESSION_TTL_MS - 1;
+
+/**
+ * The bus a reclaim's lane crossing writes to: a release frees what the caller holds, so a card
+ * taken back from a peer frees nothing of that peer's.
+ */
+function crossing(notOwned: readonly string[]): Claims {
+	return {
+		loaded: () => true,
+		claim: async (_ctx, paths) => ({ ok: true, claimed: [...paths], conflicts: [] }),
+		release: async (_ctx, paths) => ({
+			ok: true,
+			released: paths.filter((path) => !notOwned.includes(path)),
+			notOwned: [...notOwned],
+		}),
+	};
+}
 
 /** Leave a record on the bus for the session holding a card, `lastSeen` old. */
 async function recordFor(suite: TeamSuite, label: string, lastSeen: number): Promise<void> {
@@ -83,6 +100,22 @@ describe("reclaim", () => {
 		const { advance } = await import("../../test/helpers/board-flow.ts");
 		await advance(board, other.id, "done", { owner: { label: "billing-core" } }, NOW);
 		expect(resultText(await call({ action: "reclaim", card: other.id }))).toContain("is done");
+	});
+
+	test("names the paths the old holder keeps, because a release frees only the writer's", async () => {
+		// The round's crossing is the board's rule, so the clause a reclaim earns is the same one
+		// the board's door prints: the card is back in the pool and the files are not.
+		const suite = harness({ lead: LEAD, claims: crossing(["src/billing"]) });
+		const { call, seed, store } = suite;
+		const id = await seed();
+		const { advance } = await import("../../test/helpers/board-flow.ts");
+		await advance(await store(), id, "execute", { owner: { label: "billing-core" } }, NOW);
+
+		const result = await call({ action: "reclaim", card: id });
+		expect(result.isError).toBeFalsy();
+		expect(result.details.card?.lane).toBe("backlog");
+		expect(resultText(result)).toContain(`#${id} reclaimed from billing-core and back in Backlog`);
+		expect(resultText(result)).toContain("  1 path stays held by billing-core until it stops");
 	});
 
 	test("sends nothing", async () => {

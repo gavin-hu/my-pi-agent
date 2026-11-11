@@ -284,7 +284,26 @@ the board's own files. `roster(cwd)` is the one read of the records the bus file
 `who` asks it for a name, the join for the record that decides the ask, the rollup for the
 owners it folds, and `/team` for who is here — so no caller re-derives a directory or a parse,
 and a failed read is the caller's to report. `planDir(cwd)` is this repository's plan store through
-[`../plans/paths.ts`](../plans/paths.ts), which is what a card's plan file has to be inside.
+[`../plans/paths.ts`](../plans/paths.ts), which is what a card's plan file has to be inside. `cross`
+is the lane crossing every write reports: two doors make one — the board's `move`, `release`,
+`reclaim` and `drop`, and the round's `reclaim` — so the rule is asked here, loaded on the first
+crossing, and a third door cannot forget it.
+
+### claims.ts
+
+A card in `execute` holds its paths, and nothing else does — the one sentence the bus's path
+claims witness. `holdPaths(claims, ctx, result)` reads the `MutateResult`'s `previous` card
+against the one the write left, so a write that stays in its lane costs no bus call at all, and
+only the two crossings ask: entering claims the card's `paths` and names the ones another session
+already had, leaving releases them. A release frees the writer's claims and nobody else's, so a
+card taken out of `execute` by another session keeps the holder's claims until that session
+stops: the clause names them (`2 paths stay held by api-core until it stops`) rather than saying
+nothing, because the new owner's next claim is refused over exactly those paths. The writer is
+compared with the previous owner on labels, so a session taking its own card back — or a peer
+wearing the holder's name — reads as a self-release and stays silent. `Claims`/`busClaims` are the
+seam that keeps every case here off a bus, `reclaimHeld` re-takes the paths of the cards a resumed
+session is already executing, and nothing here may cost a card write: no bus is silence, a refusal
+is a sentence, and a conflict is neither.
 
 ### join.ts
 

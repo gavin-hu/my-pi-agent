@@ -36,9 +36,10 @@ import {
 import { BUS_DIR_NAME, presenceOf, readRoster, type RosterSession, rosterStateOf } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
 import type { Card } from "./card.ts";
+import type { Claims } from "./claims.ts";
 import type { HolderFact } from "./lead.ts";
 import type { Actor } from "./rules.ts";
-import { type BoardStore, openBoard } from "./store.ts";
+import { type BoardStore, openBoard, type MutateResult } from "./store.ts";
 
 /**
  * Where this session stands on the team, as the one place that keeps it.
@@ -132,6 +133,17 @@ export interface BoardSession {
 	serve(seat: string | undefined): void;
 	/** Where this session stands on the team, so a claim joins and `/board status` can say. */
 	team: TeamStanding;
+	/**
+	 * What one write's lane crossing claimed or released, as a clause for the result.
+	 *
+	 * Here rather than in a tool because two doors cross a lane — the board's `move`, `release`,
+	 * `reclaim` and `drop`, and the round's `reclaim` — and a crossing is the one write whose
+	 * side effect is the bus's. `undefined` is the ordinary answer: the write stayed in its
+	 * lane, the card names no paths, or nobody is listening. The rule itself is
+	 * `claims.ts`'s, loaded on the first crossing so a session that never moves a card pays
+	 * nothing for it.
+	 */
+	cross(ctx: ExtensionContext, result: MutateResult): Promise<string | undefined>;
 }
 
 /** Test seams and the one place a caller may redirect the store. */
@@ -143,6 +155,8 @@ export interface BoardSessionOptions {
 	 * again. The product supplies nothing, and `store` is the only caller.
 	 */
 	open?: (cwd: string) => Promise<BoardStore>;
+	/** Test seam: the bus a lane crossing writes to, so a suite records it without a bus. */
+	claims?: Claims;
 }
 
 /**
@@ -225,6 +239,9 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 	const planDirs = new Map<string, Promise<string>>();
 	let seat: string | undefined;
 	let standing: JoinResult | undefined;
+	// The crossing's rule, loaded on the first lane change: a session that never moves a card pays
+	// nothing for it, and the deferral is what keeps both entries' registration graphs where they are.
+	let claimsModule: Promise<typeof import("./claims.ts")> | undefined;
 	const agentDir = options.agentDir;
 	/** The real open, unless a suite supplied one: the store a call works on. */
 	const open = options.open ?? ((cwd: string) => openBoard(pi, cwd, agentDir === undefined ? {} : { agentDir }));
@@ -276,6 +293,10 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 		serve: (label) => {
 			seat = label;
 		},
+		cross: (ctx, result) =>
+			(claimsModule ??= import("./claims.ts")).then((module) =>
+				module.holdPaths(options.claims ?? module.busClaims(pi), ctx, result),
+			),
 		team: {
 			last: () => standing,
 			record: (result) => {
