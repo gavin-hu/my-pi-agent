@@ -7,12 +7,16 @@
  * Nothing here decides *what* a plan is — that is `artifact.ts`'s one rule, and this module would
  * be a second opinion the day it grew one.
  *
+ * What is handed on is the question, not the answer: the store's lock is taken after this module
+ * runs, so a fact taken here would be a fact about a moment the write has left. The card read here
+ * is what binds it — the rule compares the path the proof names against the card under the lock.
+ *
  * The doors differ in what they know, not in what they ask. A tool call has the raw argument
  * (`"4"`, `"#4"`); a command has the id it already parsed. Both hand it in as text, and both get
  * the same answer for the same card.
  */
 
-import { type ArtifactCheck, planForExecute } from "../../lib/board/artifact.ts";
+import { type ArtifactProof, planForExecute } from "../../lib/board/artifact.ts";
 import { normalizeCardId } from "../../lib/board/card.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
@@ -23,16 +27,18 @@ import type { BoardStore } from "../../lib/board/store.ts";
  *
  * `undefined` is not a refusal: the state machine answers that case itself, with the route a
  * reader needs, so a caller proves only what exists. An id that cannot be read proves nothing
- * either, and the operation's own "does not exist" is the better sentence.
+ * either, and the operation's own "does not exist" is the better sentence. What comes back is the
+ * way to ask the question, so the answer is read where the rule asks it.
  */
 export async function provedPlan(
 	runtime: Pick<BoardSession, "planDir">,
 	cwd: string,
 	store: Pick<BoardStore, "read">,
 	rawCard: string | undefined,
-): Promise<ArtifactCheck | undefined> {
+): Promise<ArtifactProof | undefined> {
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
 	const card = id === undefined ? undefined : await store.read(id);
 	if (card?.planPath === undefined) return undefined;
-	return planForExecute(await runtime.planDir(cwd), card);
+	const planDir = await runtime.planDir(cwd);
+	return () => planForExecute(planDir, card);
 }

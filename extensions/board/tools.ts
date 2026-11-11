@@ -13,7 +13,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { planForContract } from "../../lib/board/artifact.ts";
+import { planForContract, planIsGone } from "../../lib/board/artifact.ts";
 import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
 import { movableLanes } from "../../lib/board/lanes.ts";
 import { indexOf } from "../../lib/board/links.ts";
@@ -235,10 +235,12 @@ export function registerTools(
 					case "note":
 						return await mutate(store, action, me, now, args, { kind: "note", text: args.text });
 					case "contract": {
-						// The plan is proved here, at the boundary: the state machine decides, but only
-						// a caller holding the working directory can answer whether the file is there.
-						const plan =
-							args.path === undefined ? undefined : planForContract(await runtime.planDir(ctx.cwd), args.path);
+						// The store is resolved here, and the path proved where the rule asks: only a caller holding the
+						// working directory can say where the plan store is, and only the locked pass can say whether
+						// the file is still there when the write lands.
+						const file = args.path;
+						const planDir = file === undefined ? undefined : await runtime.planDir(ctx.cwd);
+						const plan = planDir === undefined || file === undefined ? undefined : () => planForContract(planDir, file);
 						return await mutate(store, action, me, now, args, {
 							kind: "contract",
 							...(plan === undefined ? {} : { artifact: plan }),
@@ -382,7 +384,9 @@ async function read(
 					: `${cardRef(id)} is there and this build cannot read it (${unreadable.file}: ${unreadable.why}).`,
 			);
 		}
-		return textResult(formatCard(card, indexOf(cards), now), { action, me, card });
+		// The one stat a read can afford, and the only card it can afford it on: a listing's rows carry
+		// no plan line, so this is where a reader learns the file it would move on is already gone.
+		return textResult(formatCard(card, indexOf(cards), now, planIsGone(card)), { action, me, card });
 	}
 	const listed = cards.filter(
 		(card) =>

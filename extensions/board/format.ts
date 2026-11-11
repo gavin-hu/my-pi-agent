@@ -28,9 +28,14 @@ import { plural } from "../../lib/board/round-text.ts";
 export const CLAIM_NEXT =
 	"  next: design it in plan mode, `plan` action `write`, then `contract` with the path it returned";
 
-/** One card: the headline, then the state a reader needs in order to act on it. */
-export function formatCard(card: Card, board?: BoardIndex, now?: number): string {
-	return [`${cardRef(card.id)} ${card.lane} · ${card.title}`, ...detailLines(card, board, now)].join("\n");
+/**
+ * One card: the headline, then the state a reader needs in order to act on it.
+ *
+ * `planGone` is the one fact a read can have and a card cannot say: the caller stat'ed the plan it
+ * recorded, and the line that names the file is where a reader acts on it.
+ */
+export function formatCard(card: Card, board?: BoardIndex, now?: number, planGone = false): string {
+	return [`${cardRef(card.id)} ${card.lane} · ${card.title}`, ...detailLines(card, board, now, planGone)].join("\n");
 }
 
 /**
@@ -146,7 +151,7 @@ function listLine(card: Card): string {
 }
 
 /** The state lines under a card's headline. */
-function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
+function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = false): string[] {
 	const lines: string[] = [];
 	if (card.owner !== undefined) lines.push(`  owner: ${card.owner.label}`);
 	// An offer's age is the fact a reader acts on, which is the one place an age belongs in
@@ -158,8 +163,11 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 	if (card.blocked !== undefined) lines.push(`  blocked: ${blockText(card.blocked)}`);
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);
 	// The card stores the path resolved, so the line is shortened the way the `write` action shows
-	// it: an absolute home directory is noise in every read of the same card.
-	if (card.planPath !== undefined) lines.push(`  plan: ${shortenPath(card.planPath)}`);
+	// it: an absolute home directory is noise in every read of the same card. A path whose file is
+	// gone says so here, because the next move this reader takes is the one that would refuse.
+	if (card.planPath !== undefined) {
+		lines.push(`  plan: ${shortenPath(card.planPath)}${planGone ? " · gone" : ""}`);
+	}
 	// The contract is what a reader is asked to agree to, so the block says it in full and
 	// says who signed it: an approval is a fact about that wording, and a review about the
 	// work, and neither is inferable from the lane.

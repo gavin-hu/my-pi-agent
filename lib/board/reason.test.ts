@@ -147,3 +147,36 @@ describe("REASON_FOR_JS", () => {
 		for (const kind of REASON_KINDS) expect(typeof kind).toBe("string");
 	});
 });
+
+describe("a plan that is gone", () => {
+	test("outranks the spot-check in execute: a card that cannot land is not a card to sign", () => {
+		const executing = card({ lane: "execute", owner, planPath: "/plans/x.md" });
+		expect(reasonFor({ ...executing, planGone: true }, ago)).toEqual({
+			kind: "contract",
+			text: "its plan is gone — move it back to plan, then record it again",
+		});
+		// The same card with its plan in the store keeps the sentence it had, signed or not.
+		expect(reasonFor(executing, ago)).toEqual({ kind: "executing", text: "executing — no spot-check yet" });
+		const spotted = { ...executing, review: { by: "lead", at: NOW } };
+		expect(reasonFor(spotted, ago)).toEqual({ kind: "review", text: "spot-checked by lead" });
+		expect(reasonFor({ ...spotted, planGone: true }, ago)?.kind).toBe("contract");
+	});
+
+	test("is read in plan after the approval, because the next move is the one that refuses", () => {
+		const approved = card({
+			lane: "plan",
+			owner,
+			planPath: "/plans/x.md",
+			contract: { ...COMPLETE, approved: { by: "lead", at: NOW } },
+		});
+		expect(reasonFor(approved, ago)).toEqual({ kind: "approval", text: "contract approved by lead" });
+		expect(reasonFor({ ...approved, planGone: true }, ago)).toEqual({
+			kind: "contract",
+			text: "contract approved — its plan is gone",
+		});
+		// A card with no contract yet still asks for the contract: that is its next question, and the
+		// plan is not asked about until there is a signature saying it was read.
+		const empty = card({ lane: "plan", owner, planPath: "/plans/x.md" });
+		expect(reasonFor({ ...empty, planGone: true }, ago)?.text).toContain("no contract yet");
+	});
+});

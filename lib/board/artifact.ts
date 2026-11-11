@@ -50,6 +50,22 @@ export interface PlanArtifact {
  */
 export type ArtifactCheck = PlanArtifact | { error: string };
 
+/**
+ * What a caller knows about a card's plan, or the way to find out.
+ *
+ * A door proves a plan before `store.mutate` is called, and the board's lock is taken after that:
+ * the fact a door holds is a fact about a moment the write has already left. So a door hands over
+ * the question instead, and the rule asks it where the answer is needed — `applyOp` runs inside the
+ * locked pass, so the stat happens there by construction and the store never has to know where the
+ * plan store is. A caller that already holds an answer may still hand the fact itself.
+ */
+export type ArtifactProof = ArtifactCheck | (() => ArtifactCheck);
+
+/** The fact itself, taking the question now. */
+export function proved(proof: ArtifactProof): ArtifactCheck {
+	return typeof proof === "function" ? proof() : proof;
+}
+
 /** What is inside the store at a resolved path. */
 type Located =
 	/** Not inside the store at all, or reached through a link that leaves it. */
@@ -146,4 +162,41 @@ export function planForExecute(planDir: string, card: Pick<Card, "id" | "lane" |
 		return { error: `the plan recorded for ${cardRef(card.id)} is not a file (${at(found.path)});${route}` };
 	}
 	return { path: found.path, recorded: rawPath };
+}
+
+/**
+ * Whether a card's recorded plan is gone, where that is a fact worth drawing.
+ *
+ * `plan` and `execute` only: entering `execute` and entering `done` are the two moments the gate
+ * asks, so a card there can still be rescued by recording its plan again. The pool's cards re-plan
+ * on the next claim, and a finished card is history — so neither is stat'ed for a face that could
+ * not act on the answer.
+ */
+export function planIsGone(card: Pick<Card, "id" | "lane" | "planPath">): boolean {
+	if (card.planPath === undefined) return false;
+	if (card.lane !== "plan" && card.lane !== "execute") return false;
+	return !isFile(card.planPath);
+}
+
+/**
+ * The ids of the cards whose recorded plan is gone: one pass, for the snapshot that draws them.
+ *
+ * Pure per card and silent about what it means — the reason line and the card block say that —
+ * so a caller with one card may ask {@link planIsGone} and reach the same answer.
+ */
+export function gonePlans(cards: readonly Pick<Card, "id" | "lane" | "planPath">[]): Set<string> {
+	const gone = new Set<string>();
+	for (const card of cards) {
+		if (planIsGone(card)) gone.add(card.id);
+	}
+	return gone;
+}
+
+/** Whether a recorded path is a file now. The one stat the drawing side makes. */
+function isFile(path: string): boolean {
+	try {
+		return statSync(path).isFile();
+	} catch {
+		return false;
+	}
 }

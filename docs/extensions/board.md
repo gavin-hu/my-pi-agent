@@ -45,8 +45,8 @@ The model calls `board({ action: "add", … })` and then, when you say so,
 `board({ action: "claim", card: "1" })`. Those are tool actions, not commands:
 you type only `/board archive|approve|review|status|stop|team`.
 
-The claim's result names the next step, and `/board approve 1` refuses until the
-contract names a plan file in this repository's store.
+The claim's result names the next step, and `/board approve 1` refuses until the contract
+names a plan file in this repository's store; a plan deleted later stops it at the next gate.
 
 Every card's last line says what it needs next, so a lane can be read without
 opening a card: `contract ready — needs approval`, `executing — no spot-check

@@ -32,7 +32,7 @@ import {
 	priorityOf,
 } from "./card.ts";
 import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
-import { type ArtifactCheck, contractRoute } from "./artifact.ts";
+import { type ArtifactProof, contractRoute, proved } from "./artifact.ts";
 import {
 	CONTRACT_FIELDS,
 	mergedContract,
@@ -186,7 +186,7 @@ function unmet(
 	need: Requirement,
 	card: Card,
 	board: BoardIndex,
-	artifact: ArtifactCheck | undefined,
+	artifact: ArtifactProof | undefined,
 	config: BoardConfig,
 ): string | undefined {
 	switch (need) {
@@ -209,12 +209,16 @@ function unmet(
 			// hand one in, so a surface added later cannot pass the gate by forgetting it. A
 			// check that failed speaks with its own sentence, built where the file was read.
 			if (artifact === undefined) return unprovedPlan(card);
-			if ("error" in artifact) return artifact.error;
+			// The caller hands over the question rather than the answer: `applyOp` is what runs inside
+			// the store's lock, so this is the stat taken there — a file deleted while the write waited
+			// is refused here rather than opened on a proof about a moment that has passed.
+			const check = proved(artifact);
+			if ("error" in check) return check.error;
 			// The proof is bound to the record it was computed for: a fact about one path cannot
 			// open a card whose path is another, and a plan re-recorded between the read and the
 			// write is a card to read again rather than one to force. A fact that names no
 			// record is bound by its own path, which is what a caller holding one file means.
-			return (artifact.recorded ?? artifact.path) === card.planPath ? undefined : stalePlan(card);
+			return (check.recorded ?? check.path) === card.planPath ? undefined : stalePlan(card);
 		}
 		case "blocker":
 			// Asked and answered by `blockFields`, which needs the op this gate cannot see: the
@@ -292,9 +296,12 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 			error: `contract needs the plan file ${cardRef(card.id)} is executed against: pass \`path\` as \`plan\` action \`write\` returned it.`,
 		};
 	}
-	if ("error" in op.artifact) return { error: op.artifact.error };
+	// Taken where it is asked, as the gate does: a ``contract`` lands inside the store's locked pass,
+	// so the stat is the one taken there.
+	const artifact = proved(op.artifact);
+	if ("error" in artifact) return { error: artifact.error };
 	const fields: Partial<Card> = {};
-	const parsedPlan = normalizePlanPath(op.artifact.path);
+	const parsedPlan = normalizePlanPath(artifact.path);
 	if ("error" in parsedPlan) return { error: parsedPlan.error };
 	const rePointed = parsedPlan.path !== card.planPath;
 	if (rePointed) fields.planPath = parsedPlan.path;

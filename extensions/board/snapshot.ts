@@ -8,7 +8,8 @@
  * has recorded them and draws exactly what it drew before when it has not.
  */
 
-import type { Actor } from "../../lib/board/rules.ts";
+import { type Actor } from "../../lib/board/rules.ts";
+import { gonePlans } from "../../lib/board/artifact.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
@@ -36,6 +37,9 @@ export async function viewOf(context: SnapshotContext): Promise<BoardView> {
 		now: context.now(),
 		bytes,
 		skipped,
+		// A stat per card in a lane a plan gate is asked from, and none for the rest: the face can
+		// only act on a card that still has a move left, and the reason line is where it says so.
+		gonePlans: gonePlans(cards),
 		repo: context.store.name(),
 		root: context.store.root(),
 		where: context.store.where(),

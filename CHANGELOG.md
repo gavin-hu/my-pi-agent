@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card's plan is proved where the write lands. `move`, `approve`, and `contract` hand
+  the gate a question rather than a stat taken at the door — the rules are checked inside the
+  board's lock — so a plan deleted while the write waited is refused with the same sentence and
+  the same untouched card instead of opening the lane. A card whose recorded plan is gone also
+  says so before it gets there: the `plan` and `execute` cards are stat'ed once per frame, the
+  card face reads `its plan is gone — move it back to plan, then record it again`, `board list
+  card=<id>` prints `plan: … · gone`, and the vanished set enters the page's signature so an open
+  tab redraws when a file goes.
+
 - `board`: a reclaim names its actor. `reclaim` reads who holds the card and whether that session
   is still running, so a session that is not the lead takes one back only from an owner whose
   record says it stopped — quiet or gone — while the holder, the person, and the lead still take

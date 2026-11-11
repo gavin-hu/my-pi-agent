@@ -118,6 +118,14 @@ describe("dropped history", () => {
 		return numberedCard("49", { lane: "plan", notesDropped: 3, logDropped: 2, notes: [], log: [], ...overrides });
 	}
 
+	test("a plan whose file is gone says so on the line that names it", () => {
+		// The caller stat'ed it: a card block is one read of one card, which is the one place the
+		// transcript can afford the answer before the reader calls `move`.
+		const planned = capped({ planPath: "/Users/gavin/.pi/agent/plans/abc123/webhook.md" });
+		expect(formatCard(planned, undefined, NOW)).not.toContain("· gone");
+		expect(formatCard(planned, undefined, NOW, true)).toContain("· gone");
+	});
+
 	test("a card read says what the lane cap took, beside what the note cap took", () => {
 		const text = formatCard(capped(), undefined, NOW);
 		expect(text).toContain("0 notes (3 earlier dropped)");

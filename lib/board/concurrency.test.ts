@@ -14,9 +14,13 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
-import { advance } from "../../test/helpers/board-flow.ts";
+import { advance, TEST_CONTRACT } from "../../test/helpers/board-flow.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
+import { planForExecute } from "./artifact.ts";
+import { personActor } from "./lead.ts";
 import type { MutateResult } from "./store.ts";
 import { type Actor } from "./rules.ts";
 import { createStore } from "./store.ts";
@@ -123,5 +127,44 @@ describe("two writers at once", () => {
 		expect(lost).toContain("that would make a loop");
 		const edges = (await one.list()).flatMap((card) => (card.dependsOn ?? []).map((id) => `${card.id}>${id}`));
 		expect(edges).toHaveLength(1);
+	});
+});
+
+describe("a plan that goes while a write waits", () => {
+	test("cannot open the move it was proved for", async () => {
+		// The gate's stat belongs to the pass that writes: a door proves a plan before the lock is
+		// taken, and a file deleted in the window between was still an open card — the reason the
+		// fact is handed over as a question and asked here.
+		const dir = board();
+		const planDir = temps.track(tempDir("pi-plans-"));
+		const path = join(planDir, "webhook.md");
+		writeFileSync(path, "# Plan\n");
+		let armed = false;
+		const store = createStore(dir, {
+			beforeWrite: () => {
+				if (armed) rmSync(path, { force: true });
+			},
+		});
+		await store.ensure();
+		const card = await store.create({ title: "Planned", paths: [] }, ALICE, NOW);
+		await store.mutate(card.id, { kind: "claim" }, ALICE, NOW);
+		await store.mutate(card.id, { kind: "contract", artifact: { path }, ...TEST_CONTRACT }, ALICE, NOW);
+		// The person signs, because the seed is not the board's configured lead.
+		const approved = await store.mutate(card.id, { kind: "approve", artifact: { path } }, personActor(), NOW);
+		if (!approved.ok) throw new Error(approved.error);
+		const ready = approved.card;
+
+		armed = true;
+		const result = await store.mutate(
+			card.id,
+			{ kind: "move", lane: "execute", artifact: () => planForExecute(planDir, ready) },
+			ALICE,
+			NOW,
+		);
+
+		expect(result.ok).toBe(false);
+		expect(result.ok ? "" : result.error).toContain(`the plan recorded for #${card.id} is gone`);
+		// The card is where it was: a refused operation hands back the state it left.
+		expect((await store.read(card.id))?.lane).toBe("plan");
 	});
 });
