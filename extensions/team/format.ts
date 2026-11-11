@@ -34,6 +34,7 @@ export function formatHandoff(
 	to: string,
 	delivered: readonly string[],
 	notListening: readonly string[] = [],
+	quiet: readonly string[] = [],
 	failed: readonly DeliveryFailure[] = [],
 ): string {
 	const who = delivered.length > 0 ? delivered.join(", ") : to;
@@ -43,6 +44,7 @@ export function formatHandoff(
 		card.paths.length > 0 ? `  paths: ${card.paths.join(", ")}` : undefined,
 		"  The card is already owned by the peer; the handoff is in its inbox.",
 		notListeningLine(notListening),
+		quietLine(quiet),
 		indent(notDeliveredLine(failed)),
 	]
 		.filter((line): line is string => line !== undefined)
@@ -61,6 +63,18 @@ export function notListeningLine(labels: readonly string[]): string | undefined 
 	return `  Not listening: ${labels.join(", ")} — it reads this at its next turn.`;
 }
 
+/**
+ * The line that names a peer whose record aged out, or nothing when none did.
+ *
+ * The other half of `notListeningLine`, and the reason both exist: the bus wrote a message file
+ * either way, so `delivered` alone reads as heard — while a quiet record says nothing is known to be
+ * there to read it.
+ */
+export function quietLine(labels: readonly string[]): string | undefined {
+	if (labels.length === 0) return undefined;
+	return `  Quiet: ${labels.join(", ")} — nothing says it is still there.`;
+}
+
 /** A continuation line, when a shared sentence has one to add. */
 function indent(line: string | undefined): string | undefined {
 	return line === undefined ? undefined : `  ${line}`;
@@ -76,6 +90,7 @@ function indent(line: string | undefined): string | undefined {
 export function formatAsk(
 	delivered: readonly string[],
 	notListening: readonly string[] = [],
+	quiet: readonly string[] = [],
 	to = "",
 	failed: readonly DeliveryFailure[] = [],
 ): string {
@@ -84,6 +99,7 @@ export function formatAsk(
 		`Asked ${who}.`,
 		"  The answer arrives as mail; nothing is waiting on it.",
 		notListeningLine(notListening),
+		quietLine(quiet),
 		indent(notDeliveredLine(failed)),
 	]
 		.filter((line): line is string => line !== undefined)
@@ -106,6 +122,7 @@ export function formatOffer(
 	card: Card,
 	delivered: readonly string[],
 	notListening: readonly string[] = [],
+	quiet: readonly string[] = [],
 	failed: readonly DeliveryFailure[] = [],
 ): string {
 	const who = delivered.length > 0 ? delivered.join(", ") : "nobody";
@@ -115,6 +132,7 @@ export function formatOffer(
 		card.paths.length > 0 ? `  paths: ${card.paths.join(", ")}` : undefined,
 		"  The card is unowned until one of them claims it.",
 		notListeningLine(notListening),
+		quietLine(quiet),
 		indent(notDeliveredLine(failed)),
 	]
 		.filter((line): line is string => line !== undefined)

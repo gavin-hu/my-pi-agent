@@ -117,6 +117,15 @@ describe("isContract and isSign", () => {
 		expect(isContract({ ...COMPLETE, approved: { by: "billing-lead", at: 1, person: true } })).toBe(true);
 	});
 
+	test("a sign says when its message was settled, and only as a whole moment", () => {
+		// A malformed announcement would read as "still owed" for the rest of the card's life: the sign
+		// would keep asking its signer to say the same thing again.
+		expect(isSign({ by: "billing-lead", at: 0, told: { at: 4 } })).toBe(true);
+		expect(isSign({ by: "billing-lead", at: 0, told: { at: 1.5 } })).toBe(false);
+		expect(isSign({ by: "billing-lead", at: 0, told: {} })).toBe(false);
+		expect(isSign({ by: "billing-lead", at: 0, told: "just now" })).toBe(false);
+	});
+
 	test("a sign by instruction is trusted only as the line a signer would have written", () => {
 		expect(isSign({ by: "you", at: 0, byInstruction: "closed on my instruction" })).toBe(true);
 		// A stored sign the write path would never produce: an empty reason, a wrapping one, and a

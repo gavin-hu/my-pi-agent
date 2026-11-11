@@ -183,13 +183,34 @@ export function peerFor(peers: readonly Peer[] | undefined, to: string): Peer | 
  * listening.
  *
  * A label the bus could not answer for is left out — "the record does not say" is not
- * "nobody will read it" — and so is a peer the bus lists as listening.
+ * "nobody will read it" — and so is a peer the bus lists as listening. A quiet peer is left to
+ * {@link quiet}: its watch is a fact about a session nothing says is still running, so the louder
+ * sentence is the honest one.
  */
 export function notListening(peers: readonly Peer[] | undefined, labels: readonly string[]): string[] {
+	return named(peers, labels, (peer) => peer.state !== "quiet" && peer.listening === false);
+}
+
+/**
+ * The labels whose session has gone quiet: the message waits on a heartbeat that aged out.
+ *
+ * The bus still wrote the file, so the send is not a failure — but saying "delivered" alone reads
+ * as heard, and this is the fact that says nobody is known to be there to read it.
+ */
+export function quiet(peers: readonly Peer[] | undefined, labels: readonly string[]): string[] {
+	return named(peers, labels, (peer) => peer.state === "quiet");
+}
+
+/** The labels the bus can answer for, that `wanted` names. */
+function named(
+	peers: readonly Peer[] | undefined,
+	labels: readonly string[],
+	wanted: (peer: Peer) => boolean,
+): string[] {
 	if (peers === undefined) return [];
 	return labels.filter((label) => {
 		const peer = peerFor(peers, label);
-		return peer !== undefined && peer.listening === false;
+		return peer !== undefined && wanted(peer);
 	});
 }
 

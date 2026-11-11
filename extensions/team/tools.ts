@@ -54,6 +54,7 @@ import {
 	handoffText,
 	notListening,
 	offerText,
+	quiet,
 	ownerFor,
 	sessionDispatch,
 } from "./dispatch.ts";
@@ -369,13 +370,15 @@ async function assignCard(
 	// turn reports, and `/team` lists the session that just assigned a card as not listening.
 	await join();
 	const silent = notListening(peers, delivered);
-	return textResult(formatHandoff(applied.card, to, delivered, silent, failed), {
+	const still = quiet(peers, delivered);
+	return textResult(formatHandoff(applied.card, to, delivered, silent, still, failed), {
 		action: "assign",
 		card: applied.card,
 		assigned: applied.card.owner,
 		delivered,
 		...(failed.length === 0 ? {} : { failed }),
 		...(silent.length === 0 ? {} : { notListening: silent }),
+		...(still.length === 0 ? {} : { quiet: still }),
 	});
 }
 
@@ -432,12 +435,14 @@ async function offerCard(
 	if (!recorded.ok) return refusal("offer", formatRacedOffer(recorded.card ?? card, recorded.error), recorded.card);
 	const peers = await dispatch.peers().catch(() => undefined);
 	const silent = notListening(peers, delivered);
-	return textResult(formatOffer(recorded.card, delivered, silent, failed), {
+	const still = quiet(peers, delivered);
+	return textResult(formatOffer(recorded.card, delivered, silent, still, failed), {
 		action: "offer",
 		card: recorded.card,
 		delivered,
 		...(failed.length === 0 ? {} : { failed }),
 		...(silent.length === 0 ? {} : { notListening: silent }),
+		...(still.length === 0 ? {} : { quiet: still }),
 	});
 }
 
@@ -483,11 +488,13 @@ async function askPeer(
 	await join();
 	const peers = await dispatch.peers().catch(() => undefined);
 	const silent = notListening(peers, delivered);
-	return textResult(formatAsk(delivered, silent, to, failed), {
+	const still = quiet(peers, delivered);
+	return textResult(formatAsk(delivered, silent, still, to, failed), {
 		action: "ask",
 		delivered,
 		...(failed.length === 0 ? {} : { failed }),
 		...(silent.length === 0 ? {} : { notListening: silent }),
+		...(still.length === 0 ? {} : { quiet: still }),
 	});
 }
 

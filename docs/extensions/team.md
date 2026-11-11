@@ -64,7 +64,9 @@ an owner a card names that no record answers. A label nobody answers to cannot b
 handed a card; the result says so. A card a quiet owner holds is named as
 reclaimable, because its record says it stopped; one held by a session the bus has
 no record of is not, because a live session that never joined looks the same. A
-session that is not listening reads its mail when it next opens its inbox.
+handoff, offer, or ask that reaches a quiet peer says so, because a written message
+is not a heard one, and a session that is not listening reads its mail at its next
+turn.
 
 **Joining.** `/board` joins you as the board's lead (`board.lead`, `lead` by
 default). Another session joins under its own name — `/team join <label>` picks it,

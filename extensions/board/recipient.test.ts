@@ -25,6 +25,7 @@ describe("the peer a card's owner names", () => {
 		expect(recipientOf({ id: "s-a", label: "billing-core" }, roster, NOW)).toEqual({
 			to: "s-a",
 			label: "billing-renamed",
+			state: "live",
 		});
 	});
 
@@ -32,7 +33,11 @@ describe("the peer a card's owner names", () => {
 		// The session that claimed the card ended and a later one took the label; the id on the card
 		// addresses nothing, and the bus refuses an unknown id rather than trying the name.
 		const roster = [session("s-new", "api-core")];
-		expect(recipientOf({ id: "s-gone", label: "api-core" }, roster, NOW)).toEqual({ to: "s-new", label: "api-core" });
+		expect(recipientOf({ id: "s-gone", label: "api-core" }, roster, NOW)).toEqual({
+			to: "s-new",
+			label: "api-core",
+			state: "live",
+		});
 	});
 
 	test("skips a record whose process is gone, whatever it is called", () => {
@@ -40,7 +45,11 @@ describe("the peer a card's owner names", () => {
 		// a peer that no longer exists instead of the live session that holds the name. The pid is one
 		// no process can have, the seam `lib/board/session.test.ts` uses for the same fact.
 		const roster = [session("s-dead", "api-core", { pid: 999_999_999 }), session("s-live", "api-core")];
-		expect(recipientOf({ id: "s-dead", label: "api-core" }, roster, NOW)).toEqual({ to: "s-live", label: "api-core" });
+		expect(recipientOf({ id: "s-dead", label: "api-core" }, roster, NOW)).toEqual({
+			to: "s-live",
+			label: "api-core",
+			state: "live",
+		});
 	});
 
 	test("carries whether that peer is listening", () => {
@@ -69,9 +78,11 @@ describe("when the roster cannot answer", () => {
 		expect(recipientOf({ label: "api-core" }, shared, NOW)).toEqual({ to: "api-core", label: "api-core" });
 	});
 
-	test("keeps a quiet session, which is still a recipient", () => {
-		// A heartbeat ages out long before a session stops; the bus still writes its mail.
+	test("keeps a quiet session, which is still a recipient, and says that it is quiet", () => {
+		// A heartbeat ages out long before a session stops, so the bus still writes its mail — and the
+		// result has to carry the fact, because "told api-core" for a record that aged out reads as a
+		// session that heard, which is exactly what nobody knows.
 		const quiet = [session("s-a", "api-core", { lastSeen: NOW - 60 * 60_000 })];
-		expect(recipientOf({ id: "s-a", label: "api-core" }, quiet, NOW)).toMatchObject({ to: "s-a" });
+		expect(recipientOf({ id: "s-a", label: "api-core" }, quiet, NOW)).toMatchObject({ to: "s-a", state: "quiet" });
 	});
 });

@@ -46,6 +46,15 @@ export interface Sign {
 	 * was not: a sign that carries this is a close made by instruction, and a reader says so.
 	 */
 	byInstruction?: string;
+	/**
+	 * When the sign's message to the card's owner was settled, and absent while it is still owed.
+	 *
+	 * Settled means the bus took the message, or there was no owner to tell: a send that failed
+	 * leaves this absent, which is what makes a repeat sign the way it is ever re-sent. A sign
+	 * written before this field existed carries none either, so a reader says "not told" only
+	 * where that could still change — a gate that is open.
+	 */
+	told?: { at: number };
 }
 
 /** What a card promises before it may be executed. */
@@ -135,9 +144,19 @@ export function isSign(value: unknown): value is Sign {
 		return false;
 	}
 	if (sign.person !== undefined && sign.person !== true) return false;
+	// A malformed announcement would read as "still owed" for the rest of the card's life, so it is
+	// refused with the rest of the record rather than tolerated.
+	if (sign.told !== undefined && !isTold(sign.told)) return false;
 	if (sign.byInstruction === undefined) return true;
 	const reason = normalizeInstruction(sign.byInstruction);
 	return !("error" in reason) && reason.text === sign.byInstruction;
+}
+
+/** When a sign's message was settled, as the record stores it. */
+function isTold(value: unknown): value is { at: number } {
+	if (typeof value !== "object" || value === null) return false;
+	const told = value as Record<string, unknown>;
+	return typeof told.at === "number" && Number.isInteger(told.at);
 }
 
 /** Whether `value` is a contract this build can trust. */

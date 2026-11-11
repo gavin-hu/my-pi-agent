@@ -255,16 +255,23 @@ export function registerTools(
 						// The name the sign will record, so the owner is told who signed rather than the
 						// label the writing actor is called by.
 						const signer = signMark(me, store.config().lead).by;
-						// Only a fresh stamp owes the owner a message: a note on a card that was already signed
-						// moves the file without saying anything the owner has not heard. The roster is read
-						// here rather than up front so a call the store refused pays nothing for it.
-						const told = (card: Card, signed: boolean) =>
-							signed
-								? announce(card, action, signer, ctx, deps.notify ?? notifyOverBus(pi), {
-										roster: () => runtime.roster(ctx.cwd),
-										now: () => runtime.now(),
-									})
-								: Promise.resolve(undefined);
+						// The store's `announce` is what says a message is owed — a fresh stamp, or a repeat
+						// sign whose card still reads as never told. The roster is read here rather than up
+						// front so a call the store refused pays nothing for it.
+						const told = async (card: Card): Promise<{ card?: Card; line?: string }> => {
+							const answer = await announce(card, action, signer, ctx, deps.notify ?? notifyOverBus(pi), {
+								roster: () => runtime.roster(ctx.cwd),
+								now: () => runtime.now(),
+							});
+							if (!answer.done) return { line: answer.line };
+							// The record is the retry: only a settled announcement stops the sign owing the
+							// message, and a record that did not land says so rather than pretending.
+							const kept: MutateResult = await store
+								.mutate(card.id, { kind: "announced", sign: action }, me, now)
+								.catch((error: unknown) => ({ ok: false as const, error: messageOf(error) }));
+							if (!kept.ok) return { line: `${answer.line ?? ""} (not recorded: ${kept.error})` };
+							return { card: kept.card, line: answer.line };
+						};
 						// An approval covers the plan the card names as well as its wording, so it carries
 						// the same proof a move does. A spot-check is about work already done, and the
 						// `done` move proves the plan then, so it pays for nothing here.

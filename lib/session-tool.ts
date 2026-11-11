@@ -30,7 +30,7 @@ import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from "@eare
 import { type BusAnswer, requestOverBus } from "./bus-request.ts";
 import { messageOf } from "./errors.ts";
 import { sanitizeLine } from "./format.ts";
-import { watchingOf } from "./session-roster.ts";
+import { type RosterState, watchingOf } from "./session-roster.ts";
 import { SESSION_TOOL } from "./tool-names.ts";
 
 /**
@@ -53,6 +53,14 @@ export interface Peer {
 	label: string;
 	/** Absent when the record does not say, which is not the same as "not listening". */
 	listening?: boolean;
+	/**
+	 * What the bus says about the session: `live`, `quiet`, or `gone`.
+	 *
+	 * The status payload carries it (`session-bus/types.ts`), and a caller that reports what a send
+	 * reached needs it: a message file written for a record whose heartbeat aged out was not handed
+	 * to anybody known to be there, which `listening` alone cannot say.
+	 */
+	state?: RosterState;
 }
 
 /** What a join did: the label it landed on, and whether mail will reach the session. */
@@ -246,12 +254,23 @@ export async function listPeers(ctx: ExtensionToolContext): Promise<Peer[] | und
 	const peers: Peer[] = [];
 	for (const entry of sessions) {
 		if (typeof entry !== "object" || entry === null) continue;
-		const { id, label, watching } = entry as Record<string, unknown>;
+		const { id, label, watching, state: liveness } = entry as Record<string, unknown>;
 		if (typeof id !== "string" || typeof label !== "string") continue;
-		const state = watchingOf(watching);
-		peers.push({ id, label, ...(state === undefined ? {} : { listening: state.armed }) });
+		const watch = watchingOf(watching);
+		const livenessState = stateOf(liveness);
+		peers.push({
+			id,
+			label,
+			...(livenessState === undefined ? {} : { state: livenessState }),
+			...(watch === undefined ? {} : { listening: watch.armed }),
+		});
 	}
 	return peers;
+}
+
+/** A session's liveness as the status payload spells it, or nothing when it spells something else. */
+function stateOf(value: unknown): RosterState | undefined {
+	return value === "live" || value === "quiet" || value === "gone" ? value : undefined;
 }
 
 /**

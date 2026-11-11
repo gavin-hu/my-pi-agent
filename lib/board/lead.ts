@@ -23,6 +23,11 @@
  * signature that is not about making it — a spot-check is evidence, so only its own signer
  * withdraws it.
  *
+ * The announcement is the fourth: a sign nobody heard is a gate nobody knows is open, so the card
+ * records when its message was settled (`Sign.told`) and a repeat sign owes it again while it is
+ * absent. That record is written by its own operation, refused to anybody but the sign's signer —
+ * `signedAs`, never a name compare, because the person signs as the lead's name.
+ *
  * Pure: a name compare and a sentence, no clock and no file.
  */
 
@@ -31,7 +36,7 @@ import { cardRef, type Card, type CardOwner, holds, laneSince } from "./card.ts"
 import type { Sign as SignRecord } from "./contract.ts";
 import type { BoardConfig } from "./config.ts";
 import { LANE_RULES } from "./lanes.ts";
-import type { Actor, Prepared } from "./rules.ts";
+import type { Actor, CardOp, Prepared } from "./rules.ts";
 import type { SessionPresence } from "../session-roster.ts";
 
 /** The lead's team name: the label a signature has to carry. */
@@ -324,4 +329,56 @@ function heldStill(card: Card, lead: Lead, state: SessionPresence | undefined): 
 		return `${held} The bus has no record of that session, and nothing says it stopped: only the lead (${lead}) takes the card back.`;
 	}
 	return `${held} Nothing here says whether that session is running, so only the lead (${lead}) takes the card back.`;
+}
+
+/**
+ * The sign a card holds for one gate: the approval, or the spot-check the current execution owes.
+ *
+ * One reader for both, because everything after the sign — announcing it, recording that it was
+ * heard, asking whether it owes a message — is a question about that one record.
+ */
+export function signRecord(card: Card, sign: Sign): SignRecord | undefined {
+	return sign === "approve" ? card.contract?.approved : currentReview(card);
+}
+
+/**
+ * Whether a call by this actor owes the card's owner the sign's message.
+ *
+ * A fresh stamp owes one. A repeat owes one only while the record says the first never landed:
+ * that is the only way a failed send is ever re-sent, and a sign already heard owes nothing.
+ */
+export function owesAnnouncement(card: Card, sign: Sign, actor: Actor, lead: Lead): boolean {
+	const record = signRecord(card, sign);
+	return record === undefined || !signedAs(record, actor, lead) || record.told === undefined;
+}
+
+/**
+ * Record that a sign's message was settled, so its signer stops owning it one.
+ *
+ * The signer's own operation: `signedAs` is the gate, which accepts the person's `person: true`
+ * sign and refuses a session wearing the lead's name, because recording an announcement is a
+ * statement about a signature that session did not make. A record already there is the no-op —
+ * two doors announcing one sign is one fact, not two.
+ */
+export function announced(
+	card: Card,
+	op: Extract<CardOp, { kind: "announced" }>,
+	actor: Actor,
+	config: BoardConfig,
+	now: number,
+): Prepared {
+	const record = signRecord(card, op.sign);
+	const named = op.sign === "approve" ? "approval" : "spot-check";
+	if (record === undefined) return { error: `${cardRef(card.id)} has no ${named} to announce.` };
+	if (!signedAs(record, actor, config.lead)) {
+		return {
+			error: `${cardRef(card.id)}'s ${named} is ${record.by}'s to announce, and this session is ${actor.label}.`,
+		};
+	}
+	if (record.told !== undefined) return { changed: false, fields: null };
+	const told = { ...record, told: { at: now } };
+	if (op.sign === "approve" && card.contract !== undefined) {
+		return { changed: true, fields: { contract: { ...card.contract, approved: told } } };
+	}
+	return { changed: true, fields: { review: told } };
 }

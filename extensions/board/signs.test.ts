@@ -59,8 +59,9 @@ function bus(options: { sent?: Sent[]; fail?: string; delivered?: string } = {})
 async function onBus(
 	who: Session,
 	record: { id: string; label: string; watching?: { armed: boolean; wake: boolean } },
+	lastSeen = NOW,
 ): Promise<void> {
-	writeBusRecord(await who.board.runtime.busDir(who.board.ctx.cwd), { lastSeen: NOW, ...record });
+	writeBusRecord(await who.board.runtime.busDir(who.board.ctx.cwd), { lastSeen, ...record });
 }
 
 /** One repository, its agent directory, and the two sessions that act on one board. */
@@ -217,6 +218,51 @@ describe("a sign tells the other side", () => {
 		await onBus(board.peer, { id: PEER_ID, label: PEER, watching: { armed: false, wake: false } });
 		const signed = await board.lead.call({ action: "approve", card: "1" });
 		expect(signed.details.told).toBe(`told ${PEER} (not listening: it reads this at its next turn)`);
+		expect(sent).toHaveLength(1);
+	});
+
+	test("a sign the owner never heard is sent again when its signer says it again", async () => {
+		// A bus that fails once, then answers: the first send left the sign unstamped, and the repeat
+		// is the only thing that can put the message on the wire again.
+		const sent: Sent[] = [];
+		let failed = false;
+		const notify: Notify = async (_ctx, input) => {
+			if (!failed) {
+				failed = true;
+				return { ok: false, error: "the session bus is not loaded" };
+			}
+			sent.push(input);
+			return { ok: true, delivered: [presetNameFor(input.to) ?? input.to], failed: [] };
+		};
+		const board = bench({ notify });
+		await claimedWithContract(board);
+		const first = await board.lead.call({ action: "approve", card: "1" });
+		expect(resultText(first)).toContain("was not told");
+		expect(first.details.card?.contract?.approved?.told).toBeUndefined();
+
+		const again = await board.lead.call({ action: "approve", card: "1" });
+		// No second stamp: the same sign, announcing itself — and now the card says it was heard.
+		expect(again.details.card?.contract?.approved?.at).toBe(first.details.card?.contract?.approved?.at);
+		expect(sent).toHaveLength(1);
+		expect(again.details.told).toContain("told ");
+		expect(again.details.card?.contract?.approved?.told).toEqual({ at: NOW });
+
+		// Told once is told: a third call writes nothing and says nothing.
+		sent.length = 0;
+		const third = await board.lead.call({ action: "approve", card: "1" });
+		expect(sent).toHaveLength(0);
+		expect(third.details.told).toBeUndefined();
+	});
+
+	test("says the owner is quiet, because a wrote message is not a heard one", async () => {
+		const sent: Sent[] = [];
+		const board = bench({ notify: bus({ sent }) });
+		await claimedWithContract(board);
+		// A heartbeat past the bus's window: the file is written, and nothing says the session is
+		// still there to read it.
+		await onBus(board.peer, { id: PEER_ID, label: PEER }, NOW - 11 * 60_000);
+		const signed = await board.lead.call({ action: "approve", card: "1" });
+		expect(signed.details.told).toBe(`told ${PEER} (quiet: nothing says it is still there)`);
 		expect(sent).toHaveLength(1);
 	});
 

@@ -9,6 +9,7 @@ import { describe, expect, test } from "bun:test";
 import { numberedCard } from "../../test/helpers/fixtures/board.ts";
 import { type Card } from "./card.ts";
 import {
+	announced,
 	askLead,
 	currentReview,
 	holderRefusal,
@@ -17,13 +18,18 @@ import {
 	type Lead,
 	missingSign,
 	normalizeLead,
+	owesAnnouncement,
 	PERSON_LABEL,
 	personActor,
 	signMark,
 	signRefusal,
+	signRecord,
 	signedAs,
 	signedText,
+	type Sign,
 } from "./lead.ts";
+import { DEFAULT_WIP } from "./limits.ts";
+import type { BoardConfig } from "./config.ts";
 import type { Actor } from "./rules.ts";
 
 const LEAD: Lead = "team-lead";
@@ -177,5 +183,65 @@ describe("signedText", () => {
 		expect(signedText(CARD, "review", THE_LEAD.label)).toBe(
 			'Signature: #4 "feature 4" — spot-checked by Team-Lead.\nNext: `done` is open — board action "move" with lane "done", while the plan it recorded is still in the store.',
 		);
+	});
+});
+
+describe("the announcement", () => {
+	const CONFIG: BoardConfig = { wip: DEFAULT_WIP, lead: LEAD };
+	/** The moment a record is stamped with: nothing in this module reads a clock of its own. */
+	const NOW = 5_000;
+	const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s" };
+	/** A card in plan whose contract the lead approved, or one the person did. */
+	const approved = (by: Actor = THE_LEAD) =>
+		card({ lane: "plan", contract: { ...COMPLETE, approved: { ...signMark(by, LEAD), at: 1 } } });
+	const tell = (target: Card, sign: Sign, actor: Actor) =>
+		announced(target, { kind: "announced", sign }, actor, CONFIG, NOW);
+
+	test("records the moment on the sign, and a second record is the no-op", () => {
+		const first = tell(approved(), "approve", THE_LEAD);
+		expect(first).toMatchObject({ changed: true });
+		const told = first && "fields" in first ? { ...approved(), ...first.fields } : undefined;
+		expect(told?.contract?.approved?.told).toEqual({ at: NOW });
+		// Two doors recording one announcement is one fact, not a second write.
+		expect(told === undefined ? undefined : tell(told, "approve", THE_LEAD)).toMatchObject({ changed: false });
+	});
+
+	test("is the signer's to record, and the person's sign is the person's", () => {
+		// The name is the lead's and the mark is the person's: a session wearing the lead's label did
+		// not make that signature, so it cannot say the message landed. The person's own door can.
+		expect(tell(approved(), "approve", PEER)).toMatchObject({ error: expect.stringContaining("to announce") });
+		expect(tell(approved(personActor()), "approve", THE_LEAD)).toMatchObject({
+			error: expect.stringContaining("to announce"),
+		});
+		expect(tell(approved(personActor()), "approve", personActor())).toMatchObject({ changed: true });
+	});
+
+	test("refuses a gate nobody signed, and the other gate's sign", () => {
+		expect(tell(card({ lane: "plan" }), "approve", THE_LEAD)).toMatchObject({
+			error: expect.stringContaining("has no approval to announce"),
+		});
+		expect(tell(approved(), "review", THE_LEAD)).toMatchObject({
+			error: expect.stringContaining("has no spot-check to announce"),
+		});
+	});
+
+	test("a repeat sign owes the message until the sign records it", () => {
+		const fresh = approved();
+		// A fresh stamp owes one; the actor's own untold sign owes one; a told sign owes nothing.
+		expect(owesAnnouncement(card({ lane: "plan" }), "approve", THE_LEAD, LEAD)).toBe(true);
+		expect(owesAnnouncement(fresh, "approve", THE_LEAD, LEAD)).toBe(true);
+		const recorded =
+			fresh.contract?.approved === undefined
+				? undefined
+				: { ...fresh, contract: { ...fresh.contract, approved: { ...fresh.contract.approved, told: { at: 1 } } } };
+		expect(recorded === undefined ? undefined : owesAnnouncement(recorded, "approve", THE_LEAD, LEAD)).toBe(false);
+		// Somebody else's sign is not the one this actor repeats, so the call is a fresh stamp to them.
+		expect(owesAnnouncement(recorded ?? fresh, "approve", PEER, LEAD)).toBe(true);
+	});
+
+	test("reads the review a done card closed on, not the sign a reclaim kept", () => {
+		const reviewed = card({ lane: "execute", owner: { label: "api-core" }, review: { by: THE_LEAD.label, at: 2 } });
+		expect(signRecord(reviewed, "review")).toMatchObject({ at: 2 });
+		expect(signRecord(reviewed, "approve")).toBeUndefined();
 	});
 });

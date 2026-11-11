@@ -173,6 +173,15 @@ Each answers a `Prepared`: a refusal sentence, a no-op, or the fields a write wo
 `{ fields: null, changed: true }` is the one operation that changes the board without
 changing the record — `archive` moves the file, and that is the store's write.
 
+### the announcement, in lead.ts
+
+A sign nobody heard is a gate nobody knows is open, so the card records when its message was settled:
+`Sign.told`, absent while the sign still owes one. `signRecord` reads the sign a gate holds,
+`owesAnnouncement` says whether a call owes the message — a fresh stamp always, a repeat only while
+the record says the first never landed — and `announced` writes the moment, refused to anybody but
+that sign's own signer (`signedAs`, so the person's mark counts and a session wearing the lead's name
+does not). A failed send leaves the fact absent, which is what makes a repeat sign the retry.
+
 ### reclaim, in lead.ts
 
 The one operation `steps.ts` cannot hold, because its gate reads a fact the card does not carry:

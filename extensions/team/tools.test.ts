@@ -282,6 +282,21 @@ describe("the transcript block", () => {
 		expect(expanded).not.toBe(block(tool, result, false));
 	});
 
+	test("a quiet peer is named quiet, not counted among the ones that were told", async () => {
+		// The bus wrote the file, so the handoff landed — and nothing says the session is still there
+		// to read it. `delivered` alone would read as heard.
+		const { call, tool, seed } = harness({
+			peers: [{ id: "s-core", label: "billing-core", listening: true, state: "quiet" }],
+		});
+		const id = await seed();
+		const result = await call({ action: "assign", card: id, to: "billing-core" });
+		expect(result.details.quiet).toEqual(["billing-core"]);
+		expect(result.isError).toBeFalsy();
+		const expanded = block(tool, result, true);
+		expect(expanded).toContain("Quiet: billing-core — nothing says it is still there.");
+		expect(expanded).not.toContain("Not listening: billing-core");
+	});
+
 	test("a busy round names the verb it waits on, and the settled line carries the duration", async () => {
 		const { call, tool, seed } = harness();
 		const id = await seed();

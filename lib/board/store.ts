@@ -96,7 +96,7 @@ export interface CreateInput {
 
 /** What a mutation did, or why it was refused; `previous` is the card this write read. */
 export type MutateResult =
-	| { ok: true; card: Card; changed: boolean; dropped: boolean; archived: boolean; signed?: true; previous?: Card }
+	| { ok: true; card: Card; changed: boolean; dropped: boolean; archived: boolean; announce?: true; previous?: Card }
 	| { ok: false; error: string; card?: Card };
 
 /**
@@ -355,9 +355,9 @@ export function createStore(
 				const place = pile === archiveDir ? "archive" : "board";
 				const result = applyOp(card, op, actor, now, indexOf(await list()), config, place);
 				if (!result.ok) return { ok: false, error: result.error, card };
-				if (!result.changed) {
-					return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
-				}
+				// `...result` and not its fields: a repeat sign writes nothing and still owes its message,
+				// which is the one fact `changed` cannot carry.
+				if (!result.changed) return { ...result, dropped: false, archived: false };
 				if (op.kind === "drop") {
 					// The record lands first: a crash between the two leaves a card that still
 					// exists with a note explaining it, never a card that is gone unexplained.
