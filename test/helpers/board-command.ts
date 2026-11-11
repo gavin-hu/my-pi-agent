@@ -125,6 +125,8 @@ export function fakeBoardSession(name = "team-agent-slead"): BoardSession & {
 		serve: (label) => {
 			seat = label;
 		},
+		// No bus on this board: a crossing would be a request the page's words never make.
+		cross: async () => undefined,
 		team: { last: () => standing, record: (result) => void (standing = result) },
 		seat: () => seat,
 		recorded: (label = seat ?? name, watching = { armed: true, wake: false }) => {

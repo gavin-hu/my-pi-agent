@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { SHARED_CONFIG_FILE } from "../../lib/config.ts";
 import { openBoardSession, type BoardSession } from "../../lib/board/session.ts";
+import type { Claims } from "../../lib/board/claims.ts";
 import { BOARD_DIR_NAME } from "../../lib/board/store.ts";
 import { registerTools } from "../../extensions/board/tools.ts";
 import type { BoardDetails } from "../../extensions/board/types.ts";
@@ -46,6 +47,8 @@ export interface BoardHarnessOptions {
 	track?: <T extends string | undefined>(dir: T) => T;
 	/** Override `exec`, for a case whose directory is a real repository. */
 	exec?: FakePiOptions["exec"];
+	/** Test seam: the bus a lane crossing writes to, so a suite records it without a bus. */
+	claims?: Claims;
 }
 
 /** One board: the host, its session runtime, and the context a call is made with. */
@@ -64,7 +67,10 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 	// non-repository session takes, and one less subprocess per case. A case that needs a
 	// repository (a move to done records its commit) passes `exec`.
 	const fake = createFakePi({ exec: options.exec ?? (async () => ({ stdout: "", stderr: "", code: 1 })) });
-	const runtime = openBoardSession(fake.pi, { now: () => now, agentDir });
+	const runtime = openBoardSession(
+		fake.pi,
+		options.claims === undefined ? { now: () => now, agentDir } : { now: () => now, agentDir, claims: options.claims },
+	);
 	const { ctx, notifications } = fakeCtx({
 		cwd,
 		sessionId: options.sessionId ?? "s-lead",
@@ -146,5 +152,8 @@ export function stubSession(): BoardSession {
 		serving: () => undefined,
 		serve: () => {},
 		team: { last: () => undefined, record: () => {} },
+		cross: async () => {
+			throw new Error("the factory must not cross a lane");
+		},
 	};
 }

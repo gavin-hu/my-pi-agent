@@ -16,6 +16,7 @@ import { registerTools } from "../../../extensions/team/tools.ts";
 import type { Dispatch } from "../../../extensions/team/dispatch.ts";
 import type { TeamDetails } from "../../../extensions/team/types.ts";
 import { type BoardSession, openBoardSession } from "../../../lib/board/session.ts";
+import type { Claims } from "../../../lib/board/claims.ts";
 import type { Peer, TeamJoin } from "../../../lib/session-tool.ts";
 import { removeBusRecord, writeBusRecord } from "../bus.ts";
 import { fakeCtx } from "../context.ts";
@@ -59,6 +60,8 @@ export interface TeamSuiteOptions {
 	joinFails?: string;
 	/** The peers the send could not write a message for, when the case is a partial fan-out. */
 	undelivered?: Array<{ label: string; error: string }>;
+	/** Test seam: the bus a lane crossing writes to, so a case records it without a bus. */
+	claims?: Claims;
 }
 
 /**
@@ -77,7 +80,10 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ board: { lead: options.lead } }));
 	}
 	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
-	const session = openBoardSession(fake.pi, { now: () => NOW, agentDir });
+	const session = openBoardSession(
+		fake.pi,
+		options.claims === undefined ? { now: () => NOW, agentDir } : { now: () => NOW, agentDir, claims: options.claims },
+	);
 	// A case that makes the write throw gets the same store with one method replaced: the
 	// fixture's own `store()` stays real, so an assertion reads the board the tool left behind
 	// rather than the report's copy of it.
