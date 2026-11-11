@@ -41,7 +41,7 @@ it, a handoff and an ask included.
 
 | Thing | Held by | Ends when |
 |---|---|---|
-| a card | one session, as its owner label | released, reclaimed, or closed |
+| a card | one session, by its id | released, reclaimed, or closed |
 | the two signatures | the lead, never a session holding the card | written on the card |
 | a path claim | one session | released, or that session ends |
 | a label | one session | its heartbeat stops and ten minutes pass |
@@ -52,7 +52,7 @@ it, a handoff and an ask included.
 - **No authentication.** The bus is files under
   `~/.pi/agent/session-bus/<repo-key>/`, on this machine, under your OS user: any
   process with your file access can read and write it.
-- **No lock.** Ownership is a label, so two sessions can still open one file; a
+- **No lock.** Ownership is a session id, so two sessions can still open one file; a
   path claim is what makes the collision visible before the edit.
 - **One machine, one user.** A peer on another host is not on the bus, and
   membership does not survive a resume or a restart — unread mail and the label do.

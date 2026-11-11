@@ -54,6 +54,10 @@ puts this session on the bus with an optional label, `wake`, and `listen`.
 block the sender; a `handoff` names the work it assigns. A message may carry the
 repository paths it concerns.
 
+**Records.** `session status` lists each session with its record's state — `live` while its
+heartbeat holds, `quiet` once it has aged, `gone` once its process is not running — with whether
+its watch is armed, so a peer that will not be woken reads as one.
+
 **Labels.** Name a session for the outcome it owns (`billing-core`), not its
 layer. A duplicate label gets a short id suffix; a label is reserved while the bus
 keeps its owner's record — ten minutes past the last heartbeat — so a crashed
