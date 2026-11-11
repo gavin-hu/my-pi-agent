@@ -50,6 +50,13 @@ export interface TeamSuiteOptions {
 	joinLabel?: string;
 	/** The lead the repository names, when the default is not the case under test. */
 	lead?: string;
+	/**
+	 * A join the bus refuses, so the failure path is the one under test.
+	 *
+	 * The record is not written, so the session stays unjoined and the next door asks again —
+	 * which is what a label another record holds, and a bus that was never loaded, look like.
+	 */
+	joinFails?: string;
 	/** The peers the send could not write a message for, when the case is a partial fan-out. */
 	undelivered?: Array<{ label: string; error: string }>;
 }
@@ -123,6 +130,7 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 		async join(_ctx, input) {
 			const label = input?.label ?? options.joinLabel ?? "billing-lead";
 			joined.push(label);
+			if (options.joinFails !== undefined) return { ok: false, error: options.joinFails };
 			// The record a real join leaves, so a second claim reads a session the bus holds
 			// rather than an answer nothing on disk backs.
 			recordFile = writeBusRecord(await session.busDir(cwd), { id: "s-lead", label, lastSeen: NOW });

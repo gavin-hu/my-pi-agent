@@ -112,6 +112,22 @@ export function formatHandoffFailure(card: Card, to: string, reason: string): st
 }
 
 /**
+ * A handoff or a question the join stopped before it was sent.
+ *
+ * `assign` and `ask` join first because the message names this session as the way back, so a
+ * session the bus will not hold is a reply the peer's `session send` refuses. That makes this a
+ * failure of the call rather than of the card, and the sentence says nothing reached anybody.
+ *
+ * The remedy is the join's own (`TeamState.fix`), not guessed here: the door a reader reaches
+ * for by habit is `/team join`, which is the wrong one when no bus is loaded at all and a
+ * one-way door for a lead, whose signature is the label the gates compare.
+ */
+export function formatNotSent(subject: string, state: { error: string; fix?: string }): string {
+	const fix = state.fix === undefined ? "" : ` ${state.fix}`;
+	return `${subject}: this session is not on the team — ${state.error}\n  Nothing was sent.${fix}`;
+}
+
+/**
  * A card offered to the team: who heard, and that nobody holds it yet.
  *
  * `offer` records the moment and no ownership, so the sentence has to say the ownership
@@ -221,13 +237,19 @@ export function formatReclaimed(card: Card, previous: string): string {
  * The next step is the board's, so it is named: a claim is the one round action that
  * leaves a card in `plan` waiting on its owner, and a line that stopped at "yours" would
  * leave the lead holding a card nobody said what to do with.
+ *
+ * `team` is the clause `lib/board/join.ts` writes when the claim's own join did not land: the
+ * card is the session's either way, so that failure is a line here rather than an error.
  */
-export function formatClaimed(card: Card): string {
-	return (
-		`${cardRef(card.id)} is yours, in plan.\n` +
-		`  ${card.title}\n` +
-		`  next: design it in plan mode, \`plan\` action \`write\`, then \`board\` action \`contract\``
-	);
+export function formatClaimed(card: Card, team?: string): string {
+	return [
+		`${cardRef(card.id)} is yours, in plan.`,
+		`  ${card.title}`,
+		"  next: design it in plan mode, `plan` action `write`, then `board` action `contract`",
+		team === undefined ? undefined : `  ${team}`,
+	]
+		.filter((line): line is string => line !== undefined)
+		.join("\n");
 }
 
 /**

@@ -194,8 +194,13 @@ export function createTeamJoin(pi: Pick<ExtensionAPI, "events" | "getAllTools">)
 	};
 }
 
-/** What a caller is told when there is no bus to join: one sentence on both paths. */
-const NO_BUS = "the session bus is not loaded";
+/**
+ * What a caller is told when there is no bus to join: one sentence on both paths.
+ *
+ * Exported because a caller's next move depends on telling it from a refusal: no bus is an
+ * extension that is off, so the door that renames refuses in the same words.
+ */
+export const NO_BUS_ERROR = "the session bus is not loaded";
 
 /**
  * Whether the `session` tool is loaded at all.
@@ -226,11 +231,11 @@ export async function join(
 	ctx: ExtensionContext,
 	input: TeamJoinInput = {},
 ): Promise<JoinResult> {
-	if (!busLoaded(pi)) return { ok: false, error: NO_BUS };
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS_ERROR };
 	return requestOverBus<JoinResult, TeamJoinRequest>(pi, {
 		channel: TEAM_JOIN_REQUEST,
 		payload: (respond) => ({ ctx, input, respond }),
-		unclaimed: () => ({ ok: false, error: NO_BUS }),
+		unclaimed: () => ({ ok: false, error: NO_BUS_ERROR }),
 		failed: (error) => ({ ok: false, error: messageOf(error) }),
 	});
 }
@@ -297,11 +302,11 @@ export async function send(
 ): Promise<SendResult> {
 	const nested = toolContext(ctx);
 	if (nested !== undefined) return nestedSend(nested, input);
-	if (!busLoaded(pi)) return { ok: false, error: NO_BUS };
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS_ERROR };
 	return requestOverBus<SendResult, SessionSendRequest>(pi, {
 		channel: SESSION_SEND_REQUEST,
 		payload: (respond) => ({ ctx, input, respond }),
-		unclaimed: () => ({ ok: false, error: NO_BUS }),
+		unclaimed: () => ({ ok: false, error: NO_BUS_ERROR }),
 		failed: (error) => ({ ok: false, error: messageOf(error) }),
 	});
 }
@@ -394,11 +399,11 @@ export async function claimPaths(
 			conflicts: conflictsOf(answer.details.conflicts),
 		};
 	}
-	if (!busLoaded(pi)) return { ok: false, error: NO_BUS };
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS_ERROR };
 	return requestOverBus<ClaimPathsResult, SessionClaimRequest>(pi, {
 		channel: SESSION_CLAIM_REQUEST,
 		payload: (respond) => ({ ctx, paths: [...paths], respond }),
-		unclaimed: () => ({ ok: false, error: NO_BUS }),
+		unclaimed: () => ({ ok: false, error: NO_BUS_ERROR }),
 		failed: (error) => ({ ok: false, error: messageOf(error) }),
 	});
 }
@@ -420,11 +425,11 @@ export async function releasePaths(
 			notOwned: stringsOf(answer.details.notOwned),
 		};
 	}
-	if (!busLoaded(pi)) return { ok: false, error: NO_BUS };
+	if (!busLoaded(pi)) return { ok: false, error: NO_BUS_ERROR };
 	return requestOverBus<ReleasePathsResult, SessionReleaseRequest>(pi, {
 		channel: SESSION_RELEASE_REQUEST,
 		payload: (respond) => ({ ctx, paths: [...paths], respond }),
-		unclaimed: () => ({ ok: false, error: NO_BUS }),
+		unclaimed: () => ({ ok: false, error: NO_BUS_ERROR }),
 		failed: (error) => ({ ok: false, error: messageOf(error) }),
 	});
 }

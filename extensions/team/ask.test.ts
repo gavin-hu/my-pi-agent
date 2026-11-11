@@ -19,6 +19,32 @@ afterAll(() => temps.flush());
 const harness = (options: TeamSuiteOptions = {}) => teamSuite(temps.track, options);
 
 describe("ask", () => {
+	test("joins before it sends, so the answer has a name to reach", async () => {
+		const board = harness({
+			duringSend: () => {
+				// The message names this session as the reply route, so an answer sent from the peer's
+				// next turn has to find a label the bus holds — not one a join lands later.
+				expect(board.joined).toHaveLength(1);
+			},
+		});
+		const self = await board.me();
+		const result = await board.call({ action: "ask", to: "billing-core", question: "any blockers?" });
+		expect(result.isError).toBeFalsy();
+		expect(board.sent).toHaveLength(1);
+		expect(board.joined).toEqual([self.label]);
+	});
+
+	test("a join that does not land refuses the question, and sends nothing", async () => {
+		const { call, sent } = harness({ joinFails: "the session bus is not loaded" });
+		const result = await call({ action: "ask", to: "billing-core", question: "any blockers?" });
+		expect(result.isError).toBe(true);
+		expect(sent).toEqual([]);
+		expect(resultText(result)).toContain("the ask did not reach billing-core: this session is not on the team");
+		// The remedy is the join's, not a blanket `/team join`: with no bus loaded that door refuses
+		// in the same words, so the sentence names the switch instead.
+		expect(resultText(result)).toContain("Turn the `session-bus` extension on in `/bytefly`.");
+	});
+
 	test("sends the question to the one peer, and reports where the answer arrives", async () => {
 		const { call, me, sent } = harness();
 		const self = await me();

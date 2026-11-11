@@ -111,17 +111,6 @@ function callSubject(action: BoardAction, args: Record<string, unknown>): string
 	return `${action} ${card}${lane}`;
 }
 
-/**
- * Whether a result this tool built is a refusal.
- *
- * `refusal` marks one with `isError`, and the success shape (`ToolResult`) has no such
- * field, so this is the one probe that tells the two apart — read here rather than
- * widening the shared envelope with a flag that would then be optional everywhere.
- */
-function refused(result: unknown): boolean {
-	return typeof result === "object" && result !== null && (result as { isError?: unknown }).isError === true;
-}
-
 export function registerTools(
 	pi: ExtensionAPI,
 	runtime: BoardSession,
@@ -191,21 +180,29 @@ export function registerTools(
 						return await read(store, action, me, args, now, () => runtime.roster(ctx.cwd));
 					case "add":
 						return await add(store, me, args, now);
-					case "claim": {
-						const claimed = await mutate(store, action, me, now, args, { kind: "claim" }, { next: CLAIM_NEXT });
-						// Taking a card is what makes this session a teammate. It is the one action here
-						// worth being addressed about, and the board is the user's surface for the team, so
-						// nobody has to know the bus exists. A refused claim wrote nothing and enlists
-						// nobody; a refused join is not a failed claim, so the card stands and the next
-						// claim asks again — as it does when the bus no longer holds this session.
-						if (!refused(claimed)) {
-							// Loaded here, not at registration: the join is the claim's side effect, so a
-							// session that never claims pays nothing for it.
-							const { joinTeam } = await import("../../lib/board/join.ts");
-							await joinTeam(runtime, team, ctx, me.label);
-						}
-						return claimed;
-					}
+					case "claim":
+						// Taking a card is what makes this session a teammate. It is the one action here worth
+						// being addressed about, and the board is the user's surface for the team, so nobody has
+						// to know the bus exists. A refused claim wrote nothing and enlists nobody, so the join is
+						// the write's successor — and a join that did not land is a line on the result, because the
+						// card it came after is already true.
+						return await mutate(
+							store,
+							action,
+							me,
+							now,
+							args,
+							{ kind: "claim" },
+							{
+								next: CLAIM_NEXT,
+								// Loaded here, not at registration: the join is the claim's side effect, so a session that
+								// never claims pays nothing for it.
+								joined: async () => {
+									const { joinFailureLine, joinTeam } = await import("../../lib/board/join.ts");
+									return joinFailureLine(await joinTeam(runtime, team, ctx, me.label));
+								},
+							},
+						);
 					case "release":
 						return await mutate(store, action, me, now, args, { kind: "release" }, { cross });
 					case "reclaim":

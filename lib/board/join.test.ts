@@ -15,9 +15,9 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { removeBusRecord, writeBusRecord } from "../../test/helpers/bus.ts";
 import { type RosterSession, SESSION_TTL_MS, readRoster } from "../session-roster.ts";
-import type { JoinResult, TeamJoin, TeamJoinInput } from "../session-tool.ts";
+import { type JoinResult, NO_BUS_ERROR, type TeamJoin, type TeamJoinInput } from "../session-tool.ts";
 import type { TeamStanding } from "./session.ts";
-import { joinTeam, type JoinSession, standingOf, teamStatus } from "./join.ts";
+import { joinFailureLine, joinTeam, type JoinSession, standingOf, teamStatus } from "./join.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -32,6 +32,8 @@ interface JoinHarnessOptions {
 	record?: JoinResult;
 	/** Make the join reject, so the swallow-and-record path is the one under test. */
 	fails?: boolean;
+	/** The sentence the bus refuses with, so the failure's own reading is the one under test. */
+	refuses?: string;
 	/** The roster the session reads; absence is the temp bus directory this harness writes. */
 	roster?: () => Promise<RosterSession[] | undefined>;
 }
@@ -51,6 +53,7 @@ function harness(options: JoinHarnessOptions = {}) {
 		async join(_ctx, input) {
 			asked.push(input);
 			if (options.fails === true) throw new Error("the bus went away");
+			if (options.refuses !== undefined) return { ok: false, error: options.refuses };
 			return { ok: true, label: LABEL, watching: { armed: true, wake: false } };
 		},
 	};
@@ -253,6 +256,61 @@ describe("joinTeam", () => {
 		const { session, team, ctx, standing } = harness();
 		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ label: LABEL, listening: true });
 		expect(standing()).toEqual(joined());
+	});
+
+	test("a refusal with no bus names the extension, because the door that renames refuses the same way", async () => {
+		const { session, team, ctx } = harness({ refuses: NO_BUS_ERROR });
+		// `/team join` is the answer to every other refusal, and here it is the answer to nothing:
+		// there is no bus to ask, so the sentence names the switch instead of the verb.
+		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({
+			error: NO_BUS_ERROR,
+			fix: "Turn the `session-bus` extension on in `/bytefly`.",
+		});
+	});
+
+	test("a name a running session holds says what frees it, and what renaming costs", async () => {
+		const { session, team, ctx, busDir } = harness({
+			refuses: `the label "${LABEL}" is already in use by session s-peer.`,
+		});
+		writeBusRecord(busDir, { id: "s-peer", label: LABEL, lastSeen: NOW });
+		const state = await joinTeam(session, team, ctx, LABEL);
+		// The bus says who holds the name and never what to do: only that session stopping frees
+		// it, and the other way past it is the door that renames — which a lead pays for.
+		expect("error" in state && state.fix).toContain("Only that session stopping frees the name");
+		expect("error" in state && state.fix).toContain("a lead that renames loses its signature");
+	});
+
+	test("a name a dead record still holds comes back on its own", async () => {
+		const { session, team, ctx, busDir } = harness({ refuses: `the label "${LABEL}" is held by session s-peer.` });
+		// The bus reserves a name for the heartbeat's TTL, which is the window a stopped session
+		// still holds: the record's process is gone, so waiting is a real answer.
+		writeBusRecord(busDir, { id: "s-peer", label: LABEL, lastSeen: NOW, pid: 2 ** 22 + 7 });
+		const state = await joinTeam(session, team, ctx, LABEL);
+		expect("error" in state && state.fix).toContain("The bus forgets that record when its heartbeat ages out");
+	});
+
+	test("a reason the roster cannot place is reported with no advice grafted onto it", async () => {
+		const { session, team, ctx } = harness({ refuses: "the request was lost" });
+		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ error: "the request was lost" });
+	});
+});
+
+describe("joinFailureLine", () => {
+	test("says nothing about a join that landed", () => {
+		expect(joinFailureLine({ label: LABEL, listening: true })).toBeUndefined();
+	});
+
+	test("ends the bus's own clause so the fix reads as its own sentence", () => {
+		// The bus writes both shapes — "the session bus is not loaded" and "…is already in use by
+		// session s-peer." — and the line is one clause of a result either way.
+		expect(joinFailureLine({ error: NO_BUS_ERROR })).toBe(`Not on the team: ${NO_BUS_ERROR}.`);
+		expect(joinFailureLine({ error: "the request was lost." })).toBe("Not on the team: the request was lost.");
+	});
+
+	test("carries what the caller can do about it, when the join worked that out", () => {
+		expect(joinFailureLine({ error: NO_BUS_ERROR, fix: "Turn it on." })).toBe(
+			`Not on the team: ${NO_BUS_ERROR}. Turn it on.`,
+		);
 	});
 });
 
