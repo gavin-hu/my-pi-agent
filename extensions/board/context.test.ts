@@ -114,21 +114,47 @@ describe("the line", () => {
 		for (const bullet of line.split("\n").slice(1, -1)) expect(bullet.endsWith("…")).toBe(false);
 	});
 
-	test("spends the re-claim's one sentence inside the same ceiling", () => {
+	test("spends the turn start's sentences inside the same ceiling", () => {
 		// A bus that refused a path is the fact a resumed session has to hear, and it is spent on a
 		// bullet like any other: clipped to one line's height, and never past the message's ceiling.
 		const note = "#4: not claimed (the session bus did not answer)";
-		const line = buildBoardContext([inLane("execute")], note) ?? "";
+		const line = buildBoardContext([inLane("execute")], [note]) ?? "";
 		expect(line.split("\n").at(-1)).toBe(`- ${note}`);
 		expect(line.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
 
-		const long = buildBoardContext([inLane("execute")], "#4: not claimed (a bus with a very long story)") ?? "";
+		const long = buildBoardContext([inLane("execute")], ["#4: not claimed (a bus with a very long story)"]) ?? "";
 		expect(long.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
 		// Three cards and a note cannot all fit: the note wins, because it is the one that failed.
 		const many = [1, 2, 3].map((n) => numberedCard(String(n), { lane: "execute", owner: { label: "api-core" } }));
-		const clipped = buildBoardContext(many, "#4: 2 paths already held by billing-core") ?? "";
+		const clipped = buildBoardContext(many, ["#4: 2 paths already held by billing-core"]) ?? "";
 		expect(clipped.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
 		expect(clipped.split("\n").at(-1)).toBe("- #4: 2 paths already held by billing-core");
+	});
+
+	test("carries what the sweep released, alone when this session holds nothing", () => {
+		// A session that holds no card of its own still has one thing to say when it freed somebody
+		// else's: the released clause, which is the whole line rather than a bullet under a headline
+		// counting zero cards.
+		const swept = "released #4 from a session that ended";
+		const alone = buildBoardContext([], [swept]) ?? "";
+		expect(alone.startsWith(`${BOARD_CONTEXT_MARKER} `)).toBe(true);
+		expect(alone.endsWith(swept)).toBe(true);
+		expect(alone).not.toContain("yours");
+		expect(alone.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
+
+		// Nothing held and nothing swept is no message at all, which is the ordinary session and the
+		// contract the prompt budget holds: a line saying so would be noise in every other turn.
+		expect(buildBoardContext([], [])).toBeUndefined();
+	});
+
+	test("spends two turn-start sentences inside one ceiling", () => {
+		// Both halves of the turn arrive together — a path the re-claim could not take, and what the
+		// sweep released — and each is one bullet: neither may push the other, or the ceiling, out.
+		const notes = ["#4: not claimed (the session bus did not answer)", "released #1 from a session that ended"];
+		const line = buildBoardContext([inLane("execute")], notes) ?? "";
+		expect(line.length).toBeLessThanOrEqual(MAX_CONTEXT_CHARS);
+		expect(line.endsWith(`- ${notes[1]}`)).toBe(true);
+		expect(line.split("\n").filter((row) => row.startsWith("- #4:"))).toHaveLength(1);
 	});
 
 	test("is recognized by its custom type, and only that", () => {

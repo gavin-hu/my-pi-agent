@@ -59,7 +59,7 @@ export async function heldCards(
 }
 
 /**
- * The line, or `undefined` when this session holds nothing.
+ * The line, or `undefined` when this session holds nothing and has nothing to report.
  *
  * Nothing is the ordinary answer, and the one that keeps the message out of every session
  * that never touches the board: a line saying "you hold no cards" would be noise in a turn
@@ -67,14 +67,16 @@ export async function heldCards(
  *
  * The budget is spent on whole bullets rather than on a slice: a card whose block note is long
  * is clipped with an ellipsis, and the cards that no longer fit are counted instead of being
- * cut off mid-sentence by the message's ceiling. `note` is the one thing the re-claim has to
- * say — a path it could not take — spent inside the same ceiling so a bus's sentence cannot
- * push the line past it.
+ * cut off mid-sentence by the message's ceiling. `notes` are the things a turn start has to say
+ * — a path it could not take, the cards it released — one bullet each inside the same ceiling,
+ * so one sentence cannot push the line past it.
  */
-export function buildBoardContext(held: readonly Card[], note?: string): string | undefined {
-	if (held.length === 0) return undefined;
+export function buildBoardContext(held: readonly Card[], notes: readonly string[] = []): string | undefined {
+	// Nothing held and nothing swept is no message at all; a sweep with nothing of its own to report
+	// still says what it released, and there is no headline to count zero cards under.
+	if (held.length === 0) return notes.length === 0 ? undefined : releasedLine(notes);
 	const lines = [`${BOARD_CONTEXT_MARKER} ${plural(held.length, "card")} ${held.length === 1 ? "is" : "are"} yours:`];
-	const tail = note === undefined ? "" : `\n- ${fitLine(note)}`;
+	const tail = notes.map((note) => `\n- ${fitLine(note)}`).join("");
 	let shown = 0;
 	for (const card of held.slice(0, MAX_CONTEXT_CARDS)) {
 		const bullet = bulletOf(card);
@@ -90,16 +92,28 @@ export function buildBoardContext(held: readonly Card[], note?: string): string 
 }
 
 /**
+ * The line for a turn that holds nothing but did release cards: the sweep's sentence alone.
+ *
+ * Its ceiling is the message's own, less the marker that tells the model this message from the
+ * transcript: there are no card bullets to spend it on, so a long list of released cards shortens
+ * with an ellipsis and the turn is told who else it freed by the round.
+ */
+function releasedLine(notes: readonly string[]): string {
+	const room = MAX_CONTEXT_CHARS - BOARD_CONTEXT_MARKER.length - 1;
+	return `${BOARD_CONTEXT_MARKER} ${fitLine(notes.join("; "), room)}`;
+}
+
+/**
  * One line inside a bullet's ceiling: whole words where it can, an ellipsis where the tail was
  * cut. Not the terminal's `clip`, which is column arithmetic and re-emits the reset codes a
  * themed string carries — this line is read by the model, not drawn.
  */
-function fitLine(text: string): string {
-	if (text.length <= MAX_BULLET_CHARS) return text;
-	const cut = text.slice(0, MAX_BULLET_CHARS - 1);
+function fitLine(text: string, max = MAX_BULLET_CHARS): string {
+	if (text.length <= max) return text;
+	const cut = text.slice(0, max - 1);
 	const at = cut.lastIndexOf(" ");
 	// A line with no space to break on — one long path, say — is cut at the ceiling instead.
-	return `${(at > MAX_BULLET_CHARS / 2 ? cut.slice(0, at) : cut).trimEnd()}…`;
+	return `${(at > max / 2 ? cut.slice(0, at) : cut).trimEnd()}…`;
 }
 
 /** One card's bullet, fitted to {@link MAX_BULLET_CHARS} so a long reason cannot crowd the rest out. */

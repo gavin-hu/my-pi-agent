@@ -48,10 +48,14 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	/** The session the page serves as; the mount lands on this session's one server. */
 	let sessionId = "";
 	/**
-	 * The one surface this extension opens after a turn starts, not at registration: the first
-	 * turn's line, loaded on first use so a session that never touches a card pays nothing for it.
+	 * The two surfaces this extension opens after a turn starts, not at registration: the first
+	 * turn's line, and the sweep that releases a card whose owner's session ended. Both are loaded
+	 * on first use, so a session that never touches a card pays nothing for them and the
+	 * registration graph stays small. (The claims a crossing makes are the session's now, and loaded
+	 * there on the first one.)
 	 */
 	let contextModule: Promise<typeof import("./context.ts")> | undefined;
+	let endedModule: Promise<typeof import("./ended.ts")> | undefined;
 	const page =
 		deps.page ??
 		createLazyBoardPage(session, {
@@ -87,16 +91,21 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		// an empty session, and only an answer is worth remembering.
 		if (held === undefined) return undefined;
 		read = true;
-		// The one write a turn start makes: the bus forgets a session's claims when it stops, so a
-		// resumed session takes back the paths of the cards it is already executing — and says the
-		// one thing that did not work, because a failure nothing reports is how this was a no-op.
-		const note =
+		// Two writes a turn start makes, and one line for both. The bus forgets a session's claims
+		// when it stops, so a resumed session takes back the paths of the cards it is already
+		// executing, and says the one thing that did not work — a failure nothing reports is how that
+		// was a no-op. The second is its mirror: a card whose owner's session is gone is released
+		// here, by the same pid-checked fact the reclaim gate already trusts, so a crash costs nobody
+		// a manual reclaim and holds no slot until somebody notices.
+		const notes = [
 			held.length === 0
 				? undefined
 				: await import("../../lib/board/claims.ts").then((claims) =>
 						claims.reclaimHeld(deps.claims ?? claims.busClaims(pi), ctx, held),
-					);
-		const content = context.buildBoardContext(held, note);
+					),
+			await (endedModule ??= import("./ended.ts")).then((ended) => ended.releaseEnded(session, ctx)),
+		].filter((note): note is string => note !== undefined);
+		const content = context.buildBoardContext(held, notes);
 		return content === undefined
 			? undefined
 			: { message: { customType: context.BOARD_CONTEXT_TYPE, content, display: false } };
