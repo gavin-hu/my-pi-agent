@@ -113,6 +113,38 @@ export function rosterStateOf(
 	return "quiet";
 }
 
+/**
+ * What a reader knows about one session, where a label the bus never recorded is also an answer.
+ *
+ * `absent` is not a fourth liveness state: a record the bus has pruned, or a session that never
+ * joined, says nothing about whether its process is running. It is the answer a caller needs to
+ * tell "the bus holds no record of this label" from "this machine has no bus" (`undefined`).
+ */
+export type SessionPresence = RosterState | "absent";
+
+/** The roster row one owner names: its id first, then a label, which is the order `holds` uses. */
+function recordOf(roster: readonly RosterSession[], owner: { id?: string; label: string }): RosterSession | undefined {
+	const byId = owner.id === undefined ? undefined : roster.find((session) => session.id === owner.id);
+	return byId ?? roster.find((session) => session.label.toLowerCase() === owner.label.toLowerCase());
+}
+
+/**
+ * What the bus says about one owner, and the two absences kept apart.
+ *
+ * `undefined` is "this repository has no bus to ask": a machine that has recorded nobody cannot be
+ * read as "that session is gone", and the answer has to stay a question. A roster that simply holds
+ * no record of the label is `absent` — the row a page draws for an owner nothing answers to.
+ */
+export function presenceOf(
+	roster: readonly RosterSession[] | undefined,
+	owner: { id?: string; label: string },
+	now: number,
+): SessionPresence | undefined {
+	if (roster === undefined) return undefined;
+	const record = recordOf(roster, owner);
+	return record === undefined ? "absent" : rosterStateOf(record, now);
+}
+
 /** The fields this reader trusts; anything else in the file is the bus's business. */
 interface SessionPayload {
 	id: string;

@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a reclaim names its actor. `reclaim` reads who holds the card and whether that session
+  is still running, so a session that is not the lead takes one back only from an owner whose
+  record says it stopped — quiet or gone — while the holder, the person, and the lead still take
+  any card back; a label the bus holds no record of is refused to them too, because a live session
+  that never joined writes no record either, and a board with no bus at all answers the same. The
+  return keeps the spot-check it used to erase: a sign is evidence, and only the signer withdraws
+  it, so the `done` gate now reads the sign made since the card entered `execute` rather than any
+  sign the card carries — a reclaim, a fresh claim, and a second execution owe the lead a fresh
+  look. `/team` names a quiet owner's cards as reclaimable and states one the bus has no record of
+  as `not on the bus`, without offering the verb.
+
 - `board`: a card's lane is a claim, and a session's cards are visible. `move` into `execute`
   now claims the card's `paths` on the session bus and leaving the lane releases them — the
   session that claimed them, so a `reclaim` hands the card over and leaves the paths held until

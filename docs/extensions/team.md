@@ -49,17 +49,22 @@ lead's round now shows it as held.
 **Actions.** `assign` (card, `to`, `note?`) sends a handoff and then records the
 owner; `offer` (card, `note?`) broadcasts the card and records only the moment it
 was offered, so the first peer to claim it wins; `reclaim` (card) clears the owner
-and returns the card to Backlog with its notes and contract; `claim` (card) takes a
-pool card into `plan` for this session; `ask` (`to`, `question?`) sends one peer a
-question and writes nothing else.
+and returns the card to Backlog with its notes and contract — a peer only from an
+owner whose record says it stopped, while the lead takes anybody's and keeps the
+spot-check only its own signer withdraws; `claim` (card) takes a pool card into
+`plan` for this session; `ask` (`to`, `question?`) sends one peer a question and
+writes nothing else.
 
 A flat parameter object means an action refuses a field it does not read, naming
 the action that takes it — `offer` does not take `to`.
 
-**Who is who.** `/team` lists who is live, who is live but not listening, and who
-is quiet (a heartbeat older than ten minutes). A label nobody answers to cannot be
-handed a card; the result says so. A session that is not listening reads its mail
-when it next opens its inbox.
+**Who is who.** `/team` lists who is live, who is live but not listening, who has
+gone quiet (a heartbeat older than ten minutes), and who is not on the bus at all —
+an owner a card names that no record answers. A label nobody answers to cannot be
+handed a card; the result says so. A card a quiet owner holds is named as
+reclaimable, because its record says it stopped; one held by a session the bus has
+no record of is not, because a live session that never joined looks the same. A
+session that is not listening reads its mail when it next opens its inbox.
 
 **Joining.** `/board` joins you as the board's lead (`board.lead`, `lead` by
 default). Another session joins under its own name — `/team join <label>` picks it,

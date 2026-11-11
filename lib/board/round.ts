@@ -19,6 +19,7 @@
  */
 
 import { type Card, dependsOf } from "./card.ts";
+import { currentReview } from "./lead.ts";
 import { contractApproved, missingContractFields } from "./contract.ts";
 
 /** How long an `execute` card may go unwritten before the rollup calls it that. */
@@ -57,7 +58,8 @@ export interface RoundSummary<T extends Card = Card> {
 	 * A card in `execute` is work the lead must look at before it may be finished, so this is
 	 * the whole lane, in flight included — the board cannot tell finished work from work in
 	 * progress, and a card that says nothing until it has sat untouched for half an hour is a
-	 * card the lead hears about late.
+	 * card the lead hears about late. The sign asked about is `execute`'s own: a spot-check a
+	 * reclaim carried back into the pool speaks for the execution it was made in, not this one.
 	 */
 	unreviewed: T[];
 	/** `blocked` cards, and the note that says why. */
@@ -112,7 +114,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		}
 		// The lead's second signature, owed by every card in the lane: what `done` requires is a
 		// spot-check, and no clock can say whether the work behind it is finished.
-		if (card.lane === "execute" && card.review === undefined) unreviewed.push(card);
+		if (card.lane === "execute" && currentReview(card) === undefined) unreviewed.push(card);
 		if (card.lane === "execute" && now - card.updatedAt >= UNWRITTEN_MS) unwritten.push(card);
 
 		if (card.owner === undefined) continue;

@@ -135,6 +135,19 @@ describe("buildRound", () => {
 		expect(round.unreviewed.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
+	test("a spot-check that a reclaim carried into the pool does not count for the next execution", () => {
+		// The sign stays on the record as evidence; the execution it names is gone, so the lead owes
+		// a fresh look rather than the round reporting the work as already checked.
+		const again = doing("1", {
+			review: { by: "lead", at: NOW - 1_000 },
+			log: [
+				{ lane: "backlog", at: NOW - 500, by: "billing-core" },
+				{ lane: "execute", at: NOW, by: "billing-core" },
+			],
+		});
+		expect(buildRound([again], NOW).unreviewed.map((entry) => entry.id)).toEqual(["1"]);
+	});
+
 	test("unreviewed and unwritten are the same card when its owner has gone quiet", () => {
 		// Two facts, one card: the lead still owes the spot-check, and nobody has written it.
 		const round = buildRound([doing("1", { updatedAt: NOW - UNWRITTEN_MS })], NOW);

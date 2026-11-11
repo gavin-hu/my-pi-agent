@@ -19,6 +19,7 @@ import {
 	INBOX_DIR_NAME,
 	SESSIONS_DIR_NAME,
 	SESSION_TTL_MS,
+	presenceOf,
 	readRoster,
 	readSessionLabel,
 	rosterStateOf,
@@ -222,5 +223,37 @@ describe("rosterStateOf", () => {
 		const peer = { ...session, pid: 4242, startToken: "Mon Oct 26 00:02:00 2026" };
 		const seams = { alive: () => true, token: () => undefined };
 		expect(rosterStateOf(peer, NOW + SESSION_TTL_MS + 1, SESSION_TTL_MS, seams)).toBe("quiet");
+	});
+});
+
+describe("presenceOf", () => {
+	const core = { id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 };
+
+	test("answers nothing when this repository has no bus to ask", () => {
+		// No bus is a question rather than an answer: a machine that has recorded nobody cannot say a
+		// session stopped, so the caller is left with "cannot tell".
+		expect(presenceOf(undefined, { id: "s-core", label: "billing-core" }, NOW)).toBeUndefined();
+	});
+
+	test("answers absent for a label the roster exists and does not name", () => {
+		// An empty bus and a bus that never met this label are the same answer: no record, and so
+		// nothing that says the session is running.
+		expect(presenceOf([], { label: "billing-core" }, NOW)).toBe("absent");
+		expect(presenceOf([core], { id: "s-gone", label: "ops-helper" }, NOW)).toBe("absent");
+	});
+
+	test("reads the record the owner names, by the rule a holder is matched by", () => {
+		// A card written before ids records a label and nothing else, so the label is the one handle
+		// there is — and it is a name, so the case does not matter.
+		expect(presenceOf([core], { id: "s-core", label: "renamed" }, NOW)).toBe("live");
+		expect(presenceOf([core], { label: "BILLING-core" }, NOW + SESSION_TTL_MS + 1)).toBe("quiet");
+	});
+
+	test("an id match outranks a label that names another session", () => {
+		// A label is a word two sessions can hold in a row; the id is the session. Reading the label
+		// first would report a dead peer's state as the holder's.
+		const before = { ...core, id: "s-old", lastSeen: NOW - SESSION_TTL_MS - 1 };
+		const roster = [before, { ...core, label: "billing-web" }];
+		expect(presenceOf(roster, { id: "s-core", label: "billing-core" }, NOW)).toBe("live");
 	});
 });

@@ -52,10 +52,10 @@ Claim card 1 and design the change before writing anything.
 ```
 
 The card is yours, in `plan` — and "yours" means this session's. Ownership is a
-session id, so a session that ends leaves a card nobody can move or note; another
-session has to reclaim it, and a reclaim drops any spot-check the card already
-carries. A claim also names the next step: design the change in plan mode, save
-the plan, then record what the card promises.
+session id, so a session that ends leaves a card another session can take back once
+its record says it stopped, or that the lead reclaims at once; a reclaim keeps a
+spot-check the reclaimer did not sign. A claim also names the next step: design the
+change in plan mode, save the plan, then record what the card promises.
 
 ```text
 /plan add the webhook endpoint and its signature check

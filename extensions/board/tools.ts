@@ -32,7 +32,7 @@ import { formatRound } from "../../lib/board/round-text.ts";
 import { CLAIM_NEXT, formatArchive, formatArchived, formatBoard, formatCard } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, refusal, resultInput } from "./result.ts";
-import { dropCard, mutate } from "./write.ts";
+import { dropCard, mutate, reclaimOp } from "./write.ts";
 import type { Notify } from "./announce.ts";
 import type { Claims } from "./claims.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
@@ -209,7 +209,11 @@ export function registerTools(
 					case "release":
 						return await mutate(store, action, me, now, args, { kind: "release" }, { cross });
 					case "reclaim":
-						return await mutate(store, action, me, now, args, { kind: "reclaim" }, { cross });
+						// The op carries what the bus says about the holder: the rule lets a peer take a card back
+						// only from a session that has stopped, and the lead from anybody.
+						return await mutate(store, action, me, now, args, await reclaimOp(runtime, store, args.card, ctx.cwd), {
+							cross,
+						});
 					case "move": {
 						if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
 						const lane = args.lane;

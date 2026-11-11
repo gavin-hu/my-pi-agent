@@ -4,7 +4,8 @@
  * Split from `rules.ts`, which owns the operation table, the dispatch, and the one write.
  * This module answers "may this happen, and what would it change" and never touches the
  * store: keeping the two apart is what lets the dispatch read as one switch and the rules
- * read as one decision per operation.
+ * read as one decision per operation. `lead.ts` owns the one operation beside this module,
+ * because its gate reads a fact from outside the card.
  *
  * Two shapes of answer, and the difference matters. `{ error }` is a refusal, and the card
  * is returned untouched. `{ changed: false }` is a no-op: the operation's preconditions
@@ -40,7 +41,7 @@ import {
 	normalizeInstruction,
 } from "./contract.ts";
 import { type BoardConfig } from "./config.ts";
-import { holderRefusal, missingSign, signMark, signRefusal, signedAs } from "./lead.ts";
+import { currentReview, holderRefusal, missingSign, signMark, signRefusal, signedAs } from "./lead.ts";
 import { type WipLimits, wipRefusal } from "./limits.ts";
 import { LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import { type BoardIndex, dependedOn, lanesText, normalizeDepends, openDependentsOf, waitingOn } from "./links.ts";
@@ -86,26 +87,18 @@ export function release(card: Card, actor: Actor): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be released.` };
 	if (card.owner === undefined) return { error: `${cardRef(card.id)} is not claimed.` };
 	if (!holds(card, actor)) return { error: `${heldBy(card)} Release is the owner's decision.` };
-	return { changed: true, fields: backToPool() };
+	return { changed: true, fields: releasedToPool() };
 }
 
-/** Take a card back from whoever holds it: the lead's repair, so no holder check. */
-export function reclaim(card: Card): Prepared {
-	if (LANE_RULES[card.lane].terminal) {
-		return { error: `${cardRef(card.id)} is done; there is nothing to reclaim.` };
-	}
-	if (card.owner === undefined) return { error: `${cardRef(card.id)} has no owner to reclaim.` };
-	return { changed: true, fields: backToPool() };
-}
-
-/** What a card looks like back in the pool: nobody's, and no longer spot-checked. */
-function backToPool(): Partial<Card> {
+/** Release's answer: nobody's, and the spot-check does not travel with it. */
+function releasedToPool(): Partial<Card> {
 	return {
 		lane: "backlog",
 		owner: undefined,
 		offeredAt: undefined,
-		// A review is a statement about work finished in `execute`; a card back in the pool
-		// is not finished, so the sign cannot travel with it.
+		// A review is a statement about work finished in `execute`; a card its own holder hands
+		// back is not finished, so the sign cannot travel with it. A `reclaim` keeps it instead:
+		// the sign is evidence, and only its signer withdraws it (`lead.ts`).
 		review: undefined,
 	};
 }
@@ -207,7 +200,9 @@ function unmet(
 		case "approval":
 			return card.contract?.approved === undefined ? missingSign(card, config.lead, "approve") : undefined;
 		case "review":
-			return card.review === undefined ? missingSign(card, config.lead, "review") : undefined;
+			// The sign that speaks for this execution, not the one a reclaim carried back into the pool:
+			// a card taken back and executed again owes the lead a fresh look (`currentReview`).
+			return currentReview(card) === undefined ? missingSign(card, config.lead, "review") : undefined;
 		case "artifact": {
 			if (card.planPath === undefined) return noArtifact(card);
 			// Fail closed: a lane that requires a proved plan refuses when the caller did not
@@ -405,13 +400,14 @@ export function review(
 	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "review")}` };
 	const wrongSigner = signRefusal(card, actor, config.lead, "review");
 	if (wrongSigner !== undefined) return { error: wrongSigner };
-	const signed = signedAs(card.review, actor, config.lead);
+	const signed = signedAs(currentReview(card), actor, config.lead);
 	// A sign is a fact about a person and a moment, so an override never replaces one: it is how a
 	// card with no spot-check gets a record, not how a record gets a different author. The same
 	// signer, saying the same thing, is its own case — the sign is already the one it asked for.
-	if (instruction !== undefined && card.review !== undefined && !(signed && card.review.byInstruction !== undefined)) {
+	const already = currentReview(card);
+	if (instruction !== undefined && already !== undefined && !(signed && already.byInstruction !== undefined)) {
 		return {
-			error: `${cardRef(card.id)} is already spot-checked by ${card.review.by}; an override signs a card that has no sign.`,
+			error: `${cardRef(card.id)} is already spot-checked by ${already.by}; an override signs a card that has no sign.`,
 		};
 	}
 	const noted = signNote(card, text, actor, now);

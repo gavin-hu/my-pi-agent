@@ -12,12 +12,33 @@
 
 import { type Card, normalizeCardId } from "../../lib/board/card.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
+import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import { textResult } from "../../lib/tool-result.ts";
 import { formatCard, formatDropped } from "./format.ts";
 import { refusal } from "./result.ts";
 import type { BoardArgs } from "./schema.ts";
 import type { BoardAction, BoardDetails } from "./types.ts";
+
+/**
+ * The `reclaim` op, with the one fact its gate reads: what the bus says about the card's holder.
+ *
+ * The card is read here to learn whose record to ask about. The board's own read under the lock is
+ * still the authority — `reclaim` keeps the fact only while it names the owner that read finds —
+ * and a card that is not there, or a bus that cannot say, leaves the op with no fact at all: the
+ * lead goes through and a peer is refused, which is the rule's answer when nothing is known.
+ */
+export async function reclaimOp(
+	session: BoardSession,
+	store: BoardStore,
+	raw: string | undefined,
+	cwd: string,
+): Promise<CardOp> {
+	const id = raw === undefined ? undefined : normalizeCardId(raw);
+	const card = id === undefined ? undefined : await store.read(id).catch(() => undefined);
+	const holder = card === undefined ? undefined : await session.holder(cwd, card);
+	return { kind: "reclaim", ...(holder === undefined ? {} : { holder }) };
+}
 
 /**
  * Apply one op and report it: the card, the next step, the lane crossing's clause, and the sign's.

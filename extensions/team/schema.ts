@@ -17,7 +17,8 @@ export const TeamParams = Type.Object({
 			description:
 				"`assign` sends a running session a handoff and then records the owner; `offer` broadcasts an unclaimed card " +
 				"to every other live session, then records the moment it was made — the lane and the owner stay put — so " +
-				"the first to claim it takes it; `reclaim` takes a card back to Backlog; `claim` takes one for the lead " +
+				"the first to claim it takes it; `reclaim` takes a card back to Backlog — a peer only from an owner whose " +
+				"record says it stopped, the lead from anyone — and sends nothing; `claim` takes one for the lead " +
 				"itself, which then plans and records it with `board`; `ask` sends one peer a question and starts nothing, " +
 				"so the answer arrives as mail. They are the round's five verbs: `board` creates, plans, moves, and " +
 				"finishes the cards, and the page is a view.",

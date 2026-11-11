@@ -117,6 +117,8 @@ export function fakeBoardSession(name = "team-agent-slead"): BoardSession & {
 			throw new Error("the page's words must not read the bus directory");
 		},
 		roster: async () => (roster.length === 0 ? undefined : roster),
+		// `reclaim` is the tool's, and the one caller: no `board` word reads a holder's record.
+		holder: async () => undefined,
 		now: () => 0,
 		who: async () => ({ id: "s-lead", label: seat ?? name }),
 		serving: () => seat,

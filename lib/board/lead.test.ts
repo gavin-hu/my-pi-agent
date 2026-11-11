@@ -7,8 +7,10 @@
 
 import { describe, expect, test } from "bun:test";
 import { numberedCard } from "../../test/helpers/fixtures/board.ts";
+import { type Card } from "./card.ts";
 import {
 	askLead,
+	currentReview,
 	holderRefusal,
 	isLead,
 	isPerson,
@@ -28,6 +30,52 @@ const LEAD: Lead = "team-lead";
 const PEER: Actor = { id: "s-peer", label: "api-core" };
 const THE_LEAD: Actor = { id: "s-lead", label: "Team-Lead" };
 const CARD = numberedCard("4");
+
+/** A card this suite signs, so a case names only the fields the sign reads. */
+const card = (overrides: Partial<Card> = {}) => numberedCard("4", overrides);
+
+describe("currentReview", () => {
+	/** An executing card that entered its lane at `since`, with a sign made at `at`. */
+	const signed = (since: number, at: number) =>
+		card({
+			lane: "execute",
+			owner: { label: "billing-core" },
+			review: { by: "billing-lead", at },
+			log: [
+				{ lane: "backlog", at: since - 2_000, by: "billing-lead" },
+				{ lane: "execute", at: since, by: "billing-core" },
+			],
+		});
+
+	test("answers with the sign made since the card entered the lane", () => {
+		expect(currentReview(signed(2_000, 3_000))).toMatchObject({ by: "billing-lead", at: 3_000 });
+		expect(currentReview(signed(2_000, 2_000))).toMatchObject({ at: 2_000 });
+	});
+
+	test("answers nothing for a sign a previous execution left on the card", () => {
+		// A reclaim keeps the lead's spot-check, and a kept sign is evidence about the work that was
+		// taken back rather than about the execution the card is in now.
+		expect(currentReview(signed(2_000, 1_500))).toBeUndefined();
+	});
+
+	test("keeps a sign a finished card carries, whatever the lane entry says", () => {
+		// `done` is the lane the sign is evidence for, so the entry it followed is not a cut-off.
+		const done = card({
+			lane: "done",
+			owner: { label: "billing-core" },
+			review: { by: "lead", at: 1_000 },
+			log: [{ lane: "done", at: 2_000, by: "billing-core" }],
+		});
+		expect(currentReview(done)).toMatchObject({ at: 1_000 });
+	});
+
+	test("keeps a sign whose lane entry the log no longer has", () => {
+		// An elided log is not a reason to demand a second signature: the sign is the only evidence
+		// left, and asking again for one already made is the worse answer.
+		const silent = card({ lane: "execute", owner: { label: "billing-core" }, review: { by: "lead", at: 1_000 } });
+		expect(currentReview(silent)).toMatchObject({ at: 1_000 });
+	});
+});
 
 describe("normalizeLead", () => {
 	test("a name is a label: flattened, trimmed, and capped", () => {
