@@ -77,14 +77,14 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
  * the write would be a no-op, but `team` sends before it writes, so accepting the no-op spent
  * a second handoff on a card nobody was handed.
  */
-export function assign(card: Card, to: Actor, board: BoardIndex, limits: WipLimits): Prepared {
+export function assign(card: Card, to: CardOwner, board: BoardIndex, limits: WipLimits): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be assigned.` };
 	if (card.owner !== undefined) return { error: holds(card, to) ? alreadyHeldBy(card) : heldBy(card) };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
 	// A pool card is the only card this moves, so it comes with the lane a claim would give it:
 	// the owner inherits the work from its first step.
-	return enter(card, "plan", board, limits, { owner: ownerOf(to), offeredAt: undefined });
+	return enter(card, "plan", board, limits, { owner: to, offeredAt: undefined });
 }
 
 /** Hand a card back to the pool. The contract and its approval stay: the plan did not change. */

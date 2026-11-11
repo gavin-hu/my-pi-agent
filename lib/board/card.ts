@@ -15,7 +15,7 @@
  */
 
 import { sanitizeLine } from "../format.ts";
-import { type Contract, isContract, isSign, type Sign } from "./contract.ts";
+import { type Contract, isContract, isHandoff, type Handoff, isSign, type Sign } from "./contract.ts";
 import { CARD_TYPES, type CardType } from "./kind.ts";
 import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
 
@@ -110,6 +110,11 @@ export interface CardOwner {
 	id?: string;
 	/** The bus label, which is what a peer is addressed by. */
 	label: string;
+	/**
+	 * The handoff that made this owner, when one did; a claim's owner has none, and `told` absent
+	 * means the bus never took the message. A released card carries none — the owner it lived on is gone.
+	 */
+	handoff?: Handoff;
 }
 
 /**
@@ -551,6 +556,7 @@ function isOwner(value: unknown): boolean {
 	if (typeof value !== "object" || value === null) return false;
 	const owner = value as Record<string, unknown>;
 	if (typeof owner.label !== "string" || owner.label === "") return false;
+	if (owner.handoff !== undefined && !isHandoff(owner.handoff)) return false;
 	return owner.id === undefined || typeof owner.id === "string";
 }
 

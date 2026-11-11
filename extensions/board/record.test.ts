@@ -132,6 +132,19 @@ describe("dropped history", () => {
 		expect(formatCard({ ...live, lane: "done" }, undefined, NOW)).not.toContain("not told");
 	});
 
+	test("an owner whose handoff was never told says so, and a claimed one does not", () => {
+		// The handoff lives on the owner, so its presence is what says a message was owed: a claim
+		// draws nothing, a released card has no owner to draw from, and a finished card is history.
+		const handed = (handoff: { at: number; told?: { at: number } }, overrides: Partial<Card> = {}) =>
+			numberedCard("7", { lane: "plan", owner: { id: "s-core", label: "api-core", handoff }, ...overrides });
+		expect(formatCard(handed({ at: NOW }), undefined, NOW)).toContain("owner: api-core · not told");
+		expect(formatCard(handed({ at: NOW, told: { at: NOW } }), undefined, NOW)).toContain("owner: api-core\n");
+		expect(formatCard(numberedCard("7", { lane: "plan", owner: { label: "api-core" } }), undefined, NOW)).toContain(
+			"owner: api-core\n",
+		);
+		expect(formatCard(handed({ at: NOW }, { lane: "done" }), undefined, NOW)).not.toContain("not told");
+	});
+
 	test("a plan whose file is gone says so on the line that names it", () => {
 		// The caller stat'ed it: a card block is one read of one card, which is the one place the
 		// transcript can afford the answer before the reader calls `move`.

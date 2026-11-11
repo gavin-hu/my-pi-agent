@@ -57,6 +57,46 @@ describe("assign", () => {
 		expect((await (await store()).read(id))?.owner).toBeUndefined();
 	});
 
+	test("records the handoff as told when the bus wrote the message", async () => {
+		// The record says the bus took the message, which is all it can say: mail is pruned after a
+		// day, so "told" is written and never read.
+		const { call, seed, store } = harness();
+		const id = await seed();
+		await call({ action: "assign", card: id, to: "billing-core" });
+
+		expect((await (await store()).read(id))?.owner?.handoff).toEqual({ at: NOW, told: { at: NOW } });
+	});
+
+	test("records a handoff the bus could not write without its told fact", async () => {
+		// The peer's inbox refused the file. The card still names them — the pre-check passed and the
+		// handoff is owed — but the record says the message never landed, which is what a reader and a
+		// re-send both need.
+		const { call, seed, store } = harness({
+			undelivered: [{ label: "billing-core", error: "no such inbox" }],
+		});
+		const id = await seed();
+		const result = await call({ action: "assign", card: id, to: "billing-core" });
+
+		expect(result.isError).toBeFalsy();
+		const owner = (await (await store()).read(id))?.owner;
+		expect(owner).toMatchObject({ label: "billing-core", handoff: { at: NOW } });
+		expect(owner?.handoff?.told).toBeUndefined();
+	});
+
+	test("a released card carries no handoff at all, because the record lived on the owner", async () => {
+		// Every release and reclaim clears `owner`, and the handoff is a field on it — so a card back
+		// in the pool cannot look assigned. The turn-start sweep makes such cards now without anybody
+		// asking, which is why this is pinned rather than argued.
+		const { call, seed, store } = harness({
+			undelivered: [{ label: "billing-core", error: "no such inbox" }],
+		});
+		const id = await seed();
+		await call({ action: "assign", card: id, to: "billing-core" });
+		await (await store()).mutate(id, { kind: "reclaim" }, { label: "lead" }, NOW + 1);
+
+		expect((await (await store()).read(id))?.owner).toBeUndefined();
+	});
+
 	test("sends the handoff first, then records the owner", async () => {
 		const { call, seed, sent } = harness();
 		const id = await seed();

@@ -12,6 +12,7 @@ import {
 	contractApproved,
 	contractComplete,
 	isContract,
+	isHandoff,
 	isSign,
 	MAX_CONTRACT,
 	mergedContract,
@@ -124,6 +125,18 @@ describe("isContract and isSign", () => {
 		expect(isSign({ by: "billing-lead", at: 0, told: { at: 1.5 } })).toBe(false);
 		expect(isSign({ by: "billing-lead", at: 0, told: {} })).toBe(false);
 		expect(isSign({ by: "billing-lead", at: 0, told: "just now" })).toBe(false);
+	});
+
+	test("a handoff says the same fact as a sign, and a card refuses one that is malformed", () => {
+		// Same rule as a sign's: a stamp, and a settled message or none. A handoff with no stamp, or a
+		// `told` that is not one, would read as "still owed" for the rest of the card's life.
+		expect(isHandoff({ at: 1 })).toBe(true);
+		expect(isHandoff({ at: 1, told: { at: 2 } })).toBe(true);
+		expect(isHandoff({ at: 1.5 })).toBe(false);
+		expect(isHandoff({ told: { at: 2 } })).toBe(false);
+		expect(isHandoff({ at: 1, told: "yes" })).toBe(false);
+		expect(isHandoff({ at: 1, told: { at: "now" } })).toBe(false);
+		expect(isHandoff(undefined)).toBe(false);
 	});
 
 	test("a sign by instruction is trusted only as the line a signer would have written", () => {
