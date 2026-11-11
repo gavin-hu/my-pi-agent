@@ -49,8 +49,9 @@ lead's round now shows it as held.
 ## Reference
 
 **Actions.** `assign` (card, `to`, `note?`) joins, then sends a handoff, then records the
-owner; `offer` (card, `note?`) broadcasts the card and records only the moment it
-was offered, so the first peer to claim it wins; `reclaim` (card) clears the owner
+owner and whether the bus took the message — `told` means written, not read, because mail
+is pruned after a day; `offer` (card, `note?`) broadcasts the card and records only the
+moment it was offered, so the first peer to claim it wins; `reclaim` (card) clears the owner
 and returns the card to Backlog with its notes and contract, and its result names the
 paths the old holder still has (`2 paths stay held by api-core until it stops`) — a peer
 only from an

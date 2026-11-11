@@ -146,6 +146,18 @@ function notTold(sign: Sign | undefined, card: Card): string {
 	return sign !== undefined && sign.told === undefined && card.lane !== "done" ? " · not told" : "";
 }
 
+/**
+ * ` · not told` on a handoff whose message the bus never took.
+ *
+ * The same fact as a sign's, read off the ownership record instead: present `handoff` is what says a
+ * message was owed, so a claim draws nothing, and a released card carries neither because the owner
+ * it lived on is gone. A finished card says nothing, for the reason a sign's does not.
+ */
+function handoffNotTold(card: Card): string {
+	const handoff = card.owner?.handoff;
+	return handoff !== undefined && handoff.told === undefined && card.lane !== "done" ? " · not told" : "";
+}
+
 /** A block as one line: the sentence, and the kind beside it when one was recorded. */
 function blockText(block: CardBlock): string {
 	const note = block.note ?? "nothing recorded";
@@ -166,7 +178,7 @@ function listLine(card: Card): string {
 /** The state lines under a card's headline. */
 function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = false): string[] {
 	const lines: string[] = [];
-	if (card.owner !== undefined) lines.push(`  owner: ${card.owner.label}`);
+	if (card.owner !== undefined) lines.push(`  owner: ${card.owner.label}${handoffNotTold(card)}`);
 	// An offer's age is the fact a reader acts on, which is the one place an age belongs in
 	// this text: the value is whether anybody has had time to answer.
 	if (card.offeredAt !== undefined && now !== undefined) {

@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `team`: a handoff records whether the bus took its message. `assign` writes the owner with a
+  `handoff` stamp and a `told` inside it when a message file was written, so a card handed to a peer
+  whose inbox refused reads `owner: api-core · not told` in `board list` instead of looking exactly
+  like one that heard. A claim's owner carries no handoff, and neither does a released card — the
+  record lives on the owner, and clearing it is what keeps a pooled card from looking assigned. A
+  malformed handoff is refused, on the same rule a sign's `told` follows.
+
 - `team` and `board`: a reclaim reports the paths it could not free. A lane crossing's rule moved
   from `extensions/board/claims.ts` to `lib/board/claims.ts`, and `BoardSession.cross` is the one
   crossing both doors report — the board's `move`, `release`, `reclaim` and `drop`, and the
