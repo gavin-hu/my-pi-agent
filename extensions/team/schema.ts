@@ -32,6 +32,9 @@ export const TeamParams = Type.Object({
 	),
 	note: Type.Optional(Type.String({ description: "`assign` or `offer`: a line to include, e.g. what to do first." })),
 	question: Type.Optional(
-		Type.String({ description: "`ask`: what to ask, one line; defaults to asking how it is going." }),
+		Type.String({
+			description:
+				"`ask`: what to ask, one line; defaults to asking how it is going. The ask carries its own id, and the reply opens with `re: <id>`.",
+		}),
 	),
 });

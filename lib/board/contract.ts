@@ -225,8 +225,46 @@ export function isVerification(value: unknown): value is Verification {
 	return run.sha === undefined || (typeof run.sha === "string" && run.sha !== "");
 }
 
-/** When a sign's message was settled, as the record stores it. */
-function isTold(value: unknown): value is { at: number } {
+/**
+ * A handoff, and whether the bus took its message.
+ *
+ * `told` means the bus wrote the message, not that its owner read it: mail is pruned after a day, so
+ * this record can only answer for the moment of the handoff.
+ */
+export interface Handoff {
+	/** When the handoff was recorded. */
+	at: number;
+	/** When the bus settled the message it carried; absent while it never did. */
+	told?: { at: number };
+	/**
+	 * The bus could not name the session this handoff was written for, so the owner has no id.
+	 *
+	 * It withdraws authority, never addressability: `holds` refuses a label match against this owner,
+	 * while the announce path still sends to the label it carries. A reader that took "unresolved"
+	 * for "unreachable" would look for a bug that is not there.
+	 */
+	unresolved?: true;
+}
+
+/** Whether `value` is a handoff this build wrote: a stamp, and a settled message or none. */
+export function isHandoff(value: unknown): value is Handoff {
+	if (typeof value !== "object" || value === null) return false;
+	const { at, told, unresolved } = value as Record<string, unknown>;
+	return (
+		typeof at === "number" &&
+		Number.isInteger(at) &&
+		(told === undefined || isTold(told)) &&
+		(unresolved === undefined || unresolved === true)
+	);
+}
+
+/**
+ * When a handoff's or a sign's message was settled, as the record stores it.
+ *
+ * Exported because `card.ts` validates an owner's handoff with it: the two records carry the same
+ * fact in the same shape, and a second copy of this check is how they drift.
+ */
+export function isTold(value: unknown): value is { at: number } {
 	if (typeof value !== "object" || value === null) return false;
 	const told = value as Record<string, unknown>;
 	return typeof told.at === "number" && Number.isInteger(told.at);

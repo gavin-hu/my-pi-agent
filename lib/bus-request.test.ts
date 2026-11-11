@@ -1,7 +1,7 @@
 /**
- * The handshake's two guarantees, apart from the three questions that use it: one
- * answer settles a request, and a caller with no listener is told so instead of left
- * waiting.
+ * The handshake's three guarantees, apart from the three questions that use it: one
+ * answer settles a request, a caller with no listener is told so instead of left
+ * waiting, and a claim that never answers is bounded instead of hanging the call.
  *
  * Adoption is proved by each channel's own suite — `http/mount.test.ts`,
  * `plan/extension.test.ts`, and `session-bus/extension.test.ts` run the real callers
@@ -11,7 +11,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { createFakePi } from "../test/helpers/fakes.ts";
-import { requestOverBus } from "./bus-request.ts";
+import { ANSWER_BOUND_MS, requestOverBus } from "./bus-request.ts";
 
 const CHANNEL = "my-pi-agent/test/request";
 
@@ -28,6 +28,32 @@ function spec(asked = "anyone?") {
 		payload: (respond: (answer: string | Promise<string>) => void): Question => ({ asked, respond }),
 		unclaimed: () => "nobody answered",
 	};
+}
+
+/**
+ * The bound, captured rather than armed: no test line arms a real timer (`test/conventions.test.ts`),
+ * and the case that matters is what happens *when it fires*, so the suite fires it itself.
+ */
+function clock() {
+	const armed: Array<{ ms: number; fire: () => void }> = [];
+	let cancelled = 0;
+	return {
+		seams: {
+			timer: (ms: number, fire: () => void) => {
+				armed.push({ ms, fire });
+				return () => {
+					cancelled += 1;
+				};
+			},
+		},
+		armed,
+		cancelled: () => cancelled,
+	};
+}
+
+/** A listener that claims the request and never answers it: the one failure mode with no end. */
+function silentOwner(fake: ReturnType<typeof createFakePi>): void {
+	fake.pi.events.on(CHANNEL, (data: unknown) => (data as Question).respond(new Promise<string>(() => undefined)));
 }
 
 describe("requestOverBus", () => {
@@ -85,5 +111,56 @@ describe("requestOverBus", () => {
 			"failed: the bus died",
 		);
 		expect(await requestOverBus(fake.pi, spec())).toBe("nobody answered");
+	});
+
+	test("settles a claim that never answers on the bound, with the sentence it was given", async () => {
+		const fake = createFakePi();
+		silentOwner(fake);
+		const timer = clock();
+		const request = requestOverBus(
+			fake.pi,
+			{ ...spec(), timedOut: () => "the bus is on and did not answer" },
+			timer.seams,
+		);
+
+		expect(timer.armed).toHaveLength(1);
+		expect(timer.armed[0]?.ms).toBe(ANSWER_BOUND_MS);
+		timer.armed[0]?.fire();
+		// Firing again is the settled request's own no-op, not a second answer.
+		timer.armed[0]?.fire();
+		expect(await request).toBe("the bus is on and did not answer");
+		expect(timer.cancelled()).toBe(1);
+	});
+
+	test("gives a caller with no timedOut its unclaimed sentence, so the default cannot rot", async () => {
+		const fake = createFakePi();
+		silentOwner(fake);
+		const timer = clock();
+		const request = requestOverBus(fake.pi, spec(), timer.seams);
+
+		timer.armed[0]?.fire();
+		expect(await request).toBe("nobody answered");
+	});
+
+	test("cancels the bound on all three endings", async () => {
+		const answeredFake = createFakePi();
+		answeredFake.pi.events.on(CHANNEL, (data: unknown) => (data as Question).respond("now"));
+		const answered = clock();
+		expect(await requestOverBus(answeredFake.pi, spec(), answered.seams)).toBe("now");
+		expect(answered.cancelled()).toBe(1);
+
+		const failedFake = createFakePi();
+		failedFake.pi.events.on(CHANNEL, (data: unknown) =>
+			(data as Question).respond(Promise.reject(new Error("too late"))),
+		);
+		const failed = clock();
+		expect(await requestOverBus(failedFake.pi, spec(), failed.seams)).toBe("nobody answered");
+		expect(failed.cancelled()).toBe(1);
+
+		// Nobody claimed, so the microtask settles it: the bound was armed and must be dropped
+		// with it, or every call to a session without the extension leaves a timer behind.
+		const quiet = clock();
+		expect(await requestOverBus(createFakePi().pi, spec(), quiet.seams)).toBe("nobody answered");
+		expect(quiet.cancelled()).toBe(1);
 	});
 });

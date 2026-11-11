@@ -48,6 +48,13 @@ export interface TeamDetails {
 	quiet?: string[];
 	/** The peers no message file could be written for, when the send reached somebody else. */
 	failed?: DeliveryFailure[];
+	/**
+	 * The id this `ask` minted, so the caller can match an answer to it.
+	 *
+	 * The only record of an ask: the message text carries the same string, and a reply that opens with
+	 * `re: <id>` is what pairs the two. Present on `ask` alone.
+	 */
+	askId?: string;
 	/** Why the handoff was not sent; the card is untouched when this is set. */
 	messageError?: string;
 	/** A refusal's reason, which the renderer draws instead of the details. */

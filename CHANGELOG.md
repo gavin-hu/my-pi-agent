@@ -16,29 +16,108 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   path still closes; a card whose contract names no command keeps the gate it had. The transcript
   and the card dialog draw the command and the run from the same fields.
 
-- `team` and `board`: a reclaim reports the paths it could not free. A lane crossing's rule moved
-  from `extensions/board/claims.ts` to `lib/board/claims.ts`, and `BoardSession.cross` is the one
-  crossing both doors report — the board's `move`, `release`, `reclaim` and `drop`, and the
-  round's `reclaim`, which until now bypassed the rule entirely. `releasePaths` frees the caller's
-  claims and nobody else's, so a card taken back from a peer keeps that peer's path claims until
-  its session stops; the result now says so — `2 paths stay held by api-core until it stops` —
-  instead of leaving the new owner's next claim refused with no word about why. A holder taking
-  its own card back still prints nothing extra, and no bus capability was added.
+## [0.26.0] - 2026-11-11
 
-- `team` and `board`: a handoff or an ask joins the bus first. `assign` and `ask` join **before**
-  they send, because the message names this session as the way back — a lead the bus will not hold
-  used to hand a peer a reply its own `session send` refused, and a send or write that failed never
-  reached the join at all. A refused join now sends nothing and says what to do about it: with no
-  bus loaded it names the extension to turn on, and with the label held by another record it says
-  what frees the name — `/team join` is the wrong door in both cases, and for a lead it costs the
-  signature. A claim still writes the card first and joins after it, and its result now carries
-  `Not on the team: …` instead of discarding the answer.
+### Added
+
+- `team`: an ask names itself and the session to answer it. `ask` mints a short id before it
+  composes, so the question reads `Ask a1b2c3d4: …` and the reply line carries the asker's session id
+  — not the label it happened to hold — with the label as a fallback the sentence admits to. A lead
+  with two questions out can tell the answers apart by their `re: <id>` opening, and a rename between
+  the ask and the answer no longer loses the reply. The message text is the whole record: nothing
+  persists an ask, and the result prints the same id for whoever keeps it.
+
+- `team`: a handoff records whether the bus took its message. `assign` writes the owner with a
+  `handoff` stamp and a `told` inside it when a message file was written, so a card handed to a peer
+  whose inbox refused reads `owner: api-core · not told` in `board list` instead of looking exactly
+  like one that heard. A claim's owner carries no handoff, and neither does a released card — the
+  record lives on the owner, and clearing it is what keeps a pooled card from looking assigned. A
+  malformed handoff is refused, on the same rule a sign's `told` follows.
 
 - `board`: a card whose owner's session ended is released at the next session's first turn. The
   sweep reads the roster once and asks the same pid-checked `gone` rule the reclaim gate already
   trusts, then writes the ordinary `reclaim` — so the store decides, a raced refusal is skipped,
   and a `quiet` owner is left to a person. The first-turn line says what it freed, alone when the
   session holds no card of its own.
+
+- `docs`: the site counts pageviews with GoatCounter — one `async` tag at the tail of the shared
+  head, its URL built from the account named once in `_config.yml`, and one cookieless disclosure
+  line in the footer. The pages the extensions serve carry none: their CSP is `script-src
+  'self'`, so a copy there would be blocked and would count a local port.
+
+- `board`: a card's lane is a claim, and a session's cards are visible. `move` into `execute`
+  now claims the card's `paths` on the session bus and leaving the lane releases them — the
+  session that claimed them, so a `reclaim` hands the card over and leaves the paths held until
+  that session stops — so the files a card names are held by whoever is working it and a
+  conflict is named on the result instead of discovered later. A session is also told once,
+  before its first turn, which cards it holds and what each owes next — the resume case, where
+  the work continued while the card sat in `plan` because nothing ever restated it — and takes
+  its executing cards' paths back by asking the bus on `pi.events`, because a turn start has no
+  nested tool call; a path it could not take is named on that same line. `AGENTS.md` carries the
+  rule the two make visible: a feature is worked on its card, `execute` before editing.
+
+- `docs`: the site's search field has a shortcut — `/` or Cmd/Ctrl+K focuses and selects it from
+  anywhere on a page, with a `/` hint in the field that leaves once the reader is typing. It does
+  nothing while focus is in a field or behind the open drawer's Tab ring, and a second modifier is
+  left to the browser.
+
+- `docs`: a surface that does not work has one page. `docs/troubleshooting.md` is a symptom,
+  cause, fix and owning-page table over the five failures that were each a Limits bullet on a
+  different page — no page at all, a pinned port another process holds, `✆ wechat expired`, a
+  doctor row reading `env disabled`, and a card refusing the session that holds it — linked from
+  the front door and from `serve`, `wechat`, `bytefly` and `board`.
+
+- `docs`: a name you half remember is now one page — `docs/tools-and-commands.md` lists
+  every tool and slash command the pack registers, each row linking the page that owns
+  it, and `test/extension-docs.test.ts` holds both tables to the factories in both
+  directions, so a rename fails there instead of vanishing from the list. The sidebar
+  drops the one-row `Extensions` group, its index joining the other front doors under
+  Get started, and walks the tutorials in the order the index prescribes —
+  `test/site-docs.test.ts` holds that order, and the promise that every walkthrough is
+  linked from an extension page.
+
+- `docs`: the site declares the meta a crawler and a share need — `sitemap.xml` and
+  `robots.txt` built from the navigation table, the screenshot shared as a PNG at the
+  1678×1264 it states, `og:type` website on the home page and article elsewhere, a
+  canonical the not-found page does not carry, and a `tagline` so the home `<title>` fits
+  a search result instead of repeating the description.
+
+- `test`: the gate takes a machine-wide lock — `scripts/check-lock.ts` — so a second
+  `bun run check` on the same machine waits and names the holder instead of starving the
+  first one's spawned shells and `git` calls; `--no-lock` runs beside it, and a lock a
+  dead gate left behind is replaced by pid rather than by age.
+
+- `docs`: the site gains a tutorials index — eleven walkthroughs in the order a new
+  reader meets them, the first three named as the start and the rest grouped by the
+  work they serve — linked from the home page's Start here list, with
+  `test/site-docs.test.ts` failing an unlisted walkthrough.
+
+- `docs`: the three packaged skills get pages of their own on the site — `init`, `next`, and
+  `refactor`, on the extension page template, in a `Skills` group in the sidebar — the two
+  themes are explained beside the `chrome` section of the configuration reference, and
+  `test/skill-docs.test.ts` holds the page set.
+
+- `board`: a card records what kind of work it is — `feature`, `bug`, `refactor`, `docs`,
+  `test`, or `chore` — and whether it is a breaking change, set by `add` and `edit` with
+  `type` and `breaking`; both draw as one quiet label on the card face, in its dialog, and in
+  the lead's queue, `list`'s `query` and the page's filter match them, `breaking: false`
+  clears the marker, and a card that recorded neither draws nothing.
+
+- `docs`: the documentation is a Jekyll site built by GitHub Pages from `docs/`, with a
+  home page, an install guide, a theme of its own, and a sidebar over every page.
+
+- `docs`: four walkthroughs join the tutorial set — handing a task to a specialist agent,
+  running long work in the background with a watcher on its log, rewinding to an earlier
+  prompt, and giving the session a goal — each linked from the extension page that owns it.
+
+- `docs`: two concepts that no single extension owns get a page each — `docs/multi-session.md` is
+  the round that `board`, `team`, and `session-bus` make together (a card from claim to the second
+  signature, what each session holds and for how long, and what none of the three promises), and
+  `docs/minimal-install.md` is what each part costs while it is on, the shapes to pick from, and
+  what switching one off takes away — with `install.md` sending the reasoning there instead of
+  claiming `bytefly.json` switches an extension off.
+
+### Changed
 
 - `docs`: the board page states the gates the code has. `reclaim`'s three-way rule (holder, person and lead always; a peer only while that owner's record says quiet or gone), the plan re-read at `execute` and `done` with the face's `its plan is gone`, `· not told` on a live sign, and the lane cap that refuses `claim`, `move` and `assign` alike. Ownership reads as a session id on `board.md` and `multi-session.md`, as the code and the tutorial already had it. `troubleshooting.md` gains the reclaim, gone-plan and handed-to-yourself rows, and `session-bus.md` names the `live`/`quiet`/`gone` state `session status` reports.
 
@@ -48,10 +127,245 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the actions that join (claim, assign, ask; offer and reclaim join nothing), and `board.md` says
   an unreadable card file is skipped and named rather than "reported, not skipped".
 
-- `docs`: the site counts pageviews with GoatCounter — one `async` tag at the tail of the shared
-  head, its URL built from the account named once in `_config.yml`, and one cookieless disclosure
-  line in the footer. The pages the extensions serve carry none: their CSP is `script-src
-  'self'`, so a copy there would be blocked and would count a local port.
+- `board`: a reclaim names its actor. `reclaim` reads who holds the card and whether that session
+  is still running, so a session that is not the lead takes one back only from an owner whose
+  record says it stopped — quiet or gone — while the holder, the person, and the lead still take
+  any card back; a label the bus holds no record of is refused to them too, because a live session
+  that never joined writes no record either, and a board with no bus at all answers the same. The
+  return keeps the spot-check it used to erase: a sign is evidence, and only the signer withdraws
+  it, so the `done` gate now reads the sign made since the card entered `execute` rather than any
+  sign the card carries — a reclaim, a fresh claim, and a second execution owe the lead a fresh
+  look. `/team` names a quiet owner's cards as reclaimable and states one the bus has no record of
+  as `not on the bus`, without offering the verb.
+
+- `docs`: the board's page says what its two gates are not — the lead is a name any session may
+  join, and a lead holding a card may release it, sign it and claim it again. The rule was in
+  `lead.ts` and in the refusals a peer reads, but a reader of the page could take "the lead
+  approves" for a permission system or for enforcement of a single signer.
+
+- `board`: `approve` now covers the plan the card names, not only its wording. `contract` and
+  `plan -> execute` both proved that file, so the board could approve a promise that was already
+  unexecutable and only say so at the move; the approval asks the same question with the same
+  sentence, after the signer and before the sign, and both doors (the tool and `/board approve`)
+  prove it through one helper (`extensions/board/proof.ts`) that `move` uses too.
+
+- `dev`: the board page's browser suites keep one tab between cases and reload its document
+  instead of buying a tab each time. `newPage` is the expensive half of a boot — measured
+  323–480 ms against 47–82 ms to reload a tab already open — and the reload is what a case needs
+  anyway: a document that inherited no stream, no repaint in flight, no filter, fold, tab, mark,
+  or focus. `BoardBrowser.open()` is gone, so a suite buys a tab once: `behaviour` falls from
+  19.8 s to 12.0 s wall and 18.1 s to 4.7 s CPU, and `dialog-behaviour` (12 tabs), `kind` (4) and
+  `repaint` (2) read the one tab too. Paired runs alternating old and new: 14.26 s / 20.88 s wall
+  and 14.7 s / 15.7 s CPU before, 10.70 s / 16.85 s wall and 5.9 s / 6.7 s CPU after.
+
+- `docs`: a frame is shown by a page or it is not captured. Four extension pages open with
+  the picture their screen already had — `job`, `wechat`, `context`, and `subagent` — and
+  `card-dialog.png` and `plan-review.png` join the walkthroughs that describe them, so
+  `package.json` `files` publishes exactly the frames a packaged page shows. The five
+  nothing showed — `bytefly-extensions`, `bytefly-settings`, `bytefly-skills`,
+  `compaction`, and `transcript` — are deleted with their `SCREENS` entries, their
+  fingerprints, and the fixtures only they read, rather than recaptured and render-checked
+  for a reader who never sees them.
+
+- `docs`: the tarball publishes every screenshot a packaged page shows. Twelve
+  `docs/extensions/**` pages carry a raw `<img>` and `files` listed five, so eight pages opened
+  with a broken image in an installed copy while `plan-review.png` shipped with no page naming it;
+  `test/release.test.ts` now holds the set in both directions from the packaged pages themselves.
+
+- `docs`: the once-a-session update check has one owner — `bytefly`'s page says what it
+  does (the header marker on both versions, the one notice, the cache), and the README,
+  the site home, and the install guide keep a summary and a link; the same for
+  `PI_DISABLED_EXTENSIONS`, whose rules now live only in the configuration reference,
+  with the README and the minimal install linking them.
+
+- `dev`: the gate's one clock is 90 s. `CASE_BUDGET_MS` rose from 60 s after a spawned `git` in
+  `extensions/plan/git-bash.test.ts` spent 55.11 s beside a second gate on one box — its watchdog
+  to the millisecond — and a loopback page in `extensions/file-browse/transport/root-move.test.ts`
+  reached the case deadline in another session; the spawn watchdog follows to 85 s, and every
+  case, hook, and `--timeout` still reads the one number.
+
+- `dev`: nothing waits on Chrome's own shutdown any more. Chrome asks four seconds once a page is
+  open — measured, and no launch flag shortens it — and each of the eight suites that boots one
+  paid that in `afterAll`, as did every frame a capture took. `scripts/capture/chrome.ts` now
+  launches through `launchServer` and closes by killing the process, which drops the browser and
+  its helper processes in ten milliseconds with the profile still removed; `test/helpers/browser.ts`
+  is the suites' half of the same launch. The eight suites fall from 63.1 s to 40.3 s together,
+  and `capture:cards` and `capture:tools` stop paying it per shot.
+
+- `dev`: the page-pointer cases stop sleeping through the poll schedule. `settlePointer` takes
+  its wait between two looks as a trailing `sleep` (`abortableSleep` in production), so
+  `lib/board/page-pointer.test.ts` drives the same attempts, looks and probes with a wait that
+  costs a tick: the file falls from 6.22 s to 0.12 s, and the shipped budget — three attempts,
+  eight polls of 75 ms, twenty looks of 25 ms — is untouched.
+
+- `dev`: the worktree page's "six `guard.*` switches" is a tested claim now —
+  `test/doc-counts.test.ts` reads the word or digit the page states and compares it with
+  `DEFAULT_CONFIG.guard`, so a guard added to or dropped from
+  `extensions/worktree/config.ts` fails naming the page instead of leaving a count behind.
+  The install pin stays `test/release.test.ts`'s job, and the file's header says so rather
+  than claiming one fact twice.
+
+- `docs`: the config migration recipe names the checkout it needs. `scripts/` is not in the
+  tarball `pi install npm:` unpacks, so `migrate:config` never existed for the installed
+  reader who still has legacy `<name>.json` files; the fence now clones and installs the
+  repository first, and says the checkout migrates the same agent directory `pi` writes.
+
+- `docs`: the configuration guides say what the loaders do — a newer `version` is not read
+  and only `migrate:config` stamps it, `u` refuses for Pi's own **Startup screen** and
+  **Theme** rows and for a Project row that only inherits Global, the wechat `state.json`
+  holds one conversation's reply token rather than per-peer tokens, six extensions read
+  no configuration rather than two, and a `price.rates` key past the 200th is ignored.
+
+- `docs`: three pages stop saying that switching `session-bus` off takes the board with it.
+  The cards, `board`, and `/board` keep working; what goes is the team — the round's verbs,
+  the page's Team tab, and a sign's announcement to the card's owner — and the board's page
+  needs `serve` for its port, not the bus.
+
+- `docs`: five extension pages stop stating facts the code does not hold — the board's
+  cards live under `cards/` with `ended/` and `page.json` beside them, `worktree` says
+  the six `guard.*` switches it has, `subagent` says `reviewer` is granted the real
+  `bash` and only its prompt keeps that to inspection, `plan` names the
+  `<YYYY-MM-DD-HHmm>` stamp its files carry, and `session-bus` says every action
+  except `status` joins a session instead of any call at all.
+
+- `docs`: the `wechat` page and its tutorial now name all three shapes `send_wechat` takes —
+  a text, an image as a picture, or a file as a document — and say that only a text send is
+  refused while the owner's turn is in flight, so a reader can find the file send the tool
+  has carried since 0.25.0.
+
+- `docs`: the bytefly page stops calling `/bytefly upgrade` unreleased — its Limits no longer
+  sends the reader to `pi update --extensions` for software that shipped in 0.19.0.
+
+- `docs`: the front door says where its frames come from — `capture:tools` writes
+  `assets/screens/tool-renderings.png` and `capture:tool-pngs` writes `assets/tools/`,
+  no page carries a per-tool block, the catalog is grouped by the work it serves
+  rather than by a promise list it does not follow, and the theme key names Pi's
+  `settings.json`.
+
+- `docs`: a search result is one listbox option — the link itself, named by the field's
+  `aria-activedescendant` and kept out of the tab order with `tabindex="-1"` — instead
+  of an option wrapping a focusable link, and the empty row is presentational so the
+  listbox holds nothing but options.
+
+- `docs`: the site's masthead and footer sit on the page's column — both rows repeat the
+  shell's 78rem box, so the brand and the licence line line up with the sidebar instead of the
+  window edge (96px off at 1440, 336px at 1920), the theme switch and the footer's links close
+  the rail's right edge, a 320px phone drops the brand name so the search field keeps its
+  placeholder, the footer takes the shell's 1rem gutter with a touch's height on each link, and a
+  short page keeps the footer at the bottom instead of mid-screen. The search glyph is drawn from
+  a role, with an opaque, prefixed fallback under the translucent bar;
+  `test/site-docs.test.ts` holds both rows to the shell's box.
+
+- `docs`: a link from `docs/` to an extension page names the page's `.md` target instead
+  of the source directory — `extensions/serve/` was the code on GitHub and the page on
+  the site — for 31 links across `security.md` and `configuration-reference.md`;
+  `test/site-docs.test.ts` now refuses a relative target that resolves to a directory.
+
+- `docs`: security.md names the agent directory as a trust boundary — memory, session
+  bus mail, board cards, plans, agent definitions, and `bytefly.json` are read as
+  instruction, `0600` separates users rather than processes, and the loopback page
+  token is readable by any process running as you.
+
+- `docs`: the confinement sentences say what the defaults give — an active worktree
+  refuses a write or an output redirection that leaves the checkout, reads only with
+  `guard.blockReadEscapes`, and plan mode confines writes rather than reads.
+
+- `docs`: every extension page is rewritten for a reader who uses the pack — what you can
+  do, one command to try, an optional walkthrough in `docs/tutorials/`, one reference
+  half, and how to switch the extension off.
+
+- `docs`: the two entry READMEs are a catalog a reader scans — each extension is a name, its
+  commands, and one sentence, with the reference left to the page that owns it — and
+  `test/drift.test.ts` holds the catalog's word budget so a table cell cannot grow back into
+  a copy of that page.
+
+- `docs`: the board's walkthrough and its page stop presenting the tool's actions as commands — a
+  sentence and the call it makes, with the one list of `/board` words a reader types — and the
+  walkthrough now names session ownership, the plan path a contract needs, the `blocked` lane,
+  one-way archiving, and the claim refusal in its own words.
+
+- `docs`: the walkthroughs stop describing screens the code does not draw — the rewind scopes and what a
+  non-terminal run does, `/goal set` and `edit` running the restatement, `/agents` ordering, the `/jobs`
+  row against its focus pane, the `/watch` row's match count alone, the todo rail hiding on completion,
+  `plan exit` opening the review, the 12-character repo key, where approved steps land in an existing
+  list, and the `+` in the browser review's margin — and `job`, `watch`, and `plan` say the same.
+
+- `docs`: the site shows where the reader is — the sidebar scrolls to the open page, the drawer
+  closes with an ✕, keeps Tab among its links, and closes when the window outgrows it, the
+  on-this-page rail marks nothing above the first section, search results span a phone's width,
+  and a long command wraps instead of running off the edge — and `test/site-docs.test.ts` fails a
+  link the site cannot serve, after seven that climbed out of `docs/` or behind a wrapped label
+  were repointed.
+
+- `docs`: the site's home page carries the promises the README makes instead of a subset of them —
+  the catalog counts with a link to the extension index, a table per packaged skill, both themes,
+  and a "What runs on its own" beside the `PI_OFFLINE` and security notes — and
+  `test/doc-counts.test.ts` and `test/docs-parity.test.ts` fail when a new extension, skill, or
+  theme lands without it.
+
+- `docs`: the configuration page is two pages with one job each — `docs/configuration.md` is the
+  how-to (where a setting lives, how to change one, migration, environment, state) and
+  `docs/configuration-reference.md` is the key list, twenty section tables behind their own nav row
+  — with all twenty deep links repointed and `test/config-docs.test.ts` pinning the reference.
+
+- `docs`: the loopback pages say which one carries no token — `board` and a plan review mint one per
+  page, and `file-browse` mints none because it serves a directory its reader already owns, so its
+  boundary is the served root and the OS permissions behind it; `serve.md`, `security.md`, and the
+  file browser's own Limits stop implying the three are gated the same way.
+
+- `docs`: the sidebar's extension links are grouped by the catalog's own promises — Plan and delegate,
+  Keep your work safe, Reach the world, Chrome and upkeep — and `test/site-docs.test.ts` now derives
+  that order and grouping from the README's catalog, so a page filed under another promise or a
+  reordered sidebar fails instead of drifting; `docs/extensions/README.md` is held to the same order.
+
+- `docs`: `security.md` stops claiming `web_fetch` "cannot" reach loopback or metadata endpoints and
+  states the guard the code is — the host is resolved and every hop re-validated, DNS can change
+  before the connection, and `fetch.allowPrivateHosts` turns it off — matching the extension page.
+
+- `docs`: the site's home page links each of its three skill rows to the page that explains it, and
+  its opening paragraph points at the skill index beside the extension index, now that the skill
+  pages exist.
+
+### Removed
+
+- `docs`: the contributor guides are retired; the conventions, the page template, and the
+  release steps live in `CONTRIBUTING.md`, and the command table in `scripts/README.md`.
+
+### Fixed
+
+- `team`: a handoff the bus could not name no longer hands over a card. When `peers()` cannot
+  answer, the owner is recorded with a label and `handoff.unresolved`, and `holds` refuses the label
+  fallback for it — so a session that later draws that label cannot inherit the card's writes. The
+  marker withdraws authority, not addressability: mail still goes to the label, the lead or the
+  person reclaims the card, and the peer's claim then records the id it was owed. Cards already
+  carrying a label-only handoff owner are flagged on read rather than rewritten, and `board list`
+  says `· unresolved` on the owner line.
+
+- `team` and `board`: a reclaim reports the paths it could not free. A lane crossing's rule moved
+  from `extensions/board/claims.ts` to `lib/board/claims.ts`, and `BoardSession.cross` is the one
+  crossing both doors report — the board's `move`, `release`, `reclaim` and `drop`, and the
+  round's `reclaim`, which until now bypassed the rule entirely. `releasePaths` frees the caller's
+  claims and nobody else's, so a card taken back from a peer keeps that peer's path claims until
+  its session stops; the result now says so — `2 paths stay held by api-core until it stops` —
+  instead of leaving the new owner's next claim refused with no word about why. A holder taking
+  its own card back still prints nothing extra, and no bus capability was added.
+
+- `lib`: a request over `pi.events` can no longer hang a turn. The handshake bounded only the case
+  where nobody claimed it, so a listener that claimed and then never answered left a `board` or
+  `team` call pending forever; a claim now settles on `ANSWER_BOUND_MS` with the caller's
+  `timedOut` sentence, which `BusRequest` defaults to `unclaimed` and `session-tool` sets so a bus
+  that is loaded and silent says it did not answer rather than naming an extension already on. The
+  bound is armed before the emit, because a listener may answer synchronously, and cancelled on
+  every settle, so a finished call leaves no timer behind.
+
+- `team` and `board`: a handoff or an ask joins the bus first. `assign` and `ask` join **before**
+  they send, because the message names this session as the way back — a lead the bus will not hold
+  used to hand a peer a reply its own `session send` refused, and a send or write that failed never
+  reached the join at all. A refused join now sends nothing and says what to do about it: with no
+  bus loaded it names the extension to turn on, and with the label held by another record it says
+  what frees the name — `/team join` is the wrong door in both cases, and for a lead it costs the
+  signature. A claim still writes the card first and joins after it, and its result now carries
+  `Not on the team: …` instead of discarding the answer.
 
 - `board` and `team`: a sign the owner never heard is sent again. The card records when a sign's
   message was settled (`told` on the approval or the spot-check), so a failed send leaves the fact
@@ -70,28 +384,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   card face reads `its plan is gone — move it back to plan, then record it again`, `board list
   card=<id>` prints `plan: … · gone`, and the vanished set enters the page's signature so an open
   tab redraws when a file goes.
-
-- `board`: a reclaim names its actor. `reclaim` reads who holds the card and whether that session
-  is still running, so a session that is not the lead takes one back only from an owner whose
-  record says it stopped — quiet or gone — while the holder, the person, and the lead still take
-  any card back; a label the bus holds no record of is refused to them too, because a live session
-  that never joined writes no record either, and a board with no bus at all answers the same. The
-  return keeps the spot-check it used to erase: a sign is evidence, and only the signer withdraws
-  it, so the `done` gate now reads the sign made since the card entered `execute` rather than any
-  sign the card carries — a reclaim, a fresh claim, and a second execution owe the lead a fresh
-  look. `/team` names a quiet owner's cards as reclaimable and states one the bus has no record of
-  as `not on the bus`, without offering the verb.
-
-- `board`: a card's lane is a claim, and a session's cards are visible. `move` into `execute`
-  now claims the card's `paths` on the session bus and leaving the lane releases them — the
-  session that claimed them, so a `reclaim` hands the card over and leaves the paths held until
-  that session stops — so the files a card names are held by whoever is working it and a
-  conflict is named on the result instead of discovered later. A session is also told once,
-  before its first turn, which cards it holds and what each owes next — the resume case, where
-  the work continued while the card sat in `plan` because nothing ever restated it — and takes
-  its executing cards' paths back by asking the bus on `pi.events`, because a turn start has no
-  nested tool call; a path it could not take is named on that same line. `AGENTS.md` carries the
-  rule the two make visible: a feature is worked on its card, `execute` before editing.
 
 - `board`: a sign says who heard it. The result read `told api-core` for a message written into a
   peer's inbox, so a session that was not listening — the one thing a lead could act on — read as
@@ -130,17 +422,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ago" for its first minute. It is a sentence stamp now, on the card face, in the dialog and in
   the Team queue, from one node builder and one sentence; `j` and `k` also stop escaping the keys
   sheet, which `/` and `t` never did.
-
-- `docs`: the board's page says what its two gates are not — the lead is a name any session may
-  join, and a lead holding a card may release it, sign it and claim it again. The rule was in
-  `lead.ts` and in the refusals a peer reads, but a reader of the page could take "the lead
-  approves" for a permission system or for enforcement of a single signer.
-
-- `board`: `approve` now covers the plan the card names, not only its wording. `contract` and
-  `plan -> execute` both proved that file, so the board could approve a promise that was already
-  unexecutable and only say so at the move; the approval asks the same question with the same
-  sentence, after the signer and before the sign, and both doors (the tool and `/board approve`)
-  prove it through one helper (`extensions/board/proof.ts`) that `move` uses too.
 
 - `board`: the sentence a write that never got the board's lock returns now says so —
   "another session's write got there first" — rather than claiming the card itself changed,
@@ -188,117 +469,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lock is a refusal naming its `pi:<pid>:<session>` reason and leaving the checkout where it was;
   a lock whose owner is gone is taken over, and the re-lock that follows names the reusing session.
 
-- `dev`: the board page's browser suites keep one tab between cases and reload its document
-  instead of buying a tab each time. `newPage` is the expensive half of a boot — measured
-  323–480 ms against 47–82 ms to reload a tab already open — and the reload is what a case needs
-  anyway: a document that inherited no stream, no repaint in flight, no filter, fold, tab, mark,
-  or focus. `BoardBrowser.open()` is gone, so a suite buys a tab once: `behaviour` falls from
-  19.8 s to 12.0 s wall and 18.1 s to 4.7 s CPU, and `dialog-behaviour` (12 tabs), `kind` (4) and
-  `repaint` (2) read the one tab too. Paired runs alternating old and new: 14.26 s / 20.88 s wall
-  and 14.7 s / 15.7 s CPU before, 10.70 s / 16.85 s wall and 5.9 s / 6.7 s CPU after.
-
-- `docs`: a frame is shown by a page or it is not captured. Four extension pages open with
-  the picture their screen already had — `job`, `wechat`, `context`, and `subagent` — and
-  `card-dialog.png` and `plan-review.png` join the walkthroughs that describe them, so
-  `package.json` `files` publishes exactly the frames a packaged page shows. The five
-  nothing showed — `bytefly-extensions`, `bytefly-settings`, `bytefly-skills`,
-  `compaction`, and `transcript` — are deleted with their `SCREENS` entries, their
-  fingerprints, and the fixtures only they read, rather than recaptured and render-checked
-  for a reader who never sees them.
-
-- `docs`: the tarball publishes every screenshot a packaged page shows. Twelve
-  `docs/extensions/**` pages carry a raw `<img>` and `files` listed five, so eight pages opened
-  with a broken image in an installed copy while `plan-review.png` shipped with no page naming it;
-  `test/release.test.ts` now holds the set in both directions from the packaged pages themselves.
-
-- `docs`: the once-a-session update check has one owner — `bytefly`'s page says what it
-  does (the header marker on both versions, the one notice, the cache), and the README,
-  the site home, and the install guide keep a summary and a link; the same for
-  `PI_DISABLED_EXTENSIONS`, whose rules now live only in the configuration reference,
-  with the README and the minimal install linking them.
-
-- `docs`: the site's search field has a shortcut — `/` or Cmd/Ctrl+K focuses and selects it from
-  anywhere on a page, with a `/` hint in the field that leaves once the reader is typing. It does
-  nothing while focus is in a field or behind the open drawer's Tab ring, and a second modifier is
-  left to the browser.
-
-- `dev`: the gate's one clock is 90 s. `CASE_BUDGET_MS` rose from 60 s after a spawned `git` in
-  `extensions/plan/git-bash.test.ts` spent 55.11 s beside a second gate on one box — its watchdog
-  to the millisecond — and a loopback page in `extensions/file-browse/transport/root-move.test.ts`
-  reached the case deadline in another session; the spawn watchdog follows to 85 s, and every
-  case, hook, and `--timeout` still reads the one number.
-
-- `dev`: nothing waits on Chrome's own shutdown any more. Chrome asks four seconds once a page is
-  open — measured, and no launch flag shortens it — and each of the eight suites that boots one
-  paid that in `afterAll`, as did every frame a capture took. `scripts/capture/chrome.ts` now
-  launches through `launchServer` and closes by killing the process, which drops the browser and
-  its helper processes in ten milliseconds with the profile still removed; `test/helpers/browser.ts`
-  is the suites' half of the same launch. The eight suites fall from 63.1 s to 40.3 s together,
-  and `capture:cards` and `capture:tools` stop paying it per shot.
-
-- `dev`: the page-pointer cases stop sleeping through the poll schedule. `settlePointer` takes
-  its wait between two looks as a trailing `sleep` (`abortableSleep` in production), so
-  `lib/board/page-pointer.test.ts` drives the same attempts, looks and probes with a wait that
-  costs a tick: the file falls from 6.22 s to 0.12 s, and the shipped budget — three attempts,
-  eight polls of 75 ms, twenty looks of 25 ms — is untouched.
-
-- `docs`: a surface that does not work has one page. `docs/troubleshooting.md` is a symptom,
-  cause, fix and owning-page table over the five failures that were each a Limits bullet on a
-  different page — no page at all, a pinned port another process holds, `✆ wechat expired`, a
-  doctor row reading `env disabled`, and a card refusing the session that holds it — linked from
-  the front door and from `serve`, `wechat`, `bytefly` and `board`.
-
-- `dev`: the worktree page's "six `guard.*` switches" is a tested claim now —
-  `test/doc-counts.test.ts` reads the word or digit the page states and compares it with
-  `DEFAULT_CONFIG.guard`, so a guard added to or dropped from
-  `extensions/worktree/config.ts` fails naming the page instead of leaving a count behind.
-  The install pin stays `test/release.test.ts`'s job, and the file's header says so rather
-  than claiming one fact twice.
-
-- `docs`: the config migration recipe names the checkout it needs. `scripts/` is not in the
-  tarball `pi install npm:` unpacks, so `migrate:config` never existed for the installed
-  reader who still has legacy `<name>.json` files; the fence now clones and installs the
-  repository first, and says the checkout migrates the same agent directory `pi` writes.
-
-- `docs`: the configuration guides say what the loaders do — a newer `version` is not read
-  and only `migrate:config` stamps it, `u` refuses for Pi's own **Startup screen** and
-  **Theme** rows and for a Project row that only inherits Global, the wechat `state.json`
-  holds one conversation's reply token rather than per-peer tokens, six extensions read
-  no configuration rather than two, and a `price.rates` key past the 200th is ignored.
-
-- `docs`: three pages stop saying that switching `session-bus` off takes the board with it.
-  The cards, `board`, and `/board` keep working; what goes is the team — the round's verbs,
-  the page's Team tab, and a sign's announcement to the card's owner — and the board's page
-  needs `serve` for its port, not the bus.
-
-- `docs`: five extension pages stop stating facts the code does not hold — the board's
-  cards live under `cards/` with `ended/` and `page.json` beside them, `worktree` says
-  the six `guard.*` switches it has, `subagent` says `reviewer` is granted the real
-  `bash` and only its prompt keeps that to inspection, `plan` names the
-  `<YYYY-MM-DD-HHmm>` stamp its files carry, and `session-bus` says every action
-  except `status` joins a session instead of any call at all.
-
-- `docs`: the `wechat` page and its tutorial now name all three shapes `send_wechat` takes —
-  a text, an image as a picture, or a file as a document — and say that only a text send is
-  refused while the owner's turn is in flight, so a reader can find the file send the tool
-  has carried since 0.25.0.
-
-- `docs`: the bytefly page stops calling `/bytefly upgrade` unreleased — its Limits no longer
-  sends the reader to `pi update --extensions` for software that shipped in 0.19.0.
-
 - `memory`: a note store is written owner-only (`0600`), so `docs/security.md` stops
   promising a mode the writer did not set: the write sets it on the temp file it renames
   into place, and a store an older build left at the umask is tightened by its next
   mutation even when the note text is unchanged.
-
-- `docs`: a name you half remember is now one page — `docs/tools-and-commands.md` lists
-  every tool and slash command the pack registers, each row linking the page that owns
-  it, and `test/extension-docs.test.ts` holds both tables to the factories in both
-  directions, so a rename fails there instead of vanishing from the list. The sidebar
-  drops the one-row `Extensions` group, its index joining the other front doors under
-  Get started, and walks the tutorials in the order the index prescribes —
-  `test/site-docs.test.ts` holds that order, and the promise that every walkthrough is
-  linked from an extension page.
 
 - `dev`: the two assertions that kept `check (windows-latest)` red. `scripts/check-lock.test.ts`
   expected the POSIX literal `/tmp/x/my-pi-agent-check.lock` from `lockPath`, which joins with
@@ -307,121 +481,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   names. The first is joined, the second normalized through `posix` — the helper `walkFiles`
   already answers in — and the Windows job can go green.
 
-- `docs`: the site declares the meta a crawler and a share need — `sitemap.xml` and
-  `robots.txt` built from the navigation table, the screenshot shared as a PNG at the
-  1678×1264 it states, `og:type` website on the home page and article elsewhere, a
-  canonical the not-found page does not carry, and a `tagline` so the home `<title>` fits
-  a search result instead of repeating the description.
-- `docs`: the front door says where its frames come from — `capture:tools` writes
-  `assets/screens/tool-renderings.png` and `capture:tool-pngs` writes `assets/tools/`,
-  no page carries a per-tool block, the catalog is grouped by the work it serves
-  rather than by a promise list it does not follow, and the theme key names Pi's
-  `settings.json`.
-- `docs`: a search result is one listbox option — the link itself, named by the field's
-  `aria-activedescendant` and kept out of the tab order with `tabindex="-1"` — instead
-  of an option wrapping a focusable link, and the empty row is presentational so the
-  listbox holds nothing but options.
-- `docs`: the site's masthead and footer sit on the page's column — both rows repeat the
-  shell's 78rem box, so the brand and the licence line line up with the sidebar instead of the
-  window edge (96px off at 1440, 336px at 1920), the theme switch and the footer's links close
-  the rail's right edge, a 320px phone drops the brand name so the search field keeps its
-  placeholder, the footer takes the shell's 1rem gutter with a touch's height on each link, and a
-  short page keeps the footer at the bottom instead of mid-screen. The search glyph is drawn from
-  a role, with an opaque, prefixed fallback under the translucent bar;
-  `test/site-docs.test.ts` holds both rows to the shell's box.
-- `docs`: a link from `docs/` to an extension page names the page's `.md` target instead
-  of the source directory — `extensions/serve/` was the code on GitHub and the page on
-  the site — for 31 links across `security.md` and `configuration-reference.md`;
-  `test/site-docs.test.ts` now refuses a relative target that resolves to a directory.
 - `wechat`: `state.json` and the inbound media are written `0600` like the credentials —
   the state carries the conversation's reply token — and the security page and the
   extension page name which files are owner-only.
-- `test`: the gate takes a machine-wide lock — `scripts/check-lock.ts` — so a second
-  `bun run check` on the same machine waits and names the holder instead of starving the
-  first one's spawned shells and `git` calls; `--no-lock` runs beside it, and a lock a
-  dead gate left behind is replaced by pid rather than by age.
-- `docs`: security.md names the agent directory as a trust boundary — memory, session
-  bus mail, board cards, plans, agent definitions, and `bytefly.json` are read as
-  instruction, `0600` separates users rather than processes, and the loopback page
-  token is readable by any process running as you.
-- `docs`: the site gains a tutorials index — eleven walkthroughs in the order a new
-  reader meets them, the first three named as the start and the rest grouped by the
-  work they serve — linked from the home page's Start here list, with
-  `test/site-docs.test.ts` failing an unlisted walkthrough.
-- `docs`: the confinement sentences say what the defaults give — an active worktree
-  refuses a write or an output redirection that leaves the checkout, reads only with
-  `guard.blockReadEscapes`, and plan mode confines writes rather than reads.
+
 - `subagent`: a read-only child no longer gets `web_fetch` — the set is the workspace
   readers, `read_doc`, and `web_search` — because a fetch is an outbound channel a
   prompt-injected child could carry a document out on; the parameter and the two pages now
   say what `readOnly` narrows and what it does not.
-- `docs`: the three packaged skills get pages of their own on the site — `init`, `next`, and
-  `refactor`, on the extension page template, in a `Skills` group in the sidebar — the two
-  themes are explained beside the `chrome` section of the configuration reference, and
-  `test/skill-docs.test.ts` holds the page set.
-- `board`: a card records what kind of work it is — `feature`, `bug`, `refactor`, `docs`,
-  `test`, or `chore` — and whether it is a breaking change, set by `add` and `edit` with
-  `type` and `breaking`; both draw as one quiet label on the card face, in its dialog, and in
-  the lead's queue, `list`'s `query` and the page's filter match them, `breaking: false`
-  clears the marker, and a card that recorded neither draws nothing.
-- `docs`: the documentation is a Jekyll site built by GitHub Pages from `docs/`, with a
-  home page, an install guide, a theme of its own, and a sidebar over every page.
-- `docs`: every extension page is rewritten for a reader who uses the pack — what you can
-  do, one command to try, an optional walkthrough in `docs/tutorials/`, one reference
-  half, and how to switch the extension off.
-- `docs`: the contributor guides are retired; the conventions, the page template, and the
-  release steps live in `CONTRIBUTING.md`, and the command table in `scripts/README.md`.
-- `docs`: the two entry READMEs are a catalog a reader scans — each extension is a name, its
-  commands, and one sentence, with the reference left to the page that owns it — and
-  `test/drift.test.ts` holds the catalog's word budget so a table cell cannot grow back into
-  a copy of that page.
-- `docs`: four walkthroughs join the tutorial set — handing a task to a specialist agent,
-  running long work in the background with a watcher on its log, rewinding to an earlier
-  prompt, and giving the session a goal — each linked from the extension page that owns it.
-- `docs`: the board's walkthrough and its page stop presenting the tool's actions as commands — a
-  sentence and the call it makes, with the one list of `/board` words a reader types — and the
-  walkthrough now names session ownership, the plan path a contract needs, the `blocked` lane,
-  one-way archiving, and the claim refusal in its own words.
-- `docs`: the walkthroughs stop describing screens the code does not draw — the rewind scopes and what a
-  non-terminal run does, `/goal set` and `edit` running the restatement, `/agents` ordering, the `/jobs`
-  row against its focus pane, the `/watch` row's match count alone, the todo rail hiding on completion,
-  `plan exit` opening the review, the 12-character repo key, where approved steps land in an existing
-  list, and the `+` in the browser review's margin — and `job`, `watch`, and `plan` say the same.
-- `docs`: the site shows where the reader is — the sidebar scrolls to the open page, the drawer
-  closes with an ✕, keeps Tab among its links, and closes when the window outgrows it, the
-  on-this-page rail marks nothing above the first section, search results span a phone's width,
-  and a long command wraps instead of running off the edge — and `test/site-docs.test.ts` fails a
-  link the site cannot serve, after seven that climbed out of `docs/` or behind a wrapped label
-  were repointed.
-- `docs`: the site's home page carries the promises the README makes instead of a subset of them —
-  the catalog counts with a link to the extension index, a table per packaged skill, both themes,
-  and a "What runs on its own" beside the `PI_OFFLINE` and security notes — and
-  `test/doc-counts.test.ts` and `test/docs-parity.test.ts` fail when a new extension, skill, or
-  theme lands without it.
-- `docs`: the configuration page is two pages with one job each — `docs/configuration.md` is the
-  how-to (where a setting lives, how to change one, migration, environment, state) and
-  `docs/configuration-reference.md` is the key list, twenty section tables behind their own nav row
-  — with all twenty deep links repointed and `test/config-docs.test.ts` pinning the reference.
-- `docs`: two concepts that no single extension owns get a page each — `docs/multi-session.md` is
-  the round that `board`, `team`, and `session-bus` make together (a card from claim to the second
-  signature, what each session holds and for how long, and what none of the three promises), and
-  `docs/minimal-install.md` is what each part costs while it is on, the shapes to pick from, and
-  what switching one off takes away — with `install.md` sending the reasoning there instead of
-  claiming `bytefly.json` switches an extension off.
-- `docs`: the loopback pages say which one carries no token — `board` and a plan review mint one per
-  page, and `file-browse` mints none because it serves a directory its reader already owns, so its
-  boundary is the served root and the OS permissions behind it; `serve.md`, `security.md`, and the
-  file browser's own Limits stop implying the three are gated the same way.
-- `docs`: the sidebar's extension links are grouped by the catalog's own promises — Plan and delegate,
-  Keep your work safe, Reach the world, Chrome and upkeep — and `test/site-docs.test.ts` now derives
-  that order and grouping from the README's catalog, so a page filed under another promise or a
-  reordered sidebar fails instead of drifting; `docs/extensions/README.md` is held to the same order.
-- `docs`: `security.md` stops claiming `web_fetch` "cannot" reach loopback or metadata endpoints and
-  states the guard the code is — the host is resolved and every hop re-validated, DNS can change
-  before the connection, and `fetch.allowPrivateHosts` turns it off — matching the extension page.
-- `docs`: the site's home page links each of its three skill rows to the page that explains it, and
-  its opening paragraph points at the skill index beside the extension index, now that the skill
-  pages exist.
 
 ## [0.25.1] - 2026-11-07
 
@@ -6729,7 +6796,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.23.0...v0.24.0

@@ -30,7 +30,15 @@
  */
 
 import type { ArtifactProof } from "./artifact.ts";
-import { type Card, type CardBlock, CARD_VERSION, DEFAULT_PRIORITY, MAX_LOG, type Priority } from "./card.ts";
+import {
+	type Card,
+	type CardBlock,
+	CARD_VERSION,
+	type CardOwner,
+	DEFAULT_PRIORITY,
+	MAX_LOG,
+	type Priority,
+} from "./card.ts";
 import type { CardType } from "./kind.ts";
 import { type BoardConfig, DEFAULT_BOARD_CONFIG } from "./config.ts";
 import type { Lane } from "./lanes.ts";
@@ -60,11 +68,11 @@ export type CardOp =
 	/** Pull a backlog card into `plan`: the only way a card starts moving. */
 	| { kind: "claim" }
 	/**
-	 * Hand a pool card to `to`: the owner is recorded and the card enters `plan`. A held card is
-	 * refused — `reclaim` is how it changes hands — and `team assign` sends the handoff, which
-	 * the state machine knows nothing about.
+	 * Hand a pool card to `to`: the owner is recorded as given and the card enters `plan`. A held card
+	 * is refused — `reclaim` is how it changes hands — and the handoff record rides the owner, because
+	 * the door that sent the message is the one that knows whether it landed.
 	 */
-	| { kind: "assign"; to: Actor }
+	| { kind: "assign"; to: CardOwner }
 	| { kind: "release" }
 	/**
 	 * Change lane. `blockedBy` and `blocker` are what a block records, and `artifact` is the

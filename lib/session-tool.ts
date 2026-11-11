@@ -172,7 +172,7 @@ async function call(ctx: ExtensionToolContext, args: Record<string, unknown>): P
 /** The message a failed nested call carries, or a sentence that says only that it failed. */
 function nestedMessage(result: { content?: Array<{ type: string; text?: string }> } | undefined): string {
 	const text = result?.content?.find((block) => block.type === "text")?.text;
-	return text !== undefined && text !== "" ? text.replace(/^Error:\s*/, "") : "the session bus did not answer.";
+	return text !== undefined && text !== "" ? text.replace(/^Error:\s*/, "") : NO_ANSWER_ERROR;
 }
 
 /**
@@ -201,6 +201,15 @@ export function createTeamJoin(pi: Pick<ExtensionAPI, "events" | "getAllTools">)
  * extension that is off, so the door that renames refuses in the same words.
  */
 export const NO_BUS_ERROR = "the session bus is not loaded";
+
+/**
+ * What a caller is told when the bus is loaded and did not answer within the handshake's bound.
+ *
+ * The other half of {@link NO_BUS_ERROR}: that one names an extension to turn on, and this one is
+ * reached only when it is already on, so it says what happened rather than what to switch on. It is
+ * also the fallback a failed nested call carries, so one sentence covers both paths.
+ */
+export const NO_ANSWER_ERROR = "the session bus did not answer.";
 
 /**
  * Whether the `session` tool is loaded at all.
@@ -237,6 +246,7 @@ export async function join(
 		payload: (respond) => ({ ctx, input, respond }),
 		unclaimed: () => ({ ok: false, error: NO_BUS_ERROR }),
 		failed: (error) => ({ ok: false, error: messageOf(error) }),
+		timedOut: () => ({ ok: false, error: NO_ANSWER_ERROR }),
 	});
 }
 
@@ -308,6 +318,7 @@ export async function send(
 		payload: (respond) => ({ ctx, input, respond }),
 		unclaimed: () => ({ ok: false, error: NO_BUS_ERROR }),
 		failed: (error) => ({ ok: false, error: messageOf(error) }),
+		timedOut: () => ({ ok: false, error: NO_ANSWER_ERROR }),
 	});
 }
 
@@ -405,6 +416,7 @@ export async function claimPaths(
 		payload: (respond) => ({ ctx, paths: [...paths], respond }),
 		unclaimed: () => ({ ok: false, error: NO_BUS_ERROR }),
 		failed: (error) => ({ ok: false, error: messageOf(error) }),
+		timedOut: () => ({ ok: false, error: NO_ANSWER_ERROR }),
 	});
 }
 
@@ -431,6 +443,7 @@ export async function releasePaths(
 		payload: (respond) => ({ ctx, paths: [...paths], respond }),
 		unclaimed: () => ({ ok: false, error: NO_BUS_ERROR }),
 		failed: (error) => ({ ok: false, error: messageOf(error) }),
+		timedOut: () => ({ ok: false, error: NO_ANSWER_ERROR }),
 	});
 }
 

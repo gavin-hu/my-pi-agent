@@ -268,23 +268,46 @@ describe("actorFor", () => {
 });
 
 describe("ownerFor", () => {
+	const handoff = { at: 7, told: { at: 7 } };
+
 	test("records the label the bus wrote for, and the requested one when there is none", () => {
-		expect(ownerFor("billing-core", ["billing-core"])).toEqual({ label: "billing-core" });
-		expect(ownerFor("billing-core", [])).toEqual({ label: "billing-core" });
-		expect(ownerFor("s-core", ["billing-core"])).toEqual({ label: "billing-core" });
+		expect(ownerFor("billing-core", ["billing-core"], handoff)).toEqual({
+			label: "billing-core",
+			handoff: { at: 7, told: { at: 7 }, unresolved: true },
+		});
+		expect(ownerFor("billing-core", [], handoff).label).toBe("billing-core");
+		expect(ownerFor("s-core", ["billing-core"], handoff).label).toBe("billing-core");
+	});
+
+	test("marks the handoff unresolved, because the label is all it could learn", () => {
+		// The marker is what stops `holds` falling back to the label: without it the next session to
+		// draw that label would inherit every write on the card.
+		expect(ownerFor("billing-core", [], { at: 9 }).handoff).toEqual({ at: 9, unresolved: true });
+		expect(ownerFor("billing-core", [], { at: 9 }).id).toBeUndefined();
 	});
 });
 
 describe("askText", () => {
-	test("puts the question first and names the one way back", () => {
-		const text = askText("is #162 ready for review?", "billing-lead");
-		expect(text.startsWith("Ask: is #162 ready for review?")).toBe(true);
-		expect(text).toContain('session send to "billing-lead"');
+	const byId = { to: "7f3a91c2", byId: true };
+
+	test("puts the question first and names the ask and the one way back", () => {
+		const text = askText("is #162 ready for review?", "a1b2c3d4", byId);
+		expect(text.startsWith("Ask a1b2c3d4: is #162 ready for review?")).toBe(true);
+		expect(text).toContain('session send to "7f3a91c2" (a session id, not a label)');
+		expect(text).toContain("re: a1b2c3d4");
 		expect(text).toContain("nothing is waiting on it");
 	});
 
+	test("says when the way back is a label, because the bus held no id", () => {
+		// The fallback has to read as one: a peer that took a label for an id would send the answer to
+		// whatever holds that label next, which is what the id exists to avoid.
+		const text = askText("any blockers?", "a1b2c3d4", { to: "billing-lead", byId: false });
+		expect(text).toContain('session send to "billing-lead" (the label');
+		expect(text).toContain("the bus holds no id for this session");
+	});
+
 	test("clips at the bus's limit, like every other body here", () => {
-		const text = askText("x".repeat(MAX_MESSAGE_TEXT * 2), "billing-lead");
+		const text = askText("x".repeat(MAX_MESSAGE_TEXT * 2), "a1b2c3d4", byId);
 		expect(text.length).toBe(MAX_MESSAGE_TEXT);
 		expect(text.endsWith("…")).toBe(true);
 	});

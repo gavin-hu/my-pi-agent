@@ -8,6 +8,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import type { Peer } from "../../lib/session-tool.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -52,20 +53,50 @@ describe("ask", () => {
 		expect(result.isError).toBeFalsy();
 		expect(sent).toHaveLength(1);
 		expect(sent[0]).toMatchObject({ kind: "ask", to: "billing-core" });
-		expect(sent[0]?.text).toContain("Ask: is #162 ready for review?");
-		// The one kind with no protocol of its own: the reply target is written out, and the
-		// peer is told nothing is waiting on it.
-		expect(sent[0]?.text).toContain(`session send to "${self.label}"`);
-		expect(resultText(result)).toContain("Asked billing-core.");
+		// The one kind with no protocol of its own: the ask names itself, the reply target is written
+		// out, and the peer is told nothing is waiting on it. This roster holds no record of the asker,
+		// so the route has to say it is a label — the fallback, admitted rather than disguised.
+		const ask = result.details.askId ?? "?";
+		expect(ask).toMatch(/^a[0-9a-f]{6}$/);
+		expect(sent[0]?.text).toContain(`Ask ${ask}: is #162 ready for review?`);
+		expect(sent[0]?.text).toContain(`session send to "${self.label}" (the label`);
+		expect(sent[0]?.text).toContain(`re: ${ask}`);
+		expect(resultText(result)).toContain(`Asked billing-core — ask ${ask}.`);
 		expect(resultText(result)).toContain("nothing is waiting on it");
 		// No card behind it: an ask writes nothing, so there is nothing to report.
 		expect(result.details.card).toBeUndefined();
 	});
 
+	test("routes the answer to this session's id when the roster holds it", async () => {
+		// The id is the point of the card: it survives this session renaming itself, and a peer that
+		// sends to it reaches the same session a rename would have hidden behind a stale label.
+		const peers: Peer[] = [];
+		const { call, me, sent } = harness({ peers });
+		const self = await me();
+		// The record under this session's own id, which is what the roster writes when it joins.
+		const mine = self.id ?? "s-7f3a91c2";
+		peers.push(
+			{ id: "s-billing-core", label: "billing-core", listening: true },
+			{ id: mine, label: self.label, listening: true },
+		);
+		const result = await call({ action: "ask", to: "billing-core", question: "any blockers?" });
+		const ask = result.details.askId ?? "?";
+		expect(sent[0]?.text).toContain(`session send to "${mine}" (a session id, not a label)`);
+		expect(sent[0]?.text).toContain(`re: ${ask}`);
+	});
+
+	test("mints a different id for every ask", async () => {
+		const { call } = harness();
+		await call({ action: "ask", to: "billing-core", question: "first?" });
+		const again = await call({ action: "ask", to: "billing-core", question: "second?" });
+		expect(again.details.askId).not.toBe("?");
+		expect(again.details.askId).toMatch(/^a[0-9a-f]{6}$/);
+	});
+
 	test("asks how it is going when the lead names no question", async () => {
 		const { call, sent } = harness();
 		await call({ action: "ask", to: "billing-web" });
-		expect(sent[0]?.text).toContain("Ask: how is it going?");
+		expect(sent[0]?.text).toContain(": how is it going?");
 	});
 
 	test("names a peer that will read it at its next turn rather than being woken", async () => {

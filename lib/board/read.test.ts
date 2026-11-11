@@ -12,6 +12,19 @@ import { readCard } from "./read.ts";
 import { billingCard as card } from "../../test/helpers/fixtures/board.ts";
 
 describe("readCard", () => {
+	test("flags the owner of a handoff the bus could not name, without rewriting the file", () => {
+		// A handoff with no session id can only mean the bus could not resolve one, and only the write
+		// that sent it could know: so the reader says it, on every read, and the file is untouched.
+		const unresolved = readCard(card({ lane: "plan", owner: { label: "billing-core", handoff: { at: 5 } } }));
+		expect(unresolved?.owner).toEqual({ label: "billing-core", handoff: { at: 5, unresolved: true } });
+		// An owner that came from a claim has no handoff at all, which is a different fact.
+		const claimed = readCard(card({ lane: "plan", owner: { label: "billing-core" } }));
+		expect(claimed?.owner).toEqual({ label: "billing-core" });
+		// And one the bus did name keeps its id and its told fact exactly as written.
+		const named = { id: "s1", label: "billing-core", handoff: { at: 5, told: { at: 6 } } };
+		expect(readCard(card({ lane: "plan", owner: named }))?.owner).toEqual(named);
+	});
+
 	test("reads a v1 card, mapping the three renames onto this build's names", () => {
 		// A v1 file said `status`, `plan`, and a `blockedBy`/`blocker` pair; the renames landed
 		// with the contract and the lanes. The file is not rewritten, so the reader maps the
