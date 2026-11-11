@@ -25,14 +25,17 @@
  */
 
 /**
- * The dialog fragment, with the inline Markdown renderer a note is read through spliced in.
+ * The dialog fragment, with the inline Markdown renderer a note is read through spliced in,
+ * and the path shortener the plan row is spelled with.
  *
- * The source crosses the boundary as text, because `lib/web/markdown.ts` is JavaScript and a
- * page's bundle has no import graph; `__INLINE_MARKDOWN__` is a rule a served script must
- * never carry, and `pages.test` fails an unfilled one.
+ * The source crosses the boundary as text, because `lib/web/markdown.ts` and `lib/format.ts`
+ * are not importable from a page's bundle; `__INLINE_MARKDOWN__` and `__SHORTEN_PATH__` are
+ * rules a served script must never carry, and `pages.test` fails an unfilled one.
  */
-export function dialogJs(rules: { inlineMarkdown: string }): string {
-	return dialogTemplate.replace("__INLINE_MARKDOWN__", rules.inlineMarkdown);
+export function dialogJs(rules: { inlineMarkdown: string; shortenPath: string }): string {
+	return dialogTemplate
+		.replace("__INLINE_MARKDOWN__", rules.inlineMarkdown)
+		.replace("__SHORTEN_PATH__", rules.shortenPath);
 }
 
 const dialogTemplate = String.raw`(function () {
@@ -42,6 +45,15 @@ const dialogTemplate = String.raw`(function () {
   var chip = board.chip;
   var kindLabel = board.kindLabel;
   var ago = board.ago;
+
+  /**
+   * A home prefix as a tilde, spliced in from lib/format.ts so this page and the transcript say
+   * a path one way.
+   *
+   * The home is the frame's, not this bundle's: a browser has no home directory, and a second
+   * shortener here is exactly the copy this bundle is not allowed to hold.
+   */
+__SHORTEN_PATH__
 
   /** The sections a rung can belong to, in the order the body draws them. */
   var SECTIONS = ["contract", "start", "links", "record"];
@@ -182,12 +194,11 @@ __INLINE_MARKDOWN__
     for (var f = 0; f < CONTRACT_ROWS.length; f++) {
       document.getElementById("card-dialog-" + CONTRACT_ROWS[f]).hidden = contract === undefined;
     }
-    // The command is one of those rows and the only optional one, so it is hidden again when the
-    // contract does not name it: a card read rather than run draws nothing under the promise.
+    // The command is one of those rows and the only optional one, so it is taken out again when
+    // the contract does not name it — the label with it, because a heading over an empty cell
+    // reads as a missing value rather than as a line this promise does not carry.
     var command = contract === undefined ? "" : contract.verify;
-    var commandRow = document.getElementById("card-dialog-verify");
-    if (command !== undefined) commandRow.textContent = command;
-    commandRow.hidden = command === undefined || command === "";
+    setRow("verify", Boolean(command), command, command);
     // The approval closes the promise the way a signature closes a document, in the tone the
     // board gives an approval. No line when nobody has signed: the block is unsigned, and the
     // reason line above is what says the card is waiting for a person to read it.
@@ -203,8 +214,10 @@ __INLINE_MARKDOWN__
     else sign.setAttribute("data-tone", board.reasonTone("approval"));
 
     // A long plan path elides on one line, and the whole of it is on the hover title and
-    // in the text, so it stays copyable: the reason to open a card is often its plan.
-    setRow("plan", Boolean(card.planPath), card.planPath || "", card.planPath || undefined);
+    // in the text, so it stays copyable: the reason to open a card is often its plan. It is
+    // spelled the way the transcript spells it, against the home the frame carries.
+    var planPath = card.planPath === undefined ? "" : shortenPath(card.planPath, view.home);
+    setRow("plan", Boolean(card.planPath), planPath, card.planPath === undefined ? undefined : planPath);
 
     // The dialog and the card face say one thing, from one field: the ids it was linked
     // to are the storage, and a reader is owed the lanes that make them a decision.

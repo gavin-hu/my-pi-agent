@@ -9,16 +9,20 @@
  * `test/helpers/board-page.ts`, so this module only holds the cards and the sessions.
  */
 
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Card } from "../../../lib/board/card.ts";
+import { planForContract } from "../../../lib/board/artifact.ts";
+import { provedPlan } from "../../../extensions/board/proof.ts";
 import type { BoardConfig } from "../../../lib/board/config.ts";
 import { personActor } from "../../../lib/board/lead.ts";
 import { DEFAULT_WIP } from "../../../lib/board/limits.ts";
-import type { Actor } from "../../../lib/board/rules.ts";
+import type { Actor, CardOp } from "../../../lib/board/rules.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
 import { type BoardStore, createStore } from "../../../lib/board/store.ts";
-import { fixturePlanPath } from "./board.ts";
+import { resolvePlanArg } from "../../../lib/plans/paths.ts";
+import { fixturePlanDir, fixturePlanPath } from "./board.ts";
 
 /** The two sessions the fixture's cards belong to. */
 export const LEAD: Actor = { id: "s-lead", label: "billing-lead" };
@@ -30,16 +34,18 @@ export const FIXTURE_CARDS = [
 	{
 		title: "Billing webhook accepts orders",
 		paths: ["src/billing", "src/api"],
-		planPath: fixturePlanPath("billing-webhook"),
+		plan: "billing-webhook",
 		owner: CORE,
 		lane: "execute" as const,
 		type: "feature" as const,
+		// The one card whose sign the owner never heard: the face draws ` · not told` off it.
+		untold: true,
 		notes: ["routes wired; tests next", "no retries yet"],
 	},
 	{
 		title: "Retry branches merge cleanly into main",
 		paths: ["src/billing/retry"],
-		planPath: fixturePlanPath("retry-branches"),
+		plan: "retry-branches",
 		owner: CORE,
 		lane: "execute" as const,
 		priority: "high" as const,
@@ -49,7 +55,7 @@ export const FIXTURE_CARDS = [
 	{
 		title: "Round invoice totals at the boundary",
 		paths: ["src/billing/totals"],
-		planPath: fixturePlanPath("totals-rounding"),
+		plan: "totals-rounding",
 		owner: CORE,
 		lane: "plan" as const,
 		type: "bug" as const,
@@ -67,7 +73,7 @@ export const FIXTURE_CARDS = [
 	{
 		title: "Export orders as CSV",
 		paths: ["src/reports"],
-		planPath: fixturePlanPath("export-orders"),
+		plan: "export-orders",
 		owner: OTHER,
 		lane: "done" as const,
 		type: "feature" as const,
@@ -92,16 +98,16 @@ export const FIXTURE_CARDS = [
 ];
 
 /**
- * The plan a spec records on the way out of the pool.
+ * The plan file a spec records on the way out of the pool, spelled as the card records it.
  *
  * A card that records a contract names its own plan, because the shipped `contract` records
  * only a file inside this repository's store; a fixture that invented a path would picture a
  * card the tool cannot make, so a spec that names none is a broken fixture and says so.
  */
-function planOf(spec: (typeof FIXTURE_CARDS)[number]): string {
-	const plan = "planPath" in spec ? spec.planPath : undefined;
+function planOf(spec: (typeof FIXTURE_CARDS)[number], planDir: string): string {
+	const plan = "plan" in spec ? spec.plan : undefined;
 	if (plan === undefined) throw new Error(`the fixture card "${spec.title}" leaves the pool with no plan`);
-	return plan;
+	return fixturePlanPath(planDir, plan);
 }
 
 /**
@@ -114,15 +120,54 @@ function planOf(spec: (typeof FIXTURE_CARDS)[number]): string {
  */
 const FIXTURE_CONFIG: BoardConfig = { wip: DEFAULT_WIP, lead: LEAD.label };
 
-/** A store with the fixture's cards in it, in a temp directory. */
-export async function seedStore(directory: string): Promise<void> {
+/**
+ * What a seed wrote, so a caller can undo it and nothing else.
+ *
+ * `plans` holds the plan files this seed created: a name the store already held is proved but
+ * never rewritten, so it is never removed either. That is the one path where a careless close
+ * would delete a real plan.
+ */
+export interface SeededBoard {
+	/** The plan files this seed created, by absolute path. */
+	plans: string[];
+}
+
+/**
+ * A store with the fixture's cards in it, and the plans their contracts named.
+ *
+ * The seed goes through the shipped gates rather than around them: a plan file is written where
+ * the record says, `contract`, `approve` and `move` are handed the proof the shipped doors hand
+ * them, and a refusal throws. A fixture that cannot seed stops the capture instead of drawing a
+ * board nobody would recognise — which is how this fixture once photographed seven unassigned
+ * cards after the plan gate learned to prove the file.
+ */
+export async function seedStore(directory: string, planDir: string, now = Date.now()): Promise<SeededBoard> {
 	const store = createStore(directory, { config: FIXTURE_CONFIG });
 	await store.ensure();
-	// Stamped relative to now, so the page's ages read as a working board's would.
-	const now = Date.now();
+	// One proof per write, asked where the rule asks it: the store's lock is taken after a door
+	// hands the question over, so a fact taken here would be a fact about a moment already gone.
+	const provedFor = (file: string) => () => planForContract(planDir, file);
+	const recorded = async (card: Card) => provedPlan({ planDir: async () => planDir }, directory, store, card.id);
+	/** One step the seed cannot skip: a refused write names the card and what was attempted. */
+	const step = async (card: Card, what: string, op: CardOp, actor: Actor, at: number): Promise<Card> => {
+		const result = await store.mutate(card.id, op, actor, at);
+		if (!result.ok) throw new Error(`${card.title}: ${what} was refused — ${result.error}`);
+		return result.card;
+	};
+	const plans: string[] = [];
+	// The files first: the gate proves the plan at the write, so a record naming a file written
+	// later would be refused on the way to the very write that records it.
+	for (const spec of FIXTURE_CARDS) {
+		if (!("plan" in spec) || spec.plan === undefined) continue;
+		const file = resolvePlanArg(planDir, fixturePlanPath(planDir, spec.plan));
+		if (existsSync(file)) continue;
+		mkdirSync(planDir, { recursive: true });
+		writeFileSync(file, `# ${spec.title}\n\nA fixture plan, so the card's record names a file the gate can prove.\n`);
+		plans.push(file);
+	}
 	for (const [index, spec] of FIXTURE_CARDS.entries()) {
 		const at = now - (index + 1) * 7 * 60 * 1_000;
-		const card = await store.create(
+		let card = await store.create(
 			{
 				title: spec.title,
 				paths: spec.paths,
@@ -134,26 +179,27 @@ export async function seedStore(directory: string): Promise<void> {
 			LEAD,
 			at,
 		);
-		if (spec.owner !== undefined) await store.mutate(card.id, { kind: "claim" }, spec.owner, at + 1_000);
-		for (const note of spec.notes.slice(1))
-			await store.mutate(card.id, { kind: "note", text: note }, spec.owner ?? LEAD, at + 2_000);
 		const owner = spec.owner ?? LEAD;
+		if (spec.owner !== undefined) card = await step(card, "claim", { kind: "claim" }, spec.owner, at + 1_000);
+		for (const note of spec.notes.slice(1))
+			card = await step(card, "note", { kind: "note", text: note }, owner, at + 2_000);
 		if (spec.lane === "blocked") {
-			await store.mutate(
-				card.id,
+			card = await step(
+				card,
+				"move to blocked",
 				{ kind: "move", lane: "blocked", blocker: "decision", blockedBy: spec.notes.at(-1) },
 				owner,
 				at + 3_000,
 			);
 		}
 		if (spec.lane === "plan" || spec.lane === "execute" || spec.lane === "done") {
-			await store.mutate(
-				card.id,
+			const file = planOf(spec, planDir);
+			card = await step(
+				card,
+				"contract",
 				{
 					kind: "contract",
-					// Every card that leaves the pool records a plan, and it is the one its spec
-					// names: the store's own shape, so the record is one `contract` would accept.
-					artifact: { path: planOf(spec) },
+					artifact: provedFor(file),
 					goal: `The feature the card names, working: ${spec.title}`,
 					acceptance: "A reader can tell it is done, and a test says so",
 					scopeOut: "Anything the card does not name",
@@ -165,28 +211,51 @@ export async function seedStore(directory: string): Promise<void> {
 		// The gates are the lead's, or the person's when the lead owns the card.
 		if (spec.lane === "execute" || spec.lane === "done") {
 			const approver = owner.label === LEAD.label ? personActor() : LEAD;
-			await store.mutate(card.id, { kind: "approve" }, approver, at + 3_800);
-			await store.mutate(
-				card.id,
-				{ kind: "move", lane: "execute", artifact: { path: planOf(spec) } },
+			const proof = await recorded(card);
+			card = await step(
+				card,
+				"approve",
+				{ kind: "approve", ...(proof === undefined ? {} : { artifact: proof }) },
+				approver,
+				at + 3_800,
+			);
+			// The door records `announced` only after its message settles, so a seed with no bus leaves
+			// `told` absent. That is the state one card is drawn in on purpose.
+			if (!("untold" in spec))
+				card = await step(card, "announced", { kind: "announced", sign: "approve" }, approver, at + 3_900);
+			const move = await recorded(card);
+			card = await step(
+				card,
+				"move to execute",
+				{ kind: "move", lane: "execute", ...(move === undefined ? {} : { artifact: move }) },
 				owner,
 				at + 4_000,
 			);
 		}
 		if (spec.lane === "done") {
 			const reviewer = owner.label === LEAD.label ? personActor() : LEAD;
-			await store.mutate(card.id, { kind: "review" }, reviewer, at + 4_200);
-			await store.mutate(card.id, { kind: "move", lane: "done", artifact: { path: planOf(spec) } }, owner, at + 4_400);
+			card = await step(card, "review", { kind: "review" }, reviewer, at + 4_200);
+			card = await step(card, "announced review", { kind: "announced", sign: "review" }, reviewer, at + 4_300);
+			const move = await recorded(card);
+			await step(
+				card,
+				"move to done",
+				{ kind: "move", lane: "done", ...(move === undefined ? {} : { artifact: move }) },
+				owner,
+				at + 4_400,
+			);
 		}
 		if ("dependsOn" in spec && spec.dependsOn !== undefined) {
-			await store.mutate(
-				card.id,
+			await step(
+				card,
+				"edit",
 				{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: spec.dependsOn },
 				LEAD,
 				at + 5_000,
 			);
 		}
 	}
+	return { plans };
 }
 
 /**
@@ -228,9 +297,22 @@ export function fixtureRoster(now: number): RosterSession[] {
 	];
 }
 
-/** A fixture store in a temp directory, for a caller that serves the page over it. */
-export async function fixtureBoard(): Promise<{ directory: string; store: BoardStore }> {
+/**
+ * A fixture board in a temp directory, proved against this repository's real plan store.
+ *
+ * The plans are the one thing a capture cannot fake: the gate stats the file the record names,
+ * and the card dialog prints that record, so the store has to be the real one for the picture
+ * to read `~/…` and be true. `close()` removes what the seed created and nothing else.
+ */
+export async function fixtureBoard(now = Date.now()): Promise<{ directory: string; store: BoardStore; close(): void }> {
 	const directory = mkdtempSync(join(tmpdir(), "pi-board-shot-"));
-	await seedStore(directory);
-	return { directory, store: createStore(directory, { config: FIXTURE_CONFIG }) };
+	const seeded = await seedStore(directory, fixturePlanDir(), now);
+	return {
+		directory,
+		store: createStore(directory, { config: FIXTURE_CONFIG }),
+		close() {
+			rmSync(directory, { recursive: true, force: true });
+			for (const plan of seeded.plans) rmSync(plan, { force: true });
+		},
+	};
 }

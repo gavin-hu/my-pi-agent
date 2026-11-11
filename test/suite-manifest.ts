@@ -73,6 +73,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/dialog",
 		"view/dialog-behaviour",
 		"view/kind",
+		"view/plan-row-behaviour",
 		"view/repaint",
 		"view/pages",
 		"view/chrome",
@@ -320,6 +321,7 @@ export const LIB_SUITES: readonly string[] = [
 ];
 
 export const SCRIPT_SUITES: readonly string[] = [
+	"board-fixture",
 	"cards",
 	"check",
 	"check-lock",

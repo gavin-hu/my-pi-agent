@@ -192,15 +192,28 @@ export function sanitizeUntrustedText(raw: string, maxLength: number = MAX_OUTPU
  * result reads uniformly in the UI.
  *
  * `home` defaults to the real home directory; pass one explicitly to keep a
- * renderer deterministic (and testable) against an injected home.
+ * renderer deterministic (and testable) against an injected home — which is also
+ * what the page does, since `homedir` does not exist in a browser.
+ *
+ * Concatenation rather than a template literal, because {@link SHORTEN_PATH_JS}
+ * splices this body into the page's bundle: a backtick or an interpolation would
+ * end the string it goes into.
  */
 export function shortenPath(path: string, home: string = homedir()): string {
 	const normalized = path.replace(/\\/g, "/");
 	const root = home.replace(/\\/g, "/").replace(/\/+$/, "");
 	if (!root) return normalized;
 	if (normalized === root) return "~";
-	return normalized.startsWith(`${root}/`) ? `~${normalized.slice(root.length)}` : normalized;
+	return normalized.startsWith(root + "/") ? "~" + normalized.slice(root.length) : normalized;
 }
+
+/**
+ * {@link shortenPath} as the page's bundle receives it.
+ *
+ * The page hands its own `home` down from the snapshot ({@link BoardView}), so the default
+ * above never runs where `homedir` is not defined.
+ */
+export const SHORTEN_PATH_JS = String(shortenPath);
 
 /** A compact byte size for a listing or a report: `68 B`, `12.4 kB`, `1.5 MB`. */
 export function formatSize(bytes: number): string {

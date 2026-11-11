@@ -14,6 +14,7 @@
  * Pure: the caller supplies the cards, the clock, and the sizes it read.
  */
 
+import { homedir } from "node:os";
 import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
 import { type Card, laneSince, priorityOf, type Priority, signatureOf } from "./card.ts";
 import type { Skip } from "./store.ts";
@@ -142,6 +143,13 @@ export interface BoardView {
 	root: string;
 	/** The store's directory, shortened. */
 	where: string;
+	/**
+	 * The home directory a displayed path is shortened against, so the page can say `~/…` where
+	 * the transcript does.
+	 *
+	 * Handed down rather than read in the browser, which has no `homedir`.
+	 */
+	home: string;
 }
 
 /** What the server read before building one snapshot. */
@@ -164,6 +172,8 @@ export interface ViewInput {
 	repo: string;
 	/** The repository root, from `BoardStore.root()`. */
 	root: string;
+	/** The home a displayed path is shortened against; absent reads as this machine's home. */
+	home?: string;
 	/** The bus's records, when the page could read them at all. */
 	roster?: readonly RosterSession[];
 	/**
@@ -230,6 +240,9 @@ export function buildView(input: ViewInput): BoardView {
 		repo: input.repo,
 		root: input.root,
 		where: input.where,
+		// Always a string on the wire: the page cannot ask for a home, and a bundle that fell back
+		// to `homedir` would throw in the browser.
+		home: input.home ?? homedir(),
 	};
 }
 
