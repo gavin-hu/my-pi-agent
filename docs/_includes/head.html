@@ -73,3 +73,10 @@
       stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";
   })();
 </script>
+{%- comment -%}
+  Pageviews, last: nothing above needs it, it is not part of the first paint, and `async` is
+  what keeps a slow vendor off the critical path. The account comes from `_config.yml` so the
+  HTML never carries a literal host, and GoatCounter is cookieless — which is why the footer
+  says there is no banner to agree to.
+{%- endcomment %}
+<script data-goatcounter="https://{{ site.goatcounter }}/count" async src="//gc.zgo.at/count.js"></script>

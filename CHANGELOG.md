@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `docs`: the site counts pageviews with GoatCounter — one `async` tag at the tail of the shared
+  head, its URL built from the account named once in `_config.yml`, and one cookieless disclosure
+  line in the footer. The pages the extensions serve carry none: their CSP is `script-src
+  'self'`, so a copy there would be blocked and would count a local port.
+
 - `board` and `team`: a sign the owner never heard is sent again. The card records when a sign's
   message was settled (`told` on the approval or the spot-check), so a failed send leaves the fact
   absent and a repeat `approve`/`review` — from the tool or the person's `/board` door — sends it

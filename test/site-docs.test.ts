@@ -482,6 +482,73 @@ describe("the meta the site emits", () => {
 	});
 });
 
+/**
+ * The pageviews the site counts: one GoatCounter tag, from one account, disclosed once.
+ *
+ * The Liquid is reviewed rather than built, so these are the promises a reader of the templates
+ * can check: the account is named once and the tag reads it, so an empty key cannot silently
+ * render `https:///count` on every page; the tag is last and `async`, because it is not part of
+ * the first paint; and nothing the extensions serve carries it, since those pages answer under a
+ * `script-src 'self'` policy and would count a local port if the policy let it through.
+ */
+describe("the pageviews the site counts", () => {
+	const head = pageText("_includes/head.html");
+	const config = readFileSync(join(docs, "_config.yml"), "utf-8");
+	const footer = pageText("_includes/footer.html");
+	/**
+	 * The tag, whole, so its attributes are held rather than just its presence.
+	 *
+	 * The attribute order is part of the pin too, on purpose: this snippet is copied from the
+	 * vendor's and reviewed by eye, so a reorder is a change to a reviewed line and not a bug —
+	 * the failure is meant to send a reader to the diff, not hunting for a defect.
+	 */
+	const TAG =
+		/<script data-goatcounter="https:\/\/\{\{ site\.goatcounter \}\}\/count" async src="\/\/gc\.zgo\.at\/count\.js"><\/script>/;
+	/** The account `_config.yml` names, or the empty string a reader has to act on. */
+	const account = /^goatcounter:\s*(.*)$/m.exec(config)?.[1]?.trim() ?? "";
+
+	test("names a bare host once, which the page can build a URL from", () => {
+		// An emptied key renders `https:///count` on every page: no scheme, no path, just the host.
+		expect(account, "_config.yml: no goatcounter account").not.toBe("");
+		expect(account, "_config.yml: the account is not a bare host").toMatch(/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/);
+	});
+
+	test("builds the counting URL from the variable, so the HTML names no account", () => {
+		expect(head, "head.html: no counting tag").toMatch(TAG);
+		expect(head, "head.html: the account is written into the page").not.toContain(account);
+	});
+
+	test("loads last and async, because the first paint does not need it", () => {
+		const at = head.indexOf("<script data-goatcounter=");
+		const theme = head.indexOf('localStorage.getItem("theme")');
+		expect(at, "head.html: the counting tag is before the theme script").toBeGreaterThan(theme);
+		// Nothing follows it: the tag is the head's last element, and the only script after the theme.
+		expect(head.slice(at).trimEnd().endsWith("</script>")).toBe(true);
+		expect(head.slice(at).match(/<script/g)?.length, "head.html: something loads after it").toBe(1);
+	});
+
+	test("discloses it in the footer, with the reason there is no banner", () => {
+		expect(footer, "_includes/footer.html: the counter is not disclosed").toContain("GoatCounter");
+		expect(footer.toLowerCase(), "_includes/footer.html: the cookieless reason is missing").toContain("no cookies");
+	});
+
+	test("is on no page the extensions serve, where the CSP would block it anyway", () => {
+		// The loopback pages are separate documents with `script-src 'self'`: a copy here would be
+		// blocked in the browser and would count a port if it were not. Their heads are built in
+		// `lib/` (`web/markup.ts`'s `docHead`, and the board's page), so both halves of the tree are
+		// walked: an entry under `extensions/` alone would miss the shared kit that ships to them.
+		const served = [join(root, "extensions"), join(root, "lib")].flatMap((dir) =>
+			walkFiles(dir).filter((file) => file.endsWith(".ts")),
+		);
+		expect(served.length).toBeGreaterThan(100);
+		const naming = served.filter((file) => /goatcounter/i.test(textOf(file)));
+		expect(
+			naming.map((file) => relative(root, file)),
+			"an extension page names the pageview counter",
+		).toEqual([]);
+	});
+});
+
 describe("the assets the site shows", () => {
 	/**
 	 * Pictures the site serves in a lighter form than the one the capture scripts
