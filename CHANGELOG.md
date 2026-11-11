@@ -15,6 +15,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   signature. A claim still writes the card first and joins after it, and its result now carries
   `Not on the team: …` instead of discarding the answer.
 
+- `docs`: the board page states the gates the code has. `reclaim`'s three-way rule (holder, person and lead always; a peer only while that owner's record says quiet or gone), the plan re-read at `execute` and `done` with the face's `its plan is gone`, `· not told` on a live sign, and the lane cap that refuses `claim`, `move` and `assign` alike. Ownership reads as a session id on `board.md` and `multi-session.md`, as the code and the tutorial already had it. `troubleshooting.md` gains the reclaim, gone-plan and handed-to-yourself rows, and `session-bus.md` names the `live`/`quiet`/`gone` state `session status` reports.
+
 - `docs`: the pages agree about waking. `session-bus.md` owns the rule — any mail, a handoff and
   an ask included, raises one turn for a session listening with `wake` — and `team.md` and
   `multi-session.md` defer to it instead of saying no message starts a turn. `team.md` also names

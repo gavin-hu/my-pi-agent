@@ -12,6 +12,9 @@ shipped code uses.
 | the chip keeps `✆ wechat expired` | the stored reply token expired, so the account cannot be answered any more | `/wechat login` and scan, then `/wechat start` | [`wechat`](./extensions/wechat.md) |
 | `/bytefly doctor` prints `env disabled` for a row | `PI_DISABLED_EXTENSIONS` names that extension, so it is never loaded, and a disabled row is not probed | drop the name from the variable and restart the session | [`bytefly`](./extensions/bytefly.md), [configuration](./configuration.md#environment-variables) |
 | `Its contract is signed by the lead, who does not hold it.` on `approve`, or the same about a spot-check on `review` | a session cannot sign a card it holds: the gate would be approving itself | the lead releases the card and signs it, or the person signs with `/board approve <id>` or `/board review <id>` | [`board`](./extensions/board.md) |
+| `That session is running, so only the lead (…) takes a live peer's card back` on `reclaim` | the owner's record says it is running, and a card changes hands through its owner or the lead: a peer takes one only from an owner whose record says quiet or gone | ask the owner to release it, or have the lead reclaim it | [`board`](./extensions/board.md) |
+| `the plan recorded for #N is gone` on `move`, or `its plan is gone` on the card | the plan the card recorded is no longer in the plan store, and the gate re-reads it where the write lands | move the card back to `plan` and record the plan again with `contract` | [`board`](./extensions/board.md), [`plan`](./extensions/plan.md) |
+| ``#N cannot be handed to yourself: `claim` takes one.`` on `assign` | a handoff writes a message and records an owner, so `assign` to yourself is mail in your own inbox without the claim's next step | use `claim` for a card you mean to take | [`team`](./extensions/team.md) |
 
 ## If no row fits
 

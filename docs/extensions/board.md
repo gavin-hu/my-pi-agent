@@ -9,7 +9,8 @@ are needed before it can ship.
 
 - **One board per repository**, and one page: the first `/board` serves it, every
   other session opens that same page.
-- **The page is a view.** Nothing is claimed, moved, or signed from a browser.
+- **The page is a view.** Nothing is claimed, moved, or signed from a browser — assigning a
+  card means messaging its owner.
 - **Two signatures**: the lead approves a contract before `execute`, and
   spot-checks the work before `done`. The person at the keyboard can give either — how
   a one-session repository finishes work — with `/board approve` and `/board review`.
@@ -63,14 +64,18 @@ board allows from where the card is; no lane can be skipped.
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`,
 `reclaim`, `move`, `note`, `contract`, `approve`, `review`, `edit`, `archive`,
 `drop`. `add` and `edit` record the kind of work (`type`) and the breaking marker
-(`breaking`); both draw as one quiet label on the card, and `list query` matches
-them. `review` takes an `override` — one line saying why — for a card closed
-without the gate; the record then reads `closed by instruction`.
+(`breaking`); both draw as one quiet label, and `list query` matches them. `claim`, `move`
+and `assign` are refused while `plan` or `execute` is full, naming the ways out. `reclaim`
+takes a card back to `backlog` from its holder, the person and the lead always, and from a
+peer only while that owner's record says quiet or gone. `move` into `execute` or `done`
+re-reads the plan where the write lands: a plan that is gone refuses the move, and the face
+says `its plan is gone`. A sign nobody heard reads `· not told` on a live card; saying it
+again sends the message. `review` takes an `override` — one line saying why — for a card
+closed without the gate, which then reads `closed by instruction`.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);
-`/board approve <id>` and `/board review <id>` write the person's signature;
-`/board archive` runs the sweep; `/board status` prints the seat, repository,
-port, watching tabs, and store; `/board stop` stops the page this session serves.
+`/board approve <id>` and `/board review <id>` sign as the person; `/board archive` runs the sweep;
+`/board status` prints the seat, repository, port, and tabs; `/board stop` ends the page.
 
 **Who signs.** The lead is `board.lead` in `bytefly.json` (`lead` by default), and the page serves
 as that name. A session signs only while it is the lead and never while it holds the card;
@@ -78,11 +83,7 @@ as that name. A session signs only while it is the lead and never while it holds
 heard it — quiet, not listening, or not told — and an untold one is sent again by its signer.
 
 **Where it lives.** `~/.pi/agent/board/<repo-key>/` — one card per file under
-`cards/`, with `archive/` and `ended/` beside it. The `page.json` a served page
-leaves is how a second session finds it instead of starting another.
-
-**Limits per lane.** Three cards in `plan` and five in `execute` by default; a
-claim past either is refused with the count and the ways out.
+`cards/`, with `archive/` and `ended/` beside it.
 
 ## Limits
 
@@ -91,10 +92,9 @@ claim past either is refused with the count and the ways out.
   does for a card nothing open waits on — and an archived record is closed but for `drop`.
 - The lead is a name, not an authority: any session can join it, and a lead holding a card
   can release it, sign it, and claim it again. A gate is a reading, not a permission.
-- Ownership is a label, not a lock: only `session-bus` path claims are. A card in `execute`
-  holds its `paths`, and the session that claimed them releases them when the lane changes —
-  so a `reclaim` leaves them held, and an `edit` to `paths` waits for the next crossing.
-- The page is read-only: a browser cannot assign a card without messaging its owner.
+- Ownership is a session id, not a lock: only `session-bus` path claims are. A card in
+  `execute` holds its `paths`, and the session that claimed them releases them when the lane
+  changes — so a `reclaim` leaves them held, and an `edit` to `paths` waits for the next crossing.
 - A card keeps eight lane transitions; an unreadable card file is skipped, and named in the listing.
 
 ## Settings
