@@ -13,6 +13,11 @@ description: A Pi package of extensions, skills, and themes for working in a ter
 url: "https://gavin-hu.github.io"
 baseurl: "/my-pi-agent"
 
+# The GoatCounter account the pageviews are counted on, as a bare host: the head builds the
+# counting URL from it (`https://{{ site.goatcounter }}/count`), so an empty value would render
+# `https:///count` on every page. `test/site-docs.test.ts` holds both facts.
+goatcounter: gavin-hu.goatcounter.com
+
 markdown: kramdown
 permalink: pretty
 
