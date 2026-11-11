@@ -15,6 +15,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of leaving the new owner's next claim refused with no word about why. A holder taking
   its own card back still prints nothing extra, and no bus capability was added.
 
+- `lib`: a request over `pi.events` can no longer hang a turn. The handshake bounded only the case
+  where nobody claimed it, so a listener that claimed and then never answered left a `board` or
+  `team` call pending forever; a claim now settles on `ANSWER_BOUND_MS` with the caller's
+  `timedOut` sentence, which `BusRequest` defaults to `unclaimed` and `session-tool` sets so a bus
+  that is loaded and silent says it did not answer rather than naming an extension already on. The
+  bound is armed before the emit, because a listener may answer synchronously, and cancelled on
+  every settle, so a finished call leaves no timer behind.
+
 - `team` and `board`: a handoff or an ask joins the bus first. `assign` and `ask` join **before**
   they send, because the message names this session as the way back — a lead the bus will not hold
   used to hand a peer a reply its own `session send` refused, and a send or write that failed never
