@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `team` and `board`: a handoff or an ask joins the bus first. `assign` and `ask` join **before**
+  they send, because the message names this session as the way back — a lead the bus will not hold
+  used to hand a peer a reply its own `session send` refused, and a send or write that failed never
+  reached the join at all. A refused join now sends nothing and says what to do about it: with no
+  bus loaded it names the extension to turn on, and with the label held by another record it says
+  what frees the name — `/team join` is the wrong door in both cases, and for a lead it costs the
+  signature. A claim still writes the card first and joins after it, and its result now carries
+  `Not on the team: …` instead of discarding the answer.
+
 - `board`: a card whose owner's session ended is released at the next session's first turn. The
   sweep reads the roster once and asks the same pid-checked `gone` rule the reclaim gate already
   trusts, then writes the ordinary `reclaim` — so the store decides, a raced refusal is skipped,

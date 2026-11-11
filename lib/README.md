@@ -64,7 +64,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`board/lock.ts`](./board/lock.ts) | One card's write lock: `lockCard` creates `cards/.lock-<id>` exclusively, waits `LOCK_WAIT_MS` for a live holder, takes over one older than `LOCK_STALE_MS`, and releases only its own token — so `mutate`'s read, check, and rename are one step to a rival session. |
 | [`board/config.ts`](./board/config.ts) | The `board` section of `bytefly.json`, read once and handed to `applyOp` whole. |
 | [`board/session.ts`](./board/session.ts) | The session a call works as: one store per directory, the seat, the id a card records, the bus's directory and its records. |
-| [`board/join.ts`](./board/join.ts) | The one join every door asks for: `joinTeam` (ask once, and again when the roster holds no live record under the name asked for), `TeamState` and `standingOf`/`teamStatus` for the `/board` line, and the re-ask that repeats a disarmed join as disarmed. |
+| [`board/join.ts`](./board/join.ts) | The one join every door asks for: `joinTeam` (ask once, and again when the roster holds no live record under the name asked for), the `fix` a refusal carries when the bus's own words name no way forward, `TeamState` and `standingOf`/`teamStatus` for the `/board` line, `joinFailureLine` for a claim that landed while its join did not, and the re-ask that repeats a disarmed join as disarmed. |
 | [`board/seat.ts`](./board/seat.ts) | The actor a page reads as, derived from `board.lead`. |
 | [`board/lead.ts`](./board/lead.ts) | Who may sign the two gates and take a card back, and every sentence a refusal or a sign says. |
 | [`board/round.ts`](./board/round.ts) | The lead's rollup over the cards alone: owners, unplanned, unapproved, unreviewed, blocked, done. |

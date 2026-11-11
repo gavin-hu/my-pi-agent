@@ -171,6 +171,20 @@ describe("claim", () => {
 		expect((await (await store()).read(id))?.offeredAt).toBeUndefined();
 	});
 
+	test("a claim whose join did not land keeps the card and says so", async () => {
+		// The join is the claim's side effect, not its condition: the board with no bus stays the
+		// single-session mode it was, and the one fact the owner has to act on reaches it as a line.
+		const { call, seed } = harness({ joinFails: "the session bus is not loaded" });
+		const id = await seed();
+		const result = await call({ action: "claim", card: id });
+		expect(result.isError).toBeFalsy();
+		expect(result.details.card).toMatchObject({ lane: "plan", id });
+		expect(resultText(result)).toContain(`#${id} is yours, in plan.`);
+		expect(resultText(result)).toContain(
+			"Not on the team: the session bus is not loaded. Turn the `session-bus` extension on in `/bytefly`.",
+		);
+	});
+
 	test("asks again when the bus no longer holds this session", async () => {
 		const { call, seed, joined, me, leaveBus } = harness();
 		const self = await me();

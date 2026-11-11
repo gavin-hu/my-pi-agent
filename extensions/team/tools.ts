@@ -18,13 +18,18 @@
  *
  * `assign`, `ask`, and `claim` join this session to the team once, because each is
  * answered by mail: `session-bus` records a sender and arms no watch, so without the join
- * a lead that only ever runs the round would have a reply nobody reports. `offer` and
- * `reclaim` do not, and need not: one is answered by a claim, the other by nothing.
+ * a lead that only ever runs the round would have a reply nobody reports. `assign` and `ask`
+ * join **before** they send, because the message names this session as the way back — a lead
+ * the bus will not hold hands a peer a reply its own `session send` refuses — and they send
+ * nothing when the join does not land. A claim writes first and joins after it, so the card is
+ * kept either way and the result says the join failed. `offer` and `reclaim` do not join, and
+ * need not: one is answered by a claim, the other by nothing.
  */
 
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
 import { type Card, cardRef, normalizeCardId } from "../../lib/board/card.ts";
+import type { TeamState } from "../../lib/board/join.ts";
 import { indexOf } from "../../lib/board/links.ts";
 import { type Actor, mayOp } from "../../lib/board/rules.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
@@ -63,6 +68,7 @@ import {
 	formatClaimed,
 	formatHandoff,
 	formatHandoffFailure,
+	formatNotSent,
 	formatOffer,
 	formatOfferFailure,
 	formatRacedOffer,
@@ -179,10 +185,14 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 	 * this session, so a lead that only ever runs the round is on the team under the label it
 	 * writes cards as rather than merely on the bus, where a send records a sender and arms no
 	 * watch. Loaded on demand, like the claim's join was, so registration stays as small as it is.
+	 *
+	 * The answer is returned rather than only recorded, because two of the three verbs send a
+	 * message the answer is the precondition of: a join that did not land is a message that must
+	 * not go out, and one that did is why the peer can answer at all.
 	 */
-	const joinRound = async (ctx: ExtensionContext, label: string): Promise<void> => {
+	const joinRound = async (ctx: ExtensionContext, label: string): Promise<TeamState> => {
 		const { joinTeam } = await import("../../lib/board/join.ts");
-		await joinTeam(session, team, ctx, label);
+		return await joinTeam(session, team, ctx, label);
 	};
 
 	pi.registerTool({
@@ -238,7 +248,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			const me = actor;
 			// The join every verb a peer answers by mail asks for, built once per call from the
 			// name the reply line names — so the round never keeps a second copy of its label.
-			const join = (): Promise<void> => joinRound(ctx, me.label);
+			const join = (): Promise<TeamState> => joinRound(ctx, me.label);
 			try {
 				// `ask` is the one verb with no card behind it, so it runs before the id and the store:
 				// what it needs is this session's name, for the reply line, and the bus.
@@ -305,8 +315,10 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
  *
  * The preconditions are checked with `mayOp`, the same decision the store's `applyOp` will
  * make — and with the store's own limits, so a configured WIP cap is the one the precheck
- * sees — so an assignment the rules would refuse never sends a message at all. A handoff
- * that landed is followed by the join, because the peer's next move is to answer it.
+ * sees — so an assignment the rules would refuse never sends a message at all. The join comes
+ * before the message, and is the last precondition: the handoff names this session as the one
+ * the peer asks for its two gates, so a session the bus will not hold would send a peer to a
+ * reply that is refused. A refused join therefore sends nothing, and the card is untouched.
  */
 async function assignCard(
 	store: BoardStore,
@@ -316,7 +328,7 @@ async function assignCard(
 	note: string | undefined,
 	now: number,
 	dispatch: Dispatch,
-	join: () => Promise<void>,
+	join: () => Promise<TeamState>,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	const card = await store.read(id);
 	if (!card) return refusal("assign", `${cardRef(id)} does not exist.`);
@@ -335,6 +347,12 @@ async function assignCard(
 	// store's own check without the write, and the board's settings are the store's, not a default.
 	const refused = mayOp(card, { kind: "assign", to: target }, me, indexOf(await store.list()), store.config());
 	if (refused !== undefined) return refusal("assign", refused, card);
+	// After the rule and before the message: a refusal above still enlists nobody, and this one
+	// has to be answered before anything reaches the peer.
+	const joined = await join();
+	if ("error" in joined) {
+		return refusal("assign", formatNotSent(`${cardRef(card.id)} was not handed off to ${to}`, joined), card);
+	}
 
 	let delivered: string[];
 	let failed: DeliveryFailure[];
@@ -365,10 +383,6 @@ async function assignCard(
 	const applied = written.result;
 	if (!applied.ok)
 		return refusal("assign", formatRacedAssignment(applied.card ?? card, to, applied.error), applied.card ?? card);
-	// A handoff is the lead telling a peer to work and ask it questions, so the same call that
-	// hands the card over puts the lead on the team: without it the reply waits in an inbox no
-	// turn reports, and `/team` lists the session that just assigned a card as not listening.
-	await join();
 	const silent = notListening(peers, delivered);
 	const still = quiet(peers, delivered);
 	return textResult(formatHandoff(applied.card, to, delivered, silent, still, failed), {
@@ -466,7 +480,7 @@ async function askPeer(
 	rawTo: unknown,
 	rawQuestion: unknown,
 	dispatch: Dispatch,
-	join: () => Promise<void>,
+	join: () => Promise<TeamState>,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	const to = typeof rawTo === "string" ? rawTo.trim() : "";
 	if (to === "") return refusal("ask", 'ask needs a peer: pass `to`, e.g. "billing-core".');
@@ -474,6 +488,10 @@ async function askPeer(
 	// read, and the round is the better answer to it.
 	if (namesSelf(me, to)) return refusal("ask", `${to} is this session — the round already says what you hold.`);
 	const asked = typeof rawQuestion === "string" && rawQuestion.trim() !== "" ? rawQuestion.trim() : DEFAULT_QUESTION;
+	// Before the message, for `assign`'s reason: the answer comes back to the label `askText`
+	// just named, so the label has to be on the bus before the peer reads it.
+	const joined = await join();
+	if ("error" in joined) return refusal("ask", formatNotSent(`the ask did not reach ${to}`, joined));
 	let delivered: string[];
 	let failed: DeliveryFailure[];
 	try {
@@ -483,9 +501,6 @@ async function askPeer(
 	} catch (error) {
 		return refusal("ask", `the ask did not reach ${to}: ${messageOf(error)}`);
 	}
-	// The answer arrives as mail, to the label the question just named, so the call that asks
-	// is the call that starts listening for it.
-	await join();
 	const peers = await dispatch.peers().catch(() => undefined);
 	const silent = notListening(peers, delivered);
 	const still = quiet(peers, delivered);
@@ -505,20 +520,25 @@ async function askPeer(
  * store's, so the two doors cannot answer them differently. The join is the claim's one
  * side effect outside the card: taking work is what makes this session a teammate, and it
  * is the same join `board` makes, asked again when the bus no longer holds this session.
+ * It comes after the write, so a refusal writes and enlists nothing — and its failure is the
+ * result's last line, because the card it came after is already true.
  */
 async function claimCard(
 	store: BoardStore,
 	me: Actor,
 	id: string,
 	now: number,
-	join: () => Promise<void>,
+	join: () => Promise<TeamState>,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	const before = await store.read(id);
 	if (!before) return refusal("claim", `${cardRef(id)} does not exist.`);
 	const result = await store.mutate(id, { kind: "claim" }, me, now);
 	if (!result.ok) return refusal("claim", result.error, result.card ?? before);
-	await join();
-	return textResult(formatClaimed(result.card), { action: "claim", card: result.card });
+	const joined = await join();
+	// Loaded with the join the call above made, so the module is already in hand: the sentence is
+	// the shared one, because `board`'s claim prints it too.
+	const { joinFailureLine } = await import("../../lib/board/join.ts");
+	return textResult(formatClaimed(result.card, joinFailureLine(joined)), { action: "claim", card: result.card });
 }
 
 /**
