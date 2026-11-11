@@ -19,6 +19,7 @@ import {
 	type BoardBrowser,
 	openBoardBrowser,
 } from "../../../test/helpers/board-browser.ts";
+import { shortenPath } from "../../../lib/format.ts";
 import { type Doc, hidden } from "../../../test/helpers/board-dom.ts";
 import { CORE, LEAD, seedWorkingBoard } from "../../../test/helpers/board-fixture.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
@@ -50,7 +51,9 @@ describe.skipIf(CHROME === undefined)("the card dialog's plan row", () => {
 		const now = clock.now();
 		const store = board.store;
 		const under = join(homedir(), ".pi/agent/plans/8872d3adda0e/2026-11-11-1500-written-under-home.md");
-		const shortened = "~" + under.slice(homedir().length);
+		// The page's own string, from the page's own rule: `shortenPath` normalizes separators, so a
+		// hand-built `~` prefix would carry this platform's and never match on Windows.
+		const shortened = shortenPath(under, homedir());
 		const outside = "/opt/elsewhere/2026-11-11-1500-written-outside-home.md";
 		const contract = (path: string) => ({
 			kind: "contract" as const,
