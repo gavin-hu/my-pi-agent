@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `team`: an ask names itself and the session to answer it. `ask` mints a short id before it
+  composes, so the question reads `Ask a1b2c3d4: …` and the reply line carries the asker's session id
+  — not the label it happened to hold — with the label as a fallback the sentence admits to. A lead
+  with two questions out can tell the answers apart by their `re: <id>` opening, and a rename between
+  the ask and the answer no longer loses the reply. The message text is the whole record: nothing
+  persists an ask, and the result prints the same id for whoever keeps it.
+
 - `team`: a handoff records whether the bus took its message. `assign` writes the owner with a
   `handoff` stamp and a `told` inside it when a message file was written, so a card handed to a peer
   whose inbox refused reads `owner: api-core · not told` in `board list` instead of looking exactly

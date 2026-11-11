@@ -57,8 +57,8 @@ paths the old holder still has (`2 paths stay held by api-core until it stops`) 
 only from an
 owner whose record says it stopped, while the lead takes anybody's and keeps the
 spot-check only its own signer withdraws; `claim` (card) takes a pool card into
-`plan` for this session; `ask` (`to`, `question?`) sends one peer a question and
-writes nothing else.
+`plan` for this session; `ask` (`to`, `question?`) sends one peer a question and writes
+nothing else: its own ask id, and the answering session by id, so `re: <id>` matches it.
 
 A flat parameter object means an action refuses a field it does not read, naming
 the action that takes it — `offer` does not take `to`.

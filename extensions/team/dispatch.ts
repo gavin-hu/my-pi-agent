@@ -11,6 +11,7 @@
  * bus, and the one production implementation is `lib/session-tool.ts`'s.
  */
 
+import { randomBytes } from "node:crypto";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
 import { cardRef, type CardOwner } from "../../lib/board/card.ts";
@@ -92,13 +93,43 @@ export const DEFAULT_QUESTION = "how is it going?";
  * it goes — and "nothing is waiting on it" is what keeps a peer from treating it as a
  * handoff. Clipped to the bus's limit like every other body here.
  */
-export function askText(question: string, from: string): string {
+export function askText(question: string, ask: string, reply: ReplyRoute): string {
+	// The route says which kind of name it is: a peer that follows a label-shaped example sends to a
+	// label and loses exactly what the id is for, and a fallback that reads like an id would be worse.
+	const where = reply.byId
+		? `"${reply.to}" (a session id, not a label)`
+		: `"${reply.to}" (the label — the bus holds no id for this session)`;
 	return withinLimit(
 		[
-			`Ask: ${question}`,
-			`Answer with \`session send to "${from}"\` when you have a moment — nothing is waiting on it.`,
+			`Ask ${ask}: ${question}`,
+			`Reply with \`session send to ${where}\`, starting your message with \`re: ${ask}\` — nothing is waiting on it.`,
 		].join("\n"),
 	);
+}
+
+/**
+ * A short id for one ask, quotable in the reply.
+ *
+ * Minted here rather than taken from the bus's `messageId`: that one is written into the record when
+ * the message is sent, and this id has to be inside the text being sent. Three random bytes is
+ * enough for a session's questions, and the prefix keeps it from reading as a session id.
+ */
+export function askId(): string {
+	return `a${randomBytes(3).toString("hex")}`;
+}
+
+/**
+ * Where a peer's answer goes: the asker's session id when the bus holds one, and its label when the
+ * bus cannot say who the asker is.
+ *
+ * The id is the point — it survives the asker renaming itself or its record being pruned — and
+ * `byId` is what lets the sentence name which one a peer was given instead of implying an id.
+ */
+export interface ReplyRoute {
+	/** The string a peer passes to `session send`. */
+	to: string;
+	/** Whether `to` is a session id rather than a label. */
+	byId: boolean;
 }
 
 /**
