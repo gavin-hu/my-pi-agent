@@ -206,13 +206,21 @@ function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = fa
 		lines.push(`  goal: ${card.contract.goal}`);
 		lines.push(`  acceptance: ${card.contract.acceptance}`);
 		lines.push(`  scope out: ${card.contract.scopeOut}`);
+		// The command sits with the promise it proves, not with the sign: it is what the card asks
+		// for, and a reader deciding whether to run it is reading the contract.
+		if (card.contract.verify !== undefined) lines.push(`  verify: ${card.contract.verify}`);
 		const approved = card.contract.approved;
 		lines.push(`  approved: ${approved === undefined ? "nobody yet" : `${approved.by}${notTold(approved, card)}`}`);
 	}
 	if (card.review !== undefined) {
 		const reason = card.review.byInstruction;
+		// The sign says what ran and what it exited with: a green word without the run is the belief
+		// this line replaced, and the sha is what a reader needs to reproduce it.
+		const run = card.review.verified;
+		const happened =
+			run === undefined ? "" : ` · ran \`${run.cmd}\` (exit ${run.exit}${run.sha === undefined ? "" : `, ${run.sha}`})`;
 		lines.push(
-			`  reviewed: ${card.review.by}${reason === undefined ? "" : ` · by instruction: ${reason}`}${notTold(card.review, card)}`,
+			`  reviewed: ${card.review.by}${reason === undefined ? "" : ` · by instruction: ${reason}`}${happened}${notTold(card.review, card)}`,
 		);
 	}
 

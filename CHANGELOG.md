@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a review records a verified result, and `done` refuses without a fresh one. A contract
+  may name a fourth, optional line — `verify`, the command its acceptance is checked by — and a
+  spot-check of a card that names one is that command's run: the `review` action and
+  `/board review` execute it through one seam, a red or timed-out run refuses the sign, and the
+  sign keeps `{ cmd, exit, at, sha }`. The `done` move then refuses a sign with no result, or one
+  older than the sign's last write, naming the command and both doors that would record it. The
+  run is measured from the stamp *and* the announcement #398 writes after it, so the ordinary
+  path still closes; a card whose contract names no command keeps the gate it had. The transcript
+  and the card dialog draw the command and the run from the same fields.
+
 ## [0.26.0] - 2026-11-11
 
 ### Added

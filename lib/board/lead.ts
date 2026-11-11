@@ -32,8 +32,8 @@
  */
 
 import { normalizeLabel } from "../session-label.ts";
-import { cardRef, type Card, type CardOwner, holds, laneSince } from "./card.ts";
-import type { Sign as SignRecord } from "./contract.ts";
+import { cardRef, type Card, type CardOwner, holds, laneSince, MAX_NOTES, normalizeNote } from "./card.ts";
+import { type Sign as SignRecord, type Verification, isVerification, normalizeInstruction } from "./contract.ts";
 import type { BoardConfig } from "./config.ts";
 import { LANE_RULES } from "./lanes.ts";
 import type { Actor, CardOp, Prepared } from "./rules.ts";
@@ -200,9 +200,46 @@ export function holderRefusal(actor: Actor, lead: Lead, sign: Sign): string {
 	return isLead(actor, lead) ? SIGN_WORDS[sign].release : SIGN_WORDS[sign].holder;
 }
 
+/** Who holds the card, as every refusal that is about a holder opens. */
+export function heldBy(card: Card): string {
+	return `${cardRef(card.id)} is held by ${card.owner?.label ?? "another session"}.`;
+}
+
 /** What a lane that needs a sign nobody gave says: the lead approves it, or the person signs. */
 export function missingSign(card: Card, lead: Lead, sign: Sign): string {
 	return SIGN_WORDS[sign].missing(card, lead);
+}
+
+/**
+ * What a `done` move is refused with when the contract named a command and the sign has no run.
+ *
+ * A card that names one is not spot-checked by a sentence any more, and the refusal is the place
+ * that says so: it names the command, and both doors that would record it, because "review it
+ * again" alone leaves a reader guessing which of the two they have.
+ */
+export function unverifiedSpotCheck(card: Card, cmd: string, lead: Lead): string {
+	return `${cardRef(card.id)}'s contract names \`${cmd}\`, and its spot-check carries no result: the lead (${lead}) records one with \`review\`, or the person with \`/board review ${card.id}\`.`;
+}
+
+/**
+ * What a `done` move is refused with when the run is older than the card it vouches for.
+ *
+ * A write after the sign — a note, an edit, a second move — is the card changing under the
+ * evidence, so the run has to be made again. The sentence names what to re-run and both doors.
+ */
+export function staleSpotCheck(card: Card, cmd: string, lead: Lead): string {
+	return `${cardRef(card.id)} was written after its spot-check, so the run no longer speaks for it — run \`${cmd}\` and review again: the lead (${lead}) with \`review\`, or the person with \`/board review ${card.id}\`.`;
+}
+
+/** What a `review` is refused with when the command it ran did not pass. */
+export function failedSpotCheck(card: Card, cmd: string, exit: number): string {
+	return `\`${cmd}\` exited ${exit}, so ${cardRef(card.id)} was not spot-checked.`;
+}
+
+/** What a `review` is refused with when the command outlived the bound the board gives it. */
+export function killedSpotCheck(card: Card, cmd: string, boundMs: number): string {
+	const minutes = Math.max(1, Math.round(boundMs / 60_000));
+	return `\`${cmd}\` did not finish within ${minutes} minutes, so ${cardRef(card.id)} was not spot-checked.`;
 }
 
 /**
@@ -262,6 +299,140 @@ export interface HolderFact {
 	owner: CardOwner;
 	/** What the bus said about it; `quiet` and `gone` are the two that let a peer take the card. */
 	state: SessionPresence;
+}
+
+/**
+ * A card's notes after one more, with {@link MAX_NOTES} kept and the rest counted.
+ *
+ * One body for the two writers a note has — `note`, and the note a sign carries — because the
+ * cap is the record's and a clipped list is the same arithmetic in both.
+ */
+export function appendNote(card: Card, by: string, at: number, text: string): Pick<Card, "notes" | "notesDropped"> {
+	const notes = [...card.notes, { by, at, text }];
+	const overflow = Math.max(0, notes.length - MAX_NOTES);
+	return { notes: overflow === 0 ? notes : notes.slice(overflow), notesDropped: card.notesDropped + overflow };
+}
+
+/**
+ * Record the spot-check of finished work: the lead's, and never the holder's.
+ *
+ * `text` rides the sign here too, so "checked, and this is still wrong" is one call.
+ *
+ * `override` is the other way a finished card gets a sign, and it is somebody saying the gate
+ * was jumped: the reason is required, the card must already be `done`, and no review may be on
+ * it, because the one rule this relaxes is the lane and a reason is not a second signature. Who
+ * may sign, and never the holder, is the same gate. The sign records how it was made, so a
+ * forced close reads as one instead of as a clean one.
+ *
+ * `verified` is the run the signer's own call made of the command the contract names, and it is
+ * held to three rules here rather than trusted: the card's contract has to name that command, the
+ * exit has to be zero, and an override carries none — a close by instruction is a person saying
+ * the gate was jumped, not a check that passed. A card whose contract names a command is refused
+ * without one, which is what makes the evidence a gate rather than a note.
+ */
+export function review(
+	card: Card,
+	actor: Actor,
+	now: number,
+	config: BoardConfig,
+	text?: unknown,
+	override?: unknown,
+	verified?: unknown,
+): Prepared {
+	const instruction = override === undefined ? undefined : normalizeInstruction(override);
+	if (instruction !== undefined && "error" in instruction) return { error: instruction.error };
+	if (instruction === undefined) {
+		if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be reviewed.` };
+		if (card.lane !== "execute") {
+			return { error: `${cardRef(card.id)} is in ${card.lane}; finished work is spot-checked in execute.` };
+		}
+	} else if (!LANE_RULES[card.lane].terminal) {
+		return { error: `${cardRef(card.id)} is in ${card.lane}; an override signs a card that is already done.` };
+	}
+	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "review")}` };
+	const wrongSigner = signRefusal(card, actor, config.lead, "review");
+	if (wrongSigner !== undefined) return { error: wrongSigner };
+	const evidence = evidenceFor(card, config, instruction !== undefined, verified);
+	if ("error" in evidence) return { error: evidence.error };
+	const signed = signedAs(currentReview(card), actor, config.lead);
+	// The same rule as `approve`: the stamp owes the message, and a repeat owes it while untold.
+	const owes = owesAnnouncement(card, "review", actor, config.lead);
+	// A sign is a fact about a person and a moment, so an override never replaces one: it is how a
+	// card with no spot-check gets a record, not how a record gets a different author. The same
+	// signer, saying the same thing, is its own case — the sign is already the one it asked for.
+	const already = currentReview(card);
+	if (instruction !== undefined && already !== undefined && !(signed && already.byInstruction !== undefined)) {
+		return {
+			error: `${cardRef(card.id)} is already spot-checked by ${already.by}; an override signs a card that has no sign.`,
+		};
+	}
+	const noted = signNote(card, text, actor, now);
+	if ("error" in noted) return { error: noted.error };
+	if (signed && !noted.wrote) return { changed: false, fields: null, ...(owes ? { announce: true as const } : {}) };
+	const stamp =
+		instruction === undefined
+			? { ...signMark(actor, config.lead), at: now }
+			: { ...signMark(actor, config.lead), at: now, byInstruction: instruction.text };
+	// The run rides the stamp it is evidence for; a repeat sign that finds the record already there
+	// keeps it, because a second run of the same command says what the first said.
+	const stamped = evidence.verified === undefined ? stamp : { ...stamp, verified: evidence.verified };
+	const spotCheck = signed ? {} : { review: stamped };
+	// As with `approve`: a second signer's note moves the card, and the owner's message follows the
+	// stamp — or the untold sign a repeat still owes them.
+	return { changed: true, fields: { ...spotCheck, ...noted.fields }, ...(owes ? { announce: true as const } : {}) };
+}
+
+/**
+ * The run a spot-check carries, or the reason it cannot.
+ *
+ * The contract's command is the only one worth evidence: a result for any other command would
+ * vouch for something the card never promised, and a result for the *old* command is the failure
+ * this whole rule exists to prevent — a reviewer's green standing over wording the card has since
+ * changed. An override never carries one: it is the close a gate did not get, and dressing it in
+ * a run would make an instruction read as a check.
+ */
+function evidenceFor(
+	card: Card,
+	config: BoardConfig,
+	instruction: boolean,
+	raw: unknown,
+): { verified?: Verification } | { error: string } {
+	if (raw === undefined) {
+		// Fail closed where a command is named: the card asked for a run, and a sign without one is
+		// the belief this gate replaced.
+		const named = card.contract?.verify;
+		if (named !== undefined && !instruction) return { error: unverifiedSpotCheck(card, named, config.lead) };
+		return {};
+	}
+	if (instruction) return { error: `${cardRef(card.id)}'s override carries no run; an instruction is not a check.` };
+	if (!isVerification(raw)) return { error: `${cardRef(card.id)}'s run is not a command, an exit, and a moment.` };
+	const named = card.contract?.verify;
+	if (named === undefined) {
+		return { error: `${cardRef(card.id)}'s contract names no command, so there is no run to record.` };
+	}
+	if (named !== raw.cmd) {
+		return { error: `${cardRef(card.id)}'s contract names \`${named}\`, not \`${raw.cmd}\`; review the card again.` };
+	}
+	if (raw.exit !== 0) return { error: failedSpotCheck(card, raw.cmd, raw.exit) };
+	return { verified: raw };
+}
+
+/**
+ * The note a signer leaves with the sign, in the same write.
+ *
+ * Validated after the gate, as `note` validates after the holder check: a card that cannot be
+ * signed at all is the answer worth reading first.
+ */
+export function signNote(
+	card: Card,
+	raw: unknown,
+	actor: Actor,
+	now: number,
+): { fields: Partial<Card>; wrote: boolean } | { error: string } {
+	if (raw === undefined) return { fields: {}, wrote: false };
+	const parsed = normalizeNote(raw);
+	if ("error" in parsed) return { error: parsed.error };
+	return { fields: appendNote(card, actor.label, now, parsed.text), wrote: true };
 }
 
 /**

@@ -43,22 +43,10 @@ import type { CardType } from "./kind.ts";
 import { type BoardConfig, DEFAULT_BOARD_CONFIG } from "./config.ts";
 import type { Lane } from "./lanes.ts";
 import type { BoardIndex } from "./links.ts";
-import {
-	approve,
-	archive,
-	closedArchive,
-	assign,
-	claim,
-	contractOp,
-	drop,
-	edit,
-	move,
-	note,
-	offer,
-	release,
-	review,
-} from "./steps.ts";
-import { type HolderFact, announced, type Sign, reclaim } from "./lead.ts";
+import { archive, assign, claim, closedArchive, drop, edit, move, note, offer, release } from "./steps.ts";
+
+import { type HolderFact, announced, type Sign, reclaim, review } from "./lead.ts";
+import { approve, contractOp } from "./steps.ts";
 
 /** Who is attempting an operation: a session when it has one, and the label it is addressed by. */
 export interface Actor {
@@ -108,7 +96,14 @@ export type CardOp =
 	 * decides — nothing here touches a filesystem — and a contract naming neither is refused,
 	 * so a caller cannot skip the check by omitting it.
 	 */
-	| { kind: "contract"; artifact?: ArtifactProof; goal?: unknown; acceptance?: unknown; scopeOut?: unknown }
+	| {
+			kind: "contract";
+			artifact?: ArtifactProof;
+			goal?: unknown;
+			acceptance?: unknown;
+			scopeOut?: unknown;
+			verify?: unknown;
+	  }
 	/**
 	 * Read the contract *and* the plan it names, and approve them: the lead, and never the card's
 	 * holder; `text` is noted with the sign. `artifact` is what the caller proved about the plan, as
@@ -116,7 +111,7 @@ export type CardOp =
 	 */
 	| { kind: "approve"; text?: unknown; artifact?: ArtifactProof }
 	/** Spot-check the finished work: the lead, in `execute`, and never the card's holder; `text` is noted with the sign. */
-	| { kind: "review"; text?: unknown; override?: unknown }
+	| { kind: "review"; text?: unknown; override?: unknown; verified?: unknown }
 	// Every field but `kind` is optional, and an absent one is left as it was: the page
 	// sends the three it can show, and omitting a link must not clear it.
 	| {
@@ -283,7 +278,7 @@ function prepare(
 		case "approve":
 			return approve(card, op, actor, now, board, config);
 		case "review":
-			return review(card, actor, now, config, op.text, op.override);
+			return review(card, actor, now, config, op.text, op.override, op.verified);
 		case "edit":
 			return edit(card, op, actor, board);
 		case "reclaim":

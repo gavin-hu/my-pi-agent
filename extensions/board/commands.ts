@@ -12,10 +12,12 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import type { ArtifactProof } from "../../lib/board/artifact.ts";
 import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
+import type { Verification } from "../../lib/board/contract.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { plural } from "../../lib/board/round-text.ts";
 import { type BoardSession } from "../../lib/board/session.ts";
-import type { MutateResult } from "../../lib/board/store.ts";
+import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
+import type { VerifyRun } from "../../lib/board/verify.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import type { Notify } from "./announce.ts";
@@ -32,7 +34,7 @@ export function registerCommands(
 	pi: ExtensionAPI,
 	session: BoardSession,
 	page: BoardPage,
-	deps: { team?: TeamJoin; notify?: Notify } = {},
+	deps: { team?: TeamJoin; notify?: Notify; verify?: VerifyRun } = {},
 ): void {
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
@@ -53,7 +55,7 @@ export function registerCommands(
 			const word = first.toLowerCase();
 			const sign = signOf(word);
 			if (sign !== undefined) {
-				const line = await signLine(pi, session, sign, rest, ctx, deps.notify);
+				const line = await signLine(pi, session, sign, rest, ctx, deps.notify, deps.verify);
 				ctx.ui.notify(line.text, line.tone);
 				return;
 			}
@@ -156,8 +158,30 @@ async function signLine(
 	words: readonly string[],
 	ctx: ExtensionCommandContext,
 	notify: Notify | undefined,
+	verify?: VerifyRun,
 ): Promise<SignLine> {
 	const { id: rawCard, override } = signWords(words);
+	/**
+	 * The run a spot-check records, or the sentence that stops it.
+	 *
+	 * The read, the run and the words are `lib/board/verify.ts`'s: the tool's door asks the card the
+	 * same question, and a person signing at a keyboard must get the same answer for the same card.
+	 */
+	const verifiedFor = async (
+		store: BoardStore,
+		cardId: string,
+	): Promise<{ verified: Verification } | { error: string } | undefined> => {
+		const card = await store.read(cardId).catch(() => undefined);
+		if (card?.contract?.verify === undefined) return undefined;
+		const module = await import("../../lib/board/verify.ts");
+		return module.verifySpotCheck(
+			card,
+			ctx.cwd,
+			verify ?? module.defaultVerifyRun(),
+			() => session.now(),
+			module.shaOf(pi),
+		);
+	};
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
 	if (id === undefined) return { text: `board: ${sign} needs a card id — try /board ${sign} 4`, tone: "info" };
 	// Two signs, one flag: an approval is a contract read, and nothing about a close belongs on it.
@@ -176,7 +200,11 @@ async function signLine(
 		// spot-check needs none: the `done` move proves the plan then.
 		const proof = sign === "approve" ? await import("./proof.ts") : undefined;
 		const artifact = proof === undefined ? undefined : await proof.provedPlan(session, ctx.cwd, store, id);
-		result = await store.mutate(id, signOp(sign, override, artifact), personActor(), session.now());
+		// The run rides the sign here too: this door is the person's, so it executes the command the
+		// contract names exactly as the tool's does, through the one body both doors share.
+		const evidence = sign === "review" ? await verifiedFor(store, id) : undefined;
+		if (evidence !== undefined && "error" in evidence) return { text: `board: ${evidence.error}`, tone: "info" };
+		result = await store.mutate(id, signOp(sign, override, artifact, evidence?.verified), personActor(), session.now());
 	} catch (error) {
 		return { text: `board: ${sign} ${cardRef(id)} failed — ${messageOf(error)}`, tone: "error" };
 	}
@@ -186,9 +214,12 @@ async function signLine(
 	// asked at all: a card in plan that carries a review — a hand-edited file, since no path writes
 	// one — must not put its reason on the line an approval prints.
 	const how = sign === "review" && result.card.review?.byInstruction !== undefined ? " · closed by instruction" : "";
+	// What ran is the one fact a person at a keyboard cannot see in the card: the sign's own words.
+	const ran = result.card.review?.verified;
+	const evidence = ran === undefined ? "" : ` · ran \`${ran.cmd}\` (exit ${ran.exit})`;
 	const text = result.changed
-		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}`
-		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}`;
+		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}${evidence}`
+		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}${evidence}`;
 	// The message is the tool's rule as well as its transport — `announce` on the result is what a
 	// fresh stamp and an untold repeat both set, so this door re-sends a sign the owner never heard
 	// exactly as the tool does. The sign's own signer may record it, which is why `personActor` is
@@ -215,8 +246,16 @@ async function signLine(
 }
 
 /** The operation one `/board` line makes: the word, the reason it may carry, and the plan it proved. */
-function signOp(sign: Sign, override: string | undefined, artifact: ArtifactProof | undefined): CardOp {
-	if (sign === "review") return override === undefined ? { kind: "review" } : { kind: "review", override };
+function signOp(
+	sign: Sign,
+	override: string | undefined,
+	artifact: ArtifactProof | undefined,
+	verified: Verification | undefined,
+): CardOp {
+	if (sign === "review") {
+		const base = override === undefined ? { kind: "review" as const } : { kind: "review" as const, override };
+		return verified === undefined ? base : { ...base, verified };
+	}
 	return { kind: "approve", ...(artifact === undefined ? {} : { artifact }) };
 }
 

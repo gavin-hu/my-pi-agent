@@ -17,7 +17,9 @@ import { planForContract, planIsGone } from "../../lib/board/artifact.ts";
 import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
 import { movableLanes } from "../../lib/board/lanes.ts";
 import { indexOf } from "../../lib/board/links.ts";
+import type { Verification } from "../../lib/board/contract.ts";
 import { signMark } from "../../lib/board/lead.ts";
+import type { VerifyRun } from "../../lib/board/verify.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
@@ -60,8 +62,8 @@ function verbHelp(): string {
  */
 export const BOARD_DESCRIPTION =
 	"The shared feature list for this repository: one card per feature, which any session reads and writes. " +
-	"A card moves through five lanes - backlog, plan, execute, blocked, done - and carries its outcome, holder, " +
-	"contract (goal, acceptance, scopeOut), plan, priority, type, breaking marker, links, and notes. " +
+	"A card moves through five lanes and carries its outcome, holder, " +
+	"contract, plan, priority, type, breaking marker, links, and notes. " +
 	`${verbHelp()} A card's steps do not belong on the board - they belong in the plan and in \`todo\`.`;
 
 /**
@@ -113,9 +115,14 @@ function callSubject(action: BoardAction, args: Record<string, unknown>): string
 export function registerTools(
 	pi: ExtensionAPI,
 	runtime: BoardSession,
-	deps: { team?: TeamJoin; notify?: Notify } = {},
+	deps: { team?: TeamJoin; notify?: Notify; verify?: VerifyRun } = {},
 ): void {
 	const team = deps.team ?? createTeamJoin(pi);
+	/**
+	 * The run a spot-check records, loaded at the first one: a board that never signs a card pays
+	 * nothing for the process seam it would need, and the registration graph stays where it is.
+	 */
+	let verifyModule: Promise<typeof import("../../lib/board/verify.ts")> | undefined;
 	// Loaded at the first sign, not at registration: a board that never signs pays nothing for the
 	// message, and the registration graph stays the size it was.
 	let signMessage: Promise<typeof import("./announce.ts")> | undefined;
@@ -155,6 +162,32 @@ export function registerTools(
 				(proofModule ??= import("./proof.ts")).then((module) => module.provedPlan(runtime, ctx.cwd, store, rawCard));
 			/** The crossing this call can make, bound to its context once. */
 			const cross = (result: MutateResult) => runtime.cross(ctx, result).catch(() => undefined);
+			/**
+			 * The run a spot-check records, when the card's contract names a command.
+			 *
+			 * The board executes nothing of its own: this call is the run, and the record it hands the
+			 * store is evidence rather than an instruction. A card whose contract names nothing costs
+			 * no process at all — the read is the same one `mutate` is about to make.
+			 */
+			const verifiedFor = async (
+				store: BoardStore,
+				rawCard: string | undefined,
+			): Promise<{ verified: Verification } | { error: string } | undefined> => {
+				const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
+				if (id === undefined) return undefined;
+				const card = await store.read(id).catch(() => undefined);
+				if (card?.contract?.verify === undefined) return undefined;
+				// The read, the run and the sentence are `lib/board/verify.ts`'s, because the person's
+				// `/board review` asks the card the same question and must word a failure the same way.
+				const module = await (verifyModule ??= import("../../lib/board/verify.ts"));
+				return module.verifySpotCheck(
+					card,
+					ctx.cwd,
+					deps.verify ?? module.defaultVerifyRun(),
+					() => runtime.now(),
+					module.shaOf(pi),
+				);
+			};
 			try {
 				// Before the join and before a card is read: a refused call has written nothing, so it
 				// cannot have enlisted this session as a teammate on its way to the refusal.
@@ -234,6 +267,7 @@ export function registerTools(
 							goal: args.goal,
 							acceptance: args.acceptance,
 							scopeOut: args.scopeOut,
+							verify: args.verify,
 						});
 					}
 					case "approve":
@@ -263,9 +297,18 @@ export function registerTools(
 						// the same proof a move does. A spot-check is about work already done, and the
 						// `done` move proves the plan then, so it pays for nothing here.
 						const artifact = action === "approve" ? await proofOf(store, args.card) : undefined;
+						// A spot-check of a card whose contract names a command is that command's run:
+						// a refusal here writes nothing, which is what keeps a red check from signing.
+						const evidence = action === "review" ? await verifiedFor(store, args.card) : undefined;
+						if (evidence !== undefined && "error" in evidence) return refusal(action, me, evidence.error);
 						const op =
 							action === "review"
-								? { kind: "review" as const, text: args.text, override: args.override }
+								? {
+										kind: "review" as const,
+										text: args.text,
+										override: args.override,
+										...(evidence === undefined ? {} : { verified: evidence.verified }),
+									}
 								: { kind: "approve" as const, text: args.text, ...(artifact === undefined ? {} : { artifact }) };
 						return await mutate(store, action, me, now, args, op, { told });
 					}

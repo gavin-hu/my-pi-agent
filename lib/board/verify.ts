@@ -1,0 +1,161 @@
+/**
+ * The acceptance command a contract names, and the one run a spot-check records.
+ *
+ * A contract's `verify` line is a promise the board can check: the sign's own call runs it and
+ * keeps `{ cmd, exit, at, sha }` on the sign (`lib/board/contract.ts`). Nothing here decides
+ * anything — the board never executes a command on its own, and the store never reads this
+ * module — so what it owns is the run itself: one shell, a bound, and the tail of what it said.
+ *
+ * The bound is the only thing keeping a sign finite. A command that outlives it is killed with
+ * its tree (the pieces `job` and `watch` use through `lib/child.ts`), and the answer says
+ * `killed`, which no door records as a result.
+ *
+ * The tail is for the refusal, never for the sign: a record keeps a verdict, and an output
+ * buffer in a card file would grow with whatever the command decided to print.
+ */
+
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { type ChildSink, type ChildSlot, createChildSupervisor } from "../child.ts";
+import { messageOf } from "../errors.ts";
+import { sanitizeLine } from "../format.ts";
+import { createExecRunner, headSha } from "../git/index.ts";
+import type { Card } from "./card.ts";
+import type { Verification } from "./contract.ts";
+import { failedSpotCheck, killedSpotCheck } from "./lead.ts";
+
+/** How long one run may take before it is killed with its tree. */
+export const VERIFY_TIMEOUT_MS = 10 * 60_000;
+
+/** Characters of output kept for a refusal: enough for a failing assertion, not the whole log. */
+export const MAX_VERIFY_OUTPUT = 400;
+
+/**
+ * What one run answered.
+ *
+ * `exit` is the command's own code, or `-1` when there was none to have — a spawn that failed,
+ * a command killed at the bound. `output` is the clipped tail of stdout and stderr merged, so a
+ * refusal can name what broke; it is never recorded on a card.
+ */
+export interface VerifyOutcome {
+	exit: number;
+	output: string;
+	/** True when the bound stopped it, which is a failure whatever the exit says. */
+	killed: boolean;
+}
+
+/** One run of `command` in `cwd`. The seam every suite drives instead of a real process. */
+export type VerifyRun = (command: string, cwd: string) => Promise<VerifyOutcome>;
+
+/** The one answer a door records: the evidence, or the run that stopped the spot-check. */
+export type VerifyAnswer = { verified: Verification } | { failure: VerifyOutcome };
+
+/**
+ * The production run: a shell in `cwd`, its output merged and clipped, killed at the bound.
+ *
+ * `shell: true` because a contract line is a command a person wrote — `bun run check --slow` —
+ * and not an argv the board could split without guessing at quoting. The supervisor is
+ * `lib/child.ts`'s, so the SIGTERM → SIGKILL escalation is the one `job` and `watch` already
+ * use rather than a second copy of it here.
+ */
+export function defaultVerifyRun(
+	timeoutMs: number = VERIFY_TIMEOUT_MS,
+	supervisor = createChildSupervisor(),
+): VerifyRun {
+	return async (command, cwd) => {
+		const slot: ChildSlot = {};
+		let tail = "";
+		let timedOut = false;
+		return new Promise<VerifyOutcome>((resolve) => {
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			const settle = (outcome: VerifyOutcome): void => {
+				if (timer !== undefined) clearTimeout(timer);
+				supervisor.clearTimer(slot);
+				resolve(outcome);
+			};
+			const sink: ChildSink = {
+				onData(chunk) {
+					tail = keepTail(tail + chunk.toString("utf8"));
+				},
+				onSettled(outcome) {
+					if (outcome.kind === "failed") return settle({ exit: -1, output: outcome.message, killed: false });
+					// A killed run has no exit code: the signal is what ended it, and the bound is ours.
+					const exit = outcome.code ?? -1;
+					settle({ exit, output: tail, killed: timedOut });
+				},
+			};
+			const failure = supervisor.start(slot, command, { cwd, shell: true }, sink);
+			if (failure !== undefined) return settle({ exit: -1, output: failure, killed: false });
+			timer = setTimeout(() => {
+				timedOut = true;
+				supervisor.terminate(slot);
+			}, timeoutMs);
+			timer.unref?.();
+		});
+	};
+}
+
+/** The last {@link MAX_VERIFY_OUTPUT} characters, so a chatty command cannot grow the buffer. */
+function keepTail(text: string): string {
+	return text.length <= MAX_VERIFY_OUTPUT ? text : text.slice(text.length - MAX_VERIFY_OUTPUT);
+}
+
+/**
+ * Run the contract's command and answer with what a sign records, or the run that stopped it.
+ *
+ * Only a clean exit is a result: a red command is not a failed *call* — it is the check doing
+ * its job — so the answer is the outcome itself and the door words the refusal. A run that
+ * throws is an outcome with no exit, because a seam that broke must never read as a pass.
+ */
+export async function verifiedCommand(
+	cmd: string,
+	cwd: string,
+	run: VerifyRun,
+	now: () => number,
+	sha?: (cwd: string) => Promise<string | undefined>,
+): Promise<VerifyAnswer> {
+	const outcome = await run(cmd, cwd).catch(
+		(error: unknown): VerifyOutcome => ({ exit: -1, output: messageOf(error), killed: false }),
+	);
+	if (outcome.killed || outcome.exit !== 0) return { failure: outcome };
+	const commit = await sha?.(cwd).catch(() => undefined);
+	return { verified: { cmd, exit: outcome.exit, at: now(), ...(commit === undefined ? {} : { sha: commit }) } };
+}
+
+/** The commit the board is on, through the git runner the rest of the board already uses. */
+export function shaOf(pi: Pick<ExtensionAPI, "exec">): (cwd: string) => Promise<string | undefined> {
+	const run = createExecRunner(pi);
+	return (cwd) => headSha(run, cwd);
+}
+
+/**
+ * The evidence one card's spot-check records, read from the card the store holds.
+ *
+ * Both doors sign — the tool's `review` and the person's `/board review` — and both have to ask
+ * the same question of the same field and word a failure the same way, so the read of the
+ * contract, the run, and the sentence are one body here rather than two that drift. A card whose
+ * contract names no command is `undefined`: nothing ran, and nothing is owed.
+ */
+export async function verifySpotCheck(
+	card: Card | undefined,
+	cwd: string,
+	run: VerifyRun,
+	now: () => number,
+	sha?: (cwd: string) => Promise<string | undefined>,
+): Promise<{ verified: Verification } | { error: string } | undefined> {
+	const cmd = card?.contract?.verify;
+	if (card === undefined || cmd === undefined) return undefined;
+	const answer = await verifiedCommand(cmd, cwd, run, now, sha);
+	if ("verified" in answer) return answer;
+	const tail = outputLine(answer.failure);
+	const sentence = answer.failure.killed
+		? killedSpotCheck(card, cmd, VERIFY_TIMEOUT_MS)
+		: failedSpotCheck(card, cmd, answer.failure.exit);
+	// The tail is what says why, and it rides the sentence as one clip rather than a second line.
+	return { error: tail === undefined ? sentence : `${sentence} — ${tail}` };
+}
+
+/** The clipped output as one line a refusal can carry: merged, collapsed, and sanitized. */
+export function outputLine(outcome: VerifyOutcome): string | undefined {
+	const text = sanitizeLine(outcome.output).trim();
+	return text === "" ? undefined : text;
+}

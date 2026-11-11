@@ -264,7 +264,6 @@ export interface EndedCard {
 	why: "dropped";
 }
 
-/** Whether `value` is an ended-card record this build can trust. */
 export function isEndedCard(value: unknown): value is EndedCard {
 	if (typeof value !== "object" || value === null) return false;
 	const ended = value as Record<string, unknown>;

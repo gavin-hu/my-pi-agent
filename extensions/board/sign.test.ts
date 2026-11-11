@@ -16,6 +16,7 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeBoardSession, pageWithNoRecording, signingBoard } from "../../test/helpers/board-command.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
+import { runner } from "../../test/helpers/board-signs.ts";
 import type { Notify } from "./announce.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 
@@ -34,6 +35,26 @@ function toldBy(answer: { ok: true } | { ok: false; error: string }) {
 		return answer.ok ? { ok: true, delivered: ["team-agent-slead"], failed: [] } : answer;
 	};
 	return { notify, sent };
+}
+
+/** The command a card's contract names in the cases about the person's run. */
+const VERIFY = "bun run check";
+
+/** The card the person signs, taken through the store to `execute` with a command on its contract. */
+async function executableWith(board: Awaited<ReturnType<typeof signingBoard>>): Promise<void> {
+	await board.store.mutate(
+		board.id,
+		{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s", verify: VERIFY },
+		board.me,
+		1_000,
+	);
+	await board.store.mutate(board.id, { kind: "approve", artifact: { path: board.plan } }, { label: "lead" }, 1_000);
+	await board.store.mutate(
+		board.id,
+		{ kind: "move", lane: "execute", artifact: { path: board.plan } },
+		board.me,
+		1_000,
+	);
 }
 
 describe("/board approve and /board review", () => {
@@ -65,6 +86,27 @@ describe("/board approve and /board review", () => {
 		// An approval has no instruction to record, so the clause is the review's alone: the line
 		// prints the sign the person made and nothing about a gate it never used.
 		expect(await board.say("approve 1")).toBe(`board: #1 approved by you${NOT_TOLD}`);
+		board.temps.flush();
+	});
+
+	test("runs the contract's command as the person, and says what ran", async () => {
+		const run = runner();
+		const board = await signingBoard({ verify: run });
+		await executableWith(board);
+		expect(await board.say("review 1")).toBe(`board: #1 reviewed by you · ran \`${VERIFY}\` (exit 0)${NOT_TOLD}`);
+		expect(run.ran).toEqual([VERIFY]);
+		// The record is the run's, written by the person's own door.
+		expect((await board.store.read(board.id))?.review?.verified).toEqual({ cmd: VERIFY, exit: 0, at: 1_000 });
+		board.temps.flush();
+	});
+
+	test("a red command is a line, not a sign, and the card is left alone", async () => {
+		const run = runner({ exit: 1, output: "3 tests failed" });
+		const board = await signingBoard({ verify: run });
+		await executableWith(board);
+		const line = await board.say("review 1");
+		expect(line).toContain(`\`${VERIFY}\` exited 1`);
+		expect((await board.store.read(board.id))?.review).toBeUndefined();
 		board.temps.flush();
 	});
 

@@ -26,11 +26,123 @@ import {
 	OTHER,
 	proved,
 	provedFor,
+	VERIFY,
+	verifying,
 	reviewed,
 	refusal,
 	stepOf,
 	written,
 } from "../../test/helpers/fixtures/board-rules.ts";
+
+describe("a spot-check of a card whose contract names a command", () => {
+	/** The run a case records: the contract's own command, unless the case is about another. */
+	const run = (cmd = VERIFY, exit = 0) => ({ cmd, exit, at: NOW, sha: "1d3a8ce3" });
+
+	test("records the run the signer's call made, and the card closes on it", () => {
+		const card = verifying();
+		const signed = stepOf(card, { kind: "review", verified: run() }, LEAD);
+		expect(signed.review?.verified).toEqual(run());
+		// The run is what `done` reads, so the ordinary path stays open.
+		expect(
+			accepted(applyOp(signed, { kind: "move", lane: "done", artifact: provedFor(signed) }, CORE, NOW, boardOf(signed)))
+				.card.lane,
+		).toBe("done");
+	});
+
+	test("refuses a sign with no run, because the contract asked for one", () => {
+		const card = verifying();
+		expect(refusal(applyOp(card, { kind: "review" }, LEAD, NOW, boardOf(card)))).toContain("carries no result");
+		// A card that names no command is the gate it always was: the run is not asked for.
+		expect(stepOf(executing(), { kind: "review" }, LEAD).review?.verified).toBeUndefined();
+	});
+
+	test("refuses a run for a command the contract does not name", () => {
+		const card = verifying();
+		expect(refusal(applyOp(card, { kind: "review", verified: run("bun test") }, LEAD, NOW, boardOf(card)))).toContain(
+			`contract names \`${VERIFY}\`, not \`bun test\``,
+		);
+	});
+
+	test("refuses a run that did not pass", () => {
+		const card = verifying();
+		// The check doing its job is not a signature: a red command leaves the card unreviewed.
+		expect(refusal(applyOp(card, { kind: "review", verified: run(VERIFY, 1) }, LEAD, NOW, boardOf(card)))).toContain(
+			`\`${VERIFY}\` exited 1`,
+		);
+	});
+
+	test("refuses a run on a card whose contract names none", () => {
+		const card = executing();
+		expect(refusal(applyOp(card, { kind: "review", verified: run() }, LEAD, NOW, boardOf(card)))).toContain(
+			"names no command",
+		);
+	});
+
+	test("refuses a run with an override, which is an instruction and not a check", () => {
+		const forced = { ...finished(), review: undefined };
+		expect(
+			refusal(
+				applyOp(
+					forced,
+					{ kind: "review", override: "closed on my instruction", verified: run() },
+					LEAD,
+					NOW,
+					boardOf(forced),
+				),
+			),
+		).toContain("an instruction is not a check");
+	});
+});
+
+describe("the run a done move reads", () => {
+	test("passes over the announcement the sign owes, which is the sign's own write", () => {
+		// #398's announcement lands after the review and bumps `updatedAt` past `review.at`: reading
+		// the card's own clock alone would refuse the golden path.
+		const signed = stepOf(verifying(), { kind: "review", verified: { cmd: VERIFY, exit: 0, at: NOW } }, LEAD);
+		const announced = accepted(
+			applyOp(signed, { kind: "announced", sign: "review" }, LEAD, NOW + 1, boardOf(signed)),
+		).card;
+		expect(announced.updatedAt).toBeGreaterThan(signed.review?.at ?? 0);
+		expect(
+			accepted(
+				applyOp(
+					announced,
+					{ kind: "move", lane: "done", artifact: provedFor(announced) },
+					CORE,
+					NOW + 2,
+					boardOf(announced),
+				),
+			).card.lane,
+		).toBe("done");
+	});
+
+	test("refuses a card written after the spot-check", () => {
+		const signed = stepOf(verifying(), { kind: "review", verified: { cmd: VERIFY, exit: 0, at: NOW } }, LEAD);
+		const noted = accepted(
+			applyOp(signed, { kind: "note", text: "one more thing" }, CORE, NOW + 1, boardOf(signed)),
+		).card;
+		expect(
+			refusal(
+				applyOp(noted, { kind: "move", lane: "done", artifact: provedFor(noted) }, CORE, NOW + 2, boardOf(noted)),
+			),
+		).toContain("was written after its spot-check");
+	});
+
+	test("refuses a note added after the announcement too, which is a later write again", () => {
+		const signed = stepOf(verifying(), { kind: "review", verified: { cmd: VERIFY, exit: 0, at: NOW } }, LEAD);
+		const announced = accepted(
+			applyOp(signed, { kind: "announced", sign: "review" }, LEAD, NOW + 1, boardOf(signed)),
+		).card;
+		const noted = accepted(
+			applyOp(announced, { kind: "note", text: "one more thing" }, CORE, NOW + 2, boardOf(announced)),
+		).card;
+		expect(
+			refusal(
+				applyOp(noted, { kind: "move", lane: "done", artifact: provedFor(noted) }, CORE, NOW + 3, boardOf(noted)),
+			),
+		).toContain("was written after its spot-check");
+	});
+});
 
 describe("approve", () => {
 	test("records who approved the contract, and when", () => {

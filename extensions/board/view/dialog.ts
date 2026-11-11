@@ -47,7 +47,19 @@ const dialogTemplate = String.raw`(function () {
   var SECTIONS = ["contract", "start", "links", "record"];
 
   /** The promise's three rows, which the section's own rule hides with the heading. */
-  var CONTRACT_ROWS = ["goal", "acceptance", "scope-out"];
+  var CONTRACT_ROWS = ["goal", "acceptance", "scope-out", "verify"];
+
+  /**
+   * What the sign's run was, as the clause under the rung: the command, its exit, and the commit.
+   *
+   * The transcript draws this from the same field (card.review.verified), which is the point:
+   * two surfaces cannot disagree about what ran when they read one record.
+   */
+  function ranClause(reviewed) {
+    var run = reviewed.verified;
+    if (run === undefined) return "";
+    return " \u00b7 ran " + run.cmd + " (exit " + run.exit + (run.sha === undefined ? "" : ", " + run.sha) + ")";
+  }
 
   /**
    * Whether a section below the reason line already prints what a reason of this kind says.
@@ -170,6 +182,12 @@ __INLINE_MARKDOWN__
     for (var f = 0; f < CONTRACT_ROWS.length; f++) {
       document.getElementById("card-dialog-" + CONTRACT_ROWS[f]).hidden = contract === undefined;
     }
+    // The command is one of those rows and the only optional one, so it is hidden again when the
+    // contract does not name it: a card read rather than run draws nothing under the promise.
+    var command = contract === undefined ? "" : contract.verify;
+    var commandRow = document.getElementById("card-dialog-verify");
+    if (command !== undefined) commandRow.textContent = command;
+    commandRow.hidden = command === undefined || command === "";
     // The approval closes the promise the way a signature closes a document, in the tone the
     // board gives an approval. No line when nobody has signed: the block is unsigned, and the
     // reason line above is what says the card is waiting for a person to read it.
@@ -204,7 +222,7 @@ __INLINE_MARKDOWN__
       reviewed !== undefined,
       reviewed === undefined
         ? ""
-        : stampedRow(reviewed.by + " \u00b7 ", reviewed.at, "reviewed {age}", reviewed.byInstruction === undefined ? "" : " \u00b7 by instruction")
+        : stampedRow(reviewed.by + " \u00b7 ", reviewed.at, "reviewed {age}", reviewed.byInstruction !== undefined ? " \u00b7 by instruction" : ranClause(reviewed))
     );
 
     pair("paths", card.paths.length > 0);

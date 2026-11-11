@@ -46,6 +46,13 @@ export async function repoRootFor(
 	}
 }
 
+/** The commit `cwd` is on, or undefined outside a repository and on a failed call. */
+export async function headSha(runGit: RunGit, cwd: string): Promise<string | undefined> {
+	const result = await runGit(["rev-parse", "HEAD"], { cwd });
+	if (result.code !== 0) return undefined;
+	return result.stdout.trim() || undefined;
+}
+
 /** Absolute path of the repository's git directory. */
 export async function gitDir(runGit: RunGit, cwd: string): Promise<string | undefined> {
 	const result = await runGit(["rev-parse", "--absolute-git-dir"], { cwd });

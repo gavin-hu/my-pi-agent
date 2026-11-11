@@ -182,9 +182,20 @@ the record says the first never landed — and `announced` writes the moment, re
 that sign's own signer (`signedAs`, so the person's mark counts and a session wearing the lead's name
 does not). A failed send leaves the fact absent, which is what makes a repeat sign the retry.
 
+### the spot-check, in lead.ts
+
+`review` is the one sign whose record is a *run*, so it lives with the signer rule rather than with
+the other steps: the contract's `verify` line names a command, the signer's own call runs it, and
+`evidenceFor` holds the result to three rules rather than trusting it — the card's contract has to
+name that command (a green for the *old* wording is the failure this exists to prevent), the exit
+has to be zero, and an override carries none, because an instruction is not a check. The accepted
+run rides the sign as `Sign.verified`, and the `done` gate reads it: a card whose contract names a
+command needs a result newer than the sign's own writes. The sentences are `SIGN_WORDS`'s here,
+with the rest a refusal says.
+
 ### reclaim, in lead.ts
 
-The one operation `steps.ts` cannot hold, because its gate reads a fact the card does not carry:
+The other operation `steps.ts` cannot hold, because its gate reads a fact the card does not carry:
 whether the session holding it is still running. A session takes its own card back (a release by
 another name), the lead takes anybody's, and a peer takes one only from an owner whose record says
 it stopped — `quiet` or `gone`. `absent` is refused with no fact at all, because a session that
@@ -304,6 +315,19 @@ wearing the holder's name — reads as a self-release and stays silent. `Claims`
 seam that keeps every case here off a bus, `reclaimHeld` re-takes the paths of the cards a resumed
 session is already executing, and nothing here may cost a card write: no bus is silence, a refusal
 is a sentence, and a conflict is neither.
+
+### verify.ts
+
+The acceptance command a contract may name, and the one run a spot-check records. The board
+executes nothing of its own: `verifySpotCheck(card, cwd, run, now, sha)` reads the contract's
+`verify` line, runs it through the `VerifyRun` seam, and answers either the record
+(`{ cmd, exit, at, sha }`) or the sentence that stops the sign — so the tool's `review` and the
+person's `/board review` word a red command the same way, from one body. `runVerification` is
+the production seam: a shell in the card's directory, its merged output clipped to
+`MAX_VERIFY_OUTPUT` and killed with its tree at `VERIFY_TIMEOUT_MS`, which is the only thing
+keeping a sign finite. `shaOf` records the commit the repository was on; a board outside git
+records the run without one. The output tail is for the refusal and never the card: a record
+keeps a verdict, and a buffer in a card file would grow with whatever the command printed.
 
 ### join.ts
 
