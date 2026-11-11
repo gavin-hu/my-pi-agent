@@ -55,14 +55,14 @@ export async function mutate(
 	args: BoardArgs,
 	op: CardOp,
 	/**
-	 * What the call says besides the card: `next` after any successful write, `told` after one that
-	 * changed something, and `cross` for the four actions whose write can cross a lane. `told`'s
-	 * second argument is the store's `signed`: a note added to a card that was already signed is a
-	 * write with no new stamp behind it, and the message a sign sends is about the stamp.
+	 * What the call says besides the card: `next` after any successful write, `told` when the result
+	 * says a sign owes the owner its message, and `cross` for the four actions whose write can cross
+	 * a lane. `told` is not gated on the write: a repeat sign that stamped nothing still owes one
+	 * while the card says the sign was never told.
 	 */
 	report: {
 		next?: string;
-		told?: (card: Card, signed: boolean) => Promise<string | undefined>;
+		told?: (card: Card) => Promise<{ card?: Card; line?: string } | undefined>;
 		cross?: (result: MutateResult) => Promise<string | undefined>;
 	} = {},
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
@@ -71,23 +71,25 @@ export async function mutate(
 	if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
 	const result = await store.mutate(id, op, me, now);
 	if (!result.ok) return refusal(action, me, result.error, result.card);
-	const told = result.changed ? await report.told?.(result.card, result.signed === true) : undefined;
+	const told = result.announce === true ? await report.told?.(result.card) : undefined;
+	// A sign the owner was just told of is a card that moved: the announced write is the newer read.
+	const card = told?.card ?? result.card;
 	// After the write, as the sign's message is: a bus that cannot answer costs a clause and
 	// never the move it came after.
 	const held = report.cross === undefined ? undefined : await report.cross(result).catch(() => undefined);
 	const body = [
-		formatCard(result.card),
+		formatCard(card),
 		report.next,
 		// The clause carries the continuation indent its neighbours do, the one `announce` writes
 		// into its own sentence: a flush-left line under an indented card reads as a second card.
 		held === undefined ? undefined : `  ${held}`,
-		told,
+		told?.line,
 	].filter((line): line is string => line !== undefined);
 	return textResult(body.join("\n"), {
 		action,
 		me,
-		card: result.card,
-		...(told === undefined ? {} : { told: told.trim() }),
+		card,
+		...(told?.line === undefined ? {} : { told: told.line.trim() }),
 		...(held === undefined ? {} : { held: held.trim() }),
 	});
 }

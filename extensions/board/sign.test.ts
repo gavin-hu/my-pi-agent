@@ -177,6 +177,38 @@ describe("/board approve and /board review", () => {
 		board.temps.flush();
 	});
 
+	test("a sign the owner never heard is sent again by the same word", async () => {
+		// The first word reached the card and not the bus; the second is the retry, and it stamps
+		// nothing — this is the door the card says was silent.
+		const sent: Array<{ kind: string; to: string; text: string }> = [];
+		let failed = false;
+		const notify: Notify = async (_ctx, input) => {
+			if (!failed) {
+				failed = true;
+				return { ok: false, error: "the session bus is not loaded" };
+			}
+			sent.push(input);
+			return { ok: true, delivered: ["team-agent-slead"], failed: [] };
+		};
+		const board = await signingBoard({ notify });
+		await board.store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		expect(await board.say("approve 1")).toContain("was not told");
+		expect((await board.store.read(board.id))?.contract?.approved?.told).toBeUndefined();
+
+		expect(await board.say("approve 1")).toBe("board: #1 is already approved by you · told team-agent-slead");
+		expect(sent).toHaveLength(1);
+		expect((await board.store.read(board.id))?.contract?.approved?.told).toEqual({ at: 1_000 });
+		// Told once is told: the third word writes nothing and says nothing.
+		expect(await board.say("approve 1")).toBe("board: #1 is already approved by you");
+		expect(sent).toHaveLength(1);
+		board.temps.flush();
+	});
+
 	test("says so when the sign is already there, rather than pretending to write", async () => {
 		const { notify, sent } = toldBy({ ok: true });
 		const board = await signingBoard({ notify });

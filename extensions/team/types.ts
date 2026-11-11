@@ -41,6 +41,11 @@ export interface TeamDetails {
 	 * for their next turn instead of being raised as one. Absent when every peer listens.
 	 */
 	notListening?: string[];
+	/**
+	 * The peers the message reached whose record has aged out: the file is in the inbox, and nothing
+	 * says the session is still there to read it.
+	 */
+	quiet?: string[];
 	/** The peers no message file could be written for, when the send reached somebody else. */
 	failed?: DeliveryFailure[];
 	/** Why the handoff was not sent; the card is untouched when this is set. */

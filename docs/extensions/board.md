@@ -11,8 +11,8 @@ are needed before it can ship.
   other session opens that same page.
 - **The page is a view.** Nothing is claimed, moved, or signed from a browser.
 - **Two signatures**: the lead approves a contract before `execute`, and
-  spot-checks the work before `done`. The person at the keyboard can give either
-  with `/board approve` and `/board review`.
+  spot-checks the work before `done`. The person at the keyboard can give either — how
+  a one-session repository finishes work — with `/board approve` and `/board review`.
 - **The lane is the record, and a session is told which cards are its own** — once,
   before its first turn, with what each owes next.
 - **Steps stay out of it** — they live in the owner's plan and `todo`.
@@ -74,8 +74,8 @@ port, watching tabs, and store; `/board stop` stops the page this session serves
 
 **Who signs.** The lead is `board.lead` in `bytefly.json` (`lead` by default), and the page serves
 as that name. A session signs only while it is the lead and never while it holds the card;
-`/board approve` and `/board review` sign as the person, marked `person: true` — how a one-session
-repository finishes work. The sign then names the peer it reached, or that it is not listening.
+`/board approve` and `/board review` sign as the person, marked `person: true`. The sign says who
+heard it — quiet, not listening, or not told — and an untold one is sent again by its signer.
 
 **Where it lives.** `~/.pi/agent/board/<repo-key>/` — one card per file under
 `cards/`, with `archive/` and `ended/` beside it. The `page.json` a served page

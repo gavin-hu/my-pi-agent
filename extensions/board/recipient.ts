@@ -13,7 +13,7 @@
  */
 
 import type { CardOwner } from "../../lib/board/card.ts";
-import { type RosterSession, rosterStateOf } from "../../lib/session-roster.ts";
+import { type RosterSession, type RosterState, rosterStateOf } from "../../lib/session-roster.ts";
 
 /** One addressee: what to send to, what to call it, and whether it is listening. */
 export interface Recipient {
@@ -23,6 +23,14 @@ export interface Recipient {
 	label: string;
 	/** Whether that peer will be woken for its mail; absent when its record does not say. */
 	listening?: boolean;
+	/**
+	 * What the roster says about it: `live`, or `quiet`.
+	 *
+	 * A gone record is not a recipient at all, so a recipient is never `gone`. Quiet is the fact a
+	 * result has to carry — a message written for a session whose heartbeat aged out was not handled
+	 * to anybody who is known to be there.
+	 */
+	state?: RosterState;
 }
 
 /**
@@ -43,6 +51,7 @@ export function recipientOf(owner: CardOwner, roster: readonly RosterSession[] |
 	return {
 		to: named.id,
 		label: named.label,
+		state: rosterStateOf(named, now),
 		...(named.watching === undefined ? {} : { listening: named.watching.armed }),
 	};
 }

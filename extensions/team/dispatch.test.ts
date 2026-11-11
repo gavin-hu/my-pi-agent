@@ -18,6 +18,7 @@ import {
 	askText,
 	handoffText,
 	notListening,
+	quiet,
 	offerText,
 	ownerFor,
 	peerFor,
@@ -225,16 +226,27 @@ describe("peerFor", () => {
 	});
 });
 
-describe("notListening", () => {
+describe("notListening and quiet", () => {
+	const peers = [
+		{ id: "s-core", label: "billing-core", listening: true, state: "live" as const },
+		{ id: "s-web", label: "billing-web", listening: false, state: "live" as const },
+		{ id: "s-quiet", label: "ops-helper", listening: true, state: "quiet" as const },
+		{ id: "s-old", label: "billing-old" },
+	];
+	const labels = ["billing-core", "billing-web", "ops-helper", "billing-old", "ghost"];
+
 	test("names the peers whose record says they are not listening", () => {
-		const peers = [
-			{ id: "s-core", label: "billing-core", listening: true },
-			{ id: "s-web", label: "billing-web", listening: false },
-			{ id: "s-old", label: "ops-helper" },
-		];
 		// A record that does not say is not a claim that nobody will read it.
-		expect(notListening(peers, ["billing-core", "billing-web", "ops-helper", "ghost"])).toEqual(["billing-web"]);
+		expect(notListening(peers, labels)).toEqual(["billing-web"]);
 		expect(notListening(undefined, ["billing-web"])).toEqual([]);
+	});
+
+	test("names a quiet peer once, as quiet rather than as not listening", () => {
+		// A heartbeat that aged out says nothing is known to be there, which outranks the watch the
+		// record still carries: one peer, one sentence, the louder of the two.
+		expect(quiet(peers, labels)).toEqual(["ops-helper"]);
+		expect(notListening(peers, ["ops-helper"])).toEqual([]);
+		expect(quiet(undefined, labels)).toEqual([]);
 	});
 });
 

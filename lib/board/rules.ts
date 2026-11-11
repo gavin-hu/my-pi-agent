@@ -50,7 +50,7 @@ import {
 	release,
 	review,
 } from "./steps.ts";
-import { type HolderFact, reclaim } from "./lead.ts";
+import { type HolderFact, announced, type Sign, reclaim } from "./lead.ts";
 
 /** Who is attempting an operation: a session when it has one, and the label it is addressed by. */
 export interface Actor {
@@ -137,19 +137,26 @@ export type CardOp =
 	 * itself is unchanged, because the pile its file lies in is the whole of the state.
 	 */
 	| { kind: "archive" }
-	| { kind: "drop" };
+	| { kind: "drop" }
+	/**
+	 * Record that a sign's message to the owner was settled: the bus took it, or there was nobody
+	 * to tell. Written by the door that sent it, after it sent — a sign nobody heard leaves this
+	 * absent, which is what lets a repeat sign owe the message again. Not a tool action: the gates
+	 * dispatch it themselves, so nothing about it reaches the board's published surface.
+	 */
+	| { kind: "announced"; sign: Sign };
 
 /**
  * What an operation did: the new card, or the reason it was refused.
  *
- * `signed` is the one fact `changed` cannot carry: a repeated sign that added a note writes the
- * card without stamping a signature, and the message a sign sends belongs to the stamp rather
- * than to the file.
+ * `announce` is the one fact `changed` cannot carry: a repeat sign that stamped nothing still owes
+ * the owner the sign's message while the card says it was never told, so a caller reads "this call
+ * owes a message" off the result rather than inferring it from a write.
  */
-export type OpResult = { ok: true; card: Card; changed: boolean; signed?: true } | { ok: false; error: string };
+export type OpResult = { ok: true; card: Card; changed: boolean; announce?: true } | { ok: false; error: string };
 
 /** What one operation would write, or why it may not. */
-export type Prepared = { error: string } | { fields: Partial<Card> | null; changed: boolean; signed?: true };
+export type Prepared = { error: string } | { fields: Partial<Card> | null; changed: boolean; announce?: true };
 
 /** A card's first state: `backlog`, no owner, one note at most. */
 export function createCard(
@@ -222,12 +229,13 @@ export function applyOp(
 ): OpResult {
 	const prepared = prepare(card, op, actor, now, board, config, place);
 	if ("error" in prepared) return { ok: false, error: prepared.error };
-	if (!prepared.changed) return { ok: true, card, changed: false };
-	const signed = prepared.signed === true ? { signed: true as const } : {};
+	// Carried by both shapes: a repeat sign writes nothing and still owes the owner its message.
+	const announce = prepared.announce === true ? { announce: true as const } : {};
+	if (!prepared.changed) return { ok: true, card, changed: false, ...announce };
 	// `archive` changes the pile a card's file lies in and no field at all, which is why
 	// its step has nothing to write and the store's move is the whole of the operation.
-	if (prepared.fields === null) return { ok: true, card, changed: true, ...signed };
-	return { ok: true, card: write(card, actor, now, prepared.fields), changed: true, ...signed };
+	if (prepared.fields === null) return { ok: true, card, changed: true, ...announce };
+	return { ok: true, card: write(card, actor, now, prepared.fields), changed: true, ...announce };
 }
 
 /**
@@ -272,6 +280,8 @@ function prepare(
 			return edit(card, op, actor, board);
 		case "reclaim":
 			return reclaim(card, actor, config, op.holder);
+		case "announced":
+			return announced(card, op, actor, config, now);
 		case "offer":
 			return offer(card, now, board, config.wip);
 		case "archive":

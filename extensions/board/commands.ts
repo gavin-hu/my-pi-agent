@@ -189,18 +189,28 @@ async function signLine(
 	const text = result.changed
 		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}`
 		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}`;
-	// The message is the tool's rule as well as its transport: a repeated sign writes nothing, so
-	// it tells nobody, and a card nobody holds has nobody to tell. A note is the one write this
-	// door cannot make — `signOp` carries no text — so `changed` here already means a fresh stamp,
-	// which is the narrower fact the tool's own gate reads.
-	if (result.card.owner === undefined || !result.changed) return { text, tone: "info" };
+	// The message is the tool's rule as well as its transport — `announce` on the result is what a
+	// fresh stamp and an untold repeat both set, so this door re-sends a sign the owner never heard
+	// exactly as the tool does. The sign's own signer may record it, which is why `personActor` is
+	// the actor: `announced` compares with `signedAs`, and the person's mark is on the sign.
+	if (result.announce !== true) return { text, tone: "info" };
 	const { announce, notifyOverBus } = await import("./announce.ts");
 	const sender = notify ?? notifyOverBus(pi);
 	const told = await announce(result.card, sign, signMark(personActor(), lead).by, ctx, sender, {
 		roster: () => session.roster(ctx.cwd),
 		now: () => session.now(),
 	});
-	const clause = told?.trim();
+	const clause = told.line?.trim();
+	if (!told.done) return { text: clause === undefined ? text : `${text} · ${clause}`, tone: "info" };
+	// Settled: the record stops the next repeat owing the message. A record that did not land says
+	// so, because the message is already out and a repeat would send it again.
+	try {
+		const store = await session.store(ctx.cwd);
+		const kept = await store.mutate(id, { kind: "announced", sign }, personActor(), session.now());
+		if (!kept.ok) return { text: `${text} · ${clause ?? ""} (not recorded: ${kept.error})`, tone: "info" };
+	} catch (error) {
+		return { text: `${text} · ${clause ?? ""} (not recorded: ${messageOf(error)})`, tone: "info" };
+	}
 	return { text: clause === undefined ? text : `${text} · ${clause}`, tone: "info" };
 }
 

@@ -12,6 +12,7 @@
  */
 
 import { type Card, type CardBlock, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/board/card.ts";
+import type { Sign } from "../../lib/board/contract.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
 import { skippedText } from "../../lib/board/skipped.ts";
 import type { Skip } from "../../lib/board/store.ts";
@@ -133,6 +134,18 @@ export function formatArchived(ids: readonly string[]): string {
 	return `${plural(ids.length, "card")} archived: ${ids.map(cardRef).join(", ")} — out of the board, ${theirs} notes and plan still readable with archived: true.`;
 }
 
+/**
+ * ` · not told` on a sign whose message was never settled, for a card that can still be told.
+ *
+ * A gate that is open and an owner who never heard is the state a reader has to catch, so the block
+ * says it. A finished card draws nothing: every sign written before the field existed has no record
+ * of its message, and calling a closed card's sign "not told" would be a fact about the migration
+ * rather than about the card.
+ */
+function notTold(sign: Sign | undefined, card: Card): string {
+	return sign !== undefined && sign.told === undefined && card.lane !== "done" ? " · not told" : "";
+}
+
 /** A block as one line: the sentence, and the kind beside it when one was recorded. */
 function blockText(block: CardBlock): string {
 	const note = block.note ?? "nothing recorded";
@@ -176,11 +189,13 @@ function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = fa
 		lines.push(`  acceptance: ${card.contract.acceptance}`);
 		lines.push(`  scope out: ${card.contract.scopeOut}`);
 		const approved = card.contract.approved;
-		lines.push(`  approved: ${approved === undefined ? "nobody yet" : approved.by}`);
+		lines.push(`  approved: ${approved === undefined ? "nobody yet" : `${approved.by}${notTold(approved, card)}`}`);
 	}
 	if (card.review !== undefined) {
 		const reason = card.review.byInstruction;
-		lines.push(`  reviewed: ${card.review.by}${reason === undefined ? "" : ` · by instruction: ${reason}`}`);
+		lines.push(
+			`  reviewed: ${card.review.by}${reason === undefined ? "" : ` · by instruction: ${reason}`}${notTold(card.review, card)}`,
+		);
 	}
 
 	if (card.paths.length > 0) lines.push(`  paths: ${card.paths.join(", ")}`);

@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board` and `team`: a sign the owner never heard is sent again. The card records when a sign's
+  message was settled (`told` on the approval or the spot-check), so a failed send leaves the fact
+  absent and a repeat `approve`/`review` — from the tool or the person's `/board` door — sends it
+  again instead of stamping a second signature; a live card whose sign is untold reads
+  `approved: … · not told`. A peer whose record has aged out is no longer counted among the ones
+  told: the board's sign result says `(quiet: nothing says it is still there)`, and `team`'s
+  handoff, offer, and ask carry a `Quiet:` line, with `not listening` left for a watch that is
+  actually off.
+
 - `board`: a card's plan is proved where the write lands. `move`, `approve`, and `contract` hand
   the gate a question rather than a stat taken at the door — the rules are checked inside the
   board's lock — so a plan deleted while the write waited is refused with the same sentence and

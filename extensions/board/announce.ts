@@ -36,6 +36,20 @@ import { type Recipient, recipientOf } from "./recipient.ts";
 export type Notify = (ctx: ExtensionContext, input: { kind: "event"; to: string; text: string }) => Promise<SendResult>;
 
 /**
+ * What a sign's message did, and the line the result carries for it.
+ *
+ * `done` is the half the card records: an announcement is settled when the bus took the message, or
+ * when there was no owner to tell. A send that failed leaves it false, so the sign keeps owing the
+ * message and its signer's next attempt is the retry.
+ */
+export interface Announced {
+	/** The clause for the result — who heard, or why nobody did — or nothing with nobody to tell. */
+	line?: string;
+	/** Whether the announcement is settled: the one fact that stops a sign owing its message. */
+	done: boolean;
+}
+
+/**
  * What the caller knows about the team, both parts optional.
  *
  * `roster` is the bus's records read as data, which works with `session-bus` unloaded; `now` is
@@ -67,27 +81,31 @@ export async function announce(
 	ctx: ExtensionContext,
 	notify: Notify,
 	audience: Audience = {},
-): Promise<string | undefined> {
+): Promise<Announced> {
 	const owner = card.owner;
-	if (owner === undefined) return undefined;
+	// Nobody to tell is settled: there is no message owed, and a repeat sign should not keep asking.
+	if (owner === undefined) return { done: true };
 	const recipient = recipientOf(owner, await rosterOf(audience), audience.now?.() ?? 0);
 	const answer = await notify(ctx, { kind: "event", to: recipient.to, text: signedText(card, sign, by) }).catch(
 		(error: unknown) => ({ ok: false as const, error: messageOf(error) }),
 	);
-	if (!answer.ok) return `  ${notToldLine(recipient.label, answer.error)}`;
+	if (!answer.ok) return { line: `  ${notToldLine(recipient.label, answer.error)}`, done: false };
 	// The label the bus wrote for, not the one the card kept: a rename between the claim and the
 	// sign is exactly the case the roster resolved, and the result should name the peer it reached.
 	const told = answer.delivered[0] ?? recipient.label;
-	return `  told ${told}${notListening(recipient)}`;
+	return { line: `  told ${told}${notAudible(recipient)}`, done: true };
 }
 
 /**
- * The clause for a peer whose watch is off: it holds the message, and reads it at its next turn.
+ * The clause for a peer that will not read the message now: its record aged out, or its watch is off.
  *
- * Only a record that says so earns this — an absent fact is not "nobody will read it", the rule
- * `lib/board/view.ts` states for the page's chip.
+ * Quiet outranks the watch: a heartbeat past the bus's window says nothing is known to be there, and
+ * a watch on a record that may be dead is the weaker fact. Only a record that says its watch is off
+ * earns the second clause — an absent fact is not "nobody will read it", the rule `lib/board/view.ts`
+ * states for the page's chip.
  */
-function notListening(recipient: Recipient): string {
+function notAudible(recipient: Recipient): string {
+	if (recipient.state === "quiet") return " (quiet: nothing says it is still there)";
 	return recipient.listening === false ? " (not listening: it reads this at its next turn)" : "";
 }
 

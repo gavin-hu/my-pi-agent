@@ -233,3 +233,56 @@ describe("a spot-check made by instruction", () => {
 		expect(noted.notes.at(-1)?.text).toBe("for the record");
 	});
 });
+
+describe("the message a sign owes", () => {
+	/** The card with its approval's `told` taken back off, as a send that never landed leaves it. */
+	const untold = (card: Card): Card => {
+		if (card.contract?.approved === undefined) return card;
+		const { told: _told, ...rest } = card.contract.approved;
+		return { ...card, contract: { ...card.contract, approved: rest } };
+	};
+	/** One operation, accepted, with the result's own facts — `accepted` keeps only card and change. */
+	const step = (card: Card, op: Parameters<typeof applyOp>[1], actor = LEAD) => {
+		const result = applyOp(card, op, actor, NOW, boardOf(card));
+		if (!result.ok) throw new Error(result.error);
+		return result;
+	};
+
+	test("a fresh stamp owes it", () => {
+		const card = written();
+		const signed = step(card, approveOf(card));
+		expect(signed.changed).toBe(true);
+		expect(signed.announce).toBe(true);
+	});
+
+	test("a repeat sign owes it while the sign is untold, and writes nothing while doing so", () => {
+		const signed = stepOf(approved(), approveOf(approved()), LEAD);
+		// Nothing recorded the announcement, so the repeat is the retry — and it stamps nothing.
+		const again = step(untold(signed), approveOf(signed));
+		expect(again.changed).toBe(false);
+		expect(again.announce).toBe(true);
+	});
+
+	test("a repeat whose sign was told owes nothing at all", () => {
+		const signed = stepOf(approved(), approveOf(approved()), LEAD);
+		const told: Card = {
+			...signed,
+			contract:
+				signed.contract?.approved === undefined
+					? signed.contract
+					: { ...signed.contract, approved: { ...signed.contract.approved, told: { at: NOW } } },
+		};
+		const again = step(told, approveOf(told));
+		expect(again.changed).toBe(false);
+		expect(again.announce).toBeUndefined();
+	});
+
+	test("a note added by a repeat rides the same rule", () => {
+		// The note is a write; the message is still the sign's, and an untold sign owes one whether or
+		// not the caller also said something.
+		const signed = untold(stepOf(approved(), approveOf(approved()), LEAD));
+		const withNote = step(signed, { ...approveOf(signed), text: "read again" });
+		expect(withNote.changed).toBe(true);
+		expect(withNote.announce).toBe(true);
+	});
+});

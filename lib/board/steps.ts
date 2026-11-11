@@ -41,7 +41,15 @@ import {
 	normalizeInstruction,
 } from "./contract.ts";
 import { type BoardConfig } from "./config.ts";
-import { currentReview, holderRefusal, missingSign, signMark, signRefusal, signedAs } from "./lead.ts";
+import {
+	currentReview,
+	holderRefusal,
+	missingSign,
+	owesAnnouncement,
+	signMark,
+	signRefusal,
+	signedAs,
+} from "./lead.ts";
 import { type WipLimits, wipRefusal } from "./limits.ts";
 import { LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import { type BoardIndex, dependedOn, lanesText, normalizeDepends, openDependentsOf, waitingOn } from "./links.ts";
@@ -209,9 +217,8 @@ function unmet(
 			// hand one in, so a surface added later cannot pass the gate by forgetting it. A
 			// check that failed speaks with its own sentence, built where the file was read.
 			if (artifact === undefined) return unprovedPlan(card);
-			// The caller hands over the question rather than the answer: `applyOp` is what runs inside
-			// the store's lock, so this is the stat taken there — a file deleted while the write waited
-			// is refused here rather than opened on a proof about a moment that has passed.
+			// The caller hands over the question, not the answer: `applyOp` runs inside the store's lock,
+			// so this is the stat taken there — a file deleted while the write waited is refused here.
 			const check = proved(artifact);
 			if ("error" in check) return check.error;
 			// The proof is bound to the record it was computed for: a fact about one path cannot
@@ -296,8 +303,7 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 			error: `contract needs the plan file ${cardRef(card.id)} is executed against: pass \`path\` as \`plan\` action \`write\` returned it.`,
 		};
 	}
-	// Taken where it is asked, as the gate does: a ``contract`` lands inside the store's locked pass,
-	// so the stat is the one taken there.
+	// Taken where it is asked, as the gate does: a contract lands inside the locked pass.
 	const artifact = proved(op.artifact);
 	if ("error" in artifact) return { error: artifact.error };
 	const fields: Partial<Card> = {};
@@ -368,11 +374,11 @@ export function approve(
 	// signer is takes the name *and* the person's mark (`lead.ts`), not the label: the person signs
 	// as the lead, so a label compare would read a lead's sign back as the person's and re-stamp it.
 	const signed = signedAs(contract.approved, actor, config.lead);
-	if (signed && !noted.wrote) return { changed: false, fields: null };
+	// A repeat owes the message only while the sign says it never landed (`lead.ts`): the one retry.
+	const owes = owesAnnouncement(card, "approve", actor, config.lead);
+	if (signed && !noted.wrote) return { changed: false, fields: null, ...(owes ? { announce: true as const } : {}) };
 	const approval = signed ? {} : { contract: { ...contract, approved: { ...signMark(actor, config.lead), at: now } } };
-	// A note on its own is a card write without a signature, so the message the sign sends is not
-	// one this write owes: only the arm that stamps says so.
-	return { changed: true, fields: { ...approval, ...noted.fields }, ...(signed ? {} : { signed: true as const }) };
+	return { changed: true, fields: { ...approval, ...noted.fields }, ...(owes ? { announce: true as const } : {}) };
 }
 
 /**
@@ -408,6 +414,8 @@ export function review(
 	const wrongSigner = signRefusal(card, actor, config.lead, "review");
 	if (wrongSigner !== undefined) return { error: wrongSigner };
 	const signed = signedAs(currentReview(card), actor, config.lead);
+	// The same rule as `approve`: the stamp owes the message, and a repeat owes it while untold.
+	const owes = owesAnnouncement(card, "review", actor, config.lead);
 	// A sign is a fact about a person and a moment, so an override never replaces one: it is how a
 	// card with no spot-check gets a record, not how a record gets a different author. The same
 	// signer, saying the same thing, is its own case — the sign is already the one it asked for.
@@ -419,15 +427,15 @@ export function review(
 	}
 	const noted = signNote(card, text, actor, now);
 	if ("error" in noted) return { error: noted.error };
-	if (signed && !noted.wrote) return { changed: false, fields: null };
+	if (signed && !noted.wrote) return { changed: false, fields: null, ...(owes ? { announce: true as const } : {}) };
 	const stamp =
 		instruction === undefined
 			? { ...signMark(actor, config.lead), at: now }
 			: { ...signMark(actor, config.lead), at: now, byInstruction: instruction.text };
 	const spotCheck = signed ? {} : { review: stamp };
-	// As with `approve`: a second signer's note moves the card, and only a fresh stamp is a fact
-	// the owner has not been told yet.
-	return { changed: true, fields: { ...spotCheck, ...noted.fields }, ...(signed ? {} : { signed: true as const }) };
+	// As with `approve`: a second signer's note moves the card, and the owner's message follows the
+	// stamp — or the untold sign a repeat still owes them.
+	return { changed: true, fields: { ...spotCheck, ...noted.fields }, ...(owes ? { announce: true as const } : {}) };
 }
 
 /**

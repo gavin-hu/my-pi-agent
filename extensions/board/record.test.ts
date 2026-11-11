@@ -118,6 +118,19 @@ describe("dropped history", () => {
 		return numberedCard("49", { lane: "plan", notesDropped: 3, logDropped: 2, notes: [], log: [], ...overrides });
 	}
 
+	test("a live sign nobody heard says so, and a finished card's sign is history", () => {
+		// The record is the retry's fact: an untold approval on an open card is the state a reader has
+		// to catch, and every sign written before the field existed has no record of its message.
+		const live = numberedCard("7", {
+			lane: "plan",
+			contract: { goal: "g", acceptance: "a", scopeOut: "s", approved: { by: "lead", at: NOW } },
+		});
+		const told = { goal: "g", acceptance: "a", scopeOut: "s", approved: { by: "lead", at: NOW, told: { at: NOW } } };
+		expect(formatCard(live, undefined, NOW)).toContain("approved: lead · not told");
+		expect(formatCard({ ...live, contract: told }, undefined, NOW)).toContain("approved: lead");
+		expect(formatCard({ ...live, lane: "done" }, undefined, NOW)).not.toContain("not told");
+	});
+
 	test("a plan whose file is gone says so on the line that names it", () => {
 		// The caller stat'ed it: a card block is one read of one card, which is the one place the
 		// transcript can afford the answer before the reader calls `move`.
