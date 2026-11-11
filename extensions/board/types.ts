@@ -34,7 +34,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 		"shows the board — `lane` filters one lane, `mine` only what this session holds, " +
 		"`query` matches a title, a holder, a kind, a path hint, the plan, or a note, `card` reads that one card " +
 		"instead of the board, which refuses the fields that narrow a listing beside it, and `round` also prints the lead's rollup of owners, unassigned, unplanned, awaiting approval, awaiting review, " +
-		"blocked, unwritten, done, and how many are archivable, after the listing and over the whole board — and a listing that names no lane leaves out the `done` cards, " +
+		"blocked, unwritten, done, and how many are archivable, over the whole board — and a listing that names no lane leaves out the `done` cards, " +
 		"saying how many it left out",
 	add: "creates a `backlog` card",
 	claim: "pulls one into `plan` for this session, when `plan` has room",
@@ -43,7 +43,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	move: "changes lane, through the one transition the board allows from where the card is; a card enters `execute` or `done` only while the plan it recorded is still in the store",
 	note: "appends to its history",
 	contract:
-		"records the plan file and the three lines a card promises — `goal`, `acceptance`, `scopeOut` — and drops any approval, because the wording changed; `path` is required and must be the plan `plan` action `write` saved in this repository's plan store",
+		"records the plan file, the three lines a card promises — `goal`, `acceptance`, `scopeOut` — and an optional `verify` command whose run the spot-check records, and drops any approval, because the wording changed; `path` is required and must be the plan `plan` action `write` saved in this repository's plan store",
 	approve:
 		"approves the contract and the plan it names: the lead (`board.lead`, the name the page serves as), who does not hold the card, says both are right, which is what `plan` to `execute` requires, and `text` records what the signer saw",
 	review:
@@ -72,7 +72,7 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	reclaim: ["card"],
 	move: ["card", "lane", "blockedBy", "blocker"],
 	note: ["card", "text"],
-	contract: ["card", "path", "goal", "acceptance", "scopeOut"],
+	contract: ["card", "path", "goal", "acceptance", "scopeOut", "verify"],
 	approve: ["card", "text"],
 	review: ["card", "text", "override"],
 	edit: ["card", "title", "paths", "type", "breaking", "priority", "dependsOn"],

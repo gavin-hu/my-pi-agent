@@ -57,6 +57,9 @@ export async function seedWorkingBoard(store: BoardStore, now: number): Promise<
 			goal: "A webhook order is stored once",
 			acceptance: "A retried delivery leaves one order",
 			scopeOut: "No refunds",
+			// The optional fourth line, so the dialog's own row has a card that names one: the page
+			// and the transcript read this field, which is what the case is there to hold.
+			verify: "bun run check",
 		},
 		CORE,
 		now - 119_500,

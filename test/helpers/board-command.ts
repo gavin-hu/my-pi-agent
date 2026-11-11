@@ -18,6 +18,7 @@ import type { JoinResult, TeamJoinInput } from "../../lib/session-tool.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { BOARD_COMMAND, registerCommands } from "../../extensions/board/commands.ts";
 import type { Notify } from "../../extensions/board/announce.ts";
+import type { VerifyRun } from "../../lib/board/verify.ts";
 import type { TeamJoin } from "../../extensions/board/join.ts";
 import type { BoardPage, BoardPageStatus, PageStart } from "../../extensions/board/page.ts";
 
@@ -147,7 +148,7 @@ export function pageWithNoRecording(): BoardPage {
 }
 
 /** A real board in a temp directory, and the command registered over it. */
-export async function signingBoard(options: { notify?: Notify } = {}) {
+export async function signingBoard(options: { notify?: Notify; verify?: VerifyRun } = {}) {
 	const temps = makeTempTracker();
 	const harness = boardHarness({ now: 1_000 });
 	const me = { id: "s-lead", label: "team-agent-slead" };
@@ -163,6 +164,7 @@ export async function signingBoard(options: { notify?: Notify } = {}) {
 	registerCommands(fake.pi, harness.runtime, fakeBoardPage().page, {
 		team: fakeBoardTeam().team,
 		...(options.notify === undefined ? {} : { notify: options.notify }),
+		...(options.verify === undefined ? {} : { verify: options.verify }),
 	});
 	const command = fake.commands.get(BOARD_COMMAND);
 	if (!command) throw new Error("the board command was not registered");

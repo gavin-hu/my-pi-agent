@@ -39,6 +39,7 @@ describe("the dialog's document", () => {
 			"card-dialog-goal",
 			"card-dialog-acceptance",
 			"card-dialog-scope-out",
+			"card-dialog-verify",
 			"card-dialog-sign",
 			"card-dialog-start-head",
 			"card-dialog-links-head",
@@ -128,7 +129,7 @@ describe("the dialog's client", () => {
 		]);
 		// The contract is a block instead, so the ladder never writes its rows: three lines at
 		// body size, which a card without a contract leaves hidden.
-		expect(BOARD_CLIENT_JS).toContain('var CONTRACT_ROWS = ["goal", "acceptance", "scope-out"];');
+		expect(BOARD_CLIENT_JS).toContain('var CONTRACT_ROWS = ["goal", "acceptance", "scope-out", "verify"];');
 		expect(BOARD_CLIENT_JS).toContain('document.getElementById("card-dialog-" + CONTRACT_ROWS[f]).hidden');
 		// The dialog opens with the card face's reason sentence, from the same body, and steps
 		// aside for the section that prints the same fact: a bare last note is the notes' first
@@ -145,7 +146,12 @@ describe("the dialog's client", () => {
 		expect(BOARD_CLIENT_JS).toContain('board.reasonTone("approval")');
 		// A spot-check says who and when, and says so when the close was made by instruction: the
 		// reason itself is the reason line above it, which is the shared body.
-		expect(BOARD_CLIENT_JS).toContain('reviewed.byInstruction === undefined ? "" : " \\u00b7 by instruction"');
+		expect(BOARD_CLIENT_JS).toContain(
+			'reviewed.byInstruction !== undefined ? " \\u00b7 by instruction" : ranClause(reviewed)',
+		);
+		// What ran is drawn from the sign's own record, the field the transcript reads too.
+		expect(BOARD_CLIENT_JS).toContain("function ranClause(reviewed)");
+		expect(BOARD_CLIENT_JS).toContain('" \\u00b7 ran " + run.cmd');
 		// An empty section takes its heading with it, and the notes read newest first — with
 		// one line instead of an empty list when a card has none.
 		expect(BOARD_CLIENT_JS).toContain('card-dialog-" + SECTIONS[s] + "-section');

@@ -27,7 +27,7 @@ are needed before it can ship.
 | Say what kind of work it is | `type` on `add` or `edit`: `feature`, `bug`, `refactor`, `docs`, `test`, or `chore` |
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
 | Take a card | `board claim 4` — into `plan`, owned by this session; `board reclaim 4` takes one back, from a peer only once that owner's record says it stopped |
-| Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut …` |
+| Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut … verify …` |
 | Approve the contract | `/board approve 4` as the person, or the lead with the `board` action `approve` |
 | Start the work | `board move 4 execute` |
 | Park a card | `board move 4 blocked blocker decision blockedBy "waiting on the API owner"` |
@@ -63,14 +63,14 @@ board allows from where the card is; no lane can be skipped.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`,
 `reclaim`, `move`, `note`, `contract`, `approve`, `review`, `edit`, `archive`,
-`drop`. `add` and `edit` record the kind of work (`type`) and the breaking marker
-(`breaking`); both draw as one quiet label, and `list query` matches them. `claim`, `move`
-and `assign` are refused while `plan` or `execute` is full, naming the ways out. `reclaim`
-takes a card back to `backlog` from its holder, the person and the lead always, and from a
-peer only while that owner's record says quiet or gone. `move` into `execute` or `done`
-re-reads the plan where the write lands: a plan that is gone refuses the move, and the face
-says `its plan is gone`. A sign nobody heard reads `· not told` on a live card; saying it
-again sends the message. `review` takes an `override` — one line saying why — for a card
+`drop`. `claim`, `move` and `assign` are refused while `plan` or `execute` is full, naming the
+ways out. `reclaim` takes a card back to `backlog` from its holder, the person and the lead
+always, and from a peer only while that owner's record says quiet or gone. `move` into
+`execute` or `done` re-reads the plan where the write lands: a plan that is gone refuses the
+move, and the face says `its plan is gone`. A sign nobody heard reads `· not told` on a live
+card; saying it again sends the message. A contract may name a `verify` command: `review` runs
+it, records the exit and the commit, and `done` refuses a sign with no result or one older
+than the card's last write. `review` takes an `override` — one line saying why — for a card
 closed without the gate, which then reads `closed by instruction`.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);

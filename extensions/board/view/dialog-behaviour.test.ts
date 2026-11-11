@@ -172,8 +172,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		);
 		expect(plan).toContain("2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md");
 
-		// The notes are the record, newest first — a note is why a card is opened — each
-		// attributed under it, and the heading carries the count. Body size is CSS data.
+		// The notes are the record, newest first, each attributed under it; body size is CSS data.
 		expect(await page.$$eval("#card-dialog-notes .board-dialog__note", (nodes) => nodes.length)).toBe(2);
 		expect(await page.$$eval("#card-dialog-notes .board-dialog__note-foot", (nodes) => nodes.length)).toBe(2);
 		expect(await page.textContent("#card-dialog-notes .board-dialog__note-text")).toBe("no retries yet");
@@ -192,6 +191,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		expect(await page.textContent("#card-dialog-goal")).toBe("A webhook order is stored once");
 		expect(await page.textContent("#card-dialog-acceptance")).toBe("A retried delivery leaves one order");
 		expect(await page.textContent("#card-dialog-scope-out")).toBe("No refunds");
+		expect(await page.textContent("#card-dialog-verify")).toBe("bun run check");
 		expect(await page.textContent("#card-dialog-sign")).toMatch(/^approved by billing-lead \u00b7 \d+[a-z]$/);
 		expect(await page.getAttribute("#card-dialog-sign", "data-tone")).toBe("warn");
 		expect(await hidden(page, "#card-dialog-sign")).toBe(false);

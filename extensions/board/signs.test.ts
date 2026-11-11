@@ -9,114 +9,26 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { makeTempTracker } from "../../test/helpers/git.ts";
-import { tempDir } from "../../test/helpers/env.ts";
-import { boardHarness, cardFile } from "../../test/helpers/board.ts";
-import { writeBusRecord } from "../../test/helpers/bus.ts";
-import { resultText } from "../../test/helpers/fixtures/board.ts";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cardFile } from "../../test/helpers/board.ts";
+import {
+	signBus as bus,
+	bench,
+	claimedWithContract,
+	flushFixture,
+	LEAD,
+	NOW,
+	onBus,
+	PEER,
+	PEER_ID,
+	type Sent,
+	type Session,
+} from "../../test/helpers/board-signs.ts";
 import { presetNameFor } from "../../lib/session-label.ts";
-import { registerTools } from "./tools.ts";
-import type { BoardDetails } from "./types.ts";
+import type { Notify } from "./announce.ts";
+import { resultText } from "../../test/helpers/fixtures/board.ts";
 
-const temps = makeTempTracker();
-afterAll(() => temps.flush());
-
-const LEAD_ID = "s-lead";
-/** The name a session with that id joins under, which is the label the board signs with. */
-const LEAD = presetNameFor(LEAD_ID) ?? LEAD_ID;
-/** The peer that claims the bench's card, and the name its card records. */
-const PEER_ID = "s-peer";
-const PEER = presetNameFor(PEER_ID) ?? PEER_ID;
-const NOW = 50_000;
-
-/** The board tool's dependency seam, as `registerTools` takes it. */
-type BoardDeps = NonNullable<Parameters<typeof registerTools>[2]>;
-
-/** The bus a sign sends on, as that seam describes it. */
-type Notify = NonNullable<BoardDeps["notify"]>;
-
-/** One message the tool sent, which is what a case asks about. */
-interface Sent {
-	kind: "event";
-	to: string;
-	text: string;
-}
-
-/** The bus, recorded: what a sign sent, or the sentence a bus that cannot answer gives. */
-function bus(options: { sent?: Sent[]; fail?: string; delivered?: string } = {}): Notify {
-	return async (_ctx, input) => {
-		if (options.fail !== undefined) return { ok: false, error: options.fail };
-		options.sent?.push(input);
-		// A bus answers with the labels it wrote for, not with what it was addressed by — the ids —
-		// which is the fact a sign reports back to its caller.
-		return { ok: true, delivered: [options.delivered ?? presetNameFor(input.to) ?? input.to], failed: [] };
-	};
-}
-
-/** One live record on this repository's bus, as a join writes it. */
-async function onBus(
-	who: Session,
-	record: { id: string; label: string; watching?: { armed: boolean; wake: boolean } },
-	lastSeen = NOW,
-): Promise<void> {
-	writeBusRecord(await who.board.runtime.busDir(who.board.ctx.cwd), { lastSeen, ...record });
-}
-
-/** One repository, its agent directory, and the two sessions that act on one board. */
-function bench(deps: BoardDeps = {}): { lead: Session; peer: Session } {
-	const cwd = temps.track(tempDir("pi-repo-"));
-	const agentDir = temps.track(tempDir("pi-agent-"));
-	return {
-		lead: session({ cwd, agentDir, sessionId: LEAD_ID, deps }),
-		peer: session({ cwd, agentDir, sessionId: "s-peer", deps }),
-	};
-}
-
-/** One session on the bench's board, and the one action call a case needs. */
-function session(options: { cwd: string; agentDir: string; sessionId: string; deps?: BoardDeps }) {
-	const { deps, ...rest } = options;
-	const board = boardHarness({ ...rest, lead: LEAD, now: NOW });
-	registerTools(board.fake.pi, board.runtime, deps);
-	const tool = board.fake.pi.tools.get("board");
-	if (!tool) throw new Error("the board tool was not registered");
-	return {
-		board,
-		async call(args: Record<string, unknown>) {
-			return (await tool.execute("call-1", args, undefined, undefined, board.ctx)) as {
-				content: Array<{ text: string }>;
-				details: BoardDetails;
-				isError?: boolean;
-			};
-		},
-	};
-}
-
-type Session = ReturnType<typeof session>;
-
-/** A plan file in this repository's store, which is the only path `contract` takes. */
-async function writePlan(who: Session): Promise<string> {
-	const dir = await who.board.runtime.planDir(who.board.ctx.cwd);
-	mkdirSync(dir, { recursive: true });
-	const path = join(dir, "one.md");
-	writeFileSync(path, "# One\n");
-	return path;
-}
-
-/** A card claimed by the peer, its contract written — the state a sign acts on. */
-async function claimedWithContract(who: { lead: Session; peer: Session }): Promise<void> {
-	await who.peer.call({ action: "add", title: "One" });
-	await who.peer.call({ action: "claim", card: "1" });
-	await who.peer.call({
-		action: "contract",
-		card: "1",
-		path: await writePlan(who.peer),
-		goal: "g",
-		acceptance: "a",
-		scopeOut: "s",
-	});
-}
+afterAll(flushFixture);
 
 describe("a sign's note", () => {
 	test("approve records what the lead saw, in the same write", async () => {

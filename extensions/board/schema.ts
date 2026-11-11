@@ -91,6 +91,7 @@ export const BoardParams = Type.Object({
 	acceptance: Type.Optional(
 		Type.String({ description: "`contract`: how a reader can tell it is done, one line, ≤400 characters." }),
 	),
+	verify: Type.Optional(Type.String()),
 	scopeOut: Type.Optional(
 		Type.String({ description: "`contract`: what this deliberately does not do, one line, ≤400 characters." }),
 	),

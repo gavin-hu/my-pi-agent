@@ -128,6 +128,25 @@ export function executing(card: Card = approved()): Card {
 	return stepOf(card, { kind: "move", lane: "execute", artifact: provedFor(card) }, CORE);
 }
 
+/** The command a card's contract names in the suites where the run is the gate. */
+export const VERIFY = "bun run check";
+
+/**
+ * A card in `execute` whose contract names {@link VERIFY}, approved and held by `CORE`.
+ *
+ * A contract line is written in `plan`, so the seed has to go back through `contract` rather than
+ * hand the field to a card in a later lane: the fixture drives the operation the tool would.
+ */
+export function verifying(owner: Actor = CORE, reviewer: Actor = LEAD): Card {
+	const card = stepOf(
+		claimed(owner),
+		{ kind: "contract", artifact: proved("plans/webhook.md"), ...CONTRACT, verify: VERIFY },
+		owner,
+	);
+	const approvedCard = stepOf(card, approveOf(card), reviewer);
+	return executing(approvedCard);
+}
+
 /** A card whose work the lead has spot-checked, still in `execute`. */
 export function reviewed(owner: Actor = CORE, reviewer: Actor = LEAD): Card {
 	return stepOf(executing(approved(owner)), { kind: "review" }, reviewer);

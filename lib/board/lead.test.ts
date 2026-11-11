@@ -16,6 +16,7 @@ import {
 	isLead,
 	isPerson,
 	type Lead,
+	failedSpotCheck,
 	missingSign,
 	normalizeLead,
 	owesAnnouncement,
@@ -25,8 +26,10 @@ import {
 	signRefusal,
 	signRecord,
 	signedAs,
+	staleSpotCheck,
 	signedText,
 	type Sign,
+	unverifiedSpotCheck,
 } from "./lead.ts";
 import { DEFAULT_WIP } from "./limits.ts";
 import type { BoardConfig } from "./config.ts";
@@ -166,6 +169,25 @@ describe("missingSign", () => {
 		expect(missingSign(CARD, LEAD, "review")).toBe(
 			"#4 has no spot-check recorded. The lead (team-lead) records one with `review` (ask team-lead with `session send`), or the person with `/board review 4`.",
 		);
+	});
+});
+
+describe("the run a spot-check records", () => {
+	/** The sentence the `done` gate is refused with when the contract named a command and no run came. */
+	test("a missing run names the command and both doors that would record one", () => {
+		expect(unverifiedSpotCheck(CARD, "bun run check", LEAD)).toBe(
+			"#4's contract names `bun run check`, and its spot-check carries no result: the lead (team-lead) records one with `review`, or the person with `/board review 4`.",
+		);
+	});
+
+	test("a stale run says what to re-run, and why the last one stopped counting", () => {
+		expect(staleSpotCheck(CARD, "bun run check", LEAD)).toBe(
+			"#4 was written after its spot-check, so the run no longer speaks for it — run `bun run check` and review again: the lead (team-lead) with `review`, or the person with `/board review 4`.",
+		);
+	});
+
+	test("a red run is the check doing its job, and names the exit it gave", () => {
+		expect(failedSpotCheck(CARD, "bun run check", 1)).toBe("`bun run check` exited 1, so #4 was not spot-checked.");
 	});
 });
 
