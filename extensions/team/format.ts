@@ -88,6 +88,7 @@ function indent(line: string | undefined): string | undefined {
  * nothing is waiting on an answer.
  */
 export function formatAsk(
+	ask: string,
 	delivered: readonly string[],
 	notListening: readonly string[] = [],
 	quiet: readonly string[] = [],
@@ -96,8 +97,8 @@ export function formatAsk(
 ): string {
 	const who = delivered.length > 0 ? delivered.join(", ") : to === "" ? "nobody" : to;
 	return [
-		`Asked ${who}.`,
-		"  The answer arrives as mail; nothing is waiting on it.",
+		`Asked ${who} — ask ${ask}.`,
+		`  The answer arrives as mail; reply with \`re: ${ask}\`, and nothing is waiting on it.`,
 		notListeningLine(notListening),
 		quietLine(quiet),
 		indent(notDeliveredLine(failed)),

@@ -53,6 +53,7 @@ import { plural } from "../../lib/board/round-text.ts";
 import { strayField } from "../../lib/stray-fields.ts";
 import {
 	actorFor,
+	askId,
 	askText,
 	type Dispatch,
 	DEFAULT_QUESTION,
@@ -60,6 +61,7 @@ import {
 	notListening,
 	offerText,
 	quiet,
+	type ReplyRoute,
 	ownerFor,
 	sessionDispatch,
 } from "./dispatch.ts";
@@ -494,24 +496,31 @@ async function askPeer(
 	// read, and the round is the better answer to it.
 	if (namesSelf(me, to)) return refusal("ask", `${to} is this session — the round already says what you hold.`);
 	const asked = typeof rawQuestion === "string" && rawQuestion.trim() !== "" ? rawQuestion.trim() : DEFAULT_QUESTION;
-	// Before the message, for `assign`'s reason: the answer comes back to the label `askText`
-	// just named, so the label has to be on the bus before the peer reads it.
+	// Before the message, for `assign`'s reason: the answer comes back to the name `askText` just
+	// named, so that name has to be on the bus before the peer reads it.
 	const joined = await join();
 	if ("error" in joined) return refusal("ask", formatNotSent(`the ask did not reach ${to}`, joined));
+	// The reply route is this session's own id, read from the roster the join just wrote: an id
+	// survives this session renaming itself and its record being pruned, and the label is the
+	// fallback the sentence then admits to. One read serves the delivery warnings below too.
+	const peers = await dispatch.peers().catch(() => undefined);
+	const self = peers?.find((peer) => (me.id !== undefined ? peer.id === me.id : peer.label === me.label));
+	const reply: ReplyRoute = self === undefined ? { to: me.label, byId: false } : { to: self.id, byId: true };
+	const ask = askId();
 	let delivered: string[];
 	let failed: DeliveryFailure[];
 	try {
-		const sent = await dispatch.send({ kind: "ask", to, text: askText(asked, me.label) });
+		const sent = await dispatch.send({ kind: "ask", to, text: askText(asked, ask, reply) });
 		delivered = sent.delivered;
 		failed = sent.failed;
 	} catch (error) {
 		return refusal("ask", `the ask did not reach ${to}: ${messageOf(error)}`);
 	}
-	const peers = await dispatch.peers().catch(() => undefined);
 	const silent = notListening(peers, delivered);
 	const still = quiet(peers, delivered);
-	return textResult(formatAsk(delivered, silent, still, to, failed), {
+	return textResult(formatAsk(ask, delivered, silent, still, to, failed), {
 		action: "ask",
+		askId: ask,
 		delivered,
 		...(failed.length === 0 ? {} : { failed }),
 		...(silent.length === 0 ? {} : { notListening: silent }),
