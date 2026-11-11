@@ -48,11 +48,11 @@ you type only `/board archive|approve|review|status|stop|team`.
 
 The claim's result names the next step, and `/board approve 1` refuses until the contract
 names a plan file in this repository's store; a plan deleted later stops it at the next gate.
+A claim also joins the team, and its result says when it could not ([`team`](team.md)).
 
 Every card's last line says what it needs next, so a lane can be read without
 opening a card: `contract ready — needs approval`, `executing — no spot-check
-yet`, `offered 2h ago — nobody took it`. The round is one line, and `/team`
-prints it in the terminal.
+yet`, `offered 2h ago — nobody took it`.
 
 ## Reference
 

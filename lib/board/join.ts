@@ -2,9 +2,15 @@
  * The one join the board's doors ask for: the ask-once rule, and what a failure means.
  *
  * `board` joins when the page opens and when a card is claimed; `team` joins when a card
- * is claimed through the round, and on the handoff and the question it sends. `/team join`
- * is the fifth door and asks the bus directly, because a typed label is a rename: it lands
- * on the label it was given even when the bus already holds this session.
+ * is claimed through the round, and **before** the handoff and the question it sends — the
+ * message names this session as the way back, so a lead the bus will not hold is a reply the
+ * peer's `session send` refuses. `/team join` is the fifth door and asks the bus directly,
+ * because a typed label is a rename: it lands on the label it was given even when the bus
+ * already holds this session.
+ *
+ * A join that did not land is a `TeamState` carrying the reason and, when one is known, what a
+ * reader can do about it — the bus's sentence says what happened and never what to do, and the
+ * door every other sentence names is the wrong advice in two of the three cases.
  *
  * The asking is shared because the rule around it is easy to get different in two places:
  * ask only while this session is not on the team, so a card write costs one request per
@@ -28,8 +34,8 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../errors.ts";
 import { sessionIdOf } from "../session-label.ts";
-import { type RosterSession, rosterStateOf } from "../session-roster.ts";
-import type { JoinResult, TeamJoin, TeamJoinInput, Watching } from "../session-tool.ts";
+import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
+import { type JoinResult, NO_BUS_ERROR, type TeamJoin, type TeamJoinInput, type Watching } from "../session-tool.ts";
 import type { BoardSession } from "./session.ts";
 
 /**
@@ -48,8 +54,13 @@ export type JoinSession = Pick<BoardSession, "team" | "roster" | "now">;
  * The listening fact is optional because two answers are honest without it: a record written
  * before the field existed, and a session a bus never recorded. A line that guessed would
  * accuse a peer of ignoring mail, so the word is left out instead.
+ *
+ * A refusal carries `fix` when the join could tell what the caller should do next: the bus's
+ * reason is a fact about what happened, and the door a reader reaches for is `/team join` —
+ * which cannot help with no bus at all, and costs a lead its signature when another record
+ * holds the name.
  */
-export type TeamState = { label: string; listening?: boolean } | { error: string };
+export type TeamState = { label: string; listening?: boolean } | { error: string; fix?: string };
 
 /** A standing or a fresh answer, as the line reads it. */
 export function standingOf(result: JoinResult): TeamState;
@@ -118,6 +129,10 @@ function heldHere(held: Held): boolean {
  * does not back any more; a join that threw is swallowed here for the same reason, because
  * the card it came after is already true. The ask is recorded rather than returned, so no
  * door has to remember to do it.
+ *
+ * What a refusal carries besides its reason is `fix`, read from the roster the refusal leaves
+ * behind: the bus's sentence says what happened, and a door that printed `/team join` over
+ * every one of them would send a reader at the wrong door half the time.
  */
 export async function joinTeam(
 	session: JoinSession,
@@ -139,7 +154,62 @@ export async function joinTeam(
 		askAgain(standing, label, answer.kind === "held" ? answer.held.watching : undefined),
 	);
 	session.team.record(joined);
-	return standingOf(joined);
+	if (joined.ok) return standingOf(joined);
+	return { error: joined.error, ...(await fixOf(session, ctx, joined.error, label)) };
+}
+
+/**
+ * What a reader can do about a join that did not land, when the failure says.
+ *
+ * Two of the three shapes have an answer, and both are the opposite of the door a refusal
+ * names by habit. With no bus loaded, `/team join` refuses in the very same words: the
+ * extension is off. With the name held, this session takes another one — and a lead that does
+ * so stops being the lead, because the gates compare the label rather than an identity.
+ * Anything else the bus says is its own sentence, with no advice grafted onto it.
+ */
+async function fixOf(
+	session: JoinSession,
+	ctx: ExtensionContext,
+	error: string,
+	label: string,
+): Promise<{ fix?: string }> {
+	if (error === NO_BUS_ERROR) return { fix: "Turn the `session-bus` extension on in `/bytefly`." };
+	const held = await heldLabel(session, ctx, label);
+	return held === undefined ? {} : { fix: heldFix(held) };
+}
+
+/**
+ * A name another record holds, in the two shapes the bus leaves it in.
+ *
+ * `takenLabels` reserves a record for the heartbeat's TTL, so the holder is either a running
+ * session — which nothing but its own stop frees — or a dead one the bus still remembers,
+ * whose name comes back on its own. Both end in the same warning, because the other way past
+ * a held name is the one door that renames, and renaming is what costs a lead its signature.
+ */
+function heldFix(state: RosterState): string {
+	const rename = "a lead that renames loses its signature, because the gates compare `board.lead` by label";
+	return state === "gone"
+		? `The bus forgets that record when its heartbeat ages out; joining under another name works now, though ${rename}.`
+		: `Only that session stopping frees the name, or join under another name now, though ${rename}.`;
+}
+
+/**
+ * What the bus still holds under `label`, when it is not this session's own record.
+ *
+ * Asked after a refusal and answered from the files, because the bus's error names the holder
+ * and this needs the one fact it leaves out: whether that holder is still running. A roster
+ * that cannot be read is no evidence either way, so the failure keeps its reason and no advice.
+ */
+async function heldLabel(session: JoinSession, ctx: ExtensionContext, label: string): Promise<RosterState | undefined> {
+	const id = sessionIdOf(ctx);
+	let roster: RosterSession[] | undefined;
+	try {
+		roster = await session.roster(ctx.cwd);
+	} catch {
+		return undefined;
+	}
+	const record = roster?.find((entry) => entry.id !== id && sameLabel(entry.label, label));
+	return record === undefined ? undefined : rosterStateOf(record, session.now());
 }
 
 /**
@@ -166,6 +236,23 @@ async function ask(team: TeamJoin, ctx: ExtensionContext, input: TeamJoinInput):
 	} catch (error) {
 		return { ok: false, error: messageOf(error) };
 	}
+}
+
+/**
+ * What a result says when the join behind it did not land.
+ *
+ * Both claim doors write the card first and join after it, so a refusal cannot undo the card —
+ * what it can do is leave an owner nothing can address: a peer's `session send` to this label
+ * is refused, and presence reads the owner as absent. The sentence is written once because the
+ * tool and the round both print it, and it is a line on a result rather than an error for the
+ * same reason the card is not undone.
+ */
+export function joinFailureLine(state: TeamState): string | undefined {
+	if (!("error" in state)) return undefined;
+	// The bus writes some of these as sentences and some as clauses; the fix is a sentence of its
+	// own, so the reason gets a full stop before it rather than running into the next one.
+	const reason = state.error.endsWith(".") ? state.error : `${state.error}.`;
+	return state.fix === undefined ? `Not on the team: ${reason}` : `Not on the team: ${reason} ${state.fix}`;
 }
 
 /**

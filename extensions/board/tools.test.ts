@@ -1242,14 +1242,14 @@ describe("the team", () => {
 		expect(calls).toHaveLength(1);
 	});
 
-	test("a refused join leaves the board working, and the next claim asks again", async () => {
+	test("a join that did not land is a clause on the claim, not a failed claim", async () => {
 		const { team, calls } = recordingTeam(() => ({ ok: false, error: "the session bus is not loaded" }));
 		const { call, runtime } = harness({ team });
 		await call({ action: "add", title: "One" });
 		await call({ action: "add", title: "Two" });
 		const first = await call({ action: "claim", card: "1" });
 		expect(first.isError).toBeFalsy();
-		// The failure is kept, because `/board status` says why there is no team.
+		expect(resultText(first)).toContain("Not on the team: the session bus is not loaded.");
 		expect(runtime.team.last()).toEqual({ ok: false, error: "the session bus is not loaded" });
 		await call({ action: "claim", card: "2" });
 		expect(calls).toHaveLength(2);

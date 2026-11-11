@@ -56,14 +56,16 @@ export async function mutate(
 	op: CardOp,
 	/**
 	 * What the call says besides the card: `next` after any successful write, `told` when the result
-	 * says a sign owes the owner its message, and `cross` for the four actions whose write can cross
-	 * a lane. `told` is not gated on the write: a repeat sign that stamped nothing still owes one
-	 * while the card says the sign was never told.
+	 * says a sign owes the owner its message, `cross` for the four actions whose write can cross
+	 * a lane, and `joined` for the one action whose write makes this session a teammate. `told` is
+	 * not gated on the write: a repeat sign that stamped nothing still owes one while the card says
+	 * the sign was never told.
 	 */
 	report: {
 		next?: string;
 		told?: (card: Card) => Promise<{ card?: Card; line?: string } | undefined>;
 		cross?: (result: MutateResult) => Promise<string | undefined>;
+		joined?: () => Promise<string | undefined>;
 	} = {},
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
@@ -77,6 +79,9 @@ export async function mutate(
 	// After the write, as the sign's message is: a bus that cannot answer costs a clause and
 	// never the move it came after.
 	const held = report.cross === undefined ? undefined : await report.cross(result).catch(() => undefined);
+	// The same rule for the team: the card is taken either way, so a join that did not land is a
+	// line on the result rather than an error that reads as nothing having happened.
+	const joined = report.joined === undefined ? undefined : await report.joined().catch(() => undefined);
 	const body = [
 		formatCard(card),
 		report.next,
@@ -84,6 +89,7 @@ export async function mutate(
 		// into its own sentence: a flush-left line under an indented card reads as a second card.
 		held === undefined ? undefined : `  ${held}`,
 		told?.line,
+		joined === undefined ? undefined : `  ${joined}`,
 	].filter((line): line is string => line !== undefined);
 	return textResult(body.join("\n"), {
 		action,
