@@ -15,8 +15,8 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-// A type-only import, so this module adds no timer seam to any entry's registration graph
-// (`test/dependencies.test.ts`): the bound's one timer is built here, below.
+// Type-only, deliberately: see `boundTimer` below for why this module cannot take the timer seam
+// itself. A type import binds no value, so it adds nothing to any entry's registration graph.
 import type { ArmTimer } from "./timer.ts";
 
 /**
@@ -30,13 +30,21 @@ import type { ArmTimer } from "./timer.ts";
 export const ANSWER_BOUND_MS = 10_000;
 
 /**
- * The production bound's timer, cleared when the request settles.
+ * The bound's one timer, cleared when the request settles, and the reason it is built here.
  *
- * Not `lib/timer.ts`'s `defaultTimer`: that one is `unref`'d, and a bound whose timer the event
- * loop may drop is a bound that can leave a caller waiting again. This one is never `unref`'d and
- * is cancelled by {@link requestOverBus} the moment the request ends, which is the same rule
- * `abortableSleep` states for its sleep — a wait that exists on purpose keeps the process alive
- * until it is over.
+ * `lib/timer.ts`'s `defaultTimer` is the canonical seam for an armed one-shot, and this module
+ * would normally take it. It cannot: `session-tool.ts` imports this file and is in every entry's
+ * registration graph, so a value import here puts `timer.ts` into each of those graphs — board's
+ * went from 61 modules to 62 against a row that may only fall (`test/dependencies.test.ts`). The
+ * seam is taken as a *type* instead, and its production value is this one helper: a deliberate
+ * duplicate of four lines, not an accident, and the first thing to delete if a budget ever has
+ * room for the import.
+ *
+ * It also differs from `defaultTimer` where it matters: it is never `unref`'d. A bound exists to
+ * answer the caller, so it must not be the thing the event loop is free to drop — the rule
+ * `abortableSleep` states for its sleep, that a wait which exists on purpose keeps the process
+ * alive until it is over. `requestOverBus` cancels it the moment the request ends, so it is never
+ * what holds a finished call open.
  */
 const boundTimer: ArmTimer = (ms, fn) => {
 	const timer = setTimeout(fn, ms);
