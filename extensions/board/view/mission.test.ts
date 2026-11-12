@@ -178,9 +178,8 @@ describe("the mission control's contracts", () => {
 	});
 
 	test("draws a mission card's id as a button, and the whole queue is reachable behind its fold", () => {
-		// A mission card opens its card, the same way a board face does.
-		expect(BOARD_CLIENT_JS).toContain('button.setAttribute("aria-haspopup", "dialog")');
-		expect(BOARD_CLIENT_JS).toContain('el("span", N.missionRef, "#" + card.id)');
+		// A mission is the board's own card, so it opens the record the way the board's face does.
+		expect(BOARD_CLIENT_JS).toContain("return board.cardNode(card);");
 		// Three rows, then the same fold control a swimlane uses: one affordance for "there is
 		// more" in this column, and it opens the board instead of saying where the board is.
 		expect(BOARD_CLIENT_JS).toContain("var STRIP = 3");
@@ -204,9 +203,8 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CLIENT_JS).toContain('node.appendChild(document.createTextNode("all (" + to.length + ")"))');
 		// The worst state among the recipients is the one the row wears, and its name is on the hover.
 		expect(BOARD_CLIENT_JS).toContain("STATE_RANK[state] &lt; STATE_RANK[worst]".replace("&lt;", "<"));
-		// Every glyph is decoration: the kind is a chip with its word in it.
+		// The kind is a chip with its word in it, and no glyph: the paper is the only mark left.
 		expect(BOARD_CLIENT_JS).toContain('chip(message.kind, "muted")');
-		expect(BOARD_CLIENT_JS).toContain('glyph.setAttribute("aria-hidden", "true")');
 		// A rail row's kind is a word too, and a move names the lane it went to.
 		expect(BOARD_CLIENT_JS).toContain("ACTIVITY_LABEL[event.kind]");
 		expect(BOARD_CLIENT_JS).toContain('label.replace("{lane}"');
@@ -232,11 +230,9 @@ describe("the mission control's contracts", () => {
 	test("walks a decision row and a mission card with j/k, and enters them", () => {
 		// One selector for everything that opens a card, so the walk and the dialog's "n of m"
 		// agree about what a card on this page is.
-		expect(BOARD_CLIENT_JS).toContain(
-			'var nodes = document.querySelectorAll(".board-row, .board-decision, .board-mission");',
-		);
-		expect(BOARD_CLIENT_JS).toContain('here.closest(".board-row, .board-decision, .board-mission")');
-		expect(BOARD_CLIENT_JS).toContain('.querySelector(".bf-row__title, .board-decision__open, .board-mission__title")');
+		expect(BOARD_CLIENT_JS).toContain('var nodes = document.querySelectorAll(".board-row, .board-decision");');
+		expect(BOARD_CLIENT_JS).toContain('here.closest(".board-row, .board-decision")');
+		expect(BOARD_CLIENT_JS).toContain('.querySelector(".bf-row__title, .board-decision__open")');
 	});
 
 	test("is three columns with one page scroll, and the grid is the only thing it lays out", () => {
@@ -250,7 +246,7 @@ describe("the mission control's contracts", () => {
 		}
 		// A caption sticks; a lane's head does not, because the page has one scroll box and the
 		// column captions are its only landmarks.
-		expect(ownRules()).toMatch(/\.board-team__column \.bf-section__cap\{[^}]*position:sticky/);
+		expect(ownRules()).toMatch(/\.board-team \.bf-section__cap\{[^}]*position:sticky/);
 	});
 
 	test("draws the counting pill in tabular figures, so two columns' numbers line up", () => {

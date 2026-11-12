@@ -57,7 +57,7 @@ waits on a person, and `done` is closed. Each move follows the one transition th
 board allows from where the card is; no lane can be skipped.
 
 **The page.** A lane's width follows the work it holds; five lanes sit side by side (one below
-1180px, via the picker), a lane of 24 cards folds, and a card is a one-height note with no edge.
+1180px, via the picker), a lane of 24 cards folds, and a card is a one-height note with no edge — the same card the Team tab draws, with no rule between two of them.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`,
 `reclaim`, `move`, `note`, `contract`, `approve`, `review`, `edit`, `archive`,

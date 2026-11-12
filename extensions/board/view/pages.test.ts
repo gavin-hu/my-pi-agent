@@ -573,7 +573,7 @@ describe("the class contract", () => {
 		expect(DECISION_TONE.gone).toBe("danger");
 		for (const kind of DECISION_KINDS) {
 			const tone = DECISION_TONE[kind];
-			expect(BOARD_CSS, kind).toContain(`.board-decision[data-tone="${tone}"] .bf-row__mark{color:var(--${tone})}`);
+			expect(BOARD_CSS, kind).toContain(`.board-decision[data-tone="${tone}"]{--lane-role:var(--${tone})}`);
 		}
 		// A refusal or a loss colours its sentence too; a warn row only its edge.
 		expect(BOARD_CSS).toContain('.board-decision[data-tone="danger"] .board-decision__why{color:var(--danger)}');
@@ -581,7 +581,7 @@ describe("the class contract", () => {
 		// its colour and the queue's reasons read as loudly as its titles: `--text` is what an
 		// uncoloured paragraph inherits on the raised plane.
 		expect(BOARD_CSS).toContain(
-			".board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:2px 0 0;color:var(--muted);",
+			".board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);",
 		);
 	});
 

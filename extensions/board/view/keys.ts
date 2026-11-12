@@ -69,13 +69,13 @@ export const BOARD_KEYS_JS = String.raw`(function () {
     // holds it: an index of -1 for every card made j from one land on the first card in the
     // lane instead of the next — which is the place a reader lost when they came back.
     var here = document.activeElement;
-    var card = here && here.closest ? here.closest(".board-row, .board-decision, .board-mission") : null;
+    var card = here && here.closest ? here.closest(".board-row, .board-decision") : null;
     var at = card === null ? -1 : drawn.indexOf(card);
     var next = at < 0 ? (delta > 0 ? 0 : drawn.length - 1) : (at + delta + drawn.length) % drawn.length;
     // Every walkable node has one control that opens it: a face's title, a decision's row, a
     // mission card's title. One list, so a row that became walkable cannot be walked to a
     // node with nothing to focus.
-    var button = drawn[next].querySelector(".bf-row__title, .board-decision__open, .board-mission__title");
+    var button = drawn[next].querySelector(".bf-row__title, .board-decision__open");
     if (button) button.focus();
   }
 

@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the Team tab is redrawn in the board's language. Its rows stop being ruled kit lists and
+  become the board's card — a tinted block, no edge, the gap between two the only separator — with a
+  paper for each family: a person's state, a decision's tone, the lane a mission is in, the accent a
+  message owes an answer in. The middle column draws the board's own card rather than a second
+  rendering of it, the six deck heads are the board's lane head at one weight, and the glyphs, the
+  tag bars and the rules between rows are gone: what a 1440 frame drew in 37 borders it now draws
+  in six.
+
 - `board`: a card face on the page is an index of the work at one height. The lane no longer prints
   the card's last line — a note can be a thousand characters — so every card draws a two-line
   title, the facts beside it and its path hints, all the same height; what a card waits for is its

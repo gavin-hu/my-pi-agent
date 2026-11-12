@@ -44,7 +44,7 @@ const LANE_PAPER: Record<LaneRole, string> = {
 const LANE_ROLE_CSS = LANES.map((lane) => {
 	const role = LANE_RULES[lane].role;
 	return (
-		`.board-lane[data-lane="${lane}"],.bf-row[data-lane="${lane}"],.board-dialog__state[data-lane="${lane}"],.board-dot[data-lane="${lane}"]{--lane-role:var(--${role})}` +
+		`.bf-lane[data-lane="${lane}"],.bf-row[data-lane="${lane}"],.board-dialog__state[data-lane="${lane}"],.board-dot[data-lane="${lane}"]{--lane-role:var(--${role})}` +
 		`.bf-row[data-lane="${lane}"]{--note-paper:var(${LANE_PAPER[role]})}`
 	);
 }).join("\n");
@@ -56,7 +56,7 @@ const LANE_ROLE_CSS = LANES.map((lane) => {
  * the refusal colour by being classified, not by a rule somebody remembered to add.
  */
 const DECISION_TONE_CSS = BOARD_TONES.map(
-	(tone) => `.board-decision[data-tone="${tone}"] .bf-row__mark{color:var(--${tone})}`,
+	(tone) => `.board-decision[data-tone="${tone}"]{--lane-role:var(--${tone})}`,
 ).join("\n");
 
 /**
@@ -110,7 +110,11 @@ ${WEB_COMPONENTS_CSS}
    than a ragged list. The reason a card sits where it does is no longer drawn here.
    The four boxes are pinned from the type tokens rather than measured, so a one-line title and
    an absent kind still occupy what their neighbours occupy. */
-.board-lane{--lane-count:0;--face-top:calc(var(--fs-xs) * var(--lh-normal));--face-title:calc(var(--fs-sm) * var(--lh-snug) * 2);--face-hints:calc(var(--fs-xs) * var(--lh-normal));--face-meta:calc(var(--fs-xs) * var(--lh-normal));--face-h:calc(var(--face-top) + var(--face-title) + var(--face-hints) + var(--face-meta) + var(--space-1) * 3);display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0;transition:flex-grow 200ms ease}
+.board-lane{--lane-count:0}
+/* The face's boxes are the lane's: every lane that holds a card draws the note from them. */
+.board-lane,.board-team .bf-lane{--face-top:calc(var(--fs-xs) * var(--lh-normal));--face-title:calc(var(--fs-sm) * var(--lh-snug) * 2);--face-hints:calc(var(--fs-xs) * var(--lh-normal));--face-meta:calc(var(--fs-xs) * var(--lh-normal));--face-h:calc(var(--face-top) + var(--face-title) + var(--face-hints) + var(--face-meta) + var(--space-1) * 3);display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0;transition:flex-grow 200ms ease}
+/* A lane head pins to the pane: one scroll box, and its heads are the landmarks in it. */
+.board-lane .bf-lane__head{position:sticky;top:0;z-index:1;background:var(--canvas)}
 /* The lane count is a count, not a design token: the client sets it from the snapshot and
    declares its default here, so a lane whose count never arrived is an ordinary lane
    rather than a variable nobody defines. */
@@ -131,18 +135,18 @@ ${WEB_COMPONENTS_CSS}
    neighbours by the gap alone, so the lane shows paper and space rather than a grid of lines.
    Its height is the face's boxes plus its padding — stated once, so every note in a lane is
    the same size and the column reads as a stack of notes rather than a ragged list. */
-.board-lane .bf-lane__list{gap:var(--space-2)}
-.board-lane .board-row{grid-template-columns:minmax(0,1fr);height:calc(var(--face-h) + var(--space-2) * 2);overflow:hidden;align-content:stretch;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md)}
+.bf-lane .bf-lane__list{gap:var(--space-2)}
+.bf-lane .board-row{grid-template-columns:minmax(0,1fr);height:calc(var(--face-h) + var(--space-2) * 2);overflow:hidden;align-content:stretch;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md)}
 /* The card the reader walked to wears the accent outside its edge; a card a peer's write just
    moved wears it inside, so the two never read as one state. */
-.board-lane .board-row[data-current="true"]{outline:2px solid var(--accent)}
+.bf-lane .board-row[data-current="true"]{outline:2px solid var(--accent)}
 /* A card whose file moved since the last frame is marked for a breath: a peer's write is news,
    and where it landed is the whole of what a live board owes a reader. A ring rather than a
    fill, because the face is now the lane's paper — a fill would repaint the paper this card is
    identified by, and on Execute's own accent-soft paper it would paint nothing at all. A ring
    also cannot be swallowed by a background rule at equal specificity, whatever order the two
    land in. The mark leaves with its attribute, so the rule states a colour and no timing. */
-.board-lane .board-row[data-changed="true"]{outline:2px solid var(--accent);outline-offset:-2px}
+.bf-lane .board-row[data-changed="true"]{outline:2px solid var(--accent);outline-offset:-2px}
 /* A card's body fills the note, and the last line is pinned to its foot: the holder, the age
    and the history sit on the card's bottom edge whatever the title and the hints above them
    measure, so a column of notes lines up along its last line as well as its top. */
@@ -182,13 +186,13 @@ ${WEB_COMPONENTS_CSS}
 /* The meta line is the note's footer: whose it is at one end, when it was last written with the
    history beside it at the other. One line, clipped rather than wrapped, so a narrow lane never
    grows the note. The holder wears no chip: a leading bar is what a path wears. */
-.board-lane .bf-row__meta{display:flex;flex-wrap:nowrap;align-items:baseline;gap:var(--space-2);margin:0;margin-top:auto;line-height:var(--lh-normal);max-height:var(--face-meta);overflow:hidden;white-space:nowrap}
+.bf-lane .bf-row__meta{display:flex;flex-wrap:nowrap;align-items:baseline;gap:var(--space-2);margin:0;margin-top:auto;line-height:var(--lh-normal);max-height:var(--face-meta);overflow:hidden;white-space:nowrap}
 .board-lane .bf-row__meta > .board-row__owner{flex:0 0 auto;color:var(--text)}
 .board-lane .bf-row__meta > [data-at]{margin-left:auto}
 .board-lane .bf-row__meta .board-row__notes{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* The detail the face stopped drawing stays the card's: still in the document, still the title
    button's description for j/k and a screen reader, still the hover, and the dialog draws it. */
-.board-lane .bf-row__reason{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.bf-lane .bf-row__reason{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
 /* One lane role per lane, set once and read by the kit's mark, head and dot. */
 ${LANE_ROLE_CSS}
@@ -196,58 +200,78 @@ ${LANE_ROLE_CSS}
 ${DECISION_TONE_CSS}
 ${DECISION_WHY_CSS}
 
-/* The Team tab: three columns — who is here, what is moving, what arrived — each counting
-   itself in a caption. There is no nested scroll here on purpose: a column of agents beside
-   a short middle column is one page, and three scrollbars inside a dashboard is the thing
-   this tab exists not to be. */
-.board-team{min-width:0}
-/* A column's caption sticks: the page has one scroll box, and these are its landmarks. */
-/* A lane's head pins to the pane: one scroll box, and its heads are the landmarks in it. */
-.board-lane .bf-lane__head{position:sticky;top:0;z-index:1;background:var(--canvas)}
-.board-team__column .bf-section__cap{position:sticky;top:0;z-index:1;background:var(--canvas)}
+/* The Team tab: the board's columns seen from the other side.
+   One card, five papers, one head. A card is the board's lane block — a tinted ground with no
+   edge, told from the next by the gap alone, its facts in the same order: what it is, what it
+   says, whose it is and when. The only line the page draws is a deck's head, and it is drawn
+   as the board's lane head: a role dot, the word, the count, and the role's rule. */
+.board-team{--paper:var(--raised);--team-pad:var(--space-2) var(--space-3);--team-row-h:calc(var(--fs-xs) * var(--lh-normal) + var(--space-2) * 2);min-width:0}
+/* Each column's role, which its head and its cards read: people are the quiet plane, the queue
+   is the warning colour, and what arrived is the accent. A pane inherits its own tone. */
+.board-team__column[data-column="agents"]{--lane-role:var(--muted)}
+.board-team__column[data-column="active"]{--lane-role:var(--warn)}
+.board-team__column[data-column="activity"]{--lane-role:var(--accent)}
+.board-team .bf-section[data-tone="warn"]{--lane-role:var(--warn)}
+.board-team .bf-section[data-tone="accent"]{--lane-role:var(--accent)}
+.board-team .bf-section[data-tone="danger"]{--lane-role:var(--danger)}
+/* A deck's head is the board's lane head, at the board's one weight. It pins to the page's
+   scroll box, because these are the tab's landmarks. */
+.board-team .bf-section__cap{position:sticky;top:0;z-index:1;align-items:center;gap:var(--space-2);padding-bottom:var(--space-1);border-bottom:2px solid var(--lane-role,var(--border));background:var(--canvas);text-transform:uppercase;color:var(--text)}
+/* A head's dot: the lane's own glyph, in the lane's role — the one mark on the page. */
+.board-team .bf-section__cap .bf-lane__dot{font-size:9px;line-height:1;color:var(--lane-role,var(--muted))}
+/* A card. Not the board's note — that one is a lane's, below — but the same block: paper,
+   corners, padding, and the gap as the only thing between two of them. */
+.board-team .bf-row:not(.board-row):not(.board-agent){display:flex;flex-wrap:wrap;align-content:center;align-items:center;gap:var(--space-1) var(--space-2);min-width:0;padding:var(--team-pad);background:var(--paper);border:0;border-radius:var(--radius-md);cursor:pointer}
+.board-team .bf-row:not(.board-row):focus-visible{outline:2px solid var(--accent)}
+/* A person is two columns — the monogram, then everything else — so it keeps its own grid. */
+.board-team .bf-row.board-agent{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}
+/* A chip in a sentence has nothing to separate, and a label is not a path. */
+.board-team .bf-tag{border-left:0;padding-left:0}
+/* A lane head inside a swimlane is a deck head one level down: the same dot, no rule of its
+   own, because the deck above it already carries the line. */
+.board-team .bf-lane__head{border-bottom:0;margin:0;font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--muted)}
 .board-team__grid{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
 .board-team__column{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
 .board-team__empty{margin:0;font:var(--fs-sm)/var(--lh-relaxed) var(--font-ui);color:var(--muted)}
-.board-team__skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface)}
+.board-team__skeleton{height:4.5rem;border-radius:var(--radius-md);background:var(--raised)}
 
-/* Left: the agents. A row per session, the lead's wearing the accent mark. */
-.board-team__agents{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
-.board-agent{grid-template-columns:auto minmax(0,1fr)}
-.board-agent[data-lead="1"] .bf-row__mark{color:var(--accent)}
-/* A dead session is drawn, not coloured: the dashed edge says "nobody is behind this". */
-.board-agent[data-state="gone"]{border-bottom-style:dashed}
+/* PEOPLE — one card per session: who it is, what it holds, and what it owes. The paper is the
+   session's state, so a column of people reads before a word is: the quiet plane for a free
+   session, the accent for one mid-turn, the refusal for one that is gone. */
+.board-team__agents{display:flex;flex-direction:column;gap:var(--space-2);margin:0;padding:0;list-style:none}
+.board-agent{--paper:var(--raised);display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;border:0;border-radius:var(--radius-md);padding:var(--team-pad);background:var(--paper)}
+.board-agent[data-state="working"]{--paper:var(--accent-soft)}
+.board-agent[data-state="gone"]{--paper:var(--danger-soft)}
+.board-agent[data-state="quiet"] .board-agent__name{color:var(--muted)}
+.board-agent[data-lead="1"] .board-agent__monogram{background:var(--accent);color:var(--on-accent)}
 .board-agent__body{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
 .board-agent__head{display:flex;align-items:center;gap:var(--space-2);min-width:0}
-/* Two letters, in the mono face: a monogram is an identifier, and a label long enough to be
-   elided still has these two to be recognised by. */
+/* Two letters, in the mono face: a monogram is identity, the note's number in the place a
+   name lives, so it stays where the board's card keeps its id. */
 .board-agent__monogram{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:1.5rem;height:1.5rem;padding:0 var(--space-1);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs) var(--font-mono);text-transform:uppercase}
 .board-agent__name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font:var(--fw-semibold) var(--fs-sm) var(--font-ui)}
-/* The state sits at the row's right edge, on the name's own line, where the eye compares one
-   row with the next. */
+/* The state is the card's foot's opposite end: a word beside a dot, never a colour alone. */
 .board-agent__head .board-agent__state{margin-left:auto;flex:0 0 auto}
 .board-agent__chips{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);font:var(--fs-xs) var(--font-mono)}
-/* The state is a word beside a dot, never a colour alone: quiet is the state a lead acts
-   on and the one a reader must be able to say out loud. */
 .board-agent__state{display:inline-flex;align-items:center;gap:var(--space-1);color:var(--muted);font-variant-numeric:tabular-nums}
 .board-agent__mail{color:var(--accent);font-variant-numeric:tabular-nums}
-/* What the session is holding: one line per card, the lane as a mark beside it. */
+/* What the session holds is the card's body: one line per card, the lane as a mark beside it. */
 .board-team__missions{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
 .board-team__mission,.board-team__none{display:flex;align-items:center;gap:var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
-.board-team__bar{flex:0 0 auto;align-self:stretch;width:2px;background:var(--muted)}
+.board-team__bar{flex:0 0 auto;align-self:stretch;width:2px;background:var(--lane-role,var(--muted))}
 .board-team__mission-ref{color:var(--text)}
 .board-team__mission-lane{text-transform:lowercase}
 .board-team__mission-age{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
 /* An age is a duration, not a phrase: tabular figures, so two rows' minutes line up. */
 .board-stamp{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-/* An agent holding nothing still draws a mission row, without its bar: the column keeps its
-   rhythm, and the words sit where the mission lines do. */
+/* A session holding nothing still draws the line its cards would: the column keeps its rhythm. */
 .board-team__none{padding-left:calc(2px + var(--space-2));color:var(--dim)}
-/* The one "there is more" control: the folded history row, a lane's remainder, a queue's tail. */
+/* The one "there is more" control: the folded history card, a deck's tail, a queue's end. */
 .board-fold{appearance:none;display:inline-flex;align-items:center;gap:var(--space-2);width:auto;margin:0;padding:0;min-height:24px;border:0;background:none;color:var(--muted);font:var(--fs-xs) var(--font-mono);text-align:left;cursor:pointer}
 .board-fold:hover{color:var(--text)}
 
-/* One dot for one state, wherever it is drawn: an agent's pill, a waiting row's recipient, a
-   mission row's owner. A record that is not there is a hollow ring, never a colour. */
+/* One dot for one state, wherever it is drawn: an agent's pill, a recipient, an owner. A record
+   that is not there is a hollow ring, never a colour. */
 .board-dot{flex:0 0 auto;width:8px;height:8px;background:var(--muted)}
 .board-owner{display:inline-flex;align-items:center;gap:var(--space-1);min-width:0;color:var(--muted)}
 .board-dot[data-state="live"]{background:var(--success)}
@@ -257,40 +281,38 @@ ${DECISION_WHY_CSS}
 /* A lane dot is a glyph in the lane's role, not a filled square. */
 .board-dot[data-lane]{background:none;color:var(--lane-role,var(--muted))}
 
-/* Middle: the decisions strip, then the three lanes that move. */
-.board-team__decisions{display:flex;flex-direction:column;min-width:0}
-.board-decision{grid-template-columns:auto minmax(0,1fr);cursor:pointer}
-.board-decision__body{min-width:0}
+/* NEEDS YOU — one paper per decision, tinted by the tone the queue ranks it by, at one height:
+   the queue is a list of the same thing, and a decision is a fixed three lines. */
+.board-team__decisions{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
+.board-decision{--paper:var(--raised);flex-wrap:nowrap;align-items:flex-start;min-height:var(--team-row-h);cursor:pointer}
+.board-decision[data-tone="danger"]{--paper:var(--danger-soft)}
+.board-decision[data-tone="warn"]{--paper:var(--search-soft)}
+.board-decision[data-tone="accent"]{--paper:var(--accent-soft)}
+.board-decision__body{min-width:0;display:flex;flex-direction:column;gap:var(--space-1)}
 .board-decision__open{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2);min-width:0;appearance:none;border:0;background:none;padding:0;color:var(--text);font:var(--fw-medium) var(--fs-sm) var(--font-ui);text-align:left;cursor:pointer}
 .board-decision__open:hover .bf-row__title{color:var(--accent)}
 .board-decision__ref{flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
-.board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:2px 0 0;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
-/* The lanes: a kit lane head, then the rows that fit. */
+/* The sentence is the card's foot: what kind of work it is, who holds it, and how long it waited,
+   on the card's last line where the board's holder sits. */
+.board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
+/* MOVING — the board's own card, in a lane one column narrower: the shape, the paper and the
+   order come from the lane rules above, so this column is the board at a glance. */
 .board-team__lanes{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
-/* One mission row per lane: the column is narrow enough that two abreast elide both titles. */
-.board-mission{grid-template-columns:auto minmax(0,1fr);cursor:pointer}
-.board-mission__head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
-.board-mission__ref{flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
-.board-mission__title{appearance:none;border:0;background:none;padding:0;cursor:pointer;text-align:left}
-.board-mission__title:hover{color:var(--accent)}
-.board-mission__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:2px 0 0;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
 
-/* Right: what nobody has read, then what the cards say happened. */
-.board-team__pane-body{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
-.board-team__waiting,.board-team__recent{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+/* MAIL and WHAT HAPPENED — one line each, one height, the age at the foot's edge. */
+.board-team__pane-body{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
+.board-team__waiting,.board-team__recent{display:flex;flex-direction:column;gap:var(--space-2);margin:0;padding:0;list-style:none}
 .board-mail__body{min-width:0}
-/* A row is a queue entry, not a sentence: six short facts on one line, the age pushed to the
-   edge where the eye compares them. */
-.board-mail,.board-event{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
-/* Mail nobody has read is the one thing on this page somebody owes an answer to, so it is
-   drawn as a row with an accent mark: a mark, not a box. */
-.board-mail[data-kind] .bf-row__mark{color:var(--accent)}
-.board-glyph{flex:0 0 auto;color:var(--muted)}
+.board-mail,.board-event{flex-wrap:nowrap;align-items:baseline;min-height:var(--team-row-h);color:var(--muted);font:var(--fs-xs) var(--font-mono)}
+.board-mail{--paper:var(--accent-soft)}
+.board-event{--paper:var(--raised)}
 .board-mail__from{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .board-mail__arrow{color:var(--dim)}
 .board-mail__to{display:inline-flex;align-items:center;gap:var(--space-1);min-width:0}
 .board-event__ref{color:var(--muted);font-family:var(--font-mono)}
 .board-event__what{min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The row's own line is the fact: an event or a message is one line, so it never wraps. */
+.board-mail > .bf-row__meta,.board-event > .bf-row__meta{display:flex;flex-wrap:nowrap;align-items:baseline;gap:var(--space-2);min-width:0}
 
 /* The card dialog: the record of one card, as the questions a reader asks of it — what it
    promises, where to start, what it is tied to, what has happened, and what was said.
