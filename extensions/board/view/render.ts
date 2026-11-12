@@ -91,10 +91,8 @@ const renderTemplate = String.raw`(function () {
   var FOLD_AT = { done: 6, roster: 3, lane: 24 };
 
   /**
-   * How long a card that moved wears its mark, in milliseconds.
-   *
-   * One breath rather than a state: a peer's write is news, and news that stays becomes a
-   * second set of colours on the board. Long enough to see while reading the next card.
+   * How long a card that moved wears its mark, in milliseconds: one breath, not a state. A
+   * peer's write is news, and news that stays becomes a second set of colours on the board.
    */
   var CHANGE_MS = 1500;
 
@@ -202,12 +200,9 @@ __RUNTIME__
   }
 
   /**
-   * The ids whose card moved since the frame before: a revision that climbed, or a card
-   * that has just arrived.
-   *
-   * A first frame marks nothing — the whole board is new to a reader who just opened it,
-   * and every card wearing a mark says no more than the board itself does. A card that
-   * left the board is not marked: it is not drawn, so there is nothing to mark.
+   * The ids whose card moved since the frame before: a revision that climbed, or an arrival.
+   * A first frame marks nothing — the whole board is new to whoever just opened it — and a
+   * card that left is not marked, because it is not drawn.
    */
   function changedIds(previous, view) {
     var changed = {};
@@ -223,11 +218,9 @@ __RUNTIME__
   }
 
   /**
-   * Clear the mark a frame put on the cards that moved, after one breath.
-   *
-   * A frame replaces the mark the frame before it painted, so a card stays marked only while
-   * the move it made is the latest news. This is the other end: the board goes quiet, and the
-   * last mark leaves on its own, since no further frame is coming to replace it.
+   * Clear the mark a frame put on the cards that moved, after one breath. A frame replaces the
+   * mark before it, so a card stays marked only while its move is the latest news; this is the
+   * other end — the board goes quiet, and no further frame comes to take the mark away.
    */
   function armChanged() {
     if (board.changedTimer !== undefined) clearTimeout(board.changedTimer);
@@ -481,10 +474,9 @@ __RUNTIME__
       if (section.getAttribute("data-sig") !== sig) {
         section.setAttribute("data-sig", sig);
         var list = section.querySelector('.' + N.laneList);
-        // A rebuilt list empties, so the node the reader was on goes with it: focus falls to
-        // the document, and j — which reads the focused card — restarts the walk at the first
-        // card instead of moving on. The id outlives the node, so the reader is put back on
-        // the card they were on, and the next press lands on the one after it.
+        // A rebuilt list empties, so the node the reader was on goes with it and focus falls to
+        // the document: j reads the focused card, so it would restart at the first one. The id
+        // outlives the node, so the reader is put back on their card and j moves on from it.
         var here = document.activeElement;
         var held = here && here.closest && list.contains(here) ? here.closest(".board-row") : null;
         var heldId = held ? held.getAttribute("data-card") : null;
@@ -561,8 +553,8 @@ __RUNTIME__
 
   /** Paint a whole snapshot. */
   board.render = function (view) {
-    // What moved is read against the frame before this one, so a lane rebuilt here still
-    // knows which of its cards a peer just wrote.
+    // What moved is read against the frame before this one, so a lane rebuilt here still knows
+    // which of its cards a peer just wrote.
     var previous = board.view;
     board.view = view;
     board.changed = changedIds(previous, view);
