@@ -28,8 +28,8 @@ import { fixtureBoard, fixtureRoster, fixtureWaiting } from "../tools/fixtures/b
  * and would say nothing about the tab being photographed.
  */
 const READY: Record<"board" | "team", string> = {
-	board: "!!document.querySelector('.board-card')",
-	team: "!!document.querySelector('#board-team .board-team__agent')",
+	board: "!!document.querySelector('.board-row')",
+	team: "!!document.querySelector('#board-team .board-agent')",
 };
 
 /** The dialog a shot can open before it captures, so a modal is reviewed as a picture. */
@@ -72,7 +72,7 @@ export function parseArgs(argv: string[]): ShotOptions {
  * the one-line card that happens to sit in the first lane.
  */
 const DIALOG_OPEN: Record<ShotDialog, string> = {
-	card: "document.querySelector('.board-card[data-card=\"1\"] .board-card__title').click()",
+	card: "document.querySelector('.board-row[data-card=\"1\"] .bf-row__title').click()",
 };
 
 /** The URL for one tab: the server's own URL already carries the token. */

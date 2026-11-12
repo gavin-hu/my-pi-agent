@@ -336,6 +336,7 @@ export const SCRIPT_SUITES: readonly string[] = [
 	"screenshots",
 	"release",
 	"render-bench",
+	"shots",
 	"test-selection",
 	"video",
 ];
