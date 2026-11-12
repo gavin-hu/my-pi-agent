@@ -82,8 +82,13 @@ const renderTemplate = String.raw`(function () {
    * six it is history, and the count says how much. The roster has the same problem for the
    * same reason — a label that ever claimed a card stays an owner for good, so a long
    * history is a wall of no-record rows — and three is where it stops being a team.
+   *
+   * A working lane has its own number and a bigger one: twenty-four cards at 140-190px each
+   * is a 4,000px wall that pushes every lane beside it out of sight, and a reader who wants
+   * it open is one press away from it either way. The count stays in the head, which is the
+   * fact a fold like this is owed.
    */
-  var FOLD_AT = { done: 6, roster: 3 };
+  var FOLD_AT = { done: 6, roster: 3, lane: 24 };
 
   /** The same table, for the fragments painted after this one: team folds two lists. */
   board.foldAt = FOLD_AT;
@@ -217,6 +222,24 @@ __RUNTIME__
     var node = el("span", N.stamp, text);
     node.setAttribute("data-at", String(at));
     return node;
+  }
+
+  /**
+   * A pane's head: its name and how much it holds, in the shape a column counts itself in.
+   *
+   * Shared by the activity panes and the decisions strip, because the tab has one way of
+   * saying a number: the pill is count/total when a cap left something out, and the spoken
+   * label spells that ratio out rather than reading a slash aloud.
+   */
+  function paneHead(text, count, total, tone) {
+    var head = el("h3", N.pane, text);
+    var filtered = total !== undefined && total !== count;
+    var pill = el("span", N.paneCount, filtered ? count + "/" + total : String(count));
+    // A count that is asking for something wears the accent; a count that is merely true does not.
+    if (tone !== undefined) pill.setAttribute("data-tone", tone);
+    head.appendChild(pill);
+    head.setAttribute("aria-label", text + ", " + (filtered ? count + " of " + total : plural(count, "row")));
+    return head;
   }
 
   /** The toolbar's subject, its progress, the footer, and the tab's own name. */
@@ -380,10 +403,12 @@ __RUNTIME__
       var lane = view.lanes[i];
       var section = laneNode(lane);
       if (section.parentNode !== lanes) lanes.appendChild(section);
-      // Finished work starts folded, once: the default is what the page opens with, and
-      // toggleLane writes a boolean from then on, so a reader who unfolds Done keeps it
-      // unfolded through every frame a peer's write causes.
-      if (lane.key === "done" && lane.cards.length >= FOLD_AT.done) {
+      // A lane past its threshold starts folded, once: the default is what the page opens
+      // with, and toggleFold writes a boolean from then on, so a reader who unfolds a lane
+      // keeps it unfolded through every frame a peer's write causes. Finished work folds
+      // sooner than work in flight — one is history, the other is a wall of the same lane.
+      var foldAt = lane.key === "done" ? FOLD_AT.done : FOLD_AT.lane;
+      if (lane.cards.length >= foldAt) {
         board.collapsed = board.collapsed || {};
         if (board.collapsed[lane.key] === undefined) board.collapsed[lane.key] = true;
       }
@@ -487,6 +512,7 @@ __RUNTIME__
   board.el = el;
   board.typing = typing;
   board.stamp = stamp;
+  board.paneHead = paneHead;
   board.chip = chip;
   board.kindLabel = kindLabel;
   board.ago = ago;

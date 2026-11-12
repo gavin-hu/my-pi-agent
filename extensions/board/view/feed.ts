@@ -32,6 +32,7 @@ const feedTemplate = String.raw`(function () {
   var ago = board.ago;
   var plural = board.plural;
   var stamp = board.stamp;
+  var paneHead = board.paneHead;
 
   var ACTIVITY_LABEL = __ACTIVITY_LABEL__;
 
@@ -126,15 +127,6 @@ const feedTemplate = String.raw`(function () {
     return row;
   }
 
-  /** A pane's head: its name and how much it holds. */
-  function paneHead(text, count, total) {
-    var head = el("h3", N.pane, text);
-    var shown = total !== undefined && total !== count ? count + "/" + total : String(count);
-    head.appendChild(el("span", N.paneCount, shown));
-    head.setAttribute("aria-label", text + ", " + (total !== undefined && total !== count ? count + " of " + total : plural(count, "row")));
-    return head;
-  }
-
   /** Whether a message matches the filter: its sender, its recipients, or what it says. */
   function mailMatches(message, query) {
     var hay = [message.fromLabel, message.text].concat(message.to.map(function (each) { return each.label; })).join(" ").toLowerCase();
@@ -180,7 +172,9 @@ const feedTemplate = String.raw`(function () {
         build: function (slot) {
           // A filter shows what it matched against the queue; unfiltered, the pane says how deep
           // the queue is, the way RECENT says how much history it left out.
-          slot.appendChild(paneHead("WAITING", mails.length, filtering ? waiting.length : waiting.length + queue.dropped));
+          slot.appendChild(
+            paneHead("WAITING", mails.length, filtering ? waiting.length : waiting.length + queue.dropped, mails.length > 0 ? "accent" : undefined)
+          );
           if (mails.length === 0) {
             slot.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "no mail is waiting"));
             return;

@@ -32,9 +32,9 @@ describe("the kind on the card face", () => {
 		expect(BOARD_CSS).not.toMatch(/\.board-kind\{[^}]*color:var\(--(warn|danger|accent)\)/);
 		// Breaking is the half a release must say out loud, so it is the coloured one.
 		expect(BOARD_CSS).toMatch(/\.board-kind__breaking\{[^}]*color:var\(--warn\)/);
-		// A phone keeps the queue's title readable with the label on its line: two lines, not an
-		// ellipsis after the first two words.
-		expect(BOARD_CSS).toContain(".board-team__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2");
+		// Every width keeps it in two lines rather than an ellipsis after the first two words: the
+		// clamp is the card shape's own now, not a phone override.
+		expect(BOARD_CSS).toMatch(/\.board-team__title,\.board-team__card-title\{[^}]*-webkit-line-clamp:2/);
 	});
 });
 

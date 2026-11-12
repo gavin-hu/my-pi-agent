@@ -179,11 +179,13 @@ describe("the mission control's contracts", () => {
 		// A mission card opens its card, the same way a board face does.
 		expect(BOARD_CLIENT_JS).toContain('button.setAttribute("aria-haspopup", "dialog")');
 		expect(BOARD_CLIENT_JS).toContain('el("span", N.missionRef, "#" + card.id)');
-		// Three rows, then a count: a queue that fills the column is the Board tab with extra steps.
+		// Three rows, then the same fold control a swimlane uses: one affordance for "there is
+		// more" in this column, and it opens the board instead of saying where the board is.
 		expect(BOARD_CLIENT_JS).toContain("var STRIP = 3");
-		expect(BOARD_CLIENT_JS).toContain("+N more");
-		// And the door to the wall is a button, not a link nobody can reach from the keyboard.
-		expect(BOARD_CLIENT_JS).toContain('el("button", N.teamDoor, "\\u2192 Board")');
+		expect(BOARD_CLIENT_JS).toContain('el("button", N.teamLaneFold, "+" + count + " more")');
+		// The caption is a count alone: the tab strip is the way to the whole board, so the
+		// column carries no second door for a heading to be a control.
+		expect(BOARD_CLIENT_JS).not.toContain("board-team__door");
 	});
 
 	test("says an empty lane, an empty pane, and an empty board in words", () => {
@@ -237,7 +239,7 @@ describe("the mission control's contracts", () => {
 
 	test("is three columns with one page scroll, and the grid is the only thing it lays out", () => {
 		expect(BOARD_CSS).toContain(
-			".board-team__grid{display:grid;grid-template-columns:minmax(0,16rem) minmax(0,1fr) minmax(0,20rem)",
+			".board-team__grid{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr) minmax(0,20rem)",
 		);
 		expect(BOARD_CSS).not.toContain("board-team__queue,.board-team__roster{max-height");
 		// The kit's class vocabulary is still the only one it wears, and every name it declares is drawn.

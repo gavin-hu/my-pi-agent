@@ -37,13 +37,14 @@ import { BOARD_CLASS } from "./names.ts";
 import { BOARD_EMPTY_JS } from "./empty.ts";
 import { dialogJs } from "./dialog.ts";
 import { BOARD_KEYS_JS } from "./keys.ts";
-import { BOARD_LIVE_JS } from "./live.ts";
+import { liveJs } from "./live.ts";
 import { renderJs } from "./render.ts";
 import { rosterJs } from "./roster.ts";
 import { fleetJs } from "./fleet.ts";
 import { activeJs } from "./active.ts";
 import { feedJs } from "./feed.ts";
 import { teamJs } from "./team.ts";
+import { PICKER_MQ } from "./styles.ts";
 
 /**
  * The whole client, in load order: paint, round, the card dialog, keys, wiring, start.
@@ -66,7 +67,7 @@ ${BOARD_CARD_JS}
 ${BOARD_EMPTY_JS}
 ${dialogJs({ inlineMarkdown: INLINE_MARKDOWN_JS, shortenPath: SHORTEN_PATH_JS })}
 ${BOARD_KEYS_JS}
-${BOARD_LIVE_JS}
+${liveJs({ picker: String(PICKER_MQ) })}
 ${THEME_TOGGLE_JS}
 ${dialogScript({ dialogId: "board-card-dialog", closeId: "card-dialog-close", globalName: "bfCard" })}
 ${keysDialogScript("keys-open")}

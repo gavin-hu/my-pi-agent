@@ -17,6 +17,16 @@ import { BOARD_TONES } from "../../../lib/board/tone.ts";
 import { WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../../lib/web/index.ts";
 
 /**
+ * The width below which the board shows one lane at a time, with the picker that switches it.
+ *
+ * Exported, because the CSS media query and the client's two `matchMedia` calls are one
+ * question: at 860 the picker arrived 320px after the lanes had started wrapping, and the
+ * lanes below the first were pushed under an 11,000px column. A wrapped flex row is as tall as
+ * its tallest child, so nothing but one lane at a time can keep them all above the fold.
+ */
+export const PICKER_MQ = 1180;
+
+/**
  * A lane's colour, from the lane table: one role per lane, worn by the dot on its head and
  * by the same dot in a card's dialog.
  *
@@ -108,20 +118,17 @@ ${WEB_COMPONENTS_CSS}
    sized by the work it holds rather than by its share of the row, so one holding nothing
    narrows to a rail and hands the width to the lanes carrying cards. */
 .board-lanes{display:flex;flex-wrap:nowrap;gap:var(--space-4);align-items:start}
-.board-lane{--lane-count:0;display:flex;flex:1 1 0;flex-grow:calc(1 + var(--lane-count));flex-direction:column;gap:var(--space-2);min-width:0;padding:0 var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+.board-lane{--lane-count:0;display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;gap:var(--space-2);min-width:0;padding:0 var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
 /* The lane count is a count, not a design token: the client sets it from the snapshot and
    declares its default here, so a lane whose count never arrived is an ordinary lane
    rather than a variable nobody defines. */
 /* A lane's share of the row follows the work it holds — two cards earn more width than
-   one — and the floor is the narrowest a tray is still a tray at. It is set on the two
-   states that draw one, so a rail keeps its own width, and both breakpoints below
-   replace the basis, so the floor only ever applies to the row it was chosen for:
-   five lanes at 1180px are 60rem, which is inside the row before the wrap. */
-.board-lane[data-empty="false"][data-folded="false"]{min-width:12rem}
-/* Except finished work: it is history, and a lane of five finished cards used to take
-   half the row while the one card still being worked sat on the floor and elided its
-   own title. A done lane draws as if it held three cards, however many it holds. */
-.board-lane[data-lane="done"]{flex-grow:calc(1 + min(3, var(--lane-count)))}
+   one — but only up to three shares: uncapped, a 64-card pool earned 65 of them, five
+   lanes of work shared what was left, and Plan fell to its floor with every path in it
+   elided. The floor is the narrowest a tray is still a tray at, and it is set on the two
+   states that draw one, so a rail keeps its own width; both breakpoints above replace the
+   basis, so the floor only ever applies to the row it was chosen for. */
+.board-lane[data-empty="false"][data-folded="false"]{min-width:14rem}
 /* The rail: a dot, a word, and a count — the fact that the lane is showing nothing, not a
    tray. A lane is a rail when it holds no cards and when it is folded, because both say
    the same thing: there is nothing here to read. */
@@ -178,6 +185,9 @@ ${DECISION_WHY_CSS}
    with the whole of it on the hover title the renderer sets. The list item has to be the one
    that shrinks, because a flex item's automatic minimum is its chip's width. */
 .board-card__paths li{min-width:0;max-width:100%}
+/* The +N marker is the row's trailing element, not another hint: pushed to the end, so a
+   wrap never leaves it alone under the paths it counts. */
+.board-card__more{margin-left:auto}
 .board-card .bf-chip{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 /* A path is something a reader types, so it wears the mono face the dialog's ladder uses. */
 .board-card__paths .bf-chip{font-family:var(--font-mono)}
@@ -203,17 +213,13 @@ ${REASON_TONE_CSS}
    here on purpose: a column of agents beside a short middle column is one page, and three
    scrollbars inside a dashboard is the thing this tab exists not to be. */
 .board-team{min-width:0}
-.board-team__grid{display:grid;grid-template-columns:minmax(0,16rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
+.board-team__grid{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
 .board-team__column{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
 /* Sticky, because the agents list is the one that grows: the word a reader is scanning for
    must be over the rows wherever the page has been scrolled to. Offset by a hair so the
    hairline under it does not disappear into the shell's own border. */
 .board-team__caption{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:var(--space-2);margin:0;padding:var(--space-2) 0;background:var(--canvas);border-bottom:1px solid var(--border);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-team__count{margin-left:auto;padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--raised);color:var(--text);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;letter-spacing:0}
-/* The door to the wall: the middle column's caption is where a reader asks for every card,
-   and the queue's overflow is the reason to. */
-.board-team__door{margin-left:var(--space-2);appearance:none;border:0;background:none;padding:0;min-height:24px;color:var(--accent);font:var(--fs-xs) var(--font-ui);letter-spacing:0;text-transform:none;cursor:pointer}
-.board-team__door:hover{text-decoration:underline}
 .board-team__empty{margin:0;font:var(--fs-sm)/var(--lh-relaxed) var(--font-ui);color:var(--muted)}
 .board-team__skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
 
@@ -225,6 +231,10 @@ ${REASON_TONE_CSS}
 /* A dead session is drawn, not coloured: the dashed edge says "nobody is behind this". */
 .board-team__agent[data-state="gone"]{border-style:dashed}
 .board-team__agent-head{display:flex;align-items:center;gap:var(--space-2);min-width:0}
+/* The state sits at the card's right edge, on the name's own line, where the eye compares one
+   card with the next: a state that shares a wrapping row with three chips is read last, in the
+   middle of nowhere. */
+.board-team__agent-head .board-team__state{margin-left:auto;flex:0 0 auto}
 /* Two letters, in the mono face: a monogram is an identifier, and a label long enough to be
    elided still has these two to be recognised by. */
 .board-team__monogram{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:1.5rem;height:1.5rem;padding:0 var(--space-1);border-radius:var(--radius-pill);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs) var(--font-mono);text-transform:uppercase}
@@ -236,7 +246,7 @@ ${REASON_TONE_CSS}
 .board-team__mail{color:var(--accent);font-variant-numeric:tabular-nums}
 /* What the session is holding: one line per card, the lane as a bar beside it. */
 .board-team__missions{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
-.board-team__mission{display:flex;align-items:center;gap:var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+.board-team__mission,.board-team__none{display:flex;align-items:center;gap:var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 .board-team__bar{flex:0 0 auto;align-self:stretch;width:2px;border-radius:var(--radius-pill);background:var(--muted)}
 .board-team__mission-ref{color:var(--text);font-family:var(--font-mono)}
 .board-team__mission-lane{text-transform:lowercase}
@@ -244,13 +254,17 @@ ${REASON_TONE_CSS}
 /* An age is a duration, not a phrase: tabular figures, so two rows' minutes line up, and it
    sits at the row's edge where the eye compares them. */
 .board-team__stamp{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-.board-team__none{margin:0;color:var(--dim);font:var(--fs-xs) var(--font-ui)}
+/* An agent holding nothing still draws a mission row, without its bar: the column keeps its
+   rhythm, and the words sit where the mission lines do. */
+.board-team__none{padding-left:calc(2px + var(--space-2));color:var(--dim)}
 .board-team__agent-fold{display:flex;align-items:center;gap:var(--space-2);width:100%;margin:0;padding:0;min-height:24px;appearance:none;border:0;background:none;color:var(--muted);font:var(--fs-xs) var(--font-ui);text-align:left;text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
 .board-team__agent-fold:hover{color:var(--text)}
 
 /* One dot for one state, wherever it is drawn: an agent's pill, a waiting row's recipient, a
    mission card's owner. A record that is not there is a hollow ring, never a colour. */
 .board-team__dot{flex:0 0 auto;width:8px;height:8px;border-radius:var(--radius-pill);background:var(--muted)}
+/* The owner, as both cards in ACTIVE WORK draw it: one shape for one fact. */
+.board-team__owner{display:inline-flex;align-items:center;gap:var(--space-1);min-width:0;color:var(--muted)}
 .board-team__dot[data-state="live"]{background:var(--success)}
 .board-team__dot[data-state="quiet"]{background:var(--warn)}
 .board-team__dot[data-state="gone"]{background:var(--danger)}
@@ -258,16 +272,22 @@ ${REASON_TONE_CSS}
 
 /* Middle: the decisions strip, then the three lanes that move. */
 .board-team__decisions{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
-.board-team__decision{display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-2) var(--space-3);background:var(--raised);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);min-width:0;transition:border-color var(--motion-base) var(--motion-ease)}
+/* One card shape in this column: a decision row and a mission card are the same box — the fill
+   one step off the page, a hairline, a 3px left edge, the same padding and radius — and differ
+   only in what they have to say. Two fills and two title steps in one column was the page
+   disagreeing with itself. */
+.board-team__decision,.board-team__card{display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-2) var(--space-3);background:var(--raised);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);min-width:0}
+.board-team__decision{transition:border-color var(--motion-base) var(--motion-ease)}
 .board-team__decision:hover{border-color:var(--border-strong)}
 /* Nobody holds it, so the edge is drawn but not filled: a shape, not a claim. */
 .board-team__decision[data-kind="unassigned"]{border-left-style:dashed}
 .board-team__open{display:flex;align-items:center;gap:var(--space-2);min-width:0;appearance:none;border:0;background:none;padding:0;color:var(--text);font:var(--fw-medium) var(--fs-sm) var(--font-ui);text-align:left;cursor:pointer}
 .board-team__open:hover .board-team__title{color:var(--accent)}
 .board-team__ref{flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
-.board-team__title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Two lines, then the hover: a title is the one thing a reader must be able to read at both
+   sizes, and one clamped line beside an id and a pill elided to two words. */
+.board-team__title,.board-team__card-title{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;font:var(--fw-medium) var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--text);text-align:left}
 .board-team__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
-.board-team__more{margin:0;color:var(--dim);font:var(--fs-xs) var(--font-ui)}
 /* The lanes: a head that sticks under the column's caption, then the cards that fit. */
 .board-team__lanes{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
 .board-team__lane{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
@@ -278,13 +298,12 @@ ${REASON_TONE_CSS}
 .board-team__lane-empty{margin:0;color:var(--dim);font:var(--fs-xs) var(--font-ui)}
 .board-team__lane-fold{appearance:none;border:0;background:none;padding:0;margin:0;min-height:24px;color:var(--muted);font:var(--fs-xs) var(--font-ui);text-align:left;text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
 .board-team__lane-fold:hover{color:var(--accent)}
-/* A mission card packs into whatever width the column has: two abreast at 1280, one below
-   the point where a title would elide to two words. */
-.board-team__swim{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:var(--space-2)}
-.board-team__card{display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-2);background:var(--canvas);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:var(--radius-md);min-width:0}
+/* One mission card per row: the column is narrow enough that two abreast elide both titles to
+   a few words, and the card is where a reader decides who to ask. */
+.board-team__swim{display:flex;flex-direction:column;gap:var(--space-2)}
 .board-team__card-head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
 .board-team__card-ref{flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
-.board-team__card-title{min-width:0;appearance:none;border:0;background:none;padding:0;color:var(--text);font:var(--fw-medium) var(--fs-xs) var(--font-ui);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.board-team__card-title{appearance:none;border:0;background:none;padding:0;cursor:pointer}
 .board-team__card-title:hover{color:var(--accent)}
 .board-team__card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 
@@ -296,6 +315,12 @@ ${REASON_TONE_CSS}
 /* A row is a queue entry, not a sentence: six short facts on one line, the age pushed to the
    edge where the eye compares them. */
 .board-team__mail-row,.board-team__event{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+/* Mail nobody has read is the one thing on this page somebody owes an answer to, so it is
+   drawn as a block rather than a line: a fill one step off the page, an accent edge, and the
+   padding that keeps its words off that edge. The pane scrolls with the page — one scroll box
+   is the rule — and the Recent rail below stays flat so the two are not the same shape. */
+.board-team__mail-row{padding:var(--space-1) var(--space-2);background:var(--surface);border-left:2px solid var(--accent);border-radius:var(--radius-sm)}
+.board-team__pane-count[data-tone="accent"]{background:var(--accent-soft);color:var(--accent)}
 .board-team__glyph{flex:0 0 auto;color:var(--muted)}
 .board-team__mail-from{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .board-team__mail-arrow{color:var(--dim)}
@@ -366,22 +391,23 @@ ${DIALOG_TONE_CSS}
 
 .board-skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
 
-@media (max-width:1180px){
-  .board-lanes{flex-wrap:wrap}
-  .board-lane{flex:1 1 calc(50% - var(--space-4))}
-  /* Three columns need a wide window: below this the agents and the moving work share the
-     row, and the activity rail drops beneath both. The caption stays sticky — it belongs to
-     the page's one scroll box, wherever the column has been placed. */
-  .board-team__grid{grid-template-columns:minmax(0,15rem) minmax(0,1fr)}
-  .board-team__column[data-column="activity"]{grid-column:1 / -1}
-}
-@media (max-width:860px){
+/* One lane at a time, from the width where five lanes stop fitting beside each other: the
+   picker moves the board between them, and a wrapped row of traps is what buried three of them
+   under the first. */
+@media (max-width:${PICKER_MQ}px){
   .board-lanes{flex-direction:column;align-items:stretch}
   .board-lane{flex:1 1 auto}
   /* One lane at a time, so a rail buys nothing: the shown lane takes the column. */
   .board-lane[data-empty="true"],.board-lane[data-folded="true"]{flex:1 1 auto}
   .board-lane[hidden]{display:none}
   .board-picker{display:flex}
+  /* Three columns need a wide window: below this the agents and the moving work share the
+     row, and the activity rail drops beneath both. The caption stays sticky — it belongs to
+     the page's one scroll box, wherever the column has been placed. */
+  .board-team__grid{grid-template-columns:minmax(0,18rem) minmax(0,1fr)}
+  .board-team__column[data-column="activity"]{grid-column:1 / -1}
+}
+@media (max-width:860px){
   .board-toolbar{gap:var(--space-2)}
   /* The filter takes the bar's last row whole, so the bar wraps once, on purpose, rather
      than leaving a search field stranded beside the switch. */
@@ -393,9 +419,6 @@ ${DIALOG_TONE_CSS}
   .board-team__column[data-column="activity"]{grid-column:auto}
   /* A state can no longer sit on the card's line on a phone, so it wraps under the name. */
   .board-team__agent-head{flex-wrap:wrap}
-  /* The decision's title would elide to two words beside an id and a pill: two lines keep it
-     identifiable and the pill still reads above it. */
-  .board-team__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 }
 /* Five lane names do not fit a phone: the strip becomes wrapped pills rather than a
    horizontal scroller that can hide the lane a reader is on. */

@@ -111,6 +111,9 @@ __HISTORY_LINE__
     mark.setAttribute("aria-hidden", "true");
     head.appendChild(mark);
     head.appendChild(el("span", N.agentName, agent.label));
+    // The state is the last fact on the name's line, at the card's edge: chips are labels a
+    // reader scans once, and a state is the one word compared from card to card.
+    head.appendChild(statePill(agent));
     card.appendChild(head);
 
     var chips = el("div", N.agentChips);
@@ -132,7 +135,6 @@ __HISTORY_LINE__
     // The lead's own card says how much of the queue is its work, so the scan that starts
     // top-left lands on the reason to look right.
     if (agent.lead && needs > 0) chips.appendChild(chip(needs + " needs you", "accent"));
-    chips.appendChild(statePill(agent));
     card.appendChild(chips);
 
     var missions = el("ul", N.missions);

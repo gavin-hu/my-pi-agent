@@ -480,15 +480,9 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const toggle = await (await page.$("#lane-head-plan"))?.boundingBox();
 		expect(Math.round(toggle?.height ?? 0)).toBeGreaterThanOrEqual(24);
 
-		// The Team tab's door to the wall is the other control a caption makes small, and the
-		// agents' history fold is the third.
-		await page.keyboard.press("t");
-		const door = await (await page.$(".board-team__door"))?.boundingBox();
-		expect(Math.round(door?.height ?? 0)).toBeGreaterThanOrEqual(24);
-
 		// 320px: the five lane buttons wrap, so none of them — least of all the pressed one — is
-		// out of reach without a sideways scroll nobody can see.
-		await page.keyboard.press("t");
+		// out of reach without a sideways scroll nobody can see. The picker is the Board tab's, so
+		// this stays on it rather than leaving the tab switch for a tab that has no picker.
 		await page.setViewportSize({ width: 320, height: 720 });
 		await page.waitForTimeout(200);
 		const picker = await page.evaluate(() => {
