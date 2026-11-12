@@ -307,16 +307,9 @@ export function fixtureRoster(now: number): RosterSession[] {
  * its state dot, and a message waiting on three.
  */
 export function fixtureWaiting(now: number): WaitingMail[] {
+	// In the reader's own order — oldest first, the item waiting longest at the top — so the
+	// picture shows the queue the page draws rather than a list sorted for the eye.
 	return [
-		{
-			id: "m-1",
-			from: "s-lead",
-			fromLabel: LEAD.label,
-			kind: "handoff",
-			to: ["billing-core"],
-			text: "take the contract review on #4 while I am in the webhook drift card",
-			at: now - 4 * 60_000,
-		},
 		{
 			id: "m-2",
 			from: "s-helper",
@@ -325,6 +318,15 @@ export function fixtureWaiting(now: number): WaitingMail[] {
 			to: [LEAD.label, "ops-relay", OTHER.label],
 			text: "the gateway is back; the cards parked on it can move",
 			at: now - 12 * 60_000,
+		},
+		{
+			id: "m-1",
+			from: "s-lead",
+			fromLabel: LEAD.label,
+			kind: "handoff",
+			to: ["billing-core"],
+			text: "take the contract review on #4 while I am in the webhook drift card",
+			at: now - 4 * 60_000,
 		},
 	];
 }

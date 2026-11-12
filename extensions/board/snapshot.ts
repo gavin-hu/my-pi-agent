@@ -13,7 +13,7 @@ import { gonePlans } from "../../lib/board/artifact.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
-import { type WaitingMail, waitingMail } from "../../lib/session-mail.ts";
+import { type WaitingPage, waitingMail } from "../../lib/session-mail.ts";
 
 /** What a snapshot needs, all of it supplied by the page's lifecycle. */
 export interface SnapshotContext {
@@ -35,8 +35,10 @@ export interface SnapshotContext {
 /** The snapshot the page renders, and the body of `/api/board`. */
 export async function viewOf(context: SnapshotContext): Promise<BoardView> {
 	const roster = await context.roster();
-	// Read, never consumed: an inbox is its owner's, and a frame is drawn once a second.
-	const waiting: WaitingMail[] = await waitingMail(await context.busDir()).catch(() => []);
+	// Read, never consumed: an inbox is its owner's, and a frame is drawn once a second. A bus
+	// directory that cannot be read is a queue with nothing in it, said the same way as an empty
+	// one — the page cannot act on the difference.
+	const waiting: WaitingPage = await waitingMail(await context.busDir()).catch(() => ({ messages: [], dropped: 0 }));
 	// One read of the pile answers every question a frame asks: the cards, the files it refused,
 	// and the bytes they occupy. Asking `list` and `skipped` separately parsed every card twice,
 	// once a second, for as long as a tab is open.

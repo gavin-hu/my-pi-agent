@@ -73,7 +73,8 @@ export interface ServedBoardPageOptions {
 	 * Mail waiting on the bus, read the way the page reads it: never consumed.
 	 *
 	 * The page draws this queue from files, so a caller that seeds one passes the rows the
-	 * files would have produced rather than a directory a fixture would have to lay out.
+	 * files would have produced rather than a directory a fixture would have to lay out. A
+	 * fixture's queue fits one page, so the count its cap left out is zero.
 	 */
 	waiting?: () => WaitingMail[];
 }
@@ -104,7 +105,7 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 			cards,
 			now: at,
 			...(roster === undefined ? {} : { roster: roster(at) }),
-			...(waiting === undefined ? {} : { waiting: waiting() }),
+			...(waiting === undefined ? {} : { waiting: { messages: waiting(), dropped: 0 } }),
 			// The page is served as the seat, which the board's own config names: the lead flag
 			// is the config's, and a fixture that renamed its lead must see the rename.
 			lead: store.config().lead,

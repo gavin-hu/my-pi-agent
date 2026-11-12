@@ -47,6 +47,14 @@ export interface BusMessage {
 /** The most mail one page draws: past six, a queue is a backlog with its own card. */
 export const WAITING_LIMIT = 6;
 
+/** One page of the waiting queue, and how much of the queue is past it. */
+export interface WaitingPage {
+	/** Oldest first, at most the reader's limit. */
+	messages: WaitingMail[];
+	/** How many more the bus holds: a queue read to the bottom says so rather than looking quiet. */
+	dropped: number;
+}
+
 /** One message waiting anywhere on the bus, as the page shows it. */
 export interface WaitingMail {
 	/** The sender's message id; one value per message, however many inboxes hold it. */
@@ -133,7 +141,8 @@ async function inboxDirs(busDir: string): Promise<string[]> {
 }
 
 /**
- * Every message waiting on one repository's bus, oldest first, at most `limit` of them.
+ * Every message waiting on one repository's bus, oldest first, at most `limit` of them —
+ * with a count of what the cap left out, so a busy queue cannot read like a quiet one.
  *
  * A broadcast lands as one file per recipient, so the files that share an id are one
  * message waiting on several people and are drawn once, with every name it waits for.
@@ -142,7 +151,7 @@ async function inboxDirs(busDir: string): Promise<string[]> {
  * A file that does not parse is skipped, not thrown: it stays where it is for the TTL,
  * and one unreadable message does not hide the queue behind it.
  */
-export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promise<WaitingMail[]> {
+export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promise<WaitingPage> {
 	const byId = new Map<string, WaitingMail>();
 	for (const dir of await inboxDirs(busDir)) {
 		for (const name of await listMessages(dir)) {
@@ -176,5 +185,9 @@ export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promis
 			seen.at = Math.min(seen.at, landed);
 		}
 	}
-	return [...byId.values()].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id)).slice(0, Math.max(0, limit));
+	// Oldest first, then the cap: the front of a queue is the item waiting longest. What it
+	// leaves out is counted, so a page that draws six rows can still say the queue is deeper.
+	const all = [...byId.values()].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
+	const messages = all.slice(0, Math.max(0, limit));
+	return { messages, dropped: all.length - messages.length };
 }

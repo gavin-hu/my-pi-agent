@@ -43,7 +43,7 @@ describe("the snapshot the mission control reads", () => {
 				{ id: "s-lead", label: "team-lead", mode: "tui", lastSeen: NOW, mail: 0 },
 			],
 		});
-		expect(marked.teammates?.map((mate) => [mate.label, mate.lead, mate.you])).toEqual([
+		expect(marked.teammates?.map((mate) => [mate.label, mate.lead === true, mate.you])).toEqual([
 			["billing-core", false, false],
 			["team-lead", true, true],
 		]);
@@ -68,7 +68,7 @@ describe("the snapshot the mission control reads", () => {
 				},
 			],
 		});
-		expect(working.teammates?.map((mate) => [mate.label, mate.state, mate.working])).toEqual([
+		expect(working.teammates?.map((mate) => [mate.label, mate.state, mate.working === true])).toEqual([
 			["a-live-turn", "live", true],
 			["b-live-idle", "live", false],
 			["c-quiet-turn", "quiet", false],
@@ -100,23 +100,32 @@ describe("the snapshot the mission control reads", () => {
 			{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 2 },
 			{ id: "s-old", label: "ops-helper", mode: "tui", lastSeen: NOW - 20 * 60_000, mail: 1 },
 		];
-		const queue = view({ waiting, roster });
-		expect(queue.waiting.map((message) => message.id)).toEqual(["m-1", "m-2"]);
-		expect(queue.waiting[0]?.to).toEqual([{ label: "billing-core", state: "live" }]);
+		const queue = view({ waiting: { messages: waiting, dropped: 0 }, roster });
+		expect(queue.waiting.messages.map((message) => message.id)).toEqual(["m-1", "m-2"]);
+		expect(queue.waiting.messages[0]?.to).toEqual([{ label: "billing-core", state: "live" }]);
 		// The recipient nothing answers for is the one a lead has to act on, and it says so.
-		expect(queue.waiting[1]?.to).toEqual([
+		expect(queue.waiting.messages[1]?.to).toEqual([
 			{ label: "billing-core", state: "live" },
 			{ label: "ops-helper", state: "quiet" },
 		]);
 		// No bus here is not "gone": the state is left out and the row still draws.
-		expect(view({ waiting }).waiting[0]?.to).toEqual([{ label: "billing-core" }]);
+		expect(view({ waiting: { messages: waiting, dropped: 0 } }).waiting.messages[0]?.to).toEqual([
+			{ label: "billing-core" },
+		]);
+		// What the cap left out travels with the rows, so the rail can say how deep the queue is.
+		expect(view({ waiting: { messages: waiting, dropped: 14 } }).waiting.dropped).toBe(14);
 	});
 
 	test("a message landing or being read moves the frame, because no card did", () => {
-		const mail = [{ id: "m-1", from: "s", fromLabel: "s", kind: "message" as const, to: ["me"], text: "hi", at: NOW }];
+		const mail = {
+			messages: [{ id: "m-1", from: "s", fromLabel: "s", kind: "message" as const, to: ["me"], text: "hi", at: NOW }],
+			dropped: 0,
+		};
 		const none = view();
-		expect(none.waiting).toEqual([]);
+		expect(none.waiting).toEqual({ messages: [], dropped: 0 });
 		expect(view({ waiting: mail }).sig).not.toBe(none.sig);
+		// Reading one of a queue of fifteen moves the frame too: the count is part of the signature.
+		expect(view({ waiting: { ...mail, dropped: 1 } }).sig).not.toBe(view({ waiting: mail }).sig);
 	});
 
 	test("reads the recent rail off the cards it already drew, capped and counted", () => {
@@ -252,6 +261,9 @@ describe("the mission control's contracts", () => {
 		// signature still counted.
 		expect(WAITING_LIMIT).toBe(6);
 		expect(BOARD_CLIENT_JS).not.toContain("view.waiting.slice");
+		// What the cap left out is drawn, not dropped: a queue of twenty says 6/20 rather than
+		// reading like a quiet board.
+		expect(BOARD_CLIENT_JS).toContain("waiting.length + queue.dropped");
 		expect(BOARD_CLIENT_JS).toContain("var events = filtering");
 	});
 });

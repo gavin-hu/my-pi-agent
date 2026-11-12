@@ -148,7 +148,10 @@ const feedTemplate = String.raw`(function () {
    * history behind it, and a card's move must not repaint a queue somebody is reading.
    */
   board.feedPanes = function (view, query, filtering) {
-    var waiting = view.waiting || [];
+    // The queue arrives with the count its cap left out, so a repository with twenty unread
+    // messages does not read like a quiet one.
+    var queue = view.waiting === undefined ? { messages: [], dropped: 0 } : view.waiting;
+    var waiting = queue.messages;
     var recent = view.activity === undefined ? { events: [], dropped: 0 } : view.activity;
     var mails = filtering ? waiting.filter(function (message) { return mailMatches(message, query); }) : waiting;
     var events = filtering
@@ -175,7 +178,9 @@ const feedTemplate = String.raw`(function () {
         count: mails.length,
         total: waiting.length,
         build: function (slot) {
-          slot.appendChild(paneHead("WAITING", mails.length, filtering ? waiting.length : undefined));
+          // A filter shows what it matched against the queue; unfiltered, the pane says how deep
+          // the queue is, the way RECENT says how much history it left out.
+          slot.appendChild(paneHead("WAITING", mails.length, filtering ? waiting.length : waiting.length + queue.dropped));
           if (mails.length === 0) {
             slot.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "no mail is waiting"));
             return;

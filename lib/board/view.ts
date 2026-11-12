@@ -22,7 +22,7 @@ import {
 	rosterStateOf,
 	type SessionPresence,
 } from "../session-roster.ts";
-import type { WaitingMail } from "../session-mail.ts";
+import type { WaitingPage } from "../session-mail.ts";
 import { type ActivityFeed, activityOf } from "./activity.ts";
 import { type Card, laneSince, priorityOf, type Priority, signatureOf } from "./card.ts";
 import type { Skip } from "./store.ts";
@@ -46,20 +46,22 @@ export interface ViewTeammate {
 	/** Whether this is the seat the page is read as. */
 	you: boolean;
 	/**
-	 * Whether the bus says it is inside a turn right now.
+	 * Whether the bus says it is inside a turn right now; absent when it is not.
 	 *
 	 * A stamp is believed only beside a fresh heartbeat: a process that died mid-run left
-	 * `turnAt` behind, and a `quiet` record says nothing about what it is doing.
+	 * `turnAt` behind, and a `quiet` record says nothing about what it is doing. Absent rather
+	 * than `false`, the idiom every other derived flag on a card follows — a fact that is not
+	 * there is not drawn.
 	 */
-	working: boolean;
+	working?: true;
 	/**
-	 * Whether this row holds the board's lead role, from the configured name.
+	 * Whether this row holds the board's lead role, from the configured name; absent when not.
 	 *
 	 * Not the same fact as `you`: the page serves as the lead, so on most boards the two
 	 * are one row and the same seat — but a board that renames its lead must still point
 	 * at the row its gates will answer, and a reader must be able to see the rename.
 	 */
-	lead: boolean;
+	lead?: true;
 }
 
 /** One recipient of a waiting message, and what the bus says about it. */
@@ -70,8 +72,14 @@ export interface ViewRecipient {
 }
 
 /** One message waiting on the bus, with each recipient's state resolved. */
-export interface ViewWaiting extends Omit<WaitingMail, "to"> {
+export interface ViewWaiting extends Omit<WaitingPage["messages"][number], "to"> {
 	to: ViewRecipient[];
+}
+
+/** The waiting queue as the page draws it: the oldest rows, and what the cap left out. */
+export interface ViewWaitingPage {
+	messages: ViewWaiting[];
+	dropped: number;
 }
 
 /**
@@ -155,12 +163,13 @@ export interface BoardView {
 	 */
 	teammates?: ViewTeammate[];
 	/**
-	 * Mail nobody has read, oldest first, at most the reader's cap.
+	 * Mail nobody has read, oldest first, at most the reader's cap — and the count of what
+	 * that cap left out, so a deep queue does not draw like a quiet one.
 	 *
 	 * Never consumed: `session-bus` owns the inbox, and a page that deleted what it drew
 	 * would eat the mail it was describing.
 	 */
-	waiting: ViewWaiting[];
+	waiting: ViewWaitingPage;
 	/** What the board's cards have to say has happened lately, and how much is beyond the cap. */
 	activity: ActivityFeed;
 	/** Bytes the store occupies, so a board that is never pruned says so. */
@@ -226,7 +235,7 @@ export interface ViewInput {
 	 * Read by the caller because the bus directory is the caller's fact; absent reads as
 	 * nothing waiting, which is what a machine with no bus has.
 	 */
-	waiting?: readonly WaitingMail[];
+	waiting?: WaitingPage;
 	/**
 	 * The name the board's lead role answers to, from its config.
 	 *
@@ -275,7 +284,10 @@ export function buildView(input: ViewInput): BoardView {
 		input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.lead, input.now);
 	// The states a waiting row wears come from the same roster the agent cards are drawn from,
 	// so a handoff to a dead session cannot look like one to a live peer.
-	const waiting = (input.waiting ?? []).map((message) => ({
+	const waiting = {
+		...(input.waiting ?? { messages: [], dropped: 0 }),
+	};
+	const messages = waiting.messages.map((message) => ({
 		...message,
 		to: message.to.map((label) => {
 			const state = presenceOf(input.roster, { label }, input.now);
@@ -290,7 +302,7 @@ export function buildView(input: ViewInput): BoardView {
 		total: cards.length,
 		round,
 		...(teammates === undefined ? {} : { teammates }),
-		waiting,
+		waiting: { messages, dropped: waiting.dropped },
 		activity: activityOf(cards),
 		bytes: input.bytes,
 		skipped: input.skipped ?? [],
@@ -305,7 +317,7 @@ export function buildView(input: ViewInput): BoardView {
 			// A message landing, or one being read, moves no card: the queue is the tab's other half
 			// and has to be able to push a frame of its own. The ids are enough — their order is the
 			// queue's own, and a reader's mail file going away is the news.
-			`|waiting:${waiting.map((message) => message.id).join(",")}` +
+			`|waiting:${messages.map((message) => message.id).join(",")}/${String(waiting.dropped)}` +
 			`|skipped:${(input.skipped ?? []).map((entry) => `${entry.file}:${entry.why}`).join(",")}` +
 			`|unwritten:${round.unwritten.map((card) => card.id).join(",")}` +
 			// A plan file going away moves no card's revision, and the face says so: without this the
@@ -360,8 +372,8 @@ function teammatesOf(
 				state,
 				// A turn is believed only while the session that wrote it is still there: a crash
 				// mid-run leaves the stamp, and a session whose heartbeat has aged is not at work.
-				working: state === "live" && session.turnAt !== undefined,
-				lead: lead !== undefined && session.label.toLowerCase() === lead.toLowerCase(),
+				...(state === "live" && session.turnAt !== undefined ? { working: true as const } : {}),
+				...(lead !== undefined && session.label.toLowerCase() === lead.toLowerCase() ? { lead: true as const } : {}),
 				seen: session.lastSeen,
 				mail: session.mail,
 				// A record that does not say is not a promise either way, so the fact is left out
@@ -381,7 +393,7 @@ function rosterSignature(teammates: readonly ViewTeammate[] | undefined): string
 		teammates
 			.map(
 				(teammate) =>
-					`${teammate.label}:${teammate.state}:${teammate.mail}:${teammate.listening}:${teammate.working}:${teammate.lead}`,
+					`${teammate.label}:${teammate.state}:${teammate.mail}:${teammate.listening}:${String(teammate.working)}:${String(teammate.lead)}`,
 			)
 			.join(",")
 	);
