@@ -123,21 +123,31 @@ one.
 
 ## Color is a role
 
-`WEB_THEME_TOKENS` is derived from `themes/bytefly-dark.json` and
-`themes/bytefly-light.json`, so the browser and the TUI cannot drift. Four values
-are computed rather than mapped:
+`WEB_THEME_TOKENS` is the web's **own** palette: a slate ramp with one indigo accent, per
+appearance, in `tokens.ts`. It no longer reads `themes/bytefly-*.json` — a terminal picks
+colours for glyphs on a cell grid and a page picks them for type and elevation, so a TUI theme
+change restyles the terminal and leaves a served page alone. The *shape* of the contract is
+what the kit keeps: one token name, one value per appearance, and every component reading
+`var(--token)`. Five values are computed rather than stated:
 
 - `--accent-soft` — the accent at 15% (dark) or 10% (light), for a selection or
   the active nav row.
 - `--on-accent` — the appearance's canvas. A label on the accent fill is dark
   text on the light-blue dark accent and white on the darker light one.
 - `--scrim` — per appearance, because a dimming layer needs its own alpha rather than a
-  palette entry. There is no shadow: elevation is a rule and a plane, never a blur.
+  palette entry.
+- `--shadow-1` and `--shadow-2` — elevation, built from the ramp: `1` for a card, a menu, a
+  key sheet and the header; `2` for a dialog. A component may name one of these and nothing
+  else; a literal blur fails the same test a literal hex does.
 
-`--raised` is the one derived neutral: `--surface` mixed 6% (dark) or 3% (light)
-toward `--text`, for a block that has to read as a plane above the page rather than
-as an outline — the light step is smaller because a darker accent on a lighter step
-falls below AA. Components read tokens only: no literal hex or `rgba()` in `components.ts`, and a
+**The face is part of the role.** `--font-ui` carries every label, control and heading, and
+`--font-mono` is kept for what *is* code — a command, a card id, a file path, a key — because a
+reader recognises those by their even spacing. A monospace button reads as a terminal key, and
+an uppercased mono label reads as one twice.
+
+`--raised` is the one derived neutral: `--surface` mixed toward `--text`, for a block that has
+to read as a plane above the page rather than as an outline. Its step is per appearance, because
+a step that is right on a dark canvas is invisible on a white one. Components read tokens only: no literal hex or `rgba()` in `components.ts`, and a
 test fails one. Contrast is asserted, not assumed — text, muted, and accent at
 4.5:1 on both surfaces, the primary label at 4.5:1 on the accent fill, `--dim` at
 3:1 because it carries the line-number gutter, and the status colours at 3:1.

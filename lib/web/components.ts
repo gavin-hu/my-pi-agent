@@ -3,9 +3,14 @@
  *
  * One string constant, no state. `bf-` marks the kit; a page that needs a
  * layout tweak adds a page-namespaced rule rather than re-declaring a kit
- * class. Components read tokens only, never literal colours — and no box casts
- * a shadow: a lifted panel is a rail and a hairline, which is the difference
- * between this kit's grammar and the pill-and-card one it replaces.
+ * class. Components read tokens only, never literal colours and never a literal
+ * shadow: elevation is `--shadow-1` (a card, a menu) or `--shadow-2` (a dialog),
+ * so the two depths cannot fork.
+ *
+ * The face is the kit's rule as much as the colour is: `--font-ui` carries every
+ * label, control and heading, and `--font-mono` is kept for what *is* code — a
+ * command, a card id, a file path — because a reader recognises those by their
+ * even spacing. A monospace button reads as a terminal key, which this kit is not.
  */
 
 /**
@@ -17,7 +22,7 @@
  */
 export const NARROW_MAX_PX = 720;
 
-export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-flex;align-items:baseline;gap:var(--space-2);font:var(--fw-semibold) var(--fs-base) var(--font-mono);white-space:nowrap}
+export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-flex;align-items:baseline;gap:var(--space-2);font:var(--fw-semibold) var(--fs-base) var(--font-ui);letter-spacing:-.01em;white-space:nowrap}
 .bf-mark{display:inline-block;width:18px;height:18px;flex:0 0 18px;align-self:center}
 .bf-mark__top{fill:var(--accent)}
 .bf-mark__bottom{fill:var(--warn)}
@@ -41,20 +46,20 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 .bf-tone--muted{color:var(--muted)}
 /* A tag is a rail, not a pill: a 2px edge in the tone, a glyph, a word in mono. No box and no
    radius, because a box in this kit is a container or an action. */
-.bf-tag{display:inline-flex;align-items:center;gap:5px;padding-left:5px;border-left:2px solid currentColor;font:var(--fs-xs) var(--font-mono);color:var(--muted);white-space:nowrap}
+.bf-tag{display:inline-flex;align-items:center;gap:5px;padding-left:5px;border-left:2px solid currentColor;font:var(--fs-xs) var(--font-ui);color:var(--muted);white-space:nowrap}
 .bf-tag__glyph{font-size:10px;line-height:1}
 .bf-tag--trunc{max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* The live state and its one action: borderless, the tone is the text's colour, so a new state
    never costs a new shape. */
-.bf-live,.bf-reload{display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:0;font:var(--fs-xs) var(--font-mono)}
+.bf-live,.bf-reload{display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:0;font:var(--fs-xs) var(--font-ui)}
 .bf-live{color:var(--accent)}
 .bf-live__glyph{font-size:9px;line-height:1}
 .bf-live__text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bf-reload{appearance:none;color:var(--warn);cursor:pointer}
 .bf-reload:hover{color:var(--warn);text-decoration:underline}
-/* A button is the only boxed, uppercase, monospace element on a page: its 2px bottom edge is
-   the click, so a label can never be mistaken for a tag. */
-.bf-btn{appearance:none;border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-sm);background:transparent;color:var(--text);font:var(--fs-xs) var(--font-mono);letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;cursor:pointer;transition:transform var(--motion-fast) var(--motion-ease),border-color var(--motion-fast) var(--motion-ease)}
+/* A button is the only boxed element on a page: its 2px bottom edge is the click, so a label can
+   never be mistaken for a tag. The face is the UI's, and the label is a word — not a terminal key. */
+.bf-btn{appearance:none;border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-md);background:var(--surface);color:var(--text);font:var(--fw-medium) var(--fs-sm) var(--font-ui);padding:4px 10px;cursor:pointer;transition:transform var(--motion-fast) var(--motion-ease),border-color var(--motion-fast) var(--motion-ease),background var(--motion-fast) var(--motion-ease)}
 .bf-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);text-decoration:none}
 .bf-btn:active{transform:translateY(1px);border-bottom-width:1px}
 .bf-btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
@@ -74,7 +79,7 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 /* A view switch with no box, no underline and no marker: the current view is the accent and the
    weight, its neighbours muted, and one hairline keeps the items apart. */
 .bf-tabs{display:inline-flex}
-.bf-tabs__item{appearance:none;border:0;background:none;color:var(--muted);font:var(--fs-xs) var(--font-mono);padding:4px 10px;cursor:pointer}
+.bf-tabs__item{appearance:none;border:0;background:none;color:var(--muted);font:var(--fw-medium) var(--fs-sm) var(--font-ui);padding:5px 12px;cursor:pointer;border-radius:var(--radius-sm)}
 .bf-tabs__item+.bf-tabs__item{border-left:1px solid var(--border)}
 .bf-tabs__item:hover{color:var(--text)}
 .bf-tabs__item[aria-current],.bf-tabs__item[aria-selected="true"],.bf-tabs__item[aria-pressed="true"]{color:var(--accent);font-weight:var(--fw-semibold)}
@@ -90,19 +95,19 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 /* The prompt glyph is the kit's own, so a page writes the slot empty and no page spells it. */
 .bf-field__prompt::before{content:"❯"}
 .bf-field:focus-within .bf-field__prompt{color:var(--accent)}
-.bf-input{border:0;background:transparent;color:var(--text);font:var(--fs-sm) var(--font-mono);width:100%;outline:none}
+.bf-input{border:0;background:transparent;color:var(--text);font:var(--fs-sm) var(--font-ui);width:100%;outline:none}
 .bf-input::placeholder{color:var(--dim)}
 /* The field's rule is the ring: a second outline inside it drew a border within a border. */
 .bf-field .bf-input:focus-visible{outline:none}
 .bf-textarea{width:100%;min-height:72px;padding:var(--space-2);font:inherit;color:var(--text);background:var(--canvas);border:1px solid var(--border);border-radius:var(--radius-sm);resize:vertical}
 /* A quantity is literal: ten fixed cells, then the count itself, so a reader reads without
    counting glyphs. The number lives in the text and the cells are decoration. */
-.bf-gauge{display:inline-flex;align-items:baseline;gap:6px;font:var(--fs-sm) var(--font-mono);white-space:nowrap}
+.bf-gauge{display:inline-flex;align-items:baseline;gap:6px;font:var(--fs-sm) var(--font-ui);white-space:nowrap}
 .bf-gauge__cells{color:var(--success);font-variant-numeric:tabular-nums}
 .bf-gauge__empty{color:var(--border)}
-.bf-gauge__text{color:var(--muted);font:var(--fs-xs) var(--font-mono);font-variant-numeric:tabular-nums}
+.bf-gauge__text{color:var(--muted);font:var(--fs-xs) var(--font-ui);font-variant-numeric:tabular-nums}
 /* The only rounded shape in the kit. */
-.bf-badge{display:inline-block;min-width:1.4em;padding:0 4px;border-radius:var(--radius-badge);background:var(--canvas);color:var(--muted);font:var(--fs-xs) var(--font-mono);text-align:center}
+.bf-badge{display:inline-block;min-width:1.4em;padding:0 4px;border-radius:var(--radius-badge);background:var(--canvas);color:var(--muted);font:var(--fs-xs) var(--font-ui);text-align:center}
 .bf-panel{min-width:0;overflow:auto;overscroll-behavior:contain}
 .bf-panel__summary{display:none}
 .bf-status{color:var(--muted);font-size:var(--fs-sm)}
@@ -117,17 +122,18 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 .bf-empty__sub{color:var(--muted);font-size:var(--fs-sm);margin:0 0 var(--space-4)}
 /* A missing page is a glyph a terminal would print, not a red banner. */
 .bf-empty__code{font:var(--fw-normal) 48px/1 var(--font-mono);color:var(--dim)}
-/* The dialog stays centred and loses its shadow: a 2px accent rail and its hairline hold it. */
+/* A dialog floats: the second elevation step is what says so, and the accent rail keeps the
+   kit's signature. */
 .bf-dialog{position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:var(--space-4);background:var(--scrim)}
-.bf-dialog__panel{width:min(560px,100%);max-height:70vh;display:flex;flex-direction:column;overflow:hidden;background:var(--surface);border:1px solid var(--border-strong);border-top:2px solid var(--accent);border-radius:var(--radius-lg)}
+.bf-dialog__panel{width:min(560px,100%);max-height:70vh;display:flex;flex-direction:column;overflow:hidden;background:var(--raised);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:var(--radius-lg);box-shadow:var(--shadow-2)}
 .bf-dialog__status{margin:0;padding:var(--space-2) var(--space-4);border-top:1px solid var(--border);color:var(--muted);font-size:var(--fs-xs)}
-.bf-dialog__input{appearance:none;border:0;border-bottom:1px solid var(--border);background:transparent;color:var(--text);font:var(--fs-md) var(--font-mono);padding:var(--space-3) var(--space-4);outline:none}
+.bf-dialog__input{appearance:none;border:0;border-bottom:1px solid var(--border);background:transparent;color:var(--text);font:var(--fs-md) var(--font-ui);padding:var(--space-3) var(--space-4);outline:none}
 .bf-dialog__list{list-style:none;margin:0;padding:var(--space-1) 0;overflow:auto;min-height:0}
 .bf-dialog__option{padding:var(--space-1) var(--space-4);font:var(--fs-sm) var(--font-mono);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bf-dialog__option[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
 .bf-dialog mark{background:transparent;color:var(--warn);font-weight:var(--fw-semibold)}
 .bf-dialog__head{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--border)}
-.bf-dialog__head h2{margin:0;font:var(--fw-semibold) var(--fs-md) var(--font-mono)}
+.bf-dialog__head h2{margin:0;font:var(--fw-semibold) var(--fs-md) var(--font-ui)}
 .bf-dialog__body{padding:var(--space-3) var(--space-4);font-size:var(--fs-sm);line-height:var(--lh-relaxed);overflow:auto;min-height:0}
 .bf-dialog__body p{margin:0 0 var(--space-2)}
 .bf-dialog__body p:last-child{margin:0}
@@ -159,7 +165,7 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 .bf-crumbs__sep{padding:0 6px}
 .bf-crumbs [aria-current]{color:var(--text);font-weight:var(--fw-semibold)}
 .bf-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:var(--fs-md)}
-.bf-table th{font:var(--fw-medium) var(--fs-xs) var(--font-mono);color:var(--muted);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.bf-table th{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
 .bf-table td{padding:6px 10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bf-table tbody tr:hover,.bf-table tbody tr:focus-within{background:var(--accent-soft)}
 .bf-table__size,.bf-table__when{color:var(--muted);text-align:right}
@@ -172,13 +178,14 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 th[aria-sort] .bf-sort{color:var(--text);font-weight:var(--fw-semibold)}
 th[aria-sort="ascending"] .bf-sort::after{content:" \\25B2";font-size:9px;color:var(--accent)}
 th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color:var(--accent)}
-/* The one box a page reads whole: a hairline box with the signature rule above it — the accent's
-   lead, the warn's step, then the border — and no shadow, because a rail and a hairline hold it. */
-.bf-record{display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);background:none}
+/* The one box a page reads whole: a raised plane with the signature rule above it — the accent's
+   lead, the warn's step, then the border — and the first elevation step, which is what makes it
+   a card. */
+.bf-record{display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}
 .bf-record::before{content:"";display:block;flex:0 0 auto;height:2px;background:linear-gradient(90deg,var(--accent) 0 12px,var(--warn) 12px 18px,var(--border) 18px)}
 .bf-record__head{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border);flex-wrap:wrap}
-.bf-record__title{margin:0;font:var(--fw-semibold) var(--fs-lg) var(--font-mono)}
-.bf-record__meta{color:var(--muted);font:var(--fs-sm) var(--font-mono)}
+.bf-record__title{margin:0;font:var(--fw-semibold) var(--fs-lg) var(--font-ui);letter-spacing:-.01em}
+.bf-record__meta{color:var(--muted);font:var(--fs-sm) var(--font-ui)}
 .bf-record__body{padding:var(--space-3) var(--space-4)}
 /* The one list component: a glyph marks it, the tone agrees with the glyph, and the lifted
    state is a surface that appears only where a reader points. */
@@ -188,11 +195,11 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-row__mark{font:var(--fs-xs) var(--font-mono);line-height:1.6;color:var(--lane-role,var(--dim))}
 .bf-row__id{font:var(--fs-xs) var(--font-mono);color:var(--dim);margin-right:6px}
 .bf-row__title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font:var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--text);overflow-wrap:anywhere}
-.bf-row__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:2px 0 0;font:var(--fs-xs) var(--font-mono);color:var(--muted)}
+.bf-row__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:3px 0 0;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .bf-row__kind{color:var(--dim)}
 .bf-row__breaking{color:var(--warn)}
-.bf-row__ago{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
-.bf-row__reason{display:block;margin-top:2px;font:var(--fs-xs) var(--font-mono);color:var(--muted)}
+.bf-row__ago{font:var(--fs-xs) var(--font-ui);color:var(--dim)}
+.bf-row__reason{display:block;margin-top:3px;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .bf-row__reason[data-tone="accent"]{color:var(--accent)}
 .bf-row__reason[data-tone="warn"]{color:var(--warn)}
 .bf-row__reason[data-tone="danger"]{color:var(--danger)}
@@ -200,14 +207,14 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-row[data-current="true"] .bf-row__title{font-weight:var(--fw-semibold)}
 /* A lane is a head with a tone rule and rows under it — no tray, no fill, no inset edge. */
 .bf-lane{display:flex;flex-direction:column;min-width:0}
-.bf-lane__head{display:flex;align-items:center;gap:6px;margin:0 0 var(--space-2);padding-bottom:var(--space-1);border-bottom:2px solid var(--lane-role,var(--border));font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--muted)}
+.bf-lane__head{display:flex;align-items:center;gap:6px;margin:0 0 var(--space-2);padding-bottom:var(--space-1);border-bottom:2px solid var(--lane-role,var(--border));font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
 .bf-lane__dot{font-size:9px;line-height:1;color:var(--lane-role,var(--muted))}
 .bf-lane__count{margin-left:auto;color:var(--dim)}
 .bf-lane__list{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;min-width:0}
-.bf-lane__empty{margin:0;padding:var(--space-2) 0;font:var(--fs-xs) var(--font-mono);color:var(--dim)}
+.bf-lane__empty{margin:0;padding:var(--space-2) 0;font:var(--fs-xs) var(--font-ui);color:var(--dim)}
 /* A section states its tone in the rule it already draws, never in a box around the content. */
 .bf-section{display:flex;flex-direction:column;min-width:0}
-.bf-section__cap{display:flex;align-items:center;gap:var(--space-2);margin:0;padding:0 0 var(--space-2);border-bottom:1px solid var(--border);font:var(--fw-semibold) var(--fs-xs) var(--font-mono);text-transform:uppercase;color:var(--muted)}
+.bf-section__cap{display:flex;align-items:center;gap:var(--space-2);margin:0;padding:0 0 var(--space-2);border-bottom:1px solid var(--border);font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
 .bf-section[data-tone] .bf-section__cap{color:var(--text);border-bottom-width:2px}
 .bf-section[data-tone="accent"] .bf-section__cap{border-bottom-color:var(--accent)}
 .bf-section[data-tone="warn"] .bf-section__cap{border-bottom-color:var(--warn)}
@@ -232,14 +239,13 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-code--nowrap .bf-code__line,.bf-code--nowrap>code{white-space:pre}
 .bf-media{display:flex;flex:1 1 auto;align-items:center;justify-content:center;padding:var(--space-6);min-height:240px;background-image:linear-gradient(45deg,var(--border) 25%,transparent 25%),linear-gradient(-45deg,var(--border) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--border) 75%),linear-gradient(-45deg,transparent 75%,var(--border) 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
 .bf-media img{max-width:100%;max-height:70vh;border-radius:var(--radius-sm)}
-/* The document keeps prose's face and loses GitHub's shapes: mono headings, a rail instead of
-   an underline, rule-only rows, and one measure so a plan is not an 1,800px line. */
+/* The document is prose in the UI face: sans headings with a weight step instead of a rail glyph,
+   rule-only rows, and one measure so a plan is not an 1,800px line. */
 .bf-md{min-width:0;min-height:0;max-width:var(--measure-prose);overflow:auto;padding:6px var(--space-5) var(--space-5);line-height:var(--lh-relaxed);overflow-wrap:anywhere}
 .bf-md>*:first-child{margin-top:0}
-.bf-md h1,.bf-md h2,.bf-md h3,.bf-md h4,.bf-md h5,.bf-md h6{margin:1.2em 0 .5em;font-family:var(--font-mono);line-height:var(--lh-tight)}
+.bf-md h1,.bf-md h2,.bf-md h3,.bf-md h4,.bf-md h5,.bf-md h6{margin:1.2em 0 .5em;font-family:var(--font-ui);letter-spacing:-.01em;line-height:var(--lh-tight)}
 .bf-md h1{font-size:1.4em;font-weight:var(--fw-semibold)}
 .bf-md h2{font-size:1.2em;font-weight:var(--fw-semibold)}
-.bf-md h2::before{content:"▏";color:var(--dim);margin-right:6px;font-weight:var(--fw-normal)}
 .bf-md h3{font-size:1.05em;font-weight:var(--fw-medium);color:var(--muted)}
 .bf-md p,.bf-md ul,.bf-md ol,.bf-md blockquote,.bf-md table,.bf-md pre{margin:0 0 1em}
 .bf-md ul,.bf-md ol{padding-left:1.4em}
@@ -258,7 +264,7 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-md .md-table-frame{position:relative}
 .bf-md .md-table-wrap{overflow-x:auto;margin:0 0 1em}
 .bf-md th,.bf-md td{border:0;border-bottom:1px solid var(--border);padding:5px 10px;text-align:left;vertical-align:top;overflow-wrap:break-word}
-.bf-md thead th{border-bottom:2px solid var(--border);font:var(--fw-medium) var(--fs-xs) var(--font-mono);color:var(--muted)}
+.bf-md thead th{border-bottom:2px solid var(--border);font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted)}
 .bf-md th{white-space:nowrap}
 .bf-md th code,.bf-md td code{white-space:nowrap}
 .bf-md .md-left{text-align:left}
@@ -278,10 +284,10 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
    verdict the comment carries and not the colour of its author. */
 .bf-comment{padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-left:2px solid var(--border);border-radius:0;background:none}
 .bf-comment--resolved{border-left-color:var(--success)}
-.bf-comment__label{font:var(--fw-medium) var(--fs-xs) var(--font-mono);color:var(--dim)}
+.bf-comment__label{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--dim)}
 .bf-comment__quote{margin-bottom:var(--space-1);color:var(--muted);font-size:var(--fs-xs);overflow-wrap:anywhere}
 .bf-comment__body{white-space:pre-wrap;overflow-wrap:anywhere}
 .bf-comment__row{display:flex;gap:6px;justify-content:flex-end;margin-top:var(--space-2)}
-.bf-composer{padding:var(--space-3);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)}
+.bf-composer{padding:var(--space-3);background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-1)}
 .bf-composer__row{display:flex;gap:var(--space-2);justify-content:flex-end;margin-top:6px}
 .bf-quote-chip{display:inline-block;max-width:100%;margin-bottom:6px;padding:1px 6px;background:var(--accent-soft);border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-xs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}`;

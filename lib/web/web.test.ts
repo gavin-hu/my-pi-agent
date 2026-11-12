@@ -59,11 +59,13 @@ function contrast(a: string, b: string): number {
 const definedTokens = new Set([...WEB_THEME_CSS.matchAll(/--[a-z0-9-]+:/g)].map((match) => match[0].slice(0, -1)));
 
 describe("web tokens", () => {
-	test("anchors the palette to the Bytefly theme JSONs", () => {
-		expect(WEB_THEME_TOKENS.dark["--canvas"]).toBe("#0d1117");
-		expect(WEB_THEME_TOKENS.dark["--accent"]).toBe("#58a6ff");
-		expect(WEB_THEME_TOKENS.light["--canvas"]).toBe("#ffffff");
-		expect(WEB_THEME_TOKENS.light["--accent"]).toBe("#0969da");
+	test("is the kit's own palette, which no theme file feeds", () => {
+		// Glyphs on a grid are not type on a canvas: the web's ramp is its own.
+		expect(WEB_THEME_TOKENS.dark["--canvas"]).toBe("#0b0f16");
+		expect(WEB_THEME_TOKENS.dark["--accent"]).toBe("#8b9dff");
+		expect(WEB_THEME_TOKENS.light["--canvas"]).toBe("#f6f7f9");
+		expect(WEB_THEME_TOKENS.light["--accent"]).toBe("#4f46e5");
+		expect(WEB_THEME_TOKENS.dark["--shadow-1"]).toBeTruthy();
 	});
 
 	test("every token resolves in both appearances", () => {
@@ -101,8 +103,7 @@ describe("web tokens", () => {
 	test("derives a raised surface one visible step above the page's", () => {
 		for (const appearance of ["dark", "light"] as const) {
 			const tokens = WEB_THEME_TOKENS[appearance];
-			// A block that must read as a plane needs more than the 1.09:1 a surface has
-			// against the canvas, and less than the border it sits inside.
+			// A raised plane needs more than the 1.09:1 a surface has against the canvas.
 			expect(contrast(tokens["--raised"], tokens["--canvas"]), `${appearance} raised`).toBeGreaterThanOrEqual(1.1);
 			expect(tokens["--raised"]).not.toBe(tokens["--surface"]);
 		}
@@ -136,8 +137,7 @@ describe("web tokens", () => {
 	});
 
 	test("keeps the dim role readable where it carries text", () => {
-		// `--dim` is not decorative: it is the line-number gutter and the diff's
-		// numbered column, so it has to stay above the large-text threshold.
+		// `--dim` is the line-number gutter and the diff's numbered column: above large-text.
 		for (const appearance of ["dark", "light"] as const) {
 			const tokens = WEB_THEME_TOKENS[appearance];
 			for (const surface of ["--canvas", "--surface", "--raised"]) {
@@ -150,8 +150,8 @@ describe("web tokens", () => {
 		expect(WEB_THEME_CSS).toContain(":root{");
 		expect(WEB_THEME_CSS).toContain(':root[data-theme="light"]');
 		expect(WEB_THEME_CSS).toContain("prefers-color-scheme:light");
-		expect(WEB_THEME_CSS).toContain("--canvas:#0d1117");
-		expect(WEB_THEME_CSS).toContain("--canvas:#ffffff");
+		expect(WEB_THEME_CSS).toContain("--canvas:#0b0f16");
+		expect(WEB_THEME_CSS).toContain("--canvas:#f6f7f9");
 		expect(WEB_THEME_CSS).toContain(".tok-keyword{color:var(--tok-keyword)}");
 	});
 
@@ -160,7 +160,7 @@ describe("web tokens", () => {
 		// tokens; being last in the sheet is what makes the reset win.
 		const printAt = WEB_THEME_CSS.lastIndexOf("@media print{:root{");
 		expect(printAt).toBeGreaterThan(WEB_THEME_CSS.lastIndexOf("@media (prefers-color-scheme:light)"));
-		expect(WEB_THEME_CSS.slice(printAt)).toContain("--canvas:#ffffff");
+		expect(WEB_THEME_CSS.slice(printAt)).toContain(`--canvas:${WEB_THEME_TOKENS.light["--canvas"]}`);
 		expect(WEB_THEME_CSS.slice(printAt)).toContain("color-scheme:light");
 	});
 });
@@ -367,7 +367,7 @@ describe("web layout", () => {
 		// A `<details>` gives its content a block wrapper with no definite height,
 		// so a `.bf-panel` inside cannot shrink to the sidebar and scroll itself;
 		// the sidebar has to be the scroll container.
-		expect(WEB_LAYOUT_CSS).toContain("overflow-x:hidden;overflow-y:auto;background:var(--surface)");
+		expect(WEB_LAYOUT_CSS).toContain("overflow-x:hidden;overflow-y:auto;background:var(--raised)");
 	});
 
 	test("keeps the pane the only page scroll when the sidebar collapses", () => {
