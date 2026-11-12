@@ -266,7 +266,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 	});
 
 	test("says when the filter matches nothing, and gives the way back", async () => {
+		// Cases share one page, so the view and the filter are reset rather than assumed: a
+		// preceding case may have left the Team tab open, where the board's filter shows nothing.
 		const page = await openPage();
+		await page.click("#tab-board");
+		await page.fill("#board-filter", "");
 		await page.fill("#board-filter", "zzzznomatch");
 		await page.waitForFunction(
 			() =>
