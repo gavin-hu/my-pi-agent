@@ -32,6 +32,16 @@ export type ContractField = (typeof CONTRACT_FIELDS)[number];
 /** Longest single contract line, in characters. One line, so it fits a row and a dialog rung. */
 export const MAX_CONTRACT = 400;
 
+/**
+ * What a printer says for a line the contract still owes.
+ *
+ * One word, in one place, because two surfaces print a contract and they must not invent a
+ * phrase each. It is the word `reason.ts` already speaks in the card's next step — "no contract yet
+ * — missing acceptance, scopeOut" — so a reader who sees the transcript's line and the page's
+ * reason line is reading the same fact, not two spellings of it.
+ */
+export const CONTRACT_LINE_OWED = "missing";
+
 /** Who read something and when: an approval of a contract, or a spot-check of finished work. */
 export interface Sign {
 	/** Who signed, as the file records it: the session's label, or the lead's name for the person. */

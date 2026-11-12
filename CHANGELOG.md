@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a contract line a card still owes stops printing as a blank. The transcript says
+  `acceptance: missing` — the word a card's next step already uses — and the card dialog leaves the
+  unwritten row out, because the reason line above the block already names it; an empty cell under a
+  heading reads as a value that went missing.
+
 - `board`: a card whose contract was written a field at a time is a card again. The writer records the
   line a call did not name as empty, and the reader refused any contract with an empty line — so the
   whole record was unreadable, its holder locked out, and the only repair was editing the JSON by
