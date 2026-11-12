@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card's title leads its own face. The title takes the largest, heaviest ink on a note
+  and the priority word drops to the number's own weight, so a lane is read by what each card says
+  rather than by how urgent it is; the one height the face is drawn at grows by the line the
+  bigger title reserves, and every card in a lane still draws at that one height.
+
 - `lib`: the kit's faint tier is readable where it carries text. `--dim` drew a card's id and kind, a
   lane's count, the footer and the path subject at 12–13px, and measured 3.47:1 in light and 3.60:1
   in dark against AA's 4.5. It is now `#5c677a` light and `#8897ab` dark, clearing 4.5 on the canvas,

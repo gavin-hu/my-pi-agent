@@ -115,7 +115,7 @@ ${WEB_COMPONENTS_CSS}
    an absent kind still occupy what their neighbours occupy. */
 .board-lane{--lane-count:0}
 /* The face's boxes are the lane's: every lane that holds a card draws the note from them. */
-.board-lane,.board-team .bf-lane{--face-top:calc(var(--fs-xs) * var(--lh-normal));--face-title:calc(var(--fs-sm) * var(--lh-snug) * 2);--face-hints:calc(var(--fs-xs) * var(--lh-normal));--face-meta:calc(var(--fs-xs) * var(--lh-normal));--face-h:calc(var(--face-top) + var(--face-title) + var(--face-hints) + var(--face-meta) + var(--space-1) * 3);display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0;transition:flex-grow 200ms ease}
+.board-lane,.board-team .bf-lane{--face-top:calc(var(--fs-xs) * var(--lh-normal));--face-title:calc(var(--fs-base) * var(--lh-snug) * 2);--face-hints:calc(var(--fs-xs) * var(--lh-normal));--face-meta:calc(var(--fs-xs) * var(--lh-normal));--face-h:calc(var(--face-top) + var(--face-title) + var(--face-hints) + var(--face-meta) + var(--space-1) * 3);display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0;transition:flex-grow 200ms ease}
 /* A lane head pins to the pane: one scroll box, and every lane is as tall as the board, so
    its heads are the landmarks in it for the whole scroll. */
 .board-lane .bf-lane__head{position:sticky;top:0;z-index:1;background:var(--canvas)}
@@ -162,7 +162,10 @@ ${WEB_COMPONENTS_CSS}
 .board-row__top > :not(.bf-row__id){flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .board-row__top > .bf-row__id{flex:0 0 auto}
 .board-row__head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
-.board-row__head .bf-row__title{appearance:none;border:0;background:none;padding:0;text-align:left;cursor:pointer}
+/* The title is the one line a note is about, so it takes the largest and heaviest ink on the
+   face: the rank beside the number is an index, and a card read by its order tells a lane of
+   twenty-five nothing about what any of them says. */
+.board-row__head .bf-row__title{appearance:none;border:0;background:none;padding:0;text-align:left;cursor:pointer;font-size:var(--fs-base);font-weight:var(--fw-medium)}
 .board-row__head .bf-row__title:hover{color:var(--accent)}
 .board-row[data-lane="done"] .bf-row__title{color:var(--muted)}
 .board-row[data-visited="true"] .bf-row__title{color:var(--muted)}
@@ -171,8 +174,10 @@ ${WEB_COMPONENTS_CSS}
    meta line's own voice, so a row with ten notes cannot look like one with none. */
 .board-row__notes{display:inline-flex;align-items:baseline;gap:var(--space-1);font-variant-numeric:tabular-nums}
 /* An order is a word beside the name rather than a second tag, so who holds a row and
-   how urgent it is are two shapes a reader tells apart at a glance. */
-.board-row__priority{font:var(--fw-semibold) var(--fs-xs) var(--font-ui)}
+   how urgent it is are two shapes a reader tells apart at a glance. It wears its colour and
+   keeps the number's weight: the title carries the face, and a rank at the title's own heft
+   would be the loudest ink on a card that is about what the card says. */
+.board-row__priority{font:var(--fw-normal) var(--fs-xs) var(--font-ui)}
 .board-row__priority--high{color:var(--warn)}
 .board-row__priority--low{color:var(--dim)}
 /* A path has no spaces to break at, so the title breaks inside a word rather than overflowing. */
