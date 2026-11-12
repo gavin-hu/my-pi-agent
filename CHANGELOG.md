@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`, `plan`, `file-browse`: the served pages drop the GitHub grammar for the kit's own. The
+  shell is fixed — head and foot stay, one pane scrolls — the header is two rows split by a plain
+  rule, and the tabs are words rather than a segmented box. Work is rows, not cards: a lane is a
+  head and a list, a row carries its tone in its mark, the board's done meter is a ten-cell glyph
+  gauge with the literal count beside it, and the team tab is sections with tone-carrying rules.
+  `bf-chip` becomes `.bf-tag` with `.bf-tone--*`, `bf-segmented` becomes `.bf-tabs`, and
+  `bf-progress` becomes `.bf-gauge` — a breaking rename for anyone styling a served page, and no
+  colour moved: the palette is still the theme's own.
+
 - `board`: the Team tab's filter narrows cards and nothing else. A query used to empty two columns
   that had nothing to do with the card it named: AGENTS hid owners whose label or work it did not
   match, ACTIVITY hid mail whose text it did not. Both now stand still — the roster keeps its rows

@@ -215,7 +215,6 @@ ${PALETTE_CLIENT_JS}
 	// rendered, and hunk-to-hunk navigation through a diff.
 	${keysDialogScript("keys-open")}
 	var hunkAnchors = Array.prototype.slice.call(document.querySelectorAll("[data-hunk]"));
-	var progressFill = document.getElementById("progress-fill");
 
 	function toggleRaw() {
 		var next = document.querySelector(".bf-card__actions .bf-segmented a.bf-segmented__item:not([aria-current])");
@@ -258,19 +257,6 @@ ${PALETTE_CLIENT_JS}
 		return bestRange > 0 ? best : null;
 	}
 
-	function updateProgress() {
-		if (!progressFill) return;
-		var scroller = primaryScroller();
-		var doc = document.scrollingElement || document.documentElement;
-		var top = doc ? doc.scrollTop : 0;
-		var height = doc ? doc.scrollHeight : 0;
-		var view = doc ? doc.clientHeight : 0;
-		if (scroller) { top = scroller.scrollTop; height = scroller.scrollHeight; view = scroller.clientHeight; }
-		var max = height - view;
-		var percent = max > 0 ? Math.min(100, Math.max(0, (top / max) * 100)) : 0;
-		progressFill.style.width = percent + "%";
-	}
-
 	// A table wider than the pane scrolls sideways, but an overlay scrollbar is
 	// invisible until it moves; the class fades the frame's right edge while
 	// columns are still out of view, and drops at the end so the last stays crisp.
@@ -284,9 +270,6 @@ ${PALETTE_CLIENT_JS}
 		});
 	}
 
-	window.addEventListener("scroll", updateProgress, true);
-	window.addEventListener("resize", updateProgress);
-	updateProgress();
 	window.addEventListener("resize", markTableOverflow);
 	window.addEventListener("load", markTableOverflow);
 	document.addEventListener("scroll", markTableOverflow, true);

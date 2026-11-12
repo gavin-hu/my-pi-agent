@@ -22,6 +22,7 @@ import { WAITING_LIMIT } from "../../../lib/session-mail.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";
 import { BOARD_CSS } from "./styles.ts";
+import { WEB_COMPONENTS_CSS } from "../../../lib/web/components.ts";
 
 const NOW = 5_000;
 const ME = { id: "board:team-lead", label: "team-lead" };
@@ -158,7 +159,7 @@ describe("the mission control's contracts", () => {
 		// A caption is a count, not a share: the pill a column head draws has no total to show,
 		// and the ratio the panes' heads keep is their own (NEEDS YOU against the whole queue).
 		expect(BOARD_CLIENT_JS).toContain("board.captionOf = function (text, count, noun)");
-		expect(BOARD_CLIENT_JS).toContain('head.appendChild(el("span", N.teamCount, String(count)));');
+		expect(BOARD_CLIENT_JS).toContain('head.appendChild(el("span", "bf-section__count", String(count)));');
 		// A zero is drawn: an empty lane, an empty pane, and an empty column all say 0.
 		expect(BOARD_CLIENT_JS).toContain('slot.appendChild(el("p", N.teamEmpty');
 	});
@@ -171,9 +172,9 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CLIENT_JS).toContain('pill.setAttribute("aria-label", "quiet for " + ago(agent.seen))');
 		// The dot is coloured by the state, and a state with no record is a hollow ring.
 		for (const state of ["live", "quiet", "gone"]) {
-			expect(BOARD_CSS).toContain(`.board-team__dot[data-state="${state}"]{background:var(`);
+			expect(BOARD_CSS).toContain(`.board-dot[data-state="${state}"]{background:var(`);
 		}
-		expect(BOARD_CSS).toContain('.board-team__dot[data-state="absent"],.board-team__dot[data-state="unknown"]');
+		expect(BOARD_CSS).toContain('.board-dot[data-state="absent"],.board-dot[data-state="unknown"]');
 	});
 
 	test("draws a mission card's id as a button, and the whole queue is reachable behind its fold", () => {
@@ -183,14 +184,14 @@ describe("the mission control's contracts", () => {
 		// Three rows, then the same fold control a swimlane uses: one affordance for "there is
 		// more" in this column, and it opens the board instead of saying where the board is.
 		expect(BOARD_CLIENT_JS).toContain("var STRIP = 3");
-		expect(BOARD_CLIENT_JS).toContain('el("button", N.teamLaneFold, "+" + count + " more")');
+		expect(BOARD_CLIENT_JS).toContain('el("button", N.fold, "+" + count + " more")');
 		// The caption is a count alone: the tab strip is the way to the whole board, so the
 		// column carries no second door for a heading to be a control.
 		expect(BOARD_CLIENT_JS).not.toContain("board-team__door");
 	});
 
 	test("says an empty lane, an empty pane, and an empty board in words", () => {
-		expect(BOARD_CLIENT_JS).toContain('section.appendChild(el("p", N.teamLaneEmpty, lane.empty))');
+		expect(BOARD_CLIENT_JS).toContain('section.appendChild(el("p", "bf-lane__empty", lane.empty))');
 		expect(BOARD_CLIENT_JS).toContain('"no mail is waiting"');
 		expect(BOARD_CLIENT_JS).toContain('"nothing has happened yet"');
 		// One sentence for the tab, with the columns folded away, when there is nothing at all.
@@ -232,12 +233,10 @@ describe("the mission control's contracts", () => {
 		// One selector for everything that opens a card, so the walk and the dialog's "n of m"
 		// agree about what a card on this page is.
 		expect(BOARD_CLIENT_JS).toContain(
-			'var nodes = document.querySelectorAll(".board-card, .board-team__decision, .board-team__card");',
+			'var nodes = document.querySelectorAll(".board-row, .board-decision, .board-mission");',
 		);
-		expect(BOARD_CLIENT_JS).toContain('here.closest(".board-card, .board-team__decision, .board-team__card")');
-		expect(BOARD_CLIENT_JS).toContain(
-			'.querySelector(".board-card__title, .board-team__open, .board-team__card-title")',
-		);
+		expect(BOARD_CLIENT_JS).toContain('here.closest(".board-row, .board-decision, .board-mission")');
+		expect(BOARD_CLIENT_JS).toContain('.querySelector(".bf-row__title, .board-decision__open, .board-mission__title")');
 	});
 
 	test("is three columns with one page scroll, and the grid is the only thing it lays out", () => {
@@ -251,13 +250,12 @@ describe("the mission control's contracts", () => {
 		}
 		// A caption sticks; a lane's head does not, because the page has one scroll box and the
 		// column captions are its only landmarks.
-		expect(ownRules()).toMatch(/\.board-team__caption\{[^}]*position:sticky/);
+		expect(ownRules()).toMatch(/\.board-team__column \.bf-section__cap\{[^}]*position:sticky/);
 	});
 
 	test("draws the counting pill in tabular figures, so two columns' numbers line up", () => {
-		for (const rule of ["board-team__count", "board-team__lane-count", "board-team__pane-count"]) {
-			expect(BOARD_CSS, rule).toMatch(new RegExp(`\\.${rule}\\{[^}]*font-variant-numeric:tabular-nums`));
-		}
+		// One rule, in the kit: every section cap counts in tabular figures.
+		expect(WEB_COMPONENTS_CSS).toMatch(/\.bf-section__count\{[^}]*font-variant-numeric:tabular-nums/);
 	});
 
 	test("caps the queue at the snapshot's own limit, so the two cannot disagree", () => {

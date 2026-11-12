@@ -169,12 +169,13 @@ describe("review page", () => {
 		expect(markup).not.toContain("UNIQUE_PLAN_TEXT");
 	});
 
-	test("shows the review facts, the progress bar, and the keyboard sheet", () => {
+	test("shows the review facts, the shell's rule, and the keyboard sheet", () => {
 		const html = reviewPage();
 		expect(html).toContain('id="review-facts"');
 		expect(html).toContain('id="step-fact"');
 		expect(html).toContain('id="step-count"');
-		expect(html).toContain('id="progress-fill"');
+		// The coloured scroll rule is gone: the shell splits its two rows with a plain line.
+		expect(html).toContain('<div class="bf-app__rule"></div>');
 		expect(html).toContain('id="keys-dialog"');
 		expect(html).toContain("Approve and run the plan");
 	});
@@ -202,17 +203,17 @@ describe("the page's chrome", () => {
 		// it is doing, the bar holds the page's own actions, and the footer says where the
 		// content came from — so a reader who has used /board already knows this page.
 		const html = reviewPage();
-		expect(html).toContain('<div class="bf-toolbar review-bar">');
+		expect(html).toContain('<div class="bf-app__id review-bar">');
 		expect(html).toContain(
 			'<span class="bf-context bf-context--subject" id="plan-title" title="~/.pi/agent/plans/repo-key/add-rate-limiting.md">Add rate limiting</span>',
 		);
-		expect(html).toContain('<div class="bf-toolbar__facts">');
-		expect(html).toContain('<span class="bf-chip bf-chip--accent bf-live" id="review-state"');
+		expect(html).toContain('<div class="bf-app__facts">');
+		expect(html).toContain('<span class="bf-live bf-tone--accent" id="review-state"');
 		expect(html).toContain('<span class="bf-live__text">connecting…</span>');
 		expect(html).toContain('id="reload-hint"');
-		expect(html).toContain('<div class="bf-toolbar__chrome">');
-		expect(html).toContain('<div class="bf-app__bar review-actions">');
-		expect(html).toContain('<footer class="bf-app__footer">');
+		expect(html).toContain('<div class="bf-app__chrome">');
+		expect(html).toContain('<div class="bf-app__ctl review-actions">');
+		expect(html).toContain('<footer class="bf-app__foot">');
 		expect(html).toContain("plan ~/.pi/agent/plans/repo-key/add-rate-limiting.md");
 		// The status sentence stays, in the facts zone, as the page's own live region.
 		expect(html).toContain('<span class="bf-status" id="status" role="status" aria-live="polite"></span>');

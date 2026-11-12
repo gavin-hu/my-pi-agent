@@ -135,10 +135,10 @@ const activeTemplate = String.raw`(function () {
     return gone;
   }
 
-  /** The reason as a pill: the word a reader scans by, with the whole sentence on the hover. */
+  /** The reason as a rail tag: the word a reader scans by, with the sentence on the hover. */
   function whyPill(entry) {
-    var pill = chip(DECISION_LABEL[entry.kind] || entry.kind, "muted");
-    pill.setAttribute("data-tone", decisionTone(entry.kind));
+    var tone = decisionTone(entry.kind);
+    var pill = chip(DECISION_LABEL[entry.kind] || entry.kind, tone === "dim" ? "dim" : tone);
     pill.title = entry.why;
     return pill;
   }
@@ -164,24 +164,30 @@ const activeTemplate = String.raw`(function () {
   /** One decision: the card, why it is here, who holds it, and how long it has waited. */
   function decisionRow(entry, view) {
     var card = entry.card;
-    var node = el("article", N.decision);
+    var tone = decisionTone(entry.kind);
+    var node = el("article", "bf-row " + N.decision);
     node.setAttribute("data-kind", entry.kind);
-    node.setAttribute("data-tone", decisionTone(entry.kind));
+    node.setAttribute("data-tone", tone);
     node.setAttribute("data-card", card.id);
+    var mark = el("span", "bf-row__mark", tone === "danger" ? "!" : "\u25b8");
+    mark.setAttribute("aria-hidden", "true");
+    node.appendChild(mark);
+    var body = el("div", N.decisionBody);
+    node.appendChild(body);
 
     var open = el("button", N.decisionOpen);
     open.type = "button";
     open.setAttribute("aria-haspopup", "dialog");
-    // The reason the row is here, for a reader who never hovers: the pill is inside the button,
+    // The reason the row is here, for a reader who never hovers: the tag is inside the button,
     // so the whole row is described by the sentence its tooltip carries.
     open.setAttribute("aria-describedby", "team-why-" + card.id);
     open.appendChild(el("span", N.decisionRef, "#" + card.id));
     open.appendChild(whyPill(entry));
-    var title = el("span", N.decisionTitle, card.title);
+    var title = el("span", "bf-row__title", card.title);
     title.title = card.title;
     open.appendChild(title);
     open.addEventListener("click", function () { board.openCard(card.id); });
-    node.appendChild(open);
+    body.appendChild(open);
 
     var meta = el("p", N.decisionWhy);
     // What the card is, in the label the face and the record wear: the queue is where a
@@ -195,7 +201,7 @@ const activeTemplate = String.raw`(function () {
     if (sentence !== undefined) meta.appendChild(sentence);
     else meta.appendChild(stamp(ago(card.updatedAt), card.updatedAt));
     meta.id = "team-why-" + card.id;
-    node.appendChild(meta);
+    body.appendChild(meta);
     return node;
   }
 
@@ -207,7 +213,7 @@ const activeTemplate = String.raw`(function () {
    * more" in a column that now has one.
    */
   function moreRow(count) {
-    var row = el("button", N.teamLaneFold, "+" + count + " more");
+    var row = el("button", N.fold, "+" + count + " more");
     row.type = "button";
     row.title = "every decision is on the Board tab";
     row.addEventListener("click", function () { board.showView("board"); });
@@ -247,27 +253,28 @@ const activeTemplate = String.raw`(function () {
     return "absent";
   }
 
-  /** One swimlane: the head, the cards that fit, and a fold that says how many did not. */
+  /** One swimlane: the head, the rows that fit, and a fold that says how many did not. */
   function swimlane(view, lane, cards) {
-    var section = el("section", N.teamLane);
+    var section = el("section", "bf-lane " + N.laneList);
     section.setAttribute("data-lane", lane.key);
-    var head = el("h3", N.teamLaneHead);
-    var dot = el("span", N.teamLaneDot);
+    var head = el("h3", "bf-lane__head");
+    var dot = el("span", "bf-lane__dot");
     dot.setAttribute("aria-hidden", "true");
+    dot.textContent = "\u25a0";
     head.appendChild(dot);
-    head.appendChild(el("span", N.teamLaneName, lane.label));
-    head.appendChild(el("span", N.teamLaneCount, String(cards.length)));
+    head.appendChild(el("span", "", lane.label));
+    head.appendChild(el("span", "bf-lane__count", String(cards.length)));
     head.setAttribute("aria-label", lane.label + ", " + plural(cards.length, "card"));
     section.appendChild(head);
     if (cards.length === 0) {
-      section.appendChild(el("p", N.teamLaneEmpty, lane.empty));
+      section.appendChild(el("p", "bf-lane__empty", lane.empty));
       return section;
     }
-    var swim = el("div", N.swim);
+    var swim = el("div", N.laneList);
     for (var i = 0; i < cards.length && i < SWIM; i++) swim.appendChild(missionCard(cards[i], view));
     section.appendChild(swim);
     if (cards.length > SWIM) {
-      var more = el("button", N.teamLaneFold, "+" + (cards.length - SWIM) + " more on the Board");
+      var more = el("button", N.fold, "+" + (cards.length - SWIM) + " more on the Board");
       more.type = "button";
       more.addEventListener("click", function () { board.showView("board"); });
       section.appendChild(more);
@@ -313,8 +320,9 @@ const activeTemplate = String.raw`(function () {
         // The caption is a count and nothing else: the tab strip above the page is the way to
         // the whole board, and a second door in a heading was a control in a label.
         slot.appendChild(board.captionOf("ACTIVE WORK", active, "card"));
-        var pane = el("section", N.paneBody);
+        var pane = el("section", "bf-section " + N.paneBody);
         pane.setAttribute("data-pane", "needs-you");
+        pane.setAttribute("data-tone", "warn");
         // The strip has a name and a number of its own: the caption above counts the lanes, and
         // a reader was left to add the rows under it to a number that did not include them.
         pane.appendChild(board.paneHead("NEEDS YOU", shown.length, decisions.length));

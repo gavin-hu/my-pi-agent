@@ -81,19 +81,23 @@ const feedTemplate = String.raw`(function () {
 
   /** One message nobody has read. */
   function mailRow(message) {
-    var row = el("li", N.mailRow);
+    var row = el("li", "bf-row " + N.mail);
     row.setAttribute("data-kind", message.kind);
-    var glyph = el("span", N.glyph, MAIL_GLYPH[message.kind] || "\u2709");
+    var glyph = el("span", "bf-row__mark", MAIL_GLYPH[message.kind] || "\u2709");
     glyph.setAttribute("aria-hidden", "true");
     row.appendChild(glyph);
-    row.appendChild(el("span", N.mailFrom, message.fromLabel));
+    var body = el("div", N.mailBody);
+    row.appendChild(body);
+    var line = el("div", "bf-row__meta");
+    line.appendChild(el("span", N.mailFrom, message.fromLabel));
     var arrow = el("span", N.mailArrow, "\u2192");
     arrow.setAttribute("aria-hidden", "true");
-    row.appendChild(arrow);
-    row.appendChild(recipients(message.to));
-    // The kind, in words: the pill is the shape and the word is the fact.
-    row.appendChild(chip(message.kind, "muted"));
-    row.appendChild(stamp(ago(message.at), message.at));
+    line.appendChild(arrow);
+    line.appendChild(recipients(message.to));
+    // The kind, in words: the tag is the shape and the word is the fact.
+    line.appendChild(chip(message.kind, "muted"));
+    line.appendChild(stamp(ago(message.at), message.at));
+    body.appendChild(line);
     // The text is the reason to open it, and it never fits a row: on the hover, whole.
     row.title = message.fromLabel + " \u2192 " + message.to.map(function (each) { return each.label; }).join(", ") + ": " + message.text;
     return row;
@@ -109,20 +113,24 @@ const feedTemplate = String.raw`(function () {
 
   /** One thing that happened: a glyph, the lane it happened in, the card, and what it was. */
   function eventRow(event) {
-    var row = el("li", N.event);
+    var row = el("li", "bf-row " + N.event);
     row.setAttribute("data-kind", event.kind);
-    var glyph = el("span", N.glyph, EVENT_GLYPH[event.kind] || "\u2022");
+    var glyph = el("span", "bf-row__mark", EVENT_GLYPH[event.kind] || "\u2022");
     glyph.setAttribute("aria-hidden", "true");
     row.appendChild(glyph);
+    var body = el("div", N.mailBody);
+    row.appendChild(body);
+    var line = el("div", "bf-row__meta");
     if (event.lane !== undefined) {
       var laneDot = dot("live");
       laneDot.setAttribute("data-lane", event.lane);
       laneDot.removeAttribute("data-state");
-      row.appendChild(laneDot);
+      line.appendChild(laneDot);
     }
-    row.appendChild(el("span", N.eventRef, "#" + event.card));
-    row.appendChild(el("span", N.eventWhat, eventWhat(event)));
-    row.appendChild(stamp(ago(event.at), event.at));
+    line.appendChild(el("span", N.eventRef, "#" + event.card));
+    line.appendChild(el("span", N.eventWhat, eventWhat(event)));
+    line.appendChild(stamp(ago(event.at), event.at));
+    body.appendChild(line);
     row.title = "#" + event.card + " " + event.title;
     return row;
   }
@@ -161,6 +169,8 @@ const feedTemplate = String.raw`(function () {
         build: function (slot) {
           // The pane says how deep the queue is, the way RECENT says how much history it left
           // out: a cap that dropped rows must not read like a quiet board.
+          if (waiting.length > 0) slot.setAttribute("data-tone", "accent");
+          else slot.removeAttribute("data-tone");
           slot.appendChild(
             paneHead("WAITING", waiting.length, waiting.length + queue.dropped, waiting.length > 0 ? "accent" : undefined)
           );

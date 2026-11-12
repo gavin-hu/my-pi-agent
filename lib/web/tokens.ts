@@ -21,8 +21,8 @@ interface ThemeJson {
 const DARK = darkTheme as unknown as ThemeJson;
 const LIGHT = lightTheme as unknown as ThemeJson;
 
-/** Web custom property -> Bytefly theme var. `--accent-soft`, `--raised`, `--on-accent`,
- * `--scrim`, and `--shadow` are derived, so no appearance-only colour enters the kit. */
+/** Web custom property -> Bytefly theme var. `--accent-soft`, `--raised`, `--on-accent`, and
+ * `--scrim` are derived, so no appearance-only colour enters the kit. */
 const VAR_TOKENS: ReadonlyArray<readonly [string, string]> = [
 	["--canvas", "canvas"],
 	["--surface", "canvasSubtle"],
@@ -63,7 +63,8 @@ const SCALES =
 	"--lh-tight:1.25;--lh-snug:1.4;--lh-normal:1.5;--lh-relaxed:1.6;" +
 	"--fw-normal:400;--fw-medium:500;--fw-semibold:600;--fw-bold:700;" +
 	"--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-7:32px;--space-8:48px;" +
-	"--radius-sm:4px;--radius-md:6px;--radius-lg:10px;--radius-pill:999px;" +
+	"--radius-sm:2px;--radius-md:3px;--radius-lg:4px;--radius-badge:2px;" +
+	"--measure-prose:78ch;" +
 	"--motion-fast:80ms;--motion-base:140ms;--motion-ease:cubic-bezier(.2,.6,.2,1);--focus-ring:2px";
 
 /** Resolve a theme color value (a hex, a var name, or a number) to a string. */
@@ -100,10 +101,14 @@ function rgba(hex: string, alpha: number): string {
 }
 
 /**
- * Overlays are not palette entries: a scrim dims what is behind it and a shadow
- * lifts a panel off it, so each appearance needs its own alpha rather than the
- * theme's colours.
+ * Overlays are not palette entries: a scrim dims what is behind it, so each appearance needs its
+ * own alpha rather than the theme's colours. A lifted panel is a border, not a blur — the kit casts
+ * no shadow, so a dialog is held by its rail and its hairline.
  */
+const OVERLAYS: Record<"dark" | "light", { scrim: string }> = {
+	dark: { scrim: "rgba(0,0,0,.5)" },
+	light: { scrim: "rgba(15,23,42,.3)" },
+};
 /**
  * How far `--raised` sits above `--surface`: enough to see, not enough to shout.
  *
@@ -112,11 +117,6 @@ function rgba(hex: string, alpha: number): string {
  * stop being readable.
  */
 const RAISED_STEP: Record<"dark" | "light", number> = { dark: 0.06, light: 0.03 };
-
-const OVERLAYS: Record<"dark" | "light", { scrim: string; shadow: string }> = {
-	dark: { scrim: "rgba(0,0,0,.5)", shadow: "0 8px 24px rgba(0,0,0,.4)" },
-	light: { scrim: "rgba(15,23,42,.3)", shadow: "0 8px 24px rgba(15,23,42,.14)" },
-};
 
 /** The full custom-property set for one appearance. */
 function paletteOf(theme: ThemeJson, appearance: "dark" | "light", accentAlpha: number): Record<string, string> {
@@ -131,7 +131,6 @@ function paletteOf(theme: ThemeJson, appearance: "dark" | "light", accentAlpha: 
 	// text, and the same derivation gives white on the light theme's darker blue.
 	palette["--on-accent"] = palette["--canvas"];
 	palette["--scrim"] = OVERLAYS[appearance].scrim;
-	palette["--shadow"] = OVERLAYS[appearance].shadow;
 	for (const [token, name] of SYNTAX_TOKENS) palette[token] = resolve(theme, theme.colors[name] ?? "");
 	return palette;
 }

@@ -28,7 +28,7 @@ describe("the header", () => {
 		expect(live).toContain('id="live-state"');
 		expect(live).toContain('data-interval="3000"');
 		// The chip is the kit's, and the server's accounting of the stream is its hover.
-		expect(live).toContain('class="bf-chip bf-chip--accent bf-live" id="live-state"');
+		expect(live).toContain('class="bf-live bf-tone--accent" id="live-state"');
 		expect(live).toContain('<span class="bf-live__text">connecting</span>');
 		expect(live).toContain('id="reload-hint"');
 		expect(live).toContain('id="browse-changes" href="/diff"');
@@ -37,7 +37,7 @@ describe("the header", () => {
 		expect(off).not.toContain("live-state");
 		expect(off).not.toContain("reload-hint");
 		// The footer carries the page's facts and nothing the header already owns.
-		expect(off).toContain('<footer class="bf-app__footer"><span class="bf-footer__facts">served from ');
+		expect(off).toContain('<footer class="bf-app__foot"><span class="bf-footer__facts">served from ');
 		expect(off).not.toContain("read-only · ");
 	});
 });

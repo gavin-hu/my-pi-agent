@@ -59,14 +59,14 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		// The sheet is modal for the keyboard: a key that walks the board does not reach behind it.
 		// It used to, because `/` and `t` read the modal flag and `j`/`k` did not.
 		await page.keyboard.press("j");
-		expect(await focusedClass(page)).not.toContain("board-card");
+		expect(await focusedClass(page)).toContain("bf-btn");
 		await page.keyboard.press("Escape");
 		await page.waitForSelector("#keys-dialog", { state: "hidden", timeout: PAINT_MS });
 	});
 
 	test("opens a card from its title, and Esc closes it", async () => {
 		const page = await openPage();
-		await page.click("#lane-execute .board-card__title");
+		await page.click("#lane-execute .bf-row__title");
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-title")).toBe("Billing webhook accepts orders");
 		expect(await page.textContent("#card-dialog-owner")).toContain("billing-core");
@@ -78,7 +78,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 
 	test("keeps Tab and Shift+Tab inside the card dialog", async () => {
 		const page = await openPage();
-		await page.click("#lane-execute .board-card__title");
+		await page.click("#lane-execute .bf-row__title");
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 
 		// The panel is the close button's container and the dialog's first focusable, so a
@@ -126,7 +126,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 	test("opens a card from anywhere on it, and a drag is not a click", async () => {
 		const page = await openPage();
 		// The meta line is not the title, and it is inside the card: the whole card is the door.
-		await page.click('#lane-backlog .board-card[data-card="1"] .board-card__meta');
+		await page.click('#lane-backlog .bf-row[data-card="1"] .bf-row__meta');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-id")).toBe("#1");
 		await page.keyboard.press("Escape");
@@ -135,7 +135,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		// Selecting a line to copy ends in a click on the card; that click must not open it. A
 		// button's own text is not selectable, so the drag is over the reason line, which is
 		// prose and is what a reader copies.
-		const line = await page.$('#lane-backlog .board-card[data-card="1"] .board-card__reason');
+		const line = await page.$('#lane-backlog .bf-row[data-card="1"] .bf-row__reason');
 		const box = await line?.boundingBox();
 		if (box === undefined || box === null) throw new Error("the reason line has no box to drag across");
 		await page.mouse.move(box.x + 2, box.y + box.height / 2);
@@ -147,7 +147,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 
 	test("reads the card in the order a reader acts on it, one fact a row", async () => {
 		const page = await openPage();
-		await page.click("#lane-execute .board-card__title");
+		await page.click("#lane-execute .bf-row__title");
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-id")).toBe("#3");
 		// The head keeps what the face led with — the kind, the person, the order — so nothing
@@ -203,7 +203,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		// An untyped card is a card, not a guess: the head says nothing rather than defaulting
 		// to a kind nobody chose, and the record's own row list does not grow either.
 		const page = await openPage();
-		await page.click('#lane-backlog .board-card[data-card="1"] .board-card__title');
+		await page.click('#lane-backlog .bf-row[data-card="1"] .bf-row__title');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await hidden(page, "#card-dialog-kind")).toBe(true);
 	});
@@ -228,7 +228,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 				now,
 			);
 			const page = await openPage();
-			await page.click('#lane-plan .board-card[data-card="2"] .board-card__title');
+			await page.click('#lane-plan .bf-row[data-card="2"] .bf-row__title');
 			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 			// The face's sentence, in warn: a person has to read the wording before this moves.
 			expect(await page.textContent("#card-dialog-reason")).toBe("contract ready \u2014 needs approval");
@@ -279,7 +279,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		await store.mutate("1", { kind: "offer" }, LEAD, now - 45_000);
 		try {
 			const page = await openPage();
-			await page.click('#lane-backlog .board-card[data-card="1"] .board-card__title');
+			await page.click('#lane-backlog .bf-row[data-card="1"] .bf-row__title');
 			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 			expect(await page.textContent("#card-dialog-reason")).toMatch(/^offered \d+[a-z] ago \u2014 nobody took it$/);
 			expect(await page.getAttribute("#card-dialog-reason", "data-tone")).toBe("muted");
@@ -296,8 +296,8 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 	test("says who closed a finished card, on the reason line", async () => {
 		const page = await openPage();
 		await page.click("#lane-head-done");
-		await page.waitForSelector('#lane-done .board-card[data-card="4"]', { timeout: PAINT_MS });
-		await page.click('#lane-done .board-card[data-card="4"] .board-card__title');
+		await page.waitForSelector('#lane-done .bf-row[data-card="4"]', { timeout: PAINT_MS });
+		await page.click('#lane-done .bf-row[data-card="4"] .bf-row__title');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		// The record has no row of its own for a close, so the line the card face prints is the
 		// only place it appears — and a finished card always draws it.
@@ -305,7 +305,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		expect(await hidden(page, "#card-dialog-reason")).toBe(false);
 
 		await page.keyboard.press("Escape");
-		await page.click('#lane-done .board-card[data-card="5"] .board-card__title');
+		await page.click('#lane-done .bf-row[data-card="5"] .bf-row__title');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		// A second finished card says the same thing, because a close is who closed it.
 		expect(await page.textContent("#card-dialog-reason")).toBe("\u2713 done by billing-core");
@@ -315,13 +315,13 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		// The age belongs beside the lane word: the lane's own name cannot say how long, and
 		// the updated stamp cannot either — a note moves that stamp without moving the card.
 		const page = await openPage();
-		await page.click('#lane-execute .board-card__title:text-is("Billing webhook accepts orders")');
+		await page.click('#lane-execute .bf-row__title:text-is("Billing webhook accepts orders")');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-state")).toMatch(/^Execute · (\d+[mhd]|now)$/);
 		expect(await page.$("#card-dialog-lane")).toBeNull();
 		// A card nobody has taken says the same about the lane it was born in.
 		await page.keyboard.press("Escape");
-		await page.click('#lane-backlog .board-card__title:text-is("Export orders as CSV")');
+		await page.click('#lane-backlog .bf-row__title:text-is("Export orders as CSV")');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-state")).toMatch(/^Backlog · (\d+[mhd]|now)$/);
 	});
@@ -339,14 +339,14 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		try {
 			const page = await openPage();
 			// The face says it too, on the reason's own line, naming the card rather than its id.
-			expect(await page.textContent('#lane-backlog .board-card[data-card="1"] .board-card__reason')).toContain(
+			expect(await page.textContent('#lane-backlog .bf-row[data-card="1"] .bf-row__reason')).toContain(
 				"· holds up #2 (backlog) Invoice totals round the wrong way",
 			);
-			expect(await page.textContent('#lane-backlog .board-card[data-card="2"] .board-card__reason')).toBe(
+			expect(await page.textContent('#lane-backlog .bf-row[data-card="2"] .bf-row__reason')).toBe(
 				"waits on #1 (backlog) Export orders as CSV",
 			);
 
-			await page.click('#lane-backlog .board-card__title:text-is("Export orders as CSV")');
+			await page.click('#lane-backlog .bf-row__title:text-is("Export orders as CSV")');
 			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 			expect(await page.textContent("#card-dialog-dependents")).toBe("#2 (backlog) Invoice totals round the wrong way");
 			expect(await hidden(page, "#card-dialog-dependents-label")).toBe(false);
@@ -355,7 +355,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 			await page.keyboard.press("Escape");
 
 			// The dependent's own dialog says the other direction, from the same link.
-			await page.click('#lane-backlog .board-card__title:text-is("Invoice totals round the wrong way")');
+			await page.click('#lane-backlog .bf-row__title:text-is("Invoice totals round the wrong way")');
 			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 			expect(await page.textContent("#card-dialog-depends")).toBe("#1 (backlog) Export orders as CSV");
 			expect(await hidden(page, "#card-dialog-dependents")).toBe(true);
@@ -371,7 +371,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 
 	test("walks to the next card with j, and says where it landed", async () => {
 		const page = await openPage();
-		await page.click("#lane-backlog .board-card__title");
+		await page.click("#lane-backlog .bf-row__title");
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		// Three, not ten: the seven finished cards sit in the folded Done lane, and the
 		// step walks the board as it is drawn.

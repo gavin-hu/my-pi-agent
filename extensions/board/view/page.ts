@@ -16,7 +16,6 @@
 import {
 	baseAttribute,
 	brandLockup,
-	chip,
 	docHead,
 	keysSheet,
 	liveChip,
@@ -62,33 +61,36 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
 <body class="bf-app">
 <h1 class="sr-only">board — the shared feature list for this repository</h1>
 <a class="skip" href="#main">Skip to the cards</a>
-<header class="bf-app__header"><div class="bf-toolbar ${N.toolbar}">
+<header class="bf-app__head"><div class="bf-app__id">
   ${brandLockup("board")}
   ${pageSubject({ id: "board-repo", label: input.repo, title: input.root })}
-  <div class="bf-toolbar__facts">
-    ${chip({ label: "read-only", tone: "accent" })}
+  <div class="bf-app__facts">
     ${liveChip({ id: "board-status", label: "connecting…" })}
     ${reloadChip({ title: "Run /board again if this does not clear" })}
   </div>
   ${toolbarChrome()}
-</div></header>
-<div class="bf-app__bar ${N.bar}">
-  <div class="bf-segmented" role="tablist" aria-label="View">
-    <button type="button" class="bf-segmented__item" role="tab" id="tab-board" data-view="board" aria-controls="panel-board" aria-selected="${team ? "false" : "true"}" tabindex="${team ? "-1" : "0"}">Board</button>
-    <button type="button" class="bf-segmented__item" role="tab" id="tab-team" data-view="team" aria-controls="panel-team" aria-selected="${team ? "true" : "false"}" tabindex="${team ? "0" : "-1"}">Team</button>
-  </div>
-  <p class="bf-progress ${N.progress}" id="board-progress" hidden>
-    <span class="bf-progress__track"><span class="bf-progress__fill" id="board-progress-fill"></span></span>
-    <span id="board-progress-text">0/0</span>
-  </p>
-  <span class="bf-spacer"></span>
-  <label class="bf-field ${N.filter}"><span class="sr-only">Filter cards</span>
-    <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
-  </label>
 </div>
+<div class="bf-app__rule"></div>
+<div class="bf-app__ctl ${N.bar}">
+  <div class="bf-app__group">
+    <div class="bf-tabs" role="tablist" aria-label="View">
+      <button type="button" class="bf-tabs__item" role="tab" id="tab-board" data-view="board" aria-controls="panel-board" aria-selected="${team ? "false" : "true"}" tabindex="${team ? "-1" : "0"}">Board</button>
+      <button type="button" class="bf-tabs__item" role="tab" id="tab-team" data-view="team" aria-controls="panel-team" aria-selected="${team ? "true" : "false"}" tabindex="${team ? "0" : "-1"}">Team</button>
+    </div>
+    <p class="bf-gauge ${N.progress}" id="board-progress" role="progressbar" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-label="0 of 0 done" hidden>
+      <span class="bf-gauge__cells" id="board-progress-cells" aria-hidden="true"></span>
+      <span class="bf-gauge__text" id="board-progress-text">0/0 done</span>
+    </p>
+  </div>
+  <div class="bf-app__group">
+    <label class="bf-field bf-field--filter ${N.filter}"><span class="sr-only">Filter cards</span>
+      <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
+    </label>
+  </div>
+</div></header>
 <main class="bf-app__main ${N.main}" id="main" tabindex="-1">
   <section class="${N.panel}" id="panel-board" role="tabpanel" aria-labelledby="tab-board"${team ? " hidden" : ""}>
-    <div class="bf-segmented ${N.picker}" id="board-picker" role="group" aria-label="Lane"></div>
+    <div class="bf-tabs ${N.picker}" id="board-picker" role="group" aria-label="Lane"></div>
     <div class="${N.lanes}" id="board-lanes"></div>
     <div class="bf-empty ${N.noCards}" id="board-no-cards" hidden>
       <p class="bf-empty__title" id="board-no-cards-title">No cards yet</p>
@@ -111,7 +113,7 @@ ${pageFooter({ factsId: "board-where", facts: `store ${input.where}` })}
       <span class="bf-spacer"></span>
       <span id="card-dialog-kind" hidden></span>
       <span id="card-dialog-owner"></span>
-      <span class="${N.cardPriority}" id="card-dialog-priority" hidden></span>
+      <span class="${N.rowPriority}" id="card-dialog-priority" hidden></span>
       <span class="${N.dialogState}" id="card-dialog-state"><span id="card-dialog-state-label"></span><span class="${N.dialogAge}" id="card-dialog-since" hidden></span></span>
       <button type="button" class="bf-btn bf-btn--icon" id="card-dialog-close" aria-label="Close">×</button>
     </div>

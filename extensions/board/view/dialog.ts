@@ -110,7 +110,7 @@ __INLINE_MARKDOWN__
     var priority = document.getElementById("card-dialog-priority");
     priority.hidden = card.priority === "normal";
     priority.textContent = card.priority === "normal" ? "" : card.priority;
-    priority.className = N.cardPriority + (card.priority === "normal" ? "" : " " + board.priorityClass[card.priority]);
+    priority.className = N.rowPriority + (card.priority === "normal" ? "" : " " + board.priorityClass[card.priority]);
 
     // The lane is a status of its own, not a word inside a sentence: the same dot and
     // label a lane head wears, so the dialog and the board speak the same vocabulary. Its

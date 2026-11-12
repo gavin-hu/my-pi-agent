@@ -25,7 +25,7 @@ import { boardDocument as pageOf, ownRules } from "../../../test/helpers/board-d
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";
 import { BOARD_CSS, PICKER_MQ } from "./styles.ts";
-import { BOARD_TONES, DECISION_KINDS, DECISION_TONE } from "../../../lib/board/tone.ts";
+import { DECISION_KINDS, DECISION_TONE } from "../../../lib/board/tone.ts";
 
 describe("the document", () => {
 	test("is a complete page under the shared head", () => {
@@ -49,8 +49,7 @@ describe("the document", () => {
 	});
 
 	test("carries no write surface at all", () => {
-		// The page reads. A form, a composer, a banner, or a footer of verbs would each be
-		// a promise the server refuses, so none of them is in the document to begin with.
+		// A form, a composer, a banner, or a footer of verbs would be a promise the server refuses.
 		const page = pageOf("board");
 		for (const gone of [
 			"data-writes",
@@ -86,7 +85,8 @@ describe("the document", () => {
 			"board-repo",
 			"board-status",
 			"board-progress",
-			"board-progress-fill",
+			"board-progress-cells",
+			"board-progress-text",
 			"board-progress-text",
 			"board-filter",
 			"keys-open",
@@ -108,9 +108,8 @@ describe("the document", () => {
 
 	test("an empty board says how a card is made, in the terminal's words", () => {
 		const page = pageOf("board");
-		// The page cannot add a card, so the empty state names the command that can instead of
-		// offering a button that would take a reader nowhere. The other state — a filter that
-		// matches nothing — reuses the block with its own sentence and one way back.
+		// The page cannot add a card, so the empty state names the command that can; a filter that
+		// matches nothing reuses the block with its own sentence and one way back.
 		expect(page).toContain("<code>board add</code>");
 		expect(page).toContain('id="board-no-match-clear" hidden>Clear filter</button>');
 		// The sheet says what a dialog keeps, so a key that does nothing is not read as broken.
@@ -118,8 +117,7 @@ describe("the document", () => {
 	});
 
 	test("carries no card text at all", () => {
-		// Card text arrives only as a JSON frame, so nothing model-written can reach
-		// the document's markup.
+		// Card text arrives only as a JSON frame, so no model-written text reaches the markup.
 		const page = pageOf("board");
 		expect(page).not.toContain("Billing webhook");
 		expect(page).not.toContain("waiting on the gateway");
@@ -130,12 +128,10 @@ describe("the document", () => {
 		expect(page).toContain('role="tablist"');
 		expect(page).toContain('role="tab"');
 		expect(page).toContain('aria-controls="panel-board"');
-		// The narrow lane switch is a group of pressed buttons, not a second tablist: it has no
-		// tabpanel behind it, and a tab without one is what this used to be.
+		// The narrow lane switch is a group of pressed buttons: no tabpanel stands behind it.
 		expect(page).toContain('id="board-picker" role="group" aria-label="Lane"');
-		// A tab says which one is showing through `aria-selected`, and the strip has one tab in
-		// the Tab order: the two attributes below are the whole of a roving tablist. The
-		// stylesheet still names `aria-current` for the segmented rows other pages use.
+		// A tab says which one shows through `aria-selected`, and the strip has one tab in the Tab
+		// order; the stylesheet still names `aria-current` for the rows other pages use.
 		expect(page).toContain(
 			'id="tab-board" data-view="board" aria-controls="panel-board" aria-selected="true" tabindex="0"',
 		);
@@ -157,31 +153,31 @@ describe("the document", () => {
 	test("keeps its own text above AA and its targets at 24px", () => {
 		// `--dim` is held at 3:1 by the kit's contract, which is a gutter's threshold, not a
 		// sentence's: the empty word and a note's age are body text, so they read `--muted`.
-		expect(BOARD_CSS).toContain(".board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted)}");
+		expect(BOARD_CSS).toContain(
+			".bf-lane__empty{margin:0;padding:var(--space-2) 0;font:var(--fs-xs) var(--font-mono);color:var(--dim)}",
+		);
 		expect(BOARD_CSS).toContain(".board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}");
-		// The controls a row makes small — the door out of the middle column, and the two folds —
-		// keep a 24px target without growing the caption they sit in.
+		// The controls a row makes small keep a 24px target without growing the caption.
 		expect(BOARD_CSS).toContain("min-height:24px");
-		expect(BOARD_CSS).toMatch(/\.board-team__agent-fold\{[^}]*min-height:24px/);
-		expect(BOARD_CSS).toMatch(/\.board-team__lane-fold\{[^}]*min-height:24px/);
+		expect(BOARD_CSS).toMatch(/\.board-fold\{[^}]*min-height:24px/);
+		expect(BOARD_CSS).toMatch(/\.board-fold\{[^}]*min-height:24px/);
 	});
 
 	test("wraps the lane switch on a phone instead of hiding a lane", () => {
-		// Five labels do not fit 320px; a horizontal strip would clip the lane a reader is on, so
-		// the narrowest layout wraps the same buttons as pills.
+		// Five labels do not fit 320px, so the narrowest layout wraps the same buttons as pills.
 		expect(BOARD_CSS).toContain("@media (max-width:420px){");
-		expect(BOARD_CSS).toContain(".board-picker{flex-wrap:wrap;border:0;background:none;gap:var(--space-1)}");
+		expect(BOARD_CSS).toContain(".board-picker{flex-wrap:wrap;gap:var(--space-1)}");
 	});
 
 	test("wears its priority as a word and its paths as code", () => {
 		expect(BOARD_CLIENT_JS).toContain("PRIORITY_CLASS[card.priority]");
-		expect(BOARD_CSS).toContain(".board-card__priority--high{color:var(--warn)}");
+		expect(BOARD_CSS).toContain(".board-row__priority--high{color:var(--warn)}");
 		// A path hint is something a reader types, so it is mono.
-		expect(BOARD_CSS).toContain(".board-card__paths .bf-chip{font-family:var(--font-mono)}");
+		expect(BOARD_CSS).toContain(".board-row__paths .bf-tag{");
 		// Two mono paths four pixels apart read as one path that wrapped, so the list keeps the
 		// dialog's taller column gap: the separation is the only thing saying where one ends.
 		expect(BOARD_CSS).toContain(
-			".board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:0;padding:0;list-style:none}",
+			".board-row__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:2px 0 0;padding:0;list-style:none}",
 		);
 	});
 
@@ -189,21 +185,20 @@ describe("the document", () => {
 		// A chip is one line and nowrap by design, so an owner label or a path longer than the
 		// card used to spill past its border and across the lane beside it. The list item is
 		// what shrinks, the chip is what clips, and the whole value is on the hover title.
-		expect(BOARD_CSS).toContain(".board-card__paths li{min-width:0;max-width:100%}");
+		expect(BOARD_CSS).toContain(".board-row__paths li{min-width:0;max-width:100%}");
 		expect(BOARD_CSS).toContain(
-			".board-card .bf-chip{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}",
+			".board-row__paths .bf-tag{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis",
 		);
 		expect(BOARD_CLIENT_JS).toContain("hint.title = shown[i]");
 		// A title with no spaces in it wraps to the two-line clamp instead of being cut mid-word.
-		expect(ownRules()).toMatch(/\.board-card__title\{[^}]*overflow-wrap:anywhere/);
+		expect(ownRules()).toMatch(/\.board-row__head \.bf-row__title\{[^}]*overflow-wrap:anywhere/);
 		expect(BOARD_CLIENT_JS).toContain("node.scrollHeight > node.clientHeight + 1");
 		expect(BOARD_CLIENT_JS).toContain('node.removeAttribute("title")');
 	});
 
 	test("draws every colour through a kit token", () => {
-		// A literal colour would survive the theme toggle and the print theme. The
-		// shared theme block is where literals belong, so only the page's own rules
-		// are checked.
+		// A literal colour survives both the toggle and the print theme, so only the page's own
+		// rules are checked: the shared theme block is where literals belong.
 		expect(ownRules()).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
 		expect(ownRules()).not.toMatch(/\brgba?\(/);
 		expect(ownRules()).not.toMatch(/\bhsla?\(/);
@@ -232,10 +227,9 @@ describe("the client bundle", () => {
 	});
 
 	test("says how many files the board could not read, and names them on the hover", () => {
-		// A footer counting only what it read would report "2 cards" over a directory
-		// holding three files, and a reader cannot tell that from an empty board. The line
-		// carries the count; the hover carries the tool's own sentence, spliced in, so the
-		// page and `board list` name the same files for the same reason.
+		// A footer counting only what it read reports "2 cards" over a folder of three, which a
+		// reader cannot tell from an empty board: the line carries the count, the hover the tool's
+		// own sentence, so the page and `board list` name the same files.
 		expect(BOARD_CLIENT_JS).toContain("view.skipped.length");
 		expect(BOARD_CLIENT_JS).toContain('" could not be read"');
 		expect(BOARD_CLIENT_JS).toContain("skippedText(view.skipped)");
@@ -244,10 +238,8 @@ describe("the client bundle", () => {
 	});
 
 	test("keeps the header and the footer on the facts each owns", () => {
-		// The header carries the board's subject and the path that tells two clones apart; the
-		// footer carries the store, the counts, and the size. Neither says the other's fact, and
-		// no surface paints the seat this page is served as — the Team tab's `you` row is where
-		// that identity is read.
+		// The header carries the subject and the path that tells two clones apart; the foot the
+		// store, the counts, and the size. No surface paints the seat this page is served as.
 		expect(BOARD_CLIENT_JS).toContain('getElementById("board-repo")');
 		expect(BOARD_CLIENT_JS).toContain("repo.textContent = view.repo;");
 		expect(BOARD_CLIENT_JS).toContain("repo.title = view.root;");
@@ -303,10 +295,8 @@ describe("the client bundle", () => {
 
 	test("marks the read card and the current one through tokens, not literals", () => {
 		// Both marks are edges on the card a reader has read and the one they are on.
-		expect(BOARD_CSS).toContain('.board-card[data-visited="true"]{box-shadow:inset 3px 0 0 var(--border-strong)}');
-		expect(BOARD_CSS).toContain(
-			'.board-card[data-current="true"]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}',
-		);
+		expect(BOARD_CSS).toContain('.board-row[data-visited="true"] .bf-row__title{color:var(--muted)}');
+		expect(BOARD_CSS).toContain('.board-row[data-current="true"] .bf-row__title{color:var(--text)}');
 		// The other half of a link rides the reason line after a middot, in the reason's tone.
 		expect(BOARD_CLIENT_JS).toContain('reason.text + " \\u00b7 " + holds');
 	});
@@ -341,7 +331,7 @@ describe("the client bundle", () => {
 		expect(BOARD_CSS).toContain(
 			".board-panel{display:flex;flex-direction:column;min-width:0;padding-top:var(--space-5)}",
 		);
-		expect(BOARD_CSS).toContain(".board-lane__head{position:sticky;top:0");
+		expect(BOARD_CSS).toContain(".board-lane .bf-lane__head{position:sticky;top:0");
 	});
 
 	test("says why in one voice, and lets the reason carry it", () => {
@@ -500,9 +490,12 @@ describe("the class contract", () => {
 
 	/** Every `prefix…` token in a piece of markup or script. */
 	function used(source: string, prefix: string): Set<string> {
-		return new Set(
-			[...source.matchAll(new RegExp(String.raw`\b(${prefix}[a-z0-9_-]+)\b`, "g"))].map((match) => match[1] ?? ""),
+		const found = [...source.matchAll(new RegExp(String.raw`\b(${prefix}[a-z0-9_-]+)\b`, "g"))].map(
+			(match) => match[1] ?? "",
 		);
+		// `"bf-tone--" + tone` is the kit's tone vocabulary, not a class of its own.
+		const names = [...new Set(found)];
+		return new Set(names.filter((name) => !names.some((other) => other !== name && other.startsWith(name))));
 	}
 
 	/** The kit's vocabulary: its stylesheets, plus the class names its atoms emit. */
@@ -519,8 +512,8 @@ describe("the class contract", () => {
 
 	const DOCUMENTS = [pageOf("board"), pageOf("team")];
 	const SOURCES = [...DOCUMENTS, BOARD_CLIENT_JS];
-	/** The page's own vocabulary: what its table declares. */
-	const PAGE = new Set<string>(Object.values(BOARD_CLASS));
+	/** The page's own vocabulary: what its table declares, the kit's names aside. */
+	const PAGE = new Set<string>(Object.values(BOARD_CLASS).filter((name) => !name.startsWith("bf-")));
 	/** The names the stylesheet draws. */
 	const DRAWN = defined(BOARD_CSS, "board-");
 	/** Every id, which the client finds an element by and no stylesheet dresses. */
@@ -530,6 +523,9 @@ describe("the class contract", () => {
 	/** Attributes whose only reader is the client: an element hook, or a stamp for the age ticker. */
 	const HOOKS: Readonly<Record<string, string>> = {
 		"data-at": "the age ticker rewrites the text from it",
+		"data-at-sentence": "a sentence stamp's own wording, which the ticker fills from it",
+		"data-base": "the prefix the page was served under, read by the client",
+		"data-pane": "a column's panes are found by the name they hold",
 		"data-at-title": "a stamp's own wording, which the ticker fills from the same stamp",
 		"data-card": "the open card is found by its id",
 		"data-fold": "a fold control names its key, so focus finds it again after the repaint it caused",
@@ -549,9 +545,13 @@ describe("the class contract", () => {
 	});
 
 	test("names no kit class the kit does not define", () => {
-		const unknown = [...new Set(SOURCES.flatMap((source) => [...used(source, "bf-")]))]
-			.filter((name) => !KIT.has(name))
-			.sort();
+		const named = [...new Set(SOURCES.flatMap((source) => [...used(source, "bf-")]))];
+		// A name the kit only ever spells as the head of a longer one — `"bf-tone--"` before its
+		// tone — is that longer vocabulary, not a class of its own.
+		const heads = new Set(
+			[...KIT].flatMap((name) => named.filter((other) => other !== name && name.startsWith(other))),
+		);
+		const unknown = named.filter((name) => !KIT.has(name) && !heads.has(name)).sort();
 		expect(unknown).toEqual([]);
 	});
 
@@ -573,31 +573,31 @@ describe("the class contract", () => {
 		expect(DECISION_TONE.gone).toBe("danger");
 		for (const kind of DECISION_KINDS) {
 			const tone = DECISION_TONE[kind];
-			expect(BOARD_CSS, kind).toContain(`.board-team__decision[data-tone="${tone}"]{border-left-color:var(--${tone})}`);
+			expect(BOARD_CSS, kind).toContain(`.board-decision[data-tone="${tone}"] .bf-row__mark{color:var(--${tone})}`);
 		}
 		// A refusal or a loss colours its sentence too; a warn row only its edge.
-		expect(BOARD_CSS).toContain('.board-team__decision[data-tone="danger"] .board-team__why{color:var(--danger)}');
+		expect(BOARD_CSS).toContain('.board-decision[data-tone="danger"] .board-decision__why{color:var(--danger)}');
 		// And the line every other row prints stays quiet. Without this the base rule can lose
 		// its colour and the queue's reasons read as loudly as its titles: `--text` is what an
 		// uncoloured paragraph inherits on the raised plane.
 		expect(BOARD_CSS).toContain(
-			".board-team__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);",
+			".board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:2px 0 0;color:var(--muted);",
 		);
 	});
 
 	test("tones a reason line by its tone, never by a class named after a kind", () => {
 		// The three gates a card can owe — a contract, an approval, a spot-check — are three
 		// kinds and one tone, and none of them is called "unplanned" any more.
-		expect(BOARD_CSS).toContain(".board-card__reason--warn{color:var(--warn)}");
+		expect(WEB_COMPONENTS_CSS).toContain('.bf-row__reason[data-tone="warn"]{color:var(--warn)}');
 		expect(BOARD_CSS).not.toContain("board-card__reason--unplanned");
 		expect(BOARD_CSS).not.toContain("board-card__reason--blocked");
 		expect(BOARD_CSS).not.toContain("board-team__why--blocked");
 		// And it comes after the base rule, which is what makes it win: a tone class and the
 		// base class are one class each, so source order decides between them. Generated
-		// before the base, every tone was inert and a blocked card's reason drew muted.
-		for (const tone of BOARD_TONES) {
-			expect(BOARD_CSS.indexOf(`.board-card__reason--${tone}{`), tone).toBeGreaterThan(
-				BOARD_CSS.indexOf(".board-card__reason{margin:0"),
+		// The base is muted; the three tones a reason can carry are the kit's own.
+		for (const tone of ["accent", "warn", "danger"]) {
+			expect(WEB_COMPONENTS_CSS.indexOf(`.bf-row__reason[data-tone="${tone}"]{`), tone).toBeGreaterThan(
+				WEB_COMPONENTS_CSS.indexOf(".bf-row__reason{"),
 			);
 		}
 	});
@@ -609,7 +609,7 @@ describe("the class contract", () => {
 		// "is it drawn at all" is asked of the whole stylesheet a page ships.
 		const drawn = new Set([...BOARD_CSS.matchAll(/\[(data-[a-z-]+)/g)].map((match) => match[1] ?? ""));
 		const worn = new Set(
-			SOURCES.flatMap((source) => [...source.matchAll(/\b(data-[a-z-]+)="?/g)].map((m) => m[1] ?? "")),
+			SOURCES.flatMap((source) => [...source.matchAll(/\b(data-[a-z-]+)(?=\s*=|\s*")/g)].map((m) => m[1] ?? "")),
 		);
 		expect([...styled].filter((name) => !worn.has(name)).sort(), "styled, never worn").toEqual([]);
 		const unsaid = [...worn].filter((name) => !drawn.has(name) && HOOKS[name] === undefined).sort();

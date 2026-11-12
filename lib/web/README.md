@@ -59,20 +59,20 @@ with none, like browse, passes `undefined` and says so — and the stream closes
 
 ## One toolbar, one bar, one footer
 
-A served page's chrome is three rows deep and each row has one job:
+A served page's chrome is a fixed head and foot with one scroll box between them, and each
+band has one job:
 
-- `.bf-toolbar` — the lockup, the subject (`.bf-context--subject`: mono, grows, truncates
-  its head so a path keeps the folder being read), then `.bf-toolbar__facts` (the page's own
-  facts as `bf-chip` pills) and `.bf-toolbar__chrome` (the key sheet and the theme toggle,
-  borderless and muted, because they are the app's and not the page's).
-- `.bf-app__bar` — a page's own controls, when it has any. The board is the only page with
-  one so far: its view switch, done meter, and filter.
-- `.bf-app__footer` — one `.bf-footer__facts` line naming where the content came from and
-  what it holds. It wraps rather than truncating, and it states no fact a header chip
-already owns: `read-only` is a chip on both pages, not a footer clause on one.
+- `.bf-app__head` is two rows, split by a plain `.bf-app__rule`. `.bf-app__id` carries the
+  lockup, the subject (`pageSubject`: mono, grows, truncates its head so a path keeps the
+  folder being read), the live line and the reload, with `.bf-app__chrome` (key sheet, theme
+  toggle) at the end; `.bf-app__ctl` is the page's own controls and nothing else.
+- `.bf-app__main` is the only scroller, so a lane's head or a column's caption pins to it.
+- `.bf-app__foot` is one `.bf-footer__facts` line naming where the content came from and
+  what it holds. It wraps rather than truncating, and it states no fact the head owns: the
+  live state is the head's, not a footer clause.
 
-The live state is `liveChip` plus `reloadChip`, and they are the same pill: the tone is the
-text's colour and the border follows it, so a new state never costs a new rule. The chip is
+The live state is `liveChip` plus `reloadChip`, and neither is a pill: a glyph and a word in
+the tone's own colour, and a rule is what a state earns only when it is a tag. The line is
 not a live region — the header is where a reader looks for the state, not a place to
 announce every repaint — and the reload is the one action a page whose stream has gone can
 offer. It is a control rather than a confirm dialog because nothing here has a consequence
@@ -131,8 +131,8 @@ are computed rather than mapped:
   the active nav row.
 - `--on-accent` — the appearance's canvas. A label on the accent fill is dark
   text on the light-blue dark accent and white on the darker light one.
-- `--scrim` and `--shadow` — per appearance, because a dimming layer and a lifted
-  panel need their own alpha rather than a palette entry.
+- `--scrim` — per appearance, because a dimming layer needs its own alpha rather than a
+  palette entry. There is no shadow: elevation is a rule and a plane, never a blur.
 
 `--raised` is the one derived neutral: `--surface` mixed 6% (dark) or 3% (light)
 toward `--text`, for a block that has to read as a plane above the page rather than

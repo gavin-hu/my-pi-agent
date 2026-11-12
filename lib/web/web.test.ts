@@ -193,7 +193,7 @@ describe("web base", () => {
 	test("prints the document without its chrome", () => {
 		expect(WEB_BASE_CSS).toContain("@media print{");
 		expect(WEB_BASE_CSS).toContain(
-			".bf-toolbar,.bf-app__bar,.bf-app__sidebar,.bf-app__footer,.bf-progress,.skip,.bf-dialog{display:none!important}",
+			".bf-app__head,.bf-app__sidebar,.bf-app__foot,.bf-gauge,.skip,.bf-dialog{display:none!important}",
 		);
 		expect(WEB_BASE_CSS).toContain("overflow:visible!important}");
 	});
@@ -210,18 +210,18 @@ describe("web components", () => {
 		for (const selector of [
 			".bf-brand{",
 			".bf-mark__top{",
+			".bf-tone--accent{",
+			".bf-tone--warn{",
 			".bf-btn{",
 			".bf-btn--danger{",
 			".bf-btn--primary{",
 			".bf-btn--ghost{",
 			".bf-btn--icon{",
-			".bf-chip--outline{",
-			".bf-chip--warn{",
-			".bf-segmented{",
-			".bf-segmented__item{",
+			".bf-tabs{",
+			".bf-tabs__item{",
 			".bf-field{",
+			".bf-gauge{",
 			".bf-panel{",
-			".bf-progress__fill{",
 			".bf-status--saved{",
 			".bf-empty__code{",
 			".bf-dialog__panel{",
@@ -239,7 +239,7 @@ describe("web components", () => {
 			".bf-crumbs{",
 			".bf-table{",
 			".bf-sort{",
-			".bf-card__head{",
+			".bf-record__head{",
 			".bf-code__line{",
 			".bf-code--numbered .bf-code__line::before{",
 			".bf-media{",
@@ -251,9 +251,9 @@ describe("web components", () => {
 		}
 	});
 
-	test("lets Markdown fill its panel", () => {
+	test("gives Markdown one measure inside the page's width", () => {
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-md{min-width:0;min-height:0;");
-		expect(WEB_COMPONENTS_CSS).not.toContain("max-width:80ch");
+		expect(WEB_COMPONENTS_CSS).toContain("max-width:var(--measure-prose)");
 	});
 
 	test("styles the Markdown extras the renderer emits", () => {
@@ -305,7 +305,7 @@ describe("web components", () => {
 		// when a word cannot fit, headers and code spans stay on one line, and a
 		// genuinely wide table overflows into the scrolling wrapper instead.
 		expect(WEB_COMPONENTS_CSS).toContain(
-			".bf-md th,.bf-md td{border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top;overflow-wrap:break-word}",
+			".bf-md th,.bf-md td{border:0;border-bottom:1px solid var(--border);padding:5px 10px;text-align:left;vertical-align:top;overflow-wrap:break-word}",
 		);
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-md th{white-space:nowrap}");
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-md th code,.bf-md td code{white-space:nowrap}");
@@ -326,8 +326,8 @@ describe("web components", () => {
 
 	test("draws every colour through a token", () => {
 		// The kit is the one place a theme swap never reaches, so a literal here is a
-		// colour that survives the toggle. Overlays are tokens too (`--scrim`,
-		// `--shadow`); the only encoded colour is the checkbox's `%23fff` data URI.
+		// colour that survives the toggle. Overlays are tokens too (`--scrim`); the only
+		// encoded colour is the checkbox's `%23fff` data URI.
 		expect(WEB_COMPONENTS_CSS).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
 		expect(WEB_COMPONENTS_CSS).not.toContain("rgba(");
 	});
@@ -337,11 +337,11 @@ describe("web layout", () => {
 	test("defines the app shell regions", () => {
 		for (const selector of [
 			".bf-app{",
-			".bf-app__header{",
+			".bf-app__head{",
 			".bf-app__body{",
 			".bf-app__sidebar{",
 			".bf-app__main{",
-			".bf-app__footer{",
+			".bf-app__foot{",
 		]) {
 			expect(WEB_LAYOUT_CSS).toContain(selector);
 		}
@@ -349,7 +349,7 @@ describe("web layout", () => {
 
 	test("collapses the sidebar to one column on narrow screens", () => {
 		expect(WEB_LAYOUT_CSS).toContain(`@media (max-width:${SIDEBAR_COLLAPSE_MAX}px)`);
-		expect(WEB_LAYOUT_CSS).toContain(".bf-app__body{flex:none;grid-template-columns:1fr}");
+		expect(WEB_LAYOUT_CSS).toContain(".bf-app__body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}");
 		expect(WEB_LAYOUT_CSS).toContain(".bf-app__sidebar .bf-panel__summary{");
 	});
 
@@ -370,9 +370,9 @@ describe("web layout", () => {
 		expect(WEB_LAYOUT_CSS).toContain("overflow-x:hidden;overflow-y:auto;background:var(--surface)");
 	});
 
-	test("returns to normal page scroll on narrow screens", () => {
-		expect(WEB_LAYOUT_CSS).toContain(".bf-app{height:auto;min-height:100vh;overflow:visible}");
-		expect(WEB_LAYOUT_CSS).toContain("max-height:none;overflow:visible;border-right:0");
+	test("keeps the pane the only page scroll when the sidebar collapses", () => {
+		expect(WEB_LAYOUT_CSS).toContain(".bf-app__main{flex:1 1 auto;min-width:0;min-height:0;");
+		expect(WEB_LAYOUT_CSS).toContain("overflow-x:hidden;overflow-y:auto");
 	});
 });
 
@@ -514,7 +514,7 @@ describe("web markup", () => {
 
 	test("escapes chip labels and applies the tone", () => {
 		const rendered = chip({ label: "a<b", tone: "warn" });
-		expect(rendered).toContain("bf-chip--warn");
+		expect(rendered).toContain('class="bf-tag bf-tone--warn"');
 		expect(rendered).toContain("a&lt;b");
 	});
 

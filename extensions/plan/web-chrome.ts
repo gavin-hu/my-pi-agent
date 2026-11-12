@@ -73,20 +73,6 @@ export const WEB_CHROME_JS = String.raw`  // Set once the page has been told it 
     else if (reloadEl && !needsReload) reloadEl.hidden = true;
   }
 
-  function updateProgress() {
-    if (!progressEl) return;
-    var doc = document.scrollingElement || document.documentElement;
-    var top = doc ? doc.scrollTop : 0;
-    var height = doc ? doc.scrollHeight : 0;
-    var view = doc ? doc.clientHeight : 0;
-    if (planEl && planEl.scrollHeight > planEl.clientHeight + 4) {
-      top = planEl.scrollTop; height = planEl.scrollHeight; view = planEl.clientHeight;
-    }
-    var max = height - view;
-    var percent = max > 0 ? Math.min(100, Math.max(0, (top / max) * 100)) : 0;
-    progressEl.style.width = percent + "%";
-  }
-
   function lockActions() {
     if (approveButton) approveButton.disabled = true;
     if (saveButton) saveButton.disabled = true;

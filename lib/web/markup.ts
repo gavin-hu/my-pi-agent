@@ -141,7 +141,7 @@ export function markIcon(): string {
  */
 export function brandLockup(product: string): string {
 	const rows = MARK_ROWS.map((row, index) => `<g class="bf-mark__${row.group}">${markRowRects(row, index)}</g>`);
-	return `<span class="bf-brand"><svg class="bf-mark" viewBox="0 0 4 2" aria-hidden="true">${rows.join("")}</svg><span class="bf-wordmark">bytefly</span><span class="bf-context">${escapeHtml(product)}</span></span>`;
+	return `<span class="bf-brand"><svg class="bf-mark" viewBox="0 0 4 2" aria-hidden="true">${rows.join("")}</svg><span class="bf-wordmark">bytefly</span><span class="bf-context">${escapeHtml(product)}</span><span class="bf-brand__rule" aria-hidden="true"></span></span>`;
 }
 
 /**
@@ -165,12 +165,12 @@ export function pageSubject(options: { id?: string; label: string; title: string
 }
 
 /**
- * The live-state chip: the state's colour, its word, and its glyph.
+ * The live-state line: the state's colour, its glyph, and its word.
  *
- * The tone is a `bf-chip--*` modifier and the glyph is decoration, so a client repaints the
+ * The tone is a `bf-tone--*` modifier and the glyph is decoration, so a client repaints the
  * word and the class and never the shape ({@link paintLive} does exactly that). `attrs`
  * carries a page's own hooks — the browse pages put their polling interval and the revision
- * of what they drew there. The chip is not a live region: the header is where a reader looks
+ * of what they drew there. The line is not a live region: the header is where a reader looks
  * for the state, and a page that announced every repaint would talk over its own content.
  */
 export function liveChip(options: {
@@ -184,18 +184,18 @@ export function liveChip(options: {
 	const attrs = Object.entries(options.attrs ?? {})
 		.map(([key, value]) => ` ${key}="${escapeHtml(value)}"`)
 		.join("");
-	return `<span class="bf-chip bf-chip--accent bf-live" id="${escapeHtml(options.id)}"${title}${attrs}${options.hidden ? " hidden" : ""}><span class="bf-live__glyph" aria-hidden="true">◉</span><span class="bf-live__text">${escapeHtml(options.label)}</span></span>`;
+	return `<span class="bf-live bf-tone--accent" id="${escapeHtml(options.id)}"${title}${attrs}${options.hidden ? " hidden" : ""}><span class="bf-live__glyph" aria-hidden="true">◉</span><span class="bf-live__text">${escapeHtml(options.label)}</span></span>`;
 }
 
 /**
- * The live chip's one action: reload the page.
+ * The live line's one action: reload the page.
  *
  * It starts hidden and a client reveals it when the page stops being true — the folder it
  * drew changed on disk, or the stream it reads has gone. Reloading is not a write: a page
  * that cannot change a card can still ask the server for the page again.
  */
 export function reloadChip(options: { title: string }): string {
-	return `<button type="button" class="bf-chip bf-chip--warn bf-reload" id="reload-hint" title="${escapeHtml(options.title)}" hidden>⟳ reload</button>`;
+	return `<button type="button" class="bf-reload bf-tone--warn" id="reload-hint" title="${escapeHtml(options.title)}" hidden><span aria-hidden="true">⟳</span>reload</button>`;
 }
 
 /** The `?` button that opens {@link keysSheet}, which is the one trigger both pages use. */
@@ -209,26 +209,27 @@ export function keysButton(): string {
 	});
 }
 
-/** The app's chrome, in the toolbar's last zone: the key sheet, then the theme toggle. */
+/** The app's chrome, in the identity row's last zone: the key sheet, then the theme toggle. */
 export function toolbarChrome(): string {
-	return `<div class="bf-toolbar__chrome">${keysButton()}${themeToggle()}</div>`;
+	return `<div class="bf-app__chrome">${keysButton()}${themeToggle()}</div>`;
 }
 
 /**
- * The footer: one line of the page's own facts.
+ * The footer: one line, and only where the page's content came from.
  *
- * A page says where its content came from — `store <path> …`, `served from <root> …` — and
- * the line truncates its head rather than its tail, so the end that names the folder survives.
- * `factsId` is for a page whose client keeps the line true after a frame; the facts ride the
- * document so a slow frame never leaves the footer blank.
+ * The live state and the key-sheet affordance live in the header, which never scrolls away,
+ * so a footer that repeated them would be a second place for a fact the reader already has.
+ * The line wraps rather than cutting a fact off it, so the end that names the folder always
+ * survives. `factsId` is for a page whose client keeps the line true after a frame; the
+ * facts ride the document so a slow frame never leaves the footer blank.
  */
 export function pageFooter(options: { facts: string; factsId?: string }): string {
 	const id = options.factsId === undefined ? "" : ` id="${escapeHtml(options.factsId)}"`;
-	return `<footer class="bf-app__footer"><span class="bf-footer__facts"${id}>${escapeHtml(options.facts)}</span></footer>`;
+	return `<footer class="bf-app__foot"><span class="bf-footer__facts"${id}>${escapeHtml(options.facts)}</span></footer>`;
 }
 
-/** A chip's tone, mapping to a `bf-chip--*` modifier. */
-export type ChipTone = "accent" | "success" | "warn" | "danger";
+/** A state's tone, mapping to a `bf-tone--*` modifier. */
+export type ChipTone = "accent" | "success" | "warn" | "danger" | "dim" | "muted";
 
 /** Options for {@link chip}. */
 export interface ChipOptions {
@@ -240,11 +241,11 @@ export interface ChipOptions {
 	icon?: string;
 }
 
-/** A compact status chip. */
+/** A status tag: a glyph and a word on a 2px rail, with no box around them. */
 export function chip(options: ChipOptions): string {
-	const tone = options.tone ? ` bf-chip--${options.tone}` : "";
-	const icon = options.icon ? `<span class="bf-chip__icon" aria-hidden="true">${options.icon}</span>` : "";
-	return `<span class="bf-chip${tone}">${icon}${escapeHtml(options.label)}</span>`;
+	const tone = options.tone ? ` bf-tone--${options.tone}` : "";
+	const icon = options.icon ? `<span class="bf-tag__glyph" aria-hidden="true">${options.icon}</span>` : "";
+	return `<span class="bf-tag${tone}">${icon}${escapeHtml(options.label)}</span>`;
 }
 
 /** A button variant, mapping to a `bf-btn--*` modifier. */
