@@ -144,15 +144,15 @@ export function paintStatus(node: ClientNode, text: string, kind?: string): void
 }
 
 /**
- * Paint the live chip: the tone's class, the state's word, and its tooltip.
+ * Paint the live line: the tone's class, the state's word, and its tooltip.
  *
  * What a state *says* is the page's voice — `live · 3m`, `connecting…`, `offline` — so the
  * caller passes the word and the tooltip, and only the shape is shared. A page that starts
- * its chip hidden shows it here: a painted state is a state the page can stand behind. The
+ * its line hidden shows it here: a painted state is a state the page can stand behind. The
  * tooltip is left alone when the caller has none, since a page may keep a fixed one.
  */
 export function paintLive(node: ClientNode, tone: string, label: string, title?: string): void {
-	node.className = "bf-chip bf-live" + (tone ? " bf-chip--" + tone : "");
+	node.className = "bf-live" + (tone ? " bf-tone--" + tone : "");
 	node.hidden = false;
 	if (title) node.title = title;
 	const text = node.querySelector(".bf-live__text");
