@@ -211,7 +211,7 @@ describe("the page's chrome", () => {
 		expect(html).toContain('<span class="bf-live__text">connecting…</span>');
 		expect(html).toContain('id="reload-hint"');
 		expect(html).toContain('<div class="bf-app__chrome">');
-		expect(html).toContain('<div class="bf-app__bar review-actions">');
+		expect(html).toContain('<div class="bf-app__ctl review-actions">');
 		expect(html).toContain('<footer class="bf-app__foot">');
 		expect(html).toContain("plan ~/.pi/agent/plans/repo-key/add-rate-limiting.md");
 		// The status sentence stays, in the facts zone, as the page's own live region.
