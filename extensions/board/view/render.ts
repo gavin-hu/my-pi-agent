@@ -140,9 +140,9 @@ __RUNTIME__
     return node;
   }
 
-  /** A kit chip, with a tone when the meaning is a state. */
+  /** A kit tag, with a tone when the meaning is a state. */
   function chip(text, tone) {
-    return el("span", "bf-chip" + (tone ? " bf-chip--" + tone : ""), text);
+    return el("span", "bf-tag" + (tone ? " bf-tone--" + tone : ""), text);
   }
 
   /**
@@ -155,10 +155,10 @@ __RUNTIME__
    */
   function kindLabel(card) {
     if (card.type === undefined && card.breaking !== true) return undefined;
-    var label = el("span", N.kind, card.type === undefined ? "" : card.type);
+    var label = el("span", "bf-row__kind", card.type === undefined ? "" : card.type);
     if (card.breaking === true) {
       if (card.type !== undefined) label.appendChild(document.createTextNode(" \u00b7 "));
-      label.appendChild(el("span", N.kindBreaking, "breaking"));
+      label.appendChild(el("span", "bf-row__breaking", "breaking"));
     }
     return label;
   }
@@ -201,7 +201,7 @@ __RUNTIME__
    * hides: the box is the only honest test of whether a reader can see one.
    */
   function drawnCards() {
-    var nodes = document.querySelectorAll(".board-card, .board-team__decision, .board-team__card");
+    var nodes = document.querySelectorAll(".board-row, .board-decision, .board-mission");
     var seen = [];
     for (var i = 0; i < nodes.length; i++) {
       if (nodes[i].hidden) continue;
@@ -232,9 +232,9 @@ __RUNTIME__
    * label spells that ratio out rather than reading a slash aloud.
    */
   function paneHead(text, count, total, tone) {
-    var head = el("h3", N.pane, text);
+    var head = el("h3", "bf-section__cap", text);
     var filtered = total !== undefined && total !== count;
-    var pill = el("span", N.paneCount, filtered ? count + "/" + total : String(count));
+    var pill = el("span", "bf-section__count", filtered ? count + "/" + total : String(count));
     // A count that is asking for something wears the accent; a count that is merely true does not.
     if (tone !== undefined) pill.setAttribute("data-tone", tone);
     head.appendChild(pill);
@@ -258,10 +258,20 @@ __RUNTIME__
     var finished = done === undefined ? 0 : done.cards.length;
     if (progress) {
       var total = view.total;
-      // One or two cards is not a ratio: an empty bar beside "0/1 done" is noise.
+      // One or two cards is not a ratio: an empty gauge beside "0/1 done" is noise.
       progress.hidden = total < 3;
-      var fill = document.getElementById("board-progress-fill");
-      if (fill) fill.style.width = total === 0 ? "0%" : Math.round((finished / total) * 100) + "%";
+      var filled = total === 0 ? 0 : Math.round((finished / total) * 10);
+      var cells = document.getElementById("board-progress-cells");
+      if (cells) {
+        cells.textContent = "";
+        for (var cell = 0; cell < 10; cell++) {
+          if (cell < filled) cells.appendChild(document.createTextNode("\u25b0"));
+          else cells.appendChild(el("span", "bf-gauge__empty", "\u25b1"));
+        }
+      }
+      progress.setAttribute("aria-valuenow", String(finished));
+      progress.setAttribute("aria-valuemax", String(total));
+      progress.setAttribute("aria-label", finished + " of " + total + " done");
       var text = document.getElementById("board-progress-text");
       if (text) text.textContent = finished + "/" + total + " done";
     }
@@ -353,9 +363,9 @@ __RUNTIME__
   function laneNode(lane) {
     var section = document.querySelector('.board-lane[data-lane="' + lane.key + '"]');
     if (section) return section;
-    section = el("section", N.lane);
+    section = el("section", "bf-lane " + N.lane);
     section.setAttribute("data-lane", lane.key);
-    var head = el("h2", N.laneHead);
+    var head = el("h2", "bf-lane__head");
     var toggle = actionButton(N.laneToggle, lane.label, function () {
       board.toggleFold(lane.key);
     });
@@ -363,14 +373,14 @@ __RUNTIME__
     toggle.setAttribute("aria-expanded", "true");
     toggle.setAttribute("aria-controls", "lane-" + lane.key);
     toggle.id = "lane-head-" + lane.key;
-    head.appendChild(el("span", N.laneDot));
+    head.appendChild(el("span", "bf-lane__dot"));
     head.appendChild(toggle);
-    head.appendChild(el("span", N.laneCount));
+    head.appendChild(el("span", "bf-lane__count"));
     section.appendChild(head);
     var list = el("ol", N.laneList);
     list.id = "lane-" + lane.key;
     section.appendChild(list);
-    section.appendChild(el("p", N.laneEmpty, lane.empty));
+    section.appendChild(el("p", "bf-lane__empty", lane.empty));
     return section;
   }
 
@@ -429,8 +439,8 @@ __RUNTIME__
         list.textContent = "";
         for (var j = 0; j < shown.length; j++) list.appendChild(board.cardNode(shown[j]));
       }
-      var count = section.querySelector(".board-lane__count");
-      var head = section.querySelector(".board-lane__head");
+      var count = section.querySelector(".bf-lane__count");
+      var head = section.querySelector(".bf-lane__head");
       if (count) {
         var filtered = query !== "" && shown.length !== lane.cards.length;
         count.textContent = filtered ? shown.length + "/" + lane.cards.length : headCount(lane);
@@ -438,7 +448,7 @@ __RUNTIME__
         // says "1 of 2" rather than reading as a board of one card.
         if (head) head.setAttribute("aria-label", headLabel(lane, filtered ? shown.length : undefined));
       }
-      var none = section.querySelector(".board-lane__empty");
+      var none = section.querySelector(".bf-lane__empty");
       if (none) {
         none.hidden = shown.length !== 0;
         none.textContent = query !== "" && lane.cards.length > 0 ? "no match" : lane.empty;
@@ -467,7 +477,7 @@ __RUNTIME__
         // A lane switch, not a tablist: it shows one lane and there is no tabpanel behind
         // each button, so the pressed state is the honest one rather than a tab without its
         // panel. The counts stay on the face, where a reader chooses by them.
-        var item = el("button", "bf-segmented__item", lane.label + " " + headCount(lane));
+        var item = el("button", "bf-tabs__item", lane.label + " " + headCount(lane));
         item.type = "button";
         item.setAttribute("data-picker-lane", lane.key);
         item.addEventListener("click", function () { board.showLane(lane.key); });

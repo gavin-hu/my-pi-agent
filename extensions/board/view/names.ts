@@ -3,65 +3,46 @@
  *
  * The document (`page.ts`) and the client bundle cannot import from each other, so a
  * class name used to be a string in each — and two of them were assembled at runtime
- * (`"board-card__reason" + kind`), which is why nothing could compare what the page
+ * (`"board-row__reason" + kind`), which is why nothing could compare what the page
  * wears with what `styles.ts` draws. Reading both halves from this table makes those two
  * sets enumerable, and `pages.test.ts` holds them equal.
  *
  * A name here is a **class**, not an id: ids are how the client finds an element
- * (`getElementById`), they are not styled, and `pages.test.ts` pins their list.
+ * (`getElementById`), they are not styled, and `pages.test.ts` pins their list. The
+ * shared shapes — a lane, a row, a section, a tone, a badge — are the kit's (`bf-*`);
+ * these are the board's own hooks and the details the kit does not name.
  */
 
 /** Every `board-*` class the page wears. Keys are what the code reads; values are what CSS matches. */
 export const BOARD_CLASS = {
-	// The shell, the toolbar, the bar under it, and the two panel wrappers.
-	toolbar: "board-toolbar",
+	// The shell's page hooks and the two panel wrappers.
 	bar: "board-bar",
 	main: "board-main",
 	panel: "board-panel",
-	filter: "board-filter",
 	picker: "board-picker",
 	progress: "board-progress",
+	filter: "board-filter",
 	noCards: "board-no-cards",
 	skeleton: "board-skeleton",
 
-	// One lane: a tray of cards with a head that sticks and folds.
+	// One lane: a head with a tone rule, then rows.
 	lanes: "board-lanes",
 	lane: "board-lane",
-	laneHead: "board-lane__head",
-	laneDot: "board-lane__dot",
 	laneToggle: "board-lane__toggle",
-	laneCount: "board-lane__count",
 	laneList: "board-lane__list",
-	laneEmpty: "board-lane__empty",
 
-	// One card, the facts its meta line carries, and the two tones its reason line can take.
-	card: "board-card",
-	cardHead: "board-card__head",
-	cardId: "board-card__id",
-	cardTitle: "board-card__title",
-	cardMeta: "board-card__meta",
-	cardNotes: "board-card__notes",
-	cardPaths: "board-card__paths",
-	// The `+N` marker trails the row rather than being a chip that can be left alone on a line.
-	cardMore: "board-card__more",
-	cardReason: "board-card__reason",
-	// One class per tone, never per reason kind: the same tone is what the terminal paints.
-	cardReasonMuted: "board-card__reason--muted",
-	cardReasonDim: "board-card__reason--dim",
-	cardReasonWarn: "board-card__reason--warn",
-	cardReasonAccent: "board-card__reason--accent",
-	cardReasonDanger: "board-card__reason--danger",
-	cardReasonSuccess: "board-card__reason--success",
-	// A priority is a word and a level, not a second pill: the level is what it is coloured by.
-	cardPriority: "board-card__priority",
-	cardPriorityHigh: "board-card__priority--high",
-	cardPriorityLow: "board-card__priority--low",
-	// A kind is a label the card carries rather than a state it is in, so the one pill on the
-	// row stays the person and the kind stays a word.
-	kind: "board-kind",
-	// The marker rides inside the kind's own label: `feature · breaking` is one statement, and
-	// the half that a release must say out loud is the half that is coloured.
-	kindBreaking: "board-kind__breaking",
+	// One row: the card's body, its facts, and its paths.
+	row: "board-row",
+	rowBody: "board-row__body",
+	rowHead: "board-row__head",
+	rowNotes: "board-row__notes",
+	rowPaths: "board-row__paths",
+	// The `+N` marker trails the row rather than being a tag that can be left alone on a line.
+	rowMore: "board-row__more",
+	// A priority is a word and a level, not a second tag: the level is what it is coloured by.
+	rowPriority: "board-row__priority",
+	rowPriorityHigh: "board-row__priority--high",
+	rowPriorityLow: "board-row__priority--low",
 
 	// The card dialog: the record of one card — its reason, a ladder of facts, the contract
 	// it promises, and its notes.
@@ -93,24 +74,22 @@ export const BOARD_CLASS = {
 	dialogNoteText: "board-dialog__note-text",
 
 	// The Team tab: three columns — the agents, the work that is moving, what arrived.
-	// The shell and its captions.
 	team: "board-team",
 	teamGrid: "board-team__grid",
 	teamColumn: "board-team__column",
-	teamCaption: "board-team__caption",
-	teamCount: "board-team__count",
 	teamEmpty: "board-team__empty",
 	teamSkeleton: "board-team__skeleton",
 
-	// Left: one card per session, the lead pinned first.
+	// Left: one row per session, the lead pinned first.
 	agents: "board-team__agents",
-	agent: "board-team__agent",
-	agentHead: "board-team__agent-head",
-	monogram: "board-team__monogram",
-	agentName: "board-team__agent-name",
-	agentChips: "board-team__agent-chips",
-	agentState: "board-team__state",
-	agentMail: "board-team__mail",
+	agent: "board-agent",
+	agentBody: "board-agent__body",
+	agentHead: "board-agent__head",
+	monogram: "board-agent__monogram",
+	agentName: "board-agent__name",
+	agentChips: "board-agent__chips",
+	agentState: "board-agent__state",
+	agentMail: "board-agent__mail",
 	missions: "board-team__missions",
 	mission: "board-team__mission",
 	missionBar: "board-team__bar",
@@ -118,53 +97,44 @@ export const BOARD_CLASS = {
 	missionLane: "board-team__mission-lane",
 	missionAge: "board-team__mission-age",
 	agentNone: "board-team__none",
-	agentFold: "board-team__agent-fold",
+	// Both "there is more" controls and the folded history row: one shape for one fact.
+	fold: "board-fold",
 
 	// Middle: the strip of decisions over three swimlanes.
 	decisions: "board-team__decisions",
-	decision: "board-team__decision",
-	decisionOpen: "board-team__open",
-	decisionRef: "board-team__ref",
-	decisionTitle: "board-team__title",
-	decisionWhy: "board-team__why",
+	decision: "board-decision",
+	decisionBody: "board-decision__body",
+	decisionOpen: "board-decision__open",
+	decisionRef: "board-decision__ref",
+	decisionWhy: "board-decision__why",
 	teamLanes: "board-team__lanes",
-	// A swimlane: the Team tab's own head and tray, not the Board tab's `lane*` above.
-	teamLane: "board-team__lane",
-	teamLaneHead: "board-team__lane-head",
-	teamLaneDot: "board-team__lane-dot",
-	teamLaneName: "board-team__lane-name",
-	teamLaneCount: "board-team__lane-count",
-	teamLaneFold: "board-team__lane-fold",
-	teamLaneEmpty: "board-team__lane-empty",
 	swim: "board-team__swim",
-	// A mission card: the one-line face a swimlane holds, with its lane as a bar.
-	missionCard: "board-team__card",
-	missionCardHead: "board-team__card-head",
-	missionCardRef: "board-team__card-ref",
-	missionTitle: "board-team__card-title",
-	missionMeta: "board-team__card-meta",
+	// A mission row: the one-line face a swimlane holds.
+	missionCard: "board-mission",
+	missionCardHead: "board-mission__head",
+	missionCardRef: "board-mission__ref",
+	missionTitle: "board-mission__title",
+	missionMeta: "board-mission__meta",
 
 	// Right: the mail nobody has read, then what the cards say happened.
-	pane: "board-team__pane",
 	paneBody: "board-team__pane-body",
-	paneCount: "board-team__pane-count",
 	waiting: "board-team__waiting",
-	mailRow: "board-team__mail-row",
-	glyph: "board-team__glyph",
-	mailFrom: "board-team__mail-from",
-	mailArrow: "board-team__mail-arrow",
-	mailTo: "board-team__mail-to",
+	mail: "board-mail",
+	mailBody: "board-mail__body",
+	glyph: "board-glyph",
+	mailFrom: "board-mail__from",
+	mailArrow: "board-mail__arrow",
+	mailTo: "board-mail__to",
 	recent: "board-team__recent",
-	event: "board-team__event",
-	eventRef: "board-team__event-ref",
-	eventWhat: "board-team__event-what",
+	event: "board-event",
+	eventRef: "board-event__ref",
+	eventWhat: "board-event__what",
 
 	// An age, wherever one is printed: a stamp the ticker keeps honest, pushed to the row's edge.
-	stamp: "board-team__stamp",
+	stamp: "board-stamp",
 	// A state dot, shared by an agent's pill and a waiting row's recipient: one vocabulary for
-	// live, quiet, gone and no record, whichever column reads it. The kind's own word reuses
-	// `kind` above: a decision row and a mission card wear the label a card face wears.
-	dot: "board-team__dot",
+	// live, quiet, gone and no record, whichever column reads it.
+	dot: "board-dot",
 	// The owner, as a dot and a name, on both cards inside ACTIVE WORK.
-	owner: "board-team__owner",
+	owner: "board-owner",
 } as const satisfies Readonly<Record<string, string>>;

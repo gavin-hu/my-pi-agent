@@ -289,7 +289,7 @@ const liveTemplate = String.raw`(function () {
     // last card marked, which is what a reader coming back from the filter expects.
     document.addEventListener("focusin", function (event) {
       var node = event.target;
-      var card = node && node.closest ? node.closest(".board-card") : null;
+      var card = node && node.closest ? node.closest(".board-row") : null;
       if (!card) return;
       board.current = card.getAttribute("data-card");
       board.markCards();

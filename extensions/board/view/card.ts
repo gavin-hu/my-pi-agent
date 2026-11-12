@@ -31,22 +31,6 @@ export const BOARD_CARD_JS = String.raw`(function () {
   /** Path chips a lane card shows before it counts the rest. */
   var PATH_CHIPS = 3;
   /**
-   * The class that draws each tone, in the page kit's own words.
-   *
-   * A tone is a colour and the class is named after it, so the reason line for a missing
-   * contract, an approval nobody gave, and a spot-check nobody did are three kinds drawn in
-   * one tone — instead of three kinds sharing a class named after the first of them.
-   */
-  var TONE_CLASS = {
-    muted: N.cardReasonMuted,
-    dim: N.cardReasonDim,
-    warn: N.cardReasonWarn,
-    accent: N.cardReasonAccent,
-    danger: N.cardReasonDanger,
-    success: N.cardReasonSuccess,
-  };
-
-  /**
    * The class each priority wears.
    *
    * Both levels are named here rather than one class with a modifier decided at the call
@@ -55,7 +39,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
    * The dialog's head wears the same word, so the table is published rather than restated:
    * a level added here reaches the face and the record beside it.
    */
-  var PRIORITY_CLASS = { high: N.cardPriorityHigh, low: N.cardPriorityLow };
+  var PRIORITY_CLASS = { high: N.rowPriorityHigh, low: N.rowPriorityLow };
 
   /** "3h", "just now" — the age a stamp is drawn with, read against the reader's clock. */
   function sentence(wording, age) {
@@ -117,7 +101,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
    * them again as text a screen reader reads, which is the whole of what the chip counts.
    */
   function paths(card, limit) {
-    var list = el("ul", N.cardPaths);
+    var list = el("ul", N.rowPaths);
     list.id = "card-paths-" + card.id;
     var shown = card.paths.slice(0, limit);
     for (var i = 0; i < shown.length; i++) {
@@ -133,7 +117,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
       var beyond = card.paths.slice(limit);
       // The marker trails the row: with the hints before it on the line, it sits at the end of
       // what they left, and it is not a chip a wrap can leave alone on a line of its own.
-      var rest = el("li", N.cardMore);
+      var rest = el("li", N.rowMore);
       var more = chip("+" + beyond.length);
       more.title = beyond.join("\n");
       // The count is a shape, not a word: what it counts is in the list below it, and a
@@ -152,26 +136,38 @@ export const BOARD_CARD_JS = String.raw`(function () {
     return selection !== null && String(selection) !== "";
   }
 
+  /** The glyph that leads a row: the lane's state, read before the title. */
+  function markFor(card) {
+    if (card.lane === "done") return "\u2713";
+    if (card.lane === "blocked") return "!";
+    return "\u25b8";
+  }
+
   /** One card in its lane. */
   function cardNode(card) {
-    var item = el("li", N.card);
+    var item = el("li", "bf-row " + N.row);
     item.setAttribute("data-card", card.id);
     item.setAttribute("data-lane", card.lane);
     item.setAttribute("data-rev", String(card.rev));
+    var mark = el("span", "bf-row__mark", markFor(card));
+    mark.setAttribute("aria-hidden", "true");
+    item.appendChild(mark);
+    var body = el("div", N.rowBody);
+    item.appendChild(body);
 
-    var head = el("p", N.cardHead);
-    head.appendChild(el("span", N.cardId, "#" + card.id));
+    var head = el("p", N.rowHead);
+    head.appendChild(el("span", "bf-row__id", "#" + card.id));
     // The title is the page's only focusable thing inside a card, so Enter and the focus
     // ring have one home; the card around it is the larger target for a pointer. A native
     // button's Enter and Space arrive as a click that bubbles to the card, so the card is
     // the one handler and the button needs none.
-    var title = el("button", N.cardTitle, card.title);
+    var title = el("button", "bf-row__title", card.title);
     title.type = "button";
     // The id outlives the node: a frame rebuilds a lane when any face in it moves, and a dialog
     // opened from this button is restored to the card by looking the id up again.
     title.id = "card-title-" + card.id;
     head.appendChild(title);
-    item.appendChild(head);
+    body.appendChild(head);
     item.addEventListener("click", function () {
       // A drag that ends on a card is a reader selecting a title to copy, not opening it.
       if (textSelected()) return;
@@ -181,7 +177,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
     /** The face's clipped text, by id: what the title button describes. */
     var described = [];
 
-    var meta = el("p", N.cardMeta);
+    var meta = el("p", "bf-row__meta");
     // What kind of work the card is, with its breaking marker inside the same label: the one
     // fact a reader classifies by, drawn before the person who holds it. A card that recorded
     // neither draws neither, because the face says what the record says and never a guess.
@@ -189,12 +185,12 @@ export const BOARD_CARD_JS = String.raw`(function () {
     if (kind !== undefined) meta.appendChild(kind);
     // Who holds it is a name, not an action: the pill is neutral, so the accent colour on a card
     // means the lane it is in or the card the reader is on, and never a person.
-    meta.appendChild(card.owner ? chip(card.owner.label, "outline") : el("span", "", "unassigned"));
+    meta.appendChild(card.owner ? chip(card.owner.label) : el("span", "", "unassigned"));
     // The order inside a lane is the priority, so an urgent card says so: an order nobody
     // can see reads as an accident. A word beside the name rather than a second pill, so an
     // owner and an urgency are two shapes.
     if (card.priority !== "normal") {
-      meta.appendChild(el("span", N.cardPriority + " " + PRIORITY_CLASS[card.priority], card.priority));
+      meta.appendChild(el("span", N.rowPriority + " " + PRIORITY_CLASS[card.priority], card.priority));
     }
     // The stamp, so the clock can keep the age honest between frames: a board can be
     // quiet for ten minutes while the page still says "live".
@@ -205,17 +201,17 @@ export const BOARD_CARD_JS = String.raw`(function () {
     // usually the two are one moment and the meta line printed the same bare number twice.
     if (card.notes.length > 0) {
       var last = card.notes[card.notes.length - 1];
-      var notes = el("span", N.cardNotes, plural(card.notes.length, "note"));
+      var notes = el("span", N.rowNotes, plural(card.notes.length, "note"));
       if (ago(last.at) !== ago(card.updatedAt)) {
         notes.appendChild(document.createTextNode(" \u00b7 "));
         notes.appendChild(stamp(last.at, "last note {age} by " + last.by));
       }
       meta.appendChild(notes);
     }
-    item.appendChild(meta);
+    body.appendChild(meta);
 
     if (card.paths.length > 0) {
-      item.appendChild(paths(card, PATH_CHIPS));
+      body.appendChild(paths(card, PATH_CHIPS));
       // Only a truncated list is described: the hints a reader can already see are read in
       // order with the card, and the ones behind the chip have nowhere else to be read.
       if (card.paths.length > PATH_CHIPS) described.push("card-paths-" + card.id);
@@ -231,7 +227,8 @@ export const BOARD_CARD_JS = String.raw`(function () {
       // The tone is a lookup, not a suffix: a name assembled from a prefix is a name no
       // test can compare with the stylesheet. A card that only holds others up is drawn in
       // the tone a waiting card wears, because it is the same edge read the other way.
-      var line = el("p", N.cardReason + " " + TONE_CLASS[reasonTone(reason === undefined ? "waiting" : reason.kind)], "");
+      var line = el("p", "bf-row__reason", "");
+      line.setAttribute("data-tone", reasonTone(reason === undefined ? "waiting" : reason.kind));
       // The sentence is a node, not a string: one that carries an age is stamped so the ticker
       // moves it with the lane age beside it.
       var sentenceNode = reasonNode(reason);
@@ -240,7 +237,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
       line.id = "card-reason-" + card.id;
       // It clamps on the card, so the full sentence is the tooltip.
       line.title = why;
-      item.appendChild(line);
+      body.appendChild(line);
       described.push(line.id);
     }
 
@@ -275,7 +272,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
    * what it had and the next pass tries again once a reader can see it.
    */
   function fitTitle(card) {
-    var node = card.querySelector(".board-card__title");
+    var node = card.querySelector(".bf-row__title");
     if (!node || !node.getClientRects || node.getClientRects().length === 0) return;
     if (node.scrollHeight > node.clientHeight + 1) node.title = node.textContent;
     else node.removeAttribute("title");
@@ -291,7 +288,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
    * because a lane is rebuilt whole when its cards move.
    */
   board.markCards = function () {
-    var nodes = document.querySelectorAll(".board-card");
+    var nodes = document.querySelectorAll(".board-row");
     for (var i = 0; i < nodes.length; i++) {
       var id = nodes[i].getAttribute("data-card");
       marked(nodes[i], "data-current", board.current !== undefined && String(board.current) === id);

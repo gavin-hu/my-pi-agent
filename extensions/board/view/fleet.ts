@@ -101,20 +101,22 @@ __HISTORY_LINE__
 
   /** One agent's card. */
   function agentCard(agent, view, needs) {
-    var card = el("li", N.agent);
+    var card = el("li", "bf-row " + N.agent);
     card.setAttribute("data-state", agent.state);
     if (agent.you) card.setAttribute("data-you", "1");
     if (agent.lead) card.setAttribute("data-lead", "1");
+    var mark = el("span", "bf-row__mark " + N.monogram, monogram(agent.label));
+    mark.setAttribute("aria-hidden", "true");
+    card.appendChild(mark);
+    var body = el("div", N.agentBody);
+    card.appendChild(body);
 
     var head = el("div", N.agentHead);
-    var mark = el("span", N.monogram, monogram(agent.label));
-    mark.setAttribute("aria-hidden", "true");
-    head.appendChild(mark);
     head.appendChild(el("span", N.agentName, agent.label));
-    // The state is the last fact on the name's line, at the card's edge: chips are labels a
-    // reader scans once, and a state is the one word compared from card to card.
+    // The state is the last fact on the name's line, at the row's edge: tags are labels a
+    // reader scans once, and a state is the one word compared from row to row.
     head.appendChild(statePill(agent));
-    card.appendChild(head);
+    body.appendChild(head);
 
     var chips = el("div", N.agentChips);
     // The two facts are two chips on purpose: the page serves as the lead, so collapsing them
@@ -135,7 +137,7 @@ __HISTORY_LINE__
     // The lead's own card says how much of the queue is its work, so the scan that starts
     // top-left lands on the reason to look right.
     if (agent.lead && needs > 0) chips.appendChild(chip(needs + " needs you", "accent"));
-    card.appendChild(chips);
+    body.appendChild(chips);
 
     var missions = el("ul", N.missions);
     var live = agent.cards.live;
@@ -152,7 +154,7 @@ __HISTORY_LINE__
       rest.title = board.plural(live.length, "open card");
       missions.appendChild(rest);
     }
-    card.appendChild(missions);
+    body.appendChild(missions);
     return card;
   }
 
@@ -165,9 +167,14 @@ __HISTORY_LINE__
   function historyRow(history, folded) {
     var finished = 0;
     for (var i = 0; i < history.length; i++) finished += history[i].cards.done.length;
-    var row = el("li", N.agent);
+    var row = el("li", "bf-row " + N.agent);
     row.setAttribute("data-state", "absent");
-    var button = el("button", N.agentFold);
+    var mark = el("span", "bf-row__mark", "\u25cb");
+    mark.setAttribute("aria-hidden", "true");
+    row.appendChild(mark);
+    var body = el("div", N.agentBody);
+    row.appendChild(body);
+    var button = el("button", N.fold);
     button.type = "button";
     button.setAttribute("data-fold", "team-history");
     button.setAttribute("aria-expanded", String(!folded));
@@ -177,7 +184,7 @@ __HISTORY_LINE__
     button.appendChild(dot);
     button.appendChild(document.createTextNode(historyLine(history.length, finished)));
     button.addEventListener("click", function () { board.toggleFold("team-history"); });
-    row.appendChild(button);
+    body.appendChild(button);
     return row;
   }
 
@@ -197,8 +204,8 @@ __HISTORY_LINE__
    * the sentence the pill already draws as a 4.
    */
   board.captionOf = function (text, count, noun) {
-    var head = el("h2", N.teamCaption, text);
-    head.appendChild(el("span", N.teamCount, String(count)));
+    var head = el("h2", "bf-section__cap", text);
+    head.appendChild(el("span", "bf-section__count", String(count)));
     head.setAttribute("aria-label", text + ", " + plural(count, noun));
     return head;
   };
