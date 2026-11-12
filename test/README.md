@@ -123,7 +123,8 @@ gate is stated in the test.
    `test/doc-counts.test.ts`,
    `test/config-docs.test.ts`, `test/settings-coverage.test.ts`,
    `test/dependencies.test.ts`, `test/skill-bank.test.ts`,
-   `test/scripts-surface.test.ts`, `test/site-docs.test.ts`) — cross-cutting
+   `test/scripts-surface.test.ts`, `test/site-docs.test.ts`,
+   `test/web-classes.test.ts`) — cross-cutting
    contracts. No capability suite may duplicate these. `shared-helpers.test.ts`
    fails an extension that reimplements what `lib/` owns, by name or by body, a
    test that re-declares or copies a `test/helpers` export, and one test file
