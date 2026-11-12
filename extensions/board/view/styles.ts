@@ -143,6 +143,8 @@ ${DECISION_WHY_CSS}
    a short middle column is one page, and three scrollbars inside a dashboard is the thing
    this tab exists not to be. */
 .board-team{min-width:0}
+/* A column's caption sticks: the page has one scroll box, and these are its landmarks. */
+.board-team__column .bf-section__cap{position:sticky;top:0;z-index:1;background:var(--bg)}
 .board-team__grid{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
 .board-team__column{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
 .board-team__empty{margin:0;font:var(--fs-sm)/var(--lh-relaxed) var(--font-ui);color:var(--muted)}

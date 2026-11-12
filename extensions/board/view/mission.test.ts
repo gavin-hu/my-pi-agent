@@ -22,6 +22,7 @@ import { WAITING_LIMIT } from "../../../lib/session-mail.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";
 import { BOARD_CSS } from "./styles.ts";
+import { WEB_COMPONENTS_CSS } from "../../../lib/web/components.ts";
 
 const NOW = 5_000;
 const ME = { id: "board:team-lead", label: "team-lead" };
@@ -249,13 +250,12 @@ describe("the mission control's contracts", () => {
 		}
 		// A caption sticks; a lane's head does not, because the page has one scroll box and the
 		// column captions are its only landmarks.
-		expect(ownRules()).toMatch(/\.board-team__caption\{[^}]*position:sticky/);
+		expect(ownRules()).toMatch(/\.board-team__column \.bf-section__cap\{[^}]*position:sticky/);
 	});
 
 	test("draws the counting pill in tabular figures, so two columns' numbers line up", () => {
-		for (const rule of ["board-team__count", "board-team__lane-count", "board-team__pane-count"]) {
-			expect(BOARD_CSS, rule).toMatch(new RegExp(`\\.${rule}\\{[^}]*font-variant-numeric:tabular-nums`));
-		}
+		// One rule, in the kit: every section cap counts in tabular figures.
+		expect(WEB_COMPONENTS_CSS).toMatch(/\.bf-section__count\{[^}]*font-variant-numeric:tabular-nums/);
 	});
 
 	test("caps the queue at the snapshot's own limit, so the two cannot disagree", () => {

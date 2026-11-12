@@ -204,7 +204,7 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-section[data-tone="warn"] .bf-section__cap{border-bottom-color:var(--warn)}
 .bf-section[data-tone="danger"] .bf-section__cap{border-bottom-color:var(--danger)}
 .bf-section[data-tone="success"] .bf-section__cap{border-bottom-color:var(--success)}
-.bf-section__count{margin-left:auto}
+.bf-section__count{margin-left:auto;font-variant-numeric:tabular-nums}
 /* A section row is a reference to a card that also sits in its lane, so it stays secondary. */
 .bf-section[data-tone] .bf-row__title{color:var(--muted)}
 .bf-code{margin:0;padding:var(--space-3) 0 var(--space-4);flex:1 1 auto;min-height:0;overflow:auto;font:var(--fs-code)/1.55 var(--font-mono);counter-reset:line;tab-size:4;background:var(--canvas)}
