@@ -30,7 +30,7 @@ export const PICKER_MQ = 1180;
  */
 const LANE_ROLE_CSS = LANES.map((lane) => {
 	const role = LANE_RULES[lane].role;
-	return `.board-lane[data-lane="${lane}"],.bf-row[data-lane="${lane}"],.board-dialog__state[data-lane="${lane}"],.board-dot[data-lane="${lane}"]{--lane-role:var(--${role})}`;
+	return `.board-lane[data-lane="${lane}"],.bf-row[data-lane="${lane}"],.board-swim[data-lane="${lane}"],.board-dialog__state[data-lane="${lane}"],.board-dot[data-lane="${lane}"]{--lane-role:var(--${role})}`;
 }).join("\n");
 
 /**
@@ -205,6 +205,8 @@ ${DECISION_WHY_CSS}
 .board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:2px 0 0;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
 /* The lanes: a kit lane head, then the rows that fit. */
 .board-team__lanes{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.board-swim{display:flex;flex-direction:column;min-width:0}
+.board-team__swim{display:flex;flex-direction:column;min-width:0}
 /* One mission row per lane: the column is narrow enough that two abreast elide both titles. */
 .board-mission{grid-template-columns:auto minmax(0,1fr);cursor:pointer}
 .board-mission__head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
