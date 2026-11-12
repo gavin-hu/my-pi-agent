@@ -6,6 +6,7 @@
  */
 
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { MESSAGE_KINDS, type MessageKind } from "../../lib/session-mail.ts";
 import { notDeliveredLine, type SendResult, MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SESSION_TOOL } from "../../lib/tool-names.ts";
 import type { DeliveryFailure } from "./types.ts";
@@ -32,10 +33,14 @@ export const MAX_LIMIT = 50;
 
 export type SessionMode = "tui" | "rpc" | "json" | "print" | "unknown";
 export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "join";
-export type MessageKind = "message" | "event" | "ask" | "handoff";
+/**
+ * The mail's kinds, and the field they are written in, are `lib/session-mail.ts`'s — the one
+ * reader and writer of a message file. Re-exported so this extension keeps importing its
+ * protocol's vocabulary from its protocol.
+ */
+export type { MessageKind } from "../../lib/session-mail.ts";
 
 const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "claim", "release", "join"];
-const KINDS: readonly MessageKind[] = ["message", "event", "ask", "handoff"];
 
 /** The session mode as the record stores it. */
 export function sessionMode(mode: string | undefined): SessionMode {
@@ -49,7 +54,7 @@ export function normalizeAction(raw: unknown): SessionAction | undefined {
 
 /** A message kind; `message` is the default. */
 export function normalizeKind(raw: unknown): MessageKind {
-	return typeof raw === "string" && KINDS.includes(raw as MessageKind) ? (raw as MessageKind) : "message";
+	return typeof raw === "string" && MESSAGE_KINDS.includes(raw as MessageKind) ? (raw as MessageKind) : "message";
 }
 
 /** Trimmed message text, or an error message. */

@@ -56,7 +56,10 @@ repository paths it concerns.
 
 **Records.** `session status` lists each session with its record's state — `live` while its
 heartbeat holds, `quiet` once it has aged, `gone` once its process is not running — with whether
-its watch is armed, so a peer that will not be woken reads as one.
+its watch is armed, so a peer that will not be woken reads as one. The record also carries the
+turn: stamped on `agent_start` and dropped on `agent_settled`, so the Team tab can draw a
+session as working rather than idle from a stale heartbeat. A stamp is believed only beside a
+fresh heartbeat — a process that died mid-turn left its stamp behind.
 
 **Labels.** Name a session for the outcome it owns (`billing-core`), not its
 layer. A duplicate label gets a short id suffix; a label is reserved while the bus

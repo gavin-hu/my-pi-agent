@@ -21,9 +21,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
-import { repoKeyFor } from "../../lib/repo-key.ts";
 import { SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
-import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
+import { defaultInterval } from "../../lib/timer.ts";
 import {
 	MAX_LABEL,
 	MAX_LIMIT,
@@ -36,9 +35,10 @@ import {
 	sessionMode,
 	shortId,
 } from "./protocol.ts";
-import { createMailWatch, type WatchingState } from "./mail-watch.ts";
+import { createMailWatch } from "./mail-watch.ts";
+import { createTurn } from "./presence.ts";
 import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
-import type { BusMessage, ClaimConflict, DeliveryFailure, InboxPeek, SessionRecord, SessionStatus } from "./types.ts";
+import type { InboxPeek, SessionRecord, SessionStatus } from "./types.ts";
 import {
 	BUS_DIR_NAME,
 	type RosterSeams,
@@ -46,71 +46,11 @@ import {
 	rosterStateOf,
 	SESSION_TTL_MS,
 } from "../../lib/session-roster.ts";
-import { isPidAlive, type LivenessFn, startTokenOf, type StartTokenFn } from "../../lib/spawn.ts";
+import { isPidAlive, startTokenOf } from "../../lib/spawn.ts";
 
-export interface SessionBusOptions {
-	now?: () => number;
-	/** Test seam: use this bus directory instead of the agent-dir layout. */
-	dir?: string;
-	/** Test seam: the process id this runtime registers as, so two can share one session id. */
-	pid?: number;
-	/** Test seam: whether a pid is running, so a suite never depends on the host's pids. */
-	alive?: LivenessFn;
-	/** Test seam: the start-time seam the record is stamped with. */
-	startTokenFn?: StartTokenFn;
-	/** Test seam: skip git and use this repository identity, saying whether git would have resolved it. */
-	repo?: { root: string; key: string; fromGit?: boolean };
-	/** Heartbeat interval; 0 disables it (tests). */
-	heartbeatMs?: number;
-	/** Inbox-watch poll interval; 0 disables it (tests). */
-	watchMs?: number;
-	/** Test seam: the repeating timer behind the heartbeat and the poll. */
-	interval?: RepeatTimer;
-	sessionTtlMs?: number;
-	messageTtlMs?: number;
-}
+import type { SessionBus, SessionBusOptions } from "./api.ts";
 
-export interface SessionBus {
-	start(ctx: ExtensionContext): Promise<void>;
-	stop(): Promise<void>;
-	status(): Promise<SessionStatus>;
-	/** The live bus, read only: no record refresh, no prune. */
-	snapshot(): Promise<SessionStatus>;
-	/** This session's unread mail without consuming it, and the files this build cannot read. */
-	peek(): Promise<InboxPeek>;
-	/** Messages waiting in this session's inbox, counted by file — `peek` stops at its own cap. */
-	unread(): Promise<number>;
-	/** Release a claim by its stored repository-relative path. */
-	releaseStored(path: string): Promise<boolean>;
-	send(input: {
-		to: string;
-		text: string;
-		kind?: string;
-		paths?: unknown;
-	}): Promise<{ delivered: string[]; failed: DeliveryFailure[]; messageId: string }>;
-	inbox(limit?: number): Promise<BusMessage[]>;
-	claim(paths: unknown): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
-	release(paths: unknown): Promise<{ released: string[]; notOwned: string[] }>;
-	/**
-	 * Join the team: join the bus, name this session when given a label, and listen for
-	 * mail unless `listen` is false. One action, because they are one act — a session on
-	 * the bus that will not hear mail is on it, but not on the team.
-	 */
-	join(input: {
-		label?: string;
-		wake?: boolean;
-		listen?: boolean;
-	}): Promise<{ label: string; watching: WatchingState }>;
-	/** Whether the armed watch asked for a triggered turn; the settle retry reads it. */
-	wantsWake(): boolean;
-	/** Read the inbox without consuming it, queueing what is new; no-op when unarmed. */
-	poll(): Promise<void> /** Mail that arrived and has not been reported yet, oldest first. */;
-	pending(): BusMessage[];
-	/** Drop mail from the pending queue, once reported or consumed. */
-	markReported(ids: readonly string[]): void;
-	/** Set what to call when new mail arrives and this session asked to be woken. */
-	set onWake(callback: (() => void) | undefined);
-}
+export type { SessionBus, SessionBusOptions };
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
 const NO_MAIL: InboxPeek = { mail: [], unread: new Set(), unreadable: [] };
@@ -153,6 +93,14 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	let stopHeartbeat: (() => void) | undefined;
 	let starting: Promise<void> | undefined;
 
+	/**
+	 * The turn: a field on this session's record, written on both edges of a run.
+	 *
+	 * It reads the closure rather than a copy, so a turn that arrives while the bus is
+	 * still starting stamps the record the start was about to write.
+	 */
+	const turn = createTurn({ store: () => store, record: () => record, joined: () => joined, now });
+
 	/** The watch reads this session's own inbox; nothing is consumed or marked. */
 	const mailWatch = createMailWatch({
 		peek: async (known): Promise<InboxPeek> =>
@@ -167,6 +115,9 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// Canonical once, here: the root git reports is a real path, so an unresolved
 			// cwd does not contain the paths a caller resolves against it.
 			const cwd = realPathOfNearest(context.cwd);
+			// Deferred with the one subprocess it spawns: the repository's identity is asked for
+			// once, here, and a session that never joins a bus pays nothing for git.
+			const { repoKeyFor } = await import("../../lib/repo-key.ts");
 			const repo = options.repo ?? (await repoKeyFor(pi, cwd));
 			const dir = options.dir ?? join(getAgentDir(), BUS_DIR_NAME, repo.key);
 			store = createBusStore({ dir });
@@ -489,6 +440,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			return { label, watching };
 		},
 		wantsWake: () => mailWatch.wantsWake(),
+		turnStart: () => turn.start(),
+		turnSettled: () => turn.settle(),
 		poll: () => mailWatch.poll(),
 		pending: () => mailWatch.pending(),
 		markReported: (ids) => mailWatch.markReported(ids),
