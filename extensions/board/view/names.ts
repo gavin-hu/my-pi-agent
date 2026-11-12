@@ -3,7 +3,7 @@
  *
  * The document (`page.ts`) and the client bundle cannot import from each other, so a
  * class name used to be a string in each — and two of them were assembled at runtime
- * (`"board-row__reason" + kind`), which is why nothing could compare what the page
+ * (`"board-row__priority--" + level`), which is why nothing could compare what the page
  * wears with what `styles.ts` draws. Reading both halves from this table makes those two
  * sets enumerable, and `pages.test.ts` holds them equal.
  *
