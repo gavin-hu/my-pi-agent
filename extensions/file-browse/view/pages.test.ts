@@ -367,14 +367,14 @@ describe("directory page", () => {
 
 	test("shows the changes chip with its totals, or a hidden shell when live", () => {
 		const two = directoryPage({ summary: summary([changed({ rel: "a.ts" }), changed({ rel: "b.ts" })], 12, 4) });
-		expect(two).toContain('class="bf-tag browse-diff" id="browse-changes" href="/diff"');
+		expect(two).toContain('class="bf-tag browse-changes" id="browse-changes" href="/diff"');
 		expect(two).toContain("2 changes");
 		expect(two).toContain("+12");
 		expect(two).toContain("−4");
 
 		expect(directoryPage({ summary: summary([changed({ rel: "a.ts" })]) })).toContain("1 change");
-		expect(directoryPage({ summary: summary([]) })).not.toContain('class="bf-tag browse-diff"');
-		expect(directoryPage()).not.toContain('class="bf-tag browse-diff"');
+		expect(directoryPage({ summary: summary([]) })).not.toContain('class="bf-tag browse-changes"');
+		expect(directoryPage()).not.toContain('class="bf-tag browse-changes"');
 
 		const shell = directoryPage({ live: { intervalMs: 3000 } });
 		expect(shell).toContain('title="View uncommitted changes" hidden');
