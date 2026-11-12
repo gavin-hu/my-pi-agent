@@ -10,6 +10,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { boardHarness } from "./board.ts";
+import type { FakePiOptions } from "./fakes.ts";
 import { writeBusRecord } from "./bus.ts";
 import { tempDir } from "./env.ts";
 import { makeTempTracker } from "./git.ts";
@@ -59,18 +60,44 @@ export async function onBus(
 	writeBusRecord(await who.board.runtime.busDir(who.board.ctx.cwd), { lastSeen, ...record });
 }
 
+/** What a bench may shape besides the tool's seams: the git answers of the directory it sits in. */
+export interface BenchOptions {
+	/** The git answers, for a case whose directory stands for a checkout with a worktree. */
+	exec?: FakePiOptions["exec"];
+	/** The directory the two sessions' cwd names, when a case is about where the work is. */
+	cwd?: string;
+}
+
 /** One repository, its agent directory, and the two sessions that act on one board. */
-export function bench(deps: BoardDeps = {}): { lead: Session; peer: Session } {
-	const cwd = temps.track(tempDir("pi-repo-"));
+export function bench(deps: BoardDeps = {}, options: BenchOptions = {}): { lead: Session; peer: Session } {
+	const cwd = options.cwd ?? temps.track(tempDir("pi-repo-"));
 	const agentDir = temps.track(tempDir("pi-agent-"));
 	return {
-		lead: signSession({ cwd, agentDir, sessionId: LEAD_ID, deps }),
-		peer: signSession({ cwd, agentDir, sessionId: "s-peer", deps }),
+		lead: signSession({
+			cwd,
+			agentDir,
+			sessionId: LEAD_ID,
+			deps,
+			...(options.exec === undefined ? {} : { exec: options.exec }),
+		}),
+		peer: signSession({
+			cwd,
+			agentDir,
+			sessionId: "s-peer",
+			deps,
+			...(options.exec === undefined ? {} : { exec: options.exec }),
+		}),
 	};
 }
 
 /** One signSession on the bench's board, and the one action call a case needs. */
-export function signSession(options: { cwd: string; agentDir: string; sessionId: string; deps?: BoardDeps }) {
+export function signSession(options: {
+	cwd: string;
+	agentDir: string;
+	sessionId: string;
+	deps?: BoardDeps;
+	exec?: FakePiOptions["exec"];
+}) {
 	const { deps, ...rest } = options;
 	const board = boardHarness({ ...rest, lead: LEAD, now: NOW });
 	registerTools(board.fake.pi, board.runtime, deps);
@@ -113,14 +140,21 @@ export async function claimedWithContract(who: { lead: Session; peer: Session })
 	});
 }
 
-/** A run seam that answers `outcome` and records every command it was asked to run. */
-export function runner(outcome: Partial<VerifyOutcome> = {}): VerifyRun & { ran: string[] } {
+/**
+ * A run seam that answers `outcome` and records every command it was asked to run, and where.
+ *
+ * `cwds` is the tree half: a spot-check runs one command per sign, so a case that proves which tree
+ * it proved reads the directory the seam was handed.
+ */
+export function runner(outcome: Partial<VerifyOutcome> = {}): VerifyRun & { ran: string[]; cwds: string[] } {
 	const ran: string[] = [];
-	const call = async (command: string): Promise<VerifyOutcome> => {
+	const cwds: string[] = [];
+	const call = async (command: string, cwd: string): Promise<VerifyOutcome> => {
 		ran.push(command);
+		cwds.push(cwd);
 		return { exit: 0, output: "", killed: false, ...outcome };
 	};
-	return Object.assign(call, { ran });
+	return Object.assign(call, { ran, cwds });
 }
 
 /** The temp tracker the suites that use this fixture flush: one per file, as `bun:test` wants. */

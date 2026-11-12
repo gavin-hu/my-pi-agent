@@ -52,22 +52,39 @@ const CWD = "/repo/billing";
 describe("the record a spot-check keeps", () => {
 	const now = () => 900;
 
-	test("a clean exit is the evidence, with the commit it ran on", async () => {
+	test("a clean exit is the evidence, with the tree it ran in and the commit there", async () => {
 		const run = async () => ({ exit: 0, output: "all green", killed: false });
 		expect(await verifiedCommand("bun run check", CWD, run, now, async () => "1d3a8ce3")).toEqual({
-			verified: { cmd: "bun run check", exit: 0, at: 900, sha: "1d3a8ce3" },
+			verified: { cmd: "bun run check", exit: 0, at: 900, root: CWD, sha: "1d3a8ce3" },
 		});
+	});
+
+	test("the record names the directory its sha was read from, not a second lookup", async () => {
+		// The tree is the run's own: a sign that runs in a worktree and records the checkout's
+		// commit is the bug this field answers, so it is the same argument that chose both.
+		const asked: string[] = [];
+		await verifiedCommand(
+			"bun run check",
+			"/repo/.pi/worktrees/x",
+			async () => ({ exit: 0, output: "", killed: false }),
+			now,
+			async (cwd) => {
+				asked.push(cwd);
+				return "6c1e9a02";
+			},
+		);
+		expect(asked).toEqual(["/repo/.pi/worktrees/x"]);
 	});
 
 	test("a repository that cannot name a commit still records the run", async () => {
 		const run = async () => ({ exit: 0, output: "", killed: false });
 		const answer = await verifiedCommand("bun run check", CWD, run, now, async () => undefined);
-		expect(answer).toEqual({ verified: { cmd: "bun run check", exit: 0, at: 900 } });
+		expect(answer).toEqual({ verified: { cmd: "bun run check", exit: 0, at: 900, root: CWD } });
 		// A git call that threw is the same answer as one that said nothing.
 		const threw = await verifiedCommand("bun run check", CWD, run, now, async () => {
 			throw new Error("not a repository");
 		});
-		expect(threw).toEqual({ verified: { cmd: "bun run check", exit: 0, at: 900 } });
+		expect(threw).toEqual({ verified: { cmd: "bun run check", exit: 0, at: 900, root: CWD } });
 	});
 
 	test("a red command is the outcome itself, never a record", async () => {

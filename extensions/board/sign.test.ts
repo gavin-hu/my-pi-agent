@@ -93,10 +93,14 @@ describe("/board approve and /board review", () => {
 		const run = runner();
 		const board = await signingBoard({ verify: run });
 		await executableWith(board);
-		expect(await board.say("review 1")).toBe(`board: #1 reviewed by you · ran \`${VERIFY}\` (exit 0)${NOT_TOLD}`);
+		// The tree rides the line too: a person signing from a worktree needs to see which tree ran.
+		const root = board.store.root();
+		expect(await board.say("review 1")).toBe(
+			`board: #1 reviewed by you · ran \`${VERIFY}\` in ${root} (exit 0)${NOT_TOLD}`,
+		);
 		expect(run.ran).toEqual([VERIFY]);
-		// The record is the run's, written by the person's own door.
-		expect((await board.store.read(board.id))?.review?.verified).toEqual({ cmd: VERIFY, exit: 0, at: 1_000 });
+		// The record is the run's, written by the person's own door, and it names the tree.
+		expect((await board.store.read(board.id))?.review?.verified).toEqual({ cmd: VERIFY, exit: 0, at: 1_000, root });
 		board.temps.flush();
 	});
 

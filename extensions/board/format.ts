@@ -217,8 +217,13 @@ function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = fa
 		// The sign says what ran and what it exited with: a green word without the run is the belief
 		// this line replaced, and the sha is what a reader needs to reproduce it.
 		const run = card.review.verified;
+		// The tree the run proved sits beside its commit: one sha cannot say whether the evidence
+		// covers a branch or the checkout it was cut from.
+		const where = run?.root === undefined ? "" : ` in ${run.root}`;
 		const happened =
-			run === undefined ? "" : ` · ran \`${run.cmd}\` (exit ${run.exit}${run.sha === undefined ? "" : `, ${run.sha}`})`;
+			run === undefined
+				? ""
+				: ` · ran \`${run.cmd}\`${where} (exit ${run.exit}${run.sha === undefined ? "" : `, ${run.sha}`})`;
 		lines.push(
 			`  reviewed: ${card.review.by}${reason === undefined ? "" : ` · by instruction: ${reason}`}${happened}${notTold(card.review, card)}`,
 		);

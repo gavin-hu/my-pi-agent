@@ -70,7 +70,9 @@ __SHORTEN_PATH__
   function ranClause(reviewed) {
     var run = reviewed.verified;
     if (run === undefined) return "";
-    return " \u00b7 ran " + run.cmd + " (exit " + run.exit + (run.sha === undefined ? "" : ", " + run.sha) + ")";
+    // The tree is the other half of the evidence: a commit says when, the tree says where.
+    var where = run.root === undefined ? "" : " in " + run.root;
+    return " \u00b7 ran " + run.cmd + where + " (exit " + run.exit + (run.sha === undefined ? "" : ", " + run.sha) + ")";
   }
 
   /**

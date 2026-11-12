@@ -85,6 +85,14 @@ export interface Verification {
 	at: number;
 	/** The commit the repository was on, when it was a repository. */
 	sha?: string;
+	/**
+	 * The tree the command ran in, absolute: the checkout, or the worktree the reviewer entered.
+	 *
+	 * A sha alone cannot say which tree it proves — a branch and `main` share a repository — so a
+	 * reader deciding whether the evidence covers the work needs the tree beside it. Absent on
+	 * signs written before the board recorded one.
+	 */
+	root?: string;
 }
 
 /** What a card promises before it may be executed. */
@@ -222,6 +230,7 @@ export function isVerification(value: unknown): value is Verification {
 	if (typeof run.cmd !== "string" || run.cmd.trim() === "") return false;
 	if (typeof run.exit !== "number" || !Number.isInteger(run.exit)) return false;
 	if (typeof run.at !== "number" || !Number.isInteger(run.at)) return false;
+	if (run.root !== undefined && (typeof run.root !== "string" || run.root === "")) return false;
 	return run.sha === undefined || (typeof run.sha === "string" && run.sha !== "");
 }
 

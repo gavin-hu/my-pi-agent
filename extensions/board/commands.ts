@@ -18,6 +18,7 @@ import { plural } from "../../lib/board/round-text.ts";
 import { type BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import type { VerifyRun } from "../../lib/board/verify.ts";
+import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import type { Notify } from "./announce.ts";
@@ -174,9 +175,11 @@ async function signLine(
 		const card = await store.read(cardId).catch(() => undefined);
 		if (card?.contract?.verify === undefined) return undefined;
 		const module = await import("../../lib/board/verify.ts");
+		// The tree this session is working in, as the tool's door reads it: the worktree it entered when
+		// there is one, and `ctx.cwd` otherwise, which never follows `worktree enter` by itself.
 		return module.verifySpotCheck(
 			card,
-			ctx.cwd,
+			resolveEffectiveCwd(ctx.cwd),
 			verify ?? module.defaultVerifyRun(),
 			() => session.now(),
 			module.shaOf(pi),
@@ -216,7 +219,8 @@ async function signLine(
 	const how = sign === "review" && result.card.review?.byInstruction !== undefined ? " · closed by instruction" : "";
 	// What ran is the one fact a person at a keyboard cannot see in the card: the sign's own words.
 	const ran = result.card.review?.verified;
-	const evidence = ran === undefined ? "" : ` · ran \`${ran.cmd}\` (exit ${ran.exit})`;
+	const where = ran?.root === undefined ? "" : ` in ${ran.root}`;
+	const evidence = ran === undefined ? "" : ` · ran \`${ran.cmd}\`${where} (exit ${ran.exit})`;
 	const text = result.changed
 		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}${evidence}`
 		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}${evidence}`;

@@ -179,6 +179,17 @@ describe("isContract and isSign", () => {
 		expect(isHandoff(undefined)).toBe(false);
 	});
 
+	test("a spot-check's run names its tree, and a record without one still reads", () => {
+		// The tree is the half a sha cannot say: the same commit backs a branch and its checkout, so a
+		// record that names only the commit reads as proof of whichever tree the reader assumed. Signs
+		// written before the board recorded one carry no field, and must keep reading.
+		const run = { cmd: "bun run check", exit: 0, at: 4, sha: "1d3a8ce3" };
+		expect(isSign({ by: "billing-lead", at: 0, verified: run })).toBe(true);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, root: "/repo/.pi/worktrees/x" } })).toBe(true);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, root: "" } })).toBe(false);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, root: 7 } })).toBe(false);
+	});
+
 	test("a sign by instruction is trusted only as the line a signer would have written", () => {
 		expect(isSign({ by: "you", at: 0, byInstruction: "closed on my instruction" })).toBe(true);
 		// A stored sign the write path would never produce: an empty reason, a wrapping one, and a

@@ -118,7 +118,11 @@ export async function verifiedCommand(
 	);
 	if (outcome.killed || outcome.exit !== 0) return { failure: outcome };
 	const commit = await sha?.(cwd).catch(() => undefined);
-	return { verified: { cmd, exit: outcome.exit, at: now(), ...(commit === undefined ? {} : { sha: commit }) } };
+	// The tree is the run's own: the directory the command was started in, which is what the sha
+	// beside it was read from. A reader can then tell a branch's evidence from the checkout's.
+	return {
+		verified: { cmd, exit: outcome.exit, at: now(), root: cwd, ...(commit === undefined ? {} : { sha: commit }) },
+	};
 }
 
 /** The commit the board is on, through the git runner the rest of the board already uses. */
