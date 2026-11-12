@@ -31,29 +31,9 @@ import { KEBAB, namesScript } from "./names.ts";
 import { INLINE_MARKDOWN_JS } from "./markdown.ts";
 import { CLIENT_RUNTIME_JS, el, paintStatus, postJson, typing } from "./client-runtime.ts";
 import { WEB_THEME_CSS, WEB_THEME_TOKENS } from "./tokens.ts";
+import { contrast } from "../../test/helpers/contrast.ts";
 
 /** sRGB relative luminance of a `#rgb`/`#rrggbb` colour. */
-function luminance(hex: string): number {
-	const raw = hex.replace("#", "");
-	const full =
-		raw.length === 3
-			? raw
-					.split("")
-					.map((character) => character + character)
-					.join("")
-			: raw;
-	const channels = [0, 2, 4].map((offset) => {
-		const value = Number.parseInt(full.slice(offset, offset + 2), 16) / 255;
-		return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-	});
-	return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
-}
-
-/** WCAG contrast ratio between two colours. */
-function contrast(a: string, b: string): number {
-	const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-	return (light + 0.05) / (dark + 0.05);
-}
 
 /** Every custom property the theme layer defines. */
 const definedTokens = new Set([...WEB_THEME_CSS.matchAll(/--[a-z0-9-]+:/g)].map((match) => match[0].slice(0, -1)));
@@ -110,8 +90,7 @@ describe("web tokens", () => {
 	});
 
 	test("focuses a dialog's panel when the panel names itself focusable", () => {
-		// The close button used to take the ring on every open, which put the eye in a
-		// corner before it reached the content.
+		// The close button used to take the ring on every open, before the content.
 		expect(dialogScript({ dialogId: "x" })).toContain('[role="dialog"][tabindex]');
 	});
 
@@ -125,8 +104,7 @@ describe("web tokens", () => {
 	});
 
 	test("keeps a label on the accent fill at AA", () => {
-		// The primary button is the page's decisive action, so its label is the one
-		// pairing that must clear 4.5 rather than 3.
+		// The primary button's label is the one pairing that must clear 4.5 rather than 3.
 		for (const appearance of ["dark", "light"] as const) {
 			const tokens = WEB_THEME_TOKENS[appearance];
 			expect(
@@ -137,11 +115,16 @@ describe("web tokens", () => {
 	});
 
 	test("keeps the dim role readable where it carries text", () => {
-		// `--dim` is the line-number gutter and the diff's numbered column: above large-text.
+		// `--dim` is the faintest *text* colour now — a card's id and kind, a lane's count, the footer —
+		// so AA's 4.5 is its floor, and it must stay at most 0.94 of muted's ratio on the same plane:
+		// two quiet colours a hundredth apart are one colour with two names.
 		for (const appearance of ["dark", "light"] as const) {
 			const tokens = WEB_THEME_TOKENS[appearance];
 			for (const surface of ["--canvas", "--surface", "--raised"]) {
-				expect(contrast(tokens["--dim"], tokens[surface]), `${appearance} dim/${surface}`).toBeGreaterThanOrEqual(3);
+				const faint = contrast(tokens["--dim"], tokens[surface]);
+				const muted = contrast(tokens["--muted"], tokens[surface]);
+				expect(faint, `${appearance} dim/${surface}`).toBeGreaterThanOrEqual(4.5);
+				expect(faint / muted, `${appearance} dim/muted on ${surface}`).toBeLessThanOrEqual(0.94);
 			}
 		}
 	});
@@ -156,8 +139,7 @@ describe("web tokens", () => {
 	});
 
 	test("prints the light palette last, so paper never takes the dark one", () => {
-		// A dark page prints as grey text on a white sheet unless print resets the
-		// tokens; being last in the sheet is what makes the reset win.
+		// Print resets the tokens, and being last in the sheet is what makes the reset win.
 		const printAt = WEB_THEME_CSS.lastIndexOf("@media print{:root{");
 		expect(printAt).toBeGreaterThan(WEB_THEME_CSS.lastIndexOf("@media (prefers-color-scheme:light)"));
 		expect(WEB_THEME_CSS.slice(printAt)).toContain(`--canvas:${WEB_THEME_TOKENS.light["--canvas"]}`);
@@ -281,8 +263,7 @@ describe("web components", () => {
 		]) {
 			expect(WEB_COMPONENTS_CSS).toContain(selector);
 		}
-		// Columns size to their content and the wrapper scrolls a wide table
-		// horizontally, rather than a fixed layout equalizing and wrapping it.
+		// Columns size to content and the wrapper scrolls, rather than a fixed layout.
 		expect(WEB_COMPONENTS_CSS).toContain(
 			".bf-md table{margin:0;border-collapse:collapse;table-layout:auto;width:auto;",
 		);
@@ -291,8 +272,7 @@ describe("web components", () => {
 	});
 
 	test("draws the task checkbox so a done item can be green", () => {
-		// A disabled native checkbox is UA gray in both themes, so the success
-		// colour only reaches it once the box is drawn with appearance:none.
+		// A disabled native checkbox is UA gray, so the box is drawn with appearance:none.
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-md .md-check{appearance:none;");
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-md .md-check:checked{border-color:var(--success);");
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-md .md-check:disabled{opacity:1}");
