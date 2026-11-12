@@ -184,7 +184,7 @@ describe("the mission control's contracts", () => {
 		// Three rows, then the same fold control a swimlane uses: one affordance for "there is
 		// more" in this column, and it opens the board instead of saying where the board is.
 		expect(BOARD_CLIENT_JS).toContain("var STRIP = 3");
-		expect(BOARD_CLIENT_JS).toContain('el("button", N.teamLaneFold, "+" + count + " more")');
+		expect(BOARD_CLIENT_JS).toContain('el("button", N.fold, "+" + count + " more")');
 		// The caption is a count alone: the tab strip is the way to the whole board, so the
 		// column carries no second door for a heading to be a control.
 		expect(BOARD_CLIENT_JS).not.toContain("board-team__door");
