@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { paintLive } from "../../../lib/web/index.ts";
+import { NARROW_MAX_PX, paintLive } from "../../../lib/web/index.ts";
 import { CLIENT_JS } from "./client.ts";
 import { directoryPage } from "../../../test/helpers/file-browse-view.ts";
 import { LIVE_CLIENT_JS } from "./live-client.ts";
@@ -39,6 +39,20 @@ describe("the header", () => {
 		// The footer carries the page's facts and nothing the header already owns.
 		expect(off).toContain('<footer class="bf-app__foot"><span class="bf-footer__facts">served from ');
 		expect(off).not.toContain("read-only · ");
+	});
+});
+
+describe("the wrap control", () => {
+	test("means no wrap on a narrow screen, where the page wraps by default", () => {
+		// The kit wraps a code panel below a phone's width, so "off" has to be a class of its
+		// own: dropping a class would leave the lines wrapped and the button doing nothing.
+		expect(CLIENT_JS).toContain('code.classList.toggle("bf-code--wrap", on)');
+		expect(CLIENT_JS).toContain('code.classList.toggle("bf-code--nowrap", !on)');
+		// With no choice stored, the button starts on the answer the page is already showing.
+		expect(CLIENT_JS).toContain('saved === null ? narrowWindow() : saved === "1"');
+		// The width is the kit's number, not a second copy of it: the media rule that wraps the
+		// panel and this query must move together, or the button describes a rule that changed.
+		expect(CLIENT_JS).toContain(`matchMedia("(max-width:${NARROW_MAX_PX}px)")`);
 	});
 });
 

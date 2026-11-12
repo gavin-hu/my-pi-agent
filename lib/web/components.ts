@@ -8,6 +8,15 @@
  * between this kit's grammar and the pill-and-card one it replaces.
  */
 
+/**
+ * Viewport width, in px, at and below which a code panel wraps its lines.
+ *
+ * One number for both sides of the rule: the kit's media query wraps the panel, and
+ * `file-browse`'s wrap control reads the same width to know what the page is already doing.
+ * A literal in either place is how a button comes to describe a rule that moved.
+ */
+export const NARROW_MAX_PX = 720;
+
 export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-flex;align-items:baseline;gap:var(--space-2);font:var(--fw-semibold) var(--fs-base) var(--font-mono);white-space:nowrap}
 .bf-mark{display:inline-block;width:18px;height:18px;flex:0 0 18px;align-self:center}
 .bf-mark__top{fill:var(--accent)}
@@ -211,6 +220,16 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-code__line{display:block;padding:0 var(--space-4) 0 0;white-space:pre;min-height:1.55em}
 .bf-code--numbered .bf-code__line::before{counter-increment:line;content:counter(line);display:inline-block;width:64px;padding-right:var(--space-4);text-align:right;color:var(--dim);user-select:none}
 .bf-code--wrap .bf-code__line{white-space:pre-wrap;overflow-wrap:anywhere}
+/* Below a phone's width a line wraps rather than scrolling out of sight: a path or a
+   command is a fact the reader came for, and an overlay scrollbar is no way to reach it.
+   The same declaration the opt-in class states, so a page that asks for wrap and a phone
+   that does not cannot break a line differently. */
+@media (max-width:${NARROW_MAX_PX}px){
+  .bf-code__line,.bf-code>code{white-space:pre-wrap;overflow-wrap:anywhere}
+}
+/* The other answer, for a page with its own control: its "no wrap" has to mean no on a
+   narrow screen too, and it is more specific than the media rule above so it wins there. */
+.bf-code--nowrap .bf-code__line,.bf-code--nowrap>code{white-space:pre}
 .bf-media{display:flex;flex:1 1 auto;align-items:center;justify-content:center;padding:var(--space-6);min-height:240px;background-image:linear-gradient(45deg,var(--border) 25%,transparent 25%),linear-gradient(-45deg,var(--border) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--border) 75%),linear-gradient(-45deg,transparent 75%,var(--border) 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
 .bf-media img{max-width:100%;max-height:70vh;border-radius:var(--radius-sm)}
 /* The document keeps prose's face and loses GitHub's shapes: mono headings, a rail instead of
