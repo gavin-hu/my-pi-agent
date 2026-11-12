@@ -176,11 +176,7 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:var(--space-2);align-items:start;padding:var(--space-2) 0;border-bottom:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer}
 .bf-row:last-of-type{border-bottom:0}
 .bf-row:hover,.bf-row:focus-visible{background:var(--surface)}
-.bf-row__mark{font:var(--fs-xs) var(--font-mono);line-height:1.6;color:var(--dim)}
-.bf-row[data-lane="plan"] .bf-row__mark{color:var(--warn)}
-.bf-row[data-lane="execute"] .bf-row__mark{color:var(--accent)}
-.bf-row[data-lane="blocked"] .bf-row__mark{color:var(--danger)}
-.bf-row[data-lane="done"] .bf-row__mark{color:var(--success)}
+.bf-row__mark{font:var(--fs-xs) var(--font-mono);line-height:1.6;color:var(--lane-role,var(--dim))}
 .bf-row__id{font:var(--fs-xs) var(--font-mono);color:var(--dim);margin-right:6px}
 .bf-row__title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font:var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--text);overflow-wrap:anywhere}
 .bf-row__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:2px 0 0;font:var(--fs-xs) var(--font-mono);color:var(--muted)}
@@ -195,16 +191,8 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-row[data-current="true"] .bf-row__title{font-weight:var(--fw-semibold)}
 /* A lane is a head with a tone rule and rows under it — no tray, no fill, no inset edge. */
 .bf-lane{display:flex;flex-direction:column;min-width:0}
-.bf-lane__head{display:flex;align-items:center;gap:6px;margin:0 0 var(--space-2);padding-bottom:var(--space-1);border-bottom:2px solid var(--border);font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--muted)}
-.bf-lane[data-lane="plan"] .bf-lane__head{border-bottom-color:var(--warn)}
-.bf-lane[data-lane="execute"] .bf-lane__head{border-bottom-color:var(--accent)}
-.bf-lane[data-lane="blocked"] .bf-lane__head{border-bottom-color:var(--danger)}
-.bf-lane[data-lane="done"] .bf-lane__head{border-bottom-color:var(--success)}
-.bf-lane__dot{font-size:9px;line-height:1}
-.bf-lane[data-lane="plan"] .bf-lane__dot{color:var(--warn)}
-.bf-lane[data-lane="execute"] .bf-lane__dot{color:var(--accent)}
-.bf-lane[data-lane="blocked"] .bf-lane__dot{color:var(--danger)}
-.bf-lane[data-lane="done"] .bf-lane__dot{color:var(--success)}
+.bf-lane__head{display:flex;align-items:center;gap:6px;margin:0 0 var(--space-2);padding-bottom:var(--space-1);border-bottom:2px solid var(--lane-role,var(--border));font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--muted)}
+.bf-lane__dot{font-size:9px;line-height:1;color:var(--lane-role,var(--muted))}
 .bf-lane__count{margin-left:auto;color:var(--dim)}
 .bf-lane__empty{margin:0;padding:var(--space-2) 0;font:var(--fs-xs) var(--font-mono);color:var(--dim)}
 /* A section states its tone in the rule it already draws, never in a box around the content. */

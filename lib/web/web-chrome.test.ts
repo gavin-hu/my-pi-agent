@@ -336,11 +336,9 @@ describe("the kit's grammar", () => {
 		// No tray, no fill, no inset edge: the lane's tone is in the rule it already draws, and a
 		// row is a list item until a reader points at it.
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-lane__head{display:flex;align-items:center;gap:6px;");
-		expect(WEB_COMPONENTS_CSS).toContain("border-bottom:2px solid var(--border);font:var(--fw-semibold) var(--fs-xs)");
-		expect(WEB_COMPONENTS_CSS).toContain(
-			'.bf-lane[data-lane="execute"] .bf-lane__head{border-bottom-color:var(--accent)}',
-		);
-		expect(WEB_COMPONENTS_CSS).toContain('.bf-row[data-lane="blocked"] .bf-row__mark{color:var(--danger)}');
+		expect(WEB_COMPONENTS_CSS).toContain("border-bottom:2px solid var(--lane-role,var(--border));font:var(--fw-semibold) var(--fs-xs)");
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-lane__dot{font-size:9px;line-height:1;color:var(--lane-role,var(--muted))}");
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-row__mark{font:var(--fs-xs) var(--font-mono);line-height:1.6;color:var(--lane-role,var(--dim))}");
 		expect(rule(WEB_COMPONENTS_CSS, ".bf-row:hover,.bf-row:focus-visible{")).toContain("background:var(--surface)");
 		expect(WEB_COMPONENTS_CSS).toContain('.bf-row[data-current="true"] .bf-row__title{font-weight:var(--fw-semibold)}');
 		expect(WEB_COMPONENTS_CSS).toContain(
