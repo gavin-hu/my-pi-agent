@@ -345,7 +345,7 @@ ${reviewHints(data.role, data.canApprove)}
 	const controls = `${shareControl}${approveButton}${saveControl}${closeControl}`;
 	// An empty control bar is a rule with nothing above it: a viewer opens no bar at all, which
 	// is also what keeps the page from looking like a review that lost its buttons.
-	const controlBar = controls === "" ? "" : `<div class="bf-app__bar review-actions">${controls}</div>`;
+	const controlBar = controls === "" ? "" : `<div class="bf-app__ctl review-actions">${controls}</div>`;
 	// One name for the page, read from the role: a view is not a review, and the tab, the
 	// toolbar lockup, and the section of the docs that explains it must not disagree.
 	const pageName = isViewer ? "plan view" : "plan review";
