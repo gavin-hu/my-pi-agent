@@ -88,7 +88,7 @@ ${WEB_COMPONENTS_CSS}
 /* The bar is the board's own control row: the view switch, the done meter, and the filter,
    with the filter pushed to the end of whatever room the row has. */
 .board-bar{gap:var(--space-3)}
-.board-filter{width:13rem}
+.board-filter{width:19rem}
 .board-progress{margin:0}
 .board-picker{display:none;margin-bottom:var(--space-3)}
 
@@ -271,10 +271,10 @@ ${REASON_TONE_CSS}
 /* The lanes: a head that sticks under the column's caption, then the cards that fit. */
 .board-team__lanes{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
 .board-team__lane{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
-.board-team__lane-head{display:flex;align-items:center;gap:var(--space-2);margin:0;color:var(--muted);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase}
+.board-team__lane-head{display:flex;align-items:center;gap:var(--space-2);margin:0;padding-bottom:var(--space-1);border-bottom:1px solid var(--border);color:var(--muted);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase}
 .board-team__lane-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .board-team__lane-dot{width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
-.board-team__lane-count{margin-left:auto;padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--raised);color:var(--text);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;letter-spacing:0}
+.board-team__lane-count{padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--raised);color:var(--text);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;letter-spacing:0}
 .board-team__lane-empty{margin:0;color:var(--dim);font:var(--fs-xs) var(--font-ui)}
 .board-team__lane-fold{appearance:none;border:0;background:none;padding:0;margin:0;min-height:24px;color:var(--muted);font:var(--fs-xs) var(--font-ui);text-align:left;text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
 .board-team__lane-fold:hover{color:var(--accent)}

@@ -6,15 +6,16 @@ when its owner is gone, claim one for yourself, or ask a peer a question. Nothin
 here starts a process — every action is a message, and a peer listening with `wake`
 is woken for it ([`session-bus`](session-bus.md) owns that rule).
 
-<img src="../../assets/screens/team.png" alt="The Team tab: a Needs a decision queue of rows with a reason line, then a Teammates list of one-line rows with state dots, labels, mail badges, and what each holds" width="1280" height="671">
+<img src="../../assets/screens/team.png" alt="The Team tab as three columns: AGENTS with the lead pinned first and one card per session carrying a monogram, its state, its mail and its missions; ACTIVE WORK with a decisions strip over BLOCKED, EXECUTE and PLAN swimlanes; ACTIVITY with WAITING mail and a RECENT rail" width="1280" height="778">
 
-- **A message, not a launch.** `assign`, `offer`, and `ask` land in an inbox and
-  start no process; a session listening with `wake` is woken by them exactly as by
-  any other message.
-- **Joining is automatic**: `/board`, a claim, an `assign`, or an `ask` puts the
-  session on the team; `offer` and `reclaim` join nothing.
-- **`/team join <label>`** is the one door that renames the session.
-- **Nothing is spawned** — a peer that is not running stays not running.
+The board's Team tab is the same round as a page, in three columns that each count
+themselves and scroll as one. **AGENTS** holds a card per session, the board's lead pinned
+first whatever its state, each with a monogram, `lead` and `you` chips, a needs-you count on
+the lead's card, a state pill (`working` inside a turn, `quiet 42m` with the age a reclaim
+turns on), and a line per mission with its lane as a bar. **ACTIVE WORK** is the lead's queue
+as a strip over the `blocked`, `execute` and `plan` swimlanes, each reason one hover away,
+with `→ Board` for the whole board. **ACTIVITY** is the unread mail — each row wearing its
+recipient's state — above the cards' recent history. Reading consumes nothing.
 
 ## What you can do
 

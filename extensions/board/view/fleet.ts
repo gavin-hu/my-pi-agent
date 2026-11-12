@@ -56,6 +56,7 @@ __HISTORY_LINE__
     var pill = el("span", N.agentState);
     pill.setAttribute("data-state", agent.state);
     var dot = el("span", N.dot);
+    dot.setAttribute("data-state", agent.state);
     dot.setAttribute("aria-hidden", "true");
     pill.appendChild(dot);
     if (agent.working) {

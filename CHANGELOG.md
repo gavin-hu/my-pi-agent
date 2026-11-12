@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the Team tab is a three-column agent mission control, read-only and drawn from one
+  snapshot. **AGENTS** lists a card per session with the board's lead pinned first whatever its
+  state, each carrying a monogram, `lead` and `you` chips, a needs-you count on the lead's card,
+  a state pill that says `working` inside a turn or `quiet 42m` with the age a reclaim turns on,
+  and one line per mission with its lane as a bar. **ACTIVE WORK** is the lead's queue as a strip
+  over the `blocked`, `execute` and `plan` swimlanes, every reason one hover and one
+  `aria-describedby` away. **ACTIVITY** shows the mail nobody has read — each row wearing its
+  recipient's state, a broadcast drawn once — above a Recent rail derived from the cards' own
+  records. Each column counts itself, the tab is one page scroll with sticky captions, a frame
+  lands without taking scroll or focus, and the filter matches cards, agent labels and mail.
+
+- `session-bus`: the record carries the turn. `agent_start` stamps `turnAt` and `agent_settled`
+  drops it, each written at once rather than on the next heartbeat, so a peer can say a session
+  is working instead of reading a fresh heartbeat as idle. A stamp is believed only beside a
+  fresh heartbeat: a process that died mid-turn left it behind.
+
 - `board`: a review records a verified result, and `done` refuses without a fresh one. A contract
   may name a fourth, optional line — `verify`, the command its acceptance is checked by — and a
   spot-check of a card that names one is that command's run: the `review` action and
