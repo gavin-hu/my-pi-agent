@@ -96,7 +96,6 @@ export const BOARD_CLASS = {
 	agentMail: "board-agent__mail",
 	missions: "board-team__missions",
 	mission: "board-team__mission",
-	missionBar: "board-team__bar",
 	missionRef: "board-team__mission-ref",
 	missionLane: "board-team__mission-lane",
 	missionAge: "board-team__mission-age",
