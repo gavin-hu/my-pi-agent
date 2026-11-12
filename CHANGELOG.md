@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `dev`: a frame is captured once the page has settled rather than after a fixed wait, and the PNG is
+  written only when a second shot agrees with it. Two captures of one tree used to come back with
+  the same layout and a few different glyph edges, so a re-shoot could commit either variant.
+
 - `board`: a held-card line inside a PEOPLE card says its lane in the word beside the number, not
   in a 2px bar before it — inside a card the paper is what carries the lane. The "no mission" line
   keeps the same text edge without reserving a bar's width.

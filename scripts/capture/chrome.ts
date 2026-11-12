@@ -13,7 +13,7 @@
  * expressions to evaluate before the capture, and the output path.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { type Browser, type Page, chromium } from "playwright-core";
 
 /**
@@ -110,6 +110,9 @@ const VIEWPORT_HEIGHT = 900;
 /** How long the page gets to reach the requested document and report itself ready. */
 const LOAD_TIMEOUT_MS = 15_000;
 
+/** How many buffered shots a capture may take before it writes the last one it has. */
+const STABLE_SHOTS = 3;
+
 /**
  * Evaluate in the page, retrying while the document is replaced. Playwright
  * opens the tab before the first document commits, so an immediate evaluate can
@@ -151,6 +154,38 @@ export function readyWhen(condition: string, timeoutMs: number): string {
 }
 
 /**
+ * Wait for the page to settle: its fonts are loaded and two frames have been
+ * painted, so the image is a layout the browser finished rather than one it is
+ * still rasterizing.
+ */
+async function settled(page: Page): Promise<void> {
+	await page.waitForFunction("document.fonts ? document.fonts.ready : true", undefined, { timeout: LOAD_TIMEOUT_MS });
+	await page.evaluate(
+		"new Promise(function (resolve) { requestAnimationFrame(function () { requestAnimationFrame(resolve); }); })",
+	);
+}
+
+/**
+ * A shot that a second shot agrees with, so one tree yields one image.
+ *
+ * Text is re-rasterized after the resize and the sub-pixel outcome can differ
+ * between two shots of the same layout, which made a re-shoot a coin flip: the
+ * committed frame and a fresh one matched for every byte but a few glyph edges.
+ * A page whose content moves between shots (a live board) never agrees, so the
+ * loop stops at `STABLE_SHOTS` and writes what a single shot would have written.
+ */
+async function agreedShot(page: Page): Promise<Uint8Array> {
+	let shot = await page.screenshot({ fullPage: true, animations: "disabled" });
+	for (let attempt = 1; attempt < STABLE_SHOTS; attempt++) {
+		await settled(page);
+		const again = await page.screenshot({ fullPage: true, animations: "disabled" });
+		if (Buffer.compare(shot, again) === 0) return again;
+		shot = again;
+	}
+	return shot;
+}
+
+/**
  * Capture `options.url` as one full-page PNG, at the requested device scale.
  *
  * The document is awaited at its own origin rather than at the tab
@@ -188,9 +223,10 @@ export async function captureFullPage(options: ChromeShotOptions): Promise<void>
 		if (width !== options.width) await page.setViewportSize({ width, height: VIEWPORT_HEIGHT });
 		const contentHeight = await page.evaluate<number>("Math.ceil(document.body.getBoundingClientRect().height)");
 		await page.setViewportSize({ width, height: Math.max(1, contentHeight) });
-		// A last frame for the layout that resize may have changed.
-		await page.waitForTimeout(100);
-		await page.screenshot({ path: options.out, fullPage: true, animations: "disabled" });
+		// The resize re-lays out the page and re-rasterizes its text, so the image
+		// waits for fonts and frames rather than for a number of milliseconds.
+		await settled(page);
+		writeFileSync(options.out, await agreedShot(page));
 	} finally {
 		await browser.close();
 	}
