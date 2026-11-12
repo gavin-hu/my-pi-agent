@@ -10,6 +10,7 @@ import { argumentlessCalls, declaredFunctions, missingBundleBodies } from "../..
 import { islandOf, reviewPage } from "../../test/helpers/fixtures/plan-web.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { REVIEW_CSS } from "./web-page.ts";
+import { kitNamesIn } from "../../test/helpers/web-classes.ts";
 describe("the review's tab", () => {
 	test("names the plan in the document head, before a script runs", () => {
 		// A tab is read in a browser's tab strip, so the title has to be in the document: a
@@ -233,14 +234,15 @@ describe("the page's chrome", () => {
 		expect(REVIEW_CSS).toContain(".review-bar .bf-context--subject{direction:ltr;text-align:left}");
 	});
 
-	test("draws the view switch as the kit's segmented control", () => {
+	test("draws the view switch as the kit's tabs, with the current view marked", () => {
+		// The kit renamed the segmented control to tabs; a page that kept the old class drew three bare
+		// buttons with no current mark, which is a dead class and not a style choice.
 		const html = reviewPage();
+		expect(html).toContain('<div class="bf-tabs review-view" role="group" aria-label="What to show" id="review-view">');
 		expect(html).toContain(
-			'<div class="bf-segmented review-view" role="group" aria-label="What to show" id="review-view">',
+			'<button type="button" class="bf-tabs__item" data-view="all" aria-pressed="true">All</button>',
 		);
-		expect(html).toContain(
-			'<button type="button" class="bf-segmented__item" data-view="all" aria-pressed="true">All</button>',
-		);
+		expect(html).not.toContain("bf-segmented");
 	});
 });
 
@@ -309,5 +311,51 @@ describe("the client bundle", () => {
 			"deps.renderFacts();",
 		].join("\n");
 		expect(argumentlessCalls(bundle, ["renderFacts", "closeComposer", "unused"])).toEqual(["renderFacts"]);
+	});
+});
+
+describe("the page's own design rules", () => {
+	/** The page's own rules: everything after the last kit block, which is where its sheet starts. */
+	const own = () => REVIEW_CSS.split(WEB_COMPONENTS_CSS)[1] ?? "";
+
+	test("leaves the kit's face and case alone, and keeps mono for a URL and code", () => {
+		// The page wears the kit's language: a label is the UI's, and mono survives only where the text
+		// is something a reader copies or reads character by character.
+		expect(own()).not.toContain("text-transform");
+		for (const rule of own()
+			.split("\n")
+			.filter((line) => line.includes("var(--font-mono)"))) {
+			expect(rule, rule).toMatch(/^\.(review-share__url|bf-block code|bf-block pre\.bf-code)\{/);
+		}
+	});
+
+	test("writes no class the kit and the page do not both answer for", () => {
+		// A renamed kit class is silent: the markup keeps a word no rule knows and the control loses its
+		// shape. Every `bf-*` word the page emits is looked up in the sheet the page ships.
+		const emitted = new Set(kitNamesIn(reviewPage()));
+		// Two classes have no rule by design: the theme toggle, which the kit's script binds (its glyph
+		// is what the sheet styles), and the outline's details, which the client opens and closes.
+		const hooks = new Set(["bf-theme-toggle", "review-outline"]);
+		for (const name of emitted) {
+			if (hooks.has(name)) continue;
+			if (!name.startsWith("bf-") && !name.startsWith("review-")) continue;
+			expect(REVIEW_CSS, name).toContain(`.${name}`);
+		}
+	});
+
+	test("names only tokens that exist, for its radius and its elevation", () => {
+		// An undefined custom property is silent: `var(--radius-pill)` drew a square for as long as the
+		// kit never defined it, so the page's variables are checked against the kit's and its own.
+		const defined = new Set(
+			[...`${WEB_THEME_CSS}${WEB_COMPONENTS_CSS}${own()}`.matchAll(/--[a-z0-9-]+:/g)].map((hit) => hit[0].slice(0, -1)),
+		);
+		for (const used of own().matchAll(/var\((--[a-z0-9-]+)\)/g)) {
+			expect(defined.has(used[1] as string), used[1] as string).toBe(true);
+		}
+		for (const shadow of own().matchAll(/box-shadow:([^;}]+)/g)) {
+			// A print rule clears the mark it drew on screen; everything else is a kit token.
+			if ((shadow[1] as string).startsWith("inset ") || shadow[1] === "none") continue;
+			expect(shadow[1], shadow[1]).toMatch(/^var\(--shadow-[12]\)$/);
+		}
 	});
 });

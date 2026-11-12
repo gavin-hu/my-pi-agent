@@ -39,7 +39,7 @@ backtick or `${` may appear in one. The DOM is reached through `globalThis`, bec
 project compiles without a DOM lib; the cast names the guarantee the page makes.
 
 What stays page-side: what a state *says*. `paintStatus` owns the text, its tooltip, and
-the `bf-status--<tone>` class; `paintLive` owns the live chip's tone modifier, its word,
+the `bf-status--<tone>` class; `paintLive` owns the live state's tone modifier, its word,
 and its tooltip — and the board composes `live · 3m` while browse puts the stream's own
 `up 2m 14s · 37 requests` in the hover. A shared runtime that also decided the wording
 would be a second copy of the page's voice.
@@ -134,7 +134,7 @@ Four tokens are **stated** in the `Palette` literal, one entry per appearance, b
 decision and not a rule: `--on-accent` (a label on the accent fill — white on the light theme's
 `#4f46e5`, the dark canvas colour on the dark theme's `#8b9dff`), `--scrim` (a dimming layer needs
 its own alpha rather than a palette entry), and `--shadow-1`/`--shadow-2` (elevation: `1` for a
-card, a menu, a key sheet and the header; `2` for a dialog). A component may name one of the two
+record, a menu, a key sheet and the header; `2` for a dialog). A component may name one of the two
 shadows and nothing else; a literal blur fails the same test a literal hex does.
 
 Five are **computed**, so no appearance can hand-pick one and drift:
@@ -144,7 +144,7 @@ Five are **computed**, so no appearance can hand-pick one and drift:
   read as a plane above the page rather than as an outline. The step is per appearance because one
   that reads on a dark canvas is invisible on a white one.
 - `--success-soft`, `--danger-soft`, `--search-soft` — their own tone at a low alpha, for a tinted
-  chip or a highlighted match.
+  tag or a highlighted match.
 
 **The face is part of the role.** `--font-ui` carries every label, control and heading, and
 `--font-mono` is kept for what *is* code — a command, a card id, a file path, a key — because a
@@ -176,11 +176,15 @@ reason are in `layout.ts`.
 
 ## The `bf-*` kit
 
-`bf-` marks the kit: brand and mark, toolbar, title, buttons (`--primary`,
-`--ghost`, `--icon`), chips and their tones, segmented control, field and input,
-textarea, panel, progress, status, note, empty state, dialog (head, body, actions,
-status, input, list, option), shortcut sheet and `bf-kbd`, tree, crumbs, table and
-sort, card, code, media, Markdown body, comment, composer, and quote chip.
+`bf-` marks the kit: brand and mark, toolbar and `bf-spacer`, title, context, buttons
+(`--primary`, `--ghost`, `--icon`, `--danger`), tags and their tones, tabs, field and
+input, textarea, panel, gauge, status, note, badge, empty state, dialog (head, body,
+actions, status, input, list, option), shortcut sheet and `bf-kbd`, tree, crumbs, table
+and sort, record, row, lane, section, live state and reload, code, media, Markdown body,
+comment, composer, and quote chip.
+
+Four of those are renames: what the kit called a chip is a tag, a segmented control is a
+tab, progress is a gauge, and a card is a record.
 
 States are attributes, not classes, wherever a control has them:
 `aria-pressed`, `aria-current`, `aria-sort`, `aria-expanded`, `hidden`. The base
@@ -238,8 +242,8 @@ markup.
 ## Print and forced colours
 
 `base.ts` owns both medias. Print un-constrains the shell and drops the toolbar,
-sidebar, footer, progress bar, skip link, and dialogs; a page adds what its own
-box clips (a card, a code pane, a sticky hunk header). Under
+sidebar, footer, gauge, skip link, and dialogs; a page adds what its own box clips
+(a record, a code pane, a sticky hunk header). Under
 `forced-colors:active` the hand-drawn task checkbox names system colours and the
 focus ring stays `CanvasText`, because Windows High Contrast replaces colour but
 not a drawn control.

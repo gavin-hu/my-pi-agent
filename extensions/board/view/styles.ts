@@ -229,8 +229,6 @@ ${DECISION_WHY_CSS}
 .board-team .bf-row:not(.board-row):focus-visible{outline:2px solid var(--accent)}
 /* A person is two columns — the monogram, then everything else — so it keeps its own grid. */
 .board-team .bf-row.board-agent{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}
-/* A chip in a sentence has nothing to separate, and a label is not a path. */
-.board-team .bf-tag{border-left:0;padding-left:0}
 /* A lane head inside a swimlane is a deck head one level down: the same dot, no rule of its
    own, because the deck above it already carries the line. */
 .board-team .bf-lane__head{border-bottom:0;margin:0;font:var(--fw-semibold) var(--fs-xs) var(--font-ui);color:var(--muted)}

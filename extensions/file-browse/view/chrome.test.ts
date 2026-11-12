@@ -7,29 +7,12 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { NARROW_MAX_PX, paintLive } from "../../../lib/web/index.ts";
+import { kitNamesIn, rulesClass, sourcesUnder } from "../../../test/helpers/web-classes.ts";
 import { CLIENT_JS } from "./client.ts";
 import { directoryPage } from "../../../test/helpers/file-browse-view.ts";
 import { LIVE_CLIENT_JS } from "./live-client.ts";
 import { BROWSE_CSS } from "./styles.ts";
-
-/**
- * Every source the browse pages are built from — markup, client fragments and chrome — as one
- * string. `styles.ts` is the other side of the check and the suites are not shipped.
- */
-function pageSources(): string {
-	return readdirSync(import.meta.dir)
-		.filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts") && file !== "styles.ts")
-		.map((file) => readFileSync(join(import.meta.dir, file), "utf-8"))
-		.join("\n");
-}
-
-/** The `bf-` names one page writes, sorted: a kit class in markup or in a script is the same claim. */
-function kitNamesIn(source: string): string[] {
-	return [...new Set(source.match(/\bbf-[a-z0-9]+(?:[-_]{1,2}[a-z0-9]+)*/g) ?? [])].sort();
-}
 
 describe("the header", () => {
 	test("keeps the served folder's tail when the path is cut", () => {
@@ -113,6 +96,13 @@ describe("the kit's names", () => {
 		// own suite holds the inward half (it still names no removed class); this is the outward
 		// half, read from the text rather than from imports because the failure is a string no
 		// type checker sees.
-		expect(kitNamesIn(pageSources()).filter((name) => !BROWSE_CSS.includes(`.${name}`))).toEqual([]);
+		// `bf-diff-line` is a family, not a class: each line wears a colour modifier and the sheet rules
+		// all five, so the exact name is never the one a reader sees.
+		const families = new Set(["bf-diff-line"]);
+		expect(
+			kitNamesIn(sourcesUnder(import.meta.dir, ["styles.ts"])).filter(
+				(name) => !families.has(name) && !rulesClass(BROWSE_CSS, name),
+			),
+		).toEqual([]);
 	});
 });

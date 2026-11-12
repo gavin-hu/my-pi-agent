@@ -67,7 +67,7 @@ export function renderChanges(summary: ChangeIndex | undefined, live: LivePage |
 	const count = summary?.count ?? 0;
 	if (count <= 0) {
 		return live
-			? `<a class="bf-tag browse-diff" id="browse-changes" href="${base}/diff" title="View uncommitted changes" hidden></a>`
+			? `<a class="bf-tag browse-changes" id="browse-changes" href="${base}/diff" title="View uncommitted changes" hidden></a>`
 			: "";
 	}
 	const label = `${count} change${count === 1 ? "" : "s"}`;
@@ -75,8 +75,8 @@ export function renderChanges(summary: ChangeIndex | undefined, live: LivePage |
 	const deletions = summary?.deletions ?? 0;
 	const totals =
 		insertions + deletions > 0
-			? ` <span class="browse-diff-totals"><span class="browse-diff-add">+${insertions}</span> <span class="browse-diff-del">−${deletions}</span></span>`
+			? ` <span class="browse-changes__totals"><span class="browse-diff-add">+${insertions}</span> <span class="browse-diff-del">−${deletions}</span></span>`
 			: "";
 	const aria = `${label} against HEAD${insertions + deletions > 0 ? `, ${insertions} insertions and ${deletions} deletions` : ""}`;
-	return `<a class="bf-tag browse-diff" id="browse-changes" href="${base}/diff" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-diff__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</a>`;
+	return `<a class="bf-tag browse-changes" id="browse-changes" href="${base}/diff" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-changes__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</a>`;
 }

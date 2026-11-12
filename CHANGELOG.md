@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `lib`: the web kit loses the two rules it drew along an edge. A tag drops its 2px left rail —
+  every page's tags change, the board's paths and team labels and the browse header's branch and
+  changes — and is now a glyph and a word, with its tone in the word's colour. A record drops the
+  accent-and-warn stripe above it, so the one box a page reads whole is a lifted plane with a head
+  and nothing drawn round it.
+
+- `file-browse`: the labels the page is not reading as data take the UI face. The changes tag is its
+  own class, so the changes table keeps the mono paths and stops setting the words "modified" and
+  "untracked" in them, its totals and the record's diff summary are figures rather than code, and
+  the quick-open trigger wears the kit's key cap instead of a bare `kbd`.
+
+- `plan`: the review page leaves its terminal skin with the kit. Its labels — the share line, the
+  fact values, the outline's title and count, a block's count, and a comment's label, moved and
+  resolved words — are the UI face, mono is kept for the share URL and the code, and the uppercased,
+  letterspaced section words read as the sentences they are. A comment is a lifted card now, the
+  view switch wears the kit's tabs (it still wore the deleted segmented class), and the page's
+  step meter is its own `review-steps` bar instead of the removed `bf-progress`, whose three
+  undefined `--radius-pill` counts drew squares.
+
 - `board`: a lane head rides the pane's edge while a long lane scrolls. The lanes row stretched no
   longer, so every lane was as tall as its own rows and a head pinned inside a two-card lane had
   283px of travel before it left the top of the screen — the four quiet lanes' names and counts

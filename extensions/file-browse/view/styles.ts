@@ -23,7 +23,6 @@ ${WEB_COMPONENTS_CSS}
 .browse-git{font-family:var(--font-mono)}
 .browse-quick-open{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);width:100%;margin-bottom:var(--space-2);padding:6px var(--space-2);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);color:var(--muted);font:var(--fs-sm) var(--font-ui);cursor:pointer}
 .browse-quick-open:hover{border-color:var(--accent);color:var(--accent)}
-.browse-quick-open kbd{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--dim)}
 .browse-side__filters{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2)}
 .browse-side__filters .bf-field{flex:1 1 auto;min-width:0}
 .browse-side__filters .bf-btn{flex:0 0 auto;white-space:nowrap}
@@ -37,11 +36,14 @@ ${WEB_COMPONENTS_CSS}
 .browse-broken{color:var(--muted);text-decoration:line-through}
 .browse-link-mark{color:var(--muted);font-size:var(--fs-xs)}
 body.palette-open{overflow:hidden}
-.browse-diff{font-family:var(--font-mono);gap:5px}
-.browse-diff:hover{color:var(--accent);text-decoration:none}
-.browse-diff__dot{color:var(--warn);font-size:9px;line-height:1}
+/* The changes tag: the dot marks it, the words are the UI's face, and the totals are figures a
+   reader compares, so they keep the same width from one tick to the next. The changes table is
+   .browse-diff and keeps its paths mono through the kit's name cell. */
+.browse-changes{gap:5px}
+.browse-changes:hover{color:var(--accent);text-decoration:none}
+.browse-changes__dot{color:var(--warn);font-size:9px;line-height:1}
+.browse-changes__totals{font-variant-numeric:tabular-nums}
 .browse-change{color:var(--warn);font-size:9px;line-height:1;flex:0 0 auto}
-.browse-diff-totals{font-family:var(--font-mono)}
 .browse-diff-add{color:var(--success)}
 .browse-diff-del{color:var(--danger)}
 .browse-diff-scope{color:var(--muted);font-size:var(--fs-sm);font-weight:var(--fw-medium)}
@@ -115,7 +117,7 @@ body.palette-open{overflow:hidden}
    so both step up to the raised plane and the nested span stays with its block. */
 .browse-page .bf-md code{background:var(--raised)}
 .browse-page .bf-md pre code{background:none}
-.browse-diff-summary{font-family:var(--font-mono);white-space:nowrap}
+.browse-diff-summary{white-space:nowrap}
 .browse-diff-summary .browse-diff-add{color:var(--success)}
 .browse-diff-summary .browse-diff-del{color:var(--danger)}
 .browse-hunks{color:var(--muted)}

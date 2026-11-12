@@ -44,9 +44,9 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 .bf-tone--danger{color:var(--danger)}
 .bf-tone--dim{color:var(--dim)}
 .bf-tone--muted{color:var(--muted)}
-/* A tag is a rail, not a pill: a 2px edge in the tone, a glyph, a word in mono. No box and no
-   radius, because a box in this kit is a container or an action. */
-.bf-tag{display:inline-flex;align-items:center;gap:5px;padding-left:5px;border-left:2px solid currentColor;font:var(--fs-xs) var(--font-ui);color:var(--muted);white-space:nowrap}
+/* A tag is a glyph and a word: the glyph is a mark before the word, the tone is the word's
+   colour. No rail, no box and no radius, because a box in this kit is a container or an action. */
+.bf-tag{display:inline-flex;align-items:center;gap:5px;font:var(--fs-xs) var(--font-ui);color:var(--muted);white-space:nowrap}
 .bf-tag__glyph{font-size:10px;line-height:1}
 .bf-tag--trunc{max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* The live state and its one action: borderless, the tone is the text's colour, so a new state
@@ -178,11 +178,10 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 th[aria-sort] .bf-sort{color:var(--text);font-weight:var(--fw-semibold)}
 th[aria-sort="ascending"] .bf-sort::after{content:" \\25B2";font-size:9px;color:var(--accent)}
 th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color:var(--accent)}
-/* The one box a page reads whole: a raised plane with the signature rule above it — the accent's
-   lead, the warn's step, then the border — and the first elevation step, which is what makes it
-   a card. */
+/* The one box a page reads whole: a raised plane and the first elevation step, which is what
+   makes it a card. No rule along its top: the head is where a record is named, and a stripe that
+   decorates it reads as a state the record does not have. */
 .bf-record{display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}
-.bf-record::before{content:"";display:block;flex:0 0 auto;height:2px;background:linear-gradient(90deg,var(--accent) 0 12px,var(--warn) 12px 18px,var(--border) 18px)}
 .bf-record__head{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border);flex-wrap:wrap}
 .bf-record__title{margin:0;font:var(--fw-semibold) var(--fs-lg) var(--font-ui);letter-spacing:-.01em}
 .bf-record__meta{color:var(--muted);font:var(--fs-sm) var(--font-ui)}

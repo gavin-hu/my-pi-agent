@@ -48,7 +48,7 @@ ${WEB_COMPONENTS_CSS}
 .review-share__list{list-style:none;margin:0 0 var(--space-3);padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
 .review-share__row{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md)}
 .review-share__url{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--fs-sm) var(--font-mono);color:var(--text)}
-.review-share__who{flex:0 0 auto;font:var(--fs-xs) var(--font-mono);color:var(--muted)}
+.review-share__who{flex:0 0 auto;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .review-share__who--bound{color:var(--accent)}
 .review-share__actions{display:flex;flex:0 0 auto;gap:4px}
 .review-share__actions .bf-btn{padding:1px 8px;font-size:var(--fs-xs)}
@@ -94,20 +94,21 @@ ${WEB_COMPONENTS_CSS}
 /* The label is one word or two, never a column: squeezed by the value beside it, it broke
    "Plan steps" over two lines. It holds its line, and the value wraps below instead. */
 .review-fact>span:first-child{white-space:nowrap}
-.review-fact .bf-progress{color:var(--text)}
-.review-fact .bf-progress__track{width:96px}
-.review-fact__value{color:var(--text);font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.review-steps{display:inline-flex;align-items:center;gap:var(--space-2);color:var(--text)}
+.review-steps__track{display:inline-block;width:96px;height:6px;border-radius:var(--radius-badge);background:var(--accent-soft);overflow:hidden}
+.review-steps__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
+.review-fact__value{color:var(--text);font-family:var(--font-ui);font-variant-numeric:tabular-nums}
 .review-view{display:flex}
-.review-view .bf-segmented__item{flex:1 1 auto;justify-content:center}
-.review-view .bf-segmented__item:disabled{opacity:.5;cursor:default}
+.review-view .bf-tabs__item{flex:1 1 auto;justify-content:center}
+.review-view .bf-tabs__item:disabled{opacity:.5;cursor:default}
 .review-nav{min-width:0}
-.review-nav__title{margin:0;font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.review-nav__title{margin:0;font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
 .review-nav ul{list-style:none;margin:0;padding:0}
 .review-nav a{display:flex;align-items:baseline;gap:var(--space-2);padding:4px 8px;border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm);line-height:var(--lh-snug)}
 .review-nav a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none}
 .review-nav a[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:var(--fw-semibold)}
 .review-nav__link{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.review-nav__count{flex:0 0 auto;min-width:18px;padding:0 5px;border-radius:var(--radius-pill);background:var(--accent-soft);color:var(--accent);font:var(--fs-xs)/18px var(--font-mono);text-align:center}
+.review-nav__count{flex:0 0 auto;min-width:18px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--accent);font:var(--fs-xs)/18px var(--font-ui);text-align:center}
 .review-changed{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .review-nav .lvl-2 a{padding-left:18px}
 .review-nav .lvl-3 a{padding-left:30px}
@@ -118,10 +119,10 @@ ${WEB_COMPONENTS_CSS}
 .bf-review>.bf-block{position:relative;width:100%;max-width:var(--review-measure);margin:0 auto;padding:3px 8px 3px var(--review-gutter);border-radius:var(--radius-md);overflow-wrap:break-word}
 .bf-block[id]{scroll-margin-top:88px}
 .bf-block__rail{position:absolute;left:0;top:6px;display:flex;flex-direction:column;align-items:center;gap:6px;width:var(--review-rail)}
-.bf-block__add{appearance:none;width:22px;height:22px;min-width:22px;padding:0;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--muted);font:var(--fs-md)/1 var(--font-ui);cursor:pointer;opacity:0;transition:opacity var(--motion-fast) var(--motion-ease)}
+.bf-block__add{appearance:none;width:22px;height:22px;min-width:22px;padding:0;border:1px solid var(--border);border-radius:var(--radius-badge);background:var(--surface);color:var(--muted);font:var(--fs-md)/1 var(--font-ui);cursor:pointer;opacity:0;transition:opacity var(--motion-fast) var(--motion-ease)}
 .bf-block__add:hover{border-color:var(--accent);color:var(--accent)}
 .bf-block:hover .bf-block__add,.bf-block:focus-within .bf-block__add,.bf-block--active .bf-block__add,.bf-block--commented .bf-block__add{opacity:1}
-.bf-block__count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:var(--radius-pill);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs)/1 var(--font-mono)}
+.bf-block__count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs)/1 var(--font-ui)}
 /* A block the last review did not hold: the one mark that says "read this line again". The
    rule sits at the text edge, inside the gutter the rail already reserves, so it cannot
    reflow the measure or collide with a comment badge. */
@@ -154,17 +155,16 @@ ${WEB_COMPONENTS_CSS}
 .bf-comments:empty{display:none}
 .bf-comments--orphans{margin-top:26px;padding:var(--space-3) 0 0 var(--review-gutter);border-top:1px dashed var(--border)}
 .bf-comments--orphans>p{margin:0 0 8px;color:var(--muted);font-size:var(--fs-sm)}
-.bf-comment{padding:var(--space-3) var(--space-4)}
+.bf-comment{padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}
 .bf-comment__head{display:flex;align-items:center;gap:var(--space-2);margin-bottom:6px}
-.bf-comment__label{font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--warn);text-transform:uppercase;letter-spacing:.06em}
+.bf-comment__label{font:var(--fw-semibold) var(--fs-xs) var(--font-ui);color:var(--warn)}
 /* A reviewer's name is a name, not a label: keep its own capitalisation. */
-.bf-comment__label--author{text-transform:none;letter-spacing:0}
 /* A note a refinement carried off its own block: muted, because the complaint is the guess, not the text. */
-.bf-comment__moved{font:var(--fw-medium) var(--fs-xs) var(--font-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 6px}
+.bf-comment__moved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 6px}
 .bf-comment__spacer{flex:1 1 auto}
 /* A settled note keeps its quote and loses its body: the record stays, the eye moves on. */
 .bf-comment--resolved{border-left-color:var(--success);opacity:.72}
-.bf-comment__resolved{font:var(--fw-medium) var(--fs-xs) var(--font-mono);color:var(--success);text-transform:uppercase;letter-spacing:.06em}
+.bf-comment__resolved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--success)}
 .bf-comment__actions{display:flex;gap:4px}
 .bf-comment__actions .bf-btn{padding:1px 8px;font-size:var(--fs-xs)}
 .bf-comment__quote{margin-bottom:6px;padding-left:8px;border-left:2px solid var(--border);color:var(--muted);font-size:var(--fs-sm);overflow-wrap:anywhere}
@@ -313,10 +313,10 @@ export function renderReviewPage(data: ReviewPageData): string {
 <div class="bf-panel review-panel">
 ${finishBlock(data.role, data.canApprove)}${identity}
 ${reviewFacts(data.role)}
-<div class="bf-segmented review-view" role="group" aria-label="What to show" id="review-view">
-<button type="button" class="bf-segmented__item" data-view="all" aria-pressed="true">All</button>
-<button type="button" class="bf-segmented__item" data-view="changed" aria-pressed="false">Changed</button>
-<button type="button" class="bf-segmented__item" data-view="comments" aria-pressed="false">Comments</button>
+<div class="bf-tabs review-view" role="group" aria-label="What to show" id="review-view">
+<button type="button" class="bf-tabs__item" data-view="all" aria-pressed="true">All</button>
+<button type="button" class="bf-tabs__item" data-view="changed" aria-pressed="false">Changed</button>
+<button type="button" class="bf-tabs__item" data-view="comments" aria-pressed="false">Comments</button>
 </div>
 <nav class="review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
 ${reviewHints(data.role, data.canApprove)}
@@ -395,7 +395,7 @@ function reviewFacts(role: ReviewRole): string {
 		role === "reviewer"
 			? ""
 			: `
-<div class="review-fact" id="step-fact"><span>Plan steps</span><span class="bf-progress"><span class="bf-progress__track"><span class="bf-progress__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>`;
+<div class="review-fact" id="step-fact"><span>Plan steps</span><span class="review-steps"><span class="review-steps__track"><span class="review-steps__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>`;
 	return `<div class="review-facts" id="review-facts">${steps}
 <div class="review-fact"><span>Comments</span><span class="review-fact__value" id="comment-total">0</span></div>
 </div>`;
