@@ -311,3 +311,35 @@ describe("the client bundle", () => {
 		expect(argumentlessCalls(bundle, ["renderFacts", "closeComposer", "unused"])).toEqual(["renderFacts"]);
 	});
 });
+
+describe("the page's own design rules", () => {
+	/** The page's own rules: everything after the last kit block, which is where its sheet starts. */
+	const own = () => REVIEW_CSS.split(WEB_COMPONENTS_CSS)[1] ?? "";
+
+	test("leaves the kit's face and case alone, and keeps mono for a URL and code", () => {
+		// The page wears the kit's language: a label is the UI's, and mono survives only where the text
+		// is something a reader copies or reads character by character.
+		expect(own()).not.toContain("text-transform");
+		for (const rule of own()
+			.split("\n")
+			.filter((line) => line.includes("var(--font-mono)"))) {
+			expect(rule, rule).toMatch(/^\.(review-share__url|bf-block code|bf-block pre\.bf-code)\{/);
+		}
+	});
+
+	test("names only tokens that exist, for its radius and its elevation", () => {
+		// An undefined custom property is silent: `var(--radius-pill)` drew a square for as long as the
+		// kit never defined it, so the page's variables are checked against the kit's and its own.
+		const defined = new Set(
+			[...`${WEB_THEME_CSS}${WEB_COMPONENTS_CSS}${own()}`.matchAll(/--[a-z0-9-]+:/g)].map((hit) => hit[0].slice(0, -1)),
+		);
+		for (const used of own().matchAll(/var\((--[a-z0-9-]+)\)/g)) {
+			expect(defined.has(used[1] as string), used[1] as string).toBe(true);
+		}
+		for (const shadow of own().matchAll(/box-shadow:([^;}]+)/g)) {
+			// A print rule clears the mark it drew on screen; everything else is a kit token.
+			if ((shadow[1] as string).startsWith("inset ") || shadow[1] === "none") continue;
+			expect(shadow[1], shadow[1]).toMatch(/^var\(--shadow-[12]\)$/);
+		}
+	});
+});
