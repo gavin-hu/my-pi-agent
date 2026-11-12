@@ -88,7 +88,7 @@ const teamTemplate = String.raw`(function () {
     if (slot.getAttribute("data-sig") === sig) return;
     slot.setAttribute("data-sig", sig);
     slot.textContent = "";
-    slot.appendChild(board.captionOf("ACTIVITY", waiting + recent, "row"));
+    slot.appendChild(board.captionOf("Activity", waiting + recent, "row"));
   }
 
   /**

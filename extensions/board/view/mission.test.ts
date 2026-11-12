@@ -153,9 +153,9 @@ describe("the mission control's contracts", () => {
 	});
 
 	test("counts each column itself, a zero included, and never a share of a filtered total", () => {
-		expect(BOARD_CLIENT_JS).toContain('board.captionOf("AGENTS"');
-		expect(BOARD_CLIENT_JS).toContain('board.captionOf("ACTIVE WORK"');
-		expect(BOARD_CLIENT_JS).toContain('board.captionOf("ACTIVITY"');
+		expect(BOARD_CLIENT_JS).toContain('board.captionOf("Agents"');
+		expect(BOARD_CLIENT_JS).toContain('board.captionOf("Active work"');
+		expect(BOARD_CLIENT_JS).toContain('board.captionOf("Activity"');
 		// A caption is a count, not a share: the pill a column head draws has no total to show,
 		// and the ratio the panes' heads keep is their own (NEEDS YOU against the whole queue).
 		expect(BOARD_CLIENT_JS).toContain("board.captionOf = function (text, count, noun)");

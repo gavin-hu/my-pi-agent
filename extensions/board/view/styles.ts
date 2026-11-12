@@ -260,7 +260,6 @@ ${DECISION_WHY_CSS}
 .board-team__mission,.board-team__none{display:flex;align-items:center;gap:var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 .board-team__bar{flex:0 0 auto;align-self:stretch;width:2px;background:var(--lane-role,var(--muted))}
 .board-team__mission-ref{color:var(--text)}
-.board-team__mission-lane{}
 .board-team__mission-age{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
 /* An age is a duration, not a phrase: tabular figures, so two rows' minutes line up. */
 .board-stamp{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -343,7 +342,7 @@ ${DECISION_WHY_CSS}
    column: a promise clipped to one line is a promise a reader cannot check. */
 .board-dialog__contract dd{font:var(--fs-base)/var(--lh-relaxed) var(--font-ui);overflow-wrap:anywhere}
 /* Who signed it, under what they signed: quiet until a tone says otherwise. */
-.board-dialog__sign{margin:0;max-width:68ch;font:var(--fw-medium) var(--fs-sm) var(--font-mono);color:var(--muted)}
+.board-dialog__sign{margin:0;max-width:68ch;font:var(--fw-medium) var(--fs-sm) var(--font-ui);color:var(--muted)}
 /* The tone rules come after the base rules, which is what makes them win. */
 ${DIALOG_TONE_CSS}
 /* A plan path and the ids a card waits for are code, and a reader copies them. */
@@ -363,6 +362,9 @@ ${DIALOG_TONE_CSS}
 .board-dialog__note-by{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-dialog__note-at{font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-ui);color:var(--muted)}
+/* A mission's lane is the one quiet word in its line: the label is the sentence's own case now,
+   so the rule keeps only the colour that sets it back from the mission's text. */
+.board-team__mission-lane{color:var(--dim)}
 .board-dialog__state::before{content:"";width:var(--space-2);height:var(--space-2);background:var(--lane-role,var(--muted))}
 /* The age beside the lane word is a duration, not a label: the lane is lowercase, its age is
    a number in the face the rest of the page's ages wear. */
