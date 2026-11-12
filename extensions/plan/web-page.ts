@@ -72,7 +72,7 @@ ${WEB_COMPONENTS_CSS}
 .review-bar .bf-status{max-width:42ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-bar .bf-status:empty{display:none}
 /* The page's own actions: the bar is the kit's, and the group sits under the header's chrome. */
-.review-actions{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;justify-content:flex-end}
+.review-actions{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;justify-content:flex-end;min-width:0}
 .review-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
 .review-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
 /* The finish block: what this page's own decisions do, in the reader's role. One or two
