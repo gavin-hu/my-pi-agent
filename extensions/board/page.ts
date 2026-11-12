@@ -14,7 +14,7 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { BoardStore } from "../../lib/board/store.ts";
+import { type BoardStore, CARDS_DIR_NAME } from "../../lib/board/store.ts";
 import { openInBrowser } from "../../lib/browser.ts";
 import type { ArmTimer, RepeatTimer } from "../../lib/timer.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
@@ -231,6 +231,9 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				mount: deps.mount,
 				session: deps.session(),
 				token,
+				// One watched pile: a card is a file here, and the archive, the roster, and the plan
+				// stats are the sweep's — the page draws cards, so the cards' directory is the news.
+				dirs: [join(store.dir, CARDS_DIR_NAME)],
 				...(deps.interval === undefined ? {} : { interval: deps.interval }),
 				...(deps.timer === undefined ? {} : { timer: deps.timer }),
 				onError: warnBlind,

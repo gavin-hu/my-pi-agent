@@ -90,6 +90,14 @@ const renderTemplate = String.raw`(function () {
    */
   var FOLD_AT = { done: 6, roster: 3, lane: 24 };
 
+  /**
+   * How long a card that moved wears its mark, in milliseconds.
+   *
+   * One breath rather than a state: a peer's write is news, and news that stays becomes a
+   * second set of colours on the board. Long enough to see while reading the next card.
+   */
+  var CHANGE_MS = 1500;
+
   /** The same table, for the fragments painted after this one: team folds two lists. */
   board.foldAt = FOLD_AT;
 
@@ -191,6 +199,42 @@ __RUNTIME__
     var all = cards(view);
     for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
     return undefined;
+  }
+
+  /**
+   * The ids whose card moved since the frame before: a revision that climbed, or a card
+   * that has just arrived.
+   *
+   * A first frame marks nothing — the whole board is new to a reader who just opened it,
+   * and every card wearing a mark says no more than the board itself does. A card that
+   * left the board is not marked: it is not drawn, so there is nothing to mark.
+   */
+  function changedIds(previous, view) {
+    var changed = {};
+    if (!previous) return changed;
+    var before = {};
+    var prior = cards(previous);
+    for (var i = 0; i < prior.length; i++) before[prior[i].id] = prior[i].rev;
+    var now = cards(view);
+    for (var j = 0; j < now.length; j++) {
+      if (before[now[j].id] !== now[j].rev) changed[now[j].id] = true;
+    }
+    return changed;
+  }
+
+  /**
+   * Clear the mark a frame put on the cards that moved, after one breath.
+   *
+   * The window is armed by the frame and restarted by the next one, so a burst of writes
+   * is one mark that leaves when the board goes quiet, not a mark per frame.
+   */
+  function armChanged() {
+    if (board.changedTimer !== undefined) clearTimeout(board.changedTimer);
+    board.changedTimer = setTimeout(function () {
+      board.changedTimer = undefined;
+      board.changed = {};
+      board.markCards();
+    }, CHANGE_MS);
   }
 
   /**
@@ -436,8 +480,19 @@ __RUNTIME__
       if (section.getAttribute("data-sig") !== sig) {
         section.setAttribute("data-sig", sig);
         var list = section.querySelector('.' + N.laneList);
+        // A rebuilt list empties, so the node the reader was on goes with it: focus falls to
+        // the document, and j — which reads the focused card — restarts the walk at the first
+        // card instead of moving on. The id outlives the node, so the reader is put back on
+        // the card they were on, and the next press lands on the one after it.
+        var here = document.activeElement;
+        var held = here && here.closest && list.contains(here) ? here.closest(".board-row") : null;
+        var heldId = held ? held.getAttribute("data-card") : null;
         list.textContent = "";
         for (var j = 0; j < shown.length; j++) list.appendChild(board.cardNode(shown[j]));
+        if (heldId !== null) {
+          var back = list.querySelector('.board-row[data-card="' + heldId + '"] .bf-row__title');
+          if (back) back.focus();
+        }
       }
       var count = section.querySelector(".bf-lane__count");
       var head = section.querySelector(".bf-lane__head");
@@ -505,7 +560,11 @@ __RUNTIME__
 
   /** Paint a whole snapshot. */
   board.render = function (view) {
+    // What moved is read against the frame before this one, so a lane rebuilt here still
+    // knows which of its cards a peer just wrote.
+    var previous = board.view;
     board.view = view;
+    board.changed = changedIds(previous, view);
     renderChrome(view);
     renderLanes(view);
     board.renderTeam(view);
@@ -515,6 +574,7 @@ __RUNTIME__
     // The marks are painted after the frame, not with each card: a lane is rebuilt whole
     // when its cards move, and a reader's place must survive that.
     board.markCards();
+    armChanged();
     // Last, because the control it looks for is one this frame has just built.
     restoreFoldFocus();
   };
