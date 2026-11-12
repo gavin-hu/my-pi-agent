@@ -65,7 +65,7 @@ const PAGES: readonly ServedPage[] = [
 		css: BOARD_CSS,
 		exceptions: [
 			{
-				name: "bf-tone",
+				name: "bf-tone--",
 				why: 'the board writes "bf-tone--" + tone from the tone table, so the modifier is data',
 			},
 		],
@@ -89,7 +89,7 @@ const PAGES: readonly ServedPage[] = [
 		css: BROWSE_CSS,
 		exceptions: [
 			{
-				name: "bf-diff-line",
+				name: "bf-diff-line--",
 				why: "a family: every diff line wears a colour modifier, and the sheet rules add/del/hunk/meta/note",
 			},
 		],
@@ -105,6 +105,11 @@ function shippedCss(page: ServedPage): string {
 function namesOf(page: ServedPage): string[] {
 	const source = sourcesUnder(page.dir, page.skip).split(page.css).join("");
 	return kitNamesIn(source);
+}
+
+/** Whether an exception names a family: the interface says a trailing separator means one. */
+function familyOf(exception: Exception): boolean {
+	return exception.name.endsWith("--");
 }
 
 /** Whether the name is answered, exactly or as a family with at least one ruled member. */
@@ -144,7 +149,10 @@ describe("a served page's kit classes", () => {
 		for (const page of PAGES) {
 			const written = new Set(namesOf(page));
 			for (const exception of page.exceptions) {
-				expect(written.has(exception.name), `${page.page} ${exception.name}: ${exception.why}`).toBe(true);
+				// A family is written without its separator (`"bf-tone--" + tone` reads `bf-tone`), so the
+				// evidence that it is still used is the head.
+				const named = familyOf(exception) ? exception.name.slice(0, -2) : exception.name;
+				expect(written.has(named), `${page.page} ${exception.name}: ${exception.why}`).toBe(true);
 			}
 		}
 	});
@@ -153,8 +161,10 @@ describe("a served page's kit classes", () => {
 		for (const page of PAGES) {
 			const css = shippedCss(page);
 			for (const exception of page.exceptions) {
-				if (!exception.name.endsWith("-")) continue;
-				expect(css.includes(`.${exception.name}--`), `${page.page} ${exception.name}`).toBe(true);
+				if (!familyOf(exception)) continue;
+				// The family must still have a member: deleting every `.bf-tone--*` rule is the red this
+				// case exists for, so it is checked by the same read the guard uses.
+				expect(css.includes(`.${exception.name}`), `${page.page} ${exception.name}`).toBe(true);
 			}
 		}
 	});
