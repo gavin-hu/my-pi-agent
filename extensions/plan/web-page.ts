@@ -356,16 +356,17 @@ ${docHead({ title: tabTitle(pageName, data.title), css: REVIEW_CSS, base: data.b
 </head>
 <body class="bf-app">
 <a class="skip" href="#plan">Skip to the plan</a>
-<header class="bf-app__header"><div class="bf-toolbar review-bar">
+<header class="bf-app__head"><div class="bf-app__id review-bar">
 ${brandLockup(pageName)}
 ${pageSubject({ id: "plan-title", label: data.title, title: data.path })}
-<div class="bf-toolbar__facts">
+<div class="bf-app__facts">
 ${liveChip({ id: "review-state", label: "connecting\u2026" })}
 ${reloadChip({ title: isViewer ? "Reload to read the plan again" : "Reload to review the plan again" })}
 <span class="bf-status" id="status" role="status" aria-live="polite"></span>
 </div>
 ${toolbarChrome()}
-</div><div class="review-progress" aria-hidden="true"><span class="review-progress__fill" id="progress-fill"></span></div></header>
+</div>
+<div class="bf-app__rule"></div></header>
 ${controlBar}
 <div class="${bodyClass}">
 ${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>

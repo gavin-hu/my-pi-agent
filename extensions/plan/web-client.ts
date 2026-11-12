@@ -103,7 +103,6 @@ ${CLIENT_BASE_JS}
   var postButton = document.getElementById("post");
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
-  var progressEl = document.getElementById("progress-fill");
   var reloadEl = document.getElementById("reload-hint");
 
 ${CLIENT_RUNTIME_JS}
@@ -456,9 +455,6 @@ ${WEB_MARKDOWN_JS}
   // inside it. A beacon here would cancel the review on every reload, including
   // the reload a 409 offers.
 
-  window.addEventListener("scroll", updateProgress);
-  window.addEventListener("resize", updateProgress);
-  if (planEl) planEl.addEventListener("scroll", updateProgress);
   // The one reload control both stale reasons offer (a conflict, or a stream that has gone)
   // is the kit's chip, so the page wires it here rather than building a button of its own.
   if (reloadEl) reloadEl.addEventListener("click", function () { window.location.reload(); });
@@ -483,6 +479,5 @@ ${WEB_MARKDOWN_JS}
   renderAll();
   if (role !== "viewer")
     reopenComposer(composer(), restoredTyping, { saved: saved, approved: approved, closed: closed }, blocks());
-  updateProgress();
 })();
 `;
