@@ -164,7 +164,7 @@ describe("the snapshot", () => {
 		const response = await handleBoardRequest(ctx, "GET", url("/api/board"), SAME_ORIGIN);
 		expect(response.status).toBe(200);
 		expect(JSON.parse(String(response.body ?? "{}"))).toMatchObject({
-			sig: "4:1|skipped:|unwritten:|gone:",
+			sig: "4:1|waiting:|skipped:|unwritten:|gone:",
 			total: 1,
 		});
 	});

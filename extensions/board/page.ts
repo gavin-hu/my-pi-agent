@@ -246,6 +246,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 						actor,
 						now,
 						roster: () => runtime.roster(ctx.cwd),
+						busDir: () => runtime.busDir(ctx.cwd),
 					}),
 			});
 			if (started.kind === "refused") {

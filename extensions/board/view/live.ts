@@ -190,6 +190,22 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   }
 
   /**
+   * The Team tab's grey columns, for the same moment: a page that has not had its first
+   * frame should look like it is loading, not like it has nothing to say.
+   */
+  function teamSkeleton() {
+    var root = document.getElementById("board-team");
+    if (!root || root.childElementCount > 0) return;
+    var grid = board.el("div", N.teamGrid);
+    for (var i = 0; i < 3; i++) {
+      var column = board.el("section", N.teamColumn);
+      for (var j = 0; j < 2; j++) column.appendChild(board.el("div", N.teamSkeleton));
+      grid.appendChild(column);
+    }
+    root.appendChild(grid);
+  }
+
+  /**
    * The lane a narrow reader lands on: the first with a card in it, else the first
    * lane. Opening on an empty Backlog while the only card sits in Blocked is a blank
    * page with a picker nobody has a reason to press.
@@ -306,6 +322,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     showView(new URLSearchParams(window.location.search).get("view") === "team" ? "team" : "board");
     wireChrome();
     skeletons();
+    teamSkeleton();
     board.bindKeys(document);
     stream();
   };

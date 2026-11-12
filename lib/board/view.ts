@@ -15,7 +15,15 @@
  */
 
 import { homedir } from "node:os";
-import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
+import {
+	presenceOf,
+	type RosterSession,
+	type RosterState,
+	rosterStateOf,
+	type SessionPresence,
+} from "../session-roster.ts";
+import type { WaitingMail } from "../session-mail.ts";
+import { type ActivityFeed, activityOf } from "./activity.ts";
 import { type Card, laneSince, priorityOf, type Priority, signatureOf } from "./card.ts";
 import type { Skip } from "./store.ts";
 import { LANE_RULES, LANES, type Lane, type LaneRole } from "./lanes.ts";
@@ -37,6 +45,33 @@ export interface ViewTeammate {
 	listening?: boolean;
 	/** Whether this is the seat the page is read as. */
 	you: boolean;
+	/**
+	 * Whether the bus says it is inside a turn right now.
+	 *
+	 * A stamp is believed only beside a fresh heartbeat: a process that died mid-run left
+	 * `turnAt` behind, and a `quiet` record says nothing about what it is doing.
+	 */
+	working: boolean;
+	/**
+	 * Whether this row holds the board's lead role, from the configured name.
+	 *
+	 * Not the same fact as `you`: the page serves as the lead, so on most boards the two
+	 * are one row and the same seat — but a board that renames its lead must still point
+	 * at the row its gates will answer, and a reader must be able to see the rename.
+	 */
+	lead: boolean;
+}
+
+/** One recipient of a waiting message, and what the bus says about it. */
+export interface ViewRecipient {
+	label: string;
+	/** `absent` when the roster holds no record; absent when this repository has no bus to ask. */
+	state?: SessionPresence;
+}
+
+/** One message waiting on the bus, with each recipient's state resolved. */
+export interface ViewWaiting extends Omit<WaitingMail, "to"> {
+	to: ViewRecipient[];
 }
 
 /**
@@ -119,6 +154,15 @@ export interface BoardView {
 	 * empty one can say nobody is — and the tab draws those two answers differently.
 	 */
 	teammates?: ViewTeammate[];
+	/**
+	 * Mail nobody has read, oldest first, at most the reader's cap.
+	 *
+	 * Never consumed: `session-bus` owns the inbox, and a page that deleted what it drew
+	 * would eat the mail it was describing.
+	 */
+	waiting: ViewWaiting[];
+	/** What the board's cards have to say has happened lately, and how much is beyond the cap. */
+	activity: ActivityFeed;
 	/** Bytes the store occupies, so a board that is never pruned says so. */
 	bytes: number;
 	/**
@@ -177,6 +221,20 @@ export interface ViewInput {
 	/** The bus's records, when the page could read them at all. */
 	roster?: readonly RosterSession[];
 	/**
+	 * Mail waiting on this repository's bus, read without consuming it.
+	 *
+	 * Read by the caller because the bus directory is the caller's fact; absent reads as
+	 * nothing waiting, which is what a machine with no bus has.
+	 */
+	waiting?: readonly WaitingMail[];
+	/**
+	 * The name the board's lead role answers to, from its config.
+	 *
+	 * Absent is a board that names no lead, so no row is marked: a page that guessed the
+	 * serving session was the lead would point at the wrong row after a rename.
+	 */
+	lead?: string;
+	/**
 	 * The cards whose recorded plan is gone, from `artifact.ts`'s one stat.
 	 *
 	 * Supplied rather than computed here: resolving a plan path is the plan store's rule, and this
@@ -213,7 +271,17 @@ export function buildView(input: ViewInput): BoardView {
 		};
 	});
 	const reader = input.me;
-	const teammates = input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.now);
+	const teammates =
+		input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.lead, input.now);
+	// The states a waiting row wears come from the same roster the agent cards are drawn from,
+	// so a handoff to a dead session cannot look like one to a live peer.
+	const waiting = (input.waiting ?? []).map((message) => ({
+		...message,
+		to: message.to.map((label) => {
+			const state = presenceOf(input.roster, { label }, input.now);
+			return state === undefined ? { label } : { label, state };
+		}),
+	}));
 	// Before the signature, because one of its facts is the rollup's: `unwritten` is the one
 	// membership the clock decides, and a frame that is never pushed leaves the queue short.
 	const round = buildRound(cards, input.now);
@@ -222,6 +290,8 @@ export function buildView(input: ViewInput): BoardView {
 		total: cards.length,
 		round,
 		...(teammates === undefined ? {} : { teammates }),
+		waiting,
+		activity: activityOf(cards),
 		bytes: input.bytes,
 		skipped: input.skipped ?? [],
 		// The roster enters the signature at its coarse facts only: a heartbeat every ten
@@ -232,6 +302,10 @@ export function buildView(input: ViewInput): BoardView {
 		sig:
 			signatureOf(input.cards) +
 			rosterSignature(teammates) +
+			// A message landing, or one being read, moves no card: the queue is the tab's other half
+			// and has to be able to push a frame of its own. The ids are enough — their order is the
+			// queue's own, and a reader's mail file going away is the news.
+			`|waiting:${waiting.map((message) => message.id).join(",")}` +
 			`|skipped:${(input.skipped ?? []).map((entry) => `${entry.file}:${entry.why}`).join(",")}` +
 			`|unwritten:${round.unwritten.map((card) => card.id).join(",")}` +
 			// A plan file going away moves no card's revision, and the face says so: without this the
@@ -270,18 +344,32 @@ function viewCardOf(card: Card, index: ReadonlyMap<string, Card>, planGone: bool
 }
 
 /** The roster as the page shows it, ordered so a repaint never reorders it. */
-function teammatesOf(roster: readonly RosterSession[], meLabel: string, now: number): ViewTeammate[] {
+function teammatesOf(
+	roster: readonly RosterSession[],
+	meLabel: string,
+	lead: string | undefined,
+	now: number,
+): ViewTeammate[] {
 	return roster
-		.map((session) => ({
-			label: session.label,
-			state: rosterStateOf(session, now),
-			seen: session.lastSeen,
-			mail: session.mail,
-			// A record that does not say is not a promise either way, so the fact is left out
-			// rather than drawn as "not listening".
-			...(session.watching === undefined ? {} : { listening: session.watching.armed }),
-			you: session.label.toLowerCase() === meLabel.toLowerCase(),
-		}))
+		.map((session) => {
+			// Once, because the rule can cost a process: a quiet record with a start token is
+			// settled by asking the host about that pid.
+			const state = rosterStateOf(session, now);
+			return {
+				label: session.label,
+				state,
+				// A turn is believed only while the session that wrote it is still there: a crash
+				// mid-run leaves the stamp, and a session whose heartbeat has aged is not at work.
+				working: state === "live" && session.turnAt !== undefined,
+				lead: lead !== undefined && session.label.toLowerCase() === lead.toLowerCase(),
+				seen: session.lastSeen,
+				mail: session.mail,
+				// A record that does not say is not a promise either way, so the fact is left out
+				// rather than drawn as "not listening".
+				...(session.watching === undefined ? {} : { listening: session.watching.armed }),
+				you: session.label.toLowerCase() === meLabel.toLowerCase(),
+			};
+		})
 		.sort((a, b) => a.label.localeCompare(b.label));
 }
 
@@ -290,6 +378,11 @@ function rosterSignature(teammates: readonly ViewTeammate[] | undefined): string
 	if (teammates === undefined) return "";
 	return (
 		"|" +
-		teammates.map((teammate) => `${teammate.label}:${teammate.state}:${teammate.mail}:${teammate.listening}`).join(",")
+		teammates
+			.map(
+				(teammate) =>
+					`${teammate.label}:${teammate.state}:${teammate.mail}:${teammate.listening}:${teammate.working}:${teammate.lead}`,
+			)
+			.join(",")
 	);
 }

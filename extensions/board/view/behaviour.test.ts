@@ -246,14 +246,15 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			await page.$eval('.board-lane[data-lane="backlog"] .board-lane__head', (n) => n.getAttribute("aria-label")),
 		).toBe("Backlog, 1 of 2");
 
-		// The Team tab's two captions carry their count the same way.
+		// The Team tab's three columns count themselves the same way, each in its own noun.
 		await page.fill("#board-filter", "");
 		await page.keyboard.press("t");
 		const captions = await page.$$eval(".board-team__caption", (nodes) =>
 			Array.from(nodes as ArrayLike<ElementLike>, (node) => node.getAttribute("aria-label") ?? ""),
 		);
-		expect(captions[0]).toMatch(/^Needs a decision, \d+$/);
-		expect(captions[1]).toMatch(/^Teammates, \d+$/);
+		expect(captions[0]).toMatch(/^AGENTS, \d+ agents?$/);
+		expect(captions[1]).toMatch(/^ACTIVE WORK, \d+ cards?$/);
+		expect(captions[2]).toMatch(/^ACTIVITY, \d+ rows?$/);
 	});
 
 	test("says when the filter matches nothing, and gives the way back", async () => {
@@ -479,10 +480,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const toggle = await (await page.$("#lane-head-plan"))?.boundingBox();
 		expect(Math.round(toggle?.height ?? 0)).toBeGreaterThanOrEqual(24);
 
-		// A finished card's id opens its record from the Team tab's strip.
+		// The Team tab's door to the wall is the other control a caption makes small, and the
+		// agents' history fold is the third.
 		await page.keyboard.press("t");
-		const doneId = await (await page.$(".board-team__id"))?.boundingBox();
-		expect(Math.round(doneId?.height ?? 0)).toBeGreaterThanOrEqual(24);
+		const door = await (await page.$(".board-team__door"))?.boundingBox();
+		expect(Math.round(door?.height ?? 0)).toBeGreaterThanOrEqual(24);
 
 		// 320px: the five lane buttons wrap, so none of them — least of all the pressed one — is
 		// out of reach without a sideways scroll nobody can see.
@@ -612,17 +614,19 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		}
 	});
 
-	test("folds the owners a bus has no record of, and the ids past the strip's sixth", async () => {
+	test("pins the lead first, folds the owners nothing answers to, and keeps a frame still", async () => {
 		// A board with a long history: three labels that finished their work and are gone, one
 		// that still holds a card, and two sessions that are here. The three are history — the
 		// list only grows, which is why the page states them once — and the holder is the row the
 		// fold must not take, because the queue is reporting its work as free.
 		const folder = mkdtempSync(join(tmpdir(), "pi-board-history-"));
-		const history = createStore(folder, { config: { wip: DEFAULT_WIP, lead: LEAD.label } });
+		// The lead is a configured name, and the board's is the session this page serves as: the
+		// pin is read from the config, not from whoever happened to claim a card.
+		const history = createStore(folder, { config: { wip: DEFAULT_WIP, lead: "team-lead" } });
 		await history.ensure();
 		const at = clock.now();
 		// The bus's own clock, moved by hand: a heartbeat rewrites `lastSeen` without changing one
-		// printed fact, which is the frame that must leave the roster where the reader put it.
+		// printed fact, which is the frame that must leave the column where the reader put it.
 		let beat = 0;
 		// And a fact the bus does carry: mail, which the roster signature does watch.
 		let mail = 0;
@@ -631,7 +635,6 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			label,
 		}));
 		for (const [index, owner] of gone.entries()) {
-			// Seven finished cards in all, so the strip has one id past the sixth it shows.
 			const cards = index === 0 ? 3 : 2;
 			for (let n = 0; n < cards; n++) {
 				const card = await history.create(
@@ -647,6 +650,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await history.mutate(held.id, { kind: "claim" }, holder, at);
 
 		const sessions = (when: number): RosterSession[] => [
+			{ id: "s-peer", label: "billing-peer", mode: "tui", lastSeen: when - 20_000 + beat, mail },
 			{
 				id: "s-lead",
 				label: "team-lead",
@@ -655,119 +659,77 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				mail: 0,
 				watching: { armed: true, wake: true },
 			},
-			{ id: "s-peer", label: "billing-peer", mode: "tui", lastSeen: when - 20_000 + beat, mail },
 		];
 		const long = await serveBoardPage({
 			store: history,
 			now: clock.now,
 			roster: sessions,
+			waiting: () => [
+				{
+					id: "m-1",
+					from: "s-peer",
+					fromLabel: "billing-peer",
+					kind: "handoff",
+					to: ["billing-holder"],
+					text: "take the unowned card",
+					at: at - 240_000,
+				},
+			],
 			display: { repo: REPO, root: ROOT, where: WHERE },
 		});
 		const page = await board.tab(`${long.url}&view=team`);
 		try {
-			const rows = () => page.$$eval(".board-team__mate", (nodes) => nodes.length);
-			const foldFocus = () =>
-				page.evaluate(
-					() =>
-						(
-							globalThis as unknown as { document: { activeElement: ElementLike | null } }
-						).document.activeElement?.getAttribute("data-fold") ?? "",
+			await page.waitForSelector(".board-team__agent", { timeout: PAINT_MS });
+			const rows = () => page.$$eval(".board-team__agent", (nodes) => nodes.length);
+			const names = () =>
+				page.$$eval(".board-team__agent-name", (nodes) =>
+					Array.from(nodes as ArrayLike<ElementLike>, (node) => node.textContent ?? ""),
 				);
-			await page.waitForSelector(".board-team__tail", { timeout: PAINT_MS });
-
-			// Two live rows, the one absent owner that holds a card, and one row for the three that
-			// are only history: a panel of six people drawn as four rows.
+			// The lead is the first card however the bus orders them, and it says so.
+			expect((await names())[0]).toBe("team-lead");
+			expect(await page.getAttribute(".board-team__agent", "data-lead")).toBe("1");
+			// Three agents, then one row for the three labels that are only history.
 			expect(await rows()).toBe(4);
-			expect((await page.textContent(".board-team__tail"))?.trim()).toBe("3 owners with no record · 7 done");
-			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
-			// The absent owner that holds a card is a row of its own: the row says what it holds.
-			const rosterText = (await page.textContent(".board-team__roster")) ?? "";
-			expect(rosterText).toContain("billing-holder");
-			expect(rosterText).toContain("#" + held.id + " plan");
-			// The caption counts people, not rows, so the fold does not change it.
-			const caption = () =>
-				page.$$eval(".board-team__caption", (nodes) =>
-					Array.from(nodes as ArrayLike<ElementLike>, (node) => node.getAttribute("aria-label") ?? ""),
-				);
-			expect((await caption())[1]).toBe("Teammates, 6");
+			expect((await page.textContent(".board-team__agent-fold"))?.trim()).toBe("3 owners with no record · 7 done");
+			expect(await page.getAttribute(".board-team__agent-fold", "aria-expanded")).toBe("false");
+			// The waiting row carries its recipient's state, which is the point of drawing it.
+			expect(await page.textContent(".board-team__mail-row")).toContain("billing-peer");
+			expect(await page.textContent(".board-team__mail-row")).toContain("billing-holder");
+			expect(await page.getAttribute(".board-team__mail-row .board-team__dot", "data-state")).toBe("absent");
 
-			// The strip shows six ids and folds the seventh behind its own count.
-			expect(await page.$eval("#team-done-ids", (node) => (node as unknown as ElementLike).hidden)).toBe(true);
-			expect((await page.textContent(".board-team__fold"))?.trim()).toBe("7 cards");
-			expect(await page.getAttribute(".board-team__fold", "aria-expanded")).toBe("false");
-
-			// Opening the history draws the rows it stood for, and puts focus back on the control
-			// that was repainted rather than on the document.
-			await page.click(".board-team__tail");
-			expect(await rows()).toBe(7);
-			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("true");
-			expect(await foldFocus()).toBe("team-roster");
-
-			await page.click(".board-team__fold");
-			expect(await page.$eval("#team-done-ids", (node) => (node as unknown as ElementLike).hidden)).toBe(false);
-			expect(await page.getAttribute(".board-team__fold", "aria-expanded")).toBe("true");
-			expect(await foldFocus()).toBe("team-done");
+			// A frame that changes nothing in a column leaves the reader's fold — and the focus on
+			// it — exactly where they left them. A heartbeat is not in the signature: a live row
+			// prints no age, so the frame after every beat must not refill the list.
+			const agentsSig = () =>
+				page.$eval('.board-team__column[data-column="agents"]', (node) => node.getAttribute("data-sig"));
+			const settled = await agentsSig();
+			beat += 10_000;
+			await page.waitForTimeout(1_100);
+			expect(await agentsSig()).toBe(settled);
 
 			// A filter is a view of the rows, so it unfolds the history and shows the owners that
 			// match instead of saying nobody does.
 			await page.fill("#board-filter", "billing-old");
 			await page.waitForFunction(
-				() => (globalThis as unknown as { document: Doc }).document.querySelectorAll(".board-team__mate").length === 3,
+				() => (globalThis as unknown as { document: Doc }).document.querySelectorAll(".board-team__agent").length === 3,
 				undefined,
 				{ timeout: PAINT_MS },
 			);
-			expect(await page.$(".board-team__tail")).toBeNull();
-			expect((await caption())[1]).toBe("Teammates, 3 of 6");
+			expect(await page.$(".board-team__agent-fold")).toBeNull();
 
-			// A frame that changes nothing in the roster leaves the reader's fold — and the focus on
-			// it — exactly where they left them. A heartbeat is not in the signature at all: a live row
-			// prints no age, and a quiet session that pings is live again on the next snapshot, which
-			// moves its state and refills the row anyway.
-			const peopleSig = () =>
-				page.$eval(".board-team__group + .board-team__group", (node) => node.getAttribute("data-sig"));
-			const frameWith = async (title: string) => {
-				// The frame that lands is one the roster does not print, so the footer is what says it
-				// arrived: the Team tab is showing, and a lane's card is in a panel that is hidden.
-				const was = await page.textContent("#board-where");
-				await history.create({ title, paths: [] }, LEAD, clock.now());
-				await page.waitForFunction(
-					(previous) =>
-						((globalThis as unknown as { document: Doc }).document.getElementById("board-where")?.textContent ?? "") !==
-						previous,
-					was,
-					{ timeout: PAINT_MS },
-				);
-			};
+			// Mail is a fact the column does not print, and the roster's own chip is: it arrives on
+			// the next frame without anyone reloading.
 			await page.fill("#board-filter", "");
-			await page.waitForSelector(".board-team__tail", { timeout: PAINT_MS });
-			await page.click(".board-team__tail");
-			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
-			const settled = await peopleSig();
-
-			// A heartbeat, at any distance: ten seconds, then two minutes on the bus, and not one
-			// printed fact — so the roster is not refilled and the reader's place survives both.
-			beat += 10_000;
-			await frameWith("A card in the pool");
-			expect(await peopleSig()).toBe(settled);
-			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
-			expect(await foldFocus()).toBe("team-roster");
-			beat += 120_000;
-			await frameWith("Another card in the pool");
-			expect(await peopleSig()).toBe(settled);
-
-			// A real fact does move it: the peer's mail arrives, the server pushes the frame on its own
-			// because the roster's signature carries mail, and the row is redrawn carrying the chip.
 			mail = 1;
 			await page.waitForFunction(
 				() =>
 					(
-						(globalThis as unknown as { document: Doc }).document.querySelector(".board-team__roster")?.textContent ??
-						""
+						(globalThis as unknown as { document: Doc }).document.querySelector(".board-team__mail")?.textContent ?? ""
 					).includes("1 mail"),
 				undefined,
 				{ timeout: PAINT_MS },
 			);
-			expect(await peopleSig()).not.toBe(settled);
+			expect(await agentsSig()).not.toBe(settled);
 		} finally {
 			await long.close();
 			rmSync(folder, { recursive: true, force: true });

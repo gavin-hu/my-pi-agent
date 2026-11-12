@@ -189,14 +189,14 @@ __RUNTIME__
   }
 
   /**
-   * The cards as the page draws them.
+   * The cards as the page draws them: a board face, a decision row, or a mission card.
    *
-   * A folded lane keeps its cards in the document, and so does a panel the other tab
-   * hides: the box is the only honest test of whether a reader can see one, and it is
-   * what j/k walks and what the dialog's position counts.
+   * All three open their card, so all three are what j/k walks and what the dialog's position
+   * counts. A folded lane keeps its cards in the document, and so does a panel the other tab
+   * hides: the box is the only honest test of whether a reader can see one.
    */
   function drawnCards() {
-    var nodes = document.querySelectorAll(".board-card");
+    var nodes = document.querySelectorAll(".board-card, .board-team__decision, .board-team__card");
     var seen = [];
     for (var i = 0; i < nodes.length; i++) {
       if (nodes[i].hidden) continue;
@@ -204,6 +204,19 @@ __RUNTIME__
       seen.push(nodes[i]);
     }
     return seen;
+  }
+
+  /**
+   * A text node carrying its stamp, so the age ticker rewrites it with every other age.
+   *
+   * The Team tab's rows print ages too — a mission's, a waiting message's, an event's — and
+   * they are stamps for the same reason a card's is: a board nobody is writing to would
+   * otherwise slowly lie about how long it has been quiet.
+   */
+  function stamp(text, at) {
+    var node = el("span", N.stamp, text);
+    node.setAttribute("data-at", String(at));
+    return node;
   }
 
   /** The toolbar's subject, its progress, the footer, and the tab's own name. */
@@ -473,6 +486,7 @@ __RUNTIME__
 
   board.el = el;
   board.typing = typing;
+  board.stamp = stamp;
   board.chip = chip;
   board.kindLabel = kindLabel;
   board.ago = ago;

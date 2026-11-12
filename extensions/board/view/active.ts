@@ -1,0 +1,312 @@
+/**
+ * The Active work column: the lead's queue in a strip, over the three lanes that move.
+ *
+ * Agents say *who*, Activity says *what arrived*; neither says what is moving and what is
+ * stuck. So the middle column is the board's working half: the cards that need a decision as
+ * a strip above the `blocked`, `execute` and `plan` swimlanes. Backlog and Done stay on the
+ * Board tab, behind the column's door.
+ *
+ * Every row is a shape with its sentence one hover away:
+ *
+ * - **A decision** is an edge in its tone, an id in mono, an elided title, the reason as a
+ *   pill, the owner, and one age. The whole reason — the sentence the queue exists for — is
+ *   carried twice: as the row's `title`, and by `aria-describedby` for a reader who never
+ *   hovers. Three rows, then `+N more`, because a queue that fills the column is the Board
+ *   tab with extra steps.
+ * - **A mission card** is a lane bar, a reference, one line of title, and who holds it with
+ *   their state's dot.
+ *
+ * The reasons themselves are not decided here: `board.reasonFor` is the one rule the page,
+ * the card face and the terminal share, so a blocked card is described one way everywhere.
+ */
+
+export function activeJs(rules: { decisionLabels: string }): string {
+	return activeTemplate.replace("__DECISION_LABEL__", rules.decisionLabels);
+}
+
+const activeTemplate = String.raw`(function () {
+  "use strict";
+  var board = window.bfBoard || (window.bfBoard = {});
+  var el = board.el;
+  var chip = board.chip;
+  var ago = board.ago;
+  var plural = board.plural;
+  var stamp = board.stamp;
+  var kindLabel = board.kindLabel;
+  var rankOf = board.rankOf;
+  var decisionTone = board.decisionTone;
+
+  var DECISION_LABEL = __DECISION_LABEL__;
+
+  /** How many decisions the strip prints before it counts the rest. */
+  var STRIP = 3;
+  /** How many mission cards one swimlane prints before it counts the rest. */
+  var SWIM = 4;
+  /** The lanes the middle column carries, in the order they are read. */
+  var LANES = ["blocked", "execute", "plan"];
+
+  /**
+   * Which cards need the lead, and why — entries, not rows.
+   *
+   * The renderer filters this list, so it has to be the data: filtering the built rows would
+   * test the element instead of the card.
+   *
+   * The round's groups overlap on purpose — an executing card untouched for half an hour is
+   * both unwritten and unreviewed — so one card can arrive twice, and the strongest reason is
+   * the one it keeps.
+   */
+  function decisionsOf(view) {
+    var round = view.round;
+    var byCard = {};
+    var entries = [];
+    function add(cards, why, kind) {
+      for (var i = 0; i < cards.length; i++) {
+        var card = cards[i];
+        var said = why(card);
+        var entry = typeof said === "string"
+          ? { card: card, why: said, kind: kind }
+          : { card: card, why: said.text, at: said.at, wording: said.wording, kind: kind };
+        var seen = byCard[card.id];
+        if (seen === undefined) {
+          byCard[card.id] = entry;
+          entries.push(entry);
+        } else if (rankOf(kind) < rankOf(seen.kind)) {
+          seen.why = entry.why;
+          seen.at = entry.at;
+          seen.wording = entry.wording;
+          seen.kind = entry.kind;
+        }
+      }
+    }
+    // The card's own sentence, from the one rule: the page's faces and the transcript read the
+    // same body, so a block and a contract cannot be described two ways.
+    function why(card, fallback) {
+      var reason = board.reasonFor(card, ago);
+      return reason === undefined ? fallback : reason;
+    }
+    add(round.blocked, function (card) { return why(card, "blocked"); }, "blocked");
+    // A dead owner is a fact, not an inference from silence: the card is anyone's now.
+    var gone = goneLabels(view);
+    add(
+      round.owners.reduce(function (cards, group) {
+        return gone[group.label.toLowerCase()] === undefined ? cards : cards.concat(group.cards);
+      }, []),
+      function (card) { return (card.owner ? card.owner.label : "its owner") + " is not running \u2014 the card is free"; },
+      "gone"
+    );
+    // A complete contract nobody has read is the lead's decision, and the one the flow stops on.
+    add(round.unapproved, function (card) { return why(card, "contract ready \u2014 needs approval"); }, "approval");
+    // The other gate is the lead's too, and it is owed from the moment a card enters the lane.
+    add(round.unreviewed, function (card) { return why(card, "no spot-check yet"); }, "review");
+    // The one sentence with an age that is not a stamp: it needs a bare age in the middle.
+    add(round.unwritten, function (card) { return "no writes for " + ago(card.updatedAt); }, "unwritten");
+    add(round.unplanned, function (card) { return why(card, "no contract yet"); }, "unplanned");
+    add(round.unassigned, function () { return "nobody holds it"; }, "unassigned");
+    // An order outranks nobody holding it: the claim would be refused, so the queue says what
+    // it waits for instead of offering a card the rules would turn down.
+    add(
+      round.unassigned.filter(function (card) { return card.waits !== undefined; }),
+      function (card) { return "waits on " + card.waits; },
+      "waiting"
+    );
+    // An offer outranks plain silence: the lead has already tried to hand this card out, and
+    // the age is the difference between nobody having looked and nobody taking it.
+    add(
+      round.unassigned.filter(function (card) { return card.offeredAt !== undefined; }),
+      function (card) { return why(card, "offered \u2014 nobody took it"); },
+      "waiting"
+    );
+    return entries;
+  }
+
+  board.decisionsOf = decisionsOf;
+
+  /** A map keyed by a session label, which the page does not choose. */
+  function labelMap() { return Object.create(null); }
+
+  /** The labels of the sessions whose process is gone, in the roster's own spelling. */
+  function goneLabels(view) {
+    var roster = view.teammates;
+    var gone = labelMap();
+    if (roster === undefined) return gone;
+    for (var i = 0; i < roster.length; i++) {
+      if (roster[i].state === "gone") gone[roster[i].label.toLowerCase()] = roster[i].label;
+    }
+    return gone;
+  }
+
+  /** The reason as a pill: the word a reader scans by, with the whole sentence on the hover. */
+  function whyPill(entry) {
+    var pill = chip(DECISION_LABEL[entry.kind] || entry.kind, "muted");
+    pill.setAttribute("data-tone", decisionTone(entry.kind));
+    pill.title = entry.why;
+    return pill;
+  }
+
+  /** One decision: the card, why it is here, who holds it, and how long it has waited. */
+  function decisionRow(entry) {
+    var card = entry.card;
+    var node = el("article", N.decision);
+    node.setAttribute("data-kind", entry.kind);
+    node.setAttribute("data-tone", decisionTone(entry.kind));
+    node.setAttribute("data-card", card.id);
+
+    var open = el("button", N.decisionOpen);
+    open.type = "button";
+    open.setAttribute("aria-haspopup", "dialog");
+    // The reason the row is here, for a reader who never hovers: the pill is inside the button,
+    // so the whole row is described by the sentence its tooltip carries.
+    open.setAttribute("aria-describedby", "team-why-" + card.id);
+    open.appendChild(el("span", N.decisionRef, "#" + card.id));
+    open.appendChild(whyPill(entry));
+    var title = el("span", N.decisionTitle, card.title);
+    title.title = card.title;
+    open.appendChild(title);
+    open.addEventListener("click", function () { board.openCard(card.id); });
+    node.appendChild(open);
+
+    var meta = el("p", N.decisionWhy);
+    // What the card is, in the label the face and the record wear: the queue is where a
+    // decision is made, and a breaking change is the one fact it must not hide.
+    var kind = kindLabel(card);
+    if (kind !== undefined) meta.appendChild(kind);
+    if (card.owner) meta.appendChild(chip(card.owner.label, "accent"));
+    // The sentence is the row's reason, so it is stamped rather than printed once: the age in
+    // it is the one part that moves without a frame.
+    var sentence = entry.at === undefined ? undefined : board.reasonNode({ text: entry.why, at: entry.at, wording: entry.wording });
+    if (sentence !== undefined) meta.appendChild(sentence);
+    else meta.appendChild(stamp(ago(card.updatedAt), card.updatedAt));
+    meta.id = "team-why-" + card.id;
+    node.appendChild(meta);
+    return node;
+  }
+
+  /** The +N more row: the queue continues on the Board tab, and says so. */
+  function moreRow(count) {
+    var row = el("p", N.decisionMore, "+" + count + " more \u2014 every decision is on the Board tab");
+    return row;
+  }
+
+  /** One mission card: the lane as a bar, the reference, one line of title, who holds it. */
+  function missionCard(card, view) {
+    var node = el("article", N.missionCard);
+    node.setAttribute("data-lane", card.lane);
+    node.setAttribute("data-card", card.id);
+    var head = el("h4", N.missionCardHead);
+    var button = el("button", N.missionTitle, card.title);
+    button.type = "button";
+    button.setAttribute("aria-haspopup", "dialog");
+    button.title = card.title;
+    button.addEventListener("click", function () { board.openCard(card.id); });
+    head.appendChild(el("span", N.missionRef, "#" + card.id));
+    head.appendChild(button);
+    node.appendChild(head);
+    var meta = el("p", N.missionMeta);
+    if (card.owner) {
+      var dot = el("span", N.dot);
+      dot.setAttribute("aria-hidden", "true");
+      dot.setAttribute("data-state", ownerState(view, card.owner.label));
+      meta.appendChild(dot);
+      meta.appendChild(el("span", "", card.owner.label));
+    }
+    var kind = kindLabel(card);
+    if (kind !== undefined) meta.appendChild(kind);
+    meta.appendChild(stamp(ago(card.updatedAt), card.updatedAt));
+    node.appendChild(meta);
+    return node;
+  }
+
+  /** What the bus says about one owner, for the dot beside their name on a mission card. */
+  function ownerState(view, label) {
+    var roster = view.teammates;
+    if (roster === undefined) return "unknown";
+    for (var i = 0; i < roster.length; i++) {
+      if (roster[i].label.toLowerCase() === label.toLowerCase()) return roster[i].state;
+    }
+    return "absent";
+  }
+
+  /** One swimlane: the head, the cards that fit, and a fold that says how many did not. */
+  function swimlane(view, lane, cards) {
+    var section = el("section", N.teamLane);
+    section.setAttribute("data-lane", lane.key);
+    var head = el("h3", N.teamLaneHead);
+    var dot = el("span", N.teamLaneDot);
+    dot.setAttribute("aria-hidden", "true");
+    head.appendChild(dot);
+    head.appendChild(el("span", N.teamLaneName, lane.label));
+    head.appendChild(el("span", N.teamLaneCount, String(cards.length)));
+    head.setAttribute("aria-label", lane.label + ", " + plural(cards.length, "card"));
+    section.appendChild(head);
+    if (cards.length === 0) {
+      section.appendChild(el("p", N.teamLaneEmpty, lane.empty));
+      return section;
+    }
+    var swim = el("div", N.swim);
+    for (var i = 0; i < cards.length && i < SWIM; i++) swim.appendChild(missionCard(cards[i], view));
+    section.appendChild(swim);
+    if (cards.length > SWIM) {
+      var more = el("button", N.teamLaneFold, "+" + (cards.length - SWIM) + " more on the Board");
+      more.type = "button";
+      more.addEventListener("click", function () { board.showView("board"); });
+      section.appendChild(more);
+    }
+    return section;
+  }
+
+  /**
+   * The column, as a signature and a builder.
+   *
+   * The strip and the lanes are one signature: a decision's sentence can change because another
+   * card moved (a blocker finished), and a lane's cards move on their own revisions — so both
+   * facts are in it, and a frame that changed neither leaves the column, its folds and the
+   * reader's place in it alone.
+   */
+  board.activeColumn = function (view, decisions, query, filtering) {
+    var keep = function (card) { return board.matches(card, query); };
+    var shown = decisions.filter(function (entry) { return keep(entry.card); });
+    var lanes = [];
+    for (var i = 0; i < LANES.length; i++) {
+      var lane = board.laneOf(view, LANES[i]);
+      if (lane === undefined) continue;
+      lanes.push({ key: lane.key, label: lane.label, empty: lane.empty, cards: lane.cards.filter(keep), all: lane.cards.length });
+    }
+    var sig = [query, String(shown.length), String(decisions.length)];
+    for (var d = 0; d < shown.length; d++) {
+      sig.push(shown[d].card.id + ":" + shown[d].card.rev + ":" + shown[d].kind + ":" + shown[d].why);
+    }
+    for (var l = 0; l < lanes.length; l++) {
+      var ids = [lanes[l].key];
+      for (var c = 0; c < lanes[l].cards.length; c++) ids.push(lanes[l].cards[c].id + ":" + lanes[l].cards[c].rev);
+      sig.push(ids.join("+"));
+    }
+    var active = 0;
+    for (var a = 0; a < lanes.length; a++) active += lanes[a].cards.length;
+
+    return {
+      sig: sig.join("|"),
+      count: active,
+      total: view.total,
+      decisions: shown.length,
+      build: function (slot) {
+        var head = board.captionOf("ACTIVE WORK", active, undefined, "card");
+        var door = el("button", N.teamDoor, "\u2192 Board");
+        door.type = "button";
+        door.addEventListener("click", function () { board.showView("board"); });
+        head.appendChild(door);
+        slot.appendChild(head);
+        var strip = el("div", N.decisions);
+        var cap = Math.min(shown.length, STRIP);
+        for (var s = 0; s < cap; s++) strip.appendChild(decisionRow(shown[s]));
+        if (shown.length > STRIP) strip.appendChild(moreRow(shown.length - STRIP));
+        if (shown.length === 0) {
+          strip.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "nothing needs you: no blockers, no contract waiting to be read, nothing unwritten"));
+        }
+        slot.appendChild(strip);
+        var list = el("div", N.teamLanes);
+        for (var p = 0; p < lanes.length; p++) list.appendChild(swimlane(view, lanes[p], lanes[p].cards));
+        slot.appendChild(list);
+      }
+    };
+  };
+})();`;

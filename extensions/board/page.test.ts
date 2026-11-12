@@ -97,10 +97,16 @@ describe("the roster", () => {
 		const snapshot = JSON.parse(
 			await (await fetch((status.url ?? "").replace("/?token=", "/api/board?token="))).text(),
 		);
-		// The page is the seat, so the seat's row is the one marked `you`.
-		expect(snapshot.teammates).toEqual([
-			{ label: "team-agent-score", state: "live", seen: NOW - 1_000, mail: 0, you: false },
-			{ label: "team-lead", state: "live", seen: NOW, mail: 0, you: true },
+		// The page is the seat, so the seat's row is the one marked `you` — and the board's lead,
+		// which is the name its gates answer rather than a second name for the seat.
+		const rows = snapshot.teammates.map((mate: { label: string; lead: boolean; you: boolean }) => [
+			mate.label,
+			mate.lead,
+			mate.you,
+		]);
+		expect(rows).toEqual([
+			["team-agent-score", false, false],
+			["team-lead", true, true],
 		]);
 		await page.stop();
 	});

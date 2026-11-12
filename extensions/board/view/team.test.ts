@@ -17,7 +17,7 @@ describe("the Team tab's label maps", () => {
 		// from the list and the queue called the same owner not running; a null prototype has no
 		// members to fall back on, which makes "not written" read as not written.
 		expect(BOARD_CLIENT_JS).toContain("function labelMap() { return Object.create(null); }");
-		for (const map of ["gone", "byLabel", "seen"]) {
+		for (const map of ["gone", "owners", "seen"]) {
 			expect(BOARD_CLIENT_JS).toContain(`var ${map} = labelMap();`);
 			expect(BOARD_CLIENT_JS).not.toContain(`var ${map} = {};`);
 		}
