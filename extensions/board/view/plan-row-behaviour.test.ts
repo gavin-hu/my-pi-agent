@@ -72,7 +72,7 @@ describe.skipIf(CHROME === undefined)("the card dialog's plan row", () => {
 			);
 		try {
 			const page = await openPage();
-			await page.click('#lane-backlog .board-card[data-card="1"] .board-card__title');
+			await page.click('#lane-backlog .board-row[data-card="1"] .bf-row__title');
 			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 
 			await store.mutate("1", { kind: "claim" }, CORE, now);
