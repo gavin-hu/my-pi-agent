@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card whose contract was written a field at a time is a card again. The writer records the
+  line a call did not name as empty, and the reader refused any contract with an empty line — so the
+  whole record was unreadable, its holder locked out, and the only repair was editing the JSON by
+  hand. The reader now checks shape and leaves completeness to `approve`, which already names the
+  blank line it refuses.
+
 - `board`: a card's title leads its own face. The title takes the largest, heaviest ink on a note
   and the priority word drops to the number's own weight, so a lane is read by what each card says
   rather than by how urgent it is; the one height the face is drawn at grows by the line the
