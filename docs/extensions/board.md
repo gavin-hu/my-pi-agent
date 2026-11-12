@@ -6,8 +6,7 @@ promises, and the notes that explain it — and two signatures are needed before
 
 <img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, a live chip, theme and keyboard controls; Board and Team tabs, done-of-total progress and a filter; five lane columns with counts and fold controls; and note-shaped cards of one height, tinted by the lane they sit in and separated by space rather than rules, each carrying its number and kind, its title, its path hints, and on its last line whose it is with its age and history" width="1280" height="446">
 
-- **One board per repository**, and one page: the first `/board` serves it, every
-  other session opens that same page.
+- **One board per repository**, one page: the first `/board` serves it, every other session opens it.
 - **The page is a view**, and it follows the files: nothing is claimed, moved, or signed from a
   browser, and a card another session writes reaches an open tab as it lands, wearing a mark.
 - **Two signatures**: the lead approves a contract before `execute` and spot-checks the work
@@ -57,7 +56,8 @@ is closed. Each move follows the one transition from where the card is; no lane 
 
 **The page.** A lane's width follows the work it holds; five lanes sit side by side (one below
 1180px, via the picker), a lane of 24 cards folds, and a card is a one-height note with no edge.
-The Team tab draws that same card, with no rule between two of them.
+The pane is the one scroll box, so a lane is as tall as the board and its head rides the pane's
+edge however long a neighbour is. The Team tab draws that same card, no rule between two of them.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`,
 `reclaim`, `move`, `note`, `contract`, `approve`, `review`, `edit`, `archive`,
