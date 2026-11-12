@@ -133,11 +133,11 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		expect(await hidden(page, "#board-card-dialog")).toBe(true);
 
 		// Selecting a line to copy ends in a click on the card; that click must not open it. A
-		// button's own text is not selectable, so the drag is over the reason line, which is
-		// prose and is what a reader copies.
-		const line = await page.$('#lane-backlog .bf-row[data-card="1"] .bf-row__reason');
+		// button's own text is not selectable, so the drag is over the meta line, which is prose
+		// and is what a reader copies.
+		const line = await page.$('#lane-backlog .bf-row[data-card="1"] .bf-row__meta');
 		const box = await line?.boundingBox();
-		if (box === undefined || box === null) throw new Error("the reason line has no box to drag across");
+		if (box === undefined || box === null) throw new Error("the meta line has no box to drag across");
 		await page.mouse.move(box.x + 2, box.y + box.height / 2);
 		await page.mouse.down();
 		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });

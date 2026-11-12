@@ -174,10 +174,10 @@ describe("the document", () => {
 		expect(BOARD_CSS).toContain(".board-row__priority--high{color:var(--warn)}");
 		// A path hint is something a reader types, so it is mono.
 		expect(BOARD_CSS).toContain(".board-row__paths .bf-tag{");
-		// Two mono paths four pixels apart read as one path that wrapped, so the list keeps the
-		// dialog's taller column gap: the separation is the only thing saying where one ends.
+		// A hint line is one line: a lane narrower than its paths clips them rather than growing
+		// the face, and the separation is still the only thing saying where one path ends.
 		expect(BOARD_CSS).toContain(
-			".board-row__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:2px 0 0;padding:0;list-style:none}",
+			".board-row__paths{display:flex;flex-wrap:nowrap;gap:var(--space-1) var(--space-2);margin:2px 0 0;padding:0;list-style:none;max-height:var(--face-hints);overflow:hidden}",
 		);
 	});
 

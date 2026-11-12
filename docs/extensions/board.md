@@ -5,7 +5,7 @@ it. A card carries what kind of work it is, its owner, its priority, what it wai
 on, the contract it promises, and the notes that explain it — and two signatures
 are needed before it can ship.
 
-<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, a read-only and a live chip; Board and Team tabs, done-of-total progress and a filter; five lane trays with counts and fold controls; and cards carrying an owner chip, a note count, path hints, and a reason line" width="1280" height="597">
+<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, a live chip, theme and keyboard controls; Board and Team tabs, done-of-total progress and a filter; five lane columns with counts and fold controls; and note-shaped cards of one height, tinted by the lane they sit in and separated by space rather than rules, each carrying its number and kind, its title, its path hints, and on its last line whose it is with its age and history" width="1280" height="446">
 
 - **One board per repository**, and one page: the first `/board` serves it, every
   other session opens that same page.
@@ -48,7 +48,7 @@ The claim's result names the next step, and `/board approve 1` refuses until the
 names a plan file in this repository's store; a plan deleted later stops it at the next gate.
 A claim also joins the team, and its result says when it could not ([`team`](team.md)).
 
-Every card's last line says what it needs next, so a lane can be read without opening a card:
+Every card's last line is its hover and the title button's description, so a lane stays an index:
 `contract ready — needs approval`, `executing — no spot-check yet`, `offered 2h ago`.
 
 ## Reference
@@ -58,8 +58,8 @@ designed and its contract signed, `execute` is where the work happens, `blocked`
 waits on a person, and `done` is closed. Each move follows the one transition the
 board allows from where the card is; no lane can be skipped.
 
-**The page.** A lane's width follows the work it holds, up to three shares; five lanes sit side by
-side, one at a time below 1180px with the picker, and a lane of 24 cards opens folded.
+**The page.** A lane's width follows the work it holds; five lanes sit side by side (one below
+1180px, via the picker), a lane of 24 cards folds, and a card is a one-height note with no edge.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`,
 `reclaim`, `move`, `note`, `contract`, `approve`, `review`, `edit`, `archive`,

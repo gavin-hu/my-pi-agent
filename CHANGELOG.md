@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card face on the page is an index of the work at one height. The lane no longer prints
+  the card's last line — a note can be a thousand characters — so every card draws a two-line
+  title, the facts beside it and its path hints, all the same height; what a card waits for is its
+  hover, the title button's description for the keyboard, and the first thing its dialog prints. A
+  card is a note: a tinted rectangle with no edge drawn round it, the gap between two of them the
+  only separator, its paper the lane's own colour, and its lines ordered what it is, what it says,
+  where it is and whose it is.
+
 - `board`, `plan`, `file-browse`: the served pages drop the GitHub grammar for the kit's own. The
   shell is fixed — head and foot stay, one pane scrolls — the header is two rows split by a plain
   rule, and the tabs are words rather than a segmented box. Work is rows, not cards: a lane is a

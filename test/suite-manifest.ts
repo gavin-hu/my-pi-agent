@@ -72,6 +72,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/behaviour",
 		"view/dialog",
 		"view/dialog-behaviour",
+		"view/face",
 		"view/kind",
 		"view/mission",
 		"view/plan-row-behaviour",
