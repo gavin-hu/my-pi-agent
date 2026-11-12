@@ -279,17 +279,26 @@ export function isTold(value: unknown): value is { at: number } {
 	return typeof told.at === "number" && Number.isInteger(told.at);
 }
 
-/** Whether `value` is a contract this build can trust. */
+/**
+ * Whether `value` is a contract this build can read.
+ *
+ * Shape, not completeness: the three lines are strings within the cap, and a line may be empty,
+ * because a contract is written a field at a time — `missingContractFields` and `contractComplete`
+ * are where "written yet" is asked, and `approve` asks them before it signs. What is refused here is
+ * a record this build cannot trust: a key that is missing (a hand edit — the writer always states all
+ * three), a line that is not a string, one past the cap, or an `approved` that is not a sign. An
+ * empty `verify` is no command, the same fact `mergedContract` states by leaving the key out.
+ */
 export function isContract(value: unknown): value is Contract {
 	if (typeof value !== "object" || value === null) return false;
 	const contract = value as Record<string, unknown>;
 	for (const field of CONTRACT_FIELDS) {
 		const line = contract[field];
-		if (typeof line !== "string" || line === "" || line.length > MAX_CONTRACT) return false;
+		if (typeof line !== "string" || line.length > MAX_CONTRACT) return false;
 	}
 	if (contract.verify !== undefined) {
 		const line = contract.verify;
-		if (typeof line !== "string" || line === "" || line.length > MAX_CONTRACT) return false;
+		if (typeof line !== "string" || line.length > MAX_CONTRACT) return false;
 	}
 	return contract.approved === undefined || isSign(contract.approved);
 }

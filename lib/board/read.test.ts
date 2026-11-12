@@ -25,6 +25,14 @@ describe("readCard", () => {
 		expect(readCard(card({ lane: "plan", owner: named }))?.owner).toEqual(named);
 	});
 
+	test("reads a contract written a field at a time, which once made the file unreadable", () => {
+		// `mergedContract` records the line a call did not name as empty. The reader refused any
+		// contract with an empty line, so the whole card came back undefined and its holder was locked
+		// out — "not a card record" for a card that was one.
+		const half = card({ contract: { goal: "G", acceptance: "", scopeOut: "S" } });
+		expect(readCard(half)?.contract).toEqual({ goal: "G", acceptance: "", scopeOut: "S" });
+	});
+
 	test("reads a v1 card, mapping the three renames onto this build's names", () => {
 		// A v1 file said `status`, `plan`, and a `blockedBy`/`blocker` pair; the renames landed
 		// with the contract and the lanes. The file is not rewritten, so the reader maps the

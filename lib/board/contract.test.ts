@@ -73,7 +73,10 @@ describe("the optional verify line", () => {
 	test("is read by isContract, and a line this build cannot trust drops the card", () => {
 		expect(isContract(COMPLETE)).toBe(true);
 		expect(isContract({ ...COMPLETE, verify: "bun run check" })).toBe(true);
-		expect(isContract({ ...COMPLETE, verify: "" })).toBe(false);
+		// Empty is no command, the fact `mergedContract` states by leaving the key out; a command that
+		// is not a string, or one past the cap, is a record this build cannot read.
+		expect(isContract({ ...COMPLETE, verify: "" })).toBe(true);
+		expect(isContract({ ...COMPLETE, verify: 7 } as unknown)).toBe(false);
 		expect(isContract({ ...COMPLETE, verify: "x".repeat(MAX_CONTRACT + 1) })).toBe(false);
 	});
 });
@@ -135,13 +138,25 @@ describe("isContract and isSign", () => {
 		expect(isContract({ ...COMPLETE, approved: { by: "billing-lead", at: 1 } })).toBe(true);
 	});
 
-	test("refuses a missing or empty line, an over-long one, and a sign that is not one", () => {
+	test("refuses a missing line, a line that is not one, an over-long one, and a sign that is not one", () => {
+		// A missing key is a hand edit, not a half-written contract: the writer states all three, empty
+		// or not, so only a file edited by hand loses one.
 		expect(isContract({ goal: "g", acceptance: "a" })).toBe(false);
-		expect(isContract({ ...COMPLETE, goal: "" })).toBe(false);
+		expect(isContract({ ...COMPLETE, goal: 7 } as unknown)).toBe(false);
 		expect(isContract({ ...COMPLETE, acceptance: "x".repeat(MAX_CONTRACT + 1) })).toBe(false);
 		expect(isContract({ ...COMPLETE, approved: { by: "", at: 1 } })).toBe(false);
 		expect(isContract({ ...COMPLETE, approved: { by: "x", at: 1.5 } })).toBe(false);
 		expect(isContract("not a contract")).toBe(false);
+	});
+
+	test("reads a contract written a field at a time, and leaves completeness to its own query", () => {
+		// The bug this card is: `mergedContract` writes "" for a line a call did not name, and a
+		// predicate that demanded three written lines made that card unreadable — `isCard` dropped the
+		// record and its holder was locked out of their own card.
+		const half = { ...COMPLETE, acceptance: "" };
+		expect(isContract(half)).toBe(true);
+		expect(missingContractFields(half)).toEqual(["acceptance"]);
+		expect(contractComplete(half)).toBe(false);
 	});
 
 	test("a sign is a label and a whole moment", () => {

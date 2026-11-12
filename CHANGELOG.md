@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card whose contract was written a field at a time is a card again. The writer records the
+  line a call did not name as empty, and the reader refused any contract with an empty line — so the
+  whole record was unreadable, its holder locked out, and the only repair was editing the JSON by
+  hand. The reader now checks shape and leaves completeness to `approve`, which already names the
+  blank line it refuses.
+
 - `lib`: the web kit loses the two rules it drew along an edge. A tag drops its 2px left rail —
   every page's tags change, the board's paths and team labels and the browse header's branch and
   changes — and is now a glyph and a word, with its tone in the word's colour. A record drops the
