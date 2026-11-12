@@ -9,13 +9,13 @@ is woken for it ([`session-bus`](session-bus.md) owns that rule).
 <img src="../../assets/screens/team.png" alt="The Team tab as three columns: AGENTS with the lead pinned first and one card per session carrying a monogram, its state, its mail and its missions; ACTIVE WORK with a decisions strip over BLOCKED, EXECUTE and PLAN swimlanes; ACTIVITY with WAITING mail and a RECENT rail" width="1280" height="778">
 
 The board's Team tab is the same round as a page, in three columns that each count
-themselves and scroll as one. **AGENTS** holds a card per session, the board's lead pinned
-first whatever its state, each with a monogram, `lead` and `you` chips, a needs-you count on
-the lead's card, a state pill (`working` inside a turn, `quiet 42m` with the age a reclaim
-turns on), and a line per mission with its lane as a bar. **ACTIVE WORK** is the lead's queue as
-a `NEEDS YOU` strip over the `blocked`, `execute` and `plan` swimlanes — one card shape, one
-hover per reason, one underlined `+N more` that opens the board. **ACTIVITY** is the unread mail,
-each row wearing its recipient's state, above the recent history; reading consumes nothing.
+themselves and scroll as one. **AGENTS** holds a card per session in a wide column, the lead
+pinned first whatever its state: a monogram, the state at the card's edge (`working` inside a
+turn, `quiet 42m` with its age), `lead` and `you` chips under it with the mail and needs-you
+counts, and a mission line per card. **ACTIVE WORK** is the lead's queue as a `NEEDS YOU` strip
+over the `blocked`, `execute` and `plan` swimlanes — one card shape, one hover per reason, one
+`+N more` that opens the board. **ACTIVITY** draws unread mail as a block — a fill, an accent
+edge, an accent count — above a flat recent history; reading consumes nothing.
 
 ## What you can do
 
