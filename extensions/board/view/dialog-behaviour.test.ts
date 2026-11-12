@@ -135,7 +135,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		// Selecting a line to copy ends in a click on the card; that click must not open it. A
 		// button's own text is not selectable, so the drag is over the reason line, which is
 		// prose and is what a reader copies.
-		const line = await page.$('#lane-backlog .bf-row[data-card="1"] .board-card__reason');
+		const line = await page.$('#lane-backlog .bf-row[data-card="1"] .bf-row__reason');
 		const box = await line?.boundingBox();
 		if (box === undefined || box === null) throw new Error("the reason line has no box to drag across");
 		await page.mouse.move(box.x + 2, box.y + box.height / 2);
@@ -339,10 +339,10 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		try {
 			const page = await openPage();
 			// The face says it too, on the reason's own line, naming the card rather than its id.
-			expect(await page.textContent('#lane-backlog .bf-row[data-card="1"] .board-card__reason')).toContain(
+			expect(await page.textContent('#lane-backlog .bf-row[data-card="1"] .bf-row__reason')).toContain(
 				"· holds up #2 (backlog) Invoice totals round the wrong way",
 			);
-			expect(await page.textContent('#lane-backlog .bf-row[data-card="2"] .board-card__reason')).toBe(
+			expect(await page.textContent('#lane-backlog .bf-row[data-card="2"] .bf-row__reason')).toBe(
 				"waits on #1 (backlog) Export orders as CSV",
 			);
 
