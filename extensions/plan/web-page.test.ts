@@ -10,6 +10,7 @@ import { argumentlessCalls, declaredFunctions, missingBundleBodies } from "../..
 import { islandOf, reviewPage } from "../../test/helpers/fixtures/plan-web.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { REVIEW_CSS } from "./web-page.ts";
+import { kitNamesIn } from "../../test/helpers/web-classes.ts";
 describe("the review's tab", () => {
 	test("names the plan in the document head, before a script runs", () => {
 		// A tab is read in a browser's tab strip, so the title has to be in the document: a
@@ -331,9 +332,7 @@ describe("the page's own design rules", () => {
 	test("writes no class the kit and the page do not both answer for", () => {
 		// A renamed kit class is silent: the markup keeps a word no rule knows and the control loses its
 		// shape. Every `bf-*` word the page emits is looked up in the sheet the page ships.
-		const emitted = new Set(
-			[...reviewPage().matchAll(/class="([^"]+)"/g)].flatMap((hit) => (hit[1] as string).split(/\s+/)),
-		);
+		const emitted = new Set(kitNamesIn(reviewPage()));
 		// Two classes have no rule by design: the theme toggle, which the kit's script binds (its glyph
 		// is what the sheet styles), and the outline's details, which the client opens and closes.
 		const hooks = new Set(["bf-theme-toggle", "review-outline"]);
