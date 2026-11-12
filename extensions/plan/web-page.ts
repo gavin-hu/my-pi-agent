@@ -94,12 +94,13 @@ ${WEB_COMPONENTS_CSS}
 /* The label is one word or two, never a column: squeezed by the value beside it, it broke
    "Plan steps" over two lines. It holds its line, and the value wraps below instead. */
 .review-fact>span:first-child{white-space:nowrap}
-.review-fact .bf-progress{color:var(--text)}
-.review-fact .bf-progress__track{width:96px}
+.review-steps{display:inline-flex;align-items:center;gap:var(--space-2);color:var(--text)}
+.review-steps__track{display:inline-block;width:96px;height:6px;border-radius:var(--radius-badge);background:var(--accent-soft);overflow:hidden}
+.review-steps__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
 .review-fact__value{color:var(--text);font-family:var(--font-ui);font-variant-numeric:tabular-nums}
 .review-view{display:flex}
-.review-view .bf-segmented__item{flex:1 1 auto;justify-content:center}
-.review-view .bf-segmented__item:disabled{opacity:.5;cursor:default}
+.review-view .bf-tabs__item{flex:1 1 auto;justify-content:center}
+.review-view .bf-tabs__item:disabled{opacity:.5;cursor:default}
 .review-nav{min-width:0}
 .review-nav__title{margin:0;font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
 .review-nav ul{list-style:none;margin:0;padding:0}
@@ -312,10 +313,10 @@ export function renderReviewPage(data: ReviewPageData): string {
 <div class="bf-panel review-panel">
 ${finishBlock(data.role, data.canApprove)}${identity}
 ${reviewFacts(data.role)}
-<div class="bf-segmented review-view" role="group" aria-label="What to show" id="review-view">
-<button type="button" class="bf-segmented__item" data-view="all" aria-pressed="true">All</button>
-<button type="button" class="bf-segmented__item" data-view="changed" aria-pressed="false">Changed</button>
-<button type="button" class="bf-segmented__item" data-view="comments" aria-pressed="false">Comments</button>
+<div class="bf-tabs review-view" role="group" aria-label="What to show" id="review-view">
+<button type="button" class="bf-tabs__item" data-view="all" aria-pressed="true">All</button>
+<button type="button" class="bf-tabs__item" data-view="changed" aria-pressed="false">Changed</button>
+<button type="button" class="bf-tabs__item" data-view="comments" aria-pressed="false">Comments</button>
 </div>
 <nav class="review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
 ${reviewHints(data.role, data.canApprove)}
@@ -394,7 +395,7 @@ function reviewFacts(role: ReviewRole): string {
 		role === "reviewer"
 			? ""
 			: `
-<div class="review-fact" id="step-fact"><span>Plan steps</span><span class="bf-progress"><span class="bf-progress__track"><span class="bf-progress__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>`;
+<div class="review-fact" id="step-fact"><span>Plan steps</span><span class="review-steps"><span class="review-steps__track"><span class="review-steps__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>`;
 	return `<div class="review-facts" id="review-facts">${steps}
 <div class="review-fact"><span>Comments</span><span class="review-fact__value" id="comment-total">0</span></div>
 </div>`;

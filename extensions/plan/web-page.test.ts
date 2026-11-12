@@ -233,14 +233,15 @@ describe("the page's chrome", () => {
 		expect(REVIEW_CSS).toContain(".review-bar .bf-context--subject{direction:ltr;text-align:left}");
 	});
 
-	test("draws the view switch as the kit's segmented control", () => {
+	test("draws the view switch as the kit's tabs, with the current view marked", () => {
+		// The kit renamed the segmented control to tabs; a page that kept the old class drew three bare
+		// buttons with no current mark, which is a dead class and not a style choice.
 		const html = reviewPage();
+		expect(html).toContain('<div class="bf-tabs review-view" role="group" aria-label="What to show" id="review-view">');
 		expect(html).toContain(
-			'<div class="bf-segmented review-view" role="group" aria-label="What to show" id="review-view">',
+			'<button type="button" class="bf-tabs__item" data-view="all" aria-pressed="true">All</button>',
 		);
-		expect(html).toContain(
-			'<button type="button" class="bf-segmented__item" data-view="all" aria-pressed="true">All</button>',
-		);
+		expect(html).not.toContain("bf-segmented");
 	});
 });
 
@@ -324,6 +325,22 @@ describe("the page's own design rules", () => {
 			.split("\n")
 			.filter((line) => line.includes("var(--font-mono)"))) {
 			expect(rule, rule).toMatch(/^\.(review-share__url|bf-block code|bf-block pre\.bf-code)\{/);
+		}
+	});
+
+	test("writes no class the kit and the page do not both answer for", () => {
+		// A renamed kit class is silent: the markup keeps a word no rule knows and the control loses its
+		// shape. Every `bf-*` word the page emits is looked up in the sheet the page ships.
+		const emitted = new Set(
+			[...reviewPage().matchAll(/class="([^"]+)"/g)].flatMap((hit) => (hit[1] as string).split(/\s+/)),
+		);
+		// Two classes have no rule by design: the theme toggle, which the kit's script binds (its glyph
+		// is what the sheet styles), and the outline's details, which the client opens and closes.
+		const hooks = new Set(["bf-theme-toggle", "review-outline"]);
+		for (const name of emitted) {
+			if (hooks.has(name)) continue;
+			if (!name.startsWith("bf-") && !name.startsWith("review-")) continue;
+			expect(REVIEW_CSS, name).toContain(`.${name}`);
 		}
 	});
 
