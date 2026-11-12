@@ -261,13 +261,13 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("board.refreshAges()");
 	});
 
-	test("filters all three subjects, lands on the lane with work, and tooltips what it clamps", () => {
-		// The filter is one control for two tabs, and the Team tab has three kinds of row: a
-		// card, an agent's label, and mail. A narrow reader should not open on an empty lane,
-		// and a clipped line should still be readable on hover.
+	test("filters cards on both tabs, lands on the lane with work, and tooltips what it clamps", () => {
+		// One control for two tabs, and one subject: the cards' own query rule, which `list` reads
+		// too. A narrow reader should not open on an empty lane, and a clipped line should still
+		// be readable on hover.
 		expect(BOARD_CLIENT_JS).toContain("board.matches(card, query)");
-		expect(BOARD_CLIENT_JS).toContain("agent.label.toLowerCase().indexOf(query.toLowerCase())");
-		expect(BOARD_CLIENT_JS).toContain("function mailMatches(message, query)");
+		expect(BOARD_CLIENT_JS).not.toContain("function mailMatches");
+		expect(BOARD_CLIENT_JS).not.toContain("agent.label.toLowerCase()");
 		expect(BOARD_CLIENT_JS).toContain("laneWithWork(view)");
 		expect(BOARD_CLIENT_JS).toContain("title.title = card.title");
 		expect(BOARD_CLIENT_JS).toContain("pill.title = entry.why");

@@ -88,7 +88,7 @@ const teamTemplate = String.raw`(function () {
     if (slot.getAttribute("data-sig") === sig) return;
     slot.setAttribute("data-sig", sig);
     slot.textContent = "";
-    slot.appendChild(board.captionOf("ACTIVITY", waiting + recent, undefined, "row"));
+    slot.appendChild(board.captionOf("ACTIVITY", waiting + recent, "row"));
   }
 
   /**
@@ -104,14 +104,14 @@ const teamTemplate = String.raw`(function () {
   board.renderTeam = function (view) {
     var shell = slots();
     if (shell === undefined) return;
-    // The toolbar's filter is one control for both tabs, so the Team tab reads it too: it
-    // matches cards, agent labels, and mail, which are the three things here.
+    // The toolbar's filter is one control for both tabs, and it narrows cards: only the middle
+    // column reads it, while the roster and the mail queue stand still.
     var query = board.query || "";
     var filtering = query !== "";
     var decisions = board.decisionsOf(view);
-    var fleet = board.fleetColumn(view, decisions, query, filtering);
+    var fleet = board.fleetColumn(view, decisions);
     var active = board.activeColumn(view, decisions, query, filtering);
-    var feed = board.feedPanes(view, query, filtering);
+    var feed = board.feedPanes(view);
 
     var barren = view.total === 0 && fleet.count === 0 && feed.waiting.total === 0 && feed.recent.total === 0;
     shell.grid.hidden = barren;

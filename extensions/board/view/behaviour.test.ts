@@ -701,15 +701,13 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			await page.waitForTimeout(1_100);
 			expect(await agentsSig()).toBe(settled);
 
-			// A filter is a view of the rows, so it unfolds the history and shows the owners that
-			// match instead of saying nobody does.
+			// The filter narrows cards, so the roster stands still: a label the query names changes
+			// neither the fold nor the column's signature, and only the middle column empties.
 			await page.fill("#board-filter", "billing-old");
-			await page.waitForFunction(
-				() => (globalThis as unknown as { document: Doc }).document.querySelectorAll(".board-team__agent").length === 3,
-				undefined,
-				{ timeout: PAINT_MS },
-			);
-			expect(await page.$(".board-team__agent-fold")).toBeNull();
+			await page.waitForSelector('[data-pane="needs-you"]:has-text("nothing matches")', { timeout: PAINT_MS });
+			expect(await rows()).toBe(4);
+			expect(await page.getAttribute(".board-team__agent-fold", "aria-expanded")).toBe("false");
+			expect(await agentsSig()).toBe(settled);
 
 			// Mail is a fact the column does not print, and the roster's own chip is: it arrives on
 			// the next frame without anyone reloading.

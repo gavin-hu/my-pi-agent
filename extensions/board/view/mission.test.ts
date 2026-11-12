@@ -151,13 +151,14 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CLIENT_JS).toContain('needs + " needs you"');
 	});
 
-	test("counts each column itself, a zero included, and shows n/total under a filter", () => {
+	test("counts each column itself, a zero included, and never a share of a filtered total", () => {
 		expect(BOARD_CLIENT_JS).toContain('board.captionOf("AGENTS"');
 		expect(BOARD_CLIENT_JS).toContain('board.captionOf("ACTIVE WORK"');
 		expect(BOARD_CLIENT_JS).toContain('board.captionOf("ACTIVITY"');
-		// The pill is shown/total while filtering, and the spoken label says "of" rather than "/".
-		expect(BOARD_CLIENT_JS).toContain('filtered ? count + "/" + total : String(count)');
-		expect(BOARD_CLIENT_JS).toContain('filtered ? count + " of " + total : plural(count, noun)');
+		// A caption is a count, not a share: the pill a column head draws has no total to show,
+		// and the ratio the panes' heads keep is their own (NEEDS YOU against the whole queue).
+		expect(BOARD_CLIENT_JS).toContain("board.captionOf = function (text, count, noun)");
+		expect(BOARD_CLIENT_JS).toContain('head.appendChild(el("span", N.teamCount, String(count)));');
 		// A zero is drawn: an empty lane, an empty pane, and an empty column all say 0.
 		expect(BOARD_CLIENT_JS).toContain('slot.appendChild(el("p", N.teamEmpty');
 	});
@@ -218,11 +219,13 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CLIENT_JS).not.toContain("team-progress");
 	});
 
-	test("names the filter's three subjects, because the tab has three kinds of row", () => {
-		expect(pageOf("team")).toContain('placeholder="filter cards, agents and mail"');
-		expect(pageOf("team")).toContain('<span class="sr-only">Filter cards, agents and mail</span>');
-		expect(BOARD_CLIENT_JS).toContain("function mailMatches(message, query)");
-		expect(BOARD_CLIENT_JS).toContain("agent.label.toLowerCase().indexOf(query.toLowerCase())");
+	test("names the filter's one subject, because it narrows cards", () => {
+		// A query empties two columns that have nothing to do with the card it names, so the box
+		// says what it reads: the roster and the mail queue stand still.
+		expect(pageOf("team")).toContain('placeholder="filter cards"');
+		expect(pageOf("team")).toContain('<span class="sr-only">Filter cards</span>');
+		expect(BOARD_CLIENT_JS).not.toContain("function mailMatches");
+		expect(BOARD_CLIENT_JS).not.toContain("agent.label.toLowerCase()");
 	});
 
 	test("walks a decision row and a mission card with j/k, and enters them", () => {
@@ -266,6 +269,6 @@ describe("the mission control's contracts", () => {
 		// What the cap left out is drawn, not dropped: a queue of twenty says 6/20 rather than
 		// reading like a quiet board.
 		expect(BOARD_CLIENT_JS).toContain("waiting.length + queue.dropped");
-		expect(BOARD_CLIENT_JS).toContain("var events = filtering");
+		expect(BOARD_CLIENT_JS).toContain("var events = recent.events;");
 	});
 });

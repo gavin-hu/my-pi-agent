@@ -127,39 +127,28 @@ const feedTemplate = String.raw`(function () {
     return row;
   }
 
-  /** Whether a message matches the filter: its sender, its recipients, or what it says. */
-  function mailMatches(message, query) {
-    var hay = [message.fromLabel, message.text].concat(message.to.map(function (each) { return each.label; })).join(" ").toLowerCase();
-    return hay.indexOf(query.toLowerCase()) !== -1;
-  }
-
   /**
    * The two panes, as separate signatures and builders.
    *
    * Separately, because they move on different clocks: a message landing must not rebuild the
-   * history behind it, and a card's move must not repaint a queue somebody is reading.
+   * history behind it, and a card's move must not repaint a queue somebody is reading. Neither
+   * reads the filter: it narrows the cards, and a queue of mail is not one.
    */
-  board.feedPanes = function (view, query, filtering) {
+  board.feedPanes = function (view) {
     // The queue arrives with the count its cap left out, so a repository with twenty unread
     // messages does not read like a quiet one.
     var queue = view.waiting === undefined ? { messages: [], dropped: 0 } : view.waiting;
     var waiting = queue.messages;
     var recent = view.activity === undefined ? { events: [], dropped: 0 } : view.activity;
-    var mails = filtering ? waiting.filter(function (message) { return mailMatches(message, query); }) : waiting;
-    var events = filtering
-      ? recent.events.filter(function (event) {
-          var hay = ("#" + event.card + " " + event.title + " " + eventWhat(event)).toLowerCase();
-          return hay.indexOf(query.toLowerCase()) !== -1;
-        })
-      : recent.events;
+    var events = recent.events;
 
-    var mailSig = [query];
-    for (var m = 0; m < mails.length; m++) {
+    var mailSig = [];
+    for (var m = 0; m < waiting.length; m++) {
       var names = [];
-      for (var t = 0; t < mails[m].to.length; t++) names.push(mails[m].to[t].label + ":" + mails[m].to[t].state);
-      mailSig.push(mails[m].id + ":" + mails[m].kind + ":" + mails[m].at + ":" + names.join("+"));
+      for (var t = 0; t < waiting[m].to.length; t++) names.push(waiting[m].to[t].label + ":" + waiting[m].to[t].state);
+      mailSig.push(waiting[m].id + ":" + waiting[m].kind + ":" + waiting[m].at + ":" + names.join("+"));
     }
-    var eventSig = [query, String(recent.dropped)];
+    var eventSig = [String(recent.dropped)];
     for (var e = 0; e < events.length; e++) {
       eventSig.push(events[e].kind + ":" + events[e].card + ":" + events[e].at + ":" + (events[e].lane || ""));
     }
@@ -167,20 +156,20 @@ const feedTemplate = String.raw`(function () {
     return {
       waiting: {
         sig: mailSig.join("|"),
-        count: mails.length,
+        count: waiting.length,
         total: waiting.length,
         build: function (slot) {
-          // A filter shows what it matched against the queue; unfiltered, the pane says how deep
-          // the queue is, the way RECENT says how much history it left out.
+          // The pane says how deep the queue is, the way RECENT says how much history it left
+          // out: a cap that dropped rows must not read like a quiet board.
           slot.appendChild(
-            paneHead("WAITING", mails.length, filtering ? waiting.length : waiting.length + queue.dropped, mails.length > 0 ? "accent" : undefined)
+            paneHead("WAITING", waiting.length, waiting.length + queue.dropped, waiting.length > 0 ? "accent" : undefined)
           );
-          if (mails.length === 0) {
-            slot.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "no mail is waiting"));
+          if (waiting.length === 0) {
+            slot.appendChild(el("p", N.teamEmpty, "no mail is waiting"));
             return;
           }
           var list = el("ul", N.waiting);
-          for (var i = 0; i < mails.length; i++) list.appendChild(mailRow(mails[i]));
+          for (var i = 0; i < waiting.length; i++) list.appendChild(mailRow(waiting[i]));
           slot.appendChild(list);
         }
       },
@@ -191,9 +180,9 @@ const feedTemplate = String.raw`(function () {
         build: function (slot) {
           // The count is what the rail has room for against what the board holds, so a busy
           // board does not read like a quiet one.
-          slot.appendChild(paneHead("RECENT", events.length, filtering ? recent.events.length : events.length + recent.dropped));
+          slot.appendChild(paneHead("RECENT", events.length, events.length + recent.dropped));
           if (events.length === 0) {
-            slot.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "nothing has happened yet"));
+            slot.appendChild(el("p", N.teamEmpty, "nothing has happened yet"));
             return;
           }
           var list = el("ul", N.recent);
