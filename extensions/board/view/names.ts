@@ -90,27 +90,79 @@ export const BOARD_CLASS = {
 	dialogNoteAt: "board-dialog__note-at",
 	dialogNoteText: "board-dialog__note-text",
 
-	// The Team tab: the queue of decisions, the roster, and the Done strip.
+	// The Team tab: three columns — the agents, the work that is moving, what arrived.
+	// The shell and its captions.
 	team: "board-team",
 	teamGrid: "board-team__grid",
-	teamGroup: "board-team__group",
+	teamColumn: "board-team__column",
 	teamCaption: "board-team__caption",
-	teamQueue: "board-team__queue",
-	teamDecision: "board-team__decision",
-	teamOpen: "board-team__open",
-	teamRef: "board-team__ref",
-	teamTitle: "board-team__title",
-	teamFoot: "board-team__foot",
-	teamWhy: "board-team__why",
-	teamRoster: "board-team__roster",
-	teamMate: "board-team__mate",
-	teamDot: "board-team__dot",
-	teamName: "board-team__name",
-	teamMets: "board-team__mets",
+	teamCount: "board-team__count",
+	teamDoor: "board-team__door",
 	teamEmpty: "board-team__empty",
-	teamDone: "board-team__done",
-	teamId: "board-team__id",
-	teamDoneIds: "board-team__ids",
-	teamTail: "board-team__tail",
-	teamFold: "board-team__fold",
+	teamSkeleton: "board-team__skeleton",
+
+	// Left: one card per session, the lead pinned first.
+	agents: "board-team__agents",
+	agent: "board-team__agent",
+	agentHead: "board-team__agent-head",
+	monogram: "board-team__monogram",
+	agentName: "board-team__agent-name",
+	agentChips: "board-team__agent-chips",
+	agentState: "board-team__state",
+	agentMail: "board-team__mail",
+	missions: "board-team__missions",
+	mission: "board-team__mission",
+	missionBar: "board-team__bar",
+	missionRef: "board-team__mission-ref",
+	missionLane: "board-team__mission-lane",
+	missionAge: "board-team__mission-age",
+	agentNone: "board-team__none",
+	agentFold: "board-team__agent-fold",
+
+	// Middle: the strip of decisions over three swimlanes.
+	decisions: "board-team__decisions",
+	decision: "board-team__decision",
+	decisionOpen: "board-team__open",
+	decisionRef: "board-team__ref",
+	decisionTitle: "board-team__title",
+	decisionWhy: "board-team__why",
+	decisionMore: "board-team__more",
+	teamLanes: "board-team__lanes",
+	// A swimlane: the Team tab's own head and tray, not the Board tab's `lane*` above.
+	teamLane: "board-team__lane",
+	teamLaneHead: "board-team__lane-head",
+	teamLaneDot: "board-team__lane-dot",
+	teamLaneName: "board-team__lane-name",
+	teamLaneCount: "board-team__lane-count",
+	teamLaneFold: "board-team__lane-fold",
+	teamLaneEmpty: "board-team__lane-empty",
+	swim: "board-team__swim",
+	// A mission card: the one-line face a swimlane holds, with its lane as a bar.
+	missionCard: "board-team__card",
+	missionCardHead: "board-team__card-head",
+	missionCardRef: "board-team__card-ref",
+	missionTitle: "board-team__card-title",
+	missionMeta: "board-team__card-meta",
+
+	// Right: the mail nobody has read, then what the cards say happened.
+	pane: "board-team__pane",
+	paneBody: "board-team__pane-body",
+	paneCount: "board-team__pane-count",
+	waiting: "board-team__waiting",
+	mailRow: "board-team__mail-row",
+	glyph: "board-team__glyph",
+	mailFrom: "board-team__mail-from",
+	mailArrow: "board-team__mail-arrow",
+	mailTo: "board-team__mail-to",
+	recent: "board-team__recent",
+	event: "board-team__event",
+	eventRef: "board-team__event-ref",
+	eventWhat: "board-team__event-what",
+
+	// An age, wherever one is printed: a stamp the ticker keeps honest, pushed to the row's edge.
+	stamp: "board-team__stamp",
+	// A state dot, shared by an agent's pill and a waiting row's recipient: one vocabulary for
+	// live, quiet, gone and no record, whichever column reads it. The kind's own word reuses
+	// `kind` above: a decision row and a mission card wear the label a card face wears.
+	dot: "board-team__dot",
 } as const satisfies Readonly<Record<string, string>>;

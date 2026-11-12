@@ -12,15 +12,8 @@ import { mkdir, link, readdir, rename, rm, rmdir, stat, writeFile } from "node:f
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/json.ts";
 import { claimsConflict } from "./overlap.ts";
-import type {
-	BusMessage,
-	ClaimConflict,
-	ClaimRecord,
-	DeliveryFailure,
-	InboxPeek,
-	InboxRead,
-	SessionRecord,
-} from "./types.ts";
+import type { ClaimConflict, ClaimRecord, DeliveryFailure, InboxPeek, InboxRead, SessionRecord } from "./types.ts";
+import { type BusMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
 import { INBOX_DIR_NAME, SESSIONS_DIR_NAME } from "../../lib/session-roster.ts";
 
 const DIR_MODE = 0o700;
@@ -138,22 +131,6 @@ function isWatchingState(value: unknown): boolean {
 	return entry !== undefined && typeof entry.armed === "boolean" && typeof entry.wake === "boolean";
 }
 
-function isMessage(value: unknown): value is BusMessage {
-	const entry = asRecord(value);
-	if (!entry) return false;
-	return (
-		typeof entry.id === "string" &&
-		typeof entry.from === "string" &&
-		typeof entry.fromLabel === "string" &&
-		typeof entry.to === "string" &&
-		typeof entry.toLabel === "string" &&
-		typeof entry.kind === "string" &&
-		typeof entry.text === "string" &&
-		typeof entry.at === "number" &&
-		(entry.paths === undefined || (Array.isArray(entry.paths) && entry.paths.every((path) => typeof path === "string")))
-	);
-}
-
 function isClaim(value: unknown): value is ClaimRecord {
 	const entry = asRecord(value);
 	if (!entry) return false;
@@ -184,44 +161,13 @@ async function writeJson(path: string, value: unknown): Promise<void> {
 	}
 }
 
-const MESSAGE_SUFFIX = ".json";
-
+/** The `*.json` files in one directory, as names; a directory that is not there holds none. */
 async function listFiles(dir: string): Promise<string[]> {
 	try {
-		return (await readdir(dir)).filter((name) => name.endsWith(MESSAGE_SUFFIX)).sort();
+		return (await readdir(dir)).filter((name) => name.endsWith(".json")).sort();
 	} catch {
 		return [];
 	}
-}
-
-/** The message id a file name holds, which is the id a reader compares against. */
-const idOfFile = (name: string): string => name.slice(0, -MESSAGE_SUFFIX.length);
-
-/**
- * A recipient's messages in the order they arrived, oldest first.
- *
- * The queue is the inbox's own clock, not the writer's: an id carries the sender's `now()`, so
- * its order is the sender's clock, and a peer whose clock runs ahead would write a name that
- * sorts after every other — at the back for as long as a backlog is deeper than one page, and
- * read last for as long as it keeps sending. A file's mtime is when the message landed here,
- * which every session shares, so the front is the same for every reader and every poll. Two
- * files published in one filesystem tick tie, and the name settles it so the page is stable.
- */
-async function listMessages(dir: string): Promise<string[]> {
-	const names = await listFiles(dir);
-	const stamped = await Promise.all(
-		names.map((name) =>
-			stat(join(dir, name)).then(
-				(info): { name: string; at: number } | undefined => ({ name, at: info.mtimeMs }),
-				// Published between the readdir and the stat, and so already read by the next poll.
-				() => undefined,
-			),
-		),
-	);
-	return stamped
-		.filter((entry): entry is { name: string; at: number } => entry !== undefined)
-		.sort((a, b) => a.at - b.at || a.name.localeCompare(b.name))
-		.map((entry) => entry.name);
 }
 
 /**
@@ -325,7 +271,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		for (const name of names) {
 			if (known?.has(idOfFile(name))) continue;
 			const path = join(directory, name);
-			const message = readTyped(path, isMessage);
+			const message = readTyped(path, isBusMessage);
 			if (!message) {
 				unreadable.push(name);
 				continue;
@@ -539,7 +485,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 				const directory = join(inboxRoot, name);
 				for (const file of await listFiles(directory)) {
 					const path = join(directory, file);
-					const message = readTyped(path, isMessage);
+					const message = readTyped(path, isBusMessage);
 					if (message) {
 						if (at - message.at > messageTtlMs) await rm(path, { force: true });
 						continue;

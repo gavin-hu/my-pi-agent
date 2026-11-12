@@ -15,6 +15,7 @@
 import type { BoardStore } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
+import type { WaitingMail } from "../../lib/session-mail.ts";
 import { pageActor } from "../../lib/board/seat.ts";
 import { type PagePointer, BOARD_BASE, readPointer } from "../../lib/board/page-pointer.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
@@ -68,6 +69,14 @@ export interface ServedBoardPageOptions {
 	display?: PageDisplay;
 	/** The bus's records to draw, or nothing at all for a page with no bus here. */
 	roster?: (now: number) => RosterSession[];
+	/**
+	 * Mail waiting on the bus, read the way the page reads it: never consumed.
+	 *
+	 * The page draws this queue from files, so a caller that seeds one passes the rows the
+	 * files would have produced rather than a directory a fixture would have to lay out. A
+	 * fixture's queue fits one page, so the count its cap left out is zero.
+	 */
+	waiting?: () => WaitingMail[];
 }
 
 /** One served page: the URL `/board` would open, the listener, and its close. */
@@ -82,7 +91,7 @@ export interface ServedBoardPage {
 
 /** Serve the shipped page over `store`, with a snapshot re-read for every frame. */
 export async function serveBoardPage(options: ServedBoardPageOptions): Promise<ServedBoardPage> {
-	const { store, now, display = {}, roster } = options;
+	const { store, now, display = {}, roster, waiting } = options;
 	// What the page prints for its repository, resolved once so the document and every frame
 	// name the same board: the toolbar is named before the first frame rather than after it.
 	const repo = display.repo ?? store.name();
@@ -96,6 +105,10 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 			cards,
 			now: at,
 			...(roster === undefined ? {} : { roster: roster(at) }),
+			...(waiting === undefined ? {} : { waiting: { messages: waiting(), dropped: 0 } }),
+			// The page is served as the seat, which the board's own config names: the lead flag
+			// is the config's, and a fixture that renamed its lead must see the rename.
+			lead: store.config().lead,
 			bytes,
 			skipped,
 			repo,

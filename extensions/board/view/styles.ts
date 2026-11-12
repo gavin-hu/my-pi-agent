@@ -29,6 +29,13 @@ const LANE_ROLE_CSS = LANES.flatMap((lane) => {
 		`.board-lane[data-lane="${lane}"] .board-lane__dot{background:var(--${role})}`,
 		`.board-dialog__state[data-lane="${lane}"]::before{background:var(--${role})}`,
 		`.board-card[data-lane="${lane}"] .board-card__id{color:var(--${role})}`,
+		// The Team tab wears a lane the same way, on three different shapes: a mission line's
+		// bar in an agent card, a swimlane's head dot, and a mission card's edge. Generated
+		// from the table, so a lane added to `LANES` arrives coloured everywhere.
+		`.board-team__mission[data-lane="${lane}"] .board-team__bar{background:var(--${role})}`,
+		`.board-team__lane[data-lane="${lane}"] .board-team__lane-dot{background:var(--${role})}`,
+		`.board-team__card[data-lane="${lane}"]{border-left-color:var(--${role})}`,
+		`.board-team__dot[data-lane="${lane}"]{background:var(--${role})}`,
 	];
 }).join("\n");
 
@@ -81,7 +88,7 @@ ${WEB_COMPONENTS_CSS}
 /* The bar is the board's own control row: the view switch, the done meter, and the filter,
    with the filter pushed to the end of whatever room the row has. */
 .board-bar{gap:var(--space-3)}
-.board-filter{width:13rem}
+.board-filter{width:19rem}
 .board-progress{margin:0}
 .board-picker{display:none;margin-bottom:var(--space-3)}
 
@@ -191,76 +198,110 @@ ${REASON_TONE_CSS}
 .board-card[data-visited="true"]{box-shadow:inset 3px 0 0 var(--border-strong)}
 .board-card[data-current="true"]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
 
-/* The Team tab: a queue and a roster side by side, then one quiet strip. */
-.board-team{display:grid;gap:var(--space-5);min-width:0}
-.board-team__grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(18rem,1fr);gap:var(--space-6);align-items:start;min-width:0}
-/* Each panel is its own grid, so both captions land on one line and both lists start on the next. */
-.board-team__group{display:grid;grid-template-rows:auto 1fr;gap:var(--space-3);align-content:start;min-width:0}
-.board-team__caption{margin:0;padding-bottom:var(--space-2);border-bottom:1px solid var(--border);font:var(--fw-semibold) var(--fs-md) var(--font-ui);color:var(--text);display:flex;align-items:center;gap:var(--space-2)}
-.board-team__caption .bf-chip{margin-left:auto;font-variant-numeric:tabular-nums}
-/* The queue: one row per card, its kind as an edge, its way out in the foot. */
-.board-team__queue{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
-/* The queue is the tallest thing here and it can be unbounded; capping it keeps the two
-   panels on one screen. The roster can be unbounded the same way — a board with a long
-   history names an owner per label that ever claimed a card — so it takes the same cap and
-   the same shade. Stacked below 1180px there is no second column to balance, and a nested
-   scroll on a phone is worse than the page's own. */
-@media (min-width:1181px){
-  /* A row cut at the edge reads as a bug unless something says the list continues, and a
-     mac's scrollbars are hidden until it moves: an inset shade in the page's own colour
-     marks the edge without a literal. */
-  /* A floor, because a short window must not turn three rows into a scroll box. */
-  .board-team__queue,.board-team__roster{max-height:max(18rem,calc(100dvh - 16rem));overflow:auto;overscroll-behavior:contain;padding-right:var(--space-1);box-shadow:inset 0 calc(-1 * var(--space-6)) var(--space-6) calc(-1 * var(--space-6)) var(--canvas)}
-}
-.board-team__decision{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"open foot" "why why";align-items:center;gap:var(--space-1) var(--space-3);padding:var(--space-2) var(--space-3);background:var(--raised);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);transition:border-color var(--motion-base) var(--motion-ease),transform var(--motion-base) var(--motion-ease)}
-.board-team__decision:hover{border-color:var(--border-strong);transform:translateY(-1px)}
-/* The edge's colour comes from the row's tone, spliced below from the board's tone table. */
+/* The Team tab: three columns — who is here, what is moving, what arrived — each counting
+   itself in a caption that sticks to the page's one scroll box. There is no nested scroll
+   here on purpose: a column of agents beside a short middle column is one page, and three
+   scrollbars inside a dashboard is the thing this tab exists not to be. */
+.board-team{min-width:0}
+.board-team__grid{display:grid;grid-template-columns:minmax(0,16rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
+.board-team__column{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+/* Sticky, because the agents list is the one that grows: the word a reader is scanning for
+   must be over the rows wherever the page has been scrolled to. Offset by a hair so the
+   hairline under it does not disappear into the shell's own border. */
+.board-team__caption{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:var(--space-2);margin:0;padding:var(--space-2) 0;background:var(--canvas);border-bottom:1px solid var(--border);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.board-team__count{margin-left:auto;padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--raised);color:var(--text);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;letter-spacing:0}
+/* The door to the wall: the middle column's caption is where a reader asks for every card,
+   and the queue's overflow is the reason to. */
+.board-team__door{margin-left:var(--space-2);appearance:none;border:0;background:none;padding:0;min-height:24px;color:var(--accent);font:var(--fs-xs) var(--font-ui);letter-spacing:0;text-transform:none;cursor:pointer}
+.board-team__door:hover{text-decoration:underline}
+.board-team__empty{margin:0;font:var(--fs-sm)/var(--lh-relaxed) var(--font-ui);color:var(--muted)}
+.board-team__skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
+
+/* Left: the agents. A card per session, the lead's wearing the accent edge so the pinned row
+   is also the one that looks pinned. */
+.board-team__agents{display:flex;flex-direction:column;gap:var(--space-2);margin:0;padding:0;list-style:none}
+.board-team__agent{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-2) var(--space-3);background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-md);min-width:0}
+.board-team__agent[data-lead="1"]{border-color:var(--accent)}
+/* A dead session is drawn, not coloured: the dashed edge says "nobody is behind this". */
+.board-team__agent[data-state="gone"]{border-style:dashed}
+.board-team__agent-head{display:flex;align-items:center;gap:var(--space-2);min-width:0}
+/* Two letters, in the mono face: a monogram is an identifier, and a label long enough to be
+   elided still has these two to be recognised by. */
+.board-team__monogram{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:1.5rem;height:1.5rem;padding:0 var(--space-1);border-radius:var(--radius-pill);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs) var(--font-mono);text-transform:uppercase}
+.board-team__agent-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font:var(--fw-semibold) var(--fs-sm) var(--font-ui)}
+.board-team__agent-chips{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);font:var(--fs-xs) var(--font-ui)}
+/* The state pill is a word beside a dot, never a colour alone: quiet is the state a lead acts
+   on and the one a reader must be able to say out loud. */
+.board-team__state{display:inline-flex;align-items:center;gap:var(--space-1);color:var(--muted);font-variant-numeric:tabular-nums}
+.board-team__mail{color:var(--accent);font-variant-numeric:tabular-nums}
+/* What the session is holding: one line per card, the lane as a bar beside it. */
+.board-team__missions{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
+.board-team__mission{display:flex;align-items:center;gap:var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+.board-team__bar{flex:0 0 auto;align-self:stretch;width:2px;border-radius:var(--radius-pill);background:var(--muted)}
+.board-team__mission-ref{color:var(--text);font-family:var(--font-mono)}
+.board-team__mission-lane{text-transform:lowercase}
+.board-team__mission-age{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
+/* An age is a duration, not a phrase: tabular figures, so two rows' minutes line up, and it
+   sits at the row's edge where the eye compares them. */
+.board-team__stamp{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.board-team__none{margin:0;color:var(--dim);font:var(--fs-xs) var(--font-ui)}
+.board-team__agent-fold{display:flex;align-items:center;gap:var(--space-2);width:100%;margin:0;padding:0;min-height:24px;appearance:none;border:0;background:none;color:var(--muted);font:var(--fs-xs) var(--font-ui);text-align:left;text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.board-team__agent-fold:hover{color:var(--text)}
+
+/* One dot for one state, wherever it is drawn: an agent's pill, a waiting row's recipient, a
+   mission card's owner. A record that is not there is a hollow ring, never a colour. */
+.board-team__dot{flex:0 0 auto;width:8px;height:8px;border-radius:var(--radius-pill);background:var(--muted)}
+.board-team__dot[data-state="live"]{background:var(--success)}
+.board-team__dot[data-state="quiet"]{background:var(--warn)}
+.board-team__dot[data-state="gone"]{background:var(--danger)}
+.board-team__dot[data-state="absent"],.board-team__dot[data-state="unknown"]{background:transparent;box-shadow:inset 0 0 0 1px var(--border-strong)}
+
+/* Middle: the decisions strip, then the three lanes that move. */
+.board-team__decisions{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
+.board-team__decision{display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-2) var(--space-3);background:var(--raised);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);min-width:0;transition:border-color var(--motion-base) var(--motion-ease)}
+.board-team__decision:hover{border-color:var(--border-strong)}
 /* Nobody holds it, so the edge is drawn but not filled: a shape, not a claim. */
 .board-team__decision[data-kind="unassigned"]{border-left-style:dashed}
-.board-team__open{grid-area:open;display:flex;align-items:baseline;gap:var(--space-2);appearance:none;border:0;background:none;padding:0;margin:0;text-align:left;cursor:pointer;color:var(--text);font:var(--fw-medium) var(--fs-md) var(--font-ui);min-width:0}
+.board-team__open{display:flex;align-items:center;gap:var(--space-2);min-width:0;appearance:none;border:0;background:none;padding:0;color:var(--text);font:var(--fw-medium) var(--fs-sm) var(--font-ui);text-align:left;cursor:pointer}
 .board-team__open:hover .board-team__title{color:var(--accent)}
-.board-team__ref{font:var(--fs-xs) var(--font-mono);color:var(--muted);flex:0 0 auto}
-.board-team__title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-/* Two lines, then a tooltip: the "why" is the reason the row is on this tab. */
-.board-team__why{grid-area:why;margin:0;color:var(--muted);font:var(--fs-sm)/var(--lh-snug) var(--font-ui);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-.board-team__foot{grid-area:foot;display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2)}
-/* A row with no owner chip still puts its one action on the row's edge. */
-.board-team__foot>.bf-btn:only-child{margin-left:auto}
-/* The roster: who is here and what they hold. No hover fill — nothing to open. */
-.board-team__roster{display:flex;flex-direction:column;gap:var(--space-1);margin:0;padding:0;list-style:none;min-width:0}
-/* No row rule: the caption already delimits the list, and a second hairline beside it
-   was the same pen drawn twice. */
-/* One row is one line: the name shrinks, the metrics take the rest, and a narrow column
-   wraps them under the name rather than clipping either. A row that always broke after the
-   name cost 56px, which is what made a roster of twenty a wall. */
-.board-team__mate{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);padding:var(--space-2) 0;min-width:0}
-.board-team__dot{width:8px;height:8px;border-radius:var(--radius-pill);background:var(--muted);flex:0 0 auto;align-self:center}
-.board-team__mate[data-state="live"] .board-team__dot{background:var(--success)}
-.board-team__mate[data-state="quiet"] .board-team__dot{background:var(--warn)}
-/* A dead session is the one state the page states outright: solid, and in the refusal colour. */
-.board-team__mate[data-state="gone"] .board-team__dot{background:var(--danger)}
-/* A record that is not there is a hollow ring, never a colour that claims it is. */
-.board-team__mate[data-state="absent"] .board-team__dot,.board-team__mate[data-state="unknown"] .board-team__dot{background:transparent;box-shadow:inset 0 0 0 1px var(--border-strong)}
-.board-team__name{font:var(--fw-medium) var(--fs-md) var(--font-ui);color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.board-team__mets{flex:1 1 auto;min-width:0;margin:0;text-align:right;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
-.board-team__empty{margin:0;color:var(--muted);font:var(--fs-sm) var(--font-ui)}
-/* The roster's one control: the owners the bus has no record of, counted in one row and
-   opened from it. Full width, because it stands for a group of rows rather than a row. */
-.board-team__tail{display:flex;flex:1 1 100%;align-items:center;gap:var(--space-2);appearance:none;border:0;background:none;padding:0;margin:0;min-height:24px;cursor:pointer;text-align:left;color:var(--muted);font:var(--fs-md) var(--font-ui);text-decoration:underline dotted;text-underline-offset:3px}
-.board-team__tail:hover{color:var(--text);text-decoration:underline}
-/* The strip's ids past the sixth: one span, hidden whole, so the count that opens them
-   controls a single node. Its contents are the strip's own flex items, which is what gives
-   them the strip's gap and wrapping rather than jamming #7#8#9 together. */
-.board-team__ids{display:contents}
-/* The strip's count is its fold control: the number is what says how much is out of sight. */
-.board-team__fold{appearance:none;border:0;background:none;padding:5px 8px;margin:-5px -8px;min-height:24px;cursor:pointer;color:var(--muted);font:var(--fs-sm) var(--font-ui);text-decoration:underline dotted;text-underline-offset:3px}
-.board-team__fold:hover{color:var(--accent);text-decoration:underline}
-/* Done stays quiet; its ids are buttons only because they open their card. */
-.board-team__done{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
-/* An id in the Done strip is a button, so it wears the only affordance it has: a
-   dotted line, visible before the pointer arrives. */
-.board-team__id{appearance:none;border:0;background:none;padding:5px 8px;margin:-5px -8px;min-height:24px;cursor:pointer;font:var(--fs-sm) var(--font-mono);color:var(--muted);text-decoration:underline dotted;text-underline-offset:3px}
-.board-team__id:hover{color:var(--accent);text-decoration:underline}
+.board-team__ref{flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
+.board-team__title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-team__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+.board-team__more{margin:0;color:var(--dim);font:var(--fs-xs) var(--font-ui)}
+/* The lanes: a head that sticks under the column's caption, then the cards that fit. */
+.board-team__lanes{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.board-team__lane{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
+.board-team__lane-head{display:flex;align-items:center;gap:var(--space-2);margin:0;padding-bottom:var(--space-1);border-bottom:1px solid var(--border);color:var(--muted);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase}
+.board-team__lane-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-team__lane-dot{width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
+.board-team__lane-count{padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--raised);color:var(--text);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;letter-spacing:0}
+.board-team__lane-empty{margin:0;color:var(--dim);font:var(--fs-xs) var(--font-ui)}
+.board-team__lane-fold{appearance:none;border:0;background:none;padding:0;margin:0;min-height:24px;color:var(--muted);font:var(--fs-xs) var(--font-ui);text-align:left;text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.board-team__lane-fold:hover{color:var(--accent)}
+/* A mission card packs into whatever width the column has: two abreast at 1280, one below
+   the point where a title would elide to two words. */
+.board-team__swim{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:var(--space-2)}
+.board-team__card{display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-2);background:var(--canvas);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:var(--radius-md);min-width:0}
+.board-team__card-head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
+.board-team__card-ref{flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
+.board-team__card-title{min-width:0;appearance:none;border:0;background:none;padding:0;color:var(--text);font:var(--fw-medium) var(--fs-xs) var(--font-ui);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.board-team__card-title:hover{color:var(--accent)}
+.board-team__card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+
+/* Right: what nobody has read, then what the cards say happened. */
+.board-team__pane-body{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
+.board-team__pane{display:flex;align-items:center;gap:var(--space-2);margin:0;color:var(--muted);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase}
+.board-team__pane-count{margin-left:auto;padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--raised);color:var(--text);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;letter-spacing:0}
+.board-team__waiting,.board-team__recent{display:flex;flex-direction:column;gap:var(--space-1);margin:0;padding:0;list-style:none}
+/* A row is a queue entry, not a sentence: six short facts on one line, the age pushed to the
+   edge where the eye compares them. */
+.board-team__mail-row,.board-team__event{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+.board-team__glyph{flex:0 0 auto;color:var(--muted)}
+.board-team__mail-from{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.board-team__mail-arrow{color:var(--dim)}
+.board-team__mail-to{display:inline-flex;align-items:center;gap:var(--space-1);min-width:0}
+.board-team__event-ref{color:var(--muted);font-family:var(--font-mono)}
+.board-team__event-what{min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* The card dialog: the record of one card, as the questions a reader asks of it — what it
    promises, where to start, what it is tied to, what has happened, and what was said.
@@ -328,8 +369,11 @@ ${DIALOG_TONE_CSS}
 @media (max-width:1180px){
   .board-lanes{flex-wrap:wrap}
   .board-lane{flex:1 1 calc(50% - var(--space-4))}
-  /* Two panels need a wide window; below this the queue comes first, the roster after. */
-  .board-team__grid{grid-template-columns:minmax(0,1fr)}
+  /* Three columns need a wide window: below this the agents and the moving work share the
+     row, and the activity rail drops beneath both. The caption stays sticky — it belongs to
+     the page's one scroll box, wherever the column has been placed. */
+  .board-team__grid{grid-template-columns:minmax(0,15rem) minmax(0,1fr)}
+  .board-team__column[data-column="activity"]{grid-column:1 / -1}
 }
 @media (max-width:860px){
   .board-lanes{flex-direction:column;align-items:stretch}
@@ -344,9 +388,13 @@ ${DIALOG_TONE_CSS}
   .board-bar{gap:var(--space-2);padding:var(--space-2) var(--space-4)}
   .board-bar .bf-spacer{display:none}
   .board-filter{order:9;width:100%}
-  .board-team__foot{flex-wrap:wrap}
-  /* The kind label shares the row's first line, so a phone left the title elided to its first
-     two words: two lines keep the card identifiable and the label still reads above it. */
+  /* One column: the tab is read top to bottom — who is here, what is moving, what arrived. */
+  .board-team__grid{grid-template-columns:minmax(0,1fr)}
+  .board-team__column[data-column="activity"]{grid-column:auto}
+  /* A state can no longer sit on the card's line on a phone, so it wraps under the name. */
+  .board-team__agent-head{flex-wrap:wrap}
+  /* The decision's title would elide to two words beside an id and a pill: two lines keep it
+     identifiable and the pill still reads above it. */
   .board-team__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 }
 /* Five lane names do not fit a phone: the strip becomes wrapped pills rather than a
@@ -358,7 +406,6 @@ ${DIALOG_TONE_CSS}
 }
 @media (prefers-reduced-motion: reduce){
   .board-card,.board-team__decision{transition:none}
-  .board-team__decision:hover{transform:none}
 }
 @media print{
   .board-lanes,.board-team__grid{grid-template-columns:minmax(0,1fr)}

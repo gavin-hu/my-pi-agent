@@ -20,10 +20,17 @@ import { dirname, resolve } from "node:path";
 import { parseShotArgs, runCli } from "../cli.ts";
 import { type PageShotOptions, capturePage } from "../capture/page.ts";
 import { serveBoardPage } from "../../test/helpers/board-page.ts";
-import { fixtureBoard, fixtureRoster } from "../tools/fixtures/board-store.ts";
+import { fixtureBoard, fixtureRoster, fixtureWaiting } from "../tools/fixtures/board-store.ts";
 
-/** The readiness expression: the lanes are painted before the capture. */
-const READY = "!!document.querySelector('.board-card')";
+/**
+ * The readiness expression, per tab: the Board tab is ready when a card face is painted, and
+ * the Team tab when its three columns are — the board's own faces are in a hidden panel there
+ * and would say nothing about the tab being photographed.
+ */
+const READY: Record<"board" | "team", string> = {
+	board: "!!document.querySelector('.board-card')",
+	team: "!!document.querySelector('#board-team .board-team__agent')",
+};
 
 /** The dialog a shot can open before it captures, so a modal is reviewed as a picture. */
 export type ShotDialog = "card";
@@ -83,17 +90,19 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 		now: Date.now,
 		display: { repo: "my-pi-agent", root: "/Users/someone/my-pi-agent", where: "~/.pi/agent/board/8872d3adda0e" },
 		roster: fixtureRoster,
+		waiting: () => fixtureWaiting(Date.now()),
 	});
-	const shots: Array<{ url: string; name: string; before?: string[] }> =
+	const shots: Array<{ url: string; name: string; ready: string; before?: string[] }> =
 		options.dialog === undefined
 			? [
-					{ url: tabUrl(page.url, "board"), name: "board" },
-					{ url: tabUrl(page.url, "team"), name: "team" },
+					{ url: tabUrl(page.url, "board"), name: "board", ready: READY.board },
+					{ url: tabUrl(page.url, "team"), name: "team", ready: READY.team },
 				]
 			: [
 					{
 						url: tabUrl(page.url, "board"),
 						name: `${options.dialog}-dialog`,
+						ready: READY.board,
 						before: [DIALOG_OPEN[options.dialog]],
 					},
 				];
@@ -108,7 +117,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 				scale: options.scale,
 				theme: options.theme,
 				waitMs: options.waitMs,
-				ready: READY,
+				ready: shot.ready,
 				...(shot.before === undefined ? {} : { before: shot.before }),
 			});
 			console.log(`${shot.name}: ${out}`);

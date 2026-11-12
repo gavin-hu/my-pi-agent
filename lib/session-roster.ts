@@ -53,6 +53,13 @@ export interface RosterSession {
 	/** That process's start time, as the bus wrote it, when the record carries it. */
 	startToken?: string;
 	/**
+	 * When the session began the turn it is in, absent outside one.
+	 *
+	 * Only a stamp beside a fresh heartbeat is a session at work: the field is what the bus
+	 * wrote on `agent_start`, and a process that died mid-turn left it behind.
+	 */
+	turnAt?: number;
+	/**
 	 * Whether the session is listening for mail, when its record says.
 	 *
 	 * `armed: false` is a session on the bus that no wake will reach; absent is only a record
@@ -260,6 +267,7 @@ export async function readRoster(dir: string): Promise<RosterSession[] | undefin
 		const watching = watchingOf((parsed as { watching?: unknown }).watching);
 		const pid = pidOf((parsed as { pid?: unknown }).pid);
 		const rawToken = (parsed as { startToken?: unknown }).startToken;
+		const rawTurn = (parsed as { turnAt?: unknown }).turnAt;
 		sessions.push({
 			id,
 			label,
@@ -268,6 +276,7 @@ export async function readRoster(dir: string): Promise<RosterSession[] | undefin
 			mail: await mailCount(dir, name.slice(0, -".json".length)),
 			...(pid === undefined ? {} : { pid }),
 			...(typeof rawToken === "string" && rawToken !== "" ? { startToken: rawToken } : {}),
+			...(typeof rawTurn === "number" && Number.isFinite(rawTurn) ? { turnAt: rawTurn } : {}),
 			...(watching === undefined ? {} : { watching }),
 		});
 	}

@@ -6,7 +6,16 @@
  */
 
 import type { RosterState } from "../../lib/session-roster.ts";
-import type { MessageKind, SessionMode } from "./protocol.ts";
+import type { SessionMode } from "./protocol.ts";
+
+/**
+ * The mail shape is the bus's, and two readers outside the bus need it: the message's
+ * fields, its guard, and the order a queue is read in live in `lib/session-mail.ts`, so the
+ * page and the bus cannot hold two ideas of what a message is.
+ */
+import type { BusMessage } from "../../lib/session-mail.ts";
+
+export type { BusMessage, MessageKind } from "../../lib/session-mail.ts";
 
 /** One registered Pi session. */
 export interface SessionRecord {
@@ -30,6 +39,15 @@ export interface SessionRecord {
 	startedAt: number;
 	lastSeen: number;
 	/**
+	 * When this session began the turn it is in, absent outside one.
+	 *
+	 * The heartbeat says whether a session is there; this says whether it is busy, which is
+	 * the other half of a teammate's row. Written on both edges of a run rather than on the
+	 * heartbeat, so it does not lag the turn it describes — and read only beside a fresh
+	 * heartbeat, because a process that died mid-turn left the stamp behind.
+	 */
+	turnAt?: number;
+	/**
 	 * Whether this session is listening for mail, written on every join.
 	 *
 	 * `armed: false` means the session is on the bus but no watch will wake it, which is the
@@ -37,20 +55,6 @@ export interface SessionRecord {
 	 * written before this field existed.
 	 */
 	watching?: { armed: boolean; wake: boolean };
-}
-
-/** One message waiting in a recipient's inbox. */
-export interface BusMessage {
-	id: string;
-	from: string;
-	fromLabel: string;
-	/** Recipient session id. */
-	to: string;
-	toLabel: string;
-	kind: MessageKind;
-	text: string;
-	paths?: string[];
-	at: number;
 }
 
 /**

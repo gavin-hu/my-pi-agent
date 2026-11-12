@@ -37,7 +37,14 @@ describe("a plan that is gone", () => {
 		writeFileSync(path, "# Plan\n");
 		const card = await store.create({ title: "Planned", paths: [] }, ME, NOW);
 		await advance(store, card.id, "execute", { owner: ME, planPath: path }, NOW);
-		const snapshot = () => viewOf({ store, actor: () => ME, now: () => NOW, roster: async () => undefined });
+		const snapshot = () =>
+			viewOf({
+				store,
+				actor: () => ME,
+				now: () => NOW,
+				roster: async () => undefined,
+				busDir: async () => join(board.cwd, "no-bus"),
+			});
 
 		const before = await snapshot();
 		expect(drawnOf(before, card.id)?.planGone).toBeUndefined();
@@ -63,7 +70,13 @@ describe("a plan that is gone", () => {
 		await advance(store, card.id, "done", { owner: ME, planPath: path }, NOW);
 		rmSync(path, { force: true });
 
-		const view = await viewOf({ store, actor: () => ME, now: () => NOW, roster: async () => undefined });
+		const view = await viewOf({
+			store,
+			actor: () => ME,
+			now: () => NOW,
+			roster: async () => undefined,
+			busDir: async () => join(board.cwd, "no-bus"),
+		});
 		expect(drawnOf(view, card.id)?.lane).toBe("done");
 		expect(drawnOf(view, card.id)?.planGone).toBeUndefined();
 	});

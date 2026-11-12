@@ -159,11 +159,12 @@ describe("the document", () => {
 		// sentence's: the empty word and a note's age are body text, so they read `--muted`.
 		expect(BOARD_CSS).toContain(".board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted)}");
 		expect(BOARD_CSS).toContain(".board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}");
-		// The fold control and a finished card's id are the two targets a row makes small.
+		// The controls a row makes small — the door out of the middle column, and the two folds —
+		// keep a 24px target without growing the caption they sit in.
 		expect(BOARD_CSS).toContain("min-height:24px");
-		expect(BOARD_CSS).toContain(
-			".board-team__id{appearance:none;border:0;background:none;padding:5px 8px;margin:-5px -8px;min-height:24px",
-		);
+		expect(BOARD_CSS).toMatch(/\.board-team__door\{[^}]*min-height:24px/);
+		expect(BOARD_CSS).toMatch(/\.board-team__agent-fold\{[^}]*min-height:24px/);
+		expect(BOARD_CSS).toMatch(/\.board-team__lane-fold\{[^}]*min-height:24px/);
 	});
 
 	test("wraps the lane switch on a phone instead of hiding a lane", () => {
@@ -260,15 +261,16 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("board.refreshAges()");
 	});
 
-	test("filters both tabs, lands on the lane with work, and tooltips what it clamps", () => {
-		// The filter is one control for two tabs — a teammate row matches by its label as
-		// well as by a card; a narrow reader should not open on an empty lane; and a
-		// clipped line should still be readable on hover.
+	test("filters all three subjects, lands on the lane with work, and tooltips what it clamps", () => {
+		// The filter is one control for two tabs, and the Team tab has three kinds of row: a
+		// card, an agent's label, and mail. A narrow reader should not open on an empty lane,
+		// and a clipped line should still be readable on hover.
 		expect(BOARD_CLIENT_JS).toContain("board.matches(card, query)");
-		expect(BOARD_CLIENT_JS).toContain("matchesLabel(mate.label)");
+		expect(BOARD_CLIENT_JS).toContain("agent.label.toLowerCase().indexOf(query.toLowerCase())");
+		expect(BOARD_CLIENT_JS).toContain("function mailMatches(message, query)");
 		expect(BOARD_CLIENT_JS).toContain("laneWithWork(view)");
-		expect(BOARD_CLIENT_JS).toContain("line.title = why");
-		expect(BOARD_CLIENT_JS).toContain("why.title = entry.why");
+		expect(BOARD_CLIENT_JS).toContain("title.title = card.title");
+		expect(BOARD_CLIENT_JS).toContain("pill.title = entry.why");
 	});
 
 	test("draws a card's face from the snapshot, and never from its own reading", () => {
@@ -307,94 +309,6 @@ describe("the client bundle", () => {
 		);
 		// The other half of a link rides the reason line after a middot, in the reason's tone.
 		expect(BOARD_CLIENT_JS).toContain('reason.text + " \\u00b7 " + holds');
-	});
-
-	test("draws the dashboard: a queue, a roster, and a Done strip that opens cards", () => {
-		expect(BOARD_CLIENT_JS).toContain("board-team__grid");
-		expect(BOARD_CLIENT_JS).toContain("board-team__decision");
-		expect(BOARD_CLIENT_JS).toContain("board-team__roster");
-		// Every state a teammate can be in, including the three that are not a heartbeat.
-		for (const state of ["live", "quiet", "gone", "absent", "unknown"]) expect(BOARD_CLIENT_JS).toContain(state);
-		// A bus that is not loaded must read as unknown rather than as "nobody".
-		expect(BOARD_CLIENT_JS).toContain("view.teammates === undefined ? null : view.teammates");
-		expect(BOARD_CLIENT_JS).toContain("board-team__id");
-		// The rows are reasons to pick a card up in the terminal, not verbs: a page that
-		// offered Reclaim would be offering the server's refusal.
-		expect(BOARD_CLIENT_JS).not.toContain('"Reclaim #" + card.id');
-		// A live peer that is not listening is marked, because a message to it waits for its
-		// next turn; a quiet one is not, because its heartbeat is the bigger news.
-		expect(BOARD_CLIENT_JS).toContain('mate.state === "live" && mate.listening === false');
-		expect(BOARD_CLIENT_JS).toContain("not listening");
-		// A process that is gone outranks a stale heartbeat, and the card it held is
-		// queued with that reason instead of waiting for half an hour of silence.
-		expect(BOARD_CLIENT_JS).toContain('if (mate.state === "gone") return 1;');
-		expect(BOARD_CLIENT_JS).toContain("is not running");
-		// The queue's rank is the board's one list, spliced in: a killed owner sits second,
-		// above a card merely sitting still, and the row wears the tone the same table gives
-		// that kind — which is how it stopped being ranked second and drawn quietest.
-		expect(BOARD_CLIENT_JS).toContain(
-			'var DECISION_RANK = ["blocked","gone","approval","review","waiting","unwritten","unplanned","unassigned"]',
-		);
-		expect(BOARD_CLIENT_JS).toContain("board.rankOf");
-		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-tone", decisionTone(entry.kind))');
-	});
-
-	test("folds the owners a bus has no record of, and the ids past the strip's sixth", () => {
-		// The roster is the other list that only grows: every label that ever claimed a card stays
-		// an owner, so a board with a long history drew eighteen rows of "no record · idle ·
-		// 1 done". The rule is stated once — absent, and holding nothing — and the row it makes
-		// says what the rows would have said one at a time. Both are `lib/board/round-text.ts`'s
-		// bodies, because the terminal's round folds the same owners.
-		expect(BOARD_CLIENT_JS).toContain("board-team__tail");
-		expect(BOARD_CLIENT_JS).toContain(
-			"isHistoryOwner(rows[r].label, rows[r].cards.live.length, roster === null ? undefined : roster)",
-		);
-		// The rule and the sentence are the terminal round's own bodies, spliced in like `plural`,
-		// so the tab cannot grow a second answer to who is history.
-		expect(BOARD_CLIENT_JS).toContain("function isHistoryOwner(label, held, roster)");
-		expect(BOARD_CLIENT_JS).toContain("function historyLine(owners, done)");
-		expect(BOARD_CLIENT_JS).toContain('plural(owners, "owner")');
-		expect(BOARD_CLIENT_JS).toContain("with no record");
-		expect(BOARD_CLIENT_JS).toContain("historyLine(tail.length, finished)");
-		expect(unfilledPlaceholders(BOARD_CLIENT_JS)).toEqual([]);
-		// A filter is a view of the rows, so it unfolds the history rather than hiding a match.
-		expect(BOARD_CLIENT_JS).toContain("var folded = filtering ? false : historyFolded(everyone.tail)");
-		// Both lists fold through one table and one map, and the keys say which kind they are
-		// because `done` is already a lane.
-		expect(BOARD_CLIENT_JS).toContain("board.foldAt.roster");
-		expect(BOARD_CLIENT_JS).toContain("board.foldAt.done");
-		expect(BOARD_CLIENT_JS).toContain('board.toggleFold("team-roster")');
-		expect(BOARD_CLIENT_JS).toContain('board.toggleFold("team-done")');
-		expect(BOARD_CLIENT_JS).toContain("board-team__ids");
-		expect(BOARD_CLIENT_JS).toContain('rest.id = "team-done-ids"');
-		// A fold repaints the panel it lives in, so focus is put back on the control by key.
-		expect(BOARD_CLIENT_JS).toContain("data-fold");
-		expect(BOARD_CLIENT_JS).toContain("document.querySelector('[data-fold=\"' + key + '\"]')");
-		// And a frame that changes nothing in a panel neither rebuilds it nor moves the reader.
-		expect(BOARD_CLIENT_JS).toContain('if (slot.getAttribute("data-sig") === sig) return;');
-		expect(BOARD_CLIENT_JS).toContain("board.teamPanels");
-		// A heartbeat is not news either: `seen` is not in the signature at all, because a live row
-		// prints no age and a quiet session that pings is live again on the next snapshot — so the
-		// frame after every heartbeat no longer refills the list and takes the reader's place.
-		expect(BOARD_CLIENT_JS).toContain('mate.label + "," + mate.state + "," + mate.mail + "," + mate.listening');
-		expect(BOARD_CLIENT_JS).not.toContain("Math.floor(mate.seen / 60000)");
-		// The stamp is still what draws a quiet row's age; it is the *signature* that leaves it out.
-		expect(BOARD_CLIENT_JS).toContain("stamped(ago(mate.seen), mate.seen)");
-	});
-
-	test("caps both Team lists with one rule, and draws a teammate row on one line", () => {
-		expect(BOARD_CSS).toContain(".board-team__queue,.board-team__roster{max-height:max(18rem,calc(100dvh - 16rem))");
-		// One line: the metrics take the rest of the row instead of always starting a second.
-		expect(BOARD_CSS).toContain(".board-team__mets{flex:1 1 auto;min-width:0;margin:0;text-align:right;");
-		expect(BOARD_CSS).toContain(
-			".board-team__name{font:var(--fw-medium) var(--fs-md) var(--font-ui);color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
-		);
-		// The fold controls are pointer targets, like the ids beside them.
-		expect(BOARD_CSS).toContain(".board-team__tail{display:flex;flex:1 1 100%;");
-		expect(BOARD_CSS).toMatch(/\.board-team__tail\{[^}]*min-height:24px/);
-		expect(BOARD_CSS).toMatch(/\.board-team__fold\{[^}]*min-height:24px/);
-		// The strip's hidden ids take the strip's own gap and wrapping rather than jamming.
-		expect(BOARD_CSS).toContain(".board-team__ids{display:contents}");
 	});
 
 	test("folds finished work once, and gives an empty lane a rail", () => {
@@ -665,10 +579,12 @@ describe("the class contract", () => {
 		}
 		// A refusal or a loss colours its sentence too; a warn row only its edge.
 		expect(BOARD_CSS).toContain('.board-team__decision[data-tone="danger"] .board-team__why{color:var(--danger)}');
-		// And the sentence every other row prints stays quiet. Without this the base rule can
-		// lose its colour and the queue's reasons read as loudly as its titles: `--text` is
-		// what an uncoloured paragraph inherits on the raised plane.
-		expect(BOARD_CSS).toContain(".board-team__why{grid-area:why;margin:0;color:var(--muted);");
+		// And the line every other row prints stays quiet. Without this the base rule can lose
+		// its colour and the queue's reasons read as loudly as its titles: `--text` is what an
+		// uncoloured paragraph inherits on the raised plane.
+		expect(BOARD_CSS).toContain(
+			".board-team__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);",
+		);
 	});
 
 	test("tones a reason line by its tone, never by a class named after a kind", () => {

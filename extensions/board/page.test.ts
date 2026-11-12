@@ -97,10 +97,10 @@ describe("the roster", () => {
 		const snapshot = JSON.parse(
 			await (await fetch((status.url ?? "").replace("/?token=", "/api/board?token="))).text(),
 		);
-		// The page is the seat, so the seat's row is the one marked `you`.
+		// The page is the seat, so its row is `you` — and `lead`, the name the gates answer; no other row carries it.
 		expect(snapshot.teammates).toEqual([
 			{ label: "team-agent-score", state: "live", seen: NOW - 1_000, mail: 0, you: false },
-			{ label: "team-lead", state: "live", seen: NOW, mail: 0, you: true },
+			{ label: "team-lead", state: "live", seen: NOW, mail: 0, you: true, lead: true },
 		]);
 		await page.stop();
 	});

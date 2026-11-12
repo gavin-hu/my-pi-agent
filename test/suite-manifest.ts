@@ -73,6 +73,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/dialog",
 		"view/dialog-behaviour",
 		"view/kind",
+		"view/mission",
 		"view/plan-row-behaviour",
 		"view/repaint",
 		"view/pages",
@@ -187,6 +188,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"protocol",
 		"store",
 		"mail-watch",
+		"presence",
 		"runtime",
 		"watching",
 		"delivery",
@@ -248,6 +250,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 
 export const LIB_SUITES: readonly string[] = [
 	"board/actions",
+	"board/activity",
 	"board/artifact",
 	"board/card",
 	"board/claims",
@@ -292,6 +295,7 @@ export const LIB_SUITES: readonly string[] = [
 	"report-load",
 	"repo-key",
 	"session-roster",
+	"session-mail",
 	"session-tool",
 	"state",
 	"requirements",

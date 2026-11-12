@@ -74,6 +74,27 @@ export const DECISION_KINDS = [
 /** One reason a card is in the lead's queue. */
 export type DecisionKind = (typeof DECISION_KINDS)[number];
 
+/**
+ * The pill a decision wears, one phrase per kind, beside the rank and the tone it already has.
+ *
+ * The row's sentence says why in full and is one hover away; this is what a reader scans by.
+ * A label that repeats its kind ("blocked" for `blocked`) is the right answer rather than a
+ * wasted entry: the pill is the shape, and the word is what a colour alone cannot say.
+ */
+export const DECISION_LABEL: Record<DecisionKind, string> = {
+	blocked: "blocked",
+	gone: "owner gone",
+	approval: "needs approval",
+	review: "needs review",
+	waiting: "waits",
+	unwritten: "unwritten",
+	unplanned: "no contract",
+	unassigned: "unassigned",
+};
+
+/** {@link DECISION_LABEL} as the browser bundle's own source, spliced in like the rank. */
+export const DECISION_LABEL_JS = JSON.stringify(DECISION_LABEL);
+
 /** The tone a decision row's edge, and a danger row's reason line, wear. */
 export const DECISION_TONE: Record<DecisionKind, BoardTone> = {
 	blocked: "danger",

@@ -52,11 +52,21 @@ puts this session on the bus with an optional label, `wake`, and `listen`.
 
 **Message kinds.** `message`, `event`, `ask`, and `handoff`. An `ask` does not
 block the sender; a `handoff` names the work it assigns. A message may carry the
-repository paths it concerns.
+repository paths it concerns. A broadcast is one file per recipient sharing one
+message id.
+
+**Mail is read, not taken, by the page.** The board's Team tab draws the whole
+bus's queue by reading those files, and it removes nothing: an inbox stays its
+owner's to consume with `session inbox`. The message text is shown on the page —
+a loopback, token-guarded page that already reads this directory — and never
+marked as read.
 
 **Records.** `session status` lists each session with its record's state — `live` while its
 heartbeat holds, `quiet` once it has aged, `gone` once its process is not running — with whether
-its watch is armed, so a peer that will not be woken reads as one.
+its watch is armed, so a peer that will not be woken reads as one. The record also carries the
+turn: stamped on `agent_start` and dropped on `agent_settled`, so the Team tab can draw a
+session as working rather than idle from a stale heartbeat. A stamp is believed only beside a
+fresh heartbeat — a process that died mid-turn left its stamp behind.
 
 **Labels.** Name a session for the outcome it owns (`billing-core`), not its
 layer. A duplicate label gets a short id suffix; a label is reserved while the bus

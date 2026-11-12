@@ -12,6 +12,8 @@ import { REASON_KINDS } from "./reason.ts";
 import {
 	BOARD_TONES,
 	DECISION_KINDS,
+	DECISION_LABEL,
+	DECISION_LABEL_JS,
 	DECISION_RANK_JS,
 	DECISION_TONE,
 	DECISION_TONE_JS,
@@ -48,6 +50,7 @@ describe("the tone table", () => {
 		// the tuple itself.
 		expect(JSON.parse(DECISION_RANK_JS)).toEqual([...DECISION_KINDS]);
 		expect(JSON.parse(DECISION_TONE_JS)).toEqual(DECISION_TONE);
+		expect(JSON.parse(DECISION_LABEL_JS)).toEqual(DECISION_LABEL);
 		expect(JSON.parse(REASON_TONE_JS)).toEqual(REASON_TONE);
 	});
 
@@ -62,5 +65,12 @@ describe("the tone table", () => {
 		expect(REASON_TONE.approval).toBe("warn");
 		expect(REASON_TONE.review).toBe("warn");
 		expect(REASON_TONE.blocked).toBe("danger");
+	});
+
+	test("gives every kind a pill of its own, and no kind a label it does not have", () => {
+		// One entry per kind, both ways: a kind with no label draws an empty pill, and a label
+		// for a kind the table does not rank is a word nothing can wear.
+		expect(Object.keys(DECISION_LABEL).sort()).toEqual([...DECISION_KINDS].sort());
+		for (const kind of DECISION_KINDS) expect(DECISION_LABEL[kind].length, kind).toBeGreaterThan(0);
 	});
 });

@@ -82,8 +82,8 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
     <span id="board-progress-text">0/0</span>
   </p>
   <span class="bf-spacer"></span>
-  <label class="bf-field ${N.filter}"><span class="sr-only">Filter cards</span>
-    <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
+  <label class="bf-field ${N.filter}"><span class="sr-only">Filter cards, agents and mail</span>
+    <input class="bf-input" id="board-filter" type="search" placeholder="filter cards, agents and mail" autocomplete="off">
   </label>
 </div>
 <main class="bf-app__main ${N.main}" id="main" tabindex="-1">

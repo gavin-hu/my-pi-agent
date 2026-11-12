@@ -45,6 +45,17 @@ export default function sessionBus(pi: ExtensionAPI, deps: SessionBusDeps = {}):
 		wakeRequested: () => bus.wantsWake(),
 	});
 
+	// The turn, as the bus records it: a peer's Team tab reads "working" from this field rather
+	// than guessing it from a heartbeat, and both edges write at once so the row cannot lag the
+	// run. A write that fails is swallowed here — the run it describes is not the failure's to
+	// report — and the next frame simply reads the previous state.
+	pi.on("agent_start", () => {
+		void bus.turnStart().catch(() => {});
+	});
+	pi.on("agent_settled", () => {
+		void bus.turnSettled().catch(() => {});
+	});
+
 	registerTools(pi, bus);
 	registerCommands(pi, bus);
 	// `board` and `team` join this session through one request: their commands cannot call

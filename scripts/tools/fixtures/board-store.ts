@@ -20,6 +20,7 @@ import { personActor } from "../../../lib/board/lead.ts";
 import { DEFAULT_WIP } from "../../../lib/board/limits.ts";
 import type { Actor, CardOp } from "../../../lib/board/rules.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
+import type { WaitingMail } from "../../../lib/session-mail.ts";
 import { type BoardStore, createStore } from "../../../lib/board/store.ts";
 import { resolvePlanArg } from "../../../lib/plans/paths.ts";
 import { fixturePlanDir, fixturePlanPath } from "./board.ts";
@@ -269,8 +270,9 @@ export function fixtureRoster(now: number): RosterSession[] {
 	return [
 		{
 			id: "s-lead",
-			// The serving session is the page's seat, and the page marks its own row.
-			label: "team-lead",
+			// The serving session is the page's seat — the board's configured lead — so the page
+			// marks this row `you`, and the pin puts it first.
+			label: LEAD.label,
 			mode: "tui",
 			lastSeen: now - 20_000,
 			mail: 1,
@@ -284,6 +286,8 @@ export function fixtureRoster(now: number): RosterSession[] {
 			lastSeen: now - 5_000,
 			mail: 0,
 			watching: { armed: false, wake: false },
+			// Inside a turn: the one state a heartbeat alone cannot show.
+			turnAt: now - 5_000,
 		},
 		{
 			// Above every host's pid range, so the roster's own rule calls it gone.
@@ -293,6 +297,36 @@ export function fixtureRoster(now: number): RosterSession[] {
 			lastSeen: now - 60_000,
 			mail: 0,
 			pid: 999_999_999,
+		},
+	];
+}
+
+/**
+ * The mail a capture shows waiting: one handoff nobody has read, and one broadcast, so the
+ * Activity column is photographed with both shapes of a queue row — a single recipient with
+ * its state dot, and a message waiting on three.
+ */
+export function fixtureWaiting(now: number): WaitingMail[] {
+	// In the reader's own order — oldest first, the item waiting longest at the top — so the
+	// picture shows the queue the page draws rather than a list sorted for the eye.
+	return [
+		{
+			id: "m-2",
+			from: "s-helper",
+			fromLabel: "ops-helper",
+			kind: "event",
+			to: [LEAD.label, "ops-relay", OTHER.label],
+			text: "the gateway is back; the cards parked on it can move",
+			at: now - 12 * 60_000,
+		},
+		{
+			id: "m-1",
+			from: "s-lead",
+			fromLabel: LEAD.label,
+			kind: "handoff",
+			to: ["billing-core"],
+			text: "take the contract review on #4 while I am in the webhook drift card",
+			at: now - 4 * 60_000,
 		},
 	];
 }

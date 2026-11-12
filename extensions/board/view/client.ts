@@ -14,9 +14,10 @@
  * starts last, after every `board.*` handler it wires exists.
  */
 
+import { ACTIVITY_LABEL_JS } from "../../../lib/board/activity.ts";
 import { MATCHES_QUERY_JS } from "../../../lib/board/card.ts";
 import { REASON_FOR_JS } from "../../../lib/board/reason.ts";
-import { DECISION_RANK_JS, DECISION_TONE_JS, REASON_TONE_JS } from "../../../lib/board/tone.ts";
+import { DECISION_LABEL_JS, DECISION_RANK_JS, DECISION_TONE_JS, REASON_TONE_JS } from "../../../lib/board/tone.ts";
 import { LANES } from "../../../lib/board/lanes.ts";
 import {
 	CLIENT_BASE_JS,
@@ -28,7 +29,7 @@ import {
 	TAB_TITLE_JS,
 	THEME_TOGGLE_JS,
 } from "../../../lib/web/index.ts";
-import { PLURAL_JS, HISTORY_LINE_JS, HISTORY_OWNER_JS, HOLDING_OF_JS } from "../../../lib/board/round-text.ts";
+import { HISTORY_LINE_JS, HISTORY_OWNER_JS, PLURAL_JS } from "../../../lib/board/round-text.ts";
 import { skippedText } from "../../../lib/board/skipped.ts";
 import { FORMAT_AGE_JS, SHORTEN_PATH_JS } from "../../../lib/format.ts";
 import { BOARD_CARD_JS } from "./card.ts";
@@ -38,6 +39,10 @@ import { dialogJs } from "./dialog.ts";
 import { BOARD_KEYS_JS } from "./keys.ts";
 import { BOARD_LIVE_JS } from "./live.ts";
 import { renderJs } from "./render.ts";
+import { rosterJs } from "./roster.ts";
+import { fleetJs } from "./fleet.ts";
+import { activeJs } from "./active.ts";
+import { feedJs } from "./feed.ts";
 import { teamJs } from "./team.ts";
 
 /**
@@ -52,7 +57,11 @@ import { teamJs } from "./team.ts";
 export const BOARD_CLIENT_JS = `${CLIENT_BASE_JS}
 ${namesScript(BOARD_CLASS)}
 ${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, reason: REASON_FOR_JS, age: FORMAT_AGE_JS, lanes: String(LANES.length), skipped: String(skippedText), decisions: DECISION_RANK_JS, decisionTones: DECISION_TONE_JS, reasonTones: REASON_TONE_JS, runtime: CLIENT_RUNTIME_JS })}
-${teamJs({ historyOwner: HISTORY_OWNER_JS, historyLine: HISTORY_LINE_JS, holding: HOLDING_OF_JS })}
+${rosterJs({ historyOwner: HISTORY_OWNER_JS })}
+${fleetJs({ historyLine: HISTORY_LINE_JS })}
+${activeJs({ decisionLabels: DECISION_LABEL_JS })}
+${feedJs({ labels: ACTIVITY_LABEL_JS })}
+${teamJs()}
 ${BOARD_CARD_JS}
 ${BOARD_EMPTY_JS}
 ${dialogJs({ inlineMarkdown: INLINE_MARKDOWN_JS, shortenPath: SHORTEN_PATH_JS })}

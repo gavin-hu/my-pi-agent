@@ -336,10 +336,12 @@ describe("buildView", () => {
 				{ id: "s-old", label: "ops-helper", mode: "print", lastSeen: NOW - 20 * 60_000, mail: 0 },
 			],
 		});
-		expect(view.teammates).toEqual([
-			{ label: "billing-core", state: "live", seen: NOW - 1_000, mail: 2, you: false },
-			{ label: "billing-lead", state: "live", seen: NOW, mail: 0, you: true },
-			{ label: "ops-helper", state: "quiet", seen: NOW - 20 * 60_000, mail: 0, you: false },
+		// The three facts `working` and `lead` add are asserted where they are decided
+		// (`view/mission.test.ts`); what this row holds is who, how, and what they carry.
+		expect(view.teammates?.map((mate) => [mate.label, mate.state, mate.mail, mate.you])).toEqual([
+			["billing-core", "live", 2, false],
+			["billing-lead", "live", 0, true],
+			["ops-helper", "quiet", 0, false],
 		]);
 	});
 
@@ -405,14 +407,12 @@ describe("buildView", () => {
 			roster: [],
 		});
 		expect(empty.teammates).toEqual([]);
-		// A bus appearing is news — the State column stops saying "unknown" — so the two
-		// must not share a signature and leave the page without a frame.
+		// A bus appearing is news, so the two must not share a signature and leave the page unframed.
 		expect(absent.sig).not.toBe(empty.sig);
 	});
 
 	test("an empty board is five empty lanes", () => {
 		const view = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT });
-		expect(view.lanes.map((lane) => lane.cards)).toEqual([[], [], [], [], []]);
-		expect(view.total).toBe(0);
+		expect([view.lanes.map((lane) => lane.cards), view.total]).toEqual([[[], [], [], [], []], 0]);
 	});
 });

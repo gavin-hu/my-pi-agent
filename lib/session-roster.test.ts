@@ -114,6 +114,16 @@ describe("readRoster", () => {
 		expect(sessions?.[1]).toEqual({ id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 });
 	});
 
+	test("reads the turn's stamp when it is a time, and hides anything else", async () => {
+		const dir = busDir();
+		writeSession(dir, "aaa", { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW, turnAt: NOW - 5 });
+		writeSession(dir, "bbb", { id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW, turnAt: "working" });
+		const sessions = await readRoster(dir);
+		expect(sessions?.[0]?.turnAt).toBe(NOW - 5);
+		// A stamp this build cannot read loses the claim that the session is at work, not the row.
+		expect(sessions?.[1]).toEqual({ id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 });
+	});
+
 	test("orders by label, so a repaint does not reorder the list", async () => {
 		const dir = busDir();
 		writeSession(dir, "aaa", { id: "s-1", label: "web", mode: "tui", lastSeen: NOW });
