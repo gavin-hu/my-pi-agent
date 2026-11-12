@@ -71,8 +71,6 @@ body.palette-open{overflow:hidden}
 .bf-diff-hunk{display:block}
 .bf-diff .bf-diff-line--hunk{position:sticky;top:0;z-index:1}
 /* Reading progress, pinned to the sticky header's bottom edge. */
-.browse-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
-.browse-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
 /* File and diff pages: a measured reading column inside the card. */
 /* The Markdown body fills the card, so the scroll box is the card's width: its
    scrollbar sits at the card edge. The measure lives on the blocks themselves:
@@ -138,5 +136,4 @@ body.palette-open{overflow:hidden}
 .bf-card{border:0}
 .bf-card,.bf-app__main,.bf-code,.bf-md,.bf-diff,.browse-listing{height:auto!important;max-height:none!important;overflow:visible!important}
 .bf-diff .bf-diff-line--hunk{position:static}
-.browse-progress{display:none}
 }`;

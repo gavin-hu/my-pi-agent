@@ -153,12 +153,12 @@ describe("page chrome", () => {
 		expect(html).toContain('src="/theme.js"');
 		expect(html).toContain('id="keys-open"');
 		expect(html).toContain('id="keys-dialog" hidden');
-		expect(html).toContain('id="progress-fill"');
+		expect(html).toContain('<div class="bf-app__rule"></div>');
 		expect(html).toContain('<details class="bf-app__sidebar browse-sidebar" open>');
 		expect(html).toContain("<noscript>");
 		expect(html).toContain('<span class="bf-tree__tw bf-tree__tw--spacer" aria-hidden="true"></span>');
 		expect(html).toContain('aria-expanded="true"');
-		expect(html).toContain("read-only");
+		expect(html).toContain('<div class="bf-app__id">');
 	});
 
 	test("names what it serves in the tab, in the kit's one shape", () => {
@@ -502,7 +502,7 @@ describe("file page", () => {
 		const html = filePage("a<b>.txt", textView(["x"]));
 		expect(html).toContain("Text ·");
 		expect(html).not.toContain("application/octet-stream");
-		expect(html).toContain("read-only");
+		expect(html).toContain('<div class="bf-app__rule"></div>');
 		expect(html).toContain("a&lt;b&gt;.txt</span></footer>");
 	});
 });

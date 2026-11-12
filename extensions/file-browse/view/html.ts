@@ -11,7 +11,6 @@
 import {
 	baseAttribute,
 	brandLockup,
-	chip,
 	docHead,
 	type KeyHint,
 	keysSheet,
@@ -113,17 +112,17 @@ ${docHead({ title: layout.title, css: BROWSE_CSS, base: layout.base })}
 <p class="sr-only" id="copy-status" role="status" aria-live="polite"></p>
 <noscript><style>.bf-field{display:none}.browse-side__filters{display:none}.bf-tree__tw--toggle{visibility:hidden}.bf-btn{display:none}.browse-quick-open{display:none}th .bf-sort{pointer-events:none;cursor:default}</style></noscript>
 ${SPRITE}
-<header class="bf-app__header"><div class="bf-toolbar">
+<header class="bf-app__head"><div class="bf-app__id">
   ${brandLockup("browse")}
   ${pageSubject({ label: layout.rootLabel, title: layout.rootLabel })}
-  <div class="bf-toolbar__facts">
+  <div class="bf-app__facts">
     ${renderGit(layout.git)}
     ${renderChanges(layout.summary, layout.live, layout.base)}
-    ${chip({ label: "read-only", tone: "accent" })}
     ${renderLiveChrome(layout.live)}
   </div>
   ${toolbarChrome()}
-</div><div class="browse-progress" aria-hidden="true"><span class="browse-progress__fill" id="progress-fill"></span></div></header>
+</div>
+<div class="bf-app__rule"></div></header>
 <div class="bf-app__body">
   <details class="bf-app__sidebar browse-sidebar" open>
     <summary class="bf-panel__summary">Files</summary>
