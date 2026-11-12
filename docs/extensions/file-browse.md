@@ -20,7 +20,7 @@ page writes.
 | Jump to a file | `Ctrl+K` (`Cmd+K`), then type part of the path |
 | Read Markdown as a page | click the file; the toolbar has a raw view |
 | Look at an image | click it — thumbnails are inline in the listing |
-| Read a diff | the **changes** chip, or `/files/diff`; `n`/`p` move between hunks |
+| Read a diff | the **changes** tag, or `/files/diff`; `n`/`p` move between hunks |
 | Paste a line reference | select lines, then copy the `path:12-30` form |
 | Sort a folder | the Name / Size / Modified headers |
 | See every key on the page | `?` opens the shortcut sheet |
@@ -60,7 +60,7 @@ template literal colours correctly.
 browser. The toolbar copies a path, the contents, or a `path:12-30` reference for
 a selection, and toggles line wrapping — a narrow window wraps by default.
 
-**Live status.** While a page is open it patches its own chips and row markers
+**Live status.** While a page is open it patches its own tags and row markers
 from `/files/events`: branch, change markers, and the reload hint. The root
 moving — a worktree switch — reloads the page onto the new tree.
 
