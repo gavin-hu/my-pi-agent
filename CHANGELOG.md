@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`, `file-browse`: a code panel wraps its lines below 720 px, so a long path or command
+  is read instead of hidden behind a scrollbar that draws nothing until it is used. A wide
+  window keeps the line whole, and file-browse's wrap button says which the page is doing.
+
 - `board`: the page pushes a frame when a card's file changes, instead of scanning the whole
   pile once a second. A directory watch on `cards/` reads the board on the write, one window
   folds a write's rename and unlink into one read, and a five-second sweep keeps the facts no

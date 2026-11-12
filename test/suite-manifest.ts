@@ -134,6 +134,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-anchor",
 		"web-behaviour",
 		"web-live",
+		"web-narrow",
 		"web-client",
 		"web-composer",
 		"web-outline",

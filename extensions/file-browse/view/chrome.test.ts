@@ -42,6 +42,18 @@ describe("the header", () => {
 	});
 });
 
+describe("the wrap control", () => {
+	test("means no wrap on a narrow screen, where the page wraps by default", () => {
+		// The kit wraps a code panel below a phone's width, so "off" has to be a class of its
+		// own: dropping a class would leave the lines wrapped and the button doing nothing.
+		expect(CLIENT_JS).toContain('code.classList.toggle("bf-code--wrap", on)');
+		expect(CLIENT_JS).toContain('code.classList.toggle("bf-code--nowrap", !on)');
+		// With no choice stored, the button starts on the answer the page is already showing.
+		expect(CLIENT_JS).toContain('saved === null ? narrowWindow() : saved === "1"');
+		expect(CLIENT_JS).toContain('matchMedia("(max-width:720px)")');
+	});
+});
+
 describe("the live script", () => {
 	test("paints the chip through the kit, and offers the reload when the stream goes", () => {
 		// One painter, written once: the tone is a modifier and the state's word is the chip's

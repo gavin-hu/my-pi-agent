@@ -211,6 +211,16 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-code__line{display:block;padding:0 var(--space-4) 0 0;white-space:pre;min-height:1.55em}
 .bf-code--numbered .bf-code__line::before{counter-increment:line;content:counter(line);display:inline-block;width:64px;padding-right:var(--space-4);text-align:right;color:var(--dim);user-select:none}
 .bf-code--wrap .bf-code__line{white-space:pre-wrap;overflow-wrap:anywhere}
+/* Below a phone's width a line wraps rather than scrolling out of sight: a path or a
+   command is a fact the reader came for, and an overlay scrollbar is no way to reach it.
+   The same declaration the opt-in class states, so a page that asks for wrap and a phone
+   that does not cannot break a line differently. */
+@media (max-width:720px){
+  .bf-code__line,.bf-code>code{white-space:pre-wrap;overflow-wrap:anywhere}
+}
+/* The other answer, for a page with its own control: its "no wrap" has to mean no on a
+   narrow screen too, and it is more specific than the media rule above so it wins there. */
+.bf-code--nowrap .bf-code__line,.bf-code--nowrap>code{white-space:pre}
 .bf-media{display:flex;flex:1 1 auto;align-items:center;justify-content:center;padding:var(--space-6);min-height:240px;background-image:linear-gradient(45deg,var(--border) 25%,transparent 25%),linear-gradient(-45deg,var(--border) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--border) 75%),linear-gradient(-45deg,transparent 75%,var(--border) 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
 .bf-media img{max-width:100%;max-height:70vh;border-radius:var(--radius-sm)}
 /* The document keeps prose's face and loses GitHub's shapes: mono headings, a rail instead of

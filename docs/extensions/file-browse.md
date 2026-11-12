@@ -58,7 +58,7 @@ template literal colours correctly.
 
 **Sorting and copying.** Directories come first; the sort is remembered per
 browser. The toolbar copies a path, the contents, or a `path:12-30` reference for
-a selection, and toggles line wrapping.
+a selection, and toggles line wrapping — a narrow window wraps by default.
 
 **Live status.** While a page is open it patches its own chips and row markers
 from `/files/events`: branch, change markers, and the reload hint. The root
