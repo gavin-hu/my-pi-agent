@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the Team tab is redrawn in the board's language. Its rows stop being ruled kit lists and
+  become the board's card — a tinted block, no edge, the gap between two the only separator — with a
+  paper for each family: a person's state, a decision's tone, the lane a mission is in, the accent a
+  message owes an answer in. The middle column draws the board's own card rather than a second
+  rendering of it, the six deck heads are the board's lane head at one weight, and the glyphs, the
+  tag bars and the rules between rows are gone: what a 1440 frame drew in 37 borders it now draws
+  in six.
+
 - `board`: a spot-check runs the contract's command in the tree the board is rooted at — the
   worktree when the reviewer entered one — and the sign records that tree beside the commit. Both
   doors used the session's cwd, which never follows `worktree enter`, so a branch reviewed from

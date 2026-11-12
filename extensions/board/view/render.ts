@@ -239,7 +239,7 @@ __RUNTIME__
    * hides: the box is the only honest test of whether a reader can see one.
    */
   function drawnCards() {
-    var nodes = document.querySelectorAll(".board-row, .board-decision, .board-mission");
+    var nodes = document.querySelectorAll(".board-row, .board-decision");
     var seen = [];
     for (var i = 0; i < nodes.length; i++) {
       if (nodes[i].hidden) continue;
@@ -270,7 +270,9 @@ __RUNTIME__
    * label spells that ratio out rather than reading a slash aloud.
    */
   function paneHead(text, count, total, tone) {
-    var head = el("h3", "bf-section__cap", text);
+    var head = el("h3", "bf-section__cap");
+    board.headDot(head);
+    head.appendChild(document.createTextNode(text));
     var filtered = total !== undefined && total !== count;
     var pill = el("span", "bf-section__count", filtered ? count + "/" + total : String(count));
     // A count that is asking for something wears the accent; a count that is merely true does not.

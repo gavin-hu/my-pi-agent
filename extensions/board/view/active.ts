@@ -166,12 +166,10 @@ const activeTemplate = String.raw`(function () {
     var card = entry.card;
     var tone = decisionTone(entry.kind);
     var node = el("article", "bf-row " + N.decision);
-    node.setAttribute("data-kind", entry.kind);
     node.setAttribute("data-tone", tone);
     node.setAttribute("data-card", card.id);
-    var mark = el("span", "bf-row__mark", tone === "danger" ? "!" : "\u25b8");
-    mark.setAttribute("aria-hidden", "true");
-    node.appendChild(mark);
+    // The paper is the tone now, so the glyph a decision used to lead with would say a third
+    // time what the card's ground and its why word already say: the block is the mark.
     var body = el("div", N.decisionBody);
     node.appendChild(body);
 
@@ -220,27 +218,15 @@ const activeTemplate = String.raw`(function () {
     return row;
   }
 
-  /** One mission card: the lane as a bar, the reference, one line of title, who holds it. */
-  function missionCard(card, view) {
-    var node = el("article", N.missionCard);
-    node.setAttribute("data-lane", card.lane);
-    node.setAttribute("data-card", card.id);
-    var head = el("h4", N.missionCardHead);
-    var button = el("button", N.missionTitle, card.title);
-    button.type = "button";
-    button.setAttribute("aria-haspopup", "dialog");
-    button.title = card.title;
-    button.addEventListener("click", function () { board.openCard(card.id); });
-    head.appendChild(el("span", N.missionRef, "#" + card.id));
-    head.appendChild(button);
-    node.appendChild(head);
-    var meta = el("p", N.missionMeta);
-    if (card.owner) meta.appendChild(ownerMeta(view, card.owner.label));
-    var kind = kindLabel(card);
-    if (kind !== undefined) meta.appendChild(kind);
-    meta.appendChild(stamp(ago(card.updatedAt), card.updatedAt));
-    node.appendChild(meta);
-    return node;
+  /**
+   * One mission: the board's own card, unchanged.
+   *
+   * The middle column exists to preview the board, so it draws the board's card rather than a
+   * second rendering of it — the same lane paper, the same four lines in the same order, the same
+   * height. A card read here reads the same one tab over.
+   */
+  function missionCard(card) {
+    return board.cardNode(card);
   }
 
   /** What the bus says about one owner, for the dot beside their name on a mission card. */
@@ -270,7 +256,7 @@ const activeTemplate = String.raw`(function () {
       section.appendChild(el("p", "bf-lane__empty", lane.empty));
       return section;
     }
-    var swim = el("div", N.laneList);
+    var swim = el("ol", N.laneList);
     for (var i = 0; i < cards.length && i < SWIM; i++) swim.appendChild(missionCard(cards[i], view));
     section.appendChild(swim);
     if (cards.length > SWIM) {

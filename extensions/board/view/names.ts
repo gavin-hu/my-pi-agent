@@ -112,19 +112,13 @@ export const BOARD_CLASS = {
 	decisionRef: "board-decision__ref",
 	decisionWhy: "board-decision__why",
 	teamLanes: "board-team__lanes",
-	// A mission row: the one-line face a swimlane holds.
-	missionCard: "board-mission",
-	missionCardHead: "board-mission__head",
-	missionCardRef: "board-mission__ref",
-	missionTitle: "board-mission__title",
-	missionMeta: "board-mission__meta",
+	// A person's lines: the cards one session holds, one line each.
 
 	// Right: the mail nobody has read, then what the cards say happened.
 	paneBody: "board-team__pane-body",
 	waiting: "board-team__waiting",
 	mail: "board-mail",
 	mailBody: "board-mail__body",
-	glyph: "board-glyph",
 	mailFrom: "board-mail__from",
 	mailArrow: "board-mail__arrow",
 	mailTo: "board-mail__to",

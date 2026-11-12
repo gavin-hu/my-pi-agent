@@ -203,8 +203,22 @@ __HISTORY_LINE__
    * rows. Spoken, "AGENTS, 4" is a word and a number with nothing between them; "4 agents" is
    * the sentence the pill already draws as a 4.
    */
+  /**
+   * The mark a deck's head wears: one lane glyph, in the column's role.
+   *
+   * The Team tab draws two marks and no lines — this dot and the paper a card sits on — and the
+   * dot is the board's lane dot, so a column and a lane are marked by the same thing.
+   */
+  board.headDot = function (head) {
+    var dot = el("span", "bf-lane__dot", "\u25a0");
+    dot.setAttribute("aria-hidden", "true");
+    head.appendChild(dot);
+  };
+
   board.captionOf = function (text, count, noun) {
-    var head = el("h2", "bf-section__cap", text);
+    var head = el("h2", "bf-section__cap");
+    board.headDot(head);
+    head.appendChild(document.createTextNode(text));
     head.appendChild(el("span", "bf-section__count", String(count)));
     head.setAttribute("aria-label", text + ", " + plural(count, noun));
     return head;

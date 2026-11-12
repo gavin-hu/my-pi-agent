@@ -13,8 +13,6 @@
  *   exactly like one to a live peer otherwise, and picking the first up is the lead's work.
  * - **A broadcast is one row.** The bus writes one file per recipient sharing one message id;
  *   the row names them once, `all (3)`, and keeps every name and state in its tooltip.
- * - **A glyph is decoration.** Every kind is spelled out in words beside its glyph, so the
- *   page never asks a reader to know what `✎` means.
  *
  * Neither pane writes: the bus owns the inbox, and a page that marked mail read would eat the
  * queue it was describing.
@@ -36,9 +34,7 @@ const feedTemplate = String.raw`(function () {
 
   var ACTIVITY_LABEL = __ACTIVITY_LABEL__;
 
-  /** One glyph per kind, decoration only: the word is beside it. */
-  var MAIL_GLYPH = { message: "\u2709", event: "\u2691", ask: "?", handoff: "\u2709" };
-  var EVENT_GLYPH = { blocked: "\u2691", moved: "\u21bb", approved: "\u2605", reviewed: "\u2713", noted: "\u270e", offered: "\u2709" };
+  /** The kind tables lived here: a glyph per kind was decoration, and the cards no longer draw one. */
 
   /** The state a dot wears, worst first: the one a reader must act on leads a group. */
   var STATE_RANK = { gone: 0, quiet: 1, absent: 2, unknown: 3, live: 4 };
@@ -82,10 +78,8 @@ const feedTemplate = String.raw`(function () {
   /** One message nobody has read. */
   function mailRow(message) {
     var row = el("li", "bf-row " + N.mail);
-    row.setAttribute("data-kind", message.kind);
-    var glyph = el("span", "bf-row__mark", MAIL_GLYPH[message.kind] || "\u2709");
-    glyph.setAttribute("aria-hidden", "true");
-    row.appendChild(glyph);
+    // The paper is the accent and the kind is a word on the line: a glyph would be the third
+    // time this card said what it is.
     var body = el("div", N.mailBody);
     row.appendChild(body);
     var line = el("div", "bf-row__meta");
@@ -111,13 +105,9 @@ const feedTemplate = String.raw`(function () {
     return label.replace("{lane}", lane === undefined ? event.lane : lane.label.toLowerCase());
   }
 
-  /** One thing that happened: a glyph, the lane it happened in, the card, and what it was. */
+  /** One thing that happened: the lane it happened in, the card, and what it was. */
   function eventRow(event) {
     var row = el("li", "bf-row " + N.event);
-    row.setAttribute("data-kind", event.kind);
-    var glyph = el("span", "bf-row__mark", EVENT_GLYPH[event.kind] || "\u2022");
-    glyph.setAttribute("aria-hidden", "true");
-    row.appendChild(glyph);
     var body = el("div", N.mailBody);
     row.appendChild(body);
     var line = el("div", "bf-row__meta");

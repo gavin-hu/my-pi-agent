@@ -51,13 +51,13 @@ Every card's last line is its hover and the title button's description, so a lan
 
 ## Reference
 
-**Lanes.** `backlog` is the pool nobody holds, `plan` is where the card is
-designed and its contract signed, `execute` is where the work happens, `blocked`
-waits on a person, and `done` is closed. Each move follows the one transition the
-board allows from where the card is; no lane can be skipped.
+**Lanes.** `backlog` is the pool nobody holds, `plan` is where the card is designed and its
+contract signed, `execute` is where the work happens, `blocked` waits on a person, and `done`
+is closed. Each move follows the one transition from where the card is; no lane is skipped.
 
 **The page.** A lane's width follows the work it holds; five lanes sit side by side (one below
 1180px, via the picker), a lane of 24 cards folds, and a card is a one-height note with no edge.
+The Team tab draws that same card, with no rule between two of them.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`,
 `reclaim`, `move`, `note`, `contract`, `approve`, `review`, `edit`, `archive`,
