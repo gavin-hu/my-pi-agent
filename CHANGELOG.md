@@ -7,8 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 - `board`: the Board and Team tabs stop disagreeing with themselves. A lane's share of the row is
-  capped at three, so a 64-card pool no longer squeezes Plan to its floor and elides every path in
-  it (1440: 728/192 → 460/460, a 40-character path whole at 360px). Below 1180px the board shows
+  capped at three, so a deep pool no longer squeezes the lanes beside it: on a 61-card pool with
+  three planned cards, 1440 went from 728/192 with six elided paths to 460/460 with none. The cap
+  buys width rather than a guarantee — on a board where every lane holds work, Plan lands between
+  224 and 267 and a 55-character path still elides to its content box. Below 1180px the board shows
   one lane at a time with the picker, which used to arrive at 860 — three lanes were buried under
   an 11,000px Backlog because a wrapped flex row is as tall as its tallest child. Any lane holding
   24 cards opens folded, its count left in the head. Inside ACTIVE WORK a decision row and a

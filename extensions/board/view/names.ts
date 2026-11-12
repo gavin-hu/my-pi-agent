@@ -165,4 +165,6 @@ export const BOARD_CLASS = {
 	// live, quiet, gone and no record, whichever column reads it. The kind's own word reuses
 	// `kind` above: a decision row and a mission card wear the label a card face wears.
 	dot: "board-team__dot",
+	// The owner, as a dot and a name, on both cards inside ACTIVE WORK.
+	owner: "board-team__owner",
 } as const satisfies Readonly<Record<string, string>>;

@@ -143,8 +143,26 @@ const activeTemplate = String.raw`(function () {
     return pill;
   }
 
+  /**
+   * Who holds a card: a state dot and the name, never a pill.
+   *
+   * One shape for both cards in this column. A chip in the strip and a dot on the swimlane card
+   * was the last two-treatments-for-one-fact in a column whose whole point is that a decision
+   * and a mission are the same box: the dot is the quieter of the two, and it says how the
+   * owner is doing rather than only who it is.
+   */
+  function ownerMeta(view, label) {
+    var wrap = el("span", N.owner);
+    var dot = el("span", N.dot);
+    dot.setAttribute("aria-hidden", "true");
+    dot.setAttribute("data-state", ownerState(view, label));
+    wrap.appendChild(dot);
+    wrap.appendChild(document.createTextNode(label));
+    return wrap;
+  }
+
   /** One decision: the card, why it is here, who holds it, and how long it has waited. */
-  function decisionRow(entry) {
+  function decisionRow(entry, view) {
     var card = entry.card;
     var node = el("article", N.decision);
     node.setAttribute("data-kind", entry.kind);
@@ -170,7 +188,7 @@ const activeTemplate = String.raw`(function () {
     // decision is made, and a breaking change is the one fact it must not hide.
     var kind = kindLabel(card);
     if (kind !== undefined) meta.appendChild(kind);
-    if (card.owner) meta.appendChild(chip(card.owner.label, "accent"));
+    if (card.owner) meta.appendChild(ownerMeta(view, card.owner.label));
     // The sentence is the row's reason, so it is stamped rather than printed once: the age in
     // it is the one part that moves without a frame.
     var sentence = entry.at === undefined ? undefined : board.reasonNode({ text: entry.why, at: entry.at, wording: entry.wording });
@@ -211,13 +229,7 @@ const activeTemplate = String.raw`(function () {
     head.appendChild(button);
     node.appendChild(head);
     var meta = el("p", N.missionMeta);
-    if (card.owner) {
-      var dot = el("span", N.dot);
-      dot.setAttribute("aria-hidden", "true");
-      dot.setAttribute("data-state", ownerState(view, card.owner.label));
-      meta.appendChild(dot);
-      meta.appendChild(el("span", "", card.owner.label));
-    }
+    if (card.owner) meta.appendChild(ownerMeta(view, card.owner.label));
     var kind = kindLabel(card);
     if (kind !== undefined) meta.appendChild(kind);
     meta.appendChild(stamp(ago(card.updatedAt), card.updatedAt));
@@ -308,7 +320,7 @@ const activeTemplate = String.raw`(function () {
         pane.appendChild(board.paneHead("NEEDS YOU", shown.length, decisions.length));
         var strip = el("div", N.decisions);
         var cap = Math.min(shown.length, STRIP);
-        for (var s = 0; s < cap; s++) strip.appendChild(decisionRow(shown[s]));
+        for (var s = 0; s < cap; s++) strip.appendChild(decisionRow(shown[s], view));
         if (shown.length > STRIP) strip.appendChild(moreRow(shown.length - STRIP));
         if (shown.length === 0) {
           strip.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "nothing needs you: no blockers, no contract waiting to be read, nothing unwritten"));

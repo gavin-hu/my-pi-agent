@@ -259,6 +259,8 @@ ${REASON_TONE_CSS}
 /* One dot for one state, wherever it is drawn: an agent's pill, a waiting row's recipient, a
    mission card's owner. A record that is not there is a hollow ring, never a colour. */
 .board-team__dot{flex:0 0 auto;width:8px;height:8px;border-radius:var(--radius-pill);background:var(--muted)}
+/* The owner, as both cards in ACTIVE WORK draw it: one shape for one fact. */
+.board-team__owner{display:inline-flex;align-items:center;gap:var(--space-1);min-width:0;color:var(--muted)}
 .board-team__dot[data-state="live"]{background:var(--success)}
 .board-team__dot[data-state="quiet"]{background:var(--warn)}
 .board-team__dot[data-state="gone"]{background:var(--danger)}
