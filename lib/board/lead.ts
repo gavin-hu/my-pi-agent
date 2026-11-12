@@ -314,6 +314,19 @@ export function appendNote(card: Card, by: string, at: number, text: string): Pi
 }
 
 /**
+ * Whether the card has been written since its sign last spoke for it.
+ *
+ * A sign owns two writes: the stamp, and `#398`'s record that its owner heard — so the moment to
+ * compare is the later of the two. One reader for both places the rule is asked: the `done` gate
+ * refuses a spot-check the work has outgrown, and a repeat sign re-makes a stamp that has gone
+ * stale, so the arithmetic that decides "the work moved under the signature" cannot differ
+ * between the gate and the sign that answers it.
+ */
+export function signStale(card: Card, record: SignRecord): boolean {
+	return card.updatedAt > Math.max(record.at, record.told?.at ?? 0);
+}
+
+/**
  * Record the spot-check of finished work: the lead's, and never the holder's.
  *
  * `text` rides the sign here too, so "checked, and this is still wrong" is one call.
@@ -354,13 +367,10 @@ export function review(
 	if (wrongSigner !== undefined) return { error: wrongSigner };
 	const evidence = evidenceFor(card, config, instruction !== undefined, verified);
 	if ("error" in evidence) return { error: evidence.error };
-	const signed = signedAs(currentReview(card), actor, config.lead);
-	// The same rule as `approve`: the stamp owes the message, and a repeat owes it while untold.
-	const owes = owesAnnouncement(card, "review", actor, config.lead);
-	// A sign is a fact about a person and a moment, so an override never replaces one: it is how a
-	// card with no spot-check gets a record, not how a record gets a different author. The same
-	// signer, saying the same thing, is its own case — the sign is already the one it asked for.
 	const already = currentReview(card);
+	const signed = signedAs(already, actor, config.lead);
+	// A sign is a fact about a person and a moment, so an override never replaces one: it is how a
+	// card with no spot-check gets a record, not how a record gets a different author.
 	if (instruction !== undefined && already !== undefined && !(signed && already.byInstruction !== undefined)) {
 		return {
 			error: `${cardRef(card.id)} is already spot-checked by ${already.by}; an override signs a card that has no sign.`,
@@ -368,18 +378,38 @@ export function review(
 	}
 	const noted = signNote(card, text, actor, now);
 	if ("error" in noted) return { error: noted.error };
-	if (signed && !noted.wrote) return { changed: false, fields: null, ...(owes ? { announce: true as const } : {}) };
+	// The same rule as `approve`: a sign owes its message, and a repeat owes it while untold — the
+	// only way a failed send is ever re-sent.
+	const owes = owesAnnouncement(card, "review", actor, config.lead);
+	// The same signer signs again for one of two reasons, and both re-make the stamp rather than
+	// leaving the old one standing: they are saying something the card did not record yet (`noted`),
+	// or the card has been written since their sign, which is exactly what the `done` gate refuses
+	// with "review again" — a remedy a repeat could not otherwise perform, because its own note
+	// moves the card again. Only a sign that says nothing, on a card it still speaks for, is the
+	// no-op the repeat rule keeps.
+	const redo =
+		signed && instruction === undefined && (noted.wrote || (already !== undefined && signStale(card, already)));
+	// A sign that is already there and stays: nothing to stamp, and an untold one still owes its
+	// message. An override's repeat is one of these but its note is still a write, so it falls
+	// through to the note-only return below.
+	const repeat = signed && !redo;
+	if (repeat && !noted.wrote) return { changed: false, fields: null, ...(owes ? { announce: true as const } : {}) };
 	const stamp =
 		instruction === undefined
 			? { ...signMark(actor, config.lead), at: now }
 			: { ...signMark(actor, config.lead), at: now, byInstruction: instruction.text };
-	// The run rides the stamp it is evidence for; a repeat sign that finds the record already there
-	// keeps it, because a second run of the same command says what the first said.
+	// The run rides the stamp it is evidence for. A re-made sign takes this call's run, because the
+	// old one vouched for the card as it was before the write that made the stamp stale.
 	const stamped = evidence.verified === undefined ? stamp : { ...stamp, verified: evidence.verified };
-	const spotCheck = signed ? {} : { review: stamped };
+	// A repeat that only speaks (an override's note, a sign already there) keeps the stamp it found;
+	// a re-made one replaces it, so the card's clock can never be newer than the sign it vouches for.
+	const spotCheck = repeat ? {} : { review: stamped };
+	// A fresh stamp drops its `told`, so it owes the message its owner already heard for the sign it
+	// replaced: a re-made sign is a new fact, and the announcement is a write of its own.
+	const announce = owes || redo;
 	// As with `approve`: a second signer's note moves the card, and the owner's message follows the
 	// stamp — or the untold sign a repeat still owes them.
-	return { changed: true, fields: { ...spotCheck, ...noted.fields }, ...(owes ? { announce: true as const } : {}) };
+	return { changed: true, fields: { ...spotCheck, ...noted.fields }, ...(announce ? { announce: true as const } : {}) };
 }
 
 /**

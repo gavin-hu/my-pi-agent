@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a lead's second spot-check after the work moved refreshes the sign instead of leaving the
+  old stamp standing. A repeat `review` by the same signer wrote only its note, so `done` kept
+  refusing with "review again" — a remedy that signer could never perform, because the repeat's own
+  note moved the card past the stamp. A repeat now re-stamps (and re-records the run) when the card
+  has been written since its sign, and announces the sign again; a repeat with nothing new stays
+  the no-op it was.
+
 - `plan`, `file-browse`: a code panel wraps its lines below 720 px, so a long path or command
   is read instead of hidden behind a scrollbar that draws nothing until it is used. A wide
   window keeps the line whole, and file-browse's wrap button says which the page is doing.
