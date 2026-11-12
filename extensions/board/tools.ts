@@ -27,6 +27,7 @@ import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { listOf } from "../../lib/format.ts";
 import { strayField } from "../../lib/stray-fields.ts";
+import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
@@ -180,9 +181,12 @@ export function registerTools(
 				// The read, the run and the sentence are `lib/board/verify.ts`'s, because the person's
 				// `/board review` asks the card the same question and must word a failure the same way.
 				const module = await (verifyModule ??= import("../../lib/board/verify.ts"));
+				// The tree this session is working in, read now rather than taken from the store: a store
+				// opened before `worktree enter` keeps the checkout it was opened on, so its root is the
+				// wrong answer exactly when the reviewer has moved — `ctx.cwd` never moves at all.
 				return module.verifySpotCheck(
 					card,
-					ctx.cwd,
+					resolveEffectiveCwd(ctx.cwd),
 					deps.verify ?? module.defaultVerifyRun(),
 					() => runtime.now(),
 					module.shaOf(pi),

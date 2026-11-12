@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a spot-check runs the contract's command in the tree the board is rooted at — the
+  worktree when the reviewer entered one — and the sign records that tree beside the commit. Both
+  doors used the session's cwd, which never follows `worktree enter`, so a branch reviewed from
+  its worktree was signed with `main`'s commit and read as proof of a branch it never saw.
+
 - `board`: a card face on the page is an index of the work at one height. The lane no longer prints
   the card's last line — a note can be a thousand characters — so every card draws a two-line
   title, the facts beside it and its path hints, all the same height; what a card waits for is its

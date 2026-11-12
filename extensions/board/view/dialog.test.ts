@@ -154,6 +154,9 @@ describe("the dialog's client", () => {
 		);
 		// What ran is drawn from the sign's own record, the field the transcript reads too.
 		expect(BOARD_CLIENT_JS).toContain("function ranClause(reviewed)");
+		// The tree the run proved rides the clause beside its commit, and a record from before the
+		// board wrote one draws exactly what it drew then.
+		expect(BOARD_CLIENT_JS).toContain('run.root === undefined ? "" : " in " + run.root');
 		expect(BOARD_CLIENT_JS).toContain('" \\u00b7 ran " + run.cmd');
 		// An empty section takes its heading with it, and the notes read newest first — with
 		// one line instead of an empty list when a card has none.

@@ -11,6 +11,8 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { realpathSync } from "node:fs";
+import { join } from "node:path";
 import {
 	bench,
 	claimedWithContract,
@@ -22,21 +24,30 @@ import {
 	signPlan as writePlan,
 } from "../../test/helpers/board-signs.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
+import { tempDir, withEnv } from "../../test/helpers/env.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
+import { ENV_ROOT } from "../../lib/env.ts";
 
 afterAll(flushFixture);
 
 /** The command a card's contract names in these cases, and its one run. */
 const VERIFY = "bun run check";
 
+/** A refused setup call fails the case, so a case about the sign cannot pass on a card left behind. */
+async function agreed(call: ReturnType<Session["call"]>): Promise<void> {
+	const result = await call;
+	if (result.isError) throw new Error(resultText(result));
+}
+
 /** A card in `execute` whose contract names `verify`, or one that names no command. */
 async function running(who: { lead: Session; peer: Session }, verify?: string): Promise<void> {
 	await claimedWithContract(who);
 	if (verify !== undefined) {
-		await who.peer.call({ action: "contract", card: "1", path: await writePlan(who.peer), verify });
+		await agreed(who.peer.call({ action: "contract", card: "1", path: await writePlan(who.peer), verify }));
 	}
 	// The lead signs the wording, then the holder moves it: the gates a run sits behind.
-	await who.lead.call({ action: "approve", card: "1" });
-	await who.peer.call({ action: "move", card: "1", lane: "execute" });
+	await agreed(who.lead.call({ action: "approve", card: "1" }));
+	await agreed(who.peer.call({ action: "move", card: "1", lane: "execute" }));
 }
 
 describe("a spot-check whose contract names a command", () => {
@@ -47,8 +58,10 @@ describe("a spot-check whose contract names a command", () => {
 		const reviewed = await who.lead.call({ action: "review", card: "1" });
 		expect(reviewed.isError).toBeFalsy();
 		expect(run.ran).toEqual([VERIFY]);
-		// The record is the run's, and the card is what the store ended up with.
-		expect(reviewed.details.card?.review?.verified).toEqual({ cmd: VERIFY, exit: 0, at: NOW });
+		// The record is the run's — the command, its exit, its moment, and the tree it ran in —
+		// and the card is what the store ended up with.
+		const root = (await who.lead.board.runtime.store(who.lead.board.ctx.cwd)).root();
+		expect(reviewed.details.card?.review?.verified).toEqual({ cmd: VERIFY, exit: 0, at: NOW, root });
 		expect(reviewed.details.card?.review?.by).toBe(LEAD);
 	});
 
@@ -91,4 +104,74 @@ describe("a spot-check whose contract names a command", () => {
 		expect(refused.isError).toBe(true);
 		expect(resultText(refused)).toContain("was written after its spot-check");
 	});
+
+	test("at the root, the sign records the tree it ran in and says so", async () => {
+		// The ordinary reviewer: no worktree, so the board's tree is the checkout, and the line a
+		// reader sees names it rather than leaving the sha to stand for a place.
+		const run = runner();
+		const who = bench({ verify: run });
+		await running(who, VERIFY);
+		const reviewed = await who.lead.call({ action: "review", card: "1" });
+		const root = (await who.lead.board.runtime.store(who.lead.board.ctx.cwd)).root();
+		expect(run.cwds).toEqual([root]);
+		expect(reviewed.details.card?.review?.verified?.root).toBe(root);
+		// The bench has no git, so there is no commit: the tree is still the one it ran in.
+		expect(reviewed.details.card?.review?.verified?.sha).toBeUndefined();
+		expect(resultText(reviewed)).toContain(`ran \`${VERIFY}\` in ${root} (exit 0)`);
+	});
+
+	test("inside a worktree, the run, the commit, and the record are the worktree's", async () => {
+		// The bug the card was filed for: the reviewer's session cwd stays the checkout, so both
+		// the run and the sha used to be `main`'s while the work sat on a branch. The card is set up
+		// before the move on purpose — a session enters a worktree mid-task, and the board's store was
+		// opened over the checkout by then.
+		const { who, run, worktree } = worktreeBench();
+		await running(who, VERIFY);
+		const reviewed = await withEnv({ [ENV_ROOT]: worktree }, () => who.lead.call({ action: "review", card: "1" }));
+		// Compared as resolved paths: the temp root is a symlink on macOS, so the spelling the
+		// environment carries and the one git prints are not the same string.
+		expect(run.cwds.map((cwd) => realpathSync.native(cwd))).toEqual([realpathSync.native(worktree)]);
+		expect(reviewed.details.card?.review?.verified).toEqual({
+			cmd: VERIFY,
+			exit: 0,
+			at: NOW,
+			root: worktree,
+			sha: WORKTREE_SHA,
+		});
+		// And the checkout's commit is nowhere in the record.
+		expect(reviewed.details.card?.review?.verified?.sha).not.toBe(CHECKOUT_SHA);
+	});
 });
+
+/**
+ * The same bench, standing for one repository with a branch checked out in a worktree.
+ *
+ * The git answers are the seam this suite already fakes: `--show-toplevel` is the directory the
+ * call was made from, the common directory is the checkout's, and `HEAD` differs between the two
+ * trees — which is the fact the bug got wrong when the run used the session's cwd.
+ */
+function worktreeBench(): {
+	who: { lead: Session; peer: Session };
+	run: ReturnType<typeof runner>;
+	main: string;
+	worktree: string;
+} {
+	const temps = makeTempTracker();
+	const run = runner();
+	const main = temps.track(tempDir("pi-repo-"));
+	const worktree = temps.track(tempDir("pi-wt-"));
+	const common = join(main, ".git");
+	const exec: NonNullable<Parameters<typeof bench>[1]>["exec"] = async (_command, args, options) => {
+		const cwd = options?.cwd ?? main;
+		if (args.includes("--git-common-dir")) return { stdout: `${common}\n`, stderr: "", code: 0 };
+		if (args.includes("HEAD"))
+			return { stdout: `${cwd === worktree ? WORKTREE_SHA : CHECKOUT_SHA}\n`, stderr: "", code: 0 };
+		if (args.includes("--show-toplevel")) return { stdout: `${cwd}\n`, stderr: "", code: 0 };
+		return { stdout: "", stderr: "", code: 1 };
+	};
+	return { who: bench({ verify: run }, { exec, cwd: main }), run, main, worktree };
+}
+
+/** The two commits the fake git answers with, so a case can tell one tree from the other. */
+const CHECKOUT_SHA = "b59cf427";
+const WORKTREE_SHA = "6c1e9a02";
