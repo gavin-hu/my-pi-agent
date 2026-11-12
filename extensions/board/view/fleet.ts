@@ -196,11 +196,10 @@ __HISTORY_LINE__
    * rows. Spoken, "AGENTS, 4" is a word and a number with nothing between them; "4 agents" is
    * the sentence the pill already draws as a 4.
    */
-  board.captionOf = function (text, count, total, noun) {
+  board.captionOf = function (text, count, noun) {
     var head = el("h2", N.teamCaption, text);
-    var filtered = total !== undefined && total !== count;
-    head.appendChild(el("span", N.teamCount, filtered ? count + "/" + total : String(count)));
-    head.setAttribute("aria-label", text + ", " + (filtered ? count + " of " + total : plural(count, noun)));
+    head.appendChild(el("span", N.teamCount, String(count)));
+    head.setAttribute("aria-label", text + ", " + plural(count, noun));
     return head;
   };
 
@@ -209,24 +208,16 @@ __HISTORY_LINE__
    *
    * The signature is what keeps a frame from repainting a card the reader is on: it lists the
    * facts the rows read and nothing that moves on its own — a heartbeat is not one, and a
-   * working turn is.
+   * working turn is. The filter is not one either: it narrows the cards, and this column is
+   * about who is here.
    */
-  board.fleetColumn = function (view, decisions, query, filtering) {
+  board.fleetColumn = function (view, decisions) {
     var joined = board.rosterOf(view);
-    var keep = function (agent) {
-      if (!filtering) return true;
-      if (agent.label.toLowerCase().indexOf(query.toLowerCase()) !== -1) return true;
-      var held = agent.cards.live.concat(agent.cards.done);
-      for (var i = 0; i < held.length; i++) if (board.matches(held[i], query)) return true;
-      return false;
-    };
-    var agents = joined.agents.filter(keep);
-    var history = joined.history.filter(keep);
-    // A filter is a view of the rows, so it unfolds the tail: an owner hidden inside a fold
-    // would make the column say "nothing matches" about somebody who is here.
-    var folded = filtering ? false : historyFolded(history.length);
+    var agents = joined.agents;
+    var history = joined.history;
+    var folded = historyFolded(history.length);
     var needs = decisions.length;
-    var sig = [query, folded ? "folded" : "open", joined.roster === null ? "no bus" : "bus", String(needs)];
+    var sig = [folded ? "folded" : "open", joined.roster === null ? "no bus" : "bus", String(needs)];
     function row(agent) {
       var ids = [];
       for (var i = 0; i < agent.cards.live.length; i++) {
@@ -244,22 +235,19 @@ __HISTORY_LINE__
     return {
       sig: sig.join("|"),
       count: agents.length + history.length,
-      total: joined.total,
       build: function (slot) {
-        slot.appendChild(board.captionOf("AGENTS", agents.length + history.length, joined.total, "agent"));
+        slot.appendChild(board.captionOf("AGENTS", agents.length + history.length, "agent"));
         if (agents.length + history.length === 0) {
-          slot.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : joined.roster === null ? "session-bus is not loaded here" : "nobody is here yet"));
+          slot.appendChild(el("p", N.teamEmpty, joined.roster === null ? "session-bus is not loaded here" : "nobody is here yet"));
           return;
         }
         var list = el("ul", N.agents);
         for (var k = 0; k < agents.length; k++) list.appendChild(agentCard(agents[k], view, needs));
         if (history.length > 0) {
-          if (!filtering) {
-            list.appendChild(historyRow(history, folded));
-            if (folded) {
-              slot.appendChild(list);
-              return;
-            }
+          list.appendChild(historyRow(history, folded));
+          if (folded) {
+            slot.appendChild(list);
+            return;
           }
           for (var h = 0; h < history.length; h++) list.appendChild(agentCard(history[h], view, needs));
         }

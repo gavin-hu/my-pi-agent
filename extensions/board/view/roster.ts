@@ -118,6 +118,6 @@ __HISTORY_OWNER__
     history.sort(function (a, b) {
       return b.cards.done.length - a.cards.done.length || a.label.localeCompare(b.label);
     });
-    return { agents: agents, history: history, roster: roster, total: rows.length };
+    return { agents: agents, history: history, roster: roster };
   };
 })();`;

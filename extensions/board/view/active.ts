@@ -312,7 +312,7 @@ const activeTemplate = String.raw`(function () {
       build: function (slot) {
         // The caption is a count and nothing else: the tab strip above the page is the way to
         // the whole board, and a second door in a heading was a control in a label.
-        slot.appendChild(board.captionOf("ACTIVE WORK", active, undefined, "card"));
+        slot.appendChild(board.captionOf("ACTIVE WORK", active, "card"));
         var pane = el("section", N.paneBody);
         pane.setAttribute("data-pane", "needs-you");
         // The strip has a name and a number of its own: the caption above counts the lanes, and
