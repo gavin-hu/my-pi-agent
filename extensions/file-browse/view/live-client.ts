@@ -150,14 +150,14 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 					var totals = (changes.insertions || 0) + (changes.deletions || 0);
 					liveChanges.textContent = "";
 					var dot = document.createElement("span");
-					dot.className = "browse-diff__dot";
+					dot.className = "browse-changes__dot";
 					dot.setAttribute("aria-hidden", "true");
 					dot.textContent = "\\u25CF";
 					liveChanges.appendChild(dot);
 					liveChanges.appendChild(document.createTextNode(label));
 					if (totals > 0) {
 						var sum = document.createElement("span");
-						sum.className = "browse-diff-totals";
+						sum.className = "browse-changes__totals";
 						var add = document.createElement("span");
 						add.className = "browse-diff-add";
 						add.textContent = "+" + changes.insertions;

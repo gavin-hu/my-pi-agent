@@ -361,7 +361,7 @@ describe("diff routes", () => {
 		const html = text(response);
 		expect(html).toContain("Changes");
 		expect(html).toContain('href="/diff/a.txt"');
-		expect(html).toContain('class="bf-tag browse-diff"');
+		expect(html).toContain('class="bf-tag browse-changes"');
 		expect(html).toContain("+1");
 		expect(html).toContain("1 file changed");
 	});

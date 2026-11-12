@@ -270,9 +270,9 @@ describe("the kit's grammar", () => {
 		expect(rule(WEB_COMPONENTS_CSS, ".bf-badge{")).toContain("border-radius:var(--radius-badge)");
 	});
 
-	test("draws a tag as a glyph and a word on a rail, with no box around them", () => {
+	test("draws a tag as a glyph and a word, with no rail and no box around them", () => {
 		const tag = rule(WEB_COMPONENTS_CSS, ".bf-tag{");
-		expect(tag).toContain("border-left:2px solid currentColor");
+		expect(tag).not.toMatch(/border-left|padding-left/);
 		// A tag's word is a label, so it is the UI's face: mono is kept for a path or a command.
 		expect(tag).toContain("var(--font-ui)");
 		expect(tag).not.toContain("var(--font-mono)");
@@ -323,15 +323,12 @@ describe("the kit's grammar", () => {
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-tabs__count{");
 	});
 
-	test("holds the record on a lifted plane under the signature rule", () => {
-		// The signature terminates rather than decorates: the accent's 12px lead, the warn's 6px
-		// step, then the same hairline the box is drawn with.
-		expect(rule(WEB_COMPONENTS_CSS, ".bf-record{")).toContain("border:1px solid var(--border)");
+	test("holds the record on a lifted plane, with no rule along its top", () => {
 		// A record is a card, and a card is the first elevation step — not a hairline pretending.
+		expect(rule(WEB_COMPONENTS_CSS, ".bf-record{")).toContain("border:1px solid var(--border)");
 		expect(rule(WEB_COMPONENTS_CSS, ".bf-record{")).toContain("box-shadow:var(--shadow-1)");
-		expect(rule(WEB_COMPONENTS_CSS, ".bf-record::before{")).toContain(
-			"var(--accent) 0 12px,var(--warn) 12px 18px,var(--border) 18px",
-		);
+		// The head names the record; a stripe above it would read as a state it does not have.
+		expect(WEB_COMPONENTS_CSS).not.toContain(".bf-record::before");
 		// A comment's label is a glyph in the dim role: warn is the verdict it carries, not the
 		// colour of the label itself.
 		expect(WEB_COMPONENTS_CSS).toContain(
