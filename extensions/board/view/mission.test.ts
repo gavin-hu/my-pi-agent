@@ -233,9 +233,9 @@ describe("the mission control's contracts", () => {
 		// One selector for everything that opens a card, so the walk and the dialog's "n of m"
 		// agree about what a card on this page is.
 		expect(BOARD_CLIENT_JS).toContain(
-			'var nodes = document.querySelectorAll(".bf-row, .board-decision, .board-mission");',
+			'var nodes = document.querySelectorAll(".board-row, .board-decision, .board-mission");',
 		);
-		expect(BOARD_CLIENT_JS).toContain('here.closest(".bf-row, .board-decision, .board-mission")');
+		expect(BOARD_CLIENT_JS).toContain('here.closest(".board-row, .board-decision, .board-mission")');
 		expect(BOARD_CLIENT_JS).toContain('.querySelector(".bf-row__title, .board-decision__open, .board-mission__title")');
 	});
 
