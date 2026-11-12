@@ -289,12 +289,9 @@ const activeTemplate = String.raw`(function () {
       total: view.total,
       decisions: shown.length,
       build: function (slot) {
-        var head = board.captionOf("ACTIVE WORK", active, undefined, "card");
-        var door = el("button", N.teamDoor, "\u2192 Board");
-        door.type = "button";
-        door.addEventListener("click", function () { board.showView("board"); });
-        head.appendChild(door);
-        slot.appendChild(head);
+        // The caption is a count and nothing else: the tab strip above the page is the way to
+        // the whole board, and a second door in a heading was a control in a label.
+        slot.appendChild(board.captionOf("ACTIVE WORK", active, undefined, "card"));
         var strip = el("div", N.decisions);
         var cap = Math.min(shown.length, STRIP);
         for (var s = 0; s < cap; s++) strip.appendChild(decisionRow(shown[s]));

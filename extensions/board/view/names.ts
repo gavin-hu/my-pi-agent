@@ -97,7 +97,6 @@ export const BOARD_CLASS = {
 	teamColumn: "board-team__column",
 	teamCaption: "board-team__caption",
 	teamCount: "board-team__count",
-	teamDoor: "board-team__door",
 	teamEmpty: "board-team__empty",
 	teamSkeleton: "board-team__skeleton",
 

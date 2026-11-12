@@ -182,8 +182,9 @@ describe("the mission control's contracts", () => {
 		// Three rows, then a count: a queue that fills the column is the Board tab with extra steps.
 		expect(BOARD_CLIENT_JS).toContain("var STRIP = 3");
 		expect(BOARD_CLIENT_JS).toContain("+N more");
-		// And the door to the wall is a button, not a link nobody can reach from the keyboard.
-		expect(BOARD_CLIENT_JS).toContain('el("button", N.teamDoor, "\\u2192 Board")');
+		// The caption is a count alone: the tab strip is the way to the whole board, so the
+		// column carries no second door for a heading to be a control.
+		expect(BOARD_CLIENT_JS).not.toContain("board-team__door");
 	});
 
 	test("says an empty lane, an empty pane, and an empty board in words", () => {

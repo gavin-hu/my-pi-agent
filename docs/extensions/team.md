@@ -13,8 +13,8 @@ themselves and scroll as one. **AGENTS** holds a card per session, the board's l
 first whatever its state, each with a monogram, `lead` and `you` chips, a needs-you count on
 the lead's card, a state pill (`working` inside a turn, `quiet 42m` with the age a reclaim
 turns on), and a line per mission with its lane as a bar. **ACTIVE WORK** is the lead's queue
-as a strip over the `blocked`, `execute` and `plan` swimlanes, each reason one hover away,
-with `→ Board` for the whole board. **ACTIVITY** is the unread mail — each row wearing its
+as a strip over the `blocked`, `execute` and `plan` swimlanes, each reason one hover away, and its
+caption is a count rather than a control. **ACTIVITY** is the unread mail — each row wearing its
 recipient's state — above the cards' recent history. Reading consumes nothing.
 
 ## What you can do

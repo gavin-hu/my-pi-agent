@@ -210,10 +210,6 @@ ${REASON_TONE_CSS}
    hairline under it does not disappear into the shell's own border. */
 .board-team__caption{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:var(--space-2);margin:0;padding:var(--space-2) 0;background:var(--canvas);border-bottom:1px solid var(--border);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-team__count{margin-left:auto;padding:0 var(--space-2);border-radius:var(--radius-pill);background:var(--raised);color:var(--text);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;letter-spacing:0}
-/* The door to the wall: the middle column's caption is where a reader asks for every card,
-   and the queue's overflow is the reason to. */
-.board-team__door{margin-left:var(--space-2);appearance:none;border:0;background:none;padding:0;min-height:24px;color:var(--accent);font:var(--fs-xs) var(--font-ui);letter-spacing:0;text-transform:none;cursor:pointer}
-.board-team__door:hover{text-decoration:underline}
 .board-team__empty{margin:0;font:var(--fs-sm)/var(--lh-relaxed) var(--font-ui);color:var(--muted)}
 .board-team__skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
 

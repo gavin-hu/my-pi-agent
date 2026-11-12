@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the Team tab's ACTIVE WORK caption is a count again. The `→ Board` door was a button
+  inside a heading — a control in a label, and a second way to a tab that is one press away in the
+  strip above it. The column keeps its decisions strip, its `+N more`, and its swimlanes, whose
+  own `+N more on the Board` still jumps to the wall.
+
 - `board`: the Team tab is a three-column agent mission control, read-only and drawn from one
   snapshot. **AGENTS** lists a card per session with the board's lead pinned first whatever its
   state, each carrying a monogram, `lead` and `you` chips, a needs-you count on the lead's card,

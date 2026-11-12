@@ -162,7 +162,6 @@ describe("the document", () => {
 		// The controls a row makes small — the door out of the middle column, and the two folds —
 		// keep a 24px target without growing the caption they sit in.
 		expect(BOARD_CSS).toContain("min-height:24px");
-		expect(BOARD_CSS).toMatch(/\.board-team__door\{[^}]*min-height:24px/);
 		expect(BOARD_CSS).toMatch(/\.board-team__agent-fold\{[^}]*min-height:24px/);
 		expect(BOARD_CSS).toMatch(/\.board-team__lane-fold\{[^}]*min-height:24px/);
 	});
