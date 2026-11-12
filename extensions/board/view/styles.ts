@@ -123,6 +123,8 @@ ${WEB_COMPONENTS_CSS}
 .board-row__priority{font:var(--fw-semibold) var(--fs-xs) var(--font-mono)}
 .board-row__priority--high{color:var(--warn)}
 .board-row__priority--low{color:var(--dim)}
+/* A path has no spaces to break at, so the title breaks inside a word rather than overflowing. */
+.board-row__head .bf-row__title{overflow-wrap:anywhere}
 .board-row__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:2px 0 0;padding:0;list-style:none}
 /* A tag is one line and nowrap by design, so an owner label or a path longer than the row
    would spill past it: clipped to the row instead, with the whole of it on the hover title. */
@@ -144,6 +146,8 @@ ${DECISION_WHY_CSS}
    this tab exists not to be. */
 .board-team{min-width:0}
 /* A column's caption sticks: the page has one scroll box, and these are its landmarks. */
+/* A lane's head pins to the pane: one scroll box, and its heads are the landmarks in it. */
+.board-lane .bf-lane__head{position:sticky;top:0;z-index:1;background:var(--canvas)}
 .board-team__column .bf-section__cap{position:sticky;top:0;z-index:1;background:var(--canvas)}
 .board-team__grid{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
 .board-team__column{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}

@@ -158,31 +158,33 @@ describe("the document", () => {
 	test("keeps its own text above AA and its targets at 24px", () => {
 		// `--dim` is held at 3:1 by the kit's contract, which is a gutter's threshold, not a
 		// sentence's: the empty word and a note's age are body text, so they read `--muted`.
-		expect(BOARD_CSS).toContain(".board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted)}");
+		expect(BOARD_CSS).toContain(
+			".bf-lane__empty{margin:0;padding:var(--space-2) 0;font:var(--fs-xs) var(--font-mono);color:var(--dim)}",
+		);
 		expect(BOARD_CSS).toContain(".board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}");
 		// The controls a row makes small — the door out of the middle column, and the two folds —
 		// keep a 24px target without growing the caption they sit in.
 		expect(BOARD_CSS).toContain("min-height:24px");
-		expect(BOARD_CSS).toMatch(/\.board-team__agent-fold\{[^}]*min-height:24px/);
-		expect(BOARD_CSS).toMatch(/\.board-team__lane-fold\{[^}]*min-height:24px/);
+		expect(BOARD_CSS).toMatch(/\.board-fold\{[^}]*min-height:24px/);
+		expect(BOARD_CSS).toMatch(/\.board-fold\{[^}]*min-height:24px/);
 	});
 
 	test("wraps the lane switch on a phone instead of hiding a lane", () => {
 		// Five labels do not fit 320px; a horizontal strip would clip the lane a reader is on, so
 		// the narrowest layout wraps the same buttons as pills.
 		expect(BOARD_CSS).toContain("@media (max-width:420px){");
-		expect(BOARD_CSS).toContain(".board-picker{flex-wrap:wrap;border:0;background:none;gap:var(--space-1)}");
+		expect(BOARD_CSS).toContain(".board-picker{flex-wrap:wrap;gap:var(--space-1)}");
 	});
 
 	test("wears its priority as a word and its paths as code", () => {
 		expect(BOARD_CLIENT_JS).toContain("PRIORITY_CLASS[card.priority]");
-		expect(BOARD_CSS).toContain(".board-card__priority--high{color:var(--warn)}");
+		expect(BOARD_CSS).toContain(".board-row__priority--high{color:var(--warn)}");
 		// A path hint is something a reader types, so it is mono.
-		expect(BOARD_CSS).toContain(".board-card__paths .bf-chip{font-family:var(--font-mono)}");
+		expect(BOARD_CSS).toContain(".board-row__paths .bf-tag{");
 		// Two mono paths four pixels apart read as one path that wrapped, so the list keeps the
 		// dialog's taller column gap: the separation is the only thing saying where one ends.
 		expect(BOARD_CSS).toContain(
-			".board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:0;padding:0;list-style:none}",
+			".board-row__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:2px 0 0;padding:0;list-style:none}",
 		);
 	});
 
@@ -190,13 +192,13 @@ describe("the document", () => {
 		// A chip is one line and nowrap by design, so an owner label or a path longer than the
 		// card used to spill past its border and across the lane beside it. The list item is
 		// what shrinks, the chip is what clips, and the whole value is on the hover title.
-		expect(BOARD_CSS).toContain(".board-card__paths li{min-width:0;max-width:100%}");
+		expect(BOARD_CSS).toContain(".board-row__paths li{min-width:0;max-width:100%}");
 		expect(BOARD_CSS).toContain(
-			".board-card .bf-chip{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}",
+			".board-row__paths .bf-tag{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis",
 		);
 		expect(BOARD_CLIENT_JS).toContain("hint.title = shown[i]");
 		// A title with no spaces in it wraps to the two-line clamp instead of being cut mid-word.
-		expect(ownRules()).toMatch(/\.board-card__title\{[^}]*overflow-wrap:anywhere/);
+		expect(ownRules()).toMatch(/\.board-row__head \.bf-row__title\{[^}]*overflow-wrap:anywhere/);
 		expect(BOARD_CLIENT_JS).toContain("node.scrollHeight > node.clientHeight + 1");
 		expect(BOARD_CLIENT_JS).toContain('node.removeAttribute("title")');
 	});
@@ -304,10 +306,8 @@ describe("the client bundle", () => {
 
 	test("marks the read card and the current one through tokens, not literals", () => {
 		// Both marks are edges on the card a reader has read and the one they are on.
-		expect(BOARD_CSS).toContain('.board-card[data-visited="true"]{box-shadow:inset 3px 0 0 var(--border-strong)}');
-		expect(BOARD_CSS).toContain(
-			'.board-card[data-current="true"]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}',
-		);
+		expect(BOARD_CSS).toContain('.board-row[data-visited="true"] .bf-row__title{color:var(--muted)}');
+		expect(BOARD_CSS).toContain('.board-row[data-current="true"] .bf-row__title{color:var(--text)}');
 		// The other half of a link rides the reason line after a middot, in the reason's tone.
 		expect(BOARD_CLIENT_JS).toContain('reason.text + " \\u00b7 " + holds');
 	});
@@ -342,7 +342,7 @@ describe("the client bundle", () => {
 		expect(BOARD_CSS).toContain(
 			".board-panel{display:flex;flex-direction:column;min-width:0;padding-top:var(--space-5)}",
 		);
-		expect(BOARD_CSS).toContain(".board-lane__head{position:sticky;top:0");
+		expect(BOARD_CSS).toContain(".board-lane .bf-lane__head{position:sticky;top:0");
 	});
 
 	test("says why in one voice, and lets the reason carry it", () => {
