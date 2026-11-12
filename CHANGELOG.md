@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card's title leads its own face. The title takes the largest, heaviest ink on a note
+  and the priority word drops to the number's own weight, so a lane is read by what each card says
+  rather than by how urgent it is; the one height the face is drawn at grows by the line the
+  bigger title reserves, and every card in a lane still draws at that one height.
+
 - `lib`: the web kit loses the two rules it drew along an edge. A tag drops its 2px left rail —
   every page's tags change, the board's paths and team labels and the browse header's branch and
   changes — and is now a glyph and a word, with its tone in the word's colour. A record drops the
