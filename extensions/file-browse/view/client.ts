@@ -232,7 +232,7 @@ ${PALETTE_CLIENT_JS}
 	var hunkAnchors = Array.prototype.slice.call(document.querySelectorAll("[data-hunk]"));
 
 	function toggleRaw() {
-		var next = document.querySelector(".bf-card__actions .bf-segmented a.bf-segmented__item:not([aria-current])");
+		var next = document.querySelector(".browse-head-actions .bf-tabs .bf-tabs__item:not([aria-current])");
 		if (next) window.location.assign(next.getAttribute("href") || next.href);
 	}
 
@@ -320,7 +320,7 @@ ${PALETTE_CLIENT_JS}
 		} else if (event.key === "y" && document.getElementById("copy-reference")) {
 			event.preventDefault();
 			copyReference();
-		} else if (event.key === "r" && document.querySelector(".bf-card__actions .bf-segmented")) {
+		} else if (event.key === "r" && document.querySelector(".browse-head-actions .bf-tabs")) {
 			event.preventDefault();
 			toggleRaw();
 		} else if (event.key === "n" && hunkAnchors.length > 0) {

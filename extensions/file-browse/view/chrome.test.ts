@@ -7,11 +7,29 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { NARROW_MAX_PX, paintLive } from "../../../lib/web/index.ts";
 import { CLIENT_JS } from "./client.ts";
 import { directoryPage } from "../../../test/helpers/file-browse-view.ts";
 import { LIVE_CLIENT_JS } from "./live-client.ts";
 import { BROWSE_CSS } from "./styles.ts";
+
+/**
+ * Every source the browse pages are built from — markup, client fragments and chrome — as one
+ * string. `styles.ts` is the other side of the check and the suites are not shipped.
+ */
+function pageSources(): string {
+	return readdirSync(import.meta.dir)
+		.filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts") && file !== "styles.ts")
+		.map((file) => readFileSync(join(import.meta.dir, file), "utf-8"))
+		.join("\n");
+}
+
+/** The `bf-` names one page writes, sorted: a kit class in markup or in a script is the same claim. */
+function kitNamesIn(source: string): string[] {
+	return [...new Set(source.match(/\bbf-[a-z0-9]+(?:[-_]{1,2}[a-z0-9]+)*/g) ?? [])].sort();
+}
 
 describe("the header", () => {
 	test("keeps the served folder's tail when the path is cut", () => {
@@ -84,5 +102,17 @@ describe("the live script", () => {
 		expect(LIVE_CLIENT_JS).not.toContain("?token=");
 		expect(LIVE_CLIENT_JS).toContain('addEventListener("pagehide"');
 		expect(LIVE_CLIENT_JS).not.toContain(".close()");
+	});
+});
+
+describe("the kit's names", () => {
+	test("every kit class the pages write is one the CSS they ship still rules", () => {
+		// ef01313c deleted the .bf-card family and .bf-chip and renamed .bf-segmented to .bf-tabs,
+		// and all of those names stayed in the markup and the scripts: the head, both mode controls
+		// and the header chips drew with no rule at all while every suite stayed green. The kit's
+		// own suite holds the inward half (it still names no removed class); this is the outward
+		// half, read from the text rather than from imports because the failure is a string no
+		// type checker sees.
+		expect(kitNamesIn(pageSources()).filter((name) => !BROWSE_CSS.includes(`.${name}`))).toEqual([]);
 	});
 });
