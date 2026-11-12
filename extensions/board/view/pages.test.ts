@@ -24,7 +24,7 @@ import { duplicateDeclarations, unfilledPlaceholders, unreadPublications } from 
 import { boardDocument as pageOf, ownRules } from "../../../test/helpers/board-document.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";
-import { BOARD_CSS } from "./styles.ts";
+import { BOARD_CSS, PICKER_MQ } from "./styles.ts";
 import { BOARD_TONES, DECISION_KINDS, DECISION_TONE } from "../../../lib/board/tone.ts";
 
 describe("the document", () => {
@@ -216,9 +216,10 @@ describe("the document", () => {
 		expect(unknown).toEqual([]);
 	});
 
-	test("states the page's two breakpoints", () => {
-		expect(BOARD_CSS).toContain("@media (max-width:1180px)");
-		expect(BOARD_CSS).toContain("@media (max-width:860px)");
+	test("states the page's breakpoints, and the picker's own number once", () => {
+		// The picker's width is the stylesheet's, and the client reads it rather than holding a copy.
+		for (const width of [PICKER_MQ, 860, 420]) expect(BOARD_CSS).toContain(`@media (max-width:${width}px)`);
+		expect(BOARD_CLIENT_JS).toContain(`"(max-width: " + ${PICKER_MQ} + "px)"`);
 	});
 });
 
@@ -310,11 +311,11 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain('reason.text + " \\u00b7 " + holds');
 	});
 
-	test("folds finished work once, and gives an empty lane a rail", () => {
-		// Nineteen done cards is history the three live lanes should not have to sit
-		// beside unfolded; the count in the head is the fact. The default is written only
-		// while unset, so a reader's toggle decides from the first click on.
-		expect(BOARD_CLIENT_JS).toContain('lane.key === "done"');
+	test("folds a long lane and finished work once, and gives an empty lane a rail", () => {
+		// Finished work is history and a 64-card pool is a 10,000px wall: both fold on first paint,
+		// at their own thresholds, and the default is written only while unset.
+		expect(BOARD_CLIENT_JS).toContain('lane.key === "done" ? FOLD_AT.done : FOLD_AT.lane');
+		expect(BOARD_CLIENT_JS).toContain("lane: 24");
 		expect(BOARD_CLIENT_JS).toContain("board.foldAt");
 		expect(BOARD_CLIENT_JS).toContain("board.collapsed[lane.key] === undefined");
 		// The rail is about what the lane is showing, never about the filter: filtering is a
@@ -325,13 +326,11 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain('section.setAttribute("data-folded"');
 	});
 
-	test("sizes a lane by the work it holds, except finished work", () => {
-		// Two cards earn more width than one, and history is the exception: five done cards used
-		// to take half the row while the one card still being worked sat on its floor and
-		// elided its own title. A fold decides how much finished work is drawn; this decides
-		// how much row it may take while it is drawn.
-		expect(BOARD_CSS).toContain("flex-grow:calc(1 + var(--lane-count))");
-		expect(BOARD_CSS).toContain('.board-lane[data-lane="done"]{flex-grow:calc(1 + min(3, var(--lane-count)))}');
+	test("sizes a lane by the work it holds, up to three shares", () => {
+		// Two cards earn more width than one, and a 64-card pool earns three shares rather than
+		// 65: uncapped, it took the row and left Plan on its floor with every path elided.
+		expect(BOARD_CSS).toContain("flex-grow:calc(1 + min(3, var(--lane-count)))");
+		expect(BOARD_CSS).toContain('.board-lane[data-empty="false"][data-folded="false"]{min-width:14rem}');
 	});
 
 	test("pins a lane head to the pane's own edge", () => {

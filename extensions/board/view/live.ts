@@ -8,10 +8,22 @@
  * read; none of it is authoritative, and none of it is sent anywhere.
  */
 
-export const BOARD_LIVE_JS = String.raw`(function () {
+export function liveJs(rules: { picker: string }): string {
+	return liveTemplate.replace("__PICKER_MQ__", rules.picker);
+}
+
+const liveTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var token = new URLSearchParams(window.location.search).get("token") || "";
+  /**
+   * The width below which the board shows one lane at a time, with the picker.
+   *
+   * One constant, spliced from the stylesheet's own number: the media query and the two
+   * matchMedia calls here are the same question, and two copies of it is how the picker
+   * came to appear 320px after the lanes had already started stacking under each other.
+   */
+  var PICKER_MQ = "(max-width: " + __PICKER_MQ__ + "px)";
   /** The state the shared stream client last reported, which the age ticker repaints. */
   var streamState = "connecting";
 
@@ -92,7 +104,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
 
   /** The narrow layout shows one lane; the picker is the only way to change it. */
   function applyLane() {
-    var narrow = window.matchMedia && window.matchMedia("(max-width: 860px)").matches;
+    var narrow = window.matchMedia && window.matchMedia(PICKER_MQ).matches;
     var lanes = document.querySelectorAll(".board-lane");
     for (var i = 0; i < lanes.length; i++) {
       var selected = lanes[i].getAttribute("data-lane") === board.shown;
@@ -290,7 +302,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
       });
     }
     if (window.matchMedia) {
-      var query = window.matchMedia("(max-width: 860px)");
+      var query = window.matchMedia(PICKER_MQ);
       var onChange = function () {
         applyLane();
       };

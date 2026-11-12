@@ -6,10 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-- `board`: the Team tab's ACTIVE WORK caption is a count again. The `→ Board` door was a button
-  inside a heading — a control in a label, and a second way to a tab that is one press away in the
-  strip above it. The column keeps its decisions strip, its `+N more`, and its swimlanes, whose
-  own `+N more on the Board` still jumps to the wall.
+- `board`: the Board and Team tabs stop disagreeing with themselves. A lane's share of the row is
+  capped at three, so a 64-card pool no longer squeezes Plan to its floor and elides every path in
+  it (1440: 728/192 → 460/460, a 40-character path whole at 360px). Below 1180px the board shows
+  one lane at a time with the picker, which used to arrive at 860 — three lanes were buried under
+  an 11,000px Backlog because a wrapped flex row is as tall as its tallest child. Any lane holding
+  24 cards opens folded, its count left in the head. Inside ACTIVE WORK a decision row and a
+  mission card are now one box and one title size, the strip is named `NEEDS YOU · N` instead of
+  its rows being added to a caption that counted only the swimlanes, and the strip's `+N more` is
+  the same underlined control a swimlane folds with rather than a paragraph saying where the
+  board is. The ACTIVE WORK caption is a count alone: the tab strip is the way to the board.
 
 - `board`: the Team tab is a three-column agent mission control, read-only and drawn from one
   snapshot. **AGENTS** lists a card per session with the board's lead pinned first whatever its

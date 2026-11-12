@@ -131,7 +131,9 @@ export const BOARD_CARD_JS = String.raw`(function () {
     }
     if (card.paths.length > limit) {
       var beyond = card.paths.slice(limit);
-      var rest = el("li", "");
+      // The marker trails the row: with the hints before it on the line, it sits at the end of
+      // what they left, and it is not a chip a wrap can leave alone on a line of its own.
+      var rest = el("li", N.cardMore);
       var more = chip("+" + beyond.length);
       more.title = beyond.join("\n");
       // The count is a shape, not a word: what it counts is in the list below it, and a

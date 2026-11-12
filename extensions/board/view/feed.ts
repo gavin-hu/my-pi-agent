@@ -32,6 +32,7 @@ const feedTemplate = String.raw`(function () {
   var ago = board.ago;
   var plural = board.plural;
   var stamp = board.stamp;
+  var paneHead = board.paneHead;
 
   var ACTIVITY_LABEL = __ACTIVITY_LABEL__;
 
@@ -124,15 +125,6 @@ const feedTemplate = String.raw`(function () {
     row.appendChild(stamp(ago(event.at), event.at));
     row.title = "#" + event.card + " " + event.title;
     return row;
-  }
-
-  /** A pane's head: its name and how much it holds. */
-  function paneHead(text, count, total) {
-    var head = el("h3", N.pane, text);
-    var shown = total !== undefined && total !== count ? count + "/" + total : String(count);
-    head.appendChild(el("span", N.paneCount, shown));
-    head.setAttribute("aria-label", text + ", " + (total !== undefined && total !== count ? count + " of " + total : plural(count, "row")));
-    return head;
   }
 
   /** Whether a message matches the filter: its sender, its recipients, or what it says. */

@@ -179,9 +179,10 @@ describe("the mission control's contracts", () => {
 		// A mission card opens its card, the same way a board face does.
 		expect(BOARD_CLIENT_JS).toContain('button.setAttribute("aria-haspopup", "dialog")');
 		expect(BOARD_CLIENT_JS).toContain('el("span", N.missionRef, "#" + card.id)');
-		// Three rows, then a count: a queue that fills the column is the Board tab with extra steps.
+		// Three rows, then the same fold control a swimlane uses: one affordance for "there is
+		// more" in this column, and it opens the board instead of saying where the board is.
 		expect(BOARD_CLIENT_JS).toContain("var STRIP = 3");
-		expect(BOARD_CLIENT_JS).toContain("+N more");
+		expect(BOARD_CLIENT_JS).toContain('el("button", N.teamLaneFold, "+" + count + " more")');
 		// The caption is a count alone: the tab strip is the way to the whole board, so the
 		// column carries no second door for a heading to be a control.
 		expect(BOARD_CLIENT_JS).not.toContain("board-team__door");

@@ -181,9 +181,18 @@ const activeTemplate = String.raw`(function () {
     return node;
   }
 
-  /** The +N more row: the queue continues on the Board tab, and says so. */
+  /**
+   * The strip past its third row: the same underlined control a swimlane folds with, opening
+   * the same place.
+   *
+   * It used to be a paragraph saying where the rest was — one of three shapes for "there is
+   * more" in a column that now has one.
+   */
   function moreRow(count) {
-    var row = el("p", N.decisionMore, "+" + count + " more \u2014 every decision is on the Board tab");
+    var row = el("button", N.teamLaneFold, "+" + count + " more");
+    row.type = "button";
+    row.title = "every decision is on the Board tab";
+    row.addEventListener("click", function () { board.showView("board"); });
     return row;
   }
 
@@ -292,6 +301,11 @@ const activeTemplate = String.raw`(function () {
         // The caption is a count and nothing else: the tab strip above the page is the way to
         // the whole board, and a second door in a heading was a control in a label.
         slot.appendChild(board.captionOf("ACTIVE WORK", active, undefined, "card"));
+        var pane = el("section", N.paneBody);
+        pane.setAttribute("data-pane", "needs-you");
+        // The strip has a name and a number of its own: the caption above counts the lanes, and
+        // a reader was left to add the rows under it to a number that did not include them.
+        pane.appendChild(board.paneHead("NEEDS YOU", shown.length, decisions.length));
         var strip = el("div", N.decisions);
         var cap = Math.min(shown.length, STRIP);
         for (var s = 0; s < cap; s++) strip.appendChild(decisionRow(shown[s]));
@@ -299,7 +313,8 @@ const activeTemplate = String.raw`(function () {
         if (shown.length === 0) {
           strip.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "nothing needs you: no blockers, no contract waiting to be read, nothing unwritten"));
         }
-        slot.appendChild(strip);
+        pane.appendChild(strip);
+        slot.appendChild(pane);
         var list = el("div", N.teamLanes);
         for (var p = 0; p < lanes.length; p++) list.appendChild(swimlane(view, lanes[p], lanes[p].cards));
         slot.appendChild(list);

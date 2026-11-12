@@ -42,6 +42,8 @@ export const BOARD_CLASS = {
 	cardMeta: "board-card__meta",
 	cardNotes: "board-card__notes",
 	cardPaths: "board-card__paths",
+	// The `+N` marker trails the row rather than being a chip that can be left alone on a line.
+	cardMore: "board-card__more",
 	cardReason: "board-card__reason",
 	// One class per tone, never per reason kind: the same tone is what the terminal paints.
 	cardReasonMuted: "board-card__reason--muted",
@@ -125,7 +127,6 @@ export const BOARD_CLASS = {
 	decisionRef: "board-team__ref",
 	decisionTitle: "board-team__title",
 	decisionWhy: "board-team__why",
-	decisionMore: "board-team__more",
 	teamLanes: "board-team__lanes",
 	// A swimlane: the Team tab's own head and tray, not the Board tab's `lane*` above.
 	teamLane: "board-team__lane",
