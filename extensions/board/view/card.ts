@@ -1,6 +1,6 @@
 /**
- * One card's face: the title, the facts a reader acts on, and the two marks that say
- * where they have been.
+ * One card's face: the title, the facts a reader acts on, and the three marks that say
+ * where they have been, where they are, and what a peer just moved.
  *
  * It is a fragment of the client bundle like `team.ts` and `dialog.ts`, and it reads the
  * helpers the renderer publishes — the element builder, the chip, the age, the count's
@@ -282,13 +282,14 @@ export const BOARD_CARD_JS = String.raw`(function () {
   }
 
   /**
-   * Paint the card the reader is on, the cards they have already read, and the hover a
-   * clamped title needs.
+   * Paint the card the reader is on, the cards they have already read, the cards a peer just
+   * moved, and the hover a clamped title needs.
    *
    * j/k walks the drawn cards and wraps, so walking a lane and coming back looked
    * exactly like arriving for the first time. The two ids are the client's own — never
    * sent anywhere — and this runs after every frame as well as on a focus and an open,
-   * because a lane is rebuilt whole when its cards move.
+   * because a lane is rebuilt whole when its cards move. The change mark is the one of the
+   * three the client does not keep: it is the frame's answer, cleared on its own timer.
    */
   board.markCards = function () {
     var nodes = document.querySelectorAll(".board-row");
@@ -296,6 +297,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
       var id = nodes[i].getAttribute("data-card");
       marked(nodes[i], "data-current", board.current !== undefined && String(board.current) === id);
       marked(nodes[i], "data-visited", board.visited !== undefined && board.visited[id] === true);
+      marked(nodes[i], "data-changed", board.changed !== undefined && board.changed[id] === true);
       fitTitle(nodes[i]);
     }
   };

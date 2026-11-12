@@ -14,6 +14,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   only separator, its paper the lane's own colour, and its lines ordered what it is, what it says,
   where it is and whose it is.
 
+- `plan`, `file-browse`: a code panel wraps its lines below 720 px, so a long path or command
+  is read instead of hidden behind a scrollbar that draws nothing until it is used. A wide
+  window keeps the line whole, and file-browse's wrap button says which the page is doing.
+
+- `board`: the page pushes a frame when a card's file changes, instead of scanning the whole
+  pile once a second. A directory watch on `cards/` reads the board on the write, one window
+  folds a write's rename and unlink into one read, and a five-second sweep keeps the facts no
+  file announces — a card gone unwritten, a peer quiet or gone, a plan file removed — while a
+  pile that cannot be watched keeps the one-second scan. A frame that lands marks the card that
+  moved, and only that one, with `data-changed` for a breath; a rebuilt lane returns focus to
+  the card the reader was on, so `j` moves on rather than restarting; and a lane's width eases
+  to the work it holds.
+
 - `board`, `plan`, `file-browse`: the served pages drop the GitHub grammar for the kit's own. The
   shell is fixed — head and foot stay, one pane scrolls — the header is two rows split by a plain
   rule, and the tabs are words rather than a segmented box. Work is rows, not cards: a lane is a

@@ -13,9 +13,10 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { Page } from "playwright-core";
 import type { Actor } from "../../../lib/board/rules.ts";
 import type { BoardStore } from "../../../lib/board/store.ts";
-import { focusedId } from "../../../test/helpers/board-dom.ts";
+import { type Doc, type ElementLike, focusedId } from "../../../test/helpers/board-dom.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { advance } from "../../../test/helpers/board-flow.ts";
 import {
@@ -56,6 +57,34 @@ async function seedBoard(store: BoardStore, now: number): Promise<void> {
 	// page with an age inside it, which is what the ticker has to keep honest.
 	const offered = await store.create({ title: "Refunds land in the wrong currency", paths: [] }, LEAD, now + 5_000);
 	await store.mutate(offered.id, { kind: "offer" }, LEAD, now + 6_000);
+}
+
+/** The ids wearing the change mark, in the order the page draws them. */
+async function changed(page: Page): Promise<string[]> {
+	return page.$$eval("[data-changed]", (nodes) =>
+		Array.from(nodes as ArrayLike<ElementLike>, (node) => node.getAttribute("data-card") ?? ""),
+	);
+}
+
+/**
+ * Wait until exactly these cards wear the mark.
+ *
+ * The window is one and a half seconds against a per-frame poll, so the wait is on the
+ * attribute rather than on a sleep: a mark that never arrived and a mark already cleared
+ * are the same picture by the time a fixed wait is over.
+ */
+async function marks(page: Page, ids: readonly string[]): Promise<void> {
+	await page.waitForFunction(
+		(expected) => {
+			const nodes = (globalThis as unknown as { document: Doc }).document.querySelectorAll("[data-changed]");
+			return (
+				nodes.length === expected.length &&
+				Array.from(nodes).every((node, at) => node.getAttribute("data-card") === expected[at])
+			);
+		},
+		ids,
+		{ timeout: PAINT_MS },
+	);
 }
 
 describe.skipIf(CHROME === undefined)("a frame", () => {
@@ -160,5 +189,118 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		await page.locator('#lane-done .board-row[data-card="2"]').waitFor({ state: "attached", timeout: PAINT_MS });
 		// It waits on nothing now, so the line is the card's own last note again.
 		await expect(reason()).resolves.toBe(NOTE);
+	});
+
+	test("marks the card that moved and the one that just arrived, and then lets the mark go", async () => {
+		const page = await board.reuse();
+		// A first frame is the whole board to somebody who just opened it, and marks nothing:
+		// every card wearing the mark would say no more than the board itself does.
+		expect(await changed(page)).toEqual([]);
+		await board.store.mutate("3", { kind: "note", text: "read by a peer" }, LEAD, clock.now() + 10_000);
+		await marks(page, ["3"]);
+		// A card that has just arrived is news in the same way, and the one that moved before it
+		// keeps the revision it had — so the mark is the card the frame is about, not the pile.
+		await board.store.create({ title: "Settle refunds nightly", paths: [] }, LEAD, clock.now() + 11_000);
+		await marks(page, ["5"]);
+		// The window is a breath, not a state: the board goes quiet and the mark leaves with it.
+		await marks(page, []);
+	});
+
+	test("marks a moved card with a ring the note's paper cannot swallow", async () => {
+		const page = await board.reuse();
+		// Execute's own paper is the accent's soft tone, so a fill would have painted this card the
+		// colour it already is and the mark would have said nothing. The mark is a ring for that
+		// reason, and this case reads the computed style rather than the attribute: a rule that
+		// loses to the paper at equal specificity — whatever order the two land in — fails here.
+		const card = '#lane-execute .board-row[data-card="%s"]';
+		// A card of this case's own, walked to Execute: the seeded blocker has been finished by an
+		// earlier case, and the lane the mark has to survive on is the one whose paper is the accent.
+		const executing = await board.store.create(
+			{ title: "Settle refunds nightly", paths: [] },
+			CORE,
+			clock.now() + 39_000,
+		);
+		await advance(board.store, executing.id, "execute", { owner: CORE }, clock.now() + 39_500);
+		const selector = card.replace("%s", executing.id);
+		await page.locator(selector).waitFor({ timeout: PAINT_MS });
+		// The card arrived a moment ago, so it is news itself: wait for its ring to go, so what this
+		// case reads is the card at rest rather than the mark it was born with.
+		await page.waitForFunction(
+			(selector) => {
+				const node = (globalThis as unknown as { document: Doc }).document.querySelector(selector);
+				if (node === null) return false;
+				const style = (
+					globalThis as unknown as { getComputedStyle(node: ElementLike): { outlineStyle: string } }
+				).getComputedStyle(node);
+				return style.outlineStyle === "none";
+			},
+			selector,
+			{ timeout: PAINT_MS },
+		);
+		const read = (selector: string) =>
+			page.$eval(selector, (node) => {
+				const style = (
+					globalThis as unknown as {
+						getComputedStyle(node: ElementLike): {
+							backgroundColor: string;
+							outlineColor: string;
+							outlineStyle: string;
+							outlineWidth: string;
+							outlineOffset: string;
+						};
+					}
+				).getComputedStyle(node);
+				return {
+					background: style.backgroundColor,
+					outline: `${style.outlineWidth} ${style.outlineStyle} ${style.outlineColor}`,
+					outlineColor: style.outlineColor,
+					offset: style.outlineOffset,
+				};
+			});
+		const resting = await read(selector);
+		// The note is the holder's: a card in a lane with an owner refuses anyone else's, and this card
+		// was walked to Execute by billing-core.
+		await board.store.mutate(executing.id, { kind: "note", text: "read by a peer" }, CORE, clock.now() + 40_000);
+		// This card's own attribute, not the set: the frame that carries the note may still be the one
+		// that carried the card's arrival, and the mark is about this card either way.
+		await page.waitForFunction(
+			(selector) => {
+				const node = (globalThis as unknown as { document: Doc }).document.querySelector(selector);
+				return node !== null && node.getAttribute("data-changed") === "true";
+			},
+			selector,
+			{ timeout: PAINT_MS },
+		);
+		const marked = await read(selector);
+		// The paper is the lane's, before and after: the mark does not repaint the identity of the
+		// card it marks, which is also what keeps it visible on the lane whose paper is its colour.
+		expect(marked.background).toBe(resting.background);
+		expect(marked.outline).toBe("2px solid " + marked.outlineColor);
+		expect(marked.outlineColor).not.toBe(marked.background);
+		expect(marked.offset).toBe("-2px");
+		// And the state leaves no ring behind once the window closes.
+		await page.waitForFunction(
+			(selector) => {
+				const node = (globalThis as unknown as { document: Doc }).document.querySelector(selector);
+				return node !== null && node.getAttribute("data-changed") === null;
+			},
+			selector,
+			{ timeout: PAINT_MS },
+		);
+		expect((await read(selector)).outline).toBe(resting.outline);
+	});
+
+	test("keeps the reader's card when a frame rebuilds its lane", async () => {
+		const page = await board.reuse();
+		// j walks the drawn cards and reads the focused one, so a frame that took the focus
+		// would restart the walk at the first card rather than moving on from this one.
+		await page.keyboard.press("j");
+		expect(await focusedId(page)).toBe("card-title-1");
+		await board.store.mutate("3", { kind: "note", text: "read by a peer" }, LEAD, clock.now() + 10_000);
+		await page.locator('#lane-backlog .board-row[data-card="3"] .bf-row__reason').waitFor({ timeout: PAINT_MS });
+		// The lane was rebuilt whole, and the id outlived the node it named.
+		expect(await focusedId(page)).toBe("card-title-1");
+		await page.keyboard.press("j");
+		expect(await focusedId(page)).toBe("card-title-3");
 	});
 });

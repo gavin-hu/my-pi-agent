@@ -12,7 +12,13 @@
  * and `bun build --no-bundle` needs no separate asset.
  */
 
-import { CLIENT_BASE_JS, CLIENT_RUNTIME_JS, keysDialogScript, THEME_TOGGLE_JS } from "../../../lib/web/index.ts";
+import {
+	CLIENT_BASE_JS,
+	CLIENT_RUNTIME_JS,
+	keysDialogScript,
+	NARROW_MAX_PX,
+	THEME_TOGGLE_JS,
+} from "../../../lib/web/index.ts";
 import { LIVE_CLIENT_JS } from "./live-client.ts";
 import { PALETTE_CLIENT_JS } from "./palette.ts";
 import { TREE_CLIENT_JS } from "./tree.ts";
@@ -89,20 +95,29 @@ ${TREE_CLIENT_JS}
 
 	var wrapButton = document.getElementById("wrap-toggle");
 	var code = document.querySelector("pre.bf-code");
+	/** Whether the window is narrow enough that the kit wraps a code panel on its own. */
+	function narrowWindow() {
+		return !!(window.matchMedia && window.matchMedia("(max-width:${NARROW_MAX_PX}px)").matches);
+	}
 	function applyWrap(on) {
 		if (!code) return;
-		if (on) code.classList.add("bf-code--wrap");
-		else code.classList.remove("bf-code--wrap");
+		// Off is a class of its own: below a phone's width the kit wraps without being asked, so
+		// dropping a class no longer means "show the line whole" and the button would do nothing.
+		code.classList.toggle("bf-code--wrap", on);
+		code.classList.toggle("bf-code--nowrap", !on);
 		if (wrapButton) {
 			wrapButton.setAttribute("aria-pressed", on ? "true" : "false");
 			wrapButton.textContent = on ? "no wrap" : "wrap";
 		}
 	}
 	if (wrapButton && code) {
-		var wrapOn = store.get("browse-wrap") === "1";
+		// The reader's own choice wins; with none, the button starts on the answer the page is
+		// already showing, so it never says "wrap" over wrapped lines or the other way round.
+		var saved = store.get("browse-wrap");
+		var wrapOn = saved === null ? narrowWindow() : saved === "1";
 		applyWrap(wrapOn);
 		wrapButton.addEventListener("click", function () {
-			wrapOn = !code.classList.contains("bf-code--wrap");
+			wrapOn = !wrapOn;
 			applyWrap(wrapOn);
 			store.set("browse-wrap", wrapOn ? "1" : "0");
 		});

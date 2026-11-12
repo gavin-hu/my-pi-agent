@@ -1,16 +1,15 @@
 # board — one shared feature board per repository
 
-The board is one list of features for a repository, worked by every session on
-it. A card carries what kind of work it is, its owner, its priority, what it waits
-on, the contract it promises, and the notes that explain it — and two signatures
-are needed before it can ship.
+The board is one list of features for a repository, worked by every session on it. A card
+carries what kind of work it is, its owner, its priority, what it waits on, the contract it
+promises, and the notes that explain it — and two signatures are needed before it can ship.
 
 <img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, a live chip, theme and keyboard controls; Board and Team tabs, done-of-total progress and a filter; five lane columns with counts and fold controls; and note-shaped cards of one height, tinted by the lane they sit in and separated by space rather than rules, each carrying its number and kind, its title, its path hints, and on its last line whose it is with its age and history" width="1280" height="446">
 
 - **One board per repository**, and one page: the first `/board` serves it, every
   other session opens that same page.
-- **The page is a view.** Nothing is claimed, moved, or signed from a browser — assigning a
-  card means messaging its owner.
+- **The page is a view**, and it follows the files: nothing is claimed, moved, or signed from a
+  browser, and a card another session writes reaches an open tab as it lands, wearing a mark.
 - **Two signatures**: the lead approves a contract before `execute` and spot-checks the work
   before `done`; the person at the keyboard can give either, with `/board approve` and `/board review`.
 - **The lane is the record**, and a session is told once which cards are its own, with what each owes.
@@ -45,8 +44,7 @@ The model calls `board({ action: "add", … })` and then, when you say so,
 you type only `/board archive|approve|review|status|stop|team`.
 
 The claim's result names the next step, and `/board approve 1` refuses until the contract
-names a plan file in this repository's store; a plan deleted later stops it at the next gate.
-A claim also joins the team, and its result says when it could not ([`team`](team.md)).
+names a plan file in this repository's store. A claim also joins the team ([`team`](team.md)).
 
 Every card's last line is its hover and the title button's description, so a lane stays an index:
 `contract ready — needs approval`, `executing — no spot-check yet`, `offered 2h ago`.
@@ -96,6 +94,8 @@ heard it — quiet, not listening, or not told — and an untold one is sent aga
   holds its `paths`, and a lane change releases only the writer's — so a `reclaim` from a peer
   names what stays held; a card whose owner's session ended is released at the next start.
 - A card keeps eight lane transitions; an unreadable card file is skipped, and named in the listing.
+- The page sweeps every five seconds for the facts no card file announces — a card gone
+  unwritten, a peer quiet or gone, a plan removed — and scans every second with no watch.
 
 ## Settings
 

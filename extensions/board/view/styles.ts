@@ -110,7 +110,7 @@ ${WEB_COMPONENTS_CSS}
    than a ragged list. The reason a card sits where it does is no longer drawn here.
    The four boxes are pinned from the type tokens rather than measured, so a one-line title and
    an absent kind still occupy what their neighbours occupy. */
-.board-lane{--lane-count:0;--face-top:calc(var(--fs-xs) * var(--lh-normal));--face-title:calc(var(--fs-sm) * var(--lh-snug) * 2);--face-hints:calc(var(--fs-xs) * var(--lh-normal));--face-meta:calc(var(--fs-xs) * var(--lh-normal));--face-h:calc(var(--face-top) + var(--face-title) + var(--face-hints) + var(--face-meta) + var(--space-1) * 3);display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0}
+.board-lane{--lane-count:0;--face-top:calc(var(--fs-xs) * var(--lh-normal));--face-title:calc(var(--fs-sm) * var(--lh-snug) * 2);--face-hints:calc(var(--fs-xs) * var(--lh-normal));--face-meta:calc(var(--fs-xs) * var(--lh-normal));--face-h:calc(var(--face-top) + var(--face-title) + var(--face-hints) + var(--face-meta) + var(--space-1) * 3);display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0;transition:flex-grow 200ms ease}
 /* The lane count is a count, not a design token: the client sets it from the snapshot and
    declares its default here, so a lane whose count never arrived is an ordinary lane
    rather than a variable nobody defines. */
@@ -133,8 +133,16 @@ ${WEB_COMPONENTS_CSS}
    the same size and the column reads as a stack of notes rather than a ragged list. */
 .board-lane .bf-lane__list{gap:var(--space-2)}
 .board-lane .board-row{grid-template-columns:minmax(0,1fr);height:calc(var(--face-h) + var(--space-2) * 2);overflow:hidden;align-content:stretch;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md)}
-/* The card the reader walked to wears the accent, since the lane draws no rule to mark it. */
+/* The card the reader walked to wears the accent outside its edge; a card a peer's write just
+   moved wears it inside, so the two never read as one state. */
 .board-lane .board-row[data-current="true"]{outline:2px solid var(--accent)}
+/* A card whose file moved since the last frame is marked for a breath: a peer's write is news,
+   and where it landed is the whole of what a live board owes a reader. A ring rather than a
+   fill, because the face is now the lane's paper — a fill would repaint the paper this card is
+   identified by, and on Execute's own accent-soft paper it would paint nothing at all. A ring
+   also cannot be swallowed by a background rule at equal specificity, whatever order the two
+   land in. The mark leaves with its attribute, so the rule states a colour and no timing. */
+.board-lane .board-row[data-changed="true"]{outline:2px solid var(--accent);outline-offset:-2px}
 /* A card's body fills the note, and the last line is pinned to its foot: the holder, the age
    and the history sit on the card's bottom edge whatever the title and the hints above them
    measure, so a column of notes lines up along its last line as well as its top. */
@@ -367,7 +375,7 @@ ${DIALOG_TONE_CSS}
   .board-picker .bf-tabs__item[aria-pressed="true"]{border-color:var(--accent)}
 }
 @media (prefers-reduced-motion: reduce){
-  .board-row,.board-decision{transition:none}
+  .board-row,.board-decision,.board-lane{transition:none}
 }
 @media print{
   .board-lanes,.board-team__grid{grid-template-columns:minmax(0,1fr)}

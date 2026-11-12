@@ -12,7 +12,8 @@
  * data and a fixture with no bus is a different page from one with an empty bus.
  */
 
-import type { BoardStore } from "../../lib/board/store.ts";
+import { join } from "node:path";
+import { type BoardStore, CARDS_DIR_NAME } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import type { WaitingMail } from "../../lib/session-mail.ts";
@@ -121,6 +122,9 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 	const started = await createBoardServer({
 		mount: testMountSource(),
 		session: "fixture",
+		// The page the suite drives is the page `/board` serves, watch and all: a card the case
+		// writes has to reach the tab the way a peer's write does.
+		dirs: [join(store.dir, CARDS_DIR_NAME)],
 		page: async (tab) =>
 			renderBoardPage({ view: tab, base: BOARD_BASE, repo, root, where: display.where ?? store.where() }),
 		script: BOARD_CLIENT_JS,
