@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a contract line a card still owes stops printing as a blank. The transcript says
+  `acceptance: missing` — the word a card's next step already uses — and the card dialog leaves the
+  unwritten row out, because the reason line above the block already names it; an empty cell under a
+  heading reads as a value that went missing.
+
 - `board`: a held-card line inside a PEOPLE card says its lane in the word beside the number, not
   in a 2px bar before it — inside a card the paper is what carries the lane. The "no mission" line
   keeps the same text edge without reserving a bar's width.

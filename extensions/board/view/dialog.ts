@@ -190,17 +190,17 @@ __INLINE_MARKDOWN__
     // "contract" section, so a card with none leaves every row hidden and the section's own
     // rule takes the heading with it.
     var contract = card.contract;
-    document.getElementById("card-dialog-goal").textContent = contract === undefined ? "" : contract.goal;
-    document.getElementById("card-dialog-acceptance").textContent = contract === undefined ? "" : contract.acceptance;
-    document.getElementById("card-dialog-scope-out").textContent = contract === undefined ? "" : contract.scopeOut;
+    // A line this contract still owes is not drawn — the label with it, the rule pair() already
+    // applies — because the reason line above the block names the line: an empty cell under it
+    // would be the same fact said twice, once with nothing in it.
+    // The row's name is the document's id; the record's is the contract field, and the two agree
+    // except on the third line, which the ladder spells "scope-out".
+    var CONTRACT_INPUT = { goal: "goal", acceptance: "acceptance", "scope-out": "scopeOut", verify: "verify" };
     for (var f = 0; f < CONTRACT_ROWS.length; f++) {
-      document.getElementById("card-dialog-" + CONTRACT_ROWS[f]).hidden = contract === undefined;
+      var row = CONTRACT_ROWS[f];
+      var line = contract === undefined ? "" : contract[CONTRACT_INPUT[row]] || "";
+      setRow(row, line !== "", line, line === "" ? undefined : line);
     }
-    // The command is one of those rows and the only optional one, so it is taken out again when
-    // the contract does not name it — the label with it, because a heading over an empty cell
-    // reads as a missing value rather than as a line this promise does not carry.
-    var command = contract === undefined ? "" : contract.verify;
-    setRow("verify", Boolean(command), command, command);
     // The approval closes the promise the way a signature closes a document, in the tone the
     // board gives an approval. No line when nobody has signed: the block is unsigned, and the
     // reason line above is what says the card is waiting for a person to read it.

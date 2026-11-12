@@ -119,6 +119,17 @@ describe("dropped history", () => {
 		return numberedCard("49", { lane: "plan", notesDropped: 3, logDropped: 2, notes: [], log: [], ...overrides });
 	}
 
+	test("a contract line the record still owes prints as owed, not as a blank", () => {
+		// `mergedContract` records the line a call did not name as empty, and the transcript used to
+		// print it bare — `  acceptance: ` with nothing after it, which reads as a value that failed
+		// to arrive rather than as a line nobody has written yet.
+		const half = numberedCard("8", { lane: "plan", contract: { goal: "G", acceptance: "", scopeOut: "S" } });
+		const said = formatCard(half, undefined, NOW);
+		expect(said).toContain("  goal: G");
+		expect(said).toContain("  acceptance: missing");
+		expect(said).toContain("  scope out: S");
+	});
+
 	test("a live sign nobody heard says so, and a finished card's sign is history", () => {
 		// The record is the retry's fact: an untold approval on an open card is the state a reader has
 		// to catch, and every sign written before the field existed has no record of its message.

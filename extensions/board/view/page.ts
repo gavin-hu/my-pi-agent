@@ -123,9 +123,9 @@ ${pageFooter({ factsId: "board-where", facts: `store ${input.where}` })}
       <section class="${N.dialogSection}" id="card-dialog-contract-section" aria-labelledby="card-dialog-contract-head">
         <h3 class="${N.dialogHeading}" id="card-dialog-contract-head">contract</h3>
         <dl class="${N.dialogFacts} ${N.dialogContract}">
-          <dt>goal</dt><dd id="card-dialog-goal" hidden></dd>
-          <dt>acceptance</dt><dd id="card-dialog-acceptance" hidden></dd>
-          <dt>scope out</dt><dd id="card-dialog-scope-out" hidden></dd>
+          <dt id="card-dialog-goal-label">goal</dt><dd id="card-dialog-goal" hidden></dd>
+          <dt id="card-dialog-acceptance-label">acceptance</dt><dd id="card-dialog-acceptance" hidden></dd>
+          <dt id="card-dialog-scope-out-label">scope out</dt><dd id="card-dialog-scope-out" hidden></dd>
           <dt id="card-dialog-verify-label" hidden>verify</dt><dd id="card-dialog-verify" hidden></dd>
         </dl>
         <p class="${N.dialogSign}" id="card-dialog-sign" hidden></p>

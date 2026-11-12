@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Page } from "playwright-core";
 import type { Actor } from "../../../lib/board/rules.ts";
 import type { BoardStore } from "../../../lib/board/store.ts";
-import { type Doc, type ElementLike, focusedId } from "../../../test/helpers/board-dom.ts";
+import { type Doc, type ElementLike, focusedId, hidden } from "../../../test/helpers/board-dom.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { advance } from "../../../test/helpers/board-flow.ts";
 import {
@@ -302,5 +302,37 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		expect(await focusedId(page)).toBe("card-title-1");
 		await page.keyboard.press("j");
 		expect(await focusedId(page)).toBe("card-title-3");
+	});
+
+	test("draws no contract row a card still owes, and draws it when the line lands", async () => {
+		// The record a `contract` call leaves when it names some of the lines: the writer fills the
+		// rest as empty, and the dialog's reason already names the owed one — so the row is not drawn.
+		// An empty cell under a heading reads as a value that went missing, not one nobody wrote.
+		const owed = await board.store.create({ title: "A line still owed", paths: [] }, LEAD, clock.now() + 20_000);
+		await board.store.mutate(owed.id, { kind: "claim" }, LEAD, clock.now() + 20_001);
+		const plan = { path: `${owed.id}.md` };
+		const partial = await board.store.mutate(
+			owed.id,
+			{ kind: "contract", artifact: plan, goal: "G", scopeOut: "S" },
+			LEAD,
+			clock.now() + 20_002,
+		);
+		if (!partial.ok) throw new Error(partial.error);
+		const page = await board.reuse();
+		await page.click(`#lane-plan .board-row[data-card="${owed.id}"] .bf-row__title`);
+		expect(await hidden(page, "#card-dialog-acceptance")).toBe(true);
+		expect(await hidden(page, "#card-dialog-acceptance-label")).toBe(true);
+		expect(await page.textContent("#card-dialog-reason")).toContain("missing acceptance");
+		// The line arrives by the same writer; the dialog draws the row, and its label with it.
+		const filled = await board.store.mutate(
+			owed.id,
+			{ kind: "contract", artifact: plan, acceptance: "A retried delivery leaves one order" },
+			LEAD,
+			clock.now() + 20_003,
+		);
+		if (!filled.ok) throw new Error(filled.error);
+		await page.locator("#card-dialog-acceptance:not([hidden])").first().waitFor({ timeout: PAINT_MS });
+		expect(await page.textContent("#card-dialog-acceptance")).toBe("A retried delivery leaves one order");
+		expect(await hidden(page, "#card-dialog-acceptance-label")).toBe(false);
 	});
 });

@@ -13,6 +13,7 @@
 
 import { type Card, type CardBlock, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/board/card.ts";
 import type { Sign } from "../../lib/board/contract.ts";
+import { CONTRACT_LINE_OWED } from "../../lib/board/contract.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
 import { skippedText } from "../../lib/board/skipped.ts";
 import type { Skip } from "../../lib/board/store.ts";
@@ -203,9 +204,12 @@ function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = fa
 	// says who signed it: an approval is a fact about that wording, and a review about the
 	// work, and neither is inferable from the lane.
 	if (card.contract !== undefined) {
-		lines.push(`  goal: ${card.contract.goal}`);
-		lines.push(`  acceptance: ${card.contract.acceptance}`);
-		lines.push(`  scope out: ${card.contract.scopeOut}`);
+		// A line the contract still owes says so rather than trailing off: the transcript has no
+		// reason line beside the block, so this is the only place the fact can be said.
+		const owed = (text: string) => (text === "" ? CONTRACT_LINE_OWED : text);
+		lines.push(`  goal: ${owed(card.contract.goal)}`);
+		lines.push(`  acceptance: ${owed(card.contract.acceptance)}`);
+		lines.push(`  scope out: ${owed(card.contract.scopeOut)}`);
 		// The command sits with the promise it proves, not with the sign: it is what the card asks
 		// for, and a reader deciding whether to run it is reading the contract.
 		if (card.contract.verify !== undefined) lines.push(`  verify: ${card.contract.verify}`);
