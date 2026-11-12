@@ -265,13 +265,13 @@ ${DECISION_WHY_CSS}
 /* What the session holds is the card's body: one line per card, the lane as a mark beside it. */
 .board-team__missions{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
 .board-team__mission,.board-team__none{display:flex;align-items:center;gap:var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
-.board-team__bar{flex:0 0 auto;align-self:stretch;width:2px;background:var(--lane-role,var(--muted))}
 .board-team__mission-ref{color:var(--text)}
 .board-team__mission-age{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
 /* An age is a duration, not a phrase: tabular figures, so two rows' minutes line up. */
 .board-stamp{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-/* A session holding nothing still draws the line its cards would: the column keeps its rhythm. */
-.board-team__none{padding-left:calc(2px + var(--space-2));color:var(--dim)}
+/* A session holding nothing still draws the line its cards would — the same first-child edge a
+   mission line's number sits on, since no bar stands in front of one now. */
+.board-team__none{color:var(--dim)}
 /* The one "there is more" control: the folded history card, a deck's tail, a queue's end. */
 .board-fold{appearance:none;display:inline-flex;align-items:center;gap:var(--space-2);width:auto;margin:0;padding:0;min-height:24px;border:0;background:none;color:var(--muted);font:var(--fs-xs) var(--font-ui);text-align:left;cursor:pointer}
 .board-fold:hover{color:var(--text)}

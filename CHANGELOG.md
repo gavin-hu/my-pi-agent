@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a held-card line inside a PEOPLE card says its lane in the word beside the number, not
+  in a 2px bar before it — inside a card the paper is what carries the lane. The "no mission" line
+  keeps the same text edge without reserving a bar's width.
+
 - `board`: a card whose contract was written a field at a time is a card again. The writer records the
   line a call did not name as empty, and the reader refused any contract with an empty line — so the
   whole record was unreadable, its holder locked out, and the only repair was editing the JSON by

@@ -265,4 +265,19 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CLIENT_JS).toContain("waiting.length + queue.dropped");
 		expect(BOARD_CLIENT_JS).toContain("var events = recent.events;");
 	});
+
+	test("says a mission line's lane in its word, not in a bar before it", () => {
+		// The lane word sits beside the number, so a 2px rule in the lane's colour said one fact
+		// twice — and inside a card the paper is what carries the lane.
+		expect(BOARD_CLIENT_JS).not.toContain("missionBar");
+		expect(BOARD_CLIENT_JS).not.toContain("board-team__bar");
+		expect(Object.values(BOARD_CLASS)).not.toContain("board-team__bar");
+		expect(BOARD_CSS).not.toContain(".board-team__bar");
+		// The empty line stands where a mission line's number stands: with no bar to clear, its
+		// own text edge is the alignment, so nothing reserves the bar's width any more.
+		expect(ownRules()).not.toMatch(/\.board-team__none\{[^}]*padding-left/);
+		// And the three facts a mission line draws are still drawn, in order.
+		expect(BOARD_CLIENT_JS).toContain('el("span", N.missionRef, "#" + card.id)');
+		expect(BOARD_CLIENT_JS).toContain("N.missionLane, laneWord(card.lane)");
+	});
 });

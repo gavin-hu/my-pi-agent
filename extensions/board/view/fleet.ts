@@ -81,9 +81,8 @@ __HISTORY_LINE__
   function mission(card, laneWord) {
     var line = el("li", N.mission);
     line.setAttribute("data-lane", card.lane);
-    var bar = el("span", N.missionBar);
-    bar.setAttribute("aria-hidden", "true");
-    line.appendChild(bar);
+    // The lane is the word beside the number and nothing else: a 2px bar in its colour said the
+    // same thing a second time, and inside a card the paper is what carries the lane.
     line.appendChild(el("span", N.missionRef, "#" + card.id));
     line.appendChild(el("span", N.missionLane, laneWord(card.lane)));
     // One age, and the card's own clock: when it last moved. The lane's birthday is the Board
