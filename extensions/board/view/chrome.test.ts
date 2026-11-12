@@ -11,6 +11,8 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { WEB_THEME_TOKENS } from "../../../lib/web/index.ts";
+import { contrast, over } from "../../../test/helpers/contrast.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { LEAD, seedWorkingBoard } from "../../../test/helpers/board-fixture.ts";
 import {
@@ -192,6 +194,25 @@ describe("the page's elevation", () => {
 		for (const shadow of BOARD_CSS.matchAll(/box-shadow:([^;}]+)/g)) {
 			if (shadow[1].startsWith("inset ")) continue;
 			expect(shadow[1], shadow[1]).toMatch(/^var\(--shadow-[12]\)$/);
+		}
+	});
+});
+
+describe("the faint tier on a card", () => {
+	test("clears AA on the darkest paper a card sits on, not just on the canvas", () => {
+		// The kit's suite holds `--dim` to 4.5 against canvas, surface and raised; a board card is none of
+		// those — its paper is the lane's tint over the surface — so the id, the kind and the count are
+		// measured where they are read. Light's tint is almost white, which leaves the raised plane as
+		// that theme's darkest, so both are checked.
+		for (const appearance of ["dark", "light"] as const) {
+			const tokens = WEB_THEME_TOKENS[appearance];
+			const paper = over(tokens["--accent-soft"] as string, tokens["--surface"] as string);
+			const faint = Math.min(
+				contrast(tokens["--dim"] as string, paper),
+				contrast(tokens["--dim"] as string, tokens["--raised"] as string),
+				contrast(tokens["--dim"] as string, tokens["--canvas"] as string),
+			);
+			expect(faint, `${appearance} faint on a card`).toBeGreaterThanOrEqual(4.5);
 		}
 	});
 });

@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `lib`: the kit's faint tier is readable where it carries text. `--dim` drew a card's id and kind, a
+  lane's count, the footer and the path subject at 12–13px, and measured 3.47:1 in light and 3.60:1
+  in dark against AA's 4.5. It is now `#5c677a` light and `#8897ab` dark, clearing 4.5 on the canvas,
+  the surface, the raised plane and the darkest lane tint; light `--muted` moves to `#525e70` in the
+  same step, because at 4.59:1 the faint tier would otherwise have been a hundredth away from it,
+  and the two quiet colours have to stay a tier apart to mean anything.
+
 - `lib`: the web kit loses the two rules it drew along an edge. A tag drops its 2px left rail —
   every page's tags change, the board's paths and team labels and the browse header's branch and
   changes — and is now a glyph and a word, with its tone in the word's colour. A record drops the
