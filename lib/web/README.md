@@ -123,21 +123,35 @@ one.
 
 ## Color is a role
 
-`WEB_THEME_TOKENS` is derived from `themes/bytefly-dark.json` and
-`themes/bytefly-light.json`, so the browser and the TUI cannot drift. Four values
-are computed rather than mapped:
+`WEB_THEME_TOKENS` is the web's **own** palette: a slate ramp with one indigo accent, per
+appearance, in `tokens.ts`. It no longer reads `themes/bytefly-*.json` — a terminal picks
+colours for glyphs on a cell grid and a page picks them for type and elevation, so a TUI theme
+change restyles the terminal and leaves a served page alone. The *shape* of the contract is
+what the kit keeps: one token name, one value per appearance, and every component reading
+`var(--token)`.
 
-- `--accent-soft` — the accent at 15% (dark) or 10% (light), for a selection or
-  the active nav row.
-- `--on-accent` — the appearance's canvas. A label on the accent fill is dark
-  text on the light-blue dark accent and white on the darker light one.
-- `--scrim` — per appearance, because a dimming layer needs its own alpha rather than a
-  palette entry. There is no shadow: elevation is a rule and a plane, never a blur.
+Four tokens are **stated** in the `Palette` literal, one entry per appearance, because each is a
+decision and not a rule: `--on-accent` (a label on the accent fill — white on the light theme's
+`#4f46e5`, the dark canvas colour on the dark theme's `#8b9dff`), `--scrim` (a dimming layer needs
+its own alpha rather than a palette entry), and `--shadow-1`/`--shadow-2` (elevation: `1` for a
+card, a menu, a key sheet and the header; `2` for a dialog). A component may name one of the two
+shadows and nothing else; a literal blur fails the same test a literal hex does.
 
-`--raised` is the one derived neutral: `--surface` mixed 6% (dark) or 3% (light)
-toward `--text`, for a block that has to read as a plane above the page rather than
-as an outline — the light step is smaller because a darker accent on a lighter step
-falls below AA. Components read tokens only: no literal hex or `rgba()` in `components.ts`, and a
+Five are **computed**, so no appearance can hand-pick one and drift:
+
+- `--accent-soft` — the accent at 16% (dark) or 10% (light), for a selection or the active nav row.
+- `--raised` — `--surface` mixed 6% (dark) or 11% (light) toward `--text`, for a block that has to
+  read as a plane above the page rather than as an outline. The step is per appearance because one
+  that reads on a dark canvas is invisible on a white one.
+- `--success-soft`, `--danger-soft`, `--search-soft` — their own tone at a low alpha, for a tinted
+  chip or a highlighted match.
+
+**The face is part of the role.** `--font-ui` carries every label, control and heading, and
+`--font-mono` is kept for what *is* code — a command, a card id, a file path, a key — because a
+reader recognises those by their even spacing. A monospace button reads as a terminal key, and
+an uppercased mono label reads as one twice.
+
+Components read tokens only: no literal hex or `rgba()` in `components.ts`, and a
 test fails one. Contrast is asserted, not assumed — text, muted, and accent at
 4.5:1 on both surfaces, the primary label at 4.5:1 on the accent fill, `--dim` at
 3:1 because it carries the line-number gutter, and the status colours at 3:1.

@@ -253,13 +253,16 @@ describe("the live line's painter", () => {
 });
 
 describe("the kit's grammar", () => {
-	test("keeps the pill, the key cap, the shadow, and the six-chip tone set out of the kit", () => {
-		// The shapes are the breaking half of the change: one tone set replaces a class per chip
-		// colour, and a box casts no shadow because a rail and a hairline hold every panel.
+	test("keeps the pill, the key cap and one tone set, and lifts only through a shadow token", () => {
+		// One tone set replaces a class per chip colour; elevation is a token, and a literal blur in
+		// a component is the fork this holds.
 		expect(WEB_COMPONENTS_CSS).not.toContain("--radius-pill");
 		expect(WEB_COMPONENTS_CSS).not.toContain("999px");
-		expect(WEB_COMPONENTS_CSS).not.toContain("box-shadow");
-		expect(WEB_COMPONENTS_CSS).not.toContain("--shadow");
+		expect(WEB_COMPONENTS_CSS).toMatch(/box-shadow:var\(--shadow-[12]\)/);
+		// Every shadow in the sheet names a token, never a colour and a blur.
+		for (const shadow of WEB_COMPONENTS_CSS.matchAll(/box-shadow:([^;}]+)/g)) {
+			expect(shadow[1], shadow[1]).toMatch(/^var\(--shadow-[12]\)$/);
+		}
 		expect(WEB_COMPONENTS_CSS).not.toContain(".bf-chip");
 		expect(WEB_COMPONENTS_CSS).not.toContain(".bf-segmented");
 		expect(WEB_COMPONENTS_CSS).not.toContain(".bf-progress");
@@ -270,7 +273,9 @@ describe("the kit's grammar", () => {
 	test("draws a tag as a glyph and a word on a rail, with no box around them", () => {
 		const tag = rule(WEB_COMPONENTS_CSS, ".bf-tag{");
 		expect(tag).toContain("border-left:2px solid currentColor");
-		expect(tag).toContain("var(--font-mono)");
+		// A tag's word is a label, so it is the UI's face: mono is kept for a path or a command.
+		expect(tag).toContain("var(--font-ui)");
+		expect(tag).not.toContain("var(--font-mono)");
 		expect(tag).not.toContain("border-radius");
 		expect(tag).not.toContain("border:1px solid");
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-tag__glyph{");
@@ -318,17 +323,19 @@ describe("the kit's grammar", () => {
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-tabs__count{");
 	});
 
-	test("holds the record in a box under the signature rule, and no shadow", () => {
+	test("holds the record on a lifted plane under the signature rule", () => {
 		// The signature terminates rather than decorates: the accent's 12px lead, the warn's 6px
 		// step, then the same hairline the box is drawn with.
 		expect(rule(WEB_COMPONENTS_CSS, ".bf-record{")).toContain("border:1px solid var(--border)");
+		// A record is a card, and a card is the first elevation step — not a hairline pretending.
+		expect(rule(WEB_COMPONENTS_CSS, ".bf-record{")).toContain("box-shadow:var(--shadow-1)");
 		expect(rule(WEB_COMPONENTS_CSS, ".bf-record::before{")).toContain(
 			"var(--accent) 0 12px,var(--warn) 12px 18px,var(--border) 18px",
 		);
 		// A comment's label is a glyph in the dim role: warn is the verdict it carries, not the
 		// colour of the label itself.
 		expect(WEB_COMPONENTS_CSS).toContain(
-			".bf-comment__label{font:var(--fw-medium) var(--fs-xs) var(--font-mono);color:var(--dim)}",
+			".bf-comment__label{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--dim)}",
 		);
 	});
 
@@ -337,7 +344,7 @@ describe("the kit's grammar", () => {
 		// row is a list item until a reader points at it.
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-lane__head{display:flex;align-items:center;gap:6px;");
 		expect(WEB_COMPONENTS_CSS).toContain(
-			"border-bottom:2px solid var(--lane-role,var(--border));font:var(--fw-semibold) var(--fs-xs)",
+			"border-bottom:2px solid var(--lane-role,var(--border));font:var(--fw-semibold) var(--fs-sm)",
 		);
 		expect(WEB_COMPONENTS_CSS).toContain(
 			".bf-lane__dot{font-size:9px;line-height:1;color:var(--lane-role,var(--muted))}",
@@ -375,7 +382,12 @@ describe("the kit's grammar", () => {
 	test("de-GitHubs the Markdown block", () => {
 		// No underline under a heading: the rule under one was GitHub's, and a heading that
 		// carries a rail reads as a section without a second line across the page.
-		expect(WEB_COMPONENTS_CSS).toContain('.bf-md h2::before{content:"▏";color:var(--dim)');
+		// A heading's weight step is its section mark: the rail glyph is gone, and the face is the UI's.
+		expect(WEB_COMPONENTS_CSS).not.toContain('::before{content:"▏"');
+		expect(WEB_COMPONENTS_CSS).toContain(".bf-md h1,.bf-md h2,.bf-md h3,.bf-md h4,.bf-md h5,.bf-md h6{");
+		expect(rule(WEB_COMPONENTS_CSS, ".bf-md h1,.bf-md h2,.bf-md h3,.bf-md h4,.bf-md h5,.bf-md h6{")).toContain(
+			"var(--font-ui)",
+		);
 		expect(WEB_COMPONENTS_CSS).not.toContain(".bf-md h1,.bf-md h2{padding-bottom");
 		// Rule-only rows and an unfilled head, not a full cell grid with a grey band.
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-md thead th{border-bottom:2px solid var(--border)");

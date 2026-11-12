@@ -154,7 +154,7 @@ describe("the document", () => {
 		// `--dim` is held at 3:1 by the kit's contract, which is a gutter's threshold, not a
 		// sentence's: the empty word and a note's age are body text, so they read `--muted`.
 		expect(BOARD_CSS).toContain(
-			".bf-lane__empty{margin:0;padding:var(--space-2) 0;font:var(--fs-xs) var(--font-mono);color:var(--dim)}",
+			".bf-lane__empty{margin:0;padding:var(--space-2) 0;font:var(--fs-xs) var(--font-ui);color:var(--dim)}",
 		);
 		expect(BOARD_CSS).toContain(".board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}");
 		// The controls a row makes small keep a 24px target without growing the caption.
