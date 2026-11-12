@@ -501,9 +501,13 @@ describe("the class contract", () => {
 
 	/** Every `prefix…` token in a piece of markup or script. */
 	function used(source: string, prefix: string): Set<string> {
-		return new Set(
-			[...source.matchAll(new RegExp(String.raw`\b(${prefix}[a-z0-9_-]+)\b`, "g"))].map((match) => match[1] ?? ""),
+		const found = [...source.matchAll(new RegExp(String.raw`\b(${prefix}[a-z0-9_-]+)\b`, "g"))].map(
+			(match) => match[1] ?? "",
 		);
+		// A name the source only ever spells as the head of a longer one is not a name it uses:
+		// `"bf-tone--" + tone` is the kit's tone vocabulary, not a class of its own.
+		const names = [...new Set(found)];
+		return new Set(names.filter((name) => !names.some((other) => other !== name && other.startsWith(name))));
 	}
 
 	/** The kit's vocabulary: its stylesheets, plus the class names its atoms emit. */
@@ -520,8 +524,8 @@ describe("the class contract", () => {
 
 	const DOCUMENTS = [pageOf("board"), pageOf("team")];
 	const SOURCES = [...DOCUMENTS, BOARD_CLIENT_JS];
-	/** The page's own vocabulary: what its table declares. */
-	const PAGE = new Set<string>(Object.values(BOARD_CLASS));
+	/** The page's own vocabulary: what its table declares, the kit's names aside. */
+	const PAGE = new Set<string>(Object.values(BOARD_CLASS).filter((name) => !name.startsWith("bf-")));
 	/** The names the stylesheet draws. */
 	const DRAWN = defined(BOARD_CSS, "board-");
 	/** Every id, which the client finds an element by and no stylesheet dresses. */
@@ -531,6 +535,9 @@ describe("the class contract", () => {
 	/** Attributes whose only reader is the client: an element hook, or a stamp for the age ticker. */
 	const HOOKS: Readonly<Record<string, string>> = {
 		"data-at": "the age ticker rewrites the text from it",
+		"data-at-sentence": "a sentence stamp's own wording, which the ticker fills from it",
+		"data-base": "the prefix the page was served under, read by the client",
+		"data-pane": "a column's panes are found by the name they hold",
 		"data-at-title": "a stamp's own wording, which the ticker fills from the same stamp",
 		"data-card": "the open card is found by its id",
 		"data-fold": "a fold control names its key, so focus finds it again after the repaint it caused",
@@ -550,9 +557,13 @@ describe("the class contract", () => {
 	});
 
 	test("names no kit class the kit does not define", () => {
-		const unknown = [...new Set(SOURCES.flatMap((source) => [...used(source, "bf-")]))]
-			.filter((name) => !KIT.has(name))
-			.sort();
+		const named = [...new Set(SOURCES.flatMap((source) => [...used(source, "bf-")]))];
+		// A name the kit only ever spells as the head of a longer one — `"bf-tone--"` before its
+		// tone — is that longer vocabulary, not a class of its own.
+		const heads = new Set(
+			[...KIT].flatMap((name) => named.filter((other) => other !== name && name.startsWith(other))),
+		);
+		const unknown = named.filter((name) => !KIT.has(name) && !heads.has(name)).sort();
 		expect(unknown).toEqual([]);
 	});
 
@@ -574,31 +585,32 @@ describe("the class contract", () => {
 		expect(DECISION_TONE.gone).toBe("danger");
 		for (const kind of DECISION_KINDS) {
 			const tone = DECISION_TONE[kind];
-			expect(BOARD_CSS, kind).toContain(`.board-team__decision[data-tone="${tone}"]{border-left-color:var(--${tone})}`);
+			expect(BOARD_CSS, kind).toContain(`.board-decision[data-tone="${tone}"] .bf-row__mark{color:var(--${tone})}`);
 		}
 		// A refusal or a loss colours its sentence too; a warn row only its edge.
-		expect(BOARD_CSS).toContain('.board-team__decision[data-tone="danger"] .board-team__why{color:var(--danger)}');
+		expect(BOARD_CSS).toContain('.board-decision[data-tone="danger"] .board-decision__why{color:var(--danger)}');
 		// And the line every other row prints stays quiet. Without this the base rule can lose
 		// its colour and the queue's reasons read as loudly as its titles: `--text` is what an
 		// uncoloured paragraph inherits on the raised plane.
 		expect(BOARD_CSS).toContain(
-			".board-team__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);",
+			".board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:2px 0 0;color:var(--muted);",
 		);
 	});
 
 	test("tones a reason line by its tone, never by a class named after a kind", () => {
 		// The three gates a card can owe — a contract, an approval, a spot-check — are three
 		// kinds and one tone, and none of them is called "unplanned" any more.
-		expect(BOARD_CSS).toContain(".board-card__reason--warn{color:var(--warn)}");
+		expect(WEB_COMPONENTS_CSS).toContain('.bf-row__reason[data-tone="warn"]{color:var(--warn)}');
 		expect(BOARD_CSS).not.toContain("board-card__reason--unplanned");
 		expect(BOARD_CSS).not.toContain("board-card__reason--blocked");
 		expect(BOARD_CSS).not.toContain("board-team__why--blocked");
 		// And it comes after the base rule, which is what makes it win: a tone class and the
 		// base class are one class each, so source order decides between them. Generated
 		// before the base, every tone was inert and a blocked card's reason drew muted.
-		for (const tone of BOARD_TONES) {
-			expect(BOARD_CSS.indexOf(`.board-card__reason--${tone}{`), tone).toBeGreaterThan(
-				BOARD_CSS.indexOf(".board-card__reason{margin:0"),
+		// The base is muted; the three tones a reason can carry are the kit's own.
+		for (const tone of ["accent", "warn", "danger"]) {
+			expect(WEB_COMPONENTS_CSS.indexOf(`.bf-row__reason[data-tone="${tone}"]{`), tone).toBeGreaterThan(
+				WEB_COMPONENTS_CSS.indexOf(".bf-row__reason{"),
 			);
 		}
 	});
@@ -610,7 +622,7 @@ describe("the class contract", () => {
 		// "is it drawn at all" is asked of the whole stylesheet a page ships.
 		const drawn = new Set([...BOARD_CSS.matchAll(/\[(data-[a-z-]+)/g)].map((match) => match[1] ?? ""));
 		const worn = new Set(
-			SOURCES.flatMap((source) => [...source.matchAll(/\b(data-[a-z-]+)="?/g)].map((m) => m[1] ?? "")),
+			SOURCES.flatMap((source) => [...source.matchAll(/\b(data-[a-z-]+)(?=\s*=|\s*")/g)].map((m) => m[1] ?? "")),
 		);
 		expect([...styled].filter((name) => !worn.has(name)).sort(), "styled, never worn").toEqual([]);
 		const unsaid = [...worn].filter((name) => !drawn.has(name) && HOOKS[name] === undefined).sort();
