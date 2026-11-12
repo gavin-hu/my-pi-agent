@@ -66,10 +66,10 @@ ways out. `reclaim` takes a card back to `backlog` from its holder, the person a
 always, and from a peer only while that owner's record says quiet or gone. `move` into
 `execute` or `done` re-reads the plan where the write lands: a plan that is gone refuses the
 move, and the face says `its plan is gone`. A sign nobody heard reads `· not told` on a live
-card; saying it again sends the message. A contract may name a `verify` command: `review` runs
-it in the tree the board is rooted at — the worktree you entered — and records the exit, the commit,
-and that tree; `done` refuses a sign with no result or one older than the card's last write. `review` takes an `override` — one line saying why — for a card
-closed without the gate, which then reads `closed by instruction`.
+card; saying it again sends it. A contract may name a `verify` command: `review` runs
+it in the board's tree (the worktree you entered), recording the exit, commit, and tree;
+`done` refuses a sign with no result, or one older than the card's write. `review` takes
+an `override` — one line saying why — for a close outside the gate: `closed by instruction`.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);
 `/board approve <id>` and `/board review <id>` sign as the person; `/board archive` runs the sweep;
