@@ -133,15 +133,12 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		// One sentence on the board has an age inside it, so it is a sentence stamp rather than a
 		// plain node: the ticker that moves the meta's age re-reads this whole line, and no frame has
 		// to arrive for it to stay true.
-		const stamp = await page.$eval(
-			'#lane-backlog .board-row[data-card="4"] .bf-row__reason [data-at]',
-			(node) => ({
-				at: node.getAttribute("data-at"),
-				wording: node.getAttribute("data-at-title"),
-				sentence: node.getAttribute("data-at-sentence"),
-				text: node.textContent ?? "",
-			}),
-		);
+		const stamp = await page.$eval('#lane-backlog .board-row[data-card="4"] .bf-row__reason [data-at]', (node) => ({
+			at: node.getAttribute("data-at"),
+			wording: node.getAttribute("data-at-title"),
+			sentence: node.getAttribute("data-at-sentence"),
+			text: node.textContent ?? "",
+		}));
 		expect(stamp.wording).toBe("offered {age} — nobody took it");
 		expect(stamp.sentence).toBe("1");
 		expect(stamp.at).not.toBeNull();
