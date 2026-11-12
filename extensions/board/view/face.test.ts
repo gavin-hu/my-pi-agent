@@ -161,4 +161,44 @@ describe.skipIf(CHROME === undefined)("the card face", () => {
 		},
 		CASE_MS,
 	);
+
+	test(
+		"leads with the title, and sets the rank back beside it",
+		async () => {
+			const page = await openPage();
+			await page.waitForSelector(".board-row", { timeout: PAINT_MS });
+			// One face carries both: the seeded execute card has a priority and a title.
+			const face = await page.$eval("#lane-execute .board-row", (node) => {
+				const card = node as unknown as Boxed;
+				const computed = (globalThis as unknown as { getComputedStyle(n: unknown): Record<string, string> })
+					.getComputedStyle;
+				// A type step is two facts a reader sees at once, so the two are read together: a
+				// title larger than its rank at a lighter weight would still leave the rank leading.
+				const step = (selector: string) => {
+					const found = card.querySelector(selector);
+					if (found === null) return null;
+					const style = computed(found);
+					return {
+						size: Number.parseFloat(style.fontSize ?? "0"),
+						weight: Number.parseInt(style.fontWeight ?? "0", 10),
+					};
+				};
+				// The card's own box is the check that the height reserved for the title still fits it:
+				// it is `overflow:hidden`, so a bigger title that outgrew the face would clip quietly.
+				const box = card as unknown as { scrollHeight: number; clientHeight: number };
+				return {
+					title: step(".bf-row__title"),
+					rank: step(".board-row__priority"),
+					overflow: box.scrollHeight - box.clientHeight,
+				};
+			});
+			expect(face.rank).not.toBeNull();
+			expect(face.title).toEqual({ size: 15, weight: 500 });
+			expect(face.rank).toEqual({ size: 12, weight: 400 });
+			expect(face.title?.size ?? 0).toBeGreaterThan(face.rank?.size ?? 0);
+			expect(face.title?.weight ?? 0).toBeGreaterThanOrEqual(face.rank?.weight ?? 999);
+			expect(face.overflow).toBeLessThanOrEqual(1);
+		},
+		CASE_MS,
+	);
 });
