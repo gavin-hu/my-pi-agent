@@ -258,9 +258,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const captions = await page.$$eval(".bf-section__cap", (nodes) =>
 			Array.from(nodes as ArrayLike<ElementLike>, (node) => node.getAttribute("aria-label") ?? ""),
 		);
-		expect(captions[0]).toMatch(/^AGENTS, \d+ agents?$/);
-		expect(captions[1]).toMatch(/^ACTIVE WORK, \d+ cards?$/);
-		expect(captions[2]).toMatch(/^ACTIVITY, \d+ rows?$/);
+		// The team page carries more sections than it once did (a needs-you queue and a
+		// waiting queue sit beside the three columns), so each caption is found by its name.
+		expect(captions.some((caption) => /^AGENTS, \d+ agents?$/.test(caption))).toBe(true);
+		expect(captions.some((caption) => /^ACTIVE WORK, \d+ cards?$/.test(caption))).toBe(true);
+		expect(captions.some((caption) => /^ACTIVITY, \d+ rows?$/.test(caption))).toBe(true);
 	});
 
 	test("says when the filter matches nothing, and gives the way back", async () => {
