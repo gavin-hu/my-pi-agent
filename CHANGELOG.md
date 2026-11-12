@@ -37,10 +37,8 @@ so the queue reads as the one thing somebody owes an answer to.
   over the `blocked`, `execute` and `plan` swimlanes, every reason one hover and one
   `aria-describedby` away. **ACTIVITY** shows the mail nobody has read — each row wearing its
   recipient's state, a broadcast drawn once — above a Recent rail derived from the cards' own
-  records. Each column counts itself, the tab is one page scroll with sticky captions, a frame
-  lands without taking scroll or focus, and the filter narrows only the cards: the roster and the
-  mail queue stand still while the middle column narrows, and no caption prints a share of a
-  filtered total.
+  records. Each column counts itself, the tab is one page scroll with sticky captions, and a frame
+  lands without taking scroll or focus.
 
 - `session-bus`: the record carries the turn. `agent_start` stamps `turnAt` and `agent_settled`
   drops it, each written at once rather than on the next heartbeat, so a peer can say a session
