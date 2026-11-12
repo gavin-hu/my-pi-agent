@@ -257,9 +257,9 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		);
 		// The team page carries more sections than it once did (a needs-you queue and a waiting queue sit beside the three columns), so each caption
 		// is found by its name.
-		expect(captions.some((caption) => /^AGENTS, \d+ agents?$/.test(caption))).toBe(true);
-		expect(captions.some((caption) => /^ACTIVE WORK, \d+ cards?$/.test(caption))).toBe(true);
-		expect(captions.some((caption) => /^ACTIVITY, \d+ rows?$/.test(caption))).toBe(true);
+		expect(captions.some((caption) => /^Agents, \d+ agents?$/.test(caption))).toBe(true);
+		expect(captions.some((caption) => /^Active work, \d+ cards?$/.test(caption))).toBe(true);
+		expect(captions.some((caption) => /^Activity, \d+ rows?$/.test(caption))).toBe(true);
 	});
 
 	test("says when the filter matches nothing, and gives the way back", async () => {

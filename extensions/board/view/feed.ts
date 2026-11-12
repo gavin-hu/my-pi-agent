@@ -162,7 +162,7 @@ const feedTemplate = String.raw`(function () {
           if (waiting.length > 0) slot.setAttribute("data-tone", "accent");
           else slot.removeAttribute("data-tone");
           slot.appendChild(
-            paneHead("WAITING", waiting.length, waiting.length + queue.dropped, waiting.length > 0 ? "accent" : undefined)
+            paneHead("Waiting", waiting.length, waiting.length + queue.dropped, waiting.length > 0 ? "accent" : undefined)
           );
           if (waiting.length === 0) {
             slot.appendChild(el("p", N.teamEmpty, "no mail is waiting"));
@@ -180,7 +180,7 @@ const feedTemplate = String.raw`(function () {
         build: function (slot) {
           // The count is what the rail has room for against what the board holds, so a busy
           // board does not read like a quiet one.
-          slot.appendChild(paneHead("RECENT", events.length, events.length + recent.dropped));
+          slot.appendChild(paneHead("Recent", events.length, events.length + recent.dropped));
           if (events.length === 0) {
             slot.appendChild(el("p", N.teamEmpty, "nothing has happened yet"));
             return;

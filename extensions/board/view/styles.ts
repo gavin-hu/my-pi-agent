@@ -136,7 +136,7 @@ ${WEB_COMPONENTS_CSS}
    Its height is the face's boxes plus its padding — stated once, so every note in a lane is
    the same size and the column reads as a stack of notes rather than a ragged list. */
 .bf-lane .bf-lane__list{gap:var(--space-2)}
-.bf-lane .board-row{grid-template-columns:minmax(0,1fr);height:calc(var(--face-h) + var(--space-2) * 2);overflow:hidden;align-content:stretch;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md)}
+.bf-lane .board-row{grid-template-columns:minmax(0,1fr);height:calc(var(--face-h) + var(--space-2) * 2);overflow:hidden;align-content:stretch;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md);box-shadow:var(--shadow-1)}
 /* The card the reader walked to wears the accent outside its edge; a card a peer's write just
    moved wears it inside, so the two never read as one state. */
 .bf-lane .board-row[data-current="true"]{outline:2px solid var(--accent)}
@@ -153,7 +153,7 @@ ${WEB_COMPONENTS_CSS}
 .board-row__body{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
 /* The note's head: what it is, in the order a reader sorts a lane by — its number, the kind of
    work with its breaking marker, and the order it is in. */
-.board-row__top{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0;font:var(--fs-xs) var(--font-mono);white-space:nowrap;overflow:hidden}
+.board-row__top{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0;font:var(--fs-xs) var(--font-ui);white-space:nowrap;overflow:hidden}
 /* The number is never dropped; the kind and the order are what give way in a narrow lane. */
 .board-row__top > :not(.bf-row__id){flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .board-row__top > .bf-row__id{flex:0 0 auto}
@@ -168,7 +168,7 @@ ${WEB_COMPONENTS_CSS}
 .board-row__notes{display:inline-flex;align-items:baseline;gap:var(--space-1);font-variant-numeric:tabular-nums}
 /* An order is a word beside the name rather than a second tag, so who holds a row and
    how urgent it is are two shapes a reader tells apart at a glance. */
-.board-row__priority{font:var(--fw-semibold) var(--fs-xs) var(--font-mono)}
+.board-row__priority{font:var(--fw-semibold) var(--fs-xs) var(--font-ui)}
 .board-row__priority--high{color:var(--warn)}
 .board-row__priority--low{color:var(--dim)}
 /* A path has no spaces to break at, so the title breaks inside a word rather than overflowing. */
@@ -216,7 +216,7 @@ ${DECISION_WHY_CSS}
 .board-team .bf-section[data-tone="danger"]{--lane-role:var(--danger)}
 /* A deck's head is the board's lane head, at the board's one weight. It pins to the page's
    scroll box, because these are the tab's landmarks. */
-.board-team .bf-section__cap{position:sticky;top:0;z-index:1;align-items:center;gap:var(--space-2);padding-bottom:var(--space-1);border-bottom:2px solid var(--lane-role,var(--border));background:var(--canvas);text-transform:uppercase;color:var(--text)}
+.board-team .bf-section__cap{position:sticky;top:0;z-index:1;align-items:center;gap:var(--space-2);padding-bottom:var(--space-1);border-bottom:2px solid var(--lane-role,var(--border));background:var(--canvas);color:var(--text)}
 /* A head's dot: the lane's own glyph, in the lane's role — the one mark on the page. */
 .board-team .bf-section__cap .bf-lane__dot{font-size:9px;line-height:1;color:var(--lane-role,var(--muted))}
 /* A card. Not the board's note — that one is a lane's, below — but the same block: paper,
@@ -229,7 +229,7 @@ ${DECISION_WHY_CSS}
 .board-team .bf-tag{border-left:0;padding-left:0}
 /* A lane head inside a swimlane is a deck head one level down: the same dot, no rule of its
    own, because the deck above it already carries the line. */
-.board-team .bf-lane__head{border-bottom:0;margin:0;font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--muted)}
+.board-team .bf-lane__head{border-bottom:0;margin:0;font:var(--fw-semibold) var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-team__grid{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
 .board-team__column{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
 .board-team__empty{margin:0;font:var(--fs-sm)/var(--lh-relaxed) var(--font-ui);color:var(--muted)}
@@ -248,26 +248,25 @@ ${DECISION_WHY_CSS}
 .board-agent__head{display:flex;align-items:center;gap:var(--space-2);min-width:0}
 /* Two letters, in the mono face: a monogram is identity, the note's number in the place a
    name lives, so it stays where the board's card keeps its id. */
-.board-agent__monogram{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:1.5rem;height:1.5rem;padding:0 var(--space-1);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs) var(--font-mono);text-transform:uppercase}
+.board-agent__monogram{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:1.5rem;height:1.5rem;padding:0 var(--space-1);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs) var(--font-ui);text-transform:uppercase}
 .board-agent__name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font:var(--fw-semibold) var(--fs-sm) var(--font-ui)}
 /* The state is the card's foot's opposite end: a word beside a dot, never a colour alone. */
 .board-agent__head .board-agent__state{margin-left:auto;flex:0 0 auto}
-.board-agent__chips{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);font:var(--fs-xs) var(--font-mono)}
+.board-agent__chips{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);font:var(--fs-xs) var(--font-ui)}
 .board-agent__state{display:inline-flex;align-items:center;gap:var(--space-1);color:var(--muted);font-variant-numeric:tabular-nums}
 .board-agent__mail{color:var(--accent);font-variant-numeric:tabular-nums}
 /* What the session holds is the card's body: one line per card, the lane as a mark beside it. */
 .board-team__missions{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
-.board-team__mission,.board-team__none{display:flex;align-items:center;gap:var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
+.board-team__mission,.board-team__none{display:flex;align-items:center;gap:var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 .board-team__bar{flex:0 0 auto;align-self:stretch;width:2px;background:var(--lane-role,var(--muted))}
 .board-team__mission-ref{color:var(--text)}
-.board-team__mission-lane{text-transform:lowercase}
 .board-team__mission-age{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
 /* An age is a duration, not a phrase: tabular figures, so two rows' minutes line up. */
 .board-stamp{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 /* A session holding nothing still draws the line its cards would: the column keeps its rhythm. */
 .board-team__none{padding-left:calc(2px + var(--space-2));color:var(--dim)}
 /* The one "there is more" control: the folded history card, a deck's tail, a queue's end. */
-.board-fold{appearance:none;display:inline-flex;align-items:center;gap:var(--space-2);width:auto;margin:0;padding:0;min-height:24px;border:0;background:none;color:var(--muted);font:var(--fs-xs) var(--font-mono);text-align:left;cursor:pointer}
+.board-fold{appearance:none;display:inline-flex;align-items:center;gap:var(--space-2);width:auto;margin:0;padding:0;min-height:24px;border:0;background:none;color:var(--muted);font:var(--fs-xs) var(--font-ui);text-align:left;cursor:pointer}
 .board-fold:hover{color:var(--text)}
 
 /* One dot for one state, wherever it is drawn: an agent's pill, a recipient, an owner. A record
@@ -291,10 +290,10 @@ ${DECISION_WHY_CSS}
 .board-decision__body{min-width:0;display:flex;flex-direction:column;gap:var(--space-1)}
 .board-decision__open{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2);min-width:0;appearance:none;border:0;background:none;padding:0;color:var(--text);font:var(--fw-medium) var(--fs-sm) var(--font-ui);text-align:left;cursor:pointer}
 .board-decision__open:hover .bf-row__title{color:var(--accent)}
-.board-decision__ref{flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
+.board-decision__ref{flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 /* The sentence is the card's foot: what kind of work it is, who holds it, and how long it waited,
    on the card's last line where the board's holder sits. */
-.board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);font:var(--fs-xs) var(--font-mono)}
+.board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 /* MOVING — the board's own card, in a lane one column narrower: the shape, the paper and the
    order come from the lane rules above, so this column is the board at a glance. */
 .board-team__lanes{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
@@ -303,7 +302,7 @@ ${DECISION_WHY_CSS}
 .board-team__pane-body{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
 .board-team__waiting,.board-team__recent{display:flex;flex-direction:column;gap:var(--space-2);margin:0;padding:0;list-style:none}
 .board-mail__body{min-width:0}
-.board-mail,.board-event{flex-wrap:nowrap;align-items:baseline;min-height:var(--team-row-h);color:var(--muted);font:var(--fs-xs) var(--font-mono)}
+.board-mail,.board-event{flex-wrap:nowrap;align-items:baseline;min-height:var(--team-row-h);color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 .board-mail{--paper:var(--accent-soft)}
 .board-event{--paper:var(--raised)}
 .board-mail__from{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
@@ -319,7 +318,7 @@ ${DECISION_WHY_CSS}
    Nothing here scrolls on its own — the kit's body is the one scrollbar. */
 /* A little taller than the kit's default: this dialog is the only place a whole card —
    its facts, its plan, and every note it kept — can be read. */
-.board-dialog__panel{width:min(720px,100%);max-height:84vh}
+.board-dialog__panel{width:min(720px,100%);max-height:84vh;background:var(--raised);box-shadow:var(--shadow-2)}
 /* A long title wraps beside its id instead of pushing the close button off the head. */
 .board-dialog__head{flex-wrap:wrap;align-items:baseline;row-gap:var(--space-1)}
 .board-dialog__head h2{flex:1 1 12ch;min-width:0;font-size:var(--fs-lg);line-height:var(--lh-tight);overflow-wrap:anywhere}
@@ -327,12 +326,12 @@ ${DECISION_WHY_CSS}
 .board-dialog__body{display:flex;flex-direction:column;gap:var(--space-4);padding-bottom:var(--space-4)}
 .board-dialog__section{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
 /* The heading is a label, not a headline: the title above it is the only headline here. */
-.board-dialog__heading{display:flex;align-items:baseline;gap:var(--space-1);margin:0;padding-bottom:var(--space-1);border-bottom:1px solid var(--border);font:var(--fw-medium) var(--fs-xs) var(--font-mono);text-transform:lowercase;color:var(--muted)}
-.board-dialog__count{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
+.board-dialog__heading{display:flex;align-items:baseline;gap:var(--space-1);margin:0;padding-bottom:var(--space-1);border-bottom:1px solid var(--border);font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted)}
+.board-dialog__count{font:var(--fs-xs) var(--font-ui);color:var(--dim)}
 /* The ladder: labels size to the longest one in the section they belong to, values take the
    width that is left, and every row starts at the same column. */
 .board-dialog__facts{display:grid;grid-template-columns:minmax(6.5rem,max-content) minmax(0,1fr);gap:var(--space-1) var(--space-3);margin:0;align-items:baseline}
-.board-dialog__facts dt{font:var(--fs-xs) var(--font-mono);color:var(--muted)}
+.board-dialog__facts dt{font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-dialog__facts dd{margin:0;min-width:0;font:var(--fs-sm) var(--font-ui);color:var(--text)}
 /* A path is a value like any other, but a long one elides on its single line and keeps the
    whole of itself on the hover title. */
@@ -343,7 +342,7 @@ ${DECISION_WHY_CSS}
    column: a promise clipped to one line is a promise a reader cannot check. */
 .board-dialog__contract dd{font:var(--fs-base)/var(--lh-relaxed) var(--font-ui);overflow-wrap:anywhere}
 /* Who signed it, under what they signed: quiet until a tone says otherwise. */
-.board-dialog__sign{margin:0;max-width:68ch;font:var(--fw-medium) var(--fs-sm) var(--font-mono);color:var(--muted)}
+.board-dialog__sign{margin:0;max-width:68ch;font:var(--fw-medium) var(--fs-sm) var(--font-ui);color:var(--muted)}
 /* The tone rules come after the base rules, which is what makes them win. */
 ${DIALOG_TONE_CSS}
 /* A plan path and the ids a card waits for are code, and a reader copies them. */
@@ -360,9 +359,12 @@ ${DIALOG_TONE_CSS}
 .board-dialog__note-text{margin:0 0 var(--space-1);max-width:68ch;font:var(--fs-base)/var(--lh-relaxed) var(--font-ui);color:var(--text);overflow-wrap:anywhere;white-space:pre-wrap}
 /* Who and when is the footnote of the note above it. */
 .board-dialog__note-foot{display:flex;align-items:baseline;gap:var(--space-2);margin:0;max-width:68ch}
-.board-dialog__note-by{font:var(--fw-medium) var(--fs-xs) var(--font-mono);color:var(--muted)}
-.board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}
-.board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-mono);text-transform:lowercase;color:var(--muted)}
+.board-dialog__note-by{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted)}
+.board-dialog__note-at{font:var(--fs-xs) var(--font-ui);color:var(--muted)}
+.board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-ui);color:var(--muted)}
+/* A mission's lane is the one quiet word in its line: the label is the sentence's own case now,
+   so the rule keeps only the colour that sets it back from the mission's text. */
+.board-team__mission-lane{color:var(--dim)}
 .board-dialog__state::before{content:"";width:var(--space-2);height:var(--space-2);background:var(--lane-role,var(--muted))}
 /* The age beside the lane word is a duration, not a label: the lane is lowercase, its age is
    a number in the face the rest of the page's ages wear. */

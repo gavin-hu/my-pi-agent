@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the board page leaves its terminal skin — the labels a reader scans and sorts by (a
+  card's head, its priority, the team's chips and rows, the decision strip, the dialog's facts and
+  notes, a lane's head and fold) are the UI face, mono is kept for what is data (paths, card ids,
+  the plan and the code), the uppercased and lowercased section labels read as the sentences they
+  are, and a lane card and the card dialog now sit on the kit's two elevation steps.
+
+- `lib`: the web kit stops looking like a terminal (retroactive — this landed as 7ecb09c0 without a
+  changelog line). It draws its own slate-and-indigo palette in both appearances instead of mapping
+  `themes/bytefly-*.json`, keeps monospace for code, ids and paths while every label, control and
+  heading takes the UI face, and states elevation as two tokens — `--shadow-1` for a card or a menu,
+  `--shadow-2` for a dialog — that a component may name and nothing else.
+
 - `board`: the Team tab is redrawn in the board's language. Its rows stop being ruled kit lists and
   become the board's card — a tinted block, no edge, the gap between two the only separator — with a
   paper for each family: a person's state, a decision's tone, the lane a mission is in, the accent a

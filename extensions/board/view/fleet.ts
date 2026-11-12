@@ -257,7 +257,7 @@ __HISTORY_LINE__
       sig: sig.join("|"),
       count: agents.length + history.length,
       build: function (slot) {
-        slot.appendChild(board.captionOf("AGENTS", agents.length + history.length, "agent"));
+        slot.appendChild(board.captionOf("Agents", agents.length + history.length, "agent"));
         if (agents.length + history.length === 0) {
           slot.appendChild(el("p", N.teamEmpty, joined.roster === null ? "session-bus is not loaded here" : "nobody is here yet"));
           return;
