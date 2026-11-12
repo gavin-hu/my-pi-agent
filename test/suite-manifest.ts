@@ -326,6 +326,7 @@ export const LIB_SUITES: readonly string[] = [
 	"web/web",
 	"web/web-chrome",
 	"web/live-stream",
+	"web/vocabulary",
 ];
 
 export const SCRIPT_SUITES: readonly string[] = [
