@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `plan`: the review page leaves its terminal skin with the kit. Its labels — the share line, the
+  fact values, the outline's title and count, a block's count, and a comment's label, moved and
+  resolved words — are the UI face, mono is kept for the share URL and the code, and the uppercased,
+  letterspaced section words read as the sentences they are. A comment is a lifted card now, the
+  view switch wears the kit's tabs (it still wore the deleted segmented class), and the page's
+  step meter is its own `review-steps` bar instead of the removed `bf-progress`, whose three
+  undefined `--radius-pill` counts drew squares.
+
 - `file-browse`: the file page and the per-file diff wear the kit again. Their head is the kit's
   record — title, meta, and one action group with a real gap — the rendered/raw and
   head/staged/worktree controls are the kit's tabs, so the current one is marked, and the header's

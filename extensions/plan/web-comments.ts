@@ -249,7 +249,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       var head = el("div", "bf-comment__head");
       // Every card names a person: "Review" was a category, and on a reviewer's page it
       // could be anybody — including the reader.
-      var label = el("span", "bf-comment__label bf-comment__label--author");
+      var label = el("span", "bf-comment__label");
       label.textContent = annotation.author ? "@" + annotation.author : role === "owner" ? "You" : "The owner";
       head.appendChild(label);
       if (annotation.moved) {
