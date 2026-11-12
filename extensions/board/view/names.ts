@@ -34,6 +34,10 @@ export const BOARD_CLASS = {
 	// One row: the card's body, its facts, and its paths.
 	row: "board-row",
 	rowBody: "board-row__body",
+	// A note leads with what it is — its id, its kind, its order — and whose it is at the far
+	// edge, before its name.
+	rowTop: "board-row__top",
+	rowOwner: "board-row__owner",
 	rowHead: "board-row__head",
 	rowNotes: "board-row__notes",
 	rowPaths: "board-row__paths",

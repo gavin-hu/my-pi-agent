@@ -308,12 +308,12 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("wears its kind, its priority and its paths as fields, not as prose", async () => {
 		const page = await openPage();
-		// The executing card is the seeded one with a priority, so its meta line is the case: what kind of work it is leads, who holds it is a
-		// neutral tag, and how urgent it is is a word beside that tag.
-		const meta = "#lane-execute .bf-row .bf-row__meta";
-		expect(await page.$eval(`${meta} .bf-row__kind`, (n) => n.textContent)).toBe("feature \u00b7 breaking");
-		expect(await page.$eval(`${meta} .bf-tag`, (n) => n.textContent)).toBe("billing-core");
-		expect(await page.$eval(`${meta} .board-row__priority`, (n) => n.textContent)).toBe("high");
+		// The executing card is the seeded one with a priority, so its head is the case: what kind of work it is leads, the order it is in sits beside
+		// it, and who holds the card is a plain name on the note's last line, not the chip a path wears.
+		const top = "#lane-execute .bf-row .board-row__top";
+		expect(await page.$eval(`${top} .bf-row__kind`, (n) => n.textContent)).toBe("feature \u00b7 breaking");
+		expect(await page.$eval(`${top} .board-row__priority`, (n) => n.textContent)).toBe("high");
+		expect(await page.$eval("#lane-execute .bf-row .board-row__owner", (n) => n.textContent)).toBe("billing-core");
 		// A path is a value a reader types, so it wears the dialog's mono face on the row too.
 		const mono = await page.$eval("#lane-execute .bf-row .board-row__paths .bf-tag", (n) =>
 			(globalThis as unknown as { getComputedStyle(node: ElementLike): { fontFamily: string } })
@@ -351,10 +351,10 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		}
 	});
 
-	test("describes the reason a clamped card cannot show, so the keyboard reaches it", async () => {
+	test("keeps the reason off the face and on the card's description, so the keyboard reaches it", async () => {
 		const page = await openPage();
-		// The reason line clamps, and its whole sentence is only on a hover title, which j/k never shows: the title button carries the same line as
-		// its description, so focusing it — by walking or by Tab — says the sentence a reader came for.
+		// The face draws no reason, and its whole sentence is nowhere on the card: the title button carries it as its description, so focusing it
+		// — by walking or by Tab — says the sentence a reader came for.
 		const id = await page.$eval("#lane-execute .bf-row", (node) => node.getAttribute("data-card") ?? "");
 		const line = `.bf-row[data-card="${id}"] .bf-row__reason`;
 		const reason = await page.textContent(line);

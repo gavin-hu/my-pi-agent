@@ -54,13 +54,13 @@ describe.skipIf(CHROME === undefined)("the kind on the served page", () => {
 
 	test("labels the executing card with its kind, and breaks it inside the label", async () => {
 		const page = await board.reuse();
-		const meta = "#lane-execute .board-row .bf-row__meta";
-		expect(await page.$eval(`${meta} .bf-row__kind`, (node) => node.textContent)).toBe("feature \u00b7 breaking");
+		const top = "#lane-execute .board-row .board-row__top";
+		expect(await page.$eval(`${top} .bf-row__kind`, (node) => node.textContent)).toBe("feature \u00b7 breaking");
 		// The word keeps the record's own case: the row's chrome is mono and quiet, and a kind
 		// that shouted would read as a second mark beside the person's.
 		expect(
 			await page.$eval(
-				`${meta} .bf-row__kind`,
+				`${top} .bf-row__kind`,
 				(node) =>
 					(
 						globalThis as unknown as { getComputedStyle(node: ElementLike): { textTransform: string } }

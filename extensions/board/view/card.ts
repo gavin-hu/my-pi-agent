@@ -7,11 +7,15 @@
  * wording, and the reason rule spliced in from `lib/board/reason.ts` — so no rule about a
  * card is stated twice.
  *
- * Three of the face's facts are longer than it can draw: the title in its two-line clamp,
- * the hints past its third path, and the reason sentence — which carries what the card
- * holds up after a middot, so one edge is one row. Each is on a hover title for the
- * pointer, and each is named by the title button's `aria-describedby` for the keyboard,
- * because `j`/`k` walks cards by focusing that button and never hovers anything.
+ * Two of the face's facts are longer than it can draw: the title in its two-line clamp and
+ * the hints past its third path. Each is on a hover title for the pointer, and each is named
+ * by the title button's `aria-describedby` for the keyboard, because `j`/`k` walks cards by
+ * focusing that button and never hovers anything.
+ *
+ * The reason sentence is not drawn at all: the face is an index of the work, one height on
+ * every row, and the reason — what the card waits for and what it holds up — stays in the
+ * document as the hover and as the same description, which is where the keyboard and a
+ * screen reader read it. The dialog prints it in full.
  *
  * Every value arrives as `textContent`, never as markup: a title is model-written and a
  * note is anything a person typed.
@@ -136,27 +140,35 @@ export const BOARD_CARD_JS = String.raw`(function () {
     return selection !== null && String(selection) !== "";
   }
 
-  /** The glyph that leads a row: the lane's state, read before the title. */
-  function markFor(card) {
-    if (card.lane === "done") return "\u2713";
-    if (card.lane === "blocked") return "!";
-    return "\u25b8";
-  }
-
   /** One card in its lane. */
   function cardNode(card) {
     var item = el("li", "bf-row " + N.row);
     item.setAttribute("data-card", card.id);
     item.setAttribute("data-lane", card.lane);
     item.setAttribute("data-rev", String(card.rev));
-    var mark = el("span", "bf-row__mark", markFor(card));
-    mark.setAttribute("aria-hidden", "true");
-    item.appendChild(mark);
+    // A note draws no mark of its own: the column says the lane, the paper says it again, and
+    // the glyph a row used to lead with was a third copy of the same fact. The Team tab's rows
+    // keep theirs, where a tone is the only thing that ranks one against another.
     var body = el("div", N.rowBody);
     item.appendChild(body);
 
+    /** The face's clipped text, by id: what the title button describes. */
+    var described = [];
+
+    // What the note is, before what it says: its number, what kind of work it is (with its
+    // breaking marker inside the same label), and the order it is in. A card that recorded
+    // neither kind nor order draws only its number, because the face says what the record says
+    // and never a guess. This is the line a reader sorts a lane by, so it is the first one.
+    var top = el("p", N.rowTop);
+    top.appendChild(el("span", "bf-row__id", "#" + card.id));
+    var kind = kindLabel(card);
+    if (kind !== undefined) top.appendChild(kind);
+    if (card.priority !== "normal") {
+      top.appendChild(el("span", N.rowPriority + " " + PRIORITY_CLASS[card.priority], card.priority));
+    }
+    body.appendChild(top);
+
     var head = el("p", N.rowHead);
-    head.appendChild(el("span", "bf-row__id", "#" + card.id));
     // The title is the page's only focusable thing inside a card, so Enter and the focus
     // ring have one home; the card around it is the larger target for a pointer. A native
     // button's Enter and Space arrive as a click that bubbles to the card, so the card is
@@ -174,24 +186,12 @@ export const BOARD_CARD_JS = String.raw`(function () {
       board.openCard(card.id);
     });
 
-    /** The face's clipped text, by id: what the title button describes. */
-    var described = [];
-
     var meta = el("p", "bf-row__meta");
-    // What kind of work the card is, with its breaking marker inside the same label: the one
-    // fact a reader classifies by, drawn before the person who holds it. A card that recorded
-    // neither draws neither, because the face says what the record says and never a guess.
-    var kind = kindLabel(card);
-    if (kind !== undefined) meta.appendChild(kind);
-    // Who holds it is a name, not an action: the pill is neutral, so the accent colour on a card
-    // means the lane it is in or the card the reader is on, and never a person.
-    meta.appendChild(card.owner ? chip(card.owner.label) : el("span", "", "unassigned"));
-    // The order inside a lane is the priority, so an urgent card says so: an order nobody
-    // can see reads as an accident. A word beside the name rather than a second pill, so an
-    // owner and an urgency are two shapes.
-    if (card.priority !== "normal") {
-      meta.appendChild(el("span", N.rowPriority + " " + PRIORITY_CLASS[card.priority], card.priority));
-    }
+    // The note's last line: whose it is at one end, and when it was last written with the history
+    // beside it at the other. The holder is a name and not a chip — a chip with a leading bar is
+    // the shape a path wears, and who holds a card is not where the work is.
+    var owner = el("span", N.rowOwner, card.owner === undefined ? "unassigned" : card.owner.label);
+    meta.appendChild(owner);
     // The stamp, so the clock can keep the age honest between frames: a board can be
     // quiet for ten minutes while the page still says "live".
     meta.appendChild(stamp(card.updatedAt, "updated {age}"));
@@ -208,14 +208,16 @@ export const BOARD_CARD_JS = String.raw`(function () {
       }
       meta.appendChild(notes);
     }
-    body.appendChild(meta);
-
+    // The hints sit above the footer: the paths are what the work touches, and the footer is
+    // whose it is and when. A note reads top-down — what it is, what it says, where it is,
+    // whose it is — in the order a reader reaches for those facts.
     if (card.paths.length > 0) {
       body.appendChild(paths(card, PATH_CHIPS));
       // Only a truncated list is described: the hints a reader can already see are read in
       // order with the card, and the ones behind the chip have nowhere else to be read.
       if (card.paths.length > PATH_CHIPS) described.push("card-paths-" + card.id);
     }
+    body.appendChild(meta);
 
     // One row for the card's links: why it is not moving, and what leaving it undone holds
     // up. The other side of a link used to be a second clamped paragraph, so a card three
@@ -235,7 +237,8 @@ export const BOARD_CARD_JS = String.raw`(function () {
       if (sentenceNode !== undefined) line.appendChild(sentenceNode);
       if (holds !== undefined) line.appendChild(document.createTextNode(sentenceNode === undefined ? holds : " \u00b7 " + holds));
       line.id = "card-reason-" + card.id;
-      // It clamps on the card, so the full sentence is the tooltip.
+      // The face does not draw it; the stylesheet keeps it in the document and off the card,
+      // so the whole sentence is the card's hover and the title button's description above.
       line.title = why;
       body.appendChild(line);
       described.push(line.id);

@@ -206,6 +206,90 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		await marks(page, []);
 	});
 
+	test("marks a moved card with a ring the note's paper cannot swallow", async () => {
+		const page = await board.reuse();
+		// Execute's own paper is the accent's soft tone, so a fill would have painted this card the
+		// colour it already is and the mark would have said nothing. The mark is a ring for that
+		// reason, and this case reads the computed style rather than the attribute: a rule that
+		// loses to the paper at equal specificity — whatever order the two land in — fails here.
+		const card = '#lane-execute .board-row[data-card="%s"]';
+		// A card of this case's own, walked to Execute: the seeded blocker has been finished by an
+		// earlier case, and the lane the mark has to survive on is the one whose paper is the accent.
+		const executing = await board.store.create(
+			{ title: "Settle refunds nightly", paths: [] },
+			CORE,
+			clock.now() + 39_000,
+		);
+		await advance(board.store, executing.id, "execute", { owner: CORE }, clock.now() + 39_500);
+		const selector = card.replace("%s", executing.id);
+		await page.locator(selector).waitFor({ timeout: PAINT_MS });
+		// The card arrived a moment ago, so it is news itself: wait for its ring to go, so what this
+		// case reads is the card at rest rather than the mark it was born with.
+		await page.waitForFunction(
+			(selector) => {
+				const node = (globalThis as unknown as { document: Doc }).document.querySelector(selector);
+				if (node === null) return false;
+				const style = (
+					globalThis as unknown as { getComputedStyle(node: ElementLike): { outlineStyle: string } }
+				).getComputedStyle(node);
+				return style.outlineStyle === "none";
+			},
+			selector,
+			{ timeout: PAINT_MS },
+		);
+		const read = (selector: string) =>
+			page.$eval(selector, (node) => {
+				const style = (
+					globalThis as unknown as {
+						getComputedStyle(node: ElementLike): {
+							backgroundColor: string;
+							outlineColor: string;
+							outlineStyle: string;
+							outlineWidth: string;
+							outlineOffset: string;
+						};
+					}
+				).getComputedStyle(node);
+				return {
+					background: style.backgroundColor,
+					outline: `${style.outlineWidth} ${style.outlineStyle} ${style.outlineColor}`,
+					outlineColor: style.outlineColor,
+					offset: style.outlineOffset,
+				};
+			});
+		const resting = await read(selector);
+		// The note is the holder's: a card in a lane with an owner refuses anyone else's, and this card
+		// was walked to Execute by billing-core.
+		await board.store.mutate(executing.id, { kind: "note", text: "read by a peer" }, CORE, clock.now() + 40_000);
+		// This card's own attribute, not the set: the frame that carries the note may still be the one
+		// that carried the card's arrival, and the mark is about this card either way.
+		await page.waitForFunction(
+			(selector) => {
+				const node = (globalThis as unknown as { document: Doc }).document.querySelector(selector);
+				return node !== null && node.getAttribute("data-changed") === "true";
+			},
+			selector,
+			{ timeout: PAINT_MS },
+		);
+		const marked = await read(selector);
+		// The paper is the lane's, before and after: the mark does not repaint the identity of the
+		// card it marks, which is also what keeps it visible on the lane whose paper is its colour.
+		expect(marked.background).toBe(resting.background);
+		expect(marked.outline).toBe("2px solid " + marked.outlineColor);
+		expect(marked.outlineColor).not.toBe(marked.background);
+		expect(marked.offset).toBe("-2px");
+		// And the state leaves no ring behind once the window closes.
+		await page.waitForFunction(
+			(selector) => {
+				const node = (globalThis as unknown as { document: Doc }).document.querySelector(selector);
+				return node !== null && node.getAttribute("data-changed") === null;
+			},
+			selector,
+			{ timeout: PAINT_MS },
+		);
+		expect((await read(selector)).outline).toBe(resting.outline);
+	});
+
 	test("keeps the reader's card when a frame rebuilds its lane", async () => {
 		const page = await board.reuse();
 		// j walks the drawn cards and reads the focused one, so a frame that took the focus

@@ -10,7 +10,7 @@
  * with rows under it, and the only box on the page is the record in its dialog.
  */
 
-import { LANE_RULES, LANES } from "../../../lib/board/lanes.ts";
+import { LANE_RULES, LANES, type LaneRole } from "../../../lib/board/lanes.ts";
 import { BOARD_TONES } from "../../../lib/board/tone.ts";
 import { WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../../lib/web/index.ts";
 
@@ -25,12 +25,28 @@ export const PICKER_MQ = 1180;
 
 /**
  * A lane's colour, from the lane table: one role per lane, held in one custom property
- * and read by the kit's `.bf-row__mark`, `.bf-lane__head`, `.bf-lane__dot`, the Team
- * tab's swimlane, and the card dialog's state dot.
+ * and read by the kit's `.bf-lane__head`, `.bf-lane__dot`, the Team tab's swimlane and its
+ * rows' marks, and the card dialog's state dot.
+ *
+ * The lane also owns the card's paper — the soft tone its role names — so a note's colour is
+ * the lane it is in and never a decoration of its own: five lanes, five papers, and a card
+ * that moves changes colour with the column it lands in. `muted` has no soft tone of its own,
+ * and the pool is the quietest lane, so it keeps the raised plane for paper.
  */
+const LANE_PAPER: Record<LaneRole, string> = {
+	muted: "--raised",
+	warn: "--search-soft",
+	accent: "--accent-soft",
+	danger: "--danger-soft",
+	success: "--success-soft",
+};
+
 const LANE_ROLE_CSS = LANES.map((lane) => {
 	const role = LANE_RULES[lane].role;
-	return `.board-lane[data-lane="${lane}"],.bf-row[data-lane="${lane}"],.board-dialog__state[data-lane="${lane}"],.board-dot[data-lane="${lane}"]{--lane-role:var(--${role})}`;
+	return (
+		`.board-lane[data-lane="${lane}"],.bf-row[data-lane="${lane}"],.board-dialog__state[data-lane="${lane}"],.board-dot[data-lane="${lane}"]{--lane-role:var(--${role})}` +
+		`.bf-row[data-lane="${lane}"]{--note-paper:var(${LANE_PAPER[role]})}`
+	);
 }).join("\n");
 
 /**
@@ -85,11 +101,16 @@ ${WEB_COMPONENTS_CSS}
 /* One way back out of a filter that matched nothing, under the sentence that says so. */
 .board-no-cards .bf-btn{margin-top:var(--space-2)}
 
-/* Lanes: a head with a tone rule and rows under it. A lane is sized by the work it holds
-   rather than by its share of the row, so one holding nothing narrows to a rail and hands
-   the width to the lanes carrying rows. */
+/* Lanes: a head with a tone rule and boxes under it, spaced rather than ruled. A lane is
+   sized by the work it holds rather than by its share of the row, so one holding nothing
+   narrows to a rail and hands the width to the lanes carrying rows. */
 .board-lanes{display:flex;flex-wrap:nowrap;gap:var(--space-4);align-items:start}
-.board-lane{--lane-count:0;display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0;transition:flex-grow 200ms ease}
+/* The face is the note's index, not its record: what it is, what it says, where it is, and
+   whose it is — at one height on every card, so a column of twelve reads as a stack rather
+   than a ragged list. The reason a card sits where it does is no longer drawn here.
+   The four boxes are pinned from the type tokens rather than measured, so a one-line title and
+   an absent kind still occupy what their neighbours occupy. */
+.board-lane{--lane-count:0;--face-top:calc(var(--fs-xs) * var(--lh-normal));--face-title:calc(var(--fs-sm) * var(--lh-snug) * 2);--face-hints:calc(var(--fs-xs) * var(--lh-normal));--face-meta:calc(var(--fs-xs) * var(--lh-normal));--face-h:calc(var(--face-top) + var(--face-title) + var(--face-hints) + var(--face-meta) + var(--space-1) * 3);display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0;transition:flex-grow 200ms ease}
 /* The lane count is a count, not a design token: the client sets it from the snapshot and
    declares its default here, so a lane whose count never arrived is an ordinary lane
    rather than a variable nobody defines. */
@@ -106,19 +127,38 @@ ${WEB_COMPONENTS_CSS}
 .board-lane__toggle:hover::after{color:var(--accent)}
 .board-lane__toggle[aria-expanded="false"]::after{content:"▸"}
 
-/* A row: the kit's list shape, with the card's own body. The title is the page's one
-   focusable thing inside a row; the row around it is the larger target for a pointer. */
-.board-row__body{min-width:0}
+/* A card is a note: a tinted rectangle with no edge drawn round it, set off from its
+   neighbours by the gap alone, so the lane shows paper and space rather than a grid of lines.
+   Its height is the face's boxes plus its padding — stated once, so every note in a lane is
+   the same size and the column reads as a stack of notes rather than a ragged list. */
+.board-lane .bf-lane__list{gap:var(--space-2)}
+.board-lane .board-row{grid-template-columns:minmax(0,1fr);height:calc(var(--face-h) + var(--space-2) * 2);overflow:hidden;align-content:stretch;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md)}
+/* The card the reader walked to wears the accent outside its edge; a card a peer's write just
+   moved wears it inside, so the two never read as one state. */
+.board-lane .board-row[data-current="true"]{outline:2px solid var(--accent)}
+/* A card whose file moved since the last frame is marked for a breath: a peer's write is news,
+   and where it landed is the whole of what a live board owes a reader. A ring rather than a
+   fill, because the face is now the lane's paper — a fill would repaint the paper this card is
+   identified by, and on Execute's own accent-soft paper it would paint nothing at all. A ring
+   also cannot be swallowed by a background rule at equal specificity, whatever order the two
+   land in. The mark leaves with its attribute, so the rule states a colour and no timing. */
+.board-lane .board-row[data-changed="true"]{outline:2px solid var(--accent);outline-offset:-2px}
+/* A card's body fills the note, and the last line is pinned to its foot: the holder, the age
+   and the history sit on the card's bottom edge whatever the title and the hints above them
+   measure, so a column of notes lines up along its last line as well as its top. */
+.board-row__body{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
+/* The note's head: what it is, in the order a reader sorts a lane by — its number, the kind of
+   work with its breaking marker, and the order it is in. */
+.board-row__top{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0;font:var(--fs-xs) var(--font-mono);white-space:nowrap;overflow:hidden}
+/* The number is never dropped; the kind and the order are what give way in a narrow lane. */
+.board-row__top > :not(.bf-row__id){flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.board-row__top > .bf-row__id{flex:0 0 auto}
 .board-row__head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
 .board-row__head .bf-row__title{appearance:none;border:0;background:none;padding:0;text-align:left;cursor:pointer}
 .board-row__head .bf-row__title:hover{color:var(--accent)}
 .board-row[data-lane="done"] .bf-row__title{color:var(--muted)}
 .board-row[data-visited="true"] .bf-row__title{color:var(--muted)}
 .board-row[data-current="true"] .bf-row__title{color:var(--text)}
-/* A card whose file moved since the last frame wears the accent-soft face for a breath: a
-   peer's write is news, and where it landed is the whole of what a live board owes a reader.
-   The mark leaves with its attribute, so the rule states a colour and no timing of its own. */
-.board-row[data-changed="true"]{background:var(--accent-soft)}
 /* How much history the row carries and how recent it is: a count and a stamp, in the
    meta line's own voice, so a row with ten notes cannot look like one with none. */
 .board-row__notes{display:inline-flex;align-items:baseline;gap:var(--space-1);font-variant-numeric:tabular-nums}
@@ -129,7 +169,9 @@ ${WEB_COMPONENTS_CSS}
 .board-row__priority--low{color:var(--dim)}
 /* A path has no spaces to break at, so the title breaks inside a word rather than overflowing. */
 .board-row__head .bf-row__title{overflow-wrap:anywhere}
-.board-row__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:2px 0 0;padding:0;list-style:none}
+/* A hint line is one line: a lane narrower than its paths clips them rather than growing the
+   face, and each hint's whole path is on its own hover and in the plus-N list beside it. */
+.board-row__paths{display:flex;flex-wrap:nowrap;gap:var(--space-1) var(--space-2);margin:2px 0 0;padding:0;list-style:none;max-height:var(--face-hints);overflow:hidden}
 /* A tag is one line and nowrap by design, so an owner label or a path longer than the row
    would spill past it: clipped to the row instead, with the whole of it on the hover title. */
 .board-row__paths li{min-width:0;max-width:100%}
@@ -137,6 +179,16 @@ ${WEB_COMPONENTS_CSS}
 /* The +N marker is the row's trailing element, not another hint: pushed to the end, so a
    wrap never leaves it alone under the paths it counts. */
 .board-row__more{margin-left:auto}
+/* The meta line is the note's footer: whose it is at one end, when it was last written with the
+   history beside it at the other. One line, clipped rather than wrapped, so a narrow lane never
+   grows the note. The holder wears no chip: a leading bar is what a path wears. */
+.board-lane .bf-row__meta{display:flex;flex-wrap:nowrap;align-items:baseline;gap:var(--space-2);margin:0;margin-top:auto;line-height:var(--lh-normal);max-height:var(--face-meta);overflow:hidden;white-space:nowrap}
+.board-lane .bf-row__meta > .board-row__owner{flex:0 0 auto;color:var(--text)}
+.board-lane .bf-row__meta > [data-at]{margin-left:auto}
+.board-lane .bf-row__meta .board-row__notes{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* The detail the face stopped drawing stays the card's: still in the document, still the title
+   button's description for j/k and a screen reader, still the hover, and the dialog draws it. */
+.board-lane .bf-row__reason{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
 /* One lane role per lane, set once and read by the kit's mark, head and dot. */
 ${LANE_ROLE_CSS}
@@ -294,7 +346,7 @@ ${DIALOG_TONE_CSS}
    a number in the face the rest of the page's ages wear. */
 .board-dialog__age{font-variant-numeric:tabular-nums;color:var(--muted)}
 
-.board-skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface)}
+.board-skeleton{height:calc(var(--face-h) + var(--space-2) * 2);margin-bottom:var(--space-2);border-radius:var(--radius-md);background:var(--surface)}
 
 /* One lane at a time, from the width where five lanes stop fitting beside each other. */
 @media (max-width:${PICKER_MQ}px){
