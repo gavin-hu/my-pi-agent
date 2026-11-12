@@ -97,8 +97,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			"Invoice totals round the wrong way",
 		]);
 		expect(await titlesIn(page, "execute")).toEqual(["Billing webhook accepts orders"]);
-		// Past six finished cards the lane starts folded, so its rows are in the document
-		// but hidden: a reader clicks the head to see them.
+		// Past six finished cards the lane starts folded, so its rows are in the document but hidden: a reader clicks the head to see them.
 		expect(await page.$eval("#lane-head-done", (node) => node.getAttribute("aria-expanded"))).toBe("false");
 		expect(await hidden(page, "#lane-done")).toBe(true);
 		// A folded lane wears the rail the stylesheet draws and the narrow layout sizes.
@@ -107,9 +106,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("names itself in the tab, and links the mark the header draws", async () => {
 		const page = await openPage();
-		// A tab is read from a strip of other tabs: the repository's own name tells two boards
-		// apart, and the count is the reason a tab is read at all. Both need the store, so the
-		// client paints them; the head's `board` is what a tab shows before the first frame.
+		// A tab is read from a strip of other tabs: the repository's own name tells two boards apart, and the count is the reason a tab is read at
+		// all. Both need the store, so the client paints them; the head's `board` is what a tab shows before the first frame.
 		await page.waitForFunction(
 			() => (globalThis as unknown as { document: Doc }).document.title.includes("open"),
 			undefined,
@@ -124,8 +122,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		expect(icons).toHaveLength(2);
 		for (const href of icons) expect(href.startsWith("data:image/svg+xml,")).toBe(true);
 
-		// And the browser draws it under the page's own CSP: an icon it refused, or a URI it
-		// could not parse, would report no width at all.
+		// And the browser draws it under the page's own CSP: an icon it refused, or a URI it could not parse, would report no width at all.
 		const drawn = await page.evaluate(
 			() =>
 				new Promise<number>((resolve) => {
@@ -174,8 +171,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("filters on a note's words, which the tool's query reads too", async () => {
 		const page = await openPage();
-		// Nothing on the card's face says "retries": the word lives in a note, and the
-		// filter runs the module's own predicate rather than a copy of it.
+		// Nothing on the card's face says "retries": the word lives in a note, and the filter runs the module's own predicate rather than a copy of
+		// it.
 		await page.fill("#board-filter", "retries");
 		await rowCount(page, "execute", 1);
 		expect(await titlesIn(page, "execute")).toEqual(["Billing webhook accepts orders"]);
@@ -210,15 +207,15 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.setViewportSize({ width: 860, height: 900 });
 		await page.waitForTimeout(200);
 		expect(await page.isVisible("#board-picker")).toBe(true);
-		// The rail is one button per lane, and it names the lane it is showing through
-		// aria-pressed; the other lanes are out of the document's flow: one column, one lane.
+		// The rail is one button per lane, and it names the lane it is showing through aria-pressed; the other lanes are out of the document's flow:
+		// one column, one lane.
 		expect(await page.$$eval("#board-picker .bf-tabs__item", (nodes) => nodes.length)).toBe(5);
-		expect(
-			await page.$eval('#board-picker [data-picker-lane="backlog"]', (n) => n.getAttribute("aria-pressed")),
-		).toBe("true");
+		expect(await page.$eval('#board-picker [data-picker-lane="backlog"]', (n) => n.getAttribute("aria-pressed"))).toBe(
+			"true",
+		);
 		await page.click('#board-picker [data-picker-lane="execute"]');
-		// The rail shows one lane; a lane's list is the fold's own state, so the wait is on the
-		// section a reader sees rather than on the list inside it.
+		// The rail shows one lane; a lane's list is the fold's own state, so the wait is on the section a reader sees rather than on the list inside
+		// it.
 		await page.waitForFunction(
 			() =>
 				(
@@ -230,12 +227,12 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			{ timeout: PAINT_MS },
 		);
 		expect(await page.isVisible('.bf-lane[data-lane="execute"]')).toBe(true);
-		expect(
-			await page.$eval('#board-picker [data-picker-lane="execute"]', (n) => n.getAttribute("aria-pressed")),
-		).toBe("true");
-		expect(
-			await page.$eval('#board-picker [data-picker-lane="backlog"]', (n) => n.getAttribute("aria-pressed")),
-		).toBe("false");
+		expect(await page.$eval('#board-picker [data-picker-lane="execute"]', (n) => n.getAttribute("aria-pressed"))).toBe(
+			"true",
+		);
+		expect(await page.$eval('#board-picker [data-picker-lane="backlog"]', (n) => n.getAttribute("aria-pressed"))).toBe(
+			"false",
+		);
 	});
 
 	test("names a lane's count in words, so the heading is not one glued word", async () => {
@@ -258,16 +255,15 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const captions = await page.$$eval(".bf-section__cap", (nodes) =>
 			Array.from(nodes as ArrayLike<ElementLike>, (node) => node.getAttribute("aria-label") ?? ""),
 		);
-		// The team page carries more sections than it once did (a needs-you queue and a
-		// waiting queue sit beside the three columns), so each caption is found by its name.
+		// The team page carries more sections than it once did (a needs-you queue and a waiting queue sit beside the three columns), so each caption
+		// is found by its name.
 		expect(captions.some((caption) => /^AGENTS, \d+ agents?$/.test(caption))).toBe(true);
 		expect(captions.some((caption) => /^ACTIVE WORK, \d+ cards?$/.test(caption))).toBe(true);
 		expect(captions.some((caption) => /^ACTIVITY, \d+ rows?$/.test(caption))).toBe(true);
 	});
 
 	test("says when the filter matches nothing, and gives the way back", async () => {
-		// Cases share one page, so the view and the filter are reset rather than assumed: a
-		// preceding case may have left the Team tab open, where the board's filter shows nothing.
+		// Cases share one page: start from the board view with no filter.
 		const page = await openPage();
 		await page.click("#tab-board");
 		await page.fill("#board-filter", "");
@@ -312,9 +308,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("wears its kind, its priority and its paths as fields, not as prose", async () => {
 		const page = await openPage();
-		// The executing card is the seeded one with a priority, so its meta line is the case:
-		// what kind of work it is leads, who holds it is a neutral tag, and how urgent it is is
-		// a word beside that tag.
+		// The executing card is the seeded one with a priority, so its meta line is the case: what kind of work it is leads, who holds it is a
+		// neutral tag, and how urgent it is is a word beside that tag.
 		const meta = "#lane-execute .bf-row .bf-row__meta";
 		expect(await page.$eval(`${meta} .bf-row__kind`, (n) => n.textContent)).toBe("feature \u00b7 breaking");
 		expect(await page.$eval(`${meta} .bf-tag`, (n) => n.textContent)).toBe("billing-core");
@@ -336,8 +331,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			const card = `.bf-row[data-card="${added.id}"]`;
 			await page.waitForSelector(`${card} .board-row__paths`, { timeout: PAINT_MS });
 
-			// The marker trails the row as a count, and the hints past the third live in the dialog
-			// until a reader hovers it — one per line, as the tag's title.
+			// The marker trails the row as a count, and the hints past the third live in the dialog until a reader hovers it — one per line, as the
+			// tag's title.
 			const rest = await page.$eval(`${card} .board-row__paths .bf-tag[aria-hidden="true"]`, (node) => ({
 				text: node.textContent ?? "",
 				title: node.getAttribute("title") ?? "",
@@ -358,9 +353,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("describes the reason a clamped card cannot show, so the keyboard reaches it", async () => {
 		const page = await openPage();
-		// The reason line clamps, and its whole sentence is only on a hover title, which j/k
-		// never shows: the title button carries the same line as its description, so focusing
-		// it — by walking or by Tab — says the sentence a reader came for.
+		// The reason line clamps, and its whole sentence is only on a hover title, which j/k never shows: the title button carries the same line as
+		// its description, so focusing it — by walking or by Tab — says the sentence a reader came for.
 		const id = await page.$eval("#lane-execute .bf-row", (node) => node.getAttribute("data-card") ?? "");
 		const line = `.bf-row[data-card="${id}"] .bf-row__reason`;
 		const reason = await page.textContent(line);
@@ -375,8 +369,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 	});
 
 	test("says how many notes a card carries, and the last note's age only when it adds a fact", async () => {
-		// A note is itself a write, so the newest note is usually the newest stamp on the card:
-		// printing its age beside the updated one gave the meta line two identical bare numbers.
+		// A note is itself a write, so the newest note is usually the newest stamp on the card: printing its age beside the updated one gave the
+		// meta line two identical bare numbers.
 		const quiet = await store.create(
 			{ title: "A card whose note was its last write", paths: [], note: "one note" },
 			CORE,
@@ -387,8 +381,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			CORE,
 			clock.now(),
 		);
-		// Two days on, so the claim's stamp and the note's read as different ages: the fixture's
-		// clock is fixed, and a difference of minutes would round to the same day count.
+		// Two days on, so the claim's stamp and the note's read as different ages: the fixture's clock is fixed, and a difference of minutes would
+		// round to the same day count.
 		await store.mutate(busy.id, { kind: "claim" }, CORE, clock.now() + 2 * 86_400_000);
 		try {
 			const page = await openPage();
@@ -398,9 +392,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			// No stamp of its own, so nothing to keep honest and nothing to hover for.
 			expect(await page.$$eval(`${quietChip} [data-at]`, (nodes) => nodes.length)).toBe(0);
 
-			// A later write that is not a note leaves the two ages saying different things, so
-			// the note's own earns its place: it says when the conversation went quiet, which
-			// the card's updated stamp cannot.
+			// A later write that is not a note leaves the two ages saying different things, so the note's own earns its place: it says when the
+			// conversation went quiet, which the card's updated stamp cannot.
 			const busyChip = `.bf-row[data-card="${busy.id}"] .board-row__notes`;
 			const updated = await page.textContent(`.bf-row[data-card="${busy.id}"] .bf-row__meta [data-at]`);
 			const written = await page.textContent(busyChip);
@@ -425,9 +418,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 	});
 
 	test("reads a note as the Markdown it was typed as, and refuses a target it should", async () => {
-		// A note is the one field the page hands to a parser, so what it may become is worth
-		// pinning: the kit's inline renderer appends text and four atoms, and a link is made
-		// only for a target its policy allows.
+		// A note is the one field the page hands to a parser, so what it may become is worth pinning: the kit's inline renderer appends text and
+		// four atoms, and a link is made only for a target its policy allows.
 		const note =
 			"see `retry.ts` and **do not** widen MAX_TRIES — https://example.com/notes and [x](javascript:alert(1))";
 		const added = await store.create({ title: "A card with Markdown in a note", paths: [], note }, CORE, clock.now());
@@ -444,8 +436,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				nodes.map((node) => ({ text: node.textContent ?? "", href: node.getAttribute("href") ?? "" })),
 			);
 			expect(links).toEqual([{ text: "https://example.com/notes", href: "https://example.com/notes" }]);
-			// The renderer is the dialog's own: the page's globals stay the runtime's bodies, so a
-			// fragment cannot reach a helper the dialog happens to carry.
+			// The renderer is the dialog's own: the page's globals stay the runtime's bodies, so a fragment cannot reach a helper the dialog happens to
+			// carry.
 			expect(await page.evaluate(() => typeof (globalThis as unknown as { renderInline?: unknown }).renderInline)).toBe(
 				"undefined",
 			);
@@ -470,15 +462,13 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.keyboard.press("j");
 		expect(await markOf("1")).toEqual({ current: "true", visited: null });
 
-		// Opening it is reading it, and Esc leaves the reader where they were rather than
-		// at the top of the lane.
+		// Opening it is reading it, and Esc leaves the reader where they were rather than at the top of the lane.
 		await page.keyboard.press("Enter");
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		await page.keyboard.press("Escape");
 		expect(await markOf("1")).toEqual({ current: "true", visited: "true" });
 
-		// The next step moves the mark one card on and leaves the read one behind it, which
-		// is the place a wrap used to lose.
+		// The next step moves the mark one card on and leaves the read one behind it, which is the place a wrap used to lose.
 		await page.keyboard.press("j");
 		expect(await markOf("1")).toEqual({ current: null, visited: "true" });
 		expect(await markOf("2")).toEqual({ current: "true", visited: null });
@@ -494,9 +484,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const toggle = await (await page.$("#lane-head-plan"))?.boundingBox();
 		expect(Math.round(toggle?.height ?? 0)).toBeGreaterThanOrEqual(24);
 
-		// 320px: the five lane buttons wrap, so none of them — least of all the pressed one — is
-		// out of reach without a sideways scroll nobody can see. The picker is the Board tab's, so
-		// this stays on it rather than leaving the tab switch for a tab that has no picker.
+		// 320px: the five lane buttons wrap, so none of them — least of all the pressed one — is out of reach without a sideways scroll nobody can
+		// see. The picker is the Board tab's, so this stays on it rather than leaving the tab switch for a tab that has no picker.
 		await page.setViewportSize({ width: 320, height: 720 });
 		await page.waitForTimeout(200);
 		const picker = await page.evaluate(() => {
@@ -509,8 +498,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 	});
 
 	test("says an offer nobody took, in the words the queue uses", async () => {
-		// The offer is `team`'s verb; what the page owes a lead is the age, because that is
-		// the difference between nobody having looked and nobody taking it.
+		// The offer is `team`'s verb; what the page owes a lead is the age, because that is the difference between nobody having looked and nobody
+		// taking it.
 		const now = clock.now();
 		await store.mutate("1", { kind: "offer" }, LEAD, now - 45_000);
 		try {
@@ -519,9 +508,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				text: node.textContent ?? "",
 				tone: node.getAttribute("data-tone"),
 			}));
-			// The age is the browser's clock against the fixture's fixed one, so the test pins
-			// the sentence's shape and the fact; the age rule itself is `formatAge`'s own unit
-			// test, which is the only place it can be pinned without a clock.
+			// The age is the browser's clock against the fixture's fixed one, so the test pins the sentence's shape and the fact; the age rule itself
+			// is `formatAge`'s own unit test, which is the only place it can be pinned without a clock.
 			expect(reason.text).toMatch(/^offered \d+[a-z] ago \u2014 nobody took it$/);
 			// An offer is merely true of the card: the tone table draws it muted, not urgent.
 			expect(reason.tone).toBe("muted");
@@ -551,8 +539,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("keeps a path longer than the row inside it, and the whole value on its title", async () => {
 		const page = await openPage();
-		// A path with no break opportunity, longer than any lane: a one-line, nowrap tag used to
-		// spill out of the row and over the lane beside it.
+		// A path with no break opportunity, longer than any lane: a one-line, nowrap tag used to spill out of the row and over the lane beside it.
 		const path = `src/billing/reconciliation/legacy-adapter/compat/shim/${"x".repeat(90)}/index.ts`;
 		const added = await store.create({ title: "A card with a long hint", paths: [path] }, CORE, clock.now());
 		try {
@@ -572,9 +559,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("names the repository in the header and the root on its hover", async () => {
 		const page = await openPage();
-		// The toolbar's one permanent fact is the board it is a board of: the file says it, so it
-		// is readable before a frame arrives, and the client keeps it true from the snapshot. The
-		// seat the page is served as is not a fact about the cards, and the page no longer says it.
+		// The toolbar's one permanent fact is the board it is a board of: the file says it, so it is readable before a frame arrives, and the client
+		// keeps it true from the snapshot. The seat the page is served as is not a fact about the cards, and the page no longer says it.
 		expect(await page.textContent("#board-repo")).toBe(REPO);
 		expect(await page.getAttribute("#board-repo", "title")).toBe(ROOT);
 		expect(await page.$("#board-me")).toBeNull();
@@ -600,8 +586,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// Nothing is refused, so the line has no second statement to make on hover.
 		expect(await page.getAttribute("#board-where", "title")).toBeNull();
 
-		// A file this build cannot read is counted beside the size, and named on the hover with
-		// the reason the store refused it: a count alone is a fact a reader cannot act on.
+		// A file this build cannot read is counted beside the size, and named on the hover with the reason the store refused it: a count alone is a
+		// fact a reader cannot act on.
 		const unreadable = join(directory, "cards", "0099.json");
 		writeFileSync(unreadable, JSON.stringify({ v: 2, id: "99", title: "From a newer build" }));
 		try {
@@ -624,18 +610,17 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 	});
 
 	test("pins the lead first, folds the owners nothing answers to, and keeps a frame still", async () => {
-		// A board with a long history: three labels that finished their work and are gone, one
-		// that still holds a card, and two sessions that are here. The three are history — the
-		// list only grows, which is why the page states them once — and the holder is the row the
-		// fold must not take, because the queue is reporting its work as free.
+		// A board with a long history: three labels that finished their work and are gone, one that still holds a card, and two sessions that are
+		// here. The three are history — the list only grows, which is why the page states them once — and the holder is the row the fold must not
+		// take, because the queue is reporting its work as free.
 		const folder = mkdtempSync(join(tmpdir(), "pi-board-history-"));
-		// The lead is a configured name, and the board's is the session this page serves as: the
-		// pin is read from the config, not from whoever happened to claim a card.
+		// The lead is a configured name, and the board's is the session this page serves as: the pin is read from the config, not from whoever
+		// happened to claim a card.
 		const history = createStore(folder, { config: { wip: DEFAULT_WIP, lead: "team-lead" } });
 		await history.ensure();
 		const at = clock.now();
-		// The bus's own clock, moved by hand: a heartbeat rewrites `lastSeen` without changing one
-		// printed fact, which is the frame that must leave the column where the reader put it.
+		// The bus's own clock, moved by hand: a heartbeat rewrites `lastSeen` without changing one printed fact, which is the frame that must leave
+		// the column where the reader put it.
 		let beat = 0;
 		// And a fact the bus does carry: mail, which the roster signature does watch.
 		let mail = 0;
@@ -707,9 +692,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			expect(await page.textContent(".board-mail")).toContain("billing-holder");
 			expect(await page.getAttribute(".board-mail .board-dot", "data-state")).toBe("absent");
 
-			// A frame that changes nothing in a column leaves the reader's fold — and the focus on
-			// it — exactly where they left them. A heartbeat is not in the signature: a live row
-			// prints no age, so the frame after every beat must not refill the list.
+			// A frame that changes nothing in a column leaves the reader's fold — and the focus on it — exactly where they left them. A heartbeat is
+			// not in the signature: a live row prints no age, so the frame after every beat must not refill the list.
 			const agentsSig = () =>
 				page.$eval('.board-team__column[data-column="agents"]', (node) => node.getAttribute("data-sig"));
 			const settled = await agentsSig();
@@ -717,16 +701,15 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			await page.waitForTimeout(1_100);
 			expect(await agentsSig()).toBe(settled);
 
-			// The filter narrows cards, so the roster stands still: a label the query names changes
-			// neither the fold nor the column's signature, and only the middle column empties.
+			// The filter narrows cards, so the roster stands still: a label the query names changes neither the fold nor the column's signature, and
+			// only the middle column empties.
 			await page.fill("#board-filter", "billing-old");
 			await page.waitForSelector('[data-pane="needs-you"]:has-text("nothing matches")', { timeout: PAINT_MS });
 			expect(await rows()).toBe(4);
 			expect(await page.getAttribute(history, "aria-expanded")).toBe("false");
 			expect(await agentsSig()).toBe(settled);
 
-			// Mail is a fact the column does not print, and the roster's own chip is: it arrives on
-			// the next frame without anyone reloading.
+			// Mail is a fact the column does not print, and the roster's own chip is: it arrives on the next frame without anyone reloading.
 			await page.fill("#board-filter", "");
 			mail = 1;
 			await page.waitForFunction(
