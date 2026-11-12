@@ -171,9 +171,9 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CLIENT_JS).toContain('pill.setAttribute("aria-label", "quiet for " + ago(agent.seen))');
 		// The dot is coloured by the state, and a state with no record is a hollow ring.
 		for (const state of ["live", "quiet", "gone"]) {
-			expect(BOARD_CSS).toContain(`.board-team__dot[data-state="${state}"]{background:var(`);
+			expect(BOARD_CSS).toContain(`.board-dot[data-state="${state}"]{background:var(`);
 		}
-		expect(BOARD_CSS).toContain('.board-team__dot[data-state="absent"],.board-team__dot[data-state="unknown"]');
+		expect(BOARD_CSS).toContain('.board-dot[data-state="absent"],.board-dot[data-state="unknown"]');
 	});
 
 	test("draws a mission card's id as a button, and the whole queue is reachable behind its fold", () => {
@@ -232,12 +232,10 @@ describe("the mission control's contracts", () => {
 		// One selector for everything that opens a card, so the walk and the dialog's "n of m"
 		// agree about what a card on this page is.
 		expect(BOARD_CLIENT_JS).toContain(
-			'var nodes = document.querySelectorAll(".board-card, .board-team__decision, .board-team__card");',
+			'var nodes = document.querySelectorAll(".bf-row, .board-decision, .board-mission");',
 		);
-		expect(BOARD_CLIENT_JS).toContain('here.closest(".board-card, .board-team__decision, .board-team__card")');
-		expect(BOARD_CLIENT_JS).toContain(
-			'.querySelector(".board-card__title, .board-team__open, .board-team__card-title")',
-		);
+		expect(BOARD_CLIENT_JS).toContain('here.closest(".bf-row, .board-decision, .board-mission")');
+		expect(BOARD_CLIENT_JS).toContain('.querySelector(".bf-row__title, .board-decision__open, .board-mission__title")');
 	});
 
 	test("is three columns with one page scroll, and the grid is the only thing it lays out", () => {
