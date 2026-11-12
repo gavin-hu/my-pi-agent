@@ -59,7 +59,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 		// The sheet is modal for the keyboard: a key that walks the board does not reach behind it.
 		// It used to, because `/` and `t` read the modal flag and `j`/`k` did not.
 		await page.keyboard.press("j");
-		expect(await focusedClass(page)).toContain("bf-row__title");
+		expect(await focusedClass(page)).toContain("bf-btn");
 		await page.keyboard.press("Escape");
 		await page.waitForSelector("#keys-dialog", { state: "hidden", timeout: PAINT_MS });
 	});
