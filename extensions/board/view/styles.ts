@@ -89,7 +89,7 @@ ${WEB_COMPONENTS_CSS}
    rather than by its share of the row, so one holding nothing narrows to a rail and hands
    the width to the lanes carrying rows. */
 .board-lanes{display:flex;flex-wrap:nowrap;gap:var(--space-4);align-items:start}
-.board-lane{--lane-count:0;display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0}
+.board-lane{--lane-count:0;display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0;transition:flex-grow 200ms ease}
 /* The lane count is a count, not a design token: the client sets it from the snapshot and
    declares its default here, so a lane whose count never arrived is an ordinary lane
    rather than a variable nobody defines. */
@@ -115,6 +115,10 @@ ${WEB_COMPONENTS_CSS}
 .board-row[data-lane="done"] .bf-row__title{color:var(--muted)}
 .board-row[data-visited="true"] .bf-row__title{color:var(--muted)}
 .board-row[data-current="true"] .bf-row__title{color:var(--text)}
+/* A card whose file moved since the last frame wears the accent-soft face for a breath: a
+   peer's write is news, and where it landed is the whole of what a live board owes a reader.
+   The mark leaves with its attribute, so the rule states a colour and no timing of its own. */
+.board-row[data-changed="true"]{background:var(--accent-soft)}
 /* How much history the row carries and how recent it is: a count and a stamp, in the
    meta line's own voice, so a row with ten notes cannot look like one with none. */
 .board-row__notes{display:inline-flex;align-items:baseline;gap:var(--space-1);font-variant-numeric:tabular-nums}
@@ -319,7 +323,7 @@ ${DIALOG_TONE_CSS}
   .board-picker .bf-tabs__item[aria-pressed="true"]{border-color:var(--accent)}
 }
 @media (prefers-reduced-motion: reduce){
-  .board-row,.board-decision{transition:none}
+  .board-row,.board-decision,.board-lane{transition:none}
 }
 @media print{
   .board-lanes,.board-team__grid{grid-template-columns:minmax(0,1fr)}

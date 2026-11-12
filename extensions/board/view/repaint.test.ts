@@ -13,9 +13,10 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { Page } from "playwright-core";
 import type { Actor } from "../../../lib/board/rules.ts";
 import type { BoardStore } from "../../../lib/board/store.ts";
-import { focusedId } from "../../../test/helpers/board-dom.ts";
+import { type Doc, type ElementLike, focusedId } from "../../../test/helpers/board-dom.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { advance } from "../../../test/helpers/board-flow.ts";
 import {
@@ -56,6 +57,34 @@ async function seedBoard(store: BoardStore, now: number): Promise<void> {
 	// page with an age inside it, which is what the ticker has to keep honest.
 	const offered = await store.create({ title: "Refunds land in the wrong currency", paths: [] }, LEAD, now + 5_000);
 	await store.mutate(offered.id, { kind: "offer" }, LEAD, now + 6_000);
+}
+
+/** The ids wearing the change mark, in the order the page draws them. */
+async function changed(page: Page): Promise<string[]> {
+	return page.$$eval("[data-changed]", (nodes) =>
+		Array.from(nodes as ArrayLike<ElementLike>, (node) => node.getAttribute("data-card") ?? ""),
+	);
+}
+
+/**
+ * Wait until exactly these cards wear the mark.
+ *
+ * The window is one and a half seconds against a per-frame poll, so the wait is on the
+ * attribute rather than on a sleep: a mark that never arrived and a mark already cleared
+ * are the same picture by the time a fixed wait is over.
+ */
+async function marks(page: Page, ids: readonly string[]): Promise<void> {
+	await page.waitForFunction(
+		(expected) => {
+			const nodes = (globalThis as unknown as { document: Doc }).document.querySelectorAll("[data-changed]");
+			return (
+				nodes.length === expected.length &&
+				Array.from(nodes).every((node, at) => node.getAttribute("data-card") === expected[at])
+			);
+		},
+		ids,
+		{ timeout: PAINT_MS },
+	);
 }
 
 describe.skipIf(CHROME === undefined)("a frame", () => {
@@ -160,5 +189,34 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		await page.locator('#lane-done .board-row[data-card="2"]').waitFor({ state: "attached", timeout: PAINT_MS });
 		// It waits on nothing now, so the line is the card's own last note again.
 		await expect(reason()).resolves.toBe(NOTE);
+	});
+
+	test("marks the card that moved and the one that just arrived, and then lets the mark go", async () => {
+		const page = await board.reuse();
+		// A first frame is the whole board to somebody who just opened it, and marks nothing:
+		// every card wearing the mark would say no more than the board itself does.
+		expect(await changed(page)).toEqual([]);
+		await board.store.mutate("3", { kind: "note", text: "read by a peer" }, LEAD, clock.now() + 10_000);
+		await marks(page, ["3"]);
+		// A card that has just arrived is news in the same way, and the one that moved before it
+		// keeps the revision it had — so the mark is the card the frame is about, not the pile.
+		await board.store.create({ title: "Settle refunds nightly", paths: [] }, LEAD, clock.now() + 11_000);
+		await marks(page, ["5"]);
+		// The window is a breath, not a state: the board goes quiet and the mark leaves with it.
+		await marks(page, []);
+	});
+
+	test("keeps the reader's card when a frame rebuilds its lane", async () => {
+		const page = await board.reuse();
+		// j walks the drawn cards and reads the focused one, so a frame that took the focus
+		// would restart the walk at the first card rather than moving on from this one.
+		await page.keyboard.press("j");
+		expect(await focusedId(page)).toBe("card-title-1");
+		await board.store.mutate("3", { kind: "note", text: "read by a peer" }, LEAD, clock.now() + 10_000);
+		await page.locator('#lane-backlog .board-row[data-card="3"] .bf-row__reason').waitFor({ timeout: PAINT_MS });
+		// The lane was rebuilt whole, and the id outlived the node it named.
+		expect(await focusedId(page)).toBe("card-title-1");
+		await page.keyboard.press("j");
+		expect(await focusedId(page)).toBe("card-title-3");
 	});
 });

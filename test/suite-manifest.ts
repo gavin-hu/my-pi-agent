@@ -69,6 +69,8 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"verify",
 		"extension",
 		"transport/router",
+		"transport/server",
+		"transport/watch",
 		"view/behaviour",
 		"view/dialog",
 		"view/dialog-behaviour",
