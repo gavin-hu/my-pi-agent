@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `dev`: a frame is captured once the page has settled rather than after a fixed wait, and the PNG is
+  written only when a second shot agrees with it. Two captures of one tree used to come back with
+  the same layout and a few different glyph edges, so a re-shoot could commit either variant.
+
 - `board`: a contract line a card still owes stops printing as a blank. The transcript says
   `acceptance: missing` — the word a card's next step already uses — and the card dialog leaves the
   unwritten row out, because the reason line above the block already names it; an empty cell under a
