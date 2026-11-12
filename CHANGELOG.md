@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a lane head rides the pane's edge while a long lane scrolls. The lanes row stretched no
+  longer, so every lane was as tall as its own rows and a head pinned inside a two-card lane had
+  283px of travel before it left the top of the screen — the four quiet lanes' names and counts
+  with it. Every lane is now as tall as the board, so all five heads stay where the reader last
+  saw them.
+
 - `file-browse`: the file page and the per-file diff wear the kit again. Their head is the kit's
   record — title, meta, and one action group with a real gap — the rendered/raw and
   head/staged/worktree controls are the kit's tabs, so the current one is marked, and the header's

@@ -103,8 +103,11 @@ ${WEB_COMPONENTS_CSS}
 
 /* Lanes: a head with a tone rule and boxes under it, spaced rather than ruled. A lane is
    sized by the work it holds rather than by its share of the row, so one holding nothing
-   narrows to a rail and hands the width to the lanes carrying rows. */
-.board-lanes{display:flex;flex-wrap:nowrap;gap:var(--space-4);align-items:start}
+   narrows to a rail and hands the width to the lanes carrying rows. The row stretches its
+   lanes rather than starting them: a head pins inside its own lane's box, so a lane holding
+   two cards would otherwise carry its head off the top of the screen while the reader walks
+   a long one — the four quiet lanes' names and counts gone with it. */
+.board-lanes{display:flex;flex-wrap:nowrap;gap:var(--space-4);align-items:stretch}
 /* The face is the note's index, not its record: what it is, what it says, where it is, and
    whose it is — at one height on every card, so a column of twelve reads as a stack rather
    than a ragged list. The reason a card sits where it does is no longer drawn here.
@@ -113,7 +116,8 @@ ${WEB_COMPONENTS_CSS}
 .board-lane{--lane-count:0}
 /* The face's boxes are the lane's: every lane that holds a card draws the note from them. */
 .board-lane,.board-team .bf-lane{--face-top:calc(var(--fs-xs) * var(--lh-normal));--face-title:calc(var(--fs-sm) * var(--lh-snug) * 2);--face-hints:calc(var(--fs-xs) * var(--lh-normal));--face-meta:calc(var(--fs-xs) * var(--lh-normal));--face-h:calc(var(--face-top) + var(--face-title) + var(--face-hints) + var(--face-meta) + var(--space-1) * 3);display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0;transition:flex-grow 200ms ease}
-/* A lane head pins to the pane: one scroll box, and its heads are the landmarks in it. */
+/* A lane head pins to the pane: one scroll box, and every lane is as tall as the board, so
+   its heads are the landmarks in it for the whole scroll. */
 .board-lane .bf-lane__head{position:sticky;top:0;z-index:1;background:var(--canvas)}
 /* The lane count is a count, not a design token: the client sets it from the snapshot and
    declares its default here, so a lane whose count never arrived is an ordinary lane
