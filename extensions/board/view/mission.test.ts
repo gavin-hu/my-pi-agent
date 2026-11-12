@@ -158,7 +158,7 @@ describe("the mission control's contracts", () => {
 		// A caption is a count, not a share: the pill a column head draws has no total to show,
 		// and the ratio the panes' heads keep is their own (NEEDS YOU against the whole queue).
 		expect(BOARD_CLIENT_JS).toContain("board.captionOf = function (text, count, noun)");
-		expect(BOARD_CLIENT_JS).toContain('head.appendChild(el("span", N.teamCount, String(count)));');
+		expect(BOARD_CLIENT_JS).toContain('head.appendChild(el("span", "bf-section__count", String(count)));');
 		// A zero is drawn: an empty lane, an empty pane, and an empty column all say 0.
 		expect(BOARD_CLIENT_JS).toContain('slot.appendChild(el("p", N.teamEmpty');
 	});
@@ -190,7 +190,7 @@ describe("the mission control's contracts", () => {
 	});
 
 	test("says an empty lane, an empty pane, and an empty board in words", () => {
-		expect(BOARD_CLIENT_JS).toContain('section.appendChild(el("p", N.teamLaneEmpty, lane.empty))');
+		expect(BOARD_CLIENT_JS).toContain('section.appendChild(el("p", "bf-lane__empty", lane.empty))');
 		expect(BOARD_CLIENT_JS).toContain('"no mail is waiting"');
 		expect(BOARD_CLIENT_JS).toContain('"nothing has happened yet"');
 		// One sentence for the tab, with the columns folded away, when there is nothing at all.
