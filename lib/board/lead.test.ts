@@ -7,6 +7,19 @@
 
 import { describe, expect, test } from "bun:test";
 import { numberedCard } from "../../test/helpers/fixtures/board.ts";
+import {
+	accepted,
+	applyOp,
+	boardOf,
+	CORE,
+	executing,
+	LEAD as BOARD_LEAD,
+	NOW,
+	provedFor,
+	refusal,
+	VERIFY,
+	verifying,
+} from "../../test/helpers/fixtures/board-rules.ts";
 import { type Card } from "./card.ts";
 import {
 	announced,
@@ -26,6 +39,7 @@ import {
 	signRefusal,
 	signRecord,
 	signedAs,
+	signStale,
 	staleSpotCheck,
 	signedText,
 	type Sign,
@@ -265,5 +279,80 @@ describe("the announcement", () => {
 		const reviewed = card({ lane: "execute", owner: { label: "api-core" }, review: { by: THE_LEAD.label, at: 2 } });
 		expect(signRecord(reviewed, "review")).toMatchObject({ at: 2 });
 		expect(signRecord(reviewed, "approve")).toBeUndefined();
+	});
+});
+
+describe("signStale", () => {
+	test("the card's own clock, against the sign and the announcement that followed it", () => {
+		const stamp = { by: BOARD_LEAD.label, at: 2_000 };
+		expect(signStale(card({ updatedAt: 2_000 }), stamp)).toBe(false);
+		expect(signStale(card({ updatedAt: 2_001 }), stamp)).toBe(true);
+		// The announcement is the sign's own second write, so it buys the stamp the time it needs:
+		// reading the card's clock against the stamp alone refused the golden path (#398).
+		const told = { ...stamp, told: { at: 2_500 } };
+		expect(signStale(card({ updatedAt: 2_500 }), told)).toBe(false);
+		expect(signStale(card({ updatedAt: 2_501 }), told)).toBe(true);
+	});
+});
+
+describe("the stamp a repeat makes", () => {
+	/** One operation at an explicit moment, and the card it left. */
+	const at = (from: Card, op: Parameters<typeof applyOp>[1], moment: number, actor = BOARD_LEAD): Card =>
+		accepted(applyOp(from, op, actor, moment, boardOf(from))).card;
+	/** The run a card whose contract names `VERIFY` has to carry with every sign. */
+	const run = (moment: number) => ({ cmd: VERIFY, exit: 0, at: moment });
+
+	test("re-makes a sign the card has outgrown, so `done` can open again", () => {
+		// The sequence that stuck #416: sign, a write, a refusal naming "review again", and a repeat
+		// by the same signer — which used to leave the stamp where it was and so could never satisfy
+		// the gate it was told to satisfy.
+		const signed = at(verifying(), { kind: "review", verified: run(NOW + 1) }, NOW + 1);
+		const noted = at(signed, { kind: "note", text: "one more thing" }, NOW + 2, CORE);
+		expect(
+			refusal(
+				applyOp(noted, { kind: "move", lane: "done", artifact: provedFor(noted) }, CORE, NOW + 3, boardOf(noted)),
+			),
+		).toContain("was written after its spot-check");
+		const again = at(noted, { kind: "review", verified: run(NOW + 4) }, NOW + 4);
+		expect(again.review?.at).toBe(NOW + 4);
+		expect(again.review?.verified).toEqual(run(NOW + 4));
+		expect(
+			accepted(
+				applyOp(again, { kind: "move", lane: "done", artifact: provedFor(again) }, CORE, NOW + 5, boardOf(again)),
+			).card.lane,
+		).toBe("done");
+	});
+
+	test("re-makes a sign that speaks, even where the card has not outgrown the old one", () => {
+		// The widening: a repeat carrying text is a new sign, not only a repair. It re-stamps and
+		// re-announces, because the note it writes moves the card past the stamp it replaced.
+		const signed = at(executing(), { kind: "review" }, NOW + 1);
+		const said = accepted(
+			applyOp(signed, { kind: "review", text: "one more look" }, BOARD_LEAD, NOW + 2, boardOf(signed)),
+		);
+		expect(said.changed).toBe(true);
+		expect(said.card.review?.at).toBe(NOW + 2);
+		expect(said.card.notes.at(-1)?.text).toBe("one more look");
+	});
+
+	test("answers nothing for an identical sign that still speaks for the card", () => {
+		// No text and no write since the sign: the repeat rule's whole purpose — the sign there is
+		// already the one that was asked for.
+		const signed = at(executing(), { kind: "review" }, NOW + 1);
+		const again = applyOp(signed, { kind: "review" }, BOARD_LEAD, NOW + 1, boardOf(signed));
+		expect(again.ok && again.changed).toBe(false);
+		expect(again.ok && again.card.review).toEqual(signed.review);
+	});
+
+	test("owes the owner the message again, because the stamp it replaces was heard", () => {
+		const signed = at(executing(), { kind: "review" }, NOW + 1);
+		const heard = at(signed, { kind: "announced", sign: "review" }, NOW + 2);
+		const noted = at(heard, { kind: "note", text: "one more thing" }, NOW + 3, CORE);
+		const again = applyOp(noted, { kind: "review" }, BOARD_LEAD, NOW + 4, boardOf(noted));
+		expect(again.ok && again.announce).toBe(true);
+		// The fresh stamp has no `told`: the owner is told once more, and the next write after it is
+		// the one that makes the sign stale again.
+		expect(again.ok && again.card.review?.told).toBeUndefined();
+		expect(again.ok && again.card.review?.at).toBe(NOW + 4);
 	});
 });

@@ -50,6 +50,7 @@ import {
 	signMark,
 	signNote,
 	signRefusal,
+	signStale,
 	signedAs,
 	staleSpotCheck,
 	unverifiedSpotCheck,
@@ -227,9 +228,9 @@ export function unmet(
 			if (cmd === undefined) return undefined;
 			if (sign.verified === undefined) return unverifiedSpotCheck(card, cmd, config.lead);
 			// The sign owns two writes: the stamp, and the announcement #398 records after it. Anything
-			// newer than both is the card changing under the evidence.
-			const signed = Math.max(sign.at, sign.told?.at ?? 0);
-			return card.updatedAt > signed ? staleSpotCheck(card, cmd, config.lead) : undefined;
+			// newer than both is the card changing under the evidence — one reader for that decision,
+			// because a sign that finds itself stale re-makes the stamp with the same rule.
+			return signStale(card, sign) ? staleSpotCheck(card, cmd, config.lead) : undefined;
 		}
 		case "artifact": {
 			if (card.planPath === undefined) return noArtifact(card);
