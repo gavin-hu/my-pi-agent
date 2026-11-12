@@ -218,8 +218,8 @@ describe("page chrome", () => {
 		expect(html).toMatch(
 			/copy path<\/button><a class="bf-btn" href="\/raw\/sub\/b\.md" download>download<\/a><\/span>/,
 		);
-		expect(BROWSE_CSS).toContain(".bf-card__actions{max-width:100%;flex-wrap:nowrap;overflow-x:auto}");
-		expect(BROWSE_CSS).toContain(".bf-card__actions>*{flex:0 0 auto}");
+		expect(BROWSE_CSS).toContain(".browse-head-actions{max-width:100%;flex-wrap:nowrap;overflow-x:auto}");
+		expect(BROWSE_CSS).toContain(".browse-head-actions>*{flex:0 0 auto}");
 	});
 
 	test("drops a phone's trailing table column so the name keeps the room", () => {
@@ -287,13 +287,13 @@ describe("page chrome", () => {
 
 	test("renders the git chip with the branch alone", () => {
 		const html = directoryPage({ git: { branch: "main" } });
-		expect(html).toContain('class="bf-chip browse-git"');
+		expect(html).toContain('class="bf-tag browse-git"');
 		expect(html).toContain('aria-label="git branch main"');
 		expect(html).not.toContain("browse-dirty");
 	});
 
 	test("omits the git chip without a status", () => {
-		expect(directoryPage()).not.toContain('class="bf-chip browse-git');
+		expect(directoryPage()).not.toContain('class="bf-tag browse-git');
 	});
 });
 
@@ -367,14 +367,14 @@ describe("directory page", () => {
 
 	test("shows the changes chip with its totals, or a hidden shell when live", () => {
 		const two = directoryPage({ summary: summary([changed({ rel: "a.ts" }), changed({ rel: "b.ts" })], 12, 4) });
-		expect(two).toContain('class="bf-chip browse-diff" id="browse-changes" href="/diff"');
+		expect(two).toContain('class="bf-tag browse-diff" id="browse-changes" href="/diff"');
 		expect(two).toContain("2 changes");
 		expect(two).toContain("+12");
 		expect(two).toContain("−4");
 
 		expect(directoryPage({ summary: summary([changed({ rel: "a.ts" })]) })).toContain("1 change");
-		expect(directoryPage({ summary: summary([]) })).not.toContain('class="bf-chip browse-diff"');
-		expect(directoryPage()).not.toContain('class="bf-chip browse-diff"');
+		expect(directoryPage({ summary: summary([]) })).not.toContain('class="bf-tag browse-diff"');
+		expect(directoryPage()).not.toContain('class="bf-tag browse-diff"');
 
 		const shell = directoryPage({ live: { intervalMs: 3000 } });
 		expect(shell).toContain('title="View uncommitted changes" hidden');

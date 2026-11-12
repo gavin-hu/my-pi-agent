@@ -21,7 +21,7 @@ export function renderGit(git: GitStatus | undefined): string {
 	if (!name) return "";
 	const glyph = git.branch ? GLYPHS.branch : GLYPHS.detached;
 	const aria = git.branch ? `git branch ${git.branch}` : `git detached at ${git.head ?? ""}`;
-	return `<span class="bf-chip browse-git" title="${escapeHtml(aria)}" aria-label="${escapeHtml(aria)}"><span class="browse-git__glyph" aria-hidden="true">${escapeHtml(glyph)}</span><span class="browse-git__name">${escapeHtml(name)}</span></span>`;
+	return `<span class="bf-tag browse-git" title="${escapeHtml(aria)}" aria-label="${escapeHtml(aria)}"><span class="bf-tag__glyph" aria-hidden="true">${escapeHtml(glyph)}</span>${escapeHtml(name)}</span>`;
 }
 
 /** The live chrome a page renders: how often its stream is sent a frame. */
@@ -67,7 +67,7 @@ export function renderChanges(summary: ChangeIndex | undefined, live: LivePage |
 	const count = summary?.count ?? 0;
 	if (count <= 0) {
 		return live
-			? `<a class="bf-chip browse-diff" id="browse-changes" href="${base}/diff" title="View uncommitted changes" hidden></a>`
+			? `<a class="bf-tag browse-diff" id="browse-changes" href="${base}/diff" title="View uncommitted changes" hidden></a>`
 			: "";
 	}
 	const label = `${count} change${count === 1 ? "" : "s"}`;
@@ -78,5 +78,5 @@ export function renderChanges(summary: ChangeIndex | undefined, live: LivePage |
 			? ` <span class="browse-diff-totals"><span class="browse-diff-add">+${insertions}</span> <span class="browse-diff-del">−${deletions}</span></span>`
 			: "";
 	const aria = `${label} against HEAD${insertions + deletions > 0 ? `, ${insertions} insertions and ${deletions} deletions` : ""}`;
-	return `<a class="bf-chip browse-diff" id="browse-changes" href="${base}/diff" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-diff__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</a>`;
+	return `<a class="bf-tag browse-diff" id="browse-changes" href="${base}/diff" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-diff__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</a>`;
 }

@@ -72,10 +72,11 @@ body.palette-open{overflow:hidden}
 .bf-diff .bf-diff-line--hunk{position:sticky;top:0;z-index:1}
 /* Reading progress, pinned to the sticky header's bottom edge. */
 /* File and diff pages: a measured reading column inside the card. */
-/* The Markdown body fills the card, so the scroll box is the card's width: its
-   scrollbar sits at the card edge. The measure lives on the blocks themselves:
-   on .bf-md it would be a flex item with auto inline margins, which is
-   shrink-to-fit, so a short document collapsed to its widest line. */
+/* The document is one column: the head, then the body, and the shell's scroll box
+   scrolls both, so the record takes its content's height and never clips the file
+   it holds. The measure lives on the blocks themselves: on .bf-md it would be a
+   flex item with auto inline margins, which is shrink-to-fit, so a short document
+   collapsed to its widest line. */
 .browse-measure{--browse-measure:1012px}
 .browse-measure .bf-md{--browse-gutter:max(0px,calc((100% - var(--browse-measure)) / 2));max-width:none;margin-inline:0;padding-inline:var(--space-5);padding-block:var(--space-4) var(--space-6)}
 .browse-measure .bf-md>*{max-width:var(--browse-measure);margin-inline:auto}
@@ -104,7 +105,16 @@ body.palette-open{overflow:hidden}
    It has to be the frame: the scroller clips its own content, so a pseudo-element
    inside it would scroll away with the table. */
 .browse-measure .bf-md>.md-table-frame.browse-table-more::after{content:"";position:absolute;top:0;right:0;bottom:0;width:40px;pointer-events:none;background:linear-gradient(to left,var(--surface) 12%,transparent)}
-.bf-card__meta{font-variant-numeric:tabular-nums}
+/* The card is the kit's record and its head is the record's row, so this page owns
+   only the action group: a gap the kit cannot know, and the one line a phone keeps
+   instead of a wrapped stack of buttons. */
+.browse-head-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.browse-page .bf-record__meta{font-variant-numeric:tabular-nums}
+/* The record is the --surface plane, and the kit draws a code block and a code span
+   in --surface too: on the card they would be the same colour as what holds them,
+   so both step up to the raised plane and the nested span stays with its block. */
+.browse-page .bf-md code{background:var(--raised)}
+.browse-page .bf-md pre code{background:none}
 .browse-diff-summary{font-family:var(--font-mono);white-space:nowrap}
 .browse-diff-summary .browse-diff-add{color:var(--success)}
 .browse-diff-summary .browse-diff-del{color:var(--danger)}
@@ -122,9 +132,9 @@ body.palette-open{overflow:hidden}
 @media (max-width:520px){
 /* A phone has no room for four button rows above the file: the actions keep one
    line and scroll instead, so the document starts where it should. A control
-   keeps its own width — shrunk, a label wraps and a segmented control clips. */
-.bf-card__actions{max-width:100%;flex-wrap:nowrap;overflow-x:auto}
-.bf-card__actions>*{flex:0 0 auto}
+   keeps its own width — shrunk, a label wraps and the view tabs clip. */
+.browse-head-actions{max-width:100%;flex-wrap:nowrap;overflow-x:auto}
+.browse-head-actions>*{flex:0 0 auto}
 /* A trailing date or one-word change state costs the column a reader is choosing
    between: at 390px the listing gave the name 106px and every entry truncated,
    and the diff gave a path 140px while "modified" held 130. */
@@ -133,7 +143,7 @@ body.palette-open{overflow:hidden}
 /* A printed page scrolls nothing: the card and its body open up, the pinned hunk
    header stops pinning, and the progress hairline belongs to the screen. */
 @media print{
-.bf-card{border:0}
-.bf-card,.bf-app__main,.bf-code,.bf-md,.bf-diff,.browse-listing{height:auto!important;max-height:none!important;overflow:visible!important}
+.bf-record{border:0}
+.bf-record,.bf-app__main,.bf-code,.bf-md,.bf-diff,.browse-listing{height:auto!important;max-height:none!important;overflow:visible!important}
 .bf-diff .bf-diff-line--hunk{position:static}
 }`;

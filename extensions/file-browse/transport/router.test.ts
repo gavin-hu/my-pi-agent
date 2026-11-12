@@ -121,7 +121,7 @@ describe("request routing", () => {
 
 	test("shows the git chip and ignores a failing provider", async () => {
 		const shown = await handleRequest({ ...context(), git: async () => ({ branch: "main" }) }, "GET", "/", {});
-		expect(text(shown)).toContain('class="bf-chip browse-git"');
+		expect(text(shown)).toContain('class="bf-tag browse-git"');
 
 		const failing = await handleRequest(
 			{
@@ -135,7 +135,7 @@ describe("request routing", () => {
 			{},
 		);
 		expect(failing.status).toBe(200);
-		expect(text(failing)).not.toContain('class="bf-chip browse-git');
+		expect(text(failing)).not.toContain('class="bf-tag browse-git');
 	});
 
 	test("serves /app.js, /theme.js, the tree API, and no favicon", async () => {
@@ -361,7 +361,7 @@ describe("diff routes", () => {
 		const html = text(response);
 		expect(html).toContain("Changes");
 		expect(html).toContain('href="/diff/a.txt"');
-		expect(html).toContain('class="bf-chip browse-diff"');
+		expect(html).toContain('class="bf-tag browse-diff"');
 		expect(html).toContain("+1");
 		expect(html).toContain("1 file changed");
 	});

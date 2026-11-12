@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `file-browse`: the file page and the per-file diff wear the kit again. Their head is the kit's
+  record — title, meta, and one action group with a real gap — the rendered/raw and
+  head/staged/worktree controls are the kit's tabs, so the current one is marked, and the header's
+  branch and changes chips are the kit's tag. `ef01313c` deleted the `.bf-card` family and
+  `.bf-chip` and renamed `.bf-segmented` to `.bf-tabs`, and the page kept emitting all of them, so
+  the head, both controls and both chips drew with no rule behind them; a browse case now fails on
+  any `bf-` class the pages write that the CSS they ship does not rule.
+
 - `board`: the board page leaves its terminal skin — the labels a reader scans and sorts by (a
   card's head, its priority, the team's chips and rows, the decision strip, the dialog's facts and
   notes, a lane's head and fold) are the UI face, mono is kept for what is data (paths, card ids,

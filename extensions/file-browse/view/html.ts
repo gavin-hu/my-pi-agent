@@ -322,12 +322,12 @@ function renderFileActions(page: FilePage, download: string): string {
 	}
 	if (isMarkdown) {
 		const rendered = page.markdownRaw
-			? `<a class="bf-segmented__item" href="${viewHref}">rendered</a>`
-			: `<a class="bf-segmented__item" href="${viewHref}" aria-current="page">rendered</a>`;
+			? `<a class="bf-tabs__item" href="${viewHref}">rendered</a>`
+			: `<a class="bf-tabs__item" href="${viewHref}" aria-current="page">rendered</a>`;
 		const raw = page.markdownRaw
-			? `<a class="bf-segmented__item" href="${viewHref}?raw=1" aria-current="page">raw</a>`
-			: `<a class="bf-segmented__item" href="${viewHref}?raw=1">raw</a>`;
-		groups.push(`<span class="bf-segmented" role="group" aria-label="Markdown view">${rendered}${raw}</span>`);
+			? `<a class="bf-tabs__item" href="${viewHref}?raw=1" aria-current="page">raw</a>`
+			: `<a class="bf-tabs__item" href="${viewHref}?raw=1">raw</a>`;
+		groups.push(`<span class="bf-tabs" role="group" aria-label="Markdown view">${rendered}${raw}</span>`);
 	}
 	if (numberedLines(page)) {
 		groups.push(
@@ -347,7 +347,7 @@ function renderFileActions(page: FilePage, download: string): string {
 			`<button type="button" class="bf-btn" id="copy-reference" disabled title="Select lines in the file first">copy reference</button>`,
 		);
 	}
-	return `<span class="bf-card__actions">${groups.join("")}${download}</span>`;
+	return `<span class="browse-head-actions">${groups.join("")}${download}</span>`;
 }
 
 /** Render a file page (text, Markdown, image, binary, or over-size). */
@@ -359,7 +359,7 @@ export function renderFilePage(page: FilePage): string {
 	// about the file; the language label, size, and date are the useful metadata.
 	const meta = `${spec.label} · ${formatSize(page.file.size)} · ${formatDate(page.file.mtimeMs)}`;
 	const download = `<a class="bf-btn" href="${page.base}/raw/${encodePath(page.rel)}" download>download</a>`;
-	const head = `<div class="bf-card__head">${iconMarkup(spec)}<h1 class="bf-card__title">${escapeHtml(name)}</h1><span class="bf-card__meta">${escapeHtml(meta)}</span><span class="bf-spacer"></span>${renderFileActions(page, download)}</div>`;
+	const head = `<div class="bf-record__head">${iconMarkup(spec)}<h1 class="bf-record__title">${escapeHtml(name)}</h1><span class="bf-record__meta">${escapeHtml(meta)}</span><span class="bf-spacer"></span>${renderFileActions(page, download)}</div>`;
 
 	const isMarkdown = page.file.kind === "markdown";
 	const rendered = isMarkdown && !page.markdownRaw;
@@ -401,7 +401,7 @@ export function renderFilePage(page: FilePage): string {
 		breadcrumbs: renderBreadcrumbs(page.rel, page.base),
 		mainClass: rendered ? "browse-page browse-measure" : "browse-page",
 		keys,
-		main: `    <div class="bf-card">${head}${content}</div>\n    ${note}`,
+		main: `    <div class="bf-record">${head}${content}</div>\n    ${note}`,
 		footerNote: page.rel,
 		git: page.git,
 		summary: page.summary,
@@ -432,13 +432,13 @@ function modeScope(mode: DiffMode): string {
 	return "vs HEAD";
 }
 
-/** The `head | staged | worktree` segmented control; `build` returns each href. */
+/** The `head | staged | worktree` tab control; `build` returns each href. */
 function renderModeControl(mode: DiffMode, build: (mode: DiffMode) => string): string {
 	const items = DIFF_MODES.map((candidate) => {
 		const current = candidate === mode ? ` aria-current="page"` : "";
-		return `<a class="bf-segmented__item" href="${escapeHtml(build(candidate))}"${current}>${candidate}</a>`;
+		return `<a class="bf-tabs__item" href="${escapeHtml(build(candidate))}"${current}>${candidate}</a>`;
 	}).join("");
-	return `<span class="bf-segmented" role="group" aria-label="Diff mode">${items}</span>`;
+	return `<span class="bf-tabs" role="group" aria-label="Diff mode">${items}</span>`;
 }
 
 export interface DiffPage {
@@ -524,13 +524,13 @@ export function renderFileDiffPage(page: FileDiffPage): string {
 	const hunks = page.diff.lines.filter((line) => line.kind === "hunk").length;
 	const summary =
 		hunks > 0
-			? `<span class="bf-card__meta browse-diff-summary"><span class="browse-diff-add">+${adds}</span> <span class="browse-diff-del">−${dels}</span></span><span class="bf-card__meta browse-hunks">${hunks} hunk${hunks === 1 ? "" : "s"}</span>`
+			? `<span class="bf-record__meta browse-diff-summary"><span class="browse-diff-add">+${adds}</span> <span class="browse-diff-del">−${dels}</span></span><span class="bf-record__meta browse-hunks">${hunks} hunk${hunks === 1 ? "" : "s"}</span>`
 			: "";
 	const keys = pageKeys(
 		{ keys: "u", label: "Toggle line wrapping" },
 		...(hunks > 0 ? [{ keys: "n p", label: "Next and previous change" }] : []),
 	);
-	const head = `<div class="bf-card__head">${iconMarkup(spec)}<h1 class="bf-card__title">${escapeHtml(name)}</h1><span class="bf-card__meta">${escapeHtml(modeScope(page.mode))}</span>${summary}<span class="bf-spacer"></span><span class="bf-card__actions">${actions.join("")}</span></div>`;
+	const head = `<div class="bf-record__head">${iconMarkup(spec)}<h1 class="bf-record__title">${escapeHtml(name)}</h1><span class="bf-record__meta">${escapeHtml(modeScope(page.mode))}</span>${summary}<span class="bf-spacer"></span><span class="browse-head-actions">${actions.join("")}</span></div>`;
 	let content: string;
 	let note = "";
 	if (page.diff.binary) {
@@ -550,7 +550,7 @@ export function renderFileDiffPage(page: FileDiffPage): string {
 		breadcrumbs: renderBreadcrumbs(page.rel, page.base),
 		mainClass: "browse-page",
 		keys,
-		main: `    <div class="bf-card">${head}${content}</div>\n    ${note}`,
+		main: `    <div class="bf-record">${head}${content}</div>\n    ${note}`,
 		footerNote: `diff · ${modeScope(page.mode)}`,
 		git: page.git,
 		summary: page.summary,
