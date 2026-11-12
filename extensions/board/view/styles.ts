@@ -213,7 +213,7 @@ ${REASON_TONE_CSS}
    here on purpose: a column of agents beside a short middle column is one page, and three
    scrollbars inside a dashboard is the thing this tab exists not to be. */
 .board-team{min-width:0}
-.board-team__grid{display:grid;grid-template-columns:minmax(0,16rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
+.board-team__grid{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
 .board-team__column{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
 /* Sticky, because the agents list is the one that grows: the word a reader is scanning for
    must be over the rows wherever the page has been scrolled to. Offset by a hair so the
@@ -231,6 +231,10 @@ ${REASON_TONE_CSS}
 /* A dead session is drawn, not coloured: the dashed edge says "nobody is behind this". */
 .board-team__agent[data-state="gone"]{border-style:dashed}
 .board-team__agent-head{display:flex;align-items:center;gap:var(--space-2);min-width:0}
+/* The state sits at the card's right edge, on the name's own line, where the eye compares one
+   card with the next: a state that shares a wrapping row with three chips is read last, in the
+   middle of nowhere. */
+.board-team__agent-head .board-team__state{margin-left:auto;flex:0 0 auto}
 /* Two letters, in the mono face: a monogram is an identifier, and a label long enough to be
    elided still has these two to be recognised by. */
 .board-team__monogram{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;min-width:1.5rem;height:1.5rem;padding:0 var(--space-1);border-radius:var(--radius-pill);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs) var(--font-mono);text-transform:uppercase}
@@ -311,6 +315,12 @@ ${REASON_TONE_CSS}
 /* A row is a queue entry, not a sentence: six short facts on one line, the age pushed to the
    edge where the eye compares them. */
 .board-team__mail-row,.board-team__event{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);min-width:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+/* Mail nobody has read is the one thing on this page somebody owes an answer to, so it is
+   drawn as a block rather than a line: a fill one step off the page, an accent edge, and the
+   padding that keeps its words off that edge. The pane scrolls with the page — one scroll box
+   is the rule — and the Recent rail below stays flat so the two are not the same shape. */
+.board-team__mail-row{padding:var(--space-1) var(--space-2);background:var(--surface);border-left:2px solid var(--accent);border-radius:var(--radius-sm)}
+.board-team__pane-count[data-tone="accent"]{background:var(--accent-soft);color:var(--accent)}
 .board-team__glyph{flex:0 0 auto;color:var(--muted)}
 .board-team__mail-from{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .board-team__mail-arrow{color:var(--dim)}
@@ -394,7 +404,7 @@ ${DIALOG_TONE_CSS}
   /* Three columns need a wide window: below this the agents and the moving work share the
      row, and the activity rail drops beneath both. The caption stays sticky — it belongs to
      the page's one scroll box, wherever the column has been placed. */
-  .board-team__grid{grid-template-columns:minmax(0,15rem) minmax(0,1fr)}
+  .board-team__grid{grid-template-columns:minmax(0,18rem) minmax(0,1fr)}
   .board-team__column[data-column="activity"]{grid-column:1 / -1}
 }
 @media (max-width:860px){

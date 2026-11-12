@@ -231,10 +231,13 @@ __RUNTIME__
    * saying a number: the pill is count/total when a cap left something out, and the spoken
    * label spells that ratio out rather than reading a slash aloud.
    */
-  function paneHead(text, count, total) {
+  function paneHead(text, count, total, tone) {
     var head = el("h3", N.pane, text);
     var filtered = total !== undefined && total !== count;
-    head.appendChild(el("span", N.paneCount, filtered ? count + "/" + total : String(count)));
+    var pill = el("span", N.paneCount, filtered ? count + "/" + total : String(count));
+    // A count that is asking for something wears the accent; a count that is merely true does not.
+    if (tone !== undefined) pill.setAttribute("data-tone", tone);
+    head.appendChild(pill);
     head.setAttribute("aria-label", text + ", " + (filtered ? count + " of " + total : plural(count, "row")));
     return head;
   }

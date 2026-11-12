@@ -17,7 +17,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   mission card are now one box and one title size, the strip is named `NEEDS YOU · N` instead of
   its rows being added to a caption that counted only the swimlanes, and the strip's `+N more` is
   the same underlined control a swimlane folds with rather than a paragraph saying where the
-  board is. The ACTIVE WORK caption is a count alone: the tab strip is the way to the board.
+  board is. The ACTIVE WORK caption is a count alone: the tab strip is the way to the board. The
+AGENTS column is wider, its state sits at the card's edge on the name's line instead of in the
+wrapping chip row, and unread mail is drawn as a block — a fill, an accent edge, an accent count —
+so the queue reads as the one thing somebody owes an answer to.
 
 - `board`: the Team tab is a three-column agent mission control, read-only and drawn from one
   snapshot. **AGENTS** lists a card per session with the board's lead pinned first whatever its

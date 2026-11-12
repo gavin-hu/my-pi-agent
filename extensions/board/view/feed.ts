@@ -172,7 +172,9 @@ const feedTemplate = String.raw`(function () {
         build: function (slot) {
           // A filter shows what it matched against the queue; unfiltered, the pane says how deep
           // the queue is, the way RECENT says how much history it left out.
-          slot.appendChild(paneHead("WAITING", mails.length, filtering ? waiting.length : waiting.length + queue.dropped));
+          slot.appendChild(
+            paneHead("WAITING", mails.length, filtering ? waiting.length : waiting.length + queue.dropped, mails.length > 0 ? "accent" : undefined)
+          );
           if (mails.length === 0) {
             slot.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "no mail is waiting"));
             return;

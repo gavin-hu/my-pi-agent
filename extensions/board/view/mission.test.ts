@@ -239,7 +239,7 @@ describe("the mission control's contracts", () => {
 
 	test("is three columns with one page scroll, and the grid is the only thing it lays out", () => {
 		expect(BOARD_CSS).toContain(
-			".board-team__grid{display:grid;grid-template-columns:minmax(0,16rem) minmax(0,1fr) minmax(0,20rem)",
+			".board-team__grid{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr) minmax(0,20rem)",
 		);
 		expect(BOARD_CSS).not.toContain("board-team__queue,.board-team__roster{max-height");
 		// The kit's class vocabulary is still the only one it wears, and every name it declares is drawn.
