@@ -225,8 +225,9 @@ __RUNTIME__
   /**
    * Clear the mark a frame put on the cards that moved, after one breath.
    *
-   * The window is armed by the frame and restarted by the next one, so a burst of writes
-   * is one mark that leaves when the board goes quiet, not a mark per frame.
+   * A frame replaces the mark the frame before it painted, so a card stays marked only while
+   * the move it made is the latest news. This is the other end: the board goes quiet, and the
+   * last mark leaves on its own, since no further frame is coming to replace it.
    */
   function armChanged() {
     if (board.changedTimer !== undefined) clearTimeout(board.changedTimer);

@@ -83,16 +83,21 @@ function ticker() {
 	return { interval, ms, tick: () => ticks[0]?.() };
 }
 
-/** The watch a case fires by hand, remembering the directories it was handed. */
+/** The watch a case fires by hand, remembering the directories it was handed and its close. */
 function watcher() {
 	const changes: (() => void)[] = [];
 	const dirs: (readonly string[])[] = [];
+	let stops = 0;
 	const watch: WatchDirs = (given, onChange) => {
 		dirs.push(given);
 		changes.push(onChange);
-		return { stop: () => {} };
+		return {
+			stop: () => {
+				stops += 1;
+			},
+		};
 	};
-	return { watch, dirs, fire: () => changes[0]?.() };
+	return { watch, dirs, fire: () => changes[0]?.(), stops: () => stops };
 }
 
 /** The idle-grace seam, which no case here exercises: a page with no tab waited on. */
@@ -215,6 +220,7 @@ describe("when a frame is read", () => {
 		const page = await harness({ dirs: ["/board/cards"] });
 		const tab = await page.attach();
 		await page.server.close();
+		expect(page.watch.stops()).toBe(1);
 		expect(page.mount.releases()).toBe(1);
 		page.rev(3);
 		page.watch.fire();
