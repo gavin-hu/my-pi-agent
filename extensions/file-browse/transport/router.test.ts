@@ -290,7 +290,7 @@ describe("live folder revision", () => {
 		expect(page).toContain('data-dir="sub"');
 		expect(page).toMatch(/data-rev="[0-9a-f]{12}"/);
 		expect(page).toContain('id="reload-hint"');
-		expect(page).toContain("hidden>⟳ reload");
+		expect(page).toContain('hidden><span aria-hidden="true">⟳</span>reload');
 	});
 
 	test("offers the reload control wherever live status is on", async () => {
@@ -298,7 +298,7 @@ describe("live folder revision", () => {
 		const file = text(await handleRequest({ ...context(), live: idleStatus() }, "GET", "/view/a.txt", {}));
 		expect(file).toContain('id="live-state"');
 		// Not the folder's business only: a lost stream is the other reason, and it starts hidden.
-		expect(file).toContain("hidden>⟳ reload</button>");
+		expect(file).toContain('hidden><span aria-hidden="true">⟳</span>reload</button>');
 
 		const off = text(
 			await handleRequest({ ...context({ live: false }), live: idleStatus() }, "GET", "/browse/sub", {}),
