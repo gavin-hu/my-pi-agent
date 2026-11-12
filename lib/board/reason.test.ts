@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import { type Card } from "./card.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
-import { reasonFor, REASON_FOR_JS, REASON_KINDS } from "./reason.ts";
+import { reasonFor, REASON_FOR_JS, REASON_KINDS, REASON_LABEL, REASON_LABEL_JS } from "./reason.ts";
 
 const NOW = 1_000_000;
 /** The clock a caller supplies: the page passes its own, the transcript the snapshot's. */
@@ -178,5 +178,15 @@ describe("a plan that is gone", () => {
 		// plan is not asked about until there is a signature saying it was read.
 		const empty = card({ lane: "plan", owner, planPath: "/plans/x.md" });
 		expect(reasonFor({ ...empty, planGone: true }, ago)?.text).toContain("no contract yet");
+	});
+
+	test("labels every kind it can report, in one word a pill can hold", () => {
+		expect(Object.keys(REASON_LABEL).sort()).toEqual([...REASON_KINDS].sort());
+		// A pill is a shape, not a sentence: a label with a clause in it is the row's why line.
+		for (const kind of REASON_KINDS) {
+			expect(REASON_LABEL[kind].length, kind).toBeGreaterThan(0);
+			expect(REASON_LABEL[kind], kind).not.toContain("—");
+		}
+		expect(JSON.parse(REASON_LABEL_JS)).toEqual(REASON_LABEL);
 	});
 });
