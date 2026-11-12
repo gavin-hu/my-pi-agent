@@ -51,19 +51,33 @@ async function panel(page: Page, at: number): Promise<Panel> {
 	);
 }
 
-/** Wait until the panel's content fits its box, or throws at the suite's own budget. */
-async function fits(page: Page, at: number): Promise<void> {
+/**
+ * The panel a wait reads, found inline: a predicate handed to Playwright is serialized into
+ * the page and closes over nothing, so the lookup is repeated rather than shared.
+ */
+async function measured(page: Page, at: number, relation: "fits" | "outgrows"): Promise<void> {
 	await page.waitForFunction(
-		(index) => {
+		({ index, want }) => {
 			const nodes = (
 				globalThis as unknown as { document: { querySelectorAll(selector: string): ArrayLike<Panel> } }
 			).document.querySelectorAll("pre.bf-code");
 			const node = Array.from(nodes)[index];
-			return node !== undefined && node.scrollWidth <= node.clientWidth;
+			if (node === undefined) return false;
+			return want === "fits" ? node.scrollWidth <= node.clientWidth : node.scrollWidth > node.clientWidth;
 		},
-		at,
+		{ index: at, want: relation },
 		{ timeout: REVIEW_PAINT_MS },
 	);
+}
+
+/** Wait until the panel's content fits its box: what wrapping looks like. */
+async function fits(page: Page, at: number): Promise<void> {
+	await measured(page, at, "fits");
+}
+
+/** Wait until the panel's content outgrows its box: what an unwrapped line looks like. */
+async function outgrows(page: Page, at: number): Promise<void> {
+	await measured(page, at, "outgrows");
 }
 
 let mount: ReviewMount;
@@ -113,22 +127,23 @@ describe.skipIf(REVIEW_CHROME === undefined)("a code panel at a narrow width", (
 	test("keeps the line whole at 1280, where there is room to scroll", async () => {
 		const page = await open(1280);
 		for (const at of [0, 1]) {
-			const drawn = await panel(page, at);
-			expect(drawn.scrollWidth).toBeGreaterThan(drawn.clientWidth);
+			await outgrows(page, at);
+			expect((await panel(page, at)).textContent).toContain(LONG);
 		}
 		await page.close();
 	});
 
-	test("lets a page with its own control say no at 420", async () => {
+	test("lets a page with its own control say no at 420, in either route", async () => {
 		const page = await open(420);
-		await fits(page, 0);
+		for (const at of [0, 1]) await fits(page, at);
 		// What `file-browse`'s wrap button writes when the reader asks for the line whole: the
-		// escape hatch is more specific than the narrow rule, so it wins on a phone too.
+		// escape hatch is more specific than the narrow rule, so it wins on a phone too. Both
+		// routes are closed, because the rule names a span and a text node separately.
 		await page.$$eval("pre.bf-code", (nodes) => {
 			for (const node of Array.from(nodes))
 				(node as unknown as { classList: { add(name: string): void } }).classList.add("bf-code--nowrap");
 		});
-		expect((await panel(page, 0)).scrollWidth).toBeGreaterThan((await panel(page, 0)).clientWidth);
+		for (const at of [0, 1]) await outgrows(page, at);
 		await page.close();
 	});
 });

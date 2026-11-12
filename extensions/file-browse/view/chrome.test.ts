@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { paintLive } from "../../../lib/web/index.ts";
+import { NARROW_MAX_PX, paintLive } from "../../../lib/web/index.ts";
 import { CLIENT_JS } from "./client.ts";
 import { directoryPage } from "../../../test/helpers/file-browse-view.ts";
 import { LIVE_CLIENT_JS } from "./live-client.ts";
@@ -50,7 +50,9 @@ describe("the wrap control", () => {
 		expect(CLIENT_JS).toContain('code.classList.toggle("bf-code--nowrap", !on)');
 		// With no choice stored, the button starts on the answer the page is already showing.
 		expect(CLIENT_JS).toContain('saved === null ? narrowWindow() : saved === "1"');
-		expect(CLIENT_JS).toContain('matchMedia("(max-width:720px)")');
+		// The width is the kit's number, not a second copy of it: the media rule that wraps the
+		// panel and this query must move together, or the button describes a rule that changed.
+		expect(CLIENT_JS).toContain(`matchMedia("(max-width:${NARROW_MAX_PX}px)")`);
 	});
 });
 

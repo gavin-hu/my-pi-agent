@@ -8,6 +8,15 @@
  * between this kit's grammar and the pill-and-card one it replaces.
  */
 
+/**
+ * Viewport width, in px, at and below which a code panel wraps its lines.
+ *
+ * One number for both sides of the rule: the kit's media query wraps the panel, and
+ * `file-browse`'s wrap control reads the same width to know what the page is already doing.
+ * A literal in either place is how a button comes to describe a rule that moved.
+ */
+export const NARROW_MAX_PX = 720;
+
 export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-flex;align-items:baseline;gap:var(--space-2);font:var(--fw-semibold) var(--fs-base) var(--font-mono);white-space:nowrap}
 .bf-mark{display:inline-block;width:18px;height:18px;flex:0 0 18px;align-self:center}
 .bf-mark__top{fill:var(--accent)}
@@ -215,7 +224,7 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
    command is a fact the reader came for, and an overlay scrollbar is no way to reach it.
    The same declaration the opt-in class states, so a page that asks for wrap and a phone
    that does not cannot break a line differently. */
-@media (max-width:720px){
+@media (max-width:${NARROW_MAX_PX}px){
   .bf-code__line,.bf-code>code{white-space:pre-wrap;overflow-wrap:anywhere}
 }
 /* The other answer, for a page with its own control: its "no wrap" has to mean no on a
