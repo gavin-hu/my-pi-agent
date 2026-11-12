@@ -194,6 +194,7 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-lane__head{display:flex;align-items:center;gap:6px;margin:0 0 var(--space-2);padding-bottom:var(--space-1);border-bottom:2px solid var(--lane-role,var(--border));font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--muted)}
 .bf-lane__dot{font-size:9px;line-height:1;color:var(--lane-role,var(--muted))}
 .bf-lane__count{margin-left:auto;color:var(--dim)}
+.bf-lane__list{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;min-width:0}
 .bf-lane__empty{margin:0;padding:var(--space-2) 0;font:var(--fs-xs) var(--font-mono);color:var(--dim)}
 /* A section states its tone in the rule it already draws, never in a box around the content. */
 .bf-section{display:flex;flex-direction:column;min-width:0}

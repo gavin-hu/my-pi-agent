@@ -105,7 +105,6 @@ ${WEB_COMPONENTS_CSS}
 .board-lane__toggle::after{content:"▾";margin-left:2px;font-size:var(--fs-sm);color:var(--muted)}
 .board-lane__toggle:hover::after{color:var(--accent)}
 .board-lane__toggle[aria-expanded="false"]::after{content:"▸"}
-.board-lane__list{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
 
 /* A row: the kit's list shape, with the card's own body. The title is the page's one
    focusable thing inside a row; the row around it is the larger target for a pointer. */

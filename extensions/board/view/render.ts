@@ -435,7 +435,7 @@ __RUNTIME__
       var sig = lane.cards.map(faceSig).join(",") + "|" + query;
       if (section.getAttribute("data-sig") !== sig) {
         section.setAttribute("data-sig", sig);
-        var list = section.querySelector(".board-lane__list");
+        var list = section.querySelector('.' + N.laneList);
         list.textContent = "";
         for (var j = 0; j < shown.length; j++) list.appendChild(board.cardNode(shown[j]));
       }
@@ -454,7 +454,7 @@ __RUNTIME__
         none.textContent = query !== "" && lane.cards.length > 0 ? "no match" : lane.empty;
       }
       var collapsed = board.collapsed && board.collapsed[lane.key] === true;
-      var list = section.querySelector(".board-lane__list");
+      var list = section.querySelector('.' + N.laneList);
       if (list) list.hidden = collapsed;
       // A folded lane shows nothing, so it takes the rail's width the way an empty one
       // does: the count in its head is the whole fact, and the lanes with cards keep the

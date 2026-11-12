@@ -255,7 +255,7 @@ const activeTemplate = String.raw`(function () {
 
   /** One swimlane: the head, the rows that fit, and a fold that says how many did not. */
   function swimlane(view, lane, cards) {
-    var section = el("section", "bf-lane " + N.swim);
+    var section = el("section", "bf-lane " + N.laneList);
     section.setAttribute("data-lane", lane.key);
     var head = el("h3", "bf-lane__head");
     var dot = el("span", "bf-lane__dot");
@@ -270,7 +270,7 @@ const activeTemplate = String.raw`(function () {
       section.appendChild(el("p", "bf-lane__empty", lane.empty));
       return section;
     }
-    var swim = el("div", N.swim);
+    var swim = el("div", N.laneList);
     for (var i = 0; i < cards.length && i < SWIM; i++) swim.appendChild(missionCard(cards[i], view));
     section.appendChild(swim);
     if (cards.length > SWIM) {

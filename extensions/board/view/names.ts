@@ -29,7 +29,7 @@ export const BOARD_CLASS = {
 	lanes: "board-lanes",
 	lane: "board-lane",
 	laneToggle: "board-lane__toggle",
-	laneList: "board-lane__list",
+	laneList: "bf-lane__list",
 
 	// One row: the card's body, its facts, and its paths.
 	row: "board-row",
@@ -108,7 +108,6 @@ export const BOARD_CLASS = {
 	decisionRef: "board-decision__ref",
 	decisionWhy: "board-decision__why",
 	teamLanes: "board-team__lanes",
-	swim: "board-team__swim",
 	// A mission row: the one-line face a swimlane holds.
 	missionCard: "board-mission",
 	missionCardHead: "board-mission__head",
