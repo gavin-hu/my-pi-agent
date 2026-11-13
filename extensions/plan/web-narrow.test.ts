@@ -7,9 +7,12 @@
  * Both routes a fence takes are covered: an unlabelled one falls back to the `code` text
  * node, and a highlighted one renders one `bf-code__line` span per line.
  *
- * The fixture line is deliberately longer than the reported one: the `$ pi doctor` block is
- * 892 px of content against a 928 px panel at 1280, so it fits there. This line is about
- * 1,300 px, which is what makes the 1280 case honest.
+ * The fixture line is what makes the 1280 case honest, so it is sized off the panel and not
+ * off this machine's font: the panel is 928 px, and a line of N characters at 13 px outgrows
+ * it when N x 13 x the font's advance is past 928. A machine's mono runs from 0.45 em to
+ * 0.60 em — SF Mono is the wide end and Consolas, the one Windows resolves, is 0.55 — so a
+ * 122-character line cleared the box by 7% here and fitted it on Windows, where the wait
+ * could never come true. This line is 202 characters: 32% wider than the box even at 0.45 em.
  *
  * It needs a browser. Where the machine has none the suite skips, naming `PI_CHROME`, so
  * `bun run check` stays green on a runner without Chrome and still says why nothing ran.
@@ -27,9 +30,9 @@ import {
 } from "../../test/helpers/plan-browser.ts";
 import type { TestBrowser } from "../../test/helpers/browser.ts";
 
-/** A command's target, longer than the panel at 1280: ~135 characters, with no spaces. */
+/** A command's target: 202 characters, with no spaces, which outgrows a 1280 panel at any advance. */
 const LONG =
-	"/Users/someone/.pi/agent/plans/8872d3adda0e/2026-11-11-1453-instant-board-frames/snapshots/2026-11-12T201200Z/manifest.md";
+	"/Users/someone/.pi/agent/plans/8872d3adda0e/2026-11-11-1453-instant-board-frames/snapshots/2026-11-12T201200Z/workspaces/my-pi-agent/.pi/worktrees/instant-board-frames/extensions/plan/web-narrow.test.ts";
 
 /** The panel's box and its content, as the page measures them. */
 interface Panel {
@@ -56,18 +59,30 @@ async function panel(page: Page, at: number): Promise<Panel> {
  * the page and closes over nothing, so the lookup is repeated rather than shared.
  */
 async function measured(page: Page, at: number, relation: "fits" | "outgrows"): Promise<void> {
-	await page.waitForFunction(
-		({ index, want }) => {
-			const nodes = (
-				globalThis as unknown as { document: { querySelectorAll(selector: string): ArrayLike<Panel> } }
-			).document.querySelectorAll("pre.bf-code");
-			const node = Array.from(nodes)[index];
-			if (node === undefined) return false;
-			return want === "fits" ? node.scrollWidth <= node.clientWidth : node.scrollWidth > node.clientWidth;
-		},
-		{ index: at, want: relation },
-		{ timeout: REVIEW_PAINT_MS },
-	);
+	try {
+		await page.waitForFunction(
+			({ index, want }) => {
+				const nodes = (
+					globalThis as unknown as { document: { querySelectorAll(selector: string): ArrayLike<Panel> } }
+				).document.querySelectorAll("pre.bf-code");
+				const node = Array.from(nodes)[index];
+				if (node === undefined) return false;
+				return want === "fits" ? node.scrollWidth <= node.clientWidth : node.scrollWidth > node.clientWidth;
+			},
+			{ index: at, want: relation },
+			{ timeout: REVIEW_PAINT_MS },
+		);
+	} catch (cause) {
+		// A wait that never lands is usually a fixture this machine's font cannot satisfy, so the
+		// box that was measured is worth more than the timeout on its own.
+		const drawn = await panel(page, at).catch(() => undefined);
+		const width = page.viewportSize()?.width ?? 0;
+		const box =
+			drawn === undefined
+				? `the page drew no code panel at ${at}`
+				: `${drawn.scrollWidth}px of content in a ${drawn.clientWidth}px box`;
+		throw new Error(`the panel at ${at} never ${relation} at ${width}: ${box}`, { cause });
+	}
 }
 
 /** Wait until the panel's content fits its box: what wrapping looks like. */
