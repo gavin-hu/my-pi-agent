@@ -31,7 +31,7 @@
  * Pure: a name compare and a sentence, no clock and no file.
  */
 
-import { normalizeLabel } from "../session-label.ts";
+import { normalizeLabel, sameLabel } from "../session-label.ts";
 import { cardRef, type Card, type CardOwner, holds, laneSince, MAX_NOTES, normalizeNote } from "./card.ts";
 import {
 	askLead,
@@ -115,7 +115,7 @@ export function normalizeLead(raw: unknown, base: Lead): Lead {
  * owns a card and prefers the ids when both sides have one.
  */
 export function isLead(actor: Pick<Actor, "label">, lead: Lead): boolean {
-	return actor.label.toLowerCase() === lead.toLowerCase();
+	return sameLabel(actor.label, lead);
 }
 
 /** The two signs a card carries. */
@@ -469,7 +469,7 @@ export function heldState(card: Card, holder: HolderFact | undefined): SessionPr
 	const same =
 		owner.id !== undefined && holder.owner.id !== undefined
 			? owner.id === holder.owner.id
-			: owner.label.toLowerCase() === holder.owner.label.toLowerCase();
+			: sameLabel(owner.label, holder.owner.label);
 	return same ? holder.state : undefined;
 }
 

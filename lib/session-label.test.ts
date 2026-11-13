@@ -14,6 +14,7 @@ import {
 	checkoutNames,
 	defaultLabel,
 	isTeammate,
+	LABEL_KEY_JS,
 	labelKey,
 	MAX_LABEL,
 	MAX_TEAMMATES,
@@ -89,6 +90,16 @@ describe("sameLabel", () => {
 		] as const) {
 			expect(browser(a, b)).toBe(sameLabel(a, b));
 		}
+	});
+
+	test("carries the key half to the page too, because a fragment keys its own maps", () => {
+		// The roster and active fragments write `owners[<key>]` and look it up with a label the
+		// snapshot produced, so the key a page uses has to be this module's, not a third spelling.
+		expect(LABEL_KEY_JS).toBe(String(labelKey));
+		expect(LABEL_KEY_JS).not.toContain("`");
+		expect(LABEL_KEY_JS).not.toContain("${");
+		const browser = new Function(`return (${LABEL_KEY_JS});`)() as typeof labelKey;
+		expect(browser("Billing-Core")).toBe(labelKey("Billing-Core"));
 	});
 });
 

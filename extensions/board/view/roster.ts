@@ -19,13 +19,16 @@
  *
  * A label the bus has no record of, holding nothing, is history: it folds into one row that
  * states what it finished, because the set only grows with every label that ever claimed a
- * card. The rule (`isHistoryOwner`) is the terminal's, spliced in, and it compares two labels
- * through `sameLabel`, which is spliced beside it for the same reason: the fragment has no
- * import graph, so a body it calls has to be handed over too.
+ * card. The rules (`isHistoryOwner` and `labelKey`) are the terminal's, spliced in: the fragment
+ * has no import graph, so every body it calls has to be handed over, and the maps it keys by
+ * label use this module's key rather than a fourth spelling.
  */
 
-export function rosterJs(rules: { historyOwner: string; sameLabel: string }): string {
-	return rosterTemplate.replace("__SAME_LABEL__", rules.sameLabel).replace("__HISTORY_OWNER__", rules.historyOwner);
+export function rosterJs(rules: { historyOwner: string; sameLabel: string; labelKey: string }): string {
+	return rosterTemplate
+		.replace("__SAME_LABEL__", rules.sameLabel)
+		.replace("__LABEL_KEY__", rules.labelKey)
+		.replace("__HISTORY_OWNER__", rules.historyOwner);
 }
 
 const rosterTemplate = String.raw`(function () {
@@ -33,6 +36,8 @@ const rosterTemplate = String.raw`(function () {
   var board = window.bfBoard || (window.bfBoard = {});
 
 __SAME_LABEL__
+
+__LABEL_KEY__
 
 __HISTORY_OWNER__
 
@@ -65,14 +70,14 @@ __HISTORY_OWNER__
     var owners = labelMap();
     for (var i = 0; i < round.owners.length; i++) {
       var group = round.owners[i];
-      owners[group.label.toLowerCase()] = { label: group.label, live: group.cards, done: group.done };
+      owners[labelKey(group.label)] = { label: group.label, live: group.cards, done: group.done };
     }
     var rows = [];
     var seen = labelMap();
     if (roster !== null) {
       for (var j = 0; j < roster.length; j++) {
         var mate = roster[j];
-        seen[mate.label.toLowerCase()] = true;
+        seen[labelKey(mate.label)] = true;
         rows.push({
           label: mate.label,
           state: mate.state,
@@ -82,7 +87,7 @@ __HISTORY_OWNER__
           mail: mate.mail,
           listening: mate.listening,
           seen: mate.seen,
-          cards: owners[mate.label.toLowerCase()] || { live: [], done: [] }
+          cards: owners[labelKey(mate.label)] || { live: [], done: [] }
         });
       }
     }

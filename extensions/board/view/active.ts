@@ -23,10 +23,17 @@
  * the card face and the terminal share, so a blocked card is described one way everywhere.
  */
 
-export function activeJs(rules: { decisionLabels: string; decisionBands: string }): string {
+export function activeJs(rules: {
+	decisionLabels: string;
+	decisionBands: string;
+	sameLabel: string;
+	labelKey: string;
+}): string {
 	return activeTemplate
 		.replace("__DECISION_LABEL__", rules.decisionLabels)
-		.replace("__DECISION_BAND__", rules.decisionBands);
+		.replace("__DECISION_BAND__", rules.decisionBands)
+		.replace("__SAME_LABEL__", rules.sameLabel)
+		.replace("__LABEL_KEY__", rules.labelKey);
 }
 
 const activeTemplate = String.raw`(function () {
@@ -43,6 +50,10 @@ const activeTemplate = String.raw`(function () {
 
   var DECISION_LABEL = __DECISION_LABEL__;
   var BANDS = __DECISION_BAND__;
+
+__SAME_LABEL__
+
+__LABEL_KEY__
 
   /** How many mission cards one swimlane prints before it counts the rest. */
   var SWIM = 4;
@@ -93,7 +104,7 @@ const activeTemplate = String.raw`(function () {
     var gone = goneLabels(view);
     add(
       round.owners.reduce(function (cards, group) {
-        return gone[group.label.toLowerCase()] === undefined ? cards : cards.concat(group.cards);
+        return gone[labelKey(group.label)] === undefined ? cards : cards.concat(group.cards);
       }, []),
       function (card) { return (card.owner ? card.owner.label : "its owner") + " is not running \u2014 the card is free"; },
       "gone"
@@ -134,7 +145,7 @@ const activeTemplate = String.raw`(function () {
     var gone = labelMap();
     if (roster === undefined) return gone;
     for (var i = 0; i < roster.length; i++) {
-      if (roster[i].state === "gone") gone[roster[i].label.toLowerCase()] = roster[i].label;
+      if (roster[i].state === "gone") gone[labelKey(roster[i].label)] = roster[i].label;
     }
     return gone;
   }
@@ -270,7 +281,7 @@ const activeTemplate = String.raw`(function () {
     var roster = view.teammates;
     if (roster === undefined) return "unknown";
     for (var i = 0; i < roster.length; i++) {
-      if (roster[i].label.toLowerCase() === label.toLowerCase()) return roster[i].state;
+      if (sameLabel(roster[i].label, label)) return roster[i].state;
     }
     return "absent";
   }

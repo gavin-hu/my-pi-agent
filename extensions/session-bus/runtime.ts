@@ -21,7 +21,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
-import { SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
+import { labelKey, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
 import { unaccountedMail } from "../../lib/session-mail.ts";
 import { defaultInterval } from "../../lib/timer.ts";
 import {
@@ -164,7 +164,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		if (!store || !record) throw new Error("session bus is not started.");
 		if (joined) return;
 		const used = await takenLabels(store, record.id);
-		if (used.has(record.label.toLowerCase())) record.label = suffixLabel(record.label, record.id);
+		if (used.has(labelKey(record.label))) record.label = suffixLabel(record.label, record.id);
 		record.lastSeen = now();
 		await store.writeSession(record);
 		await settleLabel();
@@ -207,7 +207,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		// yielded to one would spend its life suffixed by a row that no longer exists.
 		const at = now();
 		for (const session of sessions) {
-			if (session.id !== mine && at - session.lastSeen <= sessionTtlMs) taken.set(session.label.toLowerCase(), session);
+			if (session.id !== mine && at - session.lastSeen <= sessionTtlMs) taken.set(labelKey(session.label), session);
 		}
 		return taken;
 	}
@@ -225,7 +225,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		if (!store || !record) return false;
 		const me = record;
 		let yields = 0;
-		while (yields < 3 && (await takenLabels(store, me.id)).has(me.label.toLowerCase())) {
+		while (yields < 3 && (await takenLabels(store, me.id)).has(labelKey(me.label))) {
 			me.label = suffixLabel(me.label, me.id);
 			yields += 1;
 		}
@@ -388,7 +388,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		const candidate = normalizeLabel(label, record.label);
 		// The bus's own answer to "who has it": the session record, named by its id, because
 		// the label it holds is the one the caller just asked for.
-		const holder = (await takenLabels(store, record.id)).get(candidate.toLowerCase());
+		const holder = (await takenLabels(store, record.id)).get(labelKey(candidate));
 		if (holder) throw new Error(`the label "${candidate}" is ${heldBy(holder)}.`);
 		record.label = candidate;
 		record.lastSeen = now();

@@ -11,7 +11,7 @@
 import { describe, expect, test } from "bun:test";
 import { missingBundleBodies, duplicateFunctions } from "../../../test/helpers/bundle.ts";
 import { HISTORY_OWNER_JS } from "../../../lib/board/round-text.ts";
-import { SAME_LABEL_JS } from "../../../lib/session-label.ts";
+import { LABEL_KEY_JS, SAME_LABEL_JS } from "../../../lib/session-label.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 
 /** A bundle with one name defined twice: two bodies, or one body twice. */
@@ -26,13 +26,16 @@ function bundle(secondBody: string | undefined): string {
 }
 
 describe("the fragments' bodies", () => {
-	test("carries the label comparison the spliced history rule calls", () => {
-		// `isHistoryOwner` crosses as source and compares two labels through `sameLabel`, so the page
-		// must hold that body too: a fragment has no import graph, and a name its spliced source calls
-		// is a `ReferenceError` on the tab's first paint with every static check green.
+	test("carries the one label comparison the history row calls, and the key its maps are written under", () => {
+		// `isHistoryOwner` crosses as source and compares two labels through `sameLabel`, and both the
+		// roster and active fragments key their maps with `labelKey`. A fragment has no import graph, so
+		// every body either calls has to reach the string — the failure is a `ReferenceError` on the
+		// first paint with every static check green, which is why both halves are asserted here.
 		expect(HISTORY_OWNER_JS).toContain("sameLabel(");
 		expect(BOARD_CLIENT_JS).toContain("function sameLabel(");
 		expect(BOARD_CLIENT_JS).toContain(SAME_LABEL_JS);
+		expect(BOARD_CLIENT_JS).toContain("function labelKey(");
+		expect(BOARD_CLIENT_JS).toContain(LABEL_KEY_JS);
 	});
 
 	test("fails a spliced body whose helper never reached the string", () => {
@@ -41,6 +44,11 @@ describe("the fragments' bodies", () => {
 		const spliced = `function isHistoryOwner(label, held, roster) { return sameLabel(label, label); }`;
 		expect(missingBundleBodies(spliced, ["isHistoryOwner", "sameLabel"])).toEqual(["sameLabel"]);
 		expect(missingBundleBodies(`${spliced}\n${SAME_LABEL_JS}`, ["sameLabel"])).toEqual([]);
+		// The key half is the same hazard on a map: `owners[labelKey(group.label)]` with no body for
+		// `labelKey` is a page that throws where it draws its Agents column.
+		const keyed = `function agentRow(group) { return owners[labelKey(group.label)]; }`;
+		expect(missingBundleBodies(keyed, ["agentRow", "labelKey"])).toEqual(["labelKey"]);
+		expect(missingBundleBodies(`${keyed}\n${LABEL_KEY_JS}`, ["labelKey"])).toEqual([]);
 	});
 });
 

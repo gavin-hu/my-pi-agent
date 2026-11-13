@@ -18,6 +18,7 @@ import { LANE_RULES } from "../../lib/board/lanes.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { listOf } from "../../lib/format.ts";
 import { presenceOf } from "../../lib/session-roster.ts";
+import { sameLabel } from "../../lib/session-label.ts";
 
 /** What a sweep needs of the session, so a suite drives it without a bus. */
 export type SweepSession = Pick<BoardSession, "store" | "who" | "roster" | "now">;
@@ -65,7 +66,7 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 			// The seat: this session wears the owner's label and the bus says that session stopped, so the
 			// card is one a `/resume` left behind and is handed back rather than pooled. `absent` counts
 			// here and nowhere else — a pruned record is the weaker fact, and the clause says which one.
-			const seat = card.owner.label.toLowerCase() === me.label.toLowerCase();
+			const seat = sameLabel(card.owner.label, me.label);
 			const mine = seat && (state === "gone" || state === "absent");
 			if (!mine && state !== "gone") continue;
 			const holder = { owner: card.owner, state };
