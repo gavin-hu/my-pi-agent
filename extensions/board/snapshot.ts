@@ -119,7 +119,7 @@ export function createSnapshot(context: SnapshotContext): Snapshot {
 			const stamp = await stampOf();
 			const reused =
 				kept !== undefined && stamp !== undefined && kept.stamp === stamp && kept.frames < PILE_RESYNC_FRAMES;
-			if (reused) kept.frames += 1;
+			if (reused && kept !== undefined) kept.frames += 1;
 			else kept = { stamp, frames: 0, ...(await context.store.scan()) };
 			// The read pile is handed over rather than reached for through `kept`, so the frame cannot
 			// see a stamp without its cards.
