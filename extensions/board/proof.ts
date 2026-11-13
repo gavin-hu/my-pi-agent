@@ -19,6 +19,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type ArtifactProof, planForExecute } from "../../lib/board/artifact.ts";
 import { resolveLanding, type LandingProof } from "../../lib/board/contract.ts";
+import type { Lane } from "../../lib/board/lanes.ts";
 
 import { normalizeCardId } from "../../lib/board/card.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
@@ -81,4 +82,24 @@ export async function landedChain(
 	if ("error" in check) return { branch, chain };
 	const moved = await movedPaths(runGit, root, reviewed, check.sha, card.paths);
 	return { branch, chain, ...(moved.length === 0 ? {} : { moved }) };
+}
+
+/**
+ * Both proofs a move carries: the plan it is executed against, and the branch a close landed on.
+ *
+ * One body because the two doors ask both questions from one lazily-loaded module, and because a
+ * move to `done` is the only one that needs the second: a caller that is not closing pays nothing
+ * for the chain, and `commands.ts` still reaches `provedPlan` directly for the plan alone.
+ */
+export async function moveProofs(
+	runtime: Pick<BoardSession, "planDir">,
+	cwd: string,
+	store: Pick<BoardStore, "read" | "root">,
+	rawCard: string | undefined,
+	lane: Lane | undefined,
+	pi: Pick<ExtensionAPI, "exec">,
+): Promise<{ artifact?: ArtifactProof; landed?: LandingProof }> {
+	const artifact = await provedPlan(runtime, cwd, store, rawCard);
+	const landed = lane === "done" ? await landedChain(store, rawCard, pi) : undefined;
+	return { ...(artifact === undefined ? {} : { artifact }), ...(landed === undefined ? {} : { landed }) };
 }

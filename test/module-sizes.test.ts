@@ -23,18 +23,6 @@ const MAX_MODULE_LINES = 600;
  * too, so the list cannot quietly grow.
  */
 const LONG_MODULES: Record<string, { lines: number; why: string }> = {
-	"lib/board/card.ts": {
-		lines: 602,
-		why: "the card record itself: its caps, its normalizers, and the invariants every write is held to",
-	},
-	"extensions/board/tools.ts": {
-		lines: 605,
-		why: "one dispatch over the board's thirteen actions, and the refusal each answers",
-	},
-	"lib/board/steps.ts": {
-		lines: 602,
-		why: "one function per operation a card alone can decide, each answering a refusal or the fields to write",
-	},
 	"extensions/file-browse/view/markdown.ts": {
 		lines: 875,
 		why: "one escape-first block and inline scan for README Markdown",
@@ -57,7 +45,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  * The named modules' total, written down so raising one height has to lower
  * another. It falls whenever a module shrinks; it never rises.
  */
-const LONG_MODULE_TOTAL = 5131;
+const LONG_MODULE_TOTAL = 3322;
 
 describe("module sizes", () => {
 	test("a module over the line bar states the responsibility that keeps it whole", () => {

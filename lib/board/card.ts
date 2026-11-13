@@ -84,11 +84,8 @@ export const MAX_NOTES = 8;
 
 /**
  * How many lane transitions one card keeps; the oldest drops past this, counted in
- * `logDropped`.
- *
- * Bounded at write time rather than by a janitor, because nothing prunes a board: the
- * log is the only record of when a lane was entered, so it has to stay small enough
- * that every card can afford one.
+ * `logDropped`. Bounded at write time rather than by a janitor, because nothing prunes a board:
+ * the log is the only record of when a lane was entered, so every card has to afford one.
  */
 export const MAX_LOG = 8;
 
@@ -180,7 +177,7 @@ export interface Card {
 	contract?: Contract;
 	/** Who spot-checked the finished work, and when: what a move to `done` requires. */
 	review?: Sign;
-	/** The merge that carried the reviewed commit, and when: absent on a card closed by instruction. */
+	/** The merge the reviewed commit became; absent when the card closed by instruction. */
 	landed?: { sha: string; at: number };
 	/**
 	 * What the card is blocked on, while it is in `blocked`.

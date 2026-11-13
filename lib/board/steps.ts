@@ -216,10 +216,7 @@ export function move(
 		if (refusal !== undefined) return { error: refusal };
 	}
 	const fields: Partial<Card> = { lane: target };
-	if (target === "done") {
-		const landed = landingFor(card.id, currentReview(card)?.verified?.sha, op.landed, now);
-		if (landed !== undefined) fields.landed = landed;
-	}
+	if (target === "done") fields.landed = landingFor(card.id, currentReview(card)?.verified?.sha, op.landed, now);
 	if (block !== undefined && "fields" in block) Object.assign(fields, block.fields);
 	// A spot-check signs the work as it stood, and `done` is the one lane that sign is evidence
 	// for. Parking a card is somebody deciding it is not finished, and re-planning changes the
