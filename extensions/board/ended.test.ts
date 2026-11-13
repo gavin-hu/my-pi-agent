@@ -8,7 +8,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { presetNameFor } from "../../lib/session-label.ts";
+import { agentLabel } from "../../lib/session-label.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { boardTool } from "../../test/helpers/board.ts";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
@@ -25,8 +25,8 @@ const DEAD_PID = 999_999_999;
 
 const LEAD_ID = "s-lead";
 const PEER_ID = "s-peer";
-const LEAD = presetNameFor(LEAD_ID) ?? "s-lead";
-const PEER = presetNameFor(PEER_ID) ?? "s-peer";
+const LEAD = agentLabel(LEAD_ID);
+const PEER = agentLabel(PEER_ID);
 
 /**
  * One board and the two sessions that work it: the lead that starts a turn, and the peer whose

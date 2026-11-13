@@ -23,7 +23,6 @@ import {
 import { type Card } from "./card.ts";
 import {
 	announced,
-	askLead,
 	currentReview,
 	holderRefusal,
 	isLead,
@@ -45,6 +44,7 @@ import {
 	type Sign,
 	unverifiedSpotCheck,
 } from "./lead.ts";
+import { askLead, leadName } from "./contract.ts";
 import { boardConfig, type BoardConfig } from "./config.ts";
 import type { Actor } from "./rules.ts";
 
@@ -132,6 +132,13 @@ describe("signMark and signedAs", () => {
 		expect(signMark(PEER, LEAD)).toEqual({ by: PEER.label });
 	});
 
+	test("a board that names no lead records the person under their own label", () => {
+		// There is no name to lend, and an empty `by` would be a sign nobody made: the person is
+		// still a signer, so the record carries the label their own line prints.
+		expect(signMark(personActor(), "")).toEqual({ by: PERSON_LABEL, person: true });
+		expect(signedAs({ by: PERSON_LABEL, at: 1, person: true }, personActor(), "")).toBe(true);
+	});
+
 	test("the mark is the identity, so a session wearing the lead's label is somebody else", () => {
 		// The person's sign and the same-named session's sign differ only by the mark, which is the
 		// whole reason a label compare was wrong: it read one back as the other.
@@ -163,6 +170,19 @@ describe("signRefusal", () => {
 			"#4 is spot-checked by the lead (team-lead), and this session is api-core — ask team-lead with `session send`, or the person signs with `/board review 4`.",
 		);
 	});
+
+	test("with no lead named, the refusal names the key and keeps the person's door", () => {
+		// The sentence a project sees before it has stated its team: the way out is the setting, or
+		// the person at the keyboard — never a peer to ask, because there is nobody to ask.
+		expect(signRefusal(CARD, PEER, "", "approve")).toBe(
+			"#4's contract is signed by the lead, and this board names none: set `team.lead` in `bytefly.json`, or the person signs it with `/board approve 4`.",
+		);
+		expect(signRefusal(CARD, PEER, "", "review")).toBe(
+			"#4 is spot-checked by the lead, and this board names none: set `team.lead` in `bytefly.json`, or the person signs with `/board review 4`.",
+		);
+		// The person is still the one door the gate accepts.
+		expect(signRefusal(CARD, personActor(), "", "approve")).toBeUndefined();
+	});
 });
 
 describe("holderRefusal", () => {
@@ -181,6 +201,12 @@ describe("missingSign", () => {
 		);
 		expect(missingSign(CARD, LEAD, "review")).toBe(
 			"#4 has no spot-check recorded. The lead (team-lead) records one with `review` (ask team-lead with `session send`), or the person with `/board review 4`.",
+		);
+	});
+
+	test("with no lead named, it is the person's door that opens the lane", () => {
+		expect(missingSign(CARD, "", "approve")).toBe(
+			"#4 is in plan; its contract is not approved yet, and this board names none: set `team.lead` in `bytefly.json`, or the person approves it with `/board approve 4`.",
 		);
 	});
 });
@@ -204,9 +230,18 @@ describe("the run a spot-check records", () => {
 	});
 });
 
-describe("askLead", () => {
+describe("the words a refusal prints", () => {
 	test("the lead is reached by its name over the bus, which is the one phrase every surface prints", () => {
 		expect(askLead(LEAD)).toBe("ask team-lead with `session send`");
+	});
+
+	test("with no lead named, a sentence names the setting instead of a peer and never a blank", () => {
+		expect(askLead("")).toBe("set `team.lead` in `bytefly.json`");
+		expect(leadName(LEAD)).toBe(LEAD);
+		expect(leadName("")).toBe("`team.lead`");
+		expect(unverifiedSpotCheck(CARD, "bun run check", "")).toContain(
+			"the lead (`team.lead`) records one with `review`",
+		);
 	});
 });
 

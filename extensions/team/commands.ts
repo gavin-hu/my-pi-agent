@@ -118,23 +118,19 @@ async function nameTheBar(pi: ExtensionAPI, cwd: string, label: string): Promise
  */
 export function joinedLine(result: JoinResult, named?: AddTeammateResult): string {
 	if (!result.ok) return formatNotJoined(result.error);
-	return formatJoined(result.label, result.watching, teammateNote(result.label, named));
+	return formatJoined(result.label, result.watching, teammateNote(named));
 }
 
 /**
  * What the bar will draw for the name this join made, as the sentence after the join.
  *
  * Nothing when the team already held the name: the bar names the session either way, and a second
- * sentence would be about a change that did not happen. The two failures are apart because they
- * are different news — a custom label can never be drawn, because the vocabulary is the bar's,
- * while a write that failed is a file the person can fix.
+ * sentence would be about a change that did not happen. A write that failed is a file the person
+ * can fix, so it is the one failure this note has.
  */
-function teammateNote(label: string, named: AddTeammateResult | undefined): string | undefined {
+function teammateNote(named: AddTeammateResult | undefined): string | undefined {
 	if (named === undefined) return undefined;
-	if (named.ok) return named.changed ? "board.teammates now holds it, so the bar names you." : undefined;
-	if (named.why === "not-a-teammate") {
-		return `${label} is not a preset teammate name, so the bar draws no chip for you.`;
-	}
+	if (named.ok) return named.changed ? "team.teammates now holds it, so the bar names you." : undefined;
 	return `The bar will not name you: ${named.reason}.`;
 }
 

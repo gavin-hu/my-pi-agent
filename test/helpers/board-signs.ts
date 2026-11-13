@@ -15,7 +15,7 @@ import type { FakePiOptions } from "./fakes.ts";
 import { writeBusRecord } from "./bus.ts";
 import { tempDir } from "./env.ts";
 import { makeTempTracker } from "./git.ts";
-import { presetNameFor } from "../../lib/session-label.ts";
+import { agentLabel } from "../../lib/session-label.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import type { VerifyOutcome, VerifyRun } from "../../lib/board/verify.ts";
 import { registerTools } from "../../extensions/board/tools.ts";
@@ -26,14 +26,14 @@ const temps = makeTempTracker();
 export const NOW = 50_000;
 export const LEAD_ID = "s-lead";
 /** The name a signSession with that id joins under, which is the label the board signs with. */
-export const LEAD = presetNameFor(LEAD_ID) ?? LEAD_ID;
+export const LEAD = agentLabel(LEAD_ID);
 
 /** The board tool's dependency seam, as `registerTools` takes it. */
 type BoardDeps = NonNullable<Parameters<typeof registerTools>[2]>;
 
 /** The peer that claims the bench's card, and the name its card records. */
 export const PEER_ID = "s-peer";
-export const PEER = presetNameFor(PEER_ID) ?? PEER_ID;
+export const PEER = agentLabel(PEER_ID);
 
 /** One message the tool sent, which is what a case asks about. */
 export interface Sent {
@@ -49,7 +49,7 @@ export function signBus(options: { sent?: Sent[]; fail?: string; delivered?: str
 		options.sent?.push(input);
 		// A signBus answers with the labels it wrote for, not with what it was addressed by — the ids —
 		// which is the fact a sign reports back to its caller.
-		return { ok: true, delivered: [options.delivered ?? presetNameFor(input.to) ?? input.to], failed: [] };
+		return { ok: true, delivered: [options.delivered ?? agentLabel(input.to)], failed: [] };
 	};
 }
 
@@ -72,6 +72,8 @@ export interface BenchOptions {
 	clock?: () => number;
 	/** A store the case wraps, so a write that cannot land can be a fixture rather than a mock. */
 	wrapStore?: (store: BoardStore) => BoardStore;
+	/** The lead the project names, when the case is a project that names none. */
+	lead?: string;
 }
 
 /** One repository, its agent directory, and the two sessions that act on one board. */
@@ -87,6 +89,7 @@ export function bench(deps: BoardDeps = {}, options: BenchOptions = {}): { lead:
 			...(options.exec === undefined ? {} : { exec: options.exec }),
 			...(options.clock === undefined ? {} : { clock: options.clock }),
 			...(options.wrapStore === undefined ? {} : { wrapStore: options.wrapStore }),
+			...(options.lead === undefined ? {} : { lead: options.lead }),
 		}),
 		peer: signSession({
 			cwd,
@@ -96,6 +99,7 @@ export function bench(deps: BoardDeps = {}, options: BenchOptions = {}): { lead:
 			...(options.exec === undefined ? {} : { exec: options.exec }),
 			...(options.clock === undefined ? {} : { clock: options.clock }),
 			...(options.wrapStore === undefined ? {} : { wrapStore: options.wrapStore }),
+			...(options.lead === undefined ? {} : { lead: options.lead }),
 		}),
 	};
 }
@@ -110,9 +114,11 @@ export function signSession(options: {
 	clock?: () => number;
 	/** A store the case wraps — a record that cannot be written is one of these. */
 	wrapStore?: (store: BoardStore) => BoardStore;
+	/** The lead the project names, when the case is a project that names none. */
+	lead?: string;
 }) {
-	const { deps, clock, wrapStore, ...rest } = options;
-	const board = boardHarness({ ...rest, lead: LEAD, now: NOW, ...(clock === undefined ? {} : { clock }) });
+	const { deps, clock, wrapStore, lead, ...rest } = options;
+	const board = boardHarness({ ...rest, lead: lead ?? LEAD, now: NOW, ...(clock === undefined ? {} : { clock }) });
 	const runtime =
 		wrapStore === undefined
 			? board.runtime

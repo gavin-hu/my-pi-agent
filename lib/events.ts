@@ -107,7 +107,7 @@ export interface WorktreeChangedEvent {
 	borrowed?: boolean;
 }
 
-/** EventBus channel: one working directory's `board.teammates` changed. */
+/** EventBus channel: one working directory's `team.teammates` changed. */
 export const TEAM_CHANGED_CHANNEL = "my-pi-agent/team-changed";
 
 /**

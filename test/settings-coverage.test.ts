@@ -26,7 +26,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { configValueAt } from "../lib/config.ts";
-import { DEFAULT_BOARD_CONFIG, normalizeBoardConfig } from "../lib/board/config.ts";
+import { DEFAULT_TEAM_CONFIG, normalizeTeamConfig, normalizeWipConfig } from "../lib/board/config.ts";
+import { DEFAULT_WIP } from "../lib/board/limits.ts";
 import { withLeaf } from "./helpers/config.ts";
 import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../extensions/bytefly/chrome.ts";
 import {
@@ -86,10 +87,17 @@ const WEB_ACCESS_DEFAULTS = { search: DEFAULT_SEARCH_CONFIG, fetch: DEFAULT_FETC
 /** Every section of the shared document, in the order the reference lists them. */
 const SECTIONS: readonly SectionCase[] = [
 	{
-		// The board's whole section is three leaves, and the screen carries one row each.
+		// The board's section is the two lane limits, and the screen carries one row each.
 		section: "board",
-		defaults: DEFAULT_BOARD_CONFIG,
-		normalize: (raw) => normalizeBoardConfig(raw, DEFAULT_BOARD_CONFIG),
+		defaults: { wip: DEFAULT_WIP },
+		normalize: (raw) => ({ wip: normalizeWipConfig(raw, DEFAULT_WIP) }),
+		jsonOnly: {},
+	},
+	{
+		// The team is its own section: the lead whose signature the gates take, and its names.
+		section: "team",
+		defaults: DEFAULT_TEAM_CONFIG,
+		normalize: (raw) => normalizeTeamConfig(raw, DEFAULT_TEAM_CONFIG),
 		jsonOnly: {},
 	},
 	{

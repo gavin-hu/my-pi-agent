@@ -16,7 +16,8 @@ import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-codi
 import type { Card } from "../../lib/board/card.ts";
 import { cardRef, type CardOwner } from "../../lib/board/card.ts";
 import type { Handoff } from "../../lib/board/contract.ts";
-import { askLead, type Lead } from "../../lib/board/lead.ts";
+import type { Lead } from "../../lib/board/lead.ts";
+import { askLead, leadName } from "../../lib/board/contract.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import {
 	listPeers,
@@ -160,11 +161,11 @@ export function offerText(card: Card, lead: Lead, note?: string): string {
  * without `approve` and `done` without `review`, and refuses a signer who holds the card —
  * so a message that said "move it to execute, blocked, or done" handed the peer an
  * instruction its own next call would refuse. The name is the configured lead, which is the
- * one a sign has to carry, and the way to ask it is `askLead` — `lib/board/lead.ts`'s one
+ * one a sign has to carry, and the way to ask it is `askLead` — `lib/board/sign-words.ts`'s one
  * phrase for the channel, printed here and in the two refusals a peer reads.
  */
 function signatureLine(lead: Lead): string {
-	return `Its three moves: \`blocked\` is yours to set; \`execute\` needs the lead (${lead}) to \`approve\` the contract, and \`done\` needs the lead's \`review\` — ${askLead(lead)} when each is ready.`;
+	return `Its three moves: \`blocked\` is yours to set; \`execute\` needs the lead (${leadName(lead)}) to \`approve\` the contract, and \`done\` needs the lead's \`review\` — ${askLead(lead)} when each is ready.`;
 }
 
 /**

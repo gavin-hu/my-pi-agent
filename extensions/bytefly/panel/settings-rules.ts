@@ -4,11 +4,11 @@
  * A rule lives beside the catalogue but not inside it, because the screen's list is sixteen
  * rows long and each row's arithmetic is one paragraph: the two together are what pushed the
  * catalogue past the module bar. Every limit here is the loader's own — the budget's clamp, the
- * WIP range, the teammate vocabulary — so a value the screen accepts is a value the loader
- * keeps, and `test/settings-coverage.test.ts` holds the pair together.
+ * WIP range, the team cap — so a value the screen accepts is a value the loader keeps, and
+ * `test/settings-coverage.test.ts` holds the pair together.
  */
 
-import { TEAMMATE_NAMES } from "../../../lib/session-label.ts";
+import { MAX_LABEL, MAX_TEAMMATES } from "../../../lib/session-label.ts";
 
 /** What a text row accepts, checked before a write so the file cannot hold less. */
 export interface TextRule {
@@ -54,22 +54,23 @@ export function countRule(min: number, max: number): TextRule {
 }
 
 /**
- * A text rule for the team: the built-in teammate names, comma separated.
+ * A text rule for the team: labels, comma separated.
  *
- * The rule is the loader's, stated in the screen's words: a name the set does not hold is
- * refused rather than saved, so the file cannot name a teammate nothing can draw, and a
- * name stated twice is refused because a team is a set.
+ * The rule is the loader's, stated in the screen's words: a name is a label, so it is one line of
+ * at most `MAX_LABEL` and the list holds at most `MAX_TEAMMATES`; a name stated twice is refused
+ * because a team is a set. An empty list is allowed — it is how a project says its team is nobody,
+ * which is what the footer draws nothing for — so the only things to refuse are a name too long
+ * and a repeat.
  */
 export function teammatesRule(): TextRule {
-	const longest = Math.max(...TEAMMATE_NAMES.map((name) => name.length));
 	return {
-		// Every built-in name, at its longest, with the separator it would follow.
-		maxLength: TEAMMATE_NAMES.length * (longest + 2),
+		// Every name at its longest, with the separator it would follow.
+		maxLength: MAX_TEAMMATES * (MAX_LABEL + 2),
 		validate(raw) {
 			const names = splitList(raw);
-			if (names.length === 0) return "Name at least one teammate, from the built-in names.";
-			const unknown = names.find((name) => !TEAMMATE_NAMES.some((known) => known === name));
-			if (unknown !== undefined) return `"${unknown}" is not a built-in teammate name.`;
+			const long = names.find((name) => name.length > MAX_LABEL);
+			if (long !== undefined) return `"${long}" is too long: a name is at most ${MAX_LABEL} characters.`;
+			if (names.length > MAX_TEAMMATES) return `A team holds at most ${MAX_TEAMMATES} names.`;
 			if (new Set(names).size !== names.length) return "A teammate is named twice.";
 			return undefined;
 		},

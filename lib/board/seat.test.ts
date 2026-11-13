@@ -2,7 +2,7 @@
  * The seat: the name a page serves as, derived from the board's lead.
  *
  * The name is the lead's, and it arrives normalized — `config.ts` runs `normalizeLabel` over
- * `board.lead` — so the only rule left here is the id: two spellings of one team name must be
+ * `team.lead` — so the only rule left here is the id: two spellings of one team name must be
  * one actor, because a handover depends on a new session holding what the last one claimed.
  */
 

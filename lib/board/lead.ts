@@ -5,7 +5,7 @@
  * `approve` and `review` are the board's one human judgement — a contract somebody read and a
  * piece of work somebody looked at — so the signature has to belong to somebody accountable
  * rather than to whichever peer answered first. The lead is a team name in `bytefly.json`
- * (`board.lead`, defaulting to the page's seat — `board/seat.ts` — in `config.ts`), because that is
+ * (`team.lead`, read by `config.ts`, and the page's seat in `board/seat.ts`), because that is
  * the one identity a pure rule can be handed and a card file can record; the person is the one
  * actor a file can name that is not a holder, which is what keeps a repository worked by one
  * session able to close a card at all.
@@ -13,9 +13,9 @@
  * The signer is refused in two shapes and this module owns both: a session that is not the lead
  * (`signRefusal`), and a lead that holds the card it means to sign (`holderRefusal` — release it
  * first, since a session signing its own wording is the gate approving itself). The words of each
- * sign live in one table here, so the two gates and the lane requirements that ask for a
- * signature cannot drift into four slightly different sentences: a refusal names `askLead` as the
- * way to ask, and `signedText` is what the sign sends the card's owner.
+ * sign live in one table, in `sign-words.ts`, so the two gates and the lane requirements that ask
+ * for a signature cannot drift into four slightly different sentences: a refusal names `askLead`
+ * as the way to ask, and `signedText` is what the sign sends the card's owner.
  *
  * `reclaim` is the third decision here, because it is the same question asked of another verb: the
  * holder may always take its own card back, the lead takes anybody's as a repair, and a peer takes
@@ -33,7 +33,15 @@
 
 import { normalizeLabel } from "../session-label.ts";
 import { cardRef, type Card, type CardOwner, holds, laneSince, MAX_NOTES, normalizeNote } from "./card.ts";
-import { type Sign as SignRecord, type Verification, isVerification, normalizeInstruction } from "./contract.ts";
+import {
+	askLead,
+	leadName,
+	type Sign as SignRecord,
+	SIGN_WORDS,
+	type Verification,
+	isVerification,
+	normalizeInstruction,
+} from "./contract.ts";
 import type { BoardConfig } from "./config.ts";
 import { LANE_RULES } from "./lanes.ts";
 import type { Actor, CardOp, Prepared } from "./rules.ts";
@@ -70,10 +78,11 @@ export function isPerson(actor: Pick<Actor, "id">): boolean {
  *
  * The person signs as the lead's name, because that is the one name a card file can give somebody
  * who has no session — `PERSON_LABEL` is what the person's own line prints, never what a record
- * stores. The mark is what tells the two apart afterwards.
+ * stores. A board that names no lead has no name to lend, so the record carries the person's own
+ * label: the sign still reads as a sign, and the mark is what tells the two apart afterwards.
  */
 export function signMark(actor: Actor, lead: Lead): Pick<SignRecord, "by" | "person"> {
-	return isPerson(actor) ? { by: lead, person: true } : { by: actor.label };
+	return isPerson(actor) ? { by: lead === "" ? PERSON_LABEL : lead, person: true } : { by: actor.label };
 }
 
 /**
@@ -120,70 +129,6 @@ export function signOf(word: string): Sign | undefined {
 	return SIGN_KINDS.find((sign) => sign === word);
 }
 
-/** The words one sign is refused with, wherever the refusal is written. */
-interface SignWords {
-	/** What a session that is not the lead is told. */
-	readonly notSigner: (card: Card, actor: Actor, lead: Lead) => string;
-	/** What a holder that is not the lead is told. */
-	readonly holder: string;
-	/** What a holder that is the lead has to do first. */
-	readonly release: string;
-	/** What the move gate says when nobody has signed: the way out, naming the lead. */
-	readonly missing: (card: Card, lead: Lead) => string;
-	/** What the card's owner reads when the sign lands: who signed, and the move it unlocked. */
-	readonly signed: (card: Card, by: string) => string;
-}
-
-const SIGN_WORDS: Record<Sign, SignWords> = {
-	approve: {
-		notSigner: (card, actor, lead) =>
-			`${cardRef(card.id)}'s contract is signed by the lead (${lead}), and this session is ${actor.label} — ${askLead(lead)}, or the person signs it with \`/board approve ${card.id}\`.`,
-		holder: "Its contract is signed by the lead, who does not hold it.",
-		release: "A lead releases a card before signing it.",
-		missing: (card, lead) =>
-			`${cardRef(card.id)} is in plan; its contract is not approved yet. The lead (${lead}) approves with \`approve\` (${askLead(lead)}), or the person with \`/board approve ${card.id}\`.`,
-		signed: (card, by) =>
-			`Signature: ${cardRef(card.id)} "${card.title}" — its contract is approved by ${by}.\n` +
-			`Next: \`execute\` is open — board action "move" with lane "execute", while the lane has room. \`done\` still needs the lead's \`review\`.`,
-	},
-	review: {
-		notSigner: (card, actor, lead) =>
-			`${cardRef(card.id)} is spot-checked by the lead (${lead}), and this session is ${actor.label} — ${askLead(lead)}, or the person signs with \`/board review ${card.id}\`.`,
-		holder: "A card is spot-checked by the lead, who does not hold it.",
-		release: "A lead releases a card before spot-checking it.",
-		missing: (card, lead) =>
-			`${cardRef(card.id)} has no spot-check recorded. The lead (${lead}) records one with \`review\` (${askLead(lead)}), or the person with \`/board review ${card.id}\`.`,
-		// Two signs, two announcements: a spot-check opens the last move, while one made by
-		// instruction is already the close, so telling its owner that `done` is open would send it
-		// after a move its card made before the sign existed.
-		signed: (card, by) => {
-			const why = card.review?.byInstruction;
-			if (why !== undefined) {
-				return (
-					`Signature: ${cardRef(card.id)} "${card.title}" — closed by instruction, signed by ${by}: ${why}.\n` +
-					`Next: nothing is open — the card is already done, and its record says how it was closed.`
-				);
-			}
-			return (
-				`Signature: ${cardRef(card.id)} "${card.title}" — spot-checked by ${by}.\n` +
-				`Next: \`done\` is open — board action "move" with lane "done", while the plan it recorded is still in the store.`
-			);
-		},
-	},
-};
-
-/**
- * How a session asks the lead for a sign.
- *
- * The gates are the lead's, and the sessions that want one are its peers on the same bus, so the
- * way to ask is a message: it waits in the lead's inbox and starts no turn, which is exactly what
- * a handoff is. The phrase is written once because two surfaces print it — the refusals below,
- * and `team`'s handoff, whose text told a peer to ask before this sentence had a home.
- */
-export function askLead(lead: Lead): string {
-	return `ask ${lead} with \`session send\``;
-}
-
 /**
  * Why `actor` may not sign `card`, or `undefined` when it may.
  *
@@ -192,7 +137,7 @@ export function askLead(lead: Lead): string {
  */
 export function signRefusal(card: Card, actor: Actor, lead: Lead, sign: Sign): string | undefined {
 	if (isPerson(actor) || isLead(actor, lead)) return undefined;
-	return SIGN_WORDS[sign].notSigner(card, actor, lead);
+	return SIGN_WORDS[sign].notSigner(card.id, actor, lead);
 }
 
 /** What a holder is told when it means to sign its own card: what the lead does, or what it is. */
@@ -207,7 +152,7 @@ export function heldBy(card: Card): string {
 
 /** What a lane that needs a sign nobody gave says: the lead approves it, or the person signs. */
 export function missingSign(card: Card, lead: Lead, sign: Sign): string {
-	return SIGN_WORDS[sign].missing(card, lead);
+	return SIGN_WORDS[sign].missing(card.id, lead);
 }
 
 /**
@@ -218,7 +163,7 @@ export function missingSign(card: Card, lead: Lead, sign: Sign): string {
  * again" alone leaves a reader guessing which of the two they have.
  */
 export function unverifiedSpotCheck(card: Card, cmd: string, lead: Lead): string {
-	return `${cardRef(card.id)}'s contract names \`${cmd}\`, and its spot-check carries no result: the lead (${lead}) records one with \`review\`, or the person with \`/board review ${card.id}\`.`;
+	return `${cardRef(card.id)}'s contract names \`${cmd}\`, and its spot-check carries no result: the lead (${leadName(lead)}) records one with \`review\`, or the person with \`/board review ${card.id}\`.`;
 }
 
 /**
@@ -228,7 +173,7 @@ export function unverifiedSpotCheck(card: Card, cmd: string, lead: Lead): string
  * evidence, so the run has to be made again. The sentence names what to re-run and both doors.
  */
 export function staleSpotCheck(card: Card, cmd: string, lead: Lead): string {
-	return `${cardRef(card.id)} was written after its spot-check, so the run no longer speaks for it — run \`${cmd}\` and review again: the lead (${lead}) with \`review\`, or the person with \`/board review ${card.id}\`.`;
+	return `${cardRef(card.id)} was written after its spot-check, so the run no longer speaks for it — run \`${cmd}\` and review again: the lead (${leadName(lead)}) with \`review\`, or the person with \`/board review ${card.id}\`.`;
 }
 
 /** What a `review` is refused with when the command it ran did not pass. */
@@ -539,12 +484,12 @@ function heldStill(card: Card, lead: Lead, state: SessionPresence | undefined): 
 	const owner = card.owner?.label ?? "another session";
 	const held = `${cardRef(card.id)} is held by ${owner}.`;
 	if (state === "live") {
-		return `${held} That session is running, so only the lead (${lead}) takes a live peer's card back — ask ${owner} to release it, or ${askLead(lead)}.`;
+		return `${held} That session is running, so only the lead (${leadName(lead)}) takes a live peer's card back — ask ${owner} to release it, or ${askLead(lead)}.`;
 	}
 	if (state === "absent") {
-		return `${held} The bus has no record of that session, and nothing says it stopped: only the lead (${lead}) takes the card back.`;
+		return `${held} The bus has no record of that session, and nothing says it stopped: only the lead (${leadName(lead)}) takes the card back.`;
 	}
-	return `${held} Nothing here says whether that session is running, so only the lead (${lead}) takes the card back.`;
+	return `${held} Nothing here says whether that session is running, so only the lead (${leadName(lead)}) takes the card back.`;
 }
 
 /**

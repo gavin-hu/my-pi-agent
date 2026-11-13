@@ -26,10 +26,15 @@
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
-import { DEFAULT_BOARD_CONFIG, normalizeBoardConfig } from "../../../lib/board/config.ts";
-import { DEFAULT_TEAMMATES, MAX_LABEL } from "../../../lib/session-label.ts";
+import {
+	DEFAULT_BOARD_CONFIG,
+	DEFAULT_TEAM_CONFIG,
+	normalizeTeamConfig,
+	normalizeWipConfig,
+} from "../../../lib/board/config.ts";
+import { MAX_LABEL } from "../../../lib/session-label.ts";
 import { amountRule, countRule, splitList, teammatesRule, type TextRule } from "./settings-rules.ts";
-import { MAX_WIP } from "../../../lib/board/limits.ts";
+import { DEFAULT_WIP, MAX_WIP } from "../../../lib/board/limits.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
@@ -68,7 +73,7 @@ interface SettingOption {
 }
 
 /** The `bytefly.json` sections a row still reaches. */
-export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job" | "board";
+export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job" | "board" | "team";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
 interface SettingConfig {
@@ -289,35 +294,31 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "board", path: ["wip", "execute"] },
 	},
 	{
-		id: "board.lead",
+		id: "team.lead",
 		group: "Team",
 		label: "Lead",
 		description:
-			"The team name whose signature approves a contract and spot-checks the work; a card's holder never signs.",
+			"The project's team name whose signature approves a contract and spot-checks the work; empty means no session signs. `bytefly.json` `team.lead`.",
 		source: "bytefly",
 		kind: "text",
-		fallback: DEFAULT_BOARD_CONFIG.lead,
+		fallback: DEFAULT_TEAM_CONFIG.lead,
 		options: [],
-		text: {
-			maxLength: MAX_LABEL,
-			validate: (raw) =>
-				raw.trim() === "" ? "A lead needs a name; `u` clears the key and the default comes back." : undefined,
-		},
-		config: { section: "board", path: ["lead"] },
+		text: { maxLength: MAX_LABEL },
+		config: { section: "team", path: ["lead"] },
 	},
 	{
-		id: "board.teammates",
+		id: "team.teammates",
 		group: "Team",
 		label: "Teammates",
 		description:
-			"Who is on the team: built-in teammate names, comma separated. The footer draws a session's name only when it is one of these; `bytefly.json` `board.teammates`.",
+			"Who is on the team, comma separated: the footer draws a session's name only when it is one of these; empty means no names at all. `bytefly.json` `team.teammates`.",
 		source: "bytefly",
 		kind: "text",
-		fallback: DEFAULT_TEAMMATES.join(","),
+		fallback: DEFAULT_TEAM_CONFIG.teammates.join(","),
 		json: "list",
 		options: [],
 		text: teammatesRule(),
-		config: { section: "board", path: ["teammates"] },
+		config: { section: "team", path: ["teammates"] },
 	},
 	{
 		id: "price.currency.code",
@@ -417,6 +418,9 @@ function budgetLabel(raw: string, snapshot: SettingsSnapshot, scope: WriteScope)
 
 /** The display label for `raw`, or the raw value when it is a valid custom one. */
 function labelFor(row: SettingDescriptor, raw: string): string {
+	// An unstated team is a value rather than a blank row: the project named no lead, or nobody.
+	if (row.id === "team.lead" && raw.trim() === "") return "(no lead)";
+	if (row.id === "team.teammates" && splitList(raw).length === 0) return "(no one)";
 	// A list reads as a list: the file joins it with a comma, a reader sees the names apart.
 	if (row.json === "list") return splitList(raw).join(", ");
 	const option = row.options.find((entry) => entry.value === raw);
@@ -473,7 +477,9 @@ const SECTION_READERS: Partial<Record<ConfigSectionName, SectionReader>> = {
 	price: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeByteflyConfig(projectRaw, normalizeByteflyConfig(globalRaw, DEFAULT_BYTEFLY_CONFIG)), path),
 	board: (globalRaw, projectRaw, path) =>
-		configValueAt(normalizeBoardConfig(projectRaw, normalizeBoardConfig(globalRaw, DEFAULT_BOARD_CONFIG)), path),
+		configValueAt(normalizeWipConfig(projectRaw, normalizeWipConfig(globalRaw, DEFAULT_WIP)), path),
+	team: (globalRaw, projectRaw, path) =>
+		configValueAt(normalizeTeamConfig(projectRaw, normalizeTeamConfig(globalRaw, DEFAULT_TEAM_CONFIG)), path),
 };
 
 /**

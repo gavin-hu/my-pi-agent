@@ -1,33 +1,36 @@
 /**
  * The team this session belongs to, read once where the bar installs.
  *
- * `board.teammates` lives in the shared document, so a footer that resolved the list itself
+ * `team.teammates` lives in the shared document, so a footer that resolved the list itself
  * would spend a file read on every frame. It is read at install instead — the same moment
  * the price config is read — and handed to the snapshot as a closure, so a frame costs a
  * comparison and an edited list lands at the next `session_tree`, or on `TEAM_CHANGED_CHANNEL`
  * when a `/team join` in this session is what edited it.
  *
- * Loaded with `import()` rather than at registration: the board's config pulls the lead's
- * rules, the lane table, and the card record, and a package that never draws a team should
- * not pay for them before the first frame. The deferral is what keeps `test/dependencies`
- * flat, the same reason the bus label reader before it was deferred.
+ * A project names its own team, so a project that names none has an empty list and the bar draws
+ * no name: that is the accepted consequence of the setting, not a missing default to paper over.
+ *
+ * Loaded with `import()` rather than at registration: the team's config pulls the board's lead
+ * rules, the lane table, and the card record, and a package that never draws a team should not pay
+ * for them before the first frame. The deferral is what keeps `test/dependencies` flat, the same
+ * reason the bus label reader before it was deferred.
  */
 
-import { DEFAULT_TEAMMATES, isTeammate } from "../../../../lib/session-label.ts";
-import { readBoardConfig } from "../../../../lib/board/config.ts";
+import { isTeammate } from "../../../../lib/session-label.ts";
+import { DEFAULT_TEAM_CONFIG, readTeamConfig } from "../../../../lib/board/config.ts";
 
 /**
- * The names this repository's board holds as its team.
+ * The names this repository's project holds as its team.
  *
- * A file that cannot be read is the default team rather than an error: the bar is derived
- * state, and a footer that threw on a malformed `bytefly.json` would take the session's
- * frame down over a cosmetic list.
+ * A file that cannot be read is the empty team rather than an error: the bar is derived state,
+ * and a footer that threw on a malformed `bytefly.json` would take the session's frame down over
+ * a cosmetic list.
  */
 export function readTeammates(cwd: string, options: { agentDir?: string } = {}): readonly string[] {
 	try {
-		return readBoardConfig(cwd, options).teammates;
+		return readTeamConfig(cwd, options).teammates;
 	} catch {
-		return DEFAULT_TEAMMATES;
+		return DEFAULT_TEAM_CONFIG.teammates;
 	}
 }
 

@@ -9,9 +9,8 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
-import { NOW, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
+import { NOW, SUITE_LEAD, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { DEFAULT_LEAD } from "../../lib/board/config.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -31,7 +30,7 @@ describe("offer", () => {
 		expect(sent[0]?.text).toContain("is unclaimed");
 		expect(sent[0]?.text).toContain("Note: whoever is free");
 		// A claimer meets the same two gates, so the broadcast names them too.
-		expect(sent[0]?.text).toContain(`needs the lead (${DEFAULT_LEAD}) to \`approve\` the contract`);
+		expect(sent[0]?.text).toContain(`needs the lead (${SUITE_LEAD}) to \`approve\` the contract`);
 		expect(sent[0]?.text).toContain("`done` needs the lead's `review`");
 		// One write, and only the offer: the card is unowned, still to do, and its one
 		// change is the moment it was offered — which is what a lead reads instead of

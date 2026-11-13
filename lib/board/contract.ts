@@ -22,6 +22,9 @@
  */
 
 import { sanitizeLine } from "../format.ts";
+import type { Card } from "./card.ts";
+import type { Lead } from "./lead.ts";
+import type { Actor } from "./rules.ts";
 
 /** The three lines of a contract, in the order a reader and a refusal name them. */
 export const CONTRACT_FIELDS = ["goal", "acceptance", "scopeOut"] as const;
@@ -312,3 +315,98 @@ export function isContract(value: unknown): value is Contract {
 	}
 	return contract.approved === undefined || isSign(contract.approved);
 }
+
+// --- The two gates, as words -------------------------------------------------
+
+/**
+ * What a refusal says when the project names no lead: the key that names one.
+ *
+ * One phrase because four sentences continue it, and a project that has not named its lead yet
+ * should read one instruction in all four rather than four paraphrases of it.
+ */
+const NO_LEAD = "and this board names none: set `team.lead` in `bytefly.json`";
+
+/**
+ * The lead as a sentence names it: the team's word, or the key that would name one.
+ *
+ * A refusal that prints an empty parenthesis reads as a bug; this prints the setting a reader can
+ * fix instead, in the same place the name would have gone.
+ */
+export function leadName(lead: Lead): string {
+	return lead === "" ? "`team.lead`" : lead;
+}
+
+/**
+ * How a session asks the lead for a sign.
+ *
+ * The gates are the lead's, and the sessions that want one are its peers on the same bus, so the
+ * way to ask is a message: it waits in the lead's inbox and starts no turn, which is exactly what
+ * a handoff is. With no lead named there is nobody to ask, so the sentence names the setting
+ * rather than a peer.
+ */
+export function askLead(lead: Lead): string {
+	return lead === "" ? "set `team.lead` in `bytefly.json`" : `ask ${lead} with \`session send\``;
+}
+
+/** The words one sign is refused with, wherever the refusal is written. */
+export interface SignWords {
+	/** What a session that is not the lead is told. */
+	readonly notSigner: (id: string, actor: Pick<Actor, "label">, lead: Lead) => string;
+	/** What a holder that is not the lead is told. */
+	readonly holder: string;
+	/** What a holder that is the lead has to do first. */
+	readonly release: string;
+	/** What the move gate says when nobody has signed: the way out, naming the lead. */
+	readonly missing: (id: string, lead: Lead) => string;
+	/** What the card's owner reads when the sign lands: who signed, and the move it unlocked. */
+	readonly signed: (card: Pick<Card, "id" | "title" | "review">, by: string) => string;
+}
+
+/** The two words a gate is signed with, as `lead.ts`'s `Sign` names them. */
+type SignKind = "approve" | "review";
+
+export const SIGN_WORDS: Record<SignKind, SignWords> = {
+	approve: {
+		notSigner: (id, actor, lead) =>
+			lead === ""
+				? `#${id}'s contract is signed by the lead, ${NO_LEAD}, or the person signs it with \`/board approve ${id}\`.`
+				: `#${id}'s contract is signed by the lead (${lead}), and this session is ${actor.label} — ${askLead(lead)}, or the person signs it with \`/board approve ${id}\`.`,
+		holder: "Its contract is signed by the lead, who does not hold it.",
+		release: "A lead releases a card before signing it.",
+		missing: (id, lead) =>
+			lead === ""
+				? `#${id} is in plan; its contract is not approved yet, ${NO_LEAD}, or the person approves it with \`/board approve ${id}\`.`
+				: `#${id} is in plan; its contract is not approved yet. The lead (${lead}) approves with \`approve\` (${askLead(lead)}), or the person with \`/board approve ${id}\`.`,
+		signed: (card, by) =>
+			`Signature: #${card.id} "${card.title}" — its contract is approved by ${by}.\n` +
+			`Next: \`execute\` is open — board action "move" with lane "execute", while the lane has room. \`done\` still needs the lead's \`review\`.`,
+	},
+	review: {
+		notSigner: (id, actor, lead) =>
+			lead === ""
+				? `#${id} is spot-checked by the lead, ${NO_LEAD}, or the person signs with \`/board review ${id}\`.`
+				: `#${id} is spot-checked by the lead (${lead}), and this session is ${actor.label} — ${askLead(lead)}, or the person signs with \`/board review ${id}\`.`,
+		holder: "A card is spot-checked by the lead, who does not hold it.",
+		release: "A lead releases a card before spot-checking it.",
+		missing: (id, lead) =>
+			lead === ""
+				? `#${id} has no spot-check recorded, ${NO_LEAD}, or the person records one with \`/board review ${id}\`.`
+				: `#${id} has no spot-check recorded. The lead (${lead}) records one with \`review\` (${askLead(lead)}), or the person with \`/board review ${id}\`.`,
+		// Two signs, two announcements: a spot-check opens the last move, while one made by
+		// instruction is already the close, so telling its owner that `done` is open would send it
+		// after a move its card made before the sign existed.
+		signed: (card, by) => {
+			const why = card.review?.byInstruction;
+			if (why !== undefined) {
+				return (
+					`Signature: #${card.id} "${card.title}" — closed by instruction, signed by ${by}: ${why}.\n` +
+					`Next: nothing is open — the card is already done, and its record says how it was closed.`
+				);
+			}
+			return (
+				`Signature: #${card.id} "${card.title}" — spot-checked by ${by}.\n` +
+				`Next: \`done\` is open — board action "move" with lane "done", while the plan it recorded is still in the store.`
+			);
+		},
+	},
+};

@@ -12,17 +12,14 @@ import { describe, expect, test } from "bun:test";
 import {
 	agentLabel,
 	checkoutNames,
-	DEFAULT_TEAM_SIZE,
-	DEFAULT_TEAMMATES,
 	defaultLabel,
 	isTeammate,
 	MAX_LABEL,
+	MAX_TEAMMATES,
 	normalizeLabel,
 	normalizeTeammates,
-	presetNameFor,
 	shortId,
 	TEAM_AGENT_PREFIX,
-	TEAMMATE_NAMES,
 } from "./session-label.ts";
 
 describe("normalizeLabel", () => {
@@ -78,92 +75,55 @@ describe("agentLabel", () => {
 	});
 });
 
-describe("TEAMMATE_NAMES", () => {
-	test("are distinct names a person answers to, not derived ids", () => {
-		expect(new Set(TEAMMATE_NAMES).size).toBe(TEAMMATE_NAMES.length);
-		for (const name of TEAMMATE_NAMES) {
-			// A name is a label, so it is already one line, inside the cap, and one word.
-			expect(normalizeLabel(name, ""), name).toBe(name);
-			expect(name, name).toMatch(/^[a-z]{2,8}$/);
-		}
-	});
-});
-
-describe("DEFAULT_TEAMMATES", () => {
-	test("is the head of the built-in set, so the default team cannot hold a name the set dropped", () => {
-		expect(DEFAULT_TEAMMATES).toEqual(TEAMMATE_NAMES.slice(0, DEFAULT_TEAM_SIZE));
-		expect(DEFAULT_TEAMMATES).toHaveLength(DEFAULT_TEAM_SIZE);
-	});
-
-	test("is the lead and the four beside him, because the male presets lead the set", () => {
-		expect(DEFAULT_TEAMMATES).toEqual(["gavin", "tom", "jack", "mike", "sam"]);
-	});
-});
-
 describe("normalizeTeammates", () => {
-	test("keeps the names the set holds, in the order the file states them", () => {
+	test("keeps the labels the file states, in the order it states them", () => {
 		expect(normalizeTeammates(["sam", "gavin", "tom"])).toEqual(["sam", "gavin", "tom"]);
 	});
 
-	test("drops a name the set does not hold, a value that is not a name, and a duplicate", () => {
-		// `Gavin` is `gavin` compared without case, the way a label is addressed.
-		expect(normalizeTeammates(["gavin", "billing-lead", 7, "Gavin", "tom"])).toEqual(["gavin", "tom"]);
+	test("keeps any name, because the project's list is the whole vocabulary", () => {
+		expect(normalizeTeammates(["billing-core", "api-core"])).toEqual(["billing-core", "api-core"]);
 	});
 
-	test("keeps the base it is handed when the file says nothing usable", () => {
-		expect(normalizeTeammates(undefined)).toEqual(DEFAULT_TEAMMATES);
-		expect(normalizeTeammates([])).toEqual(DEFAULT_TEAMMATES);
-		expect(normalizeTeammates(["billing-lead"])).toEqual(DEFAULT_TEAMMATES);
+	test("a name is one line, lowercased, and capped like every label", () => {
+		// `Gavin` is `gavin` compared without case, the way a label is addressed.
+		expect(normalizeTeammates(["  Gavin  ", "billing\r\ncore"])).toEqual(["gavin", "billing core"]);
+		expect(normalizeTeammates(["x".repeat(MAX_LABEL + 20)])[0]).toHaveLength(MAX_LABEL);
+	});
+
+	test("drops a value that is not a string, a blank name, and a duplicate", () => {
+		expect(normalizeTeammates(["gavin", 7, "  ", "Gavin", "tom", null])).toEqual(["gavin", "tom"]);
+	});
+
+	test("keeps the base it is handed when the file states none", () => {
 		expect(normalizeTeammates(undefined, ["tom"])).toEqual(["tom"]);
+		expect(normalizeTeammates("gavin", ["tom"])).toEqual(["tom"]);
+	});
+
+	test("an empty list is a project saying nobody is on its team, not a file that said nothing", () => {
+		expect(normalizeTeammates([])).toEqual([]);
+		expect(normalizeTeammates([], ["tom"])).toEqual([]);
+	});
+
+	test("keeps at most MAX_TEAMMATES names, which is the cap this change introduced", () => {
+		const many = Array.from({ length: MAX_TEAMMATES + 5 }, (_, index) => `mate-${index}`);
+		expect(normalizeTeammates(many)).toHaveLength(MAX_TEAMMATES);
+		expect(normalizeTeammates(many).at(-1)).toBe(`mate-${MAX_TEAMMATES - 1}`);
 	});
 });
 
 describe("isTeammate", () => {
+	const team = ["gavin", "billing-core"];
+
 	test("compares without case, the way a label is addressed", () => {
-		expect(isTeammate("Gavin", DEFAULT_TEAMMATES)).toBe(true);
-		expect(isTeammate("billing-lead", DEFAULT_TEAMMATES)).toBe(false);
+		expect(isTeammate("Gavin", team)).toBe(true);
+		expect(isTeammate("team-agent-21ac3b", team)).toBe(false);
 	});
 
 	test("answers false for a name nobody has", () => {
-		expect(isTeammate(null, DEFAULT_TEAMMATES)).toBe(false);
-		expect(isTeammate(undefined, DEFAULT_TEAMMATES)).toBe(false);
-		expect(isTeammate("", DEFAULT_TEAMMATES)).toBe(false);
-	});
-});
-
-describe("presetNameFor", () => {
-	test("draws the same name for the same id every time", () => {
-		const drawn = presetNameFor("session-9f21ac3b");
-		if (drawn === undefined) throw new Error("the pool is empty");
-		const pool: readonly string[] = TEAMMATE_NAMES;
-		expect(pool).toContain(drawn);
-		expect(presetNameFor("session-9f21ac3b")).toBe(drawn);
-	});
-
-	test("spreads different sessions across the list", () => {
-		const ids = Array.from({ length: 40 }, (_, index) => `session-${index}`);
-		const drawn = new Set(ids.map((id) => presetNameFor(id)));
-		expect(drawn.size).toBeGreaterThan(5);
-	});
-
-	test("skips a name a live teammate holds, and walks on to the next free one", () => {
-		const first = presetNameFor("s-1");
-		if (first === undefined) throw new Error("the pool is empty");
-		const second = presetNameFor("s-1", [first]);
-		if (second === undefined) throw new Error("the pool is empty");
-		expect(second).not.toBe(first);
-		expect(presetNameFor("s-1", [first, second])).not.toBe(first);
-		expect(presetNameFor("s-1", [first, second])).not.toBe(second);
-	});
-
-	test("compares a held label the way a peer is addressed: without case", () => {
-		const first = presetNameFor("s-1");
-		if (first === undefined) throw new Error("the pool is empty");
-		expect(presetNameFor("s-1", [first.toUpperCase()])).not.toBe(first);
-	});
-
-	test("answers nothing when every name is taken, so the caller can fall back", () => {
-		expect(presetNameFor("s-1", TEAMMATE_NAMES)).toBeUndefined();
+		expect(isTeammate(null, team)).toBe(false);
+		expect(isTeammate(undefined, team)).toBe(false);
+		expect(isTeammate("", team)).toBe(false);
+		expect(isTeammate("gavin", [])).toBe(false);
 	});
 });
 

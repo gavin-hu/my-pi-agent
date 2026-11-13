@@ -187,7 +187,7 @@ async function fixOf(
  * a held name is the one door that renames, and renaming is what costs a lead its signature.
  */
 function heldFix(state: RosterState): string {
-	const rename = "a lead that renames loses its signature, because the gates compare `board.lead` by label";
+	const rename = "a lead that renames loses its signature, because the gates compare `team.lead` by label";
 	return state === "gone"
 		? `The bus forgets that record when its heartbeat ages out; joining under another name works now, though ${rename}.`
 		: `Only that session stopping frees the name, or join under another name now, though ${rename}.`;
