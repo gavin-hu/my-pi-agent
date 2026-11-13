@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the contract's `verify` line is described on the parameter, as its three neighbours are:
+  the acceptance command a spot-check runs, that a changed line drops the approval, and that an empty
+  string takes it back off.
+
 - `board`: a spot-check's stamp may not be older than the card it signs. A card's `updatedAt` only
   moves forward, so a card written by a session whose clock ran ahead of the reviewer's could never
   reach `done`: `signStale` asked for a sign newer than the card could ever be, and the remedy the
