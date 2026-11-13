@@ -406,10 +406,7 @@ export function review(
 	// through to the note-only return below.
 	const repeat = signed && !redo;
 	if (repeat && !noted.wrote) return { changed: false, fields: null, ...(owes ? { announce: true as const } : {}) };
-	// A sign may not be older than the card it signs. The card's own stamp is clamped forward (`write` in
-	// `rules.ts`), so a card written by a session whose clock runs ahead would otherwise refuse `done`
-	// for good: `signStale` would ask for a sign newer than the card can ever be, which is the remedy the
-	// refusal prints. The signer's note keeps `now`, as every note keeps the moment its caller read.
+	// Not older than the card it signs: a stamp the card has passed can never speak for it (`signStale`).
 	const signedAt = Math.max(now, card.updatedAt);
 	const stamp =
 		instruction === undefined
