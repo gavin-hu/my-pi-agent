@@ -46,10 +46,10 @@ describe("formatRound", () => {
 		// lead, and one line each is what says both.
 		expect(formatRound(cards, buildRound(cards, NOW)).split("\n")).toEqual([
 			"2 owners · 4 features · 1 unassigned · 0 unplanned · 0 awaiting approval · 1 awaiting review · 1 blocked · 0 unwritten · 1 done, 1 archivable",
-			"billing-core (2): #2 execute unplanned, #3 blocked",
+			"billing-core (2): #2 execute, #3 blocked",
 			"billing-other (0 live, 1 done)",
 			"unassigned (1): #1 backlog",
-			"unreviewed (1): #2 execute unplanned",
+			"unreviewed (1): #2 execute",
 			"blocked (1): #3 blocked — gateway",
 			"done (1): #4 done",
 		]);
@@ -97,7 +97,7 @@ describe("formatRound", () => {
 	test("an unwritten card in flight is not unplanned-by-accident", () => {
 		const stale = card("2", { lane: "execute", owner: { label: "billing-core" }, planPath: "p.md" });
 		const aged = { ...stale, updatedAt: NOW - UNWRITTEN_MS - 1 };
-		expect(formatRound([aged], buildRound([aged], NOW))).toContain("unwritten (1): #2 execute planned");
+		expect(formatRound([aged], buildRound([aged], NOW))).toContain("unwritten (1): #2 execute");
 	});
 
 	test("names an executing card nobody has spot-checked, before the card is unwritten", () => {
@@ -105,9 +105,9 @@ describe("formatRound", () => {
 		// is owed from the minute the card enters `execute`.
 		const fresh = card("2", { lane: "execute", owner: { label: "billing-core" }, planPath: "p.md" });
 		const lines = formatRound([fresh], buildRound([fresh], NOW)).split("\n");
-		expect(lines).toContain("unreviewed (1): #2 execute planned");
+		expect(lines).toContain("unreviewed (1): #2 execute");
 		expect(lines[0]).toContain("1 awaiting review");
-		expect(lines).not.toContain("unwritten (1): #2 execute planned");
+		expect(lines).not.toContain("unwritten (1): #2 execute");
 	});
 
 	test("an empty board is a headline of zeroes, not a refusal", () => {
@@ -158,7 +158,7 @@ describe("the owners who are only history", () => {
 		// An owner the bus has no record of and that holds nothing is history; one holding a card
 		// is the row a lead acts on, and folding it would hide a free card behind a count.
 		const lines = formatRound([working], buildRound([working], NOW), bus()).split("\n");
-		expect(lines).toContain("billing-core (1): #4 execute planned");
+		expect(lines).toContain("billing-core (1): #4 execute");
 	});
 
 	test("read as one owner when there is only one", () => {

@@ -69,7 +69,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`board/join.ts`](./board/join.ts) | The one join every door asks for: `joinTeam` (ask once, and again when the roster holds no live record under the name asked for), the `fix` a refusal carries when the bus's own words name no way forward, `TeamState` and `standingOf`/`teamStatus` for the `/board` line, `joinFailureLine` for a claim that landed while its join did not, and the re-ask that repeats a disarmed join as disarmed. |
 | [`board/seat.ts`](./board/seat.ts) | The actor a page reads as, derived from `team.lead`. |
 | [`board/lead.ts`](./board/lead.ts) | Who may sign the two gates and take a card back, the spot-check's own write and the run it holds to the contract's command, and every sentence a refusal or a sign says. |
-| [`board/round.ts`](./board/round.ts) | The lead's rollup over the cards alone: owners, unplanned, unapproved, unreviewed, blocked, done. |
+| [`board/round.ts`](./board/round.ts) | The lead's rollup over the cards alone: owners, unplanned, unapproved, unreviewed, blocked, done — and `gateOf`, the one rule that files a card there and gives the transcript's rows their word. |
 | [`board/round-text.ts`](./board/round-text.ts) | That rollup as sentences, and what a session is holding, shared by the tool, `/team`, and the page. |
 | [`board/skipped.ts`](./board/skipped.ts) | The sentence for the card files a board refused. |
 | [`board/view.ts`](./board/view.ts) | The page's snapshot: the one shape a client is allowed to know. |

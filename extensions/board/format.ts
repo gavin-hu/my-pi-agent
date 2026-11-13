@@ -2,7 +2,7 @@
  * The model-facing text for one card or one listing.
  *
  * Text is the model's channel, so it carries the facts a next decision needs — the
- * id, the lane, who holds it, whether it is planned, how urgent it is, and what it
+ * id, the lane, who holds it, what it still owes, how urgent it is, and what it
  * waits for — and the renderer carries the styling. Ages and sizes stay out: a note is
  * read for what it says, and the page is where "3m ago" belongs.
  *
@@ -14,6 +14,8 @@
 import { type Card, type CardBlock, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/board/card.ts";
 import type { Sign } from "../../lib/board/contract.ts";
 import { CONTRACT_LINE_OWED } from "../../lib/board/contract.ts";
+import { gateOf } from "../../lib/board/round.ts";
+import { GATE_WORD } from "../../lib/board/tone.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
 import { skippedText } from "../../lib/board/skipped.ts";
 import type { Skip } from "../../lib/board/store.ts";
@@ -170,15 +172,19 @@ function blockText(block: CardBlock): string {
 	return block.kind === undefined ? note : `${note} (${block.kind})`;
 }
 
-/** A one-line listing: the id, the lane, the title, and who holds it. */
+/** A one-line listing: the id, the lane, the title, who holds it, and what it owes. */
 function listLine(card: Card): string {
 	const holder = card.owner === undefined ? "unassigned" : card.owner.label;
 	const urgency = priorityOf(card) === DEFAULT_PRIORITY ? "" : ` · ${priorityOf(card)}`;
+	// The gate a card still owes, in the word the transcript's row prints for the same fact: a
+	// listing without it read a card waiting for a signature like one that had it.
+	const gate = gateOf(card);
+	const owed = gate === undefined ? "" : ` · ${GATE_WORD[gate]}`;
 	const waits = dependsOf(card).length === 0 ? "" : ` · waits on ${dependsOf(card).map(cardRef).join(", ")}`;
 	// The blocked lane carries a fact of its own, and it says it here: the sentence, or the
 	// kind, is one short phrase, so a listing stays one line.
 	const blocked = card.blocked === undefined ? "" : ` · blocked: ${blockText(card.blocked)}`;
-	return `${cardRef(card.id)} ${card.lane} · ${card.title} · ${holder}${urgency}${waits}${blocked}`;
+	return `${cardRef(card.id)} ${card.lane} · ${card.title} · ${holder}${urgency}${owed}${waits}${blocked}`;
 }
 
 /** The state lines under a card's headline. */

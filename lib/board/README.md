@@ -394,6 +394,15 @@ and `unwritten` say different things — one that the lead owes a look, the othe
 written the card. Hiding it in one group would lose half the reason to look. `archivableOf` is
 the finished pile `archive` is offered.
 
+`gateOf(card)` is what those three queues are about: `contract`, `approval`, `review`, or
+`undefined` for a card that owes no route gate — the list and the words it wears are `tone.ts`'s
+`GATES` / `Gate` / `GATE_WORD`. Only the two lanes a card is worked in answer: a `plan` card owes
+its contract (a missing line, or no plan file to execute against) and then its approval, and an
+`execute` card owes the spot-check that speaks for the execution it is in now, which is
+`currentReview`'s rule rather than "a sign exists". The transcript's rows and `board list`'s line
+print that word; before it they read `planPath` alone and called a card with half a contract
+planned while the rollup counted it unplanned.
+
 ### round-text.ts
 
 That rollup as the lines a reader gets, because `board`'s tool returns them — the model's next
@@ -453,7 +462,10 @@ because the page and the terminal both need it and two statements drift apart. `
 page kit's own colour words plus `dim`, so a tone is the name of a CSS property and the page needs
 no map; `BOARD_TONES`, `REASON_TONE` (every reason kind, `waiting` included because the card face
 invents it), and `DECISION_KINDS` / `DECISION_TONE`, the Team queue's kinds in rank order with the
-tone each wears in its pill, so a row's rank and the tone it says cannot disagree. `DECISION_BAND`
+tone each wears in its pill, so a row's rank and the tone it says cannot disagree. `GATES` / `Gate` /
+`GATE_WORD` are the three route gates a card can owe and the word each wears, aliases of
+`DECISION_LABEL` rather than a second spelling of it: the rule that answers which gate is
+`round.ts`'s `gateOf`. `DECISION_BAND`
 files every kind under one of `DECISION_BANDS` — the two gates only the lead can sign, what nobody
 holds, and what a card's own owner owes — with `DECISION_BAND_LABEL` naming the file, so a queue
 that grouped backlog beside approvals cannot do it by accident. The rule behind the words: warn
