@@ -68,6 +68,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"page-note",
 		"commands",
 		"sign",
+		"sign-record",
 		"verify",
 		"extension",
 		"transport/router",
