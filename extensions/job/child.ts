@@ -21,8 +21,7 @@ import type { KillTreeFn, SpawnFn, StartTokenFn, StdinSink } from "../../lib/spa
 import { clipLabel } from "../../lib/tui/columns.ts";
 import type { JobsConfig } from "./config.ts";
 import { formatLogs } from "./format.ts";
-import { createLogWriter, type LogHandle, type LogWriter } from "./log-writer.ts";
-import { readLogTail } from "./logs.ts";
+import { createLogWriter, type LogHandle, type LogWriter, readLogTail } from "./logs.ts";
 import { LOG_ENV, readExitStatus, STATUS_ENV, withExitTrap } from "./status.ts";
 import type { JobStore } from "./store.ts";
 import type {
