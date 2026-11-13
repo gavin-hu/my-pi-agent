@@ -23,7 +23,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | Say what kind of work it is | `type` on `add` or `edit`: `feature`, `bug`, `refactor`, `docs`, `test`, or `chore` |
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
 | Take a card | `board claim 4` — into `plan`, owned by this session; `board reclaim 4` takes one back, from a peer only once that owner's record says it stopped |
-| Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut … verify …` |
+| Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut … verify …` — all four lines, and the `verify` command is required |
 | Approve the contract | `/board approve 4` as the person, or the lead with the `board` action `approve` |
 | Start the work | `board move 4 execute` |
 | Park a card | `board move 4 blocked blocker decision blockedBy "waiting on the API owner"` |
@@ -66,10 +66,10 @@ refused while `plan` or `execute` is full, naming the ways out. `reclaim` takes 
 `backlog` from its holder, the person and the lead always, a peer only while that owner's record says
 quiet or gone. `move` into `execute` or `done` re-reads the plan where the write lands: a plan that is
 gone refuses the move, and the face says `its plan is gone`. A sign nobody heard reads `· not told`; saying
-it again sends it. A contract may name a `verify` command: `review` runs it in the board's tree (the worktree
-you entered), recording the exit, the branch, the commit, and whether that tree was the checkout or a
-worktree — evidence a reader weighs, never a gate; `done` refuses a sign with no result, or one older than
-the card's write. A refused `review` runs nothing; an `override` says why and reads `closed by instruction`.
+it again sends it. A contract names a `verify` command — required, so no card is signed on a sentence alone
+— and `review` runs it in the tree you review in, recording the exit, the branch, the commit and whether that
+tree was the checkout: evidence a reader weighs. `done` refuses a sign with no result or one older than the
+card's write; a refused `review` runs nothing, and an `override` says why, reading `closed by instruction`.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);
 `/board approve <id>` and `/board review <id>` sign as the person; `/board archive` runs the sweep;

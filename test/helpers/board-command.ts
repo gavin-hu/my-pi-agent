@@ -10,6 +10,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { boardHarness } from "./board.ts";
+import { runner } from "./board-signs.ts";
 import { fakeCtx } from "./context.ts";
 import { createFakePi } from "./fakes.ts";
 import { makeTempTracker } from "./git.ts";
@@ -151,7 +152,6 @@ export function pageWithNoRecording(): BoardPage {
 /** A real board in a temp directory, and the command registered over it. */
 /** The lead the signing board names: a name apart from the card's holder, so a gate can be signed. */
 export const SIGNING_LEAD = "team-lead";
-
 export async function signingBoard(
 	options: {
 		notify?: Notify;
@@ -186,7 +186,9 @@ export async function signingBoard(
 	registerCommands(fake.pi, runtime, fakeBoardPage().page, {
 		team: fakeBoardTeam().team,
 		...(options.notify === undefined ? {} : { notify: options.notify }),
-		...(options.verify === undefined ? {} : { verify: options.verify }),
+		// A contract names a command, so the doors under test run one: this seam answers without
+		// starting a process, and a case about the run passes its own.
+		verify: options.verify ?? runner(),
 	});
 	const command = fake.commands.get(BOARD_COMMAND);
 	if (!command) throw new Error("the board command was not registered");

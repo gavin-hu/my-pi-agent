@@ -87,10 +87,13 @@ the refusal. `laneIndex` and `isLane` are the questions left.
 ### contract.ts
 
 What a card promises before it may be executed: `Contract` (goal, acceptance, scopeOut,
-and the `Sign` that approved the wording), `CONTRACT_FIELDS` / `MAX_CONTRACT`, and the
-boundary `normalizeContractField` applies to one line of a model's argument. The plan file
-says how; the contract says what and why, so a session that picks a card up does not
-renegotiate it and one that finishes it can be checked against something it did not write.
+`verify`, and the `Sign` that approved the wording), `CONTRACT_FIELDS` / `CONTRACT_LINES` /
+`MAX_CONTRACT`, and the boundary `normalizeContractField` applies to one line of a model's
+argument. The plan file says how; the contract says what and why, so a session that picks a
+card up does not renegotiate it and one that finishes it can be checked against something it
+did not write. The two lists are one fact each: `CONTRACT_LINES` is every line a complete
+contract states, and `CONTRACT_FIELDS` is the keys `isContract` requires — the fourth is not
+one, because a contract stored before `verify` was required has no such key and must still read.
 
 The sign is part of the contract because it is a statement about *this* wording:
 `mergedContract` drops it when an edited line arrives, and `missingContractFields` /
@@ -163,7 +166,7 @@ What each operation a card alone can decide does — the gates, the lane changes
 a refusal carries — split from the table that dispatches it so the dispatch reads as one switch
 and the rules read as one decision per operation. `claim` pulls a pool card into `plan`; `assign`
 hands one over and moves only a pool card's lane; `release` returns it; `move` walks
-`TRANSITIONS` and asks every gate; `contractOp` writes the three lines and the plan path;
+`TRANSITIONS` and asks every gate; `contractOp` writes the four lines and the plan path;
 `approve` / `review` record the two human gates, both refused to the card's own holder, and
 `review` also signs a card already in `done` when an override gives the one line saying why;
 `note` / `edit` / `offer` / `archive` / `drop` keep their own rules, and a drop is refused

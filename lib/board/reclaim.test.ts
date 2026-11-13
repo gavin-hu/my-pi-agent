@@ -148,7 +148,15 @@ describe("the spot-check it keeps", () => {
 			),
 		).toContain("has no spot-check recorded");
 		// The lead's fresh look stamps, rather than reading back as the sign already there.
-		const resigned = accepted(applyOp(executingAgain, { kind: "review" }, LEAD, NOW + 5, boardOf(executingAgain)));
+		const resigned = accepted(
+			applyOp(
+				executingAgain,
+				{ kind: "review", verified: { cmd: "bun run check", exit: 0, at: NOW + 5 } },
+				LEAD,
+				NOW + 5,
+				boardOf(executingAgain),
+			),
+		);
 		expect(resigned.changed).toBe(true);
 		expect(resigned.card.review).toMatchObject({ by: LEAD.label, at: NOW + 5 });
 	});

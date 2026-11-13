@@ -34,11 +34,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is where the work lands and not where most of it is made. The `done` move then refuses a sign
   with no result, or one older than the sign's last write, naming the command and both doors that
   would record it. The run is measured from the stamp *and* the announcement #398 writes after it,
-  so the ordinary path still closes; a card whose contract names no command keeps the gate it had.
-  The transcript, the person's `/board review` line, and the card dialog draw the command and the
-  run from the same fields in one sentence, so the two doors that sign cannot word a run apart.
+  so the ordinary path still closes. The transcript, the person's `/board review` line, and the card
+  dialog draw the command and the run from the same fields in one sentence, so the two doors that
+  sign cannot word a run apart.
 
 ### Changed
+
+- `board`: a contract must name its `verify` command. The fourth line is required, so the split it
+  used to leave — a card checked by a run beside one checked by a sentence, with nothing on the card
+  saying which — is gone: `contract` refuses an empty command, no contract without one is approved,
+  and a close refuses a sign that cannot answer for a command the card never named. Breaking for a
+  card still in `plan` or `execute` when it lands: it reads, and it signs on a sentence, but it is
+  refused an approval or a close naming the line, and recording one drops the approval the card
+  had. A stored contract keeps its three keys and stays readable, because `isContract` asks shape
+  rather than completeness; the gate is where "written yet" is asked, and the transcript says
+  `verify: missing` on a card that still owes one.
 
 - `board`: a head is one shape on both tabs. The Board tab's lane heads draw the lane's mark
   instead of reserving an empty span for it, and the Team tab's captions take the same 30px

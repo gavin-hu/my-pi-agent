@@ -71,7 +71,12 @@ describe("a card's clock", () => {
 		// The spot-check is signed at this session's own moment, which the card has already passed. The
 		// stamp takes the card's, because a sign older than the card it signs refuses `done` for good —
 		// and the remedy that refusal prints is this same sign, made again at the same clock.
-		const signed = await store.mutate(card.id, { kind: "review" }, personActor(), NOW);
+		const signed = await store.mutate(
+			card.id,
+			{ kind: "review", verified: { cmd: "bun run check", exit: 0, at: NOW } },
+			personActor(),
+			NOW,
+		);
 		expect(signed.ok && signed.card?.review?.at).toBe(NOW + 5_000);
 		const done = await store.mutate(
 			card.id,

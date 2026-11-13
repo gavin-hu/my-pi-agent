@@ -77,8 +77,16 @@ export function claimed(owner: Actor = CORE): Card {
 	return stepOf(created(), { kind: "claim" }, owner);
 }
 
-/** The contract a test card carries: three lines, and nothing about the feature. */
+/** The contract a test card carries: four lines, and nothing about the feature. */
 export const CONTRACT = {
+	goal: "A webhook order is stored once",
+	acceptance: "A retried delivery leaves one order",
+	scopeOut: "No refunds",
+	verify: "bun run check",
+};
+
+/** A contract stored before the fourth line was required: three lines, and still one this build reads. */
+export const LEGACY_CONTRACT = {
 	goal: "A webhook order is stored once",
 	acceptance: "A retried delivery leaves one order",
 	scopeOut: "No refunds",
@@ -148,7 +156,36 @@ export function verifying(owner: Actor = CORE, reviewer: Actor = LEAD): Card {
 
 /** A card whose work the lead has spot-checked, still in `execute`. */
 export function reviewed(owner: Actor = CORE, reviewer: Actor = LEAD): Card {
-	return stepOf(executing(approved(owner)), { kind: "review" }, reviewer);
+	const card = executing(approved(owner));
+	return stepOf(card, reviewOf(card), reviewer);
+}
+
+/**
+ * A card in `execute` whose contract names no command: the record a plan lane stored before the
+ * fourth line was required.
+ *
+ * Only a hand-edited file reads this way now — the write refuses an empty command and the gate
+ * refuses its approval — so the fixture replaces the contract on a card that did walk the gates.
+ */
+export function legacyCard(): Card {
+	const legacy = {
+		goal: LEGACY_CONTRACT.goal,
+		acceptance: LEGACY_CONTRACT.acceptance,
+		scopeOut: LEGACY_CONTRACT.scopeOut,
+	};
+	return { ...executing(), contract: { ...legacy, approved: { by: LEAD.label, at: NOW } } };
+}
+
+/**
+ * The spot-check op one card takes, carrying the run its contract names.
+ *
+ * A contract states a command, so the sign that closes the card is that command's run: a seed that
+ * wrote a review without one would be a state the gate refuses, and every case after it a guess.
+ * A card whose contract names none — only a hand-edited record — signs without a run.
+ */
+export function reviewOf(card: Card) {
+	const cmd = card.contract?.verify;
+	return { kind: "review" as const, ...(cmd === undefined ? {} : { verified: { cmd, exit: 0, at: NOW } }) };
 }
 
 /**

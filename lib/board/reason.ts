@@ -121,10 +121,10 @@ export function reasonFor(card: ReasonCard, ago: (at: number) => string): Reason
 		return last === undefined ? undefined : { kind: "note", text: last.text };
 	}
 	if (card.lane === "plan") {
-		// The contract's three lines, read here so the page and the transcript name the same
+		// The contract's four lines, read here so the page and the transcript name the same
 		// missing field: this body is spliced, so it cannot call the module that owns them.
 		const missing = [];
-		const fields = ["goal", "acceptance", "scopeOut"];
+		const fields = ["goal", "acceptance", "scopeOut", "verify"];
 		for (let index = 0; index < fields.length; index++) {
 			const value = card.contract === undefined ? undefined : card.contract[fields[index] as "goal"];
 			if (typeof value !== "string" || value === "") missing.push(fields[index]);

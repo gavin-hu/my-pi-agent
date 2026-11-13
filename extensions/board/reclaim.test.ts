@@ -145,7 +145,15 @@ async function executable(claims: Claims): Promise<{
 	mkdirSync(dir, { recursive: true });
 	const plan = join(dir, "one.md");
 	writeFileSync(plan, "# One\n");
-	await call({ action: "contract", card: "1", path: plan, goal: "g", acceptance: "a", scopeOut: "s" });
+	await call({
+		action: "contract",
+		card: "1",
+		path: plan,
+		goal: "g",
+		acceptance: "a",
+		scopeOut: "s",
+		verify: "bun run check",
+	});
 	// The lead signs through the store, because this session is the holder: `approve` refuses a
 	// holder, which is the gate the tool's own case in `signs.test.ts` proves.
 	const store = await board.runtime.store(board.ctx.cwd);

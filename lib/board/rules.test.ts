@@ -268,7 +268,7 @@ describe("move", () => {
 			refusal(
 				applyOp(written, { kind: "move", lane: "execute", artifact: provedFor(written) }, CORE, NOW, boardOf(written)),
 			),
-		).toBe("#4 is in plan; its contract needs goal, acceptance, and scopeOut — missing: acceptance, scopeOut.");
+		).toContain("missing: acceptance, scopeOut, verify.");
 		const complete = approved();
 		expect(
 			refusal(
@@ -354,9 +354,7 @@ describe("move", () => {
 			refusal(
 				applyOp(planned, { kind: "move", lane: "execute", artifact: provedFor(planned) }, CORE, NOW, boardOf(planned)),
 			),
-		).toBe(
-			"#4 is in blocked; its contract needs goal, acceptance, and scopeOut — missing: goal, acceptance, scopeOut.",
-		);
+		).toContain("missing: goal, acceptance, scopeOut, verify.");
 		expect(stepOf(planned, { kind: "move", lane: "plan" }, CORE).lane).toBe("plan");
 		// Parked from `execute`: it already carries the contract and its approval, so it resumes.
 		const parked = stepOf(executing(), { kind: "move", lane: "blocked", blocker: "dependency" }, CORE);

@@ -15,6 +15,7 @@ import { type Card, type CardBlock, cardRef, DEFAULT_PRIORITY, dependsOf, priori
 import type { Sign } from "../../lib/board/contract.ts";
 import { CONTRACT_LINE_OWED } from "../../lib/board/contract.ts";
 import { gateOf } from "../../lib/board/round.ts";
+import { LANE_RULES } from "../../lib/board/lanes.ts";
 import { GATE_WORD } from "../../lib/board/tone.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
 import { skippedText } from "../../lib/board/skipped.ts";
@@ -217,8 +218,10 @@ function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = fa
 		lines.push(`  acceptance: ${owed(card.contract.acceptance)}`);
 		lines.push(`  scope out: ${owed(card.contract.scopeOut)}`);
 		// The command sits with the promise it proves, not with the sign: it is what the card asks
-		// for, and a reader deciding whether to run it is reading the contract.
+		// for, and a reader deciding whether to run it is reading the contract. A card that still owes
+		// one says so, because the refusal that would tell its holder is a move away.
 		if (card.contract.verify !== undefined) lines.push(`  verify: ${card.contract.verify}`);
+		else if (!LANE_RULES[card.lane].terminal) lines.push(`  verify: ${CONTRACT_LINE_OWED}`);
 		const approved = card.contract.approved;
 		lines.push(`  approved: ${approved === undefined ? "nobody yet" : `${approved.by}${notTold(approved, card)}`}`);
 	}

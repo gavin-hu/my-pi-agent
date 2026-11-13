@@ -21,6 +21,7 @@ import type { Claims } from "../../lib/board/claims.ts";
 import { BOARD_DIR_NAME } from "../../lib/board/store.ts";
 import { registerTools } from "../../extensions/board/tools.ts";
 import type { BoardDetails } from "../../extensions/board/types.ts";
+import type { VerifyRun } from "../../lib/board/verify.ts";
 import { fakeCtx } from "./context.ts";
 import { createFakePi, type FakePiOptions } from "./fakes.ts";
 import { tempDir } from "./env.ts";
@@ -63,6 +64,13 @@ export interface BoardHarnessOptions {
 	exec?: FakePiOptions["exec"];
 	/** Test seam: the bus a lane crossing writes to, so a suite records it without a bus. */
 	claims?: Claims;
+	/**
+	 * Test seam: the run a spot-check makes.
+	 *
+	 * A contract names a command, so the tool's `review` runs one: this answers without starting a
+	 * process, and a case about the run passes its own.
+	 */
+	verify?: VerifyRun;
 }
 
 /** One board: the host, its session runtime, and the context a call is made with. */
@@ -120,7 +128,7 @@ export interface BoardToolResult {
  */
 export function boardTool(options: BoardHarnessOptions = {}) {
 	const board = boardHarness(options);
-	registerTools(board.fake.pi, board.runtime);
+	registerTools(board.fake.pi, board.runtime, { verify: options.verify ?? passingRun });
 	const tool = board.fake.pi.tools.get("board");
 	if (!tool) throw new Error("the board tool was not registered");
 	return {
@@ -130,6 +138,14 @@ export function boardTool(options: BoardHarnessOptions = {}) {
 		},
 	};
 }
+
+/**
+ * A run that passed, for the suites whose subject is a gate rather than the command behind it.
+ *
+ * A spot-check of a card whose contract names a command runs that command: a fixture that did not
+ * answer here would spawn `bun run check` from a unit test.
+ */
+const passingRun: VerifyRun = async () => ({ exit: 0, output: "", killed: false });
 
 /**
  * The card file the store wrote for `id`, found by reading the pile rather than by

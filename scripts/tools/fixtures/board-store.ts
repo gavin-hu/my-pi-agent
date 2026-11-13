@@ -203,6 +203,7 @@ export async function seedStore(directory: string, planDir: string, now = Date.n
 					goal: `The feature the card names, working: ${spec.title}`,
 					acceptance: "A reader can tell it is done, and a test says so",
 					scopeOut: "Anything the card does not name",
+					verify: "bun run check",
 				},
 				owner,
 				at + 3_500,
@@ -234,7 +235,9 @@ export async function seedStore(directory: string, planDir: string, now = Date.n
 		}
 		if (spec.lane === "done") {
 			const reviewer = owner.label === LEAD.label ? personActor() : LEAD;
-			card = await step(card, "review", { kind: "review" }, reviewer, at + 4_200);
+			// The contract names a command, so the seed's sign carries the run that answers for it.
+			const run = { cmd: "bun run check", exit: 0, at: at + 4_200 };
+			card = await step(card, "review", { kind: "review", verified: run }, reviewer, at + 4_200);
 			card = await step(card, "announced review", { kind: "announced", sign: "review" }, reviewer, at + 4_300);
 			const move = await recorded(card);
 			await step(

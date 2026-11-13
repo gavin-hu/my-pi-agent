@@ -20,7 +20,7 @@ function card(overrides: Partial<Card> = {}): Card {
 	return cardFixture("4", { title: "feature", createdAt: NOW, updatedAt: NOW, ...overrides });
 }
 
-const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s" };
+const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s", verify: "bun run check" };
 const owner = { label: "billing-core" };
 
 describe("reasonFor", () => {
@@ -73,7 +73,7 @@ describe("reasonFor", () => {
 			reasonFor(card({ lane: "plan", owner, contract: { goal: "g", acceptance: "", scopeOut: "" } }), ago),
 		).toEqual({
 			kind: "contract",
-			text: "no contract yet — missing acceptance, scopeOut",
+			text: "no contract yet — missing acceptance, scopeOut, verify",
 		});
 		expect(reasonFor(card({ lane: "plan", owner, contract: COMPLETE }), ago)).toEqual({
 			kind: "approval",

@@ -33,11 +33,11 @@ import {
 import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
 import { type ArtifactProof, contractRoute, proved } from "./artifact.ts";
 import {
-	CONTRACT_FIELDS,
+	CONTRACT_LINES,
+	type ContractField,
 	mergedContract,
 	missingContractFields,
 	normalizeContractField,
-	normalizeVerify,
 } from "./contract.ts";
 import { type BoardConfig } from "./config.ts";
 import {
@@ -48,6 +48,7 @@ import {
 	holderRefusal,
 	type HolderFact,
 	missingSign,
+	noVerifyCommand,
 	owesAnnouncement,
 	signMark,
 	signNote,
@@ -268,7 +269,7 @@ export function unmet(
 		case "contract": {
 			const missing = missingContractFields(card.contract);
 			if (missing.length === 0) return undefined;
-			return `${cardRef(card.id)} is in ${card.lane}; its contract needs ${listOf(CONTRACT_FIELDS, "and")} — missing: ${missing.join(", ")}.`;
+			return `${cardRef(card.id)} is in ${card.lane}; its contract needs ${listOf(CONTRACT_LINES, "and")} — missing: ${missing.join(", ")}.`;
 		}
 		case "approval":
 			return card.contract?.approved === undefined ? missingSign(card, config.lead, "approve") : undefined;
@@ -277,10 +278,11 @@ export function unmet(
 			// a card taken back and executed again owes the lead a fresh look (`currentReview`).
 			const sign = currentReview(card);
 			if (sign === undefined) return missingSign(card, config.lead, "review");
-			// Only a card whose contract named a command is checked against a run: the field is
-			// optional, so everything written before it keeps the gate it had.
+			// A card whose contract names no command is refused a sign rather than spot-checked by a
+			// sentence: only a card written before the line was required, or one hand-edited, has none,
+			// and the refusal names the line and the approval recording it costs.
 			const cmd = card.contract?.verify;
-			if (cmd === undefined) return undefined;
+			if (cmd === undefined) return noVerifyCommand(card, config.lead);
 			if (sign.verified === undefined) return unverifiedSpotCheck(card, cmd, config.lead);
 			// The sign owns two writes: the stamp, and the announcement #398 records after it. Anything
 			// newer than both is the card changing under the evidence — one reader for that decision,
@@ -377,25 +379,20 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 	if ("error" in parsedPlan) return { error: parsedPlan.error };
 	const rePointed = parsedPlan.path !== card.planPath;
 	if (rePointed) fields.planPath = parsedPlan.path;
-	const changed: Partial<Record<(typeof CONTRACT_FIELDS)[number] | "verify", string>> = {};
-	for (const field of CONTRACT_FIELDS) {
+	const changed: Partial<Record<ContractField, string>> = {};
+	// The command is a contract line like the other three, and the same rule holds: a changed one
+	// drops the sign, because a spot-check that ran the old command is evidence for a promise the
+	// card no longer makes.
+	for (const field of CONTRACT_LINES) {
 		const raw = op[field];
 		if (raw === undefined) continue;
 		const parsed = normalizeContractField(field, raw);
 		if ("error" in parsed) return { error: parsed.error };
 		if (parsed.text !== card.contract?.[field]) changed[field] = parsed.text;
 	}
-	// The command is a contract line too, and the same rule holds: a changed one drops the sign,
-	// because a spot-check that ran the old command is evidence for a promise the card no longer
-	// makes. Empty is how it is taken back off, so `""` compares as absent rather than as a line.
-	if (op.verify !== undefined) {
-		const parsed = normalizeVerify(op.verify);
-		if ("error" in parsed) return { error: parsed.error };
-		if (parsed.text !== (card.contract?.verify ?? "")) changed.verify = parsed.text;
-	}
 	if (Object.keys(changed).length > 0) fields.contract = mergedContract(card.contract, changed);
 	// The sign names a promise *and* the file it will be read against, so pointing the card at
-	// a different plan is a change to what was approved even when the three lines are the same:
+	// a different plan is a change to what was approved even when the four lines are the same:
 	// keeping it would let a session swap the artifact after a peer read the old one.
 	else if (rePointed && card.contract?.approved !== undefined) fields.contract = mergedContract(card.contract, {});
 	if (Object.keys(fields).length === 0) return { changed: false, fields: null };

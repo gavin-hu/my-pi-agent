@@ -1,5 +1,5 @@
 /**
- * The contract: the three lines a card promises, the boundary the model's arguments pass,
+ * The contract: the four lines a card promises, the boundary the model's arguments pass,
  * and the sign an approval leaves.
  *
  * The caps are asserted here because the model writes them: a goal that wraps a row or a
@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import {
-	CONTRACT_FIELDS,
+	CONTRACT_LINES,
 	contractApproved,
 	contractComplete,
 	isContract,
@@ -19,10 +19,12 @@ import {
 	missingContractFields,
 	normalizeContractField,
 	normalizeInstruction,
-	normalizeVerify,
 } from "./contract.ts";
 
-const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s" };
+const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s", verify: "bun run check" };
+
+/** A contract stored before `verify` was required: three keys, and still one this build reads. */
+const LEGACY = { goal: "g", acceptance: "a", scopeOut: "s" };
 
 describe("normalizeContractField", () => {
 	test("keeps one sanitized line", () => {
@@ -39,57 +41,58 @@ describe("normalizeContractField", () => {
 	});
 });
 
-describe("the optional verify line", () => {
-	test("is one sanitized line, and empty is how it is taken back off", () => {
-		// Unlike the three required fields, empty is an answer here: a card read rather than run
-		// can stop naming a command, so this clears instead of refusing.
-		expect(normalizeVerify("  bun run check\n")).toEqual({ text: "bun run check" });
-		expect(normalizeVerify("")).toEqual({ text: "" });
-		expect(normalizeVerify(7)).toHaveProperty("error");
-		expect(normalizeVerify("x".repeat(MAX_CONTRACT + 1))).toHaveProperty("error");
+describe("the required verify line", () => {
+	test("is one sanitized line, refused empty like its three neighbours", () => {
+		// One parser for four lines: an empty command is a line the contract owes, not a way to take
+		// the line back off — the gate that asks for it is the reason the line exists.
+		expect(normalizeContractField("verify", "  bun run check\n")).toEqual({ text: "bun run check" });
+		expect(normalizeContractField("verify", "")).toEqual({ error: "verify is required." });
+		expect(normalizeContractField("verify", 7)).toEqual({ error: "verify is required." });
+		expect(normalizeContractField("verify", "x".repeat(MAX_CONTRACT + 1))).toEqual({
+			error: `verify must be at most ${MAX_CONTRACT} characters.`,
+		});
 	});
 
-	test("keeps a card's completeness gate exactly where it was", () => {
-		// The field is optional, so a contract without it is still complete and still approvable:
-		// the gate a reviewer reads is the three lines it always was.
+	test("is a line a contract owes, so a card without it is not complete", () => {
+		// The split the card closes: a contract with three lines was approvable, and the gate its
+		// sign got was a sentence rather than a run.
+		expect(missingContractFields(LEGACY)).toEqual(["verify"]);
 		expect(missingContractFields(COMPLETE)).toEqual([]);
-		expect(missingContractFields({ ...COMPLETE, verify: "bun run check" })).toEqual([]);
+		expect(contractComplete(LEGACY)).toBe(false);
 	});
 
 	test("rides a change like any other contract line, so the sign goes with it", () => {
-		// The failure this card exists to prevent: a spot-check that ran the old command standing
+		// The failure this line exists to prevent: a spot-check that ran the old command standing
 		// as evidence for a promise the card no longer makes.
-		const approved = { ...COMPLETE, verify: "bun run check", approved: { by: "lead", at: 5 } };
+		const approved = { ...COMPLETE, approved: { by: "lead", at: 5 } };
 		const renamed = mergedContract(approved, { verify: "bun test" });
 		expect(renamed.verify).toBe("bun test");
 		expect(renamed.approved).toBeUndefined();
-		// Cleared means absent, not an empty line a reader would draw.
-		const cleared = mergedContract(approved, { verify: "" });
-		expect(cleared.verify).toBeUndefined();
 		// And a write that changes nothing else keeps it where it was.
 		expect(mergedContract(approved, {}).verify).toBe("bun run check");
 	});
 
-	test("is read by isContract, and a line this build cannot trust drops the card", () => {
+	test("is not a required key in the shape, so an older contract still reads", () => {
+		// `isContract` answers shape, and requiring the key here would make every contract stored
+		// before this rule unreadable: `isCard` would drop the records rather than report them owed.
+		expect(isContract(LEGACY)).toBe(true);
 		expect(isContract(COMPLETE)).toBe(true);
-		expect(isContract({ ...COMPLETE, verify: "bun run check" })).toBe(true);
-		// Empty is no command, the fact `mergedContract` states by leaving the key out; a command that
-		// is not a string, or one past the cap, is a record this build cannot read.
-		expect(isContract({ ...COMPLETE, verify: "" })).toBe(true);
+		expect(isContract({ ...LEGACY, verify: "" })).toBe(true);
 		expect(isContract({ ...COMPLETE, verify: 7 } as unknown)).toBe(false);
 		expect(isContract({ ...COMPLETE, verify: "x".repeat(MAX_CONTRACT + 1) })).toBe(false);
 	});
 });
 
 describe("missingContractFields", () => {
-	test("a card with no contract is missing all three, in order", () => {
-		expect(missingContractFields(undefined)).toEqual([...CONTRACT_FIELDS]);
+	test("a card with no contract is missing every line, in order", () => {
+		expect(missingContractFields(undefined)).toEqual([...CONTRACT_LINES]);
 	});
 
 	test("names only the blank lines, so a refusal says what to write", () => {
-		expect(missingContractFields({ goal: "g", acceptance: "", scopeOut: "s" })).toEqual(["acceptance"]);
-		expect(contractComplete({ goal: "g", acceptance: "", scopeOut: "s" })).toBe(false);
-		expect(contractComplete(COMPLETE)).toBe(true);
+		const blank = { goal: "g", acceptance: "", scopeOut: "s", verify: "bun run check" };
+		expect(missingContractFields(blank)).toEqual(["acceptance"]);
+		expect(contractComplete(blank)).toBe(false);
+		expect(contractComplete({ ...blank, acceptance: "a" })).toBe(true);
 	});
 });
 
@@ -102,7 +105,7 @@ describe("an approval", () => {
 	test("an edited line drops the sign, because it named a wording", () => {
 		const approved = { ...COMPLETE, approved: { by: "billing-lead", at: 1 } };
 		const reworded = mergedContract(approved, { scopeOut: "no refunds" });
-		expect(reworded).toEqual({ goal: "g", acceptance: "a", scopeOut: "no refunds" });
+		expect(reworded).toEqual({ goal: "g", acceptance: "a", scopeOut: "no refunds", verify: "bun run check" });
 		expect(reworded.approved).toBeUndefined();
 	});
 

@@ -62,11 +62,19 @@ describe("a spot-check whose contract names a command", () => {
 		expect(reviewed.details.card?.review?.by).toBe(LEAD);
 	});
 
-	test("a card whose contract names no command runs nothing", async () => {
+	test("a card whose contract names no command is refused the write, and nothing runs", async () => {
+		// The fourth line is required, so an empty command is a line the contract owes rather than a way
+		// to take it off — and the run seam is never reached, which is what this case holds.
 		const run = runner();
 		const who = bench({ verify: run });
-		await running(who);
-		expect((await who.lead.call({ action: "review", card: "1" })).isError).toBeFalsy();
+		await claimedWithContract(who);
+		const refused = await who.peer.call({
+			action: "contract",
+			card: "1",
+			path: await writePlan(who.peer),
+			verify: "",
+		});
+		expect(resultText(refused)).toContain("verify is required.");
 		expect(run.ran).toEqual([]);
 	});
 

@@ -62,7 +62,8 @@ change in plan mode, save the plan, then record what the card promises.
 ```
 
 Approving the plan seeds your todo list and leaves plan mode. Next, record what
-the card promises — `goal`, `acceptance`, `scopeOut`, and the plan file itself:
+the card promises — `goal`, `acceptance`, `scopeOut`, and the `verify` command its
+acceptance is checked by — with the plan file itself:
 
 ```text
 Record the contract for card 1 from the plan we just approved.
@@ -72,8 +73,14 @@ Record the contract for card 1 from the plan we just approved.
 board({ action: "contract", card: "1", path: "<the path plan returned>",
   goal: "A retried delivery is accepted once",
   acceptance: "A duplicate event id returns 200 and writes nothing",
-  scopeOut: "No new event types" })
+  scopeOut: "No new event types",
+  verify: "bun test test/webhook.test.ts" })
 ```
+
+The fourth line is not optional: a contract that names no command cannot be
+approved, because the spot-check would then be a sentence nobody can repeat.
+`verify` is the command the lead's `review` runs, in the tree you review in, and
+the sign keeps its exit and the commit it ran against.
 
 `path` is the file `plan` action `write` returned — not one retyped from another
 repository's store. It must be in this repository's plan store, and it must still

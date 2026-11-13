@@ -42,7 +42,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	move: "changes lane, through the one transition the board allows from where the card is; a card enters `execute` or `done` only while the plan it recorded is still in the store",
 	note: "appends to its history",
 	contract:
-		"records the plan file, the three lines a card promises — `goal`, `acceptance`, `scopeOut` — and an optional `verify` command whose run the spot-check records, and drops any approval, because the wording changed",
+		"records the plan file and the four lines a card promises — `goal`, `acceptance`, `scopeOut`, and `verify`, the command the spot-check runs — and drops any approval, because the wording changed",
 	approve:
 		"approves the contract and the plan it names: the lead (`team.lead`), who does not hold the card, says both are right, which is what `plan` to `execute` requires, and `text` records what the signer saw",
 	review:

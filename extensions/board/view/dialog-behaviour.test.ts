@@ -209,9 +209,8 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 	});
 
 	test("says what a blocked or unsigned card is waiting for, and leaves a signed one to the signature", async () => {
-		// The two states the dialog used to draw nothing about: a plan card whose contract
-		// nobody has approved, and one parked on a decision. It borrows a pool card and gives
-		// it back in the `finally` — a released card keeps its contract, which the gates allow.
+		// The two states the dialog used to draw nothing about: a plan card whose contract nobody has
+		// approved, and one parked on a decision. It borrows a pool card and gives it back in the `finally`.
 		const now = clock.now();
 		await store.mutate("2", { kind: "claim" }, CORE, now);
 		try {
@@ -223,6 +222,7 @@ describe.skipIf(CHROME === undefined)("the card dialog in a browser", () => {
 					goal: "Totals round once at the boundary",
 					acceptance: "A test says so",
 					scopeOut: "No currency work",
+					verify: "bun run check",
 				},
 				CORE,
 				now,

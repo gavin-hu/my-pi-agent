@@ -98,7 +98,7 @@ export const LANE_RULES: Record<Lane, LaneRule> = {
  * What a move must satisfy before it is allowed.
  *
  * Each name is one gate `rules.ts` can answer from the card, the board, and the fact the
- * caller handed in: `contract` is the three lines being present, `approval` is somebody who
+ * caller handed in: `contract` is the four lines being present, `approval` is somebody who
  * does not hold the card having read them, `review` is the same for the finished work,
  * `artifact` is the plan file the card is executed against — recorded, and proved to be in
  * this repository's plan store — `blocker` is the recorded reason and kind, and `waiting` is
@@ -132,7 +132,7 @@ export interface Transition {
  * the contract, so a card may be planned before the work it waits on is finishable.
  *
  * `execute` has two doors and asks the same gates at both: no unfinished dependency, the
- * contract's three lines, the plan file the card is executed against, and the approval a
+ * contract's four lines, the plan file the card is executed against, and the approval a
  * session that does not hold the card gave. The plan joins the contract rather than `done`
  * because a plan recorded after the work began is a note about what happened, not the
  * agreement the work was done against. So the way out of a block follows the card's state
