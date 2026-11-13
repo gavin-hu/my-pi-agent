@@ -18,6 +18,7 @@ import type { JoinResult, TeamJoinInput } from "../../lib/session-tool.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { BOARD_COMMAND, registerCommands } from "../../extensions/board/commands.ts";
 import type { Notify } from "../../extensions/board/announce.ts";
+import type { BoardStore } from "../../lib/board/store.ts";
 import type { VerifyRun } from "../../lib/board/verify.ts";
 import type { TeamJoin } from "../../extensions/board/join.ts";
 import type { BoardPage, BoardPageStatus, PageStart } from "../../extensions/board/page.ts";
@@ -148,7 +149,14 @@ export function pageWithNoRecording(): BoardPage {
 }
 
 /** A real board in a temp directory, and the command registered over it. */
-export async function signingBoard(options: { notify?: Notify; verify?: VerifyRun } = {}) {
+export async function signingBoard(
+	options: {
+		notify?: Notify;
+		verify?: VerifyRun;
+		/** A store the case wraps — a record that cannot be written is one of these. */
+		wrapStore?: (store: BoardStore) => BoardStore;
+	} = {},
+) {
 	const temps = makeTempTracker();
 	const harness = boardHarness({ now: 1_000 });
 	const me = { id: "s-lead", label: "team-agent-slead" };
@@ -161,7 +169,16 @@ export async function signingBoard(options: { notify?: Notify; verify?: VerifyRu
 	const plan = join(dir, "one.md");
 	writeFileSync(plan, "# One\n");
 	const fake = createFakePi();
-	registerCommands(fake.pi, harness.runtime, fakeBoardPage().page, {
+	// The wrap is the command's alone: it is the door under test, and the fixture's own writes above
+	// are the card it acts on.
+	const runtime =
+		options.wrapStore === undefined
+			? harness.runtime
+			: {
+					...harness.runtime,
+					store: async (cwd: string) => options.wrapStore?.(await harness.runtime.store(cwd)) ?? store,
+				};
+	registerCommands(fake.pi, runtime, fakeBoardPage().page, {
 		team: fakeBoardTeam().team,
 		...(options.notify === undefined ? {} : { notify: options.notify }),
 		...(options.verify === undefined ? {} : { verify: options.verify }),
