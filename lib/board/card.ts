@@ -223,7 +223,7 @@ export interface Card {
 	log?: CardTransition[];
 	/** How many transitions dropped off the front, so a reader knows the log was elided. */
 	logDropped?: number;
-	/** Bumped per write; the compare-and-set guard a concurrent writer loses on. */
+	/** Bumped per write: the readers' change signal, never compared on the write path. */
 	rev: number;
 	createdAt: number;
 	updatedAt: number;

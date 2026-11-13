@@ -1,6 +1,6 @@
 /**
- * The board store: file layout, id allocation, the compare-and-set an update
- * takes, and the reader that drops a file it cannot trust.
+ * The board store: file layout, id allocation, the write lock an update takes, the
+ * revision it moves, and the reader that drops a file it cannot trust.
  *
  * Every case runs against a real directory, because the properties that matter —
  * an exclusive create, a rename over a live file, a temp file that is invisible to

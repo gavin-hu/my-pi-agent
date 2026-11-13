@@ -26,9 +26,9 @@ export type SweepSession = Pick<BoardSession, "store" | "who" | "roster" | "now"
  * Release every unfinished card whose owner's record says its session is gone, and say which.
  *
  * Refusals are skipped rather than reported: a refusal is a race (another session swept the same
- * card) or a record that changed between the read and the write, and the store's compare-and-set
- * has already decided. Only a write that changed something is counted, so the clause names exactly
- * what this session released.
+ * card) or a record that changed between the read and the write, and the store's locked
+ * read-check-write has already decided. Only a write that changed something is counted, so the
+ * clause names exactly what this session released.
  */
 export async function releaseEnded(session: SweepSession, ctx: ExtensionContext): Promise<string | undefined> {
 	try {
