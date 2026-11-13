@@ -10,10 +10,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { BoardView } from "../../lib/board/view.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
+import { drawnOf } from "../../test/helpers/fixtures/board.ts";
 import { viewOf } from "./snapshot.ts";
 
 const temps = makeTempTracker();
@@ -21,11 +21,6 @@ afterAll(() => temps.flush());
 
 const NOW = 50_000;
 const ME = { id: "s-lead", label: "billing-lead" };
-
-/** The card `id` as the frame draws it, whichever lane it is in. */
-function drawnOf(view: BoardView, id: string): BoardView["lanes"][number]["cards"][number] | undefined {
-	return view.lanes.flatMap((lane) => lane.cards).find((card) => card.id === id);
-}
 
 describe("a plan that is gone", () => {
 	test("reads on the card the page draws, and moves the frame's signature", async () => {

@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the page reads the pile again only when the cards directory moved, so a frame costs one
+  `stat` where it used to cost a readdir and a parse per card. A frame is asked for on every write,
+  on the five-second sweep, and every second when no watch could be armed; the roster, the mail
+  queue, a removed plan and the clock are still read each time, because those are the facts no card
+  file announces.
+
 - `lib`: the served pages read flat. The border pair is derived from the canvas instead of copied
   from the theme's cell grid — `--canvas` toward `--text` at 16%/26% dark and 11%/20% light, so a
   hairline is 1.42:1 and 1.24:1 where the terminal's `borderMuted` was 3.06:1 and 3.01:1 — and

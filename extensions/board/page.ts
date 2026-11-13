@@ -35,7 +35,7 @@ import type { IdleReason } from "../../lib/http/sink.ts";
 import { join } from "node:path";
 import type { Actor } from "../../lib/board/rules.ts";
 import { pageActor } from "../../lib/board/seat.ts";
-import { viewOf } from "./snapshot.ts";
+import { createSnapshot } from "./snapshot.ts";
 import { type BoardServer, createBoardServer } from "./transport/server.ts";
 import { BOARD_CLIENT_JS } from "./view/client.ts";
 import { type PageView, renderBoardPage } from "./view/page.ts";
@@ -227,6 +227,15 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 			ctx.ui.notify(`board: the page cannot read the board (${messageOf(error)}) — it will keep trying`, "warning");
 		};
 		try {
+			// One snapshot for this page's life: the watch pushes on every event, so the pile it holds is
+			// read again only when `cards/` moved, and the cache goes with the page.
+			const snapshot = createSnapshot({
+				store,
+				actor,
+				now,
+				roster: () => runtime.roster(ctx.cwd),
+				busDir: () => runtime.busDir(ctx.cwd),
+			});
 			const started = await createBoardServer({
 				mount: deps.mount,
 				session: deps.session(),
@@ -243,14 +252,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				page: async (view) =>
 					renderBoardPage({ view, base: BOARD_BASE, repo: store.name(), root: store.root(), where: store.where() }),
 				script: BOARD_CLIENT_JS,
-				view: () =>
-					viewOf({
-						store,
-						actor,
-						now,
-						roster: () => runtime.roster(ctx.cwd),
-						busDir: () => runtime.busDir(ctx.cwd),
-					}),
+				view: () => snapshot.view(),
 			});
 			if (started.kind === "refused") {
 				ctx.ui.notify(`board: the page did not start (${started.reason})`, "error");
