@@ -19,6 +19,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `docs`: the site's `theme-color` is its own canvas again, `#ffffff`/`#0d1117`. It stayed the slate
   build's `#f6f7f9`/`#0b0f16` through the palette that replaced it, so the address bar named a page
   nobody was looking at; `test/theme.test.ts` now reads the two metas against the kit's `--canvas`.
+- `file-browse`: a phone's card head wraps its actions instead of scrolling them. Below 520px the
+  row held one line and overflowed sideways with no hint that it moved, so the last control was cut
+  mid-label at the card's edge — `download` at 480, the whole of it at 390 — and the only way to
+  reach it was a scroll gesture on a row that looked complete.
 
 - `board`: a card's `updatedAt` only ever moves forward, so the `done` gate cannot be fooled by a
   stamp that went back. A spot-check's command has a ten-minute bound and the tool read its clock

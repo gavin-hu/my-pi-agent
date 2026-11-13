@@ -132,10 +132,11 @@ body.palette-open{overflow:hidden}
 .browse-side .bf-tree{flex:1 1 auto;min-height:0;overflow:auto}
 }
 @media (max-width:520px){
-/* A phone has no room for four button rows above the file: the actions keep one
-   line and scroll instead, so the document starts where it should. A control
-   keeps its own width — shrunk, a label wraps and the view tabs clip. */
-.browse-head-actions{max-width:100%;flex-wrap:nowrap;overflow-x:auto}
+/* A phone has no width for four buttons beside the file name, so the actions take the head's
+   own rows: one line scrolled instead, and the last control was clipped mid-label at the card's
+   edge with nothing saying the row moved. A control keeps its own width — shrunk, a label wraps
+   and the view tabs clip — so the wrap lands between controls. */
+.browse-head-actions{max-width:100%;flex-wrap:wrap;overflow-x:visible}
 .browse-head-actions>*{flex:0 0 auto}
 /* A trailing date or one-word change state costs the column a reader is choosing
    between: at 390px the listing gave the name 106px and every entry truncated,

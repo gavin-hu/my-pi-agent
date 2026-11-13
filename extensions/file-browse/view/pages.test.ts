@@ -209,16 +209,16 @@ describe("page chrome", () => {
 		expect(CLIENT_JS).toContain("window.bfPalette.isOpen()");
 	});
 
-	test("keeps a phone's card head to one row of controls", () => {
+	test("keeps a phone's card head to whole controls, wrapped rather than scrolled", () => {
 		// The download belongs to the action group so one narrow rule covers the file
-		// and diff heads together. Below 520px the group holds one line and scrolls;
-		// without the no-shrink rule, a control wraps its own label onto two lines.
+		// and diff heads together. Below 520px the group takes the head's own rows: one
+		// line scrolled instead, and the last control was clipped mid-label.
 		const html = filePage("sub/b.md", markdownView(["# hi"]));
 		expect(html).toContain('title="Copy the root-relative path">copy path</button>');
 		expect(html).toMatch(
 			/copy path<\/button><a class="bf-btn" href="\/raw\/sub\/b\.md" download>download<\/a><\/span>/,
 		);
-		expect(BROWSE_CSS).toContain(".browse-head-actions{max-width:100%;flex-wrap:nowrap;overflow-x:auto}");
+		expect(BROWSE_CSS).toContain(".browse-head-actions{max-width:100%;flex-wrap:wrap;overflow-x:visible}");
 		expect(BROWSE_CSS).toContain(".browse-head-actions>*{flex:0 0 auto}");
 	});
 
