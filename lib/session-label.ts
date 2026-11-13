@@ -40,6 +40,31 @@ export function shortId(id: string): string {
 }
 
 /**
+ * The key two labels meet under in a Map or a Set: a label is addressed without case.
+ *
+ * The round's owner groups, the bus's held names and a page's label maps all key by label, and
+ * each was its own `toLowerCase()`. A key is the comparison's other half — a map keyed one way
+ * and looked up another is the same drift as two comparisons — so it is here, beside the compare.
+ */
+export function labelKey(label: string): string {
+	return label.toLowerCase();
+}
+
+/**
+ * Whether `a` and `b` are one name: a label is a send target without case, wherever it is compared.
+ *
+ * Written out rather than through {@link labelKey} because its source crosses to a page as
+ * {@link SAME_LABEL_JS}, and a body spliced into a fragment's script may call nothing that
+ * fragment does not hold.
+ */
+export function sameLabel(a: string, b: string): boolean {
+	return a.toLowerCase() === b.toLowerCase();
+}
+
+/** The same body, as the browser receives it: one comparison for the page and the terminal. */
+export const SAME_LABEL_JS = String(sameLabel);
+
+/**
  * The automatic label, before uniqueness is applied.
  *
  * The bus appends a suffix when two live sessions share one; that decision belongs
@@ -51,7 +76,7 @@ export function defaultLabel(facts: LabelFacts): string {
 	// A name a worktree produced is no name: it leaves with the worktree, and the next
 	// session named after one is a different session under the same word.
 	const named = normalizeLabel(facts.sessionName, "");
-	const own = named !== "" && !taken.has(named.toLowerCase()) ? named : "";
+	const own = named !== "" && !taken.has(labelKey(named)) ? named : "";
 	const repository = lastSegment(checkouts[0]?.path ?? facts.cwd);
 	const base = own || normalizeLabel(repository, "session");
 	return normalizeLabel(base, `session-${shortId(facts.id ?? "session")}`);
@@ -93,9 +118,9 @@ const WORKTREE_BRANCH_PREFIX = "worktree-";
 export function checkoutNames(trees: Iterable<Checkout>): Set<string> {
 	const names = new Set<string>();
 	for (const tree of trees) {
-		const directory = lastSegment(tree.path).toLowerCase();
+		const directory = labelKey(lastSegment(tree.path));
 		if (directory !== "") names.add(directory);
-		const branch = tree.branch?.toLowerCase();
+		const branch = tree.branch === undefined ? undefined : labelKey(tree.branch);
 		if (!branch) continue;
 		names.add(branch);
 		if (branch.startsWith(WORKTREE_BRANCH_PREFIX)) names.add(branch.slice(WORKTREE_BRANCH_PREFIX.length));
@@ -134,7 +159,7 @@ export function normalizeTeammates(raw: unknown, base: readonly string[] = []): 
 	const kept: string[] = [];
 	for (const value of raw) {
 		if (typeof value !== "string") continue;
-		const name = normalizeLabel(value, "").toLowerCase();
+		const name = labelKey(normalizeLabel(value, ""));
 		if (name === "" || kept.includes(name)) continue;
 		kept.push(name);
 		if (kept.length === MAX_TEAMMATES) break;
@@ -145,8 +170,7 @@ export function normalizeTeammates(raw: unknown, base: readonly string[] = []): 
 /** Whether `name` is one of the team's, compared without case the way a label is addressed. */
 export function isTeammate(name: string | null | undefined, team: readonly string[]): boolean {
 	if (name === null || name === undefined) return false;
-	const wanted = name.toLowerCase();
-	return team.some((member) => member.toLowerCase() === wanted);
+	return team.some((member) => sameLabel(member, name));
 }
 /**
  * Pi's session name, which is the first choice for a label.

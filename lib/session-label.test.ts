@@ -14,10 +14,13 @@ import {
 	checkoutNames,
 	defaultLabel,
 	isTeammate,
+	labelKey,
 	MAX_LABEL,
 	MAX_TEAMMATES,
 	normalizeLabel,
 	normalizeTeammates,
+	sameLabel,
+	SAME_LABEL_JS,
 	shortId,
 	TEAM_AGENT_PREFIX,
 } from "./session-label.ts";
@@ -49,6 +52,43 @@ describe("shortId", () => {
 
 	test("survives an id with nothing alphanumeric in it", () => {
 		expect(shortId("----")).toBe("----");
+	});
+});
+
+describe("sameLabel", () => {
+	test("reads one name in either case, because a label is a send target", () => {
+		// `/team join Billing-Core` and a record's `billing-core` are one peer; a comparison that
+		// said otherwise would record an owner no `session send` resolves.
+		expect(sameLabel("billing-core", "Billing-Core")).toBe(true);
+		expect(sameLabel("billing-core", "billing-core")).toBe(true);
+	});
+
+	test("keeps two different names apart, near spellings included", () => {
+		expect(sameLabel("billing-core", "billing-core-2")).toBe(false);
+		expect(sameLabel("billing core", "billing-core")).toBe(false);
+	});
+
+	test("keys a label the same way whichever spelling a map was written with", () => {
+		// The comparison's other half: a map keyed by one spelling and looked up by another is the
+		// same drift, so both sides ask this module for the key.
+		const held = new Map([[labelKey("Billing-Core"), "cards"]]);
+		expect(labelKey("billing-core")).toBe(labelKey("Billing-Core"));
+		expect(held.get(labelKey("billing-core"))).toBe("cards");
+	});
+
+	test("crosses to the page as the same body, safe to splice into a script", () => {
+		// The Team tab's history row calls this body (`HISTORY_OWNER_JS` is spliced beside it), and
+		// a fragment has no import graph: the source has to stand alone, and it has to answer alike.
+		expect(SAME_LABEL_JS).toBe(String(sameLabel));
+		expect(SAME_LABEL_JS).not.toContain("`");
+		expect(SAME_LABEL_JS).not.toContain("${");
+		const browser = new Function(`return (${SAME_LABEL_JS});`)() as typeof sameLabel;
+		for (const [a, b] of [
+			["billing-core", "BILLING-CORE"],
+			["billing-core", "billing-core-2"],
+		] as const) {
+			expect(browser(a, b)).toBe(sameLabel(a, b));
+		}
 	});
 });
 

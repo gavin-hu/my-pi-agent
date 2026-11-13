@@ -21,6 +21,7 @@
 import { type Card, cardRef } from "./card.ts";
 import type { Verification } from "./contract.ts";
 import type { RoundSummary } from "./round.ts";
+import { sameLabel } from "../session-label.ts";
 
 /** What the fold needs of a roster row: the page's `ViewTeammate` and the bus's record both answer it. */
 export interface RosterLabel {
@@ -144,9 +145,8 @@ export const PLURAL_JS = String(plural);
  */
 export function isHistoryOwner(label: string, held: number, roster: readonly RosterLabel[] | undefined): boolean {
 	if (roster === undefined || held > 0) return false;
-	const key = label.toLowerCase();
 	for (const session of roster) {
-		if (session.label.toLowerCase() === key) return false;
+		if (sameLabel(session.label, label)) return false;
 	}
 	return true;
 }

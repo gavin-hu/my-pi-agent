@@ -19,16 +19,20 @@
  *
  * A label the bus has no record of, holding nothing, is history: it folds into one row that
  * states what it finished, because the set only grows with every label that ever claimed a
- * card. The rule (`isHistoryOwner`) is the terminal's, spliced in.
+ * card. The rule (`isHistoryOwner`) is the terminal's, spliced in, and it compares two labels
+ * through `sameLabel`, which is spliced beside it for the same reason: the fragment has no
+ * import graph, so a body it calls has to be handed over too.
  */
 
-export function rosterJs(rules: { historyOwner: string }): string {
-	return rosterTemplate.replace("__HISTORY_OWNER__", rules.historyOwner);
+export function rosterJs(rules: { historyOwner: string; sameLabel: string }): string {
+	return rosterTemplate.replace("__SAME_LABEL__", rules.sameLabel).replace("__HISTORY_OWNER__", rules.historyOwner);
 }
 
 const rosterTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
+
+__SAME_LABEL__
 
 __HISTORY_OWNER__
 

@@ -9,7 +9,9 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { duplicateFunctions } from "../../../test/helpers/bundle.ts";
+import { missingBundleBodies, duplicateFunctions } from "../../../test/helpers/bundle.ts";
+import { HISTORY_OWNER_JS } from "../../../lib/board/round-text.ts";
+import { SAME_LABEL_JS } from "../../../lib/session-label.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 
 /** A bundle with one name defined twice: two bodies, or one body twice. */
@@ -22,6 +24,25 @@ function bundle(secondBody: string | undefined): string {
 		"})();",
 	].join("\n");
 }
+
+describe("the fragments' bodies", () => {
+	test("carries the label comparison the spliced history rule calls", () => {
+		// `isHistoryOwner` crosses as source and compares two labels through `sameLabel`, so the page
+		// must hold that body too: a fragment has no import graph, and a name its spliced source calls
+		// is a `ReferenceError` on the tab's first paint with every static check green.
+		expect(HISTORY_OWNER_JS).toContain("sameLabel(");
+		expect(BOARD_CLIENT_JS).toContain("function sameLabel(");
+		expect(BOARD_CLIENT_JS).toContain(SAME_LABEL_JS);
+	});
+
+	test("fails a spliced body whose helper never reached the string", () => {
+		// The hazard the splice above exists for, in four lines: the rule calls a helper, and the
+		// bundle that carries the rule would not carry the helper.
+		const spliced = `function isHistoryOwner(label, held, roster) { return sameLabel(label, label); }`;
+		expect(missingBundleBodies(spliced, ["isHistoryOwner", "sameLabel"])).toEqual(["sameLabel"]);
+		expect(missingBundleBodies(`${spliced}\n${SAME_LABEL_JS}`, ["sameLabel"])).toEqual([]);
+	});
+});
 
 describe("the bundle's definitions", () => {
 	test("has no name carrying two bodies", () => {
