@@ -17,9 +17,9 @@
 	--text: #1f2328;
 	--muted: #57606a;
 	--dim: #646d76;
-	--border: #8c959f;
+	--border: #e6e7e7;
 	--border-soft: color-mix(in srgb, var(--border) 55%, var(--canvas));
-	--border-strong: #6e7781;
+	--border-strong: #d2d3d4;
 	--accent: #0969da;
 	--accent-soft: rgba(9, 105, 218, 0.06);
 	--success: #1a7f37;
@@ -55,9 +55,9 @@
 	--text: #c9d1d9;
 	--muted: #8b949e;
 	--dim: #868f99;
-	--border: #5a626b;
+	--border: #2b3036;
 	--border-soft: color-mix(in srgb, var(--border) 55%, var(--canvas));
-	--border-strong: #6e7681;
+	--border-strong: #3e4349;
 	--accent: #58a6ff;
 	--accent-soft: rgba(88, 166, 255, 0.08);
 	--success: #3fb950;
@@ -156,11 +156,8 @@ a:hover {
 	position: sticky;
 	top: 0;
 	z-index: 10;
-	background: var(--canvas-subtle);
-	background: color-mix(in srgb, var(--canvas) 88%, transparent);
+	background: var(--canvas);
 	border-bottom: 1px solid var(--border);
-	-webkit-backdrop-filter: saturate(160%) blur(8px);
-	backdrop-filter: saturate(160%) blur(8px);
 }
 
 /*
@@ -392,7 +389,7 @@ a:hover {
 	max-height: calc(100vh - var(--header-height));
 	padding: 1.75rem 0.75rem 2rem 0;
 	overflow-y: auto;
-	border-right: 1px solid var(--border-soft);
+	border-right: 1px solid var(--border);
 }
 
 .nav-scrim {
@@ -748,7 +745,7 @@ body.is-nav-open {
  */
 .footer {
 	margin-top: 2rem;
-	border-top: 1px solid var(--border-soft);
+	border-top: 1px solid var(--border);
 	color: var(--muted);
 	font-size: 0.85rem;
 }

@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `lib`: the served pages read flat. The border pair is derived from the canvas instead of copied
+  from the theme's cell grid — `--canvas` toward `--text` at 16%/26% dark and 11%/20% light, so a
+  hairline is 1.42:1 and 1.24:1 where the terminal's `borderMuted` was 3.06:1 and 3.01:1 — and
+  the header sits on the page's own canvas, closed by that one rule, with no elevation under it. A
+  record, a comment, a composer and a board note are a tint and a rule rather than a raised sheet:
+  `--shadow-2` is the dialog's and `--shadow-1` is left as the docs site's own overlay step, a
+  token no component here takes any more.
+  `--border-strong` is a step above the hairline so a border that means something still reads. The
+  kit, the board, the plan review, the file browser, the docs site and the posting cards move
+  together; `palette.test.ts` pins the two steps and the ratio band, and the frames and posters are
+  re-shot.
+- `docs`: the site's `theme-color` is its own canvas again, `#ffffff`/`#0d1117`. It stayed the slate
+  build's `#f6f7f9`/`#0b0f16` through the palette that replaced it, so the address bar named a page
+  nobody was looking at; `test/theme.test.ts` now reads the two metas against the kit's `--canvas`.
+- `file-browse`: a phone's card head wraps its actions instead of scrolling them. Below 520px the
+  row held one line and overflowed sideways with no hint that it moved, so the last control was cut
+  mid-label at the card's edge — `download` at 480, the whole of it at 390 — and the only way to
+  reach it was a scroll gesture on a row that looked complete.
+
 - `board`: a card's `updatedAt` only ever moves forward, so the `done` gate cannot be fooled by a
   stamp that went back. A spot-check's command has a ten-minute bound and the tool read its clock
   before the run, so the sign, the record that its owner was told, and the card's own stamp all

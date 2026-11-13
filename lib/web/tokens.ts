@@ -28,14 +28,13 @@ const THEMES: Record<Appearance, ThemeDocument> = {
 };
 
 /**
- * Each web token, and the theme var that states it. `--dim` is the one colour absent from this
- * table: a theme states it for a terminal, and a page asks more of it (see `paletteOf`).
+ * Each web token, and the theme var that states it. `--dim` and the border pair are the colours
+ * absent from this table: a theme states them for a terminal's cell grid, and a page asks more of
+ * them (see `paletteOf`).
  */
 const ROLES: ReadonlyArray<readonly [token: string, variable: string]> = [
 	["--canvas", "canvas"],
 	["--surface", "canvasSubtle"],
-	["--border", "borderMuted"],
-	["--border-strong", "border"],
 	["--text", "text"],
 	["--muted", "muted"],
 	["--accent", "blue"],
@@ -67,15 +66,28 @@ const SYNTAX_ALIASES: ReadonlyArray<readonly [string, string]> = [
  *
  * `raisedStep` lifts a plane off the surface, `dimStep` takes the faint tier one step down from
  * `muted`, `accentAlpha` tints a selected row, and `scrim`/`shadow` are a page's overlays and
- * elevation rather than colours on a grid.
+ * elevation rather than colours on a grid. `borderStep`/`borderStrongStep` are how far a rule
+ * travels from the canvas toward the text: a terminal draws its borders on a cell grid at 3:1,
+ * which a page reads as a frame rather than as a hairline, so the pair is a step instead.
  */
 const DERIVED: Record<
 	Appearance,
-	{ raisedStep: number; dimStep: number; accentAlpha: number; scrim: string; shadow1: string; shadow2: string }
+	{
+		raisedStep: number;
+		dimStep: number;
+		borderStep: number;
+		borderStrongStep: number;
+		accentAlpha: number;
+		scrim: string;
+		shadow1: string;
+		shadow2: string;
+	}
 > = {
 	dark: {
 		raisedStep: 0.06,
 		dimStep: 0.04,
+		borderStep: 0.16,
+		borderStrongStep: 0.26,
 		// A card's paper is this tint over a surface, and the board holds its faint tier to
 		// 4.5:1 there: at the 15% a selected row can take, `--dim` reaches 4.09:1 (dark) and
 		// 4.31:1 (light), so the tint is the strength both jobs can share.
@@ -85,9 +97,13 @@ const DERIVED: Record<
 		shadow2: "0 8px 24px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.4)",
 	},
 	light: {
-		// A smaller step: at the dark one, a label on the raised plane drops under AA.
+		// A smaller step: at the dark one, a label on the raised plane drops under AA. The hairline
+		// is smaller than dark's for the same reason — one step toward the text reads the same on
+		// both canvases, and the pair is pinned by its ratio in `palette.test.ts`.
 		raisedStep: 0.03,
 		dimStep: 0.08,
+		borderStep: 0.11,
+		borderStrongStep: 0.2,
 		accentAlpha: 0.06,
 		scrim: "rgba(15,23,42,.32)",
 		shadow1: "0 1px 2px rgba(16,24,40,.06),0 2px 8px rgba(16,24,40,.08)",
@@ -163,6 +179,8 @@ function paletteOf(appearance: Appearance): Record<string, string> {
 	const tokens: Record<string, string> = {};
 	for (const [token, variable] of ROLES) tokens[token] = theme.vars[variable] ?? "";
 	tokens["--dim"] = mix(theme.vars.muted ?? "", theme.vars.canvas ?? "", steps.dimStep);
+	tokens["--border"] = mix(theme.vars.canvas ?? "", theme.vars.text ?? "", steps.borderStep);
+	tokens["--border-strong"] = mix(theme.vars.canvas ?? "", theme.vars.text ?? "", steps.borderStrongStep);
 	// One step above `--surface`, for a block that must read as a plane rather than an outline.
 	tokens["--raised"] = mix(theme.vars.canvasSubtle ?? "", theme.vars.text ?? "", steps.raisedStep);
 	tokens["--accent-soft"] = rgba(theme.vars.blue ?? "", steps.accentAlpha);

@@ -529,6 +529,22 @@ describe("the site palette", () => {
 		}
 	});
 
+	test("paints the address bar the page's own canvas", () => {
+		// `theme-color` is the chrome outside the document, so it is the page's canvas or it is a
+		// second palette in the one place nobody looks; it stayed the slate build's after the site
+		// took the kit's, and no case named it.
+		const head = readFileSync(fileURLToPath(new URL("../docs/_includes/head.html", import.meta.url)), "utf8");
+		const declared = [...head.matchAll(/<meta name="theme-color" content="([^"]+)"/g)].map((match) => match[1]);
+		expect(declared).toHaveLength(2);
+		for (const { appearance } of palettes) {
+			const want = WEB_THEME_TOKENS[appearance]["--canvas"];
+			expect(
+				declared.map((value) => value?.toLowerCase()),
+				`head.html: theme-color for ${appearance}`,
+			).toContain(want.toLowerCase());
+		}
+	});
+
 	test("elevates with the kit's own shadow", () => {
 		const drifted = palettes.flatMap(({ appearance, selector }) => {
 			const start = css.indexOf(`${selector} {`);

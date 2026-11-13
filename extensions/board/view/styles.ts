@@ -140,7 +140,7 @@ ${WEB_COMPONENTS_CSS}
    Its height is the face's boxes plus its padding — stated once, so every note in a lane is
    the same size and the column reads as a stack of notes rather than a ragged list. */
 .bf-lane .bf-lane__list{gap:var(--space-2)}
-.bf-lane .board-row{grid-template-columns:minmax(0,1fr);height:calc(var(--face-h) + var(--space-2) * 2);overflow:hidden;align-content:stretch;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md);box-shadow:var(--shadow-1)}
+.bf-lane .board-row{grid-template-columns:minmax(0,1fr);height:calc(var(--face-h) + var(--space-2) * 2);overflow:hidden;align-content:stretch;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md)}
 /* The card the reader walked to wears the accent outside its edge; a card a peer's write just
    moved wears it inside, so the two never read as one state. */
 .bf-lane .board-row[data-current="true"]{outline:2px solid var(--accent)}

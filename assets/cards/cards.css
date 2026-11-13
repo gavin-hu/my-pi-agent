@@ -26,14 +26,17 @@
 	/* The kit's `border`, `accent`, `accent-alt`, `success`, `warn`, and `danger` as
 	 * channels, so a tint below is one alpha away from the colour it belongs to
 	 * rather than a hand-copied triple that can quietly stop matching it. */
-	--border-rgb: 90, 98, 107;
+	--border-rgb: 43, 48, 54;
 	--accent-rgb: 88, 166, 255;
 	--accent-alt-rgb: 188, 140, 255;
 	--success-rgb: 63, 185, 80;
 	--warn-rgb: 210, 153, 34;
 	--danger-rgb: 248, 81, 73;
-	--line: rgba(var(--border-rgb), 0.32);
-	--line-strong: rgba(var(--border-rgb), 0.52);
+	/* The kit's border is a hairline now — a step off the canvas rather than a terminal's 3:1
+	 * cell rule — so the same drawn line needs a higher alpha to keep the weight a poster is
+	 * read at. These are the alphas that land on the line main drew. */
+	--line: rgba(var(--border-rgb), 0.85);
+	--line-strong: rgba(var(--border-rgb), 1);
 	--text: #c9d1d9;
 	--muted: #8b949e;
 	--dim: #868f99;

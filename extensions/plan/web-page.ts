@@ -155,7 +155,7 @@ ${WEB_COMPONENTS_CSS}
 .bf-comments:empty{display:none}
 .bf-comments--orphans{margin-top:26px;padding:var(--space-3) 0 0 var(--review-gutter);border-top:1px dashed var(--border)}
 .bf-comments--orphans>p{margin:0 0 8px;color:var(--muted);font-size:var(--fs-sm)}
-.bf-comment{padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}
+.bf-comment{padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background:var(--surface)}
 .bf-comment__head{display:flex;align-items:center;gap:var(--space-2);margin-bottom:6px}
 .bf-comment__label{font:var(--fw-semibold) var(--fs-xs) var(--font-ui);color:var(--warn)}
 /* A reviewer's name is a name, not a label: keep its own capitalisation. */

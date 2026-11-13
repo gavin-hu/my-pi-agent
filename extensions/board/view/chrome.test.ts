@@ -186,14 +186,14 @@ describe.skipIf(CHROME === undefined)("a dropped stream", () => {
 	});
 });
 describe("the page's elevation", () => {
-	test("lifts a card and its dialog through the kit's tokens, never a literal", () => {
-		// A lane card is a plane now and the dialog floats above it: both name a kit token, so the two
-		// depths cannot fork the way a hand-written blur would.
-		expect(BOARD_CSS).toMatch(/\.bf-lane \.board-row\{[^}]*box-shadow:var\(--shadow-1\)/);
+	test("lifts only the dialog through the kit's tokens, never a literal", () => {
+		// A note is a flat sheet of the lane's paper and the dialog floats above it: the one depth
+		// on the page names a kit token, so it cannot fork the way a hand-written blur would.
+		expect(BOARD_CSS).not.toMatch(/\.bf-lane \.board-row\{[^}]*box-shadow/);
 		expect(BOARD_CSS).toMatch(/\.board-dialog__panel\{[^}]*box-shadow:var\(--shadow-2\)/);
 		for (const shadow of BOARD_CSS.matchAll(/box-shadow:([^;}]+)/g)) {
 			if (shadow[1].startsWith("inset ")) continue;
-			expect(shadow[1], shadow[1]).toMatch(/^var\(--shadow-[12]\)$/);
+			expect(shadow[1], shadow[1]).toBe("var(--shadow-2)");
 		}
 	});
 });
