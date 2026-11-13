@@ -39,6 +39,14 @@ export function loadConfigFile<T>(
 /** The one JSON file every extension reads: `bytefly.json`. */
 export const SHARED_CONFIG_FILE = "bytefly.json";
 
+/**
+ * The project's own document, `<cwd>/.pi/bytefly.json`: the file a per-repository setting is
+ * written to, built here so no caller spells the two names again.
+ */
+export function projectConfigPath(cwd: string): string {
+	return join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE);
+}
+
 /** A top-level section of a config document, or `undefined` when it is absent or not an object. */
 export function configSection(
 	raw: Record<string, unknown> | undefined,

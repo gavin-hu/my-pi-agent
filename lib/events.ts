@@ -107,6 +107,22 @@ export interface WorktreeChangedEvent {
 	borrowed?: boolean;
 }
 
+/** EventBus channel: one working directory's `board.teammates` changed. */
+export const TEAM_CHANGED_CHANNEL = "my-pi-agent/team-changed";
+
+/**
+ * Payload on {@link TEAM_CHANGED_CHANNEL}: which team changed.
+ *
+ * The directory, not the list: a consumer derives the team from the config it already knows how
+ * to read, so an event can never disagree with the file and a bar cannot be handed a name the
+ * next read would drop. Only the directory the bar installed for is worth acting on, which is
+ * what a consumer compares.
+ */
+export interface TeamChangedEvent {
+	/** The working directory whose `board` section changed: `<cwd>/.pi/bytefly.json`. */
+	cwd: string;
+}
+
 /** EventBus channel: `web-access` resolved its search provider for this session. */
 export const WEB_SEARCH_PROVIDER_CHANNEL = "my-pi-agent/web-search-provider";
 

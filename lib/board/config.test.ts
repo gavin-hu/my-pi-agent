@@ -7,11 +7,11 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { DEFAULT_BOARD_CONFIG, DEFAULT_LEAD, normalizeBoardConfig, readBoardConfig } from "./config.ts";
+import { addTeammate, DEFAULT_BOARD_CONFIG, DEFAULT_LEAD, normalizeBoardConfig, readBoardConfig } from "./config.ts";
 import { DEFAULT_TEAMMATES } from "../session-label.ts";
 
 import { MAX_WIP } from "./limits.ts";
@@ -99,5 +99,72 @@ describe("readBoardConfig", () => {
 	test("a malformed file is the default board, not a broken one", () => {
 		const cwd = projectWith("{ not json");
 		expect(readBoardConfig(cwd, { agentDir: temps.track(tempDir("pi-board-agent-")) })).toEqual(DEFAULT_BOARD_CONFIG);
+	});
+});
+
+/** The project document a directory holds, parsed, or `undefined` when it holds none. */
+function projectDocument(cwd: string): unknown {
+	try {
+		return JSON.parse(readFileSync(join(cwd, ".pi", "bytefly.json"), "utf-8"));
+	} catch {
+		return undefined;
+	}
+}
+
+describe("addTeammate", () => {
+	test("writes the whole team to the project's file, keeping every sibling key", () => {
+		const cwd = projectWith({ board: { lead: "jack", wip: { plan: 2, execute: 2 } }, price: { budget: 5 } });
+		const agentDir = temps.track(tempDir("pi-board-agent-"));
+		const added = addTeammate(cwd, "lily", { agentDir });
+		expect(added).toEqual({ ok: true, team: [...DEFAULT_TEAMMATES, "lily"], changed: true });
+		expect(projectDocument(cwd)).toEqual({
+			board: { lead: "jack", wip: { plan: 2, execute: 2 }, teammates: [...DEFAULT_TEAMMATES, "lily"] },
+			price: { budget: 5 },
+		});
+	});
+
+	test("a name the team already holds is no edit at all", () => {
+		const cwd = projectWith({ board: { teammates: ["gavin", "jack"] } });
+		const agentDir = temps.track(tempDir("pi-board-agent-"));
+		expect(addTeammate(cwd, "Jack", { agentDir })).toEqual({ ok: true, team: ["gavin", "jack"], changed: false });
+		expect(projectDocument(cwd)).toEqual({ board: { teammates: ["gavin", "jack"] } });
+	});
+
+	test("puts the new name after the team the global file states", () => {
+		const cwd = projectWith({});
+		const agentDir = agentWith({ board: { teammates: ["gavin", "jack"] } });
+		expect(addTeammate(cwd, "lily", { agentDir })).toEqual({
+			ok: true,
+			team: ["gavin", "jack", "lily"],
+			changed: true,
+		});
+		// The project layer replaces the global one key by key, so the write states the team it
+		// was given rather than only the name it added.
+		expect(projectDocument(cwd)).toEqual({ board: { teammates: ["gavin", "jack", "lily"] } });
+	});
+
+	test("a second name keeps the first, because the team is read where it is written", () => {
+		const cwd = projectWith({});
+		const agentDir = temps.track(tempDir("pi-board-agent-"));
+		addTeammate(cwd, "lily", { agentDir });
+		addTeammate(cwd, "bob", { agentDir });
+		expect(projectDocument(cwd)).toEqual({ board: { teammates: [...DEFAULT_TEAMMATES, "lily", "bob"] } });
+	});
+
+	test("refuses a name outside the vocabulary, because the next read would drop it", () => {
+		const cwd = projectWith({});
+		const added = addTeammate(cwd, "core-claims", { agentDir: temps.track(tempDir("pi-board-agent-")) });
+		expect(added.ok).toBe(false);
+		expect(added).toMatchObject({ why: "not-a-teammate" });
+		expect(projectDocument(cwd)).toEqual({});
+	});
+
+	test("a document it cannot parse is a reason, not a rewrite", () => {
+		const cwd = projectWith("{ not json");
+		const added = addTeammate(cwd, "lily", { agentDir: temps.track(tempDir("pi-board-agent-")) });
+		expect(added).toMatchObject({ ok: false, why: "write-failed" });
+		if (added.ok) throw new Error("the write should have been refused");
+		expect(added.reason).toContain(join(".pi", "bytefly.json"));
+		expect(readFileSync(join(cwd, ".pi", "bytefly.json"), "utf-8")).toBe("{ not json");
 	});
 });

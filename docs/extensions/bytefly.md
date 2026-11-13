@@ -71,7 +71,8 @@ session spend, tokens, cache, and the model. The chip beside the location is the
 session's teammate name: it is drawn only when that name is one of `board.teammates`
 (`gavin`, `tom`, `jack`, `mike`, `sam` by default, edited by the **Teammates** row), so
 a session the team does not hold shows no chip — a bus label or Pi's own session name is
-never drawn as itself. Each turn closes with a rule naming
+never drawn as itself. A `/team join <preset name>` puts the name it joined as on that
+list, so the bar names the session the join just renamed. Each turn closes with a rule naming
 its number, duration, tools, and outcome. Every tool block leads with its call
 line and hangs its result on the rail. Notices from any extension draw at the
 transcript margin with a severity rail.

@@ -9,6 +9,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { AddTeammateResult } from "../../lib/board/config.ts";
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import { buildRound, type RoundSummary } from "../../lib/board/round.ts";
 import { formatRound, holdingLine, plural } from "../../lib/board/round-text.ts";
@@ -57,7 +58,11 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 				// The standing is the session's, not this command's: `/board status` reports the team
 				// whichever door put it there, and a typed label is the one door that always asks.
 				session.team.record(joined);
-				ctx.ui.notify(joinedLine(joined), joined.ok ? "info" : "warning");
+				// The bar draws a name only while the repository's team holds it, so the join that just
+				// renamed this session is what puts that name on the list: otherwise the one door meant
+				// to name the footer would leave the chip empty and say nothing about why.
+				const named = joined.ok && label !== "" ? await nameTheBar(pi, ctx.cwd, joined.label) : undefined;
+				ctx.ui.notify(joinedLine(joined, named), joined.ok && named?.ok !== false ? "info" : "warning");
 				return;
 			}
 			if (word !== "") {
@@ -89,9 +94,48 @@ async function unnamedJoin(session: BoardSession, ctx: ExtensionCommandContext):
 	return { label: (await session.who(ctx, ctx.cwd)).label };
 }
 
-/** `/team join`'s line: who this session is on the team, or why it is on none. */
-export function joinedLine(result: JoinResult): string {
-	return result.ok ? formatJoined(result.label, result.watching) : formatNotJoined(result.error);
+/**
+ * Put the name this join made onto the team, then tell a bar to re-read it.
+ *
+ * Both loads are deferred to this one door: the board's config pulls the lead's rules and the lane
+ * table, and this command's registration graph is a budget that may only fall. The channel is
+ * emitted only for a write that changed something — a bar re-reading an unchanged team is work
+ * for no name — and only after the write, because the bar reads the file.
+ */
+async function nameTheBar(pi: ExtensionAPI, cwd: string, label: string): Promise<AddTeammateResult> {
+	const [{ addTeammate }, { TEAM_CHANGED_CHANNEL }] = await Promise.all([
+		import("../../lib/board/config.ts"),
+		import("../../lib/events.ts"),
+	]);
+	const named = addTeammate(cwd, label);
+	if (named.ok && named.changed) pi.events.emit(TEAM_CHANGED_CHANNEL, { cwd });
+	return named;
+}
+
+/**
+ * `/team join`'s line: who this session is on the team, what the bar will draw, or why it is on
+ * none.
+ */
+export function joinedLine(result: JoinResult, named?: AddTeammateResult): string {
+	if (!result.ok) return formatNotJoined(result.error);
+	return formatJoined(result.label, result.watching, teammateNote(result.label, named));
+}
+
+/**
+ * What the bar will draw for the name this join made, as the sentence after the join.
+ *
+ * Nothing when the team already held the name: the bar names the session either way, and a second
+ * sentence would be about a change that did not happen. The two failures are apart because they
+ * are different news — a custom label can never be drawn, because the vocabulary is the bar's,
+ * while a write that failed is a file the person can fix.
+ */
+function teammateNote(label: string, named: AddTeammateResult | undefined): string | undefined {
+	if (named === undefined) return undefined;
+	if (named.ok) return named.changed ? "board.teammates now holds it, so the bar names you." : undefined;
+	if (named.why === "not-a-teammate") {
+		return `${label} is not a preset teammate name, so the bar draws no chip for you.`;
+	}
+	return `The bar will not name you: ${named.reason}.`;
 }
 
 /**
