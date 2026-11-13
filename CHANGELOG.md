@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `lib`: an event stream whose socket stops reading is destroyed once its backlog passes
+  `MAX_BUFFERED_BYTES` (1 MiB), instead of buffering every frame for the life of the session. An SSE
+  response carries no timeout of its own, so a suspended board tab held a whole snapshot per push,
+  forever. The drop is a `destroy` and not an `end`, because a paused socket keeps an ended backlog
+  in memory and only a reset gives it back; a browser reports an error for either, so the page
+  reconnects and the board re-snapshots on attach.
+
 - `lib`: the documentation site, the posting cards, and the gallery montage draw the browser kit's
   palette, so the site and the posters are the same slate-and-indigo as the served pages instead of
   the terminal's GitHub blue. The two static stylesheets are copies — Pages serves the one as

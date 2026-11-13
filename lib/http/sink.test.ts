@@ -13,18 +13,25 @@ import { describe, expect, test } from "bun:test";
 import { graceTimer } from "../../test/helpers/fixtures/http.ts";
 import type { ServerResponse } from "node:http";
 import type { RepeatTimer } from "../timer.ts";
-import { createSinks, KEEPALIVE_MS, RETRY_MAX_MS, RETRY_MS } from "./sink.ts";
+import { createSinks, KEEPALIVE_MS, MAX_BUFFERED_BYTES, RETRY_MAX_MS, RETRY_MS } from "./sink.ts";
 
 /** The head a case opens a stream with: status and headers the double ignores. */
 const HEAD = { status: 200, headers: {} };
 
 /** A response that records what was written to it, so the sink can own liveness. */
-function pageResponse(): ServerResponse & { frames: string[]; ended: boolean } {
+function pageResponse(): ServerResponse & { frames: string[]; ended: boolean; stall(bytes: number): void } {
 	const double = {
 		frames: [] as string[],
 		ended: false,
+		// A socket nobody has stalled: the backlog the bound is asked about, and the close a drop
+		// makes. Declared rather than omitted, so no case rests on a field the cast invented.
+		writableLength: 0,
 		writableEnded: false,
 		destroyed: false,
+		/** How far behind this socket has fallen, which is the one fact a stalled peer has. */
+		stall(bytes: number): void {
+			double.writableLength = bytes;
+		},
 		writeHead(): void {},
 		write(frame: string): boolean {
 			double.frames.push(frame);
@@ -35,11 +42,14 @@ function pageResponse(): ServerResponse & { frames: string[]; ended: boolean } {
 			double.ended = true;
 			double.writableEnded = true;
 		},
+		destroy(): void {
+			double.destroyed = true;
+		},
 	};
-	// The sink reads only `write`, `end`, `writableEnded`, and `destroyed`, which is
-	// everything a route can observe about one response; the head write reaches the
-	// rest of the response through the same double.
-	return double as unknown as ServerResponse & { frames: string[]; ended: boolean };
+	// The sink reads only `write`, `end`, `writableLength`, `writableEnded`, and `destroyed`, which is
+	// everything a route can observe about one response; the head write reaches the rest of the
+	// response through the same double.
+	return double as unknown as ServerResponse & { frames: string[]; ended: boolean; stall(bytes: number): void };
 }
 
 /** The reconnect hint one stream's head carried, which is the first frame written to it. */
@@ -101,6 +111,51 @@ describe("event sinks", () => {
 		// follows it once the socket is gone.
 		expect(lost.frames.slice(1)).toEqual([]);
 		expect(sinks.size()).toBe(0);
+	});
+});
+
+describe("a socket that stopped reading", () => {
+	test("is destroyed at the bound, and the frame that trips it is never written", () => {
+		const beat = beatTicker();
+		const timer = graceTimer();
+		let idled = 0;
+		const sinks = createSinks({
+			interval: beat.interval,
+			idle: { ms: 10, onIdle: () => (idled += 1) },
+			timer: timer.timer,
+		});
+		const response = pageResponse();
+		const sink = sinks.attach(response, HEAD);
+		sink.write("data: one\n\n");
+		// The backlog the socket failed to take, as a paused peer leaves it.
+		response.stall(MAX_BUFFERED_BYTES + 1);
+		sink.write("data: two\n\n");
+		// Destroyed, not ended: an `end`ed backlog stays for the life of the process, which is the
+		// memory this bound exists to give back.
+		expect(response.destroyed).toBe(true);
+		expect(response.ended).toBe(false);
+		expect(response.frames.slice(1)).toEqual(["data: one\n\n"]);
+		expect(sinks.size()).toBe(0);
+		// Released once, and the last stream leaving arms the grace like any other departure.
+		sink.end();
+		expect(beat.stops).toBe(1);
+		expect(timer.armed).toBe(1);
+		timer.fire();
+		expect(idled).toBe(1);
+	});
+
+	test("is kept while it is behind but still reading", () => {
+		const sinks = createSinks({ interval: beatTicker().interval });
+		const response = pageResponse();
+		const sink = sinks.attach(response, HEAD);
+		for (let frame = 0; frame < 5; frame += 1) {
+			// At the bound, never past it: the socket is slow, which is not the same as stopped.
+			response.stall(MAX_BUFFERED_BYTES);
+			sink.write(`data: ${frame}\n\n`);
+		}
+		expect(response.destroyed).toBe(false);
+		expect(response.frames).toHaveLength(6);
+		expect(sinks.size()).toBe(1);
 	});
 });
 
