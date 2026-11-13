@@ -97,14 +97,26 @@ export function isBusMessage(value: unknown): value is BusMessage {
 /** The message id a file name holds, which is the id a reader compares against. */
 export const idOfFile = (name: string): string => name.slice(0, -MESSAGE_SUFFIX.length);
 
+/** One message file, and the moment it landed in the inbox it sits in. */
+export interface Arrival {
+	/** The file's name, which is where its message id is read from. */
+	name: string;
+	/** The file's mtime: when the message became this inbox's, on the clock every session shares. */
+	at: number;
+}
+
 /**
- * One inbox's message files, in the order they arrived.
+ * One inbox's message files, in the order they arrived, each with the arrival it was ordered by.
  *
  * A file published between the readdir and the stat is already read by the next poll, so
  * a stat that fails drops the file rather than failing the page. Two files that landed in
  * one filesystem tick tie on the mtime, and the name settles it so the page is stable.
+ *
+ * The stamp is handed out rather than kept, because a queue read needs it: `waitingMail` draws the
+ * age of every message and used to stat each file a second time for the one number this pass had
+ * already read.
  */
-export async function listMessages(dir: string): Promise<string[]> {
+export async function listArrivals(dir: string): Promise<Arrival[]> {
 	let names: string[];
 	try {
 		names = (await readdir(dir)).filter((name) => name.endsWith(MESSAGE_SUFFIX)).sort();
@@ -114,15 +126,24 @@ export async function listMessages(dir: string): Promise<string[]> {
 	const stamped = await Promise.all(
 		names.map((name) =>
 			stat(join(dir, name)).then(
-				(info): { name: string; at: number } | undefined => ({ name, at: info.mtimeMs }),
+				(info): Arrival | undefined => ({ name, at: info.mtimeMs }),
 				() => undefined,
 			),
 		),
 	);
 	return stamped
-		.filter((entry): entry is { name: string; at: number } => entry !== undefined)
-		.sort((a, b) => a.at - b.at || a.name.localeCompare(b.name))
-		.map((entry) => entry.name);
+		.filter((entry): entry is Arrival => entry !== undefined)
+		.sort((a, b) => a.at - b.at || a.name.localeCompare(b.name));
+}
+
+/**
+ * One inbox's message files, in the order they arrived.
+ *
+ * The names alone, for the reader that opens each file anyway: `session-bus` reads the mail it is
+ * about to consume, so the arrival `listArrivals` hands out would be paid for and thrown away.
+ */
+export async function listMessages(dir: string): Promise<string[]> {
+	return (await listArrivals(dir)).map((arrival) => arrival.name);
 }
 
 /** The inbox directories under one repository's bus, hashed as the bus names them. */
@@ -154,7 +175,7 @@ async function inboxDirs(busDir: string): Promise<string[]> {
 export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promise<WaitingPage> {
 	const byId = new Map<string, WaitingMail>();
 	for (const dir of await inboxDirs(busDir)) {
-		for (const name of await listMessages(dir)) {
+		for (const { name, at: landed } of await listArrivals(dir)) {
 			let parsed: unknown;
 			try {
 				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
@@ -162,10 +183,6 @@ export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promis
 				continue;
 			}
 			if (!isBusMessage(parsed)) continue;
-			const landed = await stat(join(dir, name)).then(
-				(info) => info.mtimeMs,
-				() => parsed.at,
-			);
 			const seen = byId.get(parsed.id);
 			if (seen === undefined) {
 				byId.set(parsed.id, {

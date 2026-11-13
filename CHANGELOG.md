@@ -16,11 +16,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   refusal prints — run it and review again — re-stamped at the same lagging clock. The stamp now
   takes the later of the two moments; the signer's note keeps the caller's own.
 
-- `board`: the page reads the pile again only when the cards directory moved, so a frame costs one
-  `stat` where it used to cost a readdir and a parse per card. A frame is asked for on every write,
-  on the five-second sweep, and every second when no watch could be armed; the roster, the mail
-  queue, a removed plan and the clock are still read each time, because those are the facts no card
-  file announces.
+- `board`: the page reads the pile again when the cards directory moved, and after a run of frames in
+  which it did not — so a stamp no write can move still catches up — and a frame costs one `stat`
+  where it used to cost a readdir and a parse per card. A frame is asked for on every write, on the
+  five-second sweep, and every second when no watch could be armed; the roster, the mail queue — one
+  `stat` per message now, because `listArrivals` hands out the arrival `listMessages` already read
+  for its order — a removed plan and the clock are still read each time, because those are the facts
+  no card file announces.
 
 - `lib`: the served pages read flat. The border pair is derived from the canvas instead of copied
   from the theme's cell grid — `--canvas` toward `--text` at 16%/26% dark and 11%/20% light, so a

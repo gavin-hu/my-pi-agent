@@ -20,7 +20,7 @@ import { advance } from "../../test/helpers/board-flow.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { drawnOf } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { createSnapshot } from "./snapshot.ts";
+import { createSnapshot, PILE_RESYNC_FRAMES } from "./snapshot.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -81,6 +81,18 @@ describe("the page's snapshot", () => {
 		// A write lands as a temp file renamed inside `cards/`, so the directory moved and the frame
 		// reads the pile it now holds.
 		expect(drawnOf(after, second.id)?.title).toBe("Two");
+	});
+
+	test("reads it again once a run of frames has passed, whatever the directory says", async () => {
+		const next = await page();
+		await next.store.create({ title: "One", paths: [] }, ME, NOW);
+		await next.snapshot.view();
+		const reads = next.reads();
+		// Nothing is written, so the stamp holds still — the state a filesystem whose mtime is coarser
+		// than a write leaves the page in, with every later frame asking the same question. The bound is
+		// what ends it: one frame past the run, the pile is read again.
+		for (let frame = 0; frame < PILE_RESYNC_FRAMES + 1; frame += 1) await next.snapshot.view();
+		expect(next.reads()).toBe(reads + 1);
 	});
 
 	test("draws a plan that was removed, on a pile it did not re-read", async () => {
