@@ -85,9 +85,10 @@ export interface StatusSnapshot {
 	/**
 	 * The name the bar draws for this session: already resolved against the team.
 	 *
-	 * `null` is "this session is not one of the team's", which draws nothing at all. Pi's
-	 * own session name is the candidate, never a claim: a name the team does not hold is no
-	 * teammate, and the bar names nobody rather than inventing one.
+	 * `null` is "this session is not one of the team's", which draws nothing at all. The bus
+	 * label is the candidate when the session has one, Pi's own session name otherwise, and
+	 * neither is a claim: a name the team does not hold is no teammate, and the bar names nobody
+	 * rather than inventing one.
 	 */
 	teammateName: string | null;
 	/** Branch name, `null` when not in a repository, `"detached"` on detached HEAD. */

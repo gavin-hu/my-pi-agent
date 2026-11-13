@@ -45,7 +45,7 @@ export interface SnapshotReader {
 export function createSnapshotReader(
 	config: ByteflyConfig,
 	delegation: DelegationLedger,
-	resolveTeammate: (sessionName: string | null) => string | null = () => null,
+	resolveName: (sessionName: string | null) => string | null = () => null,
 ): SnapshotReader {
 	const price = createPricer(config);
 	let key: string | null = null;
@@ -87,9 +87,11 @@ export function createSnapshotReader(
 			last = usage;
 		}
 
-		// The resolver is asked every frame and answers from the team an install read: a
-		// `session_tree` is what re-reads the file, so this costs a comparison.
-		const teammateName = resolveTeammate(sessionName);
+		// The resolver is asked every frame and answers from a team and a bus label an install
+		// read: a `session_tree` is what re-reads the file, so this costs a comparison. Pi's own
+		// name is only the candidate it is given — a label the bus settled for this session comes
+		// first, because that is the name a card, a handoff, and `/team` use.
+		const teammateName = resolveName(sessionName);
 
 		const model = current
 			? { id: current.id, provider: current.provider, reasoning: current.reasoning === true }
