@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `lib`: the served pages draw the terminal theme's palette again. `lib/web/tokens.ts` maps every
+  colour role from `themes/bytefly-{dark,light}.json`, so the board, the plan review and the file
+  browser are the terminal's GitHub blue instead of a web ramp of their own, and the
+  docs site, the posting cards and the gallery montage follow through the guards that hold their
+  copies to it. `--dim` is the one colour the theme does not supply — it is a terminal's 3:1 grey,
+  and the kit's floor on a raised plane is 4.5 — so it is a step off the theme's `muted` and the test
+  pins the step; `--accent-soft` is the accent at the alpha a selected row and a card's paper can
+  share. The web's face, radii and two shadows are unchanged; the page frames, the seven cards and
+  `demo.mp4` are re-shot, and the hairline is now the theme's `borderMuted`, heavier than the ramp it
+  replaced.
 - `lib`: an event stream whose socket stops reading is destroyed once its backlog passes
   `MAX_BUFFERED_BYTES` (1 MiB), instead of buffering every frame for the life of the session. An SSE
   response carries no timeout of its own, so a suspended board tab held a whole snapshot per push,

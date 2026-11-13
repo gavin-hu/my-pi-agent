@@ -31,121 +31,9 @@ import { KEBAB, namesScript } from "./names.ts";
 import { INLINE_MARKDOWN_JS } from "./markdown.ts";
 import { CLIENT_RUNTIME_JS, el, paintStatus, postJson, typing } from "./client-runtime.ts";
 import { WEB_THEME_CSS, WEB_THEME_TOKENS } from "./tokens.ts";
-import { contrast } from "../../test/helpers/contrast.ts";
-
-/** sRGB relative luminance of a `#rgb`/`#rrggbb` colour. */
 
 /** Every custom property the theme layer defines. */
 const definedTokens = new Set([...WEB_THEME_CSS.matchAll(/--[a-z0-9-]+:/g)].map((match) => match[0].slice(0, -1)));
-
-describe("web tokens", () => {
-	test("is the kit's own palette, which no theme file feeds", () => {
-		// Glyphs on a grid are not type on a canvas: the web's ramp is its own.
-		expect(WEB_THEME_TOKENS.dark["--canvas"]).toBe("#0b0f16");
-		expect(WEB_THEME_TOKENS.dark["--accent"]).toBe("#8b9dff");
-		expect(WEB_THEME_TOKENS.light["--canvas"]).toBe("#f6f7f9");
-		expect(WEB_THEME_TOKENS.light["--accent"]).toBe("#4f46e5");
-		expect(WEB_THEME_TOKENS.dark["--shadow-1"]).toBeTruthy();
-	});
-
-	test("every token resolves in both appearances", () => {
-		for (const appearance of ["dark", "light"] as const) {
-			for (const [token, value] of Object.entries(WEB_THEME_TOKENS[appearance])) {
-				expect(value, `${appearance} ${token}`).toBeTruthy();
-			}
-		}
-	});
-
-	test("carries the shared syntax-token variables", () => {
-		for (const token of ["comment", "keyword", "string", "number", "literal", "tag", "attr", "prop", "var"]) {
-			expect(WEB_THEME_TOKENS.dark[`--tok-${token}`]).toBeTruthy();
-			expect(WEB_THEME_TOKENS.light[`--tok-${token}`]).toBeTruthy();
-		}
-	});
-
-	test("keeps body text at WCAG AA against both surfaces", () => {
-		for (const appearance of ["dark", "light"] as const) {
-			const tokens = WEB_THEME_TOKENS[appearance];
-			for (const surface of ["--canvas", "--surface", "--raised"]) {
-				expect(contrast(tokens["--text"], tokens[surface]), `${appearance} text/${surface}`).toBeGreaterThanOrEqual(
-					4.5,
-				);
-				expect(contrast(tokens["--muted"], tokens[surface]), `${appearance} muted/${surface}`).toBeGreaterThanOrEqual(
-					4.5,
-				);
-				expect(contrast(tokens["--accent"], tokens[surface]), `${appearance} accent/${surface}`).toBeGreaterThanOrEqual(
-					4.5,
-				);
-			}
-		}
-	});
-
-	test("derives a raised surface one visible step above the page's", () => {
-		for (const appearance of ["dark", "light"] as const) {
-			const tokens = WEB_THEME_TOKENS[appearance];
-			// A raised plane needs more than the 1.09:1 a surface has against the canvas.
-			expect(contrast(tokens["--raised"], tokens["--canvas"]), `${appearance} raised`).toBeGreaterThanOrEqual(1.1);
-			expect(tokens["--raised"]).not.toBe(tokens["--surface"]);
-		}
-	});
-
-	test("focuses a dialog's panel when the panel names itself focusable", () => {
-		// The close button used to take the ring on every open, before the content.
-		expect(dialogScript({ dialogId: "x" })).toContain('[role="dialog"][tabindex]');
-	});
-
-	test("keeps status colours legible as UI", () => {
-		for (const appearance of ["dark", "light"] as const) {
-			const tokens = WEB_THEME_TOKENS[appearance];
-			for (const token of ["--success", "--danger", "--warn"]) {
-				expect(contrast(tokens[token], tokens["--canvas"]), `${appearance} ${token}`).toBeGreaterThanOrEqual(3);
-			}
-		}
-	});
-
-	test("keeps a label on the accent fill at AA", () => {
-		// The primary button's label is the one pairing that must clear 4.5 rather than 3.
-		for (const appearance of ["dark", "light"] as const) {
-			const tokens = WEB_THEME_TOKENS[appearance];
-			expect(
-				contrast(tokens["--on-accent"], tokens["--accent"]),
-				`${appearance} on-accent/accent`,
-			).toBeGreaterThanOrEqual(4.5);
-		}
-	});
-
-	test("keeps the dim role readable where it carries text", () => {
-		// `--dim` is the faintest *text* colour now — a card's id and kind, a lane's count, the footer —
-		// so AA's 4.5 is its floor, and it must stay at most 0.94 of muted's ratio on the same plane:
-		// two quiet colours a hundredth apart are one colour with two names.
-		for (const appearance of ["dark", "light"] as const) {
-			const tokens = WEB_THEME_TOKENS[appearance];
-			for (const surface of ["--canvas", "--surface", "--raised"]) {
-				const faint = contrast(tokens["--dim"], tokens[surface]);
-				const muted = contrast(tokens["--muted"], tokens[surface]);
-				expect(faint, `${appearance} dim/${surface}`).toBeGreaterThanOrEqual(4.5);
-				expect(faint / muted, `${appearance} dim/muted on ${surface}`).toBeLessThanOrEqual(0.94);
-			}
-		}
-	});
-
-	test("emits the dark base, the explicit light override, and the system fallback", () => {
-		expect(WEB_THEME_CSS).toContain(":root{");
-		expect(WEB_THEME_CSS).toContain(':root[data-theme="light"]');
-		expect(WEB_THEME_CSS).toContain("prefers-color-scheme:light");
-		expect(WEB_THEME_CSS).toContain("--canvas:#0b0f16");
-		expect(WEB_THEME_CSS).toContain("--canvas:#f6f7f9");
-		expect(WEB_THEME_CSS).toContain(".tok-keyword{color:var(--tok-keyword)}");
-	});
-
-	test("prints the light palette last, so paper never takes the dark one", () => {
-		// Print resets the tokens, and being last in the sheet is what makes the reset win.
-		const printAt = WEB_THEME_CSS.lastIndexOf("@media print{:root{");
-		expect(printAt).toBeGreaterThan(WEB_THEME_CSS.lastIndexOf("@media (prefers-color-scheme:light)"));
-		expect(WEB_THEME_CSS.slice(printAt)).toContain(`--canvas:${WEB_THEME_TOKENS.light["--canvas"]}`);
-		expect(WEB_THEME_CSS.slice(printAt)).toContain("color-scheme:light");
-	});
-});
 
 describe("web base", () => {
 	test("resets the body margin so the shell can fill the viewport", () => {
@@ -533,6 +421,11 @@ describe("web markup", () => {
 });
 
 describe("web theme runtime", () => {
+	test("focuses a dialog's panel when the panel names itself focusable", () => {
+		// The close button used to take the ring on every open, before the content.
+		expect(dialogScript({ dialogId: "x" })).toContain('[role="dialog"][tabindex]');
+	});
+
 	test("shares one storage key across the bootstrap and the toggle", () => {
 		expect(THEME_JS).toContain(WEB_THEME_STORAGE_KEY);
 		expect(THEME_TOGGLE_JS).toContain(WEB_THEME_STORAGE_KEY);
