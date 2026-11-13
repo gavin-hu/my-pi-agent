@@ -19,7 +19,7 @@ import { formatRound, holdingLine, plural, withLiveOwner } from "../../lib/board
 import type { BoardSession } from "../../lib/board/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
 import { type RosterSession, presenceOf, rosterStateOf } from "../../lib/session-roster.ts";
-import { agentLabel, sessionNameOf } from "../../lib/session-label.ts";
+import { agentLabel, labelKey, sessionNameOf } from "../../lib/session-label.ts";
 import { formatJoined, formatNotJoined, joinNote } from "./format.ts";
 
 /** The command's name, which is also the word a user types. */
@@ -122,9 +122,9 @@ async function unnamedJoin(session: BoardSession, ctx: ExtensionCommandContext):
 async function freeTeammate(session: BoardSession, ctx: ExtensionCommandContext, drawn: string): Promise<string> {
 	const { lead, teammates } = readTeamConfig(ctx.cwd);
 	const roster = await session.roster(ctx.cwd).catch(() => undefined);
-	const held = new Set((roster ?? []).map((record) => record.label.toLowerCase()));
-	const leadName = lead.toLowerCase();
-	const free = teammates.find((name) => name.toLowerCase() !== leadName && !held.has(name.toLowerCase()));
+	const held = new Set((roster ?? []).map((record) => labelKey(record.label)));
+	const leadName = labelKey(lead);
+	const free = teammates.find((name) => labelKey(name) !== leadName && !held.has(labelKey(name)));
 	return free ?? drawn;
 }
 
@@ -191,7 +191,7 @@ function stalledLines(cards: readonly Card[], roster: readonly RosterSession[] |
 		if (card.owner === undefined || card.lane === "done") continue;
 		const state = presenceOf(roster, card.owner, now);
 		if (state !== "quiet" && state !== "gone") continue;
-		const key = card.owner.label.toLowerCase();
+		const key = labelKey(card.owner.label);
 		const entry = byOwner.get(key) ?? { label: card.owner.label, state, refs: [] };
 		entry.refs.push(cardRef(card.id));
 		byOwner.set(key, entry);
@@ -230,13 +230,13 @@ function presenceLine(
 	if (roster === undefined || roster.length === 0) return undefined;
 	// The owner groups are where the board already decided which label a card belongs to, so
 	// the holding a session prints is the one its rollup line counted.
-	const held = new Map(round.owners.map((group) => [group.label.toLowerCase(), group.cards] as const));
-	const session = (label: string): string => holdingLine(label, held.get(label.toLowerCase()) ?? []);
+	const held = new Map(round.owners.map((group) => [labelKey(group.label), group.cards] as const));
+	const session = (label: string): string => holdingLine(label, held.get(labelKey(label)) ?? []);
 	const live: string[] = [];
 	const quiet: string[] = [];
 	const dead: string[] = [];
 	const silent: string[] = [];
-	const recorded = new Set(roster.map((record) => record.label.toLowerCase()));
+	const recorded = new Set(roster.map((record) => labelKey(record.label)));
 	for (const record of roster) {
 		const state = rosterStateOf(record, now);
 		if (state === "gone") {
@@ -253,7 +253,7 @@ function presenceLine(
 	// The owners the bus holds no record of, as the board knows them: only the ones holding work are
 	// worth a row, because an owner holding nothing is history and `formatRound` folds it.
 	const unrecorded = round.owners
-		.filter((group) => group.cards.length > 0 && !recorded.has(group.label.toLowerCase()))
+		.filter((group) => group.cards.length > 0 && !recorded.has(labelKey(group.label)))
 		.map((group) => holdingLine(group.label, group.cards));
 	const parts = [
 		live.length > 0 ? `live: ${live.join(", ")}` : "",

@@ -28,6 +28,7 @@ import {
 	withLiveOwner,
 } from "./round-text.ts";
 import { buildView } from "./view.ts";
+import { sameLabel, SAME_LABEL_JS } from "../session-label.ts";
 
 const NOW = 1_760_000_000_000;
 const UNWRITTEN_MS = 30 * 60 * 1_000;
@@ -251,9 +252,14 @@ describe("the history line the browser receives", () => {
 			expect(source).not.toContain("`");
 			expect(source).not.toContain("${");
 		}
+		// The history row compares two labels through the shared helper, which the page must then
+		// hold too: a body calling a name its fragment lacks is a `ReferenceError` on the Team tab,
+		// and no static check over the bundle knows a string is a function.
+		expect(HISTORY_OWNER_JS).toContain("sameLabel(");
+		expect(SAME_LABEL_JS).toBe(String(sameLabel));
 	});
 
-	test("answers what the module answers, with `plural` in the fragment's scope", () => {
+	test("answers what the module answers, with `plural` and `sameLabel` in the fragment's scope", () => {
 		// The body calls `plural` rather than carrying a second wording for `1 owner`, the same
 		// way the fragment it is spliced into holds one `plural` for the whole page.
 		const browserLine = new Function("plural", `return (${HISTORY_LINE_JS});`)(plural) as (
@@ -264,7 +270,7 @@ describe("the history line the browser receives", () => {
 		expect(browserLine(1, 1)).toBe(historyLine(1, 1));
 		expect(browserLine(2, 3)).toBe("2 owners with no record · 3 done");
 		expect(historyLine(1, 1)).toContain(browserPlural(1, "owner"));
-		const browserHistory = new Function(`return (${HISTORY_OWNER_JS});`)() as (
+		const browserHistory = new Function("sameLabel", `return (${HISTORY_OWNER_JS});`)(sameLabel) as (
 			label: string,
 			held: number,
 			roster: readonly RosterLabel[] | undefined,

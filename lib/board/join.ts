@@ -34,7 +34,7 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../errors.ts";
-import { sessionIdOf } from "../session-label.ts";
+import { sameLabel, sessionIdOf } from "../session-label.ts";
 import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
 import { type JoinResult, NO_BUS_ERROR, type TeamJoin, type TeamJoinInput, type Watching } from "../session-tool.ts";
 import type { BoardSession } from "./session.ts";
@@ -90,14 +90,6 @@ interface Held {
  * an error: a guess either way would be a write under a name nothing backs.
  */
 type RosterAnswer = { kind: "held"; held: Held } | { kind: "absent" } | { kind: "unknown" };
-
-/**
- * Whether `a` and `b` are one name: a label is case-insensitive when it is a send target, so
- * it is here too, exactly as `holds` compares an owner.
- */
-function sameLabel(a: string, b: string): boolean {
-	return a.toLowerCase() === b.toLowerCase();
-}
 
 /** A state from a live record, with the standing filling in a listening fact it cannot say. */
 function stateOfHeld(held: Held, known: TeamState | undefined): TeamState {

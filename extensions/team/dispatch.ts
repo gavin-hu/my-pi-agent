@@ -26,6 +26,7 @@ import {
 	type Peer,
 	send as sendTo,
 } from "../../lib/session-tool.ts";
+import { sameLabel } from "../../lib/session-label.ts";
 
 /** How a handoff reaches a peer, and what the bus can say about the peers there are. */
 export interface Dispatch {
@@ -213,8 +214,7 @@ export function peerFor(peers: readonly Peer[] | undefined, to: string): Peer | 
 	const target = to.trim();
 	const byId = peers.find((peer) => peer.id === target);
 	if (byId) return byId;
-	const wanted = target.toLowerCase();
-	return peers.find((peer) => peer.label.toLowerCase() === wanted && peer.state !== "gone");
+	return peers.find((peer) => sameLabel(peer.label, target) && peer.state !== "gone");
 }
 
 /**
