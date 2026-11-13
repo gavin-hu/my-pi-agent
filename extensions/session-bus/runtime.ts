@@ -22,7 +22,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
-import { unattributedMail } from "../../lib/session-mail.ts";
+import { unaccountedMail } from "../../lib/session-mail.ts";
 import { defaultInterval } from "../../lib/timer.ts";
 import {
 	MAX_LABEL,
@@ -357,12 +357,12 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		// Mail is counted per record, so a pruned record's messages have no row to hang a number on.
 		// The ids read here are the *record* ids rather than the live ones: a gone record's mail is
 		// still its own, and only a record the bus no longer holds leaves mail unaccounted for.
-		const unattributed = await unattributedMail(store.dir, new Set(records.map((session) => session.id)));
+		const unaccounted = await unaccountedMail(store.dir, new Set(records.map((session) => session.id)));
 		return {
 			me: { id: me.id, label: me.label },
 			onBus: me.onBus,
 			sessions: await withUnread(sessions),
-			...(unattributed > 0 ? { unattributed } : {}),
+			...(unaccounted.length > 0 ? { unaccounted } : {}),
 			claims,
 			...(mailWatch.state().armed ? { watching: mailWatch.state() } : {}),
 		};
@@ -487,6 +487,16 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		async unread() {
 			if (!store || !record) throw new Error("session bus is not started.");
 			return store.unread(record.id);
+		},
+		/**
+		 * Clear unaccounted mail — the store's one write, reached only from `/sessions drop`.
+		 *
+		 * A passthrough with a start check: the store owns both the inbox files and the record set the
+		 * attribution is read from, and that read has to happen at the delete so a resume cannot slip
+		 * between a listing and a removal.
+		 */
+		async dropUnaccounted(ids) {
+			return requireStore().dropUnaccounted(ids);
 		},
 		/**
 		 * Release a claim by its stored path.

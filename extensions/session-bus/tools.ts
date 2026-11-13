@@ -108,7 +108,8 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 				switch (action) {
 					case "status": {
 						const status = await bus.status();
-						return textResult(formatStatus(status), { action, status });
+						// The clock the unaccounted ages are read with: passed rather than reached for inside.
+						return textResult(formatStatus(status, Date.now()), { action, status });
 					}
 					case "send": {
 						const result = await bus.send({

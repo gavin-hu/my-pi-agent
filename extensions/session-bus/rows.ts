@@ -16,12 +16,15 @@ import { GLYPHS, GLYPH_GAP, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { listRow, statusRow } from "../../lib/tui/rows.ts";
 import type { TailRowLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { idSuffix } from "./format.ts";
+import { clipText, idSuffix } from "./format.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
-import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./types.ts";
+import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus, UnaccountedMessage } from "./types.ts";
 
 /** Claim paths the focus block lists before it points at the pane. */
 const BLOCK_CLAIMS = 2;
+
+/** How much of an unaccounted body one row shows: enough to recognise the mail, not a read. */
+const ORPHAN_PREVIEW = 60;
 
 /** Columns between a row's body and the trailing cell beside it. */
 const TRAILING_GAP = 2;
@@ -44,6 +47,7 @@ export type BusRow =
 	| { kind: "session"; row: SessionRow }
 	| { kind: "claim"; claim: Pick<ClaimRecord, "path" | "ownerLabel"> }
 	| { kind: "message"; message: BusMessage }
+	| { kind: "orphan"; mail: UnaccountedMessage }
 	| { kind: "result"; label: string; tone: "ok" | "warn" };
 
 /** Label order by code unit, so a live re-sort is deterministic. */
@@ -179,6 +183,18 @@ export const busRowLine: TailRowLine<BusRow> = (row, width, theme) => {
 			return claimRowLine(row.claim, theme, width, { marker: false });
 		case "message":
 			return messageRowLines(row.message, theme, width);
+		case "orphan": {
+			// The id is the actionable field — `/sessions drop <id>` is the only door — so it goes in the
+			// trailing cell whole, and the body it belongs to is what the row's text column shows.
+			return statusRow(theme, width, {
+				marker: false,
+				glyph: GLYPHS.warn,
+				glyphRole: "warn",
+				label: sanitizeLine(clipText(row.mail.message.text, ORPHAN_PREVIEW)),
+				labelRole: "label",
+				trailing: `${sanitizeLine(row.mail.message.id)}${SEPARATORS.item}${messageTrailing(row.mail.message)}`,
+			});
+		}
 		case "result":
 			return statusRow(theme, width, {
 				marker: false,
@@ -196,6 +212,7 @@ export function summaryCells(
 	rows: readonly SessionRow[],
 	watching: { armed: boolean; wake: boolean } | undefined,
 	onBus = true,
+	unaccounted = 0,
 ): string[] {
 	const unread = rows.reduce((total, row) => total + row.session.unread, 0);
 	const claims = rows.reduce((total, row) => total + row.claims.length, 0);
@@ -203,6 +220,9 @@ export function summaryCells(
 	const cells = [paint(theme, "meta", count(rows.length, "session"))];
 	if (gone > 0) cells.push(paint(theme, "bad", `${gone} gone`));
 	if (unread > 0) cells.push(paint(theme, "label", `${unread} unread`));
+	// Mail no record holds is not any row's unread count, so it is counted beside them rather than
+	// inside one: the number a reader has to act on, and the verb is in the expanded section.
+	if (unaccounted > 0) cells.push(paint(theme, "warn", `${unaccounted} unaccounted`));
 	cells.push(paint(theme, "meta", count(claims, "claim")));
 	if (watching) cells.push(paint(theme, "ok", watching.wake ? "watch wake" : "watch on"));
 	if (!onBus) cells.push(paint(theme, "warn", "not on the bus"));

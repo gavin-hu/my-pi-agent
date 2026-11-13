@@ -10,15 +10,25 @@ import { describe, expect, test } from "bun:test";
 import { busStatus } from "../../test/helpers/fixtures/session-bus.ts";
 import {
 	formatClaim,
+	formatDrop,
 	formatInbox,
 	formatJoin,
 	formatRelease,
 	formatSend,
 	formatStatus,
+	formatUnaccounted,
 	INBOX_BUDGET,
+	UNACCOUNTED_LINES,
+	unaccountedLines,
 } from "./format.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
-import type { BusMessage, ClaimRecord, SessionRecord } from "./types.ts";
+import type { BusMessage, ClaimRecord, SessionRecord, UnaccountedMessage } from "./types.ts";
+
+/** The clock the ages below are read with: pinned, so `3h` is a fact about two numbers. */
+const NOW = 1_760_000_000_000;
+
+/** `formatStatus` at that clock, which leaves every case an ordinary `statusAt(...)` call. */
+const statusAt = (value: Parameters<typeof formatStatus>[0], at = NOW): string => formatStatus(value, at);
 
 type ListedSession = SessionRecord & { unread: number; state: RosterState };
 
@@ -56,9 +66,14 @@ function message(overrides: Partial<BusMessage> = {}): BusMessage {
 	};
 }
 
+/** One message no record holds, landed an hour before the pinned clock. */
+function unaccounted(overrides: Partial<UnaccountedMessage> = {}): UnaccountedMessage {
+	return { message: message({ to: "gone654321" }), at: NOW - 3 * 60 * 60_000, ...overrides };
+}
+
 describe("status", () => {
 	test("lists sessions with unread counts, claims, and this session", () => {
-		const out = formatStatus(
+		const out = statusAt(
 			busStatus([session(), session({ id: "fedcba654321", label: "backend", unread: 2 })], [claim()]),
 		);
 		expect(out).toContain("Sessions (2)");
@@ -69,30 +84,64 @@ describe("status", () => {
 	});
 
 	test("says none for an empty bus on both lists", () => {
-		const lines = formatStatus(busStatus([])).split("\n");
+		const lines = statusAt(busStatus([])).split("\n");
 		expect(lines.filter((line) => line === "- none")).toHaveLength(2);
 		expect(lines[0]).toBe("Sessions (0)");
 	});
 
 	test("names the inbox watch only while it is armed", () => {
-		expect(formatStatus(busStatus([]))).not.toContain("Alerts:");
-		expect(formatStatus({ ...busStatus([]), watching: { armed: true, wake: false } })).toContain(
-			"Alerts: inbox watch on",
-		);
-		expect(formatStatus({ ...busStatus([]), watching: { armed: true, wake: true } })).toContain(
+		expect(statusAt(busStatus([]))).not.toContain("Alerts:");
+		expect(statusAt({ ...busStatus([]), watching: { armed: true, wake: false } })).toContain("Alerts: inbox watch on");
+		expect(statusAt({ ...busStatus([]), watching: { armed: true, wake: true } })).toContain(
 			"Alerts: inbox watch on (wake)",
 		);
 	});
 
-	test("counts the unread mail no record carries, under the sessions it is missing from", () => {
-		const out = formatStatus({ ...busStatus([session()]), unattributed: 2 });
-		// One line, above the claims: the mail has no session row to sit under, so it is said once.
-		expect(out).toContain("Unaccounted: 2 unread, addressed to a record the bus no longer holds");
-		expect(out.indexOf("Unaccounted:")).toBeLessThan(out.indexOf("Claims ("));
+	test("names the unread mail no record carries, under the sessions it is missing from", () => {
+		const out = statusAt({ ...busStatus([session()]), unaccounted: [unaccounted()] });
+		// One section, above the claims: the mail has no session row to sit under, so it is named once.
+		expect(out).toContain("Unaccounted (1): mail for a record the bus no longer holds");
+		expect(out).toContain("- 100-a · frontend · message · 3h · contract v2");
+		expect(out.indexOf("Unaccounted (")).toBeLessThan(out.indexOf("Claims ("));
+	});
+
+	test("names the id whole, because the id is what the door takes, and clips only the body", () => {
+		const long = message({ id: "1794547913406-450281a3", text: `first line\n${"x".repeat(200)}` });
+		const lines = unaccountedLines([{ message: long, at: NOW }], NOW);
+		// A body is a message, not a listing row: the preview is one clipped line, while the id a person
+		// has to type is printed in full.
+		expect(lines).toHaveLength(2);
+		expect(lines[1]).toContain("1794547913406-450281a3");
+		expect(lines[1]?.endsWith("…")).toBe(true);
+		expect((lines[1] ?? "").length).toBeLessThan(140);
+	});
+
+	test("counts what the cap left out rather than printing a wall", () => {
+		const many = Array.from({ length: UNACCOUNTED_LINES + 3 }, (_, index) =>
+			unaccounted({ message: message({ id: `100-${index}` }), at: NOW }),
+		);
+		const lines = unaccountedLines(many, NOW);
+		expect(lines).toHaveLength(UNACCOUNTED_LINES + 2);
+		expect(lines.at(-1)).toBe("- and 3 more");
 	});
 
 	test("draws no line when every message has a record", () => {
-		expect(formatStatus(busStatus([session()]))).not.toContain("Unaccounted:");
+		expect(statusAt(busStatus([session()]))).not.toContain("Unaccounted");
+		expect(formatUnaccounted([], NOW)).toBe("No unaccounted mail: every message on this bus has a record.");
+	});
+
+	test("says what a drop did, per id, including the id that stayed", () => {
+		// An id can be both: a broadcast's orphan copies go while the live recipient's copy stays.
+		expect(formatDrop({ dropped: ["100-a"], kept: [{ id: "100-a", reason: "held", holder: "backend" }] })).toBe(
+			[
+				"Dropped 100-a — a message no record held.",
+				"Not dropped: 100-a is held by backend — read it with `session inbox` there.",
+			].join("\n"),
+		);
+		expect(formatDrop({ dropped: [], kept: [{ id: "100-b", reason: "missing" }] })).toBe(
+			"Not dropped: 100-b is not waiting on this bus.",
+		);
+		expect(formatDrop({ dropped: [], kept: [] })).toBe("Nothing dropped.");
 	});
 });
 
@@ -231,7 +280,7 @@ describe("untrusted text", () => {
 	});
 
 	test("message text, labels, and a working directory stay on one line", () => {
-		const out = formatStatus(
+		const out = statusAt(
 			busStatus(
 				[session({ cwd: "/repo/\u001b[2J", label: "front\nend" })],
 				[claim({ path: forgeries[0], ownerLabel: "back\u0007end" })],
