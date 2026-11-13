@@ -12,10 +12,10 @@
  * by the title button's `aria-describedby` for the keyboard, because `j`/`k` walks cards by
  * focusing that button and never hovers anything.
  *
- * The reason sentence is not drawn at all: the face is an index of the work, one height on
- * every row, and the reason — what the card waits for and what it holds up — stays in the
- * document as the hover and as the same description, which is where the keyboard and a
- * screen reader read it. The dialog prints it in full.
+ * The reason is two facts in one node: a *state* — what the card owes somebody — is drawn on the
+ * face as a line above the footer, and a *note* is not, because a note is prose. Either way the
+ * whole sentence stays in the document as the hover and as the title button's description, which
+ * is where the keyboard and a screen reader read it, and the dialog prints it in full.
  *
  * Every value arrives as `textContent`, never as markup: a title is model-written and a
  * note is anything a person typed.
@@ -210,8 +210,8 @@ export const BOARD_CARD_JS = String.raw`(function () {
       meta.appendChild(notes);
     }
     // The hints sit above the footer: the paths are what the work touches, and the footer is
-    // whose it is and when. A note reads top-down — what it is, what it says, where it is,
-    // whose it is — in the order a reader reaches for those facts.
+    // whose it is and when. A note reads top-down — what it is, what it says, where it is, what
+    // it still owes, whose it is — in the order a reader reaches for those facts.
     if (card.paths.length > 0) {
       body.appendChild(paths(card, PATH_CHIPS));
       // Only a truncated list is described: the hints a reader can already see are read in
@@ -238,10 +238,14 @@ export const BOARD_CARD_JS = String.raw`(function () {
       if (sentenceNode !== undefined) line.appendChild(sentenceNode);
       if (holds !== undefined) line.appendChild(document.createTextNode(sentenceNode === undefined ? holds : " \u00b7 " + holds));
       line.id = "card-reason-" + card.id;
-      // The face does not draw it; the stylesheet keeps it in the document and off the card,
-      // so the whole sentence is the card's hover and the title button's description above.
+      // A state is drawn and a note is not: a note can be a thousand characters of prose, so it
+      // stays the hover and the description while the face's line goes to what the card owes.
+      if (reason === undefined || reason.kind !== "note") line.setAttribute("data-status", "true");
+      // Both uses keep the whole sentence on the hover, which is also the title's description.
       line.title = why;
-      body.appendChild(line);
+      // Drawn above the footer: the face says what the card is and what it needs, and whose it is
+      // with when it was last written stay the note's last line, where a reader's eye ends.
+      body.insertBefore(line, meta);
       described.push(line.id);
     }
 

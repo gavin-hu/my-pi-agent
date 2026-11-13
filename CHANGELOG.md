@@ -54,6 +54,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for its order — a removed plan and the clock are still read each time, because those are the facts
   no card file announces.
 
+- `board`: a card's face draws the state it owes somebody. The sentence the page already built for a
+  card — `contract ready — needs approval`, `executing — no spot-check yet`, `offered 2h ago — nobody
+  took it`, what it waits on, what it is blocked on, `✓ done by …` — was in the document and clipped
+  to a pixel; it is now the note's one line above the footer, in the tone the reason table gives its
+  kind, while the holder and the age stay the last line. It is the same one body (`reasonFor`), so
+  the face, the hover, the title button's description and the dialog still cannot disagree; a card
+  whose reason is its last note draws no state line, because a note is prose. The note grows by that
+  one pinned line, so a lane of notes is taller and still one height.
+
 - `lib`: the served pages read flat. The border pair is derived from the canvas instead of copied
   from the theme's cell grid — `--canvas` toward `--text` at 16%/26% dark and 11%/20% light, so a
   hairline is 1.42:1 and 1.24:1 where the terminal's `borderMuted` was 3.06:1 and 3.01:1 — and

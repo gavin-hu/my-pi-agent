@@ -4,9 +4,9 @@
  * `pages.test.ts` holds the names and the rules a reader cannot see; `behaviour.test.ts` holds
  * what the page does when a reader drives it. This holds the shape of the face itself, which
  * neither can measure: a lane is an index, so every row in it is the same height whatever the
- * card records — a long note, no paths, a title that wraps — and the reason a card sits where
- * it does is not drawn on it, staying as the card's hover and as the title button's
- * description for the keyboard.
+ * card records — a long note, no paths, a title that wraps, and a state drawn or not — and the
+ * state a card owes somebody is the one line the face draws, with the whole sentence still the
+ * card's hover and the title button's description for the keyboard.
  *
  * The height is asserted as "one value, and only one", never as a number of pixels: the boxes
  * are computed from the type tokens, so a suite that pinned 123 would fail the day a token
@@ -41,7 +41,7 @@ const CASE_MS = 30_000;
  */
 interface Boxed extends ElementLike {
 	id: string;
-	getBoundingClientRect(): { width: number; height: number };
+	getBoundingClientRect(): { top: number; bottom: number; width: number; height: number };
 	closest(selector: string): Boxed | null;
 	querySelector(selector: string): Boxed | null;
 }
@@ -132,31 +132,55 @@ describe.skipIf(CHROME === undefined)("the card face", () => {
 	);
 
 	test(
-		"keeps the reason off the face, and on the card's hover and description",
+		"draws the state a card owes, and keeps a note off the face",
 		async () => {
 			const page = await openPage();
 			await page.waitForSelector(".board-row", { timeout: PAINT_MS });
-			const reason = await page.$eval("#lane-execute .board-row .bf-row__reason", (node) => {
-				const reason = node as unknown as Boxed;
-				const box = reason.getBoundingClientRect();
-				const title = reason.closest(".board-row")?.querySelector(".bf-row__title") ?? null;
-				return {
-					sentence: (reason.textContent ?? "").trim(),
-					hover: reason.getAttribute("title") ?? "",
-					id: reason.id,
-					described: title === null ? null : (title.getAttribute("aria-describedby") ?? ""),
-					width: Math.round(box.width),
-					height: Math.round(box.height),
-				};
-			});
-			// Not drawn: a hidden element measures the pixel the recipe clips, never the prose.
-			expect(reason.width).toBeLessThanOrEqual(1);
-			expect(reason.height).toBeLessThanOrEqual(1);
-			// Still said, three ways: the hover for a pointer, the description for the keyboard and a
-			// screen reader, and the sentence itself in the document.
-			expect(reason.sentence.length).toBeGreaterThan(10);
-			expect(reason.hover).toBe(reason.sentence);
-			expect(reason.described).toContain(reason.id);
+			// Two cards, two kinds of reason: the in-flight card owes a spot-check, and the pool card's
+			// reason is its last note. Both are in the document; only the state is drawn.
+			const faceOf = (lane: string) =>
+				page.$eval(`#lane-${lane} .board-row`, (node) => {
+					const card = node as unknown as Boxed;
+					const line = card.querySelector(".bf-row__reason");
+					const meta = card.querySelector(".bf-row__meta");
+					const box = (element: Boxed | null) => {
+						if (element === null) return null;
+						const frame = element.getBoundingClientRect();
+						return {
+							top: Math.round(frame.top),
+							bottom: Math.round(frame.bottom),
+							height: Math.round(frame.height),
+						};
+					};
+					return {
+						card: box(card),
+						line: box(line),
+						meta: box(meta),
+						status: line?.getAttribute("data-status") ?? null,
+						sentence: (line?.textContent ?? "").trim(),
+						hover: line?.getAttribute("title") ?? "",
+					};
+				});
+			const owed = await faceOf("execute");
+			const noted = await faceOf("backlog");
+			// The state is drawn: a real line, above the footer where the holder and the age stay.
+			expect(owed.status).toBe("true");
+			expect(owed.line?.height ?? 0).toBeGreaterThan(12);
+			expect(owed.line?.bottom ?? 0).toBeLessThanOrEqual((owed.meta?.top ?? 0) + 1);
+			expect(owed.sentence.length).toBeGreaterThan(10);
+			expect(owed.hover).toBe(owed.sentence);
+			// A note is prose, not a state: the same node, still clipped to the pixel the recipe clips.
+			expect(noted.status).toBeNull();
+			expect(noted.line?.height ?? 99).toBeLessThanOrEqual(1);
+			// The box is reserved, and that is the point: the card that draws nothing is the height of
+			// the card that draws a state, so a lane stays a column rather than a ragged list.
+			expect(noted.card?.height).toBe(owed.card?.height);
+			// Neither loses the sentence for the keyboard or a screen reader.
+			const described = await page.$eval(
+				"#lane-execute .bf-row__title",
+				(node) => node.getAttribute("aria-describedby") ?? "",
+			);
+			expect(described).toContain("card-reason-");
 			await page.setViewportSize({ width: 1280, height: 900 });
 		},
 		CASE_MS,
