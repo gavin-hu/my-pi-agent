@@ -406,10 +406,12 @@ export function review(
 	// through to the note-only return below.
 	const repeat = signed && !redo;
 	if (repeat && !noted.wrote) return { changed: false, fields: null, ...(owes ? { announce: true as const } : {}) };
+	// Not older than the card it signs: a stamp the card has passed can never speak for it (`signStale`).
+	const signedAt = Math.max(now, card.updatedAt);
 	const stamp =
 		instruction === undefined
-			? { ...signMark(actor, config.lead), at: now }
-			: { ...signMark(actor, config.lead), at: now, byInstruction: instruction };
+			? { ...signMark(actor, config.lead), at: signedAt }
+			: { ...signMark(actor, config.lead), at: signedAt, byInstruction: instruction };
 	// The run rides the stamp it is evidence for. A re-made sign takes this call's run, because the
 	// old one vouched for the card as it was before the write that made the stamp stale.
 	const stamped = evidence.verified === undefined ? stamp : { ...stamp, verified: evidence.verified };

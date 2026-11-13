@@ -2,7 +2,14 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, readdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { INBOX_DIR_NAME } from "./session-roster.ts";
-import { type BusMessage, isBusMessage, listMessages, WAITING_LIMIT, waitingMail } from "./session-mail.ts";
+import {
+	type BusMessage,
+	isBusMessage,
+	listArrivals,
+	listMessages,
+	WAITING_LIMIT,
+	waitingMail,
+} from "./session-mail.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import { scratchDir } from "../test/helpers/env.ts";
 
@@ -140,6 +147,18 @@ describe("the inbox's own order", () => {
 		land(dir, "hash-a", { id: "m-1" }, NOW + 1_000);
 		expect(await listMessages(join(dir, INBOX_DIR_NAME, "hash-a"))).toEqual(["m-1.json", "m-2.json"]);
 		expect(await listMessages(join(dir, INBOX_DIR_NAME, "nobody"))).toEqual([]);
+	});
+
+	test("hands out the arrival beside the name, as the file's own clock", async () => {
+		const dir = busDir();
+		land(dir, "hash-b", { id: "m-2" }, NOW + 2_000);
+		land(dir, "hash-b", { id: "m-1" }, NOW + 1_000);
+		const arrivals = await listArrivals(join(dir, INBOX_DIR_NAME, "hash-b"));
+		// The stamp is the file's mtime rather than the sender's `at`, which is the whole reason the
+		// queue is ordered by arrival: `waitingMail` draws that age, and it must not stat for it again.
+		expect(arrivals.map((arrival) => arrival.name)).toEqual(["m-1.json", "m-2.json"]);
+		expect(arrivals[0]?.at).toBe(statSync(join(dir, INBOX_DIR_NAME, "hash-b", "m-1.json")).mtimeMs);
+		expect(await listArrivals(join(dir, INBOX_DIR_NAME, "nobody"))).toEqual([]);
 	});
 });
 

@@ -63,8 +63,6 @@ function verbHelp(): string {
  */
 export const BOARD_DESCRIPTION =
 	"The shared feature list for this repository: one card per feature, which any session reads and writes. " +
-	"A card moves through five lanes and carries its outcome, holder, " +
-	"contract, plan, priority, type, breaking marker, links, and notes. " +
 	`${verbHelp()} A card's steps do not belong on the board - they belong in the plan and in \`todo\`.`;
 
 /**

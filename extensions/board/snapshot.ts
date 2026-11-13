@@ -72,9 +72,24 @@ export async function viewOf(context: SnapshotContext, pile?: Pile): Promise<Boa
 
 /** One page's frames, and the pile they share while nothing is written. */
 export interface Snapshot {
-	/** The page's frame. The pile is read again only when `cards/` itself moved. */
+	/**
+	 * The page's frame. The pile is read again when `cards/` itself moved, and after a run of frames
+	 * in which it did not — the bound {@link PILE_RESYNC_FRAMES} says why.
+	 */
 	view(): Promise<BoardView>;
 }
+
+/**
+ * Frames a pile may serve, since the read that made it, before it is read again regardless.
+ *
+ * The stamp is the key, and on any filesystem Pi runs on a rename moves it. On one whose mtime
+ * resolution is coarser than a write — a mounted FAT or NFS volume with a one-second tick — a card
+ * can land on the stamp the last read already saw, and no later frame would ever ask again: the
+ * five-second sweep reads this same cache. Frames rather than seconds, because the derived facts a
+ * sweep draws (an age, a plan removed) are drawn from the pile on purpose, and a clock advance must
+ * not turn into a re-read.
+ */
+export const PILE_RESYNC_FRAMES = 30;
 
 /**
  * A page's snapshot, holding the pile between frames.
@@ -87,12 +102,14 @@ export interface Snapshot {
  * a readdir and a parse per card, and the facts no file announces are still read every frame.
  *
  * A directory that cannot be stat'd is a miss rather than an error — a store opened on a directory
- * that has since moved still draws, by reading the pile as it always did. Nothing is evicted: the
- * cache is one page's, and it dies with the page.
+ * that has since moved still draws, by reading the pile as it always did. The key is not trusted
+ * for ever: a pile that has served {@link PILE_RESYNC_FRAMES} frames is read again, so a filesystem
+ * whose stamp cannot move behind a write cannot leave the page showing yesterday's board. Nothing is
+ * evicted: the cache is one page's, and it dies with the page.
  */
 export function createSnapshot(context: SnapshotContext): Snapshot {
-	/** The last pile read, and the directory stamp it was read under. */
-	let kept: (Pile & { stamp: number | undefined }) | undefined;
+	/** The last pile read, the stamp it was read under, and the frames it has served since. */
+	let kept: (Pile & { stamp: number | undefined; frames: number }) | undefined;
 	const stampOf = async (): Promise<number | undefined> =>
 		stat(join(context.store.dir, CARDS_DIR_NAME))
 			.then((info) => info.mtimeMs)
@@ -100,8 +117,10 @@ export function createSnapshot(context: SnapshotContext): Snapshot {
 	return {
 		async view() {
 			const stamp = await stampOf();
-			const unchanged = kept !== undefined && stamp !== undefined && kept.stamp === stamp;
-			if (!unchanged) kept = { stamp, ...(await context.store.scan()) };
+			const reused =
+				kept !== undefined && stamp !== undefined && kept.stamp === stamp && kept.frames < PILE_RESYNC_FRAMES;
+			if (reused && kept !== undefined) kept.frames += 1;
+			else kept = { stamp, frames: 0, ...(await context.store.scan()) };
 			// The read pile is handed over rather than reached for through `kept`, so the frame cannot
 			// see a stamp without its cards.
 			return viewOf(context, kept);
