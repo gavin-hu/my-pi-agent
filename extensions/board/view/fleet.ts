@@ -29,7 +29,6 @@ const fleetTemplate = String.raw`(function () {
   var chip = board.chip;
   var ago = board.ago;
   var plural = board.plural;
-  var stamp = board.stamp;
 
 __HISTORY_LINE__
 
@@ -69,7 +68,7 @@ __HISTORY_LINE__
     var word = STATE_WORD[agent.state] || agent.state;
     if (agent.state === "quiet" && agent.seen !== undefined) {
       pill.appendChild(document.createTextNode("quiet "));
-      pill.appendChild(stamp(ago(agent.seen), agent.seen));
+      pill.appendChild(board.stamp(agent.seen, undefined, true));
       pill.setAttribute("aria-label", "quiet for " + ago(agent.seen));
       return pill;
     }
@@ -87,7 +86,7 @@ __HISTORY_LINE__
     line.appendChild(el("span", N.missionLane, laneWord(card.lane)));
     // One age, and the card's own clock: when it last moved. The lane's birthday is the Board
     // tab's answer, and a second age on a three-word line is noise.
-    line.appendChild(stamp(ago(card.updatedAt), card.updatedAt));
+    line.appendChild(board.stamp(card.updatedAt, undefined, true));
     line.title = "#" + card.id + " " + card.title;
     return line;
   }

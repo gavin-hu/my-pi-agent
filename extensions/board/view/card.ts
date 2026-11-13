@@ -45,25 +45,26 @@ export const BOARD_CARD_JS = String.raw`(function () {
    */
   var PRIORITY_CLASS = { high: N.rowPriorityHigh, low: N.rowPriorityLow };
 
+  /**
+   * A moment's age as a span the ticker rewrites — the one definition of a stamp.
+   *
+   * The wording is the fact the moment belongs to ("approved {age}"), on the title so two ages on one
+   * card can be told apart; the third argument is the caller's trailing alignment, because a Team-tab
+   * row ends with its age and a card's meta line does not.
+   */
+  function stamp(at, wording, edge) {
+    var age = ago(at);
+    var node = el("span", edge ? N.stamp : "", age);
+    node.setAttribute("data-at", String(at));
+    if (wording === undefined) return node;
+    node.setAttribute("data-at-title", wording);
+    node.title = sentence(wording, age);
+    return node;
+  }
+
   /** "3h", "just now" — the age a stamp is drawn with, read against the reader's clock. */
   function sentence(wording, age) {
     return wording.replace("{age}", age === "now" ? "just now" : age + " ago");
-  }
-
-  /**
-   * An age the ticker can keep honest: the stamp it was painted from, and the sentence
-   * saying which fact it is, which the ticker fills from the same stamp a second later.
-   *
-   * The wording is the stamp's rather than the ticker's because a card now carries two
-   * ages — when it was written to, and when its last note was filed — and a ticker that
-   * assumed "updated" would relabel one of them within a minute.
-   */
-  function stamp(at, wording) {
-    var node = el("span", "", ago(at));
-    node.setAttribute("data-at", String(at));
-    node.setAttribute("data-at-title", wording);
-    node.title = sentence(wording, ago(at));
-    return node;
   }
 
   /**
@@ -194,7 +195,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
     meta.appendChild(owner);
     // The stamp, so the clock can keep the age honest between frames: a board can be
     // quiet for ten minutes while the page still says "live".
-    meta.appendChild(stamp(card.updatedAt, "updated {age}"));
+    meta.appendChild(board.stamp(card.updatedAt, "updated {age}"));
     // A card with ten notes and a card with none drew the same face, and the notes are the
     // card's history: the count says how much is there. The last note's own age earns a place
     // only when it reads differently from the stamp beside it — a note is itself a write, so
@@ -204,7 +205,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
       var notes = el("span", N.rowNotes, plural(card.notes.length, "note"));
       if (ago(last.at) !== ago(card.updatedAt)) {
         notes.appendChild(document.createTextNode(" \u00b7 "));
-        notes.appendChild(stamp(last.at, "last note {age} by " + last.by));
+        notes.appendChild(board.stamp(last.at, "last note {age} by " + last.by));
       }
       meta.appendChild(notes);
     }
@@ -253,10 +254,10 @@ export const BOARD_CARD_JS = String.raw`(function () {
   }
 
   board.cardNode = cardNode;
+  board.stamp = stamp;
   board.sentence = sentence;
   // The one builder a surface uses when a fact carries an age: the dialog's rows read it too, so
   // a record's clock is the ticker's business and not a second one of its own.
-  board.stamp = stamp;
   board.priorityClass = PRIORITY_CLASS;
 
   /** Set a mark on a card, or drop it, so one that lost it does not keep it. */

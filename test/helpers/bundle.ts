@@ -129,6 +129,31 @@ export function duplicateDeclarations(bundle: string): string[] {
 }
 
 /**
+ * Names the bundle both defines twice and publishes twice, sorted.
+ *
+ * One name, two `function` bodies and two `board.name = …` lines: which one a caller reaches is
+ * decided by the order `client.ts` concatenates its fragments, which is how `stamp` printed every
+ * Team-tab age as `undefined` the moment two lines moved. A name defined twice and published *once*
+ * is a dead definition rather than this hazard, so it is not this guard's.
+ */
+export function duplicateDefinitions(bundle: string): string[] {
+	const defined = new Map<string, number>();
+	for (const match of bundle.matchAll(/^ {2}function (\w+)\(/gm)) {
+		const name = match[1] ?? "";
+		defined.set(name, (defined.get(name) ?? 0) + 1);
+	}
+	const published = new Map<string, number>();
+	for (const match of bundle.matchAll(/\bboard\.(\w+)\s*=(?!=)/g)) {
+		const name = match[1] ?? "";
+		published.set(name, (published.get(name) ?? 0) + 1);
+	}
+	return [...defined.entries()]
+		.filter(([name, count]) => count > 1 && (published.get(name) ?? 0) > 1)
+		.map(([name]) => name)
+		.sort();
+}
+
+/**
  * The names `bundle` publishes on its own namespace that nothing else in it reads, sorted.
  *
  * `board.laneLabel = …` with no `board.laneLabel(` anywhere is a helper that outlived its
