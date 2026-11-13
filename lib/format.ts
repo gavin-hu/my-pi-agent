@@ -24,6 +24,10 @@ const NAMESPACE_CALL = /\(0, _[A-Za-z$][\w$]*\.([A-Za-z$][\w$]*)\)/g;
  * of its own with a leading underscore, and `test/spliced-bodies.test.ts` fails a body that
  * writes the `_x.member` form this eats — a page reading the wrong value is the failure, not a
  * ReferenceError, so nothing else would say so.
+ *
+ * The guard reads the whole source, a string literal included, because this rewrite does: a body
+ * that needs to print such text builds it (`"_x" + ".member"`) rather than relying on a scan that
+ * skipped quotes, which would bless the one form this still breaks.
  */
 const NAMESPACE_READ = /(?<![\w$.])_[A-Za-z$][\w$]*\.([A-Za-z$][\w$]*)/g;
 
