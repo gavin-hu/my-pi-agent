@@ -46,17 +46,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   landed before the evidence they carry — and `signStale` asks whether the card was written since
   its sign. The one field the gate reads is now the later of the card's own and the caller's; a
   note's `at`, the transition log's, and a sign's stay what their caller read.
-- `lib`: the served pages draw the terminal theme's palette again. `lib/web/tokens.ts` maps every
-  colour role from `themes/bytefly-{dark,light}.json`, so the board, the plan review and the file
-  browser are the terminal's GitHub blue instead of a web ramp of their own, and the
-  docs site, the posting cards and the gallery montage follow through the guards that hold their
-  copies to it. `--dim` is the one colour the theme does not supply — it is a terminal's 3:1 grey,
-  and the kit's floor on a raised plane is 4.5 — so it is a step off the theme's `muted`, far enough
-  that the faint tier clears 4.5:1 where it draws text: the canvas, the surface, the raised plane and
-  the darkest lane tint, pinned as a ratio; `--muted` stays the theme's own, a step above it, so the
-  two quiet colours still mean different things; and `--accent-soft` is the accent at the alpha a
-  selected row and a card's paper can share. The web's face, radii and two shadows are unchanged;
-  the page frames, the seven cards and `demo.mp4` are re-shot.
+- `lib`: the web palette's `--dim` is a step off the theme's `muted` rather than the theme's own
+  terminal grey, far enough that the faint tier clears 4.5:1 where it draws text — the canvas, the
+  surface, the raised plane and the darkest lane tint — and `--muted` stays the theme's own, a step
+  above it, so the two quiet colours still mean different things. `--accent-soft` is the accent at the
+  alpha a selected row and a card's paper can share. The page frames, the seven cards and `demo.mp4`
+  are re-shot.
 - `lib`: an event stream whose socket stops reading is destroyed once its backlog passes
   `MAX_BUFFERED_BYTES` (1 MiB), instead of buffering every frame for the life of the session. An SSE
   response carries no timeout of its own, so a suspended board tab held a whole snapshot per push,
@@ -159,13 +154,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with it. Every lane is now as tall as the board, so all five heads stay where the reader last
   saw them.
 
-- `file-browse`: the file page and the per-file diff wear the kit again. Their head is the kit's
-  record — title, meta, and one action group with a real gap — the rendered/raw and
+- `file-browse`: the file page and the per-file diff are drawn by the kit's own parts. Their head is
+  the kit's record — title, meta, and one action group with a real gap — the rendered/raw and
   head/staged/worktree controls are the kit's tabs, so the current one is marked, and the header's
-  branch and changes chips are the kit's tag. `ef01313c` deleted the `.bf-card` family and
-  `.bf-chip` and renamed `.bf-segmented` to `.bf-tabs`, and the page kept emitting all of them, so
-  the head, both controls and both chips drew with no rule behind them; a browse case now fails on
-  any `bf-` class the pages write that the CSS they ship does not rule.
+  branch and changes chips are the kit's tag. A browse case fails on any `bf-` class the pages write
+  that the CSS they ship does not rule, so a page left on a class the kit has retired reddens instead
+  of drawing with no rule behind it.
 
 - `board`: the board page leaves its terminal skin — the labels a reader scans and sorts by (a
   card's head, its priority, the team's chips and rows, the decision strip, the dialog's facts and
