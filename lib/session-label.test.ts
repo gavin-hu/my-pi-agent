@@ -12,9 +12,13 @@ import { describe, expect, test } from "bun:test";
 import {
 	agentLabel,
 	checkoutNames,
+	DEFAULT_TEAM_SIZE,
+	DEFAULT_TEAMMATES,
 	defaultLabel,
+	isTeammate,
 	MAX_LABEL,
 	normalizeLabel,
+	normalizeTeammates,
 	presetNameFor,
 	shortId,
 	TEAM_AGENT_PREFIX,
@@ -82,6 +86,48 @@ describe("TEAMMATE_NAMES", () => {
 			expect(normalizeLabel(name, ""), name).toBe(name);
 			expect(name, name).toMatch(/^[a-z]{2,8}$/);
 		}
+	});
+});
+
+describe("DEFAULT_TEAMMATES", () => {
+	test("is the head of the built-in set, so the default team cannot hold a name the set dropped", () => {
+		expect(DEFAULT_TEAMMATES).toEqual(TEAMMATE_NAMES.slice(0, DEFAULT_TEAM_SIZE));
+		expect(DEFAULT_TEAMMATES).toHaveLength(DEFAULT_TEAM_SIZE);
+	});
+
+	test("is the lead and the four beside him, because the male presets lead the set", () => {
+		expect(DEFAULT_TEAMMATES).toEqual(["gavin", "tom", "jack", "mike", "sam"]);
+	});
+});
+
+describe("normalizeTeammates", () => {
+	test("keeps the names the set holds, in the order the file states them", () => {
+		expect(normalizeTeammates(["sam", "gavin", "tom"])).toEqual(["sam", "gavin", "tom"]);
+	});
+
+	test("drops a name the set does not hold, a value that is not a name, and a duplicate", () => {
+		// `Gavin` is `gavin` compared without case, the way a label is addressed.
+		expect(normalizeTeammates(["gavin", "billing-lead", 7, "Gavin", "tom"])).toEqual(["gavin", "tom"]);
+	});
+
+	test("keeps the base it is handed when the file says nothing usable", () => {
+		expect(normalizeTeammates(undefined)).toEqual(DEFAULT_TEAMMATES);
+		expect(normalizeTeammates([])).toEqual(DEFAULT_TEAMMATES);
+		expect(normalizeTeammates(["billing-lead"])).toEqual(DEFAULT_TEAMMATES);
+		expect(normalizeTeammates(undefined, ["tom"])).toEqual(["tom"]);
+	});
+});
+
+describe("isTeammate", () => {
+	test("compares without case, the way a label is addressed", () => {
+		expect(isTeammate("Gavin", DEFAULT_TEAMMATES)).toBe(true);
+		expect(isTeammate("billing-lead", DEFAULT_TEAMMATES)).toBe(false);
+	});
+
+	test("answers false for a name nobody has", () => {
+		expect(isTeammate(null, DEFAULT_TEAMMATES)).toBe(false);
+		expect(isTeammate(undefined, DEFAULT_TEAMMATES)).toBe(false);
+		expect(isTeammate("", DEFAULT_TEAMMATES)).toBe(false);
 	});
 });
 

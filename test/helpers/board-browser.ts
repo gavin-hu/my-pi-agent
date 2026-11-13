@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
-import { DEFAULT_WIP } from "../../lib/board/limits.ts";
+import { boardConfig } from "../../lib/board/config.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { type BoardStore, createStore } from "../../lib/board/store.ts";
 import { launchBrowser } from "./browser.ts";
@@ -110,7 +110,7 @@ export async function openBoardBrowser(options: BoardBrowserOptions): Promise<Bo
 	const store =
 		options.lead === undefined
 			? createStore(directory)
-			: createStore(directory, { config: { wip: DEFAULT_WIP, lead: options.lead } });
+			: createStore(directory, { config: boardConfig({ lead: options.lead }) });
 	await store.ensure();
 	await options.seed(store, options.now());
 	const server = await serveBoardPage({

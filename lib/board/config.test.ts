@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { DEFAULT_BOARD_CONFIG, DEFAULT_LEAD, normalizeBoardConfig, readBoardConfig } from "./config.ts";
+import { DEFAULT_TEAMMATES } from "../session-label.ts";
 
 import { MAX_WIP } from "./limits.ts";
 
@@ -36,21 +37,31 @@ function agentWith(document: unknown): string {
 describe("normalizeBoardConfig", () => {
 	test("an absent section is the default board", () => {
 		expect(normalizeBoardConfig(undefined)).toEqual(DEFAULT_BOARD_CONFIG);
-		expect(DEFAULT_BOARD_CONFIG).toEqual({ wip: { plan: 3, execute: 5 }, lead: DEFAULT_LEAD });
+		expect(DEFAULT_BOARD_CONFIG).toEqual({
+			wip: { plan: 3, execute: 5 },
+			lead: DEFAULT_LEAD,
+			teammates: DEFAULT_TEAMMATES,
+		});
 	});
 
 	test("each key falls back on its own", () => {
 		expect(normalizeBoardConfig({ lead: "billing-lead" })).toEqual({
 			wip: { plan: 3, execute: 5 },
 			lead: "billing-lead",
+			teammates: DEFAULT_TEAMMATES,
 		});
-		expect(normalizeBoardConfig({ wip: { plan: 2 } })).toEqual({ wip: { plan: 2, execute: 5 }, lead: DEFAULT_LEAD });
+		expect(normalizeBoardConfig({ wip: { plan: 2 } })).toEqual({
+			wip: { plan: 2, execute: 5 },
+			lead: DEFAULT_LEAD,
+			teammates: DEFAULT_TEAMMATES,
+		});
 	});
 
 	test("a limit is clamped, and a lead is a label", () => {
 		expect(normalizeBoardConfig({ wip: { plan: 0, execute: 99 } })).toEqual({
 			wip: { plan: 1, execute: MAX_WIP },
 			lead: DEFAULT_LEAD,
+			teammates: DEFAULT_TEAMMATES,
 		});
 		// A name is flattened and capped by the same rule every label obeys.
 		expect(normalizeBoardConfig({ lead: "  billing   lead  " }).lead).toBe("billing lead");
@@ -58,7 +69,7 @@ describe("normalizeBoardConfig", () => {
 	});
 
 	test("a blank lead keeps the running one", () => {
-		const base = { wip: { plan: 2, execute: 2 }, lead: "team-lead" };
+		const base = { wip: { plan: 2, execute: 2 }, lead: "team-lead", teammates: DEFAULT_TEAMMATES };
 		expect(normalizeBoardConfig({ lead: "   " }, base).lead).toBe("team-lead");
 		expect(normalizeBoardConfig({ lead: 7 }, base).lead).toBe("team-lead");
 	});
@@ -70,6 +81,7 @@ describe("readBoardConfig", () => {
 		expect(readBoardConfig(cwd, { agentDir: temps.track(tempDir("pi-board-agent-")) })).toEqual({
 			wip: { plan: 2, execute: 4 },
 			lead: "team-lead",
+			teammates: DEFAULT_TEAMMATES,
 		});
 	});
 
@@ -80,6 +92,7 @@ describe("readBoardConfig", () => {
 		expect(readBoardConfig(cwd, { agentDir })).toEqual({
 			wip: { plan: 1, execute: 2 },
 			lead: "billing-lead",
+			teammates: DEFAULT_TEAMMATES,
 		});
 	});
 

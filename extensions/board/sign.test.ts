@@ -15,6 +15,7 @@ import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeBoardSession, pageWithNoRecording, signingBoard } from "../../test/helpers/board-command.ts";
+import { DEFAULT_LEAD } from "../../lib/board/config.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { runner } from "../../test/helpers/board-signs.ts";
 import type { Notify } from "./announce.ts";
@@ -26,6 +27,9 @@ import { BOARD_COMMAND, registerCommands } from "./commands.ts";
  * message that was never written.
  */
 const NOT_TOLD = " · team-agent-slead was not told (the session bus is not loaded)";
+
+/** The name a sign records: the board's default lead, which the person signs under. */
+const LEAD = DEFAULT_LEAD;
 
 /** A `notify` that answers with `answer`, recording what it was asked to send. */
 function toldBy(answer: { ok: true } | { ok: false; error: string }) {
@@ -48,7 +52,7 @@ async function executableWith(board: Awaited<ReturnType<typeof signingBoard>>): 
 		board.me,
 		1_000,
 	);
-	await board.store.mutate(board.id, { kind: "approve", artifact: { path: board.plan } }, { label: "lead" }, 1_000);
+	await board.store.mutate(board.id, { kind: "approve", artifact: { path: board.plan } }, { label: LEAD }, 1_000);
 	await board.store.mutate(
 		board.id,
 		{ kind: "move", lane: "execute", artifact: { path: board.plan } },
@@ -70,7 +74,7 @@ describe("/board approve and /board review", () => {
 		expect(await board.say("approve 1")).toBe(`board: #1 approved by you${NOT_TOLD}`);
 		// The line is the person's own, and a pronoun; the card records a name and the mark that
 		// says the key wrote it, never the label the line prints.
-		expect((await store.read(board.id))?.contract?.approved).toEqual({ by: "lead", at: 1_000, person: true });
+		expect((await store.read(board.id))?.contract?.approved).toEqual({ by: DEFAULT_LEAD, at: 1_000, person: true });
 		board.temps.flush();
 	});
 
@@ -132,7 +136,7 @@ describe("/board approve and /board review", () => {
 				.ok,
 		).toBe(true);
 		expect(await board.say("review 1")).toBe(`board: #1 reviewed by you${NOT_TOLD}`);
-		expect((await store.read(board.id))?.review).toEqual({ by: "lead", at: 1_000, person: true });
+		expect((await store.read(board.id))?.review).toEqual({ by: DEFAULT_LEAD, at: 1_000, person: true });
 		const done = await store.mutate(
 			board.id,
 			{ kind: "move", lane: "done", artifact: { path: board.plan } },
@@ -180,7 +184,7 @@ describe("/board approve and /board review", () => {
 		expect(await board.say("approve 1")).toBe("board: #1 approved by you · told team-agent-slead");
 		// The owner is addressed by id, which survives a rename, and the message is the tool's.
 		expect(sent.map((input) => [input.kind, input.to])).toEqual([["event", "s-lead"]]);
-		expect(sent[0]?.text).toContain(`"One" — its contract is approved by lead`);
+		expect(sent[0]?.text).toContain(`"One" — its contract is approved by ${DEFAULT_LEAD}`);
 		board.temps.flush();
 	});
 
@@ -219,7 +223,7 @@ describe("/board approve and /board review", () => {
 			"board: #1 approved by you · team-agent-slead was not told (the bus refused the write)",
 		);
 		// The signature is on the card either way: a refusal here would report an unrecorded sign.
-		expect((await board.store.read(board.id))?.contract?.approved).toMatchObject({ by: "lead", person: true });
+		expect((await board.store.read(board.id))?.contract?.approved).toMatchObject({ by: DEFAULT_LEAD, person: true });
 		board.temps.flush();
 	});
 
@@ -282,7 +286,7 @@ describe("/board approve and /board review", () => {
 		const session = {
 			...fakeBoardSession(),
 			store: async () => ({
-				config: () => ({ lead: "lead" }),
+				config: () => ({ lead: DEFAULT_LEAD }),
 				// The approval proves the plan the card names, so the door reads the card first.
 				read: async () => undefined,
 				mutate: async () => ({ ok: true, card, changed: true, dropped: false, archived: false }),
@@ -320,7 +324,7 @@ describe("/board approve and /board review", () => {
 		const write = await signOver({
 			...fakeBoardSession(),
 			store: async () => ({
-				config: () => ({ lead: "lead" }),
+				config: () => ({ lead: DEFAULT_LEAD }),
 				read: async () => undefined,
 				mutate: async () => {
 					throw new Error("ENOSPC: no space left on device");
@@ -376,7 +380,7 @@ describe("/board review --override", () => {
 			`board: #1 reviewed by you · closed by instruction${NOT_TOLD}`,
 		);
 		expect((await board.store.read(board.id))?.review).toMatchObject({
-			by: "lead",
+			by: DEFAULT_LEAD,
 			person: true,
 			byInstruction: "Closed On My Instruction",
 		});

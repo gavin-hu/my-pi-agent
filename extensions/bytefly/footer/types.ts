@@ -82,15 +82,14 @@ export interface ModelInfo {
 /** Everything the bar needs, gathered once per render. */
 export interface StatusSnapshot {
 	cwd: string;
-	/** Session name set by the user, `null` when unnamed. */
-	sessionName: string | null;
 	/**
-	 * The name peers address this session by, when the bus has recorded one.
+	 * The name the bar draws for this session: already resolved against the team.
 	 *
-	 * `null` means no record — bytefly runs without the bus and the bar keeps Pi's own
-	 * session name, which is all a session that never joined has.
+	 * `null` is "this session is not one of the team's", which draws nothing at all. Pi's
+	 * own session name is the candidate, never a claim: a name the team does not hold is no
+	 * teammate, and the bar names nobody rather than inventing one.
 	 */
-	rosterLabel: string | null;
+	teammateName: string | null;
 	/** Branch name, `null` when not in a repository, `"detached"` on detached HEAD. */
 	branch: string | null;
 	/** Extension status texts (from `ctx.ui.setStatus`), including `worktree`. */

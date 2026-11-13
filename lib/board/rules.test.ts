@@ -12,7 +12,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { type Card, CARD_VERSION, MAX_LOG, MAX_NOTES, holds } from "./card.ts";
-import type { BoardConfig } from "./config.ts";
+import { boardConfig, type BoardConfig } from "./config.ts";
 import { createCard } from "./rules.ts";
 import {
 	accepted,
@@ -86,7 +86,7 @@ describe("claim", () => {
 	});
 
 	test("refuses the pull when plan is full, and says how to make room", () => {
-		const config: BoardConfig = { wip: { plan: 3, execute: 5 }, lead: LEAD.label };
+		const config: BoardConfig = boardConfig({ wip: { plan: 3, execute: 5 }, lead: LEAD.label });
 		const full = [pulled("1", CORE), pulled("2", OTHER), pulled("3", LEAD)];
 		const pool = createCard("7", { title: "D", paths: [] }, LEAD, 1_000);
 		expect(refusal(applyOp(pool, { kind: "claim" }, CORE, NOW, boardOf(...full, pool), config))).toBe(
@@ -422,7 +422,7 @@ describe("move", () => {
 	});
 
 	test("a resume into a full lane says what a blocked card can do about it", () => {
-		const config: BoardConfig = { wip: { plan: 3, execute: 5 }, lead: LEAD.label };
+		const config: BoardConfig = boardConfig({ wip: { plan: 3, execute: 5 }, lead: LEAD.label });
 		// A park frees a slot rather than reserving one, so the lane can refill while it waits.
 		const parked = stepOf(
 			executing(),
@@ -529,7 +529,7 @@ describe("move", () => {
 	test("refuses the execute pull when that lane is full", () => {
 		const full = ["1", "2", "3", "4", "5"].map((id) => executing(ready(id, CORE)));
 		const queued = ready("9", CORE);
-		const config: BoardConfig = { wip: { plan: 3, execute: 5 }, lead: LEAD.label };
+		const config: BoardConfig = boardConfig({ wip: { plan: 3, execute: 5 }, lead: LEAD.label });
 		expect(
 			refusal(
 				applyOp(
@@ -593,7 +593,7 @@ describe("mayOp", () => {
 		// one must refuse a second card before anything reaches the bus.
 		const full = [pulled("1", CORE)];
 		const pool = createCard("9", { title: "D", paths: [] }, LEAD, 1_000);
-		const config: BoardConfig = { wip: { plan: 1, execute: 1 }, lead: LEAD.label };
+		const config: BoardConfig = boardConfig({ wip: { plan: 1, execute: 1 }, lead: LEAD.label });
 		expect(mayOp(pool, { kind: "claim" }, CORE, boardOf(...full, pool), config)).toContain("the limit is 1");
 		expect(mayOp(pool, { kind: "claim" }, CORE, boardOf(...full, pool))).toBeUndefined();
 	});
@@ -666,7 +666,7 @@ describe("offer, archive, and drop", () => {
 	test("a card is not offered into a full plan lane, which is the claim the offer asks for", () => {
 		const full = pulled("1", CORE);
 		const pool = createCard("9", { title: "D", paths: [] }, LEAD, 1_000);
-		const config: BoardConfig = { wip: { plan: 1, execute: 5 }, lead: LEAD.label };
+		const config: BoardConfig = boardConfig({ wip: { plan: 1, execute: 5 }, lead: LEAD.label });
 		expect(refusal(applyOp(pool, { kind: "offer" }, LEAD, NOW, boardOf(full, pool), config))).toContain(
 			"cannot be offered: 1 cards are already being planned (the limit is 1)",
 		);

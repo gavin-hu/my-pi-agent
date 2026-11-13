@@ -24,7 +24,7 @@ import {
 	modesSegment,
 	portsSegment,
 	pwdSegment,
-	sessionSegment,
+	teammateSegment,
 	thinkingSegment,
 	tokensSegment,
 	windowSegment,
@@ -39,7 +39,7 @@ function defined(segments: Array<Segment | null>): Segment[] {
 /** Build the state and meter lines for a snapshot. */
 export function buildLines(snapshot: StatusSnapshot, theme: Theme, home: string | undefined): LineSpec[] {
 	const line1: LineSpec = {
-		left: defined([pwdSegment(snapshot, theme, home), sessionSegment(snapshot, theme)]),
+		left: defined([pwdSegment(snapshot, theme, home), teammateSegment(snapshot, theme)]),
 		// The state chips lead the right zone: it is right-aligned, so a chip that
 		// appears at its start leaves the location chips where they were, the same
 		// stability the gauge gets by sitting at column 0.

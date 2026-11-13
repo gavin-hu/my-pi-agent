@@ -37,7 +37,7 @@ describe("PanelComponent sections", () => {
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.other}Skills`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain(`${ROLE_SGR.other} 15`);
+		expect(text).toContain(`${ROLE_SGR.other} 16`);
 		expect(text).toContain("Startup screen");
 		expect(text).toContain("Desktop notifications");
 		expect(text).toContain("When a watcher matches");
@@ -87,7 +87,7 @@ describe("PanelComponent sections", () => {
 
 		const text = component.render(80).join("\n");
 		expect(text).toContain("writes Project");
-		expect(text).toContain("Settings 13");
+		expect(text).toContain("Settings 14");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Startup screen");
 	});
@@ -99,7 +99,7 @@ describe("PanelComponent sections", () => {
 		focusPanel(component, "Theme");
 
 		component.handleInput("s");
-		expect(component.render(80).join("\n")).toContain("Settings 13");
+		expect(component.render(80).join("\n")).toContain("Settings 14");
 		expect(selectedLine(component)).toContain("When a turn ends");
 	});
 
@@ -111,7 +111,7 @@ describe("PanelComponent sections", () => {
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
 		expect(refused).toContain("writes Global");
-		expect(refused).toContain("Settings 15");
+		expect(refused).toContain("Settings 16");
 		expect(refused).not.toContain("Esc close");
 
 		component.handleInput("j");

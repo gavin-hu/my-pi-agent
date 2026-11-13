@@ -9,7 +9,7 @@
  * The catalogue is the shortlist a session changes, not the whole document: every
  * row is one a workflow differs on, and each states its own rule so a value the
  * screen accepts is a value the loader keeps. The catalogue order is the screen's
- * order, and it is capped — fifteen rows and their six headings want a 29-row
+ * order, and it is capped — sixteen rows and their six headings want a 30-row
  * terminal, and a shorter one scrolls the list rather than the frame
  * (`settings.test.ts` holds the ceiling); a new row has to displace one. Everything else stays
  * `bytefly.json` — a list (`doctor.skip`), a table (`price.rates`), a schedule
@@ -27,7 +27,8 @@
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
 import { DEFAULT_BOARD_CONFIG, normalizeBoardConfig } from "../../../lib/board/config.ts";
-import { MAX_LABEL } from "../../../lib/session-label.ts";
+import { DEFAULT_TEAMMATES, MAX_LABEL } from "../../../lib/session-label.ts";
+import { amountRule, countRule, splitList, teammatesRule, type TextRule } from "./settings-rules.ts";
 import { MAX_WIP } from "../../../lib/board/limits.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
@@ -53,7 +54,7 @@ type SettingKind = "boolean" | "enum" | "text";
 type SettingOrigin = "default" | "global" | "project" | "inherited";
 
 /**
- * The heading a row sits under. The screen draws one heading per group, so fifteen
+ * The heading a row sits under. The screen draws one heading per group, so sixteen
  * rows read as six short lists: what a session starts with, what it tells you
  * about, what it keeps, what its board holds, who signs for the team, and what it
  * costs.
@@ -64,14 +65,6 @@ export type SettingGroup = "Startup" | "Notifications" | "Session" | "Board" | "
 interface SettingOption {
 	value: string;
 	label: string;
-}
-
-/** What a text row accepts, checked before a write so the file cannot hold less. */
-interface TextRule {
-	/** Longest accepted value, in the units the loader slices with. */
-	maxLength: number;
-	/** Why `raw` cannot be stored, or `undefined` when it can. */
-	validate?: (raw: string) => string | undefined;
 }
 
 /** The `bytefly.json` sections a row still reaches. */
@@ -107,7 +100,7 @@ export interface SettingDescriptor {
 	/** The value shown when neither file sets the key. */
 	fallback: string;
 	/** The JSON type the row stores; string when omitted. */
-	json?: "boolean" | "number";
+	json?: "boolean" | "number" | "list";
 	/** For `bytefly` rows: the section and leaf path this row edits. */
 	config?: SettingConfig;
 	/**
@@ -141,44 +134,9 @@ const ON_OFF: readonly SettingOption[] = [
 ];
 
 /**
- * A text rule for a money amount inside an inclusive range: a whole number or a
- * decimal with up to four places, matching the loader's clamp for `price.budget`.
- * `0` is a legitimate value (the guardrail is off), so it is not rejected.
- */
-function amountRule(min: number, max: number): TextRule {
-	return {
-		maxLength: 16,
-		validate(raw) {
-			const text = raw.trim();
-			if (!/^\d+(?:\.\d{1,4})?$/.test(text)) return `Use an amount like 5 or 2.50, ${min} to ${max}.`;
-			const value = Number(text);
-			if (!Number.isFinite(value) || value < min || value > max) return `Out of range: ${min} to ${max}.`;
-			return undefined;
-		},
-	};
-}
-
-/**
- * A text rule for a whole number inside an inclusive range: the board's two WIP limits, at the
- * `1..MAX_WIP` the loader clamps to, so the screen cannot save a number the board would shorten.
- */
-function countRule(min: number, max: number): TextRule {
-	return {
-		maxLength: 2,
-		validate(raw) {
-			const text = raw.trim();
-			if (!/^\d+$/.test(text)) return `Use a whole number, ${min} to ${max}.`;
-			const value = Number(text);
-			if (value < min || value > max) return `Out of range: ${min} to ${max}.`;
-			return undefined;
-		},
-	};
-}
-
-/**
  * The catalogue, in screen order.
  *
- * Global scope lists all fifteen; Project lists the thirteen `bytefly.json` rows,
+ * Global scope lists all sixteen; Project lists the fourteen `bytefly.json` rows,
  * because Pi's setters write the personal `settings.json` only. The list is
  * capped, and the cap with its reason is stated where the screen's height is.
  */
@@ -348,6 +306,20 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "board", path: ["lead"] },
 	},
 	{
+		id: "board.teammates",
+		group: "Team",
+		label: "Teammates",
+		description:
+			"Who is on the team: built-in teammate names, comma separated. The footer draws a session's name only when it is one of these; `bytefly.json` `board.teammates`.",
+		source: "bytefly",
+		kind: "text",
+		fallback: DEFAULT_TEAMMATES.join(","),
+		json: "list",
+		options: [],
+		text: teammatesRule(),
+		config: { section: "board", path: ["teammates"] },
+	},
+	{
 		id: "price.currency.code",
 		group: "Price",
 		label: "Currency",
@@ -445,6 +417,8 @@ function budgetLabel(raw: string, snapshot: SettingsSnapshot, scope: WriteScope)
 
 /** The display label for `raw`, or the raw value when it is a valid custom one. */
 function labelFor(row: SettingDescriptor, raw: string): string {
+	// A list reads as a list: the file joins it with a comma, a reader sees the names apart.
+	if (row.json === "list") return splitList(raw).join(", ");
 	const option = row.options.find((entry) => entry.value === raw);
 	if (option) return option.label;
 	// A stored light/dark pair is Pi's automatic mode, not a missing theme.
@@ -564,6 +538,8 @@ export function storedValue(row: SettingDescriptor, raw: string): unknown {
 			return raw === "true";
 		case "number":
 			return Number(raw);
+		case "list":
+			return splitList(raw);
 		default:
 			return raw;
 	}

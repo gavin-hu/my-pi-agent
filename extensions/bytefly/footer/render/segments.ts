@@ -54,20 +54,22 @@ export function pwdSegment(snapshot: StatusSnapshot, theme: Theme, home: string 
 	};
 }
 
-export function sessionSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	// The roster's label first: Pi's session name is what the terminal calls this session, and
-	// the label is what a card, a handoff, and `/team` use. No record means no team, so the bar
-	// keeps the name the user knows.
-	const raw = snapshot.rosterLabel ?? snapshot.sessionName;
-	const name = raw ? sanitizeLine(raw) : "";
+/**
+ * The session's teammate name: the one the team knows it by, from the snapshot.
+ *
+ * The snapshot has already decided — a name the team does not hold arrives as `null` — so an
+ * absent segment is the ordinary answer for a session that is not on the team, and the bar
+ * names nobody rather than drawing a word the team never agreed to. Brackets and a brighter
+ * token keep the name from reading as a trailing path segment.
+ */
+export function teammateSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+	const name = snapshot.teammateName ? sanitizeLine(snapshot.teammateName) : "";
 	if (!name) return null;
-	const short = truncateLabel(name, CONFIG.sessionLabelMax);
-	// Brackets and a brighter token keep the session name from reading as a
-	// trailing path segment.
+	const short = truncateLabel(name, CONFIG.teammateLabelMax);
 	const forms = [paint(theme, "meta", `[${name}]`)];
 	if (short !== name) forms.push(paint(theme, "meta", `[${short}]`));
 	return {
-		id: "session",
+		id: "teammate",
 		weight: 3,
 		droppable: true,
 		separator: faint(theme, CONFIG.separators.item),

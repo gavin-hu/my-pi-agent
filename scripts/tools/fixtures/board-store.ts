@@ -15,9 +15,8 @@ import { join } from "node:path";
 import type { Card } from "../../../lib/board/card.ts";
 import { planForContract } from "../../../lib/board/artifact.ts";
 import { provedPlan } from "../../../extensions/board/proof.ts";
-import type { BoardConfig } from "../../../lib/board/config.ts";
+import { boardConfig, type BoardConfig } from "../../../lib/board/config.ts";
 import { personActor } from "../../../lib/board/lead.ts";
-import { DEFAULT_WIP } from "../../../lib/board/limits.ts";
 import type { Actor, CardOp } from "../../../lib/board/rules.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
 import type { WaitingMail } from "../../../lib/session-mail.ts";
@@ -119,7 +118,7 @@ function planOf(spec: (typeof FIXTURE_CARDS)[number], planDir: string): string {
  * has to name one — and the signer that is not the owner is the person at the keyboard, which
  * is what a case where the lead owns the card needs.
  */
-const FIXTURE_CONFIG: BoardConfig = { wip: DEFAULT_WIP, lead: LEAD.label };
+const FIXTURE_CONFIG: BoardConfig = boardConfig({ lead: LEAD.label });
 
 /**
  * What a seed wrote, so a caller can undo it and nothing else.

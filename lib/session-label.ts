@@ -124,20 +124,30 @@ export function agentLabel(id: string): string {
  * Familiar English names, one or two syllables each, short enough to type as a `to`
  * target: a teammate should read as a person, and `lily` says more than
  * `team-agent-9f21ac` to the lead who hands it a card.
+ *
+ * The order is the mechanism: a team is a slice of this list, so the default team is
+ * its head — `gavin`, who runs it, and the four beside him — and the names after them
+ * are the pool a repository draws its own team from. The names a session may be named
+ * and the names a team may hold are therefore one list, and a name re-cut here moves
+ * the default team with it.
  */
 export const TEAMMATE_NAMES = [
+	"gavin",
 	"tom",
-	"amy",
-	"lily",
 	"jack",
-	"lucy",
 	"mike",
-	"kate",
 	"sam",
 	"bob",
+	"peter",
+	"ben",
+	"david",
+	"leo",
+	"amy",
+	"lily",
+	"lucy",
+	"kate",
 	"anna",
 	"helen",
-	"peter",
 	"alice",
 	"emma",
 	"jenny",
@@ -145,12 +155,49 @@ export const TEAMMATE_NAMES = [
 	"linda",
 	"susan",
 	"tina",
-	"ben",
 	"may",
 	"rose",
-	"david",
-	"leo",
 ] as const;
+
+/** How many names the default team holds: its lead, and four beside him. */
+export const DEFAULT_TEAM_SIZE = 5;
+
+/**
+ * The team when nobody named one: the head of the built-in set.
+ *
+ * Derived rather than written out, so the default team cannot hold a name the vocabulary
+ * has dropped, and so the lead is a position — the team's first name — rather than a
+ * second list that could disagree with this one.
+ */
+export const DEFAULT_TEAMMATES: readonly string[] = TEAMMATE_NAMES.slice(0, DEFAULT_TEAM_SIZE);
+
+/**
+ * The names a file states as a team: the built-in ones, in the order it says them.
+ *
+ * A name outside {@link TEAMMATE_NAMES} is not a teammate this package can draw or
+ * address, so it is dropped rather than kept as a word nothing else knows; a duplicate
+ * goes the same way, compared without case the way a label is. A list left empty said
+ * nothing usable, so the layer below keeps its answer.
+ */
+export function normalizeTeammates(raw: unknown, base: readonly string[] = DEFAULT_TEAMMATES): readonly string[] {
+	if (!Array.isArray(raw)) return base;
+	const kept: string[] = [];
+	for (const value of raw) {
+		if (typeof value !== "string") continue;
+		const written = value.trim().toLowerCase();
+		const name = TEAMMATE_NAMES.find((known) => known === written);
+		if (name === undefined || kept.includes(name)) continue;
+		kept.push(name);
+	}
+	return kept.length === 0 ? base : kept;
+}
+
+/** Whether `name` is one of the team's, compared without case the way a label is addressed. */
+export function isTeammate(name: string | null | undefined, team: readonly string[]): boolean {
+	if (name === null || name === undefined) return false;
+	const wanted = name.toLowerCase();
+	return team.some((member) => member.toLowerCase() === wanted);
+}
 
 /** A 32-bit FNV-1a hash, so one id always starts the draw at the same name. */
 function hashOf(text: string): number {
