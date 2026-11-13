@@ -195,7 +195,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		const sessions = await bus.sessions();
 		const taken = new Map<string, SessionRecord>();
 		// Every record the bus is still keeping, not only a live one. A label is what a session
-		// is addressed by, and `board.lead` is a name whose signature decides whether a card may
+		// is addressed by, and `team.lead` is a name whose signature decides whether a card may
 		// be executed or finished — so a name stays its taker's while the bus remembers the
 		// session, which is the same window `store.prune` keeps the record for. A session that
 		// crashed a minute ago therefore holds its name instead of leaving it to whoever joins
