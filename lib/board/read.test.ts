@@ -64,6 +64,23 @@ describe("readCard", () => {
 		expect(read?.landed).toBeUndefined();
 	});
 
+	test("reads an archived v1 record, whose only lane word is its status", () => {
+		// The archive is mostly this shape: 68 of this machine's 196 set-aside files say `status` and
+		// no `lane`, so a pile read as a second shape would skip a third of it. The map is the shape,
+		// and it is the file's own word rather than a rule about a pile — `done` stays, and the
+		// four-lane board's two come back as the lanes they became. `todo` was the pool nobody held,
+		// so its card carries no owner, and `backlog` is ownerless for the same reason.
+		const v1 = (status: string, held: boolean) => {
+			const { lane, owner, ...rest } = card({ lane: "done", owner: { label: "billing-core" } });
+			return { ...rest, v: 1, status, ...(held ? { owner } : {}) };
+		};
+		expect(readCard(v1("done", true))?.lane).toBe("done");
+		expect(readCard(v1("todo", false))?.lane).toBe("backlog");
+		expect(readCard(v1("doing", true))?.lane).toBe("execute");
+		// Stamped, not edited: the read hands back this build's record, and the file keeps its word.
+		expect(readCard(v1("done", true))?.v).toBe(CARD_VERSION);
+	});
+
 	test("reads a v1 card, mapping the three renames onto this build's names", () => {
 		// A v1 file said `status`, `plan`, and a `blockedBy`/`blocker` pair; the renames landed
 		// with the contract and the lanes. The file is not rewritten, so the reader maps the

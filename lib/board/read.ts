@@ -20,11 +20,22 @@ import type { Lane } from "./lanes.ts";
  * The lane words the four-lane board used, as this build's names.
  *
  * `todo` was the pool nobody held and `doing` was the work in hand; `blocked` and `done`
- * kept their names, so they need no row here. A word with no row is not one this build can
- * place, so the entry is left as it is and {@link isCard} refuses the record — a lane
- * guessed from an unknown word would put a card somewhere its own history disagrees with.
+ * kept their names, so they need no row here.
  */
 const LEGACY_LANES: Readonly<Record<string, Lane>> = { todo: "backlog", doing: "execute" };
+
+/**
+ * The lane one v1 word names — the record's own `status` and its log entries', through one table.
+ *
+ * A word with no row is not one this build can place, so it is left as it is and {@link isCard}
+ * refuses the record: a lane guessed from an unknown word would put a card somewhere its own
+ * history disagrees with. Both spellings come through here because they ask one question. A record
+ * whose own `status` said `todo` used to skip the map the same file's log went through, so the
+ * card was refused as unreadable while its history read `backlog`.
+ */
+function laneOf(word: unknown): unknown {
+	return typeof word === "string" ? (LEGACY_LANES[word] ?? word) : word;
+}
 
 /**
  * The card as a file on disk holds it, or `undefined` when this build cannot trust it.
@@ -84,7 +95,7 @@ function migrated(value: unknown): unknown {
 	return {
 		...rest,
 		v: CARD_VERSION,
-		...(status === undefined || record.lane !== undefined ? {} : { lane: status }),
+		...(status === undefined || record.lane !== undefined ? {} : { lane: laneOf(status) }),
 		...(plan === undefined ? {} : { planPath: record.planPath ?? plan }),
 		...(blocked === undefined || record.blocked !== undefined ? {} : { blocked }),
 		...(log === undefined ? {} : { log: logEntries(log) }),
@@ -108,10 +119,8 @@ function logEntries(raw: unknown): unknown {
 		const record = entry as Record<string, unknown>;
 		if (record.status === undefined || record.lane !== undefined) return entry;
 		const { status, ...rest } = record;
-		// The four-lane board's `todo` and `doing` are this build's `backlog` and `execute`;
-		// a status that is already a lane name passes through, and anything else is left for
-		// `isCard` to refuse rather than mapped onto a lane nobody wrote.
-		const lane = typeof status === "string" ? (LEGACY_LANES[status] ?? status) : status;
-		return { ...rest, lane };
+		// The same table the record's own `status` goes through: a log entry and the lane it moved
+		// the card to are one question, so they cannot answer it differently.
+		return { ...rest, lane: laneOf(status) };
 	});
 }

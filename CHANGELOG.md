@@ -442,6 +442,14 @@ so the queue reads as the one thing somebody owes an answer to.
   `renderPlanFrame` called `_webBlocks.setActive` in the page, and `blockElements` and
   `blockAtLine` with it, so the review threw on every frame.
 
+- `board`: a card written by the four-lane board reads again. `readCard` mapped a v1 record's log
+  entries through `LEGACY_LANES` but took the record's own `status` verbatim, so a file whose lane
+  word was `todo` or `doing` was refused: the card vanished into the skip line, though its own
+  history would have read `backlog` or `execute`. Both spellings now go through the one table, which
+  is also how the archive's v1 files read — they say `status` and no `lane`, and none of them is
+  rewritten. Latent rather than live on the boards this build has read so far, whose v1 records all
+  say `done`, but one restored backup is enough to lose a card to it.
+
 ## [0.26.0] - 2026-11-11
 
 ### Added
