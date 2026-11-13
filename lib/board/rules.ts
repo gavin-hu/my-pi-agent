@@ -5,8 +5,8 @@
  * One table decides who may do what — the tool, the router, the page, and `team` all
  * route through {@link applyOp} — so a lane change cannot be reachable from one
  * surface and refused from another. Nothing here touches the filesystem or the bus:
- * ownership is advisory (the bus's path claims are the lock), and the store owns the
- * compare-and-set that makes a concurrent writer lose.
+ * ownership is advisory (the bus's path claims are the lock), and the store takes the board's
+ * write lock, which is what makes a concurrent writer lose.
  *
  * Two shapes of failure, and the difference matters. A refusal is `{ ok: false }` with
  * the reason, and the caller returns the card untouched. A *no-op* is `{ ok: true,

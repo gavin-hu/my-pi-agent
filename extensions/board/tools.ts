@@ -557,8 +557,8 @@ async function add(
  * `archive`: a finished card leaves the board without being destroyed.
  *
  * One card, or — with no card named — every finished card, because clearing a board is
- * the errand and a lead should not have to run sixty calls to do it. Each move is its own
- * compare-and-set, so a sweep is best-effort: it reports what it actually set aside.
+ * the errand and a lead should not run sixty calls. Each move is its own locked read-check-write,
+ * so a sweep is best-effort (a rival's move can still be refused) and reports what it set aside.
  */
 async function archiveCards(
 	store: BoardStore,

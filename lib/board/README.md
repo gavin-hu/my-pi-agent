@@ -154,8 +154,8 @@ The one write bumps the revision, appends the lane log, and clears what the lane
 left behind. Two shapes of failure matter here: a refusal is `{ ok: false }` with its reason
 and the card untouched, while a no-op is `{ ok: true, changed: false }` — the preconditions
 already hold, so nothing is written and the revision does not move. Nothing here touches the
-filesystem or the bus: ownership is advisory, and the store owns the compare-and-set that
-makes a concurrent writer lose.
+filesystem or the bus: ownership is advisory, and the store's write lock is what makes a
+concurrent writer lose.
 
 ### steps.ts
 
