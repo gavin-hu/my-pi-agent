@@ -38,6 +38,18 @@ export const LEGACY_FILES: ReadonlyArray<readonly [file: string, section: string
 /** A section that has since been renamed, as `[old, new]`. */
 export const LEGACY_SECTIONS: ReadonlyArray<readonly [from: string, to: string]> = [["document", "file-read"]];
 
+/**
+ * A key that has moved to another section, as `[from, key, to]`.
+ *
+ * The team became a project's own: its lead and its list left `board`, whose section is now only
+ * the two lane limits. The path, though, is what a file states, so the move is this script's —
+ * an existing `board.lead` is read by nothing and would leave a project with no lead at all.
+ */
+export const LEGACY_KEYS: ReadonlyArray<readonly [from: string, key: string, to: string]> = [
+	["board", "lead", "team"],
+	["board", "teammates", "team"],
+];
+
 export interface MigrateOptions {
 	/** Global scope: the agent directory. */
 	agentDir: string;
@@ -67,8 +79,11 @@ export interface ScopeResult {
 export function migrateDocument(document: Record<string, unknown>): {
 	document: Record<string, unknown>;
 	changed: boolean;
+	/** The keys this document moved, as `#old.key -> #new.key`. */
+	moved: string[];
 } {
 	const next = { ...document };
+	const moved: string[] = [];
 	let changed = false;
 
 	const price: Record<string, unknown> = isRecord(next.price) ? { ...next.price } : {};
@@ -83,12 +98,27 @@ export function migrateDocument(document: Record<string, unknown>): {
 	}
 	if (movedPrice) next.price = price;
 
+	for (const [from, key, to] of LEGACY_KEYS) {
+		if (!isRecord(next[from]) || !(key in next[from])) continue;
+		const source = { ...(next[from] as Record<string, unknown>) };
+		const target = isRecord(next[to]) ? { ...next[to] } : {};
+		// A section that already states the key keeps it: the loader reads that one, and the old key
+		// is dropped because nothing reads it any more.
+		if (!(key in target)) target[key] = source[key];
+		next[to] = target;
+		delete source[key];
+		if (Object.keys(source).length === 0) delete next[from];
+		else next[from] = source;
+		moved.push(`${from}.${key} -> #${to}.${key}`);
+		changed = true;
+	}
+
 	if (next.version === undefined) {
 		next.version = 1;
 		changed = true;
 	}
 
-	return { document: next, changed };
+	return { document: next, changed, moved };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -110,6 +140,7 @@ export function migrateScope(scopeDir: string, options: { dryRun?: boolean; keep
 	const migrated = migrateDocument(document);
 	document = migrated.document;
 	result.wrote = migrated.changed;
+	for (const key of migrated.moved) result.moved.push(`${SHARED_CONFIG_FILE}#${key}`);
 
 	for (const [from, to] of LEGACY_SECTIONS) {
 		if (!(from in document)) continue;

@@ -266,12 +266,14 @@ and `concurrency.test.ts` is that pair. `create` takes none, and neither does a 
 
 ### config.ts
 
-The `board` section of `bytefly.json`, read once: `BoardConfig` (`wip` and `lead`),
-`DEFAULT_BOARD_CONFIG` / `DEFAULT_LEAD`, `normalizeBoardConfig` — each key falling back on
-its own, so a file
-that sets one keeps the other — and `readBoardConfig`, the project's section over the global
-one. Both are read together when the store opens, because a board that asked the file on
-every write would spend a stat to answer a question nobody changed.
+The `board` and `team` sections of `bytefly.json`, read once: `TeamConfig` (`lead` and
+`teammates`), `BoardConfig` (that plus `wip`), `DEFAULT_TEAM_CONFIG` / `DEFAULT_BOARD_CONFIG`,
+`normalizeTeamConfig` / `normalizeWipConfig` / `normalizeBoardConfig` — each key falling back on
+its own, so a file that sets one keeps the others — `readTeamConfig` (what the footer draws from)
+and `readBoardConfig`, the project's section over the global one. A project names its own team,
+so neither default holds a name: no lead, and an empty list. The sections are read together when
+the store opens, because a board that asked the file on every write would spend a stat to answer
+a question nobody changed. `addTeammate` writes the whole list the project then states.
 
 The arithmetic of a limit stays in `limits.ts` and the signer rule stays in `lead.ts`; this
 module is the file. `extensions/bytefly` imports it too, so the settings screen shows what the
@@ -352,7 +354,7 @@ peer resolves is worse than no name at all.
 
 The seat a page is served as: `SEAT_ID_PREFIX` (`board:`) and `pageActor`, the actor a page
 reads as. A page outlives the session that opened it, so it needs one name for its whole
-life and one id derived from it, and the name is `board.lead` because the two questions have
+life and one id derived from it, and the name is `team.lead` because the two questions have
 one answer: the page belongs to the lead, and serving it is how a session becomes the lead.
 The name arrives normalized by `config.ts`, so there is no second label rule here and no
 default name — a constant would be a second answer to what the config already says. The page

@@ -75,13 +75,13 @@ be refused runs nothing, and an `override` — one line saying why, `closed by i
 `/board approve <id>` and `/board review <id>` sign as the person; `/board archive` runs the sweep;
 `/board status` prints the seat, repository, port, and tabs; `/board stop` ends the page.
 
-**Who signs.** The lead is `board.lead` in `bytefly.json` (`gavin` by default — the team's first
-name), and the page serves as that name. A session signs only while it is the lead and never while it holds the card;
-`/board approve` and `/board review` sign as the person, marked `person: true`. The sign says who
-heard it — quiet, not listening, or not told — and an untold one is sent again by its signer.
+**Who signs.** The lead is `team.lead` in `bytefly.json`, and the page serves as that name. A
+project names its own; one that names none lets only the person sign, and `/board` serves no page
+it would seat as nobody. A session signs only while it is the lead and never while it holds the
+card; `/board approve` and `/board review` sign as the person, marked `person: true`. The sign
+says who heard it — quiet, not listening, or not told — and an untold one is sent again.
 
-**Where it lives.** `~/.pi/agent/board/<repo-key>/` — one card per file under
-`cards/`, with `archive/` and `ended/` beside it.
+**Where it lives.** `~/.pi/agent/board/<repo-key>/` — a card per file under `cards/`, with `archive/` and `ended/` beside it.
 
 ## Limits
 
@@ -101,13 +101,13 @@ heard it — quiet, not listening, or not told — and an untold one is sent aga
 
 | Key | Default | What it does |
 |---|---|---|
-| `lead` | `"gavin"` | The team name whose signature the two gates take; it defaults to the team's first name. |
-| `teammates` | `["gavin", "tom", "jack", "mike", "sam"]` | Who is on the team. A name from the built-in set; the footer draws a session's name only when it is one of these. |
 | `wip.plan` | `3` | Cards a repository may hold in `plan` at once (1–20). |
 | `wip.execute` | `5` | Cards a repository may hold in `execute` at once (1–20). |
+| `team.lead` | `""` | The team name whose signature the two gates take. Empty is no lead: only the person signs, and `/board` will not serve. |
+| `team.teammates` | `[]` | Who is on the team: labels, at most 20 of them. The footer draws a session's name only when it is one of these, so an empty list draws no chip. |
 
-They live in the `board` section of `bytefly.json`, and `/bytefly settings` edits it whole
-([configuration](../configuration-reference.md#board--the-shared-feature-board)). To switch the extension off, toggle `board`.
+The limits live in `board` and the names in `team`, both edited by `/bytefly settings`
+([configuration](../configuration-reference.md#team--the-projects-own-team)); toggle `board` to switch it off.
 
 ## Learn more
 

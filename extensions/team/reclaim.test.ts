@@ -8,7 +8,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import type { Claims } from "../../lib/board/claims.ts";
-import { presetNameFor } from "../../lib/session-label.ts";
+import { agentLabel } from "../../lib/session-label.ts";
 import { SESSION_TTL_MS } from "../../lib/session-roster.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { NOW, type TeamSuite, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
@@ -22,7 +22,7 @@ afterAll(() => temps.flush());
 const harness = (options: TeamSuiteOptions = {}) => teamSuite(temps.track, options);
 
 /** The name this suite's session draws, which is the label the board's lead has to carry. */
-const LEAD = presetNameFor("s-lead") ?? "s-lead";
+const LEAD = agentLabel("s-lead");
 
 /** A heartbeat past the bus's window, which is the answer that lets a peer take a card back. */
 const QUIET = NOW - SESSION_TTL_MS - 1;

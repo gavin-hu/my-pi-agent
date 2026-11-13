@@ -14,7 +14,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Claims } from "../../lib/board/claims.ts";
-import { presetNameFor } from "../../lib/session-label.ts";
+import { agentLabel } from "../../lib/session-label.ts";
 import type { ClaimPathsResult, ReleasePathsResult } from "../../lib/session-tool.ts";
 import { boardHarness, boardTool } from "../../test/helpers/board.ts";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
@@ -33,8 +33,8 @@ const NOW = 100_000;
 /** The sessions these cases work as, and the names their ids draw. */
 const LEAD_ID = "s-lead";
 const PEER_ID = "s-peer";
-const LEAD = presetNameFor(LEAD_ID) ?? "s-lead";
-const PEER = presetNameFor(PEER_ID) ?? "s-peer";
+const LEAD = agentLabel(LEAD_ID);
+const PEER = agentLabel(PEER_ID);
 /** The session that holds the card in the crossing cases, named by its bus record. */
 const HOLDER = "billing-core";
 
@@ -126,7 +126,7 @@ async function executable(claims: Claims): Promise<{
 }> {
 	const board = boardHarness({ now: NOW, lead: LEAD, track: temps.track, claims, sessionId: "s-holder" });
 	// The holder's name is the record's, so the clause has one word to name rather than a drawn
-	// preset: a card's owner is what a release cannot free, and the label is what it prints.
+	// recorded: a card's owner is what a release cannot free, and the label is what it prints.
 	writeBusRecord(await board.runtime.busDir(board.ctx.cwd), { id: "s-holder", label: HOLDER, lastSeen: NOW });
 	registerTools(board.fake.pi, board.runtime);
 	const tool = board.fake.pi.tools.get("board");
@@ -200,7 +200,7 @@ describe("the crossing the tool reports", () => {
 		const claims = bus(["src/api"]);
 		const { call, cwd, agentDir } = await executable(claims);
 		await call({ action: "move", card: "1", lane: "execute" });
-		// A lead's session, named by its bus record, which outranks the preset name `who` would draw.
+		// A lead's session, named by its bus record, which outranks the name `who` would derive.
 		const lead = boardTool({ cwd, agentDir, lead: LEAD, now: NOW, sessionId: "s-repair", claims });
 		writeBusRecord(await lead.board.runtime.busDir(cwd), { id: "s-repair", label: LEAD, lastSeen: NOW });
 		const taken = await lead.call({ action: "reclaim", card: "1" });

@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the team is a project's own. `board.lead` and `board.teammates` are now `team.lead` and
+  `team.teammates`, and the built-in 25-name vocabulary behind them is deleted with them — the
+  default five names, `gavin` as the default lead, and the preset name a session with none of its
+  own drew. A session with no name of its own is `team-agent-<id tail>`; a name outside the
+  project's list draws no footer chip; a project that names no team draws no chip at all.
+  Breaking: every project states its own team. With no `team.lead` a session cannot sign a
+  contract or a spot-check, and `/board` refuses to serve a page it would have to seat as nobody —
+  the person's `/board approve` and `/board review` still sign either gate. `bun run migrate:config`
+  moves an existing `board.lead` and `board.teammates` into the `team` section.
+
 - `board`: the served page has one `stamp` again. Two fragments each defined one — the Team tab's, which
   passed the row's edge class, and the card face's, which did not — and both published it under
   `board.stamp`, so which function a caller reached was decided by the order `client.ts` concatenates

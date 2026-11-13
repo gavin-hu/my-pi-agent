@@ -6,7 +6,7 @@
  * rather than a session: one name for its whole life, one id derived from it, and the same
  * identity however many sessions have served it.
  *
- * That name is `board.lead` — the lead's team name, read by `config.ts` — because the two
+ * That name is `team.lead` — the lead's team name, read by `config.ts` — because the two
  * questions have one answer: the page belongs to the lead, and serving it is how a session
  * *becomes* the lead (the seat outranks the session's own name while it serves, so the gate
  * accepts it). There is no built-in seat name here: a name in this module would be a second
@@ -27,7 +27,7 @@ export const SEAT_ID_PREFIX = "board:";
 /**
  * The actor a page reads as: the lead's name, and an id derived from it.
  *
- * The name arrives already normalized: `board.lead` passes `normalizeLabel` on its way out of
+ * The name arrives already normalized: `team.lead` passes `normalizeLabel` on its way out of
  * `config.ts`, so this only derives the id — one rule for a label, in one place.
  */
 export function pageActor(lead: Lead): Actor {

@@ -24,7 +24,7 @@ import {
 	type Sent,
 	type Session,
 } from "../../test/helpers/board-signs.ts";
-import { presetNameFor } from "../../lib/session-label.ts";
+
 import type { Notify } from "./announce.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 
@@ -144,7 +144,7 @@ describe("a sign tells the other side", () => {
 				return { ok: false, error: "the session bus is not loaded" };
 			}
 			sent.push(input);
-			return { ok: true, delivered: [presetNameFor(input.to) ?? input.to], failed: [] };
+			return { ok: true, delivered: [input.to], failed: [] };
 		};
 		const board = bench({ notify });
 		await claimedWithContract(board);

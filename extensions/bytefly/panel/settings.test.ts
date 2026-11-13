@@ -34,8 +34,8 @@ describe("settings catalogue", () => {
 			"doctor.proactive",
 			"board.wip.plan",
 			"board.wip.execute",
-			"board.lead",
-			"board.teammates",
+			"team.lead",
+			"team.teammates",
 			"price.currency.code",
 			"price.budget",
 		]);
@@ -107,8 +107,8 @@ describe("settings catalogue", () => {
 			["doctor.proactive", "true", "On", "default"],
 			["board.wip.plan", "3", "3", "default"],
 			["board.wip.execute", "5", "5", "default"],
-			["board.lead", "gavin", "gavin", "default"],
-			["board.teammates", "gavin,tom,jack,mike,sam", "gavin, tom, jack, mike, sam", "default"],
+			["team.lead", "", "(no lead)", "default"],
+			["team.teammates", "", "(no one)", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.budget", "0", "Off", "default"],
 		]);
@@ -220,18 +220,22 @@ describe("settings catalogue", () => {
 		}
 	});
 
-	test("holds a team to the built-in names, once each", () => {
-		const teammates = settingDescriptor("board.teammates");
-		for (const good of ["gavin", "gavin,tom", "sam, gavin, jack", "Gavin,Tom"]) {
+	test("holds a team to what the loader keeps: a label each, no repeat, and no more than the cap", () => {
+		const teammates = settingDescriptor("team.teammates");
+		for (const good of ["", "gavin", "gavin,tom", "sam, billing-core, jack", "Gavin,Tom"]) {
 			expect(textError(teammates, good), good).toBeUndefined();
 		}
-		for (const bad of ["", ",", "billing-lead", "gavin,gavin", "gavin, billing-lead"]) {
+		for (const bad of [
+			"gavin,gavin",
+			"x".repeat(41),
+			Array.from({ length: 21 }, (_, index) => `m${index}`).join(","),
+		]) {
 			expect(textError(teammates, bad), bad).toBeDefined();
 		}
 	});
 
 	test("stores a team as the names it states, lower-cased and trimmed", () => {
-		expect(storedValue(settingDescriptor("board.teammates"), "gavin, Tom , jack")).toEqual(["gavin", "tom", "jack"]);
+		expect(storedValue(settingDescriptor("team.teammates"), "gavin, Tom , jack")).toEqual(["gavin", "tom", "jack"]);
 	});
 
 	test("every text row's fallback passes its own rule", () => {

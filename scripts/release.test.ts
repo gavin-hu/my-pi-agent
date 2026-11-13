@@ -181,6 +181,30 @@ describe("migrateDocument", () => {
 		expect(changed).toBe(false);
 	});
 
+	test("moves the team's two keys out of board and into their own section", () => {
+		const { document, changed, moved } = migrateDocument({
+			board: { lead: "gavin", teammates: ["gavin", "tom"], wip: { plan: 2 } },
+			version: 1,
+		});
+		expect(changed).toBe(true);
+		expect(document.team).toEqual({ lead: "gavin", teammates: ["gavin", "tom"] });
+		// The board keeps what is still its own: its section is the two lane limits.
+		expect(document.board).toEqual({ wip: { plan: 2 } });
+		expect(moved).toEqual(["board.lead -> #team.lead", "board.teammates -> #team.teammates"]);
+		expect(migrateDocument(document).changed).toBe(false);
+	});
+
+	test("keeps a team key the new section already states, and drops the one nothing reads", () => {
+		const { document } = migrateDocument({
+			board: { lead: "gavin" },
+			team: { lead: "billing-lead" },
+			version: 1,
+		});
+		expect(document.team).toEqual({ lead: "billing-lead" });
+		// The board section held nothing else, so it goes rather than leaving an empty object.
+		expect("board" in document).toBe(false);
+	});
+
 	test("is idempotent on an already-migrated document", () => {
 		const once = migrateDocument({ price: { currency: { symbol: "¥" } }, version: 1 });
 		const twice = migrateDocument(once.document);

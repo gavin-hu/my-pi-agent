@@ -149,16 +149,21 @@ export function pageWithNoRecording(): BoardPage {
 }
 
 /** A real board in a temp directory, and the command registered over it. */
+/** The lead the signing board names: a name apart from the card's holder, so a gate can be signed. */
+export const SIGNING_LEAD = "team-lead";
+
 export async function signingBoard(
 	options: {
 		notify?: Notify;
 		verify?: VerifyRun;
 		/** A store the case wraps — a record that cannot be written is one of these. */
 		wrapStore?: (store: BoardStore) => BoardStore;
+		/** The lead the project names, when the case is a project that names none. */
+		lead?: string;
 	} = {},
 ) {
 	const temps = makeTempTracker();
-	const harness = boardHarness({ now: 1_000 });
+	const harness = boardHarness({ now: 1_000, lead: options.lead ?? SIGNING_LEAD });
 	const me = { id: "s-lead", label: "team-agent-slead" };
 	const store = await harness.runtime.store(harness.ctx.cwd);
 	const card = await store.create({ title: "One", paths: [] }, me, 1_000);

@@ -9,6 +9,7 @@ resolves, and how to change one, is in [Configuration](./configuration.md).
 - [Section index](#section-index)
 - [Document metadata](#document-metadata)
 - [`board` — the shared feature board](#board--the-shared-feature-board)
+- [`team` — the project's own team](#team--the-projects-own-team)
 - [`serve` — the session's page server](#serve--the-sessions-page-server)
 - [`price` — cost calculation](#price--cost-calculation)
 - [`notify` — OS notifications](#notify--os-notifications)
@@ -56,7 +57,8 @@ repository root rather than the active working directory.
 
 | Extension | Section | Covers |
 |---|---|---|
-| [`board`](extensions/board.md) | `board` | WIP limits for `plan` and `execute`, and the team name whose signature the board's two gates take. |
+| [`board`](extensions/board.md) | `board` | WIP limits for `plan` and `execute`. |
+| [`board`](extensions/board.md) | `team` | The team a project names: the lead whose signature the two gates take, and its names. |
 | [`bytefly`](extensions/bytefly.md) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
 | [`serve`](extensions/serve.md) | `serve` | The port every page of a session shares. |
 | [`file-read`](extensions/file-read.md) | `file-read` | Read limits, enabled formats. |
@@ -72,7 +74,7 @@ repository root rather than the active working directory.
 | [`wechat`](extensions/wechat.md) | `wechat` | Bridge, media, and peer-feedback settings. |
 | [`worktree`](extensions/worktree.md) | `worktree` | Worktree directory name and behaviour. |
 
-`context`, `file-open`, `plan`, `question`, `session-bus`, and `team` read no
+`context`, `file-open`, `plan`, `question`, and `session-bus` read no
 configuration.
 
 ## Document metadata
@@ -84,20 +86,32 @@ configuration.
 
 ## `board` — the shared feature board
 
-The board's own section: how many cards a lane holds, the team name whose signature its two
-gates take, and the team itself. `/bytefly settings` edits all four — the two numbers under
-`Board` and the name and the names under `Team`. The section is read once, when the board's
-store opens, so a change lands at the next session.
+The board's own section: how many cards a lane holds. `/bytefly settings` edits both numbers
+under `Board`. The section is read once, when the board's store opens, so a change lands at the
+next session.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `wip.plan` | integer | `3` | `1`–`20` | Cards a repository may hold in `plan` at once; a claim that would exceed it is refused with the count, the limit, and the ways out. |
 | `wip.execute` | integer | `5` | `1`–`20` | Cards a repository may hold in `execute` at once, on the same terms. |
-| `lead` | string | `"gavin"` | a team name, at most 40 characters | The name the page serves as and whose signature approves a contract and spot-checks the work: `/board` makes the serving session that name, so it can sign, and never while holding the card. `/board approve` and `/board review` sign as the person `you`, which is what a one-session repository uses. Defaults to the team's first name. |
-| `teammates` | string[] | `["gavin", "tom", "jack", "mike", "sam"]` | names from the built-in set, in the order given | Who is on the team. The footer draws a session's name only when it is one of these, so a name outside the set draws nothing; a name the set does not hold is dropped when the file is read. Defaults to the first five built-in names, which is why the lead defaults to `gavin`. A typed `/team join <preset name>` appends to it in the project's file, which then states the whole list. |
 
 The project document's section is normalized over the global one key by key, so a repository
-can raise its own numbers or name its own lead and keep everything else.
+can raise its own numbers and keep everything else.
+
+## `team` — the project's own team
+
+Who signs a card's two gates, and who the footer names. A project states its own team: there is
+no built-in vocabulary, so a file that names nobody draws no chip, and one that names no lead
+lets only the person at the keyboard sign. `/bytefly settings` edits both under `Team`. The
+section is read once, when the board's store opens.
+
+| Key | Type | Default | Values | What it does |
+|---|---|---|---|---|
+| `lead` | string | `""` | a name, at most 40 characters; empty is no lead | The name the page serves as and whose signature approves a contract and spot-checks the work: `/board` makes the serving session that name, so it can sign, and never while holding the card. `/board approve` and `/board review` sign as the person `you`, which is what a one-session repository uses, and are the only doors while no lead is named. `/board` refuses to serve a page for a project that names none. |
+| `teammates` | string[] | `[]` | names, each at most 40 characters, at most 20 of them | Who is on the team. The footer draws a session's name only when it is one of these, so an empty list draws no chip. A name is kept as written, once, and a file that states more than the ceiling keeps the first twenty. A typed `/team join <label>` puts its name on the list in the project's file, which then states the whole list. |
+
+The project document's section is normalized over the global one key by key. `migrate:config`
+moves a `board.lead` and `board.teammates` written before this section existed into it.
 
 ## `price` — cost calculation
 

@@ -11,10 +11,9 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DEFAULT_LEAD } from "../../lib/board/config.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
-import { NOW, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
+import { NOW, SUITE_LEAD, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 
 const temps = makeTempTracker();
@@ -115,7 +114,7 @@ describe("assign", () => {
 		expect(refused.ok).toBe(false);
 		expect((await store_.read(id))?.notes).toHaveLength(0);
 
-		const reclaimed = await store_.mutate(id, { kind: "reclaim" }, { label: DEFAULT_LEAD }, NOW + 2);
+		const reclaimed = await store_.mutate(id, { kind: "reclaim" }, { label: SUITE_LEAD }, NOW + 2);
 		expect(reclaimed.ok && reclaimed.card.lane).toBe("backlog");
 
 		const claimed = await store_.mutate(
@@ -136,7 +135,7 @@ describe("assign", () => {
 		});
 		const id = await seed();
 		await call({ action: "assign", card: id, to: "billing-core" });
-		await (await store()).mutate(id, { kind: "reclaim" }, { label: DEFAULT_LEAD }, NOW + 1);
+		await (await store()).mutate(id, { kind: "reclaim" }, { label: SUITE_LEAD }, NOW + 1);
 
 		expect((await (await store()).read(id))?.owner).toBeUndefined();
 	});
@@ -151,7 +150,7 @@ describe("assign", () => {
 		expect(sent[0]?.text).toContain("Note: start with the webhook");
 		// The board's default lead is the name a sign carries, and it is the name the peer is
 		// told to ask: the two moves after `plan` are refused without it.
-		expect(sent[0]?.text).toContain(`needs the lead (${DEFAULT_LEAD}) to \`approve\` the contract`);
+		expect(sent[0]?.text).toContain(`needs the lead (${SUITE_LEAD}) to \`approve\` the contract`);
 		expect(sent[0]?.text).toContain("`done` needs the lead's `review`");
 		// The id comes from the bus, so a peer that renames itself still holds its card.
 		// A handoff pulls a pool card into `plan`, where its contract is written.
