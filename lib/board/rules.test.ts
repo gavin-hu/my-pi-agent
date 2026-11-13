@@ -271,20 +271,14 @@ describe("move", () => {
 			),
 		).toContain("missing: acceptance, scopeOut, verify.");
 		const complete = approved();
-		expect(
-			refusal(
-				applyOp(
-					complete,
-					{ kind: "move", lane: "execute", artifact: provedFor(complete) },
-					LEAD,
-					NOW,
-					boardOf(complete),
-				),
-			),
-		).toBe("#4 is held by billing-core. Only its owner can move it.");
-		expect(stepOf(complete, { kind: "move", lane: "execute", artifact: provedFor(complete) }, CORE).lane).toBe(
-			"execute",
+		// A peer that is neither the holder nor the lead cannot open the lane; the lead can, and the
+		// card stays the holder's — `lead-move.test.ts` holds the rest of that allowance.
+		const opening = { kind: "move", lane: "execute", artifact: provedFor(complete) } as const;
+		expect(refusal(applyOp(complete, opening, OTHER, NOW, boardOf(complete)))).toBe(
+			"#4 is held by billing-core. Only its owner can move it.",
 		);
+		expect(accepted(applyOp(complete, opening, LEAD, NOW, boardOf(complete))).card.lane).toBe("execute");
+		expect(stepOf(complete, opening, CORE).lane).toBe("execute");
 	});
 
 	test("execute refuses a proof that belongs to another recorded path", () => {

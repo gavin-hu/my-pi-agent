@@ -85,17 +85,17 @@ says who heard it — quiet, not listening, or not told — and an untold one is
 
 ## Limits
 
-- `done` is terminal: a card finished by mistake is dropped and re-added at a new number.
-- Nothing prunes itself: `done` cards cost a read until `archive` takes them, which it only
-  does for a card nothing open waits on — and an archived record is closed but for `drop`.
-- The lead is a name, not an authority: any session can join it, and a lead holding a card
-  can release it, sign it, and claim it again. A gate is a reading, not a permission.
-- Ownership is a session id, not a lock: only `session-bus` path claims are. A card in `execute` holds
-  its `paths`, and a lane change releases only the writer's — so a peer's `reclaim` names what stays
-  held; a card whose owner ended is released by a start, or re-seated to the session wearing that name.
-- A card keeps eight lane transitions; an unreadable card file is skipped, and named in the listing.
-- The page sweeps every five seconds for the facts no card file announces — a card gone
-  unwritten, a peer quiet or gone, a plan removed — and scans every second with no watch.
+- `done` is terminal: a card finished by mistake is dropped and re-added at a new number. Nothing prunes
+  itself: `done` cards cost a read until `archive` takes them, and it takes only a card nothing waits on.
+- The lead is a name, not an authority: any session can join it, and a lead holding a card can release it,
+  sign it and claim it again. A lead holding no card may still move it `plan` → `execute`, the lane its
+  approval opened; every other verb is the holder's. A gate is a reading, not a permission.
+- Settle a card's title, paths and contract before asking for its sign: any write after the spot-check
+  makes that run stop speaking for the card, and a branch is proved against `main` as it was cut.
+- Ownership is a session id, not a lock: only `session-bus` path claims are. A card in `execute` holds its
+  `paths`, and a lane change releases only the writer's; a card whose owner ended is released by a start,
+  or re-seated to the session wearing that name. Eight transitions are kept; an unreadable file is skipped.
+- The page sweeps every five seconds for what no card file announces, and scans every second with no watch.
 
 ## Settings
 

@@ -276,6 +276,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/kind",
 	"board/lanes",
 	"board/lead",
+	"board/lead-move",
 	"board/legacy",
 	"board/limits",
 	"board/links",

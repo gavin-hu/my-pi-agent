@@ -43,7 +43,7 @@ import {
 	normalizeInstruction,
 } from "./contract.ts";
 import type { BoardConfig } from "./config.ts";
-import { LANE_RULES } from "./lanes.ts";
+import { LANE_RULES, type Lane } from "./lanes.ts";
 import type { Actor, CardOp, Prepared } from "./rules.ts";
 import type { SessionPresence } from "../session-roster.ts";
 
@@ -143,6 +143,34 @@ export function signRefusal(card: Card, actor: Actor, lead: Lead, sign: Sign): s
 /** What a holder is told when it means to sign its own card: what the lead does, or what it is. */
 export function holderRefusal(actor: Actor, lead: Lead, sign: Sign): string {
 	return isLead(actor, lead) ? SIGN_WORDS[sign].release : SIGN_WORDS[sign].holder;
+}
+
+/**
+ * Why this actor may not move this card, or `undefined` when it may.
+ *
+ * The holder moves its own card; the lead also moves one it does not hold, but only `plan → execute`
+ * — the lane its own approval opened, where the holder may already be gone. One predicate, because
+ * the lead's whole allowance should be checkable in one place, and one sentence per refusal: a lead
+ * that reached for `done` and read "only its owner can move it" would learn to work around the gate.
+ */
+export function mayMove(card: Card, actor: Actor, target: Lane, lead: Lead): string | undefined {
+	const opensLane = isLead(actor, lead) && card.lane === "plan" && target === "execute";
+	if (holds(card, actor) || opensLane) return undefined;
+	return isLead(actor, lead)
+		? `${heldBy(card)} A lead opens \`execute\` by approving the contract; moving it stays the holder's.`
+		: `${heldBy(card)} Only its owner can move it.`;
+}
+
+/**
+ * What a lead is refused with when it reaches for a verb that is still the holder's.
+ *
+ * A lead opens `execute` by approving, so `move` admits it for that one transition and nothing else.
+ * The sentence names the door that *is* open, because "only its owner can move it" would be false for
+ * the one case a lead is about to try — and a refusal that states something false teaches the next
+ * session to work around the gate rather than to read it.
+ */
+export function leadCannot(card: Card, verb: string): string {
+	return `${heldBy(card)} A lead opens \`execute\` by approving the contract; ${verb} stays the holder's.`;
 }
 
 /** Who holds the card, as every refusal that is about a holder opens. */
