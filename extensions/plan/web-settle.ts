@@ -11,6 +11,8 @@
  * them, so it reads through getters and reports changes through the callbacks it is given.
  */
 
+import { pageSource } from "../../lib/format.ts";
+
 /** What a settlement reads of the page, and the changes it reports. */
 export interface SettleDeps {
 	/** The path a write goes to, without its query string. */
@@ -205,5 +207,5 @@ export function cancelReview(deps: SettleDeps): Promise<void> | null {
 
 /** The settlement rules as source, for the client bundle. */
 export const WEB_SETTLE_JS = [submitAnnotations, saveReview, postReviewComments, approveReview, cancelReview]
-	.map(String)
+	.map(pageSource)
 	.join("\n\n");

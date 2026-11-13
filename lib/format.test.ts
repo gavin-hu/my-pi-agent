@@ -17,6 +17,7 @@ import {
 	formatTokens,
 	lineOf,
 	MAX_OUTPUT_LINE,
+	pageSource,
 	sanitize,
 	sanitizeLine,
 	sanitizeUntrustedLine,
@@ -30,6 +31,55 @@ import { detectLanguage, fenceLanguage, highlightLines, type HighlightLanguage }
 function highlighted(lines: string[], language: HighlightLanguage): string {
 	return highlightLines(lines, language).join("\n");
 }
+
+/**
+ * A body as the host's transpiler wrote it, without loading the transpiler.
+ *
+ * `bun` leaves an import's call site alone, so a body it stringifies never carries the shape
+ * the host produces; this builds one that does, and a case can then hold `pageSource` to it.
+ */
+function transpiled(source: string): (...args: never[]) => unknown {
+	return new Function(`return (${source});`)() as (...args: never[]) => unknown;
+}
+
+describe("pageSource", () => {
+	test("writes a namespace call back to the helper's own name", () => {
+		// The reported crash, whole: the board's history rule arrived at the page calling
+		// `_sessionLabel.sameLabel`, a module nothing splices into the bundle.
+		const body = transpiled(`function isHistoryOwner(label, roster) {
+			for (const session of roster) if ((0, _sessionLabel.sameLabel)(session.label, label)) return false;
+			return true;
+		}`);
+		const source = pageSource(body);
+		expect(source).toContain("sameLabel(session.label, label)");
+		expect(source).not.toContain("_sessionLabel");
+		// What the page runs: the same comparison, beside the helper the fragment splices.
+		const page = new Function(
+			`${source}\nfunction sameLabel(a, b) { return a.toLowerCase() === b.toLowerCase(); }\nreturn isHistoryOwner;`,
+		)() as (label: string, roster: { label: string }[]) => boolean;
+		expect(page("Team", [{ label: "team" }])).toBe(false);
+		expect(page("Team", [{ label: "bob" }])).toBe(true);
+	});
+
+	test("writes a namespace read back too, so a helper passed as a value still resolves", () => {
+		const source = pageSource(transpiled(`function pick() { const f = _labels.sameLabel; return f; }`));
+		expect(source).toContain("const f = sameLabel;");
+		expect(source).not.toContain("_labels");
+	});
+
+	test("leaves the transpiler's leaked default import to fail at load, not on the page", () => {
+		// `_os.default` names nothing the page holds, and the local name it stood for is gone, so
+		// there is no rewrite that would be right.
+		expect(() => pageSource(transpiled(`function home() { return (0, _os.default)(); }`))).toThrow(/default import/);
+	});
+
+	test("is one body under both loaders, and its own output again", () => {
+		// Under `bun` nothing was rewritten, so the stripped body is the body.
+		expect(pageSource(formatAge)).toBe(String(formatAge));
+		const once = pageSource(transpiled(`function f() { return (0, _m.x)(); }`));
+		expect(pageSource(transpiled(once))).toBe(once);
+	});
+});
 
 describe("formatTokens", () => {
 	test("scales at each boundary", () => {

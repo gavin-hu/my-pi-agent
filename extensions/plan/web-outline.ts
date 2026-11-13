@@ -14,6 +14,7 @@
  * without a DOM lib; the annotations are erased before the source is spliced.
  */
 
+import { pageSource } from "../../lib/format.ts";
 import type { ClientNode } from "../../lib/web/client-runtime.ts";
 
 /** One entry of the page's `outline` island: a heading, its line, and whether it moved. */
@@ -223,4 +224,4 @@ export function renderFacts(
 }
 
 /** The section list, the facts beside it, and the watcher that marks where the reader is. */
-export const WEB_OUTLINE_JS = [sectionFor, renderOutline, observeSections, renderFacts].map(String).join("\n\n");
+export const WEB_OUTLINE_JS = [sectionFor, renderOutline, observeSections, renderFacts].map(pageSource).join("\n\n");

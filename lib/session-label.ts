@@ -14,7 +14,7 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "./format.ts";
+import { pageSource, sanitizeLine } from "./format.ts";
 import { lastSegment } from "./path.ts";
 
 /** Longest label, in characters, that a session may be addressed by. */
@@ -62,7 +62,7 @@ export function sameLabel(a: string, b: string): boolean {
 }
 
 /** The same body, as the browser receives it: one comparison for the page and the terminal. */
-export const SAME_LABEL_JS = String(sameLabel);
+export const SAME_LABEL_JS = pageSource(sameLabel);
 
 /**
  * The same body, as the browser receives it: the key a page's label map is written under.
@@ -71,7 +71,7 @@ export const SAME_LABEL_JS = String(sameLabel);
  * gone — so it needs the key half too. Splice both and the page cannot spell a label map one way
  * and look it up another.
  */
-export const LABEL_KEY_JS = String(labelKey);
+export const LABEL_KEY_JS = pageSource(labelKey);
 
 /**
  * The automatic label, before uniqueness is applied.

@@ -81,6 +81,24 @@ to confirm: nothing is unsaved, and a modal over a stale page covers what the re
 still use. Reloading is not a write, so the rule that a served page offers no write
 surface holds.
 
+## A body crosses as page source
+
+A page holds a helper's *body*, under its own name: a fragment splices one function's source, because
+a bundle has no import graph. The host transpiles an extension before it runs it, though, and it
+rewrites a call to an **imported** binding into a member of that module's namespace — `sameLabel(a, b)`
+becomes `(0, _sessionLabel.sameLabel)(a, b)` — so a body written in one module and needed in another
+reached the page calling a module nothing holds: `_sessionLabel is not defined`, on the first paint,
+with every static check green, because `bun`'s transpiler leaves the call site alone.
+
+`pageSource` ([`../format.ts`](../format.ts)) writes the member back to the name it exports, in both
+forms a body can use, so a spliced body may call a helper the page also holds whatever module declares
+it — which is what the class table and the Markdown renderer already assumed. A default import it
+refuses rather than splicing a page that throws: the local name it stood for is gone, and a body that
+needs one belongs with it.
+
+Every `*_JS` constant crosses through it, and [`test/spliced-bodies.test.ts`](../../test/spliced-bodies.test.ts)
+holds each site to that.
+
 ## One inline Markdown renderer, spliced in
 
 Two served pages read Markdown written by a model or a person: the plan review's document

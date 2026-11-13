@@ -39,6 +39,7 @@ const ROOT_TEST_FILES = new Set([
 	"skill-bank.test.ts",
 	"web-classes.test.ts",
 	"skill-docs.test.ts",
+	"spliced-bodies.test.ts",
 	"suite-sizes.test.ts",
 	"theme.test.ts",
 	"tool-render.test.ts",

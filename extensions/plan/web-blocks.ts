@@ -11,6 +11,7 @@
  * bundle; the declaration emits nothing.
  */
 
+import { pageSource } from "../../lib/format.ts";
 import type { ClientNode } from "../../lib/web/client-runtime.ts";
 
 /** The island's view of one block, as far as navigation needs it. */
@@ -157,4 +158,6 @@ export function applyView(planEl: ClientNode | null, view: ReviewView): ViewCoun
  * a name the bundle does not carry is a `ReferenceError` at the first repaint, which
  * aborts the boot before the composer and the progress bar are wired.
  */
-export const WEB_BLOCKS_JS = [blockElements, setActive, moveActive, blockAtLine, applyView].map(String).join("\n\n");
+export const WEB_BLOCKS_JS = [blockElements, setActive, moveActive, blockAtLine, applyView]
+	.map(pageSource)
+	.join("\n\n");

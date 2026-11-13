@@ -8,6 +8,7 @@
  * told about a draft they then have to hunt for.
  */
 
+import { pageSource } from "../../lib/format.ts";
 import type { ClientNode } from "../../lib/web/client-runtime.ts";
 
 /** The open composer's textarea, when it holds anything a reader would lose. */
@@ -37,4 +38,4 @@ export function guardDraft(
 }
 
 /** The draft rules as source, for the client bundle. */
-export const WEB_DRAFT_JS = [draftTextarea, guardDraft].map(String).join("\n\n");
+export const WEB_DRAFT_JS = [draftTextarea, guardDraft].map(pageSource).join("\n\n");

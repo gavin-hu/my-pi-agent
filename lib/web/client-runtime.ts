@@ -18,6 +18,8 @@
  * lib — the cast names the guarantee the page makes: it is a browser, and it has one.
  */
 
+import { pageSource } from "../format.ts";
+
 /**
  * The pieces of a DOM node the runtime touches, and the ones a page client needs beyond
  * it. The page supplies the real thing; this is the shape its bundle is typed against.
@@ -297,11 +299,13 @@ export function pageBase(): string {
  * ones nested inside it — so this one goes where every fragment can reach it, which is not
  * where the rest of the runtime goes.
  */
-export const CLIENT_BASE_JS = String(pageBase);
+export const CLIENT_BASE_JS = pageSource(pageBase);
 
 /**
  * The runtime, as a bundle receives it: the six bodies, in the order a client reads them.
  *
  * `test` holds each to its module body and proves the string is safe to splice.
  */
-export const CLIENT_RUNTIME_JS = [el, typing, paintStatus, paintLive, postJson, liveStream].map(String).join("\n\n");
+export const CLIENT_RUNTIME_JS = [el, typing, paintStatus, paintLive, postJson, liveStream]
+	.map(pageSource)
+	.join("\n\n");
