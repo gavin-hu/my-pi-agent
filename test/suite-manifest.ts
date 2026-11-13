@@ -61,6 +61,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"result",
 		"rollup",
 		"signs",
+		"snapshot",
 		"tools",
 		"lazy-page",
 		"page",

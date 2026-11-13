@@ -8,9 +8,12 @@
  * has recorded them and draws exactly what it drew before when it has not.
  */
 
+import { stat } from "node:fs/promises";
+import { join } from "node:path";
 import { type Actor } from "../../lib/board/rules.ts";
 import { gonePlans } from "../../lib/board/artifact.ts";
-import type { BoardStore } from "../../lib/board/store.ts";
+import type { Card } from "../../lib/board/card.ts";
+import { type BoardStore, CARDS_DIR_NAME, type Skip } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { type WaitingPage, waitingMail } from "../../lib/session-mail.ts";
@@ -32,8 +35,11 @@ export interface SnapshotContext {
 	busDir: () => Promise<string>;
 }
 
+/** A pile already read: the cards, the files the reader refused, and the bytes they take. */
+export type Pile = { cards: Card[]; skipped: Skip[]; bytes: number };
+
 /** The snapshot the page renders, and the body of `/api/board`. */
-export async function viewOf(context: SnapshotContext): Promise<BoardView> {
+export async function viewOf(context: SnapshotContext, pile?: Pile): Promise<BoardView> {
 	const roster = await context.roster();
 	// Read, never consumed: an inbox is its owner's, and a frame is drawn once a second. A bus
 	// directory that cannot be read is a queue with nothing in it, said the same way as an empty
@@ -42,7 +48,7 @@ export async function viewOf(context: SnapshotContext): Promise<BoardView> {
 	// One read of the pile answers every question a frame asks: the cards, the files it refused,
 	// and the bytes they occupy. Asking `list` and `skipped` separately parsed every card twice,
 	// once a second, for as long as a tab is open.
-	const { cards, skipped, bytes } = await context.store.scan();
+	const { cards, skipped, bytes } = pile ?? (await context.store.scan());
 	return buildView({
 		me: context.actor(),
 		cards,
@@ -62,4 +68,43 @@ export async function viewOf(context: SnapshotContext): Promise<BoardView> {
 		waiting,
 		...(roster === undefined ? {} : { roster }),
 	});
+}
+
+/** One page's frames, and the pile they share while nothing is written. */
+export interface Snapshot {
+	/** The page's frame. The pile is read again only when `cards/` itself moved. */
+	view(): Promise<BoardView>;
+}
+
+/**
+ * A page's snapshot, holding the pile between frames.
+ *
+ * The frame is asked for on every watch event, on the five-second sweep and — with no watch to
+ * arm — every second, and each one used to read and parse every card file. Most of what a sweep
+ * looks at does change without a card write (the roster, the mail queue, a plan removed, the
+ * clock), but the pile does not: every card write lands as a temp file renamed inside `cards/`, so
+ * that directory's mtime is the cheap question "has anything been written?". One `stat` instead of
+ * a readdir and a parse per card, and the facts no file announces are still read every frame.
+ *
+ * A directory that cannot be stat'd is a miss rather than an error — a store opened on a directory
+ * that has since moved still draws, by reading the pile as it always did. Nothing is evicted: the
+ * cache is one page's, and it dies with the page.
+ */
+export function createSnapshot(context: SnapshotContext): Snapshot {
+	/** The last pile read, and the directory stamp it was read under. */
+	let kept: (Pile & { stamp: number | undefined }) | undefined;
+	const stampOf = async (): Promise<number | undefined> =>
+		stat(join(context.store.dir, CARDS_DIR_NAME))
+			.then((info) => info.mtimeMs)
+			.catch(() => undefined);
+	return {
+		async view() {
+			const stamp = await stampOf();
+			const unchanged = kept !== undefined && stamp !== undefined && kept.stamp === stamp;
+			if (!unchanged) kept = { stamp, ...(await context.store.scan()) };
+			// The read pile is handed over rather than reached for through `kept`, so the frame cannot
+			// see a stamp without its cards.
+			return viewOf(context, kept);
+		},
+	};
 }

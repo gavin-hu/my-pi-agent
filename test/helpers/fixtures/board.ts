@@ -9,6 +9,7 @@
  */
 
 import { type Card, CARD_VERSION } from "../../../lib/board/card.ts";
+import type { BoardView } from "../../../lib/board/view.ts";
 
 /** A card, complete, in the backlog: every field the store writes, at a neutral value. */
 export function boardCard(id = "4", overrides: Partial<Card> = {}): Card {
@@ -53,6 +54,11 @@ export function numberedCard(id: string, overrides: Partial<Card> = {}): Card {
  */
 export function minuteOldCards(now: number): (id: string, overrides?: Partial<Card>) => Card {
 	return (id, overrides = {}) => numberedCard(id, { createdAt: now - 60_000, updatedAt: now - 60_000, ...overrides });
+}
+
+/** The card `id` as a page frame draws it, whichever lane it is in. */
+export function drawnOf(view: BoardView, id: string): BoardView["lanes"][number]["cards"][number] | undefined {
+	return view.lanes.flatMap((lane) => lane.cards).find((card) => card.id === id);
 }
 
 /** The text the model reads from a tool result, which is what a board and a team case assert on. */
