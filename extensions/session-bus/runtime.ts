@@ -22,6 +22,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
+import { unattributedMail } from "../../lib/session-mail.ts";
 import { defaultInterval } from "../../lib/timer.ts";
 import {
 	MAX_LABEL,
@@ -353,10 +354,15 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			: records;
 		const ours = new Set(sessions.filter((session) => stateOf(session) !== "gone").map((session) => session.id));
 		const claims = (await store.claims()).filter((claim) => !liveOnly || ours.has(claim.owner));
+		// Mail is counted per record, so a pruned record's messages have no row to hang a number on.
+		// The ids read here are the *record* ids rather than the live ones: a gone record's mail is
+		// still its own, and only a record the bus no longer holds leaves mail unaccounted for.
+		const unattributed = await unattributedMail(store.dir, new Set(records.map((session) => session.id)));
 		return {
 			me: { id: me.id, label: me.label },
 			onBus: me.onBus,
 			sessions: await withUnread(sessions),
+			...(unattributed > 0 ? { unattributed } : {}),
 			claims,
 			...(mailWatch.state().armed ? { watching: mailWatch.state() } : {}),
 		};

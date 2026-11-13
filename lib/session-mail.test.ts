@@ -8,6 +8,7 @@ import {
 	listArrivals,
 	listMessages,
 	WAITING_LIMIT,
+	unattributedMail,
 	waitingMail,
 } from "./session-mail.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
@@ -159,6 +160,39 @@ describe("the inbox's own order", () => {
 		expect(arrivals.map((arrival) => arrival.name)).toEqual(["m-1.json", "m-2.json"]);
 		expect(arrivals[0]?.at).toBe(statSync(join(dir, INBOX_DIR_NAME, "hash-b", "m-1.json")).mtimeMs);
 		expect(await listArrivals(join(dir, INBOX_DIR_NAME, "nobody"))).toEqual([]);
+	});
+});
+
+describe("the unaccounted count", () => {
+	test("counts the message no record carries, and not the one it does", async () => {
+		const dir = busDir();
+		land(dir, "hash-live", { id: "m-known", to: "s-live" }, NOW);
+		land(dir, "hash-gone", { id: "m-orphan", to: "s-gone" }, NOW);
+		// The record is what the roster counts mail by, so a message whose recipient is not among the
+		// ids it read has no row to hang a number on.
+		expect(await unattributedMail(dir, new Set(["s-live"]))).toBe(1);
+		expect(await unattributedMail(dir, new Set(["s-live", "s-gone"]))).toBe(0);
+	});
+
+	test("counts a fan-out per recipient, not per message id", async () => {
+		const dir = busDir();
+		land(dir, "hash-a", { id: "m-all", kind: "event", to: "s-gone-1", toLabel: "amy" }, NOW);
+		land(dir, "hash-b", { id: "m-all", kind: "event", to: "s-gone-2", toLabel: "ben" }, NOW);
+		// Two dead records are two unread files, which is what "unread" means on disk even though the
+		// page draws the fan-out as one row.
+		expect(await unattributedMail(dir, new Set())).toBe(2);
+	});
+
+	test("skips a file this build cannot parse, as the queue does", async () => {
+		const dir = busDir();
+		mkdirSync(join(dir, INBOX_DIR_NAME, "hash-broken"), { recursive: true });
+		writeFileSync(join(dir, INBOX_DIR_NAME, "hash-broken", "broken.json"), "{", "utf-8");
+		land(dir, "hash-gone", { id: "m-orphan", to: "s-gone" }, NOW);
+		expect(await unattributedMail(dir, new Set())).toBe(1);
+	});
+
+	test("is zero where no bus has ever written", async () => {
+		expect(await unattributedMail(busDir(), new Set())).toBe(0);
 	});
 });
 

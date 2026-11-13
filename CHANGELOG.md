@@ -323,6 +323,13 @@ so the queue reads as the one thing somebody owes an answer to.
   optional in a block whose headings were not, so a three-line promise showed a fourth heading
   over nothing; the heading now leaves with the value.
 
+- `session-bus`: `session status` counts the unread mail no session record accounts for, on one
+  `Unaccounted: N unread` line. The roster counts mail per record, so a message whose recipient's
+  record has been pruned had no row to carry its number and nothing said the file was there — for
+  up to the 24-hour message TTL, though a session resumed on that id can still read it. It is
+  reported rather than deleted: the message's own `to` decides, and a file this build cannot parse
+  stays out of the count the way it stays out of the page's queue.
+
 ## [0.26.0] - 2026-11-11
 
 ### Added

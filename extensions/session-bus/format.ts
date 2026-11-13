@@ -51,9 +51,16 @@ export function formatStatus(status: SessionStatus): string {
 	});
 	const claims = status.claims.map((claim) => `- ${claimLine(claim)}`);
 	const alerts = status.watching ? [`Alerts: inbox watch on${status.watching.wake ? " (wake)" : ""}`] : [];
+	// Mail no record accounts for has no session row to sit under, so it is said once, under the
+	// sessions it is missing from. A bus where every message has a record draws nothing here.
+	const unaccounted =
+		status.unattributed === undefined
+			? []
+			: [`Unaccounted: ${status.unattributed} unread, addressed to a record the bus no longer holds`];
 	return [
 		`Sessions (${status.sessions.length})`,
 		...(sessions.length > 0 ? sessions : ["- none"]),
+		...(unaccounted.length > 0 ? ["", ...unaccounted] : []),
 		"",
 		`Claims (${status.claims.length})`,
 		...(claims.length > 0 ? claims : ["- none"]),
