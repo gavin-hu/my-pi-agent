@@ -12,9 +12,15 @@
  * `lib/format.ts`'s `pageSource` strips that, so the rule is not "the body must be
  * self-contained" — a body may call a helper the page also holds — but "the body crosses
  * through `pageSource`", which survives the next refactor that hoists a helper.
+ *
+ * The strip has a price the second check here holds: it writes `_x.member` back to `member`
+ * wherever a body spells it, because that is what the transpiler's own read looks like. So a
+ * body names nothing of its own with a leading underscore, and one that writes that form fails
+ * here rather than reading the wrong value on a page, which nothing else would report.
  */
 
 import { describe, expect, test } from "bun:test";
+import { bodyAfter } from "./helpers/bundle.ts";
 import { extensionsDir, libDir, relative, sourceFiles, textOf } from "./helpers/scan.ts";
 
 /** A declaration of a page-bound constant: its file, its first line's number, and its text. */
@@ -59,6 +65,61 @@ function spliceAt(file: string, lines: string[], start: number): Splice {
 	return { file, line: start + 1, text };
 }
 
+/** The `_x.member` form `pageSource` writes back to `member`, wherever a body spells it. */
+const UNDERSCORE_FIELD = /(?<![\w$.])_[A-Za-z$][\w$]*\.[A-Za-z$][\w$]*/;
+
+/** The names one declaration hands to `pageSource`, in the called form and the mapped one. */
+function splicedNames(text: string): string[] {
+	const names = new Set<string>();
+	for (const match of text.matchAll(/pageSource\(\s*([A-Za-z_$][\w$]*)\s*\)/g)) names.add(match[1] ?? "");
+	for (const match of text.matchAll(/\[([^\]]*)\]\.map\(pageSource\)/g)) {
+		for (const name of (match[1] ?? "").split(",")) {
+			const trimmed = name.trim();
+			if (/^[A-Za-z_$][\w$]*$/.test(trimmed)) names.add(trimmed);
+		}
+	}
+	return [...names].sort();
+}
+
+/**
+ * Every function body in the tree, by name.
+ *
+ * By name rather than by module because a spliced helper need not live where it is spliced: the
+ * board's `skippedText` is imported from another module. A name declared twice is checked twice,
+ * which fails loudly rather than passing the wrong body.
+ */
+function bodies(): Map<string, { file: string; text: string }[]> {
+	const found = new Map<string, { file: string; text: string }[]>();
+	for (const root of [libDir, extensionsDir]) {
+		for (const file of sourceFiles(root)) {
+			const text = textOf(file);
+			for (const match of text.matchAll(/(?:export )?(?:async )?function ([A-Za-z_$][\w$]*)\s*\(/g)) {
+				const name = match[1] ?? "";
+				const body = bodyAfter(text, (match.index ?? 0) + match[0].length);
+				found.set(name, [...(found.get(name) ?? []), { file: relative(file), text: body }]);
+			}
+		}
+	}
+	return found;
+}
+
+/** The spliced bodies that spell a form the rewrite eats, as `file: name writes form`. */
+function underscoreFields(
+	found: readonly Splice[],
+	index: ReadonlyMap<string, { file: string; text: string }[]>,
+): string[] {
+	const offenders: string[] = [];
+	for (const splice of found) {
+		for (const name of splicedNames(splice.text)) {
+			for (const body of index.get(name) ?? []) {
+				const hit = UNDERSCORE_FIELD.exec(body.text)?.[0];
+				if (hit !== undefined) offenders.push(`${body.file}: ${name} writes \`${hit}\``);
+			}
+		}
+	}
+	return offenders.sort();
+}
+
 /** Every page-bound constant in the tree, in file order. */
 function splices(): Splice[] {
 	const found: Splice[] = [];
@@ -94,6 +155,7 @@ function unrouted(found: readonly Splice[], functions: ReadonlySet<string>): str
 describe("the bodies a page receives", () => {
 	const functions = exportedFunctions();
 	const found = splices();
+	const index = bodies();
 
 	test("are found, so a scan that matched nothing cannot pass", () => {
 		// The board's bundle alone splices eight; a future rename of the convention shows up here
@@ -104,6 +166,36 @@ describe("the bodies a page receives", () => {
 
 	test("cross through pageSource, and no other way", () => {
 		expect(unrouted(found, functions), "a spliced body must reach the page under its helper's own name").toEqual([]);
+	});
+
+	test("resolve a body for every name they splice, so the check below cannot pass vacuously", () => {
+		const missing = found.flatMap((splice) =>
+			splicedNames(splice.text)
+				.filter((name) => !index.has(name))
+				.map((name) => `${splice.file}:${splice.line}: ${name} has no body`),
+		);
+		expect(missing).toEqual([]);
+		expect(index.size).toBeGreaterThan(50);
+	});
+
+	test("name nothing of their own with a leading underscore", () => {
+		// `pageSource` writes `_x.member` back to `member`, and a page reading the wrong value is
+		// quieter than a crash: nothing downstream would say the body was rewritten.
+		expect(
+			underscoreFields(found, index),
+			"a spliced body names nothing of its own with a leading underscore; spell `_x.y` some other way",
+		).toEqual([]);
+	});
+
+	test("fails the one form the rewrite eats, and passes a body that names its own field", () => {
+		const splice = [{ file: "lib/x.ts", line: 6, text: "export const A_JS = pageSource(render);" }];
+		const eaten = new Map([["render", [{ file: "lib/x.ts", text: "function render() { return _cache.value; }" }]]]);
+		expect(underscoreFields(splice, eaten)).toEqual(["lib/x.ts: render writes `_cache.value`"]);
+		const kept = new Map([["render", [{ file: "lib/x.ts", text: "function render() { return cache.value; }" }]]]);
+		expect(underscoreFields(splice, kept)).toEqual([]);
+		// The mapped form names its bodies too, so a fragment spliced as an array is checked alike.
+		const mapped = [{ file: "lib/x.ts", line: 7, text: '[render, paint].map(pageSource).join("\\n\\n");' }];
+		expect(splicedNames(mapped[0]?.text ?? "")).toEqual(["paint", "render"]);
 	});
 
 	test("fails a body stringified straight from its function, and one mapped by name", () => {

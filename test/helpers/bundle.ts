@@ -165,8 +165,11 @@ export function duplicateFunctions(bundle: string): string[] {
  * A scan rather than a parser, so braces inside a quoted string or a `//` comment are text
  * rather than structure; declarations spliced as `String(fn)` sit at no indentation at all,
  * which is why the body cannot be taken by matching the declaration's own indent.
+ *
+ * The one reader of its kind: `test/spliced-bodies.test.ts` asks it for a function's body to
+ * check what a spliced one may name, so it is exported rather than copied.
  */
-function bodyAfter(bundle: string, from: number): string {
+export function bodyAfter(bundle: string, from: number): string {
 	let depth = 0;
 	let start = -1;
 	for (let i = from; i < bundle.length; i++) {
