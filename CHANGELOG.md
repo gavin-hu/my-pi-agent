@@ -67,9 +67,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   draws no chip at all, so the bar is no longer the one surface naming a session with a word the
   team never chose. The team is `board.teammates` — five built-in names, `gavin`, `tom`, `jack`,
   `mike`, and `sam`, edited by the new **Teammates** row under Team. Breaking: `board.lead` now
-  defaults to `gavin`, the team's first name; a session whose bus label and Pi's session name are
-  both outside the team draws no chip, where that word used to appear; and the settings screen
-  carries sixteen rows.
+  defaults to `gavin`, the team's first name; a session the team cannot name from its label — or,
+  with no label, from Pi's own session name — draws no chip, where that word used to appear; and
+  the settings screen carries sixteen rows.
 
 - `board`: a card drawn twice in the Team tab's ACTIVE WORK is one colour. The queue row wore its
   reason's tone while the swimlane card under it wore its lane's, so one card read as two; both now
