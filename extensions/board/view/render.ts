@@ -408,7 +408,7 @@ __RUNTIME__
     toggle.setAttribute("aria-expanded", "true");
     toggle.setAttribute("aria-controls", "lane-" + lane.key);
     toggle.id = "lane-head-" + lane.key;
-    head.appendChild(el("span", "bf-lane__dot"));
+    board.headDot(head);
     head.appendChild(toggle);
     head.appendChild(el("span", "bf-lane__count"));
     section.appendChild(head);

@@ -216,9 +216,15 @@ ${DECISION_WHY_CSS}
 .board-team .bf-section[data-tone="warn"]{--lane-role:var(--warn)}
 .board-team .bf-section[data-tone="accent"]{--lane-role:var(--accent)}
 .board-team .bf-section[data-tone="danger"]{--lane-role:var(--danger)}
-/* A deck's head is the board's lane head, at the board's one weight. It pins to the page's
-   scroll box, because these are the tab's landmarks. */
-.board-team .bf-section__cap{position:sticky;top:0;z-index:1;align-items:center;gap:var(--space-2);padding-bottom:var(--space-1);border-bottom:2px solid var(--lane-role,var(--border));background:var(--canvas);color:var(--text)}
+/* A deck's head is the board's lane head — its line, its ink, and its mark. The line is pinned to
+   30px because the board's is: a lane head carries a 24px fold target with a 4px pad and the 2px
+   rule under it, so a caption with nothing to press would otherwise move 8px on a tab switch. */
+.board-team .bf-section__cap{position:sticky;top:0;z-index:1;min-height:30px;align-items:center;gap:6px;padding-bottom:var(--space-1);border-bottom:2px solid var(--lane-role,var(--border));background:var(--canvas);color:var(--muted)}
+/* The word is muted inside a toned pane too: a head's tone is the rule's and never the word's, so a
+   pane's caption cannot be darker than the column it sits in. */
+.board-team .bf-section[data-tone] .bf-section__cap{color:var(--muted)}
+/* A head counts the board's way: the number is dim, one step quieter than the word it ends. */
+.board-team .bf-section__cap .bf-section__count{color:var(--dim)}
 /* A head's dot: the lane's own glyph, in the lane's role — the one mark on the page. */
 .board-team .bf-section__cap .bf-lane__dot{font-size:9px;line-height:1;color:var(--lane-role,var(--muted))}
 /* A card. Not the board's note — that one is a lane's, below — but the same block: paper,
@@ -231,7 +237,13 @@ ${DECISION_WHY_CSS}
    own, because the deck above it already carries the line. */
 .board-team .bf-lane__head{border-bottom:0;margin:0;font:var(--fw-semibold) var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-team__grid{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
-.board-team__column{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+/* A column's first child is its caption, and a caption is a head: it owns the 8px under its rule,
+   the step a lane head gives its rows. Every box under it is a section at the tab's own 12px, and
+   the first one sits on the caption's margin rather than on a step of its own. */
+.board-team__column{display:flex;flex-direction:column;min-width:0}
+.board-team__column > :first-child{margin-bottom:var(--space-2)}
+.board-team__column > * + *{margin-top:var(--space-3)}
+.board-team__column > :first-child + *{margin-top:0}
 .board-team__empty{margin:0;font:var(--fs-sm)/var(--lh-relaxed) var(--font-ui);color:var(--muted)}
 .board-team__skeleton{height:4.5rem;border-radius:var(--radius-md);background:var(--raised)}
 

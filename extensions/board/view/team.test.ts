@@ -131,6 +131,78 @@ async function census(page: Page): Promise<Census> {
 	});
 }
 
+/**
+ * A head as the browser draws it: the line it takes, the inks it states, the mark it wears, and the
+ * rule under it. Two heads compare through this tuple and never through their x — a lane head and a
+ * column's caption sit in different columns — so the rule's colour and the mark's stay out of it,
+ * being the lane's role, the point of them.
+ */
+interface Head {
+	height: number;
+	font: string;
+	color: string;
+	countColor: string;
+	gap: string;
+	padding: string;
+	ruleWidth: string;
+	mark: string;
+	markWidth: number;
+}
+
+/** The sliver of a head these reads reach, by name inside the page. */
+interface HeadNode {
+	textContent: string | null;
+	nextElementSibling: HeadNode | null;
+	getBoundingClientRect(): { y: number; bottom: number; width: number; height: number };
+	querySelector(selector: string): HeadNode | null;
+}
+
+/** One head's paint, for the elements a selector finds on one frame. */
+async function heads(page: Page, selector: string): Promise<Head[]> {
+	return page.$$eval(selector, (nodes) => {
+		const computed = (
+			globalThis as unknown as {
+				getComputedStyle(node: unknown): {
+					color: string;
+					gap: string;
+					padding: string;
+					borderBottomWidth: string;
+					font: string;
+				};
+			}
+		).getComputedStyle;
+		return Array.from(nodes as ArrayLike<HeadNode>, (head) => {
+			const style = computed(head);
+			const mark = head.querySelector(".bf-lane__dot");
+			const count = head.querySelector(".bf-lane__count, .bf-section__count");
+			return {
+				height: head.getBoundingClientRect().height,
+				font: style.font,
+				color: style.color,
+				countColor: count === null ? "" : computed(count).color,
+				gap: style.gap,
+				padding: style.padding,
+				ruleWidth: style.borderBottomWidth,
+				mark: mark?.textContent ?? "",
+				markWidth: Math.round((mark?.getBoundingClientRect().width ?? 0) * 10) / 10,
+			};
+		});
+	});
+}
+
+/** How far the box under a head starts below the head's rule. */
+async function below(page: Page, selector: string): Promise<number> {
+	return page.evaluate((sel) => {
+		const document = (globalThis as unknown as { document: { querySelector(selector: string): HeadNode | null } })
+			.document;
+		const head = document.querySelector(sel);
+		if (head === null) throw new Error(`no head at ${sel}`);
+		const next = head.nextElementSibling;
+		if (next === null) throw new Error(`nothing under ${sel}`);
+		return Math.round((next.getBoundingClientRect().y - head.getBoundingClientRect().bottom) * 10) / 10;
+	}, selector);
+}
+
 describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 	let board: BoardBrowser;
 
@@ -179,6 +251,42 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 			// Three columns and three panes: the tab's six landmarks, and the only lines it draws.
 			expect(bottoms).toHaveLength(6);
 			expect(bottoms.filter((name) => !name.includes(".bf-section__cap"))).toEqual([]);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"draws the board's lane head as its own caption, so a tab switch moves nothing",
+		async () => {
+			const page = await board.reuse();
+			// A reload reopens the tab the URL names, so the board half is asked for rather than assumed.
+			await page.click("#tab-board");
+			await page.waitForSelector(".board-lane .board-row", { timeout: PAINT_MS });
+			await page.waitForTimeout(100);
+			const lanes = await heads(page, ".board-lane .bf-lane__head");
+			expect(lanes).toHaveLength(5);
+			const laneBelow = await below(page, '.board-lane[data-lane="backlog"] .bf-lane__head');
+			await page.click("#tab-team");
+			await page.waitForSelector("#board-team .bf-section__cap", { timeout: PAINT_MS });
+			await page.waitForTimeout(100);
+			const captions = await heads(page, "#board-team .bf-section__cap");
+			const captionBelow = await below(page, '#board-team .board-team__column[data-column="agents"] .bf-section__cap');
+			// The caption's 8px is the head's own margin, not a re-tuning of the column: the sections
+			// under it still sit on the tab's 12px, so nothing else on the page moved.
+			const sectionsBelow = await below(page, '#board-team .bf-section[data-pane="waiting"]');
+			// One shape, so a reader toggling tabs cannot see the row move or darken: each tab's own
+			// heads agree with each other, and the captions agree with the lane heads they answer to.
+			expect(new Set(lanes.map((head) => JSON.stringify(head))).size, "the lane heads disagree").toBe(1);
+			expect(new Set(captions.map((head) => JSON.stringify(head))).size, "the captions disagree").toBe(1);
+			expect(captions[0]).toEqual(lanes[0]);
+			// The mark is drawn, not reserved: an empty span still takes the gap on its right, so the
+			// word started after a hole nothing had drawn in it.
+			expect(lanes[0]?.mark).toBe("\u25a0");
+			expect(lanes[0]?.markWidth).toBeGreaterThan(4);
+			// The first card sits on the board's own 8px below the rule, not the column's 12.
+			expect(laneBelow).toBe(8);
+			expect(captionBelow).toBe(laneBelow);
+			expect(sectionsBelow).toBe(12);
 		},
 		CASE_MS,
 	);

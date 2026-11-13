@@ -32,6 +32,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a head is one shape on both tabs. The Board tab's lane heads draw the lane's mark
+  instead of reserving an empty span for it, and the Team tab's captions take the same 30px
+  line, muted word, dim count and 8px gap under the rule — so switching tabs no longer moves
+  the caption row 8px or darkens it.
+
 - `board`: a card's owner is drawn and grouped by the name its session answers to now, so a session
   that renamed on the bus (`/team join`, `/session join`, a rename in Pi) is one row rather than a live
   one beside the label its claim wrote. The name is resolved once per read from the roster's record for
