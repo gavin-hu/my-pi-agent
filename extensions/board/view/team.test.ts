@@ -133,12 +133,9 @@ async function census(page: Page): Promise<Census> {
 
 /**
  * A head as the browser draws it: the line it takes, the inks it states, the mark it wears, and the
- * rule under it.
- *
- * Two heads compare through this tuple and never through their x: a lane head and a column's
- * caption sit in different columns, so what has to hold is that both are drawn from the same
- * numbers. The rule's colour and the mark's are the lane's role — the point of them — so neither is
- * in the tuple; the width, the weight, and the geometry are.
+ * rule under it. Two heads compare through this tuple and never through their x — a lane head and a
+ * column's caption sit in different columns — so the rule's colour and the mark's stay out of it,
+ * being the lane's role, the point of them.
  */
 interface Head {
 	height: number;
@@ -274,6 +271,9 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 			await page.waitForTimeout(100);
 			const captions = await heads(page, "#board-team .bf-section__cap");
 			const captionBelow = await below(page, '#board-team .board-team__column[data-column="agents"] .bf-section__cap');
+			// The caption's 8px is the head's own margin, not a re-tuning of the column: the sections
+			// under it still sit on the tab's 12px, so nothing else on the page moved.
+			const sectionsBelow = await below(page, '#board-team .bf-section[data-pane="waiting"]');
 			// One shape, so a reader toggling tabs cannot see the row move or darken: each tab's own
 			// heads agree with each other, and the captions agree with the lane heads they answer to.
 			expect(new Set(lanes.map((head) => JSON.stringify(head))).size, "the lane heads disagree").toBe(1);
@@ -286,6 +286,7 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 			// The first card sits on the board's own 8px below the rule, not the column's 12.
 			expect(laneBelow).toBe(8);
 			expect(captionBelow).toBe(laneBelow);
+			expect(sectionsBelow).toBe(12);
 		},
 		CASE_MS,
 	);

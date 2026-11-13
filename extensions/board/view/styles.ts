@@ -237,7 +237,13 @@ ${DECISION_WHY_CSS}
    own, because the deck above it already carries the line. */
 .board-team .bf-lane__head{border-bottom:0;margin:0;font:var(--fw-semibold) var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-team__grid{display:grid;grid-template-columns:minmax(0,18rem) minmax(0,1fr) minmax(0,20rem);gap:var(--space-5);align-items:start;min-width:0}
-.board-team__column{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
+/* A column's first child is its caption, and a caption is a head: it owns the 8px under its rule,
+   the step a lane head gives its rows. Every box under it is a section at the tab's own 12px, and
+   the first one sits on the caption's margin rather than on a step of its own. */
+.board-team__column{display:flex;flex-direction:column;min-width:0}
+.board-team__column > :first-child{margin-bottom:var(--space-2)}
+.board-team__column > * + *{margin-top:var(--space-3)}
+.board-team__column > :first-child + *{margin-top:0}
 .board-team__empty{margin:0;font:var(--fs-sm)/var(--lh-relaxed) var(--font-ui);color:var(--muted)}
 .board-team__skeleton{height:4.5rem;border-radius:var(--radius-md);background:var(--raised)}
 
