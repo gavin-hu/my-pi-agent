@@ -37,10 +37,10 @@ bun run bench:render              # render benchmark
   never rebase — the merge settles divergence.
 - Never commit unless the user asks; before `worktree` exits, ask how to reconcile
   the branch (commit, merge, keep, discard).
-- Commit as steps finish; when `main` moves, merge it in and run `bun run
-  check` on that merge.
-- Land from `main`: `git merge --no-ff <branch>`, then `git push origin main`; never push a
-  branch head to `main`.
+- Commit as steps finish; merge `main` in when it moves, and check that merge.
+- Land from `main`: `git merge --no-ff <branch>`, check the merge, then `git push origin main`;
+  never push a branch head to `main`. A card closes after its landing: the card records which
+  merge carried it, the sign which tree was checked.
 - Stage explicit paths; never `git add -A` or `git add .`. Never `git reset
   --hard`, `git checkout .`, `git clean -fd`, `git stash`, `git commit
   --no-verify`, or force-push `main`.
@@ -63,8 +63,6 @@ change is not a release.
 - The `[Unreleased]` bullet lands in the same commit as its change.
 
 ## Invariants
-
-Not caught by types, and easy to get wrong.
 
 - `lib/` loads with isolated module caches, so it stays value-only: no
   module-level state (`test/boundaries.test.ts`).
@@ -118,8 +116,8 @@ Three are gates; the fourth is review.
 - **No module grows.** One job per module, and a name that says it: past 600
   lines a module is named in `LONG_MODULES` in `test/module-sizes.test.ts` with the
   responsibility that keeps it whole, at its own height, which may only fall.
-- **One owner per concept.** Every `lib/` module has a row in `lib/README.md`;
-  `test/drift.test.ts` fails the module that has none.
+- **One owner per concept.** Every `lib/` module has a row in `lib/README.md`, held by
+  `test/drift.test.ts`.
 - **A cross-cutting change is its own task.** Review only: no test can tell it
   from a feature, so a change spanning unrelated areas does not ride on another.
 
@@ -163,8 +161,7 @@ widths, so an overflowing frame fails there.
 
 ## How to work
 
-- Work a feature on its card: claim, contract, sign, `execute` before editing; with no card,
-  open one.
+- Work a feature on its card: claim, contract, sign, `execute` before editing.
 - Be short and direct: answer before editing, state agreement or disagreement.
 - Ask before adding a runtime dependency to `package.json`.
 - Ask before removing functionality that looks intentional; add no backward
