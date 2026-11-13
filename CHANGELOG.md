@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
 - `board`: the team is a project's own. `board.lead` and `board.teammates` are now `team.lead` and
   `team.teammates`, and the built-in 25-name vocabulary behind them is deleted with them — the
   default five names, `gavin` as the default lead, and the preset name a session with none of its
