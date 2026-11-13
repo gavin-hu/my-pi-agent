@@ -47,6 +47,7 @@ import {
 	appendNote,
 	currentReview,
 	heldBy,
+	mayMove,
 	heldState,
 	holderRefusal,
 	type HolderFact,
@@ -188,12 +189,13 @@ export function move(
 	if (card.owner === undefined) {
 		return { error: `${cardRef(card.id)} is unclaimed; claim it before moving it to ${target}.` };
 	}
-	if (!holds(card, actor)) return { error: `${heldBy(card)} Only its owner can move it.` };
+	const denied = mayMove(card, actor, target, config.lead);
+	if (denied !== undefined) return { error: denied };
 	if (target === "backlog") {
 		return { error: `${cardRef(card.id)} cannot be moved to backlog; release it instead.` };
 	}
-	// A block's kind and sentence belong to a move into `blocked`, so a caller that sent them
-	// with any other target hears that instead of a success that recorded nothing.
+	// A block belongs to a move into `blocked`: sent with any other target, it is a refusal rather
+	// than a success that recorded nothing.
 	if (target !== "blocked" && (op.blocker !== undefined || op.blockedBy !== undefined)) {
 		return { error: `a blocker is recorded by a move to blocked, not to ${target}.` };
 	}
@@ -201,8 +203,7 @@ export function move(
 	// with a new sentence meant to change it, and a refusal is clearer than a silent nothing.
 	const block = target === "blocked" ? blockFields(op.blocker, op.blockedBy) : undefined;
 	if (block !== undefined && "error" in block) return { error: block.error };
-	// A reason is what the card was parked on, so it is fixed for as long as the card is: changing
-	// it means leaving the lane, and a caller asking to is told which way.
+	// A reason is what the card was parked on, fixed while it is parked: changing it means leaving.
 	if (card.lane === "blocked" && target === "blocked") {
 		return {
 			error: `${cardRef(card.id)} is blocked; its reason is fixed while the card is parked — resume it, then park it again with the new sentence.`,
