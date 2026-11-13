@@ -38,6 +38,7 @@ describe("the shell's two rows", () => {
 		// rule has two homes — the mark and a record — and a header separator is neither.
 		expect(rule(WEB_LAYOUT_CSS, ".bf-app__rule{")).toBe(".bf-app__rule{height:1px;background:var(--border)");
 		expect(rule(WEB_LAYOUT_CSS, ".bf-app__head{")).toContain("border-bottom:1px solid var(--border)");
+		expect(rule(WEB_LAYOUT_CSS, ".bf-app__id{")).toContain("min-height:52px");
 		expect(WEB_LAYOUT_CSS).not.toContain("linear-gradient");
 		// The old bar retired: a page's own controls are the header's second row, not a third
 		// strip between the header and the content.
@@ -181,8 +182,10 @@ describe("the chrome's atoms", () => {
 		expect(chrome).toContain('<div class="bf-app__chrome">');
 		expect(chrome).toContain(keysButton());
 		expect(chrome).toContain(themeToggle());
-		// Borderless at rest, so the key sheet cannot read as one of the page's own controls.
-		expect(rule(WEB_LAYOUT_CSS, ".bf-app__chrome .bf-btn{")).toContain("border-color:transparent");
+		// Borderless at rest, and on all four edges: the hover rule brings back the colour alone.
+		expect(rule(WEB_LAYOUT_CSS, ".bf-app__chrome .bf-btn{")).toBe(
+			".bf-app__chrome .bf-btn{border-width:1px;border-color:transparent;color:var(--muted)",
+		);
 	});
 
 	test("renders the footer as one line of where the page came from", () => {
