@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `team`: a bare `/team join` takes the first name the project's `team.teammates` lists that no
+  session holds and that is not the `lead`'s, instead of the drawn `team-agent-<id>`. It writes
+  nothing — the name is already the team's — and leaves Pi's own session name alone, and the drawn
+  name stays the fallback when the list can give none.
+
 - `team`: a typed `/team join <name>` puts that name on `board.teammates` in the project's
   `.pi/bytefly.json`, so the footer's chip names the session the join just renamed. The chip is
   drawn only for a name the team holds, so the one door meant to name the bar used to leave it
