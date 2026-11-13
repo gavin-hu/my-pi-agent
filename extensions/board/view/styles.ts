@@ -50,23 +50,13 @@ const LANE_ROLE_CSS = LANES.map((lane) => {
 }).join("\n");
 
 /**
- * A decision row's mark, one rule per tone the table names.
- *
- * Generated from the same table the terminal reads, so `gone` — ranked above `unwritten` — wears
- * the refusal colour by being classified, not by a rule somebody remembered to add.
- */
-const DECISION_TONE_CSS = BOARD_TONES.map(
-	(tone) => `.board-decision[data-tone="${tone}"]{--lane-role:var(--${tone})}`,
-).join("\n");
-
-/**
  * The one tone whose sentence is coloured too.
  *
  * A danger row is a refusal or a loss, and that is the row's whole point; a warn row is
- * somebody to ask, and colouring its sentence as well would spend the reader's attention on
- * the words rather than on the mark that says "look here".
+ * somebody to ask, where the pill already carries the colour and colouring the sentence as well
+ * would spend the reader's attention on the words.
  */
-const DECISION_WHY_CSS = `.board-decision[data-tone="danger"] .board-decision__why{color:var(--danger)}`;
+const DECISION_WHY_CSS = `.board-queue__row[data-tone="danger"] .board-queue__why{color:var(--danger)}`;
 
 /**
  * A dialog line's colour, one rule per tone the tone table names.
@@ -207,8 +197,7 @@ ${WEB_COMPONENTS_CSS}
 
 /* One lane role per lane, set once and read by the kit's mark, head and dot. */
 ${LANE_ROLE_CSS}
-/* A decision row's mark wears the queue's tone, from the table the terminal reads. */
-${DECISION_TONE_CSS}
+/* A danger row's sentence wears the tone the table gives its kind. */
 ${DECISION_WHY_CSS}
 
 /* The Team tab: the board's columns seen from the other side.
@@ -289,19 +278,43 @@ ${DECISION_WHY_CSS}
 /* A lane dot is a glyph in the lane's role, not a filled square. */
 .board-dot[data-lane]{background:none;color:var(--lane-role,var(--muted))}
 
-/* NEEDS YOU — the lane's own paper, at one height: the queue is a list of the same thing, and a
-   decision is a fixed three lines. One legend per column: the paper says where the card sits,
-   which is what the swimlane card under it says too, and the tone is left to the pill, the mark
-   at the row's edge, and a danger row's sentence — a card drawn twice cannot read as two cards. */
-.board-team__decisions{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
-.board-decision{--paper:var(--note-paper);flex-wrap:nowrap;align-items:flex-start;min-height:var(--team-row-h);cursor:pointer}
-.board-decision__body{min-width:0;display:flex;flex-direction:column;gap:var(--space-1)}
-.board-decision__open{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2);min-width:0;appearance:none;border:0;background:none;padding:0;color:var(--text);font:var(--fw-medium) var(--fs-sm) var(--font-ui);text-align:left;cursor:pointer}
-.board-decision__open:hover .bf-row__title{color:var(--accent)}
-.board-decision__ref{flex:0 0 auto;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
-/* The sentence is the card's foot: what kind of work it is, who holds it, and how long it waited,
-   on the card's last line where the board's holder sits. */
-.board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+/* NEEDS YOU — the lead's queue as one column of asks: a band per addressee, a line per card, its
+   reason printed underneath. An ask is not a card and no longer wears one: the row sits on the
+   column's own ground and space is what separates it from the next, so the tone is left to the
+   pill and a danger row's sentence, and a card drawn in the queue cannot read as a card drawn
+   twice. An h4.bf-lane__head and a bf-lane__list are the kit's lane shapes one level down, and
+   the queue's own indent is what says so: a band sits inside the queue, and the lane heads under
+   it are the column's sections. */
+.board-queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,32rem),1fr));align-items:start;column-gap:var(--space-4);row-gap:var(--space-3);min-width:0;padding-inline:var(--space-3)}
+/* A wide window takes a band per column rather than one row a metre wide: a row is a line of
+   facts read as one, and past about 32rem its title and its age are a screen apart. A band is
+   what flows, never a row, so no band is left with its head in one column and its rows in the
+   next. */
+.board-queue__band{display:flex;flex-direction:column;min-width:0}
+.board-queue__band .bf-lane__list{gap:var(--space-2)}
+/* A band's tally sits beside the word it counts. A lane head pushes its count to the far edge,
+   which is right for a lane that fills its column; two bands side by side would then put one
+   band's count against the next band's name. */
+.board-queue .bf-lane__head .bf-lane__count{margin-left:0}
+/* Nothing to say still says it across the whole pane, whatever the window is: the sentence is the
+   queue's own paragraph, not one band's row. */
+.board-queue > .board-team__empty{grid-column:1 / -1}
+/* One line, six cells, and the reason under the title: the grid is what makes two rows' facts
+   line up, so a column of ids and a column of ages are columns. The pill's track is a minimum
+   rather than a maximum so that every row's title starts at the same place — a row is its own
+   grid, so a track that followed its content would move the title row by row. */
+.board-queue__row{display:grid;grid-template-columns:2ch 4.5ch minmax(6rem,max-content) minmax(0,1fr) max-content 4.5ch;align-items:baseline;gap:var(--space-1) var(--space-2);min-width:0}
+.board-queue__row > .board-stamp{justify-self:end;margin-left:0}
+.board-queue__rank{color:var(--dim);font:var(--fs-xs) var(--font-mono);font-variant-numeric:tabular-nums}
+.board-queue__ref{color:var(--muted);font:var(--fs-xs) var(--font-mono)}
+/* The title is the row's one control, and one line of it: the whole of it is on the hover and in
+   the dialog, and a queue whose rows are two titles tall is a queue a reader scrolls. */
+.board-queue__row .bf-row__title{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;appearance:none;border:0;background:none;padding:0;text-align:left;cursor:pointer}
+.board-queue__row .bf-row__title:hover{color:var(--accent)}
+/* The sentence is the row's foot, under the title it belongs to and running to the row's edge: the
+   id is a column of its own, and a sentence that stopped at the title's width would wrap where the
+   facts beside it have nothing to say. */
+.board-queue__why{grid-column:4 / -1;display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 /* MOVING — the board's own card, in a lane one column narrower: the shape, the paper and the
    order come from the lane rules above, so this column is the board at a glance. */
 .board-team__lanes{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
@@ -398,6 +411,25 @@ ${DIALOG_TONE_CSS}
   .board-team__column[data-column="activity"]{grid-column:auto}
   /* A state can no longer sit on the row's line on a phone, so it wraps under the name. */
   .board-agent__head{flex-wrap:wrap}
+  /* A phone keeps the title's width, and the rank is the one fact a narrow row can spare: the
+     order is still the document's. */
+  .board-queue__row{grid-template-columns:4.5ch minmax(6rem,max-content) minmax(0,1fr) max-content 4.5ch}
+  .board-queue__rank{display:none}
+  .board-queue__why{grid-column:3 / -1}
+}
+/* A phone has no room for six columns and no use for an elided title, so the row stops being a
+   grid: the id, the pill and the age keep a line, the title takes the whole of the next one and
+   wraps, and the reason follows it. The holder's dot is the one fact this width drops — the Agents
+   column above names who holds what, and a reason names the owner whenever the name is the point
+   ("bob is not running — the card is free"). */
+@media (max-width:560px){
+  .board-queue__row{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2)}
+  .board-queue__row .board-queue__ref{order:0}
+  .board-queue__row > .bf-tag{order:1}
+  .board-queue__row > .board-stamp{order:2;margin-left:auto}
+  .board-queue__row .bf-row__title{order:3;flex:1 1 100%;white-space:normal}
+  .board-queue__row > .board-owner{display:none}
+  .board-queue__why{order:4;flex:1 1 100%}
 }
 /* Five lane names do not fit a phone: the tab rail wraps rather than a horizontal scroller
    that can hide the lane a reader is on. */
@@ -407,11 +439,11 @@ ${DIALOG_TONE_CSS}
   .board-picker .bf-tabs__item[aria-pressed="true"]{border-color:var(--accent)}
 }
 @media (prefers-reduced-motion: reduce){
-  .board-row,.board-decision,.board-lane{transition:none}
+  .board-row,.board-queue__row,.board-lane{transition:none}
 }
 @media print{
   .board-lanes,.board-team__grid{grid-template-columns:minmax(0,1fr)}
-  .board-row,.board-decision{break-inside:avoid}
+  .board-row,.board-queue__row{break-inside:avoid}
   /* The disclosure affordance goes; the lane's name stays with its count. */
   .board-picker{display:none!important}
   .board-lane__toggle::after{content:""}

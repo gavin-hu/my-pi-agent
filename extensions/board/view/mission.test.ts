@@ -177,13 +177,26 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CSS).toContain('.board-dot[data-state="absent"],.board-dot[data-state="unknown"]');
 	});
 
-	test("draws a mission card's id as a button, and the whole queue is reachable behind its fold", () => {
+	test("draws every ask under the band that owes the move, and holds none of them back", () => {
 		// A mission is the board's own card, so it opens the record the way the board's face does.
 		expect(BOARD_CLIENT_JS).toContain("return board.cardNode(card);");
-		// Three rows, then the same fold control a swimlane uses: one affordance for "there is
-		// more" in this column, and it opens the board instead of saying where the board is.
-		expect(BOARD_CLIENT_JS).toContain("var STRIP = 3");
-		expect(BOARD_CLIENT_JS).toContain('el("button", N.fold, "+" + count + " more")');
+		// The queue is filed by whose move it is, from the table the pill and the rank come from,
+		// and every file is drawn: a row nobody can see is a row nobody can act on.
+		expect(BOARD_CLIENT_JS).toContain("if (BANDS.of[entries[i].kind] === key) rows.push(entries[i]);");
+		expect(BOARD_CLIENT_JS).not.toContain("STRIP");
+		// The queue's own fold is gone with the cap: the swimlanes still fold, this pane does not.
+		expect(BOARD_CLIENT_JS).not.toContain("moreRow");
+		expect(BOARD_CLIENT_JS).toContain("queue.appendChild(bandSection(bands[b], view, first));");
+		// The band's head is a lane head one level down, and it is counted: the pane's own head
+		// counts the whole queue, so the two numbers can be read against each other.
+		expect(BOARD_CLIENT_JS).toContain('var head = el("h4", "bf-lane__head");');
+		expect(BOARD_CLIENT_JS).toContain('head.appendChild(el("span", "bf-lane__count", String(band.rows.length)));');
+		// The rows are the kit's list, so the column has one way of holding rows together.
+		expect(BOARD_CLIENT_JS).toContain('var list = el("ol", N.laneList);');
+		// The reason is printed on the row rather than left to a hover, and the control that opens
+		// the card is described by it.
+		expect(BOARD_CLIENT_JS).toContain("meta.appendChild(document.createTextNode(entry.why));");
+		expect(BOARD_CLIENT_JS).toContain('title.setAttribute("aria-describedby", "team-why-" + card.id);');
 		// The caption is a count alone: the tab strip is the way to the whole board, so the
 		// column carries no second door for a heading to be a control.
 		expect(BOARD_CLIENT_JS).not.toContain("board-team__door");
@@ -227,12 +240,13 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CLIENT_JS).not.toContain("agent.label.toLowerCase()");
 	});
 
-	test("walks a decision row and a mission card with j/k, and enters them", () => {
+	test("walks a queue row and a mission card with j/k, and enters them", () => {
 		// One selector for everything that opens a card, so the walk and the dialog's "n of m"
 		// agree about what a card on this page is.
-		expect(BOARD_CLIENT_JS).toContain('var nodes = document.querySelectorAll(".board-row, .board-decision");');
-		expect(BOARD_CLIENT_JS).toContain('here.closest(".board-row, .board-decision")');
-		expect(BOARD_CLIENT_JS).toContain('.querySelector(".bf-row__title, .board-decision__open")');
+		expect(BOARD_CLIENT_JS).toContain('var nodes = document.querySelectorAll(".board-row, .board-queue__row");');
+		expect(BOARD_CLIENT_JS).toContain('here.closest(".board-row, .board-queue__row")');
+		// A queue row's control is its title, the same control a face and a mission card have.
+		expect(BOARD_CLIENT_JS).toContain('.querySelector(".bf-row__title")');
 	});
 
 	test("is three columns with one page scroll, and the grid is the only thing it lays out", () => {

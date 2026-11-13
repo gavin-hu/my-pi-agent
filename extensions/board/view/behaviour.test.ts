@@ -36,6 +36,9 @@ import { serveBoardPage } from "../../../test/helpers/board-page.ts";
 /** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
 const clock = makeClock(1_760_000_000_000);
 
+/** How long a case that boots a page, waits out a heartbeat, and filters twice may take. */
+const CASE_MS = 30_000;
+
 /** The board the suite reads, its browser, and the place a test writes beside its cards. */
 let board: BoardBrowser;
 let store: ReturnType<typeof createStore>;
@@ -609,121 +612,118 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		}
 	});
 
-	test("pins the lead first, folds the owners nothing answers to, and keeps a frame still", async () => {
-		// A board with a long history: three labels that finished their work and are gone, one that still holds a card, and two sessions that are
-		// here. The three are history — the list only grows, which is why the page states them once — and the holder is the row the fold must not
-		// take, because the queue is reporting its work as free.
-		const folder = mkdtempSync(join(tmpdir(), "pi-board-history-"));
-		// The lead is a configured name, and the board's is the session this page serves as: the pin is read from the config, not from whoever
-		// happened to claim a card.
-		const history = createStore(folder, { config: boardConfig({ lead: "team-lead" }) });
-		await history.ensure();
-		const at = clock.now();
-		// The bus's own clock, moved by hand: a heartbeat rewrites `lastSeen` without changing one printed fact, which is the frame that must leave
-		// the column where the reader put it.
-		let beat = 0;
-		// And a fact the bus does carry: mail, which the roster signature does watch.
-		let mail = 0;
-		const gone = ["billing-old", "billing-older", "billing-oldest"].map((label, index) => ({
-			id: `s-gone-${index}`,
-			label,
-		}));
-		for (const [index, owner] of gone.entries()) {
-			const cards = index === 0 ? 3 : 2;
-			for (let n = 0; n < cards; n++) {
-				const card = await history.create(
-					{ title: `${owner.label} shipped ${n}`, paths: [] },
-					owner,
-					at - index * 1_000,
-				);
-				await advance(history, card.id, "done", { owner }, at - index * 1_000 + 1);
+	test(
+		"pins the lead first, folds the owners nothing answers to, and keeps a frame still",
+		async () => {
+			// A long history: three labels that finished and are gone, one that still holds a card, and the two sessions that are here.
+			const folder = mkdtempSync(join(tmpdir(), "pi-board-history-"));
+			// The lead is a configured name, not whoever happened to claim a card: the pin is read from the config.
+			const history = createStore(folder, { config: boardConfig({ lead: "team-lead" }) });
+			await history.ensure();
+			const at = clock.now();
+			// A heartbeat rewrites `lastSeen` without changing one printed fact; mail is a fact the roster's signature does watch.
+			let beat = 0;
+			let mail = 0;
+			const gone = ["billing-old", "billing-older", "billing-oldest"].map((label, index) => ({
+				id: `s-gone-${index}`,
+				label,
+			}));
+			for (const [index, owner] of gone.entries()) {
+				const cards = index === 0 ? 3 : 2;
+				for (let n = 0; n < cards; n++) {
+					const card = await history.create(
+						{ title: `${owner.label} shipped ${n}`, paths: [] },
+						owner,
+						at - index * 1_000,
+					);
+					await advance(history, card.id, "done", { owner }, at - index * 1_000 + 1);
+				}
 			}
-		}
-		const holder: Actor = { id: "s-holder", label: "billing-holder" };
-		const held = await history.create({ title: "A card nobody answers for", paths: [] }, holder, at);
-		await history.mutate(held.id, { kind: "claim" }, holder, at);
+			const holder: Actor = { id: "s-holder", label: "billing-holder" };
+			const held = await history.create({ title: "A card nobody answers for", paths: [] }, holder, at);
+			await history.mutate(held.id, { kind: "claim" }, holder, at);
 
-		const sessions = (when: number): RosterSession[] => [
-			{ id: "s-peer", label: "billing-peer", mode: "tui", lastSeen: when - 20_000 + beat, mail },
-			{
-				id: "s-lead",
-				label: "team-lead",
-				mode: "tui",
-				lastSeen: when - 10_000 + beat,
-				mail: 0,
-				watching: { armed: true, wake: true },
-			},
-		];
-		const long = await serveBoardPage({
-			store: history,
-			now: clock.now,
-			roster: sessions,
-			waiting: () => [
+			const sessions = (when: number): RosterSession[] => [
+				{ id: "s-peer", label: "billing-peer", mode: "tui", lastSeen: when - 20_000 + beat, mail },
 				{
-					id: "m-1",
-					from: "s-peer",
-					fromLabel: "billing-peer",
-					kind: "handoff",
-					to: ["billing-holder"],
-					text: "take the unowned card",
-					at: at - 240_000,
+					id: "s-lead",
+					label: "team-lead",
+					mode: "tui",
+					lastSeen: when - 10_000 + beat,
+					mail: 0,
+					watching: { armed: true, wake: true },
 				},
-			],
-			display: { repo: REPO, root: ROOT, where: WHERE },
-		});
-		const page = await board.tab(`${long.url}&view=team`);
-		try {
-			await page.waitForSelector(".board-agent", { timeout: PAINT_MS });
-			const rows = () => page.$$eval(".board-agent", (nodes) => nodes.length);
-			const names = () =>
-				page.$$eval(".board-agent__name", (nodes) =>
-					Array.from(nodes as ArrayLike<ElementLike>, (node) => node.textContent ?? ""),
+			];
+			const long = await serveBoardPage({
+				store: history,
+				now: clock.now,
+				roster: sessions,
+				waiting: () => [
+					{
+						id: "m-1",
+						from: "s-peer",
+						fromLabel: "billing-peer",
+						kind: "handoff",
+						to: ["billing-holder"],
+						text: "take the unowned card",
+						at: at - 240_000,
+					},
+				],
+				display: { repo: REPO, root: ROOT, where: WHERE },
+			});
+			const page = await board.tab(`${long.url}&view=team`);
+			try {
+				await page.waitForSelector(".board-agent", { timeout: PAINT_MS });
+				const rows = () => page.$$eval(".board-agent", (nodes) => nodes.length);
+				const names = () =>
+					page.$$eval(".board-agent__name", (nodes) =>
+						Array.from(nodes as ArrayLike<ElementLike>, (node) => node.textContent ?? ""),
+					);
+				// The lead is the first row however the bus orders them, and it says so.
+				expect((await names())[0]).toBe("team-lead");
+				expect(await page.getAttribute(".board-agent", "data-lead")).toBe("1");
+				expect(await rows()).toBe(4);
+				const history = '.board-fold[data-fold="team-history"]';
+				expect((await page.textContent(history))?.trim()).toBe("3 owners with no record · 7 done");
+				expect(await page.getAttribute(history, "aria-expanded")).toBe("false");
+				// The waiting row carries its recipient's state, which is the point of drawing it.
+				expect(await page.textContent(".board-mail")).toContain("billing-peer");
+				expect(await page.textContent(".board-mail")).toContain("billing-holder");
+				expect(await page.getAttribute(".board-mail .board-dot", "data-state")).toBe("absent");
+
+				// A frame that changes nothing in a column leaves its fold alone: a live row prints no age, so a heartbeat is not in the signature.
+				const agentsSig = () =>
+					page.$eval('.board-team__column[data-column="agents"]', (node) => node.getAttribute("data-sig"));
+				const settled = await agentsSig();
+				beat += 10_000;
+				await page.waitForTimeout(1_100);
+				expect(await agentsSig()).toBe(settled);
+
+				// The filter narrows cards, so the roster stands still: only the middle column empties, and the fold stays shut.
+				await page.fill("#board-filter", "billing-old");
+				await page.waitForSelector('[data-pane="needs-you"]:has-text("nothing matches")', { timeout: PAINT_MS });
+				expect(await rows()).toBe(4);
+				expect(await page.getAttribute(history, "aria-expanded")).toBe("false");
+				expect(await agentsSig()).toBe(settled);
+
+				// Mail is a fact the column does not print, and the roster's own chip is: it arrives on the next frame without anyone reloading.
+				await page.fill("#board-filter", "");
+				mail = 1;
+				await page.waitForFunction(
+					() =>
+						(
+							(globalThis as unknown as { document: Doc }).document.querySelector(".board-agent__mail")?.textContent ??
+							""
+						).includes("1 mail"),
+					undefined,
+					{ timeout: PAINT_MS },
 				);
-			// The lead is the first row however the bus orders them, and it says so.
-			expect((await names())[0]).toBe("team-lead");
-			expect(await page.getAttribute(".board-agent", "data-lead")).toBe("1");
-			// Three agents, then one row for the three labels that are only history.
-			expect(await rows()).toBe(4);
-			const history = '.board-fold[data-fold="team-history"]';
-			expect((await page.textContent(history))?.trim()).toBe("3 owners with no record · 7 done");
-			expect(await page.getAttribute(history, "aria-expanded")).toBe("false");
-			// The waiting row carries its recipient's state, which is the point of drawing it.
-			expect(await page.textContent(".board-mail")).toContain("billing-peer");
-			expect(await page.textContent(".board-mail")).toContain("billing-holder");
-			expect(await page.getAttribute(".board-mail .board-dot", "data-state")).toBe("absent");
-
-			// A frame that changes nothing in a column leaves the reader's fold — and the focus on it — exactly where they left them. A heartbeat is
-			// not in the signature: a live row prints no age, so the frame after every beat must not refill the list.
-			const agentsSig = () =>
-				page.$eval('.board-team__column[data-column="agents"]', (node) => node.getAttribute("data-sig"));
-			const settled = await agentsSig();
-			beat += 10_000;
-			await page.waitForTimeout(1_100);
-			expect(await agentsSig()).toBe(settled);
-
-			// The filter narrows cards, so the roster stands still: a label the query names changes neither the fold nor the column's signature, and
-			// only the middle column empties.
-			await page.fill("#board-filter", "billing-old");
-			await page.waitForSelector('[data-pane="needs-you"]:has-text("nothing matches")', { timeout: PAINT_MS });
-			expect(await rows()).toBe(4);
-			expect(await page.getAttribute(history, "aria-expanded")).toBe("false");
-			expect(await agentsSig()).toBe(settled);
-
-			// Mail is a fact the column does not print, and the roster's own chip is: it arrives on the next frame without anyone reloading.
-			await page.fill("#board-filter", "");
-			mail = 1;
-			await page.waitForFunction(
-				() =>
-					(
-						(globalThis as unknown as { document: Doc }).document.querySelector(".board-agent__mail")?.textContent ?? ""
-					).includes("1 mail"),
-				undefined,
-				{ timeout: PAINT_MS },
-			);
-			expect(await agentsSig()).not.toBe(settled);
-		} finally {
-			await long.close();
-			rmSync(folder, { recursive: true, force: true });
-		}
-	});
+				expect(await agentsSig()).not.toBe(settled);
+			} finally {
+				await long.close();
+				rmSync(folder, { recursive: true, force: true });
+			}
+		},
+		CASE_MS,
+	);
 });

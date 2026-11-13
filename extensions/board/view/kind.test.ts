@@ -78,8 +78,8 @@ describe.skipIf(CHROME === undefined)("the kind on the served page", () => {
 	test("wears the same label in the lead's queue", async () => {
 		const page = await board.reuse();
 		await page.click("#tab-team");
-		await page.waitForSelector("#panel-team:not([hidden]) .board-decision", { timeout: 5_000 });
-		const labels = await page.$$eval("#panel-team .board-decision .bf-row__kind", (nodes) =>
+		await page.waitForSelector("#panel-team:not([hidden]) .board-queue__row", { timeout: 5_000 });
+		const labels = await page.$$eval("#panel-team .board-queue__row .bf-row__kind", (nodes) =>
 			Array.from(nodes as ArrayLike<ElementLike>, (node) => node.textContent ?? ""),
 		);
 		expect(labels).toContain("feature \u00b7 breaking");

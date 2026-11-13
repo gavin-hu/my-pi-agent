@@ -32,6 +32,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the Team tab's `NEEDS YOU` pane is three bands by whose move each ask is — `YOUR
+  SIGNATURE` (an approval, a spot-check), `UNCLAIMED` (nobody holds it, or its owner is gone) and
+  `STALLED` (blocked, unwritten, no contract) — and every ask is drawn. Each is one line with its
+  reason printed under it instead of hidden on a hover, the `+N more` fold and its three-row cap
+  are gone, and a row no longer wears a card paper of its own: the pane is one column of asks, so
+  the pill and a danger row's sentence are the only colours on it. A wide window takes a column per
+  band rather than one row a screen and a half wide, and a phone gives the title the row's whole
+  line to wrap instead of eliding it to four letters. A kind's band is `DECISION_BAND` in
+  `lib/board/tone.ts`, beside the rank, the label and the tone.
+
 - `board`: the team is a project's own. `board.lead` and `board.teammates` are now `team.lead` and
   `team.teammates`, and the built-in 25-name vocabulary behind them is deleted with them — the
   default five names, `gavin` as the default lead, and the preset name a session with none of its

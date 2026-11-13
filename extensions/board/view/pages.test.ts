@@ -569,20 +569,20 @@ describe("the class contract", () => {
 		expect([...DRAWN].filter((name) => !PAGE.has(name)).sort(), "drawn, never declared").toEqual([]);
 	});
 
-	test("draws a decision row in the tone the table gives its kind, gone included", () => {
+	test("tones an ask from the table, in the pill it wears and the one sentence coloured", () => {
 		expect(DECISION_TONE.gone).toBe("danger");
+		// The pill reads the table the terminal reads, spliced into the bundle: the stylesheet has
+		// one sentence rule, not one per kind, which is how `gone` came to be drawn quieter than
+		// `unwritten` while being ranked above it.
+		expect(BOARD_CLIENT_JS).toContain("var tone = decisionTone(entry.kind);");
+		expect(BOARD_CLIENT_JS).toContain('chip(DECISION_LABEL[entry.kind] || entry.kind, tone === "dim" ? "dim" : tone)');
 		for (const kind of DECISION_KINDS) {
-			const tone = DECISION_TONE[kind];
-			expect(BOARD_CSS, kind).toContain(`.board-decision[data-tone="${tone}"]{--lane-role:var(--${tone})}`);
+			expect(BOARD_CSS, kind).not.toContain(`.board-queue__row[data-tone="${DECISION_TONE[kind]}"]{`);
 		}
-		// A refusal or a loss colours its sentence too; a warn row only its edge.
-		expect(BOARD_CSS).toContain('.board-decision[data-tone="danger"] .board-decision__why{color:var(--danger)}');
-		// And the line every other row prints stays quiet. Without this the base rule can lose
-		// its colour and the queue's reasons read as loudly as its titles: `--text` is what an
-		// uncoloured paragraph inherits on the raised plane.
-		expect(BOARD_CSS).toContain(
-			".board-decision__why{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin:0;color:var(--muted);",
-		);
+		// A refusal or a loss colours its sentence too; a warn row keeps its colour on the pill. And
+		// the line every other row prints stays quiet, or the reasons read as loudly as the titles.
+		expect(BOARD_CSS).toContain('.board-queue__row[data-tone="danger"] .board-queue__why{color:var(--danger)}');
+		expect(BOARD_CSS).toContain(".board-queue__why{grid-column:4 / -1;");
 	});
 
 	test("tones a reason line by its tone, never by a class named after a kind", () => {

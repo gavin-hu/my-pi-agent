@@ -41,15 +41,26 @@ describe("the Team tab's label maps", () => {
 });
 
 describe("the Team tab's one paper", () => {
-	test("paints a decision row on its lane's paper, and leaves the tone to the pill", () => {
-		// The row is a `.bf-row` that names its lane, so the lane's paper answers it exactly as it
-		// answers the swimlane card under it: a card drawn twice in one column is one colour.
-		expect(BOARD_CSS).toMatch(/\.board-decision\{[^}]*--paper:var\(--note-paper\)/);
-		// And no rule may paint a row by its kind again — the second legend is what this removed.
-		expect(BOARD_CSS).not.toMatch(/\.board-decision\[data-tone="[a-z]+"\]\{--paper:/);
-		// The tone is still the row's, so the mark at its edge and a danger row's sentence keep it.
-		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-lane", card.lane)');
-		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-tone", tone)');
+	test("names the empty sentence by the class the pane draws, and spans the queue with it", () => {
+		// The queue's paragraph is `board-team__empty`; `board-team__none` is the Agents column's
+		// line for a label nothing answers to. The span is what a wrong name hides: with `auto-fit`
+		// a lone item already takes the row, because the tracks without one collapse — the day the
+		// queue holds a second item, or the template stops collapsing, it is one track wide.
+		expect(BOARD_CSS).toContain(".board-queue > .board-team__empty{grid-column:1 / -1}");
+		expect(BOARD_CSS).not.toContain(".board-queue > .board-team__none");
+	});
+
+	test("draws an ask on the column's own ground, and leaves the tone to the pill", () => {
+		// The queue is a list of asks, not a second drawing of the card: the row wears no paper, no
+		// lane and no edge, so one card is one ground — the swimlane's — and the queue cannot read
+		// as the same card drawn twice.
+		expect(BOARD_CSS).not.toMatch(/\.board-queue__row\{[^}]*background/);
+		expect(BOARD_CSS).not.toMatch(/\.board-queue__row\{[^}]*--paper:/);
+		expect(BOARD_CSS).not.toMatch(/\.board-queue__row\[data-tone="[a-z]+"\]\{--paper:/);
+		// The lane is the swimlane's fact, so the row does not claim it either.
+		expect(BOARD_CLIENT_JS).not.toContain('row.setAttribute("data-lane"');
+		// The tone is still the row's, so a danger row's sentence keeps it.
+		expect(BOARD_CLIENT_JS).toContain('row.setAttribute("data-tone", decisionTone(entry.kind));');
 	});
 });
 
@@ -108,7 +119,7 @@ async function census(page: Page): Promise<Census> {
 			if (style.borderLeftStyle !== "none" && Number.parseFloat(style.borderLeftWidth) > 0) lefts.push(name);
 		}
 		const rows: Record<string, number> = {};
-		for (const family of ["board-agent", "board-decision", "board-row", "board-event", "board-mail"]) {
+		for (const family of ["board-agent", "board-queue__row", "board-row", "board-event", "board-mail"]) {
 			rows[family] = Array.from(
 				(globalThis as unknown as { document: Doc }).document.querySelectorAll(`#board-team .${family}`),
 			).length;
@@ -144,7 +155,7 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 			const { bottoms, lefts, rows } = await census(page);
 			// The families this fixture fills: two agents, a decision (the executing card has not been
 			// spot-checked), its swimlane row, and the history the seeded moves left behind.
-			for (const family of ["board-agent", "board-decision", "board-row", "board-event"]) {
+			for (const family of ["board-agent", "board-queue__row", "board-row", "board-event"]) {
 				expect(rows[family] ?? 0, family).toBeGreaterThan(0);
 			}
 			expect(bottoms.filter((name) => name.includes(".bf-row"))).toEqual([]);
@@ -170,11 +181,11 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 	);
 
 	test(
-		"tints one card once, in the queue and in the swimlane under it",
+		"leaves one card one ground: the swimlane's, and no paper of the queue's own",
 		async () => {
 			const page = await board.reuse();
 			await page.click("#tab-team");
-			await page.waitForSelector("#board-team .board-decision", { timeout: PAINT_MS });
+			await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
 			await page.waitForTimeout(100);
 			// The ground is not composited, so two elements on one token compute one string: the paint
 			// is read, not inferred from the stylesheet.
@@ -187,28 +198,67 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 				).getComputedStyle;
 				const read = (node: ElementLike) => ({
 					card: node.getAttribute("data-card"),
-					lane: node.getAttribute("data-lane"),
 					paper: computed(node).backgroundColor,
 				});
-				const rows = Array.from(document.querySelectorAll("#board-team .board-decision"), read);
+				const rows = Array.from(document.querySelectorAll("#board-team .board-queue__row"), read);
 				const cards = Array.from(document.querySelectorAll("#board-team .bf-lane .board-row"), read);
 				// The card this fixture puts in both places: the executing one, which nobody has
 				// spot-checked, so the queue and its swimlane draw the same id.
 				const shared = rows.find((row) => cards.some((card) => card.card === row.card)) ?? null;
-				const pill = document.querySelector("#board-team .board-decision .bf-tag");
+				const pill = document.querySelector("#board-team .board-queue__row .bf-tag");
 				return {
 					row: shared,
 					card: shared === null ? null : (cards.find((card) => card.card === shared.card) ?? null),
 					pill: { text: pill?.textContent ?? "", classes: (pill as unknown as { className: string })?.className ?? "" },
 				};
 			});
-			expect(paint.row?.lane).toBe("execute");
 			expect(paint.card).not.toBeNull();
-			// One card, one ground: this is the whole change, and it is only true of a computed paper.
-			expect(paint.row?.paper).toBe(paint.card?.paper);
-			// The paper stopped saying the why, so the pill still has to: its word and its tone.
+			// One card, one ground: the queue's row is transparent, so the only paper a card has on
+			// this tab is the lane's.
+			expect(paint.row?.paper).toBe("rgba(0, 0, 0, 0)");
+			expect(paint.card?.paper).not.toBe(paint.row?.paper);
+			// The pill is what says why, in a word and a tone: the row has no paper left to say it.
 			expect(paint.pill.text).toBe("needs review");
 			expect(paint.pill.classes).toContain("bf-tone--warn");
+		},
+		CASE_MS,
+	);
+
+	test(
+		"takes a column per band on a wide window, and gives a phone the whole title",
+		async () => {
+			const page = await board.reuse();
+			await page.click("#tab-team");
+			await page.waitForSelector("#board-team .board-queue__band", { timeout: PAINT_MS });
+			// How many different lines the bands start on: one is a row of columns, three is a stack.
+			const lines = () =>
+				page.$$eval("#board-team .board-queue__band", (nodes) => {
+					const tops = Array.from(nodes as ArrayLike<ElementLike & { getBoundingClientRect(): { top: number } }>).map(
+						(node) => Math.round(node.getBoundingClientRect().top / 100),
+					);
+					return [...new Set(tops)].length;
+				});
+			// A 2K window has the width for a column of asks per band, so the queue is three lines
+			// tall instead of nine and no row is a metre wide.
+			const bands = await page.$$eval("#board-team .board-queue__band", (nodes) => nodes.length);
+			expect(bands).toBeGreaterThan(1);
+			await page.setViewportSize({ width: 2560, height: 900 });
+			await page.waitForTimeout(100);
+			expect(await lines()).toBe(1);
+			// A phone stacks them, and the title stops being one elided line: it takes the row's whole
+			// width and wraps, which is the one thing a 375px row can still do for a long name.
+			await page.setViewportSize({ width: 420, height: 900 });
+			await page.waitForTimeout(100);
+			expect(await lines()).toBe(bands);
+			const cut = await page.$$eval(
+				"#board-team .board-queue__row .bf-row__title",
+				(nodes) =>
+					Array.from(nodes as ArrayLike<ElementLike & { scrollWidth: number; clientWidth: number }>).filter(
+						(node) => node.scrollWidth > node.clientWidth + 1,
+					).length,
+			);
+			expect(cut).toBe(0);
+			await page.setViewportSize({ width: 1280, height: 900 });
 		},
 		CASE_MS,
 	);

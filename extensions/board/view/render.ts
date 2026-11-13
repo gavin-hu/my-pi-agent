@@ -240,14 +240,14 @@ __RUNTIME__
   }
 
   /**
-   * The cards as the page draws them: a board face, a decision row, or a mission card.
+   * The cards as the page draws them: a board face, a queue row, or a mission card.
    *
    * All three open their card, so all three are what j/k walks and what the dialog's position
    * counts. A folded lane keeps its cards in the document, and so does a panel the other tab
    * hides: the box is the only honest test of whether a reader can see one.
    */
   function drawnCards() {
-    var nodes = document.querySelectorAll(".board-row, .board-decision");
+    var nodes = document.querySelectorAll(".board-row, .board-queue__row");
     var seen = [];
     for (var i = 0; i < nodes.length; i++) {
       if (nodes[i].hidden) continue;

@@ -103,13 +103,13 @@ export const BOARD_CLASS = {
 	// Both "there is more" controls and the folded history row: one shape for one fact.
 	fold: "board-fold",
 
-	// Middle: the strip of decisions over three swimlanes.
-	decisions: "board-team__decisions",
-	decision: "board-decision",
-	decisionBody: "board-decision__body",
-	decisionOpen: "board-decision__open",
-	decisionRef: "board-decision__ref",
-	decisionWhy: "board-decision__why",
+	// Middle: the queue of asks, in bands, over three swimlanes.
+	queue: "board-queue",
+	queueBand: "board-queue__band",
+	queueRow: "board-queue__row",
+	queueRank: "board-queue__rank",
+	queueRef: "board-queue__ref",
+	queueWhy: "board-queue__why",
 	teamLanes: "board-team__lanes",
 	// A person's lines: the cards one session holds, one line each.
 
