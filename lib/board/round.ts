@@ -15,15 +15,42 @@
  * `unreviewed` and `unwritten`: one says the lead owes a look, the other that nobody has
  * written the card.
  *
+ * It also owns the gate each of its three queues is about — the contract, the approval, the
+ * spot-check — because a group and the word for it are one fact: the transcript's rows and
+ * `board list`'s line ask here for the word they print, rather than deciding it from `planPath`
+ * a second time.
+ *
  * Pure: no I/O and no clock of its own.
  */
 
 import { type Card, dependsOf } from "./card.ts";
-import { currentReview } from "./lead.ts";
 import { contractApproved, missingContractFields } from "./contract.ts";
+import { currentReview } from "./lead.ts";
+import { type Gate } from "./tone.ts";
 
 /** How long an `execute` card may go unwritten before the rollup calls it that. */
 export const UNWRITTEN_MS = 30 * 60 * 1_000;
+
+/**
+ * What a card still owes in the lane it is in, or `undefined` when it owes no route gate.
+ *
+ * This was two rules: the round read `planPath` plus a complete contract while the transcript's
+ * row read `planPath` alone, so a card with a plan file and half a contract printed "planned" in
+ * a row and was counted `unplanned` here. Only the two lanes a card is worked in answer — the
+ * pool owes a plan nobody has started and a blocked card owes a decision, and both are their own
+ * groups — and the spot-check asked about is `currentReview`'s, the one that speaks for the
+ * execution the card is in now.
+ */
+export function gateOf(card: Card): Gate | undefined {
+	if (card.lane === "plan") {
+		// A complete contract still needs a file to execute against: a card planned before the
+		// artifact rule has neither, and what it owes is the contract itself, not a signature.
+		if (missingContractFields(card.contract).length > 0 || card.planPath === undefined) return "contract";
+		return contractApproved(card.contract) ? undefined : "approval";
+	}
+	if (card.lane === "execute") return currentReview(card) === undefined ? "review" : undefined;
+	return undefined;
+}
 
 /**
  * One owner, the live cards it holds, and the ones it finished.
@@ -106,15 +133,13 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		if (card.lane === "backlog") unassigned.push(card);
 		if (card.lane === "done") done.push(card);
 		if (card.lane === "blocked") blocked.push(card);
-		if (card.lane === "plan") {
-			// A complete contract still needs a file to execute against: a card planned before
-			// the artifact rule has neither, and it belongs in the queue that leads somewhere.
-			if (missingContractFields(card.contract).length > 0 || card.planPath === undefined) unplanned.push(card);
-			else if (!contractApproved(card.contract)) unapproved.push(card);
-		}
-		// The lead's second signature, owed by every card in the lane: what `done` requires is a
-		// spot-check, and no clock can say whether the work behind it is finished.
-		if (card.lane === "execute" && currentReview(card) === undefined) unreviewed.push(card);
+		// The route gate a card owes, from the one rule the transcript's rows read too: a contract
+		// still being written, the approval of one nobody has read, or the spot-check of the
+		// execution the card is in now. This grouping used to be a second opinion.
+		const gate = gateOf(card);
+		if (gate === "contract") unplanned.push(card);
+		else if (gate === "approval") unapproved.push(card);
+		else if (gate === "review") unreviewed.push(card);
 		if (card.lane === "execute" && now - card.updatedAt >= UNWRITTEN_MS) unwritten.push(card);
 
 		if (card.owner === undefined) continue;

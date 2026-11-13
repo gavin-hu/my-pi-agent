@@ -170,7 +170,12 @@ export function normalizeVerify(raw: unknown): { text: string } | FieldError {
 /** The fields a contract still needs, in {@link CONTRACT_FIELDS} order. */
 export function missingContractFields(contract: Contract | undefined): ContractField[] {
 	if (contract === undefined) return [...CONTRACT_FIELDS];
-	return CONTRACT_FIELDS.filter((field) => contract[field].trim() === "");
+	// A card file is somebody's to hand-edit, so a line can be absent rather than empty: what the
+	// record holds is `unknown`, and a missing key is a line the contract still owes.
+	return CONTRACT_FIELDS.filter((field) => {
+		const value: unknown = contract[field];
+		return typeof value !== "string" || value.trim() === "";
+	});
 }
 
 /** Whether a contract is complete enough to be approved. */

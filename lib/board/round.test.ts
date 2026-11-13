@@ -10,7 +10,8 @@ import { describe, expect, test } from "bun:test";
 import { type Card } from "./card.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { LANES } from "./lanes.ts";
-import { buildRound, UNWRITTEN_MS } from "./round.ts";
+import { buildRound, gateOf, UNWRITTEN_MS } from "./round.ts";
+import { laneSince } from "./card.ts";
 
 const NOW = 1_000_000;
 
@@ -110,6 +111,16 @@ describe("buildRound", () => {
 	test("unplanned is a plan card whose contract is still missing a line", () => {
 		const round = buildRound([planning("1"), planned("2", COMPLETE)], NOW);
 		expect(round.unplanned.map((entry) => entry.id)).toEqual(["1"]);
+	});
+
+	test("a plan file with half a contract is unplanned, which the row used to call planned", () => {
+		// The drift `gateOf` removed: the round read `planPath` plus a complete contract, the
+		// transcript's row read `planPath` alone, so this card was `unplanned` here and `planned`
+		// there. One rule in `round.ts` answers both now.
+		const half = { goal: "g", acceptance: "a" } as Card["contract"];
+		const round = buildRound([planned("1", half)], NOW);
+		expect(round.unplanned.map((entry) => entry.id)).toEqual(["1"]);
+		expect(round.unapproved).toEqual([]);
 	});
 
 	test("unapproved is a complete contract nobody has signed, which is the lead's queue", () => {
@@ -221,5 +232,63 @@ describe("buildRound", () => {
 		// same card from the lead's angle: two panels, one card.
 		expect(round.owners.flatMap((group) => group.cards).map((entry) => entry.id)).toEqual(["2", "3"]);
 		expect(LANES).toHaveLength(5);
+	});
+});
+
+describe("the gate a card owes", () => {
+	/** An executing card that entered its lane at `since`, with a sign made at `at`. */
+	const reviewed = (since: number, at: number): Card =>
+		doing("1", {
+			planPath: "plans/1.md",
+			review: { by: "billing-lead", at },
+			log: [
+				{ lane: "backlog", at: since - 2_000, by: "billing-lead" },
+				{ lane: "execute", at: since, by: "billing-core" },
+			],
+		});
+
+	test("answers for the two lanes a card is worked in, and for nothing else", () => {
+		// The pool owes a plan nobody has started and a blocked card owes a decision: both are
+		// their own groups in the rollup, and a route gate here would name them twice.
+		expect(gateOf(card("1", { lane: "backlog" }))).toBeUndefined();
+		expect(gateOf(card("1", { lane: "blocked" }))).toBeUndefined();
+		expect(gateOf(card("1", { lane: "done" }))).toBeUndefined();
+	});
+
+	test("names the contract a plan card has not finished writing", () => {
+		expect(gateOf(planned("1"))).toBe("contract");
+		// One line short is the same gate: the contract is what the card owes, not a signature.
+		const half = { goal: "g", acceptance: "a" } as Card["contract"];
+		expect(gateOf(planned("1", half))).toBe("contract");
+	});
+
+	test("names the contract when a complete one has no plan to execute against", () => {
+		// The artifact rule: a contract names the file the work is run against, and a card planned
+		// before it existed has none — `execute` would refuse it, so it owes a contract.
+		expect(gateOf(planning("1", { ...COMPLETE, approved: { by: "lead", at: NOW } }))).toBe("contract");
+	});
+
+	test("names the approval of a complete contract nobody has read", () => {
+		expect(gateOf(planned("1", COMPLETE))).toBe("approval");
+	});
+
+	test("answers nothing for a plan card that is signed and ready", () => {
+		expect(gateOf(planned("1", { ...COMPLETE, approved: { by: "lead", at: NOW } }))).toBeUndefined();
+	});
+
+	test("names the spot-check an execute card has not had", () => {
+		expect(gateOf(doing("1", { planPath: "plans/1.md" }))).toBe("review");
+	});
+
+	test("reads a spot-check older than the lane entry as the one still owed", () => {
+		// A reclaim carries a sign back into the pool, so the sign speaks for the execution it was
+		// made in and not for this one: the row could not see this while it read `planPath`.
+		const stale = reviewed(NOW - 60_000, NOW - 61_000);
+		expect(laneSince(stale)).toBe(NOW - 60_000);
+		expect(gateOf(stale)).toBe("review");
+	});
+
+	test("answers nothing for an execute card whose spot-check is this execution's", () => {
+		expect(gateOf(reviewed(NOW - 60_000, NOW - 59_000))).toBeUndefined();
 	});
 });

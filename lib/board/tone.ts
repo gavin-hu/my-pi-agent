@@ -101,6 +101,26 @@ export const DECISION_LABEL: Record<DecisionKind, string> = {
 export const DECISION_LABEL_JS = JSON.stringify(DECISION_LABEL);
 
 /**
+ * The route gates a card can owe, in the order a card meets them.
+ *
+ * A card in flight owes at most one: the contract of a `plan` card, that contract's approval, or
+ * the spot-check that lets an execution close. `gateOf` in `round.ts` is the rule that answers
+ * which — this is the closed list and the words, so the transcript's row, `board list`'s line and
+ * the Team queue cannot spell one state two ways.
+ */
+export const GATES = ["contract", "approval", "review"] as const;
+
+/** One gate a card still owes. */
+export type Gate = (typeof GATES)[number];
+
+/** The word a gate wears, taken from the table the queue's pills read. */
+export const GATE_WORD: Record<Gate, string> = {
+	contract: DECISION_LABEL.unplanned,
+	approval: DECISION_LABEL.approval,
+	review: DECISION_LABEL.review,
+};
+
+/**
  * How the queue's rows are grouped, in the order the column reads them.
  *
  * A lead reads the queue to answer one question first — *whose move is this?* — and the kinds

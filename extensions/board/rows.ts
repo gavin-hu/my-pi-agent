@@ -14,6 +14,8 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Card, cardRef, DEFAULT_PRIORITY, holds, priorityOf } from "../../lib/board/card.ts";
+import { gateOf } from "../../lib/board/round.ts";
+import { GATE_WORD } from "../../lib/board/tone.ts";
 import { LANE_RULES } from "../../lib/board/lanes.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import { type BoardTone, REASON_TONE } from "../../lib/board/tone.ts";
@@ -31,13 +33,13 @@ interface Fact {
 }
 
 /**
- * Who holds a card, the lane it sits in, and — for work in flight — whether it was planned
- * first, with the priority when it is not the ordinary one.
+ * Who holds a card, the lane it sits in, what it still owes, with the priority when it is not
+ * the ordinary one.
  *
- * A row carries the lane because a flat listing has no section heading to say it, and
- * "planned" because a card nobody planned is the one a lead looks at. The priority rides
- * along for the same reason: inside a lane the order is the priority, and an order nobody
- * can see reads as an accident.
+ * A row carries the lane because a flat listing has no section heading to say it, and the gate —
+ * the contract, the approval, the spot-check — because a card waiting for a signature used to
+ * read exactly like one that had it. The priority rides along for the same reason: inside a lane
+ * the order is the priority, and an order nobody can see reads as an accident.
  */
 function factsOf(card: Card): Fact[] {
 	const facts: Fact[] = [
@@ -49,17 +51,11 @@ function factsOf(card: Card): Fact[] {
 	const priority = priorityOf(card);
 	if (priority !== DEFAULT_PRIORITY) facts.push({ text: priority, tone: "muted" });
 	facts.push({ text: card.lane, tone: LANE_RULES[card.lane].role });
-	// The pool has no plan to speak of and a finished card is history, so only a lane
-	// somebody is working in says whether the work was planned first. An unplanned card
-	// wears the tone the page's reason line gives the same fact.
-	const rule = LANE_RULES[card.lane];
-	if (!rule.ownerless && !rule.terminal) {
-		facts.push(
-			card.planPath === undefined
-				? { text: "unplanned", tone: REASON_TONE.contract }
-				: { text: "planned", tone: "muted" },
-		);
-	}
+	// What the card owes before it can move on, in the words the Team queue's pills use. A card
+	// that owes no gate says nothing: `planned` was a word about a file, and it read the same as
+	// a card waiting for a signature.
+	const gate = gateOf(card);
+	if (gate !== undefined) facts.push({ text: GATE_WORD[gate], tone: REASON_TONE[gate] });
 	return facts;
 }
 

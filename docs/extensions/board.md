@@ -47,6 +47,7 @@ names a plan file in this repository's store. A claim also joins the team ([`tea
 
 A card is as tall as it draws. The line above its last one says what it owes — `contract ready — needs
 approval`, what it waits on — and is blank when it owes nothing; a note's prose stays off the face.
+The row and `board list` print that gate in one word, and nothing for a card that owes none.
 
 ## Reference
 
@@ -59,17 +60,16 @@ is closed. Each move follows the one transition from where the card is; no lane 
 The pane is the one scroll box, so a lane is as tall as the board and its head rides the pane's
 edge however long a neighbour is. The Team tab draws that same card, no rule between two of them.
 
-**Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`,
-`reclaim`, `move`, `note`, `contract`, `approve`, `review`, `edit`, `archive`,
-`drop`. `claim`, `move` and `assign` are refused while `plan` or `execute` is full, naming the
-ways out. `reclaim` takes a card back to `backlog` from its holder, the person and the lead
-always, and from a peer only while that owner's record says quiet or gone. `move` into
-`execute` or `done` re-reads the plan where the write lands: a plan that is gone refuses the
-move, and the face says `its plan is gone`. A sign nobody heard reads `· not told` on a live
-card; saying it again sends it. A contract may name a `verify` command: `review` runs
-it in the board's tree (the worktree you entered), recording the exit, commit, and tree;
-`done` refuses a sign with no result, or one older than the card's write. A `review` that would
-be refused runs nothing, and an `override` — one line saying why, `closed by instruction` — none.
+**Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`,
+`note`, `contract`, `approve`, `review`, `edit`, `archive`, `drop`. `claim`, `move` and `assign` are
+refused while `plan` or `execute` is full, naming the ways out. `reclaim` takes a card back to
+`backlog` from its holder, the person and the lead always, a peer only while that owner's record says
+quiet or gone. `move` into `execute` or `done` re-reads the plan where the write lands: a plan that is
+gone refuses the move, and the face says `its plan is gone`. A sign nobody heard reads `· not told`;
+saying it again sends it. A contract may name a `verify` command: `review` runs it in the board's tree
+(the worktree you entered), recording the exit, commit and tree; `done` refuses a sign with no result,
+or one older than the card's write. A refused `review` runs nothing; an `override` says why and reads
+`closed by instruction`.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);
 `/board approve <id>` and `/board review <id>` sign as the person; `/board archive` runs the sweep;

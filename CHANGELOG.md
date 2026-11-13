@@ -39,6 +39,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   matches the name that answers; no card file is rewritten, and a board with no bus shows the label the
   card kept.
 
+- `board`: a card's gate is one rule, and the terminal says it. The transcript's row and
+  `board list`'s line print the contract, approval or spot-check a card still owes — `no contract`,
+  `needs approval`, `needs review`, in the words the Team tab's queue already used — and nothing at
+  all for a card that owes no gate, where `planned` was printed whatever the card was waiting for.
+  `gateOf` in `lib/board/round.ts` is that answer once — the words are `tone.ts`'s, aliases of the
+  queue's labels — so the round's `unplanned`/`unapproved`/`unreviewed` groups and the row read it,
+  and it asks `currentReview`: a spot-check carried back by a reclaim counts as the one still owed
+  rather than as a sign. A plan card with a plan file and
+  half a contract used to read `planned` in a row and `unplanned` in the rollup; it reads `no
+  contract` in both. `missingContractFields` also survives a hand-edited contract with a line
+  missing, which crashed the rule instead of naming the line.
+
 - `board`: the Team tab's `NEEDS YOU` pane is three bands by whose move each ask is — `YOUR
   SIGNATURE` (an approval, a spot-check), `UNCLAIMED` (nobody holds it, or its owner is gone) and
   `STALLED` (blocked, unwritten, no contract) — and every ask is drawn. Each is one line with its
