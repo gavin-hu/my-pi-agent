@@ -91,8 +91,8 @@ heard it — quiet, not listening, or not told — and an untold one is sent aga
 - The lead is a name, not an authority: any session can join it, and a lead holding a card
   can release it, sign it, and claim it again. A gate is a reading, not a permission.
 - Ownership is a session id, not a lock: only `session-bus` path claims are. A card in `execute`
-  holds its `paths`, and a lane change releases only the writer's — so a `reclaim` from a peer
-  names what stays held; a card whose owner's session ended is released at the next start.
+  holds its `paths`, and a lane change releases only the writer's — so a peer's `reclaim` names
+  what stays held; a card whose owner ended is released by another session's start, never its own.
 - A card keeps eight lane transitions; an unreadable card file is skipped, and named in the listing.
 - The page sweeps every five seconds for the facts no card file announces — a card gone
   unwritten, a peer quiet or gone, a plan removed — and scans every second with no watch.

@@ -88,6 +88,23 @@ describe("the sweep at a turn start", () => {
 		expect((await lead.call({ action: "list", card: "1" })).details.card?.lane).toBe("plan");
 	});
 
+	test("leaves the caller's own card alone when its own record reads gone", async () => {
+		const { cwd, lead, peer } = board();
+		for (const title of ["One", "Two"]) await lead.call({ action: "add", title });
+		await lead.call({ action: "claim", card: "1" });
+		await peer.call({ action: "claim", card: "2" });
+		// The record a `/resume` inherits: this session's own id, and the pid of the process that
+		// crashed. Both owners read `gone`, and only the peer's card is one to release — the sweep runs
+		// right after this session re-claimed #1's paths, so taking it back would undo its own turn.
+		await record(lead.board.runtime, cwd, { id: LEAD_ID, label: LEAD, pid: DEAD_PID, lastSeen: NOW });
+		await record(peer.board.runtime, cwd, { pid: DEAD_PID, lastSeen: NOW });
+
+		expect(await releaseEnded(lead.board.runtime, lead.board.ctx)).toBe("released #2 from a session that ended");
+		// Still held, and still the caller's: the guard narrowed the sweep rather than disarming it.
+		expect((await lead.call({ action: "list", card: "1" })).details.card?.owner?.id).toBe(LEAD_ID);
+		expect((await lead.call({ action: "list", card: "2" })).details.card?.owner).toBeUndefined();
+	});
+
 	test("skips a refusal and still releases the card it can", async () => {
 		const { cwd, lead, peer } = board();
 		for (const title of ["One", "Two"]) await lead.call({ action: "add", title });

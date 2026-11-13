@@ -13,7 +13,7 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { cardRef } from "../../lib/board/card.ts";
+import { cardRef, holds } from "../../lib/board/card.ts";
 import { LANE_RULES } from "../../lib/board/lanes.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { listOf } from "../../lib/format.ts";
@@ -42,6 +42,10 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 		const released: string[] = [];
 		for (const card of cards) {
 			if (card.owner === undefined || LANE_RULES[card.lane].terminal) continue;
+			// A card this session holds is not its to release. A `/resume` inherits the id, and the record
+			// the crashed process left behind is gone by pid — so this sweep, which runs right after the
+			// re-claim of those same paths, would take back the work it has just resumed.
+			if (holds(card, me)) continue;
 			const state = presenceOf(roster, card.owner, now);
 			if (state !== "gone") continue;
 			const result = await store
