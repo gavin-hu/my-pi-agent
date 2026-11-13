@@ -6,7 +6,8 @@
  * message names this session as the way back, so a lead the bus will not hold is a reply the
  * peer's `session send` refuses. `/team join` is the fifth door and asks the bus directly,
  * because a typed label is a rename: it lands on the label it was given even when the bus
- * already holds this session.
+ * already holds this session. A bare one asks for a name the project lists and renames nothing,
+ * so which label to ask for is that door's business, not this module's.
  *
  * A join that did not land is a `TeamState` carrying the reason and, when one is known, what a
  * reader can do about it — the bus's sentence says what happened and never what to do, and the

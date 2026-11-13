@@ -8,6 +8,7 @@
  */
 
 import { type Card, cardRef } from "../../lib/board/card.ts";
+import type { AddTeammateResult } from "../../lib/board/config.ts";
 import { type DeliveryFailure, notDeliveredLine } from "../../lib/session-tool.ts";
 import type { TeamAction } from "./types.ts";
 
@@ -24,6 +25,25 @@ export function formatJoined(label: string, watching: { armed: boolean }, note?:
 /** `/team join` did not land, so nothing about this session changed. */
 export function formatNotJoined(reason: string): string {
 	return `team: not on the team — ${reason}`;
+}
+
+/**
+ * What the join line says after the name: the bar's verdict on a typed label, else where a bare
+ * join's name came from.
+ *
+ * One function because a join makes at most one of the two facts — a typed label is the one door that
+ * writes the team, a picked one is read from it — and a line saying both would be about a change the
+ * reader did not make and a choice they did not make either. Nothing when the team already held a
+ * typed name: the bar names the session either way, and a second sentence would be about a change
+ * that did not happen.
+ */
+export function joinNote(named: AddTeammateResult | undefined, picked: string | undefined): string | undefined {
+	if (named !== undefined) {
+		if (!named.ok) return `The bar will not name you: ${named.reason}.`;
+		return named.changed ? "team.teammates now holds it, so the bar names you." : undefined;
+	}
+	if (picked === undefined) return undefined;
+	return "Team name from `team.teammates` — `/team join <label>` picks another.";
 }
 
 /**

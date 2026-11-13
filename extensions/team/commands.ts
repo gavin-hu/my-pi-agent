@@ -6,18 +6,21 @@
  * tool returns, the work a dead owner left behind, and one line saying who is live. It
  * reads the cards and the bus's records and writes nothing: acting on the round is
  * `team`'s tool (`assign`, `offer`, `reclaim`, `claim`) or `board`'s.
+ *
+ * `/team join` lives here too, and stays in this module: the entry's registration budget counts the
+ * modules it loads, so a door of its own would cost a start for one command's words.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { AddTeammateResult } from "../../lib/board/config.ts";
+import { addTeammate, type AddTeammateResult, readTeamConfig } from "../../lib/board/config.ts";
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import { buildRound, type RoundSummary } from "../../lib/board/round.ts";
 import { formatRound, holdingLine, plural, withLiveOwner } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
 import { type RosterSession, presenceOf, rosterStateOf } from "../../lib/session-roster.ts";
-import { sessionNameOf } from "../../lib/session-label.ts";
-import { formatJoined, formatNotJoined } from "./format.ts";
+import { agentLabel, sessionNameOf } from "../../lib/session-label.ts";
+import { formatJoined, formatNotJoined, joinNote } from "./format.ts";
 
 /** The command's name, which is also the word a user types. */
 export const TEAM_COMMAND = "team";
@@ -49,12 +52,11 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			if (word === "join") {
 				const label = rest.join(" ").trim();
 				// A typed label is the one naming action: it is also Pi's session name, which is what
-				// `/team join` is for. With no label, a session Pi already names keeps that name and
-				// the bus derives it; one with no name of its own draws a preset teammate name
-				// instead of landing on the repository's basename, and the drawn name renames nothing
-				// because it is the team's, not the user's.
-				const input: TeamJoinInput = label === "" ? await unnamedJoin(session, ctx) : { label, name: true };
-				const joined = await team.join(ctx, input);
+				// `/team join` is for. With no label the project's own team names the session when it
+				// can — see `unnamedJoin` — and the join renames nothing, because a name the file already
+				// lists is the team's, not the user's.
+				const asked: JoinAsk = label === "" ? await unnamedJoin(session, ctx) : { input: { label, name: true } };
+				const joined = await team.join(ctx, asked.input);
 				// The standing is the session's, not this command's: `/board status` reports the team
 				// whichever door put it there, and a typed label is the one door that always asks.
 				session.team.record(joined);
@@ -62,7 +64,10 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 				// renamed this session is what puts that name on the list: otherwise the one door meant
 				// to name the footer would leave the chip empty and say nothing about why.
 				const named = joined.ok && label !== "" ? await nameTheBar(pi, ctx.cwd, joined.label) : undefined;
-				ctx.ui.notify(joinedLine(joined, named), joined.ok && named?.ok !== false ? "info" : "warning");
+				ctx.ui.notify(
+					joinedLine(joined, joinNote(named, asked.picked)),
+					joined.ok && named?.ok !== false ? "info" : "warning",
+				);
 				return;
 			}
 			if (word !== "") {
@@ -82,31 +87,57 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 	});
 }
 
+/** What a bare `/team join` asks the bus for, and the project name it took when it took one. */
+interface JoinAsk {
+	input: TeamJoinInput;
+	/** The `team.teammates` name this join picked; absent when it kept a name or drew one. */
+	picked?: string;
+}
+
 /**
- * What a bare `/team join` asks for: nothing, when Pi already names the session and the
- * bus can derive that, and otherwise the name the board draws for it.
+ * What a bare `/team join` asks for: nothing, when Pi already names the session and the bus can
+ * derive that; the name this session already answers to; or the first free name the project's team
+ * lists, and the drawn one only when that list has nothing to give.
  *
- * A drawn name is the team's, not the user's, so `name` is never set here: only a typed
- * label is meant to rename the footer.
+ * A name the project lists is the team's, not the user's, so `name` is never set here: only a typed
+ * label is meant to rename the footer. The drawn name is the last resort it always was — a session
+ * whose team names nobody keeps the one name that cannot collide.
  */
-async function unnamedJoin(session: BoardSession, ctx: ExtensionCommandContext): Promise<TeamJoinInput> {
-	if ((sessionNameOf(ctx) ?? "").trim() !== "") return {};
-	return { label: (await session.who(ctx, ctx.cwd)).label };
+async function unnamedJoin(session: BoardSession, ctx: ExtensionCommandContext): Promise<JoinAsk> {
+	if ((sessionNameOf(ctx) ?? "").trim() !== "") return { input: {} };
+	const who = await session.who(ctx, ctx.cwd);
+	// A label better than the drawn one is a name this session already answers to: the record a claim
+	// wrote, the seat the page serves as, or an earlier `/team join`. Asking again would rename it.
+	const drawn = who.id === undefined ? undefined : agentLabel(who.id);
+	if (drawn === undefined || who.label !== drawn) return { input: { label: who.label } };
+	const picked = await freeTeammate(session, ctx, drawn);
+	return { input: { label: picked }, ...(picked === drawn ? {} : { picked }) };
+}
+
+/**
+ * The first name `team.teammates` lists that nobody holds: not the project's `team.lead`, whose label
+ * decides the two gates, and not any name a record on this repository's bus still answers to — a
+ * record holds its label until the pruner takes it, gone or not.
+ */
+async function freeTeammate(session: BoardSession, ctx: ExtensionCommandContext, drawn: string): Promise<string> {
+	const { lead, teammates } = readTeamConfig(ctx.cwd);
+	const roster = await session.roster(ctx.cwd).catch(() => undefined);
+	const held = new Set((roster ?? []).map((record) => record.label.toLowerCase()));
+	const leadName = lead.toLowerCase();
+	const free = teammates.find((name) => name.toLowerCase() !== leadName && !held.has(name.toLowerCase()));
+	return free ?? drawn;
 }
 
 /**
  * Put the name this join made onto the team, then tell a bar to re-read it.
  *
- * Both loads are deferred to this one door: the board's config pulls the lead's rules and the lane
- * table, and this command's registration graph is a budget that may only fall. The channel is
- * emitted only for a write that changed something — a bar re-reading an unchanged team is work
- * for no name — and only after the write, because the bar reads the file.
+ * The channel is the one load deferred to this door: the board's config is already paid by the store
+ * this command reads, while the event name is not on the start path at all. It is emitted only for a
+ * write that changed something — a bar re-reading an unchanged team is work for no name — and only
+ * after the write, because the bar reads the file.
  */
 async function nameTheBar(pi: ExtensionAPI, cwd: string, label: string): Promise<AddTeammateResult> {
-	const [{ addTeammate }, { TEAM_CHANGED_CHANNEL }] = await Promise.all([
-		import("../../lib/board/config.ts"),
-		import("../../lib/events.ts"),
-	]);
+	const { TEAM_CHANGED_CHANNEL } = await import("../../lib/events.ts");
 	const named = addTeammate(cwd, label);
 	if (named.ok && named.changed) pi.events.emit(TEAM_CHANGED_CHANNEL, { cwd });
 	return named;
@@ -116,22 +147,9 @@ async function nameTheBar(pi: ExtensionAPI, cwd: string, label: string): Promise
  * `/team join`'s line: who this session is on the team, what the bar will draw, or why it is on
  * none.
  */
-export function joinedLine(result: JoinResult, named?: AddTeammateResult): string {
+export function joinedLine(result: JoinResult, note?: string): string {
 	if (!result.ok) return formatNotJoined(result.error);
-	return formatJoined(result.label, result.watching, teammateNote(named));
-}
-
-/**
- * What the bar will draw for the name this join made, as the sentence after the join.
- *
- * Nothing when the team already held the name: the bar names the session either way, and a second
- * sentence would be about a change that did not happen. A write that failed is a file the person
- * can fix, so it is the one failure this note has.
- */
-function teammateNote(named: AddTeammateResult | undefined): string | undefined {
-	if (named === undefined) return undefined;
-	if (named.ok) return named.changed ? "team.teammates now holds it, so the bar names you." : undefined;
-	return `The bar will not name you: ${named.reason}.`;
+	return formatJoined(result.label, result.watching, note);
 }
 
 /**
