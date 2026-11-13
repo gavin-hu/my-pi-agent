@@ -15,7 +15,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { planForContract, planIsGone } from "../../lib/board/artifact.ts";
 import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
-import { movableLanes } from "../../lib/board/lanes.ts";
+import { type Lane, movableLanes } from "../../lib/board/lanes.ts";
 import { indexOf } from "../../lib/board/links.ts";
 import type { Verification } from "../../lib/board/contract.ts";
 import { signMark } from "../../lib/board/lead.ts";
@@ -157,8 +157,8 @@ export function registerTools(
 			if (typeof actor === "string") return refusal(action, { label: BOARD_TOOL }, actor);
 			const me = actor;
 			/** What `store.mutate` should be told about the card's plan, proved the way the tool proves it. */
-			const proofOf = (store: BoardStore, rawCard: string | undefined) =>
-				(proofModule ??= import("./proof.ts")).then((module) => module.provedPlan(runtime, ctx.cwd, store, rawCard));
+			const proofOf = (store: BoardStore, rawCard: string | undefined, lane?: Lane) =>
+				(proofModule ??= import("./proof.ts")).then((m) => m.moveProofs(runtime, ctx.cwd, store, rawCard, lane, pi));
 			/** The crossing this call can make, bound to its context once. */
 			const cross = (result: MutateResult) => runtime.cross(ctx, result).catch(() => undefined);
 			/**
@@ -246,15 +246,15 @@ export function registerTools(
 						if (lane === undefined) {
 							return refusal(action, me, `move needs a target lane: ${listOf(movableLanes())}.`);
 						}
-						// `execute` and `done` carry the proof that the plan the card recorded is still
-						// there, and a board outside a repository simply has no proof to check.
-						const proved = lane === "execute" || lane === "done" ? await proofOf(store, args.card) : undefined;
+						const { artifact: proved, landed } =
+							lane === "execute" || lane === "done" ? await proofOf(store, args.card, lane) : {};
 						const op: CardOp = {
 							kind: "move",
 							lane,
 							...(args.blockedBy === undefined ? {} : { blockedBy: args.blockedBy }),
 							...(args.blocker === undefined ? {} : { blocker: args.blocker }),
 							...(proved === undefined ? {} : { artifact: proved }),
+							...(landed === undefined ? {} : { landed }),
 						};
 						return await mutate(store, action, me, now, args, op, { cross });
 					}
@@ -285,7 +285,7 @@ export function registerTools(
 						// An approval covers the plan the card names as well as its wording, so it carries
 						// the same proof a move does. A spot-check is about work already done, and the
 						// `done` move proves the plan then, so it pays for nothing here.
-						const artifact = action === "approve" ? await proofOf(store, args.card) : undefined;
+						const artifact = action === "approve" ? (await proofOf(store, args.card)).artifact : undefined;
 						// A spot-check of a card whose contract names a command is that command's run:
 						// a refusal here writes nothing, which is what keeps a red check from signing.
 						const evidence = action === "review" ? await verifiedFor(store, args.card, args.override) : undefined;

@@ -16,7 +16,11 @@
  * the same answer for the same card.
  */
 
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type ArtifactProof, planForExecute } from "../../lib/board/artifact.ts";
+import { resolveLanding, type LandingProof } from "../../lib/board/contract.ts";
+import type { Lane } from "../../lib/board/lanes.ts";
+
 import { normalizeCardId } from "../../lib/board/card.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
@@ -41,4 +45,61 @@ export async function provedPlan(
 	if (card?.planPath === undefined) return undefined;
 	const planDir = await runtime.planDir(cwd);
 	return () => planForExecute(planDir, card);
+}
+
+/**
+ * What `store.mutate` should be told about the branch a card landed on, for a move to `done`.
+ *
+ * The board resolves the landing rather than accepting one: the model names nothing here, so a
+ * card cannot claim a merge it did not get. Three git calls, and only for a card whose sign names a
+ * commit — a run outside a repository names none, and its card owes no landing.
+ *
+ * The chain is read from the repository's checkout, not the session's tree: work is made in a
+ * worktree and lands in the checkout, so the checkout is the only tree whose first-parent line is
+ * the landing line. `resolveLanding` is called here for one reason — the diff it needs a sha for —
+ * and then the gate calls it again under the lock with the same chain, so what is handed over is a
+ * question answered once and asked twice, not a second rule.
+ */
+export async function landedChain(
+	store: Pick<BoardStore, "read" | "root">,
+	rawCard: string | undefined,
+	pi: Pick<ExtensionAPI, "exec">,
+): Promise<LandingProof | undefined> {
+	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
+	const card = id === undefined ? undefined : await store.read(id);
+	const reviewed = card === undefined ? undefined : card.review?.verified?.sha;
+	if (id === undefined || card === undefined || reviewed === undefined) return undefined;
+	// The git readers and their runner load here rather than at registration: a board that never
+	// closes a card pays nothing for them, and the entry's static graph stays where it was.
+	const { currentBranch, firstParentChain, movedPaths } = await import("../../lib/git/read.ts");
+	const { createExecRunner } = await import("../../lib/git/runner.ts");
+	const runGit = createExecRunner(pi);
+	const root = store.root();
+	const branch = (await currentBranch(runGit, root).catch(() => undefined)) ?? "main";
+	const chain = await firstParentChain(runGit, root, branch);
+	if (chain.length === 0) return undefined;
+	const check = resolveLanding({ branch, chain }, reviewed, id);
+	if ("error" in check) return { branch, chain };
+	const moved = await movedPaths(runGit, root, reviewed, check.sha, card.paths);
+	return { branch, chain, ...(moved.length === 0 ? {} : { moved }) };
+}
+
+/**
+ * Both proofs a move carries: the plan it is executed against, and the branch a close landed on.
+ *
+ * One body because the two doors ask both questions from one lazily-loaded module, and because a
+ * move to `done` is the only one that needs the second: a caller that is not closing pays nothing
+ * for the chain, and `commands.ts` still reaches `provedPlan` directly for the plan alone.
+ */
+export async function moveProofs(
+	runtime: Pick<BoardSession, "planDir">,
+	cwd: string,
+	store: Pick<BoardStore, "read" | "root">,
+	rawCard: string | undefined,
+	lane: Lane | undefined,
+	pi: Pick<ExtensionAPI, "exec">,
+): Promise<{ artifact?: ArtifactProof; landed?: LandingProof }> {
+	const artifact = await provedPlan(runtime, cwd, store, rawCard);
+	const landed = lane === "done" ? await landedChain(store, rawCard, pi) : undefined;
+	return { ...(artifact === undefined ? {} : { artifact }), ...(landed === undefined ? {} : { landed }) };
 }

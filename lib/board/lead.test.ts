@@ -9,13 +9,13 @@ import { describe, expect, test } from "bun:test";
 import { numberedCard } from "../../test/helpers/fixtures/board.ts";
 import {
 	accepted,
+	doneOf,
 	applyOp,
 	boardOf,
 	CORE,
 	executing,
 	LEAD as BOARD_LEAD,
 	NOW,
-	provedFor,
 	refusal,
 	VERIFY,
 	verifying,
@@ -342,19 +342,13 @@ describe("the stamp a repeat makes", () => {
 		// the gate it was told to satisfy.
 		const signed = at(verifying(), { kind: "review", verified: run(NOW + 1) }, NOW + 1);
 		const noted = at(signed, { kind: "note", text: "one more thing" }, NOW + 2, CORE);
-		expect(
-			refusal(
-				applyOp(noted, { kind: "move", lane: "done", artifact: provedFor(noted) }, CORE, NOW + 3, boardOf(noted)),
-			),
-		).toContain("was written after its spot-check");
+		expect(refusal(applyOp(noted, doneOf(noted), CORE, NOW + 3, boardOf(noted)))).toContain(
+			"was written after its spot-check",
+		);
 		const again = at(noted, { kind: "review", verified: run(NOW + 4) }, NOW + 4);
 		expect(again.review?.at).toBe(NOW + 4);
 		expect(again.review?.verified).toEqual(run(NOW + 4));
-		expect(
-			accepted(
-				applyOp(again, { kind: "move", lane: "done", artifact: provedFor(again) }, CORE, NOW + 5, boardOf(again)),
-			).card.lane,
-		).toBe("done");
+		expect(accepted(applyOp(again, doneOf(again), CORE, NOW + 5, boardOf(again))).card.lane).toBe("done");
 	});
 
 	test("re-makes a sign that speaks, even where the card has not outgrown the old one", () => {

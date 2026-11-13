@@ -30,6 +30,7 @@
  */
 
 import type { ArtifactProof } from "./artifact.ts";
+import type { LandingProof } from "./contract.ts";
 import {
 	type Card,
 	type CardBlock,
@@ -86,6 +87,8 @@ export type CardOp =
 			blockedBy?: unknown;
 			blocker?: unknown;
 			artifact?: ArtifactProof;
+			/** What the door read about the branch a card landed on, for a move to `done`. */
+			landed?: LandingProof;
 	  }
 	// `text` and the contract fields are whatever the model sent: the modules that own
 	// them validate them, and the refusal they produce is the one the caller shows.
@@ -276,7 +279,7 @@ function prepare(
 		case "release":
 			return release(card, actor);
 		case "move":
-			return move(card, op, actor, board, config);
+			return move(card, op, actor, board, config, now);
 		case "note":
 			return note(card, op.text, actor, now);
 		case "contract":

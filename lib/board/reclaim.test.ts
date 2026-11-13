@@ -18,6 +18,7 @@ import {
 	CORE,
 	claimed,
 	created,
+	doneOf,
 	LEAD,
 	NOW,
 	OTHER,
@@ -136,17 +137,9 @@ describe("the spot-check it keeps", () => {
 		const op = { kind: "move" as const, lane: "execute" as const, artifact: provedFor(again) };
 		const executingAgain = accepted(applyOp(again, op, CORE, NOW + 3, boardOf(again))).card;
 		expect(executingAgain.review).toMatchObject({ by: LEAD.label });
-		expect(
-			refusal(
-				applyOp(
-					executingAgain,
-					{ kind: "move", lane: "done", artifact: provedFor(executingAgain) },
-					CORE,
-					NOW + 4,
-					boardOf(executingAgain),
-				),
-			),
-		).toContain("has no spot-check recorded");
+		expect(refusal(applyOp(executingAgain, doneOf(executingAgain), CORE, NOW + 4, boardOf(executingAgain)))).toContain(
+			"has no spot-check recorded",
+		);
 		// The lead's fresh look stamps, rather than reading back as the sign already there.
 		const resigned = accepted(
 			applyOp(

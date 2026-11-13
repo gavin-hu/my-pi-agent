@@ -192,6 +192,20 @@ export function ranClause(run: Verification | undefined): string {
 export const RAN_CLAUSE_JS = String(ranClause);
 
 /**
+ * The merge a review became, in the phrase the signature line carries.
+ *
+ * One body for the person's `/board review` line and the page's dialog, for the same reason the
+ * run's is one: two surfaces that each spell a landing will spell it differently the first day one
+ * of them gains a case. Empty for a card closed by instruction, which has no landing to name.
+ */
+export function landedClause(landed: { sha: string } | undefined): string {
+	return landed === undefined ? "" : " · landed " + landed.sha.slice(0, 7);
+}
+
+/** The same body, as the browser receives it. */
+export const LANDED_CLAUSE_JS = String(landedClause);
+
+/**
  * What a session is holding, in one phrase: `#162 plan`, `#162 plan +2`, or `idle`.
  *
  * The first card is named because an id and a lane are what the next verb takes, and the rest

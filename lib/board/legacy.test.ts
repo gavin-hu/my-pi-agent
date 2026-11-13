@@ -17,7 +17,7 @@ import {
 	LEAD,
 	LEGACY_CONTRACT,
 	NOW,
-	provedFor,
+	doneOf,
 	refusal,
 	stepOf,
 	legacyCard,
@@ -44,9 +44,7 @@ describe("a contract stored before the fourth line was required", () => {
 
 	test("is refused a close, naming the line and the approval recording it costs", () => {
 		const legacy = stepOf(legacyCard(), { kind: "review" }, LEAD);
-		expect(
-			refusal(applyOp(legacy, { kind: "move", lane: "done", artifact: provedFor(legacy) }, CORE, NOW, boardOf(legacy))),
-		).toContain("names no `verify` command");
+		expect(refusal(applyOp(legacy, doneOf(legacy), CORE, NOW, boardOf(legacy)))).toContain("names no `verify` command");
 	});
 
 	test("said as one sentence: the line, the action, and the approval it costs", () => {

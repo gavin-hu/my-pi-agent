@@ -13,6 +13,7 @@
 import type { Card } from "../../../lib/board/card.ts";
 import { boardConfig, type BoardConfig } from "../../../lib/board/config.ts";
 import type { Contract } from "../../../lib/board/contract.ts";
+import type { LandingProof } from "../../../lib/board/contract.ts";
 import { indexOf } from "../../../lib/board/links.ts";
 import { type Actor, applyOp as apply, createCard, mayOp as dryRun, type OpResult } from "../../../lib/board/rules.ts";
 
@@ -152,6 +153,37 @@ export function verifying(owner: Actor = CORE, reviewer: Actor = LEAD): Card {
 	);
 	const approvedCard = stepOf(card, approveOf(card), reviewer);
 	return executing(approvedCard);
+}
+
+/** The base commit every fixture chain starts from, so a case reads one shape. */
+const CHAIN_BASE = "0f00d00000000000000000000000000000000000";
+
+/**
+ * The branch a card's review landed on: the base commit, then the merge that carried the sign.
+ *
+ * A landing is resolved from the chain rather than handed in as a sha, so a case states the fact a
+ * door would have read — and a case about a squash passes `{}` chain of its own.
+ */
+export function landingFor(card: Card, chain?: readonly { sha: string; parents: readonly string[] }[]): LandingProof {
+	const reviewed = card.review?.verified?.sha ?? "1d3a8ce30000000000000000000000000000000";
+	const carried = "9a7d2e00000000000000000000000000000000000";
+	return {
+		branch: "main",
+		chain: chain ?? [
+			{ sha: CHAIN_BASE, parents: ["0000000000000000000000000000000000000001"] },
+			{ sha: carried, parents: [CHAIN_BASE, reviewed] },
+		],
+	};
+}
+
+/** The move to `done` a case makes: the proof of its plan, and the branch its review landed on. */
+export function doneOf(card: Card): {
+	kind: "move";
+	lane: "done";
+	artifact: ReturnType<typeof provedFor>;
+	landed: LandingProof;
+} {
+	return { kind: "move", lane: "done", artifact: provedFor(card), landed: landingFor(card) };
 }
 
 /** A card whose work the lead has spot-checked, still in `execute`. */

@@ -18,6 +18,7 @@ import {
 	boardOf,
 	claimed,
 	CONFIG,
+	doneOf,
 	CORE,
 	executing,
 	finished,
@@ -43,10 +44,7 @@ describe("a spot-check of a card whose contract names a command", () => {
 		const signed = stepOf(card, { kind: "review", verified: run() }, LEAD);
 		expect(signed.review?.verified).toEqual(run());
 		// The run is what `done` reads, so the ordinary path stays open.
-		expect(
-			accepted(applyOp(signed, { kind: "move", lane: "done", artifact: provedFor(signed) }, CORE, NOW, boardOf(signed)))
-				.card.lane,
-		).toBe("done");
+		expect(accepted(applyOp(signed, doneOf(signed), CORE, NOW, boardOf(signed))).card.lane).toBe("done");
 	});
 
 	test("refuses a sign with no run, because the contract asked for one", () => {
@@ -94,17 +92,7 @@ describe("the run a done move reads", () => {
 			applyOp(signed, { kind: "announced", sign: "review" }, LEAD, NOW + 1, boardOf(signed)),
 		).card;
 		expect(announced.updatedAt).toBeGreaterThan(signed.review?.at ?? 0);
-		expect(
-			accepted(
-				applyOp(
-					announced,
-					{ kind: "move", lane: "done", artifact: provedFor(announced) },
-					CORE,
-					NOW + 2,
-					boardOf(announced),
-				),
-			).card.lane,
-		).toBe("done");
+		expect(accepted(applyOp(announced, doneOf(announced), CORE, NOW + 2, boardOf(announced))).card.lane).toBe("done");
 	});
 
 	test("refuses a card written after the spot-check", () => {
@@ -112,11 +100,9 @@ describe("the run a done move reads", () => {
 		const noted = accepted(
 			applyOp(signed, { kind: "note", text: "one more thing" }, CORE, NOW + 1, boardOf(signed)),
 		).card;
-		expect(
-			refusal(
-				applyOp(noted, { kind: "move", lane: "done", artifact: provedFor(noted) }, CORE, NOW + 2, boardOf(noted)),
-			),
-		).toContain("was written after its spot-check");
+		expect(refusal(applyOp(noted, doneOf(noted), CORE, NOW + 2, boardOf(noted)))).toContain(
+			"was written after its spot-check",
+		);
 	});
 
 	test("refuses a note added after the announcement too, which is a later write again", () => {
@@ -127,11 +113,9 @@ describe("the run a done move reads", () => {
 		const noted = accepted(
 			applyOp(announced, { kind: "note", text: "one more thing" }, CORE, NOW + 2, boardOf(announced)),
 		).card;
-		expect(
-			refusal(
-				applyOp(noted, { kind: "move", lane: "done", artifact: provedFor(noted) }, CORE, NOW + 3, boardOf(noted)),
-			),
-		).toContain("was written after its spot-check");
+		expect(refusal(applyOp(noted, doneOf(noted), CORE, NOW + 3, boardOf(noted)))).toContain(
+			"was written after its spot-check",
+		);
 	});
 });
 
