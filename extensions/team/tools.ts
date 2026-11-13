@@ -338,12 +338,11 @@ async function assignCard(
 	// records you as the owner without the claim's next step. `claim` is that act.
 	if (namesSelf(me, to))
 		return refusal("assign", `${cardRef(id)} cannot be handed to yourself: \`claim\` takes one.`, card);
-	// Who `to` names, asked before the check and once: a card records the id the bus gave its
-	// holder, and `holds` compares ids first, so an id the caller typed has to be resolved to
-	// the peer it names rather than compared as a label. The same actor is what the write
-	// records, so the check and the write cannot disagree about who `to` is.
-	const peers = await dispatch.peers().catch(() => undefined);
-	const target = actorFor(peers, to);
+	// Who `to` names, asked before the check: a card records the id the bus gave its holder, and `holds`
+	// compares ids first, so an id the caller typed is resolved to its peer rather than compared as a
+	// label. This read is the dry run's alone — the write records what a read taken *after* the
+	// message says, because the send answers labels and the card must name the session that has it.
+	const target = actorFor(await dispatch.peers().catch(() => undefined), to);
 	// The board, not just the card: a card that waits on unfinished work, or a `plan` lane
 	// with no room, is refused here, so a handoff for it is never sent. `mayOp` is the
 	// store's own check without the write, and the board's settings are the store's, not a default.
@@ -366,15 +365,15 @@ async function assignCard(
 		return refusal("assign", formatHandoffFailure(card, to, messageOf(error)), card);
 	}
 
-	// The owner a handoff records: the resolved peer, whose id survives the peer renaming
-	// itself, or the label a message file was written for when the bus could not say who that
-	// is. The same read also says whether that peer will be woken by the message it just got.
-	// `told` is the send's own answer: `delivered` names the inbox files written, so a handoff
-	// with none carries the record without it — the card then says the owner never heard, which
-	// is the fact a reader needs and the one a re-send would be owed.
+	// The owner: the peer the message reached, read now rather than kept from the dry run — a roster
+	// that changed mid-send would otherwise pass a check about one session and write another. The store
+	// re-asks the card's own gates under the lock, which stops a mid-send handover from assigning a card
+	// somebody took; who the peer is has no second reading, which is the reason for this one.
+	// `told` is the send's own answer, so a handoff nobody received carries the record without it.
+	const reached = await dispatch.peers().catch(() => undefined);
+	const recipient = actorFor(reached, to);
 	const handoff = { at: now, ...(delivered.length === 0 ? {} : { told: { at: now } }) };
-	const owner: CardOwner =
-		target.id === undefined ? ownerFor(to, delivered, handoff) : { id: target.id, label: target.label, handoff };
+	const owner: CardOwner = recipient.id === undefined ? ownerFor(to, delivered, handoff) : { ...recipient, handoff };
 	const written = await writeOutcome(store.mutate(id, { kind: "assign", to: owner }, me, now));
 	// A write that threw is not a write that was refused: the message is already in the peer's
 	// inbox, so the reason is reported with the card the board holds now rather than alone.
@@ -389,8 +388,10 @@ async function assignCard(
 	const applied = written.result;
 	if (!applied.ok)
 		return refusal("assign", formatRacedAssignment(applied.card ?? card, to, applied.error), applied.card ?? card);
-	const silent = notListening(peers, delivered);
-	const still = quiet(peers, delivered);
+	// Both lines read that same post-send roster: the card, the quiet line and the not-listening line
+	// describe the team the message landed against, not the one it was addressed against.
+	const silent = notListening(reached, delivered);
+	const still = quiet(reached, delivered);
 	return textResult(formatHandoff(applied.card, to, delivered, silent, still, failed), {
 		action: "assign",
 		card: applied.card,

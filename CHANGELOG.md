@@ -224,6 +224,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `team`: `assign` records the session its message reached. The verb read the bus once, before the
+  send, and that read decided the owner id, the quiet line and the not-listening line — while the
+  bus answers `send` with labels, and `peerFor` took the first label match with no state filter. Two
+  records under one label, the stopped one first, therefore put a dead id on a card whose handoff
+  reached the live session: held by nobody, and reclaimable only by the lead. The pre-send read now
+  serves the dry run alone, and the owner and both lines come from a second read taken after the
+  message, so the card names the session that has it; a read that cannot name the peer keeps the
+  label-and-`unresolved` record it wrote before. `peerFor` also skips a record whose heartbeat
+  stopped, because the bus writes no message for one.
+
 - `board`: the write lock waits out the `EPERM` Windows answers while a rival's create and `rm`
   overlap, instead of throwing it out of a write nobody made. The refusal meant "somebody's file is
   in the way" all along — a delete-pending name is refused as access-denied there rather than as
