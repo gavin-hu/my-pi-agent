@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `session-bus`: mail whose recipient's record the bus no longer holds is named rather than counted.
+  `session status` lists each message — id, sender, kind, age, first line — under `Unaccounted (N)`,
+  and `/sessions drop <id>` clears one, with a bare `/sessions drop` printing the list and dropping
+  nothing. The drop is a command and not a `session` action on purpose: a message is evidence, so the
+  person clears it and no session's model can. The store refuses any id a record's inbox still holds
+  and names the holder, so a mistaken id cannot destroy mail its session can still read.
+
 - `team`: a bare `/team join` takes the first name the project's `team.teammates` lists that no
   session holds and that is not the `lead`'s, instead of the drawn `team-agent-<id>`. It writes
   nothing — the name is already the team's — and leaves Pi's own session name alone, and the drawn

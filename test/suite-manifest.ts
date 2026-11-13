@@ -213,6 +213,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"inbox-read",
 		"overlap",
 		"resolve",
+		"unaccounted",
 		"extension",
 	],
 	"web-access": ["fetch/extract", "fetch/fetch", "fetch/structured", "search/search", "http"],

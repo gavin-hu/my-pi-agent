@@ -15,7 +15,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { LivenessFn, StartTokenFn } from "../../lib/spawn.ts";
 import type { RepeatTimer } from "../../lib/timer.ts";
 import type { WatchingState } from "./mail-watch.ts";
-import type { BusMessage, ClaimConflict, DeliveryFailure, InboxPeek, SessionStatus } from "./types.ts";
+import type { BusMessage, ClaimConflict, DeliveryFailure, DropResult, InboxPeek, SessionStatus } from "./types.ts";
 
 export interface SessionBusOptions {
 	now?: () => number;
@@ -49,6 +49,13 @@ export interface SessionBus {
 	peek(): Promise<InboxPeek>;
 	/** Messages waiting in this session's inbox, counted by file — `peek` stops at its own cap. */
 	unread(): Promise<number>;
+	/**
+	 * Remove unaccounted mail by message id — the one door `/sessions drop` opens.
+	 *
+	 * No tool action calls this: a person clears evidence, a session does not. The store refuses any
+	 * id a record's inbox holds, so a mistaken id costs a sentence rather than somebody's mail.
+	 */
+	dropUnaccounted(ids: readonly string[]): Promise<DropResult>;
 	/** Release a claim by its stored repository-relative path. */
 	releaseStored(path: string): Promise<boolean>;
 	send(input: {

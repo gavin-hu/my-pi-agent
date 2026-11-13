@@ -12,7 +12,16 @@ import { mkdir, link, readdir, rename, rm, rmdir, stat, writeFile } from "node:f
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/json.ts";
 import { claimsConflict } from "./overlap.ts";
-import type { ClaimConflict, ClaimRecord, DeliveryFailure, InboxPeek, InboxRead, SessionRecord } from "./types.ts";
+import type {
+	ClaimConflict,
+	ClaimRecord,
+	DeliveryFailure,
+	DropResult,
+	InboxPeek,
+	InboxRead,
+	KeptMail,
+	SessionRecord,
+} from "./types.ts";
 import { type BusMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
 import { INBOX_DIR_NAME, SESSIONS_DIR_NAME } from "../../lib/session-roster.ts";
 
@@ -63,6 +72,13 @@ export interface BusStore {
 	 * is what says it cannot be read. That is the one promise this count makes.
 	 */
 	unread(id: string): Promise<number>;
+	/**
+	 * Remove the mail `ids` name, from the inboxes no record holds, and name what stayed.
+	 *
+	 * Only the unaccounted copies go: an id a live record's inbox also carries stays there, which
+	 * is why one id can be both dropped and kept.
+	 */
+	dropUnaccounted(ids: readonly string[]): Promise<DropResult>;
 	claims(): Promise<ClaimRecord[]>;
 	claimAll(
 		paths: readonly string[],
@@ -439,6 +455,50 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 
 		async unread(id) {
 			return (await listFiles(inboxDir(id))).length;
+		},
+
+		/**
+		 * Remove the mail `ids` name from the inboxes no record holds.
+		 *
+		 * Attribution is the store's own: an inbox is filed under the hash of its recipient's id, so
+		 * hashing each record's id is the whole answer to "does anybody hold this mail" — no field a
+		 * message could lie about, and no need to invert the hash of a directory's name. It is read
+		 * here, at the delete, rather than by the caller that listed the mail: a session that resumed
+		 * in between holds its mail again, and a listing is stale the moment its person reads it.
+		 *
+		 * An id a held inbox carries is refused and handed back with its holder's label. That is the
+		 * one guard this door needs, because a mistaken id would otherwise destroy mail its session
+		 * can still read; nothing else on the bus is this destructive and irreversible.
+		 */
+		async dropUnaccounted(ids) {
+			const wanted = new Set(ids);
+			const dropped: string[] = [];
+			const kept: KeptMail[] = [];
+			if (wanted.size === 0) return { dropped, kept };
+			const holders = new Map<string, string>();
+			for (const session of await readSessions()) holders.set(SHA(session.id), session.label);
+			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
+				const directory = join(inboxRoot, name);
+				const holder = holders.get(name);
+				let removed = false;
+				for (const file of await listFiles(directory)) {
+					const id = idOfFile(file);
+					if (!wanted.has(id)) continue;
+					if (holder !== undefined) {
+						if (!kept.some((entry) => entry.id === id)) kept.push({ id, reason: "held", holder });
+						continue;
+					}
+					await rm(join(directory, file), { force: true });
+					removed = true;
+					if (!dropped.includes(id)) dropped.push(id);
+				}
+				// An inbox the drop emptied is gone, rather than kept as one empty directory per dead id.
+				if (removed) await dropIfEmpty(directory);
+			}
+			for (const id of wanted) {
+				if (!dropped.includes(id) && !kept.some((entry) => entry.id === id)) kept.push({ id, reason: "missing" });
+			}
+			return { dropped: dropped.sort(), kept: kept.sort((a, b) => a.id.localeCompare(b.id)) };
 		},
 
 		claims: readClaims,

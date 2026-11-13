@@ -29,8 +29,19 @@ export function resultSections(details: SessionDetails): TailResultInput<BusRow>
 		case "status": {
 			const board = sessionRows(details.status);
 			const claims = board.flatMap((row) => row.claims);
+			const unaccounted = details.status?.unaccounted ?? [];
 			const sections: TailSection<BusRow>[] = [];
 			if (board.length > 0) sections.push(section(board.map((row) => ({ kind: "session", row }))));
+			// Mail no record holds has no session row to sit under, so it is its own section: the id and
+			// the body are what a person decides on, and `/sessions drop` is the door the status text names.
+			if (unaccounted.length > 0) {
+				sections.push(
+					section(
+						unaccounted.map((mail) => ({ kind: "orphan", mail })),
+						`Unaccounted (${unaccounted.length})`,
+					),
+				);
+			}
 			if (claims.length > 0) {
 				sections.push(
 					section(
@@ -153,6 +164,7 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 				sessionRows(details.status),
 				details.status?.watching,
 				details.status?.onBus !== false,
+				details.status?.unaccounted?.length ?? 0,
 			);
 			return cells.join(paint(theme, "faint", sep));
 		}
