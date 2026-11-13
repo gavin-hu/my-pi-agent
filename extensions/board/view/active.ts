@@ -32,7 +32,8 @@ const activeTemplate = String.raw`(function () {
   var ago = board.ago;
   var plural = board.plural;
   var kindLabel = board.kindLabel;
-  var rankOf = board.rankOf;
+  var decisionRank = board.decisionRank;
+  var labelMap = board.labelMap;
   var decisionTone = board.decisionTone;
 
   var DECISION_LABEL = __DECISION_LABEL__;
@@ -69,7 +70,7 @@ const activeTemplate = String.raw`(function () {
         if (seen === undefined) {
           byCard[card.id] = entry;
           entries.push(entry);
-        } else if (rankOf(kind) < rankOf(seen.kind)) {
+        } else if (decisionRank(kind) < decisionRank(seen.kind)) {
           seen.why = entry.why;
           seen.at = entry.at;
           seen.wording = entry.wording;
@@ -119,9 +120,6 @@ const activeTemplate = String.raw`(function () {
   }
 
   board.decisionsOf = decisionsOf;
-
-  /** A map keyed by a session label, which the page does not choose. */
-  function labelMap() { return Object.create(null); }
 
   /** The labels of the sessions whose process is gone, in the roster's own spelling. */
   function goneLabels(view) {

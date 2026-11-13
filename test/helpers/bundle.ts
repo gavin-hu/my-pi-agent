@@ -18,7 +18,9 @@
  * - two fragments declare the same constant, which is one word with two spellings waiting
  *   to drift (`LANE_LABEL` in `render.ts` and `live.ts`);
  * - a helper is published on the shared namespace and nothing reads it, so a caller that
- *   went away leaves the body behind in a string no type checker sees (`board.laneLabel`).
+ *   went away leaves the body behind in a string no type checker sees (`board.laneLabel`);
+ * - two fragments define one name with different bodies, so which helper a caller reaches is
+ *   the order the fragments are concatenated (`stamp`, on every Team-tab age, before #512).
  *
  * Both sides are read from source, not from imports: the failure is a function that exists
  * in a module and never reached the string, so the module's own text is the only complete
@@ -129,28 +131,75 @@ export function duplicateDeclarations(bundle: string): string[] {
 }
 
 /**
- * Names the bundle both defines twice and publishes twice, sorted.
+ * Names the bundle defines more than once with bodies that differ, sorted.
  *
- * One name, two `function` bodies and two `board.name = …` lines: which one a caller reaches is
- * decided by the order `client.ts` concatenates its fragments, which is how `stamp` printed every
- * Team-tab age as `undefined` the moment two lines moved. A name defined twice and published *once*
- * is a dead definition rather than this hazard, so it is not this guard's.
+ * One name, two bodies: which one a caller reaches is decided by the order `client.ts`
+ * concatenates its fragments, so a helper moved two lines is a call answering from the other
+ * body, and the frame prints `undefined` with every suite green (`stamp` did, on every Team-tab
+ * age). Bodies are compared rather than counted, because one builder emitted per instance
+ * repeats its own text: `keysDialogScript` is `dialogScript` called a second time, so a page
+ * with two dialogs carries two copies of one body — one body in one source, which is the shape
+ * the kit is allowed to have.
+ *
+ * Two definitions of one name *and* two publications of it is the same hazard with a shorter
+ * fuse, so it needs no separate rule: those bodies differ, and this reports them.
  */
-export function duplicateDefinitions(bundle: string): string[] {
-	const defined = new Map<string, number>();
-	for (const match of bundle.matchAll(/^ {2}function (\w+)\(/gm)) {
+export function duplicateFunctions(bundle: string): string[] {
+	const bodies = new Map<string, Set<string>>();
+	for (const match of bundle.matchAll(/^[ \t]*function (\w+)\s*\(/gm)) {
 		const name = match[1] ?? "";
-		defined.set(name, (defined.get(name) ?? 0) + 1);
+		const body = normalizedBody(bodyAfter(bundle, (match.index ?? 0) + match[0].length));
+		const seen = bodies.get(name) ?? new Set<string>();
+		seen.add(body);
+		bodies.set(name, seen);
 	}
-	const published = new Map<string, number>();
-	for (const match of bundle.matchAll(/\bboard\.(\w+)\s*=(?!=)/g)) {
-		const name = match[1] ?? "";
-		published.set(name, (published.get(name) ?? 0) + 1);
-	}
-	return [...defined.entries()]
-		.filter(([name, count]) => count > 1 && (published.get(name) ?? 0) > 1)
+	return [...bodies.entries()]
+		.filter(([, seen]) => seen.size > 1)
 		.map(([name]) => name)
 		.sort();
+}
+
+/**
+ * The braced body after a declaration's parameter list, or nothing when it has none.
+ *
+ * A scan rather than a parser, so braces inside a quoted string or a `//` comment are text
+ * rather than structure; declarations spliced as `String(fn)` sit at no indentation at all,
+ * which is why the body cannot be taken by matching the declaration's own indent.
+ */
+function bodyAfter(bundle: string, from: number): string {
+	let depth = 0;
+	let start = -1;
+	for (let i = from; i < bundle.length; i++) {
+		const char = bundle[i];
+		if (char === '"' || char === "'" || char === "`") {
+			i += 1;
+			while (i < bundle.length && bundle[i] !== char) {
+				if (bundle[i] === "\\") i += 1;
+				i += 1;
+			}
+			continue;
+		}
+		if (char === "/" && bundle[i + 1] === "/") {
+			const newline = bundle.indexOf("\n", i);
+			if (newline < 0) return "";
+			i = newline;
+			continue;
+		}
+		if (char === "{") {
+			if (start < 0) start = i;
+			depth += 1;
+			continue;
+		}
+		if (char !== "}") continue;
+		depth -= 1;
+		if (depth === 0) return start < 0 ? "" : bundle.slice(start, i + 1);
+	}
+	return "";
+}
+
+/** One body as a single line, so two copies compare equal whatever their whitespace. */
+function normalizedBody(body: string): string {
+	return body.replace(/\s+/g, " ").trim();
 }
 
 /**

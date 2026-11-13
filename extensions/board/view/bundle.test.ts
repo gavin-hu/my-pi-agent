@@ -9,28 +9,36 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { duplicateDefinitions } from "../../../test/helpers/bundle.ts";
+import { duplicateFunctions } from "../../../test/helpers/bundle.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 
-/** A bundle with one publication, and with two definitions of the name it publishes. */
-function bundle(secondDefinition: boolean): string {
+/** A bundle with one name defined twice: two bodies, or one body twice. */
+function bundle(secondBody: string | undefined): string {
 	return [
 		"(function () {",
 		"  function stamp(at) { return at; }",
 		"  board.stamp = stamp;",
-		...(secondDefinition ? ["  function stamp(at, wording) { return wording; }", "  board.stamp = stamp;"] : []),
+		...(secondBody === undefined ? [] : [`  function stamp${secondBody}`, "  board.stamp = stamp;"]),
 		"})();",
 	].join("\n");
 }
 
 describe("the bundle's definitions", () => {
-	test("has none published twice", () => {
-		expect(duplicateDefinitions(BOARD_CLIENT_JS)).toEqual([]);
+	test("has no name carrying two bodies", () => {
+		expect(duplicateFunctions(BOARD_CLIENT_JS)).toEqual([]);
 	});
 
-	test("fails a name two fragments define and publish", () => {
-		// The hazard, in six lines: which function a caller reaches is the concatenation order.
-		expect(duplicateDefinitions(bundle(true))).toEqual(["stamp"]);
-		expect(duplicateDefinitions(bundle(false))).toEqual([]);
+	test("fails a name two fragments define, because the concatenation order picks the winner", () => {
+		// The hazard, in six lines: which function a caller reaches is the order `client.ts` joins
+		// the fragments, and the loser's callers silently answer from the other body.
+		expect(duplicateFunctions(bundle("(at, wording) { return wording; }"))).toEqual(["stamp"]);
+		expect(duplicateFunctions(bundle(undefined))).toEqual([]);
+	});
+
+	test("passes one body carried twice, which is one builder emitted per instance", () => {
+		// `keysDialogScript` is `dialogScript` called a second time, so a page with two dialogs
+		// carries two copies of one body. Two identical bodies cannot disagree about which answers
+		// a caller, and the alternative — naming the allowance — would pin the dialog kit's shape.
+		expect(duplicateFunctions(bundle("(at) { return at; }"))).toEqual([]);
 	});
 });

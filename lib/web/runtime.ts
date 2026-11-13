@@ -49,7 +49,7 @@ export const THEME_TOGGLE_JS = String.raw`(function () {
   function effective() {
     return document.documentElement.getAttribute("data-theme") || system();
   }
-  function paint(theme) {
+  function paintGlyph(theme) {
     var glyph = button.querySelector(".theme-glyph");
     if (glyph) glyph.textContent = theme === "light" ? "\u2600" : "\u263E";
     var label = theme === "light" ? "Switch to dark theme" : "Switch to light theme";
@@ -58,16 +58,16 @@ export const THEME_TOGGLE_JS = String.raw`(function () {
   }
 
   var explicit = stored();
-  paint(explicit || effective());
+  paintGlyph(explicit || effective());
   button.addEventListener("click", function () {
     var next = effective() === "light" ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", next);
     set(next);
-    paint(next);
+    paintGlyph(next);
   });
   if (!explicit && window.matchMedia) {
     var query = window.matchMedia("(prefers-color-scheme: light)");
-    var sync = function () { if (!stored()) paint(system()); };
+    var sync = function () { if (!stored()) paintGlyph(system()); };
     if (query.addEventListener) query.addEventListener("change", sync);
     else if (query.addListener) query.addListener(sync);
   }
