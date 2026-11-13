@@ -351,10 +351,10 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		}
 	});
 
-	test("keeps the reason off the face and on the card's description, so the keyboard reaches it", async () => {
+	test("draws the state on the face and repeats it in the card's description, so the keyboard reaches it", async () => {
 		const page = await openPage();
-		// The face draws no reason, and its whole sentence is nowhere on the card: the title button carries it as its description, so focusing it
-		// — by walking or by Tab — says the sentence a reader came for.
+		// The face draws the state a card owes somebody, and the title button carries the same sentence as its description, so focusing it — by walking
+		// or by Tab — says what the card still needs without opening it.
 		const id = await page.$eval("#lane-execute .bf-row", (node) => node.getAttribute("data-card") ?? "");
 		const line = `.bf-row[data-card="${id}"] .bf-row__reason`;
 		const reason = await page.textContent(line);
