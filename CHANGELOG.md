@@ -63,6 +63,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   whose reason is its last note draws no state line, because a note is prose. The note grows by that
   one pinned line, so a lane of notes is taller and still one height.
 
+- `board`: a card is as tall as it draws. The face's five boxes were pinned to one height, so a note
+  with a one-line title kept a blank second title line and a card that owed nothing kept a blank
+  status row; the row's height now follows its content, and the state row is the one line every card
+  carries — drawn when the card owes somebody something, blank when it owes nothing, and the home of a
+  note's prose for the description alone. The caps still hold a card to its face: the title clips at
+  two lines, the hints and the meta at one, and the row clips, so nothing is taller than the card that
+  draws it.
+
 - `lib`: the served pages read flat. The border pair is derived from the canvas instead of copied
   from the theme's cell grid — `--canvas` toward `--text` at 16%/26% dark and 11%/20% light, so a
   hairline is 1.42:1 and 1.24:1 where the terminal's `borderMuted` was 3.06:1 and 3.01:1 — and
