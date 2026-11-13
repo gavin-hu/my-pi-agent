@@ -4,7 +4,7 @@ The board is one list of features for a repository, worked by every session on i
 carries what kind of work it is, its owner, its priority, what it waits on, the contract it
 promises, and the notes that explain it — and two signatures are needed before it can ship.
 
-<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, the live state, theme and keyboard controls; Board and Team tabs, a ten-cell done gauge and a filter; five lane columns with counts and fold controls; and note-shaped cards of one height, tinted by the lane they sit in and separated by space rather than rules, each carrying its number and kind, its title, its path hints, and on its last line whose it is with its age and history" width="1280" height="446">
+<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, the live state, theme and keyboard controls; Board and Team tabs, a ten-cell done gauge and a filter; five lane columns with counts and fold controls; and note-shaped cards of one height, tinted by the lane they sit in and separated by space rather than rules, each carrying its number and kind, its title, its path hints, and on its last line whose it is with its age and history" width="1280" height="467">
 
 - **One board per repository**, one page: the first `/board` serves it, every other session opens it.
 - **The page is a view**, and it follows the files: nothing is claimed, moved, or signed from a

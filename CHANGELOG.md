@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `lib`: the header's identity row is 52px rather than 44, so the mark, the subject and the app's
+  chrome sit in a bar with air around them, and the chrome's key-sheet and theme buttons close their
+  box on hover. The quiet rule took the kit button's bottom edge to no width at all and the hover
+  rule restored only the colour, so the box was drawn on three sides, the missing one being the edge
+  the pointer was on.
+
 - `bytefly`: the footer's name chip is the session's teammate name, drawn only while the team holds
   it. It used to draw the bus label or Pi's session name whatever it was, so the bar was the one
   surface naming a session with a word the team never chose. The team is `board.teammates` — five

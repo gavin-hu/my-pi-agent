@@ -39,7 +39,9 @@ export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height
    border. Nothing coloured separates the shell — the signature belongs to the mark and to a
    record — so a separator reads as a separator and not as a second meter. */
 .bf-app__head{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:var(--shadow-1);position:relative;z-index:1}
-.bf-app__id{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;min-height:44px;padding:var(--space-2) var(--space-6)}
+/* The identity row is 52px rather than the 44 the chrome alone measures: the bar is where a
+   reader's eye lands, and the icon's target wants air above and below it. */
+.bf-app__id{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;min-height:52px;padding:var(--space-2) var(--space-6)}
 .bf-app__rule{height:1px;background:var(--border)}
 .bf-app__ctl{display:flex;align-items:baseline;gap:var(--space-3);flex-wrap:wrap;padding:5px var(--space-6)}
 /* The control row's rhythm: 12 inside a role, 24 between roles — the switch, the meter and the
@@ -49,8 +51,10 @@ export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height
 .bf-app__facts{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
 .bf-app__chrome{display:flex;align-items:center;gap:var(--space-2);margin-left:auto}
 /* Chrome is quieter than a control: a borderless icon here keeps the key-sheet button from
-   reading as one of the page's own, and the box comes back on hover, where it is the target. */
-.bf-app__chrome .bf-btn{border-bottom-width:0;border-color:transparent;color:var(--muted)}
+   reading as one of the page's own, and the box comes back on hover, where it is the target.
+   One width on all four edges, because the hover rule brings back a colour and a colour on an
+   edge with no width draws nothing. */
+.bf-app__chrome .bf-btn{border-width:1px;border-color:transparent;color:var(--muted)}
 .bf-app__chrome .bf-btn:hover{border-color:var(--border);color:var(--text);background:none}
 .bf-app__body{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:260px minmax(0,1fr)}
 .bf-app__sidebar{display:flex;flex-direction:column;min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;background:var(--raised);border-right:1px solid var(--border)}
