@@ -1,11 +1,50 @@
 /**
- * Pure text/number formatting shared across extensions.
+ * Pure text/number formatting shared across extensions, plus the one way a function's body
+ * crosses into a page's bundle: {@link pageSource}.
  *
  * No terminal access and no theme: these turn numbers and text into the short
  * strings a renderer shows.
  */
 
 import { homedir } from "node:os";
+
+/**
+ * A call through a module namespace, the shape the host's transpiler writes: `(0, _mod.member)`.
+ *
+ * Nothing but a transpiled import has a `_`-prefixed namespace, and a body crossing to a page
+ * import nothing at all — so both forms below are the transpiler's, not the body's.
+ */
+const NAMESPACE_CALL = /\(0, _[A-Za-z$][\w$]*\.([A-Za-z$][\w$]*)\)/g;
+
+/** The same namespace read as a value rather than called: `_mod.member`. */
+const NAMESPACE_READ = /(?<![\w$.])_[A-Za-z$][\w$]*\.([A-Za-z$][\w$]*)/g;
+
+/** A default import through one, whose local name the transpiler did not keep. */
+const NAMESPACE_DEFAULT = /(?<![\w$.])_[A-Za-z$][\w$]*\.default\b/;
+
+/**
+ * A function's source as a page's bundle receives it.
+ *
+ * The body is JavaScript on its own there: a fragment splices the helper's *body*, under its
+ * own name, because a page has no import graph. The host loads an extension through a
+ * transpiler, though, and it rewrites a call to an *imported* binding into a member of that
+ * module's namespace — `sameLabel(a, b)` arrives as `(0, _sessionLabel.sameLabel)(a, b)` — so
+ * a body written in one module and spliced from another called a name the page never has:
+ * `_sessionLabel is not defined`, on the first paint, with every static check green, because
+ * `bun`'s transpiler leaves the call site alone.
+ *
+ * So the member is written back to the name it exports, in both forms a body can use. A
+ * default import cannot be named back — the transpiler keeps only `_mod.default` — and a body
+ * that needs one belongs with it, so that is refused at load rather than served as a page that
+ * throws on the first click.
+ */
+export function pageSource(fn: (...args: never[]) => unknown): string {
+	const source = String(fn);
+	if (NAMESPACE_DEFAULT.test(source)) {
+		throw new Error("a spliced body may not call a default import: declare the helper in the body's own module");
+	}
+	return source.replace(NAMESPACE_CALL, "$1").replace(NAMESPACE_READ, "$1");
+}
 
 /**
  * Compact token count: `999`, `1.0k`, `12k`, `1.5M`, `12M`. `?` when not a
@@ -86,7 +125,7 @@ export function formatAge(now: number, at: number): string {
 }
 
 /** {@link formatAge} as the page's bundle receives it. */
-export const FORMAT_AGE_JS = String(formatAge);
+export const FORMAT_AGE_JS = pageSource(formatAge);
 
 /** `1 tool`, `3 tools`: a tool count with the right word. */
 export function formatToolCount(count: number): string {
@@ -213,7 +252,7 @@ export function shortenPath(path: string, home: string = homedir()): string {
  * The page hands its own `home` down from the snapshot ({@link BoardView}), so the default
  * above never runs where `homedir` is not defined.
  */
-export const SHORTEN_PATH_JS = String(shortenPath);
+export const SHORTEN_PATH_JS = pageSource(shortenPath);
 
 /** A compact byte size for a listing or a report: `68 B`, `12.4 kB`, `1.5 MB`. */
 export function formatSize(bytes: number): string {

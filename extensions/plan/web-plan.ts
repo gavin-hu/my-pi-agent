@@ -15,6 +15,7 @@
  *   keys resume where they were instead of jumping to the top.
  */
 
+import { pageSource } from "../../lib/format.ts";
 import type { ClientNode } from "../../lib/web/client-runtime.ts";
 import type { ComposerDeps } from "./web-composer.ts";
 import { blockElements, type IslandBlock, setActive } from "./web-blocks.ts";
@@ -163,4 +164,4 @@ export function renderPlanFrame(
 }
 
 /** The block renderer as source, for the client bundle. */
-export const WEB_PLAN_JS = String(renderPlanFrame);
+export const WEB_PLAN_JS = pageSource(renderPlanFrame);

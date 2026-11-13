@@ -424,6 +424,18 @@ so the queue reads as the one thing somebody owes an answer to.
   has one consumer in the repo — the warn lane's paper — so nothing else on a page moves, and the
   board's suite now holds both tiers against all five lane papers instead of the accent one alone.
 
+- `board`: the page paints its Agents column again. A function's body is spliced into the page as
+  source, and the host transpiles an extension before it runs it — which had rewritten the history
+  rule's call to an imported helper into `(0, _sessionLabel.sameLabel)`, a module a page has none
+  of. The board's own bundle threw `_sessionLabel is not defined` on the first frame while every
+  suite was green, because `bun`'s transpiler leaves the call site alone. Every `*_JS` constant now
+  crosses through `pageSource`, which writes the member back to the name the page holds, so the
+  next helper to move between modules cannot break a page this way.
+
+- `plan`: the review page renders and its block navigation works again, for the same reason —
+  `renderPlanFrame` called `_webBlocks.setActive` in the page, and `blockElements` and
+  `blockAtLine` with it, so the review threw on every frame.
+
 ## [0.26.0] - 2026-11-11
 
 ### Added

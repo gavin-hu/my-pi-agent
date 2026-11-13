@@ -7,6 +7,7 @@
  */
 
 import { escapeHtml } from "../escape.ts";
+import { pageSource } from "../format.ts";
 import { THEME_JS_PATH } from "./runtime.ts";
 import { WEB_THEME_TOKENS } from "./tokens.ts";
 
@@ -45,7 +46,7 @@ export function tabTitle(product: string, subject?: string, count?: string): str
  * cross into the bundle. It is written as concatenation with no backtick and no
  * interpolation, because the bundle is a template the source is spliced into.
  */
-export const TAB_TITLE_JS = String(tabTitle);
+export const TAB_TITLE_JS = pageSource(tabTitle);
 
 /**
  * The `data-base` attribute a page's `<html>` carries, which its own bundle reads

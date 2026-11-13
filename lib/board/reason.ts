@@ -18,6 +18,7 @@
  */
 
 import type { Card } from "./card.ts";
+import { pageSource } from "../format.ts";
 
 /** What a reason is about, which is what a row's edge and a dot are coloured by. */
 export const REASON_KINDS = [
@@ -161,4 +162,4 @@ export function reasonFor(card: ReasonCard, ago: (at: number) => string): Reason
 }
 
 /** The same body, as the browser receives it: one rule for the page and the transcript. */
-export const REASON_FOR_JS = String(reasonFor);
+export const REASON_FOR_JS = pageSource(reasonFor);

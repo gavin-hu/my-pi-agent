@@ -302,6 +302,7 @@ export const LIB_SUITES: readonly string[] = [
 	"child",
 	"core",
 	"format",
+	"highlight",
 	"interaction",
 	"json",
 	"lazy",

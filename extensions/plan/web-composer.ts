@@ -9,6 +9,7 @@
  * `openComposer` does with the block stays in `web-comments.ts`, which owns the form.
  */
 
+import { pageSource } from "../../lib/format.ts";
 import type { ClientNode } from "../../lib/web/client-runtime.ts";
 import { blockAtLine, blockElements, type IslandBlock, setActive } from "./web-blocks.ts";
 
@@ -88,4 +89,4 @@ export function commentOnActive(deps: ComposerDeps, activeIndex: number, blocks:
 }
 
 /** The composer lifecycle as source, for the client bundle. */
-export const WEB_COMPOSER_JS = [closeComposer, reopenComposer, commentOnActive].map(String).join("\n\n");
+export const WEB_COMPOSER_JS = [closeComposer, reopenComposer, commentOnActive].map(pageSource).join("\n\n");

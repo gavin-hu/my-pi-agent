@@ -16,6 +16,7 @@
  *   read again at click time; a block with a composer open is not a selection to quote.
  */
 
+import { pageSource } from "../../lib/format.ts";
 import type { ClientNode } from "../../lib/web/client-runtime.ts";
 import type { ReviewRole } from "./types.ts";
 
@@ -272,4 +273,4 @@ export function rememberSelection(target: unknown, deps: QuoteDeps): void {
  * and the surface those rows are offered for — or the first press throws instead of
  * matching a row.
  */
-export const WEB_KEYS_JS = [handleKey, surfaceOf, keyRows, webKeys, rememberSelection].map(String).join("\n\n");
+export const WEB_KEYS_JS = [handleKey, surfaceOf, keyRows, webKeys, rememberSelection].map(pageSource).join("\n\n");
