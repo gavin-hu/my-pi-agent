@@ -47,6 +47,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the lead opens the lane it just approved. A lead that holds no card may move it from `plan` to
+  `execute`, because approving is what opened that lane and the holder may be gone — the requirement list
+  runs unchanged, so an unapproved card, a missing plan and a full `execute` refuse the lead as they refuse
+  anyone, and `note`, `edit`, `done` and every other lane change stay the holder's. The refusal a lead still
+  hears names the door that is open rather than claiming the card is untouchable, which is how a gate
+  teaches a session to work around it. The page also states the two round trips no code enforces: settle a
+  card's title, paths and contract before asking for its sign, and merge `main` in before asking, since a
+  branch is proved against the `main` it was cut from.
+
 - `board`: a landing this build cannot read is read as absent, so the records a pre-rule build left no longer
   freeze their cards. The rule that made `landed` a shape (`#538`) sent every `{ commit, at }` record to the board's
   skipped list: 185 of them, and **50 live cards** stopped being listable, claimable or movable until this read. The
