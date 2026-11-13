@@ -288,9 +288,9 @@ describe("the client bundle", () => {
 	test("keeps a stamp's own wording, so two ages on one card read as two facts", () => {
 		// A card now shows when it was written to and when its last note landed; a ticker
 		// that assumed "updated" would relabel the second one within a minute.
-		expect(BOARD_CLIENT_JS).toContain('stamp(card.updatedAt, "updated {age}")');
+		expect(BOARD_CLIENT_JS).toContain('board.stamp(card.updatedAt, "updated {age}")');
 		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-at-title", wording)');
-		expect(BOARD_CLIENT_JS).toContain("board.sentence(wording, ago(at))");
+		expect(BOARD_CLIENT_JS).toContain("sentence(wording, age)");
 	});
 
 	test("marks the read card and the current one through tokens, not literals", () => {

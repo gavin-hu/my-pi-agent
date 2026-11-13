@@ -250,19 +250,6 @@ __RUNTIME__
   }
 
   /**
-   * A text node carrying its stamp, so the age ticker rewrites it with every other age.
-   *
-   * The Team tab's rows print ages too — a mission's, a waiting message's, an event's — and
-   * they are stamps for the same reason a card's is: a board nobody is writing to would
-   * otherwise slowly lie about how long it has been quiet.
-   */
-  function stamp(text, at) {
-    var node = el("span", N.stamp, text);
-    node.setAttribute("data-at", String(at));
-    return node;
-  }
-
-  /**
    * A pane's head: its name and how much it holds, in the shape a column counts itself in.
    *
    * Shared by the activity panes and the decisions strip, because the tab has one way of
@@ -576,7 +563,6 @@ __RUNTIME__
 
   board.el = el;
   board.typing = typing;
-  board.stamp = stamp;
   board.paneHead = paneHead;
   board.chip = chip;
   board.kindLabel = kindLabel;
