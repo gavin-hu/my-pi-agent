@@ -61,13 +61,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rule restored only the colour, so the box was drawn on three sides, the missing one being the edge
   the pointer was on.
 
-- `bytefly`: the footer's name chip is the session's teammate name, drawn only while the team holds
-  it. It used to draw the bus label or Pi's session name whatever it was, so the bar was the one
-  surface naming a session with a word the team never chose. The team is `board.teammates` — five
-  built-in names, `gavin`, `tom`, `jack`, `mike`, and `sam`, edited by the new **Teammates** row
-  under Team. Breaking: `board.lead` now defaults to `gavin`, the team's first name; a name outside
-  the team draws no chip at all, where a bus label or Pi's session name used to appear; and the
-  settings screen carries sixteen rows.
+- `bytefly`: the footer's name chip draws the name the team knows this session by — the bus
+  label a join settled, which is the page's seat after `/board`, and Pi's own session name only
+  when there is no label — and only while `board.teammates` holds it. A name outside the team
+  draws no chip at all, so the bar is no longer the one surface naming a session with a word the
+  team never chose. The team is `board.teammates` — five built-in names, `gavin`, `tom`, `jack`,
+  `mike`, and `sam`, edited by the new **Teammates** row under Team. Breaking: `board.lead` now
+  defaults to `gavin`, the team's first name; a session whose bus label and Pi's session name are
+  both outside the team draws no chip, where that word used to appear; and the settings screen
+  carries sixteen rows.
 
 - `board`: a card drawn twice in the Team tab's ACTIVE WORK is one colour. The queue row wore its
   reason's tone while the swimlane card under it wore its lane's, so one card read as two; both now
