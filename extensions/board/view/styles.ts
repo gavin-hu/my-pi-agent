@@ -287,13 +287,12 @@ ${DECISION_WHY_CSS}
 /* A lane dot is a glyph in the lane's role, not a filled square. */
 .board-dot[data-lane]{background:none;color:var(--lane-role,var(--muted))}
 
-/* NEEDS YOU — one paper per decision, tinted by the tone the queue ranks it by, at one height:
-   the queue is a list of the same thing, and a decision is a fixed three lines. */
+/* NEEDS YOU — the lane's own paper, at one height: the queue is a list of the same thing, and a
+   decision is a fixed three lines. One legend per column: the paper says where the card sits,
+   which is what the swimlane card under it says too, and the tone is left to the pill, the mark
+   at the row's edge, and a danger row's sentence — a card drawn twice cannot read as two cards. */
 .board-team__decisions{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
-.board-decision{--paper:var(--raised);flex-wrap:nowrap;align-items:flex-start;min-height:var(--team-row-h);cursor:pointer}
-.board-decision[data-tone="danger"]{--paper:var(--danger-soft)}
-.board-decision[data-tone="warn"]{--paper:var(--search-soft)}
-.board-decision[data-tone="accent"]{--paper:var(--accent-soft)}
+.board-decision{--paper:var(--note-paper);flex-wrap:nowrap;align-items:flex-start;min-height:var(--team-row-h);cursor:pointer}
 .board-decision__body{min-width:0;display:flex;flex-direction:column;gap:var(--space-1)}
 .board-decision__open{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2);min-width:0;appearance:none;border:0;background:none;padding:0;color:var(--text);font:var(--fw-medium) var(--fs-sm) var(--font-ui);text-align:left;cursor:pointer}
 .board-decision__open:hover .bf-row__title{color:var(--accent)}

@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card drawn twice in the Team tab's ACTIVE WORK is one colour. The queue row wore its
+  reason's tone while the swimlane card under it wore its lane's, so one card read as two; both now
+  take the lane's paper, and the tone moves to the pill, the mark at the row's edge, and a danger
+  row's sentence.
+
 - `board`: a contract line a card still owes stops printing as a blank. The transcript says
   `acceptance: missing` — the word a card's next step already uses — and the card dialog leaves the
   unwritten row out, because the reason line above the block already names it; an empty cell under a

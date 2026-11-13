@@ -8,7 +8,7 @@
  *
  * The first half needs no browser: it is the bundle-side rule the page depends on. The second
  * boots the served page and counts, which is the only way to hold "rows are told from one another
- * by space" to a number.
+ * by space" to a number, and to see that one card drawn in two places is painted one colour.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -24,6 +24,7 @@ import {
 	openBoardBrowser,
 } from "../../../test/helpers/board-browser.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
+import { BOARD_CSS } from "./styles.ts";
 
 describe("the Team tab's label maps", () => {
 	test("keys a session's label without inheriting one", () => {
@@ -36,6 +37,19 @@ describe("the Team tab's label maps", () => {
 			expect(BOARD_CLIENT_JS).toContain(`var ${map} = labelMap();`);
 			expect(BOARD_CLIENT_JS).not.toContain(`var ${map} = {};`);
 		}
+	});
+});
+
+describe("the Team tab's one paper", () => {
+	test("paints a decision row on its lane's paper, and leaves the tone to the pill", () => {
+		// The row is a `.bf-row` that names its lane, so the lane's paper answers it exactly as it
+		// answers the swimlane card under it: a card drawn twice in one column is one colour.
+		expect(BOARD_CSS).toMatch(/\.board-decision\{[^}]*--paper:var\(--note-paper\)/);
+		// And no rule may paint a row by its kind again — the second legend is what this removed.
+		expect(BOARD_CSS).not.toMatch(/\.board-decision\[data-tone="[a-z]+"\]\{--paper:/);
+		// The tone is still the row's, so the mark at its edge and a danger row's sentence keep it.
+		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-lane", card.lane)');
+		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-tone", tone)');
 	});
 });
 
@@ -151,6 +165,50 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 			// Three columns and three panes: the tab's six landmarks, and the only lines it draws.
 			expect(bottoms).toHaveLength(6);
 			expect(bottoms.filter((name) => !name.includes(".bf-section__cap"))).toEqual([]);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"tints one card once, in the queue and in the swimlane under it",
+		async () => {
+			const page = await board.reuse();
+			await page.click("#tab-team");
+			await page.waitForSelector("#board-team .board-decision", { timeout: PAINT_MS });
+			await page.waitForTimeout(100);
+			// The ground is not composited, so two elements on one token compute one string: the paint
+			// is read, not inferred from the stylesheet.
+			const paint = await page.evaluate(() => {
+				const document = (globalThis as unknown as { document: Doc }).document;
+				const computed = (
+					globalThis as unknown as {
+						getComputedStyle(node: ElementLike): { backgroundColor: string };
+					}
+				).getComputedStyle;
+				const read = (node: ElementLike) => ({
+					card: node.getAttribute("data-card"),
+					lane: node.getAttribute("data-lane"),
+					paper: computed(node).backgroundColor,
+				});
+				const rows = Array.from(document.querySelectorAll("#board-team .board-decision"), read);
+				const cards = Array.from(document.querySelectorAll("#board-team .bf-lane .board-row"), read);
+				// The card this fixture puts in both places: the executing one, which nobody has
+				// spot-checked, so the queue and its swimlane draw the same id.
+				const shared = rows.find((row) => cards.some((card) => card.card === row.card)) ?? null;
+				const pill = document.querySelector("#board-team .board-decision .bf-tag");
+				return {
+					row: shared,
+					card: shared === null ? null : (cards.find((card) => card.card === shared.card) ?? null),
+					pill: { text: pill?.textContent ?? "", classes: (pill as unknown as { className: string })?.className ?? "" },
+				};
+			});
+			expect(paint.row?.lane).toBe("execute");
+			expect(paint.card).not.toBeNull();
+			// One card, one ground: this is the whole change, and it is only true of a computed paper.
+			expect(paint.row?.paper).toBe(paint.card?.paper);
+			// The paper stopped saying the why, so the pill still has to: its word and its tone.
+			expect(paint.pill.text).toBe("needs review");
+			expect(paint.pill.classes).toContain("bf-tone--warn");
 		},
 		CASE_MS,
 	);

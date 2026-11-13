@@ -451,7 +451,8 @@ it and two statements drift apart. `BoardTone` is the page kit's own colour word
 so a tone is the name of a CSS property and the page needs no map; `BOARD_TONES`, `REASON_TONE`
 (every reason kind, `waiting` included because the card face invents it), and
 `DECISION_KINDS` / `DECISION_TONE`, the Team queue's kinds in rank order with the tone each
-wears, so a row's position and its colour cannot disagree. The rule behind the words: warn is
+wears in its pill and on its mark, so a row's rank and the tone it says cannot disagree; the
+row's own ground is its lane's, which is the card's paper under it. The rule behind the words: warn is
 a person who must act next, danger is a refusal or a loss, and anything merely true of the
 card is muted.
 
