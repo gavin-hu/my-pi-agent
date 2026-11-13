@@ -15,6 +15,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { SHARED_CONFIG_FILE } from "../../lib/config.ts";
+import { agentLabel } from "../../lib/session-label.ts";
 import { openBoardSession, type BoardSession } from "../../lib/board/session.ts";
 import type { Claims } from "../../lib/board/claims.ts";
 import { BOARD_DIR_NAME } from "../../lib/board/store.ts";
@@ -36,11 +37,19 @@ export interface BoardHarnessOptions {
 	/**
 	 * The team name whose signature the two gates take, written to `<cwd>/.pi/bytefly.json`.
 	 *
-	 * A suite that signs goes through the whole read path — the file, `readBoardConfig`, the
+	 * A suite that signs goes through the whole read path — the file, `readTeamConfig`, the
 	 * store's cache — rather than handing `createStore` a config, which is the seam the page's
-	 * suites use when they build a store by hand.
+	 * suites use when they build a store by hand. Omitted, the session working the board is the
+	 * lead, under the name its own id derives.
 	 */
 	lead?: string;
+	/**
+	 * Whether the fixture states a project document at all.
+	 *
+	 * `false` leaves the directory bare, which is what a case about a command writing the file
+	 * for the first time needs; the default states the team, so a sign can land.
+	 */
+	project?: boolean;
 	/** The clock every call sees. */
 	now?: number;
 	/**
@@ -63,10 +72,16 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 	const cwd = options.cwd ?? track(tempDir("pi-repo-"));
 	const now = options.now ?? 50_000;
 	// Written before the session opens its store, because the settings are read once, when it
-	// does: a suite that names a lead is the one that can sign through the tool.
-	if (options.lead !== undefined) {
+	// does: a suite that names a lead is the one that can sign through the tool. A project names
+	// its own team now, so the fixture states one — the session's own name unless a case says
+	// otherwise — rather than relying on a built-in default the loaders no longer have.
+	if (options.project !== false) {
+		const lead = options.lead ?? agentLabel(options.sessionId ?? "s-lead");
 		mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
-		writeFileSync(join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE), JSON.stringify({ board: { lead: options.lead } }));
+		writeFileSync(
+			join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE),
+			JSON.stringify({ team: { lead, teammates: [lead] } }),
+		);
 	}
 	// No git answers by default, so the directory keys on itself: the fallback every
 	// non-repository session takes, and one less subprocess per case. A case that needs a

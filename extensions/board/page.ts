@@ -190,8 +190,12 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 		// The page is a seat, not a session: one name and one id for its whole life, so a card a
 		// browser claimed is still the seat's after the session that served it ends. That name is
 		// the board's lead, so serving the page is what makes a session the lead — a repository
-		// that names one gets a page served under that name, and the gate accepts it.
-		const seat = pageActor(store.config().lead);
+		// that names one gets a page served under that name, and the gate accepts it. A project
+		// that names no lead has no name to serve as, so the start is refused before a listener
+		// exists rather than seating the page as nobody.
+		const lead = store.config().lead;
+		if (lead === "") return failed(new Error("no lead is named — set `team.lead` in bytefly.json, then `/board`"));
+		const seat = pageActor(lead);
 		const open = (url: string) => (deps.open ?? openInBrowser)(view === "board" ? url : `${url}&view=team`);
 		/** Watch the page another session serves: its note is the URL, its seat the name. */
 		const attach = (pointer: PagePointer): PageStart => {

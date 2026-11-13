@@ -406,8 +406,8 @@ describe("panel text projection", () => {
 			"Health check at startup: On",
 			"Plan limit: 3",
 			"Execute limit: 5",
-			"Lead: gavin",
-			"Teammates: gavin, tom, jack, mike, sam",
+			"Lead: (no lead)",
+			"Teammates: (no one)",
 			"Currency: CNY (¥)",
 			"Session budget: Off",
 		]) {

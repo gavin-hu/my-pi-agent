@@ -73,8 +73,9 @@ describe("following the roster label", () => {
 describe("the installed footer's chip", () => {
 	test("names the session from the bus record when Pi's own name is not on the team", async () => {
 		await withAgentDir(async (agentDir) => {
-			// The default team holds `gavin` and not `billing-core`, and `/board` is what puts a
+			// The project's team holds `gavin` and not `billing-core`, and `/board` is what puts a
 			// session on that record without renaming it: the chip follows the label, not Pi.
+			writeFileSync(join(agentDir, "bytefly.json"), JSON.stringify({ team: { teammates: ["gavin", "tom"] } }));
 			const dir = join(agentDir, BUS_DIR_NAME, "key", SESSIONS_DIR_NAME);
 			mkdirSync(dir, { recursive: true });
 			writeFileSync(
@@ -97,6 +98,7 @@ describe("the installed footer's chip", () => {
 
 	test("follows the label a join publishes, and draws nothing for one the team refuses", async () => {
 		await withAgentDir(async (agentDir) => {
+			writeFileSync(join(agentDir, "bytefly.json"), JSON.stringify({ team: { teammates: ["gavin", "tom"] } }));
 			const dir = join(agentDir, BUS_DIR_NAME, "key", SESSIONS_DIR_NAME);
 			mkdirSync(dir, { recursive: true });
 			writeFileSync(

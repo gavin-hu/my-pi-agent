@@ -25,15 +25,8 @@ import { join } from "node:path";
 import { resolveEffectiveCwd } from "../env.ts";
 import { plansDirFor } from "../plans/paths.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import {
-	agentLabel,
-	defaultLabel,
-	normalizeLabel,
-	presetNameFor,
-	sessionIdOf,
-	sessionNameOf,
-} from "../session-label.ts";
-import { BUS_DIR_NAME, presenceOf, readRoster, type RosterSession, rosterStateOf } from "../session-roster.ts";
+import { agentLabel, defaultLabel, normalizeLabel, sessionIdOf, sessionNameOf } from "../session-label.ts";
+import { BUS_DIR_NAME, presenceOf, readRoster, type RosterSession } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
 import type { Card } from "./card.ts";
 import type { Claims } from "./claims.ts";
@@ -72,11 +65,10 @@ export interface BoardSession {
 	 *
 	 * Three answers, in order: the seat while this session serves the page; else the name
 	 * the bus already records for it, so `/team join core-claims` is what its cards and
-	 * its notes carry and a claim does not rename it back; else a preset teammate name
-	 * drawn from the id, or `team-agent-<id>` once every preset name is held by a live
-	 * peer. A host that reports no id has no record to read, so it keeps the readable
-	 * chain instead. One name on every surface is the point: the card, the bus record,
-	 * and the roster say the same word.
+	 * its notes carry and a claim does not rename it back; else `team-agent-<id>`, which
+	 * cannot collide and cannot drift on a rename. A host that reports no id has no record
+	 * to read, so it keeps the readable chain instead. One name on every surface is the
+	 * point: the card, the bus record, and the roster say the same word.
 	 *
 	 * Read rather than remembered, because a join is not this session's event alone: the
 	 * label can arrive through `/team join`, through the bus's own `join`, or on the record
@@ -174,20 +166,6 @@ export function busDirFor(agentDir: string, store: Pick<BoardStore, "key">): str
 }
 
 /**
- * The labels live peers other than `id` hold, lowercased: the names a draw must skip.
- *
- * The bus's own rule, not a stricter one: a quiet or crashed record's label is free at
- * join, so it is free to draw too, and a repository's history cannot use the pool up.
- */
-function liveLabels(roster: readonly RosterSession[] | undefined, id: string, now: number): Set<string> {
-	const held = new Set<string>();
-	for (const record of roster ?? []) {
-		if (record.id !== id && rosterStateOf(record, now) === "live") held.add(record.label.toLowerCase());
-	}
-	return held;
-}
-
-/**
  * The key one host's session is kept under.
  *
  * `Symbol.for` is the global registry, so the copy of this module in `board`'s cache
@@ -261,11 +239,9 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			const roster = await session.roster(cwd);
 			const held = normalizeLabel(roster?.find((entry) => entry.id === id)?.label, "");
 			if (held !== "") return { id, label: held };
-			// No record, so the team gives this session a preset name: the one its id draws,
-			// walked past the names a live peer holds. The fallback keeps a unique name for the
-			// day the whole list is taken, so two sessions cannot settle on one word.
-			const drawn = presetNameFor(id, liveLabels(roster, id, session.now()));
-			return { id, label: drawn ?? agentLabel(id) };
+			// No record, so the team gives this session the one name that cannot collide: the id's
+			// tail. A project that wants a readable word joins under it, which is the record above.
+			return { id, label: agentLabel(id) };
 		},
 		now: options.now ?? Date.now,
 		busDir(cwd) {

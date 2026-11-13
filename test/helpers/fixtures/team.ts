@@ -26,6 +26,9 @@ import { createFakePi } from "../fakes.ts";
 /** The clock every case drives: one fixed minute, so a note's `at` is a fact to assert. */
 export const NOW = 90_000;
 
+/** The lead these cases name in the project's file, unless a case states its own. */
+export const SUITE_LEAD = "gavin";
+
 /** What a case may change about the bus it is handed. */
 export interface TeamSuiteOptions {
 	/** A send that throws this, so the failure path is the one under test. */
@@ -54,7 +57,7 @@ export interface TeamSuiteOptions {
 	peers?: Peer[] | null;
 	/** The label a join lands on, when it is not the lead's own. */
 	joinLabel?: string;
-	/** The lead the repository names, when the default is not the case under test. */
+	/** The lead the repository names, when the suite's own is not the case under test. */
 	lead?: string;
 	/**
 	 * A join the bus refuses, so the failure path is the one under test.
@@ -78,12 +81,12 @@ export interface TeamSuiteOptions {
 export function teamSuite(track: (dir: string) => string, options: TeamSuiteOptions = {}) {
 	const agentDir = track(tempDir("pi-agent-"));
 	const cwd = track(tempDir("pi-repo-"));
-	// The lead the message names is the store's, so a case that changes it writes the file the
-	// loader reads, before any store is opened on that directory.
-	if (options.lead !== undefined) {
-		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ board: { lead: options.lead } }));
-	}
+	// The lead the message names is the store's, so the file states one before any store opens on
+	// that directory: a project names its own team, and this suite's is `SUITE_LEAD` unless a case
+	// says otherwise.
+	const lead = options.lead ?? SUITE_LEAD;
+	mkdirSync(join(cwd, ".pi"), { recursive: true });
+	writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ team: { lead } }));
 	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
 	const session = openBoardSession(
 		fake.pi,

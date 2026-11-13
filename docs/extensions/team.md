@@ -73,10 +73,10 @@ quiet owner holds is reclaimable; one held by a session with no record is not, b
 live session that never joined looks the same. A message to a quiet or not-listening peer
 says so, because written is not heard.
 
-**Joining.** `/board` joins you as the lead (`board.lead`). Another session joins under
-its own name — `/team join <label>` picks it, or a preset name is drawn — and a claim,
-an assign, or an ask makes that join once; a typed preset label also joins
-`board.teammates`, so the bar's chip names it. Being on the team never spends a turn.
+**Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under
+its own name — `/team join <label>` picks it, or the id-derived `team-agent-` name when it
+has none — and a claim, an assign, or an ask makes that join once; a typed label also
+joins `team.teammates`, so the bar's chip names it. Being on the team never spends a turn.
 
 `assign` and `ask` join **before** they send, because the message names this session
 as the way back, and send nothing when the join is refused. A claim writes the card
@@ -85,7 +85,7 @@ first and joins after it, so the card is yours either way and the result carries
 `/team join`: with no bus loaded it names the extension to turn on, and with the
 label held by another record it says whose it is — joining under another name is
 the other way, and it costs a lead its signature, because the gates compare
-`board.lead` by label.
+`team.lead` by label.
 
 **Plan mode.** Neither `team` nor `session` is read-only, so plan mode refuses both
 by name; `board list` still reads. Assign after the plan is approved.
@@ -104,7 +104,7 @@ by name; `board list` still reads. Assign after the plan is approved.
 
 ## Settings
 
-`team` has no keys of its own; the lead name it writes under is `board.lead` in
+`team` has no section of its own; the lead name it writes under is `team.lead` in
 the `board` section of `bytefly.json`
 ([configuration](../configuration-reference.md#board--the-shared-feature-board)). To switch
 the extension off, toggle `team` in `/bytefly`; a session that keeps `board` alone

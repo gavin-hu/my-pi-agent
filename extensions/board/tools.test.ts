@@ -20,7 +20,7 @@ import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { presetNameFor, TEAMMATE_NAMES } from "../../lib/session-label.ts";
+import { agentLabel } from "../../lib/session-label.ts";
 import { MAX_NOTES } from "../../lib/board/card.ts";
 import { shortenPath } from "../../lib/format.ts";
 import { buildRound } from "../../lib/board/round.ts";
@@ -35,13 +35,11 @@ afterAll(() => temps.flush());
 
 const NOW = 100_000;
 
-/** The two sessions these suites work as, and the preset names their ids draw. */
+/** The two sessions these suites work as, and the names their ids derive. */
 const LEAD_ID = "s-lead";
 const PEER_ID = "s-peer";
-const LEAD = presetNameFor(LEAD_ID) ?? "s-lead";
-const PEER = presetNameFor(PEER_ID) ?? "s-peer";
-/** The pool widened, so a matcher is not pinned to the tuple's literal union. */
-const POOL: readonly string[] = TEAMMATE_NAMES;
+const LEAD = agentLabel(LEAD_ID);
+const PEER = agentLabel(PEER_ID);
 
 /** A team join that records every call and the label it asked for, and answers with `answer`. */
 function recordingTeam(
@@ -62,7 +60,7 @@ function recordingTeam(
 /**
  * A registered tool plus the context it will be called with.
  *
- * `lead` is the board's `board.lead`: the reviewer a seed signs as by default, so the seeded
+ * `lead` is the project's `team.lead`: the reviewer a seed signs as by default, so the seeded
  * fixtures reach a lane through the gate; a case about the gate names the session it means.
  */
 function harness(
@@ -359,7 +357,7 @@ describe("list", () => {
 		expect(resultText(result)).toContain("2 owners with no record · 2 done");
 		expect(resultText(result)).not.toContain("billing-old (0 live, 1 done)");
 		// The details are unchanged: the fold is what the text does, not what the rollup holds.
-		// Both sides sorted: `LEAD` is the name this session draws from the preset list, so its
+		// Both sides sorted: `LEAD` is the name this session derives from its id, so its
 		// spelling is the vocabulary's business and the order here is not a reading.
 		expect(result.details.round?.owners.map((group) => group.label).sort()).toEqual(
 			["billing-old", "billing-older", LEAD].sort(),
@@ -1202,8 +1200,8 @@ describe("the team", () => {
 		// The label is the card's owner label, so the bus, the roster and the card agree.
 		expect(labels).toEqual([LEAD]);
 		expect(claimed.details.card?.owner).toEqual({ id: LEAD_ID, label: LEAD });
-		// A session the bus has no record of draws a preset name, not an id-derived one.
-		expect(POOL).toContain(LEAD);
+		// A session the bus has no record of writes as the name its id derives.
+		expect(LEAD).toBe(agentLabel(LEAD_ID));
 	});
 
 	test("a claim writes as the name the bus already holds, and asks nothing", async () => {

@@ -46,7 +46,7 @@ function harness(
 		interval?: RepeatTimer;
 		/** The grace seam, so a case fires the idle timer instead of waiting it out. */
 		timer?: ArmTimer;
-		lead?: string; // the board's `board.lead`: the name the page serves as
+		lead?: string; // the project's `team.lead`: the name the page serves as
 	} = {},
 ) {
 	const board = boardHarness({ now: NOW, track: temps.track, ...options });
