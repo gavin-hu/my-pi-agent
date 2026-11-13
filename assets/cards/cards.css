@@ -20,29 +20,29 @@
  */
 
 :root {
-	--canvas: #0b0f16;
-	--surface: #111826;
-	--raised: #1e2533;
+	--canvas: #0d1117;
+	--surface: #161b22;
+	--raised: #21262d;
 	/* The kit's `border`, `accent`, `accent-alt`, `success`, `warn`, and `danger` as
 	 * channels, so a tint below is one alpha away from the colour it belongs to
 	 * rather than a hand-copied triple that can quietly stop matching it. */
-	--border-rgb: 35, 47, 66;
-	--accent-rgb: 139, 157, 255;
-	--accent-alt-rgb: 182, 156, 255;
-	--success-rgb: 74, 222, 128;
-	--warn-rgb: 251, 191, 36;
-	--danger-rgb: 248, 113, 113;
+	--border-rgb: 90, 98, 107;
+	--accent-rgb: 88, 166, 255;
+	--accent-alt-rgb: 188, 140, 255;
+	--success-rgb: 63, 185, 80;
+	--warn-rgb: 210, 153, 34;
+	--danger-rgb: 248, 81, 73;
 	--line: rgba(var(--border-rgb), 0.32);
 	--line-strong: rgba(var(--border-rgb), 0.52);
-	--text: #e8eef8;
-	--muted: #a3b1c6;
-	--dim: #8897ab;
-	--accent: #8b9dff;
-	--accent-alt: #b69cff;
-	--accent-2: #f472b6;
-	--success: #4ade80;
-	--warn: #fbbf24;
-	--danger: #f87171;
+	--text: #c9d1d9;
+	--muted: #8b949e;
+	--dim: #868f99;
+	--accent: #58a6ff;
+	--accent-alt: #bc8cff;
+	--accent-2: #f778ba;
+	--success: #3fb950;
+	--warn: #d29922;
+	--danger: #f85149;
 	--font-sans:
 		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
 		"Noto Sans CJK SC", "Microsoft YaHei", sans-serif;

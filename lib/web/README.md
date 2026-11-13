@@ -123,12 +123,11 @@ one.
 
 ## Color is a role
 
-`WEB_THEME_TOKENS` is the web's **own** palette: a slate ramp with one indigo accent, per
-appearance, in `tokens.ts`. It no longer reads `themes/bytefly-*.json` — a terminal picks
-colours for glyphs on a cell grid and a page picks them for type and elevation, so a TUI theme
-change restyles the terminal and leaves a served page alone. The *shape* of the contract is
-what the kit keeps: one token name, one value per appearance, and every component reading
-`var(--token)`.
+`WEB_THEME_TOKENS` is the terminal's palette, per appearance, derived in `tokens.ts` from
+`themes/bytefly-dark.json` and `bytefly-light.json`: a page and the terminal are one product, so a
+TUI theme change restyles both. What a page states for itself is what a glyph grid cannot — see the
+derivations below. The *shape* of the contract is what the kit keeps: one token name, one value per
+appearance, and every component reading `var(--token)`.
 
 A surface that cannot import TypeScript carries a **copy** of that palette, and a test holds it to
 the owner: the documentation site ([`docs/assets/css/site.css`](../../docs/assets/css/site.css),
@@ -138,21 +137,21 @@ serves the stylesheet as written and a poster opens from `file://`. The montage
 (`scripts/shots/video.ts`) imports the tokens, and the tool gallery keeps the terminal's theme,
 because its frames are the terminal.
 
-Four tokens are **stated** in the `Palette` literal, one entry per appearance, because each is a
-decision and not a rule: `--on-accent` (a label on the accent fill — white on the light theme's
-`#4f46e5`, the dark canvas colour on the dark theme's `#8b9dff`), `--scrim` (a dimming layer needs
-its own alpha rather than a palette entry), and `--shadow-1`/`--shadow-2` (elevation: `1` for a
-record, a menu, a key sheet and the header; `2` for a dialog). A component may name one of the two
-shadows and nothing else; a literal blur fails the same test a literal hex does.
+What a theme cannot state, the kit derives, so no appearance can hand-pick it and drift:
 
-Five are **computed**, so no appearance can hand-pick one and drift:
-
-- `--accent-soft` — the accent at 16% (dark) or 10% (light), for a selection or the active nav row.
-- `--raised` — `--surface` mixed 6% (dark) or 11% (light) toward `--text`, for a block that has to
+- `--accent-soft` — the accent at 15% (dark) or 10% (light), for a selection or the active nav row.
+- `--raised` — `--surface` mixed 6% (dark) or 3% (light) toward `--text`, for a block that has to
   read as a plane above the page rather than as an outline. The step is per appearance because one
-  that reads on a dark canvas is invisible on a white one.
-- `--success-soft`, `--danger-soft`, `--search-soft` — their own tone at a low alpha, for a tinted
-  tag or a highlighted match.
+  that reads on a dark canvas is invisible on a white one, and the light accent drops under AA at
+  the dark one.
+- `--dim` — `--muted` mixed 4% (dark) or 8% (light) toward `--canvas`. The theme's own `dim` is a
+  terminal's 3:1 grey and reaches 4.08:1 on a raised plane, so this row is a step rather than a
+  copy; the test holds the step to its inputs, because dark clears the floor by 0.14:1.
+
+`--on-accent` (the canvas colour, because a label on the accent fill is a label on the page's own
+paper), `--scrim` and `--shadow-1`/`--shadow-2` (elevation: `1` for a record, a menu, a key sheet
+and the header; `2` for a dialog) are stated per appearance. A component may name one of the two
+shadows and nothing else; a literal blur fails the same test a literal hex does.
 
 **The face is part of the role.** `--font-ui` carries every label, control and heading, and
 `--font-mono` is kept for what *is* code — a command, a card id, a file path, a key — because a
@@ -162,7 +161,7 @@ an uppercased mono label reads as one twice.
 Components read tokens only: no literal hex or `rgba()` in `components.ts`, and a
 test fails one. Contrast is asserted, not assumed — text, muted, and accent at
 4.5:1 on both surfaces, the primary label at 4.5:1 on the accent fill, `--dim` at
-3:1 because it carries the line-number gutter, and the status colours at 3:1.
+4.5:1 and never closer than 0.94 to `muted`, and the status colours at 3:1.
 
 The theme layer emits the dark palette at `:root`, the explicit light override,
 the system-light fallback, the `tok-*` syntax rules, and **last** a print block
