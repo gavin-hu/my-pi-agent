@@ -73,7 +73,20 @@ export interface LockOptions {
 	staleMs?: number;
 	/** The clock, in epoch milliseconds. */
 	now?: () => number;
+	/**
+	 * A suite's seam: the exclusive create, so a case can hand the loop the errno a platform
+	 * answers. `EPERM` cannot be provoked on macOS or Linux, and it is the one refusal this
+	 * module reads that a suite could not otherwise reach. The product supplies nothing.
+	 */
+	create?: CreateLock;
 }
+
+/** The exclusive create one acquisition makes at the lock's name. */
+type CreateLock = (path: string, text: string) => Promise<void>;
+
+/** The product's create: the file appears only if nobody else's did. */
+const createLock: CreateLock = (path, text) =>
+	writeFile(path, text, { encoding: "utf-8", flag: "wx", mode: LOCK_MODE });
 
 /**
  * Take the board's write lock, or answer nothing when a live writer held it for the whole wait.
@@ -86,6 +99,7 @@ export async function lockBoard(dir: string, options: LockOptions = {}): Promise
 	const waitMs = options.waitMs ?? LOCK_WAIT_MS;
 	const staleMs = options.staleMs ?? LOCK_STALE_MS;
 	const now = options.now ?? Date.now;
+	const create = options.create ?? createLock;
 	const held: Held = { pid: process.pid, token: randomUUID() };
 	const text = JSON.stringify(held);
 	// The board directory is the one the cards live in, so it is there; the create is still
@@ -95,10 +109,10 @@ export async function lockBoard(dir: string, options: LockOptions = {}): Promise
 	let takeovers = 0;
 	for (;;) {
 		try {
-			await writeFile(path, text, { encoding: "utf-8", flag: "wx", mode: LOCK_MODE });
+			await create(path, text);
 			return { release: () => clearLock(path, held.token) };
 		} catch (error) {
-			if (!hasErrorCode(error, "EEXIST")) throw error;
+			if (!inTheWay(error)) throw error;
 		}
 		// Somebody's file is in the way. A fresh one is theirs to keep; an abandoned one is
 		// cleared so that the next create — the decision — can be made again.
@@ -113,6 +127,20 @@ export async function lockBoard(dir: string, options: LockOptions = {}): Promise
 		if (now() >= deadline) return undefined;
 		await new Promise<void>((resolve) => setTimeout(resolve, POLL_MS));
 	}
+}
+
+/**
+ * Whether a refused create means somebody's file is in the way.
+ *
+ * `EEXIST` is the POSIX answer. `EPERM` is Windows' answer to the same race: a rival's create
+ * and `rm` overlap, the name is still delete-pending, and the create is refused as access denied
+ * rather than as existing — libuv maps `ERROR_ACCESS_DENIED` to `EPERM`. It cannot be told from a
+ * directory this process may not write, so the wait is what separates them: contention clears
+ * within a poll or two, and a permission problem answers nothing at the deadline instead of
+ * throwing an errno out of a write nobody made.
+ */
+function inTheWay(error: unknown): boolean {
+	return hasErrorCode(error, "EEXIST") || hasErrorCode(error, "EPERM");
 }
 
 /** Whether the file at `path` is older than the bar a held lock may pass. */

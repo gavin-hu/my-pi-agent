@@ -13,6 +13,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -29,6 +30,23 @@ const NOW = 10_000;
 /** A fresh board, since a lock is one name inside one directory. */
 function board(): string {
 	return temps.track(tempDir("pi-lock-"));
+}
+
+/** The errno a platform answers, as a thrown value carries it. */
+function errno(code: string): Error {
+	return Object.assign(new Error(`${code}: the lock's name was not this call's to take`), { code });
+}
+
+/** A create that refuses the first `refusals` attempts with `code`, then delegates to the real one. */
+function refusing(refusals: number, code: string): (path: string, text: string) => Promise<void> {
+	let left = refusals;
+	return async (path, text) => {
+		if (left > 0) {
+			left -= 1;
+			throw errno(code);
+		}
+		await writeFile(path, text, { flag: "wx" });
+	};
 }
 
 describe("lockBoard", () => {
@@ -92,6 +110,36 @@ describe("lockBoard", () => {
 		expect(await lockBoard(dir, { waitMs: 20 })).toBeUndefined();
 		await first.release();
 		expect(existsSync(lockPathFor(dir))).toBe(false);
+	});
+
+	test("a create Windows refuses while a rival deletes its lock is waited out, then taken", async () => {
+		const dir = board();
+		// Windows answers the create with access-denied rather than exists while a rival's create
+		// and `rm` overlap: the name is delete-pending, and the create is refused for it. One poll
+		// later the deletion has landed and the name is free — which is the whole fix, since the
+		// refusal used to escape the loop as a failed write.
+		const lock = await lockBoard(dir, { create: refusing(2, "EPERM") });
+		if (lock === undefined) throw new Error("expected the refused create to be retried, not thrown");
+		expect(JSON.parse(readFileSync(lockPathFor(dir), "utf-8"))).toMatchObject({ pid: process.pid });
+		await lock.release();
+		expect(existsSync(lockPathFor(dir))).toBe(false);
+	});
+
+	test("a create refused for the whole wait answers nothing, so the caller still owns the write", async () => {
+		const dir = board();
+		// A refusal that outlives the window is not told from a directory this process may not
+		// write to, so the acquisition ends the way a live holder's does: nothing taken, and no
+		// file of this call's own left behind for a later reader to take over.
+		expect(await lockBoard(dir, { waitMs: 0, create: refusing(Infinity, "EPERM") })).toBeUndefined();
+		expect(existsSync(lockPathFor(dir))).toBe(false);
+	});
+
+	test("a create that fails for any other reason still throws on the first attempt", async () => {
+		const dir = board();
+		// The tolerance is two codes and not "whatever a create answers": a full disk is the
+		// caller's to hear about, and asking again would hide it for the length of the wait.
+		const failure = refusing(Infinity, "ENOSPC");
+		await expect(lockBoard(dir, { create: failure })).rejects.toThrow("ENOSPC");
 	});
 
 	test("a file that is not this build's lock record is cleared once it is old", async () => {

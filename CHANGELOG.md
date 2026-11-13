@@ -16,6 +16,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the person's `/board approve` and `/board review` still sign either gate. `bun run migrate:config`
   moves an existing `board.lead` and `board.teammates` into the `team` section.
 
+### Fixed
+
+- `board`: the write lock waits out the `EPERM` Windows answers while a rival's create and `rm`
+  overlap, instead of throwing it out of a write nobody made. The refusal meant "somebody's file is
+  in the way" all along — a delete-pending name is refused as access-denied there rather than as
+  existing — so the six-notes race lands on `windows-latest` as it already did elsewhere. A refusal
+  that outlives the window ends the acquisition the way a live holder's does, naming the other
+  session instead of losing the write to an errno.
+
 ## [0.27.0] - 2026-11-13
 
 ### Added
