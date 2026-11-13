@@ -1,34 +1,37 @@
 /*
  * The documentation theme.
  *
- * One set of role tokens, two palettes: the light and dark values are the
- * `bytefly-light` and `bytefly-dark` themes, so the site and the terminal read
- * as one product. Components reference a role, never a palette value.
+ * One set of role tokens, two palettes: the values are the browser kit's, from
+ * `lib/web/tokens.ts`, so the site and the served pages read as one product — the same
+ * slate canvas and indigo accent. A token the kit does not carry is a mix of two that it
+ * does, never a hand-picked colour. `test/theme.test.ts` holds both, so this file cannot
+ * drift onto a palette of its own. Components reference a role, never a value.
  */
 
 :root {
 	color-scheme: light;
 
-	--canvas: #ffffff;
-	--canvas-subtle: #f6f8fa;
-	--canvas-inset: #f0f3f6;
-	--text: #1f2328;
-	--muted: #57606a;
-	--dim: #6e7781;
-	--border: #d8dee4;
-	--border-soft: #eaeef2;
-	--border-strong: #6e7781;
-	--accent: #0969da;
-	--accent-soft: #e8f2fc;
-	--success: #1a7f37;
-	--success-soft: #e9f6ed;
-	--warning: #9a6700;
-	--warning-soft: #fff8c5;
-	--danger: #cf222e;
-	--danger-soft: #fcf0f1;
-	--purple: #8250df;
-	--code-text: #bf3989;
-	--selection: #e8f2fc;
+	--canvas: #f6f7f9;
+	--canvas-subtle: #ffffff;
+	--canvas-inset: #e5e6e7;
+	--text: #111827;
+	--muted: #525e70;
+	--dim: #5c677a;
+	--border: #e4e8ee;
+	--border-soft: color-mix(in srgb, var(--border) 55%, var(--canvas));
+	--border-strong: #cfd6e0;
+	--accent: #4f46e5;
+	--accent-soft: rgba(79, 70, 229, 0.1);
+	--success: #15803d;
+	--success-soft: rgba(21, 128, 61, 0.14);
+	--warning: #b45309;
+	--warning-soft: rgba(180, 83, 9, 0.18);
+	--danger: #dc2626;
+	--danger-soft: rgba(220, 38, 38, 0.14);
+	--purple: #7c3aed;
+	--code-text: #db2777;
+	--selection: color-mix(in srgb, var(--accent) 32%, var(--canvas));
+	--scrim: rgba(15, 23, 42, 0.32);
 
 	--header-height: 3.5rem;
 	--sidebar-width: 15.5rem;
@@ -40,33 +43,34 @@
 	--font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 	--radius: 6px;
 	--radius-large: 10px;
-	--shadow: 0 1px 2px rgba(31, 35, 40, 0.06), 0 8px 24px rgba(31, 35, 40, 0.08);
+	--shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 8px rgba(16, 24, 40, 0.08);
 }
 
 :root[data-theme="dark"] {
 	color-scheme: dark;
 
-	--canvas: #0d1117;
-	--canvas-subtle: #161b22;
-	--canvas-inset: #12171e;
-	--text: #c9d1d9;
-	--muted: #8b949e;
-	--dim: #7d8590;
-	--border: #30363d;
-	--border-soft: #21262d;
-	--border-strong: #6e7681;
-	--accent: #58a6ff;
-	--accent-soft: #17273a;
-	--success: #3fb950;
-	--success-soft: #12271a;
-	--warning: #d29922;
-	--warning-soft: #3d331a;
-	--danger: #f85149;
-	--danger-soft: #3d1a21;
-	--purple: #bc8cff;
-	--code-text: #f778ba;
-	--selection: #17273a;
-	--shadow: 0 1px 2px rgba(1, 4, 9, 0.4), 0 8px 24px rgba(1, 4, 9, 0.5);
+	--canvas: #0b0f16;
+	--canvas-subtle: #111826;
+	--canvas-inset: #1e2533;
+	--text: #e8eef8;
+	--muted: #a3b1c6;
+	--dim: #8897ab;
+	--border: #232f42;
+	--border-soft: color-mix(in srgb, var(--border) 55%, var(--canvas));
+	--border-strong: #33425c;
+	--accent: #8b9dff;
+	--accent-soft: rgba(139, 157, 255, 0.16);
+	--success: #4ade80;
+	--success-soft: rgba(74, 222, 128, 0.14);
+	--warning: #fbbf24;
+	--warning-soft: rgba(251, 191, 36, 0.18);
+	--danger: #f87171;
+	--danger-soft: rgba(248, 113, 113, 0.14);
+	--purple: #b69cff;
+	--code-text: #f472b6;
+	--selection: color-mix(in srgb, var(--accent) 32%, var(--canvas));
+	--scrim: rgba(3, 6, 12, 0.62);
+	--shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 *,
@@ -273,9 +277,7 @@ a:hover {
 }
 
 .search-input:focus {
-	outline: none;
 	border-color: var(--accent);
-	box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .search-results {
@@ -845,7 +847,7 @@ body.is-nav-open {
 		inset: var(--header-height) 0 0;
 		z-index: 8;
 		display: block;
-		background: rgba(13, 17, 23, 0.45);
+		background: var(--scrim);
 	}
 
 	.nav-scrim[hidden] {

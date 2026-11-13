@@ -18,6 +18,7 @@
 
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { WEB_THEME_TOKENS } from "../../lib/web/tokens.ts";
 import { chromeBinary, launchChrome } from "../capture/chrome.ts";
 import { runCli } from "../cli.ts";
 import { repo } from "../theme.ts";
@@ -64,12 +65,15 @@ const FADE_SECONDS = 0.22;
  */
 const MAX_PAN = 720;
 
-/** The montage's own palette: the `bytefly-dark` canvas, text, and hairline. */
+/** The kit's dark palette, the same one the served pages and the posters draw. */
+const KIT = WEB_THEME_TOKENS.dark;
+
+/** The montage's own palette: the page the frames sit on, its words, and its hairline. */
 const COLORS = {
-	canvas: "#0d1117",
-	text: "#c9d1d9",
-	muted: "#8b949e",
-	border: "#30363d",
+	canvas: KIT["--canvas"],
+	text: KIT["--text"],
+	muted: KIT["--muted"],
+	border: KIT["--border"],
 } as const;
 
 const FONT = "-apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif";

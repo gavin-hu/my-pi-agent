@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `lib`: the documentation site, the posting cards, and the gallery montage draw the browser kit's
+  palette, so the site and the posters are the same slate-and-indigo as the served pages instead of
+  the terminal's GitHub blue. The two static stylesheets are copies — Pages serves the one as
+  written and a poster opens from `file://`, so neither can import `lib/web/tokens.ts` — and
+  `test/theme.test.ts` and `scripts/cards.test.ts` hold every value to it; the montage imports the
+  tokens directly. The site's favicon and its `theme-color` follow.
+
 - `board`: a spot-check asks its gate before it runs the contract's `verify` command, so a `review`
   the board would refuse — the wrong lane, the card's own holder, a session that is not the lead —
   starts no process. A card whose contract names a command can also carry an `override` again: the

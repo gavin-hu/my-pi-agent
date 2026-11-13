@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { TUI_TOKENS, type TuiRole } from "../lib/tui/tokens.ts";
+import { WEB_THEME_TOKENS } from "../lib/web/tokens.ts";
 
 // Pi's complete theme token set (theme-schema.json). Required tokens must be
 // present; optional tokens may be omitted but these themes define them all so
@@ -374,65 +375,91 @@ describe("theme pair", () => {
 	});
 });
 
-/** The site's stylesheet, whose two palettes say they are these two themes. */
+/** The site's stylesheet, whose two palettes say they are the browser kit's. */
 const SITE_CSS = fileURLToPath(new URL("../docs/assets/css/site.css", import.meta.url));
 
-/** The selector that opens each palette in the stylesheet, and the theme it claims to be. */
+/** The selector that opens each palette in the stylesheet, and the appearance it declares. */
 const SITE_PALETTES = [
-	{ file: "bytefly-light.json", selector: ":root" },
-	{ file: "bytefly-dark.json", selector: ':root[data-theme="dark"]' },
+	{ appearance: "light", selector: ":root" },
+	{ appearance: "dark", selector: ':root[data-theme="dark"]' },
 ] as const;
 
 /**
- * Each colour token the site declares, and the theme variable that owns it. A
- * `null` is the site's own ramp — a colour the themes do not carry — so a token is
- * either held to its owner's value or named as the site's, never left unowned.
+ * Each colour token the site declares, and the kit token that owns it. A `null` is
+ * the site's own step — a mix of two kit colours — so a token is either held to its
+ * owner's value or named as the site's, never left unowned.
  */
 const SITE_TOKENS: ReadonlyArray<readonly [token: string, owner: string | null]> = [
-	["canvas", "canvas"],
-	["canvas-subtle", "canvasSubtle"],
-	["canvas-inset", null],
-	["text", "text"],
-	["muted", "muted"],
-	["dim", "dim"],
-	["border", null],
+	["canvas", "--canvas"],
+	["canvas-subtle", "--surface"],
+	["canvas-inset", "--raised"],
+	["text", "--text"],
+	["muted", "--muted"],
+	["dim", "--dim"],
+	["border", "--border"],
 	["border-soft", null],
-	["border-strong", "border"],
-	["accent", "blue"],
-	["accent-soft", "selectionBg"],
-	["success", "green"],
-	["success-soft", "successBg"],
-	["warning", "yellow"],
-	["warning-soft", "searchBg"],
-	["danger", "red"],
-	["danger-soft", "errorBg"],
-	["purple", "purple"],
-	["code-text", "pink"],
-	["selection", "selectionBg"],
+	["border-strong", "--border-strong"],
+	["accent", "--accent"],
+	["accent-soft", "--accent-soft"],
+	["success", "--success"],
+	["success-soft", "--success-soft"],
+	["warning", "--warn"],
+	["warning-soft", "--search-soft"],
+	["danger", "--danger"],
+	["danger-soft", "--danger-soft"],
+	["purple", "--accent-alt"],
+	["code-text", "--accent-2"],
+	["selection", null],
+	["scrim", "--scrim"],
 ];
 
-/** One palette's colour tokens, from the `--name: #hex` declarations in its block. */
+/** A value a palette block declares: a hex, an alpha colour, or a mix of two tokens. */
+const COLOR_VALUE = /^(?:#[0-9a-fA-F]{3,8}|rgba?\(|color-mix\()/;
+
+/** One palette's colour tokens, from the `--name: value` declarations in its block. */
 function paletteOf(css: string, selector: string): Map<string, string> {
 	const start = css.indexOf(`${selector} {`);
 	if (start < 0) throw new Error(`docs/assets/css/site.css: no ${selector} block`);
 	const body = css.slice(start, css.indexOf("}", start));
 	const tokens = new Map<string, string>();
-	for (const [, name, value] of body.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})/g)) {
-		if (name !== undefined && value !== undefined) tokens.set(name, value);
+	for (const [, name, value] of body.matchAll(/--([\w-]+):\s*([^;]+);/g)) {
+		if (name === undefined || value === undefined) continue;
+		const trimmed = value.trim();
+		if (COLOR_VALUE.test(trimmed)) tokens.set(name, trimmed);
 	}
 	return tokens;
 }
 
+/** A colour as one spelling: a formatter's spacing, or `0.5` against `.5`, cannot fail a copy. */
+function normalize(value: string): string {
+	return value
+		.replace(/\s+/g, " ")
+		.replace(/\(\s+/g, "(")
+		.replace(/\s+\)/g, ")")
+		.replace(/\s*,\s*/g, ",")
+		.replace(/(^|[^\d])0\./g, "$1.")
+		.trim();
+}
+
+/** Each text role, and the ratio it must reach on the two surfaces the site paints it on. */
+const SITE_CONTRAST: ReadonlyArray<readonly [role: string, minimum: number]> = [
+	["text", TEXT_MINIMUM],
+	["muted", TEXT_MINIMUM],
+	["dim", LINE_MINIMUM],
+	["accent", TEXT_MINIMUM],
+];
+
 /**
- * The site serves the package's own colours, so its palette is a copy of the theme
- * files rather than a second design. Nothing compared the two, which is how a theme
- * colour could change and leave the documentation on the old one.
+ * The site is a browser surface, so its palette is the kit's: `docs/assets/css/site.css`
+ * is a copy rather than a second design, because Pages serves the stylesheet as written.
+ * Nothing compared the two, which is how the served pages could move to a new palette and
+ * leave the documentation on the terminal's.
  */
 describe("the site palette", () => {
 	const css = readFileSync(SITE_CSS, "utf8");
 	const palettes = SITE_PALETTES.map((palette) => ({
 		...palette,
-		theme: loadTheme(palette.file),
+		kit: WEB_THEME_TOKENS[palette.appearance],
 		tokens: paletteOf(css, palette.selector),
 	}));
 	const declared = SITE_TOKENS.map(([token]) => token);
@@ -451,30 +478,67 @@ describe("the site palette", () => {
 		expect(problems).toEqual([]);
 	});
 
-	test("carries each shared token's theme value", () => {
-		const drifted = palettes.flatMap(({ file, theme, tokens }) =>
+	test("carries each shared token's kit value", () => {
+		const drifted = palettes.flatMap(({ appearance, kit, tokens }) =>
 			shared
-				.filter(([token, owner]) => tokens.get(token) !== theme.vars[owner])
+				.filter(([token, owner]) => normalize(tokens.get(token) ?? "") !== normalize(kit[owner]))
 				.map(
-					([token, owner]) =>
-						`${file} vars.${owner}: --${token} is ${tokens.get(token)}, the theme's is ${theme.vars[owner]}`,
+					([token, owner]) => `${appearance}: --${token} is ${tokens.get(token)}, the kit's ${owner} is ${kit[owner]}`,
 				),
 		);
-		expect(drifted, "docs/assets/css/site.css: copy the theme's value, or name the token as the site's own").toEqual(
-			[],
-		);
+		expect(drifted, "docs/assets/css/site.css: copy the kit's value, or name the token as the site's own").toEqual([]);
 	});
 
-	test("names the colours the themes do not carry, instead of copying one", () => {
-		const copied = palettes.flatMap(({ file, theme, tokens }) => {
-			const carried = new Set(Object.values(theme.vars).filter((value): value is string => typeof value === "string"));
-			return own.flatMap((token) => {
+	test("names the colours the kit does not carry, instead of copying one", () => {
+		const carried = new Set(palettes.flatMap(({ kit }) => Object.values(kit)).map(normalize));
+		const copied = palettes.flatMap(({ appearance, tokens }) =>
+			own.flatMap((token) => {
 				const value = tokens.get(token);
-				return value !== undefined && carried.has(value)
-					? [`${file}: --${token} is ${value}, which vars carries; name that variable as its owner`]
+				return value !== undefined && carried.has(normalize(value))
+					? [`${appearance}: --${token} is ${value}, which the kit carries; name that token as its owner`]
 					: [];
-			});
-		});
+			}),
+		);
 		expect(copied).toEqual([]);
+	});
+
+	test("derives the site's own tokens from two kit tokens, not from a literal", () => {
+		const MIX = /^color-mix\(in srgb,var\(--[\w-]+\) \d+%,var\(--[\w-]+\)\)$/;
+		const literal = palettes.flatMap(({ appearance, tokens }) =>
+			own.flatMap((token) => {
+				const value = tokens.get(token) ?? "";
+				return MIX.test(normalize(value))
+					? []
+					: [`${appearance}: --${token} is ${value}, which is not a mix of two kit tokens`];
+			}),
+		);
+		expect(literal).toEqual([]);
+	});
+
+	test("keeps the site's words readable on both of its surfaces", () => {
+		for (const { appearance, tokens } of palettes) {
+			for (const [role, minimum] of SITE_CONTRAST) {
+				const foreground = tokens.get(role) ?? "";
+				for (const surface of ["canvas", "canvas-subtle"]) {
+					expect(
+						contrastRatio(foreground, tokens.get(surface) ?? ""),
+						`${appearance}: --${role} on --${surface}`,
+					).toBeGreaterThanOrEqual(minimum);
+				}
+			}
+		}
+	});
+
+	test("elevates with the kit's own shadow", () => {
+		const drifted = palettes.flatMap(({ appearance, selector }) => {
+			const start = css.indexOf(`${selector} {`);
+			const block = css.slice(start, css.indexOf("}", start));
+			const value = block.match(/--shadow:\s*([^;]+);/)?.[1] ?? "";
+			const want = WEB_THEME_TOKENS[appearance]["--shadow-1"];
+			return normalize(value) === normalize(want)
+				? []
+				: [`${appearance}: --shadow is ${value.trim()}, the kit's --shadow-1 is ${want}`];
+		});
+		expect(drifted).toEqual([]);
 	});
 });
