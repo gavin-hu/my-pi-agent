@@ -369,10 +369,10 @@ async function assignCard(
 	// The owner a handoff records: the resolved peer, whose id survives the peer renaming
 	// itself, or the label a message file was written for when the bus could not say who that
 	// is. The same read also says whether that peer will be woken by the message it just got.
-	// `told` is the send's own answer: `delivered` names the inbox files written, so a handoff
-	// with none carries the record without it — the card then says the owner never heard, which
-	// is the fact a reader needs and the one a re-send would be owed.
-	const handoff = { at: now, ...(delivered.length === 0 ? {} : { told: { at: now } }) };
+	// `told` is the send's own answer, and a send that returned wrote at least one inbox
+	// (`SendResult`), so the record always carries it — a handoff without one is a card from
+	// before the field existed, and the re-send it owes reads that absence.
+	const handoff = { at: now, told: { at: now } };
 	const owner: CardOwner =
 		target.id === undefined ? ownerFor(to, delivered, handoff) : { id: target.id, label: target.label, handoff };
 	const written = await writeOutcome(store.mutate(id, { kind: "assign", to: owner }, me, now));
@@ -391,7 +391,7 @@ async function assignCard(
 		return refusal("assign", formatRacedAssignment(applied.card ?? card, to, applied.error), applied.card ?? card);
 	const silent = notListening(peers, delivered);
 	const still = quiet(peers, delivered);
-	return textResult(formatHandoff(applied.card, to, delivered, silent, still, failed), {
+	return textResult(formatHandoff(applied.card, delivered, silent, still, failed), {
 		action: "assign",
 		card: applied.card,
 		assigned: applied.card.owner,
@@ -516,7 +516,7 @@ async function askPeer(
 	}
 	const silent = notListening(peers, delivered);
 	const still = quiet(peers, delivered);
-	return textResult(formatAsk(ask, delivered, silent, still, to, failed), {
+	return textResult(formatAsk(ask, delivered, silent, still, failed), {
 		action: "ask",
 		askId: ask,
 		delivered,

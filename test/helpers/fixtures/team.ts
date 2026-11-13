@@ -17,7 +17,7 @@ import type { Dispatch } from "../../../extensions/team/dispatch.ts";
 import type { TeamDetails } from "../../../extensions/team/types.ts";
 import { type BoardSession, openBoardSession } from "../../../lib/board/session.ts";
 import type { Claims } from "../../../lib/board/claims.ts";
-import type { Peer, TeamJoin } from "../../../lib/session-tool.ts";
+import { notDeliveredLine, type Peer, type TeamJoin } from "../../../lib/session-tool.ts";
 import { removeBusRecord, writeBusRecord } from "../bus.ts";
 import { fakeCtx } from "../context.ts";
 import { tempDir } from "../env.ts";
@@ -132,7 +132,11 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 			// A send that reached everybody is the default. A case that wants the partial
 			// fan-out names the peers a write failed for, and they leave the delivered list:
 			// one message file is either written for a peer or not.
-			return { delivered: reached.filter((label) => !failed.some((entry) => entry.label === label)), failed };
+			const delivered = reached.filter((label) => !failed.some((entry) => entry.label === label));
+			// The bus refuses a send that reached nobody, and this stub has to as well — a fake that
+			// answered an empty list would let a case rebuild the branch the verbs no longer carry.
+			if (delivered.length === 0) throw new Error(notDeliveredLine(failed) ?? "no recipient could be written.");
+			return { delivered, failed };
 		},
 		// The peers a case passes in; the default is the two above, listening.
 		async peers() {

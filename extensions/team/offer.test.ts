@@ -88,6 +88,25 @@ describe("offer", () => {
 		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
 	});
 
+	test("a broadcast whose every inbox refused is the send that failed, not an offer", async () => {
+		// The bus writes one file per inbox and refuses a send that reached none — the total fan-out
+		// failure, which is the shape the verbs used to word as `offered to nobody`.
+		const { call, seed, store } = harness({
+			undelivered: [
+				{ label: "billing-core", error: "EEXIST: file already exists" },
+				{ label: "billing-web", error: "EEXIST: file already exists" },
+			],
+		});
+		const id = await seed();
+		const result = await call({ action: "offer", card: id });
+		expect(result.isError).toBe(true);
+		expect(resultText(result)).toContain(
+			"was not offered: Not delivered to billing-core (EEXIST: file already exists)",
+		);
+		expect(resultText(result)).toContain("The card is unchanged.");
+		expect((await (await store()).read(id))?.offeredAt).toBeUndefined();
+	});
+
 	test("records the offer a peer could not be reached for, and names it", async () => {
 		// One message file per inbox: the broadcast landed in one, not the other, so the offer
 		// happened. Recording nothing would lose the record of an offer that reached somebody.

@@ -127,7 +127,8 @@ export interface TeamJoinRequest {
  *
  * `ok` is the bus's own answer to "did anyone get this": a total failure is `ok: false`,
  * because no recipient can be told a message landed. A partial one is a success carrying
- * the peers a file could not be written for, which is the only case that needs saying.
+ * the peers a file could not be written for, which is the only case that needs saying — so
+ * `delivered` on a success is at least one label, and a caller reading it needs no fallback.
  */
 export type SendResult = { ok: true; delivered: string[]; failed: DeliveryFailure[] } | { ok: false; error: string };
 

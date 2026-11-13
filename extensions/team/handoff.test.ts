@@ -67,22 +67,6 @@ describe("assign", () => {
 		expect((await (await store()).read(id))?.owner?.handoff).toEqual({ at: NOW, told: { at: NOW } });
 	});
 
-	test("records a handoff the bus could not write without its told fact", async () => {
-		// The peer's inbox refused the file. The card still names them — the pre-check passed and the
-		// handoff is owed — but the record says the message never landed, which is what a reader and a
-		// re-send both need.
-		const { call, seed, store } = harness({
-			undelivered: [{ label: "billing-core", error: "no such inbox" }],
-		});
-		const id = await seed();
-		const result = await call({ action: "assign", card: id, to: "billing-core" });
-
-		expect(result.isError).toBeFalsy();
-		const owner = (await (await store()).read(id))?.owner;
-		expect(owner).toMatchObject({ label: "billing-core", handoff: { at: NOW } });
-		expect(owner?.handoff?.told).toBeUndefined();
-	});
-
 	test("records a handoff the bus could not name as unresolved, and says what that costs", async () => {
 		// The bus could not answer, so the card has a label and no id. The record says so, and the
 		// sender is told the one move left rather than finding out at its next write.
@@ -130,9 +114,7 @@ describe("assign", () => {
 		// Every release and reclaim clears `owner`, and the handoff is a field on it — so a card back
 		// in the pool cannot look assigned. The turn-start sweep makes such cards now without anybody
 		// asking, which is why this is pinned rather than argued.
-		const { call, seed, store } = harness({
-			undelivered: [{ label: "billing-core", error: "no such inbox" }],
-		});
+		const { call, seed, store } = harness();
 		const id = await seed();
 		await call({ action: "assign", card: id, to: "billing-core" });
 		await (await store()).mutate(id, { kind: "reclaim" }, { label: SUITE_LEAD }, NOW + 1);
