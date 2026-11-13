@@ -23,9 +23,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   kit, the board, the plan review, the file browser, the docs site and the posting cards move
   together; `palette.test.ts` pins the two steps and the ratio band, and the frames and posters are
   re-shot.
-- `docs`: the site's `theme-color` is its own canvas again, `#ffffff`/`#0d1117`. It stayed the slate
-  build's `#f6f7f9`/`#0b0f16` through the palette that replaced it, so the address bar named a page
-  nobody was looking at; `test/theme.test.ts` now reads the two metas against the kit's `--canvas`.
 - `file-browse`: a phone's card head wraps its actions instead of scrolling them. Below 520px the
   row held one line and overflowed sideways with no hint that it moved, so the last control was cut
   mid-label at the card's edge — `download` at 480, the whole of it at 390 — and the only way to
@@ -42,11 +39,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   browser are the terminal's GitHub blue instead of a web ramp of their own, and the
   docs site, the posting cards and the gallery montage follow through the guards that hold their
   copies to it. `--dim` is the one colour the theme does not supply — it is a terminal's 3:1 grey,
-  and the kit's floor on a raised plane is 4.5 — so it is a step off the theme's `muted` and the test
-  pins the step; `--accent-soft` is the accent at the alpha a selected row and a card's paper can
-  share. The web's face, radii and two shadows are unchanged; the page frames, the seven cards and
-  `demo.mp4` are re-shot, and the hairline is now the theme's `borderMuted`, heavier than the ramp it
-  replaced.
+  and the kit's floor on a raised plane is 4.5 — so it is a step off the theme's `muted`, far enough
+  that the faint tier clears 4.5:1 where it draws text: the canvas, the surface, the raised plane and
+  the darkest lane tint, pinned as a ratio; `--muted` stays the theme's own, a step above it, so the
+  two quiet colours still mean different things; and `--accent-soft` is the accent at the alpha a
+  selected row and a card's paper can share. The web's face, radii and two shadows are unchanged;
+  the page frames, the seven cards and `demo.mp4` are re-shot.
 - `lib`: an event stream whose socket stops reading is destroyed once its backlog passes
   `MAX_BUFFERED_BYTES` (1 MiB), instead of buffering every frame for the life of the session. An SSE
   response carries no timeout of its own, so a suspended board tab held a whole snapshot per push,
@@ -54,12 +52,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in memory and only a reset gives it back; a browser reports an error for either, so the page
   reconnects and the board re-snapshots on attach.
 
-- `lib`: the documentation site, the posting cards, and the gallery montage draw the browser kit's
-  palette, so the site and the posters are the same slate-and-indigo as the served pages instead of
-  the terminal's GitHub blue. The two static stylesheets are copies — Pages serves the one as
-  written and a poster opens from `file://`, so neither can import `lib/web/tokens.ts` — and
-  `test/theme.test.ts` and `scripts/cards.test.ts` hold every value to it; the montage imports the
-  tokens directly. The site's favicon and its `theme-color` follow.
+- `lib`: the documentation site, the posting cards, and the gallery montage draw the served pages'
+  palette. The two static stylesheets are copies — Pages serves the one as written and a poster opens
+  from `file://`, so neither can import `lib/web/tokens.ts` — and `test/theme.test.ts` and
+  `scripts/cards.test.ts` hold every value to it; the montage imports the tokens directly. The site's
+  favicon follows.
 
 - `board`: the sweep at a turn start releases only other sessions' ended work, so a `/resume` keeps
   the cards it holds. A resume inherits the session id while the crashed process's bus record
@@ -125,13 +122,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rather than by how urgent it is; the one height the face is drawn at grows by the line the
   bigger title reserves, and every card in a lane still draws at that one height.
 
-- `lib`: the kit's faint tier is readable where it carries text. `--dim` drew a card's id and kind, a
-  lane's count, the footer and the path subject at 12–13px, and measured 3.47:1 in light and 3.60:1
-  in dark against AA's 4.5. It is now `#5c677a` light and `#8897ab` dark, clearing 4.5 on the canvas,
-  the surface, the raised plane and the darkest lane tint; light `--muted` moves to `#525e70` in the
-  same step, because at 4.59:1 the faint tier would otherwise have been a hundredth away from it,
-  and the two quiet colours have to stay a tier apart to mean anything.
-
 - `lib`: the web kit loses the two rules it drew along an edge. A tag drops its 2px left rail —
   every page's tags change, the board's paths and team labels and the browse header's branch and
   changes — and is now a glyph and a word, with its tone in the word's colour. A record drops the
@@ -170,12 +160,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   notes, a lane's head and fold) are the UI face, mono is kept for what is data (paths, card ids,
   the plan and the code), the uppercased and lowercased section labels read as the sentences they
   are, and a lane card and the card dialog now sit on the kit's two elevation steps.
-
-- `lib`: the web kit stops looking like a terminal (retroactive — this landed as 7ecb09c0 without a
-  changelog line). It draws its own slate-and-indigo palette in both appearances instead of mapping
-  `themes/bytefly-*.json`, keeps monospace for code, ids and paths while every label, control and
-  heading takes the UI face, and states elevation as two tokens — `--shadow-1` for a card or a menu,
-  `--shadow-2` for a dialog — that a component may name and nothing else.
 
 - `board`: the Team tab is redrawn in the board's language. Its rows stop being ruled kit lists and
   become the board's card — a tinted block, no edge, the gap between two the only separator — with a
@@ -220,12 +204,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `board`, `plan`, `file-browse`: the served pages drop the GitHub grammar for the kit's own. The
   shell is fixed — head and foot stay, one pane scrolls — the header is two rows split by a plain
-  rule, and the tabs are words rather than a segmented box. Work is rows, not cards: a lane is a
-  head and a list, a row carries its tone in its mark, the board's done meter is a ten-cell glyph
-  gauge with the literal count beside it, and the team tab is sections with tone-carrying rules.
-  `bf-chip` becomes `.bf-tag` with `.bf-tone--*`, `bf-segmented` becomes `.bf-tabs`, and
-  `bf-progress` becomes `.bf-gauge` — a breaking rename for anyone styling a served page, and no
-  colour moved: the palette is still the theme's own.
+  rule, and the tabs are words rather than a segmented box. Work is a lane's list of note-shaped
+  rows: a lane is a head and its list, a row carries its tone in its mark, and the board's done meter
+  is a ten-cell glyph gauge with the literal count beside it. `bf-chip` becomes `.bf-tag` with
+  `.bf-tone--*`, `bf-segmented` becomes `.bf-tabs`, and `bf-progress` becomes `.bf-gauge` — a breaking
+  rename for anyone styling a served page, and no colour moved: the palette is still the theme's own.
 
 - `board`: the Team tab's filter narrows cards and nothing else. A query used to empty two columns
   that had nothing to do with the card it named: AGENTS hid owners whose label or work it did not
