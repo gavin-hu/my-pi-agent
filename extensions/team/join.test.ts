@@ -16,6 +16,7 @@ import type { JoinResult, TeamJoin } from "../../lib/session-tool.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withAgentDir } from "../../test/helpers/env.ts";
+import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { registerCommands, TEAM_COMMAND } from "./commands.ts";
@@ -70,6 +71,17 @@ function projectTeam(cwd: string): readonly string[] | undefined {
 	} catch {
 		return undefined;
 	}
+}
+
+/** A project whose team is `teammates`, signed by `lead` when the case needs one. */
+function teamProject(cwd: string, teammates: readonly string[], lead?: string): void {
+	project(cwd, { team: { ...(lead === undefined ? {} : { lead }), teammates } });
+}
+
+/** Put `labels` on this repository's bus, the way another session's join would. */
+async function heldLabels(board: ReturnType<typeof boardHarness>, labels: readonly string[]): Promise<void> {
+	const dir = await board.runtime.busDir(board.cwd);
+	for (const label of labels) writeBusRecord(dir, { id: `s-${label}`, label, lastSeen: NOW });
 }
 
 describe("/team join", () => {
@@ -157,32 +169,101 @@ describe("/team join", () => {
 		});
 	});
 
-	test("a bare join draws the id-derived name when Pi has no name for the session", async () => {
-		const board = boardHarness({ now: NOW, project: false, track: temps.track });
-		const { team, labels, naming } = fakeTeam();
-		const command = joinCommand(board, team);
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
-		await command.handler("join", ctx);
-		// The board's own name for the session, so the card it claims and the bus record agree.
-		const drawn = agentLabel("s-lead");
-		expect(labels).toEqual([drawn]);
-		// A derived name is the board's, not the user's: it does not rename the footer, and it is
-		// not a name this command chose to put on the team either.
-		expect(naming).toEqual([undefined]);
-		expect(notifications.at(-1)).toBe(`team: on the team as ${drawn}, listening for handoffs.`);
-		expect(existsSync(join(board.cwd, ".pi", "bytefly.json"))).toBe(false);
+	test("a bare join draws the id-derived name when the team names nobody", async () => {
+		await withAgentDir(async () => {
+			const board = boardHarness({ now: NOW, project: false, track: temps.track });
+			const { team, labels, naming } = fakeTeam();
+			const command = joinCommand(board, team);
+			const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+			await command.handler("join", ctx);
+			// The board's own name for the session, so the card it claims and the bus record agree.
+			const drawn = agentLabel("s-lead");
+			expect(labels).toEqual([drawn]);
+			// A derived name is the board's, not the user's: it does not rename the footer, and it is
+			// not a name this command chose to put on the team either.
+			expect(naming).toEqual([undefined]);
+			expect(notifications.at(-1)).toBe(`team: on the team as ${drawn}, listening for handoffs.`);
+			expect(existsSync(join(board.cwd, ".pi", "bytefly.json"))).toBe(false);
+		});
 	});
 
-	test("a bare join leaves a session Pi already names to the bus", async () => {
-		const board = boardHarness({ now: NOW, project: false, track: temps.track });
-		const { team, labels, naming } = fakeTeam();
-		const command = joinCommand(board, team);
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead", sessionName: "billing-lead" });
-		await command.handler("join", ctx);
-		expect(labels).toEqual([undefined]);
-		expect(naming).toEqual([undefined]);
-		expect(notifications.at(-1)).toContain("on the team as billing-lead");
-		expect(existsSync(join(board.cwd, ".pi", "bytefly.json"))).toBe(false);
+	test("a bare join leaves a session Pi already names to the bus, whatever the team lists", async () => {
+		await withAgentDir(async () => {
+			const board = boardHarness({ now: NOW, project: false, track: temps.track });
+			teamProject(board.cwd, ["tom"]);
+			const { team, labels, naming } = fakeTeam();
+			const command = joinCommand(board, team);
+			const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead", sessionName: "billing-lead" });
+			await command.handler("join", ctx);
+			// The person's own name outranks the project's list: this door does not rename a session that
+			// already said what it is called.
+			expect(labels).toEqual([undefined]);
+			expect(naming).toEqual([undefined]);
+			expect(notifications.at(-1)).toBe("team: on the team as billing-lead, listening for handoffs.");
+		});
+	});
+
+	test("a bare join takes the first name the team lists that nobody holds", async () => {
+		await withAgentDir(async () => {
+			const board = boardHarness({ now: NOW, project: false, track: temps.track });
+			// A name the project signs with is not a name a session may take, and a name another record
+			// holds waits for the pruner: `sam` is the first one this join can have.
+			teamProject(board.cwd, ["gavin", "tom", "sam"], "gavin");
+			await heldLabels(board, ["tom"]);
+			const { team, labels, naming } = fakeTeam();
+			const command = joinCommand(board, team);
+			const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+			await command.handler("join", ctx);
+			expect(labels).toEqual(["sam"]);
+			// The name is the team's, so the chip is already its: nothing to rename, nothing to write.
+			expect(naming).toEqual([undefined]);
+			expect(notifications.at(-1)).toBe(
+				"team: on the team as sam, listening for handoffs. Team name from `team.teammates` — `/team join <label>` picks another.",
+			);
+			expect(projectTeam(board.cwd)).toEqual(["gavin", "tom", "sam"]);
+		});
+	});
+
+	test("a bare join draws the name when the team can give none", async () => {
+		await withAgentDir(async () => {
+			const drawn = agentLabel("s-lead");
+			// Two ways a list gives nothing: it names only the lead, and every name it names is held.
+			for (const [teammates, held] of [
+				[["gavin"], []],
+				[
+					["tom", "sam"],
+					["tom", "sam"],
+				],
+			] as const) {
+				const board = boardHarness({ now: NOW, project: false, track: temps.track });
+				teamProject(board.cwd, teammates, "gavin");
+				await heldLabels(board, held);
+				const { team, labels, naming } = fakeTeam();
+				const command = joinCommand(board, team);
+				const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+				await command.handler("join", ctx);
+				expect(labels).toEqual([drawn]);
+				expect(naming).toEqual([undefined]);
+				// Nothing was picked, so the line says nothing about where a name came from.
+				expect(notifications.at(-1)).toBe(`team: on the team as ${drawn}, listening for handoffs.`);
+			}
+		});
+	});
+
+	test("a bare join keeps the name an existing record answers to", async () => {
+		await withAgentDir(async () => {
+			const board = boardHarness({ now: NOW, project: false, track: temps.track });
+			teamProject(board.cwd, ["tom"]);
+			// A claim writes the drawn name; a `/board` page or an earlier join writes a better one,
+			// and that is the name this session answers to already.
+			writeBusRecord(await board.runtime.busDir(board.cwd), { id: "s-lead", label: "ops-helper", lastSeen: NOW });
+			const { team, labels } = fakeTeam();
+			const command = joinCommand(board, team);
+			const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+			await command.handler("join", ctx);
+			expect(labels).toEqual(["ops-helper"]);
+			expect(notifications.at(-1)).toBe("team: on the team as ops-helper, listening for handoffs.");
+		});
 	});
 
 	test("a refused join says why, claims nothing, and writes no teammate", async () => {

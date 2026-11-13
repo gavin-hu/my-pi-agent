@@ -27,7 +27,7 @@ and an accent edge — above a flat recent history; reading consumes nothing.
 | Take a card yourself | `team claim 5` |
 | Ask a peer a question | `team ask to billing-core question "what is left on #4?"` |
 | See the round | `/team` in the terminal, or the board's Team tab |
-| Join under your own name | `/team join billing-core` |
+| Join the team | `/team join billing-core` names yourself, or `/team join` for a name `team.teammates` lists |
 
 ## Try it
 
@@ -74,10 +74,11 @@ mail still goes to the label, but only the lead moves the card. A card a quiet o
 reclaimable; one held by a session with no record is not, because a live session that never
 joined looks the same. A message to a quiet or not-listening peer says so: written is not heard.
 
-**Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under
-its own name — `/team join <label>` picks it, or the id-derived `team-agent-` name when it
-has none — and a claim, an assign, or an ask makes that join once; a typed label also
-joins `team.teammates`, so the bar's chip names it. Being on the team never spends a turn.
+**Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own
+name — `/team join <label>`, or a bare `/team join` for the first name `team.teammates` lists that
+nobody holds, the id-derived `team-agent-` name when that list can give none — and a claim, an
+assign, or an ask makes that join once; a typed label also joins `team.teammates`. A bare join
+writes nothing and leaves Pi's session name alone; being on the team never spends a turn.
 
 `assign` and `ask` join **before** they send, because the message names this session
 as the way back, and send nothing when the join is refused. A claim writes the card
@@ -96,8 +97,7 @@ by name; `board list` still reads. Assign after the plan is approved.
 - Nothing here starts a peer's process: a peer that never joined cannot be handed a
   card, and one listening with `wake` is woken by its mail.
 - A card somebody already holds is not assignable: `reclaim` it, then assign.
-- An offer is advice — a card can stay offered indefinitely, counted as
-  unassigned, which is the honest signal.
+- An offer is advice — a card can stay offered indefinitely, counted as unassigned.
 - Ownership does not claim paths: the peer still claims the files it edits through
   `session`.
 - The lead's name is a label, not a person: it reaches whoever is serving the page

@@ -20,7 +20,8 @@ it, a handoff and an ask included.
 ## A round, in order
 
 1. **Join.** `/board` joins the session that leads as the board's lead; any other
-   session joins on its first claim or with `session join`. `/team join <label>`
+   session joins on its first claim or with `session join`. `/team join` takes the first
+   name the project's `team.teammates` lists that nobody holds, and `/team join <label>`
    is the one door that renames a session.
 2. **Put the work on the board.** `board add` lands a card in `backlog`, where
    nobody holds it.
