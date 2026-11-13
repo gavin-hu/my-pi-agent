@@ -65,6 +65,7 @@ const CONTRACT = {
 	goal: "A webhook order is stored once, whatever the gateway retries",
 	acceptance: "A retried delivery leaves one order, and a test says so",
 	scopeOut: "Refunds and partial captures",
+	verify: "bun run check",
 };
 
 const PLANNED = card({

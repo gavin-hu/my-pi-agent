@@ -26,7 +26,7 @@ const SUITE_BAR = 400;
 /** Every declared suite past the bar, at its height: debt, and a height only falls. */
 const LONG_SUITES: Record<string, number> = {
 	"extensions/board/page.test.ts": 521,
-	"extensions/board/tools.test.ts": 1255,
+	"extensions/board/tools.test.ts": 1240,
 	"extensions/board/view/behaviour.test.ts": 729,
 	"extensions/board/view/pages.test.ts": 618,
 	"extensions/bytefly/block/block.test.ts": 561,
@@ -67,7 +67,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/web-access/search/search.test.ts": 975,
 	"extensions/worktree/flow.test.ts": 825,
 	"extensions/worktree/git.test.ts": 893,
-	"lib/board/rules.test.ts": 700,
+	"lib/board/rules.test.ts": 698,
 	"lib/board/store.test.ts": 606,
 	"lib/board/view.test.ts": 418,
 	"lib/core.test.ts": 844,

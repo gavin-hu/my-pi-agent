@@ -94,7 +94,13 @@ describe("the transcript row", () => {
 			card({
 				lane: "plan",
 				planPath: "plans/4.md",
-				contract: { goal: "g", acceptance: "a", scopeOut: "s", approved: { by: "billing-lead", at: 2_000 } },
+				contract: {
+					goal: "g",
+					acceptance: "a",
+					scopeOut: "s",
+					verify: "bun run check",
+					approved: { by: "billing-lead", at: 2_000 },
+				},
 			}),
 			WIDTH,
 			coloringTheme,

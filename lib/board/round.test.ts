@@ -39,7 +39,7 @@ function planned(id: string, contract: Card["contract"] = undefined): Card {
 	return { ...planning(id, contract), planPath: `plans/${id}.md` };
 }
 
-const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s" };
+const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s", verify: "bun run check" };
 
 describe("buildRound", () => {
 	test("keeps an owner whose every card is done, and counts each kind once", () => {

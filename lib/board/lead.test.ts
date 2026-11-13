@@ -260,7 +260,7 @@ describe("the announcement", () => {
 	const CONFIG: BoardConfig = boardConfig({ lead: LEAD });
 	/** The moment a record is stamped with: nothing in this module reads a clock of its own. */
 	const NOW = 5_000;
-	const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s" };
+	const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s", verify: "bun run check" };
 	/** A card in plan whose contract the lead approved, or one the person did. */
 	const approved = (by: Actor = THE_LEAD) =>
 		card({ lane: "plan", contract: { ...COMPLETE, approved: { ...signMark(by, LEAD), at: 1 } } });
@@ -360,9 +360,15 @@ describe("the stamp a repeat makes", () => {
 	test("re-makes a sign that speaks, even where the card has not outgrown the old one", () => {
 		// The widening: a repeat carrying text is a new sign, not only a repair. It re-stamps and
 		// re-announces, because the note it writes moves the card past the stamp it replaced.
-		const signed = at(executing(), { kind: "review" }, NOW + 1);
+		const signed = at(executing(), { kind: "review", verified: run(NOW + 1) }, NOW + 1);
 		const said = accepted(
-			applyOp(signed, { kind: "review", text: "one more look" }, BOARD_LEAD, NOW + 2, boardOf(signed)),
+			applyOp(
+				signed,
+				{ kind: "review", text: "one more look", verified: run(NOW + 2) },
+				BOARD_LEAD,
+				NOW + 2,
+				boardOf(signed),
+			),
 		);
 		expect(said.changed).toBe(true);
 		expect(said.card.review?.at).toBe(NOW + 2);
@@ -372,17 +378,17 @@ describe("the stamp a repeat makes", () => {
 	test("answers nothing for an identical sign that still speaks for the card", () => {
 		// No text and no write since the sign: the repeat rule's whole purpose — the sign there is
 		// already the one that was asked for.
-		const signed = at(executing(), { kind: "review" }, NOW + 1);
-		const again = applyOp(signed, { kind: "review" }, BOARD_LEAD, NOW + 1, boardOf(signed));
+		const signed = at(executing(), { kind: "review", verified: run(NOW + 1) }, NOW + 1);
+		const again = applyOp(signed, { kind: "review", verified: run(NOW + 1) }, BOARD_LEAD, NOW + 1, boardOf(signed));
 		expect(again.ok && again.changed).toBe(false);
 		expect(again.ok && again.card.review).toEqual(signed.review);
 	});
 
 	test("owes the owner the message again, because the stamp it replaces was heard", () => {
-		const signed = at(executing(), { kind: "review" }, NOW + 1);
+		const signed = at(executing(), { kind: "review", verified: run(NOW + 1) }, NOW + 1);
 		const heard = at(signed, { kind: "announced", sign: "review" }, NOW + 2);
 		const noted = at(heard, { kind: "note", text: "one more thing" }, NOW + 3, CORE);
-		const again = applyOp(noted, { kind: "review" }, BOARD_LEAD, NOW + 4, boardOf(noted));
+		const again = applyOp(noted, { kind: "review", verified: run(NOW + 4) }, BOARD_LEAD, NOW + 4, boardOf(noted));
 		expect(again.ok && again.announce).toBe(true);
 		// The fresh stamp has no `told`: the owner is told once more, and the next write after it is
 		// the one that makes the sign stale again.

@@ -123,7 +123,9 @@ export function signSession(options: {
 		wrapStore === undefined
 			? board.runtime
 			: { ...board.runtime, store: async (cwd: string) => wrapStore(await board.runtime.store(cwd)) };
-	registerTools(board.fake.pi, runtime, deps);
+	// A contract names a command, so the tool runs one: this seam answers without starting a
+	// process, and a case about the run passes its own `verify` over it.
+	registerTools(board.fake.pi, runtime, { verify: runner(), ...deps });
 	const tool = board.fake.pi.tools.get("board");
 	if (!tool) throw new Error("the board tool was not registered");
 	return {
@@ -160,6 +162,7 @@ export async function claimedWithContract(who: { lead: Session; peer: Session })
 		goal: "g",
 		acceptance: "a",
 		scopeOut: "s",
+		verify: "bun run check",
 	});
 }
 

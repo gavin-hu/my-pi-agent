@@ -92,7 +92,8 @@ export const BoardParams = Type.Object({
 	),
 	verify: Type.Optional(
 		Type.String({
-			description: "`contract`: the acceptance command a spot-check runs; an empty string takes it back off.",
+			description:
+				"`contract`, required: the command its acceptance is checked by, which the spot-check runs and records.",
 		}),
 	),
 	scopeOut: Type.Optional(

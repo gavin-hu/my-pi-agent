@@ -167,6 +167,18 @@ export function unverifiedSpotCheck(card: Card, cmd: string, lead: Lead): string
 }
 
 /**
+ * What a `done` move is refused with when the contract names no command at all.
+ *
+ * Only a card written before the fourth line was required — or one hand-edited — has none, so the
+ * refusal names the line, the one action that records it, and the approval that costs: `contract`
+ * drops the sign it is about to invalidate, and this is the sentence that says so before the holder
+ * discovers it.
+ */
+export function noVerifyCommand(card: Card, lead: Lead): string {
+	return `${cardRef(card.id)}'s contract names no \`verify\` command, so there is no run for its spot-check: its holder records one with \`contract\`, and the approval that drops is signed again by the lead (${leadName(lead)}) or the person with \`/board approve ${card.id}\`.`;
+}
+
+/**
  * What a `done` move is refused with when the run is older than the card it vouches for.
  *
  * A write after the sign — a note, an edit, a second move — is the card changing under the

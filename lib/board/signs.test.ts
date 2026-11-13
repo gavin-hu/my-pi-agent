@@ -52,8 +52,6 @@ describe("a spot-check of a card whose contract names a command", () => {
 	test("refuses a sign with no run, because the contract asked for one", () => {
 		const card = verifying();
 		expect(refusal(applyOp(card, { kind: "review" }, LEAD, NOW, boardOf(card)))).toContain("carries no result");
-		// A card that names no command is the gate it always was: the run is not asked for.
-		expect(stepOf(executing(), { kind: "review" }, LEAD).review?.verified).toBeUndefined();
 	});
 
 	test("refuses a run for a command the contract does not name", () => {
@@ -68,13 +66,6 @@ describe("a spot-check of a card whose contract names a command", () => {
 		// The check doing its job is not a signature: a red command leaves the card unreviewed.
 		expect(refusal(applyOp(card, { kind: "review", verified: run(VERIFY, 1) }, LEAD, NOW, boardOf(card)))).toContain(
 			`\`${VERIFY}\` exited 1`,
-		);
-	});
-
-	test("refuses a run on a card whose contract names none", () => {
-		const card = executing();
-		expect(refusal(applyOp(card, { kind: "review", verified: run() }, LEAD, NOW, boardOf(card)))).toContain(
-			"names no command",
 		);
 	});
 
@@ -192,7 +183,7 @@ describe("approve", () => {
 	test("refuses an incomplete contract, naming the missing lines", () => {
 		const card = stepOf(claimed(), { kind: "contract", artifact: proved("p.md"), goal: "G" }, CORE);
 		expect(refusal(applyOp(card, approveOf(card), LEAD, NOW, boardOf(card)))).toBe(
-			"#4 has no contract to approve yet: acceptance, scopeOut are missing.",
+			"#4 has no contract to approve yet: acceptance, scopeOut, verify are missing.",
 		);
 	});
 
@@ -250,15 +241,17 @@ describe("approve", () => {
 });
 
 describe("review", () => {
+	const RUN = { cmd: VERIFY, exit: 0, at: NOW };
+	const checked = (extra: Record<string, unknown> = {}) => ({ kind: "review" as const, verified: RUN, ...extra });
+
 	test("records the spot-check, by the lead rather than the holder", () => {
-		const card = reviewed();
-		expect(card.review).toEqual({ by: LEAD.label, at: NOW });
+		expect(reviewed().review).toMatchObject({ by: LEAD.label, at: NOW });
 	});
 
 	test("the person spot-checks as the lead's name, and nobody reads it back as a pronoun", () => {
-		const card = stepOf(executing(), { kind: "review" }, personActor());
-		expect(card.review).toEqual({ by: CONFIG.lead, at: NOW, person: true });
-		expect(accepted(applyOp(card, { kind: "review" }, personActor(), NOW, boardOf(card))).changed).toBe(false);
+		const card = stepOf(executing(), checked(), personActor());
+		expect(card.review).toMatchObject({ by: CONFIG.lead, at: NOW, person: true });
+		expect(accepted(applyOp(card, checked(), personActor(), NOW, boardOf(card))).changed).toBe(false);
 	});
 
 	test("refuses the holder, a peer, and a lane other than execute", () => {
@@ -280,12 +273,12 @@ describe("review", () => {
 
 	test("the same reviewer again is a no-op", () => {
 		const card = reviewed();
-		expect(accepted(applyOp(card, { kind: "review" }, LEAD, NOW, boardOf(card))).changed).toBe(false);
+		expect(accepted(applyOp(card, checked(), LEAD, NOW, boardOf(card))).changed).toBe(false);
 	});
 
 	test("records the note the spot-checker wrote", () => {
-		const card = stepOf(executing(), { kind: "review", text: "Ships; the docs line is still wrong." }, LEAD);
-		expect(card.review).toEqual({ by: LEAD.label, at: NOW });
+		const card = stepOf(executing(), checked({ text: "Ships; the docs line is still wrong." }), LEAD);
+		expect(card.review).toMatchObject({ by: LEAD.label, at: NOW });
 		expect(card.notes.at(-1)).toEqual({ by: LEAD.label, at: NOW, text: "Ships; the docs line is still wrong." });
 	});
 });

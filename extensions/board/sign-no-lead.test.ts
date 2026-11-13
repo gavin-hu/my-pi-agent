@@ -37,7 +37,14 @@ describe("a board that names no lead", () => {
 		const board = await signingBoard({ lead: "" });
 		await board.store.mutate(
 			board.id,
-			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			{
+				kind: "contract",
+				artifact: { path: board.plan },
+				goal: "g",
+				acceptance: "a",
+				scopeOut: "s",
+				verify: "bun run check",
+			},
 			board.me,
 			1_000,
 		);
@@ -54,9 +61,15 @@ describe("a board that names no lead", () => {
 				)
 			).ok,
 		).toBe(true);
-		expect(await board.say("review 1")).toBe(`board: #1 reviewed by you${NOT_TOLD}`);
-		// Recorded under the person's own label, because there is no lead's name to lend.
-		expect((await board.store.read(board.id))?.review).toEqual({ by: PERSON_LABEL, at: 1_000, person: true });
+		expect(await board.say("review 1")).toContain("board: #1 reviewed by you");
+		// Recorded under the person's own label, because there is no lead's name to lend — and with the
+		// run the contract named, which the sign keeps as its evidence.
+		expect((await board.store.read(board.id))?.review).toMatchObject({
+			by: PERSON_LABEL,
+			at: 1_000,
+			person: true,
+			verified: { cmd: "bun run check", exit: 0 },
+		});
 		board.temps.flush();
 	});
 });

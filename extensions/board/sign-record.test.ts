@@ -57,7 +57,14 @@ describe("a record that could not be written", () => {
 		const next = await signingBoard({ notify: signBus({ sent }), wrapStore: failsRecord });
 		await next.store.mutate(
 			next.id,
-			{ kind: "contract", artifact: { path: next.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			{
+				kind: "contract",
+				artifact: { path: next.plan },
+				goal: "g",
+				acceptance: "a",
+				scopeOut: "s",
+				verify: "bun run check",
+			},
 			next.me,
 			1_000,
 		);

@@ -38,11 +38,12 @@ export interface Seeded {
 	run?: Verification;
 }
 
-/** A contract a test card can carry: three lines, and nothing about the feature. */
+/** A contract a test card can carry: four lines, and nothing about the feature. */
 export const TEST_CONTRACT = {
 	goal: "The feature does what the card says",
 	acceptance: "A reader can tell it is done",
 	scopeOut: "Everything the card does not name",
+	verify: "bun run check",
 };
 
 /**
@@ -96,9 +97,13 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	}
 	if (lane === "execute") return;
 	if ((await read()).review === undefined) {
+		// The contract names the command a sign is evidence for, so a seed that signs without a run is
+		// refused — the gate this helper exists to walk through rather than to trip over.
+		const named = (await read()).contract?.verify;
+		const run = who.run ?? (named === undefined ? undefined : { cmd: named, exit: 0, at: now });
 		const result = await store.mutate(
 			id,
-			{ kind: "review", ...(who.run === undefined ? {} : { verified: who.run }) },
+			{ kind: "review", ...(run === undefined ? {} : { verified: run }) },
 			personActor(),
 			now,
 		);

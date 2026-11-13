@@ -93,7 +93,7 @@ describe("formatRound", () => {
 				lane: "plan",
 				owner: { label: "billing-core" },
 				planPath: "plans/demo.md",
-				contract: { goal: "g", acceptance: "a", scopeOut: "s" },
+				contract: { goal: "g", acceptance: "a", scopeOut: "s", verify: "bun run check" },
 			}),
 		];
 		expect(formatRound(cards, buildRound(cards, NOW))).toContain("unapproved (1): #2 plan");

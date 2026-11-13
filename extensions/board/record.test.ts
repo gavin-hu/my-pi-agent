@@ -135,9 +135,21 @@ describe("dropped history", () => {
 		// to catch, and every sign written before the field existed has no record of its message.
 		const live = numberedCard("7", {
 			lane: "plan",
-			contract: { goal: "g", acceptance: "a", scopeOut: "s", approved: { by: "lead", at: NOW } },
+			contract: {
+				goal: "g",
+				acceptance: "a",
+				scopeOut: "s",
+				verify: "bun run check",
+				approved: { by: "lead", at: NOW },
+			},
 		});
-		const told = { goal: "g", acceptance: "a", scopeOut: "s", approved: { by: "lead", at: NOW, told: { at: NOW } } };
+		const told = {
+			goal: "g",
+			acceptance: "a",
+			scopeOut: "s",
+			verify: "bun run check",
+			approved: { by: "lead", at: NOW, told: { at: NOW } },
+		};
 		expect(formatCard(live, undefined, NOW)).toContain("approved: lead · not told");
 		expect(formatCard({ ...live, contract: told }, undefined, NOW)).toContain("approved: lead");
 		expect(formatCard({ ...live, lane: "done" }, undefined, NOW)).not.toContain("not told");

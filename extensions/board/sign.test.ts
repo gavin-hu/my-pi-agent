@@ -43,14 +43,17 @@ function toldBy(answer: { ok: true } | { ok: false; error: string }) {
 /** The command a card's contract names in the cases about the person's run. */
 const VERIFY = "bun run check";
 
+/** The four lines a case writes, and no more: the plan is what the call varies. */
+const LINES = { goal: "g", acceptance: "a", scopeOut: "s", verify: VERIFY };
+
+/** The contract op a case writes for the plan `plan`. */
+function contractOp(plan: string) {
+	return { kind: "contract" as const, artifact: { path: plan }, ...LINES };
+}
+
 /** The card the person signs, taken through the store to `execute` with a command on its contract. */
 async function executableWith(board: Awaited<ReturnType<typeof signingBoard>>): Promise<void> {
-	await board.store.mutate(
-		board.id,
-		{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s", verify: VERIFY },
-		board.me,
-		1_000,
-	);
+	await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 	await board.store.mutate(board.id, { kind: "approve", artifact: { path: board.plan } }, { label: LEAD }, 1_000);
 	await board.store.mutate(
 		board.id,
@@ -64,12 +67,7 @@ describe("/board approve and /board review", () => {
 	test("signs the contract as the person, not as the session that holds the card", async () => {
 		const board = await signingBoard();
 		const store = board.store;
-		await store.mutate(
-			board.id,
-			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
-			board.me,
-			1_000,
-		);
+		await store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		expect(await board.say("approve 1")).toBe(`board: #1 approved by you${NOT_TOLD}`);
 		// The line is the person's own, and a pronoun; the card records a name and the mark that
 		// says the key wrote it, never the label the line prints.
@@ -79,12 +77,7 @@ describe("/board approve and /board review", () => {
 
 	test("says nothing about a close when the word is an approval", async () => {
 		const board = await signingBoard();
-		await board.store.mutate(
-			board.id,
-			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
-			board.me,
-			1_000,
-		);
+		await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		reviewedInPlan(board);
 		// An approval has no instruction to record, so the clause is the review's alone: the line
 		// prints the sign the person made and nothing about a gate it never used.
@@ -120,12 +113,7 @@ describe("/board approve and /board review", () => {
 	test("walks a one-session card past both gates, which the holder alone could not", async () => {
 		const board = await signingBoard();
 		const store = board.store;
-		await store.mutate(
-			board.id,
-			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
-			board.me,
-			1_000,
-		);
+		await store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		// The holder's own approval is refused, which is why the person has a door.
 		const own = await store.mutate(board.id, { kind: "approve", artifact: { path: board.plan } }, board.me, 1_000);
 		expect(own.ok).toBe(false);
@@ -134,8 +122,14 @@ describe("/board approve and /board review", () => {
 			(await store.mutate(board.id, { kind: "move", lane: "execute", artifact: { path: board.plan } }, board.me, 1_000))
 				.ok,
 		).toBe(true);
-		expect(await board.say("review 1")).toBe(`board: #1 reviewed by you${NOT_TOLD}`);
-		expect((await store.read(board.id))?.review).toEqual({ by: LEAD, at: 1_000, person: true });
+		expect(await board.say("review 1")).toContain(`board: #1 reviewed by you`);
+		expect((await store.read(board.id))?.review).toMatchObject({
+			by: LEAD,
+			at: 1_000,
+			person: true,
+			// The contract names a command, so the sign keeps the run that answered for it.
+			verified: { cmd: "bun run check", exit: 0 },
+		});
 		const done = await store.mutate(
 			board.id,
 			{ kind: "move", lane: "done", artifact: { path: board.plan } },
@@ -174,12 +168,7 @@ describe("/board approve and /board review", () => {
 	test("tells the card's owner when the bus answers, in the clause the tool prints", async () => {
 		const { notify, sent } = toldBy({ ok: true });
 		const board = await signingBoard({ notify });
-		await board.store.mutate(
-			board.id,
-			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
-			board.me,
-			1_000,
-		);
+		await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		expect(await board.say("approve 1")).toBe("board: #1 approved by you · told team-agent-slead");
 		// The owner is addressed by id, which survives a rename, and the message is the tool's.
 		expect(sent.map((input) => [input.kind, input.to])).toEqual([["event", "s-lead"]]);
@@ -198,12 +187,7 @@ describe("/board approve and /board review", () => {
 			lastSeen: 1_000,
 			watching: { armed: false, wake: false },
 		});
-		await board.store.mutate(
-			board.id,
-			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
-			board.me,
-			1_000,
-		);
+		await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		expect(await board.say("approve 1")).toBe(
 			"board: #1 approved by you · told team-agent-slead (not listening: it reads this at its next turn)",
 		);
@@ -212,12 +196,7 @@ describe("/board approve and /board review", () => {
 
 	test("a message that cannot be written costs the clause, never the sign", async () => {
 		const board = await signingBoard({ notify: toldBy({ ok: false, error: "the bus refused the write" }).notify });
-		await board.store.mutate(
-			board.id,
-			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
-			board.me,
-			1_000,
-		);
+		await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		expect(await board.say("approve 1")).toBe(
 			"board: #1 approved by you · team-agent-slead was not told (the bus refused the write)",
 		);
@@ -240,12 +219,7 @@ describe("/board approve and /board review", () => {
 			return { ok: true, delivered: ["team-agent-slead"], failed: [] };
 		};
 		const board = await signingBoard({ notify });
-		await board.store.mutate(
-			board.id,
-			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
-			board.me,
-			1_000,
-		);
+		await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		expect(await board.say("approve 1")).toContain("was not told");
 		expect((await board.store.read(board.id))?.contract?.approved?.told).toBeUndefined();
 
@@ -262,12 +236,7 @@ describe("/board approve and /board review", () => {
 		const { notify, sent } = toldBy({ ok: true });
 		const board = await signingBoard({ notify });
 		const store = board.store;
-		await store.mutate(
-			board.id,
-			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
-			board.me,
-			1_000,
-		);
+		await store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		await board.say("approve 1");
 		expect(await board.say("approve 1")).toBe("board: #1 is already approved by you");
 		// A repeated sign writes nothing, so it tells nobody — the rule the tool follows too.
@@ -350,12 +319,7 @@ function reviewedInPlan(board: Awaited<ReturnType<typeof signingBoard>>): void {
 describe("/board review --override", () => {
 	/** A card this fixture finished through the gate, with its sign taken back off afterward. */
 	async function closedByHand(board: Awaited<ReturnType<typeof signingBoard>>, me: typeof board.me) {
-		await board.store.mutate(
-			board.id,
-			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
-			me,
-			1_000,
-		);
+		await board.store.mutate(board.id, contractOp(board.plan), me, 1_000);
 		await board.store.mutate(
 			board.id,
 			{ kind: "approve", artifact: { path: board.plan } },
@@ -363,7 +327,12 @@ describe("/board review --override", () => {
 			1_000,
 		);
 		await board.store.mutate(board.id, { kind: "move", lane: "execute", artifact: { path: board.plan } }, me, 1_000);
-		await board.store.mutate(board.id, { kind: "review" }, { id: "person:you", label: "you" }, 1_000);
+		await board.store.mutate(
+			board.id,
+			{ kind: "review", verified: { cmd: "bun run check", exit: 0, at: 1_000 } },
+			{ id: "person:you", label: "you" },
+			1_000,
+		);
 		await board.store.mutate(board.id, { kind: "move", lane: "done", artifact: { path: board.plan } }, me, 1_000);
 		const file = cardFile(board.agentDir, board.id);
 		const card = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
