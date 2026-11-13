@@ -53,9 +53,8 @@ export function labelKey(label: string): string {
 /**
  * Whether `a` and `b` are one name: a label is a send target without case, wherever it is compared.
  *
- * Written out rather than through {@link labelKey} because its source crosses to a page as
- * {@link SAME_LABEL_JS}, and a body spliced into a fragment's script may call nothing that
- * fragment does not hold.
+ * Written out rather than through {@link labelKey} because a comparison and a map key are
+ * different questions: this one is a line, and it reads as itself wherever it is called.
  */
 export function sameLabel(a: string, b: string): boolean {
 	return a.toLowerCase() === b.toLowerCase();

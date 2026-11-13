@@ -14,7 +14,7 @@
  * Value-only: no I/O, no state.
  */
 
-import { sanitizeLine } from "../format.ts";
+import { pageSource, sanitizeLine } from "../format.ts";
 import { type Contract, isContract, isHandoff, type Handoff, isSign, type Sign } from "./contract.ts";
 import { CARD_TYPES, type CardType } from "./kind.ts";
 import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
@@ -387,7 +387,7 @@ export function matchesQuery(card: Card, query: string): boolean {
 }
 
 /** The same body, as the browser receives it: one rule for the tool and the filter box. */
-export const MATCHES_QUERY_JS = String(matchesQuery);
+export const MATCHES_QUERY_JS = pageSource(matchesQuery);
 
 /** One note's text: a single sanitized line, or the reason it cannot be one. */
 export function normalizeNote(raw: unknown): { text: string } | FieldError {

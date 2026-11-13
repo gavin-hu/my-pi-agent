@@ -21,6 +21,7 @@
 import { type Card, cardRef } from "./card.ts";
 import type { Verification } from "./contract.ts";
 import type { RoundSummary } from "./round.ts";
+import { pageSource } from "../format.ts";
 import { sameLabel } from "../session-label.ts";
 
 /** What the fold needs of a roster row: the page's `ViewTeammate` and the bus's record both answer it. */
@@ -131,7 +132,7 @@ export function plural(count: number, noun: string): string {
 }
 
 /** The same body, as the browser receives it: one wording for `1 card`, not two. */
-export const PLURAL_JS = String(plural);
+export const PLURAL_JS = pageSource(plural);
 
 /**
  * Whether an owner is only history: the bus has no record of it, and it holds nothing.
@@ -152,7 +153,7 @@ export function isHistoryOwner(label: string, held: number, roster: readonly Ros
 }
 
 /** The same body, as the browser receives it. */
-export const HISTORY_OWNER_JS = String(isHistoryOwner);
+export const HISTORY_OWNER_JS = pageSource(isHistoryOwner);
 
 /**
  * The one line the fold prints: `18 owners with no record · 71 done`.
@@ -165,7 +166,7 @@ export function historyLine(owners: number, done: number): string {
 }
 
 /** The same body, as the browser receives it: it calls `plural`, which the fragment holds. */
-export const HISTORY_LINE_JS = String(historyLine);
+export const HISTORY_LINE_JS = pageSource(historyLine);
 
 /**
  * What a sign's run was, as one clause: ``· ran `bun run check` in the checkout (exit 0, main @ 3ccd9cda)``.
@@ -189,7 +190,7 @@ export function ranClause(run: Verification | undefined): string {
 }
 
 /** The same body, as the browser receives it: one wording for what ran, on both surfaces. */
-export const RAN_CLAUSE_JS = String(ranClause);
+export const RAN_CLAUSE_JS = pageSource(ranClause);
 
 /**
  * What a session is holding, in one phrase: `#162 plan`, `#162 plan +2`, or `idle`.
@@ -212,7 +213,7 @@ export function holdingOf(cards: readonly Card[]): string {
 }
 
 /** The same body, as the browser receives it. */
-export const HOLDING_OF_JS = String(holdingOf);
+export const HOLDING_OF_JS = pageSource(holdingOf);
 
 /**
  * The pair: `helen — #162 plan`.
