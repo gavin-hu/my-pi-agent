@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the sweep at a turn start releases only other sessions' ended work, so a `/resume` keeps
+  the cards it holds. A resume inherits the session id while the crashed process's bus record
+  survives with a dead pid, so the sweep read its own card as `gone` and took it back — in the same
+  turn start that had just re-claimed its paths, one message saying both "is yours" and "released
+  from a session that ended".
+
 - `board`: a spot-check asks its gate before it runs the contract's `verify` command, so a `review`
   the board would refuse — the wrong lane, the card's own holder, a session that is not the lead —
   starts no process. A card whose contract names a command can also carry an `override` again: the
