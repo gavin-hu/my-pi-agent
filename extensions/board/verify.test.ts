@@ -14,6 +14,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { realpathSync } from "node:fs";
 import { join } from "node:path";
 import {
+	agreed,
 	bench,
 	claimedWithContract,
 	flushFixture,
@@ -32,12 +33,6 @@ afterAll(flushFixture);
 
 /** The command a card's contract names in these cases, and its one run. */
 const VERIFY = "bun run check";
-
-/** A refused setup call fails the case, so a case about the sign cannot pass on a card left behind. */
-async function agreed(call: ReturnType<Session["call"]>): Promise<void> {
-	const result = await call;
-	if (result.isError) throw new Error(resultText(result));
-}
 
 /** A card in `execute` whose contract names `verify`, or one that names no command. */
 async function running(who: { lead: Session; peer: Session }, verify?: string): Promise<void> {

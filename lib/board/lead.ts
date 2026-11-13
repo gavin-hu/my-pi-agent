@@ -327,31 +327,17 @@ export function signStale(card: Card, record: SignRecord): boolean {
 }
 
 /**
- * Record the spot-check of finished work: the lead's, and never the holder's.
- *
- * `text` rides the sign here too, so "checked, and this is still wrong" is one call.
- *
- * `override` is the other way a finished card gets a sign, and it is somebody saying the gate
- * was jumped: the reason is required, the card must already be `done`, and no review may be on
- * it, because the one rule this relaxes is the lane and a reason is not a second signature. Who
- * may sign, and never the holder, is the same gate. The sign records how it was made, so a
- * forced close reads as one instead of as a clean one.
- *
- * `verified` is the run the signer's own call made of the command the contract names, and it is
- * held to three rules here rather than trusted: the card's contract has to name that command, the
- * exit has to be zero, and an override carries none — a close by instruction is a person saying
- * the gate was jumped, not a check that passed. A card whose contract names a command is refused
- * without one, which is what makes the evidence a gate rather than a note.
+ * The refusals a spot-check answers before it is asked for evidence — the word, the lane, the holder
+ * and the signer, all decided without the run. Its own function because two callers ask at different
+ * moments: a door asks before it starts the command a contract names, {@link review} again under the
+ * write's lock, and one owner is what keeps the cheap answer from drifting from the decision.
  */
-export function review(
+export function reviewGate(
 	card: Card,
 	actor: Actor,
-	now: number,
-	config: BoardConfig,
-	text?: unknown,
+	lead: Lead,
 	override?: unknown,
-	verified?: unknown,
-): Prepared {
+): { instruction?: string } | { error: string } {
 	const instruction = override === undefined ? undefined : normalizeInstruction(override);
 	if (instruction !== undefined && "error" in instruction) return { error: instruction.error };
 	if (instruction === undefined) {
@@ -362,9 +348,35 @@ export function review(
 	} else if (!LANE_RULES[card.lane].terminal) {
 		return { error: `${cardRef(card.id)} is in ${card.lane}; an override signs a card that is already done.` };
 	}
-	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "review")}` };
-	const wrongSigner = signRefusal(card, actor, config.lead, "review");
+	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, lead, "review")}` };
+	const wrongSigner = signRefusal(card, actor, lead, "review");
 	if (wrongSigner !== undefined) return { error: wrongSigner };
+	return instruction === undefined ? {} : { instruction: instruction.text };
+}
+
+/**
+ * Record the spot-check of finished work: the lead's, and never the holder's.
+ *
+ * `override` is the other way a finished card gets a sign — somebody saying the gate was jumped:
+ * the reason is required, the card already `done`, and no review on it, because the one rule it
+ * relaxes is the lane and a reason is not a second signature. The sign records how it was made, so
+ * a forced close reads as one instead of as a clean one.
+ *
+ * `verified` is the run the signer's own call made, held by {@link evidenceFor} rather than trusted.
+ */
+export function review(
+	card: Card,
+	actor: Actor,
+	now: number,
+	config: BoardConfig,
+	text?: unknown,
+	override?: unknown,
+	verified?: unknown,
+): Prepared {
+	// `reviewGate` is asked again under the lock: a door cannot record a sign it skipped.
+	const gate = reviewGate(card, actor, config.lead, override);
+	if ("error" in gate) return { error: gate.error };
+	const instruction = gate.instruction;
 	const evidence = evidenceFor(card, config, instruction !== undefined, verified);
 	if ("error" in evidence) return { error: evidence.error };
 	const already = currentReview(card);
@@ -397,7 +409,7 @@ export function review(
 	const stamp =
 		instruction === undefined
 			? { ...signMark(actor, config.lead), at: now }
-			: { ...signMark(actor, config.lead), at: now, byInstruction: instruction.text };
+			: { ...signMark(actor, config.lead), at: now, byInstruction: instruction };
 	// The run rides the stamp it is evidence for. A re-made sign takes this call's run, because the
 	// old one vouched for the card as it was before the write that made the stamp stale.
 	const stamped = evidence.verified === undefined ? stamp : { ...stamp, verified: evidence.verified };
@@ -415,11 +427,10 @@ export function review(
 /**
  * The run a spot-check carries, or the reason it cannot.
  *
- * The contract's command is the only one worth evidence: a result for any other command would
- * vouch for something the card never promised, and a result for the *old* command is the failure
- * this whole rule exists to prevent — a reviewer's green standing over wording the card has since
- * changed. An override never carries one: it is the close a gate did not get, and dressing it in
- * a run would make an instruction read as a check.
+ * The contract's command is the only one worth evidence: a result for any other command would vouch
+ * for something the card never promised, and a result for the *old* command is the failure this
+ * whole rule exists to prevent — a reviewer's green standing over wording the card has since
+ * changed. An override carries none: dressing a close in a run would read as a check.
  */
 function evidenceFor(
 	card: Card,

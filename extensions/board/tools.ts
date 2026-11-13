@@ -18,7 +18,7 @@ import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../
 import { movableLanes } from "../../lib/board/lanes.ts";
 import { indexOf } from "../../lib/board/links.ts";
 import type { Verification } from "../../lib/board/contract.ts";
-import { signMark } from "../../lib/board/lead.ts";
+import { reviewGate, signMark } from "../../lib/board/lead.ts";
 import type { VerifyRun } from "../../lib/board/verify.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
@@ -173,11 +173,18 @@ export function registerTools(
 			const verifiedFor = async (
 				store: BoardStore,
 				rawCard: string | undefined,
+				override: string | undefined,
 			): Promise<{ verified: Verification } | { error: string } | undefined> => {
 				const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
 				if (id === undefined) return undefined;
 				const card = await store.read(id).catch(() => undefined);
-				if (card?.contract?.verify === undefined) return undefined;
+				if (card === undefined) return undefined;
+				// The gate is asked before the process: a sign that would be refused starts no command. It answers
+				// no refusal of its own — `mutate` asks the same three questions under the lock, and the store's
+				// sentence is the one a caller reads, in the store's own order (an archived card first).
+				if ("error" in reviewGate(card, me, store.config().lead, override)) return undefined;
+				// An override is the close a gate did not get: it carries no run, so none is started.
+				if (override !== undefined || card.contract?.verify === undefined) return undefined;
 				// The read, the run and the sentence are `lib/board/verify.ts`'s, because the person's
 				// `/board review` asks the card the same question and must word a failure the same way.
 				const module = await (verifyModule ??= import("../../lib/board/verify.ts"));
@@ -303,7 +310,7 @@ export function registerTools(
 						const artifact = action === "approve" ? await proofOf(store, args.card) : undefined;
 						// A spot-check of a card whose contract names a command is that command's run:
 						// a refusal here writes nothing, which is what keeps a red check from signing.
-						const evidence = action === "review" ? await verifiedFor(store, args.card) : undefined;
+						const evidence = action === "review" ? await verifiedFor(store, args.card, args.override) : undefined;
 						if (evidence !== undefined && "error" in evidence) return refusal(action, me, evidence.error);
 						const op =
 							action === "review"

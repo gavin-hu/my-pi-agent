@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a spot-check asks its gate before it runs the contract's `verify` command, so a `review`
+  the board would refuse — the wrong lane, the card's own holder, a session that is not the lead —
+  starts no process. A card whose contract names a command can also carry an `override` again: the
+  door ran the command and then refused the reason it had been told to record, so the one card a
+  close by instruction exists for could never be closed.
+
 - `team`: a typed `/team join <name>` puts that name on `board.teammates` in the project's
   `.pi/bytefly.json`, so the footer's chip names the session the join just renamed. The chip is
   drawn only for a name the team holds, so the one door meant to name the bar used to leave it

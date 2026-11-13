@@ -68,8 +68,8 @@ always, and from a peer only while that owner's record says quiet or gone. `move
 move, and the face says `its plan is gone`. A sign nobody heard reads `· not told` on a live
 card; saying it again sends it. A contract may name a `verify` command: `review` runs
 it in the board's tree (the worktree you entered), recording the exit, commit, and tree;
-`done` refuses a sign with no result, or one older than the card's write. `review` takes
-an `override` — one line saying why — for a close outside the gate: `closed by instruction`.
+`done` refuses a sign with no result, or one older than the card's write. A `review` that would
+be refused runs nothing, and an `override` — one line saying why, `closed by instruction` — none.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);
 `/board approve <id>` and `/board review <id>` sign as the person; `/board archive` runs the sweep;
