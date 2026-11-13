@@ -161,12 +161,13 @@ widths, so an overflowing frame fails there.
 
 ## How to work
 
-- Work a feature on its card: claim, contract, sign, `execute` before editing.
-- Be short and direct: answer before editing, state agreement or disagreement.
-- Ask before adding a runtime dependency to `package.json`.
-- Ask before removing functionality that looks intentional; add no backward
-  compatibility unless asked.
-- If an instruction conflicts with this file, ask before overriding it.
+- Work a feature on its card: claim, contract, sign, `execute` before editing; with no card,
+  open one.
+- Be short and direct: answer before editing; state agreement or disagreement.
+- Ask before adding a runtime dependency.
+- Ask before removing functionality that looks intentional; add no backward compatibility
+  unless asked.
+- If an instruction conflicts with this file, ask first.
 
 ## Read more
 
