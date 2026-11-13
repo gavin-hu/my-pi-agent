@@ -1,16 +1,16 @@
 /**
- * The card face: what a lane draws, and the one height it draws it at.
+ * The card face: what a lane draws, how tall it draws it, and the one line every card carries.
  *
  * `pages.test.ts` holds the names and the rules a reader cannot see; `behaviour.test.ts` holds
  * what the page does when a reader drives it. This holds the shape of the face itself, which
- * neither can measure: a lane is an index, so every row in it is the same height whatever the
- * card records — a long note, no paths, a title that wraps, and a state drawn or not — and the
- * state a card owes somebody is the one line the face draws, with the whole sentence still the
- * card's hover and the title button's description for the keyboard.
+ * neither can measure: a card is as tall as its content — a title that wraps makes a taller
+ * note, a card with no hints a shorter one — and the state row is on every card, drawn when the
+ * card owes somebody something and blank when it owes nothing, with a note's prose kept in it
+ * for the description and out of the face.
  *
- * The height is asserted as "one value, and only one", never as a number of pixels: the boxes
- * are computed from the type tokens, so a suite that pinned 123 would fail the day a token
- * moved and pass the day a card grew the way this change exists to stop.
+ * The heights are asserted as relations, never as numbers of pixels: the boxes are computed from
+ * the type tokens, so a suite that pinned 146 would fail the day a token moved. The one absolute
+ * fact is that the row clips, so nothing may be taller than the card holding it.
  *
  * It needs a browser; where the machine has none it skips, naming `PI_CHROME`.
  */
@@ -18,7 +18,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Page } from "playwright-core";
 import { makeClock } from "../../../test/helpers/clock.ts";
-import { type Doc, type ElementLike } from "../../../test/helpers/board-dom.ts";
+import { type ElementLike } from "../../../test/helpers/board-dom.ts";
 import { LEAD, seedWorkingBoard } from "../../../test/helpers/board-fixture.ts";
 import {
 	BOARD_CHROME as CHROME,
@@ -41,6 +41,7 @@ const CASE_MS = 30_000;
  */
 interface Boxed extends ElementLike {
 	id: string;
+	firstElementChild: Boxed | null;
 	getBoundingClientRect(): { top: number; bottom: number; width: number; height: number };
 	closest(selector: string): Boxed | null;
 	querySelector(selector: string): Boxed | null;
@@ -52,38 +53,45 @@ let board: BoardBrowser;
 /** The suite's one tab, its document reloaded for each case. */
 const openPage = (): Promise<Page> => board.reuse();
 
+/** One face as a reader sees it: its box, and whether the content it holds fits inside it. */
+interface Face {
+	height: number;
+	/** What the row needs, and what the row gives it: equal unless a card is clipped. */
+	scroll: number;
+	client: number;
+}
+
+/** One card's face, by the id the client reads it by. */
+async function faceOf(page: Page, id: string): Promise<Face> {
+	return page.$eval(`.board-row[data-card="${id}"]`, (node) => {
+		const card = node as unknown as Boxed & { scrollHeight: number; clientHeight: number };
+		return {
+			height: Math.round(card.getBoundingClientRect().height),
+			scroll: card.scrollHeight,
+			client: card.clientHeight,
+		};
+	});
+}
+
 /**
- * The heights of the faces a reader can see, to a tenth of a pixel.
+ * Every face a reader can see, to a tenth of a pixel.
  *
- * A folded lane keeps its rows in the document — hidden, so they measure nothing — and a zero
- * among the heights would make "one height" true by accident.
+ * A folded lane keeps its rows in the document — hidden, so they measure nothing — and a zero would
+ * make "nothing is clipped" true by accident.
  */
-async function faceHeights(page: Page): Promise<number[]> {
+async function faces(page: Page): Promise<Face[]> {
 	return page.$$eval(".board-row", (nodes) =>
-		Array.from(
-			nodes as unknown as ArrayLike<Boxed>,
-			(node) => Math.round(node.getBoundingClientRect().height * 10) / 10,
-		).filter((height) => height > 0),
+		Array.from(nodes as unknown as ArrayLike<Boxed & { scrollHeight: number; clientHeight: number }>, (node) => ({
+			height: Math.round(node.getBoundingClientRect().height * 10) / 10,
+			scroll: node.scrollHeight,
+			client: node.clientHeight,
+		})).filter((face) => face.height > 0),
 	);
 }
 
-/** The Done lane a fresh document opens folded, opened so its faces are measured too. */
-async function unfoldDone(page: Page): Promise<void> {
-	// A frame from the live stream rebuilds a lane, so the toggle a locator resolves can be gone
-	// before a click reaches it: the press is made in the page, and the state is read back.
-	for (let attempt = 0; attempt < 5; attempt++) {
-		const shown = await page.evaluate(() => {
-			const list = (globalThis as unknown as { document: Doc }).document.querySelector("#lane-done");
-			return list !== null && !list.hidden;
-		});
-		if (shown) return;
-		await page.evaluate(() => {
-			const toggle = (globalThis as unknown as { document: Doc }).document.querySelector("#lane-head-done");
-			(toggle as unknown as { click(): void } | null)?.click();
-		});
-		await page.waitForTimeout(100);
-	}
-	throw new Error("the Done lane would not unfold");
+/** The faces whose content does not fit the card that draws it. */
+function clipped(measured: readonly Face[]): Face[] {
+	return measured.filter((face) => face.scroll > face.client + 1);
 }
 
 describe.skipIf(CHROME === undefined)("the card face", () => {
@@ -101,86 +109,100 @@ describe.skipIf(CHROME === undefined)("the card face", () => {
 	}, 30_000);
 
 	test(
-		"draws every face in a lane at one height, a long note and a short one alike",
+		"draws a card as tall as its content, and never taller",
 		async () => {
 			const page = await openPage();
 			await page.waitForSelector(".board-row", { timeout: PAINT_MS });
-			await unfoldDone(page);
-			const faces = await faceHeights(page);
-			expect(faces.length).toBeGreaterThan(5);
-			expect([...new Set(faces)]).toHaveLength(1);
-
-			// The cards that used to be taller: a note nobody bounded, and no paths to draw at all.
-			await board.store.create(
-				{ title: "A card whose note runs on", paths: [], note: "why this card waits. ".repeat(20) },
+			// Four cards in one lane, differing in exactly one thing each: a title that needs its second
+			// line, a path list, and a note that runs on.
+			const short = await board.store.create({ title: "Short one", paths: ["src/a"] }, LEAD, clock.now());
+			const long = await board.store.create(
+				{
+					title: "A title long enough to need the second line it is allowed, and then enough words to fill it",
+					paths: ["src/a"],
+				},
+				LEAD,
+				clock.now(),
+			);
+			const bare = await board.store.create({ title: "Short one", paths: [] }, LEAD, clock.now());
+			const noted = await board.store.create(
+				{ title: "Short one", paths: ["src/a"], note: "why this card waits. ".repeat(20) },
 				LEAD,
 				clock.now(),
 			);
 			await page.reload({ waitUntil: "load" });
 			await page.waitForSelector(".board-row", { timeout: PAINT_MS });
-			await unfoldDone(page);
-			const withLongNote = await faceHeights(page);
-			expect(withLongNote.length).toBeGreaterThan(5);
-			expect([...new Set(withLongNote)]).toEqual([faces[0] ?? -1]);
-
-			// And the narrow layout, where the meta line wraps and the picker shows one lane at a time.
+			const height = async (id: string) => (await faceOf(page, id)).height;
+			// The height follows the content: a title taking both its lines is a taller note, and a card
+			// with no hints is a shorter one.
+			expect(await height(long.id)).toBeGreaterThan(await height(short.id));
+			expect(await height(bare.id)).toBeLessThan(await height(short.id));
+			// A note is prose and is not drawn, so twenty sentences are the same height as none.
+			expect(await height(noted.id)).toBe(await height(short.id));
+			// The row clips, so nothing may need more room than the card gives it — at either width.
+			expect(clipped(await faces(page))).toEqual([]);
 			await page.setViewportSize({ width: 860, height: 900 });
 			await page.waitForTimeout(50);
-			expect([...new Set(await faceHeights(page))]).toEqual([faces[0] ?? -1]);
+			expect(clipped(await faces(page))).toEqual([]);
 		},
 		CASE_MS,
 	);
 
 	test(
-		"draws the state a card owes, and keeps a note off the face",
+		"draws a state row on every card, and keeps a note's words for the description",
 		async () => {
 			const page = await openPage();
 			await page.waitForSelector(".board-row", { timeout: PAINT_MS });
-			// Two cards, two kinds of reason: the in-flight card owes a spot-check, and the pool card's
-			// reason is its last note. Both are in the document; only the state is drawn.
-			const faceOf = (lane: string) =>
-				page.$eval(`#lane-${lane} .board-row`, (node) => {
-					const card = node as unknown as Boxed;
-					const line = card.querySelector(".bf-row__reason");
-					const meta = card.querySelector(".bf-row__meta");
-					const box = (element: Boxed | null) => {
-						if (element === null) return null;
-						const frame = element.getBoundingClientRect();
-						return {
-							top: Math.round(frame.top),
-							bottom: Math.round(frame.bottom),
-							height: Math.round(frame.height),
-						};
-					};
+			const nothing = await board.store.create({ title: "Nothing owed", paths: [] }, LEAD, clock.now());
+			await page.reload({ waitUntil: "load" });
+			await page.waitForSelector(".board-row", { timeout: PAINT_MS });
+			// One read of one card's row: its box, its words, and how those words are drawn.
+			const rowOf = (id: string) =>
+				page.$eval(`.board-row[data-card="${id}"] .bf-row__reason`, (node) => {
+					const line = node as unknown as Boxed;
+					const frame = line.getBoundingClientRect();
+					const inner = line.firstElementChild;
 					return {
-						card: box(card),
-						line: box(line),
-						meta: box(meta),
-						status: line?.getAttribute("data-status") ?? null,
-						sentence: (line?.textContent ?? "").trim(),
-						hover: line?.getAttribute("title") ?? "",
+						height: Math.round(frame.height),
+						prose: line.textContent ?? "",
+						hover: line.getAttribute("title") ?? "",
+						innerWidth: inner === null ? 0 : Math.round(inner.getBoundingClientRect().width),
 					};
 				});
-			const owed = await faceOf("execute");
-			const noted = await faceOf("backlog");
-			// The state is drawn: a real line, above the footer where the holder and the age stay.
-			expect(owed.status).toBe("true");
-			expect(owed.line?.height ?? 0).toBeGreaterThan(12);
-			expect(owed.line?.bottom ?? 0).toBeLessThanOrEqual((owed.meta?.top ?? 0) + 1);
-			expect(owed.sentence.length).toBeGreaterThan(10);
-			expect(owed.hover).toBe(owed.sentence);
-			// A note is prose, not a state: the same node, still clipped to the pixel the recipe clips.
-			expect(noted.status).toBeNull();
-			expect(noted.line?.height ?? 99).toBeLessThanOrEqual(1);
-			// The box is reserved, and that is the point: the card that draws nothing is the height of
-			// the card that draws a state, so a lane stays a column rather than a ragged list.
-			expect(noted.card?.height).toBe(owed.card?.height);
-			// Neither loses the sentence for the keyboard or a screen reader.
+			// #3 owes a spot-check: the row draws the sentence, on one line.
+			const owed = await rowOf("3");
+			expect(owed.height).toBeGreaterThan(12);
+			expect(owed.prose.length).toBeGreaterThan(10);
+			expect(owed.hover).toBe(owed.prose);
+			// #1's reason is its last note: the row is still there, one line tall, and the prose inside it
+			// is a one-pixel span — the hover and the description read it, the face does not.
+			const noted = await rowOf("1");
+			expect(noted.height).toBeGreaterThan(12);
+			expect(noted.prose.length).toBeGreaterThan(10);
+			expect(noted.hover).toBe(noted.prose);
+			expect(noted.innerWidth).toBeLessThanOrEqual(1);
+			// A card that owes nothing reserves the same row and says nothing in it: no words, no hover,
+			// and nothing to describe the title with.
+			const blank = await rowOf(nothing.id);
+			expect(blank.height).toBe(owed.height);
+			expect(blank.prose).toBe("");
+			expect(blank.hover).toBe("");
 			const described = await page.$eval(
-				"#lane-execute .bf-row__title",
+				`.bf-row[data-card="${nothing.id}"] .bf-row__title`,
 				(node) => node.getAttribute("aria-describedby") ?? "",
 			);
-			expect(described).toContain("card-reason-");
+			expect(described).not.toContain(`card-reason-${nothing.id}`);
+			// The two rows that do say something describe the title with the same words they draw or hide.
+			const owedDescribed = await page.$eval(
+				'.bf-row[data-card="3"] .bf-row__title',
+				(node) => node.getAttribute("aria-describedby") ?? "",
+			);
+			expect(owedDescribed).toContain("card-reason-3");
+			const notedDescribed = await page.$eval(
+				'.bf-row[data-card="1"] .bf-row__title',
+				(node) => node.getAttribute("aria-describedby") ?? "",
+			);
+			expect(notedDescribed).toContain("card-reason-1");
 			await page.setViewportSize({ width: 1280, height: 900 });
 		},
 		CASE_MS,

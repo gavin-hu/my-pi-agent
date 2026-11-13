@@ -12,10 +12,11 @@
  * by the title button's `aria-describedby` for the keyboard, because `j`/`k` walks cards by
  * focusing that button and never hovers anything.
  *
- * The reason is two facts in one node: a *state* — what the card owes somebody — is drawn on the
- * face as a line above the footer, and a *note* is not, because a note is prose. Either way the
- * whole sentence stays in the document as the hover and as the title button's description, which
- * is where the keyboard and a screen reader read it, and the dialog prints it in full.
+ * The reason is two facts in one node, and the node is on every card: a *state* — what the card
+ * owes somebody — is drawn on the row above the footer, and a *note* is not, because a note is
+ * prose; it stays in that row as text only a description reads. Either way the whole sentence is
+ * the row's hover and the title button's description, so the keyboard and a screen reader reach it,
+ * and the dialog prints it in full.
  *
  * Every value arrives as `textContent`, never as markup: a title is model-written and a
  * note is anything a person typed.
@@ -218,36 +219,35 @@ export const BOARD_CARD_JS = String.raw`(function () {
       // order with the card, and the ones behind the chip have nowhere else to be read.
       if (card.paths.length > PATH_CHIPS) described.push("card-paths-" + card.id);
     }
-    body.appendChild(meta);
-
-    // One row for the card's links: why it is not moving, and what leaving it undone holds
-    // up. The other side of a link used to be a second clamped paragraph, so a card three
-    // others waited on spent two rows saying one fact from each end.
+    // The state row is on every card: what the card owes somebody, the prose it keeps for a reader
+    // who cannot see the face, or nothing at all — one line, whose height the face's tokens state.
+    // The links are the other half of it: what leaving the card undone holds up.
     var reason = reasonOf(card);
     var holds = card.dependents === undefined ? undefined : "holds up " + card.dependents;
     var why = reason === undefined ? holds : holds === undefined ? reason.text : reason.text + " \u00b7 " + holds;
-    if (why !== undefined) {
-      // The tone is a lookup, not a suffix: a name assembled from a prefix is a name no
-      // test can compare with the stylesheet. A card that only holds others up is drawn in
-      // the tone a waiting card wears, because it is the same edge read the other way.
-      var line = el("p", "bf-row__reason", "");
+    var line = el("p", "bf-row__reason", "");
+    line.id = "card-reason-" + card.id;
+    if (reason !== undefined && reason.kind === "note") {
+      // A note is prose: the row stays blank, and the words stay in the document where the hover and
+      // the title button's description read them.
+      if (why !== undefined) line.appendChild(el("span", "sr-only", why));
+    } else if (why !== undefined) {
+      // The tone is a lookup, not a suffix: a name assembled from a prefix is a name no test can
+      // compare with the stylesheet. A card that only holds others up wears the tone a waiting card
+      // wears, because it is the same edge read the other way.
       line.setAttribute("data-tone", reasonTone(reason === undefined ? "waiting" : reason.kind));
       // The sentence is a node, not a string: one that carries an age is stamped so the ticker
       // moves it with the lane age beside it.
       var sentenceNode = reasonNode(reason);
       if (sentenceNode !== undefined) line.appendChild(sentenceNode);
       if (holds !== undefined) line.appendChild(document.createTextNode(sentenceNode === undefined ? holds : " \u00b7 " + holds));
-      line.id = "card-reason-" + card.id;
-      // A state is drawn and a note is not: a note can be a thousand characters of prose, so it
-      // stays the hover and the description while the face's line goes to what the card owes.
-      if (reason === undefined || reason.kind !== "note") line.setAttribute("data-status", "true");
-      // Both uses keep the whole sentence on the hover, which is also the title's description.
+    }
+    if (why !== undefined) {
       line.title = why;
-      // Drawn above the footer: the face says what the card is and what it needs, and whose it is
-      // with when it was last written stay the note's last line, where a reader's eye ends.
-      body.insertBefore(line, meta);
       described.push(line.id);
     }
+    body.appendChild(line);
+    body.appendChild(meta);
 
     // The reason and the hints are drawn below the title, and a keyboard reader never
     // hovers: describing the button with them is what makes a clamped line readable from

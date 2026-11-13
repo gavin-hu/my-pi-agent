@@ -108,15 +108,14 @@ ${WEB_COMPONENTS_CSS}
    two cards would otherwise carry its head off the top of the screen while the reader walks
    a long one — the four quiet lanes' names and counts gone with it. */
 .board-lanes{display:flex;flex-wrap:nowrap;gap:var(--space-4);align-items:stretch}
-/* The face is the note's index, not its record: what it is, what it says, where it is, and
-   whose it is — at one height on every card, so a column of twelve reads as a stack rather
-   than a ragged list. The reason a card sits where it does is no longer drawn here.
-   The five boxes are pinned from the type tokens rather than measured, so a one-line title, an
-   absent kind, and a card that owes nothing still occupy what their neighbours occupy. */
+/* The face is the note's index, not its record: what it is, what it says, where it is, what it
+   owes, and whose it is. A card is as tall as it draws — a one-line title makes a shorter note
+   than a two-line one — and the line every card shares is the state row. */
 .board-lane{--lane-count:0}
-/* The face's boxes are the lane's: every lane that holds a card draws the note from them. The
-   status box is reserved whether or not the card has anything to say, which is what keeps a
-   column of notes one height. */
+/* The face's boxes are the lane's: every lane that holds a card draws the note from them. The status
+   box is the one that is not optional — the row is on every card, blank when the card owes nothing —
+   while the others follow the content. The face height variable is the skeleton's estimate now, not
+   a height: the row is as tall as the boxes it draws. */
 .board-lane,.board-team .bf-lane{--face-top:calc(var(--fs-xs) * var(--lh-normal));--face-title:calc(var(--fs-base) * var(--lh-snug) * 2);--face-hints:calc(var(--fs-xs) * var(--lh-normal));--face-status:calc(var(--fs-xs) * var(--lh-normal));--face-meta:calc(var(--fs-xs) * var(--lh-normal));--face-h:calc(var(--face-top) + var(--face-title) + var(--face-hints) + var(--face-status) + var(--face-meta) + var(--space-1) * 4);display:flex;flex:1 1 0;flex-grow:calc(1 + min(3, var(--lane-count)));flex-direction:column;min-width:0;transition:flex-grow 200ms ease}
 /* A lane head pins to the pane: one scroll box, and every lane is as tall as the board, so
    its heads are the landmarks in it for the whole scroll. */
@@ -139,10 +138,10 @@ ${WEB_COMPONENTS_CSS}
 
 /* A card is a note: a tinted rectangle with no edge drawn round it, set off from its
    neighbours by the gap alone, so the lane shows paper and space rather than a grid of lines.
-   Its height is the face's boxes plus its padding — stated once, so every note in a lane is
-   the same size and the column reads as a stack of notes rather than a ragged list. */
+   Its height is its content's — the boxes it draws plus the padding — so a lane of notes is as
+   ragged as the cards are, and the state row is the line they all share. */
 .bf-lane .bf-lane__list{gap:var(--space-2)}
-.bf-lane .board-row{grid-template-columns:minmax(0,1fr);height:calc(var(--face-h) + var(--space-2) * 2);overflow:hidden;align-content:stretch;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md)}
+.bf-lane .board-row{grid-template-columns:minmax(0,1fr);overflow:hidden;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md)}
 /* The card the reader walked to wears the accent outside its edge; a card a peer's write just
    moved wears it inside, so the two never read as one state. */
 .bf-lane .board-row[data-current="true"]{outline:2px solid var(--accent)}
@@ -153,9 +152,8 @@ ${WEB_COMPONENTS_CSS}
    also cannot be swallowed by a background rule at equal specificity, whatever order the two
    land in. The mark leaves with its attribute, so the rule states a colour and no timing. */
 .bf-lane .board-row[data-changed="true"]{outline:2px solid var(--accent);outline-offset:-2px}
-/* A card's body fills the note, and the last line is pinned to its foot: the holder, the age
-   and the history sit on the card's bottom edge whatever the title and the hints above them
-   measure, so a column of notes lines up along its last line as well as its top. */
+/* A card's body is the note's column: what it is, what it says, where it is, what it owes, whose
+   it is — in that order, and the card ends where the last line ends. */
 .board-row__body{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
 /* The note's head: what it is, in the order a reader sorts a lane by — its number, the kind of
    work with its breaking marker, and the order it is in. */
@@ -197,19 +195,15 @@ ${WEB_COMPONENTS_CSS}
 /* The meta line is the note's footer: whose it is at one end, when it was last written with the
    history beside it at the other. One line, clipped rather than wrapped, so a narrow lane never
    grows the note. The holder wears no chip: a leading bar is what a path wears. */
-.bf-lane .bf-row__meta{display:flex;flex-wrap:nowrap;align-items:baseline;gap:var(--space-2);margin:0;margin-top:auto;line-height:var(--lh-normal);max-height:var(--face-meta);overflow:hidden;white-space:nowrap}
+.bf-lane .bf-row__meta{display:flex;flex-wrap:nowrap;align-items:baseline;gap:var(--space-2);margin:0;line-height:var(--lh-normal);max-height:var(--face-meta);overflow:hidden;white-space:nowrap}
 .board-lane .bf-row__meta > .board-row__owner{flex:0 0 auto;color:var(--text)}
 .board-lane .bf-row__meta > [data-at]{margin-left:auto}
 .board-lane .bf-row__meta .board-row__notes{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
-/* The detail a card has no room to draw on its face: still in the document, still the title
-   button's description for j/k and a screen reader, still the hover, and the dialog draws it in
-   full. A card's last note is prose, so this is where a note-kind reason stays. */
-.bf-lane .bf-row__reason{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-/* The state a card owes somebody is not prose: one line, drawn above the footer, clipped where
-   it does not fit and whole on the hover. Layout only — the kit's data-tone rules are one class
-   less specific than this rule, so a colour stated here would mute every warn and danger line
-   without a test failing. */
-.bf-lane .bf-row__reason[data-status="true"]{position:static;width:auto;height:var(--face-status);margin:0;overflow:hidden;clip:auto;text-overflow:ellipsis;white-space:nowrap}
+/* The state row is on every card, one line tall: what the card owes somebody, or the blank line
+   where it would go. A note is prose, so a note-kind reason lives in this row for the description
+   and is never drawn. Layout only — the kit's data-tone rules are one class less specific than this
+   rule, so a colour stated here would mute every warn and danger line without a test failing. */
+.bf-lane .bf-row__reason{display:block;height:var(--face-status);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* One lane role per lane, set once and read by the kit's mark, head and dot. */
 ${LANE_ROLE_CSS}

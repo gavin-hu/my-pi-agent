@@ -4,7 +4,7 @@ The board is one list of features for a repository, worked by every session on i
 carries what kind of work it is, its owner, its priority, what it waits on, the contract it
 promises, and the notes that explain it — and two signatures are needed before it can ship.
 
-<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, the live state, theme and keyboard controls; Board and Team tabs, a ten-cell done gauge and a filter; five lane columns with counts and fold controls; and note-shaped cards of one height, tinted by the lane they sit in and separated by space rather than rules, each carrying its number and kind, its title, its path hints, the state it owes somebody, and on its last line whose it is with its age and history" width="1280" height="467">
+<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name, the live state, theme and keyboard controls; Board and Team tabs, a ten-cell done gauge and a filter; five lane columns with counts and fold controls; and note-shaped cards as tall as they draw, tinted by the lane they sit in and separated by space rather than rules, each carrying its number and kind, its title, its path hints, the state it owes somebody, and on its last line whose it is with its age and history" width="1280" height="467">
 
 - **One board per repository**, one page: the first `/board` serves it, every other session opens it.
 - **The page is a view**, and it follows the files: nothing is claimed, moved, or signed from a
@@ -45,8 +45,8 @@ you type only `/board archive|approve|review|status|stop|team`.
 The claim's result names the next step, and `/board approve 1` refuses until the contract
 names a plan file in this repository's store. A claim also joins the team ([`team`](team.md)).
 
-A card says what it owes on the line above its last one — `contract ready — needs approval`, what it
-waits on — in the reason's colour, above the holder and the age. A note is prose, and is not drawn.
+A card is as tall as it draws. The line above its last one says what it owes — `contract ready — needs
+approval`, what it waits on — and is blank when it owes nothing; a note's prose stays off the face.
 
 ## Reference
 
@@ -55,7 +55,7 @@ contract signed, `execute` is where the work happens, `blocked` waits on a perso
 is closed. Each move follows the one transition from where the card is; no lane is skipped.
 
 **The page.** A lane's width follows the work it holds; five lanes sit side by side (one below
-1180px, via the picker), a lane of 24 cards folds, and a card is a one-height note with no edge.
+1180px, via the picker), a lane of 24 cards folds, and a card is a note as tall as it draws.
 The pane is the one scroll box, so a lane is as tall as the board and its head rides the pane's
 edge however long a neighbour is. The Team tab draws that same card, no rule between two of them.
 

@@ -109,9 +109,16 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 			LEAD,
 			clock.now() + 10_000,
 		);
-		// The frame has landed once the edited card's own lane has drawn the reason its link
-		// gave it; what is left to prove is that the lane in front of the reader heard too.
-		await page.locator('#lane-backlog .board-row[data-card="3"] .bf-row__reason').waitFor({ timeout: PAINT_MS });
+		// The frame has landed once the edited card's own row carries the link it was given; the row is
+		// on every card now, so the words are the signal rather than the element's arrival.
+		await page.waitForFunction(
+			(selector) => {
+				const node = (globalThis as unknown as { document: Doc }).document.querySelector(selector);
+				return (node?.textContent ?? "").includes("waits on #2");
+			},
+			'#lane-backlog .board-row[data-card="3"] .bf-row__reason',
+			{ timeout: PAINT_MS },
+		);
 		await expect(holds()).resolves.toContain(
 			"holds up #1 (backlog) Export orders as CSV, #3 (backlog) Invoice totals round the wrong way",
 		);
