@@ -167,9 +167,12 @@ const activeTemplate = String.raw`(function () {
     var tone = decisionTone(entry.kind);
     var node = el("article", "bf-row " + N.decision);
     node.setAttribute("data-tone", tone);
+    // The lane is the paper, so the row is tinted by the same rule the card under it is: one card
+    // drawn in two places in this column is one colour.
+    node.setAttribute("data-lane", card.lane);
     node.setAttribute("data-card", card.id);
-    // The paper is the tone now, so the glyph a decision used to lead with would say a third
-    // time what the card's ground and its why word already say: the block is the mark.
+    // The tone is the pill, the mark at the row's edge, and a danger row's sentence — three
+    // statements, none of them the ground, so a decision needs no glyph of its own.
     var body = el("div", N.decisionBody);
     node.appendChild(body);
 

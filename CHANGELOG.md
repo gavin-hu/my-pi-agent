@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card drawn twice in the Team tab's ACTIVE WORK is one colour. The queue row wore its
+  reason's tone while the swimlane card under it wore its lane's, so one card read as two; both now
+  take the lane's paper, and the tone moves to the pill, the mark at the row's edge, and a danger
+  row's sentence.
+
 - `dev`: a frame is captured once the page has settled rather than after a fixed wait, and the PNG is
   written only when a second shot agrees with it. Two captures of one tree used to come back with
   the same layout and a few different glyph edges, so a re-shoot could commit either variant.
