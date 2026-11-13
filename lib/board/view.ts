@@ -23,6 +23,7 @@ import {
 	type SessionPresence,
 } from "../session-roster.ts";
 import type { WaitingPage } from "../session-mail.ts";
+import { sameLabel } from "../session-label.ts";
 import { type ActivityFeed, activityOf } from "./activity.ts";
 import { type Card, laneSince, priorityOf, type Priority, signatureOf } from "./card.ts";
 import type { Skip } from "./store.ts";
@@ -378,13 +379,13 @@ function teammatesOf(
 				// A turn is believed only while the session that wrote it is still there: a crash
 				// mid-run leaves the stamp, and a session whose heartbeat has aged is not at work.
 				...(state === "live" && session.turnAt !== undefined ? { working: true as const } : {}),
-				...(lead !== undefined && session.label.toLowerCase() === lead.toLowerCase() ? { lead: true as const } : {}),
+				...(lead !== undefined && sameLabel(session.label, lead) ? { lead: true as const } : {}),
 				seen: session.lastSeen,
 				mail: session.mail,
 				// A record that does not say is not a promise either way, so the fact is left out
 				// rather than drawn as "not listening".
 				...(session.watching === undefined ? {} : { listening: session.watching.armed }),
-				you: session.label.toLowerCase() === meLabel.toLowerCase(),
+				you: sameLabel(session.label, meLabel),
 			};
 		})
 		.sort((a, b) => a.label.localeCompare(b.label));

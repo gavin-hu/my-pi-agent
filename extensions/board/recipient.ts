@@ -14,6 +14,7 @@
 
 import type { CardOwner } from "../../lib/board/card.ts";
 import { type RosterSession, type RosterState, rosterStateOf } from "../../lib/session-roster.ts";
+import { sameLabel } from "../../lib/session-label.ts";
 
 /** One addressee: what to send to, what to call it, and whether it is listening. */
 export interface Recipient {
@@ -58,7 +59,6 @@ export function recipientOf(owner: CardOwner, roster: readonly RosterSession[] |
 
 /** The one live record whose label matches, or nothing when none or several do. */
 function soleLabel(live: readonly RosterSession[], label: string): RosterSession | undefined {
-	const wanted = label.toLowerCase();
-	const matches = live.filter((session) => session.label.toLowerCase() === wanted);
+	const matches = live.filter((session) => sameLabel(session.label, label));
 	return matches.length === 1 ? matches[0] : undefined;
 }

@@ -65,6 +65,15 @@ export function sameLabel(a: string, b: string): boolean {
 export const SAME_LABEL_JS = String(sameLabel);
 
 /**
+ * The same body, as the browser receives it: the key a page's label map is written under.
+ *
+ * A fragment keys its maps by label — the owners a round groups, the sessions whose process is
+ * gone — so it needs the key half too. Splice both and the page cannot spell a label map one way
+ * and look it up another.
+ */
+export const LABEL_KEY_JS = String(labelKey);
+
+/**
  * The automatic label, before uniqueness is applied.
  *
  * The bus appends a suffix when two live sessions share one; that decision belongs

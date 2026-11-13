@@ -26,6 +26,7 @@
 import { type Card, dependsOf } from "./card.ts";
 import { contractApproved, missingContractFields } from "./contract.ts";
 import { currentReview } from "./lead.ts";
+import { labelKey } from "../session-label.ts";
 import { type Gate } from "./tone.ts";
 
 /** How long an `execute` card may go unwritten before the rollup calls it that. */
@@ -143,7 +144,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		if (card.lane === "execute" && now - card.updatedAt >= UNWRITTEN_MS) unwritten.push(card);
 
 		if (card.owner === undefined) continue;
-		const key = card.owner.label.toLowerCase();
+		const key = labelKey(card.owner.label);
 		const group = groups.get(key) ?? { label: card.owner.label, cards: [], done: [] };
 		if (card.lane === "done") group.done.push(card);
 		else group.cards.push(card);

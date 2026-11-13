@@ -18,6 +18,7 @@ import type { DeliveryFailure } from "./types.ts";
  * importing its rules from the protocol they belong to.
  */
 export { defaultLabel, MAX_LABEL, normalizeLabel, shortId } from "../../lib/session-label.ts";
+import { sameLabel } from "../../lib/session-label.ts";
 
 export const TOOL_NAME = SESSION_TOOL;
 export const COMMAND_NAME = "sessions";
@@ -115,7 +116,7 @@ export function resolveRecipients(
 	}
 	const exact = sessions.find((session) => session.id === target);
 	if (exact) return { recipients: [exact] };
-	const byLabel = sessions.filter((session) => session.label.toLowerCase() === target.toLowerCase());
+	const byLabel = sessions.filter((session) => sameLabel(session.label, target));
 	if (byLabel.length === 1) return { recipients: byLabel };
 	if (byLabel.length > 1) return { error: `the label "${target}" is ambiguous; use a session id.` };
 	return { error: `no active session "${target}".` };

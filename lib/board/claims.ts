@@ -29,6 +29,7 @@ import { type Card, cardRef } from "./card.ts";
 import { plural } from "./round-text.ts";
 import type { MutateResult } from "./store.ts";
 import { sanitizeLine } from "../format.ts";
+import { sameLabel } from "../session-label.ts";
 import {
 	busLoaded,
 	type ClaimPathsResult,
@@ -151,7 +152,7 @@ async function releasedClause(
 	// A writer taking its own card back is not this: whatever it could not release is a third
 	// session's, already named when the card entered. The compare is a label rather than `holds`,
 	// so a peer wearing the holder's name reads as the holder and stays silent.
-	if (holder === undefined || holder.label.toLowerCase() === card.by.toLowerCase()) return undefined;
+	if (holder === undefined || sameLabel(holder.label, card.by)) return undefined;
 	const verb = answer.notOwned.length === 1 ? "stays" : "stay";
 	return `${plural(answer.notOwned.length, "path")} ${verb} held by ${sanitizeLine(holder.label)} until it stops`;
 }
