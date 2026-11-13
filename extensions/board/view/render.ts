@@ -117,9 +117,17 @@ __RUNTIME__
   var REASON_TONE = __REASON_TONES__;
 
   /** Where a kind sits in the queue: the order the table states, not a copy. */
-  function rankOf(kind) {
+  function decisionRank(kind) {
     return DECISION_RANK.indexOf(kind);
   }
+
+  /**
+   * A label is a name a session asks for -- a peer may join as "constructor" -- and a plain
+   * object inherits constructor, toString, __proto__ and the rest, so a label that spells one
+   * read as a hit that was never written. A null prototype has no members to fall back on.
+   * Here, for both fragments that key by a label: the queue's gone-set and the roster's rows.
+   */
+  function labelMap() { return Object.create(null); }
 
   /** The colour a decision row is drawn in — its edge and its reason line. */
   function decisionTone(kind) {
@@ -186,7 +194,7 @@ __RUNTIME__
   }
 
   /** Every card the snapshot carries, in lane order. */
-  function cards(view) {
+  function allCards(view) {
     var all = [];
     for (var i = 0; i < view.lanes.length; i++) all = all.concat(view.lanes[i].cards);
     return all;
@@ -194,7 +202,7 @@ __RUNTIME__
 
   /** One card by id, or undefined when the last frame no longer has it. */
   function findCard(view, id) {
-    var all = cards(view);
+    var all = allCards(view);
     for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
     return undefined;
   }
@@ -208,9 +216,9 @@ __RUNTIME__
     var changed = {};
     if (!previous) return changed;
     var before = {};
-    var prior = cards(previous);
+    var prior = allCards(previous);
     for (var i = 0; i < prior.length; i++) before[prior[i].id] = prior[i].rev;
-    var now = cards(view);
+    var now = allCards(view);
     for (var j = 0; j < now.length; j++) {
       if (before[now[j].id] !== now[j].rev) changed[now[j].id] = true;
     }
@@ -571,7 +579,8 @@ __RUNTIME__
   board.drawnCards = drawnCards;
   board.matches = matches;
   board.reasonFor = reasonFor;
-  board.rankOf = rankOf;
+  board.decisionRank = decisionRank;
+  board.labelMap = labelMap;
   board.decisionTone = decisionTone;
   board.reasonTone = reasonTone;
   board.laneCount = LANE_COUNT;

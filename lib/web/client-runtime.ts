@@ -193,7 +193,7 @@ export function liveStream(options: LiveStreamOptions): LiveStream {
 	let source: EventStream | null = null;
 	const url = options.token ? options.url + "?token=" + encodeURIComponent(options.token) : options.url;
 
-	function paint(next: LiveState): void {
+	function setState(next: LiveState): void {
 		if (ended || next === state) return;
 		state = next;
 		options.words(next);
@@ -216,14 +216,14 @@ export function liveStream(options: LiveStreamOptions): LiveStream {
 	function failed(): void {
 		if (ended) return;
 		misses = misses + 1;
-		if (misses >= attempts) paint("dead");
-		else if (state === "live" || state === "reconnecting") paint("reconnecting");
+		if (misses >= attempts) setState("dead");
+		else if (state === "live" || state === "reconnecting") setState("reconnecting");
 	}
 
 	function arrived(event: StreamEvent): void {
 		if (ended) return;
 		misses = 0;
-		paint("live");
+		setState("live");
 		options.frame(event);
 	}
 
@@ -231,7 +231,7 @@ export function liveStream(options: LiveStreamOptions): LiveStream {
 		source = Source === undefined ? null : new Source(url);
 	} catch {
 		// A URL the page cannot open is not a stream that may come back.
-		paint("dead");
+		setState("dead");
 		return { close: close };
 	}
 	if (source === null) return { close: close };
@@ -239,7 +239,7 @@ export function liveStream(options: LiveStreamOptions): LiveStream {
 	stream.onopen = function () {
 		if (ended) return;
 		misses = 0;
-		paint("live");
+		setState("live");
 	};
 	stream.onerror = failed;
 	stream.onmessage = arrived;

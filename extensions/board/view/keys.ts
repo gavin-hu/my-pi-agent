@@ -37,15 +37,10 @@ export const BOARD_KEYS_JS = String.raw`(function () {
   /** The render bundle's runtime: one typing test for the whole page. */
   var typing = board.typing;
 
-  /** The card nodes in reading order, so j/k walk the board as it is drawn. */
-  function cards() {
-    return board.drawnCards();
-  }
-
   /** Move the open dialog to the next or previous card; false when no dialog is open. */
   function walk(delta) {
     if (!board.dialogOpen || !board.dialogOpen()) return false;
-    var drawn = cards();
+    var drawn = board.drawnCards();
     if (drawn.length === 0) return true;
     // The open card is the one marked open, not the focused node: focus sits on the
     // dialog's own panel, which is not one of the cards.
@@ -63,7 +58,7 @@ export const BOARD_KEYS_JS = String.raw`(function () {
     // An open dialog walks instead of moving focus: the record stays whole, and Esc
     // still returns to the board where it was.
     if (walk(delta)) return;
-    var drawn = cards();
+    var drawn = board.drawnCards();
     if (drawn.length === 0) return;
     // Focus sits on a card's title button, not on the card, so the step reads the card that
     // holds it: an index of -1 for every card made j from one land on the first card in the

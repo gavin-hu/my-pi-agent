@@ -228,7 +228,7 @@ const liveTemplate = String.raw`(function () {
   }
 
   /** One frame: paint and record when it arrived. */
-  function paint(view) {
+  function paintFrame(view) {
     board.lastFrame = Date.now();
     board.shown = board.shown || laneWithWork(view);
     board.render(view);
@@ -249,7 +249,7 @@ const liveTemplate = String.raw`(function () {
         } catch (error) {
           return;
         }
-        paint(view);
+        paintFrame(view);
       },
     });
   }

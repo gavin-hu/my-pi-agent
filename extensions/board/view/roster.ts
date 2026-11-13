@@ -32,14 +32,8 @@ const rosterTemplate = String.raw`(function () {
 
 __HISTORY_OWNER__
 
-  /**
-   * A map keyed by a session label, which the page does not choose.
-   *
-   * A label is a name a session asks for -- a peer may join as "constructor" -- and a plain
-   * object inherits constructor, toString, __proto__ and the rest, so a label that spells one
-   * read as a hit that was never written. A null prototype has no members to fall back on.
-   */
-  function labelMap() { return Object.create(null); }
+  /** The map the roster's label keys come from: one body, in the fragment that draws first. */
+  var labelMap = board.labelMap;
 
   /** The order the column reads: the lead, then alive, dead, aged, and unrecorded. */
   function rankOf(agent) {
