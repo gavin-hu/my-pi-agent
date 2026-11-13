@@ -141,6 +141,10 @@ because its frames are the terminal.
 What a theme cannot state, the kit derives, so no appearance can hand-pick it and drift:
 
 - `--accent-soft` — the accent at 15% (dark) or 10% (light), for a selection or the active nav row.
+- `--search-soft` — the theme's search highlight, stepped 40% (dark) toward `--canvas` and left as
+  the theme's value in light. A terminal states that colour as a background behind its own
+  foreground; the page sets 12px `--muted` on it as the plan lane's paper, where the theme's value
+  reaches 4.05:1. The step puts it at 4.97:1 and keeps the amber.
 - `--raised` — `--surface` mixed 6% (dark) or 3% (light) toward `--text`, for a block that has to
   read as a plane above the page rather than as an outline. The step is per appearance because one
   that reads on a dark canvas is invisible on a white one, and the light accent drops under AA at

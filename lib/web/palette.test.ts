@@ -40,7 +40,6 @@ const MAPPED: ReadonlyArray<readonly [token: string, variable: string]> = [
 	["--warn", "yellow"],
 	["--success-soft", "successBg"],
 	["--danger-soft", "errorBg"],
-	["--search-soft", "searchBg"],
 ];
 
 describe("web tokens", () => {
@@ -101,6 +100,27 @@ describe("web tokens", () => {
 			const vars = THEMES[appearance].vars;
 			expect(WEB_THEME_TOKENS[appearance]["--dim"]).toBe(mix(vars.muted ?? "", vars.canvas ?? "", STEPS[appearance]));
 			expect(WEB_THEME_TOKENS[appearance]["--dim"]).not.toBe(vars.dim);
+		}
+	});
+
+	test("steps the search highlight toward the canvas, so small text on it clears AA", () => {
+		// The theme states a search highlight for a terminal: a background behind the terminal's own
+		// foreground. A page sets 12px `--muted` on it — the board's plan-lane paper — where the theme's
+		// value reaches 4.05:1, so the paper takes a step toward the canvas. Light needs none, and the
+		// step is held to its inputs rather than to the hex it produces, like `--dim` and the border pair.
+		const STEPS = { dark: 0.4, light: 0 } as const;
+		for (const appearance of ["dark", "light"] as const) {
+			const vars = THEMES[appearance].vars;
+			const tokens = WEB_THEME_TOKENS[appearance];
+			const paper = tokens["--search-soft"] as string;
+			expect(paper).toBe(mix(vars.searchBg ?? "", vars.canvas ?? "", STEPS[appearance]));
+			// The two tiers a card prints on it: the meta line, and the id and kind.
+			for (const tier of ["--muted", "--dim"] as const) {
+				expect(
+					contrast(tokens[tier] as string, paper),
+					`${appearance} ${tier} on the search paper`,
+				).toBeGreaterThanOrEqual(4.5);
+			}
 		}
 	});
 

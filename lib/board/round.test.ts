@@ -114,9 +114,9 @@ describe("buildRound", () => {
 	});
 
 	test("a plan file with half a contract is unplanned, which the row used to call planned", () => {
-		// The drift `gate.ts` removed: the round read `planPath` plus a complete contract, the
+		// The drift `gateOf` removed: the round read `planPath` plus a complete contract, the
 		// transcript's row read `planPath` alone, so this card was `unplanned` here and `planned`
-		// there. One rule answers both now.
+		// there. One rule in `round.ts` answers both now.
 		const half = { goal: "g", acceptance: "a" } as Card["contract"];
 		const round = buildRound([planned("1", half)], NOW);
 		expect(round.unplanned.map((entry) => entry.id)).toEqual(["1"]);

@@ -352,6 +352,15 @@ so the queue reads as the one thing somebody owes an answer to.
   reported rather than deleted: the message's own `to` decides, and a file this build cannot parse
   stays out of the count the way it stays out of the page's queue.
 
+- `lib`: the plan lane's paper clears AA for the text a card prints on it. `--search-soft` was the
+  one soft colour the kit copied from the theme instead of deriving, and a theme states a search
+  highlight for a terminal — a background behind the terminal's own foreground — so the board's
+  12px `--muted` meta line read at 4.05:1 in dark and `--dim` at 3.80:1. The paper now takes a 40%
+  step toward the canvas in dark (`#3d331a` → `#2a2519`, 4.97:1 and 4.64:1) and stays the theme's
+  value in light, where both already cleared; it is still the amber lane's amber. `--search-soft`
+  has one consumer in the repo — the warn lane's paper — so nothing else on a page moves, and the
+  board's suite now holds both tiers against all five lane papers instead of the accent one alone.
+
 ## [0.26.0] - 2026-11-11
 
 ### Added
