@@ -25,7 +25,7 @@ import { serveBoardPage } from "../../../test/helpers/board-page.ts";
 import { boardDocument as pageOf, REPO, ROOT, WHERE } from "../../../test/helpers/board-document.ts";
 import { renderBoardPage } from "./page.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
-import { BOARD_CSS } from "./styles.ts";
+import { BOARD_CSS, LANE_PAPER } from "./styles.ts";
 
 /** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
 const clock = makeClock(1_760_000_000_000);
@@ -199,20 +199,23 @@ describe("the page's elevation", () => {
 });
 
 describe("the faint tier on a card", () => {
-	test("clears AA on the darkest paper a card sits on, not just on the canvas", () => {
+	test("clears AA on every lane's paper, for both tiers a card prints", () => {
 		// The kit's suite holds `--dim` to 4.5 against canvas, surface and raised; a board card is none of
-		// those — its paper is the lane's tint over the surface — so the id, the kind and the count are
-		// measured where they are read. Light's tint is almost white, which leaves the raised plane as
-		// that theme's darkest, so both are checked.
+		// those — its paper is the lane's tone, an alpha over the plane where it sits — so both tiers a
+		// card prints there, the meta line (`--muted`) and the id and kind (`--dim`), are measured on
+		// every paper the lane table can name, in both appearances.
 		for (const appearance of ["dark", "light"] as const) {
 			const tokens = WEB_THEME_TOKENS[appearance];
-			const paper = over(tokens["--accent-soft"] as string, tokens["--surface"] as string);
-			const faint = Math.min(
-				contrast(tokens["--dim"] as string, paper),
-				contrast(tokens["--dim"] as string, tokens["--raised"] as string),
-				contrast(tokens["--dim"] as string, tokens["--canvas"] as string),
-			);
-			expect(faint, `${appearance} faint on a card`).toBeGreaterThanOrEqual(4.5);
+			for (const [role, token] of Object.entries(LANE_PAPER)) {
+				// `over` leaves a solid token as it is and lays a tint over the plane, which is what the page does.
+				const paper = over(tokens[token] as string, tokens["--surface"] as string);
+				for (const tier of ["--muted", "--dim"] as const) {
+					expect(
+						contrast(tokens[tier] as string, paper),
+						`${appearance} ${tier} on the ${role} paper`,
+					).toBeGreaterThanOrEqual(4.5);
+				}
+			}
 		}
 	});
 });

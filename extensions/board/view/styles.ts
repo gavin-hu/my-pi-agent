@@ -31,9 +31,11 @@ export const PICKER_MQ = 1180;
  * The lane also owns the card's paper — the soft tone its role names — so a note's colour is
  * the lane it is in and never a decoration of its own: five lanes, five papers, and a card
  * that moves changes colour with the column it lands in. `muted` has no soft tone of its own,
- * and the pool is the quietest lane, so it keeps the raised plane for paper.
+ * and the pool is the quietest lane, so it keeps the raised plane for paper. Exported because a
+ * card's paper is what the text on it is measured against, and the suite that measures it reads
+ * this table rather than spelling the five tokens again.
  */
-const LANE_PAPER: Record<LaneRole, string> = {
+export const LANE_PAPER: Record<LaneRole, string> = {
 	muted: "--raised",
 	warn: "--search-soft",
 	accent: "--accent-soft",

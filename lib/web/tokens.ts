@@ -45,7 +45,6 @@ const ROLES: ReadonlyArray<readonly [token: string, variable: string]> = [
 	["--warn", "yellow"],
 	["--success-soft", "successBg"],
 	["--danger-soft", "errorBg"],
-	["--search-soft", "searchBg"],
 ];
 
 /** The syntax token names, as a highlighter writes the class suffix, and the theme colour behind one. */
@@ -65,7 +64,8 @@ const SYNTAX_ALIASES: ReadonlyArray<readonly [string, string]> = [
  * What a theme cannot name, one entry per appearance.
  *
  * `raisedStep` lifts a plane off the surface, `dimStep` takes the faint tier one step down from
- * `muted`, `accentAlpha` tints a selected row, and `scrim`/`shadow` are a page's overlays and
+ * `muted`, `accentAlpha` tints a selected row, and `searchStep` pulls the search highlight toward
+ * the canvas when a page puts small text on it. `scrim`/`shadow` are a page's overlays and
  * elevation rather than colours on a grid. `borderStep`/`borderStrongStep` are how far a rule
  * travels from the canvas toward the text: a terminal draws its borders on a cell grid at 3:1,
  * which a page reads as a frame rather than as a hairline, so the pair is a step instead.
@@ -78,6 +78,7 @@ const DERIVED: Record<
 		borderStep: number;
 		borderStrongStep: number;
 		accentAlpha: number;
+		searchStep: number;
 		scrim: string;
 		shadow1: string;
 		shadow2: string;
@@ -92,6 +93,11 @@ const DERIVED: Record<
 		// 4.5:1 there: at the 15% a selected row can take, `--dim` reaches 4.09:1 (dark) and
 		// 4.31:1 (light), so the tint is the strength both jobs can share.
 		accentAlpha: 0.08,
+		// The theme's search highlight is a terminal's background, chosen to sit behind the terminal's
+		// own foreground. A page puts 12px `--muted` on it — the board's plan-lane paper — where 4.05:1
+		// is under AA, so the paper takes a step toward the canvas: 4.97:1 for `--muted`, 4.64:1 for
+		// `--dim`, and still amber.
+		searchStep: 0.4,
 		scrim: "rgba(3,6,12,.62)",
 		shadow1: "0 1px 2px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.35)",
 		shadow2: "0 8px 24px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.4)",
@@ -105,6 +111,9 @@ const DERIVED: Record<
 		borderStep: 0.11,
 		borderStrongStep: 0.2,
 		accentAlpha: 0.06,
+		// Nothing to step: the theme's highlight already clears 4.5 for both tiers on a light canvas
+		// (5.93:1 for `--muted`, 4.88:1 for `--dim`), so light's paper stays the theme's value.
+		searchStep: 0,
 		scrim: "rgba(15,23,42,.32)",
 		shadow1: "0 1px 2px rgba(16,24,40,.06),0 2px 8px rgba(16,24,40,.08)",
 		shadow2: "0 8px 24px rgba(16,24,40,.12),0 1px 3px rgba(16,24,40,.08)",
@@ -166,12 +175,13 @@ function rgba(hex: string, alpha: number): string {
 /**
  * The full custom-property set for one appearance.
  *
- * Every colour is the theme's, except two that a terminal does not ask for. `--dim` is one step
+ * Every colour is the theme's, except three that a terminal does not ask for. `--dim` is one step
  * off `muted` toward the canvas: a terminal asks 3:1 of its `dim` on a canvas, while the kit asks
  * 4.5 where a page reads it, and the theme's value reaches 4.08:1 (dark) and 4.05:1 (light) on a
- * raised plane. And `--accent-soft` carries the alpha both of its jobs can share — a selected row
- * and a card's paper, which the board holds to the same 4.5. A floor is a guarantee, so it does
- * not move to keep a mapping literal.
+ * raised plane. `--accent-soft` carries the alpha both of its jobs can share — a selected row and a
+ * card's paper, which the board holds to the same 4.5. And `--search-soft` is the theme's search
+ * highlight stepped toward the canvas, because the board sets 12px `--muted` on it as a lane's
+ * paper. A floor is a guarantee, so it does not move to keep a mapping literal.
  */
 function paletteOf(appearance: Appearance): Record<string, string> {
 	const theme = THEMES[appearance];
@@ -184,6 +194,7 @@ function paletteOf(appearance: Appearance): Record<string, string> {
 	// One step above `--surface`, for a block that must read as a plane rather than an outline.
 	tokens["--raised"] = mix(theme.vars.canvasSubtle ?? "", theme.vars.text ?? "", steps.raisedStep);
 	tokens["--accent-soft"] = rgba(theme.vars.blue ?? "", steps.accentAlpha);
+	tokens["--search-soft"] = mix(theme.vars.searchBg ?? "", theme.vars.canvas ?? "", steps.searchStep);
 	// A label on the accent fill is the canvas colour: the light theme's dark blue takes white,
 	// and the dark theme's light blue takes the canvas it sits on.
 	tokens["--on-accent"] = theme.vars.canvas ?? "";
