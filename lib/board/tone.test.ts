@@ -11,6 +11,8 @@ import { LANES, LANE_RULES } from "./lanes.ts";
 import { REASON_KINDS } from "./reason.ts";
 import {
 	BOARD_TONES,
+	GATE_WORD,
+	GATES,
 	DECISION_BAND,
 	DECISION_BAND_JS,
 	DECISION_BAND_LABEL,
@@ -61,6 +63,19 @@ describe("the tone table", () => {
 			label: DECISION_BAND_LABEL,
 		});
 		expect(JSON.parse(REASON_TONE_JS)).toEqual(REASON_TONE);
+	});
+
+	test("wears the queue's own words for the three gates, so one state is spelled once", () => {
+		// The route gates are the queue's words, not a second table: a card waiting for a signature
+		// reads `needs approval` in the pane and in a transcript row.
+		expect(Object.keys(GATE_WORD).sort()).toEqual([...GATES].sort());
+		expect(GATE_WORD.contract).toBe(DECISION_LABEL.unplanned);
+		expect(GATE_WORD.approval).toBe(DECISION_LABEL.approval);
+		expect(GATE_WORD.review).toBe(DECISION_LABEL.review);
+		for (const gate of GATES) expect(GATE_WORD[gate].length, gate).toBeGreaterThan(0);
+		// Each gate is a reason kind too, which is what makes the row's tone a lookup rather than a
+		// second table: `factsOf` paints `REASON_TONE[gate]`.
+		for (const gate of GATES) expect(REASON_TONE[gate], gate).toBe("warn");
 	});
 
 	test("files every kind under a band, and names every band it files one under", () => {

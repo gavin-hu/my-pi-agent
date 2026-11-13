@@ -70,9 +70,9 @@ describe("roundText", () => {
 		const roster = [mate("billing-lead", NOW), mate("ops-helper", NOW - 20 * 60_000)];
 		expect(roundText(cards, NOW, roster).split("\n")).toEqual([
 			"1 owner · 3 features · 1 unassigned · 0 unplanned · 0 awaiting approval · 1 awaiting review · 1 blocked · 0 unwritten · 0 done",
-			"billing-core (2): #2 execute unplanned, #3 blocked",
+			"billing-core (2): #2 execute, #3 blocked",
 			"unassigned (1): #1 backlog",
-			"unreviewed (1): #2 execute unplanned",
+			"unreviewed (1): #2 execute",
 			"blocked (1): #3 blocked — gateway",
 			"live: billing-lead — idle · quiet: ops-helper — idle · not on the bus: billing-core — #2 execute +1",
 		]);
@@ -83,7 +83,7 @@ describe("roundText", () => {
 		// no card, so the round has to ask the roster before it groups or compares a label.
 		const cards = [card("1", { lane: "execute", owner: { id: "s-core", label: "team-agent-score" } })];
 		const lines = roundText(cards, NOW, [{ ...mate("billing-core", NOW), id: "s-core" }]).split("\n");
-		expect(lines).toContain("billing-core (1): #1 execute unplanned");
+		expect(lines).toContain("billing-core (1): #1 execute");
 		// One owner, and no second one for the name the card kept — not even in the presence line.
 		expect(lines.some((line) => line.includes("team-agent-score"))).toBe(false);
 		expect(lines.at(-1)).toBe("live: billing-core — #1 execute");

@@ -236,13 +236,14 @@ export function withLiveOwner<T extends Card>(card: T, roster?: readonly RosterN
 	return label === owner.label ? card : { ...card, owner: { ...owner, label } };
 }
 
-/** `#4 execute planned`, the brief a rollup group needs. */
+/**
+ * `#4 execute`, the brief a rollup group needs.
+ *
+ * The lane only: the group's heading is what says which gate the card owes — and it says it in
+ * the same words the transcript's row prints, because both read `gateOf`.
+ */
 function brief(card: Card): string {
-	// Only the two lanes a card is worked in say whether it was planned first: the pool has
-	// no plan yet, and a finished card is history.
-	const planned =
-		card.lane === "plan" || card.lane === "execute" ? (card.planPath === undefined ? " unplanned" : " planned") : "";
-	return `${cardRef(card.id)} ${card.lane}${planned}`;
+	return `${cardRef(card.id)} ${card.lane}`;
 }
 
 /** One rollup group, or nothing when it is empty. */

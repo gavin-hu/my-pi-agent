@@ -12,6 +12,7 @@ import { coloringTheme } from "../../test/helpers/fakes.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { type Card } from "../../lib/board/card.ts";
 import { LANE_RULES } from "../../lib/board/lanes.ts";
+import { GATES, GATE_WORD } from "../../lib/board/tone.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import type { RoundSummary } from "../../lib/board/round.ts";
 import { REASON_TONE } from "../../lib/board/tone.ts";
@@ -54,10 +55,52 @@ describe("the transcript row", () => {
 		expect(LANE_RULES.plan.role).not.toBe(LANE_RULES.blocked.role);
 	});
 
-	test("gives an unplanned card the warn the page gives the same fact", () => {
-		const line = boardRowLineFor()(card({ lane: "execute" }), WIDTH, coloringTheme);
+	test("gives a card that still owes its contract the warn the page gives the same fact", () => {
+		// A `plan` card with a plan file and no contract owes the contract, and the row says the word
+		// the Team queue's pill uses for it rather than calling the card planned.
+		const line = boardRowLineFor()(card({ lane: "plan", planPath: "plans/4.md" }), WIDTH, coloringTheme);
+		expect(GATE_WORD.contract).toBe("no contract");
 		expect(REASON_TONE.contract).toBe("warn");
-		expect(line).toContain(`${colour(TONE_ROLE.warn)}unplanned`);
+		expect(line).toContain(`${colour(TONE_ROLE.warn)}no contract`);
+	});
+
+	test("names the spot-check an executing card has not had, and says nothing when it owes none", () => {
+		const owed = boardRowLineFor()(
+			card({ lane: "execute", planPath: "plans/4.md", log: [{ lane: "execute", at: 2_000, by: "billing-core" }] }),
+			WIDTH,
+			coloringTheme,
+		);
+		expect(owed).toContain(`${colour(TONE_ROLE.warn)}needs review`);
+		// A signed spot-check of this execution is a card that owes nothing, and a row with nothing
+		// to owe says nothing: `planned` used to be printed whatever a card still had to wait for.
+		const clear = boardRowLineFor()(
+			card({
+				lane: "execute",
+				planPath: "plans/4.md",
+				review: { by: "billing-lead", at: 3_000 },
+				log: [{ lane: "execute", at: 2_000, by: "billing-core" }],
+			}),
+			WIDTH,
+			coloringTheme,
+		);
+		// The absence is the half a reader notices, so it is asserted for every word a gate can
+		// wear and for the one this replaced: a clear card's row is its owner, its lane and its age.
+		for (const gate of GATES) expect(clear).not.toContain(GATE_WORD[gate]);
+		expect(clear).not.toContain("planned");
+	});
+
+	test("says nothing for a signed plan card either, which is the case `planned` was printed for", () => {
+		const signed = boardRowLineFor()(
+			card({
+				lane: "plan",
+				planPath: "plans/4.md",
+				contract: { goal: "g", acceptance: "a", scopeOut: "s", approved: { by: "billing-lead", at: 2_000 } },
+			}),
+			WIDTH,
+			coloringTheme,
+		);
+		for (const gate of GATES) expect(signed).not.toContain(GATE_WORD[gate]);
+		expect(signed).not.toContain("planned");
 	});
 
 	test("keeps the separator between two painted words painted too", () => {
