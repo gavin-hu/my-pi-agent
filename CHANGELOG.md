@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a spot-check's stamp may not be older than the card it signs. A card's `updatedAt` only
+  moves forward, so a card written by a session whose clock ran ahead of the reviewer's could never
+  reach `done`: `signStale` asked for a sign newer than the card could ever be, and the remedy the
+  refusal prints — run it and review again — re-stamped at the same lagging clock. The stamp now
+  takes the later of the two moments; the signer's note keeps the caller's own.
+
 - `board`: the page reads the pile again only when the cards directory moved, so a frame costs one
   `stat` where it used to cost a readdir and a parse per card. A frame is asked for on every write,
   on the five-second sweep, and every second when no watch could be armed; the roster, the mail
