@@ -22,8 +22,7 @@ export const BoardParams = Type.Object({
 		{
 			// The verbs and their meanings live in the tool description, built from
 			// `BOARD_ACTION_DOCS`; this says only what a caller needs to choose one.
-			description:
-				"`list` reads the board, or one card when `card` names it; every other verb changes it. The tool description says what each one does.",
+			description: "`list` reads the board, or one card when `card` names it; every other verb changes it.",
 		},
 	),
 	card: Type.Optional(
@@ -93,8 +92,7 @@ export const BoardParams = Type.Object({
 	),
 	verify: Type.Optional(
 		Type.String({
-			description:
-				"`contract`: the acceptance command a spot-check runs; a changed line drops the approval, an empty string takes it off.",
+			description: "`contract`: the acceptance command a spot-check runs; an empty string takes it back off.",
 		}),
 	),
 	scopeOut: Type.Optional(
@@ -142,7 +140,7 @@ export const BoardParams = Type.Object({
 	archived: Type.Optional(
 		Type.Boolean({
 			description:
-				"`list`: read the archive instead of the board — the finished cards `archive` set aside; `query` and `mine` narrow it, and `lane` and `round` do not apply.",
+				"`list`: read the archive — the finished cards `archive` set aside; `query` and `mine` narrow it, `lane` and `round` do not.",
 		}),
 	),
 });
