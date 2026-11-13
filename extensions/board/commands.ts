@@ -11,7 +11,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { ArtifactProof } from "../../lib/board/artifact.ts";
 import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
-import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
+import { PERSON_LABEL, personActor, reviewGate, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
 import type { Verification } from "../../lib/board/contract.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { plural } from "../../lib/board/round-text.ts";
@@ -171,9 +171,14 @@ async function signLine(
 	const verifiedFor = async (
 		store: BoardStore,
 		cardId: string,
+		override: string | undefined,
 	): Promise<{ verified: Verification } | { error: string } | undefined> => {
 		const card = await store.read(cardId).catch(() => undefined);
-		if (card?.contract?.verify === undefined) return undefined;
+		if (card === undefined) return undefined;
+		// The gate first, as the tool's door asks it: a sign that would be refused starts no process, and
+		// the refusal is `mutate`'s to give. An override carries no run to record.
+		if ("error" in reviewGate(card, personActor(), store.config().lead, override)) return undefined;
+		if (override !== undefined || card.contract?.verify === undefined) return undefined;
 		const module = await import("../../lib/board/verify.ts");
 		// The tree this session is working in, as the tool's door reads it: the worktree it entered when
 		// there is one, and `ctx.cwd` otherwise, which never follows `worktree enter` by itself.
@@ -205,7 +210,7 @@ async function signLine(
 		const artifact = proof === undefined ? undefined : await proof.provedPlan(session, ctx.cwd, store, id);
 		// The run rides the sign here too: this door is the person's, so it executes the command the
 		// contract names exactly as the tool's does, through the one body both doors share.
-		const evidence = sign === "review" ? await verifiedFor(store, id) : undefined;
+		const evidence = sign === "review" ? await verifiedFor(store, id, override) : undefined;
 		if (evidence !== undefined && "error" in evidence) return { text: `board: ${evidence.error}`, tone: "info" };
 		result = await store.mutate(id, signOp(sign, override, artifact, evidence?.verified), personActor(), session.now());
 	} catch (error) {

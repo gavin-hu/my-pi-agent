@@ -10,6 +10,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { boardHarness } from "./board.ts";
+import { resultText } from "./fixtures/board.ts";
 import type { FakePiOptions } from "./fakes.ts";
 import { writeBusRecord } from "./bus.ts";
 import { tempDir } from "./env.ts";
@@ -138,6 +139,14 @@ export async function claimedWithContract(who: { lead: Session; peer: Session })
 		acceptance: "a",
 		scopeOut: "s",
 	});
+}
+
+/**
+ * Fail the case on a refused setup call, so no case passes on a card another case left behind.
+ */
+export async function agreed(call: ReturnType<Session["call"]>): Promise<void> {
+	const result = await call;
+	if (result.isError) throw new Error(resultText(result));
 }
 
 /**

@@ -49,6 +49,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"card-id",
 		"context",
 		"ended",
+		"gate-before-run",
 		"input",
 		"kind",
 		"plan-gone",
