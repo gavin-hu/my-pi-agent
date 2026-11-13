@@ -32,6 +32,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a card's owner is drawn and grouped by the name its session answers to now, so a session
+  that renamed on the bus (`/team join`, `/session join`, a rename in Pi) is one row rather than a live
+  one beside the label its claim wrote. The name is resolved once per read from the roster's record for
+  the owner's id — in `board list`, `/team`'s rollup, and the page's Agents column — so a `query`
+  matches the name that answers; no card file is rewritten, and a board with no bus shows the label the
+  card kept.
+
 - `board`: the Team tab's `NEEDS YOU` pane is three bands by whose move each ask is — `YOUR
   SIGNATURE` (an approval, a spot-check), `UNCLAIMED` (nobody holds it, or its owner is gone) and
   `STALLED` (blocked, unwritten, no contract) — and every ask is drawn. Each is one line with its

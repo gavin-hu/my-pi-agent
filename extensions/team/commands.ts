@@ -12,7 +12,7 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import type { AddTeammateResult } from "../../lib/board/config.ts";
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import { buildRound, type RoundSummary } from "../../lib/board/round.ts";
-import { formatRound, holdingLine, plural } from "../../lib/board/round-text.ts";
+import { formatRound, holdingLine, plural, withLiveOwner } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
 import { type RosterSession, presenceOf, rosterStateOf } from "../../lib/session-roster.ts";
@@ -142,12 +142,16 @@ function teammateNote(named: AddTeammateResult | undefined): string | undefined 
  */
 export function roundText(cards: readonly Card[], now: number, roster?: readonly RosterSession[]): string {
 	if (cards.length === 0) return "team: nothing to report — the board is empty";
-	const round = buildRound(cards, now);
+	// The name an owner is shown by is the one the bus holds now, resolved before anything groups
+	// or compares labels: a rename moves the record and no card, and the rollup, the stalled lines,
+	// and the presence line all speak of owners by their label.
+	const named = cards.map((card) => withLiveOwner(card, roster));
+	const round = buildRound(named, now);
 	// The cap covers the rollup: what a dead owner left, and who is here at all, follow it whole.
-	const lines = formatRound(cards, round, roster).split("\n");
+	const lines = formatRound(named, round, roster).split("\n");
 	const shown = lines.slice(0, MAX_ROUND_LINES);
 	if (lines.length > MAX_ROUND_LINES) shown.push(`… ${plural(lines.length - MAX_ROUND_LINES, "line")} more`);
-	for (const line of stalledLines(cards, roster, now)) shown.push(line);
+	for (const line of stalledLines(named, roster, now)) shown.push(line);
 	const who = presenceLine(roster, now, round);
 	if (who !== undefined) shown.push(who);
 	return shown.join("\n");

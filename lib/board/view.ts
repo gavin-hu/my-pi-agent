@@ -29,6 +29,7 @@ import type { Skip } from "./store.ts";
 import { LANE_RULES, LANES, type Lane, type LaneRole } from "./lanes.ts";
 import { DEFAULT_WIP, limitOf, type WipLimits } from "./limits.ts";
 import { blockersOf, indexOf, lanesText, openDependentsOf } from "./links.ts";
+import { withLiveOwner } from "./round-text.ts";
 import type { Actor } from "./rules.ts";
 import { buildRound, type RoundSummary } from "./round.ts";
 
@@ -260,10 +261,14 @@ export function buildView(input: ViewInput): BoardView {
 	// same board, so a dependency and its dependent cannot be told two different stories.
 	const index = indexOf(input.cards);
 	const gone = input.gonePlans ?? new Set<string>();
+	// The name a reader sees is the one the bus holds now: a card records the label its write
+	// knew, and a rename moves the record rather than the card. Resolved here, before anything
+	// groups or joins by it, so the lanes, the rollup, and the roster tell one story.
+	const named = input.cards.map((card) => withLiveOwner(card, input.roster));
 	// One mapped list feeds both halves of the snapshot: the rollup's groups carry the same
 	// card the lane does, so a client reading `round.unassigned` is not handed a card
 	// missing the facts every other card has.
-	const cards = input.cards.map((card) => viewCardOf(card, index, gone.has(card.id)));
+	const cards = named.map((card) => viewCardOf(card, index, gone.has(card.id)));
 	const limits = input.limits ?? DEFAULT_WIP;
 	const lanes = LANES.map((key) => {
 		const rule = LANE_RULES[key];

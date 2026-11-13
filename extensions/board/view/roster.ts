@@ -48,8 +48,10 @@ __HISTORY_OWNER__
   /**
    * Every agent the board knows about: the bus's sessions, plus the owners a card names.
    *
-   * The bus's row keeps its own spelling of the label and the card's joins onto it, so an
-   * owner renamed on the bus after claiming a card draws once, under the name it answers to.
+   * The bus's row keeps its own spelling of the label, and the card's joins onto it. A card's
+   * owner label is the name its write knew, so a session that renamed after claiming one would
+   * draw twice under two names; the snapshot resolves that by the owner's id before it sends the
+   * cards (lib/board/round-text.ts), so the one name left is the one the session answers to.
    */
   board.rosterOf = function (view) {
     var round = view.round;

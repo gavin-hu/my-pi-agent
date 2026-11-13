@@ -31,7 +31,7 @@ import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
-import { formatRound } from "../../lib/board/round-text.ts";
+import { formatRound, withLiveOwner } from "../../lib/board/round-text.ts";
 import { CLAIM_NEXT, formatArchive, formatArchived, formatBoard, formatCard } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, refusal, resultInput } from "./result.ts";
@@ -204,9 +204,8 @@ export function registerTools(
 				const now = runtime.now();
 				switch (action) {
 					case "list":
-						// The round folds the owners a bus has no record of, and the rollup is the only read
-						// that needs the bus for its own sake: a plain `list` reads no bus file beyond the
-						// record that names whoever is calling.
+						// Every listing names owners, and a rename is a fact about the bus rather than the card, so
+						// the read asks the roster once: the rows carry the live name and the rollup folds the rest.
 						return await read(store, action, me, args, now, () => runtime.roster(ctx.cwd));
 					case "add":
 						return await add(store, me, args, now);
@@ -408,10 +407,17 @@ async function read(
 	now: number,
 	roster: () => Promise<readonly RosterSession[] | undefined>,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	if (args.archived === true) return readArchive(store, action, me, args, now);
+	// The roster is read for every listing, not only a rollup: a card shows its owner by the name the
+	// session answers to now, and a rename moves the record rather than the card. No bus (`undefined`)
+	// leaves the label the card kept. A decision that follows: `query` matches the live name, so the
+	// dead one matches nothing — the rename is the board saying it no longer answers to it.
+	const rosterRows = await roster().catch(() => undefined);
+	if (args.archived === true) return readArchive(store, action, me, args, now, rosterRows);
 	// One read of the pile answers both questions a listing asks — the cards, and the files the
 	// reader refused, which is the difference between "not there" and "there, and unreadable".
-	const { cards, skipped } = await store.scan();
+	const scanned = await store.scan();
+	const cards = scanned.cards.map((card) => withLiveOwner(card, rosterRows));
+	const skipped = scanned.skipped;
 	// A directory listing, not a read: a listing says what it left aside without opening one.
 	const archived = await store.archivedCount();
 	if (args.card !== undefined) {
@@ -466,7 +472,7 @@ async function read(
 	};
 	if (args.round !== true) return textResult(listing, details);
 	const round = buildRound(cards, now);
-	const text = `${listing}\n\n${formatRound(cards, round, await roster())}`;
+	const text = `${listing}\n\n${formatRound(cards, round, rosterRows)}`;
 	return textResult(text, { ...details, round });
 }
 
@@ -483,6 +489,7 @@ async function readArchive(
 	me: BoardDetails["me"],
 	args: BoardArgs,
 	now: number,
+	roster: readonly RosterSession[] | undefined,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	const wrong = (["lane", "round"] as const).filter((field) => args[field] !== undefined);
 	if (wrong.length > 0) {
@@ -493,13 +500,15 @@ async function readArchive(
 		);
 	}
 	const pile = await store.archived();
+	// A finished card's owner can have renamed after the close too, and the pile is read by the same person.
+	const cards = pile.cards.map((card) => withLiveOwner(card, roster));
 	if (args.card !== undefined) {
 		// `query` and `mine` narrow the pile, not the one card it would answer for.
 		const ignored = cardFiltersRefusal(args, ["query", "mine"]);
 		if (ignored !== undefined) return refusal(action, me, ignored);
 		const id = normalizeCardId(args.card);
 		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
-		const card = pile.cards.find((entry) => entry.id === id);
+		const card = cards.find((entry) => entry.id === id);
 		if (!card) {
 			const onBoard = (await store.list()).some((entry) => entry.id === id);
 			return refusal(
@@ -508,9 +517,9 @@ async function readArchive(
 				onBoard ? `${cardRef(id)} is on the board, not in the archive.` : `${cardRef(id)} is not in the archive.`,
 			);
 		}
-		return textResult(formatCard(card, indexOf(pile.cards), now), { action, me, card });
+		return textResult(formatCard(card, indexOf(cards), now), { action, me, card });
 	}
-	const shown = pile.cards.filter(
+	const shown = cards.filter(
 		(card) => (args.query === undefined || matchesQuery(card, args.query)) && (args.mine !== true || holds(card, me)),
 	);
 	return textResult(formatArchive(shown, pile.skipped), {
