@@ -208,3 +208,33 @@ export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promis
 	const messages = all.slice(0, Math.max(0, limit));
 	return { messages, dropped: all.length - messages.length };
 }
+
+/**
+ * How many unread messages on one repository's bus no session record accounts for.
+ *
+ * A message names its recipient by session id, and an inbox belongs to that id alone — but the id
+ * outlives the *record* that lists it, and the roster counts mail per record. So once a record is
+ * pruned its mail keeps both its reader's absence and its own silence: no row, no count, and no
+ * way to consume it, until the message TTL ends it. A session resumed on that id can still read
+ * it, which is why it is not deleted the moment the record goes.
+ *
+ * The recipient is read off the message rather than out of the inbox's name: the name is that id
+ * as the writer hashed it, and a lib module cannot ask the store how. A file this build cannot
+ * parse is skipped, the way the queue above skips it.
+ */
+export async function unattributedMail(busDir: string, known: ReadonlySet<string>): Promise<number> {
+	let count = 0;
+	for (const dir of await inboxDirs(busDir)) {
+		for (const { name } of await listArrivals(dir)) {
+			let parsed: unknown;
+			try {
+				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
+			} catch {
+				continue;
+			}
+			if (!isBusMessage(parsed)) continue;
+			if (!known.has(parsed.to)) count += 1;
+		}
+	}
+	return count;
+}

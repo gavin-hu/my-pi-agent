@@ -83,6 +83,17 @@ describe("status", () => {
 			"Alerts: inbox watch on (wake)",
 		);
 	});
+
+	test("counts the unread mail no record carries, under the sessions it is missing from", () => {
+		const out = formatStatus({ ...busStatus([session()]), unattributed: 2 });
+		// One line, above the claims: the mail has no session row to sit under, so it is said once.
+		expect(out).toContain("Unaccounted: 2 unread, addressed to a record the bus no longer holds");
+		expect(out.indexOf("Unaccounted:")).toBeLessThan(out.indexOf("Claims ("));
+	});
+
+	test("draws no line when every message has a record", () => {
+		expect(formatStatus(busStatus([session()]))).not.toContain("Unaccounted:");
+	});
 });
 
 describe("join", () => {

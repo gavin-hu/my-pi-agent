@@ -66,7 +66,10 @@ heartbeat holds, `quiet` once it has aged, `gone` once its process is not runnin
 its watch is armed, so a peer that will not be woken reads as one. The record also carries the
 turn: stamped on `agent_start` and dropped on `agent_settled`, so the Team tab can draw a
 session as working rather than idle from a stale heartbeat. A stamp is believed only beside a
-fresh heartbeat — a process that died mid-turn left its stamp behind.
+fresh heartbeat — a process that died mid-turn left its stamp behind. Mail is counted per record,
+so a message whose recipient's record has been pruned has no row to carry its number: the status
+says so once, as `Unaccounted: N unread`, until the message TTL ends it, and a session resumed on
+that id can still read it.
 
 **Labels.** Name a session for the outcome it owns (`billing-core`), not its
 layer. A duplicate label gets a short id suffix; a label is reserved while the bus

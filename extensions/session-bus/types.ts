@@ -107,6 +107,15 @@ export interface SessionStatus {
 	/** False while this session has only read the bus: it joins by naming itself. */
 	onBus: boolean;
 	sessions: Array<SessionRecord & { unread: number; state: RosterState }>;
+	/**
+	 * Unread mail whose recipient's record is not on this bus, absent when there is none.
+	 *
+	 * A message names its recipient by session id, and the id outlives the record that lists it —
+	 * so the roster, which counts mail per record, has no row to hang this mail on. It is reported
+	 * rather than deleted: a session resumed on that id can still read it, and the message TTL is
+	 * what ends it otherwise.
+	 */
+	unattributed?: number;
 	claims: ClaimRecord[];
 	/** Present only when this session armed its inbox watch. */
 	watching?: { armed: boolean; wake: boolean };

@@ -4,6 +4,7 @@ import { scratchDir } from "../../test/helpers/env.ts";
 import { busToolSession as session, joinBusSession as joins } from "../../test/helpers/fixtures/session-bus-tool.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
+import { createBusStore } from "./store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -21,6 +22,22 @@ describe("session tool", () => {
 			"backend",
 			"frontend",
 		]);
+		// A message for an id the bus holds no record of: the one state the roster cannot count, because
+		// it counts mail per record. Written through the store, since `send` resolves a label to a record,
+		// and stamped rather than clocked, so the case reads no wall clock.
+		await createBusStore({ dir }).writeMessage("gone-session", {
+			id: "900-orphan",
+			from: "s9",
+			fromLabel: "amy",
+			to: "gone-session",
+			toLabel: "amy",
+			kind: "message",
+			text: "still here",
+			at: 1_760_000_000_000,
+		});
+		const withOrphan = await frontend.tool.execute("call", { action: "status" }, undefined, undefined, frontend.ctx);
+		expect(withOrphan.details.status.unattributed).toBe(1);
+		expect(withOrphan.content[0]?.text).toContain("Unaccounted: 1 unread");
 		await frontend.bus.stop();
 		await backend.bus.stop();
 	});
