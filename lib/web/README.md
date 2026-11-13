@@ -62,9 +62,10 @@ with none, like browse, passes `undefined` and says so — and the stream closes
 A served page's chrome is a fixed head and foot with one scroll box between them, and each
 band has one job:
 
-- `.bf-app__head` is two rows, split by a plain `.bf-app__rule`. `.bf-app__id` carries the
-  lockup, the subject (`pageSubject`: mono, grows, truncates its head so a path keeps the
-  folder being read), the live line and the reload, with `.bf-app__chrome` (key sheet, theme
+- `.bf-app__head` is two rows, split by a plain `.bf-app__rule`, on the page's own canvas and
+  closed by one hairline: a bar above a flat sheet needs no elevation of its own. `.bf-app__id`
+  carries the lockup, the subject (`pageSubject`: mono, grows, truncates its head so a path keeps
+  the folder being read), the live line and the reload, with `.bf-app__chrome` (key sheet, theme
   toggle) at the end; `.bf-app__ctl` is the page's own controls and nothing else.
 - `.bf-app__main` is the only scroller, so a lane's head or a column's caption pins to it.
 - `.bf-app__foot` is one `.bf-footer__facts` line naming where the content came from and
@@ -147,10 +148,16 @@ What a theme cannot state, the kit derives, so no appearance can hand-pick it an
 - `--dim` — `--muted` mixed 4% (dark) or 8% (light) toward `--canvas`. The theme's own `dim` is a
   terminal's 3:1 grey and reaches 4.08:1 on a raised plane, so this row is a step rather than a
   copy; the test holds the step to its inputs, because dark clears the floor by 0.14:1.
+- `--border`/`--border-strong` — `--canvas` mixed 16%/26% (dark) or 11%/20% (light) toward
+  `--text`. A terminal draws its borders on a cell grid at 3:1, which a page reads as a frame: every
+  separator, record and footer took that weight, and the chrome read heavier than the content it
+  held. The pair is a hairline and a step above it, so a separator and a border that means something
+  can still be told apart; the case pins each step to its inputs and the ratio band it produces.
 
 `--on-accent` (the canvas colour, because a label on the accent fill is a label on the page's own
-paper), `--scrim` and `--shadow-1`/`--shadow-2` (elevation: `1` for a record, a menu, a key sheet
-and the header; `2` for a dialog) are stated per appearance. A component may name one of the two
+paper), `--scrim` and `--shadow-1`/`--shadow-2` (elevation: `1` for a menu, `2` for a dialog) are
+stated per appearance. A card takes neither: it is a tint and a hairline on the page's own plane,
+so nothing floats under a sheet that is part of the page. A component may name one of the two
 shadows and nothing else; a literal blur fails the same test a literal hex does.
 
 **The face is part of the role.** `--font-ui` carries every label, control and heading, and

@@ -35,10 +35,11 @@ export const SIDEBAR_COLLAPSE_MAX = 860;
 
 export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height:100vh;min-height:0;overflow:hidden;background:var(--canvas);color:var(--text);font:var(--fs-base)/var(--lh-normal) var(--font-ui)}
 .bf-app{height:100dvh}
-/* The header is two rows and two plain rules: identity over controls, then the header's own
-   border. Nothing coloured separates the shell — the signature belongs to the mark and to a
-   record — so a separator reads as a separator and not as a second meter. */
-.bf-app__head{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:var(--shadow-1);position:relative;z-index:1}
+/* The header is two rows and one hairline, on the page's own canvas: a bar that shares the
+   page's plane needs no elevation to sit above it, and a shadow here was a second edge under a
+   rule the reader already has. The rule between the rows stays, at the same weight, so the two
+   rows read as one bar rather than as a stripe. */
+.bf-app__head{flex:0 0 auto;background:var(--canvas);border-bottom:1px solid var(--border);position:relative;z-index:1}
 /* The identity row is 52px rather than the 44 the chrome alone measures: the bar is where a
    reader's eye lands, and the icon's target wants air above and below it. */
 .bf-app__id{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;min-height:52px;padding:var(--space-2) var(--space-6)}

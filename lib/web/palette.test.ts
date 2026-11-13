@@ -30,8 +30,6 @@ const THEMES: Record<"dark" | "light", ThemeDocument> = {
 const MAPPED: ReadonlyArray<readonly [token: string, variable: string]> = [
 	["--canvas", "canvas"],
 	["--surface", "canvasSubtle"],
-	["--border", "borderMuted"],
-	["--border-strong", "border"],
 	["--text", "text"],
 	["--muted", "muted"],
 	["--accent", "blue"],
@@ -65,6 +63,31 @@ describe("web tokens", () => {
 			),
 		);
 		expect(drifted, "lib/web/tokens.ts: map the role to its theme var, or state why it is derived").toEqual([]);
+	});
+
+	test("derives the border pair off the canvas, at a weight a page reads as a hairline", () => {
+		// A terminal draws its borders on a cell grid at 3:1, which a page reads as a frame: every
+		// separator, every card and the footer took that weight, and the chrome looked heavier than
+		// the content it held. So the pair is a step from the canvas toward the text — 0.16/0.26 dark
+		// and 0.11/0.20 light — held to its inputs and to the ratio band those steps produce.
+		const STEPS = {
+			dark: { border: 0.16, strong: 0.26, band: [1.3, 1.6] },
+			light: { border: 0.11, strong: 0.2, band: [1.1, 1.4] },
+		} as const;
+		for (const appearance of ["dark", "light"] as const) {
+			const vars = THEMES[appearance].vars;
+			const steps = STEPS[appearance];
+			const canvas = vars.canvas ?? "";
+			const text = vars.text ?? "";
+			expect(WEB_THEME_TOKENS[appearance]["--border"]).toBe(mix(canvas, text, steps.border));
+			expect(WEB_THEME_TOKENS[appearance]["--border-strong"]).toBe(mix(canvas, text, steps.strong));
+			const hairline = contrast(WEB_THEME_TOKENS[appearance]["--border"], canvas);
+			expect(hairline, `${appearance} hairline`).toBeGreaterThanOrEqual(steps.band[0]);
+			expect(hairline, `${appearance} hairline`).toBeLessThanOrEqual(steps.band[1]);
+			// The strong rule stays a step above the hairline, so a border that means something can
+			// still be told from a separator.
+			expect(contrast(WEB_THEME_TOKENS[appearance]["--border-strong"], canvas)).toBeGreaterThan(hairline);
+		}
 	});
 
 	test("derives the faint tier off the theme's muted, not the theme's dim", () => {

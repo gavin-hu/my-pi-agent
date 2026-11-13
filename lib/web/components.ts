@@ -4,8 +4,9 @@
  * One string constant, no state. `bf-` marks the kit; a page that needs a
  * layout tweak adds a page-namespaced rule rather than re-declaring a kit
  * class. Components read tokens only, never literal colours and never a literal
- * shadow: elevation is `--shadow-1` (a card, a menu) or `--shadow-2` (a dialog),
- * so the two depths cannot fork.
+ * shadow: elevation is `--shadow-2`, the one step an overlay takes, so a page
+ * cannot fork the depth into a second. A card is a tint and a hairline on the
+ * page's own plane — a flat sheet, not a raised one.
  *
  * The face is the kit's rule as much as the colour is: `--font-ui` carries every
  * label, control and heading, and `--font-mono` is kept for what *is* code — a
@@ -178,10 +179,9 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 th[aria-sort] .bf-sort{color:var(--text);font-weight:var(--fw-semibold)}
 th[aria-sort="ascending"] .bf-sort::after{content:" \\25B2";font-size:9px;color:var(--accent)}
 th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color:var(--accent)}
-/* The one box a page reads whole: a raised plane and the first elevation step, which is what
-   makes it a card. No rule along its top: the head is where a record is named, and a stripe that
-   decorates it reads as a state the record does not have. */
-.bf-record{display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}
+/* A record is a sheet on the page's plane: a hairline and a tint, no elevation, because nothing
+   floats under it. */
+.bf-record{display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}
 .bf-record__head{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border);flex-wrap:wrap}
 .bf-record__title{margin:0;font:var(--fw-semibold) var(--fs-lg) var(--font-ui);letter-spacing:-.01em}
 .bf-record__meta{color:var(--muted);font:var(--fs-sm) var(--font-ui)}
@@ -287,6 +287,6 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
 .bf-comment__quote{margin-bottom:var(--space-1);color:var(--muted);font-size:var(--fs-xs);overflow-wrap:anywhere}
 .bf-comment__body{white-space:pre-wrap;overflow-wrap:anywhere}
 .bf-comment__row{display:flex;gap:6px;justify-content:flex-end;margin-top:var(--space-2)}
-.bf-composer{padding:var(--space-3);background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-1)}
+.bf-composer{padding:var(--space-3);background:var(--raised);border:1px solid var(--border);border-radius:var(--radius-md)}
 .bf-composer__row{display:flex;gap:var(--space-2);justify-content:flex-end;margin-top:6px}
 .bf-quote-chip{display:inline-block;max-width:100%;margin-bottom:6px;padding:1px 6px;background:var(--accent-soft);border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-xs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}`;

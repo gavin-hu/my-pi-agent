@@ -326,11 +326,11 @@ describe("the kit's grammar", () => {
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-tabs__count{");
 	});
 
-	test("holds the record on a lifted plane, with no rule along its top", () => {
-		// A record is a card, and a card is the first elevation step — not a hairline pretending.
+	test("draws the record as a flat sheet, named by its head", () => {
+		// A record is a tint and a hairline on the page's own plane: nothing floats under it, so it
+		// takes no elevation. The head names the record; a stripe above it would read as a state.
 		expect(rule(WEB_COMPONENTS_CSS, ".bf-record{")).toContain("border:1px solid var(--border)");
-		expect(rule(WEB_COMPONENTS_CSS, ".bf-record{")).toContain("box-shadow:var(--shadow-1)");
-		// The head names the record; a stripe above it would read as a state it does not have.
+		expect(rule(WEB_COMPONENTS_CSS, ".bf-record{")).not.toContain("box-shadow");
 		expect(WEB_COMPONENTS_CSS).not.toContain(".bf-record::before");
 		// A comment's label is a glyph in the dim role: warn is the verdict it carries, not the
 		// colour of the label itself.
