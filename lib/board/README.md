@@ -167,7 +167,9 @@ hands one over and moves only a pool card's lane; `release` returns it; `move` w
 `approve` / `review` record the two human gates, both refused to the card's own holder, and
 `review` also signs a card already in `done` when an override gives the one line saying why;
 `note` / `edit` / `offer` / `archive` / `drop` keep their own rules, and a drop is refused
-while something waits on the card.
+while something waits on the card. `reseat` is the one operation that moves no lane and changes no
+word of the work: it re-points a card's owner id to the session wearing that owner's label, which is
+what a `/resume` needs before it can write the card its old id still holds.
 
 Each answers a `Prepared`: a refusal sentence, a no-op, or the fields a write would apply.
 `{ fields: null, changed: true }` is the one operation that changes the board without

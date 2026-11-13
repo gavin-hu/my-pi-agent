@@ -151,4 +151,80 @@ describe("the sweep at a turn start", () => {
 
 		expect(await releaseEnded(lead.board.runtime, lead.board.ctx)).toBe("released #1 and #2 from sessions that ended");
 	});
+
+	test("hands a resumed session back its own card, with the work still on it", async () => {
+		// The same name under a new id is what a `/resume` is to the bus. Before this branch the sweep
+		// reclaimed the card into the pool on the first turn, taking the lane, the plan and the slot with it.
+		const { cwd, lead, peer } = board();
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		await record(peer.board.runtime, cwd, { pid: DEAD_PID, lastSeen: NOW });
+		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
+
+		expect(await releaseEnded(resumed, lead.board.ctx)).toBe("re-seated #1 in this session");
+		const card = (await lead.call({ action: "list", card: "1" })).details.card;
+		expect(card?.lane).toBe("plan");
+		expect(card?.owner).toMatchObject({ id: "s-resumed", label: PEER });
+		// The note is the card's own account: a re-seat writes no lane transition, so without it a reader
+		// finds a write by a name that never held the card.
+		expect(card?.notes.at(-1)?.text).toContain("whose session had stopped");
+	});
+
+	test("says when the record it acted on had been pruned", async () => {
+		// A pruned record is the weaker fact — the bus watched nothing stop, it forgot — so the clause a
+		// session acts on names which of the two it was.
+		const { cwd, lead, peer } = board();
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		// The bus exists and holds nothing about the peer: its record aged out.
+		await record(lead.board.runtime, cwd, { id: LEAD_ID, label: LEAD, pid: DEAD_PID, lastSeen: NOW });
+		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
+
+		expect(await releaseEnded(resumed, lead.board.ctx)).toBe("re-seated #1 in this session (owner record pruned)");
+		expect((await lead.call({ action: "list", card: "1" })).details.card?.owner?.id).toBe("s-resumed");
+	});
+
+	test("leaves a live record alone even under this session's own name", async () => {
+		// The case a wrong rule would fail silently: the labels match, and the record says that session is
+		// running. Nothing is written — neither a re-seat nor a release.
+		const { cwd, lead, peer } = board();
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		await record(peer.board.runtime, cwd, { lastSeen: NOW });
+		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
+
+		expect(await releaseEnded(resumed, lead.board.ctx)).toBeUndefined();
+		const card = (await lead.call({ action: "list", card: "1" })).details.card;
+		expect(card?.lane).toBe("plan");
+		expect(card?.owner?.id).toBe(PEER_ID);
+	});
+
+	test("leaves a quiet record under its own name to a later turn", async () => {
+		// A quiet record may be a session still in a long turn, so no card moves now. The lock-out is
+		// bounded rather than permanent: the next turn after it ages to `gone` re-seats the card.
+		const { cwd, lead, peer } = board();
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		await record(peer.board.runtime, cwd, { lastSeen: NOW - 60 * 60 * 1000 });
+		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
+
+		expect(await releaseEnded(resumed, lead.board.ctx)).toBeUndefined();
+		expect((await lead.call({ action: "list", card: "1" })).details.card?.owner?.id).toBe(PEER_ID);
+	});
+
+	test("names a re-seated card and a released one in the same sentence", async () => {
+		const { cwd, lead, peer } = board();
+		for (const title of ["One", "Two"]) await lead.call({ action: "add", title });
+		await peer.call({ action: "claim", card: "1" });
+		await lead.call({ action: "claim", card: "2" });
+		// The peer's record is gone, and so is the one that holds #2 — but only #1 wears the name the
+		// resumed session answers to.
+		await record(peer.board.runtime, cwd, { pid: DEAD_PID, lastSeen: NOW });
+		await record(lead.board.runtime, cwd, { id: LEAD_ID, label: LEAD, pid: DEAD_PID, lastSeen: NOW });
+		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
+
+		expect(await releaseEnded(resumed, lead.board.ctx)).toBe(
+			"re-seated #1 in this session, released #2 from a session that ended",
+		);
+	});
 });

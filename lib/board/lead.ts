@@ -436,7 +436,7 @@ export function reclaim(card: Card, actor: Actor, config: BoardConfig, holder?: 
 		return { error: `${cardRef(card.id)} is done; there is nothing to reclaim.` };
 	}
 	if (card.owner === undefined) return { error: `${cardRef(card.id)} has no owner to reclaim.` };
-	const state = stateOf(card, holder);
+	const state = heldState(card, holder);
 	if (!mayTakeBack(card, actor, config.lead, state)) return { error: heldStill(card, config.lead, state) };
 	return { changed: true, fields: backToPool(card, actor, config.lead) };
 }
@@ -448,7 +448,7 @@ function mayTakeBack(card: Card, actor: Actor, lead: Lead, state: SessionPresenc
 }
 
 /** The bus's answer about the card's holder, when the fact belongs to the owner the card names. */
-function stateOf(card: Card, holder: HolderFact | undefined): SessionPresence | undefined {
+export function heldState(card: Card, holder: HolderFact | undefined): SessionPresence | undefined {
 	const owner = card.owner;
 	if (owner === undefined || holder === undefined) return undefined;
 	// A handoff the bus could not resolve is nobody's by label, so the fact binds to no caller.
