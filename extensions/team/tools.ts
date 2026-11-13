@@ -10,11 +10,10 @@
  * message had landed — so the lead's next call starts from the truth. `ask` is the one verb
  * with no card behind it, and the one that names nothing the board can answer.
  *
- * `claim` is the lead's own work, and it is the same store operation `board`'s claim
- * makes, so the lane rules, the WIP limit, and the offer record cleared are the store's —
- * not a second answer the round would keep in step by hand. Everything after the claim
- * (plan, contract, move, finish) is `board`'s, because that is the card's life and not
- * the round's.
+ * `claim` is the lead's own work, and it is the same store operation `board`'s claim makes, so
+ * the lane rules, the WIP limit, and the offer record cleared are the store's — not a second
+ * answer the round would keep in step by hand. Everything after the claim (plan, contract, move,
+ * finish) is `board`'s, because that is the card's life and not the round's.
  *
  * `assign`, `ask`, and `claim` join this session to the team once, because each is
  * answered by mail: `session-bus` records a sender and arms no watch, so without the join
@@ -36,6 +35,7 @@ import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
+import { sameLabel } from "../../lib/session-label.ts";
 import { createTeamJoin, type DeliveryFailure, type TeamJoin } from "../../lib/session-tool.ts";
 import { failedResult, type ToolFailure, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
@@ -471,7 +471,7 @@ async function offerCard(
 /** Whether `to` names this session: its id, or its label ignoring case. */
 function namesSelf(me: Actor, to: string): boolean {
 	const target = to.trim();
-	return (me.id !== undefined && target === me.id) || target.toLowerCase() === me.label.toLowerCase();
+	return (me.id !== undefined && target === me.id) || sameLabel(target, me.label);
 }
 
 /**

@@ -36,7 +36,7 @@ import {
 	THEME_TOGGLE_JS,
 } from "../../../lib/web/index.ts";
 import { HISTORY_LINE_JS, HISTORY_OWNER_JS, PLURAL_JS, RAN_CLAUSE_JS } from "../../../lib/board/round-text.ts";
-import { SAME_LABEL_JS } from "../../../lib/session-label.ts";
+import { LABEL_KEY_JS, SAME_LABEL_JS } from "../../../lib/session-label.ts";
 import { skippedText } from "../../../lib/board/skipped.ts";
 import { FORMAT_AGE_JS, SHORTEN_PATH_JS } from "../../../lib/format.ts";
 import { BOARD_CARD_JS } from "./card.ts";
@@ -65,9 +65,9 @@ import { PICKER_MQ } from "./styles.ts";
 export const BOARD_CLIENT_JS = `${CLIENT_BASE_JS}
 ${namesScript(BOARD_CLASS)}
 ${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, reason: REASON_FOR_JS, age: FORMAT_AGE_JS, lanes: String(LANES.length), skipped: String(skippedText), decisions: DECISION_RANK_JS, decisionTones: DECISION_TONE_JS, reasonTones: REASON_TONE_JS, runtime: CLIENT_RUNTIME_JS })}
-${rosterJs({ historyOwner: HISTORY_OWNER_JS, sameLabel: SAME_LABEL_JS })}
+${rosterJs({ historyOwner: HISTORY_OWNER_JS, sameLabel: SAME_LABEL_JS, labelKey: LABEL_KEY_JS })}
 ${fleetJs({ historyLine: HISTORY_LINE_JS })}
-${activeJs({ decisionLabels: DECISION_LABEL_JS, decisionBands: DECISION_BAND_JS })}
+${activeJs({ decisionLabels: DECISION_LABEL_JS, decisionBands: DECISION_BAND_JS, sameLabel: SAME_LABEL_JS, labelKey: LABEL_KEY_JS })}
 ${feedJs({ labels: ACTIVITY_LABEL_JS })}
 ${teamJs()}
 ${BOARD_CARD_JS}
