@@ -18,7 +18,7 @@ import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../
 import { movableLanes } from "../../lib/board/lanes.ts";
 import { indexOf } from "../../lib/board/links.ts";
 import type { Verification } from "../../lib/board/contract.ts";
-import { reviewGate, signMark } from "../../lib/board/lead.ts";
+import { signMark } from "../../lib/board/lead.ts";
 import type { VerifyRun } from "../../lib/board/verify.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
@@ -179,25 +179,23 @@ export function registerTools(
 				if (id === undefined) return undefined;
 				const card = await store.read(id).catch(() => undefined);
 				if (card === undefined) return undefined;
-				// The gate is asked before the process: a sign that would be refused starts no command. It answers
-				// no refusal of its own — `mutate` asks the same three questions under the lock, and the store's
-				// sentence is the one a caller reads, in the store's own order (an archived card first).
-				if ("error" in reviewGate(card, me, store.config().lead, override)) return undefined;
-				// An override is the close a gate did not get: it carries no run, so none is started.
-				if (override !== undefined || card.contract?.verify === undefined) return undefined;
-				// The read, the run and the sentence are `lib/board/verify.ts`'s, because the person's
-				// `/board review` asks the card the same question and must word a failure the same way.
+				// The gate, the override and the run are `lib/board/verify.ts`'s, so this door and the
+				// person's ask one body where the command may start — the tree it runs in and the seams
+				// it uses are the only things each knows.
 				const module = await (verifyModule ??= import("../../lib/board/verify.ts"));
-				// The tree this session is working in, read now rather than taken from the store: a store
-				// opened before `worktree enter` keeps the checkout it was opened on, so its root is the
-				// wrong answer exactly when the reviewer has moved — `ctx.cwd` never moves at all.
-				return module.verifySpotCheck(
+				return module.spotCheck({
 					card,
-					resolveEffectiveCwd(ctx.cwd),
-					deps.verify ?? module.defaultVerifyRun(),
-					() => runtime.now(),
-					module.shaOf(pi),
-				);
+					actor: me,
+					lead: store.config().lead,
+					override,
+					// The tree this session is working in, read now rather than taken from the store: a store
+					// opened before `worktree enter` keeps the checkout it was opened on, so its root is the
+					// wrong answer exactly when the reviewer has moved — `ctx.cwd` never moves at all.
+					cwd: resolveEffectiveCwd(ctx.cwd),
+					run: deps.verify ?? module.defaultVerifyRun(),
+					now: () => runtime.now(),
+					sha: module.shaOf(pi),
+				});
 			};
 			try {
 				// Before the join and before a card is read: a refused call has written nothing, so it
@@ -283,7 +281,7 @@ export function registerTools(
 					}
 					case "approve":
 					case "review": {
-						const { announce, notifyOverBus } = await (signMessage ??= import("./announce.ts"));
+						const { settleSign, notifyOverBus } = await (signMessage ??= import("./announce.ts"));
 						// The name the sign will record, so the owner is told who signed rather than the
 						// label the writing actor is called by.
 						const signer = signMark(me, store.config().lead).by;
@@ -305,18 +303,18 @@ export function registerTools(
 						// sign whose card still reads as never told. The roster is read here rather than up
 						// front so a call the store refused pays nothing for it.
 						const told = async (card: Card): Promise<{ card?: Card; line?: string }> => {
-							const answer = await announce(card, action, signer, ctx, deps.notify ?? notifyOverBus(pi), {
-								roster: () => runtime.roster(ctx.cwd),
-								now: () => runtime.now(),
+							const settled = await settleSign({
+								store: async () => store,
+								card,
+								sign: action,
+								by: signer,
+								actor: me,
+								ctx,
+								notify: deps.notify ?? notifyOverBus(pi),
+								at,
+								audience: { roster: () => runtime.roster(ctx.cwd), now: () => runtime.now() },
 							});
-							if (!answer.done) return { line: answer.line };
-							// The record is the retry: only a settled announcement stops the sign owing the
-							// message, and a record that did not land says so rather than pretending.
-							const kept: MutateResult = await store
-								.mutate(card.id, { kind: "announced", sign: action }, me, at)
-								.catch((error: unknown) => ({ ok: false as const, error: messageOf(error) }));
-							if (!kept.ok) return { line: `${answer.line ?? ""} (not recorded: ${kept.error})` };
-							return { card: kept.card, line: answer.line };
+							return { card: settled.card, line: settled.line };
 						};
 						const op =
 							action === "review"

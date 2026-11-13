@@ -16,6 +16,7 @@ import { writeBusRecord } from "./bus.ts";
 import { tempDir } from "./env.ts";
 import { makeTempTracker } from "./git.ts";
 import { presetNameFor } from "../../lib/session-label.ts";
+import type { BoardStore } from "../../lib/board/store.ts";
 import type { VerifyOutcome, VerifyRun } from "../../lib/board/verify.ts";
 import { registerTools } from "../../extensions/board/tools.ts";
 import type { BoardDetails } from "../../extensions/board/types.ts";
@@ -69,6 +70,8 @@ export interface BenchOptions {
 	cwd?: string;
 	/** A clock that moves, for a case about the moment a sign records — a run that outlives its start. */
 	clock?: () => number;
+	/** A store the case wraps, so a write that cannot land can be a fixture rather than a mock. */
+	wrapStore?: (store: BoardStore) => BoardStore;
 }
 
 /** One repository, its agent directory, and the two sessions that act on one board. */
@@ -83,6 +86,7 @@ export function bench(deps: BoardDeps = {}, options: BenchOptions = {}): { lead:
 			deps,
 			...(options.exec === undefined ? {} : { exec: options.exec }),
 			...(options.clock === undefined ? {} : { clock: options.clock }),
+			...(options.wrapStore === undefined ? {} : { wrapStore: options.wrapStore }),
 		}),
 		peer: signSession({
 			cwd,
@@ -91,6 +95,7 @@ export function bench(deps: BoardDeps = {}, options: BenchOptions = {}): { lead:
 			deps,
 			...(options.exec === undefined ? {} : { exec: options.exec }),
 			...(options.clock === undefined ? {} : { clock: options.clock }),
+			...(options.wrapStore === undefined ? {} : { wrapStore: options.wrapStore }),
 		}),
 	};
 }
@@ -103,10 +108,16 @@ export function signSession(options: {
 	deps?: BoardDeps;
 	exec?: FakePiOptions["exec"];
 	clock?: () => number;
+	/** A store the case wraps — a record that cannot be written is one of these. */
+	wrapStore?: (store: BoardStore) => BoardStore;
 }) {
-	const { deps, clock, ...rest } = options;
+	const { deps, clock, wrapStore, ...rest } = options;
 	const board = boardHarness({ ...rest, lead: LEAD, now: NOW, ...(clock === undefined ? {} : { clock }) });
-	registerTools(board.fake.pi, board.runtime, deps);
+	const runtime =
+		wrapStore === undefined
+			? board.runtime
+			: { ...board.runtime, store: async (cwd: string) => wrapStore(await board.runtime.store(cwd)) };
+	registerTools(board.fake.pi, runtime, deps);
 	const tool = board.fake.pi.tools.get("board");
 	if (!tool) throw new Error("the board tool was not registered");
 	return {

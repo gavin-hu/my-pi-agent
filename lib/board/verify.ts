@@ -21,7 +21,8 @@ import { sanitizeLine } from "../format.ts";
 import { createExecRunner, headSha } from "../git/index.ts";
 import type { Card } from "./card.ts";
 import type { Verification } from "./contract.ts";
-import { failedSpotCheck, killedSpotCheck } from "./lead.ts";
+import { failedSpotCheck, killedSpotCheck, type Lead, reviewGate } from "./lead.ts";
+import type { Actor } from "./rules.ts";
 
 /** How long one run may take before it is killed with its tree. */
 export const VERIFY_TIMEOUT_MS = 10 * 60_000;
@@ -156,6 +157,39 @@ export async function verifySpotCheck(
 		: failedSpotCheck(card, cmd, answer.failure.exit);
 	// The tail is what says why, and it rides the sentence as one clip rather than a second line.
 	return { error: tail === undefined ? sentence : `${sentence} — ${tail}` };
+}
+
+/** What a spot-check is asked with: the card, the gate it must pass, and the tree to run in. */
+export interface SpotCheck {
+	card: Card;
+	/** The session signing, which the gate is asked about. */
+	actor: Actor;
+	/** The board's lead, which the gate is asked about. */
+	lead: Lead;
+	/** The close by instruction, when the caller was given one. */
+	override?: string;
+	/** The tree the command runs in, which is the one the caller is working in. */
+	cwd: string;
+	run: VerifyRun;
+	now: () => number;
+	sha?: (cwd: string) => Promise<string | undefined>;
+}
+
+/**
+ * The evidence a sign records, or nothing when no command should run.
+ *
+ * The gate is asked *before* the process, because a sign that will be refused must not start one
+ * — and it answers no refusal of its own: the store asks the same questions under the lock, in
+ * the order a caller reads, and its sentence is the one a result carries. An override runs
+ * nothing at all: it is the close a gate did not get. A card whose contract names no command is
+ * `undefined` from {@link verifySpotCheck}, which is the same answer it gives an override.
+ */
+export async function spotCheck(
+	options: SpotCheck,
+): Promise<{ verified: Verification } | { error: string } | undefined> {
+	if ("error" in reviewGate(options.card, options.actor, options.lead, options.override)) return undefined;
+	if (options.override !== undefined) return undefined;
+	return verifySpotCheck(options.card, options.cwd, options.run, options.now, options.sha);
 }
 
 /** The clipped output as one line a refusal can carry: merged, collapsed, and sanitized. */
