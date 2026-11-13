@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card's `updatedAt` only ever moves forward, so the `done` gate cannot be fooled by a
+  stamp that went back. A spot-check's command has a ten-minute bound and the tool read its clock
+  before the run, so the sign, the record that its owner was told, and the card's own stamp all
+  landed before the evidence they carry — and `signStale` asks whether the card was written since
+  its sign. The one field the gate reads is now the later of the card's own and the caller's; a
+  note's `at`, the transition log's, and a sign's stay what their caller read.
 - `lib`: the served pages draw the terminal theme's palette again. `lib/web/tokens.ts` maps every
   colour role from `themes/bytefly-{dark,light}.json`, so the board, the plan review and the file
   browser are the terminal's GitHub blue instead of a web ramp of their own, and the
