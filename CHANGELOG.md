@@ -6,24 +6,37 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-- `board`: the served page has one `stamp` again. Two fragments each defined one — the Team tab's, which
-  passed the row's edge class, and the card face's, which did not — and both published it under
-  `board.stamp`, so which function a caller reached was decided by the order `client.ts` concatenates
-  its fragments: two lines moved and every Team-tab age printed `undefined`. One definition now takes
-  the age, the wording it belongs to, and whether the caller wants the row's edge, so a card's meta
-  line still draws its age inline. A name the bundle both defines twice and publishes twice fails
-  `test/helpers/bundle.ts`'s `duplicateDefinitions`; the seven other names it defines twice are a
-  dead definition rather than this hazard, and are on the board.
+## [0.27.0] - 2026-11-13
+
+### Added
+
+- `team`: a typed `/team join <name>` puts that name on `board.teammates` in the project's
+  `.pi/bytefly.json`, so the footer's chip names the session the join just renamed. The chip is
+  drawn only for a name the team holds, so the one door meant to name the bar used to leave it
+  empty and say nothing; the team is read where the write lands, so a second join keeps the first
+  name. The join's line now says what the bar will draw: the write, a name the team already held,
+  a custom label the chip cannot draw, or a file it could not update.
+
+- `session-bus`: the record carries the turn. `agent_start` stamps `turnAt` and `agent_settled`
+  drops it, each written at once rather than on the next heartbeat, so a peer can say a session
+  is working instead of reading a fresh heartbeat as idle. A stamp is believed only beside a
+  fresh heartbeat: a process that died mid-turn left it behind.
+
+- `board`: a review records a verified result, and `done` refuses without a fresh one. A contract
+  may name a fourth, optional line — `verify`, the command its acceptance is checked by — and a
+  spot-check of a card that names one is that command's run: the `review` action and
+  `/board review` execute it through one seam, a red or timed-out run refuses the sign, and the
+  sign keeps `{ cmd, exit, at, sha }`. The `done` move then refuses a sign with no result, or one
+  older than the sign's last write, naming the command and both doors that would record it. The
+  run is measured from the stamp *and* the announcement #398 writes after it, so the ordinary
+  path still closes; a card whose contract names no command keeps the gate it had. The transcript
+  and the card dialog draw the command and the run from the same fields.
+
+### Changed
 
 - `board`: the contract's `verify` line is described on the parameter, as its three neighbours are:
   the acceptance command a spot-check runs, that a changed line drops the approval, and that an empty
   string takes it back off.
-
-- `board`: a spot-check's stamp may not be older than the card it signs. A card's `updatedAt` only
-  moves forward, so a card written by a session whose clock ran ahead of the reviewer's could never
-  reach `done`: `signStale` asked for a sign newer than the card could ever be, and the remedy the
-  refusal prints — run it and review again — re-stamped at the same lagging clock. The stamp now
-  takes the later of the two moments; the signer's note keeps the caller's own.
 
 - `board`: the page reads the pile again when the cards directory moved, and after a run of frames in
   which it did not — so a stamp no write can move still catches up — and a frame costs one `stat`
@@ -44,54 +57,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   kit, the board, the plan review, the file browser, the docs site and the posting cards move
   together; `palette.test.ts` pins the two steps and the ratio band, and the frames and posters are
   re-shot.
-- `file-browse`: a phone's card head wraps its actions instead of scrolling them. Below 520px the
-  row held one line and overflowed sideways with no hint that it moved, so the last control was cut
-  mid-label at the card's edge — `download` at 480, the whole of it at 390 — and the only way to
-  reach it was a scroll gesture on a row that looked complete.
-
-- `board`: a card's `updatedAt` only ever moves forward, so the `done` gate cannot be fooled by a
-  stamp that went back. A spot-check's command has a ten-minute bound and the tool read its clock
-  before the run, so the sign, the record that its owner was told, and the card's own stamp all
-  landed before the evidence they carry — and `signStale` asks whether the card was written since
-  its sign. The one field the gate reads is now the later of the card's own and the caller's; a
-  note's `at`, the transition log's, and a sign's stay what their caller read.
-- `lib`: the web palette's `--dim` is a step off the theme's `muted` rather than the theme's own
-  terminal grey, far enough that the faint tier clears 4.5:1 where it draws text — the canvas, the
-  surface, the raised plane and the darkest lane tint — and `--muted` stays the theme's own, a step
-  above it, so the two quiet colours still mean different things. `--accent-soft` is the accent at the
-  alpha a selected row and a card's paper can share. The page frames, the seven cards and `demo.mp4`
-  are re-shot.
-- `lib`: an event stream whose socket stops reading is destroyed once its backlog passes
-  `MAX_BUFFERED_BYTES` (1 MiB), instead of buffering every frame for the life of the session. An SSE
-  response carries no timeout of its own, so a suspended board tab held a whole snapshot per push,
-  forever. The drop is a `destroy` and not an `end`, because a paused socket keeps an ended backlog
-  in memory and only a reset gives it back; a browser reports an error for either, so the page
-  reconnects and the board re-snapshots on attach.
 
 - `lib`: the documentation site, the posting cards, and the gallery montage draw the served pages'
   palette. The two static stylesheets are copies — Pages serves the one as written and a poster opens
   from `file://`, so neither can import `lib/web/tokens.ts` — and `test/theme.test.ts` and
   `scripts/cards.test.ts` hold every value to it; the montage imports the tokens directly. The site's
   favicon follows.
-
-- `board`: the sweep at a turn start releases only other sessions' ended work, so a `/resume` keeps
-  the cards it holds. A resume inherits the session id while the crashed process's bus record
-  survives with a dead pid, so the sweep read its own card as `gone` and took it back — in the same
-  turn start that had just re-claimed its paths, one message saying both "is yours" and "released
-  from a session that ended".
-
-- `board`: a spot-check asks its gate before it runs the contract's `verify` command, so a `review`
-  the board would refuse — the wrong lane, the card's own holder, a session that is not the lead —
-  starts no process. A card whose contract names a command can also carry an `override` again: the
-  door ran the command and then refused the reason it had been told to record, so the one card a
-  close by instruction exists for could never be closed.
-
-- `team`: a typed `/team join <name>` puts that name on `board.teammates` in the project's
-  `.pi/bytefly.json`, so the footer's chip names the session the join just renamed. The chip is
-  drawn only for a name the team holds, so the one door meant to name the bar used to leave it
-  empty and say nothing; the team is read where the write lands, so a second join keeps the first
-  name. The join's line now says what the bar will draw: the write, a name the team already held,
-  a custom label the chip cannot draw, or a file it could not update.
 
 - `lib`: the header's identity row is 52px rather than 44, so the mark, the subject and the app's
   chrome sit in a bar with air around them, and the chrome's key-sheet and theme buttons close their
@@ -109,29 +80,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with no label, from Pi's own session name — draws no chip, where that word used to appear; and
   the settings screen carries sixteen rows.
 
-- `board`: a card drawn twice in the Team tab's ACTIVE WORK is one colour. The queue row wore its
-  reason's tone while the swimlane card under it wore its lane's, so one card read as two; both now
-  take the lane's paper, and the tone moves to the pill, the mark at the row's edge, and a danger
-  row's sentence.
-
 - `dev`: a frame is captured once the page has settled rather than after a fixed wait, and the PNG is
   written only when a second shot agrees with it. Two captures of one tree used to come back with
   the same layout and a few different glyph edges, so a re-shoot could commit either variant.
-
-- `board`: a contract line a card still owes stops printing as a blank. The transcript says
-  `acceptance: missing` — the word a card's next step already uses — and the card dialog leaves the
-  unwritten row out, because the reason line above the block already names it; an empty cell under a
-  heading reads as a value that went missing.
-
-- `board`: a held-card line inside a PEOPLE card says its lane in the word beside the number, not
-  in a 2px bar before it — inside a card the paper is what carries the lane. The "no mission" line
-  keeps the same text edge without reserving a bar's width.
-
-- `board`: a card whose contract was written a field at a time is a card again. The writer records the
-  line a call did not name as empty, and the reader refused any contract with an empty line — so the
-  whole record was unreadable, its holder locked out, and the only repair was editing the JSON by
-  hand. The reader now checks shape and leaves completeness to `approve`, which already names the
-  blank line it refuses.
 
 - `board`: a card's title leads its own face. The title takes the largest, heaviest ink on a note
   and the priority word drops to the number's own weight, so a lane is read by what each card says
@@ -157,12 +108,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   step meter is its own `review-steps` bar instead of the removed `bf-progress`, whose three
   undefined `--radius-pill` counts drew squares.
 
-- `board`: a lane head rides the pane's edge while a long lane scrolls. The lanes row stretched no
-  longer, so every lane was as tall as its own rows and a head pinned inside a two-card lane had
-  283px of travel before it left the top of the screen — the four quiet lanes' names and counts
-  with it. Every lane is now as tall as the board, so all five heads stay where the reader last
-  saw them.
-
 - `file-browse`: the file page and the per-file diff are drawn by the kit's own parts. Their head is
   the kit's record — title, meta, and one action group with a real gap — the rendered/raw and
   head/staged/worktree controls are the kit's tabs, so the current one is marked, and the header's
@@ -184,11 +129,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tag bars and the rules between rows are gone: what a 1440 frame drew in 37 borders it now draws
   in six.
 
-- `board`: a spot-check runs the contract's command in the tree the board is rooted at — the
-  worktree when the reviewer entered one — and the sign records that tree beside the commit. Both
-  doors used the session's cwd, which never follows `worktree enter`, so a branch reviewed from
-  its worktree was signed with `main`'s commit and read as proof of a branch it never saw.
-
 - `board`: a card face on the page is an index of the work at one height. The lane no longer prints
   the card's last line — a note can be a thousand characters — so every card draws a two-line
   title, the facts beside it and its path hints, all the same height; what a card waits for is its
@@ -196,17 +136,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   card is a note: a tinted rectangle with no edge drawn round it, the gap between two of them the
   only separator, its paper the lane's own colour, and its lines ordered what it is, what it says,
   where it is and whose it is.
-
-- `board`: a lead's second spot-check after the work moved refreshes the sign instead of leaving the
-  old stamp standing. A repeat `review` by the same signer wrote only its note, so `done` kept
-  refusing with "review again" — a remedy that signer could never perform, because the repeat's own
-  note moved the card past the stamp. A repeat now re-stamps (and re-records the run) when the card
-  has been written since its sign, and announces the sign again; a repeat with nothing new stays
-  the no-op it was.
-
-- `plan`, `file-browse`: a code panel wraps its lines below 720 px, so a long path or command
-  is read instead of hidden behind a scrollbar that draws nothing until it is used. A wide
-  window keeps the line whole, and file-browse's wrap button says which the page is doing.
 
 - `board`: the page pushes a frame when a card's file changes, instead of scanning the whole
   pile once a second. A directory watch on `cards/` reads the board on the write, one window
@@ -224,6 +153,110 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a ten-cell glyph gauge with the literal count beside it. `bf-chip` becomes `.bf-tag` with
   `.bf-tone--*`, `bf-segmented` becomes `.bf-tabs`, and `bf-progress` becomes `.bf-gauge` — a breaking
   rename for anyone styling a served page, and no colour moved: the palette is still the theme's own.
+
+- `board`: the Team tab is a three-column agent mission control, read-only and drawn from one
+  snapshot. **AGENTS** lists a card per session with the board's lead pinned first whatever its
+  state, each carrying a monogram, `lead` and `you` chips, a needs-you count on the lead's card,
+  a state pill that says `working` inside a turn or `quiet 42m` with the age a reclaim turns on,
+  and one line per mission with its lane as a bar. **ACTIVE WORK** is the lead's queue as a strip
+  over the `blocked`, `execute` and `plan` swimlanes, every reason one hover and one
+  `aria-describedby` away. **ACTIVITY** shows the mail nobody has read — each row wearing its
+  recipient's state, a broadcast drawn once — above a Recent rail derived from the cards' own
+  records. Each column counts itself, the tab is one page scroll with sticky captions, and a frame
+  lands without taking scroll or focus.
+
+### Fixed
+
+- `board`: the client bundle's `duplicateDefinitions` fails a helper name it defines twice and
+  publishes twice — the shape that made the Team tab's ages depend on the order `client.ts`
+  concatenates its fragments. The served page's `stamp` takes the age, the wording it belongs to,
+  and whether the caller wants the row's edge, so a card's meta line draws its age inline.
+
+- `board`: a spot-check's stamp may not be older than the card it signs. A card's `updatedAt` only
+  moves forward, so a card written by a session whose clock ran ahead of the reviewer's could never
+  reach `done`: `signStale` asked for a sign newer than the card could ever be, and the remedy the
+  refusal prints — run it and review again — re-stamped at the same lagging clock. The stamp now
+  takes the later of the two moments; the signer's note keeps the caller's own.
+
+- `file-browse`: a phone's card head wraps its actions instead of scrolling them. Below 520px the
+  row held one line and overflowed sideways with no hint that it moved, so the last control was cut
+  mid-label at the card's edge — `download` at 480, the whole of it at 390 — and the only way to
+  reach it was a scroll gesture on a row that looked complete.
+
+- `board`: a card's `updatedAt` only ever moves forward, so the `done` gate cannot be fooled by a
+  stamp that went back. A spot-check's command has a ten-minute bound and the tool read its clock
+  before the run, so the sign, the record that its owner was told, and the card's own stamp all
+  landed before the evidence they carry — and `signStale` asks whether the card was written since
+  its sign. The one field the gate reads is now the later of the card's own and the caller's; a
+  note's `at`, the transition log's, and a sign's stay what their caller read.
+
+- `lib`: the web palette's `--dim` is a step off the theme's `muted` rather than the theme's own
+  terminal grey, far enough that the faint tier clears 4.5:1 where it draws text — the canvas, the
+  surface, the raised plane and the darkest lane tint — and `--muted` stays the theme's own, a step
+  above it, so the two quiet colours still mean different things. `--accent-soft` is the accent at the
+  alpha a selected row and a card's paper can share. The page frames, the seven cards and `demo.mp4`
+  are re-shot.
+
+- `lib`: an event stream whose socket stops reading is destroyed once its backlog passes
+  `MAX_BUFFERED_BYTES` (1 MiB), instead of buffering every frame for the life of the session. An SSE
+  response carries no timeout of its own, so a suspended board tab held a whole snapshot per push,
+  forever. The drop is a `destroy` and not an `end`, because a paused socket keeps an ended backlog
+  in memory and only a reset gives it back; a browser reports an error for either, so the page
+  reconnects and the board re-snapshots on attach.
+
+- `board`: the sweep at a turn start releases only other sessions' ended work, so a `/resume` keeps
+  the cards it holds. A resume inherits the session id while the crashed process's bus record
+  survives with a dead pid, so the sweep read its own card as `gone` and took it back — in the same
+  turn start that had just re-claimed its paths, one message saying both "is yours" and "released
+  from a session that ended".
+
+- `board`: a spot-check asks its gate before it runs the contract's `verify` command, so a `review`
+  the board would refuse — the wrong lane, the card's own holder, a session that is not the lead —
+  starts no process. A card whose contract names a command can also carry an `override` again: the
+  door ran the command and then refused the reason it had been told to record, so the one card a
+  close by instruction exists for could never be closed.
+
+- `board`: a card drawn twice in the Team tab's ACTIVE WORK is one colour. The queue row wore its
+  reason's tone while the swimlane card under it wore its lane's, so one card read as two; both now
+  take the lane's paper, and the tone moves to the pill, the mark at the row's edge, and a danger
+  row's sentence.
+
+- `board`: a contract line a card still owes stops printing as a blank. The transcript says
+  `acceptance: missing` — the word a card's next step already uses — and the card dialog leaves the
+  unwritten row out, because the reason line above the block already names it; an empty cell under a
+  heading reads as a value that went missing.
+
+- `board`: a held-card line inside a PEOPLE card says its lane in the word beside the number, not
+  in a 2px bar before it — inside a card the paper is what carries the lane. The "no mission" line
+  keeps the same text edge without reserving a bar's width.
+
+- `board`: a card whose contract was written a field at a time is a card again. The writer records the
+  line a call did not name as empty, and the reader refused any contract with an empty line — so the
+  whole record was unreadable, its holder locked out, and the only repair was editing the JSON by
+  hand. The reader now checks shape and leaves completeness to `approve`, which already names the
+  blank line it refuses.
+
+- `board`: a lane head rides the pane's edge while a long lane scrolls. The lanes row stretched no
+  longer, so every lane was as tall as its own rows and a head pinned inside a two-card lane had
+  283px of travel before it left the top of the screen — the four quiet lanes' names and counts
+  with it. Every lane is now as tall as the board, so all five heads stay where the reader last
+  saw them.
+
+- `board`: a spot-check runs the contract's command in the tree the board is rooted at — the
+  worktree when the reviewer entered one — and the sign records that tree beside the commit. Both
+  doors used the session's cwd, which never follows `worktree enter`, so a branch reviewed from
+  its worktree was signed with `main`'s commit and read as proof of a branch it never saw.
+
+- `board`: a lead's second spot-check after the work moved refreshes the sign instead of leaving the
+  old stamp standing. A repeat `review` by the same signer wrote only its note, so `done` kept
+  refusing with "review again" — a remedy that signer could never perform, because the repeat's own
+  note moved the card past the stamp. A repeat now re-stamps (and re-records the run) when the card
+  has been written since its sign, and announces the sign again; a repeat with nothing new stays
+  the no-op it was.
+
+- `plan`, `file-browse`: a code panel wraps its lines below 720 px, so a long path or command
+  is read instead of hidden behind a scrollbar that draws nothing until it is used. A wide
+  window keeps the line whole, and file-browse's wrap button says which the page is doing.
 
 - `board`: the Team tab's filter narrows cards and nothing else. A query used to empty two columns
   that had nothing to do with the card it named: AGENTS hid owners whose label or work it did not
@@ -247,32 +280,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 AGENTS column is wider, its state sits at the card's edge on the name's line instead of in the
 wrapping chip row, and unread mail is drawn as a block — a fill, an accent edge, an accent count —
 so the queue reads as the one thing somebody owes an answer to.
-
-- `board`: the Team tab is a three-column agent mission control, read-only and drawn from one
-  snapshot. **AGENTS** lists a card per session with the board's lead pinned first whatever its
-  state, each carrying a monogram, `lead` and `you` chips, a needs-you count on the lead's card,
-  a state pill that says `working` inside a turn or `quiet 42m` with the age a reclaim turns on,
-  and one line per mission with its lane as a bar. **ACTIVE WORK** is the lead's queue as a strip
-  over the `blocked`, `execute` and `plan` swimlanes, every reason one hover and one
-  `aria-describedby` away. **ACTIVITY** shows the mail nobody has read — each row wearing its
-  recipient's state, a broadcast drawn once — above a Recent rail derived from the cards' own
-  records. Each column counts itself, the tab is one page scroll with sticky captions, and a frame
-  lands without taking scroll or focus.
-
-- `session-bus`: the record carries the turn. `agent_start` stamps `turnAt` and `agent_settled`
-  drops it, each written at once rather than on the next heartbeat, so a peer can say a session
-  is working instead of reading a fresh heartbeat as idle. A stamp is believed only beside a
-  fresh heartbeat: a process that died mid-turn left it behind.
-
-- `board`: a review records a verified result, and `done` refuses without a fresh one. A contract
-  may name a fourth, optional line — `verify`, the command its acceptance is checked by — and a
-  spot-check of a card that names one is that command's run: the `review` action and
-  `/board review` execute it through one seam, a red or timed-out run refuses the sign, and the
-  sign keeps `{ cmd, exit, at, sha }`. The `done` move then refuses a sign with no result, or one
-  older than the sign's last write, naming the command and both doors that would record it. The
-  run is measured from the stamp *and* the announcement #398 writes after it, so the ordinary
-  path still closes; a card whose contract names no command keeps the gate it had. The transcript
-  and the card dialog draw the command and the run from the same fields.
 
 - `board`: the card dialog says a plan path the way the transcript does. A recorded path is
   absolute — `contract` writes the file the proof resolved — so the dialog printed
@@ -7066,7 +7073,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.24.0...v0.25.0
