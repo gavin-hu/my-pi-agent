@@ -155,10 +155,13 @@ What a theme cannot state, the kit derives, so no appearance can hand-pick it an
   can still be told apart; the case pins each step to its inputs and the ratio band it produces.
 
 `--on-accent` (the canvas colour, because a label on the accent fill is a label on the page's own
-paper), `--scrim` and `--shadow-1`/`--shadow-2` (elevation: `1` for a menu, `2` for a dialog) are
-stated per appearance. A card takes neither: it is a tint and a hairline on the page's own plane,
-so nothing floats under a sheet that is part of the page. A component may name one of the two
-shadows and nothing else; a literal blur fails the same test a literal hex does.
+paper), `--scrim` and `--shadow-1`/`--shadow-2` (elevation) are stated per appearance. No component
+here takes `--shadow-1`: it is the docs site's overlay step, its search results and the drawer a
+phone opens its nav in, and `test/theme.test.ts` pins the site's one `--shadow` to it because Pages
+serves that stylesheet as written. A dialog takes `--shadow-2`. A card takes neither: it is a tint
+and a hairline on the page's own plane, so nothing floats under a sheet that is part of the page. A
+component may name one of the two shadows and nothing else; a literal blur fails the same test a
+literal hex does.
 
 **The face is part of the role.** `--font-ui` carries every label, control and heading, and
 `--font-mono` is kept for what *is* code — a command, a card id, a file path, a key — because a

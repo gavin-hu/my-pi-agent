@@ -11,7 +11,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   hairline is 1.42:1 and 1.24:1 where the terminal's `borderMuted` was 3.06:1 and 3.01:1 — and
   the header sits on the page's own canvas, closed by that one rule, with no elevation under it. A
   record, a comment, a composer and a board note are a tint and a rule rather than a raised sheet:
-  `--shadow-1` is left to a menu and `--shadow-2` to a dialog, the two things that actually float.
+  `--shadow-2` is the dialog's and `--shadow-1` is left as the docs site's own overlay step, a
+  token no component here takes any more.
   `--border-strong` is a step above the hairline so a border that means something still reads. The
   kit, the board, the plan review, the file browser, the docs site and the posting cards move
   together; `palette.test.ts` pins the two steps and the ratio band, and the frames and posters are

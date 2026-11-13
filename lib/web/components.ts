@@ -4,9 +4,12 @@
  * One string constant, no state. `bf-` marks the kit; a page that needs a
  * layout tweak adds a page-namespaced rule rather than re-declaring a kit
  * class. Components read tokens only, never literal colours and never a literal
- * shadow: elevation is `--shadow-2`, the one step an overlay takes, so a page
- * cannot fork the depth into a second. A card is a tint and a hairline on the
- * page's own plane — a flat sheet, not a raised one.
+ * shadow: elevation is `--shadow-2`, the step a dialog takes, so a page cannot
+ * fork the depth into a second. A card is a tint and a hairline on the page's own
+ * plane — a flat sheet, not a raised one. `--shadow-1` outlives the cards it was
+ * drawn for as the docs site's one overlay step (its search results and its
+ * phone nav drawer); no component here takes it, and the site's copy is pinned to
+ * it because a stylesheet served by Pages cannot import this file.
  *
  * The face is the kit's rule as much as the colour is: `--font-ui` carries every
  * label, control and heading, and `--font-mono` is kept for what *is* code — a
