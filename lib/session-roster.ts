@@ -2,8 +2,7 @@
  * Who is on this repository's session bus, read as data.
  *
  * The Team tab lists teammates, and `session-bus` owns those records. Neither
- * extension may import { sameLabel } from "./session-label.ts";
-import the other, and the board must keep working when the bus is
+ * extension may import the other, and the board must keep working when the bus is
  * not loaded — so the records are read where the bus already put them,
  * `<agent-dir>/session-bus/<repo-key>/`, as files rather than through its code. The
  * directory names, the record fields this reader trusts, and the liveness rule live
