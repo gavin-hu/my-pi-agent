@@ -40,6 +40,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a card records the merge that carried it. `done` resolves the landing **for the review** — the
+  reviewed sha names itself when it is on the default branch's first-parent chain, else the earliest merge
+  whose parents include it — so a card still closes after other work landed on top, and it refuses a merge
+  that moved the card's paths, naming both commits and the `override`. A squash or a rebase has no landing
+  to name, and the refusal says so. The transcript prints `landed: <sha>` under the signature, and a card
+  closed by instruction carries none. A sign whose run named no commit — a board outside a repository — owes
+  no landing, because there is no branch to resolve.
+
 - `board`: a contract must name its `verify` command. The fourth line is required, so the split it
   used to leave — a card checked by a run beside one checked by a sentence, with nothing on the card
   saying which — is gone: `contract` refuses an empty command, no contract without one is approved,

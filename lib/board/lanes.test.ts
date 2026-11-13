@@ -57,7 +57,7 @@ describe("the transitions", () => {
 	test("carries the gates each route needs, and the same ones at both doors into execute", () => {
 		expect(transitionOf("plan", "execute")?.needs).toEqual(["waiting", "contract", "artifact", "approval"]);
 		expect(transitionOf("blocked", "execute")?.needs).toEqual(transitionOf("plan", "execute")?.needs);
-		expect(transitionOf("execute", "done")?.needs).toEqual(["waiting", "review", "artifact"]);
+		expect(transitionOf("execute", "done")?.needs).toEqual(["waiting", "review", "landing", "artifact"]);
 		expect(transitionOf("plan", "blocked")?.needs).toEqual(["blocker"]);
 		// The dependency gate is the pull's and `execute`'s, not planning's: the wait is read
 		// against the contract, so a blocked card comes back to `plan` with one unfinished.

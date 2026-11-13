@@ -159,6 +159,9 @@ export function registerTools(
 			/** What `store.mutate` should be told about the card's plan, proved the way the tool proves it. */
 			const proofOf = (store: BoardStore, rawCard: string | undefined) =>
 				(proofModule ??= import("./proof.ts")).then((module) => module.provedPlan(runtime, ctx.cwd, store, rawCard));
+			/** The branch a close landed on, read by the same lazily-loaded module. */
+			const landedOf = (store: BoardStore, rawCard: string | undefined) =>
+				(proofModule ??= import("./proof.ts")).then((module) => module.landedChain(store, rawCard, pi));
 			/** The crossing this call can make, bound to its context once. */
 			const cross = (result: MutateResult) => runtime.cross(ctx, result).catch(() => undefined);
 			/**
@@ -249,12 +252,14 @@ export function registerTools(
 						// `execute` and `done` carry the proof that the plan the card recorded is still
 						// there, and a board outside a repository simply has no proof to check.
 						const proved = lane === "execute" || lane === "done" ? await proofOf(store, args.card) : undefined;
+						const landed = lane === "done" ? await landedOf(store, args.card) : undefined;
 						const op: CardOp = {
 							kind: "move",
 							lane,
 							...(args.blockedBy === undefined ? {} : { blockedBy: args.blockedBy }),
 							...(args.blocker === undefined ? {} : { blocker: args.blocker }),
 							...(proved === undefined ? {} : { artifact: proved }),
+							...(landed === undefined ? {} : { landed }),
 						};
 						return await mutate(store, action, me, now, args, op, { cross });
 					}

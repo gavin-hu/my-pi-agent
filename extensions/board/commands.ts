@@ -14,7 +14,7 @@ import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
 import type { Verification } from "../../lib/board/contract.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
-import { plural, ranClause } from "../../lib/board/round-text.ts";
+import { landedClause, plural, ranClause } from "../../lib/board/round-text.ts";
 import { type BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import type { VerifyRun } from "../../lib/board/verify.ts";
@@ -225,7 +225,7 @@ async function signLine(
 	const how = sign === "review" && result.card.review?.byInstruction !== undefined ? " · closed by instruction" : "";
 	// What ran is the one fact a person at a keyboard cannot see in the card: the sign's own words,
 	// in the one sentence the tool's card and the page's dialog print.
-	const evidence = ranClause(result.card.review?.verified);
+	const evidence = ranClause(result.card.review?.verified) + landedClause(result.card.landed);
 	const text = result.changed
 		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}${evidence}`
 		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}${evidence}`;

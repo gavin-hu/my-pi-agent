@@ -235,6 +235,9 @@ function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = fa
 			`  reviewed: ${card.review.by}${reason === undefined ? "" : ` · by instruction: ${reason}`}${happened}${notTold(card.review, card)}`,
 		);
 	}
+	// The merge the review became, beside the sign it came from: the one question a finished card
+	// could not answer before — which commit is this — is answered without leaving the transcript.
+	if (card.landed !== undefined) lines.push(`  landed: ${card.landed.sha.slice(0, 7)}`);
 
 	if (card.paths.length > 0) lines.push(`  paths: ${card.paths.join(", ")}`);
 	if (dependsOf(card).length > 0) lines.push(`  waits on: ${waitingOf(card, board)}`);

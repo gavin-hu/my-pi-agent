@@ -34,6 +34,9 @@ import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
 import { type ArtifactProof, contractRoute, proved } from "./artifact.ts";
 import {
 	CONTRACT_LINES,
+	type LandingProof,
+	landingFor,
+	landingGate,
 	type ContractField,
 	mergedContract,
 	missingContractFields,
@@ -178,6 +181,7 @@ export function move(
 	actor: Actor,
 	board: BoardIndex,
 	config: BoardConfig,
+	now: number,
 ): Prepared {
 	const target = op.lane;
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be moved.` };
@@ -208,10 +212,14 @@ export function move(
 	const transition = transitionOf(card.lane, target);
 	if (transition === undefined) return { error: noRoute(card, target) };
 	for (const need of transition.needs) {
-		const refusal = unmet(need, card, board, op.artifact, config);
+		const refusal = unmet(need, card, board, op.artifact, config, op.landed);
 		if (refusal !== undefined) return { error: refusal };
 	}
 	const fields: Partial<Card> = { lane: target };
+	if (target === "done") {
+		const landed = landingFor(card.id, currentReview(card)?.verified?.sha, op.landed, now);
+		if (landed !== undefined) fields.landed = landed;
+	}
 	if (block !== undefined && "fields" in block) Object.assign(fields, block.fields);
 	// A spot-check signs the work as it stood, and `done` is the one lane that sign is evidence
 	// for. Parking a card is somebody deciding it is not finished, and re-planning changes the
@@ -262,6 +270,7 @@ export function unmet(
 	board: BoardIndex,
 	artifact: ArtifactProof | undefined,
 	config: BoardConfig,
+	landing?: LandingProof,
 ): string | undefined {
 	switch (need) {
 		case "waiting":
@@ -305,6 +314,8 @@ export function unmet(
 			// record is bound by its own path, which is what a caller holding one file means.
 			return (check.recorded ?? check.path) === card.planPath ? undefined : stalePlan(card);
 		}
+		case "landing":
+			return landingGate(card.id, currentReview(card)?.verified?.sha, landing);
 		case "blocker":
 			// Asked and answered by `blockFields`, which needs the op this gate cannot see: the
 			// requirement is named in the table so a reader sees the whole of what `blocked` wants.

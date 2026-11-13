@@ -23,6 +23,7 @@ import {
 	claimed,
 	CORE,
 	created,
+	doneOf,
 	executing,
 	LEAD,
 	mayOp,
@@ -313,24 +314,22 @@ describe("move", () => {
 
 	test("execute to done needs a spot-check and a recorded plan", () => {
 		const card = executing();
-		expect(
-			refusal(applyOp(card, { kind: "move", lane: "done", artifact: provedFor(card) }, CORE, NOW, boardOf(card))),
-		).toBe(
+		expect(refusal(applyOp(card, doneOf(card), CORE, NOW, boardOf(card)))).toBe(
 			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` (ask billing-lead with `session send`), or the person with `/board review 4`.",
 		);
 		const checked = reviewed();
 		const noPlan = { ...checked, planPath: undefined } as Card;
-		expect(
-			refusal(applyOp(noPlan, { kind: "move", lane: "done", artifact: provedFor(noPlan) }, CORE, NOW, boardOf(noPlan))),
-		).toBe("#4 has no plan recorded; move it back to plan, then record it with `contract`.");
-		expect(stepOf(checked, { kind: "move", lane: "done", artifact: provedFor(checked) }, CORE).lane).toBe("done");
+		expect(refusal(applyOp(noPlan, doneOf(noPlan), CORE, NOW, boardOf(noPlan)))).toBe(
+			"#4 has no plan recorded; move it back to plan, then record it with `contract`.",
+		);
+		expect(stepOf(checked, doneOf(checked), CORE).lane).toBe("done");
 	});
 
 	test("plan to done is not a route, and the refusal names the ones that are", () => {
 		const card = approved();
-		expect(
-			refusal(applyOp(card, { kind: "move", lane: "done", artifact: provedFor(card) }, CORE, NOW, boardOf(card))),
-		).toBe("#4 is in plan; it can move to execute, or blocked, not done.");
+		expect(refusal(applyOp(card, doneOf(card), CORE, NOW, boardOf(card)))).toBe(
+			"#4 is in plan; it can move to execute, or blocked, not done.",
+		);
 	});
 
 	test("a block records its kind and its sentence, and both are required of the kind", () => {
@@ -369,11 +368,7 @@ describe("move", () => {
 		const parked = stepOf(reviewed(), { kind: "move", lane: "blocked", blocker: "decision" }, CORE);
 		expect("review" in parked).toBe(false);
 		const resumed = stepOf(parked, { kind: "move", lane: "execute", artifact: provedFor(parked) }, CORE);
-		expect(
-			refusal(
-				applyOp(resumed, { kind: "move", lane: "done", artifact: provedFor(resumed) }, CORE, NOW, boardOf(resumed)),
-			),
-		).toBe(
+		expect(refusal(applyOp(resumed, doneOf(resumed), CORE, NOW, boardOf(resumed)))).toBe(
 			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` (ask billing-lead with `session send`), or the person with `/board review 4`.",
 		);
 	});
@@ -473,11 +468,7 @@ describe("move", () => {
 		const parked = stepOf(reviewed(), { kind: "move", lane: "blocked", blocker: "decision" }, CORE);
 		expect("review" in parked).toBe(false);
 		const resumed = stepOf(parked, { kind: "move", lane: "execute", artifact: provedFor(parked) }, CORE);
-		expect(
-			refusal(
-				applyOp(resumed, { kind: "move", lane: "done", artifact: provedFor(resumed) }, CORE, NOW, boardOf(resumed)),
-			),
-		).toBe(
+		expect(refusal(applyOp(resumed, doneOf(resumed), CORE, NOW, boardOf(resumed)))).toBe(
 			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` (ask billing-lead with `session send`), or the person with `/board review 4`.",
 		);
 	});
@@ -493,7 +484,7 @@ describe("move", () => {
 		// `done` is the lane the sign is evidence for, and `review` refuses a finished card, so a
 		// move that cleared it left the finished card's record telling nobody who had checked it.
 		const card = reviewed();
-		const finished = stepOf(card, { kind: "move", lane: "done", artifact: provedFor(card) }, CORE);
+		const finished = stepOf(card, doneOf(card), CORE);
 		expect(finished.lane).toBe("done");
 		expect(finished.review).toEqual(card.review);
 	});
@@ -507,9 +498,9 @@ describe("move", () => {
 		expect(refusal(applyOp(pool, { kind: "move", lane: "plan" }, CORE, NOW, boardOf(pool)))).toBe(
 			"#4 is unclaimed; claim it before moving it to plan.",
 		);
-		expect(
-			refusal(applyOp(card, { kind: "move", lane: "done", artifact: provedFor(card) }, OTHER, NOW, boardOf(card))),
-		).toBe("#4 is held by billing-core. Only its owner can move it.");
+		expect(refusal(applyOp(card, doneOf(card), OTHER, NOW, boardOf(card)))).toBe(
+			"#4 is held by billing-core. Only its owner can move it.",
+		);
 		const done = stepOf(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
 		expect(
 			refusal(applyOp(done, { kind: "move", lane: "execute", artifact: provedFor(done) }, CORE, NOW, boardOf(done))),
@@ -562,17 +553,9 @@ describe("move", () => {
 		// Finishing is the other question the link answers: work that starts late cannot close
 		// first, and a link recorded while the card was already executing is the way in.
 		const finished = { ...reviewed(), dependsOn: [blocker.id] };
-		expect(
-			refusal(
-				applyOp(
-					finished,
-					{ kind: "move", lane: "done", artifact: provedFor(finished) },
-					CORE,
-					NOW,
-					boardOf(blocker, finished),
-				),
-			),
-		).toBe("#4 waits on #1 (plan).");
+		expect(refusal(applyOp(finished, doneOf(finished), CORE, NOW, boardOf(blocker, finished)))).toBe(
+			"#4 waits on #1 (plan).",
+		);
 	});
 });
 

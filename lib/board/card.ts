@@ -15,7 +15,7 @@
  */
 
 import { sanitizeLine } from "../format.ts";
-import { type Contract, isContract, isHandoff, type Handoff, isSign, type Sign } from "./contract.ts";
+import { type Contract, isContract, isHandoff, type Handoff, isLanding, isSign, type Sign } from "./contract.ts";
 import { CARD_TYPES, type CardType } from "./kind.ts";
 import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
 
@@ -180,6 +180,8 @@ export interface Card {
 	contract?: Contract;
 	/** Who spot-checked the finished work, and when: what a move to `done` requires. */
 	review?: Sign;
+	/** The merge that carried the reviewed commit, and when: absent on a card closed by instruction. */
+	landed?: { sha: string; at: number };
 	/**
 	 * What the card is blocked on, while it is in `blocked`.
 	 *
@@ -514,6 +516,7 @@ export function isCard(value: unknown): value is Card {
 	if (card.planPath !== undefined && typeof card.planPath !== "string") return false;
 	if (card.contract !== undefined && !isContract(card.contract)) return false;
 	if (card.review !== undefined && !isSign(card.review)) return false;
+	if (card.landed !== undefined && !isLanding(card.landed)) return false;
 	if (card.blocked !== undefined && !isBlock(card.blocked)) return false;
 	if (card.offeredAt !== undefined && (typeof card.offeredAt !== "number" || !Number.isInteger(card.offeredAt))) {
 		return false;

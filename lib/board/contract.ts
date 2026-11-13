@@ -16,7 +16,9 @@
  *
  * The approval is part of the contract because it is a statement about *this* wording: a
  * changed line is an unapproved one, and every write here drops the sign. A {@link Sign}
- * records who read it and when, which is all a file can say about a person.
+ * records who read it and when, which is all a file can say about a person — and a {@link Landing}
+ * records the merge that sign became, because a review is evidence about a tree and a card that
+ * cannot say which merge carried it leaves the next reader guessing.
  *
  * Value-only: the field caps, the boundary the model's arguments pass, and the shapes
  * `isCard` validates. No I/O, no clock, and no card — a caller that has one reads
@@ -440,3 +442,154 @@ export const SIGN_WORDS: Record<SignKind, SignWords> = {
 		},
 	},
 };
+
+// --- The landing: the merge a review became ----------------------------------
+/** A card's landing: the merge commit that carried it, and when the board recorded it. */
+export interface Landing {
+	/** The merge on the default branch whose parent is the reviewed commit, or that commit itself. */
+	sha: string;
+	/** When the board recorded it, on the board's clock. */
+	at: number;
+}
+
+/** One commit on the chain, with the parents a merge is recognised by. */
+export interface LandingCommit {
+	/** The commit. */
+	sha: string;
+	/** Its parents, in git's own order: a merge's second parent is the branch it carried. */
+	parents: readonly string[];
+}
+
+/**
+ * What a door read about the branch a card landed on.
+ *
+ * The chain is the default branch's **first-parent** commits in **oldest-first** order: the walk
+ * starts at the branch and follows the first parent, so a criss-cross cannot hand back a later
+ * merge as the one that carried the work. `moved` is the other half — the paths that differ between
+ * the reviewed commit and the merge — because a merge that resolved the work itself is a tree
+ * nobody ran the gate on, and the diff is what says so.
+ */
+export interface LandingProof {
+	/** The branch the chain was read from, as a sentence names it: `main`, not `refs/heads/main`. */
+	branch: string;
+	/** The branch's first-parent commits, oldest first. */
+	chain: readonly LandingCommit[];
+	/** The paths that moved between the reviewed commit and the merge; absent when none did. */
+	moved?: readonly string[];
+}
+
+/** The merge a review became, or the sentence refusing to name one. */
+export type LandingCheck = { sha: string } | { error: string };
+
+/**
+ * Whether `value` is a landing this build can read: a commit and a whole moment.
+ *
+ * Shape only, and exported for `card.ts`, which validates every record it hands back: a landing is
+ * a fact the board wrote, so a hand edit that breaks it reads as absent rather than as a card.
+ */
+export function isLanding(value: unknown): value is Landing {
+	if (typeof value !== "object" || value === null) return false;
+	const landing = value as Record<string, unknown>;
+	return (
+		typeof landing.sha === "string" &&
+		landing.sha !== "" &&
+		typeof landing.at === "number" &&
+		Number.isInteger(landing.at)
+	);
+}
+
+/** The card as a refusal names it, spelled here so this module reads no card. */
+function ref(id: string): string {
+	return `#${id}`;
+}
+
+/** The sha as a refusal names it: short enough to read in a line, long enough to find. */
+function shortSha(sha: string): string {
+	return sha.slice(0, 7);
+}
+
+/**
+ * The merge commit that carried `reviewed`, or the sentence saying why none can be named.
+ *
+ * Three answers, in the order a card meets them: the reviewed commit is itself on the chain, which
+ * is a review taken after the merge and names itself; the earliest chain entry whose parents
+ * include it, which is the `merge --no-ff` of the branch; or nothing, which is a branch squashed,
+ * rebased, or never merged, and the only honest answer there is the override.
+ */
+export function resolveLanding(proof: LandingProof, reviewed: string, id: string): LandingCheck {
+	const carried = proof.chain.find((commit) => commit.sha === reviewed);
+	const sha = carried?.sha ?? proof.chain.find((commit) => commit.parents.includes(reviewed))?.sha;
+	if (sha === undefined) return { error: unlandedReview(proof.branch, reviewed, id) };
+	const moved = proof.moved ?? [];
+	if (moved.length === 0) return { sha };
+	return { error: movedTree(proof.branch, reviewed, sha, moved, id) };
+}
+
+/**
+ * What a `done` move is refused with when nothing on the branch carries the reviewed commit.
+ *
+ * A squash and a rebase are the same fact here — the reviewed tree is not an ancestor of the
+ * branch — and both are closes no landing can speak for, which is what `override` exists for.
+ */
+export function unlandedReview(branch: string, reviewed: string, id: string): string {
+	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, and no merge on \`${branch}\` carries it: a branch squashed or rebased has no landing to sign off, so close it by instruction with \`override\`, or merge it and review again.`;
+}
+
+/**
+ * What a `done` move is refused with when the merge moved the tree the review proved.
+ *
+ * The sign was right about the tree it saw; the merge, not the review, is what nobody ran the gate
+ * on. One sentence per path list, and the list is the caller's to cap: it is the card's own hint,
+ * so the first few are enough to find the rest.
+ */
+export function movedTree(
+	branch: string,
+	reviewed: string,
+	landed: string,
+	moved: readonly string[],
+	id: string,
+): string {
+	const shown = moved.slice(0, 3).join(", ");
+	const rest = moved.length > 3 ? ` and ${moved.length - 3} more` : "";
+	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, and the merge that carried it on \`${branch}\`, \`${shortSha(landed)}\`, moved ${shown}${rest}: the merge is what nobody ran the gate on — review the merged tree, or close it by instruction.`;
+}
+
+/**
+ * What a `done` move is refused with when the sign names a commit and the door read no chain.
+ *
+ * Fail closed, as the plan's gate does: a caller that forgot the proof cannot open the lane by
+ * leaving it out, and the refusal says where the fact comes from.
+ */
+export function unprovedLanding(id: string, reviewed: string): string {
+	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, and the branch it landed on was not read: \`done\` resolves the merge that carried a review, so it needs the board's repository, or a card closed by instruction.`;
+}
+
+/**
+ * What a `done` move is refused with, or `undefined` when the sign has a landing.
+ *
+ * The two cases that owe nothing are one line each here: a sign that named no commit (a run outside
+ * a repository) has no branch to resolve, and a caller that read no chain is refused rather than
+ * waved through — the same fail-closed rule the plan gate keeps.
+ */
+export function landingGate(
+	id: string,
+	reviewed: string | undefined,
+	proof: LandingProof | undefined,
+): string | undefined {
+	if (reviewed === undefined) return undefined;
+	if (proof === undefined) return unprovedLanding(id, reviewed);
+	const check = resolveLanding(proof, reviewed, id);
+	return "error" in check ? check.error : undefined;
+}
+
+/** The landing a `done` write records, or nothing when the sign named no commit. */
+export function landingFor(
+	id: string,
+	reviewed: string | undefined,
+	proof: LandingProof | undefined,
+	now: number,
+): Landing | undefined {
+	if (reviewed === undefined || proof === undefined) return undefined;
+	const check = resolveLanding(proof, reviewed, id);
+	return "error" in check ? undefined : { sha: check.sha, at: now };
+}

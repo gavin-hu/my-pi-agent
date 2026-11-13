@@ -105,7 +105,7 @@ export const LANE_RULES: Record<Lane, LaneRule> = {
  * no unfinished dependency. The blocker's own kind is a label: where a blocked card may go is
  * decided by what it has, not by what it was parked on.
  */
-export const REQUIREMENTS = ["contract", "approval", "review", "artifact", "blocker", "waiting"] as const;
+export const REQUIREMENTS = ["contract", "approval", "review", "landing", "artifact", "blocker", "waiting"] as const;
 
 /** One requirement a transition may carry. */
 export type Requirement = (typeof REQUIREMENTS)[number];
@@ -146,7 +146,7 @@ export const TRANSITIONS: readonly Transition[] = [
 	{ from: "plan", to: "blocked", needs: ["blocker"] },
 	{ from: "execute", to: "plan", needs: [] },
 	{ from: "execute", to: "blocked", needs: ["blocker"] },
-	{ from: "execute", to: "done", needs: ["waiting", "review", "artifact"] },
+	{ from: "execute", to: "done", needs: ["waiting", "review", "landing", "artifact"] },
 	{ from: "blocked", to: "plan", needs: [] },
 	{ from: "blocked", to: "execute", needs: ["waiting", "contract", "artifact", "approval"] },
 ];

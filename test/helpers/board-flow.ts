@@ -17,6 +17,7 @@ import type { Verification } from "../../lib/board/contract.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import type { Lane } from "../../lib/board/lanes.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
+import { landingFor } from "./fixtures/board-rules.ts";
 
 /** Who a seeded card belongs to. */
 export interface Seeded {
@@ -109,5 +110,12 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 		);
 		if (!result.ok) fail(result.error);
 	}
-	await apply({ kind: "move", lane: "done", artifact: { path: contract ?? plan } });
+	// The landing a `done` asks for, read from the card's own review: a door would have gathered the
+	// chain, and a seed that skipped it would be refused by the gate it exists to walk through.
+	await apply({
+		kind: "move",
+		lane: "done",
+		artifact: { path: contract ?? plan },
+		landed: landingFor(await read()),
+	});
 }

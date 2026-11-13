@@ -53,6 +53,53 @@ export async function headSha(runGit: RunGit, cwd: string): Promise<string | und
 	return result.stdout.trim() || undefined;
 }
 
+/**
+ * The commits on `ref`'s first-parent chain, oldest first, with each one's parents.
+ *
+ * The walk follows the first parent only, which is the line a landing sits on: a merge's second
+ * parent is the branch it carried, so anything found down that line is the work rather than the
+ * history it was merged into. Oldest first is the caller's contract — the board stops at the first
+ * merge that proves a review, and `git rev-list`'s own order is not that promise under a
+ * criss-cross.
+ */
+export async function firstParentChain(
+	runGit: RunGit,
+	cwd: string,
+	ref: string,
+): Promise<{ sha: string; parents: string[] }[]> {
+	const result = await runGit(["log", "--first-parent", "--reverse", "--format=%H %P", ref], { cwd });
+	if (result.code !== 0) return [];
+	const chain: { sha: string; parents: string[] }[] = [];
+	for (const line of result.stdout.split("\n")) {
+		const [sha, ...parents] = line.trim().split(/\s+/).filter(Boolean);
+		if (sha !== undefined) chain.push({ sha, parents });
+	}
+	return chain;
+}
+
+/**
+ * The paths that differ between two commits, limited to `paths` when any are named.
+ *
+ * One call, no parse of git's own porcelain: `--name-only` writes one path per line, and an empty
+ * answer is the two trees agreeing over exactly those paths. An empty `paths` asks about the whole
+ * tree, which is the conservative direction for a card that names none.
+ */
+export async function movedPaths(
+	runGit: RunGit,
+	cwd: string,
+	from: string,
+	to: string,
+	paths: readonly string[] = [],
+): Promise<string[]> {
+	const args = ["diff", "--name-only", from, to, ...(paths.length === 0 ? [] : ["--", ...paths])];
+	const result = await runGit(args, { cwd });
+	if (result.code !== 0) return [];
+	return result.stdout
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line !== "");
+}
+
 /** Absolute path of the repository's git directory. */
 export async function gitDir(runGit: RunGit, cwd: string): Promise<string | undefined> {
 	const result = await runGit(["rev-parse", "--absolute-git-dir"], { cwd });
