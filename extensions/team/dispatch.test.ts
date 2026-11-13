@@ -224,6 +224,19 @@ describe("peerFor", () => {
 	test("answers nothing when the bus could not say, which is not an empty team", () => {
 		expect(peerFor(undefined, "billing-core")).toBeUndefined();
 	});
+
+	test("skips a record whose heartbeat stopped, so a label cannot name a session no message reaches", () => {
+		// The bus writes no file for a stopped record, so a label that matched it first would name a peer
+		// the handoff can never reach while a live session under that label watches an empty inbox.
+		const moved = [
+			{ id: "s-dead", label: "billing-core", state: "gone" as const },
+			{ id: "s-live", label: "billing-core", listening: true, state: "live" as const },
+		];
+		expect(peerFor(moved, "billing-core")?.id).toBe("s-live");
+		// An id keeps its meaning: the caller asked for that session, and the send is what refuses it.
+		expect(peerFor(moved, "s-dead")?.id).toBe("s-dead");
+		expect(peerFor([{ id: "s-dead", label: "billing-core", state: "gone" as const }], "billing-core")).toBeUndefined();
+	});
 });
 
 describe("notListening and quiet", () => {

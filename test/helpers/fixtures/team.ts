@@ -68,6 +68,14 @@ export interface TeamSuiteOptions {
 	joinFails?: string;
 	/** The peers the send could not write a message for, when the case is a partial fan-out. */
 	undelivered?: Array<{ label: string; error: string }>;
+	/**
+	 * What the bus answers on each `peers()` read, when the roster moves under the verb.
+	 *
+	 * `peers` is one answer for the whole call; this is the sequence, one per read, with the last
+	 * repeating — the shape a case needs to say "this team before the send, another after it". `null`
+	 * is a read the bus could not answer, which is not an empty team.
+	 */
+	roster?: Array<Peer[] | null>;
 	/** Test seam: the bus a lane crossing writes to, so a case records it without a bus. */
 	claims?: Claims;
 }
@@ -112,9 +120,9 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 					},
 				};
 	const sent: Array<{ kind: "handoff" | "event" | "ask"; to: string; text: string }> = [];
-	// A fixed team, because `assign` asks who a peer is before it sends: the bus's record is
-	// what the pre-check compares a holder against and what the card then records, so a stub
-	// derived from what was already sent would answer nothing at the moment it is asked.
+	// A fixed team, because `assign` asks who a peer is before it sends: the bus's record is what the
+	// pre-check compares a holder against. What the card records comes from a second read, so a case
+	// about the write itself hands `roster` a second answer rather than reusing this one.
 	const listed: Peer[] | undefined =
 		options.peers === null
 			? undefined
@@ -122,6 +130,16 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 					{ id: "s-billing-core", label: "billing-core", listening: true },
 					{ id: "s-billing-web", label: "billing-web", listening: true },
 				]);
+	// The peers a case passes in; the default is the two above, listening. A case that hands a
+	// `roster` gets one answer per read, so the second read can describe a team the first did not.
+	let read = 0;
+	const nextRead = (): Peer[] | undefined => {
+		const roster = options.roster;
+		if (roster === undefined || roster.length === 0) return listed;
+		const answer = roster[Math.min(read, roster.length - 1)];
+		read += 1;
+		return answer ?? undefined;
+	};
 	const dispatch: Dispatch = {
 		async send(input) {
 			if (options.fail !== undefined) throw new Error(options.fail);
@@ -134,9 +152,10 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 			// one message file is either written for a peer or not.
 			return { delivered: reached.filter((label) => !failed.some((entry) => entry.label === label)), failed };
 		},
-		// The peers a case passes in; the default is the two above, listening.
+		// The peers a case passes in, read by read: `assign` asks once for its dry run and again for
+		// the owner it records, so the two answers may differ.
 		async peers() {
-			return listed;
+			return nextRead();
 		},
 	};
 	// The join a claim makes: recorded, so no case asks a bus that is not there.

@@ -49,9 +49,10 @@ lead's round now shows it as held.
 
 ## Reference
 
-**Actions.** `assign` (card, `to`, `note?`) joins, then sends a handoff, then records the
-owner and whether the bus took the message — `told` means written, not read, because mail
-is pruned after a day; `offer` (card, `note?`) broadcasts the card and records only the
+**Actions.** `assign` (card, `to`, `note?`) joins, then sends a handoff, then records the owner —
+read from the team again *after* the message, so the card names the session that has it and a
+stopped record cannot become one — and whether the bus took it: `told` means written, not read,
+because mail is pruned after a day; `offer` (card, `note?`) broadcasts the card and records only the
 moment it was offered, so the first peer to claim it wins; `reclaim` (card) clears the owner
 and returns the card to Backlog with its notes and contract, and its result names the
 paths the old holder still has (`2 paths stay held by api-core until it stops`) — a peer
@@ -104,11 +105,10 @@ by name; `board list` still reads. Assign after the plan is approved.
 
 ## Settings
 
-`team` has no section of its own; the lead name it writes under is `team.lead` in
-the `board` section of `bytefly.json`
-([configuration](../configuration-reference.md#board--the-shared-feature-board)). To switch
-the extension off, toggle `team` in `/bytefly`; a session that keeps `board` alone
-can still move cards itself.
+`team` has no section of its own; the lead name it writes under is `team.lead` in the `board` section
+of `bytefly.json` ([configuration](../configuration-reference.md#board--the-shared-feature-board)).
+To switch the extension off, toggle `team` in `/bytefly`; a session that keeps `board` alone can still
+move cards itself.
 
 ## Learn more
 

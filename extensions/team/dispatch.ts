@@ -198,9 +198,15 @@ export function sessionDispatch(pi: Pick<ExtensionAPI, "events" | "getAllTools">
 /**
  * The peer `to` names: an id exactly, else a label ignoring case.
  *
- * The send has already proved exactly one session answers to it, so the first match is
- * the recipient; a miss means the bus could not say, which is why the caller falls back
- * to the label alone.
+ * A label resolves only to a session the bus would write for. A record whose heartbeat stopped is
+ * skipped — `state` is `gone` — because the bus writes it no message, and a label that matched it
+ * first would record a peer the handoff can never reach while a live session under that same label
+ * watched an inbox the message did not fill.
+ *
+ * An id keeps its meaning: a caller that names a session gets that session, stopped or not, and the
+ * send refuses it. The read's own age is the caller's business rather than this function's —
+ * `assign` asks before its dry run and again after the message, so the owner it records is the peer
+ * the message reached.
  */
 export function peerFor(peers: readonly Peer[] | undefined, to: string): Peer | undefined {
 	if (peers === undefined) return undefined;
@@ -208,7 +214,7 @@ export function peerFor(peers: readonly Peer[] | undefined, to: string): Peer | 
 	const byId = peers.find((peer) => peer.id === target);
 	if (byId) return byId;
 	const wanted = target.toLowerCase();
-	return peers.find((peer) => peer.label.toLowerCase() === wanted);
+	return peers.find((peer) => peer.label.toLowerCase() === wanted && peer.state !== "gone");
 }
 
 /**
