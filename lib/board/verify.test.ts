@@ -15,7 +15,7 @@ import {
 	defaultVerifyRun,
 	MAX_VERIFY_OUTPUT,
 	outputLine,
-	shaOf,
+	treeOf,
 	VERIFY_TIMEOUT_MS,
 	verifiedCommand,
 } from "./verify.ts";
@@ -54,8 +54,20 @@ describe("the record a spot-check keeps", () => {
 
 	test("a clean exit is the evidence, with the tree it ran in and the commit there", async () => {
 		const run = async () => ({ exit: 0, output: "all green", killed: false });
-		expect(await verifiedCommand("bun run check", CWD, run, now, async () => "1d3a8ce3")).toEqual({
+		expect(await verifiedCommand("bun run check", CWD, run, now, async () => ({ sha: "1d3a8ce3" }))).toEqual({
 			verified: { cmd: "bun run check", exit: 0, at: 900, root: CWD, sha: "1d3a8ce3" },
+		});
+	});
+
+	test("the tree's facts ride the run: the branch, and which of the repository's trees it was", async () => {
+		const run = async () => ({ exit: 0, output: "", killed: false });
+		const answer = await verifiedCommand("bun run check", CWD, run, now, async () => ({
+			sha: "1d3a8ce3",
+			branch: "main",
+			checkout: true,
+		}));
+		expect(answer).toEqual({
+			verified: { cmd: "bun run check", exit: 0, at: 900, root: CWD, sha: "1d3a8ce3", branch: "main", checkout: true },
 		});
 	});
 
@@ -70,7 +82,7 @@ describe("the record a spot-check keeps", () => {
 			now,
 			async (cwd) => {
 				asked.push(cwd);
-				return "6c1e9a02";
+				return { sha: "6c1e9a02" };
 			},
 		);
 		expect(asked).toEqual(["/repo/.pi/worktrees/x"]);
@@ -78,7 +90,7 @@ describe("the record a spot-check keeps", () => {
 
 	test("a repository that cannot name a commit still records the run", async () => {
 		const run = async () => ({ exit: 0, output: "", killed: false });
-		const answer = await verifiedCommand("bun run check", CWD, run, now, async () => undefined);
+		const answer = await verifiedCommand("bun run check", CWD, run, now, async () => ({}));
 		expect(answer).toEqual({ verified: { cmd: "bun run check", exit: 0, at: 900, root: CWD } });
 		// A git call that threw is the same answer as one that said nothing.
 		const threw = await verifiedCommand("bun run check", CWD, run, now, async () => {
@@ -173,21 +185,45 @@ describe("outputLine", () => {
 	});
 });
 
-describe("shaOf", () => {
-	test("asks the repository for its commit, and answers nothing when git refuses", async () => {
-		const answers: Record<string, { stdout: string; code: number }> = {
+describe("treeOf", () => {
+	/** A `pi` whose git answers are the map: the joined args, then what git says. */
+	const piAnswering = (answers: Record<string, { stdout: string; code: number }>) => ({
+		exec: async (_command: string, args: string[]) => ({
+			...(answers[args.join(" ")] ?? { stdout: "", code: 128 }),
+			stderr: "",
+			killed: false,
+			truncated: false,
+		}),
+	});
+
+	test("names the checkout, its branch, and the commit when git answers", async () => {
+		const pi = piAnswering({
 			"rev-parse HEAD": { stdout: "1d3a8ce3\n", code: 0 },
-		};
-		const pi = {
-			exec: async (_command: string, args: string[]) => {
-				const answer = answers[args.join(" ")] ?? { stdout: "", code: 128 };
-				return { ...answer, stderr: "", killed: false, truncated: false };
-			},
-		};
-		expect(await shaOf(pi)(CWD)).toBe("1d3a8ce3");
-		const nowhere = {
-			exec: async () => ({ stdout: "", stderr: "fatal", code: 128, killed: false, truncated: false }),
-		};
-		expect(await shaOf(nowhere)(CWD)).toBeUndefined();
+			"rev-parse --abbrev-ref HEAD": { stdout: "main\n", code: 0 },
+			"rev-parse --path-format=absolute --git-common-dir": { stdout: `${CWD}/.git\n`, code: 0 },
+		});
+		expect(await treeOf(pi)(CWD)).toEqual({ sha: "1d3a8ce3", branch: "main", checkout: true });
+	});
+
+	test("a worktree is the same git directory under another root, so it is no checkout", async () => {
+		// The whole derivation: every tree of one repository shares the git directory, and only the
+		// checkout sits where that directory's parent is the root itself.
+		const worktree = `${CWD}/.pi/worktrees/x`;
+		const pi = piAnswering({
+			"rev-parse HEAD": { stdout: "6c1e9a02\n", code: 0 },
+			"rev-parse --abbrev-ref HEAD": { stdout: "worktree-x\n", code: 0 },
+			"rev-parse --path-format=absolute --git-common-dir": { stdout: `${CWD}/.git\n`, code: 0 },
+		});
+		expect(await treeOf(pi)(worktree)).toEqual({ sha: "6c1e9a02", branch: "worktree-x" });
+	});
+
+	test("a detached HEAD is a commit with no branch, and a repository git cannot name is neither", async () => {
+		const detached = piAnswering({
+			"rev-parse HEAD": { stdout: "1d3a8ce3\n", code: 0 },
+			"rev-parse --abbrev-ref HEAD": { stdout: "HEAD\n", code: 0 },
+		});
+		expect(await treeOf(detached)(CWD)).toEqual({ sha: "1d3a8ce3" });
+		// Nothing answers: the record keeps the run and claims no tree, rather than guessing one.
+		expect(await treeOf(piAnswering({}))(CWD)).toEqual({});
 	});
 });

@@ -86,8 +86,9 @@ export interface Sign {
  *
  * The board executes nothing: the sign's own call runs the command and hands this over, so the
  * record is evidence of a run rather than an instruction to make one. `sha` is the commit the
- * repository was on at the run, absent outside a repository — evidence for a reader, never a
- * gate, because a board outside git has no commit to name.
+ * tree was on, `branch` the ref, and `root` with `checkout` the tree they were read from: absent
+ * outside a repository, and evidence for a reader, never a gate, because a board outside git has
+ * no commit to name — and because a green run in the wrong tree is still a green run.
  */
 export interface Verification {
 	/** The command as the contract wrote it, so a changed line cannot ride an old result. */
@@ -96,7 +97,7 @@ export interface Verification {
 	exit: number;
 	/** When the run finished, on the board's clock. */
 	at: number;
-	/** The commit the repository was on, when it was a repository. */
+	/** The commit the tree was on, when it was a repository. */
 	sha?: string;
 	/**
 	 * The tree the command ran in, absolute: the checkout, or the worktree the reviewer entered.
@@ -106,6 +107,24 @@ export interface Verification {
 	 * signs written before the board recorded one.
 	 */
 	root?: string;
+	/**
+	 * The branch that tree had checked out, when it had one.
+	 *
+	 * `main` in the checkout and the worktree's own branch in a worktree, which is the reproduction a
+	 * reader reaches for first. A detached HEAD is a sha with no branch, and a tree git cannot name
+	 * is neither.
+	 */
+	branch?: string;
+	/**
+	 * `true` when that tree was the repository's checkout rather than one of its worktrees.
+	 *
+	 * The one fact a path does not say at a glance: work is made in a worktree and lands in the
+	 * checkout, so a run recorded here is evidence a reader weighs — the work may have landed since,
+	 * and may not — and never a verdict, because nothing refuses on this. Absent when git could not
+	 * name the tree, and on signs written before it was recorded; {@link isVerification} takes no
+	 * `false`, so a record states a checkout or says nothing.
+	 */
+	checkout?: true;
 }
 
 /** What a card promises before it may be executed. */
@@ -236,11 +255,13 @@ export function isSign(value: unknown): value is Sign {
 }
 
 /**
- * Whether `value` is a recorded run: a command, a whole exit code, a whole moment, and a commit
- * that is a string when it is there.
+ * Whether `value` is a recorded run: a command, a whole exit code, a whole moment, and a tree that
+ * is a string when it is there.
  *
  * The exit code is kept as it ran rather than required to be zero — a file may hold the run that
- * failed, and the gate is what refuses it — so this checks the shape and not the verdict.
+ * failed, and the gate is what refuses it — so this checks the shape and not the verdict. `checkout`
+ * is the one shape with a value of its own: `true` is the fact and `false` is a spelling of the
+ * absence, so a record says which tree it was or says nothing.
  */
 export function isVerification(value: unknown): value is Verification {
 	if (typeof value !== "object" || value === null) return false;
@@ -248,8 +269,15 @@ export function isVerification(value: unknown): value is Verification {
 	if (typeof run.cmd !== "string" || run.cmd.trim() === "") return false;
 	if (typeof run.exit !== "number" || !Number.isInteger(run.exit)) return false;
 	if (typeof run.at !== "number" || !Number.isInteger(run.at)) return false;
-	if (run.root !== undefined && (typeof run.root !== "string" || run.root === "")) return false;
-	return run.sha === undefined || (typeof run.sha === "string" && run.sha !== "");
+	if (!optionalText(run.root)) return false;
+	if (!optionalText(run.branch)) return false;
+	if (run.checkout !== undefined && run.checkout !== true) return false;
+	return optionalText(run.sha);
+}
+
+/** A string a record carries, or nothing: absent is fine, empty and non-text are not. */
+function optionalText(value: unknown): boolean {
+	return value === undefined || (typeof value === "string" && value !== "");
 }
 
 /**

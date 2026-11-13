@@ -321,15 +321,18 @@ is a sentence, and a conflict is neither.
 ### verify.ts
 
 The acceptance command a contract may name, and the one run a spot-check records. The board
-executes nothing of its own: `verifySpotCheck(card, cwd, run, now, sha)` reads the contract's
+executes nothing of its own: `verifySpotCheck(card, cwd, run, now, tree)` reads the contract's
 `verify` line, runs it through the `VerifyRun` seam, and answers either the record
-(`{ cmd, exit, at, sha }`) or the sentence that stops the sign — so the tool's `review` and the
-person's `/board review` word a red command the same way, from one body. `runVerification` is
-the production seam: a shell in the card's directory, its merged output clipped to
-`MAX_VERIFY_OUTPUT` and killed with its tree at `VERIFY_TIMEOUT_MS`, which is the only thing
-keeping a sign finite. `shaOf` records the commit the repository was on; a board outside git
-records the run without one. The output tail is for the refusal and never the card: a record
-keeps a verdict, and a buffer in a card file would grow with whatever the command printed.
+(`{ cmd, exit, at, root, branch, checkout, sha }`) or the sentence that stops the sign — so the
+tool's `review` and the person's `/board review` word a red command the same way, from one body.
+`runVerification` is the production seam: a shell in the card's directory, its merged output
+clipped to `MAX_VERIFY_OUTPUT` and killed with its tree at `VERIFY_TIMEOUT_MS`, which is the only
+thing keeping a sign finite. `treeOf` is the `TreeReader` that names the tree the run was taken
+in: the commit, the branch, and `checkout` when the tree is the repository's checkout rather than
+one of its worktrees — the one word a path does not say, since work is made in a worktree and
+lands in the checkout. A board outside git records the run without any of it. The output tail is
+for the refusal and never the card: a record keeps a verdict, and a buffer in a card file would
+grow with whatever the command printed.
 
 ### join.ts
 
@@ -412,6 +415,11 @@ no record of and that hold nothing into one line, given the roster, and counts t
 by instruction on the done count. `plural` and the fold's own bodies (`isHistoryOwner`,
 `historyLine`) are spliced into the page as `PLURAL_JS` / `HISTORY_OWNER_JS` / `HISTORY_LINE_JS`;
 the page's filter rule and the card face's reason arrive the same way.
+
+`ranClause` is the other sentence three surfaces print — the transcript's card, the person's
+`/board review` line, and the page's dialog, which receives it as `RAN_CLAUSE_JS` — so a sign's
+run is worded once: the command, the tree it was taken in (`the checkout`, or a worktree's path),
+the exit, and the branch and commit there.
 
 The same module carries what a session is holding — `holdingOf` (`#162 plan`, `#162 plan +2`,
 or `idle`) and `holdingLine`, which is the label and its holding as one sentence, received by

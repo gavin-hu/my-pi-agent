@@ -19,6 +19,7 @@
  */
 
 import { type Card, cardRef } from "./card.ts";
+import type { Verification } from "./contract.ts";
 import type { RoundSummary } from "./round.ts";
 
 /** What the fold needs of a roster row: the page's `ViewTeammate` and the bus's record both answer it. */
@@ -165,6 +166,30 @@ export function historyLine(owners: number, done: number): string {
 
 /** The same body, as the browser receives it: it calls `plural`, which the fragment holds. */
 export const HISTORY_LINE_JS = String(historyLine);
+
+/**
+ * What a sign's run was, as one clause: ``· ran `bun run check` in the checkout (exit 0, main @ 3ccd9cda)``.
+ *
+ * Three surfaces print it — the transcript's card, the person's `/board review` line, and the page's
+ * dialog — and all three read the one record, so the sentence is here rather than a third time
+ * beside the third printer. `checkout` replaces the path it was derived from: the checkout is the
+ * tree everybody knows, while a worktree keeps its path, because that is the tree a reviewer has to
+ * enter to reproduce a red. A record written before the tree was named has neither, and reads
+ * exactly as it did.
+ *
+ * Written as concatenation, like `plural`, because the page's bundle carries this *source*: a
+ * template or an interpolation would end the string it is spliced into.
+ */
+export function ranClause(run: Verification | undefined): string {
+	if (run === undefined) return "";
+	const where = run.checkout === true ? " in the checkout" : run.root === undefined ? "" : " in " + run.root;
+	const tree = run.branch === undefined ? run.sha : run.branch + (run.sha === undefined ? "" : " @ " + run.sha);
+	const facts = "exit " + run.exit + (tree === undefined ? "" : ", " + tree);
+	return " · ran `" + run.cmd + "`" + where + " (" + facts + ")";
+}
+
+/** The same body, as the browser receives it: one wording for what ran, on both surfaces. */
+export const RAN_CLAUSE_JS = String(ranClause);
 
 /**
  * What a session is holding, in one phrase: `#162 plan`, `#162 plan +2`, or `idle`.

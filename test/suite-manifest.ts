@@ -86,6 +86,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/lane-heads",
 		"view/mission",
 		"view/plan-row-behaviour",
+		"view/run-row-behaviour",
 		"view/repaint",
 		"view/pages",
 		"view/chrome",

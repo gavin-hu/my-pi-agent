@@ -32,10 +32,11 @@
  * are not importable from a page's bundle; `__INLINE_MARKDOWN__` and `__SHORTEN_PATH__` are
  * rules a served script must never carry, and `pages.test` fails an unfilled one.
  */
-export function dialogJs(rules: { inlineMarkdown: string; shortenPath: string }): string {
+export function dialogJs(rules: { inlineMarkdown: string; shortenPath: string; ranClause: string }): string {
 	return dialogTemplate
 		.replace("__INLINE_MARKDOWN__", rules.inlineMarkdown)
-		.replace("__SHORTEN_PATH__", rules.shortenPath);
+		.replace("__SHORTEN_PATH__", rules.shortenPath)
+		.replace("__RAN_CLAUSE__", rules.ranClause);
 }
 
 const dialogTemplate = String.raw`(function () {
@@ -62,18 +63,11 @@ __SHORTEN_PATH__
   var CONTRACT_ROWS = ["goal", "acceptance", "scope-out", "verify"];
 
   /**
-   * What the sign's run was, as the clause under the rung: the command, its exit, and the commit.
-   *
-   * The transcript draws this from the same field (card.review.verified), which is the point:
-   * two surfaces cannot disagree about what ran when they read one record.
+   * What the sign's run was, as the clause under the rung: the command, the tree, the exit, and the
+   * commit. Spliced from lib/board/round-text.ts, so the transcript's card and this dialog print one
+   * sentence about one record: a commit says when the run was taken, the tree says where.
    */
-  function ranClause(reviewed) {
-    var run = reviewed.verified;
-    if (run === undefined) return "";
-    // The tree is the other half of the evidence: a commit says when, the tree says where.
-    var where = run.root === undefined ? "" : " in " + run.root;
-    return " \u00b7 ran " + run.cmd + where + " (exit " + run.exit + (run.sha === undefined ? "" : ", " + run.sha) + ")";
-  }
+__RAN_CLAUSE__
 
   /**
    * Whether a section below the reason line already prints what a reason of this kind says.
@@ -237,7 +231,7 @@ __INLINE_MARKDOWN__
       reviewed !== undefined,
       reviewed === undefined
         ? ""
-        : stampedRow(reviewed.by + " \u00b7 ", reviewed.at, "reviewed {age}", reviewed.byInstruction !== undefined ? " \u00b7 by instruction" : ranClause(reviewed))
+        : stampedRow(reviewed.by + " \u00b7 ", reviewed.at, "reviewed {age}", reviewed.byInstruction !== undefined ? " \u00b7 by instruction" : ranClause(reviewed.verified))
     );
 
     pair("paths", card.paths.length > 0);

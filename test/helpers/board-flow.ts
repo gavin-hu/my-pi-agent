@@ -13,6 +13,7 @@
  */
 
 import { personActor } from "../../lib/board/lead.ts";
+import type { Verification } from "../../lib/board/contract.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import type { Lane } from "../../lib/board/lanes.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
@@ -28,6 +29,13 @@ export interface Seeded {
 	 * lets the tool re-check the store passes a path inside its own plan directory.
 	 */
 	planPath?: string;
+	/**
+	 * The run the spot-check records, for the suites that read what a run says.
+	 *
+	 * The contract names its command, because a run the contract did not ask for is the one write
+	 * a sign refuses — a suite seeding around the gates would find out the hard way.
+	 */
+	run?: Verification;
 }
 
 /** A contract a test card can carry: three lines, and nothing about the feature. */
@@ -71,7 +79,8 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	const planned = await read();
 	if (planned.contract === undefined) {
 		// The artifact is the fact the tool proves; a seed records the path it names.
-		await apply({ kind: "contract", artifact: { path: plan }, ...TEST_CONTRACT });
+		const asked = who.run === undefined ? {} : { verify: who.run.cmd };
+		await apply({ kind: "contract", artifact: { path: plan }, ...TEST_CONTRACT, ...asked });
 	}
 	const written = await read();
 	if (written.contract?.approved === undefined) {
@@ -87,7 +96,12 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	}
 	if (lane === "execute") return;
 	if ((await read()).review === undefined) {
-		const result = await store.mutate(id, { kind: "review" }, personActor(), now);
+		const result = await store.mutate(
+			id,
+			{ kind: "review", ...(who.run === undefined ? {} : { verified: who.run }) },
+			personActor(),
+			now,
+		);
 		if (!result.ok) fail(result.error);
 	}
 	await apply({ kind: "move", lane: "done", artifact: { path: contract ?? plan } });

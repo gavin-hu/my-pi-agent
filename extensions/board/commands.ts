@@ -14,7 +14,7 @@ import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
 import type { Verification } from "../../lib/board/contract.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
-import { plural } from "../../lib/board/round-text.ts";
+import { plural, ranClause } from "../../lib/board/round-text.ts";
 import { type BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import type { VerifyRun } from "../../lib/board/verify.ts";
@@ -188,7 +188,7 @@ async function signLine(
 			cwd: resolveEffectiveCwd(ctx.cwd),
 			run: verify ?? module.defaultVerifyRun(),
 			now: () => session.now(),
-			sha: module.shaOf(pi),
+			tree: module.treeOf(pi),
 		});
 	};
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
@@ -223,10 +223,9 @@ async function signLine(
 	// asked at all: a card in plan that carries a review — a hand-edited file, since no path writes
 	// one — must not put its reason on the line an approval prints.
 	const how = sign === "review" && result.card.review?.byInstruction !== undefined ? " · closed by instruction" : "";
-	// What ran is the one fact a person at a keyboard cannot see in the card: the sign's own words.
-	const ran = result.card.review?.verified;
-	const where = ran?.root === undefined ? "" : ` in ${ran.root}`;
-	const evidence = ran === undefined ? "" : ` · ran \`${ran.cmd}\`${where} (exit ${ran.exit})`;
+	// What ran is the one fact a person at a keyboard cannot see in the card: the sign's own words,
+	// in the one sentence the tool's card and the page's dialog print.
+	const evidence = ranClause(result.card.review?.verified);
 	const text = result.changed
 		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}${evidence}`
 		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}${evidence}`;

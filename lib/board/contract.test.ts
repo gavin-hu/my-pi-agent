@@ -205,6 +205,20 @@ describe("isContract and isSign", () => {
 		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, root: 7 } })).toBe(false);
 	});
 
+	test("a run's branch and checkout are the tree a path cannot say at a glance", () => {
+		// `checkout` is a `true`-only mark, like `person` and `unresolved`: `false` is a spelling of the
+		// absence, and a record states which tree it was or says nothing. A branch is text; empty is not a
+		// branch, and a number is not one either.
+		const run = { cmd: "bun run check", exit: 0, at: 4, root: "/repo", sha: "1d3a8ce3" };
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, branch: "main", checkout: true } })).toBe(true);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, branch: "worktree-x" } })).toBe(true);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, checkout: true } })).toBe(true);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, branch: "" } })).toBe(false);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, branch: 7 } })).toBe(false);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, checkout: false } })).toBe(false);
+		expect(isSign({ by: "billing-lead", at: 0, verified: { ...run, checkout: 1 } })).toBe(false);
+	});
+
 	test("a sign by instruction is trusted only as the line a signer would have written", () => {
 		expect(isSign({ by: "you", at: 0, byInstruction: "closed on my instruction" })).toBe(true);
 		// A stored sign the write path would never produce: an empty reason, a wrapping one, and a

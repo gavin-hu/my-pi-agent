@@ -35,7 +35,7 @@ import {
 	TAB_TITLE_JS,
 	THEME_TOGGLE_JS,
 } from "../../../lib/web/index.ts";
-import { HISTORY_LINE_JS, HISTORY_OWNER_JS, PLURAL_JS } from "../../../lib/board/round-text.ts";
+import { HISTORY_LINE_JS, HISTORY_OWNER_JS, PLURAL_JS, RAN_CLAUSE_JS } from "../../../lib/board/round-text.ts";
 import { skippedText } from "../../../lib/board/skipped.ts";
 import { FORMAT_AGE_JS, SHORTEN_PATH_JS } from "../../../lib/format.ts";
 import { BOARD_CARD_JS } from "./card.ts";
@@ -71,7 +71,7 @@ ${feedJs({ labels: ACTIVITY_LABEL_JS })}
 ${teamJs()}
 ${BOARD_CARD_JS}
 ${BOARD_EMPTY_JS}
-${dialogJs({ inlineMarkdown: INLINE_MARKDOWN_JS, shortenPath: SHORTEN_PATH_JS })}
+${dialogJs({ inlineMarkdown: INLINE_MARKDOWN_JS, shortenPath: SHORTEN_PATH_JS, ranClause: RAN_CLAUSE_JS })}
 ${BOARD_KEYS_JS}
 ${liveJs({ picker: String(PICKER_MQ) })}
 ${THEME_TOGGLE_JS}
