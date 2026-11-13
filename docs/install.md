@@ -35,7 +35,7 @@ pi install ./
 To pin a release, install from the tag:
 
 ```bash
-pi install git:github.com/gavin-hu/my-pi-agent@v0.27.0
+pi install git:github.com/gavin-hu/my-pi-agent@v0.26.0
 ```
 
 ## Check it works

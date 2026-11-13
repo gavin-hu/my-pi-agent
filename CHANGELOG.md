@@ -6,29 +6,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Changed
-
-- `board`: the team is a project's own. `board.lead` and `board.teammates` are now `team.lead` and
-  `team.teammates`, and the built-in 25-name vocabulary behind them is deleted with them — the
-  default five names, `gavin` as the default lead, and the preset name a session with none of its
-  own drew. A session with no name of its own is `team-agent-<id tail>`; a name outside the
-  project's list draws no footer chip; a project that names no team draws no chip at all.
-  Breaking: every project states its own team. With no `team.lead` a session cannot sign a
-  contract or a spot-check, and `/board` refuses to serve a page it would have to seat as nobody —
-  the person's `/board approve` and `/board review` still sign either gate. `bun run migrate:config`
-  moves an existing `board.lead` and `board.teammates` into the `team` section.
-
-### Fixed
-
-- `board`: the write lock waits out the `EPERM` Windows answers while a rival's create and `rm`
-  overlap, instead of throwing it out of a write nobody made. The refusal meant "somebody's file is
-  in the way" all along — a delete-pending name is refused as access-denied there rather than as
-  existing — so the six-notes race lands on `windows-latest` as it already did elsewhere. A refusal
-  that outlives the window ends the acquisition the way a live holder's does, naming the other
-  session instead of losing the write to an errno.
-
-## [0.27.0] - 2026-11-13
-
 ### Added
 
 - `team`: a typed `/team join <name>` puts that name on `board.teammates` in the project's
@@ -54,6 +31,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the card dialog draw the command and the run from the same fields.
 
 ### Changed
+
+- `board`: the team is a project's own. `board.lead` and `board.teammates` are now `team.lead` and
+  `team.teammates`, and the built-in 25-name vocabulary behind them is deleted with them — the
+  default five names, `gavin` as the default lead, and the preset name a session with none of its
+  own drew. A session with no name of its own is `team-agent-<id tail>`; a name outside the
+  project's list draws no footer chip; a project that names no team draws no chip at all.
+  Breaking: every project states its own team. With no `team.lead` a session cannot sign a
+  contract or a spot-check, and `/board` refuses to serve a page it would have to seat as nobody —
+  the person's `/board approve` and `/board review` still sign either gate. `bun run migrate:config`
+  moves an existing `board.lead` and `board.teammates` into the `team` section.
 
 - `board`: the contract's `verify` line is described on the parameter, as its three neighbours are:
   the acceptance command a spot-check runs, that a changed line drops the approval, and that an empty
@@ -187,6 +174,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lands without taking scroll or focus.
 
 ### Fixed
+
+- `board`: the write lock waits out the `EPERM` Windows answers while a rival's create and `rm`
+  overlap, instead of throwing it out of a write nobody made. The refusal meant "somebody's file is
+  in the way" all along — a delete-pending name is refused as access-denied there rather than as
+  existing — so the six-notes race lands on `windows-latest` as it already did elsewhere. A refusal
+  that outlives the window ends the acquisition the way a live holder's does, naming the other
+  session instead of losing the write to an errno.
 
 - `board`: the client bundle's `duplicateDefinitions` fails a helper name it defines twice and
   publishes twice — the shape that made the Team tab's ages depend on the order `client.ts`
@@ -7094,8 +7088,7 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.27.0...HEAD
-[0.27.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.26.0...v0.27.0
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.26.0...HEAD
 [0.26.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.24.0...v0.25.0
