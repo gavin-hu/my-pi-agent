@@ -452,9 +452,8 @@ so a tone is the name of a CSS property and the page needs no map; `BOARD_TONES`
 (every reason kind, `waiting` included because the card face invents it), and
 `DECISION_KINDS` / `DECISION_TONE`, the Team queue's kinds in rank order with the tone each
 wears in its pill and on its mark, so a row's rank and the tone it says cannot disagree; the
-row's own ground is its lane's, which is the card's paper under it. The rule behind the words: warn is
-a person who must act next, danger is a refusal or a loss, and anything merely true of the
-card is muted.
+row's ground is the paper the card under it wears. The rule behind the words: warn is a person
+who must act next, danger is a refusal or a loss, and anything merely true of the card is muted.
 
 `DECISION_RANK_JS` / `DECISION_TONE_JS` / `REASON_TONE_JS` are those tables as the browser
 bundle's own source, spliced in like every other rule the page shares. The terminal's
