@@ -27,23 +27,25 @@ export function formatNotJoined(reason: string): string {
 }
 
 /**
- * A card that was handed over, and the peer that got the message.
+ * A card that was handed over, and the peers the message reached.
  *
  * `notListening` is the one fact the send cannot tell you and the record can: a peer
  * that is not listening reads the handoff at its next turn rather than being woken for
  * it. Saying so is the difference between "delivered" and "delivered and read".
+ *
+ * There is no `to` beside the delivered list: a send that returned wrote at least one inbox
+ * (`SendResult`), so the peers it reached are the whole answer, and a send that reached nobody is
+ * the refusal the caller already has.
  */
 export function formatHandoff(
 	card: Card,
-	to: string,
 	delivered: readonly string[],
 	notListening: readonly string[] = [],
 	quiet: readonly string[] = [],
 	failed: readonly DeliveryFailure[] = [],
 ): string {
-	const who = delivered.length > 0 ? delivered.join(", ") : to;
 	return [
-		`${cardRef(card.id)} handed off to ${who}.`,
+		`${cardRef(card.id)} handed off to ${delivered.join(", ")}.`,
 		`  ${card.title}`,
 		card.paths.length > 0 ? `  paths: ${card.paths.join(", ")}` : undefined,
 		"  The card is already owned by the peer; the handoff is in its inbox.",
@@ -107,12 +109,10 @@ export function formatAsk(
 	delivered: readonly string[],
 	notListening: readonly string[] = [],
 	quiet: readonly string[] = [],
-	to = "",
 	failed: readonly DeliveryFailure[] = [],
 ): string {
-	const who = delivered.length > 0 ? delivered.join(", ") : to === "" ? "nobody" : to;
 	return [
-		`Asked ${who} — ask ${ask}.`,
+		`Asked ${delivered.join(", ")} — ask ${ask}.`,
 		`  The answer arrives as mail; reply with \`re: ${ask}\`, and nothing is waiting on it.`,
 		notListeningLine(notListening),
 		quietLine(quiet),
@@ -157,9 +157,8 @@ export function formatOffer(
 	quiet: readonly string[] = [],
 	failed: readonly DeliveryFailure[] = [],
 ): string {
-	const who = delivered.length > 0 ? delivered.join(", ") : "nobody";
 	return [
-		`${cardRef(card.id)} offered to ${who}.`,
+		`${cardRef(card.id)} offered to ${delivered.join(", ")}.`,
 		`  ${card.title}`,
 		card.paths.length > 0 ? `  paths: ${card.paths.join(", ")}` : undefined,
 		"  The card is unowned until one of them claims it.",

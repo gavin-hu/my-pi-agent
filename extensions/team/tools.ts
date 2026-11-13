@@ -369,10 +369,11 @@ async function assignCard(
 	// that changed mid-send would otherwise pass a check about one session and write another. The store
 	// re-asks the card's own gates under the lock, which stops a mid-send handover from assigning a card
 	// somebody took; who the peer is has no second reading, which is the reason for this one.
-	// `told` is the send's own answer, so a handoff nobody received carries the record without it.
+	// `told` is the send's own answer, and a send that returned wrote at least one inbox (`SendResult`),
+	// so the record always carries it — a handoff without one is a card from before the field existed.
 	const reached = await dispatch.peers().catch(() => undefined);
 	const recipient = actorFor(reached, to);
-	const handoff = { at: now, ...(delivered.length === 0 ? {} : { told: { at: now } }) };
+	const handoff = { at: now, told: { at: now } };
 	const owner: CardOwner = recipient.id === undefined ? ownerFor(to, delivered, handoff) : { ...recipient, handoff };
 	const written = await writeOutcome(store.mutate(id, { kind: "assign", to: owner }, me, now));
 	// A write that threw is not a write that was refused: the message is already in the peer's
@@ -392,7 +393,7 @@ async function assignCard(
 	// describe the team the message landed against, not the one it was addressed against.
 	const silent = notListening(reached, delivered);
 	const still = quiet(reached, delivered);
-	return textResult(formatHandoff(applied.card, to, delivered, silent, still, failed), {
+	return textResult(formatHandoff(applied.card, delivered, silent, still, failed), {
 		action: "assign",
 		card: applied.card,
 		assigned: applied.card.owner,
@@ -517,7 +518,7 @@ async function askPeer(
 	}
 	const silent = notListening(peers, delivered);
 	const still = quiet(peers, delivered);
-	return textResult(formatAsk(ask, delivered, silent, still, to, failed), {
+	return textResult(formatAsk(ask, delivered, silent, still, failed), {
 		action: "ask",
 		askId: ask,
 		delivered,
