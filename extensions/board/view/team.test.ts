@@ -73,6 +73,9 @@ const CASE_MS = 30_000;
 /** The roster the tab draws: two rows, so the agents column has more than a heading. */
 const sessions = (now: number): RosterSession[] => [
 	{ id: "s-peer", label: "billing-peer", mode: "tui", lastSeen: now - 20_000, mail: 0 },
+	// The executing card's owner, under the name its record answers to now: it claimed the card as
+	// `billing-core` and the session renamed afterwards, which the card cannot know and the page must.
+	{ id: "s-core", label: "billing-core-renamed", mode: "tui", lastSeen: now - 5_000, mail: 0 },
 	{ id: "s-lead", label: "billing-lead", mode: "tui", lastSeen: now, mail: 0 },
 ];
 
@@ -259,6 +262,28 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 			);
 			expect(cut).toBe(0);
 			await page.setViewportSize({ width: 1280, height: 900 });
+		},
+		CASE_MS,
+	);
+
+	test(
+		"draws one row for a session that renamed after claiming a card",
+		async () => {
+			const page = await board.reuse();
+			await page.click("#tab-team");
+			await page.waitForSelector("#board-team .board-agent", { timeout: PAINT_MS });
+			await page.waitForTimeout(100);
+			const { rows } = await census(page);
+			// Three sessions, three rows. The fixture's executing card is owned by `s-core`, whose record
+			// answers to `billing-core-renamed`; a card that kept the label its claim wrote would draw a
+			// fourth row here — that dead name, as an owner nothing answers to.
+			expect(rows["board-agent"]).toBe(3);
+			const labels = await page.$$eval("#board-team .board-agent", (nodes) =>
+				Array.from(nodes as ArrayLike<ElementLike>).map(
+					(node) => (node as unknown as { textContent: string | null }).textContent ?? "",
+				),
+			);
+			expect(labels.filter((text) => text.includes("billing-core-renamed"))).toHaveLength(1);
 		},
 		CASE_MS,
 	);

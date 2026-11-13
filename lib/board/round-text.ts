@@ -13,7 +13,9 @@
  *
  * It also carries what a session is holding, because both surfaces that name one say so: the
  * terminal's presence line prints the pair, and the page's teammate row prints its second
- * half beside the label.
+ * half beside the label. And it carries the name itself, because a label is a word a record
+ * can move: {@link withLiveOwner} resolves a card's owner through the roster's record for its
+ * id, so a session that renamed after the write is still one name wherever a card is read.
  */
 
 import { type Card, cardRef } from "./card.ts";
@@ -196,6 +198,42 @@ export const HOLDING_OF_JS = String(holdingOf);
  */
 export function holdingLine(label: string, cards: readonly Card[]): string {
 	return label + " — " + holdingOf(cards);
+}
+
+/** What naming an owner reads of a roster row: the id a card records, and the label it answers by. */
+export interface RosterName {
+	id: string;
+	label: string;
+}
+
+/**
+ * The label a card's owner answers to now, or the one the card kept when no record names its id.
+ *
+ * A card records the name its holder answered to when the write was made, and that name can stop
+ * being true: `/team join <label>`, `/session join`, and a rename in Pi all move the bus record and
+ * touch no card. The id cannot move — it is what `holds` compares first, and what a sign is
+ * addressed by — so the id is the identity and the label is the word a reader sees.
+ */
+export function liveLabelOf(owner: { id?: string; label: string }, roster?: readonly RosterName[]): string {
+	if (roster === undefined || owner.id === undefined) return owner.label;
+	const record = roster.find((session) => session.id === owner.id);
+	return record === undefined ? owner.label : record.label;
+}
+
+/**
+ * `card` as a reader should see it: its owner named by the roster, and the very same card when
+ * that name already agrees — identity rather than a copy in the ordinary case, because a listing
+ * maps every card it shows and almost none of them were renamed.
+ *
+ * Deliberately not a write: a rename would rewrite every card a session holds, race whoever else
+ * is writing, and still never reach a finished one. The card file stays the record of what the
+ * write knew; the reader's copy carries the name.
+ */
+export function withLiveOwner<T extends Card>(card: T, roster?: readonly RosterName[]): T {
+	const owner = card.owner;
+	if (owner === undefined) return card;
+	const label = liveLabelOf(owner, roster);
+	return label === owner.label ? card : { ...card, owner: { ...owner, label } };
 }
 
 /** `#4 execute planned`, the brief a rollup group needs. */

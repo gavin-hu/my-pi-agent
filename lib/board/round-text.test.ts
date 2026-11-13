@@ -19,10 +19,13 @@ import {
 	holdingLine,
 	holdingOf,
 	isHistoryOwner,
+	liveLabelOf,
 	PLURAL_JS,
 	plural,
 	type RosterLabel,
+	withLiveOwner,
 } from "./round-text.ts";
+import { buildView } from "./view.ts";
 
 const NOW = 1_760_000_000_000;
 const UNWRITTEN_MS = 30 * 60 * 1_000;
@@ -263,5 +266,77 @@ describe("what a session is holding", () => {
 		expect(HOLDING_OF_JS).not.toContain("${");
 		const browserHolding = new Function(`return (${HOLDING_OF_JS});`)() as (cards: readonly Card[]) => string;
 		expect(browserHolding([card("162", { lane: "plan" })])).toBe(holdingOf([card("162", { lane: "plan" })]));
+	});
+});
+
+describe("the name a card's owner shows", () => {
+	/** A card claimed by one session, which the card remembers as the name it wrote under. */
+	const claimed = (id = "4") => card(id, { lane: "execute", owner: { id: "s-core", label: "team-agent-score" } });
+
+	test("answers the record the bus holds for the owner's id", () => {
+		// `/team join bob` moves the record and no card: the id is still the one `holds` decided, so
+		// it is still the one the reader resolves the name through.
+		const roster = [{ id: "s-core", label: "bob" }];
+		expect(liveLabelOf({ id: "s-core", label: "team-agent-score" }, roster)).toBe("bob");
+	});
+
+	test("keeps the card's label when no record names the id", () => {
+		const roster = [{ id: "s-other", label: "bob" }];
+		// A pruned record, or a session that never joined: the bus has no word, so the card's stands.
+		expect(liveLabelOf({ id: "s-core", label: "team-agent-score" }, roster)).toBe("team-agent-score");
+		// A handoff the bus could not name records no id, and nothing may invent one for it.
+		expect(liveLabelOf({ label: "team-agent-score" }, roster)).toBe("team-agent-score");
+		expect(liveLabelOf({ id: "s-core", label: "team-agent-score" }, undefined)).toBe("team-agent-score");
+	});
+
+	test("does not let another session wearing the label answer for the id", () => {
+		// A label is reusable the moment its holder stops, which is why `holds` compares ids: a new
+		// session called `team-agent-score` is not the one this card belongs to.
+		expect(liveLabelOf({ id: "s-core", label: "team-agent-score" }, [{ id: "s-new", label: "team-agent-score" }])).toBe(
+			"team-agent-score",
+		);
+	});
+
+	test("names the card's owner by the roster, and changes nothing else", () => {
+		const owner = claimed();
+		const named = withLiveOwner(owner, [{ id: "s-core", label: "bob" }]);
+		expect(named.owner).toEqual({ id: "s-core", label: "bob" });
+		// A display copy, not a new record: the revision, the lane, and the notes travel as they were.
+		expect({ ...named, owner: undefined }).toEqual({ ...owner, owner: undefined });
+		// The card itself is untouched, so a rename never reaches a file.
+		expect(owner.owner?.label).toBe("team-agent-score");
+	});
+
+	test("hands back the same card when the name already agrees, or nobody owns it", () => {
+		const owner = claimed();
+		expect(withLiveOwner(owner, [{ id: "s-core", label: "team-agent-score" }])).toBe(owner);
+		expect(withLiveOwner(owner, undefined)).toBe(owner);
+		const loose = card("5");
+		expect(withLiveOwner(loose, [{ id: "s-core", label: "bob" }])).toBe(loose);
+		const unresolved = card("6", {
+			lane: "execute",
+			owner: { label: "team-agent-score", handoff: { at: NOW, unresolved: true } },
+		});
+		expect(withLiveOwner(unresolved, [{ id: "s-core", label: "bob" }])).toBe(unresolved);
+	});
+
+	test("reaches the page's snapshot, which is where the roster and the cards meet", () => {
+		const view = buildView({
+			me: { id: "s-lead", label: "billing-lead" },
+			cards: [claimed("1")],
+			now: NOW,
+			bytes: 0,
+			where: "~/.pi/agent/board/8872d3adda0e",
+			repo: "my-pi-agent",
+			root: "/Users/someone/my-pi-agent",
+			roster: [{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 }],
+		});
+		// The lane carries the resolved name, and the rollup groups under it — which is the join the
+		// Agents column makes, so one session draws one row.
+		expect(view.lanes.find((lane) => lane.key === "execute")?.cards[0]?.owner).toEqual({
+			id: "s-core",
+			label: "billing-core",
+		});
+		expect(view.round.owners.map((group) => group.label)).toEqual(["billing-core"]);
 	});
 });

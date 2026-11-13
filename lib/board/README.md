@@ -409,6 +409,17 @@ or `idle`) and `holdingLine`, which is the label and its holding as one sentence
 the page as `HOLDING_OF_JS` — so `/team`'s presence line and the Team tab's teammate row say
 what a named session is doing from one body.
 
+The last thing it carries is the name itself. `withLiveOwner` / `liveLabelOf` label a card's
+owner from the roster's record for its **id**, and hand the card back unchanged when no record
+names it. A card records the label its write knew, and a rename moves the record rather than the
+card — `/team join`, `/session join`, and a rename in Pi all do — so a label is a word a reader
+must not take for an identity: `holds` compares ids first, and a sign is addressed by the id for
+the same reason. Resolved once per read, before anything groups or joins by a label: the page's
+snapshot, `board`'s listing, and `/team`'s round each map the cards they were handed, and a card
+nobody owns or whose handoff never resolved a session is left alone. It writes nothing,
+deliberately: a rename that rewrote every card a session holds would race whoever else is writing
+and would never reach a finished one.
+
 ### skipped.ts
 
 The sentence for the card files a board refused. A skipped file is not an absent one: a board
@@ -424,7 +435,9 @@ colour, limit, and count, the total, the rollup, the signature, the repository's
 root, and the store's path) — and the one shape a client is allowed to know. Each card arrives
 as a `ViewCard` carrying the priority it acts on, the moment it entered its lane (`since`), and
 `waits` when something unfinished blocks it, so the browser renders an answer instead of
-re-deciding one. `sig` is what makes a push cheap: the page is re-sent only when a card's
+re-deciding one. The owner arrives under the name the roster holds for its id ([`round-text.ts`](./round-text.ts)),
+so a session that renamed after claiming a card is one row in the Agents column rather than a live
+one beside a label nothing answers to. `sig` is what makes a push cheap: the page is re-sent only when a card's
 revision moved, a teammate's state did, or the rollup's clock pushed a card into `unwritten` —
 a membership time alone decides has to be in there, or the tab keeps a frame that is no longer
 true. A client cannot invent a state the model surface would not report.

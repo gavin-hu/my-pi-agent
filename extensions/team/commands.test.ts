@@ -78,6 +78,17 @@ describe("roundText", () => {
 		]);
 	});
 
+	test("names an owner by the record the bus holds, so a rename reads once", () => {
+		// The card records the name its claim wrote; `/team join billing-core` moved the bus record and
+		// no card, so the round has to ask the roster before it groups or compares a label.
+		const cards = [card("1", { lane: "execute", owner: { id: "s-core", label: "team-agent-score" } })];
+		const lines = roundText(cards, NOW, [{ ...mate("billing-core", NOW), id: "s-core" }]).split("\n");
+		expect(lines).toContain("billing-core (1): #1 execute unplanned");
+		// One owner, and no second one for the name the card kept — not even in the presence line.
+		expect(lines.some((line) => line.includes("team-agent-score"))).toBe(false);
+		expect(lines.at(-1)).toBe("live: billing-core — #1 execute");
+	});
+
 	test("names a quiet owner's cards, and leaves an owner with no record to the fact line", () => {
 		const cards = [
 			card("1", { lane: "execute", owner: { label: "ops-helper" } }),
