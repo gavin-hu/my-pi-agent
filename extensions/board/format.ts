@@ -20,7 +20,7 @@ import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/li
 import { skippedText } from "../../lib/board/skipped.ts";
 import type { Skip } from "../../lib/board/store.ts";
 import { formatAge, shortenPath } from "../../lib/format.ts";
-import { plural } from "../../lib/board/round-text.ts";
+import { plural, ranClause } from "../../lib/board/round-text.ts";
 
 /**
  * What a claim adds to the card: the next step, in the order the board enforces.
@@ -224,16 +224,10 @@ function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = fa
 	}
 	if (card.review !== undefined) {
 		const reason = card.review.byInstruction;
-		// The sign says what ran and what it exited with: a green word without the run is the belief
-		// this line replaced, and the sha is what a reader needs to reproduce it.
-		const run = card.review.verified;
-		// The tree the run proved sits beside its commit: one sha cannot say whether the evidence
-		// covers a branch or the checkout it was cut from.
-		const where = run?.root === undefined ? "" : ` in ${run.root}`;
-		const happened =
-			run === undefined
-				? ""
-				: ` · ran \`${run.cmd}\`${where} (exit ${run.exit}${run.sha === undefined ? "" : `, ${run.sha}`})`;
+		// The sign says what ran and what it exited with, in the one sentence the person's line and the
+		// page's dialog print too: `round-text.ts` owns the words, so three surfaces cannot disagree
+		// about which tree a spot-check proved.
+		const happened = ranClause(card.review.verified);
 		lines.push(
 			`  reviewed: ${card.review.by}${reason === undefined ? "" : ` · by instruction: ${reason}`}${happened}${notTold(card.review, card)}`,
 		);

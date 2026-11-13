@@ -65,11 +65,11 @@ edge however long a neighbour is. The Team tab draws that same card, no rule bet
 refused while `plan` or `execute` is full, naming the ways out. `reclaim` takes a card back to
 `backlog` from its holder, the person and the lead always, a peer only while that owner's record says
 quiet or gone. `move` into `execute` or `done` re-reads the plan where the write lands: a plan that is
-gone refuses the move, and the face says `its plan is gone`. A sign nobody heard reads `· not told`;
-saying it again sends it. A contract may name a `verify` command: `review` runs it in the board's tree
-(the worktree you entered), recording the exit, commit and tree; `done` refuses a sign with no result,
-or one older than the card's write. A refused `review` runs nothing; an `override` says why and reads
-`closed by instruction`.
+gone refuses the move, and the face says `its plan is gone`. A sign nobody heard reads `· not told`; saying
+it again sends it. A contract may name a `verify` command: `review` runs it in the board's tree (the worktree
+you entered), recording the exit, the branch, the commit, and whether that tree was the checkout or a
+worktree — evidence a reader weighs, never a gate; `done` refuses a sign with no result, or one older than
+the card's write. A refused `review` runs nothing; an `override` says why and reads `closed by instruction`.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);
 `/board approve <id>` and `/board review <id>` sign as the person; `/board archive` runs the sweep;

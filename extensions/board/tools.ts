@@ -192,7 +192,7 @@ export function registerTools(
 					cwd: resolveEffectiveCwd(ctx.cwd),
 					run: deps.verify ?? module.defaultVerifyRun(),
 					now: () => runtime.now(),
-					sha: module.shaOf(pi),
+					tree: module.treeOf(pi),
 				});
 			};
 			try {

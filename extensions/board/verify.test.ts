@@ -158,9 +158,31 @@ describe("a spot-check whose contract names a command", () => {
 			at: NOW,
 			root: worktree,
 			sha: WORKTREE_SHA,
+			branch: "worktree-gate",
 		});
+		// The worktree shares the checkout's git directory, and is not where that directory's parent is:
+		// the record says which tree it was by naming a branch, and claims no checkout at all.
+		expect(reviewed.details.card?.review?.verified?.checkout).toBeUndefined();
 		// And the checkout's commit is nowhere in the record.
 		expect(reviewed.details.card?.review?.verified?.sha).not.toBe(CHECKOUT_SHA);
+	});
+
+	test("in the checkout, the record says so, because a path does not", async () => {
+		// The other half, and the one 48 of this board's own 54 runs landed on: the same review, taken
+		// where the work lands instead of where it was made, now says which tree that was.
+		const { who, run, main } = worktreeBench();
+		await running(who, VERIFY);
+		const reviewed = await who.lead.call({ action: "review", card: "1" });
+		expect(run.cwds.map((cwd) => realpathSync.native(cwd))).toEqual([realpathSync.native(main)]);
+		expect(reviewed.details.card?.review?.verified).toEqual({
+			cmd: VERIFY,
+			exit: 0,
+			at: NOW,
+			root: main,
+			sha: CHECKOUT_SHA,
+			branch: "main",
+			checkout: true,
+		});
 	});
 });
 
@@ -182,9 +204,13 @@ function worktreeBench(): {
 	const main = temps.track(tempDir("pi-repo-"));
 	const worktree = temps.track(tempDir("pi-wt-"));
 	const common = join(main, ".git");
+	/** The branch each tree has checked out; a checkout's own name is the project's to choose. */
+	const branchOf = (cwd: string): string => (cwd === worktree ? "worktree-gate" : "main");
 	const exec: NonNullable<Parameters<typeof bench>[1]>["exec"] = async (_command, args, options) => {
 		const cwd = options?.cwd ?? main;
 		if (args.includes("--git-common-dir")) return { stdout: `${common}\n`, stderr: "", code: 0 };
+		// Before the `HEAD` answer below, which would otherwise answer the branch question with a sha.
+		if (args.includes("--abbrev-ref")) return { stdout: `${branchOf(cwd)}\n`, stderr: "", code: 0 };
 		if (args.includes("HEAD"))
 			return { stdout: `${cwd === worktree ? WORKTREE_SHA : CHECKOUT_SHA}\n`, stderr: "", code: 0 };
 		if (args.includes("--show-toplevel")) return { stdout: `${cwd}\n`, stderr: "", code: 0 };

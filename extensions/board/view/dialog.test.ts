@@ -149,14 +149,14 @@ describe("the dialog's client", () => {
 		// A spot-check says who and when, and says so when the close was made by instruction: the
 		// reason itself is the reason line above it, which is the shared body.
 		expect(BOARD_CLIENT_JS).toContain(
-			'reviewed.byInstruction !== undefined ? " \\u00b7 by instruction" : ranClause(reviewed)',
+			'reviewed.byInstruction !== undefined ? " \\u00b7 by instruction" : ranClause(reviewed.verified)',
 		);
-		// What ran is drawn from the sign's own record, the field the transcript reads too.
-		expect(BOARD_CLIENT_JS).toContain("function ranClause(reviewed)");
-		// The tree the run proved rides the clause beside its commit, and a record from before the
-		// board wrote one draws exactly what it drew then.
-		expect(BOARD_CLIENT_JS).toContain('run.root === undefined ? "" : " in " + run.root');
-		expect(BOARD_CLIENT_JS).toContain('" \\u00b7 ran " + run.cmd');
+		// What ran is drawn from the sign's own record, through the one body the transcript prints: the
+		// page carries that source, so a wording cannot land on one surface and not the other. The
+		// body's words are `round-text.test.ts`'s to pin — it runs the browser copy against the module
+		// — and what is this page's is that the body arrived and is asked the run, not the sign.
+		expect(BOARD_CLIENT_JS).toContain("function ranClause(run)");
+		expect(BOARD_CLIENT_JS).not.toContain("__RAN_CLAUSE__");
 		// An empty section takes its heading with it, and the notes read newest first — with
 		// one line instead of an empty list when a card has none.
 		expect(BOARD_CLIENT_JS).toContain('card-dialog-" + SECTIONS[s] + "-section');

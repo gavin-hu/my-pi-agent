@@ -78,6 +78,29 @@ export async function seedWorkingBoard(store: BoardStore, now: number): Promise<
 			LEAD,
 			now - index * 300_000,
 		);
-		await advance(store, card.id, "done", { owner: CORE }, now - index * 300_000 + 1_000);
+		await advance(
+			store,
+			card.id,
+			"done",
+			{
+				owner: CORE,
+				// One finished card carries the run its contract named, taken where the work lands: the
+				// dialog's reviewed row is read from a record that names a tree, not only a commit.
+				...(index === 1
+					? {
+							run: {
+								cmd: "bun run check",
+								exit: 0,
+								at: now - 299_000,
+								root: "/Users/someone/my-pi-agent",
+								sha: "3ccd9cdb",
+								branch: "main",
+								checkout: true as const,
+							},
+						}
+					: {}),
+			},
+			now - index * 300_000 + 1_000,
+		);
 	}
 }

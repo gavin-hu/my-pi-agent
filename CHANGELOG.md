@@ -24,11 +24,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   may name a fourth, optional line — `verify`, the command its acceptance is checked by — and a
   spot-check of a card that names one is that command's run: the `review` action and
   `/board review` execute it through one seam, a red or timed-out run refuses the sign, and the
-  sign keeps `{ cmd, exit, at, sha }`. The `done` move then refuses a sign with no result, or one
-  older than the sign's last write, naming the command and both doors that would record it. The
-  run is measured from the stamp *and* the announcement #398 writes after it, so the ordinary
-  path still closes; a card whose contract names no command keeps the gate it had. The transcript
-  and the card dialog draw the command and the run from the same fields.
+  sign keeps `{ cmd, exit, at, root, branch, checkout, sha }` — the tree the run was taken in, its
+  branch, and `checkout` when that tree is the repository's checkout rather than a worktree, which
+  is where the work lands and not where most of it is made. The `done` move then refuses a sign
+  with no result, or one older than the sign's last write, naming the command and both doors that
+  would record it. The run is measured from the stamp *and* the announcement #398 writes after it,
+  so the ordinary path still closes; a card whose contract names no command keeps the gate it had.
+  The transcript, the person's `/board review` line, and the card dialog draw the command and the
+  run from the same fields in one sentence, so the two doors that sign cannot word a run apart.
 
 ### Changed
 

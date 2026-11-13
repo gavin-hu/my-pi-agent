@@ -2,9 +2,10 @@
  * The acceptance command a contract names, and the one run a spot-check records.
  *
  * A contract's `verify` line is a promise the board can check: the sign's own call runs it and
- * keeps `{ cmd, exit, at, sha }` on the sign (`lib/board/contract.ts`). Nothing here decides
- * anything — the board never executes a command on its own, and the store never reads this
- * module — so what it owns is the run itself: one shell, a bound, and the tail of what it said.
+ * keeps `{ cmd, exit, at, root, branch, checkout, sha }` on the sign (`lib/board/contract.ts`).
+ * Nothing here decides anything — the board never executes a command on its own, and the store
+ * never reads this module — so what it owns is the run itself: one shell, a bound, and the tail of
+ * what it said, beside the tree it was started in.
  *
  * The bound is the only thing keeping a sign finite. A command that outlives it is killed with
  * its tree (the pieces `job` and `watch` use through `lib/child.ts`), and the answer says
@@ -14,11 +15,12 @@
  * buffer in a card file would grow with whatever the command decided to print.
  */
 
+import { dirname, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type ChildSink, type ChildSlot, createChildSupervisor } from "../child.ts";
 import { messageOf } from "../errors.ts";
 import { sanitizeLine } from "../format.ts";
-import { createExecRunner, headSha } from "../git/index.ts";
+import { createExecRunner, currentBranch, gitCommonDir, headSha } from "../git/index.ts";
 import type { Card } from "./card.ts";
 import type { Verification } from "./contract.ts";
 import { failedSpotCheck, killedSpotCheck, type Lead, reviewGate } from "./lead.ts";
@@ -46,6 +48,30 @@ export interface VerifyOutcome {
 
 /** One run of `command` in `cwd`. The seam every suite drives instead of a real process. */
 export type VerifyRun = (command: string, cwd: string) => Promise<VerifyOutcome>;
+
+/**
+ * The tree a run was started in, as git answers for it: the commit, the branch, and which of the
+ * repository's trees it is.
+ *
+ * A sha names a commit and a commit backs every worktree of a branch, so a reader who has only the
+ * commit cannot say *where* the evidence was taken. `checkout` is the one word a path does not say
+ * at a glance — work is made in a worktree and lands in the checkout — and it is absent when git
+ * cannot name the tree rather than guessed, so a record never claims a tree it did not run in.
+ */
+export interface TreeFacts {
+	/** The commit the tree was on. */
+	sha?: string;
+	/** The branch it had checked out, which a detached HEAD does not have. */
+	branch?: string;
+	/** `true` when the tree is the repository's checkout rather than one of its worktrees. */
+	checkout?: true;
+}
+
+/**
+ * How a door reads the facts of the tree it is about to run in: one git question per sign, so the
+ * gate's tree is git's answer and not the caller's guess.
+ */
+export type TreeReader = (cwd: string) => Promise<TreeFacts>;
 
 /** The one answer a door records: the evidence, or the run that stopped the spot-check. */
 export type VerifyAnswer = { verified: Verification } | { failure: VerifyOutcome };
@@ -112,24 +138,41 @@ export async function verifiedCommand(
 	cwd: string,
 	run: VerifyRun,
 	now: () => number,
-	sha?: (cwd: string) => Promise<string | undefined>,
+	tree?: TreeReader,
 ): Promise<VerifyAnswer> {
 	const outcome = await run(cmd, cwd).catch(
 		(error: unknown): VerifyOutcome => ({ exit: -1, output: messageOf(error), killed: false }),
 	);
 	if (outcome.killed || outcome.exit !== 0) return { failure: outcome };
-	const commit = await sha?.(cwd).catch(() => undefined);
-	// The tree is the run's own: the directory the command was started in, which is what the sha
-	// beside it was read from. A reader can then tell a branch's evidence from the checkout's.
-	return {
-		verified: { cmd, exit: outcome.exit, at: now(), root: cwd, ...(commit === undefined ? {} : { sha: commit }) },
-	};
+	const facts = await tree?.(cwd).catch(() => undefined);
+	// The tree is the run's own: the directory the command was started in, which is what the facts
+	// beside it were read from. A reader can then tell a branch's evidence from the checkout's, and
+	// a checkout's from the worktree the work was made in.
+	return { verified: { cmd, exit: outcome.exit, at: now(), root: cwd, ...facts } };
 }
 
-/** The commit the board is on, through the git runner the rest of the board already uses. */
-export function shaOf(pi: Pick<ExtensionAPI, "exec">): (cwd: string) => Promise<string | undefined> {
-	const run = createExecRunner(pi);
-	return (cwd) => headSha(run, cwd);
+/**
+ * The tree a door runs in, through the git runner the rest of the board already uses.
+ *
+ * One call, three questions: the commit, the branch, and the git directory the tree shares with the
+ * rest of the repository — whose parent is the checkout, which is how a worktree is told from the
+ * tree everything lands in without naming a branch anybody's project may spell differently.
+ */
+export function treeOf(pi: Pick<ExtensionAPI, "exec">): TreeReader {
+	const runGit = createExecRunner(pi);
+	return async (cwd) => {
+		const [sha, branch, common] = await Promise.all([
+			headSha(runGit, cwd).catch(() => undefined),
+			currentBranch(runGit, cwd).catch(() => undefined),
+			gitCommonDir(runGit, cwd).catch(() => undefined),
+		]);
+		const checkout = common !== undefined && dirname(common) === resolve(cwd);
+		return {
+			...(sha === undefined ? {} : { sha }),
+			...(branch === undefined ? {} : { branch }),
+			...(checkout ? { checkout: true as const } : {}),
+		};
+	};
 }
 
 /**
@@ -145,11 +188,11 @@ export async function verifySpotCheck(
 	cwd: string,
 	run: VerifyRun,
 	now: () => number,
-	sha?: (cwd: string) => Promise<string | undefined>,
+	tree?: TreeReader,
 ): Promise<{ verified: Verification } | { error: string } | undefined> {
 	const cmd = card?.contract?.verify;
 	if (card === undefined || cmd === undefined) return undefined;
-	const answer = await verifiedCommand(cmd, cwd, run, now, sha);
+	const answer = await verifiedCommand(cmd, cwd, run, now, tree);
 	if ("verified" in answer) return answer;
 	const tail = outputLine(answer.failure);
 	const sentence = answer.failure.killed
@@ -172,7 +215,8 @@ export interface SpotCheck {
 	cwd: string;
 	run: VerifyRun;
 	now: () => number;
-	sha?: (cwd: string) => Promise<string | undefined>;
+	/** How the tree's own facts are read, so the record names the branch and which tree it was. */
+	tree?: TreeReader;
 }
 
 /**
@@ -189,7 +233,7 @@ export async function spotCheck(
 ): Promise<{ verified: Verification } | { error: string } | undefined> {
 	if ("error" in reviewGate(options.card, options.actor, options.lead, options.override)) return undefined;
 	if (options.override !== undefined) return undefined;
-	return verifySpotCheck(options.card, options.cwd, options.run, options.now, options.sha);
+	return verifySpotCheck(options.card, options.cwd, options.run, options.now, options.tree);
 }
 
 /** The clipped output as one line a refusal can carry: merged, collapsed, and sanitized. */

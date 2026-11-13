@@ -22,6 +22,8 @@ import {
 	liveLabelOf,
 	PLURAL_JS,
 	plural,
+	RAN_CLAUSE_JS,
+	ranClause,
 	type RosterLabel,
 	withLiveOwner,
 } from "./round-text.ts";
@@ -202,6 +204,40 @@ describe("plural", () => {
 	test("adds one s, and only one", () => {
 		expect(plural(1, "owner")).toBe("1 owner");
 		expect(plural(0, "note")).toBe("0 notes");
+	});
+});
+
+describe("the run clause three surfaces print", () => {
+	const VERIFY = "bun run check";
+
+	test("names the command, the tree it ran in, and the commit and branch there", () => {
+		// One sentence for the transcript's card, the person's line, and the page's dialog. The tree is
+		// the half a commit cannot say: the same commit backs a branch and the checkout it was cut from.
+		expect(
+			ranClause({ cmd: VERIFY, exit: 0, at: NOW, root: "/repo", sha: "1d3a8ce3", branch: "main", checkout: true }),
+		).toBe(" · ran `bun run check` in the checkout (exit 0, main @ 1d3a8ce3)");
+		// A worktree keeps its path: it is the tree a reviewer has to enter to reproduce a red.
+		expect(ranClause({ cmd: VERIFY, exit: 0, at: NOW, root: "/repo/.pi/worktrees/x", branch: "worktree-x" })).toBe(
+			" · ran `bun run check` in /repo/.pi/worktrees/x (exit 0, worktree-x)",
+		);
+	});
+
+	test("reads a record written before the tree had a name exactly as it did", () => {
+		// The compatibility the field must not spend: an old sign prints its path and its commit, with no
+		// new word in it, and a record with nothing at all prints the command and the exit.
+		expect(ranClause({ cmd: VERIFY, exit: 0, at: NOW, root: "/repo", sha: "1d3a8ce3" })).toBe(
+			" · ran `bun run check` in /repo (exit 0, 1d3a8ce3)",
+		);
+		expect(ranClause({ cmd: VERIFY, exit: 1, at: NOW })).toBe(" · ran `bun run check` (exit 1)");
+		expect(ranClause(undefined)).toBe("");
+	});
+
+	test("is the same body the browser receives, safe to splice into a script", () => {
+		expect(RAN_CLAUSE_JS).toBe(String(ranClause));
+		expect(RAN_CLAUSE_JS).not.toContain("${");
+		const browserClause = new Function(`return (${RAN_CLAUSE_JS});`)() as typeof ranClause;
+		const run = { cmd: VERIFY, exit: 0, at: NOW, root: "/repo", branch: "main", checkout: true } as const;
+		expect(browserClause(run)).toBe(ranClause(run));
 	});
 });
 
