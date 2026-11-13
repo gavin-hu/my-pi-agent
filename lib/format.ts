@@ -11,12 +11,24 @@ import { homedir } from "node:os";
 /**
  * A call through a module namespace, the shape the host's transpiler writes: `(0, _mod.member)`.
  *
- * Nothing but a transpiled import has a `_`-prefixed namespace, and a body crossing to a page
- * import nothing at all — so both forms below are the transpiler's, not the body's.
+ * The `(0, …)` wrapper is the transpiler's alone — nothing a body is written with produces one —
+ * so this form is safe to rewrite wherever it appears.
  */
 const NAMESPACE_CALL = /\(0, _[A-Za-z$][\w$]*\.([A-Za-z$][\w$]*)\)/g;
 
-/** The same namespace read as a value rather than called: `_mod.member`. */
+/**
+ * The same namespace read as a value rather than called: `_mod.member`.
+ *
+ * This one cannot be told from the body's own name: a `_cache.value` written by the body reads
+ * exactly the same, and the rewrite would leave `value` behind. So a spliced body names nothing
+ * of its own with a leading underscore, and `test/spliced-bodies.test.ts` fails a body that
+ * writes the `_x.member` form this eats — a page reading the wrong value is the failure, not a
+ * ReferenceError, so nothing else would say so.
+ *
+ * The guard reads the whole source, a string literal included, because this rewrite does: a body
+ * that needs to print such text builds it (`"_x" + ".member"`) rather than relying on a scan that
+ * skipped quotes, which would bless the one form this still breaks.
+ */
 const NAMESPACE_READ = /(?<![\w$.])_[A-Za-z$][\w$]*\.([A-Za-z$][\w$]*)/g;
 
 /** A default import through one, whose local name the transpiler did not keep. */
