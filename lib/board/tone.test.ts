@@ -11,6 +11,10 @@ import { LANES, LANE_RULES } from "./lanes.ts";
 import { REASON_KINDS } from "./reason.ts";
 import {
 	BOARD_TONES,
+	DECISION_BAND,
+	DECISION_BAND_JS,
+	DECISION_BAND_LABEL,
+	DECISION_BANDS,
 	DECISION_KINDS,
 	DECISION_LABEL,
 	DECISION_LABEL_JS,
@@ -51,7 +55,34 @@ describe("the tone table", () => {
 		expect(JSON.parse(DECISION_RANK_JS)).toEqual([...DECISION_KINDS]);
 		expect(JSON.parse(DECISION_TONE_JS)).toEqual(DECISION_TONE);
 		expect(JSON.parse(DECISION_LABEL_JS)).toEqual(DECISION_LABEL);
+		expect(JSON.parse(DECISION_BAND_JS)).toEqual({
+			order: [...DECISION_BANDS],
+			of: DECISION_BAND,
+			label: DECISION_BAND_LABEL,
+		});
 		expect(JSON.parse(REASON_TONE_JS)).toEqual(REASON_TONE);
+	});
+
+	test("files every kind under a band, and names every band it files one under", () => {
+		// Exhaustive both ways: a kind with no band would draw under the last band it was
+		// written beside, and a band no kind files under is a heading over nothing.
+		expect(Object.keys(DECISION_BAND).sort()).toEqual([...DECISION_KINDS].sort());
+		expect([...new Set(Object.values(DECISION_BAND))].sort()).toEqual([...DECISION_BANDS].sort());
+		for (const band of DECISION_BANDS) expect(DECISION_BAND_LABEL[band].length, band).toBeGreaterThan(0);
+	});
+
+	test("puts the lead's own gates first, then what is nobody's, then what an owner owes", () => {
+		// The order is the redesign's whole point: a lead opens the pane for the two things only
+		// it can do, and the backlog pool must not outrank them.
+		expect(DECISION_BANDS).toEqual(["signature", "claim", "stalled"]);
+		expect(DECISION_BAND.approval).toBe("signature");
+		expect(DECISION_BAND.review).toBe("signature");
+		expect(DECISION_BAND.unassigned).toBe("claim");
+		expect(DECISION_BAND.gone).toBe("claim");
+		expect(DECISION_BAND.unwritten).toBe("stalled");
+		// A blocked card is not the lead's own work to sign, and it is not nobody's: its
+		// blocker is a decision somebody already owes.
+		expect(DECISION_BAND.blocked).toBe("stalled");
 	});
 
 	test("keeps a merely-true reason quiet, so a card is not shouted at", () => {

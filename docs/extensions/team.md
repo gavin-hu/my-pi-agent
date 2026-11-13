@@ -6,16 +6,16 @@ when its owner is gone, claim one for yourself, or ask a peer a question. Nothin
 here starts a process — every action is a message, and a peer listening with `wake`
 is woken for it ([`session-bus`](session-bus.md) owns that rule).
 
-<img src="../../assets/screens/team.png" alt="The Team tab as three columns: AGENTS with the lead pinned first and one card per session carrying a monogram, its state, its mail and its missions; ACTIVE WORK with a decisions strip over BLOCKED, EXECUTE and PLAN swimlanes; ACTIVITY with WAITING mail and a RECENT rail" width="1280" height="1038">
+<img src="../../assets/screens/team.png" alt="The Team tab as three columns: AGENTS with the lead pinned first and one card per session carrying a monogram, its state, its mail and its missions; ACTIVE WORK with a NEEDS YOU queue in three bands — YOUR SIGNATURE, UNCLAIMED and STALLED — each ask one line with its reason printed under it, over BLOCKED, EXECUTE and PLAN swimlanes; ACTIVITY with WAITING mail and a RECENT rail" width="1280" height="1038">
 
-The board's Team tab is the same round as a page, in three columns that each count
-themselves and scroll as one. **AGENTS** holds a card per session in a wide column, the lead
-pinned first whatever its state: a monogram, the state at the card's edge (`working` inside a
-turn, `quiet 42m` with its age), `lead` and `you` chips under it with the mail and needs-you
-counts, and a mission line per card. **ACTIVE WORK** is the lead's queue as a `NEEDS YOU` strip
-over the `blocked`, `execute` and `plan` swimlanes — one card shape, one hover per reason, one
-`+N more` that opens the board. **ACTIVITY** draws unread mail as a block — a fill, an accent
-edge, an accent count — above a flat recent history; reading consumes nothing.
+The board's Team tab is the same round as a page, in three columns that each count themselves and
+scroll as one. **AGENTS** holds a card per session, the lead pinned first: a monogram, its state
+and age at the edge, `lead` and `you` chips with the mail and needs-you counts, and a mission line
+per card. **ACTIVE WORK** is the lead's queue over the `blocked`, `execute` and `plan` swimlanes:
+one line per ask, the reason printed rather than hovered, filed by whose move it is into `YOUR
+SIGNATURE`, `UNCLAIMED` and `STALLED`, none behind a fold — a column per band on a 2K window, and a
+phone gives the title the whole line to wrap. **ACTIVITY** draws unread mail as a block — a fill
+and an accent edge — above a flat recent history; reading consumes nothing.
 
 ## What you can do
 

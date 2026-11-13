@@ -1,11 +1,16 @@
 /**
- * What tone a lane, a reason, and a Team decision row wear.
+ * What tone a lane, a reason, and a Team decision row wear, and which band a decision is filed
+ * under.
  *
  * The page and the terminal each decide a colour, and before this table they decided it in
  * seven places: a lane role in the lane table, a reason class in the browser bundle, two
  * hand-written `[data-kind]` edge rules, a second `blocked` rule for the queue's why line,
  * and a transcript that painted every lane the same accent. A tone stated once is the only
  * version of that which cannot drift.
+ *
+ * The words a decision row wears live here for the same reason: its pill, its rank, and the
+ * band it is filed under are three facts about one kind, and the page, whose whole vocabulary
+ * is a string, has no compiler to catch them drifting apart.
  *
  * A tone is a word the page's kit already names as a property (`var(--warn)`), so the page
  * wears one directly and needs no map. The terminal speaks its own vocabulary — `ok`, `warn`,
@@ -95,7 +100,51 @@ export const DECISION_LABEL: Record<DecisionKind, string> = {
 /** {@link DECISION_LABEL} as the browser bundle's own source, spliced in like the rank. */
 export const DECISION_LABEL_JS = JSON.stringify(DECISION_LABEL);
 
-/** The tone a decision row's edge, and a danger row's reason line, wear. */
+/**
+ * How the queue's rows are grouped, in the order the column reads them.
+ *
+ * A lead reads the queue to answer one question first — *whose move is this?* — and the kinds
+ * alone cannot: `unassigned` and `needs approval` sat in one list, which is why a queue of
+ * backlog cards read as the backlog. The order is the order of obligation: what only the lead
+ * can sign, then what is nobody's, then what a card's own owner owes.
+ */
+export const DECISION_BANDS = ["signature", "claim", "stalled"] as const;
+
+/** One band a queue row is filed under. */
+export type DecisionBand = (typeof DECISION_BANDS)[number];
+
+/**
+ * The band each kind is filed under.
+ *
+ * A table over every kind rather than a rule over the ones that fit: a new kind must name its
+ * band here, and the compiler is what says so — the alternative was a `switch` in a string.
+ */
+export const DECISION_BAND: Record<DecisionKind, DecisionBand> = {
+	approval: "signature",
+	review: "signature",
+	unassigned: "claim",
+	gone: "claim",
+	waiting: "claim",
+	blocked: "stalled",
+	unwritten: "stalled",
+	unplanned: "stalled",
+};
+
+/** The band's name in the column: the word for whose move it is, not for what is wrong. */
+export const DECISION_BAND_LABEL: Record<DecisionBand, string> = {
+	signature: "Your signature",
+	claim: "Unclaimed",
+	stalled: "Stalled",
+};
+
+/** The bands, their kinds, and their names as the bundle's own source, spliced in like the rank. */
+export const DECISION_BAND_JS = JSON.stringify({
+	order: DECISION_BANDS,
+	of: DECISION_BAND,
+	label: DECISION_BAND_LABEL,
+});
+
+/** The tone a decision's pill wears, and a danger row's sentence. */
 export const DECISION_TONE: Record<DecisionKind, BoardTone> = {
 	blocked: "danger",
 	gone: "danger",

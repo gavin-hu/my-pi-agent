@@ -17,7 +17,13 @@
 import { ACTIVITY_LABEL_JS } from "../../../lib/board/activity.ts";
 import { MATCHES_QUERY_JS } from "../../../lib/board/card.ts";
 import { REASON_FOR_JS } from "../../../lib/board/reason.ts";
-import { DECISION_LABEL_JS, DECISION_RANK_JS, DECISION_TONE_JS, REASON_TONE_JS } from "../../../lib/board/tone.ts";
+import {
+	DECISION_BAND_JS,
+	DECISION_LABEL_JS,
+	DECISION_RANK_JS,
+	DECISION_TONE_JS,
+	REASON_TONE_JS,
+} from "../../../lib/board/tone.ts";
 import { LANES } from "../../../lib/board/lanes.ts";
 import {
 	CLIENT_BASE_JS,
@@ -60,7 +66,7 @@ ${namesScript(BOARD_CLASS)}
 ${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, reason: REASON_FOR_JS, age: FORMAT_AGE_JS, lanes: String(LANES.length), skipped: String(skippedText), decisions: DECISION_RANK_JS, decisionTones: DECISION_TONE_JS, reasonTones: REASON_TONE_JS, runtime: CLIENT_RUNTIME_JS })}
 ${rosterJs({ historyOwner: HISTORY_OWNER_JS })}
 ${fleetJs({ historyLine: HISTORY_LINE_JS })}
-${activeJs({ decisionLabels: DECISION_LABEL_JS })}
+${activeJs({ decisionLabels: DECISION_LABEL_JS, decisionBands: DECISION_BAND_JS })}
 ${feedJs({ labels: ACTIVITY_LABEL_JS })}
 ${teamJs()}
 ${BOARD_CARD_JS}

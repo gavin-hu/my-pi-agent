@@ -448,19 +448,22 @@ note named rather than blaming a session.
 
 ### tone.ts
 
-What colour a board surface wears, stated once, because the page and the terminal both need
-it and two statements drift apart. `BoardTone` is the page kit's own colour words plus `dim`,
-so a tone is the name of a CSS property and the page needs no map; `BOARD_TONES`, `REASON_TONE`
-(every reason kind, `waiting` included because the card face invents it), and
-`DECISION_KINDS` / `DECISION_TONE`, the Team queue's kinds in rank order with the tone each
-wears in its pill and on its mark, so a row's rank and the tone it says cannot disagree; the
-row's ground is the paper the card under it wears. The rule behind the words: warn is a person
-who must act next, danger is a refusal or a loss, and anything merely true of the card is muted.
+What colour a board surface wears, and which band a Team queue row is filed under, stated once,
+because the page and the terminal both need it and two statements drift apart. `BoardTone` is the
+page kit's own colour words plus `dim`, so a tone is the name of a CSS property and the page needs
+no map; `BOARD_TONES`, `REASON_TONE` (every reason kind, `waiting` included because the card face
+invents it), and `DECISION_KINDS` / `DECISION_TONE`, the Team queue's kinds in rank order with the
+tone each wears in its pill, so a row's rank and the tone it says cannot disagree. `DECISION_BAND`
+files every kind under one of `DECISION_BANDS` — the two gates only the lead can sign, what nobody
+holds, and what a card's own owner owes — with `DECISION_BAND_LABEL` naming the file, so a queue
+that grouped backlog beside approvals cannot do it by accident. The rule behind the words: warn
+is a person who must act next, danger is a refusal or a loss, and anything merely true of the card
+is muted.
 
-`DECISION_RANK_JS` / `DECISION_TONE_JS` / `REASON_TONE_JS` are those tables as the browser
-bundle's own source, spliced in like every other rule the page shares. The terminal's
-vocabulary is not here: `extensions/board/tone.ts` maps a tone to a `TuiRole`, because only the
-transcript speaks it.
+`DECISION_RANK_JS` / `DECISION_TONE_JS` / `DECISION_BAND_JS` / `REASON_TONE_JS` are those tables
+as the browser bundle's own source, spliced in like every other rule the page shares. The
+terminal's vocabulary is not here: `extensions/board/tone.ts` maps a tone to a `TuiRole`, because
+only the transcript speaks it.
 
 ### reason.ts
 

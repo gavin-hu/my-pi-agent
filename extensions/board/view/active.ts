@@ -1,27 +1,32 @@
 /**
- * The Active work column: the lead's queue in a strip, over the three lanes that move.
+ * The Active work column: the lead's queue, in three bands, over the three lanes that move.
  *
  * Agents say *who*, Activity says *what arrived*; neither says what is moving and what is
- * stuck. So the middle column is the board's working half: the cards that need a decision as
- * a strip above the `blocked`, `execute` and `plan` swimlanes. Backlog and Done stay on the
- * Board tab, behind the column's door.
+ * stuck. So the middle column is the board's working half: the asks a lead has to answer,
+ * banded by whose move each one is, above the `blocked`, `execute` and `plan` swimlanes.
+ * Backlog and Done stay on the Board tab, behind the column's door.
  *
- * Every row is a shape with its sentence one hover away:
+ * The bands are the question a lead asks first — *whose move is this?* — which the kinds alone
+ * could not answer: `unassigned` sat beside `needs approval` in one list, so a queue of backlog
+ * cards read as the backlog. `DECISION_BAND` in `lib/board/tone.ts` is that filing, and it is
+ * the same table the pill and the rank come from.
  *
- * - **A decision** is an edge in its tone, an id in mono, an elided title, the reason as a
- *   pill, the owner, and one age. The whole reason — the sentence the queue exists for — is
- *   carried twice: as the row's `title`, and by `aria-describedby` for a reader who never
- *   hovers. Three rows, then `+N more`, because a queue that fills the column is the Board
- *   tab with extra steps.
- * - **A mission card** is a lane bar, a reference, one line of title, and who holds it with
- *   their state's dot.
+ * Every ask is drawn, as one line and its reason: an id in mono, the pill it wears, an elided
+ * title, who holds it with their state's dot, and one age — then the sentence the queue exists
+ * for, printed rather than hovered and carried by `aria-describedby` for a reader who never
+ * hovers. Nothing waits behind `+N more`: the pane's head counts what is drawn.
+ *
+ * A mission card under the queue is the board's own card, unchanged: a lane bar, a reference,
+ * one line of title, and who holds it with their state's dot.
  *
  * The reasons themselves are not decided here: `board.reasonFor` is the one rule the page,
  * the card face and the terminal share, so a blocked card is described one way everywhere.
  */
 
-export function activeJs(rules: { decisionLabels: string }): string {
-	return activeTemplate.replace("__DECISION_LABEL__", rules.decisionLabels);
+export function activeJs(rules: { decisionLabels: string; decisionBands: string }): string {
+	return activeTemplate
+		.replace("__DECISION_LABEL__", rules.decisionLabels)
+		.replace("__DECISION_BAND__", rules.decisionBands);
 }
 
 const activeTemplate = String.raw`(function () {
@@ -37,9 +42,8 @@ const activeTemplate = String.raw`(function () {
   var decisionTone = board.decisionTone;
 
   var DECISION_LABEL = __DECISION_LABEL__;
+  var BANDS = __DECISION_BAND__;
 
-  /** How many decisions the strip prints before it counts the rest. */
-  var STRIP = 3;
   /** How many mission cards one swimlane prints before it counts the rest. */
   var SWIM = 4;
   /** The lanes the middle column carries, in the order they are read. */
@@ -98,8 +102,11 @@ const activeTemplate = String.raw`(function () {
     add(round.unapproved, function (card) { return why(card, "contract ready \u2014 needs approval"); }, "approval");
     // The other gate is the lead's too, and it is owed from the moment a card enters the lane.
     add(round.unreviewed, function (card) { return why(card, "no spot-check yet"); }, "review");
-    // The one sentence with an age that is not a stamp: it needs a bare age in the middle.
-    add(round.unwritten, function (card) { return "no writes for " + ago(card.updatedAt); }, "unwritten");
+    // The one reason whose subject is an age, so it carries one: the row stamps it rather than
+    // printing it once, which is the same rule an offered card's sentence follows.
+    add(round.unwritten, function (card) {
+      return { text: "no writes for " + ago(card.updatedAt), at: card.updatedAt, wording: "no writes for {age}" };
+    }, "unwritten");
     add(round.unplanned, function (card) { return why(card, "no contract yet"); }, "unplanned");
     add(round.unassigned, function () { return "nobody holds it"; }, "unassigned");
     // An order outranks nobody holding it: the claim would be refused, so the queue says what
@@ -132,7 +139,7 @@ const activeTemplate = String.raw`(function () {
     return gone;
   }
 
-  /** The reason as a rail tag: the word a reader scans by, with the sentence on the hover. */
+  /** The reason as a pill: the word a reader scans by, and the sentence it stands for on the hover. */
   function whyPill(entry) {
     var tone = decisionTone(entry.kind);
     var pill = chip(DECISION_LABEL[entry.kind] || entry.kind, tone === "dim" ? "dim" : tone);
@@ -143,9 +150,9 @@ const activeTemplate = String.raw`(function () {
   /**
    * Who holds a card: a state dot and the name, never a pill.
    *
-   * One shape for both cards in this column. A chip in the strip and a dot on the swimlane card
-   * was the last two-treatments-for-one-fact in a column whose whole point is that a decision
-   * and a mission are the same box: the dot is the quieter of the two, and it says how the
+   * One shape for both rows in this column. A chip in the queue and a dot on the swimlane card
+   * was the last two-treatments-for-one-fact in a column that is read for who is on what: the
+   * dot is the quieter of the two, and it says how the
    * owner is doing rather than only who it is.
    */
   function ownerMeta(view, label) {
@@ -158,64 +165,93 @@ const activeTemplate = String.raw`(function () {
     return wrap;
   }
 
-  /** One decision: the card, why it is here, who holds it, and how long it has waited. */
-  function decisionRow(entry, view) {
+  /**
+   * One ask: the id, the pill it wears, its title, who holds it, one age, and why it is here.
+   *
+   * The title is the row's one control, as it is on the board's own face, so j/k and the
+   * dialog's walk find this row without knowing it exists. The reason is printed rather than
+   * hidden in a tooltip: it is the sentence the queue exists for.
+   */
+  function decisionRow(entry, view, rank) {
     var card = entry.card;
-    var tone = decisionTone(entry.kind);
-    var node = el("article", "bf-row " + N.decision);
-    node.setAttribute("data-tone", tone);
-    // The lane is the paper, so the row is tinted by the same rule the card under it is: one card
-    // drawn in two places in this column is one colour.
-    node.setAttribute("data-lane", card.lane);
-    node.setAttribute("data-card", card.id);
-    // The tone is the pill, the mark at the row's edge, and a danger row's sentence — three
-    // statements, none of them the ground, so a decision needs no glyph of its own.
-    var body = el("div", N.decisionBody);
-    node.appendChild(body);
-
-    var open = el("button", N.decisionOpen);
-    open.type = "button";
-    open.setAttribute("aria-haspopup", "dialog");
-    // The reason the row is here, for a reader who never hovers: the tag is inside the button,
-    // so the whole row is described by the sentence its tooltip carries.
-    open.setAttribute("aria-describedby", "team-why-" + card.id);
-    open.appendChild(el("span", N.decisionRef, "#" + card.id));
-    open.appendChild(whyPill(entry));
-    var title = el("span", "bf-row__title", card.title);
+    var row = el("li", N.queueRow);
+    // The tone is the pill's and a danger row's sentence — two statements, neither of them the
+    // ground, so an ask needs no paper and no glyph of its own.
+    row.setAttribute("data-tone", decisionTone(entry.kind));
+    row.setAttribute("data-card", card.id);
+    row.appendChild(el("span", N.queueRank, String(rank)));
+    row.appendChild(el("span", N.queueRef, "#" + card.id));
+    row.appendChild(whyPill(entry));
+    var title = el("button", "bf-row__title", card.title);
+    title.type = "button";
+    title.setAttribute("aria-haspopup", "dialog");
+    // The reason the row is here, for a reader who never hovers: the control is described by
+    // the very sentence printed under it.
+    title.setAttribute("aria-describedby", "team-why-" + card.id);
     title.title = card.title;
-    open.appendChild(title);
-    open.addEventListener("click", function () { board.openCard(card.id); });
-    body.appendChild(open);
-
-    var meta = el("p", N.decisionWhy);
+    title.addEventListener("click", function () { board.openCard(card.id); });
+    row.appendChild(title);
+    // The holder keeps its cell when there is none: the age sits at the row's edge in every
+    // row, and a column of ages with gaps in it is not a column.
+    row.appendChild(card.owner ? ownerMeta(view, card.owner.label) : el("span", N.owner));
+    var meta = el("p", N.queueWhy);
     // What the card is, in the label the face and the record wear: the queue is where a
     // decision is made, and a breaking change is the one fact it must not hide.
     var kind = kindLabel(card);
     if (kind !== undefined) meta.appendChild(kind);
-    if (card.owner) meta.appendChild(ownerMeta(view, card.owner.label));
-    // The sentence is the row's reason, so it is stamped rather than printed once: the age in
-    // it is the one part that moves without a frame.
-    var sentence = entry.at === undefined ? undefined : board.reasonNode({ text: entry.why, at: entry.at, wording: entry.wording });
-    if (sentence !== undefined) meta.appendChild(sentence);
-    else meta.appendChild(board.stamp(card.updatedAt, undefined, true));
+    // A reason that names an age is stamped rather than printed once — the age in it is the one
+    // part of the row that moves without a frame — and every other row says how long it waited
+    // at its edge instead.
+    if (entry.at === undefined) {
+      meta.appendChild(document.createTextNode(entry.why));
+      row.appendChild(board.stamp(card.updatedAt, undefined, true));
+    } else {
+      meta.appendChild(board.reasonNode({ text: entry.why, at: entry.at, wording: entry.wording }));
+    }
     meta.id = "team-why-" + card.id;
-    body.appendChild(meta);
-    return node;
+    row.appendChild(meta);
+    return row;
   }
 
   /**
-   * The strip past its third row: the same underlined control a swimlane folds with, opening
-   * the same place.
+   * The asks filed under each band, in the column's order, with the empty bands left out.
    *
-   * It used to be a paragraph saying where the rest was — one of three shapes for "there is
-   * more" in a column that now has one.
+   * The ranks survive the filing: a card keeps the place decisionsOf gave it, so the order
+   * inside a band is the one the terminal's rollup reads, and a heading over nothing is never
+   * drawn.
    */
-  function moreRow(count) {
-    var row = el("button", N.fold, "+" + count + " more");
-    row.type = "button";
-    row.title = "every decision is on the Board tab";
-    row.addEventListener("click", function () { board.showView("board"); });
-    return row;
+  function banded(entries) {
+    var bands = [];
+    for (var b = 0; b < BANDS.order.length; b++) {
+      var key = BANDS.order[b];
+      var rows = [];
+      for (var i = 0; i < entries.length; i++) {
+        if (BANDS.of[entries[i].kind] === key) rows.push(entries[i]);
+      }
+      if (rows.length > 0) bands.push({ key: key, label: BANDS.label[key], rows: rows });
+    }
+    return bands;
+  }
+
+  /**
+   * One band: the head that names whose move it is, and an ask on each line under it.
+   *
+   * The head is a lane head one level down — a dot, the word, and how many — the shape the
+   * swimlanes under the queue already wear, so the column has one way of saying "these rows
+   * belong together".
+   */
+  function bandSection(band, view, first) {
+    var section = el("section", N.queueBand);
+    // No dot: a lane head's dot names which lane a row is in, and a band is not one of the five.
+    var head = el("h4", "bf-lane__head");
+    head.appendChild(el("span", "", band.label));
+    head.appendChild(el("span", "bf-lane__count", String(band.rows.length)));
+    head.setAttribute("aria-label", band.label + ", " + plural(band.rows.length, "row"));
+    section.appendChild(head);
+    var list = el("ol", N.laneList);
+    for (var i = 0; i < band.rows.length; i++) list.appendChild(decisionRow(band.rows[i], view, first + i));
+    section.appendChild(list);
+    return section;
   }
 
   /**
@@ -271,9 +307,9 @@ const activeTemplate = String.raw`(function () {
   /**
    * The column, as a signature and a builder.
    *
-   * The strip and the lanes are one signature: a decision's sentence can change because another
+   * The queue and the lanes are one signature: an ask's sentence can change because another
    * card moved (a blocker finished), and a lane's cards move on their own revisions — so both
-   * facts are in it, and a frame that changed neither leaves the column, its folds and the
+   * facts are in it, and a frame that changed neither leaves the column, its bands and the
    * reader's place in it alone.
    */
   board.activeColumn = function (view, decisions, query, filtering) {
@@ -309,17 +345,22 @@ const activeTemplate = String.raw`(function () {
         var pane = el("section", "bf-section " + N.paneBody);
         pane.setAttribute("data-pane", "needs-you");
         pane.setAttribute("data-tone", "warn");
-        // The strip has a name and a number of its own: the caption above counts the lanes, and
+        // The pane has a name and a number of its own: the caption above counts the lanes, and
         // a reader was left to add the rows under it to a number that did not include them.
         pane.appendChild(board.paneHead("Needs you", shown.length, decisions.length));
-        var strip = el("div", N.decisions);
-        var cap = Math.min(shown.length, STRIP);
-        for (var s = 0; s < cap; s++) strip.appendChild(decisionRow(shown[s], view));
-        if (shown.length > STRIP) strip.appendChild(moreRow(shown.length - STRIP));
-        if (shown.length === 0) {
-          strip.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "nothing needs you: no blockers, no contract waiting to be read, nothing unwritten"));
+        var queue = el("div", N.queue);
+        var bands = banded(shown);
+        if (bands.length === 0) {
+          queue.appendChild(el("p", N.teamEmpty, filtering ? "nothing matches \"" + query + "\"" : "nothing needs you: nothing to sign, nothing unclaimed, nothing stalled"));
         }
-        pane.appendChild(strip);
+        // Ranks run across the bands rather than restarting in each: the queue is one order that
+        // the filing explains, not three lists that happen to sit together.
+        var first = 1;
+        for (var b = 0; b < bands.length; b++) {
+          queue.appendChild(bandSection(bands[b], view, first));
+          first += bands[b].rows.length;
+        }
+        pane.appendChild(queue);
         slot.appendChild(pane);
         var list = el("div", N.teamLanes);
         for (var p = 0; p < lanes.length; p++) list.appendChild(swimlane(view, lanes[p], lanes[p].cards));
