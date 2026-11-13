@@ -95,8 +95,16 @@ describe("the board tool surface", () => {
 		// closed outside the gate had no way to carry: that parameter costs ~200 and buys the
 		// difference between a forced close and a signed one. A card's `type` and `breaking`
 		// cost ~330 more, paid by the description's facet list and by dropping the parameter
-		// descriptions that restated the action docs; 7,387 is what the surface measures now.
-		expect(boardSurface()).toBeLessThanOrEqual(7_400);
+		// descriptions that restated the action docs. The surface then drifted 7 under 7,400
+		// without the sentence here saying so, which is why the number below is measured rather
+		// than quoted: 6,990 today, after a pass that deleted only what was written twice —
+		// `contract` repeating `path`'s sentence, `list` repeating the refusal `card` names and
+		// the `query` match `query` names, `verify` repeating the approval rule the contract's
+		// line already states, and `action` pointing at the description right above it — and
+		// tightened `approve` and `archived` without losing a field. `round`'s nine group names
+		// stayed: `tools.test.ts` holds that every group the rollup reports reaches the model
+		// named. The gate is the number; this comment is why.
+		expect(boardSurface()).toBeLessThanOrEqual(6_990);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
 	});
