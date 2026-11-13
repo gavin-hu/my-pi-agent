@@ -13,6 +13,7 @@
  */
 
 import { BLOCKERS, type BlockerKind, type Card, type CardBlock, CARD_VERSION, isCard } from "./card.ts";
+import { isLanding } from "./contract.ts";
 import type { Lane } from "./lanes.ts";
 
 /**
@@ -36,8 +37,25 @@ const LEGACY_LANES: Readonly<Record<string, Lane>> = { todo: "backlog", doing: "
  * build's is the store's refusal to name, not this function's.
  */
 export function readCard(value: unknown): Card | undefined {
-	const record = unresolvedOwner(migrated(value));
+	const record = unreadableLanding(unresolvedOwner(migrated(value)));
 	return isCard(record) ? record : undefined;
+}
+
+/**
+ * A stored landing this build cannot read, read as absent.
+ *
+ * The field arrived late, and the live board shows what that costs: 185 records carry
+ * `{ commit, at }` from a build that wrote one before the rule, and a shape gate that refused them
+ * froze their cards as skipped files — 50 of them unreadable until this map existed. Evidence is
+ * not identity, so the landing a reader cannot resolve is dropped and the rest of the record is
+ * read: a card closed before the rule, or by a session running a build from before it, carries no
+ * landing, and nothing invents one for it.
+ */
+function unreadableLanding(value: unknown): unknown {
+	if (typeof value !== "object" || value === null) return value;
+	const { landed, ...rest } = value as Record<string, unknown>;
+	if (landed === undefined || isLanding(landed)) return value;
+	return rest;
 }
 
 /**

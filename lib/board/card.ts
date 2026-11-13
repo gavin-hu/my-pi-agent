@@ -513,6 +513,7 @@ export function isCard(value: unknown): value is Card {
 	if (card.planPath !== undefined && typeof card.planPath !== "string") return false;
 	if (card.contract !== undefined && !isContract(card.contract)) return false;
 	if (card.review !== undefined && !isSign(card.review)) return false;
+	// A read has already dropped a landing it cannot resolve, so this is the shape a write produces.
 	if (card.landed !== undefined && !isLanding(card.landed)) return false;
 	if (card.blocked !== undefined && !isBlock(card.blocked)) return false;
 	if (card.offeredAt !== undefined && (typeof card.offeredAt !== "number" || !Number.isInteger(card.offeredAt))) {

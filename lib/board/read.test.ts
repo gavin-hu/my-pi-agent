@@ -33,6 +33,37 @@ describe("readCard", () => {
 		expect(readCard(half)?.contract).toEqual({ goal: "G", acceptance: "", scopeOut: "S" });
 	});
 
+	test("reads a landing this build cannot resolve as absent, rather than refusing the card", () => {
+		// The 185 records a pre-rule build wrote: `{ commit, at }` where the rule now says `{ sha, at }`.
+		// A shape gate that refused them made 50 live cards skipped files, which is the failure this
+		// case exists for — evidence is not identity, so the field goes and the card stays.
+		const owner = { label: "billing-core" };
+		const legacy = card({ lane: "plan", owner, landed: { commit: "86e2e98", at: 1 } as never });
+		expect(readCard(legacy)?.landed).toBeUndefined();
+		expect(readCard(legacy)?.id).toBe(legacy.id);
+		// A landing with one half missing, and one that is not an object at all, read the same way.
+		expect(readCard(card({ lane: "plan", owner, landed: { sha: "86e2e98" } as never }))?.landed).toBeUndefined();
+		expect(readCard(card({ lane: "plan", owner, landed: "86e2e98" as never }))?.landed).toBeUndefined();
+		// What this build writes is kept exactly, so the map cannot quietly eat its own record.
+		expect(readCard(card({ lane: "plan", owner, landed: { sha: "86e2e98", at: 5 } }))?.landed).toEqual({
+			sha: "86e2e98",
+			at: 5,
+		});
+	});
+
+	test("reads a v1 card that also carries a legacy landing", () => {
+		// The archive's real shape: the oldest records have both facts at once, and each map composes
+		// with the other rather than the second one refusing what the first repaired.
+		const { lane, planPath, ...rest } = card({
+			lane: "plan",
+			owner: { label: "billing-core" },
+			landed: { commit: "5ced7c4", at: 1 } as never,
+		});
+		const read = readCard({ ...rest, v: 1, status: lane, plan: planPath });
+		expect(read?.lane).toBe("plan");
+		expect(read?.landed).toBeUndefined();
+	});
+
 	test("reads a v1 card, mapping the three renames onto this build's names", () => {
 		// A v1 file said `status`, `plan`, and a `blockedBy`/`blocker` pair; the renames landed
 		// with the contract and the lanes. The file is not rewritten, so the reader maps the

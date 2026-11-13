@@ -47,6 +47,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a landing this build cannot read is read as absent, so the records a pre-rule build left no longer
+  freeze their cards. The rule that made `landed` a shape (`#538`) sent every `{ commit, at }` record to the board's
+  skipped list: 185 of them, and **50 live cards** stopped being listable, claimable or movable until this read. The
+  map is read-time only — no file is rewritten — so a card closed before the rule, or by a session running a build
+  from before it, reads as a card with no landing, and nothing invents one for it.
+
 - `board`: a card records the merge that carried it. `done` resolves the landing **for the review** — the
   reviewed sha names itself when it is on the default branch's first-parent chain, else the earliest merge
   whose parents include it — so a card still closes after other work landed on top, and it refuses a merge
