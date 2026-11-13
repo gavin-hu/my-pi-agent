@@ -12,6 +12,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CARDS, fitsExpression, VIEWPORT_WIDTH } from "./shots/cards.ts";
 import { repo } from "./theme.ts";
+import { WEB_THEME_TOKENS } from "../lib/web/tokens.ts";
 
 /** The cards' directory, where both the pages and their one stylesheet live. */
 const cardsDir = join(repo, "assets", "cards");
@@ -65,6 +66,64 @@ function declaredTwice(list: readonly string[]): string[] {
 		.map(([selector]) => selector)
 		.sort();
 }
+
+/** Each cards token, and the kit token it is a copy of. */
+const PALETTE: ReadonlyArray<readonly [token: string, owner: string]> = [
+	["--canvas", "--canvas"],
+	["--surface", "--surface"],
+	["--raised", "--raised"],
+	["--text", "--text"],
+	["--muted", "--muted"],
+	["--dim", "--dim"],
+	["--accent", "--accent"],
+	["--accent-alt", "--accent-alt"],
+	["--accent-2", "--accent-2"],
+	["--success", "--success"],
+	["--warn", "--warn"],
+	["--danger", "--danger"],
+];
+
+/** The custom properties the stylesheet's `:root` block declares. */
+function rootTokens(css: string): Map<string, string> {
+	const start = css.indexOf(":root {");
+	const body = css.slice(start, css.indexOf("}", start));
+	const tokens = new Map<string, string>();
+	for (const [, name, value] of body.matchAll(/(--[\w-]+):\s*([^;]+);/g)) {
+		if (name !== undefined && value !== undefined) tokens.set(name, value.trim());
+	}
+	return tokens;
+}
+
+/**
+ * The posters are the browser kit's palette in a fixed box: a page opened from `file://`
+ * cannot import `lib/web/tokens.ts`, so the values are a copy, and this is what holds the copy
+ * to its owner. The tints are held too — a channel triple one digit off renders a border that
+ * belongs to no colour on the card.
+ */
+describe("posting card palette", () => {
+	const tokens = rootTokens(stylesheet());
+	const kit = WEB_THEME_TOKENS.dark;
+
+	test("carries the kit's dark value for every colour it names", () => {
+		const drifted = PALETTE.filter(([token, owner]) => tokens.get(token) !== kit[owner]).map(
+			([token, owner]) => `${token} is ${tokens.get(token)}, the kit's ${owner} is ${kit[owner]}`,
+		);
+		expect(drifted, "assets/cards/cards.css: copy the kit's value from lib/web/tokens.ts").toEqual([]);
+	});
+
+	test("keeps every tint's channel triple the one its colour has", () => {
+		const pairs = [...tokens.keys()].filter((token) => token.endsWith("-rgb"));
+		expect(pairs).toHaveLength(6);
+		const drifted = pairs.flatMap((token) => {
+			const colour = token.replace(/-rgb$/, "");
+			// `--border` is carried as alphas only, so its triple is held to the kit's hex.
+			const hex = tokens.get(colour) ?? kit[colour] ?? "";
+			const want = [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16)).join(", ");
+			return tokens.get(token) === want ? [] : [`${token} is ${tokens.get(token)}, but ${colour} is ${hex} (${want})`];
+		});
+		expect(drifted).toEqual([]);
+	});
+});
 
 describe("posting card pages", () => {
 	test("every card is a page that links the one stylesheet", () => {

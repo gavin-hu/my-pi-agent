@@ -130,6 +130,14 @@ change restyles the terminal and leaves a served page alone. The *shape* of the 
 what the kit keeps: one token name, one value per appearance, and every component reading
 `var(--token)`.
 
+A surface that cannot import TypeScript carries a **copy** of that palette, and a test holds it to
+the owner: the documentation site ([`docs/assets/css/site.css`](../../docs/assets/css/site.css),
+`test/theme.test.ts`) and the posting cards
+([`assets/cards/cards.css`](../../assets/cards/cards.css), `scripts/cards.test.ts`), where Pages
+serves the stylesheet as written and a poster opens from `file://`. The montage
+(`scripts/shots/video.ts`) imports the tokens, and the tool gallery keeps the terminal's theme,
+because its frames are the terminal.
+
 Four tokens are **stated** in the `Palette` literal, one entry per appearance, because each is a
 decision and not a rule: `--on-accent` (a label on the accent fill — white on the light theme's
 `#4f46e5`, the dark canvas colour on the dark theme's `#8b9dff`), `--scrim` (a dimming layer needs

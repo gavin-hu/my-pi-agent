@@ -6,11 +6,12 @@
  * its three ends. Every card is captured by `capture:cards` at 1200×675, except
  * the ends card, which takes the 1200×1500 portrait a timeline shows uncropped.
  *
- * The palette is `themes/bytefly-dark.json` — the one the terminal theme, the
- * README hero, and the browser pages all draw from — copied here because a page
- * opened from `file://` cannot import `lib/web/tokens.ts`, and a webfont or a
- * build step would make the posted PNG irreproducible. The hairline alphas are
- * that file's `border` and `borderMuted` at reduced opacity.
+ * The palette is the browser kit's — `lib/web/tokens.ts`, the one the served pages
+ * draw from — copied here because a page opened from `file://` cannot import
+ * TypeScript, and a webfont or a build step would make the posted PNG
+ * irreproducible. `scripts/cards.test.ts` holds every value to that file, so the
+ * posters and the pages cannot drift apart. The hairline alphas are the kit's
+ * `border` at reduced opacity.
  *
  * Sizes are poster sizes, not UI sizes: a card posts at 1200×675 and is read in
  * a timeline at roughly half width, so body text starts at 16px and the title at
@@ -19,29 +20,29 @@
  */
 
 :root {
-	--canvas: #0d1117;
-	--surface: #161b22;
-	--raised: #17273a;
-	/* The theme's `border`, `blue`, `purple`, `green`, `yellow`, and `red` as
+	--canvas: #0b0f16;
+	--surface: #111826;
+	--raised: #1e2533;
+	/* The kit's `border`, `accent`, `accent-alt`, `success`, `warn`, and `danger` as
 	 * channels, so a tint below is one alpha away from the colour it belongs to
 	 * rather than a hand-copied triple that can quietly stop matching it. */
-	--border-rgb: 110, 118, 129;
-	--accent-rgb: 88, 166, 255;
-	--accent-alt-rgb: 188, 140, 255;
-	--success-rgb: 63, 185, 80;
-	--warn-rgb: 210, 153, 34;
-	--danger-rgb: 248, 81, 73;
+	--border-rgb: 35, 47, 66;
+	--accent-rgb: 139, 157, 255;
+	--accent-alt-rgb: 182, 156, 255;
+	--success-rgb: 74, 222, 128;
+	--warn-rgb: 251, 191, 36;
+	--danger-rgb: 248, 113, 113;
 	--line: rgba(var(--border-rgb), 0.32);
 	--line-strong: rgba(var(--border-rgb), 0.52);
-	--text: #c9d1d9;
-	--muted: #8b949e;
-	--dim: #7d8590;
-	--accent: #58a6ff;
-	--accent-alt: #bc8cff;
-	--accent-2: #f778ba;
-	--success: #3fb950;
-	--warn: #d29922;
-	--danger: #f85149;
+	--text: #e8eef8;
+	--muted: #a3b1c6;
+	--dim: #8897ab;
+	--accent: #8b9dff;
+	--accent-alt: #b69cff;
+	--accent-2: #f472b6;
+	--success: #4ade80;
+	--warn: #fbbf24;
+	--danger: #f87171;
 	--font-sans:
 		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB",
 		"Noto Sans CJK SC", "Microsoft YaHei", sans-serif;

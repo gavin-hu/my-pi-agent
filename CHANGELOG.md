@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `lib`: the documentation site, the posting cards, and the gallery montage draw the browser kit's
+  palette, so the site and the posters are the same slate-and-indigo as the served pages instead of
+  the terminal's GitHub blue. The two static stylesheets are copies — Pages serves the one as
+  written and a poster opens from `file://`, so neither can import `lib/web/tokens.ts` — and
+  `test/theme.test.ts` and `scripts/cards.test.ts` hold every value to it; the montage imports the
+  tokens directly. The site's favicon and its `theme-color` follow.
+
 - `board`: the sweep at a turn start releases only other sessions' ended work, so a `/resume` keeps
   the cards it holds. A resume inherits the session id while the crashed process's bus record
   survives with a dead pid, so the sweep read its own card as `gone` and took it back — in the same
