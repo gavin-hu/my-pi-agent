@@ -45,7 +45,7 @@ export interface SnapshotReader {
 export function createSnapshotReader(
 	config: ByteflyConfig,
 	delegation: DelegationLedger,
-	rosterLabel: () => string | null = () => null,
+	resolveTeammate: (sessionName: string | null) => string | null = () => null,
 ): SnapshotReader {
 	const price = createPricer(config);
 	let key: string | null = null;
@@ -87,16 +87,17 @@ export function createSnapshotReader(
 			last = usage;
 		}
 
+		// The resolver is asked every frame and answers from the team an install read: a
+		// `session_tree` is what re-reads the file, so this costs a comparison.
+		const teammateName = resolveTeammate(sessionName);
+
 		const model = current
 			? { id: current.id, provider: current.provider, reasoning: current.reasoning === true }
 			: null;
 
 		return {
 			cwd: ctx.cwd,
-			sessionName,
-			// Read every frame, because the bus settles a label without the session moving: a
-			// cached field, not a read — nothing here touches the bus.
-			rosterLabel: rosterLabel(),
+			teammateName,
 			branch: footerData.getGitBranch(),
 			statuses: footerData.getExtensionStatuses(),
 			model,

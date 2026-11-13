@@ -11,9 +11,8 @@
  */
 
 import type { Card } from "../../../lib/board/card.ts";
-import type { BoardConfig } from "../../../lib/board/config.ts";
+import { boardConfig, type BoardConfig } from "../../../lib/board/config.ts";
 import type { Contract } from "../../../lib/board/contract.ts";
-import { DEFAULT_WIP } from "../../../lib/board/limits.ts";
 import { indexOf } from "../../../lib/board/links.ts";
 import { type Actor, applyOp as apply, createCard, mayOp as dryRun, type OpResult } from "../../../lib/board/rules.ts";
 
@@ -24,7 +23,7 @@ export const OTHER: Actor = { id: "s-other", label: "billing-other" };
 export const NOW = 2_000;
 
 /** The board's settings: `billing-lead` signs, and the lanes hold the default numbers. */
-export const CONFIG: BoardConfig = { wip: DEFAULT_WIP, lead: LEAD.label };
+export const CONFIG: BoardConfig = boardConfig({ lead: LEAD.label });
 
 /** The index one board is to an operation. */
 export type Board = ReturnType<typeof indexOf>;

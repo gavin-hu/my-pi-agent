@@ -133,9 +133,9 @@ the file for the scope you want, and the next session reads it.
 | pin the port every page of a session shares, so a bookmarked URL survives a restart | [`serve`](./configuration-reference.md#serve--the-sessions-page-server) |
 | use a self-hosted search service or a Brave key | [`web-access`](./configuration-reference.md#web-access--search-and-fetch) |
 | change document read limits | [`file-read`](./configuration-reference.md#file-read--document-and-spreadsheet-extraction) |
-| raise the board's WIP limits, or name the team lead whose signature the board's gates take | **Plan limit**, **Execute limit**, **Lead** in `/bytefly settings`, or [`board`](./configuration-reference.md#board--the-shared-feature-board) |
+| raise the board's WIP limits, name the team lead whose signature the board's gates take, or say who is on the team | **Plan limit**, **Execute limit**, **Lead**, **Teammates** in `/bytefly settings`, or [`board`](./configuration-reference.md#board--the-shared-feature-board) |
 
-`/bytefly settings` is a shortlist of the preferences a session changes — fifteen
+`/bytefly settings` is a shortlist of the preferences a session changes — sixteen
 rows under six headings (Startup, Notifications, Session, Board, Team, and Price), named in
 bold above. Everything else — the tuning numbers, the
 cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's

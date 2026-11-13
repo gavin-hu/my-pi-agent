@@ -55,7 +55,7 @@ describe("panel entries", () => {
 			"Team",
 			"Price",
 		]);
-		expect(entries.filter((entry) => entry.kind === "setting")).toHaveLength(15);
+		expect(entries.filter((entry) => entry.kind === "setting")).toHaveLength(16);
 		expect(entryKey(entries[1])).toBe("byteflyUi");
 		expect(entryKey(entries.at(-1))).toBe("price.budget");
 	});

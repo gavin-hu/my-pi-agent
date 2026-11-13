@@ -50,6 +50,6 @@ export const CONFIG = {
 	minGap: 2,
 	/** Worktree label length before the compact form truncates it. */
 	worktreeLabelMax: 14,
-	/** Session-name length before the compact form truncates it. */
-	sessionLabelMax: 14,
+	/** Teammate label length before the compact form truncates it. */
+	teammateLabelMax: 14,
 } as const;

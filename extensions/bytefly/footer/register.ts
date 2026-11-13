@@ -3,10 +3,9 @@
  * installs and restores it.
  *
  * The footer is installed only in interactive (`tui`) sessions, and the price
- * configuration is read once per install, so starting a new session or changing
- * the session tree is how an edited `bytefly.json` is picked up. Nothing watches
- * the file. The surface is always on; `pi config` is the way to turn bytefly's
- * chrome off.
+ * configuration and the team are read once per install, so starting a new session or
+ * changing the session tree is how an edited `bytefly.json` is picked up. Nothing watches
+ * the file. The surface is always on; `pi config` is the way to turn bytefly's chrome off.
  */
 
 import { homedir } from "node:os";
@@ -32,27 +31,16 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 	const delegation = createDelegationLedger();
 	pi.events.on(SUBAGENT_FINISHED_CHANNEL, (event) => delegation.note(event));
 
-	// The label a peer knows this session by, once the follower below reports one; `null` is
-	// no record, and the bar keeps Pi's own session name.
-	let rosterLabel: string | null = null;
-	/** Whether this session's label is being followed: a tree change re-installs, it is not new. */
-	let followed = false;
-	const followLabel = (ctx: ExtensionContext): void => {
-		if (followed) return;
-		followed = true;
-		// Loaded where it is used: the follower walks the bus's layout on disk and subscribes to
-		// its label, and the registration graph is a budget that may only fall.
-		void import("./collect/label.ts")
-			.then(({ followRosterLabel }) =>
-				followRosterLabel({
-					pi,
-					ctx,
-					agentDir: getAgentDir(),
-					sink: (label) => {
-						rosterLabel = label;
-					},
-				}),
-			)
+	// The name the bar draws, from the team this install reads. Until that read lands nothing
+	// is a teammate, which draws no chip rather than a name the team may not hold.
+	let resolveTeammate: (sessionName: string | null) => string | null = () => null;
+	const readTeam = (ctx: ExtensionContext): void => {
+		// Loaded where it is used: the board's config reaches the card record and the lane
+		// table, and the registration graph is a budget that may only fall.
+		void import("./collect/team.ts")
+			.then(({ teammateReader }) => {
+				resolveTeammate = teammateReader(ctx.cwd, { agentDir: getAgentDir() });
+			})
 			.catch(() => {});
 	};
 
@@ -65,11 +53,11 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 
 	const install = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui") return;
-		// Not awaited: a footer is installed synchronously, and the bar draws Pi's name until the
-		// label lands — which is what a session with no record shows anyway.
-		followLabel(ctx);
+		// Not awaited: a footer is installed synchronously, and the bar draws the default team
+		// until the file is read — a list this session's name usually follows anyway.
+		readTeam(ctx);
 		const config = loadByteflyConfig(ctx.cwd);
-		const read = createSnapshotReader(config, delegation, () => rosterLabel);
+		const read = createSnapshotReader(config, delegation, (name) => resolveTeammate(name));
 		budget = { limit: config.budget, read };
 
 		ctx.ui.setFooter((tui, _theme, footerData) =>
@@ -85,10 +73,9 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 
 	pi.on("session_start", (_event, ctx) => {
 		// A new session in this process starts from zero: the ledger is not branch state, the
-		// label belongs to the session, and a budget that was already reported is unreported again.
+		// team is re-read at this install, and a budget that was already reported is unreported again.
 		delegation.reset();
-		followed = false;
-		rosterLabel = null;
+		resolveTeammate = () => null;
 		warned = false;
 		warnedUnpriced = false;
 		install(ctx);

@@ -45,8 +45,7 @@ import {
 	type Sign,
 	unverifiedSpotCheck,
 } from "./lead.ts";
-import { DEFAULT_WIP } from "./limits.ts";
-import type { BoardConfig } from "./config.ts";
+import { boardConfig, type BoardConfig } from "./config.ts";
 import type { Actor } from "./rules.ts";
 
 const LEAD: Lead = "team-lead";
@@ -223,7 +222,7 @@ describe("signedText", () => {
 });
 
 describe("the announcement", () => {
-	const CONFIG: BoardConfig = { wip: DEFAULT_WIP, lead: LEAD };
+	const CONFIG: BoardConfig = boardConfig({ lead: LEAD });
 	/** The moment a record is stamped with: nothing in this module reads a clock of its own. */
 	const NOW = 5_000;
 	const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s" };

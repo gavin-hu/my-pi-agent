@@ -69,7 +69,7 @@ any other.
 
 Then, from inside Pi:
 
-- `/bytefly` opens the control center: the fifteen preferences a session changes,
+- `/bytefly` opens the control center: the sixteen preferences a session changes,
   every loaded extension and skill with its checkbox, and the doctor report that
   names anything missing at runtime.
 - `/plan <task>` starts a task in read-only planning mode.

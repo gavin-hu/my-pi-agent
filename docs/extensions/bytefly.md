@@ -67,7 +67,11 @@ row's whole `bytefly.json` section; `r` re-probes; `R` reloads; `?` lists keys;
 
 **The surfaces.** The header replaces Pi's when `quietStartup` is on. The footer's
 left line carries location, mode, and alerts; the right carries a context gauge,
-session spend, tokens, cache, and the model. Each turn closes with a rule naming
+session spend, tokens, cache, and the model. The chip beside the location is the
+session's teammate name: it is drawn only when that name is one of `board.teammates`
+(`gavin`, `tom`, `jack`, `mike`, `sam` by default, edited by the **Teammates** row), so
+a session the team does not hold shows no chip — a bus label or Pi's own session name is
+never drawn as itself. Each turn closes with a rule naming
 its number, duration, tools, and outcome. Every tool block leads with its call
 line and hangs its result on the rail. Notices from any extension draw at the
 transcript margin with a severity rail.
@@ -91,12 +95,12 @@ session is sent: [security](../security.md) says what leaves the machine.
 
 ## Settings
 
-The screen is the catalogue: the fifteen descriptors in screen order. Those are
-the preferences a session changes: fifteen preferences under six headings —
-Startup, Notifications, Session, Board, Team, Price — plus the thirteen
-`bytefly.json` rows it can write. The list is capped at fifteen rows so the
-screen fits a 29-row terminal, and the scope line reads
-`bytefly: Settings · Global · 15 settings`. The sections behind this page are
+The screen is the catalogue: the sixteen descriptors in screen order. Those are
+the preferences a session changes: sixteen preferences under six headings —
+Startup, Notifications, Session, Board, Team, Price — plus the fourteen
+`bytefly.json` rows it can write. The list is capped at sixteen rows so the
+screen fits a 30-row terminal, and the scope line reads
+`bytefly: Settings · Global · 16 settings`. The sections behind this page are
 [`chrome`](../configuration-reference.md#chrome--transcript-chrome),
 [`price`](../configuration-reference.md#price--cost-calculation),
 [`notify`](../configuration-reference.md#notify--os-notifications), and

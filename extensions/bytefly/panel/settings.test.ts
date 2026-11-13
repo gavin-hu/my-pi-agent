@@ -1,5 +1,5 @@
 /**
- * The Settings catalogue: the fifteen curated rows, the view and origin each one
+ * The Settings catalogue: the sixteen curated rows, the view and origin each one
  * reports per scope, its cycling and stored-value mapping, and the theme row's
  * shortlist.
  *
@@ -35,10 +35,11 @@ describe("settings catalogue", () => {
 			"board.wip.plan",
 			"board.wip.execute",
 			"board.lead",
+			"board.teammates",
 			"price.currency.code",
 			"price.budget",
 		]);
-		expect(SETTING_ROWS.length).toBeLessThanOrEqual(15);
+		expect(SETTING_ROWS.length).toBeLessThanOrEqual(16);
 		expect(new Set(SETTING_ROWS.map((entry) => entry.id)).size).toBe(SETTING_ROWS.length);
 	});
 
@@ -60,6 +61,7 @@ describe("settings catalogue", () => {
 			"Board",
 			"Board",
 			"Team",
+			"Team",
 			"Price",
 			"Price",
 		]);
@@ -73,8 +75,8 @@ describe("settings catalogue", () => {
 				.filter((entry) => entry.config !== undefined)
 				.map((entry) => entry.id),
 		);
-		expect(global).toHaveLength(15);
-		expect(rowsForScope("project")).toHaveLength(13);
+		expect(global).toHaveLength(16);
+		expect(rowsForScope("project")).toHaveLength(14);
 	});
 
 	test("names every row and describes it", () => {
@@ -105,13 +107,14 @@ describe("settings catalogue", () => {
 			["doctor.proactive", "true", "On", "default"],
 			["board.wip.plan", "3", "3", "default"],
 			["board.wip.execute", "5", "5", "default"],
-			["board.lead", "lead", "lead", "default"],
+			["board.lead", "gavin", "gavin", "default"],
+			["board.teammates", "gavin,tom,jack,mike,sam", "gavin, tom, jack, mike, sam", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.budget", "0", "Off", "default"],
 		]);
 
 		expect(settingViews(settingsSnapshot(), "project").map((entry) => entry.origin)).toEqual(
-			Array.from({ length: 13 }, () => "default"),
+			Array.from({ length: 14 }, () => "default"),
 		);
 		const inherited = settingsSnapshot({ global: { notify: { enabled: true } } });
 		expect(settingView(inherited, "project", "notify.enabled")).toMatchObject({ value: "true", origin: "inherited" });
@@ -215,6 +218,20 @@ describe("settings catalogue", () => {
 		for (const bad of ["", "-1", "5.", ".5", "5.00001", "10000001", "ten"]) {
 			expect(textError(budget, bad), bad).toBeDefined();
 		}
+	});
+
+	test("holds a team to the built-in names, once each", () => {
+		const teammates = settingDescriptor("board.teammates");
+		for (const good of ["gavin", "gavin,tom", "sam, gavin, jack", "Gavin,Tom"]) {
+			expect(textError(teammates, good), good).toBeUndefined();
+		}
+		for (const bad of ["", ",", "billing-lead", "gavin,gavin", "gavin, billing-lead"]) {
+			expect(textError(teammates, bad), bad).toBeDefined();
+		}
+	});
+
+	test("stores a team as the names it states, lower-cased and trimmed", () => {
+		expect(storedValue(settingDescriptor("board.teammates"), "gavin, Tom , jack")).toEqual(["gavin", "tom", "jack"]);
 	});
 
 	test("every text row's fallback passes its own rule", () => {

@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `bytefly`: the footer's name chip is the session's teammate name, drawn only while the team holds
+  it. It used to draw the bus label or Pi's session name whatever it was, so the bar was the one
+  surface naming a session with a word the team never chose. The team is `board.teammates` — five
+  built-in names, `gavin`, `tom`, `jack`, `mike`, and `sam`, edited by the new **Teammates** row
+  under Team. Breaking: `board.lead` now defaults to `gavin`, the team's first name; a name outside
+  the team draws no chip at all, where a bus label or Pi's session name used to appear; and the
+  settings screen carries sixteen rows.
+
 - `board`: a card drawn twice in the Team tab's ACTIVE WORK is one colour. The queue row wore its
   reason's tone while the swimlane card under it wore its lane's, so one card read as two; both now
   take the lane's paper, and the tone moves to the pill, the mark at the row's edge, and a danger

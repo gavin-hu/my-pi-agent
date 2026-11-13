@@ -359,11 +359,11 @@ describe("list", () => {
 		expect(resultText(result)).toContain("2 owners with no record · 2 done");
 		expect(resultText(result)).not.toContain("billing-old (0 live, 1 done)");
 		// The details are unchanged: the fold is what the text does, not what the rollup holds.
-		expect(result.details.round?.owners.map((group) => group.label).sort()).toEqual([
-			"billing-old",
-			"billing-older",
-			LEAD,
-		]);
+		// Both sides sorted: `LEAD` is the name this session draws from the preset list, so its
+		// spelling is the vocabulary's business and the order here is not a reading.
+		expect(result.details.round?.owners.map((group) => group.label).sort()).toEqual(
+			["billing-old", "billing-older", LEAD].sort(),
+		);
 	});
 
 	test("filters one lane", async () => {

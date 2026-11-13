@@ -19,7 +19,7 @@ import { join } from "node:path";
 import type { Page } from "playwright-core";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import type { Actor } from "../../../lib/board/rules.ts";
-import { DEFAULT_WIP } from "../../../lib/board/limits.ts";
+import { boardConfig } from "../../../lib/board/config.ts";
 import { createStore } from "../../../lib/board/store.ts";
 import { advance } from "../../../test/helpers/board-flow.ts";
 import { type Doc, type ElementLike, focusedClass, hidden } from "../../../test/helpers/board-dom.ts";
@@ -616,7 +616,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const folder = mkdtempSync(join(tmpdir(), "pi-board-history-"));
 		// The lead is a configured name, and the board's is the session this page serves as: the pin is read from the config, not from whoever
 		// happened to claim a card.
-		const history = createStore(folder, { config: { wip: DEFAULT_WIP, lead: "team-lead" } });
+		const history = createStore(folder, { config: boardConfig({ lead: "team-lead" }) });
 		await history.ensure();
 		const at = clock.now();
 		// The bus's own clock, moved by hand: a heartbeat rewrites `lastSeen` without changing one printed fact, which is the frame that must leave

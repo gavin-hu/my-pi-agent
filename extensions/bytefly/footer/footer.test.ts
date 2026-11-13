@@ -59,7 +59,7 @@ import {
 	modesSegment,
 	portsSegment,
 	pwdSegment,
-	sessionSegment,
+	teammateSegment,
 	thinkingSegment,
 	tokensSegment,
 	windowSegment,
@@ -868,7 +868,7 @@ describe("snapshot reader", () => {
 		const snapshot = read(makeCtx(), footerData);
 
 		expect(snapshot.cwd).toBe("/home/u/repo/project");
-		expect(snapshot.sessionName).toBe("my-session");
+		expect(snapshot.teammateName, "the default team does not hold this session's name").toBeNull();
 		expect(snapshot.branch).toBe("main");
 		expect(snapshot.statuses.get("worktree")).toBe("⑂ smoke");
 		expect(snapshot.model).toEqual({ id: "opus-4.5", provider: "anthropic", reasoning: true });
@@ -1227,11 +1227,11 @@ describe("footer segments", () => {
 		expect(segment.separator).toBe("");
 	});
 
-	test("brackets a session name and truncates it to the label limit", () => {
-		expect(sessionSegment(fullSnapshot(), fakeTheme)).toBeNull();
-		const segment = sessionSegment(fullSnapshot({ sessionName: "feature-refactor-session" }), fakeTheme);
+	test("brackets a teammate name and truncates it to the label limit", () => {
+		expect(teammateSegment(fullSnapshot(), fakeTheme)).toBeNull();
+		const segment = teammateSegment(fullSnapshot({ teammateName: "feature-refactor-session" }), fakeTheme);
 
-		expect(segment?.id).toBe("session");
+		expect(segment?.id).toBe("teammate");
 		expect(segment?.forms).toEqual(["[feature-refactor-session]", "[feature-refac…]"]);
 		expect(segment?.separator).toBe(CONFIG.separators.item);
 	});
@@ -1584,12 +1584,12 @@ describe("line composition", () => {
 		expect(ids(fresh.left)).not.toContain("delegation");
 	});
 
-	test("adds the session name to the identity line and omits it when unnamed", () => {
-		const [named] = buildLines(fullSnapshot({ sessionName: "feature-refactor-session" }), fakeTheme, "/home/u");
+	test("adds the teammate name to the identity line and omits it when the team does not hold it", () => {
+		const [named] = buildLines(fullSnapshot({ teammateName: "feature-refactor-session" }), fakeTheme, "/home/u");
 		const [unnamed] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
 
-		expect(ids(named.left)).toEqual(["pwd", "session"]);
-		expect(named.left.find((segment) => segment.id === "session")?.forms).toEqual([
+		expect(ids(named.left)).toEqual(["pwd", "teammate"]);
+		expect(named.left.find((segment) => segment.id === "teammate")?.forms).toEqual([
 			"[feature-refactor-session]",
 			"[feature-refac…]",
 		]);
