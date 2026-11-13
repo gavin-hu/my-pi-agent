@@ -26,6 +26,7 @@ messages, consume an inbox, and claim paths before editing them.
 | Message one session | `session send to billing-web text "the API route is free"` |
 | Broadcast an event | `session send to "*" kind "event" text "…"` |
 | Read your mail | `session inbox` |
+| See mail no session holds, and clear one | `/sessions drop` names it; `/sessions drop <id>` clears it |
 | Claim files before editing | `session claim paths ["src/api"]` |
 | Release a claim | `session release paths ["src/api"]`, or `x` on the board |
 | Be woken by mail | `session join wake: true` |
@@ -55,51 +56,49 @@ block the sender; a `handoff` names the work it assigns. A message may carry the
 repository paths it concerns. A broadcast is one file per recipient sharing one
 message id.
 
-**Mail is read, not taken, by the page.** The board's Team tab draws the whole
-bus's queue by reading those files, and it removes nothing: an inbox stays its
-owner's to consume with `session inbox`. The message text is shown on the page —
-a loopback, token-guarded page that already reads this directory — and never
-marked as read.
+**Mail is read, not taken, by the page.** The Team tab draws the whole bus's queue by reading
+those files and removes nothing: an inbox stays its owner's to consume with `session inbox`. The
+page is loopback and token-guarded, and a message it shows is never marked as read.
 
-**Records.** `session status` lists each session with its record's state — `live` while its
-heartbeat holds, `quiet` once it has aged, `gone` once its process is not running — with whether
-its watch is armed, so a peer that will not be woken reads as one. The record also carries the
-turn: stamped on `agent_start` and dropped on `agent_settled`, so the Team tab can draw a
-session as working rather than idle from a stale heartbeat. A stamp is believed only beside a
-fresh heartbeat — a process that died mid-turn left its stamp behind. Mail is counted per record,
-so a message whose recipient's record has been pruned has no row to carry its number: the status
-says so once, as `Unaccounted: N unread`, until the message TTL ends it, and a session resumed on
-that id can still read it.
+**Records.** `session status` lists each session with its state — `live` while its heartbeat
+holds, `quiet` once it has aged, `gone` once its process is not running — and whether its watch is
+armed, so a peer that will not be woken reads as one. The record also carries the turn: stamped on
+`agent_start` and dropped on `agent_settled`, so the Team tab draws work rather than reading a
+fresh heartbeat as idle; a stamp counts only beside a fresh heartbeat, because a process that died
+mid-turn left it behind. Mail is counted per record, so mail whose recipient's record was pruned
+has no row to carry its number: the status names each message under `Unaccounted (N)` — id,
+sender, kind, age, first line — and a bare `/sessions drop` prints that list while
+`/sessions drop <id>` clears one. That door is a command, not a `session` action, because a
+message is evidence: the person clears it, and the store refuses any id a record's inbox still
+carries, naming the holder. Nothing else clears it — a resumed session on that id can still read
+the mail, and the message TTL ends it.
 
-**Labels.** Name a session for the outcome it owns (`billing-core`), not its
-layer. A duplicate label gets a short id suffix; a label is reserved while the bus
-keeps its owner's record — ten minutes past the last heartbeat — so a crashed
-session has not freed its name and a slow one has not lost it.
+**Labels.** Name a session for the outcome it owns (`billing-core`), not its layer. A duplicate
+label gets a short id suffix, and a label is reserved while the bus keeps its owner's record —
+ten minutes past the last heartbeat — so a crashed session has not freed its name.
 
-**Claims.** All-or-nothing: if one path conflicts, nothing is claimed. A
-directory claim conflicts with claims below and above it. Paths resolve against
-your working directory and are stored relative to the repository root; the
-repository itself cannot be claimed. There is no forced takeover.
+**Claims.** All-or-nothing: if one path conflicts, nothing is claimed. A directory claim conflicts
+with claims below and above it. Paths resolve against your working directory and are stored
+relative to the repository root; the repository itself cannot be claimed. There is no forced
+takeover.
 
-**Where it lives.** `~/.pi/agent/session-bus/<repo-key>/` — the bus is under the
-agent directory, never in the project, so it is never committed.
+**Where it lives.** `~/.pi/agent/session-bus/<repo-key>/` — the bus is under the agent directory,
+never in the project, so it is never committed.
 
 ## Limits
 
-- Same machine and OS user only: any process with your file access can read or
-  rewrite it, and there is no authentication between sessions — the
-  [agent directory](../security.md#the-agent-directory) is trusted input.
-- Pull-based by default: a message waits for a session that is not listening, and
-  the model reads mail at coordination points.
-- Reading is not joining: `/sessions` shows a board you are not on until you join
-  or act.
-- Membership is per session and does not survive a resume or a restart; unread
-  mail and the derived label do.
-- The board acts on your own state only — it never consumes mail or touches a
-  peer's claims.
+- Same machine and OS user only: any process with your file access can read or rewrite it, and
+there is no authentication between sessions — the
+[agent directory](../security.md#the-agent-directory) is trusted input.
+- Pull-based by default: a message waits for a session that is not listening, and the model reads
+mail at coordination points.
+- Reading is not joining: `/sessions` shows a board you are not on until you join or act.
+- Membership is per session and does not survive a resume or a restart; unread mail and the derived
+label do.
+- The board acts on your own state only — it never consumes mail or touches a peer's claims.
 - Two listening peers can wake each other in a loop; stop listening on one.
-- A fan-out writes one file per inbox, so it can be partial; the result lists both
-  the delivered and the missed.
+- A fan-out writes one file per inbox, so it can be partial; the result lists both the delivered
+and the missed.
 
 ## Settings
 

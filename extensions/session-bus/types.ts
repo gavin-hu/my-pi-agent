@@ -13,9 +13,9 @@ import type { SessionMode } from "./protocol.ts";
  * fields, its guard, and the order a queue is read in live in `lib/session-mail.ts`, so the
  * page and the bus cannot hold two ideas of what a message is.
  */
-import type { BusMessage } from "../../lib/session-mail.ts";
+import type { BusMessage, UnaccountedMessage } from "../../lib/session-mail.ts";
 
-export type { BusMessage, MessageKind } from "../../lib/session-mail.ts";
+export type { BusMessage, MessageKind, UnaccountedMessage } from "../../lib/session-mail.ts";
 
 /** One registered Pi session. */
 export interface SessionRecord {
@@ -108,17 +108,38 @@ export interface SessionStatus {
 	onBus: boolean;
 	sessions: Array<SessionRecord & { unread: number; state: RosterState }>;
 	/**
-	 * Unread mail whose recipient's record is not on this bus, absent when there is none.
+	 * The mail on this bus whose recipient's record is not here, absent when there is none.
 	 *
-	 * A message names its recipient by session id, and the id outlives the record that lists it —
-	 * so the roster, which counts mail per record, has no row to hang this mail on. It is reported
-	 * rather than deleted: a session resumed on that id can still read it, and the message TTL is
-	 * what ends it otherwise.
+	 * A message names its recipient by session id, and the id outlives the record that lists it — so
+	 * the roster, which counts mail per record, has no row to hang this mail on. It is named rather
+	 * than counted because the name is what a person acts on: `/sessions drop <id>` discards one, and
+	 * a count could neither be read nor cleared. It is not deleted when the record goes: a session
+	 * resumed on that id can still read it, so only a person decides what is evidence no longer.
 	 */
-	unattributed?: number;
+	unaccounted?: readonly UnaccountedMessage[];
 	claims: ClaimRecord[];
 	/** Present only when this session armed its inbox watch. */
 	watching?: { armed: boolean; wake: boolean };
+}
+
+/**
+ * One id a drop was given and did not remove, and the reason it stayed.
+ *
+ * `held` is the guard: a person mistyping an id must not destroy a live session's unread mail, so
+ * the file stays where its record's reader can still return it, and the sentence names that reader.
+ * `missing` is an id the bus holds no unread file for under any record.
+ */
+export type KeptMail = { id: string; reason: "held"; holder: string } | { id: string; reason: "missing" };
+
+/**
+ * What dropping unaccounted mail did.
+ *
+ * An id can appear in both lists: a broadcast is one file per recipient, so dropping it removes the
+ * copies no record holds and leaves the one a live session still has to read.
+ */
+export interface DropResult {
+	dropped: string[];
+	kept: KeptMail[];
 }
 
 /** A conflict returned by `session claim`. */

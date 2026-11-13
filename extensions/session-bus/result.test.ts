@@ -30,6 +30,32 @@ describe("the expanded result block", () => {
 		for (const line of new TailResult(input, fakeTheme).render(40)) expect(visibleWidth(line)).toBeLessThanOrEqual(40);
 	});
 
+	test("status heads the mail no record holds, with the id the drop door takes", () => {
+		const input = resultSections({
+			action: "status",
+			status: {
+				...busStatus([busSession()]),
+				unaccounted: [
+					{ message: busMessage({ id: "1794547913406-450281a3", text: "can you take the roster card?" }), at: 9_500 },
+				],
+			},
+		});
+		if (!input) throw new Error("no sections");
+		const lines = new TailResult(input, fakeTheme).render(80);
+		const text = lines.join("\n");
+		expect(text).toContain("Unaccounted (1)");
+		// The body is what a reader recognises, and the id whole is what `/sessions drop` takes.
+		expect(text).toContain("can you take the roster card?");
+		expect(text).toContain("1794547913406-450281a3");
+		for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(80);
+	});
+
+	test("the collapsed status counts unaccounted mail beside the unread it is not part of", () => {
+		const status = { ...busStatus([busSession()]), unaccounted: [{ message: busMessage(), at: 9_500 }] };
+		const line = collapsedLine(fakeTheme, { action: "status", status });
+		expect(line).toContain("1 unaccounted");
+	});
+
 	test("inbox lists the messages with their sender", () => {
 		const input = resultSections({
 			action: "inbox",

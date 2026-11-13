@@ -7,8 +7,8 @@ import {
 	isBusMessage,
 	listArrivals,
 	listMessages,
+	unaccountedMail,
 	WAITING_LIMIT,
-	unattributedMail,
 	waitingMail,
 } from "./session-mail.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
@@ -163,24 +163,29 @@ describe("the inbox's own order", () => {
 	});
 });
 
-describe("the unaccounted count", () => {
-	test("counts the message no record carries, and not the one it does", async () => {
+describe("the mail no record accounts for", () => {
+	test("answers the message no record carries, and not the one it does", async () => {
 		const dir = busDir();
 		land(dir, "hash-live", { id: "m-known", to: "s-live" }, NOW);
-		land(dir, "hash-gone", { id: "m-orphan", to: "s-gone" }, NOW);
+		land(dir, "hash-gone", { id: "m-orphan", to: "s-gone", fromLabel: "gavin", kind: "ask" }, NOW + 1_000);
 		// The record is what the roster counts mail by, so a message whose recipient is not among the
 		// ids it read has no row to hang a number on.
-		expect(await unattributedMail(dir, new Set(["s-live"]))).toBe(1);
-		expect(await unattributedMail(dir, new Set(["s-live", "s-gone"]))).toBe(0);
+		const found = await unaccountedMail(dir, new Set(["s-live"]));
+		expect(found.map((entry) => entry.message.id)).toEqual(["m-orphan"]);
+		// The arrival travels with it: a message that sat for hours is the fact a reader judges by.
+		expect(found[0]?.at).toBe(statSync(join(dir, INBOX_DIR_NAME, "hash-gone", "m-orphan.json")).mtimeMs);
+		expect(found[0]?.message.toLabel).toBe("billing-core");
+		expect(await unaccountedMail(dir, new Set(["s-live", "s-gone"]))).toEqual([]);
 	});
 
-	test("counts a fan-out per recipient, not per message id", async () => {
+	test("answers a fan-out file by file, oldest first", async () => {
 		const dir = busDir();
-		land(dir, "hash-a", { id: "m-all", kind: "event", to: "s-gone-1", toLabel: "amy" }, NOW);
-		land(dir, "hash-b", { id: "m-all", kind: "event", to: "s-gone-2", toLabel: "ben" }, NOW);
-		// Two dead records are two unread files, which is what "unread" means on disk even though the
-		// page draws the fan-out as one row.
-		expect(await unattributedMail(dir, new Set())).toBe(2);
+		land(dir, "hash-b", { id: "m-all", kind: "event", to: "s-gone-2", toLabel: "ben" }, NOW + 2_000);
+		land(dir, "hash-a", { id: "m-all", kind: "event", to: "s-gone-1", toLabel: "amy" }, NOW + 1_000);
+		// Two dead records are two files, which is what a drop has to name: the page draws the fan-out
+		// as one row, and a listing that did the same could not be acted on.
+		const found = await unaccountedMail(dir, new Set());
+		expect(found.map((entry) => entry.message.toLabel)).toEqual(["amy", "ben"]);
 	});
 
 	test("skips a file this build cannot parse, as the queue does", async () => {
@@ -188,11 +193,12 @@ describe("the unaccounted count", () => {
 		mkdirSync(join(dir, INBOX_DIR_NAME, "hash-broken"), { recursive: true });
 		writeFileSync(join(dir, INBOX_DIR_NAME, "hash-broken", "broken.json"), "{", "utf-8");
 		land(dir, "hash-gone", { id: "m-orphan", to: "s-gone" }, NOW);
-		expect(await unattributedMail(dir, new Set())).toBe(1);
+		// A file with no readable `to` cannot be named or dropped, so the TTL stays its only end.
+		expect((await unaccountedMail(dir, new Set())).map((entry) => entry.message.id)).toEqual(["m-orphan"]);
 	});
 
-	test("is zero where no bus has ever written", async () => {
-		expect(await unattributedMail(busDir(), new Set())).toBe(0);
+	test("is empty where no bus has ever written", async () => {
+		expect(await unaccountedMail(busDir(), new Set())).toEqual([]);
 	});
 });
 

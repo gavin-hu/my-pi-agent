@@ -5,8 +5,8 @@
  * before it reaches the transcript, and paths/labels are rendered as one line.
  */
 
-import { sanitizeLine } from "../../lib/format.ts";
-import type { BusMessage, ClaimConflict, ClaimRecord, SessionStatus } from "./types.ts";
+import { formatAge, sanitizeLine } from "../../lib/format.ts";
+import type { DropResult, BusMessage, ClaimConflict, ClaimRecord, SessionStatus, UnaccountedMessage } from "./types.ts";
 /**
  * The last few characters of a peer's id, as the transcript shows it.
  *
@@ -41,8 +41,13 @@ function claimLine(claim: ClaimRecord): string {
 	return `${sanitizeLine(claim.path)} · ${sanitizeLine(claim.ownerLabel)}`;
 }
 
-/** The status listing: sessions, unread counts, claims, and this session's alerts. */
-export function formatStatus(status: SessionStatus): string {
+/**
+ * The status listing: sessions, unread counts, claims, and this session's alerts.
+ *
+ * `now` is the clock the unaccounted ages are read with, passed rather than reached for: a sentence
+ * that says `3h` is a fact about two numbers, and a test that could not pin them could not hold it.
+ */
+export function formatStatus(status: SessionStatus, now: number): string {
 	const sessions = status.sessions.map((session) => {
 		const unread = session.unread > 0 ? ` · ${session.unread} unread` : "";
 		const label = sanitizeLine(session.label);
@@ -51,12 +56,9 @@ export function formatStatus(status: SessionStatus): string {
 	});
 	const claims = status.claims.map((claim) => `- ${claimLine(claim)}`);
 	const alerts = status.watching ? [`Alerts: inbox watch on${status.watching.wake ? " (wake)" : ""}`] : [];
-	// Mail no record accounts for has no session row to sit under, so it is said once, under the
+	// Mail no record accounts for has no session row to sit under, so it is named once, under the
 	// sessions it is missing from. A bus where every message has a record draws nothing here.
-	const unaccounted =
-		status.unattributed === undefined
-			? []
-			: [`Unaccounted: ${status.unattributed} unread, addressed to a record the bus no longer holds`];
+	const unaccounted = unaccountedLines(status.unaccounted ?? [], now);
 	return [
 		`Sessions (${status.sessions.length})`,
 		...(sessions.length > 0 ? sessions : ["- none"]),
@@ -68,6 +70,66 @@ export function formatStatus(status: SessionStatus): string {
 		"",
 		`You: ${sanitizeLine(status.me.label)} (${idSuffix(status.me.id)})${status.onBus ? "" : " \u00b7 not on the bus yet \u2014 `session join` puts you on it"}`,
 	].join("\n");
+}
+
+/** How many unaccounted messages a listing names before it counts the rest. */
+export const UNACCOUNTED_LINES = 6;
+
+/** How much of a body the listing shows: enough to recognise the mail, not a transcript of it. */
+const UNACCOUNTED_PREVIEW = 60;
+
+/**
+ * The mail no record holds, as the lines both surfaces print: a headline naming the count and the
+ * door, then one line per message — `- <id> · <sender> · <kind> · <age> · <first line>`.
+ *
+ * The id is the actionable field, so it is printed whole: `/sessions drop <id>` is the only door,
+ * and an id clipped to its tail is one a person cannot type. The body is clipped, because this is a
+ * status listing and not a read — `session inbox` never does the same, and cannot here either:
+ * there is no record whose inbox this mail is.
+ */
+export function unaccountedLines(messages: readonly UnaccountedMessage[], now: number): string[] {
+	if (messages.length === 0) return [];
+	const lines = [
+		`Unaccounted (${messages.length}): mail for a record the bus no longer holds \u2014 \`/sessions drop <id>\` clears one`,
+	];
+	for (const { message, at } of messages.slice(0, UNACCOUNTED_LINES)) {
+		const preview = clipText(sanitizeLine(message.text), UNACCOUNTED_PREVIEW);
+		lines.push(
+			`- ${sanitizeLine(message.id)} \u00b7 ${sanitizeLine(message.fromLabel)} \u00b7 ${sanitizeLine(message.kind)} \u00b7 ${formatAge(now, at)} \u00b7 ${preview}`,
+		);
+	}
+	const rest = messages.length - UNACCOUNTED_LINES;
+	if (rest > 0) lines.push(`- and ${rest} more`);
+	return lines;
+}
+
+/**
+ * The same listing as `/sessions drop`'s own answer, for a person who asked to see it.
+ *
+ * The command with no ids drops nothing, so it prints what a drop could name: one wording for what
+ * the status shows and what the door shows, which is how the two cannot describe one bus apart.
+ */
+export function formatUnaccounted(messages: readonly UnaccountedMessage[], now: number): string {
+	if (messages.length === 0) return "No unaccounted mail: every message on this bus has a record.";
+	return unaccountedLines(messages, now).join("\n");
+}
+
+/**
+ * What a drop did: the mail that went, and the ids that stayed with the reason.
+ *
+ * One sentence per id, so an id that appears in both lists — a broadcast, whose live recipient
+ * still has its copy — reads as both facts rather than one of them.
+ */
+export function formatDrop(result: DropResult): string {
+	const lines = result.dropped.map((id) => `Dropped ${sanitizeLine(id)} \u2014 a message no record held.`);
+	for (const kept of result.kept) {
+		lines.push(
+			kept.reason === "held"
+				? `Not dropped: ${sanitizeLine(kept.id)} is held by ${sanitizeLine(kept.holder)} \u2014 read it with \`session inbox\` there.`
+				: `Not dropped: ${sanitizeLine(kept.id)} is not waiting on this bus.`,
+		);
+	}
+	return lines.length > 0 ? lines.join("\n") : "Nothing dropped.";
 }
 
 /**

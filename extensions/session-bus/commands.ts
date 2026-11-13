@@ -1,5 +1,5 @@
 /**
- * The `/sessions` command: one act, no arguments.
+ * The `/sessions` command: the board, and the one verb that is not the board.
  *
  * In the TUI it opens the live board: `Tab` cycles Sessions, Inbox, and Claims,
  * and `w`/`x` act on this session's own watch and claims. Every other mode prints
@@ -7,17 +7,25 @@
  * not joining, so the board is empty until this session joins — and a command
  * context cannot name a session, so the join is `session({action:"join"})`,
  * `/team join [<label>]`, or the board's `w`.
+ *
+ * `drop` is the exception, and it is a command because of what it destroys: mail no record holds
+ * is evidence, so a person clears it and no session's tool call can. A bare `/sessions drop`
+ * drops nothing and prints the mail a drop could name — the board draws no row for it, so this is
+ * also the only way to see it in a terminal.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../../lib/errors.ts";
 import { sanitizeLine } from "../../lib/format.ts";
-import { formatJoin, formatStatus } from "./format.ts";
+import { formatDrop, formatJoin, formatStatus, formatUnaccounted } from "./format.ts";
 import { COMMAND_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 
 /** How often the open board re-reads the bus. */
 const BOARD_POLL_MS = 1_000;
+
+/** The one word `/sessions` takes besides opening the board. */
+export const SESSION_WORDS = ["drop"] as const;
 
 /**
  * One board read at a time, shared by the open screen's poll and its watch verb.
@@ -100,7 +108,30 @@ async function open(ctx: ExtensionCommandContext, pi: ExtensionAPI, bus: Session
 			return;
 		}
 		await bus.start(ctx);
-		ctx.ui.notify(formatStatus(await bus.status()), "info");
+		ctx.ui.notify(formatStatus(await bus.status(), Date.now()), "info");
+	} catch (error) {
+		ctx.ui.notify(`Session bus: ${messageOf(error)}`, "warning");
+	}
+}
+
+/**
+ * `/sessions drop [<id>…]`: the mail no record holds, or the ids a person means to clear.
+ *
+ * No ids is the safe reading of a bare verb — it drops nothing and prints what could be dropped —
+ * and it is how this mail is seen at all, because the board has no row for it. The store decides
+ * what a drop may touch, refusing any id a record's inbox still holds, so the answer names both
+ * what went and what stayed.
+ */
+async function dropUnaccounted(ctx: ExtensionCommandContext, bus: SessionBus, ids: readonly string[]): Promise<void> {
+	try {
+		await bus.start(ctx);
+		if (ids.length === 0) {
+			const status = await bus.status();
+			ctx.ui.notify(formatUnaccounted(status.unaccounted ?? [], Date.now()), "info");
+			return;
+		}
+		const result = await bus.dropUnaccounted(ids);
+		ctx.ui.notify(formatDrop(result), result.kept.length > 0 ? "warning" : "info");
 	} catch (error) {
 		ctx.ui.notify(`Session bus: ${messageOf(error)}`, "warning");
 	}
@@ -108,10 +139,15 @@ async function open(ctx: ExtensionCommandContext, pi: ExtensionAPI, bus: Session
 
 export function registerCommands(pi: ExtensionAPI, bus: SessionBus): void {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Open the bus board: sessions, unread mail, and path claims",
-		// One command, one act: an argument is not a sub-command, so it is ignored
-		// rather than warned about — the board is what the user asked for.
-		handler: async (_args, ctx) => {
+		description: "Open the bus board: sessions, unread mail, and path claims; `drop <id>…` clears mail no record holds",
+		// The first word selects the one verb; anything else still opens what it opened before, because
+		// a reader who typed a stray word asked for the board and not for a warning about it.
+		handler: async (args, ctx) => {
+			const [word, ...ids] = args.trim().split(/\s+/).filter(Boolean);
+			if (word === "drop") {
+				await dropUnaccounted(ctx, bus, ids);
+				return;
+			}
 			await open(ctx, pi, bus);
 		},
 	});

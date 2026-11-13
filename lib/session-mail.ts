@@ -210,22 +210,35 @@ export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promis
 }
 
 /**
- * How many unread messages on one repository's bus no session record accounts for.
+ * One message file whose recipient no session record holds, and when it landed.
+ *
+ * The arrival is the file's mtime rather than the sender's `at`, for the reason the queue's order
+ * is: the sender's clock is theirs, while the file landed here on the clock every session shares.
+ * `message.to` is the id this mail was addressed to, which is the record the bus no longer holds.
+ */
+export interface UnaccountedMessage {
+	message: BusMessage;
+	/** When the file landed, by mtime. */
+	at: number;
+}
+
+/**
+ * The mail on one repository's bus that no session record accounts for, oldest first.
  *
  * A message names its recipient by session id, and an inbox belongs to that id alone — but the id
  * outlives the *record* that lists it, and the roster counts mail per record. So once a record is
- * pruned its mail keeps both its reader's absence and its own silence: no row, no count, and no
- * way to consume it, until the message TTL ends it. A session resumed on that id can still read
- * it, which is why it is not deleted the moment the record goes.
+ * pruned its mail keeps both its reader's absence and its own silence: no row, no count, and no way
+ * to consume it, until the message TTL ends it. A session resumed on that id can still read it,
+ * which is why it is not deleted the moment the record goes.
  *
  * The recipient is read off the message rather than out of the inbox's name: the name is that id
  * as the writer hashed it, and a lib module cannot ask the store how. A file this build cannot
- * parse is skipped, the way the queue above skips it.
+ * parse is skipped, the way the queue above skips it — it has no id to be named by either.
  */
-export async function unattributedMail(busDir: string, known: ReadonlySet<string>): Promise<number> {
-	let count = 0;
+export async function unaccountedMail(busDir: string, known: ReadonlySet<string>): Promise<UnaccountedMessage[]> {
+	const found: UnaccountedMessage[] = [];
 	for (const dir of await inboxDirs(busDir)) {
-		for (const { name } of await listArrivals(dir)) {
+		for (const { name, at } of await listArrivals(dir)) {
 			let parsed: unknown;
 			try {
 				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
@@ -233,8 +246,10 @@ export async function unattributedMail(busDir: string, known: ReadonlySet<string
 				continue;
 			}
 			if (!isBusMessage(parsed)) continue;
-			if (!known.has(parsed.to)) count += 1;
+			if (known.has(parsed.to)) continue;
+			found.push({ message: parsed, at });
 		}
 	}
-	return count;
+	// Oldest first, so the message that has waited longest is the one a reader meets first.
+	return found.sort((a, b) => a.at - b.at || a.message.id.localeCompare(b.message.id));
 }
