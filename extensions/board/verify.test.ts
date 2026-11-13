@@ -21,7 +21,9 @@ import {
 	LEAD,
 	NOW,
 	runner,
+	type Sent,
 	type Session,
+	signBus,
 	signPlan as writePlan,
 } from "../../test/helpers/board-signs.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
@@ -98,6 +100,30 @@ describe("a spot-check whose contract names a command", () => {
 		const refused = await who.peer.call({ action: "move", card: "1", lane: "done" });
 		expect(refused.isError).toBe(true);
 		expect(resultText(refused)).toContain("was written after its spot-check");
+	});
+
+	test("a run that outlives its start is stamped at the moment it was recorded", async () => {
+		// The clock a spot-check's command spends: the call starts at `NOW` and the run pushes it on,
+		// which is what a ten-minute bound looks like from the door's side.
+		const clock = { at: NOW };
+		const ran = runner();
+		const slow = async (command: string, cwd: string) => {
+			const outcome = await ran(command, cwd);
+			clock.at += 5_000;
+			return outcome;
+		};
+		const sent: Sent[] = [];
+		const who = bench({ verify: slow, notify: signBus({ sent }) }, { clock: () => clock.at });
+		await running(who, VERIFY);
+		const reviewed = await who.lead.call({ action: "review", card: "1" });
+		expect(reviewed.isError).toBeFalsy();
+		expect(ran.ran).toEqual([VERIFY]);
+		// Three moments, one fact: the sign, the record that its owner was told, and the field the
+		// `done` gate reads. A reading taken at the top of the call would put the first two five
+		// seconds behind the evidence they carry, and make `signStale` compare a stale half.
+		expect(reviewed.details.card?.review?.at).toBe(NOW + 5_000);
+		expect(reviewed.details.card?.review?.told?.at).toBe(NOW + 5_000);
+		expect(reviewed.details.card?.updatedAt).toBe(NOW + 5_000);
 	});
 
 	test("at the root, the sign records the tree it ran in and says so", async () => {

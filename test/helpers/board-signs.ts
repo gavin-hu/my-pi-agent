@@ -67,6 +67,8 @@ export interface BenchOptions {
 	exec?: FakePiOptions["exec"];
 	/** The directory the two sessions' cwd names, when a case is about where the work is. */
 	cwd?: string;
+	/** A clock that moves, for a case about the moment a sign records — a run that outlives its start. */
+	clock?: () => number;
 }
 
 /** One repository, its agent directory, and the two sessions that act on one board. */
@@ -80,6 +82,7 @@ export function bench(deps: BoardDeps = {}, options: BenchOptions = {}): { lead:
 			sessionId: LEAD_ID,
 			deps,
 			...(options.exec === undefined ? {} : { exec: options.exec }),
+			...(options.clock === undefined ? {} : { clock: options.clock }),
 		}),
 		peer: signSession({
 			cwd,
@@ -87,6 +90,7 @@ export function bench(deps: BoardDeps = {}, options: BenchOptions = {}): { lead:
 			sessionId: "s-peer",
 			deps,
 			...(options.exec === undefined ? {} : { exec: options.exec }),
+			...(options.clock === undefined ? {} : { clock: options.clock }),
 		}),
 	};
 }
@@ -98,9 +102,10 @@ export function signSession(options: {
 	sessionId: string;
 	deps?: BoardDeps;
 	exec?: FakePiOptions["exec"];
+	clock?: () => number;
 }) {
-	const { deps, ...rest } = options;
-	const board = boardHarness({ ...rest, lead: LEAD, now: NOW });
+	const { deps, clock, ...rest } = options;
+	const board = boardHarness({ ...rest, lead: LEAD, now: NOW, ...(clock === undefined ? {} : { clock }) });
 	registerTools(board.fake.pi, board.runtime, deps);
 	const tool = board.fake.pi.tools.get("board");
 	if (!tool) throw new Error("the board tool was not registered");

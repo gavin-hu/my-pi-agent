@@ -43,6 +43,11 @@ export interface BoardHarnessOptions {
 	lead?: string;
 	/** The clock every call sees. */
 	now?: number;
+	/**
+	 * A clock that moves, for a case about the moment a record carries: `now` is one reading for the
+	 * whole case, and a spot-check's run is exactly the work that makes the two differ.
+	 */
+	clock?: () => number;
 	/** The suite's temp tracker, so a directory this creates is cleaned up. */
 	track?: <T extends string | undefined>(dir: T) => T;
 	/** Override `exec`, for a case whose directory is a real repository. */
@@ -69,7 +74,9 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 	const fake = createFakePi({ exec: options.exec ?? (async () => ({ stdout: "", stderr: "", code: 1 })) });
 	const runtime = openBoardSession(
 		fake.pi,
-		options.claims === undefined ? { now: () => now, agentDir } : { now: () => now, agentDir, claims: options.claims },
+		options.claims === undefined
+			? { now: options.clock ?? (() => now), agentDir }
+			: { now: options.clock ?? (() => now), agentDir, claims: options.claims },
 	);
 	const { ctx, notifications } = fakeCtx({
 		cwd,

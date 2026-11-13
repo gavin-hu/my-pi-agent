@@ -287,6 +287,20 @@ export function registerTools(
 						// The name the sign will record, so the owner is told who signed rather than the
 						// label the writing actor is called by.
 						const signer = signMark(me, store.config().lead).by;
+						// An approval covers the plan the card names as well as its wording, so it carries
+						// the same proof a move does. A spot-check is about work already done, and the
+						// `done` move proves the plan then, so it pays for nothing here.
+						const artifact = action === "approve" ? await proofOf(store, args.card) : undefined;
+						// A spot-check of a card whose contract names a command is that command's run:
+						// a refusal here writes nothing, which is what keeps a red check from signing.
+						const evidence = action === "review" ? await verifiedFor(store, args.card, args.override) : undefined;
+						if (evidence !== undefined && "error" in evidence) return refusal(action, me, evidence.error);
+						// The one moment this sign is recorded at, read here and not at the top of the call: a
+						// spot-check's command has a ten-minute bound, so a reading taken before it would stamp the
+						// sign before its own evidence. One reading, because the message below writes the other half
+						// of the same fact — `signStale` compares the later of the two, and a stale half would still
+						// make a sign the work outgrew read as current.
+						const at = runtime.now();
 						// The store's `announce` is what says a message is owed — a fresh stamp, or a repeat
 						// sign whose card still reads as never told. The roster is read here rather than up
 						// front so a call the store refused pays nothing for it.
@@ -299,19 +313,11 @@ export function registerTools(
 							// The record is the retry: only a settled announcement stops the sign owing the
 							// message, and a record that did not land says so rather than pretending.
 							const kept: MutateResult = await store
-								.mutate(card.id, { kind: "announced", sign: action }, me, now)
+								.mutate(card.id, { kind: "announced", sign: action }, me, at)
 								.catch((error: unknown) => ({ ok: false as const, error: messageOf(error) }));
 							if (!kept.ok) return { line: `${answer.line ?? ""} (not recorded: ${kept.error})` };
 							return { card: kept.card, line: answer.line };
 						};
-						// An approval covers the plan the card names as well as its wording, so it carries
-						// the same proof a move does. A spot-check is about work already done, and the
-						// `done` move proves the plan then, so it pays for nothing here.
-						const artifact = action === "approve" ? await proofOf(store, args.card) : undefined;
-						// A spot-check of a card whose contract names a command is that command's run:
-						// a refusal here writes nothing, which is what keeps a red check from signing.
-						const evidence = action === "review" ? await verifiedFor(store, args.card, args.override) : undefined;
-						if (evidence !== undefined && "error" in evidence) return refusal(action, me, evidence.error);
 						const op =
 							action === "review"
 								? {
@@ -321,7 +327,7 @@ export function registerTools(
 										...(evidence === undefined ? {} : { verified: evidence.verified }),
 									}
 								: { kind: "approve" as const, text: args.text, ...(artifact === undefined ? {} : { artifact }) };
-						return await mutate(store, action, me, now, args, op, { told });
+						return await mutate(store, action, me, at, args, op, { told });
 					}
 					case "edit": {
 						if (

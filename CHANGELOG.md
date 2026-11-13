@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a card's `updatedAt` only ever moves forward, so the `done` gate cannot be fooled by a
+  stamp that went back. A spot-check's command has a ten-minute bound and the tool read its clock
+  before the run, so the sign, the record that its owner was told, and the card's own stamp all
+  landed before the evidence they carry — and `signStale` asks whether the card was written since
+  its sign. The one field the gate reads is now the later of the card's own and the caller's; a
+  note's `at`, the transition log's, and a sign's stay what their caller read.
+
 - `lib`: an event stream whose socket stops reading is destroyed once its backlog passes
   `MAX_BUFFERED_BYTES` (1 MiB), instead of buffering every frame for the life of the session. An SSE
   response carries no timeout of its own, so a suspended board tab held a whole snapshot per push,
