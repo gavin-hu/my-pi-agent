@@ -73,10 +73,10 @@ quiet owner holds is reclaimable; one held by a session with no record is not, b
 live session that never joined looks the same. A message to a quiet or not-listening peer
 says so, because written is not heard.
 
-**Joining.** `/board` joins you as the board's lead (`board.lead`, `lead` by
-default). Another session joins under its own name — `/team join <label>` picks it,
-or a preset name is drawn — and a claim, an assign, or an ask makes that join
-once. Being on the team never spends a turn.
+**Joining.** `/board` joins you as the lead (`board.lead`). Another session joins under
+its own name — `/team join <label>` picks it, or a preset name is drawn — and a claim,
+an assign, or an ask makes that join once; a typed preset label also joins
+`board.teammates`, so the bar's chip names it. Being on the team never spends a turn.
 
 `assign` and `ask` join **before** they send, because the message names this session
 as the way back, and send nothing when the join is refused. A claim writes the card

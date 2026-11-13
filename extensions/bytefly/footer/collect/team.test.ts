@@ -1,21 +1,23 @@
 /**
- * The team the bar draws from: the `board.teammates` list, read once per install.
+ * The team the bar draws from: the `board.teammates` list, read at install and again when this
+ * session's own `/team join` says it changed.
  *
  * The rule the bar obeys is one comparison — is this session's name one of the team's — so
  * the cases are what the reader answers for a file that states a team, one that states
  * nothing, and one that cannot be read, and what the installed footer draws for a session
- * the team holds against one it does not.
+ * the team holds against one it does not, before and after the team grows under it.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_TEAMMATES } from "../../../../lib/session-label.ts";
+import { TEAM_CHANGED_CHANNEL } from "../../../../lib/events.ts";
 import { tempDir, withAgentDir } from "../../../../test/helpers/env.ts";
 import { emit, makeFakePi } from "../../../../test/helpers/fakes.ts";
 import { fakeFooterCtx, renderFooter } from "../../../../test/helpers/fixtures/footer.ts";
 import { makeTempTracker } from "../../../../test/helpers/git.ts";
-import { waitFor } from "../../../../test/helpers/process.ts";
+import { settle, waitFor } from "../../../../test/helpers/process.ts";
 import { readTeammates } from "./team.ts";
 import { registerFooter } from "../register.ts";
 
@@ -78,6 +80,46 @@ describe("the installed footer's teammate chip", () => {
 			// The install draws nothing until the team is read; the default team holds `gavin`.
 			await waitFor(() => frame().includes("[gavin]"));
 			expect(frame()).toContain("[gavin]");
+		});
+	});
+
+	test("draws a name the team took on after the install, when this session says it changed", async () => {
+		await withAgentDir(async () => {
+			const cwd = projectWith({ board: { teammates: ["gavin"] } });
+			const { pi } = makeFakePi();
+			registerFooter(pi);
+			const named = fakeFooterCtx({ sessionName: "lily", cwd });
+			await emit(pi, "session_start", { reason: "startup" }, named.ctx);
+			const frame = () => renderFooter(named.footers.at(-1), named.footerData).join("\n");
+			// The team this bar read does not hold `lily`, so it names nobody yet.
+			await waitFor(() => frame().length > 0);
+			await settle();
+			expect(frame()).not.toContain("[lily]");
+
+			// `/team join lily` writes the name and then says the team changed: the bar re-reads
+			// instead of staying nameless until the next session tree.
+			writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ board: { teammates: ["gavin", "lily"] } }));
+			pi.events.emit(TEAM_CHANGED_CHANNEL, { cwd });
+			await waitFor(() => frame().includes("[lily]"));
+			expect(frame()).toContain("[lily]");
+		});
+	});
+
+	test("keeps the team it read when another directory's team changes", async () => {
+		await withAgentDir(async () => {
+			const cwd = projectWith({ board: { teammates: ["gavin"] } });
+			const other = projectWith({ board: { teammates: ["gavin", "lily"] } });
+			const { pi } = makeFakePi();
+			registerFooter(pi);
+			const named = fakeFooterCtx({ sessionName: "lily", cwd });
+			await emit(pi, "session_start", { reason: "startup" }, named.ctx);
+			const frame = () => renderFooter(named.footers.at(-1), named.footerData).join("\n");
+			await waitFor(() => frame().length > 0);
+			// One bar names this session from the team it is showing, not from a repository
+			// that joined somebody else.
+			pi.events.emit(TEAM_CHANGED_CHANNEL, { cwd: other });
+			await settle(20);
+			expect(frame()).not.toContain("[lily]");
 		});
 	});
 });

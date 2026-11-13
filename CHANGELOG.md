@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `team`: a typed `/team join <name>` puts that name on `board.teammates` in the project's
+  `.pi/bytefly.json`, so the footer's chip names the session the join just renamed. The chip is
+  drawn only for a name the team holds, so the one door meant to name the bar used to leave it
+  empty and say nothing; the team is read where the write lands, so a second join keeps the first
+  name. The join's line now says what the bar will draw: the write, a name the team already held,
+  a custom label the chip cannot draw, or a file it could not update.
+
 - `lib`: the header's identity row is 52px rather than 44, so the mark, the subject and the app's
   chrome sit in a bar with air around them, and the chrome's key-sheet and theme buttons close their
   box on hover. The quiet rule took the kit button's bottom edge to no width at all and the hover

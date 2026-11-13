@@ -11,10 +11,14 @@ import { type Card, cardRef } from "../../lib/board/card.ts";
 import { type DeliveryFailure, notDeliveredLine } from "../../lib/session-tool.ts";
 import type { TeamAction } from "./types.ts";
 
-/** `/team join` landed: the label peers address, and whether mail will reach this session. */
-export function formatJoined(label: string, watching: { armed: boolean }): string {
+/**
+ * `/team join` landed: the label peers address, whether mail will reach this session, and what the
+ * bar will draw for the name it just took.
+ */
+export function formatJoined(label: string, watching: { armed: boolean }, note?: string): string {
 	const state = watching.armed ? "listening for handoffs" : "not listening";
-	return `team: on the team as ${label}, ${state}.`;
+	const line = `team: on the team as ${label}, ${state}.`;
+	return note === undefined ? line : `${line} ${note}`;
 }
 
 /** `/team join` did not land, so nothing about this session changed. */

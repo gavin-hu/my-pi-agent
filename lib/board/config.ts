@@ -14,8 +14,10 @@
  */
 
 import { asRecord } from "../json.ts";
-import { loadConfigSection } from "../config.ts";
-import { DEFAULT_TEAMMATES, normalizeTeammates } from "../session-label.ts";
+import { loadConfigSection, projectConfigPath, writeConfigValueAt } from "../config.ts";
+import { messageOf } from "../errors.ts";
+import { sanitizeLine } from "../format.ts";
+import { DEFAULT_TEAMMATES, isTeammate, normalizeTeammates, TEAMMATE_NAMES } from "../session-label.ts";
 import { type Lead, normalizeLead } from "./lead.ts";
 import { DEFAULT_WIP, normalizeWip, type WipLimits } from "./limits.ts";
 
@@ -84,4 +86,48 @@ export function normalizeBoardConfig(
 /** One board's settings: the project's `bytefly.json` over the global one. */
 export function readBoardConfig(cwd: string, options: { agentDir?: string } = {}): BoardConfig {
 	return loadConfigSection(cwd, "board", DEFAULT_BOARD_CONFIG, (raw, base) => normalizeBoardConfig(raw, base), options);
+}
+
+/**
+ * What putting a name on the team did.
+ *
+ * `changed` is what a caller reports: a name the team already held is no edit at all, while a
+ * name the vocabulary does not hold is refused rather than written and dropped on the next read.
+ * The failure kinds are apart because a caller says different things about them — one is the
+ * name the person typed, the other is the file that would not take it.
+ */
+export type AddTeammateResult =
+	| { ok: true; team: readonly string[]; changed: boolean }
+	| { ok: false; why: "not-a-teammate"; reason: string }
+	| { ok: false; why: "write-failed"; reason: string };
+
+/**
+ * Put `label` on this repository's team, in the project's own `bytefly.json`.
+ *
+ * The team is read here rather than taken from the caller, because the one reader a caller
+ * already holds is the store's: `config()` is what the file said when the store opened, so two
+ * joins in one session would be decided against a list that had already lost the first one's
+ * name. One file read on a typed command is cheaper than that.
+ *
+ * The write states the whole list, because the project's layer replaces the global one key by
+ * key: a file that said only the new name would drop the rest of the team. Siblings (`lead`,
+ * `wip`, the other sections, document metadata) survive `writeConfigValueAt`. Everything here is
+ * an answer and nothing throws — a malformed document and a directory that cannot be written are
+ * reasons the join stands without its name on the bar.
+ */
+export function addTeammate(cwd: string, label: string, options: { agentDir?: string } = {}): AddTeammateResult {
+	const written = label.trim().toLowerCase();
+	const name = TEAMMATE_NAMES.find((known) => known === written);
+	if (name === undefined) {
+		return { ok: false, why: "not-a-teammate", reason: `"${sanitizeLine(label)}" is not a preset teammate name` };
+	}
+	const team = readBoardConfig(cwd, options).teammates;
+	if (isTeammate(name, team)) return { ok: true, team, changed: false };
+	const next = [...team, name];
+	try {
+		writeConfigValueAt(projectConfigPath(cwd), "board", ["teammates"], next);
+	} catch (error) {
+		return { ok: false, why: "write-failed", reason: messageOf(error) };
+	}
+	return { ok: true, team: next, changed: true };
 }

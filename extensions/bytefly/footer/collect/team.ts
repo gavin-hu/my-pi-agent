@@ -4,7 +4,8 @@
  * `board.teammates` lives in the shared document, so a footer that resolved the list itself
  * would spend a file read on every frame. It is read at install instead — the same moment
  * the price config is read — and handed to the snapshot as a closure, so a frame costs a
- * comparison and an edited list lands at the next `session_tree`.
+ * comparison and an edited list lands at the next `session_tree`, or on `TEAM_CHANGED_CHANNEL`
+ * when a `/team join` in this session is what edited it.
  *
  * Loaded with `import()` rather than at registration: the board's config pulls the lead's
  * rules, the lane table, and the card record, and a package that never draws a team should

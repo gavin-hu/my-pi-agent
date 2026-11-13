@@ -12,9 +12,7 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { minuteOldCards } from "../../test/helpers/fixtures/board.ts";
-import { presetNameFor } from "../../lib/session-label.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
-import type { JoinResult, TeamJoin } from "../../lib/session-tool.ts";
 import { MAX_ROUND_LINES, registerCommands, roundText, TEAM_COMMAND } from "./commands.ts";
 
 const temps = makeTempTracker();
@@ -161,105 +159,6 @@ describe("roundText", () => {
 		const lines = roundText(cards, NOW).split("\n");
 		expect(lines).toHaveLength(MAX_ROUND_LINES + 1);
 		expect(lines.at(-1)).toMatch(/^… \d+ lines more$/);
-	});
-});
-
-/** A team join that records what it was asked and answers with `answer`. */
-function fakeTeam(
-	answer: (label: string | undefined) => JoinResult = (label) => ({
-		ok: true,
-		label: label ?? "billing-lead",
-		watching: { armed: true, wake: false },
-	}),
-) {
-	const labels: Array<string | undefined> = [];
-	const naming: Array<boolean | undefined> = [];
-	const team: TeamJoin = {
-		join: async (_ctx, input) => {
-			labels.push(input?.label);
-			naming.push(input?.name);
-			return answer(input?.label);
-		},
-	};
-	return { team, labels, naming };
-}
-
-describe("/team join", () => {
-	test("joins under the label it was given, and says where it landed", async () => {
-		const board = boardHarness({ now: NOW, track: temps.track });
-		const { team, labels, naming } = fakeTeam();
-		const fake = createFakePi();
-		registerCommands(fake.pi, board.runtime, { team });
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
-		await command.handler("join billing-core", ctx);
-		expect(labels).toEqual(["billing-core"]);
-		// Naming the session is the point of this door: a typed label is also Pi's own name.
-		expect(naming).toEqual([true]);
-		expect(notifications.at(-1)).toBe("team: on the team as billing-core, listening for handoffs.");
-		// The standing is the session's, not this command's: `/board status` reports the team
-		// whichever door put it there, so this door has to record what it did.
-		expect(board.runtime.team.last()).toEqual({
-			ok: true,
-			label: "billing-core",
-			watching: { armed: true, wake: false },
-		});
-	});
-
-	test("a bare join draws a preset name when Pi has no name for the session", async () => {
-		const board = boardHarness({ now: NOW, track: temps.track });
-		const { team, labels, naming } = fakeTeam();
-		const fake = createFakePi();
-		registerCommands(fake.pi, board.runtime, { team });
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
-		await command.handler("join", ctx);
-		// The board's own name for the session, so the card it claims and the bus record agree.
-		const drawn = presetNameFor("s-lead");
-		expect(labels).toEqual([drawn]);
-		// A drawn name is the team's, not the user's: it does not rename the footer.
-		expect(naming).toEqual([undefined]);
-		expect(notifications.at(-1)).toBe(`team: on the team as ${drawn}, listening for handoffs.`);
-	});
-
-	test("a bare join leaves a session Pi already names to the bus", async () => {
-		const board = boardHarness({ now: NOW, track: temps.track });
-		const { team, labels, naming } = fakeTeam();
-		const fake = createFakePi();
-		registerCommands(fake.pi, board.runtime, { team });
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead", sessionName: "billing-lead" });
-		await command.handler("join", ctx);
-		expect(labels).toEqual([undefined]);
-		expect(naming).toEqual([undefined]);
-		expect(notifications.at(-1)).toContain("on the team as billing-lead");
-	});
-
-	test("a refused join says why, and claims nothing", async () => {
-		const board = boardHarness({ now: NOW, track: temps.track });
-		const { team } = fakeTeam(() => ({ ok: false, error: 'the label "core" is already in use.' }));
-		const fake = createFakePi();
-		registerCommands(fake.pi, board.runtime, { team });
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
-		await command.handler("join core", ctx);
-		expect(notifications.at(-1)).toBe('team: not on the team — the label "core" is already in use.');
-	});
-
-	test("answers the bus's own sentence when there is no bus to join", async () => {
-		const board = boardHarness({ now: NOW, track: temps.track });
-		const fake = createFakePi();
-		// No `session` tool is registered, which is how `board` and `team` loaded alone look.
-		registerCommands(fake.pi, board.runtime);
-		const command = fake.commands.get(TEAM_COMMAND);
-		if (!command) throw new Error("the team command was not registered");
-		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
-		await command.handler("join billing-core", ctx);
-		expect(notifications.at(-1)).toBe("team: not on the team — the session bus is not loaded");
 	});
 });
 

@@ -101,8 +101,9 @@ export const SESSION_SEND_REQUEST = "my-pi-agent/session-send/request";
  * `label` is the name to be on the team as; without one the bus settles its own. `name`
  * is the separate question of whether that label also becomes Pi's session name — what
  * `/resume` lists — and it is opt-in, because a join is not a rename: only
- * `/team join <label>` means "call me this from now on". The footer needs no opt-in: it
- * draws the label itself, so a plain join moves what the bar names this session.
+ * `/team join <label>` means "call me this from now on". The footer is not told directly: it
+ * draws a name only while `board.teammates` holds it, so a typed preset label is put on that list
+ * by the join, and `TEAM_CHANGED_CHANNEL` is what makes a bar re-read it.
  */
 export interface TeamJoinInput {
 	label?: string;
