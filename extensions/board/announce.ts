@@ -22,6 +22,8 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
 import { type Sign, notToldLine, signedText } from "../../lib/board/lead.ts";
+import type { Actor } from "../../lib/board/rules.ts";
+import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { type SendResult, send } from "../../lib/session-tool.ts";
@@ -107,6 +109,62 @@ export async function announce(
 function notAudible(recipient: Recipient): string {
 	if (recipient.state === "quiet") return " (quiet: nothing says it is still there)";
 	return recipient.listening === false ? " (not listening: it reads this at its next turn)" : "";
+}
+
+/** One sign to settle: the message it owes, and the record that settles it. */
+export interface SignToSettle {
+	/**
+	 * The board, asked for after the message.
+	 *
+	 * A getter rather than a store because resolving one can throw — the command's is a lookup that
+	 * can fail — and a sign whose record cannot be written still tells its owner, so the resolve has
+	 * to sit inside the same caught step as the write.
+	 */
+	store: () => Promise<BoardStore>;
+	card: Card;
+	sign: Sign;
+	/** The name the sign recorded, so the owner is told who signed rather than what it is called. */
+	by: string;
+	/** The actor the record is written as: `announced` compares it with the sign's own mark. */
+	actor: Actor;
+	ctx: ExtensionContext;
+	notify: Notify;
+	/** The moment the sign was recorded, passed in because a spot-check's run bounds it. */
+	at: number;
+	/** What the caller knows of the bus: who to reach, and the clock the clause reads it on. */
+	audience?: Audience;
+}
+
+/** What settling came to, as parts rather than a sentence: each door keeps its own words. */
+export interface SettledSign {
+	/** The card as the record left it, when the record landed. */
+	card?: Card;
+	/** The clause for the result: who heard, or that the record did not land. */
+	line?: string;
+	/** Why the record could not be written, when the message went and the record did not. */
+	error?: string;
+}
+
+/**
+ * Tell the card's owner a gate was signed, then record that they were told.
+ *
+ * Both halves of one fact, which is why one body owns them: the message is the half a person acts
+ * on, and the record is the retry — a record that did not land says so, because a repeat would
+ * otherwise send the same message again. Either half failing is a part of the answer and never a
+ * throw: the sign is on the card already, and a door has nowhere to put a stack trace.
+ */
+export async function settleSign(options: SignToSettle): Promise<SettledSign> {
+	const answer = await announce(options.card, options.sign, options.by, options.ctx, options.notify, options.audience);
+	if (!answer.done) return { line: answer.line };
+	const kept = await options
+		.store()
+		.then((store) =>
+			store.mutate(options.card.id, { kind: "announced", sign: options.sign }, options.actor, options.at),
+		)
+		.catch((error: unknown) => ({ ok: false as const, error: messageOf(error) }));
+	// The clause keeps the message's own indentation: on a result it is one line, not two.
+	if (!kept.ok) return { line: `${answer.line ?? ""} (not recorded: ${kept.error})`, error: kept.error };
+	return { card: kept.card, line: answer.line };
 }
 
 /**

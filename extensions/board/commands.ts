@@ -11,7 +11,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { ArtifactProof } from "../../lib/board/artifact.ts";
 import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
-import { PERSON_LABEL, personActor, reviewGate, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
+import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
 import type { Verification } from "../../lib/board/contract.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { plural } from "../../lib/board/round-text.ts";
@@ -175,20 +175,21 @@ async function signLine(
 	): Promise<{ verified: Verification } | { error: string } | undefined> => {
 		const card = await store.read(cardId).catch(() => undefined);
 		if (card === undefined) return undefined;
-		// The gate first, as the tool's door asks it: a sign that would be refused starts no process, and
-		// the refusal is `mutate`'s to give. An override carries no run to record.
-		if ("error" in reviewGate(card, personActor(), store.config().lead, override)) return undefined;
-		if (override !== undefined || card.contract?.verify === undefined) return undefined;
 		const module = await import("../../lib/board/verify.ts");
-		// The tree this session is working in, as the tool's door reads it: the worktree it entered when
-		// there is one, and `ctx.cwd` otherwise, which never follows `worktree enter` by itself.
-		return module.verifySpotCheck(
+		// The gate, the override and the run are `lib/board/verify.ts`'s, as the tool's door asks them:
+		// a sign that would be refused starts no process, and the refusal stays the store's to give.
+		return module.spotCheck({
 			card,
-			resolveEffectiveCwd(ctx.cwd),
-			verify ?? module.defaultVerifyRun(),
-			() => session.now(),
-			module.shaOf(pi),
-		);
+			actor: personActor(),
+			lead: store.config().lead,
+			override,
+			// The tree this session is working in, as the tool's door reads it: the worktree it entered when
+			// there is one, and `ctx.cwd` otherwise, which never follows `worktree enter` by itself.
+			cwd: resolveEffectiveCwd(ctx.cwd),
+			run: verify ?? module.defaultVerifyRun(),
+			now: () => session.now(),
+			sha: module.shaOf(pi),
+		});
 	};
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
 	if (id === undefined) return { text: `board: ${sign} needs a card id — try /board ${sign} 4`, tone: "info" };
@@ -234,23 +235,21 @@ async function signLine(
 	// exactly as the tool does. The sign's own signer may record it, which is why `personActor` is
 	// the actor: `announced` compares with `signedAs`, and the person's mark is on the sign.
 	if (result.announce !== true) return { text, tone: "info" };
-	const { announce, notifyOverBus } = await import("./announce.ts");
-	const sender = notify ?? notifyOverBus(pi);
-	const told = await announce(result.card, sign, signMark(personActor(), lead).by, ctx, sender, {
-		roster: () => session.roster(ctx.cwd),
-		now: () => session.now(),
+	const { settleSign, notifyOverBus } = await import("./announce.ts");
+	// The message and the record are one body, shared with the tool's door; this door supplies the
+	// person as the actor, since `announced` compares with the mark that sign carries.
+	const settled = await settleSign({
+		store: () => session.store(ctx.cwd),
+		card: result.card,
+		sign,
+		by: signMark(personActor(), lead).by,
+		actor: personActor(),
+		ctx,
+		notify: notify ?? notifyOverBus(pi),
+		at: session.now(),
+		audience: { roster: () => session.roster(ctx.cwd), now: () => session.now() },
 	});
-	const clause = told.line?.trim();
-	if (!told.done) return { text: clause === undefined ? text : `${text} · ${clause}`, tone: "info" };
-	// Settled: the record stops the next repeat owing the message. A record that did not land says
-	// so, because the message is already out and a repeat would send it again.
-	try {
-		const store = await session.store(ctx.cwd);
-		const kept = await store.mutate(id, { kind: "announced", sign }, personActor(), session.now());
-		if (!kept.ok) return { text: `${text} · ${clause ?? ""} (not recorded: ${kept.error})`, tone: "info" };
-	} catch (error) {
-		return { text: `${text} · ${clause ?? ""} (not recorded: ${messageOf(error)})`, tone: "info" };
-	}
+	const clause = settled.line?.trim();
 	return { text: clause === undefined ? text : `${text} · ${clause}`, tone: "info" };
 }
 
