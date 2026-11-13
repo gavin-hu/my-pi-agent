@@ -17,6 +17,10 @@
  * {@link RETRY_MAX_MS}. A stream that got a frame onto the wire resets it, because
  * one that delivered was read, not a server that never answered.
  *
+ * A stream whose socket stops reading is dropped at {@link MAX_BUFFERED_BYTES} rather
+ * than buffered: the queue is the process's memory, and an SSE response never times
+ * out on its own.
+ *
  * Value-only: the only state is what the returned closure carries.
  */
 
@@ -34,12 +38,22 @@ export const RETRY_MS = 2_000;
 /** The cap the hint climbs to, so a server that stays down costs minutes, not seconds. */
 export const RETRY_MAX_MS = 60_000;
 
+/**
+ * How many bytes one stream may have waiting for a socket that has stopped reading.
+ *
+ * A socket that is behind but reading stays under it and is never dropped; one that has stopped
+ * — a suspended tab, a frozen page — is dropped, which is the only bound this server has: an SSE
+ * response carries no timeout of its own, so without it the backlog would grow for as long as the
+ * tab is away.
+ */
+export const MAX_BUFFERED_BYTES = 1 << 20;
+
 /** The heartbeat itself: a comment frame, which carries no event and no data. */
 const KEEPALIVE_FRAME = ": keepalive\n\n";
 
 /** One open event stream, as a route writes it. */
 export interface EventSink {
-	/** Write one frame; a no-op once the stream has ended. */
+	/** Write one frame; a no-op once the stream has ended, or once the socket is gone. */
 	write(frame: string): void;
 	/** End the stream, optionally with a last frame; safe to call twice. */
 	end(frame?: string): void;
@@ -168,23 +182,41 @@ export function createSinks(deps: SinkDeps = {}): SinkRegistry {
 function createSink(response: ServerResponse, beat: RepeatTimer, released: (delivered: boolean) => void): EventSink {
 	let ended = false;
 	let delivered = false;
+	let stopBeat = (): void => {};
+	/**
+	 * Close the stream, once, and release it.
+	 *
+	 * The bound's drop is a `destroy` and not an `end`: a paused socket keeps its backlog after an
+	 * `end` — there is no socket timeout here to reap it — so the memory it is being dropped for
+	 * would stay for the life of the process. A browser cannot tell the two apart: EventSource
+	 * reports an error and reconnects either way.
+	 */
+	const finish = (how: "end" | "drop", frame?: string): void => {
+		if (ended) return;
+		ended = true;
+		stopBeat();
+		if (how === "drop") {
+			if (!response.destroyed) response.destroy();
+		} else if (!response.writableEnded && !response.destroyed) {
+			if (frame === undefined) response.end();
+			else response.end(frame);
+		}
+		released(delivered);
+	};
 	const write = (frame: string): void => {
 		if (ended || response.writableEnded || response.destroyed) return;
+		// Asked of the backlog the last frame left, and before this one is appended: a socket that is
+		// past the bound has stopped reading, and the frame that trips it is one nobody would see. A
+		// fresh socket's large snapshot is never mistaken for a stall, because its backlog is zero.
+		if (response.writableLength > MAX_BUFFERED_BYTES) return finish("drop");
 		delivered = true;
 		response.write(frame);
 	};
-	const stopBeat = beat(KEEPALIVE_MS, () => write(KEEPALIVE_FRAME));
+	stopBeat = beat(KEEPALIVE_MS, () => write(KEEPALIVE_FRAME));
 	return {
 		write,
 		end(frame) {
-			if (ended) return;
-			ended = true;
-			stopBeat();
-			if (!response.writableEnded && !response.destroyed) {
-				if (frame === undefined) response.end();
-				else response.end(frame);
-			}
-			released(delivered);
+			finish("end", frame);
 		},
 	};
 }
