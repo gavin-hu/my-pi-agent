@@ -59,9 +59,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   took it`, what it waits on, what it is blocked on, `✓ done by …` — was in the document and clipped
   to a pixel; it is now the note's one line above the footer, in the tone the reason table gives its
   kind, while the holder and the age stay the last line. It is the same one body (`reasonFor`), so
-  the face, the hover, the title button's description and the dialog still cannot disagree; a card
-  whose reason is its last note draws no state line, because a note is prose. The note grows by that
-  one pinned line, so a lane of notes is taller and still one height.
+  the face, the hover, the title button's description and the dialog still cannot disagree.
 
 - `board`: a card is as tall as it draws. The face's five boxes were pinned to one height, so a note
   with a one-line title kept a blank second title line and a card that owed nothing kept a blank

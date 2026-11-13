@@ -141,7 +141,7 @@ ${WEB_COMPONENTS_CSS}
    Its height is its content's — the boxes it draws plus the padding — so a lane of notes is as
    ragged as the cards are, and the state row is the line they all share. */
 .bf-lane .bf-lane__list{gap:var(--space-2)}
-.bf-lane .board-row{grid-template-columns:minmax(0,1fr);overflow:hidden;align-content:stretch;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md)}
+.bf-lane .board-row{grid-template-columns:minmax(0,1fr);overflow:hidden;padding:var(--space-2) var(--space-3);background:var(--note-paper);border:0;border-radius:var(--radius-md)}
 /* The card the reader walked to wears the accent outside its edge; a card a peer's write just
    moved wears it inside, so the two never read as one state. */
 .bf-lane .board-row[data-current="true"]{outline:2px solid var(--accent)}
