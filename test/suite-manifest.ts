@@ -282,6 +282,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/read",
 	"board/reason",
 	"board/reclaim",
+	"board/reseat",
 	"board/round",
 	"board/round-text",
 	"board/signature",

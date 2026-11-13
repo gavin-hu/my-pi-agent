@@ -224,6 +224,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a session that resumes with a new id keeps the cards it was working. The turn-start sweep
+  pooled every unfinished card whose owner had stopped, so a `/resume` lost the lane, the plan and the
+  WIP slot on its first turn — the resumed session is not the holder, because a card records a session
+  id and `holds` compares ids. The sweep now hands a card back when the starting session wears the
+  owner's label: one `reseat`, the owner id re-pointed, and the lane, contract, approval and spot-check
+  untouched. It says which fact let it act — a record that stopped, or one the bus had pruned — and a
+  record that is still live or quiet is left alone, so no session is handed another's card.
+
 - `board`: the write lock waits out the `EPERM` Windows answers while a rival's create and `rm`
   overlap, instead of throwing it out of a write nobody made. The refusal meant "somebody's file is
   in the way" all along — a delete-pending name is refused as access-denied there rather than as

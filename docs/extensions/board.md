@@ -90,9 +90,9 @@ says who heard it — quiet, not listening, or not told — and an untold one is
   does for a card nothing open waits on — and an archived record is closed but for `drop`.
 - The lead is a name, not an authority: any session can join it, and a lead holding a card
   can release it, sign it, and claim it again. A gate is a reading, not a permission.
-- Ownership is a session id, not a lock: only `session-bus` path claims are. A card in `execute`
-  holds its `paths`, and a lane change releases only the writer's — so a peer's `reclaim` names
-  what stays held; a card whose owner ended is released by another session's start, never its own.
+- Ownership is a session id, not a lock: only `session-bus` path claims are. A card in `execute` holds
+  its `paths`, and a lane change releases only the writer's — so a peer's `reclaim` names what stays
+  held; a card whose owner ended is released by a start, or re-seated to the session wearing that name.
 - A card keeps eight lane transitions; an unreadable card file is skipped, and named in the listing.
 - The page sweeps every five seconds for the facts no card file announces — a card gone
   unwritten, a peer quiet or gone, a plan removed — and scans every second with no watch.

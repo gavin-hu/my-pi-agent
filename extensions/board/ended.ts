@@ -22,13 +22,23 @@ import { presenceOf } from "../../lib/session-roster.ts";
 /** What a sweep needs of the session, so a suite drives it without a bus. */
 export type SweepSession = Pick<BoardSession, "store" | "who" | "roster" | "now">;
 
+/** `a and b`, never `a, and b`: a bullet in the first turn is one sentence, and two is the common case. */
+function listed(items: readonly string[]): string {
+	return items.length === 2 ? items.join(" and ") : listOf(items, "and");
+}
+
 /**
- * Release every unfinished card whose owner's record says its session is gone, and say which.
+ * Hand a stopped session's cards on, and say which: the seat first, then the pool.
+ *
+ * Two verbs, because the caller is the fact that tells them apart. A card whose owner wears this
+ * session's name is the one a `/resume` left behind — this session is the same work with a new id —
+ * so it is re-seated: the owner id moves and the lane, plan and slot stay. Every other card an
+ * owner stopped on is released into the pool, which is what the reclaim gate already lets a peer do.
  *
  * Refusals are skipped rather than reported: a refusal is a race (another session swept the same
- * card) or a record that changed between the read and the write, and the store's compare-and-set
- * has already decided. Only a write that changed something is counted, so the clause names exactly
- * what this session released.
+ * card) or a record that changed between the read and the write, and the store's locked
+ * read-check-write has already decided. Only a write that changed something is counted, so the
+ * clause names exactly what this session wrote.
  */
 export async function releaseEnded(session: SweepSession, ctx: ExtensionContext): Promise<string | undefined> {
 	try {
@@ -40,25 +50,46 @@ export async function releaseEnded(session: SweepSession, ctx: ExtensionContext)
 		const { cards } = await store.scan();
 		const now = session.now();
 		const released: string[] = [];
+		const reseated: string[] = [];
+		// True when any card in that list was a record the bus had pruned rather than one it watched stop:
+		// the weaker fact, said in the clause a session acts on. Two seats of one name in one sweep is the
+		// only way the qualifier can cover more than it should, and that is a case the bus does not make.
+		let pruned = false;
 		for (const card of cards) {
 			if (card.owner === undefined || LANE_RULES[card.lane].terminal) continue;
-			// A card this session holds is not its to release. A `/resume` inherits the id, and the record
-			// the crashed process left behind is gone by pid — so this sweep, which runs right after the
-			// re-claim of those same paths, would take back the work it has just resumed.
+			// A card this session holds is not its to release. A `/resume` that kept the id is already the
+			// holder by it, and the record the crashed process left behind is gone by pid — so this sweep,
+			// which runs right after the re-claim of those same paths, would take back what it just resumed.
 			if (holds(card, me)) continue;
 			const state = presenceOf(roster, card.owner, now);
-			if (state !== "gone") continue;
+			// The seat: this session wears the owner's label and the bus says that session stopped, so the
+			// card is one a `/resume` left behind and is handed back rather than pooled. `absent` counts
+			// here and nowhere else — a pruned record is the weaker fact, and the clause says which one.
+			const seat = card.owner.label.toLowerCase() === me.label.toLowerCase();
+			const mine = seat && (state === "gone" || state === "absent");
+			if (!mine && state !== "gone") continue;
+			const holder = { owner: card.owner, state };
 			const result = await store
-				.mutate(card.id, { kind: "reclaim", holder: { owner: card.owner, state } }, me, now)
+				.mutate(card.id, mine ? { kind: "reseat", holder } : { kind: "reclaim", holder }, me, now)
 				.catch(() => undefined);
-			if (result?.ok === true && result.changed) released.push(cardRef(card.id));
+			if (result?.ok !== true || !result.changed) continue;
+			if (mine) {
+				reseated.push(cardRef(card.id));
+				if (state === "absent") pruned = true;
+			} else released.push(cardRef(card.id));
 		}
-		if (released.length === 0) return undefined;
+		if (released.length === 0 && reseated.length === 0) return undefined;
 		// `a and b`, never `a, and b`: a bullet in the first turn is one sentence, and two cards is
 		// the common case. The clause is the same shape `stray-fields` uses for the same reason.
-		const what = released.length === 2 ? released.join(" and ") : listOf(released, "and");
-		const from = released.length === 1 ? "a session that ended" : "sessions that ended";
-		return `released ${what} from ${from}`;
+		const parts: string[] = [];
+		if (reseated.length > 0) {
+			parts.push(`re-seated ${listed(reseated)} in this session${pruned ? " (owner record pruned)" : ""}`);
+		}
+		if (released.length > 0) {
+			const from = released.length === 1 ? "a session that ended" : "sessions that ended";
+			parts.push(`released ${listed(released)} from ${from}`);
+		}
+		return parts.join(", ");
 	} catch {
 		// A board that cannot be read is not a reason to fail the turn it was read for.
 		return undefined;
