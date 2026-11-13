@@ -61,15 +61,15 @@ The pane is the one scroll box, so a lane is as tall as the board and its head r
 edge however long a neighbour is. The Team tab draws that same card, no rule between two of them.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`,
-`note`, `contract`, `approve`, `review`, `edit`, `archive`, `drop`. `claim`, `move` and `assign` are
-refused while `plan` or `execute` is full, naming the ways out. `reclaim` takes a card back to
-`backlog` from its holder, the person and the lead always, a peer only while that owner's record says quiet or
-gone. `move` into `execute` or `done` re-reads the plan where the write lands, and a plan that is gone refuses it. A
-sign nobody heard reads `· not told`, and saying it again sends it. A contract names a `verify` command — required, so
-no card is signed on a sentence alone — and `review` runs it in the tree you review in, recording the exit, the branch
-and the commit. `done` refuses a sign with no result or one older than the card's write, and resolves the merge that
-carried the review — not the tip, so a card still closes after others landed — refusing one that moved its paths.
-`landed: <sha>` answers which commit a finished card is; an `override` reads `closed by instruction`.
+`note`, `contract`, `approve`, `review`, `edit`, `archive`, `drop`. `claim`, `move` and `assign` are refused while
+`plan` or `execute` is full, naming the ways out. `reclaim` takes a card back from its holder: the person and the
+lead always, a peer only while that owner's record says quiet or gone. `move` into `execute` or `done` re-reads
+the plan where the write lands, and a plan that is gone refuses it. A contract names a `verify` command — required
+— and `review` runs it in the tree you review in, recording the exit, the branch and the commit. `done` refuses a
+sign with no result or one older than the card's write, and resolves the merge that carried the review — not the
+tip, so a card still closes after others landed — refusing one that moved its paths. `landed: <sha>` answers which
+commit a finished card is, and is absent on a card closed before the rule or by an older build: its review's sha is
+the evidence it has. An `override` reads `closed by instruction`.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);
 `/board approve <id>` and `/board review <id>` sign as the person; `/board archive` runs the sweep;
