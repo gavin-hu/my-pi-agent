@@ -47,7 +47,7 @@ Pi 提供一个精简而锐利的内核。这个包是在其之上的一层，�
 
 ```bash
 pi install npm:@gavin-hu/my-pi-agent                        # 最新发布版
-pi install git:github.com/gavin-hu/my-pi-agent@v0.27.0      # 固定版本
+pi install git:github.com/gavin-hu/my-pi-agent@v0.26.0      # 固定版本
 ```
 
 `git` 需在 `PATH` 上，供 [`worktree`](./docs/extensions/worktree.md) 与
