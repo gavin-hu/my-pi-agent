@@ -29,7 +29,6 @@ const feedTemplate = String.raw`(function () {
   var chip = board.chip;
   var ago = board.ago;
   var plural = board.plural;
-  var stamp = board.stamp;
   var paneHead = board.paneHead;
 
   var ACTIVITY_LABEL = __ACTIVITY_LABEL__;
@@ -90,7 +89,7 @@ const feedTemplate = String.raw`(function () {
     line.appendChild(recipients(message.to));
     // The kind, in words: the tag is the shape and the word is the fact.
     line.appendChild(chip(message.kind, "muted"));
-    line.appendChild(stamp(ago(message.at), message.at));
+    line.appendChild(board.stamp(message.at, undefined, true));
     body.appendChild(line);
     // The text is the reason to open it, and it never fits a row: on the hover, whole.
     row.title = message.fromLabel + " \u2192 " + message.to.map(function (each) { return each.label; }).join(", ") + ": " + message.text;
@@ -119,7 +118,7 @@ const feedTemplate = String.raw`(function () {
     }
     line.appendChild(el("span", N.eventRef, "#" + event.card));
     line.appendChild(el("span", N.eventWhat, eventWhat(event)));
-    line.appendChild(stamp(ago(event.at), event.at));
+    line.appendChild(board.stamp(event.at, undefined, true));
     body.appendChild(line);
     row.title = "#" + event.card + " " + event.title;
     return row;

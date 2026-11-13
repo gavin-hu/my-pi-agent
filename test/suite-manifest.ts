@@ -76,6 +76,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"transport/server",
 		"transport/watch",
 		"view/behaviour",
+		"view/bundle",
 		"view/dialog",
 		"view/dialog-behaviour",
 		"view/face",

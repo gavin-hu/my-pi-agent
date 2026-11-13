@@ -31,7 +31,6 @@ const activeTemplate = String.raw`(function () {
   var chip = board.chip;
   var ago = board.ago;
   var plural = board.plural;
-  var stamp = board.stamp;
   var kindLabel = board.kindLabel;
   var rankOf = board.rankOf;
   var decisionTone = board.decisionTone;
@@ -200,7 +199,7 @@ const activeTemplate = String.raw`(function () {
     // it is the one part that moves without a frame.
     var sentence = entry.at === undefined ? undefined : board.reasonNode({ text: entry.why, at: entry.at, wording: entry.wording });
     if (sentence !== undefined) meta.appendChild(sentence);
-    else meta.appendChild(stamp(ago(card.updatedAt), card.updatedAt));
+    else meta.appendChild(board.stamp(card.updatedAt, undefined, true));
     meta.id = "team-why-" + card.id;
     body.appendChild(meta);
     return node;

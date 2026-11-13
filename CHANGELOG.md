@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: the served page has one `stamp` again. Two fragments each defined one — the Team tab's, which
+  passed the row's edge class, and the card face's, which did not — and both published it under
+  `board.stamp`, so which function a caller reached was decided by the order `client.ts` concatenates
+  its fragments: two lines moved and every Team-tab age printed `undefined`. One definition now takes
+  the age, the wording it belongs to, and whether the caller wants the row's edge, so a card's meta
+  line still draws its age inline. A name the bundle both defines twice and publishes twice fails
+  `test/helpers/bundle.ts`'s `duplicateDefinitions`; the seven other names it defines twice are a
+  dead definition rather than this hazard, and are on the board.
+
 - `board`: the page reads the pile again only when the cards directory moved, so a frame costs one
   `stat` where it used to cost a readdir and a parse per card. A frame is asked for on every write,
   on the five-second sweep, and every second when no watch could be armed; the roster, the mail
