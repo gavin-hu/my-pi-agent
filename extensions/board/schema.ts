@@ -144,6 +144,12 @@ export const BoardParams = Type.Object({
 				"`list`: read the archive — the finished cards `archive` set aside; `query` and `mine` narrow it, `lane` and `round` do not.",
 		}),
 	),
+	olderThan: Type.Optional(
+		Type.String({
+			description:
+				"`archive`: only cards finished at least this long ago (`30d`, `12h`, `90m`, `45s`); absent sweeps all, and it takes no `card`.",
+		}),
+	),
 });
 
 /** The parameters as the schema validates them. */

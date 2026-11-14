@@ -173,7 +173,11 @@ const RECLAIMED: TeamDetails = {
 };
 
 /** One finished card set aside, as the tool reports it. */
-const ARCHIVED: BoardDetails = { action: "archive", me: ME, archive: { moved: [DONE.id], kept: [], failed: [] } };
+const ARCHIVED: BoardDetails = {
+	action: "archive",
+	me: ME,
+	archive: { moved: [DONE.id], kept: [], held: [], failed: [] },
+};
 
 export const BOARD_FIXTURES: ToolFixture[] = [
 	{

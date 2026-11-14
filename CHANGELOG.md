@@ -45,6 +45,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   dialog draw the command and the run from the same fields in one sentence, so the two doors that
   sign cannot word a run apart.
 
+- `board`: `archive` takes an age bound, so a board full of finished work can be swept without losing
+  what just shipped. `/board archive --older-than 30d` — or `archive` with `olderThan: "30d"` — moves only
+  the cards that finished at least that long ago, measured from the transition into `done`, with the last
+  write standing in for a file whose log was elided; the line it prints names how many the bound kept
+  back, so a bounded sweep cannot read as "that was all of it". A spec it cannot read is refused before
+  anything is swept, which matters most for `/board archive 30d` with the flag missing, whose shape is a
+  card id. A sweep with no bound still takes every finished card, so no existing call changes meaning.
+
 ### Changed
 
 - `board`: the lead opens the lane it just approved. A lead that holds no card may move it from `plan` to

@@ -40,7 +40,7 @@ export function registerCommands(
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
 		description:
-			"Open the shared board in a local browser, sign its two gates as the person, or fold the finished cards away: /board [archive | team | status | stop | approve <id> | review <id> [--override <why>]]",
+			"Open the shared board in a local browser, sign its two gates as the person, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--override <why>]]",
 		getArgumentCompletions: (prefix: string) => {
 			// Lowercased, because that is what the handler parses: `/board ST 4` signs, so `/board ST`
 			// has to complete.
@@ -62,10 +62,17 @@ export function registerCommands(
 			}
 			if (word === "archive") {
 				// The person's door to the sweep the tool already had: one rule for both, so the
-				// count the rollup prints and the cards this moves cannot be two sets.
-				const { sweepFinished, sweepText } = await import("./archive.ts");
+				// count the rollup prints and the cards this moves cannot be two sets. The flag is
+				// read before the store is even opened, because a spec a person mistyped must not
+				// reach a sweep that would take every finished card.
+				const { boundFromCommand, sweepFinished, sweepText } = await import("./archive.ts");
+				const read = boundFromCommand(rest);
+				if (!read.ok) {
+					ctx.ui.notify(`board: ${read.error}`, "warning");
+					return;
+				}
 				const store = await session.store(ctx.cwd);
-				const swept = await sweepFinished(store, personActor(), session.now());
+				const swept = await sweepFinished(store, personActor(), session.now(), undefined, read.bound);
 				ctx.ui.notify(`board: ${sweepText(swept)}`, swept.failed.length > 0 ? "warning" : "info");
 				return;
 			}
