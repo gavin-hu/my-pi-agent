@@ -103,6 +103,39 @@ describe("the block scan", () => {
 		expect(outline("\t```\nbody\n\t```")).toEqual(["0:2:paragraph"]);
 	});
 
+	test("keeps a raw-HTML block as one block when the page says how far it runs", () => {
+		// The allowlist is the page's, so the scan asks instead of knowing: one hook answers how far
+		// the block runs, which is what lets a suppressed element swallow its body across a blank
+		// line. With no hook the same lines are prose.
+		const lines = ["<div>", "  <span>x</span>", "</div>", "", "<svg>", "", "</svg>", "after"];
+		const htmlEnd = (all: readonly string[], index: number): number | undefined => {
+			if (all[index] === "<div>") {
+				let end = index;
+				while (end + 1 < all.length && all[end + 1] !== "") end += 1;
+				return end;
+			}
+			if (all[index] === "<svg>") {
+				let end = index;
+				while (end < all.length && all[end] !== "</svg>") end += 1;
+				return end;
+			}
+			return undefined;
+		};
+		expect(scanBlocks(lines, { htmlEnd }).map((block) => [block.start, block.end, block.kind])).toEqual([
+			[0, 2, "html"],
+			[3, 3, "blank"],
+			[4, 6, "html"],
+			[7, 7, "paragraph"],
+		]);
+		expect(scanBlocks(lines).map((block) => block.kind)).toEqual([
+			"paragraph",
+			"blank",
+			"paragraph",
+			"blank",
+			"paragraph",
+		]);
+	});
+
 	test("splits CRLF, CR and LF the same way", () => {
 		expect(splitLines("a\r\nb\rc\nd")).toEqual(["a", "b", "c", "d"]);
 		expect(outline("a\r\n\r\nb")).toEqual(["0:0:paragraph", "1:1:blank", "2:2:paragraph"]);

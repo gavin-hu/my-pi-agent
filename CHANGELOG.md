@@ -59,7 +59,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   comment anchors and browse's README rendering were classified by two scanners with their own
   heading, fence, table, list and quote rules; the kit now owns the scan (and the cell splitter and
   the column indent beside it), the plan's block model adapts it, and every stored plan was checked
-  to scan to the same boundaries — so no saved review baseline reads as changed. The two inline
+  to scan to the same boundaries — so no saved review baseline reads as changed. The browse file view walks the same scan
+  now and keeps its strictness at its own emitter — a delimiter row that does not match its
+  header is a paragraph, a quote crosses one blank line — with its raw-HTML allowlist, URL
+  policy and highlighter untouched. The two inline
   grammars stay separate by design: browse's decodes entities, reference links and sanitized raw
   HTML, and the review's is escape-only.
 

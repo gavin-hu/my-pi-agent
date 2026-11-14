@@ -48,8 +48,29 @@ const TABLE_ROW = /\|/;
 /** A GFM alignment row (`| --- | :--: |`), with or without edge pipes. */
 const TABLE_DELIM = /^ {0,3}\|? *:?-+:? *(?:\| *:?-+:? *)*\|? *$/;
 
+/** What a caller may tell the scan that the text alone cannot say. */
+export interface ScanOptions {
+	/**
+	 * How far a raw-HTML block runs from `index`, or `undefined` when this line opens none.
+	 *
+	 * The page owns this: which tags are allowed, and where a suppressed element (`<script>`,
+	 * `<svg>`) closes, are its document policy, and the scan keeps the lines without learning the
+	 * allowlist. No hook means an HTML-looking line is prose, escaped like any other text.
+	 */
+	htmlEnd?: (lines: readonly string[], index: number) => number | undefined;
+}
+
 /** How a block is rendered; a caller maps a kind it spells differently (the plan calls a fence `code`). */
-export type MarkdownBlockKind = "heading" | "paragraph" | "list" | "fence" | "quote" | "table" | "hr" | "blank";
+export type MarkdownBlockKind =
+	| "heading"
+	| "paragraph"
+	| "list"
+	| "fence"
+	| "quote"
+	| "table"
+	| "hr"
+	| "blank"
+	| "html";
 
 /** A table column's alignment, from its delimiter cell. */
 export type MarkdownAlign = "" | "left" | "center" | "right";
@@ -182,10 +203,11 @@ function fenceEnd(
 }
 
 /** Whether a line opens a block that may interrupt a paragraph. */
-function startsBlock(lines: readonly string[], index: number): boolean {
+function startsBlock(lines: readonly string[], index: number, options: ScanOptions): boolean {
 	const line = lines[index];
 	return (
 		line.trim() === "" ||
+		options.htmlEnd?.(lines, index) !== undefined ||
 		FENCE.test(line) ||
 		HEADING.test(line) ||
 		QUOTE.test(line) ||
@@ -203,7 +225,7 @@ function startsBlock(lines: readonly string[], index: number): boolean {
  * it — the review points at a step, not at a list — and a caller that renders a list
  * groups a run of them at its emitter.
  */
-export function scanBlocks(lines: readonly string[]): MarkdownBlock[] {
+export function scanBlocks(lines: readonly string[], options: ScanOptions = {}): MarkdownBlock[] {
 	const blocks: MarkdownBlock[] = [];
 	const push = (start: number, end: number, block: Omit<MarkdownBlock, "start" | "end" | "lines">): void => {
 		blocks.push({ start, end, lines: lines.slice(start, end + 1), ...block });
@@ -248,6 +270,12 @@ export function scanBlocks(lines: readonly string[]): MarkdownBlock[] {
 			continue;
 		}
 
+		if (THEMATIC_BREAK.test(line)) {
+			push(i, i, { kind: "hr" });
+			i += 1;
+			continue;
+		}
+
 		// A list marker wins over a pipe, so `- | a | b |` stays an item instead of the
 		// first cell of a table whose header is a bullet.
 		const item = line.match(LIST_ITEM);
@@ -286,14 +314,16 @@ export function scanBlocks(lines: readonly string[]): MarkdownBlock[] {
 			continue;
 		}
 
-		if (THEMATIC_BREAK.test(line)) {
-			push(i, i, { kind: "hr" });
-			i += 1;
+		const htmlEnd = options.htmlEnd?.(lines, i);
+		if (htmlEnd !== undefined) {
+			const end = Math.max(i, htmlEnd);
+			push(i, end, { kind: "html" });
+			i = end + 1;
 			continue;
 		}
 
 		let end = i;
-		while (end + 1 < lines.length && !startsBlock(lines, end + 1)) end += 1;
+		while (end + 1 < lines.length && !startsBlock(lines, end + 1, options)) end += 1;
 		push(i, end, { kind: "paragraph" });
 		i = end + 1;
 	}
@@ -302,6 +332,6 @@ export function scanBlocks(lines: readonly string[]): MarkdownBlock[] {
 }
 
 /** Scan a document: {@link splitLines} first, then {@link scanBlocks}. */
-export function scanDocument(source: string): MarkdownBlock[] {
-	return scanBlocks(splitLines(source));
+export function scanDocument(source: string, options: ScanOptions = {}): MarkdownBlock[] {
+	return scanBlocks(splitLines(source), options);
 }

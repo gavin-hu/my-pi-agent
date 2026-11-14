@@ -26,14 +26,19 @@
  */
 
 import { decodeCodePoint, escapeHtml } from "../../../lib/escape.ts";
-import { indentOf, splitRow } from "../../../lib/web/markdown-blocks.ts";
+import {
+	FENCE,
+	type MarkdownAlign,
+	type MarkdownBlock,
+	type MarkdownListItem,
+	scanBlocks,
+} from "../../../lib/web/markdown-blocks.ts";
 import { fenceLanguage, highlightLines } from "../../../lib/highlight.ts";
 import {
 	closesSuppressed,
 	closeHtmlSink,
 	closeInlineTags,
 	createHtmlSink,
-	type HtmlBlockStart,
 	type HtmlSink,
 	htmlBlockStart,
 	sanitizeHtmlBlock,
@@ -141,7 +146,7 @@ function referenceLabel(label: string): string {
 function collectDefinitions(lines: string[], html: boolean): { defs: Map<string, LinkDefinition>; body: string[] } {
 	const defs = new Map<string, LinkDefinition>();
 	const body: string[] = [];
-	let fence: Fence | undefined;
+	let fence: { char: string; length: number } | undefined;
 	let inHtml: "block" | { suppressed: string } | undefined;
 	for (const line of lines) {
 		if (fence) {
@@ -159,9 +164,9 @@ function collectDefinitions(lines: string[], html: boolean): { defs: Map<string,
 			body.push(line);
 			continue;
 		}
-		const open = matchFence(line);
+		const open = FENCE.exec(line);
 		if (open) {
-			fence = open;
+			fence = { char: open[1][0], length: open[1].length };
 			body.push(line);
 			continue;
 		}
@@ -204,100 +209,93 @@ function stripIndent(line: string, columns: number): string {
 	return line.slice(index);
 }
 
+/**
+ * Walk the kit's scan and emit HTML.
+ *
+ * The classification is `lib/web/markdown-blocks.ts`'s now: this half answers only what a
+ * README's page decides — which tags are allowed (the `htmlEnd` hook), the anchor id a
+ * heading gets, the `<pre class="md-code">` a fence is highlighted into, and the two rules
+ * that are the page's rather than Markdown's: a delimiter row that does not match its header
+ * is a paragraph, and a quote run crosses one blank line.
+ */
 function renderBlocks(lines: string[], ctx: Context): string {
+	// A raw-HTML block runs as far as the allowlist says, and a suppressed element swallows
+	// its body across blank lines. The scan asks; `raw-html.ts` answers.
+	const blocks = scanBlocks(lines, ctx.html ? { htmlEnd: htmlBlockExtent } : {});
 	const out: string[] = [];
 	let i = 0;
-	while (i < lines.length) {
-		const line = lines[i];
-		if (isBlank(line)) {
-			i++;
-			continue;
+	while (i < blocks.length) {
+		const block = blocks[i] as MarkdownBlock;
+		switch (block.kind) {
+			case "blank":
+				i += 1;
+				break;
+			case "fence":
+				out.push(renderFence(block));
+				i += 1;
+				break;
+			case "heading":
+				out.push(renderHeadingBlock(block, ctx));
+				i += 1;
+				break;
+			case "hr":
+				out.push("<hr>");
+				i += 1;
+				break;
+			case "html":
+				out.push(renderHtmlBlock(block, ctx));
+				i += 1;
+				break;
+			case "quote": {
+				// A README's quote continues across one blank line; the scan keeps two blocks
+				// because the review's anchors need every line accounted for.
+				const inner = [...(block.quote ?? [])];
+				while (i + 2 < blocks.length && blocks[i + 1]?.kind === "blank" && blocks[i + 2]?.kind === "quote") {
+					inner.push("", ...((blocks[i + 2] as MarkdownBlock).quote ?? []));
+					i += 2;
+				}
+				out.push(`<blockquote>${renderBlocks(inner, ctx)}</blockquote>`);
+				i += 1;
+				break;
+			}
+			case "list": {
+				const [html, next] = renderList(blocks, i, ctx);
+				out.push(html);
+				i = next;
+				break;
+			}
+			case "table":
+				out.push(renderTable(block, ctx));
+				i += 1;
+				break;
+			default:
+				out.push(renderParagraph(block, ctx));
+				i += 1;
 		}
-
-		const fence = matchFence(line);
-		if (fence) {
-			const [html, next] = renderFence(lines, i, fence);
-			out.push(html);
-			i = next;
-			continue;
-		}
-
-		const heading = matchHeading(line);
-		if (heading) {
-			const level = Math.min(heading.level + 1, 6);
-			const id = ctx.slug(heading.text);
-			out.push(`<h${level} id="${id}">${renderInline(heading.text, ctx)}</h${level}>`);
-			i++;
-			continue;
-		}
-
-		if (isThematicBreak(line)) {
-			out.push("<hr>");
-			i++;
-			continue;
-		}
-
-		if (isBlockquoteLine(line)) {
-			const [html, next] = renderBlockquote(lines, i, ctx);
-			out.push(html);
-			i = next;
-			continue;
-		}
-
-		// A list marker wins over a pipe, so `- | a | b |` stays a list item
-		// instead of becoming a table whose first cell is `-`.
-		if (matchListItem(line)) {
-			const [html, next] = renderList(lines, i, ctx);
-			out.push(html);
-			i = next;
-			continue;
-		}
-
-		if (i + 1 < lines.length && isTableStart(line, lines[i + 1])) {
-			const [html, next] = renderTable(lines, i, ctx);
-			out.push(html);
-			i = next;
-			continue;
-		}
-
-		const htmlBlock = ctx.html ? htmlBlockStart(line) : undefined;
-		if (htmlBlock) {
-			const [html, next] = renderHtmlBlock(lines, i, htmlBlock, ctx);
-			if (html !== "") out.push(html);
-			i = next;
-			continue;
-		}
-
-		const [html, next] = renderParagraph(lines, i, ctx);
-		out.push(html);
-		i = next;
 	}
 	return out.join("\n");
 }
 
-/** True when `lines[i]` opens a block that may interrupt a paragraph. */
-function isBlockStart(lines: string[], i: number, html: boolean): boolean {
-	const line = lines[i];
-	return (
-		matchFence(line) !== undefined ||
-		matchHeading(line) !== undefined ||
-		isThematicBreak(line) ||
-		isBlockquoteLine(line) ||
-		matchListItem(line) !== undefined ||
-		(html && htmlBlockStart(line) !== undefined) ||
-		(i + 1 < lines.length && isTableStart(line, lines[i + 1]))
-	);
+/**
+ * How far a raw-HTML block runs from `index`: to the next blank line for an allowed block, and
+ * to its matching close tag for a suppressed one, blank lines included.
+ */
+function htmlBlockExtent(lines: readonly string[], index: number): number | undefined {
+	const start = htmlBlockStart(lines[index] ?? "");
+	if (start === undefined) return undefined;
+	if (start.kind === "suppressed") {
+		let i = index;
+		while (i < lines.length && !closesSuppressed(lines[i] ?? "", start.name)) i += 1;
+		return Math.min(i, lines.length - 1);
+	}
+	let i = index;
+	while (i + 1 < lines.length && (lines[i + 1] ?? "").trim() !== "") i += 1;
+	return i;
 }
 
-function renderParagraph(lines: string[], start: number, ctx: Context): [string, number] {
-	const collected: string[] = [];
-	let i = start;
-	for (; i < lines.length; i++) {
-		if (isBlank(lines[i])) break;
-		if (i > start && isBlockStart(lines, i, ctx.html)) break;
-		collected.push(lines[i]);
-	}
-	const html = collected
+/** A paragraph's lines, escaped and joined: inline Markdown in, one `<p>` out. */
+function renderParagraphOf(lines: string[], ctx: Context): string {
+	const html = lines
 		.map((line) => {
 			let text = line.trimEnd();
 			const hard = / {2}$/.test(line) || /\\$/.test(text);
@@ -306,206 +304,117 @@ function renderParagraph(lines: string[], start: number, ctx: Context): [string,
 			return hard ? `${rendered}<br>` : rendered;
 		})
 		.join("\n");
-	return [`<p>${html}</p>`, i];
+	return `<p>${html}</p>`;
 }
 
-/**
- * Render an HTML block. An allowed block runs to the next blank line, matching
- * what a reader expects from GitHub: everything up to the blank line is markup,
- * and Markdown resumes after it. A suppressed element (`<script>`, `<svg>`, …)
- * swallows its body through the matching close tag, crossing blank lines, and
- * emits nothing.
- */
-function renderHtmlBlock(lines: string[], start: number, block: HtmlBlockStart, ctx: Context): [string, number] {
-	if (block.kind === "suppressed") {
-		let i = start;
-		while (i < lines.length && !closesSuppressed(lines[i], block.name)) i++;
-		return ["", Math.min(i + 1, lines.length)];
-	}
-	const collected: string[] = [];
-	let i = start;
-	for (; i < lines.length; i++) {
-		if (isBlank(lines[i])) break;
-		collected.push(lines[i]);
-	}
-	return [sanitizeHtmlBlock(collected.join("\n"), ctx.link, ctx.sink), i];
+function renderParagraph(block: MarkdownBlock, ctx: Context): string {
+	return renderParagraphOf(block.lines, ctx);
 }
 
-interface Fence {
-	char: string;
-	length: number;
-	info: string;
+/** An allowed HTML block is sanitized and its tags tracked; a suppressed one emitted nothing. */
+function renderHtmlBlock(block: MarkdownBlock, ctx: Context): string {
+	const start = htmlBlockStart(block.lines[0] ?? "");
+	if (start?.kind === "suppressed") return "";
+	return sanitizeHtmlBlock(block.lines.join("\n"), ctx.link, ctx.sink);
 }
 
-function matchFence(line: string): Fence | undefined {
-	const match = /^ {0,3}(`{3,}|~{3,})\s*([^`]*)$/.exec(line);
-	if (!match) return undefined;
-	return { char: match[1][0], length: match[1].length, info: match[2].trim() };
+/** A fence, highlighted through the same tokenizer the file view uses. */
+function renderFence(block: MarkdownBlock): string {
+	const info = block.fence?.info ?? "";
+	const body = block.body ?? [];
+	const language = info.split(/\s+/)[0] ?? "";
+	const cls = language === "" ? "" : ` class="language-${escapeHtml(language)}"`;
+	const highlighter = fenceLanguage(info);
+	const code = highlighter === undefined ? escapeHtml(body.join("\n")) : highlightLines(body, highlighter).join("\n");
+	return `<pre class="md-code"><code${cls}>${code}</code></pre>`;
 }
 
-function renderFence(lines: string[], start: number, fence: Fence): [string, number] {
-	const body: string[] = [];
-	let i = start + 1;
-	for (; i < lines.length; i++) {
-		const close = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(lines[i]);
-		if (close && close[1][0] === fence.char && close[1].length >= fence.length) {
-			i++;
-			break;
-		}
-		body.push(lines[i]);
-	}
-	const language = fence.info.split(/\s+/)[0] ?? "";
-	const cls = language ? ` class="language-${escapeHtml(language)}"` : "";
-	const highlighter = fenceLanguage(fence.info);
-	const code = highlighter ? highlightLines(body, highlighter).join("\n") : escapeHtml(body.join("\n"));
-	return [`<pre class="md-code"><code${cls}>${code}</code></pre>`, i];
+/** A heading is demoted one level so the page keeps the only `h1`, and gets a stable anchor. */
+function renderHeadingBlock(block: MarkdownBlock, ctx: Context): string {
+	const level = Math.min((block.level ?? 1) + 1, 6);
+	const text = block.text ?? "";
+	const id = ctx.slug(text);
+	return `<h${level} id="${id}">${renderInline(text, ctx)}</h${level}>`;
 }
 
-function matchHeading(line: string): { level: number; text: string } | undefined {
-	const match = /^ {0,3}(#{1,6})(?:\s+(.*?))?(?:\s+#+)?\s*$/.exec(line);
-	if (!match) return undefined;
-	return { level: match[1].length, text: match[2] ?? "" };
-}
-
-function isThematicBreak(line: string): boolean {
-	return /^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/.test(line);
-}
-
-function isBlockquoteLine(line: string): boolean {
-	return /^ {0,3}>/.test(line);
-}
-
-function renderBlockquote(lines: string[], start: number, ctx: Context): [string, number] {
-	const inner: string[] = [];
-	let i = start;
-	for (; i < lines.length; i++) {
-		const match = /^ {0,3}>\s?(.*)$/.exec(lines[i]);
-		if (match) {
-			inner.push(match[1]);
-			continue;
-		}
-		if (isBlank(lines[i]) && i + 1 < lines.length && isBlockquoteLine(lines[i + 1])) {
-			inner.push("");
-			continue;
-		}
-		break;
-	}
-	return [`<blockquote>${renderBlocks(inner, ctx)}</blockquote>`, i];
-}
-
-function isTableStart(header: string, delimiter: string): boolean {
-	if (!header.includes("|")) return false;
-	const cells = splitRow(delimiter);
-	// GFM requires the delimiter row to match the header row's cell count;
-	// otherwise the lines are a paragraph, not a table.
-	if (cells.length === 0 || cells.length !== splitRow(header).length) return false;
-	return cells.every((cell) => /^:?-+:?$/.test(cell));
-}
-
-function alignmentClass(cell: string): string {
-	const left = cell.startsWith(":");
-	const right = cell.endsWith(":");
-	if (left && right) return ' class="md-center"';
-	if (right) return ' class="md-right"';
-	if (left) return ' class="md-left"';
+function alignmentClass(align: MarkdownAlign): string {
+	if (align === "center") return ' class="md-center"';
+	if (align === "right") return ' class="md-right"';
+	if (align === "left") return ' class="md-left"';
 	return "";
 }
 
-function renderTable(lines: string[], start: number, ctx: Context): [string, number] {
-	const header = splitRow(lines[start]);
-	const align = splitRow(lines[start + 1]).map(alignmentClass);
+/**
+ * A GFM table, or the paragraph the page makes of it when the delimiter row's cell count does
+ * not match the header's — the one table rule that is the page's and not the scan's.
+ */
+function renderTable(block: MarkdownBlock, ctx: Context): string {
+	const rows = block.cells ?? [];
+	const header = rows[0] ?? [];
+	const align = (block.align ?? []).map(alignmentClass);
+	if (align.length !== header.length) return renderParagraphOf(block.lines, ctx);
 	const head = header
 		.map((cell, index) => `<th scope="col"${align[index] ?? ""}>${renderInline(cell, ctx)}</th>`)
 		.join("");
-	const rows: string[] = [];
-	let i = start + 2;
-	for (; i < lines.length; i++) {
-		if (isBlank(lines[i]) || !lines[i].includes("|")) break;
-		const cells = splitRow(lines[i]);
+	const body = rows.slice(1).map((cells) => {
 		const tds: string[] = [];
 		for (let column = 0; column < header.length; column++) {
 			tds.push(`<td${align[column] ?? ""}>${renderInline(cells[column] ?? "", ctx)}</td>`);
 		}
-		rows.push(`<tr>${tds.join("")}</tr>`);
-	}
-	const table = `<table class="md-table"><thead><tr>${head}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
-	// The frame is the positioning context for the right-edge fade the client adds
-	// when the table scrolls; the scroller clips its own content, so the fade cannot
-	// live inside it.
-	return [`<div class="md-table-frame"><div class="md-table-wrap">${table}</div></div>`, i];
+		return `<tr>${tds.join("")}</tr>`;
+	});
+	const table = `<table class="md-table"><thead><tr>${head}</tr></thead><tbody>${body.join("")}</tbody></table>`;
+	// The frame is the positioning context for the right-edge fade the client adds when the
+	// table scrolls; the scroller clips its own content, so the fade cannot live inside it.
+	return `<div class="md-table-frame"><div class="md-table-wrap">${table}</div></div>`;
 }
 
-interface ListItem {
-	indent: number;
-	ordered: boolean;
-	markerWidth: number;
-	content: string;
-}
-
-function matchListItem(line: string): ListItem | undefined {
-	const match = /^( *)([-*+]|\d{1,9}[.)])([ \t]+)(.*)$/.exec(line);
-	if (!match) return undefined;
-	return {
-		indent: match[1].length,
-		ordered: /\d/.test(match[2]),
-		markerWidth: match[2].length,
-		content: match[4],
-	};
-}
-
-function renderList(lines: string[], start: number, ctx: Context): [string, number] {
-	const first = matchListItem(lines[start]);
-	if (!first) return renderParagraph(lines, start, ctx);
-	const baseIndent = first.indent;
-	const ordered = first.ordered;
+/**
+ * Draw one list: a run of item blocks at the same indent and marker kind. A deeper item is its
+ * own block from the scan, so it joins the item above it as content and is drawn by the same
+ * scan one level down.
+ */
+function renderList(blocks: readonly MarkdownBlock[], start: number, ctx: Context): [string, number] {
+	const first = blocks[start]?.item;
+	const baseIndent = first?.indent ?? 0;
+	const ordered = first?.ordered === true;
 	const items: string[] = [];
 	let i = start;
-	while (i < lines.length) {
-		const match = matchListItem(lines[i]);
-		if (!match || match.indent !== baseIndent || match.ordered !== ordered) break;
-		const contentLines: string[] = [match.content];
-		const contentIndent = baseIndent + match.markerWidth + 1;
-		i++;
-		while (i < lines.length) {
-			const next = lines[i];
-			if (isBlank(next)) {
-				let j = i;
-				while (j < lines.length && isBlank(lines[j])) j++;
-				if (j < lines.length && indentOf(lines[j]) >= contentIndent) {
-					for (; i < j; i++) contentLines.push("");
-					continue;
-				}
-				break;
-			}
-			const nextItem = matchListItem(next);
-			if (nextItem && nextItem.indent <= baseIndent) break;
-			if (indentOf(next) >= contentIndent) {
-				contentLines.push(stripIndent(next, contentIndent));
-				i++;
-				continue;
-			}
-			if (!nextItem && indentOf(next) > baseIndent) {
-				contentLines.push(next.trim());
-				i++;
-				continue;
-			}
-			break;
+	while (i < blocks.length) {
+		const block = blocks[i] as MarkdownBlock;
+		const item = block.item;
+		if (block.kind !== "list" || item === undefined) break;
+		if (item.indent !== baseIndent || item.ordered !== ordered) break;
+		const contentIndent = baseIndent + item.marker.length + 1;
+		const content: string[] = [item.content];
+		for (const line of block.lines.slice(1)) content.push(stripIndent(line, contentIndent));
+		i += 1;
+		while (i < blocks.length) {
+			const nested = blocks[i] as MarkdownBlock;
+			if (nested.kind !== "list" || (nested.item?.indent ?? 0) <= baseIndent) break;
+			// Keep the item's own indentation so the scan one level down sees the same nesting.
+			const indent = Math.max(0, (nested.item?.indent ?? 0) - contentIndent);
+			content.push(" ".repeat(indent) + (nested.lines[0] ?? ""));
+			content.push(...nested.lines.slice(1));
+			i += 1;
 		}
-		items.push(renderListItem(contentLines, ctx));
+		items.push(renderListItem(item, content, ctx));
 	}
 	const tag = ordered ? "ol" : "ul";
 	return [`<${tag}>${items.join("")}</${tag}>`, i];
 }
 
-function renderListItem(contentLines: string[], ctx: Context): string {
-	const task = /^\[([ xX])\]\s*(.*)$/.exec(contentLines[0] ?? "");
-	const done = task ? task[1].toLowerCase() === "x" : false;
-	const source = task ? [task[2], ...contentLines.slice(1)] : contentLines;
-	const tight = !source.some(isBlank);
-	let body = renderBlocks(source, ctx);
+/** One list item: its task box from the scan, and its body drawn as blocks of its own. */
+function renderListItem(item: MarkdownListItem, content: string[], ctx: Context): string {
+	const tight = !content.some(isBlank);
+	let body = renderBlocks(content, ctx);
 	if (tight) body = body.replace(/<\/?p>/g, "");
-	const mark = task ? `<input class="md-check" type="checkbox" disabled${done ? " checked" : ""}> ` : "";
-	return `<li${task ? (done ? ` class="task done"` : ` class="task"`) : ""}>${mark}${body}</li>`;
+	const mark =
+		item.task === null
+			? ""
+			: `<input class="md-check" type="checkbox" disabled${item.task === "done" ? " checked" : ""}> `;
+	const cls = item.task === null ? "" : item.task === "done" ? ' class="task done"' : ' class="task"';
+	return `<li${cls}>${mark}${body}</li>`;
 }
 
 interface ParsedLink {
