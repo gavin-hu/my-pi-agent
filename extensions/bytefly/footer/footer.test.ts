@@ -1,33 +1,36 @@
 /**
  * The bytefly footer capability: price configuration and lookup, peak
  * scheduling, pricing, usage collection, the child-run ledger, the snapshot
- * reader, the two-line bar's segments and layout, the budget guardrail, and the
- * install/restore lifecycle.
+ * reader, the two-line bar's segments and layout, and the install/restore lifecycle;
+ * the budget guardrail's own cases live in `budget.test.ts`.
  *
  * The bar's tests assert fields, ordering, roles, and width bounds; the shared
  * gauge, chip, and frame contracts live in `lib/tui/`.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { SUBAGENT_FINISHED_CHANNEL } from "../../../lib/events.ts";
 import { NOTICE_TYPE } from "../../../lib/notice.ts";
 import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 import { zeroUsage } from "../../../lib/usage.ts";
 import { scratchDir, withAgentDir } from "../../../test/helpers/env.ts";
-import { emit, fakeTheme, makeFakePi, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
-import { fakeFooterCtx, fullSnapshot, renderFooter, usageOf } from "../../../test/helpers/fixtures/footer.ts";
+import { fakeTheme, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
+import {
+	fullSnapshot,
+	usageOf,
+	usdBudget,
+	withRegisteredFooter,
+	writeConfig,
+} from "../../../test/helpers/fixtures/footer.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
-import { budgetBody, budgetNotice, budgetState } from "./budget.ts";
 import { usageRecords } from "./collect/entries.ts";
 import { createSnapshotReader } from "./collect/snapshot.ts";
 import { CONFIG } from "./config.ts";
 import { createDelegationLedger, MAX_DELEGATION_RECORDS } from "./delegation.ts";
 import {
-	CURRENCY_DEFAULTS,
 	DEFAULT_BYTEFLY_CONFIG,
 	DEFAULT_RATES,
 	DEFAULT_RATES_USD,
@@ -39,7 +42,6 @@ import { createPricer } from "./price/price.ts";
 import { createRateLookup } from "./price/rates.ts";
 import { isPeak, parseWindow, peakFormatter } from "./price/schedule.ts";
 import type { ByteflyConfig, ModelRates } from "./price/types.ts";
-import { registerFooter } from "./register.ts";
 import { createFooter } from "./render/footer.ts";
 import { contextRole, formatCost, formatCwd, formatPercent, thinkingColor, truncateLabel } from "./render/format.ts";
 import { RenderCache } from "../../../lib/tui/render-cache.ts";
@@ -71,11 +73,6 @@ import type { UsageRecord } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
-
-function writeConfig(dir: string, name: string, value: unknown): void {
-	mkdirSync(dir, { recursive: true });
-	writeFileSync(join(dir, name), JSON.stringify(value));
-}
 
 function writeProjectConfig(cwd: string, price: Record<string, unknown>): void {
 	writeConfig(join(cwd, ".pi"), "bytefly.json", { price });
@@ -1071,63 +1068,6 @@ describe("the unpriced notice", () => {
 	});
 });
 
-describe("budget", () => {
-	const CNY = CURRENCY_DEFAULTS.CNY;
-
-	test("treats the threshold as inclusive", () => {
-		expect(budgetState(5, 4.99).exceeded).toBe(false);
-		expect(budgetState(5, 5).exceeded).toBe(true);
-		expect(budgetState(5, 6).exceeded).toBe(true);
-	});
-
-	test("is off when the budget is zero, negative, or not a number", () => {
-		for (const limit of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
-			expect(budgetState(limit, 1_000).exceeded).toBe(false);
-			expect(budgetState(limit, 1_000).limit).toBe(0);
-		}
-	});
-
-	test("treats a missing or negative spend as zero", () => {
-		expect(budgetState(5, Number.NaN).spent).toBe(0);
-		expect(budgetState(5, -2).spent).toBe(0);
-		expect(budgetState(5, -2).exceeded).toBe(false);
-	});
-
-	test("names both figures in the configured currency", () => {
-		const notice = budgetNotice(budgetState(5, 5.25), CNY);
-
-		expect(notice.content).toContain("¥5.25 of ¥5");
-		expect(notice.details.items).toEqual([
-			{ label: "spent", detail: "¥5.25" },
-			{ label: "budget", detail: "¥5" },
-		]);
-	});
-
-	test("is a warning, not a failure, and says the session continues", () => {
-		const notice = budgetNotice(budgetState(5, 5.25), CNY);
-
-		expect(notice.details.severity).toBe("warn");
-		expect(notice.details.source).toBe("bytefly");
-		expect(notice.details.title).toBe("Session budget reached");
-		expect(notice.content).toContain("the session continues");
-		expect(notice.content).toContain("price.budget");
-	});
-
-	test("follows the currency's precision and shows a sub-minor-unit spend", () => {
-		expect(budgetNotice(budgetState(2, 2.0004), CURRENCY_DEFAULTS.USD).content).toContain("$2.000 of $2");
-		expect(budgetNotice(budgetState(0.001, 0.001), CNY).content).toContain("¥<0.01 of ¥<0.01");
-	});
-
-	test("keeps a ceiling's cents but drops its trailing zeros", () => {
-		expect(budgetBody(budgetState(5, 6), CNY)).toBe("Session budget reached · ¥6.00 of ¥5");
-		expect(budgetBody(budgetState(7.5, 8), CNY)).toBe("Session budget reached · ¥8.00 of ¥7.5");
-	});
-
-	test("is one body line naming the figures", () => {
-		expect(budgetBody(budgetState(5, 6), CNY)).toBe("Session budget reached · ¥6.00 of ¥5");
-	});
-});
-
 describe("footer formatting", () => {
 	test("always renders the configured decimals and never reports a positive sub-unit as zero", () => {
 		expect(formatCost(0.31)).toBe("¥0.31");
@@ -1944,20 +1884,6 @@ describe("footer component", () => {
 	});
 });
 
-/** An assistant call that Pi recorded as costing `cost` dollars. */
-function assistantCall(cost: number): unknown {
-	return {
-		type: "message",
-		timestamp: "2026-01-05T03:00:00.000Z",
-		message: {
-			role: "assistant",
-			provider: "anthropic",
-			model: "opus-4.5",
-			usage: { input: 1_000, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: cost } },
-		},
-	};
-}
-
 /** An assistant call the built-in CNY table prices, so nothing is left unpriced. */
 function deepseekCall(): unknown {
 	return {
@@ -1971,65 +1897,6 @@ function deepseekCall(): unknown {
 		},
 	};
 }
-
-interface FooterHarness {
-	pi: any;
-	ctx: any;
-	footerData: any;
-	footers: any[];
-	messages: Array<{ message: any }>;
-	bodies: string[];
-	start(): Promise<void>;
-	tree(): Promise<void>;
-	settle(): Promise<void>;
-	stop(): Promise<void>;
-	render(): string[];
-	subagent(event: unknown): void;
-}
-
-interface FooterHarnessOptions {
-	cost?: number;
-	entries?: unknown[];
-	mode?: string;
-}
-
-async function withRegisteredFooter(
-	price: Record<string, unknown> | undefined,
-	fn: (h: FooterHarness) => Promise<void>,
-	options: FooterHarnessOptions = {},
-): Promise<void> {
-	await withAgentDir(async (agentDir) => {
-		if (price) writeConfig(agentDir, "bytefly.json", { price });
-		const { pi } = makeFakePi();
-		const messages: Array<{ message: any }> = [];
-		pi.sendMessage = (message: any) => messages.push({ message });
-		const bodies: string[] = [];
-		const { ctx, footerData, footers } = fakeFooterCtx({
-			mode: options.mode ?? "tui",
-			entries: options.entries ?? [assistantCall(options.cost ?? 0.6)],
-		});
-
-		registerFooter(pi, { notify: (body) => bodies.push(body) });
-
-		await fn({
-			pi,
-			ctx,
-			footerData,
-			footers,
-			messages,
-			bodies,
-			start: () => emit(pi, "session_start", { reason: "startup" }, ctx),
-			tree: () => emit(pi, "session_tree", {}, ctx),
-			settle: () => emit(pi, "agent_settled", { aborted: false }, ctx),
-			stop: () => emit(pi, "session_shutdown", { reason: "quit" }, ctx),
-			render: () => renderFooter(footers.at(-1), footerData, 100),
-			subagent: (event) => pi.events.emit(SUBAGENT_FINISHED_CHANNEL, event),
-		});
-	}, "bytefly-footer-agent-");
-}
-
-/** `price` configured for dollars with the given budget. */
-const usdBudget = (budget: number): Record<string, unknown> => ({ currency: { code: "USD" }, budget });
 
 describe("registerFooter lifecycle", () => {
 	test("installs the footer on session start and clears it on shutdown in tui mode", async () => {
@@ -2104,100 +1971,6 @@ describe("registerFooter lifecycle", () => {
 
 			await h.start();
 			expect(h.render().join("\n")).not.toContain("↳");
-		});
-	});
-});
-
-describe("registerFooter session budget", () => {
-	test("warns once, in the transcript and through notify, when the spend passes the budget", async () => {
-		await withRegisteredFooter(usdBudget(0.5), async (h) => {
-			await h.start();
-			h.render();
-			await h.settle();
-
-			expect(h.messages).toHaveLength(1);
-			const notice = h.messages[0]?.message;
-			expect(notice.customType).toBe(NOTICE_TYPE);
-			expect(notice.details.title).toBe("Session budget reached");
-			expect(notice.details.severity).toBe("warn");
-			expect(notice.content).toContain("$0.600 of $0.5");
-			expect(h.bodies).toEqual(["Session budget reached · $0.600 of $0.5"]);
-		});
-	});
-
-	test("stays silent on a later turn once it has warned", async () => {
-		await withRegisteredFooter(usdBudget(0.5), async (h) => {
-			await h.start();
-			h.render();
-			await h.settle();
-			await h.settle();
-
-			expect(h.messages).toHaveLength(1);
-			expect(h.bodies).toHaveLength(1);
-		});
-	});
-
-	test("stays silent below the budget and when no budget is configured", async () => {
-		await withRegisteredFooter(usdBudget(5), async (h) => {
-			await h.start();
-			h.render();
-			await h.settle();
-			expect(h.messages).toEqual([]);
-			expect(h.bodies).toEqual([]);
-		});
-
-		await withRegisteredFooter(usdBudget(0), async (h) => {
-			await h.start();
-			h.render();
-			await h.settle();
-			expect(h.messages).toEqual([]);
-		});
-	});
-
-	test("does not repeat a warning when the session tree changes", async () => {
-		await withRegisteredFooter(usdBudget(0.5), async (h) => {
-			await h.start();
-			h.render();
-			await h.settle();
-
-			await h.tree();
-			h.render();
-			await h.settle();
-
-			expect(h.messages).toHaveLength(1);
-		});
-	});
-
-	test("warns again in a new session", async () => {
-		await withRegisteredFooter(usdBudget(0.5), async (h) => {
-			await h.start();
-			h.render();
-			await h.settle();
-			await h.start();
-			h.render();
-			await h.settle();
-
-			expect(h.messages).toHaveLength(2);
-		});
-	});
-
-	test("checks nothing outside the interactive mode", async () => {
-		await withRegisteredFooter(
-			usdBudget(0.5),
-			async (h) => {
-				await h.start();
-				await h.settle();
-				expect(h.messages).toEqual([]);
-			},
-			{ mode: "print" },
-		);
-	});
-
-	test("checks nothing before a frame has priced the session", async () => {
-		await withRegisteredFooter(usdBudget(0.5), async (h) => {
-			await h.start();
-			await h.settle();
-			expect(h.messages).toEqual([]);
 		});
 	});
 });
