@@ -27,20 +27,15 @@ export interface PlanSection {
 	level: number;
 }
 
-/**
- * A markdown heading outside a fence, capturing its level and text: up to three
- * leading spaces, a space after the hashes, and a closing hash run only when a
- * space separates it. Shared with the block model, so the section split and the
- * browser outline read a heading line the same way, and `## C#` keeps its title.
- */
-export const HEADING = /^ {0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/;
+import { FENCE, HEADING } from "../../lib/web/markdown-blocks.ts";
 
 /**
- * A markdown code-fence opener or closer (backticks or tildes). Shared with the
- * block model: a tab-indented fence is prose for both parsers, never code for one
- * and prose for the other.
+ * The kit owns how a heading line and a fence line are read (`lib/web/markdown-blocks.ts`),
+ * because the block scan reads the same two lines: a heading split one way by the outline
+ * and another way by the block model is a `# comment` in a shell example appearing in one
+ * and not the other.
  */
-export const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+export { FENCE, HEADING };
 
 /**
  * A heading or step label as the review surfaces compare it: inline emphasis and

@@ -14,7 +14,8 @@
  * step.
  */
 
-import { FENCE, HEADING } from "./sections.ts";
+import { scanBlocks, splitLines } from "../../lib/web/markdown-blocks.ts";
+import { FENCE } from "./sections.ts";
 
 /** How a block is rendered and grouped. */
 export type PlanBlockKind = "heading" | "paragraph" | "list" | "code" | "quote" | "table" | "hr" | "blank";
@@ -28,50 +29,6 @@ export interface PlanBlock {
 	kind: PlanBlockKind;
 	/** The block's raw source lines, in order. */
 	lines: string[];
-}
-
-/** A list marker with its leading indentation and trailing gap. */
-const LIST_ITEM = /^( *)([-*+]|\d+[.)])(\s+)/;
-/** A blockquote line. */
-const QUOTE = /^ {0,3}>/;
-/** A thematic break (`---`, `***`, `___`, spaced or not). */
-const THEMATIC_BREAK = /^ {0,3}(?:(?:\* *){3,}|(?:- *){3,}|(?:_ *){3,})$/;
-/** A line that can be a table row: it carries at least one pipe. */
-const TABLE_ROW = /\|/;
-/** A GFM alignment row (`| --- | :--: |`), with or without edge pipes. */
-const TABLE_DELIM = /^ {0,3}\|? *:?-+:? *(?:\| *:?-+:? *)*\|? *$/;
-
-/** Whether a table starts at `index`: a pipe row followed by an alignment row. */
-function startsTable(lines: string[], index: number): boolean {
-	const header = lines[index];
-	const delim = lines[index + 1];
-	return (
-		header !== undefined &&
-		delim !== undefined &&
-		TABLE_ROW.test(header) &&
-		delim.includes("-") &&
-		TABLE_DELIM.test(delim)
-	);
-}
-
-/** Leading spaces and tabs of a line, in columns (tab = 4). */
-function indentOf(line: string): number {
-	let width = 0;
-	for (const char of line) {
-		if (char === " ") width += 1;
-		else if (char === "\t") width += 4;
-		else break;
-	}
-	return width;
-}
-
-/** Index of the matching closing fence for a fence opened at `open`, or `lines.length`. */
-function fenceEnd(lines: string[], open: number, marker: string, length: number): number {
-	for (let i = open + 1; i < lines.length; i++) {
-		const match = lines[i].match(FENCE);
-		if (match && match[1][0] === marker && match[1].length >= length) return i;
-	}
-	return lines.length - 1;
 }
 
 /**
@@ -93,104 +50,19 @@ export function hasClosingFence(block: PlanBlock): boolean {
 }
 
 /**
- * Split `plan` into source-line-anchored blocks. Line numbers are 0-based and
- * inclusive; `start`/`end` from one block never overlap the next.
+ * Split `plan` into source-line-anchored blocks, on the kit's one scan
+ * (`lib/web/markdown-blocks.ts`): this module is the plan's naming of it. A `fence` is
+ * `code` here, and `start`/`end`/`lines` are the scan's, so a digest, an anchor or a
+ * stored comment keeps meaning what it meant.
  */
 export function planBlocks(plan: string): PlanBlock[] {
 	if (plan === "") return [];
-	const lines = plan.split("\n").map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
-	const blocks: PlanBlock[] = [];
-
-	const push = (start: number, end: number, kind: PlanBlockKind): void => {
-		blocks.push({ start, end, kind, lines: lines.slice(start, end + 1) });
-	};
-
-	let i = 0;
-	while (i < lines.length) {
-		const line = lines[i];
-
-		const fence = line.match(FENCE);
-		if (fence) {
-			const end = fenceEnd(lines, i, fence[1][0], fence[1].length);
-			push(i, end, "code");
-			i = end + 1;
-			continue;
-		}
-
-		if (line.trim() === "") {
-			push(i, i, "blank");
-			i += 1;
-			continue;
-		}
-
-		if (HEADING.test(line)) {
-			push(i, i, "heading");
-			i += 1;
-			continue;
-		}
-
-		if (QUOTE.test(line)) {
-			let end = i;
-			while (end + 1 < lines.length && QUOTE.test(lines[end + 1])) end += 1;
-			push(i, end, "quote");
-			i = end + 1;
-			continue;
-		}
-
-		if (startsTable(lines, i)) {
-			let end = i + 1;
-			// The header and alignment rows, then every contiguous pipe row.
-			while (end + 1 < lines.length && lines[end + 1].trim() !== "" && TABLE_ROW.test(lines[end + 1])) end += 1;
-			push(i, end, "table");
-			i = end + 1;
-			continue;
-		}
-
-		if (THEMATIC_BREAK.test(line)) {
-			push(i, i, "hr");
-			i += 1;
-			continue;
-		}
-
-		const item = line.match(LIST_ITEM);
-		if (item) {
-			const indent = item[1].length;
-			let end = i;
-			// A block is the item plus any more-indented continuation lines. The
-			// next item (any indent), a blank line, or an unindented line ends it.
-			while (end + 1 < lines.length) {
-				const next = lines[end + 1];
-				if (next.trim() === "" || LIST_ITEM.test(next)) break;
-				if (indentOf(next) <= indent) break;
-				end += 1;
-			}
-			push(i, end, "list");
-			i = end + 1;
-			continue;
-		}
-
-		// Paragraph: consecutive lines that do not open another block.
-		let end = i;
-		while (end + 1 < lines.length) {
-			const next = lines[end + 1];
-			if (
-				next.trim() === "" ||
-				FENCE.test(next) ||
-				HEADING.test(next) ||
-				QUOTE.test(next) ||
-				LIST_ITEM.test(next) ||
-				THEMATIC_BREAK.test(next) ||
-				startsTable(lines, end + 1)
-			) {
-				break;
-			}
-			end += 1;
-		}
-		push(i, end, "paragraph");
-		i = end + 1;
-	}
-
-	return blocks;
+	return scanBlocks(splitLines(plan)).map((block) => ({
+		start: block.start,
+		end: block.end,
+		kind: block.kind === "fence" ? "code" : block.kind,
+		lines: block.lines,
+	}));
 }
 
 /** The block containing source line `line`, or the nearest block before it. */

@@ -343,6 +343,7 @@ export const LIB_SUITES: readonly string[] = [
 	"web/web",
 	"web/web-chrome",
 	"web/live-stream",
+	"web/markdown-blocks",
 	"web/vocabulary",
 ];
 

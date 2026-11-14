@@ -26,6 +26,7 @@
  */
 
 import { decodeCodePoint, escapeHtml } from "../../../lib/escape.ts";
+import { indentOf, splitRow } from "../../../lib/web/markdown-blocks.ts";
 import { fenceLanguage, highlightLines } from "../../../lib/highlight.ts";
 import {
 	closesSuppressed,
@@ -191,16 +192,6 @@ function collectDefinitions(lines: string[], html: boolean): { defs: Map<string,
 
 function isBlank(line: string): boolean {
 	return line.trim() === "";
-}
-
-function indentOf(line: string): number {
-	let width = 0;
-	for (const char of line) {
-		if (char === " ") width++;
-		else if (char === "\t") width += 4;
-		else break;
-	}
-	return width;
 }
 
 function stripIndent(line: string, columns: number): string {
@@ -402,36 +393,12 @@ function renderBlockquote(lines: string[], start: number, ctx: Context): [string
 	return [`<blockquote>${renderBlocks(inner, ctx)}</blockquote>`, i];
 }
 
-function splitTableRow(line: string): string[] {
-	let trimmed = line.trim();
-	if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
-	if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
-	const cells: string[] = [];
-	let current = "";
-	for (let i = 0; i < trimmed.length; i++) {
-		const char = trimmed[i];
-		if (char === "\\" && trimmed[i + 1] === "|") {
-			current += "|";
-			i++;
-			continue;
-		}
-		if (char === "|") {
-			cells.push(current.trim());
-			current = "";
-			continue;
-		}
-		current += char;
-	}
-	cells.push(current.trim());
-	return cells;
-}
-
 function isTableStart(header: string, delimiter: string): boolean {
 	if (!header.includes("|")) return false;
-	const cells = splitTableRow(delimiter);
+	const cells = splitRow(delimiter);
 	// GFM requires the delimiter row to match the header row's cell count;
 	// otherwise the lines are a paragraph, not a table.
-	if (cells.length === 0 || cells.length !== splitTableRow(header).length) return false;
+	if (cells.length === 0 || cells.length !== splitRow(header).length) return false;
 	return cells.every((cell) => /^:?-+:?$/.test(cell));
 }
 
@@ -445,8 +412,8 @@ function alignmentClass(cell: string): string {
 }
 
 function renderTable(lines: string[], start: number, ctx: Context): [string, number] {
-	const header = splitTableRow(lines[start]);
-	const align = splitTableRow(lines[start + 1]).map(alignmentClass);
+	const header = splitRow(lines[start]);
+	const align = splitRow(lines[start + 1]).map(alignmentClass);
 	const head = header
 		.map((cell, index) => `<th scope="col"${align[index] ?? ""}>${renderInline(cell, ctx)}</th>`)
 		.join("");
@@ -454,7 +421,7 @@ function renderTable(lines: string[], start: number, ctx: Context): [string, num
 	let i = start + 2;
 	for (; i < lines.length; i++) {
 		if (isBlank(lines[i]) || !lines[i].includes("|")) break;
-		const cells = splitTableRow(lines[i]);
+		const cells = splitRow(lines[i]);
 		const tds: string[] = [];
 		for (let column = 0; column < header.length; column++) {
 			tds.push(`<td${align[column] ?? ""}>${renderInline(cells[column] ?? "", ctx)}</td>`);

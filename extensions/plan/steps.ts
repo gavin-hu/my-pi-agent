@@ -126,7 +126,7 @@ function parseStep(raw: string): PlanStep {
 }
 
 /** Leading whitespace width of a line, for continuation indent checks. */
-function indentOf(line: string): number {
+function leadingSpaces(line: string): number {
 	return line.length - line.trimStart().length;
 }
 
@@ -176,7 +176,7 @@ function scanListItems(plan: string): PlanListItem[] {
 		// A deeper, marker-less line continues the step's paragraph; a heading,
 		// a shallow line, or a blank line ends it. `raw` stays the first line so
 		// `setStepStatuses` edits the checkbox without touching these lines.
-		if (current !== undefined && indentOf(line) > current.item.indent && !HEADING.test(line)) {
+		if (current !== undefined && leadingSpaces(line) > current.item.indent && !HEADING.test(line)) {
 			const text = line.trim();
 			if (text) current.continuation.push(text);
 			return;
