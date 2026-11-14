@@ -55,6 +55,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: the browser review reads as the same page as `/board` and `/files`. Its action bar is the
+  header's second row, closed by the same hairline, instead of a strip hanging under the head; its
+  plan body is the kit's Markdown (one heading scale, one fence, ruled tables, the drawn task box)
+  rather than a second, GitHub-shaped vocabulary; a comment is the kit's record; the outline's
+  current row keeps the text colour the kit's tree uses; and the state chip says `live`. The
+  sentence a screen reader hears moved to its own quiet node, so the header is painted and never
+  announced. The reading-progress rules no markup drew are gone.
+
 - `board`: the Team tab's Needs you queue folds each band at five rows instead of drawing every ask.
   Sixty unclaimed cards were a 3,000px wall with the three swimlanes under it three screens down; a
   band now draws five rows and one `+N more` control that says how many it left out, and its head pins
@@ -287,6 +295,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lands without taking scroll or focus.
 
 ### Fixed
+
+- `lib`: a fenced block in a document wraps below a phone's width, as the code pane already did. The
+  line was the one thing on a narrow page the reader had to scroll for, and the rule is the pane's
+  own, so a document and a file body break a long command the same way.
 
 - `team`: `assign` records the session its message reached. The verb read the bus once, before the
   send, and that read decided the owner id, the quiet line and the not-listening line — while the

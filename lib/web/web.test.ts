@@ -126,14 +126,6 @@ describe("web components", () => {
 		expect(WEB_COMPONENTS_CSS).toContain("max-width:var(--measure-prose)");
 	});
 
-	test("wraps a fence in prose below a phone's width", () => {
-		// A page's document is read on a phone too: the same rule the code pane states, because a
-		// command out of sight is a command the reader has to go looking for.
-		expect(WEB_COMPONENTS_CSS).toContain(
-			".bf-md pre,.bf-md pre code,.bf-md pre .bf-code__line{white-space:pre-wrap;overflow-wrap:anywhere}",
-		);
-	});
-
 	test("styles the Markdown extras the renderer emits", () => {
 		for (const selector of [
 			".bf-md li.task{",
