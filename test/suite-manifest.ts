@@ -203,6 +203,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"format",
 		"label",
 		"protocol",
+		"prune",
 		"store",
 		"mail-watch",
 		"presence",

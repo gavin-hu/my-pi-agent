@@ -13,6 +13,7 @@ import {
 } from "./session-mail.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import { scratchDir } from "../test/helpers/env.ts";
+import { storedName } from "./session-roster.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -166,22 +167,31 @@ describe("the inbox's own order", () => {
 describe("the mail no record accounts for", () => {
 	test("answers the message no record carries, and not the one it does", async () => {
 		const dir = busDir();
-		land(dir, "hash-live", { id: "m-known", to: "s-live" }, NOW);
-		land(dir, "hash-gone", { id: "m-orphan", to: "s-gone", fromLabel: "gavin", kind: "ask" }, NOW + 1_000);
-		// The record is what the roster counts mail by, so a message whose recipient is not among the
-		// ids it read has no row to hang a number on.
+		land(dir, storedName("s-live"), { id: "m-known", to: "s-live" }, NOW);
+		land(dir, storedName("s-gone"), { id: "m-orphan", to: "s-gone", fromLabel: "gavin", kind: "ask" }, NOW + 1_000);
+		// An inbox is named after the session it serves, and the roster counts mail by that record, so an
+		// inbox no record names is mail with no row to hang a number on.
 		const found = await unaccountedMail(dir, new Set(["s-live"]));
 		expect(found.map((entry) => entry.message.id)).toEqual(["m-orphan"]);
 		// The arrival travels with it: a message that sat for hours is the fact a reader judges by.
-		expect(found[0]?.at).toBe(statSync(join(dir, INBOX_DIR_NAME, "hash-gone", "m-orphan.json")).mtimeMs);
+		expect(found[0]?.at).toBe(statSync(join(dir, INBOX_DIR_NAME, storedName("s-gone"), "m-orphan.json")).mtimeMs);
 		expect(found[0]?.message.toLabel).toBe("billing-core");
 		expect(await unaccountedMail(dir, new Set(["s-live", "s-gone"]))).toEqual([]);
 	});
 
+	test("reads the inbox, not the field a message was written with", async () => {
+		const dir = busDir();
+		// The writer files a message under its recipient's name, so the two agree on a real bus. Where
+		// they would not, the inbox decides: a record that still holds the directory can read what is
+		// in it, so calling that mail ownerless would offer a person a drop of mail a session still has.
+		land(dir, storedName("s-live"), { id: "m-misfiled", to: "s-gone" }, NOW);
+		expect(await unaccountedMail(dir, new Set(["s-live"]))).toEqual([]);
+	});
+
 	test("answers a fan-out file by file, oldest first", async () => {
 		const dir = busDir();
-		land(dir, "hash-b", { id: "m-all", kind: "event", to: "s-gone-2", toLabel: "ben" }, NOW + 2_000);
-		land(dir, "hash-a", { id: "m-all", kind: "event", to: "s-gone-1", toLabel: "amy" }, NOW + 1_000);
+		land(dir, storedName("s-gone-2"), { id: "m-all", kind: "event", to: "s-gone-2", toLabel: "ben" }, NOW + 2_000);
+		land(dir, storedName("s-gone-1"), { id: "m-all", kind: "event", to: "s-gone-1", toLabel: "amy" }, NOW + 1_000);
 		// Two dead records are two files, which is what a drop has to name: the page draws the fan-out
 		// as one row, and a listing that did the same could not be acted on.
 		const found = await unaccountedMail(dir, new Set());
@@ -190,9 +200,9 @@ describe("the mail no record accounts for", () => {
 
 	test("skips a file this build cannot parse, as the queue does", async () => {
 		const dir = busDir();
-		mkdirSync(join(dir, INBOX_DIR_NAME, "hash-broken"), { recursive: true });
-		writeFileSync(join(dir, INBOX_DIR_NAME, "hash-broken", "broken.json"), "{", "utf-8");
-		land(dir, "hash-gone", { id: "m-orphan", to: "s-gone" }, NOW);
+		mkdirSync(join(dir, INBOX_DIR_NAME, storedName("s-broken")), { recursive: true });
+		writeFileSync(join(dir, INBOX_DIR_NAME, storedName("s-broken"), "broken.json"), "{", "utf-8");
+		land(dir, storedName("s-gone"), { id: "m-orphan", to: "s-gone" }, NOW);
 		// A file with no readable `to` cannot be named or dropped, so the TTL stays its only end.
 		expect((await unaccountedMail(dir, new Set())).map((entry) => entry.message.id)).toEqual(["m-orphan"]);
 	});

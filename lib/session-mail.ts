@@ -20,9 +20,9 @@
  */
 
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { asRecord } from "./json.ts";
-import { INBOX_DIR_NAME } from "./session-roster.ts";
+import { INBOX_DIR_NAME, storedName } from "./session-roster.ts";
 
 /** What a message is for: a note, a broadcast, a question, or work handed over. */
 export type MessageKind = "message" | "event" | "ask" | "handoff";
@@ -214,7 +214,8 @@ export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promis
  *
  * The arrival is the file's mtime rather than the sender's `at`, for the reason the queue's order
  * is: the sender's clock is theirs, while the file landed here on the clock every session shares.
- * `message.to` is the id this mail was addressed to, which is the record the bus no longer holds.
+ * `message.to` is the id this mail was addressed to, and the inbox it sits in is named after that
+ * id, which is the record the bus no longer holds.
  */
 export interface UnaccountedMessage {
 	message: BusMessage;
@@ -231,13 +232,16 @@ export interface UnaccountedMessage {
  * to consume it, until the message TTL ends it. A session resumed on that id can still read it,
  * which is why it is not deleted the moment the record goes.
  *
- * The recipient is read off the message rather than out of the inbox's name: the name is that id
- * as the writer hashed it, and a lib module cannot ask the store how. A file this build cannot
- * parse is skipped, the way the queue above skips it — it has no id to be named by either.
+ * An inbox is named after the session it serves, and the bus files both with one rule
+ * (`storedName`), so the answer is the inboxes no record names: those files are read, and a
+ * bus where every record is still on disk costs one directory read. A file this build
+ * cannot parse is skipped, the way the queue above skips it.
  */
-export async function unaccountedMail(busDir: string, known: ReadonlySet<string>): Promise<UnaccountedMessage[]> {
+export async function unaccountedMail(busDir: string, held: ReadonlySet<string>): Promise<UnaccountedMessage[]> {
+	const claimed = new Set([...held].map(storedName));
 	const found: UnaccountedMessage[] = [];
 	for (const dir of await inboxDirs(busDir)) {
+		if (claimed.has(basename(dir))) continue;
 		for (const { name, at } of await listArrivals(dir)) {
 			let parsed: unknown;
 			try {
@@ -246,7 +250,6 @@ export async function unaccountedMail(busDir: string, known: ReadonlySet<string>
 				continue;
 			}
 			if (!isBusMessage(parsed)) continue;
-			if (known.has(parsed.to)) continue;
 			found.push({ message: parsed, at });
 		}
 	}

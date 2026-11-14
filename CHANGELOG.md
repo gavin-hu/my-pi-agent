@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `session-bus`: a status read and every tool call now cost the files they touch rather than the whole
+  mail store. `unaccountedMail` names an inbox's owner by the directory the bus filed it in instead of
+  reading every message to re-derive it, and the inbox sweep behind the message TTL moved from every
+  action to the 10-second heartbeat. Measured on 8 sessions with 1,000 messages: a status read 70 ms →
+  0.1 ms, an action's prune 28 ms → 0.4 ms, so the board's one-second poll no longer re-reads the bus.
+  One case narrows: mail sitting in a live session's inbox is that session's, so a file whose `to` names
+  a pruned record inside a held inbox is no longer reported as unaccounted. Mail past its TTL can now
+  outlive it by up to one heartbeat.
+
 ## [0.27.0] - 2026-11-14
 
 ### Added

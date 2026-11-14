@@ -20,6 +20,7 @@
  * heartbeat is ten seconds old at most, and the caller polls on its own clock.
  */
 
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { sameLabel } from "./session-label.ts";
 import { join } from "node:path";
@@ -33,6 +34,21 @@ export const SESSIONS_DIR_NAME = "sessions";
 export const INBOX_DIR_NAME = "inbox";
 /** How long a record's heartbeat stays believable: the rule the bus prunes by. */
 export const SESSION_TTL_MS = 10 * 60_000;
+
+/** Hex characters the bus keeps from the digest: short on every filesystem, unique in practice. */
+const STORED_NAME_LENGTH = 32;
+
+/**
+ * The name the bus files a session id, or a claim's path, under.
+ *
+ * A session's record (`sessions/<name>.json`), its inbox (`inbox/<name>/`), and a claim on a path
+ * (`claims/<name>.json`) are all named by it, so "this mail belongs to that record" is one rule
+ * rather than a hash the store knows and a reader re-derives. It is also what keeps a session id
+ * from ever becoming a path segment.
+ */
+export function storedName(value: string): string {
+	return createHash("sha256").update(value).digest("hex").slice(0, STORED_NAME_LENGTH);
+}
 
 /** One session as the page shows it. The rest of the record stays on disk. */
 export interface RosterSession {
@@ -189,9 +205,9 @@ export function watchingOf(value: unknown): { armed: boolean; wake: boolean } | 
 }
 
 /** How many message files one session's inbox holds. A missing inbox is empty. */
-async function mailCount(dir: string, stem: string): Promise<number> {
+async function mailCount(dir: string, name: string): Promise<number> {
 	try {
-		const entries = await readdir(join(dir, INBOX_DIR_NAME, stem));
+		const entries = await readdir(join(dir, INBOX_DIR_NAME, name));
 		return entries.filter((name) => name.endsWith(".json")).length;
 	} catch {
 		return 0;
@@ -274,7 +290,7 @@ export async function readRoster(dir: string): Promise<RosterSession[] | undefin
 			label,
 			mode,
 			lastSeen,
-			mail: await mailCount(dir, name.slice(0, -".json".length)),
+			mail: await mailCount(dir, storedName(id)),
 			...(pid === undefined ? {} : { pid }),
 			...(typeof rawToken === "string" && rawToken !== "" ? { startToken: rawToken } : {}),
 			...(typeof rawTurn === "number" && Number.isFinite(rawTurn) ? { turnAt: rawTurn } : {}),
