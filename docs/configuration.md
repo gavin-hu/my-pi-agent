@@ -196,6 +196,27 @@ inbound time, and the recent message ids used to ignore a replay), `media/`
 state, not configuration; [each extension's page](./extensions/README.md) names
 the files it writes.
 
+### The project `.pi` directory
+
+Pi reads a fixed set of names from a project's `.pi` — `settings.json`, `mcp.json`,
+`SYSTEM.md`, `APPEND_SYSTEM.md`, `extensions/`, `skills/`, `prompts/`, `themes/` — and this
+package adds one document and one directory per concept beside them. Every path either side
+writes, and whether it can be deleted:
+
+| Path | Holds | Written by | Safe to delete |
+|---|---|---|---|
+| `settings.json` | Pi's project settings, resource paths, and package declarations | `pi install --local`, or the settings screen's **Startup screen** and **Theme** rows | no — the project's packages go with it |
+| `bytefly.json` | this project's overrides, one section per extension | the settings screen's **Project** scope, `/team join <name>` for the roster, or a hand edit | no |
+| `memory.md` | the project memory store, mode `0600` | [`memory`](./extensions/memory.md) | no — a note is the owner's |
+| `worktrees/` | managed checkouts, and `index.json` for their registry | [`worktree`](./extensions/worktree.md) | not while one is live; it prunes its own |
+| `agents/` | project agents, read-only | you, or [`subagent`](./extensions/subagent.md) | no |
+| `cache/` | the last red run's JUnit report | `bun run check` | yes — the next run rewrites it |
+
+An extension that needs state adds a directory named for its concept and creates it on first
+use, so a listing of `.pi` is a manifest of who wrote what; `bytefly.json` and `memory.md` are
+the only root-level files this package adds, and neither grows. Nothing hand-authored belongs
+in it: a one-off probe script belongs to the checkout it probes, or to a temporary directory.
+
 ## Related docs
 
 | Topic | Document |

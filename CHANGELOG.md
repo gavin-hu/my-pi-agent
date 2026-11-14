@@ -59,6 +59,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   anything is swept, which matters most for `/board archive 30d` with the flag missing, whose shape is a
   card id. A sweep with no bound still takes every finished card, so no existing call changes meaning.
 
+- `docs`: a project's `.pi` directory has a table saying who writes each path — `settings.json`,
+  `bytefly.json`, `memory.md`, `worktrees/`, `agents/`, and `cache/` — with a fourth column saying
+  which one is disposable, so the single generated path is told apart from the five that are not.
+  It also states the rule: an extension adds a concept directory, created on first use, and
+  `bytefly.json` and `memory.md` stay the only root-level files this package adds.
+
 ### Changed
 
 - `board`: a listing, a write, and a page frame read the pile on a bound — one round trip per card
