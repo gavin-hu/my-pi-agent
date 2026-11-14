@@ -21,6 +21,7 @@
  */
 
 import { readdir, readFile } from "node:fs/promises";
+import { sameLabel } from "./session-label.ts";
 import { join } from "node:path";
 import { isPidAlive, type LivenessFn, startTokenOf, type StartTokenFn } from "./spawn.ts";
 
@@ -132,11 +133,7 @@ export type SessionPresence = RosterState | "absent";
 /** The roster row one owner names: its id first, then a label, which is the order `holds` uses. */
 function recordOf(roster: readonly RosterSession[], owner: { id?: string; label: string }): RosterSession | undefined {
 	const byId = owner.id === undefined ? undefined : roster.find((session) => session.id === owner.id);
-	// `sameLabel`'s rule, spelled out here because this module sits on `extensions/job`'s registration
-	// graph and `ENTRY_BUDGET.job` (45, `test/dependencies.test.ts`) has no room for the two modules
-	// that import would add — `session-label` and the `lib/path.ts` it pulls. Card 547 gives job that
-	// headroom and converts this line; it is not a note that expires by being forgotten.
-	return byId ?? roster.find((session) => session.label.toLowerCase() === owner.label.toLowerCase());
+	return byId ?? roster.find((session) => sameLabel(session.label, owner.label));
 }
 
 /**
