@@ -298,7 +298,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `lib`: a fenced block in a document wraps below a phone's width, as the code pane already did. The
   line was the one thing on a narrow page the reader had to scroll for, and the rule is the pane's
-  own, so a document and a file body break a long command the same way.
+  own, so a document and a file body break a long command the same way; a tab inside a fence is
+  four columns in both, which the prose rule had stopped stating.
 
 - `team`: `assign` records the session its message reached. The verb read the bus once, before the
   send, and that read decided the owner id, the quiet line and the not-listening line — while the

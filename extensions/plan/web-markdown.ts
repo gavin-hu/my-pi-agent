@@ -147,7 +147,11 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
           wrap.appendChild(list);
         }
         var row = el("li");
-        row.style.marginLeft = String(Math.floor(match[1].replace(/\t/g, "    ").length / 2) * 16) + "px";
+        // Only a nested item states an indent: a top-level one leaves the marker where the kit puts
+        // it, so a plain bullet's text and a task's own text keep the one left edge (the kit pulls a
+        // task back by 1.2em with a rule an inline margin would silently replace).
+        var depth = Math.floor(match[1].replace(/\t/g, "    ").length / 2);
+        if (depth > 0) row.style.marginLeft = String(depth * 16) + "px";
         var rest = match[3];
         var box = /^\[([ xX])\]\s*(.*)$/.exec(rest);
         if (box) {
