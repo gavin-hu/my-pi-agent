@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { LineSplitter } from "../../lib/lines.ts";
 import { type Harness, job, makeCtx, makeHarnessSuite, readLog, startJob } from "../../test/helpers/fixtures/job.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
-import { createLogWriter } from "./log-writer.ts";
+import { createLogWriter } from "./logs.ts";
 
 const suite = makeHarnessSuite();
 /** Temp directories this file's unit cases made, removed at teardown. */

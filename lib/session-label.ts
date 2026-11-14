@@ -15,7 +15,6 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { pageSource, sanitizeLine } from "./format.ts";
-import { lastSegment } from "./path.ts";
 
 /** Longest label, in characters, that a session may be addressed by. */
 export const MAX_LABEL = 40;
@@ -71,70 +70,6 @@ export const SAME_LABEL_JS = pageSource(sameLabel);
  * and look it up another.
  */
 export const LABEL_KEY_JS = pageSource(labelKey);
-
-/**
- * The automatic label, before uniqueness is applied.
- *
- * The bus appends a suffix when two live sessions share one; that decision belongs
- * to the registry, so this is only the name a session would pick for itself.
- */
-export function defaultLabel(facts: LabelFacts): string {
-	const checkouts = [...(facts.checkouts ?? [])];
-	const taken = checkoutNames(checkouts);
-	// A name a worktree produced is no name: it leaves with the worktree, and the next
-	// session named after one is a different session under the same word.
-	const named = normalizeLabel(facts.sessionName, "");
-	const own = named !== "" && !taken.has(labelKey(named)) ? named : "";
-	const repository = lastSegment(checkouts[0]?.path ?? facts.cwd);
-	const base = own || normalizeLabel(repository, "session");
-	return normalizeLabel(base, `session-${shortId(facts.id ?? "session")}`);
-}
-
-/** What a session knows about itself when it picks a name. */
-export interface LabelFacts {
-	/** Pi's session name, when the session has one. */
-	sessionName?: string;
-	/** The session's working directory. */
-	cwd: string;
-	/** The session's id, for the last fallback. */
-	id?: string;
-	/** The repository's working trees, the main checkout first, when git resolved them. */
-	checkouts?: Iterable<Checkout>;
-}
-
-/** A working tree, as the label rules read one. */
-export interface Checkout {
-	/** The worktree's directory. */
-	path: string;
-	/** The branch checked out there, without `refs/heads/`. */
-	branch?: string;
-}
-
-/** The default branch prefix a worktree of this repository is cut on. */
-const WORKTREE_BRANCH_PREFIX = "worktree-";
-
-/**
- * The names that are a checkout's rather than a session's.
- *
- * A session is named for what it is doing; a worktree is named for the work it holds,
- * and its branch is `worktree-<x>` by the worktree extension's default. Neither is an
- * identity a peer can address twice: the directory goes when the work is landed, and
- * the branch is rebased or deleted after it. Lower-cased, because a label is addressed
- * without case; the exact branch is named too, so a prefix someone configured is still
- * caught by it as well as by the directory.
- */
-export function checkoutNames(trees: Iterable<Checkout>): Set<string> {
-	const names = new Set<string>();
-	for (const tree of trees) {
-		const directory = labelKey(lastSegment(tree.path));
-		if (directory !== "") names.add(directory);
-		const branch = tree.branch === undefined ? undefined : labelKey(tree.branch);
-		if (!branch) continue;
-		names.add(branch);
-		if (branch.startsWith(WORKTREE_BRANCH_PREFIX)) names.add(branch.slice(WORKTREE_BRANCH_PREFIX.length));
-	}
-	return names;
-}
 
 /** The prefix of the team's name for a session that is not the page's seat. */
 export const TEAM_AGENT_PREFIX = "team-agent-";
@@ -235,4 +170,72 @@ export interface SessionLabelEvent {
 	id: string;
 	/** The name another session addresses this one by. */
 	label: string;
+}
+
+/**
+ * The automatic label, before uniqueness is applied.
+ *
+ * The bus appends a suffix when two live sessions share one; that decision belongs
+ * to the registry, so this is only the name a session would pick for itself.
+ */
+export function defaultLabel(facts: LabelFacts): string {
+	const checkouts = [...(facts.checkouts ?? [])];
+	const taken = checkoutNames(checkouts);
+	// A name a worktree produced is no name: it leaves with the worktree, and the next
+	// session named after one is a different session under the same word.
+	const named = normalizeLabel(facts.sessionName, "");
+	const own = named !== "" && !taken.has(labelKey(named)) ? named : "";
+	// Read here rather than through `lib/path.ts`: this module is on every extension's import path, and
+	// a start pays for what its entry pulls. The expression is `lastSegment`'s own, spelled out because
+	// one call cannot justify a module on eight entries.
+	const path = checkouts[0]?.path ?? facts.cwd;
+	const repository = path.split(/[\\/]/).filter(Boolean).at(-1) ?? "";
+	const base = own || normalizeLabel(repository, "session");
+	return normalizeLabel(base, `session-${shortId(facts.id ?? "session")}`);
+}
+
+/** What a session knows about itself when it picks a name. */
+export interface LabelFacts {
+	/** Pi's session name, when the session has one. */
+	sessionName?: string;
+	/** The session's working directory. */
+	cwd: string;
+	/** The session's id, for the last fallback. */
+	id?: string;
+	/** The repository's working trees, the main checkout first, when git resolved them. */
+	checkouts?: Iterable<Checkout>;
+}
+
+/** A working tree, as the label rules read one. */
+export interface Checkout {
+	/** The worktree's directory. */
+	path: string;
+	/** The branch checked out there, without `refs/heads/`. */
+	branch?: string;
+}
+
+/** The default branch prefix a worktree of this repository is cut on. */
+const WORKTREE_BRANCH_PREFIX = "worktree-";
+
+/**
+ * The names that are a checkout's rather than a session's.
+ *
+ * A session is named for what it is doing; a worktree is named for the work it holds,
+ * and its branch is `worktree-<x>` by the worktree extension's default. Neither is an
+ * identity a peer can address twice: the directory goes when the work is landed, and
+ * the branch is rebased or deleted after it. Lower-cased, because a label is addressed
+ * without case; the exact branch is named too, so a prefix someone configured is still
+ * caught by it as well as by the directory.
+ */
+export function checkoutNames(trees: Iterable<Checkout>): Set<string> {
+	const names = new Set<string>();
+	for (const tree of trees) {
+		const directory = labelKey(tree.path.split(/[\\/]/).filter(Boolean).at(-1) ?? "");
+		if (directory !== "") names.add(directory);
+		const branch = tree.branch === undefined ? undefined : labelKey(tree.branch);
+		if (!branch) continue;
+		names.add(branch);
+		if (branch.startsWith(WORKTREE_BRANCH_PREFIX)) names.add(branch.slice(WORKTREE_BRANCH_PREFIX.length));
+	}
+	return names;
 }

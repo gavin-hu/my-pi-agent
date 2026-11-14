@@ -371,7 +371,7 @@ const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	plan: 57,
 	team: 51,
 	job: 45,
-	"session-bus": 46,
+	"session-bus": 44,
 	subagent: 34,
 	"web-access": 41,
 	worktree: 38,
