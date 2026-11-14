@@ -84,7 +84,7 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 
 	/** The installed reader and the budget it was priced with, while a footer is up. */
 	let budget: { limit: number; read: SnapshotReader } | undefined;
-	/** One warning per session: the notice stays in scrollback, and a re-install must not repeat it. */
+	/** One warning per crossing: the notice stays in scrollback, and a re-install must not repeat it. */
 	let warned = false;
 	/** The unpriced notice is once per session too, and independent of the budget. */
 	let warnedUnpriced = false;
@@ -139,8 +139,9 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 	// on it. Rendering never posts anything: the footer is derived state.
 	pi.on("agent_settled", (_event, ctx) => {
 		if (!budget || ctx.mode !== "tui") return;
-		const usage = budget.read.peek();
-		if (!usage) return;
+		const peeked = budget.read.peek();
+		if (!peeked) return;
+		const { usage, delegation } = peeked;
 		// A model with no rate contributes nothing: CNY has no fallback, and USD's fallback
 		// is Pi's own amount, which is zero for a model its catalog cannot price either.
 		if (!warnedUnpriced && usage.unpricedModels.length > 0) {
@@ -148,9 +149,17 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 			pi.sendMessage(unpricedNotice(usage.unpricedModels));
 			deps.notify?.(unpricedBody(usage.unpricedModels));
 		}
-		if (warned || budget.limit <= 0) return;
-		const state = budgetState(budget.limit, usage.cost);
-		if (!state.exceeded) return;
+		if (budget.limit <= 0) return;
+		// The ceiling holds the session's spend and the runs it delegated; `↳` keeps the
+		// child share, so the bar and this sentence read the same total.
+		const state = budgetState(budget.limit, usage.cost + delegation.cost, delegation.cost);
+		if (!state.exceeded) {
+			// Below the ceiling again, which a `/tree` back below it can do: re-arm the one
+			// warning, so the next crossing is reported rather than silently missed.
+			warned = false;
+			return;
+		}
+		if (warned) return;
 		warned = true;
 		const currency = loadByteflyConfig(ctx.cwd).currency;
 		pi.sendMessage(budgetNotice(state, currency));

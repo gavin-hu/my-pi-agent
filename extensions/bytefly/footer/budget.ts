@@ -6,6 +6,10 @@
  * loses work, and the footer already shows the running cost — so this decides only
  * whether the threshold has been crossed and what the one notice says.
  *
+ * The ceiling holds everything the session spent, its child runs included: a session
+ * that delegated $5 behind a $5 budget has spent $5, and the bar's `↳` keeps naming
+ * the child share so a reader can subtract it.
+ *
  * Pure: the caller has the priced spend and the currency, this shapes the answer.
  * The amount formatting is the footer's own — `formatCost` for what was spent,
  * `formatLimit` for the ceiling it is held against — so the notice and the status
@@ -20,17 +24,31 @@ import type { Currency } from "./price/types.ts";
 export interface BudgetState {
 	/** The configured budget, in `currency`; `0` means the guardrail is off. */
 	limit: number;
-	/** What the session has spent so far, in `currency`. */
+	/** What the session has spent so far, in `currency`, child runs included. */
 	spent: number;
+	/** How much of `spent` is child runs, in `currency`: the share `↳` draws. */
+	children: number;
 	/** Whether the budget is on and has been reached. Inclusive: exactly `limit` counts. */
 	exceeded: boolean;
 }
 
-/** The session's position against its budget. */
-export function budgetState(limit: number, spent: number): BudgetState {
+/**
+ * The session's position against its budget.
+ *
+ * `spent` is the total the caller summed, so `children` is a share of a number that
+ * already holds it — and a share wider than its whole can only come from a mispriced
+ * input, which the clamp keeps from reaching the notice as a contradiction.
+ */
+export function budgetState(limit: number, spent: number, children = 0): BudgetState {
 	const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 0;
 	const safeSpent = Number.isFinite(spent) && spent > 0 ? spent : 0;
-	return { limit: safeLimit, spent: safeSpent, exceeded: safeLimit > 0 && safeSpent >= safeLimit };
+	const safeChildren = Number.isFinite(children) && children > 0 ? Math.min(children, safeSpent) : 0;
+	return {
+		limit: safeLimit,
+		spent: safeSpent,
+		children: safeChildren,
+		exceeded: safeLimit > 0 && safeSpent >= safeLimit,
+	};
 }
 
 /**
@@ -43,9 +61,13 @@ export function budgetState(limit: number, spent: number): BudgetState {
 export function budgetNotice(state: BudgetState, currency: Currency): NoticeMessage {
 	const spent = formatCost(state.spent, currency);
 	const limit = formatLimit(state.limit, currency);
+	const children = formatCost(state.children, currency);
+	// The child share is a clause rather than a second sentence: the reader acts on the total
+	// crossing the ceiling, and `↳` is where the detail lives when no ceiling is configured.
+	const share = state.children > 0 ? `, ${children} of it child runs` : "";
 	return noticeMessage({
 		content:
-			`Session spend reached the configured budget: ${spent} of ${limit}. ` +
+			`Session spend reached the configured budget: ${spent} of ${limit}${share}. ` +
 			"This is a warning only — the session continues; raise or clear `price.budget` to silence it.",
 		details: {
 			source: "bytefly",
@@ -53,6 +75,7 @@ export function budgetNotice(state: BudgetState, currency: Currency): NoticeMess
 			severity: "warn",
 			items: [
 				{ label: "spent", detail: spent },
+				...(state.children > 0 ? [{ label: "child runs", detail: children }] : []),
 				{ label: "budget", detail: limit },
 			],
 		},

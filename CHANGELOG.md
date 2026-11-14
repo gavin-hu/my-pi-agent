@@ -39,6 +39,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a pruned record inside a held inbox is no longer reported as unaccounted. Mail past its TTL can now
   outlive it by up to one heartbeat.
 
+### Fixed
+
+- `bytefly`: `price.budget` holds the session's spend **and** the child runs it delegated, so a
+  session that handed its work to subagents can no longer pass the ceiling silently: the notice
+  names the share (`$5.310 of $5, $5.000 of it child runs`) and the bar draws that one total, with
+  `↳` beside it as the share a reader subtracts. The warning also re-arms — a `/tree` that drops
+  the spend below the ceiling lets the next crossing warn again, where it stayed silent for the
+  rest of the session.
+
 ## [0.27.0] - 2026-11-14
 
 ### Added
