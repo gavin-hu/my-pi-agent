@@ -69,12 +69,12 @@ describe("the registration", () => {
 	test("says an offer records the moment, not that it writes nothing", () => {
 		const { tool } = harness();
 		// The shipped path calls the store, which sets `offeredAt` and bumps `rev` and
-		// `updatedAt`; "writes nothing" read as a free probe and hid that write. Both
-		// model-facing surfaces say it, so both are pinned — the schema's copy drifted first.
-		for (const text of [tool.description, tool.parameters.properties.action.description]) {
-			expect(text).toContain("records the moment it was made");
-			expect(text).not.toContain("writes nothing");
-		}
+		// `updatedAt`; "writes nothing" read as a free probe and hid that write. The schema's copy
+		// drifted on exactly this, so the copy is gone: the description is the one surface that says
+		// what a verb does, and the parameter only names the fields it takes.
+		expect(tool.description).toContain("records the moment it was made");
+		expect(tool.description).not.toContain("writes nothing");
+		expect(tool.parameters.properties.action.description).not.toContain("records the moment");
 	});
 
 	test("refuses an action it does not have, without throwing", async () => {

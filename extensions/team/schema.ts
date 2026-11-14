@@ -14,14 +14,12 @@ export const TeamParams = Type.Object({
 	action: Type.Union(
 		TEAM_ACTIONS.map((action) => Type.Literal(action)),
 		{
+			// What a parameter can say that the description cannot: the fields each verb reads. The
+			// sentences were here once, and the copy drifted from the description before anything drew
+			// a line between them — one surface cannot disagree with itself.
 			description:
-				"`assign` sends a running session a handoff and then records the owner; `offer` broadcasts an unclaimed card " +
-				"to every other live session, then records the moment it was made — the lane and the owner stay put — so " +
-				"the first to claim it takes it; `reclaim` takes a card back to Backlog — a peer only from an owner whose " +
-				"record says it stopped, the lead from anyone — and sends nothing; `claim` takes one for the lead " +
-				"itself, which then plans and records it with `board`; `ask` sends one peer a question and starts nothing, " +
-				"so the answer arrives as mail. They are the round's five verbs: `board` creates, plans, moves, and " +
-				"finishes the cards, and the page is a view.",
+				"`assign`, `offer`, `reclaim`, or `claim` take a `card`; `ask` takes `to` and no card — what each does is " +
+				"in the description.",
 		},
 	),
 	card: Type.Optional(Type.String({ description: 'The card to act on, e.g. "4" or "#4"; `ask` takes none.' })),

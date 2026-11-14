@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the workflow guideline names both gates — `approve` before `execute`, `review` before
+  `done` — so a checklist no longer stops at the first one, and the person's signature covers
+  either. Its `approve` action doc drops the `team.lead` parenthetical, because `team` states the
+  lead's duty once.
+
+- `team`: the five verbs are described once. The `action` parameter repeated every sentence of the
+  description, and the copy is what drifted, so it now names the fields each verb reads; a fifth
+  guideline states the lead's duty, and the surface has a ceiling in the prompt budget where it had
+  none.
+
 - `session-bus`: a status read and every tool call now cost the files they touch rather than the whole
   mail store. `unaccountedMail` names an inbox's owner by the directory the bus filed it in instead of
   reading every message to re-derive it, and the inbox sweep behind the message TTL moved from every
