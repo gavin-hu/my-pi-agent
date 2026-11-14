@@ -61,6 +61,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a listing, a write, and a page frame read the pile on a bound — one round trip per card
+  file, sixteen in flight — instead of one file at a time, and a card's dependents are indexed in
+  the same pass that indexes the cards rather than scanned for each one. On a 270-card board a scan
+  drops from 14 ms to 4.3, `board list` from 13.7 to 4.0, a write from 12.7 to 4.5, and a page frame
+  from 16.7 to 5.1; a snapshot's dependents pass stops being the board squared (22.8 ms to 0.9 at
+  1000 cards, 80.8 to 1.9 at 2000). The pile reader moves into `board/read.ts`, where a file's gate
+  already lived, and the page's card order, its refusals, and every listing read exactly as before.
+
 - `lib`: the four stream states' words and tones are one table (`paintLiveState`) spliced into
   every served page, so the board appends only the frame's age and the review its comment count.
   The board's `reconnecting…` chip is the warning tone the other two wear, not the danger they

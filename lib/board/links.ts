@@ -28,6 +28,31 @@ export function indexOf(cards: readonly Card[]): BoardIndex {
 }
 
 /**
+ * The same board, read backwards: the cards that wait on a given id.
+ *
+ * {@link dependentsOf} answers the question for one card, which is a scan of the board; a
+ * reader drawing every card — the page's snapshot — would make that scan once per card,
+ * which is the board squared. One pass builds the whole answer instead, and each bucket is
+ * in the same id order the one-card scan returns.
+ */
+export type DependentIndex = ReadonlyMap<string, readonly Card[]>;
+
+/** Build every reverse edge in one pass, each bucket in the order {@link dependentsOf} prints. */
+export function dependentIndexOf(cards: readonly Card[]): DependentIndex {
+	const index = new Map<string, Card[]>();
+	for (const card of cards) {
+		// A file can name one dependency twice; the edge is still one, and the card is one row.
+		for (const id of new Set(dependsOf(card))) {
+			const waiting = index.get(id);
+			if (waiting === undefined) index.set(id, [card]);
+			else waiting.push(card);
+		}
+	}
+	for (const waiting of index.values()) waiting.sort((a, b) => Number(a.id) - Number(b.id));
+	return index;
+}
+
+/**
  * The cards `card` waits for that are not finished, in the order it names them.
  *
  * A finished dependency is what a link is for: it has stopped explaining why the
@@ -60,9 +85,14 @@ export function lanesText(cards: readonly Card[], options: { titles?: boolean } 
 		.join(", ");
 }
 
-/** The cards that wait on `id`, oldest id first, so a report reads in board order. */
+/** The cards that wait on `id`, oldest id first, from an index built once. */
+export function dependentsIn(dependents: DependentIndex, id: string): Card[] {
+	return [...(dependents.get(id) ?? [])];
+}
+
+/** The same answer for a caller holding one card and the board it was read from. */
 export function dependentsOf(id: string, board: BoardIndex): Card[] {
-	return [...board.values()].filter((card) => dependsOf(card).includes(id)).sort((a, b) => Number(a.id) - Number(b.id));
+	return dependentsIn(dependentIndexOf([...board.values()]), id);
 }
 
 /**
@@ -72,9 +102,17 @@ export function dependentsOf(id: string, board: BoardIndex): Card[] {
  * stopped waiting, so it stops counting here and a card whose only dependents are done
  * reads as one nothing waits on. `dependentsOf` keeps every edge, because the drop
  * refusal is about a link that would be stranded rather than about work that is held up.
+ *
+ * The index-taking form is what the page's snapshot reads: it draws every card, so the
+ * question is asked once per card and the reverse edges are built once, not per card.
  */
+export function openDependentsIn(dependents: DependentIndex, id: string): Card[] {
+	return dependentsIn(dependents, id).filter((card) => card.lane !== "done");
+}
+
+/** The same answer for a caller holding one card and the board it was read from. */
 export function openDependentsOf(id: string, board: BoardIndex): Card[] {
-	return dependentsOf(id, board).filter((card) => card.lane !== "done");
+	return openDependentsIn(dependentIndexOf([...board.values()]), id);
 }
 
 /** The sentence a claim, a move, or an assignment is refused with while `card` waits, or undefined. */

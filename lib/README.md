@@ -51,7 +51,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`board/`](./board/) | The shared feature board — the record, its lifecycle, the store, and the shapes every surface renders — whose per-module reasoning is its own doc: [`board/README.md`](./board/README.md). |
 | [`board/card.ts`](./board/card.ts) | The card record and its boundary: `Card`, the field caps, the `normalize*` rules, priority, `matchesQuery`, and `laneSince`. |
 | [`board/kind.ts`](./board/kind.ts) | What kind of work a card is and whether it breaks an existing user: `CARD_TYPES`, `normalizeType`, `normalizeBreaking`, and `breakingOf`, which reads an absent marker as not breaking. |
-| [`board/read.ts`](./board/read.ts) | The one gate a card file read passes: `readCard`, which maps a past shape onto this build instead of dropping the card. |
+| [`board/read.ts`](./board/read.ts) | Reading cards, not writing them: `readCard` is the one gate a file passes (mapping a past shape onto this build instead of dropping the card), and `scanPile` is a directory of them — one read per file on a bound, answering the cards, the files it refused, and the bytes they occupy. |
 | [`board/lanes.ts`](./board/lanes.ts) | The lanes as data: `LANES`, `LANE_RULES`, and `TRANSITIONS`, the table the tool's targets and the moves both read. |
 | [`board/contract.ts`](./board/contract.ts) | What a card promises before execution: the three fields, the completeness gate, and the sign an edit drops. |
 | [`board/links.ts`](./board/links.ts) | The dependency graph over an index: blockers, dependents, cycles, and one stored edge per link. |
@@ -61,7 +61,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`board/rules.ts`](./board/rules.ts) | The lifecycle as a pure dispatch: `createCard`, `mayOp`, `applyOp`, and the one write that bumps the revision. |
 | [`board/steps.ts`](./board/steps.ts) | What each operation a card alone decides does — the moves, the edits, the pool, the contract and its approval — each answering a refusal, a no-op, or the fields a write applies. |
 | [`board/actions.ts`](./board/actions.ts) | The action list and which of them only read it — the one table the tool and the read-only policy share. |
-| [`board/store.ts`](./board/store.ts) | The backend and the only writer: the card files, the id allocator, `mutate`'s locked re-check, `scan`, and the archive pile. |
+| [`board/store.ts`](./board/store.ts) | The backend and the only writer: the card files, the id allocator, `mutate`'s locked re-check, and the archive pile, over the pile `board/read.ts` reads. |
 | [`board/lock.ts`](./board/lock.ts) | The board's one write lock: `lockBoard` creates `.lock-board` exclusively, waits `LOCK_WAIT_MS` for a live holder, takes over one older than `LOCK_STALE_MS`, and releases only its own token — so `mutate`'s read, check, and rename are one step to a rival session. It waits out the two refusals that mean somebody's file is in the way rather than throwing them out of a write nobody made: `EEXIST`, and the `EPERM` Windows answers while a rival deletes its own. |
 | [`board/config.ts`](./board/config.ts) | The `board` section of `bytefly.json`, read once and handed to `applyOp` whole. |
 | [`board/session.ts`](./board/session.ts) | The session a call works as: one store per directory, the seat, the id a card records, the bus's directory and its records, and `cross` — the lane crossing every write reports, loaded on the first one. |
