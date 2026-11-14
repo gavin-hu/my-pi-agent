@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `board`: a spot-check names its checkout on Windows. The comparison resolved `cwd` but not git's
+  common directory, and git for Windows prints that with forward slashes while a cwd arrives native,
+  so `checkout` was absent from every record there — the one word that tells the landing tree from a
+  worktree. Both sides are resolved now, and a case drives `node:path.win32` so the mixed separator
+  is held on a machine that is not Windows.
+
 ## [0.27.0] - 2026-11-14
 
 ### Added

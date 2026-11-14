@@ -158,7 +158,25 @@ export async function verifiedCommand(
  * rest of the repository — whose parent is the checkout, which is how a worktree is told from the
  * tree everything lands in without naming a branch anybody's project may spell differently.
  */
-export function treeOf(pi: Pick<ExtensionAPI, "exec">): TreeReader {
+/**
+ * The two path answers a tree comparison reads, so a case can hand in the platform it must ask about.
+ *
+ * `node:path` is what production gets. A suite passes `win32` because the install running the
+ * suite is not Windows, and a comparison that only fails there has to be answerable from here.
+ */
+export interface TreePaths {
+	/** The parent of a path, in the platform's own spelling. */
+	dirname(path: string): string;
+	/** An absolute path, with the platform's separators and roots. */
+	resolve(path: string): string;
+}
+
+/**
+ * The tree a reader compares `common` and `cwd` with: this platform, unless a case says otherwise.
+ */
+const PLATFORM_PATHS: TreePaths = { dirname, resolve };
+
+export function treeOf(pi: Pick<ExtensionAPI, "exec">, paths: TreePaths = PLATFORM_PATHS): TreeReader {
 	const runGit = createExecRunner(pi);
 	return async (cwd) => {
 		const [sha, branch, common] = await Promise.all([
@@ -166,7 +184,10 @@ export function treeOf(pi: Pick<ExtensionAPI, "exec">): TreeReader {
 			currentBranch(runGit, cwd).catch(() => undefined),
 			gitCommonDir(runGit, cwd).catch(() => undefined),
 		]);
-		const checkout = common !== undefined && dirname(common) === resolve(cwd);
+		// Resolved, because the two sides do not arrive in one spelling: git for Windows prints the
+		// common directory with forward slashes while a cwd is native, and a POSIX literal under a
+		// Windows cwd disagrees the same way. `dirname` alone compares bytes, and never matched there.
+		const checkout = common !== undefined && paths.resolve(paths.dirname(common)) === paths.resolve(cwd);
 		return {
 			...(sha === undefined ? {} : { sha }),
 			...(branch === undefined ? {} : { branch }),
