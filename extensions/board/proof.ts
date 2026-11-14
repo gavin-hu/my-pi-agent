@@ -54,9 +54,10 @@ export async function provedPlan(
  * card cannot claim a merge it did not get. A handful of git calls, and only for a card whose sign
  * names a commit — a run outside a repository names none, and its card owes no landing.
  *
- * What the merge changed is the review's own work, not the card's path hints: a neighbour that
- * landed inside a hinted directory since the fork is not this review's evidence, so
- * `resolvedByMerge` scopes the diff to the files the review itself changed.
+ * What the merge changed is the review's own change, not the card's path hints and not merely a
+ * file it touched: a neighbour that landed inside a hinted directory since the fork is not this
+ * review's evidence, and neither is a neighbour's bullet in a file the review also edited, so
+ * `resolvedByMerge` compares the lines each side changed.
  *
  * The chain is read from the repository's checkout, not the session's tree: work is made in a
  * worktree and lands in the checkout, so the checkout is the only tree whose first-parent line is

@@ -362,6 +362,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a landing merge is read against its first parent and compared with the review's own
+  change, line by line, so a neighbour's `CHANGELOG.md` bullet arriving through the merge no longer
+  refuses a close while a hand-resolved conflict still does. The gate used to intersect the files
+  the review changed with the files that differ between the reviewed commit and the merge, which
+  named the shared file every card edits: two merged-tree signatures were lost to it in one day.
+  The residual is stated where the rule lives — a resolution that reproduces the review's own
+  lines exactly is the tree that was reviewed for those lines, and passes.
+
 - `lib`: a fenced block in a document wraps below a phone's width, as the code pane already did. The
   line was the one thing on a narrow page the reader had to scroll for, and the rule is the pane's
   own, so a document and a file body break a long command the same way; a tab inside a fence is
