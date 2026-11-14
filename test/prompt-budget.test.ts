@@ -161,10 +161,11 @@ describe("the board tool surface", () => {
 		// 14 `approve`'s doc gave up when `team` took the config key. Then two sentences changed
 		// hands: `reclaim`'s gained the lead's authority it had dropped (+23, the sentence `team`
 		// had been stating alone), paid by the two gate clauses `approve` and `review` still
-		// carried and the first guideline already states (-75). 7,121 today, and the ceiling only
-		// ever falls: the correction made the surface smaller, not larger. The gate is the number;
-		// this comment is why.
-		expect(boardSurface()).toBeLessThanOrEqual(7_125);
+		// carried and the first guideline already states (-75) — 7,121. Then `reclaim` gained the
+		// holder's case (+38: a holder's reclaim is its own `release`, and the name alone does not
+		// say so), paid by `edit`'s field list that every parameter description already states (-69).
+		// 7,090 today, and the ceiling fell with it: the gate is the number; this comment is why.
+		expect(boardSurface()).toBeLessThanOrEqual(7_090);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
 	});
