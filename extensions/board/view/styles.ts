@@ -312,8 +312,9 @@ ${DECISION_WHY_CSS}
 .board-queue__band .bf-lane__list{gap:var(--space-2)}
 /* A band's head pins under the pane's, which is already pinned: a reader three rows into a list
    still knows whose move it is without scrolling back to find out. The offset is the pane head's
-   own height — its minimum, its bottom padding and its rule — so the two cannot drift apart. */
-.board-queue__band > .bf-lane__head{position:sticky;top:calc(30px + var(--space-1) + 2px);z-index:2;background:var(--canvas);padding-bottom:var(--space-1)}
+   own height — its minimum, its bottom padding and its rule — plus the step the caption gives its
+   body, so the pin and the rest are one place and the two cannot drift apart. */
+.board-queue__band > .bf-lane__head{position:sticky;top:calc(30px + var(--space-2));z-index:2;background:var(--canvas);padding-bottom:var(--space-1)}
 /* The sentence a whole band repeats: a fact about every row under it, so it is set in the head's
    line at the weight of the words around it rather than as one more row. */
 .board-queue__said{margin-left:var(--space-1);color:var(--muted);font-weight:var(--fw-normal)}
@@ -349,6 +350,10 @@ ${DECISION_WHY_CSS}
 
 /* MAIL and WHAT HAPPENED — one line each, one height, the age at the foot's edge. */
 .board-team__pane-body{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
+/* A pane's caption owns the same step a deck's does, which is what makes the two read as one kind of
+   head: the deck gives its rows 8px (the space-2 step under the caption above), so the pane's own 4px
+   gap plus this margin is the same 8px — a head a row sits no closer to than the row below it. */
+.board-team__pane-body > .bf-section__cap{margin-bottom:var(--space-1)}
 .board-team__waiting,.board-team__recent{display:flex;flex-direction:column;gap:var(--space-2);margin:0;padding:0;list-style:none}
 .board-mail__body{min-width:0}
 .board-mail,.board-event{flex-wrap:nowrap;align-items:baseline;min-height:var(--team-row-h);color:var(--muted);font:var(--fs-xs) var(--font-ui)}
