@@ -244,18 +244,25 @@ export function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
  * from the same `budgetState`, so the bar cannot call a session over budget that the
  * notice has not, and the ceiling is visible from the first frame rather than only in
  * the one notice that names it.
+ *
+ * The figure is everything the session spent, its child runs included, because that is
+ * what the ceiling holds: a session that delegated $5 behind a $5 ceiling reads
+ * `$5.31/$5`. `↳` still draws the child share beside it, so the session's own cost is
+ * the subtraction, and neither segment double-counts on its own.
  */
 export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { cost, unpriced } = snapshot.usage;
+	const children = snapshot.delegation.usage.cost;
+	const total = cost + children;
 	const budget = snapshot.budget;
-	if (cost === 0 && unpriced === 0 && budget <= 0) return null;
-	const price = formatCost(cost, snapshot.currency);
+	if (total === 0 && unpriced === 0 && budget <= 0) return null;
+	const price = formatCost(total, snapshot.currency);
 	const spend = budget > 0 ? `${price}/${formatLimit(budget, snapshot.currency)}` : price;
-	const spendText = paint(theme, budgetState(budget, cost).exceeded ? "warn" : "meta", spend);
+	const spendText = paint(theme, budgetState(budget, total, children).exceeded ? "warn" : "meta", spend);
 	const leftOut = unpriced === 1 ? "1 unpriced" : `${unpriced} unpriced`;
 	// A zero total with no ceiling says nothing a reader can use, so the price form
 	// appears only once there is a spend or a budget to hold it against.
-	const priced = cost === 0 && budget <= 0 ? [] : [spendText];
+	const priced = total === 0 && budget <= 0 ? [] : [spendText];
 	const forms = [
 		`${spendText}${faint(theme, CONFIG.separators.item)}${paint(theme, "warn", leftOut)}`,
 		paint(theme, "warn", leftOut),
