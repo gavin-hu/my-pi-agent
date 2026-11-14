@@ -55,6 +55,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a pane head in the Team tab gives its rows the step a deck head gives. Recent, Waiting and
+  Needs you sat 4px above their rows while the heads over them — Agents, Active work, Activity — gave
+  8px, and the rows themselves are 8px apart, so a head read as the thing its first row was closest to.
+  A pane's caption now owns the margin the pane's own gap adds up with, which states one step at both
+  kinds of head, and the Needs you band heads pin at that same step rather than two pixels under it.
+
 - `plan`: the browser review reads as the same page as `/board` and `/files`. Its action bar is the
   header's second row, closed by the same hairline, instead of a strip hanging under the head; its
   plan body is the kit's Markdown (one heading scale, one fence, ruled tables, the drawn task box)
