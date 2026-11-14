@@ -4,8 +4,8 @@
  *
  * One reader per section, so the cases here are about each key falling back on its own and about
  * the project's file winning over the global one — the two ways a merged setting surprises the
- * person who set it — plus the two answers a project can state that are empty: no lead, and no
- * team.
+ * person who set it — plus the default team, and the two answers a project can state that are
+ * empty: no lead, and no team.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -44,31 +44,43 @@ function agentWith(document: unknown): string {
 }
 
 describe("the default board", () => {
-	test("names no lead and no team, because a project states its own", () => {
-		expect(DEFAULT_TEAM_CONFIG).toEqual({ lead: "", teammates: [] });
-		expect(DEFAULT_BOARD_CONFIG).toEqual({ lead: "", teammates: [], wip: { plan: 3, execute: 5 } });
+	test("starts a project with a lead and five names to draw", () => {
+		expect(DEFAULT_TEAM_CONFIG).toEqual({ lead: "gavin", teammates: ["gavin", "tom", "jack", "mike", "sam"] });
+		expect(DEFAULT_BOARD_CONFIG).toEqual({
+			lead: "gavin",
+			teammates: ["gavin", "tom", "jack", "mike", "sam"],
+			wip: { plan: 3, execute: 5 },
+		});
 	});
 
 	test("a caller overrides one key and keeps the rest", () => {
 		expect(boardConfig({ lead: "billing-lead" })).toEqual({
 			lead: "billing-lead",
-			teammates: [],
+			teammates: ["gavin", "tom", "jack", "mike", "sam"],
 			wip: { plan: 3, execute: 5 },
 		});
 	});
 });
 
 describe("normalizeTeamConfig", () => {
-	test("an absent section is no lead and no team", () => {
+	test("an absent section is the default team", () => {
 		expect(normalizeTeamConfig(undefined)).toEqual(DEFAULT_TEAM_CONFIG);
 	});
 
 	test("each key falls back on its own", () => {
-		expect(normalizeTeamConfig({ lead: "billing-lead" })).toEqual({ lead: "billing-lead", teammates: [] });
-		expect(normalizeTeamConfig({ teammates: ["tom", "api-core"] })).toEqual({
+		// The base is stated rather than left to the default, so the case is about the fallback and
+		// not about what the default happens to hold.
+		const base = { lead: "", teammates: [] };
+		expect(normalizeTeamConfig({ lead: "billing-lead" }, base)).toEqual({ lead: "billing-lead", teammates: [] });
+		expect(normalizeTeamConfig({ teammates: ["tom", "api-core"] }, base)).toEqual({
 			lead: "",
 			teammates: ["tom", "api-core"],
 		});
+	});
+
+	test("an unstated key keeps the default underneath", () => {
+		expect(normalizeTeamConfig({ lead: "billing-lead" }).teammates).toEqual(DEFAULT_TEAM_CONFIG.teammates);
+		expect(normalizeTeamConfig({ teammates: ["tom"] }).lead).toBe("gavin");
 	});
 
 	test("a lead is a label", () => {
@@ -85,6 +97,12 @@ describe("normalizeTeamConfig", () => {
 
 	test("an empty list is a team of nobody, and stays empty", () => {
 		expect(normalizeTeamConfig({ teammates: [] }, { lead: "", teammates: ["tom"] }).teammates).toEqual([]);
+		// And it clears the default team too: `[]` is a project saying nobody, not a file that said nothing.
+		expect(normalizeTeamConfig({ teammates: [] }).teammates).toEqual([]);
+	});
+
+	test("an empty lead is no lead, and clears the default one", () => {
+		expect(normalizeTeamConfig({ lead: "" }).lead).toBe("");
 	});
 
 	test("a stated team keeps any label, in order, without a duplicate", () => {
@@ -145,9 +163,9 @@ describe("readBoardConfig", () => {
 
 describe("readTeamConfig", () => {
 	test("reads the team alone, which is what the footer needs", () => {
-		const cwd = projectWith({ board: { wip: { plan: 9 } }, team: { teammates: ["tom"] } });
+		const cwd = projectWith({ board: { wip: { plan: 9 } }, team: { lead: "team-lead", teammates: ["tom"] } });
 		expect(readTeamConfig(cwd, { agentDir: temps.track(tempDir("pi-board-agent-")) })).toEqual({
-			lead: "",
+			lead: "team-lead",
 			teammates: ["tom"],
 		});
 	});
@@ -173,11 +191,19 @@ describe("addTeammate", () => {
 		});
 	});
 
-	test("takes any name, because the project's list is the whole vocabulary", () => {
+	test("takes any name, after the default team a bare project starts with", () => {
 		const cwd = projectWith({});
 		const added = addTeammate(cwd, "  Billing  Core ", { agentDir: temps.track(tempDir("pi-board-agent-")) });
-		expect(added).toEqual({ ok: true, team: ["billing core"], changed: true });
-		expect(projectDocument(cwd)).toEqual({ team: { teammates: ["billing core"] } });
+		expect(added).toEqual({
+			ok: true,
+			team: ["gavin", "tom", "jack", "mike", "sam", "billing core"],
+			changed: true,
+		});
+		// The write states the team it was given, default included, so the project owns that roster
+		// from here: a file holding only the new name would drop the other five.
+		expect(projectDocument(cwd)).toEqual({
+			team: { teammates: ["gavin", "tom", "jack", "mike", "sam", "billing core"] },
+		});
 	});
 
 	test("a name the team already holds is no edit at all", () => {
@@ -208,17 +234,19 @@ describe("addTeammate", () => {
 		const agentDir = temps.track(tempDir("pi-board-agent-"));
 		addTeammate(cwd, "lily", { agentDir });
 		addTeammate(cwd, "bob", { agentDir });
-		expect(projectDocument(cwd)).toEqual({ team: { teammates: ["lily", "bob"] } });
+		expect(projectDocument(cwd)).toEqual({
+			team: { teammates: ["gavin", "tom", "jack", "mike", "sam", "lily", "bob"] },
+		});
 	});
 
 	test("a blank label puts nobody on the team", () => {
-		const cwd = projectWith({});
+		const cwd = projectWith({ team: { teammates: [] } });
 		expect(addTeammate(cwd, "   ", { agentDir: temps.track(tempDir("pi-board-agent-")) })).toEqual({
 			ok: true,
 			team: [],
 			changed: false,
 		});
-		expect(projectDocument(cwd)).toEqual({});
+		expect(projectDocument(cwd)).toEqual({ team: { teammates: [] } });
 	});
 
 	test("a document it cannot parse is a reason, not a rewrite", () => {

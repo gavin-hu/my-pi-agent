@@ -103,9 +103,12 @@ export function signedAs(sign: SignRecord | undefined, actor: Actor, lead: Lead)
  *
  * A blank string is not a lead called nothing: it is a file that said nothing, so the layer
  * below keeps its answer, and a name is flattened and capped by the same rule every label is.
+ * The one stated value that is an answer rather than a name is the empty string: the default
+ * team names a lead, so clearing it has to be sayable.
  */
 export function normalizeLead(raw: unknown, base: Lead): Lead {
-	return typeof raw === "string" ? normalizeLabel(raw, base) : base;
+	if (typeof raw !== "string") return base;
+	return raw === "" ? "" : normalizeLabel(raw, base);
 }
 
 /**

@@ -99,7 +99,9 @@ describe("/team join", () => {
 		expect(notifications.at(-1)).toBe(
 			"team: on the team as billing-core, listening for handoffs. team.teammates now holds it, so the bar names you.",
 		);
-		expect(projectTeam(board.cwd)).toEqual(["billing-core"]);
+		// A project that states no team writes the roster it joined, the loader's default five included:
+		// a file holding only the new name would drop the rest.
+		expect(projectTeam(board.cwd)).toEqual(["gavin", "tom", "jack", "mike", "sam", "billing-core"]);
 		// The standing is the session's, not this command's: `/board status` reports the team
 		// whichever door put it there, so this door has to record what it did.
 		expect(board.runtime.team.last()).toEqual({
@@ -119,9 +121,9 @@ describe("/team join", () => {
 				"team: on the team as lily, listening for handoffs. team.teammates now holds it, so the bar names you.",
 			);
 			expect(notices.at(-1)?.kind).toBe("info");
-			// A project that named no team gets the one name: the file states the whole list the write
-			// was decided against, which was empty.
-			expect(projectTeam(board.cwd)).toEqual(["lily"]);
+			// A project that named no team gets the default roster with the one name after it: the file
+			// states the whole list the write was decided against, which was the loader's five.
+			expect(projectTeam(board.cwd)).toEqual(["gavin", "tom", "jack", "mike", "sam", "lily"]);
 		});
 	});
 
@@ -133,7 +135,7 @@ describe("/team join", () => {
 			await command.handler("join bob", fakeCtx({ cwd: board.cwd, sessionId: "s-lead" }).ctx);
 			// One session, two renames: the team is read where it is written, so the second join
 			// cannot be decided against the list the first one already changed.
-			expect(projectTeam(board.cwd)).toEqual(["lily", "bob"]);
+			expect(projectTeam(board.cwd)).toEqual(["gavin", "tom", "jack", "mike", "sam", "lily", "bob"]);
 		});
 	});
 
@@ -169,21 +171,41 @@ describe("/team join", () => {
 		});
 	});
 
-	test("a bare join draws the id-derived name when the team names nobody", async () => {
+	test("a bare join draws the first free name of the default team", async () => {
 		await withAgentDir(async () => {
 			const board = boardHarness({ now: NOW, project: false, track: temps.track });
 			const { team, labels, naming } = fakeTeam();
 			const command = joinCommand(board, team);
 			const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
 			await command.handler("join", ctx);
-			// The board's own name for the session, so the card it claims and the bus record agree.
+			// `gavin` is the default lead's name and a session may not take it, so the first free name
+			// of the default five is the one drawn.
+			expect(labels).toEqual(["tom"]);
+			// A drawn name is the team's, not the user's: it does not rename the footer, and it is not a
+			// name this command chose to put on the team either.
+			expect(naming).toEqual([undefined]);
+			expect(notifications.at(-1)).toBe(
+				"team: on the team as tom, listening for handoffs. Team name from `team.teammates` — `/team join <label>` picks another.",
+			);
+			expect(existsSync(join(board.cwd, ".pi", "bytefly.json"))).toBe(false);
+		});
+	});
+
+	test("a bare join draws the id-derived name when the project states an empty team", async () => {
+		await withAgentDir(async () => {
+			const board = boardHarness({ now: NOW, project: false, track: temps.track });
+			// A stated empty list is the project saying nobody is on its team, which clears the default
+			// roster: this is the only state left in which `team-agent-<id>` is the name a join draws.
+			teamProject(board.cwd, []);
+			const { team, labels, naming } = fakeTeam();
+			const command = joinCommand(board, team);
+			const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+			await command.handler("join", ctx);
 			const drawn = agentLabel("s-lead");
 			expect(labels).toEqual([drawn]);
-			// A derived name is the board's, not the user's: it does not rename the footer, and it is
-			// not a name this command chose to put on the team either.
 			expect(naming).toEqual([undefined]);
+			// Nothing was picked, so the line says nothing about where a name came from.
 			expect(notifications.at(-1)).toBe(`team: on the team as ${drawn}, listening for handoffs.`);
-			expect(existsSync(join(board.cwd, ".pi", "bytefly.json"))).toBe(false);
 		});
 	});
 

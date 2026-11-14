@@ -100,18 +100,21 @@ can raise its own numbers and keep everything else.
 
 ## `team` — the project's own team
 
-Who signs a card's two gates, and who the footer names. A project states its own team: there is
-no built-in vocabulary, so a file that names nobody draws no chip, and one that names no lead
-lets only the person at the keyboard sign. `/bytefly settings` edits both under `Team`. The
-section is read once, when the board's store opens.
+Who signs a card's two gates, and who the footer names. The section has a default — one lead and
+five names — so a repository that says nothing has a signer and a name to draw; a file states the
+team it wants instead, whole, and one that states nobody draws no chip and lets only the person at
+the keyboard sign. `lead` is a name and not a role: only a session called `gavin` signs where no
+file names a lead. `/bytefly settings` edits both under `Team`. The section is read once, when the
+board's store opens.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
-| `lead` | string | `""` | a name, at most 40 characters; empty is no lead | The name the page serves as and whose signature approves a contract and spot-checks the work: `/board` makes the serving session that name, so it can sign, and never while holding the card. `/board approve` and `/board review` sign as the person `you`, which is what a one-session repository uses, and are the only doors while no lead is named. `/board` refuses to serve a page for a project that names none. |
-| `teammates` | string[] | `[]` | names, each at most 40 characters, at most 20 of them | Who is on the team. The footer draws a session's name only when it is one of these, so an empty list draws no chip. A name is kept as written, once, and a file that states more than the ceiling keeps the first twenty. A typed `/team join <label>` puts its name on the list in the project's file, which then states the whole list; a bare `/team join` takes the first name here that no session holds and not the `lead`'s, so a list is also what names a session that arrived with no name of its own. |
+| `lead` | string | `"gavin"` | a name, at most 40 characters; empty is no lead | The name the page serves as and whose signature approves a contract and spot-checks the work: `/board` makes the serving session that name, so it can sign, and never while holding the card. `/board approve` and `/board review` sign as the person `you`, which is what a one-session repository uses, and are the only doors while no lead is named. `/board` refuses to serve a page for a project that states none. |
+| `teammates` | string[] | `["gavin","tom","jack","mike","sam"]` | names, each at most 40 characters, at most 20 of them | Who is on the team. The footer draws a session's name only when it is one of these, so a stated empty list draws no chip. A name is kept as written, once, and a file that states more than the ceiling keeps the first twenty. A typed `/team join <label>` puts its name on the list in the project's file, which then states the whole list — the default five included; a bare `/team join` takes the first name here that no session holds and not the `lead`'s, so a list is also what names a session that arrived with no name of its own, and `team-agent-<id>` is what it draws when every name is held. |
 
-The project document's section is normalized over the global one key by key. `migrate:config`
-moves a `board.lead` and `board.teammates` written before this section existed into it.
+The project document's section is normalized over the global one key by key, so a file may state
+only the key it changes. `migrate:config` moves a `board.lead` and `board.teammates` written before
+this section existed into it.
 
 ## `price` — cost calculation
 

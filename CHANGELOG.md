@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `board`: the `team` section has a default — `lead: "gavin"`, `teammates`
+  `["gavin","tom","jack","mike","sam"]` — so a repository that states no team draws a readable
+  name instead of `team-agent-<id>`, and has a session that can sign. `lead` is a name and not a
+  role: only a session called `gavin` signs the two gates where no file names a lead. A file still
+  owns its team — a stated list replaces the five whole, `"teammates": []` and `"lead": ""` say
+  nobody, and `team-agent-<id>` is still what a team holding every name leaves.
+
+- `team`: a typed `/team join <name>` in a project that states no team writes the five beside it,
+  because the write states the whole roster the join was decided against rather than only the name.
+
 ### Fixed
 
 - `board`: a spot-check names its checkout on Windows. The comparison resolved `cwd` but not git's

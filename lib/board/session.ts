@@ -65,9 +65,9 @@ export interface BoardSession {
 	 *
 	 * Four answers, in order: the seat while this session serves the page; else the name the bus
 	 * already records for it, so `/team join core-claims` is what its cards and its notes carry and
-	 * a claim does not rename it back; else the first name the project's `team.teammates` lists that
-	 * nobody else holds, which is the readable word a project already chose; else `team-agent-<id>`,
-	 * which cannot collide and cannot drift on a rename. A host that reports no id has no record to
+	 * a claim does not rename it back; else the first name `team.teammates` lists that nobody else
+	 * holds — a project's own, or the loader's default five; else `team-agent-<id>`, which cannot
+	 * collide and cannot drift on a rename. A host that reports no id has no record to
 	 * read, so it keeps the readable chain instead. One name on every surface is the point: the
 	 * card, the bus record, and the roster say the same word.
 	 *
@@ -250,8 +250,8 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			const roster = await session.roster(cwd);
 			const held = normalizeLabel(roster?.find((entry) => entry.id === id)?.label, "");
 			if (held !== "") return { id, label: held };
-			// No record, so the team names this session: the first name the project lists that nobody
-			// else holds, and the id's tail only when the list can give none. The list is the store's
+			// No record, so the team names this session: the first name the list leaves free, and the id's
+			// tail only when it leaves none — a stated `[]`, or every name held. The list is the store's
 			// because the lead it excludes is the one the gates compare, and the roster above has
 			// already opened that store — a failure there is the call's, not the name's.
 			const team = (await session.store(cwd)).config();

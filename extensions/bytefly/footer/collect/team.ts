@@ -7,8 +7,9 @@
  * comparison and an edited list lands at the next `session_tree`, or on `TEAM_CHANGED_CHANNEL`
  * when a `/team join` in this session is what edited it.
  *
- * A project names its own team, so a project that names none has an empty list and the bar draws
- * no name: that is the accepted consequence of the setting, not a missing default to paper over.
+ * A team is the loader's default roster unless a file states one, so the bar draws a name for the
+ * default five in a repository that says nothing; a stated empty list is how a project clears it,
+ * and that is an answer rather than a gap.
  *
  * Loaded with `import()` rather than at registration: the team's config pulls the board's lead
  * rules, the lane table, and the card record, and a package that never draws a team should not pay
@@ -22,9 +23,10 @@ import { DEFAULT_TEAM_CONFIG, readTeamConfig } from "../../../../lib/board/confi
 /**
  * The names this repository's project holds as its team.
  *
- * A file that cannot be read is the empty team rather than an error: the bar is derived state,
- * and a footer that threw on a malformed `bytefly.json` would take the session's frame down over
- * a cosmetic list.
+ * A file that cannot be read is the team the loader's default names, not an error: the bar is
+ * derived state, and a footer that threw on a malformed `bytefly.json` would take the session's
+ * frame down over a cosmetic list. An unreadable document answers what an absent one does, which
+ * is the one rule for a file whose answer is not known.
  */
 export function readTeammates(cwd: string, options: { agentDir?: string } = {}): readonly string[] {
 	try {

@@ -91,10 +91,11 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 	const cwd = track(tempDir("pi-repo-"));
 	// The lead the message names is the store's, so the file states one before any store opens on
 	// that directory: a project names its own team, and this suite's is `SUITE_LEAD` unless a case
-	// says otherwise.
+	// says otherwise. The list states it too, so an actor is the session's own id-derived name
+	// rather than the first name the loader's default team would draw.
 	const lead = options.lead ?? SUITE_LEAD;
 	mkdirSync(join(cwd, ".pi"), { recursive: true });
-	writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ team: { lead } }));
+	writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ team: { lead, teammates: [lead] } }));
 	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
 	const session = openBoardSession(
 		fake.pi,
