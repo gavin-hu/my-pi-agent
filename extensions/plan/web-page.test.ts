@@ -216,8 +216,40 @@ describe("the page's chrome", () => {
 		expect(html).toContain('<div class="bf-app__ctl review-actions">');
 		expect(html).toContain('<footer class="bf-app__foot">');
 		expect(html).toContain("plan ~/.pi/agent/plans/repo-key/add-rate-limiting.md");
-		// The status sentence stays, in the facts zone, as the page's own live region.
-		expect(html).toContain('<span class="bf-status" id="status" role="status" aria-live="polite"></span>');
+		// The header line is painted, never announced: a reader looks here for the state, and the
+		// sentence a screen reader hears is its own quiet node, as browse's copy status is.
+		expect(html).toContain('<span class="bf-status" id="status"></span>');
+		expect(html).toContain('<p class="sr-only" id="review-announce" role="status" aria-live="polite"></p>');
+	});
+
+	test("keeps the control bar inside the header, as the kit's second row", () => {
+		// The kit's head is two rows split by the rule and closed by one hairline
+		// (lib/web/README.md). The bar used to hang under the head, where nothing closed it: the
+		// reader saw a floating strip of buttons between two rules that did not belong to it.
+		const html = reviewPage();
+		const head = /<header class="bf-app__head">[\s\S]*?<\/header>/.exec(html)?.[0] ?? "";
+		expect(head).toContain('<div class="bf-app__rule"></div><div class="bf-app__ctl review-actions">');
+		expect(html).not.toMatch(/<\/header>\s*<div class="bf-app__ctl/);
+	});
+
+	test("wears the kit's document instead of a second one", () => {
+		// One document vocabulary (lib/web): a plan and a file rendered as Markdown read at the same
+		// size, with the same rules for a heading, a paragraph, a fence and a table. A page rule for
+		// one of those is the second vocabulary this case exists to prevent.
+		expect(reviewPage()).toContain('<main class="bf-app__main bf-review bf-md" id="plan"');
+		for (const rule of [
+			".bf-block h1{",
+			".bf-block h2{",
+			".bf-block h3{",
+			".bf-block p{",
+			".bf-block blockquote{",
+			".bf-block hr{",
+			".bf-block code{",
+		]) {
+			expect(REVIEW_CSS, rule).not.toContain(rule);
+		}
+		// What the page keeps is its box: the measure belongs to the blocks, the scroll to the shell.
+		expect(REVIEW_CSS).toContain(".bf-review.bf-md{max-width:none;overflow-x:hidden;overflow-y:auto}");
 	});
 
 	test("drops the page's own header rules instead of re-declaring the kit's", () => {
@@ -325,7 +357,7 @@ describe("the page's own design rules", () => {
 		for (const rule of own()
 			.split("\n")
 			.filter((line) => line.includes("var(--font-mono)"))) {
-			expect(rule, rule).toMatch(/^\.(review-share__url|bf-block code|bf-block pre\.bf-code)\{/);
+			expect(rule, rule).toMatch(/^\.(review-share__url)\{/);
 		}
 	});
 

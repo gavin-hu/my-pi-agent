@@ -32,14 +32,16 @@ let browser: TestBrowser;
  * Wait until the page's own stream is open.
  *
  * A frame goes to the sinks the mount holds, so one pushed before the browser connected
- * lands nowhere: the state chip's `connected` is the page saying it is listening.
+ * lands nowhere: the state chip's `live` is the page saying it is listening.
  */
-async function awaitConnected(page: Page): Promise<void> {
+async function awaitLive(page: Page): Promise<void> {
+	// The chip's word lives in its text half: the glyph beside it is a character, so the whole
+	// node's text starts with the mark rather than with the state it names.
 	await page.waitForFunction(
 		() =>
 			(globalThis as unknown as { document: Doc }).document
-				.querySelector("#review-state")
-				?.textContent?.includes("connected") ?? false,
+				.querySelector("#review-state .bf-live__text")
+				?.textContent?.startsWith("live") ?? false,
 		undefined,
 		{ timeout: REVIEW_PAINT_MS },
 	);
@@ -72,7 +74,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 		const local = await mountReview(() => current);
 		const page = await openReview(browser, local.url);
 		try {
-			await awaitConnected(page);
+			await awaitLive(page);
 			// The model rewrote the plan under the review: one block more, and a step ticked
 			// off, which is the fact the facts row counts.
 			current.blocks = [
@@ -100,7 +102,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 		const local = await mountReview(() => current);
 		const page = await openReview(browser, local.url);
 		try {
-			await awaitConnected(page);
+			await awaitLive(page);
 			expect(await page.textContent('#outline-list a[href="#s-0"] .review-nav__link')).toBe("Add rate limiting");
 			// The model renamed the first heading and added a section a teammate commented in.
 			current.blocks = [
@@ -140,7 +142,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the live review", () => {
 		const local = await mountReview(REVIEW_PAGE);
 		const page = await openReview(browser, local.url);
 		try {
-			await awaitConnected(page);
+			await awaitLive(page);
 			await page.click('#plan .bf-block[data-line="1"] .bf-block__add');
 			await page.fill(".bf-composer textarea", "half a thought");
 			local.push("comment");

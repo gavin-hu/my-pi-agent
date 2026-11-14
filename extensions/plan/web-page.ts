@@ -55,11 +55,12 @@ ${WEB_COMPONENTS_CSS}
 .review-share__qr{display:flex;justify-content:center;margin:0 0 var(--space-3)}
 .review-share__qr svg{width:168px;height:168px;background:#fff;border-radius:var(--radius-md);padding:var(--space-1)}
 .bf-review{--review-measure:1012px;--review-rail:26px;--review-gutter:34px;flex:1 1 auto;padding:var(--space-5) var(--space-6) 120px}
-/* The document is one content column at GitHub's Markdown body width, with the
-   comment rail inside it, so a plan reads the way the same file does on GitHub. */
-/* Sticky header: the kit's toolbar says who the page is of and how it is doing, a control
-   row under it holds the page's own actions, and a hairline reading progress bar is pinned
-   to the header's bottom edge (the kit's shape; see lib/web/README.md). */
+/* The document is the kit's Markdown body: one prose vocabulary for every page that renders a
+   file. Only its box is this page's — the measure comes from the blocks, which keep the comment
+   rail in their gutter, and the scroll box stays the shell's main pane. */
+.bf-review.bf-md{max-width:none;overflow-x:hidden;overflow-y:auto}
+/* Sticky header: the kit's toolbar says who the page is of and how it is doing, and the
+   control row under it holds the page's own actions (the kit's shape; see lib/web/README.md). */
 /* The subject is the plan's title, so it is read from its head — the kit cuts a path's head
    because a path ends in the folder being read, and a title ends in nothing. */
 .review-bar .bf-context--subject{direction:ltr;text-align:left}
@@ -73,8 +74,6 @@ ${WEB_COMPONENTS_CSS}
 .review-bar .bf-status:empty{display:none}
 /* The page's own actions: the bar is the kit's, and the group sits under the header's chrome. */
 .review-actions{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;justify-content:flex-end;min-width:0}
-.review-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
-.review-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
 /* The finish block: what this page's own decisions do, in the reader's role. One or two
    button names in the text colour, and the sentence around them quiet. */
 .review-finish{margin:0;padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-snug)}
@@ -106,7 +105,7 @@ ${WEB_COMPONENTS_CSS}
 .review-nav ul{list-style:none;margin:0;padding:0}
 .review-nav a{display:flex;align-items:baseline;gap:var(--space-2);padding:4px 8px;border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm);line-height:var(--lh-snug)}
 .review-nav a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none}
-.review-nav a[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:var(--fw-semibold)}
+.review-nav a[aria-current="true"]{background:var(--accent-soft);color:var(--text);font-weight:var(--fw-semibold)}
 .review-nav__link{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-nav__count{flex:0 0 auto;min-width:18px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--accent);font:var(--fs-xs)/18px var(--font-ui);text-align:center}
 .review-changed{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent)}
@@ -129,46 +128,26 @@ ${WEB_COMPONENTS_CSS}
 .bf-block[data-changed]{box-shadow:inset 2px 0 0 var(--accent)}
 .bf-block:hover,.bf-block--active{background:var(--surface)}
 .bf-block--active{box-shadow:inset 0 0 0 1px var(--border)}
-.bf-block h1,.bf-block h2,.bf-block h3,.bf-block h4,.bf-block h5,.bf-block h6{margin:24px 0 8px;line-height:var(--lh-tight)}
-.bf-block h1{font-size:var(--fs-xl);padding-bottom:6px;border-bottom:1px solid var(--border)}
-.bf-block h2{font-size:var(--fs-lg);padding-bottom:4px;border-bottom:1px solid var(--border)}
-.bf-block h3{font-size:17px}
-.bf-block h4,.bf-block h5,.bf-block h6{font-size:var(--fs-base)}
-.bf-block p{margin:11px 0;line-height:var(--lh-relaxed)}
-.bf-block blockquote{margin:11px 0;padding:2px 14px;border-left:3px solid var(--border);color:var(--muted)}
-.bf-block hr{border:0;border-top:1px solid var(--border);margin:22px 0}
-.bf-block__li{display:flex;gap:8px;margin:4px 0;line-height:var(--lh-relaxed)}
-.bf-block__marker{flex:0 0 auto;min-width:1.4em;color:var(--muted)}
-.bf-block__marker--done{color:var(--success)}
-.bf-block code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);border-radius:var(--radius-sm);padding:.1em .35em}
-.bf-block pre.bf-code{margin:11px 0;padding:var(--space-3) 0;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);font:var(--fs-code)/1.55 var(--font-mono);tab-size:4;flex:none}
-.bf-block pre.bf-code code{background:none;border:0;padding:0;font-size:inherit}
-/* The kit owns how a code line breaks: it wraps below a phone's width and when the reader asks,
-   and this page keeps only the inset the block's own gutter needs. */
-.bf-block pre.bf-code .bf-code__line{display:block;padding:0 14px;min-height:1.55em}
-.review-table-wrap{margin:11px 0;overflow-x:auto}
-.review-table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
-.review-table th,.review-table td{padding:6px 10px;border:1px solid var(--border);text-align:left;vertical-align:top}
-.review-table th{background:var(--surface);color:var(--muted);font-weight:var(--fw-medium)}
 /* Comment threads sit in the document flow, aligned with the block's text. */
 .bf-comments{display:flex;flex-direction:column;gap:8px;width:100%;max-width:var(--review-measure);margin:0 auto 14px;padding-left:var(--review-gutter)}
 .bf-comments:empty{display:none}
 .bf-comments--orphans{margin-top:26px;padding:var(--space-3) 0 0 var(--review-gutter);border-top:1px dashed var(--border)}
 .bf-comments--orphans>p{margin:0 0 8px;color:var(--muted);font-size:var(--fs-sm)}
-.bf-comment{padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background:var(--surface)}
+/* The comment is the kit's record: its body, rail, label and quote are the kit's, and this page
+   adds only what its own card carries — the head row its controls sit in, the badge a moved note
+   wears, and the quiet plane a settled one takes. */
 .bf-comment__head{display:flex;align-items:center;gap:var(--space-2);margin-bottom:6px}
-.bf-comment__label{font:var(--fw-semibold) var(--fs-xs) var(--font-ui);color:var(--warn)}
 /* A reviewer's name is a name, not a label: keep its own capitalisation. */
 /* A note a refinement carried off its own block: muted, because the complaint is the guess, not the text. */
 .bf-comment__moved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 6px}
 .bf-comment__spacer{flex:1 1 auto}
 /* A settled note keeps its quote and loses its body: the record stays, the eye moves on. */
-.bf-comment--resolved{border-left-color:var(--success);opacity:.72}
+.bf-comment--resolved{opacity:.72}
 .bf-comment__resolved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--success)}
 .bf-comment__actions{display:flex;gap:4px}
 .bf-comment__actions .bf-btn{padding:1px 8px;font-size:var(--fs-xs)}
-.bf-comment__quote{margin-bottom:6px;padding-left:8px;border-left:2px solid var(--border);color:var(--muted);font-size:var(--fs-sm);overflow-wrap:anywhere}
-.bf-comment__body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:var(--lh-snug)}
+/* A quote is read at the record's own line height, not the document's: it is one line of context. */
+.bf-comment__body{line-height:var(--lh-snug)}
 .bf-composer{margin:0}
 .bf-block--composing .bf-block__add{opacity:0}
 @media (max-width:1180px){
@@ -194,7 +173,7 @@ ${WEB_COMPONENTS_CSS}
 @media print{
 .bf-review{padding:0}
 .bf-review>.bf-block{max-width:none;padding:0 0 6px}
-.bf-block__rail,.bf-composer,.bf-block__add,.review-progress,.review-view{display:none}
+.bf-block__rail,.bf-composer,.bf-block__add,.review-view{display:none}
 /* A printed review is the whole plan, never the view the reader had on screen: the
    base layer's hidden rule is !important, so the un-hide has to be too, and a thread
    the filter hid on screen goes back under its block. */
@@ -364,14 +343,14 @@ ${pageSubject({ id: "plan-title", label: data.title, title: data.path })}
 <div class="bf-app__facts">
 ${liveChip({ id: "review-state", label: "connecting\u2026" })}
 ${reloadChip({ title: isViewer ? "Reload to read the plan again" : "Reload to review the plan again" })}
-<span class="bf-status" id="status" role="status" aria-live="polite"></span>
+<span class="bf-status" id="status"></span>
+<p class="sr-only" id="review-announce" role="status" aria-live="polite"></p>
 </div>
 ${toolbarChrome()}
 </div>
-<div class="bf-app__rule"></div></header>
-${controlBar}
+<div class="bf-app__rule"></div>${controlBar}</header>
 <div class="${bodyClass}">
-${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
+${outlinePanel}<main class="bf-app__main bf-review bf-md" id="plan" aria-label="Plan"></main>
 </div>
 ${pageFooter({ facts: `plan ${data.path}` })}
 ${keysSheet(reviewKeys(data.role, data.canApprove))}

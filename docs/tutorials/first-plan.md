@@ -60,7 +60,7 @@ file and in your todo list together.
 margin, or select text first to quote it; **Save feedback** writes the comments
 into the plan file and returns them to the model as review notes.
 
-<img src="../../assets/screens/plan-review.png" alt="The review page in a browser: a plan title bar with connected, share, and back-to-Pi; a rail of the plan's steps, comments, and sections; the plan body with its review comments open in the margin; and Approve and run, Save feedback, and Back to Pi across the top" width="1280" height="2190">
+<img src="../../assets/screens/plan-review.png" alt="The review page in a browser: a plan title bar with live, quick keys, and the theme toggle; the page's own actions — Share, Approve and run, Save feedback, Back to Pi — in a second header row under it; a rail of the plan's steps, comments, and sections; the plan body with a comment being written in its margin; and the plan's checklist drawn as ticked boxes" width="1280" height="4348">
 
 *The review page: the plan's sections in the rail, the comments in the margin,
 and the approval at the top.*

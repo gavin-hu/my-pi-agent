@@ -37,7 +37,7 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
   function renderCode(wrap, block) {
     var body = codeBody(block.lines);
     var highlighted = data.code && data.code[String(block.start)];
-    var pre = el("pre", "bf-code");
+    var pre = el("pre");
     var code = el("code");
     if (Array.isArray(highlighted)) {
       body.forEach(function (line, index) {
@@ -78,7 +78,7 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
   function renderTable(wrap, block) {
     var rows = block.lines.map(splitRow);
     var align = columnAlign(block.lines[1] || "");
-    var table = el("table", "review-table");
+    var table = el("table");
     var thead = el("thead");
     var headRow = el("tr");
     rows[0].forEach(function (cell, index) {
@@ -101,9 +101,11 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    var scroll = el("div", "review-table-wrap");
+    var frame = el("div", "md-table-frame");
+    var scroll = el("div", "md-table-wrap");
     scroll.appendChild(table);
-    wrap.appendChild(scroll);
+    frame.appendChild(scroll);
+    wrap.appendChild(frame);
   }
 
   function renderBlockContent(wrap, block) {
@@ -126,7 +128,11 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
       return;
     }
     if (block.kind === "list") {
+      // The kit draws the list: one ul or ol, an li per item, the marker its own, and a task's box
+      // the kit's drawn checkbox. The plan keeps only what a plan knows and the kit cannot — how
+      // deep an item sits, and which of its steps the file has ticked.
       var items = [];
+      var list = null;
       lines.forEach(function (line) {
         var match = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(line);
         if (!match) {
@@ -136,21 +142,30 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
           if (last) { if (line.trim()) last.rest += " " + line.trim(); return; }
           var plain = el("p"); renderInline(plain, line); wrap.appendChild(plain); return;
         }
-        var row = el("div", "bf-block__li");
-        row.style.paddingLeft = String(Math.floor(match[1].replace(/\t/g, "    ").length / 2) * 16) + "px";
-        var markerText = match[2];
+        if (!list) {
+          list = el(/^\d/.test(match[2]) ? "ol" : "ul");
+          wrap.appendChild(list);
+        }
+        var row = el("li");
+        // Only a nested item states an indent: a top-level one leaves the marker where the kit puts
+        // it, so a plain bullet's text and a task's own text keep the one left edge (the kit pulls a
+        // task back by 1.2em with a rule an inline margin would silently replace).
+        var depth = Math.floor(match[1].replace(/\t/g, "    ").length / 2);
+        if (depth > 0) row.style.marginLeft = String(depth * 16) + "px";
         var rest = match[3];
         var box = /^\[([ xX])\]\s*(.*)$/.exec(rest);
-        var marker = el("span", "bf-block__marker");
         if (box) {
           var done = box[1].toLowerCase() === "x";
-          markerText = done ? "\u2713" : "\u2610";
-          marker.className = done ? "bf-block__marker bf-block__marker--done" : "bf-block__marker";
+          row.className = done ? "task done" : "task";
+          var check = el("input", "md-check");
+          check.type = "checkbox";
+          check.setAttribute("disabled", "");
+          if (done) check.setAttribute("checked", "");
+          row.appendChild(check);
           rest = box[2];
         }
-        marker.textContent = markerText;
         var body = el("span");
-        row.appendChild(marker); row.appendChild(body); wrap.appendChild(row);
+        row.appendChild(body); list.appendChild(row);
         items.push({ body: body, rest: rest });
       });
       // Render each body once, after its continuation lines are collected.

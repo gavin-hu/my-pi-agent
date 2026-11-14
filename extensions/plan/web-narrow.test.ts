@@ -1,8 +1,8 @@
 /**
- * A code panel at a phone's width: the line wraps, so the text is read rather than scrolled
- * for. At a desk the same panel keeps the line whole, which is what a diff or a log wants.
+ * A fence at a phone's width: the line wraps, so the text is read rather than scrolled
+ * for. At a desk the same fence keeps the line whole, which is what a command or a log wants.
  *
- * The measurement is the panel's own: content wider than the box is content the reader has
+ * The measurement is the fence's own: content wider than the box is content the reader has
  * to scroll, and that is the defect — an overlay scrollbar draws nothing until it is used.
  * Both routes a fence takes are covered: an unlabelled one falls back to the `code` text
  * node, and a highlighted one renders one `bf-code__line` span per line.
@@ -44,7 +44,7 @@ interface Panel {
 /** One code panel, by the order the page draws them. */
 async function panel(page: Page, at: number): Promise<Panel> {
 	return page.$$eval(
-		"pre.bf-code",
+		"#plan .bf-block pre",
 		(nodes, index) => {
 			const node = nodes[index] as unknown as Panel | undefined;
 			if (node === undefined) throw new Error(`the page drew no code panel at ${index}`);
@@ -64,7 +64,7 @@ async function measured(page: Page, at: number, relation: "fits" | "outgrows"): 
 			({ index, want }) => {
 				const nodes = (
 					globalThis as unknown as { document: { querySelectorAll(selector: string): ArrayLike<Panel> } }
-				).document.querySelectorAll("pre.bf-code");
+				).document.querySelectorAll("#plan .bf-block pre");
 				const node = Array.from(nodes)[index];
 				if (node === undefined) return false;
 				return want === "fits" ? node.scrollWidth <= node.clientWidth : node.scrollWidth > node.clientWidth;
@@ -98,7 +98,7 @@ async function outgrows(page: Page, at: number): Promise<void> {
 let mount: ReviewMount;
 let browser: TestBrowser;
 
-describe.skipIf(REVIEW_CHROME === undefined)("a code panel at a narrow width", () => {
+describe.skipIf(REVIEW_CHROME === undefined)("a fenced line at a narrow width", () => {
 	beforeAll(async () => {
 		mount = await mountReview({
 			...REVIEW_PAGE,
@@ -145,20 +145,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("a code panel at a narrow width", (
 			await outgrows(page, at);
 			expect((await panel(page, at)).textContent).toContain(LONG);
 		}
-		await page.close();
-	});
-
-	test("lets a page with its own control say no at 420, in either route", async () => {
-		const page = await open(420);
-		for (const at of [0, 1]) await fits(page, at);
-		// What `file-browse`'s wrap button writes when the reader asks for the line whole: the
-		// escape hatch is more specific than the narrow rule, so it wins on a phone too. Both
-		// routes are closed, because the rule names a span and a text node separately.
-		await page.$$eval("pre.bf-code", (nodes) => {
-			for (const node of Array.from(nodes))
-				(node as unknown as { classList: { add(name: string): void } }).classList.add("bf-code--nowrap");
-		});
-		for (const at of [0, 1]) await outgrows(page, at);
 		await page.close();
 	});
 });
