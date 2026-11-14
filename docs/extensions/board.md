@@ -19,7 +19,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | What you want | What to do |
 |---|---|
 | See the board | `/board` — Board and Team tabs, live |
-| Put a feature on it | `board add "<title>" paths ["src/area"]` |
+| Put a feature on it | `board({ action: "add", title, paths })` — a call, because `add` takes a title rather than a card id |
 | Say what kind of work it is | `type` on `add` or `edit`: `feature`, `bug`, `refactor`, `docs`, `test`, or `chore` |
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
 | Take a card | `board claim 4` — into `plan`, owned by this session; `board reclaim 4` takes one back — the lead from anyone, a peer only once that owner's record says it stopped |
@@ -60,14 +60,14 @@ tall as the board, its head riding its edge. The Team tab draws the board's own 
 work that moves it raises what needs a lead: a band shows five rows and folds the rest behind one
 control, pins its head under the pane's, and says a sentence every row shares once.
 
-**Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`,
-`note`, `contract`, `approve`, `review`, `edit`, `archive`, `drop`. `claim`, `move` and `assign` are refused while
-`plan` or `execute` is full, naming the ways out. `reclaim` takes a card back from its holder: the person and the
-lead always, a peer only while that owner's record says quiet or gone. `move` into `execute` or `done` re-reads
-the plan where the write lands, and a plan that is gone refuses it. A contract names a `verify` command — required
-— and `review` runs it in the tree you review in, recording the exit, the branch and the commit. `done` refuses a
-sign with no result or one older than the card's write, and resolves the merge that carried the review — not the
-tip, so a card still closes after others landed — refusing one that moved its paths. `landed: <sha>` answers which
+**Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`,
+`approve`, `review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full,
+naming the ways out; `assign` is `team`'s verb, under the same rule. `reclaim` takes a card back from its holder: the
+person and the lead always, a peer only while that owner's record says quiet or gone. `move` into `execute` or `done`
+re-reads the plan where the write lands, and a plan that is gone refuses it. A contract names a `verify` command —
+required — and `review` runs it in the tree you review in, recording the exit, the branch and the commit. `done`
+refuses a sign with no result or one older than the card's write, and resolves the merge that carried the review — not
+the tip, so a card still closes after others landed — refusing one that moved its paths. `landed: <sha>` answers which
 commit a finished card is, and is absent on a card closed before the rule or by an older build: its review's sha is
 the evidence it has. An `override` reads `closed by instruction`.
 
