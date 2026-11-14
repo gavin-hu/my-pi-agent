@@ -152,13 +152,6 @@ export async function verifiedCommand(
 }
 
 /**
- * The tree a door runs in, through the git runner the rest of the board already uses.
- *
- * One call, three questions: the commit, the branch, and the git directory the tree shares with the
- * rest of the repository — whose parent is the checkout, which is how a worktree is told from the
- * tree everything lands in without naming a branch anybody's project may spell differently.
- */
-/**
  * The two path answers a tree comparison reads, so a case can hand in the platform it must ask about.
  *
  * `node:path` is what production gets. A suite passes `win32` because the install running the
@@ -176,6 +169,13 @@ export interface TreePaths {
  */
 const PLATFORM_PATHS: TreePaths = { dirname, resolve };
 
+/**
+ * The tree a door runs in, through the git runner the rest of the board already uses.
+ *
+ * One call, three questions: the commit, the branch, and the git directory the tree shares with the
+ * rest of the repository — whose parent is the checkout, which is how a worktree is told from the
+ * tree everything lands in without naming a branch anybody's project may spell differently.
+ */
 export function treeOf(pi: Pick<ExtensionAPI, "exec">, paths: TreePaths = PLATFORM_PATHS): TreeReader {
 	const runGit = createExecRunner(pi);
 	return async (cwd) => {
