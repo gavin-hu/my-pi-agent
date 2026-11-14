@@ -150,8 +150,8 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 			deps.notify?.(unpricedBody(usage.unpricedModels));
 		}
 		if (budget.limit <= 0) return;
-		// The ceiling holds the session's spend and the runs it delegated; `↳` keeps the
-		// child share, so the bar and this sentence read the same total.
+		// The ceiling holds the session's spend and the child runs the ledger still holds
+		// (its last 500); `↳` keeps that share, so the bar and this sentence read one total.
 		const state = budgetState(budget.limit, usage.cost + delegation.cost, delegation.cost);
 		if (!state.exceeded) {
 			// Below the ceiling again, which a `/tree` back below it can do: re-arm the one
