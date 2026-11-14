@@ -76,13 +76,14 @@ async function recordOnBus(
 describe("who", () => {
 	const agentDir = temps.track(tempDir("pi-agent-"));
 
-	test("names a session with no record from its id, not from the user's own name", async () => {
+	test("draws the default team's first free name, not the user's own name", async () => {
 		const runtime = runtimeFor(agentDir);
 		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1", sessionName: "billing-core" });
-		// Pi's session name is the user's, and a rename must not move a card's owner: the id
-		// names the session, and the same call answers the same word every time.
-		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: agentLabel("s-1") });
-		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("team-agent-s1");
+		// Pi's session name is the user's, and a rename must not move a card's owner: the draw names the
+		// session from the loader's default team — `gavin` is the lead's own name, so `tom` is free — and
+		// the same call answers the same word every time.
+		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "tom" });
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("tom");
 	});
 
 	test("writes as the label the bus already holds for this session", async () => {
@@ -94,15 +95,15 @@ describe("who", () => {
 		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "core-claims" });
 	});
 
-	test("names it from its id when the record is somebody else's, or blank", async () => {
+	test("draws from the team when the record is somebody else's, or blank", async () => {
 		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
 		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
 		await recordOnBus(runtime, "/repo/billing", { id: "s-2", label: "core-claims" });
-		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(agentLabel("s-1"));
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("tom");
 		// A label is text from a file, so it is flattened and capped like any other: an empty
 		// one names like no record at all instead of leaving a blank chip.
 		await recordOnBus(runtime, "/repo/billing", { id: "s-1", label: "" });
-		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(agentLabel("s-1"));
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("tom");
 	});
 
 	test("names a session with no record from the first team.teammates name nobody holds", async () => {

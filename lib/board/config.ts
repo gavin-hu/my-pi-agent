@@ -4,10 +4,10 @@
  *
  * Both are read when the store opens: a board that asked the file on every write would spend a
  * stat to answer a question nobody changed, and two readers of one section are how the settings
- * screen and the gate drift apart. The team is a project's own — there is no built-in vocabulary
- * — so an unset `lead` and an empty `teammates` are answers rather than gaps: no session signs,
- * and no name is drawn. The arithmetic of a limit stays in `limits.ts`, the signer rule in
- * `lead.ts`, and the label rules in `session-label.ts`; this module is the file.
+ * screen and the gate drift apart. The team has a default rather than a vocabulary: one lead and
+ * five names, so a repository that states nothing has a signer and a name to draw, while a file's
+ * own answer — `[]` included — replaces it whole. The arithmetic of a limit stays in `limits.ts`,
+ * the signer rule in `lead.ts`, and the label rules in `session-label.ts`; this module is the file.
  *
  * `extensions/bytefly` imports it too, so `/bytefly settings` shows what the loader keeps rather
  * than a declared copy of the default. That is allowed because it is `lib/`: a shared body, not
@@ -23,20 +23,29 @@ import { DEFAULT_WIP, normalizeWip, type WipLimits } from "./limits.ts";
 
 /** What a project's `team` section says: who signs, and who is on the team. */
 export interface TeamConfig {
-	/** The team name whose signature satisfies the two gates; empty when the project named none. */
+	/** The team name whose signature satisfies the two gates; empty only when a file states none. */
 	lead: Lead;
 	/**
-	 * The team's names, in the order the file states them.
+	 * The team's names, in the order they are drawn or stated.
 	 *
-	 * An empty list is a team of nobody: the footer draws a session's name only when it is one of
-	 * these, so a project that names none draws no chip. The list is the one place a repository
-	 * says who is on its team.
+	 * `DEFAULT_TEAM_CONFIG` fills this when no file names a team; a file that states a list replaces
+	 * it whole, and an empty list is a team of nobody — the footer draws a session's name only when it
+	 * is one of these, so a project that states none draws no chip. The list is the one place a
+	 * repository says who is on its team.
 	 */
 	teammates: readonly string[];
 }
 
-/** A project's team when it names none: no lead, and nobody on the team. */
-export const DEFAULT_TEAM_CONFIG: TeamConfig = { lead: "", teammates: [] };
+/**
+ * The team a project starts with: the name whose signature the gates take, and five names to draw.
+ *
+ * A default rather than a vocabulary — a file states the team it wants, `[]` included, and this is
+ * only what a file that states nothing leaves. The lead is a name, not a role: only a session
+ * called `gavin` signs. A session may not take the lead's own name, so `tom` is the first name a
+ * nameless one draws — and a repository holding all five still reaches `agentLabel`'s
+ * `team-agent-<id>`, the name nobody holds.
+ */
+export const DEFAULT_TEAM_CONFIG: TeamConfig = { lead: "gavin", teammates: ["gavin", "tom", "jack", "mike", "sam"] };
 
 /** What one board's `board` and `team` sections say together. */
 export interface BoardConfig extends TeamConfig {
@@ -44,7 +53,7 @@ export interface BoardConfig extends TeamConfig {
 	wip: WipLimits;
 }
 
-/** A board's settings when nobody said otherwise: three planning, five in flight, and no team. */
+/** A board's settings when nobody said otherwise: three planning, five in flight, and the default team. */
 export const DEFAULT_BOARD_CONFIG: BoardConfig = { ...DEFAULT_TEAM_CONFIG, wip: DEFAULT_WIP };
 
 /**
@@ -108,16 +117,17 @@ export type AddTeammateResult =
 /**
  * Put `label` on this repository's team, in the project's own `bytefly.json`.
  *
- * Any name a label can be is a teammate: the project's list is the vocabulary, so the only rule
- * a write has is the one every label has — one line, trimmed, and capped. The team is read here
+ * Any name a label can be is a teammate: the team's list is the vocabulary, so the only rule a
+ * write has is the one every label has — one line, trimmed, and capped. The team is read here
  * rather than taken from the caller, because the one reader a caller already holds is the
  * store's: `config()` is what the file said when the store opened, so two joins in one session
  * would be decided against a list that had already lost the first one's name. One file read on a
  * typed command is cheaper than that.
  *
- * The write states the whole list, because the project's layer replaces the global one key by
- * key: a file that said only the new name would drop the rest of the team. Siblings (`lead`, other
- * sections, document metadata) survive `writeConfigValueAt`.
+ * The write states the whole list, because a stated list replaces the layer under it whole: the
+ * default five when the project states no team, and the global file's names when the project
+ * states none of its own. A file that said only the new name would drop the rest of the team.
+ * Siblings (`lead`, other sections, document metadata) survive `writeConfigValueAt`.
  */
 export function addTeammate(cwd: string, label: string, options: { agentDir?: string } = {}): AddTeammateResult {
 	const name = normalizeLabel(label, "").toLowerCase();

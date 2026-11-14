@@ -9,6 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { EventEmitter } from "node:events";
+import { win32 } from "node:path";
 import { createChildSupervisor } from "../child.ts";
 import type { SpawnFn, SpawnedProcess } from "../spawn.ts";
 import {
@@ -203,6 +204,18 @@ describe("treeOf", () => {
 			"rev-parse --path-format=absolute --git-common-dir": { stdout: `${CWD}/.git\n`, code: 0 },
 		});
 		expect(await treeOf(pi)(CWD)).toEqual({ sha: "1d3a8ce3", branch: "main", checkout: true });
+	});
+
+	test("a forward-slash git path and a backslashed cwd name one tree", async () => {
+		// Git for Windows prints `--git-common-dir` with forward slashes while a cwd arrives native, so
+		// `dirname` keeps one separator and `resolve` answers the other: the checkout was never named
+		// there at all. No Windows machine runs this, so the case hands in `win32`'s own two functions.
+		const pi = piAnswering({
+			"rev-parse HEAD": { stdout: "1d3a8ce3\n", code: 0 },
+			"rev-parse --abbrev-ref HEAD": { stdout: "main\n", code: 0 },
+			"rev-parse --path-format=absolute --git-common-dir": { stdout: "D:/a/x/.git\n", code: 0 },
+		});
+		expect(await treeOf(pi, win32)("D:\\a\\x")).toEqual({ sha: "1d3a8ce3", branch: "main", checkout: true });
 	});
 
 	test("a worktree is the same git directory under another root, so it is no checkout", async () => {

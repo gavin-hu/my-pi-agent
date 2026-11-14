@@ -95,7 +95,7 @@ there, and to finish, block, or release one first.
 
 A card cannot enter `execute` until its contract is approved, and cannot finish
 until the work is spot-checked. Both signatures are the lead's — `team.lead`,
-`lead` by default — and the person at the keyboard is the other way in:
+`gavin` by default — and the person at the keyboard is the other way in:
 
 ```text
 /board approve 1

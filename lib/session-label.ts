@@ -80,7 +80,8 @@ export const TEAM_AGENT_PREFIX = "team-agent-";
  * A team is addressed by id, not by a name a user chose: an id is unique, so two
  * sessions cannot settle on one name, and a rename cannot strand the card that
  * recorded it. The seat is the one name that is a role instead, and the board draws a free
- * `team.teammates` name first, so this is the name a team that gives nobody leaves.
+ * `team.teammates` name first, so this is what a team that gives nobody leaves — a stated
+ * `[]`, or every name it lists held by another session.
  */
 export function agentLabel(id: string): string {
 	// The prefix alone is already a name, so the fallback `normalizeLabel` wants is that prefix
@@ -94,10 +95,12 @@ export const MAX_TEAMMATES = 20;
 /**
  * The names a file states as a team: the labels it wrote, in the order it says them.
  *
- * The project's list is the whole vocabulary — there is no built-in set to match — so a name is
+ * The project's list is the whole vocabulary — the loader's default roster fills a file that says
+ * nothing, and a stated list replaces it — so a name is
  * kept as one line, the way every label is, and a name stated twice is dropped because a team is
  * a set. An empty list is an answer and stays empty: it is a project saying nobody is on its
- * team, which is not the same as a file that said nothing. Past {@link MAX_TEAMMATES} the rest is
+ * team, which is not the same as a file that said nothing, and it is how a project clears the
+ * default names. Past {@link MAX_TEAMMATES} the rest is
  * not a team a bar can keep.
  */
 export function normalizeTeammates(raw: unknown, base: readonly string[] = []): readonly string[] {

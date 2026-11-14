@@ -110,6 +110,11 @@ describe("normalizeLead", () => {
 		expect(normalizeLead("   ", LEAD)).toBe(LEAD);
 		expect(normalizeLead({ name: "lead" }, LEAD)).toBe(LEAD);
 	});
+
+	test("an empty string clears the name the layer below gave", () => {
+		// The default team names a lead, so a project that wants none has to be able to say so.
+		expect(normalizeLead("", LEAD)).toBe("");
+	});
 });
 
 describe("isLead and isPerson", () => {

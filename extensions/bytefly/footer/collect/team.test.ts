@@ -38,12 +38,13 @@ describe("readTeammates", () => {
 		expect(readTeammates(cwd, { agentDir })).toEqual(["gavin", "jack"]);
 	});
 
-	test("is no team at all when the file states nothing, or cannot be read", () => {
+	test("answers the loader's default team when the file states none, and a stated empty list when it says nobody", () => {
 		const agentDir = temps.track(tempDir("pi-footer-team-agent-"));
-		// A project names its own team, so a file that names none draws no chip: an empty list is
-		// the answer rather than a built-in one to fall back on.
-		expect(readTeammates(projectWith({}), { agentDir })).toEqual([]);
-		expect(readTeammates(projectWith("{ not json"), { agentDir })).toEqual([]);
+		// A file that names no team leaves the loader's default roster, so the bar still has a
+		// vocabulary to match; unreadable text is the same answer as an absent section.
+		expect(readTeammates(projectWith({}), { agentDir })).toEqual(["gavin", "tom", "jack", "mike", "sam"]);
+		expect(readTeammates(projectWith("{ not json"), { agentDir })).toEqual(["gavin", "tom", "jack", "mike", "sam"]);
+		// An empty list is a project saying nobody is on its team, which is an answer and not a gap.
 		expect(readTeammates(projectWith({ team: { teammates: [] } }), { agentDir })).toEqual([]);
 	});
 });
@@ -72,15 +73,17 @@ describe("the installed footer's teammate chip", () => {
 		});
 	});
 
-	test("draws no chip at all when the project names no team", async () => {
-		await withAgentDir(async () => {
+	test("draws no chip at all when the team states nobody", async () => {
+		await withAgentDir(async (agentDir) => {
+			// A stated empty list clears the default roster, so the bar has no name to match: this is the
+			// state in which the location is drawn and the name is not.
+			writeFileSync(join(agentDir, "bytefly.json"), JSON.stringify({ team: { teammates: [] } }));
 			const { pi } = makeFakePi();
 			registerFooter(pi);
 			const named = fakeFooterCtx({ sessionName: "gavin" });
 			await emit(pi, "session_start", { reason: "startup" }, named.ctx);
 			await settle();
 			const frame = renderFooter(named.footers.at(-1), named.footerData).join("\n");
-			// The accepted consequence of an unstated team: the location is drawn, the name is not.
 			expect(frame).toContain("repo/project");
 			expect(frame).not.toContain("[gavin]");
 		});

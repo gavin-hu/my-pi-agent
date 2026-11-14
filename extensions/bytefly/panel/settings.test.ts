@@ -107,8 +107,8 @@ describe("settings catalogue", () => {
 			["doctor.proactive", "true", "On", "default"],
 			["board.wip.plan", "3", "3", "default"],
 			["board.wip.execute", "5", "5", "default"],
-			["team.lead", "", "(no lead)", "default"],
-			["team.teammates", "", "(no one)", "default"],
+			["team.lead", "gavin", "gavin", "default"],
+			["team.teammates", "gavin,tom,jack,mike,sam", "gavin, tom, jack, mike, sam", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.budget", "0", "Off", "default"],
 		]);

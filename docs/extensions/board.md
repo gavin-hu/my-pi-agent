@@ -75,8 +75,8 @@ the evidence it has. An `override` reads `closed by instruction`.
 `/board approve <id>` and `/board review <id>` sign as the person; `/board archive` runs the sweep;
 `/board status` prints the seat, repository, port, and tabs; `/board stop` ends the page.
 
-**Who signs.** The lead is `team.lead` in `bytefly.json`, and the page serves as that name. A
-project names its own; one that names none lets only the person sign, and `/board` serves no page
+**Who signs.** The lead is `team.lead` in `bytefly.json`, and the page serves as that name. The
+section defaults to `gavin`; an empty lead lets only the person sign, and `/board` serves no page
 it would seat as nobody. A session signs only while it is the lead and never while it holds the
 card; `/board approve` and `/board review` sign as the person, marked `person: true`. The sign
 says who heard it — quiet, not listening, or not told — and an untold one is sent again.
@@ -103,8 +103,8 @@ says who heard it — quiet, not listening, or not told — and an untold one is
 |---|---|---|
 | `wip.plan` | `3` | Cards a repository may hold in `plan` at once (1–20). |
 | `wip.execute` | `5` | Cards a repository may hold in `execute` at once (1–20). |
-| `team.lead` | `""` | The team name whose signature the two gates take. Empty is no lead: only the person signs, and `/board` will not serve. |
-| `team.teammates` | `[]` | Who is on the team: labels, at most 20 of them. A session the bus has not recorded takes the first free one as the name it writes; the footer draws a name only when it is one of these, so an empty list draws no chip. |
+| `team.lead` | `"gavin"` | The team name whose signature the two gates take. A stated empty lead is no lead: only the person signs, and `/board` will not serve. |
+| `team.teammates` | `["gavin","tom","jack","mike","sam"]` | Who is on the team: labels, at most 20 of them. A session the bus has not recorded takes the first free one as the name it writes — `team-agent-<id>` once every one is held — and the footer draws a name only when it is one of these, so a stated empty list draws no chip. |
 
 The limits live in `board` and the names in `team`, both edited by `/bytefly settings`
 ([configuration](../configuration-reference.md#team--the-projects-own-team)); toggle `board` to switch it off.
