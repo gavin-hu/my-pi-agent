@@ -116,9 +116,9 @@ Markdown in play. A link is made only when `safeHref` allows the target: `http`,
 against the page's own URL at call time.
 
 The body is JavaScript on purpose, like the runtime's: no annotation survives into the
-string, and no backtick or `${` may appear in one. It is the inline half only — a card note
-is one sanitized line, so inline is the whole of it, while blocks, tables, and fenced code
-stay the review page's own half.
+string, and no backtick or `${` may appear in one. It is the inline half only; the block half
+is `markdown-blocks.ts`, the one scan a plan and a README share — a card note is one
+sanitized line, so inline is the whole of it.
 
 ## Name a class once, in a table
 
