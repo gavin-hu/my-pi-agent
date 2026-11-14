@@ -45,9 +45,8 @@ you type only `/board archive|approve|review|status|stop|team`.
 The claim's result names the next step, and `/board approve 1` refuses until the contract
 names a plan file in this repository's store. A claim also joins the team ([`team`](team.md)).
 
-A card is as tall as it draws. The line above its last one says what it owes — `contract ready — needs
-approval`, what it waits on — and is blank when it owes nothing; a note's prose stays off the face.
-The row and `board list` print that gate in one word, and nothing for a card that owes none.
+A card is as tall as it draws: the line above its last one says what it owes or waits on, and is
+blank when it owes nothing. The row and `board list` print that gate in one word.
 
 ## Reference
 
@@ -56,9 +55,10 @@ contract signed, `execute` is where the work happens, `blocked` waits on a perso
 is closed. Each move follows the one transition from where the card is; no lane is skipped.
 
 **The page.** A lane's width follows the work it holds; five lanes sit side by side (one below
-1180px, via the picker), a lane of 24 cards folds, and a card is a note as tall as it draws.
-The pane is the one scroll box, so a lane is as tall as the board and its head rides the pane's
-edge however long a neighbour is. The Team tab draws that same card, no rule between two of them.
+1180px, via the picker), and a lane of 24 cards folds. The pane is the one scroll box: a lane is as
+tall as the board, its head riding its edge. The Team tab draws the board's own card, and above the
+work that moves it raises what needs a lead: a band shows five rows and folds the rest behind one
+control, pins its head under the pane's, and says a sentence every row shares once.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`,
 `note`, `contract`, `approve`, `review`, `edit`, `archive`, `drop`. `claim`, `move` and `assign` are refused while

@@ -109,7 +109,12 @@ export const BOARD_CLASS = {
 	queueRow: "board-queue__row",
 	queueRank: "board-queue__rank",
 	queueRef: "board-queue__ref",
+	// The row's one line: the kind it changes beside the title it changes, so the reason under it
+	// stays the sentence it is.
+	queueTitle: "board-queue__title",
 	queueWhy: "board-queue__why",
+	// The sentence a whole band repeats, said once in the band's head rather than sixty times.
+	queueSaid: "board-queue__said",
 	teamLanes: "board-team__lanes",
 	// A person's lines: the cards one session holds, one line each.
 

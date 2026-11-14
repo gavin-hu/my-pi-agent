@@ -29,6 +29,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/board/tools.test.ts": 1240,
 	"extensions/board/view/behaviour.test.ts": 729,
 	"extensions/board/view/pages.test.ts": 618,
+	"extensions/board/view/team.test.ts": 511,
 	"extensions/bytefly/block/block.test.ts": 561,
 	"extensions/bytefly/chrome.test.ts": 1185,
 	"extensions/bytefly/doctor/doctor.test.ts": 511,

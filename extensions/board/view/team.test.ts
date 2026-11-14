@@ -220,6 +220,119 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		await board?.close();
 	}, CASE_MS);
 
+	/** One unclaimed backlog card, written by the board's lead the way a peer's write lands. */
+	const unclaimed = async (title: string, index: number): Promise<void> => {
+		await board.store.create({ title, paths: ["src/triage"] }, LEAD, clock.now() - index * 1_000);
+	};
+
+	/** Each band: its label, the rows it drew, and what its head says besides the count. */
+	async function bands(page: Page): Promise<Array<{ label: string; rows: number; said: string; fold: string }>> {
+		return page.$$eval("#board-team .board-queue__band", (nodes) =>
+			Array.from(nodes as ArrayLike<HeadNode>, (band) => {
+				const inside = band as unknown as { querySelectorAll(selector: string): ArrayLike<ElementLike> };
+				return {
+					label: band.querySelector("span")?.textContent ?? "",
+					rows: Array.from(inside.querySelectorAll(".board-queue__row")).length,
+					said: band.querySelector(".board-queue__said")?.textContent ?? "",
+					fold: band.querySelector(".board-fold")?.textContent ?? "",
+				};
+			}),
+		);
+	}
+
+	/** How far a band's head sits below the pane head's box: the pin offset, read as drawn. */
+	const headGap = (page: Page) =>
+		page.evaluate(() => {
+			const document = (globalThis as unknown as { document: Doc }).document;
+			const pane = document.querySelector('[data-pane="needs-you"] .bf-section__cap');
+			const band = document.querySelector("#board-team .board-queue__band .bf-lane__head");
+			const box = (node: ElementLike | null) =>
+				(
+					node as unknown as { getBoundingClientRect(): { y: number; height: number } } | null
+				)?.getBoundingClientRect() ?? { y: 0, height: 0 };
+			return {
+				pane: Math.round(box(pane).y * 10) / 10,
+				band: Math.round(box(band).y * 10) / 10,
+				gap: Math.round((box(band).y - box(pane).y - box(pane).height) * 10) / 10,
+			};
+		});
+
+	test(
+		"folds a band at five rows, and says what all its rows share once",
+		async () => {
+			const page = await board.reuse();
+			await page.click("#tab-team");
+			await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
+			// Ten more unclaimed cards arrive the way a peer's write does, so the band is past its fold.
+			for (let index = 0; index < 10; index++) await unclaimed(`Triage item ${index + 1}`, index);
+			await page.waitForSelector('#board-team [data-fold="team-band-claim"]', { timeout: PAINT_MS });
+			const closed = (await bands(page)).find((band) => band.label === "Unclaimed");
+			// The count in the head is what says the rest exists, and the rows are five.
+			expect(closed?.rows).toBe(5);
+			expect(closed?.fold).toBe("+7 more");
+			// The sentence every row in the band shared is printed once, in the band's head.
+			expect(closed?.said).toBe("nobody holds it");
+			const repeated = await page.$$eval(
+				"#board-team .board-queue__why",
+				(nodes) =>
+					Array.from(nodes as ArrayLike<ElementLike>).filter(
+						(node) => (node.textContent ?? "").trim() === "nobody holds it",
+					).length,
+			);
+			expect(repeated).toBe(0);
+			// A row with no line of its own is still described: it points at the head that said it. The
+			// read is the claim band's own, because the tab draws a signature band above it.
+			const described = await page.evaluate(() => {
+				const document = (globalThis as unknown as { document: Doc }).document;
+				type Node = ElementLike & {
+					querySelector(selector: string): ElementLike | null;
+				};
+				const band = Array.from(document.querySelectorAll("#board-team .board-queue__band"))
+					.map((node) => node as unknown as Node)
+					.find((node) => (node.querySelector("span")?.textContent ?? "") === "Unclaimed");
+				const title = band?.querySelector(".board-queue__title .bf-row__title") ?? null;
+				const id = title?.getAttribute("aria-describedby") ?? "";
+				return { id, said: document.getElementById(id)?.textContent ?? "" };
+			});
+			expect(described.id).toBe("team-said-claim");
+			expect(described.said).toBe("nobody holds it");
+			// One press draws the rest and one more folds them back: nothing is cut, only folded.
+			await page.click('#board-team [data-fold="team-band-claim"]');
+			await page.waitForTimeout(100);
+			const open = (await bands(page)).find((band) => band.label === "Unclaimed");
+			expect(open?.rows).toBe(12);
+			expect(open?.fold).toBe("show fewer");
+			await page.click('#board-team [data-fold="team-band-claim"]');
+			await page.waitForTimeout(100);
+			expect((await bands(page)).find((band) => band.label === "Unclaimed")?.rows).toBe(5);
+		},
+		CASE_MS,
+	);
+
+	test(
+		"pins a band's head under the pane's, and keeps it there while the rows go by",
+		async () => {
+			const page = await board.reuse();
+			await page.click("#tab-team");
+			await page.waitForSelector("#board-team .board-queue__band .bf-lane__head", { timeout: PAINT_MS });
+			const before = await headGap(page);
+			await page.evaluate(() => {
+				const main = (globalThis as unknown as { document: Doc }).document.querySelector(".bf-app__main");
+				if (main !== null) (main as unknown as { scrollTop: number }).scrollTop = 400;
+			});
+			await page.waitForTimeout(100);
+			const after = await headGap(page);
+			// The band's head starts against the pane head's rule — the pane's own gap apart — and stays
+			// exactly there once the column has scrolled, so a reader three rows in still knows whose
+			// move it is: the head did not move, and the gap did not open.
+			expect(before.gap).toBeGreaterThanOrEqual(0);
+			expect(before.gap).toBeLessThanOrEqual(8);
+			expect(after.gap).toBe(before.gap);
+			expect(after.band).toBe(before.band);
+		},
+		CASE_MS,
+	);
+
 	test(
 		"separates its rows with space, and draws no rule on one",
 		async () => {
