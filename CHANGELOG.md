@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `board`: the workflow guideline names both gates — `approve` before `execute`, `review` before
+  `done` — so a checklist no longer stops at the first one, and the person's signature covers
+  either. Its `approve` action doc drops the `team.lead` parenthetical, because `team` states the
+  lead's duty once.
+
+- `team`: the five verbs are described once. The `action` parameter repeated every sentence of the
+  description, and the copy is what drifted, so it now names the fields each verb reads; a fifth
+  guideline states the lead's duty, and the surface has a ceiling in the prompt budget where it had
+  none.
+
 ## [0.27.0] - 2026-11-14
 
 ### Added
