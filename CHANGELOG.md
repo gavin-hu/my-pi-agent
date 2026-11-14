@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-14
+
 ### Added
 
 - `session-bus`: mail whose recipient's record the bus no longer holds is named rather than counted.
@@ -7351,7 +7353,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.24.0...v0.25.0

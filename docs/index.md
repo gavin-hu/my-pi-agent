@@ -21,7 +21,7 @@ pi install npm:@gavin-hu/my-pi-agent
 To pin a release, install from the tag instead:
 
 ```bash
-pi install git:github.com/gavin-hu/my-pi-agent@v0.26.0
+pi install git:github.com/gavin-hu/my-pi-agent@v0.27.0
 ```
 
 Then `/bytefly` opens the control center, where each extension can be switched on

@@ -53,7 +53,7 @@ Requires a working [Pi](https://pi.dev) installation.
 
 ```bash
 pi install npm:@gavin-hu/my-pi-agent                        # the latest release
-pi install git:github.com/gavin-hu/my-pi-agent@v0.26.0      # a pinned release
+pi install git:github.com/gavin-hu/my-pi-agent@v0.27.0      # a pinned release
 ```
 
 `git` on `PATH` is needed by [`worktree`](./docs/extensions/worktree.md) and
