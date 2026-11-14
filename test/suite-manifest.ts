@@ -54,6 +54,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"gate-before-run",
 		"input",
 		"kind",
+		"landing",
 		"plan-gone",
 		"record",
 		"recipient",

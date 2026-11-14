@@ -78,22 +78,57 @@ export async function firstParentChain(
 }
 
 /**
- * The paths that differ between two commits, limited to `paths` when any are named.
+ * The best common ancestor of two revisions: the point where their lines parted.
  *
- * One call, no parse of git's own porcelain: `--name-only` writes one path per line, and an empty
- * answer is the two trees agreeing over exactly those paths. An empty `paths` asks about the whole
- * tree, which is the conservative direction for a card that names none.
+ * Undefined is also a read that failed, and its one caller treats "cannot tell" as a reason to
+ * refuse a close rather than to wave one through. Named `forkPoint` rather than git's verb because
+ * the question here is the fork, not the merge: `worktree`'s own `mergeBase` asks a ref against HEAD.
  */
-export async function movedPaths(
+async function forkPoint(runGit: RunGit, cwd: string, a: string, b: string): Promise<string | undefined> {
+	const result = await runGit(["merge-base", a, b], { cwd });
+	if (result.code !== 0) return undefined;
+	return result.stdout.trim() || undefined;
+}
+
+/**
+ * The reviewed files a merge changed: the work `reviewed` did since its fork, intersected with
+ * what `merged` changed of that work.
+ *
+ * A clean `--no-ff` answers nothing, whatever landed on the branch in the meantime: the merge
+ * carries `reviewed` whole, and a neighbour's files are not evidence about this review. What is
+ * left is a file the merge resolved itself — the tree nobody ran the gate on.
+ *
+ * Conservative by construction: a neighbour and the review both editing one file cannot be told
+ * from a resolution edit this way, so that case still answers the file and refuses the close.
+ * Telling them apart needs the merge git would have made, which this reader does not compute.
+ *
+ * `undefined` is a read that failed, not "nothing moved": the caller refuses a close it could
+ * not check rather than accepting one on a missing diff.
+ *
+ * The fork is read against the merge's **first parent**, not the merge: a merge already carries
+ * `reviewed`, so `merge-base(reviewed, merged)` is `reviewed` itself and would compare the review
+ * with nothing. The first parent is the line the merge landed on, which is where the two parted.
+ */
+export async function resolvedByMerge(
 	runGit: RunGit,
 	cwd: string,
-	from: string,
-	to: string,
-	paths: readonly string[] = [],
-): Promise<string[]> {
-	const args = ["diff", "--name-only", from, to, ...(paths.length === 0 ? [] : ["--", ...paths])];
-	const result = await runGit(args, { cwd });
-	if (result.code !== 0) return [];
+	reviewed: string,
+	merged: string,
+): Promise<string[] | undefined> {
+	const base = await forkPoint(runGit, cwd, reviewed, `${merged}^1`);
+	if (base === undefined) return undefined;
+	const own = await changedFiles(runGit, cwd, base, reviewed);
+	if (own === undefined) return undefined;
+	const touched = await changedFiles(runGit, cwd, reviewed, merged);
+	if (touched === undefined) return undefined;
+	const mine = new Set(own);
+	return touched.filter((path) => mine.has(path));
+}
+
+/** The files that differ between two commits, or undefined when the read failed. */
+async function changedFiles(runGit: RunGit, cwd: string, from: string, to: string): Promise<string[] | undefined> {
+	const result = await runGit(["diff", "--name-only", from, to], { cwd });
+	if (result.code !== 0) return undefined;
 	return result.stdout
 		.split("\n")
 		.map((line) => line.trim())
