@@ -61,6 +61,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`: the wait between an ask and its answer is named where the model reads it — the
+  `session` tool's guideline and step 6 of `docs/multi-session.md` now give the reason a `wake` is
+  the answer: a message waits in an inbox until its session runs, so the turn can end, while a
+  `sleep` holds the very turn that would report the mail. Delivery is unchanged; what changed is
+  that the only inferable procedure is no longer a poll.
+
 - `lib`: the four stream states' words and tones are one table (`paintLiveState`) spliced into
   every served page, so the board appends only the frame's age and the review its comment count.
   The board's `reconnecting…` chip is the warning tone the other two wear, not the danger they
