@@ -276,7 +276,7 @@ describe("/board", () => {
 		const fake = createFakePi();
 		registerCommands(fake.pi, fakeBoardSession(), pageWithNoRecording());
 		expect(fake.commands.get(BOARD_COMMAND)?.description).toContain(
-			"/board [archive | team | status | stop | approve <id> | review <id> [--override <why>]]",
+			"/board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--override <why>]]",
 		);
 	});
 });

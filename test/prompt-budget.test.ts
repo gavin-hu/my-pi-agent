@@ -104,9 +104,11 @@ describe("the board tool surface", () => {
 		// tightened `approve` and `archived` without losing a field. The last four came off
 		// `verify`, which stopped promising that an empty command takes the line off the moment a
 		// contract could not be approved without one. `round`'s nine group names stayed:
-		// `tools.test.ts` holds that every group the rollup reports reaches the model named. The
-		// gate is the number; this comment is why.
-		expect(boardSurface()).toBeLessThanOrEqual(6_986);
+		// `tools.test.ts` holds that every group the rollup reports reaches the model named.
+		// 7,193 for `olderThan`: the archive sweep's one bound, a parameter and its line in the
+		// action doc, which buys the difference between clearing a graveyard and archiving what
+		// just shipped. The gate is the number; this comment is why.
+		expect(boardSurface()).toBeLessThanOrEqual(7_193);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
 	});

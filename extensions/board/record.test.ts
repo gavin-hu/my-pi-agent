@@ -240,10 +240,10 @@ describe("the archive result", () => {
 		// Asked twice is one state: the outcome names the card already aside, and the sweep after
 		// it is an empty answer — the two calls that used to draw `0 cards` over their sentence.
 		const again = await call({ action: "archive", card: card.id });
-		expect(again.details.archive).toEqual({ moved: [], kept: [], failed: [], already: card.id });
+		expect(again.details.archive).toEqual({ moved: [], kept: [], held: [], failed: [], already: card.id });
 		const empty = await call({ action: "archive" });
 		expect(resultText(empty)).toBe("No finished cards to archive.");
-		expect(empty.details.archive).toEqual({ moved: [], kept: [], failed: [] });
+		expect(empty.details.archive).toEqual({ moved: [], kept: [], held: [], failed: [] });
 	});
 
 	test("states a card a live link kept, and what the sweep failed on", async () => {
@@ -254,7 +254,7 @@ describe("the archive result", () => {
 		await store.mutate(waiting.id, { kind: "edit", dependsOn: [kept.id] }, ME, NOW);
 		const swept = await call({ action: "archive" });
 		// The hold is a fact the block draws, not only a sentence in the text.
-		expect(swept.details.archive).toEqual({ moved: [], kept: [kept.id], failed: [] });
+		expect(swept.details.archive).toEqual({ moved: [], kept: [kept.id], held: [], failed: [] });
 		expect(resultText(swept)).toContain(`1 card kept: an open card still waits on #${kept.id}.`);
 	});
 

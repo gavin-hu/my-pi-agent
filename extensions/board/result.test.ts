@@ -136,14 +136,14 @@ describe("the collapsed line", () => {
 		const moved = collapsedLine(coloringTheme, {
 			action: "archive",
 			me: ME,
-			archive: { moved: ["4"], kept: [], failed: [] },
+			archive: { moved: ["4"], kept: [], held: [], failed: [] },
 		});
 		expect(moved).toContain(`${colour("label")}#4 archived`);
 		expect(moved).toContain(ME.label);
 		const already = collapsedLine(coloringTheme, {
 			action: "archive",
 			me: ME,
-			archive: { moved: [], kept: [], failed: [], already: "4" },
+			archive: { moved: [], kept: [], held: [], failed: [], already: "4" },
 		});
 		expect(already).toContain(`${colour("meta")}#4 already archived`);
 		for (const line of [moved, already]) expect(line).not.toContain("0 cards");
@@ -153,7 +153,12 @@ describe("the collapsed line", () => {
 		const line = collapsedLine(coloringTheme, {
 			action: "archive",
 			me: ME,
-			archive: { moved: ["4"], kept: ["5"], failed: [{ card: "6", error: "#6 kept changing while it was written." }] },
+			archive: {
+				moved: ["4"],
+				kept: ["5"],
+				held: [],
+				failed: [{ card: "6", error: "#6 kept changing while it was written." }],
+			},
 		});
 		// Three outcomes at once, each in its own tone: a move, the hold a live link is, and a refusal.
 		expect(line).toContain("#4 archived");
@@ -167,7 +172,7 @@ describe("the collapsed line", () => {
 		const line = collapsedLine(coloringTheme, {
 			action: "archive",
 			me: ME,
-			archive: { moved: [], kept: [], failed: [] },
+			archive: { moved: [], kept: [], held: [], failed: [] },
 		});
 		expect(line).toContain("no finished cards to archive");
 	});

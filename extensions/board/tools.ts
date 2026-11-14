@@ -32,7 +32,7 @@ import { textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatRound, withLiveOwner } from "../../lib/board/round-text.ts";
-import { CLAIM_NEXT, formatArchive, formatArchived, formatBoard, formatCard } from "./format.ts";
+import { CLAIM_NEXT, formatArchive, formatBoard, formatCard } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, refusal, resultInput } from "./result.ts";
 import { dropCard, mutate, reclaimOp } from "./write.ts";
@@ -348,6 +348,8 @@ export function registerTools(
 					case "drop":
 						return await dropCard(store, me, args, now, cross);
 					case "archive":
+						// The archive action lives with the sweep it runs, loaded when it is called.
+						const { archiveCards } = await import("./archive.ts");
 						return await archiveCards(store, me, args, now);
 				}
 			} catch (error) {
@@ -551,50 +553,4 @@ async function add(
 	if ("error" in parsed) return refusal("add", me, parsed.error);
 	const card = await store.create(parsed.input, me, now);
 	return textResult(formatCard(card), { action: "add", me, card });
-}
-
-/**
- * `archive`: a finished card leaves the board without being destroyed.
- *
- * One card, or — with no card named — every finished card, because clearing a board is
- * the errand and a lead should not run sixty calls. Each move is its own locked read-check-write,
- * so a sweep is best-effort (a rival's move can still be refused) and reports what it set aside.
- */
-async function archiveCards(
-	store: BoardStore,
-	me: BoardDetails["me"],
-	args: BoardArgs,
-	now: number,
-): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	if (args.card !== undefined) {
-		const id = normalizeCardId(args.card);
-		if (id === undefined) return refusal("archive", me, `"${args.card}" is not a card id.`);
-		const result = await store.mutate(id, { kind: "archive" }, me, now);
-		if (!result.ok) return refusal("archive", me, result.error, result.card);
-		// Asked twice is one state, not an error: the card is where the caller wanted it.
-		if (!result.changed)
-			return textResult(`${cardRef(id)} is already archived.`, {
-				action: "archive",
-				me,
-				archive: { moved: [], kept: [], failed: [], already: id },
-			});
-		return textResult(formatArchived([id]), {
-			action: "archive",
-			me,
-			archive: { moved: [id], kept: [], failed: [] },
-		});
-	}
-	// One sweep, shared with `/board archive`: the numbers the rollup prints and the cards it
-	// moves are one rule, and a finished card an open one still waits on is never taken. The
-	// module is loaded here rather than at registration, like every surface a call opens.
-	const { sweepFinished, sweepText } = await import("./archive.ts");
-	const swept = await sweepFinished(store, me, now, await store.list());
-	if (swept.moved.length === 0 && swept.failed.length === 0 && swept.kept.length === 0) {
-		return textResult("No finished cards to archive.", {
-			action: "archive",
-			me,
-			archive: { moved: [], kept: [], failed: [] },
-		});
-	}
-	return textResult(sweepText(swept), { action: "archive", me, archive: swept });
 }

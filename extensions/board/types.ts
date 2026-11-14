@@ -48,7 +48,8 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	review:
 		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`, which is what `done` requires, and `text` records what the signer saw; the sign is announced to the card's owner in its inbox, so a session that needs one asks the lead with `session send`. `override` instead signs a finished card nobody signed",
 	edit: "fixes what the card says — title, path hints, type, breaking, priority, and what it waits for",
-	archive: "sets a finished card aside, still readable — never one an open card waits on; every one if none is named",
+	archive:
+		"sets a finished card aside, still readable — never one an open card waits on; every one if none is named, and `olderThan` bounds it by age",
 	drop: "deletes a `backlog` or a `done` card, or one you hold",
 };
 
@@ -75,7 +76,7 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	approve: ["card", "text"],
 	review: ["card", "text", "override"],
 	edit: ["card", "title", "paths", "type", "breaking", "priority", "dependsOn"],
-	archive: ["card"],
+	archive: ["card", "olderThan"],
 	drop: ["card"],
 };
 
@@ -126,18 +127,23 @@ export interface BoardDetails {
 }
 
 /**
- * What an `archive` did, in the four answers a call can give.
+ * What an `archive` did, in every answer a call can give.
  *
  * One shape for the single card and the sweep, because they are the same question asked
  * over one card or the board: a result that stated its own outcome in the text and
  * nothing in the details drew a listing count instead, and a sweep that failed on a card
- * read as if it had not.
+ * read as if it had not. It is also the sweep's own return shape, so the sentence a model
+ * reads and the line a reader sees are drawn from one record rather than two.
  */
 export interface ArchiveOutcome {
 	/** The ids it set aside, in the order it moved them. */
 	moved: string[];
 	/** Finished cards a live link kept on the board: an open card still waits on them. */
 	kept: string[];
+	/** Finished cards a bound left on the board, because they finished more recently than it. */
+	held: string[];
+	/** The bound as it was written, so `held` can be read against it; absent from a sweep of everything. */
+	bound?: string;
 	/** The cards it could not set aside, and why: a move that changed underneath it. */
 	failed: Array<{ card: string; error: string }>;
 	/** The one card a repeated call found already aside: a no-op, not a failure. */

@@ -86,7 +86,7 @@ says who heard it — quiet, not listening, or not told — and an untold one is
 ## Limits
 
 - `done` is terminal: a card finished by mistake is dropped and re-added at a new number. Nothing prunes
-  itself: `done` cards cost a read until `archive` takes them, and it takes only a card nothing waits on.
+  itself: `archive` takes a card nothing waits on, and `--older-than 30d` bounds it, naming what it kept.
 - The lead is a name, not an authority: any session can join it, and a lead holding a card can release it,
   sign it and claim it again. A lead holding no card may still move it `plan` → `execute`, the lane its
   approval opened; every other verb is the holder's. A gate is a reading, not a permission.

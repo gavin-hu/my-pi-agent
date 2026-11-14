@@ -116,10 +116,12 @@ export function collapsedLine(theme: Theme, details: BoardDetails): string {
 /**
  * What an archive did, as the one line a reader sees.
  *
- * The four answers a call can give at once — cards folded away, cards an open card still
- * waits on, cards the store refused, and the card a second call found already aside — so a
- * sweep that failed on a card names it here instead of drawing a count that reads as if it
- * had not. The reasons stay in the text; the ids are what a reader acts on.
+ * Every answer a call can give at once — cards folded away, cards an open card still waits
+ * on, cards a bound left where they are, cards the store refused, and the card a second call
+ * found already aside — so a sweep that failed on a card names it here instead of drawing a
+ * count that reads as if it had not, and a bounded one says what it kept back rather than
+ * reading as "that was all of it". The reasons stay in the text; the ids are what a reader
+ * acts on.
  */
 function archiveLine(theme: Theme, outcome: ArchiveOutcome): string {
 	const parts: string[] = [];
@@ -132,11 +134,13 @@ function archiveLine(theme: Theme, outcome: ArchiveOutcome): string {
 	if (outcome.already !== undefined) parts.push(paint(theme, "meta", `${cardRef(outcome.already)} already archived`));
 	if (outcome.kept.length > 0)
 		parts.push(paint(theme, "meta", `${plural(outcome.kept.length, "card")} kept: still waited on`));
+	if (outcome.held.length > 0 && outcome.bound !== undefined)
+		parts.push(paint(theme, "meta", `${plural(outcome.held.length, "card")} stayed: within ${outcome.bound}`));
 	if (outcome.failed.length > 0) {
 		const ids = outcome.failed.map((entry) => cardRef(entry.card)).join(", ");
 		parts.push(paint(theme, "bad", `${ids} not archived`));
 	}
-	// A sweep with nothing to do is an answer: no move, no hold, no refusal.
+	// A sweep with nothing to do is an answer: no move, no kept link, no held card, no refusal.
 	if (parts.length === 0) parts.push(paint(theme, "label", "no finished cards to archive"));
 	return parts.join(` ${SEPARATORS.item} `);
 }
