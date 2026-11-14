@@ -90,7 +90,7 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 			"Delivery is pull-based unless this session joined and is listening.",
 		promptSnippet: "Coordinate parallel sessions: status, send, inbox, claim, release, join.",
 		promptGuidelines: [
-			"Check `session inbox` when starting a coordinated turn.",
+			"Mail waits in an inbox until its session runs, so give a peer `join` with `wake` and end the turn — a `sleep` holds the very turn that would report it.",
 			"Claim the paths you will edit before changing them; release them when done.",
 			'Send `kind: "event"` for contract, build, or test changes another session needs.',
 			"Never put credentials or secrets in a session-bus message.",

@@ -59,7 +59,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   anything is swept, which matters most for `/board archive 30d` with the flag missing, whose shape is a
   card id. A sweep with no bound still takes every finished card, so no existing call changes meaning.
 
+- `docs`: a project's `.pi` directory has a table saying who writes each path — `settings.json`,
+  `bytefly.json`, `memory.md`, `worktrees/`, `agents/`, and `cache/` — with a fourth column saying
+  which one is disposable, so the single generated path is told apart from the five that are not.
+  It also states the rule: an extension adds a concept directory, created on first use, and
+  `bytefly.json` and `memory.md` stay the only root-level files this package adds.
+
 ### Changed
+
+- `session-bus`: the wait between an ask and its answer is named where the model reads it — the
+  `session` tool's guideline and step 6 of `docs/multi-session.md` now give the reason a `wake` is
+  the answer: a message waits in an inbox until its session runs, so the turn can end, while a
+  `sleep` holds the very turn that would report the mail. Delivery is unchanged; what changed is
+  that the only inferable procedure is no longer a poll.
 
 - `board`: a page frame carries each card once. The rollup names its cards by id instead of
   repeating them, and the browser expands those names against the lanes it already has, so a
