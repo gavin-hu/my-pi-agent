@@ -96,7 +96,7 @@ and command surface, opening with its capabilities.
 | [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions` (screen) | Coordinate parallel sessions on one repository: peers, short messages, an inbox, and path claims. |
 | [`serve`](./docs/extensions/serve.md) | — | The session's one loopback server, so `/board`, `/browse`, and a plan review share one port. |
 | [`board`](./docs/extensions/board.md) | `board`, `/board` | One shared feature board per repository, two signatures before a card ships. |
-| [`team`](./docs/extensions/team.md) | `team`, `/team` | The lead's round over that board: assign, offer, reclaim, claim, ask — spawning nothing. |
+| [`team`](./docs/extensions/team.md) | `team`, `/team` | The lead's round over that board: assign, offer, ask — spawning nothing. |
 | [`context`](./docs/extensions/context.md) | `/context` | Show where the context window goes, and compact from the report. |
 
 ### Keep your work safe

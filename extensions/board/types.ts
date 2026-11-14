@@ -38,15 +38,15 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	add: "creates a `backlog` card",
 	claim: "pulls one into `plan` for this session, when `plan` has room",
 	release: "gives it back to `backlog`",
-	reclaim: "takes it back to `backlog`; a peer only from a stopped owner",
+	reclaim: "takes it back to `backlog` — the lead from anyone, a peer only from a stopped owner",
 	move: "changes lane, through the one transition the board allows from where the card is; a card enters `execute` or `done` only while the plan it recorded is still in the store",
 	note: "appends to its history",
 	contract:
 		"records the plan file and the four lines a card promises — `goal`, `acceptance`, `scopeOut`, and `verify`, the command the spot-check runs — and drops any approval, because the wording changed",
 	approve:
-		"approves the contract and the plan it names: the lead, who does not hold the card, says both are right, which is what `plan` to `execute` requires, and `text` records what the signer saw",
+		"approves the contract and the plan it names: the lead, who does not hold the card, says both are right, and `text` records what the signer saw",
 	review:
-		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`, which is what `done` requires, and `text` records what the signer saw; the sign is announced to the card's owner in its inbox, so a session that needs one asks the lead with `session send`. `override` instead signs a finished card nobody signed",
+		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`, and `text` records what the signer saw; the sign is announced to the card's owner in its inbox, so a session that needs one asks the lead with `session send`. `override` instead signs a finished card nobody signed",
 	edit: "fixes what the card says — title, path hints, type, breaking, priority, and what it waits for",
 	archive:
 		"sets a finished card aside, still readable — never one an open card waits on; every one if none is named, and `olderThan` bounds it by age",

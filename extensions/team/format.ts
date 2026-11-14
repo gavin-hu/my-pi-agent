@@ -83,10 +83,12 @@ export function formatHandoff(
  *
  * The card is real and the message is in an inbox; what is missing is the session it belongs to,
  * so the only write left is the lead's or the person's reclaim, and the peer claims it back with
- * an id. The sentence says that rather than leaving the sender to find out at its next move.
+ * an id. The sentence says that rather than leaving the sender to find out at its next move, and it
+ * names `board`, because both verbs it asks for are that tool's.
  */
 const UNRESOLVED_LINE =
-	"  The bus could not name that session: only the lead can move the card — ask the lead to reclaim it, then claim it.";
+	"  The bus could not name that session: only the lead can move the card — ask the lead to `board` reclaim it, " +
+	"then `board` claim it.";
 
 /**
  * The line that names a peer which will not be woken, or nothing when every peer is
@@ -262,55 +264,14 @@ export function formatUnrecordedAssignment(card: Card, to: string, reason: strin
 }
 
 /**
- * A card taken back to the pool.
- *
- * `held` is what the crossing could not free: a release names its caller, so the old holder's own
- * path claims stay until that session stops, and the new owner's next claim is refused over them.
- * The clause is `lib/board/claims.ts`'s, so the board's door prints the same words.
- */
-export function formatReclaimed(card: Card, previous: string, held?: string): string {
-	return [
-		`${cardRef(card.id)} reclaimed from ${previous} and back in Backlog; its notes are kept.`,
-		`  ${card.title}`,
-		held === undefined ? undefined : `  ${held}`,
-	]
-		.filter((line): line is string => line !== undefined)
-		.join("\n");
-}
-
-/**
- * A card the lead took itself.
- *
- * The next step is the board's, so it is named: a claim is the one round action that
- * leaves a card in `plan` waiting on its owner, and a line that stopped at "yours" would
- * leave the lead holding a card nobody said what to do with.
- *
- * `team` is the clause `lib/board/join.ts` writes when the claim's own join did not land: the
- * card is the session's either way, so that failure is a line here rather than an error.
- */
-export function formatClaimed(card: Card, team?: string): string {
-	return [
-		`${cardRef(card.id)} is yours, in plan.`,
-		`  ${card.title}`,
-		"  next: design it in plan mode, `plan` action `write`, then `board` action `contract`",
-		team === undefined ? undefined : `  ${team}`,
-	]
-		.filter((line): line is string => line !== undefined)
-		.join("\n");
-}
-
-/**
  * What a running call is doing, in the verb's own words.
  *
  * A partial result carries no details, so this line is all a human has while the call works:
- * the verb says what the wait is — the bus for `assign`, `offer`, and `ask`, the store for
- * `claim` and `reclaim` — because the card's summary cannot until the call settles.
+ * every verb here waits on the bus, and the card's summary cannot say so until the call settles.
  */
 const WORKING: Record<TeamAction, string> = {
 	assign: "Handing over…",
 	offer: "Offering…",
-	reclaim: "Reclaiming…",
-	claim: "Claiming…",
 	ask: "Asking…",
 };
 

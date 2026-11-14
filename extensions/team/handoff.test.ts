@@ -271,17 +271,4 @@ describe("the board's WIP limits", () => {
 		expect(resultText(refused)).toContain("the limit is 1");
 		expect(sent).toEqual([]);
 	});
-
-	test("a full plan lane refuses the lead's own claim, with the same sentence", async () => {
-		const { call, seed, store } = capped();
-		const first = await seed("First");
-		const second = await seed("Second");
-		await (await store()).mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
-		const refused = await call({ action: "claim", card: second });
-		expect(refused.isError).toBe(true);
-		// The store's own refusal: the round adds no rule of its own to a claim.
-		expect(resultText(refused)).toContain(`#${second} cannot enter plan`);
-		expect(resultText(refused)).toContain("the limit is 1");
-		expect((await (await store()).read(second))?.lane).toBe("backlog");
-	});
 });

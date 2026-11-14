@@ -117,8 +117,8 @@ describe("ask", () => {
 	test("an ask that names a card is refused by the field table", async () => {
 		const { call, sent } = harness();
 		const result = await call({ action: "ask", card: "1", to: "billing-core" });
-		// Four verbs read `card`, so the refusal names all four rather than the nearest one.
-		expect(result.details.error).toBe("ask does not act on card: `assign`, `offer`, `reclaim`, and `claim` take it.");
+		// Two verbs read `card`, so the refusal names both rather than the nearest one.
+		expect(result.details.error).toBe("ask does not act on card: `assign` and `offer` take it.");
 		expect(sent).toEqual([]);
 	});
 });

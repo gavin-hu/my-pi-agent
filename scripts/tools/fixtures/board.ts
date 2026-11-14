@@ -166,12 +166,6 @@ const HANDOFF_TEXT = [
 	"  The card is already owned by the peer; the handoff is in its inbox.",
 ].join("\n");
 
-/** One reclaim, as the tool reports it. */
-const RECLAIMED: TeamDetails = {
-	action: "reclaim",
-	card: { ...UNPLANNED, lane: "backlog", rev: 4 },
-};
-
 /** One finished card set aside, as the tool reports it. */
 const ARCHIVED: BoardDetails = {
 	action: "archive",
@@ -288,24 +282,6 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		result: {
 			content: [{ type: "text", text: HANDOFF_TEXT }],
 			details: ASSIGNED,
-		},
-	},
-	{
-		name: "team-reclaimed",
-		tool: "team",
-		group: "package",
-		label: "a card taken back to the pool, its notes kept",
-		args: { action: "reclaim", card: "2" },
-		result: {
-			content: [
-				{
-					type: "text",
-					text:
-						"#2 reclaimed from billing-core and back in Backlog; its notes are kept.\n" +
-						"  Retry branches merge cleanly into main",
-				},
-			],
-			details: RECLAIMED,
 		},
 	},
 ];

@@ -1,28 +1,26 @@
 /**
  * The `team` tool: the lead's round over the same cards `board` owns.
  *
- * Five actions, because they are the five a lead takes at the round: hand a card out,
- * offer it, take one back, take one itself, and ask a peer how its work is going. `assign`
- * sends the handoff **first** and sets the owner **second**: a card assigned without a
- * message is a card nobody knows about, while a message for a card that then changed is
- * one the peer can still claim. Either failure is reported with the card as it actually
- * is — including the one no rule refused, where the store's own write threw after the
- * message had landed — so the lead's next call starts from the truth. `ask` is the one verb
- * with no card behind it, and the one that names nothing the board can answer.
+ * Three actions, because they are the three that reach another session: hand a card out, offer
+ * it, and ask a peer how its work is going. `assign` sends the handoff **first** and sets the
+ * owner **second**: a card assigned without a message is a card nobody knows about, while a
+ * message for a card that then changed is one the peer can still claim. Either failure is
+ * reported with the card as it actually is — including the one no rule refused, where the
+ * store's own write threw after the message had landed — so the lead's next call starts from
+ * the truth. `ask` is the one verb with no card behind it, and the one that names nothing the
+ * board can answer.
  *
- * `claim` is the lead's own work, and it is the same store operation `board`'s claim makes, so
- * the lane rules, the WIP limit, and the offer record cleared are the store's — not a second
- * answer the round would keep in step by hand. Everything after the claim (plan, contract, move,
- * finish) is `board`'s, because that is the card's life and not the round's.
+ * A card's own state is `board`'s and only `board`'s: the claim that takes one, the reclaim that
+ * gives one back, the lane moves, the contract, and the two signs. This tool reached two of them
+ * once, as aliases of the same store operation with a second sentence and a second result line
+ * each; #581 removed them, so the two doors cannot drift apart.
  *
- * `assign`, `ask`, and `claim` join this session to the team once, because each is
- * answered by mail: `session-bus` records a sender and arms no watch, so without the join
- * a lead that only ever runs the round would have a reply nobody reports. `assign` and `ask`
- * join **before** they send, because the message names this session as the way back — a lead
- * the bus will not hold hands a peer a reply its own `session send` refuses — and they send
- * nothing when the join does not land. A claim writes first and joins after it, so the card is
- * kept either way and the result says the join failed. `offer` and `reclaim` do not join, and
- * need not: one is answered by a claim, the other by nothing.
+ * `assign` and `ask` join this session to the team once, because each is answered by mail:
+ * `session-bus` records a sender and arms no watch, so without the join a lead that only ever runs
+ * the round would have a reply nobody reports. Both join **before** they send, because the message
+ * names this session as the way back — a lead the bus will not hold hands a peer a reply its own
+ * `session send` refuses — and they send nothing when the join does not land. `offer` does not
+ * join, and need not: it is answered by a claim.
  */
 
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
@@ -67,7 +65,6 @@ import {
 } from "./dispatch.ts";
 import {
 	formatAsk,
-	formatClaimed,
 	formatHandoff,
 	formatHandoffFailure,
 	formatNotSent,
@@ -75,7 +72,6 @@ import {
 	formatOfferFailure,
 	formatRacedOffer,
 	formatRacedAssignment,
-	formatReclaimed,
 	formatUnrecordedAssignment,
 	formatUnrecordedOffer,
 	formatWorking,
@@ -250,9 +246,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 				}
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
-				if (action === "reclaim") return await reclaimCard(session, store, me, id, now, ctx);
 				if (action === "offer") return await offerCard(store, me, id, args.note, now, dispatchFor(ctx));
-				if (action === "claim") return await claimCard(store, me, id, now, join);
 				const to = typeof args.to === "string" ? args.to.trim() : "";
 				if (to === "") return refusal("assign", 'assign needs a peer: pass `to`, e.g. "billing-core".');
 				return await assignCard(store, me, id, to, args.note, now, dispatchFor(ctx), join);
@@ -512,73 +506,18 @@ async function askPeer(
 	});
 }
 
-/**
- * `claim`: the lead takes a card itself, through the store operation `board`'s claim makes.
- *
- * The lane rules, the WIP limit, the waiting refusal, and the offer record cleared are the
- * store's, so the two doors cannot answer them differently. The join is the claim's one
- * side effect outside the card: taking work is what makes this session a teammate, and it
- * is the same join `board` makes, asked again when the bus no longer holds this session.
- * It comes after the write, so a refusal writes and enlists nothing — and its failure is the
- * result's last line, because the card it came after is already true.
- */
-async function claimCard(
-	store: BoardStore,
-	me: Actor,
-	id: string,
-	now: number,
-	join: () => Promise<TeamState>,
-): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
-	const before = await store.read(id);
-	if (!before) return refusal("claim", `${cardRef(id)} does not exist.`);
-	const result = await store.mutate(id, { kind: "claim" }, me, now);
-	if (!result.ok) return refusal("claim", result.error, result.card ?? before);
-	const joined = await join();
-	// Loaded with the join the call above made, so the module is already in hand: the sentence is
-	// the shared one, because `board`'s claim prints it too.
-	const { joinFailureLine } = await import("../../lib/board/join.ts");
-	return textResult(formatClaimed(result.card, joinFailureLine(joined)), { action: "claim", card: result.card });
-}
-
-/**
- * `reclaim`: the owner clears and the card returns to the pool, notes and all.
- *
- * The card is read first for the two facts the call needs: whose record to ask the bus about, and
- * whether there is a holder to take it back from. The op carries what the bus said, bound to that
- * owner, so a card that changed hands under the read is taken on no fact at all.
- */
-async function reclaimCard(
-	session: BoardSession,
-	store: BoardStore,
-	me: Actor,
-	id: string,
-	now: number,
-	ctx: ExtensionToolContext,
-): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
-	const before = await store.read(id);
-	if (!before) return refusal("reclaim", `${cardRef(id)} does not exist.`);
-	const previous = before.owner?.label;
-	if (previous === undefined) return refusal("reclaim", `${cardRef(id)} has no owner to reclaim.`, before);
-	const holder = await session.holder(ctx.cwd, before);
-	const result = await store.mutate(id, { kind: "reclaim", ...(holder === undefined ? {} : { holder }) }, me, now);
-	if (!result.ok) return refusal("reclaim", result.error, result.card ?? before);
-	// The round's own crossing: a card leaving `execute` holds nothing, and the paths it cannot free
-	// — the old holder's, since a release names its caller — are the clause the result carries.
-	const held = await session.cross(ctx, result).catch(() => undefined);
-	return textResult(formatReclaimed(result.card, previous, held), { action: "reclaim", card: result.card });
-}
-
 /** The collapsed line for a successful call, from its details. */
 function summaryOf(details: TeamDetails): string {
 	if (details.action === "ask") return `asked ${details.delivered?.join(", ") ?? "nobody"}`;
 	const card = details.card;
-	if (!card) return details.action === "reclaim" ? "reclaimed" : "handed off";
-	if (details.action === "claim") return `${cardRef(card.id)} claimed`;
+	// A refusal is drawn from its error, so a result reaching here wrote a card: the guard is for
+	// the shape rather than for a case a call can produce.
+	if (!card) return "handed off";
 	if (details.action === "offer") {
 		const count = details.delivered?.length ?? 0;
 		return `${cardRef(card.id)} offered to ${plural(count, "session")}`;
 	}
 	const who = details.assigned?.label ?? card.owner?.label;
-	const target = details.action === "assign" && who !== undefined ? ` → ${who}` : "";
+	const target = who === undefined ? "" : ` → ${who}`;
 	return `${cardRef(card.id)} ${card.lane}${target}`;
 }

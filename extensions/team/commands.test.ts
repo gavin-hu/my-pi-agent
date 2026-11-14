@@ -14,6 +14,7 @@ import { makeTempTracker } from "../../test/helpers/git.ts";
 import { minuteOldCards } from "../../test/helpers/fixtures/board.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { MAX_ROUND_LINES, registerCommands, roundText, TEAM_COMMAND } from "./commands.ts";
+import { LEAD_ROUND } from "../../lib/board/round-text.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -48,12 +49,12 @@ describe("roundText", () => {
 		const roster = [mate("billing-lead", NOW), dead("billing-core"), mate("ops-helper", NOW - 20 * 60_000)];
 		const lines = roundText(cards, NOW, roster).split("\n");
 		// The instruction comes before the presence line: who died is the quieter fact.
-		expect(lines).toContain("reclaim #1, #2 — billing-core is not running");
+		expect(lines).toContain("board reclaim #1, #2 — billing-core is not running");
 		expect(lines.at(-1)).toBe(
 			"live: billing-lead — idle · quiet: ops-helper — #4 execute · gone: billing-core — #1 execute +1",
 		);
 		// A card finished by a dead owner is history, not work to reclaim.
-		const reclaim = lines.find((line) => line.startsWith("reclaim "));
+		const reclaim = lines.find((line) => line.startsWith("board reclaim "));
 		expect(reclaim).not.toContain("#3");
 	});
 
@@ -97,8 +98,8 @@ describe("roundText", () => {
 		const lines = roundText(cards, NOW, [mate("ops-helper", NOW - 20 * 60_000)]).split("\n");
 		// Quiet is one of the two states the board lets a peer take a card from. A label the bus has no
 		// record of is not: a live session that never joined looks exactly the same.
-		expect(lines).toContain("reclaim #1 — ops-helper has gone quiet");
-		expect(lines.some((line) => line.startsWith("reclaim ") && line.includes("nobody-home"))).toBe(false);
+		expect(lines).toContain("board reclaim #1 — ops-helper has gone quiet");
+		expect(lines.some((line) => line.startsWith("board reclaim ") && line.includes("nobody-home"))).toBe(false);
 		expect(lines.at(-1)).toContain("not on the bus: nobody-home — #2 plan");
 	});
 
@@ -159,7 +160,7 @@ describe("roundText", () => {
 		// the count in "… N more" is the rollup's overflow alone, so a reader can act on it.
 		expect(lines).toHaveLength(MAX_ROUND_LINES + 3);
 		expect(lines[MAX_ROUND_LINES]).toMatch(/^… \d+ lines more$/);
-		expect(lines[MAX_ROUND_LINES + 1]).toBe("reclaim #21 — ops-helper is not running");
+		expect(lines[MAX_ROUND_LINES + 1]).toBe("board reclaim #21 — ops-helper is not running");
 		expect(lines.at(-1)).toContain("gone: ops-helper");
 	});
 
@@ -180,7 +181,9 @@ describe("the command", () => {
 		registerCommands(fake.pi, board.runtime);
 		const command = fake.commands.get(TEAM_COMMAND);
 		if (!command) throw new Error("the team command was not registered");
-		expect(command.description).toContain("round");
+		// The round's own line, from `lib/board/round-text.ts`: `team`'s lead guideline says the same
+		// sentence, so the two surfaces that name the round cannot describe it differently.
+		expect(command.description).toContain(LEAD_ROUND);
 		// An empty board through the real store, so the command's three reads (cards, bus,
 		// clock) are the shipped ones.
 		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });

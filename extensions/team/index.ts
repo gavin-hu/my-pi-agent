@@ -1,12 +1,12 @@
 /**
  * team — the lead's round over the shared board.
  *
- * `board` owns the cards; `team` owns the leads round over them. `assign` sends a handoff
+ * `board` owns the cards; `team` owns the lead's round over them. `assign` sends a handoff
  * to a session that is already running and then records the owner — dispatch cannot start a
  * peer's turn, and the page and the docs say so — `offer` broadcasts one to whoever is
- * free, `reclaim` takes one back when its owner is gone or has gone quiet, and `claim`
- * takes one for the lead itself. The card's life after that is `board`'s. Its one command,
- * `/team`, prints the round the board's Team tab draws, without a browser.
+ * free, and `ask` puts a question to one peer. The three are the verbs that reach another
+ * session; a card's own state is `board`'s. Its one command, `/team`, prints the round the
+ * board's Team tab draws, without a browser.
  *
  * Either extension works without the other: `board` is the work list, and `team` is
  * the lead's half of it. The factory only registers; the store opens on first use, so a

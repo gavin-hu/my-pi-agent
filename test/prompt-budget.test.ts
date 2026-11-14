@@ -12,6 +12,7 @@ import { describe, expect, test } from "bun:test";
 import { BoardParams } from "../extensions/board/schema.ts";
 import { BOARD_DESCRIPTION, BOARD_GUIDELINES, BOARD_SNIPPET } from "../extensions/board/tools.ts";
 import { TEAM_DESCRIPTION, TEAM_GUIDELINES, TEAM_SNIPPET } from "../extensions/team/types.ts";
+import { LEAD_ROUND } from "../lib/board/round-text.ts";
 import { TeamParams } from "../extensions/team/schema.ts";
 import { buildBoardContext, MAX_CONTEXT_CHARS, MAX_CONTEXT_CARDS } from "../extensions/board/context.ts";
 import { numberedCard } from "./helpers/fixtures/board.ts";
@@ -94,10 +95,22 @@ describe("the team tool surface", () => {
 		// 3,111 before the verb list stopped being written twice: the `action` parameter repeated
 		// every sentence of the description, and the copy is what drifted, so the parameter now
 		// names the fields each verb reads and the description is the only place that says what a
-		// verb does. The fifth guideline is the lead's duty, the one thing no action doc owned;
-		// 2,686 today, and the ceiling is what stops a surface with no gate before it growing back.
-		expect(teamSurface()).toBeLessThanOrEqual(2_700);
+		// verb does. 2,349 today, after `claim` and `reclaim` left: they were two doors onto `board`'s
+		// store ops, each with a second sentence and a second result line, and the round keeps only
+		// the verbs that reach another session. The ceiling is what stops a surface with no gate
+		// before it growing back, and it only ever falls.
+		expect(teamSurface()).toBeLessThanOrEqual(2_350);
 		expect(TEAM_GUIDELINES.join("\n").length).toBeLessThanOrEqual(720);
+	});
+
+	test("keeps each guideline to a bullet-sized line", () => {
+		// `board`'s guidelines have had this bound since the surface was measured; the round's did
+		// not, so the `ask` bullet grew to 191 characters — longer than any bullet a session is
+		// meant to read on every request.
+		for (const guideline of TEAM_GUIDELINES) {
+			expect(guideline.endsWith(".")).toBe(true);
+			expect(guideline.length).toBeLessThanOrEqual(170);
+		}
 	});
 
 	test("states the lead's duty once, in the tool a lead works in", () => {
@@ -107,6 +120,9 @@ describe("the team tool surface", () => {
 		expect(naming).toHaveLength(1);
 		expect(naming[0]).toContain("`approve`");
 		expect(naming[0]).toContain("`review`");
+		// The round's one line, spliced from `lib/board/round-text.ts`: `/team`'s description says
+		// the same sentence, so the two surfaces that name the round cannot describe it differently.
+		expect(naming[0]).toContain(LEAD_ROUND);
 	});
 });
 
@@ -142,9 +158,13 @@ describe("the board tool surface", () => {
 		// action doc, which buys the difference between clearing a graveyard and archiving what
 		// just shipped. The workflow then moved into the first guideline — both gates, so a
 		// checklist no longer stops at `execute` — paid by 12 characters off the second and the
-		// 14 `approve`'s doc gave up when `team` took the config key: 7,173 today. The gate is the
-		// number; this comment is why.
-		expect(boardSurface()).toBeLessThanOrEqual(7_193);
+		// 14 `approve`'s doc gave up when `team` took the config key. Then two sentences changed
+		// hands: `reclaim`'s gained the lead's authority it had dropped (+23, the sentence `team`
+		// had been stating alone), paid by the two gate clauses `approve` and `review` still
+		// carried and the first guideline already states (-75). 7,121 today, and the ceiling only
+		// ever falls: the correction made the surface smaller, not larger. The gate is the number;
+		// this comment is why.
+		expect(boardSurface()).toBeLessThanOrEqual(7_125);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
 	});
