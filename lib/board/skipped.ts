@@ -7,12 +7,12 @@
  * on the footer's hover title — one body, so the two cannot name different files for the
  * same board.
  *
- * Value-only: no I/O, no clock, no store. `Skip` is the store's own record of a refusal,
+ * Value-only: no I/O, no clock, no store. `Skip` is the reader's own record of a refusal,
  * and it arrives already phrased for a reader (`bad JSON`, `version 3`).
  */
 
 import { plural } from "./round-text.ts";
-import type { Skip } from "./store.ts";
+import type { Skip } from "./read.ts";
 
 /** The files this build refused, named with the reason, or nothing when it read them all. */
 export function skippedText(skipped: readonly Skip[]): string {

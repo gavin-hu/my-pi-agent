@@ -26,10 +26,10 @@ import type { WaitingPage } from "../session-mail.ts";
 import { sameLabel } from "../session-label.ts";
 import { type ActivityFeed, activityOf } from "./activity.ts";
 import { type Card, laneSince, priorityOf, type Priority, signatureOf } from "./card.ts";
-import type { Skip } from "./store.ts";
+import type { Skip } from "./read.ts";
 import { LANE_RULES, LANES, type Lane, type LaneRole } from "./lanes.ts";
 import { DEFAULT_WIP, limitOf, type WipLimits } from "./limits.ts";
-import { blockersOf, indexOf, lanesText, openDependentsOf } from "./links.ts";
+import { blockersOf, dependentIndexOf, type DependentIndex, indexOf, lanesText, openDependentsIn } from "./links.ts";
 import { withLiveOwner } from "./round-text.ts";
 import type { Actor } from "./rules.ts";
 import { buildRound, type RoundSummary } from "./round.ts";
@@ -261,6 +261,9 @@ export function buildView(input: ViewInput): BoardView {
 	// One index for the whole snapshot: a card's lane and its blockers are read from the
 	// same board, so a dependency and its dependent cannot be told two different stories.
 	const index = indexOf(input.cards);
+	// The reverse edges, in the same one pass: every card below asks what waits on it, and a
+	// scan of the board per card is what this snapshot used to cost.
+	const dependents = dependentIndexOf(input.cards);
 	const gone = input.gonePlans ?? new Set<string>();
 	// The name a reader sees is the one the bus holds now: a card records the label its write
 	// knew, and a rename moves the record rather than the card. Resolved here, before anything
@@ -269,7 +272,7 @@ export function buildView(input: ViewInput): BoardView {
 	// One mapped list feeds both halves of the snapshot: the rollup's groups carry the same
 	// card the lane does, so a client reading `round.unassigned` is not handed a card
 	// missing the facts every other card has.
-	const cards = named.map((card) => viewCardOf(card, index, gone.has(card.id)));
+	const cards = named.map((card) => viewCardOf(card, index, dependents, gone.has(card.id)));
 	const limits = input.limits ?? DEFAULT_WIP;
 	const lanes = LANES.map((key) => {
 		const rule = LANE_RULES[key];
@@ -344,18 +347,23 @@ export function buildView(input: ViewInput): BoardView {
  * The card is copied rather than annotated — the caller's cards are the store's, and a
  * derived field written onto one would outlive the read that made it.
  */
-function viewCardOf(card: Card, index: ReadonlyMap<string, Card>, planGone: boolean): ViewCard {
+function viewCardOf(
+	card: Card,
+	index: ReadonlyMap<string, Card>,
+	dependents: DependentIndex,
+	planGone: boolean,
+): ViewCard {
 	// The page draws these two as its own lines, and a reader has to know *which* card: the
 	// lane alone is a state, and the title is the card. The transcript asks for no titles —
 	// a refusal is a row, and the sentence is the point there.
 	const waits = lanesText(blockersOf(card, index), { titles: true });
-	const dependents = lanesText(openDependentsOf(card.id, index), { titles: true });
+	const holding = lanesText(openDependentsIn(dependents, card.id), { titles: true });
 	const since = laneSince(card);
 	return {
 		...card,
 		priority: priorityOf(card),
 		...(waits === "" ? {} : { waits }),
-		...(dependents === "" ? {} : { dependents }),
+		...(holding === "" ? {} : { dependents: holding }),
 		...(since === undefined ? {} : { since }),
 		...(planGone ? { planGone: true as const } : {}),
 	};
