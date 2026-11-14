@@ -51,7 +51,6 @@ ${WEB_COMPONENTS_CSS}
 .review-share__who{flex:0 0 auto;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .review-share__who--bound{color:var(--accent)}
 .review-share__actions{display:flex;flex:0 0 auto;gap:4px}
-.review-share__actions .bf-btn{padding:1px 8px;font-size:var(--fs-xs)}
 .review-share__qr{display:flex;justify-content:center;margin:0 0 var(--space-3)}
 .review-share__qr svg{width:168px;height:168px;background:#fff;border-radius:var(--radius-md);padding:var(--space-1)}
 .bf-review{--review-measure:1012px;--review-rail:26px;--review-gutter:34px;flex:1 1 auto;padding:var(--space-5) var(--space-6) 120px}
@@ -81,9 +80,8 @@ ${WEB_COMPONENTS_CSS}
 /* A reviewer's identity is a fact about them, not one of the page's actions: the name control
    wears the quiet chrome the toolbar gives a control that is not the page's own. */
 .review-identity{display:flex;align-items:center;gap:var(--space-2)}
-.review-identity .bf-btn{border-color:transparent;color:var(--muted);padding:0;font-size:var(--fs-xs)}
-.review-identity .bf-btn:hover{border-color:transparent;color:var(--accent)}
-.review-identity .bf-btn:disabled{opacity:1;color:var(--text)}
+.review-identity .bf-btn--ghost{font-size:var(--fs-xs);color:var(--muted)}
+.review-identity .bf-btn--ghost:disabled{opacity:1;color:var(--text)}
 /* Review panel: the reader's finish block, the facts that role is owed, the view switch, the
    section outline, then the keys. */
 .bf-app__body--single{grid-template-columns:minmax(0,1fr)}
@@ -145,7 +143,6 @@ ${WEB_COMPONENTS_CSS}
 .bf-comment--resolved{opacity:.72}
 .bf-comment__resolved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--success)}
 .bf-comment__actions{display:flex;gap:4px}
-.bf-comment__actions .bf-btn{padding:1px 8px;font-size:var(--fs-xs)}
 /* A quote is read at the record's own line height, not the document's: it is one line of context. */
 .bf-comment__body{line-height:var(--lh-snug)}
 .bf-composer{margin:0}
@@ -284,7 +281,7 @@ export function renderReviewPage(data: ReviewPageData): string {
 	const identity =
 		data.role === "reviewer"
 			? `
-<div class="review-identity"><button type="button" class="bf-btn" id="reviewer-name" hidden></button></div>`
+<div class="review-identity"><button type="button" class="bf-btn bf-btn--ghost" id="reviewer-name" hidden></button></div>`
 			: "";
 	const outlinePanel = hasOutline
 		? `<details class="bf-app__sidebar review-outline" open>
