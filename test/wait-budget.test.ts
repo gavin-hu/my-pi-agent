@@ -178,6 +178,50 @@ export function budgetProblems(source: Source): string[] {
 	return found;
 }
 
+/**
+ * The fixed sleeps a suite may still take, and why.
+ *
+ * A fixed wait is not a budget: no floor makes it safe, because what it waits for may not have
+ * happened yet — a case that sleeps is asserting that the machine was fast enough, which is how the
+ * board suites reddened on a loaded four-worker gate. The exception is a case whose assertion *is*
+ * an absence of change over an interval: there is no condition to wait for, so the sleep is the
+ * test. Each entry names the call's line, and a stale entry fails — an allowlist nobody re-reads is
+ * how an exception outlives its reason.
+ */
+const FIXED_SLEEP_EXCEPTIONS = [
+	{
+		at: "extensions/board/view/behaviour.test.ts:700",
+		why: "the case asserts the agents column does not repaint as time passes — an absence of change, which no condition can wait for",
+	},
+];
+
+/** The message one fixed sleep reports. */
+function fixedSleepOffence(path: string, line: number): string {
+	return `${path}:${line}: a case waits on a fixed sleep; wait on the condition the assertion reads — a sleep asserts that this machine was fast enough, which is what reddens a gate under load`;
+}
+
+/** Every `.waitForTimeout(...)` a test file takes, except the ones {@link FIXED_SLEEP_EXCEPTIONS} names. */
+export function fixedSleepProblems(source: Source): string[] {
+	const file = ts.createSourceFile(source.path, source.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+	const found: string[] = [];
+	const visit = (node: ts.Node): void => {
+		if (
+			ts.isCallExpression(node) &&
+			ts.isPropertyAccessExpression(node.expression) &&
+			node.expression.name.text === "waitForTimeout"
+		) {
+			const { line } = file.getLineAndCharacterOfPosition(node.expression.getStart(file));
+			const at = `${source.path}:${line + 1}`;
+			if (!FIXED_SLEEP_EXCEPTIONS.some((entry) => entry.at === at)) {
+				found.push(fixedSleepOffence(source.path, line + 1));
+			}
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(file);
+	return found;
+}
+
 /** Every `*.test.ts` the guard reads, as repo-relative posix paths. */
 function testFiles(): string[] {
 	return TEST_DIRS.flatMap((dir) => walkFiles(join(repo, dir)))
@@ -275,6 +319,46 @@ describe("hook budgets", () => {
 				hook,
 			).toEqual([]);
 		}
+	});
+});
+
+describe("fixed sleeps", () => {
+	test("no test waits on a fixed sleep but the one whose assertion is time", () => {
+		const files = testFiles();
+		// A walk that found nothing would make the scan below vacuous.
+		expect(files.length).toBeGreaterThan(0);
+		const offenders = files.flatMap((path) =>
+			fixedSleepProblems({ path, text: readFileSync(join(repo, path), "utf-8") }),
+		);
+		expect(offenders).toEqual([]);
+	});
+
+	test("every exception still names a sleep that is there", () => {
+		// A line number is a promise this list has to keep: when it moves, the entry is stale and
+		// the reason it holds is no longer the reason the code has.
+		const stale = FIXED_SLEEP_EXCEPTIONS.filter((entry) => {
+			const at = entry.at.lastIndexOf(":");
+			const path = entry.at.slice(0, at);
+			const line = Number(entry.at.slice(at + 1));
+			const text = readFileSync(join(repo, path), "utf-8").split("\n")[line - 1] ?? "";
+			return !text.includes("waitForTimeout");
+		}).map((entry) => `${entry.at}: no waitForTimeout on that line any more`);
+		expect(stale).toEqual([]);
+	});
+
+	test("the exception list has no room to grow", () => {
+		expect(FIXED_SLEEP_EXCEPTIONS).toHaveLength(1);
+	});
+
+	test("names a fixed sleep with its line, and lets a condition wait through", () => {
+		const text = [
+			'test("x", async () => {',
+			"\tawait page.waitForTimeout(100);",
+			"\tawait drawn(page);",
+			"\tawait waitFor(async () => ready(), 5000);",
+			"});",
+		].join("\n");
+		expect(fixedSleepProblems({ path: "example.test.ts", text })).toEqual([fixedSleepOffence("example.test.ts", 2)]);
 	});
 });
 

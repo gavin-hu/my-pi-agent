@@ -29,6 +29,7 @@ import {
 	BOARD_CHROME as CHROME,
 	BOARD_PAINT_MS as PAINT_MS,
 	type BoardBrowser,
+	drawn,
 	openBoardBrowser,
 } from "../../../test/helpers/board-browser.ts";
 import { serveBoardPage } from "../../../test/helpers/board-page.ts";
@@ -208,7 +209,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 	test("switches lanes from the tab rail when the board is one column", async () => {
 		const page = await openPage();
 		await page.setViewportSize({ width: 860, height: 900 });
-		await page.waitForTimeout(200);
+		await drawn(page);
 		expect(await page.isVisible("#board-picker")).toBe(true);
 		// The rail is one button per lane, and it names the lane it is showing through aria-pressed; the other lanes are out of the document's flow:
 		// one column, one lane.
@@ -490,7 +491,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// 320px: the five lane buttons wrap, so none of them — least of all the pressed one — is out of reach without a sideways scroll nobody can
 		// see. The picker is the Board tab's, so this stays on it rather than leaving the tab switch for a tab that has no picker.
 		await page.setViewportSize({ width: 320, height: 720 });
-		await page.waitForTimeout(200);
+		await drawn(page);
 		const picker = await page.evaluate(() => {
 			const box = (
 				globalThis as unknown as { document: { getElementById(id: string): ElementLike | null } }

@@ -21,8 +21,10 @@ import {
 	BOARD_CHROME as CHROME,
 	BOARD_PAINT_MS as PAINT_MS,
 	type BoardBrowser,
+	drawn,
 	openBoardBrowser,
 } from "../../../test/helpers/board-browser.ts";
+import { waitFor } from "../../../test/helpers/process.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CSS } from "./styles.ts";
 
@@ -67,8 +69,8 @@ describe("the Team tab's one paper", () => {
 /** A fixed clock: the page prints ages, and a test that read the wall clock would drift. */
 const clock = makeClock(1_760_000_000_000);
 
-/** How long one case may take: a boot, a reload, and a walk of the tab's boxes. */
-const CASE_MS = 30_000;
+/** How long this suite's hooks may take: a boot, and a teardown that closes the browser. */
+const HOOK_MS = 30_000;
 
 /** The roster the tab draws: two rows, so the agents column has more than a heading. */
 const sessions = (now: number): RosterSession[] => [
@@ -214,11 +216,11 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 			roster: sessions,
 			display: { repo: "my-pi-agent", root: "/Users/someone/my-pi-agent", where: "~/.pi/agent/board/team-ink" },
 		});
-	}, CASE_MS);
+	}, HOOK_MS);
 
 	afterAll(async () => {
 		await board?.close();
-	}, CASE_MS);
+	}, HOOK_MS);
 
 	/** One unclaimed backlog card, written by the board's lead the way a peer's write lands. */
 	const unclaimed = async (title: string, index: number): Promise<void> => {
@@ -240,6 +242,10 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		);
 	}
 
+	/** How many rows the unclaimed band draws: the count a fold has to answer for. */
+	const rowsOf = async (page: Page): Promise<number | undefined> =>
+		(await bands(page)).find((band) => band.label === "Unclaimed")?.rows;
+
 	/** How far a band's head sits below the pane head's box: the pin offset, read as drawn. */
 	const headGap = (page: Page) =>
 		page.evaluate(() => {
@@ -257,255 +263,223 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 			};
 		});
 
-	test(
-		"folds a band at five rows, and says what all its rows share once",
-		async () => {
-			const page = await board.reuse();
-			await page.click("#tab-team");
-			await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
-			// Ten more unclaimed cards arrive the way a peer's write does, so the band is past its fold.
-			for (let index = 0; index < 10; index++) await unclaimed(`Triage item ${index + 1}`, index);
-			await page.waitForSelector('#board-team [data-fold="team-band-claim"]', { timeout: PAINT_MS });
-			const closed = (await bands(page)).find((band) => band.label === "Unclaimed");
-			// The count in the head is what says the rest exists, and the rows are five.
-			expect(closed?.rows).toBe(5);
-			expect(closed?.fold).toBe("+7 more");
-			// The sentence every row in the band shared is printed once, in the band's head.
-			expect(closed?.said).toBe("nobody holds it");
-			const repeated = await page.$$eval(
-				"#board-team .board-queue__why",
-				(nodes) =>
-					Array.from(nodes as ArrayLike<ElementLike>).filter(
-						(node) => (node.textContent ?? "").trim() === "nobody holds it",
-					).length,
-			);
-			expect(repeated).toBe(0);
-			// A row with no line of its own is still described: it points at the head that said it. The
-			// read is the claim band's own, because the tab draws a signature band above it.
-			const described = await page.evaluate(() => {
-				const document = (globalThis as unknown as { document: Doc }).document;
-				type Node = ElementLike & {
-					querySelector(selector: string): ElementLike | null;
-				};
-				const band = Array.from(document.querySelectorAll("#board-team .board-queue__band"))
-					.map((node) => node as unknown as Node)
-					.find((node) => (node.querySelector("span")?.textContent ?? "") === "Unclaimed");
-				const title = band?.querySelector(".board-queue__title .bf-row__title") ?? null;
-				const id = title?.getAttribute("aria-describedby") ?? "";
-				return { id, said: document.getElementById(id)?.textContent ?? "" };
+	test("folds a band at five rows, and says what all its rows share once", async () => {
+		const page = await board.reuse();
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
+		// Ten more unclaimed cards arrive the way a peer's write does, so the band is past its fold.
+		for (let index = 0; index < 10; index++) await unclaimed(`Triage item ${index + 1}`, index);
+		await page.waitForSelector('#board-team [data-fold="team-band-claim"]', { timeout: PAINT_MS });
+		const closed = (await bands(page)).find((band) => band.label === "Unclaimed");
+		// The count in the head is what says the rest exists, and the rows are five.
+		expect(closed?.rows).toBe(5);
+		expect(closed?.fold).toBe("+7 more");
+		// The sentence every row in the band shared is printed once, in the band's head.
+		expect(closed?.said).toBe("nobody holds it");
+		const repeated = await page.$$eval(
+			"#board-team .board-queue__why",
+			(nodes) =>
+				Array.from(nodes as ArrayLike<ElementLike>).filter(
+					(node) => (node.textContent ?? "").trim() === "nobody holds it",
+				).length,
+		);
+		expect(repeated).toBe(0);
+		// A row with no line of its own is still described: it points at the head that said it. The
+		// read is the claim band's own, because the tab draws a signature band above it.
+		const described = await page.evaluate(() => {
+			const document = (globalThis as unknown as { document: Doc }).document;
+			type Node = ElementLike & {
+				querySelector(selector: string): ElementLike | null;
+			};
+			const band = Array.from(document.querySelectorAll("#board-team .board-queue__band"))
+				.map((node) => node as unknown as Node)
+				.find((node) => (node.querySelector("span")?.textContent ?? "") === "Unclaimed");
+			const title = band?.querySelector(".board-queue__title .bf-row__title") ?? null;
+			const id = title?.getAttribute("aria-describedby") ?? "";
+			return { id, said: document.getElementById(id)?.textContent ?? "" };
+		});
+		expect(described.id).toBe("team-said-claim");
+		expect(described.said).toBe("nobody holds it");
+		// One press draws the rest and one more folds them back: nothing is cut, only folded.
+		await page.click('#board-team [data-fold="team-band-claim"]');
+		await waitFor(async () => (await rowsOf(page)) === 12, PAINT_MS);
+		const open = (await bands(page)).find((band) => band.label === "Unclaimed");
+		expect(open?.rows).toBe(12);
+		expect(open?.fold).toBe("show fewer");
+		await page.click('#board-team [data-fold="team-band-claim"]');
+		await waitFor(async () => (await rowsOf(page)) === 5, PAINT_MS);
+		expect((await bands(page)).find((band) => band.label === "Unclaimed")?.rows).toBe(5);
+	});
+
+	test("pins a band's head under the pane's, and keeps it there while the rows go by", async () => {
+		const page = await board.reuse();
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .board-queue__band .bf-lane__head", { timeout: PAINT_MS });
+		const before = await headGap(page);
+		await page.evaluate(() => {
+			const main = (globalThis as unknown as { document: Doc }).document.querySelector(".bf-app__main");
+			if (main !== null) (main as unknown as { scrollTop: number }).scrollTop = 400;
+		});
+		await drawn(page);
+		const after = await headGap(page);
+		// The band's head starts against the pane head's rule — the pane's own gap apart — and stays
+		// exactly there once the column has scrolled, so a reader three rows in still knows whose
+		// move it is: the head did not move, and the gap did not open.
+		expect(before.gap).toBeGreaterThanOrEqual(0);
+		expect(before.gap).toBeLessThanOrEqual(8);
+		expect(after.gap).toBe(before.gap);
+		expect(after.band).toBe(before.band);
+	});
+
+	test("separates its rows with space, and draws no rule on one", async () => {
+		const page = await board.reuse();
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .bf-section__cap", { timeout: PAINT_MS });
+		await drawn(page);
+		const { bottoms, lefts, rows } = await census(page);
+		// The families this fixture fills: two agents, a decision (the executing card has not been
+		// spot-checked), its swimlane row, and the history the seeded moves left behind.
+		for (const family of ["board-agent", "board-queue__row", "board-row", "board-event"]) {
+			expect(rows[family] ?? 0, family).toBeGreaterThan(0);
+		}
+		expect(bottoms.filter((name) => name.includes(".bf-row"))).toEqual([]);
+		// A tag is a chip in a sentence here, not a path in a list: no bar, no rule.
+		expect(lefts).toEqual([]);
+	});
+
+	test("keeps one rule for each caption, and no more", async () => {
+		const page = await board.reuse();
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .bf-section__cap", { timeout: PAINT_MS });
+		await drawn(page);
+		const { bottoms } = await census(page);
+		// Three columns and three panes: the tab's six landmarks, and the only lines it draws.
+		expect(bottoms).toHaveLength(6);
+		expect(bottoms.filter((name) => !name.includes(".bf-section__cap"))).toEqual([]);
+	});
+
+	test("draws the board's lane head as its own caption, so a tab switch moves nothing", async () => {
+		const page = await board.reuse();
+		// A reload reopens the tab the URL names, so the board half is asked for rather than assumed.
+		await page.click("#tab-board");
+		await page.waitForSelector(".board-lane .board-row", { timeout: PAINT_MS });
+		await drawn(page);
+		const lanes = await heads(page, ".board-lane .bf-lane__head");
+		expect(lanes).toHaveLength(5);
+		const laneBelow = await below(page, '.board-lane[data-lane="backlog"] .bf-lane__head');
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .bf-section__cap", { timeout: PAINT_MS });
+		await drawn(page);
+		const captions = await heads(page, "#board-team .bf-section__cap");
+		const captionBelow = await below(page, '#board-team .board-team__column[data-column="agents"] .bf-section__cap');
+		// The caption's 8px is the head's own margin, not a re-tuning of the column: the sections
+		// under it still sit on the tab's 12px, so nothing else on the page moved.
+		const sectionsBelow = await below(page, '#board-team .bf-section[data-pane="waiting"]');
+		// One shape, so a reader toggling tabs cannot see the row move or darken: each tab's own
+		// heads agree with each other, and the captions agree with the lane heads they answer to.
+		expect(new Set(lanes.map((head) => JSON.stringify(head))).size, "the lane heads disagree").toBe(1);
+		expect(new Set(captions.map((head) => JSON.stringify(head))).size, "the captions disagree").toBe(1);
+		expect(captions[0]).toEqual(lanes[0]);
+		// The mark is drawn, not reserved: an empty span still takes the gap on its right, so the
+		// word started after a hole nothing had drawn in it.
+		expect(lanes[0]?.mark).toBe("\u25a0");
+		expect(lanes[0]?.markWidth).toBeGreaterThan(4);
+		// The first card sits on the board's own 8px below the rule, not the column's 12.
+		expect(laneBelow).toBe(8);
+		expect(captionBelow).toBe(laneBelow);
+		expect(sectionsBelow).toBe(12);
+	});
+
+	test("leaves one card one ground: the swimlane's, and no paper of the queue's own", async () => {
+		const page = await board.reuse();
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
+		await drawn(page);
+		// The ground is not composited, so two elements on one token compute one string: the paint
+		// is read, not inferred from the stylesheet.
+		const paint = await page.evaluate(() => {
+			const document = (globalThis as unknown as { document: Doc }).document;
+			const computed = (
+				globalThis as unknown as {
+					getComputedStyle(node: ElementLike): { backgroundColor: string };
+				}
+			).getComputedStyle;
+			const read = (node: ElementLike) => ({
+				card: node.getAttribute("data-card"),
+				paper: computed(node).backgroundColor,
 			});
-			expect(described.id).toBe("team-said-claim");
-			expect(described.said).toBe("nobody holds it");
-			// One press draws the rest and one more folds them back: nothing is cut, only folded.
-			await page.click('#board-team [data-fold="team-band-claim"]');
-			await page.waitForTimeout(100);
-			const open = (await bands(page)).find((band) => band.label === "Unclaimed");
-			expect(open?.rows).toBe(12);
-			expect(open?.fold).toBe("show fewer");
-			await page.click('#board-team [data-fold="team-band-claim"]');
-			await page.waitForTimeout(100);
-			expect((await bands(page)).find((band) => band.label === "Unclaimed")?.rows).toBe(5);
-		},
-		CASE_MS,
-	);
+			const rows = Array.from(document.querySelectorAll("#board-team .board-queue__row"), read);
+			const cards = Array.from(document.querySelectorAll("#board-team .bf-lane .board-row"), read);
+			// The card this fixture puts in both places: the executing one, which nobody has
+			// spot-checked, so the queue and its swimlane draw the same id.
+			const shared = rows.find((row) => cards.some((card) => card.card === row.card)) ?? null;
+			const pill = document.querySelector("#board-team .board-queue__row .bf-tag");
+			return {
+				row: shared,
+				card: shared === null ? null : (cards.find((card) => card.card === shared.card) ?? null),
+				pill: { text: pill?.textContent ?? "", classes: (pill as unknown as { className: string })?.className ?? "" },
+			};
+		});
+		expect(paint.card).not.toBeNull();
+		// One card, one ground: the queue's row is transparent, so the only paper a card has on
+		// this tab is the lane's.
+		expect(paint.row?.paper).toBe("rgba(0, 0, 0, 0)");
+		expect(paint.card?.paper).not.toBe(paint.row?.paper);
+		// The pill is what says why, in a word and a tone: the row has no paper left to say it.
+		expect(paint.pill.text).toBe("needs review");
+		expect(paint.pill.classes).toContain("bf-tone--warn");
+	});
 
-	test(
-		"pins a band's head under the pane's, and keeps it there while the rows go by",
-		async () => {
-			const page = await board.reuse();
-			await page.click("#tab-team");
-			await page.waitForSelector("#board-team .board-queue__band .bf-lane__head", { timeout: PAINT_MS });
-			const before = await headGap(page);
-			await page.evaluate(() => {
-				const main = (globalThis as unknown as { document: Doc }).document.querySelector(".bf-app__main");
-				if (main !== null) (main as unknown as { scrollTop: number }).scrollTop = 400;
+	test("takes a column per band on a wide window, and gives a phone the whole title", async () => {
+		const page = await board.reuse();
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .board-queue__band", { timeout: PAINT_MS });
+		// How many different lines the bands start on: one is a row of columns, three is a stack.
+		const lines = () =>
+			page.$$eval("#board-team .board-queue__band", (nodes) => {
+				const tops = Array.from(nodes as ArrayLike<ElementLike & { getBoundingClientRect(): { top: number } }>).map(
+					(node) => Math.round(node.getBoundingClientRect().top / 100),
+				);
+				return [...new Set(tops)].length;
 			});
-			await page.waitForTimeout(100);
-			const after = await headGap(page);
-			// The band's head starts against the pane head's rule — the pane's own gap apart — and stays
-			// exactly there once the column has scrolled, so a reader three rows in still knows whose
-			// move it is: the head did not move, and the gap did not open.
-			expect(before.gap).toBeGreaterThanOrEqual(0);
-			expect(before.gap).toBeLessThanOrEqual(8);
-			expect(after.gap).toBe(before.gap);
-			expect(after.band).toBe(before.band);
-		},
-		CASE_MS,
-	);
+		// A 2K window has the width for a column of asks per band, so the queue is three lines
+		// tall instead of nine and no row is a metre wide.
+		const bands = await page.$$eval("#board-team .board-queue__band", (nodes) => nodes.length);
+		expect(bands).toBeGreaterThan(1);
+		await page.setViewportSize({ width: 2560, height: 900 });
+		await drawn(page);
+		expect(await lines()).toBe(1);
+		// A phone stacks them, and the title stops being one elided line: it takes the row's whole
+		// width and wraps, which is the one thing a 375px row can still do for a long name.
+		await page.setViewportSize({ width: 420, height: 900 });
+		await drawn(page);
+		expect(await lines()).toBe(bands);
+		const cut = await page.$$eval(
+			"#board-team .board-queue__row .bf-row__title",
+			(nodes) =>
+				Array.from(nodes as ArrayLike<ElementLike & { scrollWidth: number; clientWidth: number }>).filter(
+					(node) => node.scrollWidth > node.clientWidth + 1,
+				).length,
+		);
+		expect(cut).toBe(0);
+		await page.setViewportSize({ width: 1280, height: 900 });
+	});
 
-	test(
-		"separates its rows with space, and draws no rule on one",
-		async () => {
-			const page = await board.reuse();
-			await page.click("#tab-team");
-			await page.waitForSelector("#board-team .bf-section__cap", { timeout: PAINT_MS });
-			await page.waitForTimeout(100);
-			const { bottoms, lefts, rows } = await census(page);
-			// The families this fixture fills: two agents, a decision (the executing card has not been
-			// spot-checked), its swimlane row, and the history the seeded moves left behind.
-			for (const family of ["board-agent", "board-queue__row", "board-row", "board-event"]) {
-				expect(rows[family] ?? 0, family).toBeGreaterThan(0);
-			}
-			expect(bottoms.filter((name) => name.includes(".bf-row"))).toEqual([]);
-			// A tag is a chip in a sentence here, not a path in a list: no bar, no rule.
-			expect(lefts).toEqual([]);
-		},
-		CASE_MS,
-	);
-
-	test(
-		"keeps one rule for each caption, and no more",
-		async () => {
-			const page = await board.reuse();
-			await page.click("#tab-team");
-			await page.waitForSelector("#board-team .bf-section__cap", { timeout: PAINT_MS });
-			await page.waitForTimeout(100);
-			const { bottoms } = await census(page);
-			// Three columns and three panes: the tab's six landmarks, and the only lines it draws.
-			expect(bottoms).toHaveLength(6);
-			expect(bottoms.filter((name) => !name.includes(".bf-section__cap"))).toEqual([]);
-		},
-		CASE_MS,
-	);
-
-	test(
-		"draws the board's lane head as its own caption, so a tab switch moves nothing",
-		async () => {
-			const page = await board.reuse();
-			// A reload reopens the tab the URL names, so the board half is asked for rather than assumed.
-			await page.click("#tab-board");
-			await page.waitForSelector(".board-lane .board-row", { timeout: PAINT_MS });
-			await page.waitForTimeout(100);
-			const lanes = await heads(page, ".board-lane .bf-lane__head");
-			expect(lanes).toHaveLength(5);
-			const laneBelow = await below(page, '.board-lane[data-lane="backlog"] .bf-lane__head');
-			await page.click("#tab-team");
-			await page.waitForSelector("#board-team .bf-section__cap", { timeout: PAINT_MS });
-			await page.waitForTimeout(100);
-			const captions = await heads(page, "#board-team .bf-section__cap");
-			const captionBelow = await below(page, '#board-team .board-team__column[data-column="agents"] .bf-section__cap');
-			// The caption's 8px is the head's own margin, not a re-tuning of the column: the sections
-			// under it still sit on the tab's 12px, so nothing else on the page moved.
-			const sectionsBelow = await below(page, '#board-team .bf-section[data-pane="waiting"]');
-			// One shape, so a reader toggling tabs cannot see the row move or darken: each tab's own
-			// heads agree with each other, and the captions agree with the lane heads they answer to.
-			expect(new Set(lanes.map((head) => JSON.stringify(head))).size, "the lane heads disagree").toBe(1);
-			expect(new Set(captions.map((head) => JSON.stringify(head))).size, "the captions disagree").toBe(1);
-			expect(captions[0]).toEqual(lanes[0]);
-			// The mark is drawn, not reserved: an empty span still takes the gap on its right, so the
-			// word started after a hole nothing had drawn in it.
-			expect(lanes[0]?.mark).toBe("\u25a0");
-			expect(lanes[0]?.markWidth).toBeGreaterThan(4);
-			// The first card sits on the board's own 8px below the rule, not the column's 12.
-			expect(laneBelow).toBe(8);
-			expect(captionBelow).toBe(laneBelow);
-			expect(sectionsBelow).toBe(12);
-		},
-		CASE_MS,
-	);
-
-	test(
-		"leaves one card one ground: the swimlane's, and no paper of the queue's own",
-		async () => {
-			const page = await board.reuse();
-			await page.click("#tab-team");
-			await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
-			await page.waitForTimeout(100);
-			// The ground is not composited, so two elements on one token compute one string: the paint
-			// is read, not inferred from the stylesheet.
-			const paint = await page.evaluate(() => {
-				const document = (globalThis as unknown as { document: Doc }).document;
-				const computed = (
-					globalThis as unknown as {
-						getComputedStyle(node: ElementLike): { backgroundColor: string };
-					}
-				).getComputedStyle;
-				const read = (node: ElementLike) => ({
-					card: node.getAttribute("data-card"),
-					paper: computed(node).backgroundColor,
-				});
-				const rows = Array.from(document.querySelectorAll("#board-team .board-queue__row"), read);
-				const cards = Array.from(document.querySelectorAll("#board-team .bf-lane .board-row"), read);
-				// The card this fixture puts in both places: the executing one, which nobody has
-				// spot-checked, so the queue and its swimlane draw the same id.
-				const shared = rows.find((row) => cards.some((card) => card.card === row.card)) ?? null;
-				const pill = document.querySelector("#board-team .board-queue__row .bf-tag");
-				return {
-					row: shared,
-					card: shared === null ? null : (cards.find((card) => card.card === shared.card) ?? null),
-					pill: { text: pill?.textContent ?? "", classes: (pill as unknown as { className: string })?.className ?? "" },
-				};
-			});
-			expect(paint.card).not.toBeNull();
-			// One card, one ground: the queue's row is transparent, so the only paper a card has on
-			// this tab is the lane's.
-			expect(paint.row?.paper).toBe("rgba(0, 0, 0, 0)");
-			expect(paint.card?.paper).not.toBe(paint.row?.paper);
-			// The pill is what says why, in a word and a tone: the row has no paper left to say it.
-			expect(paint.pill.text).toBe("needs review");
-			expect(paint.pill.classes).toContain("bf-tone--warn");
-		},
-		CASE_MS,
-	);
-
-	test(
-		"takes a column per band on a wide window, and gives a phone the whole title",
-		async () => {
-			const page = await board.reuse();
-			await page.click("#tab-team");
-			await page.waitForSelector("#board-team .board-queue__band", { timeout: PAINT_MS });
-			// How many different lines the bands start on: one is a row of columns, three is a stack.
-			const lines = () =>
-				page.$$eval("#board-team .board-queue__band", (nodes) => {
-					const tops = Array.from(nodes as ArrayLike<ElementLike & { getBoundingClientRect(): { top: number } }>).map(
-						(node) => Math.round(node.getBoundingClientRect().top / 100),
-					);
-					return [...new Set(tops)].length;
-				});
-			// A 2K window has the width for a column of asks per band, so the queue is three lines
-			// tall instead of nine and no row is a metre wide.
-			const bands = await page.$$eval("#board-team .board-queue__band", (nodes) => nodes.length);
-			expect(bands).toBeGreaterThan(1);
-			await page.setViewportSize({ width: 2560, height: 900 });
-			await page.waitForTimeout(100);
-			expect(await lines()).toBe(1);
-			// A phone stacks them, and the title stops being one elided line: it takes the row's whole
-			// width and wraps, which is the one thing a 375px row can still do for a long name.
-			await page.setViewportSize({ width: 420, height: 900 });
-			await page.waitForTimeout(100);
-			expect(await lines()).toBe(bands);
-			const cut = await page.$$eval(
-				"#board-team .board-queue__row .bf-row__title",
-				(nodes) =>
-					Array.from(nodes as ArrayLike<ElementLike & { scrollWidth: number; clientWidth: number }>).filter(
-						(node) => node.scrollWidth > node.clientWidth + 1,
-					).length,
-			);
-			expect(cut).toBe(0);
-			await page.setViewportSize({ width: 1280, height: 900 });
-		},
-		CASE_MS,
-	);
-
-	test(
-		"draws one row for a session that renamed after claiming a card",
-		async () => {
-			const page = await board.reuse();
-			await page.click("#tab-team");
-			await page.waitForSelector("#board-team .board-agent", { timeout: PAINT_MS });
-			await page.waitForTimeout(100);
-			const { rows } = await census(page);
-			// Three sessions, three rows. The fixture's executing card is owned by `s-core`, whose record
-			// answers to `billing-core-renamed`; a card that kept the label its claim wrote would draw a
-			// fourth row here — that dead name, as an owner nothing answers to.
-			expect(rows["board-agent"]).toBe(3);
-			const labels = await page.$$eval("#board-team .board-agent", (nodes) =>
-				Array.from(nodes as ArrayLike<ElementLike>).map(
-					(node) => (node as unknown as { textContent: string | null }).textContent ?? "",
-				),
-			);
-			expect(labels.filter((text) => text.includes("billing-core-renamed"))).toHaveLength(1);
-		},
-		CASE_MS,
-	);
+	test("draws one row for a session that renamed after claiming a card", async () => {
+		const page = await board.reuse();
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .board-agent", { timeout: PAINT_MS });
+		await drawn(page);
+		const { rows } = await census(page);
+		// Three sessions, three rows. The fixture's executing card is owned by `s-core`, whose record
+		// answers to `billing-core-renamed`; a card that kept the label its claim wrote would draw a
+		// fourth row here — that dead name, as an owner nothing answers to.
+		expect(rows["board-agent"]).toBe(3);
+		const labels = await page.$$eval("#board-team .board-agent", (nodes) =>
+			Array.from(nodes as ArrayLike<ElementLike>).map(
+				(node) => (node as unknown as { textContent: string | null }).textContent ?? "",
+			),
+		);
+		expect(labels.filter((text) => text.includes("billing-core-renamed"))).toHaveLength(1);
+	});
 });

@@ -215,15 +215,19 @@ export async function settle(ms = 0): Promise<void> {
  * one place that reads it.
  *
  * Prefer `settle` plus an assertion when the completion point is known.
+ *
+ * The predicate may be async, so a case that has to read the thing it waits on — a page drawn in
+ * a browser, a file another process writes — polls it through this clock instead of sleeping for a
+ * guessed interval. `String(predicate)` in the report is the source, so the wait still names itself.
  */
-export async function waitFor(predicate: () => boolean, budgetMs = 2000): Promise<void> {
+export async function waitFor(predicate: () => boolean | Promise<boolean>, budgetMs = 2000): Promise<void> {
 	// Taken here, not at the deadline: past the first `await` the async stack is
 	// truncated to this helper, and a report that names no caller is the failure
 	// this one exists to prevent.
 	const stack = new Error("waitFor timeout").stack ?? "";
 	const started = Date.now();
 	const deadline = started + Math.max(1, budgetMs);
-	while (!predicate()) {
+	while (!(await predicate())) {
 		const now = Date.now();
 		if (now >= deadline) {
 			const report = await waitTimeoutMessage({

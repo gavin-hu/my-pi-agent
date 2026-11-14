@@ -24,6 +24,7 @@ import {
 	BOARD_CHROME as CHROME,
 	BOARD_PAINT_MS as PAINT_MS,
 	type BoardBrowser,
+	drawn,
 	openBoardBrowser,
 } from "../../../test/helpers/board-browser.ts";
 
@@ -142,7 +143,7 @@ describe.skipIf(CHROME === undefined)("the card face", () => {
 			// The row clips, so nothing may need more room than the card gives it — at either width.
 			expect(clipped(await faces(page))).toEqual([]);
 			await page.setViewportSize({ width: 860, height: 900 });
-			await page.waitForTimeout(50);
+			await drawn(page);
 			expect(clipped(await faces(page))).toEqual([]);
 		},
 		CASE_MS,
