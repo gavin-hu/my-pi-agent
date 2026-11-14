@@ -18,6 +18,10 @@ export const WEB_CHROME_JS = String.raw`  // Set once the page has been told it 
 
   function setStatus(text, kind) {
     if (statusEl) paintStatus(statusEl, text, kind);
+    // The header is where a reader looks for the state, not a place to announce every repaint
+    // (lib/web/README.md): the sentence a screen reader hears is its own quiet node, so the line
+    // can stay a line that changes colour without interrupting the reader on every frame.
+    if (announceEl) announceEl.textContent = text;
   }
 
   // Reloading is the one action a stale page has: nothing here is unsaved, so it is a
@@ -45,7 +49,9 @@ export const WEB_CHROME_JS = String.raw`  // Set once the page has been told it 
       // Settled by the user, not by a dropped stream: never flash offline.
       label = "closed";
     } else if (liveState === "live") {
-      label = "connected";
+      // The board's word for the same state, because a reader who has seen one served page
+      // has seen them all: the counts after it are this page's own facts.
+      label = "live";
       tone = "success";
     } else if (liveState === "reconnecting") {
       // It was up and the connection went. The browser is retrying, so this is not yet a page

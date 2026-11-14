@@ -216,8 +216,10 @@ describe("the page's chrome", () => {
 		expect(html).toContain('<div class="bf-app__ctl review-actions">');
 		expect(html).toContain('<footer class="bf-app__foot">');
 		expect(html).toContain("plan ~/.pi/agent/plans/repo-key/add-rate-limiting.md");
-		// The status sentence stays, in the facts zone, as the page's own live region.
-		expect(html).toContain('<span class="bf-status" id="status" role="status" aria-live="polite"></span>');
+		// The header line is painted, never announced: a reader looks here for the state, and the
+		// sentence a screen reader hears is its own quiet node, as browse's copy status is.
+		expect(html).toContain('<span class="bf-status" id="status"></span>');
+		expect(html).toContain('<p class="sr-only" id="review-announce" role="status" aria-live="polite"></p>');
 	});
 
 	test("keeps the control bar inside the header, as the kit's second row", () => {

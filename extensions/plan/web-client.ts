@@ -97,6 +97,8 @@ ${CLIENT_BASE_JS}
 
   var planEl = document.getElementById("plan");
   var statusEl = document.getElementById("status");
+  // The sentence a screen reader hears: the visible line is painted, never announced.
+  var announceEl = document.getElementById("review-announce");
   var stateEl = document.getElementById("review-state");
   var approveButton = document.getElementById("approve");
   var saveButton = document.getElementById("save");

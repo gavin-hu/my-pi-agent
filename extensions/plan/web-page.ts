@@ -108,7 +108,7 @@ ${WEB_COMPONENTS_CSS}
 .review-nav ul{list-style:none;margin:0;padding:0}
 .review-nav a{display:flex;align-items:baseline;gap:var(--space-2);padding:4px 8px;border-radius:var(--radius-sm);color:var(--muted);font-size:var(--fs-sm);line-height:var(--lh-snug)}
 .review-nav a:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none}
-.review-nav a[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:var(--fw-semibold)}
+.review-nav a[aria-current="true"]{background:var(--accent-soft);color:var(--text);font-weight:var(--fw-semibold)}
 .review-nav__link{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-nav__count{flex:0 0 auto;min-width:18px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--accent);font:var(--fs-xs)/18px var(--font-ui);text-align:center}
 .review-changed{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent)}
@@ -346,7 +346,8 @@ ${pageSubject({ id: "plan-title", label: data.title, title: data.path })}
 <div class="bf-app__facts">
 ${liveChip({ id: "review-state", label: "connecting\u2026" })}
 ${reloadChip({ title: isViewer ? "Reload to read the plan again" : "Reload to review the plan again" })}
-<span class="bf-status" id="status" role="status" aria-live="polite"></span>
+<span class="bf-status" id="status"></span>
+<p class="sr-only" id="review-announce" role="status" aria-live="polite"></p>
 </div>
 ${toolbarChrome()}
 </div>

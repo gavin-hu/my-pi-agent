@@ -140,6 +140,14 @@ describe("review client", () => {
 		expect(REVIEW_CLIENT_JS).toContain("askApprove()");
 	});
 
+	test("announces a status to its own quiet node, not the header line", () => {
+		// The header is where a reader looks for the state, and a live region there interrupts on
+		// every frame the stream paints (lib/web/README.md). The sentence a screen reader hears is
+		// its own node, written beside the line the reader sees.
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("review-announce")');
+		expect(REVIEW_CLIENT_JS).toContain("announceEl.textContent = text");
+	});
+
 	test("refuses to leave a draft, hides empty steps, and offers a delete back", () => {
 		// The rule is `web-draft.ts`'s now: the client keeps its sentence and its status
 		// line, and hands both to the one guard.
