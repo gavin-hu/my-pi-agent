@@ -6,9 +6,9 @@
  * loses work, and the footer already shows the running cost — so this decides only
  * whether the threshold has been crossed and what the one notice says.
  *
- * The ceiling holds everything the session spent, its child runs included: a session
- * that delegated $5 behind a $5 budget has spent $5, and the bar's `↳` keeps naming
- * the child share so a reader can subtract it.
+ * The ceiling holds the session's spend and the child runs the ledger still holds — its
+ * last 500, `MAX_DELEGATION_RECORDS`: a session that delegated $5 behind a $5 budget has
+ * spent $5, and the bar's `↳` keeps naming the child share so a reader can subtract it.
  *
  * Pure: the caller has the priced spend and the currency, this shapes the answer.
  * The amount formatting is the footer's own — `formatCost` for what was spent,
