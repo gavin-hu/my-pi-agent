@@ -368,7 +368,9 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
 	board: 61,
-	plan: 57,
+	// The kit's block scan is the plan's one splitter as well as browse's, so the entry pays
+	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks).
+	plan: 58,
 	team: 51,
 	job: 45,
 	"session-bus": 44,

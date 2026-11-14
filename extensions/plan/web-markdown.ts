@@ -27,15 +27,8 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
     });
   }
 
-  function codeBody(lines) {
-    var body = Array.isArray(lines) ? lines.slice() : [];
-    if (body.length && /^ {0,3}(\x60{3,}|~{3,})/.test(body[0])) body.shift();
-    if (body.length && /^ {0,3}(\x60{3,}|~{3,})/.test(body[body.length - 1])) body.pop();
-    return body;
-  }
-
   function renderCode(wrap, block) {
-    var body = codeBody(block.lines);
+    var body = Array.isArray(block.body) ? block.body : [];
     var highlighted = data.code && data.code[String(block.start)];
     var pre = el("pre");
     var code = el("code");
@@ -59,29 +52,16 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
     wrap.appendChild(pre);
   }
 
-  // A GFM table: split each pipe row into cells and honour the alignment row.
-  function splitRow(line) {
-    var text = String(line).trim();
-    if (text.charAt(0) === "|") text = text.slice(1);
-    if (text.charAt(text.length - 1) === "|") text = text.slice(0, -1);
-    return text.split("|").map(function (cell) { return cell.trim(); });
-  }
-
-  function columnAlign(delim) {
-    return splitRow(delim).map(function (cell) {
-      var left = cell.charAt(0) === ":";
-      var right = cell.charAt(cell.length - 1) === ":";
-      return left && right ? "center" : right ? "right" : left ? "left" : "";
-    });
-  }
-
+  // The table's cells and alignment came with the block: the scan split the row and read the
+  // delimiter, so the page only draws what it was handed.
   function renderTable(wrap, block) {
-    var rows = block.lines.map(splitRow);
-    var align = columnAlign(block.lines[1] || "");
+    var rows = Array.isArray(block.cells) ? block.cells : [];
+    var align = Array.isArray(block.align) ? block.align : [];
+    var header = rows[0] || [];
     var table = el("table");
     var thead = el("thead");
     var headRow = el("tr");
-    rows[0].forEach(function (cell, index) {
+    header.forEach(function (cell, index) {
       var th = el("th");
       if (align[index]) th.style.textAlign = align[index];
       renderInline(th, cell);
@@ -90,9 +70,9 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
     thead.appendChild(headRow);
     table.appendChild(thead);
     var tbody = el("tbody");
-    rows.slice(2).forEach(function (cells) {
+    rows.slice(1).forEach(function (cells) {
       var tr = el("tr");
-      rows[0].forEach(function (unused, index) {
+      header.forEach(function (unused, index) {
         var td = el("td");
         if (align[index]) td.style.textAlign = align[index];
         renderInline(td, cells[index] || "");
@@ -108,13 +88,16 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
     wrap.appendChild(frame);
   }
 
-  function renderBlockContent(wrap, block) {
+  // The list a run of items is being drawn into, owned by the frame that draws them: the scan
+  // gives every item its own block (a comment points at a step), so grouping them is the page's.
+  function renderBlockContent(wrap, block, list) {
     var lines = Array.isArray(block.lines) ? block.lines : [];
+    // Nothing but an item continues a list: every other kind ends the run.
+    if (block.kind !== "list") list.open = null;
     if (block.kind === "heading") {
-      var text = lines.join(" ").replace(/^\s*#{1,6}\s*/, "");
-      var level = Math.min(6, Math.max(1, (lines[0].match(/^ {0,3}(#{1,6})/) || ["", "#"])[1].length));
+      var level = Math.min(6, Math.max(1, Number(block.level) || 1));
       var heading = el("h" + level);
-      renderInline(heading, text);
+      renderInline(heading, String(block.text === undefined ? lines.join(" ") : block.text));
       wrap.appendChild(heading);
       return;
     }
@@ -123,53 +106,45 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
     if (block.kind === "hr") { wrap.appendChild(el("hr")); return; }
     if (block.kind === "quote") {
       var quote = el("blockquote");
-      renderInline(quote, lines.map(function (line) { return line.replace(/^\s*>\s?/, ""); }).join("\n"));
+      var quoted = Array.isArray(block.quote) ? block.quote : lines;
+      renderInline(quote, quoted.join("\n"));
       wrap.appendChild(quote);
       return;
     }
     if (block.kind === "list") {
-      // The kit draws the list: one ul or ol, an li per item, the marker its own, and a task's box
-      // the kit's drawn checkbox. The plan keeps only what a plan knows and the kit cannot — how
-      // deep an item sits, and which of its steps the file has ticked.
-      var items = [];
-      var list = null;
-      lines.forEach(function (line) {
-        var match = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(line);
-        if (!match) {
-          // A following unmarked line is a CommonMark lazy continuation of the
-          // item above; join it so the paragraph hangs under the item's text.
-          var last = items[items.length - 1];
-          if (last) { if (line.trim()) last.rest += " " + line.trim(); return; }
-          var plain = el("p"); renderInline(plain, line); wrap.appendChild(plain); return;
-        }
-        if (!list) {
-          list = el(/^\d/.test(match[2]) ? "ol" : "ul");
-          wrap.appendChild(list);
-        }
-        var row = el("li");
-        // Only a nested item states an indent: a top-level one leaves the marker where the kit puts
-        // it, so a plain bullet's text and a task's own text keep the one left edge (the kit pulls a
-        // task back by 1.2em with a rule an inline margin would silently replace).
-        var depth = Math.floor(match[1].replace(/\t/g, "    ").length / 2);
-        if (depth > 0) row.style.marginLeft = String(depth * 16) + "px";
-        var rest = match[3];
-        var box = /^\[([ xX])\]\s*(.*)$/.exec(rest);
-        if (box) {
-          var done = box[1].toLowerCase() === "x";
-          row.className = done ? "task done" : "task";
-          var check = el("input", "md-check");
-          check.type = "checkbox";
-          check.setAttribute("disabled", "");
-          if (done) check.setAttribute("checked", "");
-          row.appendChild(check);
-          rest = box[2];
-        }
-        var body = el("span");
-        row.appendChild(body); list.appendChild(row);
-        items.push({ body: body, rest: rest });
-      });
-      // Render each body once, after its continuation lines are collected.
-      items.forEach(function (item) { renderInline(item.body, item.rest); });
+      // One item, one <li>: the marker is the kit's, the box is the kit's drawn checkbox, and
+      // the page keeps only the grouping and what a plan knows — how deep the item sits and
+      // which of its steps the file has ticked.
+      var item = block.item || {};
+      var ordered = item.ordered === true;
+      if (!list.open || list.ordered !== ordered) {
+        // A change of marker kind starts a list of its own; the kit's rules draw both.
+        list.open = el(ordered ? "ol" : "ul");
+        list.ordered = ordered;
+        wrap.appendChild(list.open);
+      }
+      var rest = String(item.content === undefined ? lines.join(" ") : item.content);
+      // A continuation line is the item's own text, so it hangs under it rather than opening
+      // a paragraph of its own.
+      for (var n = 1; n < lines.length; n++) {
+        if (String(lines[n]).trim()) rest += " " + String(lines[n]).trim();
+      }
+      var row = el("li");
+      // Only a nested item states an indent: a top-level one leaves the marker where the kit
+      // puts it, so a plain bullet's text and a task's own text keep the one left edge.
+      var depth = Math.floor(Number(item.indent) / 2);
+      if (depth > 0) row.style.marginLeft = String(depth * 16) + "px";
+      if (item.task === "done" || item.task === "open") {
+        var done = item.task === "done";
+        row.className = done ? "task done" : "task";
+        var check = el("input", "md-check");
+        check.type = "checkbox";
+        check.setAttribute("disabled", "");
+        if (done) check.setAttribute("checked", "");
+        row.appendChild(check);
+      }
+      renderInline(row, rest);
+      list.open.appendChild(row);
       return;
     }
     var paragraph = el("p");

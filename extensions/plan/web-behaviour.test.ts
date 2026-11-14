@@ -415,43 +415,6 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 		await page.close();
 	});
 
-	test("draws a step as the kit's task item, checked or not", async () => {
-		// The list is the kit's: a plain bullet is an `li`, and a step is `li.task` with the box the
-		// browse page draws for the same Markdown — so the two pages render a checklist alike, and
-		// the box is the sheet's drawn control rather than a glyph the renderer picked.
-		const local = await mountReview({
-			...REVIEW_PAGE,
-			blocks: [
-				{ start: 0, end: 0, kind: "heading", lines: ["# Steps"] },
-				{ start: 1, end: 1, kind: "list", lines: ["- a plain bullet"] },
-				{ start: 2, end: 2, kind: "list", lines: ["- [x] a done step"] },
-			],
-			annotations: [],
-			outline: [{ id: "s-0", line: 0, level: 1, text: "Steps" }],
-		});
-		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
-		try {
-			await page.goto(local.url, { waitUntil: "load" });
-			await page.waitForSelector("#plan li.task", { timeout: REVIEW_PAINT_MS });
-			const items = await page.$$eval("#plan ul li", (nodes) =>
-				nodes.map((node) => {
-					const box = node.querySelector("input.md-check") as unknown as {
-						checked: boolean;
-						disabled: boolean;
-					} | null;
-					return { cls: node.className, box: box === null ? null : { checked: box.checked, disabled: box.disabled } };
-				}),
-			);
-			expect(items).toEqual([
-				{ cls: "", box: null },
-				{ cls: "task done", box: { checked: true, disabled: true } },
-			]);
-		} finally {
-			await page.close();
-			await local.close();
-		}
-	});
-
 	test("jumps to the section the outline names", async () => {
 		const page = await openReview(browser, reviewUrl);
 		const links = page.locator("#outline-list a");

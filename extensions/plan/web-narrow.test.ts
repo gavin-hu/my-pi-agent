@@ -103,12 +103,26 @@ describe.skipIf(REVIEW_CHROME === undefined)("a fenced line at a narrow width", 
 		mount = await mountReview({
 			...REVIEW_PAGE,
 			blocks: [
-				{ start: 0, end: 0, kind: "heading", lines: ["# A plan"] },
+				{ start: 0, end: 0, kind: "heading", lines: ["# A plan"], level: 1, text: "A plan" },
 				{ start: 1, end: 1, kind: "paragraph", lines: ["Run this:"] },
 				// No language on the fence, so the page draws the line as a text node.
-				{ start: 2, end: 2, kind: "code", lines: ["```", "$ pi doctor " + LONG, "```"] },
+				{
+					start: 2,
+					end: 2,
+					kind: "code",
+					lines: ["```", "$ pi doctor " + LONG, "```"],
+					fence: { char: "`", length: 3, info: "" },
+					body: ["$ pi doctor " + LONG],
+				},
 				// A named fence, which the session highlights: the same line, one span tall.
-				{ start: 5, end: 5, kind: "code", lines: ["```text", "GET " + LONG, "```"] },
+				{
+					start: 5,
+					end: 5,
+					kind: "code",
+					lines: ["```text", "GET " + LONG, "```"],
+					fence: { char: "`", length: 3, info: "text" },
+					body: ["GET " + LONG],
+				},
 			],
 			code: { "5": [`<span class="tok-key">GET</span> ${LONG}`] },
 		});
