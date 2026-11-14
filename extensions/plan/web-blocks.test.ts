@@ -36,10 +36,28 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's blocks", () => {
 		const local = await mountReview({
 			...REVIEW_PAGE,
 			blocks: [
-				{ start: 0, end: 0, kind: "heading", lines: ["# Steps"] },
-				{ start: 1, end: 1, kind: "list", lines: ["- a plain bullet"] },
-				{ start: 2, end: 2, kind: "list", lines: ["- [x] a done step"] },
-				{ start: 3, end: 3, kind: "list", lines: ["1. an ordered step"] },
+				{ start: 0, end: 0, kind: "heading", lines: ["# Steps"], level: 1, text: "Steps" },
+				{
+					start: 1,
+					end: 1,
+					kind: "list",
+					lines: ["- a plain bullet"],
+					item: { ordered: false, indent: 0, marker: "-", content: "a plain bullet", task: null },
+				},
+				{
+					start: 2,
+					end: 2,
+					kind: "list",
+					lines: ["- [x] a done step"],
+					item: { ordered: false, indent: 0, marker: "-", content: "a done step", task: "done" },
+				},
+				{
+					start: 3,
+					end: 3,
+					kind: "list",
+					lines: ["1. an ordered step"],
+					item: { ordered: true, indent: 0, marker: "1.", content: "an ordered step", task: null },
+				},
 			],
 			annotations: [],
 			outline: [{ id: "s-0", line: 0, level: 1, text: "Steps" }],

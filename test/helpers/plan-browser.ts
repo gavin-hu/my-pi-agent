@@ -59,10 +59,10 @@ export const REVIEW_PAGE: ReviewPageData = {
 	title: "Add rate limiting",
 	path: "~/.pi/agent/plans/probe/add-rate-limiting.md",
 	blocks: [
-		{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting"] },
+		{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting"], level: 1, text: "Add rate limiting" },
 		{ start: 1, end: 1, kind: "paragraph", lines: ["Start with the token bucket."] },
 		{ start: 2, end: 2, kind: "blank", lines: [] },
-		{ start: 3, end: 3, kind: "heading", lines: ["## Rollout"] },
+		{ start: 3, end: 3, kind: "heading", lines: ["## Rollout"], level: 2, text: "Rollout" },
 		{ start: 4, end: 4, kind: "paragraph", lines: ["Ship behind a flag."] },
 	],
 	annotations: [REVIEW_ANNOTATION],

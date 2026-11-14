@@ -14,13 +14,25 @@
  * step.
  */
 
-import { scanBlocks, splitLines } from "../../lib/web/markdown-blocks.ts";
+import {
+	type MarkdownAlign,
+	type MarkdownFence,
+	type MarkdownListItem,
+	scanBlocks,
+	splitLines,
+} from "../../lib/web/markdown-blocks.ts";
 import { FENCE } from "./sections.ts";
 
 /** How a block is rendered and grouped. */
 export type PlanBlockKind = "heading" | "paragraph" | "list" | "code" | "quote" | "table" | "hr" | "blank";
 
-/** A contiguous, source-line-anchored chunk of a plan. */
+/**
+ * A contiguous, source-line-anchored chunk of a plan, with the structure its renderer reads.
+ *
+ * The scan already knows what a block is — a heading's level, a fence's body, a table's cells,
+ * an item's marker — and the page used to parse all of it again out of `lines`. The fields are
+ * per kind, and the island carries them, so the browser renderer draws instead of re-reading.
+ */
 export interface PlanBlock {
 	/** 0-based first source line (inclusive). */
 	start: number;
@@ -29,6 +41,22 @@ export interface PlanBlock {
 	kind: PlanBlockKind;
 	/** The block's raw source lines, in order. */
 	lines: string[];
+	/** Heading level, 1-6. */
+	level?: number;
+	/** Heading text as written, inline markup included. */
+	text?: string;
+	/** A code block's fence marker. */
+	fence?: MarkdownFence;
+	/** A code block's source, its own delimiter lines removed. */
+	body?: string[];
+	/** A table's column alignment, from its delimiter row. */
+	align?: MarkdownAlign[];
+	/** A table's cells, header row first. */
+	cells?: string[][];
+	/** A list item's marker, indent and task box. */
+	item?: MarkdownListItem;
+	/** A quote's lines with their `>` markers removed. */
+	quote?: string[];
 }
 
 /**
@@ -62,6 +90,14 @@ export function planBlocks(plan: string): PlanBlock[] {
 		end: block.end,
 		kind: block.kind === "fence" ? "code" : block.kind,
 		lines: block.lines,
+		...(block.level === undefined ? {} : { level: block.level }),
+		...(block.text === undefined ? {} : { text: block.text }),
+		...(block.fence === undefined ? {} : { fence: block.fence }),
+		...(block.body === undefined ? {} : { body: block.body }),
+		...(block.align === undefined ? {} : { align: block.align }),
+		...(block.cells === undefined ? {} : { cells: block.cells }),
+		...(block.item === undefined ? {} : { item: block.item }),
+		...(block.quote === undefined ? {} : { quote: block.quote }),
 	}));
 }
 
