@@ -137,6 +137,15 @@ export async function releaseClaimed(
 	return { released, notOwned };
 }
 
+/**
+ * Whether a file is one record the bus wrote.
+ *
+ * Every field the bus writes is checked, and a field of the wrong shape skips the whole
+ * record — the convention `startToken` and `watching` already follow. That is stricter than
+ * the roster's read (`lib/session-roster.ts`), which drops only the bad field and keeps the
+ * row: a page must still draw a teammate. Here the record is the bus's own, and one it cannot
+ * read is one it cannot trust to say who owns a path or a name.
+ */
 function isSession(value: unknown): value is SessionRecord {
 	const entry = asRecord(value);
 	if (!entry) return false;
@@ -150,6 +159,7 @@ function isSession(value: unknown): value is SessionRecord {
 		typeof entry.startedAt === "number" &&
 		typeof entry.lastSeen === "number" &&
 		(entry.startToken === undefined || typeof entry.startToken === "string") &&
+		(entry.turnAt === undefined || typeof entry.turnAt === "number") &&
 		(entry.watching === undefined || isWatchingState(entry.watching))
 	);
 }
@@ -287,7 +297,8 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 * The walk stops at `limit` messages, so the names it reports are the ones it reached: a
 	 * refusal behind a full page is named once the mail in front of it is consumed. Reading
 	 * every name to find one would cost the whole backlog on every poll, which is the read this
-	 * store exists to page.
+	 * store exists to page. A limit of zero walks nothing, in either read: the page is decided
+	 * before the front is read, not after it.
 	 */
 	async function readMessages(
 		directory: string,
@@ -298,6 +309,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		const messages: BusMessage[] = [];
 		const unreadable: string[] = [];
 		for (const name of names) {
+			if (messages.length >= limit) break;
 			if (known?.has(idOfFile(name))) continue;
 			const path = join(directory, name);
 			const message = readTyped(path, isBusMessage);
@@ -307,7 +319,6 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			}
 			messages.push(message);
 			if (remove) await rm(path, { force: true });
-			if (messages.length >= limit) break;
 		}
 		// In the order it walked: the page a read shows is the front it deleted, and a message's
 		// own `at` cannot reorder it after the fact.
@@ -372,9 +383,12 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 * Claim every path for one owner, or nothing.
 	 *
 	 * The pre-check reads the claims once and reports every blocking owner, so a
-	 * batch that cannot be satisfied touches no file. A create that loses a race
-	 * after the pre-check gives back only what this batch published: a path the
-	 * owner already held carries an older `at` and is not this batch's to release.
+	 * batch that cannot be satisfied touches no file. One owner blocking one
+	 * requested path is one conflict, however many of its claims reach under that
+	 * path: the sentence a caller prints is per conflict, and a second copy of it is
+	 * not a second blocker. A create that loses a race after the pre-check gives back
+	 * only what this batch published: a path the owner already held carries an older
+	 * `at` and is not this batch's to release.
 	 *
 	 * `afterClaim` is a test seam: it runs after a path is published, which is the
 	 * only way a suite can put a rival claim in the window between the pre-check and
@@ -391,9 +405,9 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		const conflicts: ClaimConflict[] = [];
 		for (const path of paths) {
 			for (const held of existing) {
-				if (held.owner !== owner && claimsConflict(path, held.path)) {
-					conflicts.push({ path, owner: held.owner, ownerLabel: held.ownerLabel });
-				}
+				if (held.owner === owner || !claimsConflict(path, held.path)) continue;
+				if (conflicts.some((entry) => entry.path === path && entry.owner === held.owner)) continue;
+				conflicts.push({ path, owner: held.owner, ownerLabel: held.ownerLabel });
 			}
 		}
 		if (conflicts.length > 0) return { claimed: [], conflicts };
