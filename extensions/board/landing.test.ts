@@ -162,9 +162,12 @@ const REAL_LANDINGS = [
 	{ reviewed: "53a14106", merged: "14ff64a3" },
 	{ reviewed: "efb425e5", merged: "21c9275c" },
 	{ reviewed: "fddbde30", merged: "ee910935" },
+	// The landing that closed the gate's own fix: the review is this merge's second parent, and its
+	// hand resolution reproduced the review's lines exactly — the shape a regression breaks first.
+	{ reviewed: "6b1422fa", merged: "e6307df6" },
 ];
 
-/** Whether this checkout carries all three, read once so the cases below can skip as a group. */
+/** Whether this checkout carries all of them, read once so the cases below can skip as a group. */
 const hasRealLandings = (
 	await Promise.all(REAL_LANDINGS.map(async (one) => (await present(one.reviewed)) && (await present(one.merged))))
 ).every(Boolean);
