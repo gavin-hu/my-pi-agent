@@ -5,7 +5,7 @@
  * open a browser to see what needs a decision, so the command prints the rollup the
  * tool returns, the work a dead owner left behind, and one line saying who is live. It
  * reads the cards and the bus's records and writes nothing: acting on the round is
- * `team`'s tool (`assign`, `offer`, `reclaim`, `claim`) or `board`'s.
+ * `team`'s tool (`assign`, `offer`, `ask`) or `board`'s own verbs.
  *
  * `/team join` lives here too, and stays in this module: the entry's registration budget counts the
  * modules it loads, so a door of its own would cost a start for one command's words.
@@ -15,7 +15,7 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { addTeammate, type AddTeammateResult } from "../../lib/board/config.ts";
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import { buildRound, type RoundSummary } from "../../lib/board/round.ts";
-import { formatRound, holdingLine, plural, withLiveOwner } from "../../lib/board/round-text.ts";
+import { formatRound, holdingLine, LEAD_ROUND, plural, withLiveOwner } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
 import { type RosterSession, presenceOf, rosterStateOf } from "../../lib/session-roster.ts";
@@ -40,7 +40,9 @@ export const MAX_ROUND_LINES = 10;
 export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: { team?: TeamJoin } = {}): void {
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(TEAM_COMMAND, {
-		description: "The lead's round: who holds what, and what needs a decision; `/team join [<label>]` joins the team",
+		// The line and the guideline are the same sentence: `/team` is where a lead reads the round, and
+		// `lib/board/round-text.ts` owns what it is called.
+		description: `${LEAD_ROUND} \`/team join [<label>]\` joins the team`,
 		getArgumentCompletions: (prefix: string) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
@@ -171,6 +173,9 @@ export function roundText(cards: readonly Card[], now: number, roster?: readonly
  * but `reclaim` is neither. Quiet is here because the rule lets a peer take a quiet owner's card.
  * An owner the bus has no record of is not: a live session that never joined writes no record
  * either, so the presence line states that as a fact instead of offering the verb.
+ *
+ * The verb the line prints is `board`'s, and it names it: `/team` writes nothing, and a bare
+ * `reclaim` here would send a lead to a tool that no longer has one.
  */
 function stalledLines(cards: readonly Card[], roster: readonly RosterSession[] | undefined, now: number): string[] {
 	if (roster === undefined) return [];
@@ -186,7 +191,7 @@ function stalledLines(cards: readonly Card[], roster: readonly RosterSession[] |
 	}
 	return [...byOwner.values()].map(({ label, state, refs }) => {
 		const why = state === "gone" ? "is not running" : "has gone quiet";
-		return `reclaim ${refs.join(", ")} — ${label} ${why}`;
+		return `board reclaim ${refs.join(", ")} — ${label} ${why}`;
 	});
 }
 

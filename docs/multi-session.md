@@ -11,7 +11,7 @@ page has its commands in full.
 |---|---|
 | [`session-bus`](./extensions/session-bus.md) | discovery, mail, and path claims between sessions on one machine |
 | [`board`](./extensions/board.md) | the work: one card per feature, and two signatures before it ships |
-| [`team`](./extensions/team.md) | the lead's round over the cards — assign, offer, reclaim, claim, ask |
+| [`team`](./extensions/team.md) | the lead's round over the cards — assign, offer, ask |
 
 Nothing in the three starts a process. A message lands in an inbox, so a session
 that is not running stays not running — and one listening with `wake` is woken for

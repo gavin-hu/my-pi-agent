@@ -85,7 +85,7 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 | [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions`（屏幕） | 协调同一仓库上的并行会话：对等会话、简短消息、收件箱与路径声明。 |
 | [`serve`](./docs/extensions/serve.md) | — | 本会话唯一的 loopback 服务，`/board`、`/browse` 与 plan review 共用一个端口。 |
 | [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板，卡片发运前需要两次签名。 |
-| [`team`](./docs/extensions/team.md) | `team`、`/team` | 看板上的 lead 轮次：assign、offer、reclaim、claim、ask —— 不启动任何进程。 |
+| [`team`](./docs/extensions/team.md) | `team`、`/team` | 看板上的 lead 轮次：assign、offer、ask —— 不启动任何进程。 |
 | [`context`](./docs/extensions/context.md) | `/context` | 显示上下文窗口的去向，并从报告中触发压缩。 |
 
 ### 保护你的工作

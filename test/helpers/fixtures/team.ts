@@ -18,7 +18,7 @@ import type { TeamDetails } from "../../../extensions/team/types.ts";
 import { type BoardSession, openBoardSession } from "../../../lib/board/session.ts";
 import type { Claims } from "../../../lib/board/claims.ts";
 import { notDeliveredLine, type Peer, type TeamJoin } from "../../../lib/session-tool.ts";
-import { removeBusRecord, writeBusRecord } from "../bus.ts";
+import { writeBusRecord } from "../bus.ts";
 import { fakeCtx } from "../context.ts";
 import { tempDir } from "../env.ts";
 import { createFakePi } from "../fakes.ts";
@@ -165,16 +165,14 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 	};
 	// The join a claim makes: recorded, so no case asks a bus that is not there.
 	const joined: string[] = [];
-	/** The record the last join left, so a case can take the bus away from under it. */
-	let recordFile: string | undefined;
 	const team: TeamJoin = {
 		async join(_ctx, input) {
 			const label = input?.label ?? options.joinLabel ?? "billing-lead";
 			joined.push(label);
 			if (options.joinFails !== undefined) return { ok: false, error: options.joinFails };
-			// The record a real join leaves, so a second claim reads a session the bus holds
-			// rather than an answer nothing on disk backs.
-			recordFile = writeBusRecord(await session.busDir(cwd), { id: "s-lead", label, lastSeen: NOW });
+			// The record a real join leaves, so a later read finds a session the bus holds rather
+			// than an answer nothing on disk backs.
+			writeBusRecord(await session.busDir(cwd), { id: "s-lead", label, lastSeen: NOW });
 			return { ok: true, label, watching: { armed: true, wake: false } };
 		},
 	};
@@ -191,10 +189,6 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 		/** Who this session writes as — the label and id a refusal has to compare against. */
 		async me() {
 			return await session.who(ctx, cwd);
-		},
-		/** Take the record the last join left off the bus, the way a stopped bus does. */
-		leaveBus(): void {
-			if (recordFile !== undefined) removeBusRecord(recordFile);
 		},
 		/** The store this session works on, so a case seeds the same board it reads. */
 		store: () => session.store(cwd),

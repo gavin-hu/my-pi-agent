@@ -70,7 +70,7 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 | [`board/seat.ts`](./board/seat.ts) | The actor a page reads as, derived from `team.lead`. |
 | [`board/lead.ts`](./board/lead.ts) | Who may sign the two gates and take a card back, the spot-check's own write and the run it holds to the contract's command, and every sentence a refusal or a sign says. |
 | [`board/round.ts`](./board/round.ts) | The lead's rollup over the cards alone: owners, unplanned, unapproved, unreviewed, blocked, done — and `gateOf`, the one rule that files a card there and gives the transcript's rows their word. |
-| [`board/round-text.ts`](./board/round-text.ts) | That rollup as sentences, what a session is holding, and the name its owner shows — `withLiveOwner` labelling a card's owner from the roster's record for its **id**, so a session that renamed after the write reads once — shared by the tool, `/team`, and the page. |
+| [`board/round-text.ts`](./board/round-text.ts) | That rollup as sentences, what a session is holding, the name its owner shows — `withLiveOwner` labelling a card's owner from the roster's record for its **id**, so a session that renamed after the write reads once — and `LEAD_ROUND`, the round's one line, spliced by `/team`'s description and by `team`'s lead guideline; shared by the tool, `/team`, and the page. |
 | [`board/skipped.ts`](./board/skipped.ts) | The sentence for the card files a board refused. |
 | [`board/view.ts`](./board/view.ts) | The page's snapshot: the one shape a client is allowed to know. |
 | [`board/page-pointer.ts`](./board/page-pointer.ts) | How a session finds a page already serving, and proves a stale note dead before taking it over. |

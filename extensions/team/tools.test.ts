@@ -1,19 +1,18 @@
 /**
- * The `team` tool's surface, and the two verbs that write the card alone.
+ * The `team` tool's surface, and the verbs that write the card alone.
  *
- * The registration is what the model reads — four actions and the parameters each one acts
+ * The registration is what the model reads — three actions and the parameters each one acts
  * on — so the cases assert it off the tool rather than a copy, and the stray-field table is
- * what keeps a parameter from being published to an action that would drop it. `claim`,
- * `reclaim`, and the join the round asks for move the card and no message, so they need no
- * bus; the two verbs that send one live in `handoff.test.ts`. The transcript block is the
- * same surface seen by a human: one collapsed line, and the result's own lines behind the
- * expand key.
+ * what keeps a parameter from being published to an action that would drop it. `offer` writes
+ * the card and sends one message, so it needs no bus here; `assign` and `ask`, which need one,
+ * live in `handoff.test.ts` and `ask.test.ts`. The transcript block is the same surface seen by a
+ * human: one collapsed line, and the result's own lines behind the expand key.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
 import type { Card } from "../../lib/board/card.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
-import { NOW, type TeamSuite, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
+import { type TeamSuite, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
 import { fakeTheme, toolRenderContext } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { ACTION_FIELDS, TEAM_ACTIONS, type TeamDetails } from "./types.ts";
@@ -58,12 +57,14 @@ describe("the registration", () => {
 		expect(named("Run a round: reclaim one.", "claim")).toBe(false);
 	});
 
-	test("says which action needs no team", () => {
+	test("says the card's own state is `board`'s, and offers it nowhere", () => {
 		const { tool } = harness();
-		// Read every session, so the claim has to be the true one: `reclaim` writes the card
-		// alone, and a model told otherwise goes looking for a bus it does not need.
-		expect(tool.description).toContain("needs no team");
-		expect(tool.description).not.toContain("All three need the team");
+		// The three verbs here all need the bus: the two that wrote the card alone (`reclaim` and
+		// `claim`) are `board`'s, so a sentence offering one would be a second door onto a store
+		// operation this tool does not own.
+		expect(tool.description).toContain("`board`'s");
+		expect(tool.description).not.toContain("`claim`");
+		expect(tool.description).not.toContain("`reclaim`");
 	});
 
 	test("says an offer records the moment, not that it writes nothing", () => {
@@ -86,7 +87,7 @@ describe("the registration", () => {
 
 	test("refuses a card id that is not one", async () => {
 		const { call } = harness();
-		expect(resultText(await call({ action: "reclaim", card: "four" }))).toContain('"four" is not a card id.');
+		expect(resultText(await call({ action: "offer", card: "four" }))).toContain('"four" is not a card id.');
 	});
 });
 
@@ -100,18 +101,6 @@ describe("a field the action does not act on", () => {
 		expect(result.isError).toBe(true);
 		expect(result.details.error).toBe("offer does not act on to: `assign` and `ask` take it.");
 		expect(sent).toEqual([]);
-	});
-
-	test("a reclaim that names one is refused, and the card is left alone", async () => {
-		const { call, seed, store } = harness();
-		const id = await seed();
-		await call({ action: "assign", card: id, to: "billing-core" });
-		const before = await (await store()).read(id);
-		const result = await call({ action: "reclaim", card: id, to: "billing-core" });
-		expect(result.details.error).toBe("reclaim does not act on to: `assign` and `ask` take it.");
-		// Whoever held it still does: the refusal reached the card in no way at all.
-		expect((await (await store()).read(id))?.owner?.label).toBe("billing-core");
-		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
 	});
 
 	test("names the action that takes every stray field, and sends nothing", async () => {
@@ -145,98 +134,6 @@ describe("a field the action does not act on", () => {
 	});
 });
 
-describe("claim", () => {
-	test("takes the card into plan for this session, and asks to join once", async () => {
-		const { call, seed, joined, me } = harness();
-		const self = await me();
-		const id = await seed();
-		const result = await call({ action: "claim", card: id });
-		expect(result.isError).toBeFalsy();
-		expect(result.details.card).toMatchObject({ lane: "plan", owner: { label: self.label } });
-		expect(resultText(result)).toContain(`#${id} is yours, in plan.`);
-		// The claim's one side effect outside the card: a claim is what makes the session a
-		// teammate, so it asks the same join `board`'s claim asks for — once per session.
-		expect(joined).toEqual([self.label]);
-		const second = await seed("Second");
-		expect((await call({ action: "claim", card: second })).isError).toBeFalsy();
-		expect(joined).toEqual([self.label]);
-	});
-
-	test("a claim answers an offer, clearing the record with the write", async () => {
-		const { call, seed, store } = harness();
-		const id = await seed();
-		await call({ action: "offer", card: id });
-		expect((await (await store()).read(id))?.offeredAt).toBe(NOW);
-		await call({ action: "claim", card: id });
-		expect((await (await store()).read(id))?.offeredAt).toBeUndefined();
-	});
-
-	test("a claim whose join did not land keeps the card and says so", async () => {
-		// The join is the claim's side effect, not its condition: the board with no bus stays the
-		// single-session mode it was, and the one fact the owner has to act on reaches it as a line.
-		const { call, seed } = harness({ joinFails: "the session bus is not loaded" });
-		const id = await seed();
-		const result = await call({ action: "claim", card: id });
-		expect(result.isError).toBeFalsy();
-		expect(result.details.card).toMatchObject({ lane: "plan", id });
-		expect(resultText(result)).toContain(`#${id} is yours, in plan.`);
-		expect(resultText(result)).toContain(
-			"Not on the team: the session bus is not loaded. Turn the `session-bus` extension on in `/bytefly`.",
-		);
-	});
-
-	test("asks again when the bus no longer holds this session", async () => {
-		const { call, seed, joined, me, leaveBus } = harness();
-		const self = await me();
-		await call({ action: "claim", card: await seed() });
-		// The join left a record, so the next claim reads it and asks nothing.
-		await call({ action: "claim", card: await seed("Second") });
-		expect(joined).toEqual([self.label]);
-		// A stopped bus takes its record with it, and a standing that outlived it is no evidence
-		// that peers resolve this session: the next claim joins again rather than writing under a
-		// name nobody answers to.
-		leaveBus();
-		await call({ action: "claim", card: await seed("Third") });
-		expect(joined).toEqual([self.label, self.label]);
-	});
-
-	test("refuses a card somebody holds, and one that waits", async () => {
-		const { call, seed, store } = harness();
-		const board = await store();
-		const first = await seed("First");
-		await board.mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
-		const held = await call({ action: "claim", card: first });
-		expect(held.isError).toBe(true);
-		expect(resultText(held)).toContain("is held by billing-core");
-
-		const second = await seed("Second");
-		await board.mutate(
-			second,
-			{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: [first] },
-			{ label: "billing-core" },
-			NOW,
-		);
-		const waiting = await call({ action: "claim", card: second });
-		expect(waiting.isError).toBe(true);
-		expect(resultText(waiting)).toContain("waits on");
-	});
-
-	test("refuses a field the action does not read", async () => {
-		const { call, seed, store } = harness();
-		const id = await seed();
-		const result = await call({ action: "claim", card: id, to: "billing-core" });
-		expect(result.details.error).toBe("claim does not act on to: `assign` and `ask` take it.");
-		expect((await (await store()).read(id))?.lane).toBe("backlog");
-	});
-
-	test("refuses a card that does not exist", async () => {
-		const { call } = harness();
-		const result = await call({ action: "claim", card: "9" });
-		expect(result.isError).toBe(true);
-		expect(resultText(result)).toContain("#9 does not exist.");
-	});
-});
-
 describe("the join a round makes", () => {
 	test("a handoff joins under the lead's own label, once for the session", async () => {
 		const { call, seed, joined, me } = harness();
@@ -248,7 +145,7 @@ describe("the join a round makes", () => {
 		expect(joined).toEqual([self.label]);
 		await call({ action: "ask", to: "billing-web", question: "any blockers?" });
 		const second = await seed("Second");
-		await call({ action: "claim", card: second });
+		expect((await call({ action: "assign", card: second, to: "billing-web" })).isError).toBeFalsy();
 		expect(joined).toEqual([self.label]);
 	});
 
@@ -261,11 +158,10 @@ describe("the join a round makes", () => {
 
 	test("a refused call joins nobody", async () => {
 		const { call, joined } = harness();
-		// All three refuse before they reach the store's write or a peer, so a session whose
-		// call did nothing does not appear on the team it never addressed.
+		// Both refuse before they reach the store's write or a peer, so a session whose call did
+		// nothing does not appear on the team it never addressed.
 		expect((await call({ action: "assign", card: "9", to: "billing-core" })).isError).toBe(true);
 		expect((await call({ action: "ask" })).isError).toBe(true);
-		expect((await call({ action: "claim", card: "9" })).isError).toBe(true);
 		expect(joined).toEqual([]);
 	});
 });
@@ -364,7 +260,6 @@ describe("the transcript block", () => {
 		// `ask` acts on a peer and nothing else, so a subject that stopped at the verb hid the
 		// only thing the call was about.
 		expect(line({ action: "ask", to: "billing-core" })).toContain("ask → billing-core");
-		expect(line({ action: "reclaim", card: "2" })).toContain("reclaim #2");
 		// `offer` broadcasts, so a peer in its args is a stray field the call refuses: the subject
 		// never names one.
 		expect(line({ action: "offer", card: "2", to: "billing-core" })).not.toContain("billing-core");

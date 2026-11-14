@@ -13,10 +13,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   either. Its `approve` action doc drops the `team.lead` parenthetical, because `team` states the
   lead's duty once.
 
-- `team`: the five verbs are described once. The `action` parameter repeated every sentence of the
-  description, and the copy is what drifted, so it now names the fields each verb reads; a fifth
-  guideline states the lead's duty, and the surface has a ceiling in the prompt budget where it had
-  none.
+- `team`: each verb is described once. The `action` parameter repeated every sentence of the
+  description, and the copy is what drifted, so it now names the fields each verb reads; a guideline
+  states the lead's duty, and the surface has a ceiling in the prompt budget where it had none.
+
+- `team`: `claim` and `reclaim` are gone. Each was one of `board`'s store operations offered a second
+  time, with its own sentence in the description and its own result line, and adding nothing: same
+  write, same join, same lane crossing. The round keeps the three verbs that reach another session —
+  `assign`, `offer`, `ask` — and its description says a card's own state is `board`'s. `/team`'s
+  stalled line names the door it means, `board reclaim 1, 2 — api-core is not running`, and its
+  description and the lead guideline now splice the round's one line from `lib/board/round-text.ts`.
+  A session calling `team claim` gets an unknown action; every card verb takes one door.
+
+- `board`: `reclaim`'s action doc names the lead's authority it had dropped — the lead takes a card
+  from anyone, a peer only from a stopped owner — which `team`'s copy had been stating alone. The two
+  gate clauses `approve` and `review` still carried, already stated by the workflow guideline, paid
+  for it, so the tool's prompt surface is smaller than before and its ceiling falls with it.
 
 - `session-bus`: a status read and every tool call now cost the files they touch rather than the whole
   mail store. `unaccountedMail` names an inbox's owner by the directory the bus filed it in instead of

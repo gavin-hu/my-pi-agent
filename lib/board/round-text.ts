@@ -30,6 +30,15 @@ export interface RosterLabel {
 }
 
 /**
+ * The round in one line, for the two surfaces that name it: `/team`'s command description and the
+ * guideline that says whose it is.
+ *
+ * Neither is the round itself — `formatRound` below is — but both name it, and #579 left them
+ * stating it in different words. One sentence, so a rename lands in both.
+ */
+export const LEAD_ROUND = "The lead's round: who holds what, and what needs a decision.";
+
+/**
  * The rollup: a headline of what a lead decides on, then one line per group.
  *
  * Groups name their cards by id and state, because the ids are what the next action

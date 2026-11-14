@@ -422,6 +422,10 @@ by instruction on the done count. `plural` and the fold's own bodies (`isHistory
 `historyLine`) are spliced into the page as `PLURAL_JS` / `HISTORY_OWNER_JS` / `HISTORY_LINE_JS`;
 the page's filter rule and the card face's reason arrive the same way.
 
+`LEAD_ROUND` is the round's one line rather than its contents: `/team`'s command description and
+`team`'s lead guideline splice the same sentence, so the two surfaces that name the round cannot
+name it two ways — they did, from #579 until the line moved here.
+
 `ranClause` is the other sentence three surfaces print — the transcript's card, the person's
 `/board review` line, and the page's dialog, which receives it as `RAN_CLAUSE_JS` — so a sign's
 run is worded once: the command, the tree it was taken in (`the checkout`, or a worktree's path),

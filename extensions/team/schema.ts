@@ -1,10 +1,10 @@
 /**
- * The `team` tool's parameters: five actions, four of them over one card.
+ * The `team` tool's parameters: three actions, two of them over one card.
  *
- * `assign` names the peer a handoff goes to, `reclaim` takes a card back, and `claim`
- * takes one for the lead; `ask` names the peer to question. The four card verbs take the
- * card the way `board` does — `4` or `#4` — because a lead reads ids off the same board,
- * and `ask` takes none at all, which is why `card` is optional here and checked per verb.
+ * `assign` names the peer a handoff goes to and `offer` takes a card; `ask` names the peer to
+ * question. The two card verbs take the card the way `board` does — `4` or `#4` — because a lead
+ * reads ids off the same board, and `ask` takes none at all, which is why `card` is optional here
+ * and checked per verb.
  */
 
 import { Type } from "typebox";
@@ -18,8 +18,7 @@ export const TeamParams = Type.Object({
 			// sentences were here once, and the copy drifted from the description before anything drew
 			// a line between them — one surface cannot disagree with itself.
 			description:
-				"`assign`, `offer`, `reclaim`, or `claim` take a `card`; `ask` takes `to` and no card — what each does is " +
-				"in the description.",
+				"`assign` and `offer` take a `card`; `ask` takes `to` and no card — what each does is in the description.",
 		},
 	),
 	card: Type.Optional(Type.String({ description: 'The card to act on, e.g. "4" or "#4"; `ask` takes none.' })),
