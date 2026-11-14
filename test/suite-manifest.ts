@@ -97,6 +97,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	"file-read": ["extract/extract", "tool"],
 	"file-browse": [
 		"view/pages",
+		"view/blocks",
 		"view/chrome",
 		"transport/router",
 		"transport/root-move",

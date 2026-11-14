@@ -88,7 +88,9 @@ export function planBlocks(plan: string): PlanBlock[] {
 	return scanBlocks(splitLines(plan)).map((block) => ({
 		start: block.start,
 		end: block.end,
-		kind: block.kind === "fence" ? "code" : block.kind,
+		// The plan passes no `htmlEnd`, so the scan cannot yield an `html` block: HTML is prose
+		// here, and the cast names that guarantee rather than widening the plan's own kinds.
+		kind: (block.kind === "fence" ? "code" : block.kind) as PlanBlockKind,
 		lines: block.lines,
 		...(block.level === undefined ? {} : { level: block.level }),
 		...(block.text === undefined ? {} : { text: block.text }),
