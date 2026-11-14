@@ -57,7 +57,10 @@ export function minuteOldCards(now: number): (id: string, overrides?: Partial<Ca
 }
 
 /** The card `id` as a page frame draws it, whichever lane it is in. */
-export function drawnOf(view: BoardView, id: string): BoardView["lanes"][number]["cards"][number] | undefined {
+export function drawnOf(
+	view: Pick<BoardView, "lanes">,
+	id: string,
+): BoardView["lanes"][number]["cards"][number] | undefined {
 	return view.lanes.flatMap((lane) => lane.cards).find((card) => card.id === id);
 }
 

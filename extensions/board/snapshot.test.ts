@@ -125,7 +125,7 @@ describe("the page's snapshot", () => {
 		// `execute` is the lane the rollup's clock speaks about, and it is entered with no spot-check.
 		await advance(next.store, card.id, "execute", { owner: ME, planPath: path }, NOW);
 		const before = await next.snapshot.view();
-		expect(before.round.unwritten.map((entry) => entry.id)).toEqual([]);
+		expect(before.round.unwritten).toEqual([]);
 		const reads = next.reads();
 
 		// The clock is the snapshot's own, and `buildView` takes it separately from the pile — so the
@@ -133,7 +133,8 @@ describe("the page's snapshot", () => {
 		next.clock.at = NOW + UNWRITTEN_MS + 1;
 		const after = await next.snapshot.view();
 		expect(next.reads()).toBe(reads);
-		expect(after.round.unwritten.map((entry) => entry.id)).toEqual([card.id]);
+		// The rollup names its cards, so the wire entry is the id itself.
+		expect(after.round.unwritten).toEqual([card.id]);
 		expect(after.sig).not.toBe(before.sig);
 	});
 });

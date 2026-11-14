@@ -207,6 +207,37 @@ export interface BoardView {
 	home: string;
 }
 
+/** One rollup group on the wire: the label, and the ids of the cards it holds. */
+export interface WireRoundGroup {
+	label: string;
+	cards: string[];
+	done: string[];
+}
+
+/** The rollup as the browser receives it: every group a list of card ids, never a card twice. */
+export interface WireRound {
+	owners: WireRoundGroup[];
+	unassigned: string[];
+	unplanned: string[];
+	unapproved: string[];
+	unreviewed: string[];
+	blocked: string[];
+	unwritten: string[];
+	done: string[];
+	archivable: string[];
+}
+
+/**
+ * The frame as it goes on the wire: the same view, with the rollup's cards named by id.
+ *
+ * Every card is in exactly one lane, so the rollup is a second, third, and fourth copy of
+ * cards the frame already carries — 5.3 MB of a 5.3 MB frame on a 267-card board. The names
+ * are the card ids and the browser expands them against the lanes it was sent, so each
+ * fragment sees the same object it sees today. Nothing else moves, `sig` included: it is the
+ * one `buildView` computed, so a compacted frame is pushed on exactly the changes it was.
+ */
+export type BoardWire = Omit<BoardView, "round"> & { round: WireRound };
+
 /** What the server read before building one snapshot. */
 export interface ViewInput {
 	/**
@@ -338,6 +369,36 @@ export function buildView(input: ViewInput): BoardView {
 		// Always a string on the wire: the page cannot ask for a home, and a bundle that fell back
 		// to `homedir` would throw in the browser.
 		home: input.home ?? homedir(),
+	};
+}
+
+/**
+ * The view as the page receives it: the rollup's groups named by card id rather than repeated.
+ *
+ * The lanes are the card set — {@link buildView} puts every card in exactly one of them — so
+ * a rollup that carried the card objects again was the same record sent up to four times. The
+ * browser expands these ids against the lanes it already has, and every fragment downstream
+ * reads the card objects it always read.
+ */
+export function boardWire(view: BoardView): BoardWire {
+	const ids = (cards: readonly Card[]): string[] => cards.map((card) => card.id);
+	return {
+		...view,
+		round: {
+			owners: view.round.owners.map((group) => ({
+				label: group.label,
+				cards: ids(group.cards),
+				done: ids(group.done),
+			})),
+			unassigned: ids(view.round.unassigned),
+			unplanned: ids(view.round.unplanned),
+			unapproved: ids(view.round.unapproved),
+			unreviewed: ids(view.round.unreviewed),
+			blocked: ids(view.round.blocked),
+			unwritten: ids(view.round.unwritten),
+			done: ids(view.round.done),
+			archivable: ids(view.round.archivable),
+		},
 	};
 }
 

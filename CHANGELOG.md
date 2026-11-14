@@ -73,6 +73,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `sleep` holds the very turn that would report the mail. Delivery is unchanged; what changed is
   that the only inferable procedure is no longer a poll.
 
+- `board`: a page frame carries each card once. The rollup names its cards by id instead of
+  repeating them, and the browser expands those names against the lanes it already has, so a
+  274-card frame is 1.36 MB where it was 5.39 and `JSON.stringify` falls from 4.2 ms to 1.1 (parse
+  from 5.2 to 1.2) on every push. `sig` is untouched, so a quiet frame still pushes nothing, and
+  every fragment reads the same card objects it read before — the queue and the roster are drawn
+  from the expanded view, which a browser case holds by drawing a row for a card the frame named
+  only by id.
+
 - `board`: a listing, a write, and a page frame read the pile on a bound — one round trip per card
   file, sixteen in flight — instead of one file at a time, and a card's dependents are indexed in
   the same pass that indexes the cards rather than scanned for each one. On a 270-card board a scan

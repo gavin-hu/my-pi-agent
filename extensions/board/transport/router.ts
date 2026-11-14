@@ -22,7 +22,7 @@ import {
 	scriptHeaders,
 	type ServeResponse,
 } from "../../../lib/http/index.ts";
-import type { BoardView } from "../../../lib/board/view.ts";
+import type { BoardWire } from "../../../lib/board/view.ts";
 import { PING_PATH, SNAPSHOT_PATH } from "../../../lib/board/page-pointer.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
 import type { PageView } from "../view/page.ts";
@@ -47,7 +47,7 @@ export interface BoardRouterContext {
 	/** The client script. */
 	script: string;
 	/** The snapshot the page renders, and the body of the snapshot route. */
-	view: () => Promise<BoardView>;
+	view: () => Promise<BoardWire>;
 }
 
 /**
