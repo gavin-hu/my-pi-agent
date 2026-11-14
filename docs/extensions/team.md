@@ -76,18 +76,18 @@ joined looks the same. A message to a quiet or not-listening peer says so: writt
 
 **Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own
 name — `/team join <label>`, or a bare one for the first free `team.teammates` name, the id-derived
-`team-agent-` name when none is free. A recordless board session is named the same way, so its card
-and its join agree. A claim, assign, or ask joins once, and a typed label also joins
-`team.teammates`. A bare join writes nothing and leaves Pi's name alone; it never spends a turn.
+`team-agent-` name when none is free. The list defaults to five, from `gavin`, so a repository that
+states no team still names a session, and `"teammates": []` says nobody. A recordless board session
+is named the same way, so its card and its join agree. A claim, assign, or ask joins once, and a
+typed label also joins `team.teammates`; a bare join writes nothing and leaves Pi's name alone.
 
 `assign` and `ask` join **before** they send, because the message names this session
 as the way back, and send nothing when the join is refused. A claim writes the card
 first and joins after it, so the card is yours either way and the result carries
 `Not on the team: …`. The reason says what to do, and the door is not always
 `/team join`: with no bus loaded it names the extension to turn on, and with the
-label held by another record it says whose it is — joining under another name is
-the other way, and it costs a lead its signature, because the gates compare
-`team.lead` by label.
+label held by another record it says whose it is — joining under another name costs
+a lead its signature, because the gates compare `team.lead` by label.
 
 **Plan mode.** Neither `team` nor `session` is read-only, so plan mode refuses both
 by name; `board list` still reads. Assign after the plan is approved.
@@ -105,10 +105,10 @@ by name; `board list` still reads. Assign after the plan is approved.
 
 ## Settings
 
-`team` has no section of its own; the lead name it writes under is `team.lead` in the `board` section
-of `bytefly.json` ([configuration](../configuration-reference.md#board--the-shared-feature-board)).
-To switch the extension off, toggle `team` in `/bytefly`; a session that keeps `board` alone can still
-move cards itself.
+The team is `bytefly.json`'s `team` section — `team.lead`, whose signature the two gates take, and
+`team.teammates`, the names a session draws from, five by default
+([configuration](../configuration-reference.md#team--the-projects-own-team)). Toggle `team` in
+`/bytefly` to switch the extension off; `board` alone still moves cards.
 
 ## Learn more
 

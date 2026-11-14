@@ -71,8 +71,8 @@ session spend, tokens, cache, and the model. The chip beside the location is the
 the team knows this session by — the bus label a join settled, the page's seat after
 `/board`, else Pi's own session name — drawn only while `team.teammates` holds it, so
 neither is ever drawn as itself. A project states its team and lead in `bytefly.json`'s
-`team` section (the **Lead** and **Teammates** rows); one that names neither draws no chip,
-and a `/team join <label>` puts the name it joined as on that list. Each turn closes
+`team` section (the **Lead** and **Teammates** rows); one that states neither gets the default lead
+and five names, a `[]` is how a project draws no chip, and `/team join <label>` adds its name. Each turn closes
 with a rule naming its number, duration, tools, and outcome. Every tool block leads
 with its call line and hangs its result on the rail. Notices from any extension draw
 at the transcript margin with a severity rail.

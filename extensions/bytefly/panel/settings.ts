@@ -298,7 +298,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		group: "Team",
 		label: "Lead",
 		description:
-			"The project's team name whose signature approves a contract and spot-checks the work; empty means no session signs. `bytefly.json` `team.lead`.",
+			"The team name whose signature approves a contract and spot-checks the work; empty means no session signs, so only the person does. `bytefly.json` `team.lead`.",
 		source: "bytefly",
 		kind: "text",
 		fallback: DEFAULT_TEAM_CONFIG.lead,
@@ -311,7 +311,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		group: "Team",
 		label: "Teammates",
 		description:
-			"Who is on the team, comma separated: the footer draws a session's name only when it is one of these; empty means no names at all. `bytefly.json` `team.teammates`.",
+			"Who is on the team, comma separated: the footer draws a session's name only when it is one of these, and a session with no name of its own draws the first free one; empty means no names at all. `bytefly.json` `team.teammates`.",
 		source: "bytefly",
 		kind: "text",
 		fallback: DEFAULT_TEAM_CONFIG.teammates.join(","),
@@ -418,7 +418,8 @@ function budgetLabel(raw: string, snapshot: SettingsSnapshot, scope: WriteScope)
 
 /** The display label for `raw`, or the raw value when it is a valid custom one. */
 function labelFor(row: SettingDescriptor, raw: string): string {
-	// An unstated team is a value rather than a blank row: the project named no lead, or nobody.
+	// An empty team is a value rather than a blank row: the file states no lead, or nobody — the
+	// loader's default fills the row only while the file says nothing at all.
 	if (row.id === "team.lead" && raw.trim() === "") return "(no lead)";
 	if (row.id === "team.teammates" && splitList(raw).length === 0) return "(no one)";
 	// A list reads as a list: the file joins it with a comma, a reader sees the names apart.

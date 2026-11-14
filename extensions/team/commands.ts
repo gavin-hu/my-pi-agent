@@ -52,9 +52,9 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			if (word === "join") {
 				const label = rest.join(" ").trim();
 				// A typed label is the one naming action: it is also Pi's session name, which is what
-				// `/team join` is for. With no label the project's own team names the session when it
-				// can — see `unnamedJoin` — and the join renames nothing, because a name the file already
-				// lists is the team's, not the user's.
+				// `/team join` is for. With no label the team names the session when it can — see
+				// `unnamedJoin` — and the join renames nothing, because a name the file already lists is the
+				// team's, not the user's.
 				const asked: JoinAsk = label === "" ? await unnamedJoin(session, ctx) : { input: { label, name: true } };
 				const joined = await team.join(ctx, asked.input);
 				// The standing is the session's, not this command's: `/board status` reports the team

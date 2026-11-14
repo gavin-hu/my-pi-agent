@@ -275,10 +275,11 @@ The `board` and `team` sections of `bytefly.json`, read once: `TeamConfig` (`lea
 `teammates`), `BoardConfig` (that plus `wip`), `DEFAULT_TEAM_CONFIG` / `DEFAULT_BOARD_CONFIG`,
 `normalizeTeamConfig` / `normalizeWipConfig` / `normalizeBoardConfig` — each key falling back on
 its own, so a file that sets one keeps the others — `readTeamConfig` (what the footer draws from)
-and `readBoardConfig`, the project's section over the global one. A project names its own team,
-so neither default holds a name: no lead, and an empty list. The sections are read together when
-the store opens, because a board that asked the file on every write would spend a stat to answer
-a question nobody changed. `addTeammate` writes the whole list the project then states.
+and `readBoardConfig`, the project's section over the global one. The default is one lead and five
+names, from `gavin`, and a stated list replaces it whole — `[]` included, which is a team of nobody.
+The sections are read together when the store opens, because a board that asked the file on every
+write would spend a stat to answer a question nobody changed. `addTeammate` writes the whole list
+the project then states.
 
 The arithmetic of a limit stays in `limits.ts` and the signer rule stays in `lead.ts`; this
 module is the file. `extensions/bytefly` imports it too, so the settings screen shows what the

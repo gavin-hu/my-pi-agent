@@ -48,8 +48,9 @@ export interface BoardHarnessOptions {
 	 * The names the fixture states as its team, beside the lead.
 	 *
 	 * The default is the lead alone, which can give a session nothing: a session may not draw the
-	 * lead's own name, so a suite that expects it sits on the id-derived label. A case about the draw
-	 * states the free name it wants the session to take.
+	 * lead's own name, so a suite that expects the id-derived label states the lead only and keeps
+	 * the loader's default roster out of it. A case about the draw states the free name it wants
+	 * the session to take.
 	 */
 	teammates?: readonly string[];
 	/**
@@ -88,9 +89,9 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 	const cwd = options.cwd ?? track(tempDir("pi-repo-"));
 	const now = options.now ?? 50_000;
 	// Written before the session opens its store, because the settings are read once, when it
-	// does: a suite that names a lead is the one that can sign through the tool. A project names
-	// its own team now, so the fixture states one — the session's own name unless a case says
-	// otherwise — rather than relying on a built-in default the loaders no longer have.
+	// does: a suite that names a lead is the one that can sign through the tool. The fixture states
+	// the team it wants rather than leaving it to the loader's default roster, so an actor is the
+	// name the case chose and not a name the default happened to give.
 	if (options.project !== false) {
 		const lead = options.lead ?? agentLabel(options.sessionId ?? "s-lead");
 		mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
