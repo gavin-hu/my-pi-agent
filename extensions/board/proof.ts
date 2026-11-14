@@ -51,8 +51,12 @@ export async function provedPlan(
  * What `store.mutate` should be told about the branch a card landed on, for a move to `done`.
  *
  * The board resolves the landing rather than accepting one: the model names nothing here, so a
- * card cannot claim a merge it did not get. Three git calls, and only for a card whose sign names a
- * commit — a run outside a repository names none, and its card owes no landing.
+ * card cannot claim a merge it did not get. A handful of git calls, and only for a card whose sign
+ * names a commit — a run outside a repository names none, and its card owes no landing.
+ *
+ * What the merge changed is the review's own work, not the card's path hints: a neighbour that
+ * landed inside a hinted directory since the fork is not this review's evidence, so
+ * `resolvedByMerge` scopes the diff to the files the review itself changed.
  *
  * The chain is read from the repository's checkout, not the session's tree: work is made in a
  * worktree and lands in the checkout, so the checkout is the only tree whose first-parent line is
@@ -71,7 +75,7 @@ export async function landedChain(
 	if (id === undefined || card === undefined || reviewed === undefined) return undefined;
 	// The git readers and their runner load here rather than at registration: a board that never
 	// closes a card pays nothing for them, and the entry's static graph stays where it was.
-	const { currentBranch, firstParentChain, movedPaths } = await import("../../lib/git/read.ts");
+	const { currentBranch, firstParentChain, resolvedByMerge } = await import("../../lib/git/read.ts");
 	const { createExecRunner } = await import("../../lib/git/runner.ts");
 	const runGit = createExecRunner(pi);
 	const root = store.root();
@@ -80,7 +84,10 @@ export async function landedChain(
 	if (chain.length === 0) return undefined;
 	const check = resolveLanding({ branch, chain }, reviewed, id);
 	if ("error" in check) return { branch, chain };
-	const moved = await movedPaths(runGit, root, reviewed, check.sha, card.paths);
+	const moved = await resolvedByMerge(runGit, root, reviewed, check.sha);
+	// A diff that could not be read is not "nothing moved": the proof is not handed over, so the
+	// close is refused the way an unread branch is, and the sentence that already says so is used.
+	if (moved === undefined) return undefined;
 	return { branch, chain, ...(moved.length === 0 ? {} : { moved }) };
 }
 

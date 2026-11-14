@@ -465,16 +465,19 @@ export interface LandingCommit {
  *
  * The chain is the default branch's **first-parent** commits in **oldest-first** order: the walk
  * starts at the branch and follows the first parent, so a criss-cross cannot hand back a later
- * merge as the one that carried the work. `moved` is the other half — the paths that differ between
- * the reviewed commit and the merge — because a merge that resolved the work itself is a tree
- * nobody ran the gate on, and the diff is what says so.
+ * merge as the one that carried the work. `moved` is the other half — the reviewed files the merge
+ * changed — because a merge that resolved the work itself is a tree nobody ran the gate on, and
+ * that diff is what says so.
  */
 export interface LandingProof {
 	/** The branch the chain was read from, as a sentence names it: `main`, not `refs/heads/main`. */
 	branch: string;
 	/** The branch's first-parent commits, oldest first. */
 	chain: readonly LandingCommit[];
-	/** The paths that moved between the reviewed commit and the merge; absent when none did. */
+	/**
+	 * The review's own files the merge changed; absent when none. A neighbour's landing under a
+	 * hinted directory is not here: the diff is scoped to the review's work, not to the hints.
+	 */
 	moved?: readonly string[];
 }
 
@@ -536,11 +539,13 @@ export function unlandedReview(branch: string, reviewed: string, id: string): st
 }
 
 /**
- * What a `done` move is refused with when the merge moved the tree the review proved.
+ * What a `done` move is refused with when the merge changed a file the review changed.
  *
- * The sign was right about the tree it saw; the merge, not the review, is what nobody ran the gate
- * on. One sentence per path list, and the list is the caller's to cap: it is the card's own hint,
- * so the first few are enough to find the rest.
+ * The sign was right about the tree it saw; the merge is what nobody ran the gate on. The list is
+ * the reviewed files, not the card's hints, so a neighbour is never named. One case is conservative
+ * rather than wrong — a neighbour and the review both editing one file — because telling a clean
+ * combination from a resolution edit needs the merge git would have made. The list is the caller's
+ * to cap: the first few are enough to find the rest.
  */
 export function movedTree(
 	branch: string,
