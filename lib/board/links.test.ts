@@ -11,11 +11,14 @@ import { describe, expect, test } from "bun:test";
 import { MAX_DEPENDS, type Card } from "./card.ts";
 import {
 	blockersOf,
+	dependentIndexOf,
+	dependentsIn,
 	dependentsOf,
 	dependedOn,
 	indexOf,
 	lanesText,
 	normalizeDepends,
+	openDependentsIn,
 	openDependentsOf,
 	waitingOn,
 	wouldCycle,
@@ -119,6 +122,36 @@ describe("openDependentsOf", () => {
 		expect(openDependentsOf("5", board).map((entry) => entry.id)).toEqual(["3"]);
 		// A card nothing waits on, and a card whose only dependents are finished, read alike.
 		expect(openDependentsOf("3", board)).toEqual([]);
+	});
+});
+
+describe("dependentIndexOf", () => {
+	// The whole-board answer the page reads instead of one scan per card: it must say what
+	// the one-card question says, or the page and the refusal would disagree.
+	const cards = [
+		card("1"),
+		card("5", { dependsOn: ["1"] }),
+		held("3", "execute", { dependsOn: ["1", "5"] }),
+		held("4", "done", { dependsOn: ["1"] }),
+	];
+
+	test("builds every bucket in the id order the one-card scan prints", () => {
+		const index = dependentIndexOf(cards);
+		expect(dependentsIn(index, "1").map((entry) => entry.id)).toEqual(["3", "4", "5"]);
+		expect(dependentsIn(index, "5").map((entry) => entry.id)).toEqual(["3"]);
+		// An id nothing waits on is absent rather than an empty bucket.
+		expect(dependentsIn(index, "3")).toEqual([]);
+	});
+
+	test("drops a finished dependent where the open filter asks it to", () => {
+		const index = dependentIndexOf(cards);
+		expect(openDependentsIn(index, "1").map((entry) => entry.id)).toEqual(["3", "5"]);
+		expect(openDependentsIn(index, "4")).toEqual([]);
+	});
+
+	test("names a card once for one edge, even when its file repeats the id", () => {
+		const index = dependentIndexOf([card("5", { dependsOn: ["1", "1"] })]);
+		expect(dependentsIn(index, "1").map((entry) => entry.id)).toEqual(["5"]);
 	});
 });
 

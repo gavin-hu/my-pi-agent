@@ -59,6 +59,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   anything is swept, which matters most for `/board archive 30d` with the flag missing, whose shape is a
   card id. A sweep with no bound still takes every finished card, so no existing call changes meaning.
 
+- `docs`: a project's `.pi` directory has a table saying who writes each path — `settings.json`,
+  `bytefly.json`, `memory.md`, `worktrees/`, `agents/`, and `cache/` — with a fourth column saying
+  which one is disposable, so the single generated path is told apart from the five that are not.
+  It also states the rule: an extension adds a concept directory, created on first use, and
+  `bytefly.json` and `memory.md` stay the only root-level files this package adds.
+
 ### Changed
 
 - `session-bus`: the wait between an ask and its answer is named where the model reads it — the
@@ -66,6 +72,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the answer: a message waits in an inbox until its session runs, so the turn can end, while a
   `sleep` holds the very turn that would report the mail. Delivery is unchanged; what changed is
   that the only inferable procedure is no longer a poll.
+
+- `board`: a listing, a write, and a page frame read the pile on a bound — one round trip per card
+  file, sixteen in flight — instead of one file at a time, and a card's dependents are indexed in
+  the same pass that indexes the cards rather than scanned for each one. On a 270-card board a scan
+  drops from 14 ms to 4.3, `board list` from 13.7 to 4.0, a write from 12.7 to 4.5, and a page frame
+  from 16.7 to 5.1; a snapshot's dependents pass stops being the board squared (22.8 ms to 0.9 at
+  1000 cards, 80.8 to 1.9 at 2000). The pile reader moves into `board/read.ts`, where a file's gate
+  already lived, and the page's card order, its refusals, and every listing read exactly as before.
 
 - `lib`: the four stream states' words and tones are one table (`paintLiveState`) spliced into
   every served page, so the board appends only the frame's age and the review its comment count.

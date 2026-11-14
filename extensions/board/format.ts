@@ -19,7 +19,7 @@ import { LANE_RULES } from "../../lib/board/lanes.ts";
 import { GATE_WORD } from "../../lib/board/tone.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
 import { skippedText } from "../../lib/board/skipped.ts";
-import type { Skip } from "../../lib/board/store.ts";
+import type { Skip } from "../../lib/board/read.ts";
 import { formatAge, shortenPath } from "../../lib/format.ts";
 import { plural, ranClause } from "../../lib/board/round-text.ts";
 

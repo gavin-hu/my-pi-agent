@@ -27,26 +27,16 @@
  * alone. The page shows the store's size, and `drop` is the only deletion.
  */
 
-import { link, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../env.ts";
 import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import {
-	type Card,
-	canonicalCardId,
-	cardRef,
-	type EndedCard,
-	ENDED_VERSION,
-	type Priority,
-	priorityRank,
-	SUPPORTED_VERSIONS,
-} from "./card.ts";
+import { type Card, cardRef, type EndedCard, ENDED_VERSION, type Priority } from "./card.ts";
 import type { CardType } from "./kind.ts";
-import { LANES } from "./lanes.ts";
-import { readCard } from "./read.ts";
+import { CARD_FILE, readCardFile, readdirSafe, type Skip, scanPile } from "./read.ts";
 import { indexOf } from "./links.ts";
 import { lockBoard } from "./lock.ts";
 import { type BoardConfig, DEFAULT_BOARD_CONFIG, readBoardConfig } from "./config.ts";
@@ -98,21 +88,6 @@ export interface CreateInput {
 export type MutateResult =
 	| { ok: true; card: Card; changed: boolean; dropped: boolean; archived: boolean; announce?: true; previous?: Card }
 	| { ok: false; error: string; card?: Card };
-
-/**
- * A card file the reader refused, and why.
- *
- * The lanes skip these, so without this the board reads as if they were never there:
- * "nobody has planned anything" instead of "this build cannot read your work".
- */
-export interface Skip {
-	/** The file name, e.g. `0042.json`. */
-	file: string;
-	/** The id the file name spells, when it spells one, so a caller can match a refusal. */
-	id?: string;
-	/** What is wrong, phrased for a reader: `bad JSON`, `version 2`. */
-	why: string;
-}
 
 /** One repository's board, as the runtime, the router, and the tool use it. */
 export interface BoardStore {
@@ -249,23 +224,6 @@ export function createStore(
 	 * The size comes off the read rather than a second pass, because the bytes are already in
 	 * hand: a frame that walked the directory again would stat every file it just opened.
 	 */
-	const scanPile = async (pileDir: string): Promise<{ cards: Card[]; skipped: Skip[]; bytes: number }> => {
-		const entries = await readdirSafe(pileDir);
-		const cards: Card[] = [];
-		const skipped: Skip[] = [];
-		let bytes = 0;
-		for (const entry of entries) {
-			const read = await readCardFile(pileDir, entry);
-			// Counted for a refusal too: a card file this build cannot read still occupies the disk.
-			bytes += read.bytes;
-			if ("card" in read) cards.push(read.card);
-			// Anything that is not a card-named file is not the board's to explain.
-			else if (entry.endsWith(".json")) skipped.push(read.skip);
-		}
-		// Sorted by file name so two reads of one board say the same thing in the same order.
-		return { cards: sortForLane(cards), skipped: skipped.sort((a, b) => a.file.localeCompare(b.file)), bytes };
-	};
-
 	const scan = (): Promise<{ cards: Card[]; skipped: Skip[]; bytes: number }> => scanPile(cardsDir);
 
 	const list = async (): Promise<Card[]> => (await scan()).cards;
@@ -412,51 +370,6 @@ function fileNameFor(id: string): string {
 	return `${id.padStart(4, "0")}.json`;
 }
 
-/** The card files the reader accepts. */
-const CARD_FILE = /^(\d{4,})\.json$/;
-
-/** One card file: the card or the reason this build refused it, and the bytes it occupies. */
-type CardFileRead = { card: Card; bytes: number } | { skip: Skip; bytes: number };
-
-/**
- * One card file, read once: the file's bytes are decoded and counted in the same pass, so a
- * caller that wants the pile's size pays nothing for it — and a name that is not a card file is
- * never opened, so it counts as nothing.
- */
-async function readCardFile(pileDir: string, entry: string): Promise<CardFileRead> {
-	const match = CARD_FILE.exec(entry);
-	if (!match) return { skip: { file: entry, why: "not a card id" }, bytes: 0 };
-	const id = canonicalCardId(match[1]);
-	const raw = await readFile(join(pileDir, entry)).catch(() => undefined);
-	if (raw === undefined) return { skip: { file: entry, id, why: "cannot be read" }, bytes: 0 };
-	// The read bytes are the file's size, so the size needs no `stat` of its own.
-	const bytes = raw.length;
-	const text = raw.toString("utf-8");
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(text);
-	} catch {
-		return { skip: { file: entry, id, why: "bad JSON" }, bytes };
-	}
-	// A version this build does not read is the one refusal a reader can act on: the file was
-	// written by a newer build, so the board is not empty, it is not readable here. Every
-	// version `readCard` can map is read; the number is named rather than guessed at.
-	const version = typeof parsed === "object" && parsed !== null ? (parsed as { v?: unknown }).v : undefined;
-	if (typeof version === "number" && !SUPPORTED_VERSIONS.some((known) => known === version)) {
-		return { skip: { file: entry, id, why: `version ${version}` }, bytes };
-	}
-	// The one gate a file read passes: an older spelling of the lane field is read as
-	// this build's, and everything else is a shape this build does not trust.
-	const card = readCard(parsed);
-	if (card === undefined) return { skip: { file: entry, id, why: "not a card record" }, bytes };
-	// The file name is the id's canonical spelling: a padded id inside the record
-	// (or a record moved under another name) is a disagreement, not a card.
-	if (card.id !== canonicalCardId(match[1])) {
-		return { skip: { file: entry, id, why: `names card ${card.id}` }, bytes };
-	}
-	return { card, bytes };
-}
-
 /** The highest id a directory holds, or 0 when it holds none. */
 async function highestId(dir: string): Promise<number> {
 	const entries = await readdirSafe(dir);
@@ -568,33 +481,4 @@ async function sweepTemps(cardsDir: string): Promise<void> {
 		const info = await stat(path).catch(() => undefined);
 		if (info && info.mtimeMs < cutoff) await unlink(path).catch(() => undefined);
 	}
-}
-
-async function readdirSafe(dir: string): Promise<string[]> {
-	return readdir(dir).catch((error: unknown) => {
-		if (hasErrorCode(error, "ENOENT")) return [];
-		throw error;
-	});
-}
-
-/**
- * Lane order, then the lead's order inside it, then the order the cards were added in: the
- * id, which is allocated once and never reissued.
- *
- * Priority sorts inside a lane rather than beside it: a `high` card in Done is still
- * history, and a lane that mixed the two would have to say so in its head.
- *
- * The id carries the age, and `updatedAt` deliberately does not: every write moves that
- * stamp, so ordering by it makes a note, a claim, or a contract push a card to the end of
- * its priority and reshuffle the listing a reader was working down.
- */
-function sortForLane(cards: Card[]): Card[] {
-	const lane = (card: Card): number => LANES.indexOf(card.lane);
-	return cards.sort((a, b) => {
-		const byLane = lane(a) - lane(b);
-		if (byLane !== 0) return byLane;
-		const byPriority = priorityRank(a) - priorityRank(b);
-		if (byPriority !== 0) return byPriority;
-		return Number(a.id) - Number(b.id);
-	});
 }
