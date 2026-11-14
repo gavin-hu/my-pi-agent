@@ -23,6 +23,7 @@ import {
 	readRoster,
 	readSessionLabel,
 	rosterStateOf,
+	storedName,
 } from "./session-roster.ts";
 
 const temps = makeTempTracker();
@@ -61,10 +62,12 @@ describe("readRoster", () => {
 
 	test("reads the fields a teammate row needs, and counts its mail", async () => {
 		const dir = busDir();
-		writeSession(dir, "aaa", { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW - 5_000 });
-		writeMail(dir, "aaa", "1");
-		writeMail(dir, "aaa", "2");
-		writeSession(dir, "bbb", { id: "s-2", label: "billing-lead", mode: "print", lastSeen: NOW - 90_000 });
+		// The record and the inbox are filed under one name, so the reader finds mail by the id it
+		// trusts rather than by the file name it arrived in.
+		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW - 5_000 });
+		writeMail(dir, storedName("s-1"), "1");
+		writeMail(dir, storedName("s-1"), "2");
+		writeSession(dir, storedName("s-2"), { id: "s-2", label: "billing-lead", mode: "print", lastSeen: NOW - 90_000 });
 		const sessions = await readRoster(dir);
 		expect(sessions).toEqual([
 			{ id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW - 5_000, mail: 2 },
@@ -142,10 +145,17 @@ describe("readRoster", () => {
 
 	test("counts only message files, so a leftover directory entry is not mail", async () => {
 		const dir = busDir();
-		writeSession(dir, "aaa", { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
-		writeMail(dir, "aaa", "1");
-		writeFileSync(join(dir, INBOX_DIR_NAME, "aaa", "README"), "x\n", "utf-8");
+		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
+		writeMail(dir, storedName("s-1"), "1");
+		writeFileSync(join(dir, INBOX_DIR_NAME, storedName("s-1"), "README"), "x\n", "utf-8");
 		expect((await readRoster(dir))?.[0]?.mail).toBe(1);
+	});
+	test("names a session's record and its inbox with one value, and never changes it", () => {
+		// The digest is the on-disk contract: a bus written by an older build is found only while this
+		// stays put, so the literal is the assertion rather than its shape.
+		expect(storedName("s-1")).toBe("6a840baf5d8c3ff241688aeb14546e65");
+		expect(storedName("s-2")).toMatch(/^[0-9a-f]{32}$/);
+		expect(storedName("s-1")).not.toBe(storedName("s-2"));
 	});
 });
 

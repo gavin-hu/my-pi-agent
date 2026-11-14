@@ -11,10 +11,14 @@
  * would be the second statement of where mail lives.
  */
 
-import { createHash } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { readdir, utimes } from "node:fs/promises";
 import { join } from "node:path";
-import { INBOX_DIR_NAME, SESSIONS_DIR_NAME } from "../../lib/session-roster.ts";
+import { INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "../../lib/session-roster.ts";
+import { createBusStore } from "../../extensions/session-bus/store.ts";
+import type { BusMessage, SessionRecord } from "../../extensions/session-bus/types.ts";
+import { tempDir } from "./env.ts";
+import type { TempTracker } from "./git.ts";
 
 /** The fields a suite varies; everything else in the file is the bus's own shape. */
 export interface BusRecord {
@@ -46,10 +50,47 @@ export function removeBusRecord(file: string): void {
  * Make one session's inbox unwritable by putting a file where its directory goes.
  *
  * Staged on disk rather than through a seam, because that is the shape a real failure
- * takes: `mkdir` refuses the path on every platform. The hash is the store's own, so the
+ * takes: `mkdir` refuses the path on every platform. The name is the bus's own, so the
  * case blocks the very inbox `send` will write.
  */
 export function blockInbox(busDir: string, id: string): void {
 	mkdirSync(join(busDir, INBOX_DIR_NAME), { recursive: true });
-	writeFileSync(join(busDir, INBOX_DIR_NAME, createHash("sha256").update(id).digest("hex").slice(0, 32)), "");
+	writeFileSync(join(busDir, INBOX_DIR_NAME, storedName(id)), "");
+}
+
+/** A store over a temp bus directory the suite cleans up, for the cases that write through it. */
+export function busStoreFixture(temps: TempTracker): { dir: string; store: ReturnType<typeof createBusStore> } {
+	const dir = temps.track(tempDir("pi-session-bus-"));
+	return { dir, store: createBusStore({ dir }) };
+}
+
+/** One record as the bus writes it, with the fields a prune case varies. */
+export const sessionRecord = (id: string, lastSeen = 100): SessionRecord => ({
+	id,
+	label: id,
+	pid: 1,
+	cwd: "/repo",
+	repoRoot: "/repo",
+	mode: "tui",
+	startedAt: 50,
+	lastSeen,
+});
+
+/** One message file's contents, written under `to`'s inbox. */
+export const busMessage = (id: string, to: string, at = 100): BusMessage => ({
+	id,
+	from: "s1",
+	fromLabel: "one",
+	to,
+	toLabel: "two",
+	kind: "message",
+	text: "hello",
+	at,
+});
+
+/** Name a message file's arrival instead of racing the wall clock: the seam the TTL cases use. */
+export async function stampArrival(dir: string, id: string, at: number): Promise<void> {
+	const [inbox] = await readdir(join(dir, "inbox"));
+	if (!inbox) throw new Error("the inbox directory was not written");
+	await utimes(join(dir, "inbox", inbox, `${id}.json`), at, at);
 }

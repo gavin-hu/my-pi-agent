@@ -1,100 +1,62 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
 import { readdir, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { makeTempTracker } from "../../test/helpers/git.ts";
+import { busMessage, busStoreFixture, sessionRecord, stampArrival } from "../../test/helpers/bus.ts";
 import { createBusStore } from "./store.ts";
-import type { BusMessage, SessionRecord } from "./types.ts";
+import type { SessionRecord } from "./types.ts";
 
-const dirs: string[] = [];
-afterAll(() => {
-	for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
-});
-
-function fixture() {
-	const dir = mkdtempSync(join(tmpdir(), "pi-session-bus-"));
-	dirs.push(dir);
-	const store = createBusStore({ dir });
-	return { dir, store };
-}
-
-const session = (id: string, lastSeen = 100): SessionRecord => ({
-	id,
-	label: id,
-	pid: 1,
-	cwd: "/repo",
-	repoRoot: "/repo",
-	mode: "tui",
-	startedAt: 50,
-	lastSeen,
-});
-
-const message = (id: string, to: string, at = 100): BusMessage => ({
-	id,
-	from: "s1",
-	fromLabel: "one",
-	to,
-	toLabel: "two",
-	kind: "message",
-	text: "hello",
-	at,
-});
-
-/** Name a message file's arrival instead of racing the wall clock: the seam the TTL case uses. */
-async function stamp(dir: string, id: string, at: number): Promise<void> {
-	const [inbox] = await readdir(join(dir, "inbox"));
-	if (!inbox) throw new Error("the inbox directory was not written");
-	await utimes(join(dir, "inbox", inbox, `${id}.json`), at, at);
-}
+const temps = makeTempTracker();
+afterAll(() => temps.flush());
 
 describe("sessions", () => {
 	test("writes and reads one record per session, tolerating a corrupt file", async () => {
-		const { store } = fixture();
+		const { store } = busStoreFixture(temps);
 		await store.ensure();
-		await store.writeSession(session("s1"));
-		await store.writeSession(session("s2"));
+		await store.writeSession(sessionRecord("s1"));
+		await store.writeSession(sessionRecord("s2"));
 		const sessions = await store.sessions();
 		expect(sessions.map((entry) => entry.id).sort()).toEqual(["s1", "s2"]);
 		expect(await store.unread("missing")).toBe(0);
 	});
 
 	test("keeps the listening field, and skips a record whose field is not the shape the bus writes", async () => {
-		const { store } = fixture();
+		const { store } = busStoreFixture(temps);
 		await store.ensure();
-		await store.writeSession({ ...session("s1"), watching: { armed: true, wake: true } });
+		await store.writeSession({ ...sessionRecord("s1"), watching: { armed: true, wake: true } });
 		expect((await store.session("s1"))?.watching).toEqual({ armed: true, wake: true });
 		// The cast is the point of the case: only a hand-edited record can hold this, and a
 		// reader that trusted it would report mail that cannot arrive.
-		const broken = { ...session("s2"), watching: "on" } as unknown as SessionRecord;
+		const broken = { ...sessionRecord("s2"), watching: "on" } as unknown as SessionRecord;
 		await store.writeSession(broken);
 		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
 	});
 
 	test("keeps the start token, and skips a record whose token is not a string", async () => {
-		const { store } = fixture();
+		const { store } = busStoreFixture(temps);
 		await store.ensure();
-		await store.writeSession({ ...session("s1"), startToken: "Mon Oct 26 00:02:00 2026" });
+		await store.writeSession({ ...sessionRecord("s1"), startToken: "Mon Oct 26 00:02:00 2026" });
 		expect((await store.session("s1"))?.startToken).toBe("Mon Oct 26 00:02:00 2026");
 		// Only a hand-edited record can hold this, and a rule that trusted it would call a
 		// live session gone.
-		const broken = { ...session("s2"), startToken: 7 } as unknown as SessionRecord;
+		const broken = { ...sessionRecord("s2"), startToken: 7 } as unknown as SessionRecord;
 		await store.writeSession(broken);
 		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
 	});
 
 	test("removes a session, and its inbox directory once it holds no mail", async () => {
-		const { dir, store } = fixture();
+		const { dir, store } = busStoreFixture(temps);
 		await store.ensure();
-		await store.writeSession(session("s1"));
+		await store.writeSession(sessionRecord("s1"));
 		await store.removeSession("s1");
 		expect(await store.sessions()).toEqual([]);
 		expect(await readdir(join(dir, "inbox"))).toEqual([]);
 	});
 
 	test("keeps a removed session's inbox while the mail may still be read", async () => {
-		const { dir, store } = fixture();
-		await store.writeSession(session("s1"));
-		await store.writeMessage("s1", message("100-a", "s1"));
+		const { dir, store } = busStoreFixture(temps);
+		await store.writeSession(sessionRecord("s1"));
+		await store.writeMessage("s1", busMessage("100-a", "s1"));
 		await store.removeSession("s1");
 		expect(await readdir(join(dir, "inbox"))).toHaveLength(1);
 		expect((await store.inbox("s1", 10)).messages.map((entry) => entry.id)).toEqual(["100-a"]);
@@ -103,9 +65,9 @@ describe("sessions", () => {
 
 describe("inbox", () => {
 	test("stores one file per message, consumes oldest first, and counts unread", async () => {
-		const { store } = fixture();
-		await store.writeMessage("s2", message("100-a", "s2"));
-		await store.writeMessage("s2", message("101-b", "s2"));
+		const { store } = busStoreFixture(temps);
+		await store.writeMessage("s2", busMessage("100-a", "s2"));
+		await store.writeMessage("s2", busMessage("101-b", "s2"));
 		expect(await store.unread("s2")).toBe(2);
 		const first = await store.inbox("s2", 1);
 		expect(first.messages.map((entry) => entry.id)).toEqual(["100-a"]);
@@ -116,8 +78,8 @@ describe("inbox", () => {
 	});
 
 	test("peek reads a message without consuming it", async () => {
-		const { store } = fixture();
-		await store.writeMessage("s2", message("100-a", "s2"));
+		const { store } = busStoreFixture(temps);
+		await store.writeMessage("s2", busMessage("100-a", "s2"));
 		expect((await store.peek("s2", { limit: 10 })).mail.map((entry) => entry.id)).toEqual(["100-a"]);
 		expect((await store.peek("s2", { limit: 10 })).mail.map((entry) => entry.id)).toEqual(["100-a"]);
 		expect(await store.unread("s2")).toBe(1);
@@ -127,10 +89,10 @@ describe("inbox", () => {
 	});
 
 	test("peek pages from the front of the inbox, and skips the ids the caller has", async () => {
-		const { store } = fixture();
+		const { store } = busStoreFixture(temps);
 		for (let index = 0; index < 55; index += 1) {
 			const at = 1_000 + index;
-			await store.writeMessage("s2", message(`${at}-a`, "s2", at));
+			await store.writeMessage("s2", busMessage(`${at}-a`, "s2", at));
 		}
 		const first = await store.peek("s2", { limit: 50 });
 		// One page, from the front: what a poll reads, while the rest waits for the next page
@@ -154,16 +116,16 @@ describe("inbox", () => {
 	});
 
 	test("orders the queue by when mail arrived, not by the clock the sender wrote it with", async () => {
-		const { dir, store } = fixture();
+		const { dir, store } = busStoreFixture(temps);
 		// An id carries the sender's clock: a peer running ahead writes one that sorts after every
 		// other, one running behind writes one that sorts before all of them. The queue is the
 		// arrival, and a name only settles two files published in one filesystem tick.
-		await store.writeMessage("s2", message("9000-ahead", "s2", 9_000));
-		await store.writeMessage("s2", message("1000-behind", "s2", 1_000));
-		await store.writeMessage("s2", message("8000-tie", "s2", 8_000));
-		await stamp(dir, "9000-ahead", 1_000);
-		await stamp(dir, "8000-tie", 1_000);
-		await stamp(dir, "1000-behind", 1_001);
+		await store.writeMessage("s2", busMessage("9000-ahead", "s2", 9_000));
+		await store.writeMessage("s2", busMessage("1000-behind", "s2", 1_000));
+		await store.writeMessage("s2", busMessage("8000-tie", "s2", 8_000));
+		await stampArrival(dir, "9000-ahead", 1_000);
+		await stampArrival(dir, "8000-tie", 1_000);
+		await stampArrival(dir, "1000-behind", 1_001);
 		const page = (await store.peek("s2", { limit: 10 })).mail.map((entry) => entry.id);
 		// The page is in the order it walked, which `at` would not give; consuming takes that front.
 		expect(page).toEqual(["8000-tie", "9000-ahead", "1000-behind"]);
@@ -172,8 +134,8 @@ describe("inbox", () => {
 	});
 
 	test("names a message it cannot parse and leaves it for the TTL", async () => {
-		const { dir, store } = fixture();
-		await store.writeMessage("s2", message("100-a", "s2"));
+		const { dir, store } = busStoreFixture(temps);
+		await store.writeMessage("s2", busMessage("100-a", "s2"));
 		const [inbox] = await readdir(join(dir, "inbox"));
 		if (!inbox) throw new Error("the inbox directory was not written");
 		const [file] = await readdir(join(dir, "inbox", inbox));
@@ -193,13 +155,13 @@ describe("inbox", () => {
 		expect(await store.unread("s2")).toBe(1);
 
 		// The TTL is what ends it, on the only clock a file with no readable `at` has.
-		await store.prune({ now: 1_700_000_000_000, activeIds: new Set(["s2"]), sessionTtlMs: 1e9, messageTtlMs: 1e9 });
+		await store.pruneMail({ now: 1_700_000_000_000, messageTtlMs: 1e9 });
 		expect(await readdir(join(dir, "inbox", inbox))).toEqual([file]);
 	});
 
 	test("names a refusal behind a full page once the mail in front of it is consumed", async () => {
-		const { dir, store } = fixture();
-		for (const id of ["100-a", "101-b", "102-c"]) await store.writeMessage("s2", message(id, "s2"));
+		const { dir, store } = busStoreFixture(temps);
+		for (const id of ["100-a", "101-b", "102-c"]) await store.writeMessage("s2", busMessage(id, "s2"));
 		const [inbox] = await readdir(join(dir, "inbox"));
 		if (!inbox) throw new Error("the inbox directory was not written");
 		// The third message is the one this build cannot read, behind a page that holds two.
@@ -220,8 +182,8 @@ describe("inbox", () => {
 	});
 
 	test("keeps an unparseable file inside the TTL and prunes it past it by its mtime", async () => {
-		const { dir, store } = fixture();
-		await store.writeMessage("s2", message("100-a", "s2"));
+		const { dir, store } = busStoreFixture(temps);
+		await store.writeMessage("s2", busMessage("100-a", "s2"));
 		const [inbox] = await readdir(join(dir, "inbox"));
 		if (!inbox) throw new Error("the inbox directory was not written");
 		const [file] = await readdir(join(dir, "inbox", inbox));
@@ -232,22 +194,22 @@ describe("inbox", () => {
 		// A fixed instant far ahead of the file it just wrote, so no case reads the wall clock.
 		const ttl = 60_000;
 		const now = 1_700_000_000_000;
-		const at = (ms: number) => ({ now: ms, activeIds: new Set(["s2"]), sessionTtlMs: 1e9, messageTtlMs: ttl });
+		const at = (ms: number) => ({ now: ms, messageTtlMs: ttl });
 
-		await store.prune(at(now));
+		await store.pruneMail(at(now));
 		expect(await readdir(join(dir, "inbox", inbox))).toEqual([file]);
 
 		// The file's own mtime is its age, and the only clock a message with no readable `at` has.
 		const old = 1_700_000_000;
 		await utimes(path, old, old);
-		await store.prune(at(old * 1000 + ttl + 1));
+		await store.pruneMail(at(old * 1000 + ttl + 1));
 		expect(await readdir(join(dir, "inbox", inbox)).catch(() => [])).toEqual([]);
 	});
 });
 
 describe("claims", () => {
 	test("is idempotent for the owner and conflicts for another", async () => {
-		const { store } = fixture();
+		const { store } = busStoreFixture(temps);
 		expect((await store.claimAll(["src/a.ts"], "s1", "one", 100)).claimed).toEqual(["src/a.ts"]);
 		expect((await store.claimAll(["src/a.ts"], "s1", "one", 101)).claimed).toEqual(["src/a.ts"]);
 		const other = await store.claimAll(["src/a.ts"], "s2", "two", 102);
@@ -259,7 +221,7 @@ describe("claims", () => {
 	});
 
 	test("claims a batch all or nothing, reporting every blocker", async () => {
-		const { store } = fixture();
+		const { store } = busStoreFixture(temps);
 		expect((await store.claimAll(["src/api"], "s1", "one", 100)).claimed).toEqual(["src/api"]);
 		const blocked = await store.claimAll(["src/ui", "src/api"], "s2", "two", 101);
 		expect(blocked.claimed).toEqual([]);
@@ -268,7 +230,7 @@ describe("claims", () => {
 	});
 
 	test("gives a batch that loses the create race nothing to hold", async () => {
-		const { store } = fixture();
+		const { store } = busStoreFixture(temps);
 		const results = await Promise.all([
 			store.claimAll(["src/a.ts", "src/b.ts"], "s1", "one", 100),
 			store.claimAll(["src/a.ts", "src/b.ts"], "s2", "two", 100),
@@ -280,7 +242,7 @@ describe("claims", () => {
 	});
 
 	test("a batch that loses a race gives back only what it created", async () => {
-		const { dir, store } = fixture();
+		const { dir, store } = busStoreFixture(temps);
 		// One path held before the call, one this batch would create, and one a rival takes
 		// in the window between the pre-check and that batch's own create.
 		expect((await store.claimAll(["src/api"], "s1", "one", 100)).claimed).toEqual(["src/api"]);
@@ -299,7 +261,7 @@ describe("claims", () => {
 	});
 
 	test("releases all claims owned by a session", async () => {
-		const { store } = fixture();
+		const { store } = busStoreFixture(temps);
 		await store.claimAll(["src/a.ts"], "s1", "one", 100);
 		await store.claimAll(["src/b.ts"], "s2", "two", 100);
 		expect(await store.releaseAll("s1")).toEqual(["src/a.ts"]);
@@ -307,7 +269,7 @@ describe("claims", () => {
 	});
 
 	test("publishes a claim whole, so the loser of a race leaves no temp file", async () => {
-		const { dir, store } = fixture();
+		const { dir, store } = busStoreFixture(temps);
 		expect((await store.claimAll(["src/a.ts"], "s1", "one", 100)).claimed).toEqual(["src/a.ts"]);
 		expect((await store.claimAll(["src/a.ts"], "s2", "two", 101)).conflicts[0]?.owner).toBe("s1");
 		expect(await store.claims()).toHaveLength(1);
@@ -316,85 +278,12 @@ describe("claims", () => {
 	});
 
 	test("republishes a claim whose file does not parse", async () => {
-		const { dir, store } = fixture();
+		const { dir, store } = busStoreFixture(temps);
 		await store.claimAll(["src/a.ts"], "s1", "one", 100);
 		const [file] = await readdir(join(dir, "claims"));
 		if (!file) throw new Error("the claim file was not written");
 		await writeFile(join(dir, "claims", file), "{");
 		expect((await store.claimAll(["src/a.ts"], "s2", "two", 101)).claimed).toEqual(["src/a.ts"]);
 		expect((await store.claims()).map((claim) => claim.owner)).toEqual(["s2"]);
-	});
-});
-
-describe("prune", () => {
-	test("removes stale sessions, their claims, and expired messages", async () => {
-		const { store } = fixture();
-		await store.writeSession(session("s1", 100));
-		await store.writeMessage("s2", message("100-a", "s2", 100));
-		await store.claimAll(["src/a.ts"], "s1", "one", 100);
-		await store.prune({ now: 1_000, activeIds: new Set(["s1", "s2"]), sessionTtlMs: 500, messageTtlMs: 500 });
-		expect(await store.sessions()).toEqual([]);
-		expect(await store.claims()).toEqual([]);
-		expect(await store.inbox("s2", 10)).toEqual({ messages: [], unreadable: [] });
-	});
-
-	test("keeps fresh sessions and claims", async () => {
-		const { store } = fixture();
-		await store.writeSession(session("s1", 900));
-		await store.claimAll(["src/a.ts"], "s1", "one", 900);
-		await store.prune({ now: 1_000, activeIds: new Set(["s1"]), sessionTtlMs: 500, messageTtlMs: 500 });
-		expect(await store.sessions()).toHaveLength(1);
-		expect(await store.claims()).toHaveLength(1);
-	});
-
-	test("keeps a gone session's row and frees the path it held", async () => {
-		const { store } = fixture();
-		// The process is gone but the heartbeat is fresh: the caller knows that, the file
-		// cannot, so the caller says which ids own nothing.
-		await store.writeSession(session("s1", 900));
-		await store.claimAll(["src/a.ts"], "s1", "one", 900);
-		await store.prune({
-			now: 1_000,
-			activeIds: new Set(),
-			goneIds: new Set(["s1"]),
-			sessionTtlMs: 500,
-			messageTtlMs: 500,
-		});
-		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
-		expect(await store.claims()).toEqual([]);
-	});
-
-	test("keeps a live peer's claim that the caller's active set had not seen yet", async () => {
-		const { store } = fixture();
-		// A peer joined and claimed after the caller read the session list, so its id is
-		// missing from the set the caller passes; its claim is still its own.
-		await store.writeSession(session("s2", 900));
-		await store.claimAll(["src/api"], "s2", "peer", 900);
-		await store.prune({ now: 1_000, activeIds: new Set(["s1"]), sessionTtlMs: 500, messageTtlMs: 500 });
-		expect((await store.claims()).map((claim) => claim.path)).toEqual(["src/api"]);
-	});
-
-	test("drops the inbox directory whose mail expired and keeps one that is still fresh", async () => {
-		const { dir, store } = fixture();
-		await store.writeMessage("s2", message("100-a", "s2", 100));
-		await store.writeMessage("s3", message("900-b", "s3", 900));
-		await store.prune({ now: 1_000, activeIds: new Set(["s2", "s3"]), sessionTtlMs: 500, messageTtlMs: 500 });
-		expect(await readdir(join(dir, "inbox"))).toHaveLength(1);
-		expect((await store.peek("s3", { limit: 10 })).mail).toHaveLength(1);
-	});
-
-	test("collects the temp file a crashed writer left, and leaves a live one alone", async () => {
-		const { dir, store } = fixture();
-		await store.ensure();
-		const sessions = join(dir, "sessions");
-		const stale = join(sessions, "abcd.json.123.9999.tmp");
-		const live = join(sessions, "abcd.json.456.8888.tmp");
-		await writeFile(stale, "{}");
-		await writeFile(live, "{}");
-		// The temp file of a write still in flight is milliseconds old; a crashed writer's
-		// sits until the next prune, where the filesystem's own timestamp decides.
-		await utimes(stale, 1_000_000, 1_000_000);
-		await store.prune({ now: 1_000, activeIds: new Set(), sessionTtlMs: 500, messageTtlMs: 500 });
-		expect(await readdir(sessions)).toEqual(["abcd.json.456.8888.tmp"]);
 	});
 });

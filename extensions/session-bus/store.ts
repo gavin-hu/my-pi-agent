@@ -7,7 +7,7 @@
  * nothing about models or UI; it only reads and writes validated JSON.
  */
 
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { mkdir, link, readdir, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/json.ts";
@@ -23,7 +23,7 @@ import type {
 	SessionRecord,
 } from "./types.ts";
 import { type BusMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
-import { INBOX_DIR_NAME, SESSIONS_DIR_NAME } from "../../lib/session-roster.ts";
+import { INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "../../lib/session-roster.ts";
 
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
@@ -90,7 +90,15 @@ export interface BusStore {
 	): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(path: string, owner: string): Promise<boolean>;
 	releaseAll(owner: string): Promise<string[]>;
-	prune(input: {
+	/**
+	 * Remove the records the TTL has taken, the claims they held, and the temp files a crashed
+	 * writer left.
+	 *
+	 * Cheap by design — two small directory reads — because an action runs it: a peer that died
+	 * must lose the paths it held at the moment a claimant looks, without the claimant paying for
+	 * every message on the bus first.
+	 */
+	pruneRecords(input: {
 		now: number;
 		/** The sessions known to be live when the caller read the bus. */
 		activeIds: ReadonlySet<string>;
@@ -100,8 +108,15 @@ export interface BusStore {
 		 */
 		goneIds?: ReadonlySet<string>;
 		sessionTtlMs: number;
-		messageTtlMs: number;
 	}): Promise<void>;
+	/**
+	 * Remove the mail past its TTL, which means walking every inbox to find it.
+	 *
+	 * The one call here whose cost grows with the mail on the bus, so it belongs to the clock the
+	 * TTL is measured in — the heartbeat — rather than to every action. A day-old message reading
+	 * as one for another ten seconds costs nobody.
+	 */
+	pruneMail(input: { now: number; messageTtlMs: number }): Promise<void>;
 }
 
 /**
@@ -121,8 +136,6 @@ export async function releaseClaimed(
 	}
 	return { released, notOwned };
 }
-
-const SHA = (value: string): string => createHash("sha256").update(value).digest("hex").slice(0, 32);
 
 function isSession(value: unknown): value is SessionRecord {
 	const entry = asRecord(value);
@@ -231,9 +244,9 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	const inboxRoot = join(dir, INBOX_DIR_NAME);
 	const claimsDir = join(dir, "claims");
 
-	const sessionFile = (id: string): string => join(sessionsDir, `${SHA(id)}.json`);
-	const inboxDir = (id: string): string => join(inboxRoot, SHA(id));
-	const claimFile = (path: string): string => join(claimsDir, `${SHA(path)}.json`);
+	const sessionFile = (id: string): string => join(sessionsDir, `${storedName(id)}.json`);
+	const inboxDir = (id: string): string => join(inboxRoot, storedName(id));
+	const claimFile = (path: string): string => join(claimsDir, `${storedName(path)}.json`);
 
 	/**
 	 * One message file in one inbox, created where it is not there yet.
@@ -476,7 +489,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			const kept: KeptMail[] = [];
 			if (wanted.size === 0) return { dropped, kept };
 			const holders = new Map<string, string>();
-			for (const session of await readSessions()) holders.set(SHA(session.id), session.label);
+			for (const session of await readSessions()) holders.set(storedName(session.id), session.label);
 			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
 				const directory = join(inboxRoot, name);
 				const holder = holders.get(name);
@@ -517,7 +530,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			return released;
 		},
 
-		async prune({ now: at, activeIds, goneIds, sessionTtlMs, messageTtlMs }) {
+		async pruneRecords({ now: at, activeIds, goneIds, sessionTtlMs }) {
 			// The caller's set can lag: a peer that joined and claimed since that read is
 			// live on disk, and its claims are its own. This read is the answer, so the
 			// set only adds to what it found rather than deciding who survives — except for
@@ -541,6 +554,9 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			}
 			await dropStaleTemps(sessionsDir);
 			await dropStaleTemps(claimsDir);
+		},
+
+		async pruneMail({ now: at, messageTtlMs }) {
 			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
 				const directory = join(inboxRoot, name);
 				for (const file of await listFiles(directory)) {

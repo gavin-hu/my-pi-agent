@@ -187,6 +187,9 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				// A heartbeat that resumed after a long pause can find its label taken; the
 				// tick is where a revived session notices and yields, after its own write.
 				if (await settleLabel()) publishLabel();
+				// The one prune that reads every inbox rides the clock the message TTL is measured in,
+				// so no action pays for mail nobody is waiting on.
+				await store.pruneMail({ now: now(), messageTtlMs });
 			})().catch(() => {});
 		});
 	}
@@ -198,7 +201,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		// Every record the bus is still keeping, not only a live one. A label is what a session
 		// is addressed by, and `team.lead` is a name whose signature decides whether a card may
 		// be executed or finished — so a name stays its taker's while the bus remembers the
-		// session, which is the same window `store.prune` keeps the record for. A session that
+		// session, which is the same window `store.pruneRecords` keeps the record for. A session that
 		// crashed a minute ago therefore holds its name instead of leaving it to whoever joins
 		// next.
 		//
@@ -275,20 +278,22 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	 * A label is reserved for the window this keeps, so the claim and the prune are one call:
 	 * `prepare` joins first and forgets here, which is what leaves a name free and its row gone
 	 * at the same moment — and one label over one session, rather than two a `send` must refuse.
+	 *
+	 * Records and claims only: this runs before every action, and the inbox sweep is the one part
+	 * of the prune whose cost is the whole bus, so the heartbeat carries that half instead.
 	 */
-	async function pruneStale(): Promise<void> {
+	async function pruneStaleRecords(): Promise<void> {
 		if (!store || !record) throw new Error("session bus is not started.");
 		// The caller is active by definition; refresh it before pruning so a quiet session
 		// that finally calls a tool does not delete its own record.
 		record.lastSeen = now();
 		await store.writeSession(record);
 		const sets = await pruneSets();
-		await store.prune({
+		await store.pruneRecords({
 			now: now(),
 			activeIds: sets.live,
 			goneIds: sets.gone,
 			sessionTtlMs,
-			messageTtlMs,
 		});
 	}
 
@@ -297,7 +302,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		// starts the bus without blocking the reload, so the first tool or command is the reader.
 		await ensureReady();
 		await joinBus();
-		await pruneStale();
+		await pruneStaleRecords();
 	}
 
 	async function currentRecord(): Promise<SessionRecord> {
@@ -461,12 +466,11 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// listed by the act of looking. Only an addressable action joins.
 			if (!joined) {
 				const sets = await pruneSets();
-				await store.prune({
+				await store.pruneRecords({
 					now: now(),
 					activeIds: sets.live,
 					goneIds: sets.gone,
 					sessionTtlMs,
-					messageTtlMs,
 				});
 				return readStatus({ id: record.id, label: record.label, onBus: false }, false);
 			}
