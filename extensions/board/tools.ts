@@ -63,18 +63,20 @@ export const BOARD_DESCRIPTION =
 	`${verbHelp()} A card's steps do not belong on the board - they belong in the plan and in \`todo\`.`;
 
 /**
- * The three rules that are not already in the schema, the description, or the action docs.
+ * The workflow itself: the order a card moves in, the lane count, and the handoff.
  *
- * Everything a fourth bullet used to say is stated once by the field or the action it is
- * about — a `blocked` card's resume is the `blocker` parameter's sentence, `dependsOn`'s
- * refusal is its own parameter's, "steps belong in `todo`" closes the description, and
- * "`paths` are hints, not claims" closes the `paths` parameter. Repeating one here costs
- * every request for nothing, which is what the ceiling in `test/prompt-budget.test.ts` is
- * for: one idea per bullet, and none of them already said.
+ * No action doc can say the order, because each one owns a single verb — the gates are what a
+ * session gets wrong on its own, and a checklist that stops at `execute` leaves `review` to a
+ * paragraph a model reads only when it reaches `done`. Everything a fourth bullet used to say is
+ * stated once by the field or the action it is about — a `blocked` card's resume is the
+ * `blocker` parameter's sentence, `dependsOn`'s refusal is its own parameter's, "steps belong in
+ * `todo`" closes the description, and "`paths` are hints, not claims" closes the `paths`
+ * parameter. Repeating one here costs every request for nothing, which is what the ceiling in
+ * `test/prompt-budget.test.ts` is for: one idea per bullet, and none of them already said.
  */
 export const BOARD_GUIDELINES = [
-	"Claim a card, design it in plan mode, record the contract, then move it to execute: that last gate is the lead's `approve`, or the person's `/board approve`.",
-	"Note each phase of the work, and release or reclaim a card you stop holding, so the lane count means what it says.",
+	"Claim a card, design it in plan mode, record the contract, then `execute`: `approve` gates that, `review` gates `done`, and the person signs both as the lead does.",
+	"Note each phase, and release or reclaim a card you stop holding, so the lane count means what it says.",
 	"A `handoff` in your inbox is work you now own: read it with `session inbox`, record the plan, and start it.",
 ];
 

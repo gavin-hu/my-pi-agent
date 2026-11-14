@@ -11,6 +11,8 @@
 import { describe, expect, test } from "bun:test";
 import { BoardParams } from "../extensions/board/schema.ts";
 import { BOARD_DESCRIPTION, BOARD_GUIDELINES, BOARD_SNIPPET } from "../extensions/board/tools.ts";
+import { TEAM_DESCRIPTION, TEAM_GUIDELINES, TEAM_SNIPPET } from "../extensions/team/types.ts";
+import { TeamParams } from "../extensions/team/schema.ts";
 import { buildBoardContext, MAX_CONTEXT_CHARS, MAX_CONTEXT_CARDS } from "../extensions/board/context.ts";
 import { numberedCard } from "./helpers/fixtures/board.ts";
 import { GOAL_CONTEXT_MARKER, buildGoalContext } from "../extensions/goal/index.ts";
@@ -77,6 +79,37 @@ describe("injected prompt budget", () => {
 	});
 });
 
+/** The `team` tool's always-on characters, summed the same way and for the same reason. */
+function teamSurface(): number {
+	return (
+		TEAM_DESCRIPTION.length +
+		TEAM_SNIPPET.length +
+		TEAM_GUIDELINES.join("\n").length +
+		JSON.stringify(TeamParams).length
+	);
+}
+
+describe("the team tool surface", () => {
+	test("stays under its ceiling, and keeps every verb in the description", () => {
+		// 3,111 before the verb list stopped being written twice: the `action` parameter repeated
+		// every sentence of the description, and the copy is what drifted, so the parameter now
+		// names the fields each verb reads and the description is the only place that says what a
+		// verb does. The fifth guideline is the lead's duty, the one thing no action doc owned;
+		// 2,686 today, and the ceiling is what stops a surface with no gate before it growing back.
+		expect(teamSurface()).toBeLessThanOrEqual(2_700);
+		expect(TEAM_GUIDELINES.join("\n").length).toBeLessThanOrEqual(720);
+	});
+
+	test("states the lead's duty once, in the tool a lead works in", () => {
+		// `board`'s `approve` doc gave the `team.lead` key up to this bullet, so the two cannot
+		// disagree about who signs; the gate's own sentence stays in the action doc that owns it.
+		const naming = TEAM_GUIDELINES.filter((guideline) => guideline.includes("team.lead"));
+		expect(naming).toHaveLength(1);
+		expect(naming[0]).toContain("`approve`");
+		expect(naming[0]).toContain("`review`");
+	});
+});
+
 /** The board tool's always-on characters, summed the way a request pays for them. */
 function boardSurface(): number {
 	return (
@@ -107,7 +140,10 @@ describe("the board tool surface", () => {
 		// `tools.test.ts` holds that every group the rollup reports reaches the model named.
 		// 7,193 for `olderThan`: the archive sweep's one bound, a parameter and its line in the
 		// action doc, which buys the difference between clearing a graveyard and archiving what
-		// just shipped. The gate is the number; this comment is why.
+		// just shipped. The workflow then moved into the first guideline — both gates, so a
+		// checklist no longer stops at `execute` — paid by 12 characters off the second and the
+		// 14 `approve`'s doc gave up when `team` took the config key: 7,173 today. The gate is the
+		// number; this comment is why.
 		expect(boardSurface()).toBeLessThanOrEqual(7_193);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
