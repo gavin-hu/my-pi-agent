@@ -234,21 +234,21 @@ describe("review client", () => {
 
 	test("settles on a terminal state instead of Offline", () => {
 		// The kit's pill carries the page's own words, lowercased like the other served pages'.
-		expect(REVIEW_CLIENT_JS).toContain('label = "approved"');
-		expect(REVIEW_CLIENT_JS).toContain('label = "saved"');
-		expect(REVIEW_CLIENT_JS).toContain('label = "closed"');
-		// The four connection states are the shared client's; these are this page's words for
-		// them, and a settled review is decided above all four.
-		expect(REVIEW_CLIENT_JS).toContain('} else if (liveState === "reconnecting") {');
-		expect(REVIEW_CLIENT_JS).toContain('} else if (liveState === "dead") {');
+		expect(REVIEW_CLIENT_JS).toContain('"approved" + suffix');
+		expect(REVIEW_CLIENT_JS).toContain('"saved" + suffix');
+		expect(REVIEW_CLIENT_JS).toContain('"closed" + suffix');
+		// The four connection states are the shared client's, painted through the kit's one table;
+		// a settled review is decided above all four.
+		expect(REVIEW_CLIENT_JS).toContain("paintLiveState(stateEl, liveState, suffix)");
+		expect(REVIEW_CLIENT_JS).toContain('if (!settled && liveState === "dead") offerReload()');
 	});
 
 	test("paints the kit's live pill and offers the kit's one reload control", () => {
-		// The shape is shared (`paintLive`, `#reload-hint`); the words and the moment are this
-		// page's, and a stale page — a dropped stream or a plan that moved — reveals the chip
-		// rather than building a button into the controls.
+		// The shape is shared (`paintLive`, `#reload-hint`); the settled words are this page's, and a
+		// stale page — a dropped stream or a plan that moved — reveals the chip rather than building
+		// a button into the controls.
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("reload-hint")');
-		expect(REVIEW_CLIENT_JS).toContain("paintLive(stateEl, tone, label)");
+		expect(REVIEW_CLIENT_JS).toContain('paintLive(stateEl, "success", "approved" + suffix)');
 		expect(REVIEW_CLIENT_JS).toContain("function offerReload()");
 		expect(REVIEW_CLIENT_JS).not.toContain(".review-controls");
 	});

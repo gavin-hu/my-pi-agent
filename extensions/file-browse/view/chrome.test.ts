@@ -63,12 +63,14 @@ describe("the live script", () => {
 		// child, so a page never builds the shape. The states are the shared client's; what this
 		// page adds is the words, and the hover that names the way back once they are spent.
 		expect(CLIENT_JS).toContain(String(paintLive));
-		expect(LIVE_CLIENT_JS).toContain("paintLive(liveChip, tone, word, liveTitle(word))");
+		expect(LIVE_CLIENT_JS).toContain('paintLive(liveChip, "warn", "stale", STALE_TITLE)');
 		expect(LIVE_CLIENT_JS).toContain(
-			'if (word === "offline") return "The server stopped — restart /browse, then reload"',
+			'if (state === "dead") return "The server stopped — restart /browse, then reload"',
 		);
-		// A stream that dropped is stale, not dead: the chip says so while the browser retries.
-		expect(LIVE_CLIENT_JS).toContain('paintLiveState("reconnecting", "warn", "reconnecting")');
+		// A stream that dropped is stale, not dead: the chip says so while the browser retries,
+		// through the kit's one table rather than a word of this page's.
+		expect(LIVE_CLIENT_JS).toContain("paintLiveState(liveChip, state");
+		expect(LIVE_CLIENT_JS).not.toContain('paintLiveState("reconnecting"');
 		expect(LIVE_CLIENT_JS).toContain("liveServer =");
 		expect(LIVE_CLIENT_JS).toContain("showLiveReload();");
 		// The page's own copy of the pill, and of its word, are gone: a second shape is how the

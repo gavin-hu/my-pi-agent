@@ -49,11 +49,13 @@ describe("the toolbar", () => {
 	});
 
 	test("says which of the four states the stream is in, and offers the reload only once it is gone", () => {
-		// The states and their transitions are the shared client's (`lib/web/live-stream.test.ts`);
-		// this is the page's half of the contract, in the words the board says them in. A stream
-		// that dropped is not yet a page that is wrong, so the control waits for `dead`.
-		expect(BOARD_CLIENT_JS).toContain('else if (state === "reconnecting") text = "reconnecting');
-		expect(BOARD_CLIENT_JS).toContain('else if (state === "dead") text = "offline"');
+		// The states and their transitions are the shared client's (`lib/web/live-stream.test.ts`),
+		// and so are the words and tones now: the board paints through the kit's one table and adds
+		// only the frame's age. A stream that dropped is not yet a page that is wrong, so the
+		// control waits for `dead`.
+		expect(BOARD_CLIENT_JS).toContain("board.paintLiveState(node, state");
+		expect(BOARD_CLIENT_JS).toContain("board.lastFrame");
+		expect(BOARD_CLIENT_JS).not.toContain('text = "reconnecting');
 		expect(BOARD_CLIENT_JS).toContain('reload.hidden = state !== "dead"');
 		// The age ticker repaints the state the stream is in: one that always said `live` flipped
 		// an error back to a live chip within the second.

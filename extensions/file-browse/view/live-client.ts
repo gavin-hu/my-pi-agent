@@ -29,7 +29,6 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		var liveStale = 0;
 		/** The state the shared stream client reported, and the tone painted for it. */
 		var liveState = "connecting";
-		var liveTone = "";
 		var liveRev = "";
 		var liveDir = liveChip.getAttribute("data-dir");
 		var liveDirRev = liveChip.getAttribute("data-rev");
@@ -54,36 +53,31 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		 * here — the chip is the one place the stream speaks about itself. A state a reader can
 		 * act on says so, because a word like "offline" with no remedy is a dead end.
 		 */
-		function liveTitle(word) {
-			if (word === "offline") return "The server stopped — restart /browse, then reload";
-			if (word === "reconnecting") return "The stream dropped — this page is stale until it reconnects";
-			if (word === "stale") return "No frame in three intervals — this page may be stale";
-			if (word === "live") return liveServer || "Live status from the browse server";
+		// The page's half of the shared states is the hover: what a reader can do about this one.
+		// The words themselves are the kit's, so no page can drift onto its own.
+		function liveTitle(state) {
+			if (state === "dead") return "The server stopped — restart /browse, then reload";
+			if (state === "reconnecting") return "The stream dropped — this page is stale until it reconnects";
+			if (state === "live") return liveServer || "Live status from the browse server";
 			return "Waiting for the browse server";
 		}
 
-		function paintLiveState(state, tone, word) {
-			liveState = state;
-			liveTone = tone;
-			paintLive(liveChip, tone, word, liveTitle(word));
-		}
+		// The page's fifth word, which is no stream state: a live connection that has gone quiet.
+		var STALE_TITLE = "No frame in three intervals — this page may be stale";
 
-		// The page's words for the four states the shared client reports. A stream that dropped
-		// is a page that may be stale, not one that has stopped being true, so only the spent
-		// retries — dead — are where this page offers its one action.
+		// The four states the shared client reports, painted through the kit's one table. A stream
+		// that dropped is a page that may be stale, not one that has stopped being true, so only the
+		// spent retries — dead — are where this page offers its one action.
 		function liveWords(state) {
+			liveState = state;
 			if (state === "live") {
-				paintLiveState("live", "success", "live");
+				paintLiveState(liveChip, state, "", liveTitle(state));
 				armLiveStale();
 				return;
 			}
 			window.clearTimeout(liveStale);
-			if (state === "reconnecting") paintLiveState("reconnecting", "warn", "reconnecting");
-			else if (state === "dead") {
-				paintLiveState("dead", "danger", "offline");
-				showLiveReload();
-			}
-			else paintLiveState("connecting", "accent", "connecting");
+			paintLiveState(liveChip, state, "", liveTitle(state));
+			if (state === "dead") showLiveReload();
 		}
 
 		// The chip names its state and never counts: nothing is repainted between
@@ -93,7 +87,7 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		function armLiveStale() {
 			window.clearTimeout(liveStale);
 			liveStale = window.setTimeout(function () {
-				if (liveState === "live") paintLiveState("live", "warn", "stale");
+				if (liveState === "live") paintLive(liveChip, "warn", "stale", STALE_TITLE);
 			}, liveInterval * 3);
 		}
 
@@ -201,7 +195,7 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		}
 
 		function checkLiveDir() {
-			if (document.hidden || liveTone !== "success") return;
+			if (document.hidden || liveState !== "live") return;
 			fetch(pageBase() + "/api/dir-rev?path=" + encodeURIComponent(liveDir))
 				.then(function (response) {
 					if (!response.ok) throw new Error("check failed");

@@ -1325,9 +1325,9 @@ describe("browser script", () => {
 		// The chip is a state, not a stopwatch: no label carries an elapsed time, and
 		// nothing repaints it between frames. Staleness is one timeout armed per
 		// frame, and the fragment's one interval checks the folder's revision — it
-		// never paints the chip.
-		expect(LIVE_CLIENT_JS).toContain('paintLiveState("live", "success", "live")');
-		expect(LIVE_CLIENT_JS).toContain('paintLiveState("live", "warn", "stale")');
+		// never paints the chip. The words themselves are the kit's one table.
+		expect(LIVE_CLIENT_JS).toContain("paintLiveState(liveChip, state");
+		expect(LIVE_CLIENT_JS).toContain('paintLive(liveChip, "warn", "stale", STALE_TITLE)');
 		expect(LIVE_CLIENT_JS).not.toMatch(/setInterval\([^)]*paint/);
 	});
 
