@@ -45,7 +45,7 @@ export const TEAM_DESCRIPTION =
 export const TEAM_SNIPPET =
 	"Run a round over the board: assign a card to a running session, offer one, or ask one peer a question.";
 
-/** The round's three habits, and the lead's duty. */
+/** The round's habits, `team.lead`'s duty with `LEAD_ROUND`, and the `board` verbs a lead still reaches for. */
 export const TEAM_GUIDELINES = [
 	"Offer a card nobody has taken; assign one you mean a particular peer to hold; take one yourself with " +
 		"`board` action `claim`, then plan and record it.",
