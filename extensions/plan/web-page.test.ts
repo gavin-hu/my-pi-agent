@@ -220,6 +220,16 @@ describe("the page's chrome", () => {
 		expect(html).toContain('<span class="bf-status" id="status" role="status" aria-live="polite"></span>');
 	});
 
+	test("keeps the control bar inside the header, as the kit's second row", () => {
+		// The kit's head is two rows split by the rule and closed by one hairline
+		// (lib/web/README.md). The bar used to hang under the head, where nothing closed it: the
+		// reader saw a floating strip of buttons between two rules that did not belong to it.
+		const html = reviewPage();
+		const head = /<header class="bf-app__head">[\s\S]*?<\/header>/.exec(html)?.[0] ?? "";
+		expect(head).toContain('<div class="bf-app__rule"></div><div class="bf-app__ctl review-actions">');
+		expect(html).not.toMatch(/<\/header>\s*<div class="bf-app__ctl/);
+	});
+
 	test("drops the page's own header rules instead of re-declaring the kit's", () => {
 		for (const rule of [
 			".review-heading{",

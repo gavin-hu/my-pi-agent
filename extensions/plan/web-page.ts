@@ -368,8 +368,7 @@ ${reloadChip({ title: isViewer ? "Reload to read the plan again" : "Reload to re
 </div>
 ${toolbarChrome()}
 </div>
-<div class="bf-app__rule"></div></header>
-${controlBar}
+<div class="bf-app__rule"></div>${controlBar}</header>
 <div class="${bodyClass}">
 ${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
 </div>
