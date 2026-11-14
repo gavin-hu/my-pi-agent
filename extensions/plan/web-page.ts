@@ -59,9 +59,8 @@ ${WEB_COMPONENTS_CSS}
    file. Only its box is this page's — the measure comes from the blocks, which keep the comment
    rail in their gutter, and the scroll box stays the shell's main pane. */
 .bf-review.bf-md{max-width:none;overflow-x:hidden;overflow-y:auto}
-/* Sticky header: the kit's toolbar says who the page is of and how it is doing, a control
-   row under it holds the page's own actions, and a hairline reading progress bar is pinned
-   to the header's bottom edge (the kit's shape; see lib/web/README.md). */
+/* Sticky header: the kit's toolbar says who the page is of and how it is doing, and the
+   control row under it holds the page's own actions (the kit's shape; see lib/web/README.md). */
 /* The subject is the plan's title, so it is read from its head — the kit cuts a path's head
    because a path ends in the folder being read, and a title ends in nothing. */
 .review-bar .bf-context--subject{direction:ltr;text-align:left}
@@ -75,8 +74,6 @@ ${WEB_COMPONENTS_CSS}
 .review-bar .bf-status:empty{display:none}
 /* The page's own actions: the bar is the kit's, and the group sits under the header's chrome. */
 .review-actions{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;justify-content:flex-end;min-width:0}
-.review-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
-.review-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
 /* The finish block: what this page's own decisions do, in the reader's role. One or two
    button names in the text colour, and the sentence around them quiet. */
 .review-finish{margin:0;padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-snug)}
@@ -176,7 +173,7 @@ ${WEB_COMPONENTS_CSS}
 @media print{
 .bf-review{padding:0}
 .bf-review>.bf-block{max-width:none;padding:0 0 6px}
-.bf-block__rail,.bf-composer,.bf-block__add,.review-progress,.review-view{display:none}
+.bf-block__rail,.bf-composer,.bf-block__add,.review-view{display:none}
 /* A printed review is the whole plan, never the view the reader had on screen: the
    base layer's hidden rule is !important, so the un-hide has to be too, and a thread
    the filter hid on screen goes back under its block. */
