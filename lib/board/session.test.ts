@@ -7,6 +7,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
@@ -44,6 +45,17 @@ function repoPi(root: string) {
 /** A runtime with a temp agent directory and a fixed clock. */
 function runtimeFor(agentDir: string) {
 	return openBoardSession(offlinePi().pi, { now: () => NOW, agentDir });
+}
+
+/** A repository whose project document states `names` as its team, led by `lead` when one is given. */
+function teamProject(names: readonly string[], lead?: string): string {
+	const cwd = temps.track(tempDir("pi-board-session-"));
+	mkdirSync(join(cwd, ".pi"), { recursive: true });
+	writeFileSync(
+		join(cwd, ".pi", "bytefly.json"),
+		JSON.stringify({ team: { ...(lead === undefined ? {} : { lead }), teammates: names } }),
+	);
+	return cwd;
 }
 
 /**
@@ -91,6 +103,35 @@ describe("who", () => {
 		// one names like no record at all instead of leaving a blank chip.
 		await recordOnBus(runtime, "/repo/billing", { id: "s-1", label: "" });
 		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(agentLabel("s-1"));
+	});
+
+	test("names a session with no record from the first team.teammates name nobody holds", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const runtime = runtimeFor(agentDir);
+		const cwd = teamProject(["gavin", "tom", "sam"], "gavin");
+		// `gavin` is the lead's own name and `tom` a record's, so `sam` is the first this session may
+		// take: the readable word the project already chose, not its id's tail.
+		await recordOnBus(runtime, cwd, { id: "s-2", label: "tom" });
+		const { ctx } = fakeCtx({ cwd, sessionId: "s-1" });
+		expect(await runtime.who(ctx, cwd)).toEqual({ id: "s-1", label: "sam" });
+	});
+
+	test("falls back to the id when the team can give no free name", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const runtime = runtimeFor(agentDir);
+		// Two ways a list gives nothing: it names only the lead, and every name it names is held.
+		for (const [names, held] of [
+			[["gavin"], []],
+			[
+				["tom", "sam"],
+				["tom", "sam"],
+			],
+		] as const) {
+			const cwd = teamProject(names, "gavin");
+			for (const label of held) await recordOnBus(runtime, cwd, { id: `s-${label}`, label });
+			const { ctx } = fakeCtx({ cwd, sessionId: "s-1" });
+			expect((await runtime.who(ctx, cwd)).label).toBe(agentLabel("s-1"));
+		}
 	});
 
 	test("names it as the seat while it serves the page, and as itself again after", async () => {

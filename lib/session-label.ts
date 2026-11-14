@@ -79,10 +79,13 @@ export const TEAM_AGENT_PREFIX = "team-agent-";
  *
  * A team is addressed by id, not by a name a user chose: an id is unique, so two
  * sessions cannot settle on one name, and a rename cannot strand the card that
- * recorded it. The seat is the one name that is a role instead.
+ * recorded it. The seat is the one name that is a role instead, and the board draws a free
+ * `team.teammates` name first, so this is the name a team that gives nobody leaves.
  */
 export function agentLabel(id: string): string {
-	return normalizeLabel(`${TEAM_AGENT_PREFIX}${shortId(id)}`, "team-agent");
+	// The prefix alone is already a name, so the fallback `normalizeLabel` wants is that prefix
+	// rather than a second spelling of it: the label can never be empty.
+	return normalizeLabel(`${TEAM_AGENT_PREFIX}${shortId(id)}`, TEAM_AGENT_PREFIX);
 }
 
 /** The most names a team may hold: the bar compares a session's name against each one. */

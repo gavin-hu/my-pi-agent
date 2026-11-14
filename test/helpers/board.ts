@@ -45,6 +45,14 @@ export interface BoardHarnessOptions {
 	 */
 	lead?: string;
 	/**
+	 * The names the fixture states as its team, beside the lead.
+	 *
+	 * The default is the lead alone, which can give a session nothing: a session may not draw the
+	 * lead's own name, so a suite that expects it sits on the id-derived label. A case about the draw
+	 * states the free name it wants the session to take.
+	 */
+	teammates?: readonly string[];
+	/**
 	 * Whether the fixture states a project document at all.
 	 *
 	 * `false` leaves the directory bare, which is what a case about a command writing the file
@@ -88,7 +96,7 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 		mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
 		writeFileSync(
 			join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE),
-			JSON.stringify({ team: { lead, teammates: [lead] } }),
+			JSON.stringify({ team: { lead, teammates: options.teammates ?? [lead] } }),
 		);
 	}
 	// No git answers by default, so the directory keys on itself: the fallback every

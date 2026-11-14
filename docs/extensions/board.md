@@ -104,7 +104,7 @@ says who heard it — quiet, not listening, or not told — and an untold one is
 | `wip.plan` | `3` | Cards a repository may hold in `plan` at once (1–20). |
 | `wip.execute` | `5` | Cards a repository may hold in `execute` at once (1–20). |
 | `team.lead` | `""` | The team name whose signature the two gates take. Empty is no lead: only the person signs, and `/board` will not serve. |
-| `team.teammates` | `[]` | Who is on the team: labels, at most 20 of them. The footer draws a session's name only when it is one of these, so an empty list draws no chip. |
+| `team.teammates` | `[]` | Who is on the team: labels, at most 20 of them. A session the bus has not recorded takes the first free one as the name it writes; the footer draws a name only when it is one of these, so an empty list draws no chip. |
 
 The limits live in `board` and the names in `team`, both edited by `/bytefly settings`
 ([configuration](../configuration-reference.md#team--the-projects-own-team)); toggle `board` to switch it off.
