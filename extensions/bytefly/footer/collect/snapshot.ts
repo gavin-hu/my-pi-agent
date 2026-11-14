@@ -18,8 +18,20 @@ import type { DelegationLedger } from "../delegation.ts";
 import { createPricer } from "../price/price.ts";
 import type { ByteflyConfig } from "../price/types.ts";
 import { zeroUsage } from "../../../../lib/usage.ts";
-import type { ContextInfo, FooterData, PricedUsage, StatusSnapshot } from "../types.ts";
+import type { ContextInfo, DelegationTotals, FooterData, PricedUsage, StatusSnapshot, UsageTotals } from "../types.ts";
 import { usageRecords } from "./entries.ts";
+
+/**
+ * The two totals the last frame priced: the session's own, and the child runs it delegated.
+ *
+ * One read answers both, so a caller that holds the spend against a ceiling cannot count
+ * one and forget the other — and the pair is still separate, because `↳` is its own segment.
+ */
+export interface PricedSpend {
+	usage: PricedUsage;
+	/** The child roll-up's usage, as `StatusSnapshot.delegation.usage` carries it. */
+	delegation: UsageTotals;
+}
 
 /**
  * Build a reader that memoizes both scans by branch leaf and model.
@@ -33,13 +45,14 @@ export interface SnapshotReader {
 	/** Read a snapshot, re-pricing only when the session moved. */
 	(ctx: ExtensionContext, footerData: FooterData): StatusSnapshot;
 	/**
-	 * The usage totals from the last read, or undefined before the first frame.
+	 * The totals from the last read, or undefined before the first frame.
 	 *
-	 * The budget guardrail reads the number the footer already priced instead of
+	 * The budget guardrail reads the numbers the footer already priced instead of
 	 * walking the session a second time; if no frame has rendered yet there is
-	 * nothing stale to act on. The unpriced count rides along for the same reason.
+	 * nothing stale to act on. The unpriced count rides along for the same reason,
+	 * and so does the child roll-up, which the guardrail's ceiling includes.
 	 */
-	peek(): PricedUsage | undefined;
+	peek(): PricedSpend | undefined;
 }
 
 export function createSnapshotReader(
@@ -50,12 +63,12 @@ export function createSnapshotReader(
 	const price = createPricer(config);
 	let key: string | null = null;
 	let usage: PricedUsage = { ...zeroUsage(), unpriced: 0, unpricedModels: [] };
-	let delegationTotals = { runs: 0, usage: zeroUsage() };
+	let delegationTotals: DelegationTotals = { runs: 0, usage: zeroUsage() };
 	let cacheHitRate: number | null = null;
 	let context: ContextInfo = { tokens: null, contextWindow: 0, percent: null };
 	let sessionName: string | null = null;
 
-	let last: PricedUsage | undefined;
+	let last: PricedSpend | undefined;
 
 	const reader = ((ctx: ExtensionContext, footerData: FooterData): StatusSnapshot => {
 		const session = ctx.sessionManager;
@@ -84,7 +97,7 @@ export function createSnapshotReader(
 			// an entry, which moves the leaf, so the memo key already covers it.
 			sessionName = session.getSessionName() ?? null;
 			key = nextKey;
-			last = usage;
+			last = { usage, delegation: delegationTotals.usage };
 		}
 
 		// The resolver is asked every frame and answers from a team and a bus label an install

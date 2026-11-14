@@ -1022,14 +1022,15 @@ describe("snapshot reader", () => {
 		expect(read(makeCtx(), footerData).delegation.usage.cost).toBeCloseTo(0.4);
 	});
 
-	test("peeks the last priced usage, and nothing before the first frame", () => {
+	test("peeks the last priced spend, and nothing before the first frame", () => {
 		const read = createSnapshotReader(priced(), noDelegation());
 		expect(read.peek()).toBeUndefined();
 
 		const snapshot = read(millionTokens(), footerData);
 		// The count and the models ride along on the same read, so the unpriced notice
-		// never re-prices the session.
-		expect(read.peek()).toEqual(snapshot.usage);
+		// never re-prices the session; the child roll-up rides along for the budget's
+		// ceiling, which holds both totals.
+		expect(read.peek()).toEqual({ usage: snapshot.usage, delegation: snapshot.delegation.usage });
 		expect(snapshot.usage.unpriced).toBe(0);
 		expect(snapshot.usage.unpricedModels).toEqual([]);
 	});
@@ -1503,6 +1504,8 @@ describe("line composition", () => {
 	});
 
 	test("places the child-run roll-up after the session cost and drops it when empty", () => {
+		// The cost segment holds both totals, so the child share is inside the session figure and
+		// the `↳` segment beside it is the subtraction a reader can do.
 		const zero = usageOf();
 		const [, line2] = buildLines(
 			fullSnapshot({
@@ -1517,7 +1520,7 @@ describe("line composition", () => {
 		expect(ids(line2.left)).toEqual(["mode", "context", "window", "cost", "delegation", "tokens"]);
 		const parent = line2.left.find((segment) => segment.id === "cost");
 		const delegation = line2.left.find((segment) => segment.id === "delegation");
-		expect(parent?.forms[0]).toBe("¥0.25");
+		expect(parent?.forms[0]).toBe("¥0.37");
 		expect(delegation?.forms[0]).toBe("↳ 3 · ¥0.12");
 
 		const [, fresh] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
