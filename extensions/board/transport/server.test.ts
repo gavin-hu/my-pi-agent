@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { buildView, type BoardView } from "../../../lib/board/view.ts";
+import { boardWire, buildView, type BoardWire } from "../../../lib/board/view.ts";
 import type { EventSink, HttpMount, LoopbackHandler, MountSource } from "../../../lib/http/index.ts";
 import type { ArmTimer, RepeatTimer } from "../../../lib/timer.ts";
 import { waitFor } from "../../../test/helpers/process.ts";
@@ -19,16 +19,18 @@ import type { WatchDirs } from "./watch.ts";
 const TOKEN = "0123456789abcdef0123456789abcdef";
 
 /** The snapshot a case pushes: the card's revision is what makes a frame news. */
-function snapshot(rev: number): BoardView {
-	return buildView({
-		me: { id: "s-lead", label: "billing-lead" },
-		cards: [billingCard({ rev })],
-		now: 1_000,
-		bytes: 512,
-		where: "board/abc123",
-		repo: "my-pi-agent",
-		root: "/Users/someone/my-pi-agent",
-	});
+function snapshot(rev: number): BoardWire {
+	return boardWire(
+		buildView({
+			me: { id: "s-lead", label: "billing-lead" },
+			cards: [billingCard({ rev })],
+			now: 1_000,
+			bytes: 512,
+			where: "board/abc123",
+			repo: "my-pi-agent",
+			root: "/Users/someone/my-pi-agent",
+		}),
+	);
 }
 
 /** A mount that keeps the handler, so the case plays the server with no socket. */

@@ -14,7 +14,7 @@
 
 import { join } from "node:path";
 import { type BoardStore, CARDS_DIR_NAME } from "../../lib/board/store.ts";
-import { buildView, type BoardView } from "../../lib/board/view.ts";
+import { boardWire, buildView, type BoardWire } from "../../lib/board/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import type { WaitingMail } from "../../lib/session-mail.ts";
 import { pageActor } from "../../lib/board/seat.ts";
@@ -97,26 +97,30 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 	// name the same board: the toolbar is named before the first frame rather than after it.
 	const repo = display.repo ?? store.name();
 	const root = display.root ?? store.root();
-	const view = async (): Promise<BoardView> => {
+	const view = async (): Promise<BoardWire> => {
 		const at = now();
 		const { cards, skipped, bytes } = await store.scan();
-		return buildView({
-			// The page serves as its seat — the board's lead — and marks its own row: one name.
-			me: pageActor(store.config().lead),
-			cards,
-			now: at,
-			...(roster === undefined ? {} : { roster: roster(at) }),
-			...(waiting === undefined ? {} : { waiting: { messages: waiting(), dropped: 0 } }),
-			// The page is served as the seat, which the board's own config names: the lead flag
-			// is the config's, and a fixture that renamed its lead must see the rename.
-			lead: store.config().lead,
-			bytes,
-			skipped,
-			repo,
-			root,
-			where: display.where ?? store.where(),
-			...(display.home === undefined ? {} : { home: display.home }),
-		});
+		// The same compaction `/board` serves: a suite that drove an uncompacted frame would be
+		// testing bytes the browser never receives.
+		return boardWire(
+			buildView({
+				// The page serves as its seat — the board's lead — and marks its own row: one name.
+				me: pageActor(store.config().lead),
+				cards,
+				now: at,
+				...(roster === undefined ? {} : { roster: roster(at) }),
+				...(waiting === undefined ? {} : { waiting: { messages: waiting(), dropped: 0 } }),
+				// The page is served as the seat, which the board's own config names: the lead flag
+				// is the config's, and a fixture that renamed its lead must see the rename.
+				lead: store.config().lead,
+				bytes,
+				skipped,
+				repo,
+				root,
+				where: display.where ?? store.where(),
+				...(display.home === undefined ? {} : { home: display.home }),
+			}),
+		);
 	};
 	// The page mounts on a real server, which is the socket `serve` would have given it.
 	const started = await createBoardServer({

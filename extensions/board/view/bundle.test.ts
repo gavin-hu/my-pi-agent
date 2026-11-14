@@ -38,6 +38,27 @@ describe("the fragments' bodies", () => {
 		expect(BOARD_CLIENT_JS).toContain(LABEL_KEY_JS);
 	});
 
+	test("renders the frame it was sent, with the rollup's names expanded before anything draws", () => {
+		// A frame carries every card once, in its lane, and the rollup groups by id. The expansion is
+		// one place, in `paintFrame`, so no fragment reads a name where it expects a card — and a
+		// bundle that lost it would draw an empty queue with every static check green.
+		expect(BOARD_CLIENT_JS).toContain("board.render(hydrate(view));");
+		for (const group of [
+			"unassigned",
+			"unplanned",
+			"unapproved",
+			"unreviewed",
+			"blocked",
+			"unwritten",
+			"done",
+			"archivable",
+		]) {
+			expect(BOARD_CLIENT_JS).toContain(`${group}: expand(round.${group})`);
+		}
+		// The owners are the one group carrying two lists, and both are expanded.
+		expect(BOARD_CLIENT_JS).toContain("cards: expand(round.owners[g].cards), done: expand(round.owners[g].done)");
+	});
+
 	test("fails a spliced body whose helper never reached the string", () => {
 		// The hazard the splice above exists for, in four lines: the rule calls a helper, and the
 		// bundle that carries the rule would not carry the helper.

@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { LOOPBACK_HOSTS, PAGE_CSP } from "../../../lib/http/index.ts";
-import { buildView, type BoardView } from "../../../lib/board/view.ts";
+import { boardWire, buildView, type BoardWire } from "../../../lib/board/view.ts";
 import type { BoardRouterContext } from "./router.ts";
 import { handleBoardRequest } from "./router.ts";
 // A card that passes, so a case can change one thing.
@@ -18,16 +18,18 @@ import { billingCard as card } from "../../../test/helpers/fixtures/board.ts";
 const TOKEN = "0123456789abcdef0123456789abcdef";
 
 /** The snapshot a fake view answers with. Its one card is ordinary and waits on nothing. */
-function view(): BoardView {
-	return buildView({
-		me: { id: "s-lead", label: "billing-lead" },
-		cards: [card({ priority: "normal" })],
-		now: 1_000,
-		bytes: 512,
-		where: "board/abc123",
-		repo: "my-pi-agent",
-		root: "/Users/someone/my-pi-agent",
-	});
+function view(): BoardWire {
+	return boardWire(
+		buildView({
+			me: { id: "s-lead", label: "billing-lead" },
+			cards: [card({ priority: "normal" })],
+			now: 1_000,
+			bytes: 512,
+			where: "board/abc123",
+			repo: "my-pi-agent",
+			root: "/Users/someone/my-pi-agent",
+		}),
+	);
 }
 
 /** A router context that records the pages it was asked for. */
