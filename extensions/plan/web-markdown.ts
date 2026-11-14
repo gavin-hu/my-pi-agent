@@ -108,8 +108,12 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
     wrap.appendChild(frame);
   }
 
-  function renderBlockContent(wrap, block) {
+  // The list a run of items is being drawn into, owned by the frame that draws them: the scan
+  // gives every item its own block (a comment points at a step), so grouping them is the page's.
+  function renderBlockContent(wrap, block, list) {
     var lines = Array.isArray(block.lines) ? block.lines : [];
+    // Nothing but an item continues a list: every other kind ends the run.
+    if (block.kind !== "list") list.open = null;
     if (block.kind === "heading") {
       var text = lines.join(" ").replace(/^\s*#{1,6}\s*/, "");
       var level = Math.min(6, Math.max(1, (lines[0].match(/^ {0,3}(#{1,6})/) || ["", "#"])[1].length));
@@ -128,48 +132,47 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
       return;
     }
     if (block.kind === "list") {
-      // The kit draws the list: one ul or ol, an li per item, the marker its own, and a task's box
-      // the kit's drawn checkbox. The plan keeps only what a plan knows and the kit cannot — how
-      // deep an item sits, and which of its steps the file has ticked.
-      var items = [];
-      var list = null;
-      lines.forEach(function (line) {
-        var match = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(line);
-        if (!match) {
-          // A following unmarked line is a CommonMark lazy continuation of the
-          // item above; join it so the paragraph hangs under the item's text.
-          var last = items[items.length - 1];
-          if (last) { if (line.trim()) last.rest += " " + line.trim(); return; }
-          var plain = el("p"); renderInline(plain, line); wrap.appendChild(plain); return;
-        }
-        if (!list) {
-          list = el(/^\d/.test(match[2]) ? "ol" : "ul");
-          wrap.appendChild(list);
-        }
-        var row = el("li");
-        // Only a nested item states an indent: a top-level one leaves the marker where the kit puts
-        // it, so a plain bullet's text and a task's own text keep the one left edge (the kit pulls a
-        // task back by 1.2em with a rule an inline margin would silently replace).
-        var depth = Math.floor(match[1].replace(/\t/g, "    ").length / 2);
-        if (depth > 0) row.style.marginLeft = String(depth * 16) + "px";
-        var rest = match[3];
-        var box = /^\[([ xX])\]\s*(.*)$/.exec(rest);
-        if (box) {
-          var done = box[1].toLowerCase() === "x";
-          row.className = done ? "task done" : "task";
-          var check = el("input", "md-check");
-          check.type = "checkbox";
-          check.setAttribute("disabled", "");
-          if (done) check.setAttribute("checked", "");
-          row.appendChild(check);
-          rest = box[2];
-        }
-        var body = el("span");
-        row.appendChild(body); list.appendChild(row);
-        items.push({ body: body, rest: rest });
-      });
-      // Render each body once, after its continuation lines are collected.
-      items.forEach(function (item) { renderInline(item.body, item.rest); });
+      // One item, one <li>: the marker is the kit's, the box is the kit's drawn checkbox, and
+      // the page keeps only what a plan knows and the kit cannot — how deep the item sits and
+      // which of its steps the file has ticked.
+      var match = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(lines[0] || "");
+      if (!match) {
+        var prose = el("p");
+        renderInline(prose, lines.join(" "));
+        wrap.appendChild(prose);
+        return;
+      }
+      var ordered = /^\d/.test(match[2]);
+      if (!list.open || list.ordered !== ordered) {
+        // A change of marker kind starts a list of its own; the kit's rules draw both.
+        list.open = el(ordered ? "ol" : "ul");
+        list.ordered = ordered;
+        wrap.appendChild(list.open);
+      }
+      var rest = match[3];
+      // A continuation line is the item's own text, so it hangs under it rather than opening
+      // a paragraph of its own.
+      for (var n = 1; n < lines.length; n++) {
+        if (String(lines[n]).trim()) rest += " " + String(lines[n]).trim();
+      }
+      var row = el("li");
+      // Only a nested item states an indent: a top-level one leaves the marker where the kit
+      // puts it, so a plain bullet's text and a task's own text keep the one left edge.
+      var depth = Math.floor(match[1].replace(/\t/g, "    ").length / 2);
+      if (depth > 0) row.style.marginLeft = String(depth * 16) + "px";
+      var box = /^\[([ xX])\]\s*(.*)$/.exec(rest);
+      if (box) {
+        var done = box[1].toLowerCase() === "x";
+        row.className = done ? "task done" : "task";
+        var check = el("input", "md-check");
+        check.type = "checkbox";
+        check.setAttribute("disabled", "");
+        if (done) check.setAttribute("checked", "");
+        row.appendChild(check);
+        rest = box[2];
+      }
+      renderInline(row, rest);
+      list.open.appendChild(row);
       return;
     }
     var paragraph = el("p");

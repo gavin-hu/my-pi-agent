@@ -55,6 +55,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: one scan of a Markdown document's blocks, in `lib/web/markdown-blocks.ts`. The review's
+  comment anchors and browse's README rendering were classified by two scanners with their own
+  heading, fence, table, list and quote rules; the kit now owns the scan (and the cell splitter and
+  the column indent beside it), the plan's block model adapts it, and every stored plan was checked
+  to scan to the same boundaries — so no saved review baseline reads as changed. The two inline
+  grammars stay separate by design: browse's decodes entities, reference links and sanitized raw
+  HTML, and the review's is escape-only.
+
+- `plan`: a run of list items draws one list again. `#552` rendered each item as its own `<ul>`,
+  because the block model gives one block per item and the page drew a list per block: `.bf-md`'s
+  `ul` margin then put a blank line between every two steps. The page groups a run now, so the
+  steps of a plan read as the kit's list — one `<ul>`, or an `<ol>` where the markers are numbered.
+
 - `plan`: the browser review reads as the same page as `/board` and `/files`. Its action bar is the
   header's second row, closed by the same hairline, instead of a strip hanging under the head; its
   plan body is the kit's Markdown (one heading scale, one fence, ruled tables, the drawn task box)
