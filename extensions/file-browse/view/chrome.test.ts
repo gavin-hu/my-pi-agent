@@ -106,3 +106,14 @@ describe("the kit's names", () => {
 		).toEqual([]);
 	});
 });
+
+describe("the sidebar", () => {
+	test("draws the quick-open as the kit's prompt line, not a box of its own", () => {
+		// The panel speaks in prompt lines (the filter one row below); a bordered control would
+		// read as an action beside that field. The shape is the kit's `bf-field--button` now, and
+		// the page keeps only the gap under it.
+		expect(directoryPage()).toContain('class="bf-field bf-field--button" id="quick-open"');
+		expect(BROWSE_CSS).not.toContain(".browse-quick-open");
+		expect(BROWSE_CSS).toContain(".browse-side .bf-field--button{gap:var(--space-2);margin-bottom:var(--space-2)}");
+	});
+});

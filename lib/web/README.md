@@ -216,11 +216,12 @@ reason are in `layout.ts`.
 ## The `bf-*` kit
 
 `bf-` marks the kit: brand and mark, toolbar and `bf-spacer`, title, context, buttons
-(`--primary`, `--ghost`, `--icon`, `--danger`), tags and their tones, tabs, field and
-input, textarea, panel, gauge, status, note, badge, empty state, dialog (head, body,
-actions, status, input, list, option), shortcut sheet and `bf-kbd`, tree, crumbs, table
-and sort, record, row, lane, section, live state and reload, code, media, Markdown body,
-comment, composer, and quote chip.
+(`--primary`, `--ghost`, `--icon`, `--danger`, `--sm` for one inside a line of text),
+tags and their tones, tabs, field and input (`--button` is the prompt line a control
+wears when it opens one), textarea, panel, gauge, status, note, badge, empty state,
+dialog (head, body, actions, status, input, list, option), shortcut sheet and `bf-kbd`,
+tree, crumbs, table and sort, record, row, lane, section, live state and reload, code,
+media, Markdown body, comment, composer, and quote chip.
 
 Four of those are renames: what the kit called a chip is a tag, a segmented control is a
 tab, progress is a gauge, and a card is a record.

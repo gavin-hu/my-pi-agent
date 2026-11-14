@@ -266,6 +266,24 @@ describe("the page's chrome", () => {
 		expect(REVIEW_CSS).toContain(".review-bar .bf-context--subject{direction:ltr;text-align:left}");
 	});
 
+	test("wears the kit's inline button and quiet control instead of sizing its own", () => {
+		for (const rule of [
+			".review-share__actions .bf-btn{",
+			".bf-comment__actions .bf-btn{",
+			".review-identity .bf-btn{",
+		]) {
+			expect(REVIEW_CSS, rule).not.toContain(rule);
+		}
+		// What is the page's own: the name a reviewer signs with is smaller than a control, and
+		// a bound link must not fade the name it holds.
+		expect(REVIEW_CSS).toContain(".review-identity .bf-btn--ghost{font-size:var(--fs-xs);color:var(--muted)}");
+		expect(REVIEW_CSS).toContain(".review-identity .bf-btn--ghost:disabled{opacity:1;color:var(--text)}");
+		expect(reviewPage({ role: "reviewer" })).toContain('class="bf-btn bf-btn--ghost" id="reviewer-name"');
+		// The row actions are the small button, and the composer's own row is not: it is a
+		// dialog-sized action, not one inside a line of text.
+		expect(REVIEW_CLIENT_JS).toContain('"bf-btn bf-btn--sm"');
+	});
+
 	test("draws the view switch as the kit's tabs, with the current view marked", () => {
 		// The kit renamed the segmented control to tabs; a page that kept the old class drew three bare
 		// buttons with no current mark, which is a dead class and not a style choice.

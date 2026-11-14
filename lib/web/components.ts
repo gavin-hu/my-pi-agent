@@ -74,6 +74,9 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 .bf-btn--ghost{border-color:transparent;border-bottom-width:0;background:none;padding:0;font:inherit;letter-spacing:normal;text-transform:none;color:inherit}
 .bf-btn--ghost:hover{color:var(--accent);background:none}
 .bf-btn--icon{min-width:30px;text-align:center;line-height:1}
+/* The inline action: a row's Copy, Resolve or Delete sits inside the row's own line height, so
+   it is the button at the size of the text it acts on rather than the page's control size. */
+.bf-btn--sm{padding:1px 8px;font-size:var(--fs-xs)}
 .bf-btn:disabled{opacity:.5;cursor:default}
 .theme-glyph{font-size:var(--fs-md)}
 /* A key is a bracket, not a key cap: [j] reads as one in mono and needs no drawn box. */
@@ -99,6 +102,11 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{position:relative;display:inline-fl
 /* The prompt glyph is the kit's own, so a page writes the slot empty and no page spells it. */
 .bf-field__prompt::before{content:"❯"}
 .bf-field:focus-within .bf-field__prompt{color:var(--accent)}
+/* The prompt line as a button: a side panel's "type to jump" control is the field it stands for,
+   not an action beside the filter. It keeps the base rule and gains only a button's own facts —
+   the label and its key on one line, a pointer, and no user-agent chrome. */
+.bf-field--button{width:100%;align-items:center;justify-content:space-between;padding:3px 0 2px;border:0;border-bottom:1px solid transparent;background:none;color:var(--muted);font:var(--fs-sm) var(--font-ui);text-align:left;cursor:pointer}
+.bf-field--button:hover,.bf-field--button:focus-visible{border-bottom-color:var(--accent);color:var(--accent)}
 .bf-input{border:0;background:transparent;color:var(--text);font:var(--fs-sm) var(--font-ui);width:100%;outline:none}
 .bf-input::placeholder{color:var(--dim)}
 /* The field's rule is the ring: a second outline inside it drew a border within a border. */

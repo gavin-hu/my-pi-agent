@@ -127,7 +127,7 @@ ${SPRITE}
   <details class="bf-app__sidebar browse-sidebar" open>
     <summary class="bf-panel__summary">Files</summary>
     <aside class="bf-panel browse-side">
-      <button type="button" class="browse-quick-open" id="quick-open" aria-haspopup="dialog"><span>quick open</span><kbd class="bf-kbd">/</kbd></button>
+      <button type="button" class="bf-field bf-field--button" id="quick-open" aria-haspopup="dialog"><span>quick open</span><kbd class="bf-kbd">/</kbd></button>
       <div class="browse-side__filters">
         <label class="bf-field">⌕ <input class="bf-input" id="filter" type="search" placeholder="filter paths…" aria-label="Filter paths"></label>
         <button type="button" class="bf-btn" id="fold-all" title="Fold or expand every folder">fold all</button>

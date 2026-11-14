@@ -61,6 +61,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- lib: the kit owns three controls a page used to draw for itself — `bf-btn--sm` for an
+  action inside a line of text, `bf-field--button` for the prompt line a quick-open wears, and
+  the review's quiet identity control moving onto `bf-btn--ghost`.
+
 - `lib`: one scan of a Markdown document's blocks, in `lib/web/markdown-blocks.ts`. The review's
   comment anchors and browse's README rendering were classified by two scanners with their own
   heading, fence, table, list and quote rules; the kit now owns the scan (and the cell splitter and

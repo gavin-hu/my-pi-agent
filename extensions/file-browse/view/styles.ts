@@ -21,8 +21,8 @@ ${WEB_LAYOUT_CSS}
 ${WEB_COMPONENTS_CSS}
 .browse-side{padding:var(--space-3)}
 .browse-git{font-family:var(--font-mono)}
-.browse-quick-open{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);width:100%;margin-bottom:var(--space-2);padding:6px var(--space-2);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);color:var(--muted);font:var(--fs-sm) var(--font-ui);cursor:pointer}
-.browse-quick-open:hover{border-color:var(--accent);color:var(--accent)}
+/* The quick-open wears the kit's prompt line; the panel owns only the gap under it. */
+.browse-side .bf-field--button{gap:var(--space-2);margin-bottom:var(--space-2)}
 .browse-side__filters{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2)}
 .browse-side__filters .bf-field{flex:1 1 auto;min-width:0}
 .browse-side__filters .bf-btn{flex:0 0 auto;white-space:nowrap}

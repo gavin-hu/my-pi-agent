@@ -47,7 +47,7 @@ export const WEB_COLLAB_JS = String.raw`  /**
   }
 
   function rowButton(label, onClick) {
-    var button = el("button", "bf-btn");
+    var button = el("button", "bf-btn bf-btn--sm");
     button.type = "button";
     button.textContent = label;
     button.addEventListener("click", onClick);
