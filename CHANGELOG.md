@@ -67,6 +67,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`: the wait between an ask and its answer is named where the model reads it — the
+  `session` tool's guideline and step 6 of `docs/multi-session.md` now give the reason a `wake` is
+  the answer: a message waits in an inbox until its session runs, so the turn can end, while a
+  `sleep` holds the very turn that would report the mail. Delivery is unchanged; what changed is
+  that the only inferable procedure is no longer a poll.
+
 - `board`: a listing, a write, and a page frame read the pile on a bound — one round trip per card
   file, sixteen in flight — instead of one file at a time, and a card's dependents are indexed in
   the same pass that indexes the cards rather than scanned for each one. On a 270-card board a scan
