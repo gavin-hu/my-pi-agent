@@ -157,6 +157,7 @@ interface HeadNode {
 	nextElementSibling: HeadNode | null;
 	getBoundingClientRect(): { y: number; bottom: number; width: number; height: number };
 	querySelector(selector: string): HeadNode | null;
+	querySelectorAll(selector: string): ArrayLike<ElementLike>;
 }
 
 /** One head's paint, for the elements a selector finds on one frame. */
@@ -227,24 +228,25 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		await board.store.create({ title, paths: ["src/triage"] }, LEAD, clock.now() - index * 1_000);
 	};
 
-	/** Each band: its label, the rows it drew, and what its head says besides the count. */
-	async function bands(page: Page): Promise<Array<{ label: string; rows: number; said: string; fold: string }>> {
+	/** Each band: its label, the count in its head, the rows it drew, and what its head says. */
+	async function bands(
+		page: Page,
+	): Promise<Array<{ label: string; count: number; rows: number; said: string; fold: string }>> {
 		return page.$$eval("#board-team .board-queue__band", (nodes) =>
-			Array.from(nodes as ArrayLike<HeadNode>, (band) => {
-				const inside = band as unknown as { querySelectorAll(selector: string): ArrayLike<ElementLike> };
-				return {
-					label: band.querySelector("span")?.textContent ?? "",
-					rows: Array.from(inside.querySelectorAll(".board-queue__row")).length,
-					said: band.querySelector(".board-queue__said")?.textContent ?? "",
-					fold: band.querySelector(".board-fold")?.textContent ?? "",
-				};
-			}),
+			Array.from(nodes as ArrayLike<HeadNode>, (band) => ({
+				label: band.querySelector("span")?.textContent ?? "",
+				// By class: the head holds two spans, the label and this one, and folded or not this is
+				// the band's whole, where `rows` is what a fold chose to draw.
+				count: Number(band.querySelector(".bf-lane__count")?.textContent ?? "0"),
+				rows: Array.from(band.querySelectorAll(".board-queue__row")).length,
+				said: band.querySelector(".board-queue__said")?.textContent ?? "",
+				fold: band.querySelector(".board-fold")?.textContent ?? "",
+			})),
 		);
 	}
 
-	/** How many rows the unclaimed band draws: the count a fold has to answer for. */
-	const rowsOf = async (page: Page): Promise<number | undefined> =>
-		(await bands(page)).find((band) => band.label === "Unclaimed")?.rows;
+	/** The unclaimed band, as drawn: its head's count, its rows, and its fold. */
+	const bandOf = async (page: Page) => (await bands(page)).find((band) => band.label === "Unclaimed");
 
 	/** How far a band's head sits below the pane head's box: the pin offset, read as drawn. */
 	const headGap = (page: Page) =>
@@ -266,16 +268,14 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 	test("folds a band at five rows, and says what all its rows share once", async () => {
 		const page = await board.reuse();
 		await page.click("#tab-team");
-		await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
 		// Ten more unclaimed cards arrive the way a peer's write does, so the band is past its fold.
 		for (let index = 0; index < 10; index++) await unclaimed(`Triage item ${index + 1}`, index);
-		await page.waitForSelector('#board-team [data-fold="team-band-claim"]', { timeout: PAINT_MS });
-		const closed = (await bands(page)).find((band) => band.label === "Unclaimed");
+		// Wait for the count the head prints, not the fold control: the writes land one at a time, and a
+		// redraw between two of them draws five rows of ten and reads "+5 more". One pass paints all.
+		await waitFor(async () => (await bandOf(page))?.count === 12, PAINT_MS);
+		const closed = await bandOf(page);
 		// The count in the head is what says the rest exists, and the rows are five.
-		expect(closed?.rows).toBe(5);
-		expect(closed?.fold).toBe("+7 more");
-		// The sentence every row in the band shared is printed once, in the band's head.
-		expect(closed?.said).toBe("nobody holds it");
+		expect(closed).toMatchObject({ count: 12, rows: 5, fold: "+7 more", said: "nobody holds it" });
 		const repeated = await page.$$eval(
 			"#board-team .board-queue__why",
 			(nodes) =>
@@ -302,13 +302,13 @@ describe.skipIf(CHROME === undefined)("the Team tab's ink", () => {
 		expect(described.said).toBe("nobody holds it");
 		// One press draws the rest and one more folds them back: nothing is cut, only folded.
 		await page.click('#board-team [data-fold="team-band-claim"]');
-		await waitFor(async () => (await rowsOf(page)) === 12, PAINT_MS);
-		const open = (await bands(page)).find((band) => band.label === "Unclaimed");
+		await waitFor(async () => (await bandOf(page))?.rows === 12, PAINT_MS);
+		const open = await bandOf(page);
 		expect(open?.rows).toBe(12);
 		expect(open?.fold).toBe("show fewer");
 		await page.click('#board-team [data-fold="team-band-claim"]');
-		await waitFor(async () => (await rowsOf(page)) === 5, PAINT_MS);
-		expect((await bands(page)).find((band) => band.label === "Unclaimed")?.rows).toBe(5);
+		await waitFor(async () => (await bandOf(page))?.rows === 5, PAINT_MS);
+		expect((await bandOf(page))?.rows).toBe(5);
 	});
 
 	test("pins a band's head under the pane's, and keeps it there while the rows go by", async () => {
