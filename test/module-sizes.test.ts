@@ -23,10 +23,6 @@ const MAX_MODULE_LINES = 600;
  * too, so the list cannot quietly grow.
  */
 const LONG_MODULES: Record<string, { lines: number; why: string }> = {
-	"extensions/file-browse/view/markdown.ts": {
-		lines: 751,
-		why: "one escape-first block and inline scan for README Markdown",
-	},
 	"lib/highlight.ts": {
 		lines: 1000,
 		why: "one tokenizer per language over a shared escape-first scan",
@@ -45,7 +41,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  * The named modules' total, written down so raising one height has to lower
  * another. It falls whenever a module shrinks; it never rises.
  */
-const LONG_MODULE_TOTAL = 3198;
+const LONG_MODULE_TOTAL = 2447;
 
 describe("module sizes", () => {
 	test("a module over the line bar states the responsibility that keeps it whole", () => {
