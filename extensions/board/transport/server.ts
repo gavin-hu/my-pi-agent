@@ -10,7 +10,7 @@
  */
 
 import { BOARD_BASE } from "../../../lib/board/page-pointer.ts";
-import type { BoardView } from "../../../lib/board/view.ts";
+import type { BoardWire } from "../../../lib/board/view.ts";
 import {
 	type EventSink,
 	type HttpMount,
@@ -55,7 +55,7 @@ export interface BoardServerOptions {
 	token?: string;
 	page: (view: PageView) => Promise<string>;
 	script: string;
-	view: () => Promise<BoardView>;
+	view: () => Promise<BoardWire>;
 	/** Called when the page went idle: no tab ever opened, or the last one left. */
 	onIdle?: (reason: IdleReason) => void;
 	/** Grace after the last stream leaves; 0 or absent waits for `close()`. */

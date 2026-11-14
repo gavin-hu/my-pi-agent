@@ -220,11 +220,55 @@ const liveTemplate = String.raw`(function () {
     return view.lanes[0] ? view.lanes[0].key : "backlog";
   }
 
+  /**
+   * The frame as the page reads it: the rollup's names expanded to the cards the lanes carry.
+   *
+   * A frame carries every card once — in its lane — and the rollup groups by id, so the same
+   * card is not sent four times. This is the one place a name becomes an object again:
+   * decisionsOf and rosterOf read the rollup, every other fragment reads the view, and
+   * after this both see exactly what an uncompacted frame gave them.
+   */
+  function hydrate(view) {
+    var byId = {};
+    var lanes = view.lanes;
+    for (var i = 0; i < lanes.length; i++) {
+      var cards = lanes[i].cards;
+      for (var j = 0; j < cards.length; j++) byId[cards[j].id] = cards[j];
+    }
+    function expand(ids) {
+      var out = [];
+      for (var k = 0; k < ids.length; k++) {
+        var card = byId[ids[k]];
+        // A group only ever names a card its lanes carry; a name nothing carries is dropped
+        // rather than drawn as a hole.
+        if (card !== undefined) out.push(card);
+      }
+      return out;
+    }
+    var round = view.round;
+    var owners = [];
+    for (var g = 0; g < round.owners.length; g++) {
+      owners.push({ label: round.owners[g].label, cards: expand(round.owners[g].cards), done: expand(round.owners[g].done) });
+    }
+    view.round = {
+      owners: owners,
+      unassigned: expand(round.unassigned),
+      unplanned: expand(round.unplanned),
+      unapproved: expand(round.unapproved),
+      unreviewed: expand(round.unreviewed),
+      blocked: expand(round.blocked),
+      unwritten: expand(round.unwritten),
+      done: expand(round.done),
+      archivable: expand(round.archivable)
+    };
+    return view;
+  }
+
   /** One frame: paint and record when it arrived. */
   function paintFrame(view) {
     board.lastFrame = Date.now();
     board.shown = board.shown || laneWithWork(view);
-    board.render(view);
+    board.render(hydrate(view));
   }
 
   /** The live channel: one state machine for every page, in this page's words. */

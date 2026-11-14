@@ -342,4 +342,18 @@ describe.skipIf(CHROME === undefined)("a frame", () => {
 		expect(await page.textContent("#card-dialog-acceptance")).toBe("A retried delivery leaves one order");
 		expect(await hidden(page, "#card-dialog-acceptance-label")).toBe(false);
 	});
+
+	test("draws the queue from the rollup the frame named by id", async () => {
+		const page = await board.reuse();
+		await page.click("#tab-team");
+		await page.waitForSelector("#board-team .board-queue__row", { timeout: PAINT_MS });
+		// The queue is built from the rollup, and the rollup on the wire is a list of card ids: a row
+		// can only be drawn if `paintFrame` expanded those names against the lanes the same frame
+		// carries. #1 is unassigned and waits on the executing card, so its title is what proves the
+		// card itself arrived rather than a name nothing resolved.
+		const drawn = await page.$$eval("#board-team .board-queue__row", (nodes) =>
+			Array.from(nodes as ArrayLike<ElementLike>, (node) => (node.textContent ?? "").trim()),
+		);
+		expect(drawn.some((text) => text.includes("Export orders as CSV"))).toBe(true);
+	});
 });

@@ -15,7 +15,7 @@ import { gonePlans } from "../../lib/board/artifact.ts";
 import type { Card } from "../../lib/board/card.ts";
 import { type BoardStore, CARDS_DIR_NAME } from "../../lib/board/store.ts";
 import type { Skip } from "../../lib/board/read.ts";
-import { buildView, type BoardView } from "../../lib/board/view.ts";
+import { boardWire, buildView, type BoardWire } from "../../lib/board/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { type WaitingPage, waitingMail } from "../../lib/session-mail.ts";
 
@@ -40,7 +40,7 @@ export interface SnapshotContext {
 export type Pile = { cards: Card[]; skipped: Skip[]; bytes: number };
 
 /** The snapshot the page renders, and the body of `/api/board`. */
-export async function viewOf(context: SnapshotContext, pile?: Pile): Promise<BoardView> {
+export async function viewOf(context: SnapshotContext, pile?: Pile): Promise<BoardWire> {
 	const roster = await context.roster();
 	// Read, never consumed: an inbox is its owner's, and a frame is drawn once a second. A bus
 	// directory that cannot be read is a queue with nothing in it, said the same way as an empty
@@ -50,25 +50,29 @@ export async function viewOf(context: SnapshotContext, pile?: Pile): Promise<Boa
 	// and the bytes they occupy. Asking `list` and `skipped` separately parsed every card twice,
 	// once a second, for as long as a tab is open.
 	const { cards, skipped, bytes } = pile ?? (await context.store.scan());
-	return buildView({
-		me: context.actor(),
-		cards,
-		now: context.now(),
-		bytes,
-		skipped,
-		// A stat per card in a lane a plan gate is asked from, and none for the rest: the face can
-		// only act on a card that still has a move left, and the reason line is where it says so.
-		gonePlans: gonePlans(cards),
-		repo: context.store.name(),
-		root: context.store.root(),
-		where: context.store.where(),
-		limits: context.store.config().wip,
-		// The lead is a configured role, not the seat that happens to serve: a board that renames
-		// its lead must point the tab at the row its gates will answer.
-		lead: context.store.config().lead,
-		waiting,
-		...(roster === undefined ? {} : { roster }),
-	});
+	// The rollup names its cards instead of repeating them: the lanes inside the view are the
+	// one copy a frame carries, and the browser expands the names against them.
+	return boardWire(
+		buildView({
+			me: context.actor(),
+			cards,
+			now: context.now(),
+			bytes,
+			skipped,
+			// A stat per card in a lane a plan gate is asked from, and none for the rest: the face can
+			// only act on a card that still has a move left, and the reason line is where it says so.
+			gonePlans: gonePlans(cards),
+			repo: context.store.name(),
+			root: context.store.root(),
+			where: context.store.where(),
+			limits: context.store.config().wip,
+			// The lead is a configured role, not the seat that happens to serve: a board that renames
+			// its lead must point the tab at the row its gates will answer.
+			lead: context.store.config().lead,
+			waiting,
+			...(roster === undefined ? {} : { roster }),
+		}),
+	);
 }
 
 /** One page's frames, and the pile they share while nothing is written. */
@@ -77,7 +81,7 @@ export interface Snapshot {
 	 * The page's frame. The pile is read again when `cards/` itself moved, and after a run of frames
 	 * in which it did not — the bound {@link PILE_RESYNC_FRAMES} says why.
 	 */
-	view(): Promise<BoardView>;
+	view(): Promise<BoardWire>;
 }
 
 /**
