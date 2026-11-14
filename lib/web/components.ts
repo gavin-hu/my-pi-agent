@@ -235,6 +235,9 @@ th[aria-sort="descending"] .bf-sort::after{content:" \\25BC";font-size:9px;color
    that does not cannot break a line differently. */
 @media (max-width:${NARROW_MAX_PX}px){
   .bf-code__line,.bf-code>code{white-space:pre-wrap;overflow-wrap:anywhere}
+  /* A fence in prose is a document's too, and a phone wraps it for the same reason: the
+     command is the fact, and a scrollbar is no way to reach it. */
+  .bf-md pre,.bf-md pre code,.bf-md pre .bf-code__line{white-space:pre-wrap;overflow-wrap:anywhere}
 }
 /* The other answer, for a page with its own control: its "no wrap" has to mean no on a
    narrow screen too, and it is more specific than the media rule above so it wins there. */

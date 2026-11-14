@@ -355,7 +355,7 @@ describe("the page's own design rules", () => {
 		for (const rule of own()
 			.split("\n")
 			.filter((line) => line.includes("var(--font-mono)"))) {
-			expect(rule, rule).toMatch(/^\.(review-share__url|bf-block code|bf-block pre\.bf-code)\{/);
+			expect(rule, rule).toMatch(/^\.(review-share__url)\{/);
 		}
 	});
 

@@ -415,9 +415,10 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 		await page.close();
 	});
 
-	test("draws a list marker with the kit's class, checked or not", async () => {
-		// The marker's width and muted colour come from the kit rule; a bare marker class
-		// matched nothing, so a plain bullet sat at a different width from a checked one.
+	test("draws a step as the kit's task item, checked or not", async () => {
+		// The list is the kit's: a plain bullet is an `li`, and a step is `li.task` with the box the
+		// browse page draws for the same Markdown — so the two pages render a checklist alike, and
+		// the box is the sheet's drawn control rather than a glyph the renderer picked.
 		const local = await mountReview({
 			...REVIEW_PAGE,
 			blocks: [
@@ -431,21 +432,20 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 		try {
 			await page.goto(local.url, { waitUntil: "load" });
-			await page.waitForSelector("#plan .bf-block__li", { timeout: REVIEW_PAINT_MS });
-			const markers = await page.$$eval("#plan .bf-block__li > span:first-child", (nodes) =>
-				nodes.map((node) => ({
-					cls: node.className,
-					minWidth: (globalThis as unknown as { getComputedStyle(n: unknown): { minWidth: string } }).getComputedStyle(
-						node,
-					).minWidth,
-				})),
+			await page.waitForSelector("#plan li.task", { timeout: REVIEW_PAINT_MS });
+			const items = await page.$$eval("#plan ul li", (nodes) =>
+				nodes.map((node) => {
+					const box = node.querySelector("input.md-check") as unknown as {
+						checked: boolean;
+						disabled: boolean;
+					} | null;
+					return { cls: node.className, box: box === null ? null : { checked: box.checked, disabled: box.disabled } };
+				}),
 			);
-			expect(markers.map((marker) => marker.cls)).toEqual([
-				"bf-block__marker",
-				"bf-block__marker bf-block__marker--done",
+			expect(items).toEqual([
+				{ cls: "", box: null },
+				{ cls: "task done", box: { checked: true, disabled: true } },
 			]);
-			// Both wear the kit's class, so both get its width rather than the text default.
-			expect(markers.every((marker) => marker.minWidth !== "auto")).toBe(true);
 		} finally {
 			await page.close();
 			await local.close();

@@ -131,18 +131,6 @@ ${WEB_COMPONENTS_CSS}
 .bf-block[data-changed]{box-shadow:inset 2px 0 0 var(--accent)}
 .bf-block:hover,.bf-block--active{background:var(--surface)}
 .bf-block--active{box-shadow:inset 0 0 0 1px var(--border)}
-.bf-block__li{display:flex;gap:8px;margin:4px 0;line-height:var(--lh-relaxed)}
-.bf-block__marker{flex:0 0 auto;min-width:1.4em;color:var(--muted)}
-.bf-block__marker--done{color:var(--success)}
-.bf-block pre.bf-code{margin:11px 0;padding:var(--space-3) 0;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);font:var(--fs-code)/1.55 var(--font-mono);tab-size:4;flex:none}
-.bf-block pre.bf-code code{background:none;border:0;padding:0;font-size:inherit}
-/* The kit owns how a code line breaks: it wraps below a phone's width and when the reader asks,
-   and this page keeps only the inset the block's own gutter needs. */
-.bf-block pre.bf-code .bf-code__line{display:block;padding:0 14px;min-height:1.55em}
-.review-table-wrap{margin:11px 0;overflow-x:auto}
-.review-table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
-.review-table th,.review-table td{padding:6px 10px;border:1px solid var(--border);text-align:left;vertical-align:top}
-.review-table th{background:var(--surface);color:var(--muted);font-weight:var(--fw-medium)}
 /* Comment threads sit in the document flow, aligned with the block's text. */
 .bf-comments{display:flex;flex-direction:column;gap:8px;width:100%;max-width:var(--review-measure);margin:0 auto 14px;padding-left:var(--review-gutter)}
 .bf-comments:empty{display:none}
