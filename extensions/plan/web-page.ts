@@ -55,8 +55,10 @@ ${WEB_COMPONENTS_CSS}
 .review-share__qr{display:flex;justify-content:center;margin:0 0 var(--space-3)}
 .review-share__qr svg{width:168px;height:168px;background:#fff;border-radius:var(--radius-md);padding:var(--space-1)}
 .bf-review{--review-measure:1012px;--review-rail:26px;--review-gutter:34px;flex:1 1 auto;padding:var(--space-5) var(--space-6) 120px}
-/* The document is one content column at GitHub's Markdown body width, with the
-   comment rail inside it, so a plan reads the way the same file does on GitHub. */
+/* The document is the kit's Markdown body: one prose vocabulary for every page that renders a
+   file. Only its box is this page's — the measure comes from the blocks, which keep the comment
+   rail in their gutter, and the scroll box stays the shell's main pane. */
+.bf-review.bf-md{max-width:none;overflow-x:hidden;overflow-y:auto}
 /* Sticky header: the kit's toolbar says who the page is of and how it is doing, a control
    row under it holds the page's own actions, and a hairline reading progress bar is pinned
    to the header's bottom edge (the kit's shape; see lib/web/README.md). */
@@ -129,18 +131,9 @@ ${WEB_COMPONENTS_CSS}
 .bf-block[data-changed]{box-shadow:inset 2px 0 0 var(--accent)}
 .bf-block:hover,.bf-block--active{background:var(--surface)}
 .bf-block--active{box-shadow:inset 0 0 0 1px var(--border)}
-.bf-block h1,.bf-block h2,.bf-block h3,.bf-block h4,.bf-block h5,.bf-block h6{margin:24px 0 8px;line-height:var(--lh-tight)}
-.bf-block h1{font-size:var(--fs-xl);padding-bottom:6px;border-bottom:1px solid var(--border)}
-.bf-block h2{font-size:var(--fs-lg);padding-bottom:4px;border-bottom:1px solid var(--border)}
-.bf-block h3{font-size:17px}
-.bf-block h4,.bf-block h5,.bf-block h6{font-size:var(--fs-base)}
-.bf-block p{margin:11px 0;line-height:var(--lh-relaxed)}
-.bf-block blockquote{margin:11px 0;padding:2px 14px;border-left:3px solid var(--border);color:var(--muted)}
-.bf-block hr{border:0;border-top:1px solid var(--border);margin:22px 0}
 .bf-block__li{display:flex;gap:8px;margin:4px 0;line-height:var(--lh-relaxed)}
 .bf-block__marker{flex:0 0 auto;min-width:1.4em;color:var(--muted)}
 .bf-block__marker--done{color:var(--success)}
-.bf-block code{font-family:var(--font-mono);font-size:.9em;background:var(--surface);border-radius:var(--radius-sm);padding:.1em .35em}
 .bf-block pre.bf-code{margin:11px 0;padding:var(--space-3) 0;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);font:var(--fs-code)/1.55 var(--font-mono);tab-size:4;flex:none}
 .bf-block pre.bf-code code{background:none;border:0;padding:0;font-size:inherit}
 /* The kit owns how a code line breaks: it wraps below a phone's width and when the reader asks,
@@ -155,20 +148,21 @@ ${WEB_COMPONENTS_CSS}
 .bf-comments:empty{display:none}
 .bf-comments--orphans{margin-top:26px;padding:var(--space-3) 0 0 var(--review-gutter);border-top:1px dashed var(--border)}
 .bf-comments--orphans>p{margin:0 0 8px;color:var(--muted);font-size:var(--fs-sm)}
-.bf-comment{padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background:var(--surface)}
+/* The comment is the kit's record: its body, rail, label and quote are the kit's, and this page
+   adds only what its own card carries — the head row its controls sit in, the badge a moved note
+   wears, and the quiet plane a settled one takes. */
 .bf-comment__head{display:flex;align-items:center;gap:var(--space-2);margin-bottom:6px}
-.bf-comment__label{font:var(--fw-semibold) var(--fs-xs) var(--font-ui);color:var(--warn)}
 /* A reviewer's name is a name, not a label: keep its own capitalisation. */
 /* A note a refinement carried off its own block: muted, because the complaint is the guess, not the text. */
 .bf-comment__moved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 6px}
 .bf-comment__spacer{flex:1 1 auto}
 /* A settled note keeps its quote and loses its body: the record stays, the eye moves on. */
-.bf-comment--resolved{border-left-color:var(--success);opacity:.72}
+.bf-comment--resolved{opacity:.72}
 .bf-comment__resolved{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--success)}
 .bf-comment__actions{display:flex;gap:4px}
 .bf-comment__actions .bf-btn{padding:1px 8px;font-size:var(--fs-xs)}
-.bf-comment__quote{margin-bottom:6px;padding-left:8px;border-left:2px solid var(--border);color:var(--muted);font-size:var(--fs-sm);overflow-wrap:anywhere}
-.bf-comment__body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:var(--lh-snug)}
+/* A quote is read at the record's own line height, not the document's: it is one line of context. */
+.bf-comment__body{line-height:var(--lh-snug)}
 .bf-composer{margin:0}
 .bf-block--composing .bf-block__add{opacity:0}
 @media (max-width:1180px){
@@ -370,7 +364,7 @@ ${toolbarChrome()}
 </div>
 <div class="bf-app__rule"></div>${controlBar}</header>
 <div class="${bodyClass}">
-${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
+${outlinePanel}<main class="bf-app__main bf-review bf-md" id="plan" aria-label="Plan"></main>
 </div>
 ${pageFooter({ facts: `plan ${data.path}` })}
 ${keysSheet(reviewKeys(data.role, data.canApprove))}

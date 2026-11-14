@@ -230,6 +230,26 @@ describe("the page's chrome", () => {
 		expect(html).not.toMatch(/<\/header>\s*<div class="bf-app__ctl/);
 	});
 
+	test("wears the kit's document instead of a second one", () => {
+		// One document vocabulary (lib/web): a plan and a file rendered as Markdown read at the same
+		// size, with the same rules for a heading, a paragraph, a fence and a table. A page rule for
+		// one of those is the second vocabulary this case exists to prevent.
+		expect(reviewPage()).toContain('<main class="bf-app__main bf-review bf-md" id="plan"');
+		for (const rule of [
+			".bf-block h1{",
+			".bf-block h2{",
+			".bf-block h3{",
+			".bf-block p{",
+			".bf-block blockquote{",
+			".bf-block hr{",
+			".bf-block code{",
+		]) {
+			expect(REVIEW_CSS, rule).not.toContain(rule);
+		}
+		// What the page keeps is its box: the measure belongs to the blocks, the scroll to the shell.
+		expect(REVIEW_CSS).toContain(".bf-review.bf-md{max-width:none;overflow-x:hidden;overflow-y:auto}");
+	});
+
 	test("drops the page's own header rules instead of re-declaring the kit's", () => {
 		for (const rule of [
 			".review-heading{",
