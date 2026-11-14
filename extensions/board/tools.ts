@@ -5,7 +5,8 @@
  * model that has read the board should not have to learn a second surface to change
  * it. The tool owns nothing but the dispatch: the workspace comes from
  * `lib/board/session.ts`, the transition from `lib/board/rules.ts`, the bytes from
- * `lib/board/store.ts`, and the words from `format.ts` and `result.ts`.
+ * `lib/board/store.ts`, and the words from `format.ts` and `result.ts`. What a `list` answers is
+ * `listing.ts`, reached with `import()` on the call that lists.
  *
  * A refusal is a failed result that still carries the card, so the next call starts
  * from the truth — and it is the same refusal the page shows, because both go
@@ -13,16 +14,13 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { planForContract, planIsGone } from "../../lib/board/artifact.ts";
-import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
+import { planForContract } from "../../lib/board/artifact.ts";
+import { type Card, cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { type Lane, movableLanes } from "../../lib/board/lanes.ts";
-import { indexOf } from "../../lib/board/links.ts";
 import type { Verification } from "../../lib/board/contract.ts";
 import { signMark } from "../../lib/board/lead.ts";
 import type { VerifyRun } from "../../lib/board/verify.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
-import { buildRound } from "../../lib/board/round.ts";
-import type { RosterSession } from "../../lib/session-roster.ts";
 import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { listOf } from "../../lib/format.ts";
@@ -31,8 +29,7 @@ import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
-import { formatRound, withLiveOwner } from "../../lib/board/round-text.ts";
-import { CLAIM_NEXT, formatArchive, formatBoard, formatCard } from "./format.ts";
+import { CLAIM_NEXT, formatCard } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, refusal, resultInput } from "./result.ts";
 import { dropCard, mutate, reclaimOp } from "./write.ts";
@@ -203,10 +200,13 @@ export function registerTools(
 				const store = await runtime.store(ctx.cwd);
 				const now = runtime.now();
 				switch (action) {
-					case "list":
-						// Every listing names owners, and a rename is a fact about the bus rather than the card, so
-						// the read asks the roster once: the rows carry the live name and the rollup folds the rest.
+					case "list": {
+						// The four answers live with the reads behind them, loaded on the call that asks for one.
+						// The roster is passed rather than read there: a rename is a fact about the bus, so the
+						// listing asks it once, and the rows carry the live name while the rollup folds the rest.
+						const { read } = await import("./listing.ts");
 						return await read(store, action, me, args, now, () => runtime.roster(ctx.cwd));
+					}
 					case "add":
 						return await add(store, me, args, now);
 					case "claim":
@@ -382,153 +382,6 @@ export function registerTools(
 			view.setInput(input, theme);
 			return view;
 		},
-	});
-}
-
-/** The `list` fields that narrow a listing, in the order a refusal names them. */
-const CARD_FILTERS = ["lane", "query", "mine", "round"] as const;
-
-/**
- * The refusal for the filters a `list` that names a card would otherwise drop.
- *
- * `card` answers for that one card, so a filter beside it changes nothing — and a call that
- * sent both meant one of them. A dropped field is what `strayField` exists to prevent one
- * level up, so it is refused here in the same voice the archive's own reader uses.
- */
-function cardFiltersRefusal(args: BoardArgs, fields: readonly (keyof BoardArgs)[] = CARD_FILTERS): string | undefined {
-	const given = fields.filter((field) => args[field] !== undefined);
-	return given.length === 0 ? undefined : `card does not read ${given.join(", ")}: it answers for that one card.`;
-}
-
-/** `list`: the board, one card, the lead's rollup, or the archive. */
-async function read(
-	store: BoardStore,
-	action: BoardAction,
-	me: BoardDetails["me"],
-	args: BoardArgs,
-	now: number,
-	roster: () => Promise<readonly RosterSession[] | undefined>,
-): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	// The roster is read for every listing, not only a rollup: a card shows its owner by the name the
-	// session answers to now, and a rename moves the record rather than the card. No bus (`undefined`)
-	// leaves the label the card kept. A decision that follows: `query` matches the live name, so the
-	// dead one matches nothing — the rename is the board saying it no longer answers to it.
-	const rosterRows = await roster().catch(() => undefined);
-	if (args.archived === true) return readArchive(store, action, me, args, now, rosterRows);
-	// One read of the pile answers both questions a listing asks — the cards, and the files the
-	// reader refused, which is the difference between "not there" and "there, and unreadable".
-	const scanned = await store.scan();
-	const cards = scanned.cards.map((card) => withLiveOwner(card, rosterRows));
-	const skipped = scanned.skipped;
-	// A directory listing, not a read: a listing says what it left aside without opening one.
-	const archived = await store.archivedCount();
-	if (args.card !== undefined) {
-		const ignored = cardFiltersRefusal(args);
-		if (ignored !== undefined) return refusal(action, me, ignored);
-		const id = normalizeCardId(args.card);
-		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
-		const card = cards.find((entry) => entry.id === id);
-		if (!card) {
-			// Gone and set aside are different answers, and one read by id tells them apart.
-			if ((await store.read(id)) !== undefined) {
-				return refusal(action, me, `${cardRef(id)} is archived; pass archived: true to read it.`);
-			}
-			const unreadable = skipped.find((entry) => entry.id === id);
-			return refusal(
-				action,
-				me,
-				unreadable === undefined
-					? `${cardRef(id)} does not exist.`
-					: `${cardRef(id)} is there and this build cannot read it (${unreadable.file}: ${unreadable.why}).`,
-			);
-		}
-		// The one stat a read can afford, and the only card it can afford it on: a listing's rows carry
-		// no plan line, so this is where a reader learns the file it would move on is already gone.
-		return textResult(formatCard(card, indexOf(cards), now, planIsGone(card)), { action, me, card });
-	}
-	const listed = cards.filter(
-		(card) =>
-			(args.lane === undefined || card.lane === args.lane) &&
-			(args.query === undefined || matchesQuery(card, args.query)) &&
-			// The same rule a claim is checked against, so "mine" cannot list a card this
-			// session could not release.
-			(args.mine !== true || holds(card, me)),
-	);
-	// A finished card is history rather than work, and nothing prunes it — this
-	// repository's own board is mostly finished cards — so a listing that names no lane
-	// leaves them out and says how many. A named lane and `card` are unchanged; the rollup
-	// counts the whole board, which is what makes it a rollup.
-	const hiddenDone = args.lane === undefined ? listed.filter((card) => card.lane === "done").length : 0;
-	const shown = hiddenDone === 0 ? listed : listed.filter((card) => card.lane !== "done");
-	// The rollup is the whole board's answer, so it is printed *after* the listing rather than
-	// instead of it: a filter beside `round` asked two questions, and a call that answered only
-	// one of them dropped the other without saying so.
-	const narrowed = args.lane !== undefined || args.query !== undefined || args.mine === true;
-	const listing = formatBoard(shown, { hiddenDone, archived, skipped, narrowed });
-	const details: BoardDetails = {
-		action,
-		me,
-		cards: shown,
-		...(narrowed ? { narrowed } : {}),
-		...(args.mine === true ? { mine: true } : {}),
-	};
-	if (args.round !== true) return textResult(listing, details);
-	const round = buildRound(cards, now);
-	const text = `${listing}\n\n${formatRound(cards, round, rosterRows)}`;
-	return textResult(text, { ...details, round });
-}
-
-/**
- * `list archived: true`: the cards set aside, which no board read opens.
- *
- * A lane and a rollup are answers about the board, so asking for the archive with either
- * is refused rather than quietly ignored: the pile is one thing, and every card in it is
- * finished. A query and `mine` narrow it, because both are questions about a card.
- */
-async function readArchive(
-	store: BoardStore,
-	action: BoardAction,
-	me: BoardDetails["me"],
-	args: BoardArgs,
-	now: number,
-	roster: readonly RosterSession[] | undefined,
-): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	const wrong = (["lane", "round"] as const).filter((field) => args[field] !== undefined);
-	if (wrong.length > 0) {
-		return refusal(
-			action,
-			me,
-			`archived does not read ${wrong.join(", ")}: the archive is one pile of finished cards, out of the board.`,
-		);
-	}
-	const pile = await store.archived();
-	// A finished card's owner can have renamed after the close too, and the pile is read by the same person.
-	const cards = pile.cards.map((card) => withLiveOwner(card, roster));
-	if (args.card !== undefined) {
-		// `query` and `mine` narrow the pile, not the one card it would answer for.
-		const ignored = cardFiltersRefusal(args, ["query", "mine"]);
-		if (ignored !== undefined) return refusal(action, me, ignored);
-		const id = normalizeCardId(args.card);
-		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
-		const card = cards.find((entry) => entry.id === id);
-		if (!card) {
-			const onBoard = (await store.list()).some((entry) => entry.id === id);
-			return refusal(
-				action,
-				me,
-				onBoard ? `${cardRef(id)} is on the board, not in the archive.` : `${cardRef(id)} is not in the archive.`,
-			);
-		}
-		return textResult(formatCard(card, indexOf(cards), now), { action, me, card });
-	}
-	const shown = cards.filter(
-		(card) => (args.query === undefined || matchesQuery(card, args.query)) && (args.mine !== true || holds(card, me)),
-	);
-	return textResult(formatArchive(shown, pile.skipped), {
-		action,
-		me,
-		cards: shown,
-		...(args.mine === true ? { mine: true } : {}),
 	});
 }
 
