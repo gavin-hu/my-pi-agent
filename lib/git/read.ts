@@ -91,23 +91,29 @@ async function forkPoint(runGit: RunGit, cwd: string, a: string, b: string): Pro
 }
 
 /**
- * The reviewed files a merge changed: the work `reviewed` did since its fork, intersected with
- * what `merged` changed of that work.
+ * The reviewed files a merge rewrote: the work `reviewed` did since its fork, compared line by
+ * line with what `merged` carried of that work.
  *
  * A clean `--no-ff` answers nothing, whatever landed on the branch in the meantime: the merge
- * carries `reviewed` whole, and a neighbour's files are not evidence about this review. What is
- * left is a file the merge resolved itself — the tree nobody ran the gate on.
+ * carries `reviewed` whole, so the branch's own change — read against the merge's **first
+ * parent**, which is the line the merge landed on — reproduces the review's change of every file.
+ * A neighbour's file is not the review's, and a neighbour's edit in a file the review also
+ * touched is not the review's change either: that is why the comparison is of changed lines
+ * rather than of file names. What is left is a file whose lines the merger wrote itself — the
+ * tree nobody ran the gate on.
  *
- * Conservative by construction: a neighbour and the review both editing one file cannot be told
- * from a resolution edit this way, so that case still answers the file and refuses the close.
- * Telling them apart needs the merge git would have made, which this reader does not compute.
+ * Whitespace is not ignored: a reindent is a changed line and refuses, which is the conservative
+ * direction — a false refusal costs a signature, a false accept costs the gate.
+ *
+ * One case cannot be told apart and is accepted: a resolution that reproduces the review's own
+ * lines exactly is the tree that was reviewed for those lines.
  *
  * `undefined` is a read that failed, not "nothing moved": the caller refuses a close it could
  * not check rather than accepting one on a missing diff.
  *
  * The fork is read against the merge's **first parent**, not the merge: a merge already carries
  * `reviewed`, so `merge-base(reviewed, merged)` is `reviewed` itself and would compare the review
- * with nothing. The first parent is the line the merge landed on, which is where the two parted.
+ * with nothing.
  */
 export async function resolvedByMerge(
 	runGit: RunGit,
@@ -115,24 +121,54 @@ export async function resolvedByMerge(
 	reviewed: string,
 	merged: string,
 ): Promise<string[] | undefined> {
-	const base = await forkPoint(runGit, cwd, reviewed, `${merged}^1`);
+	const first = `${merged}^1`;
+	const base = await forkPoint(runGit, cwd, reviewed, first);
 	if (base === undefined) return undefined;
-	const own = await changedFiles(runGit, cwd, base, reviewed);
-	if (own === undefined) return undefined;
-	const touched = await changedFiles(runGit, cwd, reviewed, merged);
-	if (touched === undefined) return undefined;
-	const mine = new Set(own);
-	return touched.filter((path) => mine.has(path));
+	const own = await changedLines(runGit, cwd, base, reviewed);
+	const landed = await changedLines(runGit, cwd, first, merged);
+	if (own === undefined || landed === undefined) return undefined;
+	const moved: string[] = [];
+	for (const [path, lines] of own) {
+		// A file the merge did not carry at all is a change the merger dropped, so it moved too.
+		const carried = landed.get(path);
+		if (carried === undefined || carried.length !== lines.length) {
+			moved.push(path);
+			continue;
+		}
+		if (carried.some((line, at) => line !== lines[at])) moved.push(path);
+	}
+	return moved.sort();
 }
 
-/** The files that differ between two commits, or undefined when the read failed. */
-async function changedFiles(runGit: RunGit, cwd: string, from: string, to: string): Promise<string[] | undefined> {
-	const result = await runGit(["diff", "--name-only", from, to], { cwd });
+/**
+ * The lines a diff changed, per file: what a merge has to reproduce to count as that change.
+ *
+ * `-U0` keeps context out, so two diffs of the same change compare equal wherever the lines sit.
+ * A mode change is a changed line of its own; the headers that describe the diff are not.
+ */
+async function changedLines(
+	runGit: RunGit,
+	cwd: string,
+	from: string,
+	to: string,
+): Promise<Map<string, string[]> | undefined> {
+	// The unquoted spelling, so a file name is one name: `core.quotePath` would hand back `"a/x"`.
+	const result = await runGit(["-c", "core.quotePath=false", "diff", "-U0", "--no-color", from, to], { cwd });
 	if (result.code !== 0) return undefined;
-	return result.stdout
-		.split("\n")
-		.map((line) => line.trim())
-		.filter((line) => line !== "");
+	const changed = new Map<string, string[]>();
+	let path: string | undefined;
+	for (const line of result.stdout.split("\n")) {
+		if (line.startsWith("diff --git a/")) {
+			// One path, twice, for an edit; a rename reads as a delete and an add, which refuses.
+			path = line.slice("diff --git a/".length).split(" b/")[0];
+			changed.set(path, []);
+			continue;
+		}
+		if (path === undefined) continue;
+		if (/^(new file mode|deleted file mode|old mode|new mode)/.test(line)) changed.get(path)?.push(line);
+		else if (line.startsWith("+") || line.startsWith("-")) changed.get(path)?.push(line);
+	}
+	return changed;
 }
 
 /** Absolute path of the repository's git directory. */

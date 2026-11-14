@@ -465,9 +465,8 @@ export interface LandingCommit {
  *
  * The chain is the default branch's **first-parent** commits in **oldest-first** order: the walk
  * starts at the branch and follows the first parent, so a criss-cross cannot hand back a later
- * merge as the one that carried the work. `moved` is the other half — the reviewed files the merge
- * changed — because a merge that resolved the work itself is a tree nobody ran the gate on, and
- * that diff is what says so.
+ * merge as the one that carried the work. `moved` is the other half — the review's own change the
+ * merge rewrote — because a merge that resolved the work itself is a tree nobody ran the gate on.
  */
 export interface LandingProof {
 	/** The branch the chain was read from, as a sentence names it: `main`, not `refs/heads/main`. */
@@ -475,8 +474,9 @@ export interface LandingProof {
 	/** The branch's first-parent commits, oldest first. */
 	chain: readonly LandingCommit[];
 	/**
-	 * The review's own files the merge changed; absent when none. A neighbour's landing under a
-	 * hinted directory is not here: the diff is scoped to the review's work, not to the hints.
+	 * The review's own change the merge rewrote; absent when none. A neighbour's landing is not here
+	 * — not under a hinted directory, and not in a shared file, because the comparison is of the
+	 * lines this review changed rather than of the files it touched.
 	 */
 	moved?: readonly string[];
 }
@@ -539,13 +539,13 @@ export function unlandedReview(branch: string, reviewed: string, id: string): st
 }
 
 /**
- * What a `done` move is refused with when the merge changed a file the review changed.
+ * What a `done` move is refused with when the merge rewrote the review's own change.
  *
- * The sign was right about the tree it saw; the merge is what nobody ran the gate on. The list is
- * the reviewed files, not the card's hints, so a neighbour is never named. One case is conservative
- * rather than wrong — a neighbour and the review both editing one file — because telling a clean
- * combination from a resolution edit needs the merge git would have made. The list is the caller's
- * to cap: the first few are enough to find the rest.
+ * The sign was right about the tree it saw; the merge is what nobody ran the gate on. A file is
+ * named only when the merger changed this review's own change, not merely a file it touched, so a
+ * neighbour's edit in the same file is not named. One case is accepted because it cannot be told
+ * apart: a resolution that reproduces the review's own lines is the tree that was reviewed. The
+ * list is the caller's to cap: the first few are enough to find the rest.
  */
 export function movedTree(
 	branch: string,

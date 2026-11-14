@@ -14,6 +14,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Card } from "../../lib/board/card.ts";
 import { landingGate } from "../../lib/board/contract.ts";
+import { resolvedByMerge } from "../../lib/git/read.ts";
+import { createExecRunner } from "../../lib/git/runner.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { LEAD, NOW, written } from "../../test/helpers/fixtures/board-rules.ts";
 import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
@@ -97,6 +99,76 @@ async function withResolution(): Promise<{ repo: string; reviewed: string }> {
 	return { repo, reviewed };
 }
 
+/**
+ * The #571 shape: both sides write into one shared file, in different sections, so the landing
+ * merge is clean and the neighbour's bullet arrives through its first parent.
+ */
+async function withSharedFile(): Promise<{ repo: string; reviewed: string }> {
+	const repo = temps.track(await makeRepo("pi-landing-shared-"));
+	await commitFile(
+		repo,
+		"CHANGELOG.md",
+		"# Clog\n\n## [Unreleased]\n\n### Added\n\n### Changed\n",
+		"the changelog every card edits",
+	);
+	await git(["checkout", "-q", "-b", "work"], repo);
+	const reviewed = await commitFile(
+		repo,
+		"CHANGELOG.md",
+		"# Clog\n\n## [Unreleased]\n\n### Added\n\n### Changed\n\n- the review's bullet\n",
+		"the review writes its bullet",
+	);
+	await git(["checkout", "-q", "main"], repo);
+	await commitFile(
+		repo,
+		"CHANGELOG.md",
+		"# Clog\n\n## [Unreleased]\n\n### Added\n\n- a neighbour's bullet\n\n### Changed\n",
+		"a neighbour lands in the same file",
+	);
+	await git(["merge", "--no-ff", "-qm", "land work", "work"], repo);
+	return { repo, reviewed };
+}
+
+/**
+ * The true positive a range alone would pass: both sides rewrite one line, the merge resolves it,
+ * and the resolution keeps the review's line count while changing its text.
+ */
+async function withSameRange(): Promise<{ repo: string; reviewed: string }> {
+	const repo = temps.track(await makeRepo("pi-landing-range-"));
+	await commitFile(repo, "dir/own.ts", "alpha\nbeta\ngamma\n", "the line both sides edit");
+	await git(["checkout", "-q", "-b", "work"], repo);
+	const reviewed = await commitFile(repo, "dir/own.ts", "alpha\nbeta reviewed\ngamma\n", "the review's line");
+	await git(["checkout", "-q", "main"], repo);
+	await commitFile(repo, "dir/own.ts", "alpha\nbeta landed\ngamma\n", "a neighbour's line");
+	const conflicted = await execP("git", ["merge", "--no-ff", "-m", "merge work", "work"], { cwd: repo });
+	expect(conflicted.code, "the merge was meant to conflict").not.toBe(0);
+	// The same line, one indent deeper: a map of ranges would call this the review's own change.
+	writeFileSync(join(repo, "dir", "own.ts"), "alpha\n  beta reviewed\ngamma\n");
+	await git(["add", "dir/own.ts"], repo);
+	await git(["commit", "-qm", "merge work"], repo);
+	return { repo, reviewed };
+}
+
+/** The repository this suite runs in, whose history carries the landings cases below. */
+const REPO_ROOT = join(import.meta.dir, "..", "..");
+
+/** Whether a commit this suite means to read exists here: a shallow clone is not a failure. */
+async function present(sha: string): Promise<boolean> {
+	return (await execP("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: REPO_ROOT })).code === 0;
+}
+
+/** The landings that refused a close today: a review, and the merge that carried it. */
+const REAL_LANDINGS = [
+	{ reviewed: "53a14106", merged: "14ff64a3" },
+	{ reviewed: "efb425e5", merged: "21c9275c" },
+	{ reviewed: "fddbde30", merged: "ee910935" },
+];
+
+/** Whether this checkout carries all three, read once so the cases below can skip as a group. */
+const hasRealLandings = (
+	await Promise.all(REAL_LANDINGS.map(async (one) => (await present(one.reviewed)) && (await present(one.merged))))
+).every(Boolean);
+
 describe("the landing a close resolves", () => {
 	test("accepts a clean merge when a neighbour landed in the card's directory hint", async () => {
 		const { repo, reviewed } = await withNeighbour();
@@ -129,7 +201,8 @@ describe("the landing a close resolves", () => {
 			const { repo, reviewed } = await withNeighbour();
 			const failing = createFakePi({
 				exec: async (command, args, options) =>
-					args[0] === subcommand ? { stdout: "", stderr: "boom", code: 128 } : await execP(command, args, options),
+					// The subcommand is matched wherever it sits: a read may carry global options first.
+					args.includes(subcommand) ? { stdout: "", stderr: "boom", code: 128 } : await execP(command, args, options),
 			}).pi;
 			const proof = await landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, failing);
 			// Not "nothing moved": an unread diff is refused like an unread branch, because the one
@@ -138,4 +211,34 @@ describe("the landing a close resolves", () => {
 			expect(landingGate(ID, reviewed, proof), subcommand).toContain("was not read");
 		}
 	});
+
+	test("accepts a clean landing when a neighbour's bullet arrives in the file the review changed", async () => {
+		const { repo, reviewed } = await withSharedFile();
+		const proof = await landedChain(storeOf(signedAt(reviewed, ["CHANGELOG.md"]), repo), ID, host());
+		// The merge carries the neighbour's bullet in from its first parent: the merger changed
+		// nothing of this review's own change, so nothing moved.
+		expect(proof?.moved).toBeUndefined();
+		expect(landingGate(ID, reviewed, proof)).toBeUndefined();
+	});
+
+	test("refuses a resolution that rewrites the review's lines with the same range", async () => {
+		const { repo, reviewed } = await withSameRange();
+		const proof = await landedChain(storeOf(signedAt(reviewed, ["dir/own.ts"]), repo), ID, host());
+		// Same lines, different text: comparing ranges alone would pass this, which is why the
+		// comparison is of the lines' content — a reindent included.
+		expect(proof?.moved).toEqual(["dir/own.ts"]);
+		expect(landingGate(ID, reviewed, proof)).toContain("dir/own.ts");
+	});
+});
+
+describe.skipIf(!hasRealLandings)("the landings this repository made", () => {
+	for (const { reviewed, merged } of REAL_LANDINGS) {
+		test(`answers nothing for ${reviewed} -> ${merged}`, async () => {
+			// The reader is handed the real commits rather than a fixture, because these are the
+			// landings a close was refused on: a neighbour's bullet in a shared file, and a
+			// resolution that happened inside the reviewed commit.
+			const moved = await resolvedByMerge(createExecRunner(host()), REPO_ROOT, reviewed, merged);
+			expect(moved).toEqual([]);
+		});
+	}
 });

@@ -362,6 +362,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a landing merge is read against its first parent and compared with the review's own
+  change, line by line, so a neighbour's `CHANGELOG.md` bullet arriving through the merge no longer
+  refuses a close while a hand-resolved conflict still does. The gate used to intersect the files
+  the review changed with the files that differ between the reviewed commit and the merge, which
+  named the shared file every card edits: two merged-tree signatures were lost to it in one day.
+  The residual is stated where the rule lives — a resolution that reproduces the review's own
+  lines exactly is the tree that was reviewed for those lines, and passes.
+
 - `test`: two cases that reddened on a loaded box now wait on the condition they assert. The job
   EXIT-trap case takes one deadline per case and spends it on its two sequential waits — its spawn,
   then the trap's write — instead of halving the spawn watchdog into 42.5 s each, which the half the
