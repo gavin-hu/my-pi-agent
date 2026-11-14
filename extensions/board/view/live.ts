@@ -30,25 +30,18 @@ const liveTemplate = String.raw`(function () {
   /**
    * The chip's word and its tone, in this page's four states.
    *
-   * The states and their transitions are the shared client's, so all three served pages agree
-   * on what a dropped stream is and stop agreeing only on what it says. The shape is the kit's,
-   * through one body every page shares, and the word carries the last frame's age because a
-   * quiet board has no other way to show that its frames are still arriving.
+   * The states and their transitions are the shared client's, and the words and tones are the
+   * kit's — the board appends the frame's age and nothing else, so a quiet board can show that
+   * its frames are still arriving without owning a second table of what a state says.
    */
   function badge(state, at) {
     streamState = state;
     var node = document.getElementById("board-status");
     if (!node) return;
     node.setAttribute("data-state", state);
-    // "now" would read as "live · now ago", so a fresh frame says only "live".
-    var text = "connecting…";
-    if (state === "live") {
-      var age = at === undefined ? "now" : board.ago(at);
-      text = age === "now" ? "live" : "live · " + age;
-    }
-    else if (state === "reconnecting") text = "reconnecting…";
-    else if (state === "dead") text = "offline";
-    board.paintLive(node, state === "live" ? "success" : state === "connecting" ? "accent" : "danger", text);
+    // "now" would read as "live · now ago", so a fresh frame adds nothing to the word.
+    var age = state === "live" ? (at === undefined ? "now" : board.ago(at)) : "";
+    board.paintLiveState(node, state, age === "" || age === "now" ? "" : " · " + age);
     // A stream that has not come back is where this page stops being true, and a reload is the
     // one action a reader has. While the browser is still retrying, the chip says that instead.
     var reload = document.getElementById("reload-hint");

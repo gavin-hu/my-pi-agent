@@ -61,6 +61,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: the four stream states' words and tones are one table (`paintLiveState`) spliced into
+  every served page, so the board appends only the frame's age and the review its comment count.
+  The board's `reconnecting…` chip is the warning tone the other two wear, not the danger they
+  keep for a dead stream, and browse's retry and connecting words gain the ellipsis the other
+  two already had.
+
 - lib: the kit owns three controls a page used to draw for itself — `bf-btn--sm` for an
   action inside a line of text, `bf-field--button` for the prompt line a quick-open wears, and
   the review's quiet identity control moving onto `bf-btn--ghost`.

@@ -162,6 +162,36 @@ export function paintLive(node: ClientNode, tone: string, label: string, title?:
 }
 
 /**
+ * Paint one stream state on a live chip: the word and tone every served page shares.
+ *
+ * The four states are the stream client's, so the pages agree on them and disagree only in what
+ * they add — the board appends the frame's age, the review its comment count — which is the
+ * suffix. The word and the tone are this table's, because a shared word beside a private colour
+ * is the same drift one line lower: the board once painted the retry in the tone the other two
+ * kept for a dead stream. A page's own words (`stale`, a settled review) are not stream states,
+ * so they stay page-side and paint through `paintLive`.
+ *
+ * Built by concatenation, never a template literal: the body is spliced into a page's script by
+ * `pageSource`, which refuses a backtick or `${`.
+ */
+export function paintLiveState(node: ClientNode, state: LiveState, suffix?: string, title?: string): void {
+	const after = suffix || "";
+	if (state === "live") {
+		paintLive(node, "success", "live" + after, title);
+		return;
+	}
+	if (state === "reconnecting") {
+		paintLive(node, "warn", "reconnecting…" + after, title);
+		return;
+	}
+	if (state === "dead") {
+		paintLive(node, "danger", "offline" + after, title);
+		return;
+	}
+	paintLive(node, "accent", "connecting…" + after, title);
+}
+
+/**
  * Follow one event stream: connecting, live, reconnecting, or dead.
  *
  * A live page is one of three surfaces, and each had written its own answer to "the stream
@@ -302,10 +332,10 @@ export function pageBase(): string {
 export const CLIENT_BASE_JS = pageSource(pageBase);
 
 /**
- * The runtime, as a bundle receives it: the six bodies, in the order a client reads them.
+ * The runtime, as a bundle receives it: the seven bodies, in the order a client reads them.
  *
  * `test` holds each to its module body and proves the string is safe to splice.
  */
-export const CLIENT_RUNTIME_JS = [el, typing, paintStatus, paintLive, postJson, liveStream]
+export const CLIENT_RUNTIME_JS = [el, typing, paintStatus, paintLive, paintLiveState, postJson, liveStream]
 	.map(pageSource)
 	.join("\n\n");

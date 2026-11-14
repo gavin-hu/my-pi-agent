@@ -33,49 +33,26 @@ export const WEB_CHROME_JS = String.raw`  // Set once the page has been told it 
   }
 
   // The always-visible header chip: connection, comment count, and whether there are edits
-  // the file does not have yet. The words are this page's voice; the pill, its tone, and its
-  // hover are the ones every served page wears.
+  // the file does not have yet. The three settled words are this page's; the stream's four words
+  // and their tones are the kit's table, so a reader sees the same ones on every served page.
   function updateState() {
     if (!stateEl) return;
-    var label;
-    var tone = "";
-    if (approved) {
-      label = "approved";
-      tone = "success";
-    } else if (saved) {
-      label = "saved";
-      tone = "success";
-    } else if (closed) {
-      // Settled by the user, not by a dropped stream: never flash offline.
-      label = "closed";
-    } else if (liveState === "live") {
-      // The board's word for the same state, because a reader who has seen one served page
-      // has seen them all: the counts after it are this page's own facts.
-      label = "live";
-      tone = "success";
-    } else if (liveState === "reconnecting") {
-      // It was up and the connection went. The browser is retrying, so this is not yet a page
-      // a reader has to reload — and a settled review never reaches here, because settling
-      // ends the stream and the three states above it win.
-      label = "reconnecting\u2026";
-      tone = "warn";
-    } else if (liveState === "dead") {
-      label = "offline";
-      tone = "danger";
-    } else {
-      label = "connecting\u2026";
-    }
     var count = annotations.length;
-    label += " \u00b7 " + count + (count === 1 ? " comment" : " comments");
+    var suffix = " \u00b7 " + count + (count === 1 ? " comment" : " comments");
     if (dirty && !saved && !approved && !closed) {
-      label += " \u00b7 " + (role === "reviewer" ? "unposted" : "unsaved");
-      if (!tone) tone = "warn";
+      suffix += " \u00b7 " + (role === "reviewer" ? "unposted" : "unsaved");
     }
-    paintLive(stateEl, tone, label);
+    // A settled review says so whatever the connection is doing: settling ends the stream, and
+    // none of these three is a stream state.
+    var settled = approved || saved || closed;
+    if (approved) paintLive(stateEl, "success", "approved" + suffix);
+    else if (saved) paintLive(stateEl, "success", "saved" + suffix);
+    else if (closed) paintLive(stateEl, "", "closed" + suffix);
+    else paintLiveState(stateEl, liveState, suffix);
     // A stream that has gone is where this page stops being true, so it offers the reload
     // beside the state that says so. A conflict, which said the same thing about the file,
     // keeps offering it too.
-    if (tone === "danger") offerReload();
+    if (!settled && liveState === "dead") offerReload();
     else if (reloadEl && !needsReload) reloadEl.hidden = true;
   }
 

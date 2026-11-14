@@ -16,6 +16,7 @@ import {
 	type StreamEvent,
 	type LiveStreamOptions,
 	liveStream,
+	paintLiveState,
 } from "./client-runtime.ts";
 
 /** One stand-in for the browser's event source: every listener, and every way to drive it. */
@@ -99,6 +100,55 @@ function boot(options: Partial<LiveStreamOptions> = {}, Source: unknown = FakeSt
 	const stream = FakeStream.last as FakeStream;
 	return { states, frames, handle, stream, hide: () => teardown.forEach((listener) => listener()) };
 }
+
+describe("the shared live state table", () => {
+	// The spliced body, as a page receives it: the table is only shared if it crosses in the bundle.
+	test("is one body in the runtime a page carries, safe to splice", () => {
+		// A page calls it by name, so a body the assembler dropped would be a first paint that
+		// throws with every suite green — the failure #548 fixed.
+		expect(CLIENT_RUNTIME_JS.split(String(paintLiveState)).length).toBe(2);
+		expect(String(paintLiveState)).not.toContain("`");
+		expect(String(paintLiveState)).not.toContain("${");
+	});
+
+	const table = new Function(`${CLIENT_RUNTIME_JS}\nreturn { paintLiveState: paintLiveState };`)() as {
+		paintLiveState: typeof paintLiveState;
+	};
+
+	/** One chip, as far as the painter writes to it. */
+	function stateChip() {
+		const label = { textContent: "" };
+		return { label, node: { className: "", hidden: true, title: "", querySelector: () => label } };
+	}
+
+	test("paints the four shared words and their tones, with the retry as a warning", () => {
+		// The three pages agreed on the words but not on the retry's tone: the board painted it in
+		// the danger the other two keep for a dead stream. One table is what makes that one answer.
+		const rows = [
+			["connecting", "connecting…", "bf-live bf-tone--accent"],
+			["live", "live", "bf-live bf-tone--success"],
+			["reconnecting", "reconnecting…", "bf-live bf-tone--warn"],
+			["dead", "offline", "bf-live bf-tone--danger"],
+		] as const;
+		for (const [state, word, tone] of rows) {
+			const { node, label } = stateChip();
+			table.paintLiveState(node as unknown as Parameters<typeof paintLiveState>[0], state);
+			expect(label.textContent, state).toBe(word);
+			expect(node.className, state).toBe(tone);
+			expect(node.hidden, state).toBe(false);
+		}
+	});
+
+	test("appends the page's suffix to every word, and hands its tooltip through", () => {
+		const board = stateChip();
+		table.paintLiveState(board.node as unknown as Parameters<typeof paintLiveState>[0], "live", " · 3m", "Live");
+		expect(board.label.textContent).toBe("live · 3m");
+		expect(board.node.title).toBe("Live");
+		const review = stateChip();
+		table.paintLiveState(review.node as unknown as Parameters<typeof paintLiveState>[0], "dead", " · 3 comments");
+		expect(review.label.textContent).toBe("offline · 3 comments");
+	});
+});
 
 describe("the live-stream client", () => {
 	test("opens the URL it was handed, and paints nothing before the stream moves", () => {

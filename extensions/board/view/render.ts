@@ -106,8 +106,8 @@ const renderTemplate = String.raw`(function () {
 
 __RUNTIME__
 
-  /** The live chip's painter, for the stream's fragment: one body, written in the kit. */
-  board.paintLive = paintLive;
+  /** The live chip's state table, for the stream's fragment: one body, written in the kit. */
+  board.paintLiveState = paintLiveState;
 
   /** The stream client, for the same fragment: one state machine, and this page's words. */
   board.liveStream = liveStream;
