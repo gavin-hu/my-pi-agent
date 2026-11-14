@@ -6,26 +6,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Changed
-
-- `board`: the `team` section has a default — `lead: "gavin"`, `teammates`
-  `["gavin","tom","jack","mike","sam"]` — so a repository that states no team draws a readable
-  name instead of `team-agent-<id>`, and has a session that can sign. `lead` is a name and not a
-  role: only a session called `gavin` signs the two gates where no file names a lead. A file still
-  owns its team — a stated list replaces the five whole, `"teammates": []` and `"lead": ""` say
-  nobody, and `team-agent-<id>` is still what a team holding every name leaves.
-
-- `team`: a typed `/team join <name>` in a project that states no team writes the five beside it,
-  because the write states the whole roster the join was decided against rather than only the name.
-
-### Fixed
-
-- `board`: a spot-check names its checkout on Windows. The comparison resolved `cwd` but not git's
-  common directory, and git for Windows prints that with forward slashes while a cwd arrives native,
-  so `checkout` was absent from every record there — the one word that tells the landing tree from a
-  worktree. Both sides are resolved now, and a case drives `node:path.win32` so the mixed separator
-  is held on a machine that is not Windows.
-
 ## [0.27.0] - 2026-11-14
 
 ### Added
@@ -363,6 +343,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the card the reader was on, so `j` moves on rather than restarting; and a lane's width eases
   to the work it holds.
 
+- `board`: the `team` section has a default — `lead: "gavin"`, `teammates`
+  `["gavin","tom","jack","mike","sam"]` — so a repository that states no team draws a readable
+  name instead of `team-agent-<id>`, and has a session that can sign. `lead` is a name and not a
+  role: only a session called `gavin` signs the two gates where no file names a lead. A file still
+  owns its team — a stated list replaces the five whole, `"teammates": []` and `"lead": ""` say
+  nobody, and `team-agent-<id>` is still what a team holding every name leaves.
+
+- `team`: a typed `/team join <name>` in a project that states no team writes the five beside it,
+  because the write states the whole roster the join was decided against rather than only the name.
+
 - `board`, `plan`, `file-browse`: the served pages drop the GitHub grammar for the kit's own. The
   shell is fixed — head and foot stay, one pane scrolls — the header is two rows split by a plain
   rule, and the tabs are words rather than a segmented box. Work is a lane's list of note-shaped
@@ -592,6 +582,12 @@ so the queue reads as the one thing somebody owes an answer to.
   is also how the archive's v1 files read — they say `status` and no `lane`, and none of them is
   rewritten. Latent rather than live on the boards this build has read so far, whose v1 records all
   say `done`, but one restored backup is enough to lose a card to it.
+
+- `board`: a spot-check names its checkout on Windows. The comparison resolved `cwd` but not git's
+  common directory, and git for Windows prints that with forward slashes while a cwd arrives native,
+  so `checkout` was absent from every record there — the one word that tells the landing tree from a
+  worktree. Both sides are resolved now, and a case drives `node:path.win32` so the mixed separator
+  is held on a machine that is not Windows.
 
 ## [0.26.0] - 2026-11-11
 
