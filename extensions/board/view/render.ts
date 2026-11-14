@@ -87,8 +87,13 @@ const renderTemplate = String.raw`(function () {
    * is a 4,000px wall that pushes every lane beside it out of sight, and a reader who wants
    * it open is one press away from it either way. The count stays in the head, which is the
    * fact a fold like this is owed.
+   *
+   * The queue's bands carry a smaller number and a different shape: a band is not a column and
+   * cannot fold away whole, because the asks under it are what the pane is for — it shows five
+   * and counts the rest behind one control. Five rows of a queue is a lead's afternoon; sixty
+   * is a wall between the reader and the three swimlanes the column exists to preview.
    */
-  var FOLD_AT = { done: 6, roster: 3, lane: 24 };
+  var FOLD_AT = { done: 6, roster: 3, lane: 24, queue: 5 };
 
   /**
    * How long a card that moved wears its mark, in milliseconds: one breath, not a state. A

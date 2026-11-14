@@ -303,9 +303,20 @@ ${DECISION_WHY_CSS}
 /* A wide window takes a band per column rather than one row a metre wide: a row is a line of
    facts read as one, and past about 32rem its title and its age are a screen apart. A band is
    what flows, never a row, so no band is left with its head in one column and its rows in the
-   next. */
-.board-queue__band{display:flex;flex-direction:column;min-width:0}
+   next — and a window wide enough for only one band does not stretch it, because the band is
+   capped at the width a row can be read at. */
+.board-queue__band{display:flex;flex-direction:column;min-width:0;max-width:40rem}
+/* The control that carries a band's tail sits under the rows it left out, one step off them: it
+   belongs to the list, not to the band's head. */
+.board-queue__band > .board-fold{margin-top:var(--space-1)}
 .board-queue__band .bf-lane__list{gap:var(--space-2)}
+/* A band's head pins under the pane's, which is already pinned: a reader three rows into a list
+   still knows whose move it is without scrolling back to find out. The offset is the pane head's
+   own height — its minimum, its bottom padding and its rule — so the two cannot drift apart. */
+.board-queue__band > .bf-lane__head{position:sticky;top:calc(30px + var(--space-1) + 2px);z-index:2;background:var(--canvas);padding-bottom:var(--space-1)}
+/* The sentence a whole band repeats: a fact about every row under it, so it is set in the head's
+   line at the weight of the words around it rather than as one more row. */
+.board-queue__said{margin-left:var(--space-1);color:var(--muted);font-weight:var(--fw-normal)}
 /* A band's tally sits beside the word it counts. A lane head pushes its count to the far edge,
    which is right for a lane that fills its column; two bands side by side would then put one
    band's count against the next band's name. */
@@ -322,8 +333,11 @@ ${DECISION_WHY_CSS}
 .board-queue__rank{color:var(--dim);font:var(--fs-xs) var(--font-mono);font-variant-numeric:tabular-nums}
 .board-queue__ref{color:var(--muted);font:var(--fs-xs) var(--font-mono)}
 /* The title is the row's one control, and one line of it: the whole of it is on the hover and in
-   the dialog, and a queue whose rows are two titles tall is a queue a reader scrolls. */
-.board-queue__row .bf-row__title{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;appearance:none;border:0;background:none;padding:0;text-align:left;cursor:pointer}
+   the dialog, and a queue whose rows are two titles tall is a queue a reader scrolls. Its cell
+   carries the kind beside it — one line, so a tag cannot cost a line of its own — and takes the
+   grid's slack, which is what keeps the age at the row's edge. */
+.board-queue__title{display:flex;align-items:baseline;gap:var(--space-1);min-width:0}
+.board-queue__row .bf-row__title{display:block;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;appearance:none;border:0;background:none;padding:0;text-align:left;cursor:pointer}
 .board-queue__row .bf-row__title:hover{color:var(--accent)}
 /* The sentence is the row's foot, under the title it belongs to and running to the row's edge: the
    id is a column of its own, and a sentence that stopped at the title's width would wrap where the
@@ -432,16 +446,17 @@ ${DIALOG_TONE_CSS}
   .board-queue__why{grid-column:3 / -1}
 }
 /* A phone has no room for six columns and no use for an elided title, so the row stops being a
-   grid: the id, the pill and the age keep a line, the title takes the whole of the next one and
-   wraps, and the reason follows it. The holder's dot is the one fact this width drops — the Agents
-   column above names who holds what, and a reason names the owner whenever the name is the point
-   ("bob is not running — the card is free"). */
+   grid: the id, the pill and the age keep a line, the title and its kind take the whole of the
+   next one and wrap, and the reason follows it. The holder's dot is the one fact this width drops
+   — the Agents column above names who holds what, and a reason names the owner whenever the name
+   is the point ("bob is not running — the card is free"). */
 @media (max-width:560px){
   .board-queue__row{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2)}
   .board-queue__row .board-queue__ref{order:0}
   .board-queue__row > .bf-tag{order:1}
   .board-queue__row > .board-stamp{order:2;margin-left:auto}
-  .board-queue__row .bf-row__title{order:3;flex:1 1 100%;white-space:normal}
+  .board-queue__title{order:3;flex:1 1 100%;flex-wrap:wrap}
+  .board-queue__row .board-queue__title .bf-row__title{flex:1 1 100%;white-space:normal}
   .board-queue__row > .board-owner{display:none}
   .board-queue__why{order:4;flex:1 1 100%}
 }

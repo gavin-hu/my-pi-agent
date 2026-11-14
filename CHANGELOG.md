@@ -47,6 +47,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the Team tab's Needs you queue folds each band at five rows instead of drawing every ask.
+  Sixty unclaimed cards were a 3,000px wall with the three swimlanes under it three screens down; a
+  band now draws five rows and one `+N more` control that says how many it left out, and its head pins
+  under the pane's. A sentence every row in a band shares — `nobody holds it` for a pool nobody has
+  taken — is printed once in that head, so the rows under it keep their kind, title, id and age on one
+  line and a folded queue fits a screen. A row with no line of its own is described by the head that
+  said it, and opening a band renumbers nothing above it.
+
 - `board`: the lead opens the lane it just approved. A lead that holds no card may move it from `plan` to
   `execute`, because approving is what opened that lane and the holder may be gone — the requirement list
   runs unchanged, so an unapproved card, a missing plan and a full `execute` refuse the lead as they refuse

@@ -177,16 +177,25 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CSS).toContain('.board-dot[data-state="absent"],.board-dot[data-state="unknown"]');
 	});
 
-	test("draws every ask under the band that owes the move, and holds none of them back", () => {
+	test("draws every ask under the band that owes the move, and folds a long one", () => {
 		// A mission is the board's own card, so it opens the record the way the board's face does.
 		expect(BOARD_CLIENT_JS).toContain("return board.cardNode(card);");
 		// The queue is filed by whose move it is, from the table the pill and the rank come from,
 		// and every file is drawn: a row nobody can see is a row nobody can act on.
 		expect(BOARD_CLIENT_JS).toContain("if (BANDS.of[entries[i].kind] === key) rows.push(entries[i]);");
-		expect(BOARD_CLIENT_JS).not.toContain("STRIP");
-		// The queue's own fold is gone with the cap: the swimlanes still fold, this pane does not.
-		expect(BOARD_CLIENT_JS).not.toContain("moreRow");
-		expect(BOARD_CLIENT_JS).toContain("queue.appendChild(bandSection(bands[b], view, first));");
+		// A band is folded, never cut: five rows, the count in the head, and one control that draws
+		// the rest. A fold is a row behind one press, which is what sixty unclaimed cards cost a
+		// reader who never asked for them — the three swimlanes under the queue.
+		expect(BOARD_CLIENT_JS).toContain(
+			"var shown = band.collapsed ? band.rows.slice(0, board.foldAt.queue) : band.rows;",
+		);
+		expect(BOARD_CLIENT_JS).toContain('more.setAttribute("data-fold", foldKey(band.key));');
+		expect(BOARD_CLIENT_JS).toContain("board.toggleFold(foldKey(band.key));");
+		// The fold is the page's one map, and the signature knows it: a fold the frame missed would
+		// open without a repaint and close the same way.
+		expect(BOARD_CLIENT_JS).toContain(
+			'sig.push(bands[b].key + ":" + bands[b].rows.length + ":" + (bands[b].collapsed ? "folded" : "open")',
+		);
 		// The band's head is a lane head one level down, and it is counted: the pane's own head
 		// counts the whole queue, so the two numbers can be read against each other.
 		expect(BOARD_CLIENT_JS).toContain('var head = el("h4", "bf-lane__head");');
@@ -194,9 +203,10 @@ describe("the mission control's contracts", () => {
 		// The rows are the kit's list, so the column has one way of holding rows together.
 		expect(BOARD_CLIENT_JS).toContain('var list = el("ol", N.laneList);');
 		// The reason is printed on the row rather than left to a hover, and the control that opens
-		// the card is described by it.
+		// the card is described by it — or by the band's head, for a sentence the head already said.
 		expect(BOARD_CLIENT_JS).toContain("meta.appendChild(document.createTextNode(entry.why));");
-		expect(BOARD_CLIENT_JS).toContain('title.setAttribute("aria-describedby", "team-why-" + card.id);');
+		expect(BOARD_CLIENT_JS).toContain('title.setAttribute("aria-describedby", meta.id);');
+		expect(BOARD_CLIENT_JS).toContain('title.setAttribute("aria-describedby", said.id);');
 		// The caption is a count alone: the tab strip is the way to the whole board, so the
 		// column carries no second door for a heading to be a control.
 		expect(BOARD_CLIENT_JS).not.toContain("board-team__door");
