@@ -1,6 +1,7 @@
 /**
  * The name a card shows for its owner: the record the session's id carries now, not the label
- * the write left behind.
+ * the write left behind — and the name that write leaves when the bus holds no record, which is
+ * the first free name the project's team lists before the id-derived one.
  *
  * `tools.test.ts` is named at its height in `test/suite-sizes.test.ts`, so what a `list` says
  * about a holder after that session renamed is proved here. The rule itself — and the page's
@@ -69,6 +70,22 @@ describe("a listing's owner label", () => {
 		// The rename is the board saying it no longer answers to that name: a listing that matched the
 		// old one would quote a name a send refuses.
 		expect(resultText(await call({ action: "list", query: DERIVED }))).toContain("No cards match.");
+	});
+
+	test("is the first free name the team lists, before the id-derived one", async () => {
+		const { call } = boardTool({
+			now: NOW,
+			sessionId: PEER_ID,
+			lead: "gavin",
+			teammates: ["gavin", "tom", "sam"],
+			track: temps.track,
+		});
+		await call({ action: "add", title: "One" });
+		const claimed = await call({ action: "claim", card: "1" });
+		// `gavin` is the lead's own name, so `tom` is the first this session may take: the card and
+		// the join a peer answers are that word, not the id's tail.
+		expect(claimed.details.card?.owner).toEqual({ id: PEER_ID, label: "tom" });
+		expect(resultText(await call({ action: "list" }))).toContain("· tom");
 	});
 
 	test("names an archived card's owner the same way", async () => {

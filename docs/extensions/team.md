@@ -75,10 +75,10 @@ reclaimable; one held by a session with no record is not, because a live session
 joined looks the same. A message to a quiet or not-listening peer says so: written is not heard.
 
 **Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own
-name — `/team join <label>`, or a bare `/team join` for the first name `team.teammates` lists that
-nobody holds, the id-derived `team-agent-` name when that list can give none — and a claim, an
-assign, or an ask makes that join once; a typed label also joins `team.teammates`. A bare join
-writes nothing and leaves Pi's session name alone; being on the team never spends a turn.
+name — `/team join <label>`, or a bare one for the first free `team.teammates` name, the id-derived
+`team-agent-` name when none is free. A recordless board session is named the same way, so its card
+and its join agree. A claim, assign, or ask joins once, and a typed label also joins
+`team.teammates`. A bare join writes nothing and leaves Pi's name alone; it never spends a turn.
 
 `assign` and `ask` join **before** they send, because the message names this session
 as the way back, and send nothing when the join is refused. A claim writes the card

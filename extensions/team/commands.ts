@@ -12,14 +12,14 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { addTeammate, type AddTeammateResult, readTeamConfig } from "../../lib/board/config.ts";
+import { addTeammate, type AddTeammateResult } from "../../lib/board/config.ts";
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import { buildRound, type RoundSummary } from "../../lib/board/round.ts";
 import { formatRound, holdingLine, plural, withLiveOwner } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
 import { type RosterSession, presenceOf, rosterStateOf } from "../../lib/session-roster.ts";
-import { agentLabel, labelKey, sessionNameOf } from "../../lib/session-label.ts";
+import { isTeammate, labelKey, sessionNameOf } from "../../lib/session-label.ts";
 import { formatJoined, formatNotJoined, joinNote } from "./format.ts";
 
 /** The command's name, which is also the word a user types. */
@@ -96,36 +96,24 @@ interface JoinAsk {
 
 /**
  * What a bare `/team join` asks for: nothing, when Pi already names the session and the bus can
- * derive that; the name this session already answers to; or the first free name the project's team
- * lists, and the drawn one only when that list has nothing to give.
+ * derive that; else the name this session answers to — the record a claim wrote, the seat, or the
+ * first free name the project's team lists, and the drawn one only when that list can give none.
  *
- * A name the project lists is the team's, not the user's, so `name` is never set here: only a typed
- * label is meant to rename the footer. The drawn name is the last resort it always was — a session
- * whose team names nobody keeps the one name that cannot collide.
+ * That choice is `who`'s, so this door reads it rather than drawing a second copy: the list is asked
+ * once more only to say where the name came from. A name the project lists is the team's, not the
+ * user's, so `name` is never set here: only a typed label is meant to rename the footer.
  */
 async function unnamedJoin(session: BoardSession, ctx: ExtensionCommandContext): Promise<JoinAsk> {
 	if ((sessionNameOf(ctx) ?? "").trim() !== "") return { input: {} };
 	const who = await session.who(ctx, ctx.cwd);
-	// A label better than the drawn one is a name this session already answers to: the record a claim
-	// wrote, the seat the page serves as, or an earlier `/team join`. Asking again would rename it.
-	const drawn = who.id === undefined ? undefined : agentLabel(who.id);
-	if (drawn === undefined || who.label !== drawn) return { input: { label: who.label } };
-	const picked = await freeTeammate(session, ctx, drawn);
-	return { input: { label: picked }, ...(picked === drawn ? {} : { picked }) };
-}
-
-/**
- * The first name `team.teammates` lists that nobody holds: not the project's `team.lead`, whose label
- * decides the two gates, and not any name a record on this repository's bus still answers to — a
- * record holds its label until the pruner takes it, gone or not.
- */
-async function freeTeammate(session: BoardSession, ctx: ExtensionCommandContext, drawn: string): Promise<string> {
-	const { lead, teammates } = readTeamConfig(ctx.cwd);
-	const roster = await session.roster(ctx.cwd).catch(() => undefined);
-	const held = new Set((roster ?? []).map((record) => labelKey(record.label)));
-	const leadName = labelKey(lead);
-	const free = teammates.find((name) => labelKey(name) !== leadName && !held.has(labelKey(name)));
-	return free ?? drawn;
+	// The store's own team, because that is the list `who` drew from: a fresh read could name a team
+	// the draw never saw. A store that will not open leaves the note off rather than failing a join.
+	const team = await session.store(ctx.cwd).then(
+		(store) => store.config().teammates,
+		() => undefined,
+	);
+	const picked = isTeammate(who.label, team ?? []) ? who.label : undefined;
+	return { input: { label: who.label }, ...(picked === undefined ? {} : { picked }) };
 }
 
 /**

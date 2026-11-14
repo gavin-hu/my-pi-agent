@@ -25,7 +25,7 @@ import { join } from "node:path";
 import { resolveEffectiveCwd } from "../env.ts";
 import { plansDirFor } from "../plans/paths.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import { agentLabel, defaultLabel, normalizeLabel, sessionIdOf, sessionNameOf } from "../session-label.ts";
+import { agentLabel, defaultLabel, labelKey, normalizeLabel, sessionIdOf, sessionNameOf } from "../session-label.ts";
 import { BUS_DIR_NAME, presenceOf, readRoster, type RosterSession } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
 import type { Card } from "./card.ts";
@@ -63,12 +63,13 @@ export interface BoardSession {
 	/**
 	 * The session a write is made as: its team name, and the id a card keeps.
 	 *
-	 * Three answers, in order: the seat while this session serves the page; else the name
-	 * the bus already records for it, so `/team join core-claims` is what its cards and
-	 * its notes carry and a claim does not rename it back; else `team-agent-<id>`, which
-	 * cannot collide and cannot drift on a rename. A host that reports no id has no record
-	 * to read, so it keeps the readable chain instead. One name on every surface is the
-	 * point: the card, the bus record, and the roster say the same word.
+	 * Four answers, in order: the seat while this session serves the page; else the name the bus
+	 * already records for it, so `/team join core-claims` is what its cards and its notes carry and
+	 * a claim does not rename it back; else the first name the project's `team.teammates` lists that
+	 * nobody else holds, which is the readable word a project already chose; else `team-agent-<id>`,
+	 * which cannot collide and cannot drift on a rename. A host that reports no id has no record to
+	 * read, so it keeps the readable chain instead. One name on every surface is the point: the
+	 * card, the bus record, and the roster say the same word.
 	 *
 	 * Read rather than remembered, because a join is not this session's event alone: the
 	 * label can arrive through `/team join`, through the bus's own `join`, or on the record
@@ -202,6 +203,16 @@ function rememberLoad<T>(cache: Map<string, Promise<T>>, key: string, load: () =
 }
 
 /**
+ * The first name a team lists that nobody holds, or `fallback` when it lists none.
+ *
+ * `taken` holds label keys, not labels: a name is addressed without case wherever it is compared,
+ * so a caller that keyed them itself would be the second place that rule is written.
+ */
+function firstFreeName(teammates: readonly string[], taken: readonly string[], fallback: string): string {
+	return teammates.find((name) => !taken.includes(labelKey(name))) ?? fallback;
+}
+
+/**
  * The session around one host, built on the first call and shared after it.
  *
  * `board` and `team` both work on the same store and must name a write as the same
@@ -239,9 +250,14 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			const roster = await session.roster(cwd);
 			const held = normalizeLabel(roster?.find((entry) => entry.id === id)?.label, "");
 			if (held !== "") return { id, label: held };
-			// No record, so the team gives this session the one name that cannot collide: the id's
-			// tail. A project that wants a readable word joins under it, which is the record above.
-			return { id, label: agentLabel(id) };
+			// No record, so the team names this session: the first name the project lists that nobody
+			// else holds, and the id's tail only when the list can give none. The list is the store's
+			// because the lead it excludes is the one the gates compare, and the roster above has
+			// already opened that store — a failure there is the call's, not the name's.
+			const team = (await session.store(cwd)).config();
+			const taken = (roster ?? []).filter((entry) => entry.id !== id).map((entry) => labelKey(entry.label));
+			taken.push(labelKey(team.lead));
+			return { id, label: firstFreeName(team.teammates, taken, agentLabel(id)) };
 		},
 		now: options.now ?? Date.now,
 		busDir(cwd) {
