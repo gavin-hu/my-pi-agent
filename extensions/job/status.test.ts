@@ -61,21 +61,23 @@ describe("job status files", () => {
 	const realShell = process.platform !== "win32";
 
 	/**
-	 * The shell's share of the clock, cut in two: its spawn, and the trap's write that lands past `close`.
+	 * The shell's deadline, taken once per case and spent by both waits in turn.
 	 *
-	 * `SPAWN_WATCHDOG_MS` is the one clock for a spawned process (`../../test/helpers/budget.ts`), and a
-	 * starved machine can delay either half — the hazard AGENTS.md names for `--parallel`, and the reason
-	 * CI runs the suite serially. Splitting it means both waits sum to that watchdog, so a run of both
-	 * still fails inside the case budget rather than dying at it, and `waitFor`'s own expiry names the
-	 * test, its site and the budget. One hand-stated landing constant was the defect: 2 s for a write the
-	 * shell had not made yet, which a loaded full gate overran and then reported as nothing more than
-	 * "expected 7, received undefined".
+	 * `SPAWN_WATCHDOG_MS` is the one clock for a spawned process (`../../test/helpers/budget.ts`), and the
+	 * shell has two waits — its spawn, then the trap's write that lands past `close`. They run in
+	 * sequence, so each takes what the other left rather than half the watchdog: the spawn is the half
+	 * starved by `--parallel` (25.6 s and 55.11 s are the measurements in `budget.ts`), and splitting
+	 * the watchdog gave it 42.5 s, which a loaded four-worker gate overran while the landing was never
+	 * the slow half. The sum is still bounded by the watchdog, so a run of both fails inside the case
+	 * budget, and `waitFor`'s own expiry still names the test, its site and the budget it spent.
 	 */
-	const SPAWN_MS = SPAWN_WATCHDOG_MS / 2;
-	const LANDING_MS = SPAWN_WATCHDOG_MS - SPAWN_MS;
+	const shellDeadline = (): number => performance.now() + SPAWN_WATCHDOG_MS;
 
-	/** Spawn `command` through a real shell with the status trap and wait for exit. */
-	async function run(command: string, statusPath: string): Promise<void> {
+	/** What one wait may spend of the shell's deadline: never zero, so `waitFor` reports its own expiry. */
+	const left = (deadline: number): number => Math.max(1, deadline - performance.now());
+
+	/** Spawn `command` through a real shell with the status trap, and wait for exit inside `deadline`. */
+	async function run(command: string, statusPath: string, deadline: number): Promise<void> {
 		let closed = false;
 		let failure: Error | undefined;
 		const child = spawn(withExitTrap(command, false), {
@@ -93,7 +95,7 @@ describe("job status files", () => {
 		try {
 			// `waitFor` is this suite's one clock; a spawn that never closes names itself
 			// here rather than at the runner's own timeout, which says only the test's name.
-			await waitFor(() => closed, SPAWN_MS);
+			await waitFor(() => closed, left(deadline));
 		} catch (error) {
 			// The report is `waitFor`'s and already names the test, the site and the budget: the
 			// only thing this half adds is the child it must not leave behind.
@@ -111,26 +113,28 @@ describe("job status files", () => {
 	 * budget it spent; `undefined` after a landed wait means the trap never wrote, which is what the
 	 * `exec` case asserts on its own.
 	 */
-	async function exitStatusOf(statusPath: string): Promise<number | undefined> {
-		await waitFor(() => readExitStatus(statusPath) !== undefined, LANDING_MS);
+	async function exitStatusOf(statusPath: string, deadline: number): Promise<number | undefined> {
+		await waitFor(() => readExitStatus(statusPath) !== undefined, left(deadline));
 		return readExitStatus(statusPath);
 	}
 
 	test.skipIf(!realShell)("the EXIT trap records a non-zero exit code", async () => {
 		const statusPath = join(statusDir(temps), "j1.status");
-		await run("exit 7", statusPath);
-		expect(await exitStatusOf(statusPath)).toBe(7);
+		const deadline = shellDeadline();
+		await run("exit 7", statusPath, deadline);
+		expect(await exitStatusOf(statusPath, deadline)).toBe(7);
 	});
 
 	test.skipIf(!realShell)("the EXIT trap records zero for a normal command", async () => {
 		const statusPath = join(statusDir(temps), "j1.status");
-		await run("printf hello", statusPath);
-		expect(await exitStatusOf(statusPath)).toBe(0);
+		const deadline = shellDeadline();
+		await run("printf hello", statusPath, deadline);
+		expect(await exitStatusOf(statusPath, deadline)).toBe(0);
 	});
 
 	test.skipIf(!realShell)("an exec that replaces the shell bypasses the trap", async () => {
 		const statusPath = join(statusDir(temps), "j1.status");
-		await run("exec true", statusPath);
+		await run("exec true", statusPath, shellDeadline());
 		expect(readExitStatus(statusPath)).toBeUndefined();
 	});
 });

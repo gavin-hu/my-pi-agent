@@ -362,6 +362,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `test`: two cases that reddened on a loaded box now wait on the condition they assert. The job
+  EXIT-trap case takes one deadline per case and spends it on its two sequential waits — its spawn,
+  then the trap's write — instead of halving the spawn watchdog into 42.5 s each, which the half the
+  measurements starve (25.6 s and 55.11 s) overran; nothing is raised. The board browser suites'
+  fifteen fixed sleeps become condition waits: `waitFor` takes an async predicate, a drawn page is
+  two animation frames (`drawn`), and the one sleep left is the case whose assertion is that nothing
+  repaints. A new scan in `test/wait-budget.test.ts` fails a fixed sleep, with that one exception
+  named and checked for staleness.
+
 - `lib`: a fenced block in a document wraps below a phone's width, as the code pane already did. The
   line was the one thing on a narrow page the reader had to scroll for, and the rule is the pane's
   own, so a document and a file body break a long command the same way; a tab inside a fence is

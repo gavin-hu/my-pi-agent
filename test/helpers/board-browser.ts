@@ -30,6 +30,24 @@ export const BOARD_CHROME = findChrome();
 /** How long a page gets to show what its fixture holds. */
 export const BOARD_PAINT_MS = 10_000;
 
+/**
+ * Wait until the page has painted twice: once for the change just made, once for the layout behind it.
+ *
+ * A click or a viewport change leaves the document to the browser to re-lay out, and every assertion
+ * after it reads boxes. Two animation frames are that condition — the first callback runs once the
+ * browser has painted, the second once the layout that paint asked for has settled — where the
+ * `waitForTimeout(100)` these suites used to take was a guess that a loaded four-worker gate overran.
+ */
+export async function drawn(page: Page): Promise<void> {
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) => {
+				const frame = (globalThis as unknown as { requestAnimationFrame(run: () => void): void }).requestAnimationFrame;
+				frame(() => frame(() => resolve()));
+			}),
+	);
+}
+
 /** The window every tab opens at: wide enough for the five lanes, tall enough for the board. */
 const VIEWPORT = { width: 1280, height: 900 } as const;
 
