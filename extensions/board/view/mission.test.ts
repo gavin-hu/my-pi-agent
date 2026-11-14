@@ -191,6 +191,10 @@ describe("the mission control's contracts", () => {
 		);
 		expect(BOARD_CLIENT_JS).toContain('more.setAttribute("data-fold", foldKey(band.key));');
 		expect(BOARD_CLIENT_JS).toContain("board.toggleFold(foldKey(band.key));");
+		// A disclosure owes both halves: whether the rows are open, and which list it opens.
+		expect(BOARD_CLIENT_JS).toContain('more.setAttribute("aria-expanded", String(!band.collapsed));');
+		expect(BOARD_CLIENT_JS).toContain('more.setAttribute("aria-controls", rowsId(band.key));');
+		expect(BOARD_CLIENT_JS).toContain("list.id = rowsId(band.key);");
 		// The fold is the page's one map, and the signature knows it: a fold the frame missed would
 		// open without a repaint and close the same way.
 		expect(BOARD_CLIENT_JS).toContain(

@@ -190,6 +190,11 @@ __LABEL_KEY__
     return "team-band-" + key;
   }
 
+  /** The id of a band's rows, which its fold opens and closes: one name, read by the control. */
+  function rowsId(key) {
+    return "team-rows-" + key;
+  }
+
   /**
    * Whether a band starts folded.
    *
@@ -346,6 +351,7 @@ __LABEL_KEY__
     head.setAttribute("aria-label", band.label + ", " + plural(band.rows.length, "row") + saidLabel);
     section.appendChild(head);
     var list = el("ol", N.laneList);
+    list.id = rowsId(band.key);
     var shown = band.collapsed ? band.rows.slice(0, board.foldAt.queue) : band.rows;
     for (var i = 0; i < shown.length; i++) list.appendChild(decisionRow(shown[i], view, said));
     section.appendChild(list);
@@ -353,7 +359,9 @@ __LABEL_KEY__
       var more = el("button", N.fold, band.collapsed ? "+" + (band.rows.length - shown.length) + " more" : "show fewer");
       more.type = "button";
       more.setAttribute("data-fold", foldKey(band.key));
+      // The pair a disclosure owes: it says whether the rows are open, and which list it opens.
       more.setAttribute("aria-expanded", String(!band.collapsed));
+      more.setAttribute("aria-controls", rowsId(band.key));
       more.addEventListener("click", function () { board.toggleFold(foldKey(band.key)); });
       section.appendChild(more);
     }
