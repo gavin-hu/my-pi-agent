@@ -168,6 +168,17 @@ export function clipText(text: string, limit: number): string {
 }
 
 /**
+ * A field a card cannot keep because it is too long: the length it arrived at, the cap, and what
+ * to trim.
+ *
+ * One body, because "must be at most 1000 characters" sent a caller back to guess at the number it
+ * sent, and the guess is a whole turn: the sentence a refusal prints is where the edit is made.
+ */
+export function overLimit(what: string, length: number, limit: number): string {
+	return `${what} is ${length} characters; the limit is ${limit} — trim ${length - limit}.`;
+}
+
+/**
  * A tail bounded to `maxChars`: the end of the joined lines, with the truncation
  * flag. The header and the truncation suffix belong to the caller, because each
  * surface says something different about where the rest of the output lives.

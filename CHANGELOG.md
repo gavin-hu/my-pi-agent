@@ -89,6 +89,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a field a sign or a contract cannot keep is refused before anything is spent on it. A
+  review's note is asked before the command its contract names runs, so a note over `MAX_NOTE` no
+  longer pays a gate run and records nothing; a contract's four lines are asked before its plan is
+  proved. The note still answers after the lane, the holder and the signer, which is the sentence
+  worth reading first.
+
+- `board`: a length refusal names the length it received as well as the cap — `text is 1002
+  characters; the limit is 1000 — trim 2.` — from one body shared by all seven (`title`, `a path`,
+  `text`, `path`, `blockedBy`, and the contract's lines and its override). The model reads these
+  refusals, so the retry is one trim rather than an iteration at a sentence that only named the cap.
+
 - `session-bus`: two sessions that claim overlapping paths at the same moment — `src` and `src/api` —
   no longer both keep them. Each batch re-reads once it has published and settles: the claim written
   first keeps, the smaller session id decides a tie inside one tick, and the loser gives its whole

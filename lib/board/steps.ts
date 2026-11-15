@@ -380,18 +380,11 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 			error: `contract needs the plan file ${cardRef(card.id)} is executed against: pass \`path\` as \`plan\` action \`write\` returned it.`,
 		};
 	}
-	// Taken where it is asked, as the gate does: a contract lands inside the locked pass.
-	const artifact = proved(op.artifact);
-	if ("error" in artifact) return { error: artifact.error };
 	const fields: Partial<Card> = {};
-	const parsedPlan = normalizePlanPath(artifact.path);
-	if ("error" in parsedPlan) return { error: parsedPlan.error };
-	const rePointed = parsedPlan.path !== card.planPath;
-	if (rePointed) fields.planPath = parsedPlan.path;
 	const changed: Partial<Record<ContractField, string>> = {};
-	// The command is a contract line like the other three, and the same rule holds: a changed one
-	// drops the sign, because a spot-check that ran the old command is evidence for a promise the
-	// card no longer makes.
+	// The command is a contract line like the other three: a changed one drops the sign, because a
+	// spot-check that ran the old command is evidence for a promise the card no longer makes. The
+	// lines are asked before the plan is proved, so a field refusal costs no stat.
 	for (const field of CONTRACT_LINES) {
 		const raw = op[field];
 		if (raw === undefined) continue;
@@ -399,6 +392,13 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 		if ("error" in parsed) return { error: parsed.error };
 		if (parsed.text !== card.contract?.[field]) changed[field] = parsed.text;
 	}
+	// Taken where it is asked, as the gate does: a contract lands inside the locked pass.
+	const artifact = proved(op.artifact);
+	if ("error" in artifact) return { error: artifact.error };
+	const parsedPlan = normalizePlanPath(artifact.path);
+	if ("error" in parsedPlan) return { error: parsedPlan.error };
+	const rePointed = parsedPlan.path !== card.planPath;
+	if (rePointed) fields.planPath = parsedPlan.path;
 	if (Object.keys(changed).length > 0) fields.contract = mergedContract(card.contract, changed);
 	// The sign names a promise *and* the file it will be read against, so pointing the card at
 	// a different plan is a change to what was approved even when the four lines are the same:

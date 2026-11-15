@@ -41,7 +41,7 @@ describe("createInput", () => {
 	test("refuses the fields in the order a person fixes them", () => {
 		expect(createInput({ title: "  " })).toEqual({ error: "title is required." });
 		expect(createInput({ title: "x".repeat(MAX_TITLE + 1) })).toEqual({
-			error: `title must be at most ${MAX_TITLE} characters.`,
+			error: `title is ${MAX_TITLE + 1} characters; the limit is ${MAX_TITLE} — trim 1.`,
 		});
 		expect(createInput({ title: "One", paths: ["/etc/passwd"] })).toEqual({
 			error: 'path "/etc/passwd" is absolute; use a repository-relative path.',
