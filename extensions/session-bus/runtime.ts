@@ -362,12 +362,16 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		// Mail is counted per record, so a pruned record's messages have no row to hang a number on.
 		// The ids read here are the *record* ids rather than the live ones: a gone record's mail is
 		// still its own, and only a record the bus no longer holds leaves mail unaccounted for.
-		const unaccounted = await unaccountedMail(store.dir, new Set(records.map((session) => session.id)));
+		// The board's read is the count alone — it draws a number once a second and would otherwise
+		// parse every one of these files on each repaint — while the status read names the mail.
+		const unaccounted = await unaccountedMail(store.dir, new Set(records.map((session) => session.id)), {
+			bodies: !liveOnly,
+		});
 		return {
 			me: { id: me.id, label: me.label },
 			onBus: me.onBus,
 			sessions: await withUnread(sessions),
-			...(unaccounted.length > 0 ? { unaccounted } : {}),
+			...(unaccounted.count > 0 ? { unaccounted } : {}),
 			claims,
 			...(mailWatch.state().armed ? { watching: mailWatch.state() } : {}),
 		};

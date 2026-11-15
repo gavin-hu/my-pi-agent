@@ -229,7 +229,15 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 		switch (this.scope) {
 			case "sessions": {
 				const sessions = rows.flatMap((row) => (row.kind === "session" ? [row.row] : []));
-				return summaryCells(this.theme, sessions, watching, this.board?.status.onBus !== false);
+				// The count the poll already paid for: the board draws no row for this mail, and
+				// `/sessions drop` is the door its number points at.
+				return summaryCells(
+					this.theme,
+					sessions,
+					watching,
+					this.board?.status.onBus !== false,
+					this.board?.status.unaccounted?.count ?? 0,
+				);
 			}
 			case "inbox": {
 				const cells = [paint(this.theme, "meta", count(rows.length, "unread message"))];

@@ -26,7 +26,7 @@ messages, consume an inbox, and claim paths before editing them.
 | Message one session | `session send to billing-web text "the API route is free"` |
 | Broadcast an event | `session send to "*" kind "event" text "…"` |
 | Read your mail | `session inbox` |
-| See mail no session holds, and clear one | `/sessions drop` names it; `/sessions drop <id>` clears it |
+| See mail no session holds, and clear one | the board's summary counts it; `/sessions drop` names each, and `<id>` clears one |
 | Claim files before editing | `session claim paths ["src/api"]` |
 | Release a claim | `session release paths ["src/api"]`, or `x` on the board |
 | Be woken by mail | `session join wake: true` |
@@ -68,7 +68,9 @@ fresh heartbeat as idle; a stamp counts only beside a fresh heartbeat, because a
 mid-turn left it behind. Mail is counted per record, so mail whose recipient's record was pruned
 has no row to carry its number: the status names each message under `Unaccounted (N)` — id,
 sender, kind, age, first line — and a bare `/sessions drop` prints that list while
-`/sessions drop <id>` clears one. That door is a command, not a `session` action, because a
+`/sessions drop <id>` clears one. The board has no row for it either, so its sessions summary
+counts it instead, off the inbox names alone: a repaint every second never opens one of those
+files. The number counts files, so it can exceed the messages a build is able to name. That door is a command, not a `session` action, because a
 message is evidence: the person clears it, and the store refuses any id a record's inbox still
 carries, naming the holder. Nothing else clears it — a resumed session on that id can still read
 the mail, and the message TTL ends it.

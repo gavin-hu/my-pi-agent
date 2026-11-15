@@ -164,6 +164,15 @@ describe("the /sessions screen", () => {
 		expectBounded(view.render(40), 40);
 	});
 
+	test("counts the mail no record holds in the sessions summary, where it has no row", () => {
+		// The count is the whole of it: `/sessions drop` is the door the number points at, and the
+		// board deliberately draws no row for mail it cannot read or clear.
+		const status = { ...busBoard(), unaccounted: { messages: [], count: 2 } };
+		const lines = screen(snapshot(status), events()).render(80);
+		expect(lines.join("\n")).toContain("2 unaccounted");
+		expectBounded(lines, 80);
+	});
+
 	test("Tab moves to the unread mail, and Enter opens it as prose", () => {
 		const view = screen(snapshot(busBoard(), [busMessage()]), events());
 		view.handleInput("\t");

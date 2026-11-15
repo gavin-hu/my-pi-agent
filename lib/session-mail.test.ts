@@ -172,11 +172,14 @@ describe("the mail no record accounts for", () => {
 		// An inbox is named after the session it serves, and the roster counts mail by that record, so an
 		// inbox no record names is mail with no row to hang a number on.
 		const found = await unaccountedMail(dir, new Set(["s-live"]));
-		expect(found.map((entry) => entry.message.id)).toEqual(["m-orphan"]);
+		expect(found.messages.map((entry) => entry.message.id)).toEqual(["m-orphan"]);
+		expect(found.count).toBe(1);
 		// The arrival travels with it: a message that sat for hours is the fact a reader judges by.
-		expect(found[0]?.at).toBe(statSync(join(dir, INBOX_DIR_NAME, storedName("s-gone"), "m-orphan.json")).mtimeMs);
-		expect(found[0]?.message.toLabel).toBe("billing-core");
-		expect(await unaccountedMail(dir, new Set(["s-live", "s-gone"]))).toEqual([]);
+		expect(found.messages[0]?.at).toBe(
+			statSync(join(dir, INBOX_DIR_NAME, storedName("s-gone"), "m-orphan.json")).mtimeMs,
+		);
+		expect(found.messages[0]?.message.toLabel).toBe("billing-core");
+		expect(await unaccountedMail(dir, new Set(["s-live", "s-gone"]))).toEqual({ messages: [], count: 0 });
 	});
 
 	test("reads the inbox, not the field a message was written with", async () => {
@@ -185,7 +188,7 @@ describe("the mail no record accounts for", () => {
 		// they would not, the inbox decides: a record that still holds the directory can read what is
 		// in it, so calling that mail ownerless would offer a person a drop of mail a session still has.
 		land(dir, storedName("s-live"), { id: "m-misfiled", to: "s-gone" }, NOW);
-		expect(await unaccountedMail(dir, new Set(["s-live"]))).toEqual([]);
+		expect(await unaccountedMail(dir, new Set(["s-live"]))).toEqual({ messages: [], count: 0 });
 	});
 
 	test("answers a fan-out file by file, oldest first", async () => {
@@ -195,7 +198,7 @@ describe("the mail no record accounts for", () => {
 		// Two dead records are two files, which is what a drop has to name: the page draws the fan-out
 		// as one row, and a listing that did the same could not be acted on.
 		const found = await unaccountedMail(dir, new Set());
-		expect(found.map((entry) => entry.message.toLabel)).toEqual(["amy", "ben"]);
+		expect(found.messages.map((entry) => entry.message.toLabel)).toEqual(["amy", "ben"]);
 	});
 
 	test("skips a file this build cannot parse, as the queue does", async () => {
@@ -203,12 +206,26 @@ describe("the mail no record accounts for", () => {
 		mkdirSync(join(dir, INBOX_DIR_NAME, storedName("s-broken")), { recursive: true });
 		writeFileSync(join(dir, INBOX_DIR_NAME, storedName("s-broken"), "broken.json"), "{", "utf-8");
 		land(dir, storedName("s-gone"), { id: "m-orphan", to: "s-gone" }, NOW);
-		// A file with no readable `to` cannot be named or dropped, so the TTL stays its only end.
-		expect((await unaccountedMail(dir, new Set())).map((entry) => entry.message.id)).toEqual(["m-orphan"]);
+		// A file with no readable `to` cannot be named or dropped, so the TTL stays its only end. It is
+		// still counted: the page's number is the files nobody holds, which is what a drop addresses.
+		const found = await unaccountedMail(dir, new Set());
+		expect(found.messages.map((entry) => entry.message.id)).toEqual(["m-orphan"]);
+		expect(found.count).toBe(2);
+	});
+
+	test("answers the count alone when the caller draws no body", async () => {
+		const dir = busDir();
+		land(dir, storedName("s-gone"), { id: "m-orphan", to: "s-gone" }, NOW);
+		mkdirSync(join(dir, INBOX_DIR_NAME, storedName("s-broken")), { recursive: true });
+		writeFileSync(join(dir, INBOX_DIR_NAME, storedName("s-broken"), "broken.json"), "{", "utf-8");
+		// The board's read: the number, from the names each unheld inbox holds, with no message among
+		// them. A file no build can parse counts too — it is still a file nobody's record holds, and a
+		// drop addresses it by the id in its name.
+		expect(await unaccountedMail(dir, new Set(), { bodies: false })).toEqual({ messages: [], count: 2 });
 	});
 
 	test("is empty where no bus has ever written", async () => {
-		expect(await unaccountedMail(busDir(), new Set())).toEqual([]);
+		expect(await unaccountedMail(busDir(), new Set())).toEqual({ messages: [], count: 0 });
 	});
 });
 

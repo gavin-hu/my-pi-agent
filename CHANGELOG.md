@@ -45,6 +45,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   requested path rather than once per file it holds, so a claim on a directory no longer prints
   the same sentence twice.
 
+- `session-bus`: the board's one-second poll counts the mail no session holds instead of reading and
+  parsing every orphan message to draw none of it, and its sessions summary shows that number beside
+  the unread count. `session status` still names them, and `/sessions drop` still clears one by id.
+
 - `bytefly`: `price.budget` holds the session's spend **and** the child runs it delegated, so a
   session that handed its work to subagents can no longer pass the ceiling silently: the notice
   names the share (`$5.310 of $5, $5.000 of it child runs`) and the bar draws that one total, with

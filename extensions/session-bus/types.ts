@@ -13,9 +13,9 @@ import type { SessionMode } from "./protocol.ts";
  * fields, its guard, and the order a queue is read in live in `lib/session-mail.ts`, so the
  * page and the bus cannot hold two ideas of what a message is.
  */
-import type { BusMessage, UnaccountedMessage } from "../../lib/session-mail.ts";
+import type { BusMessage, UnaccountedPage } from "../../lib/session-mail.ts";
 
-export type { BusMessage, MessageKind, UnaccountedMessage } from "../../lib/session-mail.ts";
+export type { BusMessage, MessageKind, UnaccountedMessage, UnaccountedPage } from "../../lib/session-mail.ts";
 
 /** One registered Pi session. */
 export interface SessionRecord {
@@ -115,8 +115,13 @@ export interface SessionStatus {
 	 * than counted because the name is what a person acts on: `/sessions drop <id>` discards one, and
 	 * a count could neither be read nor cleared. It is not deleted when the record goes: a session
 	 * resumed on that id can still read it, so only a person decides what is evidence no longer.
+	 *
+	 * The page's `count` is a file count and its `messages` are the ones this read parsed, so the
+	 * number can exceed the names — a file a build cannot read is still a file nobody's record holds.
+	 * The board asks for the count alone: its poll draws a number, and reading and parsing every one of
+	 * these files on each repaint is the cost the read exists to avoid.
 	 */
-	unaccounted?: readonly UnaccountedMessage[];
+	unaccounted?: UnaccountedPage;
 	claims: ClaimRecord[];
 	/** Present only when this session armed its inbox watch. */
 	watching?: { armed: boolean; wake: boolean };
