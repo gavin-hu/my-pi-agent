@@ -12,7 +12,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
@@ -97,6 +97,33 @@ describe("lockBoard", () => {
 		expect(existsSync(lockPathFor(dir))).toBe(true);
 		await taken.release();
 		expect(existsSync(lockPathFor(dir))).toBe(false);
+		// Both removals proved what they took, so neither left the copy it moved aside behind.
+		expect(readdirSync(dir)).toEqual([]);
+	});
+
+	test("a takeover that raced a rival's fresh lock leaves that lock in place", async () => {
+		const dir = board();
+		// The abandoned file a process killed inside its window left behind: what the stat judges.
+		writeFileSync(lockPathFor(dir), JSON.stringify({ pid: 1, token: "dead" }));
+		utimesSync(lockPathFor(dir), 0, 0);
+		const rival = JSON.stringify({ pid: process.pid, token: "rival" });
+		const taken = await lockBoard(dir, {
+			waitMs: 0,
+			// The window a stat and a removal leave open: the rival cleared the abandoned file and
+			// wrote its own in between, so the file at the name by the removal is a live lock.
+			beforeTakeOver: async (path) => {
+				rmSync(path, { force: true });
+				writeFileSync(path, rival);
+			},
+		});
+		// Nothing was taken, because the file the removal found was not the one it judged stale —
+		// and the rival's lock is exactly where the rival left it. Removing it is how two writers
+		// both entered: the taker's create then succeeded on the name the rival had just taken.
+		expect(taken).toBeUndefined();
+		expect(readFileSync(lockPathFor(dir), "utf-8")).toBe(rival);
+		// The copy the taker moved aside went back, so the removal leaves the board's root as it
+		// found it rather than a `.gone-` file beside the lock.
+		expect(readdirSync(dir).filter((entry) => entry !== BOARD_LOCK_NAME)).toEqual([]);
 	});
 
 	test("holds the whole board, so one card's write waits behind another's", async () => {

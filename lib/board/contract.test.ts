@@ -9,23 +9,24 @@
 import { describe, expect, test } from "bun:test";
 import {
 	CONTRACT_LINES,
-	type LandingProof,
-	landingFor,
-	landingGate,
-	movedTree,
-	resolveLanding,
-	unlandedReview,
-	unprovedLanding,
 	contractApproved,
 	contractComplete,
 	isContract,
 	isHandoff,
 	isSign,
+	type LandingProof,
+	landingFor,
+	landingGate,
 	MAX_CONTRACT,
 	mergedContract,
 	missingContractFields,
+	movedTree,
 	normalizeContractField,
 	normalizeInstruction,
+	resolveLanding,
+	reviewedAncestor,
+	unlandedReview,
+	unprovedLanding,
 } from "./contract.ts";
 
 const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s", verify: "bun run check" };
@@ -247,6 +248,7 @@ const REVIEWED = "4c1f9ab0000000000000000000000000000000000";
 const CARRIED = "9a7d2e00000000000000000000000000000000000";
 const LATER = "b31c5a0000000000000000000000000000000000";
 const BASE = "0f00d00000000000000000000000000000000000";
+const PLAIN = "e0a1c0000000000000000000000000000000000";
 
 /** A chain of one base commit, the merge that carried `REVIEWED`, and a later merge on top. */
 const LANE: LandingProof = {
@@ -269,6 +271,25 @@ describe("resolveLanding", () => {
 		// The checkout practice: run the gate on `main` after landing, and the sign names what landed.
 		expect(resolveLanding(LANE, CARRIED, ID)).toEqual({ sha: CARRIED });
 		expect(resolveLanding(LANE, LATER, ID)).toEqual({ sha: LATER });
+	});
+
+	test("refuses a plain commit that is on the chain but is not a landing", () => {
+		// The #594/#593 shape: a sign taken in the checkout names main's head, a plain commit the
+		// merge did not carry. Accepting any ancestor wrote a landing that carried nothing.
+		expect(resolveLanding(LANE, BASE, ID)).toEqual({ error: reviewedAncestor("main", BASE, ID) });
+	});
+
+	test("answers a plain commit when it is the chain's tip", () => {
+		// A review taken after the work is the tip: there is no merge above it to look for, and it
+		// names itself rather than being refused as an older tree.
+		const tip: LandingProof = {
+			branch: "main",
+			chain: [
+				{ sha: BASE, parents: ["0000000000000000000000000000000000000001"] },
+				{ sha: PLAIN, parents: [BASE] },
+			],
+		};
+		expect(resolveLanding(tip, PLAIN, ID)).toEqual({ sha: PLAIN });
 	});
 
 	test("answers the earliest carrier, not whichever merge comes first in the list", () => {

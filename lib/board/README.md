@@ -101,6 +101,16 @@ The sign is part of the contract because it is a statement about *this* wording:
 is the one line an overriding sign says why, which `isSign` and `isContract` also hold a
 stored value to.
 
+The merge a review became lives in the same module: `Landing` on a card, `LandingProof` as a
+door reads it, and `resolveLanding`, the one rule that answers which commit a `done` records.
+The proof carries the default branch's first-parent chain, oldest first; a reviewed commit
+names itself only when it is a merge or the chain's tip, and any other merge is found through
+its non-first parent — the branch the merge carried. A plain ancestor is the older tree a
+pre-merge sign was taken in, and `reviewedAncestor` refuses it; a commit no merge carries gets
+`unlandedReview` and the override. `landingGate` and `landingFor` are the two questions
+`steps.ts` asks of the same rule, and `movedTree` is the merge that rewrote the review's own
+lines.
+
 ### links.ts
 
 The dependency graph, answered over an index of the whole board. A link is one id in the
@@ -268,6 +278,24 @@ still carries its own token, so the victim of a takeover cannot open the board t
 The unit is the board, not the card — `mutate` reads the whole board, so a per-card lock let two
 writers answer one rule from two snapshots, a rule passed twice rather than a file overwritten —
 and `concurrency.test.ts` is that pair. `create` takes none, and neither does a read.
+
+Neither removal is a plain unlink: a stat and a removal are two instants, and so are a read and a
+removal. Two takers of one abandoned lock both removed, the second took the first taker's fresh
+lock, and both creates then succeeded — two writers on one board. So both go through
+`proven-remove.ts`, which proves the file it moved aside: the age rule for a takeover, the token
+for a release. A fresh rival's lock is put back and the create that follows decides between them;
+`beforeTakeOver` is the suite's seam into that window, since a rival written from `create` fires
+before the age check and is never stale.
+
+### proven-remove.ts
+
+`removeIfProven(path, prove)` — remove a file only if the copy this call took aside proves it. A
+rename is one instant, so the file `prove` reads is the file that was at the name; a name taken
+again meanwhile keeps its newer file, and the moved copy is removed either way so a refusal leaves
+nothing beside the one it kept. `false` is not a failure: something was there that this call did
+not earn, or nothing was. The proof is the caller's question — a lock's token or age, a page
+note's token — and this module is the window and the restore, which is why `lock.ts` and
+`page-pointer.ts` share it rather than each carrying a copy.
 
 ### config.ts
 

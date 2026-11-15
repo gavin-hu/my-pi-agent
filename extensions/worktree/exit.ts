@@ -4,12 +4,12 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { createExecRunner, defaultBranch } from "../../lib/git/index.ts";
 import { loadConfig } from "./config.ts";
 import { WorktreeCancelledError } from "./errors.ts";
 import {
 	commitsAheadOf,
 	currentBranch,
-	defaultBranch,
 	deleteBranch,
 	inspectWork,
 	isBranchMerged,
@@ -53,7 +53,8 @@ async function branchStanding(pi: ExtensionAPI, state: WorktreeState): Promise<B
 		// `origin/HEAD` names the merge target when the repository has a remote; a
 		// local-only repository has none, and the main checkout's own branch is the
 		// branch a merge would actually land on.
-		const base = (await defaultBranch(pi, state.repoRoot)) ?? (await currentBranch(pi, state.repoRoot)) ?? null;
+		const base =
+			(await defaultBranch(createExecRunner(pi), state.repoRoot)) ?? (await currentBranch(pi, state.repoRoot)) ?? null;
 		if (!base) return unknown;
 		// Count against the resolved base branch, not the commit recorded at entry: a
 		// worktree branch rebased onto a newer base would otherwise report every commit

@@ -19,10 +19,11 @@
  * Pure I/O, no state: one call answers one caller, and the caller owns the path it hands in.
  */
 
-import { access, link, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { access, link, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
 import { abortableSleep } from "../timer.ts";
+import { removeIfProven } from "./proven-remove.ts";
 
 /** The file, beside the board's `cards/` directory. */
 export const PAGE_FILE = "page.json";
@@ -155,11 +156,10 @@ export async function createPointer(dir: string, pointer: PagePointer): Promise<
  * Returns whether the file was the one named.
  *
  * The note is moved aside before it is removed, and the token is checked again on what was
- * moved. A read followed by an unlink is two instants, and a session that judged the old
- * note dead acts on the first one: if it removed the name, it could delete the note a
- * faster session had written in between, and both would serve a page, only one of them
- * findable. The move is atomic, so the file this call holds is the file that was there;
- * a note that is not the one proved dead goes back where it came from.
+ * moved — `removeIfProven`'s window, which the board's write lock needs for the same reason: a
+ * read followed by an unlink is two instants, and a session that judged the old note dead acts
+ * on the first one. If it removed the name, it could delete the note a faster session had
+ * written in between, and both would serve a page, only one of them findable.
  *
  * `false` is not a failure: the note may be one another session already cleared, or the one
  * that replaced it, and then there is nothing of this caller's left to remove — its own
@@ -168,36 +168,11 @@ export async function createPointer(dir: string, pointer: PagePointer): Promise<
 export async function clearPointer(dir: string, token: string): Promise<boolean> {
 	const pointer = await readPointer(dir);
 	if (pointer === undefined || pointer.token !== token) return false;
-	const target = join(dir, PAGE_FILE);
-	const held = `${target}.gone-${process.pid}-${Math.random().toString(16).slice(2, 10)}`;
-	try {
-		await rename(target, held);
-	} catch {
-		// It left while this call was looking, which is somebody else having cleared it.
-		return false;
-	}
-	const moved = await readPointerAt(held);
-	if (moved === undefined || moved.token !== token) {
-		await putBack(held, target);
-		return false;
-	}
-	await rm(held, { force: true });
-	return true;
-}
-
-/**
- * Put a note this call moved aside but did not earn the right to remove back in place.
- *
- * A newer note may have taken the name in the same instant; that one stays, and this one
- * was already superseded by it.
- */
-async function putBack(held: string, target: string): Promise<void> {
-	try {
-		await link(held, target);
-	} catch {
-		// The name is taken again: whatever holds it now is newer than what this call moved.
-	}
-	await rm(held, { force: true });
+	// The window and the restore are `removeIfProven`'s; what only this module knows is the proof.
+	return removeIfProven(join(dir, PAGE_FILE), async (moved) => {
+		const held = await readPointerAt(moved);
+		return held !== undefined && held.token === token;
+	});
 }
 
 /** How many times a caller tries to own the note before it gives up for good. */

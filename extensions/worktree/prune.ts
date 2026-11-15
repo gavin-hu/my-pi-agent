@@ -6,9 +6,9 @@
 
 import { statSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { createExecRunner, defaultBranch } from "../../lib/git/index.ts";
 import { loadConfig } from "./config.ts";
 import {
-	defaultBranch,
 	deleteBranch,
 	inspectWork,
 	isStaleLock,
@@ -43,7 +43,7 @@ export async function pruneWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): P
 	const managed = await listManagedWorktrees(pi, root, config);
 	const { registry } = reconcileRegistry(root, config, managed);
 	const byPath = new Map<string, WorktreeRecord>(registry.worktrees.map((record) => [record.path, record]));
-	const branch = await defaultBranch(pi, root);
+	const branch = await defaultBranch(createExecRunner(pi), root);
 	const current = getActive();
 	const removed: string[] = [];
 	const kept: string[] = [];
