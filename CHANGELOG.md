@@ -46,6 +46,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: an owner that carries a session id is resolved by that id alone, so a label a later
+  session takes cannot answer for its card. A card whose owner the bus has pruned now reads
+  `absent` to `reclaim` and is re-seated by the turn-start sweep when this session wears its name,
+  instead of reading as a live peer and never moving. A card written before ids, or one whose
+  handoff the bus could not name, keeps the label fallback.
+
 - `session-bus`: a claim blocked by a peer that holds several of the paths is named once per
   requested path rather than once per file it holds, so a claim on a directory no longer prints
   the same sentence twice.

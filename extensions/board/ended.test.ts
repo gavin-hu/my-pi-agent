@@ -184,6 +184,22 @@ describe("the sweep at a turn start", () => {
 		expect((await lead.call({ action: "list", card: "1" })).details.card?.owner?.id).toBe("s-resumed");
 	});
 
+	test("re-seats a pruned owner to the session wearing the same name", async () => {
+		// Only the resumed session's record exists: the old id is absent, not gone. A label fallback
+		// answered "live" for a session that does not hold the card, so the sweep skipped it forever;
+		// the id is what says the owner stopped. `sameLabel` is exact, so the seat is this name and no
+		// similarly named session can take the card.
+		const { cwd, lead, peer } = board();
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		await record(peer.board.runtime, cwd, { id: "s-resumed", label: PEER, lastSeen: NOW });
+		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
+
+		expect(await releaseEnded(resumed, lead.board.ctx)).toBe("re-seated #1 in this session (owner record pruned)");
+		const card = (await lead.call({ action: "list", card: "1" })).details.card;
+		expect(card?.owner).toMatchObject({ id: "s-resumed", label: PEER });
+	});
+
 	test("leaves a live record alone even under this session's own name", async () => {
 		// The case a wrong rule would fail silently: the labels match, and the record says that session is
 		// running. Nothing is written — neither a re-seat nor a release.

@@ -269,6 +269,13 @@ describe("presenceOf", () => {
 		expect(presenceOf([core], { label: "BILLING-core" }, NOW + SESSION_TTL_MS + 1)).toBe("quiet");
 	});
 
+	test("does not borrow a record a later session holds under the same label", () => {
+		// The bus pruned the owner's id and a later session took the name. A card's identity is the
+		// id `holds` compares, so the reused label is not this owner's record: `absent` is the fact,
+		// and the turn-start sweep decides whether this session may re-seat it.
+		expect(presenceOf([{ ...core, id: "s-new" }], { id: "s-old", label: "billing-core" }, NOW)).toBe("absent");
+	});
+
 	test("an id match outranks a label that names another session", () => {
 		// A label is a word two sessions can hold in a row; the id is the session. Reading the label
 		// first would report a dead peer's state as the holder's.
