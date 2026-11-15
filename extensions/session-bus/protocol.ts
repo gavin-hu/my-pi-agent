@@ -9,6 +9,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import { MESSAGE_KINDS, type MessageKind } from "../../lib/session-mail.ts";
 import { notDeliveredLine, type SendResult, MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SESSION_TOOL } from "../../lib/tool-names.ts";
+import { memberOf } from "../../lib/json.ts";
 import type { DeliveryFailure } from "./types.ts";
 
 /**
@@ -50,12 +51,12 @@ export function sessionMode(mode: string | undefined): SessionMode {
 
 /** An action, or undefined when the model sent an unknown one. */
 export function normalizeAction(raw: unknown): SessionAction | undefined {
-	return typeof raw === "string" && ACTIONS.includes(raw as SessionAction) ? (raw as SessionAction) : undefined;
+	return memberOf(ACTIONS, raw);
 }
 
-/** A message kind; `message` is the default. */
+/** A message kind; `message` is the default, which is this protocol's fact rather than a lookup's. */
 export function normalizeKind(raw: unknown): MessageKind {
-	return typeof raw === "string" && MESSAGE_KINDS.includes(raw as MessageKind) ? (raw as MessageKind) : "message";
+	return memberOf(MESSAGE_KINDS, raw) ?? "message";
 }
 
 /** Trimmed message text, or an error message. */

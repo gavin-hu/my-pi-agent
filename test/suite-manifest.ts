@@ -311,6 +311,7 @@ export const LIB_SUITES: readonly string[] = [
 	"bus-request",
 	"child",
 	"core",
+	"errors",
 	"format",
 	"highlight",
 	"interaction",

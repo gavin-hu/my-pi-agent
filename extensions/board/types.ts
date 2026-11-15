@@ -12,6 +12,7 @@ import type { Card } from "../../lib/board/card.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import type { RoundSummary } from "../../lib/board/round.ts";
 import { BOARD_ACTIONS, type BoardAction } from "../../lib/board/actions.ts";
+import { memberOf } from "../../lib/json.ts";
 
 /** The tool's name. One extension registers it, so it stays here. */
 export const BOARD_TOOL = "board";
@@ -153,5 +154,5 @@ export interface ArchiveOutcome {
 
 /** Whether a value is one of the actions, so an unknown one is a refusal and not a crash. */
 export function normalizeBoardAction(raw: unknown): BoardAction | undefined {
-	return typeof raw === "string" && BOARD_ACTIONS.includes(raw as BoardAction) ? (raw as BoardAction) : undefined;
+	return memberOf(BOARD_ACTIONS, raw);
 }

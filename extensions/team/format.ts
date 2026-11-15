@@ -9,6 +9,7 @@
 
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import type { AddTeammateResult } from "../../lib/board/config.ts";
+import { teamPhrase } from "../../lib/board/round-text.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { ALARM_REASON } from "../../lib/session-roster.ts";
 import { type DeliveryFailure, notDeliveredLine } from "../../lib/session-tool.ts";
@@ -31,8 +32,7 @@ function namesOf(labels: readonly string[]): string {
  * bar will draw for the name it just took.
  */
 export function formatJoined(label: string, watching: { armed: boolean }, note?: string): string {
-	const state = watching.armed ? "listening for handoffs" : "not listening";
-	const line = `team: on the team as ${label}, ${state}.`;
+	const line = `team: ${teamPhrase({ label, listening: watching.armed })}.`;
 	return note === undefined ? line : `${line} ${note}`;
 }
 

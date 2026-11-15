@@ -76,6 +76,24 @@ export function stringList(value: unknown, fallback: string[]): string[] {
 }
 
 /**
+ * The value one table holds, or nothing when it holds none.
+ *
+ * The narrowest member of this boundary and the one a tool leans on hardest: a model sends a verb
+ * as a string, and the tool holds the verbs in a table — the same table its parameter schema is
+ * built from — so a value outside it is refused rather than guessed at. The default a caller wants
+ * for an absent value stays the caller's, because which one that is a fact about the tool: the bus
+ * reads a missing kind as `message`, and the board has no default action at all.
+ */
+export function memberOf<const Values extends readonly string[]>(
+	values: Values,
+	value: unknown,
+): Values[number] | undefined {
+	return typeof value === "string" && (values as readonly string[]).includes(value)
+		? (value as Values[number])
+		: undefined;
+}
+
+/**
  * `value` when it is a plain object, otherwise `undefined`.
  *
  * A JSON config field is untrusted input: this narrows it to an object without

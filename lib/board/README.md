@@ -383,7 +383,9 @@ one session id write one record each, and the other pane's watch is not this one
 here asks and arms its own. The ask repeats the watch the record names, so a rename keeps a
 `join({listen: false})` and a wake the session had, and a failed join never undoes the card it
 came after — a bus that is not loaded is a sentence, not an exception. The ask is recorded
-here, and `TeamState`/`standingOf` hand the line its words; `teamStatus` prefers the live
+here, and `TeamState`/`standingOf` hand the line its words — `teamPhrase` is those words, the one
+clause both doors print for a state, so `listening` is one name rather than a board word and a
+round word for the same watch; `teamStatus` prefers the live
 record too, and prints no team once the bus no longer holds the session, because a name no
 peer resolves is worse than no name at all.
 
@@ -446,7 +448,7 @@ That rollup as the lines a reader gets, because `board`'s tool returns them — 
 decision is taken from the counts and the ids — and `team`'s `/team` prints them, because a
 lead in a terminal should not have to open a browser. `formatRound` folds the owners a bus has
 no record of and that hold nothing into one line, given the roster, and counts the closes made
-by instruction on the done count. `plural` and the fold's own bodies (`isHistoryOwner`,
+by instruction on the done count. `teamPhrase` is the clause both doors print for a team state, so `listening` is one name rather than a board word and a round word for the same watch. `plural` and the fold's own bodies (`isHistoryOwner`,
 `historyLine`) are spliced into the page as `PLURAL_JS` / `HISTORY_OWNER_JS` / `HISTORY_LINE_JS`;
 the page's filter rule and the card face's reason arrive the same way.
 

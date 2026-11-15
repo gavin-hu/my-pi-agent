@@ -18,3 +18,20 @@ export function messageOf(error: unknown): string {
 export function hasErrorCode(error: unknown, code: string): boolean {
 	return typeof error === "object" && error !== null && (error as { code?: unknown }).code === code;
 }
+
+/**
+ * A promise settled as its value, or the sentence its rejection is.
+ *
+ * The half of a refusal that must never be forgotten: a door that awaits a read can fail, and an
+ * extension's door has nowhere to put a stack trace — what it has is a line for the model. Two tools
+ * wrote the same `.then(known, error => messageOf(error))` and branched on the union, which is a
+ * shape only one of them can get wrong; this is that shape, once. It returns the failure rather than
+ * throwing it, because the answer here is always something to say, not something to escape.
+ */
+export async function attempt<T>(promise: Promise<T>): Promise<{ value: T } | { error: string }> {
+	try {
+		return { value: await promise };
+	} catch (error) {
+		return { error: messageOf(error) };
+	}
+}

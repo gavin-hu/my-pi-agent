@@ -22,6 +22,7 @@ import { type Card, cardRef } from "./card.ts";
 import type { Verification } from "./contract.ts";
 import type { RoundSummary } from "./round.ts";
 import { pageSource, plural } from "../format.ts";
+import type { TeamState } from "./join.ts";
 import { sameLabel } from "../session-label.ts";
 
 /** What the fold needs of a roster row: the page's `ViewTeammate` and the bus's record both answer it. */
@@ -301,4 +302,22 @@ function group(label: string, cards: readonly Card[], withReason = false): strin
 function blockedBrief(card: Card): string {
 	const last = card.notes.at(-1);
 	return `${brief(card)}${last === undefined ? "" : ` — ${last.text}`}`;
+}
+
+/**
+ * What a team state is, in the words both doors print.
+ *
+ * One state, one name. A session is on the team as some label, and mail either reaches it now or
+ * waits — and `/board`'s line and `/team join`'s said so differently, `listening` and `listening for
+ * handoffs`, which reads like a second kind of listening rather than the watch underneath. A record
+ * that does not say which is left unsaid: the name alone, never an accusation.
+ *
+ * Here rather than in `join.ts` because this is the module of the words both surfaces print, and
+ * because both entries already load it: a phrase is not worth a module of its own on the
+ * registration path.
+ */
+export function teamPhrase(state: TeamState): string {
+	if ("error" in state) return `no team (${state.error})`;
+	if (state.listening === undefined) return `on the team as ${state.label}`;
+	return `on the team as ${state.label}, ${state.listening ? "listening" : "not listening"}`;
 }

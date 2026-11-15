@@ -11,6 +11,7 @@
  */
 
 import type { TeamState } from "../../lib/board/join.ts";
+import { teamPhrase } from "../../lib/board/round-text.ts";
 
 export type { TeamState } from "../../lib/board/join.ts";
 export type { TeamJoin } from "../../lib/session-tool.ts";
@@ -23,9 +24,5 @@ export type { TeamJoin } from "../../lib/session-tool.ts";
  * say whether mail will reach the session prints the name alone rather than accusing it.
  */
 export function teamLine(state: TeamState | undefined): string {
-	if (state === undefined) return "";
-	if ("error" in state) return ` · no team (${state.error})`;
-	if (state.listening === undefined) return ` · on the team as ${state.label}`;
-	const word = state.listening ? "listening" : "not listening";
-	return ` · on the team as ${state.label}, ${word}`;
+	return state === undefined ? "" : ` · ${teamPhrase(state)}`;
 }
