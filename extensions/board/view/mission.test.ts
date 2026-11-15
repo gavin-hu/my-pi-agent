@@ -83,7 +83,7 @@ describe("the snapshot the mission control reads", () => {
 				from: "s-lead",
 				fromLabel: "team-lead",
 				kind: "handoff" as const,
-				to: ["billing-core"],
+				to: [{ id: "s-core", label: "billing-core" }],
 				text: "take it",
 				at: NOW - 60_000,
 			},
@@ -92,7 +92,10 @@ describe("the snapshot the mission control reads", () => {
 				from: "s-lead",
 				fromLabel: "team-lead",
 				kind: "event" as const,
-				to: ["billing-core", "ops-helper"],
+				to: [
+					{ id: "s-core", label: "billing-core" },
+					{ id: "s-old", label: "ops-helper" },
+				],
 				text: "all",
 				at: NOW - 30_000,
 			},
@@ -103,23 +106,58 @@ describe("the snapshot the mission control reads", () => {
 		];
 		const queue = view({ waiting: { messages: waiting, dropped: 0 }, roster });
 		expect(queue.waiting.messages.map((message) => message.id)).toEqual(["m-1", "m-2"]);
-		expect(queue.waiting.messages[0]?.to).toEqual([{ label: "billing-core", state: "live" }]);
+		expect(queue.waiting.messages[0]?.to).toEqual([{ id: "s-core", label: "billing-core", state: "live" }]);
 		// The recipient nothing answers for is the one a lead has to act on, and it says so.
 		expect(queue.waiting.messages[1]?.to).toEqual([
-			{ label: "billing-core", state: "live" },
-			{ label: "ops-helper", state: "quiet" },
+			{ id: "s-core", label: "billing-core", state: "live" },
+			{ id: "s-old", label: "ops-helper", state: "quiet" },
 		]);
 		// No bus here is not "gone": the state is left out and the row still draws.
 		expect(view({ waiting: { messages: waiting, dropped: 0 } }).waiting.messages[0]?.to).toEqual([
-			{ label: "billing-core" },
+			{ id: "s-core", label: "billing-core" },
 		]);
 		// What the cap left out travels with the rows, so the rail can say how deep the queue is.
 		expect(view({ waiting: { messages: waiting, dropped: 14 } }).waiting.dropped).toBe(14);
 	});
 
+	test("a recipient's id decides its state, so a label a later session took does not answer for it", () => {
+		// The bug exactly: this mail sits in the inbox of a record the bus pruned, while a live
+		// session now wears the same name. Answering by label lends the dead inbox the live peer.
+		const orphan = {
+			id: "m-orphan",
+			from: "s-lead",
+			fromLabel: "team-lead",
+			kind: "handoff" as const,
+			to: [{ id: "s-gone", label: "billing-core" }],
+			text: "take it",
+			at: NOW,
+		};
+		const reused = view({
+			waiting: { messages: [orphan], dropped: 0 },
+			roster: [{ id: "s-new", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 }],
+		});
+		expect(reused.waiting.messages[0]?.to).toEqual([{ id: "s-gone", label: "billing-core", state: "absent" }]);
+		// The id that does have a record still answers, so the fix is the lookup and not a silence.
+		const held = view({
+			waiting: { messages: [{ ...orphan, to: [{ id: "s-new", label: "billing-core" }] }], dropped: 0 },
+			roster: [{ id: "s-new", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 1 }],
+		});
+		expect(held.waiting.messages[0]?.to).toEqual([{ id: "s-new", label: "billing-core", state: "live" }]);
+	});
+
 	test("a message landing or being read moves the frame, because no card did", () => {
 		const mail = {
-			messages: [{ id: "m-1", from: "s", fromLabel: "s", kind: "message" as const, to: ["me"], text: "hi", at: NOW }],
+			messages: [
+				{
+					id: "m-1",
+					from: "s",
+					fromLabel: "s",
+					kind: "message" as const,
+					to: [{ id: "s-me", label: "me" }],
+					text: "hi",
+					at: NOW,
+				},
+			],
 			dropped: 0,
 		};
 		const none = view();

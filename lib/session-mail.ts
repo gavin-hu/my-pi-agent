@@ -63,6 +63,20 @@ export interface WaitingPage {
 	dropped: number;
 }
 
+/**
+ * One session a message is waiting for.
+ *
+ * The id is the identity: an inbox belongs to it, and `presenceOf` answers by it alone, so a name a
+ * later session took cannot lend this row that session's liveness. The label is the sentence the row
+ * prints, recorded when the message was sent.
+ */
+export interface WaitingRecipient {
+	/** The session this copy was addressed to, which is also whose inbox it sits in. */
+	id: string;
+	/** The name the sender addressed it by, as display text. */
+	label: string;
+}
+
 /** One message waiting anywhere on the bus, as the page shows it. */
 export interface WaitingMail {
 	/** The sender's message id; one value per message, however many inboxes hold it. */
@@ -71,12 +85,14 @@ export interface WaitingMail {
 	fromLabel: string;
 	kind: MessageKind;
 	/**
-	 * The labels it is waiting for, in the order the files were read.
+	 * The recipients it is waiting for, in the order the files were read.
 	 *
 	 * A broadcast is one file per recipient sharing one id, so this is where the two
-	 * shapes meet: one name is a message, more than one is the fan-out it really was.
+	 * shapes meet: one recipient is a message, more than one is the fan-out it really was.
+	 * Folded by id rather than by name, so two sessions that share a label stay two, and one
+	 * session's copy in two inboxes stays one.
 	 */
-	to: string[];
+	to: WaitingRecipient[];
 	/** The text, whole: the page wraps it in a tooltip rather than a row. */
 	text: string;
 	/** When the first copy landed, by file mtime — the clock every session shares. */
@@ -213,7 +229,8 @@ async function inboxDirs(busDir: string): Promise<string[]> {
  * with a count of what the cap left out, so a busy queue cannot read like a quiet one.
  *
  * A broadcast lands as one file per recipient, so the files that share an id are one
- * message waiting on several people and are drawn once, with every name it waits for.
+ * message waiting on several people and are drawn once, with every recipient it waits for —
+ * folded by session id, because the name it was addressed by may have been taken since.
  * The age is the first copy's: the moment the message became somebody's to read.
  *
  * A file that does not parse is skipped, not thrown: it stays where it is for the TTL,
@@ -237,15 +254,16 @@ export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promis
 					from: parsed.from,
 					fromLabel: parsed.fromLabel,
 					kind: parsed.kind,
-					to: [parsed.toLabel],
+					to: [{ id: parsed.to, label: parsed.toLabel }],
 					text: parsed.text,
 					at: landed,
 				});
 				continue;
 			}
 			// The same message in a second inbox: one row, one more recipient, and the
-			// earlier of the two arrivals, which is when it first became anyone's.
-			if (!seen.to.includes(parsed.toLabel)) seen.to.push(parsed.toLabel);
+			// earlier of the two arrivals, which is when it first became anyone's. The id
+			// decides, so a name a second session took is a second line and not the same one.
+			if (!seen.to.some((each) => each.id === parsed.to)) seen.to.push({ id: parsed.to, label: parsed.toLabel });
 			seen.at = Math.min(seen.at, landed);
 		}
 	}

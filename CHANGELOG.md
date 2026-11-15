@@ -156,6 +156,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a waiting row resolves its recipient by session id, so an inbox that outlived its record
+  no longer wears the liveness of whoever later took that name. `WaitingMail.to` carries a
+  `WaitingRecipient` (`id` and `label`) folded by id, and the Team tab hands the whole recipient to
+  `presenceOf`, so a reused label reads `absent` — the row still prints the name the sender used.
+
 - `session-bus`, `plan`: the listener half of the `pi.events` handshake has one owner in
   `lib/bus-request.ts`. Four listeners and plan's two now call `answerOn` instead of repeating the
   same guard, and one thing changes for a caller: a listener that throws before it answers used to

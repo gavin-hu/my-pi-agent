@@ -58,9 +58,9 @@ block the sender; a `handoff` names the work it assigns. A message may carry the
 repository paths it concerns. A broadcast is one file per recipient sharing one
 message id: `to "*"`, which is refused unless `kind` is `event`.
 
-**Mail is read, not taken, by the page.** The Team tab draws the bus's queue and removes nothing: an
-inbox stays its owner's to consume, and a message it shows is never marked as told — only the session
-advances its own count. The page is loopback and token-guarded.
+**Mail is read, not taken, by the page.** The Team tab removes nothing: an inbox stays its owner's
+to consume, and a message it shows is never marked as told — only the session advances its count.
+The page is loopback and token-guarded, and a row's state comes from its recipient's id, not its label.
 
 **Records.** `session status` lists each session with its state — `live` while its heartbeat
 holds, `quiet` once it has aged, `gone` once its process is not running — and whether its watch

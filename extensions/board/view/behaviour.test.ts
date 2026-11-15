@@ -665,7 +665,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 						from: "s-peer",
 						fromLabel: "billing-peer",
 						kind: "handoff",
-						to: ["billing-holder"],
+						to: [{ id: "s-holder", label: "billing-holder" }],
 						text: "take the unowned card",
 						at: at - 240_000,
 					},

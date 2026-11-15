@@ -22,7 +22,7 @@ import {
 	rosterStateOf,
 	type SessionPresence,
 } from "../session-roster.ts";
-import type { WaitingPage } from "../session-mail.ts";
+import type { WaitingPage, WaitingRecipient } from "../session-mail.ts";
 import { sameLabel } from "../session-label.ts";
 import { type ActivityFeed, activityOf } from "./activity.ts";
 import { type Card, laneSince, priorityOf, type Priority, signatureOf } from "./card.ts";
@@ -67,9 +67,8 @@ export interface ViewTeammate {
 }
 
 /** One recipient of a waiting message, and what the bus says about it. */
-export interface ViewRecipient {
-	label: string;
-	/** `absent` when the roster holds no record; absent when this repository has no bus to ask. */
+export interface ViewRecipient extends WaitingRecipient {
+	/** `absent` when the roster holds no record by this id; absent when this repository has no bus to ask. */
 	state?: SessionPresence;
 }
 
@@ -323,15 +322,17 @@ export function buildView(input: ViewInput): BoardView {
 	const teammates =
 		input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.lead, input.now);
 	// The states a waiting row wears come from the same roster the agent cards are drawn from,
-	// so a handoff to a dead session cannot look like one to a live peer.
+	// so a handoff to a dead session cannot look like one to a live peer. Resolved by the
+	// recipient's id, not its name: an inbox outlives its record, and the name it was addressed
+	// by may since have been taken by a session the mail does not belong to.
 	const waiting = {
 		...(input.waiting ?? { messages: [], dropped: 0 }),
 	};
 	const messages = waiting.messages.map((message) => ({
 		...message,
-		to: message.to.map((label) => {
-			const state = presenceOf(input.roster, { label }, input.now);
-			return state === undefined ? { label } : { label, state };
+		to: message.to.map((recipient) => {
+			const state = presenceOf(input.roster, recipient, input.now);
+			return state === undefined ? recipient : { ...recipient, state };
 		}),
 	}));
 	// Before the signature, because one of its facts is the rollup's: `unwritten` is the one
