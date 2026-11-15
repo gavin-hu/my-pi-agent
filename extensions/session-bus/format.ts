@@ -59,9 +59,13 @@ export function formatStatus(status: SessionStatus, now: number): string {
 	// Mail no record accounts for has no session row to sit under, so it is named once, under the
 	// sessions it is missing from. A bus where every message has a record draws nothing here.
 	const unaccounted = status.unaccounted ? unaccountedLines(status.unaccounted, now) : [];
+	// A file this build cannot read is inside the count above and can never leave it except by its
+	// TTL, so the read that parsed it names it: a number nobody can act on is worse than a name.
+	const refused = unreadableText(status.unreadable ?? []);
 	return [
 		`Sessions (${status.sessions.length})`,
 		...(sessions.length > 0 ? sessions : ["- none"]),
+		...(refused === "" ? [] : ["", refused]),
 		...(unaccounted.length > 0 ? ["", ...unaccounted] : []),
 		"",
 		`Claims (${status.claims.length})`,

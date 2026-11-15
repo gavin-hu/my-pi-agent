@@ -132,6 +132,14 @@ export interface SessionStatus {
 	 */
 	unaccounted?: UnaccountedPage;
 	claims: ClaimRecord[];
+	/**
+	 * Files in this session's inbox that this build cannot read, absent when there are none.
+	 *
+	 * They are counted as unread — the count is names alone — so the one read that can parse them
+	 * names them beside it: a number a reader cannot act on is worse than a number and a file name.
+	 * Only the status read fills this: the board draws once a second and reads no file to do it.
+	 */
+	unreadable?: string[];
 	/** Present only when this session armed its inbox watch. */
 	watching?: { armed: boolean; wake: boolean };
 }

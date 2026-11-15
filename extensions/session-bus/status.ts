@@ -17,6 +17,7 @@ import type { RosterState } from "../../lib/session-roster.ts";
 import type { WatchingState } from "./mail-watch.ts";
 import type { BusStore } from "./store.ts";
 import type { SessionRecord, SessionStatus } from "./types.ts";
+import { MAX_LIMIT } from "./protocol.ts";
 
 export interface StatusReaderOptions {
 	store(): BusStore | undefined;
@@ -81,12 +82,16 @@ export function createStatusReader(options: StatusReaderOptions): StatusReader {
 			const unaccounted = await unaccountedMail(bus.dir, new Set(records.map((session) => session.id)), {
 				bodies: !liveOnly,
 			});
+			// The one thing a names-only count cannot say: a file this build cannot parse sits inside
+			// it until its TTL. Asking costs a page read, which is why only the model's read asks.
+			const refused = liveOnly ? [] : (await bus.peek(me.id, { limit: MAX_LIMIT })).unreadable;
 			const watch = watching();
 			return {
 				me: { id: me.id, label: me.label },
 				onBus: me.onBus,
 				sessions: await withUnread(sessions),
 				...(unaccounted.count > 0 ? { unaccounted } : {}),
+				...(refused.length === 0 ? {} : { unreadable: refused }),
 				claims,
 				...(watch.armed ? { watching: watch } : {}),
 			};
