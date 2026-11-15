@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the Team tab's two mail numbers name the unit each counts. A card's chip hovers `2 unread
+  files in its inbox` — the file count `session status` prints — and the `WAITING` caption hovers the
+  rule behind its own: one row per send, however many inboxes it reached, so the cards are not a sum
+  of the queue. Neither count moved.
+
 - `board`: the workflow guideline names both gates — `approve` before `execute`, `review` before
   `done` — so a checklist no longer stops at the first one, and the person's signature covers
   either. Its `approve` action doc drops the `team.lead` parenthetical, because `team` states the

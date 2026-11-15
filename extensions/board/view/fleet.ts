@@ -129,7 +129,9 @@ __HISTORY_LINE__
     }
     if (agent.mail > 0) {
       var mail = el("span", N.agentMail, plural(agent.mail, "mail"));
-      mail.title = plural(agent.mail, "message") + " waiting in its inbox";
+      // The unit, because this is a file count: it is what a session's status row prints, and it
+      // is not the number the Waiting pane counts.
+      mail.title = plural(agent.mail, "unread file") + " in its inbox";
       chips.appendChild(mail);
     }
     // The lead's own card says how much of the queue is its work, so the scan that starts

@@ -16,7 +16,8 @@ per card. **ACTIVE WORK** is the lead's queue over the `blocked`, `execute` and 
 one line per ask, the reason printed rather than hovered, filed by whose move it is into `YOUR
 SIGNATURE`, `UNCLAIMED` and `STALLED`, none behind a fold — a column per band on a 2K window, and a
 phone gives the title the whole line to wrap. **ACTIVITY** draws unread mail as a block — a fill
-and an accent edge — above a flat recent history; reading consumes nothing.
+and an accent edge — above a flat recent history; reading consumes nothing. `WAITING` counts sends,
+one row each however many inboxes it reached; a card's chip counts its own inbox's files, not a sum.
 
 ## What you can do
 
@@ -98,8 +99,7 @@ by name; `board list` still reads. Assign after the plan is approved.
   card, and one listening with `wake` is woken by its mail.
 - A card somebody already holds is not assignable: `board reclaim` it, then assign.
 - An offer is advice — a card can stay offered indefinitely, counted as unassigned.
-- Ownership does not claim paths: the peer still claims the files it edits through
-  `session`.
+- Ownership does not claim paths: the peer still claims the files it edits through `session`.
 - The lead's name is a label, not a person: it reaches whoever is serving the page
   just now, and nothing when nobody is.
 

@@ -237,6 +237,19 @@ describe("the mission control's contracts", () => {
 		expect(BOARD_CLIENT_JS).toContain('label.replace("{lane}"');
 	});
 
+	test("names the unit each mail number counts, so the cards cannot be added up into the queue", () => {
+		// A chip counts the files one inbox holds — the count `session status` prints — while the
+		// queue counts one row per send, however many inboxes it reached. Neither number moves; the
+		// words name their unit, because the arithmetic a reader does across the cards is the one
+		// thing this page never draws.
+		expect(BOARD_CLIENT_JS).toContain('plural(agent.mail, "unread file") + " in its inbox"');
+		expect(BOARD_CLIENT_JS).not.toContain('plural(agent.mail, "message")');
+		// The caption is that head, and the rule is its hover: a count alone is the same number.
+		expect(BOARD_CLIENT_JS).toContain('head.title = "One row per send');
+		// The chip itself keeps the column's own word: the unit is the hover, not a second label.
+		expect(BOARD_CLIENT_JS).toContain('plural(agent.mail, "mail")');
+	});
+
 	test("draws no percentage, because the record measures no progress", () => {
 		// A bar is identity and a count is a count: the tab has no meter for the board's work.
 		// The Board tab's done meter is the header's own (#422), and this tab adds none.
