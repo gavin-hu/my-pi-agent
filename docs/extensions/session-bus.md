@@ -47,24 +47,11 @@ confirmation. It joins nothing by itself.
 
 **Actions.** `session status` reads the bus (and never joins you to it);
 `session send` writes one message per recipient, reporting any it could not
-reach — `key` names one message, so a resend of the same body folds into the copy
-still waiting; `session read` shows up to `limit` messages without deleting them;
-`session inbox` shows the same and consumes them; `session claim` and `session
-release` hold and drop path claims; `session join` puts this session on the bus
-with an optional label, `wake`, and `listen`.
-
-**Unread is mail you have not been told about.** A notice marks its burst told, so the number
-falls with nothing deleted: the bodies stay for `session read` or `session inbox`. A notice
-previews five messages, so mail behind that line is told about without being shown, and
-`session read` is the call that shows it. Both surfaces draw the same number — `session status`,
-and the Team tab's, off the same record — and a session resumed on the same id inherits what it
-was told rather than being told again. A file this build cannot parse counts until its TTL, and
-`session status` names it beside the number.
-
-**A key names one waiting message.** `session send key "12-signed"` and the same call again
-leave one copy in the inbox: the second writes nothing and still reports the peer as delivered.
-It folds only while that copy is waiting — after the recipient consumes it, the same key is a
-new message it can be told about, which is what makes a key a resend rather than a lock.
+reach — a `key` names one message, so a resend of the same body folds into the
+copy still waiting, while it waits; `session read` shows up to `limit` messages and
+keeps them, where `session inbox` shows the same and consumes them; `session claim`
+and `session release` hold and drop path claims; `session join` puts this session on
+the bus with an optional label, `wake`, and `listen`.
 
 **Message kinds.** `message`, `event`, `ask`, and `handoff`. An `ask` does not
 block the sender; a `handoff` names the work it assigns. A message may carry the
@@ -72,24 +59,23 @@ repository paths it concerns. A broadcast is one file per recipient sharing one
 message id.
 
 **Mail is read, not taken, by the page.** The Team tab draws the whole bus's queue by reading
-those files and removes nothing: an inbox stays its owner's to consume with `session inbox`. The
-page is loopback and token-guarded, and a message it shows is never marked as told — the count it
-draws is the record's, which only the session itself advances.
+those files and removes nothing: an inbox stays its owner's to consume. The page is loopback and
+token-guarded, and a message it shows is never marked as told — only the session advances its own
+count.
 
 **Records.** `session status` lists each session with its state — `live` while its heartbeat
-holds, `quiet` once it has aged, `gone` once its process is not running — and whether its watch is
-armed, so a peer that will not be woken reads as one. The record also carries the turn: stamped on
-`agent_start` and dropped on `agent_settled`, so the Team tab draws work rather than reading a
-fresh heartbeat as idle; a stamp counts only beside a fresh heartbeat, because a process that died
-mid-turn left it behind. Mail is counted per record, so mail whose recipient's record was pruned
-has no row to carry its number: the status names each message under `Unaccounted (N)` — id,
-sender, kind, age, first line — and a bare `/sessions drop` prints that list while
-`/sessions drop <id>` clears one. The board has no row for it either, so its sessions summary
-counts it instead, off the inbox names alone: a repaint every second never opens one of those
-files. The number counts files, so it can exceed the messages a build is able to name. That door is a command, not a `session` action, because a
-message is evidence: the person clears it, and the store refuses any id a record's inbox still
-carries, naming the holder. Nothing else clears it — a resumed session on that id can still read
-the mail, and the message TTL ends it.
+holds, `quiet` once it has aged, `gone` once its process is not running — and whether its watch
+is armed, so a peer that will not be woken reads as one. The record carries the turn too:
+stamped on `agent_start`, dropped on `agent_settled`, counted only beside a fresh heartbeat.
+It also carries what its session was told, and that is what unread counts: a notice marks its
+burst told, so the number falls with nothing deleted, and both surfaces draw that one number.
+A notice previews five messages, so `session read` is what shows the rest; a file this build
+cannot parse counts until its TTL, and `session status` names it. Mail whose recipient's record
+was pruned has no row to hang a number on, so the status names each message under
+`Unaccounted (N)` — id, sender, kind, age, first line — a bare `/sessions drop` prints that
+list, and `/sessions drop <id>` clears one; the board counts it off the inbox names, so a
+repaint every second opens no file. That door is a command, not a `session` action, because a
+message is evidence: the person clears it, and the store refuses an id a record's inbox holds.
 
 **Labels.** Name a session for the outcome it owns (`billing-core`), not its layer. A duplicate
 label gets a short id suffix, and a label is reserved while the bus keeps its owner's record —
@@ -105,9 +91,8 @@ never in the project, so it is never committed.
 
 ## Limits
 
-- Same machine and OS user only: any process with your file access can read or rewrite it, and
-there is no authentication between sessions — the
-[agent directory](../security.md#the-agent-directory) is trusted input.
+- Same machine and OS user only: any process with your file access can read or rewrite it, with no
+authentication between sessions; the [agent directory](../security.md#the-agent-directory) is trusted input.
 - Pull-based by default: a message waits for a session that is not listening, and the model reads
 mail at coordination points.
 - Reading is not joining: `/sessions` shows a board you are not on until you join or act.
@@ -120,10 +105,9 @@ and the missed.
 
 ## Settings
 
-The bus has no keys in this version: the heartbeat (10 s), watch poll (2 s), session
-TTL (10 min), message TTL (24 h), text cap, and inbox limits are fixed. To switch
-the extension off, toggle `session-bus` in `/bytefly`: the team goes, while the board
-and its cards stay workable without it
+The bus has no keys in this version: the heartbeat (10 s), watch poll (2 s), session TTL (10 min),
+message TTL (24 h), text cap, and inbox limits are fixed. To switch the extension off, toggle
+`session-bus` in `/bytefly`: the team goes, while the board and its cards stay workable without it
 ([what that costs](../minimal-install.md#what-switching-one-off-costs)).
 
 ## Learn more
