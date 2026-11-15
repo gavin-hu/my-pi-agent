@@ -8,9 +8,10 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type Card } from "./card.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
-import { reasonFor, REASON_FOR_JS, REASON_KINDS, REASON_LABEL, REASON_LABEL_JS } from "./reason.ts";
+import { type Card, laneSince } from "./card.ts";
+import { currentReview } from "./lead.ts";
+import { REASON_FOR_JS, REASON_KINDS, REASON_LABEL, REASON_LABEL_JS, reasonFor } from "./reason.ts";
 
 const NOW = 1_000_000;
 /** The clock a caller supplies: the page passes its own, the transcript the snapshot's. */
@@ -114,6 +115,28 @@ describe("reasonFor", () => {
 		);
 	});
 
+	test("an executing card says which way its spot-check stopped speaking for it", () => {
+		// #599: a card written after its spot-check reads as one that needs a look again, not as one
+		// already looked at — and the lane entry, not the clock, is what an earlier execution's sign
+		// is judged against.
+		const signed = card({
+			lane: "execute",
+			owner,
+			planPath: "p.md",
+			review: { by: "gavin", at: NOW - 300_000 },
+			log: [{ lane: "execute", at: NOW - 600_000, by: "billing-core" }],
+		});
+		expect(reasonFor({ ...signed, updatedAt: NOW - 240_000 }, ago)).toEqual({
+			kind: "review",
+			text: "spot-checked by gavin, then written — review again",
+		});
+		const reclaimed: Card = { ...signed, log: [{ lane: "execute", at: NOW - 60_000, by: "billing-core" }] };
+		expect(reasonFor(reclaimed, ago)).toEqual({
+			kind: "review",
+			text: "spot-checked by gavin before this execution — review again",
+		});
+	});
+
 	test("a finished card says who closed it, and whether the gate was asked", () => {
 		expect(reasonFor(card({ lane: "done", owner, review: { by: "lead", at: NOW } }), ago)).toEqual({
 			kind: "done",
@@ -138,10 +161,12 @@ describe("REASON_FOR_JS", () => {
 	});
 
 	test("answers what the module answers, with no imports to reach for", () => {
-		const browser = new Function(`return (${REASON_FOR_JS});`)() as (
-			card: Card,
-			ago: (at: number) => string,
-		) => { kind: string; text: string } | undefined;
+		// The two helpers the execute lane asks are passed in as the page holds them: a var in the
+		// fragment's own scope, spliced from the same module bodies `client.ts` hands it.
+		const browser = new Function("laneSince", "currentReview", `return (${REASON_FOR_JS});`)(
+			laneSince,
+			currentReview,
+		) as (card: Card, ago: (at: number) => string) => { kind: string; text: string } | undefined;
 		const blocked = card({ lane: "blocked", owner, blocked: { kind: "decision", note: "legal signs" } });
 		expect(browser(blocked, ago)).toEqual(reasonFor(blocked, ago));
 		for (const kind of REASON_KINDS) expect(typeof kind).toBe("string");

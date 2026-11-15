@@ -31,21 +31,22 @@
  * Pure: a name compare and a sentence, no clock and no file.
  */
 
+import { pageSource } from "../format.ts";
 import { normalizeLabel, sameLabel } from "../session-label.ts";
-import { cardRef, type Card, type CardOwner, holds, laneSince, MAX_NOTES, normalizeNote } from "./card.ts";
+import type { SessionPresence } from "../session-roster.ts";
+import { type Card, type CardOwner, cardRef, holds, laneSince, MAX_NOTES, normalizeNote } from "./card.ts";
+import type { BoardConfig } from "./config.ts";
 import {
 	askLead,
-	leadName,
-	type Sign as SignRecord,
-	SIGN_WORDS,
-	type Verification,
 	isVerification,
+	leadName,
 	normalizeInstruction,
+	SIGN_WORDS,
+	type Sign as SignRecord,
+	type Verification,
 } from "./contract.ts";
-import type { BoardConfig } from "./config.ts";
 import { LANE_RULES, type Lane } from "./lanes.ts";
 import type { Actor, CardOp, Prepared } from "./rules.ts";
-import type { SessionPresence } from "../session-roster.ts";
 
 /** The lead's team name: the label a signature has to carry. */
 export type Lead = string;
@@ -219,6 +220,28 @@ export function staleSpotCheck(card: Card, cmd: string, lead: Lead): string {
 	return `${cardRef(card.id)} was written after its spot-check, so the run no longer speaks for it — run \`${cmd}\` and review again: the lead (${leadName(lead)}) with \`review\`, or the person with \`/board review ${card.id}\`.`;
 }
 
+/**
+ * Why the card may not be closed for want of a spot-check, or `undefined` when its sign speaks for
+ * it: the whole rule the `done` gate asks, in the module that owns signs.
+ *
+ * The order is the one a reader acts on — no sign for this execution says "record one", a contract
+ * naming no command is the line to record, a sign with no run is the run — and only then is an
+ * outgrown sign the same run made again, because "the run no longer speaks for this card" is not
+ * "the card was never checked". `laneReview` answers the first question and `currentReview` the
+ * last, so the gate and the reason line cannot tell a card two different stories about one sign.
+ */
+export function spotCheckRefusal(card: Card, lead: Lead): string | undefined {
+	const made = laneReview(card);
+	if (made === undefined) return missingSign(card, lead, "review");
+	// The contract's command is the only run worth evidence, so a card that names none is refused a
+	// sign rather than spot-checked by a sentence: only a card written before the line was required,
+	// or one hand-edited, has none, and the refusal names the line and the approval recording it costs.
+	const cmd = card.contract?.verify;
+	if (cmd === undefined) return noVerifyCommand(card, lead);
+	if (made.verified === undefined) return unverifiedSpotCheck(card, cmd, lead);
+	return currentReview(card) === undefined ? staleSpotCheck(card, cmd, lead) : undefined;
+}
+
 /** What a `review` is refused with when the command it ran did not pass. */
 export function failedSpotCheck(card: Card, cmd: string, exit: number): string {
 	return `\`${cmd}\` exited ${exit}, so ${cardRef(card.id)} was not spot-checked.`;
@@ -231,7 +254,7 @@ export function killedSpotCheck(card: Card, cmd: string, boundMs: number): strin
 }
 
 /**
- * The spot-check that speaks for the work in the lane the card is in now.
+ * The spot-check this execution made, whether or not the card has since outgrown it.
  *
  * A sign kept across a `reclaim` — which is what happens when somebody other than its signer takes
  * the card back — is evidence that a spot-check happened, and not evidence about the execution the
@@ -242,13 +265,44 @@ export function killedSpotCheck(card: Card, cmd: string, boundMs: number): strin
  *
  * A card whose history was elided has no entry to compare against, so it keeps its sign: an
  * unreadable record is not a reason to demand a signature that may already be there.
+ *
+ * The lane is only half the question — {@link currentReview} asks the other — and this stays the
+ * answer to "did this execution have a sign at all", which is what lets the `done` refusal say
+ * "run it again" rather than "no spot-check recorded".
  */
-export function currentReview(card: Card): SignRecord | undefined {
+export function laneReview(card: Card): SignRecord | undefined {
 	const review = card.review;
 	if (review === undefined) return undefined;
 	const since = card.lane === "execute" ? laneSince(card) : undefined;
 	return since === undefined || review.at >= since ? review : undefined;
 }
+
+/**
+ * The spot-check that speaks for the card now: the one this execution made, while the card has not
+ * been written since.
+ *
+ * One rule for every reader — the lead's queue (`gateOf`), the card's reason line (`reasonFor`), and
+ * the `done` gate ({@link spotCheckRefusal}) — because two of them read a stale sign as current
+ * while the third refused it: a card absent from NEEDS YOU and drawn "spot-checked by X" at the
+ * moment its close was refused with "was written after its spot-check". The staleness half is
+ * {@link signStale}'s, so "the work moved under the signature" cannot be one rule here and another
+ * there.
+ */
+export function currentReview(card: Card): SignRecord | undefined {
+	const review = laneReview(card);
+	return review !== undefined && !signStale(card, review) ? review : undefined;
+}
+
+/**
+ * The rule, and the three bodies it calls, as the browser receives them.
+ *
+ * `reasonFor` asks this rule on the page as well as in the transcript, and a page has no import
+ * graph: a body that calls a helper has to reach the page with the bodies that helper calls, or the
+ * first card face that draws a signed card throws where every static check is green. One block
+ * because every caller that carries one carries all four, and beside the rule so a helper added to
+ * it is one line from the splice that would have to carry it.
+ */
+export const CURRENT_REVIEW_JS = [laneSince, laneReview, signStale, currentReview].map(pageSource).join("\n\n");
 
 /**
  * What a sign sends the card's owner: who signed, and the move it unlocked.
@@ -305,10 +359,10 @@ export function appendNote(card: Card, by: string, at: number, text: string): Pi
  * Whether the card has been written since its sign last spoke for it.
  *
  * A sign owns two writes: the stamp, and `#398`'s record that its owner heard — so the moment to
- * compare is the later of the two. One reader for both places the rule is asked: the `done` gate
- * refuses a spot-check the work has outgrown, and a repeat sign re-makes a stamp that has gone
- * stale, so the arithmetic that decides "the work moved under the signature" cannot differ
- * between the gate and the sign that answers it.
+ * compare is the later of the two. One reader for every place the rule is asked: `currentReview`
+ * drops an outgrown sign, so the `done` gate, the lead's queue, the card's reason line and the
+ * repeat sign that re-makes a stamp all answer from this arithmetic, and "the work moved under the
+ * signature" cannot mean one thing to the gate and another to the surface that names the gate.
  */
 export function signStale(card: Card, record: SignRecord): boolean {
 	return card.updatedAt > Math.max(record.at, record.told?.at ?? 0);
@@ -376,13 +430,16 @@ export function review(
 	const instruction = gate.instruction;
 	const evidence = evidenceFor(card, config, instruction !== undefined, verified);
 	if ("error" in evidence) return { error: evidence.error };
+	// The record on the card, whether or not it still speaks for it: an override is refused by a sign
+	// that exists, while `currentReview` decides whether this call re-makes the stamp.
+	const made = laneReview(card);
 	const already = currentReview(card);
 	const signed = signedAs(already, actor, config.lead);
 	// A sign is a fact about a person and a moment, so an override never replaces one: it is how a
 	// card with no spot-check gets a record, not how a record gets a different author.
-	if (instruction !== undefined && already !== undefined && !(signed && already.byInstruction !== undefined)) {
+	if (instruction !== undefined && made !== undefined && !(signed && made.byInstruction !== undefined)) {
 		return {
-			error: `${cardRef(card.id)} is already spot-checked by ${already.by}; an override signs a card that has no sign.`,
+			error: `${cardRef(card.id)} is already spot-checked by ${made.by}; an override signs a card that has no sign.`,
 		};
 	}
 	const noted = signNote(card, text, actor, now);
@@ -390,14 +447,12 @@ export function review(
 	// The same rule as `approve`: a sign owes its message, and a repeat owes it while untold — the
 	// only way a failed send is ever re-sent.
 	const owes = owesAnnouncement(card, "review", actor, config.lead);
-	// The same signer signs again for one of two reasons, and both re-make the stamp rather than
-	// leaving the old one standing: they are saying something the card did not record yet (`noted`),
-	// or the card has been written since their sign, which is exactly what the `done` gate refuses
-	// with "review again" — a remedy a repeat could not otherwise perform, because its own note
-	// moves the card again. Only a sign that says nothing, on a card it still speaks for, is the
-	// no-op the repeat rule keeps.
-	const redo =
-		signed && instruction === undefined && (noted.wrote || (already !== undefined && signStale(card, already)));
+	// A repeat sign re-makes the stamp when it is saying something the card did not record yet
+	// (`noted`). A sign the card has outgrown is not `signed` at all — `currentReview` drops it — so
+	// the same call stamps afresh, which is the remedy the `done` gate's "review again" names and the
+	// one a repeat could not perform while the stale sign still read as current. Only a sign that says
+	// nothing, on a card it still speaks for, is the no-op the repeat rule keeps.
+	const redo = signed && instruction === undefined && noted.wrote;
 	// A sign that is already there and stays: nothing to stamp, and an untold one still owes its
 	// message. An override's repeat is one of these but its note is still a write, so it falls
 	// through to the note-only return below.

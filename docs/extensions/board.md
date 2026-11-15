@@ -90,8 +90,8 @@ says who heard it — quiet, not listening, or not told — and an untold one is
 - The lead is a name, not an authority: any session can join it, and a lead holding a card can release it,
   sign it and claim it again. A lead holding no card may still move it `plan` → `execute`, the lane its
   approval opened; every other verb is the holder's. A gate is a reading, not a permission.
-- Settle a card's title, paths and contract before asking for its sign: any write after the spot-check
-  makes that run stop speaking for the card, and a branch is proved against `main` as it was cut.
+- Settle a card's title, paths and contract before asking for its sign: a write after the spot-check
+  stops that run speaking for the card, in the queue as at `done` alike; a branch is proved against `main` as it was cut.
 - Ownership is a session id, not a lock: only `session-bus` path claims are. A card in `execute` holds its
   `paths`, and a lane change releases only the writer's; a card whose owner ended is released by a start,
   or re-seated to the session wearing that name. Eight transitions are kept; an unreadable file is skipped.

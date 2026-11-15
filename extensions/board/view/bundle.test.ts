@@ -9,9 +9,9 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { missingBundleBodies, duplicateFunctions } from "../../../test/helpers/bundle.ts";
 import { HISTORY_OWNER_JS } from "../../../lib/board/round-text.ts";
 import { LABEL_KEY_JS, SAME_LABEL_JS } from "../../../lib/session-label.ts";
+import { duplicateFunctions, missingBundleBodies } from "../../../test/helpers/bundle.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 
 /** A bundle with one name defined twice: two bodies, or one body twice. */
@@ -36,6 +36,16 @@ describe("the fragments' bodies", () => {
 		expect(BOARD_CLIENT_JS).toContain(SAME_LABEL_JS);
 		expect(BOARD_CLIENT_JS).toContain("function labelKey(");
 		expect(BOARD_CLIENT_JS).toContain(LABEL_KEY_JS);
+	});
+
+	test("carries the one rule for a current spot-check, and the two bodies it calls", () => {
+		// `reasonFor` asks `currentReview` on the page as well as in the transcript, and the page has no
+		// import graph: the rule, the lane entry it reads and the staleness it reads arrive as bodies, or
+		// the first card face that draws a signed card throws where the whole suite is green.
+		expect(BOARD_CLIENT_JS).toContain("function currentReview(");
+		expect(BOARD_CLIENT_JS).toContain("function laneReview(");
+		expect(BOARD_CLIENT_JS).toContain("function laneSince(");
+		expect(BOARD_CLIENT_JS).toContain("function signStale(");
 	});
 
 	test("renders the frame it was sent, with the rollup's names expanded before anything draws", () => {

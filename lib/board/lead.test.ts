@@ -9,43 +9,41 @@ import { describe, expect, test } from "bun:test";
 import { numberedCard } from "../../test/helpers/fixtures/board.ts";
 import {
 	accepted,
-	doneOf,
 	applyOp,
+	LEAD as BOARD_LEAD,
 	boardOf,
 	CORE,
+	doneOf,
 	executing,
-	LEAD as BOARD_LEAD,
 	NOW,
 	refusal,
 	VERIFY,
 	verifying,
 } from "../../test/helpers/fixtures/board-rules.ts";
 import { type Card } from "./card.ts";
+import { type BoardConfig, boardConfig } from "./config.ts";
+import { askLead, leadName } from "./contract.ts";
 import {
 	announced,
-	currentReview,
+	failedSpotCheck,
 	holderRefusal,
 	isLead,
 	isPerson,
 	type Lead,
-	failedSpotCheck,
 	missingSign,
 	normalizeLead,
 	owesAnnouncement,
 	PERSON_LABEL,
 	personActor,
-	signMark,
-	signRefusal,
-	signRecord,
-	signedAs,
-	signStale,
-	staleSpotCheck,
-	signedText,
 	type Sign,
+	signedAs,
+	signedText,
+	signMark,
+	signRecord,
+	signRefusal,
+	staleSpotCheck,
 	unverifiedSpotCheck,
 } from "./lead.ts";
-import { askLead, leadName } from "./contract.ts";
-import { boardConfig, type BoardConfig } from "./config.ts";
 import type { Actor } from "./rules.ts";
 
 const LEAD: Lead = "team-lead";
@@ -55,49 +53,6 @@ const CARD = numberedCard("4");
 
 /** A card this suite signs, so a case names only the fields the sign reads. */
 const card = (overrides: Partial<Card> = {}) => numberedCard("4", overrides);
-
-describe("currentReview", () => {
-	/** An executing card that entered its lane at `since`, with a sign made at `at`. */
-	const signed = (since: number, at: number) =>
-		card({
-			lane: "execute",
-			owner: { label: "billing-core" },
-			review: { by: "billing-lead", at },
-			log: [
-				{ lane: "backlog", at: since - 2_000, by: "billing-lead" },
-				{ lane: "execute", at: since, by: "billing-core" },
-			],
-		});
-
-	test("answers with the sign made since the card entered the lane", () => {
-		expect(currentReview(signed(2_000, 3_000))).toMatchObject({ by: "billing-lead", at: 3_000 });
-		expect(currentReview(signed(2_000, 2_000))).toMatchObject({ at: 2_000 });
-	});
-
-	test("answers nothing for a sign a previous execution left on the card", () => {
-		// A reclaim keeps the lead's spot-check, and a kept sign is evidence about the work that was
-		// taken back rather than about the execution the card is in now.
-		expect(currentReview(signed(2_000, 1_500))).toBeUndefined();
-	});
-
-	test("keeps a sign a finished card carries, whatever the lane entry says", () => {
-		// `done` is the lane the sign is evidence for, so the entry it followed is not a cut-off.
-		const done = card({
-			lane: "done",
-			owner: { label: "billing-core" },
-			review: { by: "lead", at: 1_000 },
-			log: [{ lane: "done", at: 2_000, by: "billing-core" }],
-		});
-		expect(currentReview(done)).toMatchObject({ at: 1_000 });
-	});
-
-	test("keeps a sign whose lane entry the log no longer has", () => {
-		// An elided log is not a reason to demand a second signature: the sign is the only evidence
-		// left, and asking again for one already made is the worse answer.
-		const silent = card({ lane: "execute", owner: { label: "billing-core" }, review: { by: "lead", at: 1_000 } });
-		expect(currentReview(silent)).toMatchObject({ at: 1_000 });
-	});
-});
 
 describe("normalizeLead", () => {
 	test("a name is a label: flattened, trimmed, and capped", () => {
@@ -315,22 +270,16 @@ describe("the announcement", () => {
 	});
 
 	test("reads the review a done card closed on, not the sign a reclaim kept", () => {
-		const reviewed = card({ lane: "execute", owner: { label: "api-core" }, review: { by: THE_LEAD.label, at: 2 } });
+		// Written at the moment of the sign: the question here is the lane, and a card the sign has
+		// outgrown is `currentReview`'s separate answer.
+		const reviewed = card({
+			lane: "execute",
+			owner: { label: "api-core" },
+			updatedAt: 2,
+			review: { by: THE_LEAD.label, at: 2 },
+		});
 		expect(signRecord(reviewed, "review")).toMatchObject({ at: 2 });
 		expect(signRecord(reviewed, "approve")).toBeUndefined();
-	});
-});
-
-describe("signStale", () => {
-	test("the card's own clock, against the sign and the announcement that followed it", () => {
-		const stamp = { by: BOARD_LEAD.label, at: 2_000 };
-		expect(signStale(card({ updatedAt: 2_000 }), stamp)).toBe(false);
-		expect(signStale(card({ updatedAt: 2_001 }), stamp)).toBe(true);
-		// The announcement is the sign's own second write, so it buys the stamp the time it needs:
-		// reading the card's clock against the stamp alone refused the golden path (#398).
-		const told = { ...stamp, told: { at: 2_500 } };
-		expect(signStale(card({ updatedAt: 2_500 }), told)).toBe(false);
-		expect(signStale(card({ updatedAt: 2_501 }), told)).toBe(true);
 	});
 });
 

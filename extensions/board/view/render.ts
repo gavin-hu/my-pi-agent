@@ -40,6 +40,7 @@ export function renderJs(rules: {
 	tabTitle: string;
 	matches: string;
 	reason: string;
+	currentReview: string;
 	age: string;
 	lanes: string;
 	skipped: string;
@@ -53,6 +54,7 @@ export function renderJs(rules: {
 		.replace("__SKIPPED__", rules.skipped)
 		.replace("__TAB_TITLE__", rules.tabTitle)
 		.replace("__MATCHES__", rules.matches)
+		.replace("__CURRENT_REVIEW__", rules.currentReview)
 		.replace("__REASON__", rules.reason)
 		.replace("__LANE_COUNT__", rules.lanes)
 		.replace("__DECISION_RANK__", rules.decisions)
@@ -371,6 +373,9 @@ __RUNTIME__
 
   /** Whether the filter keeps a card: the module's one predicate, spliced in as source. */
   var matches = __MATCHES__;
+
+  /** The spot-check rule reasonFor asks below, and the bodies it calls: lib/board/lead.ts's own. */
+  __CURRENT_REVIEW__
 
   /** Why a card sits where it does: one body, spliced in from lib/board/reason.ts. */
   var reasonFor = __REASON__;
