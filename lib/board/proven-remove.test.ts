@@ -7,9 +7,10 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
+import { textOf } from "../../test/helpers/scan.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { removeIfProven } from "./proven-remove.ts";
 
@@ -27,11 +28,6 @@ function scratch(text = "stale"): { dir: string; path: string } {
 /** What is left beside the target: the moved copies a call did not clean up. */
 function debris(dir: string, name: string): string[] {
 	return readdirSync(dir).filter((entry) => entry !== name);
-}
-
-/** Whether the text at `path` is read back as written. */
-function textOf(path: string): string {
-	return readFileSync(path, "utf-8");
 }
 
 describe("removeIfProven", () => {

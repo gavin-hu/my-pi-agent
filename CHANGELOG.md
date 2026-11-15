@@ -60,6 +60,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the write lock removes only a file it proved. A takeover's stat and its removal are two
+  instants, so two sessions recovering one abandoned lock could both remove and both create — the
+  second removal took the first taker's fresh lock — and both writers then held the board; a slow
+  release had the same shape against a takeover. Both removals now move the file aside and ask
+  again about the copy that was really there (the age rule, the token), putting a fresh rival's
+  lock back, and `lib/board/proven-remove.ts` is that window, shared with the page note's clear.
+
 - `board`: an owner that carries a session id is resolved by that id alone, so a label a later
   session takes cannot answer for its card. A card whose owner the bus has pruned now reads
   `absent` to `reclaim` and is re-seated by the turn-start sweep when this session wears its name,

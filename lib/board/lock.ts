@@ -35,7 +35,15 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
-import { removeIfProven } from "./proven-remove.ts";
+
+/**
+ * The proven removal, loaded with the first one that happens.
+ *
+ * A lock is taken and given back inside a write, and nothing a reveal needs; keeping it off the
+ * registration path is what `test/dependencies.test.ts` holds every entry to, and the module cache
+ * makes the ask after the first one free.
+ */
+const provenance = () => import("./proven-remove.ts");
 
 /** How long one acquisition waits for a live holder before answering nothing. */
 export const LOCK_WAIT_MS = 100;
@@ -139,6 +147,7 @@ export async function lockBoard(dir: string, options: LockOptions = {}): Promise
 			// winner had just taken, and neither learned that the other was in. So the removal
 			// proves the age rule again on the copy it moved aside — a fresh lock goes back, and
 			// the create that follows is what decides between this call and that rival.
+			const { removeIfProven } = await provenance();
 			await removeIfProven(path, (moved) => abandoned(moved, now, staleMs));
 			continue;
 		}
@@ -180,6 +189,7 @@ async function clearLock(path: string, token: string): Promise<void> {
 	// A read and an unlink are two instants, and a takeover that landed between them would lose
 	// the lock it had just written — leaving two writers holding it. So the file is moved aside
 	// and the token asked again on the copy that was really there, which is one instant.
+	const { removeIfProven } = await provenance();
 	await removeIfProven(path, async (moved) => tokenOf(await readFile(moved, "utf-8").catch(() => "")) === token);
 }
 
