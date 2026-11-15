@@ -13,17 +13,14 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { answerOn } from "../../lib/bus-request.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { type SendResult, SESSION_SEND_REQUEST, type SessionSendRequest } from "../../lib/session-tool.ts";
 import { sendOutcome } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 
 export function registerSendRequests(pi: ExtensionAPI, bus: SessionBus): void {
-	pi.events.on(SESSION_SEND_REQUEST, (data) => {
-		const request = data as SessionSendRequest | undefined;
-		if (!request || typeof request.respond !== "function") return;
-		request.respond(answer(request));
-	});
+	answerOn(pi, SESSION_SEND_REQUEST, answer);
 
 	async function answer(request: SessionSendRequest): Promise<SendResult> {
 		try {

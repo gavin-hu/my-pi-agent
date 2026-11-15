@@ -89,6 +89,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`, `plan`: the listener half of the `pi.events` handshake has one owner in
+  `lib/bus-request.ts`. Four listeners and plan's two now call `answerOn` instead of repeating the
+  same guard, and one thing changes for a caller: a listener that throws before it answers used to
+  leave the asker waiting out the ten-second bound for an answer nobody was still producing, and now
+  arrives as that caller's own failure sentence.
+
 - `session-bus`: two sessions that claim overlapping paths at the same moment — `src` and `src/api` —
   no longer both keep them. Each batch re-reads once it has published and settles: the claim written
   first keeps, the smaller session id decides a tie inside one tick, and the loser gives its whole

@@ -16,6 +16,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { answerOn } from "../../lib/bus-request.ts";
 import { messageOf } from "../../lib/errors.ts";
 import {
 	type ClaimPathsResult,
@@ -28,16 +29,8 @@ import {
 import type { SessionBus } from "./runtime.ts";
 
 export function registerClaimRequests(pi: ExtensionAPI, bus: SessionBus): void {
-	pi.events.on(SESSION_CLAIM_REQUEST, (data) => {
-		const request = data as SessionClaimRequest | undefined;
-		if (!request || typeof request.respond !== "function") return;
-		request.respond(claimed(request));
-	});
-	pi.events.on(SESSION_RELEASE_REQUEST, (data) => {
-		const request = data as SessionReleaseRequest | undefined;
-		if (!request || typeof request.respond !== "function") return;
-		request.respond(released(request));
-	});
+	answerOn(pi, SESSION_CLAIM_REQUEST, claimed);
+	answerOn(pi, SESSION_RELEASE_REQUEST, released);
 
 	async function claimed(request: SessionClaimRequest): Promise<ClaimPathsResult> {
 		try {
