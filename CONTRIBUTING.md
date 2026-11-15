@@ -24,7 +24,7 @@ bun run check           # the one command that must pass
 | Command | What it does |
 |---|---|
 | `bun run format` | Rewrite formatting with Biome |
-| `bun run check:types` | `tsc --noEmit` |
+| `bun run check:types` | `tsc --noEmit`, incremental into `.pi/cache/` |
 | `bun run check:tests` | Unit tests |
 | `bun run check:tests --slow` | The gated git suites: `worktree`, `rewind`, and `session-bus` |
 
