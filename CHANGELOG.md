@@ -89,6 +89,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: two sessions that claim overlapping paths at the same moment — `src` and `src/api` —
+  no longer both keep them. Each batch re-reads once it has published and settles: the claim written
+  first keeps, the smaller session id decides a tie inside one tick, and the loser gives its whole
+  batch back and is told who holds the path. The pre-check cannot decide this, because overlapping
+  paths are two different files and only an identical name is exclusive by create.
+
 - `session-bus`: a record that could not be published is no longer lost. The write renamed its temp
   over the target and, on a refusal, deleted the target before trying again — so a second refusal
   left no record, no reason and a stray temp. It now retries without touching what is there, removes
