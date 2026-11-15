@@ -132,23 +132,18 @@ describe("--changed", () => {
 		["extensions/board/page.ts", ["extensions/board/page.test.ts"]],
 	]);
 
-	test("a changed module brings the suites that import it, the package-level tests always, and its own area", () => {
+	test("a changed module brings the suites that import it and the package-level tests, and takes no region", () => {
 		const chosen = selectChanged(fake, ["lib/board/store.ts"], index);
-		const area = LIB_SUITES.filter((suite) => suite.startsWith("board/")).map((suite) => `lib/${suite}.test.ts`);
 		expect(chosen.tests).toEqual(
-			["extensions/board/record.test.ts", ...area, "test/a.test.ts", "test/b.test.ts"].sort(),
+			["extensions/board/record.test.ts", "lib/board/store.test.ts", "test/a.test.ts", "test/b.test.ts"].sort(),
 		);
-		expect(chosen.reasons).toEqual([
-			"package-level > 2 files, always",
-			"reached by lib/board/store.ts > 2 suites",
-			`region lib:board > ${libArea("board")} suites`,
-		]);
+		expect(chosen.reasons).toEqual(["package-level > 2 files, always", "reached by lib/board/store.ts > 2 suites"]);
 	});
 
 	test("a file nothing imports yet brings its own region, which is what a new module is", () => {
 		const chosen = selectChanged(fake, ["extensions/board/added.ts"], index);
 		expect(chosen.tests.filter((file) => file.startsWith("extensions/board/")).length).toBe(extSuites("board"));
-		expect(chosen.reasons).toContain(`region ext:board > ${extSuites("board")} suites`);
+		expect(chosen.reasons).toContain(`region ext:board > ${extSuites("board")} suites (nothing reaches it)`);
 	});
 
 	test("an unclaimed script path brings the script suites, which is what a change to frames.json needs", () => {
@@ -205,7 +200,7 @@ describe("a change under assets/", () => {
 		const owners = ASSET_SUITES.cards ?? [];
 		expect(owners.length).toBeGreaterThan(0);
 		expect(chosen.tests).toContain("scripts/cards.test.ts");
-		expect(chosen.reasons).toContain(`region asset:cards > ${owners.length} suites`);
+		expect(chosen.reasons).toContain(`region asset:cards > ${owners.length} suites (nothing reaches it)`);
 		expect(chosen.tests.length).toBe(tree(repo).packageTests.length + owners.length);
 	});
 
@@ -234,6 +229,16 @@ describe("the reach index over the real tree", () => {
 		expect(escaped, "a dependency is not a file a suite can cover").toEqual([]);
 	});
 
+	test("a leaf the graph answers takes no region, so a change inside a big area stays small", () => {
+		const verify = "lib/board/verify.ts";
+		const importers = reached.get(verify) ?? [];
+		expect(importers.length).toBeGreaterThan(0);
+		const chosen = selectChanged(tree(repo), [verify], reached);
+		expect(chosen.reasons.some((line) => line.startsWith("region lib:board"))).toBe(false);
+		expect(chosen.tests.filter((file) => !tree(repo).packageTests.includes(file)).sort()).toEqual(
+			[...importers].sort(),
+		);
+	});
 	test("a leaf change stays inside its extension instead of running the suite", () => {
 		const chosen = selectChanged(tree(repo), ["extensions/watch/format.ts"], reached);
 		const outside = chosen.tests.filter(

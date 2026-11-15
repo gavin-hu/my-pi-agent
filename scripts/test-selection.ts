@@ -240,11 +240,12 @@ function unclaimedAsset(path: string): boolean {
 
 /**
  * The tests a change can reach. The package-level tests always run, because
- * they are the sweeps that read the tree rather than import a module; a shared
- * path widens the run to everything, and so does an asset no suite declares;
- * otherwise a changed file contributes the suites that import it and the suites
- * named after its region, and a path under `scripts/` that names no suite
- * contributes the script suites.
+ * they are the sweeps that read the tree rather than import a module; a selection
+ * source widens the run to everything, and so does an asset no suite declares;
+ * otherwise a changed file contributes the suites that import it, and its region
+ * only where nothing does — a region is the candidate set for a path the graph
+ * cannot see, so it is a fallback and never an addition. A path under `scripts/`
+ * that names no suite contributes the script suites.
  */
 export function selectChanged(scope: Tree, changed: readonly string[], index: Map<string, string[]>): Selection {
 	const tests = new Set(scope.packageTests);
@@ -270,11 +271,16 @@ export function selectChanged(scope: Tree, changed: readonly string[], index: Ma
 	for (const path of [...changed].sort()) {
 		const reached = index.get(path) ?? [];
 		for (const suite of reached) tests.add(suite);
-		if (reached.length > 0) reasons.push(`reached by ${path} > ${reached.length} suites`);
+		if (reached.length > 0) {
+			reasons.push(`reached by ${path} > ${reached.length} suites`);
+			// The region is what answers a path the graph cannot see, so a path it does answer gets
+			// no region: a leaf inside a big area is the one suite that imports it, not the area.
+			continue;
+		}
 		const region = regionOf(path);
 		const owned = region === undefined ? [] : suitesOfRegion(region);
 		for (const suite of owned) tests.add(suite);
-		if (owned.length > 0) reasons.push(`region ${region} > ${owned.length} suites`);
+		if (owned.length > 0) reasons.push(`region ${region} > ${owned.length} suites (nothing reaches it)`);
 	}
 	if (tests.size === scope.packageTests.length) reasons.push("no suite reaches these paths > package-level tests only");
 	return selection(tests, reasons);
