@@ -161,6 +161,12 @@ describe("assign", () => {
 		);
 		expect(resultText(result)).toContain("billing-core has the message; read the card with `board` action `list`");
 		expect(resultText(result)).not.toContain("The card is unchanged.");
+		// The peer's message carries the recovery the failure needs: the write threw, so the card it
+		// reads is unowned, and `contract` would refuse it — the claim line is the step that succeeds.
+		// Both branches are named, before the paths, because that block is what a clipped body loses.
+		const sentText = broken.sent[0]?.text ?? "";
+		expect(sentText).toContain("If the board shows another owner");
+		expect(sentText).toContain('if it shows nobody, claim it with board action "claim"');
 		// The card the error carries is the board's, not the message's idea of it: the write threw,
 		// so the pool card is what a retry starts from, and the peer's name is what says who heard.
 		expect(result.details.card).toMatchObject({ lane: "backlog", id });
