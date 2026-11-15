@@ -35,6 +35,48 @@ an `exit` handler, so a release is best effort and the *next* run replaces a dea
 silently. Liveness decides, not the file's presence — and a record older than five minutes is
 stale whatever its pid says, so a reused pid cannot inherit the machine.
 
+### What a change costs
+
+Measured on an 8-core laptop, one file at a time, after a one-line edit — `bun test
+--changed=<base>` for the suite, `bun run check` for the gate:
+
+| The change | Files | Time |
+|---|---|---|
+| Nothing, already green | 0 | 0.1 s |
+| A leaf module, `extensions/watch/format.ts` | 9 | 0.8 s |
+| A mid-size leaf, `lib/board/verify.ts` | 31 | 4.2 s |
+| A document or an asset | 0 | 0.1 s |
+| A hub, `lib/format.ts` | 309 | 77.3 s |
+
+The cost is **fan-out × the cost of one suite**, and the second row against the last is the whole
+story: the same edit is 0.8 s or 77 s depending on how many suites import the file. `lib/format.ts`
+is reached by 298 of the 407 suites, 265 of them through `sanitizeLine` alone — and that is the
+design rather than a misplacement, because every surface sanitizes at its own text boundary: the
+heaviest call sites are each surface's own formatter (`session-bus/format.ts` 30,
+`subagent/render.ts` 19, `bytefly/doctor/format.ts` 15), and 281 of those suites reach the
+sanitizer only through the code under test. So a hub change is expensive by nature, and the two things that look
+like fixes are not: splitting the file by concept leaves the worst module at 282 of 407 (measured),
+and a content cache cannot help when every importer's input genuinely changed. The one outlet is
+parallelism, for a change that must touch a hub: `bun test --parallel=4` turns 77 s into about 30 s
+at four cores. That is worth it there and nowhere else — a serial run is the default because it
+leaves the machine to the other sessions on it.
+
+One row is a habit rather than a number. A document or an asset reaches no suite, because nothing
+imports one, so a narrow run says nothing about it: add `bun test test/` (5.6 s, 30 files) for the
+sweeps that read the tree.
+
+### A red that will not reproduce
+
+One red in the real-repository suites is neither proof nor nothing. Rerun that file on its own,
+keep its output, and say in the handover that it did not reproduce — which beats both a shrug and
+a second full run. Never pipe a gate through `tail` while doing it: a truncated run cannot name
+the case it lost, and a red nobody can name is a red nobody can file.
+
+The lock above is the first thing to check. A line saying it waited means another run was on this
+machine, which is the ordinary cause of a starved spawn: the same suite, failing alone at the
+wrong moment and green on the re-run. Nothing about the first red is a regression until it comes
+back, and then it is a card.
+
 One case budget reaches both invocations. `helpers/budget.ts` states
 `CASE_BUDGET_MS`; `helpers/preload.ts` hands it to every case with
 `setDefaultTimeout`, and the `check` command passes it as `--timeout`, which is the
