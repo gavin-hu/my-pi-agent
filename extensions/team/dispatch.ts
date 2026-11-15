@@ -59,20 +59,22 @@ export interface Dispatch {
  * before the paths because the paths are the only line that can run past the bus's limit,
  * and a clipped message must not lose the step it was sent to give. It does **not** ask
  * the peer to claim the card — `assign` has already recorded the owner, and a claim by the
- * holder is a no-op. The claim is only for the failure path where the send landed and the
- * assignment did not.
+ * holder is a no-op. The claim is the failure path's own step.
  *
  * That failure path is the hedge closing the instruction block, and it is there rather than in
- * a second message because the message is sent before the write: a card another session took in
- * between is not the peer's, and the only correction that cannot itself be lost is one the peer
- * already holds. It reads as a condition, so a handoff that landed is unchanged by it.
+ * a second message because the message is sent before the write: the card can end up somebody
+ * else's, or nobody's, and the only correction that cannot itself be lost is one the peer
+ * already holds. So the line names both outcomes — leave a rival's card alone, claim a card
+ * nobody holds — because a peer told only about the rival would write its contract against a
+ * card the store refuses it. A handoff that landed satisfies neither condition and is
+ * unchanged by it.
  */
 export function handoffText(card: Card, to: string, lead: Lead, note?: string): string {
 	const lines = [
 		`Handoff: ${cardRef(card.id)} "${card.title}" is yours, ${to}.`,
 		`It is already assigned to you — write its contract with board action "contract" if it has none, then note each phase.`,
 		signatureLine(lead),
-		`If the board shows another owner, the write lost a race after this message: leave it alone and ${askLead(lead)}.`,
+		`If the board shows another owner, the write lost a race: leave it alone and ${askLead(lead)}; if it shows nobody, claim it with board action "claim" before its contract.`,
 		card.paths.length > 0 ? `Paths: ${card.paths.join(", ")}` : undefined,
 		card.planPath === undefined ? undefined : `Plan: ${card.planPath}`,
 		note === undefined ? undefined : `Note: ${note}`,

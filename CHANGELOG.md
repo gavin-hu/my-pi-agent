@@ -163,6 +163,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `team`: a handoff whose owner write lost the race names both outcomes it can meet — leave a rival's
+  card alone, or claim a card the write left nobody's — instead of only the rival's. The second branch
+  is the one a peer followed into a refused `contract`: the marker is the owner, the message is sent
+  before it is written, and the card it read said "already assigned to you".
+
 - `board`: a waiting row resolves its recipient by session id, so an inbox that outlived its record
   no longer wears the liveness of whoever later took that name. `WaitingMail.to` carries a
   `WaitingRecipient` (`id` and `label`) folded by id, and the Team tab hands the whole recipient to

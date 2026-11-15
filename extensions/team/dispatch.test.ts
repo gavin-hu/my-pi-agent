@@ -50,9 +50,9 @@ describe("handoffText", () => {
 		expect(text).toContain('Handoff: #4 "Billing webhook accepts orders" is yours, billing-core.');
 		expect(text).toContain("Paths: src/billing");
 		expect(text).toContain("already assigned to you");
-		// `assign` records the owner, so asking the peer to claim would send it into a
-		// no-op at best and a refusal at worst; the claim belongs to the failure path.
-		expect(text).not.toContain('action "claim"');
+		// `assign` records the owner, so a claim is not the handoff's first step; it is the failure
+		// hedge's other branch, for a write that landed no owner at all.
+		expect(text).toContain('if it shows nobody, claim it with board action "claim"');
 	});
 
 	test("names the two moves the lead has to sign, and who to tell", () => {
@@ -81,12 +81,14 @@ describe("handoffText", () => {
 
 	test("says what to do if the assignment lost the race after the message", () => {
 		// The message is sent before the owner is recorded, so the peer can be reading a card
-		// another session took in between. The clause is the only correction that cannot be
-		// lost, because the peer already holds it, and it names the lead's channel rather than a
-		// claim because the card may not be the peer's to claim.
+		// another session took, or one the write left nobody's. The clause is the only correction
+		// that cannot be lost, because the peer already holds it, so it names both outcomes and
+		// both steps: leave a rival's card alone, claim an unowned one.
 		const text = handoffText(card(), "billing-core", LEAD);
 		expect(text).toContain("If the board shows another owner");
 		expect(text).toContain(`leave it alone and ${askLead(LEAD)}`);
+		expect(text).toContain('if it shows nobody, claim it with board action "claim"');
+		expect(text.indexOf("claim it with")).toBeLessThan(text.indexOf("Paths:"));
 	});
 
 	test("stays inside the send limit, however many paths a card carries", () => {
@@ -97,6 +99,7 @@ describe("handoffText", () => {
 		// line long enough to push the gates past the limit, so both sentences come before them.
 		expect(text).toContain(`ask ${LEAD} with \`session send\` when each is ready`);
 		expect(text).toContain(`leave it alone and ${askLead(LEAD)}`);
+		expect(text).toContain('claim it with board action "claim"');
 	});
 });
 

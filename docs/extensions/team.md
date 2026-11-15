@@ -54,7 +54,9 @@ lead's round now shows it as held.
 **Actions.** Three, and every one of them reaches another session. `assign` (card, `to`, `note?`)
 joins, then sends a handoff, then records the owner — read from the team again *after* the message,
 so the card names the session that has it and a stopped record cannot become one — and whether the
-bus took it: `told` means written, not read, because mail is pruned after a day; `offer` (card,
+bus took it: `told` means written, not read, because mail is pruned after a day; a handoff whose
+write lost the race names both outcomes in its own body — leave a rival's card alone, or claim one
+the write left nobody's; `offer` (card,
 `note?`) broadcasts the card and records only the moment it was offered, so the first peer to claim
 it wins; `ask` (`to`, `question?`) sends one peer a question and writes nothing else: its own ask
 id, and the answering session by id, so `re: <id>` matches it.
