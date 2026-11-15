@@ -15,6 +15,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: `AGENTS.md` names `bun run check --serial` and the rule that goes with it — a parallel red
+  is no regression until `--serial` reproduces it. `test/drift.test.ts` gains a case that fails when
+  a file the doc cites has been renamed, naming the line. `bench:render` moves from the Commands
+  fence into Code quality, where the sentence about what it measures already is; three restatements
+  of the guides it links paid for the words, so the doc's ceiling falls to 1276.
+
 - `team`: `/team join` says `listening` where it said `listening for handoffs` — the word `/board`
   already used for the same watch, from one phrase in `lib/board/round-text.ts`. The three
   action-shaped tools also stopped carrying their own action normalizer and their own actor settle:
