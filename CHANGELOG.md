@@ -15,6 +15,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: `AGENTS.md` names `bun run check --serial` and the rule that goes with it — a parallel red
+  is no regression until `--serial` reproduces it. `test/drift.test.ts` gains a case that fails when
+  a file the doc cites has been renamed, naming the line. `bench:render` moves from the Commands
+  fence into Code quality, where the sentence about what it measures already is; three restatements
+  of the guides it links paid for the words, so the doc's ceiling falls to 1276.
+
 - `team`: `/team join` says `listening` where it said `listening for handoffs` — the word `/board`
   already used for the same watch, from one phrase in `lib/board/round-text.ts`. The three
   action-shaped tools also stopped carrying their own action normalizer and their own actor settle:
@@ -90,10 +96,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `docs`: `AGENTS.md` gives each rule one owner — its gate, a pointer into `CONTRIBUTING.md`, or the
   trap with no other home — and drops what restated the contributor guide: branch flow, checks, commit
   format, conventions, page template, tool fields and release are now one sentence and an anchor each,
-  1288 words down to 979 with `test/drift.test.ts`'s ceiling lowered to match. A skill's checklist names
-  its page at `docs/skills/<name>.md`, which the old one omitted while `test/skill-docs.test.ts`
-  required it, and the stale `CONTRIBUTING.md#compatibility` pointer becomes the `compat` job's
-  workflow file.
+  1276 words down to 1003, with `test/drift.test.ts`'s word ceiling and its cited-path floor lowered to
+  match. A skill's checklist names its page at `docs/skills/<name>.md`, which the old one omitted
+  while `test/skill-docs.test.ts` required it, and the stale `CONTRIBUTING.md#compatibility` pointer
+  becomes the `compat` job's workflow file.
 
 ### Fixed
 

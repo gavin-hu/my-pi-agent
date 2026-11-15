@@ -16,11 +16,13 @@ checks, commit format, conventions, page template, tool fields, release — and
 bun install              # once per worktree
 bun run check --changed  # this change's tests; prints its selection
 bun run check            # before landing: format, types, every test
+bun run check --serial   # the shape Linux and macOS CI run
 ```
 
 [`#checks`](./CONTRIBUTING.md#checks) and [`test/README.md`](./test/README.md) cover
 the rest.
 
+- A parallel red is no regression until `--serial` reproduces it.
 - The gated git suites (`rewind`, `worktree`, `session-bus`'s real-repository
   tests) skip unless `CI` or `PI_SLOW_TESTS=1` is set: touching one means
   `bun run check:tests --slow`.
@@ -46,8 +48,8 @@ unless the user asks; a `--no-ff` merge, no rebase, no branch head pushed to `ma
 Follow [`CONTRIBUTING.md#release`](./CONTRIBUTING.md#release): it is normative, and
 landing a change is not a release.
 
-- Publish only through `publish.yml`, and only after the user approves that
-  dispatch — approval for an earlier release does not carry over.
+- Publish only through `publish.yml`, only after the user approves that dispatch —
+  an earlier approval expires — and wait on the environment review.
 - The `[Unreleased]` bullet lands in the same commit as its change.
 
 ## Invariants

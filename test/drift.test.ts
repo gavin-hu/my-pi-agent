@@ -1,13 +1,15 @@
 /**
- * Drift guard for the two things the shared-helper gate cannot see.
+ * Drift guard for the slow failures the shared-helper gate cannot see.
  *
- * `test/shared-helpers.test.ts` answers "is this helper written twice". These three
+ * `test/shared-helpers.test.ts` answers "is this helper written twice". These four
  * answer the slower failures around it:
  *
  * - a shared module nobody can find, because the `lib/README.md` index and the
  *   modules on disk drifted apart, so the next session writes a fourth copy;
  * - `AGENTS.md` growing back into a second manual, which is how the rules stop
  *   being read at all;
+ * - a rule in `AGENTS.md` citing a test that was renamed, which turns the rule
+ *   back into prose with nothing red;
  * - the entry README's catalog growing back into a manual too, one long table cell
  *   at a time, which is how a reader stops scanning it and the page starts
  *   restating the extension pages beside it.
@@ -16,7 +18,7 @@
  * budgets only ever fall. A duplicate body is not repeated here; that gate owns it.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { walkFiles } from "./helpers/files.ts";
@@ -131,10 +133,36 @@ describe("the agent contract", () => {
 	 * in the guides it links. This is the ceiling that keeps a new paragraph from
 	 * turning it back into a manual — lower it when the file shrinks.
 	 */
-	const CEILING = 979;
+	const CEILING = 1003;
+
+	/**
+	 * A path the doc cites: a code span with a `/` in it and a file extension. That is
+	 * narrower than "every filename it names" — a bare `package.json` is a filename
+	 * rather than a citation, and `docs/extensions/<name>.md` is a shape, so both are
+	 * left out; a span carrying an anchor is a link, which `test/doc-links.test.ts`
+	 * resolves. 23 spans cite a file today; the floor is a ratchet that falls with it.
+	 */
+	const CITED = /`([^`\n]*\/[^`\n]*\.(?:ts|json|md))`/g;
+	const CITED_FLOOR = 23;
 
 	test("AGENTS.md stays inside its word budget", () => {
 		const words = readFileSync(join(repo, "AGENTS.md"), "utf-8").split(/\s+/).filter(Boolean).length;
 		expect(words, "move the reasoning into a guide and link it").toBeLessThanOrEqual(CEILING);
+	});
+
+	test("every file AGENTS.md cites is still a file", () => {
+		const source = readFileSync(join(repo, "AGENTS.md"), "utf-8");
+		const missing: string[] = [];
+		let cited = 0;
+		for (const match of source.matchAll(CITED)) {
+			const path = match[1] ?? "";
+			if (/[<*#]/.test(path)) continue;
+			cited++;
+			if (existsSync(join(repo, path))) continue;
+			const line = source.slice(0, match.index).split("\n").length;
+			missing.push(`AGENTS.md:${line}: ${path}`);
+		}
+		expect(cited, "the scan cited nothing, so it holds nothing — fix the pattern").toBeGreaterThanOrEqual(CITED_FLOOR);
+		expect(missing, "cite a file that exists, or say the shape instead").toEqual([]);
 	});
 });
