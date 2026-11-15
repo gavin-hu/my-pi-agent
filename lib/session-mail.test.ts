@@ -73,8 +73,30 @@ describe("the waiting queue", () => {
 		land(dir, "hash-c", { id: "m-all", kind: "event", to: "s-4", toLabel: "team-lead" }, NOW);
 		const page = await waitingMail(dir);
 		expect(page.messages).toHaveLength(1);
-		expect(page.messages[0]?.to).toEqual(["billing-core", "ops-helper", "team-lead"]);
+		expect(page.messages[0]?.to).toEqual([
+			{ id: "s-2", label: "billing-core" },
+			{ id: "s-3", label: "ops-helper" },
+			{ id: "s-4", label: "team-lead" },
+		]);
 		expect(page.messages[0]?.kind).toBe("event");
+	});
+
+	test("folds a fan-out by recipient id, so a shared name stays two and one session stays one", async () => {
+		const dir = busDir();
+		// Two different sessions wear one label — the case a name cannot answer for.
+		land(dir, "hash-a", { id: "m-shared", kind: "event", to: "s-2", toLabel: "billing-core" }, NOW);
+		land(dir, "hash-b", { id: "m-shared", kind: "event", to: "s-3", toLabel: "billing-core" }, NOW);
+		// One session's message reached two inboxes, which is one recipient twice over.
+		land(dir, "hash-a", { id: "m-twice", kind: "event", to: "s-5", toLabel: "ops-helper" }, NOW + 1_000);
+		land(dir, "hash-b", { id: "m-twice", kind: "event", to: "s-5", toLabel: "ops-helper" }, NOW + 1_000);
+		const page = await waitingMail(dir);
+		expect(page.messages.map((row) => row.to)).toEqual([
+			[
+				{ id: "s-2", label: "billing-core" },
+				{ id: "s-3", label: "billing-core" },
+			],
+			[{ id: "s-5", label: "ops-helper" }],
+		]);
 	});
 
 	test("caps the page at the queue's own limit, oldest first", async () => {

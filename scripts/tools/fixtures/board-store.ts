@@ -24,10 +24,10 @@ import { type BoardStore, createStore } from "../../../lib/board/store.ts";
 import { resolvePlanArg } from "../../../lib/plans/paths.ts";
 import { fixturePlanDir, fixturePlanPath } from "./board.ts";
 
-/** The two sessions the fixture's cards belong to. */
-export const LEAD: Actor = { id: "s-lead", label: "billing-lead" };
-export const CORE: Actor = { id: "s-core", label: "billing-core" };
-export const OTHER: Actor = { id: "s-other", label: "billing-other" };
+/** The two sessions the fixture's cards belong to, each with the id its record and its mail share. */
+export const LEAD: Actor & { id: string } = { id: "s-lead", label: "billing-lead" };
+export const CORE: Actor & { id: string } = { id: "s-core", label: "billing-core" };
+export const OTHER: Actor & { id: string } = { id: "s-other", label: "billing-other" };
 
 /** The cards the fixture publishes, in the order they are created. */
 export const FIXTURE_CARDS = [
@@ -317,7 +317,13 @@ export function fixtureWaiting(now: number): WaitingMail[] {
 			from: "s-helper",
 			fromLabel: "ops-helper",
 			kind: "event",
-			to: [LEAD.label, "ops-relay", OTHER.label],
+			to: [
+				{ id: LEAD.id, label: LEAD.label },
+				// The id `fixtureRoster`'s own `ops-relay` row carries, so the captured row keeps
+				// wearing the gone state the picture was made to show.
+				{ id: "s-gone", label: "ops-relay" },
+				{ id: OTHER.id, label: OTHER.label },
+			],
 			text: "the gateway is back; the cards parked on it can move",
 			at: now - 12 * 60_000,
 		},
@@ -326,7 +332,7 @@ export function fixtureWaiting(now: number): WaitingMail[] {
 			from: "s-lead",
 			fromLabel: LEAD.label,
 			kind: "handoff",
-			to: ["billing-core"],
+			to: [{ id: CORE.id, label: CORE.label }],
 			text: "take the contract review on #4 while I am in the webhook drift card",
 			at: now - 4 * 60_000,
 		},
