@@ -574,6 +574,21 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			return messages;
 		},
 
+		/**
+		 * Show the mail without deleting it, and count it told.
+		 *
+		 * `inbox` is this read plus the delete, so the two differ in one fact only. A read is a
+		 * telling — the bodies reached the model — which is why the number a peer draws falls, and
+		 * why no notice repeats them; the files stay where `inbox` can still consume them.
+		 */
+		async read(limit) {
+			const me = await currentRecord();
+			if (!store) throw new Error("session bus is not started.");
+			const page = await store.peek(me.id, { limit: normalizeLimit(limit) });
+			mailWatch.markReported(page.mail.map((message) => message.id));
+			return page;
+		},
+
 		async claim(rawPaths) {
 			const me = await currentRecord();
 			return requireStore().claimAll(storedPaths(me, rawPaths), me.id, me.label, now());

@@ -33,7 +33,7 @@ export const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
 export type SessionMode = "tui" | "rpc" | "json" | "print" | "unknown";
-export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "join";
+export type SessionAction = "status" | "send" | "inbox" | "read" | "claim" | "release" | "join";
 /**
  * The mail's kinds, and the field they are written in, are `lib/session-mail.ts`'s — the one
  * reader and writer of a message file. Re-exported so this extension keeps importing its
@@ -41,7 +41,7 @@ export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | 
  */
 export type { MessageKind } from "../../lib/session-mail.ts";
 
-const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "claim", "release", "join"];
+const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "read", "claim", "release", "join"];
 
 /** The session mode as the record stores it. */
 export function sessionMode(mode: string | undefined): SessionMode {

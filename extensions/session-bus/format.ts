@@ -233,6 +233,18 @@ export function formatInbox(
 	return { text: lines.join("\n"), shown };
 }
 
+/**
+ * One read that consumes nothing: the bodies `inbox` would show, and the line that says so.
+ *
+ * The two calls differ in one fact, and the text has to carry it: a reader that took this for a
+ * consume would stop calling, and the mail it left behind would never be removed.
+ */
+export function formatRead(messages: readonly BusMessage[], waiting = 0, unreadable: readonly string[] = []): string {
+	const read = formatInbox(messages, waiting, unreadable);
+	if (read.shown === 0) return read.text;
+	return `${read.text}\nKept in the inbox — \`inbox\` consumes it.`;
+}
+
 /** Confirmation for a send. */
 export function formatSend(delivered: readonly string[], messageId: string): string {
 	if (delivered.length === 0) return "Delivered to 0 sessions.";

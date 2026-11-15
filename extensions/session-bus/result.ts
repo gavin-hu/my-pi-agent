@@ -54,7 +54,8 @@ export function resultSections(details: SessionDetails): TailResultInput<BusRow>
 			}
 			return sections.length > 0 ? { kind: "sections", sections } : undefined;
 		}
-		case "inbox": {
+		case "inbox":
+		case "read": {
 			const messages = details.messages ?? [];
 			const unreadable = details.unreadable ?? [];
 			const sections: TailSection<BusRow>[] = [];
@@ -181,18 +182,22 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 				? line
 				: `${line}${paint(theme, "faint", SEPARATORS.item)}${paint(theme, "warn", `${failed.length} not delivered`)}`;
 		}
-		case "inbox": {
+		case "inbox":
+		case "read": {
 			const messages = details.messages ?? [];
 			const unreadable = details.unreadable ?? [];
 			const cells: string[] = [];
 			if (messages.length > 0) {
 				const senders = [...new Set(messages.map((message) => sanitizeLine(message.fromLabel)))];
-				cells.push(paint(theme, "meta", `${count(messages.length, "message")}${sep}${senders.join(", ")}`));
+				// `read` leaves the mail where it was, so the one word that separates the two calls says so.
+				const kept = details.action === "read" ? " read" : "";
+				cells.push(paint(theme, "meta", `${count(messages.length, "message")}${kept}${sep}${senders.join(", ")}`));
 			}
 			// A refused file is not an empty inbox: it is the one fact the call leaves out,
 			// so the count is drawn here and the names are the expanded section's.
 			if (unreadable.length > 0) cells.push(paint(theme, "warn", count(unreadable.length, "unreadable file")));
-			return cells.length > 0 ? cells.join(paint(theme, "faint", sep)) : paint(theme, "meta", "Inbox empty");
+			if (cells.length > 0) return cells.join(paint(theme, "faint", sep));
+			return paint(theme, "meta", details.action === "read" ? "Nothing to read" : "Inbox empty");
 		}
 		case "claim": {
 			const conflicts = details.conflicts ?? [];

@@ -185,7 +185,7 @@ export interface BoardSnapshot {
 
 /** Structured result carried in the `session` tool's details. */
 export interface SessionDetails {
-	action: "status" | "send" | "inbox" | "claim" | "release" | "join";
+	action: "status" | "send" | "inbox" | "read" | "claim" | "release" | "join";
 	status?: SessionStatus;
 	delivered?: string[];
 	/** With send: the recipients no message file could be written for. */

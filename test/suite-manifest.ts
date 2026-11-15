@@ -217,6 +217,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/session-list",
 		"tools",
 		"inbox-read",
+		"unread",
 		"overlap",
 		"resolve",
 		"unaccounted",

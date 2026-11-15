@@ -63,6 +63,13 @@ export interface SessionBus {
 		paths?: unknown;
 	}): Promise<{ delivered: string[]; failed: DeliveryFailure[]; messageId: string }>;
 	inbox(limit?: number): Promise<BusMessage[]>;
+	/**
+	 * Show up to `limit` messages without deleting them, marking what it shows as told.
+	 *
+	 * The door for a burst a notice only previewed: the count falls because the mail reached the
+	 * model, and `inbox` stays the one call that removes a body.
+	 */
+	read(limit?: number): Promise<InboxPeek>;
 	claim(paths: unknown): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(paths: unknown): Promise<{ released: string[]; notOwned: string[] }>;
 	/**
