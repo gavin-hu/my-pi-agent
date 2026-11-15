@@ -22,7 +22,6 @@ import {
 	runPhases,
 	selectionFor,
 	summarize,
-	workersFor,
 } from "./check.ts";
 
 const repo = join(import.meta.dir, "..");
@@ -32,38 +31,16 @@ function result(name: string, code: number, output = "", live = false): PhaseRes
 	return { phase: { name, cmd: [name], live }, code, output };
 }
 
-describe("the worker count", () => {
-	test("uses the cores, floored at two and capped at the number the docs name", () => {
-		expect(workersFor(8)).toBe(4);
-		expect(workersFor(4)).toBe(4);
-		// A two-core runner still parallelizes rather than running one file at a time.
-		expect(workersFor(2)).toBe(2);
-		expect(workersFor(1)).toBe(2);
-	});
-
-	test("does not chase a larger machine, because a busy box already broke seven", () => {
-		expect(workersFor(32)).toBe(4);
-	});
-});
-
 describe("the phases", () => {
 	test("runs format, types and the tests, with the run's one case budget", () => {
-		const phases = phasesFor({ serial: false, workers: 4 });
+		const phases = phasesFor({});
 		expect(phases.map((phase) => phase.name)).toEqual(["format", "types", "test"]);
-		const test_ = phases[2] as Phase;
-		expect(test_.cmd).toContain("--parallel=4");
-		expect(test_.cmd).toContain(String(CASE_BUDGET_MS));
-	});
-
-	test("drops the worker flag on the serial path CI's Linux and macOS jobs run", () => {
-		const phases = phasesFor({ serial: true, workers: 7 });
-		const test_ = phases[2] as Phase;
-		expect(test_.cmd.some((arg) => arg.startsWith("--parallel="))).toBe(false);
-		expect(test_.cmd).toContain("--timeout");
+		// One file at a time — the gate's only shape — and the budget every case is held to.
+		expect((phases[2] as Phase).cmd).toEqual(["bun", "test", "--timeout", String(CASE_BUDGET_MS)]);
 	});
 
 	test("streams the long phase and captures the two that say nothing when they pass", () => {
-		const phases = phasesFor({ serial: false, workers: 7 });
+		const phases = phasesFor({});
 		expect(phases.map((phase) => phase.live)).toEqual([false, false, true]);
 	});
 });
@@ -71,7 +48,7 @@ describe("the phases", () => {
 describe("running them", () => {
 	test("starts every phase before any of them finishes", async () => {
 		const started: string[] = [];
-		const pending = runPhases(phasesFor({ serial: false, workers: 7 }), async (phase) => {
+		const pending = runPhases(phasesFor({}), async (phase) => {
 			started.push(phase.name);
 			return { code: 0, output: "" };
 		});
@@ -83,19 +60,14 @@ describe("running them", () => {
 
 describe("the summary", () => {
 	test("passes, and says what the gate cost", () => {
-		const summary = summarize([result("format", 0), result("types", 0), result("test", 0)], 24.44, 7, false);
+		const summary = summarize([result("format", 0), result("types", 0), result("test", 0)], 24.44);
 		expect(summary.code).toBe(0);
-		expect(summary.message).toBe("check: 3 phases green in 24.4s (test 7 workers)");
+		expect(summary.message).toBe("check: 3 phases green in 24.4s");
 		expect(summary.dump).toBe("");
 	});
 
 	test("fails the gate when one phase fails, naming it", () => {
-		const summary = summarize(
-			[result("format", 0), result("types", 2, "error TS2304"), result("test", 0)],
-			9,
-			7,
-			false,
-		);
+		const summary = summarize([result("format", 0), result("types", 2, "error TS2304"), result("test", 0)], 9);
 		expect(summary.code).toBe(1);
 		expect(summary.message).toBe("check: types failed in 9.0s");
 		// A captured phase's output is the reason it failed, so it is what a reader is shown.
@@ -103,7 +75,7 @@ describe("the summary", () => {
 	});
 
 	test("does not repeat a live phase's output, which already reached the terminal", () => {
-		const summary = summarize([result("format", 1, "格式"), result("test", 1, "", true)], 3, 7, true);
+		const summary = summarize([result("format", 1, "格式"), result("test", 1, "", true)], 3);
 		expect(summary.code).toBe(1);
 		expect(summary.message).toBe("check: format, test failed in 3.0s");
 		expect(summary.dump).toBe("格式");
@@ -115,14 +87,13 @@ describe("the scope a command line names", () => {
 		scope: "all",
 		names: [],
 		base: "main",
-		serial: false,
 		watch: false,
 		testsOnly: false,
 		dryRun: false,
 		noLock: false,
 	};
 
-	test("no argument is the whole gate, in parallel, against main", () => {
+	test("no argument is the whole gate, one file at a time, against main", () => {
 		expect(parseArgs([])).toEqual(all);
 	});
 
@@ -136,7 +107,6 @@ describe("the scope a command line names", () => {
 			[["--ext", "board", "wechat"], { scope: "ext", names: ["board", "wechat"] }],
 			[["--lib", "board"], { scope: "lib", names: ["board"] }],
 			[["--tests"], { testsOnly: true }],
-			[["--serial"], { serial: true }],
 			[["--watch"], { watch: true }],
 			[["--dry-run"], { dryRun: true }],
 			[["--no-lock"], { noLock: true }],
@@ -156,6 +126,8 @@ describe("the scope a command line names", () => {
 		expect(() => parseArgs(["--lib"])).toThrow("--lib needs a name");
 		expect(() => parseArgs(["board"])).toThrow("unexpected argument board; a name follows --ext or --lib");
 		expect(() => parseArgs(["--nope"])).toThrow("unknown option --nope");
+		// The gate has one shape, so the flag that used to pick between two is gone.
+		expect(() => parseArgs(["--serial"])).toThrow("unknown option --serial");
 	});
 
 	test("every flag the docs may name is one the parser takes", () => {
@@ -190,7 +162,7 @@ describe("the scope a command line names", () => {
 		expect(lines).toEqual([
 			"static > check:format, check:types, beside the tests",
 			"  package-level > 2 files, always",
-			"tests > 2 files (parallel)",
+			"tests > 2 files",
 		]);
 	});
 
@@ -204,34 +176,25 @@ describe("the scope a command line names", () => {
 
 describe("a scoped test phase", () => {
 	test("runs the files it was given, after the flags", () => {
-		const phases = phasesFor({ serial: false, workers: 3, tests: ["a.test.ts", "b.test.ts"] });
+		const phases = phasesFor({ tests: ["a.test.ts", "b.test.ts"] });
 		const test_ = phases[2] as Phase;
-		expect(test_.cmd).toEqual([
-			"bun",
-			"test",
-			"--parallel=3",
-			"--timeout",
-			String(CASE_BUDGET_MS),
-			"a.test.ts",
-			"b.test.ts",
-		]);
+		expect(test_.cmd).toEqual(["bun", "test", "--timeout", String(CASE_BUDGET_MS), "a.test.ts", "b.test.ts"]);
 	});
 
 	test("drops the static phases for the `check:tests` entry, and the test phase for `--static`", () => {
-		const noStatic = phasesFor({ serial: false, workers: 3, static: false, tests: ["a.test.ts"] });
+		const noStatic = phasesFor({ static: false, tests: ["a.test.ts"] });
 		expect(noStatic.map((phase) => phase.name)).toEqual(["test"]);
-		const noTests = phasesFor({ serial: false, workers: 3, tests: null });
+		const noTests = phasesFor({ tests: null });
 		expect(noTests.map((phase) => phase.name)).toEqual(["format", "types"]);
 	});
 
 	test("names the report it writes, after the flags and before the files", () => {
 		// A second artifact, not a different output: bun still prints the console report, and the
 		// file is what a red run's digest reads.
-		const phases = phasesFor({ serial: false, workers: 3, tests: ["a.test.ts"], report: ".pi/cache/r.xml" });
+		const phases = phasesFor({ tests: ["a.test.ts"], report: ".pi/cache/r.xml" });
 		expect((phases[2] as Phase).cmd).toEqual([
 			"bun",
 			"test",
-			"--parallel=3",
 			"--timeout",
 			String(CASE_BUDGET_MS),
 			"--reporter=junit",
@@ -241,18 +204,18 @@ describe("a scoped test phase", () => {
 	});
 
 	test("writes no report for a run that has no test phase, or none it should record", () => {
-		const staticOnly = phasesFor({ serial: false, workers: 3, tests: null, report: ".pi/cache/r.xml" });
+		const staticOnly = phasesFor({ tests: null, report: ".pi/cache/r.xml" });
 		expect(staticOnly.some((phase) => phase.cmd.includes("--reporter=junit"))).toBe(false);
 		// Watch rewrites the report on every pass, so the gate leaves it alone: the run it would
 		// describe is never the one a reader sees.
-		const watched = phasesFor({ serial: false, workers: 3, tests: ["a.test.ts"], watch: true, report: undefined });
+		const watched = phasesFor({ tests: ["a.test.ts"], watch: true, report: undefined });
 		expect(watched.some((phase) => phase.cmd.includes("--reporter=junit"))).toBe(false);
 	});
 
 	test("watch implies isolate, and the slow scope carries its gate", () => {
-		const watched = phasesFor({ serial: false, workers: 3, watch: true, static: false, tests: ["a.test.ts"] });
+		const watched = phasesFor({ watch: true, static: false, tests: ["a.test.ts"] });
 		expect((watched[0] as Phase).cmd).toEqual(["bun", "test", "--watch", "--isolate", "a.test.ts"]);
-		const slow = phasesFor({ serial: false, workers: 3, tests: ["s.test.ts"], env: { PI_SLOW_TESTS: "1" } });
+		const slow = phasesFor({ tests: ["s.test.ts"], env: { PI_SLOW_TESTS: "1" } });
 		expect((slow[2] as Phase).env).toEqual({ PI_SLOW_TESTS: "1" });
 	});
 });
@@ -274,7 +237,6 @@ describe("a selection that carries the gate", () => {
 				scope: "all",
 				names: [],
 				base: "main",
-				serial: false,
 				watch: false,
 				testsOnly: true,
 				dryRun: false,
@@ -293,13 +255,14 @@ describe("a selection that carries the gate", () => {
 			scope: "all" as const,
 			names: [],
 			base: "main",
-			serial: false,
 			watch: false,
 			testsOnly: true,
 			dryRun: false,
 			noLock: false,
 		};
-		expect(planLines(plan, selection).at(-1)).toBe("tests > 1 files (parallel)");
+		expect(planLines(plan, selection).at(-1)).toBe("tests > 1 files");
 		expect(planLines(plan, selection, 1).at(-1)).toContain("1 of them is a gated suite");
+		// Watch is the one shape left that the line still has to name.
+		expect(planLines({ ...plan, watch: true }, selection).at(-1)).toBe("tests > 1 files (--watch)");
 	});
 });

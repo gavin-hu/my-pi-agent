@@ -19,7 +19,6 @@ the site under [`docs/`](./docs/), which GitHub Pages builds.
 ```bash
 bun install             # once per worktree
 bun run check           # the one command that must pass
-bun run check --serial  # the shape Linux and macOS CI run
 ```
 
 | Command | What it does |
@@ -30,7 +29,7 @@ bun run check --serial  # the shape Linux and macOS CI run
 | `bun run check:tests --slow` | The gated git suites: `worktree`, `rewind`, and `session-bus` |
 
 A scope narrows the tests without running the whole suite — `--changed`, `--ext <name>`,
-`--lib <area>`, `--root`, `--static`, `--serial`;
+`--lib <area>`, `--root`, `--static`;
 [`test/README.md`](./test/README.md#running) covers each, and
 [`scripts/README.md`](./scripts/README.md) owns the surface itself.
 
