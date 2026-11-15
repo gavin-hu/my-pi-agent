@@ -26,6 +26,7 @@ import type { Actor } from "../../lib/board/rules.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
+import { ALARM_REASON, peerAlarm } from "../../lib/session-roster.ts";
 import { type SendResult, send } from "../../lib/session-tool.ts";
 import { type Recipient, recipientOf } from "./recipient.ts";
 
@@ -101,14 +102,14 @@ export async function announce(
 /**
  * The clause for a peer that will not read the message now: its record aged out, or its watch is off.
  *
- * Quiet outranks the watch: a heartbeat past the bus's window says nothing is known to be there, and
- * a watch on a record that may be dead is the weaker fact. Only a record that says its watch is off
- * earns the second clause — an absent fact is not "nobody will read it", the rule `lib/board/view.ts`
- * states for the page's chip.
+ * Which of the two it is, and which outranks which, is `lib/session-roster.ts`'s `peerAlarm`, and the
+ * words are `ALARM_REASON`'s — the round prints the same two sentences on its own lines, so a peer
+ * cannot be told it is asleep by one surface and quiet by the other.
  */
 function notAudible(recipient: Recipient): string {
-	if (recipient.state === "quiet") return " (quiet: nothing says it is still there)";
-	return recipient.listening === false ? " (not listening: it reads this at its next turn)" : "";
+	const alarm = peerAlarm(recipient);
+	if (alarm === undefined) return "";
+	return ` (${alarm === "quiet" ? "quiet" : "not listening"}: ${ALARM_REASON[alarm]})`;
 }
 
 /** One sign to settle: the message it owes, and the record that settles it. */

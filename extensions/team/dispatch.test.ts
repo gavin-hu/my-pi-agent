@@ -21,7 +21,6 @@ import {
 	quiet,
 	offerText,
 	ownerFor,
-	peerFor,
 	sessionDispatch,
 } from "./dispatch.ts";
 
@@ -209,36 +208,6 @@ describe("sessionDispatch", () => {
 	});
 });
 
-describe("peerFor", () => {
-	const peers = [
-		{ id: "s-core", label: "billing-core", listening: true },
-		{ id: "s-web", label: "billing-web" },
-	];
-
-	test("finds a peer by id exactly, then by label ignoring case", () => {
-		expect(peerFor(peers, "s-core")?.label).toBe("billing-core");
-		expect(peerFor(peers, "BILLING-WEB")?.id).toBe("s-web");
-		expect(peerFor(peers, " nobody ")).toBeUndefined();
-	});
-
-	test("answers nothing when the bus could not say, which is not an empty team", () => {
-		expect(peerFor(undefined, "billing-core")).toBeUndefined();
-	});
-
-	test("skips a record whose heartbeat stopped, so a label cannot name a session no message reaches", () => {
-		// The bus writes no file for a stopped record, so a label that matched it first would name a peer
-		// the handoff can never reach while a live session under that label watches an empty inbox.
-		const moved = [
-			{ id: "s-dead", label: "billing-core", state: "gone" as const },
-			{ id: "s-live", label: "billing-core", listening: true, state: "live" as const },
-		];
-		expect(peerFor(moved, "billing-core")?.id).toBe("s-live");
-		// An id keeps its meaning: the caller asked for that session, and the send is what refuses it.
-		expect(peerFor(moved, "s-dead")?.id).toBe("s-dead");
-		expect(peerFor([{ id: "s-dead", label: "billing-core", state: "gone" as const }], "billing-core")).toBeUndefined();
-	});
-});
-
 describe("notListening and quiet", () => {
 	const peers = [
 		{ id: "s-core", label: "billing-core", listening: true, state: "live" as const },
@@ -277,6 +246,28 @@ describe("actorFor", () => {
 	test("keeps the label when the bus could not say, which is not a peer with no id", () => {
 		expect(actorFor(undefined, " billing-core ")).toEqual({ label: "billing-core" });
 		expect(actorFor(peers, "nobody")).toEqual({ label: "nobody" });
+	});
+
+	test("keeps a named id's meaning, so a stopped session is reported rather than replaced", () => {
+		// The caller asked for that session; the send is what refuses it. Resolving to nothing here would
+		// record a label the session had already stopped answering to.
+		const stopped = [
+			{ id: "s-dead", label: "billing-core", state: "gone" as const },
+			{ id: "s-live", label: "billing-core", listening: true, state: "live" as const },
+		];
+		expect(actorFor(stopped, "s-dead")).toEqual({ id: "s-dead", label: "billing-core" });
+		// The same pair by label names the live session: a label is a role, and one live session holds it.
+		expect(actorFor(stopped, "billing-core")).toEqual({ id: "s-live", label: "billing-core" });
+	});
+
+	test("records the label alone when two live sessions share it", () => {
+		// The send refuses an ambiguous label in its own sentence, so nothing is delivered under it — and
+		// the card must not credit the message to whichever record the bus listed first.
+		const shared = [
+			{ id: "s-1", label: "billing-core", state: "live" as const },
+			{ id: "s-2", label: "Billing-Core", state: "live" as const },
+		];
+		expect(actorFor(shared, "billing-core")).toEqual({ label: "billing-core" });
 	});
 });
 

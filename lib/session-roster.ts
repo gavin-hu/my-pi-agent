@@ -16,6 +16,13 @@
  * A missing directory is an answer, not an error: it means no session has ever
  * joined this repository, and a caller renders that differently from an empty bus.
  *
+ * Two questions are asked of these records, and both are answered here because they are one
+ * rule over one file. `presenceOf` reports what an owner is — live, quiet, gone, or absent from
+ * a bus that has pruned it — which is what a card's lane depends on. `peerOf` addresses a name:
+ * which record a message goes to, and what that record says about reading it. "Which record does
+ * this name name" was answered three times before it lived here, once per caller, and the three
+ * answers disagreed about a stopped record and about a label two sessions share.
+ *
  * Pure I/O, no state: one read answers one caller, and nothing is cached — a
  * heartbeat is ten seconds old at most, and the caller polls on its own clock.
  */
@@ -136,6 +143,123 @@ export function rosterStateOf(
 	}
 	return "quiet";
 }
+
+/** One record as addressing reads it: the identity, the name, and the two facts a result prints. */
+export interface PeerRow {
+	/** What mail is addressed with, and what a card records as the holder. */
+	id: string;
+	/** The name a person, a result, and a card's owner all use. */
+	label: string;
+	/**
+	 * What its heartbeat and process say; absent when the caller cannot tell, which is not a death.
+	 *
+	 * `session-bus` answers it over its own records; `lib/session-tool.ts` reads the bus's own answer
+	 * out of the status payload, where it has already been judged.
+	 */
+	state?: RosterState;
+	/**
+	 * Whether its watch will report mail at its next turn; absent when the record does not say.
+	 *
+	 * The bus's field is `watching.armed`, and `listening` is the word a result prints: the one
+	 * bridge from the one to the other is {@link peerRowOf}, so a caller never flattens it itself.
+	 */
+	listening?: boolean;
+}
+
+/** One session record as addressing reads it: its liveness at `now`, and the watch it carries. */
+export function peerRowOf(session: RosterSession, now: number): PeerRow {
+	return {
+		id: session.id,
+		label: session.label,
+		state: rosterStateOf(session, now),
+		...(session.watching === undefined ? {} : { listening: session.watching.armed }),
+	};
+}
+
+/** A name to address: the id a card or a caller kept, and the label it is spelled as. */
+export interface PeerName {
+	/** The session id, when the caller has one; a name a person typed is both fields. */
+	id?: string;
+	/** The label the name is spelled as. */
+	label: string;
+}
+
+/**
+ * The record a name reaches, by the one rule both extensions address mail with.
+ *
+ * Three steps, because an id is an identity and a label is a role:
+ *
+ * 1. the record with this id, when it is live — a live session named by its id is that session;
+ * 2. the one live record whose label matches — exactly one, because two is the bus's ambiguity to
+ *    name in its own sentence, and a caller that guessed would address one session's mail under
+ *    another's name;
+ * 3. the record with this id whatever its state, so a session that has stopped can be reported as
+ *    stopped rather than as nobody. A caller that writes mail must read `state`: the bus writes no
+ *    file for a record it calls gone.
+ *
+ * Nothing answers for a label no record holds, and nothing for a roster that cannot be read — which
+ * is not "nobody is here". Each caller words its own fallback, because the fallbacks differ: a
+ * card's own word, or the name the person typed.
+ */
+export function peerOf(rows: readonly PeerRow[] | undefined, name: PeerName): PeerRow | undefined {
+	if (rows === undefined) return undefined;
+	// Only a record that is gone is out of the running: an absent state is "cannot tell", and a quiet
+	// one is still a session the bus writes a message file for.
+	const live = rows.filter((row) => row.state !== "gone");
+	const byId = name.id === undefined ? undefined : live.find((row) => row.id === name.id);
+	if (byId !== undefined) return byId;
+	const named = soleLabel(live, name.label);
+	if (named !== undefined) return named;
+	return name.id === undefined ? undefined : rows.find((row) => row.id === name.id);
+}
+
+/** The one live record whose label matches, or nothing when none or several do. */
+function soleLabel(live: readonly PeerRow[], label: string): PeerRow | undefined {
+	const matches = live.filter((row) => sameLabel(row.label, label));
+	return matches.length === 1 ? matches[0] : undefined;
+}
+
+/**
+ * A name a caller typed, which may be an id or a label and is not the caller's to decide.
+ *
+ * `team`'s verbs take one string from a person, and the bus tries it as an id and then as a label;
+ * so does {@link peerOf} when both fields are handed the same spelling.
+ */
+export function peerNamed(rows: readonly PeerRow[] | undefined, name: string): PeerRow | undefined {
+	const target = name.trim();
+	return peerOf(rows, { id: target, label: target });
+}
+
+/** The one fact that keeps a peer from reading its mail now. */
+export type PeerAlarm = "quiet" | "not-listening";
+
+/**
+ * What a peer's record says about reading mail now, or nothing when it says nothing is wrong.
+ *
+ * Two answers, decided in this order: a heartbeat past the bus's window says nothing is known to be
+ * there, and that outranks the watch the record still carries, because a watch on a record that may
+ * be dead is the weaker fact. An absent `listening` is not an accusation — a record written before
+ * the field existed is not a session ignoring its mail. A record that stopped answers nothing: both
+ * sentences promise the mail will be read later, and a process that is gone promises nothing, which
+ * is why a caller that writes mail refuses `gone` outright instead of wording it.
+ */
+export function peerAlarm(peer: Pick<PeerRow, "state" | "listening">): PeerAlarm | undefined {
+	if (peer.state === "quiet") return "quiet";
+	if (peer.state === "gone") return undefined;
+	return peer.listening === false ? "not-listening" : undefined;
+}
+
+/**
+ * Why a peer with an alarm will not read this now, in the words every surface prints.
+ *
+ * Beside the rule that decides which alarm it is, because the two surfaces that print it — a sign's
+ * line and the round's result — would otherwise be two copies of one sentence, and one of them
+ * would end up telling a peer it is asleep.
+ */
+export const ALARM_REASON: Readonly<Record<PeerAlarm, string>> = {
+	quiet: "nothing says it is still there",
+	"not-listening": "it reads this at its next turn",
+};
 
 /**
  * What a reader knows about one session, where a label the bus never recorded is also an answer.

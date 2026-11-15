@@ -26,7 +26,7 @@ import {
 	type Peer,
 	send as sendTo,
 } from "../../lib/session-tool.ts";
-import { sameLabel } from "../../lib/session-label.ts";
+import { type PeerAlarm, peerAlarm, peerNamed } from "../../lib/session-roster.ts";
 
 /** How a handoff reaches a peer, and what the bus can say about the peers there are. */
 export interface Dispatch {
@@ -197,27 +197,6 @@ export function sessionDispatch(pi: Pick<ExtensionAPI, "events" | "getAllTools">
 }
 
 /**
- * The peer `to` names: an id exactly, else a label ignoring case.
- *
- * A label resolves only to a session the bus would write for. A record whose heartbeat stopped is
- * skipped — `state` is `gone` — because the bus writes it no message, and a label that matched it
- * first would record a peer the handoff can never reach while a live session under that same label
- * watched an inbox the message did not fill.
- *
- * An id keeps its meaning: a caller that names a session gets that session, stopped or not, and the
- * send refuses it. The read's own age is the caller's business rather than this function's —
- * `assign` asks before its dry run and again after the message, so the owner it records is the peer
- * the message reached.
- */
-export function peerFor(peers: readonly Peer[] | undefined, to: string): Peer | undefined {
-	if (peers === undefined) return undefined;
-	const target = to.trim();
-	const byId = peers.find((peer) => peer.id === target);
-	if (byId) return byId;
-	return peers.find((peer) => sameLabel(peer.label, target) && peer.state !== "gone");
-}
-
-/**
  * The labels a message reached that cannot be woken: their record says they are not
  * listening.
  *
@@ -227,7 +206,7 @@ export function peerFor(peers: readonly Peer[] | undefined, to: string): Peer | 
  * sentence is the honest one.
  */
 export function notListening(peers: readonly Peer[] | undefined, labels: readonly string[]): string[] {
-	return named(peers, labels, (peer) => peer.state !== "quiet" && peer.listening === false);
+	return alarmed(peers, labels, "not-listening");
 }
 
 /**
@@ -237,19 +216,21 @@ export function notListening(peers: readonly Peer[] | undefined, labels: readonl
  * as heard, and this is the fact that says nobody is known to be there to read it.
  */
 export function quiet(peers: readonly Peer[] | undefined, labels: readonly string[]): string[] {
-	return named(peers, labels, (peer) => peer.state === "quiet");
+	return alarmed(peers, labels, "quiet");
 }
 
-/** The labels the bus can answer for, that `wanted` names. */
-function named(
-	peers: readonly Peer[] | undefined,
-	labels: readonly string[],
-	wanted: (peer: Peer) => boolean,
-): string[] {
+/**
+ * The labels the bus can answer for, whose record carries `alarm`.
+ *
+ * Which alarm a record carries, and which one wins, is `lib/session-roster.ts`'s: these two lists
+ * are the same question asked of one sentence, and answering it here as well is how the two
+ * surfaces came to word one peer twice.
+ */
+function alarmed(peers: readonly Peer[] | undefined, labels: readonly string[], alarm: PeerAlarm): string[] {
 	if (peers === undefined) return [];
 	return labels.filter((label) => {
-		const peer = peerFor(peers, label);
-		return peer !== undefined && wanted(peer);
+		const peer = peerNamed(peers, label);
+		return peer !== undefined && peerAlarm(peer) === alarm;
 	});
 }
 
@@ -260,9 +241,16 @@ function named(
  * actor afterwards, so the check and the write cannot disagree about who `to` is. That is
  * what makes an id the holder: a card records the id the bus gave it, `holds` compares ids
  * first, and only the resolved actor carries one.
+ *
+ * An id keeps its meaning — a caller that names a session gets that session, stopped or not, and
+ * the send is what refuses it. A label names only the one session nothing else answers to: where
+ * two live sessions share it, this answers nothing and the card records the label as unresolved,
+ * so a message is never credited to the session that did not get it. The read's own age is the
+ * caller's business rather than this function's — `assign` asks before its dry run and again after
+ * the message, so the owner it records is the peer the message reached.
  */
 export function actorFor(peers: readonly Peer[] | undefined, to: string): Actor {
-	const peer = peerFor(peers, to);
+	const peer = peerNamed(peers, to);
 	return peer === undefined ? { label: to.trim() } : { id: peer.id, label: peer.label };
 }
 

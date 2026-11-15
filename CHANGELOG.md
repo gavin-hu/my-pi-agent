@@ -64,13 +64,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a pruned record inside a held inbox is no longer reported as unaccounted. Mail past its TTL can now
   outlive it by up to one heartbeat.
 
+- `team`: a handoff, offer, or ask addresses a peer by the rule a sign already used — one live
+  record per name, from `lib/session-roster.ts`. Where two live sessions share a label the card
+  keeps the label `unresolved` instead of recording whichever record the bus listed first, so a
+  message is never credited to the session that did not get it. A named session id still means that
+  session, stopped or not, and the send is what refuses it.
+
+- `board`, `team`: quiet and not-listening are one rule with one sentence, so a sign's clause and
+  the round's lines describe a peer the same way, and a team result's peer labels are sanitized
+  where its other peer-supplied text already was.
+
 ### Fixed
 
 - `board`: a review's `root` names the tree the check runs in, so a sign can name the card's own commit instead
   of the root checkout's head; the landing chain is read from the default branch, and a plain older commit is
   refused with the tree to review rather than recorded as a landing. The order is stated in both places: the
   lead merges and pushes, then the holder's `done` records the merge.
-
 - `board`: the write lock removes only a file it proved. A takeover's stat and its removal are two
   instants, so two sessions recovering one abandoned lock could both remove and both create — the
   second removal took the first taker's fresh lock — and both writers then held the board; a slow
