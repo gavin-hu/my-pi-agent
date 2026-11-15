@@ -181,8 +181,10 @@ export async function openBoard(
 	// repository lookup — the same path `plan` and `session-bus` take.
 	const repo = await repoKeyFor(pi, resolveEffectiveCwd(cwd));
 	// Read once per store: the settings are a setting, not a card, and a board that re-read
-	// a file on every write would spend a stat to answer a question nobody changed.
-	const config = readBoardConfig(resolveEffectiveCwd(cwd), { agentDir });
+	// a file on every write would spend a stat to answer a question nobody changed. The read is
+	// rooted at the repository's *checkout*, not at the working tree: in a worktree `.pi/` is
+	// gitignored, so the settings a repository states are the ones both trees share.
+	const config = readBoardConfig(repo.settingsRoot, { agentDir });
 	// The key is handed on, not left to be read off the directory it named: `session-bus`
 	// files this repository's records under the same key, so the two must not be able to
 	// disagree about it.

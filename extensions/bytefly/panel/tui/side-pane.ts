@@ -37,6 +37,8 @@ export interface SidePaths {
 	scope: "global" | "project";
 	cwd: string;
 	agentDir: string;
+	/** Where the project document lives — the checkout, not a worktree. */
+	settingsRoot?: string;
 }
 
 /** What the block needs to know. */
@@ -171,7 +173,9 @@ function resourceRows(input: SideInput): string[] {
 function originLine(view: SettingView, paths: SidePaths): string {
 	const scope = view.origin === "inherited" ? "global" : paths.scope;
 	const file =
-		view.source === "app" ? join(paths.agentDir, PI_SETTINGS_FILE) : configPath(scope, paths.cwd, paths.agentDir);
+		view.source === "app"
+			? join(paths.agentDir, PI_SETTINGS_FILE)
+			: configPath(scope, paths.cwd, paths.agentDir, paths.settingsRoot);
 	const origin =
 		view.origin === "inherited"
 			? "Inherited from Global"

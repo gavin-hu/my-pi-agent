@@ -51,8 +51,9 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 		// Loaded where it is used: the board's config reaches the card record and the lane
 		// table, and the registration graph is a budget that may only fall.
 		void import("./collect/team.ts")
-			.then(({ teammateReader }) => {
-				resolveTeammate = teammateReader(cwd, { agentDir: getAgentDir() });
+			.then(({ worktreeTeammateReader }) => worktreeTeammateReader(pi, cwd, { agentDir: getAgentDir() }))
+			.then((reader) => {
+				resolveTeammate = reader;
 			})
 			.catch(() => {});
 	};

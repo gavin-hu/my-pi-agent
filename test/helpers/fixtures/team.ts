@@ -17,6 +17,7 @@ import type { Dispatch } from "../../../extensions/team/dispatch.ts";
 import type { TeamDetails } from "../../../extensions/team/types.ts";
 import { type BoardSession, openBoardSession } from "../../../lib/workflow/session.ts";
 import type { Claims } from "../../../lib/workflow/claims.ts";
+import { MAX_WIP } from "../../../lib/workflow/limits.ts";
 import { notDeliveredLine, type Peer, type TeamJoin } from "../../../lib/session-tool.ts";
 import { writeBusRecord } from "../bus.ts";
 import { fakeCtx } from "../context.ts";
@@ -95,7 +96,10 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 	// rather than the first name the loader's default team would draw.
 	const lead = options.lead ?? SUITE_LEAD;
 	mkdirSync(join(cwd, ".pi"), { recursive: true });
-	writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ team: { lead, teammates: [lead] } }));
+	writeFileSync(
+		join(cwd, ".pi", "bytefly.json"),
+		JSON.stringify({ team: { lead, teammates: [lead] }, board: { wip: { perOwner: MAX_WIP } } }),
+	);
 	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
 	const session = openBoardSession(
 		fake.pi,

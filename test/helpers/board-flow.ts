@@ -16,8 +16,21 @@ import { personActor } from "../../lib/workflow/lead.ts";
 import type { Verification } from "../../lib/workflow/contract.ts";
 import type { Actor } from "../../lib/workflow/rules.ts";
 import type { Lane } from "../../lib/workflow/lanes.ts";
-import type { BoardStore } from "../../lib/workflow/store.ts";
+import { type BoardStore, createStore } from "../../lib/workflow/store.ts";
+import { boardConfig } from "../../lib/workflow/config.ts";
+import { DEFAULT_WIP, MAX_WIP } from "../../lib/workflow/limits.ts";
 import { landingFor } from "./fixtures/board-rules.ts";
+
+/**
+ * A store whose per-session cap is out of the way.
+ *
+ * A fixture that seeds a whole board moves several cards under one owner, which the one-card rule
+ * refuses. The rule is `one-card.test.ts`'s subject; every other suite takes this store.
+ */
+export function permissiveStore(dir: string, options: Parameters<typeof createStore>[1] = {}) {
+	const config = options.config ?? boardConfig({ wip: { ...DEFAULT_WIP, perOwner: MAX_WIP } });
+	return createStore(dir, { ...options, config });
+}
 
 /** Who a seeded card belongs to. */
 export interface Seeded {

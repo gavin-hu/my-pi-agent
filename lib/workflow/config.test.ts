@@ -9,7 +9,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -49,7 +49,7 @@ describe("the default board", () => {
 		expect(DEFAULT_BOARD_CONFIG).toEqual({
 			lead: "gavin",
 			teammates: ["gavin", "tom", "jack", "mike", "sam"],
-			wip: { plan: 3, execute: 5 },
+			wip: { perOwner: 1, plan: 3, execute: 5 },
 		});
 	});
 
@@ -57,7 +57,7 @@ describe("the default board", () => {
 		expect(boardConfig({ lead: "billing-lead" })).toEqual({
 			lead: "billing-lead",
 			teammates: ["gavin", "tom", "jack", "mike", "sam"],
-			wip: { plan: 3, execute: 5 },
+			wip: { perOwner: 1, plan: 3, execute: 5 },
 		});
 	});
 });
@@ -116,19 +116,23 @@ describe("normalizeTeamConfig", () => {
 describe("normalizeWipConfig", () => {
 	test("each limit falls back on its own and is clamped", () => {
 		expect(normalizeWipConfig(undefined)).toEqual(DEFAULT_WIP);
-		expect(normalizeWipConfig({ wip: { plan: 2 } })).toEqual({ plan: 2, execute: 5 });
-		expect(normalizeWipConfig({ wip: { plan: 0, execute: 99 } })).toEqual({ plan: 1, execute: MAX_WIP });
+		expect(normalizeWipConfig({ wip: { plan: 2 } })).toEqual({ perOwner: 1, plan: 2, execute: 5 });
+		expect(normalizeWipConfig({ wip: { perOwner: 1, plan: 0, execute: 99 } })).toEqual({
+			perOwner: 1,
+			plan: 1,
+			execute: MAX_WIP,
+		});
 	});
 });
 
 describe("readBoardConfig", () => {
 	test("reads board.wip and the team from the project's bytefly.json", () => {
 		const cwd = projectWith({
-			board: { wip: { plan: 2, execute: 4 } },
+			board: { wip: { perOwner: 1, plan: 2, execute: 4 } },
 			team: { lead: "team-lead", teammates: ["team-lead", "tom"] },
 		});
 		expect(readBoardConfig(cwd, { agentDir: temps.track(tempDir("pi-board-agent-")) })).toEqual({
-			wip: { plan: 2, execute: 4 },
+			wip: { perOwner: 1, plan: 2, execute: 4 },
 			lead: "team-lead",
 			teammates: ["team-lead", "tom"],
 		});
@@ -136,14 +140,14 @@ describe("readBoardConfig", () => {
 
 	test("each section is normalized over the global one key by key", () => {
 		const agentDir = agentWith({
-			board: { wip: { plan: 1, execute: 2 } },
+			board: { wip: { perOwner: 1, plan: 1, execute: 2 } },
 			team: { lead: "team-lead", teammates: ["team-lead"] },
 		});
 		const cwd = projectWith({ team: { lead: "billing-lead" } });
 		// The project named the lead and said nothing about the numbers or the list, so the global
 		// answers hold for both.
 		expect(readBoardConfig(cwd, { agentDir })).toEqual({
-			wip: { plan: 1, execute: 2 },
+			wip: { perOwner: 1, plan: 1, execute: 2 },
 			lead: "billing-lead",
 			teammates: ["team-lead"],
 		});
@@ -189,6 +193,25 @@ describe("addTeammate", () => {
 			team: { lead: "jack", teammates: ["jack", "lily"] },
 			price: { budget: 5 },
 		});
+	});
+
+	test("reads and writes at the settings root, so a worktree's join is the checkout's team", () => {
+		const checkout = temps.track(tempDir("pi-checkout-"));
+		const worktree = temps.track(tempDir("pi-worktree-"));
+		mkdirSync(join(checkout, ".pi"), { recursive: true });
+		writeFileSync(join(checkout, ".pi", "bytefly.json"), JSON.stringify({ team: { teammates: ["api-lead"] } }));
+
+		const added = addTeammate(worktree, "lily", {
+			agentDir: temps.track(tempDir("pi-board-agent-")),
+			root: checkout,
+		});
+		// The base is the checkout's list — not the five loader defaults — and the write lands there.
+		expect(added).toEqual({ ok: true, team: ["api-lead", "lily"], changed: true });
+		expect(JSON.parse(readFileSync(join(checkout, ".pi", "bytefly.json"), "utf-8")).team.teammates).toEqual([
+			"api-lead",
+			"lily",
+		]);
+		expect(existsSync(join(worktree, ".pi", "bytefly.json"))).toBe(false);
 	});
 
 	test("takes any name, after the default team a bare project starts with", () => {

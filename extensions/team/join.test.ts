@@ -15,9 +15,9 @@ import { agentLabel } from "../../lib/session-label.ts";
 import type { JoinResult, TeamJoin } from "../../lib/session-tool.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { withAgentDir } from "../../test/helpers/env.ts";
+import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
+import { createFakePi, type FakePiOptions } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { registerCommands, TEAM_COMMAND } from "./commands.ts";
 
@@ -47,8 +47,8 @@ function fakeTeam(
 }
 
 /** The registered command over a fresh host, so a case runs it by its own words. */
-function joinCommand(board: ReturnType<typeof boardHarness>, team?: TeamJoin) {
-	const fake = createFakePi();
+function joinCommand(board: ReturnType<typeof boardHarness>, team?: TeamJoin, host: FakePiOptions = {}) {
+	const fake = createFakePi(host);
 	registerCommands(fake.pi, board.runtime, team === undefined ? {} : { team });
 	const command = fake.commands.get(TEAM_COMMAND);
 	if (!command) throw new Error("the team command was not registered");
@@ -85,6 +85,28 @@ async function heldLabels(board: ReturnType<typeof boardHarness>, labels: readon
 }
 
 describe("/team join", () => {
+	test("writes the checkout's team file from a worktree, not the worktree's", async () => {
+		const checkout = temps.track(tempDir("pi-checkout-"));
+		const session = temps.track(tempDir("pi-session-"));
+		// The repository's team is the checkout's; the session sits in a tree `.pi/` never reaches.
+		mkdirSync(join(checkout, ".pi"), { recursive: true });
+		writeFileSync(join(checkout, ".pi", "bytefly.json"), JSON.stringify({ team: { teammates: ["api-lead"] } }));
+		const board = boardHarness({ now: NOW, project: false, track: temps.track });
+		const { team } = fakeTeam();
+		const command = joinCommand(board, team, {
+			exec: async (_command: string, args: string[]) =>
+				args.includes("--git-common-dir")
+					? { stdout: `${join(checkout, ".git")}\n`, stderr: "", code: 0 }
+					: { stdout: `${session}\n`, stderr: "", code: 0 },
+		});
+		const { ctx } = fakeCtx({ cwd: session, sessionId: "s-lead" });
+
+		await command.handler("join lily", ctx);
+		// The name goes on the repository's list — the one the board reads — and nowhere else.
+		expect(projectTeam(checkout)).toEqual(["api-lead", "lily"]);
+		expect(projectTeam(session)).toBeUndefined();
+	});
+
 	test("joins under the label it was given, and says the bar cannot draw a custom name", async () => {
 		const board = boardHarness({ now: NOW, project: false, track: temps.track });
 		const { team, labels, naming } = fakeTeam();

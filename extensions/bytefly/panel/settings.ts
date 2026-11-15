@@ -26,12 +26,8 @@
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
-import {
-	DEFAULT_BOARD_CONFIG,
-	DEFAULT_TEAM_CONFIG,
-	normalizeTeamConfig,
-	normalizeWipConfig,
-} from "../../../lib/workflow/config.ts";
+import { normalizeWipConfig } from "../../../lib/workflow/config.ts";
+import { DEFAULT_BOARD_CONFIG, DEFAULT_TEAM_CONFIG, normalizeTeamConfig } from "../../../lib/workflow/config.ts";
 import { MAX_LABEL } from "../../../lib/session-label.ts";
 import { amountRule, countRule, splitList, teammatesRule, type TextRule } from "./settings-rules.ts";
 import { DEFAULT_WIP, MAX_WIP } from "../../../lib/workflow/limits.ts";
@@ -294,6 +290,19 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "board", path: ["wip", "execute"] },
 	},
 	{
+		id: "board.wip.perOwner",
+		group: "Board",
+		label: "Cards per session",
+		description: "How many cards one session may hold in flight at once, 1 to 20; `bytefly.json` `board.wip.perOwner`.",
+		source: "bytefly",
+		kind: "text",
+		fallback: String(DEFAULT_BOARD_CONFIG.wip.perOwner),
+		json: "number",
+		options: [],
+		text: countRule(1, MAX_WIP),
+		config: { section: "board", path: ["wip", "perOwner"] },
+	},
+	{
 		id: "team.lead",
 		group: "Team",
 		label: "Lead",
@@ -477,8 +486,12 @@ const SECTION_READERS: Partial<Record<ConfigSectionName, SectionReader>> = {
 		configValueAt(normalizeDoctorConfig(projectRaw, normalizeDoctorConfig(globalRaw, DEFAULT_DOCTOR_CONFIG)), path),
 	price: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeByteflyConfig(projectRaw, normalizeByteflyConfig(globalRaw, DEFAULT_BYTEFLY_CONFIG)), path),
+	// `normalizeWipConfig` is the loader's own layering, and it answers the limits flat
+	// (`{perOwner, plan, execute}`) while a row's path is the document's spelling — `["wip",
+	// "plan"]`. Both halves of that difference were wrong once: the section was given to a
+	// document reader, and the answer was looked up under `wip`.
 	board: (globalRaw, projectRaw, path) =>
-		configValueAt(normalizeWipConfig(projectRaw, normalizeWipConfig(globalRaw, DEFAULT_WIP)), path),
+		configValueAt(normalizeWipConfig(projectRaw, normalizeWipConfig(globalRaw, DEFAULT_WIP)), path.slice(1)),
 	team: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeTeamConfig(projectRaw, normalizeTeamConfig(globalRaw, DEFAULT_TEAM_CONFIG)), path),
 };

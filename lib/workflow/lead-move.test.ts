@@ -51,7 +51,7 @@ describe("the lead's move", () => {
 		const opening = { kind: "move", lane: "execute", artifact: provedFor(unapproved) } as const;
 		expect(refusal(applyOp(unapproved, opening, LEAD, NOW, boardOf(unapproved)))).toContain("not approved yet");
 		// One card in `execute` and a limit of one: the lead's move is the second card.
-		const narrow: BoardConfig = boardConfig({ wip: { plan: 3, execute: 1 }, lead: LEAD.label });
+		const narrow: BoardConfig = boardConfig({ wip: { perOwner: 1, plan: 3, execute: 1 }, lead: LEAD.label });
 		const holding = executing(ready("8", CORE));
 		const waiting = approved();
 		const move = { kind: "move", lane: "execute", artifact: provedFor(waiting) } as const;

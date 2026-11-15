@@ -15,7 +15,9 @@
 
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
+import { basename, dirname } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { resolveEffectiveCwd } from "./env.ts";
 import { createExecRunner, gitCommonDir, repoRoot } from "./git/index.ts";
 
 /** Hex characters kept from the digest: collision-free in practice and short enough for a path. */
@@ -54,6 +56,39 @@ export interface RepoKey {
 	 * location branches on this; one that only needs a stable directory does not.
 	 */
 	fromGit: boolean;
+	/**
+	 * Where the repository keeps its project settings: the checkout's root, which is the
+	 * parent of the common git directory.
+	 *
+	 * A worktree's {@link RepoKey.root} is the worktree, and `.pi/` is gitignored there, so the
+	 * settings a repository states live in the checkout both trees share. Outside git, or when
+	 * the common directory is not a `.git` (a bare repository, a submodule's store), this is
+	 * {@link RepoKey.root} — the nearest answer that exists.
+	 */
+	settingsRoot: string;
+}
+
+/**
+ * The repository's settings root for a working directory: the checkout a config read or write
+ * targets.
+ *
+ * The cwd a command receives is the session's, which in a worktree is the worktree — where `.pi/`
+ * is gitignored. Settings are the repository's, so a command that reads one and then writes it,
+ * and a surface that only reads it, all resolve the same root the board's store does.
+ */
+export async function settingsRootFor(pi: Pick<ExtensionAPI, "exec">, cwd: string): Promise<string> {
+	return (await repoKeyFor(pi, resolveEffectiveCwd(cwd))).settingsRoot;
+}
+
+/**
+ * The checkout a common git directory belongs to, or `root` when it names no `.git`.
+ *
+ * One question, because the two answers are different trees: a linked worktree's common dir is
+ * the main checkout's `.git`, whose parent is the checkout. A bare repository's common dir, or a
+ * submodule's store, is not a `.git` — there the working root is the only place settings can be.
+ */
+function settingsRootOf(common: string | undefined, root: string): string {
+	return common !== undefined && basename(common) === ".git" ? dirname(common) : root;
 }
 
 /**
@@ -66,9 +101,10 @@ export async function repoKeyFor(pi: Pick<ExtensionAPI, "exec">, cwd: string): P
 	try {
 		const run = createExecRunner(pi);
 		const [common, root] = await Promise.all([gitCommonDir(run, cwd), repoRoot(run, cwd)]);
-		if (root) return { root, key: repoKeyOf(common ?? root), fromGit: true };
+		if (root)
+			return { root, key: repoKeyOf(common ?? root), settingsRoot: settingsRootOf(common, root), fromGit: true };
 	} catch {
 		// Fall through: no git, or a git call that failed, is the same answer here.
 	}
-	return { root: cwd, key: repoKeyOf(cwd), fromGit: false };
+	return { root: cwd, key: repoKeyOf(cwd), settingsRoot: cwd, fromGit: false };
 }

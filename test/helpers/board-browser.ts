@@ -19,6 +19,7 @@ import { join } from "node:path";
 import { type Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
 import { boardConfig } from "../../lib/workflow/config.ts";
+import { DEFAULT_WIP, MAX_WIP } from "../../lib/workflow/limits.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { type BoardStore, createStore } from "../../lib/workflow/store.ts";
 import { launchBrowser } from "./browser.ts";
@@ -125,10 +126,13 @@ async function landed(page: Page): Promise<Page> {
 export async function openBoardBrowser(options: BoardBrowserOptions): Promise<BoardBrowser> {
 	const directory = mkdtempSync(join(tmpdir(), "pi-board-page-"));
 	// The lead is the one setting a browser suite states: it is the name the page signs as.
-	const store =
-		options.lead === undefined
-			? createStore(directory)
-			: createStore(directory, { config: boardConfig({ lead: options.lead }) });
+	// The lead a suite states, and a cap out of the way: a page suite seeds many cards under one
+	// owner, and this fixture is about what the page draws, not about the one-card rule.
+	const config = boardConfig({
+		...(options.lead === undefined ? {} : { lead: options.lead }),
+		wip: { ...DEFAULT_WIP, perOwner: MAX_WIP },
+	});
+	const store = createStore(directory, { config });
 	await store.ensure();
 	await options.seed(store, options.now());
 	const server = await serveBoardPage({

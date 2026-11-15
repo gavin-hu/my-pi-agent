@@ -18,6 +18,7 @@ import { SHARED_CONFIG_FILE } from "../../lib/config.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import { openBoardSession, type BoardSession } from "../../lib/workflow/session.ts";
 import type { Claims } from "../../lib/workflow/claims.ts";
+import { MAX_WIP } from "../../lib/workflow/limits.ts";
 import { BOARD_DIR_NAME } from "../../lib/workflow/store.ts";
 import { registerTools } from "../../extensions/board/tools.ts";
 import type { BoardDetails } from "../../extensions/board/types.ts";
@@ -97,7 +98,7 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 		mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
 		writeFileSync(
 			join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE),
-			JSON.stringify({ team: { lead, teammates: options.teammates ?? [lead] } }),
+			JSON.stringify({ team: { lead, teammates: options.teammates ?? [lead] }, board: { wip: { perOwner: MAX_WIP } } }),
 		);
 	}
 	// No git answers by default, so the directory keys on itself: the fallback every

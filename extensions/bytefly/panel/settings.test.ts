@@ -34,12 +34,13 @@ describe("settings catalogue", () => {
 			"doctor.proactive",
 			"board.wip.plan",
 			"board.wip.execute",
+			"board.wip.perOwner",
 			"team.lead",
 			"team.teammates",
 			"price.currency.code",
 			"price.budget",
 		]);
-		expect(SETTING_ROWS.length).toBeLessThanOrEqual(16);
+		expect(SETTING_ROWS.length).toBeLessThanOrEqual(17);
 		expect(new Set(SETTING_ROWS.map((entry) => entry.id)).size).toBe(SETTING_ROWS.length);
 	});
 
@@ -60,6 +61,7 @@ describe("settings catalogue", () => {
 			"Session",
 			"Board",
 			"Board",
+			"Board",
 			"Team",
 			"Team",
 			"Price",
@@ -75,8 +77,8 @@ describe("settings catalogue", () => {
 				.filter((entry) => entry.config !== undefined)
 				.map((entry) => entry.id),
 		);
-		expect(global).toHaveLength(16);
-		expect(rowsForScope("project")).toHaveLength(14);
+		expect(global).toHaveLength(17);
+		expect(rowsForScope("project")).toHaveLength(15);
 	});
 
 	test("names every row and describes it", () => {
@@ -107,6 +109,7 @@ describe("settings catalogue", () => {
 			["doctor.proactive", "true", "On", "default"],
 			["board.wip.plan", "3", "3", "default"],
 			["board.wip.execute", "5", "5", "default"],
+			["board.wip.perOwner", "1", "1", "default"],
 			["team.lead", "gavin", "gavin", "default"],
 			["team.teammates", "gavin,tom,jack,mike,sam", "gavin, tom, jack, mike, sam", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
@@ -114,7 +117,7 @@ describe("settings catalogue", () => {
 		]);
 
 		expect(settingViews(settingsSnapshot(), "project").map((entry) => entry.origin)).toEqual(
-			Array.from({ length: 14 }, () => "default"),
+			Array.from({ length: 15 }, () => "default"),
 		);
 		const inherited = settingsSnapshot({ global: { notify: { enabled: true } } });
 		expect(settingView(inherited, "project", "notify.enabled")).toMatchObject({ value: "true", origin: "inherited" });
