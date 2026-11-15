@@ -9,7 +9,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -193,6 +193,25 @@ describe("addTeammate", () => {
 			team: { lead: "jack", teammates: ["jack", "lily"] },
 			price: { budget: 5 },
 		});
+	});
+
+	test("reads and writes at the settings root, so a worktree's join is the checkout's team", () => {
+		const checkout = temps.track(tempDir("pi-checkout-"));
+		const worktree = temps.track(tempDir("pi-worktree-"));
+		mkdirSync(join(checkout, ".pi"), { recursive: true });
+		writeFileSync(join(checkout, ".pi", "bytefly.json"), JSON.stringify({ team: { teammates: ["api-lead"] } }));
+
+		const added = addTeammate(worktree, "lily", {
+			agentDir: temps.track(tempDir("pi-board-agent-")),
+			root: checkout,
+		});
+		// The base is the checkout's list — not the five loader defaults — and the write lands there.
+		expect(added).toEqual({ ok: true, team: ["api-lead", "lily"], changed: true });
+		expect(JSON.parse(readFileSync(join(checkout, ".pi", "bytefly.json"), "utf-8")).team.teammates).toEqual([
+			"api-lead",
+			"lily",
+		]);
+		expect(existsSync(join(worktree, ".pi", "bytefly.json"))).toBe(false);
 	});
 
 	test("takes any name, after the default team a bare project starts with", () => {

@@ -11,9 +11,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { realpathSync } from "node:fs";
 import { join } from "node:path";
-import { tempDir } from "../test/helpers/env.ts";
+import { tempDir, withEnv } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
-import { REPO_KEY_LENGTH, repoKeyFor, repoKeyOf } from "./repo-key.ts";
+import { ENV_ROOT } from "./env.ts";
+import { REPO_KEY_LENGTH, repoKeyFor, repoKeyOf, settingsRootFor } from "./repo-key.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -105,6 +106,18 @@ describe("repoKeyFor", () => {
 		// The card store's root is the tree the session sits in; the settings live in the checkout.
 		expect(identity.root).toBe(worktree);
 		expect(identity.settingsRoot).toBe(root);
+	});
+
+	test("settingsRootFor answers the checkout wherever the session sits", async () => {
+		const root = realpathSync.native(tempDir("repo-key-settings-root-"));
+		temps.track(root);
+		const worktree = realpathSync.native(tempDir("repo-key-settings-wt-"));
+		temps.track(worktree);
+		// The session's active root is a worktree; the settings it reads and writes are the checkout's.
+		const fromWorktree = await withEnv({ [ENV_ROOT]: worktree }, () =>
+			settingsRootFor({ exec: gitSeam(join(root, ".git"), worktree) } as never, "/some/other/cwd"),
+		);
+		expect(fromWorktree).toBe(root);
 	});
 
 	test("keeps the working root when the common directory is not a checkout", async () => {

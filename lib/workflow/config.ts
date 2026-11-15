@@ -129,13 +129,21 @@ export type AddTeammateResult =
  * states none of its own. A file that said only the new name would drop the rest of the team.
  * Siblings (`lead`, other sections, document metadata) survive `writeConfigValueAt`.
  */
-export function addTeammate(cwd: string, label: string, options: { agentDir?: string } = {}): AddTeammateResult {
+export function addTeammate(
+	cwd: string,
+	label: string,
+	options: { agentDir?: string; root?: string } = {},
+): AddTeammateResult {
 	const name = normalizeLabel(label, "").toLowerCase();
-	const team = readTeamConfig(cwd, options).teammates;
+	// The settings root is the checkout, and both halves use it: reading the worktree would merge
+	// onto the loader's defaults, and writing there would name a teammate the board never reads.
+	// The cwd stands when the caller has no repository to ask about.
+	const root = options.root ?? cwd;
+	const team = readTeamConfig(root, options).teammates;
 	if (name === "" || isTeammate(name, team)) return { ok: true, team, changed: false };
 	const next = [...team, name];
 	try {
-		writeConfigValueAt(projectConfigPath(cwd), "team", ["teammates"], next);
+		writeConfigValueAt(projectConfigPath(root), "team", ["teammates"], next);
 	} catch (error) {
 		return { ok: false, why: "write-failed", reason: messageOf(error) };
 	}

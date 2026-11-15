@@ -17,6 +17,7 @@ import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { resolveEffectiveCwd } from "./env.ts";
 import { createExecRunner, gitCommonDir, repoRoot } from "./git/index.ts";
 
 /** Hex characters kept from the digest: collision-free in practice and short enough for a path. */
@@ -65,6 +66,18 @@ export interface RepoKey {
 	 * {@link RepoKey.root} — the nearest answer that exists.
 	 */
 	settingsRoot: string;
+}
+
+/**
+ * The repository's settings root for a working directory: the checkout a config read or write
+ * targets.
+ *
+ * The cwd a command receives is the session's, which in a worktree is the worktree — where `.pi/`
+ * is gitignored. Settings are the repository's, so a command that reads one and then writes it,
+ * and a surface that only reads it, all resolve the same root the board's store does.
+ */
+export async function settingsRootFor(pi: Pick<ExtensionAPI, "exec">, cwd: string): Promise<string> {
+	return (await repoKeyFor(pi, resolveEffectiveCwd(cwd))).settingsRoot;
 }
 
 /**

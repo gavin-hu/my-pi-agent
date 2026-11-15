@@ -129,7 +129,10 @@ async function unnamedJoin(session: BoardSession, ctx: ExtensionCommandContext):
  */
 async function nameTheBar(pi: ExtensionAPI, cwd: string, label: string): Promise<AddTeammateResult> {
 	const { TEAM_CHANGED_CHANNEL } = await import("../../lib/events.ts");
-	const named = addTeammate(cwd, label);
+	// The team lives in the repository's settings, not in the tree the shell sits in: a worktree's
+	// `.pi/` is gitignored, so a join written there would name a teammate nothing reads.
+	const { settingsRootFor } = await import("../../lib/repo-key.ts");
+	const named = addTeammate(cwd, label, { root: await settingsRootFor(pi, cwd) });
 	if (named.ok && named.changed) pi.events.emit(TEAM_CHANGED_CHANNEL, { cwd });
 	return named;
 }

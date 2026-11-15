@@ -17,6 +17,7 @@
  * reason the bus label reader before it was deferred.
  */
 
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isTeammate } from "../../../../lib/session-label.ts";
 import { DEFAULT_TEAM_CONFIG, readTeamConfig } from "../../../../lib/workflow/config.ts";
 
@@ -49,4 +50,20 @@ export function teammateReader(
 ): (sessionName: string | null) => string | null {
 	const team = readTeammates(cwd, options);
 	return (sessionName) => (isTeammate(sessionName, team) ? sessionName : null);
+}
+
+/**
+ * The reader a footer install uses: the team read at the repository's settings root.
+ *
+ * A worktree session's cwd is the worktree, where `.pi/` is gitignored; the names the repository
+ * states live in the checkout. `repo-key` is loaded here rather than in `register.ts`, so the
+ * footer's registration path pays nothing for it and `test/dependencies`' heights stay flat.
+ */
+export async function worktreeTeammateReader(
+	pi: Pick<ExtensionAPI, "exec">,
+	cwd: string,
+	options: { agentDir?: string } = {},
+): Promise<(sessionName: string | null) => string | null> {
+	const { settingsRootFor } = await import("../../../../lib/repo-key.ts");
+	return teammateReader(await settingsRootFor(pi, cwd), options);
 }
