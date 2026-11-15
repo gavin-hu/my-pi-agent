@@ -61,7 +61,8 @@ folds the rest, pins its head, and says a sentence every row shares once.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`,
 `approve`, `review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full,
-naming the ways out; `assign` is `team`'s verb, under the same rule. `reclaim` takes a card back from its holder: the
+naming the ways out; `assign` is `team`'s verb, under the same rule. A session holds one card in flight by default
+(`board.wip.perOwner`), so a claim or an assignment past it names the card it already holds. `reclaim` takes a card back from its holder: the
 person and the lead always, a peer only while that owner's record says quiet or gone. `move` into `execute` or `done`
 re-reads the plan where the write lands, and a plan that is gone refuses it. A contract names a `verify` command —
 required — and `review` runs it in the tree `root` names (the card's worktree or a checkout at its commit). `done`

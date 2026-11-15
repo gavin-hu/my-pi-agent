@@ -22,6 +22,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: one session holds one card in flight by default (`board.wip.perOwner`, 1), counting `plan`,
+  `execute` and `blocked`; a `claim` or an assignment past it names the card the session already
+  holds. **Breaking**: a session that already holds a card is refused its next claim or assignment
+  until it releases one — set `board.wip.perOwner` higher to keep the old behaviour. In the same
+  change, a worktree session reads its repository's `board` and `team` settings from the checkout
+  rather than the defaults, because `.pi/` is gitignored in a worktree.
+
 - `board`: a spot-check the card was written after reads as out of date everywhere, not only at the
   `done` gate. `currentReview` now asks `signStale`, so such a card joins `unreviewed` in the lead's
   queue and its reason line says "spot-checked by X, then written — review again" instead of

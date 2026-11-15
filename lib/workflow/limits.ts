@@ -15,16 +15,23 @@
  */
 
 import { clampInteger } from "../json.ts";
+import { type Card, cardRef, holds } from "./card.ts";
 import { LANE_RULES, type Lane } from "./lanes.ts";
 
 /** The lanes a limit applies to: the two a card is pulled into. */
 export type LimitedLane = "plan" | "execute";
 
-/** The limits one board enforces. */
-export type WipLimits = Record<LimitedLane, number>;
+/** The limits one board enforces: two lanes, and one session. */
+export type WipLimits = Record<LimitedLane, number> & {
+	/**
+	 * How many cards one session may hold in flight. The lane caps bound a team; this bounds a
+	 * session, which is the "one card at a time" rule with a number behind it.
+	 */
+	perOwner: number;
+};
 
-/** A board's limits when nobody said otherwise: three being planned, five in flight. */
-export const DEFAULT_WIP: WipLimits = { plan: 3, execute: 5 };
+/** A board's limits when nobody said otherwise: one card per session, three planning, five in flight. */
+export const DEFAULT_WIP: WipLimits = { perOwner: 1, plan: 3, execute: 5 };
 
 /** The largest limit a misconfigured file may ask for. */
 export const MAX_WIP = 20;
@@ -37,6 +44,7 @@ export const MAX_WIP = 20;
  */
 export function normalizeWip(raw: Record<string, unknown> | undefined, base: WipLimits = DEFAULT_WIP): WipLimits {
 	return {
+		perOwner: clampInteger(raw?.perOwner, base.perOwner, 1, MAX_WIP),
 		plan: clampInteger(raw?.plan, base.plan, 1, MAX_WIP),
 		execute: clampInteger(raw?.execute, base.execute, 1, MAX_WIP),
 	};
@@ -75,4 +83,27 @@ export function wipRefusal(
 	const waysOut =
 		from === "blocked" ? "wait for a slot, or release it back to the pool" : "finish, block, or release one first";
 	return `${held} cards are already ${what} (the limit is ${limit}); ${waysOut}.`;
+}
+
+/** The lanes a card is in flight in: pulled, or parked on a person, and not closed. */
+const IN_FLIGHT: readonly Lane[] = ["plan", "execute", "blocked"];
+
+/**
+ * Why this owner may not take another card, or `undefined` when it may.
+ *
+ * The lane caps bound a *team*; this bounds one session, and it counts a `blocked` card — that
+ * card is still the session's work, and `release` (or the lead's `reclaim`) is how the slot comes
+ * back. The sentence names the held card because "you already hold one" leaves the reader counting
+ * a board they may have no reason to open.
+ */
+export function ownerRefusal(
+	owner: { id?: string; label: string },
+	cards: readonly Card[],
+	limits: WipLimits,
+): string | undefined {
+	const held = cards.filter((card) => IN_FLIGHT.includes(card.lane) && holds(card, owner));
+	if (held.length < limits.perOwner) return undefined;
+	const [first] = [...held].sort((a, b) => Number(a.id) - Number(b.id));
+	const more = held.length > 1 ? ` and ${held.length - 1} more` : "";
+	return `${owner.label} already holds ${cardRef(first.id)} (${first.lane})${more}: finish it, or release it to the pool first.`;
 }

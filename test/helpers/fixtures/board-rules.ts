@@ -14,6 +14,7 @@ import type { Card } from "../../../lib/workflow/card.ts";
 import { boardConfig, type BoardConfig } from "../../../lib/workflow/config.ts";
 import type { Contract } from "../../../lib/workflow/contract.ts";
 import type { LandingProof } from "../../../lib/workflow/contract.ts";
+import { DEFAULT_WIP, MAX_WIP } from "../../../lib/workflow/limits.ts";
 import { indexOf } from "../../../lib/workflow/links.ts";
 import {
 	type Actor,
@@ -29,8 +30,11 @@ export const CORE: Actor = { id: "s-core", label: "billing-core" };
 export const OTHER: Actor = { id: "s-other", label: "billing-other" };
 export const NOW = 2_000;
 
-/** The board's settings: `billing-lead` signs, and the lanes hold the default numbers. */
-export const CONFIG: BoardConfig = boardConfig({ lead: LEAD.label });
+/**
+ * The board's settings: `billing-lead` signs, the lanes hold the default numbers, and the per-session
+ * cap is out of the way — a suite about another rule seeds many cards under one owner.
+ */
+export const CONFIG: BoardConfig = boardConfig({ lead: LEAD.label, wip: { ...DEFAULT_WIP, perOwner: MAX_WIP } });
 
 /** The index one board is to an operation. */
 export type Board = ReturnType<typeof indexOf>;

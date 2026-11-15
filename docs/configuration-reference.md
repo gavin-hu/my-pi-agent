@@ -92,6 +92,7 @@ next session.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
+| `wip.perOwner` | integer | `1` | `1`–`20` | Cards one session may hold in flight at once, counting `plan`, `execute` and `blocked`; a claim or an assignment past it names the card the session already holds and the way out. |
 | `wip.plan` | integer | `3` | `1`–`20` | Cards a repository may hold in `plan` at once; a claim that would exceed it is refused with the count, the limit, and the ways out. |
 | `wip.execute` | integer | `5` | `1`–`20` | Cards a repository may hold in `execute` at once, on the same terms. |
 

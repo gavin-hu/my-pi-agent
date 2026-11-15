@@ -49,7 +49,7 @@ describe("the default board", () => {
 		expect(DEFAULT_BOARD_CONFIG).toEqual({
 			lead: "gavin",
 			teammates: ["gavin", "tom", "jack", "mike", "sam"],
-			wip: { plan: 3, execute: 5 },
+			wip: { perOwner: 1, plan: 3, execute: 5 },
 		});
 	});
 
@@ -57,7 +57,7 @@ describe("the default board", () => {
 		expect(boardConfig({ lead: "billing-lead" })).toEqual({
 			lead: "billing-lead",
 			teammates: ["gavin", "tom", "jack", "mike", "sam"],
-			wip: { plan: 3, execute: 5 },
+			wip: { perOwner: 1, plan: 3, execute: 5 },
 		});
 	});
 });
@@ -116,19 +116,23 @@ describe("normalizeTeamConfig", () => {
 describe("normalizeWipConfig", () => {
 	test("each limit falls back on its own and is clamped", () => {
 		expect(normalizeWipConfig(undefined)).toEqual(DEFAULT_WIP);
-		expect(normalizeWipConfig({ wip: { plan: 2 } })).toEqual({ plan: 2, execute: 5 });
-		expect(normalizeWipConfig({ wip: { plan: 0, execute: 99 } })).toEqual({ plan: 1, execute: MAX_WIP });
+		expect(normalizeWipConfig({ wip: { plan: 2 } })).toEqual({ perOwner: 1, plan: 2, execute: 5 });
+		expect(normalizeWipConfig({ wip: { perOwner: 1, plan: 0, execute: 99 } })).toEqual({
+			perOwner: 1,
+			plan: 1,
+			execute: MAX_WIP,
+		});
 	});
 });
 
 describe("readBoardConfig", () => {
 	test("reads board.wip and the team from the project's bytefly.json", () => {
 		const cwd = projectWith({
-			board: { wip: { plan: 2, execute: 4 } },
+			board: { wip: { perOwner: 1, plan: 2, execute: 4 } },
 			team: { lead: "team-lead", teammates: ["team-lead", "tom"] },
 		});
 		expect(readBoardConfig(cwd, { agentDir: temps.track(tempDir("pi-board-agent-")) })).toEqual({
-			wip: { plan: 2, execute: 4 },
+			wip: { perOwner: 1, plan: 2, execute: 4 },
 			lead: "team-lead",
 			teammates: ["team-lead", "tom"],
 		});
@@ -136,14 +140,14 @@ describe("readBoardConfig", () => {
 
 	test("each section is normalized over the global one key by key", () => {
 		const agentDir = agentWith({
-			board: { wip: { plan: 1, execute: 2 } },
+			board: { wip: { perOwner: 1, plan: 1, execute: 2 } },
 			team: { lead: "team-lead", teammates: ["team-lead"] },
 		});
 		const cwd = projectWith({ team: { lead: "billing-lead" } });
 		// The project named the lead and said nothing about the numbers or the list, so the global
 		// answers hold for both.
 		expect(readBoardConfig(cwd, { agentDir })).toEqual({
-			wip: { plan: 1, execute: 2 },
+			wip: { perOwner: 1, plan: 1, execute: 2 },
 			lead: "billing-lead",
 			teammates: ["team-lead"],
 		});

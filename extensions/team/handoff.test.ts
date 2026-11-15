@@ -248,7 +248,10 @@ describe("the board's WIP limits", () => {
 	function capped() {
 		const board = harness();
 		mkdirSync(join(board.cwd, ".pi"), { recursive: true });
-		writeFileSync(join(board.cwd, ".pi", "bytefly.json"), JSON.stringify({ board: { wip: { plan: 1, execute: 1 } } }));
+		writeFileSync(
+			join(board.cwd, ".pi", "bytefly.json"),
+			JSON.stringify({ board: { wip: { plan: 1, execute: 1, perOwner: 20 } } }),
+		);
 		return board;
 	}
 

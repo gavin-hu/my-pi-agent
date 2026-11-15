@@ -390,8 +390,8 @@ describe("panel text projection", () => {
 		const views = settingViews(settingsSnapshot(), "global");
 		const lines = formatSettingsListing(views).split("\n");
 
-		expect(lines[0]).toBe("bytefly: Settings · Global · 16 settings");
-		expect(lines).toHaveLength(17);
+		expect(lines[0]).toBe("bytefly: Settings · Global · 17 settings");
+		expect(lines).toHaveLength(18);
 		expect(lines.join("\n")).not.toContain("Notifications (");
 		for (const row of [
 			"Startup screen: Off",

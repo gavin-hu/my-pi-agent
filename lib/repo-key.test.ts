@@ -70,12 +70,22 @@ describe("repoKeyFor", () => {
 	test("falls back to the working directory outside a repository", async () => {
 		const seam = async () => ({ stdout: "", stderr: "not a repository", code: 128 });
 		const identity = await repoKeyFor({ exec: seam } as never, "/not/a/repo");
-		expect(identity).toEqual({ root: "/not/a/repo", key: repoKeyOf("/not/a/repo"), fromGit: false });
+		expect(identity).toEqual({
+			root: "/not/a/repo",
+			key: repoKeyOf("/not/a/repo"),
+			settingsRoot: "/not/a/repo",
+			fromGit: false,
+		});
 	});
 
 	test("falls back when git fails to run at all", async () => {
 		const identity = await repoKeyFor({ exec: failingSeam() } as never, "/no/git/here");
-		expect(identity).toEqual({ root: "/no/git/here", key: repoKeyOf("/no/git/here"), fromGit: false });
+		expect(identity).toEqual({
+			root: "/no/git/here",
+			key: repoKeyOf("/no/git/here"),
+			settingsRoot: "/no/git/here",
+			fromGit: false,
+		});
 	});
 
 	test("asks git for both the common directory and the root", async () => {
@@ -85,6 +95,24 @@ describe("repoKeyFor", () => {
 		await repoKeyFor({ exec: gitSeam("/repo/.git", root, calls) } as never, root);
 		expect(calls).toContainEqual(["rev-parse", "--path-format=absolute", "--git-common-dir"]);
 		expect(calls).toContainEqual(["rev-parse", "--show-toplevel"]);
+	});
+
+	test("answers the checkout as the settings root, so a worktree reads the repository's file", async () => {
+		const root = realpathSync.native(tempDir("repo-key-settings-"));
+		temps.track(root);
+		const worktree = join(root, ".pi", "worktrees", "x");
+		const identity = await repoKeyFor({ exec: gitSeam(join(root, ".git"), worktree) } as never, worktree);
+		// The card store's root is the tree the session sits in; the settings live in the checkout.
+		expect(identity.root).toBe(worktree);
+		expect(identity.settingsRoot).toBe(root);
+	});
+
+	test("keeps the working root when the common directory is not a checkout", async () => {
+		const root = realpathSync.native(tempDir("repo-key-bare-"));
+		temps.track(root);
+		// A bare repository's common dir is not a `.git`, so there is no checkout to prefer.
+		const identity = await repoKeyFor({ exec: gitSeam(join(root, "objects"), root) } as never, root);
+		expect(identity.settingsRoot).toBe(root);
 	});
 
 	test("a nested path still keys the repository", async () => {

@@ -24,6 +24,8 @@ import { personActor } from "./lead.ts";
 import type { MutateResult } from "./store.ts";
 import { type Actor } from "./rules.ts";
 import { createStore } from "./store.ts";
+import { boardConfig } from "./config.ts";
+import { DEFAULT_WIP, MAX_WIP } from "./limits.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -78,8 +80,14 @@ describe("two writers at once", () => {
 	test("cannot both pass the lane's limit", async () => {
 		const dir = board();
 		const gate = makeGate(2);
-		const one = createStore(dir, { beforeWrite: gate.wait });
-		const two = createStore(dir, { beforeWrite: gate.wait });
+		const one = createStore(dir, {
+			beforeWrite: gate.wait,
+			config: boardConfig({ wip: { ...DEFAULT_WIP, perOwner: MAX_WIP } }),
+		});
+		const two = createStore(dir, {
+			beforeWrite: gate.wait,
+			config: boardConfig({ wip: { ...DEFAULT_WIP, perOwner: MAX_WIP } }),
+		});
 		await one.ensure();
 		// Two cards already being planned, and the lane holds three: one slot, two claims.
 		const planned = [await one.create({ title: "Planned one", paths: [] }, ALICE, NOW)];
@@ -105,8 +113,14 @@ describe("two writers at once", () => {
 	test("cannot close a dependency loop between them", async () => {
 		const dir = board();
 		const gate = makeGate(2);
-		const one = createStore(dir, { beforeWrite: gate.wait });
-		const two = createStore(dir, { beforeWrite: gate.wait });
+		const one = createStore(dir, {
+			beforeWrite: gate.wait,
+			config: boardConfig({ wip: { ...DEFAULT_WIP, perOwner: MAX_WIP } }),
+		});
+		const two = createStore(dir, {
+			beforeWrite: gate.wait,
+			config: boardConfig({ wip: { ...DEFAULT_WIP, perOwner: MAX_WIP } }),
+		});
 		await one.ensure();
 		// Two sessions, one card each, both planned and both free to link.
 		const left = await one.create({ title: "Left", paths: [] }, ALICE, NOW);
@@ -141,6 +155,7 @@ describe("a plan that goes while a write waits", () => {
 		writeFileSync(path, "# Plan\n");
 		let armed = false;
 		const store = createStore(dir, {
+			config: boardConfig({ wip: { ...DEFAULT_WIP, perOwner: MAX_WIP } }),
 			beforeWrite: () => {
 				if (armed) rmSync(path, { force: true });
 			},

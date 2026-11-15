@@ -61,7 +61,7 @@ import {
 	signRefusal,
 	spotCheckRefusal,
 } from "./lead.ts";
-import { type WipLimits, wipRefusal } from "./limits.ts";
+import { ownerRefusal, type WipLimits, wipRefusal } from "./limits.ts";
 import { type BoardIndex, dependedOn, lanesText, normalizeDepends, openDependentsOf, waitingOn } from "./links.ts";
 import type { Actor, CardOp, Prepared } from "./rules.ts";
 
@@ -71,29 +71,31 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
 	if (holds(card, actor)) return { changed: false, fields: null };
 	if (card.owner !== undefined) return { error: heldBy(card) };
 	// The wait is asked here rather than read off the table: a claim enters `plan` from the pool,
-	// which is not a lane change `move` can make, so `backlog → plan`'s requirements would be
-	// read by nobody.
+	// which is not a lane change `move` can make.
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
+	// The session's own cap before the lane's: the card it already carries is the one it can act on.
+	const carried = ownerRefusal(actor, [...board.values()], limits);
+	if (carried !== undefined) return { error: carried };
 	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined });
 }
 
 /**
  * Hand a pool card to somebody: the owner is recorded and the card enters `plan`.
  *
- * A held card is refused rather than handed over, because the owner a handoff would skip is
- * the one the rules protect: changing hands is `reclaim` and a second assignment. Naming the
- * session that already holds it is refused too, and for the message rather than the write:
- * the write would be a no-op, but `team` sends before it writes, so accepting the no-op spent
- * a second handoff on a card nobody was handed.
+ * A held card is refused rather than handed over: changing hands is `reclaim` and a second
+ * assignment. Naming the session that already holds it is refused too, and for the message — a
+ * no-op write that `team` would have sent a handoff for.
  */
 export function assign(card: Card, to: CardOwner, board: BoardIndex, limits: WipLimits): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be assigned.` };
 	if (card.owner !== undefined) return { error: holds(card, to) ? alreadyHeldBy(card) : heldBy(card) };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
-	// A pool card is the only card this moves, so it comes with the lane a claim would give it:
-	// the owner inherits the work from its first step.
+	// The target's cap, before the write and the message the caller sends first: nothing is delivered.
+	const carried = ownerRefusal(to, [...board.values()], limits);
+	if (carried !== undefined) return { error: carried };
+	// A pool card is the only card this moves: the owner inherits the work from its first step.
 	return enter(card, "plan", board, limits, { owner: to, offeredAt: undefined });
 }
 

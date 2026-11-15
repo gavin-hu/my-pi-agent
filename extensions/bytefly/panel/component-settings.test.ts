@@ -197,10 +197,10 @@ describe("PanelComponent settings review", () => {
 
 		const global = component.render(80).join("\n");
 		expect(global).toContain("showing");
-		expect(global).toContain("of 16");
+		expect(global).toContain("of 17");
 
 		component.handleInput("s");
-		expect(component.render(80).join("\n")).toContain("of 14");
+		expect(component.render(80).join("\n")).toContain("of 15");
 	});
 
 	test("ignores a click below the last body row", () => {
@@ -308,14 +308,14 @@ describe("PanelComponent settings frame", () => {
 		const lines = component.render(96);
 
 		expect(lines).toHaveLength(24);
-		expect(lines.join("\n")).toContain("showing 1–12 of 16");
+		expect(lines.join("\n")).toContain("showing 1–13 of 17");
 	});
 
 	test("fits the whole catalogue on a terminal tall enough for it", () => {
 		const { component } = buildPanel({ items: [], section: "settings", rows: 40 });
 		const lines = component.render(96);
 
-		expect(lines).toHaveLength(28);
+		expect(lines).toHaveLength(29);
 		expect(lines.join("\n")).not.toContain("showing");
 		expect(lines.join("\n")).toContain("Session budget");
 	});

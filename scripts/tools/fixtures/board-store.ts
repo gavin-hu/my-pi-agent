@@ -16,6 +16,7 @@ import type { Card } from "../../../lib/workflow/card.ts";
 import { planForContract } from "../../../lib/workflow/artifact.ts";
 import { provedPlan } from "../../../extensions/board/proof.ts";
 import { boardConfig, type BoardConfig } from "../../../lib/workflow/config.ts";
+import { DEFAULT_WIP, MAX_WIP } from "../../../lib/workflow/limits.ts";
 import { personActor } from "../../../lib/workflow/lead.ts";
 import type { Actor, CardOp } from "../../../lib/workflow/rules.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
@@ -118,7 +119,9 @@ function planOf(spec: (typeof FIXTURE_CARDS)[number], planDir: string): string {
  * has to name one — and the signer that is not the owner is the person at the keyboard, which
  * is what a case where the lead owns the card needs.
  */
-const FIXTURE_CONFIG: BoardConfig = boardConfig({ lead: LEAD.label });
+// The capture's board is a whole picture: lanes full, several cards under one owner. The
+// per-session cap would refuse the seed, so it is lifted here rather than in the page.
+const FIXTURE_CONFIG: BoardConfig = boardConfig({ lead: LEAD.label, wip: { ...DEFAULT_WIP, perOwner: MAX_WIP } });
 
 /**
  * What a seed wrote, so a caller can undo it and nothing else.

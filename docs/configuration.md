@@ -135,7 +135,7 @@ the file for the scope you want, and the next session reads it.
 | change document read limits | [`file-read`](./configuration-reference.md#file-read--document-and-spreadsheet-extraction) |
 | raise the board's WIP limits, name the team lead whose signature the board's gates take, or say who is on the team | **Plan limit**, **Execute limit**, **Lead**, **Teammates** in `/bytefly settings`, or [`board`](./configuration-reference.md#board--the-shared-feature-board) and [`team`](./configuration-reference.md#team--the-projects-own-team) |
 
-`/bytefly settings` is a shortlist of the preferences a session changes — sixteen
+`/bytefly settings` is a shortlist of the preferences a session changes — seventeen
 rows under six headings (Startup, Notifications, Session, Board, Team, and Price), named in
 bold above. Everything else — the tuning numbers, the
 cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's

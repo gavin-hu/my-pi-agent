@@ -96,12 +96,12 @@ session is sent: [security](../security.md) says what leaves the machine.
 
 ## Settings
 
-The screen is the catalogue: the sixteen descriptors in screen order. Those are
-the preferences a session changes: sixteen preferences under six headings —
-Startup, Notifications, Session, Board, Team, Price — plus the fourteen
-`bytefly.json` rows it can write. The list is capped at sixteen rows so the
+The screen is the catalogue: the seventeen descriptors in screen order. Those are
+the preferences a session changes: seventeen preferences under six headings —
+Startup, Notifications, Session, Board, Team, Price — plus the fifteen
+`bytefly.json` rows it can write. The list is capped at seventeen rows so the
 screen fits a 30-row terminal, and the scope line reads
-`bytefly: Settings · Global · 16 settings`. The sections behind this page are
+`bytefly: Settings · Global · 17 settings`. The sections behind this page are
 [`chrome`](../configuration-reference.md#chrome--transcript-chrome),
 [`price`](../configuration-reference.md#price--cost-calculation),
 [`notify`](../configuration-reference.md#notify--os-notifications), and

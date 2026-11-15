@@ -15,7 +15,7 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { type Card, signatureOf } from "./card.ts";
 import { type Actor, createCard } from "./rules.ts";
-import { advance } from "../../test/helpers/board-flow.ts";
+import { advance, permissiveStore } from "../../test/helpers/board-flow.ts";
 import { BOARD_DIR_NAME, boardDirFor, createStore, openBoard } from "./store.ts";
 
 const temps = makeTempTracker();
@@ -35,7 +35,7 @@ function scratchStore(options: Parameters<typeof createStore>[1] = {}): {
 	store: ReturnType<typeof createStore>;
 } {
 	const dir = temps.track(tempDir("pi-board-"));
-	return { dir, store: createStore(dir, options) };
+	return { dir, store: permissiveStore(dir, options) };
 }
 
 /** The files actually on disk in a store's cards directory. */
