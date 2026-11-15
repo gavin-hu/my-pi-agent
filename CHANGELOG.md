@@ -38,6 +38,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   either. Its `approve` action doc drops the `team.lead` parenthetical, because `team` states the
   lead's duty once.
 
+- `team`: a handoff, offer, or ask addresses a peer by the rule a sign already used — one live
+  record per name, from `lib/session-roster.ts`. Where two live sessions share a label the card
+  keeps the label `unresolved` instead of recording whichever record the bus listed first, so a
+  message is never credited to the session that did not get it. A named session id still means that
+  session, stopped or not, and the send is what refuses it.
+
+- `board`, `team`: quiet and not-listening are one rule with one sentence, so a sign's clause and
+  the round's lines describe a peer the same way, and a team result's peer labels are sanitized
+  where its other peer-supplied text already was.
+
 - `team`: each verb is described once. The `action` parameter repeated every sentence of the
   description, and the copy is what drifted, so it now names the fields each verb reads; a guideline
   states the lead's duty, and the surface has a ceiling in the prompt budget where it had none.

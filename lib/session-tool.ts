@@ -30,7 +30,7 @@ import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from "@eare
 import { type BusAnswer, requestOverBus } from "./bus-request.ts";
 import { messageOf } from "./errors.ts";
 import { sanitizeLine } from "./format.ts";
-import { type RosterState, watchingOf } from "./session-roster.ts";
+import { type PeerRow, type RosterState, watchingOf } from "./session-roster.ts";
 import { SESSION_TOOL } from "./tool-names.ts";
 
 /**
@@ -47,21 +47,18 @@ export interface Watching {
 	wake: boolean;
 }
 
-/** One session the bus lists. */
-export interface Peer {
-	id: string;
-	label: string;
-	/** Absent when the record does not say, which is not the same as "not listening". */
-	listening?: boolean;
-	/**
-	 * What the bus says about the session: `live`, `quiet`, or `gone`.
-	 *
-	 * The status payload carries it (`session-bus/types.ts`), and a caller that reports what a send
-	 * reached needs it: a message file written for a record whose heartbeat aged out was not handed
-	 * to anybody known to be there, which `listening` alone cannot say.
-	 */
-	state?: RosterState;
-}
+/**
+ * One session the bus lists, as addressing reads it.
+ *
+ * `lib/session-roster.ts`'s row rather than a shape of its own: the rule that resolves a name lives
+ * there, and a second opinion about what a peer is would be a second answer to the one question.
+ * The difference is only where the fields are read from — the roster opens the bus's files, this
+ * module asks the `session` tool — so the two have to agree field for field, which one type says.
+ * `state` is the bus's own judgement here: the status payload carries it (`session-bus/types.ts`),
+ * and a caller that reports what a send reached needs it, because a message file written for a
+ * record whose heartbeat aged out was not handed to anybody known to be there.
+ */
+export type Peer = PeerRow;
 
 /** What a join did: the label it landed on, and whether mail will reach the session. */
 export type JoinResult = { ok: true; label: string; watching: Watching } | { ok: false; error: string };

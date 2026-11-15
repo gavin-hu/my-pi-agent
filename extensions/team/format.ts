@@ -9,8 +9,22 @@
 
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import type { AddTeammateResult } from "../../lib/board/config.ts";
+import { sanitizeLine } from "../../lib/format.ts";
+import { ALARM_REASON } from "../../lib/session-roster.ts";
 import { type DeliveryFailure, notDeliveredLine } from "../../lib/session-tool.ts";
 import type { TeamAction } from "./types.ts";
+
+/**
+ * A list of peers as a line prints it.
+ *
+ * A label is another session's text, like a message body or a path: it is sanitized where a sentence
+ * is built, not left to the renderer, because the model reads these lines as well. `notDeliveredLine`
+ * does the same to the failures beside them, so the two halves of one result cannot disagree about
+ * what a peer's name is allowed to contain.
+ */
+function namesOf(labels: readonly string[]): string {
+	return labels.map(sanitizeLine).join(", ");
+}
 
 /**
  * `/team join` landed: the label peers address, whether mail will reach this session, and what the
@@ -65,7 +79,7 @@ export function formatHandoff(
 	failed: readonly DeliveryFailure[] = [],
 ): string {
 	return [
-		`${cardRef(card.id)} handed off to ${delivered.join(", ")}.`,
+		`${cardRef(card.id)} handed off to ${namesOf(delivered)}.`,
 		`  ${card.title}`,
 		card.paths.length > 0 ? `  paths: ${card.paths.join(", ")}` : undefined,
 		"  The card is already owned by the peer; the handoff is in its inbox.",
@@ -99,7 +113,7 @@ const UNRESOLVED_LINE =
  */
 export function notListeningLine(labels: readonly string[]): string | undefined {
 	if (labels.length === 0) return undefined;
-	return `  Not listening: ${labels.join(", ")} — it reads this at its next turn.`;
+	return `  Not listening: ${namesOf(labels)} — ${ALARM_REASON["not-listening"]}.`;
 }
 
 /**
@@ -111,7 +125,7 @@ export function notListeningLine(labels: readonly string[]): string | undefined 
  */
 export function quietLine(labels: readonly string[]): string | undefined {
 	if (labels.length === 0) return undefined;
-	return `  Quiet: ${labels.join(", ")} — nothing says it is still there.`;
+	return `  Quiet: ${namesOf(labels)} — ${ALARM_REASON.quiet}.`;
 }
 
 /** A continuation line, when a shared sentence has one to add. */
@@ -134,7 +148,7 @@ export function formatAsk(
 	failed: readonly DeliveryFailure[] = [],
 ): string {
 	return [
-		`Asked ${delivered.join(", ")} — ask ${ask}.`,
+		`Asked ${namesOf(delivered)} — ask ${ask}.`,
 		`  The answer arrives as mail; reply with \`re: ${ask}\`, and nothing is waiting on it.`,
 		notListeningLine(notListening),
 		quietLine(quiet),
@@ -180,7 +194,7 @@ export function formatOffer(
 	failed: readonly DeliveryFailure[] = [],
 ): string {
 	return [
-		`${cardRef(card.id)} offered to ${delivered.join(", ")}.`,
+		`${cardRef(card.id)} offered to ${namesOf(delivered)}.`,
 		`  ${card.title}`,
 		card.paths.length > 0 ? `  paths: ${card.paths.join(", ")}` : undefined,
 		"  The card is unowned until one of them claims it.",
