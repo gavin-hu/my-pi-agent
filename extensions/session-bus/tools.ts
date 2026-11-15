@@ -26,38 +26,36 @@ export { TOOL_NAME };
 
 export const SessionParams = Type.Object({
 	action: StringEnum(["status", "send", "inbox", "read", "claim", "release", "join"] as const, {
-		description: "`status` reads without joining; every other action puts this session on the bus.",
+		description: "`status` reads without joining; every other action joins.",
 	}),
-	to: Type.Optional(
-		Type.String({ description: 'Target label/id, or `*` for every other live session — needs `kind: "event"`.' }),
-	),
-	text: Type.Optional(Type.String({ description: "Message text, at most 4000 characters." })),
+	to: Type.Optional(Type.String({ description: 'Target label/id, or `*` for a broadcast — needs `kind: "event"`.' })),
+	text: Type.Optional(Type.String({ description: "Text, at most 4000." })),
 	kind: Type.Optional(
 		StringEnum(["message", "event", "ask", "handoff"] as const, {
-			description: "Message kind; defaults to message.",
+			description: "Kind; defaults to message.",
 		}),
 	),
 	key: Type.Optional(
 		Type.String({
 			description:
-				"With send: a resend repeating this key, kind, text and paths folds into the copy still waiting; letters, digits, `.`, `_`, `-`, `:`, at most 64.",
+				"With send: a resend with the same key, kind and text folds into the copy still waiting; one word, at most 64.",
 		}),
 	),
+	replyTo: Type.Optional(Type.String({ description: "With send: the id this answers." })),
+	about: Type.Optional(Type.String({ description: "With send: what it is about, e.g. a card." })),
 	paths: Type.Optional(
-		Type.Array(Type.String(), {
-			description: "Repository-relative file or directory paths to claim or release; at most 20.",
-		}),
+		Type.Array(Type.String(), { description: "Repo-relative paths to claim or release; at most 20." }),
 	),
 	limit: Type.Optional(
-		Type.Integer({ minimum: 1, maximum: 50, description: "Messages one read shows or consumes; default 20." }),
+		Type.Integer({ minimum: 1, maximum: 50, description: "Messages shown or consumed; default 20." }),
 	),
 	wake: Type.Optional(
 		Type.Boolean({
-			description: "With join: mail raises one turn per burst once idle; omitted waits for the next turn.",
+			description: "With join: mail raises one turn per burst when idle; omitted waits.",
 		}),
 	),
 	listen: Type.Optional(
-		Type.Boolean({ description: "With join: false joins without listening, so mail waits for `inbox`." }),
+		Type.Boolean({ description: "With join: false joins without listening; mail waits for `inbox`." }),
 	),
 	label: Type.Optional(Type.String({ description: "With join: the name peers address, e.g. `billing-lead`." })),
 });
@@ -66,11 +64,9 @@ type SessionArgs = Static<typeof SessionParams>;
 
 /** What the tool is and what it guarantees: the verbs and their objects, and the delivery rule. */
 export const SESSION_DESCRIPTION =
-	"Coordinate parallel Pi sessions on this repository. Actions: `status` (sessions, unread, claims), " +
-	"`send` (a label/id, or `*`), `inbox` (consume), `read` (show, keep), " +
-	"`claim`/`release` (paths), " +
-	"`join` (a label, listening unless `listen: false`; `wake` raises a turn). " +
-	"Delivery is pull-based unless this session joined and is listening.";
+	"Coordinate parallel Pi sessions on this repository: `status` (sessions, unread, claims), " +
+	"`send` (a label/id, or `*` for an event), `inbox`/`read` (consume/show), `claim`/`release` (paths), " +
+	"`join` (listening; `wake` raises a turn). Delivery is pull-based unless this session is listening.";
 
 /** The one line in the system prompt's tools list, not a copy of the description. */
 export const SESSION_SNIPPET = "Coordinate parallel sessions: status, send, read, inbox, claim, release, join.";
@@ -133,6 +129,8 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 							text: typeof args.text === "string" ? args.text : "",
 							kind: args.kind,
 							key: args.key,
+							replyTo: args.replyTo,
+							about: args.about,
 							paths: args.paths,
 						});
 						// What the send is worth is the protocol's answer, so a command's request reports it in

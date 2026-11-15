@@ -330,6 +330,15 @@ describe("the words every surface prints", () => {
 		);
 	});
 
+	test("says what a message answers, with the id sanitized like every other field", () => {
+		expect(messageMeta({ ...busMessage("100-a", "s-1"), fromLabel: "api-core", kind: "ask", replyTo: "a1b2c3" })).toBe(
+			"api-core · ask · re: a1b2c3",
+		);
+		expect(messageMeta({ ...busMessage("100-a", "s-1"), fromLabel: "api-core", kind: "ask", replyTo: "a1\nb2" })).toBe(
+			"api-core · ask · re: a1 b2",
+		);
+	});
+
 	test("joins the paths a message carries, and says nothing when it names none", () => {
 		expect(messagePaths({ ...busMessage("100-a", "s-1"), paths: ["src/a.ts", "src/b.ts"] })).toBe("src/a.ts, src/b.ts");
 		expect(messagePaths(busMessage("100-a", "s-1"))).toBe("");

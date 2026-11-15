@@ -40,6 +40,12 @@ export interface Dispatch {
 		kind: "handoff" | "event" | "ask";
 		to: string;
 		text: string;
+		/** A name for this message: a resend with the same key folds into the copy still waiting. */
+		key?: string;
+		/** The message or ask id this one answers. */
+		replyTo?: string;
+		/** What the message is about — a card id, in the workflow's use. */
+		about?: string;
 	}): Promise<{ delivered: string[]; failed: DeliveryFailure[] }>;
 	/**
 	 * Every session the bus lists, when it can say.
@@ -108,7 +114,7 @@ export function askText(question: string, ask: string, reply: ReplyRoute): strin
 	return clipText(
 		[
 			`Ask ${ask}: ${question}`,
-			`Reply with \`session send to ${where}\`, starting your message with \`re: ${ask}\` — nothing is waiting on it.`,
+			`Reply with \`session send to ${where} replyTo "${ask}"\` — nothing is waiting on it; the bus prints it as \`re: ${ask}\`.`,
 		].join("\n"),
 		MAX_MESSAGE_TEXT,
 	);

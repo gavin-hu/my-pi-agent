@@ -15,7 +15,8 @@ import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
 /** The sender and the kind, as every surface names a message: `api-core · handoff`. */
 export function messageMeta(message: BusMessage): string {
-	return `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}`;
+	const answered = message.replyTo === undefined ? "" : `${SEPARATORS.item}re: ${sanitizeLine(message.replyTo)}`;
+	return `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}${answered}`;
 }
 
 /** The paths a message carries, sanitized and joined, or an empty string when it names none. */

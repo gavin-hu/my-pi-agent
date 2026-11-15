@@ -6,6 +6,7 @@ import {
 	normalizeLabel,
 	normalizeLimit,
 	normalizePaths,
+	normalizeReference,
 	normalizeText,
 	resolveRecipients,
 	sessionMode,
@@ -42,6 +43,19 @@ describe("validation", () => {
 		expect(normalizeText("  hello  ")).toEqual({ text: "hello" });
 		expect(normalizeText("   ")).toEqual({ error: "text is required." });
 		expect(normalizeText("x".repeat(4_001))).toHaveProperty("error");
+	});
+	test("takes a reference id as one word, on the same alphabet as a key", () => {
+		expect(normalizeReference("replyTo", undefined)).toEqual({});
+		expect(normalizeReference("replyTo", "  a1b2c3  ")).toEqual({ value: "a1b2c3" });
+		expect(normalizeReference("about", "4")).toEqual({ value: "4" });
+		// The field is named, because two references can be wrong in the same call.
+		expect(normalizeReference("about", "two words")).toEqual({
+			error: 'about may hold letters, digits, ".", "_", "-" and ":".',
+		});
+		expect(normalizeReference("replyTo", "x".repeat(65))).toEqual({
+			error: "replyTo must be at most 64 characters.",
+		});
+		expect(normalizeReference("about", "   ")).toEqual({ error: "about must be a non-empty string." });
 	});
 	test("clamps the inbox limit", () => {
 		expect(normalizeLimit(undefined)).toBe(20);

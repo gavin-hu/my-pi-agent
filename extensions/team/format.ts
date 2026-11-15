@@ -149,7 +149,7 @@ export function formatAsk(
 ): string {
 	return [
 		`Asked ${namesOf(delivered)} — ask ${ask}.`,
-		`  The answer arrives as mail; reply with \`re: ${ask}\`, and nothing is waiting on it.`,
+		`  The answer arrives as mail; reply with \`replyTo "${ask}"\`, and nothing is waiting on it.`,
 		notListeningLine(notListening),
 		quietLine(quiet),
 		indent(notDeliveredLine(failed)),

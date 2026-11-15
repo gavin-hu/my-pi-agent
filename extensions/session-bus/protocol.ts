@@ -82,6 +82,24 @@ export function normalizeKey(raw: unknown): { key?: string } | { error: string }
 	return { key };
 }
 
+/** The two references a message may carry, and the field each is written in. */
+export type MessageReference = "replyTo" | "about";
+
+/**
+ * A reference a message carries — an id that answers one, or the thing it is about — or an error.
+ *
+ * One word in the same alphabet as `key`, because these are ids other sessions built and a reader
+ * retypes them: a value with whitespace in it would be a sentence the bus pretends is an id.
+ */
+export function normalizeReference(field: MessageReference, raw: unknown): { value?: string } | { error: string } {
+	if (raw === undefined) return {};
+	if (typeof raw !== "string" || raw.trim() === "") return { error: `${field} must be a non-empty string.` };
+	const value = raw.trim();
+	if (value.length > MAX_KEY) return { error: `${field} must be at most ${MAX_KEY} characters.` };
+	if (!KEY_PATTERN.test(value)) return { error: `${field} may hold letters, digits, ".", "_", "-" and ":".` };
+	return { value };
+}
+
 /** A shared inbox limit. */
 export function normalizeLimit(raw: unknown): number {
 	if (typeof raw !== "number" || !Number.isFinite(raw)) return DEFAULT_LIMIT;

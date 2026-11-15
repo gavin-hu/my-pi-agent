@@ -134,6 +134,12 @@ export interface SendInput {
 	kind: "handoff" | "event" | "ask";
 	to: string;
 	text: string;
+	/** A name for this message: a resend with the same key folds into the copy still waiting. */
+	key?: string;
+	/** The message or ask id this one answers. */
+	replyTo?: string;
+	/** What the message is about — a card id, in the workflow's use. */
+	about?: string;
 }
 
 /**
@@ -323,7 +329,15 @@ export async function send(
 
 /** The nested `session send`, as a tool's context makes it. */
 async function nestedSend(ctx: ExtensionToolContext, input: SendInput): Promise<SendResult> {
-	const answer = await call(ctx, { action: "send", kind: input.kind, to: input.to, text: input.text });
+	const answer = await call(ctx, {
+		action: "send",
+		kind: input.kind,
+		to: input.to,
+		text: input.text,
+		...(input.key === undefined ? {} : { key: input.key }),
+		...(input.replyTo === undefined ? {} : { replyTo: input.replyTo }),
+		...(input.about === undefined ? {} : { about: input.about }),
+	});
 	if ("error" in answer) return { ok: false, error: answer.error };
 	const labels = (value: unknown): string[] =>
 		Array.isArray(value) ? value.filter((label): label is string => typeof label === "string") : [];

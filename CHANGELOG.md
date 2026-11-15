@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `session-bus`: a message can say what it answers and what it is about. `session send replyTo "<id>"`
+  and `about "<card>"` write two opaque references on the envelope — a row prints the first as `re: <id>`
+  — and `key`, `replyTo` and `about` all ride the one send a caller makes. The `session` tool pays for the
+  two parameters by tightening its own prose, so its surface stays under its ceiling.
+
 - `board`: a write that leaves a whole, unsigned contract tells `team.lead` in its inbox, so the first
   gate is a message rather than a board the lead has to poll. The card records nothing for a retry: the
   round is the durable truth and this is the wake-up, so a failed send is a line on the result and the

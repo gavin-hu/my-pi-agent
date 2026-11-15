@@ -301,6 +301,9 @@ describe("askText", () => {
 		const text = askText("is #162 ready for review?", "a1b2c3d4", byId);
 		expect(text.startsWith("Ask a1b2c3d4: is #162 ready for review?")).toBe(true);
 		expect(text).toContain('session send to "7f3a91c2" (a session id, not a label)');
+		// The reply sets the envelope field rather than only a prose prefix: the bus prints it as
+		// `re: <id>` on the row, and the ask says so.
+		expect(text).toContain('replyTo "a1b2c3d4"');
 		expect(text).toContain("re: a1b2c3d4");
 		expect(text).toContain("nothing is waiting on it");
 	});
