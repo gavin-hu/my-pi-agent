@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { LOOPBACK_HOSTS, PAGE_CSP } from "../../../lib/http/index.ts";
-import { boardWire, buildView, type BoardWire } from "../../../lib/board/view.ts";
+import { boardWire, buildView, type BoardWire } from "../../../lib/workflow/view.ts";
 import type { BoardRouterContext } from "./router.ts";
 import { handleBoardRequest } from "./router.ts";
 // A card that passes, so a case can change one thing.

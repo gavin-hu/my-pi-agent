@@ -22,8 +22,8 @@ import {
 	scriptHeaders,
 	type ServeResponse,
 } from "../../../lib/http/index.ts";
-import type { BoardWire } from "../../../lib/board/view.ts";
-import { PING_PATH, SNAPSHOT_PATH } from "../../../lib/board/page-pointer.ts";
+import type { BoardWire } from "../../../lib/workflow/view.ts";
+import { PING_PATH, SNAPSHOT_PATH } from "../../../lib/workflow/page-pointer.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
 import type { PageView } from "../view/page.ts";
 

@@ -18,12 +18,12 @@ import type { MountSource, MountSpec } from "../../lib/http/index.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
-import { type PagePointer, type ProbeFetch, readPointer, PAGE_FILE } from "../../lib/board/page-pointer.ts";
+import { type PagePointer, type ProbeFetch, readPointer, PAGE_FILE } from "../../lib/workflow/page-pointer.ts";
 import { createBoardPage, type PageStart } from "./page.ts";
 import { noteOf, servedPage } from "../../test/helpers/board-page.ts";
-import { CARDS_DIR_NAME } from "../../lib/board/store.ts";
+import { CARDS_DIR_NAME } from "../../lib/workflow/store.ts";
 import type { ArmTimer, RepeatTimer } from "../../lib/timer.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());

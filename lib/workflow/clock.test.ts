@@ -9,7 +9,7 @@
  * moment is its caller's, floored at the card's own, because a stamp the card has already passed can
  * never speak for it and the gate's own remedy would ask for the same sign again.
  *
- * It is its own suite because `lib/board/rules.test.ts` is at its height in `test/suite-sizes.test.ts`,
+ * It is its own suite because `lib/workflow/rules.test.ts` is at its height in `test/suite-sizes.test.ts`,
  * and because the property is the store's rather than one operation's.
  */
 

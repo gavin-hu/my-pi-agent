@@ -16,7 +16,7 @@ import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeBoardSession, pageWithNoRecording, SIGNING_LEAD, signingBoard } from "../../test/helpers/board-command.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import { runner } from "../../test/helpers/board-signs.ts";
 import type { Notify } from "./announce.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";

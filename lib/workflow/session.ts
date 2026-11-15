@@ -41,7 +41,7 @@ import { type BoardStore, openBoard, type MutateResult } from "./store.ts";
  * `/team join`. It is a standing rather than a flag because both need to *say* what
  * happened — `/board status` names the label and whether mail is listened for — and
  * because the next ask reads more than the last answer: a failure is asked again, and so
- * is a success the bus no longer holds, which is the roster half in `lib/board/join.ts`.
+ * is a success the bus no longer holds, which is the roster half in `lib/workflow/join.ts`.
  * A failure is kept so a line can say why, and `ok` is what a caller reads to decide.
  */
 export interface TeamStanding {

@@ -31,7 +31,7 @@ import {
 	type PlanModeRequest,
 } from "../../lib/plan-entry.ts";
 import { isBoardRead } from "../../lib/policy.ts";
-import { boardWriteRefusal } from "../../lib/board/actions.ts";
+import { boardWriteRefusal } from "../../lib/workflow/actions.ts";
 import { BOARD_TOOL, QUESTION_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";

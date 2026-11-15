@@ -21,7 +21,7 @@ import { testMountSource } from "../../test/helpers/serve.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { createBoardPage, IDLE_FIRST_MS, IDLE_STOP_MS } from "./page.ts";
 import { noteOf, servedPage } from "../../test/helpers/board-page.ts";
-import { readPointer } from "../../lib/board/page-pointer.ts";
+import { readPointer } from "../../lib/workflow/page-pointer.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());

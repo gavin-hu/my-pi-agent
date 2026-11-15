@@ -18,9 +18,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
-import { boardConfig } from "../../lib/board/config.ts";
+import { boardConfig } from "../../lib/workflow/config.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
-import { type BoardStore, createStore } from "../../lib/board/store.ts";
+import { type BoardStore, createStore } from "../../lib/workflow/store.ts";
 import { launchBrowser } from "./browser.ts";
 import { type PageDisplay, serveBoardPage } from "./board-page.ts";
 

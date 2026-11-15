@@ -14,10 +14,10 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { type BoardStore, CARDS_DIR_NAME } from "../../lib/board/store.ts";
+import { type BoardStore, CARDS_DIR_NAME } from "../../lib/workflow/store.ts";
 import { openInBrowser } from "../../lib/browser.ts";
 import type { ArmTimer, RepeatTimer } from "../../lib/timer.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import {
 	BOARD_BASE,
 	clearPointer,
@@ -28,13 +28,13 @@ import {
 	readPointer,
 	settlePointer,
 	urlOf,
-} from "../../lib/board/page-pointer.ts";
+} from "../../lib/workflow/page-pointer.ts";
 import { mintToken, type MountSource } from "../../lib/http/index.ts";
 import { messageOf } from "../../lib/errors.ts";
 import type { IdleReason } from "../../lib/http/sink.ts";
 import { join } from "node:path";
-import type { Actor } from "../../lib/board/rules.ts";
-import { pageActor } from "../../lib/board/seat.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
+import { pageActor } from "../../lib/workflow/seat.ts";
 import { createSnapshot } from "./snapshot.ts";
 import { type BoardServer, createBoardServer } from "./transport/server.ts";
 import { BOARD_CLIENT_JS } from "./view/client.ts";

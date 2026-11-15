@@ -7,9 +7,9 @@
  * read the message — `delivered` means a message file was written for it.
  */
 
-import { type Card, cardRef } from "../../lib/board/card.ts";
-import type { AddTeammateResult } from "../../lib/board/config.ts";
-import { teamPhrase } from "../../lib/board/round-text.ts";
+import { type Card, cardRef } from "../../lib/workflow/card.ts";
+import type { AddTeammateResult } from "../../lib/workflow/config.ts";
+import { teamPhrase } from "../../lib/workflow/round-text.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { ALARM_REASON } from "../../lib/session-roster.ts";
 import { type DeliveryFailure, notDeliveredLine } from "../../lib/session-tool.ts";

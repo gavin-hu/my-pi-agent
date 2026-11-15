@@ -14,13 +14,13 @@ import { runner } from "./board-signs.ts";
 import { fakeCtx } from "./context.ts";
 import { createFakePi } from "./fakes.ts";
 import { makeTempTracker } from "./git.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { JoinResult, TeamJoinInput } from "../../lib/session-tool.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { BOARD_COMMAND, registerCommands } from "../../extensions/board/commands.ts";
 import type { Notify } from "../../extensions/board/announce.ts";
-import type { BoardStore } from "../../lib/board/store.ts";
-import type { VerifyRun } from "../../lib/board/verify.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
+import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import type { TeamJoin } from "../../extensions/board/join.ts";
 import type { BoardPage, BoardPageStatus, PageStart } from "../../extensions/board/page.ts";
 

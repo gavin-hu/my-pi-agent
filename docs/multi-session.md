@@ -24,10 +24,10 @@ test fails a direct import. What is left crosses on one of three channels, each 
 one owner:
 
 ```text
-imports    board, team ───► lib/board/*
+imports    board, team ───► lib/workflow/*
            board, team ───► lib/session-tool.ts   ◄─── session-bus
            session-bus ───► lib/session-mail.ts · session-roster.ts · session-label.ts
-           session-bus ──╳► lib/board/*           the bus knows nothing of cards
+           session-bus ──╳► lib/workflow/*           the bus knows nothing of cards
 
 files      board's Team tab ───► ~/.pi/agent/session-bus/<repo-key>/   ◄── session-bus
            read through lib/session-roster.ts and session-mail.ts, so the page draws

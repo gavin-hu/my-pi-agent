@@ -3,7 +3,7 @@
  * round actions.
  *
  * The `details` here are the extensions' own types, so a change to them breaks this
- * file's build rather than the gallery's picture. The cards are `lib/board`'s own
+ * file's build rather than the gallery's picture. The cards are `lib/workflow`'s own
  * records, which is also what the page's screenshot is built from, so the transcript
  * and the page describe the same board.
  */
@@ -11,8 +11,8 @@
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import { shortenPath } from "../../../lib/format.ts";
-import type { Card } from "../../../lib/board/card.ts";
-import { buildRound } from "../../../lib/board/round.ts";
+import type { Card } from "../../../lib/workflow/card.ts";
+import { buildRound } from "../../../lib/workflow/round.ts";
 import { plansDirFor } from "../../../lib/plans/paths.ts";
 import type { BoardDetails } from "../../../extensions/board/types.ts";
 import type { TeamDetails } from "../../../extensions/team/types.ts";

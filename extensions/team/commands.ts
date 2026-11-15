@@ -12,12 +12,12 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { addTeammate, type AddTeammateResult } from "../../lib/board/config.ts";
-import { type Card, cardRef } from "../../lib/board/card.ts";
-import { buildRound, type RoundSummary } from "../../lib/board/round.ts";
-import { formatRound, holdingLine, LEAD_ROUND, withLiveOwner } from "../../lib/board/round-text.ts";
+import { addTeammate, type AddTeammateResult } from "../../lib/workflow/config.ts";
+import { type Card, cardRef } from "../../lib/workflow/card.ts";
+import { buildRound, type RoundSummary } from "../../lib/workflow/round.ts";
+import { formatRound, holdingLine, LEAD_ROUND, withLiveOwner } from "../../lib/workflow/round-text.ts";
 import { plural } from "../../lib/format.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
 import { type RosterSession, presenceOf, rosterStateOf } from "../../lib/session-roster.ts";
 import { isTeammate, labelKey, sessionNameOf } from "../../lib/session-label.ts";
@@ -42,7 +42,7 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(TEAM_COMMAND, {
 		// The line and the guideline are the same sentence: `/team` is where a lead reads the round, and
-		// `lib/board/round-text.ts` owns what it is called.
+		// `lib/workflow/round-text.ts` owns what it is called.
 		description: `${LEAD_ROUND} \`/team join [<label>]\` joins the team`,
 		getArgumentCompletions: (prefix: string) => {
 			const text = prefix.trimStart();
@@ -201,7 +201,7 @@ function stalledLines(cards: readonly Card[], roster: readonly RosterSession[] |
  * nothing when nobody is here.
  *
  * Every state group names the session with what it is holding, from
- * `lib/board/round-text.ts`'s one phrase, so a line that says who is around also says what
+ * `lib/workflow/round-text.ts`'s one phrase, so a line that says who is around also says what
  * they are doing: a session holding nothing reads `idle`, and one holding cards names the
  * first and counts the rest. `not listening:` is the exception, and it is a flag rather than
  * a state: it names a peer already listed under `live:`, so repeating its holding there

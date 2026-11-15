@@ -19,7 +19,7 @@
  *
  * The board index is a parameter rather than a lookup because three operations need a
  * *different* card: a claim or a move is refused while a dependency is unfinished, and
- * a drop is refused while somebody waits on the card. `lib/board/links.ts` answers those
+ * a drop is refused while somebody waits on the card. `lib/workflow/links.ts` answers those
  * questions; this module decides what to do with the answer. The board's settings — its WIP
  * limits and the name its two signatures must carry — are one parameter for the same reason:
  * the rule decides, the reader of `bytefly.json` supplies them.

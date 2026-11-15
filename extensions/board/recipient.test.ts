@@ -38,7 +38,7 @@ describe("the peer a card's owner names", () => {
 	test("skips a record whose process is gone, whatever it is called", () => {
 		// A dead process is not a recipient: the bus filters it too, and picking it here would report
 		// a peer that no longer exists instead of the live session that holds the name. The pid is one
-		// no process can have, the seam `lib/board/session.test.ts` uses for the same fact.
+		// no process can have, the seam `lib/workflow/session.test.ts` uses for the same fact.
 		const roster = [
 			rosterSession(NOW, "s-dead", "api-core", { pid: 999_999_999 }),
 			rosterSession(NOW, "s-live", "api-core"),

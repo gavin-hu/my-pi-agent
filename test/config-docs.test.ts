@@ -35,8 +35,8 @@ import { DEFAULT_CONFIG as DEFAULT_WECHAT_CONFIG } from "../extensions/wechat/co
 import { DEFAULT_FETCH_CONFIG } from "../extensions/web-access/fetch/config.ts";
 import { DEFAULT_SEARCH_CONFIG } from "../extensions/web-access/search/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WORKTREE_CONFIG } from "../extensions/worktree/config.ts";
-import { DEFAULT_TEAM_CONFIG } from "../lib/board/config.ts";
-import { DEFAULT_WIP } from "../lib/board/limits.ts";
+import { DEFAULT_TEAM_CONFIG } from "../lib/workflow/config.ts";
+import { DEFAULT_WIP } from "../lib/workflow/limits.ts";
 
 const docs = join(import.meta.dir, "..", "docs");
 const reference = readFileSync(join(docs, "configuration-reference.md"), "utf-8");

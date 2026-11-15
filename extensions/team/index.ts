@@ -16,7 +16,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { type BoardSession, openBoardSession } from "../../lib/board/session.ts";
+import { type BoardSession, openBoardSession } from "../../lib/workflow/session.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { registerCommands } from "./commands.ts";

@@ -8,10 +8,10 @@
  * knew. The renderer and the tool share these types, and nothing else.
  */
 
-import type { Card } from "../../lib/board/card.ts";
-import type { Actor } from "../../lib/board/rules.ts";
-import type { RoundSummary } from "../../lib/board/round.ts";
-import { BOARD_ACTIONS, type BoardAction } from "../../lib/board/actions.ts";
+import type { Card } from "../../lib/workflow/card.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
+import type { RoundSummary } from "../../lib/workflow/round.ts";
+import { BOARD_ACTIONS, type BoardAction } from "../../lib/workflow/actions.ts";
 import { memberOf } from "../../lib/json.ts";
 
 /** The tool's name. One extension registers it, so it stays here. */

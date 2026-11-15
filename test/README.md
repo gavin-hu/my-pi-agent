@@ -44,7 +44,7 @@ Measured on an 8-core laptop, one file at a time, after a one-line edit — `bun
 |---|---|---|
 | Nothing, already green | 0 | 0.1 s |
 | A leaf module, `extensions/watch/format.ts` | 9 | 0.8 s |
-| A mid-size leaf, `lib/board/verify.ts` | 31 | 4.2 s |
+| A mid-size leaf, `lib/workflow/verify.ts` | 31 | 4.2 s |
 | A document or an asset | 0 | 0.1 s |
 | A hub, `lib/format.ts` | 309 | 77.3 s |
 

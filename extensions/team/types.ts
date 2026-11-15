@@ -16,9 +16,9 @@
  * sentence and one result line there, and this tool offering it a second time is what #581 removed.
  */
 
-import type { Card } from "../../lib/board/card.ts";
-import type { CardOwner } from "../../lib/board/card.ts";
-import { LEAD_ROUND } from "../../lib/board/round-text.ts";
+import type { Card } from "../../lib/workflow/card.ts";
+import type { CardOwner } from "../../lib/workflow/card.ts";
+import { LEAD_ROUND } from "../../lib/workflow/round-text.ts";
 import type { DeliveryFailure } from "../../lib/session-tool.ts";
 import { memberOf } from "../../lib/json.ts";
 

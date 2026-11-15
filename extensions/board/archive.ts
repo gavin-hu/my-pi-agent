@@ -13,11 +13,11 @@
  */
 
 import { textResult } from "../../lib/tool-result.ts";
-import { type Card, cardRef, laneSince, normalizeCardId } from "../../lib/board/card.ts";
-import { archivableOf } from "../../lib/board/round.ts";
+import { type Card, cardRef, laneSince, normalizeCardId } from "../../lib/workflow/card.ts";
+import { archivableOf } from "../../lib/workflow/round.ts";
 import { plural } from "../../lib/format.ts";
-import type { Actor } from "../../lib/board/rules.ts";
-import type { BoardStore } from "../../lib/board/store.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
 import { formatArchived } from "./format.ts";
 import { refusal } from "./result.ts";
 import type { BoardArgs } from "./schema.ts";

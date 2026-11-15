@@ -18,7 +18,7 @@ import {
 } from "../extensions/session-bus/tools.ts";
 import { BOARD_DESCRIPTION, BOARD_GUIDELINES, BOARD_SNIPPET } from "../extensions/board/tools.ts";
 import { TEAM_DESCRIPTION, TEAM_GUIDELINES, TEAM_SNIPPET } from "../extensions/team/types.ts";
-import { LEAD_ROUND } from "../lib/board/round-text.ts";
+import { LEAD_ROUND } from "../lib/workflow/round-text.ts";
 import { TeamParams } from "../extensions/team/schema.ts";
 import { buildBoardContext, MAX_CONTEXT_CHARS, MAX_CONTEXT_CARDS } from "../extensions/board/context.ts";
 import { numberedCard } from "./helpers/fixtures/board.ts";
@@ -126,7 +126,7 @@ describe("the team tool surface", () => {
 		expect(naming).toHaveLength(1);
 		expect(naming[0]).toContain("`approve`");
 		expect(naming[0]).toContain("`review`");
-		// The round's one line, spliced from `lib/board/round-text.ts`: `/team`'s description says
+		// The round's one line, spliced from `lib/workflow/round-text.ts`: `/team`'s description says
 		// the same sentence, so the two surfaces that name the round cannot describe it differently.
 		expect(naming[0]).toContain(LEAD_ROUND);
 	});

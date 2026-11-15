@@ -11,8 +11,8 @@
  * card dialog's suite read the same board, and a second copy of it is how the two drift.
  */
 
-import type { BoardStore } from "../../lib/board/store.ts";
-import type { Actor } from "../../lib/board/rules.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
 import { advance } from "./board-flow.ts";
 
 /** The two sessions the fixture's cards belong to. */

@@ -5,15 +5,15 @@
  * The action moved to its own suite because it is the only one that needs a second session's
  * record as well as a card: `board`'s tool suite is the surface every action shares, and this is
  * the case where a refusal depends on what the bus says about somebody else. The rest of the
- * operation — the gate, the words, what returns to the pool — is `lib/board/reclaim.test.ts`, and
- * the crossing's own rule is `lib/board/claims.test.ts`; what is here is the wiring, which no seam
+ * operation — the gate, the words, what returns to the pool — is `lib/workflow/reclaim.test.ts`, and
+ * the crossing's own rule is `lib/workflow/claims.test.ts`; what is here is the wiring, which no seam
  * case can see.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Claims } from "../../lib/board/claims.ts";
+import type { Claims } from "../../lib/workflow/claims.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import type { ClaimPathsResult, ReleasePathsResult } from "../../lib/session-tool.ts";
 import { boardHarness, boardTool } from "../../test/helpers/board.ts";

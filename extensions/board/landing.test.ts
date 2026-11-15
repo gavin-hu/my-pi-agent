@@ -12,8 +12,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { Card } from "../../lib/board/card.ts";
-import { landingGate, reviewedAncestor } from "../../lib/board/contract.ts";
+import type { Card } from "../../lib/workflow/card.ts";
+import { landingGate, reviewedAncestor } from "../../lib/workflow/contract.ts";
 import { resolvedByMerge } from "../../lib/git/read.ts";
 import { createExecRunner } from "../../lib/git/runner.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";

@@ -2,7 +2,7 @@
  * The card dialog's reviewed row, driven the way a reader drives it.
  *
  * Split from `dialog-behaviour.test.ts`, which is at its line budget: what a sign's run says is
- * its own question. The clause is `lib/board/round-text.ts`'s body, spliced into the page, so the
+ * its own question. The clause is `lib/workflow/round-text.ts`'s body, spliced into the page, so the
  * transcript's card and this dialog print one sentence about one record — and the case here is
  * that the page received that body and asks it the run, not that it spells the words again.
  *

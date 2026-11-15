@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { boardWire, buildView, type BoardWire } from "../../../lib/board/view.ts";
+import { boardWire, buildView, type BoardWire } from "../../../lib/workflow/view.ts";
 import type { EventSink, HttpMount, LoopbackHandler, MountSource } from "../../../lib/http/index.ts";
 import type { ArmTimer, RepeatTimer } from "../../../lib/timer.ts";
 import { waitFor } from "../../../test/helpers/process.ts";

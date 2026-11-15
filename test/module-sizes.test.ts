@@ -35,7 +35,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
 		lines: 642,
 		why: "one codec: the marker grammar, its escapes, and where a marker lands",
 	},
-	"lib/board/lead.ts": {
+	"lib/workflow/lead.ts": {
 		lines: 654,
 		why: "the board's one human judgement: who may sign, what a sign records, and which sign still speaks",
 	},

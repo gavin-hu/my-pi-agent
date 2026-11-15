@@ -21,14 +21,14 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { agentLabel } from "../../lib/session-label.ts";
-import { MAX_NOTES } from "../../lib/board/card.ts";
+import { MAX_NOTES } from "../../lib/workflow/card.ts";
 import { shortenPath } from "../../lib/format.ts";
-import { buildRound } from "../../lib/board/round.ts";
+import { buildRound } from "../../lib/workflow/round.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import type { TeamJoin } from "./join.ts";
 import { registerTools } from "./tools.ts";
 import { ACTION_FIELDS, BOARD_ACTION_DOCS, BOARD_ACTIONS, type BoardDetails } from "./types.ts";
-import { BOARD_ACTIONS as LIB_BOARD_ACTIONS } from "../../lib/board/actions.ts";
+import { BOARD_ACTIONS as LIB_BOARD_ACTIONS } from "../../lib/workflow/actions.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -166,7 +166,7 @@ describe("the registration", () => {
 	});
 
 	test("publishes the board's own verb list, so the read split and this enum cannot drift", () => {
-		// The actions moved to `lib/board/actions.ts` because plan mode has to classify a call
+		// The actions moved to `lib/workflow/actions.ts` because plan mode has to classify a call
 		// by the same list this schema publishes. A local copy here would read as one list
 		// and be another, which is how the old `BOARD_READ_ACTION` string went wrong.
 		expect(BOARD_ACTIONS).toBe(LIB_BOARD_ACTIONS);

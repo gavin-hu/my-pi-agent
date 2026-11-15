@@ -17,11 +17,11 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount } from "../../lib/http/mount.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
-import type { Claims } from "../../lib/board/claims.ts";
+import type { Claims } from "../../lib/workflow/claims.ts";
 import { registerCommands } from "./commands.ts";
 import { createLazyBoardPage } from "./lazy-page.ts";
 import type { BoardPage } from "./page.ts";
-import { type BoardSession, openBoardSession } from "../../lib/board/session.ts";
+import { type BoardSession, openBoardSession } from "../../lib/workflow/session.ts";
 import { registerTools } from "./tools.ts";
 
 export interface BoardDeps {
@@ -100,7 +100,7 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 		const notes = [
 			held.length === 0
 				? undefined
-				: await import("../../lib/board/claims.ts").then((claims) =>
+				: await import("../../lib/workflow/claims.ts").then((claims) =>
 						claims.reclaimHeld(deps.claims ?? claims.busClaims(pi), ctx, held),
 					),
 			await (endedModule ??= import("./ended.ts")).then((ended) => ended.releaseEnded(session, ctx)),

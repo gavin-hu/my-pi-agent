@@ -9,8 +9,8 @@
  * what stops the signal.
  */
 
-import { BOARD_BASE } from "../../../lib/board/page-pointer.ts";
-import type { BoardWire } from "../../../lib/board/view.ts";
+import { BOARD_BASE } from "../../../lib/workflow/page-pointer.ts";
+import type { BoardWire } from "../../../lib/workflow/view.ts";
 import {
 	type EventSink,
 	type HttpMount,

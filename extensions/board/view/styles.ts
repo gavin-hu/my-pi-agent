@@ -10,8 +10,8 @@
  * with rows under it, and the only box on the page is the record in its dialog.
  */
 
-import { LANE_RULES, LANES, type LaneRole } from "../../../lib/board/lanes.ts";
-import { BOARD_TONES } from "../../../lib/board/tone.ts";
+import { LANE_RULES, LANES, type LaneRole } from "../../../lib/workflow/lanes.ts";
+import { BOARD_TONES } from "../../../lib/workflow/tone.ts";
 import { WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../../lib/web/index.ts";
 
 /**

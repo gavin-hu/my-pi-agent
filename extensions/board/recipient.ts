@@ -19,7 +19,7 @@
  * Pure: a filter over records a caller read, and the caller's clock for the liveness rule.
  */
 
-import type { CardOwner } from "../../lib/board/card.ts";
+import type { CardOwner } from "../../lib/workflow/card.ts";
 import { type RosterSession, type RosterState, peerOf, peerRowOf } from "../../lib/session-roster.ts";
 
 /** One addressee: what to send to, what to call it, and whether it is listening. */

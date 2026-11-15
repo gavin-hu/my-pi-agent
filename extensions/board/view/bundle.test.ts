@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { HISTORY_OWNER_JS } from "../../../lib/board/round-text.ts";
+import { HISTORY_OWNER_JS } from "../../../lib/workflow/round-text.ts";
 import { LABEL_KEY_JS, SAME_LABEL_JS } from "../../../lib/session-label.ts";
 import { duplicateFunctions, missingBundleBodies } from "../../../test/helpers/bundle.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";

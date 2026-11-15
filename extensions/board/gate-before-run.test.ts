@@ -1,7 +1,7 @@
 /**
  * A spot-check's gate decides before its command runs.
  *
- * `lib/board/verify.test.ts` proves what a run records; what this suite proves is the order — that
+ * `lib/workflow/verify.test.ts` proves what a run records; what this suite proves is the order — that
  * the lane, the holder, the signer and the note the sign carries are asked *before* the shell a
  * contract names is started, so a sign that will be refused spends no process getting there, and that
  * an override on a card whose contract names a command signs with nothing executed. Both doors are driven, because the tool's
@@ -29,8 +29,8 @@ import { signingBoard } from "../../test/helpers/board-command.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import type { VerifyRun } from "../../lib/board/verify.ts";
-import { MAX_NOTE } from "../../lib/board/card.ts";
+import type { VerifyRun } from "../../lib/workflow/verify.ts";
+import { MAX_NOTE } from "../../lib/workflow/card.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());

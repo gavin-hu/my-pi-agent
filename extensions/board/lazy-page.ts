@@ -10,7 +10,7 @@
  * The loader is a seam: a test drives the proxy without a socket.
  */
 
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import { lazy } from "../../lib/lazy.ts";
 import type { BoardPage, BoardPageDeps } from "./page.ts";
 

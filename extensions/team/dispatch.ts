@@ -13,12 +13,12 @@
 
 import { randomBytes } from "node:crypto";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
-import type { Card } from "../../lib/board/card.ts";
-import { cardRef, type CardOwner } from "../../lib/board/card.ts";
-import type { Handoff } from "../../lib/board/contract.ts";
-import type { Lead } from "../../lib/board/lead.ts";
-import { askLead, leadName } from "../../lib/board/contract.ts";
-import type { Actor } from "../../lib/board/rules.ts";
+import type { Card } from "../../lib/workflow/card.ts";
+import { cardRef, type CardOwner } from "../../lib/workflow/card.ts";
+import type { Handoff } from "../../lib/workflow/contract.ts";
+import type { Lead } from "../../lib/workflow/lead.ts";
+import { askLead, leadName } from "../../lib/workflow/contract.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
 import { clipText } from "../../lib/format.ts";
 import {
 	listPeers,
@@ -162,11 +162,11 @@ export function offerText(card: Card, lead: Lead, note?: string): string {
 /**
  * The moves a card has left, and which of them the peer may make itself.
  *
- * Both gates are the lead's signature — `lib/board/steps.ts` refuses `plan`→`execute`
+ * Both gates are the lead's signature — `lib/workflow/steps.ts` refuses `plan`→`execute`
  * without `approve` and `done` without `review`, and refuses a signer who holds the card —
  * so a message that said "move it to execute, blocked, or done" handed the peer an
  * instruction its own next call would refuse. The name is the configured lead, which is the
- * one a sign has to carry, and the way to ask it is `askLead` — `lib/board/sign-words.ts`'s one
+ * one a sign has to carry, and the way to ask it is `askLead` — `lib/workflow/sign-words.ts`'s one
  * phrase for the channel, printed here and in the two refusals a peer reads.
  */
 function signatureLine(lead: Lead): string {

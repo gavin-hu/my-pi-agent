@@ -18,7 +18,7 @@
  */
 
 import { isTeammate } from "../../../../lib/session-label.ts";
-import { DEFAULT_TEAM_CONFIG, readTeamConfig } from "../../../../lib/board/config.ts";
+import { DEFAULT_TEAM_CONFIG, readTeamConfig } from "../../../../lib/workflow/config.ts";
 
 /**
  * The names this repository's project holds as its team.

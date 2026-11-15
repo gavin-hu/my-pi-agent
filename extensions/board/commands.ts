@@ -4,22 +4,22 @@
  * `team` opens the page on the Team tab, `status` prints one line, `stop` closes it, and
  * `approve <id>` / `review <id>` write the two signs as the person at the keyboard, which is what
  * a session that is not the board's lead cannot do. Everything else opens the page. The command
- * is a thin parser — the lifecycle is `page.ts`'s, the transitions are `lib/board/steps.ts`'s —
+ * is a thin parser — the lifecycle is `page.ts`'s, the transitions are `lib/workflow/steps.ts`'s —
  * so the idle grace and `session_shutdown` close the same server this opens.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
-import type { ArtifactProof } from "../../lib/board/artifact.ts";
-import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
-import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
-import type { Verification } from "../../lib/board/contract.ts";
-import type { CardOp } from "../../lib/board/rules.ts";
-import { landedClause, ranClause } from "../../lib/board/round-text.ts";
+import type { ArtifactProof } from "../../lib/workflow/artifact.ts";
+import { cardRef, normalizeCardId } from "../../lib/workflow/card.ts";
+import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/workflow/lead.ts";
+import type { Verification } from "../../lib/workflow/contract.ts";
+import type { CardOp } from "../../lib/workflow/rules.ts";
+import { landedClause, ranClause } from "../../lib/workflow/round-text.ts";
 import { plural } from "../../lib/format.ts";
-import { type BoardSession } from "../../lib/board/session.ts";
-import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
-import type { VerifyRun } from "../../lib/board/verify.ts";
+import { type BoardSession } from "../../lib/workflow/session.ts";
+import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
+import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
@@ -81,7 +81,7 @@ export function registerCommands(
 			if (word === "status") {
 				// The bus's record answers first: a disarm through `/session join` never reaches this
 				// session, so the remembered standing is only the answer when the bus cannot give one.
-				const { teamStatus } = await import("../../lib/board/join.ts");
+				const { teamStatus } = await import("../../lib/workflow/join.ts");
 				ctx.ui.notify(statusLine(await page.status(), await teamStatus(session, ctx)), "info");
 				return;
 			}
@@ -120,10 +120,10 @@ export function registerCommands(
 			// is the lead's one action.
 			if (started.kind === "failed") return;
 			session.serve(started.kind === "served" ? started.seat : undefined);
-			// The join is `lib/board/join.ts`'s one rule, loaded here so a session that never opens the
+			// The join is `lib/workflow/join.ts`'s one rule, loaded here so a session that never opens the
 			// page pays nothing for it: it asks when the bus does not hold this session under the seat's
 			// name, and repeats a disarmed watch as the disarmed join the user asked for.
-			const { joinTeam } = await import("../../lib/board/join.ts");
+			const { joinTeam } = await import("../../lib/workflow/join.ts");
 			const joined = await joinTeam(session, team, ctx, (await session.who(ctx, ctx.cwd)).label);
 			// The address is on the line because the browser is not the only way in: a machine
 			// with no default browser prints it here, and a tab closed by mistake is one
@@ -174,7 +174,7 @@ async function signLine(
 	/**
 	 * The run a spot-check records, or the sentence that stops it.
 	 *
-	 * The read, the run and the words are `lib/board/verify.ts`'s: the tool's door asks the card the
+	 * The read, the run and the words are `lib/workflow/verify.ts`'s: the tool's door asks the card the
 	 * same question, and a person signing at a keyboard must get the same answer for the same card.
 	 */
 	const verifiedFor = async (
@@ -185,8 +185,8 @@ async function signLine(
 	): Promise<{ verified: Verification } | { error: string } | undefined> => {
 		const card = await store.read(cardId).catch(() => undefined);
 		if (card === undefined) return undefined;
-		const module = await import("../../lib/board/verify.ts");
-		// The gate, the override and the run are `lib/board/verify.ts`'s, as the tool's door asks them:
+		const module = await import("../../lib/workflow/verify.ts");
+		// The gate, the override and the run are `lib/workflow/verify.ts`'s, as the tool's door asks them:
 		// a sign that would be refused starts no process, and the refusal stays the store's to give.
 		return module.spotCheck({
 			card,

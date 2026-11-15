@@ -13,9 +13,9 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { cardRef, holds } from "../../lib/board/card.ts";
-import { LANE_RULES } from "../../lib/board/lanes.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import { cardRef, holds } from "../../lib/workflow/card.ts";
+import { LANE_RULES } from "../../lib/workflow/lanes.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import { listOf } from "../../lib/format.ts";
 import { presenceOf } from "../../lib/session-roster.ts";
 import { sameLabel } from "../../lib/session-label.ts";

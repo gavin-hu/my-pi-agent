@@ -248,7 +248,7 @@ const STORES: readonly StoreRow[] = [
 		module: "extensions/bytefly/update/cache.ts",
 		names: "update.json",
 	},
-	{ location: "<agent-dir>/board/<repo-key>/", page: "", module: "lib/board/store.ts", names: "board" },
+	{ location: "<agent-dir>/board/<repo-key>/", page: "", module: "lib/workflow/store.ts", names: "board" },
 	{ location: "<agent-dir>/bytefly.json", page: "", module: "lib/config.ts", names: "bytefly.json" },
 ];
 
@@ -273,7 +273,7 @@ const READS_AGENT_DIR = new Map<string, string>([
 	["extensions/wechat/index.ts", "hands the agent directory to the bridge"],
 	["extensions/worktree/config.ts", "owns a location in the checkout, not one under the agent directory"],
 	[
-		"lib/board/session.ts",
+		"lib/workflow/session.ts",
 		"derives the bus directory a card's owner is read from, and the plan store a plan is proved against",
 	],
 	["lib/requirements.ts", "checks the state files doctor reports on"],

@@ -14,8 +14,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { BoardStore } from "../../lib/board/store.ts";
-import { UNWRITTEN_MS } from "../../lib/board/round.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
+import { UNWRITTEN_MS } from "../../lib/workflow/round.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { drawnOf } from "../../test/helpers/fixtures/board.ts";

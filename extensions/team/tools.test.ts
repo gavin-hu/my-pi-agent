@@ -10,7 +10,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import type { Card } from "../../lib/board/card.ts";
+import type { Card } from "../../lib/workflow/card.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { type TeamSuite, type TeamSuiteOptions, teamSuite } from "../../test/helpers/fixtures/team.ts";
 import { fakeTheme, toolRenderContext } from "../../test/helpers/fakes.ts";

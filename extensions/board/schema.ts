@@ -9,11 +9,11 @@
 
 import type { Static } from "typebox";
 import { Type } from "typebox";
-import { MAX_NOTE, PRIORITIES } from "../../lib/board/card.ts";
-import { CARD_TYPES } from "../../lib/board/kind.ts";
+import { MAX_NOTE, PRIORITIES } from "../../lib/workflow/card.ts";
+import { CARD_TYPES } from "../../lib/workflow/kind.ts";
 import { listOf } from "../../lib/format.ts";
-import { BLOCKERS } from "../../lib/board/card.ts";
-import { LANES, movableLanes } from "../../lib/board/lanes.ts";
+import { BLOCKERS } from "../../lib/workflow/card.ts";
+import { LANES, movableLanes } from "../../lib/workflow/lanes.ts";
 import { BOARD_ACTIONS } from "./types.ts";
 
 export const BoardParams = Type.Object({

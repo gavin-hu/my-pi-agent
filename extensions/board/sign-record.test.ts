@@ -11,7 +11,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import type { BoardStore } from "../../lib/board/store.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
 import { bench, claimedWithContract, flushFixture, PEER, type Sent, signBus } from "../../test/helpers/board-signs.ts";
 import { signingBoard } from "../../test/helpers/board-command.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";

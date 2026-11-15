@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { MAX_TITLE } from "../../lib/board/card.ts";
+import { MAX_TITLE } from "../../lib/workflow/card.ts";
 import { createInput } from "./input.ts";
 
 describe("createInput", () => {

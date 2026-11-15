@@ -8,7 +8,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import type { Actor } from "../../lib/board/rules.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
 import { boardTool } from "../../test/helpers/board.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";

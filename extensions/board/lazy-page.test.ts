@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createLazyBoardPage, type BoardPageModule } from "./lazy-page.ts";
 import type { BoardPage, BoardPageStatus } from "./page.ts";

@@ -10,11 +10,11 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { Card } from "../../lib/board/card.ts";
-import type { Actor } from "../../lib/board/rules.ts";
-import { buildRound } from "../../lib/board/round.ts";
-import { formatRound } from "../../lib/board/round-text.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { Card } from "../../lib/workflow/card.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
+import { buildRound } from "../../lib/workflow/round.ts";
+import { formatRound } from "../../lib/workflow/round-text.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { boardCard, numberedCard, resultText } from "../../test/helpers/fixtures/board.ts";

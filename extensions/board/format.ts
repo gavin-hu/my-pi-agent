@@ -8,20 +8,27 @@
  *
  * `board` is optional because a single card's answer sometimes comes without the rest
  * of the board: the ids are still named, and only the lane of each dependency is lost.
- * The rollup's text is `lib/board/round-text.ts`, because `team` prints it too.
+ * The rollup's text is `lib/workflow/round-text.ts`, because `team` prints it too.
  */
 
-import { type Card, type CardBlock, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/board/card.ts";
-import type { Sign } from "../../lib/board/contract.ts";
-import { CONTRACT_LINE_OWED } from "../../lib/board/contract.ts";
-import { gateOf } from "../../lib/board/round.ts";
-import { LANE_RULES } from "../../lib/board/lanes.ts";
-import { GATE_WORD } from "../../lib/board/tone.ts";
-import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
-import { skippedText } from "../../lib/board/skipped.ts";
-import type { Skip } from "../../lib/board/read.ts";
+import {
+	type Card,
+	type CardBlock,
+	cardRef,
+	DEFAULT_PRIORITY,
+	dependsOf,
+	priorityOf,
+} from "../../lib/workflow/card.ts";
+import type { Sign } from "../../lib/workflow/contract.ts";
+import { CONTRACT_LINE_OWED } from "../../lib/workflow/contract.ts";
+import { gateOf } from "../../lib/workflow/round.ts";
+import { LANE_RULES } from "../../lib/workflow/lanes.ts";
+import { GATE_WORD } from "../../lib/workflow/tone.ts";
+import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/workflow/links.ts";
+import { skippedText } from "../../lib/workflow/skipped.ts";
+import type { Skip } from "../../lib/workflow/read.ts";
 import { formatAge, plural, shortenPath } from "../../lib/format.ts";
-import { ranClause } from "../../lib/board/round-text.ts";
+import { ranClause } from "../../lib/workflow/round-text.ts";
 
 /**
  * What a claim adds to the card: the next step, in the order the board enforces.

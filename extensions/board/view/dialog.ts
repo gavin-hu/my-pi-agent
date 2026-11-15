@@ -70,7 +70,7 @@ __SHORTEN_PATH__
 
   /**
    * What the sign's run was, as the clause under the rung: the command, the tree, the exit, and the
-   * commit. Spliced from lib/board/round-text.ts, so the transcript's card and this dialog print one
+   * commit. Spliced from lib/workflow/round-text.ts, so the transcript's card and this dialog print one
    * sentence about one record: a commit says when the run was taken, the tree says where.
    */
 __RAN_CLAUSE__
