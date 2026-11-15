@@ -68,6 +68,7 @@ export const REASON_TONE: Record<ReasonKind, BoardTone> = {
 export const DECISION_KINDS = [
 	"blocked",
 	"gone",
+	"untold",
 	"approval",
 	"review",
 	"waiting",
@@ -89,6 +90,7 @@ export type DecisionKind = (typeof DECISION_KINDS)[number];
 export const DECISION_LABEL: Record<DecisionKind, string> = {
 	blocked: "blocked",
 	gone: "owner gone",
+	untold: "sign not told",
 	approval: "needs approval",
 	review: "needs review",
 	waiting: "waits",
@@ -146,6 +148,7 @@ export const DECISION_BAND: Record<DecisionKind, DecisionBand> = {
 	gone: "claim",
 	waiting: "claim",
 	blocked: "stalled",
+	untold: "signature",
 	unwritten: "stalled",
 	unplanned: "stalled",
 };
@@ -168,6 +171,7 @@ export const DECISION_BAND_JS = JSON.stringify({
 export const DECISION_TONE: Record<DecisionKind, BoardTone> = {
 	blocked: "danger",
 	gone: "danger",
+	untold: "warn",
 	approval: "warn",
 	review: "warn",
 	waiting: "dim",

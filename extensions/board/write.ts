@@ -67,9 +67,14 @@ export async function mutate(
 	 */
 	report: {
 		next?: string;
-		told?: (card: Card) => Promise<{ card?: Card; line?: string } | undefined>;
-		/** The clause a write that completed a contract carries: who was told it is ready, or why nobody. */
-		ready?: (card: Card) => Promise<{ line?: string } | undefined>;
+		/**
+		 * The clause a write that owes a notice carries: who was told, or why nobody.
+		 *
+		 * Called only when the operation returned a `notice`, so a door never asks the bus about a
+		 * write that owes nothing. The result comes with it because a reclaim's sentence describes
+		 * the card as it was, which only `previous` holds.
+		 */
+		notice?: (card: Card, result: MutateResult) => Promise<{ card?: Card; line?: string } | undefined>;
 		cross?: (result: MutateResult) => Promise<string | undefined>;
 		joined?: () => Promise<string | undefined>;
 	} = {},
@@ -79,19 +84,17 @@ export async function mutate(
 	if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
 	const result = await store.mutate(id, op, me, now);
 	if (!result.ok) return refusal(action, me, result.error, result.card);
-	const told = result.announce === true ? await report.told?.(result.card) : undefined;
-	// A sign is told for its owner, a completed contract for the lead: two directions, one write's worth
-	// of result text, and neither is gated on the other's flag.
-	const ready = result.ready === true ? await report.ready?.(result.card) : undefined;
-	// A sign the owner was just told of is a card that moved: the announced write is the newer read.
-	const card = told?.card ?? result.card;
+	// One write owes at most one notice: the operation names which, and the door decides how.
+	const notified =
+		result.notice === undefined ? undefined : await report.notice?.(result.card, result).catch(() => undefined);
+	// A notice the record settled is a card that moved: the announced write is the newer read.
+	const card = notified?.card ?? result.card;
 	// After the write, as the sign's message is: a bus that cannot answer costs a clause and
 	// never the move it came after.
 	const held = report.cross === undefined ? undefined : await report.cross(result).catch(() => undefined);
 	// The same rule for the team: the card is taken either way, so a join that did not land is a
 	// line on the result rather than an error that reads as nothing having happened.
-	// One write owes at most one clause (see `report`): the sign's, or the completed contract's.
-	const toldLine = told?.line ?? ready?.line;
+	const toldLine = notified?.line;
 	const joined = report.joined === undefined ? undefined : await report.joined().catch(() => undefined);
 	const body = [
 		formatCard(card),

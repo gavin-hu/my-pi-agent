@@ -35,6 +35,7 @@ import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
 import { type Card, cardRef, type EndedCard, ENDED_VERSION, type Priority } from "./card.ts";
+import type { NoticeKind } from "./notice.ts";
 import type { CardType } from "./kind.ts";
 import { CARD_FILE, readCardFile, readdirSafe, type Skip, scanPile } from "./read.ts";
 import { indexOf } from "./links.ts";
@@ -92,9 +93,8 @@ export type MutateResult =
 			changed: boolean;
 			dropped: boolean;
 			archived: boolean;
-			announce?: true;
-			/** A write that completed a contract, so the lead owes an `approve` and a message about it. */
-			ready?: true;
+			/** The transition whose notice the write owes, when it owes one. */
+			notice?: NoticeKind;
 			previous?: Card;
 	  }
 	| { ok: false; error: string; card?: Card };

@@ -13,12 +13,6 @@
 
 import { randomBytes } from "node:crypto";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
-import type { Card } from "../../lib/workflow/card.ts";
-import { cardRef, type CardOwner } from "../../lib/workflow/card.ts";
-import type { Handoff } from "../../lib/workflow/contract.ts";
-import type { Lead } from "../../lib/workflow/lead.ts";
-import { askLead, leadName } from "../../lib/workflow/contract.ts";
-import type { Actor } from "../../lib/workflow/rules.ts";
 import { clipText } from "../../lib/format.ts";
 import {
 	listPeers,
@@ -27,7 +21,6 @@ import {
 	type Peer,
 	send as sendTo,
 } from "../../lib/session-tool.ts";
-import { type PeerAlarm, peerAlarm, peerNamed } from "../../lib/session-roster.ts";
 
 /** How a handoff reaches a peer, and what the bus can say about the peers there are. */
 export interface Dispatch {
@@ -55,37 +48,6 @@ export interface Dispatch {
 	 * woken. It never throws: a resolve that fails must not undo a handoff that landed.
 	 */
 	peers(): Promise<Peer[] | undefined>;
-}
-
-/**
- * What the peer reads.
- *
- * It names the card and its outcome, says what to do next — record the plan, work, note,
- * and which moves are the peer's own — and then the paths it needs. The instruction comes
- * before the paths because the paths are the only line that can run past the bus's limit,
- * and a clipped message must not lose the step it was sent to give. It does **not** ask
- * the peer to claim the card — `assign` has already recorded the owner, and a claim by the
- * holder is a no-op. The claim is the failure path's own step.
- *
- * That failure path is the hedge closing the instruction block, and it is there rather than in
- * a second message because the message is sent before the write: the card can end up somebody
- * else's, or nobody's, and the only correction that cannot itself be lost is one the peer
- * already holds. So the line names both outcomes — leave a rival's card alone, claim a card
- * nobody holds — because a peer told only about the rival would write its contract against a
- * card the store refuses it. A handoff that landed satisfies neither condition and is
- * unchanged by it.
- */
-export function handoffText(card: Card, to: string, lead: Lead, note?: string): string {
-	const lines = [
-		`Handoff: ${cardRef(card.id)} "${card.title}" is yours, ${to}.`,
-		`It is already assigned to you — write its contract with board action "contract" if it has none, then note each phase.`,
-		signatureLine(lead),
-		`If the board shows another owner, the write lost a race: leave it alone and ${askLead(lead)}; if it shows nobody, claim it with board action "claim" before its contract.`,
-		card.paths.length > 0 ? `Paths: ${card.paths.join(", ")}` : undefined,
-		card.planPath === undefined ? undefined : `Plan: ${card.planPath}`,
-		note === undefined ? undefined : `Note: ${note}`,
-	].filter((line): line is string => line !== undefined);
-	return clipText(lines.join("\n"), MAX_MESSAGE_TEXT);
 }
 
 /**
@@ -145,40 +107,6 @@ export interface ReplyRoute {
 	byId: boolean;
 }
 
-/**
- * What every live session reads when the lead offers a card instead of assigning it.
- *
- * An offer names no owner: the first peer to claim the card takes it, so the text says
- * what the card is and that claiming is the next step, and it never implies the work is
- * already somebody's. The claim and the two gates come before the paths, for the reason
- * `handoffText` does: the step is what the message is for.
- */
-export function offerText(card: Card, lead: Lead, note?: string): string {
-	const lines = [
-		`Offer: ${cardRef(card.id)} "${card.title}" is unclaimed.`,
-		`First to claim it takes it: run board action "claim" with card "${card.id}", then write its contract and note each phase.`,
-		signatureLine(lead),
-		card.paths.length > 0 ? `Paths: ${card.paths.join(", ")}` : undefined,
-		card.planPath === undefined ? undefined : `Plan: ${card.planPath}`,
-		note === undefined ? undefined : `Note: ${note}`,
-	].filter((line): line is string => line !== undefined);
-	return clipText(lines.join("\n"), MAX_MESSAGE_TEXT);
-}
-
-/**
- * The moves a card has left, and which of them the peer may make itself.
- *
- * Both gates are the lead's signature — `lib/workflow/steps.ts` refuses `plan`→`execute`
- * without `approve` and `done` without `review`, and refuses a signer who holds the card —
- * so a message that said "move it to execute, blocked, or done" handed the peer an
- * instruction its own next call would refuse. The name is the configured lead, which is the
- * one a sign has to carry, and the way to ask it is `askLead` — `lib/workflow/sign-words.ts`'s one
- * phrase for the channel, printed here and in the two refusals a peer reads.
- */
-function signatureLine(lead: Lead): string {
-	return `Its three moves: \`blocked\` is yours to set; \`execute\` needs the lead (${leadName(lead)}) to \`approve\` the contract, and \`done\` needs the lead's \`review\` — ${askLead(lead)} when each is ready.`;
-}
-
 /** The production dispatch: `lib/session-tool.ts`, with a failure turned into a throw. */
 export function sessionDispatch(pi: Pick<ExtensionAPI, "events" | "getAllTools">, ctx: ExtensionToolContext): Dispatch {
 	return {
@@ -193,75 +121,4 @@ export function sessionDispatch(pi: Pick<ExtensionAPI, "events" | "getAllTools">
 		},
 		peers: () => listPeers(ctx),
 	};
-}
-
-/**
- * The labels a message reached that cannot be woken: their record says they are not
- * listening.
- *
- * A label the bus could not answer for is left out — "the record does not say" is not
- * "nobody will read it" — and so is a peer the bus lists as listening. A quiet peer is left to
- * {@link quiet}: its watch is a fact about a session nothing says is still running, so the louder
- * sentence is the honest one.
- */
-export function notListening(peers: readonly Peer[] | undefined, labels: readonly string[]): string[] {
-	return alarmed(peers, labels, "not-listening");
-}
-
-/**
- * The labels whose session has gone quiet: the message waits on a heartbeat that aged out.
- *
- * The bus still wrote the file, so the send is not a failure — but saying "delivered" alone reads
- * as heard, and this is the fact that says nobody is known to be there to read it.
- */
-export function quiet(peers: readonly Peer[] | undefined, labels: readonly string[]): string[] {
-	return alarmed(peers, labels, "quiet");
-}
-
-/**
- * The labels the bus can answer for, whose record carries `alarm`.
- *
- * Which alarm a record carries, and which one wins, is `lib/session-roster.ts`'s: these two lists
- * are the same question asked of one sentence, and answering it here as well is how the two
- * surfaces came to word one peer twice.
- */
-function alarmed(peers: readonly Peer[] | undefined, labels: readonly string[], alarm: PeerAlarm): string[] {
-	if (peers === undefined) return [];
-	return labels.filter((label) => {
-		const peer = peerNamed(peers, label);
-		return peer !== undefined && peerAlarm(peer) === alarm;
-	});
-}
-
-/**
- * The actor a handoff names: the peer the bus lists, else the label that was asked for.
- *
- * `team assign` checks the card against this before it sends anything and records the same
- * actor afterwards, so the check and the write cannot disagree about who `to` is. That is
- * what makes an id the holder: a card records the id the bus gave it, `holds` compares ids
- * first, and only the resolved actor carries one.
- *
- * An id keeps its meaning — a caller that names a session gets that session, stopped or not, and
- * the send is what refuses it. A label names only the one session nothing else answers to: where
- * two live sessions share it, this answers nothing and the card records the label as unresolved,
- * so a message is never credited to the session that did not get it. The read's own age is the
- * caller's business rather than this function's — `assign` asks before its dry run and again after
- * the message, so the owner it records is the peer the message reached.
- */
-export function actorFor(peers: readonly Peer[] | undefined, to: string): Actor {
-	const peer = peerNamed(peers, to);
-	return peer === undefined ? { label: to.trim() } : { id: peer.id, label: peer.label };
-}
-
-/**
- * The peer a handoff names, as the card records it when the bus cannot say who that is: the label a
- * message file was written for, else the one that was asked for, and `unresolved` on the handoff.
- *
- * The marker is the point. Without it the record would be a label alone, and `holds` falls back to
- * comparing labels — so the next session to draw that label would inherit every write on the card.
- * With it the record still names where mail goes, and authorises nothing.
- */
-export function ownerFor(to: string, delivered: readonly string[], handoff: Handoff): CardOwner {
-	const label = delivered[0] ?? to;
-	return { label, handoff: { ...handoff, unresolved: true } };
 }

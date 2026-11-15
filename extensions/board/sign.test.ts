@@ -18,7 +18,7 @@ import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeBoardSession, pageWithNoRecording, SIGNING_LEAD, signingBoard } from "../../test/helpers/board-command.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { runner } from "../../test/helpers/board-signs.ts";
-import type { Notify } from "./announce.ts";
+import type { Deliver } from "./notices.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 
 /**
@@ -34,7 +34,7 @@ const LEAD = SIGNING_LEAD;
 /** A `notify` that answers with `answer`, recording what it was asked to send. */
 function toldBy(answer: { ok: true } | { ok: false; error: string }) {
 	const sent: Array<{ kind: string; to: string; text: string }> = [];
-	const notify: Notify = async (_ctx, input) => {
+	const notify: Deliver = async (_ctx, input) => {
 		sent.push(input);
 		return answer.ok ? { ok: true, delivered: ["team-agent-slead"], failed: [] } : answer;
 	};
@@ -233,7 +233,7 @@ describe("/board approve and /board review", () => {
 		// nothing — this is the door the card says was silent.
 		const sent: Array<{ kind: string; to: string; text: string }> = [];
 		let failed = false;
-		const notify: Notify = async (_ctx, input) => {
+		const notify: Deliver = async (_ctx, input) => {
 			if (!failed) {
 				failed = true;
 				return { ok: false, error: "the session bus is not loaded" };

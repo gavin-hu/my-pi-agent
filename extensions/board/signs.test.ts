@@ -25,7 +25,7 @@ import {
 	type Session,
 } from "../../test/helpers/board-signs.ts";
 
-import type { Notify } from "./announce.ts";
+import type { Deliver } from "./notices.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 
 afterAll(flushFixture);
@@ -141,7 +141,7 @@ describe("a sign tells the other side", () => {
 		// is the only thing that can put the message on the wire again.
 		const sent: Sent[] = [];
 		let failed = false;
-		const notify: Notify = async (_ctx, input) => {
+		const notify: Deliver = async (_ctx, input) => {
 			// Only the sign's message fails: the contract's own announcement is setup for this case.
 			if (!failed && input.text.startsWith("Signature:")) {
 				failed = true;

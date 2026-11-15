@@ -34,7 +34,7 @@ import { CLAIM_NEXT, formatCard } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, refusal, resultInput } from "./result.ts";
 import { dropCard, mutate, reclaimOp } from "./write.ts";
-import type { Notify } from "./announce.ts";
+import type { Deliver } from "./notices.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { type BoardArgs, BoardParams } from "./schema.ts";
 import {
@@ -114,7 +114,7 @@ function callSubject(action: BoardAction, args: Record<string, unknown>): string
 export function registerTools(
 	pi: ExtensionAPI,
 	runtime: BoardSession,
-	deps: { team?: TeamJoin; notify?: Notify; verify?: VerifyRun } = {},
+	deps: { team?: TeamJoin; notify?: Deliver; verify?: VerifyRun } = {},
 ): void {
 	const team = deps.team ?? createTeamJoin(pi);
 	/**
@@ -124,7 +124,7 @@ export function registerTools(
 	let verifyModule: Promise<typeof import("../../lib/workflow/verify.ts")> | undefined;
 	// Loaded at the first sign, not at registration: a board that never signs pays nothing for the
 	// message, and the registration graph stays the size it was.
-	let signMessage: Promise<typeof import("./announce.ts")> | undefined;
+	let notices: Promise<typeof import("./notices.ts")> | undefined;
 	// The same rule for the plan proof: `contract`, `move` and `approve` each ask for one, and a
 	// session that only lists cards pays nothing for the module that reads the plan store.
 	let proofModule: Promise<typeof import("./proof.ts")> | undefined;
@@ -241,9 +241,23 @@ export function registerTools(
 						return await mutate(store, action, me, now, args, { kind: "release" }, { cross });
 					case "reclaim":
 						// The op carries what the bus says about the holder: the rule lets a peer take a card back
-						// only from a session that has stopped, and the lead from anybody.
+						// only from a session that has stopped, and the lead from anybody. A reclaim that takes the
+						// card from somebody owes them a sentence, and it describes the card as it was.
 						return await mutate(store, action, me, now, args, await reclaimOp(runtime, store, args.card, ctx.cwd), {
 							cross,
+							notice: async (card: Card, result) => {
+								const { deliverNotice, deliverOverBus } = await (notices ??= import("./notices.ts"));
+								const previous = result.ok && result.previous !== undefined ? result.previous : card;
+								return await deliverNotice({
+									kind: "reclaim",
+									card: previous,
+									lead: store.config().lead,
+									by: me.label,
+									ctx,
+									deliver: deps.notify ?? deliverOverBus(pi),
+									audience: { roster: () => runtime.roster(ctx.cwd), now: () => runtime.now() },
+								});
+							},
 						});
 					case "move": {
 						if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
@@ -275,13 +289,14 @@ export function registerTools(
 						// The peer is the one session that knows its wording is ready, so the same write tells the lead:
 						// resolved through the roster like a sign's addressee, and caught there, so a bus that cannot answer
 						// costs a clause and never the contract it came after.
-						const ready = async (card: Card): Promise<{ line?: string }> => {
-							const { notifyOverBus, notifyReady } = await (signMessage ??= import("./announce.ts"));
-							return notifyReady({
+						const notice = async (card: Card): Promise<{ line?: string }> => {
+							const { deliverNotice, deliverOverBus } = await (notices ??= import("./notices.ts"));
+							return await deliverNotice({
+								kind: "ready",
 								card,
 								lead: store.config().lead,
 								ctx,
-								notify: deps.notify ?? notifyOverBus(pi),
+								deliver: deps.notify ?? deliverOverBus(pi),
 								audience: { roster: () => runtime.roster(ctx.cwd), now: () => runtime.now() },
 							});
 						};
@@ -299,12 +314,12 @@ export function registerTools(
 								scopeOut: args.scopeOut,
 								verify: args.verify,
 							},
-							{ ready },
+							{ notice },
 						);
 					}
 					case "approve":
 					case "review": {
-						const { settleSign, notifyOverBus } = await (signMessage ??= import("./announce.ts"));
+						const { settleNotice, deliverOverBus } = await (notices ??= import("./notices.ts"));
 						// The name the sign will record, so the owner is told who signed rather than the
 						// label the writing actor is called by.
 						const signer = signMark(me, store.config().lead).by;
@@ -323,18 +338,19 @@ export function registerTools(
 						// of the same fact — `signStale` compares the later of the two, and a stale half would still
 						// make a sign the work outgrew read as current.
 						const at = runtime.now();
-						// The store's `announce` is what says a message is owed — a fresh stamp, or a repeat
-						// sign whose card still reads as never told. The roster is read here rather than up
-						// front so a call the store refused pays nothing for it.
-						const told = async (card: Card): Promise<{ card?: Card; line?: string }> => {
-							const settled = await settleSign({
-								store: async () => store,
+						// The store's `notice` is what says a message is owed — a fresh stamp, or a repeat sign
+						// whose card still reads as never told. The roster is read here rather than up front so
+						// a call the store refused pays nothing for it.
+						const notice = async (card: Card): Promise<{ card?: Card; line?: string }> => {
+							const settled = await settleNotice({
+								store,
 								card,
-								sign: action,
+								kind: action,
+								lead: store.config().lead,
 								by: signer,
 								actor: me,
 								ctx,
-								notify: deps.notify ?? notifyOverBus(pi),
+								deliver: deps.notify ?? deliverOverBus(pi),
 								at,
 								audience: { roster: () => runtime.roster(ctx.cwd), now: () => runtime.now() },
 							});
@@ -349,7 +365,7 @@ export function registerTools(
 										...(evidence === undefined ? {} : { verified: evidence.verified }),
 									}
 								: { kind: "approve" as const, text: args.text, ...(artifact === undefined ? {} : { artifact }) };
-						return await mutate(store, action, me, at, args, op, { told });
+						return await mutate(store, action, me, at, args, op, { notice });
 					}
 					case "edit": {
 						if (

@@ -20,7 +20,8 @@ import type { BoardStore } from "../../lib/workflow/store.ts";
 import type { VerifyOutcome, VerifyRun } from "../../lib/workflow/verify.ts";
 import { registerTools } from "../../extensions/board/tools.ts";
 import type { BoardDetails } from "../../extensions/board/types.ts";
-import type { Notify } from "../../extensions/board/announce.ts";
+import type { Deliver } from "../../extensions/board/notices.ts";
+import type { SendInput } from "../../lib/session-tool.ts";
 
 const temps = makeTempTracker();
 export const NOW = 50_000;
@@ -36,14 +37,10 @@ export const PEER_ID = "s-peer";
 export const PEER = agentLabel(PEER_ID);
 
 /** One message the tool sent, which is what a case asks about. */
-export interface Sent {
-	kind: "event";
-	to: string;
-	text: string;
-}
+export type Sent = SendInput;
 
 /** The signBus, recorded: what a sign sent, or the sentence a signBus that cannot answer gives. */
-export function signBus(options: { sent?: Sent[]; fail?: string; delivered?: string } = {}): Notify {
+export function signBus(options: { sent?: Sent[]; fail?: string; delivered?: string } = {}): Deliver {
 	return async (_ctx, input) => {
 		if (options.fail !== undefined) return { ok: false, error: options.fail };
 		options.sent?.push(input);

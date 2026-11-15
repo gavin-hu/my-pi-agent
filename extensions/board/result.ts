@@ -67,6 +67,9 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
 	// The lead's second signature: a card the lead has not looked at yet is one the flow stops
 	// on just as surely, so it is drawn beside the first rather than left to `unwritten`'s clock.
 	if (round.unreviewed.length > 0) sections.push(section("Awaiting review", round.unreviewed, rollupLine));
+	// A sign whose message never landed: the gate is open and its owner has not heard, which is the
+	// one debt the transcript can name and the signer's repeat is the retry.
+	if (round.untold.length > 0) sections.push(section("Sign not told", round.untold, rollupLine));
 	if (round.blocked.length > 0) sections.push(section("Blocked", round.blocked, rollupLine));
 	if (round.unwritten.length > 0) sections.push(section("Unwritten", round.unwritten, rollupLine));
 	if (round.done.length > 0) sections.push(section("Done", round.done, rollupLine));

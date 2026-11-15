@@ -70,11 +70,10 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be claimed.` };
 	if (holds(card, actor)) return { changed: false, fields: null };
 	if (card.owner !== undefined) return { error: heldBy(card) };
-	// The wait is asked here rather than read off the table: a claim enters `plan` from the pool,
-	// which is not a lane change `move` can make.
+	// The wait is asked here rather than read off the table: a claim enters `plan` from the pool.
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
-	// The session's own cap before the lane's: the card it already carries is the one it can act on.
+	// The session's own cap before the lane's: this card is the one it can act on.
 	const carried = ownerRefusal(actor, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
 	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined });
@@ -92,11 +91,12 @@ export function assign(card: Card, to: CardOwner, board: BoardIndex, limits: Wip
 	if (card.owner !== undefined) return { error: holds(card, to) ? alreadyHeldBy(card) : heldBy(card) };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
-	// The target's cap, before the write and the message the caller sends first: nothing is delivered.
+	// The target's cap, before the write: a handoff to a session with no room is refused.
 	const carried = ownerRefusal(to, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
-	// A pool card is the only card this moves: the owner inherits the work from its first step.
-	return enter(card, "plan", board, limits, { owner: to, offeredAt: undefined });
+	// A pool card is the only card this moves: the owner inherits it, and the write comes first.
+	const entered = enter(card, "plan", board, limits, { owner: to, offeredAt: undefined });
+	return "error" in entered ? entered : { ...entered, notice: "assign" as const };
 }
 
 /** Hand a card back to the pool. The contract and its approval stay: the plan did not change. */
@@ -405,7 +405,7 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 		contract !== undefined &&
 		missingContractFields(contract).length === 0 &&
 		!contractApproved(contract);
-	return { changed: true, fields, ...(ready ? { ready: true as const } : {}) };
+	return { changed: true, fields, ...(ready ? { notice: "ready" as const } : {}) };
 }
 
 /**
@@ -456,9 +456,9 @@ export function approve(
 	const signed = signedAs(contract.approved, actor, config.lead);
 	// A repeat owes the message only while the sign says it never landed (`lead.ts`): the one retry.
 	const owes = owesAnnouncement(card, "approve", actor, config.lead);
-	if (signed && !noted.wrote) return { changed: false, fields: null, ...(owes ? { announce: true as const } : {}) };
+	if (signed && !noted.wrote) return { changed: false, fields: null, ...(owes ? { notice: "approve" as const } : {}) };
 	const approval = signed ? {} : { contract: { ...contract, approved: { ...signMark(actor, config.lead), at: now } } };
-	return { changed: true, fields: { ...approval, ...noted.fields }, ...(owes ? { announce: true as const } : {}) };
+	return { changed: true, fields: { ...approval, ...noted.fields }, ...(owes ? { notice: "approve" as const } : {}) };
 }
 
 /**

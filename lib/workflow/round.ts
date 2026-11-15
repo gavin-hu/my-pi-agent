@@ -25,7 +25,7 @@
 
 import { type Card, dependsOf } from "./card.ts";
 import { contractApproved, missingContractFields } from "./contract.ts";
-import { currentReview } from "./lead.ts";
+import { currentReview, signRecord } from "./lead.ts";
 import { labelKey } from "../session-label.ts";
 import { type Gate } from "./tone.ts";
 
@@ -92,6 +92,14 @@ export interface RoundSummary<T extends Card = Card> {
 	unreviewed: T[];
 	/** `blocked` cards, and the note that says why. */
 	blocked: T[];
+	/**
+	 * Cards whose current sign was recorded and never announced: the gate is signed and the owner
+	 * has not heard, so the only retry is the signer signing again.
+	 *
+	 * The lane decides which sign: `plan` reads the approval, `execute` the spot-check. A finished
+	 * card owes nobody a message, and a pool or blocked card has no current sign to send.
+	 */
+	untold: T[];
 	/** `execute` cards with no write for {@link UNWRITTEN_MS}: possibly a dead owner. */
 	unwritten: T[];
 	/** Finished cards, in the board's own order — priority, then age — kept as history. */
@@ -124,6 +132,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 	const unapproved: T[] = [];
 	const unreviewed: T[] = [];
 	const blocked: T[] = [];
+	const untold: T[] = [];
 	const unwritten: T[] = [];
 	const done: T[] = [];
 
@@ -142,6 +151,12 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		else if (gate === "approval") unapproved.push(card);
 		else if (gate === "review") unreviewed.push(card);
 		if (card.lane === "execute" && now - card.updatedAt >= UNWRITTEN_MS) unwritten.push(card);
+		// A sign whose message never landed. The lane decides which sign it is, because only one of
+		// the two opens the move this card is on.
+		if (card.lane === "plan" || card.lane === "execute") {
+			const sign = signRecord(card, card.lane === "plan" ? "approve" : "review");
+			if (sign !== undefined && sign.told === undefined) untold.push(card);
+		}
 
 		if (card.owner === undefined) continue;
 		const key = labelKey(card.owner.label);
@@ -158,6 +173,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		unapproved,
 		unreviewed,
 		blocked,
+		untold,
 		unwritten,
 		done,
 		archivable: archivableOf(cards, done),

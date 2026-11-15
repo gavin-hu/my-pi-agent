@@ -35,15 +35,14 @@ import {
 	owesAnnouncement,
 	PERSON_LABEL,
 	personActor,
-	type Sign,
 	signedAs,
-	signedText,
 	signMark,
 	signRecord,
 	signRefusal,
 	staleSpotCheck,
 	unverifiedSpotCheck,
 } from "./lead.ts";
+import { signedText } from "./notice.ts";
 import type { Actor } from "./rules.ts";
 
 const LEAD: Lead = "team-lead";
@@ -224,8 +223,8 @@ describe("the announcement", () => {
 	/** A card in plan whose contract the lead approved, or one the person did. */
 	const approved = (by: Actor = THE_LEAD) =>
 		card({ lane: "plan", contract: { ...COMPLETE, approved: { ...signMark(by, LEAD), at: 1 } } });
-	const tell = (target: Card, sign: Sign, actor: Actor) =>
-		announced(target, { kind: "announced", sign }, actor, CONFIG, NOW);
+	const tell = (target: Card, notice: "approve" | "review", actor: Actor) =>
+		announced(target, { kind: "announced", notice }, actor, CONFIG, NOW);
 
 	test("records the moment on the sign, and a second record is the no-op", () => {
 		const first = tell(approved(), "approve", THE_LEAD);
@@ -334,10 +333,10 @@ describe("the stamp a repeat makes", () => {
 
 	test("owes the owner the message again, because the stamp it replaces was heard", () => {
 		const signed = at(executing(), { kind: "review", verified: run(NOW + 1) }, NOW + 1);
-		const heard = at(signed, { kind: "announced", sign: "review" }, NOW + 2);
+		const heard = at(signed, { kind: "announced", notice: "review" }, NOW + 2);
 		const noted = at(heard, { kind: "note", text: "one more thing" }, NOW + 3, CORE);
 		const again = applyOp(noted, { kind: "review", verified: run(NOW + 4) }, BOARD_LEAD, NOW + 4, boardOf(noted));
-		expect(again.ok && again.announce).toBe(true);
+		expect(again.ok && again.notice).toBe("review");
 		// The fresh stamp has no `told`: the owner is told once more, and the next write after it is
 		// the one that makes the sign stale again.
 		expect(again.ok && again.card.review?.told).toBeUndefined();

@@ -26,7 +26,7 @@ const SUITE_BAR = 400;
 /** Every declared suite past the bar, at its height: debt, and a height only falls. */
 const LONG_SUITES: Record<string, number> = {
 	"extensions/board/page.test.ts": 521,
-	"extensions/board/tools.test.ts": 1240,
+	"extensions/board/tools.test.ts": 1238,
 	"extensions/board/view/behaviour.test.ts": 730,
 	"extensions/board/view/pages.test.ts": 618,
 	"extensions/board/view/team.test.ts": 485,
@@ -85,7 +85,7 @@ const LONG_SUITES: Record<string, number> = {
 };
 
 /** The named suites' total, written down so only a split can move it. */
-const LONG_SUITE_TOTAL = 43487;
+const LONG_SUITE_TOTAL = 43485;
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 

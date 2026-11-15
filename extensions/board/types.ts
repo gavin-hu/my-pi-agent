@@ -32,10 +32,10 @@ export { BOARD_ACTIONS, type BoardAction };
  */
 export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	list:
-		"shows the board — `lane` filters one lane, `mine` only what this session holds, `card` reads that one card " +
-		"instead of the board, and `round` also prints the lead's rollup over the whole board: owners, unassigned, " +
-		"unplanned, awaiting approval, awaiting review, blocked, unwritten, done, archivable — and a listing that " +
-		"names no lane leaves out the `done` cards, saying how many it left out",
+		"shows the board — `lane` filters one lane, `mine` only what this session holds, `card` reads that one " +
+		"card, and `round` also prints the lead's rollup: owners, unassigned, unplanned, awaiting approval, " +
+		"awaiting review, sign not told, blocked, unwritten, done, archivable — and an unlaned listing hides " +
+		"`done`, with a count",
 	add: "creates a `backlog` card",
 	claim: "pulls one into `plan` for this session, when `plan` has room",
 	release: "gives it back to `backlog`",

@@ -27,6 +27,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`, `team`, `session-bus`: one notice table composes every workflow message, and every transition
+  writes the card before it sends. `assign` records the owner first, so the handoff reports a state that
+  already holds; a reclaim tells the session whose card it took; and a sign whose message never landed
+  shows in the round — `board list --round`, `/team` and the Team tab — as `untold`, so the signer
+  repeating the sign is the retry rather than a fact nobody can see. The bus's `notListening`/`quiet`
+  wording, `SIGN_WORDS`'s notice half and the board's own two senders are gone with it.
+
 - `board`: one session holds one card in flight by default (`board.wip.perOwner`, 1), counting `plan`,
   `execute` and `blocked`; a `claim` or an assignment past it names the card the session already
   holds. **Breaking**: a session that already holds a card is refused its next claim or assignment

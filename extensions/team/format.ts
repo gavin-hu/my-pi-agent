@@ -158,6 +158,21 @@ export function formatAsk(
 		.join("\n");
 }
 
+/**
+ * The write that landed and the message that did not.
+ *
+ * The order is state first, so this is the one half-failure left: the card is the peer's and the
+ * peer has not been told. Repeating `assign` re-sends the same key, which folds if the first copy
+ * ever lands.
+ */
+export function formatOfferUnsent(card: Card, reason: string): string {
+	return `${cardRef(card.id)} is offered and recorded, but the broadcast did not reach anybody: ${reason}\n  Offer it again to retry; the event is keyed, so a copy still waiting folds.`;
+}
+
+export function formatHandoffUnsent(card: Card, to: string, reason: string): string {
+	return `${cardRef(card.id)} is ${to}'s, but the handoff did not reach it: ${reason}\n  Assign it again to retry; the message is keyed, so a copy still waiting folds.`;
+}
+
 /** The send that never landed: the card was not touched. */
 export function formatHandoffFailure(card: Card, to: string, reason: string): string {
 	return `${cardRef(card.id)} was not handed off to ${to}: ${reason}\n  The card is unchanged.`;
@@ -209,72 +224,6 @@ export function formatOffer(
 /** The broadcast that never landed: no card was touched, and nobody heard. */
 export function formatOfferFailure(card: Card, reason: string): string {
 	return `${cardRef(card.id)} was not offered: ${reason}\n  The card is unchanged.`;
-}
-
-/**
- * The broadcast landed and recording the offer was then refused.
- *
- * The peers have an event and the board would not take the record, so the correction says
- * the offer stands as a message and the card is what the board now says — not that nothing
- * happened. It names the refusal and not its cause: a write can lose to another session's
- * write on the card *or* to another session holding the board, and only the store's own
- * sentence can say which. No second message follows it: an offer's only next step is a
- * claim, and a claim for a card somebody holds is refused naming the holder, so the stale
- * text cannot send a peer anywhere the store will not correct it.
- */
-export function formatRacedOffer(card: Card, reason: string): string {
-	return (
-		`${cardRef(card.id)} was offered, but recording the offer was refused: ${reason}\n` +
-		"  The peers have the message; the card is as the board shows it now."
-	);
-}
-
-/**
- * The broadcast landed and recording the offer then threw.
- *
- * The one failure where a card is not unchanged and no rule refused it: the peers have an
- * event, and the store's own write threw half way — so what it answers is read afresh rather
- * than guessed at, and the lead is sent to the card before acting again. A bare reason read
- * as "nothing happened", and the retry it invited broadcast the same offer a second time.
- */
-export function formatUnrecordedOffer(card: Card, reason: string): string {
-	return (
-		`${cardRef(card.id)} was offered, but recording the offer failed: ${reason}\n` +
-		"  The peers have the message; read the card with `board` action `list` before offering it again."
-	);
-}
-
-/**
- * The send landed and recording the owner was then refused.
- *
- * The peer has a message telling it the card is its, so the correction names the claim rather
- * than pretending nothing happened — and the claim is right either way: a card another session
- * took refuses it naming the holder, while a card left unowned because the board was busy is
- * the card the lead meant to hand over. The sentence states the refusal and lets the store's
- * own words say why, rather than asserting a cause it cannot see.
- */
-export function formatRacedAssignment(card: Card, to: string, reason: string): string {
-	return (
-		`${cardRef(card.id)} was handed off to ${to}, but recording the owner was refused: ${reason}\n` +
-		`  ${to} should run \`board\` action \`claim\` with card "${card.id}".`
-	);
-}
-
-/**
- * The handoff landed and the assignment's write then threw.
- *
- * The peer holds a message saying the card is its, and the store threw somewhere in the
- * write it asked for — before or after the file landed, which only a read can say. So this
- * is the one failure whose card is not "unchanged": the sentence names the send, gives the
- * store's reason, and sends the lead to the card before assigning it again. The bare reason
- * this replaces read as "nothing happened", and the retry it invited was refused as held —
- * by a peer that had been told the card was already its.
- */
-export function formatUnrecordedAssignment(card: Card, to: string, reason: string): string {
-	return (
-		`${cardRef(card.id)} was handed off to ${to}, but recording the owner failed: ${reason}\n` +
-		`  ${to} has the message; read the card with \`board\` action \`list\` before assigning it again.`
-	);
 }
 
 /**

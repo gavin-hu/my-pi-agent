@@ -13,16 +13,8 @@ import { askLead } from "../../lib/workflow/contract.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
-import {
-	actorFor,
-	askText,
-	handoffText,
-	notListening,
-	quiet,
-	offerText,
-	ownerFor,
-	sessionDispatch,
-} from "./dispatch.ts";
+import { askText, sessionDispatch } from "./dispatch.ts";
+import { actorFor, handoffText, offerText, ownerFor } from "../../lib/workflow/notice.ts";
 
 /** The host a nested call never asks: a tool's `send` answers before it reads `pi`. */
 const HOST = {} as Parameters<typeof sessionDispatch>[0];
@@ -49,10 +41,10 @@ describe("handoffText", () => {
 		const text = handoffText(card(), "billing-core", LEAD);
 		expect(text).toContain('Handoff: #4 "Billing webhook accepts orders" is yours, billing-core.');
 		expect(text).toContain("Paths: src/billing");
-		expect(text).toContain("already assigned to you");
-		// `assign` records the owner, so a claim is not the handoff's first step; it is the failure
-		// hedge's other branch, for a write that landed no owner at all.
-		expect(text).toContain('if it shows nobody, claim it with board action "claim"');
+		// The card is written before the message exists, so the first step is the contract — a claim
+		// would be the no-op the order no longer needs.
+		expect(text).toContain('Write its contract with board action "contract"');
+		expect(text).not.toContain('action "claim"');
 	});
 
 	test("names the two moves the lead has to sign, and who to tell", () => {
@@ -79,16 +71,14 @@ describe("handoffText", () => {
 		expect(text).toContain("Note: start with the webhook");
 	});
 
-	test("says what to do if the assignment lost the race after the message", () => {
-		// The message is sent before the owner is recorded, so the peer can be reading a card
-		// another session took, or one the write left nobody's. The clause is the only correction
-		// that cannot be lost, because the peer already holds it, so it names both outcomes and
-		// both steps: leave a rival's card alone, claim an unowned one.
+	test("says what to do if the card was taken back after the message", () => {
+		// The write lands first, so the only way the peer reads another owner is a reclaim in
+		// between — one condition, not the two the old send-first order had.
 		const text = handoffText(card(), "billing-core", LEAD);
 		expect(text).toContain("If the board shows another owner");
 		expect(text).toContain(`leave it alone and ${askLead(LEAD)}`);
-		expect(text).toContain('if it shows nobody, claim it with board action "claim"');
-		expect(text.indexOf("claim it with")).toBeLessThan(text.indexOf("Paths:"));
+		expect(text).not.toContain("claim it with");
+		expect(text.indexOf("taken back")).toBeLessThan(text.indexOf("Paths:"));
 	});
 
 	test("stays inside the send limit, however many paths a card carries", () => {
@@ -98,8 +88,8 @@ describe("handoffText", () => {
 		// A clipped message must keep the step it was sent to give: the paths are the only
 		// line long enough to push the gates past the limit, so both sentences come before them.
 		expect(text).toContain(`ask ${LEAD} with \`session send\` when each is ready`);
+		expect(text).toContain("was taken back after this message");
 		expect(text).toContain(`leave it alone and ${askLead(LEAD)}`);
-		expect(text).toContain('claim it with board action "claim"');
 	});
 });
 
@@ -208,30 +198,6 @@ describe("sessionDispatch", () => {
 		expect((await sessionDispatch(HOST, ctx).send({ kind: "handoff", to: "peer", text: "text" })).delivered).toEqual(
 			[],
 		);
-	});
-});
-
-describe("notListening and quiet", () => {
-	const peers = [
-		{ id: "s-core", label: "billing-core", listening: true, state: "live" as const },
-		{ id: "s-web", label: "billing-web", listening: false, state: "live" as const },
-		{ id: "s-quiet", label: "ops-helper", listening: true, state: "quiet" as const },
-		{ id: "s-old", label: "billing-old" },
-	];
-	const labels = ["billing-core", "billing-web", "ops-helper", "billing-old", "ghost"];
-
-	test("names the peers whose record says they are not listening", () => {
-		// A record that does not say is not a claim that nobody will read it.
-		expect(notListening(peers, labels)).toEqual(["billing-web"]);
-		expect(notListening(undefined, ["billing-web"])).toEqual([]);
-	});
-
-	test("names a quiet peer once, as quiet rather than as not listening", () => {
-		// A heartbeat that aged out says nothing is known to be there, which outranks the watch the
-		// record still carries: one peer, one sentence, the louder of the two.
-		expect(quiet(peers, labels)).toEqual(["ops-helper"]);
-		expect(notListening(peers, ["ops-helper"])).toEqual([]);
-		expect(quiet(undefined, labels)).toEqual([]);
 	});
 });
 

@@ -57,13 +57,22 @@ describe("assign", () => {
 		expect((await (await store()).read(id))?.owner).toBeUndefined();
 	});
 
-	test("sends the handoff first, then records the owner", async () => {
-		const { call, seed, sent } = harness();
-		const id = await seed();
+	test("writes the owner first, then sends the handoff", async () => {
+		let id = "";
+		const { call, seed, sent, store } = harness({
+			duringSend: async () => {
+				// The peer reads a card that already holds it: the write is what the message reports.
+				expect((await (await store()).read(id))?.owner?.id).toBe("s-billing-core");
+			},
+		});
+		id = await seed();
 		const result = await call({ action: "assign", card: id, to: "billing-core", note: "start with the webhook" });
 		expect(result.isError).toBeFalsy();
 		expect(sent).toHaveLength(1);
-		expect(sent[0]?.to).toBe("billing-core");
+		// The id, not the label: an id is unambiguous when two records share a name.
+		expect(sent[0]?.to).toBe("s-billing-core");
+		expect(sent[0]?.about).toBe(id);
+		expect(sent[0]?.key).toBe(`assign:${id}:${(await (await store()).read(id))?.updatedAt}`);
 		expect(sent[0]?.text).toContain("Note: start with the webhook");
 		// The board's default lead is the name a sign carries, and it is the name the peer is
 		// told to ask: the two moves after `plan` are refused without it.
@@ -133,72 +142,33 @@ describe("assign", () => {
 		expect(sent).toEqual([]);
 	});
 
-	test("a send that fails leaves the card exactly as it was", async () => {
-		const { call, seed, sent } = harness({ fail: "the bus is not loaded." });
+	test("a send that fails leaves the card the peer's, and says the message did not reach it", async () => {
+		const { call, seed, sent, store } = harness({ fail: "the bus is not loaded." });
 		const id = await seed();
 		const result = await call({ action: "assign", card: id, to: "billing-core" });
 		expect(result.isError).toBe(true);
-		expect(resultText(result)).toContain("was not handed off to billing-core: the bus is not loaded.");
-		expect(resultText(result)).toContain("The card is unchanged.");
+		expect(resultText(result)).toContain(
+			`#${id} is billing-core's, but the handoff did not reach it: the bus is not loaded.`,
+		);
+		expect(resultText(result)).toContain("Assign it again to retry");
 		expect(sent).toEqual([]);
-		expect(result.details.card).toMatchObject({ lane: "backlog" });
-		expect(result.details.card?.owner).toBeUndefined();
+		// The state landed; only the report of it did not, and the handoff reads untold.
+		const written = await (await store()).read(id);
+		expect(written?.owner).toMatchObject({ id: "s-billing-core", label: "billing-core" });
+		expect(written?.owner?.handoff?.told).toBeUndefined();
 	});
 
-	test("a write that throws after the handoff landed names the send and carries the card", async () => {
-		// The one half-apply no rule refused, and the one the bare `catch` in `execute` used to
-		// report as nothing: the peer holds the handoff, and the store threw on its way to the
-		// owner. A reason alone sent the lead to retry, and the retry was refused as held.
+	test("a write that throws sends nothing, and leaves the card alone", async () => {
 		const broken = harness({ failWrite: "EACCES: permission denied, open 'cards/0001.json'" });
 		const id = await broken.seed();
 		const result = await broken.call({ action: "assign", card: id, to: "billing-core" });
 
-		expect(broken.sent).toHaveLength(1);
-		expect(broken.sent[0]?.to).toBe("billing-core");
+		// State first: a write that cannot land is a handoff that never happened, so the peer is
+		// not woken for a card nobody will find it holding.
+		expect(broken.sent).toEqual([]);
 		expect(result.isError).toBe(true);
-		expect(resultText(result)).toContain(
-			`#${id} was handed off to billing-core, but recording the owner failed: EACCES: permission denied`,
-		);
-		expect(resultText(result)).toContain("billing-core has the message; read the card with `board` action `list`");
-		expect(resultText(result)).not.toContain("The card is unchanged.");
-		// The peer's message carries the recovery the failure needs: the write threw, so the card it
-		// reads is unowned, and `contract` would refuse it — the claim line is the step that succeeds.
-		// Both branches are named, before the paths, because that block is what a clipped body loses.
-		const sentText = broken.sent[0]?.text ?? "";
-		expect(sentText).toContain("If the board shows another owner");
-		expect(sentText).toContain('if it shows nobody, claim it with board action "claim"');
-		// The card the error carries is the board's, not the message's idea of it: the write threw,
-		// so the pool card is what a retry starts from, and the peer's name is what says who heard.
-		expect(result.details.card).toMatchObject({ lane: "backlog", id });
-		expect(result.details.card?.owner).toBeUndefined();
-		expect(result.details.delivered).toEqual(["billing-core"]);
+		expect(resultText(result)).toContain(`#${id} was not handed off to billing-core: EACCES: permission denied`);
 		expect(await (await broken.store()).read(id)).toMatchObject({ lane: "backlog" });
-	});
-
-	test("a card taken while the handoff is in flight is the rival's, and the peer is told", async () => {
-		// The one window the pre-check cannot see: the message is on its way and the card has
-		// not been touched, so another session claims it there. The assignment's own write is
-		// then refused against a card that is no longer free.
-		let id = "";
-		const race = harness({
-			duringSend: async (input) => {
-				if (input.kind !== "handoff") return;
-				const claimed = await (await race.store()).mutate(id, { kind: "claim" }, { label: "billing-web" }, NOW + 1);
-				expect(claimed.ok).toBe(true);
-			},
-		});
-		id = await race.seed();
-		const result = await race.call({ action: "assign", card: id, to: "billing-core" });
-
-		// The message went out first and carries the sentence that makes it survivable: without
-		// it the peer works a card somebody else holds, and finds out only when its own next call
-		// is refused naming the rival — the handoff it acted on never said the card might not be
-		// its.
-		expect(race.sent).toHaveLength(1);
-		expect(race.sent[0]?.text).toContain("If the board shows another owner");
-		expect(result.isError).toBe(true);
-		expect(resultText(result)).toContain(`#${id} was handed off to billing-core, but recording the owner was refused`);
-		expect(result.details.card).toMatchObject({ owner: { label: "billing-web" }, lane: "plan" });
 	});
 
 	test("refuses a handoff to the lead's own label or id, and names the claim", async () => {

@@ -124,7 +124,7 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 						};
 					},
 				};
-	const sent: Array<{ kind: "handoff" | "event" | "ask"; to: string; text: string }> = [];
+	const sent: Array<{ kind: "handoff" | "event" | "ask"; to: string; text: string; key?: string; about?: string }> = [];
 	// A fixed team, because `assign` asks who a peer is before it sends: the bus's record is what the
 	// pre-check compares a holder against. What the card records comes from a second read, so a case
 	// about the write itself hands `roster` a second answer rather than reusing this one.
@@ -138,12 +138,15 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 	// The peers a case passes in; the default is the two above, listening. A case that hands a
 	// `roster` gets one answer per read, so the second read can describe a team the first did not.
 	let read = 0;
+	/** The last team the tool was handed, which is the one its send addressed. */
+	let latest: Peer[] | undefined = listed;
 	const nextRead = (): Peer[] | undefined => {
 		const roster = options.roster;
-		if (roster === undefined || roster.length === 0) return listed;
-		const answer = roster[Math.min(read, roster.length - 1)];
-		read += 1;
-		return answer ?? undefined;
+		const answer =
+			roster === undefined || roster.length === 0 ? listed : (roster[Math.min(read, roster.length - 1)] ?? undefined);
+		if (roster !== undefined && roster.length > 0) read += 1;
+		latest = answer;
+		return answer;
 	};
 	const dispatch: Dispatch = {
 		async send(input) {
@@ -151,7 +154,10 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 			sent.push(input);
 			await options.duringSend?.(input);
 			const failed = options.undelivered ?? [];
-			const reached = input.to === "*" ? ["billing-core", "billing-web"] : [input.to];
+			// The bus answers the recipient's label, not the address it was given: an id addressed a
+			// card names is written for a peer whose label is what the result prints.
+			const named = (latest ?? []).find((peer) => peer.id === input.to || peer.label === input.to);
+			const reached = input.to === "*" ? ["billing-core", "billing-web"] : [named?.label ?? input.to];
 			// A send that reached everybody is the default. A case that wants the partial
 			// fan-out names the peers a write failed for, and they leave the delivered list:
 			// one message file is either written for a peer or not.

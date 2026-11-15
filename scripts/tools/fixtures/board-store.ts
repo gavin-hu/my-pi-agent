@@ -226,7 +226,7 @@ export async function seedStore(directory: string, planDir: string, now = Date.n
 			// The door records `announced` only after its message settles, so a seed with no bus leaves
 			// `told` absent. That is the state one card is drawn in on purpose.
 			if (!("untold" in spec))
-				card = await step(card, "announced", { kind: "announced", sign: "approve" }, approver, at + 3_900);
+				card = await step(card, "announced", { kind: "announced", notice: "approve" }, approver, at + 3_900);
 			const move = await recorded(card);
 			card = await step(
 				card,
@@ -241,7 +241,7 @@ export async function seedStore(directory: string, planDir: string, now = Date.n
 			// The contract names a command, so the seed's sign carries the run that answers for it.
 			const run = { cmd: "bun run check", exit: 0, at: at + 4_200 };
 			card = await step(card, "review", { kind: "review", verified: run }, reviewer, at + 4_200);
-			card = await step(card, "announced review", { kind: "announced", sign: "review" }, reviewer, at + 4_300);
+			card = await step(card, "announced review", { kind: "announced", notice: "review" }, reviewer, at + 4_300);
 			const move = await recorded(card);
 			await step(
 				card,
