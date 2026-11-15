@@ -24,11 +24,13 @@ import type { SessionDetails } from "./types.ts";
 
 export { TOOL_NAME };
 
-const SessionParams = Type.Object({
+export const SessionParams = Type.Object({
 	action: StringEnum(["status", "send", "inbox", "read", "claim", "release", "join"] as const, {
-		description: "status, send, inbox, read, claim, release, or join.",
+		description: "`status` reads without joining; every other action puts this session on the bus.",
 	}),
-	to: Type.Optional(Type.String({ description: "Target session label/id, or * for an event broadcast." })),
+	to: Type.Optional(
+		Type.String({ description: 'Target label/id, or `*` for every other live session — needs `kind: "event"`.' }),
+	),
 	text: Type.Optional(Type.String({ description: "Message text, at most 4000 characters." })),
 	kind: Type.Optional(
 		StringEnum(["message", "event", "ask", "handoff"] as const, {
@@ -38,31 +40,48 @@ const SessionParams = Type.Object({
 	key: Type.Optional(
 		Type.String({
 			description:
-				"With send: a name for this message. A resend of the same kind, text and paths folds into the copy still waiting.",
+				"With send: a resend repeating this key, kind, text and paths folds into the copy still waiting; letters, digits, `.`, `_`, `-`, `:`, at most 64.",
 		}),
 	),
 	paths: Type.Optional(
-		Type.Array(Type.String(), { description: "Repository-relative file or directory paths to claim or release." }),
+		Type.Array(Type.String(), {
+			description: "Repository-relative file or directory paths to claim or release; at most 20.",
+		}),
 	),
 	limit: Type.Optional(
-		Type.Integer({ minimum: 1, maximum: 50, description: "Inbox messages to consume (default 20)." }),
+		Type.Integer({ minimum: 1, maximum: 50, description: "Messages one read shows or consumes; default 20." }),
 	),
 	wake: Type.Optional(
 		Type.Boolean({
-			description: "With join: mail raises one turn per burst once the agent is idle; omitted waits for the next turn.",
+			description: "With join: mail raises one turn per burst once idle; omitted waits for the next turn.",
 		}),
 	),
 	listen: Type.Optional(
-		Type.Boolean({
-			description: "With join: false joins without listening, so mail waits in the inbox until `inbox` reads it.",
-		}),
+		Type.Boolean({ description: "With join: false joins without listening, so mail waits for `inbox`." }),
 	),
-	label: Type.Optional(
-		Type.String({ description: "With join: what other sessions call this one, e.g. `billing-lead`." }),
-	),
+	label: Type.Optional(Type.String({ description: "With join: the name peers address, e.g. `billing-lead`." })),
 });
 
 type SessionArgs = Static<typeof SessionParams>;
+
+/** What the tool is and what it guarantees: the verbs and their objects, and the delivery rule. */
+export const SESSION_DESCRIPTION =
+	"Coordinate parallel Pi sessions on this repository. Actions: `status` (sessions, unread, claims), " +
+	"`send` (a label/id, or `*`), `inbox` (consume), `read` (show, keep), " +
+	"`claim`/`release` (paths), " +
+	"`join` (a label, listening unless `listen: false`; `wake` raises a turn). " +
+	"Delivery is pull-based unless this session joined and is listening.";
+
+/** The one line in the system prompt's tools list, not a copy of the description. */
+export const SESSION_SNIPPET = "Coordinate parallel sessions: status, send, read, inbox, claim, release, join.";
+
+/** When, in what order, and what never to put on the wire. */
+export const SESSION_GUIDELINES = [
+	"Mail waits in an inbox until its session runs, so give a peer `join` with `wake` and end the turn — a `sleep` holds the very turn that would report it.",
+	"Claim the paths you will edit before changing them; release them when done.",
+	'Send `kind: "event"` for contract, build, or test changes another session needs.',
+	"Never put credentials or secrets in a session-bus message.",
+];
 
 /**
  * The call line's subject: the verb, and what it acts on. `end` clipping keeps
@@ -89,19 +108,9 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Session bus",
-		description:
-			"Coordinate parallel Pi sessions on this repository. Actions: `status` (sessions, unread, claims), " +
-			"`send` (to a label/id, or `*` for an event), `inbox` (consume messages), `read` (show them and keep them), " +
-			"`claim`/`release` (paths), " +
-			"`join` (get on the bus under a label, and listen for mail unless `listen: false`; `wake` raises a turn). " +
-			"Delivery is pull-based unless this session joined and is listening.",
-		promptSnippet: "Coordinate parallel sessions: status, send, read, inbox, claim, release, join.",
-		promptGuidelines: [
-			"Mail waits in an inbox until its session runs, so give a peer `join` with `wake` and end the turn — a `sleep` holds the very turn that would report it.",
-			"Claim the paths you will edit before changing them; release them when done.",
-			'Send `kind: "event"` for contract, build, or test changes another session needs.',
-			"Never put credentials or secrets in a session-bus message.",
-		],
+		description: SESSION_DESCRIPTION,
+		promptSnippet: SESSION_SNIPPET,
+		promptGuidelines: SESSION_GUIDELINES,
 		parameters: SessionParams,
 		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
 		executionMode: "sequential",

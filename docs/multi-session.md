@@ -17,6 +17,36 @@ Nothing in the three starts a process. A message lands in an inbox, so a session
 that is not running stays not running — and one listening with `wake` is woken for
 it, a handoff and an ask included.
 
+## How the three are wired
+
+No extension imports another's modules; what two of them need lives in `lib/`, and a
+test fails a direct import. What is left crosses on one of three channels, each with
+one owner:
+
+```text
+imports    board, team ───► lib/board/*
+           board, team ───► lib/session-tool.ts   ◄─── session-bus
+           session-bus ───► lib/session-mail.ts · session-roster.ts · session-label.ts
+           session-bus ──╳► lib/board/*           the bus knows nothing of cards
+
+files      board's Team tab ───► ~/.pi/agent/session-bus/<repo-key>/   ◄── session-bus
+           read through lib/session-roster.ts and session-mail.ts, so the page draws
+           the queue with the bus extension switched off
+
+requests   board, team ───► lib/session-tool.ts
+                              ├─ a tool context: a nested `session` call
+                              └─ any other: `pi.events`, bounded by lib/bus-request.ts
+           ───► join-request.ts · claim-request.ts · send-request.ts ───► runtime
+```
+
+- **Only the bus writes the bus.** A card's paths, a join, and a handoff all reach
+  `session-bus`'s own operations; the board and the lead never touch a record file.
+- **Reading is not asking.** The Team tab opens the same files the bus writes, which is
+  why `/board` still shows the queue when `session-bus` is off — it loses the sending
+  and the waking, not the view.
+- **A request always settles.** It is claimed once, a caller with no listener is told the
+  bus is not loaded, and a claim that never answers is bounded rather than left waiting.
+
 ## A round, in order
 
 1. **Join.** `/board` joins the session that leads as the board's lead; any other

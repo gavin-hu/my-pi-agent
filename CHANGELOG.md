@@ -15,6 +15,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`: the `session` tool's parameters say what a reader cannot get elsewhere instead of
+  restating the enum — `status` reads without joining, `*` needs `kind: "event"`, and a resend folds
+  only under the same `key`, whose bounds are now stated. The description and three `join`/`send`
+  parameters were trimmed to pay for it, and the surface has a ceiling in the prompt budget where it
+  had none.
+
 - `session-bus`: `N unread` is the mail a session has **not been told about**, on `session status`
   and on the Team tab, which now count from the same record. A notice marks its burst told and
   deletes nothing, so the number falls to zero while `session inbox` still returns the bodies. A
@@ -64,6 +70,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of the root checkout's head; the landing chain is read from the default branch, and a plain older commit is
   refused with the tree to review rather than recorded as a landing. The order is stated in both places: the
   lead merges and pushes, then the holder's `done` records the merge.
+
+- `board`: the write lock removes only a file it proved. A takeover's stat and its removal are two
+  instants, so two sessions recovering one abandoned lock could both remove and both create — the
+  second removal took the first taker's fresh lock — and both writers then held the board; a slow
+  release had the same shape against a takeover. Both removals now move the file aside and ask
+  again about the copy that was really there (the age rule, the token), putting a fresh rival's
+  lock back, and `lib/board/proven-remove.ts` is that window, shared with the page note's clear.
 
 - `board`: an owner that carries a session id is resolved by that id alone, so a label a later
   session takes cannot answer for its card. A card whose owner the bus has pruned now reads
