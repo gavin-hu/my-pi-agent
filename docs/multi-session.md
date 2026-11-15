@@ -38,8 +38,9 @@ it, a handoff and an ask included.
    `wake` and end the turn: a message waits in an inbox until its session runs, so
    an armed watch costs nothing once the turn is over, where a `sleep` sits inside
    a turn that mail cannot reach.
-7. **Close it.** The lead's `/board review 4` is the second signature; the card
-   then moves to `done`.
+7. **Land, then close.** The lead's `/board review 4` is the second signature,
+   taken in the card's tree; the lead merges `--no-ff` and pushes, then the holder
+   moves the card to `done`, which records the merge.
 
 ## Who holds what, and for how long
 

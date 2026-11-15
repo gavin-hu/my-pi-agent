@@ -59,11 +59,12 @@ export async function provedPlan(
  * review's evidence, and neither is a neighbour's bullet in a file the review also edited, so
  * `resolvedByMerge` compares the lines each side changed.
  *
- * The chain is read from the repository's checkout, not the session's tree: work is made in a
- * worktree and lands in the checkout, so the checkout is the only tree whose first-parent line is
- * the landing line. `resolveLanding` is called here for one reason — the diff it needs a sha for —
- * and then the gate calls it again under the lock with the same chain, so what is handed over is a
- * question answered once and asked twice, not a second rule.
+ * The chain is the **default branch's**, read from the repository rather than the session's tree:
+ * work is made in a worktree and lands on the default branch, so a worktree's own branch or a peer
+ * branch left in the checkout must not move the landing line. `resolveLanding` is called here for
+ * one reason — the diff it needs a sha for — and then the gate calls it again under the lock with
+ * the same chain, so what is handed over is a question answered once and asked twice, not a
+ * second rule.
  */
 export async function landedChain(
 	store: Pick<BoardStore, "read" | "root">,
@@ -76,11 +77,11 @@ export async function landedChain(
 	if (id === undefined || card === undefined || reviewed === undefined) return undefined;
 	// The git readers and their runner load here rather than at registration: a board that never
 	// closes a card pays nothing for them, and the entry's static graph stays where it was.
-	const { currentBranch, firstParentChain, resolvedByMerge } = await import("../../lib/git/read.ts");
+	const { defaultBranch, firstParentChain, resolvedByMerge } = await import("../../lib/git/read.ts");
 	const { createExecRunner } = await import("../../lib/git/runner.ts");
 	const runGit = createExecRunner(pi);
 	const root = store.root();
-	const branch = (await currentBranch(runGit, root).catch(() => undefined)) ?? "main";
+	const branch = (await defaultBranch(runGit, root).catch(() => undefined)) ?? "main";
 	const chain = await firstParentChain(runGit, root, branch);
 	if (chain.length === 0) return undefined;
 	const check = resolveLanding({ branch, chain }, reviewed, id);

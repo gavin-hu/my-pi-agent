@@ -14,6 +14,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { resolve } from "node:path";
 import { planForContract } from "../../lib/board/artifact.ts";
 import { type Card, cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { type Lane, movableLanes } from "../../lib/board/lanes.ts";
@@ -171,6 +172,7 @@ export function registerTools(
 				store: BoardStore,
 				rawCard: string | undefined,
 				override: string | undefined,
+				root: string | undefined,
 			): Promise<{ verified: Verification } | { error: string } | undefined> => {
 				const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
 				if (id === undefined) return undefined;
@@ -185,10 +187,11 @@ export function registerTools(
 					actor: me,
 					lead: store.config().lead,
 					override,
-					// The tree this session is working in, read now rather than taken from the store: a store
-					// opened before `worktree enter` keeps the checkout it was opened on, so its root is the
+					// The tree the review names, or the session's own: `root` is the card's worktree (or a checkout
+					// at its commit) when the signer is not in it. It is read now rather than taken from the store: a
+					// store opened before `worktree enter` keeps the checkout it was opened on, so its root is the
 					// wrong answer exactly when the reviewer has moved — `ctx.cwd` never moves at all.
-					cwd: resolveEffectiveCwd(ctx.cwd),
+					cwd: root === undefined ? resolveEffectiveCwd(ctx.cwd) : resolve(resolveEffectiveCwd(ctx.cwd), root),
 					run: deps.verify ?? module.defaultVerifyRun(),
 					now: () => runtime.now(),
 					tree: module.treeOf(pi),
@@ -290,7 +293,8 @@ export function registerTools(
 						const artifact = action === "approve" ? (await proofOf(store, args.card)).artifact : undefined;
 						// A spot-check of a card whose contract names a command is that command's run:
 						// a refusal here writes nothing, which is what keeps a red check from signing.
-						const evidence = action === "review" ? await verifiedFor(store, args.card, args.override) : undefined;
+						const evidence =
+							action === "review" ? await verifiedFor(store, args.card, args.override, args.root) : undefined;
 						if (evidence !== undefined && "error" in evidence) return refusal(action, me, evidence.error);
 						// The one moment this sign is recorded at, read here and not at the top of the call: a
 						// spot-check's command has a ten-minute bound, so a reading taken before it would stamp the

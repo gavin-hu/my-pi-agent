@@ -10,6 +10,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { cardFile } from "../../test/helpers/board.ts";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
@@ -97,6 +98,28 @@ describe("/board approve and /board review", () => {
 		expect(run.ran).toEqual([VERIFY]);
 		// The record is the run's, written by the person's own door, and it names the tree.
 		expect((await board.store.read(board.id))?.review?.verified).toEqual({ cmd: VERIFY, exit: 0, at: 1_000, root });
+		board.temps.flush();
+	});
+
+	test("runs the check in the tree --root names, and records it", async () => {
+		const seen: string[] = [];
+		const board = await signingBoard({
+			verify: async (_cmd, cwd) => {
+				seen.push(cwd);
+				return { exit: 0, output: "", killed: false };
+			},
+		});
+		await executableWith(board);
+		const tree = join(board.cwd, "card-tree");
+		expect(await board.say(`review 1 --root ${tree}`)).toContain(`in ${tree}`);
+		expect(seen).toEqual([tree]);
+		expect((await board.store.read(board.id))?.review?.verified?.root).toBe(tree);
+		board.temps.flush();
+	});
+
+	test("refuses --root with no tree", async () => {
+		const board = await signingBoard();
+		expect(await board.say("review 1 --root")).toBe("board: review --root needs a tree");
 		board.temps.flush();
 	});
 

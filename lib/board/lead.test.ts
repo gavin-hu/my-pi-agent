@@ -256,7 +256,7 @@ describe("signedText", () => {
 			'Signature: #4 "feature 4" — its contract is approved by Team-Lead.\nNext: `execute` is open — board action "move" with lane "execute", while the lane has room. `done` still needs the lead\'s `review`.',
 		);
 		expect(signedText(CARD, "review", THE_LEAD.label)).toBe(
-			'Signature: #4 "feature 4" — spot-checked by Team-Lead.\nNext: `done` is open — board action "move" with lane "done", while the plan it recorded is still in the store.',
+			'Signature: #4 "feature 4" — spot-checked by Team-Lead.\nNext: the lead merges the branch and pushes; then `done` is open — board action "move" with lane "done", and it records the merge that carried this review.',
 		);
 	});
 });

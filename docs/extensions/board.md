@@ -65,14 +65,14 @@ control, pins its head under the pane's, and says a sentence every row shares on
 naming the ways out; `assign` is `team`'s verb, under the same rule. `reclaim` takes a card back from its holder: the
 person and the lead always, a peer only while that owner's record says quiet or gone. `move` into `execute` or `done`
 re-reads the plan where the write lands, and a plan that is gone refuses it. A contract names a `verify` command —
-required — and `review` runs it in the tree you review in, recording the exit, the branch and the commit. `done`
-refuses a sign with no result or one older than the card's write, and resolves the merge that carried the review — not
-the tip, so a card still closes after others landed — refusing one that moved its paths. `landed: <sha>` answers which
-commit a finished card is, and is absent on a card closed before the rule or by an older build: its review's sha is
-the evidence it has. An `override` reads `closed by instruction`.
+required — and `review` runs it in the tree `root` names (the card's worktree or a checkout at its commit). `done`
+refuses a sign with no result or one older than the write, and resolves the merge that carried it — not the tip —
+refusing one that moved its paths. The lead merges and pushes first; the holder's `done` then records the merge, and
+a sign in the root checkout is refused as an older tree. `landed: <sha>` answers which commit a finished card is;
+an `override` reads `closed by instruction`.
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);
-`/board approve <id>` and `/board review <id>` sign as the person; `/board archive` runs the sweep;
+`/board approve <id>` and `/board review <id> [--root <tree>]` sign as the person; `/board archive` runs the sweep;
 `/board status` prints the seat, repository, port, and tabs; `/board stop` ends the page.
 
 **Who signs.** The lead is `team.lead` in `bytefly.json`, and the page serves as that name. The

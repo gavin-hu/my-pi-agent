@@ -11,6 +11,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	createExecRunner,
 	currentBranch as sharedCurrentBranch,
+	defaultBranch as sharedDefaultBranch,
 	gitCommonDir,
 	hasCommits as sharedHasCommits,
 	repoRootFor,
@@ -75,7 +76,7 @@ export async function resolveBaseRef(
 ): Promise<{ ref: string; mode: "fresh" | "head" }> {
 	if (config.baseRef === "head") return { ref: "HEAD", mode: "head" };
 
-	const branch = await defaultBranch(pi, repoRoot);
+	const branch = await sharedDefaultBranch(createExecRunner(pi), repoRoot);
 	if (branch) {
 		if (config.fetchRemote && (await fetchStale(pi, repoRoot))) {
 			// Never block on credentials: treat an error or timeout as "keep using the cache".
@@ -88,13 +89,6 @@ export async function resolveBaseRef(
 		if (await refExists(pi, repoRoot, remoteRef)) return { ref: remoteRef, mode: "fresh" };
 	}
 	return { ref: "HEAD", mode: "head" };
-}
-
-/** The repository's default branch name from `origin/HEAD`, if known. */
-export async function defaultBranch(pi: ExtensionAPI, repoRoot: string): Promise<string | undefined> {
-	const symbolic = await git(pi, ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"], repoRoot);
-	const branch = symbolic.stdout.trim().replace(/^refs\/remotes\/origin\//, "");
-	return branch || undefined;
 }
 
 const FETCH_MAX_AGE_MS = 24 * 60 * 60 * 1000;

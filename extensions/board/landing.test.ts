@@ -13,12 +13,13 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Card } from "../../lib/board/card.ts";
-import { landingGate } from "../../lib/board/contract.ts";
+import { landingGate, reviewedAncestor } from "../../lib/board/contract.ts";
 import { resolvedByMerge } from "../../lib/git/read.ts";
 import { createExecRunner } from "../../lib/git/runner.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { LEAD, NOW, written } from "../../test/helpers/fixtures/board-rules.ts";
 import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
+import { tempDir } from "../../test/helpers/env.ts";
 import { landedChain } from "./proof.ts";
 
 const temps = makeTempTracker();
@@ -187,6 +188,36 @@ describe("the landing a close resolves", () => {
 		const proof = await landedChain(storeOf(signedAt(reviewed, []), repo), ID, host());
 		// A card with no hints used to compare the whole tree, so any neighbour refused it.
 		expect(landingGate(ID, reviewed, proof)).toBeUndefined();
+	});
+
+	test("reads the default branch even when the checkout is on a peer branch", async () => {
+		const { repo, reviewed } = await withNeighbour();
+		await git(["checkout", "-q", "work"], repo);
+		const proof = await landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, host());
+		// The chain is main's, not the branch the checkout happens to have: the merge that carried
+		// the review, not the reviewed commit naming itself.
+		expect(proof?.branch).toBe("main");
+		expect(proof?.chain.some((commit) => commit.parents.slice(1).includes(reviewed))).toBe(true);
+		expect(landingGate(ID, reviewed, proof)).toBeUndefined();
+		await git(["checkout", "-q", "main"], repo);
+	});
+
+	test("reads the default branch from a worktree root", async () => {
+		const { repo, reviewed } = await withNeighbour();
+		const wt = join(temps.track(tempDir("pi-landing-wt-")), "wt");
+		await git(["worktree", "add", "-q", wt, "-b", "wt"], repo);
+		const proof = await landedChain(storeOf(signedAt(reviewed, ["dir"]), wt), ID, host());
+		expect(proof?.branch).toBe("main");
+		expect(landingGate(ID, reviewed, proof)).toBeUndefined();
+	});
+
+	test("refuses a sign taken on the base a branch was cut from", async () => {
+		const { repo, reviewed } = await withNeighbour();
+		const base = await git(["rev-parse", `${reviewed}^`], repo);
+		const proof = await landedChain(storeOf(signedAt(base, ["dir"]), repo), ID, host());
+		// The reviewed commit is on main as a plain ancestor, not the merge: the sign was taken on
+		// an older tree, which is #594's failure and the one the tightening must refuse.
+		expect(landingGate(ID, base, proof)).toBe(reviewedAncestor("main", base, ID));
 	});
 
 	test("refuses a merge that resolved a file the review changed", async () => {

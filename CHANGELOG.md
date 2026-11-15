@@ -60,6 +60,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a review's `root` names the tree the check runs in, so a sign can name the card's own commit instead
+  of the root checkout's head; the landing chain is read from the default branch, and a plain older commit is
+  refused with the tree to review rather than recorded as a landing. The order is stated in both places: the
+  lead merges and pushes, then the holder's `done` records the merge.
+
 - `board`: an owner that carries a session id is resolved by that id alone, so a label a later
   session takes cannot answer for its card. A card whose owner the bus has pruned now reads
   `absent` to `reclaim` and is re-seated by the turn-start sweep when this session wears its name,
