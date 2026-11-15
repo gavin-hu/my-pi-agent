@@ -15,6 +15,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `check`: the types phase is incremental, so a narrow run is bounded by its tests rather than by the
+  compiler. `tsconfig.json` now carries `incremental` with its build info at
+  `.pi/cache/tsconfig.tsbuildinfo`: 12.7 s cold, 3.2 s after that, and a 31-file gate is ~8 s instead
+  of ~13 s — the tests and the selection walk are what is left. CI checks out fresh on every job, so it still proves the cold result and the cache can
+  only ever speed a local second run; `rm -f .pi/cache/tsconfig.tsbuildinfo` is the escape, and
+  `scripts/check.test.ts` fails if either option or the path is dropped.
+
 - `check`: a region is the fallback for a path nothing reaches, not an addition to every change —
   which is what `test-selection.ts`'s own comment already said a region was for. A module some suite
   imports now costs the suites that import it plus the package-level tests, so a leaf inside a big

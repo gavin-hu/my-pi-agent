@@ -7,6 +7,7 @@
  * seconds this script exists to save.
  */
 
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { CASE_BUDGET_MS } from "../test/helpers/budget.ts";
@@ -42,6 +43,18 @@ describe("the phases", () => {
 	test("streams the long phase and captures the two that say nothing when they pass", () => {
 		const phases = phasesFor({});
 		expect(phases.map((phase) => phase.live)).toEqual([false, false, true]);
+	});
+});
+
+describe("the types phase", () => {
+	test("compiles incrementally into the ignored state directory, so a second run costs the tests", () => {
+		const config = JSON.parse(readFileSync(join(repo, "tsconfig.json"), "utf-8")) as {
+			compilerOptions?: { incremental?: boolean; tsBuildInfoFile?: string };
+		};
+		// The build info is a cache rather than a source: it lives in the directory the report already
+		// uses, and CI's fresh checkout never sees it, so the cold result is proved on every job.
+		expect(config.compilerOptions?.incremental).toBe(true);
+		expect(config.compilerOptions?.tsBuildInfoFile).toBe(".pi/cache/tsconfig.tsbuildinfo");
 	});
 });
 

@@ -72,13 +72,21 @@ them.
 
 `bun run check` runs its three phases **at once** rather than in a chain, so the
 gate costs what its longest phase costs. On an 8-core laptop, measured 2026-11-15
-over one suite of 8014 cases in 411 files: format 0.3 s, typecheck 8 s, and the
-tests are the rest — 75.4 s with four workers against 80.4-84.1 s one file at a
+over one suite of 8014 cases in 411 files: format 0.3 s, typecheck 12.7 s cold, and
+the tests are the rest — 75.4 s with four workers against 80.4-84.1 s one file at a
 time, for a gate of 125.3 s against 93-126 s. The wall time is the same within the
 noise; what changed is the bill, 182 CPU-seconds against 109, because the four
 workers were competing with the format and typecheck phases for the same cores.
 The two static phases are captured and printed only when they fail; the test phase
 streams, because it is what is on screen.
+
+On a narrowed run the typecheck is the floor rather than the suite — a leaf change
+reaches 31 files and 5.3 s of tests — so it is incremental, from `tsconfig.json`
+into `.pi/cache/tsconfig.tsbuildinfo`: 12.7 s the first time and 3.2 s after that,
+which is what makes a narrow gate ~8 s instead of ~13 s (the tests and the
+selection walk are the rest). CI checks out fresh, so
+every job still proves the cold result; `rm -f .pi/cache/tsconfig.tsbuildinfo`
+reproduces it here.
 
 The git-heavy `rewind`, `worktree`, and `session-bus` real-repository tests create
 real repositories and real git commands, so `test/helpers/slow-suite.ts` gates
