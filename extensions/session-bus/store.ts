@@ -19,10 +19,10 @@ import type {
 	DropResult,
 	InboxPeek,
 	InboxRead,
-	KeptMail,
 	SessionRecord,
 } from "./types.ts";
-import { type BusMessage, holdsMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
+import type { MailStore } from "./mail-store.ts";
+import { type BusMessage, holdsMessage } from "../../lib/session-mail.ts";
 import { INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "../../lib/session-roster.ts";
 
 const DIR_MODE = 0o700;
@@ -282,52 +282,6 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		return sessions.sort((a, b) => b.lastSeen - a.lastSeen || a.label.localeCompare(b.label));
 	}
 
-	/**
-	 * Up to `limit` messages from the front of a recipient's inbox, oldest first.
-	 *
-	 * The front is the queue, not a detail: consuming starts there so a limit never starves,
-	 * and so does a read, because the caller names the ids it already has. The order is when
-	 * the mail arrived, not the clock the sender stamped it with, so no peer's clock decides
-	 * where its mail sits. A file name holds the id, so a skip costs no read — which is what
-	 * lets a watch page a backlog one poll at a time without reading the same file twice.
-	 *
-	 * Only the consuming read deletes, and it deletes only what it read. A file this build
-	 * cannot validate is named back to the caller instead: it may be mail a newer build can
-	 * read — a renamed field, a stricter guard — and destroying it on the way past is how one
-	 * build's parser silently eats another's message. The message TTL ends it through its
-	 * mtime, so nothing it cannot read accumulates.
-	 *
-	 * The walk stops at `limit` messages, so the names it reports are the ones it reached: a
-	 * refusal behind a full page is named once the mail in front of it is consumed. Reading
-	 * every name to find one would cost the whole backlog on every poll, which is the read this
-	 * store exists to page. A limit of zero walks nothing, in either read: the page is decided
-	 * before the front is read, not after it.
-	 */
-	async function readMessages(
-		directory: string,
-		names: readonly string[],
-		options: { limit: number; known?: ReadonlySet<string>; remove: boolean },
-	): Promise<{ messages: BusMessage[]; unreadable: string[] }> {
-		const { limit, known, remove } = options;
-		const messages: BusMessage[] = [];
-		const unreadable: string[] = [];
-		for (const name of names) {
-			if (messages.length >= limit) break;
-			if (known?.has(idOfFile(name))) continue;
-			const path = join(directory, name);
-			const message = readTyped(path, isBusMessage);
-			if (!message) {
-				unreadable.push(name);
-				continue;
-			}
-			messages.push(message);
-			if (remove) await rm(path, { force: true });
-		}
-		// In the order it walked: the page a read shows is the front it deleted, and a message's
-		// own `at` cannot reorder it after the fact.
-		return { messages, unreadable };
-	}
-
 	async function readClaims(): Promise<ClaimRecord[]> {
 		const claims: ClaimRecord[] = [];
 		for (const name of await listFiles(claimsDir)) {
@@ -430,6 +384,19 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		return { claimed, conflicts: [] };
 	}
 
+	/**
+	 * The mail family, loaded on the first call that needs it.
+	 *
+	 * A deferral rather than a preference: this entry's static module budget is exactly full, and one
+	 * more evaluation fails `test/dependencies.test.ts`. `lib/lazy.ts` is the house idiom and is itself
+	 * a module this entry does not otherwise load, so the one-load promise is kept here instead.
+	 */
+	let mail: Promise<MailStore> | undefined;
+	const mailStore = (): Promise<MailStore> =>
+		(mail ??= import("./mail-store.ts").then((module) =>
+			module.createMailStore({ dir, readSessions, readTyped, listFiles, dropIfEmpty, dropStaleTemps }),
+		));
+
 	return {
 		dir,
 		async ensure() {
@@ -471,22 +438,6 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			return { delivered, failed };
 		},
 
-		async peek(id, options) {
-			const directory = inboxDir(id);
-			const names = await listMessages(directory);
-			const { messages, unreadable } = await readMessages(directory, names, { ...options, remove: false });
-			return { mail: messages, unread: new Set(names.map(idOfFile)), unreadable };
-		},
-
-		async inbox(id, limit) {
-			const directory = inboxDir(id);
-			return readMessages(directory, await listMessages(directory), { limit, remove: true });
-		},
-
-		async unread(id, told) {
-			return (await listFiles(inboxDir(id))).filter((name) => !told?.has(idOfFile(name))).length;
-		},
-
 		/**
 		 * Remove the mail `ids` name from the inboxes no record holds.
 		 *
@@ -500,35 +451,22 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		 * one guard this door needs, because a mistaken id would otherwise destroy mail its session
 		 * can still read; nothing else on the bus is this destructive and irreversible.
 		 */
+		// The mail family, delegated to the module that owns it: loaded on the first call that needs
+		// it, because this entry's static module budget is exactly full (see `mailStore`).
+		async peek(id, options) {
+			return (await mailStore()).peek(id, options);
+		},
+
+		async inbox(id, limit) {
+			return (await mailStore()).inbox(id, limit);
+		},
+
+		async unread(id, told) {
+			return (await mailStore()).unread(id, told);
+		},
+
 		async dropUnaccounted(ids) {
-			const wanted = new Set(ids);
-			const dropped: string[] = [];
-			const kept: KeptMail[] = [];
-			if (wanted.size === 0) return { dropped, kept };
-			const holders = new Map<string, string>();
-			for (const session of await readSessions()) holders.set(storedName(session.id), session.label);
-			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
-				const directory = join(inboxRoot, name);
-				const holder = holders.get(name);
-				let removed = false;
-				for (const file of await listFiles(directory)) {
-					const id = idOfFile(file);
-					if (!wanted.has(id)) continue;
-					if (holder !== undefined) {
-						if (!kept.some((entry) => entry.id === id)) kept.push({ id, reason: "held", holder });
-						continue;
-					}
-					await rm(join(directory, file), { force: true });
-					removed = true;
-					if (!dropped.includes(id)) dropped.push(id);
-				}
-				// An inbox the drop emptied is gone, rather than kept as one empty directory per dead id.
-				if (removed) await dropIfEmpty(directory);
-			}
-			for (const id of wanted) {
-				if (!dropped.includes(id) && !kept.some((entry) => entry.id === id)) kept.push({ id, reason: "missing" });
-			}
-			return { dropped: dropped.sort(), kept: kept.sort((a, b) => a.id.localeCompare(b.id)) };
+			return (await mailStore()).dropUnaccounted(ids);
 		},
 
 		claims: readClaims,
@@ -573,27 +511,8 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			await dropStaleTemps(claimsDir);
 		},
 
-		async pruneMail({ now: at, messageTtlMs }) {
-			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
-				const directory = join(inboxRoot, name);
-				for (const file of await listFiles(directory)) {
-					const path = join(directory, file);
-					const message = readTyped(path, isBusMessage);
-					if (message) {
-						if (at - message.at > messageTtlMs) await rm(path, { force: true });
-						continue;
-					}
-					// A file with no readable `at` has no clock of its own, so its mtime is the one it
-					// gets: the TTL still ends mail this build cannot read instead of keeping it forever.
-					const written = await stat(path).then(
-						(info) => info.mtimeMs,
-						() => at,
-					);
-					if (at - written > messageTtlMs) await rm(path, { force: true });
-				}
-				await dropStaleTemps(directory);
-				await dropIfEmpty(directory);
-			}
+		async pruneMail(input) {
+			return (await mailStore()).pruneMail(input);
 		},
 	};
 }
