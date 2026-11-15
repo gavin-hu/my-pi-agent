@@ -24,7 +24,9 @@ rather than import a module, and it widens to every suite only for a path that d
 selection itself: `test/helpers/graph.ts`, `scan.ts` and `preload.ts`, `test/suite-manifest.ts`,
 or the runner's config. An ordinary helper selects the suites that import it, and
 `scripts/test-selection.test.ts` fails a helper no suite reaches, since a change to one would
-select nothing at all.
+select nothing at all. A path the graph does answer takes no region: the region is the candidate
+set for a path nothing reaches — a deleted module, a file just started being imported, or one
+read by name — so a leaf inside a big area costs the suite that imports it, not the area.
 
 The gate takes one machine-wide lock (`scripts/check-lock.ts`): a second `bun run
 check` on the same machine prints who holds it and waits, because two gates' spawns

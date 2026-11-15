@@ -15,6 +15,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `check`: a region is the fallback for a path nothing reaches, not an addition to every change —
+  which is what `test-selection.ts`'s own comment already said a region was for. A module some suite
+  imports now costs the suites that import it plus the package-level tests, so a leaf inside a big
+  area no longer drags in the area's browser suites: a change to `extensions/board/tools.ts` goes
+  from 81 files and 52 s to 58 files and 10 s, and one to `lib/board/verify.ts` from 69 files to 31.
+  A deleted, newly imported, or by-name-read path keeps its whole region, and a module reached
+  statically by one suite and dynamically by another still loses the second — the walker records no
+  edge for `import()` by design.
+
 - `check`: `--changed` selects the suites that import a helper instead of every suite. Only a path
   that decides the selection itself still widens the run — the import walker, `preload.ts` (loaded by
   bun for every file, imported by none), the suite manifest, and the runner's config — and
