@@ -340,7 +340,7 @@ describe("defaultBranch", () => {
 				["rev-parse --verify --quiet refs/heads/main", { stdout: "abc\n" }],
 			]),
 		);
-		expect(await defaultBranch(main.run, "/repo")).toBe("main");
+		expect(await defaultBranch(main.run, "/repo", { fallback: true })).toBe("main");
 
 		const master = recordingRunner(
 			new Map([
@@ -349,15 +349,14 @@ describe("defaultBranch", () => {
 				["rev-parse --verify --quiet refs/heads/master", { stdout: "abc\n" }],
 			]),
 		);
-		expect(await defaultBranch(master.run, "/repo")).toBe("master");
+		expect(await defaultBranch(master.run, "/repo", { fallback: true })).toBe("master");
 	});
 
-	test("is undefined when the repository names none of them", async () => {
+	test("is undefined without a remote or the fallback, so a caller that needs one asks", async () => {
 		const none = recordingRunner(
 			new Map([
 				["symbolic-ref --quiet --short refs/remotes/origin/HEAD", { code: 128 }],
-				["rev-parse --verify --quiet refs/heads/main", { code: 128 }],
-				["rev-parse --verify --quiet refs/heads/master", { code: 128 }],
+				["rev-parse --verify --quiet refs/heads/main", { stdout: "abc\n" }],
 			]),
 		);
 		expect(await defaultBranch(none.run, "/repo")).toBeUndefined();

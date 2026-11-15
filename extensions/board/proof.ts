@@ -81,7 +81,7 @@ export async function landedChain(
 	const { createExecRunner } = await import("../../lib/git/runner.ts");
 	const runGit = createExecRunner(pi);
 	const root = store.root();
-	const branch = (await defaultBranch(runGit, root).catch(() => undefined)) ?? "main";
+	const branch = (await defaultBranch(runGit, root, { fallback: true }).catch(() => undefined)) ?? "main";
 	const chain = await firstParentChain(runGit, root, branch);
 	if (chain.length === 0) return undefined;
 	const check = resolveLanding({ branch, chain }, reviewed, id);

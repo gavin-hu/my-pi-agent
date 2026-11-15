@@ -288,19 +288,32 @@ export async function currentBranch(runGit: RunGit, cwd: string): Promise<string
 	return branch && branch !== "HEAD" ? branch : undefined;
 }
 
+export interface DefaultBranchOptions {
+	/**
+	 * Fall back to a local `main`/`master` when no remote names a default. Off by default: the
+	 * worktree extension asks for the remote's branch only, while a landing may read the local line.
+	 */
+	fallback?: boolean;
+}
+
 /**
- * The branch this repository lands on: `origin/HEAD` when a remote names one, else the local
- * `main` or `master`.
+ * The branch this repository lands on: `origin/HEAD` when a remote names one; with `fallback`, the
+ * local `main` or `master` when it does not.
  *
  * The landing line is the default branch's, not the branch a checkout happens to have. A peer
  * branch left in the shared checkout, or a worktree's own branch, must not move it.
  */
-export async function defaultBranch(runGit: RunGit, cwd: string): Promise<string | undefined> {
+export async function defaultBranch(
+	runGit: RunGit,
+	cwd: string,
+	options: DefaultBranchOptions = {},
+): Promise<string | undefined> {
 	const remote = await runGit(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], { cwd });
 	if (remote.code === 0) {
 		const name = remote.stdout.trim().replace(/^origin\//, "");
 		if (name !== "") return name;
 	}
+	if (options.fallback !== true) return undefined;
 	for (const name of ["main", "master"]) {
 		const local = await runGit(["rev-parse", "--verify", "--quiet", `refs/heads/${name}`], { cwd });
 		if (local.code === 0) return name;
