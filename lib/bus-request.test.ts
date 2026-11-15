@@ -11,7 +11,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { createFakePi } from "../test/helpers/fakes.ts";
-import { ANSWER_BOUND_MS, requestOverBus } from "./bus-request.ts";
+import { ANSWER_BOUND_MS, answerOn, requestOverBus } from "./bus-request.ts";
 
 const CHANNEL = "my-pi-agent/test/request";
 
@@ -162,5 +162,83 @@ describe("requestOverBus", () => {
 		const quiet = clock();
 		expect(await requestOverBus(createFakePi().pi, spec(), quiet.seams)).toBe("nobody answered");
 		expect(quiet.cancelled()).toBe(1);
+	});
+});
+
+describe("answerOn", () => {
+	/** One question as the listener reads it: the asker's text, and the door it answers through. */
+	interface Asked {
+		respond: (answer: string | Promise<string>) => void;
+	}
+
+	test("ignores a payload that is not a request", () => {
+		const fake = createFakePi();
+		let called = 0;
+		answerOn(fake.pi, CHANNEL, () => {
+			called += 1;
+			return "yes";
+		});
+		fake.pi.events.emit(CHANNEL, undefined);
+		fake.pi.events.emit(CHANNEL, "not a request");
+		fake.pi.events.emit(CHANNEL, { asked: "?" });
+		expect(called).toBe(0);
+	});
+
+	test("answers with the value the handler gives", async () => {
+		const fake = createFakePi();
+		answerOn(fake.pi, CHANNEL, () => "the answer");
+		expect(await requestOverBus(fake.pi, spec())).toBe("the answer");
+	});
+
+	test("answers with a promise, so an asker stays claimed while the work runs", async () => {
+		const fake = createFakePi();
+		answerOn(fake.pi, CHANNEL, async () => "slow but sure");
+		expect(await requestOverBus(fake.pi, spec())).toBe("slow but sure");
+	});
+
+	test("answers a synchronous throw as the asker's own failure", async () => {
+		// Without the catch this leaves the listener: the host reports a crash, and the asker waits out
+		// the bound for an answer nobody is still producing.
+		const fake = createFakePi();
+		answerOn(fake.pi, CHANNEL, () => {
+			throw new Error("the bus is on fire");
+		});
+		const answered = await requestOverBus(fake.pi, {
+			...spec(),
+			failed: (error: unknown) => "failed: " + String(error),
+		});
+		expect(answered).toBe("failed: Error: the bus is on fire");
+	});
+
+	test("a channel's own fact is checked before the handler runs", () => {
+		const fake = createFakePi();
+		let ran = false;
+		answerOn(
+			fake.pi,
+			CHANNEL,
+			(request: Asked & { ctx?: unknown }) => {
+				expect(request.ctx).toBeDefined();
+				ran = true;
+				return "answered";
+			},
+			(request: Asked & { ctx?: unknown }) => request.ctx !== undefined,
+		);
+		fake.pi.events.emit(CHANNEL, { asked: "?" });
+		expect(ran).toBe(false);
+		// The `respond` guard is unconditional, so the payload that reaches `accepts` has the door:
+		fake.pi.events.emit(CHANNEL, { asked: "?", ctx: {}, respond: () => undefined });
+		expect(ran).toBe(true);
+	});
+
+	test("the unsubscribe drops the listener, which is how a rebuilt host drops the old one", () => {
+		const fake = createFakePi();
+		let answered = 0;
+		const stop = answerOn(fake.pi, CHANNEL, () => {
+			answered += 1;
+			return "one";
+		});
+		stop();
+		fake.pi.events.emit(CHANNEL, { asked: "?", respond: () => undefined });
+		expect(answered).toBe(0);
 	});
 });

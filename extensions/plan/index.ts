@@ -19,6 +19,7 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { fileURLToPath } from "node:url";
+import { answerOn } from "../../lib/bus-request.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount, type MountSource } from "../../lib/http/mount.ts";
 import { sanitizeLine } from "../../lib/format.ts";
@@ -126,24 +127,32 @@ export default function planMode(pi: ExtensionAPI, deps: PlanDeps = {}): void {
 	const listenForRequests = (): void => {
 		for (const unsubscribe of unsubscribes) unsubscribe();
 		unsubscribes.length = 0;
-		const listen = (channel: string, handle: (request: PlanModeRequest) => void): void => {
-			unsubscribes.push(
-				pi.events.on(channel, (data) => {
-					const request = data as Partial<PlanModeRequest> | undefined;
-					if (!request?.ctx || typeof request.respond !== "function") return;
-					handle(request as PlanModeRequest);
-				}),
-			);
-		};
-		listen(PLAN_ENTER_REQUEST, (request) => {
-			if (!runtime.isEnabled()) runtime.enable(request.ctx);
-			request.respond(true);
-		});
-		listen(PLAN_TOGGLE_REQUEST, (request) => {
-			runtime.toggle(request.ctx);
-			request.ctx.ui.notify(planModeNotice(runtime.isEnabled()), "info");
-			request.respond(runtime.isEnabled());
-		});
+		// The channel's own fact is the context it answers through; the rest of the guard — an object
+		// with a `respond` — is `answerOn`'s, here because four other listeners needed it too.
+		const answers = (request: PlanModeRequest): boolean => request.ctx !== undefined;
+		unsubscribes.push(
+			answerOn(
+				pi,
+				PLAN_ENTER_REQUEST,
+				(request) => {
+					if (!runtime.isEnabled()) runtime.enable(request.ctx);
+					return true;
+				},
+				answers,
+			),
+		);
+		unsubscribes.push(
+			answerOn(
+				pi,
+				PLAN_TOGGLE_REQUEST,
+				(request) => {
+					runtime.toggle(request.ctx);
+					request.ctx.ui.notify(planModeNotice(runtime.isEnabled()), "info");
+					return runtime.isEnabled();
+				},
+				answers,
+			),
+		);
 	};
 
 	pi.on("session_start", (_event, ctx) => {

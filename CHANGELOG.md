@@ -95,6 +95,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`, `plan`: the listener half of the `pi.events` handshake has one owner in
+  `lib/bus-request.ts`. Four listeners and plan's two now call `answerOn` instead of repeating the
+  same guard, and one thing changes for a caller: a listener that throws before it answers used to
+  leave the asker waiting out the ten-second bound for an answer nobody was still producing, and now
+  arrives as that caller's own failure sentence.
+
 - `board`: a field a sign or a contract cannot keep is refused before anything is spent on it. A
   review's note is asked before the command its contract names runs, so a note over `MAX_NOTE` no
   longer pays a gate run and records nothing; a contract's four lines are asked before its plan is

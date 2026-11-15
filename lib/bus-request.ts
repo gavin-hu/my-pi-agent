@@ -146,3 +146,47 @@ export function requestOverBus<T, P>(
 		});
 	});
 }
+
+/** The one field an answer needs: the `respond` the helper calls, once. */
+export interface BusAnswerer<T> {
+	respond(answer: BusAnswer<T>): void;
+}
+
+/**
+ * Answer one channel's requests, once each, from a handler that may still be working.
+ *
+ * The listener half of {@link requestOverBus}, and one body because it carries five decisions that
+ * are easy to get wrong one at a time: a payload that is not a request at all, a request with no
+ * `respond`, answering twice, answering with a promise nobody settles, and throwing out of a
+ * listener — which the host reports as a crash while the asker waits out {@link ANSWER_BOUND_MS} for
+ * an answer that is never coming.
+ *
+ * `answer` may hand back the promise the work is: the caller stays claimed while it runs, so a
+ * listener that must bind a socket or start a bus answers with the work rather than with nothing.
+ * A synchronous throw from it is answered as a rejection, so the caller's own `failed` sentence is
+ * what its session reads. `accepts` is the channel's own extra fact — plan's payload must carry the
+ * context it answers through — and the `respond` guard cannot be one, because a payload without a
+ * door is not an answer at all.
+ *
+ * Returns the host's unsubscribe, because a listener rebuilt per session (`plan` does) has to be
+ * able to drop the one it replaces.
+ */
+export function answerOn<T, R extends BusAnswerer<T>>(
+	pi: Pick<ExtensionAPI, "events">,
+	channel: string,
+	answer: (request: R) => BusAnswer<T>,
+	accepts: (request: R) => boolean = () => true,
+): () => void {
+	return pi.events.on(channel, (data: unknown) => {
+		// The payload was built by a peer's own handshake, so its fields are the channel's contract;
+		// what can be wrong is that it is not an object carrying the one door this helper calls.
+		if (typeof data !== "object" || data === null) return;
+		const request = data as R;
+		if (typeof request.respond !== "function" || !accepts(request)) return;
+		try {
+			request.respond(answer(request));
+		} catch (error) {
+			request.respond(Promise.reject(error));
+		}
+	});
+}
