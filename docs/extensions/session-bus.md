@@ -25,7 +25,7 @@ messages, consume an inbox, and claim paths before editing them.
 | Join under a name | `/team join billing-core`, or `session join` |
 | Message one session | `session send to billing-web text "the API route is free"` |
 | Broadcast an event | `session send to "*" kind "event" text "…"` |
-| Read your mail | `session inbox` |
+| Read your mail | `session inbox`, or `session read` to show it and keep it |
 | See mail no session holds, and clear one | the board's summary counts it; `/sessions drop` names each, and `<id>` clears one |
 | Claim files before editing | `session claim paths ["src/api"]` |
 | Release a claim | `session release paths ["src/api"]`, or `x` on the board |
@@ -47,9 +47,24 @@ confirmation. It joins nothing by itself.
 
 **Actions.** `session status` reads the bus (and never joins you to it);
 `session send` writes one message per recipient, reporting any it could not
-reach; `session inbox` consumes up to `limit` messages, oldest first;
-`session claim` and `session release` hold and drop path claims; `session join`
-puts this session on the bus with an optional label, `wake`, and `listen`.
+reach — `key` names one message, so a resend of the same body folds into the copy
+still waiting; `session read` shows up to `limit` messages without deleting them;
+`session inbox` shows the same and consumes them; `session claim` and `session
+release` hold and drop path claims; `session join` puts this session on the bus
+with an optional label, `wake`, and `listen`.
+
+**Unread is mail you have not been told about.** A notice marks its burst told, so the number
+falls with nothing deleted: the bodies stay for `session read` or `session inbox`. A notice
+previews five messages, so mail behind that line is told about without being shown, and
+`session read` is the call that shows it. Both surfaces draw the same number — `session status`,
+and the Team tab's, off the same record — and a session resumed on the same id inherits what it
+was told rather than being told again. A file this build cannot parse counts until its TTL, and
+`session status` names it beside the number.
+
+**A key names one waiting message.** `session send key "12-signed"` and the same call again
+leave one copy in the inbox: the second writes nothing and still reports the peer as delivered.
+It folds only while that copy is waiting — after the recipient consumes it, the same key is a
+new message it can be told about, which is what makes a key a resend rather than a lock.
 
 **Message kinds.** `message`, `event`, `ask`, and `handoff`. An `ask` does not
 block the sender; a `handoff` names the work it assigns. A message may carry the
@@ -58,7 +73,8 @@ message id.
 
 **Mail is read, not taken, by the page.** The Team tab draws the whole bus's queue by reading
 those files and removes nothing: an inbox stays its owner's to consume with `session inbox`. The
-page is loopback and token-guarded, and a message it shows is never marked as read.
+page is loopback and token-guarded, and a message it shows is never marked as told — the count it
+draws is the record's, which only the session itself advances.
 
 **Records.** `session status` lists each session with its state — `live` while its heartbeat
 holds, `quiet` once it has aged, `gone` once its process is not running — and whether its watch is
