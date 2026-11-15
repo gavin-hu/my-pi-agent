@@ -21,7 +21,12 @@ import type { BusStore } from "./store.ts";
 import type { DropResult, KeptMail } from "./types.ts";
 
 /** The half of the store that owns the inboxes. */
-export type MailStore = Pick<BusStore, "peek" | "inbox" | "pruneMail"> & {
+export type MailStore = Pick<BusStore, "peek" | "inbox"> & {
+	/**
+	 * End the mail past its TTL, in this session's inbox and in the ones no record holds — with the
+	 * held inboxes given, because the records are the store's to read and this module never loads it.
+	 */
+	pruneMail(input: { now: number; messageTtlMs: number; own: string }, held: ReadonlySet<string>): Promise<void>;
 	/**
 	 * Remove mail `ids` name from inboxes no record holds — with the holders given, because the
 	 * records are the store's to read and this module never loads `store.ts`.
@@ -138,8 +143,15 @@ export function createMailStore(dir: string): MailStore {
 			return { dropped: dropped.sort(), kept: kept.sort((a, b) => a.id.localeCompare(b.id)) };
 		},
 
-		async pruneMail({ now: at, messageTtlMs }) {
+		async pruneMail(
+			{ now: at, messageTtlMs, own }: { now: number; messageTtlMs: number; own: string },
+			held: ReadonlySet<string>,
+		) {
+			const mine = storedName(own);
 			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
+				// This session's inbox, and every inbox no record holds: a live peer's is its own to
+				// sweep, which is the ledger's "unheld" rule applied to the clock.
+				if (name !== mine && held.has(name)) continue;
 				const directory = join(inboxRoot, name);
 				for (const file of await listJson(directory)) {
 					const path = join(directory, file);

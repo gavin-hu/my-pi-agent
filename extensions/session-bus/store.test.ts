@@ -193,7 +193,7 @@ describe("inbox", () => {
 		expect(await untoldOf(store.dir, "s2")).toBe(1);
 
 		// The TTL is what ends it, on the only clock a file with no readable `at` has.
-		await store.pruneMail({ now: 1_700_000_000_000, messageTtlMs: 1e9 });
+		await store.pruneMail({ now: 1_700_000_000_000, messageTtlMs: 1e9, own: "s2" });
 		expect(await readdir(join(dir, "inbox", inbox))).toEqual([file]);
 	});
 
@@ -232,7 +232,7 @@ describe("inbox", () => {
 		// A fixed instant far ahead of the file it just wrote, so no case reads the wall clock.
 		const ttl = 60_000;
 		const now = 1_700_000_000_000;
-		const at = (ms: number) => ({ now: ms, messageTtlMs: ttl });
+		const at = (ms: number) => ({ now: ms, messageTtlMs: ttl, own: "s2" });
 
 		await store.pruneMail(at(now));
 		expect(await readdir(join(dir, "inbox", inbox))).toEqual([file]);

@@ -18,6 +18,7 @@ import {
 	listJson,
 	publishNew,
 	readJsonAs,
+	storedName,
 	writeJsonAtomic,
 } from "../../lib/session-files.ts";
 import { type BusMessage, holdsMessage } from "../../lib/session-mail.ts";
@@ -108,13 +109,15 @@ export interface BusStore {
 		sessionTtlMs: number;
 	}): Promise<void>;
 	/**
-	 * Remove the mail past its TTL, which means walking every inbox to find it.
+	 * Remove the mail past its TTL from this session's inbox and from every inbox no record holds.
 	 *
 	 * The one call here whose cost grows with the mail on the bus, so it belongs to the clock the
 	 * TTL is measured in — the heartbeat — rather than to every action. A day-old message reading
-	 * as one for another ten seconds costs nobody.
+	 * as one for another ten seconds costs nobody. An inbox a live record holds is that session's
+	 * to sweep, which is the rule the ledger states as "unheld": one session no longer walks a
+	 * peer's mail on every tick, and mail nobody owns still finds its way out.
 	 */
-	pruneMail(input: { now: number; messageTtlMs: number }): Promise<void>;
+	pruneMail(input: { now: number; messageTtlMs: number; own: string }): Promise<void>;
 }
 
 /** The seam a claim batch offers a suite: where inside the batch a rival can be put. */
@@ -481,7 +484,10 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		},
 
 		async pruneMail(input) {
-			return (await mailStore()).pruneMail(input);
+			// Who holds an inbox, read at the sweep: a record pruned a moment ago leaves its mail
+			// unheld, and an inbox nobody holds is what this session may end.
+			const held = new Set((await readSessions()).map((session) => storedName(session.id)));
+			return (await mailStore()).pruneMail(input, held);
 		},
 	};
 }

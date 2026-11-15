@@ -71,7 +71,9 @@ cannot parse counts until its TTL, and `session status` names it. Mail whose rec
 was pruned has no row to hang a number on, so the status names each message under
 `Unaccounted (N)` — id, sender, kind, age, first line — a bare `/sessions drop` prints that
 list, and `/sessions drop <id>` clears one; the board counts it off the inbox names, so a
-repaint every second opens no file. That door is a command, not a `session` action, because a
+repaint every second opens no file. A heartbeat ends the mail past its TTL in its own inbox and
+in the ones no record holds, so no session walks a peer's mail; a stopped session's inbox waits
+for its record to age out, at most ten minutes past its last heartbeat. That door is a command, not a `session` action, because a
 message is evidence: the person clears it, and the store refuses an id a record's inbox holds.
 
 **Labels.** Name a session for the outcome it owns (`billing-core`), not its layer. A duplicate

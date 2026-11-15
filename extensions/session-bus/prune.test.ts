@@ -32,7 +32,7 @@ describe("the store's two halves", () => {
 		await store.claimAll(["src/a.ts"], "s1", "one", 100);
 		// Both halves, in the order a heartbeat runs them.
 		await store.pruneRecords({ now: 1_000, activeIds: new Set(["s1", "s2"]), sessionTtlMs: 500 });
-		await store.pruneMail({ now: 1_000, messageTtlMs: 500 });
+		await store.pruneMail({ now: 1_000, messageTtlMs: 500, own: "s1" });
 		expect(await store.sessions()).toEqual([]);
 		expect(await store.claims()).toEqual([]);
 		expect(await store.inbox("s2", 10)).toEqual({ messages: [], unreadable: [] });
@@ -77,7 +77,7 @@ describe("the store's two halves", () => {
 		const { dir, store } = busStoreFixture(temps);
 		await store.writeMessage("s2", busMessage("100-a", "s2", 100));
 		await store.writeMessage("s3", busMessage("900-b", "s3", 900));
-		await store.pruneMail({ now: 1_000, messageTtlMs: 500 });
+		await store.pruneMail({ now: 1_000, messageTtlMs: 500, own: "s1" });
 		expect(await readdir(join(dir, "inbox"))).toHaveLength(1);
 		expect((await store.peek("s3", { limit: 10 })).mail).toHaveLength(1);
 	});
@@ -111,9 +111,23 @@ describe("the store's two halves", () => {
 
 		// And the mail half is the heartbeat's alone, so it must not expire a record or a claim
 		// the action path has not judged: only `pruneRecords` knows which ids are still live.
-		await store.pruneMail({ now: 1_000, messageTtlMs: 500 });
+		await store.pruneMail({ now: 1_000, messageTtlMs: 500, own: "s1" });
 		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
 		expect(await store.claims()).toHaveLength(1);
+	});
+
+	test("sweeps its own inbox and the ones nobody holds, and leaves a peer's to that peer", async () => {
+		const { dir, store } = busStoreFixture(temps);
+		await store.writeSession(sessionRecord("s1", 900));
+		await store.writeSession(sessionRecord("s3", 900));
+		await store.writeMessage("s1", busMessage("1-old", "s1", 0));
+		await store.writeMessage("s3", busMessage("3-old", "s3", 0));
+		// No record holds this one, so it is mail nobody owns and any sweep may end it.
+		await store.writeMessage("s2", busMessage("2-old", "s2", 0));
+		await store.pruneMail({ now: 1_000, messageTtlMs: 500, own: "s1" });
+		expect(await untoldOf(dir, "s1")).toBe(0);
+		expect(await untoldOf(dir, "s3")).toBe(1);
+		expect(await untoldOf(dir, "s2")).toBe(0);
 	});
 });
 

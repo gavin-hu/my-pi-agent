@@ -221,9 +221,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				// A heartbeat that resumed after a long pause can find its label taken; the
 				// tick is where a revived session notices and yields, after its own write.
 				if (await settleLabel()) publishLabel();
-				// The one prune that reads every inbox rides the clock the message TTL is measured in,
-				// so no action pays for mail nobody is waiting on.
-				await store.pruneMail({ now: now(), messageTtlMs });
+				// The one prune that opens inbox files rides the clock the message TTL is measured in,
+				// so no action pays for mail nobody is waiting on. It takes this session's inbox and
+				// the ones no record holds; a peer's mail is that peer's to end.
+				await store.pruneMail({ now: now(), messageTtlMs, own: record.id });
 			})().catch(() => {});
 		});
 	}
