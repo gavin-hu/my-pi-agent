@@ -47,8 +47,6 @@ export interface SessionBus {
 	snapshot(): Promise<SessionStatus>;
 	/** This session's unread mail without consuming it, and the files this build cannot read. */
 	peek(): Promise<InboxPeek>;
-	/** Messages waiting in this session's inbox, counted by file — `peek` stops at its own cap. */
-	unread(): Promise<number>;
 	/**
 	 * Remove unaccounted mail by message id — the one door `/sessions drop` opens.
 	 *

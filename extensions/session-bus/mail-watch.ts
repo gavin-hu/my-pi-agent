@@ -3,9 +3,13 @@
  * that arrived and has not been reported yet.
  *
  * It announces and never consumes: `inbox` keeps sole ownership of deleting mail,
- * so a wake cannot eat a message the model did not read. Nothing here knows about
- * the store, the repository, or the transcript — the runtime supplies one read-only
- * peek and the timer, and the extension's reporter supplies `onWake`.
+ * so a wake cannot eat a message the model did not read. The answer to "has this
+ * one been reported" is the caller's to keep — the record's `seenMail`, which is
+ * also the number a peer's unread count subtracts — so the watch holds no set of
+ * its own, and cannot grow one for the life of the process. Nothing here knows
+ * about the store, the repository, or the transcript: the runtime supplies one
+ * read-only peek, the told set and its writer, and the timer, and the extension's
+ * reporter supplies `onWake`.
  *
  * Polling rather than `fs.watch`, like the `watch` extension's tail: one readdir on
  * this session's own directory stands in for a platform event API.
@@ -20,6 +24,14 @@ export interface MailWatchOptions {
 	 * the ids of every message still there. Nothing is consumed or marked.
 	 */
 	peek(known: ReadonlySet<string>): Promise<InboxPeek>;
+	/**
+	 * The ids this session has already been told about, where the caller keeps them: a record
+	 * a peer can read. Asked afresh rather than held, so the watch cannot drift from it and a
+	 * resumed session inherits the answer its own record already carries.
+	 */
+	told(): readonly string[];
+	/** Record the told set: an announcement, or a poll that found the mail behind an id gone. */
+	onTold(ids: readonly string[]): void;
 	/** The repeating timer behind the poll. */
 	interval: RepeatTimer;
 	/** Poll interval; 0 disables the ticker (tests). */
@@ -43,7 +55,7 @@ export interface MailWatch {
 	poll(): Promise<void>;
 	/** Mail that arrived and has not been reported yet, oldest first. */
 	pending(): BusMessage[];
-	/** Drop mail from the pending queue, once reported or consumed. */
+	/** Mark mail as told — reported, or consumed — so no notice repeats it. */
 	markReported(ids: readonly string[]): void;
 	/** Release the ticker and the queue, on shutdown. */
 	stop(): void;
@@ -51,17 +63,12 @@ export interface MailWatch {
 }
 
 export function createMailWatch(options: MailWatchOptions): MailWatch {
-	const { peek, interval, watchMs } = options;
+	const { peek, told, onTold, interval, watchMs } = options;
 
 	let armed = false;
 	let wake = false;
 	let stopTicker: (() => void) | undefined;
 	let pendingMail: BusMessage[] = [];
-	/**
-	 * Ids already queued, reported, or consumed — pruned by what is still on disk, so it
-	 * holds exactly the announced mail an `inbox` call has not removed yet.
-	 */
-	let reported = new Set<string>();
 	/** One read at a time: a poll that arrives while another is reading is dropped, not queued. */
 	let polling = false;
 	let onWake: (() => void) | undefined;
@@ -70,8 +77,17 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 		pendingMail = pendingMail.filter((message) => !ids.has(message.id));
 	}
 
+	/**
+	 * Add the ids an announcement carried to the told set, and drop them from the queue.
+	 *
+	 * Written through the caller, so the record is the only copy: a watch armed, disarmed, and
+	 * armed again over the same session re-announces nothing, because the answer came from the
+	 * record rather than from a set the watch was holding.
+	 */
 	function markReported(ids: readonly string[]): void {
-		for (const id of ids) reported.add(id);
+		const next = new Set(told());
+		for (const id of ids) next.add(id);
+		onTold([...next]);
 		dropFromPending(new Set(ids));
 	}
 
@@ -79,36 +95,38 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 	 * Queue what this watch has not announced, once, and wake a turn when this session
 	 * asked for one.
 	 *
-	 * The queue and the memory are pruned by what is still on disk, so `reported` is
-	 * bounded by the inbox rather than by a count: an id that leaves the inbox leaves the
-	 * set, and no id still on disk can be forgotten while it is there. A count was how a
-	 * backlog larger than one read made the watch forget an id it had already announced and
-	 * announce it again.
+	 * The queue and the told set are pruned by what is still on disk, so neither is bounded by
+	 * a count: an id that leaves the inbox leaves both, and no id still on disk can be
+	 * forgotten while it is there. A count was how a backlog larger than one read made the
+	 * watch forget an id it had already announced and announce it again.
 	 *
 	 * One read at a time, and the page is judged by the state it came back to. The ticker,
 	 * an explicit `poll`, and a poll slower than the interval can all be in flight at once,
 	 * and each of them would read the same `known` and append the same mail; a second reader
-	 * is dropped instead, like the board's own reader. Between the peek and the append,
-	 * `inbox` can consume and mark what this page carries, and a `stop` can clear the queue,
-	 * so the answer is filtered by the current `reported` and by whether the watch is still
-	 * armed — `known` is what the store was asked, not what it is still allowed to queue.
+	 * is dropped instead, like the board's own reader. Between the peek and the append, `inbox`
+	 * can consume and report what this page carries, and a `stop` can clear the queue, so the
+	 * answer is filtered by the told set as it stands after the read — `known` is what the store
+	 * was asked, not what it is still allowed to queue.
 	 */
 	async function pollOnce(): Promise<void> {
 		if (!armed || polling) return;
 		polling = true;
 		try {
-			const known = new Set(reported);
+			const known = new Set(told());
 			for (const message of pendingMail) known.add(message.id);
 			const { mail, unread } = await peek(known);
 			if (!armed) return;
 			// The read names everything still in the inbox, which is a different question from
 			// what one page covered: a message that expired or was consumed leaves the queue and
-			// the memory with its file.
-			for (const id of reported) if (!unread.has(id)) reported.delete(id);
+			// the told set with its file.
 			pendingMail = pendingMail.filter((message) => unread.has(message.id));
-			// Read before `inbox` consumed it: the file is gone and the id is in `reported`, so the
-			// page is stale for exactly the mail this session already has.
-			const fresh = mail.filter((message) => !reported.has(message.id));
+			const announced = told();
+			const live = announced.filter((id) => unread.has(id));
+			if (live.length !== announced.length) onTold(live);
+			// Read after the peek, for the same reason: the page is stale for exactly the mail this
+			// session already has, and what it has can change while the read is in flight.
+			const knownNow = new Set(live);
+			const fresh = mail.filter((message) => !knownNow.has(message.id));
 			if (fresh.length === 0) return;
 			pendingMail = [...pendingMail, ...fresh];
 			if (wake) onWake?.();

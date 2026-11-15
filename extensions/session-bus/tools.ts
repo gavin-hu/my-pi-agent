@@ -131,18 +131,17 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 						});
 					}
 					case "inbox": {
-						// Bounded before it consumes: `inbox` deletes what it reads, so a body the text does
-						// not carry would be mail no later call could return. The peek leaves the front
-						// where it is, so the messages it shows are the ones it then consumes. The count
-						// comes from the inbox itself, not from the window: `peek` stops at `MAX_LIMIT`,
-						// and a tail taken from it would saturate past that.
-						const unread = await bus.unread();
+						// A read consumes what it showed, so a body the text does not carry would be mail no
+						// later call could return. The peek leaves the front where it is, so the messages it
+						// shows are the ones it then consumes — and its `unread` names every file in the inbox,
+						// which is the count the tail is taken from rather than the window, because `peek`
+						// stops at `MAX_LIMIT` and a tail taken from its page would saturate past that.
 						const pending = await bus.peek();
 						const window = pending.mail.slice(0, normalizeLimit(args.limit));
 						// Mail this build cannot read is left on disk for a build that can, so it is
 						// named rather than counted into the tail — a tail that promised it would
 						// otherwise answer `Inbox empty.` on the next call.
-						const read = formatInbox(window, Math.max(0, unread - window.length), pending.unreadable);
+						const read = formatInbox(window, Math.max(0, pending.unread.size - window.length), pending.unreadable);
 						const messages = read.shown === 0 ? [] : await bus.inbox(read.shown);
 						return textResult(read.text, {
 							action,

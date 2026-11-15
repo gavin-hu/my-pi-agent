@@ -37,6 +37,7 @@ import {
 	shortId,
 } from "./protocol.ts";
 import { createMailWatch } from "./mail-watch.ts";
+import { createMailCursor } from "./cursor.ts";
 import { createTurn } from "./presence.ts";
 import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
 import type { InboxPeek, SessionRecord, SessionStatus } from "./types.ts";
@@ -103,9 +104,12 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	const turn = createTurn({ store: () => store, record: () => record, joined: () => joined, now });
 
 	/** The watch reads this session's own inbox; nothing is consumed or marked. */
+	const cursor = createMailCursor({ store: () => store, record: () => record });
 	const mailWatch = createMailWatch({
 		peek: async (known): Promise<InboxPeek> =>
 			store && record ? store.peek(record.id, { limit: MAX_LIMIT, known }) : NO_MAIL,
+		told: () => cursor.ids(),
+		onTold: (ids) => cursor.told(ids),
 		interval,
 		watchMs,
 	});
@@ -146,6 +150,9 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				// polling `ps` for its own heartbeat.
 				...(processToken === undefined ? {} : { startToken: processToken }),
 			};
+			// A record that outlived its process still says what that session was told, and a resume
+			// is that session: adopting its cursor keeps its old mail out of the count.
+			await cursor.adopt();
 		})();
 		try {
 			await starting;
@@ -183,6 +190,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			void (async () => {
 				if (!record || !store) return;
 				record.lastSeen = now();
+				// The cursor names mail the inbox may have lost since the last poll, and a session that
+				// stopped listening polls nothing: this write is where that set is trimmed, so it cannot
+				// grow with every message the session ever read.
+				await cursor.trim();
 				await store.writeSession(record);
 				// A heartbeat that resumed after a long pause can find its label taken; the
 				// tick is where a revived session notices and yields, after its own write.
@@ -330,11 +341,16 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	): Promise<Array<SessionRecord & { unread: number; state: RosterState }>> {
 		const at = now();
 		return Promise.all(
-			rows.map(async (session) => ({
-				...session,
-				unread: (await store?.unread(session.id)) ?? 0,
-				state: stateOf(session, at),
-			})),
+			rows.map(async (row) => {
+				// This session's own record is live in memory and the file is the copy a peer reads, so
+				// its row is taken from memory: the count falls in the call that announced the mail.
+				const session = record !== undefined && row.id === record.id ? record : row;
+				return {
+					...session,
+					unread: (await store?.unread(session.id, new Set(session.seenMail))) ?? 0,
+					state: stateOf(session, at),
+				};
+			}),
 		);
 	}
 
@@ -490,11 +506,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		async peek() {
 			if (!store || !record) throw new Error("session bus is not started.");
 			return store.peek(record.id, { limit: MAX_LIMIT });
-		},
-
-		async unread() {
-			if (!store || !record) throw new Error("session bus is not started.");
-			return store.unread(record.id);
 		},
 		/**
 		 * Clear unaccounted mail — the store's one write, reached only from `/sessions drop`.

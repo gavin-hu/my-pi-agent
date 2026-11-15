@@ -145,7 +145,7 @@ describe("the store's drop", () => {
 			dropped: [ORPHAN],
 			kept: [{ id: ORPHAN, reason: "held", holder: "frontend" }],
 		});
-		expect(await bus.unread()).toBe(1);
+		expect((await bus.peek()).unread.size).toBe(1);
 		await bus.stop();
 	});
 
@@ -250,7 +250,7 @@ describe("the command's drop", () => {
 		expect(notices.at(-1)?.kind).toBe("warning");
 		expect(notices.at(-1)?.message).toContain("Not dropped:");
 		expect(notices.at(-1)?.message).toContain("is held by frontend");
-		expect(await bus.unread()).toBe(1);
+		expect((await bus.peek()).unread.size).toBe(1);
 		await bus.stop();
 	});
 
