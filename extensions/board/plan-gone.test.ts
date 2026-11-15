@@ -37,8 +37,7 @@ describe("a plan that is gone", () => {
 				store,
 				actor: () => ME,
 				now: () => NOW,
-				roster: async () => undefined,
-				busDir: async () => join(board.cwd, "no-bus"),
+				bus: async () => ({ roster: undefined, waiting: { messages: [], dropped: 0 } }),
 			});
 
 		const before = await snapshot();
@@ -69,8 +68,7 @@ describe("a plan that is gone", () => {
 			store,
 			actor: () => ME,
 			now: () => NOW,
-			roster: async () => undefined,
-			busDir: async () => join(board.cwd, "no-bus"),
+			bus: async () => ({ roster: undefined, waiting: { messages: [], dropped: 0 } }),
 		});
 		expect(drawnOf(view, card.id)?.lane).toBe("done");
 		expect(drawnOf(view, card.id)?.planGone).toBeUndefined();

@@ -12,12 +12,11 @@
  * and the prune stays with the next tool or command call.
  */
 
-import { unaccountedMail } from "../../lib/session-mail.ts";
+import { readMailLedger, unaccountedOf, untoldIn } from "../../lib/session-mail.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { WatchingState } from "./mail-watch.ts";
 import type { BusStore } from "./store.ts";
 import type { SessionRecord, SessionStatus } from "./types.ts";
-import { MAX_LIMIT } from "./protocol.ts";
 
 export interface StatusReaderOptions {
 	store(): BusStore | undefined;
@@ -46,22 +45,16 @@ export function createStatusReader(options: StatusReaderOptions): StatusReader {
 	const { store, record, stateOf, now, watching } = options;
 
 	/** One row per record, each counting the mail that record has not been told about. */
-	async function withUnread(
+	function rowsOf(
 		rows: readonly SessionRecord[],
-	): Promise<Array<SessionRecord & { unread: number; state: RosterState }>> {
+		untoldOf: (id: string) => number,
+	): Array<SessionRecord & { unread: number; state: RosterState }> {
 		const at = now();
-		const bus = store();
 		const mine = record();
-		return Promise.all(
-			rows.map(async (row) => {
-				const session = mine !== undefined && row.id === mine.id ? mine : row;
-				return {
-					...session,
-					unread: (await bus?.unread(session.id, new Set(session.seenMail))) ?? 0,
-					state: stateOf(session, at),
-				};
-			}),
-		);
+		return rows.map((row) => {
+			const session = mine !== undefined && row.id === mine.id ? mine : row;
+			return { ...session, unread: untoldOf(session.id), state: stateOf(session, at) };
+		});
 	}
 
 	return {
@@ -74,22 +67,29 @@ export function createStatusReader(options: StatusReaderOptions): StatusReader {
 				: records;
 			const ours = new Set(sessions.filter((session) => stateOf(session) !== "gone").map((session) => session.id));
 			const claims = (await bus.claims()).filter((claim) => !liveOnly || ours.has(claim.owner));
-			// Mail is counted per record, so a pruned record's messages have no row to hang a number on.
-			// The ids read here are the *record* ids rather than the live ones: a gone record's mail is
-			// still its own, and only a record the bus no longer holds leaves mail unaccounted for.
-			// The board's read is the count alone — it draws a number once a second and would otherwise
-			// parse every one of these files on each repaint — while the status read names the mail.
-			const unaccounted = await unaccountedMail(bus.dir, new Set(records.map((session) => session.id)), {
-				bodies: !liveOnly,
-			});
-			// The one thing a names-only count cannot say: a file this build cannot parse sits inside
-			// it until its TTL. Asking costs a page read, which is why only the model's read asks.
-			const refused = liveOnly ? [] : (await bus.peek(me.id, { limit: MAX_LIMIT })).unreadable;
+			// One pass answers every mail question this read has: each row's count, the mail in the
+			// inboxes no record holds, and the files this build cannot parse. Mail is counted per
+			// record, so a pruned record's messages would have no row to hang a number on — the ids
+			// read here are the *record* ids rather than the live ones, because a gone record's mail
+			// is still its own. The reader's own record is the live one, so its count falls the moment
+			// its mail is announced rather than one heartbeat later.
+			const mine = record();
+			const mail = await readMailLedger(
+				bus.dir,
+				records.map((session) => {
+					const live = mine !== undefined && session.id === mine.id ? mine : session;
+					return { id: live.id, label: live.label, told: live.seenMail ?? [] };
+				}),
+			);
+			const unaccounted = unaccountedOf(mail);
+			// The one thing a count cannot say: a file this build cannot parse sits inside an inbox
+			// until its TTL. The pass above named them, so no second read is asked for.
+			const refused = liveOnly ? [] : (mail.inboxes.find((inbox) => inbox.id === me.id)?.unreadable ?? []);
 			const watch = watching();
 			return {
 				me: { id: me.id, label: me.label },
 				onBus: me.onBus,
-				sessions: await withUnread(sessions),
+				sessions: rowsOf(sessions, (id) => untoldIn(mail, id)),
 				...(unaccounted.count > 0 ? { unaccounted } : {}),
 				...(refused.length === 0 ? {} : { unreadable: refused }),
 				claims,

@@ -11,15 +11,15 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { BUS_DIR_NAME, SESSIONS_DIR_NAME } from "../../../../lib/session-roster.ts";
+import { BUS_DIR_NAME, SESSIONS_DIR_NAME } from "../../../../lib/session-files.ts";
 import { SESSION_LABEL_CHANNEL } from "../../../../lib/session-label.ts";
 import { scratchDir, withAgentDir } from "../../../../test/helpers/env.ts";
 import { emit, makeFakePi } from "../../../../test/helpers/fakes.ts";
 import { fakeFooterCtx, renderFooter } from "../../../../test/helpers/fixtures/footer.ts";
 import { makeTempTracker } from "../../../../test/helpers/git.ts";
 import { waitFor } from "../../../../test/helpers/process.ts";
-import { followRosterLabel } from "./label.ts";
 import { registerFooter } from "../register.ts";
+import { followRosterLabel } from "./label.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());

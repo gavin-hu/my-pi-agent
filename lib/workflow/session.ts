@@ -19,20 +19,21 @@
  * per extension and none of them the same one.
  */
 
+import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { join } from "node:path";
 import { resolveEffectiveCwd } from "../env.ts";
 import { plansDirFor } from "../plans/paths.ts";
 import { repoKeyFor } from "../repo-key.ts";
+import { BUS_DIR_NAME } from "../session-files.ts";
 import { agentLabel, defaultLabel, labelKey, normalizeLabel, sessionIdOf, sessionNameOf } from "../session-label.ts";
-import { BUS_DIR_NAME, presenceOf, readRoster, type RosterSession } from "../session-roster.ts";
+import { presenceOf, type RosterSession, readRoster, readTeam, type TeamRead } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
 import type { Card } from "./card.ts";
 import type { Claims } from "./claims.ts";
 import type { HolderFact } from "./lead.ts";
 import type { Actor } from "./rules.ts";
-import { type BoardStore, openBoard, type MutateResult } from "./store.ts";
+import { type BoardStore, type MutateResult, openBoard } from "./store.ts";
 
 /**
  * Where this session stands on the team, as the one place that keeps it.
@@ -102,6 +103,15 @@ export interface BoardSession {
 	 * is the caller that catches it.
 	 */
 	roster(cwd: string): Promise<RosterSession[] | undefined>;
+	/**
+	 * The roster and the waiting queue from one pass over the bus.
+	 *
+	 * A page draws both, and both come from the same inboxes: the queue used to be a second walk of
+	 * every inbox after the roster's own count, once a second, for as long as a tab was open. The
+	 * board reads this instead of the two readers, and `roster` stays for the callers that want only
+	 * the names — a note's audience, `/team`'s listing, the join's own check.
+	 */
+	bus(cwd: string): Promise<TeamRead>;
 	/**
 	 * What the bus says about the session holding `card`, bound to the owner it is about.
 	 *
@@ -267,6 +277,9 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 		},
 		async roster(cwd) {
 			return readRoster(await session.busDir(cwd));
+		},
+		async bus(cwd) {
+			return readTeam(await session.busDir(cwd));
 		},
 		async holder(cwd, card) {
 			const owner = card.owner;

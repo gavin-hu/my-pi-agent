@@ -1,12 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdir, readdir, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { storedName } from "../../lib/session-files.ts";
+import { busMessage, busStoreFixture, sessionRecord, stampArrival, untoldOf } from "../../test/helpers/bus.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { busMessage, busStoreFixture, sessionRecord, stampArrival } from "../../test/helpers/bus.ts";
 import { createBusStore } from "./store.ts";
-import type { ClaimConflict } from "./types.ts";
-import { storedName } from "../../lib/session-roster.ts";
-import type { SessionRecord } from "./types.ts";
+import type { ClaimConflict, SessionRecord } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -19,7 +18,7 @@ describe("sessions", () => {
 		await store.writeSession(sessionRecord("s2"));
 		const sessions = await store.sessions();
 		expect(sessions.map((entry) => entry.id).sort()).toEqual(["s1", "s2"]);
-		expect(await store.unread("missing")).toBe(0);
+		expect(await untoldOf(store.dir, "missing")).toBe(0);
 	});
 
 	test("keeps the listening field, and skips a record whose field is not the shape the bus writes", async () => {
@@ -84,10 +83,10 @@ describe("inbox", () => {
 		const { store } = busStoreFixture(temps);
 		await store.writeMessage("s2", busMessage("100-a", "s2"));
 		await store.writeMessage("s2", busMessage("101-b", "s2"));
-		expect(await store.unread("s2")).toBe(2);
+		expect(await untoldOf(store.dir, "s2")).toBe(2);
 		const first = await store.inbox("s2", 1);
 		expect(first.messages.map((entry) => entry.id)).toEqual(["100-a"]);
-		expect(await store.unread("s2")).toBe(1);
+		expect(await untoldOf(store.dir, "s2")).toBe(1);
 		const rest = await store.inbox("s2", 10);
 		expect(rest.messages.map((entry) => entry.id)).toEqual(["101-b"]);
 		expect(await store.inbox("s2", 10)).toEqual({ messages: [], unreadable: [] });
@@ -100,9 +99,9 @@ describe("inbox", () => {
 		// What an announcement records: the files stay where they are, and the row's number stops
 		// counting the one it announced. A stale id — a file consumed or expired since the record was
 		// written — names nothing, so it takes nothing off.
-		expect(await store.unread("s2", new Set(["100-a"]))).toBe(1);
-		expect(await store.unread("s2", new Set(["100-a", "999-z"]))).toBe(1);
-		expect(await store.unread("s2", new Set(["100-a", "101-b"]))).toBe(0);
+		expect(await untoldOf(store.dir, "s2", ["100-a"])).toBe(1);
+		expect(await untoldOf(store.dir, "s2", ["100-a", "999-z"])).toBe(1);
+		expect(await untoldOf(store.dir, "s2", ["100-a", "101-b"])).toBe(0);
 		expect((await store.peek("s2", { limit: 10 })).mail).toHaveLength(2);
 	});
 
@@ -113,7 +112,7 @@ describe("inbox", () => {
 		// not handed the first one — and, on the consuming read, does not lose it either.
 		expect(await store.inbox("s2", 0)).toEqual({ messages: [], unreadable: [] });
 		expect(await store.peek("s2", { limit: 0 })).toEqual({ mail: [], unread: new Set(["100-a"]), unreadable: [] });
-		expect(await store.unread("s2")).toBe(1);
+		expect(await untoldOf(store.dir, "s2")).toBe(1);
 	});
 
 	test("peek reads a message without consuming it", async () => {
@@ -121,9 +120,9 @@ describe("inbox", () => {
 		await store.writeMessage("s2", busMessage("100-a", "s2"));
 		expect((await store.peek("s2", { limit: 10 })).mail.map((entry) => entry.id)).toEqual(["100-a"]);
 		expect((await store.peek("s2", { limit: 10 })).mail.map((entry) => entry.id)).toEqual(["100-a"]);
-		expect(await store.unread("s2")).toBe(1);
+		expect(await untoldOf(store.dir, "s2")).toBe(1);
 		expect((await store.inbox("s2", 10)).messages.map((entry) => entry.id)).toEqual(["100-a"]);
-		expect(await store.unread("s2")).toBe(0);
+		expect(await untoldOf(store.dir, "s2")).toBe(0);
 		expect(await store.peek("s2", { limit: 10 })).toEqual({ mail: [], unread: new Set(), unreadable: [] });
 	});
 
@@ -151,7 +150,7 @@ describe("inbox", () => {
 		]);
 		// Consuming still starts at the front, so a limit never starves.
 		expect((await store.inbox("s2", 1)).messages.map((entry) => entry.id)).toEqual(["1000-a"]);
-		expect(await store.unread("s2")).toBe(54);
+		expect(await untoldOf(store.dir, "s2")).toBe(54);
 	});
 
 	test("orders the queue by when mail arrived, not by the clock the sender wrote it with", async () => {
@@ -182,7 +181,7 @@ describe("inbox", () => {
 		await writeFile(join(dir, "inbox", inbox, file), "{");
 
 		// Both reads name it: a board polling every second would otherwise pass it off as
-		// empty inbox space, and the id it holds stays in the unread set while its file is here.
+		// empty inbox space, and the id it holds stays in the peek's set while its file is here.
 		const peeked = { mail: [], unread: new Set(["100-a"]), unreadable: [file] };
 		expect(await store.peek("s2", { limit: 10 })).toEqual(peeked);
 		expect(await store.peek("s2", { limit: 10 })).toEqual(peeked);
@@ -191,10 +190,11 @@ describe("inbox", () => {
 		// reports the name and leaves the file where it is.
 		expect(await store.inbox("s2", 10)).toEqual({ messages: [], unreadable: [file] });
 		expect(await readdir(join(dir, "inbox", inbox))).toEqual([file]);
-		expect(await store.unread("s2")).toBe(1);
+		// The row's number is the mail its reader can open, so this file is named and not counted.
+		expect(await untoldOf(store.dir, "s2")).toBe(0);
 
 		// The TTL is what ends it, on the only clock a file with no readable `at` has.
-		await store.pruneMail({ now: 1_700_000_000_000, messageTtlMs: 1e9 });
+		await store.pruneMail({ now: 1_700_000_000_000, messageTtlMs: 1e9, own: "s2" });
 		expect(await readdir(join(dir, "inbox", inbox))).toEqual([file]);
 	});
 
@@ -212,8 +212,8 @@ describe("inbox", () => {
 		const first = await store.peek("s2", { limit: 2 });
 		expect(first.mail.map((entry) => entry.id)).toEqual(["100-a", "101-b"]);
 		expect(first.unreadable).toEqual([]);
-		// The badge counts files, so it counts the one nothing can read yet.
-		expect(await store.unread("s2")).toBe(3);
+		// The badge counts what a reader can open, so the file nothing can read is not in it.
+		expect(await untoldOf(store.dir, "s2")).toBe(2);
 
 		// Consuming the page puts it at the front, where the next read names it.
 		await store.inbox("s2", 2);
@@ -233,7 +233,7 @@ describe("inbox", () => {
 		// A fixed instant far ahead of the file it just wrote, so no case reads the wall clock.
 		const ttl = 60_000;
 		const now = 1_700_000_000_000;
-		const at = (ms: number) => ({ now: ms, messageTtlMs: ttl });
+		const at = (ms: number) => ({ now: ms, messageTtlMs: ttl, own: "s2" });
 
 		await store.pruneMail(at(now));
 		expect(await readdir(join(dir, "inbox", inbox))).toEqual([file]);

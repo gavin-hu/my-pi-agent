@@ -14,6 +14,7 @@
 
 import { join } from "node:path";
 import { type BoardStore, CARDS_DIR_NAME } from "../../lib/workflow/store.ts";
+import { readTeam } from "../../lib/session-roster.ts";
 import { boardWire, buildView, type BoardWire } from "../../lib/workflow/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import type { WaitingMail } from "../../lib/session-mail.ts";
@@ -78,6 +79,15 @@ export interface ServedBoardPageOptions {
 	 * fixture's queue fits one page, so the count its cap left out is zero.
 	 */
 	waiting?: () => WaitingMail[];
+	/**
+	 * A bus directory this page reads, for the cases about what the files add up to.
+	 *
+	 * Absent, the page draws the rows a caller hands it — the shape a case about drawing
+	 * wants. A directory, and the frame is built by the shipping read (`readTeam`) over the mail
+	 * on disk, which is the shape a case about counting wants:
+	 * a stub cannot disagree with itself, so a stub cannot show a count being wrong.
+	 */
+	bus?: string;
 }
 
 /** One served page: the URL `/board` would open, the listener, and its close. */
@@ -92,7 +102,7 @@ export interface ServedBoardPage {
 
 /** Serve the shipped page over `store`, with a snapshot re-read for every frame. */
 export async function serveBoardPage(options: ServedBoardPageOptions): Promise<ServedBoardPage> {
-	const { store, now, display = {}, roster, waiting } = options;
+	const { store, now, display = {}, roster, waiting, bus } = options;
 	// What the page prints for its repository, resolved once so the document and every frame
 	// name the same board: the toolbar is named before the first frame rather than after it.
 	const repo = display.repo ?? store.name();
@@ -100,6 +110,11 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 	const view = async (): Promise<BoardWire> => {
 		const at = now();
 		const { cards, skipped, bytes } = await store.scan();
+		// A bus directory goes through the shipping read, one pass for the roster and the queue the
+		// way `/board` serves them; a suite that stubs either still draws exactly what it handed over.
+		const team = bus === undefined ? undefined : await readTeam(bus);
+		const sessions = team?.roster ?? (roster === undefined ? undefined : roster(at));
+		const queue = team?.waiting ?? (waiting === undefined ? undefined : { messages: waiting(), dropped: 0 });
 		// The same compaction `/board` serves: a suite that drove an uncompacted frame would be
 		// testing bytes the browser never receives.
 		return boardWire(
@@ -108,8 +123,8 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 				me: pageActor(store.config().lead),
 				cards,
 				now: at,
-				...(roster === undefined ? {} : { roster: roster(at) }),
-				...(waiting === undefined ? {} : { waiting: { messages: waiting(), dropped: 0 } }),
+				...(sessions === undefined ? {} : { roster: sessions }),
+				...(queue === undefined ? {} : { waiting: queue }),
 				// The page is served as the seat, which the board's own config names: the lead flag
 				// is the config's, and a fixture that renamed its lead must see the rename.
 				lead: store.config().lead,

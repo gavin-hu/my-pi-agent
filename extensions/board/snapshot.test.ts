@@ -53,8 +53,7 @@ async function page() {
 		store: watched,
 		actor: () => ME,
 		now: () => clock.at,
-		roster: async () => undefined,
-		busDir: async () => join(board.cwd, "no-bus"),
+		bus: async () => ({ roster: undefined, waiting: { messages: [], dropped: 0 } }),
 	});
 	return { board, store, snapshot, reads, clock };
 }

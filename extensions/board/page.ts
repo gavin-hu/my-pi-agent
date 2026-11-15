@@ -237,8 +237,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				store,
 				actor,
 				now,
-				roster: () => runtime.roster(ctx.cwd),
-				busDir: () => runtime.busDir(ctx.cwd),
+				bus: () => runtime.bus(ctx.cwd),
 			});
 			const started = await createBoardServer({
 				mount: deps.mount,

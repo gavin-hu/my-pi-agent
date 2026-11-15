@@ -116,6 +116,9 @@ export function fakeBoardSession(name = "team-agent-slead"): BoardSession & {
 		planDir: async () => {
 			throw new Error("the page's words must not read the plan store");
 		},
+		bus: async () => {
+			throw new Error("the page's words must not read the bus");
+		},
 		busDir: async () => {
 			throw new Error("the page's words must not read the bus directory");
 		},

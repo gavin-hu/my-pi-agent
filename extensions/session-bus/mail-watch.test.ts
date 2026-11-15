@@ -17,6 +17,7 @@ import { createMailWatch, type MailWatch } from "./mail-watch.ts";
 import { MAX_LIMIT } from "./protocol.ts";
 import { createBusStore, type BusStore } from "./store.ts";
 import type { BusMessage } from "./types.ts";
+import { untoldOf } from "../../test/helpers/bus.ts";
 
 const dirs: string[] = [];
 afterAll(() => {
@@ -135,7 +136,7 @@ describe("the armed inbox watch", () => {
 		]);
 		expect(target.wakes).toHaveLength(announced + 1);
 		// Announced, not consumed: the mail is still unread, and `inbox` still owns deleting it.
-		expect(await target.store.unread("s2")).toBe(56);
+		expect(await untoldOf(target.store.dir, "s2")).toBe(56);
 	});
 
 	test("keeps a queue older than the page the poll reads", async () => {

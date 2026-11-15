@@ -12,19 +12,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { makeTempTracker } from "../test/helpers/git.ts";
 import { tempDir } from "../test/helpers/env.ts";
-import {
-	BUS_DIR_NAME,
-	INBOX_DIR_NAME,
-	SESSIONS_DIR_NAME,
-	SESSION_TTL_MS,
-	presenceOf,
-	readRoster,
-	readSessionLabel,
-	rosterStateOf,
-	storedName,
-} from "./session-roster.ts";
+import { makeTempTracker } from "../test/helpers/git.ts";
+import { BUS_DIR_NAME, INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "./session-files.ts";
+import { presenceOf, readRoster, readSessionLabel, rosterStateOf, SESSION_TTL_MS } from "./session-roster.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -44,10 +35,15 @@ function writeSession(dir: string, stem: string, record: Record<string, unknown>
 }
 
 /** One message file in a session's inbox. */
-function writeMail(dir: string, stem: string, id: string): void {
+/**
+ * One message file in one inbox: a message the ledger can read, because the count is now what a
+ * record's reader can open rather than the names its directory happens to hold.
+ */
+function writeMail(dir: string, stem: string, id: string, to = "s-1"): void {
 	const inbox = join(dir, INBOX_DIR_NAME, stem);
 	mkdirSync(inbox, { recursive: true });
-	writeFileSync(join(inbox, `${id}.json`), "{}\n", "utf-8");
+	const message = { id, from: "s-2", fromLabel: "peer", to, toLabel: "one", kind: "message", text: "hi", at: 1 };
+	writeFileSync(join(inbox, `${id}.json`), JSON.stringify(message), "utf-8");
 }
 
 describe("readRoster", () => {

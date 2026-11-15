@@ -27,35 +27,15 @@
  * heartbeat is ten seconds old at most, and the caller polls on its own clock.
  */
 
-import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
-import { sameLabel } from "./session-label.ts";
 import { join } from "node:path";
-import { isPidAlive, type LivenessFn, startTokenOf, type StartTokenFn } from "./spawn.ts";
+import { BUS_DIR_NAME, JSON_SUFFIX, SESSIONS_DIR_NAME } from "./session-files.ts";
+import type { WaitingPage } from "./session-mail.ts";
+import { sameLabel } from "./session-label.ts";
+import { isPidAlive, type LivenessFn, type StartTokenFn, startTokenOf } from "./spawn.ts";
 
-/** The bus directory under the agent dir, `session-bus`. */
-export const BUS_DIR_NAME = "session-bus";
-/** One file per session inside it. */
-export const SESSIONS_DIR_NAME = "sessions";
-/** One directory per session, holding its mail. */
-export const INBOX_DIR_NAME = "inbox";
 /** How long a record's heartbeat stays believable: the rule the bus prunes by. */
 export const SESSION_TTL_MS = 10 * 60_000;
-
-/** Hex characters the bus keeps from the digest: short on every filesystem, unique in practice. */
-const STORED_NAME_LENGTH = 32;
-
-/**
- * The name the bus files a session id, or a claim's path, under.
- *
- * A session's record (`sessions/<name>.json`), its inbox (`inbox/<name>/`), and a claim on a path
- * (`claims/<name>.json`) are all named by it, so "this mail belongs to that record" is one rule
- * rather than a hash the store knows and a reader re-derives. It is also what keeps a session id
- * from ever becoming a path segment.
- */
-export function storedName(value: string): string {
-	return createHash("sha256").update(value).digest("hex").slice(0, STORED_NAME_LENGTH);
-}
 
 /** One session as the page shows it. The rest of the record stays on disk. */
 export interface RosterSession {
@@ -368,21 +348,6 @@ function seenOf(value: unknown): string[] | undefined {
 }
 
 /**
- * How many files one session's inbox holds that `told` does not name. A missing inbox is empty.
- *
- * Counted from the names alone — a message id is its file name — so the Team tab's repaint every
- * second stays a directory read, exactly as it was before the record carried a cursor.
- */
-async function mailCount(dir: string, name: string, told: ReadonlySet<string>): Promise<number> {
-	try {
-		const entries = await readdir(join(dir, INBOX_DIR_NAME, name));
-		return entries.filter((entry) => entry.endsWith(".json") && !told.has(entry.slice(0, -".json".length))).length;
-	} catch {
-		return 0;
-	}
-}
-
-/**
  * One session's own label, found by the id it belongs to.
  *
  * The record is filed under the repository's key, which a caller without a board store
@@ -424,23 +389,77 @@ export async function readSessionLabel(agentDir: string, id: string): Promise<st
 	return undefined;
 }
 
+/** One record as this reader parsed it, before the ledger turns it into a row. */
+interface RecordedSession {
+	id: string;
+	label: string;
+	mode: string;
+	lastSeen: number;
+	/** The message ids its cursor names, which is what its inbox count subtracts. */
+	told: string[];
+	pid?: number;
+	startToken?: string;
+	turnAt?: number;
+	watching?: { armed: boolean; wake: boolean };
+}
+
+/** The bus as the page draws it: who is on it, and what is waiting on it. */
+export interface TeamRead {
+	/** `undefined` when the bus has never been used in this repository. */
+	roster: RosterSession[] | undefined;
+	/** The queue that same read drew, so a page pays no second pass for it. */
+	waiting: WaitingPage;
+}
+
 /**
  * Every session the bus has recorded for one repository, or `undefined` when the bus
  * has never been used here.
  *
  * One file that does not parse is skipped rather than thrown: a roster with three
  * good sessions is worth more than an error about the fourth.
+ *
+ * The mail number comes from the ledger in `session-mail.ts`, the one reader of "written and not
+ * told", so a row, a chip and a queue cannot count one inbox differently.
  */
 export async function readRoster(dir: string): Promise<RosterSession[] | undefined> {
+	return (await readTeam(dir)).roster;
+}
+
+/**
+ * The roster and the waiting queue from one pass over the bus.
+ *
+ * A page draws both every second, and both come from the same inboxes: reading the records here
+ * and then walking every inbox twice is what this shape exists to stop. The mail module is loaded
+ * by the call rather than by the import, because every entry that shows a teammate also imports
+ * this file, and the ledger is only needed once one is drawn.
+ */
+export async function readTeam(dir: string, limit?: number): Promise<TeamRead> {
+	const records = await readRecords(dir);
+	if (records === undefined) return { roster: undefined, waiting: { messages: [], dropped: 0 } };
+	const mail = await import("./session-mail.ts");
+	const ledger = await mail.readMailLedger(
+		dir,
+		records.map((record) => ({ id: record.id, label: record.label, told: record.told })),
+	);
+	return {
+		roster: records
+			.map((record) => rosterRow(record, mail.untoldIn(ledger, record.id)))
+			.sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id)),
+		waiting: mail.pageOf(ledger, limit),
+	};
+}
+
+/** Every record on disk, parsed once, or `undefined` when the bus has never recorded one. */
+async function readRecords(dir: string): Promise<RecordedSession[] | undefined> {
 	let names: string[];
 	try {
 		names = await readdir(join(dir, SESSIONS_DIR_NAME));
 	} catch {
 		return undefined;
 	}
-	const sessions: RosterSession[] = [];
+	const records: RecordedSession[] = [];
 	for (const name of names) {
-		if (!name.endsWith(".json")) continue;
+		if (!name.endsWith(JSON_SUFFIX)) continue;
 		let parsed: unknown;
 		try {
 			parsed = JSON.parse(await readFile(join(dir, SESSIONS_DIR_NAME, name), "utf-8"));
@@ -453,18 +472,32 @@ export async function readRoster(dir: string): Promise<RosterSession[] | undefin
 		const pid = pidOf((parsed as { pid?: unknown }).pid);
 		const rawToken = (parsed as { startToken?: unknown }).startToken;
 		const rawTurn = (parsed as { turnAt?: unknown }).turnAt;
-		const told = new Set(seenOf((parsed as { seenMail?: unknown }).seenMail) ?? []);
-		sessions.push({
+		records.push({
 			id,
 			label,
 			mode,
 			lastSeen,
-			mail: await mailCount(dir, storedName(id), told),
+			told: seenOf((parsed as { seenMail?: unknown }).seenMail) ?? [],
 			...(pid === undefined ? {} : { pid }),
 			...(typeof rawToken === "string" && rawToken !== "" ? { startToken: rawToken } : {}),
 			...(typeof rawTurn === "number" && Number.isFinite(rawTurn) ? { turnAt: rawTurn } : {}),
 			...(watching === undefined ? {} : { watching }),
 		});
 	}
-	return sessions.sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
+	return records;
+}
+
+/** One record as the page's row: what it says about itself, and how much mail it is owed. */
+function rosterRow(record: RecordedSession, mail: number): RosterSession {
+	return {
+		id: record.id,
+		label: record.label,
+		mode: record.mode,
+		lastSeen: record.lastSeen,
+		mail,
+		...(record.pid === undefined ? {} : { pid: record.pid }),
+		...(record.startToken === undefined ? {} : { startToken: record.startToken }),
+		...(record.turnAt === undefined ? {} : { turnAt: record.turnAt }),
+		...(record.watching === undefined ? {} : { watching: record.watching }),
+	};
 }
