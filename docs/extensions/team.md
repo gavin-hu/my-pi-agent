@@ -51,15 +51,14 @@ lead's round now shows it as held.
 
 ## Reference
 
-**Actions.** Three, and every one of them reaches another session. `assign` (card, `to`, `note?`)
-joins, then sends a handoff, then records the owner — read from the team again *after* the message,
-so the card names the session that has it and a stopped record cannot become one — and whether the
-bus took it: `told` means written, not read, because mail is pruned after a day; a handoff whose
-write lost the race names both outcomes in its own body — leave a rival's card alone, or claim one
-the write left nobody's; `offer` (card,
-`note?`) broadcasts the card and records only the moment it was offered, so the first peer to claim
-it wins; `ask` (`to`, `question?`) sends one peer a question and writes nothing else: its own ask
-id, and the answering session by id, so `re: <id>` matches it.
+**Actions.** Three, and every one of them reaches another session. `assign` (card, `to`, `note?`) joins, then
+sends a handoff, then records the owner — read from the team again *after* the message, so the card names the
+session that has it and a stopped record cannot become one — and whether the bus took it: `told` means written,
+not read, because mail is pruned after a day; a handoff whose write lost the race names both outcomes in its own
+body — leave a rival's card alone, or claim one the write left nobody's; a completed contract tells the lead,
+and `approve` tells the holder; `offer` (card, `note?`) broadcasts the card and records only the moment it was
+offered, so the first peer to claim it wins; `ask` (`to`, `question?`) sends one peer a question and writes
+nothing else: its own ask id, and the answering session by id, so `re: <id>` matches it.
 
 A card's own verbs are not here: `claim` takes a pool card into `plan`, `reclaim` returns it to
 Backlog with its notes and contract (the lead from anyone, a peer only from a stopped owner), and
@@ -69,21 +68,19 @@ the lane moves, the contract and the two signs are the rest — all [`board`](bo
 A flat parameter object means an action refuses a field it does not read, naming
 the action that takes it — `offer` does not take `to`.
 
-**Who is who.** `/team` lists who is live, who is live but not listening, who has gone
-quiet (a heartbeat older than ten minutes), and who is not on the bus at all — an owner a card
-names that no record answers. A label nobody answers to cannot be handed a card; the result says
-so. A card is named by the record its owner's **id** carries now, so a rename is one row and not
-a live one beside a dead label. A handoff the bus could not name records the owner `unresolved`:
-mail still goes to the label, but only the lead moves the card. A card a quiet owner holds is
-reclaimable; one held by a session with no record is not, because a live session that never
-joined looks the same. A message to a quiet or not-listening peer says so: written is not heard.
+**Who is who.** `/team` lists who is live, who is live but not listening, who is quiet (a heartbeat past ten
+minutes), and who is absent from the bus — an owner a card names that no record answers. A label nobody answers
+to cannot be handed a card; the result says so. A card is named by the record its owner's **id** names now, so a
+rename is one row, not a live one beside a dead label. A handoff the bus could not name records the owner
+`unresolved`: mail still goes to the label, but only the lead moves the card. A quiet owner's card is
+reclaimable; one held by a session with no record is not — a live session that never joined looks the same. A
+message to a quiet or not-listening peer says so: written is not heard.
 
-**Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own
-name — `/team join <label>`, or a bare one for the first free `team.teammates` name, the id-derived
-`team-agent-` name when none is free. The list defaults to five, from `gavin`, so a repository that
-states no team still names a session, and `"teammates": []` says nobody. A recordless board session
-is named the same way, so its card and its join agree. An assign or an ask joins once, and a
-typed label also joins `team.teammates`; a bare join writes nothing and leaves Pi's name alone.
+**Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own name — `/team
+join <label>`, or a bare one for the first free `team.teammates` name, the id-derived `team-agent-` name when
+none is free. The list defaults to five names from `gavin`; `"teammates": []` says nobody. A recordless board
+session is named the same way, so card and join agree. An assign or an ask joins once, and a typed label also
+joins `team.teammates`; a bare join writes nothing and leaves Pi's name alone.
 
 `assign` and `ask` join **before** they send, because the message names this session
 as the way back, and send nothing when the join is refused. The reason says what to

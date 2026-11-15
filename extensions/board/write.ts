@@ -56,14 +56,20 @@ export async function mutate(
 	op: CardOp,
 	/**
 	 * What the call says besides the card: `next` after any successful write, `told` when the result
-	 * says a sign owes the owner its message, `cross` for the four actions whose write can cross
-	 * a lane, and `joined` for the one action whose write makes this session a teammate. `told` is
-	 * not gated on the write: a repeat sign that stamped nothing still owes one while the card says
-	 * the sign was never told.
+	 * says a sign owes the owner its message, `ready` when it says a completed contract owes the lead
+	 * one, `cross` for the four actions whose write can cross a lane, and `joined` for the one action
+	 * whose write makes this session a teammate. `told` is not gated on the write: a repeat sign that
+	 * stamped nothing still owes one while the card says the sign was never told.
+	 *
+	 * A write owes at most one of the two messages, because the operations that ask are disjoint — a
+	 * sign cannot complete a contract and a contract cannot carry one — so the result's `told` is
+	 * whichever line exists, and the body prints it once.
 	 */
 	report: {
 		next?: string;
 		told?: (card: Card) => Promise<{ card?: Card; line?: string } | undefined>;
+		/** The clause a write that completed a contract carries: who was told it is ready, or why nobody. */
+		ready?: (card: Card) => Promise<{ line?: string } | undefined>;
 		cross?: (result: MutateResult) => Promise<string | undefined>;
 		joined?: () => Promise<string | undefined>;
 	} = {},
@@ -74,6 +80,9 @@ export async function mutate(
 	const result = await store.mutate(id, op, me, now);
 	if (!result.ok) return refusal(action, me, result.error, result.card);
 	const told = result.announce === true ? await report.told?.(result.card) : undefined;
+	// A sign is told for its owner, a completed contract for the lead: two directions, one write's worth
+	// of result text, and neither is gated on the other's flag.
+	const ready = result.ready === true ? await report.ready?.(result.card) : undefined;
 	// A sign the owner was just told of is a card that moved: the announced write is the newer read.
 	const card = told?.card ?? result.card;
 	// After the write, as the sign's message is: a bus that cannot answer costs a clause and
@@ -81,6 +90,8 @@ export async function mutate(
 	const held = report.cross === undefined ? undefined : await report.cross(result).catch(() => undefined);
 	// The same rule for the team: the card is taken either way, so a join that did not land is a
 	// line on the result rather than an error that reads as nothing having happened.
+	// One write owes at most one clause (see `report`): the sign's, or the completed contract's.
+	const toldLine = told?.line ?? ready?.line;
 	const joined = report.joined === undefined ? undefined : await report.joined().catch(() => undefined);
 	const body = [
 		formatCard(card),
@@ -88,14 +99,14 @@ export async function mutate(
 		// The clause carries the continuation indent its neighbours do, the one `announce` writes
 		// into its own sentence: a flush-left line under an indented card reads as a second card.
 		held === undefined ? undefined : `  ${held}`,
-		told?.line,
+		toldLine,
 		joined === undefined ? undefined : `  ${joined}`,
 	].filter((line): line is string => line !== undefined);
 	return textResult(body.join("\n"), {
 		action,
 		me,
 		card,
-		...(told?.line === undefined ? {} : { told: told.line.trim() }),
+		...(toldLine === undefined ? {} : { told: toldLine.trim() }),
 		...(held === undefined ? {} : { held: held.trim() }),
 	});
 }

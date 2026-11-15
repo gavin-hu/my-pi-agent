@@ -21,7 +21,8 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
-import { type Sign, notToldLine, signedText } from "../../lib/board/lead.ts";
+import { readyText } from "../../lib/board/contract.ts";
+import { type Lead, type Sign, notToldLine, signedText } from "../../lib/board/lead.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
@@ -97,6 +98,48 @@ export async function announce(
 	// sign is exactly the case the roster resolved, and the result should name the peer it reached.
 	const told = answer.delivered[0] ?? recipient.label;
 	return { line: `  told ${told}${notAudible(recipient)}`, done: true };
+}
+
+/**
+ * What a contract's "ready to approve" message came to: the clause the result carries, if any.
+ *
+ * One clause, because unlike a sign there is nothing to record: the round is the durable truth and
+ * the card keeps no `told` for a retry to read — so a failed send is a line on this result and the
+ * next write that completes a contract asks again.
+ */
+export interface ReadyNoticed {
+	/** Who heard the lead's gate is open, or why nobody did. */
+	line?: string;
+}
+
+/**
+ * Tell `team.lead` that a card's contract became approvable.
+ *
+ * The one message in the round that travels towards a signature: the peer wrote the wording and
+ * cannot sign it, and the lead would otherwise learn it from a board it has no reason to read twice.
+ * A board that names no lead sends nothing — there is no gate for a session to open, and the result
+ * already tells the peer the person signs.
+ *
+ * The addressee is resolved the way a sign's is — `recipientOf` over the roster, with the lead's
+ * label — so a lead that renamed itself is reached by its live id, and a record whose watch is off
+ * reads as `not listening` in the same words the round prints. A label nothing answers keeps the
+ * label, which is what lets the bus refuse it in its own sentence.
+ */
+export async function notifyReady(options: {
+	card: Card;
+	lead: Lead;
+	ctx: ExtensionContext;
+	notify: Notify;
+	audience?: Audience;
+}): Promise<ReadyNoticed> {
+	if (options.lead === "") return {};
+	const roster = await rosterOf(options.audience ?? {});
+	const recipient = recipientOf({ label: options.lead }, roster, options.audience?.now?.() ?? 0);
+	const answer = await options
+		.notify(options.ctx, { kind: "event", to: recipient.to, text: readyText(options.card, options.lead) })
+		.catch((error: unknown) => ({ ok: false as const, error: messageOf(error) }));
+	if (!answer.ok) return { line: `  ${notToldLine(recipient.label, answer.error)}` };
+	return { line: `  told ${answer.delivered[0] ?? recipient.label}${notAudible(recipient)}` };
 }
 
 /**

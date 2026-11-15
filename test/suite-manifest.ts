@@ -62,6 +62,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"record",
 		"recipient",
 		"owner-label",
+		"ready",
 		"reclaim",
 		"render",
 		"result",

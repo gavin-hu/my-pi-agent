@@ -41,6 +41,8 @@ describe("a record that could not be written", () => {
 		const sent: Sent[] = [];
 		const who = bench({ notify: signBus({ sent }) }, { wrapStore: failsRecord });
 		await claimedWithContract(who);
+		// The contract's own announcement is setup; this case is the sign's message.
+		sent.length = 0;
 		const approved = await who.lead.call({ action: "approve", card: "1" });
 		expect(approved.isError).toBeFalsy();
 		// The message went — the owner is not left in the dark about a sign that happened.

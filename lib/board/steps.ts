@@ -35,6 +35,7 @@ import { type BoardConfig } from "./config.ts";
 import {
 	CONTRACT_LINES,
 	type ContractField,
+	contractApproved,
 	type LandingProof,
 	landingFor,
 	landingGate,
@@ -391,7 +392,18 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 	// keeping it would let a session swap the artifact after a peer read the old one.
 	else if (rePointed && card.contract?.approved !== undefined) fields.contract = mergedContract(card.contract, {});
 	if (Object.keys(fields).length === 0) return { changed: false, fields: null };
-	return { changed: true, fields };
+	// The first gate is the lead's, and this write is the moment it becomes payable: the four lines
+	// are whole, the plan is named, and nothing has signed it. Only a write that changed something
+	// reaches here, so a repeated call asks nobody twice — and a changed line drops the signature
+	// above, which is why rewriting an approved contract asks again instead of staying quiet.
+	const contract = fields.contract ?? card.contract;
+	const plan = fields.planPath ?? card.planPath;
+	const ready =
+		plan !== undefined &&
+		contract !== undefined &&
+		missingContractFields(contract).length === 0 &&
+		!contractApproved(contract);
+	return { changed: true, fields, ...(ready ? { ready: true as const } : {}) };
 }
 
 /**

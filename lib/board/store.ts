@@ -86,7 +86,17 @@ export interface CreateInput {
 
 /** What a mutation did, or why it was refused; `previous` is the card this write read. */
 export type MutateResult =
-	| { ok: true; card: Card; changed: boolean; dropped: boolean; archived: boolean; announce?: true; previous?: Card }
+	| {
+			ok: true;
+			card: Card;
+			changed: boolean;
+			dropped: boolean;
+			archived: boolean;
+			announce?: true;
+			/** A write that completed a contract, so the lead owes an `approve` and a message about it. */
+			ready?: true;
+			previous?: Card;
+	  }
 	| { ok: false; error: string; card?: Card };
 
 /** One repository's board, as the runtime, the router, and the tool use it. */
