@@ -13,9 +13,12 @@
  * prints), where a colon is what a package script name looks like.
  *
  * The last two are the shape of the surface itself, which is the other half of a
- * rename: a name is a verb or one member of a verb's family, and a value names the file
- * it runs. `screenshot:tools` used to run `tools:render`, so `package.json` could not
- * say what it did; a value that is not a path is that defect again.
+ * rename: a name is a verb or one member of a verb's family, and a value runs what it
+ * names. `screenshot:tools` used to run `tools:render`, so `package.json` could not
+ * say what it did; a value that is a bare alias of another script is that defect again.
+ * A `&&` chain is the one composition allowed, and every segment of it has to name a
+ * declared script or a toolchain command: `check` is the three commands a landing needs,
+ * said out loud, rather than a script of ours that hides them.
  */
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -54,8 +57,18 @@ const KINDS: Record<string, string> = {
 /** The `scripts/` file a value runs, and the shape that captures which one it is. */
 const SCRIPT_FILE = /^bun run (scripts\/[\w./-]+\.ts)(?: |$)/;
 
-/** What a command may run: a file in this repository's `scripts/`, or a toolchain binary. */
-const RUNS: readonly RegExp[] = [SCRIPT_FILE, /^tsc(?: |$)/, /^biome(?: |$)/];
+/** What one command may be: a file in this repository's `scripts/`, a declared script, or a binary. */
+const RUNS: readonly RegExp[] = [
+	SCRIPT_FILE,
+	/^bun run [\w:-]+(?: |$)/,
+	/^tsc(?: |$)/,
+	/^biome(?: |$)/,
+	/^bun test(?: |$)/,
+];
+
+/** The segments a `&&` chain is split into, and the one composition a value may be. */
+const CHAIN = /\s*&&\s*/;
+const SCRIPT_NAME = /^bun run ([\w:-]+)(?: |$)/;
 
 /**
  * A `bun run <name>` in a doc. A file path is matched too, on purpose: a command the
@@ -135,13 +148,25 @@ describe("the scripts surface", () => {
 		expect(offenders).toEqual([]);
 	});
 
-	test("every value names the file it runs, never another script", () => {
-		const offenders = Object.entries(DECLARED)
-			.filter(([, value]) => !RUNS.some((pattern) => pattern.test(value)))
-			.map(
-				([name, value]) =>
-					`package.json: \`${name}\` runs \`${value}\` — name the script file it runs, so the entry says what it does`,
-			);
+	test("every value runs what it names, never a bare alias of another script", () => {
+		const offenders = Object.entries(DECLARED).flatMap(([name, value]) => {
+			const segments = value.split(CHAIN).map((segment) => segment.trim());
+			if (segments.length === 1) {
+				return RUNS.some((pattern) => pattern.test(value))
+					? []
+					: [`package.json: \`${name}\` runs \`${value}\` — name the file or the command it runs`];
+			}
+			const unknown = segments.filter((segment) => !RUNS.some((pattern) => pattern.test(segment)));
+			if (unknown.length > 0) {
+				return [`package.json: \`${name}\` chains \`${unknown.join(", ")}\`, which names nothing it runs`];
+			}
+			// A chain of one declared script is an alias wearing a chain's clothes.
+			const named = segments.filter((segment) => SCRIPT_NAME.test(segment));
+			if (named.length === 0)
+				return [`package.json: \`${name}\` chains ${segments.length} commands and names no script`];
+			const self = named.filter((segment) => SCRIPT_NAME.exec(segment)?.[1] === name);
+			return self.length === 0 ? [] : [`package.json: \`${name}\` chains itself`];
+		});
 		expect(offenders).toEqual([]);
 	});
 

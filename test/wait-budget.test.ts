@@ -28,7 +28,7 @@
  * It also owns the run's clocks. A budget only bounds a failure, so the numbers
  * are few and derived: `helpers/budget.ts` states one case budget, and the spawn
  * watchdog is that budget less the margin a failure needs to report in. The
- * preload hands the budget to every case and `scripts/check.ts` passes it as
+ * preload hands the budget to every case and `bun run check` passes it as
  * `--timeout` for the hooks, so a case is budgeted the same however the suite was
  * invoked. A case that states its own budget names a constant rather than
  * writing a number here.
@@ -395,6 +395,15 @@ describe("the run's clocks", () => {
 		expect(SPAWN_WATCHDOG_MS).toBeLessThan(CASE_BUDGET_MS);
 		expect(CASE_BUDGET_MS - SPAWN_WATCHDOG_MS, "the margin a failure reports in").toBeGreaterThanOrEqual(MIN_BUDGET_MS);
 		expect(SPAWN_WATCHDOG_MS).toBe(CASE_BUDGET_MS - REPORT_MARGIN_MS);
+	});
+	test("holds the check command to the same budget, since only the flag reaches a hook", () => {
+		const scripts = (
+			JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as { scripts: Record<string, string> }
+		).scripts;
+		// `bunfig.toml` has no key for it, and `setDefaultTimeout` does not reach a hook, so the number
+		// has to ride the command a person types. Two owners, held together here.
+		const flag = `--timeout ${CASE_BUDGET_MS}`;
+		expect(scripts.check, "bun run check passes the case budget as --timeout").toContain(flag);
 	});
 
 	test("names a case budget written as a literal, with its line", () => {

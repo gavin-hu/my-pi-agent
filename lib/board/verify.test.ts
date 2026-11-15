@@ -145,9 +145,9 @@ describe("defaultVerifyRun", () => {
 			seen = { command, shell: options.shell, cwd: options.cwd };
 			return child({ code: 0 });
 		};
-		await defaultVerifyRun(VERIFY_TIMEOUT_MS, supervisor(spawn))("bun run check --slow", CWD);
-		// A contract line is a command, not an argv: only a shell reads `--slow` as written.
-		expect(seen).toEqual({ command: "bun run check --slow", shell: true, cwd: CWD });
+		await defaultVerifyRun(VERIFY_TIMEOUT_MS, supervisor(spawn))("bun test --changed=main", CWD);
+		// A contract line is a command, not an argv: only a shell reads `--changed=main` as written.
+		expect(seen).toEqual({ command: "bun test --changed=main", shell: true, cwd: CWD });
 	});
 
 	test("a command that outlives the bound is killed and says so", async () => {

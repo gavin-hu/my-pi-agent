@@ -79,7 +79,7 @@ export type VerifyAnswer = { verified: Verification } | { failure: VerifyOutcome
 /**
  * The production run: a shell in `cwd`, its output merged and clipped, killed at the bound.
  *
- * `shell: true` because a contract line is a command a person wrote — `bun run check --slow` —
+ * `shell: true` because a contract line is a command a person wrote — `bun test --changed=main` —
  * and not an argv the board could split without guessing at quoting. The supervisor is
  * `lib/child.ts`'s, so the SIGTERM → SIGKILL escalation is the one `job` and `watch` already
  * use rather than a second copy of it here.

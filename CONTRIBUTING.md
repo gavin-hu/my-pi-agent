@@ -25,12 +25,14 @@ bun run check           # the one command that must pass
 |---|---|
 | `bun run format` | Rewrite formatting with Biome |
 | `bun run check:types` | `tsc --noEmit`, incremental into `.pi/cache/` |
-| `bun run check:tests` | Unit tests |
-| `bun run check:tests --slow` | The gated git suites: `worktree`, `rewind`, and `session-bus` |
+| `bun test` | The tests alone, one file at a time |
+| `bun test <dir>` | One slice — `bun test extensions/board/`, `bun test test/` |
+| `bun test --changed=main` | What this branch changes, by Bun's own graph |
+| `PI_SLOW_TESTS=1 bun test` | The gated git suites: `worktree`, `rewind`, and `session-bus` |
 
-A scope narrows the tests without running the whole suite — `--changed`, `--ext <name>`,
-`--lib <area>`, `--root`, `--static`;
-[`test/README.md`](./test/README.md#running) covers each, and
+Selection is Bun's: a slice is a directory and a change is `--changed=<ref>`.
+[`test/README.md`](./test/README.md#running) covers what each invocation leaves out —
+the package-level contracts read the tree, so a narrow run adds `bun test test/` — and
 [`scripts/README.md`](./scripts/README.md) owns the surface itself.
 
 ## Branch flow

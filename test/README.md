@@ -7,38 +7,33 @@ banned-pattern rules below.
 ## Running
 
 ```bash
-bun run check                    # check:format + check:types + every test (the landing gate)
-bun run check --changed          # the same, narrowed to the tests this change reaches
-bun run check:tests --ext board  # one extension's suites, no static half
-bun run check:tests --slow       # the gated git suites
-bun test <path>                  # one file or directory, straight to bun, same case budget
+bun run check               # the landing gate: check:format && check:types && bun test
+bun test                    # the tests alone, one file at a time
+bun test extensions/board/  # one extension's suites; any directory is a slice
+bun test test/              # the package-level contracts
+bun test --changed=main     # what this branch changes, by Bun's own graph
+PI_SLOW_TESTS=1 bun test    # with the gated git suites turned on
+bun test <path>             # one file, at the same case budget as the gate
 ```
 
-A scope is a flag on the two entry scripts (`--ext`, `--lib`, `--root`, `--slow`,
-`--changed`, `--static`, `--watch`, `--dry-run`, `--no-lock`);
-[`../scripts/README.md#commands`](../scripts/README.md#commands) says
-which one a change needs.
+Selection is Bun's, not ours: a slice is a directory argument and a change is
+`--changed=<ref>`. The one thing a flag cannot say is that a run should include the
+package-level tests, because they read the tree rather than import a module — so a
+narrow run is `bun test --changed=main` **and** `bun test test/`, and a change to
+`package.json`, `tsconfig.json`, `bun.lock` or `test/helpers/preload.ts` is a change
+to the runner rather than to the code, which is a reason to run everything.
 
-`--changed` always keeps the package-level tests under `test/`, because those read the tree
-rather than import a module, and it widens to every suite only for a path that decides the
-selection itself: `test/helpers/graph.ts`, `scan.ts` and `preload.ts`, `test/suite-manifest.ts`,
-or the runner's config. An ordinary helper selects the suites that import it, and
-`scripts/test-selection.test.ts` fails a helper no suite reaches, since a change to one would
-select nothing at all. A path the graph does answer takes no region: the region is the candidate
-set for a path nothing reaches — a deleted module, a file just started being imported, or one
-read by name — so a leaf inside a big area costs the suite that imports it, not the area.
-
-The gate takes one machine-wide lock (`scripts/check-lock.ts`): a second `bun run
-check` on the same machine prints who holds it and waits, because two gates' spawns
-starve each other's wall clocks and the suites that wait on a child are the ones that
-break. `--no-lock` runs beside it, and `--watch` and `--dry-run` never take it.
+Two gates on one machine still starve each other's spawns, and the suites that wait on
+a child are the ones that break: run them one at a time, or accept a rotating wall-clock
+red on a loaded box.
 
 One case budget reaches both invocations. `helpers/budget.ts` states
 `CASE_BUDGET_MS`; `helpers/preload.ts` hands it to every case with
-`setDefaultTimeout`, and `scripts/check.ts` passes it as `--timeout`, which is the
-only form that reaches hooks. So a case is budgeted the same under `bun test
-<path>` and `bun run check` — the old 5 s default is why one suite used to pass
-under the gate and fail on its own. The spawn watchdog is that budget less the
+`setDefaultTimeout`, and the `check` command passes it as `--timeout`, which is the
+only form that reaches hooks — `bunfig.toml` has no key for it, so
+`test/wait-budget.test.ts` holds the command and the constant together. A case is
+therefore budgeted the same under `bun test <path>` and `bun run check` — the old
+5 s default is why one suite used to pass under the gate and fail on its own. The spawn watchdog is that budget less the
 margin a failure needs to report in, so a starved `git` call or shell names
 itself just before the case gives up rather than after. Raising one number raises
 all of them.
@@ -58,42 +53,30 @@ The always-on model-facing prompt size is budgeted. `test/prompt-budget.test.ts`
 covers the pure per-turn injected-context builders, which are re-injected every
 turn, so a regression in that text fails fast.
 
-`bun run check:tests` runs the suite through `scripts/check.ts`, whose test phase is
-`bun test --timeout <the case budget>`: one file at a time, so a run leaves the
-machine's other cores to whatever else is running on it. That is the shape every CI
-job and `publish.yml` run too, so a file's environment is never left to a worker —
+`bun test` runs one file at a time, so a run leaves the machine's other cores to
+whatever else is running on it, and that is the shape every CI job and `publish.yml`
+run too. Files do not run in separate processes, and one that registers a global mock
+or leaves a handle open can still be felt by the next: the suites keep their own state
+to themselves for that reason, not because the runner does it for them —
 `helpers/preload.ts` snapshots and restores the tracked env vars around every test.
-The script's `--timeout` is the case budget and reaches a hook too, which is why a
-browser suite's own statement is the thing that makes it independent of how it was
-invoked. Files therefore do not run in separate processes, and one that registers a
-global mock or leaves a handle open can still be felt by the next: the suites keep
-their own state to themselves for that reason, not because the runner does it for
-them.
+The `check` command's `--timeout` is the case budget and reaches a hook too, which is
+why a browser suite's own statement is the thing that makes it independent of how it
+was invoked.
 
-`bun run check` runs its three phases **at once** rather than in a chain, so the
-gate costs what its longest phase costs. On an 8-core laptop, measured 2026-11-15
-over one suite of 8014 cases in 411 files: format 0.3 s, typecheck 12.7 s cold, and
-the tests are the rest — 75.4 s with four workers against 80.4-84.1 s one file at a
-time, for a gate of 125.3 s against 93-126 s. The wall time is the same within the
-noise; what changed is the bill, 182 CPU-seconds against 109, because the four
-workers were competing with the format and typecheck phases for the same cores.
-The two static phases are captured and printed only when they fail; the test phase
-streams, because it is what is on screen.
-
-On a narrowed run the typecheck is the floor rather than the suite — a leaf change
-reaches 31 files and 5.3 s of tests — so it is incremental, from `tsconfig.json`
-into `.pi/cache/tsconfig.tsbuildinfo`: 12.7 s the first time and 3.2 s after that,
-which is what makes a narrow gate ~8 s instead of ~13 s (the tests and the
-selection walk are the rest). CI checks out fresh, so
-every job still proves the cold result; `rm -f .pi/cache/tsconfig.tsbuildinfo`
-reproduces it here.
+`bun run check` is a chain, so it costs what its three commands cost: format 0.3 s,
+typecheck 12.7 s cold, and the tests the rest — 8014 cases in 411 files took 75.4 s
+with four workers and 80.4-84.1 s one file at a time, so the gate is now ~82 s on an
+8-core laptop and burns one core rather than four. The typecheck is incremental from
+`tsconfig.json` into `.pi/cache/tsconfig.tsbuildinfo`: 12.7 s the first time and 3.2 s
+after that, so the gate is ~73 s warm. CI checks out fresh, so every job still proves
+the cold result; `rm -f .pi/cache/tsconfig.tsbuildinfo` reproduces it here.
 
 The git-heavy `rewind`, `worktree`, and `session-bus` real-repository tests create
 real repositories and real git commands, so `test/helpers/slow-suite.ts` gates
 them: they skip unless `CI` is set (GitHub Actions sets it) or `PI_SLOW_TESTS=1`
 is exported. A local `bun run check` therefore stays fast while CI keeps the
-coverage. Run them locally with `bun run check:tests --slow` (the derived list of gated
-suites, with the gate on) or `PI_SLOW_TESTS=1 bun test <path>`; a new slow suite opts in with
+coverage. Run them locally with `PI_SLOW_TESTS=1 bun test` (or with a path, for one
+suite); a new slow suite opts in with
 `describe.skipIf(!runSlowSuites)("...", () => { ... })`.
 CI, `publish.yml` and a local run are one shape now: `bun run check`. A
 `--parallel` worker can drop the subprocess exit notification for its first spawn
