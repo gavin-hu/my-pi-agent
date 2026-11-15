@@ -10,7 +10,12 @@
 
 import { describe, expect, test } from "bun:test";
 import { BoardParams } from "../extensions/board/schema.ts";
-import { SESSION_DESCRIPTION, SESSION_GUIDELINES, SESSION_SNIPPET, SessionParams } from "../extensions/session-bus/tools.ts";
+import {
+	SESSION_DESCRIPTION,
+	SESSION_GUIDELINES,
+	SESSION_SNIPPET,
+	SessionParams,
+} from "../extensions/session-bus/tools.ts";
 import { BOARD_DESCRIPTION, BOARD_GUIDELINES, BOARD_SNIPPET } from "../extensions/board/tools.ts";
 import { TEAM_DESCRIPTION, TEAM_GUIDELINES, TEAM_SNIPPET } from "../extensions/team/types.ts";
 import { LEAD_ROUND } from "../lib/board/round-text.ts";

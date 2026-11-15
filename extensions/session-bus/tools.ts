@@ -29,7 +29,7 @@ export const SessionParams = Type.Object({
 		description: "`status` reads without joining; every other action puts this session on the bus.",
 	}),
 	to: Type.Optional(
-		Type.String({ description: "Target label/id, or `*` for every other live session — needs `kind: \"event\"`." }),
+		Type.String({ description: 'Target label/id, or `*` for every other live session — needs `kind: "event"`.' }),
 	),
 	text: Type.Optional(Type.String({ description: "Message text, at most 4000 characters." })),
 	kind: Type.Optional(
@@ -48,7 +48,9 @@ export const SessionParams = Type.Object({
 			description: "Repository-relative file or directory paths to claim or release; at most 20.",
 		}),
 	),
-	limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: "Messages one read shows or consumes; default 20." })),
+	limit: Type.Optional(
+		Type.Integer({ minimum: 1, maximum: 50, description: "Messages one read shows or consumes; default 20." }),
+	),
 	wake: Type.Optional(
 		Type.Boolean({
 			description: "With join: mail raises one turn per burst once idle; omitted waits for the next turn.",
