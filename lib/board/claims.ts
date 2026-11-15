@@ -26,9 +26,8 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Card, cardRef } from "./card.ts";
-import { plural } from "./round-text.ts";
 import type { MutateResult } from "./store.ts";
-import { sanitizeLine } from "../format.ts";
+import { plural, sanitizeLine } from "../format.ts";
 import { sameLabel } from "../session-label.ts";
 import {
 	busLoaded,

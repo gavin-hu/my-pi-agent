@@ -15,7 +15,8 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { addTeammate, type AddTeammateResult } from "../../lib/board/config.ts";
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import { buildRound, type RoundSummary } from "../../lib/board/round.ts";
-import { formatRound, holdingLine, LEAD_ROUND, plural, withLiveOwner } from "../../lib/board/round-text.ts";
+import { formatRound, holdingLine, LEAD_ROUND, withLiveOwner } from "../../lib/board/round-text.ts";
+import { plural } from "../../lib/format.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
 import { type RosterSession, presenceOf, rosterStateOf } from "../../lib/session-roster.ts";

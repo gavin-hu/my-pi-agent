@@ -15,6 +15,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: `plural` and `clipText` are `lib/format.ts`'s now, so the bus's own `count` (three copies,
+  none of them visible to the duplicate check) and team's `withinLimit` are gone, and every importer
+  takes the one helper. A clipped body is at most the limit it was given, the ellipsis counted inside
+  it: a bus preview loses a character it was never allowed to have, and an ask or handoff is still
+  exactly `MAX_MESSAGE_TEXT`.
+
 - `session-bus`: the `session` tool's parameters say what a reader cannot get elsewhere instead of
   restating the enum — `status` reads without joining, `*` needs `kind: "event"`, and a resend folds
   only under the same `key`, whose bounds are now stated. The description and three `join`/`send`

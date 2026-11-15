@@ -19,6 +19,7 @@ import type { Handoff } from "../../lib/board/contract.ts";
 import type { Lead } from "../../lib/board/lead.ts";
 import { askLead, leadName } from "../../lib/board/contract.ts";
 import type { Actor } from "../../lib/board/rules.ts";
+import { clipText } from "../../lib/format.ts";
 import {
 	listPeers,
 	MAX_MESSAGE_TEXT,
@@ -76,7 +77,7 @@ export function handoffText(card: Card, to: string, lead: Lead, note?: string): 
 		card.planPath === undefined ? undefined : `Plan: ${card.planPath}`,
 		note === undefined ? undefined : `Note: ${note}`,
 	].filter((line): line is string => line !== undefined);
-	return withinLimit(lines.join("\n"));
+	return clipText(lines.join("\n"), MAX_MESSAGE_TEXT);
 }
 
 /**
@@ -102,11 +103,12 @@ export function askText(question: string, ask: string, reply: ReplyRoute): strin
 	const where = reply.byId
 		? `"${reply.to}" (a session id, not a label)`
 		: `"${reply.to}" (the label — the bus holds no id for this session)`;
-	return withinLimit(
+	return clipText(
 		[
 			`Ask ${ask}: ${question}`,
 			`Reply with \`session send to ${where}\`, starting your message with \`re: ${ask}\` — nothing is waiting on it.`,
 		].join("\n"),
+		MAX_MESSAGE_TEXT,
 	);
 }
 
@@ -152,7 +154,7 @@ export function offerText(card: Card, lead: Lead, note?: string): string {
 		card.planPath === undefined ? undefined : `Plan: ${card.planPath}`,
 		note === undefined ? undefined : `Note: ${note}`,
 	].filter((line): line is string => line !== undefined);
-	return withinLimit(lines.join("\n"));
+	return clipText(lines.join("\n"), MAX_MESSAGE_TEXT);
 }
 
 /**
@@ -167,17 +169,6 @@ export function offerText(card: Card, lead: Lead, note?: string): string {
  */
 function signatureLine(lead: Lead): string {
 	return `Its three moves: \`blocked\` is yours to set; \`execute\` needs the lead (${leadName(lead)}) to \`approve\` the contract, and \`done\` needs the lead's \`review\` — ${askLead(lead)} when each is ready.`;
-}
-
-/**
- * Trim to the bus's text limit, which is also this message's limit.
- *
- * Not `lib/tui/columns.ts`'s `clip`: that one measures terminal columns, and this one
- * counts characters, because the bus's limit is characters. The number arrives from
- * `lib/session-tool.ts` — one copy for the two extensions that send through it.
- */
-function withinLimit(text: string): string {
-	return text.length > MAX_MESSAGE_TEXT ? `${text.slice(0, MAX_MESSAGE_TEXT - 1)}…` : text;
 }
 
 /** The production dispatch: `lib/session-tool.ts`, with a failure turned into a throw. */

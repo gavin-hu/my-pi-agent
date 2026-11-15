@@ -6,10 +6,10 @@
  * they reach either audience.
  */
 
-import { sanitizeLine } from "../../lib/format.ts";
+import { clipText, plural, sanitizeLine } from "../../lib/format.ts";
 import { burstText, noticeMessage, type NoticeItem, type NoticeMessage } from "../../lib/notice.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { clipText, HANDOFF_PREVIEW } from "./format.ts";
+import { HANDOFF_PREVIEW } from "./format.ts";
 import type { BusMessage } from "./types.ts";
 
 /** Marker embedded in the injected mail context. */
@@ -29,8 +29,8 @@ const HANDOFF_HINT =
 function headlineOf(messages: readonly BusMessage[]): string {
 	const count = messages.length;
 	const handoffs = messages.filter((message) => message.kind === "handoff").length;
-	if (handoffs === 0 || handoffs !== count) return `${count} new message${count === 1 ? "" : "s"}`;
-	return `${count} handoff${count === 1 ? "" : "s"}`;
+	if (handoffs === 0 || handoffs !== count) return plural(count, "new message");
+	return plural(count, "handoff");
 }
 
 /** One message as a preview line: sender, kind, and the head of its text. */

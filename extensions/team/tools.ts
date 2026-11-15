@@ -32,7 +32,7 @@ import { type Actor, mayOp } from "../../lib/board/rules.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
-import { sanitizeUntrustedLine } from "../../lib/format.ts";
+import { plural, sanitizeUntrustedLine } from "../../lib/format.ts";
 import { sameLabel } from "../../lib/session-label.ts";
 import { createTeamJoin, type DeliveryFailure, type TeamJoin } from "../../lib/session-tool.ts";
 import { failedResult, type ToolFailure, textResult } from "../../lib/tool-result.ts";
@@ -47,7 +47,6 @@ import {
 	syncElapsedTimer,
 	type ToolMessageResult,
 } from "../../lib/tui/tool.ts";
-import { plural } from "../../lib/board/round-text.ts";
 import { strayField } from "../../lib/stray-fields.ts";
 import {
 	actorFor,

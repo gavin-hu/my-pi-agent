@@ -10,10 +10,9 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import { LANE_RULES } from "../../lib/board/lanes.ts";
-import { sanitizeLine } from "../../lib/format.ts";
+import { plural, sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import type { TailResultInput, TailSection, TailRowLine } from "../../lib/tui/tool.ts";
-import { plural } from "../../lib/board/round-text.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { boardRowLineFor } from "./rows.ts";
 import { TONE_ROLE } from "./tone.ts";

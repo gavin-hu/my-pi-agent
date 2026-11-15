@@ -21,7 +21,7 @@
 import { type Card, cardRef } from "./card.ts";
 import type { Verification } from "./contract.ts";
 import type { RoundSummary } from "./round.ts";
-import { pageSource } from "../format.ts";
+import { pageSource, plural } from "../format.ts";
 import { sameLabel } from "../session-label.ts";
 
 /** What the fold needs of a roster row: the page's `ViewTeammate` and the bus's record both answer it. */
@@ -130,17 +130,12 @@ function droppedHistory(cards: readonly Card[]): string {
 }
 
 /**
- * `1 owner`, `2 owners`.
+ * The same body, as the browser receives it: one wording for `1 card`, not two.
  *
- * Written as concatenation rather than a template, because the page's bundle carries
- * this function's *source*: a backtick or an interpolation in it would end the string it
- * is spliced into. `round-text.test.ts` pins both, and `PLURAL_JS` is how it crosses.
+ * `plural` is `lib/format.ts`'s — it is generic text, and the bus needs it too — but the splice is
+ * this module's, because the page bundle is this module's. `round-text.test.ts` pins the two facts
+ * that keep it safe: the source is what `pageSource` gives, and it holds no backtick and no `${`.
  */
-export function plural(count: number, noun: string): string {
-	return count + " " + noun + (count === 1 ? "" : "s");
-}
-
-/** The same body, as the browser receives it: one wording for `1 card`, not two. */
 export const PLURAL_JS = pageSource(plural);
 
 /**

@@ -5,7 +5,7 @@
  * before it reaches the transcript, and paths/labels are rendered as one line.
  */
 
-import { formatAge, sanitizeLine } from "../../lib/format.ts";
+import { clipText, formatAge, sanitizeLine } from "../../lib/format.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
 /**
  * The last few characters of a peer's id, as the transcript shows it.
@@ -17,17 +17,6 @@ import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus,
  */
 export function idSuffix(id: string): string {
 	return sanitizeLine(id.slice(-6));
-}
-
-/**
- * A body clipped for the model, with the ellipsis that says so.
- *
- * The mail notice's own rule: a preview announces a message, and the read that follows is
- * what carries it whole. Nothing that consumes mail may clip — a clipped body that was
- * then deleted is a tail no later call could return.
- */
-export function clipText(text: string, limit: number): string {
-	return text.length > limit ? `${text.slice(0, limit)}…` : text;
 }
 
 /**
