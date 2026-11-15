@@ -18,7 +18,7 @@ import { createFakePi } from "../../test/helpers/fakes.ts";
 import { fakeBoardSession, pageWithNoRecording, SIGNING_LEAD, signingBoard } from "../../test/helpers/board-command.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { runner } from "../../test/helpers/board-signs.ts";
-import type { Notify } from "./announce.ts";
+import type { Deliver } from "../../lib/session-tool.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 
 /**
@@ -34,9 +34,12 @@ const LEAD = SIGNING_LEAD;
 /** A `notify` that answers with `answer`, recording what it was asked to send. */
 function toldBy(answer: { ok: true } | { ok: false; error: string }) {
 	const sent: Array<{ kind: string; to: string; text: string }> = [];
-	const notify: Notify = async (_ctx, input) => {
-		sent.push(input);
-		return answer.ok ? { ok: true, delivered: ["team-agent-slead"], failed: [] } : answer;
+	const notify: Deliver = {
+		send: async (_ctx, input) => {
+			sent.push(input);
+			return answer.ok ? { ok: true, delivered: ["team-agent-slead"], failed: [] } : answer;
+		},
+		peers: async () => undefined,
 	};
 	return { notify, sent };
 }
@@ -233,13 +236,16 @@ describe("/board approve and /board review", () => {
 		// nothing — this is the door the card says was silent.
 		const sent: Array<{ kind: string; to: string; text: string }> = [];
 		let failed = false;
-		const notify: Notify = async (_ctx, input) => {
-			if (!failed) {
-				failed = true;
-				return { ok: false, error: "the session bus is not loaded" };
-			}
-			sent.push(input);
-			return { ok: true, delivered: ["team-agent-slead"], failed: [] };
+		const notify: Deliver = {
+			send: async (_ctx, input) => {
+				if (!failed) {
+					failed = true;
+					return { ok: false, error: "the session bus is not loaded" };
+				}
+				sent.push(input);
+				return { ok: true, delivered: ["team-agent-slead"], failed: [] };
+			},
+			peers: async () => undefined,
 		};
 		const board = await signingBoard({ notify });
 		await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);

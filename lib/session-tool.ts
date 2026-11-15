@@ -28,6 +28,7 @@
 
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { type BusAnswer, requestOverBus } from "./bus-request.ts";
+import type { MessageKind } from "./session-mail.ts";
 import { messageOf } from "./errors.ts";
 import { sanitizeLine } from "./format.ts";
 import { type PeerRow, type RosterState, watchingOf } from "./session-roster.ts";
@@ -129,11 +130,36 @@ export interface TeamJoinRequest {
  */
 export type SendResult = { ok: true; delivered: string[]; failed: DeliveryFailure[] } | { ok: false; error: string };
 
+/**
+ * The one bus seam a door uses: one send, and the sessions the bus lists.
+ *
+ * `board` and `team` each need both halves and each takes this as its injection point, so a suite
+ * fakes one shape rather than two wrappers calling the same function.
+ */
+export interface Deliver {
+	send(ctx: ExtensionContext, input: SendInput): Promise<SendResult>;
+	peers(ctx: ExtensionToolContext): Promise<Peer[] | undefined>;
+}
+
+/** The production seam, bound to one extension's `pi`. */
+export function createDeliver(pi: Pick<ExtensionAPI, "events" | "getAllTools">): Deliver {
+	return {
+		send: (ctx, input) => send(pi, ctx, input),
+		peers: (ctx) => listPeers(ctx),
+	};
+}
+
 /** One message to send: its kind, who to, and the text. */
 export interface SendInput {
-	kind: "handoff" | "event" | "ask";
+	kind: MessageKind;
 	to: string;
 	text: string;
+	/** A name for this message: a resend with the same key folds into the copy still waiting. */
+	key?: string;
+	/** The message or ask id this one answers. */
+	replyTo?: string;
+	/** What the message is about — a card id, in the workflow's use. */
+	about?: string;
 }
 
 /**
@@ -323,7 +349,15 @@ export async function send(
 
 /** The nested `session send`, as a tool's context makes it. */
 async function nestedSend(ctx: ExtensionToolContext, input: SendInput): Promise<SendResult> {
-	const answer = await call(ctx, { action: "send", kind: input.kind, to: input.to, text: input.text });
+	const answer = await call(ctx, {
+		action: "send",
+		kind: input.kind,
+		to: input.to,
+		text: input.text,
+		...(input.key === undefined ? {} : { key: input.key }),
+		...(input.replyTo === undefined ? {} : { replyTo: input.replyTo }),
+		...(input.about === undefined ? {} : { about: input.about }),
+	});
 	if ("error" in answer) return { ok: false, error: answer.error };
 	const labels = (value: unknown): string[] =>
 		Array.isArray(value) ? value.filter((label): label is string => typeof label === "string") : [];

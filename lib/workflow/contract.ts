@@ -359,43 +359,19 @@ export function isContract(value: unknown): value is Contract {
 const NO_LEAD = "and this board names none: set `team.lead` in `bytefly.json`";
 
 /**
- * The lead as a sentence names it: the team's word, or the key that would name one.
- *
- * A refusal that prints an empty parenthesis reads as a bug; this prints the setting a reader can
- * fix instead, in the same place the name would have gone.
+ * The lead as a sentence names it: the team's word, or the key that would name one — never an
+ * empty parenthesis, which reads as a bug rather than as a setting to fix.
  */
 export function leadName(lead: Lead): string {
 	return lead === "" ? "`team.lead`" : lead;
 }
 
 /**
- * How a session asks the lead for a sign.
- *
- * The gates are the lead's, and the sessions that want one are its peers on the same bus, so the
- * way to ask is a message: it waits in the lead's inbox and starts no turn, which is exactly what
- * a handoff is. With no lead named there is nobody to ask, so the sentence names the setting
- * rather than a peer.
+ * How a session asks the lead for a sign: a message, which waits in the inbox and starts no turn.
+ * With no lead named there is nobody to ask, so the sentence names the setting.
  */
 export function askLead(lead: Lead): string {
 	return lead === "" ? "set `team.lead` in `bytefly.json`" : `ask ${lead} with \`session send\``;
-}
-
-/**
- * What a contract that just became approvable sends the lead: the card, and the two doors a sign has.
- *
- * The peer that wrote the wording is the only session that knows it is ready, and the gate is the
- * lead's — so this is the one message in the round that travels towards a signature rather than away
- * from one. It names the card's id because that is what the next call takes, and it is worded like
- * the refusals that ask for the same sign, so one gate is not described two ways.
- *
- * Only ever called with a named lead: `notifyReady` sends nothing when the board names none, so a
- * sentence for that case would be a message no caller can produce.
- */
-export function readyText(card: Card, lead: Lead): string {
-	return (
-		`Contract ready: #${card.id} "${card.title}" — its four lines are whole and nothing is signed.\n` +
-		`Next: the lead (${lead}) approves with board action "approve", or the person with \`/board approve ${card.id}\`.`
-	);
 }
 
 /** The words one sign is refused with, wherever the refusal is written. */
@@ -414,6 +390,38 @@ export interface SignWords {
 
 /** The two words a gate is signed with, as `lead.ts`'s `Sign` names them. */
 type SignKind = "approve" | "review";
+
+/** The rows a card can record as settled: the handoff, and the two signs. */
+export type NoticeField = "assign" | SignKind;
+
+/** One owed notice's told half: read it off the card, or write the moment it landed. */
+export interface ToldField {
+	read: (card: Card) => { at: number } | undefined;
+	patch: (card: Card, at: number) => Partial<Card>;
+}
+
+/** The three owed notices. Field, read and write are one fact, so `announced` has no switch. */
+export const TELL_FIELDS: Record<NoticeField, ToldField> = {
+	assign: {
+		read: (card) => card.owner?.handoff?.told,
+		patch: (card, at) => {
+			const handoff = card.owner?.handoff;
+			return card.owner === undefined || handoff === undefined
+				? {}
+				: { owner: { ...card.owner, handoff: { ...handoff, told: { at } } } };
+		},
+	},
+	approve: {
+		read: (card) => card.contract?.approved?.told,
+		patch: (card, at) => ({
+			contract: { ...card.contract, approved: { ...card.contract?.approved, told: { at } } } as Card["contract"],
+		}),
+	},
+	review: {
+		read: (card) => card.review?.told,
+		patch: (card, at) => ({ review: { ...card.review, told: { at } } }) as Partial<Card>,
+	},
+};
 
 export const SIGN_WORDS: Record<SignKind, SignWords> = {
 	approve: {

@@ -62,6 +62,10 @@ export interface SessionBus {
 		kind?: string;
 		/** A name for this message: a resend of the same body folds into the copy still waiting. */
 		key?: unknown;
+		/** The message or ask this one answers, as one word. */
+		replyTo?: unknown;
+		/** What the message is about — a card id, in the workflow's use. */
+		about?: unknown;
 		paths?: unknown;
 	}): Promise<{ delivered: string[]; failed: DeliveryFailure[]; messageId: string }>;
 	inbox(limit?: number): Promise<BusMessage[]>;

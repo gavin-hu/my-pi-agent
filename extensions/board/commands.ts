@@ -22,8 +22,8 @@ import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { messageOf } from "../../lib/errors.ts";
-import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
-import type { Notify } from "./announce.ts";
+import { createDeliver, createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
+import type { Deliver } from "../../lib/session-tool.ts";
 import { type TeamState, teamLine } from "./join.ts";
 import type { BoardPage, BoardPageStatus, StaleDrop } from "./page.ts";
 
@@ -37,7 +37,7 @@ export function registerCommands(
 	pi: ExtensionAPI,
 	session: BoardSession,
 	page: BoardPage,
-	deps: { team?: TeamJoin; notify?: Notify; verify?: VerifyRun } = {},
+	deps: { team?: TeamJoin; notify?: Deliver; verify?: VerifyRun } = {},
 ): void {
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
@@ -167,7 +167,7 @@ async function signLine(
 	sign: Sign,
 	words: readonly string[],
 	ctx: ExtensionCommandContext,
-	notify: Notify | undefined,
+	notify: Deliver | undefined,
 	verify?: VerifyRun,
 ): Promise<SignLine> {
 	const { id: rawCard, override, root, rootError } = signWords(words);
@@ -247,18 +247,19 @@ async function signLine(
 	// fresh stamp and an untold repeat both set, so this door re-sends a sign the owner never heard
 	// exactly as the tool does. The sign's own signer may record it, which is why `personActor` is
 	// the actor: `announced` compares with `signedAs`, and the person's mark is on the sign.
-	if (result.announce !== true) return { text, tone: "info" };
-	const { settleSign, notifyOverBus } = await import("./announce.ts");
+	if (result.notice !== sign) return { text, tone: "info" };
+	const { settleNotice } = await import("./notices.ts");
 	// The message and the record are one body, shared with the tool's door; this door supplies the
 	// person as the actor, since `announced` compares with the mark that sign carries.
-	const settled = await settleSign({
-		store: () => session.store(ctx.cwd),
+	const settled = await settleNotice({
+		store: await session.store(ctx.cwd),
 		card: result.card,
-		sign,
+		kind: result.notice,
+		lead,
 		by: signMark(personActor(), lead).by,
 		actor: personActor(),
 		ctx,
-		notify: notify ?? notifyOverBus(pi),
+		deliver: notify ?? createDeliver(pi),
 		at: session.now(),
 		audience: { roster: () => session.roster(ctx.cwd), now: () => session.now() },
 	});

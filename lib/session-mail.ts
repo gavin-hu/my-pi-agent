@@ -49,6 +49,20 @@ export interface BusMessage {
 	 */
 	key?: string;
 	paths?: string[];
+	/**
+	 * The id of the message this one answers, when it answers one — an ask's id in the workflow's use.
+	 *
+	 * Not the same as `key`: a key folds a resend, and this is a link a reader can follow. The bus
+	 * keeps it opaque; `session` prints it as `re: <id>` and a caller decides what it means.
+	 */
+	replyTo?: string;
+	/**
+	 * What this message is about, as the sender's own word — a card id, in the workflow's use.
+	 *
+	 * Opaque to the bus for the same reason `replyTo` is: the transport carries a reference, and
+	 * the domain that made it is the one that reads it.
+	 */
+	about?: string;
 	at: number;
 }
 
@@ -115,6 +129,8 @@ export function isBusMessage(value: unknown): value is BusMessage {
 		typeof entry.text === "string" &&
 		typeof entry.at === "number" &&
 		(entry.key === undefined || typeof entry.key === "string") &&
+		(entry.replyTo === undefined || typeof entry.replyTo === "string") &&
+		(entry.about === undefined || typeof entry.about === "string") &&
 		(entry.paths === undefined || (Array.isArray(entry.paths) && entry.paths.every((path) => typeof path === "string")))
 	);
 }

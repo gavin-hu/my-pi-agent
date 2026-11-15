@@ -33,8 +33,15 @@ import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
 import { attempt, messageOf } from "../../lib/errors.ts";
 import { plural, sanitizeUntrustedLine } from "../../lib/format.ts";
+import { peersWithAlarm } from "../../lib/session-roster.ts";
 import { sameLabel } from "../../lib/session-label.ts";
-import { createTeamJoin, type DeliveryFailure, type TeamJoin } from "../../lib/session-tool.ts";
+import {
+	createDeliver,
+	createTeamJoin,
+	type Deliver,
+	type DeliveryFailure,
+	type TeamJoin,
+} from "../../lib/session-tool.ts";
 import { type ToolFailure, textResult, toolError } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -48,31 +55,16 @@ import {
 	type ToolMessageResult,
 } from "../../lib/tui/tool.ts";
 import { strayField } from "../../lib/stray-fields.ts";
-import {
-	actorFor,
-	askId,
-	askText,
-	type Dispatch,
-	DEFAULT_QUESTION,
-	handoffText,
-	notListening,
-	offerText,
-	quiet,
-	type ReplyRoute,
-	ownerFor,
-	sessionDispatch,
-} from "./dispatch.ts";
+import { askId, askText, DEFAULT_QUESTION, type ReplyRoute } from "./dispatch.ts";
 import {
 	formatAsk,
 	formatHandoff,
+	formatHandoffUnsent,
 	formatHandoffFailure,
 	formatNotSent,
 	formatOffer,
 	formatOfferFailure,
-	formatRacedOffer,
-	formatRacedAssignment,
-	formatUnrecordedAssignment,
-	formatUnrecordedOffer,
+	formatOfferUnsent,
 	formatWorking,
 } from "./format.ts";
 import { TeamParams } from "./schema.ts";
@@ -103,31 +95,6 @@ async function writeOutcome(write: Promise<MutateResult>): Promise<{ result: Mut
 	} catch (thrown) {
 		return { thrown };
 	}
-}
-
-/**
- * One half-applied round: the message landed and the write after it threw.
- *
- * The one failure a refusal cannot describe, because the card is not the card it was: the
- * store threw somewhere inside the write, so what it now holds is read rather than assumed,
- * and a store that will not read either leaves the card the message was written from. The
- * peers the message reached travel with it, because they are the reason the lead cannot
- * simply try again and pretend nothing was sent.
- */
-async function unrecordedResult(
-	action: TeamAction,
-	store: BoardStore,
-	card: Card,
-	text: string,
-	delivered: readonly string[],
-): Promise<ToolFailure<TeamDetails>> {
-	const current = await store.read(card.id).catch(() => undefined);
-	return toolError(text, {
-		action,
-		error: text,
-		card: current ?? card,
-		delivered: [...delivered],
-	});
 }
 
 /**
@@ -169,14 +136,14 @@ function continuationIndent(line: string): string {
 /** What the tool needs from the outside, so a suite drives it without a bus. */
 export interface TeamToolsDeps {
 	/** Test seam: the handoff transport. */
-	dispatch?: (ctx: ExtensionToolContext) => Dispatch;
+	deliver?: Deliver;
 	/** Test seam: the join a verb makes, so a suite records it instead of asking a bus. */
 	team?: TeamJoin;
 }
 
 /** The actions as the schema validates them. */
 export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: TeamToolsDeps = {}): void {
-	const dispatchFor = deps.dispatch ?? ((ctx: ExtensionToolContext) => sessionDispatch(pi, ctx));
+	const deliver = deps.deliver ?? createDeliver(pi);
 	const team = deps.team ?? createTeamJoin(pi);
 
 	/**
@@ -230,7 +197,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			try {
 				// `ask` is the one verb with no card behind it, so it runs before the id and the store:
 				// what it needs is this session's name, for the reply line, and the bus.
-				if (action === "ask") return await askPeer(me, args.to, args.question, dispatchFor(ctx), join);
+				if (action === "ask") return await askPeer(me, args.to, args.question, deliver, ctx, join);
 				const id = args.card === undefined ? undefined : normalizeCardId(args.card);
 				if (id === undefined) {
 					return refusal(
@@ -242,10 +209,10 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 				}
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
-				if (action === "offer") return await offerCard(store, me, id, args.note, now, dispatchFor(ctx));
+				if (action === "offer") return await offerCard(store, me, id, args.note, now, deliver, ctx);
 				const to = typeof args.to === "string" ? args.to.trim() : "";
 				if (to === "") return refusal("assign", 'assign needs a peer: pass `to`, e.g. "billing-core".');
-				return await assignCard(store, me, id, to, args.note, now, dispatchFor(ctx), join);
+				return await assignCard(store, me, id, to, args.note, now, deliver, ctx, join);
 			} catch (error) {
 				return refusal(action, messageOf(error));
 			}
@@ -303,20 +270,24 @@ async function assignCard(
 	to: string,
 	note: string | undefined,
 	now: number,
-	dispatch: Dispatch,
+	deliver: Deliver,
+	ctx: ExtensionToolContext,
 	join: () => Promise<TeamState>,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
+	// Loaded where it is used: the team entry's registration budget may not grow for a verb.
+	const { actorFor, composeNotice, ownerFor } = await import("../../lib/workflow/notice.ts");
 	const card = await store.read(id);
 	if (!card) return refusal("assign", `${cardRef(id)} does not exist.`);
 	// A handoff to yourself is not a claim: it writes a message into your own inbox and
 	// records you as the owner without the claim's next step. `claim` is that act.
 	if (namesSelf(me, to))
 		return refusal("assign", `${cardRef(id)} cannot be handed to yourself: \`claim\` takes one.`, card);
-	// Who `to` names, asked before the check: a card records the id the bus gave its holder, and `holds`
-	// compares ids first, so an id the caller typed is resolved to its peer rather than compared as a
-	// label. This read is the dry run's alone — the write records what a read taken *after* the
-	// message says, because the send answers labels and the card must name the session that has it.
-	const target = actorFor(await dispatch.peers().catch(() => undefined), to);
+	// Who `to` names, asked once: a card records the id the bus gave its holder, and `holds` compares
+	// ids first, so an id the caller typed is resolved to its peer rather than compared as a label.
+	// The same read answers the quiet and not-listening lines, so the owner and the clauses describe
+	// one roster — which is why it is read before the write rather than after the send.
+	const reached = await deliver.peers(ctx).catch(() => undefined);
+	const target = actorFor(reached, to);
 	// The board, not just the card: a card that waits on unfinished work, or a `plan` lane
 	// with no room, is refused here, so a handoff for it is never sent. `mayOp` is the
 	// store's own check without the write, and the board's settings are the store's, not a default.
@@ -329,48 +300,58 @@ async function assignCard(
 		return refusal("assign", formatNotSent(`${cardRef(card.id)} was not handed off to ${to}`, joined), card);
 	}
 
-	let delivered: string[];
-	let failed: DeliveryFailure[];
+	// State first: the owner and the handoff are written before anything is sent, so the peer reads
+	// a card that already holds it. `told` is the delivery's to record, not this write's.
+	const handoff = { at: now };
+	const owner: CardOwner = target.id === undefined ? ownerFor(to, [], handoff) : { ...target, handoff };
+	const written = await writeOutcome(store.mutate(id, { kind: "assign", to: owner }, me, now));
+	// Nothing was sent, so a write that threw is a handoff that never happened — the card is the
+	// board's, and the result says so rather than naming a message that does not exist.
+	if ("thrown" in written) return refusal("assign", formatHandoffFailure(card, to, messageOf(written.thrown)), card);
+	const applied = written.result;
+	// Nothing was sent, so a refused write is a handoff that never happened.
+	if (!applied.ok)
+		return refusal("assign", formatHandoffFailure(applied.card ?? card, to, applied.error), applied.card ?? card);
+
+	// Then the sentence, keyed by the card's clock so a retry folds into a copy still waiting.
+	const notice = composeNotice("assign", applied.card, {
+		lead: store.config().lead,
+		to,
+		...(note === undefined ? {} : { note }),
+	});
+	let delivered: string[] = [];
+	let failed: DeliveryFailure[] = [];
 	try {
-		const sent = await dispatch.send({ kind: "handoff", to, text: handoffText(card, to, store.config().lead, note) });
+		const sent = await deliver.send(ctx, {
+			kind: notice.kind,
+			to: target.id ?? target.label,
+			text: notice.text,
+			key: notice.key,
+			about: applied.card.id,
+		});
+		if (!sent.ok) {
+			// The card is the peer's and the message is not out: a repeat of `assign` re-sends the same
+			// key, which is the retry the untold handoff waits on.
+			return refusal("assign", formatHandoffUnsent(applied.card, to, sent.error), applied.card);
+		}
 		delivered = sent.delivered;
 		failed = sent.failed;
 	} catch (error) {
-		return refusal("assign", formatHandoffFailure(card, to, messageOf(error)), card);
+		return refusal("assign", formatHandoffUnsent(applied.card, to, messageOf(error)), applied.card);
 	}
-
-	// The owner: the peer the message reached, read now rather than kept from the dry run — a roster
-	// that changed mid-send would otherwise pass a check about one session and write another. The store
-	// re-asks the card's own gates under the lock, which stops a mid-send handover from assigning a card
-	// somebody took; who the peer is has no second reading, which is the reason for this one.
-	// `told` is the send's own answer, and a send that returned wrote at least one inbox (`SendResult`),
-	// so the record always carries it — a handoff without one is a card from before the field existed.
-	const reached = await dispatch.peers().catch(() => undefined);
-	const recipient = actorFor(reached, to);
-	const handoff = { at: now, told: { at: now } };
-	const owner: CardOwner = recipient.id === undefined ? ownerFor(to, delivered, handoff) : { ...recipient, handoff };
-	const written = await writeOutcome(store.mutate(id, { kind: "assign", to: owner }, me, now));
-	// A write that threw is not a write that was refused: the message is already in the peer's
-	// inbox, so the reason is reported with the card the board holds now rather than alone.
-	if ("thrown" in written)
-		return await unrecordedResult(
-			"assign",
-			store,
-			card,
-			formatUnrecordedAssignment(card, to, messageOf(written.thrown)),
-			delivered,
-		);
-	const applied = written.result;
-	if (!applied.ok)
-		return refusal("assign", formatRacedAssignment(applied.card ?? card, to, applied.error), applied.card ?? card);
-	// Both lines read that same post-send roster: the card, the quiet line and the not-listening line
-	// describe the team the message landed against, not the one it was addressed against.
-	const silent = notListening(reached, delivered);
-	const still = quiet(reached, delivered);
-	return textResult(formatHandoff(applied.card, delivered, silent, still, failed), {
+	// Settled only once the bus took it: the record is what a repeat reads.
+	if (delivered.length > 0) {
+		await store.mutate(id, { kind: "announced", notice: "assign" }, me, now).catch(() => undefined);
+	}
+	// Both lines read the roster the message was addressed against — the same read that named the
+	// owner, so one result cannot describe two teams.
+	const silent = peersWithAlarm(reached, delivered, "not-listening");
+	const still = peersWithAlarm(reached, delivered, "quiet");
+	const current = await store.read(id).catch(() => undefined);
+	return textResult(formatHandoff(current ?? applied.card, delivered, silent, still, failed), {
 		action: "assign",
-		card: applied.card,
-		assigned: applied.card.owner,
+		card: current ?? applied.card,
+		assigned: (current ?? applied.card).owner,
 		delivered,
 		...(failed.length === 0 ? {} : { failed }),
 		...(silent.length === 0 ? {} : { notListening: silent }),
@@ -393,8 +374,10 @@ async function offerCard(
 	id: string,
 	note: string | undefined,
 	now: number,
-	dispatch: Dispatch,
+	deliver: Deliver,
+	ctx: ExtensionToolContext,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
+	const { composeNotice } = await import("../../lib/workflow/notice.ts");
 	const card = await store.read(id);
 	if (!card) return refusal("offer", `${cardRef(id)} does not exist.`);
 	// The board, not just the card: a card that waits on unfinished work, one somebody
@@ -403,35 +386,37 @@ async function offerCard(
 	const refused = mayOp(card, { kind: "offer" }, me, indexOf(await store.list()), store.config());
 	if (refused !== undefined) return refusal("offer", refused, card);
 
-	let delivered: string[];
-	let failed: DeliveryFailure[];
+	// State first, as `assign`: the moment is recorded before the broadcast, and a broadcast that
+	// fails is an offer nobody heard rather than an offer that was never made.
+	const written = await writeOutcome(store.mutate(id, { kind: "offer" }, me, now));
+	if ("thrown" in written) return refusal("offer", formatOfferFailure(card, messageOf(written.thrown)), card);
+	const recorded = written.result;
+	if (!recorded.ok)
+		return refusal("offer", formatOfferFailure(recorded.card ?? card, recorded.error), recorded.card ?? card);
+
+	let delivered: string[] = [];
+	let failed: DeliveryFailure[] = [];
 	try {
-		const sent = await dispatch.send({ kind: "event", to: "*", text: offerText(card, store.config().lead, note) });
+		const notice = composeNotice("offer", recorded.card, {
+			lead: store.config().lead,
+			...(note === undefined ? {} : { note }),
+		});
+		const sent = await deliver.send(ctx, {
+			kind: notice.kind,
+			to: "*",
+			text: notice.text,
+			key: notice.key,
+			about: recorded.card.id,
+		});
+		if (!sent.ok) return refusal("offer", formatOfferUnsent(recorded.card, sent.error), recorded.card);
 		delivered = sent.delivered;
 		failed = sent.failed;
 	} catch (error) {
-		return refusal("offer", formatOfferFailure(card, messageOf(error)), card);
+		return refusal("offer", formatOfferUnsent(recorded.card, messageOf(error)), recorded.card);
 	}
-	// The peers have the event, so a card that changed underneath is reported as raced
-	// rather than refused: the message is already in their inboxes. The same holds for the
-	// peer the broadcast missed — the offer is recorded, and the result names who did not hear.
-	const written = await writeOutcome(store.mutate(id, { kind: "offer" }, me, now));
-	// The peers have the event, so a write that threw is reported as an offer that landed and
-	// a record that did not: a bare reason read as "nothing happened", and a retry broadcast it
-	// again.
-	if ("thrown" in written)
-		return await unrecordedResult(
-			"offer",
-			store,
-			card,
-			formatUnrecordedOffer(card, messageOf(written.thrown)),
-			delivered,
-		);
-	const recorded = written.result;
-	if (!recorded.ok) return refusal("offer", formatRacedOffer(recorded.card ?? card, recorded.error), recorded.card);
-	const peers = await dispatch.peers().catch(() => undefined);
-	const silent = notListening(peers, delivered);
-	const still = quiet(peers, delivered);
+	const peers = await deliver.peers(ctx).catch(() => undefined);
+	const silent = peersWithAlarm(peers, delivered, "not-listening");
+	const still = peersWithAlarm(peers, delivered, "quiet");
 	return textResult(formatOffer(recorded.card, delivered, silent, still, failed), {
 		action: "offer",
 		card: recorded.card,
@@ -461,7 +446,8 @@ async function askPeer(
 	me: Actor,
 	rawTo: unknown,
 	rawQuestion: unknown,
-	dispatch: Dispatch,
+	deliver: Deliver,
+	ctx: ExtensionToolContext,
 	join: () => Promise<TeamState>,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	const to = typeof rawTo === "string" ? rawTo.trim() : "";
@@ -477,21 +463,22 @@ async function askPeer(
 	// The reply route is this session's own id, read from the roster the join just wrote: an id
 	// survives this session renaming itself and its record being pruned, and the label is the
 	// fallback the sentence then admits to. One read serves the delivery warnings below too.
-	const peers = await dispatch.peers().catch(() => undefined);
+	const peers = await deliver.peers(ctx).catch(() => undefined);
 	const self = peers?.find((peer) => (me.id !== undefined ? peer.id === me.id : peer.label === me.label));
 	const reply: ReplyRoute = self === undefined ? { to: me.label, byId: false } : { to: self.id, byId: true };
 	const ask = askId();
 	let delivered: string[];
 	let failed: DeliveryFailure[];
 	try {
-		const sent = await dispatch.send({ kind: "ask", to, text: askText(asked, ask, reply) });
+		const sent = await deliver.send(ctx, { kind: "ask", to, text: askText(asked, ask, reply) });
+		if (!sent.ok) return refusal("ask", `the ask did not reach ${to}: ${sent.error}`);
 		delivered = sent.delivered;
 		failed = sent.failed;
 	} catch (error) {
 		return refusal("ask", `the ask did not reach ${to}: ${messageOf(error)}`);
 	}
-	const silent = notListening(peers, delivered);
-	const still = quiet(peers, delivered);
+	const silent = peersWithAlarm(peers, delivered, "not-listening");
+	const still = peersWithAlarm(peers, delivered, "quiet");
 	return textResult(formatAsk(ask, delivered, silent, still, failed), {
 		action: "ask",
 		askId: ask,

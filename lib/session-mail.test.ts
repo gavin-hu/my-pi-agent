@@ -158,6 +158,11 @@ describe("the message guard", () => {
 		};
 		expect(isBusMessage(message)).toBe(true);
 		expect(isBusMessage({ ...message, paths: ["lib/a.ts"] })).toBe(true);
+		// The envelope's two references are opaque ids: a string is one, anything else is not a message
+		// this build can read.
+		expect(isBusMessage({ ...message, replyTo: "a1b2c3", about: "4" })).toBe(true);
+		expect(isBusMessage({ ...message, replyTo: 4 })).toBe(false);
+		expect(isBusMessage({ ...message, about: ["4"] })).toBe(false);
 		expect(isBusMessage({ ...message, to: undefined })).toBe(false);
 		expect(isBusMessage({ ...message, paths: [1] })).toBe(false);
 		expect(isBusMessage(null)).toBe(false);

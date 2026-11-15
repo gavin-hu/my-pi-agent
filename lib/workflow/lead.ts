@@ -10,18 +10,13 @@
  * actor a file can name that is not a holder, which is what keeps a repository worked by one
  * session able to close a card at all.
  *
- * The signer is refused in two shapes and this module owns both: a session that is not the lead
- * (`signRefusal`), and a lead that holds the card it means to sign (`holderRefusal` — release it
- * first, since a session signing its own wording is the gate approving itself). The words of each
- * sign live in one table, in `sign-words.ts`, so the two gates and the lane requirements that ask
- * for a signature cannot drift into four slightly different sentences: a refusal names `askLead`
- * as the way to ask, and `signedText` is what the sign sends the card's owner.
+ * The signer is refused in two shapes: a session that is not the lead (`signRefusal`), and a lead
+ * that holds the card it means to sign (`holderRefusal` — release it first). The words live in one
+ * table, `contract.ts`'s `SIGN_WORDS`, so a gate and a lane requirement cannot drift into four
+ * slightly different sentences.
  *
- * `reclaim` is the third decision here, because it is the same question asked of another verb: the
- * holder may always take its own card back, the lead takes anybody's as a repair, and a peer takes
- * one only from a session the bus says has stopped. What the return keeps is the one rule about a
- * signature that is not about making it — a spot-check is evidence, so only its own signer
- * withdraws it.
+ * `reclaim` is the third decision: the holder may take its own card back, the lead anybody's, and a
+ * peer one only from a session the bus says has stopped. Only a spot-check's own signer withdraws it.
  *
  * The announcement is the fourth: a sign nobody heard is a gate nobody knows is open, so the card
  * records when its message was settled (`Sign.told`) and a repeat sign owes it again while it is
@@ -43,6 +38,7 @@ import {
 	normalizeInstruction,
 	SIGN_WORDS,
 	type Sign as SignRecord,
+	TELL_FIELDS,
 	type Verification,
 } from "./contract.ts";
 import { LANE_RULES, type Lane } from "./lanes.ts";
@@ -124,6 +120,7 @@ export function isLead(actor: Pick<Actor, "label">, lead: Lead): boolean {
 
 /** The two signs a card carries. */
 export type Sign = "approve" | "review";
+export type { NoticeField } from "./contract.ts";
 
 /** The two signs, in the order a person is likely to want them. */
 const SIGN_KINDS: readonly Sign[] = ["approve", "review"];
@@ -305,19 +302,6 @@ export function currentReview(card: Card): SignRecord | undefined {
 export const CURRENT_REVIEW_JS = [laneSince, laneReview, signStale, currentReview].map(pageSource).join("\n\n");
 
 /**
- * What a sign sends the card's owner: who signed, and the move it unlocked.
- *
- * The gate is the lead's and the card is worked by its owner, so the one session that can act on
- * the sign is the one told. Without it the owner learns by polling a board it has no reason to
- * read twice, and the lead learns which card is ready the same way. `by` is the name the sign
- * recorded rather than the actor's label, because the owner is being told who signed and the
- * person's label is only ever what their own line prints.
- */
-export function signedText(card: Card, sign: Sign, by: string): string {
-	return SIGN_WORDS[sign].signed(card, by);
-}
-
-/**
  * What a result says when the card's owner did not hear about a sign.
  *
  * Two doors write a sign — the tool, and the person's `/board approve` — and each sends by the
@@ -472,10 +456,10 @@ export function review(
 	const spotCheck = repeat ? {} : { review: stamped };
 	// A fresh stamp drops its `told`, so it owes the message its owner already heard for the sign it
 	// replaced: a re-made sign is a new fact, and the announcement is a write of its own.
-	const announce = owes || redo;
+	const notice = owes || redo;
 	// As with `approve`: a second signer's note moves the card, and the owner's message follows the
 	// stamp — or the untold sign a repeat still owes them.
-	return { changed: true, fields: { ...spotCheck, ...noted.fields }, ...(announce ? { announce: true as const } : {}) };
+	return { changed: true, fields: { ...spotCheck, ...noted.fields }, ...(notice ? { notice: "review" as const } : {}) };
 }
 
 /**
@@ -547,7 +531,13 @@ export function reclaim(card: Card, actor: Actor, config: BoardConfig, holder?: 
 	if (card.owner === undefined) return { error: `${cardRef(card.id)} has no owner to reclaim.` };
 	const state = heldState(card, holder);
 	if (!mayTakeBack(card, actor, config.lead, state)) return { error: heldStill(card, config.lead, state) };
-	return { changed: true, fields: backToPool(card, actor, config.lead) };
+	// The holder releasing its own card has nothing to hear; a reclaim that takes it from somebody
+	// is the transition that owes them a message.
+	return {
+		changed: true,
+		fields: backToPool(card, actor, config.lead),
+		...(holds(card, actor) ? {} : { notice: "reclaim" as const }),
+	};
 }
 
 /** Whether this caller may take the card back. */
@@ -623,12 +613,10 @@ export function owesAnnouncement(card: Card, sign: Sign, actor: Actor, lead: Lea
 }
 
 /**
- * Record that a sign's message was settled, so its signer stops owning it one.
+ * Record that a notice was settled, so the card stops owing it.
  *
- * The signer's own operation: `signedAs` is the gate, which accepts the person's `person: true`
- * sign and refuses a session wearing the lead's name, because recording an announcement is a
- * statement about a signature that session did not make. A record already there is the no-op —
- * two doors announcing one sign is one fact, not two.
+ * For a sign the signer's own operation: `signedAs` is the gate. For a handoff there is no
+ * signature — the door that wrote the owner announces it — so only the record's absence gates it.
  */
 export function announced(
 	card: Card,
@@ -637,18 +625,18 @@ export function announced(
 	config: BoardConfig,
 	now: number,
 ): Prepared {
-	const record = signRecord(card, op.sign);
-	const named = op.sign === "approve" ? "approval" : "spot-check";
-	if (record === undefined) return { error: `${cardRef(card.id)} has no ${named} to announce.` };
-	if (!signedAs(record, actor, config.lead)) {
-		return {
-			error: `${cardRef(card.id)}'s ${named} is ${record.by}'s to announce, and this session is ${actor.label}.`,
-		};
+	const told = TELL_FIELDS[op.notice];
+	// A sign is its own signer's to announce; a handoff has no signature, and only its absence gates.
+	if (op.notice !== "assign") {
+		const record = signRecord(card, op.notice);
+		const named = op.notice === "approve" ? "approval" : "spot-check";
+		if (record === undefined) return { error: `${cardRef(card.id)} has no ${named} to announce.` };
+		if (!signedAs(record, actor, config.lead)) {
+			return {
+				error: `${cardRef(card.id)}'s ${named} is ${record.by}'s to announce, and this session is ${actor.label}.`,
+			};
+		}
 	}
-	if (record.told !== undefined) return { changed: false, fields: null };
-	const told = { ...record, told: { at: now } };
-	if (op.sign === "approve" && card.contract !== undefined) {
-		return { changed: true, fields: { contract: { ...card.contract, approved: told } } };
-	}
-	return { changed: true, fields: { review: told } };
+	if (told.read(card) !== undefined) return { changed: false, fields: null };
+	return { changed: true, fields: told.patch(card, now) };
 }

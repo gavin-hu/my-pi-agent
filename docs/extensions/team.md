@@ -58,7 +58,8 @@ not read, because mail is pruned after a day; a handoff whose write lost the rac
 body — leave a rival's card alone, or claim one the write left nobody's; a completed contract tells the lead,
 and `approve` tells the holder; `offer` (card, `note?`) broadcasts the card and records only the moment it was
 offered, so the first peer to claim it wins; `ask` (`to`, `question?`) sends one peer a question and writes
-nothing else: its own ask id, and the answering session by id, so `re: <id>` matches it.
+nothing else: its own ask id, and the answering session by id, so a reply sets `replyTo "<id>"` and the
+bus prints it as `re: <id>`.
 
 A card's own verbs are not here: `claim` takes a pool card into `plan`, `reclaim` returns it to
 Backlog with its notes and contract (the lead from anyone, a peer only from a stopped owner), and

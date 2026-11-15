@@ -221,6 +221,7 @@ export interface WireRound {
 	unapproved: string[];
 	unreviewed: string[];
 	blocked: string[];
+	untold: string[];
 	unwritten: string[];
 	done: string[];
 	archivable: string[];
@@ -360,6 +361,7 @@ export function buildView(input: ViewInput): BoardView {
 			// queue's own, and a reader's mail file going away is the news.
 			`|waiting:${messages.map((message) => message.id).join(",")}/${String(waiting.dropped)}` +
 			`|skipped:${(input.skipped ?? []).map((entry) => `${entry.file}:${entry.why}`).join(",")}` +
+			`|untold:${round.untold.map((card) => card.id).join(",")}` +
 			`|unwritten:${round.unwritten.map((card) => card.id).join(",")}` +
 			// A plan file going away moves no card's revision, and the face says so: without this the
 			// tab would keep a frame that still reads the plan as there.
@@ -396,6 +398,7 @@ export function boardWire(view: BoardView): BoardWire {
 			unapproved: ids(view.round.unapproved),
 			unreviewed: ids(view.round.unreviewed),
 			blocked: ids(view.round.blocked),
+			untold: ids(view.round.untold),
 			unwritten: ids(view.round.unwritten),
 			done: ids(view.round.done),
 			archivable: ids(view.round.archivable),

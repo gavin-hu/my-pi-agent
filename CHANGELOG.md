@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `session-bus`: a message can say what it answers and what it is about. `session send replyTo "<id>"`
+  and `about "<card>"` write two opaque references on the envelope — a row prints the first as `re: <id>`
+  — and `key`, `replyTo` and `about` all ride the one send a caller makes. The `session` tool pays for the
+  two parameters by tightening its own prose, so its surface stays under its ceiling.
+
 - `board`: a write that leaves a whole, unsigned contract tells `team.lead` in its inbox, so the first
   gate is a message rather than a board the lead has to poll. The card records nothing for a retry: the
   round is the durable truth and this is the wake-up, so a failed send is a line on the result and the
@@ -21,6 +26,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   resend after the recipient consumed it is a message again.
 
 ### Changed
+
+- `board`, `team`, `session-bus`: one notice table composes every workflow message, and every transition
+  writes the card before it sends. `assign` records the owner first, so the handoff reports a state that
+  already holds; a reclaim tells the session whose card it took; and a sign whose message never landed
+  shows in the round — `board list --round`, `/team` and the Team tab — as `untold`, so the signer
+  repeating the sign is the retry rather than a fact nobody can see. The bus's `notListening`/`quiet`
+  wording, `SIGN_WORDS`'s notice half and the board's own two senders are gone with it.
 
 - `board`: one session holds one card in flight by default (`board.wip.perOwner`, 1), counting `plan`,
   `execute` and `blocked`; a `claim` or an assignment past it names the card the session already

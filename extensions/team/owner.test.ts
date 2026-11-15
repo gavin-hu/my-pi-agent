@@ -32,29 +32,25 @@ describe("the owner a handoff records", () => {
 		expect((await (await store()).read(id))?.owner?.handoff).toEqual({ at: NOW, told: { at: NOW } });
 	});
 
-	test("records the peer the message reached, not the one the dry run read", async () => {
-		// The bus answers labels, so the id comes from a read after the message: two records under one
-		// label, the stopped one first, is the shape that used to record an id no session answers to.
+	test("records the peer the caller named, from the one read the verb makes", async () => {
+		// The write comes first, so the owner is the peer the caller addressed, resolved once: no
+		// second read after the message can record an id the card was not written with.
 		const { call, seed, store } = harness({
-			roster: [
-				[{ id: "s-dead", label: "billing-core", state: "gone" }],
-				[{ id: "s-live", label: "billing-core", listening: true, state: "live" }],
-			],
+			roster: [[{ id: "s-live", label: "billing-core", listening: true, state: "live" }]],
 		});
 		const id = await seed();
 		expect((await call({ action: "assign", card: id, to: "billing-core" })).isError).toBeFalsy();
-		const owner = (await (await store()).read(id))?.owner;
-		expect(owner?.id).toBe("s-live");
-		expect(owner?.label).toBe("billing-core");
+		expect((await (await store()).read(id))?.owner).toEqual({
+			id: "s-live",
+			label: "billing-core",
+			handoff: { at: NOW, told: { at: NOW } },
+		});
 	});
 
 	test("the quiet line and the owner are the same read of the team", async () => {
-		// One roster, one story: the message landed on a session whose heartbeat aged out on the way.
+		// One roster, one story: the session the verb names is the one the clause describes.
 		const { call, seed, store } = harness({
-			roster: [
-				[{ id: "s-core", label: "billing-core", listening: true, state: "live" }],
-				[{ id: "s-quiet", label: "billing-core", state: "quiet" }],
-			],
+			roster: [[{ id: "s-quiet", label: "billing-core", state: "quiet" }]],
 		});
 		const id = await seed();
 		const result = await call({ action: "assign", card: id, to: "billing-core" });
@@ -62,13 +58,10 @@ describe("the owner a handoff records", () => {
 		expect(resultText(result)).toContain("Quiet: billing-core");
 	});
 
-	test("a read that fails after the message records the label, unresolved, and still told", async () => {
-		// The transition the pre-send read cannot hide: the dry run named the peer, the message landed,
-		// and the read that decides the owner could not answer. The label is where mail goes, the mark
-		// withdraws what a label would authorise, and `told` stands because the bus wrote the file.
-		const { call, seed, store } = harness({
-			roster: [[{ id: "s-billing-core", label: "billing-core", listening: true, state: "live" }], null],
-		});
+	test("a roster that cannot answer records the label, unresolved, and still tells the peer", async () => {
+		// The bus refuses an id it has no record for, so the label is where mail goes; the mark
+		// withdraws what a label would authorise, and `told` stands because the send took it.
+		const { call, seed, store } = harness({ roster: [null] });
 		const id = await seed();
 		const result = await call({ action: "assign", card: id, to: "billing-core" });
 

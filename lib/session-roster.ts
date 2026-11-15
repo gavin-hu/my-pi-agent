@@ -271,6 +271,25 @@ export const ALARM_REASON: Readonly<Record<PeerAlarm, string>> = {
 export type SessionPresence = RosterState | "absent";
 
 /**
+ * The labels among `labels` whose record carries `alarm`.
+ *
+ * A label the bus cannot answer for is left out — "the record does not say" is not "nobody will
+ * read it" — and a quiet peer is left to its own alarm, because the louder fact outranks a watch
+ * that is off. One body, so a result and the round cannot word one peer twice.
+ */
+export function peersWithAlarm(
+	peers: readonly PeerRow[] | undefined,
+	labels: readonly string[],
+	alarm: PeerAlarm,
+): string[] {
+	if (peers === undefined) return [];
+	return labels.filter((label) => {
+		const peer = peerNamed(peers, label);
+		return peer !== undefined && peerAlarm(peer) === alarm;
+	});
+}
+
+/**
  * The roster row one owner names: the record with the card's id when it carries one, else the label
  * a card written before ids carries.
  *

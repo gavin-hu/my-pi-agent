@@ -13,11 +13,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { registerTools } from "../../../extensions/team/tools.ts";
-import type { Dispatch } from "../../../extensions/team/dispatch.ts";
+import type { Deliver } from "../../../lib/session-tool.ts";
 import type { TeamDetails } from "../../../extensions/team/types.ts";
 import { type BoardSession, openBoardSession } from "../../../lib/workflow/session.ts";
 import type { Claims } from "../../../lib/workflow/claims.ts";
 import { MAX_WIP } from "../../../lib/workflow/limits.ts";
+import type { SendInput } from "../../../lib/session-tool.ts";
 import { notDeliveredLine, type Peer, type TeamJoin } from "../../../lib/session-tool.ts";
 import { writeBusRecord } from "../bus.ts";
 import { fakeCtx } from "../context.ts";
@@ -34,6 +35,8 @@ export const SUITE_LEAD = "gavin";
 export interface TeamSuiteOptions {
 	/** A send that throws this, so the failure path is the one under test. */
 	fail?: string;
+	/** A send that fails this once, so the repeat under test is the retry. */
+	failOnce?: string;
 	/**
 	 * A store write that throws this, so the half-applied path is the one under test.
 	 *
@@ -48,7 +51,7 @@ export interface TeamSuiteOptions {
 	 * had no way to see; a case stages that by moving the card here, which is the one moment
 	 * the message is on its way and the card is not yet touched.
 	 */
-	duringSend?: (input: { kind: "handoff" | "event" | "ask"; to: string; text: string }) => Promise<void> | void;
+	duringSend?: (input: SendInput) => Promise<void> | void;
 	/**
 	 * The team the bus lists, when the default pair is not the case.
 	 *
@@ -124,7 +127,7 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 						};
 					},
 				};
-	const sent: Array<{ kind: "handoff" | "event" | "ask"; to: string; text: string }> = [];
+	const sent: SendInput[] = [];
 	// A fixed team, because `assign` asks who a peer is before it sends: the bus's record is what the
 	// pre-check compares a holder against. What the card records comes from a second read, so a case
 	// about the write itself hands `roster` a second answer rather than reusing this one.
@@ -138,32 +141,45 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 	// The peers a case passes in; the default is the two above, listening. A case that hands a
 	// `roster` gets one answer per read, so the second read can describe a team the first did not.
 	let read = 0;
+	/** The last team the tool was handed, which is the one its send addressed. */
+	let latest: Peer[] | undefined = listed;
 	const nextRead = (): Peer[] | undefined => {
 		const roster = options.roster;
-		if (roster === undefined || roster.length === 0) return listed;
-		const answer = roster[Math.min(read, roster.length - 1)];
-		read += 1;
-		return answer ?? undefined;
+		const answer =
+			roster === undefined || roster.length === 0 ? listed : (roster[Math.min(read, roster.length - 1)] ?? undefined);
+		if (roster !== undefined && roster.length > 0) read += 1;
+		latest = answer;
+		return answer;
 	};
-	const dispatch: Dispatch = {
-		async send(input) {
-			if (options.fail !== undefined) throw new Error(options.fail);
+	let failedOnce = false;
+	const deliver: Deliver = {
+		async send(_ctx, input) {
+			if (options.fail !== undefined) return { ok: false as const, error: options.fail };
+			if (options.failOnce !== undefined && !failedOnce) {
+				failedOnce = true;
+				return { ok: false as const, error: options.failOnce };
+			}
 			sent.push(input);
 			await options.duringSend?.(input);
 			const failed = options.undelivered ?? [];
-			const reached = input.to === "*" ? ["billing-core", "billing-web"] : [input.to];
+			// The bus answers the recipient's label, not the address it was given: an id addressed a
+			// card names is written for a peer whose label is what the result prints.
+			const named = (latest ?? []).find((peer) => peer.id === input.to || peer.label === input.to);
+			const reached = input.to === "*" ? ["billing-core", "billing-web"] : [named?.label ?? input.to];
 			// A send that reached everybody is the default. A case that wants the partial
 			// fan-out names the peers a write failed for, and they leave the delivered list:
 			// one message file is either written for a peer or not.
 			const delivered = reached.filter((label) => !failed.some((entry) => entry.label === label));
 			// The bus refuses a send that reached nobody, and this stub has to as well — a fake that
 			// answered an empty list would let a case rebuild the branch the verbs no longer carry.
-			if (delivered.length === 0) throw new Error(notDeliveredLine(failed) ?? "no recipient could be written.");
-			return { delivered, failed };
+			if (delivered.length === 0) {
+				return { ok: false as const, error: notDeliveredLine(failed) ?? "no recipient could be written." };
+			}
+			return { ok: true as const, delivered, failed };
 		},
 		// The peers a case passes in, read by read: `assign` asks once for its dry run and again for
 		// the owner it records, so the two answers may differ.
-		async peers() {
+		async peers(_ctx) {
 			return nextRead();
 		},
 	};
@@ -180,7 +196,7 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 			return { ok: true, label, watching: { armed: true, wake: false } };
 		},
 	};
-	registerTools(fake.pi, sessionForTool, { dispatch: () => dispatch, team });
+	registerTools(fake.pi, sessionForTool, { deliver, team });
 	const tool = fake.tools.get("team");
 	if (!tool) throw new Error("the team tool was not registered");
 	const { ctx } = fakeCtx({ cwd, sessionId: "s-lead", sessionName: "billing-lead" });

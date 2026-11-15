@@ -77,20 +77,20 @@ describe("offer", () => {
 		expect(sent).toEqual([]);
 	});
 
-	test("reports a broadcast that reached nobody, and leaves the card alone", async () => {
+	test("records the offer, then reports a broadcast that reached nobody", async () => {
 		const { call, seed, store } = harness({ fail: "no other active sessions." });
 		const id = await seed();
-		const before = await (await store()).read(id);
 		const result = await call({ action: "offer", card: id });
 		expect(result.isError).toBe(true);
-		expect(resultText(result)).toContain("#1 was not offered: no other active sessions.");
-		expect(resultText(result)).toContain("The card is unchanged.");
-		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
+		expect(resultText(result)).toContain(
+			`#${id} is offered and recorded, but the broadcast did not reach anybody: no other active sessions.`,
+		);
+		expect(resultText(result)).toContain("Offer it again to retry");
+		// The record is the moment; the message is what nobody heard, and a repeat re-sends it keyed.
+		expect((await (await store()).read(id))?.offeredAt).toBe(NOW);
 	});
 
-	test("a broadcast whose every inbox refused is the send that failed, not an offer", async () => {
-		// The bus writes one file per inbox and refuses a send that reached none — the total fan-out
-		// failure, which is the shape the verbs used to word as `offered to nobody`.
+	test("a broadcast whose every inbox refused is a recorded offer nobody heard", async () => {
 		const { call, seed, store } = harness({
 			undelivered: [
 				{ label: "billing-core", error: "EEXIST: file already exists" },
@@ -100,11 +100,9 @@ describe("offer", () => {
 		const id = await seed();
 		const result = await call({ action: "offer", card: id });
 		expect(result.isError).toBe(true);
-		expect(resultText(result)).toContain(
-			"was not offered: Not delivered to billing-core (EEXIST: file already exists)",
-		);
-		expect(resultText(result)).toContain("The card is unchanged.");
-		expect((await (await store()).read(id))?.offeredAt).toBeUndefined();
+		expect(resultText(result)).toContain("the broadcast did not reach anybody");
+		expect(resultText(result)).toContain("Billing-core".toLowerCase());
+		expect((await (await store()).read(id))?.offeredAt).toBe(NOW);
 	});
 
 	test("records the offer a peer could not be reached for, and names it", async () => {
@@ -122,50 +120,30 @@ describe("offer", () => {
 		expect((await (await store()).read(id))?.offeredAt).toBe(NOW);
 	});
 
-	test("a record that throws after the broadcast says who heard, and sends no correction", async () => {
-		// The peers have the event; the store threw on the record that follows it. The lead is
-		// told both halves, because a re-offer is the move a bare reason invites and it wakes
-		// every peer again.
+	test("a record that throws sends no broadcast", async () => {
 		const broken = harness({ failWrite: "EPERM: operation not permitted, rename 'cards/0001.json'" });
 		const id = await broken.seed();
 		const result = await broken.call({ action: "offer", card: id });
 
-		expect(broken.sent).toHaveLength(1);
-		expect(broken.sent[0]?.to).toBe("*");
+		// State first: a record that cannot land is an offer that was never made, so no peer is woken.
+		expect(broken.sent).toEqual([]);
 		expect(result.isError).toBe(true);
-		expect(resultText(result)).toContain(
-			`#${id} was offered, but recording the offer failed: EPERM: operation not permitted`,
-		);
-		expect(resultText(result)).toContain("read the card with `board` action `list` before offering it again");
-		expect(result.details.delivered).toEqual(["billing-core", "billing-web"]);
-		expect(result.details.card).toMatchObject({ lane: "backlog", id });
-		// Nothing recorded an offer that never landed, so the board's card carries no timestamp.
+		expect(resultText(result)).toContain(`#${id} was not offered: EPERM: operation not permitted`);
+		expect(resultText(result)).toContain("The card is unchanged.");
 		expect((await (await broken.store()).read(id))?.offeredAt).toBeUndefined();
 	});
 
-	test("an offer whose record loses the race sends no correction, and the claim is what tells a peer", async () => {
-		let id = "";
-		const race = harness({
-			duringSend: async () => {
-				const claimed = await (await race.store()).mutate(id, { kind: "claim" }, { label: "billing-web" }, NOW + 1);
-				expect(claimed.ok).toBe(true);
-			},
-		});
-		id = await race.seed();
+	test("a record the store refuses sends no broadcast", async () => {
+		const race = harness();
+		const id = await race.seed();
+		await (await race.store()).mutate(id, { kind: "claim" }, { label: "billing-web" }, NOW + 1);
 		const result = await race.call({ action: "offer", card: id });
 
-		// One broadcast and nothing after it: the offer's only next step is a claim, and the store
-		// refuses that naming the holder — so a stale offer cannot send a peer anywhere it is not
-		// told, and a second message would only wake every peer again.
-		expect(race.sent).toHaveLength(1);
-		expect(race.sent[0]?.to).toBe("*");
+		expect(race.sent).toEqual([]);
 		expect(result.isError).toBe(true);
-		expect(resultText(result)).toContain("was offered, but recording the offer was refused");
-		expect(result.details.card).toMatchObject({ owner: { label: "billing-web" } });
-
-		const late = await (await race.store()).mutate(id, { kind: "claim" }, { label: "billing-core" }, NOW + 2);
-		if (late.ok) throw new Error("a card somebody holds is not claimable");
-		expect(late.error).toContain("is held by billing-web");
+		// The precheck refuses it before the write, which is the cheapest place to refuse: no record
+		// and no broadcast.
+		expect(resultText(result)).toContain("is held by billing-web");
 	});
 
 	test("names the peers it reached that are not listening", async () => {

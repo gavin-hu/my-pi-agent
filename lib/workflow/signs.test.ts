@@ -89,7 +89,7 @@ describe("the run a done move reads", () => {
 		// the card's own clock alone would refuse the golden path.
 		const signed = stepOf(verifying(), { kind: "review", verified: { cmd: VERIFY, exit: 0, at: NOW } }, LEAD);
 		const announced = accepted(
-			applyOp(signed, { kind: "announced", sign: "review" }, LEAD, NOW + 1, boardOf(signed)),
+			applyOp(signed, { kind: "announced", notice: "review" }, LEAD, NOW + 1, boardOf(signed)),
 		).card;
 		expect(announced.updatedAt).toBeGreaterThan(signed.review?.at ?? 0);
 		expect(accepted(applyOp(announced, doneOf(announced), CORE, NOW + 2, boardOf(announced))).card.lane).toBe("done");
@@ -108,7 +108,7 @@ describe("the run a done move reads", () => {
 	test("refuses a note added after the announcement too, which is a later write again", () => {
 		const signed = stepOf(verifying(), { kind: "review", verified: { cmd: VERIFY, exit: 0, at: NOW } }, LEAD);
 		const announced = accepted(
-			applyOp(signed, { kind: "announced", sign: "review" }, LEAD, NOW + 1, boardOf(signed)),
+			applyOp(signed, { kind: "announced", notice: "review" }, LEAD, NOW + 1, boardOf(signed)),
 		).card;
 		const noted = accepted(
 			applyOp(announced, { kind: "note", text: "one more thing" }, CORE, NOW + 2, boardOf(announced)),
@@ -341,7 +341,7 @@ describe("the message a sign owes", () => {
 		const card = written();
 		const signed = step(card, approveOf(card));
 		expect(signed.changed).toBe(true);
-		expect(signed.announce).toBe(true);
+		expect(signed.notice).toBe("approve");
 	});
 
 	test("a repeat sign owes it while the sign is untold, and writes nothing while doing so", () => {
@@ -349,7 +349,7 @@ describe("the message a sign owes", () => {
 		// Nothing recorded the announcement, so the repeat is the retry — and it stamps nothing.
 		const again = step(untold(signed), approveOf(signed));
 		expect(again.changed).toBe(false);
-		expect(again.announce).toBe(true);
+		expect(again.notice).toBe("approve");
 	});
 
 	test("a repeat whose sign was told owes nothing at all", () => {
@@ -363,7 +363,7 @@ describe("the message a sign owes", () => {
 		};
 		const again = step(told, approveOf(told));
 		expect(again.changed).toBe(false);
-		expect(again.announce).toBeUndefined();
+		expect(again.notice).toBeUndefined();
 	});
 
 	test("a note added by a repeat rides the same rule", () => {
@@ -372,6 +372,6 @@ describe("the message a sign owes", () => {
 		const signed = untold(stepOf(approved(), approveOf(approved()), LEAD));
 		const withNote = step(signed, { ...approveOf(signed), text: "read again" });
 		expect(withNote.changed).toBe(true);
-		expect(withNote.announce).toBe(true);
+		expect(withNote.notice).toBe("approve");
 	});
 });

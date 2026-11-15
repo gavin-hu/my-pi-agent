@@ -62,6 +62,7 @@ import {
 	spotCheckRefusal,
 } from "./lead.ts";
 import { ownerRefusal, type WipLimits, wipRefusal } from "./limits.ts";
+import { owesHandoff } from "./card.ts";
 import { type BoardIndex, dependedOn, lanesText, normalizeDepends, openDependentsOf, waitingOn } from "./links.ts";
 import type { Actor, CardOp, Prepared } from "./rules.ts";
 
@@ -70,11 +71,10 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be claimed.` };
 	if (holds(card, actor)) return { changed: false, fields: null };
 	if (card.owner !== undefined) return { error: heldBy(card) };
-	// The wait is asked here rather than read off the table: a claim enters `plan` from the pool,
-	// which is not a lane change `move` can make.
+	// A claim enters `plan` from the pool, which `move` cannot do, so the wait is asked here.
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
-	// The session's own cap before the lane's: the card it already carries is the one it can act on.
+	// The session's own cap before the lane's.
 	const carried = ownerRefusal(actor, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
 	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined });
@@ -89,21 +89,26 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
  */
 export function assign(card: Card, to: CardOwner, board: BoardIndex, limits: WipLimits): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be assigned.` };
-	if (card.owner !== undefined) return { error: holds(card, to) ? alreadyHeldBy(card) : heldBy(card) };
+	if (card.owner !== undefined) {
+		// The card is the peer's; the message may not be. A repeat is the retry for an untold handoff,
+		// keyed by the handoff's own stamp so it folds into the copy still waiting.
+		if (holds(card, to) && owesHandoff(card)) return { changed: false, fields: null, notice: "assign" };
+		return { error: holds(card, to) ? alreadyHeldBy(card) : heldBy(card) };
+	}
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
-	// The target's cap, before the write and the message the caller sends first: nothing is delivered.
+	// The target's cap, before the write.
 	const carried = ownerRefusal(to, [...board.values()], limits);
 	if (carried !== undefined) return { error: carried };
-	// A pool card is the only card this moves: the owner inherits the work from its first step.
-	return enter(card, "plan", board, limits, { owner: to, offeredAt: undefined });
+	// A pool card is the only card this moves: the owner inherits it.
+	const entered = enter(card, "plan", board, limits, { owner: to, offeredAt: undefined });
+	return "error" in entered ? entered : { ...entered, notice: "assign" as const };
 }
 
 /** Hand a card back to the pool. The contract and its approval stay: the plan did not change. */
 export function release(card: Card, actor: Actor): Prepared {
-	// Finished work is history: every other transition refuses it, and a release that did
-	// not would be the one way a `done` card could go backwards — reopening the order a
-	// dependency was recorded against.
+	// Finished work is history: a release that admitted it would reopen the order a dependency
+	// was recorded against.
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be released.` };
 	if (card.owner === undefined) return { error: `${cardRef(card.id)} is not claimed.` };
 	if (!holds(card, actor)) return { error: `${heldBy(card)} Release is the owner's decision.` };
@@ -162,10 +167,8 @@ export function reseat(card: Card, actor: Actor, now: number, holder?: HolderFac
 		const why = state === undefined ? "nothing says it stopped" : `it is ${state}`;
 		return { error: `${ref}'s owner is not stopped — ${why} — so only the lead takes its card.` };
 	}
-	// The old id goes into a note rather than into the card: the write's own `by` names who took it,
-	// and a later reader otherwise finds a write nobody can explain. Not a lane entry — `laneSince`
-	// reads that log to decide whether a spot-check is stale, so a made-up transition would move a
-	// rule rather than record one.
+	// The old id goes into a note rather than the card, and never into the lane log: `laneSince` reads
+	// that log to decide whether a spot-check is stale, so a made-up transition would move a rule.
 	const from = owner.id === undefined ? "a label-only owner" : `owner ${owner.id.slice(-6)}`;
 	return {
 		changed: true,
@@ -394,10 +397,8 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 	// keeping it would let a session swap the artifact after a peer read the old one.
 	else if (rePointed && card.contract?.approved !== undefined) fields.contract = mergedContract(card.contract, {});
 	if (Object.keys(fields).length === 0) return { changed: false, fields: null };
-	// The first gate is the lead's, and this write is the moment it becomes payable: the four lines
-	// are whole, the plan is named, and nothing has signed it. Only a write that changed something
-	// reaches here, so a repeated call asks nobody twice — and a changed line drops the signature
-	// above, which is why rewriting an approved contract asks again instead of staying quiet.
+	// The first gate is the lead's, and this write is the moment it becomes payable. Only a changed
+	// write reaches here, so a repeat asks nobody twice.
 	const contract = fields.contract ?? card.contract;
 	const plan = fields.planPath ?? card.planPath;
 	const ready =
@@ -405,7 +406,7 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 		contract !== undefined &&
 		missingContractFields(contract).length === 0 &&
 		!contractApproved(contract);
-	return { changed: true, fields, ...(ready ? { ready: true as const } : {}) };
+	return { changed: true, fields, ...(ready ? { notice: "ready" as const } : {}) };
 }
 
 /**
@@ -449,16 +450,14 @@ export function approve(
 	if (unproved !== undefined) return { error: unproved };
 	const noted = signNote(card, op.text, actor, now);
 	if ("error" in noted) return { error: noted.error };
-	// A second sign from the same signer says nothing new, so the contract keeps its stamp; the
-	// note still lands, because a caller who wrote one recorded a fact about the card. Who the
-	// signer is takes the name *and* the person's mark (`lead.ts`), not the label: the person signs
-	// as the lead, so a label compare would read a lead's sign back as the person's and re-stamp it.
+	// A second sign from the same signer says nothing new, so the contract keeps its stamp; the note
+	// still lands. `signedAs` compares the name *and* the person's mark (`lead.ts`), not the label.
 	const signed = signedAs(contract.approved, actor, config.lead);
-	// A repeat owes the message only while the sign says it never landed (`lead.ts`): the one retry.
+	// A repeat owes the message only while the sign says it never landed.
 	const owes = owesAnnouncement(card, "approve", actor, config.lead);
-	if (signed && !noted.wrote) return { changed: false, fields: null, ...(owes ? { announce: true as const } : {}) };
+	if (signed && !noted.wrote) return { changed: false, fields: null, ...(owes ? { notice: "approve" as const } : {}) };
 	const approval = signed ? {} : { contract: { ...contract, approved: { ...signMark(actor, config.lead), at: now } } };
-	return { changed: true, fields: { ...approval, ...noted.fields }, ...(owes ? { announce: true as const } : {}) };
+	return { changed: true, fields: { ...approval, ...noted.fields }, ...(owes ? { notice: "approve" as const } : {}) };
 }
 
 /**
@@ -527,7 +526,7 @@ export function offer(card: Card, now: number, board: BoardIndex, limits: WipLim
 	if (waiting !== undefined) return { error: waiting };
 	const full = wipRefusal("plan", [...board.values()], limits);
 	if (full !== undefined) return { error: `${cardRef(card.id)} cannot be offered: ${full}` };
-	return { changed: true, fields: { offeredAt: now } };
+	return { changed: true, fields: { offeredAt: now }, notice: "offer" };
 }
 
 /**

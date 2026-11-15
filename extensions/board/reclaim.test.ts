@@ -14,6 +14,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Claims } from "../../lib/workflow/claims.ts";
+import type { SendInput } from "../../lib/session-tool.ts";
+import type { Deliver } from "../../lib/session-tool.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import type { ClaimPathsResult, ReleasePathsResult } from "../../lib/session-tool.ts";
 import { boardHarness, boardTool } from "../../test/helpers/board.ts";
@@ -48,6 +50,65 @@ function board() {
 	const open = (sessionId: string) => boardTool({ cwd, agentDir, lead: LEAD, now: NOW, sessionId });
 	return { cwd, lead: open(LEAD_ID), peer: open(PEER_ID), other: open("s-other") };
 }
+
+describe("a reclaim's message", () => {
+	/** A board for one session, with the delivery seam recorded. */
+	function recorder(sessionId: string, dirs: { cwd?: string; agentDir?: string } = {}) {
+		const sent: SendInput[] = [];
+		const notify: Deliver = {
+			send: async (_ctx, input) => {
+				sent.push(input);
+				return { ok: true, delivered: [input.to], failed: [] };
+			},
+			peers: async () => undefined,
+		};
+		const board = boardHarness({ now: NOW, lead: LEAD, track: temps.track, sessionId, ...dirs });
+		registerTools(board.fake.pi, board.runtime, { notify });
+		const tool = board.fake.pi.tools.get("board");
+		if (!tool) throw new Error("the board tool was not registered");
+		const call = async (args: Record<string, unknown>) =>
+			(await tool.execute("call-1", args, undefined, undefined, board.ctx)) as {
+				content: Array<{ text: string }>;
+				details: BoardDetails;
+				isError?: boolean;
+			};
+		return { board, call, sent };
+	}
+
+	test("tells the owner whose card it took, keyed to the card and about it", async () => {
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const lead = recorder(LEAD_ID, { cwd, agentDir });
+		const peer = recorder(PEER_ID, { cwd, agentDir });
+		await lead.call({ action: "add", title: "One" });
+		// The card is the peer's, claimed through the same store the lead's tool reads.
+		await (await peer.board.runtime.store(peer.board.ctx.cwd)).mutate(
+			"1",
+			{ kind: "claim" },
+			{ id: PEER_ID, label: PEER },
+			NOW,
+		);
+		writeBusRecord(await lead.board.runtime.busDir(lead.board.ctx.cwd), { id: PEER_ID, label: PEER, lastSeen: NOW });
+
+		const taken = await lead.call({ action: "reclaim", card: "1" });
+		expect(taken.isError).toBeFalsy();
+		expect(lead.sent).toHaveLength(1);
+		expect(lead.sent[0]).toMatchObject({ kind: "event", to: PEER_ID, about: "1" });
+		expect(lead.sent[0]?.text).toContain("Taken back");
+		expect(lead.sent[0]?.key).toBe(`card:1:reclaim:${taken.details.card?.updatedAt}`);
+	});
+
+	test("a holder releasing its own card is not told anything", async () => {
+		// The holder's own reclaim is a release by another name: the card is already its reader's,
+		// and a message to itself would be a fact it just wrote.
+		const peer = recorder(PEER_ID);
+		await peer.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		const taken = await peer.call({ action: "reclaim", card: "1" });
+		expect(taken.isError).toBeFalsy();
+		expect(peer.sent).toEqual([]);
+	});
+});
 
 describe("a peer's reclaim", () => {
 	test("is refused while the holder is running, and the lead's is not", async () => {

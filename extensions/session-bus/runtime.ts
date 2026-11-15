@@ -32,6 +32,7 @@ import {
 	normalizeLabel,
 	normalizeLimit,
 	normalizePaths,
+	normalizeReference,
 	normalizeText,
 	resolveRecipients,
 	sessionMode,
@@ -510,6 +511,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			if ("error" in text) throw new Error(text.error);
 			const keyed = normalizeKey(input.key);
 			if ("error" in keyed) throw new Error(keyed.error);
+			const replyTo = normalizeReference("replyTo", input.replyTo);
+			if ("error" in replyTo) throw new Error(replyTo.error);
+			const about = normalizeReference("about", input.about);
+			if ("error" in about) throw new Error(about.error);
 			const kind = normalizeKind(input.kind);
 			if (input.to.trim() === "*" && kind !== "event") throw new Error('a broadcast needs kind: "event".');
 			// Mail reaches a session that can still answer, by the rule `status` and the prune
@@ -534,6 +539,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				kind,
 				text: text.text,
 				...(keyed.key === undefined ? {} : { key: keyed.key }),
+				...(replyTo.value === undefined ? {} : { replyTo: replyTo.value }),
+				...(about.value === undefined ? {} : { about: about.value }),
 				...(paths ? { paths } : {}),
 				at: now(),
 			});

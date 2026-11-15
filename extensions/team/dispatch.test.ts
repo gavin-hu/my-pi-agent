@@ -10,22 +10,10 @@
 import { describe, expect, test } from "bun:test";
 import type { Card } from "../../lib/workflow/card.ts";
 import { askLead } from "../../lib/workflow/contract.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
-import {
-	actorFor,
-	askText,
-	handoffText,
-	notListening,
-	quiet,
-	offerText,
-	ownerFor,
-	sessionDispatch,
-} from "./dispatch.ts";
-
-/** The host a nested call never asks: a tool's `send` answers before it reads `pi`. */
-const HOST = {} as Parameters<typeof sessionDispatch>[0];
+import { askText } from "./dispatch.ts";
+import { actorFor, handoffText, noticeText, offerText, ownerFor } from "../../lib/workflow/notice.ts";
 
 /** The lead a case hands the builder: the name a sign has to carry. */
 const LEAD = "billing-lead";
@@ -49,10 +37,10 @@ describe("handoffText", () => {
 		const text = handoffText(card(), "billing-core", LEAD);
 		expect(text).toContain('Handoff: #4 "Billing webhook accepts orders" is yours, billing-core.');
 		expect(text).toContain("Paths: src/billing");
-		expect(text).toContain("already assigned to you");
-		// `assign` records the owner, so a claim is not the handoff's first step; it is the failure
-		// hedge's other branch, for a write that landed no owner at all.
-		expect(text).toContain('if it shows nobody, claim it with board action "claim"');
+		// The card is written before the message exists, so the first step is the contract — a claim
+		// would be the no-op the order no longer needs.
+		expect(text).toContain('Write its contract with board action "contract"');
+		expect(text).not.toContain('action "claim"');
 	});
 
 	test("names the two moves the lead has to sign, and who to tell", () => {
@@ -79,27 +67,26 @@ describe("handoffText", () => {
 		expect(text).toContain("Note: start with the webhook");
 	});
 
-	test("says what to do if the assignment lost the race after the message", () => {
-		// The message is sent before the owner is recorded, so the peer can be reading a card
-		// another session took, or one the write left nobody's. The clause is the only correction
-		// that cannot be lost, because the peer already holds it, so it names both outcomes and
-		// both steps: leave a rival's card alone, claim an unowned one.
+	test("says what to do if the card was taken back after the message", () => {
+		// The write lands first, so the only way the peer reads another owner is a reclaim in
+		// between — one condition, not the two the old send-first order had.
 		const text = handoffText(card(), "billing-core", LEAD);
 		expect(text).toContain("If the board shows another owner");
 		expect(text).toContain(`leave it alone and ${askLead(LEAD)}`);
-		expect(text).toContain('if it shows nobody, claim it with board action "claim"');
-		expect(text.indexOf("claim it with")).toBeLessThan(text.indexOf("Paths:"));
+		expect(text).not.toContain("claim it with");
+		expect(text.indexOf("taken back")).toBeLessThan(text.indexOf("Paths:"));
 	});
 
 	test("stays inside the send limit, however many paths a card carries", () => {
 		const long = card({ paths: Array.from({ length: 60 }, (_, index) => `${"x".repeat(190)}${index}`) });
-		const text = handoffText(long, "billing-core", LEAD);
+		// The clip is composition's (`noticeText`), so the text a door sends is the one asserted here.
+		const text = noticeText("assign", long, { lead: LEAD, to: "billing-core" });
 		expect(text.length).toBeLessThanOrEqual(MAX_MESSAGE_TEXT);
 		// A clipped message must keep the step it was sent to give: the paths are the only
 		// line long enough to push the gates past the limit, so both sentences come before them.
 		expect(text).toContain(`ask ${LEAD} with \`session send\` when each is ready`);
+		expect(text).toContain("was taken back after this message");
 		expect(text).toContain(`leave it alone and ${askLead(LEAD)}`);
-		expect(text).toContain('claim it with board action "claim"');
 	});
 });
 
@@ -126,112 +113,6 @@ describe("offerText", () => {
 		expect(text).toContain("Note: whoever is free");
 		const long = card({ paths: Array.from({ length: 60 }, (_, index) => `${"x".repeat(190)}${index}`) });
 		expect(offerText(long, LEAD).length).toBeLessThanOrEqual(MAX_MESSAGE_TEXT);
-	});
-});
-
-describe("sessionDispatch", () => {
-	test("sends a handoff through the session tool and reports the labels it wrote for", async () => {
-		const { ctx, toolCalls } = fakeCtx({ extra: {} });
-		ctx.executeTool = async (name: string, args: unknown) => {
-			toolCalls.push({ name, args });
-			return {
-				isError: false,
-				result: { content: [], details: { action: "send", delivered: ["billing-core"], messageId: "m1" } },
-			};
-		};
-		const result = await sessionDispatch(HOST, ctx).send({
-			kind: "handoff",
-			to: "billing-core",
-			text: "Handoff: take #4",
-		});
-		expect(result.delivered).toEqual(["billing-core"]);
-		expect(toolCalls[0]).toEqual({
-			name: "session",
-			args: { action: "send", kind: "handoff", to: "billing-core", text: "Handoff: take #4" },
-		});
-	});
-
-	test("turns a failed outcome into a throw with the message the model would have read", async () => {
-		const { ctx } = fakeCtx({ executeError: 'no active session "billing-core".' });
-		await expect(
-			sessionDispatch(HOST, ctx).send({ kind: "handoff", to: "billing-core", text: "text" }),
-		).rejects.toThrow('no active session "billing-core".');
-	});
-
-	test("a failure with no text still says the send did not land", async () => {
-		const { ctx } = fakeCtx();
-		ctx.executeTool = async () => ({ isError: true, result: { content: [], details: undefined } });
-		await expect(sessionDispatch(HOST, ctx).send({ kind: "event", to: "*", text: "text" })).rejects.toThrow(
-			"the session bus did not answer.",
-		);
-	});
-
-	test("lists the peers the bus knows, with the state their record carries", async () => {
-		const { ctx } = fakeCtx();
-		ctx.executeTool = async (_name: string, args: unknown) => {
-			if ((args as { action?: string }).action === "status") {
-				return {
-					isError: false,
-					result: {
-						content: [],
-						details: {
-							action: "status",
-							status: {
-								me: { id: "s-lead", label: "billing-lead" },
-								onBus: true,
-								sessions: [
-									{ id: "s-core", label: "billing-core", watching: { armed: true, wake: false } },
-									{ id: "s-web", label: "billing-web" },
-								],
-								claims: [],
-							},
-						},
-					},
-				};
-			}
-			throw new Error("unexpected call");
-		};
-		expect(await sessionDispatch(HOST, ctx).peers()).toEqual([
-			{ id: "s-core", label: "billing-core", listening: true },
-			{ id: "s-web", label: "billing-web" },
-		]);
-	});
-
-	test("a read that fails answers nothing rather than undoing a handoff", async () => {
-		const { ctx } = fakeCtx({ executeError: true });
-		expect(await sessionDispatch(HOST, ctx).peers()).toBeUndefined();
-	});
-
-	test("an outcome without labels reports none, rather than inventing a recipient", async () => {
-		const { ctx } = fakeCtx();
-		ctx.executeTool = async () => ({ isError: false, result: { content: [], details: {} } });
-		expect((await sessionDispatch(HOST, ctx).send({ kind: "handoff", to: "peer", text: "text" })).delivered).toEqual(
-			[],
-		);
-	});
-});
-
-describe("notListening and quiet", () => {
-	const peers = [
-		{ id: "s-core", label: "billing-core", listening: true, state: "live" as const },
-		{ id: "s-web", label: "billing-web", listening: false, state: "live" as const },
-		{ id: "s-quiet", label: "ops-helper", listening: true, state: "quiet" as const },
-		{ id: "s-old", label: "billing-old" },
-	];
-	const labels = ["billing-core", "billing-web", "ops-helper", "billing-old", "ghost"];
-
-	test("names the peers whose record says they are not listening", () => {
-		// A record that does not say is not a claim that nobody will read it.
-		expect(notListening(peers, labels)).toEqual(["billing-web"]);
-		expect(notListening(undefined, ["billing-web"])).toEqual([]);
-	});
-
-	test("names a quiet peer once, as quiet rather than as not listening", () => {
-		// A heartbeat that aged out says nothing is known to be there, which outranks the watch the
-		// record still carries: one peer, one sentence, the louder of the two.
-		expect(quiet(peers, labels)).toEqual(["ops-helper"]);
-		expect(notListening(peers, ["ops-helper"])).toEqual([]);
-		expect(quiet(undefined, labels)).toEqual([]);
 	});
 });
 
@@ -301,6 +182,9 @@ describe("askText", () => {
 		const text = askText("is #162 ready for review?", "a1b2c3d4", byId);
 		expect(text.startsWith("Ask a1b2c3d4: is #162 ready for review?")).toBe(true);
 		expect(text).toContain('session send to "7f3a91c2" (a session id, not a label)');
+		// The reply sets the envelope field rather than only a prose prefix: the bus prints it as
+		// `re: <id>` on the row, and the ask says so.
+		expect(text).toContain('replyTo "a1b2c3d4"');
 		expect(text).toContain("re: a1b2c3d4");
 		expect(text).toContain("nothing is waiting on it");
 	});

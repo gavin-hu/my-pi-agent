@@ -46,7 +46,8 @@ import type { Lane } from "./lanes.ts";
 import type { BoardIndex } from "./links.ts";
 import { archive, assign, claim, closedArchive, drop, edit, move, note, offer, release, reseat } from "./steps.ts";
 
-import { type HolderFact, announced, type Sign, reclaim, review } from "./lead.ts";
+import { type HolderFact, announced, type NoticeField, reclaim, review } from "./lead.ts";
+import type { NoticeKind } from "./notice.ts";
 import { approve, contractOp } from "./steps.ts";
 
 /** Who is attempting an operation: a session when it has one, and the label it is addressed by. */
@@ -156,25 +157,20 @@ export type CardOp =
 	 * absent, which is what lets a repeat sign owe the message again. Not a tool action: the gates
 	 * dispatch it themselves, so nothing about it reaches the board's published surface.
 	 */
-	| { kind: "announced"; sign: Sign };
+	| { kind: "announced"; notice: NoticeField };
 
 /**
  * What an operation did: the new card, or the reason it was refused.
  *
- * `announce` and `ready` are the two facts `changed` cannot carry. A repeat sign that stamped
- * nothing still owes the owner the sign's message while the card says it was never told, so a
- * caller reads "this call owes a message" off the result rather than inferring it from a write.
- * `ready` is the other direction: the write that completed a contract owes the lead a message
- * whether or not anything else about the card moved.
+ * `notice` is the fact `changed` cannot carry: the write owes one message, and which transition it
+ * is for. A repeat sign that stamped nothing still owes the owner its message while the card says
+ * the sign was never told; a completed contract owes the lead one whether or not anything else
+ * moved. The caller reads the kind off the result rather than inferring it from a write.
  */
-export type OpResult =
-	| { ok: true; card: Card; changed: boolean; announce?: true; ready?: true }
-	| { ok: false; error: string };
+export type OpResult = { ok: true; card: Card; changed: boolean; notice?: NoticeKind } | { ok: false; error: string };
 
 /** What one operation would write, or why it may not. */
-export type Prepared =
-	| { error: string }
-	| { fields: Partial<Card> | null; changed: boolean; announce?: true; ready?: true };
+export type Prepared = { error: string } | { fields: Partial<Card> | null; changed: boolean; notice?: NoticeKind };
 
 /** A card's first state: `backlog`, no owner, one note at most. */
 export function createCard(
@@ -248,14 +244,12 @@ export function applyOp(
 	const prepared = prepare(card, op, actor, now, board, config, place);
 	if ("error" in prepared) return { ok: false, error: prepared.error };
 	// Carried by both shapes: a repeat sign writes nothing and still owes the owner its message.
-	const announce = prepared.announce === true ? { announce: true as const } : {};
-	// The other direction, carried the same way: the write that completed a contract owes the lead one.
-	const ready = prepared.ready === true ? { ready: true as const } : {};
-	if (!prepared.changed) return { ok: true, card, changed: false, ...announce, ...ready };
+	const notice = prepared.notice === undefined ? {} : { notice: prepared.notice };
+	if (!prepared.changed) return { ok: true, card, changed: false, ...notice };
 	// `archive` changes the pile a card's file lies in and no field at all, which is why
 	// its step has nothing to write and the store's move is the whole of the operation.
-	if (prepared.fields === null) return { ok: true, card, changed: true, ...announce, ...ready };
-	return { ok: true, card: write(card, actor, now, prepared.fields), changed: true, ...announce, ...ready };
+	if (prepared.fields === null) return { ok: true, card, changed: true, ...notice };
+	return { ok: true, card: write(card, actor, now, prepared.fields), changed: true, ...notice };
 }
 
 /**

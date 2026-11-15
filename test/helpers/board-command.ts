@@ -18,7 +18,7 @@ import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { JoinResult, TeamJoinInput } from "../../lib/session-tool.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { BOARD_COMMAND, registerCommands } from "../../extensions/board/commands.ts";
-import type { Notify } from "../../extensions/board/announce.ts";
+import type { Deliver } from "../../lib/session-tool.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import type { TeamJoin } from "../../extensions/board/join.ts";
@@ -154,7 +154,7 @@ export function pageWithNoRecording(): BoardPage {
 export const SIGNING_LEAD = "team-lead";
 export async function signingBoard(
 	options: {
-		notify?: Notify;
+		notify?: Deliver;
 		verify?: VerifyRun;
 		/** A store the case wraps — a record that cannot be written is one of these. */
 		wrapStore?: (store: BoardStore) => BoardStore;

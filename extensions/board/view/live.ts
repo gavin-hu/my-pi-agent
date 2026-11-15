@@ -257,6 +257,7 @@ const liveTemplate = String.raw`(function () {
       unapproved: expand(round.unapproved),
       unreviewed: expand(round.unreviewed),
       blocked: expand(round.blocked),
+      untold: expand(round.untold),
       unwritten: expand(round.unwritten),
       done: expand(round.done),
       archivable: expand(round.archivable)
