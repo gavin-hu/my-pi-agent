@@ -15,6 +15,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `team`: `/team join` says `listening` where it said `listening for handoffs` — the word `/board`
+  already used for the same watch, from one phrase in `lib/board/round-text.ts`. The three
+  action-shaped tools also stopped carrying their own action normalizer and their own actor settle:
+  `memberOf` in `lib/json.ts` and `attempt` in `lib/errors.ts` are `lib/`'s now, and both refusals go
+  through `toolError`. Their command-word parse stays per command, because a third `lib/` module does
+  not fit the registration budget.
+
 - `lib`: `plural` and `clipText` are `lib/format.ts`'s now, so the bus's own `count` (three copies,
   none of them visible to the duplicate check) and team's `withinLimit` are gone, and every importer
   takes the one helper. A clipped body is at most the limit it was given, the ellipsis counted inside

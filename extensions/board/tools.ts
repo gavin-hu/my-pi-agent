@@ -23,7 +23,7 @@ import { signMark } from "../../lib/board/lead.ts";
 import type { VerifyRun } from "../../lib/board/verify.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
-import { messageOf } from "../../lib/errors.ts";
+import { attempt, messageOf } from "../../lib/errors.ts";
 import { listOf } from "../../lib/format.ts";
 import { strayField } from "../../lib/stray-fields.ts";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
@@ -150,12 +150,9 @@ export function registerTools(
 			}
 			// The actor names every refusal below, and reading it fails like anything else can: a
 			// failure is a refusal carrying the tool's own name, not a call the transcript cannot draw.
-			const actor = await runtime.who(ctx, ctx.cwd).then(
-				(known) => known,
-				(error: unknown) => messageOf(error),
-			);
-			if (typeof actor === "string") return refusal(action, { label: BOARD_TOOL }, actor);
-			const me = actor;
+			const known = await attempt(runtime.who(ctx, ctx.cwd));
+			if ("error" in known) return refusal(action, { label: BOARD_TOOL }, known.error);
+			const me = known.value;
 			/** What `store.mutate` should be told about the card's plan, proved the way the tool proves it. */
 			const proofOf = (store: BoardStore, rawCard: string | undefined, lane?: Lane) =>
 				(proofModule ??= import("./proof.ts")).then((m) => m.moveProofs(runtime, ctx.cwd, store, rawCard, lane, pi));

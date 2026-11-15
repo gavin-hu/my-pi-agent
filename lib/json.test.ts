@@ -8,7 +8,7 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { tempDir } from "../test/helpers/env.ts";
-import { writeJsonFile } from "./json.ts";
+import { writeJsonFile, memberOf } from "./json.ts";
 
 describe("writeJsonFile", () => {
 	function newPath(): string {
@@ -85,5 +85,31 @@ describe("writeJsonFile", () => {
 		mkdirSync(path);
 		expect(() => writeJsonFile(path, { a: 1 })).toThrow();
 		expect(readdirSync(dirname(path))).toEqual(["document.json"]);
+	});
+});
+
+describe("memberOf", () => {
+	const ACTIONS = ["claim", "release"] as const;
+
+	test("answers the value when the table holds it", () => {
+		expect(memberOf(ACTIONS, "claim")).toBe("claim");
+	});
+
+	test("answers undefined outside it, which a caller words as a refusal", () => {
+		// The value a model sends is a string like any other: a verb it does not have must be
+		// refused, not guessed at, and a number is no verb at all.
+		expect(memberOf(ACTIONS, "reclaim")).toBeUndefined();
+		expect(memberOf(ACTIONS, 42)).toBeUndefined();
+		expect(memberOf(ACTIONS, undefined)).toBeUndefined();
+	});
+
+	test("leaves the default a caller wants to the caller", () => {
+		// Which value an absent one falls back to is a fact about the tool: the bus reads a missing
+		// kind as `message`, and the board has no default action. A default in the lookup would be
+		// one tool's rule imposed on the others.
+		const withDefault = (raw: unknown): string => memberOf(ACTIONS, raw) ?? "claim";
+		const withoutDefault = (raw: unknown) => memberOf(ACTIONS, raw);
+		expect(withDefault(undefined)).toBe("claim");
+		expect(withoutDefault(undefined)).toBeUndefined();
 	});
 });

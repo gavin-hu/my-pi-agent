@@ -16,7 +16,7 @@ import type { TailResultInput, TailSection, TailRowLine } from "../../lib/tui/to
 import { paint } from "../../lib/tui/tokens.ts";
 import { boardRowLineFor } from "./rows.ts";
 import { TONE_ROLE } from "./tone.ts";
-import { failedResult } from "../../lib/tool-result.ts";
+import { toolError } from "../../lib/tool-result.ts";
 import type { ArchiveOutcome, BoardAction, BoardDetails } from "./types.ts";
 
 /** One section of the expanded block, drawn as the session that asked for it. */
@@ -80,7 +80,7 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
  * the next call starts from the truth rather than from the caller's guess.
  */
 export function refusal(action: BoardAction, me: BoardDetails["me"], message: string, card?: BoardDetails["card"]) {
-	return failedResult(`Error: ${message}`, {
+	return toolError(message, {
 		action,
 		me,
 		error: message,

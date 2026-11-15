@@ -31,11 +31,11 @@ import { indexOf } from "../../lib/board/links.ts";
 import { type Actor, mayOp } from "../../lib/board/rules.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
-import { messageOf } from "../../lib/errors.ts";
+import { attempt, messageOf } from "../../lib/errors.ts";
 import { plural, sanitizeUntrustedLine } from "../../lib/format.ts";
 import { sameLabel } from "../../lib/session-label.ts";
 import { createTeamJoin, type DeliveryFailure, type TeamJoin } from "../../lib/session-tool.ts";
-import { failedResult, type ToolFailure, textResult } from "../../lib/tool-result.ts";
+import { type ToolFailure, textResult, toolError } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
@@ -93,7 +93,7 @@ type TeamArgs = Static<typeof TeamParams>;
 
 /** One refusal: the reason for the model, the state for the renderer. */
 function refusal(action: TeamAction, message: string, card?: Card): ToolFailure<TeamDetails> {
-	return failedResult(`Error: ${message}`, { action, error: message, ...(card === undefined ? {} : { card }) });
+	return toolError(message, { action, error: message, ...(card === undefined ? {} : { card }) });
 }
 
 /** One store write, keeping a throw rather than throwing it: the caller owns the half-applied case. */
@@ -122,7 +122,7 @@ async function unrecordedResult(
 	delivered: readonly string[],
 ): Promise<ToolFailure<TeamDetails>> {
 	const current = await store.read(card.id).catch(() => undefined);
-	return failedResult(`Error: ${text}`, {
+	return toolError(text, {
 		action,
 		error: text,
 		card: current ?? card,
@@ -221,12 +221,9 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			startToolProgress(onUpdate);
 			// Reading the name fails like anything else can, and that failure is a refusal: a team
 			// verb that throws is one the transcript cannot draw and the lead cannot read.
-			const actor = await session.who(ctx, ctx.cwd).then(
-				(known) => known,
-				(error: unknown) => messageOf(error),
-			);
-			if (typeof actor === "string") return refusal(action, actor);
-			const me = actor;
+			const known = await attempt(session.who(ctx, ctx.cwd));
+			if ("error" in known) return refusal(action, known.error);
+			const me = known.value;
 			// The join every verb a peer answers by mail asks for, built once per call from the
 			// name the reply line names — so the round never keeps a second copy of its label.
 			const join = (): Promise<TeamState> => joinRound(ctx, me.label);

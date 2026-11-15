@@ -20,6 +20,7 @@ import type { Card } from "../../lib/board/card.ts";
 import type { CardOwner } from "../../lib/board/card.ts";
 import { LEAD_ROUND } from "../../lib/board/round-text.ts";
 import type { DeliveryFailure } from "../../lib/session-tool.ts";
+import { memberOf } from "../../lib/json.ts";
 
 /** The tool's name. `board` owns the cards; `team` owns the round. */
 export const TEAM_TOOL = "team";
@@ -117,5 +118,5 @@ export const ACTION_FIELDS: Record<TeamAction, readonly string[]> = {
 
 /** Whether a value is one of the actions, so an unknown one is a refusal and not a crash. */
 export function normalizeTeamAction(raw: unknown): TeamAction | undefined {
-	return typeof raw === "string" && TEAM_ACTIONS.includes(raw as TeamAction) ? (raw as TeamAction) : undefined;
+	return memberOf(TEAM_ACTIONS, raw);
 }

@@ -97,7 +97,7 @@ describe("/team join", () => {
 		// The name a session joins under is the bar's vocabulary now, so the join is what puts it on
 		// the team: any label a person types is one the footer can draw.
 		expect(notifications.at(-1)).toBe(
-			"team: on the team as billing-core, listening for handoffs. team.teammates now holds it, so the bar names you.",
+			"team: on the team as billing-core, listening. team.teammates now holds it, so the bar names you.",
 		);
 		// A project that states no team writes the roster it joined, the loader's default five included:
 		// a file holding only the new name would drop the rest.
@@ -118,7 +118,7 @@ describe("/team join", () => {
 			const { ctx, notifications, notices } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
 			await command.handler("join lily", ctx);
 			expect(notifications.at(-1)).toBe(
-				"team: on the team as lily, listening for handoffs. team.teammates now holds it, so the bar names you.",
+				"team: on the team as lily, listening. team.teammates now holds it, so the bar names you.",
 			);
 			expect(notices.at(-1)?.kind).toBe("info");
 			// A project that named no team gets the default roster with the one name after it: the file
@@ -148,7 +148,7 @@ describe("/team join", () => {
 			await command.handler("join lily", ctx);
 			// The bar names the session either way, so a sentence here would be about a change
 			// that never happened.
-			expect(notifications.at(-1)).toBe("team: on the team as lily, listening for handoffs.");
+			expect(notifications.at(-1)).toBe("team: on the team as lily, listening.");
 			expect(projectTeam(board.cwd)).toEqual(["gavin", "lily"]);
 		});
 	});
@@ -185,7 +185,7 @@ describe("/team join", () => {
 			// name this command chose to put on the team either.
 			expect(naming).toEqual([undefined]);
 			expect(notifications.at(-1)).toBe(
-				"team: on the team as tom, listening for handoffs. Team name from `team.teammates` — `/team join <label>` picks another.",
+				"team: on the team as tom, listening. Team name from `team.teammates` — `/team join <label>` picks another.",
 			);
 			expect(existsSync(join(board.cwd, ".pi", "bytefly.json"))).toBe(false);
 		});
@@ -205,7 +205,7 @@ describe("/team join", () => {
 			expect(labels).toEqual([drawn]);
 			expect(naming).toEqual([undefined]);
 			// Nothing was picked, so the line says nothing about where a name came from.
-			expect(notifications.at(-1)).toBe(`team: on the team as ${drawn}, listening for handoffs.`);
+			expect(notifications.at(-1)).toBe(`team: on the team as ${drawn}, listening.`);
 		});
 	});
 
@@ -221,7 +221,7 @@ describe("/team join", () => {
 			// already said what it is called.
 			expect(labels).toEqual([undefined]);
 			expect(naming).toEqual([undefined]);
-			expect(notifications.at(-1)).toBe("team: on the team as billing-lead, listening for handoffs.");
+			expect(notifications.at(-1)).toBe("team: on the team as billing-lead, listening.");
 		});
 	});
 
@@ -240,7 +240,7 @@ describe("/team join", () => {
 			// The name is the team's, so the chip is already its: nothing to rename, nothing to write.
 			expect(naming).toEqual([undefined]);
 			expect(notifications.at(-1)).toBe(
-				"team: on the team as sam, listening for handoffs. Team name from `team.teammates` — `/team join <label>` picks another.",
+				"team: on the team as sam, listening. Team name from `team.teammates` — `/team join <label>` picks another.",
 			);
 			expect(projectTeam(board.cwd)).toEqual(["gavin", "tom", "sam"]);
 		});
@@ -267,7 +267,7 @@ describe("/team join", () => {
 				expect(labels).toEqual([drawn]);
 				expect(naming).toEqual([undefined]);
 				// Nothing was picked, so the line says nothing about where a name came from.
-				expect(notifications.at(-1)).toBe(`team: on the team as ${drawn}, listening for handoffs.`);
+				expect(notifications.at(-1)).toBe(`team: on the team as ${drawn}, listening.`);
 			}
 		});
 	});
@@ -284,7 +284,7 @@ describe("/team join", () => {
 			const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
 			await command.handler("join", ctx);
 			expect(labels).toEqual(["ops-helper"]);
-			expect(notifications.at(-1)).toBe("team: on the team as ops-helper, listening for handoffs.");
+			expect(notifications.at(-1)).toBe("team: on the team as ops-helper, listening.");
 		});
 	});
 
