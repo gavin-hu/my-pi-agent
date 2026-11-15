@@ -10,6 +10,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { BoardParams } from "../extensions/board/schema.ts";
+import { SESSION_DESCRIPTION, SESSION_GUIDELINES, SESSION_SNIPPET, SessionParams } from "../extensions/session-bus/tools.ts";
 import { BOARD_DESCRIPTION, BOARD_GUIDELINES, BOARD_SNIPPET } from "../extensions/board/tools.ts";
 import { TEAM_DESCRIPTION, TEAM_GUIDELINES, TEAM_SNIPPET } from "../extensions/team/types.ts";
 import { LEAD_ROUND } from "../lib/board/round-text.ts";
@@ -123,6 +124,46 @@ describe("the team tool surface", () => {
 		// The round's one line, spliced from `lib/board/round-text.ts`: `/team`'s description says
 		// the same sentence, so the two surfaces that name the round cannot describe it differently.
 		expect(naming[0]).toContain(LEAD_ROUND);
+	});
+});
+
+/** The `session` tool's always-on characters, summed the way a request pays for them. */
+function sessionSurface(): number {
+	return (
+		SESSION_DESCRIPTION.length +
+		SESSION_SNIPPET.length +
+		SESSION_GUIDELINES.join("\n").length +
+		JSON.stringify(SessionParams).length
+	);
+}
+
+describe("the session tool surface", () => {
+	test("stays under its ceiling, and names every action", () => {
+		// 2,135 before the parameters stopped restating what they and the description already
+		// said: `action` was word-for-word the enum, `limit` claimed `read` consumes, and `key`
+		// described a fold that its own rule (the same key) did not allow. The four that gained a
+		// fact were paid for by the description and by three `join`/`send` parameters that
+		// repeated their own verb line. 2,126 today, and the ceiling is measured rather than
+		// quoted, so the next addition has to pay for itself the same way.
+		expect(sessionSurface()).toBeLessThanOrEqual(2_126);
+		// The prose and the schema cannot drift apart: every verb a caller can pass is one the
+		// description tells it about.
+		for (const action of ["status", "send", "inbox", "read", "claim", "release", "join"]) {
+			expect(SESSION_DESCRIPTION).toContain(`\`${action}\``);
+		}
+	});
+
+	test("keeps each guideline to a bullet-sized line", () => {
+		for (const guideline of SESSION_GUIDELINES) {
+			expect(guideline.endsWith(".")).toBe(true);
+			expect(guideline.length).toBeLessThanOrEqual(170);
+		}
+	});
+
+	test("keeps claim and release on paths, which is what separates them from board's card verbs", () => {
+		// `board` claims a card and this claims a file: the object is the whole difference, so it
+		// stays in the line a caller reads before choosing a tool.
+		expect(SESSION_DESCRIPTION).toContain("`claim`/`release` (paths)");
 	});
 });
 
