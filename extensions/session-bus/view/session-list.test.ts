@@ -92,7 +92,9 @@ describe("session rows", () => {
 		expect(block[0]).toBe("cwd: /repo/frontend");
 		expect(block[1]).toBe("claims: src/api, src/api/routes.ts");
 		expect(block[2]).toContain("mode: tui");
-		expect(block[2]).toContain("last seen: 2.0s ago");
+		// An age now comes from the one helper, so a two-second-old heartbeat reads in words rather
+		// than in a duration: `formatAge` calls anything inside 45 seconds `now`.
+		expect(block[2]).toContain("last seen: just now");
 		expect(block.join("\n")).not.toContain("3 unread");
 
 		const many = busStatus(

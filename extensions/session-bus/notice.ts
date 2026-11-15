@@ -9,7 +9,7 @@
 import { clipText, plural, sanitizeLine } from "../../lib/format.ts";
 import { burstText, noticeMessage, type NoticeItem, type NoticeMessage } from "../../lib/notice.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { HANDOFF_PREVIEW } from "./format.ts";
+import { HANDOFF_PREVIEW, messageMeta, messagePaths } from "./format.ts";
 import type { BusMessage } from "./types.ts";
 
 /** Marker embedded in the injected mail context. */
@@ -36,8 +36,8 @@ function headlineOf(messages: readonly BusMessage[]): string {
 /** One message as a preview line: sender, kind, and the head of its text. */
 function previewOf(message: BusMessage): string {
 	const head = clipText(sanitizeLine(message.text), message.kind === "handoff" ? HANDOFF_PREVIEW : MAX_PREVIEW);
-	const paths = message.paths?.length ? ` (${message.paths.map((path) => sanitizeLine(path)).join(", ")})` : "";
-	return `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}${SEPARATORS.item}${head}${paths}`;
+	const paths = messagePaths(message);
+	return `${messageMeta(message)}${SEPARATORS.item}${head}${paths === "" ? "" : ` (${paths})`}`;
 }
 
 /**

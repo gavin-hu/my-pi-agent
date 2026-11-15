@@ -15,6 +15,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`: a message's `sender · kind`, the paths it carries, and how long ago it was have one
+  owner in the bus's `format.ts`, so the transcript rows, the notice and the board's screen print the
+  same words and keep only their own frames. Three ages change with it, all coarser now that they
+  come from `formatAge`: the screen reads `5m ago` rather than `5m00s ago`, the unaccounted listing
+  reads `3h ago` rather than `3h`, and a heartbeat inside 45 seconds reads `just now` rather than
+  `now`.
+
 - `docs`: `AGENTS.md` names `bun run check --serial` and the rule that goes with it — a parallel red
   is no regression until `--serial` reproduces it. `test/drift.test.ts` gains a case that fails when
   a file the doc cites has been renamed, naming the line. `bench:render` moves from the Commands
