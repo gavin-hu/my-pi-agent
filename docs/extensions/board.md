@@ -54,11 +54,10 @@ blank when it owes nothing. The row and `board list` print that gate in one word
 contract signed, `execute` is where the work happens, `blocked` waits on a person, and `done`
 is closed. Each move follows the one transition from where the card is; no lane is skipped.
 
-**The page.** A lane's width follows the work it holds; five lanes sit side by side (one below
-1180px, via the picker), and a lane of 24 cards folds. The pane is the one scroll box: a lane is as
-tall as the board, its head riding its edge. The Team tab draws the board's own card, and above the
-work that moves it raises what needs a lead: a band shows five rows and folds the rest behind one
-control, pins its head under the pane's, and says a sentence every row shares once.
+**The page.** A lane's width follows its work; five lanes sit side by side (one below 1180px, via the picker)
+and a lane of 24 cards folds. The pane is the one scroll box: a lane is as tall as the board, its head riding
+its edge. The Team tab draws the board's card and raises what needs a lead above it: a band shows five rows,
+folds the rest, pins its head, and says a sentence every row shares once.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`,
 `approve`, `review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full,
@@ -75,15 +74,11 @@ an `override` reads `closed by instruction`.
 `/board approve <id>` and `/board review <id> [--root <tree>]` sign as the person; `/board archive` runs the sweep;
 `/board status` prints the seat, repository, port, and tabs; `/board stop` ends the page.
 
-**Who signs.** The lead is `team.lead` in `bytefly.json`, and the page serves as that name. The
-section defaults to `gavin`; an empty lead lets only the person sign, and `/board` serves no page
-it would seat as nobody. A session signs only while it is the lead and never while it holds the
-card; `/board approve` and `/board review` sign as the person, marked `person: true`. The sign
-says who heard it — quiet, not listening, or not told — and an untold one is sent again. A contract
-that becomes approvable sends the lead the same kind of message, in the other direction: the peer
-wrote the wording and cannot sign it, so the gate would otherwise be learned from a board nobody has
-a reason to read twice. It is sent after the write, is never the reason a write fails, and is asked
-again by the next write that leaves a whole, unsigned contract.
+**Who signs.** The lead is `team.lead` in `bytefly.json` (default `gavin`), and the page serves as that name; an
+empty lead lets only the person sign and serves no page. A session signs only while it is the lead, never while
+it holds the card; `/board approve` and `/board review` sign as the person (`person: true`). The sign says who
+heard it — quiet, not listening, or not told — and an untold one is sent again. A completed contract tells the
+lead the same way, after the write; a failed send is a line, and the next completing write asks again.
 
 **Where it lives.** `~/.pi/agent/board/<repo-key>/` — a card per file under `cards/`, with `archive/` and `ended/` beside it. The archive holds more than one record shape: a file written before the lanes says `status` and no `lane`, and the reader maps that word (`todo` → `backlog`, `doing` → `execute`, `done` and `blocked` as themselves), so a card set aside reads `done` like the rest and no file is ever rewritten.
 
