@@ -13,14 +13,15 @@ holds the word budget: a new paragraph replaces one.
 bun install                       # once per worktree
 bun run check                     # the gate: check:format, check:types, every test
 bun run check --changed           # narrowed to this change's tests
+bun run check --serial            # the shape Linux and macOS CI run
 bun run check:tests --ext <name>  # one extension's tests
 bun run check:tests --slow        # the gated git suites
 bun run format                    # biome format --write .
-bun run bench:render              # render benchmark
 ```
 
 - A narrow change: `bun run check --changed`, which prints its selection.
-  Landing: the whole `bun run check`. Scopes are flags in `test/README.md`.
+  Landing: the whole `bun run check`, where a parallel red is no regression
+  until `--serial` reproduces it. Scopes are flags in `test/README.md`.
 - `rewind`, `worktree`, and `session-bus`'s real-repository tests skip unless
   `CI` or `PI_SLOW_TESTS=1` is set. Touching one means running it explicitly.
 - A new package-level test goes into `ROOT_TEST_FILES` in
@@ -49,15 +50,13 @@ bun run bench:render              # render benchmark
 
 ## Release
 
-Distribution is git and npm. A release is an annotated `vX.Y.Z` tag on `main`
-plus a GitHub release whose body is that version's changelog section; landing a
-change is not a release.
+Distribution is git and npm; a release is the annotated tag with its GitHub
+release, not a landing.
 
 - Follow the normative steps in
   [`CONTRIBUTING.md#release`](./CONTRIBUTING.md#release).
-- Publish only through `publish.yml`, never `npm publish` locally. Get the user's
-  approval for each dispatch — an earlier one expires — and wait for the
-  environment review.
+- Publish only through `publish.yml`, never `npm publish` locally; each dispatch's
+  approval expires, and the environment review is waited on.
 - Push the tag with `main`: `git push origin vX.Y.Z main`. A `main`-first push
   races CI's `fetch-depth: 0` checkout and fails `test/release.test.ts`.
 - The `[Unreleased]` bullet lands in the same commit as its change.
@@ -173,4 +172,3 @@ widths, so an overflowing frame fails there.
 
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — checks, commits, conventions, page template, compat, release.
 - [`scripts/README.md`](./scripts/README.md) — the commands; [`test/README.md`](./test/README.md) — tiers, helpers, determinism.
-- [`CONTRIBUTING.md#branch-flow`](./CONTRIBUTING.md#branch-flow) — the worktree flow above.
