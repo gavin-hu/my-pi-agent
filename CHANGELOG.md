@@ -15,6 +15,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`: the `session` tool's parameters say what a reader cannot get elsewhere instead of
+  restating the enum — `status` reads without joining, `*` needs `kind: "event"`, and a resend folds
+  only under the same `key`, whose bounds are now stated. The description and three `join`/`send`
+  parameters were trimmed to pay for it, and the surface has a ceiling in the prompt budget where it
+  had none.
+
 - `session-bus`: `N unread` is the mail a session has **not been told about**, on `session status`
   and on the Team tab, which now count from the same record. A notice marks its burst told and
   deletes nothing, so the number falls to zero while `session inbox` still returns the bodies. A
