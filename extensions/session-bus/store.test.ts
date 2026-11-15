@@ -44,6 +44,20 @@ describe("sessions", () => {
 		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
 	});
 
+	test("keeps the turn stamp, and skips a record whose stamp is not a number", async () => {
+		const { store } = busStoreFixture(temps);
+		await store.ensure();
+		await store.writeSession({ ...sessionRecord("s1"), turnAt: 7 });
+		expect((await store.session("s1"))?.turnAt).toBe(7);
+		// Only a hand-edited record can hold this. The roster drops the bad field and keeps the
+		// row, because a page must still draw a teammate; the bus skips the record, the way it
+		// already does for a bad `startToken` or `watching`, because a record it cannot read cannot
+		// say who owns a path.
+		const broken = { ...sessionRecord("s2"), turnAt: "working" } as unknown as SessionRecord;
+		await store.writeSession(broken);
+		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
+	});
+
 	test("removes a session, and its inbox directory once it holds no mail", async () => {
 		const { dir, store } = busStoreFixture(temps);
 		await store.ensure();
@@ -75,6 +89,16 @@ describe("inbox", () => {
 		const rest = await store.inbox("s2", 10);
 		expect(rest.messages.map((entry) => entry.id)).toEqual(["101-b"]);
 		expect(await store.inbox("s2", 10)).toEqual({ messages: [], unreadable: [] });
+	});
+
+	test("a limit of zero reads nothing and consumes nothing", async () => {
+		const { store } = busStoreFixture(temps);
+		await store.writeMessage("s2", busMessage("100-a", "s2"));
+		// The page is decided before the front is read, so a caller that asked for no messages is
+		// not handed the first one — and, on the consuming read, does not lose it either.
+		expect(await store.inbox("s2", 0)).toEqual({ messages: [], unreadable: [] });
+		expect(await store.peek("s2", { limit: 0 })).toEqual({ mail: [], unread: new Set(["100-a"]), unreadable: [] });
+		expect(await store.unread("s2")).toBe(1);
 	});
 
 	test("peek reads a message without consuming it", async () => {
@@ -227,6 +251,16 @@ describe("claims", () => {
 		expect(blocked.claimed).toEqual([]);
 		expect(blocked.conflicts).toEqual([{ path: "src/api", owner: "s1", ownerLabel: "one" }]);
 		expect((await store.claims()).map((claim) => claim.path)).toEqual(["src/api"]);
+	});
+
+	test("names a blocker once per path, however many files it holds under it", async () => {
+		const { store } = busStoreFixture(temps);
+		await store.claimAll(["src/a.ts", "src/b.ts"], "s1", "one", 100);
+		const blocked = await store.claimAll(["src"], "s2", "two", 101);
+		expect(blocked.claimed).toEqual([]);
+		// One owner on one requested path is one fact: the caller prints a sentence per conflict,
+		// and a second copy of the same sentence is noise rather than a second blocker.
+		expect(blocked.conflicts).toEqual([{ path: "src", owner: "s1", ownerLabel: "one" }]);
 	});
 
 	test("gives a batch that loses the create race nothing to hold", async () => {
