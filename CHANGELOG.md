@@ -101,6 +101,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   while `test/skill-docs.test.ts` required it, and the stale `CONTRIBUTING.md#compatibility` pointer
   becomes the `compat` job's workflow file.
 
+- `docs`: `CONTRIBUTING.md` keeps only the lists it owns — `## Conventions` no longer restates the
+  invariants `AGENTS.md` holds and instead keeps the one kit list it does own, `## Setup` folds into
+  `## Checks` (which gains the missing `--serial` row), and the release section's six-chore step, its
+  narration of `publish.yml`'s internals and the `ENEEDAUTH` forensics compress to their steps and
+  traps: 2818 words down to 2319, with every anchor `AGENTS.md` links and every command unchanged.
+
 ### Fixed
 
 - `session-bus`, `plan`: the listener half of the `pi.events` handshake has one owner in
