@@ -55,6 +55,15 @@ export interface SessionRecord {
 	 * written before this field existed.
 	 */
 	watching?: { armed: boolean; wake: boolean };
+	/**
+	 * The mail this session has been told about, by id — what a peer's unread count subtracts.
+	 *
+	 * A count of `N unread` is the mail a session has *not* been told about, so an announcement
+	 * advances this and the number falls with no delete: `inbox` keeps sole ownership of removing
+	 * a body. Pruned against the inbox on every poll, and on the heartbeat whether or not the watch
+	 * is armed, so an id can outlive its file by one tick and no longer.
+	 */
+	seenMail?: string[];
 }
 
 /**

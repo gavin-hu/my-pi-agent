@@ -66,12 +66,12 @@ export interface BusStore {
 	 */
 	inbox(id: string, limit: number): Promise<InboxRead>;
 	/**
-	 * Every file in a recipient's inbox, by count — the number a peer's status row shows.
+	 * The files in a recipient's inbox that `told` does not name — the number a peer's row shows.
 	 *
-	 * It counts files, so a file this build cannot read counts until its TTL ends it: `inbox`
-	 * is what says it cannot be read. That is the one promise this count makes.
+	 * Counted from the names alone, so a file this build cannot read counts until its TTL ends it:
+	 * `inbox` is what says it cannot be read. That is the one promise this count makes.
 	 */
-	unread(id: string): Promise<number>;
+	unread(id: string, told?: ReadonlySet<string>): Promise<number>;
 	/**
 	 * Remove the mail `ids` name, from the inboxes no record holds, and name what stayed.
 	 *
@@ -160,7 +160,9 @@ function isSession(value: unknown): value is SessionRecord {
 		typeof entry.lastSeen === "number" &&
 		(entry.startToken === undefined || typeof entry.startToken === "string") &&
 		(entry.turnAt === undefined || typeof entry.turnAt === "number") &&
-		(entry.watching === undefined || isWatchingState(entry.watching))
+		(entry.watching === undefined || isWatchingState(entry.watching)) &&
+		(entry.seenMail === undefined ||
+			(Array.isArray(entry.seenMail) && entry.seenMail.every((id) => typeof id === "string")))
 	);
 }
 
@@ -480,8 +482,9 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			return readMessages(directory, await listMessages(directory), { limit, remove: true });
 		},
 
-		async unread(id) {
-			return (await listFiles(inboxDir(id))).length;
+		async unread(id, told) {
+			const names = await listFiles(inboxDir(id));
+			return names.filter((name) => !told?.has(idOfFile(name))).length;
 		},
 
 		/**

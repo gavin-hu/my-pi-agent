@@ -91,6 +91,19 @@ describe("inbox", () => {
 		expect(await store.inbox("s2", 10)).toEqual({ messages: [], unreadable: [] });
 	});
 
+	test("a told id is not counted, and an id no file names changes nothing", async () => {
+		const { store } = busStoreFixture(temps);
+		await store.writeMessage("s2", busMessage("100-a", "s2"));
+		await store.writeMessage("s2", busMessage("101-b", "s2"));
+		// What an announcement records: the files stay where they are, and the row's number stops
+		// counting the one it announced. A stale id — a file consumed or expired since the record was
+		// written — names nothing, so it takes nothing off.
+		expect(await store.unread("s2", new Set(["100-a"]))).toBe(1);
+		expect(await store.unread("s2", new Set(["100-a", "999-z"]))).toBe(1);
+		expect(await store.unread("s2", new Set(["100-a", "101-b"]))).toBe(0);
+		expect((await store.peek("s2", { limit: 10 })).mail).toHaveLength(2);
+	});
+
 	test("a limit of zero reads nothing and consumes nothing", async () => {
 		const { store } = busStoreFixture(temps);
 		await store.writeMessage("s2", busMessage("100-a", "s2"));
