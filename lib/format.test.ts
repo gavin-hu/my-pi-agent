@@ -7,6 +7,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
 	boundedTail,
+	clipText,
 	formatAge,
 	formatCount,
 	formatDuration,
@@ -17,6 +18,7 @@ import {
 	lineOf,
 	MAX_OUTPUT_LINE,
 	pageSource,
+	plural,
 	sanitize,
 	sanitizeLine,
 	sanitizeUntrustedLine,
@@ -165,6 +167,27 @@ describe("formatToolCount", () => {
 	test("treats an invalid or negative count as zero", () => {
 		expect(formatToolCount(Number.NaN)).toBe("0 tools");
 		expect(formatToolCount(-2)).toBe("0 tools");
+	});
+});
+
+describe("plural", () => {
+	test("adds one s, and only one", () => {
+		expect(plural(1, "owner")).toBe("1 owner");
+		expect(plural(0, "note")).toBe("0 notes");
+	});
+});
+
+describe("clipText", () => {
+	test("leaves text at or under the limit alone", () => {
+		expect(clipText("short", 60)).toBe("short");
+		// Exactly the limit is not over it: an ellipsis here would shorten a body that already fits.
+		expect(clipText("x".repeat(10), 10)).toBe("x".repeat(10));
+	});
+
+	test("counts the ellipsis inside the limit, so the answer never exceeds it", () => {
+		const clipped = clipText("x".repeat(11), 10);
+		expect(clipped).toHaveLength(10);
+		expect(clipped).toBe(`${"x".repeat(9)}…`);
 	});
 });
 

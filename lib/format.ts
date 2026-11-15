@@ -146,6 +146,28 @@ export function formatToolCount(count: number): string {
 }
 
 /**
+ * `1 owner`, `2 owners`.
+ *
+ * Written as concatenation rather than a template, because `board/round-text.ts` splices this
+ * function's *source* into the page bundle: a backtick or an interpolation in it would end the string
+ * it lands in. That splice's case stays beside `PLURAL_JS` and is what guards the shape.
+ */
+export function plural(count: number, noun: string): string {
+	return count + " " + noun + (count === 1 ? "" : "s");
+}
+
+/**
+ * A body bounded to `limit` characters, the ellipsis included, so the answer never exceeds what the
+ * caller allowed — a cap is a cap, whether it is a 200-character preview or a 4,000-character
+ * message. Counted in characters rather than terminal columns: `tui/columns.ts`'s `clip` measures
+ * columns, and every caller here bounds prose against a number of characters.
+ */
+export function clipText(text: string, limit: number): string {
+	if (text.length <= limit) return text;
+	return `${text.slice(0, limit - 1)}…`;
+}
+
+/**
  * A tail bounded to `maxChars`: the end of the joined lines, with the truncation
  * flag. The header and the truncation suffix belong to the caller, because each
  * surface says something different about where the rest of the output lives.

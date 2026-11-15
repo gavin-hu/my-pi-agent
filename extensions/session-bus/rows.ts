@@ -10,13 +10,13 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { formatDuration, sanitizeLine } from "../../lib/format.ts";
+import { clipText, formatDuration, plural, sanitizeLine } from "../../lib/format.ts";
 import { clip, usableWidth } from "../../lib/tui/columns.ts";
 import { GLYPHS, GLYPH_GAP, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { listRow, statusRow } from "../../lib/tui/rows.ts";
 import type { TailRowLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { clipText, idSuffix, UNACCOUNTED_PREVIEW } from "./format.ts";
+import { idSuffix, UNACCOUNTED_PREVIEW } from "./format.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus, UnaccountedMessage } from "./types.ts";
 
@@ -25,11 +25,6 @@ const BLOCK_CLAIMS = 2;
 
 /** Columns between a row's body and the trailing cell beside it. */
 const TRAILING_GAP = 2;
-
-/** `1 claim`, `2 claims`. */
-export function count(n: number, noun: string): string {
-	return `${n} ${noun}${n === 1 ? "" : "s"}`;
-}
 
 /** One session on the board, with the claims it holds. */
 export interface SessionRow {
@@ -77,7 +72,7 @@ export function sessionRowLine(
 ): string {
 	const label = `${sanitizeLine(row.session.label)}${row.self ? " · you" : ""}`;
 	const counts = [row.session.state === "gone" ? "gone" : `${row.session.unread} unread`];
-	if (row.claims.length > 0) counts.push(count(row.claims.length, "claim"));
+	if (row.claims.length > 0) counts.push(plural(row.claims.length, "claim"));
 	return listRow(theme, width, {
 		selected: options.selected === true,
 		marker: options.marker !== false,
@@ -214,13 +209,13 @@ export function summaryCells(
 	const unread = rows.reduce((total, row) => total + row.session.unread, 0);
 	const claims = rows.reduce((total, row) => total + row.claims.length, 0);
 	const gone = rows.filter((row) => row.session.state === "gone").length;
-	const cells = [paint(theme, "meta", count(rows.length, "session"))];
+	const cells = [paint(theme, "meta", plural(rows.length, "session"))];
 	if (gone > 0) cells.push(paint(theme, "bad", `${gone} gone`));
 	if (unread > 0) cells.push(paint(theme, "label", `${unread} unread`));
 	// Mail no record holds is not any row's unread count, so it is counted beside them rather than
 	// inside one: the number a reader has to act on, and the verb is in the expanded section.
 	if (unaccounted > 0) cells.push(paint(theme, "warn", `${unaccounted} unaccounted`));
-	cells.push(paint(theme, "meta", count(claims, "claim")));
+	cells.push(paint(theme, "meta", plural(claims, "claim")));
 	if (watching) cells.push(paint(theme, "ok", watching.wake ? "watch wake" : "watch on"));
 	if (!onBus) cells.push(paint(theme, "warn", "not on the bus"));
 	return cells;

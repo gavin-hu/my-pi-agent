@@ -11,7 +11,7 @@
  * and it arrives already phrased for a reader (`bad JSON`, `version 3`).
  */
 
-import { plural } from "./round-text.ts";
+import { plural } from "../format.ts";
 import type { Skip } from "./read.ts";
 
 /** The files this build refused, named with the reason, or nothing when it read them all. */

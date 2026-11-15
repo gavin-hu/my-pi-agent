@@ -21,7 +21,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Card, cardRef, holds } from "../../lib/board/card.ts";
 import { laneIndex } from "../../lib/board/lanes.ts";
 import { reasonFor } from "../../lib/board/reason.ts";
-import { plural } from "../../lib/board/round-text.ts";
+import { plural } from "../../lib/format.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 
 /** The marker the model reads, and the custom type the session stores. */

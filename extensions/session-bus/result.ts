@@ -7,11 +7,11 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "../../lib/format.ts";
+import { plural, sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import type { TailResultInput, TailSection } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { type BusRow, busRowLine, count, sessionRows, summaryCells } from "./rows.ts";
+import { type BusRow, busRowLine, sessionRows, summaryCells } from "./rows.ts";
 import type { SessionDetails } from "./types.ts";
 
 /** One section of the expanded result. */
@@ -191,11 +191,11 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 				const senders = [...new Set(messages.map((message) => sanitizeLine(message.fromLabel)))];
 				// `read` leaves the mail where it was, so the one word that separates the two calls says so.
 				const kept = details.action === "read" ? " read" : "";
-				cells.push(paint(theme, "meta", `${count(messages.length, "message")}${kept}${sep}${senders.join(", ")}`));
+				cells.push(paint(theme, "meta", `${plural(messages.length, "message")}${kept}${sep}${senders.join(", ")}`));
 			}
 			// A refused file is not an empty inbox: it is the one fact the call leaves out,
 			// so the count is drawn here and the names are the expanded section's.
-			if (unreadable.length > 0) cells.push(paint(theme, "warn", count(unreadable.length, "unreadable file")));
+			if (unreadable.length > 0) cells.push(paint(theme, "warn", plural(unreadable.length, "unreadable file")));
 			if (cells.length > 0) return cells.join(paint(theme, "faint", sep));
 			return paint(theme, "meta", details.action === "read" ? "Nothing to read" : "Inbox empty");
 		}
@@ -209,7 +209,7 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 				return paint(
 					theme,
 					"warn",
-					`${count(conflicts.length, "conflict")}${sep}${path} held by ${owner}${more > 0 ? ` +${more} more` : ""}`,
+					`${plural(conflicts.length, "conflict")}${sep}${path} held by ${owner}${more > 0 ? ` +${more} more` : ""}`,
 				);
 			}
 			const claimed = details.claimed ?? [];

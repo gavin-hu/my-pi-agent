@@ -21,13 +21,13 @@ import {
 	isHistoryOwner,
 	liveLabelOf,
 	PLURAL_JS,
-	plural,
 	RAN_CLAUSE_JS,
 	ranClause,
 	type RosterLabel,
 	withLiveOwner,
 } from "./round-text.ts";
 import { buildView } from "./view.ts";
+import { plural } from "../format.ts";
 import { sameLabel, SAME_LABEL_JS } from "../session-label.ts";
 
 const NOW = 1_760_000_000_000;
@@ -198,13 +198,6 @@ describe("PLURAL_JS", () => {
 		] as const) {
 			expect(browserPlural(count, noun)).toBe(plural(count, noun));
 		}
-	});
-});
-
-describe("plural", () => {
-	test("adds one s, and only one", () => {
-		expect(plural(1, "owner")).toBe("1 owner");
-		expect(plural(0, "note")).toBe("0 notes");
 	});
 });
 

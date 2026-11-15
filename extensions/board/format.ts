@@ -20,8 +20,8 @@ import { GATE_WORD } from "../../lib/board/tone.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
 import { skippedText } from "../../lib/board/skipped.ts";
 import type { Skip } from "../../lib/board/read.ts";
-import { formatAge, shortenPath } from "../../lib/format.ts";
-import { plural, ranClause } from "../../lib/board/round-text.ts";
+import { formatAge, plural, shortenPath } from "../../lib/format.ts";
+import { ranClause } from "../../lib/board/round-text.ts";
 
 /**
  * What a claim adds to the card: the next step, in the order the board enforces.

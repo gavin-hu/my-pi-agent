@@ -18,10 +18,10 @@ import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { keyValueRow } from "../../../lib/tui/rows.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { idSuffix } from "../format.ts";
+import { plural } from "../../../lib/format.ts";
 import {
 	type SessionRow,
 	claimRowLine,
-	count,
 	messageRowLine,
 	sessionDetailBlock,
 	sessionRowLine,
@@ -240,13 +240,13 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 				);
 			}
 			case "inbox": {
-				const cells = [paint(this.theme, "meta", count(rows.length, "unread message"))];
+				const cells = [paint(this.theme, "meta", plural(rows.length, "unread message"))];
 				if (watching) cells.push(this.watchCell(watching));
 				return cells;
 			}
 			case "claims": {
 				const own = rows.flatMap((row) => (row.kind === "claim" && row.claim.owner === this.me() ? [row] : []));
-				const cells = [paint(this.theme, "meta", count(rows.length, "claim"))];
+				const cells = [paint(this.theme, "meta", plural(rows.length, "claim"))];
 				if (own.length > 0) cells.push(paint(this.theme, "label", `${own.length} yours`));
 				return cells;
 			}

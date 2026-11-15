@@ -15,7 +15,7 @@
 import { textResult } from "../../lib/tool-result.ts";
 import { type Card, cardRef, laneSince, normalizeCardId } from "../../lib/board/card.ts";
 import { archivableOf } from "../../lib/board/round.ts";
-import { plural } from "../../lib/board/round-text.ts";
+import { plural } from "../../lib/format.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { formatArchived } from "./format.ts";
