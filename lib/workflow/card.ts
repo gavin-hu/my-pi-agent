@@ -38,7 +38,6 @@ export const SUPPORTED_VERSIONS = [1, CARD_VERSION] as const;
  * the card record does, or every record a past build wrote would disagree with its own
  * validator.
  */
-export const ENDED_VERSION = 1;
 
 /** Longest title, in characters. One line, so it cannot wrap a lane row. */
 export const MAX_TITLE = 120;
@@ -225,54 +224,17 @@ export interface Card {
 	rev: number;
 	createdAt: number;
 	updatedAt: number;
+	/**
+	 * When the card last changed in a way a signature speaks for.
+	 *
+	 * Every write moves it but a note: a note is a message *about* the card, not a change to it,
+	 * so a landing note between the spot-check and the close must not stale the run that vouches
+	 * for the work. Absent on a card written before the field existed, which is why `signStale`
+	 * reads it through `updatedAt` rather than directly.
+	 */
+	stateAt?: number;
 	/** The label of whoever wrote this revision. */
 	by: string;
-}
-
-/**
- * What a card left behind when it was dropped: the record that its id is spent.
- *
- * A card's id is how a note, a handoff, or another card names one feature, so an id
- * that comes back is worse than an id that is gone — the same number would answer for
- * two different features. The store keeps one of these per ended card, writes it
- * before the card file goes, and never allocates its id again.
- *
- * The pile is a ledger, and this build never reads it back: the spent ids are the file
- * names the allocator skips, and the record itself is for a person opening the directory.
- * {@link isEndedCard} is the shape a reader would have to hold one to, and it is why the
- * field is `lane` rather than the `status` an older record spells — nothing migrates a
- * record no code path opens.
- */
-export interface EndedCard {
-	/** Schema version for the record itself; it moves with neither the card record nor time. */
-	v: 1;
-	/** The id that is now spent, without padding. */
-	id: string;
-	/** What the card was called, so a note that names its id still reads. */
-	title: string;
-	/** The lane it was in when it ended. */
-	lane: Lane;
-	/** Who ended it. */
-	by: string;
-	/** The owner it had, when it had one. */
-	owner?: CardOwner;
-	/** When it ended. */
-	at: number;
-	/** Why it ended: the operation, which is `drop` today. */
-	why: "dropped";
-}
-
-export function isEndedCard(value: unknown): value is EndedCard {
-	if (typeof value !== "object" || value === null) return false;
-	const ended = value as Record<string, unknown>;
-	if (ended.v !== ENDED_VERSION) return false;
-	if (typeof ended.id !== "string" || !/^[0-9]+$/.test(ended.id)) return false;
-	if (typeof ended.title !== "string" || ended.title === "") return false;
-	if (!LANES.includes(ended.lane as Lane)) return false;
-	if (typeof ended.by !== "string" || ended.by === "") return false;
-	if (!isOwner(ended.owner)) return false;
-	if (typeof ended.at !== "number" || !Number.isInteger(ended.at)) return false;
-	return ended.why === "dropped";
 }
 
 /** A rejected field, phrased for the model: what was wrong, not that something was. */
@@ -531,6 +493,7 @@ export function isCard(value: unknown): value is Card {
 	if (card.logDropped !== undefined && !isCount(card.logDropped)) return false;
 	if (typeof card.rev !== "number" || !Number.isInteger(card.rev) || card.rev < 1) return false;
 	if (typeof card.createdAt !== "number" || typeof card.updatedAt !== "number") return false;
+	if (card.stateAt !== undefined && !Number.isInteger(card.stateAt)) return false;
 	if (typeof card.by !== "string") return false;
 	// One ownerless lane, and the table says which: a pool card has no holder, and every
 	// card that is somebody's work has one.
@@ -551,7 +514,7 @@ function isBlock(value: unknown): value is CardBlock {
 	return block.kind !== undefined || block.note !== undefined;
 }
 
-function isOwner(value: unknown): boolean {
+export function isOwner(value: unknown): boolean {
 	if (value === undefined) return true;
 	if (typeof value !== "object" || value === null) return false;
 	const owner = value as Record<string, unknown>;

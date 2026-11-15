@@ -10,14 +10,12 @@
 import { describe, expect, test } from "bun:test";
 import {
 	CARD_VERSION,
-	ENDED_VERSION,
 	type Card,
 	type CardTransition,
 	cardRef,
 	DEFAULT_PRIORITY,
 	dependsOf,
 	isCard,
-	isEndedCard,
 	laneSince,
 	MAX_DEPENDS,
 	MAX_LOG,
@@ -255,29 +253,6 @@ describe("laneSince", () => {
 	});
 });
 
-describe("isEndedCard", () => {
-	test("holds the record a dropped card leaves to the shape this build writes", () => {
-		// The pile is a ledger nothing reads back, so the validator is the only statement of
-		// its shape: it carries its own version, which does not move when the card record
-		// does, and a record written before the lane was called a lane spells `status` and is
-		// not migrated, because no code path opens it.
-		const ended = {
-			v: ENDED_VERSION,
-			id: "4",
-			title: "Billing webhook",
-			lane: "execute",
-			by: "billing-lead",
-			owner: { id: "s1", label: "billing-core" },
-			at: 1_000,
-			why: "dropped",
-		};
-		expect(isEndedCard(ended)).toBe(true);
-		expect(isEndedCard({ ...ended, lane: undefined, status: "execute" })).toBe(false);
-		expect(isEndedCard({ ...ended, why: "archived" })).toBe(false);
-		expect(isEndedCard({ ...ended, id: "four" })).toBe(false);
-	});
-});
-
 describe("isCard", () => {
 	test("accepts a card this build writes", () => {
 		expect(isCard(card({ log: [{ lane: "backlog", at: 1_000, by: "billing-lead" }], logDropped: 0 }))).toBe(true);
@@ -296,6 +271,11 @@ describe("isCard", () => {
 		expect(isCard({ ...card(), log: [{ ...entry, by: "" }] })).toBe(false);
 		expect(isCard({ ...card(), log: Array.from({ length: MAX_LOG + 1 }, () => entry) })).toBe(false);
 		expect(isCard({ ...card(), logDropped: -1 })).toBe(false);
+	});
+
+	test("refuses a state stamp that is not a moment, and reads an absent one as the older field's", () => {
+		expect(isCard(card({ stateAt: 1.5 }))).toBe(false);
+		expect(isCard(card({ stateAt: 1_000 }))).toBe(true);
 	});
 
 	test("refuses another schema version", () => {

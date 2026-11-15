@@ -343,13 +343,18 @@ export function appendNote(card: Card, by: string, at: number, text: string): Pi
  * Whether the card has been written since its sign last spoke for it.
  *
  * A sign owns two writes: the stamp, and `#398`'s record that its owner heard — so the moment to
- * compare is the later of the two. One reader for every place the rule is asked: `currentReview`
- * drops an outgrown sign, so the `done` gate, the lead's queue, the card's reason line and the
- * repeat sign that re-makes a stamp all answer from this arithmetic, and "the work moved under the
- * signature" cannot mean one thing to the gate and another to the surface that names the gate.
+ * compare is the later of the two. It compares `stateAt`, the last write that changed what a sign
+ * speaks for, and not `updatedAt`, which a note moves: a landing note filed between the spot-check
+ * and the close is a message about the card, not a change to it. A card written before the field
+ * existed has no `stateAt`, and its `updatedAt` is the same answer.
+ *
+ * One reader for every place the rule is asked: `currentReview` drops an outgrown sign, so the
+ * `done` gate, the lead's queue, the card's reason line and the repeat sign that re-makes a stamp
+ * all answer from this arithmetic, and "the work moved under the signature" cannot mean one thing
+ * to the gate and another to the surface that names the gate.
  */
 export function signStale(card: Card, record: SignRecord): boolean {
-	return card.updatedAt > Math.max(record.at, record.told?.at ?? 0);
+	return (card.stateAt ?? card.updatedAt) > Math.max(record.at, record.told?.at ?? 0);
 }
 
 /**

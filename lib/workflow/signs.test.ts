@@ -95,27 +95,44 @@ describe("the run a done move reads", () => {
 		expect(accepted(applyOp(announced, doneOf(announced), CORE, NOW + 2, boardOf(announced))).card.lane).toBe("done");
 	});
 
-	test("refuses a card written after the spot-check", () => {
+	test("refuses a card whose state moved after the spot-check", () => {
 		const signed = stepOf(verifying(), { kind: "review", verified: { cmd: VERIFY, exit: 0, at: NOW } }, LEAD);
-		const noted = accepted(
-			applyOp(signed, { kind: "note", text: "one more thing" }, CORE, NOW + 1, boardOf(signed)),
+		const edited = accepted(
+			applyOp(signed, { kind: "edit", title: "a different outcome" }, CORE, NOW + 1, boardOf(signed)),
 		).card;
-		expect(refusal(applyOp(noted, doneOf(noted), CORE, NOW + 2, boardOf(noted)))).toContain(
+		expect(refusal(applyOp(edited, doneOf(edited), CORE, NOW + 2, boardOf(edited)))).toContain(
 			"was written after its spot-check",
 		);
 	});
 
-	test("refuses a note added after the announcement too, which is a later write again", () => {
+	test("refuses a state write added after the announcement too, which is a later write again", () => {
+		const signed = stepOf(verifying(), { kind: "review", verified: { cmd: VERIFY, exit: 0, at: NOW } }, LEAD);
+		const announced = accepted(
+			applyOp(signed, { kind: "announced", notice: "review" }, LEAD, NOW + 1, boardOf(signed)),
+		).card;
+		const edited = accepted(
+			applyOp(announced, { kind: "edit", title: "a different outcome" }, CORE, NOW + 2, boardOf(announced)),
+		).card;
+		expect(refusal(applyOp(edited, doneOf(edited), CORE, NOW + 3, boardOf(edited)))).toContain(
+			"was written after its spot-check",
+		);
+	});
+
+	test("keeps the sign a landing note cannot outgrow, so the note may be filed before the close", () => {
+		// The flow #644 refused: the lead asks for the merge on the record, the note moves
+		// `updatedAt`, and `done` must still open — a note is a message about the card, not a
+		// change to what was checked.
 		const signed = stepOf(verifying(), { kind: "review", verified: { cmd: VERIFY, exit: 0, at: NOW } }, LEAD);
 		const announced = accepted(
 			applyOp(signed, { kind: "announced", notice: "review" }, LEAD, NOW + 1, boardOf(signed)),
 		).card;
 		const noted = accepted(
-			applyOp(announced, { kind: "note", text: "one more thing" }, CORE, NOW + 2, boardOf(announced)),
+			applyOp(announced, { kind: "note", text: "Landed: merge 11e73df7" }, CORE, NOW + 2, boardOf(announced)),
 		).card;
-		expect(refusal(applyOp(noted, doneOf(noted), CORE, NOW + 3, boardOf(noted)))).toContain(
-			"was written after its spot-check",
-		);
+		// The note is on the record and the sign still speaks for the card.
+		expect(noted.notes.at(-1)?.text).toContain("Landed");
+		expect(noted.updatedAt).toBeGreaterThan(noted.review?.at ?? 0);
+		expect(accepted(applyOp(noted, doneOf(noted), CORE, NOW + 3, boardOf(noted))).card.lane).toBe("done");
 	});
 });
 
