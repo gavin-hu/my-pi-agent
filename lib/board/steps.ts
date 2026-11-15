@@ -15,6 +15,7 @@
  */
 
 import { listOf } from "../format.ts";
+import { type ArtifactProof, contractRoute, proved } from "./artifact.ts";
 import {
 	BLOCKERS,
 	type Card,
@@ -30,8 +31,7 @@ import {
 	normalizeTitle,
 	priorityOf,
 } from "./card.ts";
-import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
-import { type ArtifactProof, contractRoute, proved } from "./artifact.ts";
+import { type BoardConfig } from "./config.ts";
 import {
 	CONTRACT_LINES,
 	type ContractField,
@@ -42,28 +42,25 @@ import {
 	missingContractFields,
 	normalizeContractField,
 } from "./contract.ts";
-import { type BoardConfig } from "./config.ts";
+import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
+import { LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import {
 	appendNote,
 	currentReview,
+	type HolderFact,
 	heldBy,
-	mayMove,
 	heldState,
 	holderRefusal,
-	type HolderFact,
+	mayMove,
 	missingSign,
-	noVerifyCommand,
 	owesAnnouncement,
+	signedAs,
 	signMark,
 	signNote,
 	signRefusal,
-	signStale,
-	signedAs,
-	staleSpotCheck,
-	unverifiedSpotCheck,
+	spotCheckRefusal,
 } from "./lead.ts";
 import { type WipLimits, wipRefusal } from "./limits.ts";
-import { LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import { type BoardIndex, dependedOn, lanesText, normalizeDepends, openDependentsOf, waitingOn } from "./links.ts";
 import type { Actor, CardOp, Prepared } from "./rules.ts";
 
@@ -280,22 +277,11 @@ export function unmet(
 		}
 		case "approval":
 			return card.contract?.approved === undefined ? missingSign(card, config.lead, "approve") : undefined;
-		case "review": {
-			// The sign that speaks for this execution, not the one a reclaim carried back into the pool:
-			// a card taken back and executed again owes the lead a fresh look (`currentReview`).
-			const sign = currentReview(card);
-			if (sign === undefined) return missingSign(card, config.lead, "review");
-			// A card whose contract names no command is refused a sign rather than spot-checked by a
-			// sentence: only a card written before the line was required, or one hand-edited, has none,
-			// and the refusal names the line and the approval recording it costs.
-			const cmd = card.contract?.verify;
-			if (cmd === undefined) return noVerifyCommand(card, config.lead);
-			if (sign.verified === undefined) return unverifiedSpotCheck(card, cmd, config.lead);
-			// The sign owns two writes: the stamp, and the announcement #398 records after it. Anything
-			// newer than both is the card changing under the evidence — one reader for that decision,
-			// because a sign that finds itself stale re-makes the stamp with the same rule.
-			return signStale(card, sign) ? staleSpotCheck(card, cmd, config.lead) : undefined;
-		}
+		case "review":
+			// The whole spot-check rule is `lead.ts`'s: the sign this execution made, the command the card
+			// promised, the run that sign kept, and whether the card has since outgrown it — one answer the
+			// gate and the reason line both ask, so neither can call a sign current while the other refuses it.
+			return spotCheckRefusal(card, config.lead);
 		case "artifact": {
 			if (card.planPath === undefined) return noArtifact(card);
 			// Fail closed: a lane that requires a proved plan refuses when the caller did not

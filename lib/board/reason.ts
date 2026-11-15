@@ -9,16 +9,17 @@
  * flow this board now runs multiplies the states it has to name, so it is one body.
  *
  * It is spliced into the browser bundle as {@link REASON_FOR_JS}, which is why it is
- * self-contained: it reads the card and a formatter for relative times, and nothing else.
- * The two callers differ only in whose clock an age is read against — the page's `ago`
- * against the reader's now, the transcript's against the snapshot's — so the clock is a
- * parameter rather than an import.
+ * self-contained: it reads the card, a formatter for relative times, and the helpers the bundle
+ * splices beside it (`currentReview`, and the lane rule that body calls), and nothing else. The two
+ * callers differ only in whose clock an age is read against — the page's `ago` against the reader's
+ * now, the transcript's against the snapshot's — so the clock is a parameter rather than an import.
  *
  * Pure: no I/O, no clock of its own, no state.
  */
 
-import type { Card } from "./card.ts";
 import { pageSource } from "../format.ts";
+import { type Card, laneSince } from "./card.ts";
+import { currentReview } from "./lead.ts";
 
 /** What a reason is about, which is what a row's edge and a dot are coloured by. */
 export const REASON_KINDS = [
@@ -149,7 +150,17 @@ export function reasonFor(card: ReasonCard, ago: (at: number) => string): Reason
 		if (card.planGone === true) {
 			return { kind: "contract", text: "its plan is gone — move it back to plan, then record it again" };
 		}
-		if (card.review !== undefined) return { kind: "review", text: "spot-checked by " + card.review.by };
+		if (card.review !== undefined) {
+			// The sign that speaks for the card now, from the one body that decides it (`lead.ts`, spliced
+			// in beside this one): a sign the card outgrew and one a reclaim carried in from an earlier
+			// execution are both stale, and the line names which, because the reader's next move is
+			// `review` either way.
+			const current = currentReview(card);
+			if (current !== undefined) return { kind: "review", text: "spot-checked by " + current.by };
+			const since = laneSince(card);
+			const when = since !== undefined && card.review.at < since ? " before this execution" : ", then written";
+			return { kind: "review", text: "spot-checked by " + card.review.by + when + " — review again" };
+		}
 		if (card.planPath === undefined) return { kind: "contract", text: "no plan recorded" };
 		return { kind: "executing", text: "executing — no spot-check yet" };
 	}

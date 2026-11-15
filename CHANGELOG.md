@@ -15,6 +15,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a spot-check the card was written after reads as out of date everywhere, not only at the
+  `done` gate. `currentReview` now asks `signStale`, so such a card joins `unreviewed` in the lead's
+  queue and its reason line says "spot-checked by X, then written — review again" instead of
+  "spot-checked by X"; the gate's whole spot-check rule moved into `lead.ts` as `spotCheckRefusal`,
+  so the sentence a holder is refused with and the line a reader sees cannot drift. The reason body's
+  new helpers are spliced beside it into the page's bundle, because the page has no import graph.
+
 - `test`: one test run per machine again. The preload takes a machine-wide lock before any case runs,
   so a second `bun test` — or `bun run check` — prints who holds it and waits up to ten minutes
   instead of starving the first one's spawns, which is the 2026-11-09 failure that a settled copy of

@@ -7,11 +7,10 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type Card } from "./card.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
+import { type Card, laneSince } from "./card.ts";
 import { LANES } from "./lanes.ts";
 import { buildRound, gateOf, UNWRITTEN_MS } from "./round.ts";
-import { laneSince } from "./card.ts";
 
 const NOW = 1_000_000;
 
@@ -236,11 +235,13 @@ describe("buildRound", () => {
 });
 
 describe("the gate a card owes", () => {
-	/** An executing card that entered its lane at `since`, with a sign made at `at`. */
+	/** An executing card that entered its lane at `since`, with a sign made at `at`, as it stood then. */
 	const reviewed = (since: number, at: number): Card =>
 		doing("1", {
 			planPath: "plans/1.md",
 			review: { by: "billing-lead", at },
+			// Written at the moment of the sign, so the case is about the lane and nothing else.
+			updatedAt: at,
 			log: [
 				{ lane: "backlog", at: since - 2_000, by: "billing-lead" },
 				{ lane: "execute", at: since, by: "billing-core" },
@@ -290,5 +291,12 @@ describe("the gate a card owes", () => {
 
 	test("answers nothing for an execute card whose spot-check is this execution's", () => {
 		expect(gateOf(reviewed(NOW - 60_000, NOW - 59_000))).toBeUndefined();
+	});
+
+	test("reads a spot-check the card was written after as one still owed", () => {
+		// #599: the queue used to count a sign the `done` gate refuses with "was written after its
+		// spot-check" as already current, so the card was absent from NEEDS YOU when it needed it most.
+		const written = { ...reviewed(NOW - 60_000, NOW - 59_000), updatedAt: NOW - 58_000 };
+		expect(gateOf(written)).toBe("review");
 	});
 });

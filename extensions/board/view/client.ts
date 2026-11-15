@@ -16,6 +16,7 @@
 
 import { ACTIVITY_LABEL_JS } from "../../../lib/board/activity.ts";
 import { MATCHES_QUERY_JS } from "../../../lib/board/card.ts";
+import { CURRENT_REVIEW_JS } from "../../../lib/board/lead.ts";
 import { REASON_FOR_JS } from "../../../lib/board/reason.ts";
 import {
 	DECISION_BAND_JS,
@@ -70,7 +71,7 @@ import { PICKER_MQ } from "./styles.ts";
  */
 export const BOARD_CLIENT_JS = `${CLIENT_BASE_JS}
 ${namesScript(BOARD_CLASS)}
-${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, reason: REASON_FOR_JS, age: FORMAT_AGE_JS, lanes: String(LANES.length), skipped: pageSource(skippedText), decisions: DECISION_RANK_JS, decisionTones: DECISION_TONE_JS, reasonTones: REASON_TONE_JS, runtime: CLIENT_RUNTIME_JS })}
+${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, reason: REASON_FOR_JS, currentReview: CURRENT_REVIEW_JS, age: FORMAT_AGE_JS, lanes: String(LANES.length), skipped: pageSource(skippedText), decisions: DECISION_RANK_JS, decisionTones: DECISION_TONE_JS, reasonTones: REASON_TONE_JS, runtime: CLIENT_RUNTIME_JS })}
 ${rosterJs({ historyOwner: HISTORY_OWNER_JS, sameLabel: SAME_LABEL_JS, labelKey: LABEL_KEY_JS })}
 ${fleetJs({ historyLine: HISTORY_LINE_JS })}
 ${activeJs({ decisionLabels: DECISION_LABEL_JS, decisionBands: DECISION_BAND_JS, sameLabel: SAME_LABEL_JS, labelKey: LABEL_KEY_JS })}
