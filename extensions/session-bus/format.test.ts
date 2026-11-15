@@ -19,8 +19,12 @@ import {
 	formatUnaccounted,
 	INBOX_BUDGET,
 	UNACCOUNTED_LINES,
+	ageText,
+	messageMeta,
+	messagePaths,
 	unaccountedLines,
 } from "./format.ts";
+import { busMessage } from "../../test/helpers/bus.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, UnaccountedMessage, UnaccountedPage } from "./types.ts";
 
@@ -106,7 +110,7 @@ describe("status", () => {
 		const out = statusAt({ ...busStatus([session()]), unaccounted: page([unaccounted()]) });
 		// One section, above the claims: the mail has no session row to sit under, so it is named once.
 		expect(out).toContain("Unaccounted (1): mail for a record the bus no longer holds");
-		expect(out).toContain("- 100-a · frontend · message · 3h · contract v2");
+		expect(out).toContain("- 100-a · frontend · message · 3h ago · contract v2");
 		expect(out.indexOf("Unaccounted (")).toBeLessThan(out.indexOf("Claims ("));
 	});
 
@@ -314,5 +318,30 @@ describe("untrusted text", () => {
 		expect(formatClaim([], [claim({ path: forgeries[0], owner: "abcdef123456" })])).toBe(
 			"src/a.ts 2. forged message · handoff is owned by frontend (123456).",
 		);
+	});
+});
+
+describe("the words every surface prints", () => {
+	test("names a message by its sender and kind", () => {
+		// The transcript row, the notice and the screen all print this one string: a handoff's sender
+		// reads the same in a notice as in the expanded result.
+		expect(messageMeta({ ...busMessage("100-a", "s-1"), fromLabel: "api-core", kind: "handoff" })).toBe(
+			"api-core \u00b7 handoff",
+		);
+	});
+
+	test("joins the paths a message carries, and says nothing when it names none", () => {
+		expect(messagePaths({ ...busMessage("100-a", "s-1"), paths: ["src/a.ts", "src/b.ts"] })).toBe("src/a.ts, src/b.ts");
+		expect(messagePaths(busMessage("100-a", "s-1"))).toBe("");
+	});
+});
+
+describe("ageText", () => {
+	test("prints the age `formatAge` decided, in words a row can use", () => {
+		// The boundary is the helper's, not a reader's: anything inside 45 seconds is `now`, and 45 is
+		// the first whole minute — so a case written against "a few seconds" would pin the wrong number.
+		expect(ageText(60_000, 60_000 - 44_000)).toBe("just now");
+		expect(ageText(60_000, 60_000 - 45_000)).toBe("1m ago");
+		expect(ageText(3 * 60 * 60_000, 0)).toBe("3h ago");
 	});
 });

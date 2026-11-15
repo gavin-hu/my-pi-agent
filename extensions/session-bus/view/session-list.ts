@@ -11,7 +11,8 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, Key } from "@earendil-works/pi-tui";
 import { messageOf } from "../../../lib/errors.ts";
-import { formatDuration, sanitizeLine } from "../../../lib/format.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { ageText, messageMeta, messagePaths } from "../format.ts";
 import type { ScreenHint, ViewportRowsSource } from "../../../lib/tui/chrome.ts";
 import { type DetailContents, DockListScreen } from "../../../lib/tui/dock-screen.ts";
 import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
@@ -53,22 +54,12 @@ const SCOPE_EMPTY: Readonly<Record<BoardScope, string>> = {
 	claims: "No claims.",
 };
 
-/** A relative age for a message or a claim, e.g. `2.0s ago`, `5m00s ago`. */
-function ago(at: number, now: number): string {
-	return `${formatDuration(Math.max(0, now - at))} ago`;
-}
-
 /** A message body as prose: one paragraph per source line, control characters gone. */
 function messageProse(message: BusMessage): string {
 	return message.text
 		.split("\n")
 		.map((line) => sanitizeLine(line))
 		.join("\n");
-}
-
-/** The paths a message mentions, or an empty string. */
-function messagePaths(message: BusMessage): string {
-	return message.paths?.length ? message.paths.map((path) => sanitizeLine(path)).join(", ") : "";
 }
 
 /** The pane's width-dependent facts: identity, above the claim body. */
@@ -80,14 +71,14 @@ function paneFacts(theme: Theme, row: SessionRow, now: number, width: number): s
 		keyValueRow(theme, width, {
 			label: "last seen",
 			labelWidth,
-			value: ago(row.session.lastSeen, now),
+			value: ageText(now, row.session.lastSeen),
 		}),
 	];
 }
 
 /** The pane body: every claim this session holds, in path order. */
 function paneLines(row: SessionRow, now: number): string[] {
-	return row.claims.map((claim) => `${sanitizeLine(claim.path)}${SEPARATORS.item}held ${ago(claim.at, now)}`);
+	return row.claims.map((claim) => `${sanitizeLine(claim.path)}${SEPARATORS.item}held ${ageText(now, claim.at)}`);
 }
 
 /** A cheap signature of what the board draws, so a poll repaints only on a change. */
@@ -214,13 +205,13 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 			case "session":
 				return sessionDetailBlock(row.row, this.now());
 			case "message": {
-				const lines = [`received: ${ago(row.message.at, this.now())}`];
+				const lines = [`received: ${ageText(this.now(), row.message.at)}`];
 				const paths = messagePaths(row.message);
 				if (paths) lines.push(`paths: ${paths}`);
 				return lines;
 			}
 			case "claim":
-				return [`held ${ago(row.claim.at, this.now())}`];
+				return [`held ${ageText(this.now(), row.claim.at)}`];
 		}
 	}
 
@@ -291,8 +282,8 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 			case "message": {
 				const paths = messagePaths(row.message);
 				return {
-					title: `${sanitizeLine(row.message.fromLabel)}${SEPARATORS.item}${sanitizeLine(row.message.kind)}`,
-					subtitle: `${ago(row.message.at, this.now())}${paths ? `${SEPARATORS.item}paths: ${paths}` : ""}`,
+					title: messageMeta(row.message),
+					subtitle: `${ageText(this.now(), row.message.at)}${paths ? `${SEPARATORS.item}paths: ${paths}` : ""}`,
 					text: messageProse(row.message),
 					tail: false,
 				};
@@ -302,7 +293,7 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 				const owner = this.ownerRow(row.claim.owner);
 				return {
 					title: sanitizeLine(row.claim.ownerLabel),
-					subtitle: `holds ${sanitizeLine(row.claim.path)}${SEPARATORS.item}held ${ago(row.claim.at, this.now())}`,
+					subtitle: `holds ${sanitizeLine(row.claim.path)}${SEPARATORS.item}held ${ageText(this.now(), row.claim.at)}`,
 					lines: owner ? paneLines(owner, this.now()) : [],
 					tail: false,
 					...(owner ? { facts: (width: number) => paneFacts(this.theme, owner, this.now(), width) } : {}),
