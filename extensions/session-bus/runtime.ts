@@ -19,16 +19,21 @@ import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
+import { BUS_DIR_NAME } from "../../lib/session-files.ts";
 import { labelKey, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
-
+import { type RosterSeams, type RosterState, rosterStateOf, SESSION_TTL_MS } from "../../lib/session-roster.ts";
+import { isPidAlive, startTokenOf } from "../../lib/spawn.ts";
 import { defaultInterval } from "../../lib/timer.ts";
+import type { SessionBus, SessionBusOptions } from "./api.ts";
+import type { MailCursor } from "./cursor.ts";
+import { createMailWatch } from "./mail-watch.ts";
+import { createTurn } from "./presence.ts";
 import {
 	MAX_LABEL,
 	MAX_LIMIT,
-	normalizeKind,
 	normalizeKey,
+	normalizeKind,
 	normalizeLabel,
 	normalizeLimit,
 	normalizePaths,
@@ -38,21 +43,9 @@ import {
 	sessionMode,
 	shortId,
 } from "./protocol.ts";
-import { createMailWatch } from "./mail-watch.ts";
-import type { MailCursor } from "./cursor.ts";
-import { createTurn } from "./presence.ts";
-import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
+import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
+import { type BusStore, createBusStore, releaseClaimed } from "./store.ts";
 import type { InboxPeek, SessionRecord, SessionStatus } from "./types.ts";
-import {
-	BUS_DIR_NAME,
-	type RosterSeams,
-	type RosterState,
-	rosterStateOf,
-	SESSION_TTL_MS,
-} from "../../lib/session-roster.ts";
-import { isPidAlive, startTokenOf } from "../../lib/spawn.ts";
-
-import type { SessionBus, SessionBusOptions } from "./api.ts";
 
 export type { SessionBus, SessionBusOptions };
 
@@ -228,9 +221,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				// A heartbeat that resumed after a long pause can find its label taken; the
 				// tick is where a revived session notices and yields, after its own write.
 				if (await settleLabel()) publishLabel();
-				// The one prune that reads every inbox rides the clock the message TTL is measured in,
-				// so no action pays for mail nobody is waiting on.
-				await store.pruneMail({ now: now(), messageTtlMs });
+				// The one prune that opens inbox files rides the clock the message TTL is measured in,
+				// so no action pays for mail nobody is waiting on. It takes this session's inbox and
+				// the ones no record holds; a peer's mail is that peer's to end.
+				await store.pruneMail({ now: now(), messageTtlMs, own: record.id });
 			})().catch(() => {});
 		});
 	}

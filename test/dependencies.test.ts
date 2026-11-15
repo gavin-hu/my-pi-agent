@@ -310,7 +310,14 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * is per entry rather than one total because Pi imports each extension with its
  * own module cache — a shared `lib/` module is paid once *per importing entry* —
  * so a total lets one entry balloon while another's deferral pays for it. The
- * total is their sum, 727.
+ * total is their sum, 731.
+ *
+ * `board` 62 -> 63, `team` 52 -> 53, `job` 45 -> 46 and `session-bus` 44 -> 45 for
+ * `lib/session-files.ts`: the bus's layout, its one stored-name rule and its two publishes are the
+ * file layer every bus reader shares, and they are reached through `lib/session-roster.ts`, which
+ * each of those entries already loads — so the cost is one pure module in four graphs, not a new
+ * graph. It cannot defer: a record, an inbox name and a claim are spelled by it before the first
+ * read, and the board's tab counts a repository's mail through it with no bus running.
  *
  * `plan` went 56 -> 57: the transcript's approved-plan preview draws the review
  * screen's task box through the kit's `checkbox` rather than keeping a second copy
@@ -377,13 +384,13 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  */
 const ENTRY_BUDGET: Readonly<Record<string, number>> = {
 	bytefly: 88,
-	board: 62,
+	board: 63,
 	// The kit's block scan is the plan's one splitter as well as browse's, so the entry pays
 	// one pure module where it used to carry a second scanner (58 = 57 + markdown-blocks).
 	plan: 58,
-	team: 52,
-	job: 45,
-	"session-bus": 44,
+	team: 53,
+	job: 46,
+	"session-bus": 45,
 	subagent: 34,
 	"web-access": 41,
 	worktree: 38,

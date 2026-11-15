@@ -68,6 +68,13 @@ export interface BoardBrowserOptions {
 	display?: PageDisplay;
 	/** The bus's records to draw, or nothing at all for a page with no bus here. */
 	roster?: (now: number) => RosterSession[];
+	/**
+	 * A bus directory the page reads its roster and its mail queue from.
+	 *
+	 * A case about who is here and what is waiting draws the rows it hands over; a case about
+	 * what those rows *count* has to read files, because a stub cannot disagree with itself.
+	 */
+	bus?: string;
 }
 
 /** One board in one browser: the store behind it, and fresh tabs on it. */
@@ -140,6 +147,7 @@ export async function openBoardBrowser(options: BoardBrowserOptions): Promise<Bo
 		now: options.now,
 		...(options.display === undefined ? {} : { display: options.display }),
 		...(options.roster === undefined ? {} : { roster: options.roster }),
+		...(options.bus === undefined ? {} : { bus: options.bus }),
 	});
 	const browser = await launchBrowser(BOARD_CHROME);
 	const tab = async (url: string): Promise<Page> => {

@@ -273,7 +273,7 @@ describe("the inbox watch", () => {
 		await backend.poll();
 		expect(backend.pending()).toHaveLength(1);
 		expect(calls).toHaveLength(1);
-		expect(await createBusStore({ dir }).unread("s2")).toBe(1);
+		expect((await createBusStore({ dir }).peek("s2", { limit: 0 })).unread.size).toBe(1);
 		await frontend.stop();
 		await backend.stop();
 	});
@@ -484,7 +484,7 @@ describe("board reads", () => {
 		expect((await backend.peek()).mail.map((message) => message.text)).toEqual(["preview me"]);
 		// Nothing is queued for a report and nothing was deleted: `inbox` still owns both.
 		expect(backend.pending()).toEqual([]);
-		expect(await createBusStore({ dir }).unread("s2")).toBe(1);
+		expect((await createBusStore({ dir }).peek("s2", { limit: 0 })).unread.size).toBe(1);
 		expect(await backend.inbox()).toHaveLength(1);
 		await frontend.stop();
 		await backend.stop();

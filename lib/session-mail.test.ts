@@ -1,19 +1,23 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, readdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { INBOX_DIR_NAME } from "./session-roster.ts";
+import { scratchDir } from "../test/helpers/env.ts";
+import { makeTempTracker } from "../test/helpers/git.ts";
+import { INBOX_DIR_NAME, storedName } from "./session-files.ts";
 import {
 	type BusMessage,
 	isBusMessage,
 	listArrivals,
 	listMessages,
+	pageOf,
+	readMailLedger,
+	type MailRecord,
+	type WaitingPage,
 	unaccountedMail,
+	unaccountedOf,
+	untoldIn,
 	WAITING_LIMIT,
-	waitingMail,
 } from "./session-mail.ts";
-import { makeTempTracker } from "../test/helpers/git.ts";
-import { scratchDir } from "../test/helpers/env.ts";
-import { storedName } from "./session-roster.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -41,12 +45,16 @@ function land(busDir: string, inbox: string, message: Partial<BusMessage> & { id
 
 const busDir = (): string => scratchDir(temps, "pi-session-mail-");
 
+/** The page a caller draws from one read of the bus: the projection every surface uses. */
+const queuePage = async (dir: string, limit?: number): Promise<WaitingPage> =>
+	pageOf(await readMailLedger(dir, []), limit);
+
 describe("the waiting queue", () => {
 	test("is empty where no bus has ever written, and where only records exist", async () => {
 		const dir = busDir();
-		expect((await waitingMail(dir)).messages).toEqual([]);
+		expect((await queuePage(dir)).messages).toEqual([]);
 		mkdirSync(join(dir, INBOX_DIR_NAME), { recursive: true });
-		expect((await waitingMail(dir)).messages).toEqual([]);
+		expect((await queuePage(dir)).messages).toEqual([]);
 	});
 
 	test("reads the front of the queue first, by when it landed", async () => {
@@ -54,7 +62,7 @@ describe("the waiting queue", () => {
 		land(dir, "hash-a", { id: "m-2" }, NOW + 2_000);
 		land(dir, "hash-a", { id: "m-1" }, NOW + 1_000);
 		land(dir, "hash-b", { id: "m-3" }, NOW + 3_000);
-		expect((await waitingMail(dir)).messages.map((row) => row.id)).toEqual(["m-1", "m-2", "m-3"]);
+		expect((await queuePage(dir)).messages.map((row) => row.id)).toEqual(["m-1", "m-2", "m-3"]);
 	});
 
 	test("orders by arrival, not by the sender's own clock", async () => {
@@ -63,7 +71,7 @@ describe("the waiting queue", () => {
 		// the queue is the inbox's clock, so it is read last.
 		land(dir, "hash-a", { id: "m-ahead", at: NOW + 86_400_000 }, NOW + 1_000);
 		land(dir, "hash-a", { id: "m-late-stamp", at: 1 }, NOW + 2_000);
-		expect((await waitingMail(dir)).messages.map((row) => row.id)).toEqual(["m-ahead", "m-late-stamp"]);
+		expect((await queuePage(dir)).messages.map((row) => row.id)).toEqual(["m-ahead", "m-late-stamp"]);
 	});
 
 	test("draws a broadcast once, naming every recipient it waits for", async () => {
@@ -71,7 +79,7 @@ describe("the waiting queue", () => {
 		land(dir, "hash-a", { id: "m-all", kind: "event", to: "s-2", toLabel: "billing-core" }, NOW);
 		land(dir, "hash-b", { id: "m-all", kind: "event", to: "s-3", toLabel: "ops-helper" }, NOW);
 		land(dir, "hash-c", { id: "m-all", kind: "event", to: "s-4", toLabel: "team-lead" }, NOW);
-		const page = await waitingMail(dir);
+		const page = await queuePage(dir);
 		expect(page.messages).toHaveLength(1);
 		expect(page.messages[0]?.to).toEqual([
 			{ id: "s-2", label: "billing-core" },
@@ -89,7 +97,7 @@ describe("the waiting queue", () => {
 		// One session's message reached two inboxes, which is one recipient twice over.
 		land(dir, "hash-a", { id: "m-twice", kind: "event", to: "s-5", toLabel: "ops-helper" }, NOW + 1_000);
 		land(dir, "hash-b", { id: "m-twice", kind: "event", to: "s-5", toLabel: "ops-helper" }, NOW + 1_000);
-		const page = await waitingMail(dir);
+		const page = await queuePage(dir);
 		expect(page.messages.map((row) => row.to)).toEqual([
 			[
 				{ id: "s-2", label: "billing-core" },
@@ -104,14 +112,14 @@ describe("the waiting queue", () => {
 		for (let index = 0; index < WAITING_LIMIT + 3; index++) {
 			land(dir, "hash-a", { id: `m-${String(index).padStart(2, "0")}` }, NOW + index * 1_000);
 		}
-		const page = await waitingMail(dir);
+		const page = await queuePage(dir);
 		expect(page.messages).toHaveLength(WAITING_LIMIT);
 		expect(page.messages[0]?.id).toBe("m-00");
 		// What the cap left out is counted, so a queue read to the bottom cannot look quiet.
 		expect(page.dropped).toBe(3);
 		// A caller decides its own cap; the default is only the page's.
-		expect((await waitingMail(dir, 2)).messages).toHaveLength(2);
-		expect(await waitingMail(dir, 0)).toEqual({ messages: [], dropped: WAITING_LIMIT + 3 });
+		expect((await queuePage(dir, 2)).messages).toHaveLength(2);
+		expect(await queuePage(dir, 0)).toEqual({ messages: [], dropped: WAITING_LIMIT + 3 });
 	});
 
 	test("skips a file that will not parse or is not a message, and keeps the queue behind it", async () => {
@@ -122,7 +130,7 @@ describe("the waiting queue", () => {
 		writeFileSync(join(inbox, "half.json"), JSON.stringify({ id: "m-half", from: "s-1" }), "utf-8");
 		writeFileSync(join(inbox, "notes.txt"), "not mail\n", "utf-8");
 		land(dir, "hash-a", { id: "m-1" }, NOW);
-		expect((await waitingMail(dir)).messages.map((row) => row.id)).toEqual(["m-1"]);
+		expect((await queuePage(dir)).messages.map((row) => row.id)).toEqual(["m-1"]);
 	});
 
 	test("never consumes: every file is byte-identical after a read", async () => {
@@ -130,15 +138,15 @@ describe("the waiting queue", () => {
 		land(dir, "hash-a", { id: "m-1" }, NOW);
 		land(dir, "hash-b", { id: "m-all", kind: "event" }, NOW);
 		const before = inboxSnapshot(dir);
-		await waitingMail(dir);
-		await waitingMail(dir, 1);
+		await queuePage(dir);
+		await queuePage(dir, 1);
 		expect(inboxSnapshot(dir)).toEqual(before);
 	});
 
 	test("carries the text whole, because a row shows a title and the hover says the rest", async () => {
 		const dir = busDir();
 		land(dir, "hash-a", { id: "m-1", text: "the gateway owner is on holiday; take the webhook drift card" }, NOW);
-		expect((await waitingMail(dir)).messages[0]?.text).toBe(
+		expect((await queuePage(dir)).messages[0]?.text).toBe(
 			"the gateway owner is on holiday; take the webhook drift card",
 		);
 	});
@@ -240,15 +248,16 @@ describe("the mail no record accounts for", () => {
 		expect(found.count).toBe(2);
 	});
 
-	test("answers the count alone when the caller draws no body", async () => {
+	test("counts a file it cannot read and names only the ones it can", async () => {
 		const dir = busDir();
 		land(dir, storedName("s-gone"), { id: "m-orphan", to: "s-gone" }, NOW);
 		mkdirSync(join(dir, INBOX_DIR_NAME, storedName("s-broken")), { recursive: true });
 		writeFileSync(join(dir, INBOX_DIR_NAME, storedName("s-broken"), "broken.json"), "{", "utf-8");
-		// The board's read: the number, from the names each unheld inbox holds, with no message among
-		// them. A file no build can parse counts too — it is still a file nobody's record holds, and a
-		// drop addresses it by the id in its name.
-		expect(await unaccountedMail(dir, new Set(), { bodies: false })).toEqual({ messages: [], count: 2 });
+		// A file no build can parse counts: it is a file nobody's record holds, and a drop addresses
+		// it by the id in its name — while the page names only the ones it can read.
+		const page = await unaccountedMail(dir, new Set());
+		expect(page.count).toBe(2);
+		expect(page.messages.map((entry) => entry.message.id)).toEqual(["m-orphan"]);
 	});
 
 	test("is empty where no bus has ever written", async () => {
@@ -268,3 +277,57 @@ function inboxSnapshot(dir: string): Record<string, string> {
 	}
 	return out;
 }
+
+/** A record the ledger can count against: the id, the name, and what it was told. */
+const record = (id: string, told: string[] = []): MailRecord => ({ id, label: id, told });
+
+describe("the mail ledger", () => {
+	test("one pass answers a row's count and the queue it sits in", async () => {
+		const dir = busDir();
+		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW + 1_000);
+		land(dir, storedName("s-1"), { id: "m-2", to: "s-1" }, NOW + 2_000);
+		land(dir, storedName("s-1"), { id: "m-3", to: "s-1" }, NOW + 3_000);
+		const ledger = await readMailLedger(dir, [record("s-1", ["m-1"])]);
+		expect(untoldIn(ledger, "s-1")).toBe(2);
+		expect(ledger.untold).toBe(2);
+		// Told mail is not waiting to hear about it, but it is still in the inbox until consumed.
+		expect(ledger.messages.map((message) => message.id)).toEqual(["m-1", "m-2", "m-3"]);
+	});
+
+	test("names a file it cannot read instead of counting it as a message", async () => {
+		const dir = busDir();
+		const inbox = join(dir, INBOX_DIR_NAME, storedName("s-1"));
+		mkdirSync(inbox, { recursive: true });
+		writeFileSync(join(inbox, "m-bad.json"), "{ not json");
+		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW);
+		const ledger = await readMailLedger(dir, [record("s-1")]);
+		expect(ledger.inboxes[0]?.unreadable).toEqual(["m-bad.json"]);
+		// Named, not counted: the row's number is the mail its reader can open, and this file is not
+		// one — a card that counted it would promise mail no line explains.
+		expect(untoldIn(ledger, "s-1")).toBe(1);
+		expect(ledger.messages.map((message) => message.id)).toEqual(["m-1"]);
+	});
+
+	test("an inbox no record holds is unaccounted for, and not counted against anybody", async () => {
+		const dir = busDir();
+		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW);
+		land(dir, storedName("s-gone"), { id: "m-2", to: "s-gone", toLabel: "gone-peer" }, NOW + 1_000);
+		const ledger = await readMailLedger(dir, [record("s-1")]);
+		expect(ledger.untold).toBe(1);
+		const orphan = ledger.inboxes.find((inbox) => !inbox.held);
+		expect(orphan?.id).toBe("s-gone");
+		expect(orphan?.label).toBe("gone-peer");
+		expect(unaccountedOf(ledger).count).toBe(1);
+		expect(unaccountedOf(ledger).messages.map((row) => row.message.id)).toEqual(["m-2"]);
+	});
+
+	test("pages the queue it read, and says what the page left out", async () => {
+		const dir = busDir();
+		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW + 1_000);
+		land(dir, storedName("s-1"), { id: "m-2", to: "s-1" }, NOW + 2_000);
+		land(dir, storedName("s-1"), { id: "m-3", to: "s-1" }, NOW + 3_000);
+		const page = pageOf(await readMailLedger(dir, [record("s-1")]), 2);
+		expect(page.messages.map((message) => message.id)).toEqual(["m-1", "m-2"]);
+		expect(page.dropped).toBe(1);
+	});
+});

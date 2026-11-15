@@ -26,7 +26,7 @@ const SUITE_BAR = 400;
 /** Every declared suite past the bar, at its height: debt, and a height only falls. */
 const LONG_SUITES: Record<string, number> = {
 	"extensions/board/page.test.ts": 521,
-	"extensions/board/tools.test.ts": 1238,
+	"extensions/board/tools.test.ts": 1237,
 	"extensions/board/view/behaviour.test.ts": 730,
 	"extensions/board/view/pages.test.ts": 618,
 	"extensions/board/view/team.test.ts": 485,

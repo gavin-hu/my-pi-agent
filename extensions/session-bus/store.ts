@@ -7,10 +7,22 @@
  * nothing about models or UI; it only reads and writes validated JSON.
  */
 
-import { randomBytes } from "node:crypto";
-import { mkdir, link, readdir, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { asRecord, readJson } from "../../lib/json.ts";
+import { rm, stat } from "node:fs/promises";
+import { join } from "node:path";
+import { asRecord } from "../../lib/json.ts";
+import {
+	busPaths,
+	dropIfEmpty,
+	dropStaleTemps,
+	ensureDir,
+	listJson,
+	publishNew,
+	readJsonAs,
+	storedName,
+	writeJsonAtomic,
+} from "../../lib/session-files.ts";
+import { type BusMessage, holdsMessage } from "../../lib/session-mail.ts";
+import type { MailStore } from "./mail-store.ts";
 import { claimsConflict, keepsOverlap } from "./overlap.ts";
 import type {
 	ClaimConflict,
@@ -21,12 +33,6 @@ import type {
 	InboxRead,
 	SessionRecord,
 } from "./types.ts";
-import type { MailStore } from "./mail-store.ts";
-import { type BusMessage, holdsMessage } from "../../lib/session-mail.ts";
-import { INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "../../lib/session-roster.ts";
-
-const DIR_MODE = 0o700;
-const FILE_MODE = 0o600;
 
 export interface BusStoreOptions {
 	/** The repository bus directory, e.g. `<agent-dir>/session-bus/<key>`. */
@@ -66,13 +72,6 @@ export interface BusStore {
 	 */
 	inbox(id: string, limit: number): Promise<InboxRead>;
 	/**
-	 * The files in a recipient's inbox that `told` does not name — the number a peer's row shows.
-	 *
-	 * Counted from the names alone, so a file this build cannot read counts until its TTL ends it:
-	 * `inbox` is what says it cannot be read. That is the one promise this count makes.
-	 */
-	unread(id: string, told?: ReadonlySet<string>): Promise<number>;
-	/**
 	 * Remove the mail `ids` name, from the inboxes no record holds, and name what stayed.
 	 *
 	 * Only the unaccounted copies go: an id a live record's inbox also carries stays there, which
@@ -110,13 +109,15 @@ export interface BusStore {
 		sessionTtlMs: number;
 	}): Promise<void>;
 	/**
-	 * Remove the mail past its TTL, which means walking every inbox to find it.
+	 * Remove the mail past its TTL from this session's inbox and from every inbox no record holds.
 	 *
 	 * The one call here whose cost grows with the mail on the bus, so it belongs to the clock the
 	 * TTL is measured in — the heartbeat — rather than to every action. A day-old message reading
-	 * as one for another ten seconds costs nobody.
+	 * as one for another ten seconds costs nobody. An inbox a live record holds is that session's
+	 * to sweep, which is the rule the ledger states as "unheld": one session no longer walks a
+	 * peer's mail on every tick, and mail nobody owns still finds its way out.
 	 */
-	pruneMail(input: { now: number; messageTtlMs: number }): Promise<void>;
+	pruneMail(input: { now: number; messageTtlMs: number; own: string }): Promise<void>;
 }
 
 /** The seam a claim batch offers a suite: where inside the batch a rival can be put. */
@@ -196,98 +197,13 @@ function isClaim(value: unknown): value is ClaimRecord {
 	);
 }
 
-function readTyped<T>(path: string, guard: (value: unknown) => value is T): T | undefined {
-	const parsed = readJson(path);
-	return parsed !== undefined && guard(parsed) ? parsed : undefined;
-}
-
-/**
- * Publish one document at `path`, whole: written to a temp file and renamed over the target, so a
- * reader sees the old document or the new one and never half of either.
- *
- * The failure path is `lib/json.ts`'s `writeJsonFile`, the synchronous half of this same rule: the
- * temp is removed and the original reason travels, because the document already at the path is not
- * this write's to delete. One retry sits before that, because what reaches here is a sharing
- * violation — a peer holding the target open — and not a replace the platform cannot do: node asks
- * for `MOVEFILE_REPLACE_EXISTING`, so replacing works and only the holder's refusal is left. The
- * temp name is that module's too, `<path>.<pid>.<random>.tmp`, so two writes in one process cannot
- * share a temp; the two stay separate functions because one is synchronous and one is not.
- */
-async function writeJson(path: string, value: unknown): Promise<void> {
-	await mkdir(dirname(path), { recursive: true, mode: DIR_MODE });
-	const temp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
-	await writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf-8", mode: FILE_MODE });
-	try {
-		await rename(temp, path);
-	} catch (refused) {
-		try {
-			// The holder refusing it is usually a peer between two reads of its own record, and the
-			// temp file is ours and in nobody's way.
-			await rename(temp, path);
-		} catch {
-			await rm(temp, { force: true });
-			throw refused;
-		}
-	}
-}
-
-/** The `*.json` files in one directory, as names; a directory that is not there holds none. */
-async function listFiles(dir: string): Promise<string[]> {
-	try {
-		return (await readdir(dir)).filter((name) => name.endsWith(".json")).sort();
-	} catch {
-		return [];
-	}
-}
-
-/**
- * Drop a recipient's directory once it holds no files, so a bus does not keep
- * one empty directory for every session that ever joined it. An inbox with mail
- * stays, because a session's id survives a resume and its mail is still its own;
- * non-recursive removal also loses the race to a message that lands meanwhile.
- */
-async function dropIfEmpty(dir: string): Promise<void> {
-	const entries = await readdir(dir).catch(() => null);
-	if (!entries || entries.length > 0) return;
-	await rmdir(dir).catch(() => {});
-}
-
-/**
- * How long a writer's temp file may sit before it is debris.
- *
- * A record and a claim are published by renaming or linking a temp file, so the file
- * exists for milliseconds; one left behind is a process that stopped between the
- * write and the publish. The window is measured on the filesystem's own clock, not
- * the bus's, because that is the clock the timestamps came from.
- */
-const TEMP_TTL_MS = 60_000;
-
-/**
- * Remove the temp files a crashed writer left in one directory.
- *
- * Readers only ever look at `*.json`, so this debris is invisible and would live
- * forever without a pass of its own.
- */
-async function dropStaleTemps(dir: string): Promise<void> {
-	const cut = Date.now() - TEMP_TTL_MS;
-	for (const name of await readdir(dir).catch(() => [] as string[])) {
-		if (name.endsWith(".json")) continue;
-		const path = join(dir, name);
-		const info = await stat(path).catch(() => undefined);
-		if (info !== undefined && info.mtimeMs < cut) await rm(path, { force: true });
-	}
-}
-
 /** Create a store rooted at one repository's bus directory. */
 export function createBusStore(options: BusStoreOptions): BusStore {
-	const { dir } = options;
-	const sessionsDir = join(dir, SESSIONS_DIR_NAME);
-	const inboxRoot = join(dir, INBOX_DIR_NAME);
-	const claimsDir = join(dir, "claims");
-
-	const sessionFile = (id: string): string => join(sessionsDir, `${storedName(id)}.json`);
-	const inboxDir = (id: string): string => join(inboxRoot, storedName(id));
-	const claimFile = (path: string): string => join(claimsDir, `${storedName(path)}.json`);
+	const paths = busPaths(options.dir);
+	const { dir, sessions: sessionsDir, claims: claimsDir } = paths;
+	const sessionFile = paths.recordOf;
+	const inboxDir = paths.inboxOf;
+	const claimFile = paths.claimOf;
 
 	/**
 	 * One message file in one inbox, created where it is not there yet.
@@ -297,15 +213,14 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 */
 	async function writeMessageFile(target: string, message: BusMessage): Promise<void> {
 		const directory = inboxDir(target);
-		await mkdir(directory, { recursive: true, mode: DIR_MODE });
 		if (await holdsMessage(directory, message)) return;
-		await writeJson(join(directory, `${message.id}.json`), message);
+		await writeJsonAtomic(paths.messageOf(target, message.id), message);
 	}
 
 	async function readSessions(): Promise<SessionRecord[]> {
 		const sessions: SessionRecord[] = [];
-		for (const name of await listFiles(sessionsDir)) {
-			const record = readTyped(join(sessionsDir, name), isSession);
+		for (const name of await listJson(sessionsDir)) {
+			const record = readJsonAs(join(sessionsDir, name), isSession);
 			if (record) sessions.push(record);
 		}
 		return sessions.sort((a, b) => b.lastSeen - a.lastSeen || a.label.localeCompare(b.label));
@@ -313,8 +228,8 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 
 	async function readClaims(): Promise<ClaimRecord[]> {
 		const claims: ClaimRecord[] = [];
-		for (const name of await listFiles(claimsDir)) {
-			const claim = readTyped(join(claimsDir, name), isClaim);
+		for (const name of await listJson(claimsDir)) {
+			const claim = readJsonAs(join(claimsDir, name), isClaim);
 			if (claim) claims.push(claim);
 		}
 		return claims.sort((a, b) => a.path.localeCompare(b.path));
@@ -326,40 +241,28 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		ownerLabel: string,
 		at: number,
 	): Promise<{ claim: ClaimRecord; conflict?: ClaimRecord; created: boolean }> {
-		await mkdir(claimsDir, { recursive: true, mode: DIR_MODE });
 		const file = claimFile(path);
 		const claim: ClaimRecord = { path, owner, ownerLabel, at };
 		// Publish a written temp file instead of creating the claim and filling it
 		// afterwards: the link is the exclusive create, so no reader can observe a
 		// half-written claim and mistake it for a crashed owner's.
-		const temp = `${file}.${randomBytes(4).toString("hex")}.tmp`;
-		await writeFile(temp, `${JSON.stringify(claim, null, 2)}\n`, { encoding: "utf-8", mode: FILE_MODE });
-		try {
-			try {
-				await link(temp, file);
-				return { claim, created: true };
-			} catch (error) {
-				if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-			}
-			const existing = readTyped(file, isClaim);
-			if (existing) {
-				return existing.owner === owner
-					? { claim: existing, created: false }
-					: { claim, conflict: existing, created: false };
-			}
-			// A claim file that does not parse is debris from before claims were
-			// published whole; clear it once so a stale path cannot block forever.
-			await rm(file, { force: true });
-			await link(temp, file);
-			return { claim, created: true };
-		} finally {
-			await rm(temp, { force: true });
+		if (await publishNew(file, claim)) return { claim, created: true };
+		const existing = readJsonAs(file, isClaim);
+		if (existing) {
+			return existing.owner === owner
+				? { claim: existing, created: false }
+				: { claim, conflict: existing, created: false };
 		}
+		// A claim file that does not parse is debris from before claims were
+		// published whole; clear it once so a stale path cannot block forever.
+		await rm(file, { force: true });
+		if (!(await publishNew(file, claim))) throw new Error(`the claim on ${path} kept being recreated under it`);
+		return { claim, created: true };
 	}
 
 	async function releaseOne(path: string, owner: string): Promise<boolean> {
 		const file = claimFile(path);
-		const existing = readTyped(file, isClaim);
+		const existing = readJsonAs(file, isClaim);
 		if (!existing || existing.owner !== owner) return false;
 		await rm(file, { force: true });
 		return true;
@@ -469,27 +372,21 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 */
 	let mail: Promise<MailStore> | undefined;
 	const mailStore = (): Promise<MailStore> =>
-		(mail ??= import("./mail-store.ts").then((module) =>
-			module.createMailStore({ dir, readSessions, readTyped, listFiles, dropIfEmpty, dropStaleTemps }),
-		));
+		(mail ??= import("./mail-store.ts").then((module) => module.createMailStore(dir)));
 
 	return {
 		dir,
 		async ensure() {
-			await Promise.all([
-				mkdir(sessionsDir, { recursive: true, mode: DIR_MODE }),
-				mkdir(inboxRoot, { recursive: true, mode: DIR_MODE }),
-				mkdir(claimsDir, { recursive: true, mode: DIR_MODE }),
-			]);
+			await Promise.all([ensureDir(sessionsDir), ensureDir(paths.inbox), ensureDir(claimsDir)]);
 		},
 
 		async writeSession(record) {
-			await writeJson(sessionFile(record.id), record);
+			await writeJsonAtomic(sessionFile(record.id), record);
 		},
 
 		sessions: readSessions,
 
-		session: async (id) => readTyped(sessionFile(id), isSession),
+		session: async (id) => readJsonAs(sessionFile(id), isSession),
 
 		async removeSession(id) {
 			await rm(sessionFile(id), { force: true });
@@ -537,12 +434,11 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			return (await mailStore()).inbox(id, limit);
 		},
 
-		async unread(id, told) {
-			return (await mailStore()).unread(id, told);
-		},
-
 		async dropUnaccounted(ids) {
-			return (await mailStore()).dropUnaccounted(ids);
+			// The holder of every inbox, read now rather than when the caller listed the mail: a
+			// session that resumed in between holds its inbox again.
+			const held = new Map((await readSessions()).map((session) => [session.id, session.label]));
+			return (await mailStore()).dropUnaccounted(ids, held);
 		},
 
 		claims: readClaims,
@@ -588,7 +484,10 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		},
 
 		async pruneMail(input) {
-			return (await mailStore()).pruneMail(input);
+			// Who holds an inbox, read at the sweep: a record pruned a moment ago leaves its mail
+			// unheld, and an inbox nobody holds is what this session may end.
+			const held = new Set((await readSessions()).map((session) => storedName(session.id)));
+			return (await mailStore()).pruneMail(input, held);
 		},
 	};
 }

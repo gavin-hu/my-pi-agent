@@ -67,12 +67,14 @@ stamped on `agent_start`, dropped on `agent_settled`, counted only beside a fres
 It also carries what its session was told, and that is what unread counts: a notice marks its
 burst told, so the number falls with nothing deleted, and both surfaces draw that one number.
 A notice previews five messages, so `session read` is what shows the rest; a file this build
-cannot parse counts until its TTL, and `session status` names it. Mail whose recipient's record
-was pruned has no row to hang a number on, so the status names each message under
-`Unaccounted (N)` — id, sender, kind, age, first line — a bare `/sessions drop` prints that
-list, and `/sessions drop <id>` clears one; the board counts it off the inbox names, so a
-repaint every second opens no file. That door is a command, not a `session` action, because a
-message is evidence: the person clears it, and the store refuses an id a record's inbox holds.
+cannot parse is named rather than counted, and its TTL is the only thing that ends it. Mail whose
+recipient's record was pruned has no row to hang a number on, so `session status` and the
+`/sessions` board name it under `Unaccounted (N)` — id, sender, kind, age, first line — and a
+bare `/sessions drop` prints that list, where `/sessions drop <id>` clears one. The Team tab
+counts none of it: its numbers are the mail each session can open, one read per frame. A heartbeat
+ends expired mail in its own inbox and in the ones no record holds; a stopped inbox is swept once
+its record ages out, and each file still ends at its own TTL. That door is a command, not a
+`session` action: a message is evidence, and the store refuses an id a record's inbox holds.
 
 **Labels.** Name a session for the outcome it owns (`billing-core`), not its layer. A duplicate
 label gets a short id suffix, and a label is reserved while the bus keeps its owner's record —
