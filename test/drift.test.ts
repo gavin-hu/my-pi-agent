@@ -133,17 +133,17 @@ describe("the agent contract", () => {
 	 * in the guides it links. This is the ceiling that keeps a new paragraph from
 	 * turning it back into a manual — lower it when the file shrinks.
 	 */
-	const CEILING = 1276;
+	const CEILING = 1003;
 
 	/**
 	 * A path the doc cites: a code span with a `/` in it and a file extension. That is
 	 * narrower than "every filename it names" — a bare `package.json` is a filename
 	 * rather than a citation, and `docs/extensions/<name>.md` is a shape, so both are
 	 * left out; a span carrying an anchor is a link, which `test/doc-links.test.ts`
-	 * resolves. 25 spans cite a file today; the floor is a ratchet that falls with it.
+	 * resolves. 23 spans cite a file today; the floor is a ratchet that falls with it.
 	 */
 	const CITED = /`([^`\n]*\/[^`\n]*\.(?:ts|json|md))`/g;
-	const CITED_FLOOR = 25;
+	const CITED_FLOOR = 23;
 
 	test("AGENTS.md stays inside its word budget", () => {
 		const words = readFileSync(join(repo, "AGENTS.md"), "utf-8").split(/\s+/).filter(Boolean).length;

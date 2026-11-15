@@ -4,107 +4,93 @@
 helpers. Pi loads each extension as plain TypeScript from the `pi` manifest in
 `package.json`: no build step.
 
-The reasoning lives in the linked docs; do not restate it. `test/drift.test.ts`
-holds the word budget: a new paragraph replaces one.
+Each rule here carries its gate and the trap with no other home.
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) owns the contributor workflow — branch flow,
+checks, commit format, conventions, page template, tool fields, release — and
+`scripts/README.md` and `test/README.md` their areas; do not restate them.
+`test/drift.test.ts` holds the word budget: a new paragraph replaces one.
 
 ## Commands
 
 ```bash
-bun install                       # once per worktree
-bun run check                     # the gate: check:format, check:types, every test
-bun run check --changed           # narrowed to this change's tests
-bun run check --serial            # the shape Linux and macOS CI run
-bun run check:tests --ext <name>  # one extension's tests
-bun run check:tests --slow        # the gated git suites
-bun run format                    # biome format --write .
+bun install              # once per worktree
+bun run check --changed  # this change's tests; prints its selection
+bun run check            # before landing: format, types, every test
+bun run check --serial   # the shape Linux and macOS CI run
 ```
 
-- A narrow change: `bun run check --changed`, which prints its selection.
-  Landing: the whole `bun run check`, where a parallel red is no regression
-  until `--serial` reproduces it. Scopes are flags in `test/README.md`.
-- `rewind`, `worktree`, and `session-bus`'s real-repository tests skip unless
-  `CI` or `PI_SLOW_TESTS=1` is set. Touching one means running it explicitly.
-- A new package-level test goes into `ROOT_TEST_FILES` in
-  `test/layout.test.ts`: that set is compared exactly.
-- A peer change is proved against the newest published Pi by the `compat` CI job;
-  `CONTRIBUTING.md#compatibility` reproduces it locally. Never commit the peer bump.
+[`#checks`](./CONTRIBUTING.md#checks) and [`test/README.md`](./test/README.md) cover
+the rest.
+
+- A parallel red is no regression until `--serial` reproduces it.
+- The gated git suites (`rewind`, `worktree`, `session-bus`'s real-repository
+  tests) skip unless `CI` or `PI_SLOW_TESTS=1` is set: touching one means
+  `bun run check:tests --slow`.
+- A new package-level test goes into `ROOT_TEST_FILES` in `test/layout.test.ts`:
+  that set is compared exactly.
+- A peer bump is proved against the newest published Pi by CI's `compat` job
+  ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); never commit it.
 
 ## Git workflow
 
-`main` is protected by convention.
+[`CONTRIBUTING.md#branch-flow`](./CONTRIBUTING.md#branch-flow) owns the flow: a
+worktree per task, entered before plan mode; commits as steps finish, and never
+unless the user asks; a `--no-ff` merge, no rebase, no branch head pushed to `main`.
 
-- Start every task in a worktree, before plan mode: `worktree` action `enter`, or
-  `git worktree add .pi/worktrees/<name> -b worktree-<name>`. Cuts from `origin/main`;
-  never rebase — the merge settles divergence.
-- Never commit unless the user asks; before `worktree` exits, ask how to reconcile
-  the branch (commit, merge, keep, discard).
-- Commit as steps finish; merge `main` in when it moves, and check that merge.
-- Land from `main`: `git merge --no-ff <branch>`, check the merge, then `git push origin main`;
-  never push a branch head to `main`. A card closes after its landing: the card records which
-  merge carried it, the sign which tree was checked.
-- Stage explicit paths; never `git add -A` or `git add .`. Never `git reset
-  --hard`, `git checkout .`, `git clean -fd`, `git stash`, `git commit
-  --no-verify`, or force-push `main`.
-- Commit format `type(scope): summary`, where scope is the extension name or
-  `lib`, `docs`, `test`, `ci`. No emojis.
+- Stage explicit paths; never `git add -A`, `git add .`, `git reset --hard`,
+  `git checkout .`, `git clean -fd`, `git stash`, `git commit --no-verify`, or
+  force-push `main`.
+- A card closes after its landing: the card records which merge carried it, the
+  sign which tree was checked.
 
 ## Release
 
-Distribution is git and npm; a release is the annotated tag with its GitHub
-release, not a landing.
+Follow [`CONTRIBUTING.md#release`](./CONTRIBUTING.md#release): it is normative, and
+landing a change is not a release.
 
-- Follow the normative steps in
-  [`CONTRIBUTING.md#release`](./CONTRIBUTING.md#release).
-- Publish only through `publish.yml`, never `npm publish` locally; each dispatch's
-  approval expires, and the environment review is waited on.
-- Push the tag with `main`: `git push origin vX.Y.Z main`. A `main`-first push
-  races CI's `fetch-depth: 0` checkout and fails `test/release.test.ts`.
+- Publish only through `publish.yml`, only after the user approves that dispatch —
+  an earlier approval expires — and wait on the environment review.
 - The `[Unreleased]` bullet lands in the same commit as its change.
 
 ## Invariants
 
+- An extension factory only registers. Long-lived resources start in
+  `session_start` and release in an idempotent `session_shutdown`.
 - `lib/` loads with isolated module caches, so it stays value-only: no
-  module-level state (`test/boundaries.test.ts`).
-- No extension imports another extension's modules. Shared tool and parameter
-  names live in `lib/tool-names.ts`; shared glyphs and status keys in
-  `lib/tui/glyphs.ts`.
-- An extension factory only registers. Start long-lived resources in
-  `session_start` and release them in an idempotent `session_shutdown`.
-- A start pays what an entry imports: a surface nothing needs before the first
-  draw loads with `import()` in the call that needs it (`lib/lazy.ts`), and
-  `test/dependencies.test.ts` holds the budget, which may only fall.
-- State that must survive `/resume` and `/tree` lives in tool-result `details` or
-  a custom entry, rebuilt from the session branch; widgets are derived, never
-  authoritative.
+  module-level state (`test/boundaries.test.ts`). No extension imports another's
+  modules.
+- Shared tool and parameter names live in `lib/tool-names.ts`; shared glyphs and
+  status keys in `lib/tui/glyphs.ts`.
+- A start pays what an entry imports: what nothing needs before the first draw loads
+  with `import()` in the call that needs it (`lib/lazy.ts`); `test/dependencies.test.ts`
+  holds the budget, which may only fall.
+- State that must survive `/resume` and `/tree` lives in tool-result `details` or a
+  custom entry, rebuilt from the branch; widgets are derived, never authoritative.
 - A rejected tool call returns an error carrying the previous state; never
   half-apply.
-- A path is data: compare resolved paths, build them with the platform joiner,
-  and canonicalize before using one as a state key. A literal `a/b` assertion
-  passes on macOS and fails on Windows.
-- A trust boundary two extensions answer — a loopback server, a served page —
-  has one policy module in `lib/http/`: two copies are how a `Host` rule or an
-  allowlist drifts apart.
+- A path is data: resolve before comparing, join with the platform joiner,
+  canonicalize before using one as a key — a literal `a/b` assertion fails on Windows.
+- A trust boundary two extensions answer — a loopback server, a served page — gets
+  one policy module in `lib/http/`: two copies is how a `Host` rule drifts.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
   with a `"*"` range.
-- Adding an extension touches the `pi` manifest, `package.json`, `REQUIREMENTS`
-  in `lib/requirements.ts`, its suites in `test/suite-manifest.ts`, its page in
-  `docs/extensions/`, the catalog in both READMEs, and
-  `test/naming.test.ts` for a tool name.
-- Adding a packaged skill is a `skills/<name>/SKILL.md` whose frontmatter carries
-  `name` and `description`, plus its row in both entry READMEs' skill tables;
-  `test/extension-load.test.ts` holds both.
+
+## Adding a surface
+
+[`#adding-an-extension`](./CONTRIBUTING.md#adding-an-extension) and
+[`#adding-a-packaged-skill`](./CONTRIBUTING.md#adding-a-packaged-skill) are the
+checklists; a missed row fails a gate — `REQUIREMENTS` in `lib/requirements.ts`,
+`test/suite-manifest.ts`, the catalog in both entry READMEs
+(`test/naming.test.ts`, `test/docs-parity.test.ts`), and a skill's own page at
+`docs/skills/<name>.md` (`test/skill-docs.test.ts`).
 
 ## Tool and prompt surface
 
-Every tool declares `annotations.readOnlyHint` and `openWorldHint`, plus
-`destructiveHint` when it mutates; a missing hint defaults to the restrictive
-value. `executionMode: "sequential"` when a tool mutates session, UI, or runtime
-state. Every registered tool has a `promptSnippet`, and no channel restates
-another's job. `test/prompt-budget.test.ts` holds the ceilings; see
-[`CONTRIBUTING.md#tool-and-prompt-surface`](./CONTRIBUTING.md#tool-and-prompt-surface).
+[`CONTRIBUTING.md#tool-and-prompt-surface`](./CONTRIBUTING.md#tool-and-prompt-surface)
+owns every field; `test/prompt-budget.test.ts` holds the ceilings.
 
-A tool rename updates `test/naming.test.ts` and the catalog table in both entry
-READMEs; a command rename updates its `docs/extensions/` page.
+- A tool rename updates `test/naming.test.ts` and the catalog table in both entry
+  READMEs; a command rename updates its `docs/extensions/` page.
 
 ## Rules
 
@@ -112,63 +98,54 @@ Three are gates; the fourth is review.
 
 - **One body, one owner.** A helper two extensions need lives in `lib/`, never in
   both; `test/shared-helpers.test.ts` fails a body identical to an existing one.
-- **No module grows.** One job per module, and a name that says it: past 600
-  lines a module is named in `LONG_MODULES` in `test/module-sizes.test.ts` with the
-  responsibility that keeps it whole, at its own height, which may only fall.
-- **One owner per concept.** Every `lib/` module has a row in `lib/README.md`, held by
-  `test/drift.test.ts`.
-- **A cross-cutting change is its own task.** Review only: no test can tell it
-  from a feature, so a change spanning unrelated areas does not ride on another.
+- **No module grows.** One job per module, its name saying which: past 600 lines it
+  is named in `LONG_MODULES` in `test/module-sizes.test.ts` with that responsibility,
+  at a height that may only fall.
+- **One owner per concept.** Every `lib/` module has a row in `lib/README.md`,
+  held by `test/drift.test.ts`.
+- **A cross-cutting change is its own task.** Review only: no test can tell it from
+  a feature, so a change spanning unrelated areas does not ride on another.
 
 ## Code quality
 
-- `unknown` at a boundary, never `any`. A cast claims something about a value you
-  did not build, so it names the guarantee it relies on.
+- `unknown` at a boundary, never `any`. A cast names the guarantee it relies on,
+  about a value you did not build.
 - No dead branch, commented-out code, or comment that restates its line.
   `test/conventions.test.ts` fails `TODO` markers, suppression comments, `any`, and
   commented-out statements.
-- TUI surfaces follow Pi's built-in design system and the `lib/tui/` kit
-  (`lib/tui/README.md` is the contract): colors from a role, text sanitized at the
-  boundary, width in terminal columns.
+- TUI surfaces follow Pi's design system and the `lib/tui/` kit, listed under
+  [`#conventions`](./CONTRIBUTING.md#conventions): colors from a role, text sanitized
+  at the boundary, width in terminal columns.
 - Do work once per render rather than per frame, and keep nothing that grows with
-  the transcript. `bun run bench:render` measures it.
+  the transcript; `bun run bench:render` measures it.
 
 ## UI verification
 
-A surface is verified by rendering it. A terminal frame:
-`bun run capture:screens render <screen>`, or
-`bun run render:tools render <tool> --width 80` for one block; a
-browser page: `bun run capture:plan <plan.md>` or `capture:file-browse`,
-each driving the shipped page. `bun run check` renders every screen at three
-widths, so an overflowing frame fails there.
+A surface is verified by rendering it: `capture:screens` for a terminal frame,
+`render:tools --width 80` for one block, `capture:plan` or `capture:file-browse` for
+a shipped page. `bun run check` renders every screen at three widths, so an
+overflowing frame fails there.
 
 ## Documentation
 
-- `README.md` is the user front door and `README.zh-CN.md` mirrors it;
-  `test/docs-parity.test.ts` compares headings, table rows, and links.
-- An extension's doc is `docs/extensions/<name>.md`, on the page template in
+- An extension's doc is `docs/extensions/<name>.md`, on the template in
   [`CONTRIBUTING.md#writing-an-extension-page`](./CONTRIBUTING.md#writing-an-extension-page);
   no Markdown beside the code.
-- A behaviour change updates the catalog in both entry READMEs, the
-  relevant `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
+- A behaviour change updates the catalog in both entry READMEs, the relevant
+  `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
 - Work planned but not started is a card on the repo's board (`board`), never a
   `TODO` comment or a second list in Markdown.
 - Renaming a heading or moving a file means fixing every relative link and
   `#anchor`; `test/doc-links.test.ts` resolves them.
-- One doc per audience: per-area contracts are listed in
+- One doc per audience:
   [`CONTRIBUTING.md#one-doc-per-audience`](./CONTRIBUTING.md#one-doc-per-audience).
 
 ## How to work
 
-- Work a feature on its card: claim, contract, sign, `execute` before editing; with no card,
-  open one.
+- Work a feature on its card: claim, contract, sign, `execute` before editing; with
+  no card, open one.
 - Be short and direct: answer before editing; state agreement or disagreement.
 - Ask before adding a runtime dependency.
-- Ask before removing functionality that looks intentional; add no backward compatibility
-  unless asked.
+- Ask before removing functionality that looks intentional; add no backward
+  compatibility unless asked.
 - If an instruction conflicts with this file, ask first.
-
-## Read more
-
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — checks, commits, conventions, page template, compat, release.
-- [`scripts/README.md`](./scripts/README.md) — the commands; [`test/README.md`](./test/README.md) — tiers, helpers, determinism.

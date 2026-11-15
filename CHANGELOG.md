@@ -93,6 +93,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the round's lines describe a peer the same way, and a team result's peer labels are sanitized
   where its other peer-supplied text already was.
 
+- `docs`: `AGENTS.md` gives each rule one owner — its gate, a pointer into `CONTRIBUTING.md`, or the
+  trap with no other home — and drops what restated the contributor guide: branch flow, checks, commit
+  format, conventions, page template, tool fields and release are now one sentence and an anchor each,
+  1276 words down to 1003, with `test/drift.test.ts`'s word ceiling and its cited-path floor lowered to
+  match. A skill's checklist names its page at `docs/skills/<name>.md`, which the old one omitted
+  while `test/skill-docs.test.ts` required it, and the stale `CONTRIBUTING.md#compatibility` pointer
+  becomes the `compat` job's workflow file.
+
 ### Fixed
 
 - `session-bus`, `plan`: the listener half of the `pi.events` handshake has one owner in
