@@ -188,17 +188,33 @@ function readTyped<T>(path: string, guard: (value: unknown) => value is T): T | 
 	return parsed !== undefined && guard(parsed) ? parsed : undefined;
 }
 
+/**
+ * Publish one document at `path`, whole: written to a temp file and renamed over the target, so a
+ * reader sees the old document or the new one and never half of either.
+ *
+ * The failure path is `lib/json.ts`'s `writeJsonFile`, the synchronous half of this same rule: the
+ * temp is removed and the original reason travels, because the document already at the path is not
+ * this write's to delete. One retry sits before that, because what reaches here is a sharing
+ * violation — a peer holding the target open — and not a replace the platform cannot do: node asks
+ * for `MOVEFILE_REPLACE_EXISTING`, so replacing works and only the holder's refusal is left. The
+ * temp name is that module's too, `<path>.<pid>.<random>.tmp`, so two writes in one process cannot
+ * share a temp; the two stay separate functions because one is synchronous and one is not.
+ */
 async function writeJson(path: string, value: unknown): Promise<void> {
 	await mkdir(dirname(path), { recursive: true, mode: DIR_MODE });
 	const temp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
 	await writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf-8", mode: FILE_MODE });
 	try {
 		await rename(temp, path);
-	} catch {
-		// Windows cannot replace an existing file with rename; removing first keeps
-		// the write recoverable, and the window is only a heartbeat-sized race.
-		await rm(path, { force: true });
-		await rename(temp, path);
+	} catch (refused) {
+		try {
+			// The holder refusing it is usually a peer between two reads of its own record, and the
+			// temp file is ours and in nobody's way.
+			await rename(temp, path);
+		} catch {
+			await rm(temp, { force: true });
+			throw refused;
+		}
 	}
 }
 

@@ -15,6 +15,7 @@
  * so a caller that only clamps a number loads none of it.
  */
 
+import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -137,7 +138,9 @@ interface JsonWriteOptions {
  * write takes, and a reader that lands there parses nothing — defaults for a config
  * file, "not logged in" for `wechat`'s credentials. The rename is the publish: a
  * reader sees the old document or the new one, never a fragment. The pid suffix is
- * what keeps two processes from sharing one temp name.
+ * what keeps two processes from sharing one temp name, and the random suffix what keeps two writes in
+ * one process from sharing it — a session that writes its record twice in one tick is the case the
+ * pid alone could not answer.
  *
  * The mode rides on the temp file rather than being applied after the write, so a
  * `0600` file is never readable at a wider mode for even a moment.
@@ -151,7 +154,7 @@ export function writeJsonFile(path: string, value: unknown, options: JsonWriteOp
 	const body = JSON.stringify(value, null, 2);
 	if (body === undefined) throw new TypeError(`writeJsonFile: ${path} has no JSON form`);
 	mkdirSync(dirname(path), { recursive: true });
-	const temp = `${path}.${process.pid}.tmp`;
+	const temp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
 	const text = `${body}\n`;
 	try {
 		if (options.mode === undefined) writeFileSync(temp, text, "utf-8");
