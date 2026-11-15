@@ -66,6 +66,21 @@ export function normalizeText(raw: unknown): { text: string } | { error: string 
 	return { text };
 }
 
+/** The longest key a sender may name a message with. */
+export const MAX_KEY = 64;
+
+/** What a key may hold, so it is one word a person can retype. */
+const KEY_PATTERN = /^[A-Za-z0-9._:-]+$/;
+
+/** A sender's name for one message, or an error; absent when it gave none. */
+export function normalizeKey(raw: unknown): { key?: string } | { error: string } {
+	if (typeof raw !== "string" || raw.trim() === "") return {};
+	const key = raw.trim();
+	if (key.length > MAX_KEY) return { error: `key must be at most ${MAX_KEY} characters.` };
+	if (!KEY_PATTERN.test(key)) return { error: 'key may hold letters, digits, ".", "_", "-" and ":".' };
+	return { key };
+}
+
 /** A shared inbox limit. */
 export function normalizeLimit(raw: unknown): number {
 	if (typeof raw !== "number" || !Number.isFinite(raw)) return DEFAULT_LIMIT;

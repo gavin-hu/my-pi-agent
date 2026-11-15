@@ -35,6 +35,12 @@ const SessionParams = Type.Object({
 			description: "Message kind; defaults to message.",
 		}),
 	),
+	key: Type.Optional(
+		Type.String({
+			description:
+				"With send: a name for this message. A resend of the same kind, text and paths folds into the copy still waiting.",
+		}),
+	),
 	paths: Type.Optional(
 		Type.Array(Type.String(), { description: "Repository-relative file or directory paths to claim or release." }),
 	),
@@ -117,6 +123,7 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 							to: typeof args.to === "string" ? args.to : "",
 							text: typeof args.text === "string" ? args.text : "",
 							kind: args.kind,
+							key: args.key,
 							paths: args.paths,
 						});
 						// What the send is worth is the protocol's answer, so a command's request reports it in

@@ -22,7 +22,7 @@ import type {
 	KeptMail,
 	SessionRecord,
 } from "./types.ts";
-import { type BusMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
+import { type BusMessage, holdsMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
 import { INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "../../lib/session-roster.ts";
 
 const DIR_MODE = 0o700;
@@ -269,6 +269,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	async function writeMessageFile(target: string, message: BusMessage): Promise<void> {
 		const directory = inboxDir(target);
 		await mkdir(directory, { recursive: true, mode: DIR_MODE });
+		if (await holdsMessage(directory, message)) return;
 		await writeJson(join(directory, `${message.id}.json`), message);
 	}
 
@@ -483,8 +484,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		},
 
 		async unread(id, told) {
-			const names = await listFiles(inboxDir(id));
-			return names.filter((name) => !told?.has(idOfFile(name))).length;
+			return (await listFiles(inboxDir(id))).filter((name) => !told?.has(idOfFile(name))).length;
 		},
 
 		/**

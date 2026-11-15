@@ -60,6 +60,8 @@ export interface SessionBus {
 		to: string;
 		text: string;
 		kind?: string;
+		/** A name for this message: a resend of the same body folds into the copy still waiting. */
+		key?: unknown;
 		paths?: unknown;
 	}): Promise<{ delivered: string[]; failed: DeliveryFailure[]; messageId: string }>;
 	inbox(limit?: number): Promise<BusMessage[]>;

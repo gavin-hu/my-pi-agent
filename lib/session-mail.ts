@@ -40,6 +40,14 @@ export interface BusMessage {
 	toLabel: string;
 	kind: MessageKind;
 	text: string;
+	/**
+	 * The sender's name for this message, when it gave one.
+	 *
+	 * A key is how a resend folds into the copy still waiting instead of arriving as a second one;
+	 * it is not an identity, so every delivery keeps its own id — a reused id would be a file the
+	 * recipient's cursor already names, and a message nobody is ever told about.
+	 */
+	key?: string;
 	paths?: string[];
 	at: number;
 }
@@ -90,6 +98,7 @@ export function isBusMessage(value: unknown): value is BusMessage {
 		typeof entry.kind === "string" &&
 		typeof entry.text === "string" &&
 		typeof entry.at === "number" &&
+		(entry.key === undefined || typeof entry.key === "string") &&
 		(entry.paths === undefined || (Array.isArray(entry.paths) && entry.paths.every((path) => typeof path === "string")))
 	);
 }
@@ -134,6 +143,44 @@ export async function listArrivals(dir: string): Promise<Arrival[]> {
 	return stamped
 		.filter((entry): entry is Arrival => entry !== undefined)
 		.sort((a, b) => a.at - b.at || a.name.localeCompare(b.name));
+}
+
+/** Whether two messages are the same send: everything but the delivery's own id, recipient and time. */
+function sameSend(a: unknown, b: BusMessage): boolean {
+	if (!isBusMessage(a) || a.key === undefined) return false;
+	return (
+		a.key === b.key &&
+		a.from === b.from &&
+		a.kind === b.kind &&
+		a.text === b.text &&
+		(a.paths ?? []).join("\u0000") === (b.paths ?? []).join("\u0000")
+	);
+}
+
+/**
+ * Whether one inbox already holds this message: the same body, from the same sender, under the
+ * same key.
+ *
+ * A send gets a fresh id every time, so a duplicate is found by what the message says rather than
+ * by its name. That is what keeps a keyed resend folding into the copy still waiting while a
+ * resend after that copy was consumed is a new message its recipient is told about — the same id
+ * would be a file the recipient's cursor already names, and so mail nobody hears of.
+ *
+ * The delivery is not part of the comparison: `at` differs on every send, the recipient is the
+ * inbox this asks, and `fromLabel` may have been renamed since — none of them changes the message.
+ */
+export async function holdsMessage(dir: string, message: BusMessage): Promise<boolean> {
+	if (message.key === undefined) return false;
+	for (const { name } of await listArrivals(dir)) {
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
+		} catch {
+			continue;
+		}
+		if (sameSend(parsed, message)) return true;
+	}
+	return false;
 }
 
 /**

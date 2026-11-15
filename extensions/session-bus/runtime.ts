@@ -22,12 +22,13 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { labelKey, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
-import { unaccountedMail } from "../../lib/session-mail.ts";
+
 import { defaultInterval } from "../../lib/timer.ts";
 import {
 	MAX_LABEL,
 	MAX_LIMIT,
 	normalizeKind,
+	normalizeKey,
 	normalizeLabel,
 	normalizeLimit,
 	normalizePaths,
@@ -37,10 +38,11 @@ import {
 	shortId,
 } from "./protocol.ts";
 import { createMailWatch } from "./mail-watch.ts";
+import { createStatusReader } from "./status.ts";
 import { createMailCursor } from "./cursor.ts";
 import { createTurn } from "./presence.ts";
 import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
-import type { InboxPeek, SessionRecord, SessionStatus } from "./types.ts";
+import type { InboxPeek, SessionRecord } from "./types.ts";
 import {
 	BUS_DIR_NAME,
 	type RosterSeams,
@@ -112,6 +114,14 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		onTold: (ids) => cursor.told(ids),
 		interval,
 		watchMs,
+	});
+	/** The rows a page or `session status` draws, this session's own row taken from memory. */
+	const statusReader = createStatusReader({
+		store: () => store,
+		record: () => record,
+		stateOf,
+		now,
+		watching: () => mailWatch.state(),
 	});
 
 	const ensureStarted = async (context: ExtensionContext): Promise<void> => {
@@ -336,63 +346,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return store;
 	}
 
-	async function withUnread(
-		rows: readonly SessionRecord[],
-	): Promise<Array<SessionRecord & { unread: number; state: RosterState }>> {
-		const at = now();
-		return Promise.all(
-			rows.map(async (row) => {
-				// This session's own record is live in memory and the file is the copy a peer reads, so
-				// its row is taken from memory: the count falls in the call that announced the mail.
-				const session = record !== undefined && row.id === record.id ? record : row;
-				return {
-					...session,
-					unread: (await store?.unread(session.id, new Set(session.seenMail))) ?? 0,
-					state: stateOf(session, at),
-				};
-			}),
-		);
-	}
-
-	/**
-	 * The bus as it stands, this session's own record included.
-	 *
-	 * `liveOnly` drops a session whose heartbeat went stale, and the claims of one whose
-	 * process is gone, without writing or deleting anything, so a board can read it every
-	 * second. A gone session stays listed — a lead needs a face for the paths it still
-	 * holds — but its claims are nobody's, so they are not drawn. The prune itself stays
-	 * with `prepare()` on the next tool or command call, which is therefore what the
-	 * screen's next action sees.
-	 */
-	async function readStatus(
-		me: { id: string; label: string; onBus: boolean },
-		liveOnly: boolean,
-	): Promise<SessionStatus> {
-		if (!store) throw new Error("session bus is not started.");
-		const records = await store.sessions();
-		const sessions = liveOnly
-			? records.filter((session) => session.id === record?.id || stateOf(session) !== "quiet")
-			: records;
-		const ours = new Set(sessions.filter((session) => stateOf(session) !== "gone").map((session) => session.id));
-		const claims = (await store.claims()).filter((claim) => !liveOnly || ours.has(claim.owner));
-		// Mail is counted per record, so a pruned record's messages have no row to hang a number on.
-		// The ids read here are the *record* ids rather than the live ones: a gone record's mail is
-		// still its own, and only a record the bus no longer holds leaves mail unaccounted for.
-		// The board's read is the count alone — it draws a number once a second and would otherwise
-		// parse every one of these files on each repaint — while the status read names the mail.
-		const unaccounted = await unaccountedMail(store.dir, new Set(records.map((session) => session.id)), {
-			bodies: !liveOnly,
-		});
-		return {
-			me: { id: me.id, label: me.label },
-			onBus: me.onBus,
-			sessions: await withUnread(sessions),
-			...(unaccounted.count > 0 ? { unaccounted } : {}),
-			claims,
-			...(mailWatch.state().armed ? { watching: mailWatch.state() } : {}),
-		};
-	}
-
 	/**
 	 * The label's holder as a refusal names it: which session, and what it is now.
 	 *
@@ -492,15 +445,15 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 					goneIds: sets.gone,
 					sessionTtlMs,
 				});
-				return readStatus({ id: record.id, label: record.label, onBus: false }, false);
+				return statusReader.read({ id: record.id, label: record.label, onBus: false }, false);
 			}
 			const me = await currentRecord();
-			return readStatus({ id: me.id, label: me.label, onBus: true }, false);
+			return statusReader.read({ id: me.id, label: me.label, onBus: true }, false);
 		},
 
 		async snapshot() {
 			if (!store || !record) throw new Error("session bus is not started.");
-			return readStatus({ id: record.id, label: record.label, onBus: joined }, true);
+			return statusReader.read({ id: record.id, label: record.label, onBus: joined }, true);
 		},
 
 		async peek() {
@@ -536,6 +489,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			if (!store) throw new Error("session bus is not started.");
 			const text = normalizeText(input.text);
 			if ("error" in text) throw new Error(text.error);
+			const keyed = normalizeKey(input.key);
+			if ("error" in keyed) throw new Error(keyed.error);
 			const kind = normalizeKind(input.kind);
 			if (input.to.trim() === "*" && kind !== "event") throw new Error('a broadcast needs kind: "event".');
 			// Mail reaches a session that can still answer, by the rule `status` and the prune
@@ -559,6 +514,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				fromLabel: me.label,
 				kind,
 				text: text.text,
+				...(keyed.key === undefined ? {} : { key: keyed.key }),
 				...(paths ? { paths } : {}),
 				at: now(),
 			});
