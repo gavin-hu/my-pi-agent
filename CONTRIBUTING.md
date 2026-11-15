@@ -69,7 +69,7 @@ reports the commits ahead plus the merge command; merge on the main checkout wit
 | `bun run check:tests --slow` | The gated git suites: `worktree`, `rewind`, and `session-bus` |
 
 A scope narrows the tests without running the whole suite: `--changed` (what this
-change reaches), `--ext <name>`, `--lib <area>`, `--root`, `--static`, `--serial`,
+change reaches), `--ext <name>`, `--lib <area>`, `--root`, `--static`,
 `--watch`, `--dry-run`. [`test/README.md`](./test/README.md#running) lists what
 each one covers, and [`scripts/README.md`](./scripts/README.md) owns the command
 surface itself.
@@ -295,7 +295,7 @@ authenticates with npm trusted publishing (OIDC). See
 
    The run then waits for the `npm` environment review (the approval), checks out
    `vX.Y.Z` rather than a branch, proves the tag is on `main` and that its
-   `package.json` is that version, runs `bun run check --serial`, and publishes with
+   `package.json` is that version, runs `bun run check`, and publishes with
    `--provenance` through npm trusted publishing. There is no token to leak and no
    local publish path: `publishConfig.provenance` is `true`, so `npm publish` from
    a developer machine fails instead of shipping an unsigned tarball.

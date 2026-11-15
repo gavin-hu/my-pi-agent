@@ -22,9 +22,9 @@ jobs:
     # of the locked suite would prove nothing new. Push and PR cover `check`.
     if: github.event_name != 'schedule'
     runs-on: ${{ matrix.os }}
-    # A parked worker (see the serial note below) burns wall-clock until GitHub's six-hour default
-    # cancels it, which reads as a hung CI rather than a red one. Twenty minutes is far above a
-    # serial run of the suite and far below a park.
+    # A hung run burns wall-clock until GitHub's six-hour default cancels it, which reads as a
+    # stuck CI rather than a red one. Twenty minutes is far above a run of the suite and far below
+    # a hang.
     timeout-minutes: 20
     strategy:
       # Report every OS even if one fails, so a Windows-only regression is
@@ -52,19 +52,14 @@ jobs:
       # git-heavy test runs first burns its whole timeout and a different test
       # does it on each run. A related report, #45483, was filed 2026-10-16. This
       # is not a macOS bug: the ubuntu job parked for 33 minutes on run
-      # 41560292494 and passed in 68 s on re-dispatch, which is why the Linux job
-      # and the compat job below both run serially. Only Windows keeps
-      # --parallel=4, so the parallel path stays covered by a run every day.
+      # 41560292494 and passed in 68 s on re-dispatch. No job here passes
+      # --parallel, and a local `bun run check` is the same shape: one file at a
+      # time, so an unrelated layer of contention is not in the picture.
       # The default shell per OS is intentional: forcing bash on Windows would
       # reintroduce Git-Bash path conversion, which is itself platform-specific.
       # format:check, typecheck, test
       - name: Run checks
-        if: matrix.os == 'windows-latest'
         run: bun run check
-
-      - name: Run checks (serial suite)
-        if: matrix.os != 'windows-latest'
-        run: bun run check --serial
 
   # Proves the package against the newest published Pi, not the versions the
   # lockfile pinned. Peer ranges stay "*" because the host supplies them, so this
@@ -112,8 +107,8 @@ jobs:
       - name: Typecheck against the newest peers
         run: bun run check:types
 
-      # Serial, like the Linux and macOS checks: a `--parallel` worker can drop the
+      # Serial like the check matrix: a `--parallel` worker can drop the
       # subprocess exit notification for its first spawn on a small runner
       # (oven-sh/bun#39709), which would fail this job for an unrelated reason.
       - name: Run the suite against the newest peers
-        run: bun run check:tests --serial
+        run: bun run check:tests

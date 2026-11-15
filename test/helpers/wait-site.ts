@@ -1,6 +1,5 @@
 /**
- * Name the test behind an expired `waitFor`, so a `--parallel` red is diagnosable
- * from its log.
+ * Name the test behind an expired `waitFor`, so a red is diagnosable from its log.
  *
  * The helper used to throw only how long it waited, which a rotating failure
  * leaves unattached to anything: the reporter's tail is a budget with no test
@@ -99,15 +98,16 @@ export async function titlesAt(text: string, line: number): Promise<string[]> {
 }
 
 /**
- * What a reader should do with a wait that expired while files ran in parallel.
+ * What a reader should do with a wait that expired while the machine was busy.
  *
  * The budgets in this repository already survive a machine at load ~52 (measured: the whole
  * suite under eight busy loops, 6905 pass, 86 s against 30 s idle), so a red here is far more
- * likely to be contention than a regression — but it is still a red, so the next step is the
- * serial run CI uses, not a shrug and not a blind re-run of the same parallel check.
+ * likely to be contention than a regression — but it is still a red, and the gate runs one file
+ * at a time, so there is no second shape to re-run it in. The log names the test, and that name
+ * is the diagnosis.
  */
-export const PARALLEL_HAZARD_HINT =
-	"four files at once can starve this on a loaded machine: confirm with `bun run check --serial` before treating it as a regression, and a second red on this same test is still a card";
+export const CONTENTION_HINT =
+	"a busy machine starves a wait rather than breaking it: the log names the test, and a second red on that same test is a card";
 
 /**
  * The one-line message an expired wait throws: how long it spent, against what
@@ -120,7 +120,7 @@ export async function waitTimeoutMessage(
 	const site = callSite(timeout.stack);
 	const where = site === undefined ? "an unknown call site" : await describeSite(site, read);
 	const spent = `${timeout.elapsedMs}ms of a ${timeout.budgetMs}ms budget`;
-	return `waitFor timed out after ${spent} — ${where}, predicate: ${flatten(timeout.predicate)} — ${PARALLEL_HAZARD_HINT}`;
+	return `waitFor timed out after ${spent} — ${where}, predicate: ${flatten(timeout.predicate)} — ${CONTENTION_HINT}`;
 }
 
 /** A site as `"describe > test" (path:line)`, or the bare path when no title encloses it. */

@@ -21,7 +21,7 @@
  * allowed: it keeps the decision visible at its declaration, which is how
  * `ROTATE_BUDGET_MS` is written. A literal is the copy-paste form this catches.
  *
- * The same file owns what the throw says: a `--parallel` timeout that names no
+ * The same file owns what the throw says: a timeout that names no
  * test is a re-run waiting to happen, so `helpers/wait-site.ts` reports the test,
  * its site, and the time it spent, and the cases below hold that message.
  *
@@ -41,7 +41,7 @@ import ts from "typescript";
 import { CASE_BUDGET_MS, REPORT_MARGIN_MS, SPAWN_WATCHDOG_MS } from "./helpers/budget.ts";
 import { posix, walkFiles } from "./helpers/files.ts";
 import { waitFor } from "./helpers/process.ts";
-import { PARALLEL_HAZARD_HINT, type WaitTimeout, waitTimeoutMessage } from "./helpers/wait-site.ts";
+import { CONTENTION_HINT, type WaitTimeout, waitTimeoutMessage } from "./helpers/wait-site.ts";
 
 const repo = join(import.meta.dir, "..");
 
@@ -464,8 +464,8 @@ describe("a wait that ran out", () => {
 			expect(message).toContain(contains);
 			expect(message).toContain("waitFor timed out after 2004ms of a 2000ms budget");
 			// A red on a busy box says what to do with itself, not just where it happened.
-			expect(message).toContain(PARALLEL_HAZARD_HINT);
-			expect(message).toContain("confirm with `bun run check --serial`");
+			expect(message).toContain(CONTENTION_HINT);
+			expect(message).toContain("a second red on that same test is a card");
 		});
 	}
 
@@ -479,7 +479,7 @@ describe("a wait that ran out", () => {
 		expect(message).toMatch(/\(test\/wait-budget\.test\.ts:\d+\)/);
 		expect(message).toMatch(/after \d+ms of a 1000ms budget/);
 		expect(message).toContain("predicate: ");
-		expect(message).toContain(PARALLEL_HAZARD_HINT);
+		expect(message).toContain(CONTENTION_HINT);
 	});
 
 	test("keeps a multi-line predicate on one line, and short", async () => {

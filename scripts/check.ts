@@ -1,11 +1,10 @@
 /**
  * The gate: `bun run check` and `bun run check:tests`, each of them with a scope.
  *
- * Three phases make up a check — format, types, test — and only the last one uses more than
- * one core. Run in a chain, the two single-threaded phases hold every core for ~8 s before the
- * tests start, so they run beside the test phase instead: the gate costs what its longest phase
- * costs. The worker count comes from the machine rather than a constant, because a 4-core runner
- * given eight workers starves the suites that spawn git and a browser.
+ * Three phases make up a check — format, types, test — and the test phase runs one file at a time.
+ * Run in a chain, the two static phases hold the core for ~8 s before the tests start, so they run
+ * beside the test phase instead: the gate costs what its longest phase costs, and the machine is
+ * left to whatever else is running on it.
  *
  * Which tests the last phase runs is a flag rather than another script name — `test-selection.ts`
  * answers that half — so the surface is two entries and one vocabulary:
@@ -13,7 +12,6 @@
  *   check.ts                       static + every test, the gate a landing needs
  *   check.ts --tests               the tests alone, which is `bun run check:tests`
  *   check.ts --static              the static half alone
- *   check.ts --serial              one file at a time, which is what CI's Linux and macOS jobs run
  *   check.ts --watch               the tests in watch mode
  *   check.ts --ext board wechat    one or more extensions' declared suites
  *   check.ts --lib board           one `lib/` area's suites
@@ -24,7 +22,6 @@
  */
 
 import { mkdirSync, rmSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import { dirname, join } from "node:path";
 import { CASE_BUDGET_MS } from "../test/helpers/budget.ts";
 import { runSlowSuites } from "../test/helpers/slow-suite.ts";
@@ -69,26 +66,8 @@ export interface PhaseResult {
 	output: string;
 }
 
-/** The most workers one machine is given, however many cores it reports. */
-const MAX_WORKERS = 4;
-
-/**
- * How many test files run at once.
- *
- * The cores the machine has, capped at four — the number `test/README.md` already documents, kept
- * because it held: at seven workers on a loaded box two wall-clock budgets broke (a 100 ms timer
- * measured at 263 ms, and `job`'s shell-exit budget passed 25 s), and a gate that fails when the
- * machine is busy is worse than a slower one. Floored at two so a small runner still parallelizes;
- * a two-core box is not given four workers to starve itself with.
- */
-export function workersFor(cpus: number): number {
-	return Math.max(2, Math.min(cpus, MAX_WORKERS));
-}
-
 /** What one test phase covers: a scope's files, the whole suite, or no test phase at all. */
 export interface PhaseOptions {
-	serial: boolean;
-	workers: number;
 	/** Format and types as well; `false` is what `bun run check:tests` runs. */
 	static?: boolean;
 	/** The files to run: absent is the whole suite, `null` is no test phase. */
@@ -116,11 +95,7 @@ export function phasesFor(options: PhaseOptions): Phase[] {
 		);
 	}
 	if (options.tests === null) return phases;
-	const flags = options.watch
-		? ["--watch", "--isolate"]
-		: options.serial
-			? ["--timeout", String(CASE_BUDGET_MS)]
-			: [`--parallel=${options.workers}`, "--timeout", String(CASE_BUDGET_MS)];
+	const flags = options.watch ? ["--watch", "--isolate"] : ["--timeout", String(CASE_BUDGET_MS)];
 	const report = options.report === undefined ? [] : ["--reporter=junit", `--reporter-outfile=${options.report}`];
 	phases.push({
 		name: "test",
@@ -143,8 +118,6 @@ export async function runPhases(phases: readonly Phase[], run: Runner): Promise<
 export function summarize(
 	results: readonly PhaseResult[],
 	seconds: number,
-	workers: number,
-	serial: boolean,
 ): {
 	code: number;
 	message: string;
@@ -153,11 +126,10 @@ export function summarize(
 	const failed = results.filter((result) => result.code !== 0);
 	const elapsed = seconds.toFixed(1);
 	if (failed.length === 0) {
-		const how = serial ? "serial" : `${workers} workers`;
 		const phases = `${results.length} phase${results.length === 1 ? "" : "s"}`;
 		return {
 			code: 0,
-			message: `check: ${phases} green in ${elapsed}s (test ${how})`,
+			message: `check: ${phases} green in ${elapsed}s`,
 			dump: "",
 		};
 	}
@@ -196,8 +168,6 @@ export interface Plan {
 	names: string[];
 	/** The git revision `--changed` diffs against. */
 	base: string;
-	/** One file at a time, which is what CI's Linux and macOS jobs run. */
-	serial: boolean;
 	/** `bun test --watch`. */
 	watch: boolean;
 	/** The `check:tests` entry: skip the static phases. */
@@ -217,7 +187,6 @@ export const FLAGS = [
 	"--root",
 	"--slow",
 	"--static",
-	"--serial",
 	"--no-lock",
 	"--watch",
 	"--tests",
@@ -225,7 +194,7 @@ export const FLAGS = [
 ] as const;
 
 const USAGE = `usage: bun run check [--static | --changed [--base <ref>] | --ext <name...> | --lib <area...> | --root | --slow]
-                    [--serial | --watch] [--no-lock] [--dry-run]
+                    [--watch] [--no-lock] [--dry-run]
        bun run check:tests  the same scopes without the static half`;
 
 const SCOPE_FLAGS: Record<string, Scope> = {
@@ -247,7 +216,6 @@ export function parseArgs(argv: string[]): Plan {
 		scope: "all",
 		names: [],
 		base: "main",
-		serial: false,
 		watch: false,
 		testsOnly: false,
 		dryRun: false,
@@ -270,8 +238,7 @@ export function parseArgs(argv: string[]): Plan {
 		} else if (arg === "--base") {
 			plan.base = value();
 			gaveBase = true;
-		} else if (arg === "--serial") plan.serial = true;
-		else if (arg === "--no-lock") plan.noLock = true;
+		} else if (arg === "--no-lock") plan.noLock = true;
 		else if (arg === "--watch") plan.watch = true;
 		else if (arg === "--tests") plan.testsOnly = true;
 		else if (arg === "--dry-run") plan.dryRun = true;
@@ -303,8 +270,7 @@ export function planLines(plan: Plan, chosen: Selection | undefined, gated = 0):
 	if (!plan.testsOnly && !plan.watch) lines.push("static > check:format, check:types, beside the tests");
 	if (chosen === undefined) return lines;
 	for (const reason of chosen.reasons) lines.push(`  ${reason}`);
-	const scope = plan.watch ? "--watch" : plan.serial ? "serial" : "parallel";
-	lines.push(`tests > ${chosen.tests.length} files (${scope})`);
+	lines.push(`tests > ${chosen.tests.length} files${plan.watch ? " (--watch)" : ""}`);
 	if (gated > 0) {
 		const suites = `${gated} of them ${gated === 1 ? "is a gated suite" : "are gated suites"}`;
 		lines.push(`  ${suites}: their cases skip without PI_SLOW_TESTS=1 — \`bun run check:tests --slow\` runs those`);
@@ -356,7 +322,6 @@ async function main(): Promise<void> {
 	// The walk is the one cost a narrowed run pays before its first test: say it.
 	if (plan.scope === "changed") console.log(`  selection took ${walked}ms`);
 	if (plan.dryRun) return;
-	const workers = workersFor(availableParallelism());
 	const report = reportPath(root);
 	if (!plan.watch) {
 		// The report is this attempt's or absent: a file left by an older run would be read as
@@ -365,8 +330,6 @@ async function main(): Promise<void> {
 		rmSync(report, { force: true });
 	}
 	const phases = phasesFor({
-		serial: plan.serial,
-		workers,
 		static: !plan.testsOnly && !plan.watch,
 		tests: chosen === undefined ? null : chosen.tests,
 		watch: plan.watch,
@@ -386,7 +349,7 @@ async function main(): Promise<void> {
 		},
 		() => runPhases(phases, spawnPhase),
 	);
-	const summary = summarize(results, (performance.now() - started) / 1000, workers, plan.serial);
+	const summary = summarize(results, (performance.now() - started) / 1000);
 	// A test failure names its cases; the other phases dump what they printed, and both can be
 	// true of one run.
 	const tested = results.some((result) => result.phase.name === "test" && result.code !== 0);

@@ -15,7 +15,7 @@ bun test <path>                  # one file or directory, straight to bun, same 
 ```
 
 A scope is a flag on the two entry scripts (`--ext`, `--lib`, `--root`, `--slow`,
-`--changed`, `--static`, `--serial`, `--watch`, `--dry-run`, `--no-lock`);
+`--changed`, `--static`, `--watch`, `--dry-run`, `--no-lock`);
 [`../scripts/README.md#commands`](../scripts/README.md#commands) says
 which one a change needs.
 
@@ -50,23 +50,26 @@ covers the pure per-turn injected-context builders, which are re-injected every
 turn, so a regression in that text fails fast.
 
 `bun run check:tests` runs the suite through `scripts/check.ts`, whose test phase is
-`bun test --parallel=4` (which implies `--isolate`), so each test file runs in its
-own worker process and `process.env` edits in one file cannot leak into another. The worker count is
-capped at four so the git-heavy worktree and rewind suites are not starved, and
-`bun run check` takes the same number from `scripts/check.ts` — it is also what
-held: at seven workers on a loaded box a 100 ms timer measured at 263 ms and
-`job`'s shell-exit wait passed 25 s, so the cap is a measurement, not a habit. The
-script's `--timeout` is the case budget and reaches a hook too, which is why a
+`bun test --timeout <the case budget>`: one file at a time, so a run leaves the
+machine's other cores to whatever else is running on it. That is the shape every CI
+job and `publish.yml` run too, so a file's environment is never left to a worker —
+`helpers/preload.ts` snapshots and restores the tracked env vars around every test.
+The script's `--timeout` is the case budget and reaches a hook too, which is why a
 browser suite's own statement is the thing that makes it independent of how it was
-invoked.
+invoked. Files therefore do not run in separate processes, and one that registers a
+global mock or leaves a handle open can still be felt by the next: the suites keep
+their own state to themselves for that reason, not because the runner does it for
+them.
 
 `bun run check` runs its three phases **at once** rather than in a chain, so the
-gate costs what its longest phase costs. On an 8-core machine, measured while
-the box was busy: format 0.2-0.4 s, typecheck 7.6 s, tests ~30 s at four
-workers — 30.4 s for the whole gate, against 48.7-55.5 s for the old
-format-then-typecheck-then-test chain under the same load. The two static phases
-are captured and printed only when they fail; the test phase streams, because it
-is what is on screen.
+gate costs what its longest phase costs. On an 8-core laptop, measured 2026-11-15
+over one suite of 8014 cases in 411 files: format 0.3 s, typecheck 8 s, and the
+tests are the rest — 75.4 s with four workers against 80.4-84.1 s one file at a
+time, for a gate of 125.3 s against 93-126 s. The wall time is the same within the
+noise; what changed is the bill, 182 CPU-seconds against 109, because the four
+workers were competing with the format and typecheck phases for the same cores.
+The two static phases are captured and printed only when they fail; the test phase
+streams, because it is what is on screen.
 
 The git-heavy `rewind`, `worktree`, and `session-bus` real-repository tests create
 real repositories and real git commands, so `test/helpers/slow-suite.ts` gates
@@ -75,26 +78,21 @@ is exported. A local `bun run check` therefore stays fast while CI keeps the
 coverage. Run them locally with `bun run check:tests --slow` (the derived list of gated
 suites, with the gate on) or `PI_SLOW_TESTS=1 bun test <path>`; a new slow suite opts in with
 `describe.skipIf(!runSlowSuites)("...", () => { ... })`.
-CI runs the Linux and macOS jobs through `bun run check --serial` instead: a
+CI, `publish.yml` and a local run are one shape now: `bun run check`. A
 `--parallel` worker can drop the subprocess exit notification for its first spawn
 (`oven-sh/bun#41024`, `#39709`) and hang the first git-using test of a file until
 the case's budget runs out, which showed up as a rotating red macOS job and as a
-33-minute park on ubuntu (run 41560292494). Windows keeps the parallel path, so
-it stays covered daily. Use `bun run check --serial` to reproduce that shape
-locally.
+33-minute park on ubuntu (run 41560292494) — so nothing here runs one.
 
-**A parallel timeout on a busy machine is not a regression until a serial run says
-so.** The budgets here are deliberately generous — `waitFor` 2 s, one 60 s case
-budget, a 55 s spawn watchdog — and the whole suite still passes at load ~52 on an
-8-core box under eight busy loops (6905 pass, 86 s against 30 s idle), so a wait
-that expires there is much likelier to be contention than a bug. The failure
-says so itself: `waitFor` and the spawn watchdog both end with
-`PARALLEL_HAZARD_HINT` (`helpers/wait-site.ts`), which names `bun run check --serial`
-— the shape macOS CI runs — as the confirmation. Re-running the same parallel check
-proves nothing, and a *serial* red is the card. The confirmation is a step, not a
-shrug: a parallel red that comes back on the **same test** while serial keeps passing
-is still a card — that is a wait whose budget no longer fits its work, and the log
-names it.
+**A wait that expires on a busy machine is contention until the test says otherwise.**
+The budgets here are deliberately generous — `waitFor` 2 s, a 90 s case budget, a
+55 s spawn watchdog — and the whole suite still passes at load ~52 on an 8-core box
+under eight busy loops (6905 pass, 86 s against 30 s idle), so a wait that expires
+there is much likelier to be contention than a bug. The failure says so itself:
+`waitFor` and the spawn watchdog both end with `CONTENTION_HINT`
+(`helpers/wait-site.ts`), which names the test that waited. That name is the
+diagnosis, and a second red on the same test is a card: it is a wait whose budget no
+longer fits its work.
 `test/helpers/preload.ts` additionally snapshots and restores the tracked env
 vars (`PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR`, `PI_WORKTREE_ROOT`,
 `PI_WORKTREE_BRANCH`, `PI_WORKTREE_MAIN`) around every test, and clears them for
@@ -238,8 +236,8 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
   coin flip. Reach for it only when the completion point is genuinely outside
   the test; otherwise `settle()` plus an assertion. A timeout names the test that
   waited, its `path:line`, the predicate, and the elapsed time against the
-  budget (`helpers/wait-site.ts`), so a `--parallel` red is diagnosed from its
-  log instead of re-run to see whether it repeats.
+  budget (`helpers/wait-site.ts`), so a red is diagnosed from its log instead of
+  re-run to see whether it repeats.
 - No `Date.now()` / `new Date()` in tests; inject `makeClock` (`helpers/clock.ts`).
   `waitFor` is the exception, for the reason above.
 - No real network. Drive request handlers / routers directly; web-access injects
@@ -251,7 +249,7 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
   drain, so both of its waits are bounded with `waitFor`: the shell's exit at the
   run's spawn watchdog, which reports "the shell did not exit within 55000ms", and
   the status file the trap writes as the shell exits, which lands after the
-  child's `close` (2 s). An unbounded wait there is what a rotating `--parallel`
+  child's `close` (2 s). An unbounded wait there is what a rotating
   failure looked like — a timeout on the test, with no reason in it.
 - `PI_CODING_AGENT_DIR` is touched only through `helpers/env.ts`
   (`useAgentDir` / `withAgentDir`).

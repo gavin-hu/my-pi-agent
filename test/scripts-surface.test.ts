@@ -9,7 +9,7 @@
  * `bun run build` in a fixture is a sample command rather than this package's.
  *
  * The next cases cover the places a retired name hides: a CI workflow (a `run:` line is
- * a command nobody re-reads) and a source string (the `--serial` hint a failing wait
+ * a command nobody re-reads) and a source string (the contention hint a failing wait
  * prints), where a colon is what a package script name looks like.
  *
  * The last two are the shape of the surface itself, which is the other half of a
