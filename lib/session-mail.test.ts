@@ -9,7 +9,12 @@ import {
 	isBusMessage,
 	listArrivals,
 	listMessages,
+	pageOf,
+	readMailLedger,
+	type MailRecord,
 	unaccountedMail,
+	unaccountedOf,
+	untoldIn,
 	WAITING_LIMIT,
 	waitingMail,
 } from "./session-mail.ts";
@@ -267,3 +272,66 @@ function inboxSnapshot(dir: string): Record<string, string> {
 	}
 	return out;
 }
+
+/** A record the ledger can count against: the id, the name, and what it was told. */
+const record = (id: string, told: string[] = []): MailRecord => ({ id, label: id, told });
+
+describe("the mail ledger", () => {
+	test("one pass answers a row's count and the queue it sits in", async () => {
+		const dir = busDir();
+		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW + 1_000);
+		land(dir, storedName("s-1"), { id: "m-2", to: "s-1" }, NOW + 2_000);
+		land(dir, storedName("s-1"), { id: "m-3", to: "s-1" }, NOW + 3_000);
+		const ledger = await readMailLedger(dir, [record("s-1", ["m-1"])]);
+		expect(untoldIn(ledger, "s-1")).toBe(2);
+		expect(ledger.untold).toBe(2);
+		// Told mail is not waiting to hear about it, but it is still in the inbox until consumed.
+		expect(ledger.messages.map((message) => message.id)).toEqual(["m-1", "m-2", "m-3"]);
+	});
+
+	test("the count alone lists names and opens no file", async () => {
+		const dir = busDir();
+		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW);
+		const ledger = await readMailLedger(dir, [record("s-1")], { bodies: false });
+		expect(untoldIn(ledger, "s-1")).toBe(1);
+		expect(ledger.messages).toEqual([]);
+		expect(ledger.inboxes[0]?.mail).toEqual([]);
+	});
+
+	test("names a file it cannot read instead of counting it as a message", async () => {
+		const dir = busDir();
+		const inbox = join(dir, INBOX_DIR_NAME, storedName("s-1"));
+		mkdirSync(inbox, { recursive: true });
+		writeFileSync(join(inbox, "m-bad.json"), "{ not json");
+		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW);
+		const ledger = await readMailLedger(dir, [record("s-1")]);
+		expect(ledger.inboxes[0]?.unreadable).toEqual(["m-bad.json"]);
+		// Counted, because the file is there and its owner was not told about it; never drawn.
+		expect(untoldIn(ledger, "s-1")).toBe(2);
+		expect(ledger.messages.map((message) => message.id)).toEqual(["m-1"]);
+	});
+
+	test("an inbox no record holds is unaccounted for, and not counted against anybody", async () => {
+		const dir = busDir();
+		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW);
+		land(dir, storedName("s-gone"), { id: "m-2", to: "s-gone", toLabel: "gone-peer" }, NOW + 1_000);
+		const ledger = await readMailLedger(dir, [record("s-1")]);
+		expect(ledger.untold).toBe(1);
+		const orphan = ledger.inboxes.find((inbox) => !inbox.held);
+		expect(orphan?.id).toBe("s-gone");
+		expect(orphan?.label).toBe("gone-peer");
+		expect(unaccountedOf(ledger, true).count).toBe(1);
+		expect(unaccountedOf(ledger, true).messages.map((row) => row.message.id)).toEqual(["m-2"]);
+		expect(unaccountedOf(ledger, false).messages).toEqual([]);
+	});
+
+	test("pages the queue it read, and says what the page left out", async () => {
+		const dir = busDir();
+		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW + 1_000);
+		land(dir, storedName("s-1"), { id: "m-2", to: "s-1" }, NOW + 2_000);
+		land(dir, storedName("s-1"), { id: "m-3", to: "s-1" }, NOW + 3_000);
+		const page = pageOf(await readMailLedger(dir, [record("s-1")]), 2);
+		expect(page.messages.map((message) => message.id)).toEqual(["m-1", "m-2"]);
+		expect(page.dropped).toBe(1);
+	});
+});

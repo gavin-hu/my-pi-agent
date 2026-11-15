@@ -357,9 +357,12 @@ export function buildView(input: ViewInput): BoardView {
 			signatureOf(input.cards) +
 			rosterSignature(teammates) +
 			// A message landing, or one being read, moves no card: the queue is the tab's other half
-			// and has to be able to push a frame of its own. The ids are enough — their order is the
-			// queue's own, and a reader's mail file going away is the news.
-			`|waiting:${messages.map((message) => message.id).join(",")}/${String(waiting.dropped)}` +
+			// and has to be able to push a frame of its own. The ids carry the order; the recipients
+			// ride along because a broadcast that reaches one more mailbox keeps every id and still
+			// draws one more name on the row.
+			`|waiting:${messages
+				.map((message) => `${message.id}@${message.to.map((recipient) => recipient.id).join("+")}`)
+				.join(",")}/${String(waiting.dropped)}` +
 			`|skipped:${(input.skipped ?? []).map((entry) => `${entry.file}:${entry.why}`).join(",")}` +
 			`|untold:${round.untold.map((card) => card.id).join(",")}` +
 			`|unwritten:${round.unwritten.map((card) => card.id).join(",")}` +

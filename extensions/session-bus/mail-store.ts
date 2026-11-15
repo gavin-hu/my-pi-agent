@@ -1,6 +1,7 @@
 /**
- * The bus's mail, as files: paging an inbox, counting it, consuming it, dropping what no record
- * holds, and ending what the message TTL has taken.
+ * The bus's mail, as files: paging an inbox, consuming it, dropping what no record holds, and
+ * ending what the message TTL has taken. Counting is not here — `lib/session-mail.ts`'s ledger is
+ * the one reader of "written and not told", so a number and the queue it describes agree.
  *
  * Split out of `store.ts` when that module reached the line bar, and reached through a deferred
  * import rather than a static one — that entry has exactly the static module budget it is allowed,
@@ -20,7 +21,7 @@ import type { BusStore } from "./store.ts";
 import type { DropResult, KeptMail } from "./types.ts";
 
 /** The half of the store that owns the inboxes. */
-export type MailStore = Pick<BusStore, "peek" | "inbox" | "unread" | "pruneMail"> & {
+export type MailStore = Pick<BusStore, "peek" | "inbox" | "pruneMail"> & {
 	/**
 	 * Remove mail `ids` name from inboxes no record holds — with the holders given, because the
 	 * records are the store's to read and this module never loads `store.ts`.
@@ -91,10 +92,6 @@ export function createMailStore(dir: string): MailStore {
 		async inbox(id, limit) {
 			const directory = inboxDir(id);
 			return readMessages(directory, await listMessages(directory), { limit, remove: true });
-		},
-
-		async unread(id, told) {
-			return (await listJson(inboxDir(id))).filter((name) => !told?.has(idOfFile(name))).length;
 		},
 
 		/**

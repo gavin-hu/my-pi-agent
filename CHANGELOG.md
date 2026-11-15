@@ -27,6 +27,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`, `board`: the teammates' mail counts, the Team tab's queue and `session status` come from
+  one read of the bus, so a chip, a row and the queue cannot count one inbox differently; the pass names
+  every file the build cannot read rather than the first page of them, and a broadcast that reaches one
+  more mailbox repaints the tab instead of leaving a stale row behind.
+
 - `board`, `team`, `session-bus`: one notice table composes every workflow message, and every transition
   writes the card before it sends. `assign` records the owner first, so the handoff reports a state that
   already holds; a reclaim tells the session whose card it took; and a sign whose message never landed

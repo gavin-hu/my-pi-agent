@@ -71,13 +71,6 @@ export interface BusStore {
 	 */
 	inbox(id: string, limit: number): Promise<InboxRead>;
 	/**
-	 * The files in a recipient's inbox that `told` does not name — the number a peer's row shows.
-	 *
-	 * Counted from the names alone, so a file this build cannot read counts until its TTL ends it:
-	 * `inbox` is what says it cannot be read. That is the one promise this count makes.
-	 */
-	unread(id: string, told?: ReadonlySet<string>): Promise<number>;
-	/**
 	 * Remove the mail `ids` name, from the inboxes no record holds, and name what stayed.
 	 *
 	 * Only the unaccounted copies go: an id a live record's inbox also carries stays there, which
@@ -436,10 +429,6 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 
 		async inbox(id, limit) {
 			return (await mailStore()).inbox(id, limit);
-		},
-
-		async unread(id, told) {
-			return (await mailStore()).unread(id, told);
 		},
 
 		async dropUnaccounted(ids) {

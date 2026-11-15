@@ -14,7 +14,7 @@ import { readdir, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { busMessage, busStoreFixture, sessionRecord } from "../../test/helpers/bus.ts";
+import { busMessage, busStoreFixture, sessionRecord, untoldOf } from "../../test/helpers/bus.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle } from "../../test/helpers/process.ts";
@@ -149,11 +149,11 @@ describe("the heartbeat's sweep", () => {
 		// the inbox sweep is the heartbeat's, so nothing on disk moves yet.
 		now += 1_000;
 		expect((await session.claim(["src/a.ts"])).claimed).toEqual(["src/a.ts"]);
-		expect(await store.unread("h1")).toBe(1);
+		expect(await untoldOf(dir, "h1")).toBe(1);
 
 		for (const tick of ticks) tick();
-		for (let attempt = 0; attempt < 100 && (await store.unread("h1")) > 0; attempt += 1) await settle(2);
-		expect(await store.unread("h1")).toBe(0);
+		for (let attempt = 0; attempt < 100 && (await untoldOf(dir, "h1")) > 0; attempt += 1) await settle(2);
+		expect(await untoldOf(dir, "h1")).toBe(0);
 		await session.stop();
 	});
 });

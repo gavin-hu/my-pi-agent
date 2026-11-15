@@ -227,6 +227,138 @@ async function inboxDirs(busDir: string): Promise<string[]> {
 	}
 }
 
+/** What the ledger needs of one bus record: who it is, what it is called, and what it was told. */
+export interface MailRecord {
+	id: string;
+	label: string;
+	/** Message ids its cursor names: the mail it already heard of. */
+	told: readonly string[];
+}
+
+/** One inbox, as one pass over the bus found it. */
+export interface InboxMail {
+	/** The session it belongs to: the record's id when one holds it, else the id its mail names. */
+	id: string;
+	/** The record's label, or the one the mail was addressed by when no record holds it. */
+	label: string;
+	/** Whether a record holds this inbox: mail in one no record names is unaccounted for. */
+	held: boolean;
+	/** Every message file in it, in arrival order, with the arrival it was ordered by. */
+	mail: Array<{ message: BusMessage; at: number }>;
+	/** Files this build cannot read: counted in `untold`, and named rather than drawn. */
+	unreadable: string[];
+	/** The message ids its owner has been told about. */
+	told: ReadonlySet<string>;
+	/** Files written that its owner has not been told about: the number every surface draws. */
+	untold: number;
+}
+
+/** One repository's bus, read once. */
+export interface MailLedger {
+	/** Every inbox the bus holds, in the order their directories sort. */
+	inboxes: InboxMail[];
+	/** Every message waiting anywhere, folded by id, oldest first, uncapped. */
+	messages: WaitingMail[];
+	/** What the inboxes a record holds add up to: the one number a row, a chip or a count draws. */
+	untold: number;
+}
+
+/** What a ledger reads: every file, or the count alone. */
+export interface LedgerOptions {
+	/**
+	 * Read every file: the queue, the arrivals, and the files this build cannot read.
+	 *
+	 * `false` is the read a board makes every second: it lists names and opens none, so the number
+	 * costs one directory read per inbox. That is the lenient read — a file it cannot parse is
+	 * counted and not named — while the default is strict, and names it.
+	 */
+	bodies?: boolean;
+}
+
+/**
+ * One repository's bus, read once: every inbox, every message, and the number each owner is owed.
+ *
+ * The records are the caller's, not read here, because the two questions a page asks — who is on
+ * the bus, and how much mail is waiting — come from the same files, and a page that read the
+ * records twice would pay for the second read on every frame. A record's `told` is what makes the
+ * count "written and not told": a file whose id the cursor names is mail its owner already heard
+ * of, so it is neither drawn as waiting nor counted.
+ *
+ * Nothing is removed: an inbox is its owner's to consume, and a page that deleted what it drew
+ * would eat the mail it was describing.
+ */
+export async function readMailLedger(
+	busDir: string,
+	records: readonly MailRecord[],
+	options: LedgerOptions = {},
+): Promise<MailLedger> {
+	const bodies = options.bodies !== false;
+	const held = new Map(records.map((record) => [storedName(record.id), record]));
+	const byId = new Map<string, WaitingMail>();
+	const inboxes: InboxMail[] = [];
+	let untold = 0;
+	for (const dir of await inboxDirs(busDir)) {
+		const record = held.get(basename(dir));
+		const inbox: InboxMail = {
+			id: record?.id ?? basename(dir),
+			label: record?.label ?? basename(dir),
+			held: record !== undefined,
+			mail: [],
+			unreadable: [],
+			told: new Set(record?.told ?? []),
+			untold: 0,
+		};
+		const arrivals = bodies ? await listArrivals(dir) : (await listJson(dir)).map((name) => ({ name, at: 0 }));
+		for (const { name, at } of arrivals) {
+			if (!inbox.told.has(idOfFile(name))) inbox.untold += 1;
+			if (!bodies) continue;
+			const message = readJsonAs(join(dir, name), isBusMessage);
+			if (message === undefined) {
+				inbox.unreadable.push(name);
+				continue;
+			}
+			// An inbox no record names still says whose mail it is: the files inside it name their
+			// recipient, which is the id a resumed session can adopt.
+			if (record === undefined) {
+				inbox.id = message.to;
+				inbox.label = message.toLabel;
+			}
+			inbox.mail.push({ message, at });
+			const seen = byId.get(message.id);
+			if (seen === undefined) {
+				byId.set(message.id, {
+					id: message.id,
+					from: message.from,
+					fromLabel: message.fromLabel,
+					kind: message.kind,
+					to: [{ id: message.to, label: message.toLabel }],
+					text: message.text,
+					at,
+				});
+				continue;
+			}
+			// The same message in a second inbox: one row, one more recipient, and the
+			// earlier of the two arrivals, which is when it first became anyone's. The id
+			// decides, so a name a second session took is a second line and not the same one.
+			if (!seen.to.some((each) => each.id === message.to)) {
+				seen.to.push({ id: message.to, label: message.toLabel });
+			}
+			seen.at = Math.min(seen.at, at);
+		}
+		if (inbox.held) untold += inbox.untold;
+		inboxes.push(inbox);
+	}
+	// Oldest first: the front of a queue is the item waiting longest, and the id settles a tie
+	// that one filesystem tick produced.
+	const messages = [...byId.values()].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
+	return { inboxes, messages, untold };
+}
+
+/** How much mail one session's inbox holds that its record has not been told about. */
+export function untoldIn(ledger: MailLedger, id: string): number {
+	return ledger.inboxes.find((inbox) => inbox.id === id)?.untold ?? 0;
+}
+
 /**
  * Every message waiting on one repository's bus, oldest first, at most `limit` of them —
  * with a count of what the cap left out, so a busy queue cannot read like a quiet one.
@@ -235,41 +367,15 @@ async function inboxDirs(busDir: string): Promise<string[]> {
  * message waiting on several people and are drawn once, with every recipient it waits for —
  * folded by session id, because the name it was addressed by may have been taken since.
  * The age is the first copy's: the moment the message became somebody's to read.
- *
- * A file that does not parse is skipped, not thrown: it stays where it is for the TTL,
- * and one unreadable message does not hide the queue behind it.
  */
 export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promise<WaitingPage> {
-	const byId = new Map<string, WaitingMail>();
-	for (const dir of await inboxDirs(busDir)) {
-		for (const { name, at: landed } of await listArrivals(dir)) {
-			const parsed = readJsonAs(join(dir, name), isBusMessage);
-			if (parsed === undefined) continue;
-			const seen = byId.get(parsed.id);
-			if (seen === undefined) {
-				byId.set(parsed.id, {
-					id: parsed.id,
-					from: parsed.from,
-					fromLabel: parsed.fromLabel,
-					kind: parsed.kind,
-					to: [{ id: parsed.to, label: parsed.toLabel }],
-					text: parsed.text,
-					at: landed,
-				});
-				continue;
-			}
-			// The same message in a second inbox: one row, one more recipient, and the
-			// earlier of the two arrivals, which is when it first became anyone's. The id
-			// decides, so a name a second session took is a second line and not the same one.
-			if (!seen.to.some((each) => each.id === parsed.to)) seen.to.push({ id: parsed.to, label: parsed.toLabel });
-			seen.at = Math.min(seen.at, landed);
-		}
-	}
-	// Oldest first, then the cap: the front of a queue is the item waiting longest. What it
-	// leaves out is counted, so a page that draws six rows can still say the queue is deeper.
-	const all = [...byId.values()].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
-	const messages = all.slice(0, Math.max(0, limit));
-	return { messages, dropped: all.length - messages.length };
+	return pageOf(await readMailLedger(busDir, []), limit);
+}
+
+/** One page of a ledger's queue: the oldest `limit` of it, and how many that left behind. */
+export function pageOf(ledger: MailLedger, limit = WAITING_LIMIT): WaitingPage {
+	const messages = ledger.messages.slice(0, Math.max(0, limit));
+	return { messages, dropped: ledger.messages.length - messages.length };
 }
 
 /**
@@ -324,25 +430,18 @@ export async function unaccountedMail(
 	held: ReadonlySet<string>,
 	options: { bodies?: boolean } = {},
 ): Promise<UnaccountedPage> {
-	const claimed = new Set([...held].map(storedName));
-	const unheld = (await inboxDirs(busDir)).filter((dir) => !claimed.has(basename(dir)));
-	if (options.bodies === false) {
-		let count = 0;
-		for (const dir of unheld) {
-			count += (await listJson(dir)).length;
-		}
-		return { messages: [], count };
-	}
-	const found: UnaccountedMessage[] = [];
-	let count = 0;
-	for (const dir of unheld) {
-		for (const { name, at } of await listArrivals(dir)) {
-			count += 1;
-			const parsed = readJsonAs(join(dir, name), isBusMessage);
-			if (parsed === undefined) continue;
-			found.push({ message: parsed, at });
-		}
-	}
+	// The held ids, as the records the ledger needs: a caller that knows only the ids asks about
+	// mail nobody holds, so what those records were told about is not part of the question.
+	const records = [...held].map((id): MailRecord => ({ id, label: id, told: [] }));
+	return unaccountedOf(await readMailLedger(busDir, records, { bodies: options.bodies }), options.bodies !== false);
+}
+
+/** The unaccounted page a ledger already answers: a projection, so no reader walks the bus twice. */
+export function unaccountedOf(ledger: MailLedger, bodies: boolean): UnaccountedPage {
+	const unheld = ledger.inboxes.filter((inbox) => !inbox.held);
+	const count = unheld.reduce((total, inbox) => total + inbox.untold, 0);
+	if (!bodies) return { messages: [], count };
+	const found = unheld.flatMap((inbox) => inbox.mail.map(({ message, at }) => ({ message, at })));
 	// Oldest first, so the message that has waited longest is the one a reader meets first.
 	return { messages: found.sort((a, b) => a.at - b.at || a.message.id.localeCompare(b.message.id)), count };
 }

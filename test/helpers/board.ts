@@ -191,6 +191,9 @@ export function stubSession(): BoardSession {
 		roster: async () => {
 			throw new Error("the factory must not read the bus");
 		},
+		bus: async () => {
+			throw new Error("the factory must not read the bus");
+		},
 		holder: async () => {
 			throw new Error("the factory must not read the bus");
 		},

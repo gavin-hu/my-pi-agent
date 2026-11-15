@@ -16,6 +16,7 @@ import { readdir, utimes } from "node:fs/promises";
 import { join } from "node:path";
 import { createBusStore } from "../../extensions/session-bus/store.ts";
 import type { BusMessage, SessionRecord } from "../../extensions/session-bus/types.ts";
+import { readMailLedger, untoldIn } from "../../lib/session-mail.ts";
 import { INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "../../lib/session-files.ts";
 import { tempDir } from "./env.ts";
 import type { TempTracker } from "./git.ts";
@@ -93,4 +94,14 @@ export async function stampArrival(dir: string, id: string, at: number): Promise
 	const [inbox] = await readdir(join(dir, "inbox"));
 	if (!inbox) throw new Error("the inbox directory was not written");
 	await utimes(join(dir, "inbox", inbox, `${id}.json`), at, at);
+}
+
+/**
+ * The mail one id's inbox holds that the record was not told about.
+ *
+ * The ledger is the one counter now, so a suite asks it rather than the store: a case that
+ * counted its own way would keep passing after a surface stopped agreeing with the queue.
+ */
+export async function untoldOf(busDir: string, id: string, told: readonly string[] = []): Promise<number> {
+	return untoldIn(await readMailLedger(busDir, [{ id, label: id, told }]), id);
 }
