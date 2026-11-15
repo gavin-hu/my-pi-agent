@@ -30,7 +30,7 @@ promises, and the notes that explain it — and two signatures are needed before
 | Sign off finished work | `/board review 4`, then `board move 4 done` |
 | Explain something | `board note 4 "why the retry is capped at three"` |
 | Set finished work aside | `/board archive` |
-| Read the round | `board list round: true`, or `/team` — owners, unassigned, unplanned, awaiting approval, awaiting review, awaiting a message, blocked, done |
+| Read the round | `board list round: true`, or `/team` — owners, unassigned, unplanned, awaiting approval, awaiting review, untold, blocked, done |
 
 ## Try it
 

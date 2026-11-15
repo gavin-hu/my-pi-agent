@@ -59,7 +59,7 @@ export function formatRound(cards: readonly Card[], round: RoundSummary, roster?
 		`${round.unplanned.length} unplanned`,
 		`${round.unapproved.length} awaiting approval`,
 		`${round.unreviewed.length} awaiting review`,
-		`${round.untold.length} sign not told`,
+		`${round.untold.length} untold`,
 		`${round.blocked.length} blocked`,
 		`${round.unwritten.length} unwritten`,
 		// The history is the one count a reader can act on without opening a card: a finished

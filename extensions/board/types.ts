@@ -34,7 +34,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	list:
 		"shows the board — `lane` filters one lane, `mine` only what this session holds, `card` reads that one " +
 		"card, and `round` also prints the lead's rollup: owners, unassigned, unplanned, awaiting approval, " +
-		"awaiting review, sign not told, blocked, unwritten, done, archivable — and an unlaned listing hides " +
+		"awaiting review, untold, blocked, unwritten, done, archivable — and an unlaned listing hides " +
 		"`done`, with a count",
 	add: "creates a `backlog` card",
 	claim: "pulls one into `plan` for this session, when `plan` has room",

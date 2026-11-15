@@ -90,7 +90,7 @@ export type DecisionKind = (typeof DECISION_KINDS)[number];
 export const DECISION_LABEL: Record<DecisionKind, string> = {
 	blocked: "blocked",
 	gone: "owner gone",
-	untold: "sign not told",
+	untold: "not told",
 	approval: "needs approval",
 	review: "needs review",
 	waiting: "waits",

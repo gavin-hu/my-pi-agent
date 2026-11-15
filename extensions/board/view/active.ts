@@ -116,9 +116,9 @@ __LABEL_KEY__
     add(round.unapproved, function (card) { return why(card, "contract ready \u2014 needs approval"); }, "approval");
     // The other gate is the lead's too, and it is owed from the moment a card enters the lane.
     add(round.unreviewed, function (card) { return why(card, "no spot-check yet"); }, "review");
-    // The sign is on the card and its message never landed: the signer's own debt, and the only
-    // retry is signing again.
-    add(round.untold, function () { return "its sign was never announced \u2014 sign again to send it"; }, "untold");
+    // The notice is on the card and never landed: a sign or a handoff, and the page sees a card
+    // without the field that tells them apart, so the sentence names both remedies.
+    add(round.untold, function () { return "its notice was never announced \u2014 sign or assign again to send it"; }, "untold");
     // The one reason whose subject is an age, so it carries one: the row stamps it rather than
     // printing it once, which is the same rule an offered card's sentence follows.
     add(round.unwritten, function (card) {

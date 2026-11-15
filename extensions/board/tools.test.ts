@@ -175,7 +175,6 @@ describe("the registration", () => {
 	test("names every group the lead's rollup reports", () => {
 		const { tool } = harness();
 		const spelled: Record<string, string> = { unapproved: "awaiting approval", unreviewed: "awaiting review" };
-		spelled.untold = "sign not told";
 		const groups = Object.keys(buildRound([], NOW)).map((key) => spelled[key] ?? key);
 		const described = `${BOARD_ACTION_DOCS.list} ${tool.parameters.properties.round.description}`.toLowerCase();
 		for (const group of groups) expect(described, group).toContain(group);
