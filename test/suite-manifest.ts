@@ -289,6 +289,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/links",
 	"board/lock",
 	"board/page-pointer",
+	"board/proven-remove",
 	"board/plan-gate",
 	"board/read",
 	"board/reason",
