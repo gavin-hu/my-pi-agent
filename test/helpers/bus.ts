@@ -89,6 +89,20 @@ export const busMessage = (id: string, to: string, at = 100): BusMessage => ({
 	at,
 });
 
+/**
+ * One message landed in its recipient's inbox, arriving at `at`.
+ *
+ * Written through the store's own writer — the file name is the message id, the directory is
+ * `storedName(recipient)` — so a case about what a reader of the bus counts is counting files
+ * the bus would have written. The arrival is stamped afterwards because the queue is ordered by
+ * mtime rather than by the sender's `at`, which is the one part of the layout a send cannot fix.
+ */
+export async function landMessage(busDir: string, message: BusMessage, at: number): Promise<void> {
+	const store = createBusStore({ dir: busDir });
+	await store.writeMessage(message.to, message);
+	await utimes(join(busDir, INBOX_DIR_NAME, storedName(message.to), `${message.id}.json`), at / 1000, at / 1000);
+}
+
 /** Name a message file's arrival instead of racing the wall clock: the seam the TTL cases use. */
 export async function stampArrival(dir: string, id: string, at: number): Promise<void> {
 	const [inbox] = await readdir(join(dir, "inbox"));

@@ -263,18 +263,6 @@ export interface MailLedger {
 	untold: number;
 }
 
-/** What a ledger reads: every file, or the count alone. */
-export interface LedgerOptions {
-	/**
-	 * Read every file: the queue, the arrivals, and the files this build cannot read.
-	 *
-	 * `false` is the read a board makes every second: it lists names and opens none, so the number
-	 * costs one directory read per inbox. That is the lenient read — a file it cannot parse is
-	 * counted and not named — while the default is strict, and names it.
-	 */
-	bodies?: boolean;
-}
-
 /**
  * One repository's bus, read once: every inbox, every message, and the number each owner is owed.
  *
@@ -284,15 +272,15 @@ export interface LedgerOptions {
  * count "written and not told": a file whose id the cursor names is mail its owner already heard
  * of, so it is neither drawn as waiting nor counted.
  *
+ * The count is what the record can *read*: a file this build cannot parse is named in
+ * `unreadable` and left out of the number, because a row that counted it would promise its reader
+ * mail no line explains and no read clears. The file itself stays where it is until its TTL — it
+ * may be mail a newer build can read.
+ *
  * Nothing is removed: an inbox is its owner's to consume, and a page that deleted what it drew
  * would eat the mail it was describing.
  */
-export async function readMailLedger(
-	busDir: string,
-	records: readonly MailRecord[],
-	options: LedgerOptions = {},
-): Promise<MailLedger> {
-	const bodies = options.bodies !== false;
+export async function readMailLedger(busDir: string, records: readonly MailRecord[]): Promise<MailLedger> {
 	const held = new Map(records.map((record) => [storedName(record.id), record]));
 	const byId = new Map<string, WaitingMail>();
 	const inboxes: InboxMail[] = [];
@@ -308,21 +296,22 @@ export async function readMailLedger(
 			told: new Set(record?.told ?? []),
 			untold: 0,
 		};
-		const arrivals = bodies ? await listArrivals(dir) : (await listJson(dir)).map((name) => ({ name, at: 0 }));
-		for (const { name, at } of arrivals) {
-			if (!inbox.told.has(idOfFile(name))) inbox.untold += 1;
-			if (!bodies) continue;
+		for (const { name, at } of await listArrivals(dir)) {
 			const message = readJsonAs(join(dir, name), isBusMessage);
 			if (message === undefined) {
 				inbox.unreadable.push(name);
 				continue;
 			}
-			// An inbox no record names still says whose mail it is: the files inside it name their
-			// recipient, which is the id a resumed session can adopt.
+			// The inbox is the identity, not the file: a message's own `to` is what the sender
+			// addressed, while an inbox belongs to one session id and its record names it. An inbox
+			// no record holds still says whose mail it is through the files inside it, which is the
+			// id a resumed session can adopt.
+			const recipient = { id: record?.id ?? message.to, label: record?.label ?? message.toLabel };
 			if (record === undefined) {
-				inbox.id = message.to;
-				inbox.label = message.toLabel;
+				inbox.id = recipient.id;
+				inbox.label = recipient.label;
 			}
+			if (!inbox.told.has(message.id)) inbox.untold += 1;
 			inbox.mail.push({ message, at });
 			const seen = byId.get(message.id);
 			if (seen === undefined) {
@@ -331,7 +320,7 @@ export async function readMailLedger(
 					from: message.from,
 					fromLabel: message.fromLabel,
 					kind: message.kind,
-					to: [{ id: message.to, label: message.toLabel }],
+					to: [recipient],
 					text: message.text,
 					at,
 				});
@@ -340,9 +329,7 @@ export async function readMailLedger(
 			// The same message in a second inbox: one row, one more recipient, and the
 			// earlier of the two arrivals, which is when it first became anyone's. The id
 			// decides, so a name a second session took is a second line and not the same one.
-			if (!seen.to.some((each) => each.id === message.to)) {
-				seen.to.push({ id: message.to, label: message.toLabel });
-			}
+			if (!seen.to.some((each) => each.id === recipient.id)) seen.to.push(recipient);
 			seen.at = Math.min(seen.at, at);
 		}
 		if (inbox.held) untold += inbox.untold;
@@ -421,26 +408,22 @@ export interface UnaccountedPage {
  * bus where every record is still on disk costs one directory read. A file this build
  * cannot parse is skipped, the way the queue above skips it.
  *
- * `bodies: false` is the board's read. It draws a number once a second, so it pays one directory
- * read per inbox nobody holds and opens no file; the default read names the mail, and pays a read
- * and a parse of each file to do it.
+ * Its `count` is every file in those inboxes, readable or not, while `messages` names only what
+ * this build can read — the door that clears them addresses a file by the id in its name.
  */
-export async function unaccountedMail(
-	busDir: string,
-	held: ReadonlySet<string>,
-	options: { bodies?: boolean } = {},
-): Promise<UnaccountedPage> {
+export async function unaccountedMail(busDir: string, held: ReadonlySet<string>): Promise<UnaccountedPage> {
 	// The held ids, as the records the ledger needs: a caller that knows only the ids asks about
 	// mail nobody holds, so what those records were told about is not part of the question.
 	const records = [...held].map((id): MailRecord => ({ id, label: id, told: [] }));
-	return unaccountedOf(await readMailLedger(busDir, records, { bodies: options.bodies }), options.bodies !== false);
+	return unaccountedOf(await readMailLedger(busDir, records));
 }
 
 /** The unaccounted page a ledger already answers: a projection, so no reader walks the bus twice. */
-export function unaccountedOf(ledger: MailLedger, bodies: boolean): UnaccountedPage {
+export function unaccountedOf(ledger: MailLedger): UnaccountedPage {
 	const unheld = ledger.inboxes.filter((inbox) => !inbox.held);
-	const count = unheld.reduce((total, inbox) => total + inbox.untold, 0);
-	if (!bodies) return { messages: [], count };
+	// Every file there, readable or not: the door that clears them addresses a file by the id in
+	// its name, so a count that dropped the ones it cannot read would understate what it ends.
+	const count = unheld.reduce((total, inbox) => total + inbox.mail.length + inbox.unreadable.length, 0);
 	const found = unheld.flatMap((inbox) => inbox.mail.map(({ message, at }) => ({ message, at })));
 	// Oldest first, so the message that has waited longest is the one a reader meets first.
 	return { messages: found.sort((a, b) => a.at - b.at || a.message.id.localeCompare(b.message.id)), count };

@@ -244,15 +244,16 @@ describe("the mail no record accounts for", () => {
 		expect(found.count).toBe(2);
 	});
 
-	test("answers the count alone when the caller draws no body", async () => {
+	test("counts a file it cannot read and names only the ones it can", async () => {
 		const dir = busDir();
 		land(dir, storedName("s-gone"), { id: "m-orphan", to: "s-gone" }, NOW);
 		mkdirSync(join(dir, INBOX_DIR_NAME, storedName("s-broken")), { recursive: true });
 		writeFileSync(join(dir, INBOX_DIR_NAME, storedName("s-broken"), "broken.json"), "{", "utf-8");
-		// The board's read: the number, from the names each unheld inbox holds, with no message among
-		// them. A file no build can parse counts too — it is still a file nobody's record holds, and a
-		// drop addresses it by the id in its name.
-		expect(await unaccountedMail(dir, new Set(), { bodies: false })).toEqual({ messages: [], count: 2 });
+		// A file no build can parse counts: it is a file nobody's record holds, and a drop addresses
+		// it by the id in its name — while the page names only the ones it can read.
+		const page = await unaccountedMail(dir, new Set());
+		expect(page.count).toBe(2);
+		expect(page.messages.map((entry) => entry.message.id)).toEqual(["m-orphan"]);
 	});
 
 	test("is empty where no bus has ever written", async () => {
@@ -289,15 +290,6 @@ describe("the mail ledger", () => {
 		expect(ledger.messages.map((message) => message.id)).toEqual(["m-1", "m-2", "m-3"]);
 	});
 
-	test("the count alone lists names and opens no file", async () => {
-		const dir = busDir();
-		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW);
-		const ledger = await readMailLedger(dir, [record("s-1")], { bodies: false });
-		expect(untoldIn(ledger, "s-1")).toBe(1);
-		expect(ledger.messages).toEqual([]);
-		expect(ledger.inboxes[0]?.mail).toEqual([]);
-	});
-
 	test("names a file it cannot read instead of counting it as a message", async () => {
 		const dir = busDir();
 		const inbox = join(dir, INBOX_DIR_NAME, storedName("s-1"));
@@ -306,8 +298,9 @@ describe("the mail ledger", () => {
 		land(dir, storedName("s-1"), { id: "m-1", to: "s-1" }, NOW);
 		const ledger = await readMailLedger(dir, [record("s-1")]);
 		expect(ledger.inboxes[0]?.unreadable).toEqual(["m-bad.json"]);
-		// Counted, because the file is there and its owner was not told about it; never drawn.
-		expect(untoldIn(ledger, "s-1")).toBe(2);
+		// Named, not counted: the row's number is the mail its reader can open, and this file is not
+		// one — a card that counted it would promise mail no line explains.
+		expect(untoldIn(ledger, "s-1")).toBe(1);
 		expect(ledger.messages.map((message) => message.id)).toEqual(["m-1"]);
 	});
 
@@ -320,9 +313,8 @@ describe("the mail ledger", () => {
 		const orphan = ledger.inboxes.find((inbox) => !inbox.held);
 		expect(orphan?.id).toBe("s-gone");
 		expect(orphan?.label).toBe("gone-peer");
-		expect(unaccountedOf(ledger, true).count).toBe(1);
-		expect(unaccountedOf(ledger, true).messages.map((row) => row.message.id)).toEqual(["m-2"]);
-		expect(unaccountedOf(ledger, false).messages).toEqual([]);
+		expect(unaccountedOf(ledger).count).toBe(1);
+		expect(unaccountedOf(ledger).messages.map((row) => row.message.id)).toEqual(["m-2"]);
 	});
 
 	test("pages the queue it read, and says what the page left out", async () => {

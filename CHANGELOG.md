@@ -32,9 +32,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ages out, at most ten minutes past its last heartbeat.
 
 - `session-bus`, `board`: the teammates' mail counts, the Team tab's queue and `session status` come from
-  one read of the bus, so a chip, a row and the queue cannot count one inbox differently; the pass names
-  every file the build cannot read rather than the first page of them, and a broadcast that reaches one
-  more mailbox repaints the tab instead of leaving a stale row behind.
+  one read of the bus, so a chip, a row and the queue cannot count one inbox differently. A file the build
+  cannot parse is now named and not counted — the number is the mail its reader can open — every such file
+  is named rather than the first page of them, a queue row names the inbox's own session instead of a
+  label the file carries, and a broadcast that reaches one more mailbox repaints the tab instead of
+  leaving a stale row behind.
 
 - `board`, `team`, `session-bus`: one notice table composes every workflow message, and every transition
   writes the card before it sends. `assign` records the owner first, so the handoff reports a state that

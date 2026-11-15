@@ -181,7 +181,7 @@ describe("inbox", () => {
 		await writeFile(join(dir, "inbox", inbox, file), "{");
 
 		// Both reads name it: a board polling every second would otherwise pass it off as
-		// empty inbox space, and the id it holds stays in the unread set while its file is here.
+		// empty inbox space, and the id it holds stays in the peek's set while its file is here.
 		const peeked = { mail: [], unread: new Set(["100-a"]), unreadable: [file] };
 		expect(await store.peek("s2", { limit: 10 })).toEqual(peeked);
 		expect(await store.peek("s2", { limit: 10 })).toEqual(peeked);
@@ -190,7 +190,8 @@ describe("inbox", () => {
 		// reports the name and leaves the file where it is.
 		expect(await store.inbox("s2", 10)).toEqual({ messages: [], unreadable: [file] });
 		expect(await readdir(join(dir, "inbox", inbox))).toEqual([file]);
-		expect(await untoldOf(store.dir, "s2")).toBe(1);
+		// The row's number is the mail its reader can open, so this file is named and not counted.
+		expect(await untoldOf(store.dir, "s2")).toBe(0);
 
 		// The TTL is what ends it, on the only clock a file with no readable `at` has.
 		await store.pruneMail({ now: 1_700_000_000_000, messageTtlMs: 1e9, own: "s2" });
@@ -211,8 +212,8 @@ describe("inbox", () => {
 		const first = await store.peek("s2", { limit: 2 });
 		expect(first.mail.map((entry) => entry.id)).toEqual(["100-a", "101-b"]);
 		expect(first.unreadable).toEqual([]);
-		// The badge counts files, so it counts the one nothing can read yet.
-		expect(await untoldOf(store.dir, "s2")).toBe(3);
+		// The badge counts what a reader can open, so the file nothing can read is not in it.
+		expect(await untoldOf(store.dir, "s2")).toBe(2);
 
 		// Consuming the page puts it at the front, where the next read names it.
 		await store.inbox("s2", 2);

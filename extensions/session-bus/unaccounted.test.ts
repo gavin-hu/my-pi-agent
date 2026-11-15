@@ -113,13 +113,15 @@ describe("the status naming the mail", () => {
 		await bus.stop();
 	});
 
-	test("answers the board with the count alone, since its poll draws no body", async () => {
+	test("answers the board's poll with the same read the status makes", async () => {
 		const dir = scratchDir(temps, "pi-session-bus-");
 		const { bus } = await harness(dir);
 		await land(dir, "s-gone");
-		// `snapshot` is what the board's one-second poll reads: the number it shows, and none of the
-		// files behind it. The status read is the one that opens them and names them.
-		expect((await bus.snapshot()).unaccounted).toEqual({ messages: [], count: 1 });
+		// The count is what a reader can open, so it cannot be answered without opening the files:
+		// `snapshot` and `status` are one read, and name the same message behind the same number.
+		const polled = (await bus.snapshot()).unaccounted;
+		expect(polled?.count).toBe(1);
+		expect(polled?.messages.map((entry) => entry.message.id)).toEqual([ORPHAN]);
 		expect((await bus.status()).unaccounted?.messages.map((entry) => entry.message.id)).toEqual([ORPHAN]);
 		await bus.stop();
 	});

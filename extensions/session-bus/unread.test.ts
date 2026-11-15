@@ -166,10 +166,10 @@ describe("the mail a session has not been told about", () => {
 		await mkdir(inbox, { recursive: true });
 		await writeFile(join(inbox, "0001-odd.json"), "{", "utf-8");
 
-		// The number counts names, so this file is inside it until its TTL — and the read that
-		// could parse it is the one that says so.
+		// The number is what its reader can open, so this file is outside it — and the read that
+		// could not parse it is the one that names it, until its TTL ends it.
 		const status = await backend.tool.execute("call", { action: "status" }, undefined, undefined, backend.ctx);
-		expect(status.content[0]?.text).toContain("1 unread");
+		expect(status.content[0]?.text).not.toContain("1 unread");
 		expect(status.content[0]?.text).toContain("Mail this build cannot read: 0001-odd.json");
 		await backend.bus.stop();
 	});

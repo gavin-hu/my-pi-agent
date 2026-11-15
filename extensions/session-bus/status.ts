@@ -80,13 +80,10 @@ export function createStatusReader(options: StatusReaderOptions): StatusReader {
 					const live = mine !== undefined && session.id === mine.id ? mine : session;
 					return { id: live.id, label: live.label, told: live.seenMail ?? [] };
 				}),
-				// The board draws a number once a second and would otherwise parse every file on
-				// each repaint; the model's read names what it cannot parse, which needs the files.
-				{ bodies: !liveOnly },
 			);
-			const unaccounted = unaccountedOf(mail, !liveOnly);
-			// The one thing a names-only count cannot say: a file this build cannot parse sits inside
-			// it until its TTL. The pass above named them, so no second read is asked for.
+			const unaccounted = unaccountedOf(mail);
+			// The one thing a count cannot say: a file this build cannot parse sits inside an inbox
+			// until its TTL. The pass above named them, so no second read is asked for.
 			const refused = liveOnly ? [] : (mail.inboxes.find((inbox) => inbox.id === me.id)?.unreadable ?? []);
 			const watch = watching();
 			return {

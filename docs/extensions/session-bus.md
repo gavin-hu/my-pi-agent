@@ -67,7 +67,7 @@ stamped on `agent_start`, dropped on `agent_settled`, counted only beside a fres
 It also carries what its session was told, and that is what unread counts: a notice marks its
 burst told, so the number falls with nothing deleted, and both surfaces draw that one number.
 A notice previews five messages, so `session read` is what shows the rest; a file this build
-cannot parse counts until its TTL, and `session status` names it. Mail whose recipient's record
+cannot parse is named rather than counted, and its TTL is the only thing that ends it. Mail whose recipient's record
 was pruned has no row to hang a number on, so the status names each message under
 `Unaccounted (N)` — id, sender, kind, age, first line — a bare `/sessions drop` prints that
 list, and `/sessions drop <id>` clears one; the board counts it off the inbox names, so a

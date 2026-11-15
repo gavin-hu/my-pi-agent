@@ -35,10 +35,15 @@ function writeSession(dir: string, stem: string, record: Record<string, unknown>
 }
 
 /** One message file in a session's inbox. */
-function writeMail(dir: string, stem: string, id: string): void {
+/**
+ * One message file in one inbox: a message the ledger can read, because the count is now what a
+ * record's reader can open rather than the names its directory happens to hold.
+ */
+function writeMail(dir: string, stem: string, id: string, to = "s-1"): void {
 	const inbox = join(dir, INBOX_DIR_NAME, stem);
 	mkdirSync(inbox, { recursive: true });
-	writeFileSync(join(inbox, `${id}.json`), "{}\n", "utf-8");
+	const message = { id, from: "s-2", fromLabel: "peer", to, toLabel: "one", kind: "message", text: "hi", at: 1 };
+	writeFileSync(join(inbox, `${id}.json`), JSON.stringify(message), "utf-8");
 }
 
 describe("readRoster", () => {
