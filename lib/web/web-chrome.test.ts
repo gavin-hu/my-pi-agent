@@ -37,6 +37,8 @@ describe("the shell's two rows", () => {
 		// A separator is a hairline in the border role, never a coloured segment: the signature
 		// rule has two homes — the mark and a record — and a header separator is neither.
 		expect(rule(WEB_LAYOUT_CSS, ".bf-app__rule{")).toBe(".bf-app__rule{height:1px;background:var(--border)");
+		// A head with one row has nothing to split: the rule is hidden, so the head's border is the line.
+		expect(WEB_LAYOUT_CSS).toContain(".bf-app__head>.bf-app__rule:last-child{display:none}");
 		expect(rule(WEB_LAYOUT_CSS, ".bf-app__head{")).toContain("border-bottom:1px solid var(--border)");
 		expect(rule(WEB_LAYOUT_CSS, ".bf-app__id{")).toContain("min-height:52px");
 		expect(WEB_LAYOUT_CSS).not.toContain("linear-gradient");
@@ -115,8 +117,7 @@ describe("the chrome's atoms", () => {
 		const subject = pageSubject({ id: "board-repo", label: "my-pi-agent", title: '/tmp/"x"' });
 		expect(subject).toContain('class="bf-context bf-context--subject"');
 		expect(subject).toContain('id="board-repo"');
-		// The whole path is the hover: the line keeps the tail, and the head is where two
-		// clones of one repository differ.
+		// The whole path is the hover: the line keeps the tail, and the head is where two clones of one repository differ.
 		expect(subject).toContain('title="/tmp/&quot;x&quot;"');
 		expect(pageSubject({ label: "a&b", title: "a&b" })).toContain(">a&amp;b<");
 		expect(pageSubject({ label: "a", title: "a" })).not.toContain("id=");
@@ -125,8 +126,7 @@ describe("the chrome's atoms", () => {
 	test("draws the mark's own two-tone rule, out of the flow of the identity row", () => {
 		const brand = brandLockup("board");
 		expect(brand).toContain('<span class="bf-brand__rule" aria-hidden="true"></span>');
-		// Out of flow, or a wrapped header stretches the rule beside the path instead of
-		// leaving it under the mark.
+		// Out of flow, or a wrapped header stretches the rule beside the path instead of leaving it under the mark.
 		const mark = rule(WEB_COMPONENTS_CSS, ".bf-brand__rule{");
 		expect(mark).toContain("position:absolute");
 		expect(mark).toContain("width:18px;height:2px");

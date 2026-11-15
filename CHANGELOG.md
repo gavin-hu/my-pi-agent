@@ -192,6 +192,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`, `file-browse`: a header with no control row closes with one hairline instead of two. The
+  shell hides a `.bf-app__rule` that is the head's last child, so the rule can no longer double the
+  head's own border on a page whose only row is the identity row — the plan view page and browse.
+
 - `team`: a handoff whose owner write lost the race names both outcomes it can meet — leave a rival's
   card alone, or claim a card the write left nobody's — instead of only the rival's. The second branch
   is the one a peer followed into a refused `contract`: the marker is the owner, the message is sent
