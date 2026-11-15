@@ -1,7 +1,9 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, readdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { INBOX_DIR_NAME } from "./session-roster.ts";
+import { scratchDir } from "../test/helpers/env.ts";
+import { makeTempTracker } from "../test/helpers/git.ts";
+import { INBOX_DIR_NAME, storedName } from "./session-files.ts";
 import {
 	type BusMessage,
 	isBusMessage,
@@ -11,9 +13,6 @@ import {
 	WAITING_LIMIT,
 	waitingMail,
 } from "./session-mail.ts";
-import { makeTempTracker } from "../test/helpers/git.ts";
-import { scratchDir } from "../test/helpers/env.ts";
-import { storedName } from "./session-roster.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());

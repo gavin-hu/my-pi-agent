@@ -19,10 +19,10 @@
  * it drew would eat the mail it was describing.
  */
 
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { asRecord } from "./json.ts";
-import { INBOX_DIR_NAME, storedName } from "./session-roster.ts";
+import { busPaths, JSON_SUFFIX, listJson, readJsonAs, storedName } from "./session-files.ts";
 
 /** What a message is for: a note, a broadcast, a question, or work handed over. */
 export type MessageKind = "message" | "event" | "ask" | "handoff";
@@ -113,8 +113,6 @@ export interface WaitingMail {
 	at: number;
 }
 
-const MESSAGE_SUFFIX = ".json";
-
 /** Whether a parsed file is a message this build can read. */
 export function isBusMessage(value: unknown): value is BusMessage {
 	const entry = asRecord(value);
@@ -136,7 +134,7 @@ export function isBusMessage(value: unknown): value is BusMessage {
 }
 
 /** The message id a file name holds, which is the id a reader compares against. */
-export const idOfFile = (name: string): string => name.slice(0, -MESSAGE_SUFFIX.length);
+export const idOfFile = (name: string): string => name.slice(0, -JSON_SUFFIX.length);
 
 /** One message file, and the moment it landed in the inbox it sits in. */
 export interface Arrival {
@@ -158,12 +156,7 @@ export interface Arrival {
  * already read.
  */
 export async function listArrivals(dir: string): Promise<Arrival[]> {
-	let names: string[];
-	try {
-		names = (await readdir(dir)).filter((name) => name.endsWith(MESSAGE_SUFFIX)).sort();
-	} catch {
-		return [];
-	}
+	const names = await listJson(dir);
 	const stamped = await Promise.all(
 		names.map((name) =>
 			stat(join(dir, name)).then(
@@ -204,13 +197,7 @@ function sameSend(a: unknown, b: BusMessage): boolean {
 export async function holdsMessage(dir: string, message: BusMessage): Promise<boolean> {
 	if (message.key === undefined) return false;
 	for (const { name } of await listArrivals(dir)) {
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
-		} catch {
-			continue;
-		}
-		if (sameSend(parsed, message)) return true;
+		if (sameSend(readJsonAs(join(dir, name), isBusMessage), message)) return true;
 	}
 	return false;
 }
@@ -228,12 +215,12 @@ export async function listMessages(dir: string): Promise<string[]> {
 /** The inbox directories under one repository's bus, hashed as the bus names them. */
 async function inboxDirs(busDir: string): Promise<string[]> {
 	try {
-		const entries = await readdir(join(busDir, INBOX_DIR_NAME), { withFileTypes: true });
+		const entries = await readdir(busPaths(busDir).inbox, { withFileTypes: true });
 		return entries
 			.filter((entry) => entry.isDirectory())
 			.map((entry) => entry.name)
 			.sort()
-			.map((name) => join(busDir, INBOX_DIR_NAME, name));
+			.map((name) => join(busPaths(busDir).inbox, name));
 	} catch {
 		// No bus here, or no mail ever addressed: both are "nothing is waiting".
 		return [];
@@ -256,13 +243,8 @@ export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promis
 	const byId = new Map<string, WaitingMail>();
 	for (const dir of await inboxDirs(busDir)) {
 		for (const { name, at: landed } of await listArrivals(dir)) {
-			let parsed: unknown;
-			try {
-				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
-			} catch {
-				continue;
-			}
-			if (!isBusMessage(parsed)) continue;
+			const parsed = readJsonAs(join(dir, name), isBusMessage);
+			if (parsed === undefined) continue;
 			const seen = byId.get(parsed.id);
 			if (seen === undefined) {
 				byId.set(parsed.id, {
@@ -347,8 +329,7 @@ export async function unaccountedMail(
 	if (options.bodies === false) {
 		let count = 0;
 		for (const dir of unheld) {
-			const names = await readdir(dir).catch(() => [] as string[]);
-			count += names.filter((name) => name.endsWith(MESSAGE_SUFFIX)).length;
+			count += (await listJson(dir)).length;
 		}
 		return { messages: [], count };
 	}
@@ -357,13 +338,8 @@ export async function unaccountedMail(
 	for (const dir of unheld) {
 		for (const { name, at } of await listArrivals(dir)) {
 			count += 1;
-			let parsed: unknown;
-			try {
-				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
-			} catch {
-				continue;
-			}
-			if (!isBusMessage(parsed)) continue;
+			const parsed = readJsonAs(join(dir, name), isBusMessage);
+			if (parsed === undefined) continue;
 			found.push({ message: parsed, at });
 		}
 	}

@@ -12,19 +12,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { makeTempTracker } from "../test/helpers/git.ts";
 import { tempDir } from "../test/helpers/env.ts";
-import {
-	BUS_DIR_NAME,
-	INBOX_DIR_NAME,
-	SESSIONS_DIR_NAME,
-	SESSION_TTL_MS,
-	presenceOf,
-	readRoster,
-	readSessionLabel,
-	rosterStateOf,
-	storedName,
-} from "./session-roster.ts";
+import { makeTempTracker } from "../test/helpers/git.ts";
+import { BUS_DIR_NAME, INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "./session-files.ts";
+import { presenceOf, readRoster, readSessionLabel, rosterStateOf, SESSION_TTL_MS } from "./session-roster.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());

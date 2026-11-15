@@ -1,12 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdir, readdir, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { makeTempTracker } from "../../test/helpers/git.ts";
+import { storedName } from "../../lib/session-files.ts";
 import { busMessage, busStoreFixture, sessionRecord, stampArrival } from "../../test/helpers/bus.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
 import { createBusStore } from "./store.ts";
-import type { ClaimConflict } from "./types.ts";
-import { storedName } from "../../lib/session-roster.ts";
-import type { SessionRecord } from "./types.ts";
+import type { ClaimConflict, SessionRecord } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());

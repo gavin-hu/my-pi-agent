@@ -333,6 +333,7 @@ export const LIB_SUITES: readonly string[] = [
 	"report",
 	"report-load",
 	"repo-key",
+	"session-files",
 	"session-peer",
 	"session-roster",
 	"session-mail",

@@ -19,20 +19,21 @@
  * per extension and none of them the same one.
  */
 
+import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { join } from "node:path";
 import { resolveEffectiveCwd } from "../env.ts";
 import { plansDirFor } from "../plans/paths.ts";
 import { repoKeyFor } from "../repo-key.ts";
+import { BUS_DIR_NAME } from "../session-files.ts";
 import { agentLabel, defaultLabel, labelKey, normalizeLabel, sessionIdOf, sessionNameOf } from "../session-label.ts";
-import { BUS_DIR_NAME, presenceOf, readRoster, type RosterSession } from "../session-roster.ts";
+import { presenceOf, type RosterSession, readRoster } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
 import type { Card } from "./card.ts";
 import type { Claims } from "./claims.ts";
 import type { HolderFact } from "./lead.ts";
 import type { Actor } from "./rules.ts";
-import { type BoardStore, openBoard, type MutateResult } from "./store.ts";
+import { type BoardStore, type MutateResult, openBoard } from "./store.ts";
 
 /**
  * Where this session stands on the team, as the one place that keeps it.

@@ -14,9 +14,9 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { readdir, utimes } from "node:fs/promises";
 import { join } from "node:path";
-import { INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "../../lib/session-roster.ts";
 import { createBusStore } from "../../extensions/session-bus/store.ts";
 import type { BusMessage, SessionRecord } from "../../extensions/session-bus/types.ts";
+import { INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "../../lib/session-files.ts";
 import { tempDir } from "./env.ts";
 import type { TempTracker } from "./git.ts";
 

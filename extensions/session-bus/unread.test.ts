@@ -8,14 +8,15 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { readRoster, storedName } from "../../lib/session-roster.ts";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { storedName } from "../../lib/session-files.ts";
+import { readRoster } from "../../lib/session-roster.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { scratchDir } from "../../test/helpers/env.ts";
-import { busToolSession as session, joinBusSession as joins } from "../../test/helpers/fixtures/session-bus-tool.ts";
 import { createFakePi, emit, emitFirst } from "../../test/helpers/fakes.ts";
+import { joinBusSession as joins, busToolSession as session } from "../../test/helpers/fixtures/session-bus-tool.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import sessionBus from "./index.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";

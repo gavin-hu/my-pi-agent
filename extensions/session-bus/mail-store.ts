@@ -4,9 +4,9 @@
  *
  * Split out of `store.ts` when that module reached the line bar, and reached through a deferred
  * import rather than a static one — that entry has exactly the static module budget it is allowed,
- * and one more evaluation fails `test/dependencies.test.ts`. The same fact shapes this file: nothing
- * here imports a module of this extension, because the file layer it needs arrives as {@link
- * MailStoreDeps}, so it can only ever be loaded by the store that already holds one.
+ * and one more evaluation fails `test/dependencies.test.ts`. Nothing here imports a module of this
+ * extension: the layout and the writes come from `lib/session-files.ts`, which the entry loads
+ * anyway, so this file is loaded only when the first read needs it.
  *
  * Pure I/O over one directory, as the store is: no state of its own, and no clock but the one a
  * caller passes in.
@@ -14,35 +14,25 @@
 
 import { readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { busPaths, dropIfEmpty, dropStaleTemps, listJson, readJsonAs, storedName } from "../../lib/session-files.ts";
 import { type BusMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
-import { INBOX_DIR_NAME, storedName } from "../../lib/session-roster.ts";
 import type { BusStore } from "./store.ts";
-import type { KeptMail, SessionRecord } from "./types.ts";
-
-/**
- * What the mail family needs of the store's file layer, given rather than imported.
- *
- * Six functions and the directory, because the alternative is importing `store.ts` — a static edge
- * back into the module that loads this one, which costs the budget row and makes a cycle.
- */
-export interface MailStoreDeps {
-	/** The repository bus directory, e.g. `<agent-dir>/session-bus/<key>`. */
-	dir: string;
-	readSessions(): Promise<SessionRecord[]>;
-	readTyped<T>(path: string, guard: (value: unknown) => value is T): T | undefined;
-	listFiles(dir: string): Promise<string[]>;
-	dropIfEmpty(dir: string): Promise<void>;
-	dropStaleTemps(dir: string): Promise<void>;
-}
+import type { DropResult, KeptMail } from "./types.ts";
 
 /** The half of the store that owns the inboxes. */
-export type MailStore = Pick<BusStore, "peek" | "inbox" | "unread" | "dropUnaccounted" | "pruneMail">;
+export type MailStore = Pick<BusStore, "peek" | "inbox" | "unread" | "pruneMail"> & {
+	/**
+	 * Remove mail `ids` name from inboxes no record holds — with the holders given, because the
+	 * records are the store's to read and this module never loads `store.ts`.
+	 */
+	dropUnaccounted(ids: readonly string[], held: ReadonlyMap<string, string>): Promise<DropResult>;
+};
 
 /** Create the mail family over one repository's bus directory. */
-export function createMailStore(deps: MailStoreDeps): MailStore {
-	const { readSessions, readTyped, listFiles, dropIfEmpty, dropStaleTemps } = deps;
-	const inboxRoot = join(deps.dir, INBOX_DIR_NAME);
-	const inboxDir = (id: string): string => join(inboxRoot, storedName(id));
+export function createMailStore(dir: string): MailStore {
+	const paths = busPaths(dir);
+	const inboxRoot = paths.inbox;
+	const inboxDir = paths.inboxOf;
 
 	/**
 	 * Up to `limit` messages from the front of a recipient's inbox, oldest first.
@@ -77,7 +67,7 @@ export function createMailStore(deps: MailStoreDeps): MailStore {
 			if (messages.length >= limit) break;
 			if (known?.has(idOfFile(name))) continue;
 			const path = join(directory, name);
-			const message = readTyped(path, isBusMessage);
+			const message = readJsonAs(path, isBusMessage);
 			if (!message) {
 				unreadable.push(name);
 				continue;
@@ -104,7 +94,7 @@ export function createMailStore(deps: MailStoreDeps): MailStore {
 		},
 
 		async unread(id, told) {
-			return (await listFiles(inboxDir(id))).filter((name) => !told?.has(idOfFile(name))).length;
+			return (await listJson(inboxDir(id))).filter((name) => !told?.has(idOfFile(name))).length;
 		},
 
 		/**
@@ -113,25 +103,25 @@ export function createMailStore(deps: MailStoreDeps): MailStore {
 		 * Attribution is the store's own: an inbox is filed under the hash of its recipient's id, so
 		 * hashing each record's id is the whole answer to "does anybody hold this mail" — no field a
 		 * message could lie about, and no need to invert the hash of a directory's name. It is read
-		 * here, at the delete, rather than by the caller that listed the mail: a session that resumed
-		 * in between holds its mail again, and a listing is stale the moment its person reads it.
+		 * by the caller at the delete rather than by the one that listed the mail: a session that
+		 * resumed in between holds its mail again, and a listing is stale the moment its person reads
+		 * it.
 		 *
 		 * An id a held inbox carries is refused and handed back with its holder's label. That is the
 		 * one guard this door needs, because a mistaken id would otherwise destroy mail its session
 		 * can still read; nothing else on the bus is this destructive and irreversible.
 		 */
-		async dropUnaccounted(ids) {
+		async dropUnaccounted(ids: readonly string[], held: ReadonlyMap<string, string>): Promise<DropResult> {
 			const wanted = new Set(ids);
 			const dropped: string[] = [];
 			const kept: KeptMail[] = [];
 			if (wanted.size === 0) return { dropped, kept };
-			const holders = new Map<string, string>();
-			for (const session of await readSessions()) holders.set(storedName(session.id), session.label);
+			const holders = new Map([...held].map(([id, label]) => [storedName(id), label]));
 			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
 				const directory = join(inboxRoot, name);
 				const holder = holders.get(name);
 				let removed = false;
-				for (const file of await listFiles(directory)) {
+				for (const file of await listJson(directory)) {
 					const id = idOfFile(file);
 					if (!wanted.has(id)) continue;
 					if (holder !== undefined) {
@@ -154,9 +144,9 @@ export function createMailStore(deps: MailStoreDeps): MailStore {
 		async pruneMail({ now: at, messageTtlMs }) {
 			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
 				const directory = join(inboxRoot, name);
-				for (const file of await listFiles(directory)) {
+				for (const file of await listJson(directory)) {
 					const path = join(directory, file);
-					const message = readTyped(path, isBusMessage);
+					const message = readJsonAs(path, isBusMessage);
 					if (message) {
 						if (at - message.at > messageTtlMs) await rm(path, { force: true });
 						continue;
