@@ -75,6 +75,8 @@ describe("settings runtime", () => {
 	test("resolves the global and project documents", () => {
 		expect(configPath("global", "/cwd", "/agent")).toBe(join("/agent", "bytefly.json"));
 		expect(configPath("project", "/cwd", "/agent")).toBe(join("/cwd", ".pi", "bytefly.json"));
+		// A worktree session states its root: the project document is the checkout's.
+		expect(configPath("project", "/worktree", "/agent", "/checkout")).toBe(join("/checkout", ".pi", "bytefly.json"));
 	});
 
 	test("writes an app row through the global setter, flushes, and marks the screen dirty", async () => {

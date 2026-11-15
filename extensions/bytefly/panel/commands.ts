@@ -195,6 +195,8 @@ interface PanelRun {
 	agentDir: string;
 	trusted: boolean;
 	themes: string[];
+	/** Where the project document lives: the repository's checkout, resolved before the screen. */
+	settingsRoot: string;
 	section: PanelSection;
 	name: string | undefined;
 	refresh: boolean;
@@ -253,6 +255,7 @@ async function settingsText(
 		stores,
 		cwd: run.cwd,
 		agentDir: run.agentDir,
+		settingsRoot: run.settingsRoot,
 		trusted: run.trusted,
 		themes: run.themes,
 		onError: (message) => surfaceNotice(message, "warning"),
@@ -313,7 +316,7 @@ async function mountPanel(
 	},
 ): Promise<void> {
 	const { runtime, settings, discovery, loadSkills, resolveSkillPaths, cached, holder } = state;
-	const { ctx, section, name, refresh, agentDir, cwd } = run;
+	const { ctx, section, name, refresh, agentDir, cwd, settingsRoot } = run;
 	let reports: ExtensionReport[] = cached ?? [];
 
 	const { PanelComponent } = await import("./tui.ts");
@@ -334,6 +337,7 @@ async function mountPanel(
 				theme,
 				agentDir,
 				cwd,
+				settingsRoot,
 				// A cached session probes only when the command asked for it.
 				needsProbe: cached === undefined || refresh,
 				initialRefresh: refresh,
@@ -398,11 +402,30 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			else ctx.ui.notify(message, kind);
 		};
 		const settingsNotice = (message: string): void => surfaceNotice(message, "warning");
-		const run: PanelRun = { pi, deps, ctx, cwd, agentDir, trusted, themes, section, name, refresh, mode };
+		const run: PanelRun = {
+			pi,
+			deps,
+			ctx,
+			cwd,
+			agentDir,
+			trusted,
+			themes,
+			section,
+			name,
+			refresh,
+			mode,
+			settingsRoot: cwd,
+		};
 
 		// `/bytefly update` answers one question and resolves nothing; `upgrade` is the
 		// same subject one verb further, behind a confirmation because it writes.
 		if (mode === "update" || mode === "upgrade") return updateAnswer(deps, mode, ctx);
+
+		// The project document is the repository's, not the tree the shell sits in: a worktree's
+		// `.pi/` is gitignored, so a setting written there is one nothing reads. One resolution,
+		// before the screen and before the listing.
+		const { settingsRootFor } = await import("../../../lib/repo-key.ts");
+		run.settingsRoot = await settingsRootFor(pi, cwd);
 
 		// Settings, discovery, and the picker are the command's, not registration's: the
 		// price, update, and upgrade answers above resolve none of them.
@@ -429,6 +452,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			stores: discovery.stores,
 			cwd,
 			agentDir,
+			settingsRoot: run.settingsRoot,
 			trusted: discovery.trusted,
 			themes,
 			onError: settingsNotice,

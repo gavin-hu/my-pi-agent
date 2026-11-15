@@ -72,6 +72,8 @@ export interface PanelComponentOptions {
 	agentDir: string;
 	/** The session working directory, for the config-file path in the block. */
 	cwd: string;
+	/** Where the project document lives: the repository's checkout, when it is not the cwd. */
+	settingsRoot?: string;
 	/** Live terminal height, for the row budget. */
 	viewportRows?: ViewportRowsSource;
 	requestRender: () => void;
@@ -533,7 +535,8 @@ export class PanelComponent implements Component {
 			// leaves out what the row above already says.
 			compact: !wide,
 			dirty: this.dirty,
-			paths: { scope, cwd: this.options.cwd, agentDir: this.options.agentDir },
+			// `settingsRoot` is the checkout: a worktree session's own tree holds no settings.
+			paths: { scope, cwd: this.options.cwd, agentDir: this.options.agentDir, settingsRoot: this.options.settingsRoot },
 			json: this.settingsSection.jsonFor(setting),
 		});
 

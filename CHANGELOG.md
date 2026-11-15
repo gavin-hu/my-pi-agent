@@ -28,7 +28,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   until it releases one — set `board.wip.perOwner` higher to keep the old behaviour. In the same
   change, a worktree session reads — and, joining the team, writes — its repository's `board` and
   `team` settings at the checkout rather than in the worktree: a `/team join` there lands in the
-  checkout's file, and the footer's team chip reads the same root, because `.pi/` is gitignored.
+  checkout's file, `/bytefly settings` shows and writes that file, and the footer's team chip reads
+  the same root, because `.pi/` is gitignored. The Settings screen also shows the `board.wip.*` rows
+  a file states, where it answered the defaults before.
 
 - `board`: a spot-check the card was written after reads as out of date everywhere, not only at the
   `done` gate. `currentReview` now asks `signStale`, so such a card joins `unreviewed` in the lead's

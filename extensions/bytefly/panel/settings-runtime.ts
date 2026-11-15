@@ -40,6 +40,14 @@ export interface SettingsRuntimeDeps {
 	stores: { global: SettingsStore; project: SettingsStore };
 	cwd: string;
 	agentDir: string;
+	/**
+	 * Where the repository keeps its project document: the checkout.
+	 *
+	 * A worktree session's `cwd` is the worktree, where `.pi/` is gitignored, so the settings it
+	 * edits are the checkout's. Defaults to `cwd` — a directory outside a repository has nowhere
+	 * else to go.
+	 */
+	settingsRoot?: string;
 	trusted: boolean;
 	/** Report a refused or failed write to the screen. */
 	onError?: (message: string) => void;
@@ -67,8 +75,15 @@ export interface SettingsRuntime extends SettingsSurface {
 }
 
 /** The shared document for a write scope. */
-export function configPath(scope: WriteScope, cwd: string, agentDir: string): string {
-	return scope === "global" ? join(agentDir, SHARED_CONFIG_FILE) : join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE);
+export function configPath(scope: WriteScope, cwd: string, agentDir: string, settingsRoot: string = cwd): string {
+	return scope === "global"
+		? join(agentDir, SHARED_CONFIG_FILE)
+		: join(settingsRoot, CONFIG_DIR_NAME, SHARED_CONFIG_FILE);
+}
+
+/** Where this panel's project document lives: the repository's settings root, or the cwd. */
+function projectRoot(deps: SettingsRuntimeDeps): string {
+	return deps.settingsRoot ?? deps.cwd;
 }
 
 /** Read the current personal settings and both config documents. */
@@ -76,7 +91,7 @@ function readSnapshot(deps: SettingsRuntimeDeps): SettingsSnapshot {
 	return {
 		app: deps.stores.global.globalSettings(),
 		global: readJson(configPath("global", deps.cwd, deps.agentDir)) ?? {},
-		project: deps.trusted ? (readJson(configPath("project", deps.cwd, deps.agentDir)) ?? {}) : {},
+		project: deps.trusted ? (readJson(configPath("project", deps.cwd, deps.agentDir, projectRoot(deps))) ?? {}) : {},
 		themes: deps.themes ?? [],
 	};
 }
@@ -139,7 +154,7 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 		}
 		const config = row.config;
 		if (!config) throw new Error(`Setting ${row.id} has no config section`);
-		const path = configPath(scope, deps.cwd, deps.agentDir);
+		const path = configPath(scope, deps.cwd, deps.agentDir, projectRoot(deps));
 		// One document pass for the row and every companion leaf it declares, so a
 		// failure cannot leave the row written and its companion not.
 		writeConfigValuesAt(path, [
@@ -239,7 +254,7 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 				return false;
 			}
 			try {
-				unsetConfigValueAt(configPath(scope, deps.cwd, deps.agentDir), config.section, config.path);
+				unsetConfigValueAt(configPath(scope, deps.cwd, deps.agentDir, projectRoot(deps)), config.section, config.path);
 			} catch (error) {
 				deps.onError?.(`Could not reset ${row.label}: ${error instanceof Error ? error.message : String(error)}`);
 				return false;

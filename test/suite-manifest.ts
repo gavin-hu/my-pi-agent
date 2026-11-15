@@ -40,6 +40,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"panel/probe",
 		"panel/settings",
 		"panel/settings-runtime",
+		"panel/settings-root",
 		"panel/skills",
 		"panel/update",
 		"panel/views",

@@ -26,15 +26,11 @@
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
-import {
-	DEFAULT_BOARD_CONFIG,
-	DEFAULT_TEAM_CONFIG,
-	normalizeTeamConfig,
-	normalizeWipConfig,
-} from "../../../lib/workflow/config.ts";
+import { asRecord } from "../../../lib/json.ts";
+import { DEFAULT_BOARD_CONFIG, DEFAULT_TEAM_CONFIG, normalizeTeamConfig } from "../../../lib/workflow/config.ts";
 import { MAX_LABEL } from "../../../lib/session-label.ts";
 import { amountRule, countRule, splitList, teammatesRule, type TextRule } from "./settings-rules.ts";
-import { DEFAULT_WIP, MAX_WIP } from "../../../lib/workflow/limits.ts";
+import { DEFAULT_WIP, MAX_WIP, normalizeWip } from "../../../lib/workflow/limits.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
@@ -490,8 +486,16 @@ const SECTION_READERS: Partial<Record<ConfigSectionName, SectionReader>> = {
 		configValueAt(normalizeDoctorConfig(projectRaw, normalizeDoctorConfig(globalRaw, DEFAULT_DOCTOR_CONFIG)), path),
 	price: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeByteflyConfig(projectRaw, normalizeByteflyConfig(globalRaw, DEFAULT_BYTEFLY_CONFIG)), path),
-	board: (globalRaw, projectRaw, path) =>
-		configValueAt(normalizeWipConfig(projectRaw, normalizeWipConfig(globalRaw, DEFAULT_WIP)), path),
+	// `normalizeWip` answers the limits flat (`{perOwner, plan, execute}`), and the row's own path
+	// is the document spellings — `["wip", "plan"]`. Both halves of that difference were wrong
+	// once: the section is not the document, and the answer is not nested under `wip`.
+	board: (globalRaw, projectRaw, path) => {
+		// The section is `{ wip: {...} }` and `normalizeWip` reads the flat limits, so the `wip`
+		// object is what both halves take; the row's path is the document spelling.
+		const limits = normalizeWip(asRecord(projectRaw?.wip), normalizeWip(asRecord(globalRaw?.wip), DEFAULT_WIP));
+		const key = path[0] === "wip" ? path[1] : path[0];
+		return key === "plan" || key === "execute" || key === "perOwner" ? limits[key] : undefined;
+	},
 	team: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeTeamConfig(projectRaw, normalizeTeamConfig(globalRaw, DEFAULT_TEAM_CONFIG)), path),
 };
