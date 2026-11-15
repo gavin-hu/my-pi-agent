@@ -1,5 +1,23 @@
 import { afterEach, beforeEach, setDefaultTimeout } from "bun:test";
 import { CASE_BUDGET_MS } from "./budget.ts";
+import { acquireTestLock, giveUpLine, takeOverLine, waitingLine } from "./lock.ts";
+
+/**
+ * Take the machine's one test-run lock before any case runs.
+ *
+ * The preload is the only hook that reaches `bun test`, `bun run check` and CI alike, so the lock
+ * lives here rather than in a command someone has to remember: two runs at once starve each other's
+ * spawns, and the suites that wait on a child are the ones that break. `./lock.ts` says what it
+ * costs and how to skip it.
+ */
+const lock = await acquireTestLock({
+	onWait: (holder) => console.error(waitingLine(holder)),
+	onTakeOver: () => console.error(takeOverLine()),
+	onGiveUp: (holder, waitedMs) => console.error(giveUpLine(holder, waitedMs)),
+});
+// Best effort: bun's test process does not run an exit handler, so the record is left behind and the
+// next run replaces it by pid. `./lock.ts` says why that is the ordinary path rather than a fault.
+process.on("exit", () => lock.release());
 
 /**
  * Give every case the run's one budget, whatever invoked it.

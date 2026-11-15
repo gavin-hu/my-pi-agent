@@ -15,6 +15,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `test`: one test run per machine again. The preload takes a machine-wide lock before any case runs,
+  so a second `bun test` — or `bun run check` — prints who holds it and waits up to ten minutes
+  instead of starving the first one's spawns, which is the 2026-11-09 failure that a settled copy of
+  a git call and a shell spent 55 s and 27.5 s proving. `PI_NO_LOCK=1` skips it, and a `--parallel`
+  run inherits `PI_LOCKED` so its workers never wait on their own parent. The record is left behind
+  on purpose: bun's test process runs no `exit` handler, so the next run replaces a dead holder by
+  pid, silently, and a record older than the heartbeat is stale however alive its pid looks.
+
 - `check`: the gate is the three commands it runs, and the test side is Bun's. `bun run check` is
   now `check:format && check:types && bun test`; a slice is a directory (`bun test extensions/board/`,
   `bun test test/`), a change is `bun test --changed=main`, and the gated git suites are
