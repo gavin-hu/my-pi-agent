@@ -63,7 +63,9 @@ A served page's chrome is a fixed head and foot with one scroll box between them
 band has one job:
 
 - `.bf-app__head` is two rows, split by a plain `.bf-app__rule`, on the page's own canvas and
-  closed by one hairline: a bar above a flat sheet needs no elevation of its own. `.bf-app__id`
+  closed by one hairline: a bar above a flat sheet needs no elevation of its own. A head with no
+  control row has nothing to split, so a rule that is its last child draws nothing and the
+  hairline is the only line under the page. `.bf-app__id`
   carries the lockup, the subject (`pageSubject`: mono, grows, truncates its head so a path keeps
   the folder being read), the live line and the reload, with `.bf-app__chrome` (key sheet, theme
   toggle) at the end; `.bf-app__ctl` is the page's own controls and nothing else.

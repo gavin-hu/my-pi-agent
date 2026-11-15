@@ -44,6 +44,9 @@ export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height
    reader's eye lands, and the icon's target wants air above and below it. */
 .bf-app__id{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;min-height:52px;padding:var(--space-2) var(--space-6)}
 .bf-app__rule{height:1px;background:var(--border)}
+/* A rule splits the two rows, so a rule with no row under it splits nothing: a head that carries no
+   control row closes with its own border, and a visible rule there would draw that line twice. */
+.bf-app__head>.bf-app__rule:last-child{display:none}
 .bf-app__ctl{display:flex;align-items:baseline;gap:var(--space-3);flex-wrap:wrap;padding:5px var(--space-6)}
 /* The control row's rhythm: 12 inside a role, 24 between roles — the switch, the meter and the
    prompt line are three groups, and the row's height comes from its equal padding. */
