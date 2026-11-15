@@ -104,11 +104,7 @@ jobs:
       - name: Record the tested peer versions
         run: bun run report:versions
 
-      - name: Typecheck against the newest peers
-        run: bun run check:types
-
-      # Serial like the check matrix: a `--parallel` worker can drop the
-      # subprocess exit notification for its first spawn on a small runner
-      # (oven-sh/bun#39709), which would fail this job for an unrelated reason.
-      - name: Run the suite against the newest peers
-        run: bun run check:tests
+      # The whole gate, which typechecks against the peers just installed: one
+      # command, and the same one every other job runs.
+      - name: Run the gate against the newest peers
+        run: bun run check

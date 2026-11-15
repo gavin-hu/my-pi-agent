@@ -9,16 +9,16 @@ judged by `bun run check` and by the assets it writes under `assets/screens/`,
 
 A name is a verb when the verb is the whole errand (`check`, `format`), or `<verb>:<target>` for
 one member of it, so a command says what kind of work it is before it says what it is about.
-`package.json` repeats no name twice and no value calls another script: each row names the file
-it runs. `test/scripts-surface.test.ts` holds both halves — the verbs this surface has, and the
-rule that a value is a path.
+`package.json` repeats no name twice and no value is a bare alias of another script: a value names
+the file it runs, or chains the commands it runs (`check` is `check:format && check:types &&
+bun test`). `test/scripts-surface.test.ts` holds both halves — the verbs this surface has, and the
+rule a value follows.
 
 | Command | What it does |
 |---|---|
-| `bun run check` | The gate a landing needs: `check:format`, `check:types`, and the tests, the first two running beside the test phase through `scripts/check.ts` so the gate costs what its longest phase costs. The test phase runs one file at a time, which is the shape every CI job and `publish.yml` run too. One scope flag narrows the tests: `--static` (the static half alone), `--watch`, `--changed [--base <ref>]` (the tests a change reaches), `--ext <name…>`, `--lib <area…>`, `--root` (the package-level tests), `--slow` (the gated git suites). `--dry-run` prints the selection and runs nothing. It holds a machine-wide lock while it runs, so a second gate on the same machine waits rather than starving this one's spawns; `--no-lock` runs beside it. A red test phase names its cases as `file:line — suite > case` and leaves `bun`'s JUnit report at `.pi/cache/test-report.xml`; the red run is the one `test/README.md` describes. |
-| `bun run check:format` | `biome format .` — the read-only half of `format`, and one of the three phases `check` runs. |
-| `bun run check:types` | `tsc --noEmit` — one of the three phases `check` runs. |
-| `bun run check:tests [scope]` | The tests alone, with every scope flag `check` takes; no flag is every test, in parallel. |
+| `bun run check` | The gate a landing needs, said as the three commands it is: `check:format`, `check:types`, and `bun test`. No wrapper — the tests are Bun's, one file at a time, and every CI job and `publish.yml` run the same chain. A slice is a directory (`bun test extensions/board/`), a change is `bun test --changed=main`, and a red run is the one `test/README.md` describes. |
+| `bun run check:format` | `biome format .` — the read-only half of `format`, and the first command `check` runs. |
+| `bun run check:types` | `tsc --noEmit`, incremental into `.pi/cache/` — the second command `check` runs. |
 | `bun run format` | `biome format --write .`. |
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
 | `bun run bench:load` | Report what a load costs, per extension: the local modules its entry evaluates at registration, how many of them are `lib/` and how many another entry pays again, and what that graph costs to import. Gates the graph only; the timings are a pre-release reading. |
@@ -47,8 +47,6 @@ rule that a value is a path.
 | [`tools/`](./tools/) | The tool-renderings CLI (`list`, `render`, `html`, `gallery`, `tools`) and `fixtures/`, one fixture per registered tool. `fixtures/board-store.ts` is the one module that is not a fixture: it seeds a board in a temp directory, and `test/helpers/board-page.ts` serves the shipped page over it, which is why the gallery, the picture, and the browser suite describe the same cards. |
 | [`examples/`](./examples/) | Sample inputs a documented command takes, such as `plan-review.md` for `capture:plan`. |
 | [`cli.ts`](./cli.ts), [`theme.ts`](./theme.ts), [`poll.ts`](./poll.ts), [`ansi-html.ts`](./ansi-html.ts), [`transcript-fixture.ts`](./transcript-fixture.ts) | Shared: flag parsing, the capture theme and page palette, sleep and polling, the ANSI-to-HTML bridge, the transcript fixture. |
-| [`junit.ts`](./junit.ts) | The red gate's report: `reportPath` (`.pi/cache/test-report.xml`), `readReport` — a bounded scan of bun's JUnit XML for the run's totals and the cases carrying a `<failure>`, not a general parser — and `reportDigest`, the `file:line — suite > case` lines a failing test phase prints. `check.ts` is its only caller. |
-| [`check.ts`](./check.ts), [`test-selection.ts`](./test-selection.ts), [`check-lock.ts`](./check-lock.ts) | The gate, `bun run check` / `bun run check:tests`: its phases at once, its exit code the one that matters, and the scope flags it takes — which `test-selection.ts` answers from the manifest and the import walker. `check-lock.ts` is the one-gate-per-machine lock it holds while it runs. What a scope covers is [`test/README.md#running`](../test/README.md#running). |
 | `migrate-config.ts`, `release-notes.ts`, `peer-versions.ts`, `render-bench.ts`, `load-bench.ts` | One command each, under [Commands](#commands). |
 | [`docs-assets.ts`](./docs-assets.ts) | The site's copies: `siteImages` reads the image each page references, resolved from the page's URL rather than its file, and `syncDocsAssets` copies what is missing or stale and removes what no page names. `test/site-docs.test.ts` reads the same rule, so the guard and the command cannot disagree. |
 

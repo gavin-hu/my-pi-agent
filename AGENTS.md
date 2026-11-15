@@ -14,7 +14,7 @@ checks, commit format, conventions, page template, tool fields, release — and
 
 ```bash
 bun install              # once per worktree
-bun run check --changed  # this change's tests; prints its selection
+bun test --changed=main  # this branch's suites; add `bun test test/` for the sweeps
 bun run check            # before landing: format, types, every test
 ```
 
@@ -23,7 +23,7 @@ the rest.
 
 - The gated git suites (`rewind`, `worktree`, `session-bus`'s real-repository
   tests) skip unless `CI` or `PI_SLOW_TESTS=1` is set: touching one means
-  `bun run check:tests --slow`.
+  `PI_SLOW_TESTS=1 bun test`.
 - A new package-level test goes into `ROOT_TEST_FILES` in `test/layout.test.ts`:
   that set is compared exactly.
 - A peer bump is proved against the newest published Pi by CI's `compat` job
@@ -121,7 +121,7 @@ Three are gates; the fourth is review.
 
 A surface is verified by rendering it: `capture:screens` for a terminal frame,
 `render:tools --width 80` for one block, `capture:plan` or `capture:file-browse` for
-a shipped page. `bun run check` renders every screen at three widths, so an
+a shipped page. `bun test` renders every screen at three widths, so an
 overflowing frame fails there.
 
 ## Documentation

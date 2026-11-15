@@ -15,28 +15,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `check`: the types phase is incremental, so a narrow run is bounded by its tests rather than by the
-  compiler. `tsconfig.json` now carries `incremental` with its build info at
-  `.pi/cache/tsconfig.tsbuildinfo`: 12.7 s cold, 3.2 s after that, and a 31-file gate is ~8 s instead
-  of ~13 s — the tests and the selection walk are what is left. CI checks out fresh on every job, so it still proves the cold result and the cache can
-  only ever speed a local second run; `rm -f .pi/cache/tsconfig.tsbuildinfo` is the escape, and
-  `scripts/check.test.ts` fails if either option or the path is dropped.
+- `check`: the gate is the three commands it runs, and the test side is Bun's. `bun run check` is
+  now `check:format && check:types && bun test`; a slice is a directory (`bun test extensions/board/`,
+  `bun test test/`), a change is `bun test --changed=main`, and the gated git suites are
+  `PI_SLOW_TESTS=1 bun test`. `scripts/check.ts`, `junit.ts`, `check-lock.ts` and `test-selection.ts`
+  are deleted with their suites, and with them `--ext`, `--lib`, `--root`, `--slow`, `--serial`,
+  `--static`, `--watch`, `--dry-run`, `--no-lock` and the JUnit report. What stays ours is the case
+  budget on the command (`bunfig.toml` has no key for it, and it is the only form that reaches a
+  hook), the one list of paths whose change is a change to the runner — `package.json`,
+  `tsconfig.json`, `bun.lock`, `test/suite-manifest.ts`, `test/helpers/preload.ts` — and the
+  package-level contracts, which read the tree and so are added to a narrow run by hand.
+  `test/scripts-surface.test.ts` still refuses a value that is a bare alias of another script, and
+  allows the one `&&` chain whose segments each name a file or a command.
 
-- `check`: a region is the fallback for a path nothing reaches, not an addition to every change —
-  which is what `test-selection.ts`'s own comment already said a region was for. A module some suite
-  imports now costs the suites that import it plus the package-level tests, so a leaf inside a big
-  area no longer drags in the area's browser suites: a change to `extensions/board/tools.ts` goes
-  from 81 files and 52 s to 58 files and 10 s, and one to `lib/board/verify.ts` from 69 files to 31.
-  A deleted, newly imported, or by-name-read path keeps its whole region, and a module reached
-  statically by one suite and dynamically by another still loses the second — the walker records no
-  edge for `import()` by design.
-
-- `check`: `--changed` selects the suites that import a helper instead of every suite. Only a path
-  that decides the selection itself still widens the run — the import walker, `preload.ts` (loaded by
-  bun for every file, imported by none), the suite manifest, and the runner's config — and
-  `scripts/test-selection.test.ts` now fails a helper no suite reaches, so a file the graph cannot
-  see is named rather than quietly selecting nothing. A one-byte edit to `test/helpers/clock.ts`
-  went from 411 files to 36 suites plus the package-level tests.
+- `check`: the typecheck is incremental, so the gate spends its seconds on tests rather than on the
+  compiler. `tsconfig.json` carries `incremental` with its build info at
+  `.pi/cache/tsconfig.tsbuildinfo`: 12.7 s the first time and 3.2 s after that, which is what keeps
+  `bun run check` at ~73 s warm. CI checks out fresh on every job, so it still proves the cold result
+  and the cache can only ever speed a local second run; `rm -f .pi/cache/tsconfig.tsbuildinfo` is the
+  escape, and `test/wait-budget.test.ts` holds the command's `--timeout` to `CASE_BUDGET_MS`.
 
 - `session-bus`: a message's `sender · kind`, the paths it carries, and how long ago it was have one
   owner in the bus's `format.ts`, so the transcript rows, the notice and the board's screen print the

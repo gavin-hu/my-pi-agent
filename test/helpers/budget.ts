@@ -3,10 +3,11 @@
  *
  * A wall clock in this suite may only say "this did not finish" — it never makes a passing case
  * faster — so one number is tuned and everything else is derived from it. Two readers state it:
- * `./preload.ts` gives it to every case, and `scripts/check.ts` passes it as `--timeout`, which is
- * also the only form that reaches a suite's hooks. A bare `bun test <path>` therefore budgets a
- * case exactly as the gate does; that disagreement is what let a suite pass under `bun run check`
- * and fail on its own.
+ * `./preload.ts` gives it to every case, and `bun run check` passes it as `--timeout`, which is also
+ * the only form that reaches a suite's hooks — `bunfig.toml` has no key for it, so the command in
+ * `package.json` carries the number and `test/wait-budget.test.ts` holds the two together. A bare
+ * `bun test <path>` therefore budgets a case exactly as `bun run check` does; that disagreement is
+ * what let a suite pass under the gate and fail on its own.
  *
  * The number is measured, not guessed. While eight busy loops ran on an eight-core box (load
  * 20-40) the card's two starvations were a `git init` settle at 20.15 s and the `job` exit trap's

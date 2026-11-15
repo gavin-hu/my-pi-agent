@@ -89,10 +89,10 @@ type SpecifierReader = (file: string) => string[];
 /**
  * A reader that parses each module once, for a caller that walks many entries.
  *
- * Every entry a walk starts from reaches the same shared modules, and each read is a parse:
- * `reachIndex` (`scripts/test-selection.ts`) spent 19,513 reads over 946 files on this tree, and
- * that cost is what made its own suite ride bun's budget. The cache belongs to the caller rather
- * than the process, so a walk handed a file someone just wrote still sees it.
+ * Every entry a walk starts from reaches the same shared modules, and each read is a parse: one
+ * walk of this tree spent 19,513 reads over 946 files, and that cost is why the cache exists. It
+ * belongs to the caller rather than the process, so a walk handed a file someone just wrote still
+ * sees it.
  */
 export function cachedSpecifiers(read: SpecifierReader = staticSpecifiers): SpecifierReader {
 	const cache = new Map<string, string[]>();

@@ -213,8 +213,8 @@ describe("dependency budget", () => {
 		]);
 	});
 	test("a cached reader hands a shared module to the walk once, however many entries reach it", () => {
-		// The cost that made `reachIndex` ride its suite's budget: every entry reaches the same
-		// shared modules, and each uncached read is a parse.
+		// Every entry reaches the same shared modules, and each uncached read is a parse: one walk
+		// of this tree spent 19,513 reads over 946 files.
 		const dir = tempDir("graph-cache-");
 		writeFileSync(join(dir, "shared.ts"), "export const shared = 1;\n");
 		writeFileSync(join(dir, "one.ts"), 'import { shared } from "./shared.ts";\nvoid shared;\n');
