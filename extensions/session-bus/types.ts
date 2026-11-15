@@ -55,6 +55,15 @@ export interface SessionRecord {
 	 * written before this field existed.
 	 */
 	watching?: { armed: boolean; wake: boolean };
+	/**
+	 * The mail this session has been told about, by id — what a peer's unread count subtracts.
+	 *
+	 * A count of `N unread` is the mail a session has *not* been told about, so an announcement
+	 * advances this and the number falls with no delete: `inbox` keeps sole ownership of removing
+	 * a body. Pruned against the inbox on every poll, and on the heartbeat whether or not the watch
+	 * is armed, so an id can outlive its file by one tick and no longer.
+	 */
+	seenMail?: string[];
 }
 
 /**
@@ -123,6 +132,14 @@ export interface SessionStatus {
 	 */
 	unaccounted?: UnaccountedPage;
 	claims: ClaimRecord[];
+	/**
+	 * Files in this session's inbox that this build cannot read, absent when there are none.
+	 *
+	 * They are counted as unread — the count is names alone — so the one read that can parse them
+	 * names them beside it: a number a reader cannot act on is worse than a number and a file name.
+	 * Only the status read fills this: the board draws once a second and reads no file to do it.
+	 */
+	unreadable?: string[];
 	/** Present only when this session armed its inbox watch. */
 	watching?: { armed: boolean; wake: boolean };
 }
@@ -176,7 +193,7 @@ export interface BoardSnapshot {
 
 /** Structured result carried in the `session` tool's details. */
 export interface SessionDetails {
-	action: "status" | "send" | "inbox" | "claim" | "release" | "join";
+	action: "status" | "send" | "inbox" | "read" | "claim" | "release" | "join";
 	status?: SessionStatus;
 	delivered?: string[];
 	/** With send: the recipients no message file could be written for. */

@@ -22,7 +22,7 @@ import type {
 	KeptMail,
 	SessionRecord,
 } from "./types.ts";
-import { type BusMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
+import { type BusMessage, holdsMessage, idOfFile, isBusMessage, listMessages } from "../../lib/session-mail.ts";
 import { INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "../../lib/session-roster.ts";
 
 const DIR_MODE = 0o700;
@@ -66,12 +66,12 @@ export interface BusStore {
 	 */
 	inbox(id: string, limit: number): Promise<InboxRead>;
 	/**
-	 * Every file in a recipient's inbox, by count — the number a peer's status row shows.
+	 * The files in a recipient's inbox that `told` does not name — the number a peer's row shows.
 	 *
-	 * It counts files, so a file this build cannot read counts until its TTL ends it: `inbox`
-	 * is what says it cannot be read. That is the one promise this count makes.
+	 * Counted from the names alone, so a file this build cannot read counts until its TTL ends it:
+	 * `inbox` is what says it cannot be read. That is the one promise this count makes.
 	 */
-	unread(id: string): Promise<number>;
+	unread(id: string, told?: ReadonlySet<string>): Promise<number>;
 	/**
 	 * Remove the mail `ids` name, from the inboxes no record holds, and name what stayed.
 	 *
@@ -160,7 +160,9 @@ function isSession(value: unknown): value is SessionRecord {
 		typeof entry.lastSeen === "number" &&
 		(entry.startToken === undefined || typeof entry.startToken === "string") &&
 		(entry.turnAt === undefined || typeof entry.turnAt === "number") &&
-		(entry.watching === undefined || isWatchingState(entry.watching))
+		(entry.watching === undefined || isWatchingState(entry.watching)) &&
+		(entry.seenMail === undefined ||
+			(Array.isArray(entry.seenMail) && entry.seenMail.every((id) => typeof id === "string")))
 	);
 }
 
@@ -267,6 +269,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	async function writeMessageFile(target: string, message: BusMessage): Promise<void> {
 		const directory = inboxDir(target);
 		await mkdir(directory, { recursive: true, mode: DIR_MODE });
+		if (await holdsMessage(directory, message)) return;
 		await writeJson(join(directory, `${message.id}.json`), message);
 	}
 
@@ -480,8 +483,8 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			return readMessages(directory, await listMessages(directory), { limit, remove: true });
 		},
 
-		async unread(id) {
-			return (await listFiles(inboxDir(id))).length;
+		async unread(id, told) {
+			return (await listFiles(inboxDir(id))).filter((name) => !told?.has(idOfFile(name))).length;
 		},
 
 		/**

@@ -6,10 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `session-bus`: `session read` shows up to `limit` messages and keeps them, so a burst a notice only
+  previews can be read whole without consuming it. `session send key "12-signed"` names a message: a
+  resend of the same body folds into the copy still waiting instead of adding a second file, while a
+  resend after the recipient consumed it is a message again.
+
 ### Changed
 
+- `session-bus`: `N unread` is the mail a session has **not been told about**, on `session status`
+  and on the Team tab, which now count from the same record. A notice marks its burst told and
+  deletes nothing, so the number falls to zero while `session inbox` still returns the bodies. A
+  notice previews five messages, so mail behind that line is told about unseen — `session read` is
+  what shows it — and a file this build cannot parse counts until its TTL, named by `session status`
+  rather than only counted.
+
 - `board`: the Team tab's two mail numbers name the unit each counts. A card's chip hovers `2 unread
-  files in its inbox` — the file count `session status` prints — and the `WAITING` caption hovers the
+  files in its inbox` — the number `session status` prints — and the `WAITING` caption hovers the
   rule behind its own: one row per send, however many inboxes it reached, so the cards are not a sum
   of the queue. Neither count moved.
 

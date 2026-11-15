@@ -20,6 +20,58 @@ import { makeTempTracker } from "../../test/helpers/git.ts";
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
+describe("one message per key", () => {
+	/** A peer with mail already waiting: two sessions, joined, and the sender's handle. */
+	async function pair(dir: string) {
+		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
+		const backend = session(dir, "/repo/backend", "s2", "backend");
+		await joins(frontend);
+		await joins(backend);
+		return { frontend, backend };
+	}
+
+	test("a resend while the copy is still waiting writes no second file", async () => {
+		const dir = scratchDir(temps, "pi-session-bus-");
+		const { frontend, backend } = await pair(dir);
+		await frontend.bus.send({ to: "backend", text: "review signed", key: "12-signed" });
+		const again = await frontend.bus.send({ to: "backend", text: "review signed", key: "12-signed" });
+		// The recipient holds the message either way, so the send is a delivery — not a failure that
+		// leaves the caller retrying.
+		expect(again.delivered).toEqual(["backend"]);
+		expect((await backend.bus.peek()).mail.map((message) => message.text)).toEqual(["review signed"]);
+		await frontend.bus.stop();
+		await backend.bus.stop();
+	});
+
+	test("a resend after the copy was consumed is a message again", async () => {
+		const dir = scratchDir(temps, "pi-session-bus-");
+		const { frontend, backend } = await pair(dir);
+		await frontend.bus.send({ to: "backend", text: "review signed", key: "12-signed" });
+		await backend.bus.inbox();
+		// The key names the copy waiting under it, not the delivery for ever: once that copy is the
+		// recipient's, the same key is a reminder it can actually be told about.
+		await frontend.bus.send({ to: "backend", text: "review signed", key: "12-signed" });
+		expect((await backend.bus.peek()).mail.map((message) => message.text)).toEqual(["review signed"]);
+		await frontend.bus.stop();
+		await backend.bus.stop();
+	});
+
+	test("a changed text under the same key is a second message", async () => {
+		const dir = scratchDir(temps, "pi-session-bus-");
+		const { frontend, backend } = await pair(dir);
+		await frontend.bus.send({ to: "backend", text: "review signed", key: "12-signed" });
+		await frontend.bus.send({ to: "backend", text: "review signed, with paths", key: "12-signed" });
+		// A peer that reads the older text has not read what the sender now means, so the key folds a
+		// resend of one message and not an edit of it.
+		expect((await backend.bus.peek()).mail.map((message) => message.text)).toEqual([
+			"review signed",
+			"review signed, with paths",
+		]);
+		await frontend.bus.stop();
+		await backend.bus.stop();
+	});
+});
+
 describe("a send that reached some peers", () => {
 	test("returns the peers it wrote for and the peers it could not", async () => {
 		const dir = scratchDir(temps, "pi-session-bus-");

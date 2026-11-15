@@ -33,7 +33,7 @@ export const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
 export type SessionMode = "tui" | "rpc" | "json" | "print" | "unknown";
-export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "join";
+export type SessionAction = "status" | "send" | "inbox" | "read" | "claim" | "release" | "join";
 /**
  * The mail's kinds, and the field they are written in, are `lib/session-mail.ts`'s — the one
  * reader and writer of a message file. Re-exported so this extension keeps importing its
@@ -41,7 +41,7 @@ export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | 
  */
 export type { MessageKind } from "../../lib/session-mail.ts";
 
-const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "claim", "release", "join"];
+const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "read", "claim", "release", "join"];
 
 /** The session mode as the record stores it. */
 export function sessionMode(mode: string | undefined): SessionMode {
@@ -64,6 +64,21 @@ export function normalizeText(raw: unknown): { text: string } | { error: string 
 	const text = raw.trim();
 	if (text.length > MAX_TEXT) return { error: `text must be at most ${MAX_TEXT} characters.` };
 	return { text };
+}
+
+/** The longest key a sender may name a message with. */
+export const MAX_KEY = 64;
+
+/** What a key may hold, so it is one word a person can retype. */
+const KEY_PATTERN = /^[A-Za-z0-9._:-]+$/;
+
+/** A sender's name for one message, or an error; absent when it gave none. */
+export function normalizeKey(raw: unknown): { key?: string } | { error: string } {
+	if (typeof raw !== "string" || raw.trim() === "") return {};
+	const key = raw.trim();
+	if (key.length > MAX_KEY) return { error: `key must be at most ${MAX_KEY} characters.` };
+	if (!KEY_PATTERN.test(key)) return { error: 'key may hold letters, digits, ".", "_", "-" and ":".' };
+	return { key };
 }
 
 /** A shared inbox limit. */

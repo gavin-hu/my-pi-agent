@@ -1,7 +1,7 @@
 /**
  * The `session` tool.
  *
- * One action-shaped tool keeps the prompt surface small: status, send, inbox,
+ * One action-shaped tool keeps the prompt surface small: status, send, read, inbox,
  * claim, release, join. The runtime owns file I/O and lifecycle; this
  * module only validates the action, calls the runtime, and hands the result to
  * the shared presentation module — one collapsed line, or the board's rows on
@@ -15,7 +15,7 @@ import { notDeliveredLine } from "../../lib/session-tool.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
-import { formatClaim, formatInbox, formatJoin, formatRelease, formatSend, formatStatus } from "./format.ts";
+import { formatClaim, formatInbox, formatJoin, formatRead, formatRelease, formatSend, formatStatus } from "./format.ts";
 import { normalizeAction, normalizeLimit, sendOutcome, TOOL_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 import { collapsedLine, resultSections } from "./result.ts";
@@ -25,14 +25,20 @@ import type { SessionDetails } from "./types.ts";
 export { TOOL_NAME };
 
 const SessionParams = Type.Object({
-	action: StringEnum(["status", "send", "inbox", "claim", "release", "join"] as const, {
-		description: "status, send, inbox, claim, release, or join.",
+	action: StringEnum(["status", "send", "inbox", "read", "claim", "release", "join"] as const, {
+		description: "status, send, inbox, read, claim, release, or join.",
 	}),
 	to: Type.Optional(Type.String({ description: "Target session label/id, or * for an event broadcast." })),
 	text: Type.Optional(Type.String({ description: "Message text, at most 4000 characters." })),
 	kind: Type.Optional(
 		StringEnum(["message", "event", "ask", "handoff"] as const, {
 			description: "Message kind; defaults to message.",
+		}),
+	),
+	key: Type.Optional(
+		Type.String({
+			description:
+				"With send: a name for this message. A resend of the same kind, text and paths folds into the copy still waiting.",
 		}),
 	),
 	paths: Type.Optional(
@@ -85,10 +91,11 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 		label: "Session bus",
 		description:
 			"Coordinate parallel Pi sessions on this repository. Actions: `status` (sessions, unread, claims), " +
-			"`send` (to a label/id, or `*` for an event), `inbox` (consume messages), `claim`/`release` (paths), " +
+			"`send` (to a label/id, or `*` for an event), `inbox` (consume messages), `read` (show them and keep them), " +
+			"`claim`/`release` (paths), " +
 			"`join` (get on the bus under a label, and listen for mail unless `listen: false`; `wake` raises a turn). " +
 			"Delivery is pull-based unless this session joined and is listening.",
-		promptSnippet: "Coordinate parallel sessions: status, send, inbox, claim, release, join.",
+		promptSnippet: "Coordinate parallel sessions: status, send, read, inbox, claim, release, join.",
 		promptGuidelines: [
 			"Mail waits in an inbox until its session runs, so give a peer `join` with `wake` and end the turn — a `sleep` holds the very turn that would report it.",
 			"Claim the paths you will edit before changing them; release them when done.",
@@ -116,6 +123,7 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 							to: typeof args.to === "string" ? args.to : "",
 							text: typeof args.text === "string" ? args.text : "",
 							kind: args.kind,
+							key: args.key,
 							paths: args.paths,
 						});
 						// What the send is worth is the protocol's answer, so a command's request reports it in
@@ -131,23 +139,33 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 						});
 					}
 					case "inbox": {
-						// Bounded before it consumes: `inbox` deletes what it reads, so a body the text does
-						// not carry would be mail no later call could return. The peek leaves the front
-						// where it is, so the messages it shows are the ones it then consumes. The count
-						// comes from the inbox itself, not from the window: `peek` stops at `MAX_LIMIT`,
-						// and a tail taken from it would saturate past that.
-						const unread = await bus.unread();
+						// A read consumes what it showed, so a body the text does not carry would be mail no
+						// later call could return. The peek leaves the front where it is, so the messages it
+						// shows are the ones it then consumes — and its `unread` names every file in the inbox,
+						// which is the count the tail is taken from rather than the window, because `peek`
+						// stops at `MAX_LIMIT` and a tail taken from its page would saturate past that.
 						const pending = await bus.peek();
 						const window = pending.mail.slice(0, normalizeLimit(args.limit));
 						// Mail this build cannot read is left on disk for a build that can, so it is
 						// named rather than counted into the tail — a tail that promised it would
 						// otherwise answer `Inbox empty.` on the next call.
-						const read = formatInbox(window, Math.max(0, unread - window.length), pending.unreadable);
+						const read = formatInbox(window, Math.max(0, pending.unread.size - window.length), pending.unreadable);
 						const messages = read.shown === 0 ? [] : await bus.inbox(read.shown);
 						return textResult(read.text, {
 							action,
 							messages,
 							...(pending.unreadable.length === 0 ? {} : { unreadable: pending.unreadable }),
+						});
+					}
+					case "read": {
+						// Marks what it shows as told, so the count falls and no notice repeats it — and keeps
+						// every file, so this is the call for a burst the notice only previewed.
+						const page = await bus.read(normalizeLimit(args.limit));
+						const text = formatRead(page.mail, Math.max(0, page.unread.size - page.mail.length), page.unreadable);
+						return textResult(text, {
+							action,
+							messages: page.mail,
+							...(page.unreadable.length === 0 ? {} : { unreadable: page.unreadable }),
 						});
 					}
 					case "claim": {

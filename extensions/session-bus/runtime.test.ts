@@ -390,18 +390,18 @@ describe("the inbox watch", () => {
 		expect(stopped).toBe(2);
 	});
 
-	test("reported mail leaves the queue but stays unread until inbox runs", async () => {
-		const dir = scratchDir(temps, "pi-session-bus-");
-		const { frontend, backend } = await pair(dir);
+	test("reported mail leaves the queue and the count, and stays on disk until inbox runs", async () => {
+		const { frontend, backend } = await pair(scratchDir(temps, "pi-session-bus-"));
 		await backend.join({});
 		await frontend.send({ to: "backend", text: "notice me" });
 		await backend.poll();
 		const [message] = backend.pending();
 		if (!message) throw new Error("the message was not queued");
 		backend.markReported([message.id]);
-		expect(backend.pending()).toEqual([]);
 		await backend.poll();
 		expect(backend.pending()).toEqual([]);
+		// Told is not consumed: the number a peer reads falls, and the body stays for `inbox`.
+		expect((await backend.status()).sessions.find((row) => row.id === "s2")?.unread).toBe(0);
 		expect(await backend.inbox()).toHaveLength(1);
 		await frontend.stop();
 		await backend.stop();

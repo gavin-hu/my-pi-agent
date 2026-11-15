@@ -4,7 +4,8 @@
  * These cases drive the shipped store and watch together, without a runtime or a
  * session. The watch asks the inbox two questions — what is new, and what is still
  * there — and both are answered by the directory, so a case can put the inbox in a
- * state a session would be slow to reach.
+ * state a session would be slow to reach. The told set is the fixture's, as the
+ * record is the runtime's: the watch holds no copy of its own.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -31,6 +32,10 @@ interface Fixture {
 	write(at: number, kind?: BusMessage["kind"]): Promise<void>;
 	/** Reads the watch has made of the inbox. */
 	peeks(): number;
+	/** The told set the watch has written back, which a record would hold. */
+	told(): string[];
+	/** Put an id in the told set, as a record that outlived its process would. */
+	remember(id: string): void;
 	/** Whether a read is parked at the gate, so `release()` has something to open. */
 	held(): boolean;
 	/** Open the gate a held read waits on; a no-op when the fixture holds none. */
@@ -50,6 +55,7 @@ async function fixture(options: { hold?: boolean } = {}): Promise<Fixture> {
 	const wakes: number[] = [];
 	const held = options.hold === true;
 	let peeks = 0;
+	let told: string[] = [];
 	let open: (() => void) | undefined;
 	const watch = createMailWatch({
 		peek: async (known) => {
@@ -64,6 +70,10 @@ async function fixture(options: { hold?: boolean } = {}): Promise<Fixture> {
 			}
 			return page;
 		},
+		told: () => told,
+		onTold: (ids) => {
+			told = [...ids];
+		},
 		interval: () => () => {},
 		watchMs: 0,
 	});
@@ -73,6 +83,10 @@ async function fixture(options: { hold?: boolean } = {}): Promise<Fixture> {
 		watch,
 		wakes,
 		peeks: () => peeks,
+		told: () => [...told],
+		remember: (id) => {
+			told = [...told, id];
+		},
 		held: () => open !== undefined,
 		release: () => {
 			open?.();
@@ -137,6 +151,29 @@ describe("the armed inbox watch", () => {
 		await target.watch.poll();
 		expect(target.watch.pending()).toHaveLength(100);
 		expect(target.wakes).toEqual([]);
+	});
+
+	test("reports the ids it announced, so the caller's record is the only copy", async () => {
+		const target = await fixture();
+		await fill(target, 1_000, 2);
+		await target.watch.watch({});
+		expect(target.told()).toEqual([]);
+		target.watch.markReported(target.watch.pending().map((message) => message.id));
+		expect(target.told()).toEqual(["1000-a", "1001-a"]);
+	});
+
+	test("queues nothing it was already told about, and reports the ids whose files are gone", async () => {
+		const target = await fixture();
+		await fill(target, 1_000, 2);
+		// A record that outlived its process: the watch starts from what it already says.
+		target.remember("1000-a");
+		await target.watch.watch({});
+		expect(target.watch.pending().map((message) => message.id)).toEqual(["1001-a"]);
+		// The mail behind a told id leaves the inbox — consumed, or expired — and the next poll
+		// writes back the shorter set, which is the number a peer counts.
+		await target.store.inbox("s2", 1);
+		await target.watch.poll();
+		expect(target.told()).toEqual([]);
 	});
 
 	test("drops a message from the queue once its file is gone", async () => {

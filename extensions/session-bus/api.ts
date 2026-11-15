@@ -47,8 +47,6 @@ export interface SessionBus {
 	snapshot(): Promise<SessionStatus>;
 	/** This session's unread mail without consuming it, and the files this build cannot read. */
 	peek(): Promise<InboxPeek>;
-	/** Messages waiting in this session's inbox, counted by file — `peek` stops at its own cap. */
-	unread(): Promise<number>;
 	/**
 	 * Remove unaccounted mail by message id — the one door `/sessions drop` opens.
 	 *
@@ -62,9 +60,18 @@ export interface SessionBus {
 		to: string;
 		text: string;
 		kind?: string;
+		/** A name for this message: a resend of the same body folds into the copy still waiting. */
+		key?: unknown;
 		paths?: unknown;
 	}): Promise<{ delivered: string[]; failed: DeliveryFailure[]; messageId: string }>;
 	inbox(limit?: number): Promise<BusMessage[]>;
+	/**
+	 * Show up to `limit` messages without deleting them, marking what it shows as told.
+	 *
+	 * The door for a burst a notice only previewed: the count falls because the mail reached the
+	 * model, and `inbox` stays the one call that removes a body.
+	 */
+	read(limit?: number): Promise<InboxPeek>;
 	claim(paths: unknown): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(paths: unknown): Promise<{ released: string[]; notOwned: string[] }>;
 	/**

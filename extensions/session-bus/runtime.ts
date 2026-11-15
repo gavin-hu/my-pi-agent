@@ -22,12 +22,13 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { labelKey, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
-import { unaccountedMail } from "../../lib/session-mail.ts";
+
 import { defaultInterval } from "../../lib/timer.ts";
 import {
 	MAX_LABEL,
 	MAX_LIMIT,
 	normalizeKind,
+	normalizeKey,
 	normalizeLabel,
 	normalizeLimit,
 	normalizePaths,
@@ -37,6 +38,7 @@ import {
 	shortId,
 } from "./protocol.ts";
 import { createMailWatch } from "./mail-watch.ts";
+import type { MailCursor } from "./cursor.ts";
 import { createTurn } from "./presence.ts";
 import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
 import type { InboxPeek, SessionRecord, SessionStatus } from "./types.ts";
@@ -103,12 +105,41 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	const turn = createTurn({ store: () => store, record: () => record, joined: () => joined, now });
 
 	/** The watch reads this session's own inbox; nothing is consumed or marked. */
+	/**
+	 * The record's cursor, and the rows a reader draws: both load when something needs them.
+	 *
+	 * A session that never joins pays nothing for either, and the seams below read through
+	 * getters — empty until the start has run — so the watch and the status read cannot be
+	 * handed a half-built cursor.
+	 */
+	let cursor: MailCursor | undefined;
 	const mailWatch = createMailWatch({
 		peek: async (known): Promise<InboxPeek> =>
 			store && record ? store.peek(record.id, { limit: MAX_LIMIT, known }) : NO_MAIL,
+		told: () => cursor?.ids() ?? [],
+		onTold: (ids) => cursor?.told(ids),
 		interval,
 		watchMs,
 	});
+	/**
+	 * The bus as a reader sees it — `session status`, and the board's snapshot.
+	 *
+	 * The module loads with the read that needs it: registration pays nothing for rows nobody has
+	 * asked for, which is the rule `test/dependencies.test.ts` holds the graph to.
+	 */
+	async function readStatus(
+		me: { id: string; label: string; onBus: boolean },
+		liveOnly: boolean,
+	): Promise<SessionStatus> {
+		const { createStatusReader } = await import("./status.ts");
+		return createStatusReader({
+			store: () => store,
+			record: () => record,
+			stateOf,
+			now,
+			watching: () => mailWatch.state(),
+		}).read(me, liveOnly);
+	}
 
 	const ensureStarted = async (context: ExtensionContext): Promise<void> => {
 		if (starting) return starting;
@@ -146,6 +177,11 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				// polling `ps` for its own heartbeat.
 				...(processToken === undefined ? {} : { startToken: processToken }),
 			};
+			// A record that outlived its process still says what that session was told, and a resume
+			// is that session: adopting its cursor keeps its old mail out of the count.
+			const { createMailCursor } = await import("./cursor.ts");
+			cursor = createMailCursor({ store: () => store, record: () => record });
+			await cursor.adopt();
 		})();
 		try {
 			await starting;
@@ -183,6 +219,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			void (async () => {
 				if (!record || !store) return;
 				record.lastSeen = now();
+				// The cursor names mail the inbox may have lost since the last poll, and a session that
+				// stopped listening polls nothing: this write is where that set is trimmed, so it cannot
+				// grow with every message the session ever read.
+				await cursor?.trim();
 				await store.writeSession(record);
 				// A heartbeat that resumed after a long pause can find its label taken; the
 				// tick is where a revived session notices and yields, after its own write.
@@ -325,58 +365,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return store;
 	}
 
-	async function withUnread(
-		rows: readonly SessionRecord[],
-	): Promise<Array<SessionRecord & { unread: number; state: RosterState }>> {
-		const at = now();
-		return Promise.all(
-			rows.map(async (session) => ({
-				...session,
-				unread: (await store?.unread(session.id)) ?? 0,
-				state: stateOf(session, at),
-			})),
-		);
-	}
-
-	/**
-	 * The bus as it stands, this session's own record included.
-	 *
-	 * `liveOnly` drops a session whose heartbeat went stale, and the claims of one whose
-	 * process is gone, without writing or deleting anything, so a board can read it every
-	 * second. A gone session stays listed — a lead needs a face for the paths it still
-	 * holds — but its claims are nobody's, so they are not drawn. The prune itself stays
-	 * with `prepare()` on the next tool or command call, which is therefore what the
-	 * screen's next action sees.
-	 */
-	async function readStatus(
-		me: { id: string; label: string; onBus: boolean },
-		liveOnly: boolean,
-	): Promise<SessionStatus> {
-		if (!store) throw new Error("session bus is not started.");
-		const records = await store.sessions();
-		const sessions = liveOnly
-			? records.filter((session) => session.id === record?.id || stateOf(session) !== "quiet")
-			: records;
-		const ours = new Set(sessions.filter((session) => stateOf(session) !== "gone").map((session) => session.id));
-		const claims = (await store.claims()).filter((claim) => !liveOnly || ours.has(claim.owner));
-		// Mail is counted per record, so a pruned record's messages have no row to hang a number on.
-		// The ids read here are the *record* ids rather than the live ones: a gone record's mail is
-		// still its own, and only a record the bus no longer holds leaves mail unaccounted for.
-		// The board's read is the count alone — it draws a number once a second and would otherwise
-		// parse every one of these files on each repaint — while the status read names the mail.
-		const unaccounted = await unaccountedMail(store.dir, new Set(records.map((session) => session.id)), {
-			bodies: !liveOnly,
-		});
-		return {
-			me: { id: me.id, label: me.label },
-			onBus: me.onBus,
-			sessions: await withUnread(sessions),
-			...(unaccounted.count > 0 ? { unaccounted } : {}),
-			claims,
-			...(mailWatch.state().armed ? { watching: mailWatch.state() } : {}),
-		};
-	}
-
 	/**
 	 * The label's holder as a refusal names it: which session, and what it is now.
 	 *
@@ -491,11 +479,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			if (!store || !record) throw new Error("session bus is not started.");
 			return store.peek(record.id, { limit: MAX_LIMIT });
 		},
-
-		async unread() {
-			if (!store || !record) throw new Error("session bus is not started.");
-			return store.unread(record.id);
-		},
 		/**
 		 * Clear unaccounted mail — the store's one write, reached only from `/sessions drop`.
 		 *
@@ -525,6 +508,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			if (!store) throw new Error("session bus is not started.");
 			const text = normalizeText(input.text);
 			if ("error" in text) throw new Error(text.error);
+			const keyed = normalizeKey(input.key);
+			if ("error" in keyed) throw new Error(keyed.error);
 			const kind = normalizeKind(input.kind);
 			if (input.to.trim() === "*" && kind !== "event") throw new Error('a broadcast needs kind: "event".');
 			// Mail reaches a session that can still answer, by the rule `status` and the prune
@@ -548,6 +533,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				fromLabel: me.label,
 				kind,
 				text: text.text,
+				...(keyed.key === undefined ? {} : { key: keyed.key }),
 				...(paths ? { paths } : {}),
 				at: now(),
 			});
@@ -561,6 +547,21 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// Mail read before its notice fired is never announced afterwards.
 			mailWatch.markReported(messages.map((message) => message.id));
 			return messages;
+		},
+
+		/**
+		 * Show the mail without deleting it, and count it told.
+		 *
+		 * `inbox` is this read plus the delete, so the two differ in one fact only. A read is a
+		 * telling — the bodies reached the model — which is why the number a peer draws falls, and
+		 * why no notice repeats them; the files stay where `inbox` can still consume them.
+		 */
+		async read(limit) {
+			const me = await currentRecord();
+			if (!store) throw new Error("session bus is not started.");
+			const page = await store.peek(me.id, { limit: normalizeLimit(limit) });
+			mailWatch.markReported(page.mail.map((message) => message.id));
+			return page;
 		},
 
 		async claim(rawPaths) {
