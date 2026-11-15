@@ -23,9 +23,17 @@ narrow run is `bun test --changed=main` **and** `bun test test/`, and a change t
 `package.json`, `tsconfig.json`, `bun.lock` or `test/helpers/preload.ts` is a change
 to the runner rather than to the code, which is a reason to run everything.
 
-Two gates on one machine still starve each other's spawns, and the suites that wait on
-a child are the ones that break: run them one at a time, or accept a rotating wall-clock
-red on a loaded box.
+Two runs on one machine starve each other's spawns, and the suites that wait on a child are
+the ones that break — so the test preload takes a machine-wide lock before any case runs
+(`helpers/lock.ts`, registered in `bunfig.toml`). A second run prints who holds it and for how
+long, waits up to ten minutes, and then runs beside it and says so. `PI_NO_LOCK=1` skips the
+lock entirely. A `--parallel` run does not contend, because its workers inherit `PI_LOCKED` and
+so never wait on their own parent.
+
+The record a run leaves behind is deliberate rather than a bug: bun's test process does not run
+an `exit` handler, so a release is best effort and the *next* run replaces a dead holder by pid,
+silently. Liveness decides, not the file's presence — and a record older than five minutes is
+stale whatever its pid says, so a reused pid cannot inherit the machine.
 
 One case budget reaches both invocations. `helpers/budget.ts` states
 `CASE_BUDGET_MS`; `helpers/preload.ts` hands it to every case with

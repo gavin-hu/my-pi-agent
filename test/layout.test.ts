@@ -26,6 +26,7 @@ const ROOT_TEST_FILES = new Set([
 	"extension-docs.test.ts",
 	"extension-load.test.ts",
 	"layout.test.ts",
+	"lock.test.ts",
 	"module-sizes.test.ts",
 	"naming.test.ts",
 	"prerequisites.test.ts",
