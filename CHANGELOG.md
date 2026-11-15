@@ -89,10 +89,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a record that could not be published is no longer lost. The write renamed its temp
+  over the target and, on a refusal, deleted the target before trying again — so a second refusal
+  left no record, no reason and a stray temp. It now retries without touching what is there, removes
+  its temp and reports the first refusal, which is the rule `lib/json.ts`'s `writeJsonFile` already
+  states for the same write; both name their temp `<path>.<pid>.<random>.tmp`, so two writes in one
+  process cannot share one.
+
 - `board`: a review's `root` names the tree the check runs in, so a sign can name the card's own commit instead
   of the root checkout's head; the landing chain is read from the default branch, and a plain older commit is
   refused with the tree to review rather than recorded as a landing. The order is stated in both places: the
   lead merges and pushes, then the holder's `done` records the merge.
+
 - `board`: the write lock removes only a file it proved. A takeover's stat and its removal are two
   instants, so two sessions recovering one abandoned lock could both remove and both create — the
   second removal took the first taker's fresh lock — and both writers then held the board; a slow

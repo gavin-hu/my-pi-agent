@@ -1,9 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { readdir, utimes, writeFile } from "node:fs/promises";
+import { mkdir, readdir, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { busMessage, busStoreFixture, sessionRecord, stampArrival } from "../../test/helpers/bus.ts";
 import { createBusStore } from "./store.ts";
+import { storedName } from "../../lib/session-roster.ts";
 import type { SessionRecord } from "./types.ts";
 
 const temps = makeTempTracker();
@@ -241,6 +242,18 @@ describe("inbox", () => {
 		await utimes(path, old, old);
 		await store.pruneMail(at(old * 1000 + ttl + 1));
 		expect(await readdir(join(dir, "inbox", inbox)).catch(() => [])).toEqual([]);
+	});
+	test("a publish that cannot land leaves what is there and takes its temp with it", async () => {
+		const { dir, store } = busStoreFixture(temps);
+		await store.ensure();
+		// A directory where the record's file belongs: both renames are refused. The old path unlinked
+		// the target before retrying, which is what made a second refusal cost the record. That half
+		// needs a rename seam and is not reachable from here; what this holds is the two facts that
+		// are — nothing at the path was touched, and no temp file was left behind.
+		const name = `${storedName("s1")}.json`;
+		await mkdir(join(dir, "sessions", name), { recursive: true });
+		await expect(store.writeSession(sessionRecord("s1"))).rejects.toThrow();
+		expect(await readdir(join(dir, "sessions"))).toEqual([name]);
 	});
 });
 
