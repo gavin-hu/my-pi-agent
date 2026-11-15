@@ -106,11 +106,7 @@ export const NOTICES: Record<NoticeKind, Notice> = {
 		kind: "event",
 		audience: "owner",
 		key: (card) => noticeKey(card, "review", card.review?.at),
-		told: {
-			read: (card) => card.review?.told,
-			patch: (card, at) =>
-				({ review: { ...card.review, told: { at } } }) as Card["review"] extends infer _ ? Partial<Card> : never,
-		},
+		told: TELL_FIELDS.review,
 		text: (card, context) => signedText(card, "review", context.by ?? context.lead),
 	},
 	reclaim: {
