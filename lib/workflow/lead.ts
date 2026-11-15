@@ -38,6 +38,7 @@ import {
 	normalizeInstruction,
 	SIGN_WORDS,
 	type Sign as SignRecord,
+	TELL_FIELDS,
 	type Verification,
 } from "./contract.ts";
 import { LANE_RULES, type Lane } from "./lanes.ts";
@@ -119,6 +120,7 @@ export function isLead(actor: Pick<Actor, "label">, lead: Lead): boolean {
 
 /** The two signs a card carries. */
 export type Sign = "approve" | "review";
+export type { NoticeField } from "./contract.ts";
 
 /** The two signs, in the order a person is likely to want them. */
 const SIGN_KINDS: readonly Sign[] = ["approve", "review"];
@@ -623,29 +625,18 @@ export function announced(
 	config: BoardConfig,
 	now: number,
 ): Prepared {
-	if (op.notice === "assign") {
-		const handoff = card.owner?.handoff;
-		if (card.owner === undefined || handoff === undefined) {
-			return { error: `${cardRef(card.id)} has no handoff to announce.` };
+	const told = TELL_FIELDS[op.notice];
+	// A sign is its own signer's to announce; a handoff has no signature, and only its absence gates.
+	if (op.notice !== "assign") {
+		const record = signRecord(card, op.notice);
+		const named = op.notice === "approve" ? "approval" : "spot-check";
+		if (record === undefined) return { error: `${cardRef(card.id)} has no ${named} to announce.` };
+		if (!signedAs(record, actor, config.lead)) {
+			return {
+				error: `${cardRef(card.id)}'s ${named} is ${record.by}'s to announce, and this session is ${actor.label}.`,
+			};
 		}
-		if (handoff.told !== undefined) return { changed: false, fields: null };
-		return {
-			changed: true,
-			fields: { owner: { ...card.owner, handoff: { ...handoff, told: { at: now } } } },
-		};
 	}
-	const record = signRecord(card, op.notice);
-	const named = op.notice === "approve" ? "approval" : "spot-check";
-	if (record === undefined) return { error: `${cardRef(card.id)} has no ${named} to announce.` };
-	if (!signedAs(record, actor, config.lead)) {
-		return {
-			error: `${cardRef(card.id)}'s ${named} is ${record.by}'s to announce, and this session is ${actor.label}.`,
-		};
-	}
-	if (record.told !== undefined) return { changed: false, fields: null };
-	const told = { ...record, told: { at: now } };
-	if (op.notice === "approve" && card.contract !== undefined) {
-		return { changed: true, fields: { contract: { ...card.contract, approved: told } } };
-	}
-	return { changed: true, fields: { review: told } };
+	if (told.read(card) !== undefined) return { changed: false, fields: null };
+	return { changed: true, fields: told.patch(card, now) };
 }

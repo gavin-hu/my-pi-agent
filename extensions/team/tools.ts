@@ -35,7 +35,13 @@ import { attempt, messageOf } from "../../lib/errors.ts";
 import { plural, sanitizeUntrustedLine } from "../../lib/format.ts";
 import { peersWithAlarm } from "../../lib/session-roster.ts";
 import { sameLabel } from "../../lib/session-label.ts";
-import { createTeamJoin, type DeliveryFailure, type TeamJoin } from "../../lib/session-tool.ts";
+import {
+	createDeliver,
+	createTeamJoin,
+	type Deliver,
+	type DeliveryFailure,
+	type TeamJoin,
+} from "../../lib/session-tool.ts";
 import { type ToolFailure, textResult, toolError } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -49,7 +55,7 @@ import {
 	type ToolMessageResult,
 } from "../../lib/tui/tool.ts";
 import { strayField } from "../../lib/stray-fields.ts";
-import { askId, askText, type Dispatch, DEFAULT_QUESTION, type ReplyRoute, sessionDispatch } from "./dispatch.ts";
+import { askId, askText, DEFAULT_QUESTION, type ReplyRoute } from "./dispatch.ts";
 import {
 	formatAsk,
 	formatHandoff,
@@ -130,14 +136,14 @@ function continuationIndent(line: string): string {
 /** What the tool needs from the outside, so a suite drives it without a bus. */
 export interface TeamToolsDeps {
 	/** Test seam: the handoff transport. */
-	dispatch?: (ctx: ExtensionToolContext) => Dispatch;
+	deliver?: Deliver;
 	/** Test seam: the join a verb makes, so a suite records it instead of asking a bus. */
 	team?: TeamJoin;
 }
 
 /** The actions as the schema validates them. */
 export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: TeamToolsDeps = {}): void {
-	const dispatchFor = deps.dispatch ?? ((ctx: ExtensionToolContext) => sessionDispatch(pi, ctx));
+	const deliver = deps.deliver ?? createDeliver(pi);
 	const team = deps.team ?? createTeamJoin(pi);
 
 	/**
@@ -191,7 +197,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			try {
 				// `ask` is the one verb with no card behind it, so it runs before the id and the store:
 				// what it needs is this session's name, for the reply line, and the bus.
-				if (action === "ask") return await askPeer(me, args.to, args.question, dispatchFor(ctx), join);
+				if (action === "ask") return await askPeer(me, args.to, args.question, deliver, ctx, join);
 				const id = args.card === undefined ? undefined : normalizeCardId(args.card);
 				if (id === undefined) {
 					return refusal(
@@ -203,10 +209,10 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 				}
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
-				if (action === "offer") return await offerCard(store, me, id, args.note, now, dispatchFor(ctx));
+				if (action === "offer") return await offerCard(store, me, id, args.note, now, deliver, ctx);
 				const to = typeof args.to === "string" ? args.to.trim() : "";
 				if (to === "") return refusal("assign", 'assign needs a peer: pass `to`, e.g. "billing-core".');
-				return await assignCard(store, me, id, to, args.note, now, dispatchFor(ctx), join);
+				return await assignCard(store, me, id, to, args.note, now, deliver, ctx, join);
 			} catch (error) {
 				return refusal(action, messageOf(error));
 			}
@@ -264,11 +270,12 @@ async function assignCard(
 	to: string,
 	note: string | undefined,
 	now: number,
-	dispatch: Dispatch,
+	deliver: Deliver,
+	ctx: ExtensionToolContext,
 	join: () => Promise<TeamState>,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	// Loaded where it is used: the team entry's registration budget may not grow for a verb.
-	const { actorFor, noticeFor, ownerFor } = await import("../../lib/workflow/notice.ts");
+	const { actorFor, composeNotice, ownerFor } = await import("../../lib/workflow/notice.ts");
 	const card = await store.read(id);
 	if (!card) return refusal("assign", `${cardRef(id)} does not exist.`);
 	// A handoff to yourself is not a claim: it writes a message into your own inbox and
@@ -279,7 +286,7 @@ async function assignCard(
 	// ids first, so an id the caller typed is resolved to its peer rather than compared as a label.
 	// The same read answers the quiet and not-listening lines, so the owner and the clauses describe
 	// one roster — which is why it is read before the write rather than after the send.
-	const reached = await dispatch.peers().catch(() => undefined);
+	const reached = await deliver.peers(ctx).catch(() => undefined);
 	const target = actorFor(reached, to);
 	// The board, not just the card: a card that waits on unfinished work, or a `plan` lane
 	// with no room, is refused here, so a handoff for it is never sent. `mayOp` is the
@@ -307,28 +314,29 @@ async function assignCard(
 		return refusal("assign", formatHandoffFailure(applied.card ?? card, to, applied.error), applied.card ?? card);
 
 	// Then the sentence, keyed by the card's clock so a retry folds into a copy still waiting.
-	const notice = noticeFor("assign", {
-		card: applied.card,
+	const notice = composeNotice("assign", applied.card, {
 		lead: store.config().lead,
 		to,
 		...(note === undefined ? {} : { note }),
-		at: applied.card.updatedAt,
 	});
 	let delivered: string[] = [];
 	let failed: DeliveryFailure[] = [];
 	try {
-		const sent = await dispatch.send({
+		const sent = await deliver.send(ctx, {
 			kind: notice.kind,
 			to: target.id ?? target.label,
 			text: notice.text,
 			key: notice.key,
 			about: applied.card.id,
 		});
+		if (!sent.ok) {
+			// The card is the peer's and the message is not out: a repeat of `assign` re-sends the same
+			// key, which is the retry the untold handoff waits on.
+			return refusal("assign", formatHandoffUnsent(applied.card, to, sent.error), applied.card);
+		}
 		delivered = sent.delivered;
 		failed = sent.failed;
 	} catch (error) {
-		// The card is the peer's and the message is not out: a repeat of `assign` re-sends the same
-		// key, which is the retry the untold handoff waits on.
 		return refusal("assign", formatHandoffUnsent(applied.card, to, messageOf(error)), applied.card);
 	}
 	// Settled only once the bus took it: the record is what a repeat reads.
@@ -366,9 +374,10 @@ async function offerCard(
 	id: string,
 	note: string | undefined,
 	now: number,
-	dispatch: Dispatch,
+	deliver: Deliver,
+	ctx: ExtensionToolContext,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
-	const { offerText } = await import("../../lib/workflow/notice.ts");
+	const { composeNotice } = await import("../../lib/workflow/notice.ts");
 	const card = await store.read(id);
 	if (!card) return refusal("offer", `${cardRef(id)} does not exist.`);
 	// The board, not just the card: a card that waits on unfinished work, one somebody
@@ -388,19 +397,24 @@ async function offerCard(
 	let delivered: string[] = [];
 	let failed: DeliveryFailure[] = [];
 	try {
-		const sent = await dispatch.send({
-			kind: "event",
+		const notice = composeNotice("offer", recorded.card, {
+			lead: store.config().lead,
+			...(note === undefined ? {} : { note }),
+		});
+		const sent = await deliver.send(ctx, {
+			kind: notice.kind,
 			to: "*",
-			text: offerText(recorded.card, store.config().lead, note),
-			key: `offer:${recorded.card.id}:${recorded.card.updatedAt}`,
+			text: notice.text,
+			key: notice.key,
 			about: recorded.card.id,
 		});
+		if (!sent.ok) return refusal("offer", formatOfferUnsent(recorded.card, sent.error), recorded.card);
 		delivered = sent.delivered;
 		failed = sent.failed;
 	} catch (error) {
 		return refusal("offer", formatOfferUnsent(recorded.card, messageOf(error)), recorded.card);
 	}
-	const peers = await dispatch.peers().catch(() => undefined);
+	const peers = await deliver.peers(ctx).catch(() => undefined);
 	const silent = peersWithAlarm(peers, delivered, "not-listening");
 	const still = peersWithAlarm(peers, delivered, "quiet");
 	return textResult(formatOffer(recorded.card, delivered, silent, still, failed), {
@@ -432,7 +446,8 @@ async function askPeer(
 	me: Actor,
 	rawTo: unknown,
 	rawQuestion: unknown,
-	dispatch: Dispatch,
+	deliver: Deliver,
+	ctx: ExtensionToolContext,
 	join: () => Promise<TeamState>,
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	const to = typeof rawTo === "string" ? rawTo.trim() : "";
@@ -448,14 +463,15 @@ async function askPeer(
 	// The reply route is this session's own id, read from the roster the join just wrote: an id
 	// survives this session renaming itself and its record being pruned, and the label is the
 	// fallback the sentence then admits to. One read serves the delivery warnings below too.
-	const peers = await dispatch.peers().catch(() => undefined);
+	const peers = await deliver.peers(ctx).catch(() => undefined);
 	const self = peers?.find((peer) => (me.id !== undefined ? peer.id === me.id : peer.label === me.label));
 	const reply: ReplyRoute = self === undefined ? { to: me.label, byId: false } : { to: self.id, byId: true };
 	const ask = askId();
 	let delivered: string[];
 	let failed: DeliveryFailure[];
 	try {
-		const sent = await dispatch.send({ kind: "ask", to, text: askText(asked, ask, reply) });
+		const sent = await deliver.send(ctx, { kind: "ask", to, text: askText(asked, ask, reply) });
+		if (!sent.ok) return refusal("ask", `the ask did not reach ${to}: ${sent.error}`);
 		delivered = sent.delivered;
 		failed = sent.failed;
 	} catch (error) {

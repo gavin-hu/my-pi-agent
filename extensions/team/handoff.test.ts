@@ -72,7 +72,7 @@ describe("assign", () => {
 		// The id, not the label: an id is unambiguous when two records share a name.
 		expect(sent[0]?.to).toBe("s-billing-core");
 		expect(sent[0]?.about).toBe(id);
-		expect(sent[0]?.key).toBe(`assign:${id}:${(await (await store()).read(id))?.updatedAt}`);
+		expect(sent[0]?.key).toBe(`card:${id}:assign:${(await (await store()).read(id))?.owner?.handoff?.at}`);
 		expect(sent[0]?.text).toContain("Note: start with the webhook");
 		// The board's default lead is the name a sign carries, and it is the name the peer is
 		// told to ask: the two moves after `plan` are refused without it.
@@ -169,6 +169,25 @@ describe("assign", () => {
 		expect(result.isError).toBe(true);
 		expect(resultText(result)).toContain(`#${id} was not handed off to billing-core: EACCES: permission denied`);
 		expect(await (await broken.store()).read(id)).toMatchObject({ lane: "backlog" });
+	});
+
+	test("an untold handoff is retried by the same assign, and the key folds", async () => {
+		// State first: the card is the peer's while the message is not. The repeat of the same verb is
+		// the retry, and it composes the handoff's own key, so the bus folds it into the copy waiting.
+		const board = harness({ failOnce: "the bus is not loaded." });
+		const id = await board.seed();
+		const failed = await board.call({ action: "assign", card: id, to: "billing-core" });
+		expect(failed.isError).toBe(true);
+		expect((await (await board.store()).read(id))?.owner?.handoff?.told).toBeUndefined();
+
+		const again = await board.call({ action: "assign", card: id, to: "billing-core" });
+		expect(again.isError).toBeFalsy();
+		// The failed send wrote no message, so the repeat is the only one — keyed by the handoff's own
+		// stamp, which no note between the two moved.
+		const written = await (await board.store()).read(id);
+		expect(board.sent).toHaveLength(1);
+		expect(board.sent[0]?.key).toBe(`card:${id}:assign:${written?.owner?.handoff?.at}`);
+		expect(written?.owner?.handoff?.told).toEqual({ at: NOW });
 	});
 
 	test("refuses a handoff to the lead's own label or id, and names the claim", async () => {

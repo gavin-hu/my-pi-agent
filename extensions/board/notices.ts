@@ -1,41 +1,32 @@
 /**
  * How a workflow notice reaches the session that must act on it.
  *
- * The board writes the card, then tells the session whose move it is — the owner for a sign, a
- * handoff or a reclaim, the lead for a contract that became approvable. The sentences are
- * `lib/workflow/notice.ts`'s; this module is the delivery: who the notice reaches, and the clause
- * the result carries for what the bus did.
+ * The sentences, the audience role and the key are `lib/workflow/notice.ts`'s; this module is the
+ * delivery half a board can do: resolve the role to a session (`recipient.ts`), send with the
+ * shared `Deliver` seam, and record that the bus took it where the card has a field for it.
  *
- * Three facts make the result honest. Who: the peer the roster lists under the card's owner, or
- * the live record of the lead's label, so a rename is still reached (`recipient.ts`). Whether it
- * will be read: a record with its watch off reads at its next turn rather than being woken, which
- * is the one thing the caller can act on. And when: only a write that owes a notice delivers one —
- * `steps.ts` says which, and a repeat delivers only while the card says it was never heard.
+ * Three facts make the result honest. Who: the peer the roster lists under the card's owner, the
+ * live record of the lead's label, or everyone but this session for an offer. Whether it will be
+ * read: a record with its watch off reads at its next turn rather than being woken. And when: only
+ * a write that owes a notice delivers one — `steps.ts` says which, and a repeat delivers only while
+ * the card says it was never heard.
  *
  * Delivery comes after the write, so a bus that fails costs a line on the result and never the
- * state it reports: a refusal here would leave a signature on the card and a sentence saying it
- * was not recorded, which the owner's next read would contradict.
+ * state it reports.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { Card } from "../../lib/workflow/card.ts";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { type Card, owesHandoff } from "../../lib/workflow/card.ts";
 import { type Lead, notToldLine, owesAnnouncement } from "../../lib/workflow/lead.ts";
-import { type Notice, type NoticeField, type NoticeKind, noticeFor, owesHandoff } from "../../lib/workflow/notice.ts";
+import type { NoticeField } from "../../lib/workflow/lead.ts";
+import { composeNotice, type NoticeKind, NOTICES } from "../../lib/workflow/notice.ts";
 import type { Actor } from "../../lib/workflow/rules.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { ALARM_REASON, peerAlarm } from "../../lib/session-roster.ts";
-import { type SendInput, type SendResult, send } from "../../lib/session-tool.ts";
+import { type Deliver, type SendInput } from "../../lib/session-tool.ts";
 import { type Recipient, recipientOf } from "./recipient.ts";
-
-/** What one delivery was asked to send: the notice, and who it is for. */
-export type Deliver = (ctx: ExtensionContext, input: SendInput) => Promise<SendResult>;
-
-/** The production seam: the one send every door makes, over the caller's own context. */
-export function deliverOverBus(pi: Pick<ExtensionAPI, "events" | "getAllTools">): Deliver {
-	return (ctx, input) => send(pi, ctx, input);
-}
 
 /**
  * What a notice did, and the clause the result carries for it.
@@ -70,25 +61,11 @@ export interface DeliveryRequest {
 	by?: string;
 	/** The label a handoff names as the new owner. */
 	to?: string;
-	/** The handoff's note. */
+	/** The handoff's or offer's note. */
 	note?: string;
 	ctx: ExtensionContext;
 	deliver: Deliver;
 	audience?: Audience;
-}
-
-/** The notice one request asks for. */
-export function noticeOf(request: DeliveryRequest): Notice {
-	return noticeFor(request.kind, {
-		card: request.card,
-		lead: request.lead,
-		...(request.by === undefined ? {} : { by: request.by }),
-		...(request.to === undefined ? {} : { to: request.to }),
-		...(request.note === undefined ? {} : { note: request.note }),
-		// The key is the card's clock: a repeat owes only while the card says it was never heard, so
-		// one transition is one key and the bus folds the second copy into the first.
-		at: request.card.updatedAt,
-	});
 }
 
 /**
@@ -98,38 +75,40 @@ export function noticeOf(request: DeliveryRequest): Notice {
  * or refused is a line on the result and not a reason to undo it.
  */
 export async function deliverNotice(request: DeliveryRequest): Promise<Delivery> {
-	const notice = noticeOf(request);
-	// A board that names no lead has no gate for a session to open: the person's door is the only one,
-	// and the result already says so. Nothing to send, and nothing owed.
+	const notice = composeNotice(request.kind, request.card, {
+		lead: request.lead,
+		...(request.by === undefined ? {} : { by: request.by }),
+		...(request.to === undefined ? {} : { to: request.to }),
+		...(request.note === undefined ? {} : { note: request.note }),
+	});
+	// A board that names no lead has no gate for a session to open: the person's door is the only
+	// one, and the result already says so. Nothing to send, and nothing owed.
 	if (notice.audience === "lead" && request.lead === "") return { delivered: false };
 	const roster = await rosterOf(request.audience);
-	const recipient = recipientOf(
-		notice.audience === "lead" ? { label: request.lead } : (request.card.owner ?? { label: request.lead }),
-		roster,
-		request.audience?.now?.() ?? 0,
-	);
-	const answer = await request
-		.deliver(request.ctx, {
-			kind: notice.kind,
-			to: recipient.to,
-			text: notice.text,
-			key: notice.key,
-			about: request.card.id,
-		})
-		.catch((error: unknown) => ({ ok: false as const, error: messageOf(error) }));
+	const now = request.audience?.now?.() ?? 0;
+	const recipient = recipientFor(notice.audience, request, roster, now);
+	const input: SendInput = {
+		kind: notice.kind,
+		to: recipient.to,
+		text: notice.text,
+		key: notice.key,
+		about: request.card.id,
+	};
+	const answer = await request.deliver.send(request.ctx, input).catch((error: unknown) => ({
+		ok: false as const,
+		error: messageOf(error),
+	}));
 	if (!answer.ok) return { line: `  ${notToldLine(recipient.label, answer.error)}`, delivered: false };
-	// The label the bus wrote for, not the one the card kept: a rename between the write and the
-	// notice is exactly the case the roster resolved, and the result should name the peer it reached.
 	const told = answer.delivered[0] ?? recipient.label;
 	return { line: `  told ${told}${notAudible(recipient)}`, delivered: true };
 }
 
 /**
- * Settle a notice on the card after delivering it: the write the repeat reads.
+ * Settle a notice on the card after delivering it: the write a repeat reads.
  *
- * Only the notices a card has a field for — the two signs and the handoff. `ready` and `reclaim`
- * have nowhere to record, because a contract and a reclaim are facts a repeat does not re-owe:
- * their delivery is best effort and the round shows what is still waiting.
+ * Only the three rows with a `told` half. `ready`, `offer` and `reclaim` have nowhere to record,
+ * because they are never owed twice: their delivery is best effort and the round shows what is
+ * still waiting.
  */
 export async function settleNotice(options: {
 	kind: NoticeField;
@@ -155,6 +134,8 @@ export async function settleNotice(options: {
 		...(options.audience === undefined ? {} : { audience: options.audience }),
 	});
 	if (!answered.delivered) return answered;
+	const row = NOTICES[options.kind as NoticeKind];
+	if (row.told === undefined) return answered;
 	const kept = await options.store
 		.mutate(options.card.id, { kind: "announced", notice: options.kind }, options.actor, options.at)
 		.catch((error: unknown) => ({ ok: false as const, error: messageOf(error) }));
@@ -165,13 +146,29 @@ export async function settleNotice(options: {
 /**
  * Whether a write by this actor owes a notice, read off the card rather than remembered.
  *
- * Two shapes: a sign the caller is the signer of and the owner has not heard, and a handoff whose
- * owner the bus has not settled. One reader, so the doors cannot disagree about what a repeat owes.
+ * A row with no `told` half is always sent once; a sign is owed by its own signer while the record
+ * says the message never landed; a handoff while its owner's `told` is absent.
  */
 export function owesNotice(card: Card, kind: NoticeKind, actor: Actor, lead: Lead): boolean {
+	const row = NOTICES[kind];
+	if (row.told === undefined) return true;
 	if (kind === "assign") return owesHandoff(card);
-	if (kind === "ready" || kind === "reclaim") return true;
+	if (kind !== "approve" && kind !== "review") return true;
 	return owesAnnouncement(card, kind, actor, lead);
+}
+
+/** Who one notice is for, resolved by role. */
+function recipientFor(
+	audience: "owner" | "lead" | "others" | "former-owner",
+	request: DeliveryRequest,
+	roster: readonly RosterSession[] | undefined,
+	now: number,
+): Recipient {
+	if (audience === "others") return { to: "*", label: "everyone else" };
+	if (audience === "lead") return recipientOf({ label: request.lead }, roster, now);
+	// `owner` and `former-owner` both name the card's owner: the reclaim passes the card as it was,
+	// so the role says why the sentence is addressed there rather than who.
+	return recipientOf(request.card.owner ?? { label: request.lead }, roster, now);
 }
 
 /**

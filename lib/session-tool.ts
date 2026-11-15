@@ -28,6 +28,7 @@
 
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { type BusAnswer, requestOverBus } from "./bus-request.ts";
+import type { MessageKind } from "./session-mail.ts";
 import { messageOf } from "./errors.ts";
 import { sanitizeLine } from "./format.ts";
 import { type PeerRow, type RosterState, watchingOf } from "./session-roster.ts";
@@ -129,9 +130,28 @@ export interface TeamJoinRequest {
  */
 export type SendResult = { ok: true; delivered: string[]; failed: DeliveryFailure[] } | { ok: false; error: string };
 
+/**
+ * The one bus seam a door uses: one send, and the sessions the bus lists.
+ *
+ * `board` and `team` each need both halves and each takes this as its injection point, so a suite
+ * fakes one shape rather than two wrappers calling the same function.
+ */
+export interface Deliver {
+	send(ctx: ExtensionContext, input: SendInput): Promise<SendResult>;
+	peers(ctx: ExtensionToolContext): Promise<Peer[] | undefined>;
+}
+
+/** The production seam, bound to one extension's `pi`. */
+export function createDeliver(pi: Pick<ExtensionAPI, "events" | "getAllTools">): Deliver {
+	return {
+		send: (ctx, input) => send(pi, ctx, input),
+		peers: (ctx) => listPeers(ctx),
+	};
+}
+
 /** One message to send: its kind, who to, and the text. */
 export interface SendInput {
-	kind: "handoff" | "event" | "ask";
+	kind: MessageKind;
 	to: string;
 	text: string;
 	/** A name for this message: a resend with the same key folds into the copy still waiting. */

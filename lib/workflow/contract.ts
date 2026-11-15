@@ -359,22 +359,16 @@ export function isContract(value: unknown): value is Contract {
 const NO_LEAD = "and this board names none: set `team.lead` in `bytefly.json`";
 
 /**
- * The lead as a sentence names it: the team's word, or the key that would name one.
- *
- * A refusal that prints an empty parenthesis reads as a bug; this prints the setting a reader can
- * fix instead, in the same place the name would have gone.
+ * The lead as a sentence names it: the team's word, or the key that would name one — never an
+ * empty parenthesis, which reads as a bug rather than as a setting to fix.
  */
 export function leadName(lead: Lead): string {
 	return lead === "" ? "`team.lead`" : lead;
 }
 
 /**
- * How a session asks the lead for a sign.
- *
- * The gates are the lead's, and the sessions that want one are its peers on the same bus, so the
- * way to ask is a message: it waits in the lead's inbox and starts no turn, which is exactly what
- * a handoff is. With no lead named there is nobody to ask, so the sentence names the setting
- * rather than a peer.
+ * How a session asks the lead for a sign: a message, which waits in the inbox and starts no turn.
+ * With no lead named there is nobody to ask, so the sentence names the setting.
  */
 export function askLead(lead: Lead): string {
 	return lead === "" ? "set `team.lead` in `bytefly.json`" : `ask ${lead} with \`session send\``;
@@ -396,6 +390,38 @@ export interface SignWords {
 
 /** The two words a gate is signed with, as `lead.ts`'s `Sign` names them. */
 type SignKind = "approve" | "review";
+
+/** The rows a card can record as settled: the handoff, and the two signs. */
+export type NoticeField = "assign" | SignKind;
+
+/** One owed notice's told half: read it off the card, or write the moment it landed. */
+export interface ToldField {
+	read: (card: Card) => { at: number } | undefined;
+	patch: (card: Card, at: number) => Partial<Card>;
+}
+
+/** The three owed notices. Field, read and write are one fact, so `announced` has no switch. */
+export const TELL_FIELDS: Record<NoticeField, ToldField> = {
+	assign: {
+		read: (card) => card.owner?.handoff?.told,
+		patch: (card, at) => {
+			const handoff = card.owner?.handoff;
+			return card.owner === undefined || handoff === undefined
+				? {}
+				: { owner: { ...card.owner, handoff: { ...handoff, told: { at } } } };
+		},
+	},
+	approve: {
+		read: (card) => card.contract?.approved?.told,
+		patch: (card, at) => ({
+			contract: { ...card.contract, approved: { ...card.contract?.approved, told: { at } } } as Card["contract"],
+		}),
+	},
+	review: {
+		read: (card) => card.review?.told,
+		patch: (card, at) => ({ review: { ...card.review, told: { at } } }) as Partial<Card>,
+	},
+};
 
 export const SIGN_WORDS: Record<SignKind, SignWords> = {
 	approve: {

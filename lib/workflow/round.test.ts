@@ -211,6 +211,20 @@ describe("buildRound", () => {
 		expect(round.untold.map((entry) => entry.id)).toEqual(["1", "2"]);
 	});
 
+	test("a handoff nobody heard is untold too, in any lane", () => {
+		// The table has three told halves; this is the one state-first can lose silently.
+		const waiting = card("5", {
+			lane: "plan",
+			owner: { id: "s-5", label: "billing-core", handoff: { at: NOW } },
+		});
+		const heard = card("6", {
+			lane: "execute",
+			owner: { id: "s-6", label: "billing-core", handoff: { at: NOW, told: { at: NOW } } },
+		});
+		const round = buildRound([waiting, heard], NOW);
+		expect(round.untold.map((entry) => entry.id)).toEqual(["5"]);
+	});
+
 	test("an empty board has empty groups", () => {
 		expect(buildRound([], NOW)).toEqual({
 			owners: [],

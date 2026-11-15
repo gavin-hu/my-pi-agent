@@ -486,11 +486,14 @@ export function holds(card: Card, actor: { id?: string; label: string }): boolea
 	return owner.handoff?.unresolved !== true && owner.label.toLowerCase() === actor.label.toLowerCase();
 }
 
+/** Whether the owner has not heard the handoff that made it one. */
+export function owesHandoff(card: Card): boolean {
+	return card.owner?.handoff !== undefined && card.owner.handoff.told === undefined;
+}
+
 /**
- * Whether `value` is a card this build can trust.
- *
- * Shape *and* the invariants a bug could otherwise smuggle past the rules: the one
- * ownerless lane really has no owner, and the others always have one. A card that fails
+ * Whether `value` is a card this build can trust: its shape, and the invariants a bug could
+ * otherwise smuggle past the rules. A card that fails
  * here is dropped by the reader rather than repaired, because a repair would guess at
  * which half of the record was meant.
  */

@@ -31,10 +31,10 @@ import { textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { CLAIM_NEXT, formatCard } from "./format.ts";
-import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
+import { createDeliver, createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, refusal, resultInput } from "./result.ts";
 import { dropCard, mutate, reclaimOp } from "./write.ts";
-import type { Deliver } from "./notices.ts";
+import type { Deliver } from "../../lib/session-tool.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { type BoardArgs, BoardParams } from "./schema.ts";
 import {
@@ -246,7 +246,7 @@ export function registerTools(
 						return await mutate(store, action, me, now, args, await reclaimOp(runtime, store, args.card, ctx.cwd), {
 							cross,
 							notice: async (card: Card, result) => {
-								const { deliverNotice, deliverOverBus } = await (notices ??= import("./notices.ts"));
+								const { deliverNotice } = await (notices ??= import("./notices.ts"));
 								const previous = result.ok && result.previous !== undefined ? result.previous : card;
 								return await deliverNotice({
 									kind: "reclaim",
@@ -254,7 +254,7 @@ export function registerTools(
 									lead: store.config().lead,
 									by: me.label,
 									ctx,
-									deliver: deps.notify ?? deliverOverBus(pi),
+									deliver: deps.notify ?? createDeliver(pi),
 									audience: { roster: () => runtime.roster(ctx.cwd), now: () => runtime.now() },
 								});
 							},
@@ -290,13 +290,13 @@ export function registerTools(
 						// resolved through the roster like a sign's addressee, and caught there, so a bus that cannot answer
 						// costs a clause and never the contract it came after.
 						const notice = async (card: Card): Promise<{ line?: string }> => {
-							const { deliverNotice, deliverOverBus } = await (notices ??= import("./notices.ts"));
+							const { deliverNotice } = await (notices ??= import("./notices.ts"));
 							return await deliverNotice({
 								kind: "ready",
 								card,
 								lead: store.config().lead,
 								ctx,
-								deliver: deps.notify ?? deliverOverBus(pi),
+								deliver: deps.notify ?? createDeliver(pi),
 								audience: { roster: () => runtime.roster(ctx.cwd), now: () => runtime.now() },
 							});
 						};
@@ -319,7 +319,7 @@ export function registerTools(
 					}
 					case "approve":
 					case "review": {
-						const { settleNotice, deliverOverBus } = await (notices ??= import("./notices.ts"));
+						const { settleNotice } = await (notices ??= import("./notices.ts"));
 						// The name the sign will record, so the owner is told who signed rather than the
 						// label the writing actor is called by.
 						const signer = signMark(me, store.config().lead).by;
@@ -350,7 +350,7 @@ export function registerTools(
 								by: signer,
 								actor: me,
 								ctx,
-								deliver: deps.notify ?? deliverOverBus(pi),
+								deliver: deps.notify ?? createDeliver(pi),
 								at,
 								audience: { roster: () => runtime.roster(ctx.cwd), now: () => runtime.now() },
 							});

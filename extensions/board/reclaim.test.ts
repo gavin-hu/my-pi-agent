@@ -15,7 +15,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Claims } from "../../lib/workflow/claims.ts";
 import type { SendInput } from "../../lib/session-tool.ts";
-import type { Deliver } from "./notices.ts";
+import type { Deliver } from "../../lib/session-tool.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import type { ClaimPathsResult, ReleasePathsResult } from "../../lib/session-tool.ts";
 import { boardHarness, boardTool } from "../../test/helpers/board.ts";
@@ -55,9 +55,12 @@ describe("a reclaim's message", () => {
 	/** A board for one session, with the delivery seam recorded. */
 	function recorder(sessionId: string, dirs: { cwd?: string; agentDir?: string } = {}) {
 		const sent: SendInput[] = [];
-		const notify: Deliver = async (_ctx, input) => {
-			sent.push(input);
-			return { ok: true, delivered: [input.to], failed: [] };
+		const notify: Deliver = {
+			send: async (_ctx, input) => {
+				sent.push(input);
+				return { ok: true, delivered: [input.to], failed: [] };
+			},
+			peers: async () => undefined,
 		};
 		const board = boardHarness({ now: NOW, lead: LEAD, track: temps.track, sessionId, ...dirs });
 		registerTools(board.fake.pi, board.runtime, { notify });
@@ -92,7 +95,7 @@ describe("a reclaim's message", () => {
 		expect(lead.sent).toHaveLength(1);
 		expect(lead.sent[0]).toMatchObject({ kind: "event", to: PEER_ID, about: "1" });
 		expect(lead.sent[0]?.text).toContain("Taken back");
-		expect(lead.sent[0]?.key).toBe(`reclaim:1:${taken.details.card?.updatedAt}`);
+		expect(lead.sent[0]?.key).toBe(`card:1:reclaim:${taken.details.card?.updatedAt}`);
 	});
 
 	test("a holder releasing its own card is not told anything", async () => {

@@ -26,6 +26,7 @@
 import { type Card, dependsOf } from "./card.ts";
 import { contractApproved, missingContractFields } from "./contract.ts";
 import { currentReview, signRecord } from "./lead.ts";
+import { owesHandoff } from "./card.ts";
 import { labelKey } from "../session-label.ts";
 import { type Gate } from "./tone.ts";
 
@@ -151,9 +152,10 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		else if (gate === "approval") unapproved.push(card);
 		else if (gate === "review") unreviewed.push(card);
 		if (card.lane === "execute" && now - card.updatedAt >= UNWRITTEN_MS) unwritten.push(card);
-		// A sign whose message never landed. The lane decides which sign it is, because only one of
-		// the two opens the move this card is on.
-		if (card.lane === "plan" || card.lane === "execute") {
+		// Every owed notice: a handoff the bus never took, wherever the card sits, and the one sign
+		// that opens the move the card is on (the lane decides which).
+		if (owesHandoff(card)) untold.push(card);
+		else if (card.lane === "plan" || card.lane === "execute") {
 			const sign = signRecord(card, card.lane === "plan" ? "approve" : "review");
 			if (sign !== undefined && sign.told === undefined) untold.push(card);
 		}

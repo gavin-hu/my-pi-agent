@@ -18,7 +18,7 @@ import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { JoinResult, TeamJoinInput } from "../../lib/session-tool.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { BOARD_COMMAND, registerCommands } from "../../extensions/board/commands.ts";
-import type { Deliver } from "../../extensions/board/notices.ts";
+import type { Deliver } from "../../lib/session-tool.ts";
 import type { BoardStore } from "../../lib/workflow/store.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import type { TeamJoin } from "../../extensions/board/join.ts";

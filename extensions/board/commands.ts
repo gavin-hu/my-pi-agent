@@ -22,8 +22,8 @@ import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
 import type { VerifyRun } from "../../lib/workflow/verify.ts";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { messageOf } from "../../lib/errors.ts";
-import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
-import type { Deliver } from "./notices.ts";
+import { createDeliver, createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
+import type { Deliver } from "../../lib/session-tool.ts";
 import { type TeamState, teamLine } from "./join.ts";
 import type { BoardPage, BoardPageStatus, StaleDrop } from "./page.ts";
 
@@ -248,7 +248,7 @@ async function signLine(
 	// exactly as the tool does. The sign's own signer may record it, which is why `personActor` is
 	// the actor: `announced` compares with `signedAs`, and the person's mark is on the sign.
 	if (result.notice !== sign) return { text, tone: "info" };
-	const { settleNotice, deliverOverBus } = await import("./notices.ts");
+	const { settleNotice } = await import("./notices.ts");
 	// The message and the record are one body, shared with the tool's door; this door supplies the
 	// person as the actor, since `announced` compares with the mark that sign carries.
 	const settled = await settleNotice({
@@ -259,7 +259,7 @@ async function signLine(
 		by: signMark(personActor(), lead).by,
 		actor: personActor(),
 		ctx,
-		deliver: notify ?? deliverOverBus(pi),
+		deliver: notify ?? createDeliver(pi),
 		at: session.now(),
 		audience: { roster: () => session.roster(ctx.cwd), now: () => session.now() },
 	});

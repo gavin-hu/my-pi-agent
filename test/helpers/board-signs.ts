@@ -20,7 +20,7 @@ import type { BoardStore } from "../../lib/workflow/store.ts";
 import type { VerifyOutcome, VerifyRun } from "../../lib/workflow/verify.ts";
 import { registerTools } from "../../extensions/board/tools.ts";
 import type { BoardDetails } from "../../extensions/board/types.ts";
-import type { Deliver } from "../../extensions/board/notices.ts";
+import type { Deliver } from "../../lib/session-tool.ts";
 import type { SendInput } from "../../lib/session-tool.ts";
 
 const temps = makeTempTracker();
@@ -41,12 +41,15 @@ export type Sent = SendInput;
 
 /** The signBus, recorded: what a sign sent, or the sentence a signBus that cannot answer gives. */
 export function signBus(options: { sent?: Sent[]; fail?: string; delivered?: string } = {}): Deliver {
-	return async (_ctx, input) => {
-		if (options.fail !== undefined) return { ok: false, error: options.fail };
-		options.sent?.push(input);
-		// A signBus answers with the labels it wrote for, not with what it was addressed by — the ids —
-		// which is the fact a sign reports back to its caller.
-		return { ok: true, delivered: [options.delivered ?? agentLabel(input.to)], failed: [] };
+	return {
+		async send(_ctx, input) {
+			if (options.fail !== undefined) return { ok: false, error: options.fail };
+			options.sent?.push(input);
+			// A signBus answers with the labels it wrote for, not with what it was addressed by — the ids —
+			// which is the fact a sign reports back to its caller.
+			return { ok: true, delivered: [options.delivered ?? agentLabel(input.to)], failed: [] };
+		},
+		peers: async () => undefined,
 	};
 }
 

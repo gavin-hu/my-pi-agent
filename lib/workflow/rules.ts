@@ -46,8 +46,8 @@ import type { Lane } from "./lanes.ts";
 import type { BoardIndex } from "./links.ts";
 import { archive, assign, claim, closedArchive, drop, edit, move, note, offer, release, reseat } from "./steps.ts";
 
-import { type HolderFact, announced, reclaim, review } from "./lead.ts";
-import type { NoticeField, NoticeKind } from "./notice.ts";
+import { type HolderFact, announced, type NoticeField, reclaim, review } from "./lead.ts";
+import type { NoticeKind } from "./notice.ts";
 import { approve, contractOp } from "./steps.ts";
 
 /** Who is attempting an operation: a session when it has one, and the label it is addressed by. */
