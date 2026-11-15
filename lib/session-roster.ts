@@ -146,10 +146,18 @@ export function rosterStateOf(
  */
 export type SessionPresence = RosterState | "absent";
 
-/** The roster row one owner names: its id first, then a label, which is the order `holds` uses. */
+/**
+ * The roster row one owner names: the record with the card's id when it carries one, else the label
+ * a card written before ids carries.
+ *
+ * An id with no record is `absent`; a label a later session took is not that session's record. The
+ * id is what `holds` compares first, so liveness cannot let a reused name answer for a card it does
+ * not own. The label branch is the one case with no id to compare — a record written before the
+ * field, or a handoff the bus could not name — which is also where the label still addresses mail.
+ */
 function recordOf(roster: readonly RosterSession[], owner: { id?: string; label: string }): RosterSession | undefined {
-	const byId = owner.id === undefined ? undefined : roster.find((session) => session.id === owner.id);
-	return byId ?? roster.find((session) => sameLabel(session.label, owner.label));
+	if (owner.id !== undefined) return roster.find((session) => session.id === owner.id);
+	return roster.find((session) => sameLabel(session.label, owner.label));
 }
 
 /**
@@ -157,7 +165,8 @@ function recordOf(roster: readonly RosterSession[], owner: { id?: string; label:
  *
  * `undefined` is "this repository has no bus to ask": a machine that has recorded nobody cannot be
  * read as "that session is gone", and the answer has to stay a question. A roster that simply holds
- * no record of the label is `absent` — the row a page draws for an owner nothing answers to.
+ * no record of the owner is `absent` — the row a page draws for an owner nothing answers to — and an
+ * owner that carries an id is answered by that record alone, so a reused label cannot stand in.
  */
 export function presenceOf(
 	roster: readonly RosterSession[] | undefined,
