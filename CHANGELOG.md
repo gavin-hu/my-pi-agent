@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: a write that leaves a whole, unsigned contract tells `team.lead` in its inbox, so the first
+  gate is a message rather than a board the lead has to poll. The card records nothing for a retry: the
+  round is the durable truth and this is the wake-up, so a failed send is a line on the result and the
+  next contract write asks again. A repeated write, a card already signed, and a board that names no
+  lead send nothing, and the addressee is resolved the way a sign's is — the lead's live record, with
+  "quiet" or "not listening" said when its watch will not report the message.
+
 - `session-bus`: `session read` shows up to `limit` messages and keeps them, so a burst a notice only
   previews can be read whole without consuming it. `session send key "12-signed"` names a message: a
   resend of the same body folds into the copy still waiting instead of adding a second file, while a

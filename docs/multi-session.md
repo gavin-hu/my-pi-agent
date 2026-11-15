@@ -59,7 +59,8 @@ requests   board, team ───► lib/session-tool.ts
    lead hands it over with `team assign 4 to billing-core`.
 4. **Design, then sign.** The owner records the plan and its contract, and the
    lead signs with `/board approve 4`; a card reaches `execute` only on that
-   signature.
+   signature. The write that makes the contract whole tells the lead in its
+   inbox, so the sign is a wake-up rather than a poll.
 5. **Claim the files before editing.** `session claim paths ["docs/"]` is
    all-or-nothing: if one path conflicts, nothing is claimed, and a peer sees what
    is held rather than discovering it in a merge.

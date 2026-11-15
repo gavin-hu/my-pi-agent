@@ -64,6 +64,8 @@ export async function mutate(
 	report: {
 		next?: string;
 		told?: (card: Card) => Promise<{ card?: Card; line?: string } | undefined>;
+		/** The clause a write that completed a contract carries: who was told it is ready, or why nobody. */
+		ready?: (card: Card) => Promise<{ line?: string } | undefined>;
 		cross?: (result: MutateResult) => Promise<string | undefined>;
 		joined?: () => Promise<string | undefined>;
 	} = {},
@@ -74,6 +76,9 @@ export async function mutate(
 	const result = await store.mutate(id, op, me, now);
 	if (!result.ok) return refusal(action, me, result.error, result.card);
 	const told = result.announce === true ? await report.told?.(result.card) : undefined;
+	// A sign is told for its owner, a completed contract for the lead: two directions, one write's worth
+	// of result text, and neither is gated on the other's flag.
+	const ready = result.ready === true ? await report.ready?.(result.card) : undefined;
 	// A sign the owner was just told of is a card that moved: the announced write is the newer read.
 	const card = told?.card ?? result.card;
 	// After the write, as the sign's message is: a bus that cannot answer costs a clause and
@@ -89,6 +94,7 @@ export async function mutate(
 		// into its own sentence: a flush-left line under an indented card reads as a second card.
 		held === undefined ? undefined : `  ${held}`,
 		told?.line,
+		ready?.line,
 		joined === undefined ? undefined : `  ${joined}`,
 	].filter((line): line is string => line !== undefined);
 	return textResult(body.join("\n"), {
@@ -96,6 +102,7 @@ export async function mutate(
 		me,
 		card,
 		...(told?.line === undefined ? {} : { told: told.line.trim() }),
+		...(ready?.line === undefined ? {} : { told: ready.line.trim() }),
 		...(held === undefined ? {} : { held: held.trim() }),
 	});
 }

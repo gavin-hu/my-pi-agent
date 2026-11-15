@@ -79,7 +79,11 @@ an `override` reads `closed by instruction`.
 section defaults to `gavin`; an empty lead lets only the person sign, and `/board` serves no page
 it would seat as nobody. A session signs only while it is the lead and never while it holds the
 card; `/board approve` and `/board review` sign as the person, marked `person: true`. The sign
-says who heard it — quiet, not listening, or not told — and an untold one is sent again.
+says who heard it — quiet, not listening, or not told — and an untold one is sent again. A contract
+that becomes approvable sends the lead the same kind of message, in the other direction: the peer
+wrote the wording and cannot sign it, so the gate would otherwise be learned from a board nobody has
+a reason to read twice. It is sent after the write, is never the reason a write fails, and is asked
+again by the next write that leaves a whole, unsigned contract.
 
 **Where it lives.** `~/.pi/agent/board/<repo-key>/` — a card per file under `cards/`, with `archive/` and `ended/` beside it. The archive holds more than one record shape: a file written before the lanes says `status` and no `lane`, and the reader maps that word (`todo` → `backlog`, `doing` → `execute`, `done` and `blocked` as themselves), so a card set aside reads `done` like the rest and no file is ever rewritten.
 

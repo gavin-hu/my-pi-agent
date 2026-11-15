@@ -74,6 +74,8 @@ describe("a sign tells the other side", () => {
 		const sent: Sent[] = [];
 		const board = bench({ notify: bus({ sent }) });
 		await claimedWithContract(board);
+		// The contract write announces its own readiness to the lead; this case is the sign's message.
+		sent.length = 0;
 		const signed = await board.lead.call({ action: "approve", card: "1" });
 		expect(sent).toHaveLength(1);
 		expect(sent[0]?.kind).toBe("event");
@@ -127,6 +129,7 @@ describe("a sign tells the other side", () => {
 		await claimedWithContract(board);
 		// The page's Team tab already draws this, and the handoff reports it: a watch that is off
 		// means mail waits for the owner's next turn instead of raising one.
+		sent.length = 0;
 		await onBus(board.peer, { id: PEER_ID, label: PEER, watching: { armed: false, wake: false } });
 		const signed = await board.lead.call({ action: "approve", card: "1" });
 		expect(signed.details.told).toBe(`told ${PEER} (not listening: it reads this at its next turn)`);
@@ -139,7 +142,8 @@ describe("a sign tells the other side", () => {
 		const sent: Sent[] = [];
 		let failed = false;
 		const notify: Notify = async (_ctx, input) => {
-			if (!failed) {
+			// Only the sign's message fails: the contract's own announcement is setup for this case.
+			if (!failed && input.text.startsWith("Signature:")) {
 				failed = true;
 				return { ok: false, error: "the session bus is not loaded" };
 			}
@@ -148,6 +152,7 @@ describe("a sign tells the other side", () => {
 		};
 		const board = bench({ notify });
 		await claimedWithContract(board);
+		sent.length = 0;
 		const first = await board.lead.call({ action: "approve", card: "1" });
 		expect(resultText(first)).toContain("was not told");
 		expect(first.details.card?.contract?.approved?.told).toBeUndefined();
@@ -172,6 +177,7 @@ describe("a sign tells the other side", () => {
 		await claimedWithContract(board);
 		// A heartbeat past the bus's window: the file is written, and nothing says the session is
 		// still there to read it.
+		sent.length = 0;
 		await onBus(board.peer, { id: PEER_ID, label: PEER }, NOW - 11 * 60_000);
 		const signed = await board.lead.call({ action: "approve", card: "1" });
 		expect(signed.details.told).toBe(`told ${PEER} (quiet: nothing says it is still there)`);
@@ -182,6 +188,7 @@ describe("a sign tells the other side", () => {
 		const sent: Sent[] = [];
 		const board = bench({ notify: bus({ sent, delivered: PEER }) });
 		await claimedWithContract(board);
+		sent.length = 0;
 		// The holder's process is gone and a later session took its name. The bus refuses an
 		// unknown id rather than trying the label, so the roster is the only way there.
 		await onBus(board.lead, { id: "s-new", label: PEER, watching: { armed: true, wake: false } });

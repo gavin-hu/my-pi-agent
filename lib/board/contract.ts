@@ -380,6 +380,25 @@ export function askLead(lead: Lead): string {
 	return lead === "" ? "set `team.lead` in `bytefly.json`" : `ask ${lead} with \`session send\``;
 }
 
+/**
+ * What a contract that just became approvable sends the lead: the card, and the two doors a sign has.
+ *
+ * The peer that wrote the wording is the only session that knows it is ready, and the gate is the
+ * lead's — so this is the one message in the round that travels towards a signature rather than away
+ * from one. It names the card's id because that is what the next call takes, and it is worded like
+ * the refusals that ask for the same sign, so one gate is not described two ways.
+ *
+ * A board that names no lead still owes the peer something to do: the person's door is the only one
+ * that can sign it, and `NO_LEAD` is the sentence every other refusal already uses for that state.
+ */
+export function readyText(card: Card, lead: Lead): string {
+	const next =
+		lead === ""
+			? `Next: \`/board approve ${card.id}\` signs it as the person, ${NO_LEAD}.`
+			: `Next: the lead (${lead}) approves with board action "approve", or the person with \`/board approve ${card.id}\`.`;
+	return `Contract ready: #${card.id} "${card.title}" — its four lines are whole and nothing is signed.\n${next}`;
+}
+
 /** The words one sign is refused with, wherever the refusal is written. */
 export interface SignWords {
 	/** What a session that is not the lead is told. */

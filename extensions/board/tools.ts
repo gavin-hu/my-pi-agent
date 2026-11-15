@@ -272,14 +272,35 @@ export function registerTools(
 						const file = args.path;
 						const planDir = file === undefined ? undefined : await runtime.planDir(ctx.cwd);
 						const plan = planDir === undefined || file === undefined ? undefined : () => planForContract(planDir, file);
-						return await mutate(store, action, me, now, args, {
-							kind: "contract",
-							...(plan === undefined ? {} : { artifact: plan }),
-							goal: args.goal,
-							acceptance: args.acceptance,
-							scopeOut: args.scopeOut,
-							verify: args.verify,
-						});
+						// The peer is the one session that knows its wording is ready, so the same write tells the lead:
+						// resolved through the roster like a sign's addressee, and caught there, so a bus that cannot answer
+						// costs a clause and never the contract it came after.
+						const ready = async (card: Card): Promise<{ line?: string }> => {
+							const { notifyOverBus, notifyReady } = await (signMessage ??= import("./announce.ts"));
+							return notifyReady({
+								card,
+								lead: store.config().lead,
+								ctx,
+								notify: deps.notify ?? notifyOverBus(pi),
+								audience: { roster: () => runtime.roster(ctx.cwd), now: () => runtime.now() },
+							});
+						};
+						return await mutate(
+							store,
+							action,
+							me,
+							now,
+							args,
+							{
+								kind: "contract",
+								...(plan === undefined ? {} : { artifact: plan }),
+								goal: args.goal,
+								acceptance: args.acceptance,
+								scopeOut: args.scopeOut,
+								verify: args.verify,
+							},
+							{ ready },
+						);
 					}
 					case "approve":
 					case "review": {

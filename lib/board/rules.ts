@@ -161,14 +161,20 @@ export type CardOp =
 /**
  * What an operation did: the new card, or the reason it was refused.
  *
- * `announce` is the one fact `changed` cannot carry: a repeat sign that stamped nothing still owes
- * the owner the sign's message while the card says it was never told, so a caller reads "this call
- * owes a message" off the result rather than inferring it from a write.
+ * `announce` and `ready` are the two facts `changed` cannot carry. A repeat sign that stamped
+ * nothing still owes the owner the sign's message while the card says it was never told, so a
+ * caller reads "this call owes a message" off the result rather than inferring it from a write.
+ * `ready` is the other direction: the write that completed a contract owes the lead a message
+ * whether or not anything else about the card moved.
  */
-export type OpResult = { ok: true; card: Card; changed: boolean; announce?: true } | { ok: false; error: string };
+export type OpResult =
+	| { ok: true; card: Card; changed: boolean; announce?: true; ready?: true }
+	| { ok: false; error: string };
 
 /** What one operation would write, or why it may not. */
-export type Prepared = { error: string } | { fields: Partial<Card> | null; changed: boolean; announce?: true };
+export type Prepared =
+	| { error: string }
+	| { fields: Partial<Card> | null; changed: boolean; announce?: true; ready?: true };
 
 /** A card's first state: `backlog`, no owner, one note at most. */
 export function createCard(
@@ -243,11 +249,13 @@ export function applyOp(
 	if ("error" in prepared) return { ok: false, error: prepared.error };
 	// Carried by both shapes: a repeat sign writes nothing and still owes the owner its message.
 	const announce = prepared.announce === true ? { announce: true as const } : {};
-	if (!prepared.changed) return { ok: true, card, changed: false, ...announce };
+	// The other direction, carried the same way: the write that completed a contract owes the lead one.
+	const ready = prepared.ready === true ? { ready: true as const } : {};
+	if (!prepared.changed) return { ok: true, card, changed: false, ...announce, ...ready };
 	// `archive` changes the pile a card's file lies in and no field at all, which is why
 	// its step has nothing to write and the store's move is the whole of the operation.
-	if (prepared.fields === null) return { ok: true, card, changed: true, ...announce };
-	return { ok: true, card: write(card, actor, now, prepared.fields), changed: true, ...announce };
+	if (prepared.fields === null) return { ok: true, card, changed: true, ...announce, ...ready };
+	return { ok: true, card: write(card, actor, now, prepared.fields), changed: true, ...announce, ...ready };
 }
 
 /**
