@@ -80,7 +80,7 @@ export function formatStatus(status: SessionStatus, now: number): string {
 export const UNACCOUNTED_LINES = 6;
 
 /** How much of a body the listing shows: enough to recognise the mail, not a transcript of it. */
-const UNACCOUNTED_PREVIEW = 60;
+export const UNACCOUNTED_PREVIEW = 60;
 
 /**
  * The mail no record holds, as the lines both surfaces print: a headline naming the count and the
@@ -166,7 +166,7 @@ export function formatJoin(label: string, watching: { armed: boolean; wake: bool
 export const INBOX_BUDGET = 4_000;
 
 /** One inbox read: the text the model reads, and how many messages it covers. */
-export interface InboxRead {
+export interface ReadPage {
 	text: string;
 	shown: number;
 }
@@ -179,6 +179,20 @@ function inboxLine(message: BusMessage, index: number): string {
 	const from = sanitizeLine(message.fromLabel);
 	const body = sanitizeLine(message.text);
 	return `${index + 1}. ${from} · ${sanitizeLine(message.kind)} · ${body}${paths}`;
+}
+
+/**
+ * The sentence for mail files this build could not read.
+ *
+ * Named rather than counted, because the name is what a person needs to look at the file, and
+ * bounded to three so a directory full of them cannot fill the transcript. They are not gone:
+ * the store leaves them on disk for a build that can read them, and the message TTL ends them.
+ */
+export function unreadableText(files: readonly string[]): string {
+	if (files.length === 0) return "";
+	const named = files.slice(0, 3).map(sanitizeLine).join(", ");
+	const rest = files.length > 3 ? ` and ${files.length - 3} more` : "";
+	return `Mail this build cannot read: ${named}${rest} — left on disk, cleared by the TTL.`;
 }
 
 /**
@@ -199,25 +213,11 @@ function inboxLine(message: BusMessage, index: number): string {
  * same instruction back. It is not clamped here: the caller counts the inbox, not the
  * window it happened to read, so a burst past the peek's own cap is named whole.
  */
-/**
- * The sentence for mail files this build could not read.
- *
- * Named rather than counted, because the name is what a person needs to look at the file, and
- * bounded to three so a directory full of them cannot fill the transcript. They are not gone:
- * the store leaves them on disk for a build that can read them, and the message TTL ends them.
- */
-export function unreadableText(files: readonly string[]): string {
-	if (files.length === 0) return "";
-	const named = files.slice(0, 3).map(sanitizeLine).join(", ");
-	const rest = files.length > 3 ? ` and ${files.length - 3} more` : "";
-	return `Mail this build cannot read: ${named}${rest} — left on disk, cleared by the TTL.`;
-}
-
 export function formatInbox(
 	messages: readonly BusMessage[],
 	waiting = 0,
 	unreadable: readonly string[] = [],
-): InboxRead {
+): ReadPage {
 	const refused = unreadableText(unreadable);
 	if (messages.length === 0) return { text: refused === "" ? "Inbox empty." : refused, shown: 0 };
 	const lines: string[] = [];
