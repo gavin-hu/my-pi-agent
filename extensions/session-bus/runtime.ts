@@ -38,11 +38,10 @@ import {
 	shortId,
 } from "./protocol.ts";
 import { createMailWatch } from "./mail-watch.ts";
-import { createStatusReader } from "./status.ts";
-import { createMailCursor } from "./cursor.ts";
+import type { MailCursor } from "./cursor.ts";
 import { createTurn } from "./presence.ts";
 import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
-import type { InboxPeek, SessionRecord } from "./types.ts";
+import type { InboxPeek, SessionRecord, SessionStatus } from "./types.ts";
 import {
 	BUS_DIR_NAME,
 	type RosterSeams,
@@ -106,23 +105,41 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	const turn = createTurn({ store: () => store, record: () => record, joined: () => joined, now });
 
 	/** The watch reads this session's own inbox; nothing is consumed or marked. */
-	const cursor = createMailCursor({ store: () => store, record: () => record });
+	/**
+	 * The record's cursor, and the rows a reader draws: both load when something needs them.
+	 *
+	 * A session that never joins pays nothing for either, and the seams below read through
+	 * getters — empty until the start has run — so the watch and the status read cannot be
+	 * handed a half-built cursor.
+	 */
+	let cursor: MailCursor | undefined;
 	const mailWatch = createMailWatch({
 		peek: async (known): Promise<InboxPeek> =>
 			store && record ? store.peek(record.id, { limit: MAX_LIMIT, known }) : NO_MAIL,
-		told: () => cursor.ids(),
-		onTold: (ids) => cursor.told(ids),
+		told: () => cursor?.ids() ?? [],
+		onTold: (ids) => cursor?.told(ids),
 		interval,
 		watchMs,
 	});
-	/** The rows a page or `session status` draws, this session's own row taken from memory. */
-	const statusReader = createStatusReader({
-		store: () => store,
-		record: () => record,
-		stateOf,
-		now,
-		watching: () => mailWatch.state(),
-	});
+	/**
+	 * The bus as a reader sees it — `session status`, and the board's snapshot.
+	 *
+	 * The module loads with the read that needs it: registration pays nothing for rows nobody has
+	 * asked for, which is the rule `test/dependencies.test.ts` holds the graph to.
+	 */
+	async function readStatus(
+		me: { id: string; label: string; onBus: boolean },
+		liveOnly: boolean,
+	): Promise<SessionStatus> {
+		const { createStatusReader } = await import("./status.ts");
+		return createStatusReader({
+			store: () => store,
+			record: () => record,
+			stateOf,
+			now,
+			watching: () => mailWatch.state(),
+		}).read(me, liveOnly);
+	}
 
 	const ensureStarted = async (context: ExtensionContext): Promise<void> => {
 		if (starting) return starting;
@@ -162,6 +179,8 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			};
 			// A record that outlived its process still says what that session was told, and a resume
 			// is that session: adopting its cursor keeps its old mail out of the count.
+			const { createMailCursor } = await import("./cursor.ts");
+			cursor = createMailCursor({ store: () => store, record: () => record });
 			await cursor.adopt();
 		})();
 		try {
@@ -203,7 +222,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				// The cursor names mail the inbox may have lost since the last poll, and a session that
 				// stopped listening polls nothing: this write is where that set is trimmed, so it cannot
 				// grow with every message the session ever read.
-				await cursor.trim();
+				await cursor?.trim();
 				await store.writeSession(record);
 				// A heartbeat that resumed after a long pause can find its label taken; the
 				// tick is where a revived session notices and yields, after its own write.
@@ -445,15 +464,15 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 					goneIds: sets.gone,
 					sessionTtlMs,
 				});
-				return statusReader.read({ id: record.id, label: record.label, onBus: false }, false);
+				return readStatus({ id: record.id, label: record.label, onBus: false }, false);
 			}
 			const me = await currentRecord();
-			return statusReader.read({ id: me.id, label: me.label, onBus: true }, false);
+			return readStatus({ id: me.id, label: me.label, onBus: true }, false);
 		},
 
 		async snapshot() {
 			if (!store || !record) throw new Error("session bus is not started.");
-			return statusReader.read({ id: record.id, label: record.label, onBus: joined }, true);
+			return readStatus({ id: record.id, label: record.label, onBus: joined }, true);
 		},
 
 		async peek() {

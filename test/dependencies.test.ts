@@ -276,6 +276,8 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/plan/git-bash.ts": "the read-only git check loads when plan mode vets a bash call",
 	"extensions/plan/path-guard.ts": "the path backstop loads when plan mode vets a tool call",
 	"extensions/board/page.ts": "the board page loads on the first /board",
+	"extensions/session-bus/cursor.ts": "the record's cursor loads when the bus starts, never at registration",
+	"extensions/session-bus/status.ts": "the rows load on the first status, board, or snapshot read",
 	"extensions/subagent/background.ts": "the background runtime loads on the first background run or /agents",
 	"extensions/subagent/commands.ts": "the /agents command body loads when the command first runs",
 	"extensions/subagent/ui.ts": "the footer chip loads with the background runtime it reports",

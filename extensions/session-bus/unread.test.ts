@@ -14,11 +14,7 @@ import { join } from "node:path";
 import { storedName } from "../../lib/session-roster.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { scratchDir } from "../../test/helpers/env.ts";
-import {
-	type BusToolSession,
-	busToolSession as session,
-	joinBusSession as joins,
-} from "../../test/helpers/fixtures/session-bus-tool.ts";
+import { busToolSession as session, joinBusSession as joins } from "../../test/helpers/fixtures/session-bus-tool.ts";
 import { createFakePi, emit, emitFirst } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import sessionBus from "./index.ts";
