@@ -160,9 +160,12 @@ const feedTemplate = String.raw`(function () {
           // out: a cap that dropped rows must not read like a quiet board.
           if (waiting.length > 0) slot.setAttribute("data-tone", "accent");
           else slot.removeAttribute("data-tone");
-          slot.appendChild(
-            paneHead("Waiting", waiting.length, waiting.length + queue.dropped, waiting.length > 0 ? "accent" : undefined)
-          );
+          // The head carries the rule as well as the number: a row is one send, so the count is not
+          // the sum a reader takes across the cards.
+          var tone = waiting.length > 0 ? "accent" : undefined;
+          var head = paneHead("Waiting", waiting.length, waiting.length + queue.dropped, tone);
+          head.title = "One row per send; a broadcast counts once here and once on each reader's card.";
+          slot.appendChild(head);
           if (waiting.length === 0) {
             slot.appendChild(el("p", N.teamEmpty, "no mail is waiting"));
             return;
