@@ -46,7 +46,7 @@ describe("normalizeContractField", () => {
 		expect(normalizeContractField("goal", undefined)).toEqual({ error: "goal is required." });
 		expect(normalizeContractField("acceptance", "   ")).toEqual({ error: "acceptance is required." });
 		expect(normalizeContractField("scopeOut", "x".repeat(MAX_CONTRACT + 1))).toEqual({
-			error: `scopeOut must be at most ${MAX_CONTRACT} characters.`,
+			error: `scopeOut is ${MAX_CONTRACT + 1} characters; the limit is ${MAX_CONTRACT} — trim 1.`,
 		});
 		expect(normalizeContractField("goal", 7)).toEqual({ error: "goal is required." });
 	});
@@ -60,7 +60,7 @@ describe("the required verify line", () => {
 		expect(normalizeContractField("verify", "")).toEqual({ error: "verify is required." });
 		expect(normalizeContractField("verify", 7)).toEqual({ error: "verify is required." });
 		expect(normalizeContractField("verify", "x".repeat(MAX_CONTRACT + 1))).toEqual({
-			error: `verify must be at most ${MAX_CONTRACT} characters.`,
+			error: `verify is ${MAX_CONTRACT + 1} characters; the limit is ${MAX_CONTRACT} — trim 1.`,
 		});
 	});
 
@@ -141,7 +141,7 @@ describe("normalizeInstruction", () => {
 		expect(normalizeInstruction("   ")).toEqual({ error: "override needs the one line saying why." });
 		expect(normalizeInstruction(7)).toEqual({ error: "override needs the one line saying why." });
 		expect(normalizeInstruction("x".repeat(MAX_CONTRACT + 1))).toEqual({
-			error: `override must be at most ${MAX_CONTRACT} characters.`,
+			error: `override is ${MAX_CONTRACT + 1} characters; the limit is ${MAX_CONTRACT} — trim 1.`,
 		});
 	});
 });

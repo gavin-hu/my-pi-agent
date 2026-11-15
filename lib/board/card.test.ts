@@ -55,7 +55,7 @@ describe("normalizeTitle", () => {
 	test("refuses a title past the cap rather than truncating it", () => {
 		expect(normalizeTitle("x".repeat(MAX_TITLE))).toEqual({ title: "x".repeat(MAX_TITLE) });
 		expect(normalizeTitle("x".repeat(MAX_TITLE + 1))).toEqual({
-			error: `title must be at most ${MAX_TITLE} characters.`,
+			error: `title is ${MAX_TITLE + 1} characters; the limit is ${MAX_TITLE} — trim 1.`,
 		});
 	});
 });
@@ -99,7 +99,7 @@ describe("normalizePathHints", () => {
 	test("refuses an empty or over-long hint", () => {
 		expect(normalizePathHints(["  "])).toEqual({ error: "every path must be a non-empty string." });
 		expect(normalizePathHints(["x".repeat(MAX_PATH + 1)])).toEqual({
-			error: `a path must be at most ${MAX_PATH} characters.`,
+			error: `a path is ${MAX_PATH + 1} characters; the limit is ${MAX_PATH} — trim 1.`,
 		});
 	});
 });
@@ -108,8 +108,8 @@ describe("normalizeNote and normalizePlanPath", () => {
 	test("keep one line", () => {
 		expect(normalizeNote("routes wired;\ntests next")).toEqual({ text: "routes wired; tests next" });
 		expect(normalizeNote("   ")).toEqual({ error: "text is required." });
-		expect(normalizeNote("x".repeat(MAX_NOTE + 1))).toEqual({
-			error: `text must be at most ${MAX_NOTE} characters.`,
+		expect(normalizeNote("x".repeat(MAX_NOTE + 2))).toEqual({
+			error: `text is ${MAX_NOTE + 2} characters; the limit is ${MAX_NOTE} — trim 2.`,
 		});
 	});
 
@@ -120,7 +120,7 @@ describe("normalizeNote and normalizePlanPath", () => {
 		});
 		expect(normalizePlanPath("")).toEqual({ error: "path is required." });
 		expect(normalizePlanPath("x".repeat(MAX_PLAN + 1))).toEqual({
-			error: `path must be at most ${MAX_PLAN} characters.`,
+			error: `path is ${MAX_PLAN + 1} characters; the limit is ${MAX_PLAN} — trim 1.`,
 		});
 	});
 });

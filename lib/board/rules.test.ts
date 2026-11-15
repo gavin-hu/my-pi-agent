@@ -258,7 +258,7 @@ describe("the contract", () => {
 		expect(multi.contract?.goal).toBe("two lines");
 		expect(
 			refusal(applyOp(card, { kind: "contract", artifact: proved(), goal: "x".repeat(401) }, CORE, NOW, boardOf(card))),
-		).toBe("goal must be at most 400 characters.");
+		).toBe("goal is 401 characters; the limit is 400 — trim 1.");
 	});
 });
 

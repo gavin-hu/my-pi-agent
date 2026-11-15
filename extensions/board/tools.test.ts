@@ -807,7 +807,7 @@ describe("the flow: contract, approval, spot-check", () => {
 		);
 		const plan = await writePlan(board);
 		expect(resultText(await call({ action: "contract", card: "1", path: plan, goal: "x".repeat(401) }))).toBe(
-			"Error: goal must be at most 400 characters.",
+			"Error: goal is 401 characters; the limit is 400 — trim 1.",
 		);
 	});
 

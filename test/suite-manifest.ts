@@ -294,6 +294,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/read",
 	"board/reason",
 	"board/reclaim",
+	"board/refusal-order",
 	"board/reseat",
 	"board/round",
 	"board/round-text",

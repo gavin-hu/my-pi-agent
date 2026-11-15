@@ -232,6 +232,8 @@ export interface SpotCheck {
 	lead: Lead;
 	/** The close by instruction, when the caller was given one. */
 	override?: string;
+	/** The note the sign will carry, so a card that cannot keep it starts no process. */
+	note?: unknown;
 	/** The tree the command runs in, which is the one the caller is working in. */
 	cwd: string;
 	run: VerifyRun;
@@ -243,16 +245,18 @@ export interface SpotCheck {
 /**
  * The evidence a sign records, or nothing when no command should run.
  *
- * The gate is asked *before* the process, because a sign that will be refused must not start one
- * — and it answers no refusal of its own: the store asks the same questions under the lock, in
- * the order a caller reads, and its sentence is the one a result carries. An override runs
- * nothing at all: it is the close a gate did not get. A card whose contract names no command is
- * `undefined` from {@link verifySpotCheck}, which is the same answer it gives an override.
+ * The gate is asked *before* the process, because a sign that will be refused must not start one —
+ * the lane, the holder, the signer, the override and the note are all its — and it answers no
+ * refusal of its own: the store asks the same questions under the lock, in the order a caller reads,
+ * and its sentence is the one a result carries. An override runs nothing at all: it is the close a
+ * gate did not get. A card whose contract names no command is `undefined` from
+ * {@link verifySpotCheck}, which is the same answer it gives an override.
  */
 export async function spotCheck(
 	options: SpotCheck,
 ): Promise<{ verified: Verification } | { error: string } | undefined> {
-	if ("error" in reviewGate(options.card, options.actor, options.lead, options.override)) return undefined;
+	if ("error" in reviewGate(options.card, options.actor, options.lead, options.override, options.note))
+		return undefined;
 	if (options.override !== undefined) return undefined;
 	return verifySpotCheck(options.card, options.cwd, options.run, options.now, options.tree);
 }

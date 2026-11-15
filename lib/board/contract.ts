@@ -25,7 +25,7 @@
  * `card.contract`.
  */
 
-import { sanitizeLine } from "../format.ts";
+import { overLimit, sanitizeLine } from "../format.ts";
 import type { Card } from "./card.ts";
 import type { Lead } from "./lead.ts";
 import type { Actor } from "./rules.ts";
@@ -171,7 +171,7 @@ export function normalizeInstruction(raw: unknown): { text: string } | FieldErro
 	if (typeof raw !== "string") return { error: "override needs the one line saying why." };
 	const text = sanitizeLine(raw).trim();
 	if (text === "") return { error: "override needs the one line saying why." };
-	if (text.length > MAX_CONTRACT) return { error: `override must be at most ${MAX_CONTRACT} characters.` };
+	if (text.length > MAX_CONTRACT) return { error: overLimit("override", text.length, MAX_CONTRACT) };
 	return { text };
 }
 
@@ -180,7 +180,7 @@ export function normalizeContractField(field: ContractField, raw: unknown): { te
 	if (typeof raw !== "string") return { error: `${field} is required.` };
 	const text = sanitizeLine(raw).trim();
 	if (text === "") return { error: `${field} is required.` };
-	if (text.length > MAX_CONTRACT) return { error: `${field} must be at most ${MAX_CONTRACT} characters.` };
+	if (text.length > MAX_CONTRACT) return { error: overLimit(field, text.length, MAX_CONTRACT) };
 	return { text };
 }
 

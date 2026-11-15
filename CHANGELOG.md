@@ -15,6 +15,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: `AGENTS.md` names `bun run check --serial` and the rule that goes with it — a parallel red
+  is no regression until `--serial` reproduces it. `test/drift.test.ts` gains a case that fails when
+  a file the doc cites has been renamed, naming the line. `bench:render` moves from the Commands
+  fence into Code quality, where the sentence about what it measures already is; three restatements
+  of the guides it links paid for the words, so the doc's ceiling falls to 1276.
+
 - `team`: `/team join` says `listening` where it said `listening for handoffs` — the word `/board`
   already used for the same watch, from one phrase in `lib/board/round-text.ts`. The three
   action-shaped tools also stopped carrying their own action normalizer and their own actor settle:
@@ -94,6 +100,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   same guard, and one thing changes for a caller: a listener that throws before it answers used to
   leave the asker waiting out the ten-second bound for an answer nobody was still producing, and now
   arrives as that caller's own failure sentence.
+
+- `board`: a field a sign or a contract cannot keep is refused before anything is spent on it. A
+  review's note is asked before the command its contract names runs, so a note over `MAX_NOTE` no
+  longer pays a gate run and records nothing; a contract's four lines are asked before its plan is
+  proved. The note still answers after the lane, the holder and the signer, which is the sentence
+  worth reading first.
+
+- `board`: a length refusal names the length it received as well as the cap — `text is 1002
+  characters; the limit is 1000 — trim 2.` — from one body shared by all seven (`title`, `a path`,
+  `text`, `path`, `blockedBy`, and the contract's lines and its override). The model reads these
+  refusals, so the retry is one trim rather than an iteration at a sentence that only named the cap.
 
 - `session-bus`: two sessions that claim overlapping paths at the same moment — `src` and `src/api` —
   no longer both keep them. Each batch re-reads once it has published and settles: the claim written
