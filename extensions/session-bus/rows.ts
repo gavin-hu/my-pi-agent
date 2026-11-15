@@ -1,7 +1,10 @@
 /**
- * The bus row grammar: the one place a session, a held path, or a message is
- * turned into a line, shared by the `/sessions` board and the `session` tool
- * block's expanded result.
+ * How the bus draws a row: a session, a held path, or a message, as a line for the `/sessions`
+ * board and the `session` tool block's expanded result.
+ *
+ * The words it draws are not its own — a message's sender and kind, its paths and its age come from
+ * `format.ts`, which is where every surface's copy of them comes from. What is here is the drawing:
+ * the glyph, the role, the width the row is clipped to, and the meta a row trails.
  *
  * Every field came from another session's record, message, or claim, so it is
  * sanitized here, at the boundary that reaches the terminal, and every row is
@@ -10,13 +13,13 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { clipText, formatDuration, plural, sanitizeLine } from "../../lib/format.ts";
+import { clipText, plural, sanitizeLine } from "../../lib/format.ts";
 import { clip, usableWidth } from "../../lib/tui/columns.ts";
 import { GLYPHS, GLYPH_GAP, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { listRow, statusRow } from "../../lib/tui/rows.ts";
 import type { TailRowLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { idSuffix, UNACCOUNTED_PREVIEW } from "./format.ts";
+import { ageText, idSuffix, messageMeta, UNACCOUNTED_PREVIEW } from "./format.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus, UnaccountedMessage } from "./types.ts";
 
@@ -109,11 +112,6 @@ function messageGlyph(kind: BusMessage["kind"]): { glyph: string; role: "warn" |
 	return { glyph: GLYPHS.pending, role: "info" };
 }
 
-/** The sender and the kind, as the meta a message row closes with. */
-function messageTrailing(message: BusMessage): string {
-	return `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}`;
-}
-
 /** One message row: the sender and kind as meta trailing the text. */
 export function messageRowLine(
 	message: BusMessage,
@@ -129,7 +127,7 @@ export function messageRowLine(
 		glyphRole: role,
 		label: sanitizeLine(message.text),
 		labelRole: options.selected === true ? "accent" : "label",
-		trailing: messageTrailing(message),
+		trailing: messageMeta(message),
 	});
 }
 
@@ -143,7 +141,7 @@ export function messageRowLine(
  * row stops, which is the whole reason a wake is worth anything.
  */
 export function messageRowLines(message: BusMessage, theme: Theme, width: number): string[] {
-	const trailing = messageTrailing(message);
+	const trailing = messageMeta(message);
 	const body = paint(theme, "label", sanitizeLine(message.text));
 	const w = usableWidth(width);
 	// The glyph and the column after it are reserved on every line, so the wrapped
@@ -184,7 +182,7 @@ export const busRowLine: TailRowLine<BusRow> = (row, width, theme) => {
 				glyphRole: "warn",
 				label: sanitizeLine(clipText(row.mail.message.text, UNACCOUNTED_PREVIEW)),
 				labelRole: "label",
-				trailing: `${sanitizeLine(row.mail.message.id)}${SEPARATORS.item}${messageTrailing(row.mail.message)}`,
+				trailing: `${sanitizeLine(row.mail.message.id)}${SEPARATORS.item}${messageMeta(row.mail.message)}`,
 			});
 		}
 		case "result":
@@ -231,7 +229,7 @@ export function sessionDetailBlock(row: SessionRow, now: number): string[] {
 	}
 	lines.push(
 		`mode: ${sanitizeLine(row.session.mode)}${SEPARATORS.item}id: ${idSuffix(row.session.id)}` +
-			`${SEPARATORS.item}last seen: ${formatDuration(Math.max(0, now - row.session.lastSeen))} ago` +
+			`${SEPARATORS.item}last seen: ${ageText(now, row.session.lastSeen)}` +
 			`${row.session.state === "gone" ? `${SEPARATORS.item}process gone` : ""}`,
 	);
 	return lines;

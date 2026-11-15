@@ -1,12 +1,41 @@
 /**
- * Model-facing text for the session bus.
+ * The words the session bus prints: what the model reads, and the message grammar every surface
+ * shares.
  *
- * Everything that came from another session is untrusted text: it is sanitized
- * before it reaches the transcript, and paths/labels are rendered as one line.
+ * Everything that came from another session is untrusted text: it is sanitized here, at the boundary
+ * that builds the sentence, and paths and labels are rendered as one line. Three of those words are
+ * needed by audiences that style them differently — the transcript rows, the notice, the board's
+ * screen — so `messageMeta`, `messagePaths` and `ageText` live here rather than in whichever module
+ * drew a line first. What a surface keeps is its frame: a row trails the meta, the notice
+ * parenthesises the paths, the screen prefixes them.
  */
 
 import { clipText, formatAge, sanitizeLine } from "../../lib/format.ts";
+import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
+/** The sender and the kind, as every surface names a message: `api-core · handoff`. */
+export function messageMeta(message: BusMessage): string {
+	return `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}`;
+}
+
+/** The paths a message carries, sanitized and joined, or an empty string when it names none. */
+export function messagePaths(message: BusMessage): string {
+	return message.paths?.length ? message.paths.map((path) => sanitizeLine(path)).join(", ") : "";
+}
+
+/**
+ * How long ago something was, in the words every surface prints: `just now`, `3m ago`, `2h ago`.
+ *
+ * This is the bus's framing, not a second age helper: `lib/format.ts`'s `formatAge` decides the
+ * number and the unit (`now` inside 45 seconds, then `3m`, `2h`, `2d`), and this only says what a
+ * reader is told about it. The two names are one letter apart and a reader who takes one for a copy
+ * of the other will eventually delete the wrong one, so: one formats an age, the other prints it.
+ */
+export function ageText(now: number, at: number): string {
+	const age = formatAge(now, at);
+	return age === "now" ? "just now" : `${age} ago`;
+}
+
 /**
  * The last few characters of a peer's id, as the transcript shows it.
  *
@@ -92,7 +121,7 @@ export function unaccountedLines(page: UnaccountedPage, now: number): string[] {
 	for (const { message, at } of page.messages.slice(0, UNACCOUNTED_LINES)) {
 		const preview = clipText(sanitizeLine(message.text), UNACCOUNTED_PREVIEW);
 		lines.push(
-			`- ${sanitizeLine(message.id)} \u00b7 ${sanitizeLine(message.fromLabel)} \u00b7 ${sanitizeLine(message.kind)} \u00b7 ${formatAge(now, at)} \u00b7 ${preview}`,
+			`- ${sanitizeLine(message.id)} \u00b7 ${sanitizeLine(message.fromLabel)} \u00b7 ${sanitizeLine(message.kind)} \u00b7 ${ageText(now, at)} \u00b7 ${preview}`,
 		);
 	}
 	const rest = page.count - Math.min(page.messages.length, UNACCOUNTED_LINES);

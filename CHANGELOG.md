@@ -15,6 +15,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`: a message's `sender · kind`, the paths it carries, and how long ago it was have one
+  owner in the bus's `format.ts`, so the transcript rows, the notice and the board's screen print the
+  same words and keep only their own frames. Three ages change with it, all coarser now that they
+  come from `formatAge`: the screen reads `5m ago` rather than `5m00s ago`, the unaccounted listing
+  reads `3h ago` rather than `3h`, and a heartbeat inside 45 seconds reads `just now` rather than
+  `now`.
+
 - `docs`: `test/drift.test.ts` gains a case that fails when a file the doc cites has been renamed,
   naming the line. `bench:render` moves from the Commands fence into Code quality, where the sentence
   about what it measures already is; three restatements of the guides it links paid for the words, so
@@ -100,16 +107,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   while `test/skill-docs.test.ts` required it, and the stale `CONTRIBUTING.md#compatibility` pointer
   becomes the `compat` job's workflow file.
 
+- `docs`: `CONTRIBUTING.md` keeps only the lists it owns — `## Conventions` no longer restates the
+  invariants `AGENTS.md` holds and instead keeps the one kit list it does own, `## Setup` folds into
+  `## Checks`, and the release section's six-chore step, its narration of `publish.yml`'s internals
+  and the `ENEEDAUTH` forensics compress to their steps and traps: 2818 words down to 2319, with
+  every anchor `AGENTS.md` links and every command unchanged.
+
 ### Removed
 
 - `check`: `bun run check` runs one test file at a time, and `--serial` is gone with it — the flag
   picked between two shapes and only one of them exists now, so every gate, every CI job and
-  `publish.yml` run the same command. Measured on an 8-core laptop over 8014 cases in 411 files: the
-  test phase goes 75.4 s → 80.4-84.1 s and the gate's wall time is unchanged within noise (125.3 s →
-  93-126 s), while the CPU the run burns falls from 182 s to 109 s, because four workers were
-  competing with the format and typecheck phases for the same cores. `workersFor`, the worker count
-  in the summary line, and `PARALLEL_HAZARD_HINT` go with the flag: a starved wait reports
-  `CONTENTION_HINT`, which names the test instead of naming a second run shape to try.
+  `publish.yml` run the same command. That includes the line `AGENTS.md` gained and the CI step that
+  made it true, so a reader who learned `--serial` this week is the one this bullet is for. Measured
+  on an 8-core laptop over 8014 cases in 411 files: the test phase goes 75.4 s → 80.4-84.1 s and the
+  gate's wall time is unchanged within noise (125.3 s → 93-126 s), while the CPU the run burns falls
+  from 182 s to 109 s, because four workers were competing with the format and typecheck phases for
+  the same cores. `workersFor`, the worker count in the summary line, and `PARALLEL_HAZARD_HINT` go
+  with the flag: a starved wait reports `CONTENTION_HINT`, which names the test instead of naming a
+  second run shape to try.
 
 ### Fixed
 
