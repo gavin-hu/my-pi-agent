@@ -11,7 +11,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, link, readdir, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/json.ts";
-import { claimsConflict } from "./overlap.ts";
+import { claimsConflict, keepsOverlap } from "./overlap.ts";
 import type {
 	ClaimConflict,
 	ClaimRecord,
@@ -85,8 +85,8 @@ export interface BusStore {
 		owner: string,
 		ownerLabel: string,
 		at: number,
-		/** Test seam: runs after each path is published, so a suite can interleave a rival. */
-		afterClaim?: (path: string) => Promise<void>,
+		/** Test seams: see {@link ClaimSeams}. */
+		seams?: ClaimSeams,
 	): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(path: string, owner: string): Promise<boolean>;
 	releaseAll(owner: string): Promise<string[]>;
@@ -117,6 +117,19 @@ export interface BusStore {
 	 * as one for another ten seconds costs nobody.
 	 */
 	pruneMail(input: { now: number; messageTtlMs: number }): Promise<void>;
+}
+
+/** The seam a claim batch offers a suite: where inside the batch a rival can be put. */
+export interface ClaimSeams {
+	/**
+	 * Runs once, after the pre-check and before the first publish.
+	 *
+	 * The one place a suite can put a rival batch in the window the pre-check cannot see: a batch
+	 * that is still checking has published nothing, so nothing tells the rival to stop.
+	 */
+	afterCheck?: () => Promise<void>;
+	/** Runs after each path is published: the window between two creates of one batch. */
+	afterClaim?: (path: string) => Promise<void>;
 }
 
 /**
@@ -363,16 +376,18 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 * only what this batch published: a path the owner already held carries an older
 	 * `at` and is not this batch's to release.
 	 *
-	 * `afterClaim` is a test seam: it runs after a path is published, which is the
-	 * only way a suite can put a rival claim in the window between the pre-check and
-	 * the next create.
+	 * The pre-check cannot decide *overlapping* paths, because those are two different files: `link`
+	 * is exclusive per name, so `src` and `src/api` claimed at once both publish. So a batch that
+	 * published re-reads once and settles — {@link keepsOverlap} picks the keeper, and the loser gives
+	 * back the whole batch and names the winner. A pair may hold overlapping paths for the length of
+	 * one batch, and never keep them.
 	 */
 	async function claimAll(
 		paths: readonly string[],
 		owner: string,
 		ownerLabel: string,
 		at: number,
-		afterClaim?: (path: string) => Promise<void>,
+		seams: ClaimSeams = {},
 	): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }> {
 		const existing = await readClaims();
 		const conflicts: ClaimConflict[] = [];
@@ -384,6 +399,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			}
 		}
 		if (conflicts.length > 0) return { claimed: [], conflicts };
+		if (seams.afterCheck) await seams.afterCheck();
 		const claimed: string[] = [];
 		const created: string[] = [];
 		for (const path of paths) {
@@ -395,9 +411,53 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			}
 			claimed.push(path);
 			if (result.created) created.push(path);
-			if (afterClaim) await afterClaim(path);
+			if (seams.afterClaim) await seams.afterClaim(path);
+		}
+		const settled = await settleOverlaps(claimed, owner);
+		if (settled.length > 0) {
+			// What this batch published goes, and nothing else: a claim is all-or-nothing, so half a
+			// batch would report a success nobody asked for — but a path the owner already held is not
+			// this batch's to give back, which is the rule the create-race rollback above keeps too.
+			for (const path of created) await releaseOne(path, owner);
+			return { claimed: [], conflicts: settled };
 		}
 		return { claimed, conflicts: [] };
+	}
+
+	/**
+	 * Which of this batch's paths a rival published first — the settle step's one question.
+	 *
+	 * Bounded by the batch: it stats the claim this batch published and each rival claim that
+	 * overlaps one of its paths, and nothing else. `readClaims` parses every claim file and is what
+	 * the board performs once a second, so it must not start paying a stat per claim in the
+	 * repository; that is also why `ClaimRecord` does not grow an mtime field.
+	 */
+	async function settleOverlaps(mine: readonly string[], owner: string): Promise<ClaimConflict[]> {
+		const conflicts: ClaimConflict[] = [];
+		if (mine.length === 0) return conflicts;
+		const held = await readClaims();
+		const times = new Map<string, number | undefined>();
+		const timeOf = async (path: string): Promise<number | undefined> => {
+			if (times.has(path)) return times.get(path);
+			const info = await stat(claimFile(path)).catch(() => undefined);
+			times.set(path, info?.mtimeMs);
+			return info?.mtimeMs;
+		};
+		for (const path of mine) {
+			const mineAt = await timeOf(path);
+			// The file is gone: something else settled this batch already, and there is nothing to defend.
+			if (mineAt === undefined) continue;
+			for (const rival of held) {
+				if (rival.owner === owner || !claimsConflict(path, rival.path)) continue;
+				const rivalAt = await timeOf(rival.path);
+				// A rival that is gone released it — it lost to somebody in the same window.
+				if (rivalAt === undefined) continue;
+				if (keepsOverlap({ mtimeMs: mineAt, owner }, { mtimeMs: rivalAt, owner: rival.owner })) continue;
+				if (conflicts.some((entry) => entry.path === path && entry.owner === rival.owner)) continue;
+				conflicts.push({ path, owner: rival.owner, ownerLabel: rival.ownerLabel });
+			}
+		}
+		return conflicts;
 	}
 
 	/**

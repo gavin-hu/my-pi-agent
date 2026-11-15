@@ -58,10 +58,9 @@ block the sender; a `handoff` names the work it assigns. A message may carry the
 repository paths it concerns. A broadcast is one file per recipient sharing one
 message id: `to "*"`, which is refused unless `kind` is `event`.
 
-**Mail is read, not taken, by the page.** The Team tab draws the whole bus's queue by reading
-those files and removes nothing: an inbox stays its owner's to consume. The page is loopback and
-token-guarded, and a message it shows is never marked as told — only the session advances its own
-count.
+**Mail is read, not taken, by the page.** The Team tab draws the bus's queue and removes nothing: an
+inbox stays its owner's to consume, and a message it shows is never marked as told — only the session
+advances its own count. The page is loopback and token-guarded.
 
 **Records.** `session status` lists each session with its state — `live` while its heartbeat
 holds, `quiet` once it has aged, `gone` once its process is not running — and whether its watch
@@ -82,12 +81,13 @@ label gets a short id suffix, and a label is reserved while the bus keeps its ow
 ten minutes past the last heartbeat — so a crashed session has not freed its name.
 
 **Claims.** All-or-nothing: if one path conflicts, nothing is claimed. A directory claim conflicts
-with claims below and above it. Paths resolve against your working directory and are stored
-relative to the repository root; the repository itself cannot be claimed. There is no forced
-takeover.
+with claims below and above it. Two sessions claiming overlapping paths at once both pass the check —
+`src` and `src/api` are two files — so each batch re-reads after publishing: the claim written first
+keeps, the smaller session id decides a tie in one tick, and the loser gives its batch back and is
+told who holds the path. Paths resolve against your working directory and are stored relative to the
+repository root; the repository itself cannot be claimed, and there is no forced takeover.
 
-**Where it lives.** `~/.pi/agent/session-bus/<repo-key>/` — the bus is under the agent directory,
-never in the project, so it is never committed.
+**Where it lives.** `~/.pi/agent/session-bus/<repo-key>/`, under the agent directory, so never committed.
 
 ## Limits
 

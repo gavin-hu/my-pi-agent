@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { busMessage, busStoreFixture, sessionRecord, stampArrival } from "../../test/helpers/bus.ts";
 import { createBusStore } from "./store.ts";
+import type { ClaimConflict } from "./types.ts";
 import { storedName } from "../../lib/session-roster.ts";
 import type { SessionRecord } from "./types.ts";
 
@@ -307,8 +308,10 @@ describe("claims", () => {
 		// in the window between the pre-check and that batch's own create.
 		expect((await store.claimAll(["src/api"], "s1", "one", 100)).claimed).toEqual(["src/api"]);
 		const rival = createBusStore({ dir });
-		const lost = await store.claimAll(["src/api", "src/ui", "src/web"], "s1", "one", 101, async (path) => {
-			if (path === "src/ui") await rival.claimAll(["src/web"], "s2", "two", 101);
+		const lost = await store.claimAll(["src/api", "src/ui", "src/web"], "s1", "one", 101, {
+			afterClaim: async (path) => {
+				if (path === "src/ui") await rival.claimAll(["src/web"], "s2", "two", 101);
+			},
 		});
 		expect(lost.claimed).toEqual([]);
 		expect(lost.conflicts).toEqual([{ path: "src/web", owner: "s2", ownerLabel: "two" }]);
@@ -317,6 +320,51 @@ describe("claims", () => {
 		expect((await store.claims()).map((claim) => [claim.path, claim.owner])).toEqual([
 			["src/api", "s1"],
 			["src/web", "s2"],
+		]);
+	});
+
+	test("settles a race on overlapping paths to one owner", async () => {
+		const { dir, store } = busStoreFixture(temps);
+		const rival = createBusStore({ dir });
+		// The pre-check reads the claims once, so a batch still checking has published nothing and
+		// nothing tells a rival to stop: the rival claims below `src` inside that window. Both publish,
+		// and the settle step is what leaves one owner holding instead of two.
+		let rivalResult: { claimed: string[]; conflicts: ClaimConflict[] } | undefined;
+		const mine = await store.claimAll(["src"], "s-b", "bee", 100, {
+			afterCheck: async () => {
+				rivalResult = await rival.claimAll(["src/api"], "s-a", "ay", 100);
+			},
+		});
+		// One keeper, whichever half of the rule decides it — the earlier file, or the smaller owner
+		// when both land in one tick — and the loser names the winner.
+		const held = (await store.claims()).map((claim) => claim.path);
+		expect(held).toHaveLength(1);
+		const loser = [{ claimed: mine.claimed, conflicts: mine.conflicts }, rivalResult].filter(
+			(result) => result !== undefined && result.claimed.length === 0,
+		);
+		expect(loser).toHaveLength(1);
+		expect(loser[0]?.conflicts[0]?.owner).toBe(held.includes("src") ? "s-b" : "s-a");
+	});
+
+	test("a settle loss gives back only what the batch created, not what the session already held", async () => {
+		const { dir, store } = busStoreFixture(temps);
+		const rival = createBusStore({ dir });
+		// A path this session already holds, before any race — `reclaimHeld` on a resume is the
+		// production call that looks like this.
+		expect((await store.claimAll(["src/a.ts"], "s1", "one", 100)).claimed).toEqual(["src/a.ts"]);
+		const lost = await store.claimAll(["src/a.ts", "lib/x"], "s1", "one", 101, {
+			afterCheck: async () => {
+				// The rival publishes `lib` after this batch's pre-check and before its first create, so
+				// both pass: the settle decides that `lib/x` loses. `src/a.ts` was not this batch's, and a
+				// session that gave it back would have lost a claim it legitimately held.
+				await rival.claimAll(["lib"], "s2", "two", 101);
+			},
+		});
+		expect(lost.claimed).toEqual([]);
+		expect(lost.conflicts).toEqual([{ path: "lib/x", owner: "s2", ownerLabel: "two" }]);
+		expect((await store.claims()).map((claim) => [claim.path, claim.owner])).toEqual([
+			["lib", "s2"],
+			["src/a.ts", "s1"],
 		]);
 	});
 
