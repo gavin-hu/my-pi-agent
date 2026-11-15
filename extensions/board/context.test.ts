@@ -16,14 +16,14 @@ import { withEnv } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { billingCard, numberedCard } from "../../test/helpers/fixtures/board.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import type { Card } from "../../lib/board/card.ts";
+import type { Card } from "../../lib/workflow/card.ts";
 import {
 	type ClaimPathsResult,
 	type ReleasePathsResult,
 	SESSION_CLAIM_REQUEST,
 	type SessionClaimRequest,
 } from "../../lib/session-tool.ts";
-import type { Claims } from "../../lib/board/claims.ts";
+import type { Claims } from "../../lib/workflow/claims.ts";
 import {
 	BOARD_CONTEXT_MARKER,
 	BOARD_CONTEXT_TYPE,

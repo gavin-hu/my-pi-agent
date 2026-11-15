@@ -13,13 +13,13 @@
  */
 
 import { join } from "node:path";
-import { type BoardStore, CARDS_DIR_NAME } from "../../lib/board/store.ts";
-import { boardWire, buildView, type BoardWire } from "../../lib/board/view.ts";
+import { type BoardStore, CARDS_DIR_NAME } from "../../lib/workflow/store.ts";
+import { boardWire, buildView, type BoardWire } from "../../lib/workflow/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import type { WaitingMail } from "../../lib/session-mail.ts";
-import { pageActor } from "../../lib/board/seat.ts";
-import { type PagePointer, BOARD_BASE, readPointer } from "../../lib/board/page-pointer.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import { pageActor } from "../../lib/workflow/seat.ts";
+import { type PagePointer, BOARD_BASE, readPointer } from "../../lib/workflow/page-pointer.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { PageStart } from "../../extensions/board/page.ts";
 import { testMountSource } from "./serve.ts";
 import { type BoardServer, createBoardServer } from "../../extensions/board/transport/server.ts";

@@ -1,4 +1,4 @@
-# lib/board — the shared feature board
+# lib/workflow — the shared feature board
 
 A board is one file per feature: what the feature is for, what it promises, why it sits
 where it does, and the two signatures a person gives it. The `board` tool, `team`'s round,
@@ -15,7 +15,7 @@ rules, with the conditions that would revisit them, are
 `AGENTS.md` for the rules, and the code for the limits it states.
 
 Each module below owns one paragraph: what it is, and the couple it must not drift out of.
-The one-line index of the same modules is the `board/` block of [`../README.md`](../README.md).
+The one-line index of the same modules is the `workflow/` block of [`../README.md`](../README.md).
 
 ## The record and its boundary
 

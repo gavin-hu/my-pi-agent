@@ -2,7 +2,7 @@
  * The acceptance command a contract names, and the one run a spot-check records.
  *
  * A contract's `verify` line is a promise the board can check: the sign's own call runs it and
- * keeps `{ cmd, exit, at, root, branch, checkout, sha }` on the sign (`lib/board/contract.ts`).
+ * keeps `{ cmd, exit, at, root, branch, checkout, sha }` on the sign (`lib/workflow/contract.ts`).
  * Nothing here decides anything — the board never executes a command on its own, and the store
  * never reads this module — so what it owns is the run itself: one shell, a bound, and the tail of
  * what it said, beside the tree it was started in.

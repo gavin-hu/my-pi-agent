@@ -5,7 +5,7 @@
  * edited, so it is sanitized here at the boundary that reaches the terminal, and
  * every row is clipped to the width it was given by the shared row helpers.
  *
- * The colours come from `lib/board/tone.ts` — the table the page reads too — through
+ * The colours come from `lib/workflow/tone.ts` — the table the page reads too — through
  * `TONE_ROLE`, so a lane's word in the transcript is the lane's colour on the page. Each
  * word is painted on its own, which means the separator between two words is painted as
  * well: a bare ` · ` would fall back to the terminal's default foreground between two
@@ -13,12 +13,12 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type Card, cardRef, DEFAULT_PRIORITY, holds, priorityOf } from "../../lib/board/card.ts";
-import { gateOf } from "../../lib/board/round.ts";
-import { GATE_WORD } from "../../lib/board/tone.ts";
-import { LANE_RULES } from "../../lib/board/lanes.ts";
-import type { Actor } from "../../lib/board/rules.ts";
-import { type BoardTone, REASON_TONE } from "../../lib/board/tone.ts";
+import { type Card, cardRef, DEFAULT_PRIORITY, holds, priorityOf } from "../../lib/workflow/card.ts";
+import { gateOf } from "../../lib/workflow/round.ts";
+import { GATE_WORD } from "../../lib/workflow/tone.ts";
+import { LANE_RULES } from "../../lib/workflow/lanes.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
+import { type BoardTone, REASON_TONE } from "../../lib/workflow/tone.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { clip, splitRow } from "../../lib/tui/columns.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";

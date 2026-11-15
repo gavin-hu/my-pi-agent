@@ -4,8 +4,8 @@
  * One action-shaped tool, because every action is work on the same record and a
  * model that has read the board should not have to learn a second surface to change
  * it. The tool owns nothing but the dispatch: the workspace comes from
- * `lib/board/session.ts`, the transition from `lib/board/rules.ts`, the bytes from
- * `lib/board/store.ts`, and the words from `format.ts` and `result.ts`. What a `list` answers is
+ * `lib/workflow/session.ts`, the transition from `lib/workflow/rules.ts`, the bytes from
+ * `lib/workflow/store.ts`, and the words from `format.ts` and `result.ts`. What a `list` answers is
  * `listing.ts`, reached with `import()` on the call that lists.
  *
  * A refusal is a failed result that still carries the card, so the next call starts
@@ -15,14 +15,14 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
-import { planForContract } from "../../lib/board/artifact.ts";
-import { type Card, cardRef, normalizeCardId } from "../../lib/board/card.ts";
-import { type Lane, movableLanes } from "../../lib/board/lanes.ts";
-import type { Verification } from "../../lib/board/contract.ts";
-import { signMark } from "../../lib/board/lead.ts";
-import type { VerifyRun } from "../../lib/board/verify.ts";
-import type { CardOp } from "../../lib/board/rules.ts";
-import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
+import { planForContract } from "../../lib/workflow/artifact.ts";
+import { type Card, cardRef, normalizeCardId } from "../../lib/workflow/card.ts";
+import { type Lane, movableLanes } from "../../lib/workflow/lanes.ts";
+import type { Verification } from "../../lib/workflow/contract.ts";
+import { signMark } from "../../lib/workflow/lead.ts";
+import type { VerifyRun } from "../../lib/workflow/verify.ts";
+import type { CardOp } from "../../lib/workflow/rules.ts";
+import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
 import { attempt, messageOf } from "../../lib/errors.ts";
 import { listOf } from "../../lib/format.ts";
 import { strayField } from "../../lib/stray-fields.ts";
@@ -35,7 +35,7 @@ import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, refusal, resultInput } from "./result.ts";
 import { dropCard, mutate, reclaimOp } from "./write.ts";
 import type { Notify } from "./announce.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import { type BoardArgs, BoardParams } from "./schema.ts";
 import {
 	ACTION_FIELDS,
@@ -121,7 +121,7 @@ export function registerTools(
 	 * The run a spot-check records, loaded at the first one: a board that never signs a card pays
 	 * nothing for the process seam it would need, and the registration graph stays where it is.
 	 */
-	let verifyModule: Promise<typeof import("../../lib/board/verify.ts")> | undefined;
+	let verifyModule: Promise<typeof import("../../lib/workflow/verify.ts")> | undefined;
 	// Loaded at the first sign, not at registration: a board that never signs pays nothing for the
 	// message, and the registration graph stays the size it was.
 	let signMessage: Promise<typeof import("./announce.ts")> | undefined;
@@ -175,10 +175,10 @@ export function registerTools(
 				if (id === undefined) return undefined;
 				const card = await store.read(id).catch(() => undefined);
 				if (card === undefined) return undefined;
-				// The gate, the override and the run are `lib/board/verify.ts`'s, so this door and the
+				// The gate, the override and the run are `lib/workflow/verify.ts`'s, so this door and the
 				// person's ask one body where the command may start — the tree it runs in and the seams
 				// it uses are the only things each knows.
-				const module = await (verifyModule ??= import("../../lib/board/verify.ts"));
+				const module = await (verifyModule ??= import("../../lib/workflow/verify.ts"));
 				return module.spotCheck({
 					card,
 					actor: me,
@@ -232,7 +232,7 @@ export function registerTools(
 								// Loaded here, not at registration: the join is the claim's side effect, so a session that
 								// never claims pays nothing for it.
 								joined: async () => {
-									const { joinFailureLine, joinTeam } = await import("../../lib/board/join.ts");
+									const { joinFailureLine, joinTeam } = await import("../../lib/workflow/join.ts");
 									return joinFailureLine(await joinTeam(runtime, team, ctx, me.label));
 								},
 							},

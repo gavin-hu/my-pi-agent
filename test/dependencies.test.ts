@@ -276,7 +276,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/plan/git-bash.ts": "the read-only git check loads when plan mode vets a bash call",
 	"extensions/plan/path-guard.ts": "the path backstop loads when plan mode vets a tool call",
 	"extensions/board/page.ts": "the board page loads on the first /board",
-	"lib/board/proven-remove.ts": "the proven removal loads with the first lock release or takeover",
+	"lib/workflow/proven-remove.ts": "the proven removal loads with the first lock release or takeover",
 	"extensions/session-bus/cursor.ts": "the record's cursor loads when the bus starts, never at registration",
 	"extensions/session-bus/status.ts": "the rows load on the first status, board, or snapshot read",
 	"extensions/subagent/background.ts": "the background runtime loads on the first background run or /agents",
@@ -330,7 +330,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * rule `job` and `watch` already share, instead of a second copy of `kill(-pid)` and
  * `taskkill /T` in the runner.
  *
- * `board` went 59 -> 60 and `team` 49 -> 50 for `lib/board/lock.ts`: the window a
+ * `board` went 59 -> 60 and `team` 49 -> 50 for `lib/workflow/lock.ts`: the window a
  * card's write is checked and renamed in is one responsibility, and the module bar
  * keeps it out of `board/store.ts` — nor can it be deferred, because it is the path
  * every write takes rather than a surface a session may never open.
@@ -370,7 +370,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * `wechat`'s 30 already held one of slack over its 29, so the total went 704 -> 718. That
  * is what the seam costs. What it buys is `session-bus`: the one entry that needs the
  * boundary and no document, which swaps `config.ts` for `json.ts` at the same count.
- * `board`'s and `team`'s rows go up one for `lib/board/kind.ts`: the card's kind and its two
+ * `board`'s and `team`'s rows go up one for `lib/workflow/kind.ts`: the card's kind and its two
  * normalizers are read by the record's parser and by every write that records a card, so
  * they cannot defer behind the call that needs one, and moving them out of `card.ts` is what
  * keeps that module under the line bar.

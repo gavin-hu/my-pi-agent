@@ -71,7 +71,7 @@ const renderTemplate = String.raw`(function () {
   /**
    * The page holds no lane table: a lane's words, colour, limit, and count arrive with it
    * from the snapshot, so a head, a picker button, and the transcript cannot name one lane
-   * two ways — the words are decided once, in lib/board/lanes.ts.
+   * two ways — the words are decided once, in lib/workflow/lanes.ts.
    */
   /** How many placeholder trays the skeleton paints: the lane table's own length, spliced in. */
   var LANE_COUNT = __LANE_COUNT__;
@@ -116,7 +116,7 @@ __RUNTIME__
 
   /**
    * The queue's order, its colours, and the tone a reason line wears — spliced in from
-   * lib/board/tone.ts, which the terminal reads through extensions/board/tone.ts. One
+   * lib/workflow/tone.ts, which the terminal reads through extensions/board/tone.ts. One
    * table, so a row cannot be the second-strongest reason and the quietest colour.
    */
   var DECISION_RANK = __DECISION_RANK__;
@@ -374,10 +374,10 @@ __RUNTIME__
   /** Whether the filter keeps a card: the module's one predicate, spliced in as source. */
   var matches = __MATCHES__;
 
-  /** The spot-check rule reasonFor asks below, and the bodies it calls: lib/board/lead.ts's own. */
+  /** The spot-check rule reasonFor asks below, and the bodies it calls: lib/workflow/lead.ts's own. */
   __CURRENT_REVIEW__
 
-  /** Why a card sits where it does: one body, spliced in from lib/board/reason.ts. */
+  /** Why a card sits where it does: one body, spliced in from lib/workflow/reason.ts. */
   var reasonFor = __REASON__;
 
   /** One lane from the snapshot, by its name; absent when the snapshot no longer has it. */

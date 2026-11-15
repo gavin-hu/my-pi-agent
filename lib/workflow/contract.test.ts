@@ -317,11 +317,11 @@ describe("resolveLanding", () => {
 	});
 
 	test("refuses a merge that moved the tree the review proved, naming the merge", () => {
-		const refused = resolveLanding({ ...LANE, moved: ["lib/board/steps.ts"] }, REVIEWED, ID);
-		expect(refused).toEqual({ error: movedTree("main", REVIEWED, CARRIED, ["lib/board/steps.ts"], ID) });
+		const refused = resolveLanding({ ...LANE, moved: ["lib/workflow/steps.ts"] }, REVIEWED, ID);
+		expect(refused).toEqual({ error: movedTree("main", REVIEWED, CARRIED, ["lib/workflow/steps.ts"], ID) });
 		// The distinction the sentence carries: the merge, not the review, is the unchecked tree.
 		if ("error" in refused) {
-			expect(refused.error).toContain("the merge that carried it on `main`, `9a7d2e0`, moved lib/board/steps.ts");
+			expect(refused.error).toContain("the merge that carried it on `main`, `9a7d2e0`, moved lib/workflow/steps.ts");
 			expect(refused.error).toContain("the merge is what nobody ran the gate on");
 		}
 	});

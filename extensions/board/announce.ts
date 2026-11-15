@@ -20,11 +20,11 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { Card } from "../../lib/board/card.ts";
-import { readyText } from "../../lib/board/contract.ts";
-import { type Lead, type Sign, notToldLine, signedText } from "../../lib/board/lead.ts";
-import type { Actor } from "../../lib/board/rules.ts";
-import type { BoardStore } from "../../lib/board/store.ts";
+import type { Card } from "../../lib/workflow/card.ts";
+import { readyText } from "../../lib/workflow/contract.ts";
+import { type Lead, type Sign, notToldLine, signedText } from "../../lib/workflow/lead.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { ALARM_REASON, peerAlarm } from "../../lib/session-roster.ts";

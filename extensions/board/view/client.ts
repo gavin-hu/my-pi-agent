@@ -14,18 +14,18 @@
  * starts last, after every `board.*` handler it wires exists.
  */
 
-import { ACTIVITY_LABEL_JS } from "../../../lib/board/activity.ts";
-import { MATCHES_QUERY_JS } from "../../../lib/board/card.ts";
-import { CURRENT_REVIEW_JS } from "../../../lib/board/lead.ts";
-import { REASON_FOR_JS } from "../../../lib/board/reason.ts";
+import { ACTIVITY_LABEL_JS } from "../../../lib/workflow/activity.ts";
+import { MATCHES_QUERY_JS } from "../../../lib/workflow/card.ts";
+import { CURRENT_REVIEW_JS } from "../../../lib/workflow/lead.ts";
+import { REASON_FOR_JS } from "../../../lib/workflow/reason.ts";
 import {
 	DECISION_BAND_JS,
 	DECISION_LABEL_JS,
 	DECISION_RANK_JS,
 	DECISION_TONE_JS,
 	REASON_TONE_JS,
-} from "../../../lib/board/tone.ts";
-import { LANES } from "../../../lib/board/lanes.ts";
+} from "../../../lib/workflow/tone.ts";
+import { LANES } from "../../../lib/workflow/lanes.ts";
 import {
 	CLIENT_BASE_JS,
 	CLIENT_RUNTIME_JS,
@@ -42,9 +42,9 @@ import {
 	LANDED_CLAUSE_JS,
 	PLURAL_JS,
 	RAN_CLAUSE_JS,
-} from "../../../lib/board/round-text.ts";
+} from "../../../lib/workflow/round-text.ts";
 import { LABEL_KEY_JS, SAME_LABEL_JS } from "../../../lib/session-label.ts";
-import { skippedText } from "../../../lib/board/skipped.ts";
+import { skippedText } from "../../../lib/workflow/skipped.ts";
 import { FORMAT_AGE_JS, pageSource, SHORTEN_PATH_JS } from "../../../lib/format.ts";
 import { BOARD_CARD_JS } from "./card.ts";
 import { BOARD_CLASS } from "./names.ts";

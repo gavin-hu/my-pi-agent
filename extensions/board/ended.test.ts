@@ -9,7 +9,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { agentLabel } from "../../lib/session-label.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import { boardTool } from "../../test/helpers/board.ts";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { tempDir } from "../../test/helpers/env.ts";

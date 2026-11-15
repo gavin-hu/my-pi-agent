@@ -14,7 +14,7 @@ import { makeTempTracker } from "../../test/helpers/git.ts";
 import { minuteOldCards } from "../../test/helpers/fixtures/board.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { MAX_ROUND_LINES, registerCommands, roundText, TEAM_COMMAND } from "./commands.ts";
-import { LEAD_ROUND } from "../../lib/board/round-text.ts";
+import { LEAD_ROUND } from "../../lib/workflow/round-text.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -181,7 +181,7 @@ describe("the command", () => {
 		registerCommands(fake.pi, board.runtime);
 		const command = fake.commands.get(TEAM_COMMAND);
 		if (!command) throw new Error("the team command was not registered");
-		// The round's own line, from `lib/board/round-text.ts`: `team`'s lead guideline says the same
+		// The round's own line, from `lib/workflow/round-text.ts`: `team`'s lead guideline says the same
 		// sentence, so the two surfaces that name the round cannot describe it differently.
 		expect(command.description).toContain(LEAD_ROUND);
 		// An empty board through the real store, so the command's three reads (cards, bus,

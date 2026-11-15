@@ -2,7 +2,7 @@
  * The page's snapshot: the one shape the browser is allowed to know, assembled from
  * what this session can read.
  *
- * `lib/board/view.ts` builds the shape; this module is the wiring that feeds it — the
+ * `lib/workflow/view.ts` builds the shape; this module is the wiring that feeds it — the
  * cards, the bus's records when they are there, the store's size, and the clock. The
  * bus is read as data in its own directory, so the page lists teammates when the bus
  * has recorded them and draws exactly what it drew before when it has not.
@@ -10,12 +10,12 @@
 
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { type Actor } from "../../lib/board/rules.ts";
-import { gonePlans } from "../../lib/board/artifact.ts";
-import type { Card } from "../../lib/board/card.ts";
-import { type BoardStore, CARDS_DIR_NAME } from "../../lib/board/store.ts";
-import type { Skip } from "../../lib/board/read.ts";
-import { boardWire, buildView, type BoardWire } from "../../lib/board/view.ts";
+import { type Actor } from "../../lib/workflow/rules.ts";
+import { gonePlans } from "../../lib/workflow/artifact.ts";
+import type { Card } from "../../lib/workflow/card.ts";
+import { type BoardStore, CARDS_DIR_NAME } from "../../lib/workflow/store.ts";
+import type { Skip } from "../../lib/workflow/read.ts";
+import { boardWire, buildView, type BoardWire } from "../../lib/workflow/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { type WaitingPage, waitingMail } from "../../lib/session-mail.ts";
 

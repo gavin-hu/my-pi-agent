@@ -3,7 +3,7 @@
  *
  * Two halves, because the tab is built in two places. The snapshot's four new facts — a
  * waiting queue with each recipient's state, a derived activity rail, a turn, and the
- * configured lead — are decided server-side in `lib/board/view.ts`, and `buildView` is what
+ * configured lead — are decided server-side in `lib/workflow/view.ts`, and `buildView` is what
  * these cases call. The tab itself is a string of client source no compiler sees, so its
  * contracts are held against `BOARD_CLIENT_JS` and `BOARD_CSS` the way `pages.test.ts` holds
  * the document: a fact the design promises has a line that draws it, and a fact it refuses
@@ -17,7 +17,7 @@
 import { describe, expect, test } from "bun:test";
 import { boardDocument as pageOf, ownRules } from "../../../test/helpers/board-document.ts";
 import { boardCard as cardFixture } from "../../../test/helpers/fixtures/board.ts";
-import { buildView } from "../../../lib/board/view.ts";
+import { buildView } from "../../../lib/workflow/view.ts";
 import { WAITING_LIMIT } from "../../../lib/session-mail.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";

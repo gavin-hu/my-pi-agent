@@ -14,7 +14,7 @@ import { noteOf, servedPage } from "../../test/helpers/board-page.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { testMountSource } from "../../test/helpers/serve.ts";
-import type { ProbeFetch } from "../../lib/board/page-pointer.ts";
+import type { ProbeFetch } from "../../lib/workflow/page-pointer.ts";
 import { createBoardPage } from "./page.ts";
 
 const temps = makeTempTracker();

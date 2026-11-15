@@ -10,12 +10,18 @@
  * same gate a session does; `card.ts`'s own record is `test/helpers/fixtures/board.ts`.
  */
 
-import type { Card } from "../../../lib/board/card.ts";
-import { boardConfig, type BoardConfig } from "../../../lib/board/config.ts";
-import type { Contract } from "../../../lib/board/contract.ts";
-import type { LandingProof } from "../../../lib/board/contract.ts";
-import { indexOf } from "../../../lib/board/links.ts";
-import { type Actor, applyOp as apply, createCard, mayOp as dryRun, type OpResult } from "../../../lib/board/rules.ts";
+import type { Card } from "../../../lib/workflow/card.ts";
+import { boardConfig, type BoardConfig } from "../../../lib/workflow/config.ts";
+import type { Contract } from "../../../lib/workflow/contract.ts";
+import type { LandingProof } from "../../../lib/workflow/contract.ts";
+import { indexOf } from "../../../lib/workflow/links.ts";
+import {
+	type Actor,
+	applyOp as apply,
+	createCard,
+	mayOp as dryRun,
+	type OpResult,
+} from "../../../lib/workflow/rules.ts";
 
 /** The session the gates take a signature from, and the one that owns nearly every card here. */
 export const LEAD: Actor = { id: "s-lead", label: "billing-lead" };

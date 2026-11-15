@@ -149,7 +149,7 @@ Do not duplicate across these:
   there, and a page off the template fails its test.
 - `CONTRIBUTING.md` — this file: the contributor entry point and the release process.
 - `AGENTS.md` — the machine-facing entry point: the rules, their gates, and the traps.
-- `lib/README.md`, `lib/tui/README.md`, `lib/board/README.md`, `scripts/README.md`,
+- `lib/README.md`, `lib/tui/README.md`, `lib/workflow/README.md`, `scripts/README.md`,
   `test/README.md` — the deep per-area contracts, with no copy beside the code.
 
 ## Tool and prompt surface

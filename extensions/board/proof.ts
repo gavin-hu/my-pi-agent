@@ -17,13 +17,13 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { type ArtifactProof, planForExecute } from "../../lib/board/artifact.ts";
-import { resolveLanding, type LandingProof } from "../../lib/board/contract.ts";
-import type { Lane } from "../../lib/board/lanes.ts";
+import { type ArtifactProof, planForExecute } from "../../lib/workflow/artifact.ts";
+import { resolveLanding, type LandingProof } from "../../lib/workflow/contract.ts";
+import type { Lane } from "../../lib/workflow/lanes.ts";
 
-import { normalizeCardId } from "../../lib/board/card.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
-import type { BoardStore } from "../../lib/board/store.ts";
+import { normalizeCardId } from "../../lib/workflow/card.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
 
 /**
  * What `store.mutate` should be told about the plan a card records, or `undefined` when it

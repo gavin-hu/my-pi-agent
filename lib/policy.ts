@@ -15,7 +15,7 @@
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
-import { isBoardReadAction } from "./board/actions.ts";
+import { isBoardReadAction } from "./workflow/actions.ts";
 import { READ_DOC_TOOL } from "./tool-names.ts";
 
 /**

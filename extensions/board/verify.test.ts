@@ -2,8 +2,8 @@
  * The run a spot-check makes, over the tool: the command its card's contract names, and what the
  * sign records when it passes or refuses it.
  *
- * The state machine's answer is `lib/board/signs.test.ts`, and the seam's is
- * `lib/board/verify.test.ts`; what this suite proves is the wiring a model sees — that `review`
+ * The state machine's answer is `lib/workflow/signs.test.ts`, and the seam's is
+ * `lib/workflow/verify.test.ts`; what this suite proves is the wiring a model sees — that `review`
  * reads the contract's command, runs it before anything is written, and hands the store a result
  * (or refuses with a sentence that names the command). It is its own suite because
  * `extensions/board/signs.test.ts` is at the 400-line bar and a suite that is named in

@@ -5,15 +5,15 @@
  * them. So the board joins on the user's behalf — when the page opens, and the first
  * time this session claims a card — and never asks anybody to run a bus action.
  *
- * The join itself is `lib/board/join.ts`'s `joinTeam`, because a claim joins from either
+ * The join itself is `lib/workflow/join.ts`'s `joinTeam`, because a claim joins from either
  * tool and the page joins for the person, and all of them ask the same rule; this module
  * holds what is the board's own: what a `/board` line says about it.
  */
 
-import type { TeamState } from "../../lib/board/join.ts";
-import { teamPhrase } from "../../lib/board/round-text.ts";
+import type { TeamState } from "../../lib/workflow/join.ts";
+import { teamPhrase } from "../../lib/workflow/round-text.ts";
 
-export type { TeamState } from "../../lib/board/join.ts";
+export type { TeamState } from "../../lib/workflow/join.ts";
 export type { TeamJoin } from "../../lib/session-tool.ts";
 
 /**

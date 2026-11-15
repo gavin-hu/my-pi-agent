@@ -4,7 +4,7 @@
  *
  * It is a fragment of the client bundle like `team.ts` and `dialog.ts`, and it reads the
  * helpers the renderer publishes — the element builder, the chip, the age, the count's
- * wording, and the reason rule spliced in from `lib/board/reason.ts` — so no rule about a
+ * wording, and the reason rule spliced in from `lib/workflow/reason.ts` — so no rule about a
  * card is stated twice.
  *
  * Two of the face's facts are longer than it can draw: the title in its two-line clamp and

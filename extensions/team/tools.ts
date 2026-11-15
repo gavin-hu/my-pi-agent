@@ -25,12 +25,12 @@
 
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
-import { type Card, type CardOwner, cardRef, normalizeCardId } from "../../lib/board/card.ts";
-import type { TeamState } from "../../lib/board/join.ts";
-import { indexOf } from "../../lib/board/links.ts";
-import { type Actor, mayOp } from "../../lib/board/rules.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
-import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
+import { type Card, type CardOwner, cardRef, normalizeCardId } from "../../lib/workflow/card.ts";
+import type { TeamState } from "../../lib/workflow/join.ts";
+import { indexOf } from "../../lib/workflow/links.ts";
+import { type Actor, mayOp } from "../../lib/workflow/rules.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
+import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
 import { attempt, messageOf } from "../../lib/errors.ts";
 import { plural, sanitizeUntrustedLine } from "../../lib/format.ts";
 import { sameLabel } from "../../lib/session-label.ts";
@@ -192,7 +192,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 	 * not go out, and one that did is why the peer can answer at all.
 	 */
 	const joinRound = async (ctx: ExtensionContext, label: string): Promise<TeamState> => {
-		const { joinTeam } = await import("../../lib/board/join.ts");
+		const { joinTeam } = await import("../../lib/workflow/join.ts");
 		return await joinTeam(session, team, ctx, label);
 	};
 

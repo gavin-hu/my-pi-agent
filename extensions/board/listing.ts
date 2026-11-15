@@ -11,12 +11,12 @@
  * keeps the static graph `test/dependencies.test.ts` measures.
  */
 
-import { planIsGone } from "../../lib/board/artifact.ts";
-import { cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
-import { indexOf } from "../../lib/board/links.ts";
-import { buildRound } from "../../lib/board/round.ts";
-import { formatRound, withLiveOwner } from "../../lib/board/round-text.ts";
-import type { BoardStore } from "../../lib/board/store.ts";
+import { planIsGone } from "../../lib/workflow/artifact.ts";
+import { cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/workflow/card.ts";
+import { indexOf } from "../../lib/workflow/links.ts";
+import { buildRound } from "../../lib/workflow/round.ts";
+import { formatRound, withLiveOwner } from "../../lib/workflow/round-text.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { textResult } from "../../lib/tool-result.ts";
 import { formatArchive, formatBoard, formatCard } from "./format.ts";

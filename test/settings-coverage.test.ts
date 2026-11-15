@@ -26,8 +26,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { configValueAt } from "../lib/config.ts";
-import { DEFAULT_TEAM_CONFIG, normalizeTeamConfig, normalizeWipConfig } from "../lib/board/config.ts";
-import { DEFAULT_WIP } from "../lib/board/limits.ts";
+import { DEFAULT_TEAM_CONFIG, normalizeTeamConfig, normalizeWipConfig } from "../lib/workflow/config.ts";
+import { DEFAULT_WIP } from "../lib/workflow/limits.ts";
 import { withLeaf } from "./helpers/config.ts";
 import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../extensions/bytefly/chrome.ts";
 import {

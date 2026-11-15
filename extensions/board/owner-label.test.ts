@@ -5,7 +5,7 @@
  *
  * `tools.test.ts` is named at its height in `test/suite-sizes.test.ts`, so what a `list` says
  * about a holder after that session renamed is proved here. The rule itself — and the page's
- * half of it — is `lib/board/round-text.test.ts`; these cases are the tool's reads and the one
+ * half of it — is `lib/workflow/round-text.test.ts`; these cases are the tool's reads and the one
  * fact a read must not quietly write.
  */
 

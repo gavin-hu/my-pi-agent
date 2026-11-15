@@ -8,7 +8,7 @@
  *
  * The bands are the question a lead asks first — *whose move is this?* — which the kinds alone
  * could not answer: `unassigned` sat beside `needs approval` in one list, so a queue of backlog
- * cards read as the backlog. `DECISION_BAND` in `lib/board/tone.ts` is that filing, and it is
+ * cards read as the backlog. `DECISION_BAND` in `lib/workflow/tone.ts` is that filing, and it is
  * the same table the pill and the rank come from.
  *
  * Every ask is drawn, as one line and its reason: an id in mono, the pill it wears, the kind it

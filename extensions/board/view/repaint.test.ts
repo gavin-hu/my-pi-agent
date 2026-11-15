@@ -14,8 +14,8 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Page } from "playwright-core";
-import type { Actor } from "../../../lib/board/rules.ts";
-import type { BoardStore } from "../../../lib/board/store.ts";
+import type { Actor } from "../../../lib/workflow/rules.ts";
+import type { BoardStore } from "../../../lib/workflow/store.ts";
 import { type Doc, type ElementLike, focusedId, hidden } from "../../../test/helpers/board-dom.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { advance } from "../../../test/helpers/board-flow.ts";

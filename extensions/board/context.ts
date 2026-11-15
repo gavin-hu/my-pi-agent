@@ -7,7 +7,7 @@
  * cards this session holds, and what each owes next — and nothing after it, because every
  * later turn already has the claim, the move, or the sign in its own transcript.
  *
- * The sentences come from `lib/board/reason.ts`, the page's own "what happens next" rule, so
+ * The sentences come from `lib/workflow/reason.ts`, the page's own "what happens next" rule, so
  * the line a session reads and the line a lead reads on a card face cannot disagree. The cap
  * is a context budget, not a screen: three cards and one "more" line, which
  * `test/prompt-budget.test.ts` holds.
@@ -18,11 +18,11 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { type Card, cardRef, holds } from "../../lib/board/card.ts";
-import { laneIndex } from "../../lib/board/lanes.ts";
-import { reasonFor } from "../../lib/board/reason.ts";
+import { type Card, cardRef, holds } from "../../lib/workflow/card.ts";
+import { laneIndex } from "../../lib/workflow/lanes.ts";
+import { reasonFor } from "../../lib/workflow/reason.ts";
 import { plural } from "../../lib/format.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 
 /** The marker the model reads, and the custom type the session stores. */
 export const BOARD_CONTEXT_MARKER = "[BOARD]";

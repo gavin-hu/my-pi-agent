@@ -4,7 +4,7 @@
  * Two panes, because they answer two different questions. **Waiting** is a queue — mail that
  * has not been read, oldest first — and it is the only pane on this page whose fact lives
  * outside the board. **Recent** is history, derived from the cards' own records
- * (`lib/board/activity.ts`), and it is what says a board is moving when nobody is writing to
+ * (`lib/workflow/activity.ts`), and it is what says a board is moving when nobody is writing to
  * it.
  *
  * Three rules the panes keep:

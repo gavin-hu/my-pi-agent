@@ -16,7 +16,7 @@ import {
 	fakeBoardTeam,
 	pageWithNoRecording,
 } from "../../test/helpers/board-command.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 import type { TeamJoin } from "./join.ts";
 import type { BoardPage, StaleDrop } from "./page.ts";

@@ -16,7 +16,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { formatCard } from "../extensions/board/format.ts";
-import { createStore } from "../lib/board/store.ts";
+import { createStore } from "../lib/workflow/store.ts";
 import { isInside } from "../lib/path.ts";
 import { resolvePlanArg } from "../lib/plans/paths.ts";
 import { fixturePlanDir } from "./tools/fixtures/board.ts";

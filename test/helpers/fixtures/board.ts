@@ -8,8 +8,8 @@
  * old. Value-only: every call returns a fresh object, so no two tests share one.
  */
 
-import { type Card, CARD_VERSION } from "../../../lib/board/card.ts";
-import type { BoardView } from "../../../lib/board/view.ts";
+import { type Card, CARD_VERSION } from "../../../lib/workflow/card.ts";
+import type { BoardView } from "../../../lib/workflow/view.ts";
 
 /** A card, complete, in the backlog: every field the store writes, at a neutral value. */
 export function boardCard(id = "4", overrides: Partial<Card> = {}): Card {

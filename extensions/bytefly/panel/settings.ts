@@ -31,10 +31,10 @@ import {
 	DEFAULT_TEAM_CONFIG,
 	normalizeTeamConfig,
 	normalizeWipConfig,
-} from "../../../lib/board/config.ts";
+} from "../../../lib/workflow/config.ts";
 import { MAX_LABEL } from "../../../lib/session-label.ts";
 import { amountRule, countRule, splitList, teammatesRule, type TextRule } from "./settings-rules.ts";
-import { DEFAULT_WIP, MAX_WIP } from "../../../lib/board/limits.ts";
+import { DEFAULT_WIP, MAX_WIP } from "../../../lib/workflow/limits.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,

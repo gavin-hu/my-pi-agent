@@ -33,7 +33,7 @@ import { TodoWidget } from "../extensions/todo/widget.ts";
 import { pageColors, readPageColors, repo, setThemeInstance, theme } from "./theme.ts";
 import { FIXTURES } from "./tools/fixtures/index.ts";
 import { galleryHtml, registeredToolNames, renderingFor, renderings } from "./tools/index.ts";
-import { planForContract } from "../lib/board/artifact.ts";
+import { planForContract } from "../lib/workflow/artifact.ts";
 import { isInside } from "../lib/path.ts";
 import { resolvePlanArg } from "../lib/plans/paths.ts";
 import { GLYPHS, SEPARATORS } from "../lib/tui/glyphs.ts";

@@ -9,8 +9,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type Card, laneSince } from "../../lib/board/card.ts";
-import type { BoardStore } from "../../lib/board/store.ts";
+import { type Card, laneSince } from "../../lib/workflow/card.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
 import { billingCard as card } from "../../test/helpers/fixtures/board.ts";
 import { boundFromCommand, boundOf, closedAt, parseBound, sweepFinished, sweepText } from "./archive.ts";
 

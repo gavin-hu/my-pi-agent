@@ -12,15 +12,15 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Card } from "../../../lib/board/card.ts";
-import { planForContract } from "../../../lib/board/artifact.ts";
+import type { Card } from "../../../lib/workflow/card.ts";
+import { planForContract } from "../../../lib/workflow/artifact.ts";
 import { provedPlan } from "../../../extensions/board/proof.ts";
-import { boardConfig, type BoardConfig } from "../../../lib/board/config.ts";
-import { personActor } from "../../../lib/board/lead.ts";
-import type { Actor, CardOp } from "../../../lib/board/rules.ts";
+import { boardConfig, type BoardConfig } from "../../../lib/workflow/config.ts";
+import { personActor } from "../../../lib/workflow/lead.ts";
+import type { Actor, CardOp } from "../../../lib/workflow/rules.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
 import type { WaitingMail } from "../../../lib/session-mail.ts";
-import { type BoardStore, createStore } from "../../../lib/board/store.ts";
+import { type BoardStore, createStore } from "../../../lib/workflow/store.ts";
 import { resolvePlanArg } from "../../../lib/plans/paths.ts";
 import { fixturePlanDir, fixturePlanPath } from "./board.ts";
 

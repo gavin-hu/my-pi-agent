@@ -10,10 +10,10 @@
  * rule, and this module's job is only to report what that rule said.
  */
 
-import { type Card, normalizeCardId } from "../../lib/board/card.ts";
-import type { CardOp } from "../../lib/board/rules.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
-import type { BoardStore, MutateResult } from "../../lib/board/store.ts";
+import { type Card, normalizeCardId } from "../../lib/workflow/card.ts";
+import type { CardOp } from "../../lib/workflow/rules.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
+import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
 import { textResult } from "../../lib/tool-result.ts";
 import { formatCard, formatDropped } from "./format.ts";
 import { refusal } from "./result.ts";

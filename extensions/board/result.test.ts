@@ -10,12 +10,12 @@
 import { describe, expect, test } from "bun:test";
 import { coloringTheme } from "../../test/helpers/fakes.ts";
 import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
-import { type Card } from "../../lib/board/card.ts";
-import { LANE_RULES } from "../../lib/board/lanes.ts";
-import { GATES, GATE_WORD } from "../../lib/board/tone.ts";
-import type { Actor } from "../../lib/board/rules.ts";
-import type { RoundSummary } from "../../lib/board/round.ts";
-import { REASON_TONE } from "../../lib/board/tone.ts";
+import { type Card } from "../../lib/workflow/card.ts";
+import { LANE_RULES } from "../../lib/workflow/lanes.ts";
+import { GATES, GATE_WORD } from "../../lib/workflow/tone.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
+import type { RoundSummary } from "../../lib/workflow/round.ts";
+import { REASON_TONE } from "../../lib/workflow/tone.ts";
 import { collapsedLine, resultInput } from "./result.ts";
 import { boardRowLineFor } from "./rows.ts";
 import { TUI_TOKENS, type TuiRole } from "../../lib/tui/tokens.ts";

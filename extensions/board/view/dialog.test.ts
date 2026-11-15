@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { BOARD_TONES } from "../../../lib/board/tone.ts";
+import { BOARD_TONES } from "../../../lib/workflow/tone.ts";
 import { boardDocument, ownRules } from "../../../test/helpers/board-document.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CSS } from "./styles.ts";

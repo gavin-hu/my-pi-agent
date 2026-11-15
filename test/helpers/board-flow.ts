@@ -12,11 +12,11 @@
  * tool re-checks that the file is there.
  */
 
-import { personActor } from "../../lib/board/lead.ts";
-import type { Verification } from "../../lib/board/contract.ts";
-import type { Actor } from "../../lib/board/rules.ts";
-import type { Lane } from "../../lib/board/lanes.ts";
-import type { BoardStore } from "../../lib/board/store.ts";
+import { personActor } from "../../lib/workflow/lead.ts";
+import type { Verification } from "../../lib/workflow/contract.ts";
+import type { Actor } from "../../lib/workflow/rules.ts";
+import type { Lane } from "../../lib/workflow/lanes.ts";
+import type { BoardStore } from "../../lib/workflow/store.ts";
 import { landingFor } from "./fixtures/board-rules.ts";
 
 /** Who a seeded card belongs to. */

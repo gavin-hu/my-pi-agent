@@ -25,7 +25,7 @@ import { boardDocument as pageOf, ownRules } from "../../../test/helpers/board-d
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";
 import { BOARD_CSS, PICKER_MQ } from "./styles.ts";
-import { DECISION_KINDS, DECISION_TONE } from "../../../lib/board/tone.ts";
+import { DECISION_KINDS, DECISION_TONE } from "../../../lib/workflow/tone.ts";
 
 describe("the document", () => {
 	test("is a complete page under the shared head", () => {
@@ -345,7 +345,7 @@ describe("the client bundle", () => {
 
 	test("says what a block waits on", () => {
 		// The reason slot carries the recorded reason rather than the last note somebody
-		// happened to write. One body answers it, spliced in from lib/board/reason.ts.
+		// happened to write. One body answers it, spliced in from lib/workflow/reason.ts.
 		expect(BOARD_CLIENT_JS).toContain('"blocked, with nothing recorded"');
 		// The block is one record now, and the line says what kind of block it is when nobody
 		// wrote a sentence — the one thing a reader needs to know what the card is waiting on.
@@ -421,7 +421,7 @@ describe("the client bundle", () => {
 	});
 
 	test("keeps no permission table, no request, and no dialog but the card's", () => {
-		// One rule lives in `lib/board/rules.ts`, and the page asks it nothing because the
+		// One rule lives in `lib/workflow/rules.ts`, and the page asks it nothing because the
 		// page asks for nothing: a second table here is how the two drifted apart.
 		for (const gone of ["board.may =", "canWrite", "function request(", "bfConfirm", "bfNew", "board.banner"]) {
 			expect(BOARD_CLIENT_JS, gone).not.toContain(gone);

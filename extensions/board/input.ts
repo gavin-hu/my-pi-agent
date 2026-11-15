@@ -12,9 +12,9 @@ import {
 	normalizePathHints,
 	normalizePriority,
 	normalizeTitle,
-} from "../../lib/board/card.ts";
-import { normalizeBreaking, normalizeType } from "../../lib/board/kind.ts";
-import type { CreateInput } from "../../lib/board/store.ts";
+} from "../../lib/workflow/card.ts";
+import { normalizeBreaking, normalizeType } from "../../lib/workflow/kind.ts";
+import type { CreateInput } from "../../lib/workflow/store.ts";
 
 /** The first note, or nothing when the body carries none. */
 function noteOf(raw: unknown): { text?: string } | FieldError {

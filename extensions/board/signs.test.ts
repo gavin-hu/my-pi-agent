@@ -1,7 +1,7 @@
 /**
  * The two signs, over the tool: the note each one carries, and where it lands.
  *
- * The state machine's answer is `lib/board/signs.test.ts`; what this suite proves is the
+ * The state machine's answer is `lib/workflow/signs.test.ts`; what this suite proves is the
  * wiring a model sees — that `text` reaches `approve` and `review` at all, that the note is
  * on the card the result returns, and that a signer's caveat does not stand in the way of the
  * move the sign unlocked. It is its own suite because `tools.test.ts` is named at its height
