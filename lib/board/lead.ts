@@ -315,16 +315,18 @@ export function signStale(card: Card, record: SignRecord): boolean {
 }
 
 /**
- * The refusals a spot-check answers before it is asked for evidence — the word, the lane, the holder
- * and the signer, all decided without the run. Its own function because two callers ask at different
- * moments: a door asks before it starts the command a contract names, {@link review} again under the
- * write's lock, and one owner is what keeps the cheap answer from drifting from the decision.
+ * The refusals a spot-check answers before it is asked for evidence — the word, the lane, the holder,
+ * the signer and the note the sign would carry, all decided without the run. Its own function because
+ * two callers ask at different moments: a door asks before it starts the command a contract names,
+ * {@link review} again under the write's lock, and one owner is what keeps the cheap answer from
+ * drifting from the decision.
  */
 export function reviewGate(
 	card: Card,
 	actor: Actor,
 	lead: Lead,
 	override?: unknown,
+	note?: unknown,
 ): { instruction?: string } | { error: string } {
 	const instruction = override === undefined ? undefined : normalizeInstruction(override);
 	if (instruction !== undefined && "error" in instruction) return { error: instruction.error };
@@ -339,6 +341,13 @@ export function reviewGate(
 	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, lead, "review")}` };
 	const wrongSigner = signRefusal(card, actor, lead, "review");
 	if (wrongSigner !== undefined) return { error: wrongSigner };
+	// The note rides the sign, and the card keeps it or refuses it without asking anything else — so
+	// it is asked here, last: after the refusals that mean the card cannot be signed at all, and
+	// before the command a review runs, which a note the card cannot hold would only waste.
+	if (note !== undefined) {
+		const parsed = normalizeNote(note);
+		if ("error" in parsed) return { error: parsed.error };
+	}
 	return instruction === undefined ? {} : { instruction: instruction.text };
 }
 
@@ -362,7 +371,7 @@ export function review(
 	verified?: unknown,
 ): Prepared {
 	// `reviewGate` is asked again under the lock: a door cannot record a sign it skipped.
-	const gate = reviewGate(card, actor, config.lead, override);
+	const gate = reviewGate(card, actor, config.lead, override, text);
 	if ("error" in gate) return { error: gate.error };
 	const instruction = gate.instruction;
 	const evidence = evidenceFor(card, config, instruction !== undefined, verified);
@@ -452,7 +461,9 @@ function evidenceFor(
  * The note a signer leaves with the sign, in the same write.
  *
  * Validated after the gate, as `note` validates after the holder check: a card that cannot be
- * signed at all is the answer worth reading first.
+ * signed at all is the answer worth reading first. The gate asks this same rule before any run
+ * (`reviewGate`); this call is what keeps a store reached some other way from recording a note it
+ * cannot keep.
  */
 export function signNote(
 	card: Card,

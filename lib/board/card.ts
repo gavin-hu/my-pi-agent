@@ -14,7 +14,7 @@
  * Value-only: no I/O, no state.
  */
 
-import { pageSource, sanitizeLine } from "../format.ts";
+import { overLimit, pageSource, sanitizeLine } from "../format.ts";
 import { type Contract, isContract, isHandoff, type Handoff, isLanding, isSign, type Sign } from "./contract.ts";
 import { CARD_TYPES, type CardType } from "./kind.ts";
 import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
@@ -59,7 +59,7 @@ export const MAX_PATH = 200;
 export const MAX_PLAN = 1024;
 
 /** Longest sentence saying what a blocked card is waiting on: one line, so it fits a row. */
-const MAX_BLOCKED = 200;
+export const MAX_BLOCKED = 200;
 
 /**
  * Why a card is blocked: what a person has to read before it moves again.
@@ -283,7 +283,7 @@ export function normalizeTitle(raw: unknown): { title: string } | FieldError {
 	if (typeof raw !== "string") return { error: "title is required." };
 	const title = sanitizeLine(raw).trim();
 	if (title === "") return { error: "title is required." };
-	if (title.length > MAX_TITLE) return { error: `title must be at most ${MAX_TITLE} characters.` };
+	if (title.length > MAX_TITLE) return { error: overLimit("title", title.length, MAX_TITLE) };
 	return { title };
 }
 
@@ -304,7 +304,7 @@ export function normalizePathHints(raw: unknown): { paths: string[] } | FieldErr
 		if (typeof entry !== "string") return { error: "every path must be a string." };
 		const cleaned = sanitizeLine(entry).trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
 		if (cleaned === "") return { error: "every path must be a non-empty string." };
-		if (cleaned.length > MAX_PATH) return { error: `a path must be at most ${MAX_PATH} characters.` };
+		if (cleaned.length > MAX_PATH) return { error: overLimit("a path", cleaned.length, MAX_PATH) };
 		if (cleaned.startsWith("/") || /^[a-zA-Z]:\//.test(cleaned)) {
 			return { error: `path "${cleaned}" is absolute; use a repository-relative path.` };
 		}
@@ -392,7 +392,7 @@ export function normalizeNote(raw: unknown): { text: string } | FieldError {
 	if (typeof raw !== "string") return { error: "text is required." };
 	const text = sanitizeLine(raw).trim();
 	if (text === "") return { error: "text is required." };
-	if (text.length > MAX_NOTE) return { error: `text must be at most ${MAX_NOTE} characters.` };
+	if (text.length > MAX_NOTE) return { error: overLimit("text", text.length, MAX_NOTE) };
 	return { text };
 }
 
@@ -408,7 +408,7 @@ export function normalizePlanPath(raw: unknown): { path: string } | FieldError {
 	if (typeof raw !== "string") return { error: "path is required." };
 	const path = sanitizeLine(raw).trim();
 	if (path === "") return { error: "path is required." };
-	if (path.length > MAX_PLAN) return { error: `path must be at most ${MAX_PLAN} characters.` };
+	if (path.length > MAX_PLAN) return { error: overLimit("path", path.length, MAX_PLAN) };
 	return { path };
 }
 
@@ -429,9 +429,7 @@ export function normalizeBlock(rawKind: unknown, rawNote: unknown): { blocked: C
 	if (typeof rawNote !== "string") return { error: "blockedBy must be text." };
 	const note = sanitizeLine(rawNote).trim();
 	if (note === "") return { error: "blockedBy must say what the card waits on." };
-	if (note.length > MAX_BLOCKED) {
-		return { error: `blockedBy must be at most ${MAX_BLOCKED} characters.` };
-	}
+	if (note.length > MAX_BLOCKED) return { error: overLimit("blockedBy", note.length, MAX_BLOCKED) };
 	return { blocked: { kind: known, note } };
 }
 

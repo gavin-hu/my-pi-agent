@@ -184,6 +184,9 @@ export function registerTools(
 					actor: me,
 					lead: store.config().lead,
 					override,
+					// The note the sign will carry: the gate refuses one the card cannot keep before the
+					// command starts, so a too-long note costs no run.
+					note: args.text,
 					// The tree the review names, or the session's own: `root` is the card's worktree (or a checkout
 					// at its commit) when the signer is not in it. It is read now rather than taken from the store: a
 					// store opened before `worktree enter` keeps the checkout it was opened on, so its root is the

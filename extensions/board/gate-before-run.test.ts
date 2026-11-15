@@ -2,9 +2,9 @@
  * A spot-check's gate decides before its command runs.
  *
  * `lib/board/verify.test.ts` proves what a run records; what this suite proves is the order — that
- * the lane, the holder and the signer are asked *before* the shell a contract names is started, so
- * a sign that will be refused spends no process getting there, and that an override on a card whose
- * contract names a command signs with nothing executed. Both doors are driven, because the tool's
+ * the lane, the holder, the signer and the note the sign carries are asked *before* the shell a
+ * contract names is started, so a sign that will be refused spends no process getting there, and that
+ * an override on a card whose contract names a command signs with nothing executed. Both doors are driven, because the tool's
  * `review` and the person's `/board review` are two callers of one rule, and the person's is the one
  * that runs as `personActor()`.
  *
@@ -30,6 +30,7 @@ import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import type { VerifyRun } from "../../lib/board/verify.ts";
+import { MAX_NOTE } from "../../lib/board/card.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -94,6 +95,28 @@ describe("a review that will be refused", () => {
 		const refused = await who.other.call({ action: "review", card: "1" });
 		expect(refused.isError).toBe(true);
 		expect(resultText(refused)).toContain("is spot-checked by the lead");
+		expect(run.ran).toEqual([]);
+	});
+
+	test("runs nothing for a note the card cannot keep", async () => {
+		const run = runner();
+		const who = board(run);
+		await reviewable(who);
+		const refused = await who.lead.call({ action: "review", card: "1", text: "x".repeat(MAX_NOTE + 2) });
+		expect(refused.isError).toBe(true);
+		// The sentence is the trim, not the cap: the retry is one edit rather than a guess.
+		expect(resultText(refused)).toContain(`text is ${MAX_NOTE + 2} characters; the limit is ${MAX_NOTE} — trim 2.`);
+		expect(run.ran).toEqual([]);
+	});
+
+	test("answers the gate's refusal before the note's", async () => {
+		const run = runner();
+		const who = board(run);
+		await promised(who);
+		const refused = await who.lead.call({ action: "review", card: "1", text: "x".repeat(MAX_NOTE + 2) });
+		// A card that cannot be signed at all is the answer worth reading first; the note is the last
+		// cheap word before the process, not the first.
+		expect(resultText(refused)).toContain("finished work is spot-checked in execute");
 		expect(run.ran).toEqual([]);
 	});
 
