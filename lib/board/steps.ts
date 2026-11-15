@@ -34,10 +34,10 @@ import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
 import { type ArtifactProof, contractRoute, proved } from "./artifact.ts";
 import {
 	CONTRACT_LINES,
+	type ContractField,
 	type LandingProof,
 	landingFor,
 	landingGate,
-	type ContractField,
 	mergedContract,
 	missingContractFields,
 	normalizeContractField,

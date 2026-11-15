@@ -80,6 +80,11 @@ export const BoardParams = Type.Object({
 			description: "`review`: why, for a card already `done`; the record says `closed by instruction`.",
 		}),
 	),
+	root: Type.Optional(
+		Type.String({
+			description: "`review`: the tree to run in.",
+		}),
+	),
 	path: Type.Optional(
 		Type.String({
 			description:

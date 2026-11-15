@@ -101,6 +101,16 @@ The sign is part of the contract because it is a statement about *this* wording:
 is the one line an overriding sign says why, which `isSign` and `isContract` also hold a
 stored value to.
 
+The merge a review became lives in the same module: `Landing` on a card, `LandingProof` as a
+door reads it, and `resolveLanding`, the one rule that answers which commit a `done` records.
+The proof carries the default branch's first-parent chain, oldest first; a reviewed commit
+names itself only when it is a merge or the chain's tip, and any other merge is found through
+its non-first parent — the branch the merge carried. A plain ancestor is the older tree a
+pre-merge sign was taken in, and `reviewedAncestor` refuses it; a commit no merge carries gets
+`unlandedReview` and the override. `landingGate` and `landingFor` are the two questions
+`steps.ts` asks of the same rule, and `movedTree` is the merge that rewrote the review's own
+lines.
+
 ### links.ts
 
 The dependency graph, answered over an index of the whole board. A link is one id in the

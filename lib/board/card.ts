@@ -18,7 +18,6 @@ import { pageSource, sanitizeLine } from "../format.ts";
 import { type Contract, isContract, isHandoff, type Handoff, isLanding, isSign, type Sign } from "./contract.ts";
 import { CARD_TYPES, type CardType } from "./kind.ts";
 import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
-
 /** The schema version this build writes. A file with another value is refused, never migrated in place. */
 export const CARD_VERSION = 2;
 

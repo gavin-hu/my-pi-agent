@@ -16,6 +16,7 @@ import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import {
 	createExecRunner,
 	currentBranch,
+	defaultBranch,
 	gitCommonDir,
 	gitDir,
 	GitError,
@@ -321,5 +322,43 @@ describe("currentBranch", () => {
 	test("is undefined when the query fails", async () => {
 		const failed = recordingRunner(new Map([["rev-parse --abbrev-ref HEAD", { code: 128 }]]));
 		expect(await currentBranch(failed.run, "/repo")).toBeUndefined();
+	});
+});
+
+describe("defaultBranch", () => {
+	test("takes the name origin/HEAD points at", async () => {
+		const remote = recordingRunner(
+			new Map([["symbolic-ref --quiet --short refs/remotes/origin/HEAD", { stdout: "origin/trunk\n" }]]),
+		);
+		expect(await defaultBranch(remote.run, "/repo")).toBe("trunk");
+	});
+
+	test("falls back to the local main, then master, when no remote names a default", async () => {
+		const main = recordingRunner(
+			new Map([
+				["symbolic-ref --quiet --short refs/remotes/origin/HEAD", { code: 128 }],
+				["rev-parse --verify --quiet refs/heads/main", { stdout: "abc\n" }],
+			]),
+		);
+		expect(await defaultBranch(main.run, "/repo", { fallback: true })).toBe("main");
+
+		const master = recordingRunner(
+			new Map([
+				["symbolic-ref --quiet --short refs/remotes/origin/HEAD", { code: 128 }],
+				["rev-parse --verify --quiet refs/heads/main", { code: 128 }],
+				["rev-parse --verify --quiet refs/heads/master", { stdout: "abc\n" }],
+			]),
+		);
+		expect(await defaultBranch(master.run, "/repo", { fallback: true })).toBe("master");
+	});
+
+	test("is undefined without a remote or the fallback, so a caller that needs one asks", async () => {
+		const none = recordingRunner(
+			new Map([
+				["symbolic-ref --quiet --short refs/remotes/origin/HEAD", { code: 128 }],
+				["rev-parse --verify --quiet refs/heads/main", { stdout: "abc\n" }],
+			]),
+		);
+		expect(await defaultBranch(none.run, "/repo")).toBeUndefined();
 	});
 });

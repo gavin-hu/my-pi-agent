@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, realpathSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { realPathOfNearest } from "../../lib/path.ts";
+import { createExecRunner, defaultBranch } from "../../lib/git/index.ts";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
@@ -24,7 +25,6 @@ import {
 	branchExists,
 	checkCheckout,
 	commitsAhead,
-	defaultBranch,
 	fetchPrRef,
 	fetchStale,
 	isIgnored,
@@ -555,7 +555,7 @@ describe.skipIf(!runSlowSuites)("base ref and remote", () => {
 		repo = temps.track(made.repo);
 		const remote = temps.track(made.remote);
 
-		expect(await defaultBranch(pi, repo)).toBe("main");
+		expect(await defaultBranch(createExecRunner(pi), repo)).toBe("main");
 		const base = await resolveBaseRef(pi, repo, testConfig());
 		expect(base).toEqual({ ref: "origin/main", mode: "fresh" });
 		expect(await resolveBaseRef(pi, repo, testConfig({ baseRef: "head" }))).toEqual({ ref: "HEAD", mode: "head" });

@@ -9,6 +9,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { resolve } from "node:path";
 import type { ArtifactProof } from "../../lib/board/artifact.ts";
 import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/board/lead.ts";
@@ -40,7 +41,7 @@ export function registerCommands(
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
 		description:
-			"Open the shared board in a local browser, sign its two gates as the person, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--override <why>]]",
+			"Open the shared board in a local browser, sign its two gates as the person, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
 		getArgumentCompletions: (prefix: string) => {
 			// Lowercased, because that is what the handler parses: `/board ST 4` signs, so `/board ST`
 			// has to complete.
@@ -168,7 +169,7 @@ async function signLine(
 	notify: Notify | undefined,
 	verify?: VerifyRun,
 ): Promise<SignLine> {
-	const { id: rawCard, override } = signWords(words);
+	const { id: rawCard, override, root, rootError } = signWords(words);
 	/**
 	 * The run a spot-check records, or the sentence that stops it.
 	 *
@@ -179,6 +180,7 @@ async function signLine(
 		store: BoardStore,
 		cardId: string,
 		override: string | undefined,
+		root: string | undefined,
 	): Promise<{ verified: Verification } | { error: string } | undefined> => {
 		const card = await store.read(cardId).catch(() => undefined);
 		if (card === undefined) return undefined;
@@ -190,19 +192,23 @@ async function signLine(
 			actor: personActor(),
 			lead: store.config().lead,
 			override,
-			// The tree this session is working in, as the tool's door reads it: the worktree it entered when
-			// there is one, and `ctx.cwd` otherwise, which never follows `worktree enter` by itself.
-			cwd: resolveEffectiveCwd(ctx.cwd),
+			// The tree the review names, or the session's own: `--root` is the card's worktree (or a checkout
+			// at its commit) when the signer is not in it.
+			cwd: root === undefined ? resolveEffectiveCwd(ctx.cwd) : resolve(resolveEffectiveCwd(ctx.cwd), root),
 			run: verify ?? module.defaultVerifyRun(),
 			now: () => session.now(),
 			tree: module.treeOf(pi),
 		});
 	};
+	if (rootError !== undefined) return { text: `board: ${rootError}`, tone: "info" };
 	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
 	if (id === undefined) return { text: `board: ${sign} needs a card id — try /board ${sign} 4`, tone: "info" };
 	// Two signs, one flag: an approval is a contract read, and nothing about a close belongs on it.
 	if (override !== undefined && sign === "approve") {
 		return { text: "board: approve takes no --override — a contract is approved while it is in plan", tone: "info" };
+	}
+	if (root !== undefined && sign === "approve") {
+		return { text: "board: approve takes no --root — a contract is approved in plan", tone: "info" };
 	}
 	// The store is a repository read and a file write, and a command has nowhere else to report
 	// what they throw: without this the person sees a raw command error instead of a line.
@@ -218,7 +224,7 @@ async function signLine(
 		const artifact = proof === undefined ? undefined : await proof.provedPlan(session, ctx.cwd, store, id);
 		// The run rides the sign here too: this door is the person's, so it executes the command the
 		// contract names exactly as the tool's does, through the one body both doors share.
-		const evidence = sign === "review" ? await verifiedFor(store, id, override) : undefined;
+		const evidence = sign === "review" ? await verifiedFor(store, id, override, root) : undefined;
 		if (evidence !== undefined && "error" in evidence) return { text: `board: ${evidence.error}`, tone: "info" };
 		result = await store.mutate(id, signOp(sign, override, artifact, evidence?.verified), personActor(), session.now());
 	} catch (error) {
@@ -276,20 +282,36 @@ function signOp(
 /** The flag that turns a `review` into the close a gate was not asked for. */
 const OVERRIDE_FLAG = "--override";
 
+/** The flag that names the tree a `review` runs in. */
+const ROOT_FLAG = "--root";
+
 /**
- * A sign's words: the card it names, and the reason the rest of the line gives.
+ * A sign's words: the card it names, the tree a review runs in, and the reason the rest of the line
+ * gives.
  *
- * `review 4 --override closed on my instruction` — the reason is everything after the flag,
- * unquoted, so a sentence with spaces in it is one argument rather than a quoting rule
- * nobody remembers. A flag with nothing after it arrives as the empty string rather than as
- * no flag at all, so the refusal is the state machine's "needs the one line saying why".
+ * `review 4 --root /path/to/card --override closed on my instruction` — the reason is everything
+ * after the override flag, unquoted, so a sentence with spaces in it is one argument rather than a
+ * quoting rule nobody remembers. `--root` must come before `--override` for the same reason: the
+ * override owns the rest of the line. A flag with nothing after it is refused rather than silently
+ * falling back to the session's tree.
  */
-function signWords(words: readonly string[]): { id: string | undefined; override: string | undefined } {
-	const at = words.findIndex((word) => word.toLowerCase() === OVERRIDE_FLAG);
-	const named = at === -1 ? words : words.slice(0, at);
+function signWords(words: readonly string[]): {
+	id: string | undefined;
+	override: string | undefined;
+	root: string | undefined;
+	rootError: string | undefined;
+} {
+	const lower = (word: string): string => word.toLowerCase();
+	const overrideAt = words.findIndex((word) => lower(word) === OVERRIDE_FLAG);
+	const beforeOverride = overrideAt === -1 ? words : words.slice(0, overrideAt);
+	const rootAt = beforeOverride.findIndex((word) => lower(word) === ROOT_FLAG);
+	const root = rootAt === -1 ? undefined : beforeOverride[rootAt + 1];
+	const named = rootAt === -1 ? beforeOverride : beforeOverride.slice(0, rootAt);
 	return {
 		id: named[0] === undefined ? undefined : named[0].toLowerCase(),
-		override: at === -1 ? undefined : words.slice(at + 1).join(" "),
+		override: overrideAt === -1 ? undefined : words.slice(overrideAt + 1).join(" "),
+		root,
+		rootError: rootAt !== -1 && root === undefined ? "review --root needs a tree" : undefined,
 	};
 }
 
