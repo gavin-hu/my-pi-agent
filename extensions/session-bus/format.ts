@@ -6,7 +6,7 @@
  */
 
 import { formatAge, sanitizeLine } from "../../lib/format.ts";
-import type { DropResult, BusMessage, ClaimConflict, ClaimRecord, SessionStatus, UnaccountedMessage } from "./types.ts";
+import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
 /**
  * The last few characters of a peer's id, as the transcript shows it.
  *
@@ -58,7 +58,7 @@ export function formatStatus(status: SessionStatus, now: number): string {
 	const alerts = status.watching ? [`Alerts: inbox watch on${status.watching.wake ? " (wake)" : ""}`] : [];
 	// Mail no record accounts for has no session row to sit under, so it is named once, under the
 	// sessions it is missing from. A bus where every message has a record draws nothing here.
-	const unaccounted = unaccountedLines(status.unaccounted ?? [], now);
+	const unaccounted = status.unaccounted ? unaccountedLines(status.unaccounted, now) : [];
 	return [
 		`Sessions (${status.sessions.length})`,
 		...(sessions.length > 0 ? sessions : ["- none"]),
@@ -86,19 +86,23 @@ const UNACCOUNTED_PREVIEW = 60;
  * and an id clipped to its tail is one a person cannot type. The body is clipped, because this is a
  * status listing and not a read — `session inbox` never does the same, and cannot here either:
  * there is no record whose inbox this mail is.
+ *
+ * The headline's number is the page's, which counts files: a file this build cannot parse is kept
+ * by the TTL and counts there, so a bus holding one reads as one more than the lines it names. It is
+ * still the number a person acts on, because the file's own name holds the id a drop takes.
  */
-export function unaccountedLines(messages: readonly UnaccountedMessage[], now: number): string[] {
-	if (messages.length === 0) return [];
+export function unaccountedLines(page: UnaccountedPage, now: number): string[] {
+	if (page.count === 0) return [];
 	const lines = [
-		`Unaccounted (${messages.length}): mail for a record the bus no longer holds \u2014 \`/sessions drop <id>\` clears one`,
+		`Unaccounted (${page.count}): mail for a record the bus no longer holds \u2014 \`/sessions drop <id>\` clears one`,
 	];
-	for (const { message, at } of messages.slice(0, UNACCOUNTED_LINES)) {
+	for (const { message, at } of page.messages.slice(0, UNACCOUNTED_LINES)) {
 		const preview = clipText(sanitizeLine(message.text), UNACCOUNTED_PREVIEW);
 		lines.push(
 			`- ${sanitizeLine(message.id)} \u00b7 ${sanitizeLine(message.fromLabel)} \u00b7 ${sanitizeLine(message.kind)} \u00b7 ${formatAge(now, at)} \u00b7 ${preview}`,
 		);
 	}
-	const rest = messages.length - UNACCOUNTED_LINES;
+	const rest = page.count - Math.min(page.messages.length, UNACCOUNTED_LINES);
 	if (rest > 0) lines.push(`- and ${rest} more`);
 	return lines;
 }
@@ -109,9 +113,9 @@ export function unaccountedLines(messages: readonly UnaccountedMessage[], now: n
  * The command with no ids drops nothing, so it prints what a drop could name: one wording for what
  * the status shows and what the door shows, which is how the two cannot describe one bus apart.
  */
-export function formatUnaccounted(messages: readonly UnaccountedMessage[], now: number): string {
-	if (messages.length === 0) return "No unaccounted mail: every message on this bus has a record.";
-	return unaccountedLines(messages, now).join("\n");
+export function formatUnaccounted(page: UnaccountedPage | undefined, now: number): string {
+	if (!page || page.count === 0) return "No unaccounted mail: every message on this bus has a record.";
+	return unaccountedLines(page, now).join("\n");
 }
 
 /**

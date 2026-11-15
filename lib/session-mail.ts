@@ -224,6 +224,21 @@ export interface UnaccountedMessage {
 }
 
 /**
+ * One read of the mail no record holds: the messages a reader draws, and how many files there are.
+ *
+ * `count` is every message file in those inboxes, whether or not this build can read it: a file
+ * that does not parse counts here and is not among `messages`, so a page's number can exceed what
+ * it names. That is the honest number for the door that clears it — `/sessions drop` addresses a
+ * file by the id in its name — and it is the number a poll can answer without opening anything.
+ */
+export interface UnaccountedPage {
+	/** Oldest first; empty when the caller asked for the count alone. */
+	messages: UnaccountedMessage[];
+	/** Every message file in the inboxes no record holds. */
+	count: number;
+}
+
+/**
  * The mail on one repository's bus that no session record accounts for, oldest first.
  *
  * A message names its recipient by session id, and an inbox belongs to that id alone — but the id
@@ -236,13 +251,31 @@ export interface UnaccountedMessage {
  * (`storedName`), so the answer is the inboxes no record names: those files are read, and a
  * bus where every record is still on disk costs one directory read. A file this build
  * cannot parse is skipped, the way the queue above skips it.
+ *
+ * `bodies: false` is the board's read. It draws a number once a second, so it pays one directory
+ * read per inbox nobody holds and opens no file; the default read names the mail, and pays a read
+ * and a parse of each file to do it.
  */
-export async function unaccountedMail(busDir: string, held: ReadonlySet<string>): Promise<UnaccountedMessage[]> {
+export async function unaccountedMail(
+	busDir: string,
+	held: ReadonlySet<string>,
+	options: { bodies?: boolean } = {},
+): Promise<UnaccountedPage> {
 	const claimed = new Set([...held].map(storedName));
+	const unheld = (await inboxDirs(busDir)).filter((dir) => !claimed.has(basename(dir)));
+	if (options.bodies === false) {
+		let count = 0;
+		for (const dir of unheld) {
+			const names = await readdir(dir).catch(() => [] as string[]);
+			count += names.filter((name) => name.endsWith(MESSAGE_SUFFIX)).length;
+		}
+		return { messages: [], count };
+	}
 	const found: UnaccountedMessage[] = [];
-	for (const dir of await inboxDirs(busDir)) {
-		if (claimed.has(basename(dir))) continue;
+	let count = 0;
+	for (const dir of unheld) {
 		for (const { name, at } of await listArrivals(dir)) {
+			count += 1;
 			let parsed: unknown;
 			try {
 				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));
@@ -254,5 +287,5 @@ export async function unaccountedMail(busDir: string, held: ReadonlySet<string>)
 		}
 	}
 	// Oldest first, so the message that has waited longest is the one a reader meets first.
-	return found.sort((a, b) => a.at - b.at || a.message.id.localeCompare(b.message.id));
+	return { messages: found.sort((a, b) => a.at - b.at || a.message.id.localeCompare(b.message.id)), count };
 }

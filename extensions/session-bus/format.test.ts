@@ -22,7 +22,12 @@ import {
 	unaccountedLines,
 } from "./format.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
-import type { BusMessage, ClaimRecord, SessionRecord, UnaccountedMessage } from "./types.ts";
+import type { BusMessage, ClaimRecord, SessionRecord, UnaccountedMessage, UnaccountedPage } from "./types.ts";
+
+/** One page of the mail no record holds, counted the way the file walk counts it. */
+function page(messages: UnaccountedMessage[], count = messages.length): UnaccountedPage {
+	return { messages, count };
+}
 
 /** The clock the ages below are read with: pinned, so `3h` is a fact about two numbers. */
 const NOW = 1_760_000_000_000;
@@ -98,7 +103,7 @@ describe("status", () => {
 	});
 
 	test("names the unread mail no record carries, under the sessions it is missing from", () => {
-		const out = statusAt({ ...busStatus([session()]), unaccounted: [unaccounted()] });
+		const out = statusAt({ ...busStatus([session()]), unaccounted: page([unaccounted()]) });
 		// One section, above the claims: the mail has no session row to sit under, so it is named once.
 		expect(out).toContain("Unaccounted (1): mail for a record the bus no longer holds");
 		expect(out).toContain("- 100-a · frontend · message · 3h · contract v2");
@@ -107,7 +112,7 @@ describe("status", () => {
 
 	test("names the id whole, because the id is what the door takes, and clips only the body", () => {
 		const long = message({ id: "1794547913406-450281a3", text: `first line\n${"x".repeat(200)}` });
-		const lines = unaccountedLines([{ message: long, at: NOW }], NOW);
+		const lines = unaccountedLines(page([{ message: long, at: NOW }]), NOW);
 		// A body is a message, not a listing row: the preview is one clipped line, while the id a person
 		// has to type is printed in full.
 		expect(lines).toHaveLength(2);
@@ -120,14 +125,23 @@ describe("status", () => {
 		const many = Array.from({ length: UNACCOUNTED_LINES + 3 }, (_, index) =>
 			unaccounted({ message: message({ id: `100-${index}` }), at: NOW }),
 		);
-		const lines = unaccountedLines(many, NOW);
+		const lines = unaccountedLines(page(many), NOW);
 		expect(lines).toHaveLength(UNACCOUNTED_LINES + 2);
 		expect(lines.at(-1)).toBe("- and 3 more");
 	});
 
+	test("counts the files it could not name, so the number is the one a drop acts on", () => {
+		// The count is the page's, not the rows': a file this build cannot parse is still a file no
+		// record holds, and its own name holds the id `/sessions drop` takes.
+		const lines = unaccountedLines(page([unaccounted()], 2), NOW);
+		expect(lines[0]).toContain("Unaccounted (2)");
+		expect(lines.at(-1)).toBe("- and 1 more");
+	});
+
 	test("draws no line when every message has a record", () => {
 		expect(statusAt(busStatus([session()]))).not.toContain("Unaccounted");
-		expect(formatUnaccounted([], NOW)).toBe("No unaccounted mail: every message on this bus has a record.");
+		expect(formatUnaccounted(undefined, NOW)).toBe("No unaccounted mail: every message on this bus has a record.");
+		expect(formatUnaccounted(page([]), NOW)).toBe("No unaccounted mail: every message on this bus has a record.");
 	});
 
 	test("says what a drop did, per id, including the id that stayed", () => {

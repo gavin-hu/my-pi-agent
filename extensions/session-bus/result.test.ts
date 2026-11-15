@@ -35,9 +35,12 @@ describe("the expanded result block", () => {
 			action: "status",
 			status: {
 				...busStatus([busSession()]),
-				unaccounted: [
-					{ message: busMessage({ id: "1794547913406-450281a3", text: "can you take the roster card?" }), at: 9_500 },
-				],
+				unaccounted: {
+					messages: [
+						{ message: busMessage({ id: "1794547913406-450281a3", text: "can you take the roster card?" }), at: 9_500 },
+					],
+					count: 1,
+				},
 			},
 		});
 		if (!input) throw new Error("no sections");
@@ -51,7 +54,10 @@ describe("the expanded result block", () => {
 	});
 
 	test("the collapsed status counts unaccounted mail beside the unread it is not part of", () => {
-		const status = { ...busStatus([busSession()]), unaccounted: [{ message: busMessage(), at: 9_500 }] };
+		const status = {
+			...busStatus([busSession()]),
+			unaccounted: { messages: [{ message: busMessage(), at: 9_500 }], count: 1 },
+		};
 		const line = collapsedLine(fakeTheme, { action: "status", status });
 		expect(line).toContain("1 unaccounted");
 	});

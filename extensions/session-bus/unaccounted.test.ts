@@ -95,8 +95,9 @@ describe("the status naming the mail", () => {
 		const { bus } = await harness(dir);
 		await land(dir, "s-gone");
 		const status = await bus.status();
-		expect(status.unaccounted?.map((entry) => entry.message.id)).toEqual([ORPHAN]);
-		const [entry] = status.unaccounted ?? [];
+		expect(status.unaccounted?.messages.map((entry) => entry.message.id)).toEqual([ORPHAN]);
+		expect(status.unaccounted?.count).toBe(1);
+		const [entry] = status.unaccounted?.messages ?? [];
 		expect(entry?.message.fromLabel).toBe("gavin");
 		expect(entry?.message.kind).toBe("ask");
 		expect(entry?.message.text).toBe("can you take the roster card?");
@@ -109,6 +110,17 @@ describe("the status naming the mail", () => {
 		await land(dir, "s-live");
 		// A record holds it, so it is that session's unread mail and not the bus's unaccounted mail.
 		expect((await bus.status()).unaccounted).toBeUndefined();
+		await bus.stop();
+	});
+
+	test("answers the board with the count alone, since its poll draws no body", async () => {
+		const dir = scratchDir(temps, "pi-session-bus-");
+		const { bus } = await harness(dir);
+		await land(dir, "s-gone");
+		// `snapshot` is what the board's one-second poll reads: the number it shows, and none of the
+		// files behind it. The status read is the one that opens them and names them.
+		expect((await bus.snapshot()).unaccounted).toEqual({ messages: [], count: 1 });
+		expect((await bus.status()).unaccounted?.messages.map((entry) => entry.message.id)).toEqual([ORPHAN]);
 		await bus.stop();
 	});
 });
@@ -153,7 +165,7 @@ describe("the store's drop", () => {
 		await land(dir, "s-gone");
 		// The listing said nobody holds it; between that read and the drop, the id is on the bus again.
 		// The attribution is read here rather than by the caller for exactly this window.
-		expect((await bus.status()).unaccounted).toHaveLength(1);
+		expect((await bus.status()).unaccounted?.count).toBe(1);
 		await createBusStore({ dir }).writeSession({
 			id: "s-gone",
 			label: "tina",
@@ -187,7 +199,7 @@ describe("the tool's side", () => {
 		const result = await tool.execute("call", { action: "status" }, undefined, undefined, ctx);
 		expect(result.content[0]?.text).toContain("Unaccounted (1)");
 		expect(result.content[0]?.text).toContain(`- ${ORPHAN} · gavin · ask`);
-		expect(result.details.status.unaccounted).toHaveLength(1);
+		expect(result.details.status.unaccounted?.count).toBe(1);
 		await bus.stop();
 	});
 
@@ -199,7 +211,7 @@ describe("the tool's side", () => {
 		expect(result.isError).toBe(true);
 		expect(result.content[0]?.text).toContain('unknown action "drop"');
 		// The command is the only door: nothing reached through the tool touched the file.
-		expect((await bus.status()).unaccounted).toHaveLength(1);
+		expect((await bus.status()).unaccounted?.count).toBe(1);
 		await bus.stop();
 	});
 });
@@ -215,7 +227,7 @@ describe("the command's drop", () => {
 		// Named whole, because the id is the word a person types back.
 		expect(said).toContain(ORPHAN);
 		expect(said).toContain("gavin · ask");
-		expect((await bus.status()).unaccounted).toHaveLength(1);
+		expect((await bus.status()).unaccounted?.count).toBe(1);
 		await bus.stop();
 	});
 
@@ -250,7 +262,7 @@ describe("the command's drop", () => {
 		// Outside the TUI there is no board to mount, so a stray word prints the listing — and it
 		// drops nothing, which is the compatibility this command owes its one old act.
 		expect(notices.at(-1)?.message).toContain("Sessions (1)");
-		expect((await bus.status()).unaccounted).toHaveLength(1);
+		expect((await bus.status()).unaccounted?.count).toBe(1);
 		await bus.stop();
 	});
 });

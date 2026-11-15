@@ -36,7 +36,7 @@ describe("session tool", () => {
 			at: 1_760_000_000_000,
 		});
 		const withOrphan = await frontend.tool.execute("call", { action: "status" }, undefined, undefined, frontend.ctx);
-		expect(withOrphan.details.status.unaccounted).toHaveLength(1);
+		expect(withOrphan.details.status.unaccounted?.count).toBe(1);
 		expect(withOrphan.content[0]?.text).toContain("Unaccounted (1)");
 		await frontend.bus.stop();
 		await backend.bus.stop();

@@ -127,7 +127,7 @@ async function dropUnaccounted(ctx: ExtensionCommandContext, bus: SessionBus, id
 		await bus.start(ctx);
 		if (ids.length === 0) {
 			const status = await bus.status();
-			ctx.ui.notify(formatUnaccounted(status.unaccounted ?? [], Date.now()), "info");
+			ctx.ui.notify(formatUnaccounted(status.unaccounted, Date.now()), "info");
 			return;
 		}
 		const result = await bus.dropUnaccounted(ids);
