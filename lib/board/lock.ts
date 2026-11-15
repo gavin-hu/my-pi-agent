@@ -17,6 +17,12 @@
  * window — it is taken over rather than waited on, and only the holder's own token lets it
  * release a file.
  *
+ * Neither removal here is a plain unlink. A stat and a removal are two instants, and so are a
+ * read and a removal: by the second one, the name may hold a rival's fresh file instead of the one
+ * that was judged, and removing it frees the board for two writers at once. So both the takeover
+ * and the release remove through `removeIfProven`, which proves the file it moved aside — the one
+ * that was really there — and puts a fresh rival's back.
+ *
  * Three things this lock is deliberately not. `create` takes none: it allocates an id nobody
  * has used and reads directory names, so it cannot break a board-wide rule, and an add landing
  * beside a claim is the one pair that is free. Reads take none: a snapshot is a read, and the
@@ -26,9 +32,18 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
+
+/**
+ * The proven removal, loaded with the first one that happens.
+ *
+ * A lock is taken and given back inside a write, and nothing a reveal needs; keeping it off the
+ * registration path is what `test/dependencies.test.ts` holds every entry to, and the module cache
+ * makes the ask after the first one free.
+ */
+const provenance = () => import("./proven-remove.ts");
 
 /** How long one acquisition waits for a live holder before answering nothing. */
 export const LOCK_WAIT_MS = 100;
@@ -79,6 +94,13 @@ export interface LockOptions {
 	 * module reads that a suite could not otherwise reach. The product supplies nothing.
 	 */
 	create?: CreateLock;
+	/**
+	 * A suite's seam: runs after the age check answered and before the abandoned lock is removed,
+	 * which is the one window a case cannot otherwise reach. A rival's create fires before the
+	 * check, so a lock written from that seam is never stale; the window opens only once the stat
+	 * has been made and the name may already be somebody else's file.
+	 */
+	beforeTakeOver?: (path: string) => Promise<void>;
 }
 
 /** The exclusive create one acquisition makes at the lock's name. */
@@ -118,10 +140,15 @@ export async function lockBoard(dir: string, options: LockOptions = {}): Promise
 		// cleared so that the next create — the decision — can be made again.
 		if (takeovers < TAKEOVERS && (await abandoned(path, now, staleMs))) {
 			takeovers += 1;
-			// The read above narrows the window to one stat: this removal takes whatever is at
-			// the path by now, so a rival that replaced the file in between loses the record it
-			// just wrote — and the next create decides again, so it is not handed to nobody.
-			await rm(path, { force: true });
+			await options.beforeTakeOver?.(path);
+			// The stat above and this removal are two instants, and the file at the name by the
+			// second one may be the fresh lock these two calls were racing to write. Removing it
+			// is how both writers entered: the loser's create then succeeded on the name the
+			// winner had just taken, and neither learned that the other was in. So the removal
+			// proves the age rule again on the copy it moved aside — a fresh lock goes back, and
+			// the create that follows is what decides between this call and that rival.
+			const { removeIfProven } = await provenance();
+			await removeIfProven(path, (moved) => abandoned(moved, now, staleMs));
 			continue;
 		}
 		if (now() >= deadline) return undefined;
@@ -159,7 +186,11 @@ async function abandoned(path: string, now: () => number, staleMs: number): Prom
 async function clearLock(path: string, token: string): Promise<void> {
 	const raw = await readFile(path, "utf-8").catch(() => undefined);
 	if (raw === undefined || tokenOf(raw) !== token) return;
-	await rm(path, { force: true });
+	// A read and an unlink are two instants, and a takeover that landed between them would lose
+	// the lock it had just written — leaving two writers holding it. So the file is moved aside
+	// and the token asked again on the copy that was really there, which is one instant.
+	const { removeIfProven } = await provenance();
+	await removeIfProven(path, async (moved) => tokenOf(await readFile(moved, "utf-8").catch(() => "")) === token);
 }
 
 /** The token a lock file carries, or nothing when it is unreadable or not a lock. */
