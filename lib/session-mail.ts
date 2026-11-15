@@ -14,7 +14,7 @@
  * session shares — so the queue is ordered by arrival, and the file name settles a
  * tie that one filesystem tick produced.
  *
- * **Waiting is a read, never a take.** {@link waitingMail} looks at every inbox and
+ * **Waiting is a read, never a take.** {@link readMailLedger} looks at every inbox and
  * removes nothing: an inbox is its owner's to consume, and a page that deleted what
  * it drew would eat the mail it was describing.
  */
@@ -151,7 +151,7 @@ export interface Arrival {
  * a stat that fails drops the file rather than failing the page. Two files that landed in
  * one filesystem tick tie on the mtime, and the name settles it so the page is stable.
  *
- * The stamp is handed out rather than kept, because a queue read needs it: `waitingMail` draws the
+ * The stamp is handed out rather than kept, because a queue read needs it: the ledger draws the
  * age of every message and used to stat each file a second time for the one number this pass had
  * already read.
  */
@@ -347,19 +347,13 @@ export function untoldIn(ledger: MailLedger, id: string): number {
 }
 
 /**
- * Every message waiting on one repository's bus, oldest first, at most `limit` of them —
- * with a count of what the cap left out, so a busy queue cannot read like a quiet one.
+ * One page of a ledger's queue: the oldest `limit` of it, and how many that left behind.
  *
  * A broadcast lands as one file per recipient, so the files that share an id are one
  * message waiting on several people and are drawn once, with every recipient it waits for —
  * folded by session id, because the name it was addressed by may have been taken since.
  * The age is the first copy's: the moment the message became somebody's to read.
  */
-export async function waitingMail(busDir: string, limit = WAITING_LIMIT): Promise<WaitingPage> {
-	return pageOf(await readMailLedger(busDir, []), limit);
-}
-
-/** One page of a ledger's queue: the oldest `limit` of it, and how many that left behind. */
 export function pageOf(ledger: MailLedger, limit = WAITING_LIMIT): WaitingPage {
 	const messages = ledger.messages.slice(0, Math.max(0, limit));
 	return { messages, dropped: ledger.messages.length - messages.length };

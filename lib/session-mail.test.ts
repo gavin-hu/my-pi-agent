@@ -12,11 +12,11 @@ import {
 	pageOf,
 	readMailLedger,
 	type MailRecord,
+	type WaitingPage,
 	unaccountedMail,
 	unaccountedOf,
 	untoldIn,
 	WAITING_LIMIT,
-	waitingMail,
 } from "./session-mail.ts";
 
 const temps = makeTempTracker();
@@ -45,12 +45,16 @@ function land(busDir: string, inbox: string, message: Partial<BusMessage> & { id
 
 const busDir = (): string => scratchDir(temps, "pi-session-mail-");
 
+/** The page a caller draws from one read of the bus: the projection every surface uses. */
+const queuePage = async (dir: string, limit?: number): Promise<WaitingPage> =>
+	pageOf(await readMailLedger(dir, []), limit);
+
 describe("the waiting queue", () => {
 	test("is empty where no bus has ever written, and where only records exist", async () => {
 		const dir = busDir();
-		expect((await waitingMail(dir)).messages).toEqual([]);
+		expect((await queuePage(dir)).messages).toEqual([]);
 		mkdirSync(join(dir, INBOX_DIR_NAME), { recursive: true });
-		expect((await waitingMail(dir)).messages).toEqual([]);
+		expect((await queuePage(dir)).messages).toEqual([]);
 	});
 
 	test("reads the front of the queue first, by when it landed", async () => {
@@ -58,7 +62,7 @@ describe("the waiting queue", () => {
 		land(dir, "hash-a", { id: "m-2" }, NOW + 2_000);
 		land(dir, "hash-a", { id: "m-1" }, NOW + 1_000);
 		land(dir, "hash-b", { id: "m-3" }, NOW + 3_000);
-		expect((await waitingMail(dir)).messages.map((row) => row.id)).toEqual(["m-1", "m-2", "m-3"]);
+		expect((await queuePage(dir)).messages.map((row) => row.id)).toEqual(["m-1", "m-2", "m-3"]);
 	});
 
 	test("orders by arrival, not by the sender's own clock", async () => {
@@ -67,7 +71,7 @@ describe("the waiting queue", () => {
 		// the queue is the inbox's clock, so it is read last.
 		land(dir, "hash-a", { id: "m-ahead", at: NOW + 86_400_000 }, NOW + 1_000);
 		land(dir, "hash-a", { id: "m-late-stamp", at: 1 }, NOW + 2_000);
-		expect((await waitingMail(dir)).messages.map((row) => row.id)).toEqual(["m-ahead", "m-late-stamp"]);
+		expect((await queuePage(dir)).messages.map((row) => row.id)).toEqual(["m-ahead", "m-late-stamp"]);
 	});
 
 	test("draws a broadcast once, naming every recipient it waits for", async () => {
@@ -75,7 +79,7 @@ describe("the waiting queue", () => {
 		land(dir, "hash-a", { id: "m-all", kind: "event", to: "s-2", toLabel: "billing-core" }, NOW);
 		land(dir, "hash-b", { id: "m-all", kind: "event", to: "s-3", toLabel: "ops-helper" }, NOW);
 		land(dir, "hash-c", { id: "m-all", kind: "event", to: "s-4", toLabel: "team-lead" }, NOW);
-		const page = await waitingMail(dir);
+		const page = await queuePage(dir);
 		expect(page.messages).toHaveLength(1);
 		expect(page.messages[0]?.to).toEqual([
 			{ id: "s-2", label: "billing-core" },
@@ -93,7 +97,7 @@ describe("the waiting queue", () => {
 		// One session's message reached two inboxes, which is one recipient twice over.
 		land(dir, "hash-a", { id: "m-twice", kind: "event", to: "s-5", toLabel: "ops-helper" }, NOW + 1_000);
 		land(dir, "hash-b", { id: "m-twice", kind: "event", to: "s-5", toLabel: "ops-helper" }, NOW + 1_000);
-		const page = await waitingMail(dir);
+		const page = await queuePage(dir);
 		expect(page.messages.map((row) => row.to)).toEqual([
 			[
 				{ id: "s-2", label: "billing-core" },
@@ -108,14 +112,14 @@ describe("the waiting queue", () => {
 		for (let index = 0; index < WAITING_LIMIT + 3; index++) {
 			land(dir, "hash-a", { id: `m-${String(index).padStart(2, "0")}` }, NOW + index * 1_000);
 		}
-		const page = await waitingMail(dir);
+		const page = await queuePage(dir);
 		expect(page.messages).toHaveLength(WAITING_LIMIT);
 		expect(page.messages[0]?.id).toBe("m-00");
 		// What the cap left out is counted, so a queue read to the bottom cannot look quiet.
 		expect(page.dropped).toBe(3);
 		// A caller decides its own cap; the default is only the page's.
-		expect((await waitingMail(dir, 2)).messages).toHaveLength(2);
-		expect(await waitingMail(dir, 0)).toEqual({ messages: [], dropped: WAITING_LIMIT + 3 });
+		expect((await queuePage(dir, 2)).messages).toHaveLength(2);
+		expect(await queuePage(dir, 0)).toEqual({ messages: [], dropped: WAITING_LIMIT + 3 });
 	});
 
 	test("skips a file that will not parse or is not a message, and keeps the queue behind it", async () => {
@@ -126,7 +130,7 @@ describe("the waiting queue", () => {
 		writeFileSync(join(inbox, "half.json"), JSON.stringify({ id: "m-half", from: "s-1" }), "utf-8");
 		writeFileSync(join(inbox, "notes.txt"), "not mail\n", "utf-8");
 		land(dir, "hash-a", { id: "m-1" }, NOW);
-		expect((await waitingMail(dir)).messages.map((row) => row.id)).toEqual(["m-1"]);
+		expect((await queuePage(dir)).messages.map((row) => row.id)).toEqual(["m-1"]);
 	});
 
 	test("never consumes: every file is byte-identical after a read", async () => {
@@ -134,15 +138,15 @@ describe("the waiting queue", () => {
 		land(dir, "hash-a", { id: "m-1" }, NOW);
 		land(dir, "hash-b", { id: "m-all", kind: "event" }, NOW);
 		const before = inboxSnapshot(dir);
-		await waitingMail(dir);
-		await waitingMail(dir, 1);
+		await queuePage(dir);
+		await queuePage(dir, 1);
 		expect(inboxSnapshot(dir)).toEqual(before);
 	});
 
 	test("carries the text whole, because a row shows a title and the hover says the rest", async () => {
 		const dir = busDir();
 		land(dir, "hash-a", { id: "m-1", text: "the gateway owner is on holiday; take the webhook drift card" }, NOW);
-		expect((await waitingMail(dir)).messages[0]?.text).toBe(
+		expect((await queuePage(dir)).messages[0]?.text).toBe(
 			"the gateway owner is on holiday; take the webhook drift card",
 		);
 	});

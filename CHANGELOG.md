@@ -28,8 +28,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - `session-bus`: a heartbeat ends expired mail in its own inbox and in the inboxes no record holds,
-  instead of sweeping every peer's inbox on every tick; a stopped session's mail ends when its record
-  ages out, at most ten minutes past its last heartbeat.
+  instead of sweeping every peer's inbox on every tick; a stopped session's inbox is swept once its
+  record ages out, and each file in it still ends at its own TTL.
 
 - `session-bus`, `board`: the teammates' mail counts, the Team tab's queue and `session status` come from
   one read of the bus, so a chip, a row and the queue cannot count one inbox differently. A file the build
