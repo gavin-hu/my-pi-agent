@@ -16,15 +16,12 @@ import { GLYPHS, GLYPH_GAP, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { listRow, statusRow } from "../../lib/tui/rows.ts";
 import type { TailRowLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { clipText, idSuffix } from "./format.ts";
+import { clipText, idSuffix, UNACCOUNTED_PREVIEW } from "./format.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus, UnaccountedMessage } from "./types.ts";
 
 /** Claim paths the focus block lists before it points at the pane. */
 const BLOCK_CLAIMS = 2;
-
-/** How much of an unaccounted body one row shows: enough to recognise the mail, not a read. */
-const ORPHAN_PREVIEW = 60;
 
 /** Columns between a row's body and the trailing cell beside it. */
 const TRAILING_GAP = 2;
@@ -190,7 +187,7 @@ export const busRowLine: TailRowLine<BusRow> = (row, width, theme) => {
 				marker: false,
 				glyph: GLYPHS.warn,
 				glyphRole: "warn",
-				label: sanitizeLine(clipText(row.mail.message.text, ORPHAN_PREVIEW)),
+				label: sanitizeLine(clipText(row.mail.message.text, UNACCOUNTED_PREVIEW)),
 				labelRole: "label",
 				trailing: `${sanitizeLine(row.mail.message.id)}${SEPARATORS.item}${messageTrailing(row.mail.message)}`,
 			});

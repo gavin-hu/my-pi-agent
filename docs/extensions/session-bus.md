@@ -56,7 +56,7 @@ the bus with an optional label, `wake`, and `listen`.
 **Message kinds.** `message`, `event`, `ask`, and `handoff`. An `ask` does not
 block the sender; a `handoff` names the work it assigns. A message may carry the
 repository paths it concerns. A broadcast is one file per recipient sharing one
-message id.
+message id: `to "*"`, which is refused unless `kind` is `event`.
 
 **Mail is read, not taken, by the page.** The Team tab draws the whole bus's queue by reading
 those files and removes nothing: an inbox stays its owner's to consume. The page is loopback and
