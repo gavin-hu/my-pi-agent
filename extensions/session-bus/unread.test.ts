@@ -11,7 +11,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { storedName } from "../../lib/session-roster.ts";
+import { readRoster, storedName } from "../../lib/session-roster.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { scratchDir } from "../../test/helpers/env.ts";
 import { busToolSession as session, joinBusSession as joins } from "../../test/helpers/fixtures/session-bus-tool.ts";
@@ -136,6 +136,25 @@ describe("the mail a session has not been told about", () => {
 		await frontend.bus.stop();
 		await backend.bus.stop();
 		await resumed.bus.stop();
+	});
+
+	test("the Team tab draws the same number as session status", async () => {
+		const dir = scratchDir(temps, "pi-session-bus-");
+		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
+		const backend = session(dir, "/repo/backend", "s2", "backend");
+		await joins(frontend);
+		await joins(backend);
+		await frontend.bus.send({ to: "backend", text: "one" });
+		await frontend.bus.send({ to: "backend", text: "two" });
+		expect((await readRoster(dir))?.find((row) => row.id === "s2")?.mail).toBe(2);
+
+		await backend.bus.read(1);
+		// Two readers, one record: the page reads the file the session writes, so the counts fall
+		// together rather than one of them still counting what the other was told.
+		expect(await unreadOf(backend.bus)).toBe(1);
+		expect((await readRoster(dir))?.find((row) => row.id === "s2")?.mail).toBe(1);
+		await frontend.bus.stop();
+		await backend.bus.stop();
 	});
 
 	test("names a file it cannot read beside the count that file sits inside", async () => {

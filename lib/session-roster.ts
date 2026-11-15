@@ -57,7 +57,7 @@ export interface RosterSession {
 	mode: string;
 	/** When the session last proved it was alive. */
 	lastSeen: number;
-	/** Messages waiting in its inbox. */
+	/** Messages waiting in its inbox that the record does not say it was told about. */
 	mail: number;
 	/**
 	 * The process that owns the record, when the record names one.
@@ -213,11 +213,27 @@ export function watchingOf(value: unknown): { armed: boolean; wake: boolean } | 
 	return typeof armed === "boolean" && typeof wake === "boolean" ? { armed, wake } : undefined;
 }
 
-/** How many message files one session's inbox holds. A missing inbox is empty. */
-async function mailCount(dir: string, name: string): Promise<number> {
+/**
+ * The mail ids the record says its session was told about, read only when they are ids.
+ *
+ * A malformed cursor costs the cursor and not the row, the rule `watchingOf` follows: a page must
+ * still draw a teammate, and the most a bad field can do is count its mail as untold.
+ */
+function seenOf(value: unknown): string[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	return value.every((id): id is string => typeof id === "string") ? value : undefined;
+}
+
+/**
+ * How many files one session's inbox holds that `told` does not name. A missing inbox is empty.
+ *
+ * Counted from the names alone — a message id is its file name — so the Team tab's repaint every
+ * second stays a directory read, exactly as it was before the record carried a cursor.
+ */
+async function mailCount(dir: string, name: string, told: ReadonlySet<string>): Promise<number> {
 	try {
 		const entries = await readdir(join(dir, INBOX_DIR_NAME, name));
-		return entries.filter((name) => name.endsWith(".json")).length;
+		return entries.filter((entry) => entry.endsWith(".json") && !told.has(entry.slice(0, -".json".length))).length;
 	} catch {
 		return 0;
 	}
@@ -294,12 +310,13 @@ export async function readRoster(dir: string): Promise<RosterSession[] | undefin
 		const pid = pidOf((parsed as { pid?: unknown }).pid);
 		const rawToken = (parsed as { startToken?: unknown }).startToken;
 		const rawTurn = (parsed as { turnAt?: unknown }).turnAt;
+		const told = new Set(seenOf((parsed as { seenMail?: unknown }).seenMail) ?? []);
 		sessions.push({
 			id,
 			label,
 			mode,
 			lastSeen,
-			mail: await mailCount(dir, storedName(id)),
+			mail: await mailCount(dir, storedName(id), told),
 			...(pid === undefined ? {} : { pid }),
 			...(typeof rawToken === "string" && rawToken !== "" ? { startToken: rawToken } : {}),
 			...(typeof rawTurn === "number" && Number.isFinite(rawTurn) ? { turnAt: rawTurn } : {}),

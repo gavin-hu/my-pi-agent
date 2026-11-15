@@ -75,6 +75,42 @@ describe("readRoster", () => {
 		]);
 	});
 
+	test("counts only the mail the record does not say it was told about", async () => {
+		const dir = busDir();
+		writeSession(dir, storedName("s-1"), {
+			id: "s-1",
+			label: "billing-core",
+			mode: "tui",
+			lastSeen: NOW,
+			seenMail: ["1", "999"],
+		});
+		writeMail(dir, storedName("s-1"), "1");
+		writeMail(dir, storedName("s-1"), "2");
+		// The number the Team tab draws is the one `session status` draws: a told id is not counted,
+		// and a stale id names no file, so it takes nothing off the count.
+		expect((await readRoster(dir))?.[0]?.mail).toBe(1);
+	});
+
+	test("a malformed cursor costs the cursor, not the row", async () => {
+		const dir = busDir();
+		writeSession(dir, storedName("s-1"), {
+			id: "s-1",
+			label: "billing-core",
+			mode: "tui",
+			lastSeen: NOW,
+			seenMail: "1",
+		});
+		writeMail(dir, storedName("s-1"), "1");
+		// A page must still draw a teammate: the most a bad field can do is count its mail as untold.
+		expect((await readRoster(dir))?.[0]).toEqual({
+			id: "s-1",
+			label: "billing-core",
+			mode: "tui",
+			lastSeen: NOW,
+			mail: 1,
+		});
+	});
+
 	test("reads the process a record names, so the rule can tell who died", async () => {
 		const dir = busDir();
 		writeSession(dir, "aaa", {
