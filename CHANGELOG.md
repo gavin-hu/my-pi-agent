@@ -15,6 +15,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `check`: `--changed` selects the suites that import a helper instead of every suite. Only a path
+  that decides the selection itself still widens the run — the import walker, `preload.ts` (loaded by
+  bun for every file, imported by none), the suite manifest, and the runner's config — and
+  `scripts/test-selection.test.ts` now fails a helper no suite reaches, so a file the graph cannot
+  see is named rather than quietly selecting nothing. A one-byte edit to `test/helpers/clock.ts`
+  went from 411 files to 36 suites plus the package-level tests.
+
 - `session-bus`: a message's `sender · kind`, the paths it carries, and how long ago it was have one
   owner in the bus's `format.ts`, so the transcript rows, the notice and the board's screen print the
   same words and keep only their own frames. Three ages change with it, all coarser now that they

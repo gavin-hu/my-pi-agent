@@ -39,11 +39,27 @@ export interface Tree {
 }
 
 /**
- * A path whose change invalidates any suite: shared helpers, the suite manifest
- * itself, and the three files that decide what a test run even is. Sorting
- * these out is what keeps a selection from being quietly too narrow.
+ * The paths whose change invalidates every suite, in two kinds.
+ *
+ * A file whose content *is* the answer cannot be selected by asking the graph: the import walker,
+ * the suite manifest, and the runner's own config all decide what a selection means. And
+ * `preload.ts` is loaded by bun for every test file rather than imported by one, so no import edge
+ * reaches it at all. Every other file under `test/helpers/` is an ordinary module, and the graph
+ * selects the suites that import it — `scripts/test-selection.test.ts` fails a helper that neither
+ * matches this list nor is reached by a suite, which is how a second preload-shaped file is caught.
  */
-const SHARED = [/^test\/helpers\//, /^test\/suite-manifest\.ts$/, /^package\.json$/, /^tsconfig\.json$/, /^bun\.lock$/];
+const SELECTION_SOURCES = [
+	/^test\/helpers\/(?:graph|scan|preload)\.ts$/,
+	/^test\/suite-manifest\.ts$/,
+	/^package\.json$/,
+	/^tsconfig\.json$/,
+	/^bun\.lock$/,
+];
+
+/** Whether a path decides the selection, or applies to every suite, rather than being imported by one. */
+export function isSelectionSource(path: string): boolean {
+	return SELECTION_SOURCES.some((pattern) => pattern.test(path));
+}
 
 const EXTENSION_PATH = /^extensions\/([^/]+)\//;
 const LIB_PATH = /^lib\/([^/]+)(?:\/|$)/;
@@ -124,10 +140,12 @@ function scriptSuites(): string[] {
 /** Every declared suite, by the repo-relative files its static imports reach. */
 export function reachIndex(root: string): Map<string, string[]> {
 	const index = new Map<string, string[]>();
-	// One reader for the walk: every declared suite reaches the same shared modules, and each read
-	// is a parse, so an index costs one parse per file rather than one per entry that reaches it.
+	// One reader for the walk: every suite reaches the same shared modules, and each read is a
+	// parse, so an index costs one parse per file rather than one per entry that reaches it.
 	const read = cachedSpecifiers();
-	for (const suite of declaredSuiteFiles()) {
+	// The package-level tests are walked too: they always run, so a helper only they import is
+	// reached by a suite that runs — the fact a selection and its own net have to agree on.
+	for (const suite of [...declaredSuiteFiles(), ...tree(root).packageTests]) {
 		for (const file of staticGraph(join(root, suite), read)) {
 			const relative = relativeTo(root, file);
 			if (relative.startsWith("..")) continue;
@@ -235,9 +253,9 @@ export function selectChanged(scope: Tree, changed: readonly string[], index: Ma
 		reasons.push("no changed path > package-level tests only");
 		return selection(tests, reasons);
 	}
-	const shared = changed.filter((path) => SHARED.some((pattern) => pattern.test(path))).sort();
-	if (shared.length > 0) {
-		return selection(selectAll(scope).tests, [`shared ground: ${shared.join(", ")} > every suite`]);
+	const sources = changed.filter((path) => isSelectionSource(path)).sort();
+	if (sources.length > 0) {
+		return selection(selectAll(scope).tests, [`selection source: ${sources.join(", ")} > every suite`]);
 	}
 	const unclaimed = changed.filter(unclaimedAsset).sort();
 	if (unclaimed.length > 0) {

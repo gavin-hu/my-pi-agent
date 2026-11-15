@@ -7,7 +7,7 @@
  * to the manifest" are two different claims.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { textOf } from "../test/helpers/scan.ts";
@@ -20,6 +20,7 @@ import {
 } from "../test/suite-manifest.ts";
 import {
 	gatedAmong,
+	isSelectionSource,
 	regionOf,
 	reachIndex,
 	selectAll,
@@ -42,6 +43,15 @@ const reached = reachIndex(repo);
 
 /** A tree of two package-level tests, so a selection's `always` half is visible. */
 const fake = { root: "/repo", packageTests: ["test/a.test.ts", "test/b.test.ts"] };
+
+/** Every `.ts` file under one repo-relative directory, in posix form. */
+function helpersUnder(dir: string): string[] {
+	return readdirSync(join(repo, dir), { withFileTypes: true }).flatMap((entry) => {
+		const path = `${dir}/${entry.name}`;
+		if (entry.isDirectory()) return helpersUnder(path);
+		return entry.name.endsWith(".ts") ? [path] : [];
+	});
+}
 
 /** The suites the manifest declares for one extension. */
 const extSuites = (name: string): number => (EXTENSION_SUITES[name] ?? []).length;
@@ -151,10 +161,34 @@ describe("--changed", () => {
 		]);
 	});
 
-	test("a shared path widens the run to every suite", () => {
-		const chosen = selectChanged(fake, ["test/helpers/env.ts"], index);
+	test("a path that decides the selection widens the run to every suite", () => {
+		const chosen = selectChanged(fake, ["test/helpers/preload.ts"], index);
 		expect(chosen.tests).toEqual(selectAll(fake).tests);
-		expect(chosen.reasons).toEqual(["shared ground: test/helpers/env.ts > every suite"]);
+		expect(chosen.reasons).toEqual(["selection source: test/helpers/preload.ts > every suite"]);
+	});
+
+	test("an ordinary helper selects the suites that import it, not every suite", () => {
+		const clock = "test/helpers/clock.ts";
+		const importers = reached.get(clock) ?? [];
+		expect(importers.length).toBeGreaterThan(0);
+		const chosen = selectChanged(tree(repo), [clock], reached);
+		expect(chosen.tests.length).toBeLessThan(selectAll(tree(repo)).tests.length);
+		expect(chosen.tests).toContain(importers[0]);
+		expect(chosen.reasons).toContain(`reached by ${clock} > ${importers.length} suites`);
+	});
+
+	test("every helper is a selection source or reached by a suite, so none selects nothing", () => {
+		const orphans = helpersUnder("test/helpers").filter(
+			(path) => !isSelectionSource(path) && (reached.get(path) ?? []).length === 0,
+		);
+		// A helper loaded by path or by config is invisible to the graph, which is `preload.ts`'s
+		// shape: the net says so by name rather than letting its edit select nothing at all.
+		expect(
+			orphans.map(
+				(path) =>
+					`${path} is a helper no suite reaches, so a change to it would select nothing: import it from a suite, or name it in SELECTION_SOURCES.`,
+			),
+		).toEqual([]);
 	});
 
 	test("a clean tree runs the package-level tests, and a path no suite claims says so", () => {

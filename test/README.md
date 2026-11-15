@@ -19,6 +19,13 @@ A scope is a flag on the two entry scripts (`--ext`, `--lib`, `--root`, `--slow`
 [`../scripts/README.md#commands`](../scripts/README.md#commands) says
 which one a change needs.
 
+`--changed` always keeps the package-level tests under `test/`, because those read the tree
+rather than import a module, and it widens to every suite only for a path that decides the
+selection itself: `test/helpers/graph.ts`, `scan.ts` and `preload.ts`, `test/suite-manifest.ts`,
+or the runner's config. An ordinary helper selects the suites that import it, and
+`scripts/test-selection.test.ts` fails a helper no suite reaches, since a change to one would
+select nothing at all.
+
 The gate takes one machine-wide lock (`scripts/check-lock.ts`): a second `bun run
 check` on the same machine prints who holds it and waits, because two gates' spawns
 starve each other's wall clocks and the suites that wait on a child are the ones that
