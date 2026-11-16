@@ -12,6 +12,7 @@
 
 import { clipText, formatAge, sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { shortId } from "./protocol.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
 /** The sender and the kind, as every surface names a message: `api-core · handoff`. */
 export function messageMeta(message: BusMessage): string {
@@ -38,18 +39,6 @@ export function ageText(now: number, at: number): string {
 }
 
 /**
- * The last few characters of a peer's id, as the transcript shows it.
- *
- * Neutralized like every other peer-supplied field, and deliberately not
- * `lib/session-label.ts`'s `shortId`: that one keeps the id's alphanumerics to
- * build a default *label*, while this one is the id's own tail, sanitized for a
- * row.
- */
-export function idSuffix(id: string): string {
-	return sanitizeLine(id.slice(-6));
-}
-
-/**
  * A handoff is an instruction rather than a notification, so the notice reads this much of
  * it: the card, its paths, and the step to take all sit past the point where a message
  * preview stops.
@@ -71,7 +60,7 @@ export function formatStatus(status: SessionStatus, now: number): string {
 		const unread = session.unread > 0 ? ` · ${session.unread} unread` : "";
 		const label = sanitizeLine(session.label);
 		const cwd = sanitizeLine(session.cwd);
-		return `- ${label} (${idSuffix(session.id)}) · ${cwd} · ${sanitizeLine(session.mode)}${unread}`;
+		return `- ${label} (${shortId(session.id)}) · ${cwd} · ${sanitizeLine(session.mode)}${unread}`;
 	});
 	const claims = status.claims.map((claim) => `- ${claimLine(claim)}`);
 	const alerts = status.watching ? [`Alerts: inbox watch on${status.watching.wake ? " (wake)" : ""}`] : [];
@@ -91,7 +80,7 @@ export function formatStatus(status: SessionStatus, now: number): string {
 		...(claims.length > 0 ? claims : ["- none"]),
 		...(alerts.length > 0 ? ["", ...alerts] : []),
 		"",
-		`You: ${sanitizeLine(status.me.label)} (${idSuffix(status.me.id)})${status.onBus ? "" : " \u00b7 not on the bus yet \u2014 `session join` puts you on it"}`,
+		`You: ${sanitizeLine(status.me.label)} (${shortId(status.me.id)})${status.onBus ? "" : " \u00b7 not on the bus yet \u2014 `session join` puts you on it"}`,
 	].join("\n");
 }
 
@@ -281,7 +270,7 @@ export function formatClaim(claimed: readonly string[], conflicts: readonly Clai
 	if (claimed.length > 0) lines.push(`Claimed: ${claimed.map((path) => sanitizeLine(path)).join(", ")}.`);
 	for (const conflict of conflicts) {
 		const owner = sanitizeLine(conflict.ownerLabel);
-		lines.push(`${sanitizeLine(conflict.path)} is owned by ${owner} (${idSuffix(conflict.owner)}).`);
+		lines.push(`${sanitizeLine(conflict.path)} is owned by ${owner} (${shortId(conflict.owner)}).`);
 	}
 	return lines.length > 0 ? lines.join("\n") : "Nothing claimed.";
 }

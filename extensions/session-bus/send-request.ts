@@ -15,8 +15,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { answerOn } from "../../lib/bus-request.ts";
 import { messageOf } from "../../lib/errors.ts";
-import { type SendResult, SESSION_SEND_REQUEST, type SessionSendRequest } from "../../lib/session-tool.ts";
-import { sendOutcome } from "./protocol.ts";
+import { sendOutcome, type SendResult, SESSION_SEND_REQUEST, type SessionSendRequest } from "../../lib/session-tool.ts";
 import type { SessionBus } from "./runtime.ts";
 
 export function registerSendRequests(pi: ExtensionAPI, bus: SessionBus): void {

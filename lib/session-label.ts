@@ -32,10 +32,16 @@ export function normalizeLabel(raw: string | undefined, fallback: string): strin
 	return (text || fallback).slice(0, MAX_LABEL);
 }
 
-/** A short, display-only suffix for a session id. */
+/**
+ * A short, display-only tail of a session id: its last six characters, neutralized.
+ *
+ * The one body for "how an id reads" — a session row, a claim's owner, a re-seat note and the
+ * team's name for a session all take their tail from here, so a card note and a terminal row
+ * cannot disagree. Neutralized and closed up, because the same tail both reaches a terminal and
+ * ends a name: an id is another session's text, and a break in one would split a label.
+ */
 export function shortId(id: string): string {
-	const clean = id.replace(/[^a-zA-Z0-9]/g, "");
-	return (clean || id).slice(-6);
+	return sanitizeLine(id.slice(-6)).replace(/\s+/g, "");
 }
 
 /**
