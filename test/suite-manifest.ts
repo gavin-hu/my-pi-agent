@@ -291,6 +291,7 @@ export const LIB_SUITES: readonly string[] = [
 	"workflow/contract",
 	"workflow/current-review",
 	"workflow/join",
+	"workflow/join-record",
 	"workflow/kind",
 	"workflow/landing",
 	"workflow/lanes",

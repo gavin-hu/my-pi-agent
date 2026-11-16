@@ -14,7 +14,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { advance, TEST_CONTRACT } from "../../test/helpers/board-flow.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
-import { writeBusRecord } from "../../test/helpers/bus.ts";
+import { writeJoinedRecord } from "../../test/helpers/bus.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { tempDir } from "../../test/helpers/env.ts";
@@ -138,7 +138,7 @@ async function joinBus(
 	id: string,
 	label: string,
 ): Promise<string> {
-	return writeBusRecord(await runtime.busDir(ctx.cwd), { id, label, lastSeen: NOW });
+	return writeJoinedRecord(await runtime.busDir(ctx.cwd), { id, label, lastSeen: NOW });
 }
 
 describe("the registration", () => {
