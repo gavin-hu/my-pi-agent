@@ -16,6 +16,7 @@
 import {
 	appHead,
 	baseAttribute,
+	collapsedShell,
 	docHead,
 	type KeyHint,
 	keysSheet,
@@ -34,6 +35,14 @@ import type { ReviewPageData } from "./web-payload.ts";
 // re-exported here because a page's data and the page's markup are read from the same
 // imports in every caller, and two declarations of one island is how its halves drift.
 export type { ReviewOutlineItem, ReviewPageData } from "./web-payload.ts";
+
+/**
+ * Viewport width, at and below which the review's outline collapses above the review.
+ *
+ * The review keeps the shell's collapse at its own width: its outline is long and its document
+ * needs the height, so the band arrives earlier than the shell's sidebar does on browse.
+ */
+const PLAN_COLLAPSE_MAX = 1180;
 
 /** Page styles: the kit's four layers, then the review's own rules. */
 export const REVIEW_CSS = pageSheet(
@@ -139,19 +148,18 @@ export const REVIEW_CSS = pageSheet(
 .bf-comment__body{line-height:var(--lh-snug)}
 .bf-composer{margin:0}
 .bf-block--composing .bf-block__add{opacity:0}
-@media (max-width:1180px){
-.bf-app__body{grid-template-columns:1fr;align-content:start}
-.bf-app__sidebar{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--border)}
-.review-panel{padding:var(--space-2) var(--space-4) var(--space-3)}
+${collapsedShell(
+	PLAN_COLLAPSE_MAX,
+	`.review-panel{padding:var(--space-2) var(--space-4) var(--space-3)}
 .review-facts{flex-direction:row;flex-wrap:wrap;gap:var(--space-3) var(--space-5);border-bottom:0;padding-bottom:0}
-.review-nav__title{padding:0}
+/* The disclosure names the outline now, so the panel's own title would be the same word twice. */
+.review-nav__title{display:none}
 .review-nav ul{display:flex;flex-wrap:wrap;gap:2px}
 .review-nav .lvl-2 a,.review-nav .lvl-3 a,.review-nav .lvl-4 a,.review-nav .lvl-5 a,.review-nav .lvl-6 a{padding-left:8px}
-.review-hints{display:none}
-}
+.review-hints{display:none}`,
+)}
 @media (max-width:${SIDEBAR_COLLAPSE_MAX}px){
 .bf-review{padding:var(--space-4) 18px 80px}
-.review-nav__title{display:none}
 }
 /* The toolbar keeps the kit's row at every width: the subject takes a row of its own when
    the line cannot hold it, and the page's actions stay in their own bar. */

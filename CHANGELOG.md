@@ -27,6 +27,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: the outline above the review is a bounded band that scrolls itself below 1180px, not a stack that pushed
+  the review down and left the review pane without a definite height. The review had restated two of the shell's
+  collapse rules with different values (`max-height:none`, and no pinned grid rows); it now takes the shell's own
+  collapse at its width, `collapsedShell(1180, …)`, so a page rule written there accepts the collapse as its
+  condition and the two cannot drift again. The header keeps its single row: the shell's narrow-header answer is a
+  second body, `narrowShell`, and a page taking the collapse early does not take that with it.
+
 - `board`: a reviewed merge is its own landing only while it is the branch's tip. Once something lands on top of it,
   `done` refuses with the older-tree sentence and the door is a re-sign — so a spot-check taken in the checkout, with
   another landing before the close, has to name the card's commit again (its worktree, or a checkout at that sha).

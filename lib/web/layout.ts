@@ -13,10 +13,14 @@
  * cannot drive a query):
  *
  * - `860px`  the sidebar collapses to a `<details>` disclosure above main
- * - `1180px` plan review outline collapses above the review
+ * - `1180px` plan review takes the same collapse, at its own width
  *
- * Only the shared 860px collapse lives here; the plan-specific rules stay in
- * `extensions/plan/web-page.ts`.
+ * The collapse is one body, `collapsedShell`, and this module ships it at 860. A page with its
+ * own width asks for it instead of restating the rules — the plan review does, at 1180 — and a
+ * page's rules for the same width ride the same query as its second argument. The header's own
+ * narrow answer is a second body, `narrowShell`: a page takes the collapse at its width without
+ * making its identity row three rows deep, because the body has a pane and the header has the
+ * window.
  *
  * Every row of the shell sits on one gutter — `--space-6`, and `--space-7` from
  * 1440 up — at the viewport's width, because the lane heads, the prompt's right
@@ -32,6 +36,50 @@
 
 /** Viewport width, in px, at and below which the sidebar becomes a disclosure. */
 export const SIDEBAR_COLLAPSE_MAX = 860;
+
+/**
+ * The sidebar's collapse, at the width the page asks for: the body stacks, the sidebar becomes a
+ * bounded band, and its disclosure gets the chrome that makes it one.
+ *
+ * The sidebar becomes a band above main rather than the page becoming a document: its own box is
+ * bounded, so a deep tree still releases the pane below it. `own` is the page's rules for the same
+ * width, laid down after the shell's so a page still overrides at equal specificity — a rule
+ * written there takes the collapse as its own condition.
+ *
+ * A page may take this at its own width without taking `narrowShell`: the body has a pane, and a
+ * page whose outline needs the room earlier than the window runs out asks for this and nothing
+ * else.
+ */
+export function collapsedShell(maxWidth: number, own = ""): string {
+	const page = own === "" ? "" : `\n${own}`;
+	return `@media (max-width:${maxWidth}px){
+/* The sidebar becomes a band above main rather than the page becoming a document: its own box
+   is bounded, so a deep tree still releases the pane below it. */
+.bf-app__body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+.bf-app__sidebar{display:block;position:static;max-height:50vh;overflow-y:auto;border-right:0;border-bottom:1px solid var(--border)}
+.bf-app__sidebar .bf-panel__summary{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);cursor:pointer;list-style:none;font-family:var(--font-ui);font-size:var(--fs-sm);color:var(--muted)}
+.bf-panel__summary::-webkit-details-marker{display:none}
+.bf-panel__summary::before{content:"\\25B8";color:var(--muted)}
+.bf-app__sidebar[open] .bf-panel__summary::before{content:"\\25BE"}${page}
+}`;
+}
+
+/**
+ * The narrow header: at this width the identity row gives up its single line.
+ *
+ * The subject takes a row of its own rather than squeezing the facts beside it — a served root is
+ * deeper than the identity row is wide — and a filter spans the control row. This is the header's
+ * answer and not the sidebar's: it keys off the window, which is the width the header has, so it
+ * stays at the shell's own breakpoint while the collapse travels to a page's width.
+ */
+export function narrowShell(maxWidth: number): string {
+	return `@media (max-width:${maxWidth}px){
+/* A long subject takes a row of its own rather than squeezing the facts beside it: the
+   browser's root can be deeper than the identity row is wide. */
+.bf-app__id .bf-context--subject{flex:1 1 100%}
+.bf-app__ctl .bf-field--filter{width:100%;margin-left:0}
+}`;
+}
 
 export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height:100vh;min-height:0;overflow:hidden;background:var(--canvas);color:var(--text);font:var(--fs-base)/var(--lh-normal) var(--font-ui)}
 .bf-app{height:100dvh}
@@ -66,17 +114,5 @@ export const WEB_LAYOUT_CSS = `.bf-app{display:flex;flex-direction:column;height
 @media (min-width:1440px){
 .bf-app__id,.bf-app__ctl,.bf-app__main,.bf-app__foot{padding-left:var(--space-7);padding-right:var(--space-7)}
 }
-@media (max-width:${SIDEBAR_COLLAPSE_MAX}px){
-/* The sidebar becomes a band above main rather than the page becoming a document: its own box
-   is bounded, so a deep tree still releases the pane below it. */
-.bf-app__body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
-.bf-app__sidebar{display:block;position:static;max-height:50vh;overflow-y:auto;border-right:0;border-bottom:1px solid var(--border)}
-/* A long subject takes a row of its own rather than squeezing the facts beside it: the
-   browser's root can be deeper than the identity row is wide. */
-.bf-app__id .bf-context--subject{flex:1 1 100%}
-.bf-app__ctl .bf-field--filter{width:100%;margin-left:0}
-.bf-app__sidebar .bf-panel__summary{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);cursor:pointer;list-style:none;font-family:var(--font-ui);font-size:var(--fs-sm);color:var(--muted)}
-.bf-panel__summary::-webkit-details-marker{display:none}
-.bf-panel__summary::before{content:"\\25B8";color:var(--muted)}
-.bf-app__sidebar[open] .bf-panel__summary::before{content:"\\25BE"}
-}`;
+${collapsedShell(SIDEBAR_COLLAPSE_MAX)}
+${narrowShell(SIDEBAR_COLLAPSE_MAX)}`;
