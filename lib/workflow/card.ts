@@ -341,8 +341,8 @@ export function priorityRank(card: Card): number {
 }
 
 /**
- * Whether `query` names `card`: its title, its holder, its kind, a path hint, its plan, or a
- * note.
+ * Whether `query` names `card`: its id, its title, its holder, its kind, a path hint, its plan,
+ * or a note.
  *
  * The page's filter and `board list`'s `query` are the same question, so they are the
  * same rule here — and the same *body*: this function's source is spliced into the
@@ -353,10 +353,18 @@ export function priorityRank(card: Card): number {
  * it and what kind of work it is, then where it lives, and only then the reasoning — a
  * plan path and the notes, which are the two fields that make a card findable by what it
  * says. The kind is here because a label a reader can see is a word they will type.
+ *
+ * The id is the handle a reader already has, so it is answered exactly rather than as a
+ * substring — a bare `1` naming #1, #10–#19 and #100 would be a query nobody typed — and a
+ * reference is read here the way `normalizeCardId` reads one, `#` and leading zeros aside.
+ * That reading is inline because the page gets this body and no other code: a helper beside
+ * it would be a name the bundle does not have.
  */
 export function matchesQuery(card: Card, query: string): boolean {
 	const needle = query.trim().toLowerCase();
 	if (needle === "") return true;
+	const ref = needle.replace(/^#/, "").replace(/^0+(?=\d)/, "");
+	if (card.id === ref) return true;
 	if (card.title.toLowerCase().includes(needle)) return true;
 	if (card.owner !== undefined && card.owner.label.toLowerCase().includes(needle)) return true;
 	if (card.type !== undefined && card.type.includes(needle)) return true;
