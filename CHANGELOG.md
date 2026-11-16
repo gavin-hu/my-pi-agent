@@ -27,6 +27,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib/web`: the app head has one author. `appHead` composes the identity row, the facts zone, the
+  rule and the control row, and the three parts it composes are private now — `brandLockup`,
+  `pageSubject` and `toolbarChrome` are no longer exported, so a page importing one of them stops
+  compiling and passes its product, subject and controls to `appHead` instead. The served pages'
+  markup is unchanged but for the rule a one-row head no longer writes.
+
 - `session-bus`: a heartbeat ends expired mail in its own inbox and in the inboxes no record holds,
   instead of sweeping every peer's inbox on every tick; a stopped session's inbox is swept once its
   record ages out, and each file in it still ends at its own TTL.
@@ -204,8 +210,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - `plan`, `file-browse`: a header with no control row closes with one hairline instead of two. The
-  shell hides a `.bf-app__rule` that is the head's last child, so the rule can no longer double the
-  head's own border on a page whose only row is the identity row — the plan view page and browse.
+  head's two rows have one author now — `appHead` writes the identity row and adds the rule and the
+  control row only for a page that has controls — so the rule can no longer double the head's own
+  border on a page whose only row is the identity row: the plan view page and browse.
 
 - `team`: a handoff whose owner write lost the race names both outcomes it can meet — leave a rival's
   card alone, or claim a card the write left nobody's — instead of only the rival's. The second branch

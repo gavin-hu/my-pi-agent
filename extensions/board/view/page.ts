@@ -14,16 +14,14 @@
  */
 
 import {
+	appHead,
 	baseAttribute,
-	brandLockup,
 	docHead,
 	keysSheet,
 	liveChip,
 	pageFooter,
-	pageSubject,
 	reloadChip,
 	tabTitle,
-	toolbarChrome,
 } from "../../../lib/web/index.ts";
 import { BOARD_KEYS } from "./keys.ts";
 import { BOARD_CLASS as N } from "./names.ts";
@@ -61,18 +59,13 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
 <body class="bf-app">
 <h1 class="sr-only">board — the shared feature list for this repository</h1>
 <a class="skip" href="#main">Skip to the cards</a>
-<header class="bf-app__head"><div class="bf-app__id">
-  ${brandLockup("board")}
-  ${pageSubject({ id: "board-repo", label: input.repo, title: input.root })}
-  <div class="bf-app__facts">
-    ${liveChip({ id: "board-status", label: "connecting…" })}
-    ${reloadChip({ title: "Run /board again if this does not clear" })}
-  </div>
-  ${toolbarChrome()}
-</div>
-<div class="bf-app__rule"></div>
-<div class="bf-app__ctl ${N.bar}">
-  <div class="bf-app__group">
+${appHead({
+	product: "board",
+	subject: { id: "board-repo", label: input.repo, title: input.root },
+	facts: `${liveChip({ id: "board-status", label: "connecting…" })}
+    ${reloadChip({ title: "Run /board again if this does not clear" })}`,
+	controlsClass: N.bar,
+	controls: `<div class="bf-app__group">
     <div class="bf-tabs" role="tablist" aria-label="View">
       <button type="button" class="bf-tabs__item" role="tab" id="tab-board" data-view="board" aria-controls="panel-board" aria-selected="${team ? "false" : "true"}" tabindex="${team ? "-1" : "0"}">Board</button>
       <button type="button" class="bf-tabs__item" role="tab" id="tab-team" data-view="team" aria-controls="panel-team" aria-selected="${team ? "true" : "false"}" tabindex="${team ? "0" : "-1"}">Team</button>
@@ -86,8 +79,8 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
     <label class="bf-field bf-field--filter ${N.filter}"><span class="sr-only">Filter cards</span>
       <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
     </label>
-  </div>
-</div></header>
+  </div>`,
+})}
 <main class="bf-app__main ${N.main}" id="main" tabindex="-1">
   <section class="${N.panel}" id="panel-board" role="tabpanel" aria-labelledby="tab-board"${team ? " hidden" : ""}>
     <div class="bf-tabs ${N.picker}" id="board-picker" role="group" aria-label="Lane"></div>

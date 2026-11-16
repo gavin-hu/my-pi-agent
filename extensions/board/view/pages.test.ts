@@ -10,7 +10,7 @@
 
 import { describe, expect, test } from "bun:test";
 import {
-	brandLockup,
+	appHead,
 	button,
 	chip,
 	keysSheet,
@@ -501,7 +501,7 @@ describe("the class contract", () => {
 	/** The kit's vocabulary: its stylesheets, plus the class names its atoms emit. */
 	const KIT = defined([WEB_BASE_CSS, WEB_THEME_CSS, WEB_LAYOUT_CSS, WEB_COMPONENTS_CSS].join("\n"), "bf-");
 	for (const atom of [
-		brandLockup("board"),
+		appHead({ product: "board", subject: { label: "board", title: "board" }, facts: "" }),
 		themeToggle(),
 		chip({ label: "board-core", tone: "accent" }),
 		button({ label: "Add card", variant: "primary" }),

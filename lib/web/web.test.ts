@@ -8,17 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { WEB_BASE_CSS } from "./base.ts";
 import { WEB_COMPONENTS_CSS } from "./components.ts";
 import { SIDEBAR_COLLAPSE_MAX, WEB_LAYOUT_CSS } from "./layout.ts";
-import {
-	brandLockup,
-	button,
-	chip,
-	docHead,
-	keysSheet,
-	markIcon,
-	TAB_TITLE_JS,
-	tabTitle,
-	themeToggle,
-} from "./markup.ts";
+import { appHead, button, chip, docHead, keysSheet, markIcon, TAB_TITLE_JS, tabTitle, themeToggle } from "./markup.ts";
 import {
 	dialogScript,
 	keysDialogScript,
@@ -310,7 +300,7 @@ describe("web markup", () => {
 		// The shape is written once: a second copy is a mark that drifts the first time it is
 		// redrawn, and the lockup and the tab would stop being the same mark.
 		const rects = (svg: string) => svg.match(/<rect [^>]*\/>/g)?.join("");
-		const lockup = brandLockup("board");
+		const lockup = appHead({ product: "board", subject: { label: "a", title: "a" }, facts: "" });
 		for (const svg of iconSvgs(icon)) {
 			expect(svg).toContain('viewBox="0 0 4 2"');
 			expect(rects(svg)).toBe(rects(lockup));
@@ -362,15 +352,6 @@ describe("web markup", () => {
 		// The routers route this constant, so a page cannot point at a script no
 		// route serves — which is what the literal in both routers allowed.
 		expect(THEME_JS_PATH).toBe("/theme.js");
-	});
-
-	test("builds the brand lockup from the two-tone mark", () => {
-		const brand = brandLockup("<plan>");
-		expect(brand).toContain('class="bf-mark"');
-		expect(brand).toContain("bf-mark__top");
-		expect(brand).toContain("bf-wordmark");
-		expect(brand).toContain("bytefly");
-		expect(brand).toContain("&lt;plan&gt;");
 	});
 
 	test("keeps the theme-toggle element contract", () => {

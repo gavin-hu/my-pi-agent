@@ -11,17 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { WEB_BASE_CSS } from "./base.ts";
 import { WEB_COMPONENTS_CSS } from "./components.ts";
 import { SIDEBAR_COLLAPSE_MAX, WEB_LAYOUT_CSS } from "./layout.ts";
-import {
-	brandLockup,
-	chip,
-	keysButton,
-	liveChip,
-	pageFooter,
-	pageSubject,
-	reloadChip,
-	themeToggle,
-	toolbarChrome,
-} from "./markup.ts";
+import { appHead, chip, keysButton, liveChip, pageFooter, reloadChip, themeToggle } from "./markup.ts";
 import { CLIENT_RUNTIME_JS, paintLive } from "./client-runtime.ts";
 
 /** One rule's own body: the whole stylesheet has these properties somewhere, so scope first. */
@@ -37,8 +27,6 @@ describe("the shell's two rows", () => {
 		// A separator is a hairline in the border role, never a coloured segment: the signature
 		// rule has two homes — the mark and a record — and a header separator is neither.
 		expect(rule(WEB_LAYOUT_CSS, ".bf-app__rule{")).toBe(".bf-app__rule{height:1px;background:var(--border)");
-		// A head with one row has nothing to split: the rule is hidden, so the head's border is the line.
-		expect(WEB_LAYOUT_CSS).toContain(".bf-app__head>.bf-app__rule:last-child{display:none}");
 		expect(rule(WEB_LAYOUT_CSS, ".bf-app__head{")).toContain("border-bottom:1px solid var(--border)");
 		expect(rule(WEB_LAYOUT_CSS, ".bf-app__id{")).toContain("min-height:52px");
 		expect(WEB_LAYOUT_CSS).not.toContain("linear-gradient");
@@ -113,20 +101,11 @@ describe("the shell's two rows", () => {
 });
 
 describe("the chrome's atoms", () => {
-	test("renders the page's subject as the identity row's one truncating label", () => {
-		const subject = pageSubject({ id: "board-repo", label: "my-pi-agent", title: '/tmp/"x"' });
-		expect(subject).toContain('class="bf-context bf-context--subject"');
-		expect(subject).toContain('id="board-repo"');
-		// The whole path is the hover: the line keeps the tail, and the head is where two clones of one repository differ.
-		expect(subject).toContain('title="/tmp/&quot;x&quot;"');
-		expect(pageSubject({ label: "a&b", title: "a&b" })).toContain(">a&amp;b<");
-		expect(pageSubject({ label: "a", title: "a" })).not.toContain("id=");
-	});
-
 	test("draws the mark's own two-tone rule, out of the flow of the identity row", () => {
-		const brand = brandLockup("board");
+		const brand = appHead({ product: "board", subject: { label: "a", title: "a" }, facts: "" });
 		expect(brand).toContain('<span class="bf-brand__rule" aria-hidden="true"></span>');
-		// Out of flow, or a wrapped header stretches the rule beside the path instead of leaving it under the mark.
+		// Out of flow, or a wrapped header stretches the rule beside the path instead of
+		// leaving it under the mark.
 		const mark = rule(WEB_COMPONENTS_CSS, ".bf-brand__rule{");
 		expect(mark).toContain("position:absolute");
 		expect(mark).toContain("width:18px;height:2px");
@@ -178,7 +157,7 @@ describe("the chrome's atoms", () => {
 	});
 
 	test("puts the app's chrome in its own quiet zone, last in the identity row", () => {
-		const chrome = toolbarChrome();
+		const chrome = appHead({ product: "board", subject: { label: "a", title: "a" }, facts: "" });
 		expect(chrome).toContain('<div class="bf-app__chrome">');
 		expect(chrome).toContain(keysButton());
 		expect(chrome).toContain(themeToggle());

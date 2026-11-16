@@ -86,7 +86,7 @@ describe("request routing", () => {
 		expect(response.status).toBe(200);
 		expect(response.headers["Content-Type"]).toContain("text/html");
 		const html = text(response);
-		expect(html).toContain('<div class="bf-app__rule"></div>');
+		expect(html).not.toContain('<div class="bf-app__rule">');
 		expect(html).toContain('data-path="a.txt"');
 		expect(html).toContain('data-sort="name"');
 		expect(html).toContain('data-dir="1"');

@@ -362,6 +362,7 @@ export const LIB_SUITES: readonly string[] = [
 	"tui/keys",
 	"tui/tail-result",
 	"tui/tool",
+	"web/app-head",
 	"web/palette",
 	"web/web",
 	"web/web-chrome",
