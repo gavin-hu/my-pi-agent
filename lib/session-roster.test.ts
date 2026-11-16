@@ -10,7 +10,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
@@ -352,6 +352,33 @@ describe("stampBus", () => {
 		expect(one).not.toBe(before);
 		await settle(2);
 		writeMail(dir, storedName("s-1"), "2");
+		expect(await stampBus(dir)).not.toBe(one);
+	});
+
+	test("moves for a join, and for a message, with the directory's own clock held still", async () => {
+		// Windows updates a directory's mtime lazily, so an entry can land beside it and leave the
+		// parent's clock exactly where it was: the two windows-latest reds printed the same `sessions/`
+		// part either side of a join. A whole second is a value `utimesSync` can put back to the
+		// millisecond, which is that state on any platform — the entry name is the fact that moved.
+		const dir = busDir();
+		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
+		const sessions = join(dir, SESSIONS_DIR_NAME);
+		utimesSync(sessions, 1_000, 1_000);
+		const before = await stampBus(dir);
+		writeSession(dir, storedName("s-2"), { id: "s-2", label: "billing-web", mode: "tui", lastSeen: NOW });
+		utimesSync(sessions, 1_000, 1_000);
+		// The premise, so a pass cannot come from the clock having moved after all.
+		expect(statSync(sessions).mtimeMs).toBe(1_000_000);
+		expect(await stampBus(dir)).not.toBe(before);
+		// The same trust ran through the inbox parts: `inbox/<id>` was stamped by its own clock too, so
+		// a message landing in an inbox that already existed had the same exposure.
+		writeMail(dir, storedName("s-1"), "1");
+		const inbox = join(dir, INBOX_DIR_NAME, storedName("s-1"));
+		utimesSync(inbox, 1_000, 1_000);
+		const one = await stampBus(dir);
+		writeMail(dir, storedName("s-1"), "2");
+		utimesSync(inbox, 1_000, 1_000);
+		expect(statSync(inbox).mtimeMs).toBe(1_000_000);
 		expect(await stampBus(dir)).not.toBe(one);
 	});
 });

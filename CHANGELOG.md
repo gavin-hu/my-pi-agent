@@ -274,6 +274,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the Team tab's poll sees a session join on Windows. The stamp it compares was three directory
+  mtimes and each inbox's own clock, and Windows updates a directory's mtime lazily — two windows-latest
+  runs printed the "sessions/" part identical either side of a join, so the tab kept the frame it had until
+  something else moved. A directory's stamp part is now its mtime **and its entry names**, which is what a
+  join, a leave, a message landing and a message being consumed all move. A record rewritten in place still
+  moves neither: that stays the five-second sweep's.
+
 - `board`: a card put back through the pool after its branch merged can name that merge as its landing. The
   proof's window was the card's *current* lane entry, so a reclaim/release/claim cycle re-entering `execute`
   pushed the merge before it and `done` answered that the run was taken on an older tree — a sentence no
