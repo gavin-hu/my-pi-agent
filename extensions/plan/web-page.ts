@@ -21,13 +21,10 @@ import {
 	keysSheet,
 	liveChip,
 	pageFooter,
+	pageSheet,
 	reloadChip,
 	SIDEBAR_COLLAPSE_MAX,
 	tabTitle,
-	WEB_BASE_CSS,
-	WEB_COMPONENTS_CSS,
-	WEB_LAYOUT_CSS,
-	WEB_THEME_CSS,
 } from "../../lib/web/index.ts";
 import { keyRows, type KeySurface } from "./web-keys.ts";
 import type { ReviewRole } from "./types.ts";
@@ -38,12 +35,9 @@ import type { ReviewPageData } from "./web-payload.ts";
 // imports in every caller, and two declarations of one island is how its halves drift.
 export type { ReviewOutlineItem, ReviewPageData } from "./web-payload.ts";
 
-/** Page styles: the shared base + theme + shell + components, then the review. */
-export const REVIEW_CSS = `${WEB_BASE_CSS}
-${WEB_THEME_CSS}
-${WEB_LAYOUT_CSS}
-${WEB_COMPONENTS_CSS}
-.review-share__list{list-style:none;margin:0 0 var(--space-3);padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+/** Page styles: the kit's four layers, then the review's own rules. */
+export const REVIEW_CSS = pageSheet(
+	`.review-share__list{list-style:none;margin:0 0 var(--space-3);padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
 .review-share__row{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md)}
 .review-share__url{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--fs-sm) var(--font-mono);color:var(--text)}
 .review-share__who{flex:0 0 auto;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
@@ -177,7 +171,8 @@ ${WEB_COMPONENTS_CSS}
 .bf-block:hover,.bf-block--active{background:none;box-shadow:none}
 .bf-comments{padding-left:0}
 .bf-comment{break-inside:avoid}
-}`.trim();
+}`.trim(),
+);
 
 /**
  * The sidebar's one-line keyboard reminder. It names the keys a reviewer reaches

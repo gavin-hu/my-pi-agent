@@ -12,7 +12,7 @@
 
 import { LANE_RULES, LANES, type LaneRole } from "../../../lib/workflow/lanes.ts";
 import { BOARD_TONES } from "../../../lib/workflow/tone.ts";
-import { WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../../lib/web/index.ts";
+import { pageSheet } from "../../../lib/web/index.ts";
 
 /**
  * The width below which the board shows one lane at a time, with the lane tab rail.
@@ -71,12 +71,8 @@ const DIALOG_TONE_CSS = BOARD_TONES.map(
 	(tone) => `.board-dialog__reason[data-tone="${tone}"],.board-dialog__sign[data-tone="${tone}"]{color:var(--${tone})}`,
 ).join("\n");
 
-/** The shared shell, the components, and the board's own layout. */
-export const BOARD_CSS = `${WEB_BASE_CSS}
-${WEB_THEME_CSS}
-${WEB_LAYOUT_CSS}
-${WEB_COMPONENTS_CSS}
-
+/** The kit's four layers, then the board's own rules. */
+export const BOARD_CSS = pageSheet(`
 /* The control row: the view switch, the done meter and the filter, on the kit's rhythm. */
 .board-bar{gap:var(--space-3)}
 .board-filter{width:15rem}
@@ -482,4 +478,4 @@ ${DIALOG_TONE_CSS}
   .board-picker{display:none!important}
   .board-lane__toggle::after{content:""}
 }
-`;
+`);
