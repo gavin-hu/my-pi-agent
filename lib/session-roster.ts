@@ -19,9 +19,11 @@
  * Two questions are asked of these records, and both are answered here because they are one
  * rule over one file. `presenceOf` reports what an owner is — live, quiet, gone, or absent from
  * a bus that has pruned it — which is what a card's lane depends on. `peerOf` addresses a name:
- * which record a message goes to, and what that record says about reading it. "Which record does
- * this name name" was answered three times before it lived here, once per caller, and the three
- * answers disagreed about a stopped record and about a label two sessions share.
+ * which record a message goes to, and what that record says about reading it; `lookupPeer` is the
+ * same rule with the one fact a caller that words a refusal needs — the several live records a
+ * label is shared by. "Which record does this name name" was answered three times before it lived
+ * here, once per caller, and the three answers disagreed about a stopped record and about a label
+ * two sessions share.
  *
  * Pure I/O, no state: one read answers one caller, and nothing is cached — a
  * heartbeat is ten seconds old at most, and the caller polls on its own clock.
@@ -146,8 +148,14 @@ export interface PeerRow {
 	listening?: boolean;
 }
 
+/**
+ * What {@link peerRowOf} reads — the narrowing {@link RosterFacts} gives {@link rosterStateOf}, since
+ * the bus addresses with records that count mail differently.
+ */
+export type PeerSource = RosterFacts & Pick<RosterSession, "id" | "label" | "watching">;
+
 /** One session record as addressing reads it: its liveness at `now`, and the watch it carries. */
-export function peerRowOf(session: RosterSession, now: number): PeerRow {
+export function peerRowOf(session: PeerSource, now: number): PeerRow {
 	return {
 		id: session.id,
 		label: session.label,
@@ -165,38 +173,59 @@ export interface PeerName {
 }
 
 /**
+ * The rows a name may reach: gone is not an addressee, and `self` — the asking session — is one
+ * whatever its record says, because a session is its own recipient. Absent state and quiet remain.
+ */
+export function addressable(rows: readonly PeerRow[], self?: string): PeerRow[] {
+	return rows.filter((row) => row.state !== "gone" || row.id === self);
+}
+
+/** What a name reached, with the one fact {@link peerOf} drops: the ids of the live records the
+ * label is shared by, which a caller words itself rather than guessing between them. */
+export interface PeerLookup {
+	/** The record the name reaches, by {@link peerOf}'s three steps. */
+	peer?: PeerRow;
+	/** The ids of the live records sharing the label, when more than one holds it. */
+	ambiguous?: readonly string[];
+}
+
+/**
  * The record a name reaches, by the one rule both extensions address mail with.
  *
  * Three steps, because an id is an identity and a label is a role:
  *
  * 1. the record with this id, when it is live — a live session named by its id is that session;
- * 2. the one live record whose label matches — exactly one, because two is the bus's ambiguity to
- *    name in its own sentence, and a caller that guessed would address one session's mail under
- *    another's name;
+ * 2. the one live record whose label matches — exactly one, because a caller that guessed would
+ *    address one session's mail under another's name;
  * 3. the record with this id whatever its state, so a session that has stopped can be reported as
  *    stopped rather than as nobody. A caller that writes mail must read `state`: the bus writes no
  *    file for a record it calls gone.
  *
- * Nothing answers for a label no record holds, and nothing for a roster that cannot be read — which
- * is not "nobody is here". Each caller words its own fallback, because the fallbacks differ: a
- * card's own word, or the name the person typed.
+ * Nothing answers for a label no record holds, nor for a roster that cannot be read — which is not
+ * "nobody is here"; each caller words its own fallback.
+ *
+ * `self` is the asking session, kept addressable whatever its record says.
  */
-export function peerOf(rows: readonly PeerRow[] | undefined, name: PeerName): PeerRow | undefined {
-	if (rows === undefined) return undefined;
-	// Only a record that is gone is out of the running: an absent state is "cannot tell", and a quiet
-	// one is still a session the bus writes a message file for.
-	const live = rows.filter((row) => row.state !== "gone");
+export function lookupPeer(rows: readonly PeerRow[] | undefined, name: PeerName, self?: string): PeerLookup {
+	if (rows === undefined) return {};
+	const live = addressable(rows, self);
 	const byId = name.id === undefined ? undefined : live.find((row) => row.id === name.id);
-	if (byId !== undefined) return byId;
-	const named = soleLabel(live, name.label);
-	if (named !== undefined) return named;
-	return name.id === undefined ? undefined : rows.find((row) => row.id === name.id);
+	if (byId !== undefined) return { peer: byId };
+	const matches = live.filter((row) => sameLabel(row.label, name.label));
+	if (matches.length === 1) return { peer: matches[0] };
+	const ambiguous = matches.length > 1 ? matches.map((row) => row.id) : undefined;
+	const stopped = name.id === undefined ? undefined : rows.find((row) => row.id === name.id);
+	return {
+		...(ambiguous === undefined ? {} : { ambiguous }),
+		...(stopped === undefined ? {} : { peer: stopped }),
+	};
 }
 
-/** The one live record whose label matches, or nothing when none or several do. */
-function soleLabel(live: readonly PeerRow[], label: string): PeerRow | undefined {
-	const matches = live.filter((row) => sameLabel(row.label, label));
-	return matches.length === 1 ? matches[0] : undefined;
+/** The record a name reaches, or nothing: {@link lookupPeer} with the ambiguity dropped, because a
+ * caller that only addresses does not word one. The stopped record and the nothing are what a card
+ * and a handoff fall back on. */
+export function peerOf(rows: readonly PeerRow[] | undefined, name: PeerName): PeerRow | undefined {
+	return lookupPeer(rows, name).peer;
 }
 
 /**

@@ -22,7 +22,13 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { BUS_DIR_NAME } from "../../lib/session-files.ts";
 import { labelKey, SESSION_LABEL_CHANNEL } from "../../lib/session-label.ts";
-import { type RosterSeams, type RosterState, rosterStateOf, SESSION_TTL_MS } from "../../lib/session-roster.ts";
+import {
+	type RosterSeams,
+	type RosterState,
+	peerRowOf,
+	rosterStateOf,
+	SESSION_TTL_MS,
+} from "../../lib/session-roster.ts";
 import { isPidAlive, startTokenOf } from "../../lib/spawn.ts";
 import { defaultInterval } from "../../lib/timer.ts";
 import type { SessionBus, SessionBusOptions } from "./api.ts";
@@ -511,15 +517,12 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			if ("error" in about) throw new Error(about.error);
 			const kind = normalizeKind(input.kind);
 			if (input.to.trim() === "*" && kind !== "event") throw new Error('a broadcast needs kind: "event".');
-			// Mail reaches a session that can still answer, by the rule `status` and the prune
-			// already use: a record whose process is gone is not a recipient, so naming it is
-			// refused instead of confirmed, and a broadcast skips it. This session is always its
-			// own recipient, which is what a note to itself is.
+			// Which records mail reaches is `resolveRecipients`'s rule, over rows carrying their own
+			// state: the gone exclusion and the sender's own record are read there, once, rather than
+			// pre-filtered here and read again beside the wording.
 			const at = now();
-			const sessions = (await store.sessions()).filter(
-				(session) => session.id === me.id || stateOf(session, at) !== "gone",
-			);
-			const resolved = resolveRecipients(sessions, input.to, me.id);
+			const rows = (await store.sessions()).map((session) => peerRowOf(session, at));
+			const resolved = resolveRecipients(rows, input.to, me.id);
 			if ("error" in resolved) throw new Error(resolved.error);
 			let paths: string[] | undefined;
 			if (input.paths !== undefined) paths = storedPaths(me, input.paths);

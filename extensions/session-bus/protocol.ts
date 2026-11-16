@@ -18,7 +18,7 @@ import { memberOf } from "../../lib/json.ts";
  * importing its rules from the protocol they belong to.
  */
 export { defaultLabel, MAX_LABEL, normalizeLabel, shortId } from "../../lib/session-label.ts";
-import { sameLabel } from "../../lib/session-label.ts";
+import { type PeerRow, addressable, lookupPeer } from "../../lib/session-roster.ts";
 
 export const TOOL_NAME = SESSION_TOOL;
 export const COMMAND_NAME = "sessions";
@@ -133,22 +133,28 @@ export function normalizePaths(repoRoot: string, cwd: string, raw: unknown): { p
 	return { paths };
 }
 
-/** Resolve `to` to active sessions; `*` is broadcast and excludes the sender. */
+/**
+ * Resolve `to` to active sessions; `*` is broadcast and excludes the sender.
+ *
+ * Which record a name reaches is `lib/session-roster.ts`'s rule; this function only words its
+ * answers, and refuses a stopped record rather than confirming mail nobody will read.
+ */
 export function resolveRecipients(
-	sessions: readonly { id: string; label: string }[],
+	rows: readonly PeerRow[],
 	to: string,
 	from: string,
-): { recipients: Array<{ id: string; label: string }> } | { error: string } {
+): { recipients: PeerRow[] } | { error: string } {
 	const target = to.trim();
 	if (target === "") return { error: "to is required." };
 	if (target === "*") {
-		const recipients = sessions.filter((session) => session.id !== from);
+		const recipients = addressable(rows, from).filter((row) => row.id !== from);
 		return recipients.length === 0 ? { error: "there are no other active sessions." } : { recipients };
 	}
-	const exact = sessions.find((session) => session.id === target);
-	if (exact) return { recipients: [exact] };
-	const byLabel = sessions.filter((session) => sameLabel(session.label, target));
-	if (byLabel.length === 1) return { recipients: byLabel };
-	if (byLabel.length > 1) return { error: `the label "${target}" is ambiguous; use a session id.` };
-	return { error: `no active session "${target}".` };
+	const found = lookupPeer(rows, { id: target, label: target }, from);
+	if (found.ambiguous !== undefined) return { error: `the label "${target}" is ambiguous; use a session id.` };
+	// The sender is its own recipient whatever its record says, which is what a note to itself is.
+	if (found.peer === undefined || (found.peer.state === "gone" && found.peer.id !== from)) {
+		return { error: `no active session "${target}".` };
+	}
+	return { recipients: [found.peer] };
 }

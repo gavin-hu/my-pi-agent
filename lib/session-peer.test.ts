@@ -14,7 +14,16 @@
 
 import { describe, expect, test } from "bun:test";
 import { rosterSession } from "../test/helpers/fixtures/session-roster.ts";
-import { ALARM_REASON, type PeerRow, peerAlarm, peerNamed, peerOf, peerRowOf } from "./session-roster.ts";
+import {
+	ALARM_REASON,
+	type PeerRow,
+	addressable,
+	lookupPeer,
+	peerAlarm,
+	peerNamed,
+	peerOf,
+	peerRowOf,
+} from "./session-roster.ts";
 
 const NOW = 1_000_000_000;
 
@@ -100,6 +109,58 @@ describe("peerOf", () => {
 		expect(peerOf(undefined, { label: "api-core" })).toBeUndefined();
 		expect(peerOf([], { label: "api-core" })).toBeUndefined();
 		expect(peerOf([row("s-a", "api-core", { state: "live" })], { label: "ops-helper" })).toBeUndefined();
+	});
+});
+
+describe("lookupPeer", () => {
+	test("reports the ids a label is shared by, and still reaches a stopped id", () => {
+		// The ambiguity is a fact beside the answer rather than instead of it: a caller that named the
+		// id still reaches that id's record (step 3), and the bus words the several labels itself.
+		const rows = [
+			row("s-dead", "api-core", { state: "gone" }),
+			row("s-1", "api-core", { state: "live" }),
+			row("s-2", "API-core", { state: "live" }),
+		];
+		expect(lookupPeer(rows, { id: "s-dead", label: "api-core" })).toEqual({
+			peer: { id: "s-dead", label: "api-core", state: "gone" },
+			ambiguous: ["s-1", "s-2"],
+		});
+		expect(peerOf(rows, { id: "s-dead", label: "api-core" })?.id).toBe("s-dead");
+	});
+
+	test("a live id answers before the label is consulted, so nothing is ambiguous", () => {
+		const rows = [
+			row("s-a", "billing-core", { state: "live" }),
+			row("s-1", "api-core", { state: "live" }),
+			row("s-2", "api-core", { state: "live" }),
+		];
+		expect(lookupPeer(rows, { id: "s-a", label: "api-core" })).toEqual({
+			peer: { id: "s-a", label: "billing-core", state: "live" },
+		});
+	});
+
+	test("says a stopped record by its state, with nothing ambiguous beside it", () => {
+		const rows = [row("s-dead", "api-core", { state: "gone" })];
+		expect(lookupPeer(rows, { id: "s-dead", label: "api-core" })).toEqual({
+			peer: { id: "s-dead", label: "api-core", state: "gone" },
+		});
+	});
+
+	test("keeps the asking session addressable, by id and by label", () => {
+		// A note to itself is not refused by its own heartbeat: the bus hands its own id as `self`.
+		const rows = [row("s-me", "api-core", { state: "gone" }), row("s-other", "api-core", { state: "live" })];
+		expect(lookupPeer(rows, { id: "s-me", label: "api-core" }, "s-me")).toEqual({
+			peer: { id: "s-me", label: "api-core", state: "gone" },
+		});
+		// Without `self` the same name reaches the live session holding the label, which is the rule.
+		expect(lookupPeer(rows, { id: "s-me", label: "api-core" }).peer?.id).toBe("s-other");
+		expect(addressable(rows, "s-me").map((entry) => entry.id)).toEqual(["s-me", "s-other"]);
+		expect(addressable(rows).map((entry) => entry.id)).toEqual(["s-other"]);
+	});
+
+	test("answers nothing at all for a roster that cannot be read", () => {
+		// `{}` rather than one of the reasons: no bus is a question that was never asked, not an empty team.
+		expect(lookupPeer(undefined, { label: "api-core" })).toEqual({});
 	});
 });
 
