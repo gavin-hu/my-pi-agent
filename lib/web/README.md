@@ -220,6 +220,21 @@ has a pane, and the header has the window, so the two widths are different quest
 page's other breakpoints (`820`) stay in its own stylesheet, since a media query cannot
 read a custom property.
 
+The collapse is a media query on purpose, and the reason is worth a paragraph because the
+temptation recurs. `.bf-app` is a full-width flex column and `.bf-app__body` is its child, so the
+body's inline size is the viewport's on every page — the pane and the window are one rectangle. A
+container query also styles a container's descendants and never the box it queries, so the body's
+own grid could not sit inside an `@container` keyed on the body; moving only the sidebar would
+leave the grid on a media query, two mechanisms for one behaviour. The frame is the shape that
+pays for itself: `.browse-measure .bf-md>.md-table-frame{container-type:inline-size}` with
+`@container (max-width:600px)` in
+[`../../extensions/file-browse/view/styles.ts`](../../extensions/file-browse/view/styles.ts) — a
+box that really can be narrower than the window, because that page's sidebar takes the rest, with
+a browse case pinning both strings. Neither number is derived, and saying so beats arithmetic:
+`--measure-prose` is `78ch`, so 860 is a judgement written once in `SIDEBAR_COLLAPSE_MAX`, and
+1180 is a product judgement written once in `PLAN_COLLAPSE_MAX` — the review needs the measure
+more than it needs its outline beside it.
+
 A `<details>` lays its content out in a wrapper with no definite height, so a
 sidebar that must scroll on its own box positions its panel absolutely rather
 than making the panel a flex child. `file-browse` does this; the rule and its
