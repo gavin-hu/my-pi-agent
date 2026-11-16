@@ -454,21 +454,44 @@ export async function readTeam(dir: string, limit?: number): Promise<TeamRead> {
  *
  * A page asks this once a tick and reads the bus only when the answer changed, because that
  * read is a ledger walk over every record and every inbox. Contents are not what is asked: a
- * directory's mtime moves when an entry is written beside it, so three stats and one listing
- * answer every way a frame's bus facts can change — a session joining or leaving moves
- * `sessions/`, a message landing moves its own inbox, an inbox appearing moves `inbox/`, and a
- * bus that appears at all moves the bus directory. A path that is not there reads `-`, so a bus
- * arriving later is news rather than a silence.
+ * directory's **entry names** are, because that is what moves when a session joins or leaves
+ * (`sessions/`), when an inbox appears (`inbox/`), and when a message lands or is consumed
+ * (`inbox/<id>`). A directory's own mtime sits beside its names, and it is the half that is not
+ * to be trusted: Windows updates it lazily, so an entry can land and leave the parent's clock
+ * exactly where it was — a join that the poll then never saw. The mtime stays for the one change
+ * a name set cannot see on POSIX, an entry renamed with the count unchanged. A path that is not
+ * there reads `-`, so a bus arriving later is news rather than a silence.
+ *
+ * A record rewritten in place — a heartbeat, a label — moves neither, which is why the page
+ * sweeps every five seconds for what no file announces.
  *
  * Never throws: a bus nobody can read is a stamp that does not move, and a caller's own slow
  * cadence still builds its frame.
  */
 export async function stampBus(dir: string): Promise<string> {
 	const paths = busPaths(dir);
-	const parts: string[] = [];
-	for (const path of [paths.dir, paths.sessions, paths.inbox]) parts.push(await stampOf(path));
-	for (const name of await namesIn(paths.inbox)) parts.push(`${name}:${await stampOf(join(paths.inbox, name))}`);
+	const parts: string[] = [
+		await stampOfDir(paths.dir),
+		await stampOfDir(paths.sessions),
+		await stampOfDir(paths.inbox),
+	];
+	// Each inbox is its own directory, and its names are the messages a row counts.
+	for (const name of await namesIn(paths.inbox)) {
+		parts.push(`${name}:${await stampOfDir(join(paths.inbox, name))}`);
+	}
 	return parts.join("|");
+}
+
+/**
+ * One directory as a stamp part: its mtime and its entry names, or `-` when it is not there.
+ *
+ * The names come from {@link namesIn}, which answers `[]` for a directory that vanished between
+ * the stat and the listing — the race a page's one-second ticker would otherwise be the first to
+ * meet.
+ */
+async function stampOfDir(path: string): Promise<string> {
+	const mtime = await stampOf(path);
+	return mtime === "-" ? mtime : `${mtime}|${(await namesIn(path)).join(",")}`;
 }
 
 /** One path's mtime as a stamp part: absent is `-`, because it is a value a later stamp can move. */

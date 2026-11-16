@@ -274,6 +274,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the Team tab's poll sees a session join on Windows. The stamp it compares was three directory
+  mtimes and each inbox's own clock, and Windows updates a directory's mtime lazily — two windows-latest
+  runs printed the "sessions/" part identical either side of a join, so the tab kept the frame it had until
+  something else moved. A directory's stamp part is now its mtime **and its entry names**, which is what a
+  join, a leave, a message landing and a message being consumed all move. A record rewritten in place still
+  moves neither: that stays the five-second sweep's.
+
 - `bytefly`: the footer's name chip comes only from the label a join settled for this session. Pi's own
   session name is no longer a candidate, so a session that merely happens to be named as a teammate draws
   no chip until it joins: the bar names who the team took on, never a word that session shares with one.
