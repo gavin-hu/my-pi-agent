@@ -4,7 +4,7 @@
 helpers. Pi loads each extension as plain TypeScript from the `pi` manifest in
 `package.json`: no build step.
 
-Each rule here carries its gate and the trap with no other home.
+Each rule carries its gate and the trap with no other home.
 [`CONTRIBUTING.md`](./CONTRIBUTING.md) owns the contributor workflow — branch flow,
 checks, commit format, conventions, page template, tool fields, release — and
 `scripts/README.md` and `test/README.md` their areas; do not restate them.
@@ -13,42 +13,40 @@ checks, commit format, conventions, page template, tool fields, release — and
 ## Commands
 
 ```bash
-bun install              # once per worktree
+bun install              # per worktree
 bun test --changed=main  # this branch's suites; add `bun test test/` for the sweeps
-bun run check            # before landing: format, types, every test
+bun run check            # before landing: format, types, tests
 ```
 
-[`#checks`](./CONTRIBUTING.md#checks) and [`test/README.md`](./test/README.md) cover
-the rest.
+`test/README.md` covers the rest.
 
 - The gated git suites (`rewind`, `worktree`, `session-bus`'s real-repository
   tests) skip unless `CI` or `PI_SLOW_TESTS=1` is set: touching one means
   `PI_SLOW_TESTS=1 bun test`.
-- A new package-level test goes into `ROOT_TEST_FILES` in `test/layout.test.ts`:
-  that set is compared exactly.
-- A peer bump is proved against the newest published Pi by CI's `compat` job
-  ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)); never commit it.
+- A new package-level test goes into `ROOT_TEST_FILES` (`test/layout.test.ts`),
+  compared exactly.
+- A peer bump is proved against the newest published Pi by CI's `compat` job; never
+  commit it.
 
 ## Git workflow
 
 [`CONTRIBUTING.md#branch-flow`](./CONTRIBUTING.md#branch-flow) owns the flow: a
-worktree per task, entered before plan mode; commits as steps finish, and never
+worktree per task, before plan mode; commits as steps finish, and never
 unless the user asks; a `--no-ff` merge, no rebase, no branch head pushed to `main`.
 
 - Stage explicit paths; never `git add -A`, `git add .`, `git reset --hard`,
   `git checkout .`, `git clean -fd`, `git stash`, `git commit --no-verify`, or
   force-push `main`.
-- A card closes after its landing: the card records which merge carried it, the
-  sign which tree was checked.
+- A card closes after its landing and records the merge.
 
 ## Release
 
-Follow [`CONTRIBUTING.md#release`](./CONTRIBUTING.md#release): it is normative, and
+Follow [`CONTRIBUTING.md#release`](./CONTRIBUTING.md#release): it is normative;
 landing a change is not a release.
 
-- Publish only through `publish.yml`, only after the user approves that dispatch —
-  an earlier approval expires — and wait on the environment review.
-- The `[Unreleased]` bullet lands in the same commit as its change.
+- Publish only through `publish.yml`, after the user approves that dispatch — an
+  earlier approval expires — and wait on the environment review.
+- The `[Unreleased]` bullet lands with its change.
 
 ## Invariants
 
@@ -59,17 +57,17 @@ landing a change is not a release.
   modules.
 - Shared tool and parameter names live in `lib/tool-names.ts`; shared glyphs and
   status keys in `lib/tui/glyphs.ts`.
-- A start pays what an entry imports: what nothing needs before the first draw loads
-  with `import()` in the call that needs it (`lib/lazy.ts`); `test/dependencies.test.ts`
-  holds the budget, which may only fall.
+- A start pays what an entry imports: a module nothing needs before the first draw loads
+  with `import()` where it is used (`lib/lazy.ts`); `test/dependencies.test.ts` holds the
+  budget, which may only fall.
 - State that must survive `/resume` and `/tree` lives in tool-result `details` or a
   custom entry, rebuilt from the branch; widgets are derived, never authoritative.
 - A rejected tool call returns an error carrying the previous state; never
   half-apply.
 - A path is data: resolve before comparing, join with the platform joiner,
   canonicalize before using one as a key — a literal `a/b` assertion fails on Windows.
-- A trust boundary two extensions answer — a loopback server, a served page — gets
-  one policy module in `lib/http/`: two copies is how a `Host` rule drifts.
+- A trust boundary two extensions answer gets one policy module in `lib/http/`: two
+  copies is how a `Host` rule drifts.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
   with a `"*"` range.
 
@@ -108,6 +106,8 @@ Three are gates; the fourth is review.
 
 - `unknown` at a boundary, never `any`. A cast names the guarantee it relies on,
   about a value you did not build.
+- "No behaviour change" names the inputs it holds for; a difference only on values this
+  build never makes is untested.
 - No dead branch, commented-out code, or comment that restates its line.
   `test/conventions.test.ts` fails `TODO` markers, suppression comments, `any`, and
   commented-out statements.
@@ -119,20 +119,18 @@ Three are gates; the fourth is review.
 
 ## UI verification
 
-A surface is verified by rendering it: `capture:screens` for a terminal frame,
-`render:tools --width 80` for one block, `capture:plan` or `capture:file-browse` for
-a shipped page. `bun test` renders every screen at three widths, so an
-overflowing frame fails there.
+A surface is verified by rendering it — `capture:screens`, `render:tools --width 80`,
+`capture:plan`, `capture:file-browse` — and `bun test` renders every screen at three
+widths, so an overflowing frame fails.
 
 ## Documentation
 
-- An extension's doc is `docs/extensions/<name>.md`, on the template in
-  [`CONTRIBUTING.md#writing-an-extension-page`](./CONTRIBUTING.md#writing-an-extension-page);
+- An extension's doc is `docs/extensions/<name>.md`, on the
+  [`CONTRIBUTING.md#writing-an-extension-page`](./CONTRIBUTING.md#writing-an-extension-page) template;
   no Markdown beside the code.
 - A behaviour change updates the catalog in both entry READMEs, the relevant
-  `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
-- Work planned but not started is a card on the repo's board (`board`), never a
-  `TODO` comment or a second list in Markdown.
+  `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`; a removal also sweeps the
+  `docs/` and `lib/` READMEs naming what it took away.
 - Renaming a heading or moving a file means fixing every relative link and
   `#anchor`; `test/doc-links.test.ts` resolves them.
 - One doc per audience:
@@ -141,7 +139,9 @@ overflowing frame fails there.
 ## How to work
 
 - Work a feature on its card: claim, contract, sign, `execute` before editing; with
-  no card, open one.
+  no card, open one. A note is a message, not a state change, so only an edit, a move or
+  a second sign outgrows the sign; `done` also needs the merge, and a contract is written
+  only in `plan`.
 - Be short and direct: answer before editing; state agreement or disagreement.
 - Ask before adding a runtime dependency.
 - Ask before removing functionality that looks intentional; add no backward
