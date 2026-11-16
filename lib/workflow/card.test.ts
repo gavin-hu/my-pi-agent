@@ -174,6 +174,25 @@ describe("matchesQuery", () => {
 		expect(matchesQuery(noted, "routes")).toBe(true);
 	});
 
+	test("matches the card's own number, in every spelling a reference is written", () => {
+		// The id is the handle a transcript line or a peer's message hands a reader, so the
+		// spellings `normalizeCardId` accepts for a reference are the ones answered here.
+		const numbered = card({ id: "12" });
+		expect(matchesQuery(numbered, "12")).toBe(true);
+		expect(matchesQuery(numbered, "#12")).toBe(true);
+		expect(matchesQuery(numbered, "012")).toBe(true);
+	});
+
+	test("matches no other number: the id is exact, not a substring", () => {
+		// A `includes` would make `1` name #1, #10–#19 and #100 whatever the reader typed.
+		const numbered = card({ id: "12" });
+		expect(matchesQuery(numbered, "1")).toBe(false);
+		expect(matchesQuery(numbered, "2")).toBe(false);
+		expect(matchesQuery(numbered, "#")).toBe(false);
+		// And the cards either side of it: one digit is not the number twelve.
+		expect(matchesQuery(card({ id: "4" }), "12")).toBe(false);
+	});
+
 	test("matches everything when the query is blank", () => {
 		expect(matchesQuery(card(), "  ")).toBe(true);
 	});
@@ -200,7 +219,7 @@ describe("MATCHES_QUERY_JS", () => {
 			planPath: "~/.pi/agent/plans/8872d3adda0e/the-query.md",
 			notes: [{ by: "billing-core", at: 2_000, text: "waiting on the gateway" }],
 		});
-		const queries = ["", "  ", "WEBHOOK", "src/bill", "CORE", "8872d3adda0e", "gateway", "changelog"];
+		const queries = ["", "  ", "WEBHOOK", "src/bill", "CORE", "8872d3adda0e", "gateway", "changelog", "4", "#4"];
 		for (const query of queries) {
 			expect([query, browserMatches(worked, query)]).toEqual([query, matchesQuery(worked, query)]);
 		}

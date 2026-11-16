@@ -210,8 +210,11 @@ describe("the board tool surface", () => {
 		// carried and the first guideline already states (-75) — 7,121. Then `reclaim` gained the
 		// holder's case (+38: a holder's reclaim is its own `release`, and the name alone does not
 		// say so), paid by `edit`'s field list that every parameter description already states (-69).
-		// 7,090 today, and the ceiling fell with it: the gate is the number; this comment is why.
-		expect(boardSurface()).toBeLessThanOrEqual(7_090);
+		// 7,013, measured rather than quoted: the surface stood 77 under the 7,090 this comment had
+		// been calling "today", and `query` took the card's id in for no character at all —
+		// `or a note matches` → `or note match` funds `id, `. The gate is the number; this comment
+		// is why.
+		expect(boardSurface()).toBeLessThanOrEqual(7_013);
 		expect(BOARD_GUIDELINES).toHaveLength(3);
 		expect(BOARD_GUIDELINES.join("\n").length).toBeLessThanOrEqual(400);
 	});

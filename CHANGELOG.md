@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: a card is found by its number — the page's filter box and `list`'s `query` answer `12`
+  and `#12`, read the way a reference is (`#` and leading zeros aside) and matched exactly, so `1`
+  does not name #12 among a hundred others, while a title, holder, kind, path, plan, or note holding
+  those digits still matches.
+
 - `skills`: add `triage-board`, a read-only pass that turns a board's open cards into a
   prioritized wave plan — duplicates folded by root cause, cards grouped by area, a refactor
   before the bugs it moves, decisions named, and the first wave with its evidence. It writes

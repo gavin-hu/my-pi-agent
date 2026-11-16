@@ -135,7 +135,7 @@ export const BoardParams = Type.Object({
 	mine: Type.Optional(Type.Boolean({ description: "`list`: only the cards this session holds." })),
 	query: Type.Optional(
 		Type.String({
-			description: "`list`: only the cards whose title, holder, kind, path, plan, or a note matches this text.",
+			description: "`list`: only the cards whose id, title, holder, kind, path, plan, or note match this text.",
 		}),
 	),
 	round: Type.Optional(
