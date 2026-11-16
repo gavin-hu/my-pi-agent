@@ -131,6 +131,21 @@ export interface TeamJoinRequest {
 export type SendResult = { ok: true; delivered: string[]; failed: DeliveryFailure[] } | { ok: false; error: string };
 
 /**
+ * What one send is worth saying to a caller: its labels, or why nobody got it.
+ *
+ * Nothing delivered is a failure, because no recipient can be told a message landed, and a
+ * fan-out that missed some peers is a success carrying them. One body, because two doors
+ * report one send — the `session` tool's own action and the request a command makes — and a
+ * caller must read the same answer whichever it asked through.
+ */
+export function sendOutcome(sent: { delivered: readonly string[]; failed: readonly DeliveryFailure[] }): SendResult {
+	if (sent.delivered.length === 0) {
+		return { ok: false, error: notDeliveredLine(sent.failed) ?? "no recipient could be written." };
+	}
+	return { ok: true, delivered: [...sent.delivered], failed: [...sent.failed] };
+}
+
+/**
  * The one bus seam a door uses: one send, and the sessions the bus lists.
  *
  * `board` and `team` each need both halves and each takes this as its injection point, so a suite

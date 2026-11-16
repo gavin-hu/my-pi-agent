@@ -11,12 +11,12 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { notDeliveredLine } from "../../lib/session-tool.ts";
+import { notDeliveredLine, sendOutcome } from "../../lib/session-tool.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatClaim, formatInbox, formatJoin, formatRead, formatRelease, formatSend, formatStatus } from "./format.ts";
-import { normalizeAction, normalizeLimit, sendOutcome, TOOL_NAME } from "./protocol.ts";
+import { normalizeAction, normalizeLimit, TOOL_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 import { collapsedLine, resultSections } from "./result.ts";
 import type { BusRow } from "./rows.ts";

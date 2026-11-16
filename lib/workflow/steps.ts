@@ -15,6 +15,7 @@
  */
 
 import { listOf } from "../format.ts";
+import { shortId } from "../session-label.ts";
 import { type ArtifactProof, proved } from "./artifact.ts";
 import {
 	BLOCKERS,
@@ -169,7 +170,7 @@ export function reseat(card: Card, actor: Actor, now: number, holder?: HolderFac
 	}
 	// The old id goes into a note rather than the card, and never into the lane log: `laneSince` reads
 	// that log to decide whether a spot-check is stale, so a made-up transition would move a rule.
-	const from = owner.id === undefined ? "a label-only owner" : `owner ${owner.id.slice(-6)}`;
+	const from = owner.id === undefined ? "a label-only owner" : `owner ${shortId(owner.id)}`;
 	return {
 		changed: true,
 		fields: {

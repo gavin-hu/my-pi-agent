@@ -47,12 +47,17 @@ describe("normalizeLabel", () => {
 });
 
 describe("shortId", () => {
-	test("keeps the tail of the alphanumerics", () => {
+	test("keeps the last six characters, punctuation and all", () => {
 		expect(shortId("2026-10-25-abc123")).toBe("abc123");
+		expect(shortId("s-core")).toBe("s-core");
 	});
 
 	test("survives an id with nothing alphanumeric in it", () => {
 		expect(shortId("----")).toBe("----");
+	});
+
+	test("neutralizes a tail that carries an escape", () => {
+		expect(shortId("abcde\u001bzzzzz")).toBe("zzzzz");
 	});
 });
 
