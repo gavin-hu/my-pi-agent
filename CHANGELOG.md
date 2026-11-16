@@ -219,6 +219,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `job`: a `wait` whose `timeoutMs` the schema advertises now returns instead of being refused. One
+  field carries `start`'s 24 h kill timeout and `wait`'s block, so the validator held a tighter bound
+  than the surface it published: a schema-legal `timeoutMs: 900000` was answered "must be between 0
+  and 600000". The block is capped at ten minutes in `waiters.ts`, which owns it, and a capped result
+  names the block it asked for and the one it used, in the result text and the transcript line.
+
 - `plan`, `file-browse`: a header with no control row closes with one hairline instead of two. The
   head's two rows have one author now — `appHead` writes the identity row and adds the rule and the
   control row only for a page that has controls — so the rule can no longer double the head's own

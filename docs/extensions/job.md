@@ -53,8 +53,10 @@ its screen, and the watcher that reads the same log.
 **Actions.** One tool, shaped by action: `start`, `list`, `status`, `logs`,
 `wait`, `send`, `kill`, `clear`. `start` takes the command, a `timeoutMs` to cap
 its wall clock, `stdin: true` to drive it later, `wake` to wake the agent when it
-finishes, and `detached` to outlive the session. `kill` sends `SIGTERM`, then
-`SIGKILL` after `killGraceMs`.
+finishes, and `detached` to outlive the session. `wait` blocks for its `timeoutMs`
+(30 s when unnamed) and never past ten minutes: a longer request is capped rather
+than refused, and a capped result names the block it asked for and the one it used.
+`kill` sends `SIGTERM`, then `SIGKILL` after `killGraceMs`.
 
 **The screen.** Running jobs first, then recent ones, with a summary line counting
 running, failed, and peer jobs. Another session's job is shown tagged `peer` and

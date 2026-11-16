@@ -10,6 +10,7 @@ import { Type, type Static } from "typebox";
 import { optionalString } from "../../lib/json.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { JOB_ACTIONS, KILL_SIGNALS, type JobAction, type KillSignal } from "./types.ts";
+import { MAX_WAIT_MS } from "./waiters.ts";
 
 /** Longest accepted command string. */
 export const MAX_COMMAND = 4000;
@@ -20,9 +21,8 @@ export const MAX_STDIN = 8192;
 /** Bounds for `logs.lines`. */
 const MIN_LOG_LINES = 1;
 const MAX_LOG_LINES = 2000;
-/** Bounds for `wait.timeoutMs`. */
+/** Bounds for `wait.timeoutMs`; a longer block is capped, not refused. */
 const MIN_WAIT_MS = 0;
-const MAX_WAIT_MS = 600_000;
 /** Bounds for `start.timeoutMs` (how long a job may run before it is killed). */
 const MIN_JOB_TIMEOUT_MS = 1;
 const MAX_JOB_TIMEOUT_MS = 24 * 60 * 60 * 1000;
@@ -54,7 +54,7 @@ export const JobParams = Type.Object({
 			minimum: 0,
 			maximum: MAX_JOB_TIMEOUT_MS,
 			description:
-				`For \`wait\`, how long it blocks (${MIN_WAIT_MS}–${MAX_WAIT_MS} ms). ` +
+				`For \`wait\`, blocks at most ${MAX_WAIT_MS} ms — a longer value is capped. ` +
 				`For \`start\`, kill the job after this many ms (minimum ${MIN_JOB_TIMEOUT_MS}).`,
 		}),
 	),
@@ -164,8 +164,8 @@ export function normalizeCall(raw: unknown): JobCall {
 		}
 		case "wait": {
 			const timeoutMs = typeof args.timeoutMs === "number" ? Math.round(args.timeoutMs) : undefined;
-			if (timeoutMs !== undefined && (timeoutMs < MIN_WAIT_MS || timeoutMs > MAX_WAIT_MS)) {
-				throw new Error(`timeoutMs must be between ${MIN_WAIT_MS} and ${MAX_WAIT_MS}.`);
+			if (timeoutMs !== undefined && (timeoutMs < MIN_WAIT_MS || timeoutMs > MAX_JOB_TIMEOUT_MS)) {
+				throw new Error(`timeoutMs must be between ${MIN_WAIT_MS} and ${MAX_JOB_TIMEOUT_MS} for wait.`);
 			}
 			return { action: "wait", id: requireId(), ...(timeoutMs !== undefined ? { timeoutMs } : {}) };
 		}

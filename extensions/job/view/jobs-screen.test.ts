@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { compareJobs, elapsedMs, formatJobDetail, jobCounts, shortLabel, statusGlyphChar } from "../format.ts";
+import {
+	compareJobs,
+	elapsedMs,
+	formatJobDetail,
+	jobCounts,
+	shortLabel,
+	statusGlyphChar,
+	waitState,
+} from "../format.ts";
 import { TailResult } from "../../../lib/tui/tool.ts";
 import { jobTail } from "../render.ts";
 import { JobListComponent } from "./jobs-screen.ts";
@@ -118,6 +126,15 @@ describe("job tui format", () => {
 	test("formatJobDetail names the owner when another session owns the job", () => {
 		expect(formatJobDetail(record({ sessionId: "peer" }), 5000, "me").join("\n")).toContain("owner: another session");
 		expect(formatJobDetail(record({ sessionId: "me" }), 5000, "me").join("\n")).not.toContain("owner:");
+	});
+
+	test("waitState names the cap it asked for and the one it used", () => {
+		expect(waitState({ timedOut: false, cancelled: false })).toBe("");
+		expect(waitState({ timedOut: true, cancelled: false })).toBe("still running after the timeout");
+		expect(waitState({ timedOut: false, cancelled: true })).toBe("wait cancelled; the job is still running");
+		expect(waitState({ timedOut: true, cancelled: false, capped: { askedMs: 900_000, usedMs: 600_000 } })).toBe(
+			"still running; asked 900000 ms, capped at 600000 ms",
+		);
 	});
 });
 
