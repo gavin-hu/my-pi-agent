@@ -4,7 +4,7 @@
  * A served page states a class in a string no type checker reads — markup, a template literal, a
  * client bundle spliced into the document — so a kit rename leaves the old word behind and the
  * control draws with no rule at all while every suite stays green. `test/web-classes.test.ts` is the
- * rule that catches it; these are the two reads every caller shares, so the page-scoped cases and
+ * rule that catches it; these are the reads every caller shares, so the page-scoped cases and
  * the root guard agree about what a page writes.
  */
 
@@ -38,6 +38,11 @@ export function sourcesUnder(dir: string, skip: readonly string[] = []): string 
  */
 export function rulesClass(css: string, name: string): boolean {
 	return new RegExp(`\\.${escape(name)}(?![-_a-z0-9])`).test(css);
+}
+
+/** One rule's own body: the whole stylesheet has these properties somewhere, so scope first. */
+export function rule(css: string, selector: string): string {
+	return css.slice(css.indexOf(selector)).split("}")[0] ?? "";
 }
 
 /** A name used in a pattern is not one to interpret: `.` and `-` are ordinary here. */
