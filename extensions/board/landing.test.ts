@@ -360,6 +360,29 @@ describe("the landing a close resolves", () => {
 		expect(proof?.moved).toEqual(["dir/own.ts"]);
 		expect(landingGate(ID, reviewed, proof)).toContain("dir/own.ts");
 	});
+
+	test("finds the merge for a card put back through the pool after it landed", async () => {
+		// The reclaim shape: the work began, the branch landed, and the card was reclaimed and
+		// re-entered into `execute` afterwards. Entering the lane again is continuing, not starting
+		// over, so the landing sits before the card's current lane age and is still its landing.
+		const { repo, reviewed } = await withNeighbour();
+		const merged = Number(await git(["log", "-1", "--format=%ct", "--merges"], repo)) * 1_000;
+		const card: Card = {
+			...signedAt(reviewed, ["dir"]),
+			lane: "execute",
+			log: [
+				{ lane: "backlog", by: LEAD.label, at: merged - 5_000 },
+				{ lane: "plan", by: LEAD.label, at: merged - 4_000 },
+				{ lane: "execute", by: LEAD.label, at: merged - 3_000 },
+				{ lane: "backlog", by: LEAD.label, at: merged + 1_000 },
+				{ lane: "plan", by: LEAD.label, at: merged + 2_000 },
+				{ lane: "execute", by: LEAD.label, at: merged + 3_000 },
+			],
+		};
+		const proof = await landedChain(storeOf(card, repo), ID, host());
+		expect(proof, "the merge fell outside the window the card's latest lane entry set").toBeDefined();
+		expect(landingGate(ID, reviewed, proof)).toBeUndefined();
+	});
 });
 
 describe.skipIf(!hasRealLandings)("the landings this repository made", () => {
