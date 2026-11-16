@@ -13,7 +13,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Card } from "../../lib/workflow/card.ts";
-import { landingGate, reviewedAncestor } from "../../lib/workflow/contract.ts";
+import { landingFor, landingGate, reviewedAncestor } from "../../lib/workflow/contract.ts";
 import { resolvedByMerge } from "../../lib/git/read.ts";
 import { createExecRunner } from "../../lib/git/runner.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
@@ -49,15 +49,27 @@ async function commitFile(repo: string, rel: string, body: string, message: stri
 	return await git(["rev-parse", "HEAD"], repo);
 }
 
-/** A card signed at `sha`, with the path hints the case gives it. */
-function signedAt(sha: string, paths: readonly string[]): Card {
+/** A card signed at `sha`, with the path hints the case gives it and the tree it was signed in. */
+function signedAt(
+	sha: string,
+	paths: readonly string[],
+	tree: { root?: string; branch?: string; checkout?: true } = {},
+): Card {
 	return {
 		...written(),
 		paths: [...paths],
 		review: {
 			by: LEAD.label,
 			at: NOW,
-			verified: { cmd: "bun run check", exit: 0, at: NOW, root: "/repo", branch: "work", sha },
+			verified: {
+				cmd: "bun run check",
+				exit: 0,
+				at: NOW,
+				root: tree.root ?? "/repo",
+				branch: tree.branch ?? "work",
+				...(tree.checkout === undefined ? {} : { checkout: tree.checkout }),
+				sha,
+			},
 		},
 	};
 }
@@ -237,6 +249,40 @@ describe("the landing a close resolves", () => {
 		// The landing is the merge on main, not the reviewed commit and not the branch's own merge.
 		expect(proof?.chain.at(-1)?.sha).toBe(landed);
 		expect(landingGate(ID, reviewed, proof)).toBeUndefined();
+	});
+
+	test("accepts a checkout sign of a merge that is still the tip", async () => {
+		const { repo } = await withNeighbour();
+		const landed = await git(["rev-parse", "main"], repo);
+		// The review of the merged tree, taken in the checkout: while `main` is still there, the merge
+		// is its own landing, and a second run over the same tree would prove nothing new.
+		const proof = await landedChain(
+			storeOf(signedAt(landed, ["dir"], { root: repo, branch: "main", checkout: true }), repo),
+			ID,
+			host(),
+		);
+		expect(landingGate(ID, landed, proof)).toBeUndefined();
+		expect(landingFor(ID, landed, proof, 7)).toEqual({ sha: landed, at: 7 });
+	});
+
+	test("refuses a checkout sign once the branch has moved past the merge it named", async () => {
+		const { repo, reviewed } = await withNeighbour();
+		const first = await git(["rev-parse", "main"], repo);
+		// #652: the sign names the merge, and then another landing arrives before the close. The merge
+		// carries nothing of its own any more, so the door is a re-sign rather than a wrong landing.
+		await git(["checkout", "-q", "-b", "next"], repo);
+		await commitFile(repo, "dir/next.ts", "export const next = 1;\n", "next lands");
+		await git(["checkout", "-q", "main"], repo);
+		await git(["merge", "--no-ff", "-q", "-m", "merge next", "next"], repo);
+		const proof = await landedChain(
+			storeOf(signedAt(first, ["dir"], { root: repo, branch: "main", checkout: true }), repo),
+			ID,
+			host(),
+		);
+		expect(landingGate(ID, first, proof)).toBe(reviewedAncestor("main", first, ID));
+		// The branch head is still resolvable: its merge is the later one, so a worktree sign works.
+		const again = await landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, host());
+		expect(landingGate(ID, reviewed, again)).toBeUndefined();
 	});
 
 	test("refuses a merge that resolved a file the review changed", async () => {

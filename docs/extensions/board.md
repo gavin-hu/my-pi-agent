@@ -66,10 +66,10 @@ naming the ways out; `assign` is `team`'s verb, under the same rule. A session h
 person and the lead always, a peer only while that owner's record says quiet or gone. `move` into `execute` or `done`
 re-reads the plan where the write lands, and a plan that is gone refuses it. A contract names a `verify` command —
 required — and `review` runs it in the tree `root` names (the card's worktree or a checkout at its commit). `done`
-refuses a sign with no result or one older than the card's own state — a note is a message, not a change — and
-resolves the merge that carried it, ancestry and all, refusing a merge committed before the card's work as an older
-tree and one that rewrote the review's lines. The lead merges and pushes first; the holder's `done` records it, and
-a landing note may be filed before it. `landed: <sha>` names the commit; `override` reads `closed by instruction`.
+refuses a sign with no result or one older than the card's state (a note is not a change) and resolves the merge that
+carried it: one committed before the card's work, one the branch moved past, or one rewriting the review's lines is an
+older tree, and a reviewed merge is its own landing only while it is the tip — a checkout sign needs a re-sign once
+something lands on top. `done` records that merge, `landed: <sha>` names it, and `override` reads "by instruction".
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);
 `/board approve <id>` and `/board review <id> [--root <tree>]` sign as the person; `/board archive` runs the sweep;
