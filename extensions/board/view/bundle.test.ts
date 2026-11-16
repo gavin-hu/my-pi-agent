@@ -9,6 +9,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { AGE_WORDS_JS } from "../../../lib/format.ts";
+import { REASON_FOR_JS } from "../../../lib/workflow/reason.ts";
 import { HISTORY_OWNER_JS } from "../../../lib/workflow/round-text.ts";
 import { LABEL_KEY_JS, SAME_LABEL_JS } from "../../../lib/session-label.ts";
 import { duplicateFunctions, missingBundleBodies } from "../../../test/helpers/bundle.ts";
@@ -67,6 +69,17 @@ describe("the fragments' bodies", () => {
 		}
 		// The owners are the one group carrying two lists, and both are expanded.
 		expect(BOARD_CLIENT_JS).toContain("cards: expand(round.owners[g].cards), done: expand(round.owners[g].done)");
+	});
+
+	test("carries the one wording an age is printed in, for the card face and the reason rule", () => {
+		// `sentence` and `reasonFor` both print "just now" rather than "now ago"; the page has no import
+		// graph, so the body crosses as source and is published for the fragment that runs after render's.
+		expect(BOARD_CLIENT_JS).toContain("function ageWords(");
+		expect(BOARD_CLIENT_JS).toContain(AGE_WORDS_JS);
+		expect(BOARD_CLIENT_JS).toContain("board.ageWords = ageWords;");
+		expect(missingBundleBodies(BOARD_CLIENT_JS, ["ageWords", "sentence", "reasonFor"])).toEqual([]);
+		// The hazard itself: the spliced rule calls a helper only the bundle beside it can carry.
+		expect(missingBundleBodies(REASON_FOR_JS, ["ageWords"])).toEqual(["ageWords"]);
 	});
 
 	test("fails a spliced body whose helper never reached the string", () => {

@@ -29,6 +29,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
   var chipNode = board.chipNode;
   var kindLabel = board.kindLabel;
   var ago = board.ago;
+  var ageWords = board.ageWords;
   var plural = board.plural;
   var reasonFor = board.reasonFor;
   var reasonTone = board.reasonTone;
@@ -63,9 +64,9 @@ export const BOARD_CARD_JS = String.raw`(function () {
     return node;
   }
 
-  /** "3h", "just now" — the age a stamp is drawn with, read against the reader's clock. */
+  /** "3h", "just now" — the age a stamp is drawn with, in the words lib/format.ts owns. */
   function sentence(wording, age) {
-    return wording.replace("{age}", age === "now" ? "just now" : age + " ago");
+    return wording.replace("{age}", ageWords(age));
   }
 
   /**

@@ -10,7 +10,7 @@
  * parenthesises the paths, the screen prefixes them.
  */
 
-import { clipText, formatAge, sanitizeLine } from "../../lib/format.ts";
+import { ageWords, clipText, formatAge, sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { shortId } from "./protocol.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
@@ -28,14 +28,12 @@ export function messagePaths(message: BusMessage): string {
 /**
  * How long ago something was, in the words every surface prints: `just now`, `3m ago`, `2h ago`.
  *
- * This is the bus's framing, not a second age helper: `lib/format.ts`'s `formatAge` decides the
- * number and the unit (`now` inside 45 seconds, then `3m`, `2h`, `2d`), and this only says what a
- * reader is told about it. The two names are one letter apart and a reader who takes one for a copy
- * of the other will eventually delete the wrong one, so: one formats an age, the other prints it.
+ * `lib/format.ts`'s `formatAge` decides the number and the unit (`now` inside 45 seconds, then `3m`,
+ * `2h`, `2d`) and its `ageWords` says what a reader is told about it; this is the bus's one call
+ * over both, for the text it builds from two numbers rather than from an age it already has.
  */
 export function ageText(now: number, at: number): string {
-	const age = formatAge(now, at);
-	return age === "now" ? "just now" : `${age} ago`;
+	return ageWords(formatAge(now, at));
 }
 
 /**

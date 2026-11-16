@@ -27,7 +27,7 @@ import { GATE_WORD } from "../../lib/workflow/tone.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/workflow/links.ts";
 import { skippedText } from "../../lib/workflow/skipped.ts";
 import type { Skip } from "../../lib/workflow/read.ts";
-import { formatAge, plural, shortenPath } from "../../lib/format.ts";
+import { ageWords, formatAge, plural, shortenPath } from "../../lib/format.ts";
 import { ranClause } from "../../lib/workflow/round-text.ts";
 
 /**
@@ -203,8 +203,7 @@ function detailLines(card: Card, board?: BoardIndex, now?: number, planGone = fa
 	// An offer's age is the fact a reader acts on, which is the one place an age belongs in
 	// this text: the value is whether anybody has had time to answer.
 	if (card.offeredAt !== undefined && now !== undefined) {
-		const age = formatAge(now, card.offeredAt);
-		lines.push(`  offered: ${age === "now" ? "just now" : `${age} ago`}, and nobody took it`);
+		lines.push(`  offered: ${ageWords(formatAge(now, card.offeredAt))}, and nobody took it`);
 	}
 	if (card.blocked !== undefined) lines.push(`  blocked: ${blockText(card.blocked)}`);
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);

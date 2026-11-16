@@ -17,7 +17,7 @@
  * Pure: no I/O, no clock of its own, no state.
  */
 
-import { pageSource } from "../format.ts";
+import { ageWords, pageSource } from "../format.ts";
 import { type Card, laneSince } from "./card.ts";
 import { currentReview } from "./lead.ts";
 
@@ -115,9 +115,8 @@ export function reasonFor(card: ReasonCard, ago: (at: number) => string): Reason
 				kind: "offered",
 				at: card.offeredAt,
 				wording: "offered {age} — nobody took it",
-				// The age reads "just now", never "now ago": the rule `card.ts`'s `sentence` keeps
-				// for a stamp, spelled here because this body is spliced without it.
-				text: "offered " + (age === "now" ? "just now" : age + " ago") + " — nobody took it",
+				// The words are `lib/format.ts`'s `ageWords`, spliced beside this body as `__AGE_WORDS__`.
+				text: "offered " + ageWords(age) + " — nobody took it",
 			};
 		}
 		return last === undefined ? undefined : { kind: "note", text: last.text };
