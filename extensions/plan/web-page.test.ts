@@ -252,16 +252,13 @@ describe("the page's chrome", () => {
 		expect(REVIEW_CSS).toContain(".bf-review.bf-md{max-width:none;overflow-x:hidden;overflow-y:auto}");
 	});
 
-	test("drops the page's own header rules instead of re-declaring the kit's", () => {
-		for (const rule of [
-			".review-heading{",
-			".review-title{",
-			".review-state{",
-			".review-status{",
-			".review-controls{",
-		]) {
-			expect(REVIEW_CSS, rule).not.toContain(rule);
-		}
+	test("drops the page's own layout rules instead of re-declaring the kit's", () => {
+		const own = [".review-heading{", ".review-title{", ".review-state{", ".review-status{", ".review-controls{"];
+		for (const rule of own) expect(REVIEW_CSS, rule).not.toContain(rule);
+		// The outline collapses with the shell's rules at the review's width; its disclosure names it.
+		expect(REVIEW_CSS).toContain("@media (max-width:1180px){");
+		expect(REVIEW_CSS).not.toContain(".bf-app__sidebar{position:static");
+		expect(REVIEW_CSS).toContain(".review-nav__title{display:none}");
 		// A title is read from its head, unlike the paths the kit cuts; one page rule says so.
 		expect(REVIEW_CSS).toContain(".review-bar .bf-context--subject{direction:ltr;text-align:left}");
 	});

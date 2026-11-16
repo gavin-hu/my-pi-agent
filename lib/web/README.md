@@ -209,9 +209,16 @@ that resets to the light palette: paper is white whatever the screen shows.
 `.bf-app` is a definite-height column — `100vh`, then `100dvh` — so the header,
 sidebar, and main pane scroll inside it instead of the document. `.bf-app__body`
 is a 260px sidebar plus main; at `SIDEBAR_COLLAPSE_MAX` (860) the sidebar becomes
-a `<details>` disclosure and the page returns to normal scrolling. That is the
-only breakpoint the shell owns; a page's own (`820`, `1180`) stays in its
-stylesheet, since a media query cannot read a custom property.
+a `<details>` disclosure and the page returns to normal scrolling. That collapse is
+one body, `collapsedShell(maxWidth, own?)`: the shell ships it at 860, and a page whose
+outline needs the room earlier asks for it at its own width — the plan review does, at
+`1180` — passing its rules for that width as `own`, which land after the shell's inside
+the same query. The narrow header is a second body, `narrowShell(maxWidth)`: the subject
+takes a row of its own and a filter spans the control row. Keeping them apart is what lets
+a page take the collapse early without turning a wide header into three rows — the body
+has a pane, and the header has the window, so the two widths are different questions. A
+page's other breakpoints (`820`) stay in its own stylesheet, since a media query cannot
+read a custom property.
 
 A `<details>` lays its content out in a wrapper with no definite height, so a
 sidebar that must scroll on its own box positions its panel absolutely rather

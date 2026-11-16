@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import { WEB_BASE_CSS } from "./base.ts";
 import { WEB_COMPONENTS_CSS } from "./components.ts";
-import { SIDEBAR_COLLAPSE_MAX, WEB_LAYOUT_CSS } from "./layout.ts";
+import { SIDEBAR_COLLAPSE_MAX, collapsedShell, narrowShell, WEB_LAYOUT_CSS } from "./layout.ts";
 import { appHead, chip, keysButton, liveChip, pageFooter, reloadChip, themeToggle } from "./markup.ts";
 import { CLIENT_RUNTIME_JS, paintLive } from "./client-runtime.ts";
 
@@ -87,6 +87,27 @@ describe("the shell's two rows", () => {
 		// end kept only `Users/gavin/Repositories/Github/` and lost the folder being read.
 		expect(WEB_COMPONENTS_CSS).toContain(".bf-context--subject{flex:1 1 auto;direction:rtl;text-align:left");
 		expect(WEB_COMPONENTS_CSS).not.toContain("direction:ltr");
+	});
+
+	test("collapses the sidebar at the width the page asks for, its rules inside the query", () => {
+		const shell = collapsedShell(900, ".page-rule{color:var(--accent)}");
+		expect(shell.startsWith("@media (max-width:900px){")).toBe(true);
+		expect(shell).toContain(".bf-app__body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}");
+		expect(shell).toContain("max-height:50vh");
+		// A page's rule lands after the shell's in the same query, so it wins at equal specificity.
+		expect(shell.indexOf(".page-rule{")).toBeGreaterThan(shell.indexOf("max-height:50vh"));
+		// The collapse is the body's answer alone: a page that takes it early keeps its header.
+		expect(shell).not.toContain("bf-context--subject");
+		expect(shell.endsWith("}")).toBe(true);
+	});
+
+	test("answers a narrow identity row in its own query, at its own width", () => {
+		const narrow = narrowShell(900);
+		expect(narrow.startsWith("@media (max-width:900px){")).toBe(true);
+		expect(narrow).toContain(".bf-app__id .bf-context--subject{flex:1 1 100%}");
+		expect(narrow).toContain(".bf-app__ctl .bf-field--filter{width:100%;margin-left:0}");
+		// The two answers are separate bodies: the header's is not part of the sidebar's.
+		expect(narrow).not.toContain("bf-app__body");
 	});
 
 	test("wraps the footer's line rather than cutting a fact off it", () => {
