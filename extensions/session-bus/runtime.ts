@@ -436,6 +436,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			await requireStore().writeSession(me);
 			return { label, watching };
 		},
+		inboxDepth: () => mailWatch.size(),
 		wantsWake: () => mailWatch.wantsWake(),
 		turnStart: () => turn.start(),
 		turnSettled: () => turn.settle(),
@@ -546,6 +547,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const { messages } = await store.inbox(me.id, normalizeLimit(limit));
 			// Mail read before its notice fired is never announced afterwards.
 			mailWatch.markReported(messages.map((message) => message.id));
+			// The standing line counts files, so consuming them is the one write that can clear it;
+			// refresh the depth now rather than waiting for the poll's own clock. A failed refresh
+			// costs the line a turn, never the mail this call already consumed.
+			await mailWatch.poll().catch(() => {});
 			return messages;
 		},
 

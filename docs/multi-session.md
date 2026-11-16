@@ -60,7 +60,8 @@ requests   board, team ───► lib/session-tool.ts
 4. **Design, then sign.** The owner records the plan and its contract, and the
    lead signs with `/board approve 4`; a card reaches `execute` only on that
    signature. The write that makes the contract whole tells the lead in its
-   inbox, so the sign is a wake-up rather than a poll.
+   inbox, so the sign is a wake-up rather than a poll — a board/team join asks for
+   `wake`, so that message starts the lead's turn.
 5. **Claim the files before editing.** `session claim paths ["docs/"]` is
    all-or-nothing: if one path conflicts, nothing is claimed, and a peer sees what
    is held rather than discovering it in a merge.
@@ -68,7 +69,10 @@ requests   board, team ───► lib/session-tool.ts
    handoff, a question, an event from a peer. To wait on one, arm `join` with
    `wake` and end the turn: a message waits in an inbox until its session runs, so
    an armed watch costs nothing once the turn is over, where a `sleep` sits inside
-   a turn that mail cannot reach.
+   a turn that mail cannot reach. While the inbox holds files, every turn starts with
+   a one-line `[SESSION BUS]` waiting notice, so the read is prompted by the transcript
+   rather than by the person; a board/team join asks for `wake`, so the turn starts on
+   its own.
 7. **Land, then close.** The lead's `/board review 4` is the second signature,
    taken in the card's tree; the lead merges `--no-ff` and pushes, then the holder
    moves the card to `done`, which records the merge.

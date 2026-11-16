@@ -48,6 +48,13 @@ export interface SessionBus {
 	/** This session's unread mail without consuming it, and the files this build cannot read. */
 	peek(): Promise<InboxPeek>;
 	/**
+	 * The files still in this inbox, as the last poll read them; 0 while the watch is off.
+	 *
+	 * A turn-start line reads this rather than the inbox: the count is already paid for by the
+	 * watch, and a session that is not listening has nothing to say.
+	 */
+	inboxDepth(): number;
+	/**
 	 * Remove unaccounted mail by message id — the one door `/sessions drop` opens.
 	 *
 	 * No tool action calls this: a person clears evidence, a session does not. The store refuses any

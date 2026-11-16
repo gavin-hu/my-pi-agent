@@ -14,9 +14,10 @@
  * door every other sentence names is the wrong advice in two of the three cases.
  *
  * The asking is shared because the rule around it is easy to get different in two places:
- * ask only while this session is not on the team, so a card write costs one request per
- * session rather than one per card, and never let the join undo a card that was already
- * written — a bus that is not loaded is a sentence, not an exception.
+ * ask only while this session is not on the team, or is on it with an armed watch that cannot
+ * wake it, so a card write costs one request per session rather than one per card, and never let
+ * the join undo a card that was already written — a bus that is not loaded is a sentence, not an
+ * exception.
  *
  * Being on the team is read from the bus's own record, not from the standing alone: a
  * standing says a join once answered `ok`, and stays true after the bus stops, after the
@@ -116,7 +117,8 @@ function heldHere(held: Held): boolean {
  * a session the bus holds under this name is on the team whatever this process remembers,
  * and one it holds under another name is renamed — which is how opening the page takes the
  * seat. A record under the name asked for is also the only evidence of a watch the user
- * turned off, so a rename repeats *its* choice rather than arming mail afresh.
+ * turned off, so a rename repeats *its* choice rather than arming mail afresh — and an armed
+ * watch without wake is the one state a team door upgrades.
  *
  * A failure is recorded and asked again by the next door, and so is a success the roster
  * does not back any more; a join that threw is swallowed here for the same reason, because
@@ -136,7 +138,12 @@ export async function joinTeam(
 	const standing = session.team.last();
 	const answer = await rosterAnswer(session, ctx);
 	if (answer.kind === "held" && heldHere(answer.held) && sameLabel(answer.held.label, label)) {
-		return stateOfHeld(answer.held, standingOf(standing));
+		// An armed watch that cannot wake this session is the one record a team door repairs: a
+		// teammate that hears mail and is never woken for it still needs a human turn, which is
+		// the delivery this join exists to stop needing. `listen:false` is an explicit opt-out and
+		// is kept, and an older record that says nothing about its watch is left alone.
+		const watch = answer.held.watching;
+		if (watch?.armed !== true || watch.wake) return stateOfHeld(answer.held, standingOf(standing));
 	}
 	// No word from the bus keeps a standing that landed: the record may be there and unreadable,
 	// and a join spent on a guess would rename a session the bus still holds.
@@ -283,12 +290,12 @@ async function rosterAnswer(session: JoinSession, ctx: ExtensionContext): Promis
  * and the standing after it, for a record the bus no longer holds.
  *
  * `armed: false` is the user's `join({listen: false})`, not a failure to repair, so the ask is
- * the same disarmed join. A watch that was armed is asked for with the wake it had, so a
- * session woken for its mail stays woken. Neither says anything, and the ask is a plain join.
+ * the same disarmed join. A watch that is armed — with wake or without — is asked for with wake,
+ * because a team door is how work reaches this session, and an armed watch that cannot wake it
+ * still needs a human turn.
  */
 function askAgain(standing: JoinResult | undefined, label: string, watching?: Watching): TeamJoinInput {
 	const choice = watching ?? (standing?.ok === true ? standing.watching : undefined);
-	if (choice === undefined) return { label };
-	if (!choice.armed) return { label, listen: false };
-	return choice.wake ? { label, wake: true } : { label };
+	if (choice !== undefined && !choice.armed) return { label, listen: false };
+	return { label, wake: true };
 }

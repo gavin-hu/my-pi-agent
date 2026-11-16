@@ -11,9 +11,10 @@ messages, consume an inbox, and claim paths before editing them.
 - **Joining is explicit.** The board opens empty; a session appears only when it
   joins, which every `session` action except `status` does — `/board` and
   `/team join` join too.
-- **Listening is a mode**: mail reported at the next turn, or — with `wake` — one
-  raised turn as soon as the agent is idle. Any mail does it: a handoff, an offer, an
-  ask, or a sign wakes a `wake` listener exactly as any other message does.
+- **Listening is a mode**: mail reported at the next turn, or — with `wake` — one raised turn as
+  soon as the agent is idle; any mail does it. A board or team join asks for `wake`, `session join`
+  keeps its own flags, and `listen: false` is the one opt-out.
+- **Waiting mail**: a listening session's turn starts with the count until `inbox` clears it.
 - **Claims are all-or-nothing**, on a file or a directory prefix, and they expire
   with the session.
 
@@ -25,11 +26,11 @@ messages, consume an inbox, and claim paths before editing them.
 | Join under a name | `/team join billing-core`, or `session join` |
 | Message one session | `session send to billing-web text "the API route is free"` |
 | Broadcast an event | `session send to "*" kind "event" text "…"` |
-| Read your mail | `session inbox`, or `session read` to show it and keep it |
+| Read your mail | `session inbox`, or `session read` to show it and keep it (the waiting line counts files, so `read` leaves it) |
 | See mail no session holds, and clear one | the board's summary counts it; `/sessions drop` names each, and `<id>` clears one |
 | Claim files before editing | `session claim paths ["src/api"]` |
 | Release a claim | `session release paths ["src/api"]`, or `x` on the board |
-| Be woken by mail | `session join wake: true` |
+| Be woken by mail | a board/team join asks for it; `session join wake: true` for a bare session |
 | Stop listening | `w`, on the board |
 
 ## Try it
@@ -58,7 +59,7 @@ message id: `to "*"`, which is refused unless `kind` is `event`.
 
 **Mail is read, not taken, by the page.** The Team tab removes nothing: an inbox stays its owner's
 to consume, and a message it shows is never marked as told — only the session advances its count.
-The page is loopback and token-guarded, and a row's state comes from its recipient's id, not its label.
+A row's state comes from its recipient's id, not its label.
 
 **Records.** `session status` lists each session with its state — `live` while its heartbeat
 holds, `quiet` once it has aged, `gone` once its process is not running — and whether its watch
@@ -69,9 +70,8 @@ burst told, so the number falls with nothing deleted, and both surfaces draw tha
 A notice previews five messages, so `session read` is what shows the rest; a file this build
 cannot parse is named rather than counted, and its TTL is the only thing that ends it. Mail whose
 recipient's record was pruned has no row to hang a number on, so `session status` and the
-`/sessions` board name it under `Unaccounted (N)` — id, sender, kind, age, first line — and a
-bare `/sessions drop` prints that list, where `/sessions drop <id>` clears one. The Team tab
-counts none of it: its numbers are the mail each session can open, one read per frame. A heartbeat
+`/sessions` board name it under `Unaccounted (N)`, and a bare `/sessions drop` prints that list
+while `/sessions drop <id>` clears one. A heartbeat
 ends expired mail in its own inbox and in the ones no record holds; a stopped inbox is swept once
 its record ages out, and each file still ends at its own TTL. That door is a command, not a
 `session` action: a message is evidence, and the store refuses an id a record's inbox holds.
@@ -93,8 +93,8 @@ repository root; the repository itself cannot be claimed, and there is no forced
 
 - Same machine and OS user only: any process with your file access can read or rewrite it, with no
 authentication between sessions; the [agent directory](../security.md#the-agent-directory) is trusted input.
-- Pull-based by default: a message waits for a session that is not listening, and the model reads
-mail at coordination points.
+- Pull-based for a bare `session join`: a message waits for a session that is not listening. A board
+or team join asks for `wake`, so a handoff, an ask, or a sign starts a turn in an idle teammate.
 - Reading is not joining: `/sessions` shows a board you are not on until you join or act.
 - Membership is per session and does not survive a resume or a restart; unread mail and the derived
 label do.

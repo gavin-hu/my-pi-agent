@@ -246,10 +246,10 @@ describe("session-bus extension", () => {
 		expect(notice?.content).toContain("[SESSION BUS]");
 		expect(notice?.content).toContain("integrator · message · contract v2 merged");
 
-		// The waking run's own turn start adds nothing: the notice was already reported.
+		// The waking run's turn start has no second preview, but the waiting file still says its line.
 		await bus.poll();
 		expect(customMessages).toHaveLength(1);
-		expect(await emitFirst(pi, "before_agent_start", {}, ctx)).toBeUndefined();
+		expect((await emitFirst(pi, "before_agent_start", {}, ctx))?.message.content).toContain("message waiting");
 
 		await peer.stop();
 		await emit(pi, "session_shutdown", { type: "session_shutdown" }, ctx);
@@ -278,10 +278,10 @@ describe("session-bus extension", () => {
 		const first = await emitFirst(pi, "before_agent_start", {}, ctx);
 		expect(first?.message.content).toContain("verify-billing · ask · is checkout.ts free?");
 		expect(first?.message.content).toContain("Run `session inbox` to read and consume them.");
-		expect(await emitFirst(pi, "before_agent_start", {}, ctx)).toBeUndefined();
-
-		// The mail is still on disk: only `inbox` consumes it.
+		expect((await emitFirst(pi, "before_agent_start", {}, ctx))?.message.content).toContain("message waiting");
+		// Only `inbox` deletes, and consuming clears the line.
 		expect(await bus.inbox()).toHaveLength(1);
+		expect(await emitFirst(pi, "before_agent_start", {}, ctx)).toBeUndefined();
 		await peer.stop();
 		await emit(pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 	});
@@ -311,9 +311,9 @@ describe("session-bus extension", () => {
 		expect(customMessages).toHaveLength(1);
 		expect(customMessages[0]?.options).toEqual({ triggerTurn: true });
 		expect(customMessages[0]?.message.content).toContain("mid-turn");
-		// The settle retry already reported it, so the next turn adds nothing.
-		expect(await emitFirst(pi, "before_agent_start", {}, ctx)).toBeUndefined();
-		// Announcing never consumes: only `inbox` deletes.
+		// The settle retry already reported it; the waiting file still says its line.
+		expect((await emitFirst(pi, "before_agent_start", {}, ctx))?.message.content).toContain("message waiting");
+		// Announcing never consumes: only `inbox` deletes, which clears the line.
 		expect(await bus.inbox()).toHaveLength(1);
 
 		await peer.stop();

@@ -85,7 +85,7 @@ describe("joinTeam", () => {
 	test("asks when this session has not asked yet, under the label the card was written as", async () => {
 		const { session, team, ctx, asked } = harness();
 		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([{ label: LABEL }]);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 	});
 
 	test("keeps the standing while the roster still holds this session", async () => {
@@ -102,7 +102,7 @@ describe("joinTeam", () => {
 		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
 		writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen: NOW, pid: process.ppid });
 		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([{ label: LABEL }]);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 	});
 
 	test("keeps a record this process wrote, which is this pane's own watch", async () => {
@@ -118,13 +118,41 @@ describe("joinTeam", () => {
 		expect(asked).toEqual([]);
 	});
 
+	test("upgrades an armed watch that cannot wake this session", async () => {
+		// Armed but not woken is the one watch a team door repairs: a teammate that hears mail
+		// and is never woken for it is a teammate that still needs a human turn.
+		const { session, team, ctx, asked, busDir } = harness({ record: joined({ armed: true, wake: false }) });
+		writeBusRecord(busDir, {
+			id: ID,
+			label: LABEL,
+			lastSeen: NOW,
+			pid: process.pid,
+			watching: { armed: true, wake: false },
+		});
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
+	});
+
+	test("leaves an armed watch that already wakes alone", async () => {
+		const { session, team, ctx, asked, busDir } = harness({ record: joined({ armed: true, wake: true }) });
+		writeBusRecord(busDir, {
+			id: ID,
+			label: LABEL,
+			lastSeen: NOW,
+			pid: process.pid,
+			watching: { armed: true, wake: true },
+		});
+		await joinTeam(session, team, ctx, LABEL);
+		expect(asked).toEqual([]);
+	});
+
 	test("asks again when the bus holds another name, which is what the page's seat does", async () => {
 		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
 		// A session the bus holds live under the name it joined as, now serving the page as the
 		// seat: the record is live but says another name, so the open renames it.
 		recordLive(busDir);
 		await joinTeam(session, team, ctx, "team-lead");
-		expect(asked).toEqual([{ label: "team-lead" }]);
+		expect(asked).toEqual([{ label: "team-lead", wake: true }]);
 	});
 
 	test("a rename repeats a disarmed join, so the page cannot turn mail back on", async () => {
@@ -143,21 +171,21 @@ describe("joinTeam", () => {
 		// name any more: without this the next claim writes a card under a dead label.
 		removeBusRecord(file);
 		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([{ label: LABEL }]);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 	});
 
 	test("asks again when the record aged out of the bus's TTL", async () => {
 		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
 		recordLive(busDir, NOW - SESSION_TTL_MS - 1);
 		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([{ label: LABEL }]);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 	});
 
 	test("asks again when the only record is another session's", async () => {
 		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
 		writeBusRecord(busDir, { id: "s-peer", label: "billing-web", lastSeen: NOW });
 		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([{ label: LABEL }]);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 	});
 
 	test("asks again after a failure, which a later attempt replaces", async () => {
@@ -165,7 +193,7 @@ describe("joinTeam", () => {
 			record: { ok: false, error: "the session bus is not loaded" },
 		});
 		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([{ label: LABEL }]);
+		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 		expect(standing()?.ok).toBe(true);
 	});
 

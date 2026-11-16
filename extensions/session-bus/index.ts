@@ -24,7 +24,7 @@ import { registerJoinRequests } from "./join-request.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
 import { registerSendRequests } from "./send-request.ts";
 import { registerTools } from "./tools.ts";
-import { mailNotice } from "./notice.ts";
+import { mailNotice, waitingNotice } from "./notice.ts";
 import type { BusMessage } from "./types.ts";
 
 export interface SessionBusDeps {
@@ -41,6 +41,10 @@ export default function sessionBus(pi: ExtensionAPI, deps: SessionBusDeps = {}):
 		pending: () => bus.pending(),
 		markReported: (messages) => bus.markReported(messages.map((message) => message.id)),
 		buildNotice: mailNotice,
+		standing: () => {
+			const waiting = bus.inboxDepth();
+			return waiting > 0 ? waitingNotice(waiting) : undefined;
+		},
 		source: "session-bus",
 		wakeRequested: () => bus.wantsWake(),
 	});

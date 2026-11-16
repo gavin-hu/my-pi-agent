@@ -32,6 +32,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`: a listening session starts every turn with one line while its inbox holds mail,
+  after the preview that announced it, and the board/team join asks for `wake` — so a handoff, an
+  ask, or a sign starts a turn in an idle teammate instead of waiting for a human prompt. The line
+  counts files, so `read` leaves it and `inbox` clears it; `listen: false` remains the opt-out.
+
 - `board`: the Team tab's bus facts reach an open tab in about a second instead of up to five. The page's
   one ticker now asks a cheap stamp — the bus directory's, `sessions/`'s, `inbox/`'s and each inbox's mtimes —
   and builds a frame only when it moved, so a message landing or a turn starting is news at the next tick

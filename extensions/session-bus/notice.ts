@@ -77,3 +77,16 @@ export function mailNotice(messages: BusMessage[]): NoticeMessage {
 		details: { source: "session-bus", title: headline, items },
 	});
 }
+
+/**
+ * The standing line: one sentence at a turn start while the inbox holds mail the preview
+ * already reported. No bodies, so a waiting inbox costs a line rather than a burst; the
+ * renderer's details carry the count alone.
+ */
+export function waitingNotice(count: number): NoticeMessage {
+	const headline = `${plural(count, "message")} waiting`;
+	return noticeMessage({
+		content: `${BUS_CONTEXT_MARKER} ${headline} — run \`session inbox\``,
+		details: { source: "session-bus", title: headline },
+	});
+}
