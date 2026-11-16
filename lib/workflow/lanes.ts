@@ -52,6 +52,25 @@ export function contractRoute(card: Pick<Card, "lane">): string {
 }
 
 /**
+ * When the card's work began: its first entry into `execute`, or its creation.
+ *
+ * A landing is a merge that landed *after* the work started, and the board reads that window off
+ * the card. The lane's own entry is the wrong end of it: a card put back through the pool and
+ * re-claimed after its branch merged is the same work continued, and `laneSince` — which answers
+ * how long the card has been where it is — would put the merge before the window and make the
+ * close impossible (#670).
+ *
+ * The first entry can be gone: the log is capped, and its oldest lines are the first to drop. The
+ * fallback is creation, which is earlier rather than later, so the window is never *narrower* than
+ * the work — and a merge is only ever named when it carries the reviewed commit, which is a commit
+ * of this card's own branch and cannot predate the card.
+ */
+export function workStartedAt(card: Pick<Card, "log" | "createdAt">): number {
+	const first = card.log?.find((entry) => entry.lane === "execute");
+	return first?.at ?? card.createdAt;
+}
+
+/**
  * The colours a lane may wear: the page's kit names them as properties, and
  * `extensions/board/tone.ts` bridges them to the terminal's own roles — the two
  * vocabularies are not shared, which is what that bridge exists for.

@@ -20,8 +20,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../../lib/errors.ts";
 import { type ArtifactProof, planForExecute } from "../../lib/workflow/artifact.ts";
 import { type LandingCommit, resolveLanding, type LandingProof } from "../../lib/workflow/contract.ts";
-import { laneSince } from "../../lib/workflow/card.ts";
-import type { Lane } from "../../lib/workflow/lanes.ts";
+import { type Lane, workStartedAt } from "../../lib/workflow/lanes.ts";
 
 import { normalizeCardId } from "../../lib/workflow/card.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
@@ -95,9 +94,9 @@ export async function landedChain(
 		throw new Error(`the landing read failed: \`git log --first-parent ${branch}\` in ${root} — ${messageOf(error)}`);
 	});
 	if (chain.length === 0) return undefined;
-	// The card's work began when it entered `execute`; a card whose log has aged out falls back to
-	// its creation, because no merge can land before the card it lands.
-	const since = laneSince(card) ?? card.createdAt;
+	// The card's work began at its *first* entry into `execute`; a card put back and re-entered after
+	// its merge is continuing, so the landing has to be allowed to sit between the two entries.
+	const since = workStartedAt(card);
 	// Which merges carry the reviewed commit, asked once: the rule is resolved twice — for the diff
 	// and again under the write's lock — and a question asked twice is two chances to disagree.
 	const carriers = new Map(

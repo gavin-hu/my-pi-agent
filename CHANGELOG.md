@@ -274,6 +274,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a card put back through the pool after its branch merged can name that merge as its landing. The
+  proof's window was the card's *current* lane entry, so a reclaim/release/claim cycle re-entering `execute`
+  pushed the merge before it and `done` answered that the run was taken on an older tree — a sentence no
+  re-sign could satisfy, since every new sign is later still. The window now starts at the card's first
+  `execute` entry (`workStartedAt`, in `lib/workflow/lanes.ts`), while `laneSince` keeps answering how long
+  the card has been where it is, so the page's lane age and the round's queue are unchanged.
+
 - `board`: a close whose landing cannot be resolved says which git read failed, in which repository, and
   in git's own words, instead of "the branch it landed on was not read". The chain has a strict door now
   (`firstParentChainOrThrow`) that throws with git's stderr, and `landedChain` throws a sentence naming the

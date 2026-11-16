@@ -8,7 +8,18 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { isLane, LANE_RULES, LANES, laneIndex, movableLanes, targetsFrom, transitionOf, TRANSITIONS } from "./lanes.ts";
+import type { Card } from "./card.ts";
+import {
+	isLane,
+	LANE_RULES,
+	LANES,
+	laneIndex,
+	movableLanes,
+	targetsFrom,
+	transitionOf,
+	TRANSITIONS,
+	workStartedAt,
+} from "./lanes.ts";
 
 describe("the lane table", () => {
 	test("is the five lanes, in the order every surface reads them", () => {
@@ -75,5 +86,31 @@ describe("the transitions", () => {
 
 	test("names the lanes a tool accepts: everything but the pool", () => {
 		expect(movableLanes()).toEqual(["plan", "execute", "blocked", "done"]);
+	});
+});
+
+describe("when the card's work began", () => {
+	test("answers the first entry into execute, not the latest", () => {
+		// The reclaim shape: the card worked, was put back, and came back to `execute` afterwards. Its
+		// lane age is the later entry; the work began at the first one, which is the window a landing
+		// has to sit inside.
+		const card: Pick<Card, "log" | "createdAt"> = {
+			createdAt: 1_000,
+			log: [
+				{ lane: "backlog", by: "lead", at: 2_000 },
+				{ lane: "plan", by: "lead", at: 3_000 },
+				{ lane: "execute", by: "lead", at: 4_000 },
+				{ lane: "backlog", by: "lead", at: 5_000 },
+				{ lane: "execute", by: "lead", at: 6_000 },
+			],
+		};
+		expect(workStartedAt(card)).toBe(4_000);
+	});
+
+	test("falls back to creation for a card that never worked, and for one whose first entry dropped off", () => {
+		// The log is capped and drops its oldest lines first, so the fallback is live: creation is
+		// earlier than any landing, which keeps the window wide rather than narrowing it.
+		expect(workStartedAt({ createdAt: 1_000, log: [{ lane: "plan", by: "lead", at: 2_000 }] })).toBe(1_000);
+		expect(workStartedAt({ createdAt: 1_000 })).toBe(1_000);
 	});
 });
