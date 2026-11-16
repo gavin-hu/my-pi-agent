@@ -153,7 +153,7 @@ describe("page chrome", () => {
 		expect(html).toContain('src="/theme.js"');
 		expect(html).toContain('id="keys-open"');
 		expect(html).toContain('id="keys-dialog" hidden');
-		expect(html).toContain('<div class="bf-app__rule"></div>');
+		expect(html).not.toContain('<div class="bf-app__rule">');
 		expect(html).toContain('<details class="bf-app__sidebar browse-sidebar" open>');
 		expect(html).toContain("<noscript>");
 		expect(html).toContain('<span class="bf-tree__tw bf-tree__tw--spacer" aria-hidden="true"></span>');
@@ -502,7 +502,7 @@ describe("file page", () => {
 		const html = filePage("a<b>.txt", textView(["x"]));
 		expect(html).toContain("Text ·");
 		expect(html).not.toContain("application/octet-stream");
-		expect(html).toContain('<div class="bf-app__rule"></div>');
+		expect(html).not.toContain('<div class="bf-app__rule">');
 		expect(html).toContain("a&lt;b&gt;.txt</span></footer>");
 	});
 });

@@ -9,15 +9,13 @@
  */
 
 import {
+	appHead,
 	baseAttribute,
-	brandLockup,
 	docHead,
 	type KeyHint,
 	keysSheet,
 	pageFooter,
-	pageSubject,
 	tabTitle,
-	toolbarChrome,
 } from "../../../lib/web/index.ts";
 import { escapeHtml } from "../../../lib/escape.ts";
 import { renderChanges, renderGit, renderLiveChrome, type LivePage } from "./chrome.ts";
@@ -112,17 +110,13 @@ ${docHead({ title: layout.title, css: BROWSE_CSS, base: layout.base })}
 <p class="sr-only" id="copy-status" role="status" aria-live="polite"></p>
 <noscript><style>.bf-field{display:none}.browse-side__filters{display:none}.bf-tree__tw--toggle{visibility:hidden}.bf-btn{display:none}.browse-quick-open{display:none}th .bf-sort{pointer-events:none;cursor:default}</style></noscript>
 ${SPRITE}
-<header class="bf-app__head"><div class="bf-app__id">
-  ${brandLockup("browse")}
-  ${pageSubject({ label: layout.rootLabel, title: layout.rootLabel })}
-  <div class="bf-app__facts">
-    ${renderGit(layout.git)}
+${appHead({
+	product: "browse",
+	subject: { label: layout.rootLabel, title: layout.rootLabel },
+	facts: `${renderGit(layout.git)}
     ${renderChanges(layout.summary, layout.live, layout.base)}
-    ${renderLiveChrome(layout.live)}
-  </div>
-  ${toolbarChrome()}
-</div>
-<div class="bf-app__rule"></div></header>
+    ${renderLiveChrome(layout.live)}`,
+})}
 <div class="bf-app__body">
   <details class="bf-app__sidebar browse-sidebar" open>
     <summary class="bf-panel__summary">Files</summary>

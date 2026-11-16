@@ -14,18 +14,16 @@
  */
 
 import {
+	appHead,
 	baseAttribute,
-	brandLockup,
 	docHead,
 	type KeyHint,
 	keysSheet,
 	liveChip,
 	pageFooter,
-	pageSubject,
 	reloadChip,
 	SIDEBAR_COLLAPSE_MAX,
 	tabTitle,
-	toolbarChrome,
 	WEB_BASE_CSS,
 	WEB_COMPONENTS_CSS,
 	WEB_LAYOUT_CSS,
@@ -321,9 +319,6 @@ ${reviewHints(data.role, data.canApprove)}
 	// Sharing belongs to the owner; a reviewer's identity is a row in the panel.
 	const shareControl = isOwner ? `<button type="button" class="bf-btn" id="share">Share</button>` : "";
 	const controls = `${shareControl}${approveButton}${saveControl}${closeControl}`;
-	// An empty control bar is a rule with nothing above it: a viewer opens no bar at all, which
-	// is also what keeps the page from looking like a review that lost its buttons.
-	const controlBar = controls === "" ? "" : `<div class="bf-app__ctl review-actions">${controls}</div>`;
 	// One name for the page, read from the role: a view is not a review, and the tab, the
 	// toolbar lockup, and the section of the docs that explains it must not disagree.
 	const pageName = isViewer ? "plan view" : "plan review";
@@ -334,18 +329,17 @@ ${docHead({ title: tabTitle(pageName, data.title), css: REVIEW_CSS, base: data.b
 </head>
 <body class="bf-app">
 <a class="skip" href="#plan">Skip to the plan</a>
-<header class="bf-app__head"><div class="bf-app__id review-bar">
-${brandLockup(pageName)}
-${pageSubject({ id: "plan-title", label: data.title, title: data.path })}
-<div class="bf-app__facts">
-${liveChip({ id: "review-state", label: "connecting\u2026" })}
+${appHead({
+	product: pageName,
+	subject: { id: "plan-title", label: data.title, title: data.path },
+	facts: `${liveChip({ id: "review-state", label: "connecting\u2026" })}
 ${reloadChip({ title: isViewer ? "Reload to read the plan again" : "Reload to review the plan again" })}
 <span class="bf-status" id="status"></span>
-<p class="sr-only" id="review-announce" role="status" aria-live="polite"></p>
-</div>
-${toolbarChrome()}
-</div>
-<div class="bf-app__rule"></div>${controlBar}</header>
+<p class="sr-only" id="review-announce" role="status" aria-live="polite"></p>`,
+	controls: controls === "" ? undefined : controls,
+	identityClass: "review-bar",
+	controlsClass: "review-actions",
+})}
 <div class="${bodyClass}">
 ${outlinePanel}<main class="bf-app__main bf-review bf-md" id="plan" aria-label="Plan"></main>
 </div>

@@ -29,7 +29,7 @@ export interface DocHeadOptions {
  * A page's browser-tab title: `<page> · <subject> · <count>`.
  *
  * One convention across the served pages, so a strip of tabs reads as one product. The
- * page's name comes first, lowercase and the same word its header's `brandLockup`
+ * page's name comes first, lowercase and the same word `appHead`'s `product`
  * carries; then what the page is showing; then the count a reader opens the tab for. A
  * part the page does not have is left out rather than drawn empty, so a board with
  * nothing open reads `board · my-pi-agent` and a plan reads `plan review · <its title>`.
@@ -140,7 +140,7 @@ export function markIcon(): string {
  * and the product name. The mark mirrors the TUI header (`█▀█` / `█▀ █`), drawn
  * as a 4x2 grid so the accent and warning rows stay crisp at any zoom.
  */
-export function brandLockup(product: string): string {
+function brandLockup(product: string): string {
 	const rows = MARK_ROWS.map((row, index) => `<g class="bf-mark__${row.group}">${markRowRects(row, index)}</g>`);
 	return `<span class="bf-brand"><svg class="bf-mark" viewBox="0 0 4 2" aria-hidden="true">${rows.join("")}</svg><span class="bf-wordmark">bytefly</span><span class="bf-context">${escapeHtml(product)}</span><span class="bf-brand__rule" aria-hidden="true"></span></span>`;
 }
@@ -160,7 +160,17 @@ export function themeToggle(): string {
  * own facts and the app's chrome. The whole value is on the hover, because the line truncates
  * its head: two clones of one repository, or two served folders, are told apart by the path.
  */
-export function pageSubject(options: { id?: string; label: string; title: string }): string {
+/** What the identity row's subject says: the label, and the whole value it stands for. */
+export interface PageSubjectOptions {
+	/** Element id, for a client that repaints the label. */
+	id?: string;
+	/** Visible label, escaped. */
+	label: string;
+	/** The whole value, on the hover; the label may be a truncated head of it. */
+	title: string;
+}
+
+function pageSubject(options: PageSubjectOptions): string {
 	const id = options.id === undefined ? "" : ` id="${escapeHtml(options.id)}"`;
 	return `<span class="bf-context bf-context--subject"${id} title="${escapeHtml(options.title)}">${escapeHtml(options.label)}</span>`;
 }
@@ -211,8 +221,43 @@ export function keysButton(): string {
 }
 
 /** The app's chrome, in the identity row's last zone: the key sheet, then the theme toggle. */
-export function toolbarChrome(): string {
+function toolbarChrome(): string {
 	return `<div class="bf-app__chrome">${keysButton()}${themeToggle()}</div>`;
+}
+
+/** Options for {@link appHead}: the page's name, what it is of, and its own two rows. */
+export interface AppHeadOptions {
+	/** The product name the lockup carries, and the word `tabTitle` names the page by, e.g. `board`. */
+	product: string;
+	/** The page's subject, as the identity row's one truncating label reads it. */
+	subject: PageSubjectOptions;
+	/** Trusted markup for the facts zone: the live line, its reload, or the page's own sentence. */
+	facts: string;
+	/**
+	 * Trusted markup for the page's own controls. Absent on a page with none, which has one row —
+	 * and so no rule, because a line with nothing under it draws the head's border twice.
+	 */
+	controls?: string;
+	/** A page's own class on the identity row, code-authored. */
+	identityClass?: string;
+	/** A page's own class on the control row, code-authored. */
+	controlsClass?: string;
+}
+
+/**
+ * The app head: the identity row, over the page's own control row when it has one.
+ *
+ * One atom writes the shell's whole header, so no page can put the row rule where no row follows
+ * it: the mark, the subject, the facts and the app's chrome sit in the identity row, and the rule
+ * and the control row are written only for a page that passes controls. A page's classes reach
+ * its own row through `identityClass` and `controlsClass`; the zones themselves are the kit's.
+ */
+export function appHead(options: AppHeadOptions): string {
+	const identity = options.identityClass === undefined ? "" : ` ${options.identityClass}`;
+	const row = `<header class="bf-app__head"><div class="bf-app__id${identity}">${brandLockup(options.product)}${pageSubject(options.subject)}<div class="bf-app__facts">${options.facts}</div>${toolbarChrome()}</div>`;
+	if (options.controls === undefined) return `${row}</header>`;
+	const controls = options.controlsClass === undefined ? "" : ` ${options.controlsClass}`;
+	return `${row}<div class="bf-app__rule"></div><div class="bf-app__ctl${controls}">${options.controls}</div></header>`;
 }
 
 /**

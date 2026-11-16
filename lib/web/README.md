@@ -63,12 +63,13 @@ A served page's chrome is a fixed head and foot with one scroll box between them
 band has one job:
 
 - `.bf-app__head` is two rows, split by a plain `.bf-app__rule`, on the page's own canvas and
-  closed by one hairline: a bar above a flat sheet needs no elevation of its own. A head with no
-  control row has nothing to split, so a rule that is its last child draws nothing and the
-  hairline is the only line under the page. `.bf-app__id`
+  closed by one hairline: a bar above a flat sheet needs no elevation of its own. One atom writes
+  it, `appHead`: a page passes its name, its subject, its facts and its controls, and a head with
+  no control row is one row and gets no rule. `.bf-app__id`
   carries the lockup, the subject (`pageSubject`: mono, grows, truncates its head so a path keeps
   the folder being read), the live line and the reload, with `.bf-app__chrome` (key sheet, theme
-  toggle) at the end; `.bf-app__ctl` is the page's own controls and nothing else.
+  toggle) at the end; `.bf-app__ctl` is the page's own controls and nothing else, and a page adds
+  its own class to either row with `identityClass` / `controlsClass`.
 - `.bf-app__main` is the only scroller, so a lane's head or a column's caption pins to it.
 - `.bf-app__foot` is one `.bf-footer__facts` line naming where the content came from and
   what it holds. It wraps rather than truncating, and it states no fact the head owns: the
@@ -261,15 +262,17 @@ choice. Neither page reloads for a theme.
 
 ## Markup atoms and escaping
 
-`docHead`, `brandLockup`, `markIcon`, `tabTitle`, `themeToggle`, `chip`, `button`,
-`keysSheet`, `keysButton`, `toolbarChrome`, `pageSubject`, `liveChip`, `reloadChip`, and
-`pageFooter` return strings. `docHead` links the mark as the tab icon — two SVG
+`docHead`, `appHead`, `markIcon`, `tabTitle`, `themeToggle`, `chip`, `button`,
+`keysSheet`, `keysButton`, `liveChip`, `reloadChip`, and `pageFooter` return strings.
+`appHead` is the header's one entry: the lockup, the subject and the chrome zone are its own
+parts, so a page names its product and subject rather than drawing the rows. `docHead` links the
+mark as the tab icon — two SVG
 data URIs from the same blocks the lockup draws, the dark one plain and the light
 one behind `prefers-color-scheme` — because an icon is its own document and
 cannot read the page's tokens.
 
 `tabTitle` is where the three served pages' tab titles agree: `<page> · <subject> ·
-<count>`, the page's name lowercase and the same word its `brandLockup` carries, a part
+<count>`, the page's name lowercase and the same word `appHead`'s `product` carries, a part
 the page does not have left out rather than drawn empty. The board's count is live, so
 its page repaints the title on every frame and the body crosses into the bundle as
 `TAB_TITLE_JS`, the way `plural` does — one shape for the string, not two. Every dynamic **value** goes through `escapeHtml` from
