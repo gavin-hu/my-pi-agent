@@ -2,14 +2,14 @@
  * Who may act on a card's two gates and its return to the pool: the lead, and the person at the keyboard.
  *
  * `approve` and `review` are the board's one human judgement — a contract somebody read and a piece of
- * work somebody looked at — so the signature belongs to somebody accountable rather than to whichever
- * peer answered first. The lead is a team name in `bytefly.json` (`team.lead`, read by `config.ts`, and
- * the page's seat), the one identity a pure rule can be handed and a card file can record; the person is
- * the actor a file can name that is not a holder, which keeps a one-session repository able to close.
+ * work somebody looked at — so the signature belongs to somebody accountable rather than to whichever peer
+ * answered first. The lead is a team name in `bytefly.json` (`team.lead`, read by `config.ts`, and the page's
+ * seat in `board/seat.ts`), the one identity a pure rule can be handed and a card file can record; the person
+ * is the actor a file can name that is not a holder, which keeps a one-session repository able to close.
  *
- * The signer is refused in two shapes: a session that is not the lead (`signRefusal`), and a lead that
- * holds the card it means to sign (`holderRefusal` — release it first). The words live in one table,
- * `SIGN_WORDS`, so a gate and a lane requirement cannot drift into four sentences.
+ * The signer is refused in two shapes: a session that is not the lead (`signRefusal`), and a lead that holds
+ * the card it means to sign (`holderRefusal` — release it first). The words live in `SIGN_WORDS`, so a gate
+ * and a lane requirement cannot drift into four slightly different sentences.
  *
  * `reclaim` is the third decision: the holder may take its own card back, the lead anybody's, and a peer
  * one only from a session the bus says has stopped. Only a spot-check's own signer withdraws it.
@@ -342,17 +342,17 @@ export function appendNote(card: Card, by: string, at: number, text: string): Pi
  * compared. The field is `stateAt`, not `updatedAt`: a landing note is a message about the card, not a
  * change to it, so every reader of this rule — the gate, the queue, the reason line — inherits one answer.
  *
- * A card written before `stateAt` existed has none. One fact still heals its fallback: when the newest
- * note is the newest write, that note is a message and the mark is the last moment that is not one. The
- * record cannot tell a note from a state write that carried one, so the last write is taken at its word —
- * the landing gate proves the work, and a current session's next write stores `stateAt` for good.
+ * A card from before `stateAt` has none, and this fallback reads it loosely: **a state write between the sign
+ * and the newest note is invisible**, because only a lane change logs a transition — so a `contract` or `edit`
+ * leaves no trace and the later note reads fresh.
+ *
+ * It holds only because such a card was written entirely by older code, whose next write stores the field, and
+ * because the landing gate still proves the work the sign is over.
  */
 export function signStale(card: Card, record: SignRecord): boolean {
-	// A fallback card whose newest write is a note is read by the newest moment that is not one.
-	const note = card.stateAt === undefined ? card.notes.at(-1) : undefined;
-	const notNote =
-		note !== undefined && note.at === card.updatedAt ? (card.log?.at(-1)?.at ?? card.createdAt) : undefined;
-	return (card.stateAt ?? notNote ?? card.updatedAt) > Math.max(record.at, record.told?.at ?? 0);
+	const noted = card.stateAt === undefined && card.notes.at(-1)?.at === card.updatedAt;
+	const mark = card.stateAt ?? (noted ? (card.log?.at(-1)?.at ?? card.createdAt) : card.updatedAt);
+	return mark > Math.max(record.at, record.told?.at ?? 0);
 }
 
 /**
@@ -395,10 +395,10 @@ export function reviewGate(
 /**
  * Record the spot-check of finished work: the lead's, and never the holder's.
  *
- * `override` is the other way a finished card gets a sign — somebody saying the gate was jumped: the
- * reason is required, the card already `done`, and no review on it, because the one rule it relaxes is
- * the lane. The sign records how it was made, so a forced close reads as one. `verified` is the run the
- * signer's own call made, held by {@link evidenceFor} rather than trusted.
+ * `override` is the other way a finished card gets a sign — somebody saying the gate was jumped: the reason
+ * is required, the card already `done`, and no review on it, because the one rule it relaxes is the lane and
+ * a reason is not a second signature. The sign records how it was made. `verified` is the run the signer's
+ * own call made, held by {@link evidenceFor} rather than trusted.
  */
 export function review(
 	card: Card,

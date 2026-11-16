@@ -121,9 +121,11 @@ describe("signStale", () => {
 	});
 
 	test("a write that is not a note still outgrows the sign on a card with no state stamp", () => {
-		// The record cannot tell a state write from a note the write carried, so the fallback takes the
-		// last write at its word. That is the limit this rule lives with, and the case states it: a card
-		// stamped after the sign with no note on it is a write nothing accounts for.
+		// **A state write between the sign and the newest note is invisible**: only a lane change logs a
+		// transition, so a `contract` or `edit` write leaves no trace and the later note reads fresh. The
+		// fallback therefore takes the last write at its word. It holds only because such a card was written
+		// entirely by older code — whose next write stores the field — and because the landing gate still
+		// proves the work. Here the write nothing accounts for is the card's own clock.
 		const edited = card({ updatedAt: 3_000, notes: [{ by: "billing-lead", at: 2_000, text: "earlier" }] });
 		expect(signStale(edited, { by: BOARD_LEAD.label, at: 2_000 })).toBe(true);
 		const silent = card({ updatedAt: 3_000 });
