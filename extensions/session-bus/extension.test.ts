@@ -277,9 +277,9 @@ describe("session-bus extension", () => {
 
 		const first = await emitFirst(pi, "before_agent_start", {}, ctx);
 		expect(first?.message.content).toContain("verify-billing · ask · is checkout.ts free?");
-		expect(first?.message.content).toContain("Run `session inbox` to read and consume them.");
+		// `read` tells without deleting, so the line stays; only `inbox` clears it.
+		await bus.read(1);
 		expect((await emitFirst(pi, "before_agent_start", {}, ctx))?.message.content).toContain("message waiting");
-		// Only `inbox` deletes, and consuming clears the line.
 		expect(await bus.inbox()).toHaveLength(1);
 		expect(await emitFirst(pi, "before_agent_start", {}, ctx)).toBeUndefined();
 		await peer.stop();
