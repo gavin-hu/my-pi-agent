@@ -133,7 +133,7 @@ describe("the agent contract", () => {
 	 * in the guides it links. This is the ceiling that keeps a new paragraph from
 	 * turning it back into a manual — lower it when the file shrinks.
 	 */
-	const CEILING = 1003;
+	const CEILING = 981;
 
 	/**
 	 * A path the doc cites: a code span with a `/` in it and a file extension. That is
