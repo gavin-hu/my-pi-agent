@@ -26,7 +26,7 @@ const fleetTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
-  var chip = board.chip;
+  var chipNode = board.chipNode;
   var ago = board.ago;
   var plural = board.plural;
 
@@ -119,11 +119,11 @@ __HISTORY_LINE__
     var chips = el("div", N.agentChips);
     // The two facts are two chips on purpose: the page serves as the lead, so collapsing them
     // would make a renamed lead undetectable — the row would still say "you" and nothing else.
-    if (agent.lead) chips.appendChild(chip("lead", "accent"));
-    if (agent.you) chips.appendChild(chip("you"));
+    if (agent.lead) chips.appendChild(chipNode({ label: "lead", tone: "accent" }));
+    if (agent.you) chips.appendChild(chipNode({ label: "you" }));
     // A live peer whose watch is off reads a handoff at its next turn instead of being woken.
     if (agent.state === "live" && agent.listening === false) {
-      var silent = chip("not listening");
+      var silent = chipNode({ label: "not listening" });
       silent.title = "Mail waits for this session's next turn; it is not woken for it.";
       chips.appendChild(silent);
     }
@@ -136,7 +136,7 @@ __HISTORY_LINE__
     }
     // The lead's own card says how much of the queue is its work, so the scan that starts
     // top-left lands on the reason to look right.
-    if (agent.lead && needs > 0) chips.appendChild(chip(needs + " needs you", "accent"));
+    if (agent.lead && needs > 0) chips.appendChild(chipNode({ label: needs + " needs you", tone: "accent" }));
     body.appendChild(chips);
 
     var missions = el("ul", N.missions);

@@ -161,11 +161,6 @@ __RUNTIME__
     return node;
   }
 
-  /** A kit tag, with a tone when the meaning is a state. */
-  function chip(text, tone) {
-    return el("span", "bf-tag" + (tone ? " bf-tone--" + tone : ""), text);
-  }
-
   /**
    * The kind a card is, and — inside the same label — whether it breaks an existing user.
    *
@@ -580,9 +575,9 @@ __RUNTIME__
   };
 
   board.el = el;
+  board.chipNode = chipNode;
   board.typing = typing;
   board.paneHead = paneHead;
-  board.chip = chip;
   board.kindLabel = kindLabel;
   board.ago = ago;
   board.findCard = findCard;

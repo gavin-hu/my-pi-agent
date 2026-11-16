@@ -225,6 +225,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the `ENEEDAUTH` forensics compress to their steps and traps: 2818 words down to 2319, with
   every anchor `AGENTS.md` links and every command unchanged.
 
+- `lib/web`: a tag has one owner in both shapes. `chip` gained a page's class and code-authored attributes, so
+  browse's hand-written git tag is one call, and `chipNode` joins the client runtime beside `el`, so the board's
+  bundle stops rebuilding `bf-tag` itself: the modifier it built is the kit's, and `board.chip` is gone. Nothing
+  looks different — the class order is pinned by two browse suites, and the tone the board used to pass without a
+  rule (`bf-tone--outline`, which no sheet answered) is now the tag's own muted default.
+
 ### Removed
 
 - `check`: `bun run check` runs one test file at a time, and `--serial` is gone with it — the flag

@@ -26,7 +26,7 @@ const feedTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
-  var chip = board.chip;
+  var chipNode = board.chipNode;
   var ago = board.ago;
   var plural = board.plural;
   var paneHead = board.paneHead;
@@ -88,7 +88,7 @@ const feedTemplate = String.raw`(function () {
     line.appendChild(arrow);
     line.appendChild(recipients(message.to));
     // The kind, in words: the tag is the shape and the word is the fact.
-    line.appendChild(chip(message.kind, "muted"));
+    line.appendChild(chipNode({ label: message.kind, tone: "muted" }));
     line.appendChild(board.stamp(message.at, undefined, true));
     body.appendChild(line);
     // The text is the reason to open it, and it never fits a row: on the hover, whole.

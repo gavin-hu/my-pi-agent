@@ -19,7 +19,7 @@ import {
 } from "./runtime.ts";
 import { KEBAB, namesScript } from "./names.ts";
 import { INLINE_MARKDOWN_JS } from "./markdown.ts";
-import { CLIENT_RUNTIME_JS, el, paintStatus, postJson, typing } from "./client-runtime.ts";
+import { CLIENT_RUNTIME_JS, chipNode, el, paintStatus, postJson, typing } from "./client-runtime.ts";
 import { WEB_THEME_CSS, WEB_THEME_TOKENS } from "./tokens.ts";
 
 /** Every custom property the theme layer defines. */
@@ -463,7 +463,7 @@ describe("web client runtime", () => {
 		// bodies would end the script, and the failure would be a page that never paints.
 		expect(CLIENT_RUNTIME_JS).not.toContain("`");
 		expect(CLIENT_RUNTIME_JS).not.toContain("${");
-		for (const fn of [el, typing, paintStatus, postJson]) {
+		for (const fn of [el, chipNode, typing, paintStatus, postJson]) {
 			expect(CLIENT_RUNTIME_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
 		}
 	});
