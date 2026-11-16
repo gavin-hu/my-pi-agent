@@ -27,6 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a resumed session's first turn names the card the sweep just re-seated. The sweep runs before the held
+  cards are read, so a card handed back to the session arrives as a card with its lane and next step instead of a
+  note about a write it never saw — and that turn is the only one a session gets.
+
 - `board`: editing an `execute` card's `paths` moves its bus claims with them. The added paths are claimed before
   the removed ones are released — one order, so a conflict on an add releases nothing — which stops a removed hint
   from blocking a peer on a file the card no longer names. `release`'s action doc says an `execute` card re-claims

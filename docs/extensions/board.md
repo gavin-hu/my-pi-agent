@@ -92,9 +92,9 @@ lead the same way, after the write; a failed send is a line, and the next comple
   approval opened; every other verb is the holder's. A gate is a reading, not a permission.
 - Settle a card's title, paths and contract before asking for its sign: a write after the spot-check
   stops that run speaking for the card, in the queue as at `done` alike; a branch is proved against `main` as it was cut.
-- Ownership is a session id, not a lock: only `session-bus` path claims are. A card in `execute` holds its
-  `paths`, and a lane change releases only the writer's; a card whose owner ended is released by a start,
-  or re-seated to the session wearing that name. Eight transitions are kept; an unreadable file is skipped.
+- Ownership is a session id, not a lock — only `session-bus` path claims are. A card in `execute` holds its `paths`,
+  `edit` moves them with the hints and a lane change frees only the writer's; a dead owner's card is released by a
+  start, or re-seated to the session wearing that name and told on its first turn. Eight transitions are kept.
 - The page sweeps every five seconds for what no card file announces, and scans every second with no watch.
 
 ## Settings
