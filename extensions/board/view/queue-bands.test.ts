@@ -43,9 +43,9 @@ const WIDE = 1680;
 
 /** One line of bands as the grid drew it, and the use it makes of the queue's content box. */
 interface Line {
-	/** How many bands start on this line. */
-	bands: number;
-	/** Their widths plus the gaps between them, in CSS pixels. */
+	/** The width of each band starting on this line, in CSS pixels. */
+	widths: number[];
+	/** Those widths plus the gaps between them. */
 	covered: number;
 }
 
@@ -92,7 +92,7 @@ async function widths(page: Page): Promise<Widths> {
 			content,
 			gap,
 			lines: Array.from(lines.values()).map((sizes) => ({
-				bands: sizes.length,
+				widths: sizes,
 				covered: sizes.reduce((sum, size) => sum + size, 0) + gap * (sizes.length - 1),
 			})),
 		};
@@ -120,19 +120,29 @@ describe.skipIf(CHROME === undefined)("the Needs you queue", () => {
 		await page.waitForSelector("#board-team .board-queue__band", { timeout: PAINT_MS });
 		await drawn(page);
 		const layout = await widths(page);
-		// The fixture files its asks under two bands; a queue that drew none would cover a box it
-		// never fills into, and pass for the wrong reason.
-		const bands = layout.lines.reduce((sum, line) => sum + line.bands, 0);
-		expect(bands).toBeGreaterThan(1);
+		const bands = layout.lines.flatMap((line) => line.widths);
+		// A queue that drew no band would cover a box it never fills into, and pass for the wrong
+		// reason: the fixture files its asks under two of them.
+		expect(bands.length).toBeGreaterThan(1);
 		expect(layout.content).toBeGreaterThan(0);
-		for (const line of layout.lines) {
-			// A band that fills its track leaves its line covering the content box to the pixel; a
-			// capped one leaves the empty pane this case exists to catch. The tolerance is the
-			// browser's sub-pixel rounding of a `1fr` track, not slack for a cap.
-			expect(Math.abs(line.covered - layout.content)).toBeLessThanOrEqual(1);
+		// The track is derived rather than assumed to be the whole box, because a line is only full
+		// while the bands divide evenly: at this width the queue holds two tracks (2×416 + 16 = 848,
+		// where three would need 1,264), so three bands would draw 2 + 1 and the second line would
+		// cover one track. That shape is right, and a case that read every line against the content
+		// box would blame a cap for it — which fires the day the shared fixture grows a card, not the
+		// day the stylesheet breaks.
+		const across = Math.max(...layout.lines.map((line) => line.widths.length));
+		const track = (layout.content - layout.gap * (across - 1)) / across;
+		for (const width of bands) {
+			// A band that fills its track is the track's width to the browser's sub-pixel rounding;
+			// a capped one leaves the empty pane this case exists to catch (640 against 944 below).
+			expect(Math.abs(width - track)).toBeLessThanOrEqual(1);
 		}
+		const full = layout.lines.find((line) => line.widths.length === across);
+		expect(full).toBeDefined();
+		expect(Math.abs((full?.covered ?? 0) - layout.content)).toBeLessThanOrEqual(1);
 		// And the pane is wide enough for two tracks here, so the bands share a line instead of
 		// stacking into one row a metre wide: the floor is what holds the measure a row is read at.
-		expect(layout.lines.some((line) => line.bands > 1)).toBe(true);
+		expect(layout.lines.some((line) => line.widths.length > 1)).toBe(true);
 	});
 });
