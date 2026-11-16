@@ -6,20 +6,10 @@
  * findable as one block; the `bf-*` kit itself lives in `lib/web`.
  */
 
-import {
-	SIDEBAR_COLLAPSE_MAX,
-	WEB_BASE_CSS,
-	WEB_COMPONENTS_CSS,
-	WEB_LAYOUT_CSS,
-	WEB_THEME_CSS,
-} from "../../../lib/web/index.ts";
+import { SIDEBAR_COLLAPSE_MAX, pageSheet } from "../../../lib/web/index.ts";
 
-/** The shared shell, components, and the page-only `browse-*` rules. */
-export const BROWSE_CSS = `${WEB_BASE_CSS}
-${WEB_THEME_CSS}
-${WEB_LAYOUT_CSS}
-${WEB_COMPONENTS_CSS}
-.browse-side{padding:var(--space-3)}
+/** The kit's four layers, then the page-only `browse-*` rules. */
+export const BROWSE_CSS = pageSheet(`.browse-side{padding:var(--space-3)}
 .browse-git{font-family:var(--font-mono)}
 /* The quick-open wears the kit's prompt line; the panel owns only the gap under it. */
 .browse-side .bf-field--button{gap:var(--space-2);margin-bottom:var(--space-2)}
@@ -149,4 +139,4 @@ body.palette-open{overflow:hidden}
 .bf-record{border:0}
 .bf-record,.bf-app__main,.bf-code,.bf-md,.bf-diff,.browse-listing{height:auto!important;max-height:none!important;overflow:visible!important}
 .bf-diff .bf-diff-line--hunk{position:static}
-}`;
+}`);

@@ -14,12 +14,14 @@ is the bug this directory prevents.
 
 ## Compose the layers in order
 
-A page concatenates `WEB_BASE_CSS`, `WEB_THEME_CSS`, `WEB_LAYOUT_CSS`,
-`WEB_COMPONENTS_CSS`, then its own page rules. Each block appears **once**: a
-repeated block still renders, so only a count catches it, and every page suite
-counts its own stylesheet (`pages.test.ts`, `web.test.ts`). A page rule is
-namespaced (`review-*`, `browse-*`) and overrides a kit class rather than
-re-declaring it.
+A page calls `pageSheet(own)` ([`sheet.ts`](./sheet.ts)) and passes only its own rules: the
+function lays down `WEB_BASE_CSS`, `WEB_THEME_CSS`, `WEB_LAYOUT_CSS`,
+`WEB_COMPONENTS_CSS`, then the page's sheet. The order is the contract — a page
+overrides a kit class at equal specificity, which only a later rule can — and it is
+written once, so a fifth layer is one edit. Each block appears **once**: a repeated
+block still renders, so only a count catches it, and every page suite counts its own
+stylesheet (`pages.test.ts`, `web.test.ts`). A page rule is namespaced (`review-*`,
+`browse-*`) and overrides a kit class rather than re-declaring it.
 
 ## One browser runtime, spliced in
 
