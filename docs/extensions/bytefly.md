@@ -68,9 +68,9 @@ row's whole `bytefly.json` section; `r` re-probes; `R` reloads; `?` lists keys;
 **The surfaces.** The header replaces Pi's when `quietStartup` is on. The footer's
 left line carries location, mode, and alerts; the right carries a context gauge,
 session spend, tokens, cache, and the model. The chip beside the location is the name
-the team knows this session by — the bus label a join settled, the page's seat after
-`/board`, else Pi's own session name — drawn only while `team.teammates` holds it, so
-neither is ever drawn as itself. A project states its team and lead in `bytefly.json`'s
+the team knows this session by — the label a join settled for it, the page's seat after
+`/board` — drawn only while `team.teammates` holds it. Pi's own session name never stands
+in, so a session that has not joined draws no chip. A project states its team and lead in `bytefly.json`'s
 `team` section (the **Lead** and **Teammates** rows); one that states neither gets the default lead
 and five names, a `[]` is how a project draws no chip, and `/team join <label>` adds its name. Each turn closes
 with a rule naming its number, duration, tools, and outcome. Every tool block leads

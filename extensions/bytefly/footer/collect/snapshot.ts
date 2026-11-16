@@ -58,7 +58,7 @@ export interface SnapshotReader {
 export function createSnapshotReader(
 	config: ByteflyConfig,
 	delegation: DelegationLedger,
-	resolveName: (sessionName: string | null) => string | null = () => null,
+	resolveName: () => string | null = () => null,
 ): SnapshotReader {
 	const price = createPricer(config);
 	let key: string | null = null;
@@ -66,7 +66,6 @@ export function createSnapshotReader(
 	let delegationTotals: DelegationTotals = { runs: 0, usage: zeroUsage() };
 	let cacheHitRate: number | null = null;
 	let context: ContextInfo = { tokens: null, contextWindow: 0, percent: null };
-	let sessionName: string | null = null;
 
 	let last: PricedSpend | undefined;
 
@@ -92,19 +91,13 @@ export function createSnapshotReader(
 				contextWindow: usageInfo?.contextWindow ?? current?.contextWindow ?? 0,
 				percent: usageInfo?.percent ?? null,
 			};
-			// The host walks the file backwards for the latest `session_info`, and a
-			// session renamed early makes that the whole transcript. A rename appends
-			// an entry, which moves the leaf, so the memo key already covers it.
-			sessionName = session.getSessionName() ?? null;
 			key = nextKey;
 			last = { usage, delegation: delegationTotals.usage };
 		}
 
-		// The resolver is asked every frame and answers from a team and a bus label an install
-		// read: a `session_tree` is what re-reads the file, so this costs a comparison. Pi's own
-		// name is only the candidate it is given — a label the bus settled for this session comes
-		// first, because that is the name a card, a handoff, and `/team` use.
-		const teammateName = resolveName(sessionName);
+		// The resolver is asked every frame and answers from a team and a label an install read:
+		// a `session_tree` is what re-reads the file, so this costs a comparison.
+		const teammateName = resolveName();
 
 		const model = current
 			? { id: current.id, provider: current.provider, reasoning: current.reasoning === true }

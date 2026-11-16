@@ -865,7 +865,7 @@ describe("snapshot reader", () => {
 		const snapshot = read(makeCtx(), footerData);
 
 		expect(snapshot.cwd).toBe("/home/u/repo/project");
-		expect(snapshot.teammateName, "the default team does not hold this session's name").toBeNull();
+		expect(snapshot.teammateName, "no resolver is installed, so the bar names nobody").toBeNull();
 		expect(snapshot.branch).toBe("main");
 		expect(snapshot.statuses.get("worktree")).toBe("⑂ smoke");
 		expect(snapshot.model).toEqual({ id: "opus-4.5", provider: "anthropic", reasoning: true });

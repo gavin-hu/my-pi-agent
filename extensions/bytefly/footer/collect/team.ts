@@ -38,18 +38,16 @@ export function readTeammates(cwd: string, options: { agentDir?: string } = {}):
 }
 
 /**
- * The bar's resolver: this session's name when the team holds it, nothing when it does not.
+ * The bar's resolver: the label a join settled for this session when the team holds it, nothing
+ * when it does not.
  *
  * One function rather than a list the snapshot keeps, because the membership rule belongs with
  * the vocabulary (`isTeammate`) and the snapshot only needs the answer. It is built here, where
  * the team is read, so neither the reader nor the bar imports the rule at registration.
  */
-export function teammateReader(
-	cwd: string,
-	options: { agentDir?: string } = {},
-): (sessionName: string | null) => string | null {
+function teammateReader(cwd: string, options: { agentDir?: string } = {}): (label: string | null) => string | null {
 	const team = readTeammates(cwd, options);
-	return (sessionName) => (isTeammate(sessionName, team) ? sessionName : null);
+	return (label) => (isTeammate(label, team) ? label : null);
 }
 
 /**

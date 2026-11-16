@@ -1,11 +1,10 @@
 /**
- * The session's name on the bar: the roster label when the bus has one, then Pi's own name.
+ * The session's name on the bar: the label the bus recorded for it, and nothing when there is none.
  *
- * Two facts meet here and only one of them is Pi's — a session name the terminal knows, and a
- * label a peer addresses. So the cases are what the follower reports (this session's record,
- * this session's event, not a peer's), and what the installed footer draws when the record
- * holds a teammate name the session's own name is not: the label is the source, and a label
- * the team does not hold draws nothing rather than falling back.
+ * A session name the terminal knows and a label a peer addresses are two facts, and the bar draws
+ * only the second. So the cases are what the follower reports (this session's record, this
+ * session's event, not a peer's), and what the installed footer draws: the label a join settled,
+ * and none at all for a session with no join behind it.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -17,7 +16,7 @@ import { scratchDir, withAgentDir } from "../../../../test/helpers/env.ts";
 import { emit, makeFakePi } from "../../../../test/helpers/fakes.ts";
 import { fakeFooterCtx, renderFooter } from "../../../../test/helpers/fixtures/footer.ts";
 import { makeTempTracker } from "../../../../test/helpers/git.ts";
-import { waitFor } from "../../../../test/helpers/process.ts";
+import { waitFor, settle } from "../../../../test/helpers/process.ts";
 import { registerFooter } from "../register.ts";
 import { followRosterLabel } from "./label.ts";
 
@@ -71,6 +70,22 @@ describe("following the roster label", () => {
 });
 
 describe("the installed footer's chip", () => {
+	test("draws nothing for a session Pi names as a teammate with no join behind it", async () => {
+		await withAgentDir(async (agentDir) => {
+			// The team holds `tom` and Pi names this session `tom`, and neither is a join: the bar
+			// has no label of this session's own, so it names nobody.
+			writeFileSync(join(agentDir, "bytefly.json"), JSON.stringify({ team: { teammates: ["gavin", "tom"] } }));
+			const { pi } = makeFakePi();
+			const { ctx, footerData, footers } = fakeFooterCtx({ sessionName: "tom" });
+			registerFooter(pi);
+			await emit(pi, "session_start", { reason: "startup" }, ctx);
+			await settle(20);
+			const frame = renderFooter(footers.at(-1), footerData).join("\n");
+			expect(frame).toContain("repo/project");
+			expect(frame).not.toContain("[tom]");
+		});
+	});
+
 	test("names the session from the bus record when Pi's own name is not on the team", async () => {
 		await withAgentDir(async (agentDir) => {
 			// The project's team holds `gavin` and not `billing-core`, and `/board` is what puts a

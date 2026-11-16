@@ -274,6 +274,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: the footer's name chip comes only from the label a join settled for this session. Pi's own
+  session name is no longer a candidate, so a session that merely happens to be named as a teammate draws
+  no chip until it joins: the bar names who the team took on, never a word that session shares with one.
+
 - `board`: a card put back through the pool after its branch merged can name that merge as its landing. The
   proof's window was the card's *current* lane entry, so a reclaim/release/claim cycle re-entering `execute`
   pushed the merge before it and `done` answered that the run was taken on an older tree — a sentence no

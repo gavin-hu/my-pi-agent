@@ -44,7 +44,7 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 
 	// The name the bar draws, from the team this install reads. Until that read lands nothing
 	// is a teammate, which draws no chip rather than a name the team may not hold.
-	let resolveTeammate: (sessionName: string | null) => string | null = () => null;
+	let resolveTeammate: (label: string | null) => string | null = () => null;
 	/** The directory the installed footer belongs to, so one bar never wears another's team. */
 	let installedCwd: string | undefined;
 	const readTeam = (cwd: string): void => {
@@ -58,9 +58,9 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 			.catch(() => {});
 	};
 
-	// The name the bar draws: the bus label a join settled when there is one, else Pi's own
-	// session name, and the team this install reads decides whether either is a name at all.
-	// `null` is no record, and a session the team does not hold draws no chip.
+	// The name the bar draws: the label a join settled for this session, and the team this install
+	// reads decides whether it is a name at all. `null` is no record, and a session the team does
+	// not hold draws no chip.
 	let rosterLabel: string | null = null;
 	/** Whether this session's label is being followed: a tree change re-installs, it is not new. */
 	let followed = false;
@@ -98,7 +98,7 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 		installedCwd = ctx.cwd;
 		readTeam(ctx.cwd);
 		const config = loadByteflyConfig(ctx.cwd);
-		const read = createSnapshotReader(config, delegation, (name) => resolveTeammate(rosterLabel ?? name));
+		const read = createSnapshotReader(config, delegation, () => resolveTeammate(rosterLabel));
 		budget = { limit: config.budget, read };
 
 		ctx.ui.setFooter((tui, _theme, footerData) =>

@@ -8,7 +8,7 @@
  * happens once.
  *
  * No record is the ordinary answer, not a failure: bytefly is on by default and the bus is
- * opt-in, so a session that never joined keeps Pi's own name.
+ * opt-in, so a session that never joined names nobody on the bar.
  *
  * Its caller loads this module on the first footer install rather than at registration,
  * because the read needs the bus's layout on disk and the registration graph is a budget in
@@ -19,8 +19,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { SESSION_LABEL_CHANNEL, type SessionLabelEvent, sessionIdOf } from "../../../../lib/session-label.ts";
 import { readSessionLabel } from "../../../../lib/session-roster.ts";
 
-/** What to draw: the label, or `null` for "no record, keep Pi's session name". */
-export type RosterLabelSink = (label: string | null) => void;
+/** What to draw: the label a join settled for this session. No record draws no chip at all. */
+export type RosterLabelSink = (label: string) => void;
 
 /**
  * Read this session's label once, then report every label the bus publishes for it.
@@ -50,7 +50,7 @@ export function followRosterLabel(input: {
 		sink(published.label);
 	});
 	// The record the bus wrote before this process started, if any. A failure is the same
-	// answer as no record: the bar keeps Pi's own name.
+	// answer as no record: the bar names nobody.
 	return readSessionLabel(agentDir, own).then(
 		(label) => {
 			if (label !== undefined) sink(label);
