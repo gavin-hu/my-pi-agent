@@ -295,13 +295,14 @@ ${DECISION_WHY_CSS}
    twice. An h4.bf-lane__head and a bf-lane__list are the kit's lane shapes one level down, and
    the queue's own indent is what says so: a band sits inside the queue, and the lane heads under
    it are the column's sections. */
-.board-queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,32rem),1fr));align-items:start;column-gap:var(--space-4);row-gap:var(--space-3);min-width:0;padding-inline:var(--space-3)}
+.board-queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr));align-items:start;column-gap:var(--space-4);row-gap:var(--space-3);min-width:0;padding-inline:var(--space-3)}
 /* A wide window takes a band per column rather than one row a metre wide: a row is a line of
-   facts read as one, and past about 32rem its title and its age are a screen apart. A band is
-   what flows, never a row, so no band is left with its head in one column and its rows in the
-   next — and a window wide enough for only one band does not stretch it, because the band is
-   capped at the width a row can be read at. */
-.board-queue__band{display:flex;flex-direction:column;min-width:0;max-width:40rem}
+   facts read as one, and past about 32rem its title and its age are a screen apart. The track's
+   floor is what holds that — two of them plus the gap is where the grid splits — and a band never
+   caps, so the asks fill the pane instead of stopping 300px short of it while the swimlanes under
+   them run its whole width. A pane wide enough for only one band gives that band all of it, which
+   is the one place a row reads wider than two bands would: an empty pane is the worse trade. */
+.board-queue__band{display:flex;flex-direction:column;min-width:0}
 /* The control that carries a band's tail sits under the rows it left out, one step off them: it
    belongs to the list, not to the band's head. */
 .board-queue__band > .board-fold{margin-top:var(--space-1)}

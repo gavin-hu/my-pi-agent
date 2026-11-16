@@ -274,6 +274,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the Team tab's Needs you bands take the width of the queue they sit in. A band was capped at
+  40rem while the grid's track floor was 32rem, so a queue between the two left the asks short of the pane
+  — 328px at a 1680 window — with the swimlanes under them running the column's whole width. The cap is
+  gone and the floor is 26rem, so a wide pane carries two bands per line and every band fills its track,
+  while a pane wide enough for only one band gives that band all of it. A new `queue-bands` suite reads
+  both sides off the page and fails on the old rules.
+
 - `job`: a `wait` whose `timeoutMs` the schema advertises now returns instead of being refused. One
   field carries `start`'s 24 h kill timeout and `wait`'s block, so the validator held a tighter bound
   than the surface it published: a schema-legal `timeoutMs: 900000` was answered "must be between 0
