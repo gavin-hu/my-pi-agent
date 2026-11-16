@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-16
+
 ### Added
 
 - `board`: a card is found by its number — the page's filter box and `list`'s `query` answer `12`
@@ -36,6 +38,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   resend after the recipient consumed it is a message again.
 
 ### Changed
+
+- `worktree`: the base branch is the remote's default; a repository with no `origin/HEAD` no longer falls
+  back to a local `main`: `prune` keeps every worktree naming `(no default branch)`, `status` stops counting
+  ahead/behind, and `exit` records the branch you are on.
 
 - `session-bus`: a listening session starts every turn with one line while its inbox holds mail,
   after the preview that announced it, and the board/team join asks for `wake` — so a handoff, an
@@ -273,6 +279,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   second run shape to try.
 
 ### Fixed
+
+- `session-bus`: a limit of zero reads nothing, in `read` and in the page, instead of falling back to the
+  default and returning mail the caller asked not to see.
 
 - `board`: the Team tab's poll sees a session join on Windows. The stamp it compares was three directory
   mtimes and each inbox's own clock, and Windows updates a directory's mtime lazily — two windows-latest
@@ -7760,7 +7769,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/gavin-hu/my-pi-agent/compare/v0.25.0...v0.25.1
