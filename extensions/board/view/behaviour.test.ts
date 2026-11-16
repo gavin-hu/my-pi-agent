@@ -194,6 +194,16 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await rowCount(page, "backlog", 2);
 	});
 
+	test("finds a card by the number a transcript line printed", async () => {
+		const page = await openPage();
+		// `#1` is the ref the row prints and a note quotes; nothing on that card spells it, so a row
+		// here is the id being read and nothing else.
+		await page.fill("#board-filter", "#1");
+		await rowCount(page, "backlog", 1);
+		expect(await titlesIn(page, "backlog")).toEqual(["Export orders as CSV"]);
+		await rowCount(page, "execute", 0);
+	});
+
 	test("folds Done past six cards, and unfolds it on a click", async () => {
 		const page = await openPage();
 		await page.click("#lane-head-done");
