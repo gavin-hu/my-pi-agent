@@ -28,8 +28,8 @@ export interface ClaimPathError {
 export type ResolvedClaimPaths = { paths: string[] } | { error: ClaimPathError };
 
 /**
- * The wording of the one refusal, shared so approval and the bus cannot phrase it
- * two ways: the caller prefixes the subject it knows (a unit, or a session's call).
+ * The wording of the one refusal: the caller prefixes the subject it knows, so the path and the
+ * reason are worded once.
  */
 export function claimPathMessage(error: ClaimPathError): string {
 	return `path "${error.path}" ${error.reason}.`;
