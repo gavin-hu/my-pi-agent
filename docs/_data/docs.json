@@ -272,7 +272,7 @@
       "path": "skills/README.md",
       "title": "All skills",
       "group": "Skills",
-      "summary": "The three packaged workflows, loaded on demand and forced with /skill:<name>."
+      "summary": "The four packaged workflows, loaded on demand and forced with /skill:<name>."
     },
     {
       "path": "skills/init.md",
@@ -291,6 +291,12 @@
       "title": "refactor",
       "group": "Skills",
       "summary": "Audit for duplication, size, coupling, and drift, then carry the refactor you pick."
+    },
+    {
+      "path": "skills/triage-board.md",
+      "title": "triage-board",
+      "group": "Skills",
+      "summary": "Turn a board's open cards into a prioritized wave plan with evidence, without writing."
     }
   ]
 }

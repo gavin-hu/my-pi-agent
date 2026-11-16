@@ -78,7 +78,7 @@ Then, from inside Pi:
 
 ## What you get
 
-21 extensions, 3 packaged skills, and 2 themes, grouped by the work they serve.
+21 extensions, 4 packaged skills, and 2 themes, grouped by the work they serve.
 Each extension's own page in `docs/extensions/` has the full tool
 and command surface, opening with its capabilities.
 
@@ -86,14 +86,14 @@ and command surface, opening with its capabilities.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`plan`](./docs/extensions/plan.md) | `plan`, `/plan`, `--plan` | Read-only planning: the model investigates, then you approve the plan before anything is written. |
-| [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | Delegate to a specialist agent in its own Pi process — single, parallel, chained, or in the background. |
+| [`plan`](./docs/extensions/plan.md) | `plan`, `/plan`, `--plan` | Read-only planning: the model investigates; you approve before anything is written. |
+| [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | Delegate to a specialist agent in its own process — single, parallel, chained, or background. |
 | [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | A persistent task list with one item in progress, drawn as a one-line widget. |
 | [`goal`](./docs/extensions/goal.md) | `goal`, `/goal` | A durable session objective, kept in a widget and restated before each turn. |
 | [`question`](./docs/extensions/question.md) | `question` | Ask you structured questions with labelled options, and wait for the answer. |
 | [`job`](./docs/extensions/job.md) | `job`, `/jobs` | Run long-lived shell commands in the background; read the log, wait, or kill them. |
-| [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | Tail a file or a command's output, and alert you or hand a matching line to the agent. |
-| [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions` (screen) | Coordinate parallel sessions on one repository: peers, short messages, an inbox, and path claims. |
+| [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | Tail a file or command; alert you or hand a match to the agent. |
+| [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions` (screen) | Coordinate parallel sessions on one repository: peers, mail, an inbox, and path claims. |
 | [`serve`](./docs/extensions/serve.md) | — | The session's one loopback server, so `/board`, `/browse`, and a plan review share one port. |
 | [`board`](./docs/extensions/board.md) | `board`, `/board` | One shared feature board per repository, two signatures before a card ships. |
 | [`team`](./docs/extensions/team.md) | `team`, `/team` | The lead's round over that board: assign, offer, ask — spawning nothing. |
@@ -103,8 +103,8 @@ and command surface, opening with its capabilities.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`worktree`](./docs/extensions/worktree.md) | `worktree`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | Work in an isolated `git worktree` on its own branch; the built-in tools follow. |
-| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `↺ N` status chip | Snapshot before each prompt's first change, then restore code, conversation, or both. |
+| [`worktree`](./docs/extensions/worktree.md) | `worktree`, `/worktree` (screen, `enter\|exit\|prune`), `--worktree` | Work in an isolated `git worktree` on its own branch; the built-in tools follow. |
+| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `↺ N` status chip | Snapshot before each prompt's first change; restore code, conversation, or both. |
 | [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | Durable cross-session notes as markdown you can read, edit, and version. |
 
 ### Reach the world
@@ -131,9 +131,10 @@ advertised to the model, and its instructions load only when the task matches
 
 | Skill | What it does |
 |---|---|
-| [`init`](./skills/init/SKILL.md) | Creates or updates the instruction file Pi reads, through an interactive interview and a plan you review. |
+| [`init`](./skills/init/SKILL.md) | Creates or updates the instruction file Pi reads, through an interview and a plan you review. |
 | [`refactor`](./skills/refactor/SKILL.md) | Audits for duplication, oversized modules, coupling, and drift, then carries the refactor you pick. |
 | [`next`](./skills/next/SKILL.md) | Suggests what to do next from this conversation, or from the tree when it is empty. |
+| [`triage-board`](./skills/triage-board/SKILL.md) | Turns a board's open cards into a prioritized wave plan with evidence. |
 
 ### Themes
 

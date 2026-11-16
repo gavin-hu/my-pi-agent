@@ -30,7 +30,7 @@ or off, its settings changed, and `/bytefly doctor` names anything missing.
 
 ## What you get
 
-21 extensions, 3 packaged skills, and 2 themes, grouped by the work they serve.
+21 extensions, 4 packaged skills, and 2 themes, grouped by the work they serve.
 The [extension index](./extensions/README.md) and the
 [skill index](./skills/README.md) list every one, and the
 [README](https://github.com/gavin-hu/my-pi-agent#what-you-get) carries the same
@@ -62,6 +62,7 @@ advertised to the model, and its instructions load only when the task matches
 | [`init`](./skills/init.md) | Creates or updates the instruction file Pi reads, through an interactive interview and a plan you review. |
 | [`refactor`](./skills/refactor.md) | Audits for duplication, oversized modules, coupling, and drift, then carries the refactor you pick. |
 | [`next`](./skills/next.md) | Suggests what to do next from this conversation, or from the tree when it is empty. |
+| [`triage-board`](./skills/triage-board.md) | Turns a board's open cards into a prioritized wave plan with evidence, without writing. |
 
 ### Themes
 
@@ -97,7 +98,7 @@ about the session is sent, and `PI_OFFLINE` skips the check —
   pack registers, by name, with the page that owns it.
 - [Tutorials](./tutorials/README.md) — eleven walkthroughs, the three to read first,
   and the rest grouped by what you are doing.
-- [Skills](./skills/README.md) — the three packaged workflows, and when to reach
+- [Skills](./skills/README.md) — the four packaged workflows, and when to reach
   for one instead of asking in words.
 - [Security](./security.md) — what the pack opens on your machine, and how each
   surface is gated.
