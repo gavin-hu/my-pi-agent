@@ -41,6 +41,12 @@ export interface PendingReporterOptions<T> {
 	 * retry, so a mid-turn outcome still wakes once the agent is idle.
 	 */
 	wakeRequested(): boolean;
+	/**
+	 * What to say at a turn start when nothing new is pending: a standing line, if the
+	 * source keeps one. Called only when `pending()` is empty, and nothing is marked for
+	 * it — the caller's own state decides when the line stops.
+	 */
+	standing?: () => NoticeMessage | undefined;
 	/** The notice's source, so only its own stale entries are pruned. */
 	source: string;
 	/** Runs after a wake turn was successfully requested, for an extra announcement. */
@@ -64,7 +70,7 @@ export interface PendingReporter {
 }
 
 export function createPendingReporter<T>(options: PendingReporterOptions<T>): PendingReporter {
-	const { wake, pending, markReported, buildNotice, wakeRequested, source, onWoke } = options;
+	const { wake, pending, markReported, buildNotice, wakeRequested, source, onWoke, standing } = options;
 	let busy = false;
 	let waking = false;
 
@@ -104,7 +110,10 @@ export function createPendingReporter<T>(options: PendingReporterOptions<T>): Pe
 		},
 		beforeAgentStart: () => {
 			const items = pending();
-			if (items.length === 0) return undefined;
+			if (items.length === 0) {
+				const message = standing?.();
+				return message === undefined ? undefined : { message };
+			}
 			const notice = buildNotice(items);
 			markReported(items);
 			return { message: notice };

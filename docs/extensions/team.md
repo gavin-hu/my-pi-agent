@@ -79,16 +79,16 @@ message to a quiet or not-listening peer says so: written is not heard.
 
 **Joining.** `/board` joins you as the lead (`team.lead`). Another session joins under its own name — `/team
 join <label>`, or a bare one for the first free `team.teammates` name, the id-derived `team-agent-` name when
-none is free. The list defaults to five names from `gavin`; `"teammates": []` says nobody. A recordless board
-session is named the same way, so card and join agree. An assign or an ask joins once, and a typed label also
-joins `team.teammates`; a bare join writes nothing and leaves Pi's name alone.
+none is free. A recordless board session is named the same way, so card and join agree. An assign or an ask
+joins once, and a typed label also joins `team.teammates`; a bare join writes nothing and leaves Pi's name alone.
+A board/team join asks for `wake`, so a handoff, an ask, or a sign starts an idle teammate's turn;
+`session join listen:false` is the opt-out, and an armed record without wake is upgraded.
 
-`assign` and `ask` join **before** they send, because the message names this session
-as the way back, and send nothing when the join is refused. The reason says what to
-do, and the door is not always `/team join`: with no bus loaded it names the
-extension to turn on, and with the label held by another record it says whose it is —
-joining under another name costs a lead its signature, because the gates compare
-`team.lead` by label.
+`assign` and `ask` join **before** they send, because the message names this session as the way
+back, and send nothing when the join is refused. The door is not always `/team join`: with no bus
+loaded it names the extension to turn on, and with the label held by another record it says whose
+it is — joining under another name costs a lead its signature, because the gates compare `team.lead`
+by label.
 
 **Plan mode.** Neither `team` nor `session` is read-only, so plan mode refuses both
 by name; `board list` still reads. Assign after the plan is approved.

@@ -49,6 +49,13 @@ export interface MailWatch {
 	watch(input: { wake?: boolean; stop?: boolean }): Promise<WatchingState>;
 	/** The current state, for the status line. */
 	state(): WatchingState;
+	/**
+	 * The files still in this inbox, as the last poll read them; 0 while unarmed.
+	 *
+	 * The depth a turn-start line reads: the read is one the watch already made, so saying
+	 * "mail is waiting" costs no second look at the directory.
+	 */
+	size(): number;
 	/** Whether the armed watch asked for a triggered turn; the settle retry reads it. */
 	wantsWake(): boolean;
 	/** Read the inbox without consuming it, queueing what is new; no-op when unarmed. */
@@ -69,6 +76,8 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 	let wake = false;
 	let stopTicker: (() => void) | undefined;
 	let pendingMail: BusMessage[] = [];
+	/** Files in the inbox at the last read, which is the depth a standing line reports. */
+	let inboxSize = 0;
 	/** One read at a time: a poll that arrives while another is reading is dropped, not queued. */
 	let polling = false;
 	let onWake: (() => void) | undefined;
@@ -116,6 +125,9 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 			for (const message of pendingMail) known.add(message.id);
 			const { mail, unread } = await peek(known);
 			if (!armed) return;
+			// Files, not unread: `read` marks told but keeps them, and a line that vanished on a
+			// peek would stop saying what `inbox` still has to consume.
+			inboxSize = unread.size;
 			// The read names everything still in the inbox, which is a different question from
 			// what one page covered: a message that expired or was consumed leaves the queue and
 			// the told set with its file.
@@ -141,6 +153,7 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 		armed = false;
 		wake = false;
 		pendingMail = [];
+		inboxSize = 0;
 	}
 
 	async function watch(input: { wake?: boolean; stop?: boolean }): Promise<WatchingState> {
@@ -168,6 +181,7 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 	return {
 		watch,
 		state: () => ({ armed, wake }),
+		size: () => inboxSize,
 		wantsWake: () => armed && wake,
 		poll: pollOnce,
 		pending: () => [...pendingMail],

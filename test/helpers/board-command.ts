@@ -76,7 +76,7 @@ export function fakeBoardTeam(
 	answer: (label: string | undefined) => JoinResult = (label) => ({
 		ok: true,
 		label: label ?? "team-agent-slead",
-		watching: { armed: true, wake: false },
+		watching: { armed: true, wake: true },
 	}),
 ) {
 	const labels: Array<string | undefined> = [];
@@ -135,7 +135,7 @@ export function fakeBoardSession(name = "team-agent-slead"): BoardSession & {
 		cross: async () => undefined,
 		team: { last: () => standing, record: (result) => void (standing = result) },
 		seat: () => seat,
-		recorded: (label = seat ?? name, watching = { armed: true, wake: false }) => {
+		recorded: (label = seat ?? name, watching = { armed: true, wake: true }) => {
 			roster.push({ id: "s-lead", label, mode: "tui", lastSeen: 0, mail: 0, watching });
 		},
 	};

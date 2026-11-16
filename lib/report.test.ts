@@ -25,7 +25,7 @@ describe("createPendingReporter", () => {
 	}
 
 	/** A reporter over a queue that records every wake, mark, and `onWoke` batch. */
-	function harness(options: { fail?: boolean; requested?: boolean } = {}) {
+	function harness(options: { fail?: boolean; requested?: boolean; standing?: () => NoticeMessage | undefined } = {}) {
 		const queued: Outcome[] = [];
 		const marked = new Set<string>();
 		const woken: NoticeMessage[] = [];
@@ -49,6 +49,7 @@ describe("createPendingReporter", () => {
 				}),
 			wakeRequested: () => requested,
 			source: "test",
+			standing: options.standing,
 			onWoke: (items) => wokeBatches.push([...items]),
 		});
 		return {
@@ -175,6 +176,15 @@ describe("createPendingReporter", () => {
 		expect(h.reporter.beforeAgentStart()).toBeUndefined();
 		h.reporter.report();
 		expect(h.woken).toEqual([]);
+	});
+
+	test("says the standing line only while nothing new is queued", () => {
+		const h = harness({
+			standing: () => noticeMessage({ content: "1 waiting", details: { source: "test", title: "1 waiting" } }),
+		});
+		expect(h.reporter.beforeAgentStart()?.message.content).toBe("1 waiting");
+		h.queue("a");
+		expect(h.reporter.beforeAgentStart()?.message.content).toBe("1 finished");
 	});
 
 	test("leaves the burst unmarked when the send throws, so the next turn reports it", () => {

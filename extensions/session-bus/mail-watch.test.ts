@@ -275,6 +275,19 @@ describe("the armed inbox watch", () => {
 		expect(target.watch.state()).toEqual({ armed: false, wake: false });
 	});
 
+	test("remembers the depth of the last read, and forgets it when disarmed", async () => {
+		const target = await fixture();
+		await fill(target, 1_000, 2);
+		await target.watch.watch({});
+		expect(target.watch.size()).toBe(2);
+		// Consuming a file changes the depth without changing what was announced.
+		await target.store.inbox("s2", 1);
+		await target.watch.poll();
+		expect(target.watch.size()).toBe(1);
+		await target.watch.watch({ stop: true });
+		expect(target.watch.size()).toBe(0);
+	});
+
 	test("queues nothing while it is disarmed", async () => {
 		const target = await fixture();
 		await target.write(1_000);

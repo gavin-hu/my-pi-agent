@@ -12,7 +12,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { busBoard, busMessage, busSession, busStatus } from "../../test/helpers/fixtures/session-bus.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { TailResult } from "../../lib/tui/tool.ts";
-import { mailNotice } from "./notice.ts";
+import { mailNotice, waitingNotice } from "./notice.ts";
 import { collapsedLine, resultSections } from "./result.ts";
 import { messageRowLine, messageRowLines } from "./rows.ts";
 
@@ -202,6 +202,16 @@ describe("the collapsed result line", () => {
 		const line = messageRowLine(busMessage({ text: "back\u001b[31m\nend" }), fakeTheme, 80);
 		expect(line).not.toContain("\u001b");
 		expect(line).not.toContain("\n");
+	});
+});
+
+describe("the waiting line", () => {
+	test("counts the inbox in one line, with no bodies", () => {
+		const one = waitingNotice(1);
+		expect(one.content).toBe("[SESSION BUS] 1 message waiting — run `session inbox`");
+		expect(one.details.title).toBe("1 message waiting");
+		expect(one.details.items).toBeUndefined();
+		expect(waitingNotice(2).content).toContain("2 messages waiting");
 	});
 });
 
