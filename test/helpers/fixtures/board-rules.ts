@@ -13,7 +13,7 @@
 import type { Card } from "../../../lib/workflow/card.ts";
 import { boardConfig, type BoardConfig } from "../../../lib/workflow/config.ts";
 import type { Contract } from "../../../lib/workflow/contract.ts";
-import type { LandingProof } from "../../../lib/workflow/contract.ts";
+import type { LandingCommit, LandingProof } from "../../../lib/workflow/contract.ts";
 import { DEFAULT_WIP, MAX_WIP } from "../../../lib/workflow/limits.ts";
 import { indexOf } from "../../../lib/workflow/links.ts";
 import {
@@ -174,15 +174,20 @@ const CHAIN_BASE = "0f00d00000000000000000000000000000000000";
  * A landing is resolved from the chain rather than handed in as a sha, so a case states the fact a
  * door would have read — and a case about a squash passes `{}` chain of its own.
  */
-export function landingFor(card: Card, chain?: readonly { sha: string; parents: readonly string[] }[]): LandingProof {
+export function landingFor(card: Card, chain?: readonly LandingCommit[]): LandingProof {
 	const reviewed = card.review?.verified?.sha ?? "1d3a8ce30000000000000000000000000000000";
 	const carried = "9a7d2e00000000000000000000000000000000000";
+	// The card's own work began before the merge that carried it, which is the shape a landing needs:
+	// a merge older than the card could not have carried the sign, and the rule says so.
+	const since = card.log?.at(-1)?.lane === "execute" ? (card.log.at(-1)?.at ?? card.createdAt) : card.createdAt;
 	return {
 		branch: "main",
 		chain: chain ?? [
-			{ sha: CHAIN_BASE, parents: ["0000000000000000000000000000000000000001"] },
-			{ sha: carried, parents: [CHAIN_BASE, reviewed] },
+			{ sha: CHAIN_BASE, at: since - 1_000, parents: ["0000000000000000000000000000000000000001"] },
+			{ sha: carried, at: since + 1_000, parents: [CHAIN_BASE, reviewed] },
 		],
+		since,
+		carries: (commit) => commit.parents.slice(1).includes(reviewed),
 	};
 }
 

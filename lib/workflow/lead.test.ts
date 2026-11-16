@@ -294,11 +294,11 @@ describe("the stamp a repeat makes", () => {
 		// by the same signer — which used to leave the stamp where it was and so could never satisfy
 		// the gate it was told to satisfy.
 		const signed = at(verifying(), { kind: "review", verified: run(NOW + 1) }, NOW + 1);
-		const noted = at(signed, { kind: "note", text: "one more thing" }, NOW + 2, CORE);
-		expect(refusal(applyOp(noted, doneOf(noted), CORE, NOW + 3, boardOf(noted)))).toContain(
+		const edited = at(signed, { kind: "edit", title: "a different outcome" }, NOW + 2, CORE);
+		expect(refusal(applyOp(edited, doneOf(edited), CORE, NOW + 3, boardOf(edited)))).toContain(
 			"was written after its spot-check",
 		);
-		const again = at(noted, { kind: "review", verified: run(NOW + 4) }, NOW + 4);
+		const again = at(edited, { kind: "review", verified: run(NOW + 4) }, NOW + 4);
 		expect(again.review?.at).toBe(NOW + 4);
 		expect(again.review?.verified).toEqual(run(NOW + 4));
 		expect(accepted(applyOp(again, doneOf(again), CORE, NOW + 5, boardOf(again))).card.lane).toBe("done");
@@ -334,8 +334,8 @@ describe("the stamp a repeat makes", () => {
 	test("owes the owner the message again, because the stamp it replaces was heard", () => {
 		const signed = at(executing(), { kind: "review", verified: run(NOW + 1) }, NOW + 1);
 		const heard = at(signed, { kind: "announced", notice: "review" }, NOW + 2);
-		const noted = at(heard, { kind: "note", text: "one more thing" }, NOW + 3, CORE);
-		const again = applyOp(noted, { kind: "review", verified: run(NOW + 4) }, BOARD_LEAD, NOW + 4, boardOf(noted));
+		const edited = at(heard, { kind: "edit", title: "a different outcome" }, NOW + 3, CORE);
+		const again = applyOp(edited, { kind: "review", verified: run(NOW + 4) }, BOARD_LEAD, NOW + 4, boardOf(edited));
 		expect(again.ok && again.notice).toBe("review");
 		// The fresh stamp has no `told`: the owner is told once more, and the next write after it is
 		// the one that makes the sign stale again.

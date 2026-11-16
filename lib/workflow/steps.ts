@@ -15,7 +15,7 @@
  */
 
 import { listOf } from "../format.ts";
-import { type ArtifactProof, contractRoute, proved } from "./artifact.ts";
+import { type ArtifactProof, proved } from "./artifact.ts";
 import {
 	BLOCKERS,
 	type Card,
@@ -44,7 +44,7 @@ import {
 	normalizeContractField,
 } from "./contract.ts";
 import { breakingOf, normalizeBreaking, normalizeType } from "./kind.ts";
-import { LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
+import { contractRoute, LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import {
 	appendNote,
 	currentReview,

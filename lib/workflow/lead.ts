@@ -41,7 +41,7 @@ import {
 	TELL_FIELDS,
 	type Verification,
 } from "./contract.ts";
-import { LANE_RULES, type Lane } from "./lanes.ts";
+import { contractRoute, LANE_RULES, type Lane } from "./lanes.ts";
 import type { Actor, CardOp, Prepared } from "./rules.ts";
 
 /** The lead's team name: the label a signature has to carry. */
@@ -199,19 +199,18 @@ export function unverifiedSpotCheck(card: Card, cmd: string, lead: Lead): string
  * What a `done` move is refused with when the contract names no command at all.
  *
  * Only a card written before the fourth line was required — or one hand-edited — has none, so the
- * refusal names the line, the one action that records it, and the approval that costs: `contract`
- * drops the sign it is about to invalidate, and this is the sentence that says so before the holder
- * discovers it.
+ * refusal names the line, the route its lane takes to record it (`contractRoute`, because `contract`
+ * is refused outside `plan`), and the approval that costs: this is the sentence that says so first.
  */
 export function noVerifyCommand(card: Card, lead: Lead): string {
-	return `${cardRef(card.id)}'s contract names no \`verify\` command, so there is no run for its spot-check: its holder records one with \`contract\`, and the approval that drops is signed again by the lead (${leadName(lead)}) or the person with \`/board approve ${card.id}\`.`;
+	return `${cardRef(card.id)}'s contract names no \`verify\` command, so there is no run for its spot-check: its holder's route — ${contractRoute(card)} The approval that drops is signed again by the lead (${leadName(lead)}) or the person with \`/board approve ${card.id}\`.`;
 }
 
 /**
  * What a `done` move is refused with when the run is older than the card it vouches for.
  *
- * A write after the sign — a note, an edit, a second move — is the card changing under the
- * evidence, so the run has to be made again. The sentence names what to re-run and both doors.
+ * A write that changes the card after the sign — an edit, a second move, a sign — moves it under the
+ * evidence, so the run is made again; a note is a message about the card, and `stateAt` is compared.
  */
 export function staleSpotCheck(card: Card, cmd: string, lead: Lead): string {
 	return `${cardRef(card.id)} was written after its spot-check, so the run no longer speaks for it — run \`${cmd}\` and review again: the lead (${leadName(lead)}) with \`review\`, or the person with \`/board review ${card.id}\`.`;
@@ -343,13 +342,14 @@ export function appendNote(card: Card, by: string, at: number, text: string): Pi
  * Whether the card has been written since its sign last spoke for it.
  *
  * A sign owns two writes: the stamp, and `#398`'s record that its owner heard — so the moment to
- * compare is the later of the two. One reader for every place the rule is asked: `currentReview`
- * drops an outgrown sign, so the `done` gate, the lead's queue, the card's reason line and the
- * repeat sign that re-makes a stamp all answer from this arithmetic, and "the work moved under the
- * signature" cannot mean one thing to the gate and another to the surface that names the gate.
+ * compare is the later of the two. The field is `stateAt`, not `updatedAt`: a note is a message
+ * about the card rather than a change to it, so a landing note filed before the close does not
+ * outgrow the run, and a card written before the field existed reads `updatedAt` instead. One
+ * reader for every place the rule is asked — `currentReview`, so the `done` gate, the lead's queue
+ * and the reason line answer together.
  */
 export function signStale(card: Card, record: SignRecord): boolean {
-	return card.updatedAt > Math.max(record.at, record.told?.at ?? 0);
+	return (card.stateAt ?? card.updatedAt) > Math.max(record.at, record.told?.at ?? 0);
 }
 
 /**

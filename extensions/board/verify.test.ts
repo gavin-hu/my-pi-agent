@@ -97,17 +97,30 @@ describe("a spot-check whose contract names a command", () => {
 		expect(resultText(refused)).toContain("did not finish within 10 minutes");
 	});
 
-	test("the run is what done reads: a note after it refuses the close", async () => {
+	test("the run is what done reads: a state write after it refuses the close", async () => {
 		const who = bench({ verify: runner() });
 		await running(who, VERIFY);
 		expect((await who.lead.call({ action: "review", card: "1" })).isError).toBeFalsy();
 		// A write after the sign: the bench's clock is fixed, so the later moment is the store's.
 		const store = await who.peer.board.runtime.store(who.peer.board.ctx.cwd);
 		const me = await who.peer.board.runtime.who(who.peer.board.ctx, who.peer.board.ctx.cwd);
-		expect((await store.mutate("1", { kind: "note", text: "one more thing" }, me, NOW + 1)).ok).toBe(true);
+		expect((await store.mutate("1", { kind: "edit", title: "a different outcome" }, me, NOW + 1)).ok).toBe(true);
 		const refused = await who.peer.call({ action: "move", card: "1", lane: "done" });
 		expect(refused.isError).toBe(true);
 		expect(resultText(refused)).toContain("was written after its spot-check");
+	});
+
+	test("a landing note after the run does not refuse the close it reports", async () => {
+		// #644: the lead asks for the merge on the record, and the note must not become the write that
+		// outgrows the run — a note is a message about the card, not a change to it.
+		const who = bench({ verify: runner() });
+		await running(who, VERIFY);
+		expect((await who.lead.call({ action: "review", card: "1" })).isError).toBeFalsy();
+		const store = await who.peer.board.runtime.store(who.peer.board.ctx.cwd);
+		const me = await who.peer.board.runtime.who(who.peer.board.ctx, who.peer.board.ctx.cwd);
+		expect((await store.mutate("1", { kind: "note", text: "Landed: merge 11e73df7" }, me, NOW + 1)).ok).toBe(true);
+		const closed = await who.peer.call({ action: "move", card: "1", lane: "done" });
+		expect(resultText(closed)).not.toContain("was written after its spot-check");
 	});
 
 	test("a run that outlives its start is stamped at the moment it was recorded", async () => {

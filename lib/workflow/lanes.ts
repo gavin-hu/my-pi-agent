@@ -13,14 +13,43 @@
  * requires first. `rules.ts` enforces the requirements and the tool stops carrying a
  * second copy of the list, which is how one surface came to offer a move another refused.
  *
- * Value-only: no I/O, no clock, no card. A caller that has a card reads `card.lane`.
+ * Value-only: no I/O, no clock. A caller that has a card reads `card.lane`, and a route is a
+ * sentence about that lane rather than something the caller invents.
  */
+
+import type { Card } from "./card.ts";
 
 /** The lanes, in the order the page, the rollup, and the transcript read them. */
 export const LANES = ["backlog", "plan", "execute", "blocked", "done"] as const;
 
 /** One lane a card can sit in. */
 export type Lane = (typeof LANES)[number];
+
+/**
+ * How a card records its plan again, which depends on the lane it is in.
+ *
+ * `contract` is written in `plan` and nowhere else, so a refusal that names it from `execute` would
+ * send a reader into another refusal — and from the pool the missing step is the claim. A finished
+ * card cannot be re-planned at all; that branch is unreachable through a gate, and says the fact
+ * rather than a route so the table is complete for its type.
+ *
+ * Here rather than beside the plan gates, because it is a lane rule and every refusal that names a
+ * door has to agree: `noVerifyCommand` in `lead.ts` used to spell the route itself, and named
+ * `contract` to a card in `execute`, where `contract` is refused (#602).
+ */
+export function contractRoute(card: Pick<Card, "lane">): string {
+	switch (card.lane) {
+		case "plan":
+			return "record it with `contract`.";
+		case "backlog":
+			return "claim it, then record it with `contract`.";
+		case "blocked":
+		case "execute":
+			return "move it back to plan, then record it with `contract`.";
+		case "done":
+			return "a finished card's plan cannot change.";
+	}
+}
 
 /**
  * The colours a lane may wear: the page's kit names them as properties, and

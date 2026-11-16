@@ -350,10 +350,18 @@ function write(card: Card, actor: Actor, now: number, fields: Partial<Card>): Ca
 			? appendTransition(card, lane, actor, now, lane === "blocked" ? fields.blocked : undefined)
 			: undefined;
 	// The one moment this record may not move backwards: a caller's clock is read before its work, and
-	// `signStale` reads this field to decide whether the card was written since its sign. Every other
-	// moment a write keeps — a note's `at`, the transition log's, the sign's — is the caller's own.
+	// every reader of "when was this last touched" compares against it. Every other moment a write
+	// keeps — a note's `at`, the transition log's, the sign's — is the caller's own.
 	const updatedAt = Math.max(card.updatedAt, now);
-	const next: Card = { ...card, ...fields, ...transition, rev: card.rev + 1, updatedAt, by: actor.label };
+	// `stateAt` is the moment a signature speaks for, and a note is not one: it is a message about
+	// the card rather than a change to it, so a landing note filed between the spot-check and the
+	// close must not stale the run. A write that changes anything else marks it, and the two fields
+	// move together for every write but that one.
+	const before = card.stateAt ?? card.updatedAt;
+	const notedOnly =
+		fields.notes !== undefined && Object.keys(fields).every((key) => key === "notes" || key === "notesDropped");
+	const stateAt = notedOnly ? before : Math.max(before, now);
+	const next: Card = { ...card, ...fields, ...transition, rev: card.rev + 1, updatedAt, stateAt, by: actor.label };
 	// `owner: undefined` must clear the field rather than store a key holding it, so a
 	// released card reads back exactly like one that was never claimed. Only an
 	// explicit `owner` in `fields` may delete it: every other write keeps the holder.

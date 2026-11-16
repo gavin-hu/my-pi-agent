@@ -18,7 +18,8 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type ArtifactProof, planForExecute } from "../../lib/workflow/artifact.ts";
-import { resolveLanding, type LandingProof } from "../../lib/workflow/contract.ts";
+import { type LandingCommit, resolveLanding, type LandingProof } from "../../lib/workflow/contract.ts";
+import { laneSince } from "../../lib/workflow/card.ts";
 import type { Lane } from "../../lib/workflow/lanes.ts";
 
 import { normalizeCardId } from "../../lib/workflow/card.ts";
@@ -77,20 +78,36 @@ export async function landedChain(
 	if (id === undefined || card === undefined || reviewed === undefined) return undefined;
 	// The git readers and their runner load here rather than at registration: a board that never
 	// closes a card pays nothing for them, and the entry's static graph stays where it was.
-	const { defaultBranch, firstParentChain, resolvedByMerge } = await import("../../lib/git/read.ts");
+	const { defaultBranch, firstParentChain, carriedBy, resolvedByMerge } = await import("../../lib/git/read.ts");
 	const { createExecRunner } = await import("../../lib/git/runner.ts");
 	const runGit = createExecRunner(pi);
 	const root = store.root();
 	const branch = (await defaultBranch(runGit, root, { fallback: true }).catch(() => undefined)) ?? "main";
 	const chain = await firstParentChain(runGit, root, branch);
 	if (chain.length === 0) return undefined;
-	const check = resolveLanding({ branch, chain }, reviewed, id);
-	if ("error" in check) return { branch, chain };
+	// The card's work began when it entered `execute`; a card whose log has aged out falls back to
+	// its creation, because no merge can land before the card it lands.
+	const since = laneSince(card) ?? card.createdAt;
+	// Which merges carry the reviewed commit, asked once: the rule is resolved twice — for the diff
+	// and again under the write's lock — and a question asked twice is two chances to disagree.
+	const carriers = new Map(
+		await Promise.all(
+			chain
+				.filter((commit) => commit.parents.length > 1 && commit.at >= since)
+				.map(async (commit) => [commit.sha, await carriedBy(runGit, root, commit.parents, reviewed)] as const),
+		),
+	);
+	// An ancestry that could not be read is not "no merge carries it": no proof is handed over, so the
+	// close is refused the way an unread branch is, and the sentence that already says so is used.
+	if ([...carriers.values()].some((answer) => answer === undefined)) return undefined;
+	const carries = (commit: LandingCommit): boolean => carriers.get(commit.sha) === true;
+	const check = resolveLanding({ branch, chain, since, carries }, reviewed, id);
+	if ("error" in check) return { branch, chain, since, carries };
 	const moved = await resolvedByMerge(runGit, root, reviewed, check.sha);
 	// A diff that could not be read is not "nothing moved": the proof is not handed over, so the
 	// close is refused the way an unread branch is, and the sentence that already says so is used.
 	if (moved === undefined) return undefined;
-	return { branch, chain, ...(moved.length === 0 ? {} : { moved }) };
+	return { branch, chain, since, carries, ...(moved.length === 0 ? {} : { moved }) };
 }
 
 /**

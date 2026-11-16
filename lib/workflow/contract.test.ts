@@ -14,25 +14,14 @@ import {
 	isContract,
 	isHandoff,
 	isSign,
-	type LandingProof,
-	landingFor,
-	landingGate,
 	MAX_CONTRACT,
 	mergedContract,
 	missingContractFields,
-	movedTree,
 	normalizeContractField,
 	normalizeInstruction,
-	resolveLanding,
-	reviewedAncestor,
-	unlandedReview,
-	unprovedLanding,
 } from "./contract.ts";
 
 const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s", verify: "bun run check" };
-
-/** The card every landing sentence opens with: a bare id, because the rule reads no card. */
-const ID = "12";
 
 /** A contract stored before `verify` was required: three keys, and still one this build reads. */
 const LEGACY = { goal: "g", acceptance: "a", scopeOut: "s" };
@@ -240,116 +229,5 @@ describe("isContract and isSign", () => {
 		expect(isSign({ by: "you", at: 0, byInstruction: "" })).toBe(false);
 		expect(isSign({ by: "you", at: 0, byInstruction: "two\nlines" })).toBe(false);
 		expect(isSign({ by: "you", at: 0, byInstruction: "x".repeat(MAX_CONTRACT + 1) })).toBe(false);
-	});
-});
-
-/** The shas a landing case reads: a base commit, the merge that carried a review, and one on top. */
-const REVIEWED = "4c1f9ab0000000000000000000000000000000000";
-const CARRIED = "9a7d2e00000000000000000000000000000000000";
-const LATER = "b31c5a0000000000000000000000000000000000";
-const BASE = "0f00d00000000000000000000000000000000000";
-const PLAIN = "e0a1c0000000000000000000000000000000000";
-
-/** A chain of one base commit, the merge that carried `REVIEWED`, and a later merge on top. */
-const LANE: LandingProof = {
-	branch: "main",
-	chain: [
-		{ sha: BASE, parents: ["0000000000000000000000000000000000000001"] },
-		{ sha: CARRIED, parents: [BASE, REVIEWED] },
-		{ sha: LATER, parents: [CARRIED, "7ee0d10000000000000000000000000000000000"] },
-	],
-};
-
-describe("resolveLanding", () => {
-	test("answers the merge that carried the review, though a later merge landed on top", () => {
-		// The case the tip rule got wrong: `A` merges at CARRIED, `B` merges at LATER, and `A` is
-		// still the card being closed. A rule that read the tip refused it and asked for an override.
-		expect(resolveLanding(LANE, REVIEWED, ID)).toEqual({ sha: CARRIED });
-	});
-
-	test("answers the reviewed commit itself when the review followed the merge", () => {
-		// The checkout practice: run the gate on `main` after landing, and the sign names what landed.
-		expect(resolveLanding(LANE, CARRIED, ID)).toEqual({ sha: CARRIED });
-		expect(resolveLanding(LANE, LATER, ID)).toEqual({ sha: LATER });
-	});
-
-	test("refuses a plain commit that is on the chain but is not a landing", () => {
-		// The #594/#593 shape: a sign taken in the checkout names main's head, a plain commit the
-		// merge did not carry. Accepting any ancestor wrote a landing that carried nothing.
-		expect(resolveLanding(LANE, BASE, ID)).toEqual({ error: reviewedAncestor("main", BASE, ID) });
-	});
-
-	test("answers a plain commit when it is the chain's tip", () => {
-		// A review taken after the work is the tip: there is no merge above it to look for, and it
-		// names itself rather than being refused as an older tree.
-		const tip: LandingProof = {
-			branch: "main",
-			chain: [
-				{ sha: BASE, parents: ["0000000000000000000000000000000000000001"] },
-				{ sha: PLAIN, parents: [BASE] },
-			],
-		};
-		expect(resolveLanding(tip, PLAIN, ID)).toEqual({ sha: PLAIN });
-	});
-
-	test("answers the earliest carrier, not whichever merge comes first in the list", () => {
-		// Two merges both list the reviewed commit, which a criss-cross can produce: the walk is
-		// oldest-first and stops at the one that carried the work.
-		const crossed: LandingProof = {
-			branch: "main",
-			chain: [
-				{ sha: CARRIED, parents: [BASE, REVIEWED] },
-				{ sha: LATER, parents: [CARRIED, REVIEWED] },
-			],
-		};
-		expect(resolveLanding(crossed, REVIEWED, ID)).toEqual({ sha: CARRIED });
-	});
-
-	test("refuses a review no merge on the branch carries, naming the override", () => {
-		const squash = "5d0dd00000000000000000000000000000000000";
-		const refused = resolveLanding(LANE, squash, ID);
-		expect(refused).toEqual({ error: unlandedReview("main", squash, ID) });
-		if ("error" in refused) {
-			expect(refused.error).toContain("#12's spot-check was of `5d0dd00`");
-			expect(refused.error).toContain("no merge on `main` carries it");
-			expect(refused.error).toContain("`override`");
-		}
-	});
-
-	test("refuses a merge that moved the tree the review proved, naming the merge", () => {
-		const refused = resolveLanding({ ...LANE, moved: ["lib/workflow/steps.ts"] }, REVIEWED, ID);
-		expect(refused).toEqual({ error: movedTree("main", REVIEWED, CARRIED, ["lib/workflow/steps.ts"], ID) });
-		// The distinction the sentence carries: the merge, not the review, is the unchecked tree.
-		if ("error" in refused) {
-			expect(refused.error).toContain("the merge that carried it on `main`, `9a7d2e0`, moved lib/workflow/steps.ts");
-			expect(refused.error).toContain("the merge is what nobody ran the gate on");
-		}
-	});
-
-	test("names three moved paths and counts the rest, so a refusal stays one line", () => {
-		const moved = ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts"];
-		const said = movedTree("main", REVIEWED, CARRIED, moved, ID);
-		expect(said).toContain("moved a.ts, b.ts, c.ts and 2 more");
-	});
-
-	test("says a chain that was never read is a refusal, not a pass", () => {
-		expect(unprovedLanding(ID, REVIEWED)).toContain("the branch it landed on was not read");
-	});
-});
-
-describe("the gate a landing answers", () => {
-	test("owes nothing when the sign named no commit, because there is no branch to resolve", () => {
-		expect(landingGate(ID, undefined, LANE)).toBeUndefined();
-		expect(landingFor(ID, undefined, LANE, 7)).toBeUndefined();
-	});
-
-	test("refuses a sign whose branch was never read, rather than waving it through", () => {
-		expect(landingGate(ID, REVIEWED, undefined)).toContain("the branch it landed on was not read");
-		expect(landingFor(ID, REVIEWED, undefined, 7)).toBeUndefined();
-	});
-
-	test("records the merge the review became, stamped with the write's moment", () => {
-		expect(landingGate(ID, REVIEWED, LANE)).toBeUndefined();
-		expect(landingFor(ID, REVIEWED, LANE, 7)).toEqual({ sha: CARRIED, at: 7 });
 	});
 });

@@ -16,6 +16,7 @@
  * No clock, no state.
  */
 
+import { isLanding } from "./card.ts";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
@@ -31,7 +32,7 @@ import {
 	priorityRank,
 	SUPPORTED_VERSIONS,
 } from "./card.ts";
-import { isLanding } from "./contract.ts";
+
 import { LANES, type Lane } from "./lanes.ts";
 
 /**

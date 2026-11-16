@@ -27,6 +27,7 @@
 
 import { overLimit, sanitizeLine } from "../format.ts";
 import type { Card } from "./card.ts";
+import type { Landing } from "./card.ts";
 import type { Lead } from "./lead.ts";
 import type { Actor } from "./rules.ts";
 
@@ -469,50 +470,35 @@ export const SIGN_WORDS: Record<SignKind, SignWords> = {
 	},
 };
 
-/** A card's landing: the merge commit that carried it, and when the board recorded it. */
-export interface Landing {
-	/** The merge that carried the review, or the reviewed commit when it is itself a landing. */
-	sha: string;
-	/** When the board recorded it, on the board's clock. */
-	at: number;
-}
-
 /** One commit on the chain, with the parents a merge is recognised by. */
 export interface LandingCommit {
 	/** The commit. */
 	sha: string;
+	/** The committer's moment, in milliseconds — the unit every card stamp uses. */
+	at: number;
 	/** Its parents, in git's own order: a merge's second parent is the branch it carried. */
 	parents: readonly string[];
 }
 
-/**
- * The default branch's first-parent chain, oldest first, and the review's own change a merge rewrote.
- */
+/** The branch's first-parent chain, and what a landing needs to know about it. */
 export interface LandingProof {
 	/** The branch the chain was read from, as a sentence names it: `main`, not `refs/heads/main`. */
 	branch: string;
 	/** The branch's first-parent commits, oldest first. */
 	chain: readonly LandingCommit[];
+	/**
+	 * The moment the card's work began, so a merge committed before it cannot be the landing: that is
+	 * the checkout's head at the moment a reviewer signed the wrong tree.
+	 */
+	since: number;
+	/** Whether `commit` carries the reviewed commit — asked once by the caller, never `unknown`. */
+	carries(commit: LandingCommit): boolean;
 	/** The review's own lines the merge rewrote; absent when none. */
 	moved?: readonly string[];
 }
 
 /** The merge a review became, or the sentence refusing to name one. */
 export type LandingCheck = { sha: string } | { error: string };
-
-/**
- * Whether `value` is a landing this build can read: a commit and a whole moment, validated for `card.ts`.
- */
-export function isLanding(value: unknown): value is Landing {
-	if (typeof value !== "object" || value === null) return false;
-	const landing = value as Record<string, unknown>;
-	return (
-		typeof landing.sha === "string" &&
-		landing.sha !== "" &&
-		typeof landing.at === "number" &&
-		Number.isInteger(landing.at)
-	);
-}
 
 /** The card as a refusal names it, spelled here so this module reads no card. */
 function ref(id: string): string {
@@ -525,39 +511,48 @@ function shortSha(sha: string): string {
 }
 
 /**
- * The merge that carried `reviewed`, or the sentence saying why none can be named: itself when it is a
- * merge or the tip, else the merge whose non-first parent carries it; a plain ancestor is an older sign.
+ * The merge that carried `reviewed`, or the sentence saying why none can be named.
+ *
+ * A merge committed before the card's work began is never the landing: that is the checkout's head
+ * at the moment a reviewer signed the wrong tree (#641). A reviewed commit that is itself a merge or
+ * the tip *is* the landing — equality is stronger evidence than any comparison, so the moved-lines
+ * check is skipped there rather than comparing a merge to itself. Otherwise the landing is the oldest
+ * merge whose carried side contains the reviewed commit, which is what a re-merged branch needs
+ * (#618). A reviewed commit on the chain but carried by nothing is an older sign; one that is
+ * nowhere is a branch nobody merged.
  */
 export function resolveLanding(proof: LandingProof, reviewed: string, id: string): LandingCheck {
 	const tip = proof.chain.at(-1)?.sha;
-	// The first parent is the line the merge was made on; the work is the non-first parent. A merge
-	// therefore carries a review through `parents.slice(1)`, not through either parent.
-	const carried = proof.chain.find(
+	const candidates = proof.chain.filter((commit) => commit.at >= proof.since);
+	const itself = candidates.find(
 		(commit) => commit.sha === reviewed && (commit.parents.length > 1 || commit.sha === tip),
 	);
-	const sha = carried?.sha ?? proof.chain.find((commit) => commit.parents.slice(1).includes(reviewed))?.sha;
-	if (sha === undefined) {
-		const ancestor = proof.chain.some((commit) => commit.sha === reviewed);
-		return {
-			error: ancestor ? reviewedAncestor(proof.branch, reviewed, id) : unlandedReview(proof.branch, reviewed, id),
-		};
+	if (itself !== undefined) return { sha: itself.sha };
+	for (const commit of candidates) {
+		// A plain commit carries no branch of its own; only a merge has a carried side to ask about.
+		if (commit.parents.length <= 1) continue;
+		if (!proof.carries(commit)) continue;
+		const moved = proof.moved ?? [];
+		if (moved.length === 0) return { sha: commit.sha };
+		return { error: movedTree(proof.branch, reviewed, commit.sha, moved, id) };
 	}
-	const moved = proof.moved ?? [];
-	if (moved.length === 0) return { sha };
-	return { error: movedTree(proof.branch, reviewed, sha, moved, id) };
+	const ancestor = proof.chain.some((commit) => commit.sha === reviewed);
+	return {
+		error: ancestor ? reviewedAncestor(proof.branch, reviewed, id) : unlandedReview(proof.branch, reviewed, id),
+	};
 }
 
-/** What a `done` move is refused with when no merge carries the reviewed commit: merge it, or override a squash. */
+/** What `done` is refused with when no merge carries the review: merge it, or override a squash. */
 export function unlandedReview(branch: string, reviewed: string, id: string): string {
 	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, and no merge on \`${branch}\` carries it: merge the branch, then move \`done\`; a branch squashed or rebased has no landing to sign off, so close it by instruction with \`override\`.`;
 }
 
-/** What a `done` move is refused with when the reviewed commit is an older plain commit: review the card's tree. */
+/** What `done` is refused with when the review is an older plain commit: review the card's tree. */
 export function reviewedAncestor(branch: string, reviewed: string, id: string): string {
 	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, which is on \`${branch}\` but is not the merge that carried this card: the run was taken on an older tree — the checkout's head rather than the card's commit — so \`done\` cannot name a landing. Review the card's commit (its worktree, or a checkout at that sha) and sign again.`;
 }
 
-/** What a `done` move is refused with when the merge rewrote the review's own lines: review the merged tree. */
+/** What `done` is refused with when the merge rewrote the review's own lines. */
 export function movedTree(
 	branch: string,
 	reviewed: string,
@@ -570,7 +565,7 @@ export function movedTree(
 	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, and the merge that carried it on \`${branch}\`, \`${shortSha(landed)}\`, moved ${shown}${rest}: the merge is what nobody ran the gate on — review the merged tree, or close it by instruction.`;
 }
 
-/** What a `done` move is refused with when the sign names a commit and the door read no chain. */
+/** What `done` is refused with when the door read no chain. */
 export function unprovedLanding(id: string, reviewed: string): string {
 	return `${ref(id)}'s spot-check was of \`${shortSha(reviewed)}\`, and the branch it landed on was not read: \`done\` resolves the merge that carried a review, so it needs the board's repository, or a card closed by instruction.`;
 }

@@ -27,6 +27,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a spot-check signs a tree, and `done` proves that tree landed. A note no longer outgrows a sign — only a
+  write that changes the card does — so a landing note can be filed before the close; a merge committed before the
+  card's work is refused as an older tree instead of being recorded as the landing; a branch merged and re-merged
+  closes without a second sign; and a close whose ancestry cannot be read is refused rather than guessed. The
+  no-`verify` refusal names the route a card's lane takes to record the line, which for `execute` is back to `plan`.
+
 - `lib/web`: the app head has one author. `appHead` composes the identity row, the facts zone, the
   rule and the control row, and the three parts it composes are private now — `brandLockup`,
   `pageSubject` and `toolbarChrome` are no longer exported, so a page importing one of them stops
