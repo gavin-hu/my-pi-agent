@@ -331,6 +331,18 @@ describe("the landing a close resolves", () => {
 		await expect(unread).rejects.toThrow(/fatal: not a git repository/);
 	});
 
+	test("answers nothing when the read succeeds and the branch has no commits", async () => {
+		// The other half of the distinction the strict door exists for: a read that *worked* and found
+		// no history is a card with nothing to land, not a failed read, so it keeps the old `undefined`
+		// rather than becoming an exception.
+		const { repo, reviewed } = await withNeighbour();
+		const empty = createFakePi({
+			exec: async (command, args, options) =>
+				args[0] === "log" ? { stdout: "", stderr: "", code: 0 } : await execP(command, args, options),
+		}).pi;
+		expect(await landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, empty)).toBeUndefined();
+	});
+
 	test("accepts a clean landing when a neighbour's bullet arrives in the file the review changed", async () => {
 		const { repo, reviewed } = await withSharedFile();
 		const proof = await landedChain(storeOf(signedAt(reviewed, ["CHANGELOG.md"]), repo), ID, host());
