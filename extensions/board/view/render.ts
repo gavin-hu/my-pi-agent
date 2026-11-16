@@ -47,6 +47,7 @@ export function renderJs(rules: {
 	decisions: string;
 	decisionTones: string;
 	reasonTones: string;
+	ageWords: string;
 	runtime: string;
 }): string {
 	return renderTemplate
@@ -61,6 +62,7 @@ export function renderJs(rules: {
 		.replace("__DECISION_TONES__", rules.decisionTones)
 		.replace("__REASON_TONES__", rules.reasonTones)
 		.replace("__AGE__", rules.age)
+		.replace("__AGE_WORDS__", rules.ageWords)
 		.replace("__RUNTIME__", rules.runtime);
 }
 
@@ -183,9 +185,10 @@ __RUNTIME__
    * "12m", "3h", "2d" — an age, compact enough for a meta line.
    *
    * The transcript prints the same rule for the same fact, so the body is spliced in from
-   * lib/format.ts rather than written twice. No backticks in here: this is a template.
+   * lib/format.ts rather than written twice; its words cross the same way. No backtick: a template.
    */
   var ageText = __AGE__;
+  var ageWords = __AGE_WORDS__;
   function ago(at) { return ageText(Date.now(), at); }
 
   /** Bytes, the way the footer says them. */
@@ -580,6 +583,7 @@ __RUNTIME__
   board.paneHead = paneHead;
   board.kindLabel = kindLabel;
   board.ago = ago;
+  board.ageWords = ageWords;
   board.findCard = findCard;
   board.drawnCards = drawnCards;
   board.matches = matches;

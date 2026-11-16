@@ -139,6 +139,19 @@ export function formatAge(now: number, at: number): string {
 /** {@link formatAge} as the page's bundle receives it. */
 export const FORMAT_AGE_JS = pageSource(formatAge);
 
+/**
+ * An age as {@link formatAge} spells it, in the words a reader is told: `just now`, `3m ago`.
+ *
+ * It takes the age string rather than the two numbers because a page holds `formatAge` under the
+ * name `ageText`; the body crosses as {@link AGE_WORDS_JS}, so it may call nothing but itself.
+ */
+export function ageWords(age: string): string {
+	return age === "now" ? "just now" : age + " ago";
+}
+
+/** {@link ageWords} as the page's bundle receives it. */
+export const AGE_WORDS_JS = pageSource(ageWords);
+
 /** `1 tool`, `3 tools`: a tool count with the right word. */
 export function formatToolCount(count: number): string {
 	const n = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
