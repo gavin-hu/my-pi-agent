@@ -209,8 +209,8 @@ export function noVerifyCommand(card: Card, lead: Lead): string {
 /**
  * What a `done` move is refused with when the run is older than the card it vouches for.
  *
- * A write after the sign — a note, an edit, a second move — is the card changing under the
- * evidence, so the run has to be made again. The sentence names what to re-run and both doors.
+ * A write that changes the card after the sign — an edit, a second move, a sign — moves it under the
+ * evidence, so the run is made again; a note is a message about the card, and `stateAt` is compared.
  */
 export function staleSpotCheck(card: Card, cmd: string, lead: Lead): string {
 	return `${cardRef(card.id)} was written after its spot-check, so the run no longer speaks for it — run \`${cmd}\` and review again: the lead (${leadName(lead)}) with \`review\`, or the person with \`/board review ${card.id}\`.`;
