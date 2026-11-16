@@ -95,7 +95,8 @@ export interface SessionBus {
 	/** The run settled: take the stamp off, aborted or not. */
 	turnSettled(): Promise<void>;
 	/** Read the inbox without consuming it, queueing what is new; no-op when unarmed. */
-	poll(): Promise<void> /** Mail that arrived and has not been reported yet, oldest first. */;
+	poll(): Promise<void>;
+	/** Mail that arrived and has not been reported yet, oldest first. */
 	pending(): BusMessage[];
 	/** Drop mail from the pending queue, once reported or consumed. */
 	markReported(ids: readonly string[]): void;

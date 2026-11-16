@@ -24,9 +24,6 @@ import type { SessionBus } from "./runtime.ts";
 /** How often the open board re-reads the bus. */
 const BOARD_POLL_MS = 1_000;
 
-/** The one word `/sessions` takes besides opening the board. */
-export const SESSION_WORDS = ["drop"] as const;
-
 /**
  * One board read at a time, shared by the open screen's poll and its watch verb.
  *

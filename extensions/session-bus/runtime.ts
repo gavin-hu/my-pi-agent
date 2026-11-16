@@ -98,7 +98,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	 */
 	const turn = createTurn({ store: () => store, record: () => record, joined: () => joined, now });
 
-	/** The watch reads this session's own inbox; nothing is consumed or marked. */
 	/**
 	 * The record's cursor, and the rows a reader draws: both load when something needs them.
 	 *
