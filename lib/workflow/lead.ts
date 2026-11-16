@@ -41,7 +41,7 @@ import {
 	TELL_FIELDS,
 	type Verification,
 } from "./contract.ts";
-import { LANE_RULES, type Lane } from "./lanes.ts";
+import { contractRoute, LANE_RULES, type Lane } from "./lanes.ts";
 import type { Actor, CardOp, Prepared } from "./rules.ts";
 
 /** The lead's team name: the label a signature has to carry. */
@@ -199,12 +199,14 @@ export function unverifiedSpotCheck(card: Card, cmd: string, lead: Lead): string
  * What a `done` move is refused with when the contract names no command at all.
  *
  * Only a card written before the fourth line was required — or one hand-edited — has none, so the
- * refusal names the line, the one action that records it, and the approval that costs: `contract`
- * drops the sign it is about to invalidate, and this is the sentence that says so before the holder
- * discovers it.
+ * refusal names the line, the route this card's lane takes to record it, and the approval that
+ * costs: `contract` drops the sign it is about to invalidate, and this is the sentence that says so
+ * before the holder discovers it. The route is `contractRoute`'s, because a card in `execute` has to
+ * move back to `plan` first and a sentence that named `contract` alone sent a reader into a second
+ * refusal (#602).
  */
 export function noVerifyCommand(card: Card, lead: Lead): string {
-	return `${cardRef(card.id)}'s contract names no \`verify\` command, so there is no run for its spot-check: its holder records one with \`contract\`, and the approval that drops is signed again by the lead (${leadName(lead)}) or the person with \`/board approve ${card.id}\`.`;
+	return `${cardRef(card.id)}'s contract names no \`verify\` command, so there is no run for its spot-check: its holder's route — ${contractRoute(card)} The approval that drops is signed again by the lead (${leadName(lead)}) or the person with \`/board approve ${card.id}\`.`;
 }
 
 /**

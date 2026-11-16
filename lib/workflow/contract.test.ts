@@ -15,6 +15,7 @@ import {
 	isHandoff,
 	isSign,
 	type LandingProof,
+	type LandingCommit,
 	landingFor,
 	landingGate,
 	MAX_CONTRACT,
@@ -250,15 +251,39 @@ const LATER = "b31c5a0000000000000000000000000000000000";
 const BASE = "0f00d00000000000000000000000000000000000";
 const PLAIN = "e0a1c0000000000000000000000000000000000";
 
-/** A chain of one base commit, the merge that carried `REVIEWED`, and a later merge on top. */
-const LANE: LandingProof = {
+/** The moments those commits were made at, and the moment the card's work began between two of them. */
+const DAY = 86_400_000;
+const T0 = 1_700_000_000_000;
+const BASE_AT = T0;
+const REVIEWED_AT = T0 + 2 * DAY;
+const CARRIED_AT = T0 + 3 * DAY;
+const LATER_AT = T0 + 4 * DAY;
+/** The card entered `execute` after the base commit and before the merge that carried its work. */
+const SINCE = T0 + DAY;
+
+/**
+ * A chain of one base commit, the merge that carried `REVIEWED`, and a later merge on top.
+ *
+ * `carries` reads the fixture's own parents: a merge carries the review when its second parent is
+ * it, which is the one-level answer a plain merge gives and the case a re-merge has to override.
+ */
+const proof = (
+	chain: readonly LandingCommit[],
+	reviewed = REVIEWED,
+	overrides: Partial<LandingProof> = {},
+): LandingProof => ({
 	branch: "main",
-	chain: [
-		{ sha: BASE, parents: ["0000000000000000000000000000000000000001"] },
-		{ sha: CARRIED, parents: [BASE, REVIEWED] },
-		{ sha: LATER, parents: [CARRIED, "7ee0d10000000000000000000000000000000000"] },
-	],
-};
+	chain,
+	since: SINCE,
+	carries: (commit) => commit.parents.slice(1).includes(reviewed),
+	...overrides,
+});
+
+const LANE = proof([
+	{ sha: BASE, at: BASE_AT, parents: ["0000000000000000000000000000000000000001"] },
+	{ sha: CARRIED, at: CARRIED_AT, parents: [BASE, REVIEWED] },
+	{ sha: LATER, at: LATER_AT, parents: [CARRIED, "7ee0d10000000000000000000000000000000000"] },
+]);
 
 describe("resolveLanding", () => {
 	test("answers the merge that carried the review, though a later merge landed on top", () => {
@@ -267,47 +292,70 @@ describe("resolveLanding", () => {
 		expect(resolveLanding(LANE, REVIEWED, ID)).toEqual({ sha: CARRIED });
 	});
 
-	test("answers the reviewed commit itself when the review followed the merge", () => {
-		// The checkout practice: run the gate on `main` after landing, and the sign names what landed.
+	test("refuses a merge committed before the card's work, so a sign on the checkout's head names nothing", () => {
+		// #641: the reviewer ran the gate in the root checkout on `main`, whose head was a merge made
+		// before this card existed; `done` then named that merge as the landing. A merge older than
+		// the card's own `execute` cannot be its landing, however the chain reads.
+		const late = proof(LANE.chain, REVIEWED, { since: CARRIED_AT + 1 });
+		expect(resolveLanding(late, CARRIED, ID)).toEqual({ error: reviewedAncestor("main", CARRIED, ID) });
+	});
+
+	test("answers a reviewed merge that committed after the card's work is its own landing", () => {
+		// The other half of #641, and not a weakened version of the case that encoded the defect: a
+		// review taken *after* the merge is a review of the merged tree, and equality is the strongest
+		// evidence there is — no moved-lines comparison, because a merge cannot be compared to itself.
 		expect(resolveLanding(LANE, CARRIED, ID)).toEqual({ sha: CARRIED });
 		expect(resolveLanding(LANE, LATER, ID)).toEqual({ sha: LATER });
+	});
+
+	test("follows the ancestry through a re-merge, so a branch merged twice needs no second sign", () => {
+		// #618: the branch merged `main` into itself after the review, so the merge on `main` carries a
+		// commit whose *own* second parent is the reviewed one. Reading one parent deep refused this.
+		const inner = "1d0c0a0000000000000000000000000000000000";
+		const again = "2e1d3b0000000000000000000000000000000000";
+		const remade = proof(
+			[
+				{ sha: BASE, at: BASE_AT, parents: ["0000000000000000000000000000000000000001"] },
+				{ sha: again, at: LATER_AT, parents: [BASE, inner] },
+			],
+			REVIEWED,
+			{ carries: (commit) => commit.sha === again },
+		);
+		expect(resolveLanding(remade, REVIEWED, ID)).toEqual({ sha: again });
 	});
 
 	test("refuses a plain commit that is on the chain but is not a landing", () => {
 		// The #594/#593 shape: a sign taken in the checkout names main's head, a plain commit the
 		// merge did not carry. Accepting any ancestor wrote a landing that carried nothing.
-		expect(resolveLanding(LANE, BASE, ID)).toEqual({ error: reviewedAncestor("main", BASE, ID) });
+		expect(resolveLanding(proof(LANE.chain, BASE), BASE, ID)).toEqual({
+			error: reviewedAncestor("main", BASE, ID),
+		});
 	});
 
 	test("answers a plain commit when it is the chain's tip", () => {
 		// A review taken after the work is the tip: there is no merge above it to look for, and it
 		// names itself rather than being refused as an older tree.
-		const tip: LandingProof = {
-			branch: "main",
-			chain: [
-				{ sha: BASE, parents: ["0000000000000000000000000000000000000001"] },
-				{ sha: PLAIN, parents: [BASE] },
-			],
-		};
+		const tip = proof([
+			{ sha: BASE, at: BASE_AT, parents: ["0000000000000000000000000000000000000001"] },
+			{ sha: PLAIN, at: REVIEWED_AT, parents: [BASE] },
+		]);
 		expect(resolveLanding(tip, PLAIN, ID)).toEqual({ sha: PLAIN });
 	});
 
 	test("answers the earliest carrier, not whichever merge comes first in the list", () => {
-		// Two merges both list the reviewed commit, which a criss-cross can produce: the walk is
+		// Two merges both carry the reviewed commit, which a criss-cross can produce: the walk is
 		// oldest-first and stops at the one that carried the work.
-		const crossed: LandingProof = {
-			branch: "main",
-			chain: [
-				{ sha: CARRIED, parents: [BASE, REVIEWED] },
-				{ sha: LATER, parents: [CARRIED, REVIEWED] },
-			],
-		};
+		const crossed = proof([
+			{ sha: BASE, at: BASE_AT, parents: ["0000000000000000000000000000000000000001"] },
+			{ sha: CARRIED, at: CARRIED_AT, parents: [BASE, REVIEWED] },
+			{ sha: LATER, at: LATER_AT, parents: [CARRIED, REVIEWED] },
+		]);
 		expect(resolveLanding(crossed, REVIEWED, ID)).toEqual({ sha: CARRIED });
 	});
 
 	test("refuses a review no merge on the branch carries, naming the override", () => {
 		const squash = "5d0dd00000000000000000000000000000000000";
-		const refused = resolveLanding(LANE, squash, ID);
+		const refused = resolveLanding(proof(LANE.chain, squash), squash, ID);
 		expect(refused).toEqual({ error: unlandedReview("main", squash, ID) });
 		if ("error" in refused) {
 			expect(refused.error).toContain("#12's spot-check was of `5d0dd00`");
@@ -317,7 +365,7 @@ describe("resolveLanding", () => {
 	});
 
 	test("refuses a merge that moved the tree the review proved, naming the merge", () => {
-		const refused = resolveLanding({ ...LANE, moved: ["lib/workflow/steps.ts"] }, REVIEWED, ID);
+		const refused = resolveLanding(proof(LANE.chain, REVIEWED, { moved: ["lib/workflow/steps.ts"] }), REVIEWED, ID);
 		expect(refused).toEqual({ error: movedTree("main", REVIEWED, CARRIED, ["lib/workflow/steps.ts"], ID) });
 		// The distinction the sentence carries: the merge, not the review, is the unchecked tree.
 		if ("error" in refused) {

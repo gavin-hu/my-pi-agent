@@ -10,7 +10,8 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import { shortenPath } from "../format.ts";
 import type { Card } from "./card.ts";
-import { contractRoute, gonePlans, planForContract, planForExecute, planIsGone, proved } from "./artifact.ts";
+import { gonePlans, planForContract, planForExecute, planIsGone, proved } from "./artifact.ts";
+import { contractRoute } from "./lanes.ts";
 
 const ROOT = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-board-artifact-")));
 const STORE = join(ROOT, "plans", "abc123");

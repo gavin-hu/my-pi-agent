@@ -47,9 +47,11 @@ describe("a contract stored before the fourth line was required", () => {
 		expect(refusal(applyOp(legacy, doneOf(legacy), CORE, NOW, boardOf(legacy)))).toContain("names no `verify` command");
 	});
 
-	test("said as one sentence: the line, the action, and the approval it costs", () => {
+	test("said as one sentence: the line, the route, and the approval it costs", () => {
+		// The card is in `execute`, where `contract` is refused: the route has to send it back to
+		// `plan` first, which is the sentence #602 caught naming the wrong door.
 		expect(noVerifyCommand(legacyCard(), LEAD.label)).toBe(
-			"#4's contract names no `verify` command, so there is no run for its spot-check: its holder records one with `contract`, and the approval that drops is signed again by the lead (billing-lead) or the person with `/board approve 4`.",
+			"#4's contract names no `verify` command, so there is no run for its spot-check: its holder's route — move it back to plan, then record it with `contract`. The approval that drops is signed again by the lead (billing-lead) or the person with `/board approve 4`.",
 		);
 		// A project that names no lead names the setting, as every sentence beside it does.
 		expect(noVerifyCommand(legacyCard(), "")).toContain("the lead (`team.lead`)");

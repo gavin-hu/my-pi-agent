@@ -54,6 +54,19 @@ export async function headSha(runGit: RunGit, cwd: string): Promise<string | und
 }
 
 /**
+ * One commit on `ref`'s first-parent chain: what it is, when it was committed, and its parents.
+ *
+ * `at` is the committer's moment in milliseconds, the unit every card stamp uses — `git` speaks
+ * seconds, and a comparison across the two units is a comparison of two unrelated numbers.
+ */
+export interface ChainCommit {
+	sha: string;
+	/** The committer's moment, in milliseconds. */
+	at: number;
+	parents: string[];
+}
+
+/**
  * The commits on `ref`'s first-parent chain, oldest first, with each one's parents.
  *
  * The walk follows the first parent only, which is the line a landing sits on: a merge's second
@@ -61,20 +74,59 @@ export async function headSha(runGit: RunGit, cwd: string): Promise<string | und
  * history it was merged into. Oldest first is the caller's contract — the board stops at the first
  * merge that proves a review, and `git rev-list`'s own order is not that promise under a
  * criss-cross.
+ *
+ * The moment comes from the same call rather than a second one per commit: a landing has to know
+ * whether a merge committed before the card's work began, and `%ct` is the cheapest way to ask.
  */
-export async function firstParentChain(
-	runGit: RunGit,
-	cwd: string,
-	ref: string,
-): Promise<{ sha: string; parents: string[] }[]> {
-	const result = await runGit(["log", "--first-parent", "--reverse", "--format=%H %P", ref], { cwd });
+export async function firstParentChain(runGit: RunGit, cwd: string, ref: string): Promise<ChainCommit[]> {
+	const result = await runGit(["log", "--first-parent", "--reverse", "--format=%H %ct %P", ref], { cwd });
 	if (result.code !== 0) return [];
-	const chain: { sha: string; parents: string[] }[] = [];
+	const chain: ChainCommit[] = [];
 	for (const line of result.stdout.split("\n")) {
-		const [sha, ...parents] = line.trim().split(/\s+/).filter(Boolean);
-		if (sha !== undefined) chain.push({ sha, parents });
+		const [sha, seconds, ...parents] = line.trim().split(/\s+/).filter(Boolean);
+		const at = Number(seconds) * 1_000;
+		if (sha !== undefined && Number.isFinite(at)) chain.push({ sha, at, parents });
 	}
 	return chain;
+}
+
+/**
+ * Whether a merge carried `sha`: on its branch side, and not already on the line it was made on.
+ *
+ * Both halves are needed, and `parents` is the commit's own list in git's order. The first parent is
+ * the line the merge landed on, so a commit reachable from it was already main's — a sign taken on
+ * the base a branch was cut from is exactly that, and answering "carried" for it is what let a close
+ * name a merge that carried nothing. So `sha` must be reachable from a *carried* parent (the second
+ * and any later) and **not** from the first. A plain commit has no carried side, and carries nothing.
+ *
+ * `undefined` is a read that failed, and its caller refuses the close rather than guessing a
+ * landing; a real `false` is the answer `git` gave.
+ */
+export async function carriedBy(
+	runGit: RunGit,
+	cwd: string,
+	parents: readonly string[],
+	sha: string,
+): Promise<boolean | undefined> {
+	const [first, ...carried] = parents;
+	if (first === undefined) return false;
+	const reaches = async (from: string): Promise<boolean | undefined> => {
+		const result = await runGit(["merge-base", "--is-ancestor", sha, from], { cwd });
+		if (result.code === 0) return true;
+		return result.code === 1 ? false : undefined;
+	};
+	// Read the first parent first: a commit on the line the merge was made on is not this merge's work,
+	// whatever the branch side says.
+	const onLine = await reaches(first);
+	if (onLine === undefined) return undefined;
+	if (onLine) return false;
+	let unknown = false;
+	for (const parent of carried) {
+		const found = await reaches(parent);
+		if (found === true) return true;
+		if (found === undefined) unknown = true;
+	}
+	return unknown ? undefined : false;
 }
 
 /**
