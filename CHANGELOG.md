@@ -274,6 +274,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a close whose landing cannot be resolved says which git read failed, in which repository, and
+  in git's own words, instead of "the branch it landed on was not read". The chain has a strict door now
+  (`firstParentChainOrThrow`) that throws with git's stderr, and `landedChain` throws a sentence naming the
+  command for each of its three reads — the log, `merge-base --is-ancestor`, and the diff between the
+  review and the merge — where it used to return nothing at all. A read that succeeds and comes back empty
+  keeps the old refusal, because a repository with nothing to land is not a failed read.
+
 - `board`, `team`: a join asks for the wake a bus record cannot promise. A record written before the
   watch field existed — every session's, because the boot write lands before any join sets it — was read
   as the user's `listen: false`, so the first `board claim` or `team assign` asked for nothing and the
