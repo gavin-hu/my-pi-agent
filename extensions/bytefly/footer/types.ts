@@ -83,11 +83,12 @@ export interface ModelInfo {
 export interface StatusSnapshot {
 	cwd: string;
 	/**
-	 * The name the bar draws for this session: already resolved against the team.
+	 * The name the bar draws for this session: the label a join settled for it, resolved against
+	 * the team.
 	 *
-	 * `null` is "this session is not one of the team's", which draws nothing at all. The bus
-	 * label is the candidate when the session has one, Pi's own session name otherwise, and
-	 * neither is a claim: a name the team does not hold is no teammate, and the bar names nobody
+	 * `null` is "no join recorded a name the team holds", which draws nothing at all. Being on the
+	 * bus is the only way to a name here — Pi's own session name is never one — and even a join's
+	 * label is no claim: a name the team does not hold is no teammate, and the bar names nobody
 	 * rather than inventing one.
 	 */
 	teammateName: string | null;
