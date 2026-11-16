@@ -27,6 +27,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: editing an `execute` card's `paths` moves its bus claims with them. The added paths are claimed before
+  the removed ones are released — one order, so a conflict on an add releases nothing — which stops a removed hint
+  from blocking a peer on a file the card no longer names. `release`'s action doc says an `execute` card re-claims
+  its hints, so editing the card is how a file is handed over.
+
 - `board`: a reviewed merge is its own landing only while it is the branch's tip. Once something lands on top of it,
   `done` refuses with the older-tree sentence and the door is a re-sign — so a spot-check taken in the checkout, with
   another landing before the close, has to name the card's commit again (its worktree, or a checkout at that sha).

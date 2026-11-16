@@ -378,15 +378,25 @@ export function registerTools(
 						) {
 							return refusal(action, me, "edit needs a title, paths, type, breaking, priority, or dependsOn.");
 						}
-						return await mutate(store, action, me, now, args, {
-							kind: "edit",
-							title: args.title,
-							paths: args.paths,
-							type: args.type,
-							breaking: args.breaking,
-							priority: args.priority,
-							dependsOn: args.dependsOn,
-						});
+						return await mutate(
+							store,
+							action,
+							me,
+							now,
+							args,
+							{
+								kind: "edit",
+								title: args.title,
+								paths: args.paths,
+								type: args.type,
+								breaking: args.breaking,
+								priority: args.priority,
+								dependsOn: args.dependsOn,
+							},
+							// An edit that changes an `execute` card's paths changes what it holds: the diff
+							// claims what it added and releases what it removed.
+							{ cross },
+						);
 					}
 					case "drop":
 						return await dropCard(store, me, args, now, cross);

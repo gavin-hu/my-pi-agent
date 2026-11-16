@@ -252,6 +252,34 @@ describe("the crossing the tool reports", () => {
 		expect(claims.sent).toEqual([{ call: "release", paths: ["src/api"] }]);
 	});
 
+	test("an edit inside execute diffs the claims, and the card reports which way", async () => {
+		// The trap #596 lost the paths to: `edit` changed the hints and nothing else asked the bus, so
+		// an added path was free for a peer and a removed one still blocked them.
+		const claims = bus();
+		const { call } = await executable(claims);
+		await call({ action: "move", card: "1", lane: "execute" });
+		claims.sent.length = 0;
+		const edited = await call({ action: "edit", card: "1", paths: ["src/web"] });
+		expect(edited.details.card?.paths).toEqual(["src/web"]);
+		expect(edited.details.held).toBe("claimed 1 path, released 1 path");
+		expect(edited.text).toContain("\n  claimed 1 path, released 1 path");
+		expect(claims.sent).toEqual([
+			{ call: "claim", paths: ["src/web"] },
+			{ call: "release", paths: ["src/api"] },
+		]);
+	});
+
+	test("an edit that changes no path asks the bus nothing", async () => {
+		const claims = bus();
+		const { call } = await executable(claims);
+		await call({ action: "move", card: "1", lane: "execute" });
+		claims.sent.length = 0;
+		const edited = await call({ action: "edit", card: "1", title: "One, renamed" });
+		expect(edited.details.card?.title).toBe("One, renamed");
+		expect(edited.details.held).toBeUndefined();
+		expect(claims.sent).toEqual([]);
+	});
+
 	test("a reclaim from the holder's session names nothing it could not free", async () => {
 		// The holder takes its own card back, so the release is its own and frees them: a quiet
 		// result is the right one, and the paths it could not take were named at entry.
