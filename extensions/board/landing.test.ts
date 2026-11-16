@@ -220,6 +220,25 @@ describe("the landing a close resolves", () => {
 		expect(landingGate(ID, base, proof)).toBe(reviewedAncestor("main", base, ID));
 	});
 
+	test("follows a branch merged and re-merged, so the close needs no second sign", async () => {
+		const repo = temps.track(await makeRepo("pi-landing-"));
+		await git(["checkout", "-q", "-b", "work"], repo);
+		const reviewed = await commitFile(repo, "dir/own.ts", "export const own = 1;\n", "add own");
+		await git(["checkout", "-q", "main"], repo);
+		await commitFile(repo, "dir/neighbour.ts", "export const neighbour = 1;\n", "neighbour lands");
+		// The branch takes main in before it lands, so the merge on `main` carries a commit whose *own*
+		// second parent is the reviewed one: reading one parent deep called that an older tree (#618).
+		await git(["checkout", "-q", "work"], repo);
+		await git(["merge", "--no-ff", "-q", "-m", "main into work", "main"], repo);
+		await git(["checkout", "-q", "main"], repo);
+		await git(["merge", "--no-ff", "-q", "-m", "merge work", "work"], repo);
+		const landed = await git(["rev-parse", "HEAD"], repo);
+		const proof = await landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, host());
+		// The landing is the merge on main, not the reviewed commit and not the branch's own merge.
+		expect(proof?.chain.at(-1)?.sha).toBe(landed);
+		expect(landingGate(ID, reviewed, proof)).toBeUndefined();
+	});
+
 	test("refuses a merge that resolved a file the review changed", async () => {
 		const { repo, reviewed } = await withResolution();
 		const proof = await landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, host());

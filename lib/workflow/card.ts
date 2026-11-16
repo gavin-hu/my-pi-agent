@@ -15,7 +15,7 @@
  */
 
 import { overLimit, pageSource, sanitizeLine } from "../format.ts";
-import { type Contract, isContract, isHandoff, type Handoff, isLanding, isSign, type Sign } from "./contract.ts";
+import { type Contract, isContract, isHandoff, type Handoff, isSign, type Sign } from "./contract.ts";
 import { CARD_TYPES, type CardType } from "./kind.ts";
 import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
 /** The schema version this build writes. A file with another value is refused, never migrated in place. */
@@ -235,6 +235,26 @@ export interface Card {
 	stateAt?: number;
 	/** The label of whoever wrote this revision. */
 	by: string;
+}
+
+/** A card's landing: the merge commit that carried it, and when the board recorded it. */
+export interface Landing {
+	/** The merge that carried the review, or the reviewed commit when it is itself a landing. */
+	sha: string;
+	/** When the board recorded it, on the board's clock. */
+	at: number;
+}
+
+/** Whether `value` is a landing this build can read: a commit and a whole moment. */
+export function isLanding(value: unknown): value is Landing {
+	if (typeof value !== "object" || value === null) return false;
+	const landing = value as Record<string, unknown>;
+	return (
+		typeof landing.sha === "string" &&
+		landing.sha !== "" &&
+		typeof landing.at === "number" &&
+		Number.isInteger(landing.at)
+	);
 }
 
 /** A rejected field, phrased for the model: what was wrong, not that something was. */

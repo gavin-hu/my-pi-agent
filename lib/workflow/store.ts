@@ -35,7 +35,7 @@ import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
 import { type Card, cardRef, type Priority } from "./card.ts";
-import { type EndedCard, ENDED_VERSION } from "./ended.ts";
+import type { EndedCard } from "./ended.ts";
 import type { NoticeKind } from "./notice.ts";
 import type { CardType } from "./kind.ts";
 import { CARD_FILE, readCardFile, readdirSafe, type Skip, scanPile } from "./read.ts";
@@ -413,6 +413,9 @@ async function nextCardId(cardsDir: string, endedDir: string, archiveDir: string
  */
 async function writeEnded(endedDir: string, card: Card, actor: Actor, now: number): Promise<void> {
 	await mkdir(endedDir, { recursive: true, mode: DIR_MODE });
+	// The tombstone's own module loads with the drop that writes one: a board that never drops a card
+	// pays nothing for it, and the record's version is not a second literal here to drift.
+	const { ENDED_VERSION } = await import("./ended.ts");
 	const ended: EndedCard = {
 		v: ENDED_VERSION,
 		id: card.id,

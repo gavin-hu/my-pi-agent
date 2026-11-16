@@ -199,11 +199,8 @@ export function unverifiedSpotCheck(card: Card, cmd: string, lead: Lead): string
  * What a `done` move is refused with when the contract names no command at all.
  *
  * Only a card written before the fourth line was required — or one hand-edited — has none, so the
- * refusal names the line, the route this card's lane takes to record it, and the approval that
- * costs: `contract` drops the sign it is about to invalidate, and this is the sentence that says so
- * before the holder discovers it. The route is `contractRoute`'s, because a card in `execute` has to
- * move back to `plan` first and a sentence that named `contract` alone sent a reader into a second
- * refusal (#602).
+ * refusal names the line, the route its lane takes to record it (`contractRoute`, because `contract`
+ * is refused outside `plan`), and the approval that costs: this is the sentence that says so first.
  */
 export function noVerifyCommand(card: Card, lead: Lead): string {
 	return `${cardRef(card.id)}'s contract names no \`verify\` command, so there is no run for its spot-check: its holder's route — ${contractRoute(card)} The approval that drops is signed again by the lead (${leadName(lead)}) or the person with \`/board approve ${card.id}\`.`;
@@ -345,15 +342,11 @@ export function appendNote(card: Card, by: string, at: number, text: string): Pi
  * Whether the card has been written since its sign last spoke for it.
  *
  * A sign owns two writes: the stamp, and `#398`'s record that its owner heard — so the moment to
- * compare is the later of the two. It compares `stateAt`, the last write that changed what a sign
- * speaks for, and not `updatedAt`, which a note moves: a landing note filed between the spot-check
- * and the close is a message about the card, not a change to it. A card written before the field
- * existed has no `stateAt`, and its `updatedAt` is the same answer.
- *
- * One reader for every place the rule is asked: `currentReview` drops an outgrown sign, so the
- * `done` gate, the lead's queue, the card's reason line and the repeat sign that re-makes a stamp
- * all answer from this arithmetic, and "the work moved under the signature" cannot mean one thing
- * to the gate and another to the surface that names the gate.
+ * compare is the later of the two. The field is `stateAt`, not `updatedAt`: a note is a message
+ * about the card rather than a change to it, so a landing note filed before the close does not
+ * outgrow the run, and a card written before the field existed reads `updatedAt` instead. One
+ * reader for every place the rule is asked — `currentReview`, so the `done` gate, the lead's queue
+ * and the reason line answer together.
  */
 export function signStale(card: Card, record: SignRecord): boolean {
 	return (card.stateAt ?? card.updatedAt) > Math.max(record.at, record.told?.at ?? 0);
