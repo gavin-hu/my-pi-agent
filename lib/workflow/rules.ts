@@ -90,6 +90,14 @@ export type CardOp =
 			artifact?: ArtifactProof;
 			/** What the door read about the branch a card landed on, for a move to `done`. */
 			landed?: LandingProof;
+			/**
+			 * What the bus says about the session holding the card, for a move to `done`.
+			 *
+			 * A review is the signature, so a close only records where a signed card went — and the one
+			 * closer a vanished holder leaves is the lead's. `undefined` is "cannot tell": a bus that did
+			 * not answer, or a fact bound to another owner.
+			 */
+			holder?: HolderFact;
 	  }
 	// `text` and the contract fields are whatever the model sent: the modules that own
 	// them validate them, and the refusal they produce is the one the caller shows.

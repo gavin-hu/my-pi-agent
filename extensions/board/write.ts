@@ -11,6 +11,7 @@
  */
 
 import { type Card, normalizeCardId } from "../../lib/workflow/card.ts";
+import type { HolderFact } from "../../lib/workflow/lead.ts";
 import type { CardOp } from "../../lib/workflow/rules.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { BoardStore, MutateResult } from "../../lib/workflow/store.ts";
@@ -34,10 +35,27 @@ export async function reclaimOp(
 	raw: string | undefined,
 	cwd: string,
 ): Promise<CardOp> {
+	return { kind: "reclaim", ...(await holderFact(session, store, raw, cwd)) };
+}
+
+/**
+ * What the bus says about the session holding the card the caller named, when it can say.
+ *
+ * `undefined` is every ordinary answer — an id that cannot be read, a card with no owner, a bus that
+ * could not answer — and the rule it feeds treats it as "cannot tell". One read, because both doors
+ * that ask it (`reclaim`, and the lead's close of a card whose holder left) ask the same question
+ * about the same card.
+ */
+export async function holderFact(
+	session: BoardSession,
+	store: BoardStore,
+	raw: string | undefined,
+	cwd: string,
+): Promise<{ holder?: HolderFact }> {
 	const id = raw === undefined ? undefined : normalizeCardId(raw);
 	const card = id === undefined ? undefined : await store.read(id).catch(() => undefined);
 	const holder = card === undefined ? undefined : await session.holder(cwd, card);
-	return { kind: "reclaim", ...(holder === undefined ? {} : { holder }) };
+	return holder === undefined ? {} : { holder };
 }
 
 /**

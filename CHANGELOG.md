@@ -34,6 +34,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   condition and the two cannot drift again. The header keeps its single row: the shell's narrow-header answer is a
   second body, `narrowShell`, and a page taking the collapse early does not take that with it.
 
+- `board`: the lead can close a signed card whose holder's session ended. A review is the signature, so a move to
+  `done` only records where a signed card went — and the lead may make it when the bus says the holder is gone, or
+  holds no record of it, where before only the vanished holder could and the card had no door at all. The lead still
+  signs only what it does not hold, and a live or quiet holder keeps its own close.
+
 - `board`: a resumed session's first turn names the card the sweep just re-seated. The sweep runs before the held
   cards are read, so a card handed back to the session arrives as a card with its lane and next step instead of a
   note about a write it never saw — and that turn is the only one a session gets.

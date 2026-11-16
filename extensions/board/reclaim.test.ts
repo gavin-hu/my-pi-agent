@@ -14,6 +14,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Claims } from "../../lib/workflow/claims.ts";
+import type { BoardSession } from "../../lib/workflow/session.ts";
 import type { SendInput } from "../../lib/session-tool.ts";
 import type { Deliver } from "../../lib/session-tool.ts";
 import { agentLabel } from "../../lib/session-label.ts";
@@ -183,6 +184,8 @@ function bus(
 async function executable(claims: Claims): Promise<{
 	cwd: string;
 	agentDir: string;
+	/** The holder's own session, so a case can make the write the tool would not. */
+	runtime: BoardSession;
 	call: (args: Record<string, unknown>) => Promise<{ details: BoardDetails; text: string }>;
 }> {
 	const board = boardHarness({ now: NOW, lead: LEAD, track: temps.track, claims, sessionId: "s-holder" });
@@ -225,7 +228,7 @@ async function executable(claims: Claims): Promise<{
 		NOW,
 	);
 	if (!approved.ok) throw new Error(`the lead could not sign: ${approved.error}`);
-	return { cwd: board.ctx.cwd, agentDir: board.agentDir, call };
+	return { cwd: board.ctx.cwd, agentDir: board.agentDir, runtime: board.runtime, call };
 }
 
 describe("the crossing the tool reports", () => {
@@ -278,6 +281,32 @@ describe("the crossing the tool reports", () => {
 		expect(edited.details.card?.title).toBe("One, renamed");
 		expect(edited.details.held).toBeUndefined();
 		expect(claims.sent).toEqual([]);
+	});
+
+	test("the lead closes a signed card whose holder the bus does not have", async () => {
+		// #657: the holder's session ended while the card was signed and landed. `move done` was the
+		// holder's, `review` refused a card the lead could hold, and a reclaim only moved the problem —
+		// so the tool reads the holder for a `done` and the rule admits the lead when it is absent.
+		const claims = bus();
+		const { call, cwd, agentDir, runtime } = await executable(claims);
+		await call({ action: "move", card: "1", lane: "execute" });
+		const store = await runtime.store(cwd);
+		// A spot-check with no commit named: this repository is not git, so the close owes no landing.
+		const signed = await store.mutate(
+			"1",
+			{ kind: "review", verified: { cmd: "bun run check", exit: 0, at: NOW } },
+			{ label: LEAD },
+			NOW,
+		);
+		if (!signed.ok) throw new Error(`the lead could not sign: ${signed.error}`);
+		// The bus still exists — it holds this holder's record — but the process behind it ended, which
+		// is the `gone` reading; the rule suite also proves the `absent` one, which is #653's own shape.
+		writeBusRecord(await runtime.busDir(cwd), { id: "s-holder", label: HOLDER, pid: 999_999_999, lastSeen: NOW });
+		const lead = boardTool({ cwd, agentDir, lead: LEAD, now: NOW, sessionId: "s-lead", claims });
+		const closed = await lead.call({ action: "move", card: "1", lane: "done" });
+		expect(resultText(closed)).toContain("done");
+		expect(closed.details.card?.lane).toBe("done");
+		expect(closed.details.card?.review?.by).toBe(LEAD);
 	});
 
 	test("a reclaim from the holder's session names nothing it could not free", async () => {

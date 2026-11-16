@@ -192,7 +192,7 @@ export function move(
 	if (card.owner === undefined) {
 		return { error: `${cardRef(card.id)} is unclaimed; claim it before moving it to ${target}.` };
 	}
-	const denied = mayMove(card, actor, target, config.lead);
+	const denied = mayMove(card, actor, target, config.lead, op.holder);
 	if (denied !== undefined) return { error: denied };
 	if (target === "backlog") {
 		return { error: `${cardRef(card.id)} cannot be moved to backlog; release it instead.` };
