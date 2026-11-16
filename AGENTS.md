@@ -139,9 +139,9 @@ widths, so an overflowing frame fails.
 ## How to work
 
 - Work a feature on its card: claim, contract, sign, `execute` before editing; with
-  no card, open one. A note is a message, not a state change, so only an edit, a move or
-  a second sign outgrows the sign; `done` also needs the merge, and a contract is written
-  only in `plan`.
+  no card, open one. A note is a message, not a state change: any other write (an edit,
+  a move, a second sign) outgrows the sign; `done` also needs the merge, and a contract is
+  written only in `plan`.
 - Be short and direct: answer before editing; state agreement or disagreement.
 - Ask before adding a runtime dependency.
 - Ask before removing functionality that looks intentional; add no backward
