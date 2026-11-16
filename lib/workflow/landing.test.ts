@@ -76,16 +76,24 @@ describe("resolveLanding", () => {
 		// #641: the reviewer ran the gate in the root checkout on `main`, whose head was a merge made
 		// before this card existed; `done` then named that merge as the landing. A merge older than
 		// the card's own `execute` cannot be its landing, however the chain reads.
-		const late = proof(LANE.chain, REVIEWED, { since: CARRIED_AT + 1 });
+		const late = proof(LANE.chain, CARRIED, { since: CARRIED_AT + 1 });
 		expect(resolveLanding(late, CARRIED, ID)).toEqual({ error: reviewedAncestor("main", CARRIED, ID) });
 	});
 
-	test("answers a reviewed merge that committed after the card's work is its own landing", () => {
-		// The other half of #641, and not a weakened version of the case that encoded the defect: a
-		// review taken *after* the merge is a review of the merged tree, and equality is the strongest
-		// evidence there is — no moved-lines comparison, because a merge cannot be compared to itself.
-		expect(resolveLanding(LANE, CARRIED, ID)).toEqual({ sha: CARRIED });
-		expect(resolveLanding(LANE, LATER, ID)).toEqual({ sha: LATER });
+	test("answers a reviewed merge that is still the tip, so a review of the merged tree holds", () => {
+		// A review taken after the merge is a review of the merged tree, and while that merge is the
+		// tip it is its own landing: no moved-lines comparison, because a merge cannot be compared to
+		// itself.
+		expect(resolveLanding(proof(LANE.chain, LATER), LATER, ID)).toEqual({ sha: LATER });
+	});
+
+	test("refuses a reviewed merge once the branch has moved past it, naming the door", () => {
+		// The pair that used to stand here read "a reviewed merge is its own landing" unconditionally,
+		// and that is the defect: #641 closed a card on a merge another card had made. A merge that is
+		// no longer the tip carries nothing of its own, so the close refuses and the door is a re-sign.
+		expect(resolveLanding(proof(LANE.chain, CARRIED), CARRIED, ID)).toEqual({
+			error: reviewedAncestor("main", CARRIED, ID),
+		});
 	});
 
 	test("follows the ancestry through a re-merge, so a branch merged twice needs no second sign", () => {

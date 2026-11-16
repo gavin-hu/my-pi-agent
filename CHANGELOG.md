@@ -27,6 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a reviewed merge is its own landing only while it is the branch's tip. Once something lands on top of it,
+  `done` refuses with the older-tree sentence and the door is a re-sign — so a spot-check taken in the checkout, with
+  another landing before the close, has to name the card's commit again (its worktree, or a checkout at that sha).
+
 - `board`: a spot-check signs a tree, and `done` proves that tree landed. A note no longer outgrows a sign — only a
   write that changes the card does — so a landing note can be filed before the close; a merge committed before the
   card's work is refused as an older tree instead of being recorded as the landing; a branch merged and re-merged

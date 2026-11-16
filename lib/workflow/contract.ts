@@ -514,20 +514,21 @@ function shortSha(sha: string): string {
  * The merge that carried `reviewed`, or the sentence saying why none can be named.
  *
  * A merge committed before the card's work began is never the landing: that is the checkout's head
- * at the moment a reviewer signed the wrong tree (#641). A reviewed commit that is itself a merge or
- * the tip *is* the landing — equality is stronger evidence than any comparison, so the moved-lines
- * check is skipped there rather than comparing a merge to itself. Otherwise the landing is the oldest
- * merge whose carried side contains the reviewed commit, which is what a re-merged branch needs
- * (#618). A reviewed commit on the chain but carried by nothing is an older sign; one that is
- * nowhere is a branch nobody merged.
+ * at the moment a reviewer signed the wrong tree (#641). A reviewed commit is its own landing only
+ * while it is the chain's *tip* — a review of the merged tree, before anything landed on top of it —
+ * and the moved-lines check is skipped there rather than comparing a merge to itself. Once `main`
+ * has moved past the reviewed commit, it can only be named through the merge that carries it: the
+ * oldest one whose carried side contains it, which is what a re-merged branch needs (#618). A
+ * reviewed commit on the chain that is carried by nothing is an older sign (#652, which is why a
+ * checkout sign followed by another landing needs a re-sign); one that is nowhere is a branch
+ * nobody merged.
  */
 export function resolveLanding(proof: LandingProof, reviewed: string, id: string): LandingCheck {
 	const tip = proof.chain.at(-1)?.sha;
 	const candidates = proof.chain.filter((commit) => commit.at >= proof.since);
-	const itself = candidates.find(
-		(commit) => commit.sha === reviewed && (commit.parents.length > 1 || commit.sha === tip),
-	);
-	if (itself !== undefined) return { sha: itself.sha };
+	// The tip alone may be its own landing. A merge main has moved past carries nothing of its own
+	// any more — the next merge has it as first parent — so naming it would be the base-merge bug.
+	if (reviewed === tip && candidates.some((commit) => commit.sha === reviewed)) return { sha: reviewed };
 	for (const commit of candidates) {
 		// A plain commit carries no branch of its own; only a merge has a carried side to ask about.
 		if (commit.parents.length <= 1) continue;
