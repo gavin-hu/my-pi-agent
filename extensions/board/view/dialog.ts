@@ -49,7 +49,7 @@ const dialogTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
-  var chip = board.chip;
+  var chipNode = board.chipNode;
   var kindLabel = board.kindLabel;
   var ago = board.ago;
 
@@ -109,7 +109,7 @@ __INLINE_MARKDOWN__
     if (label !== undefined) kind.appendChild(label);
     var owner = document.getElementById("card-dialog-owner");
     owner.textContent = "";
-    owner.appendChild(card.owner ? chip(card.owner.label, "outline") : document.createTextNode("unassigned"));
+    owner.appendChild(card.owner ? chipNode({ label: card.owner.label, tone: "muted" }) : document.createTextNode("unassigned"));
     var priority = document.getElementById("card-dialog-priority");
     priority.hidden = card.priority === "normal";
     priority.textContent = card.priority === "normal" ? "" : card.priority;
@@ -246,7 +246,7 @@ __INLINE_MARKDOWN__
     pathList.textContent = "";
     for (var i = 0; i < card.paths.length; i++) {
       var item = el("li", "");
-      var hint = chip(card.paths[i]);
+      var hint = chipNode({ label: card.paths[i] });
       hint.className += " " + N.dialogPath;
       hint.title = card.paths[i];
       item.appendChild(hint);

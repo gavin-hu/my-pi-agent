@@ -18,6 +18,7 @@
  * lib — the cast names the guarantee the page makes: it is a browser, and it has one.
  */
 
+import type { ChipTone } from "./markup.ts";
 import { pageSource } from "../format.ts";
 
 /**
@@ -118,6 +119,17 @@ export function el(tag: string, className?: string, text?: string | null): Clien
 	if (className) node.className = className;
 	if (text !== undefined && text !== null) node.textContent = String(text);
 	return node;
+}
+
+/**
+ * A status tag as a node: the kit's class and tone, and the label as text.
+ *
+ * The string twin ({@link chip}) also takes a trusted `icon`; a node never parses, so this one
+ * takes a label and whatever needs no markup. A page whose script builds a tag asks here rather
+ * than spelling `bf-tag` in a bundle no type checker reads.
+ */
+export function chipNode(options: { label: string; tone?: ChipTone }): ClientNode {
+	return el("span", options.tone ? "bf-tag bf-tone--" + options.tone : "bf-tag", options.label);
 }
 
 /**
@@ -332,10 +344,10 @@ export function pageBase(): string {
 export const CLIENT_BASE_JS = pageSource(pageBase);
 
 /**
- * The runtime, as a bundle receives it: the seven bodies, in the order a client reads them.
+ * The runtime, as a bundle receives it: the eight bodies, in the order a client reads them.
  *
  * `test` holds each to its module body and proves the string is safe to splice.
  */
-export const CLIENT_RUNTIME_JS = [el, typing, paintStatus, paintLive, paintLiveState, postJson, liveStream]
+export const CLIENT_RUNTIME_JS = [el, chipNode, typing, paintStatus, paintLive, paintLiveState, postJson, liveStream]
 	.map(pageSource)
 	.join("\n\n");

@@ -52,10 +52,12 @@ interface ServedPage {
 /**
  * The three pages the kit serves.
  *
- * `bf-tone` is a family, not a class: the board writes `"bf-tone--" + tone` from the tone table, so
- * the exact name never appears and the sheet rules the six modifiers. Resolving the suffix set here
- * would be a second copy of that table, so the exception names the family and the case below proves
- * the sheet still rules at least one member of it.
+ * An exception is a name a page writes that its own sheet does not rule, and a case below proves
+ * the name is still written. A family (`bf-tone--`) is the one shape that needs it: a page that
+ * builds a modifier at run time writes the head, not the name, so the exception names the family
+ * and the case proves the sheet still rules at least one member of it. The board needed one while
+ * it built its tags itself; the kit's `chipNode` builds them now, so the page writes no `bf-tone--`
+ * and the exception is gone rather than kept for a writer that no longer exists.
  */
 const PAGES: readonly ServedPage[] = [
 	{
@@ -63,12 +65,7 @@ const PAGES: readonly ServedPage[] = [
 		dir: join(root, "extensions/board/view"),
 		skip: ["styles.ts"],
 		css: BOARD_CSS,
-		exceptions: [
-			{
-				name: "bf-tone--",
-				why: 'the board writes "bf-tone--" + tone from the tone table, so the modifier is data',
-			},
-		],
+		exceptions: [],
 	},
 	{
 		page: "plan",

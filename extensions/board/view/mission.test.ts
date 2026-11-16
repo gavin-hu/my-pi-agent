@@ -269,7 +269,7 @@ describe("the mission control's contracts", () => {
 		// The worst state among the recipients is the one the row wears, and its name is on the hover.
 		expect(BOARD_CLIENT_JS).toContain("STATE_RANK[state] &lt; STATE_RANK[worst]".replace("&lt;", "<"));
 		// The kind is a chip with its word in it, and no glyph: the paper is the only mark left.
-		expect(BOARD_CLIENT_JS).toContain('chip(message.kind, "muted")');
+		expect(BOARD_CLIENT_JS).toContain('chipNode({ label: message.kind, tone: "muted" })');
 		// A rail row's kind is a word too, and a move names the lane it went to.
 		expect(BOARD_CLIENT_JS).toContain("ACTIVITY_LABEL[event.kind]");
 		expect(BOARD_CLIENT_JS).toContain('label.replace("{lane}"');

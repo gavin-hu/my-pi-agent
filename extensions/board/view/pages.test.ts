@@ -575,7 +575,7 @@ describe("the class contract", () => {
 		// one sentence rule, not one per kind, which is how `gone` came to be drawn quieter than
 		// `unwritten` while being ranked above it.
 		expect(BOARD_CLIENT_JS).toContain("var tone = decisionTone(entry.kind);");
-		expect(BOARD_CLIENT_JS).toContain('chip(DECISION_LABEL[entry.kind] || entry.kind, tone === "dim" ? "dim" : tone)');
+		expect(BOARD_CLIENT_JS).toContain("chipNode({ label: DECISION_LABEL[entry.kind] || entry.kind");
 		for (const kind of DECISION_KINDS) {
 			expect(BOARD_CSS, kind).not.toContain(`.board-queue__row[data-tone="${DECISION_TONE[kind]}"]{`);
 		}

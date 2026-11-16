@@ -26,7 +26,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
-  var chip = board.chip;
+  var chipNode = board.chipNode;
   var kindLabel = board.kindLabel;
   var ago = board.ago;
   var plural = board.plural;
@@ -112,7 +112,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
     var shown = card.paths.slice(0, limit);
     for (var i = 0; i < shown.length; i++) {
       var item = el("li", "");
-      var hint = chip(shown[i]);
+      var hint = chipNode({ label: shown[i] });
       // A path longer than the card elides, and the whole of it is on the hover title: the
       // card is often the only place its hints are read before opening the record.
       hint.title = shown[i];
@@ -124,7 +124,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
       // The marker trails the row: with the hints before it on the line, it sits at the end of
       // what they left, and it is not a chip a wrap can leave alone on a line of its own.
       var rest = el("li", N.rowMore);
-      var more = chip("+" + beyond.length);
+      var more = chipNode({ label: "+" + beyond.length });
       more.title = beyond.join("\n");
       // The count is a shape, not a word: what it counts is in the list below it, and a
       // reader is owed the hints rather than "+3".

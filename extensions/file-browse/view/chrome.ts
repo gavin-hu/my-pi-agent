@@ -10,7 +10,7 @@
 
 import { escapeHtml } from "../../../lib/escape.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
-import { liveChip, reloadChip } from "../../../lib/web/index.ts";
+import { chip, liveChip, reloadChip } from "../../../lib/web/index.ts";
 import type { GitStatus } from "../git/git.ts";
 import type { ChangeIndex } from "../live/live.ts";
 
@@ -21,7 +21,12 @@ export function renderGit(git: GitStatus | undefined): string {
 	if (!name) return "";
 	const glyph = git.branch ? GLYPHS.branch : GLYPHS.detached;
 	const aria = git.branch ? `git branch ${git.branch}` : `git detached at ${git.head ?? ""}`;
-	return `<span class="bf-tag browse-git" title="${escapeHtml(aria)}" aria-label="${escapeHtml(aria)}"><span class="bf-tag__glyph" aria-hidden="true">${escapeHtml(glyph)}</span>${escapeHtml(name)}</span>`;
+	return chip({
+		label: name,
+		icon: escapeHtml(glyph),
+		className: "browse-git",
+		attrs: { title: aria, "aria-label": aria },
+	});
 }
 
 /** The live chrome a page renders: how often its stream is sent a frame. */

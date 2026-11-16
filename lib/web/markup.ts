@@ -285,13 +285,21 @@ export interface ChipOptions {
 	tone?: ChipTone;
 	/** Trusted leading glyph or SVG. */
 	icon?: string;
+	/** A page's own class, code-authored, appended after the kit's own. */
+	className?: string;
+	/** Extra code-authored attributes — a tooltip, an accessible name; keys and values escaped. */
+	attrs?: Record<string, string>;
 }
 
 /** A status tag: a glyph and a word on a 2px rail, with no box around them. */
 export function chip(options: ChipOptions): string {
 	const tone = options.tone ? ` bf-tone--${options.tone}` : "";
+	const page = options.className ? ` ${options.className}` : "";
 	const icon = options.icon ? `<span class="bf-tag__glyph" aria-hidden="true">${options.icon}</span>` : "";
-	return `<span class="bf-tag${tone}">${icon}${escapeHtml(options.label)}</span>`;
+	const attrs = Object.entries(options.attrs ?? {})
+		.map(([key, value]) => ` ${key}="${escapeHtml(value)}"`)
+		.join("");
+	return `<span class="bf-tag${tone}${page}"${attrs}>${icon}${escapeHtml(options.label)}</span>`;
 }
 
 /** A button variant, mapping to a `bf-btn--*` modifier. */

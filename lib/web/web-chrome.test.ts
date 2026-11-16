@@ -61,6 +61,16 @@ describe("the chrome's atoms", () => {
 		expect(rule(WEB_COMPONENTS_CSS, ".bf-live,.bf-reload{")).not.toContain("border:1px solid");
 	});
 
+	test("carries a page's class after the kit's, and a page's attributes escaped", () => {
+		// The class order is contract: `.browse-git` sits on the tag itself because the kit's own
+		// `font:` shorthand would beat an ancestor's, and the page suites pin the string.
+		const rendered = chip({ label: "main", className: "browse-git", attrs: { title: 'a"b', "aria-label": 'a"b' } });
+		expect(rendered).toContain('<span class="bf-tag browse-git" title="a&quot;b" aria-label="a&quot;b">');
+		expect(chip({ label: "x", tone: "warn", className: "browse-git" })).toContain(
+			'class="bf-tag bf-tone--warn browse-git"',
+		);
+	});
+
 	test("renders the key-sheet trigger both pages open the sheet from", () => {
 		// The sheet finds its trigger by id, so the two pages cannot name it differently.
 		const trigger = keysButton();

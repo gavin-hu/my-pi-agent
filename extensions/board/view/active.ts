@@ -43,7 +43,7 @@ const activeTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
-  var chip = board.chip;
+  var chipNode = board.chipNode;
   var ago = board.ago;
   var plural = board.plural;
   var kindLabel = board.kindLabel;
@@ -159,7 +159,7 @@ __LABEL_KEY__
   /** The reason as a pill: the word a reader scans by, and the sentence it stands for on the hover. */
   function whyPill(entry) {
     var tone = decisionTone(entry.kind);
-    var pill = chip(DECISION_LABEL[entry.kind] || entry.kind, tone === "dim" ? "dim" : tone);
+    var pill = chipNode({ label: DECISION_LABEL[entry.kind] || entry.kind, tone: tone === "dim" ? "dim" : tone });
     pill.title = entry.why;
     return pill;
   }

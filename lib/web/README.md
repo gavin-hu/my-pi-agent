@@ -32,7 +32,7 @@ string, so the plan's `el(tag, className)` and the board's `el(tag, className, t
 two builders, and the plan compared `INPUT` where the board lowercased the tag.
 
 `client-runtime.ts` holds one body of each, as ordinary TypeScript, and exports
-`CLIENT_RUNTIME_JS` — the six functions as source, in the order a client reads them. A
+`CLIENT_RUNTIME_JS` — the eight functions as source, in the order a client reads them. A
 page carries it the way it carries `plural` and its class table: the source crosses the
 boundary, and the page runs the function instead of a copy of it.
 
