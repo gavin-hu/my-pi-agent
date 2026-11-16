@@ -79,16 +79,17 @@ export interface InboxPeek {
 	/**
 	 * Every id whose file is still in the inbox, whether or not this read returned it.
 	 *
-	 * A file this build cannot read counts: it stays where it is and the prune TTL is what
-	 * ends it, so its id is never in `mail` while it is still here, and `unreadable` names it.
+	 * A file this build cannot read counts: it stays where it is until a sweep is past its TTL,
+	 * so its id is never in `mail` while it is still here, and `unreadable` names it.
 	 */
 	unread: ReadonlySet<string>;
 	/**
 	 * Files in the inbox this build cannot validate, by name.
 	 *
 	 * They stay where they are — a newer build may read them — so a reader names them rather
-	 * than passing them off as empty inbox space, and the message TTL ends them through their
-	 * mtime, which is the only age a file without a readable `at` has. The list is what this
+	 * than passing them off as empty inbox space, and the sweep ends them through their mtime,
+	 * which is the only age a file without a readable `at` has. The sweep is a joined session's
+	 * heartbeat, so a bus nobody joins expires nothing. The list is what this
 	 * walk reached: it stops at the page's `limit`, so a refusal behind a full page is named
 	 * once the mail in front of it is consumed.
 	 */
@@ -98,7 +99,7 @@ export interface InboxPeek {
 /** What a consuming read took, and what it refused to touch. */
 export interface InboxRead {
 	messages: BusMessage[];
-	/** Files left on disk because this build cannot read them; the TTL ends them. */
+	/** Files left on disk because this build cannot read them; a sweep past their TTL ends them. */
 	unreadable: string[];
 }
 

@@ -23,17 +23,15 @@ import { sameLabel } from "../../lib/session-label.ts";
 export const TOOL_NAME = SESSION_TOOL;
 export const COMMAND_NAME = "sessions";
 /**
- * The text cap, from `lib/session-tool.ts`, where the callers that clip to it live.
- * Re-exported the way the label rules are, so this extension imports its protocol's
- * constants from one place and two extensions cannot drift apart on the number.
+ * The caps and the default this protocol settles for itself. The text cap is not one: it is
+ * `lib/session-tool.ts`'s `MAX_MESSAGE_TEXT`, because the callers that clip to it live there.
  */
-export const MAX_TEXT = MAX_MESSAGE_TEXT;
-export const MAX_PATHS = 20;
-export const DEFAULT_LIMIT = 20;
+const MAX_PATHS = 20;
+const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
 export type SessionMode = "tui" | "rpc" | "json" | "print" | "unknown";
-export type SessionAction = "status" | "send" | "inbox" | "read" | "claim" | "release" | "join";
+type SessionAction = "status" | "send" | "inbox" | "read" | "claim" | "release" | "join";
 /**
  * The mail's kinds, and the field they are written in, are `lib/session-mail.ts`'s — the one
  * reader and writer of a message file. Re-exported so this extension keeps importing its
@@ -62,12 +60,12 @@ export function normalizeKind(raw: unknown): MessageKind {
 export function normalizeText(raw: unknown): { text: string } | { error: string } {
 	if (typeof raw !== "string" || raw.trim() === "") return { error: "text is required." };
 	const text = raw.trim();
-	if (text.length > MAX_TEXT) return { error: `text must be at most ${MAX_TEXT} characters.` };
+	if (text.length > MAX_MESSAGE_TEXT) return { error: `text must be at most ${MAX_MESSAGE_TEXT} characters.` };
 	return { text };
 }
 
 /** The longest key a sender may name a message with. */
-export const MAX_KEY = 64;
+const MAX_KEY = 64;
 
 /** What a key may hold, so it is one word a person can retype. */
 const KEY_PATTERN = /^[A-Za-z0-9._:-]+$/;

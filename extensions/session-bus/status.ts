@@ -18,7 +18,7 @@ import type { WatchingState } from "./mail-watch.ts";
 import type { BusStore } from "./store.ts";
 import type { SessionRecord, SessionStatus } from "./types.ts";
 
-export interface StatusReaderOptions {
+interface StatusReaderOptions {
 	store(): BusStore | undefined;
 	/** This session's own record, live in memory rather than as the file holds it. */
 	record(): SessionRecord | undefined;
@@ -29,7 +29,7 @@ export interface StatusReaderOptions {
 	watching(): WatchingState;
 }
 
-export interface StatusReader {
+interface StatusReader {
 	/**
 	 * The bus as it stands, this session's own record included.
 	 *
