@@ -120,6 +120,67 @@ describe("the lane crossing", () => {
 	});
 });
 
+describe("an edit inside execute", () => {
+	/** The card after an edit, with the paths the case names. */
+	const edited = (...paths: string[]): Card => ({ ...card("execute"), paths, rev: 3 });
+
+	test("claims a path the edit added, and nothing else", async () => {
+		const claims = bus();
+		expect(await holdPaths(claims, CTX, wrote(card("execute"), edited("src/api", "src/web", "src/db")))).toBe(
+			"claimed 1 path",
+		);
+		expect(claims.sent).toEqual([{ call: "claim", paths: ["src/db"] }]);
+	});
+
+	test("releases a path the edit removed, and nothing else", async () => {
+		const claims = bus();
+		expect(await holdPaths(claims, CTX, wrote(card("execute"), edited("src/api")))).toBe("released 1 path");
+		expect(claims.sent).toEqual([{ call: "release", paths: ["src/web"] }]);
+	});
+
+	test("does both in the claim-first order, and says which each way", async () => {
+		const claims = bus();
+		expect(await holdPaths(claims, CTX, wrote(card("execute"), edited("src/api", "src/db")))).toBe(
+			"claimed 1 path, released 1 path",
+		);
+		expect(claims.sent).toEqual([
+			{ call: "claim", paths: ["src/db"] },
+			{ call: "release", paths: ["src/web"] },
+		]);
+	});
+
+	test("a conflict on an added path leaves the removals alone, and says so", async () => {
+		// All or nothing, the way the batch is: a half-applied edit would free a path while the card
+		// still names another one it did not get, so the removals must not stand.
+		const claims = bus({
+			claim: { ok: true, claimed: [], conflicts: [{ path: "src/db", owner: "s-2", ownerLabel: "billing-core" }] },
+		});
+		expect(await holdPaths(claims, CTX, wrote(card("execute"), edited("src/api", "src/db")))).toBe(
+			"1 path already held by billing-core — nothing released",
+		);
+		expect(claims.sent).toEqual([{ call: "claim", paths: ["src/db"] }]);
+	});
+
+	test("a claim the bus refused is the clause, and still no release", async () => {
+		const claims = bus({ claim: { ok: false, error: "the bus is not started" } });
+		expect(await holdPaths(claims, CTX, wrote(card("execute"), edited("src/api", "src/db")))).toBe(
+			"paths not claimed (the bus is not started)",
+		);
+		expect(claims.sent.map((entry) => entry.call)).toEqual(["claim"]);
+	});
+
+	test("an edit that reorders the same paths asks the bus nothing", async () => {
+		const claims = bus();
+		expect(await holdPaths(claims, CTX, wrote(card("execute"), edited("src/web", "src/api")))).toBeUndefined();
+		expect(claims.sent).toEqual([]);
+	});
+
+	test("a removed path this session never held is named rather than counted as freed", async () => {
+		const claims = bus({ release: { ok: true, released: [], notOwned: ["src/web"] } });
+		expect(await holdPaths(claims, CTX, wrote(card("execute"), edited("src/api")))).toBe("1 path not held to release");
+	});
+});
+
 describe("what a release could not free", () => {
 	test("names the paths the old holder keeps, and how long it keeps them", async () => {
 		// `releasePaths` names its caller, so a card taken out of `execute` by another session

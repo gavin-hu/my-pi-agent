@@ -376,7 +376,7 @@ export async function readSessionLabel(agentDir: string, id: string): Promise<st
 			continue;
 		}
 		for (const name of names) {
-			if (!name.endsWith(".json")) continue;
+			if (!name.endsWith(JSON_SUFFIX)) continue;
 			let parsed: unknown;
 			try {
 				parsed = JSON.parse(await readFile(join(dir, name), "utf-8"));

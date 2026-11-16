@@ -5,9 +5,11 @@
  * board can make real (`docs/extensions/board.md` says so: "a label, not a lock — only
  * `session-bus` path claims are"). So the rule here is one sentence: **a card in `execute`
  * holds its paths, and a card anywhere else does not.** Entering `execute` claims them,
- * leaving it — or finishing, or dropping the card — releases them, and the crossing is the
- * only thing this module asks about: `MutateResult.previous` is the card the store read
- * under its lock, so a write that stays in its lane costs no bus call at all.
+ * leaving it — or finishing, or dropping the card — releases them, and an edit that changes
+ * them inside `execute` claims the added ones and releases the removed ones, because the
+ * claims have to follow the paths rather than the lane alone. `MutateResult.previous` is the
+ * card the store read under its lock, so a write that changes neither lane nor paths costs no
+ * bus call at all.
  *
  * Nothing here may cost a card write. A board without `session-bus` is the documented
  * single-session mode, so no bus means silence rather than a clause on every move; a bus
@@ -73,9 +75,21 @@ export async function holdPaths(
 	const after = result.card;
 	const entering = !result.dropped && after.lane === "execute" && before.lane !== "execute";
 	const leaving = before.lane === "execute" && (result.dropped || after.lane !== "execute");
-	if (!entering && !leaving) return undefined;
+	// An edit inside `execute` changes what the card holds without crossing a lane: the comparison is
+	// the paths themselves, because a claim that stayed behind a removed hint blocks a peer on a file
+	// the card no longer names.
+	const editing = !entering && !leaving && !result.dropped && after.lane === "execute" && !samePaths(before, after);
+	if (!entering && !leaving && !editing) return undefined;
 	if (!claims.loaded()) return undefined;
-	return entering ? await claimedClause(claims, ctx, after) : await releasedClause(claims, ctx, result);
+	if (entering) return await claimedClause(claims, ctx, after);
+	if (leaving) return await releasedClause(claims, ctx, result);
+	return await editedClause(claims, ctx, before.paths, after.paths);
+}
+
+/** Whether two cards name the same paths, in any order: an edit that reorders holds nothing new. */
+function samePaths(before: Card, after: Card): boolean {
+	const sorted = (card: Card): string => [...card.paths].sort().join("\u0000");
+	return sorted(before) === sorted(after);
 }
 
 /**
@@ -116,6 +130,40 @@ function reclaimClause(answer: ClaimPathsResult): string | undefined {
 	if (!answer.ok) return `not claimed (${sanitizeLine(answer.error)})`;
 	if (answer.conflicts.length === 0) return undefined;
 	return `${plural(answer.conflicts.length, "path")} already held by ${holdersOf(answer.conflicts)}`;
+}
+
+/**
+ * What an edit inside `execute` did to the claims: the added paths taken, then the removed ones freed.
+ *
+ * The order is the all-or-nothing half. A claim that conflicts leaves the removals alone — a
+ * half-applied edit would hand a peer a file the card still names, which is the one thing the claim
+ * is for — so the refusal names the holders and says nothing was released. Claiming first is also
+ * what keeps the card's own file set whole: the batch either took every added path or none.
+ */
+async function editedClause(
+	claims: Claims,
+	ctx: ExtensionContext,
+	was: readonly string[],
+	now: readonly string[],
+): Promise<string | undefined> {
+	const added = now.filter((path) => !was.includes(path));
+	const removed = was.filter((path) => !now.includes(path));
+	const said: string[] = [];
+	if (added.length > 0) {
+		const answer = await claims.claim(ctx, added).catch(failedClaim);
+		if (!answer.ok) return `paths not claimed (${sanitizeLine(answer.error)})`;
+		if (answer.conflicts.length > 0) {
+			return `${plural(answer.conflicts.length, "path")} already held by ${holdersOf(answer.conflicts)} — nothing released`;
+		}
+		said.push(`claimed ${plural(answer.claimed.length, "path")}`);
+	}
+	if (removed.length > 0) {
+		const answer = await claims.release(ctx, removed).catch(failedClaim);
+		if (!answer.ok) return `paths not released (${sanitizeLine(answer.error)})`;
+		if (answer.released.length > 0) said.push(`released ${plural(answer.released.length, "path")}`);
+		if (answer.notOwned.length > 0) said.push(`${plural(answer.notOwned.length, "path")} not held to release`);
+	}
+	return said.length === 0 ? undefined : said.join(", ");
 }
 
 /** What a claim did, as one clause: the paths it took, the ones it could not, or why not. */

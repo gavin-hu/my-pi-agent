@@ -38,10 +38,10 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 		"`done`, with a count",
 	add: "creates a `backlog` card",
 	claim: "pulls one into `plan` for this session, when `plan` has room",
-	release: "gives it back to `backlog`",
+	release: "gives it back to `backlog`; an `execute` card re-claims paths, so edit it to hand one over",
 	reclaim:
-		"returns it to `backlog` — a holder's reclaim is its own `release`; the lead from anyone, a peer only from a stopped owner",
-	move: "changes lane, through the one transition the board allows from where the card is; a card enters `execute` or `done` only while the plan it recorded is still in the store",
+		"returns it to `backlog` (a holder's is its own `release`); the lead from anyone, a peer only from a stopped owner",
+	move: "changes lane, through the only transition allowed from where the card is; `execute` and `done` need the plan it recorded still in the store",
 	note: "appends to its history",
 	contract:
 		"records the plan file and the four lines a card promises — `goal`, `acceptance`, `scopeOut`, and `verify`, the command the spot-check runs — and drops any approval, because the wording changed",
@@ -51,7 +51,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`; the sign is announced to the owner's inbox (`session send` asks the lead). `override` instead signs a finished card nobody signed",
 	edit: "fixes what the card says",
 	archive:
-		"sets a finished card aside, still readable — never one an open card waits on; every one if none is named, and `olderThan` bounds it by age",
+		"sets a finished card aside, still readable — never one an open card waits on; all if none named, `olderThan` bounds by age",
 	drop: "deletes a `backlog` or a `done` card, or one you hold",
 };
 

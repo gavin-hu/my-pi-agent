@@ -60,16 +60,16 @@ its edge. The Team tab draws the board's card and raises what needs a lead above
 folds the rest, pins its head, and says a sentence every row shares once.
 
 **Actions.** One tool, shaped by action: `list`, `add`, `claim`, `release`, `reclaim`, `move`, `note`, `contract`,
-`approve`, `review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full,
-naming the ways out; `assign` is `team`'s verb, under the same rule. A session holds one card in flight by default
-(`board.wip.perOwner`), so a claim or an assignment past it names the card it already holds. `reclaim` takes a card back from its holder: the
-person and the lead always, a peer only while that owner's record says quiet or gone. `move` into `execute` or `done`
-re-reads the plan where the write lands, and a plan that is gone refuses it. A contract names a `verify` command —
-required — and `review` runs it in the tree `root` names (the card's worktree or a checkout at its commit). `done`
+`approve`, `review`, `edit`, `archive`, `drop`. `claim` and `move` are refused while `plan` or `execute` is full;
+`assign` is `team`'s verb under that rule, and one session holds one card in flight by default (`board.wip.perOwner`).
+`reclaim` takes a card back: the person and the lead always, a peer only while its owner is quiet or gone. `move` into
+`execute` or `done` re-reads the plan, and one that is gone refuses it. An `execute` card holds its `paths`: `edit`
+claims added ones and releases removed ones, claiming first so a conflict releases nothing; `release` alone is undone
+by the next crossing. A contract names a `verify` command, and `review` runs it in the tree `root` names. `done`
 refuses a sign with no result or one older than the card's state (a note is not a change) and resolves the merge that
-carried it: one committed before the card's work, one the branch moved past, or one rewriting the review's lines is an
-older tree, and a reviewed merge is its own landing only while it is the tip — a checkout sign needs a re-sign once
-something lands on top. `done` records that merge, `landed: <sha>` names it, and `override` reads "by instruction".
+carried it: one committed before the work, one the branch moved past, or one rewriting the review's lines is older,
+and a reviewed merge is its own landing only while it is the tip, so a checkout sign needs a re-sign once something
+lands on top. `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
 
 **Commands.** `/board` serves or opens the page (add `team` for the Team tab);
 `/board approve <id>` and `/board review <id> [--root <tree>]` sign as the person; `/board archive` runs the sweep;

@@ -57,7 +57,8 @@ export async function mutate(
 	/**
 	 * What the call says besides the card: `next` after any successful write, `told` when the result
 	 * says a sign owes the owner its message, `ready` when it says a completed contract owes the lead
-	 * one, `cross` for the four actions whose write can cross a lane, and `joined` for the one action
+	 * one, `cross` for the actions whose write can change a lane or an `execute` card's paths, and
+	 * `joined` for the one action
 	 * whose write makes this session a teammate. `told` is not gated on the write: a repeat sign that
 	 * stamped nothing still owes one while the card says the sign was never told.
 	 *
