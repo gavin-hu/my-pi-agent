@@ -1,6 +1,6 @@
 # Skills
 
-Three packaged workflows. Each skill is one `SKILL.md` under `skills/` whose
+Four packaged workflows. Each skill is one `SKILL.md` under `skills/` whose
 `name` and `description` are advertised to the model; the instructions behind them
 load only when a request matches, so a skill costs a sentence of context until it
 is used. `/skill:<name>` forces one, which is also the only way to start a skill
@@ -12,8 +12,10 @@ that declares `disable-model-invocation`.
   tree when the conversation is empty.
 - [`refactor`](./refactor.md) — audit for duplication, oversized modules, coupling,
   and drift, then carry the refactor you pick.
+- [`triage-board`](./triage-board.md) — turn a board's open cards into a prioritized
+  wave plan with evidence, without writing.
 
-Discovery is read-only in both of the auditing skills: they report and ask, and
+Discovery is read-only in the auditing skills: they report and ask, and
 nothing is edited, committed, or started before you pick an item.
 
 [`/bytefly`](../extensions/bytefly.md) lists every packaged skill with a checkbox:

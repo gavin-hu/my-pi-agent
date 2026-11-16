@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `skills`: add `triage-board`, a read-only pass that turns a board's open cards into a
+  prioritized wave plan — duplicates folded by root cause, cards grouped by area, a refactor
+  before the bugs it moves, decisions named, and the first wave with its evidence. It writes
+  nothing; the chosen actions are applied with `board`.
+
 - `session-bus`: a message can say what it answers and what it is about. `session send replyTo "<id>"`
   and `about "<card>"` write two opaque references on the envelope — a row prints the first as `re: <id>`
   — and `key`, `replyTo` and `about` all ride the one send a caller makes. The `session` tool pays for the
