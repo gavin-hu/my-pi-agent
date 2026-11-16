@@ -8,13 +8,18 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { boardTool } from "../../test/helpers/board.ts";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
-import { tempDir } from "../../test/helpers/env.ts";
+import { tempDir, withEnv } from "../../test/helpers/env.ts";
+import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { releaseEnded } from "./ended.ts";
+import boardExtension from "./index.ts";
+import type { BoardPage } from "./page.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -242,5 +247,60 @@ describe("the sweep at a turn start", () => {
 		expect(await releaseEnded(resumed, lead.board.ctx)).toBe(
 			"re-seated #1 in this session, released #2 from a session that ended",
 		);
+	});
+});
+
+/** A page nothing here starts: the turn-start handler is what these cases drive. */
+function stubPage(): BoardPage {
+	return {
+		start: async () => ({ kind: "failed", reason: "no page in this suite" }),
+		stop: async () => false,
+		status: async () => ({ running: false }),
+		dropStale: async () => "live",
+		closeAll: async () => {},
+	};
+}
+
+/** The line a session is handed before its first turn, through the extension's own handler. */
+async function turnStart(session: BoardSession, ctx: ExtensionContext): Promise<string | undefined> {
+	const fake = createFakePi();
+	await withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, async () => {
+		boardExtension(fake.pi, { session, page: stubPage() });
+	});
+	const [handler] = fake.handlers.get("before_agent_start") ?? [];
+	if (handler === undefined) throw new Error("the board registered no turn-start handler");
+	const result = (await handler({}, ctx)) as { message?: { content?: string } } | undefined;
+	return result?.message?.content;
+}
+
+describe("the turn start the sweep runs in", () => {
+	test("names the card it re-seats as a card, not only as a sentence", async () => {
+		// #601: the held list was read before the sweep, so a card handed back this turn reached the
+		// transcript as a note about a write and never as a card — and `read` keeps that turn the only
+		// one, so the resumed session never saw it at all.
+		const { cwd, lead, peer } = board();
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		await record(peer.board.runtime, cwd, { pid: DEAD_PID, lastSeen: NOW });
+		const resumed: BoardSession = { ...lead.board.runtime, who: async () => ({ id: "s-resumed", label: PEER }) };
+
+		const content = await turnStart(resumed, lead.board.ctx);
+		// The card, with the lane and the step it owes, and the write that put it there.
+		expect(content).toContain("[BOARD] 1 card is yours:");
+		expect(content).toContain("#1");
+		expect(content).toContain("re-seated #1 in this session");
+	});
+
+	test("says nothing but the sweep's line when the sweep hands back no card of its own", async () => {
+		// The other side of the ordering: a released card is not held, so the line is the note alone —
+		// which is what `buildBoardContext` answers for an empty list with something to report.
+		const { cwd, lead, peer } = board();
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		await record(peer.board.runtime, cwd, { pid: DEAD_PID, lastSeen: NOW });
+
+		const content = await turnStart(lead.board.runtime, lead.board.ctx);
+		expect(content).toContain("released #1 from a session that ended");
+		expect(content).not.toContain("is yours");
 	});
 });

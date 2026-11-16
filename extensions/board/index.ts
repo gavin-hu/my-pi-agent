@@ -86,25 +86,28 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	pi.on("before_agent_start", async (_event, ctx) => {
 		if (read) return undefined;
 		const context = await (contextModule ??= import("./context.ts"));
+		// The sweep writes first, because a card it hands back this turn is one this session holds:
+		// reading the held list before it names the write in a note and leaves the card itself out of
+		// the line, which is the one turn a resumed session gets. It is also safe to run first — it
+		// catches its own failures — because the held read is the one a failure has to come from.
+		const swept = await (endedModule ??= import("./ended.ts")).then((ended) => ended.releaseEnded(session, ctx));
 		const held = await context.heldCards(session, ctx);
 		// A board that could not be read is asked again on the next turn: that is a failure, not
 		// an empty session, and only an answer is worth remembering.
 		if (held === undefined) return undefined;
 		read = true;
-		// Two writes a turn start makes, and one line for both. The bus forgets a session's claims
-		// when it stops, so a resumed session takes back the paths of the cards it is already
-		// executing, and says the one thing that did not work — a failure nothing reports is how that
-		// was a no-op. The second is its mirror: a card whose owner's session is gone is released
-		// here, by the same pid-checked fact the reclaim gate already trusts, so a crash costs nobody
-		// a manual reclaim and holds no slot until somebody notices.
-		const notes = [
+		// The second write a turn start makes. The bus forgets a session's claims when it stops, so a
+		// resumed session takes back the paths of the cards it is already executing, and says the one
+		// thing that did not work — a failure nothing reports is how that was a no-op. It takes the
+		// held list, which is why it comes after the read and not beside the sweep.
+		const reclaimed =
 			held.length === 0
 				? undefined
 				: await import("../../lib/workflow/claims.ts").then((claims) =>
 						claims.reclaimHeld(deps.claims ?? claims.busClaims(pi), ctx, held),
-					),
-			await (endedModule ??= import("./ended.ts")).then((ended) => ended.releaseEnded(session, ctx)),
-		].filter((note): note is string => note !== undefined);
+					);
+		// In the order the writes happened: the sweep, then the re-claim.
+		const notes = [swept, reclaimed].filter((note): note is string => note !== undefined);
 		const content = context.buildBoardContext(held, notes);
 		return content === undefined
 			? undefined
