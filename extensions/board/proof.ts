@@ -17,6 +17,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { messageOf } from "../../lib/errors.ts";
 import { type ArtifactProof, planForExecute } from "../../lib/workflow/artifact.ts";
 import { type LandingCommit, resolveLanding, type LandingProof } from "../../lib/workflow/contract.ts";
 import { laneSince } from "../../lib/workflow/card.ts";
@@ -66,6 +67,11 @@ export async function provedPlan(
  * one reason — the diff it needs a sha for — and then the gate calls it again under the lock with
  * the same chain, so what is handed over is a question answered once and asked twice, not a
  * second rule.
+ *
+ * `undefined` is a card with no landing to prove: no sign naming a commit, or a repository whose
+ * read succeeded and came back empty. A read that **failed** throws instead, naming the command,
+ * the repository and git's own words — a refusal can be argued with, a failed read cannot, and the
+ * sentence used to blame the branch for a read that never happened.
  */
 export async function landedChain(
 	store: Pick<BoardStore, "read" | "root">,
@@ -78,12 +84,16 @@ export async function landedChain(
 	if (id === undefined || card === undefined || reviewed === undefined) return undefined;
 	// The git readers and their runner load here rather than at registration: a board that never
 	// closes a card pays nothing for them, and the entry's static graph stays where it was.
-	const { defaultBranch, firstParentChain, carriedBy, resolvedByMerge } = await import("../../lib/git/read.ts");
+	const { defaultBranch, firstParentChainOrThrow, carriedBy, resolvedByMerge } = await import("../../lib/git/read.ts");
 	const { createExecRunner } = await import("../../lib/git/runner.ts");
 	const runGit = createExecRunner(pi);
 	const root = store.root();
 	const branch = (await defaultBranch(runGit, root, { fallback: true }).catch(() => undefined)) ?? "main";
-	const chain = await firstParentChain(runGit, root, branch);
+	// A chain that could not be read is an exception, not a refusal: `[]` from a successful read is a
+	// repository with nothing to land, and only the strict door can tell the two apart.
+	const chain = await firstParentChainOrThrow(runGit, root, branch).catch((error: unknown) => {
+		throw new Error(`the landing read failed: \`git log --first-parent ${branch}\` in ${root} — ${messageOf(error)}`);
+	});
 	if (chain.length === 0) return undefined;
 	// The card's work began when it entered `execute`; a card whose log has aged out falls back to
 	// its creation, because no merge can land before the card it lands.
@@ -97,16 +107,26 @@ export async function landedChain(
 				.map(async (commit) => [commit.sha, await carriedBy(runGit, root, commit.parents, reviewed)] as const),
 		),
 	);
-	// An ancestry that could not be read is not "no merge carries it": no proof is handed over, so the
-	// close is refused the way an unread branch is, and the sentence that already says so is used.
-	if ([...carriers.values()].some((answer) => answer === undefined)) return undefined;
+	// An ancestry that could not be read is not "no merge carries it": the close is refused rather
+	// than guessed, and the refusal now names the read — the generic sentence blamed a branch that
+	// had read perfectly well.
+	const unread = [...carriers.entries()].find(([, answer]) => answer === undefined);
+	if (unread !== undefined) {
+		throw new Error(
+			`the landing read failed: \`git merge-base --is-ancestor ${reviewed} <parent>\` in ${root} about ${unread[0]} answered neither yes nor no`,
+		);
+	}
 	const carries = (commit: LandingCommit): boolean => carriers.get(commit.sha) === true;
 	const check = resolveLanding({ branch, chain, since, carries }, reviewed, id);
 	if ("error" in check) return { branch, chain, since, carries };
 	const moved = await resolvedByMerge(runGit, root, reviewed, check.sha);
-	// A diff that could not be read is not "nothing moved": the proof is not handed over, so the
-	// close is refused the way an unread branch is, and the sentence that already says so is used.
-	if (moved === undefined) return undefined;
+	// A diff that could not be read is not "nothing moved": the close is refused, and the refusal
+	// names the two revisions whose comparison failed.
+	if (moved === undefined) {
+		throw new Error(
+			`the landing read failed: the diff between ${reviewed} and ${check.sha} in ${root} could not be read`,
+		);
+	}
 	return { branch, chain, since, carries, ...(moved.length === 0 ? {} : { moved }) };
 }
 

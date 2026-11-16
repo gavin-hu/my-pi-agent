@@ -295,20 +295,52 @@ describe("the landing a close resolves", () => {
 		expect(refusal).not.toContain("dir/neighbour.ts");
 	});
 
-	test("refuses the close when the diff behind it cannot be read", async () => {
-		for (const subcommand of ["merge-base", "diff"]) {
+	test("names the read that could not answer, instead of refusing with no reason", async () => {
+		const shapes = [
+			{ subcommand: "merge-base", says: /git merge-base --is-ancestor \S+ <parent>.*answered neither yes nor no/ },
+			{ subcommand: "diff", says: /the diff between \S+ and \S+.*could not be read/ },
+		];
+		for (const { subcommand, says } of shapes) {
 			const { repo, reviewed } = await withNeighbour();
 			const failing = createFakePi({
 				exec: async (command, args, options) =>
 					// The subcommand is matched wherever it sits: a read may carry global options first.
 					args.includes(subcommand) ? { stdout: "", stderr: "boom", code: 128 } : await execP(command, args, options),
 			}).pi;
-			const proof = await landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, failing);
-			// Not "nothing moved": an unread diff is refused like an unread branch, because the one
-			// thing this gate exists to stop is closing a merge nobody checked.
-			expect(proof, subcommand).toBeUndefined();
-			expect(landingGate(ID, reviewed, proof), subcommand).toContain("was not read");
+			// Not "nothing moved": an unread diff is refused like an unread branch, and the sentence
+			// names the command — the old one blamed a branch that had read perfectly well.
+			await expect(landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, failing), subcommand).rejects.toThrow(
+				says,
+			);
 		}
+	});
+
+	test("names the branch read that failed, with the repository and git's own words", async () => {
+		// The shape that blocked a live close: a `git log` that exits non-zero answered `[]`, the same
+		// as a repository with no commits, and the refusal said the branch was never read.
+		const { repo, reviewed } = await withNeighbour();
+		const failing = createFakePi({
+			exec: async (command, args, options) =>
+				args[0] === "log"
+					? { stdout: "", stderr: "fatal: not a git repository", code: 128 }
+					: await execP(command, args, options),
+		}).pi;
+		const unread = landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, failing);
+		await expect(unread).rejects.toThrow(/`git log --first-parent main`/);
+		await expect(unread).rejects.toThrow(/pi-landing-/);
+		await expect(unread).rejects.toThrow(/fatal: not a git repository/);
+	});
+
+	test("answers nothing when the read succeeds and the branch has no commits", async () => {
+		// The other half of the distinction the strict door exists for: a read that *worked* and found
+		// no history is a card with nothing to land, not a failed read, so it keeps the old `undefined`
+		// rather than becoming an exception.
+		const { repo, reviewed } = await withNeighbour();
+		const empty = createFakePi({
+			exec: async (command, args, options) =>
+				args[0] === "log" ? { stdout: "", stderr: "", code: 0 } : await execP(command, args, options),
+		}).pi;
+		expect(await landedChain(storeOf(signedAt(reviewed, ["dir"]), repo), ID, empty)).toBeUndefined();
 	});
 
 	test("accepts a clean landing when a neighbour's bullet arrives in the file the review changed", async () => {

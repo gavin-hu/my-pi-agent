@@ -9,7 +9,7 @@
 
 import { realpathSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createExecRunner, type RunGit } from "./runner.ts";
+import { createExecRunner, runGitOrThrow, type RunGit } from "./runner.ts";
 
 /** Absolute repository root containing `cwd`, or undefined when not a git repo. */
 export async function repoRoot(runGit: RunGit, cwd: string): Promise<string | undefined> {
@@ -77,12 +77,38 @@ export interface ChainCommit {
  *
  * The moment comes from the same call rather than a second one per commit: a landing has to know
  * whether a merge committed before the card's work began, and `%ct` is the cheapest way to ask.
+ *
+ * A failed read answers `[]`, the same as a repository with no commits: a caller that cannot tell
+ * the two apart wants {@link firstParentChainOrThrow}, which says which one it met.
  */
 export async function firstParentChain(runGit: RunGit, cwd: string, ref: string): Promise<ChainCommit[]> {
-	const result = await runGit(["log", "--first-parent", "--reverse", "--format=%H %ct %P", ref], { cwd });
+	const result = await runGit(chainArgs(ref), { cwd });
 	if (result.code !== 0) return [];
+	return parseChain(result.stdout);
+}
+
+/**
+ * The same chain, but a read that failed throws with git's own words.
+ *
+ * The board's landing proof is the caller, and it needs the difference: `[]` from a successful read
+ * is a repository with nothing to land, while `[]` from a failed one is a close nobody can resolve
+ * — and a refusal that names neither the command nor git's message leaves a reader guessing. A
+ * `code` that is not `0` covers the rarer shape too: a seam handing back no number at all compares
+ * unequal to zero and would otherwise read as an empty history.
+ */
+export async function firstParentChainOrThrow(runGit: RunGit, cwd: string, ref: string): Promise<ChainCommit[]> {
+	return parseChain(await runGitOrThrow(runGit, chainArgs(ref), { cwd }));
+}
+
+/** The log call both chain doors make: the format is the parser's, not a caller's. */
+function chainArgs(ref: string): string[] {
+	return ["log", "--first-parent", "--reverse", "--format=%H %ct %P", ref];
+}
+
+/** One line per commit, as the chain's `--format` writes it. */
+function parseChain(stdout: string): ChainCommit[] {
 	const chain: ChainCommit[] = [];
-	for (const line of result.stdout.split("\n")) {
+	for (const line of stdout.split("\n")) {
 		const [sha, seconds, ...parents] = line.trim().split(/\s+/).filter(Boolean);
 		const at = Number(seconds) * 1_000;
 		if (sha !== undefined && Number.isFinite(at)) chain.push({ sha, at, parents });
