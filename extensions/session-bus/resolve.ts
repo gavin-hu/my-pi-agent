@@ -29,7 +29,7 @@ export type ResolvedClaimPaths = { paths: string[] } | { error: ClaimPathError }
 
 /**
  * The wording of the one refusal: the caller prefixes the subject it knows, so the path and the
- * reason are worded once rather than in each of the two places that reach for them.
+ * reason are worded once.
  */
 export function claimPathMessage(error: ClaimPathError): string {
 	return `path "${error.path}" ${error.reason}.`;
