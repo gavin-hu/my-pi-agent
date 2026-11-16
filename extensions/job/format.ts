@@ -18,7 +18,7 @@ import { clip, clipLabel, LABEL_WIDTH } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { byRunningFirst, statusRow, type StatusRow } from "../../lib/tui/rows.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
-import type { JobRecord, JobStatus } from "./types.ts";
+import type { JobDetails, JobRecord, JobStatus } from "./types.ts";
 
 /** The last `count` entries of `lines`. */
 export function tailLines(lines: string[], count: number): string[] {
@@ -142,6 +142,18 @@ export function formatLogs(job: JobRecord, lines: string[], maxChars: number): {
 export function formatCompletion(job: JobRecord, now = Date.now()): string {
 	const tail = job.lastLine ? ` — ${job.lastLine}` : "";
 	return `${job.id} ${statusWord(job)} after ${formatDuration(elapsedMs(job, now))} (${shortLabel(job)})${tail}`;
+}
+
+/**
+ * What a `wait` that stopped early says, without punctuation: the one sentence both the
+ * model-facing result and the transcript badge add. A capped wait names the block it asked
+ * for beside the one it used, so neither number has to be looked up.
+ */
+export function waitState(details: Pick<JobDetails, "timedOut" | "cancelled" | "capped">): string {
+	if (details.cancelled) return "wait cancelled; the job is still running";
+	if (!details.timedOut) return "";
+	const cap = details.capped;
+	return cap ? `still running; asked ${cap.askedMs} ms, capped at ${cap.usedMs} ms` : "still running after the timeout";
 }
 
 /** Transcript call text for the `job` tool. */

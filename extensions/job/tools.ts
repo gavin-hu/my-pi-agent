@@ -30,6 +30,7 @@ import {
 	formatJobOutcomeLine,
 	formatJobStatus,
 	shortLabel,
+	waitState,
 } from "./format.ts";
 import type { JobsRuntime } from "./runtime.ts";
 import { JobParams, normalizeCall, type JobArgs, type JobCall } from "./schema.ts";
@@ -171,18 +172,18 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 							),
 						);
 						if (!result) return errorResult("wait", `no job "${call.id}".`);
-						const { job, timedOut, cancelled } = result;
-						const note = cancelled
-							? " (wait cancelled; the job is still running)"
-							: timedOut
-								? " (still running after the timeout)"
-								: "";
-						return textResult(`${formatCompletion(job)}${note}${job.lastLine ? `\nlast: ${job.lastLine}` : ""}`, {
-							action: "wait",
-							job: toRecord(job),
-							timedOut,
-							cancelled,
-						} satisfies JobDetails);
+						const { job, timedOut, cancelled, capped } = result;
+						const state = waitState(result);
+						return textResult(
+							`${formatCompletion(job)}${state ? ` (${state})` : ""}${job.lastLine ? `\nlast: ${job.lastLine}` : ""}`,
+							{
+								action: "wait",
+								job: toRecord(job),
+								timedOut,
+								cancelled,
+								...(capped ? { capped } : {}),
+							} satisfies JobDetails,
+						);
 					}
 
 					case "clear": {
@@ -269,10 +270,8 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 
 			if (details.job) {
 				let line = formatJobOutcomeLine(details.job, theme);
-				if (details.action === "wait" && details.timedOut) {
-					line += paint(theme, "warn", " · still running after the timeout");
-				} else if (details.action === "wait" && details.cancelled) {
-					line += paint(theme, "warn", " · wait cancelled; job still running");
+				if (details.action === "wait" && (details.timedOut || details.cancelled)) {
+					line += paint(theme, "warn", ` · ${waitState(details)}`);
 				} else if (details.action === "kill" && details.signalled) {
 					line += paint(theme, "warn", ` · ${details.signal ?? "SIGTERM"} sent`);
 				} else if (details.action === "send") {

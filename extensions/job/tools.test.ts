@@ -443,7 +443,7 @@ describe("job transcript rendering", () => {
 			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
 			.render(80)
 			.join("\n");
-		expect(text).toContain("wait cancelled; job still running");
+		expect(text).toContain("wait cancelled; the job is still running");
 	});
 
 	test("partial renders the waiting state", async () => {

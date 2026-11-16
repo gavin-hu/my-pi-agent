@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { createWaiters } from "./waiters.ts";
+import { describe, expect, jest, test } from "bun:test";
+import { createWaiters, DEFAULT_WAIT_MS, effectiveWaitMs, MAX_WAIT_MS, waitFor } from "./waiters.ts";
 
 describe("job waiters", () => {
 	test("resolves every waiter for an id exactly once", async () => {
@@ -28,5 +28,38 @@ describe("job waiters", () => {
 		waiters.add("j2", () => fired++);
 		waiters.resolveAll();
 		expect(fired).toBe(2);
+	});
+
+	test("the block a request buys is never past the cap", () => {
+		expect(effectiveWaitMs(undefined)).toBe(DEFAULT_WAIT_MS);
+		expect(effectiveWaitMs(5_000)).toBe(5_000);
+		expect(effectiveWaitMs(MAX_WAIT_MS)).toBe(MAX_WAIT_MS);
+		expect(effectiveWaitMs(900_000)).toBe(MAX_WAIT_MS);
+	});
+
+	test("a wait that asked past the cap reports both blocks", async () => {
+		jest.useFakeTimers();
+		try {
+			const pending = waitFor(createWaiters(), "j1", { timeoutMs: 900_000 });
+			jest.advanceTimersByTime(MAX_WAIT_MS);
+			expect(await pending).toEqual({
+				timedOut: true,
+				cancelled: false,
+				capped: { askedMs: 900_000, usedMs: MAX_WAIT_MS },
+			});
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	test("a wait inside the cap names no cap", async () => {
+		jest.useFakeTimers();
+		try {
+			const pending = waitFor(createWaiters(), "j1", { timeoutMs: 5_000 });
+			jest.advanceTimersByTime(5_000);
+			expect(await pending).toEqual({ timedOut: true, cancelled: false });
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 });

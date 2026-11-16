@@ -76,7 +76,15 @@ describe("job schema", () => {
 
 	test("wait validates the timeout", async () => {
 		expect(() => normalizeCall({ action: "wait", id: "j1", timeoutMs: -1 })).toThrow("timeoutMs must be between");
+		expect(() => normalizeCall({ action: "wait", id: "j1", timeoutMs: 86_400_001 })).toThrow("for wait");
 		expect(asAction(normalizeCall({ action: "wait", id: "j1", timeoutMs: 100 }), "wait").timeoutMs).toBe(100);
+	});
+
+	test("wait accepts every timeout the schema advertises", async () => {
+		// The field's own maximum, so a call the schema allows is never refused here.
+		for (const timeoutMs of [0, 600_000, 900_000, 86_400_000]) {
+			expect(asAction(normalizeCall({ action: "wait", id: "j1", timeoutMs }), "wait").timeoutMs).toBe(timeoutMs);
+		}
 	});
 
 	test("clear forwards all", async () => {

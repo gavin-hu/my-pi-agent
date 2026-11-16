@@ -73,10 +73,18 @@ export interface StartOptions {
 	timeoutMs?: number;
 }
 
+/** A `wait` the cap shortened: the block it asked for and the one it got. */
+export interface WaitCap {
+	askedMs: number;
+	usedMs: number;
+}
+
 export interface WaitResult {
 	job: Job;
 	timedOut: boolean;
 	cancelled: boolean;
+	/** Present when the timeout won after the block was capped. */
+	capped?: WaitCap;
 }
 
 /** A job's log as `logs` returns it: the model-facing render plus the raw tail. */
@@ -142,6 +150,8 @@ export interface JobDetails {
 	timedOut?: boolean;
 	/** True when `wait` was cancelled by the tool's abort signal. */
 	cancelled?: boolean;
+	/** What a capped `wait` asked for and what it used, when the timeout won. */
+	capped?: WaitCap;
 	/** Session that made the call, so a transcript can mark another session's rows. */
 	sessionId?: string;
 	/** Model-readable validation message when the call was rejected. */

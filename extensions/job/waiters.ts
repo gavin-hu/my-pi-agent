@@ -5,16 +5,34 @@
  * wakes every waiter for that id. Kept separate from the runtime so the map and
  * its cleanup rules are testable on their own and the runtime holds one field.
  * The race the caller sees — the record, the timeout, or an abort — is here for
- * the same reason: it is bookkeeping, not a decision about a record.
+ * the same reason: it is bookkeeping, not a decision about a record. So is how
+ * long that timeout runs, since the cap is a fact about the block and not about
+ * the record.
  */
+
+import type { WaitCap } from "./types.ts";
 
 /** Default `wait` timeout, for a caller that names none. */
 export const DEFAULT_WAIT_MS = 30_000;
+
+/**
+ * Longest block one `wait` buys. A caller may name more — the schema allows up to
+ * a day, as `start`'s kill timeout does — and the block is capped here rather than
+ * refused, so a call the schema accepts always returns.
+ */
+export const MAX_WAIT_MS = 600_000;
 
 /** Why a `wait` stopped waiting; the caller reads the record itself. */
 export interface WaitOutcome {
 	timedOut: boolean;
 	cancelled: boolean;
+	/** Present when the request outlived {@link MAX_WAIT_MS} and the timeout won. */
+	capped?: WaitCap;
+}
+
+/** The block a request buys: the default when unnamed, never past the cap. */
+export function effectiveWaitMs(requested: number | undefined): number {
+	return Math.min(requested ?? DEFAULT_WAIT_MS, MAX_WAIT_MS);
 }
 
 /** Resolvers waiting on a job id. */
@@ -70,17 +88,20 @@ export function waitFor(
 	return new Promise<WaitOutcome>((resolve) => {
 		let settled = false;
 		let remove = (): void => {};
+		const askedMs = options.timeoutMs ?? DEFAULT_WAIT_MS;
+		const usedMs = effectiveWaitMs(options.timeoutMs);
+		const capped: WaitCap | undefined = usedMs < askedMs ? { askedMs, usedMs } : undefined;
 		const finish = (timedOut: boolean, cancelled: boolean): void => {
 			if (settled) return;
 			settled = true;
 			if (timer) clearTimeout(timer);
 			options.signal?.removeEventListener("abort", onAbort);
 			remove();
-			resolve({ timedOut, cancelled });
+			resolve({ timedOut, cancelled, ...(timedOut && capped ? { capped } : {}) });
 		};
 		const resolveWaiter = (): void => finish(false, false);
 		const onAbort = (): void => finish(false, true);
-		const timer = setTimeout(() => finish(true, false), options.timeoutMs ?? DEFAULT_WAIT_MS);
+		const timer = setTimeout(() => finish(true, false), usedMs);
 
 		remove = waiters.add(id, resolveWaiter);
 		if (options.signal?.aborted) onAbort();
