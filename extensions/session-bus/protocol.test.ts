@@ -90,12 +90,49 @@ describe("claim targets", () => {
 		expect(resolveRecipients(sessions, "BACKEND", "s1")).toEqual({ recipients: [sessions[1]] });
 		expect(resolveRecipients(sessions, "*", "s1")).toEqual({ recipients: [sessions[1]] });
 	});
-	test("reports an unknown or ambiguous target", () => {
+	test("names an ambiguous label and a name no record holds, in one sentence each", () => {
 		const sessions = [
 			{ id: "s1", label: "same" },
 			{ id: "s2", label: "same" },
 		];
-		expect(resolveRecipients(sessions, "same", "s3")).toHaveProperty("error");
-		expect(resolveRecipients(sessions, "missing", "s1")).toHaveProperty("error");
+		expect(resolveRecipients(sessions, "same", "s3")).toEqual({
+			error: 'the label "same" is ambiguous; use a session id.',
+		});
+		expect(resolveRecipients(sessions, "missing", "s1")).toEqual({ error: 'no active session "missing".' });
+	});
+});
+
+describe("addressing records that say whether they are alive", () => {
+	test("a label held by a gone record and a live one reaches the live session", () => {
+		// The session that held this id ended and a later one took its name: the label is the answer,
+		// and the stopped holder is not a candidate. The bus's own wording for a stopped id stays a
+		// refusal, because one `to` string is tried as an id and as a label before the rule is asked.
+		const rows = [
+			{ id: "s-dead", label: "api-core", state: "gone" as const },
+			{ id: "s-live", label: "api-core", state: "live" as const },
+		];
+		expect(resolveRecipients(rows, "api-core", "s-x")).toEqual({ recipients: [rows[1]] });
+	});
+
+	test("refuses a name only a stopped record holds", () => {
+		const rows = [{ id: "s-dead", label: "api-core", state: "gone" as const }];
+		expect(resolveRecipients(rows, "s-dead", "s-x")).toEqual({ error: 'no active session "s-dead".' });
+		expect(resolveRecipients(rows, "api-core", "s-x")).toEqual({ error: 'no active session "api-core".' });
+	});
+
+	test("skips a gone peer in a broadcast", () => {
+		const rows = [
+			{ id: "s-me", label: "me", state: "live" as const },
+			{ id: "s-dead", label: "api-core", state: "gone" as const },
+			{ id: "s-peer", label: "api-web", state: "live" as const },
+		];
+		expect(resolveRecipients(rows, "*", "s-me")).toEqual({ recipients: [rows[2]] });
+	});
+
+	test("delivers a note to itself with its own record gone", () => {
+		// The sender is its own recipient whatever its record says: a heartbeat cannot refuse a
+		// session its own note.
+		const rows = [{ id: "s-me", label: "me", state: "gone" as const }];
+		expect(resolveRecipients(rows, "s-me", "s-me")).toEqual({ recipients: [rows[0]] });
 	});
 });
