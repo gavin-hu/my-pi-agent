@@ -1,125 +1,18 @@
 /**
- * The served pages' chrome: the shell's two header rows and its one gutter, the live line and
- * its reload control, the key sheet's trigger, the footer, and the grammar the kit now speaks —
- * a rail tag, a marker-free switch, a bracketed key, a prompt line, and a gauge of fixed cells.
+ * The chrome the shell holds: the live line and its reload control, the key sheet's trigger,
+ * the footer, and the grammar the kit speaks — a rail tag, a marker-free switch, a bracketed key,
+ * a prompt line, a gauge of fixed cells — plus the painter that keeps the live word true.
  *
- * Held apart from `web.test.ts` because that suite is at its size bar: a case that needs room
- * moves to a suite that has room, rather than the ledger's height being raised.
+ * The shell's own rows, gutter and media answers live in `shell.test.ts`: this suite reached the
+ * 400-line bar, and the shell is the half the next work extends, so the seam sits there.
  */
 
 import { describe, expect, test } from "bun:test";
-import { WEB_BASE_CSS } from "./base.ts";
 import { WEB_COMPONENTS_CSS } from "./components.ts";
-import { SIDEBAR_COLLAPSE_MAX, collapsedShell, narrowShell, WEB_LAYOUT_CSS } from "./layout.ts";
+import { WEB_LAYOUT_CSS } from "./layout.ts";
 import { appHead, chip, keysButton, liveChip, pageFooter, reloadChip, themeToggle } from "./markup.ts";
 import { CLIENT_RUNTIME_JS, paintLive } from "./client-runtime.ts";
-
-/** One rule's own body: the whole stylesheet has these properties somewhere, so scope first. */
-function rule(css: string, selector: string): string {
-	return css.slice(css.indexOf(selector)).split("}")[0] ?? "";
-}
-
-describe("the shell's two rows", () => {
-	test("draws identity over controls, with a plain rule between and under them", () => {
-		for (const selector of [".bf-app__id{", ".bf-app__rule{", ".bf-app__ctl{", ".bf-app__foot{"]) {
-			expect(WEB_LAYOUT_CSS, selector).toContain(selector);
-		}
-		// A separator is a hairline in the border role, never a coloured segment: the signature
-		// rule has two homes — the mark and a record — and a header separator is neither.
-		expect(rule(WEB_LAYOUT_CSS, ".bf-app__rule{")).toBe(".bf-app__rule{height:1px;background:var(--border)");
-		expect(rule(WEB_LAYOUT_CSS, ".bf-app__head{")).toContain("border-bottom:1px solid var(--border)");
-		expect(rule(WEB_LAYOUT_CSS, ".bf-app__id{")).toContain("min-height:52px");
-		expect(WEB_LAYOUT_CSS).not.toContain("linear-gradient");
-		// The old bar retired: a page's own controls are the header's second row, not a third
-		// strip between the header and the content.
-		expect(WEB_LAYOUT_CSS).not.toContain(".bf-app__bar");
-		expect(WEB_BASE_CSS).toContain(
-			".bf-app__head,.bf-app__sidebar,.bf-app__foot,.bf-gauge,.skip,.bf-dialog{display:none!important}",
-		);
-	});
-
-	test("draws the header's zones and the live line's parts", () => {
-		for (const selector of [".bf-app__facts{", ".bf-app__chrome{", ".bf-app__chrome .bf-btn:hover{"]) {
-			expect(WEB_LAYOUT_CSS, selector).toContain(selector);
-		}
-		for (const selector of [
-			".bf-live{",
-			".bf-live__glyph{",
-			".bf-live__text{",
-			".bf-reload{",
-			".bf-reload:hover{",
-			".bf-footer__facts{",
-		]) {
-			expect(WEB_COMPONENTS_CSS, selector).toContain(selector);
-		}
-	});
-
-	test("takes the control row's height from its padding and its rhythm from three groups", () => {
-		// 12 inside a role, 24 between roles: the switch, the meter and the prompt line are
-		// three groups, so the gap carries the first step and the group's margin the second.
-		expect(WEB_LAYOUT_CSS).toContain(
-			".bf-app__ctl{display:flex;align-items:baseline;gap:var(--space-3);flex-wrap:wrap;padding:5px var(--space-6)}",
-		);
-		expect(WEB_LAYOUT_CSS).toContain(".bf-app__group{display:flex;align-items:baseline;gap:var(--space-3)");
-		expect(WEB_LAYOUT_CSS).toContain(".bf-app__group+.bf-app__group{margin-left:var(--space-3)}");
-	});
-
-	test("runs every row of the shell on one gutter, at the viewport's width", () => {
-		// The mark, the lane heads, the prompt's right edge and the footer are meant to land on
-		// the same two verticals, so one rule pads all four and nothing centres a column.
-		expect(WEB_LAYOUT_CSS).toContain("@media (min-width:1440px){");
-		expect(WEB_LAYOUT_CSS).toContain(
-			".bf-app__id,.bf-app__ctl,.bf-app__main,.bf-app__foot{padding-left:var(--space-7);padding-right:var(--space-7)}",
-		);
-		for (const selector of [".bf-app__id{", ".bf-app__ctl{", ".bf-app__main{", ".bf-app__foot{"]) {
-			expect(rule(WEB_LAYOUT_CSS, selector), selector).toContain("var(--space-6)");
-			expect(rule(WEB_LAYOUT_CSS, selector), selector).not.toContain("max-width");
-		}
-		expect(WEB_LAYOUT_CSS).not.toContain("margin:0 auto");
-	});
-
-	test("sends a long subject to a row of its own when the identity row runs out", () => {
-		// A served root can be deeper than the identity row is wide: the subject takes the row
-		// rather than squeezing the facts beside it into unreadable slivers.
-		expect(WEB_LAYOUT_CSS).toContain(`@media (max-width:${SIDEBAR_COLLAPSE_MAX}px){`);
-		expect(WEB_LAYOUT_CSS).toContain(".bf-app__id .bf-context--subject{flex:1 1 100%}");
-		// The subject is also the splitter, and the one label whose head is cut: cutting the
-		// end kept only `Users/gavin/Repositories/Github/` and lost the folder being read.
-		expect(WEB_COMPONENTS_CSS).toContain(".bf-context--subject{flex:1 1 auto;direction:rtl;text-align:left");
-		expect(WEB_COMPONENTS_CSS).not.toContain("direction:ltr");
-	});
-
-	test("collapses the sidebar at the width the page asks for, its rules inside the query", () => {
-		const shell = collapsedShell(900, ".page-rule{color:var(--accent)}");
-		expect(shell.startsWith("@media (max-width:900px){")).toBe(true);
-		expect(shell).toContain(".bf-app__body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}");
-		expect(shell).toContain("max-height:50vh");
-		// A page's rule lands after the shell's in the same query, so it wins at equal specificity.
-		expect(shell.indexOf(".page-rule{")).toBeGreaterThan(shell.indexOf("max-height:50vh"));
-		// The collapse is the body's answer alone: a page that takes it early keeps its header.
-		expect(shell).not.toContain("bf-context--subject");
-		expect(shell.endsWith("}")).toBe(true);
-	});
-
-	test("answers a narrow identity row in its own query, at its own width", () => {
-		const narrow = narrowShell(900);
-		expect(narrow.startsWith("@media (max-width:900px){")).toBe(true);
-		expect(narrow).toContain(".bf-app__id .bf-context--subject{flex:1 1 100%}");
-		expect(narrow).toContain(".bf-app__ctl .bf-field--filter{width:100%;margin-left:0}");
-		// The two answers are separate bodies: the header's is not part of the sidebar's.
-		expect(narrow).not.toContain("bf-app__body");
-	});
-
-	test("wraps the footer's line rather than cutting a fact off it", () => {
-		// A footer is one sentence carrying two facts. Truncating it hid one of them, and a cut
-		// at the head left a stub of "served from" behind, which reads as damage rather than as
-		// a fact; wrapping costs a line and keeps both.
-		const facts = rule(WEB_COMPONENTS_CSS, ".bf-footer__facts{");
-		expect(facts).toContain("overflow-wrap:anywhere");
-		expect(facts).not.toContain("text-overflow");
-		expect(facts).not.toContain("nowrap");
-	});
-});
+import { rule } from "../../test/helpers/web-classes.ts";
 
 describe("the chrome's atoms", () => {
 	test("draws the mark's own two-tone rule, out of the flow of the identity row", () => {
@@ -202,6 +95,16 @@ describe("the chrome's atoms", () => {
 		expect(footer).not.toContain("bf-live");
 		expect(footer).not.toContain("bf-kbd");
 		expect(footer).not.toContain("reload-hint");
+	});
+
+	test("wraps the footer's line rather than cutting a fact off it", () => {
+		// A footer is one sentence carrying two facts. Truncating it hid one of them, and a cut
+		// at the head left a stub of "served from" behind, which reads as damage rather than as
+		// a fact; wrapping costs a line and keeps both.
+		const facts = rule(WEB_COMPONENTS_CSS, ".bf-footer__facts{");
+		expect(facts).toContain("overflow-wrap:anywhere");
+		expect(facts).not.toContain("text-overflow");
+		expect(facts).not.toContain("nowrap");
 	});
 });
 
