@@ -5,8 +5,8 @@
  *
  * `lib/http` owns the socket and `serve` owns the session's port, so this module owns only
  * the board's own decisions: where it answers (`BOARD_BASE`), when a frame is pushed (on a
- * watched write, and on the sweep for the facts no file announces), who receives it, and
- * what stops the signal.
+ * watched write, on a moved bus stamp, and on the sweep for the facts no file announces), who
+ * receives it, and what stops the signal.
  */
 
 import { BOARD_BASE } from "../../../lib/workflow/page-pointer.ts";
@@ -27,13 +27,16 @@ import { type BoardRouterContext, handleBoardRequest } from "./router.ts";
 import { defaultWatchDirs, type WatchDirs } from "./watch.ts";
 
 /**
- * How often the page reads the board when no watch could be armed: today's cadence, kept
- * as the fallback for a pile that cannot be watched at all.
+ * How often the page asks whether anything moved: one tick, one cheap question.
+ *
+ * This is the cadence a page no watch can cover has always had, and it is the cadence the
+ * stamp is asked at — a tick that finds nothing changed builds nothing, so an idle page pays
+ * a stat set per second and a frame per sweep.
  */
-const POLL_MS = 1_000;
+const TICK_MS = 1_000;
 
 /**
- * How often a watched page reads the board anyway.
+ * How often a watched page builds a frame regardless of the stamp.
  *
  * A card's file is not the only news: a card gone unwritten is a clock, a peer's quiet or
  * gone is another extension's record, and a plan removed is a file outside this pile. None
@@ -41,6 +44,9 @@ const POLL_MS = 1_000;
  * announces — and a write pushes immediately, through the watch.
  */
 const SWEEP_MS = 5_000;
+
+/** Ticks in one sweep: the count a stamp cannot answer for. */
+const SWEEP_TICKS = SWEEP_MS / TICK_MS;
 
 /** Largest request body the page accepts: a card and a note are small. */
 const MAX_BODY_BYTES = 64 * 1_024;
@@ -74,10 +80,23 @@ export interface BoardServerOptions {
 	/**
 	 * The directories whose writes are news, watched while any tab is attached.
 	 *
-	 * Absent or empty, the page scans on `POLL_MS` alone. `page.ts` names the pile; this
+	 * Absent or empty, the page scans on {@link TICK_MS} alone. `page.ts` names the pile; this
 	 * module does not know what a store is.
 	 */
 	dirs?: readonly string[];
+	/**
+	 * The bus's cheap question: a stamp that moves when a file the page draws moves.
+	 *
+	 * The frame is half cards and half bus — mail, a peer's state, a turn, a plan removed — and
+	 * no watch over `cards/` announces the second half. So the tick asks this instead of reading
+	 * the bus: a stamp that did not move builds nothing, and the sweep still covers the facts no
+	 * file carries. Absent reads as "changed every tick", which is the cadence a page with no
+	 * stamp has always had.
+	 *
+	 * Recorded after the view it describes resolves, so a build that threw asks again on the next
+	 * tick rather than waiting for the sweep: a bus nobody can read must not go silent.
+	 */
+	stamp?: () => Promise<string>;
 	/** The watch seam, so a test fires a change instead of writing a file. */
 	watch?: WatchDirs;
 	/** The interval seam, so a test drives the ticker instead of waiting. */
@@ -114,6 +133,26 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 	/** A frame that could not be built is not sent; the next tick tries again. */
 	const report = (error: unknown): void => options.onError?.(error);
 	let pushed = "";
+	/** The bus stamp the last frame drawn was built from; `undefined` until a frame is built. */
+	let lastStamp: string | undefined;
+	/** The bus's cheap question, when the caller supplied one: a page with none reads every tick. */
+	const stamp = options.stamp;
+
+	/**
+	 * The frame to draw, and the stamp it was read at.
+	 *
+	 * The stamp is read **before** the view, and recorded only once that view resolved. A bus write
+	 * that lands while the view is being read is then news rather than silence: the frame being built
+	 * does not carry it, so the next tick finds the stamp it drew under moved and rebuilds. Recording
+	 * after the view keeps the other half — a build that threw leaves the old stamp behind, so the
+	 * next tick asks again instead of waiting for the sweep.
+	 */
+	const drawn = async (): Promise<BoardWire> => {
+		const mark = stamp === undefined ? undefined : await stamp();
+		const view = await options.view();
+		if (mark !== undefined) lastStamp = mark;
+		return view;
+	};
 
 	const ctx: BoardRouterContext = {
 		read: (given) => tokenMatches(token, given ?? ""),
@@ -142,7 +181,7 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 		try {
 			do {
 				again = false;
-				const view = await options.view();
+				const view = await drawn();
 				// A frame is a snapshot, so sending one that says nothing new costs the page a
 				// parse and every reader a flicker. The signature is what changes.
 				if (view.sig === pushed) continue;
@@ -182,8 +221,7 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 					clients.add(sink);
 					// A tab that just attached gets the current frame without waiting for a
 					// card to change — otherwise a quiet board looks like a dead page.
-					void options
-						.view()
+					void drawn()
 						.then((view) => {
 							pushed = view.sig;
 							sink.write(`data: ${JSON.stringify(view)}\n\n`);
@@ -199,8 +237,8 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 	if (outcome.kind === "refused") return { kind: "refused", reason: outcome.reason };
 	const mount: HttpMount = outcome.mount;
 
-	// The watch is the page's signal and the sweep is its safety net: a pile that could not
-	// be watched keeps today's one-second scan, so the page is never staler than it was.
+	// The watch is the page's signal and the sweep is its safety net: a pile that could not be
+	// watched keeps today's one-second scan, so the page is never staler than it was.
 	const dirs = options.dirs === undefined || options.dirs.length === 0 ? undefined : options.dirs;
 	const handle =
 		dirs === undefined
@@ -208,7 +246,26 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 			: (options.watch ?? defaultWatchDirs)(dirs, () => void push().catch(report), {
 					...(options.timer === undefined ? {} : { timer: options.timer }),
 				});
-	const stopTicker = interval(handle === undefined ? POLL_MS : SWEEP_MS, () => void push().catch(report));
+	/**
+	 * Build a frame only when the bus answers a stamp the last frame did not carry.
+	 *
+	 * A page nobody is reading asks nothing: a minute with no tab open costs no stat at all.
+	 */
+	const moved = async (): Promise<void> => {
+		if (stamp === undefined || clients.size === 0) return;
+		if ((await stamp()) === lastStamp) return;
+		await push();
+	};
+	let ticks = 0;
+	const stopTicker = interval(TICK_MS, () => {
+		ticks += 1;
+		// No watch, no stamp, or a sweep due: this tick is a read. Otherwise the stamp decides.
+		if (handle === undefined || stamp === undefined || ticks % SWEEP_TICKS === 0) {
+			void push().catch(report);
+			return;
+		}
+		void moved().catch(report);
+	});
 	let closed = false;
 	const close = async (): Promise<void> => {
 		if (closed) return;

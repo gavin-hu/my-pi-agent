@@ -27,9 +27,9 @@
  * heartbeat is ten seconds old at most, and the caller polls on its own clock.
  */
 
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { BUS_DIR_NAME, JSON_SUFFIX, SESSIONS_DIR_NAME } from "./session-files.ts";
+import { BUS_DIR_NAME, busPaths, JSON_SUFFIX, SESSIONS_DIR_NAME } from "./session-files.ts";
 import type { WaitingPage } from "./session-mail.ts";
 import { sameLabel } from "./session-label.ts";
 import { isPidAlive, type LivenessFn, type StartTokenFn, startTokenOf } from "./spawn.ts";
@@ -447,6 +447,46 @@ export async function readTeam(dir: string, limit?: number): Promise<TeamRead> {
 			.sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id)),
 		waiting: mail.pageOf(ledger, limit),
 	};
+}
+
+/**
+ * The bus's cheapest question: a stamp that moves when a file the page draws moves.
+ *
+ * A page asks this once a tick and reads the bus only when the answer changed, because that
+ * read is a ledger walk over every record and every inbox. Contents are not what is asked: a
+ * directory's mtime moves when an entry is written beside it, so three stats and one listing
+ * answer every way a frame's bus facts can change — a session joining or leaving moves
+ * `sessions/`, a message landing moves its own inbox, an inbox appearing moves `inbox/`, and a
+ * bus that appears at all moves the bus directory. A path that is not there reads `-`, so a bus
+ * arriving later is news rather than a silence.
+ *
+ * Never throws: a bus nobody can read is a stamp that does not move, and a caller's own slow
+ * cadence still builds its frame.
+ */
+export async function stampBus(dir: string): Promise<string> {
+	const paths = busPaths(dir);
+	const parts: string[] = [];
+	for (const path of [paths.dir, paths.sessions, paths.inbox]) parts.push(await stampOf(path));
+	for (const name of await namesIn(paths.inbox)) parts.push(`${name}:${await stampOf(join(paths.inbox, name))}`);
+	return parts.join("|");
+}
+
+/** One path's mtime as a stamp part: absent is `-`, because it is a value a later stamp can move. */
+async function stampOf(path: string): Promise<string> {
+	try {
+		return String((await stat(path)).mtimeMs);
+	} catch {
+		return "-";
+	}
+}
+
+/** One directory's entries, sorted: the order a listing comes back in is not a fact to compare. */
+async function namesIn(dir: string): Promise<string[]> {
+	try {
+		return (await readdir(dir)).sort();
+	} catch {
+		return [];
+	}
 }
 
 /** Every record on disk, parsed once, or `undefined` when the bus has never recorded one. */

@@ -30,6 +30,7 @@ import {
 	urlOf,
 } from "../../lib/workflow/page-pointer.ts";
 import { mintToken, type MountSource } from "../../lib/http/index.ts";
+import { stampBus } from "../../lib/session-roster.ts";
 import { messageOf } from "../../lib/errors.ts";
 import type { IdleReason } from "../../lib/http/sink.ts";
 import { join } from "node:path";
@@ -246,6 +247,9 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				// One watched pile: a card is a file here, and the archive, the roster, and the plan
 				// stats are the sweep's — the page draws cards, so the cards' directory is the news.
 				dirs: [join(store.dir, CARDS_DIR_NAME)],
+				// The bus is the frame's other half and no watch announces it, so the tick asks its
+				// cheap question: the mailbox walk happens only when a stamp moved.
+				stamp: () => runtime.busDir(ctx.cwd).then(stampBus),
 				...(deps.interval === undefined ? {} : { interval: deps.interval }),
 				...(deps.timer === undefined ? {} : { timer: deps.timer }),
 				onError: warnBlind,
