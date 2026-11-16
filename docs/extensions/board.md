@@ -95,7 +95,7 @@ lead the same way, after the write; a failed send is a line, and the next comple
 - Ownership is a session id, not a lock — only `session-bus` path claims are. A card in `execute` holds its `paths`,
   `edit` moves them with the hints and a lane change frees only the writer's; a dead owner's card is released by a
   start, or re-seated to the session wearing that name and told on its first turn. Eight transitions are kept.
-- The page sweeps every five seconds for what no card file announces, and scans every second with no watch.
+- The page asks the bus for a stamp every second — mail waiting, a peer's state, a turn starting — and sweeps every five for what no file announces; a page with no watch scans every second.
 
 ## Settings
 

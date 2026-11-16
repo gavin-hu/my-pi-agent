@@ -32,6 +32,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the Team tab's bus facts reach an open tab in about a second instead of up to five. The page's
+  one ticker now asks a cheap stamp — the bus directory's, `sessions/`'s, `inbox/`'s and each inbox's mtimes —
+  and builds a frame only when it moved, so a message landing or a turn starting is news at the next tick
+  while a board nobody is writing still costs a stat set rather than a walk of every record and inbox. A
+  clock-decided fact (a peer going quiet) keeps its five-second sweep, and a build that threw leaves the old
+  stamp so the next tick asks again rather than waiting for the sweep.
+
 - `plan`: the outline above the review is a bounded band that scrolls itself below 1180px, not a stack that pushed
   the review down and left the review pane without a definite height. The review had restated two of the shell's
   collapse rules with different values (`max-height:none`, and no pinned grid rows); it now takes the shell's own

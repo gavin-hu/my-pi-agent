@@ -15,7 +15,8 @@ import { join } from "node:path";
 import { tempDir } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import { BUS_DIR_NAME, INBOX_DIR_NAME, SESSIONS_DIR_NAME, storedName } from "./session-files.ts";
-import { presenceOf, readRoster, readSessionLabel, rosterStateOf, SESSION_TTL_MS } from "./session-roster.ts";
+import { presenceOf, readRoster, readSessionLabel, rosterStateOf, SESSION_TTL_MS, stampBus } from "./session-roster.ts";
+import { settle } from "../test/helpers/process.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -314,5 +315,43 @@ describe("presenceOf", () => {
 		const before = { ...core, id: "s-old", lastSeen: NOW - SESSION_TTL_MS - 1 };
 		const roster = [before, { ...core, label: "billing-web" }];
 		expect(presenceOf(roster, { id: "s-core", label: "billing-core" }, NOW)).toBe("live");
+	});
+});
+
+describe("stampBus", () => {
+	test("a bus that is not there answers a stamp, and one that appears moves it", async () => {
+		const dir = join(temps.track(tempDir("pi-bus-stamp-")), BUS_DIR_NAME);
+		// Every path an absent bus lacks reads `-`, so the answer is a value a later stamp moves.
+		expect(await stampBus(dir)).toBe("-|-|-");
+		mkdirSync(join(dir, SESSIONS_DIR_NAME), { recursive: true });
+		expect(await stampBus(dir)).not.toBe("-|-|-");
+	});
+
+	test("nothing written keeps the stamp identical", async () => {
+		const dir = busDir();
+		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
+		const once = await stampBus(dir);
+		// The page compares two of these: an answer that drifted on its own would be a read per tick.
+		expect(await stampBus(dir)).toBe(once);
+	});
+
+	test("a session joining moves it", async () => {
+		const dir = busDir();
+		const before = await stampBus(dir);
+		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
+		expect(await stampBus(dir)).not.toBe(before);
+	});
+
+	test("a message landing moves it, in a new inbox and in one already there", async () => {
+		const dir = busDir();
+		writeSession(dir, storedName("s-1"), { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW });
+		// A message lands one level below `inbox/`, so the listing of its dirs is what makes it news.
+		const before = await stampBus(dir);
+		writeMail(dir, storedName("s-1"), "1");
+		const one = await stampBus(dir);
+		expect(one).not.toBe(before);
+		await settle(2);
+		writeMail(dir, storedName("s-1"), "2");
+		expect(await stampBus(dir)).not.toBe(one);
 	});
 });
