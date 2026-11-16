@@ -96,6 +96,7 @@ function hookOffence(path: string, line: number, budget: number | undefined): st
 const BROWSER_SUITES = [
 	"extensions/board/view/behaviour.test.ts",
 	"extensions/board/view/filter-behaviour.test.ts",
+	"extensions/board/view/queue-bands.test.ts",
 	"extensions/board/view/repaint.test.ts",
 	"extensions/plan/web-behaviour.test.ts",
 	"extensions/plan/web-live.test.ts",
