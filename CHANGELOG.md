@@ -34,6 +34,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   condition and the two cannot drift again. The header keeps its single row: the shell's narrow-header answer is a
   second body, `narrowShell`, and a page taking the collapse early does not take that with it.
 
+- `board`: a card written by a session loaded before `stateAt` existed no longer has its sign staled by a note. Where
+  the newest write is a note, the fallback reads the last moment the record proves was not one — so a landing note
+  filed by an older session stops refusing the close, and a current session's next write stores the stamp for good.
+  The record cannot tell a note from a state write that carried one, so the fallback takes the last write at its word;
+  the landing gate still proves the work, and the page now says to restart a session when board code lands.
+
 - `board`: the lead can close a signed card whose holder's session ended. A review is the signature, so a move to
   `done` only records where a signed card went — and the lead may make it when the bus says the holder is gone, or
   holds no record of it, where before only the vanished holder could and the card had no door at all. The lead still

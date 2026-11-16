@@ -1,29 +1,23 @@
 /**
- * Who may act on a card's two gates and its return to the pool: the lead, and the person at the
- * keyboard.
+ * Who may act on a card's two gates and its return to the pool: the lead, and the person at the keyboard.
  *
- * `approve` and `review` are the board's one human judgement — a contract somebody read and a
- * piece of work somebody looked at — so the signature has to belong to somebody accountable
- * rather than to whichever peer answered first. The lead is a team name in `bytefly.json`
- * (`team.lead`, read by `config.ts`, and the page's seat in `board/seat.ts`), because that is
- * the one identity a pure rule can be handed and a card file can record; the person is the one
- * actor a file can name that is not a holder, which is what keeps a repository worked by one
- * session able to close a card at all.
+ * `approve` and `review` are the board's one human judgement — a contract somebody read and a piece of
+ * work somebody looked at — so the signature belongs to somebody accountable rather than to whichever peer
+ * answered first. The lead is a team name in `bytefly.json` (`team.lead`, read by `config.ts`, and the page's
+ * seat in `board/seat.ts`), the one identity a pure rule can be handed and a card file can record; the person
+ * is the actor a file can name that is not a holder, which keeps a one-session repository able to close.
  *
- * The signer is refused in two shapes: a session that is not the lead (`signRefusal`), and a lead
- * that holds the card it means to sign (`holderRefusal` — release it first). The words live in one
- * table, `contract.ts`'s `SIGN_WORDS`, so a gate and a lane requirement cannot drift into four
- * slightly different sentences.
+ * The signer is refused in two shapes: a session that is not the lead (`signRefusal`), and a lead that holds
+ * the card it means to sign (`holderRefusal` — release it first). The words live in `SIGN_WORDS`, so a gate
+ * and a lane requirement cannot drift into four slightly different sentences.
  *
- * `reclaim` is the third decision: the holder may take its own card back, the lead anybody's, and a
- * peer one only from a session the bus says has stopped. Only a spot-check's own signer withdraws it.
+ * `reclaim` is the third decision: the holder may take its own card back, the lead anybody's, and a peer
+ * one only from a session the bus says has stopped. Only a spot-check's own signer withdraws it.
  *
- * The announcement is the fourth: a sign nobody heard is a gate nobody knows is open, so the card
- * records when its message was settled (`Sign.told`) and a repeat sign owes it again while it is
- * absent. That record is written by its own operation, refused to anybody but the sign's signer —
- * `signedAs`, never a name compare, because the person signs as the lead's name.
- *
- * Pure: a name compare and a sentence, no clock and no file.
+ * The announcement is the fourth: a sign nobody heard is a gate nobody knows is open, so the card records
+ * when its message was settled (`Sign.told`) and a repeat sign owes it again while absent — written by its
+ * own operation, refused to anybody but the sign's signer (`signedAs`, never a name compare). Pure: a name
+ * compare and a sentence, no clock and no file.
  */
 
 import { pageSource } from "../format.ts";
@@ -331,10 +325,9 @@ export interface HolderFact {
 }
 
 /**
- * A card's notes after one more, with {@link MAX_NOTES} kept and the rest counted.
- *
- * One body for the two writers a note has — `note`, and the note a sign carries — because the
- * cap is the record's and a clipped list is the same arithmetic in both.
+ * A card's notes after one more, with {@link MAX_NOTES} kept and the rest counted: one body for the two
+ * writers a note has, because the cap is the record's and a clipped list is the same arithmetic in both,
+ * and a clipped list on a sign would be a different list from the one a note writes.
  */
 export function appendNote(card: Card, by: string, at: number, text: string): Pick<Card, "notes" | "notesDropped"> {
 	const notes = [...card.notes, { by, at, text }];
@@ -347,10 +340,19 @@ export function appendNote(card: Card, by: string, at: number, text: string): Pi
  *
  * A sign owns two writes: the stamp, and `#398`'s record that its owner heard, so the later of the two is
  * compared. The field is `stateAt`, not `updatedAt`: a landing note is a message about the card, not a
- * change to it. One reader for every place the rule is asked, so the gate and the reason line agree.
+ * change to it, so every reader of this rule — the gate, the queue, the reason line — inherits one answer.
+ *
+ * A card from before `stateAt` has none, and this fallback reads it loosely: **a state write between the sign
+ * and the newest note is invisible**, because only a lane change logs a transition — so a `contract` or `edit`
+ * leaves no trace and the later note reads fresh.
+ *
+ * It holds only because such a card was written entirely by older code, whose next write stores the field, and
+ * because the landing gate still proves the work the sign is over.
  */
 export function signStale(card: Card, record: SignRecord): boolean {
-	return (card.stateAt ?? card.updatedAt) > Math.max(record.at, record.told?.at ?? 0);
+	const noted = card.stateAt === undefined && card.notes.at(-1)?.at === card.updatedAt;
+	const mark = card.stateAt ?? (noted ? (card.log?.at(-1)?.at ?? card.createdAt) : card.updatedAt);
+	return mark > Math.max(record.at, record.told?.at ?? 0);
 }
 
 /**
@@ -393,12 +395,10 @@ export function reviewGate(
 /**
  * Record the spot-check of finished work: the lead's, and never the holder's.
  *
- * `override` is the other way a finished card gets a sign — somebody saying the gate was jumped:
- * the reason is required, the card already `done`, and no review on it, because the one rule it
- * relaxes is the lane and a reason is not a second signature. The sign records how it was made, so
- * a forced close reads as one instead of as a clean one.
- *
- * `verified` is the run the signer's own call made, held by {@link evidenceFor} rather than trusted.
+ * `override` is the other way a finished card gets a sign — somebody saying the gate was jumped: the reason
+ * is required, the card already `done`, and no review on it, because the one rule it relaxes is the lane and
+ * a reason is not a second signature. The sign records how it was made. `verified` is the run the signer's
+ * own call made, held by {@link evidenceFor} rather than trusted.
  */
 export function review(
 	card: Card,
