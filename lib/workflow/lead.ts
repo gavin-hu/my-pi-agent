@@ -149,14 +149,18 @@ export function holderRefusal(actor: Actor, lead: Lead, sign: Sign): string {
 /**
  * Why this actor may not move this card, or `undefined` when it may.
  *
- * The holder moves its own card; the lead also moves one it does not hold, but only `plan → execute`
- * — the lane its own approval opened, where the holder may already be gone. One predicate, because
- * the lead's whole allowance should be checkable in one place, and one sentence per refusal: a lead
- * that reached for `done` and read "only its owner can move it" would learn to work around the gate.
+ * The holder moves its own card. The lead moves one it does not hold twice: `plan → execute`, the lane its
+ * approval opened, and `execute → done` where the bus says the holder left for good — a review is the
+ * signature, so the close only records where a signed card went, and a vanished holder would leave it no
+ * door. `holder` goes through {@link heldState}, so another session's fact is none and a quiet holder keeps its card.
  */
-export function mayMove(card: Card, actor: Actor, target: Lane, lead: Lead): string | undefined {
-	const opensLane = isLead(actor, lead) && card.lane === "plan" && target === "execute";
-	if (holds(card, actor) || opensLane) return undefined;
+export function mayMove(card: Card, actor: Actor, target: Lane, lead: Lead, holder?: HolderFact): string | undefined {
+	if (holds(card, actor)) return undefined;
+	if (isLead(actor, lead)) {
+		if (card.lane === "plan" && target === "execute") return undefined;
+		const state = heldState(card, holder);
+		if (target === "done" && card.lane === "execute" && (state === "gone" || state === "absent")) return undefined;
+	}
 	return isLead(actor, lead)
 		? `${heldBy(card)} A lead opens \`execute\` by approving the contract; moving it stays the holder's.`
 		: `${heldBy(card)} Only its owner can move it.`;
@@ -341,12 +345,9 @@ export function appendNote(card: Card, by: string, at: number, text: string): Pi
 /**
  * Whether the card has been written since its sign last spoke for it.
  *
- * A sign owns two writes: the stamp, and `#398`'s record that its owner heard — so the moment to
- * compare is the later of the two. The field is `stateAt`, not `updatedAt`: a note is a message
- * about the card rather than a change to it, so a landing note filed before the close does not
- * outgrow the run, and a card written before the field existed reads `updatedAt` instead. One
- * reader for every place the rule is asked — `currentReview`, so the `done` gate, the lead's queue
- * and the reason line answer together.
+ * A sign owns two writes: the stamp, and `#398`'s record that its owner heard, so the later of the two is
+ * compared. The field is `stateAt`, not `updatedAt`: a landing note is a message about the card, not a
+ * change to it. One reader for every place the rule is asked, so the gate and the reason line agree.
  */
 export function signStale(card: Card, record: SignRecord): boolean {
 	return (card.stateAt ?? card.updatedAt) > Math.max(record.at, record.told?.at ?? 0);
@@ -519,10 +520,9 @@ export function signNote(
 /**
  * Take a card back to the pool, for the callers this module already answers for.
  *
- * The holder may always (a release by another name), the person and the lead may take anybody's,
- * and a peer only when the bus says the owner has stopped — `quiet` or `gone`. `absent` is refused
- * with no fact at all: a live session that never joined this bus has no record either, so no record
- * is not an answer.
+ * The holder may always, the person and the lead may take anybody's, and a peer only when the bus says
+ * the owner has stopped — `quiet` or `gone`. `absent` is refused like no fact at all: a live session that
+ * never joined this bus has no record either, so no record is not an answer.
  */
 export function reclaim(card: Card, actor: Actor, config: BoardConfig, holder?: HolderFact): Prepared {
 	if (LANE_RULES[card.lane].terminal) {

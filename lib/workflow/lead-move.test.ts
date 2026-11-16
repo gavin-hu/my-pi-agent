@@ -1,9 +1,10 @@
 /**
- * The lead's one move: `plan → execute`, the lane its own approval opened.
+ * The lead's two moves: `plan → execute`, the lane its own approval opened, and `execute → done` for a
+ * card whose holder the bus has lost.
  *
  * `#544`'s rule split out of `rules.test.ts`, which is at its bar: a card the lead does not hold is
- * still the holder's for `note`, `edit`, `done` and every other lane change, and this suite is the
- * whole of the allowance — one transition, its gates unchanged, and the sentences for the rest.
+ * still the holder's for `note`, `edit` and every other lane change, and this suite is the whole of
+ * the allowance — two transitions, their gates unchanged, and the sentences for the rest.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -14,6 +15,7 @@ import {
 	approved,
 	boardOf,
 	CORE,
+	doneOf,
 	executing,
 	LEAD,
 	NOW,
@@ -21,6 +23,7 @@ import {
 	provedFor,
 	ready,
 	refusal,
+	reviewed,
 	written,
 } from "../../test/helpers/fixtures/board-rules.ts";
 
@@ -44,6 +47,35 @@ describe("the lead's move", () => {
 		// A peer is not the lead, so it hears the older sentence and no allowance at all.
 		const opening = { kind: "move", lane: "execute", artifact: provedFor(card) } as const;
 		expect(refusal(applyOp(card, opening, OTHER, NOW, boardOf(card)))).toContain("Only its owner can move it.");
+	});
+
+	test("closes a signed card whose holder the bus has lost, and only then", () => {
+		// #657: the holder's session ended while the card was signed and landed, so the holder could not
+		// close it and the lead could not sign it. The close is bookkeeping — the review is the
+		// signature — so the lead may make it, and only when the bus says the holder is gone.
+		const card = reviewed();
+		const owner = card.owner;
+		if (owner === undefined) throw new Error("the fixture card has no owner");
+		for (const state of ["gone", "absent"] as const) {
+			const closed = accepted(applyOp(card, { ...doneOf(card), holder: { owner, state } }, LEAD, NOW, boardOf(card)));
+			expect(closed.card.lane, state).toBe("done");
+			expect(closed.card.review?.by, state).toBe(LEAD.label);
+		}
+		// Quiet is not gone: a long turn reads the same, and that holder can still close its own card.
+		for (const state of ["quiet", "live"] as const) {
+			expect(
+				refusal(applyOp(card, { ...doneOf(card), holder: { owner, state } }, LEAD, NOW, boardOf(card))),
+				state,
+			).toContain("moving it stays the holder's");
+		}
+		// No fact is "cannot tell" — a bus that did not answer, and a fact about somebody else.
+		expect(refusal(applyOp(card, doneOf(card), LEAD, NOW, boardOf(card)))).toContain("stays the holder's");
+		const stale = { owner: { label: OTHER.label, id: "s-other" }, state: "gone" as const };
+		expect(refusal(applyOp(card, { ...doneOf(card), holder: stale }, LEAD, NOW, boardOf(card)))).toContain(
+			"stays the holder's",
+		);
+		// The holder's own close never needed the fact, and still does not.
+		expect(accepted(applyOp(card, doneOf(card), CORE, NOW, boardOf(card))).card.lane).toBe("done");
 	});
 
 	test("still answers the gates: no approval, and no room, refuse the lead like anybody", () => {

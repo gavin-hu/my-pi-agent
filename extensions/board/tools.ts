@@ -33,7 +33,7 @@ import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui
 import { CLAIM_NEXT, formatCard } from "./format.ts";
 import { createDeliver, createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { collapsedLine, refusal, resultInput } from "./result.ts";
-import { dropCard, mutate, reclaimOp } from "./write.ts";
+import { dropCard, holderFact, mutate, reclaimOp } from "./write.ts";
 import type { Deliver } from "../../lib/session-tool.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { type BoardArgs, BoardParams } from "./schema.ts";
@@ -274,6 +274,9 @@ export function registerTools(
 							...(args.blocker === undefined ? {} : { blocker: args.blocker }),
 							...(proved === undefined ? {} : { artifact: proved }),
 							...(landed === undefined ? {} : { landed }),
+							// A close is where a signed card went, and the lead may make it for a holder the bus
+							// has lost: the one fact that door needs, read only for a `done`.
+							...(lane === "done" ? await holderFact(runtime, store, args.card, ctx.cwd) : {}),
 						};
 						return await mutate(store, action, me, now, args, op, { cross });
 					}

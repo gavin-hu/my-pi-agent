@@ -87,9 +87,9 @@ lead the same way, after the write; a failed send is a line, and the next comple
 
 - `done` is terminal: a card finished by mistake is dropped and re-added at a new number. Nothing prunes
   itself: `archive` takes a card nothing waits on, and `--older-than 30d` bounds it, naming what it kept.
-- The lead is a name, not an authority: any session can join it, and a lead holding a card can release it,
-  sign it and claim it again. A lead holding no card may still move it `plan` → `execute`, the lane its
-  approval opened; every other verb is the holder's. A gate is a reading, not a permission.
+- The lead is a name, not an authority: any session can join it, and a lead holding a card can release it, sign it and
+  claim it again. A lead holding no card may still move it `plan` → `execute`, or close a signed card whose holder the
+  bus lost — a close, not a signature; every other verb is the holder's. A gate is a reading.
 - Settle a card's title, paths and contract before asking for its sign: a write after the spot-check
   stops that run speaking for the card, in the queue as at `done` alike; a branch is proved against `main` as it was cut.
 - Ownership is a session id, not a lock — only `session-bus` path claims are. A card in `execute` holds its `paths`,
