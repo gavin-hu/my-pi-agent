@@ -42,6 +42,17 @@ export function writeBusRecord(busDir: string, record: BusRecord): string {
 	return file;
 }
 
+/**
+ * The record a join leaves: the session, and the watch a team door asks for — armed, and waking.
+ *
+ * The bus writes the two together (`join` stores the record and its watch in one file), so a suite
+ * that wants the state after a join must not write the half that says nothing about mail: a record
+ * with no watch is a session nothing has joined yet, which the next door asks again for.
+ */
+export function writeJoinedRecord(busDir: string, record: Omit<BusRecord, "pid" | "watching">): string {
+	return writeBusRecord(busDir, { ...record, watching: { armed: true, wake: true } });
+}
+
 /** Remove a record, the way a stopped bus takes its own with it. */
 export function removeBusRecord(file: string): void {
 	rmSync(file, { force: true });

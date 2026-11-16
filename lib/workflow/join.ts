@@ -14,8 +14,9 @@
  * door every other sentence names is the wrong advice in two of the three cases.
  *
  * The asking is shared because the rule around it is easy to get different in two places:
- * ask only while this session is not on the team, or is on it with an armed watch that cannot
- * wake it, so a card write costs one request per session rather than one per card, and never let
+ * ask only while this session is not on the team, or is on it with a record that cannot promise
+ * the wake — an armed watch that cannot wake it, or a record written before the field existed —
+ * so a card write costs one request per session rather than one per card, and never let
  * the join undo a card that was already written — a bus that is not loaded is a sentence, not an
  * exception.
  *
@@ -138,12 +139,14 @@ export async function joinTeam(
 	const standing = session.team.last();
 	const answer = await rosterAnswer(session, ctx);
 	if (answer.kind === "held" && heldHere(answer.held) && sameLabel(answer.held.label, label)) {
-		// An armed watch that cannot wake this session is the one record a team door repairs: a
-		// teammate that hears mail and is never woken for it still needs a human turn, which is
-		// the delivery this join exists to stop needing. `listen:false` is an explicit opt-out and
-		// is kept, and an older record that says nothing about its watch is left alone.
+		// A record that answers for its own watch is one fact: armed-and-waking needs no request, and
+		// `armed: false` is the user's `listen: false`, which a team door never turns back on. A
+		// record that says nothing is not a third answer but no answer yet — the boot write lands
+		// before any join writes the field — so the door asks, and `askAgain` repeats a disarmed
+		// standing while asking for wake otherwise.
 		const watch = answer.held.watching;
-		if (watch?.armed !== true || watch.wake) return stateOfHeld(answer.held, standingOf(standing));
+		if (watch !== undefined && (watch.armed !== true || watch.wake))
+			return stateOfHeld(answer.held, standingOf(standing));
 	}
 	// No word from the bus keeps a standing that landed: the record may be there and unreadable,
 	// and a join spent on a guess would rename a session the bus still holds.

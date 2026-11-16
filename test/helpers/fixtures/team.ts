@@ -20,7 +20,7 @@ import type { Claims } from "../../../lib/workflow/claims.ts";
 import { MAX_WIP } from "../../../lib/workflow/limits.ts";
 import type { SendInput } from "../../../lib/session-tool.ts";
 import { notDeliveredLine, type Peer, type TeamJoin } from "../../../lib/session-tool.ts";
-import { writeBusRecord } from "../bus.ts";
+import { writeJoinedRecord } from "../bus.ts";
 import { fakeCtx } from "../context.ts";
 import { tempDir } from "../env.ts";
 import { createFakePi } from "../fakes.ts";
@@ -191,9 +191,10 @@ export function teamSuite(track: (dir: string) => string, options: TeamSuiteOpti
 			joined.push(label);
 			if (options.joinFails !== undefined) return { ok: false, error: options.joinFails };
 			// The record a real join leaves, so a later read finds a session the bus holds rather
-			// than an answer nothing on disk backs.
-			writeBusRecord(await session.busDir(cwd), { id: "s-lead", label, lastSeen: NOW });
-			return { ok: true, label, watching: { armed: true, wake: false } };
+			// than an answer nothing on disk backs — with the watch, which is what makes a second
+			// door read the join as done instead of asking again to upgrade it.
+			writeJoinedRecord(await session.busDir(cwd), { id: "s-lead", label, lastSeen: NOW });
+			return { ok: true, label, watching: { armed: true, wake: true } };
 		},
 	};
 	registerTools(fake.pi, sessionForTool, { deliver, team });

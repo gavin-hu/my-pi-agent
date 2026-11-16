@@ -274,6 +274,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`, `team`: a join asks for the wake a bus record cannot promise. A record written before the
+  watch field existed — every session's, because the boot write lands before any join sets it — was read
+  as the user's `listen: false`, so the first `board claim` or `team assign` asked for nothing and the
+  session listened without being woken: it needed a human turn, the delivery a team join exists to stop
+  needing. A record that says nothing is now "no answer yet" and the door asks, while `armed: false`
+  still keeps the opt-out and a disarmed standing is still repeated disarmed.
+
 - `board`: the Team tab's Needs you bands take the width of the queue they sit in. A band was capped at
   40rem while the grid's track floor was 32rem, so a queue between the two left the asks short of the pane
   — 328px at a 1680 window — with the swimlanes under them running the column's whole width. The cap is

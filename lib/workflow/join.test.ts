@@ -1,170 +1,60 @@
 /**
- * The one join: when a door asks, what it repeats when it asks again, and what a line reads.
+ * The one join: when a door asks at all, and what a line reads.
  *
  * The rule is one sentence and three answers — ask while the standing says nothing good,
  * keep a standing the roster still backs under the name asked for, ask again while it does
  * not — and the cases here are its boundaries: the record that aged out, the process that is
  * gone, the host with no session id, the roster that will not read, and the record that holds
- * another name. The bus's files are real; the session's `roster` is the reader the round
- * already uses, so nothing here stubs the parse or the liveness rule.
+ * another name. What the record says about its own watch is `join-record.test.ts`; the fixture
+ * both suites seed is `test/helpers/join-fixture.ts`.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { tempDir } from "../../test/helpers/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { removeBusRecord, writeBusRecord } from "../../test/helpers/bus.ts";
-import { type RosterSession, SESSION_TTL_MS, readRoster } from "../session-roster.ts";
-import { type JoinResult, NO_BUS_ERROR, type TeamJoin, type TeamJoinInput } from "../session-tool.ts";
-import type { TeamStanding } from "./session.ts";
-import { joinFailureLine, joinTeam, type JoinSession, standingOf, teamStatus } from "./join.ts";
+import { ID, LABEL, NOW, joinHarness, joinedStanding, liveRecord } from "../../test/helpers/join-fixture.ts";
+import { writeBusRecord, removeBusRecord } from "../../test/helpers/bus.ts";
+import { SESSION_TTL_MS } from "../session-roster.ts";
+import { NO_BUS_ERROR } from "../session-tool.ts";
+import { joinFailureLine, joinTeam, standingOf, teamStatus } from "./join.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
-const NOW = 500_000;
-const ID = "s-lead";
-const LABEL = "billing-core";
-
-/** What a case may vary about the session its claim joins as. */
-interface JoinHarnessOptions {
-	/** The standing the session already carries, or none when it has not asked yet. */
-	record?: JoinResult;
-	/** Make the join reject, so the swallow-and-record path is the one under test. */
-	fails?: boolean;
-	/** The sentence the bus refuses with, so the failure's own reading is the one under test. */
-	refuses?: string;
-	/** The roster the session reads; absence is the temp bus directory this harness writes. */
-	roster?: () => Promise<RosterSession[] | undefined>;
-}
-
-/**
- * One session, one recorded join, and a bus directory in a temp root.
- *
- * The join answers `ok` and records nothing on the bus itself: a case that wants the record
- * a real join leaves writes it, which is the only way to say "the bus holds this session"
- * and "the bus does not" with the same caller.
- */
-function harness(options: JoinHarnessOptions = {}) {
-	let standing = options.record;
-	const busDir = temps.track(tempDir("pi-bus-join-"));
-	const asked: Array<TeamJoinInput | undefined> = [];
-	const team: TeamJoin = {
-		async join(_ctx, input) {
-			asked.push(input);
-			if (options.fails === true) throw new Error("the bus went away");
-			if (options.refuses !== undefined) return { ok: false, error: options.refuses };
-			return { ok: true, label: LABEL, watching: { armed: true, wake: false } };
-		},
-	};
-	const session: JoinSession = {
-		team: {
-			last: () => standing,
-			record: (result) => {
-				standing = result;
-			},
-		} satisfies TeamStanding,
-		roster: options.roster ?? (() => readRoster(busDir)),
-		now: () => NOW,
-	};
-	const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: ID });
-	return { session, team, ctx, asked, busDir, standing: () => standing };
-}
-
-/** The joined standing, as a case seeds it: on the team, and armed unless it says not. */
-function joined(watching: { armed: boolean; wake: boolean } = { armed: true, wake: false }): JoinResult {
-	return { ok: true, label: LABEL, watching };
-}
-
-/** One live record for this session, where the roster reads it. */
-function recordLive(busDir: string, lastSeen = NOW): string {
-	return writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen });
-}
-
 describe("joinTeam", () => {
 	test("asks when this session has not asked yet, under the label the card was written as", async () => {
-		const { session, team, ctx, asked } = harness();
+		const { session, team, ctx, asked } = joinHarness(temps);
 		await joinTeam(session, team, ctx, LABEL);
 		expect(asked).toEqual([{ label: LABEL, wake: true }]);
-	});
-
-	test("keeps the standing while the roster still holds this session", async () => {
-		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
-		recordLive(busDir);
-		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([]);
-	});
-
-	test("asks when the live record is another process's, which a second pane writes", async () => {
-		// Two panes share one session id: the other pane's record carries its pid, so the label is
-		// right and the watch is not this pane's. A record whose process is gone never reaches
-		// here, because the roster already reads it as `gone`.
-		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
-		writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen: NOW, pid: process.ppid });
-		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([{ label: LABEL, wake: true }]);
-	});
-
-	test("keeps a record this process wrote, which is this pane's own watch", async () => {
-		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
-		writeBusRecord(busDir, {
-			id: ID,
-			label: LABEL,
-			lastSeen: NOW,
-			pid: process.pid,
-			watching: { armed: false, wake: false },
-		});
-		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ label: LABEL, listening: false });
-		expect(asked).toEqual([]);
-	});
-
-	test("upgrades an armed watch that cannot wake this session", async () => {
-		// Armed but not woken is the one watch a team door repairs: a teammate that hears mail
-		// and is never woken for it is a teammate that still needs a human turn.
-		const { session, team, ctx, asked, busDir } = harness({ record: joined({ armed: true, wake: false }) });
-		writeBusRecord(busDir, {
-			id: ID,
-			label: LABEL,
-			lastSeen: NOW,
-			pid: process.pid,
-			watching: { armed: true, wake: false },
-		});
-		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([{ label: LABEL, wake: true }]);
-	});
-
-	test("leaves an armed watch that already wakes alone", async () => {
-		const { session, team, ctx, asked, busDir } = harness({ record: joined({ armed: true, wake: true }) });
-		writeBusRecord(busDir, {
-			id: ID,
-			label: LABEL,
-			lastSeen: NOW,
-			pid: process.pid,
-			watching: { armed: true, wake: true },
-		});
-		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([]);
 	});
 
 	test("asks again when the bus holds another name, which is what the page's seat does", async () => {
-		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
+		const { session, team, ctx, asked, busDir } = joinHarness(temps, { record: joinedStanding() });
 		// A session the bus holds live under the name it joined as, now serving the page as the
 		// seat: the record is live but says another name, so the open renames it.
-		recordLive(busDir);
+		liveRecord(busDir);
 		await joinTeam(session, team, ctx, "team-lead");
 		expect(asked).toEqual([{ label: "team-lead", wake: true }]);
 	});
 
 	test("a rename repeats a disarmed join, so the page cannot turn mail back on", async () => {
-		const { session, team, ctx, asked, busDir } = harness({ record: joined({ armed: false, wake: false }) });
+		const { session, team, ctx, asked, busDir } = joinHarness(temps, {
+			record: joinedStanding({ armed: false, wake: false }),
+		});
 		writeBusRecord(busDir, { id: ID, label: "core-claims", lastSeen: NOW });
 		await joinTeam(session, team, ctx, "team-lead");
 		expect(asked).toEqual([{ label: "team-lead", listen: false }]);
 	});
 
 	test("asks again when the bus stopped and took its record with it", async () => {
-		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
-		const file = recordLive(busDir);
+		const { session, team, ctx, asked, busDir } = joinHarness(temps, { record: joinedStanding() });
+		// Armed and waking, so the first join has nothing to ask — the case is about the removal.
+		const file = writeBusRecord(busDir, {
+			id: ID,
+			label: LABEL,
+			lastSeen: NOW,
+			watching: { armed: true, wake: true },
+		});
 		await joinTeam(session, team, ctx, LABEL);
 		expect(asked).toEqual([]);
 		// A stop removes the record, and the standing is no evidence that peers resolve the
@@ -175,21 +65,21 @@ describe("joinTeam", () => {
 	});
 
 	test("asks again when the record aged out of the bus's TTL", async () => {
-		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
-		recordLive(busDir, NOW - SESSION_TTL_MS - 1);
+		const { session, team, ctx, asked, busDir } = joinHarness(temps, { record: joinedStanding() });
+		liveRecord(busDir, NOW - SESSION_TTL_MS - 1);
 		await joinTeam(session, team, ctx, LABEL);
 		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 	});
 
 	test("asks again when the only record is another session's", async () => {
-		const { session, team, ctx, asked, busDir } = harness({ record: joined() });
+		const { session, team, ctx, asked, busDir } = joinHarness(temps, { record: joinedStanding() });
 		writeBusRecord(busDir, { id: "s-peer", label: "billing-web", lastSeen: NOW });
 		await joinTeam(session, team, ctx, LABEL);
 		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 	});
 
 	test("asks again after a failure, which a later attempt replaces", async () => {
-		const { session, team, ctx, asked, standing } = harness({
+		const { session, team, ctx, asked, standing } = joinHarness(temps, {
 			record: { ok: false, error: "the session bus is not loaded" },
 		});
 		await joinTeam(session, team, ctx, LABEL);
@@ -197,73 +87,30 @@ describe("joinTeam", () => {
 		expect(standing()?.ok).toBe(true);
 	});
 
-	test("a live record under the name answers a failed standing, which needs no repair", async () => {
-		// The bus already holds this session: a request whose answer was lost is not a reason to
-		// ask again, and the record's watch is what the line repeats.
-		const { session, team, ctx, asked, busDir } = harness({
-			record: { ok: false, error: "the request was lost" },
-		});
-		writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen: NOW, watching: { armed: false, wake: false } });
-		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ label: LABEL, listening: false });
-		expect(asked).toEqual([]);
-	});
-
-	test("skips without a standing when the record already holds the name", async () => {
-		// A session joined through `/session join` or the `/sessions` board never asked a board
-		// door, so there is no standing — but the bus's record is still the fact.
-		const { session, team, ctx, asked, busDir } = harness();
-		writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen: NOW, watching: { armed: false, wake: false } });
-		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ label: LABEL, listening: false });
-		expect(asked).toEqual([]);
-	});
-
-	test("a rename repeats the disarmed watch the record names, not the standing's silence", async () => {
-		// The watch was turned off through the bus, which this process never recorded; the record
-		// is the only word that the seat's rename must repeat it disarmed.
-		const { session, team, ctx, asked, busDir } = harness();
-		writeBusRecord(busDir, { id: ID, label: "core-claims", lastSeen: NOW, watching: { armed: false, wake: false } });
-		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([{ label: LABEL, listen: false }]);
-	});
-
-	test("a rename keeps the wake the record names", async () => {
-		const { session, team, ctx, asked, busDir } = harness();
-		writeBusRecord(busDir, { id: ID, label: "core-claims", lastSeen: NOW, watching: { armed: true, wake: true } });
-		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([{ label: LABEL, wake: true }]);
-	});
-
-	test("a live record that is not listening is the user's choice, not something to repair", async () => {
-		const { session, team, ctx, asked, busDir } = harness({
-			record: joined({ armed: false, wake: false }),
-		});
-		writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen: NOW, watching: { armed: false, wake: false } });
-		await joinTeam(session, team, ctx, LABEL);
-		expect(asked).toEqual([]);
-	});
-
 	test("repeats a disarmed join, so asking again cannot arm mail the user turned off", async () => {
-		const { session, team, ctx, asked } = harness({ record: joined({ armed: false, wake: false }) });
+		const { session, team, ctx, asked } = joinHarness(temps, {
+			record: joinedStanding({ armed: false, wake: false }),
+		});
 		await joinTeam(session, team, ctx, LABEL);
 		expect(asked).toEqual([{ label: LABEL, listen: false }]);
 	});
 
 	test("repeats an armed watch with the wake it had", async () => {
-		const { session, team, ctx, asked } = harness({ record: joined({ armed: true, wake: true }) });
+		const { session, team, ctx, asked } = joinHarness(temps, { record: joinedStanding({ armed: true, wake: true }) });
 		await joinTeam(session, team, ctx, LABEL);
 		expect(asked).toEqual([{ label: LABEL, wake: true }]);
 	});
 
 	test("keeps the standing for a host that reports no session id, which has no record to look for", async () => {
-		const { session, team, asked } = harness({ record: joined() });
+		const { session, team, asked } = joinHarness(temps, { record: joinedStanding() });
 		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "" });
 		await joinTeam(session, team, ctx, LABEL);
 		expect(asked).toEqual([]);
 	});
 
 	test("keeps the standing, and the card, when the roster cannot be read", async () => {
-		const { session, team, ctx, asked } = harness({
-			record: joined(),
+		const { session, team, ctx, asked } = joinHarness(temps, {
+			record: joinedStanding(),
 			roster: async () => {
 				throw new Error("no agent directory");
 			},
@@ -275,19 +122,19 @@ describe("joinTeam", () => {
 	});
 
 	test("records a join that threw as a failure, the way it records a refused one", async () => {
-		const { session, team, ctx, standing } = harness({ fails: true });
+		const { session, team, ctx, standing } = joinHarness(temps, { fails: true });
 		await joinTeam(session, team, ctx, LABEL);
 		expect(standing()).toEqual({ ok: false, error: "the bus went away" });
 	});
 
 	test("answers with the state a line reads, and records it", async () => {
-		const { session, team, ctx, standing } = harness();
+		const { session, team, ctx, standing } = joinHarness(temps);
 		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ label: LABEL, listening: true });
-		expect(standing()).toEqual(joined());
+		expect(standing()).toEqual(joinedStanding());
 	});
 
 	test("a refusal with no bus names the extension, because the door that renames refuses the same way", async () => {
-		const { session, team, ctx } = harness({ refuses: NO_BUS_ERROR });
+		const { session, team, ctx } = joinHarness(temps, { refuses: NO_BUS_ERROR });
 		// `/team join` is the answer to every other refusal, and here it is the answer to nothing:
 		// there is no bus to ask, so the sentence names the switch instead of the verb.
 		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({
@@ -297,7 +144,7 @@ describe("joinTeam", () => {
 	});
 
 	test("a name a running session holds says what frees it, and what renaming costs", async () => {
-		const { session, team, ctx, busDir } = harness({
+		const { session, team, ctx, busDir } = joinHarness(temps, {
 			refuses: `the label "${LABEL}" is already in use by session s-peer.`,
 		});
 		writeBusRecord(busDir, { id: "s-peer", label: LABEL, lastSeen: NOW });
@@ -309,7 +156,9 @@ describe("joinTeam", () => {
 	});
 
 	test("a name a dead record still holds comes back on its own", async () => {
-		const { session, team, ctx, busDir } = harness({ refuses: `the label "${LABEL}" is held by session s-peer.` });
+		const { session, team, ctx, busDir } = joinHarness(temps, {
+			refuses: `the label "${LABEL}" is held by session s-peer.`,
+		});
 		// The bus reserves a name for the heartbeat's TTL, which is the window a stopped session
 		// still holds: the record's process is gone, so waiting is a real answer.
 		writeBusRecord(busDir, { id: "s-peer", label: LABEL, lastSeen: NOW, pid: 2 ** 22 + 7 });
@@ -318,7 +167,7 @@ describe("joinTeam", () => {
 	});
 
 	test("a reason the roster cannot place is reported with no advice grafted onto it", async () => {
-		const { session, team, ctx } = harness({ refuses: "the request was lost" });
+		const { session, team, ctx } = joinHarness(temps, { refuses: "the request was lost" });
 		expect(await joinTeam(session, team, ctx, LABEL)).toEqual({ error: "the request was lost" });
 	});
 });
@@ -346,7 +195,7 @@ describe("teamStatus", () => {
 	test("reads the live record, so a disarm through the bus is not hidden by an old standing", async () => {
 		// The standing says the join armed a watch; the record is what a `join({listen: false})`
 		// rewrote afterwards, and the record is what a peer resolves.
-		const { session, ctx, busDir } = harness({ record: joined({ armed: true, wake: false }) });
+		const { session, ctx, busDir } = joinHarness(temps, { record: joinedStanding({ armed: true, wake: false }) });
 		writeBusRecord(busDir, { id: ID, label: LABEL, lastSeen: NOW, watching: { armed: false, wake: false } });
 		expect(await teamStatus(session, ctx)).toEqual({ label: LABEL, listening: false });
 	});
@@ -354,13 +203,13 @@ describe("teamStatus", () => {
 	test("does not repeat a join the bus no longer holds", async () => {
 		// The record was pruned or the bus stopped: an ok standing is history, and a line that
 		// repeated it would name a team no peer resolves.
-		const { session, ctx } = harness({ record: joined() });
+		const { session, ctx } = joinHarness(temps, { record: joinedStanding() });
 		expect(await teamStatus(session, ctx)).toBeUndefined();
 	});
 
 	test("keeps the standing when the roster cannot be read, which is no answer at all", async () => {
-		const { session, ctx } = harness({
-			record: joined({ armed: false, wake: false }),
+		const { session, ctx } = joinHarness(temps, {
+			record: joinedStanding({ armed: false, wake: false }),
 			roster: async () => {
 				throw new Error("no agent directory");
 			},
@@ -369,20 +218,20 @@ describe("teamStatus", () => {
 	});
 
 	test("falls back to the standing's failure, which is the reason to report", async () => {
-		const { session, ctx } = harness({ record: { ok: false, error: "the session bus is not loaded" } });
+		const { session, ctx } = joinHarness(temps, { record: { ok: false, error: "the session bus is not loaded" } });
 		expect(await teamStatus(session, ctx)).toEqual({ error: "the session bus is not loaded" });
 	});
 
 	test("says nothing when this session has neither asked nor been recorded", async () => {
-		const { session, ctx } = harness();
+		const { session, ctx } = joinHarness(temps);
 		expect(await teamStatus(session, ctx)).toBeUndefined();
 	});
 
 	test("prints the name alone for a record from before the listening field", async () => {
 		// `watching` absent is "the record does not say", not "not listening", and there is no
 		// standing to fill it in: the line must not accuse a peer that may be listening.
-		const { session, ctx, busDir } = harness();
-		recordLive(busDir);
+		const { session, ctx, busDir } = joinHarness(temps);
+		liveRecord(busDir);
 		expect(await teamStatus(session, ctx)).toEqual({ label: LABEL });
 	});
 });
@@ -391,6 +240,6 @@ describe("standingOf", () => {
 	test("maps a refusal to the error clause, an absence to nothing", () => {
 		expect(standingOf(undefined)).toBeUndefined();
 		expect(standingOf({ ok: false, error: "no bus" })).toEqual({ error: "no bus" });
-		expect(standingOf(joined())).toEqual({ label: LABEL, listening: true });
+		expect(standingOf(joinedStanding())).toEqual({ label: LABEL, listening: true });
 	});
 });
