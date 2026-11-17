@@ -423,14 +423,7 @@ export function normalizeBlock(rawKind: unknown, rawNote: unknown): { blocked: C
 	return { blocked: { kind: known, note } };
 }
 
-/**
- * A card id's canonical spelling, which is the file name's without the padding.
- *
- * The store allocates ids from 1 and pads the *name* to four digits, so a record carries
- * `4` and its file is `0004.json`. Every id a caller writes is read as this spelling, so
- * `0004` and `4` are one card — and it stays a digit string rather than going through
- * `Number()`, which would spell a long enough id as `1e+21`.
- */
+/** A card id without the file name's padding: the record carries `4`, its file is `0004.json`. */
 export function canonicalCardId(id: string): string {
 	return id.replace(/^0+(?=\d)/, "");
 }
@@ -445,6 +438,19 @@ export function normalizeCardId(raw: unknown): string | undefined {
 /** The id as everything user-facing writes it. */
 export function cardRef(id: string): string {
 	return `#${id}`;
+}
+
+/** A `card` argument read once: the id every spelling names, or the sentence saying why none. */
+export function cardArg(raw: unknown): { id: string } | { error: string } {
+	if (raw === undefined) return { error: 'card is required: pass the id, e.g. "4".' };
+	const id = normalizeCardId(raw);
+	return id === undefined ? { error: `"${String(raw)}" is not a card id.` } : { id };
+}
+
+/** The ref a call line prints for a `card` argument, and nothing when it names no card. */
+export function cardRefOf(raw: unknown): string {
+	const id = normalizeCardId(raw);
+	return id === undefined ? "" : cardRef(id);
 }
 
 /**

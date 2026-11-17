@@ -13,7 +13,7 @@
  */
 
 import { textResult } from "../../lib/tool-result.ts";
-import { type Card, cardRef, laneSince, normalizeCardId } from "../../lib/workflow/card.ts";
+import { type Card, cardArg, cardRef, laneSince } from "../../lib/workflow/card.ts";
 import { archivableOf } from "../../lib/workflow/round.ts";
 import { plural } from "../../lib/format.ts";
 import type { Actor } from "../../lib/workflow/rules.ts";
@@ -156,8 +156,9 @@ export async function archiveCards(
 		if (args.olderThan !== undefined) {
 			return refusal("archive", me, "`olderThan` sizes a sweep, so it takes no `card`: archive the card by naming it.");
 		}
-		const id = normalizeCardId(args.card);
-		if (id === undefined) return refusal("archive", me, `"${args.card}" is not a card id.`);
+		const arg = cardArg(args.card);
+		if ("error" in arg) return refusal("archive", me, arg.error);
+		const id = arg.id;
 		const result = await store.mutate(id, { kind: "archive" }, me, now);
 		if (!result.ok) return refusal("archive", me, result.error, result.card);
 		// Asked twice is one state, not an error: the card is where the caller wanted it.
