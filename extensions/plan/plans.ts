@@ -404,7 +404,9 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 				throw new Error(`Step ${outOfRange.step} is out of range; ${range}.`);
 			}
 			// The expected text is the guard against a reordered plan: refuse the whole
-			// batch rather than tick the step that moved into that number.
+			// batch rather than tick the step that moved into that number. The sentence names
+			// the plan and quotes both sides as a comparison sees them, since the file's own
+			// line and the stripped copy a caller may hold are the same step.
 			const stale = updates.find((update) => {
 				const step = steps[update.step - 1];
 				return step === undefined || !matchesStepText(step.content, update.expected);
@@ -412,7 +414,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 			if (stale) {
 				const actual = steps[stale.step - 1]?.content;
 				throw new Error(
-					`Step ${stale.step} is no longer "${stale.expected}"; the file now has "${actual ?? "no step"}". Re-read the plan and pass the current step number.`,
+					`Step ${stale.step} no longer reads "${stale.expected}" in ${plan.relativePath}; the plan now reads "${actual ?? "no step"}". Markdown, case and spacing are ignored, so pass the plan's own line for that step.`,
 				);
 			}
 			const updated = setStepStatuses(plan.content, updates);

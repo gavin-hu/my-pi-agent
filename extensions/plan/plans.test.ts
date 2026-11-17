@@ -516,7 +516,7 @@ describe("plan store — setSteps", () => {
 
 		await expect(
 			store.setSteps(root, file.path, [{ step: 2, status: "completed", expected: "Wire it" }]),
-		).rejects.toThrow('Step 2 is no longer "Wire it"; the file now has "Two"');
+		).rejects.toThrow(/Step 2 no longer reads "Wire it"/);
 		expect(readFileSync(file.path, "utf-8")).toBe("## Steps\n- [ ] One\n- [ ] Two");
 	});
 

@@ -1221,7 +1221,7 @@ describe("plan steps", () => {
 		);
 
 		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain('Step 2 is no longer "Wire it"; the file now has "Two"');
+		expect(result.content[0].text).toContain('Step 2 no longer reads "Wire it"');
 		expect(readFileSync(planPath, "utf-8")).toBe("1. One\n2. Two");
 	});
 

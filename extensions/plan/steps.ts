@@ -338,16 +338,29 @@ export interface StepUpdate extends StepEdit {
 }
 
 /**
+ * A step's text as a comparison sees it: the inline markup, case and spacing are a
+ * projection of the words, not part of the step's identity.
+ *
+ * Extraction already projects through `normalizeHeadingText` when it builds a
+ * `PlanStep`, and this is that same projection, so a caller's copy of the plan's own
+ * line and the extracted step meet. A markup-only edit to a step therefore matches the
+ * step it replaced: the guard is positional, so what that admits is a tick on the step
+ * whose words did not change, never a step that moved.
+ */
+export function normalizeStepText(text: string): string {
+	return normalizeHeadingText(text).toLowerCase();
+}
+
+/**
  * Whether the step text now at a number still matches what the caller expected.
  *
- * Both sides are the file's own words: extraction no longer shortens a step, so the guard
- * compares like with like. A caller reading a *shortened* copy — a todo item — compares that
- * copy with {@link elideStep} of the step it means, which is `todos.ts`'s job; widening this
+ * Both sides go through {@link normalizeStepText}, so the plan's own line matches its own
+ * extracted step. A caller reading a *shortened* copy — a todo item — compares that copy
+ * with {@link elideStep} of the step it means, which is `todos.ts`'s job; widening this
  * rule instead would let two steps that share an elision answer for each other.
  */
 export function matchesStepText(actual: string, expected: string): boolean {
-	const normalize = (text: string): string => text.trim().replace(/\s+/g, " ").toLowerCase();
-	return normalize(actual) === normalize(expected);
+	return normalizeStepText(actual) === normalizeStepText(expected);
 }
 
 /**

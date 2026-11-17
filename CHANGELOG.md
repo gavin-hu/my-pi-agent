@@ -27,6 +27,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   call runs (`- key: expected to match ^[A-Za-z0-9._:-]+$`) instead of a session discovering it by
   failing.
 
+### Fixed
+
+- `plan`: a `steps` tick matches each entry's `expected` against the step's own line with its
+  inline markdown, case, and spacing ignored, so the plan's text works as written — and the todo
+  item seeded from that step is ticked instead of reported unmatched. A refused step names the
+  plan file and the text it now reads, instead of quoting a stripped copy as the file's own.
+
 ## [0.28.0] - 2026-11-16
 
 ### Added

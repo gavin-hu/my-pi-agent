@@ -32,7 +32,7 @@ export const StepUpdateParams = Type.Object({
 	}),
 	expected: Type.String({
 		description:
-			"The step's text as it was listed when the plan was approved. A mismatch refuses the whole batch, so a reordered plan is caught instead of mis-ticked.",
+			"The step's text as the plan lists it; inline markdown, case and spacing are ignored. A mismatch refuses the whole batch, so a reordered plan is caught instead of mis-ticked.",
 	}),
 });
 

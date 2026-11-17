@@ -214,6 +214,22 @@ describe("step summary and text match", () => {
 		expect(matchesStepText("Add the cache", "Wire it")).toBe(false);
 	});
 
+	test("matches the plan's own line against the step extraction stripped of its markup", () => {
+		const plan = [
+			"## Steps",
+			"- [ ] Add `ageWords` to `lib/format.ts`",
+			"- [ ] Name **`AGE_WORDS_JS`** in _lib/README.md_",
+		].join("\n");
+		const [first, second] = extractPlanSteps(plan);
+
+		// The line a model reads and passes back carries markup the extraction dropped, and both
+		// sides of the comparison are that one projection, so the file's line matches itself.
+		expect(matchesStepText(first?.content ?? "", "Add `ageWords` to `lib/format.ts`")).toBe(true);
+		expect(matchesStepText(second?.content ?? "", "Name **`AGE_WORDS_JS`** in _lib/README.md_")).toBe(true);
+		// A different word is still a different step.
+		expect(matchesStepText(first?.content ?? "", "Add `ageText` to `lib/format.ts`")).toBe(false);
+	});
+
 	test("does not let two long steps answer for each other", () => {
 		const long = "x".repeat(MAX_STEP_LENGTH + 40);
 		const shown = elideStep(long);

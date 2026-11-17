@@ -220,6 +220,18 @@ describe("plan approval merge", () => {
 		expect(mirror).toMatchObject({ updated: 1, unmatched: 0 });
 	});
 
+	test("mirror ticks the item a marked-up step seeded, matched against the plan's line", () => {
+		const mirror = mirrorStepStatuses(
+			[{ content: "Add ageWords to lib/format.ts", status: "pending" }],
+			[{ step: 1, status: "completed", expected: "Add `ageWords` to `lib/format.ts`" }],
+		);
+
+		// The item holds what extraction stripped; the caller holds the plan's own line. One
+		// projection matches them, which is what stops the mirror reporting a step unmatched.
+		expect(mirror.todos).toEqual([{ content: "Add ageWords to lib/format.ts", status: "completed" }]);
+		expect(mirror).toMatchObject({ updated: 1, unmatched: 0 });
+	});
+
 	test("mirror reopens a completed item, matching regardless of case and spacing", () => {
 		const mirror = mirrorStepStatuses(
 			[{ content: "One", status: "completed" }],

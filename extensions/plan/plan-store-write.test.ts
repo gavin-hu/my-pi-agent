@@ -139,3 +139,42 @@ describe("a save anchored to a revision", () => {
 		expect(saved.content).toContain("> [!REVIEW] right");
 	});
 });
+
+describe("plan store — steps", () => {
+	test("ticks a step written with inline markup from the plan's own line", async () => {
+		const root = tempDir("pi-plan-write-");
+		const store = createPlanStore(planRepoPi(root), { now: () => FIXED });
+		const file = await store.write(root, {
+			title: "Markup",
+			content: "## Steps\n- [ ] Add `ageWords` to `lib/format.ts`\n- [ ] Name `AGE_WORDS_JS` in `lib/README.md`\n",
+		});
+
+		// The line the plan holds, markup and all: extraction strips it, the comparison is that
+		// same projection, and the checkbox edit leaves the step's words exactly as written.
+		const updated = await store.setSteps(root, file.path, [
+			{ step: 1, status: "completed", expected: "Add `ageWords` to `lib/format.ts`" },
+		]);
+
+		expect(updated.content).toContain("- [x] Add `ageWords` to `lib/format.ts`");
+		expect(readFileSync(file.path, "utf-8")).toContain("- [x] Add `ageWords` to `lib/format.ts`");
+	});
+
+	test("refuses a step whose words moved, naming the plan and both texts", async () => {
+		const root = tempDir("pi-plan-write-");
+		const store = createPlanStore(planRepoPi(root), { now: () => FIXED });
+		const file = await store.write(root, {
+			title: "Markup",
+			content: "## Steps\n- [ ] Add `ageWords` to `lib/format.ts`\n",
+		});
+
+		// The whole sentence lives here and nowhere else: a later change to the wording leaves
+		// one red naming this file. The plan is named by the path the caller was given, and a
+		// comparison compares projections, so the stripped copy is what it quotes back.
+		await expect(
+			store.setSteps(root, file.path, [{ step: 1, status: "completed", expected: "Add `ageText` to `lib/format.ts`" }]),
+		).rejects.toThrow(
+			`Step 1 no longer reads "Add \`ageText\` to \`lib/format.ts\`" in ${file.relativePath}; the plan now reads "Add ageWords to lib/format.ts". Markdown, case and spacing are ignored, so pass the plan's own line for that step.`,
+		);
+		expect(readFileSync(file.path, "utf-8")).toBe("## Steps\n- [ ] Add `ageWords` to `lib/format.ts`\n");
+	});
+});
