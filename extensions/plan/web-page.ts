@@ -115,6 +115,11 @@ export const REVIEW_CSS = pageSheet(
 .review-hints .bf-kbd{margin:0 1px}
 /* The document: one measure, centred, with a comment rail in its left margin. */
 .bf-review>.bf-block{position:relative;width:100%;max-width:var(--review-measure);margin:0 auto;padding:3px 8px 3px var(--review-gutter);border-radius:var(--radius-md);overflow-wrap:break-word}
+/* The kit gaps one list from the next, which would put a blank line between every two steps: a
+   run is drawn item by block, so its items sit flush and the gap belongs to the item that ends
+   the run. */
+.bf-review>.bf-block[data-kind="list"]>ul,.bf-review>.bf-block[data-kind="list"]>ol{margin:0}
+.bf-review>.bf-block[data-run-end]>ul,.bf-review>.bf-block[data-run-end]>ol{margin:0 0 1em}
 .bf-block[id]{scroll-margin-top:88px}
 .bf-block__rail{position:absolute;left:0;top:6px;display:flex;flex-direction:column;align-items:center;gap:6px;width:var(--review-rail)}
 .bf-block__add{appearance:none;width:22px;height:22px;min-width:22px;padding:0;border:1px solid var(--border);border-radius:var(--radius-badge);background:var(--surface);color:var(--muted);font:var(--fs-md)/1 var(--font-ui);cursor:pointer;opacity:0;transition:opacity var(--motion-fast) var(--motion-ease)}
