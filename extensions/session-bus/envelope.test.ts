@@ -17,7 +17,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { scratchDir } from "../../test/helpers/env.ts";
 import { busToolSession as session, joinBusSession as joins } from "../../test/helpers/fixtures/session-bus-tool.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { normalizeKey, normalizeReplyTo } from "./protocol.ts";
+import { MAX_REFERENCE, normalizeAbout, normalizeKey, normalizeReplyTo } from "./protocol.ts";
 import { SessionParams } from "./tools.ts";
 
 const temps = makeTempTracker();
@@ -107,5 +107,13 @@ describe("a message's references", () => {
 		// `about` publishes a length and no alphabet: its spelling belongs to the domain that made it.
 		expect(about.pattern).toBeUndefined();
 		expect(about.maxLength).toBe(key.maxLength);
+		// The caps agree too: one word over the limit is refused by the guards, and the number the
+		// schema publishes is the one they refuse at — the pattern alone would let it through.
+		const over = "x".repeat(MAX_REFERENCE + 1);
+		expect("error" in normalizeKey(over)).toBe(true);
+		expect("error" in normalizeReplyTo(over)).toBe(true);
+		expect("error" in normalizeAbout(over)).toBe(true);
+		expect(key.maxLength).toBe(MAX_REFERENCE);
+		expect(about.maxLength).toBe(MAX_REFERENCE);
 	});
 });

@@ -9,7 +9,7 @@
 import { clipText, plural, sanitizeLine } from "../../lib/format.ts";
 import { burstText, noticeMessage, type NoticeItem, type NoticeMessage } from "../../lib/notice.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { HANDOFF_PREVIEW, messageMeta, messagePaths } from "./format.ts";
+import { HANDOFF_PREVIEW, messageMeta, messagePaths, metaField } from "./format.ts";
 import type { BusMessage } from "./types.ts";
 
 /** Marker embedded in the injected mail context. */
@@ -59,7 +59,7 @@ export function mailNotice(messages: BusMessage[]): NoticeMessage {
 	const shown = messages.slice(0, MAX_NOTICE_LINES);
 	const more = count - shown.length;
 	const items: NoticeItem[] = messages.map((message) => ({
-		label: `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}`,
+		label: `${metaField(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}`,
 		detail: sanitizeLine(message.text).slice(0, MAX_PREVIEW),
 		severity: message.kind === "event" ? "warn" : "info",
 	}));

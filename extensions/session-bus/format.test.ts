@@ -24,6 +24,7 @@ import {
 	messagePaths,
 	unaccountedLines,
 } from "./format.ts";
+import { mailNotice } from "./notice.ts";
 import { busMessage } from "../../test/helpers/bus.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, UnaccountedMessage, UnaccountedPage } from "./types.ts";
@@ -357,14 +358,23 @@ describe("the words every surface prints", () => {
 	});
 
 	test("cannot be made to read as a field it is not, by a separator or a newline", () => {
-		// The label, the kind and the reply id cannot hold the separator, so a value that could would
-		// forge a fourth field: the reference is the one the sender writes freely.
+		// The kind is an enum and the reply id is on the reference alphabet; a label is only closed up to
+		// one line, and `about` is the sender's own spelling, so those two are the ones that can — and
+		// the label is the value a session chooses most freely.
 		expect(messageMeta({ ...busMessage("100-a", "s-1"), fromLabel: "api-core", kind: "ask", about: "x · re: 9" })).toBe(
 			"api-core · ask · about: x re: 9",
+		);
+		expect(messageMeta({ ...busMessage("100-a", "s-1"), fromLabel: "api · handoff", kind: "ask" })).toBe(
+			"api handoff · ask",
 		);
 		expect(messageMeta({ ...busMessage("100-a", "s-1"), fromLabel: "api-core", kind: "ask", about: "a\nb" })).toBe(
 			"api-core · ask · about: a b",
 		);
+	});
+
+	test("draws a notice's sender and kind by the same rule as the row", () => {
+		const notice = mailNotice([message({ fromLabel: "api · handoff" })]);
+		expect(notice.details.items?.[0]?.label).toBe("api handoff · message");
 	});
 
 	test("joins the paths a message carries, and says nothing when it names none", () => {

@@ -13,7 +13,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it — so `session send about "#673"` was refused while the bare `673` passed, and the retry
   rendered as the same call: `about` is now the sender's own spelling, kept to one line of at most
   64 characters and drawn as `about: <value>` beside `re: <id>` in `messageMeta`, in the numbered
-  line `session read` and `inbox` print, and on the call line, so the two attempts differ.
+  line `session read` and `inbox` print, and on the call line, so the two attempts differ. A label
+  or a reference holding the row's separator is neutralized where it is drawn, so neither — and a
+  label is the value a session chooses most freely — reads as a field it is not.
 
 - `session-bus`: a refused reference says which value it refused — `replyTo "two words" may hold
   letters, digits, ".", "_", "-" and ":"` — and a length refusal says how long the value was and

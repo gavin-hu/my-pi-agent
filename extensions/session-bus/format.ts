@@ -18,21 +18,23 @@ import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus,
 const SEPARATOR_GLYPH = SEPARATORS.item.trim();
 
 /**
- * A reference echoed inside the meta grammar.
+ * One field of the meta grammar.
  *
- * Sanitized like any other text another session wrote — and with the separator taken out, because
- * the label, the kind and the reply id cannot hold one: a value that could would read as a field it
- * is not. This is the guard an alphabet used to be, put where the forgery would happen.
+ * Sanitized like any other text another session wrote, and with the separator taken out: the kind is
+ * an enum and `replyTo` is on the reference alphabet, but a label is only closed up to one line
+ * (`normalizeLabel`) and `about` is the sender's own spelling — so those two can hold the glyph,
+ * and either would otherwise read as a field it is not. Exported because the notice builds the same
+ * `label · kind` pair and must not answer the question differently.
  */
-function fieldText(value: string): string {
+export function metaField(value: string): string {
 	return sanitizeLine(value.split(SEPARATOR_GLYPH).join(""));
 }
 
 /** The sender and the kind, and the references the message carries: `api-core · handoff`. */
 export function messageMeta(message: BusMessage): string {
-	const answered = message.replyTo === undefined ? "" : `${SEPARATORS.item}re: ${fieldText(message.replyTo)}`;
-	const about = message.about === undefined ? "" : `${SEPARATORS.item}about: ${fieldText(message.about)}`;
-	return `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}${answered}${about}`;
+	const answered = message.replyTo === undefined ? "" : `${SEPARATORS.item}re: ${metaField(message.replyTo)}`;
+	const about = message.about === undefined ? "" : `${SEPARATORS.item}about: ${metaField(message.about)}`;
+	return `${metaField(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}${answered}${about}`;
 }
 
 /** The paths a message carries, sanitized and joined, or an empty string when it names none. */
