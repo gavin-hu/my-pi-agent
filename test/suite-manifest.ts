@@ -171,6 +171,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"web-share-links",
 		"web-shared-review",
 		"web-stream",
+		"web-switch",
 		"web-tokens",
 		"web-view",
 		"commands",

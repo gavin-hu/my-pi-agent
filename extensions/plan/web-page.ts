@@ -98,7 +98,14 @@ export const REVIEW_CSS = pageSheet(
 .review-fact__value{color:var(--text);font-family:var(--font-ui);font-variant-numeric:tabular-nums}
 .review-view{display:flex}
 .review-view .bf-tabs__item{flex:1 1 auto;justify-content:center}
-.review-view .bf-tabs__item:disabled{opacity:.5;cursor:default}
+/* The page's switch fills its segment when pressed. The kit's tabs say it in colour and
+   weight alone, which is the right quiet for three links; this control redraws the whole
+   document, so the segment the reader pressed has to be findable at a glance. */
+.review-view .bf-tabs__item[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+/* The count of what the view hid, beside the switch that hid it: a filtered plan that reads
+   as a short one is the defect, and this is the fact that undoes it. */
+.review-note{margin:0;color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-relaxed)}
+.review-note:empty{display:none}
 .review-nav{min-width:0}
 .review-nav__title{margin:0;font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted)}
 .review-nav ul{list-style:none;margin:0;padding:0}
@@ -107,6 +114,10 @@ export const REVIEW_CSS = pageSheet(
 .review-nav a[aria-current="true"]{background:var(--accent-soft);color:var(--text);font-weight:var(--fw-semibold)}
 .review-nav__link{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-nav__count{flex:0 0 auto;min-width:18px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--accent);font:var(--fs-xs)/18px var(--font-ui);text-align:center}
+/* A section that shrank since the last review: how many blocks it no longer holds. Same badge
+   as the comment count, quieter, because it is a fact about the document rather than something
+   to read. */
+.review-nav__removed{flex:0 0 auto;min-width:18px;padding:0 5px;border-radius:var(--radius-badge);background:var(--accent-soft);color:var(--muted);font:var(--fs-xs)/18px var(--font-ui);text-align:center}
 .review-changed{flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .review-nav .lvl-2 a{padding-left:18px}
 .review-nav .lvl-3 a{padding-left:30px}
@@ -175,7 +186,7 @@ ${collapsedShell(
 @media print{
 .bf-review{padding:0}
 .bf-review>.bf-block{max-width:none;padding:0 0 6px}
-.bf-block__rail,.bf-composer,.bf-block__add,.review-view{display:none}
+.bf-block__rail,.bf-composer,.bf-block__add,.review-view,.review-note{display:none}
 /* A printed review is the whole plan, never the view the reader had on screen: the
    base layer's hidden rule is !important, so the un-hide has to be too, and a thread
    the filter hid on screen goes back under its block. */
@@ -300,6 +311,7 @@ ${reviewFacts(data.role)}
 <button type="button" class="bf-tabs__item" data-view="changed" aria-pressed="false">Changed</button>
 <button type="button" class="bf-tabs__item" data-view="comments" aria-pressed="false">Comments</button>
 </div>
+<p class="review-note" id="review-note" aria-live="polite"></p>
 <nav class="review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
 ${reviewHints(data.role, data.canApprove)}
 </div>

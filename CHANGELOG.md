@@ -36,6 +36,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: the browser review's view switch counts what it hid under the control it pressed, and the
+  count no longer outlives its view — it went to the header's status line and nothing cleared it, so
+  returning to All read `Showing 62 of 79 blocks` above all 79 of them. A view that matched no
+  prose (a plan unchanged since the last review, a plan with no comment) keeps the document whole
+  and now says which nothing it found — nothing changed, or only headings did — instead of looking
+  like a filter that selected everything; the pressed segment is filled rather than coloured text,
+  and a section that shrank shows its removed count where it used to keep it in a tooltip.
+
 - `plan`: a run of steps or risks in the review page is one block per item again, each drawing its
   own item, so the page no longer leaves an empty block under every item — a nine-step list put a
   band of blank rows between the list and the heading after it, and the comment control, badge,
