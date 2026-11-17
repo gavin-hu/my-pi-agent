@@ -25,6 +25,7 @@ import {
 	unaccountedLines,
 } from "./format.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
+import { mailNotice } from "./notice.ts";
 import { busMessage } from "../../test/helpers/bus.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, UnaccountedMessage, UnaccountedPage } from "./types.ts";
@@ -197,6 +198,11 @@ describe("inbox", () => {
 		expect(read.shown).toBe(2);
 	});
 
+	test("carries a message's references in the words the row uses", () => {
+		const read = formatInbox([message({ replyTo: "a1b2c3d4", about: "#673" })]);
+		expect(read.text.split("\n")[0]).toBe("1. frontend · message · re: a1b2c3d4 · about: #673 · contract v2");
+	});
+
 	test("says empty rather than printing a blank block", () => {
 		expect(formatInbox([])).toEqual({ text: "Inbox empty.", shown: 0 });
 	});
@@ -344,6 +350,38 @@ describe("the words every surface prints", () => {
 		expect(messageMeta({ ...busMessage("100-a", "s-1"), fromLabel: "api-core", kind: "ask", replyTo: "a1\nb2" })).toBe(
 			"api-core · ask · re: a1 b2",
 		);
+	});
+
+	test("says what a message is about, in the sender's own spelling", () => {
+		expect(
+			messageMeta({
+				...busMessage("100-a", "s-1"),
+				fromLabel: "api-core",
+				kind: "ask",
+				replyTo: "a1b2c3",
+				about: "#673",
+			}),
+		).toBe("api-core · ask · re: a1b2c3 · about: #673");
+	});
+
+	test("cannot be made to read as a field it is not, by a separator or a newline", () => {
+		// The kind is an enum and the reply id is on the reference alphabet; a label is only closed up to
+		// one line, and `about` is the sender's own spelling, so those two are the ones that can — and
+		// the label is the value a session chooses most freely.
+		expect(messageMeta({ ...busMessage("100-a", "s-1"), fromLabel: "api-core", kind: "ask", about: "x · re: 9" })).toBe(
+			"api-core · ask · about: x re: 9",
+		);
+		expect(messageMeta({ ...busMessage("100-a", "s-1"), fromLabel: "api · handoff", kind: "ask" })).toBe(
+			"api handoff · ask",
+		);
+		expect(messageMeta({ ...busMessage("100-a", "s-1"), fromLabel: "api-core", kind: "ask", about: "a\nb" })).toBe(
+			"api-core · ask · about: a b",
+		);
+	});
+
+	test("draws a notice's sender and kind by the same rule as the row", () => {
+		const notice = mailNotice([message({ fromLabel: "api · handoff" })]);
+		expect(notice.details.items?.[0]?.label).toBe("api handoff · message");
 	});
 
 	test("joins the paths a message carries, and says nothing when it names none", () => {

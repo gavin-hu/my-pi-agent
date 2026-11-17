@@ -71,7 +71,10 @@ export interface SessionBus {
 		key?: unknown;
 		/** The message or ask this one answers, as one word. */
 		replyTo?: unknown;
-		/** What the message is about — a card id, in the workflow's use. */
+		/**
+		 * What the message is about: the sender's own spelling for it — a card's `#673`, a branch, a
+		 * phrase — in one line of at most 64 characters.
+		 */
 		about?: unknown;
 		paths?: unknown;
 	}): Promise<{ delivered: string[]; failed: DeliveryFailure[]; messageId: string }>;

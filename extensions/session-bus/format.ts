@@ -15,10 +15,27 @@ import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { shortId } from "./protocol.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
-/** The sender and the kind, as every surface names a message: `api-core · handoff`. */
+/** The separator as a glyph, for the scan that neutralizes it inside a value. */
+const SEPARATOR_GLYPH = SEPARATORS.item.trim();
+
+/**
+ * One field of the meta grammar.
+ *
+ * Sanitized like any other text another session wrote, and with the separator taken out: the kind is
+ * an enum and `replyTo` is on the reference alphabet, but a label is only closed up to one line
+ * (`normalizeLabel`) and `about` is the sender's own spelling — so those two can hold the glyph,
+ * and either would otherwise read as a field it is not. Exported because the notice builds the same
+ * `label · kind` pair and must not answer the question differently.
+ */
+export function metaField(value: string): string {
+	return sanitizeLine(value.split(SEPARATOR_GLYPH).join(""));
+}
+
+/** The sender and the kind, and the references the message carries: `api-core · handoff`. */
 export function messageMeta(message: BusMessage): string {
-	const answered = message.replyTo === undefined ? "" : `${SEPARATORS.item}re: ${sanitizeLine(message.replyTo)}`;
-	return `${sanitizeLine(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}${answered}`;
+	const answered = message.replyTo === undefined ? "" : `${SEPARATORS.item}re: ${metaField(message.replyTo)}`;
+	const about = message.about === undefined ? "" : `${SEPARATORS.item}about: ${metaField(message.about)}`;
+	return `${metaField(message.fromLabel)}${SEPARATORS.item}${sanitizeLine(message.kind)}${answered}${about}`;
 }
 
 /** The paths a message carries, sanitized and joined, or an empty string when it names none. */
@@ -110,7 +127,7 @@ export function unaccountedLines(page: UnaccountedPage, now: number): string[] {
 	for (const { message, at } of page.messages.slice(0, UNACCOUNTED_LINES)) {
 		const preview = clipText(sanitizeLine(message.text), UNACCOUNTED_PREVIEW);
 		lines.push(
-			`- ${sanitizeLine(message.id)} \u00b7 ${sanitizeLine(message.fromLabel)} \u00b7 ${sanitizeLine(message.kind)} \u00b7 ${ageText(now, at)} \u00b7 ${preview}`,
+			`- ${sanitizeLine(message.id)}${SEPARATORS.item}${messageMeta(message)}${SEPARATORS.item}${ageText(now, at)}${SEPARATORS.item}${preview}`,
 		);
 	}
 	const rest = page.count - Math.min(page.messages.length, UNACCOUNTED_LINES);
@@ -183,9 +200,9 @@ function inboxLine(message: BusMessage, index: number): string {
 	const paths = message.paths?.length
 		? `\n   paths: ${message.paths.map((path) => sanitizeLine(path)).join(", ")}`
 		: "";
-	const from = sanitizeLine(message.fromLabel);
-	const body = sanitizeLine(message.text);
-	return `${index + 1}. ${from} · ${sanitizeLine(message.kind)} · ${body}${paths}`;
+	// The same grammar the transcript row and the notice use, so a reference reaches the model's
+	// read as it reaches a screen — this line hand-built `from · kind` and dropped both.
+	return `${index + 1}. ${messageMeta(message)}${SEPARATORS.item}${sanitizeLine(message.text)}${paths}`;
 }
 
 /**

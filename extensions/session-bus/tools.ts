@@ -15,14 +15,25 @@ import { notDeliveredLine, sendOutcome } from "../../lib/session-tool.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
+import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { formatClaim, formatInbox, formatJoin, formatRead, formatRelease, formatSend, formatStatus } from "./format.ts";
-import { normalizeAction, normalizeLimit, TOOL_NAME } from "./protocol.ts";
+import { normalizeAction, normalizeLimit, MAX_REFERENCE, REFERENCE_PATTERN, TOOL_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 import { collapsedLine, resultSections } from "./result.ts";
 import type { BusRow } from "./rows.ts";
 import type { SessionDetails } from "./types.ts";
 
 export { TOOL_NAME };
+
+/**
+ * The reference rules, as the schema states them.
+ *
+ * A schema is not decoration: Pi validates a tool call's arguments against it before `execute`,
+ * so `key` and `replyTo` are refused here — before any record is touched — with the same pattern
+ * `normalizeKey`/`normalizeReplyTo` hold. `about` gets the length and nothing else, because its
+ * alphabet belongs to whatever built the id.
+ */
+const REFERENCE_SCHEMA = { maxLength: MAX_REFERENCE, pattern: REFERENCE_PATTERN.source } as const;
 
 export const SessionParams = Type.Object({
 	action: StringEnum(["status", "send", "inbox", "read", "claim", "release", "join"] as const, {
@@ -37,12 +48,17 @@ export const SessionParams = Type.Object({
 	),
 	key: Type.Optional(
 		Type.String({
-			description:
-				"With send: a resend with the same key, kind and text folds into the copy still waiting; one word, at most 64.",
+			description: "With send: the same key, kind and text folds into the copy still waiting.",
+			...REFERENCE_SCHEMA,
 		}),
 	),
-	replyTo: Type.Optional(Type.String({ description: "With send: the id this answers." })),
-	about: Type.Optional(Type.String({ description: "With send: what it is about, e.g. a card." })),
+	replyTo: Type.Optional(Type.String({ description: "With send: the id this answers.", ...REFERENCE_SCHEMA })),
+	about: Type.Optional(
+		Type.String({
+			description: "With send: what it is about — a card's `#673`, a branch, a phrase; one line.",
+			maxLength: MAX_REFERENCE,
+		}),
+	),
 	paths: Type.Optional(
 		Type.Array(Type.String(), { description: "Repo-relative paths to claim or release; at most 20." }),
 	),
@@ -62,11 +78,11 @@ export const SessionParams = Type.Object({
 
 type SessionArgs = Static<typeof SessionParams>;
 
-/** What the tool is and what it guarantees: the verbs and their objects, and the delivery rule. */
+/** What the tool is and what it guarantees: the verbs and their objects. */
 export const SESSION_DESCRIPTION =
-	"Coordinate parallel Pi sessions on this repository: `status` (sessions, unread, claims), " +
+	"Coordinate parallel Pi sessions: `status` (sessions, unread, claims), " +
 	"`send` (a label/id, or `*` for an event), `inbox`/`read` (consume/show), `claim`/`release` (paths), " +
-	"`join` (listening; `wake` raises a turn). Delivery is pull-based unless this session is listening.";
+	"`join` (listening; `wake` raises a turn).";
 
 /** The one line in the system prompt's tools list, not a copy of the description. */
 export const SESSION_SNIPPET = "Coordinate parallel sessions: status, send, read, inbox, claim, release, join.";
@@ -90,8 +106,18 @@ function callSubject(action: string, args: Record<string, unknown>): string {
 		return label ? `join ${label}` : "join";
 	}
 	if (action === "send") {
-		const to = typeof args.to === "string" ? args.to : "";
-		return to ? `send ${to}` : "send";
+		const to = typeof args.to === "string" ? args.to.trim() : "";
+		// The envelope rides the call line, because a reference is the one field a retry changes: two
+		// sends that differ only in `about` used to render as the same call, one refused and one not.
+		const parts = [to === "" ? "send" : `send ${to}`];
+		for (const [field, raw] of [
+			["about", args.about],
+			["re", args.replyTo],
+			["key", args.key],
+		] as const) {
+			if (typeof raw === "string" && raw.trim() !== "") parts.push(`${field}: ${raw.trim()}`);
+		}
+		return parts.join(` ${SEPARATORS.item} `);
 	}
 	if (action !== "claim" && action !== "release") return action;
 	const paths = Array.isArray(args.paths) ? args.paths.filter((path): path is string => typeof path === "string") : [];

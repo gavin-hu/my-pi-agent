@@ -46,11 +46,11 @@ confirmation. It joins nothing by itself.
 
 ## Reference
 
-**Actions.** `session status` reads the bus without joining it; `session send` writes one
-message per recipient, reporting any it could not reach — a `key` folds a resend into the
-copy still waiting, `replyTo` names the message it answers, `about` what it concerns; `session
-read` keeps what it shows where `session inbox` consumes it; `session claim`/`release` hold and
-drop path claims; `session join` puts this session on the bus with a label, `wake` and `listen`.
+**Actions.** `session status` reads without joining; `session send` writes one message per
+recipient — a `key` folds a resend into the waiting copy, `replyTo` names the message it answers,
+and `about` is what it concerns, in the sender's own spelling (a card's `#673`), printed beside
+`re: <id>`; `session claim`/`release` hold and drop claims; `session join` puts this session on
+the bus, with `wake` and `listen`.
 
 **Message kinds.** `message`, `event`, `ask`, and `handoff`. An `ask` does not
 block the sender; a `handoff` names the work it assigns. A message may carry the

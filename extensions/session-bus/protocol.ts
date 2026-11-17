@@ -6,7 +6,7 @@
  */
 
 import { isAbsolute, relative, resolve, sep } from "node:path";
-import { EMPTY_PATH, outsideRepository, tooManyPaths } from "../../lib/format.ts";
+import { EMPTY_PATH, outsideRepository, overLimit, sanitizeLine, tooManyPaths } from "../../lib/format.ts";
 import { MESSAGE_KINDS, type MessageKind } from "../../lib/session-mail.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SESSION_TOOL } from "../../lib/tool-names.ts";
@@ -65,37 +65,102 @@ export function normalizeText(raw: unknown): { text: string } | { error: string 
 	return { text };
 }
 
-/** The longest key a sender may name a message with. */
-const MAX_KEY = 64;
+/** The longest a reference may be, and the longest key a sender may name a message with. */
+export const MAX_REFERENCE = 64;
 
-/** What a key may hold, so it is one word a person can retype. */
-const KEY_PATTERN = /^[A-Za-z0-9._:-]+$/;
+/**
+ * What a one-word reference may hold, so it is a word a person can retype.
+ *
+ * Exported because the tool's schema publishes it: the host refuses a bad `key` or `replyTo`
+ * before the call runs, while the guards below stay the boundary for the request path a command
+ * takes. One pattern with two readers, so the published rule cannot say something else.
+ */
+export const REFERENCE_PATTERN = /^[A-Za-z0-9._:-]+$/;
+
+/** The pattern above, as a refusal says it. */
+const REFERENCE_ALPHABET = 'letters, digits, ".", "_", "-" and ":"';
 
 /** A sender's name for one message, or an error; absent when it gave none. */
 export function normalizeKey(raw: unknown): { key?: string } | { error: string } {
 	if (typeof raw !== "string" || raw.trim() === "") return {};
 	const key = raw.trim();
-	if (key.length > MAX_KEY) return { error: `key must be at most ${MAX_KEY} characters.` };
-	if (!KEY_PATTERN.test(key)) return { error: 'key may hold letters, digits, ".", "_", "-" and ":".' };
+	if (key.length > MAX_REFERENCE) return { error: overLimit("key", key.length, MAX_REFERENCE) };
+	if (!REFERENCE_PATTERN.test(key)) return { error: `key "${sanitizeLine(key)}" may hold ${REFERENCE_ALPHABET}.` };
 	return { key };
 }
 
-/** The two references a message may carry, and the field each is written in. */
-export type MessageReference = "replyTo" | "about";
+/** An id one message answers, or an error; absent when the sender answered nothing. */
+export function normalizeReplyTo(raw: unknown): { value?: string } | { error: string } {
+	if (raw === undefined) return {};
+	if (typeof raw !== "string" || raw.trim() === "") return { error: "replyTo must be a non-empty string." };
+	const value = raw.trim();
+	if (value.length > MAX_REFERENCE) return { error: overLimit("replyTo", value.length, MAX_REFERENCE) };
+	if (!REFERENCE_PATTERN.test(value)) {
+		return { error: `replyTo "${sanitizeLine(value)}" may hold ${REFERENCE_ALPHABET}.` };
+	}
+	return { value };
+}
 
 /**
- * A reference a message carries — an id that answers one, or the thing it is about — or an error.
+ * What a message is about, or an error; absent when the sender said nothing.
  *
- * One word in the same alphabet as `key`, because these are ids other sessions built and a reader
- * retypes them: a value with whitespace in it would be a sentence the bus pretends is an id.
+ * Deliberately not on {@link REFERENCE_PATTERN}: `about` names something another domain built — a
+ * card is `#673` on the board, which is the spelling `cardRef` prints and `normalizeCardId` reads
+ * back — so the bus carries the sender's own spelling rather than a vocabulary of its own. What
+ * one line of it may be is all this settles: sanitized (control characters out, newlines closed
+ * up, spaces collapsed) and bounded, because it is stored on a message and drawn on a row.
  */
-export function normalizeReference(field: MessageReference, raw: unknown): { value?: string } | { error: string } {
+export function normalizeAbout(raw: unknown): { value?: string } | { error: string } {
 	if (raw === undefined) return {};
-	if (typeof raw !== "string" || raw.trim() === "") return { error: `${field} must be a non-empty string.` };
-	const value = raw.trim();
-	if (value.length > MAX_KEY) return { error: `${field} must be at most ${MAX_KEY} characters.` };
-	if (!KEY_PATTERN.test(value)) return { error: `${field} may hold letters, digits, ".", "_", "-" and ":".` };
+	const value = typeof raw === "string" ? sanitizeLine(raw) : "";
+	if (value === "") return { error: "about must be a non-empty string." };
+	if (value.length > MAX_REFERENCE) return { error: overLimit("about", value.length, MAX_REFERENCE) };
 	return { value };
+}
+
+/** A send's words once they are settled: what the envelope will carry, in the order it says them. */
+export interface SendFields {
+	text: string;
+	kind: MessageKind;
+	key?: string;
+	replyTo?: string;
+	about?: string;
+}
+
+/**
+ * Settle a send's own words — its body, kind, and the three references — or say why not.
+ *
+ * One body, because these five are one envelope and their refusals are one answer: a caller that
+ * settled them apart would have to keep the order and the sentences, and `runtime.send` would be
+ * the second copy. Only what the bus cannot check — who the recipients are — stays outside.
+ */
+export function settleSend(input: {
+	to: string;
+	text: string;
+	kind?: unknown;
+	key?: unknown;
+	replyTo?: unknown;
+	about?: unknown;
+}): { fields: SendFields } | { error: string } {
+	const text = normalizeText(input.text);
+	if ("error" in text) return { error: text.error };
+	const keyed = normalizeKey(input.key);
+	if ("error" in keyed) return { error: keyed.error };
+	const replyTo = normalizeReplyTo(input.replyTo);
+	if ("error" in replyTo) return { error: replyTo.error };
+	const about = normalizeAbout(input.about);
+	if ("error" in about) return { error: about.error };
+	const kind = normalizeKind(input.kind);
+	if (input.to.trim() === "*" && kind !== "event") return { error: 'a broadcast needs kind: "event".' };
+	return {
+		fields: {
+			text: text.text,
+			kind,
+			...(keyed.key === undefined ? {} : { key: keyed.key }),
+			...(replyTo.value === undefined ? {} : { replyTo: replyTo.value }),
+			...(about.value === undefined ? {} : { about: about.value }),
+		},
+	};
 }
 
 /** A shared inbox limit. */
