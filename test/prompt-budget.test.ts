@@ -148,9 +148,10 @@ describe("the session tool surface", () => {
 		// said: `action` was word-for-word the enum, `limit` claimed `read` consumes, and `key`
 		// described a fold that its own rule (the same key) did not allow. The four that gained a
 		// fact were paid for by the description and by three `join`/`send` parameters that
-		// repeated their own verb line. 2,126 today, and the ceiling is measured rather than
-		// quoted, so the next addition has to pay for itself the same way.
-		expect(sessionSurface()).toBeLessThanOrEqual(2_126);
+		// repeated their own verb line. 2,116 today, after `about` stopped being held to an
+		// alphabet: the schema now publishes the one `key` and `replyTo` keep, and the
+		// description's delivery line — which the first guideline already says — paid for it.
+		expect(sessionSurface()).toBeLessThanOrEqual(2_116);
 		// The prose and the schema cannot drift apart: every verb a caller can pass is one the
 		// description tells it about.
 		for (const action of ["status", "send", "inbox", "read", "claim", "release", "join"]) {

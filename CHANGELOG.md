@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `session-bus`: `about` takes what a sender has. The reference was held to `key`'s alphabet, which
+  excludes the board's own `#673` — `normalizeCardId` reads that spelling back and `cardRef` prints
+  it — so `session send about "#673"` was refused while the bare `673` passed, and the retry
+  rendered as the same call: `about` is now the sender's own spelling, kept to one line of at most
+  64 characters and drawn as `about: <value>` beside `re: <id>` in `messageMeta`, in the numbered
+  line `session read` and `inbox` print, and on the call line, so the two attempts differ.
+
+- `session-bus`: a refused reference says which value it refused — `replyTo "two words" may hold
+  letters, digits, ".", "_", "-" and ":"` — and a length refusal says how long the value was and
+  how much to trim (`about is 65 characters; the limit is 64 — trim 1.`). The tool's schema now
+  publishes the `key`/`replyTo` alphabet and both caps, so Pi refuses a bad reference before the
+  call runs (`- key: expected to match ^[A-Za-z0-9._:-]+$`) instead of a session discovering it by
+  failing.
+
 ## [0.28.0] - 2026-11-16
 
 ### Added

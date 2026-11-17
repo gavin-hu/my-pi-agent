@@ -1,15 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import {
 	defaultLabel,
+	normalizeAbout,
 	normalizeAction,
 	normalizeKind,
 	normalizeLabel,
 	normalizeLimit,
 	normalizePaths,
-	normalizeReference,
+	normalizeReplyTo,
 	normalizeText,
 	resolveRecipients,
 	sessionMode,
+	settleSend,
 	shortId,
 } from "./protocol.ts";
 
@@ -44,18 +46,40 @@ describe("validation", () => {
 		expect(normalizeText("   ")).toEqual({ error: "text is required." });
 		expect(normalizeText("x".repeat(4_001))).toHaveProperty("error");
 	});
-	test("takes a reference id as one word, on the same alphabet as a key", () => {
-		expect(normalizeReference("replyTo", undefined)).toEqual({});
-		expect(normalizeReference("replyTo", "  a1b2c3  ")).toEqual({ value: "a1b2c3" });
-		expect(normalizeReference("about", "4")).toEqual({ value: "4" });
-		// The field is named, because two references can be wrong in the same call.
-		expect(normalizeReference("about", "two words")).toEqual({
-			error: 'about may hold letters, digits, ".", "_", "-" and ":".',
+	test("takes a reply id as one word, on the same alphabet as a key", () => {
+		expect(normalizeReplyTo(undefined)).toEqual({});
+		expect(normalizeReplyTo("  a1b2c3  ")).toEqual({ value: "a1b2c3" });
+		expect(normalizeReplyTo("board.667")).toEqual({ value: "board.667" });
+		// The value is named, because a sentence listing only the alphabet sends the sender hunting.
+		expect(normalizeReplyTo("two words")).toEqual({
+			error: 'replyTo "two words" may hold letters, digits, ".", "_", "-" and ":".',
 		});
-		expect(normalizeReference("replyTo", "x".repeat(65))).toEqual({
-			error: "replyTo must be at most 64 characters.",
+		expect(normalizeReplyTo("x".repeat(65))).toEqual({
+			error: "replyTo is 65 characters; the limit is 64 — trim 1.",
 		});
-		expect(normalizeReference("about", "   ")).toEqual({ error: "about must be a non-empty string." });
+		expect(normalizeReplyTo("   ")).toEqual({ error: "replyTo must be a non-empty string." });
+	});
+	test("takes what a message is about as one line, in the sender's own spelling", () => {
+		expect(normalizeAbout(undefined)).toEqual({});
+		// The board's own spelling of a card — the value `about`'s description invites.
+		expect(normalizeAbout("#673")).toEqual({ value: "#673" });
+		expect(normalizeAbout("  dev stack restart  ")).toEqual({ value: "dev stack restart" });
+		// One line, because a message row is one line: what is stored is already what is drawn.
+		expect(normalizeAbout("a\nb")).toEqual({ value: "a b" });
+		expect(normalizeAbout("x".repeat(65))).toEqual({
+			error: "about is 65 characters; the limit is 64 — trim 1.",
+		});
+		expect(normalizeAbout("   ")).toEqual({ error: "about must be a non-empty string." });
+	});
+	test("settles a send's own words in one place, refusing the first that is wrong", () => {
+		expect(settleSend({ to: "backend", text: "  hi  ", kind: "ask", about: "#673" })).toEqual({
+			fields: { text: "hi", kind: "ask", about: "#673" },
+		});
+		// The rule that needs the addressee lives here too, after the words it is about.
+		expect(settleSend({ to: "*", text: "hi", kind: "message" })).toEqual({
+			error: 'a broadcast needs kind: "event".',
+		});
+		expect(settleSend({ to: "backend", text: "   " })).toEqual({ error: "text is required." });
 	});
 	test("clamps the inbox limit", () => {
 		expect(normalizeLimit(undefined)).toBe(20);
