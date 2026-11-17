@@ -60,6 +60,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"input",
 		"kind",
 		"landing",
+		"lead-gate",
 		"plan-gone",
 		"record",
 		"recipient",

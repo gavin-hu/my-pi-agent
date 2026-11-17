@@ -1,6 +1,7 @@
 /**
- * The fixtures `/board`'s two suites share: the page a command opens, the session it
- * signs as, the team join it asks, and a real board with a plan file behind it.
+ * The fixtures `/board`'s two suites share: the page a command opens, the two sessions it needs —
+ * the lead's, which types the line, and a peer's, which holds the card — the team join it asks, and a
+ * real board with a plan file behind it.
  *
  * Two suites read them — the words (`commands.test.ts`) and the signs (`sign.test.ts`) —
  * because a suite past its bar is split, never grown, and the sign door's cases need the
@@ -155,6 +156,36 @@ export function pageWithNoRecording(): BoardPage {
 /** A real board in a temp directory, and the command registered over it. */
 /** The lead the signing board names: a name apart from the card's holder, so a gate can be signed. */
 export const SIGNING_LEAD = "team-lead";
+
+/**
+ * A card taken through both gates to `execute`, with the command its contract names still unrun.
+ *
+ * Both command suites need it — the line a sign prints and the refusal the gate gives — so it is one
+ * body here rather than the same three writes in two files.
+ */
+export async function executableWith(board: Awaited<ReturnType<typeof signingBoard>>): Promise<void> {
+	const contract = {
+		kind: "contract" as const,
+		artifact: { path: board.plan },
+		goal: "g",
+		acceptance: "a",
+		scopeOut: "s",
+		verify: "bun run check",
+	};
+	await board.store.mutate(board.id, contract, board.me, 1_000);
+	await board.store.mutate(
+		board.id,
+		{ kind: "approve", artifact: { path: board.plan } },
+		{ label: SIGNING_LEAD },
+		1_000,
+	);
+	await board.store.mutate(
+		board.id,
+		{ kind: "move", lane: "execute", artifact: { path: board.plan } },
+		board.me,
+		1_000,
+	);
+}
 export async function signingBoard(
 	options: {
 		notify?: Deliver;
@@ -163,14 +194,25 @@ export async function signingBoard(
 		wrapStore?: (store: BoardStore) => BoardStore;
 		/** The lead the project names, when the case is a project that names none. */
 		lead?: string;
+		/** The seat the command's session serves: the lead by default, `null` for a session with no page. */
+		seat?: string | null;
+		/** Whose card it is: a peer's by default, or the lead's own session's for the holder refusal. */
+		holder?: "peer" | "lead";
 	} = {},
 ) {
 	const temps = makeTempTracker();
-	const harness = boardHarness({ now: 1_000, lead: options.lead ?? SIGNING_LEAD });
-	const me = { id: "s-lead", label: "team-agent-slead" };
+	const lead = options.lead ?? SIGNING_LEAD;
+	const harness = boardHarness({ now: 1_000, lead });
+	// Two sessions, because the gate and the holder rule are two questions: the card belongs to a peer,
+	// and the line is typed in the session that serves the page — the lead's. One id for both would make
+	// every sign its own holder's, which is the refusal this fixture has to be able to ask for instead.
+	const seat = options.seat === undefined ? (lead === "" ? null : lead) : options.seat;
+	harness.runtime.serve(seat ?? undefined);
+	const me = { id: "s-holder", label: "team-agent-slead" };
+	const leadSession = { id: "s-command", label: seat ?? lead };
 	const store = await harness.runtime.store(harness.ctx.cwd);
 	const card = await store.create({ title: "One", paths: [] }, me, 1_000);
-	await store.mutate(card.id, { kind: "claim" }, me, 1_000);
+	await store.mutate(card.id, { kind: "claim" }, options.holder === "lead" ? leadSession : me, 1_000);
 	// A plan file in this repository's store, which `contract` now requires.
 	const dir = await harness.runtime.planDir(harness.ctx.cwd);
 	mkdirSync(dir, { recursive: true });
@@ -195,7 +237,7 @@ export async function signingBoard(
 	});
 	const command = fake.commands.get(BOARD_COMMAND);
 	if (!command) throw new Error("the board command was not registered");
-	const { ctx, notifications } = fakeCtx({ cwd: harness.ctx.cwd });
+	const { ctx, notifications } = fakeCtx({ cwd: harness.ctx.cwd, sessionId: "s-command" });
 	// A command's context has no `executeTool`, which is why the sign's message is a request.
 	const { executeTool: _executeTool, ...commandContext } = ctx;
 	const say = async (args: string) => {

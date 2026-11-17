@@ -302,14 +302,14 @@ describe("move", () => {
 		expect(
 			refusal(applyOp(card, { kind: "move", lane: "execute", artifact: provedFor(card) }, CORE, NOW, boardOf(card))),
 		).toBe(
-			"#4 is in plan; its contract is not approved yet. The lead (billing-lead) approves with `approve` (ask billing-lead with `session send`), or the person with `/board approve 4`.",
+			"#4 is in plan; its contract is not approved yet. The lead (billing-lead) approves with `approve` or `/board approve 4` (ask billing-lead with `session send`).",
 		);
 	});
 
 	test("execute to done needs a spot-check and a recorded plan", () => {
 		const card = executing();
 		expect(refusal(applyOp(card, doneOf(card), CORE, NOW, boardOf(card)))).toBe(
-			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` (ask billing-lead with `session send`), or the person with `/board review 4`.",
+			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` or `/board review 4` (ask billing-lead with `session send`).",
 		);
 		const checked = reviewed();
 		const noPlan = { ...checked, planPath: undefined } as Card;
@@ -363,7 +363,7 @@ describe("move", () => {
 		expect("review" in parked).toBe(false);
 		const resumed = stepOf(parked, { kind: "move", lane: "execute", artifact: provedFor(parked) }, CORE);
 		expect(refusal(applyOp(resumed, doneOf(resumed), CORE, NOW, boardOf(resumed)))).toBe(
-			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` (ask billing-lead with `session send`), or the person with `/board review 4`.",
+			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` or `/board review 4` (ask billing-lead with `session send`).",
 		);
 	});
 
@@ -463,7 +463,7 @@ describe("move", () => {
 		expect("review" in parked).toBe(false);
 		const resumed = stepOf(parked, { kind: "move", lane: "execute", artifact: provedFor(parked) }, CORE);
 		expect(refusal(applyOp(resumed, doneOf(resumed), CORE, NOW, boardOf(resumed)))).toBe(
-			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` (ask billing-lead with `session send`), or the person with `/board review 4`.",
+			"#4 has no spot-check recorded. The lead (billing-lead) records one with `review` or `/board review 4` (ask billing-lead with `session send`).",
 		);
 	});
 

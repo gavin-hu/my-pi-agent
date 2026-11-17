@@ -54,7 +54,7 @@ describe("a record that could not be written", () => {
 		expect(approved.details.card?.contract?.approved?.told).toBeUndefined();
 	});
 
-	test("is worded the same by the person's door", async () => {
+	test("is worded the same by the lead's door", async () => {
 		const sent: Sent[] = [];
 		const next = await signingBoard({ notify: signBus({ sent }), wrapStore: failsRecord });
 		await next.store.mutate(
@@ -74,7 +74,7 @@ describe("a record that could not be written", () => {
 		expect(sent).toHaveLength(1);
 		// One body words this, so the two doors cannot drift: the door's own prefix, and then the same
 		// "told … (not recorded: …)" clause the tool prints, with only the peer's name differing.
-		expect(line).toContain("board: #1 approved by you · told ");
+		expect(line).toContain("board: #1 approved by team-lead · told ");
 		expect(line).toContain(`(not recorded: ${FAILED})`);
 		next.temps.flush();
 	});

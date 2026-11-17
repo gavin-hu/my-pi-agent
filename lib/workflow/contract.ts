@@ -429,13 +429,13 @@ export const SIGN_WORDS: Record<SignKind, SignWords> = {
 		notSigner: (id, actor, lead) =>
 			lead === ""
 				? `#${id}'s contract is signed by the lead, ${NO_LEAD}, or the person signs it with \`/board approve ${id}\`.`
-				: `#${id}'s contract is signed by the lead (${lead}), and this session is ${actor.label} — ${askLead(lead)}, or the person signs it with \`/board approve ${id}\`.`,
+				: `#${id}'s contract is signed by the lead (${lead}), and this session is ${actor.label} — ${askLead(lead)}, or type \`/board approve ${id}\` there.`,
 		holder: "Its contract is signed by the lead, who does not hold it.",
 		release: "A lead releases a card before signing it.",
 		missing: (id, lead) =>
 			lead === ""
 				? `#${id} is in plan; its contract is not approved yet, ${NO_LEAD}, or the person approves it with \`/board approve ${id}\`.`
-				: `#${id} is in plan; its contract is not approved yet. The lead (${lead}) approves with \`approve\` (${askLead(lead)}), or the person with \`/board approve ${id}\`.`,
+				: `#${id} is in plan; its contract is not approved yet. The lead (${lead}) approves with \`approve\` or \`/board approve ${id}\` (${askLead(lead)}).`,
 		signed: (card, by) =>
 			`Signature: #${card.id} "${card.title}" — its contract is approved by ${by}.\n` +
 			`Next: \`execute\` is open — board action "move" with lane "execute", while the lane has room. \`done\` still needs the lead's \`review\`.`,
@@ -444,13 +444,13 @@ export const SIGN_WORDS: Record<SignKind, SignWords> = {
 		notSigner: (id, actor, lead) =>
 			lead === ""
 				? `#${id} is spot-checked by the lead, ${NO_LEAD}, or the person signs with \`/board review ${id}\`.`
-				: `#${id} is spot-checked by the lead (${lead}), and this session is ${actor.label} — ${askLead(lead)}, or the person signs with \`/board review ${id}\`.`,
+				: `#${id} is spot-checked by the lead (${lead}), and this session is ${actor.label} — ${askLead(lead)}, or type \`/board review ${id}\` there.`,
 		holder: "A card is spot-checked by the lead, who does not hold it.",
 		release: "A lead releases a card before spot-checking it.",
 		missing: (id, lead) =>
 			lead === ""
 				? `#${id} has no spot-check recorded, ${NO_LEAD}, or the person records one with \`/board review ${id}\`.`
-				: `#${id} has no spot-check recorded. The lead (${lead}) records one with \`review\` (${askLead(lead)}), or the person with \`/board review ${id}\`.`,
+				: `#${id} has no spot-check recorded. The lead (${lead}) records one with \`review\` or \`/board review ${id}\` (${askLead(lead)}).`,
 		// Two signs, two announcements: a spot-check opens the last move, while one made by
 		// instruction is already the close, so telling its owner that `done` is open would send it
 		// after a move its card made before the sign existed.

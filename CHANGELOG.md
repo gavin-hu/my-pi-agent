@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: `/board approve`, `/board review` and `/board archive` are the lead's — a peer session can
+  no longer sign or sweep, and a lead holding a card releases it before signing, which the command used
+  to sign around. The gate reads the label of the session that typed the line, so the session serving
+  the page passes it; a board naming no `team.lead` keeps the person's sign as its only door. The
+  `board` tool's `archive` action is unchanged — it takes no actor, so any session still folds a
+  finished card away — and `status`, `stop` and `team` stay open to every session.
+
 - `board`, `team`: a call line names the card its result names — `card: "#0001"` reads `#1` in the
   transcript, where it read `##0001`, and a name that is no card draws no ref at all.
 

@@ -1,11 +1,11 @@
 /**
- * `/board approve` and `/board review` — the person's door to the board's two gates.
+ * `/board approve` and `/board review` — the lead's door to the board's two gates.
  *
- * The sign is the same `mutate` the tool makes, with the person as the actor, so a session
- * that holds a card can still have it signed. What this suite pins is the line the door
- * prints: the state machine's own refusal, the failure a throwing store becomes, and the
- * half that says who was or was not told — a command context cannot make a nested
- * `session send`, so `announce` asks the bus and this harness answers for it.
+ * The sign is the same `mutate` the tool makes, written as the session that typed the line, so a card
+ * held by the lead is refused like any other. What this suite pins is the line the door prints: the
+ * state machine's own refusal, the failure a throwing store becomes, and the half that says who was
+ * or was not told — a command context cannot make a nested `session send`, so `announce` asks the
+ * bus and this harness answers for it.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -15,7 +15,13 @@ import { cardFile } from "../../test/helpers/board.ts";
 import { writeBusRecord } from "../../test/helpers/bus.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
-import { fakeBoardSession, pageWithNoRecording, SIGNING_LEAD, signingBoard } from "../../test/helpers/board-command.ts";
+import {
+	executableWith,
+	fakeBoardSession,
+	pageWithNoRecording,
+	SIGNING_LEAD,
+	signingBoard,
+} from "../../test/helpers/board-command.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
 import { runner } from "../../test/helpers/board-signs.ts";
 import type { Deliver } from "../../lib/session-tool.ts";
@@ -28,7 +34,7 @@ import { BOARD_COMMAND, registerCommands } from "./commands.ts";
  */
 const NOT_TOLD = " · team-agent-slead was not told (the session bus is not loaded)";
 
-/** The name a sign records: the lead this board names, which the person signs under. */
+/** The name a sign records: the lead this board names, which its own session signs under. */
 const LEAD = SIGNING_LEAD;
 
 /** A `notify` that answers with `answer`, recording what it was asked to send. */
@@ -44,7 +50,7 @@ function toldBy(answer: { ok: true } | { ok: false; error: string }) {
 	return { notify, sent };
 }
 
-/** The command a card's contract names in the cases about the person's run. */
+/** The command a card's contract names in the cases about the lead's run. */
 const VERIFY = "bun run check";
 
 /** The four lines a case writes, and no more: the plan is what the call varies. */
@@ -55,27 +61,15 @@ function contractOp(plan: string) {
 	return { kind: "contract" as const, artifact: { path: plan }, ...LINES };
 }
 
-/** The card the person signs, taken through the store to `execute` with a command on its contract. */
-async function executableWith(board: Awaited<ReturnType<typeof signingBoard>>): Promise<void> {
-	await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
-	await board.store.mutate(board.id, { kind: "approve", artifact: { path: board.plan } }, { label: LEAD }, 1_000);
-	await board.store.mutate(
-		board.id,
-		{ kind: "move", lane: "execute", artifact: { path: board.plan } },
-		board.me,
-		1_000,
-	);
-}
-
 describe("/board approve and /board review", () => {
-	test("signs the contract as the person, not as the session that holds the card", async () => {
+	test("signs the contract as the lead's session, which does not hold the card", async () => {
 		const board = await signingBoard();
 		const store = board.store;
 		await store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
-		expect(await board.say("approve 1")).toBe(`board: #1 approved by you${NOT_TOLD}`);
-		// The line is the person's own, and a pronoun; the card records a name and the mark that
-		// says the key wrote it, never the label the line prints.
-		expect((await store.read(board.id))?.contract?.approved).toEqual({ by: LEAD, at: 1_000, person: true });
+		expect(await board.say("approve 1")).toBe(`board: #1 approved by team-lead${NOT_TOLD}`);
+		// The line names the session that signed; the card records that name and no person's mark,
+		// because a session wrote it and the id behind the mark is a session's.
+		expect((await store.read(board.id))?.contract?.approved).toEqual({ by: LEAD, at: 1_000 });
 		board.temps.flush();
 	});
 
@@ -84,22 +78,22 @@ describe("/board approve and /board review", () => {
 		await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		reviewedInPlan(board);
 		// An approval has no instruction to record, so the clause is the review's alone: the line
-		// prints the sign the person made and nothing about a gate it never used.
-		expect(await board.say("approve 1")).toBe(`board: #1 approved by you${NOT_TOLD}`);
+		// prints the sign the lead made and nothing about a gate it never used.
+		expect(await board.say("approve 1")).toBe(`board: #1 approved by team-lead${NOT_TOLD}`);
 		board.temps.flush();
 	});
 
-	test("runs the contract's command as the person, and says what ran", async () => {
+	test("runs the contract's command as the lead, and says what ran", async () => {
 		const run = runner();
 		const board = await signingBoard({ verify: run });
 		await executableWith(board);
-		// The tree rides the line too: a person signing from a worktree needs to see which tree ran.
+		// The tree rides the line too: a lead signing from a worktree needs to see which tree ran.
 		const root = board.store.root();
 		expect(await board.say("review 1")).toBe(
-			`board: #1 reviewed by you · ran \`${VERIFY}\` in ${root} (exit 0)${NOT_TOLD}`,
+			`board: #1 reviewed by team-lead · ran \`${VERIFY}\` in ${root} (exit 0)${NOT_TOLD}`,
 		);
 		expect(run.ran).toEqual([VERIFY]);
-		// The record is the run's, written by the person's own door, and it names the tree.
+		// The record is the run's, written by the lead's own door, and it names the tree.
 		expect((await board.store.read(board.id))?.review?.verified).toEqual({ cmd: VERIFY, exit: 0, at: 1_000, root });
 		board.temps.flush();
 	});
@@ -136,33 +130,14 @@ describe("/board approve and /board review", () => {
 		board.temps.flush();
 	});
 
-	test("walks a one-session card past both gates, which the holder alone could not", async () => {
-		const board = await signingBoard();
-		const store = board.store;
-		await store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
-		// The holder's own approval is refused, which is why the person has a door.
-		const own = await store.mutate(board.id, { kind: "approve", artifact: { path: board.plan } }, board.me, 1_000);
-		expect(own.ok).toBe(false);
-		expect(await board.say("approve 1")).toContain("approved by you");
-		expect(
-			(await store.mutate(board.id, { kind: "move", lane: "execute", artifact: { path: board.plan } }, board.me, 1_000))
-				.ok,
-		).toBe(true);
-		expect(await board.say("review 1")).toContain(`board: #1 reviewed by you`);
-		expect((await store.read(board.id))?.review).toMatchObject({
-			by: LEAD,
-			at: 1_000,
-			person: true,
-			// The contract names a command, so the sign keeps the run that answered for it.
-			verified: { cmd: "bun run check", exit: 0 },
-		});
-		const done = await store.mutate(
-			board.id,
-			{ kind: "move", lane: "done", artifact: { path: board.plan } },
-			board.me,
-			1_000,
+	test("refuses the lead's own card, which it has to release first", async () => {
+		// One session, one card, and no door: this word used to sign around the holder rule by
+		// writing as the person, and now it is the session's sign like any other.
+		const board = await signingBoard({ holder: "lead" });
+		expect(await board.say("approve 1")).toBe(
+			"board: #1 is held by team-lead. A lead releases a card before signing it.",
 		);
-		expect(done.ok).toBe(true);
+		expect((await board.store.read(board.id))?.contract).toBeUndefined();
 		board.temps.flush();
 	});
 
@@ -195,9 +170,9 @@ describe("/board approve and /board review", () => {
 		const { notify, sent } = toldBy({ ok: true });
 		const board = await signingBoard({ notify });
 		await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
-		expect(await board.say("approve 1")).toBe("board: #1 approved by you · told team-agent-slead");
+		expect(await board.say("approve 1")).toBe("board: #1 approved by team-lead · told team-agent-slead");
 		// The owner is addressed by id, which survives a rename, and the message is the tool's.
-		expect(sent.map((input) => [input.kind, input.to])).toEqual([["event", "s-lead"]]);
+		expect(sent.map((input) => [input.kind, input.to])).toEqual([["event", "s-holder"]]);
 		expect(sent[0]?.text).toContain(`"One" — its contract is approved by ${LEAD}`);
 		board.temps.flush();
 	});
@@ -215,7 +190,7 @@ describe("/board approve and /board review", () => {
 		});
 		await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		expect(await board.say("approve 1")).toBe(
-			"board: #1 approved by you · told team-agent-slead (not listening: it reads this at its next turn)",
+			"board: #1 approved by team-lead · told team-agent-slead (not listening: it reads this at its next turn)",
 		);
 		board.temps.flush();
 	});
@@ -224,10 +199,10 @@ describe("/board approve and /board review", () => {
 		const board = await signingBoard({ notify: toldBy({ ok: false, error: "the bus refused the write" }).notify });
 		await board.store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		expect(await board.say("approve 1")).toBe(
-			"board: #1 approved by you · team-agent-slead was not told (the bus refused the write)",
+			"board: #1 approved by team-lead · team-agent-slead was not told (the bus refused the write)",
 		);
 		// The signature is on the card either way: a refusal here would report an unrecorded sign.
-		expect((await board.store.read(board.id))?.contract?.approved).toMatchObject({ by: LEAD, person: true });
+		expect((await board.store.read(board.id))?.contract?.approved).toMatchObject({ by: LEAD });
 		board.temps.flush();
 	});
 
@@ -252,11 +227,11 @@ describe("/board approve and /board review", () => {
 		expect(await board.say("approve 1")).toContain("was not told");
 		expect((await board.store.read(board.id))?.contract?.approved?.told).toBeUndefined();
 
-		expect(await board.say("approve 1")).toBe("board: #1 is already approved by you · told team-agent-slead");
+		expect(await board.say("approve 1")).toBe("board: #1 is already approved by team-lead · told team-agent-slead");
 		expect(sent).toHaveLength(1);
 		expect((await board.store.read(board.id))?.contract?.approved?.told).toEqual({ at: 1_000 });
 		// Told once is told: the third word writes nothing and says nothing.
-		expect(await board.say("approve 1")).toBe("board: #1 is already approved by you");
+		expect(await board.say("approve 1")).toBe("board: #1 is already approved by team-lead");
 		expect(sent).toHaveLength(1);
 		board.temps.flush();
 	});
@@ -267,7 +242,7 @@ describe("/board approve and /board review", () => {
 		const store = board.store;
 		await store.mutate(board.id, contractOp(board.plan), board.me, 1_000);
 		await board.say("approve 1");
-		expect(await board.say("approve 1")).toBe("board: #1 is already approved by you");
+		expect(await board.say("approve 1")).toBe("board: #1 is already approved by team-lead");
 		// A repeated sign writes nothing, so it tells nobody — the rule the tool follows too.
 		expect(sent).toHaveLength(1);
 		board.temps.flush();
@@ -280,8 +255,12 @@ describe("/board approve and /board review", () => {
 		const fake = createFakePi();
 		const { ctx, notices } = fakeCtx({ cwd: process.cwd() });
 		const card = { id: "4", title: "One", lane: "plan", notes: [], paths: [] };
+		const seated = fakeBoardSession();
+		// The door is the lead's, so this stub serves the seat: the store's answers are the case, the gate
+		// is the fixture's.
+		seated.serve(LEAD);
 		const session = {
-			...fakeBoardSession(),
+			...seated,
 			store: async () => ({
 				config: () => ({ lead: LEAD }),
 				// The approval proves the plan the card names, so the door reads the card first.
@@ -293,7 +272,7 @@ describe("/board approve and /board review", () => {
 		const command = fake.commands.get(BOARD_COMMAND);
 		if (!command) throw new Error("the board command was not registered");
 		await command.handler("approve 4", ctx);
-		expect(notices.at(-1)).toEqual({ message: "board: #4 approved by you", kind: "info" });
+		expect(notices.at(-1)).toEqual({ message: "board: #4 approved by team-lead", kind: "info" });
 	});
 
 	test("turns a store that throws into a line, in the error tone", async () => {
@@ -308,17 +287,19 @@ describe("/board approve and /board review", () => {
 			await command.handler("approve 4", ctx);
 			return notices;
 		};
-		const read = await signOver({
+		const unreadable = {
 			...fakeBoardSession(),
 			store: async () => {
 				throw new Error("EACCES: the board is not writable");
 			},
-		} as unknown as BoardSession);
+		};
+		unreadable.serve(LEAD);
+		const read = await signOver(unreadable);
 		expect(read.at(-1)).toEqual({
 			message: "board: approve #4 failed — EACCES: the board is not writable",
 			kind: "error",
 		});
-		const write = await signOver({
+		const unwritable = {
 			...fakeBoardSession(),
 			store: async () => ({
 				config: () => ({ lead: LEAD }),
@@ -327,7 +308,9 @@ describe("/board approve and /board review", () => {
 					throw new Error("ENOSPC: no space left on device");
 				},
 			}),
-		} as unknown as BoardSession);
+		};
+		unwritable.serve(LEAD);
+		const write = await signOver(unwritable as unknown as BoardSession);
 		expect(write.at(-1)).toEqual({
 			message: "board: approve #4 failed — ENOSPC: no space left on device",
 			kind: "error",
@@ -349,17 +332,12 @@ describe("/board review --override", () => {
 	/** A card this fixture finished through the gate, with its sign taken back off afterward. */
 	async function closedByHand(board: Awaited<ReturnType<typeof signingBoard>>, me: typeof board.me) {
 		await board.store.mutate(board.id, contractOp(board.plan), me, 1_000);
-		await board.store.mutate(
-			board.id,
-			{ kind: "approve", artifact: { path: board.plan } },
-			{ id: "person:you", label: "you" },
-			1_000,
-		);
+		await board.store.mutate(board.id, { kind: "approve", artifact: { path: board.plan } }, { label: LEAD }, 1_000);
 		await board.store.mutate(board.id, { kind: "move", lane: "execute", artifact: { path: board.plan } }, me, 1_000);
 		await board.store.mutate(
 			board.id,
 			{ kind: "review", verified: { cmd: "bun run check", exit: 0, at: 1_000 } },
-			{ id: "person:you", label: "you" },
+			{ label: LEAD },
 			1_000,
 		);
 		await board.store.mutate(board.id, { kind: "move", lane: "done", artifact: { path: board.plan } }, me, 1_000);
@@ -369,16 +347,15 @@ describe("/board review --override", () => {
 		writeFileSync(file, JSON.stringify(card));
 	}
 
-	test("signs a finished card, and keeps the reason as the person typed it", async () => {
+	test("signs a finished card, and keeps the reason as it was typed", async () => {
 		const board = await signingBoard();
 		await closedByHand(board, board.me);
 		// The word is folded for the parser; the sentence after the flag is not.
 		expect(await board.say("REVIEW 1 --override Closed On My Instruction")).toBe(
-			`board: #1 reviewed by you · closed by instruction${NOT_TOLD}`,
+			`board: #1 reviewed by team-lead · closed by instruction${NOT_TOLD}`,
 		);
 		expect((await board.store.read(board.id))?.review).toMatchObject({
 			by: LEAD,
-			person: true,
 			byInstruction: "Closed On My Instruction",
 		});
 		board.temps.flush();
