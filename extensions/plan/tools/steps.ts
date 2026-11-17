@@ -84,14 +84,11 @@ export async function executeSteps(
 }
 
 export function callSteps(args: SetPlanStepsArgs, theme: Theme, last: unknown): ToolCallText {
-	const updates = args.updates;
-	const label =
-		updates && updates.length === 1 && updates[0]?.step !== undefined
-			? `steps ${updates[0].step}`
-			: updates && updates.length > 1
-				? `steps ${updates.length} steps`
-				: "steps";
-	return callLine(theme, last, PLAN_TOOL, label);
+	// The steps the call moves, not how many of them: a batch that read `steps 6` would be taken for
+	// step six, which is worse than the doubling it replaces. An argument still arriving carries no
+	// `step` yet, so the label waits for one instead of naming a step nobody asked for.
+	const steps = (args.updates ?? []).flatMap((update) => (typeof update.step === "number" ? [update.step] : []));
+	return callLine(theme, last, PLAN_TOOL, steps.length === 0 ? "steps" : `steps ${steps.join(", ")}`);
 }
 
 export function textSteps(details: SetPlanStepsDetails, theme: Theme): string {

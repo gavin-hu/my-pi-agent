@@ -34,6 +34,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   item seeded from that step is ticked instead of reported unmatched. A refused step names the
   plan file and the text it now reads, instead of quoting a stripped copy as the file's own.
 
+- `plan`: a multi-step `steps` call names the steps it moves — `plan steps 1, 3, 5` — where it
+  counted them as `plan steps 6 steps`; a single update still reads `plan steps 3`, and a call
+  whose arguments are still arriving names the steps it has rather than a gap.
+
 ## [0.28.0] - 2026-11-16
 
 ### Added
