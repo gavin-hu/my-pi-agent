@@ -44,7 +44,7 @@ export function registerCommands(
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
 		description:
-			"Open the shared board in a local browser, sign its two gates as the person, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
+			"Open the shared board in a local browser, sign its two gates as the lead, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
 		getArgumentCompletions: (prefix: string) => {
 			// Lowercased, because that is what the handler parses: `/board ST 4` signs, so `/board ST`
 			// has to complete.
