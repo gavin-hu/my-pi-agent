@@ -14,6 +14,8 @@ import {
 	settleSend,
 	shortId,
 } from "./protocol.ts";
+import { INBOX_BUDGET } from "./format.ts";
+import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 
 describe("labels and actions", () => {
 	test("normalizes a label and falls back when empty", () => {
@@ -46,6 +48,14 @@ describe("validation", () => {
 		expect(normalizeText("   ")).toEqual({ error: "text is required." });
 		expect(normalizeText("x".repeat(4_001))).toHaveProperty("error");
 	});
+	test("bounds a read at the cap a send refuses over, rather than a second number", () => {
+		// One owner: `lib/session-tool.ts`'s MAX_MESSAGE_TEXT. The read takes one full-length body, and
+		// a literal in the read's module is how its ceiling and the send's cap drift a number apart.
+		expect(INBOX_BUDGET).toBe(MAX_MESSAGE_TEXT);
+		expect(normalizeText("x".repeat(INBOX_BUDGET))).toEqual({ text: "x".repeat(INBOX_BUDGET) });
+		expect(normalizeText("x".repeat(INBOX_BUDGET + 1))).toHaveProperty("error");
+	});
+
 	test("takes a reply id as one word, on the same alphabet as a key", () => {
 		expect(normalizeReplyTo(undefined)).toEqual({});
 		expect(normalizeReplyTo("  a1b2c3  ")).toEqual({ value: "a1b2c3" });

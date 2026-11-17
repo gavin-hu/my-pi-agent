@@ -192,6 +192,25 @@ export function overLimit(what: string, length: number, limit: number): string {
 }
 
 /**
+ * The three refusals a path list earns, in the one wording both normalizers print.
+ *
+ * Only the sentence is shared: a caller keeps its own reading of the path — a claim resolves it
+ * against the repository, a card's hint compares it lexically — and its own cap, which is why the
+ * two that carry a value are functions and the fixed one is a constant.
+ */
+export function tooManyPaths(limit: number): string {
+	return `at most ${limit} paths are allowed.`;
+}
+
+/** A path entry that cleans to nothing, or that its caller treats as empty. */
+export const EMPTY_PATH = "every path must be a non-empty string.";
+
+/** A path outside the repository, in the spelling the caller gave it. */
+export function outsideRepository(path: string): string {
+	return `path "${path}" is outside the repository.`;
+}
+
+/**
  * A tail bounded to `maxChars`: the end of the joined lines, with the truncation
  * flag. The header and the truncation suffix belong to the caller, because each
  * surface says something different about where the rest of the output lives.

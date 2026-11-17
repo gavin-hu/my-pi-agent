@@ -11,6 +11,7 @@
  */
 
 import { ageWords, clipText, formatAge, sanitizeLine } from "../../lib/format.ts";
+import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { shortId } from "./protocol.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, DropResult, SessionStatus, UnaccountedPage } from "./types.ts";
@@ -181,12 +182,12 @@ export function formatJoin(label: string, watching: { armed: boolean; wake: bool
 /**
  * The whole read is bounded at one message's maximum body: `inbox` is the surface the
  * prompt tells the model to run, so it is also the largest thing the bus can put in a
- * context. `send` caps a body at 4,000 characters and a read never clips one, so a read
- * costs at most one full-length message — a burst of them is one message per call, where
- * a page that clipped each body would have shown a sliver of every one and deleted the
- * rest.
+ * context. The cap is `lib/session-tool.ts`'s `MAX_MESSAGE_TEXT` — the same number `send`
+ * refuses a body over, and a read never clips one — so a read costs at most one full-length
+ * message: a burst of them is one message per call, where a page that clipped each body
+ * would have shown a sliver of every one and deleted the rest.
  */
-export const INBOX_BUDGET = 4_000;
+export const INBOX_BUDGET = MAX_MESSAGE_TEXT;
 
 /** One inbox read: the text the model reads, and how many messages it covers. */
 export interface ReadPage {
