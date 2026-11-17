@@ -25,7 +25,7 @@
 
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
-import { type Card, type CardOwner, cardRef, normalizeCardId } from "../../lib/workflow/card.ts";
+import { type Card, type CardOwner, cardArg, cardRef, cardRefOf } from "../../lib/workflow/card.ts";
 import type { TeamState } from "../../lib/workflow/join.ts";
 import { indexOf } from "../../lib/workflow/links.ts";
 import { type Actor, mayOp } from "../../lib/workflow/rules.ts";
@@ -105,7 +105,7 @@ async function writeOutcome(write: Promise<MutateResult>): Promise<{ result: Mut
  * the only thing the call was about.
  */
 function callSubject(action: TeamAction, args: Record<string, unknown>): string {
-	const card = typeof args.card === "string" && args.card.trim() !== "" ? cardRef(args.card.trim()) : "";
+	const card = cardRefOf(args.card);
 	const to = typeof args.to === "string" && args.to.trim() !== "" ? ` → ${args.to.trim()}` : "";
 	const peer = action === "assign" || action === "ask" ? to : "";
 	return card === "" ? `${action}${peer}` : `${action} ${card}${peer}`;
@@ -198,15 +198,9 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 				// `ask` is the one verb with no card behind it, so it runs before the id and the store:
 				// what it needs is this session's name, for the reply line, and the bus.
 				if (action === "ask") return await askPeer(me, args.to, args.question, deliver, ctx, join);
-				const id = args.card === undefined ? undefined : normalizeCardId(args.card);
-				if (id === undefined) {
-					return refusal(
-						action,
-						args.card === undefined
-							? 'card is required: pass the id, e.g. "4".'
-							: `"${String(args.card)}" is not a card id.`,
-					);
-				}
+				const arg = cardArg(args.card);
+				if ("error" in arg) return refusal(action, arg.error);
+				const id = arg.id;
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
 				if (action === "offer") return await offerCard(store, me, id, args.note, now, deliver, ctx);

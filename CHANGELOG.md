@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`, `team`: a call line names the card its result names — `card: "#0001"` reads `#1` in the
+  transcript, where it read `##0001`, and a name that is no card draws no ref at all.
+
 ## [0.28.0] - 2026-11-16
 
 ### Added

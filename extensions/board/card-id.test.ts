@@ -13,6 +13,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { boardTool } from "../../test/helpers/board.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
+import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 
@@ -57,5 +58,19 @@ describe("a zero-padded card id", () => {
 		const noted = await call({ action: "note", card: "#0001", text: "padded" });
 		expect(noted.details.card?.id).toBe("1");
 		expect(noted.details.card?.notes.at(-1)?.text).toBe("padded");
+	});
+
+	test("draws the call line with the id every result prints", () => {
+		// The subject formatted the argument's own spelling, so a supported `#0001` and `0004` read
+		// `##0001` and `#0004` in the transcript where the result beside them said `#1` and `#4`.
+		const { board } = boardTool({ now: NOW, track: temps.track });
+		const tool = board.fake.pi.tools.get("board");
+		if (!tool) throw new Error("the board tool was not registered");
+		const line = (args: Record<string, unknown>): string =>
+			tool.renderCall(args, fakeTheme, { lastComponent: undefined }).render(80).join("\n");
+		expect(line({ action: "list", card: "#0001" })).toContain("list #1");
+		expect(line({ action: "move", card: "0004", lane: "plan" })).toContain("move #4");
+		// A name that is no card draws no ref at all, rather than a ref for nothing.
+		expect(line({ action: "list", card: "four" })).not.toContain("#four");
 	});
 });

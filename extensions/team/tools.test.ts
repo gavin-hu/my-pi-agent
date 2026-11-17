@@ -265,6 +265,17 @@ describe("the transcript block", () => {
 		expect(line({ action: "offer", card: "2", to: "billing-core" })).not.toContain("billing-core");
 	});
 
+	test("the call line names the card its argument names, whatever spelling it used", () => {
+		const { tool } = harness();
+		const line = (args: Record<string, unknown>): string =>
+			tool.renderCall(args, fakeTheme, { lastComponent: undefined }).render(80).join("\n");
+		// The subject formatted the argument's own spelling, so a supported `#0002` read `##0002`.
+		expect(line({ action: "offer", card: "#0002" })).toContain("offer #2");
+		expect(line({ action: "offer", card: "0002" })).toContain("offer #2");
+		// A name that is no card draws no ref at all.
+		expect(line({ action: "offer", card: "four" })).not.toContain("#four");
+	});
+
 	test("an expanded block neutralizes the text it draws", async () => {
 		const { tool, seed, store } = harness();
 		const id = await seed();

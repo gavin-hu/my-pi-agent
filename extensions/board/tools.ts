@@ -16,7 +16,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
 import { planForContract } from "../../lib/workflow/artifact.ts";
-import { type Card, cardRef, normalizeCardId } from "../../lib/workflow/card.ts";
+import { type Card, cardArg, cardRefOf, normalizeCardId } from "../../lib/workflow/card.ts";
 import { type Lane, movableLanes } from "../../lib/workflow/lanes.ts";
 import type { Verification } from "../../lib/workflow/contract.ts";
 import { signMark } from "../../lib/workflow/lead.ts";
@@ -93,7 +93,7 @@ export const BOARD_SNIPPET = `The shared feature list for this repository: ${BOA
  * scanning the transcript is looking for.
  */
 function callSubject(action: BoardAction, args: Record<string, unknown>): string {
-	const card = typeof args.card === "string" && args.card.trim() !== "" ? cardRef(args.card.trim()) : "";
+	const card = cardRefOf(args.card);
 	if (action === "add") {
 		const title = typeof args.title === "string" ? args.title.trim() : "";
 		return title === "" ? "add" : `add ${title}`;
@@ -260,7 +260,10 @@ export function registerTools(
 							},
 						});
 					case "move": {
-						if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
+						const arg = cardArg(args.card);
+						if ("error" in arg) return refusal(action, me, arg.error);
+						// The proof and the holder fact take the caller's own spelling by name and normalize
+						// inside, so this guard words the refusal and nothing is re-spelled here.
 						const lane = args.lane;
 						if (lane === undefined) {
 							return refusal(action, me, `move needs a target lane: ${listOf(movableLanes())}.`);

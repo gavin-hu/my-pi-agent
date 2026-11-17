@@ -10,7 +10,7 @@
  * rule, and this module's job is only to report what that rule said.
  */
 
-import { type Card, normalizeCardId } from "../../lib/workflow/card.ts";
+import { type Card, cardArg, normalizeCardId } from "../../lib/workflow/card.ts";
 import type { HolderFact } from "../../lib/workflow/lead.ts";
 import type { CardOp } from "../../lib/workflow/rules.ts";
 import type { BoardSession } from "../../lib/workflow/session.ts";
@@ -98,9 +98,9 @@ export async function mutate(
 		joined?: () => Promise<string | undefined>;
 	} = {},
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
-	const id = normalizeCardId(args.card);
-	if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
+	const arg = cardArg(args.card);
+	if ("error" in arg) return refusal(action, me, arg.error);
+	const id = arg.id;
 	const result = await store.mutate(id, op, me, now);
 	if (!result.ok) return refusal(action, me, result.error, result.card);
 	// One write owes at most one notice: the operation names which, and the door decides how.
@@ -141,9 +141,9 @@ export async function dropCard(
 	now: number,
 	cross: (result: MutateResult) => Promise<string | undefined>,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	if (args.card === undefined) return refusal("drop", me, 'card is required: pass the id, e.g. "4".');
-	const id = normalizeCardId(args.card);
-	if (id === undefined) return refusal("drop", me, `"${args.card}" is not a card id.`);
+	const arg = cardArg(args.card);
+	if ("error" in arg) return refusal("drop", me, arg.error);
+	const id = arg.id;
 	const result = await store.mutate(id, { kind: "drop" }, me, now);
 	if (!result.ok) return refusal("drop", me, result.error, result.card);
 	// A dropped card can carry the paths of work still in flight, and a claim nobody releases

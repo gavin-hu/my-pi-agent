@@ -12,7 +12,7 @@
  */
 
 import { planIsGone } from "../../lib/workflow/artifact.ts";
-import { cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/workflow/card.ts";
+import { cardArg, cardRef, holds, matchesQuery } from "../../lib/workflow/card.ts";
 import { indexOf } from "../../lib/workflow/links.ts";
 import { buildRound } from "../../lib/workflow/round.ts";
 import { formatRound, withLiveOwner } from "../../lib/workflow/round-text.ts";
@@ -64,8 +64,9 @@ export async function read(
 	if (args.card !== undefined) {
 		const ignored = cardFiltersRefusal(args);
 		if (ignored !== undefined) return refusal(action, me, ignored);
-		const id = normalizeCardId(args.card);
-		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
+		const arg = cardArg(args.card);
+		if ("error" in arg) return refusal(action, me, arg.error);
+		const id = arg.id;
 		const card = cards.find((entry) => entry.id === id);
 		if (!card) {
 			// Gone and set aside are different answers, and one read by id tells them apart.
@@ -147,8 +148,9 @@ async function readArchive(
 		// `query` and `mine` narrow the pile, not the one card it would answer for.
 		const ignored = cardFiltersRefusal(args, ["query", "mine"]);
 		if (ignored !== undefined) return refusal(action, me, ignored);
-		const id = normalizeCardId(args.card);
-		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
+		const arg = cardArg(args.card);
+		if ("error" in arg) return refusal(action, me, arg.error);
+		const id = arg.id;
 		const card = cards.find((entry) => entry.id === id);
 		if (!card) {
 			const onBoard = (await store.list()).some((entry) => entry.id === id);
