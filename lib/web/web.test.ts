@@ -239,10 +239,6 @@ describe("web names", () => {
 
 	test("serializes a table as a script statement a bundle can start with", () => {
 		expect(namesScript(table)).toBe('var N = {"card":"board-card","laneHead":"board-lane__head"};');
-		// The value is spliced into a template literal: a backtick would end the string
-		// and `${` would interpolate at build time, so both are refused at the boundary.
-		expect(namesScript(table)).not.toContain("`");
-		expect(namesScript(table)).not.toContain("${");
 		expect(namesScript(table, "CLASSES")).toBe('var CLASSES = {"card":"board-card","laneHead":"board-lane__head"};');
 	});
 
@@ -330,11 +326,8 @@ describe("web markup", () => {
 	});
 
 	test("hands the tab title's body to the bundle, safe to splice into a script", () => {
-		// The board's count is live, so the page's script must build the same string. A
-		// backtick or an interpolation here would end the template the source lands in.
+		// The board's count is live, so the page's script must build the same string.
 		expect(TAB_TITLE_JS).toBe(String(tabTitle));
-		expect(TAB_TITLE_JS).not.toContain("`");
-		expect(TAB_TITLE_JS).not.toContain("${");
 	});
 
 	test("answers what the module answers once it is a script", () => {
@@ -459,10 +452,6 @@ describe("web theme runtime", () => {
 
 describe("web client runtime", () => {
 	test("carries each body once, and the string is safe to splice", () => {
-		// The bundle is a template literal: a backtick or an interpolation in one of these
-		// bodies would end the script, and the failure would be a page that never paints.
-		expect(CLIENT_RUNTIME_JS).not.toContain("`");
-		expect(CLIENT_RUNTIME_JS).not.toContain("${");
 		for (const fn of [el, chipNode, typing, paintStatus, postJson]) {
 			expect(CLIENT_RUNTIME_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
 		}

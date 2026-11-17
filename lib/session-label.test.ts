@@ -86,8 +86,6 @@ describe("sameLabel", () => {
 		// The Team tab's history row calls this body (`HISTORY_OWNER_JS` is spliced beside it), and
 		// a fragment has no import graph: the source has to stand alone, and it has to answer alike.
 		expect(SAME_LABEL_JS).toBe(String(sameLabel));
-		expect(SAME_LABEL_JS).not.toContain("`");
-		expect(SAME_LABEL_JS).not.toContain("${");
 		const browser = new Function(`return (${SAME_LABEL_JS});`)() as typeof sameLabel;
 		for (const [a, b] of [
 			["billing-core", "BILLING-CORE"],
@@ -101,8 +99,6 @@ describe("sameLabel", () => {
 		// The roster and active fragments write `owners[<key>]` and look it up with a label the
 		// snapshot produced, so the key a page uses has to be this module's, not a third spelling.
 		expect(LABEL_KEY_JS).toBe(String(labelKey));
-		expect(LABEL_KEY_JS).not.toContain("`");
-		expect(LABEL_KEY_JS).not.toContain("${");
 		const browser = new Function(`return (${LABEL_KEY_JS});`)() as typeof labelKey;
 		expect(browser("Billing-Core")).toBe(labelKey("Billing-Core"));
 	});

@@ -137,7 +137,8 @@ function droppedHistory(cards: readonly Card[]): string {
  *
  * `plural` is `lib/format.ts`'s — it is generic text, and the bus needs it too — but the splice is
  * this module's, because the page bundle is this module's. `round-text.test.ts` pins the two facts
- * that keep it safe: the source is what `pageSource` gives, and it holds no backtick and no `${`.
+ * that keep it safe: the source is what `pageSource` gives, and it spells none of `.replace`'s
+ * replacement patterns.
  */
 export const PLURAL_JS = pageSource(plural);
 
@@ -185,8 +186,8 @@ export const HISTORY_LINE_JS = pageSource(historyLine);
  * enter to reproduce a red. A record written before the tree was named has neither, and reads
  * exactly as it did.
  *
- * Written as concatenation, like `plural`, because the page's bundle carries this *source*: a
- * template or an interpolation would end the string it is spliced into.
+ * Its source crosses as `RAN_CLAUSE_JS`, so a spliced body may spell none of `.replace`'s
+ * replacement patterns.
  */
 export function ranClause(run: Verification | undefined): string {
 	if (run === undefined) return "";
@@ -222,9 +223,8 @@ export const LANDED_CLAUSE_JS = pageSource(landedClause);
  * fact a presence line could not say before, and the one a lead reads to tell "here and busy"
  * from "here and free".
  *
- * Written as concatenation, like `plural`, and with the `#` inlined rather than taken from
- * `cardRef`: the page's bundle carries this body as `HOLDING_OF_JS`, and a template or a call
- * it could not resolve would be a served script that does not run.
+ * The `#` is inlined rather than taken from `cardRef`: the page's bundle carries this body as
+ * `HOLDING_OF_JS`, and a call it could not resolve would be a served script that does not run.
  */
 export function holdingOf(cards: readonly Card[]): string {
 	const [first] = cards;

@@ -107,8 +107,6 @@ describe("the shared live state table", () => {
 		// A page calls it by name, so a body the assembler dropped would be a first paint that
 		// throws with every suite green — the failure #548 fixed.
 		expect(CLIENT_RUNTIME_JS.split(String(paintLiveState)).length).toBe(2);
-		expect(String(paintLiveState)).not.toContain("`");
-		expect(String(paintLiveState)).not.toContain("${");
 	});
 
 	const table = new Function(`${CLIENT_RUNTIME_JS}\nreturn { paintLiveState: paintLiveState };`)() as {
@@ -267,10 +265,6 @@ describe("the live-stream client", () => {
 	});
 
 	test("carries one body, safe to splice", () => {
-		// The bundle is a template literal: a backtick or an interpolation would end the script,
-		// and the failure would be a page that never paints a state.
 		expect(CLIENT_RUNTIME_JS.split(String(liveStream)).length).toBe(2);
-		expect(String(liveStream)).not.toContain("`");
-		expect(String(liveStream)).not.toContain("${");
 	});
 });

@@ -43,8 +43,8 @@ export function tabTitle(product: string, subject?: string, count?: string): str
  * The same body, as the browser receives it.
  *
  * The board's count is live, so its tab is repainted on every frame and this rule has to
- * cross into the bundle. It is written as concatenation with no backtick and no
- * interpolation, because the bundle is a template the source is spliced into.
+ * cross into the bundle. The body is a value the fragment substitutes, so only `.replace`'s
+ * replacement patterns are forbidden; `test/spliced-bodies.test.ts` holds them.
  */
 export const TAB_TITLE_JS = pageSource(tabTitle);
 

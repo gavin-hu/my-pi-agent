@@ -309,9 +309,8 @@ export function sanitizeUntrustedText(raw: string, maxLength: number = MAX_OUTPU
  * renderer deterministic (and testable) against an injected home — which is also
  * what the page does, since `homedir` does not exist in a browser.
  *
- * Concatenation rather than a template literal, because {@link SHORTEN_PATH_JS}
- * splices this body into the page's bundle: a backtick or an interpolation would
- * end the string it goes into.
+ * {@link SHORTEN_PATH_JS} splices this body into the page's bundle, so it may spell
+ * none of `.replace`'s replacement patterns.
  */
 export function shortenPath(path: string, home: string = homedir()): string {
 	const normalized = path.replace(/\\/g, "/");

@@ -150,11 +150,7 @@ describe("the live line's painter", () => {
 	});
 
 	test("carries one body, safe to splice, and answers the same once spliced", () => {
-		// The bundle is a template literal: a backtick or an interpolation in the body would
-		// end the script, and the failure would be a page that never paints.
 		expect(CLIENT_RUNTIME_JS.split(String(paintLive)).length).toBe(2);
-		expect(String(paintLive)).not.toContain("`");
-		expect(String(paintLive)).not.toContain("${");
 		const bundle = new Function(`${CLIENT_RUNTIME_JS}\nreturn { paintLive: paintLive };`)() as {
 			paintLive: typeof paintLive;
 		};
