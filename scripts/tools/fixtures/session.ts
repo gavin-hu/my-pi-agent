@@ -136,7 +136,7 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 		tool: "session",
 		group: "package",
 		label: "an event that reached two peers and not the third",
-		args: { action: "send", to: "*", kind: "event", text: "contract v2 is approved" },
+		args: { action: "send", to: "*", kind: "event", about: "#673", text: "contract v2 is approved" },
 		options: { expanded: true },
 		result: {
 			content: [
@@ -164,7 +164,7 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 			content: [
 				{
 					type: "text",
-					text: "1. emma · handoff · Handoff: #274 is yours. Paths: extensions/session-bus.\n2. backend · message · is checkout.ts free?\nMail this build cannot read: 0001-verify-billing.json — left on disk, cleared by the TTL.",
+					text: "1. emma · handoff · about: #274 · Handoff: #274 is yours. Paths: extensions/session-bus.\n2. backend · message · re: 0002-emma · is checkout.ts free?\nMail this build cannot read: 0001-verify-billing.json — left on disk, cleared by the TTL.",
 				},
 			],
 			details: {
@@ -177,6 +177,7 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 						to: "s1",
 						toLabel: "frontend",
 						kind: "handoff",
+						about: "#274",
 						text: 'Handoff: #274 "the transcript block" is yours, frontend. Paths: extensions/session-bus. The plan is in the card; record it and start without asking.',
 						paths: ["extensions/session-bus"],
 						at: 2,
@@ -188,6 +189,7 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 						to: "s1",
 						toLabel: "frontend",
 						kind: "message",
+						replyTo: "0002-emma",
 						text: "is checkout.ts free?",
 						at: 3,
 					},

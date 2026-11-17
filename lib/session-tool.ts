@@ -173,7 +173,7 @@ export interface SendInput {
 	key?: string;
 	/** The message or ask id this one answers. */
 	replyTo?: string;
-	/** What the message is about — a card id, in the workflow's use. */
+	/** What the message is about: the sender's own spelling — a card's `#673`, a branch, a phrase. */
 	about?: string;
 }
 

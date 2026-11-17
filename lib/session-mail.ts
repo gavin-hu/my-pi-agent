@@ -57,7 +57,8 @@ export interface BusMessage {
 	 */
 	replyTo?: string;
 	/**
-	 * What this message is about, as the sender's own word — a card id, in the workflow's use.
+	 * What this message is about, in the sender's own spelling — a card's `#673`, in the workflow's
+	 * use — kept to one line, at most 64 characters.
 	 *
 	 * Opaque to the bus for the same reason `replyTo` is: the transport carries a reference, and
 	 * the domain that made it is the one that reads it.

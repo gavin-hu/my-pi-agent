@@ -38,13 +38,10 @@ import { createTurn } from "./presence.ts";
 import {
 	MAX_LABEL,
 	MAX_LIMIT,
-	normalizeKey,
-	normalizeKind,
 	normalizeLabel,
 	normalizeLimit,
 	normalizePaths,
-	normalizeReference,
-	normalizeText,
+	settleSend,
 	resolveRecipients,
 	sessionMode,
 	shortId,
@@ -507,16 +504,11 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		async send(input) {
 			const me = await currentRecord();
 			if (!store) throw new Error("session bus is not started.");
-			const text = normalizeText(input.text);
-			if ("error" in text) throw new Error(text.error);
-			const keyed = normalizeKey(input.key);
-			if ("error" in keyed) throw new Error(keyed.error);
-			const replyTo = normalizeReference("replyTo", input.replyTo);
-			if ("error" in replyTo) throw new Error(replyTo.error);
-			const about = normalizeReference("about", input.about);
-			if ("error" in about) throw new Error(about.error);
-			const kind = normalizeKind(input.kind);
-			if (input.to.trim() === "*" && kind !== "event") throw new Error('a broadcast needs kind: "event".');
+			// The send's own words are the protocol's: settled in one place, so the refusals keep their
+			// order and their sentences whatever door the send came through.
+			const settled = settleSend(input);
+			if ("error" in settled) throw new Error(settled.error);
+			const { text, kind, key, replyTo, about } = settled.fields;
 			// Which records mail reaches is `resolveRecipients`'s rule, over rows carrying their own
 			// state: the gone exclusion and the sender's own record are read there, once, rather than
 			// pre-filtered here and read again beside the wording.
@@ -534,10 +526,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				from: me.id,
 				fromLabel: me.label,
 				kind,
-				text: text.text,
-				...(keyed.key === undefined ? {} : { key: keyed.key }),
-				...(replyTo.value === undefined ? {} : { replyTo: replyTo.value }),
-				...(about.value === undefined ? {} : { about: about.value }),
+				text,
+				...(key === undefined ? {} : { key }),
+				...(replyTo === undefined ? {} : { replyTo }),
+				...(about === undefined ? {} : { about }),
 				...(paths ? { paths } : {}),
 				at: now(),
 			});
