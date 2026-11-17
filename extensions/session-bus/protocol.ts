@@ -6,6 +6,7 @@
  */
 
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { EMPTY_PATH, outsideRepository, tooManyPaths } from "../../lib/format.ts";
 import { MESSAGE_KINDS, type MessageKind } from "../../lib/session-mail.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SESSION_TOOL } from "../../lib/tool-names.ts";
@@ -113,10 +114,10 @@ export function normalizeLimit(raw: unknown): number {
  */
 export function normalizePaths(repoRoot: string, cwd: string, raw: unknown): { paths: string[] } | { error: string } {
 	if (!Array.isArray(raw) || raw.length === 0) return { error: "paths must contain at least one path." };
-	if (raw.length > MAX_PATHS) return { error: `at most ${MAX_PATHS} paths are allowed.` };
+	if (raw.length > MAX_PATHS) return { error: tooManyPaths(MAX_PATHS) };
 	const paths: string[] = [];
 	for (const entry of raw) {
-		if (typeof entry !== "string" || entry.trim() === "") return { error: "every path must be a non-empty string." };
+		if (typeof entry !== "string" || entry.trim() === "") return { error: EMPTY_PATH };
 		const given = entry.trim();
 		const absolute = resolve(cwd, given);
 		const rel = relative(repoRoot, absolute);
@@ -125,7 +126,7 @@ export function normalizePaths(repoRoot: string, cwd: string, raw: unknown): { p
 			continue;
 		}
 		if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
-			return { error: `path "${entry}" is outside the repository.` };
+			return { error: outsideRepository(entry) };
 		}
 		const normalized = rel.split(sep).join("/");
 		if (!paths.includes(normalized)) paths.push(normalized);

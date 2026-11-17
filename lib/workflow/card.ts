@@ -14,7 +14,7 @@
  * Value-only: no I/O, no state.
  */
 
-import { overLimit, pageSource, sanitizeLine } from "../format.ts";
+import { EMPTY_PATH, outsideRepository, overLimit, pageSource, sanitizeLine, tooManyPaths } from "../format.ts";
 import { type Contract, isContract, isHandoff, type Handoff, isSign, type Sign } from "./contract.ts";
 import { CARD_TYPES, type CardType } from "./kind.ts";
 import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
@@ -280,17 +280,17 @@ export function normalizeTitle(raw: unknown): { title: string } | FieldError {
 export function normalizePathHints(raw: unknown): { paths: string[] } | FieldError {
 	if (raw === undefined) return { paths: [] };
 	if (!Array.isArray(raw)) return { error: "paths must be a list of repository-relative paths." };
-	if (raw.length > MAX_PATHS) return { error: `at most ${MAX_PATHS} paths are allowed.` };
+	if (raw.length > MAX_PATHS) return { error: tooManyPaths(MAX_PATHS) };
 	const paths: string[] = [];
 	for (const entry of raw) {
 		if (typeof entry !== "string") return { error: "every path must be a string." };
 		const cleaned = sanitizeLine(entry).trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
-		if (cleaned === "") return { error: "every path must be a non-empty string." };
+		if (cleaned === "") return { error: EMPTY_PATH };
 		if (cleaned.length > MAX_PATH) return { error: overLimit("a path", cleaned.length, MAX_PATH) };
 		if (cleaned.startsWith("/") || /^[a-zA-Z]:\//.test(cleaned)) {
 			return { error: `path "${cleaned}" is absolute; use a repository-relative path.` };
 		}
-		if (cleaned.split("/").includes("..")) return { error: `path "${cleaned}" is outside the repository.` };
+		if (cleaned.split("/").includes("..")) return { error: outsideRepository(cleaned) };
 		if (!paths.includes(cleaned)) paths.push(cleaned);
 	}
 	return { paths };

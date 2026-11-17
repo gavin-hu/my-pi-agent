@@ -10,6 +10,7 @@ import {
 	ageWords,
 	boundedTail,
 	clipText,
+	EMPTY_PATH,
 	formatAge,
 	formatCount,
 	formatDuration,
@@ -19,6 +20,7 @@ import {
 	formatTokens,
 	lineOf,
 	MAX_OUTPUT_LINE,
+	outsideRepository,
 	pageSource,
 	plural,
 	sanitize,
@@ -27,6 +29,7 @@ import {
 	sanitizeUntrustedText,
 	shortenPath,
 	stripControlChars,
+	tooManyPaths,
 } from "./format.ts";
 
 /**
@@ -143,6 +146,18 @@ describe("formatAge", () => {
 		expect(AGE_WORDS_JS).not.toContain("${");
 		const browserWords = new Function(`return (${AGE_WORDS_JS});`)() as (age: string) => string;
 		for (const age of ["now", "1m", "2h", "1d"]) expect(browserWords(age)).toBe(ageWords(age));
+	});
+});
+
+describe("the path refusals", () => {
+	test("say the one sentence both surfaces print, with the caller's cap and its own spelling", () => {
+		// The cap is the caller's — a claim keeps 20 and a card's hint 12 — so only the sentence is
+		// shared, and the spelling is the caller's too: a claim names the entry it was given, a hint
+		// its cleaned form. Two copies of either is how the sentences beside these drifted.
+		expect(tooManyPaths(20)).toBe("at most 20 paths are allowed.");
+		expect(tooManyPaths(12)).toBe("at most 12 paths are allowed.");
+		expect(EMPTY_PATH).toBe("every path must be a non-empty string.");
+		expect(outsideRepository("../outside")).toBe('path "../outside" is outside the repository.');
 	});
 });
 
