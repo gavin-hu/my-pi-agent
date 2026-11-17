@@ -122,9 +122,8 @@ export function formatDuration(ms: number): string {
  *
  * One rule for both surfaces that print an age — a card's offer in the transcript, and
  * the same card on the page — so one fact cannot read `2h ago` in a tool result and `3h`
- * on the page. Written as concatenation because the page's bundle carries this function's
- * *source* (`FORMAT_AGE_JS`): a backtick or an interpolation in it would end the string it
- * is spliced into.
+ * on the page. Its source crosses as `FORMAT_AGE_JS`, and a spliced body may spell none of
+ * `.replace`'s replacement patterns (`test/spliced-bodies.test.ts`).
  */
 export function formatAge(now: number, at: number): string {
 	const seconds = Math.max(0, Math.round((now - at) / 1000));
@@ -161,9 +160,8 @@ export function formatToolCount(count: number): string {
 /**
  * `1 owner`, `2 owners`.
  *
- * Written as concatenation rather than a template, because `board/round-text.ts` splices this
- * function's *source* into the page bundle: a backtick or an interpolation in it would end the string
- * it lands in. That splice's case stays beside `PLURAL_JS` and is what guards the shape.
+ * Its source crosses as `PLURAL_JS`, so a spliced body may spell none of `.replace`'s replacement
+ * patterns (`test/spliced-bodies.test.ts`).
  */
 export function plural(count: number, noun: string): string {
 	return count + " " + noun + (count === 1 ? "" : "s");

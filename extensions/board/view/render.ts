@@ -185,7 +185,7 @@ __RUNTIME__
    * "12m", "3h", "2d" — an age, compact enough for a meta line.
    *
    * The transcript prints the same rule for the same fact, so the body is spliced in from
-   * lib/format.ts rather than written twice; its words cross the same way. No backtick: a template.
+   * lib/format.ts rather than written twice; its words cross the same way.
    */
   var ageText = __AGE__;
   var ageWords = __AGE_WORDS__;
