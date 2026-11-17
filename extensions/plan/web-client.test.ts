@@ -76,9 +76,15 @@ describe("review client", () => {
 		expect(REVIEW_CLIENT_JS).toContain("viewNoteEl.textContent = viewNote(view, counts)");
 		expect(clientFunction("syncView")).not.toContain("setStatus");
 		expect(REVIEW_CLIENT_JS).not.toContain("the rest hidden");
-		// The view that matched nothing keeps the document whole, so the words are the only signal.
-		expect(REVIEW_CLIENT_JS).toContain('"Nothing changed since the last review"');
-		expect(REVIEW_CLIENT_JS).toContain('"No comments on this plan yet"');
+		// The view that matched nothing keeps the document whole, so the words are the only signal —
+		// and there is one per way it can have nothing: no prose matched, or only headings did.
+		for (const sentence of [
+			"Nothing changed since the last review",
+			"Only headings changed since the last review",
+			"No comments on this plan yet",
+			"The only comments are on headings",
+		])
+			expect(REVIEW_CLIENT_JS).toContain(sentence);
 	});
 
 	test("puts the tab stop back after it rebuilds the block it was in", () => {

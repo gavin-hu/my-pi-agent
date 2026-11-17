@@ -9,8 +9,9 @@
  * its view — the count once went to the header's status line and nothing cleared it — needs a
  * case that reads the note after the reader has left the view.
  *
- * Where the machine has no browser the suite skips, naming `PI_CHROME`, so `bun run check`
- * stays green there and still says why nothing ran.
+ * Where the machine has no browser the last suite skips, naming `PI_CHROME`, so `bun run check`
+ * stays green there and still says why nothing ran; the sentences themselves are read without
+ * a document, because a missing row is a case the page cannot reach by driving it.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -23,6 +24,23 @@ import {
 	REVIEW_CHROME,
 	REVIEW_PAGE,
 } from "../../test/helpers/plan-browser.ts";
+import { reviewNote, VIEW_NOTES } from "./web-note.ts";
+
+describe("the switch's sentences", () => {
+	test("one per view and per nothing, none sharing another's words", () => {
+		// The type is the completeness guard; this is the half a type cannot see, two rows that
+		// answer with the same sentence under different labels.
+		const sentences = Object.values(VIEW_NOTES).flatMap((byReason) => Object.values(byReason));
+		expect(sentences).toHaveLength(4);
+		expect(new Set(sentences).size).toBe(4);
+	});
+
+	test("counts what a view hid, and says nothing for the whole plan", () => {
+		expect(reviewNote("all", { shown: 4, hidden: 0 })).toBe("");
+		expect(reviewNote("changed", { shown: 3, hidden: 1 })).toBe("Showing 3 of 4 blocks — 1 hidden");
+		expect(reviewNote("comments", { shown: 4, hidden: 0, empty: "headings" })).toBe(VIEW_NOTES.comments.headings);
+	});
+});
 
 let browser: TestBrowser;
 
@@ -103,14 +121,23 @@ describe.skipIf(REVIEW_CHROME === undefined)("the review's view switch", () => {
 		});
 	});
 
-	test("commented heading keeps the Comments view from reading as empty", async () => {
-		// A heading is kept by every view, so a filter counting only the other blocks would
-		// announce "no comments" with the note sitting under the heading it was written on.
+	test("says only headings changed, over a document kept whole", async () => {
+		// A heading is kept by every view, so the mark on one is not prose the filter matched: the
+		// page must not claim nothing changed over a heading that visibly did, nor blank itself to
+		// two headings and no text.
+		await withReview({ changed: [0], blockMarks: true }, async (page) => {
+			await page.click('[data-view="changed"]');
+			expect(await note(page)).toBe("Only headings changed since the last review");
+			expect(await shownBlocks(page)).toBe(4);
+		});
+	});
+
+	test("says the only comments are on headings, over a document kept whole", async () => {
+		// The same state from the other filter: a note sitting under the heading it was written on.
 		await withReview({ annotations: [{ anchor: 3, comment: "on the rollout heading" }] }, async (page) => {
 			await page.click('[data-view="comments"]');
-			// Two headings are kept, so two of the four drawn blocks show; the point is that the
-			// note counts a comment rather than announcing there is none.
-			expect(await note(page)).toBe("Showing 2 of 4 blocks — 2 hidden");
+			expect(await note(page)).toBe("The only comments are on headings");
+			expect(await shownBlocks(page)).toBe(4);
 		});
 	});
 

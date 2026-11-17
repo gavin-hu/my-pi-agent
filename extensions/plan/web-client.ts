@@ -32,6 +32,7 @@ import { WEB_COMMENTS_JS } from "./web-comments.ts";
 import { WEB_COLLAB_JS } from "./web-collab.ts";
 import { WEB_MARKDOWN_JS } from "./web-markdown.ts";
 import { WEB_BLOCKS_JS } from "./web-blocks.ts";
+import { WEB_NOTE_JS } from "./web-note.ts";
 import { WEB_COMPOSER_JS } from "./web-composer.ts";
 import { WEB_DRAFT_JS } from "./web-draft.ts";
 import { WEB_OUTLINE_JS } from "./web-outline.ts";
@@ -113,6 +114,8 @@ ${CLIENT_RUNTIME_JS}
 ${WEB_OUTLINE_JS}
 
 ${WEB_BLOCKS_JS}
+
+${WEB_NOTE_JS}
 
 ${WEB_KEYS_JS}
 
@@ -243,14 +246,13 @@ ${WEB_MARKDOWN_JS}
   /**
    * What the switch says about the view it is showing.
    *
-   * Three answers and nothing else: what it hid, the view that matched nothing, and silence
-   * for the whole plan. A matched-nothing view keeps the document whole, so without the second
-   * sentence the reader sees every block under a filter that claims to have selected some.
+   * The sentences belong to web-note.ts, keyed by view and by which nothing the view found;
+   * the one rule here is that a settled review says nothing, because the header already
+   * carries how it ended.
    */
   function viewNote(name, counts) {
-    if (name === "all" || saved || approved || closed) return "";
-    if (counts.empty) return name === "changed" ? "Nothing changed since the last review" : "No comments on this plan yet";
-    return "Showing " + counts.shown + " of " + (counts.shown + counts.hidden) + " blocks — " + counts.hidden + " hidden";
+    if (saved || approved || closed) return "";
+    return reviewNote(name, counts);
   }
 
   /**
