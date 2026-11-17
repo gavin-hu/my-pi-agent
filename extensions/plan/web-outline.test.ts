@@ -311,7 +311,7 @@ describe("review view filter", () => {
 		];
 		const counts = applyView(page(blocks), "changed");
 		expect(blocks.map((entry) => entry.hidden)).toEqual([false, false, true]);
-		expect(counts).toEqual({ shown: 2, hidden: 1 });
+		expect(counts).toEqual({ shown: 2, hidden: 1, empty: false });
 	});
 
 	test("hides a thread with its block, and leaves an orphan thread alone", () => {
@@ -331,15 +331,16 @@ describe("review view filter", () => {
 		expect(thread.hidden).toBe(false);
 	});
 
-	test("a filter that matches nothing but headings keeps the document whole", () => {
+	test("a filter that matches nothing keeps the document whole, and says it matched nothing", () => {
+		// No change mark anywhere, so Changed has nothing of its own: `shown` is the whole
+		// document here and only `empty` can say the filter found nothing.
 		const blocks = [
 			node({ "data-line": "0", "data-kind": "heading" }),
 			node({ "data-line": "1", "data-kind": "paragraph" }),
 		];
-		// No block carries a change mark, so the Changed view has nothing to show.
 		const counts = applyView(page(blocks), "changed");
 		expect(blocks.map((entry) => entry.hidden)).toEqual([false, false]);
-		expect(counts).toEqual({ shown: 2, hidden: 0 });
+		expect(counts).toEqual({ shown: 2, hidden: 0, empty: true });
 	});
 });
 

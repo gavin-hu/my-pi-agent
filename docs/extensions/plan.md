@@ -10,9 +10,8 @@ refinement a midline dot in the margin marks each section that changed.
 
 - **Use it for** any change you would want to read before it lands.
 - **`/plan <task>`** starts one; `Shift+Tab` toggles plan mode too.
-- **Nothing in your tree is written** until you approve — no file, no command,
-  no commit. The one thing planning writes is the plan file itself, outside the
-  checkout.
+- **Nothing in your tree is written** until you approve — no file, no command, no
+  commit. The one thing planning writes is the plan file itself, outside the checkout.
 
 ## What you can do
 
@@ -44,10 +43,9 @@ plan exit 2026-10-09-1809-add-rate-limiting
 ```
 
 Approving ends plan mode, hands write access back, and puts the plan's steps into
-`/todos` — appended after any items already there, so the list is the one you
-watch while the work runs. A full
-walkthrough — refining, commenting, sharing with a teammate — is
-[Your first plan](../tutorials/first-plan.md).
+`/todos`, appended after any items already there, so the list is the one you watch
+while the work runs. A full walkthrough — refining, commenting, sharing with a
+teammate — is [Your first plan](../tutorials/first-plan.md).
 
 ## Reference
 
@@ -79,10 +77,13 @@ the plan file and the text it now reads.
 anything: plan mode stays on.
 
 **Browser review.** `w` opens the same plan as a page: the title, the live comment
-count, **Approve & run**, **Save feedback**, and **Back to Pi**. Hover a block and
-press the `+` in its margin (a button named "Comment on this block"), or select text
-to quote it, then **Save feedback** to send the
-comments back. A comment-only review has no approve action.
+count, **Approve & run**, **Save feedback**, and **Back to Pi**. Hover a block and press
+the `+` in its margin (a button named "Comment on this block"), or select text to quote
+it, then **Save feedback** to send the comments back; a comment-only review has no
+approve action. The switch above the sections shows **All**, **Changed** (what this
+review changed; off until there is an earlier review to compare against) and
+**Comments**, and the line under it counts what the view hid, or says it found nothing.
+Paper is always the whole plan: the switch and its count go, every block returns.
 
 **Sharing.** **Share** mints a link and QR for this Wi-Fi, one per teammate (at
 most eight), and each link binds the reviewer's name on its first post;
@@ -97,14 +98,13 @@ that changes. A delegated agent runs with writing forced off.
 
 ## Limits
 
-- Read-only is a guard rail against accidents, not a sandbox — extensions share
-  Pi's permissions.
-- A plan holds at most 50 steps and 256 KiB; a bigger one is refused rather than
-  trimmed.
-- Plan mode has no PowerShell on Windows: Git Bash is the shell, and it has to be
-  installed.
-- The browser review needs `serve` and a local browser; a reviewer's page is only
-  reachable while its link is shared.
+- Read-only is a guard rail against accidents, not a sandbox — extensions share Pi's
+  permissions.
+- A plan holds at most 50 steps and 256 KiB; a bigger one is refused, not trimmed.
+- Plan mode has no PowerShell on Windows: Git Bash is the shell, and it must be installed.
+- The browser review needs `serve` and a local browser; a reviewer's page is only reachable
+  while its link is shared. At 640px and below the sections panel collapses above the
+  document, so the count under the switch scrolls away with it.
 - The plans directory is the only index — nothing deletes a plan for you.
 
 ## Settings

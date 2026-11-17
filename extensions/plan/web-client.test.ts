@@ -68,6 +68,19 @@ describe("review client", () => {
 		expect(submit).not.toContain('setStatus("The plan changed');
 	});
 
+	test("counts what a view hid in the note under the switch, never in the header", () => {
+		// The count went to the status line, and nothing cleared it when the reader went back to
+		// the whole plan, so the header claimed 62 of 79 blocks above all 79 of them. The note is
+		// rewritten from the view on every render, which is why it cannot outlive its view.
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("review-note")');
+		expect(REVIEW_CLIENT_JS).toContain("viewNoteEl.textContent = viewNote(view, counts)");
+		expect(clientFunction("syncView")).not.toContain("setStatus");
+		expect(REVIEW_CLIENT_JS).not.toContain("the rest hidden");
+		// The view that matched nothing keeps the document whole, so the words are the only signal.
+		expect(REVIEW_CLIENT_JS).toContain('"Nothing changed since the last review"');
+		expect(REVIEW_CLIENT_JS).toContain('"No comments on this plan yet"');
+	});
+
 	test("puts the tab stop back after it rebuilds the block it was in", () => {
 		// Focus is restored only when the reviewer's own action destroyed it, never on
 		// a repaint the stream caused, and the status region says what happened.

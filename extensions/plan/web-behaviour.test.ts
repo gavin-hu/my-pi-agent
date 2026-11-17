@@ -85,14 +85,14 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			expect(await page.$eval(active, (node) => node.getAttribute("data-line"))).toBe("0");
 
 			// The view control is one filter over what was drawn: the annotated block and the
-			// headings stay, and the status line says how much it is hiding.
+			// headings stay, and the note under the switch says how much it is hiding.
 			await page.click('[data-view="comments"]');
 			expect(
 				await page.$$eval("#plan .bf-block:not([hidden])", (nodes) =>
 					nodes.map((node) => node.getAttribute("data-line")),
 				),
 			).toEqual(["0", "1", "3"]);
-			expect(await page.textContent("#status")).toContain("3 of 4");
+			expect(await page.textContent("#review-note")).toContain("3 of 4");
 			// A throw inside a handler is invisible in an image and fatal to the feature, so
 			// the click gets the same clean-console assertion the boot did.
 			expect(errors).toEqual([]);

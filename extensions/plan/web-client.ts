@@ -105,6 +105,7 @@ ${CLIENT_BASE_JS}
   var postButton = document.getElementById("post");
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
+  var viewNoteEl = document.getElementById("review-note");
   var reloadEl = document.getElementById("reload-hint");
 
 ${CLIENT_RUNTIME_JS}
@@ -202,30 +203,54 @@ ${WEB_MARKDOWN_JS}
   }
 
   /**
-   * Apply the current view and say what it hides.
+   * Apply the current view, and say beside the switch what it hid.
    *
-   * The count goes on the status line rather than into the document: a filtered plan with
-   * no note reads as a shorter plan, and the count is the one fact that undoes that.
+   * The note sits under the control the reader pressed rather than in the header: the count
+   * is the one fact that undoes a filtered plan reading as a short one, so it belongs beside
+   * the switch. It is rewritten from the view on every render, which is why a sentence can no
+   * longer outlive the view that wrote it.
    */
   function syncView() {
     var counts = applyView(planEl, view);
+    var offered = views();
     var buttons = document.querySelectorAll("[data-view]");
     for (var i = 0; i < buttons.length; i++) {
       var button = buttons[i];
       var name = button.getAttribute("data-view");
       button.setAttribute("aria-pressed", name === view ? "true" : "false");
-      // Nothing to compare against is not an empty view: the button says why it is off.
-      if (name === "changed") {
-        var comparable = data.blockMarks === true;
-        button.disabled = !comparable;
-        button.title = comparable ? "Only what this review changed" : "No earlier review of this plan to compare against";
-      }
+      // A view this page cannot offer is off, and says why: nothing to compare against is
+      // not an empty view.
+      button.disabled = offered.indexOf(name) < 0;
+      if (name === "changed")
+        button.title =
+          offered.indexOf("changed") >= 0
+            ? "Only what this review changed"
+            : "No earlier review of this plan to compare against";
     }
-    // The page's own wrapper owns the element: the shared paint takes the node first, so
-    // the sentence goes through setStatus rather than being handed over as one. A settled
-    // review's status line carries how it ended, not the filter's count.
-    if (counts.hidden > 0 && !saved && !approved && !closed)
-      setStatus("Showing " + counts.shown + " of " + (counts.shown + counts.hidden) + " blocks — the rest hidden");
+    if (viewNoteEl) viewNoteEl.textContent = viewNote(view, counts);
+  }
+
+  /**
+   * The order this page's views cycle in, which is also the set it can offer.
+   *
+   * The Changed view needs an earlier review to compare against, and a plan whose baseline
+   * carries no block marks has none: the button is off and the key skips it.
+   */
+  function views() {
+    return data.blockMarks === true ? ["all", "changed", "comments"] : ["all", "comments"];
+  }
+
+  /**
+   * What the switch says about the view it is showing.
+   *
+   * Three answers and nothing else: what it hid, the view that matched nothing, and silence
+   * for the whole plan. A matched-nothing view keeps the document whole, so without the second
+   * sentence the reader sees every block under a filter that claims to have selected some.
+   */
+  function viewNote(name, counts) {
+    if (name === "all" || saved || approved || closed) return "";
+    if (counts.empty) return name === "changed" ? "Nothing changed since the last review" : "No comments on this plan yet";
+    return "Showing " + counts.shown + " of " + (counts.shown + counts.hidden) + " blocks — " + counts.hidden + " hidden";
   }
 
   /**
@@ -242,7 +267,7 @@ ${WEB_MARKDOWN_JS}
     for (var step = start + delta; step >= 0 && step < list.length; step += delta) {
       var block = list[step];
       if (!block || block.hidden === true) continue;
-      if ((block.className || "").split(" ").indexOf("bf-block--commented") < 0) continue;
+      if (!commented(block)) continue;
       var next = setActive(planEl, step);
       if (next !== null) activeIndex = next;
       if (block.scrollIntoView) block.scrollIntoView({ block: "center" });
@@ -258,7 +283,7 @@ ${WEB_MARKDOWN_JS}
    */
   function cycleView() {
     if (confirmNoDraft()) return;
-    var order = data.blockMarks === true ? ["all", "changed", "comments"] : ["all", "comments"];
+    var order = views();
     var at = order.indexOf(view);
     view = order[(at + 1) % order.length] || "all";
     renderAll();

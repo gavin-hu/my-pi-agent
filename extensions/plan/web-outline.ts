@@ -85,11 +85,19 @@ export function renderOutline(list: ClientNode | null, entries: readonly Outline
 		}
 		if (item.removed !== undefined && item.removed > 0) {
 			// A block that left cannot be drawn where it was, so the count is the fact the
-			// page can still give: how much shorter this section has become.
-			link.title =
+			// page can still give: how much shorter this section has become. It is drawn rather
+			// than left in a tooltip, which a touch reader and a printed page never see.
+			const sentence =
 				item.removed === 1
 					? "1 block removed since your last review"
 					: item.removed + " blocks removed since your last review";
+			link.title = sentence;
+			const removed = el("span", "review-nav__removed");
+			removed.setAttribute("role", "img");
+			removed.setAttribute("aria-label", sentence);
+			removed.title = sentence;
+			removed.textContent = "\u2212" + item.removed;
+			link.appendChild(removed);
 		}
 		const count = el("span", "review-nav__count");
 		count.hidden = true;
