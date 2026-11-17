@@ -204,11 +204,7 @@ describe("matchesQuery", () => {
 
 describe("MATCHES_QUERY_JS", () => {
 	test("is the same body, safe to splice into a script", () => {
-		// The page's filter runs this source; a backtick or an interpolation would end the
-		// template it lands in, and the failure would be a board that never filters.
 		expect(MATCHES_QUERY_JS).toBe(String(matchesQuery));
-		expect(MATCHES_QUERY_JS).not.toContain("`");
-		expect(MATCHES_QUERY_JS).not.toContain("${");
 	});
 
 	test("answers what the module answers", () => {

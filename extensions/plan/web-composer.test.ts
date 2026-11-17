@@ -61,8 +61,6 @@ describe("review composer lifecycle", () => {
 	};
 
 	test("carries the source, safe to splice into the client bundle", () => {
-		expect(WEB_COMPOSER_JS).not.toContain("`");
-		expect(WEB_COMPOSER_JS).not.toContain("${");
 		for (const fn of [closeComposer, reopenComposer, commentOnActive]) {
 			expect(WEB_COMPOSER_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
 		}
@@ -246,8 +244,6 @@ describe("review plan renderer", () => {
 	};
 
 	test("carries the source, safe to splice into the client bundle", () => {
-		expect(WEB_PLAN_JS).not.toContain("`");
-		expect(WEB_PLAN_JS).not.toContain("${");
 		expect(WEB_PLAN_JS).toBe(String(renderPlanFrame));
 		expect(REVIEW_CLIENT_JS).toContain(
 			"renderPlanFrame(planFrame(), closeOpenComposer, observeSections, sectionObserver)",

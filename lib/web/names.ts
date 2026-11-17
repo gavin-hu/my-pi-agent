@@ -8,10 +8,11 @@
  * the document and the bundle read the same values, and a test can compare the set the
  * page wears with the set its stylesheet draws.
  *
- * The bundle carries the table as **source**, so every value must survive being spliced
- * into a template literal: a backtick would end the string, and `${` would interpolate
- * at build time. `KEBAB` is that contract, and {@link namesScript} throws rather than
- * trusting a caller — a bad name is a build error here, not a mystery on the page.
+ * The table is emitted as one statement and interpolated into the bundle as a value, which is
+ * inert: `KEBAB` guards the vocabulary itself — a class name is the stylesheet's, and a page
+ * wearing one the stylesheet does not draw is a hole nothing else would find — while `IDENTIFIER`
+ * guards `var <name>`, a declaration position a stray character turns into a syntax error.
+ * {@link namesScript} throws rather than trusting a caller.
  */
 
 /** A page's vocabulary: a key per thing it dresses, and the class it wears. */

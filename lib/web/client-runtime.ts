@@ -12,8 +12,9 @@
  * carries the *source* (`CLIENT_RUNTIME_JS`) the same way it carries `plural` and the class
  * table.
  *
- * The functions are plain JavaScript on purpose: their text is spliced into a bundle, so
- * no annotation may survive into the string and no backtick or `${` may appear in a body.
+ * The functions are plain JavaScript on purpose: their text is spliced into a bundle as a
+ * value, so no annotation may survive into the string and none of `.replace`'s replacement
+ * patterns may appear in a body.
  * The DOM is reached through `globalThis`, because this project compiles without a DOM
  * lib — the cast names the guarantee the page makes: it is a browser, and it has one.
  */
@@ -183,8 +184,8 @@ export function paintLive(node: ClientNode, tone: string, label: string, title?:
  * kept for a dead stream. A page's own words (`stale`, a settled review) are not stream states,
  * so they stay page-side and paint through `paintLive`.
  *
- * Built by concatenation, never a template literal: the body is spliced into a page's script by
- * `pageSource`, which refuses a backtick or `${`.
+ * Its body is spliced into a page's script by `pageSource`, so it may spell none of
+ * `.replace`'s replacement patterns.
  */
 export function paintLiveState(node: ClientNode, state: LiveState, suffix?: string, title?: string): void {
 	const after = suffix || "";

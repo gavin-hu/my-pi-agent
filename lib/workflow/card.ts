@@ -346,8 +346,7 @@ export function priorityRank(card: Card): number {
  *
  * The page's filter and `board list`'s `query` are the same question, so they are the
  * same rule here — and the same *body*: this function's source is spliced into the
- * browser bundle as `MATCHES_QUERY_JS`, which is why it is written with concatenation
- * and no backtick. A second copy in the page is exactly what drifted before.
+ * browser bundle as `MATCHES_QUERY_JS`. A second copy in the page is exactly what drifted before.
  *
  * The order is the answer's weight: a title hit is what a reader meant, then who holds
  * it and what kind of work it is, then where it lives, and only then the reasoning — a

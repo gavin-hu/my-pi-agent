@@ -62,8 +62,6 @@ describe("review settlement", () => {
 	};
 
 	test("carries the source, safe to splice into the client bundle", () => {
-		expect(WEB_SETTLE_JS).not.toContain("`");
-		expect(WEB_SETTLE_JS).not.toContain("${");
 		for (const fn of [submitAnnotations, saveReview, postReviewComments, approveReview, cancelReview]) {
 			expect(WEB_SETTLE_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
 		}
@@ -205,8 +203,6 @@ describe("review keyboard", () => {
 	};
 
 	test("carries the source, safe to splice into the client bundle", () => {
-		expect(WEB_KEYS_JS).not.toContain("`");
-		expect(WEB_KEYS_JS).not.toContain("${");
 		expect(WEB_KEYS_JS.split(String(handleKey)).length).toBe(2);
 		expect(WEB_KEYS_JS.split(String(rememberSelection)).length).toBe(2);
 	});

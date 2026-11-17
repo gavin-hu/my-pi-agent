@@ -30,9 +30,6 @@ describe("review outline", () => {
 	});
 
 	test("carries the source, safe to splice into the client bundle", () => {
-		// The bundle is a template literal: a backtick or an interpolation would end it.
-		expect(WEB_OUTLINE_JS).not.toContain("`");
-		expect(WEB_OUTLINE_JS).not.toContain("${");
 		expect(WEB_OUTLINE_JS.split(String(sectionFor)).length).toBe(2);
 		expect(REVIEW_CLIENT_JS).toContain("renderOutline(outlineList, outlineEntries())");
 		// The fragment runs with nothing but the builder beside it: no reference to a helper
@@ -233,8 +230,6 @@ describe("review block navigation", () => {
 	};
 
 	test("carries the source, safe to splice into the client bundle", () => {
-		expect(WEB_BLOCKS_JS).not.toContain("`");
-		expect(WEB_BLOCKS_JS).not.toContain("${");
 		for (const fn of [blockElements, setActive, moveActive, blockAtLine]) {
 			expect(WEB_BLOCKS_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
 		}
@@ -364,8 +359,6 @@ describe("review draft guard", () => {
 	};
 
 	test("carries the source, safe to splice into the client bundle", () => {
-		expect(WEB_DRAFT_JS).not.toContain("`");
-		expect(WEB_DRAFT_JS).not.toContain("${");
 		for (const fn of [draftTextarea, guardDraft]) {
 			expect(WEB_DRAFT_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
 		}
