@@ -248,7 +248,7 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 				me: ME,
 				card: AWAITING,
 				error:
-					"#6 is in plan; its contract is not approved yet. The lead (team-lead) approves with `approve` (ask team-lead with `session send`), or the person with `/board approve 6`.",
+					"#6 is in plan; its contract is not approved yet. The lead (team-lead) approves with `approve` or `/board approve 6` (ask team-lead with `session send`).",
 			} as BoardDetails,
 			isError: true,
 		},

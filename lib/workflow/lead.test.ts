@@ -123,10 +123,10 @@ describe("signRefusal", () => {
 
 	test("a session that is not the lead is told whose signature the gate takes, and how to ask", () => {
 		expect(signRefusal(CARD, PEER, LEAD, "approve")).toBe(
-			"#4's contract is signed by the lead (team-lead), and this session is api-core — ask team-lead with `session send`, or the person signs it with `/board approve 4`.",
+			"#4's contract is signed by the lead (team-lead), and this session is api-core — ask team-lead with `session send`, or type `/board approve 4` there.",
 		);
 		expect(signRefusal(CARD, PEER, LEAD, "review")).toBe(
-			"#4 is spot-checked by the lead (team-lead), and this session is api-core — ask team-lead with `session send`, or the person signs with `/board review 4`.",
+			"#4 is spot-checked by the lead (team-lead), and this session is api-core — ask team-lead with `session send`, or type `/board review 4` there.",
 		);
 	});
 
@@ -156,10 +156,10 @@ describe("holderRefusal", () => {
 describe("missingSign", () => {
 	test("a lane that needs a sign names both ways to give it, and the channel that reaches the lead", () => {
 		expect(missingSign(CARD, LEAD, "approve")).toBe(
-			"#4 is in plan; its contract is not approved yet. The lead (team-lead) approves with `approve` (ask team-lead with `session send`), or the person with `/board approve 4`.",
+			"#4 is in plan; its contract is not approved yet. The lead (team-lead) approves with `approve` or `/board approve 4` (ask team-lead with `session send`).",
 		);
 		expect(missingSign(CARD, LEAD, "review")).toBe(
-			"#4 has no spot-check recorded. The lead (team-lead) records one with `review` (ask team-lead with `session send`), or the person with `/board review 4`.",
+			"#4 has no spot-check recorded. The lead (team-lead) records one with `review` or `/board review 4` (ask team-lead with `session send`).",
 		);
 	});
 
@@ -174,13 +174,13 @@ describe("the run a spot-check records", () => {
 	/** The sentence the `done` gate is refused with when the contract named a command and no run came. */
 	test("a missing run names the command and both doors that would record one", () => {
 		expect(unverifiedSpotCheck(CARD, "bun run check", LEAD)).toBe(
-			"#4's contract names `bun run check`, and its spot-check carries no result: the lead (team-lead) records one with `review`, or the person with `/board review 4`.",
+			"#4's contract names `bun run check`, and its spot-check carries no result: the lead (team-lead) records one with `review` or `/board review 4`.",
 		);
 	});
 
 	test("a stale run says what to re-run, and why the last one stopped counting", () => {
 		expect(staleSpotCheck(CARD, "bun run check", LEAD)).toBe(
-			"#4 was written after its spot-check, so the run no longer speaks for it — run `bun run check` and review again: the lead (team-lead) with `review`, or the person with `/board review 4`.",
+			"#4 was written after its spot-check, so the run no longer speaks for it — run `bun run check` and review again: the lead (team-lead) with `review` or `/board review 4`.",
 		);
 	});
 

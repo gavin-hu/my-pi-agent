@@ -9,8 +9,8 @@ promises, and the notes that explain it — and two signatures are needed before
 - **One board per repository**, one page: the first `/board` serves it, every other session opens it.
 - **The page is a view**, and it follows the files: nothing is claimed, moved, or signed from a
   browser, and a card another session writes reaches an open tab as it lands, wearing a mark.
-- **Two signatures**: the lead approves a contract before `execute` and spot-checks the work
-  before `done`; the person at the keyboard can give either, with `/board approve` and `/board review`.
+- **Two signatures**: the lead signs both gates — a contract before `execute`, the work before
+  `done` — with the `board` tool or `/board` in its own session.
 - **The lane is the record**, and a session is told once which cards are its own, with what each owes.
 - **Steps stay out of it** — they live in the owner's plan and `todo`.
 
@@ -24,12 +24,12 @@ promises, and the notes that explain it — and two signatures are needed before
 | Flag a breaking change | `breaking: true` on `add` or `edit`; `false` clears it |
 | Take a card | `board claim 4` — into `plan`, owned by this session; `board reclaim 4` takes one back — the lead from anyone, a peer only once that owner's record says it stopped |
 | Record what it promises | `board contract 4 path <plan file> goal … acceptance … scopeOut … verify …` — all four lines, and the `verify` command is required |
-| Approve the contract | `/board approve 4` as the person, or the lead with the `board` action `approve` |
+| Approve the contract | `/board approve 4` in the lead's session, or the lead with the `board` action `approve` |
 | Start the work | `board move 4 execute` |
 | Park a card | `board move 4 blocked blocker decision blockedBy "waiting on the API owner"` |
-| Sign off finished work | `/board review 4`, then `board move 4 done` |
+| Sign off finished work | `/board review 4` in the lead's session, then `board move 4 done` |
 | Explain something | `board note 4 "why the retry is capped at three"` |
-| Set finished work aside | `/board archive` |
+| Set finished work aside | `/board archive` in the lead's session, or the `board` action `archive` from any session |
 | Read the round | `board list round: true`, or `/team` — owners, unassigned, unplanned, awaiting approval, awaiting review, untold, blocked, done |
 
 ## Try it
@@ -40,7 +40,7 @@ Put the billing webhook's order acceptance on the board, under src/billing.
 
 The model calls `board({ action: "add", … })` and then, when you say so,
 `board({ action: "claim", card: "1" })`. Those are tool actions, not commands:
-you type only `/board archive|approve|review|status|stop|team`.
+you type only `/board archive|approve|review|status|stop|team` — the three that write are the lead's.
 
 The claim's result names the next step, and `/board approve 1` refuses until the contract
 names a plan file in this repository's store. A claim also joins the team ([`team`](team.md)).
@@ -71,15 +71,15 @@ carried it: one committed before the work, one the branch moved past, or one rew
 and a reviewed merge is its own landing only while it is the tip, so a checkout sign needs a re-sign once something
 lands on top. `done` records the merge, `landed: <sha>` names it, and `override` reads "by instruction".
 
-**Commands.** `/board` serves or opens the page (add `team` for the Team tab);
-`/board approve <id>` and `/board review <id> [--root <tree>]` sign as the person; `/board archive` runs the sweep;
-`/board status` prints the seat, repository, port, and tabs; `/board stop` ends the page.
+**Commands.** `/board` serves or opens the page (add `team` for the Team tab); `/board approve <id>` and
+`/board review <id> [--root <tree>]` sign as the lead's own session, and `/board archive` runs the sweep
+for it; `status` prints the seat, repository, port, and tabs; `stop` ends the page.
 
 **Who signs.** The lead is `team.lead` in `bytefly.json` (default `gavin`), and the page serves as that name; an
 empty lead lets only the person sign and serves no page. A session signs only while it is the lead, never while
-it holds the card; `/board approve` and `/board review` sign as the person (`person: true`). The sign says who
-heard it — quiet, not listening, or not told — and an untold one is sent again. A completed contract tells the
-lead the same way, after the write; a failed send is a line, and the next completing write asks again.
+it holds the card — a lead releases its own card first — and the `/board` words gate on that same label, so they
+sign as the serving session. The sign says who heard it — quiet, not listening, or not told — and an untold one
+is sent again; a completed contract is told the same way, and a failed send is a line that asks again.
 
 **Where it lives.** `~/.pi/agent/board/<repo-key>/` — a card per file under `cards/`, with `archive/` and `ended/` beside it. The archive holds more than one record shape: a file written before the lanes says `status` and no `lane`, and the reader maps that word (`todo` → `backlog`, `doing` → `execute`, `done` and `blocked` as themselves), so a card set aside reads `done` like the rest and no file is ever rewritten.
 

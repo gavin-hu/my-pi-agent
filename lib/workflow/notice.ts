@@ -164,7 +164,7 @@ export function handoffText(card: Card, to: string, lead: Lead, note?: string): 
 export function readyText(card: Card, lead: Lead): string {
 	return (
 		`Contract ready: #${card.id} "${card.title}" — its four lines are whole and nothing is signed.\n` +
-		`Next: the lead (${leadName(lead)}) approves with board action "approve", or the person with \`/board approve ${card.id}\`.`
+		`Next: the lead (${leadName(lead)}) approves with board action "approve" or \`/board approve ${card.id}\`.`
 	);
 }
 

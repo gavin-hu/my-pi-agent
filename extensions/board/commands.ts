@@ -1,20 +1,22 @@
 /**
- * `/board` — the page's one entry point, and the person's door to the two signs.
+ * `/board` — the page's one entry point, and the lead's door to the two signs.
  *
  * `team` opens the page on the Team tab, `status` prints one line, `stop` closes it, and
- * `approve <id>` / `review <id>` write the two signs as the person at the keyboard, which is what
- * a session that is not the board's lead cannot do. Everything else opens the page. The command
- * is a thin parser — the lifecycle is `page.ts`'s, the transitions are `lib/workflow/steps.ts`'s —
- * so the idle grace and `session_shutdown` close the same server this opens.
+ * `approve <id>` / `review <id>` sign the two gates while `archive` folds finished cards away. All
+ * three are the lead's: the gate reads the label of the session that typed the line, which is the
+ * lead's own whenever that session serves the page, and a board naming no lead has nobody to read,
+ * so the person's sign is the one door it keeps. Everything else opens the page. The command is a
+ * thin parser — the lifecycle is `page.ts`'s, the transitions are `lib/workflow/steps.ts`'s — so the
+ * idle grace and `session_shutdown` close the same server this opens.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
 import type { ArtifactProof } from "../../lib/workflow/artifact.ts";
 import { cardRef, normalizeCardId } from "../../lib/workflow/card.ts";
-import { PERSON_LABEL, personActor, type Sign, signMark, signOf } from "../../lib/workflow/lead.ts";
+import { isLead, type Lead, personActor, type Sign, signMark, signOf } from "../../lib/workflow/lead.ts";
 import type { Verification } from "../../lib/workflow/contract.ts";
-import type { CardOp } from "../../lib/workflow/rules.ts";
+import type { Actor, CardOp } from "../../lib/workflow/rules.ts";
 import { landedClause, ranClause } from "../../lib/workflow/round-text.ts";
 import { plural } from "../../lib/format.ts";
 import { type BoardSession } from "../../lib/workflow/session.ts";
@@ -42,7 +44,7 @@ export function registerCommands(
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
 		description:
-			"Open the shared board in a local browser, sign its two gates as the person, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
+			"Open the shared board in a local browser, sign its two gates as the lead, or fold the finished cards away: /board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
 		getArgumentCompletions: (prefix: string) => {
 			// Lowercased, because that is what the handler parses: `/board ST 4` signs, so `/board ST`
 			// has to complete.
@@ -63,10 +65,10 @@ export function registerCommands(
 				return;
 			}
 			if (word === "archive") {
-				// The person's door to the sweep the tool already had: one rule for both, so the
-				// count the rollup prints and the cards this moves cannot be two sets. The flag is
-				// read before the store is even opened, because a spec a person mistyped must not
-				// reach a sweep that would take every finished card.
+				// The lead's door to the sweep the tool already had: one rule for both, so the count the
+				// rollup prints and the cards this moves cannot be two sets. The flag is read before the
+				// store is even opened, because a spec a person mistyped must not reach a sweep that would
+				// take every finished card.
 				const { boundFromCommand, sweepFinished, sweepText } = await import("./archive.ts");
 				const read = boundFromCommand(rest);
 				if (!read.ok) {
@@ -74,7 +76,22 @@ export function registerCommands(
 					return;
 				}
 				const store = await session.store(ctx.cwd);
-				const swept = await sweepFinished(store, personActor(), session.now(), undefined, read.bound);
+				const lead = store.config().lead;
+				// The sweep writes as the session that asked for it, by the same rule the two signs follow:
+				// the lead's own label, or the person's when the board names no lead to write as.
+				const who = await session.who(ctx, ctx.cwd);
+				const refused = leadDoor(word, who, lead);
+				if (refused !== undefined) {
+					ctx.ui.notify(`board: ${refused}`, "warning");
+					return;
+				}
+				const swept = await sweepFinished(
+					store,
+					lead === "" ? personActor() : who,
+					session.now(),
+					undefined,
+					read.bound,
+				);
 				ctx.ui.notify(`board: ${sweepText(swept)}`, swept.failed.length > 0 ? "warning" : "info");
 				return;
 			}
@@ -148,18 +165,20 @@ function wordHelp(): string {
 /** A line for the person, and the tone it is shown in: a failure is not the same news as a sign. */
 interface SignLine {
 	text: string;
-	tone: "info" | "error";
+	tone: "info" | "warning" | "error";
 }
 
 /**
- * Sign one of the card's two gates as the person at the keyboard.
+ * Sign one of the card's two gates as the lead whose session typed the line.
  *
  * The write is the same `mutate` the tool uses, so the rules are the state machine's: an
- * `approve` outside `plan`, a `review` outside `execute`, an unknown id, and a card already
- * signed are each refused with the sentence the tool would give. The one thing that differs
- * is the actor — the person, whose id no session can have — which is what makes the sign a
- * sign even when the session that typed it holds the card. The message that follows is the
- * tool's too: a command cannot call a tool, so `announce` sends by the request the bus answers.
+ * `approve` outside `plan`, a `review` outside `execute`, an unknown id, a card already signed and
+ * a card the signer holds are each refused with the sentence the tool would give. What this door
+ * adds is the session, the one identity a keyboard has: the gate refuses a line typed where the
+ * lead is not, and the sign is written as that session, so the card carries its name. A board
+ * naming no lead writes as the person instead — the id no session can have — because it has no
+ * lead to write as. The message that follows is the tool's too: a command cannot call a tool, so
+ * `announce` sends by the request the bus answers.
  */
 async function signLine(
 	pi: ExtensionAPI,
@@ -182,6 +201,7 @@ async function signLine(
 		cardId: string,
 		override: string | undefined,
 		root: string | undefined,
+		actor: Actor,
 	): Promise<{ verified: Verification } | { error: string } | undefined> => {
 		const card = await store.read(cardId).catch(() => undefined);
 		if (card === undefined) return undefined;
@@ -190,7 +210,7 @@ async function signLine(
 		// a sign that would be refused starts no process, and the refusal stays the store's to give.
 		return module.spotCheck({
 			card,
-			actor: personActor(),
+			actor,
 			lead: store.config().lead,
 			override,
 			// The tree the review names, or the session's own: `--root` is the card's worktree (or a checkout
@@ -214,10 +234,20 @@ async function signLine(
 	// The store is a repository read and a file write, and a command has nowhere else to report
 	// what they throw: without this the person sees a raw command error instead of a line.
 	let result: MutateResult;
+	let store: BoardStore;
 	let lead: string;
+	let actor: Actor;
 	try {
-		const store = await session.store(ctx.cwd);
+		store = await session.store(ctx.cwd);
 		lead = store.config().lead;
+		// The gate before anything it gates: a sign typed where the lead is not costs no plan read and
+		// starts no process. The session that serves the page is the lead, so the label read here is the
+		// one a person writes under after `/board`.
+		const who = await session.who(ctx, ctx.cwd);
+		const refused = leadDoor(sign, who, lead);
+		if (refused !== undefined) return { text: `board: ${refused}`, tone: "warning" };
+		// A board that names no lead has nobody to write as, so the person's sign is the one door it has.
+		actor = lead === "" ? personActor() : who;
 		// An approval covers the plan the card names as well as its wording, so it is proved before
 		// the write — the same proof the tool hands in, from the one module that reads it. A
 		// spot-check needs none: the `done` move proves the plan then.
@@ -225,9 +255,9 @@ async function signLine(
 		const artifact = proof === undefined ? undefined : await proof.provedPlan(session, ctx.cwd, store, id);
 		// The run rides the sign here too: this door is the person's, so it executes the command the
 		// contract names exactly as the tool's does, through the one body both doors share.
-		const evidence = sign === "review" ? await verifiedFor(store, id, override, root) : undefined;
+		const evidence = sign === "review" ? await verifiedFor(store, id, override, root, actor) : undefined;
 		if (evidence !== undefined && "error" in evidence) return { text: `board: ${evidence.error}`, tone: "info" };
-		result = await store.mutate(id, signOp(sign, override, artifact, evidence?.verified), personActor(), session.now());
+		result = await store.mutate(id, signOp(sign, override, artifact, evidence?.verified), actor, session.now());
 	} catch (error) {
 		return { text: `board: ${sign} ${cardRef(id)} failed — ${messageOf(error)}`, tone: "error" };
 	}
@@ -240,24 +270,27 @@ async function signLine(
 	// What ran is the one fact a person at a keyboard cannot see in the card: the sign's own words,
 	// in the one sentence the tool's card and the page's dialog print.
 	const evidence = ranClause(result.card.review?.verified) + landedClause(result.card.landed);
+	// The name the sign records: the lead's own label on a gated write, and the person's pronoun only
+	// on a board that names no lead to write as.
+	const by = signMark(actor, lead).by;
 	const text = result.changed
-		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}${how}${evidence}`
-		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}${how}${evidence}`;
+		? `board: ${cardRef(id)} ${done} by ${by}${how}${evidence}`
+		: `board: ${cardRef(id)} is already ${done} by ${by}${how}${evidence}`;
 	// The message is the tool's rule as well as its transport — `announce` on the result is what a
 	// fresh stamp and an untold repeat both set, so this door re-sends a sign the owner never heard
-	// exactly as the tool does. The sign's own signer may record it, which is why `personActor` is
-	// the actor: `announced` compares with `signedAs`, and the person's mark is on the sign.
+	// exactly as the tool does. The sign's own signer may record it, which is why the actor the line
+	// was written with is the one handed on: `announced` compares with `signedAs`.
 	if (result.notice !== sign) return { text, tone: "info" };
 	const { settleNotice } = await import("./notices.ts");
-	// The message and the record are one body, shared with the tool's door; this door supplies the
-	// person as the actor, since `announced` compares with the mark that sign carries.
+	// The message and the record are one body, shared with the tool's door, settled on the store this
+	// line already opened: `announced` compares with the mark that sign carries.
 	const settled = await settleNotice({
-		store: await session.store(ctx.cwd),
+		store,
 		card: result.card,
 		kind: result.notice,
 		lead,
-		by: signMark(personActor(), lead).by,
-		actor: personActor(),
+		by,
+		actor,
 		ctx,
 		deliver: notify ?? createDeliver(pi),
 		at: session.now(),
@@ -265,6 +298,20 @@ async function signLine(
 	});
 	const clause = settled.line?.trim();
 	return { text: clause === undefined ? text : `${text} · ${clause}`, tone: "info" };
+}
+
+/**
+ * Whether the session that typed the word may use the lead's door, or the line refusing it.
+ *
+ * The page's session is the lead — `/board` sets the seat from its own answer — so a sign or a sweep
+ * typed there is the lead's, and one typed in any other session is somebody's else. A board that
+ * names no lead has no door to check and keeps the person's sign, which is why an unset lead passes.
+ * The sentence names the session, the lead and the message that reaches it, because the way out is
+ * the lead's own keyboard rather than another spelling of the same word here.
+ */
+function leadDoor(word: string, who: Pick<Actor, "label">, lead: Lead): string | undefined {
+	if (lead === "" || isLead(who, lead)) return undefined;
+	return `/board ${word} is the lead's: this session is ${who.label} and team.lead is ${lead} — ask ${lead} with \`session send\``;
 }
 
 /** The operation one `/board` line makes: the word, the reason it may carry, and the plan it proved. */

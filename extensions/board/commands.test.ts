@@ -275,7 +275,11 @@ describe("/board", () => {
 	test("names itself in the command table", async () => {
 		const fake = createFakePi();
 		registerCommands(fake.pi, fakeBoardSession(), pageWithNoRecording());
-		expect(fake.commands.get(BOARD_COMMAND)?.description).toContain(
+		const description = fake.commands.get(BOARD_COMMAND)?.description ?? "";
+		// The words are parsed by this file and described here, so the table says which of them the
+		// lead's session is for: a description that offers a peer the sign contradicts the gate.
+		expect(description).toContain("sign its two gates as the lead");
+		expect(description).toContain(
 			"/board [archive [--older-than <age>] | team | status | stop | approve <id> | review <id> [--root <tree>] [--override <why>]]",
 		);
 	});

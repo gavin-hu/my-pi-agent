@@ -36,6 +36,9 @@ const ME: Actor = { id: "s-lead", label: "billing-core" };
 /** A board with a store, and the session a command or a tool works as. */
 function board() {
 	const harness = boardHarness({ now: NOW, track: temps.track, sessionId: ME.id, sessionName: ME.label });
+	// The seat the session serves, held the way the real one holds it: `/board` sets it, and the words
+	// that are the lead's read it.
+	let seat: string | undefined;
 	const session: BoardSession = {
 		store: (cwd: string) => harness.runtime.store(cwd),
 		planDir: (cwd: string) => harness.runtime.planDir(cwd),
@@ -44,9 +47,11 @@ function board() {
 		bus: (cwd: string) => harness.runtime.bus(cwd),
 		holder: (cwd: string, card: Card) => harness.runtime.holder(cwd, card),
 		now: () => NOW,
-		who: async () => ME,
-		serving: () => undefined,
-		serve: () => {},
+		who: async () => ({ id: ME.id, label: seat ?? ME.label }),
+		serving: () => seat,
+		serve: (label) => {
+			seat = label;
+		},
 		team: { last: () => undefined, record: () => {} },
 		cross: async () => undefined,
 	};
@@ -86,6 +91,8 @@ describe("the sweep", () => {
 	test("/board archive runs it and reports what it left", async () => {
 		const { harness, session } = board();
 		const store = await harness.runtime.store(harness.ctx.cwd);
+		// The sweep is the lead's door: the session that types it serves the board's seat.
+		session.serve(store.config().lead);
 		const kept = await store.create({ title: "Finished, still waited on", paths: [] }, ME, NOW);
 		const free = await store.create({ title: "Finished, nobody waits", paths: [] }, ME, NOW);
 		const waiting = await store.create({ title: "Waiting one", paths: [] }, ME, NOW);

@@ -190,7 +190,7 @@ export function missingSign(card: Card, lead: Lead, sign: Sign): string {
  * again" alone leaves a reader guessing which of the two they have.
  */
 export function unverifiedSpotCheck(card: Card, cmd: string, lead: Lead): string {
-	return `${cardRef(card.id)}'s contract names \`${cmd}\`, and its spot-check carries no result: the lead (${leadName(lead)}) records one with \`review\`, or the person with \`/board review ${card.id}\`.`;
+	return `${cardRef(card.id)}'s contract names \`${cmd}\`, and its spot-check carries no result: the lead (${leadName(lead)}) records one with \`review\` or \`/board review ${card.id}\`.`;
 }
 
 /**
@@ -201,7 +201,7 @@ export function unverifiedSpotCheck(card: Card, cmd: string, lead: Lead): string
  * is refused outside `plan`), and the approval that costs: this is the sentence that says so first.
  */
 export function noVerifyCommand(card: Card, lead: Lead): string {
-	return `${cardRef(card.id)}'s contract names no \`verify\` command, so there is no run for its spot-check: its holder's route — ${contractRoute(card)} The approval that drops is signed again by the lead (${leadName(lead)}) or the person with \`/board approve ${card.id}\`.`;
+	return `${cardRef(card.id)}'s contract names no \`verify\` command, so there is no run for its spot-check: its holder's route — ${contractRoute(card)} The approval that drops is signed again by the lead (${leadName(lead)}), with \`approve\` or \`/board approve ${card.id}\`.`;
 }
 
 /**
@@ -211,7 +211,7 @@ export function noVerifyCommand(card: Card, lead: Lead): string {
  * evidence, so the run is made again; a note is a message about the card, and `stateAt` is compared.
  */
 export function staleSpotCheck(card: Card, cmd: string, lead: Lead): string {
-	return `${cardRef(card.id)} was written after its spot-check, so the run no longer speaks for it — run \`${cmd}\` and review again: the lead (${leadName(lead)}) with \`review\`, or the person with \`/board review ${card.id}\`.`;
+	return `${cardRef(card.id)} was written after its spot-check, so the run no longer speaks for it — run \`${cmd}\` and review again: the lead (${leadName(lead)}) with \`review\` or \`/board review ${card.id}\`.`;
 }
 
 /**
