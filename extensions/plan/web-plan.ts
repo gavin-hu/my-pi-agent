@@ -32,20 +32,6 @@ export interface PendingQuote {
 }
 
 /** What a repaint reads, and the callbacks it changes the client's state through. */
-/**
- * The list a run of item blocks is being drawn into.
- *
- * The scan gives one block per item — a comment points at a step, not at a list — so the page
- * groups a run of them into one `<ul>`/`<ol>`. The frame owns this, so a repaint starts a new
- * list rather than appending to a node it has already replaced.
- */
-export interface ListState {
-	/** The list still open at the end of the previous block, or `null`. */
-	open: ClientNode | null;
-	/** Whether that list is an `<ol>`, which a change of marker kind ends. */
-	ordered: boolean | null;
-}
-
 export interface PlanRenderDeps {
 	planEl: ClientNode | null;
 	outlineList: ClientNode | null;
@@ -68,8 +54,8 @@ export interface PlanRenderDeps {
 	canComment?(): boolean;
 	/** The composer lifecycle, for the close a repaint begins with. */
 	composer(): ComposerDeps;
-	/** The block's content, from the Markdown half; `list` is the run of items being drawn. */
-	renderBlock(wrap: ClientNode, block: IslandBlock, list: ListState): void;
+	/** The block's content, from the Markdown half. */
+	renderBlock(wrap: ClientNode, block: IslandBlock): void;
 	/** The cards under one block, and the loose ones that lost their anchor. */
 	renderComments(scope: ClientNode, line: number): void;
 	renderCommentCards(scope: ClientNode, list: readonly unknown[]): void;
@@ -105,10 +91,20 @@ export function renderPlanFrame(
 	const scrollTop = planEl.scrollTop;
 	planEl.replaceChildren();
 	const anchored: Record<number, boolean> = {};
-	// One run of items per frame: each block draws into it, and a non-list block closes it.
-	const list: ListState = { open: null, ordered: null };
-	for (const block of deps.blocks()) {
-		if (block.kind === "blank") continue;
+	const blocks = deps.blocks();
+	// Whether the block after this one continues a run of items. A blank block draws nothing, so a
+	// spaced list still reads one run; anything but another item ends it.
+	function nextIsList(index: number): boolean {
+		for (let next = index + 1; next < blocks.length; next++) {
+			const block = blocks[next];
+			if (block === undefined || block.kind === "blank") continue;
+			return block.kind === "list";
+		}
+		return false;
+	}
+	for (let index = 0; index < blocks.length; index++) {
+		const block = blocks[index];
+		if (block === undefined || block.kind === "blank") continue;
 		anchored[block.start] = true;
 		const wrap = el("div", "bf-block");
 		wrap.setAttribute("data-line", String(block.start));
@@ -116,7 +112,10 @@ export function renderPlanFrame(
 		// The one mark that says "read this line again": a block the last review did not have.
 		if (deps.changed?.(block.start) === true) wrap.setAttribute("data-changed", "1");
 		if (block.kind === "heading") wrap.id = "s-" + block.start;
-		deps.renderBlock(wrap, block, list);
+		// The last item of a run is the one that keeps the kit's gap below a list: the items before
+		// it sit flush, which is how one list drawn block by block still reads as one.
+		if (block.kind === "list" && !nextIsList(index)) wrap.setAttribute("data-run-end", "1");
+		deps.renderBlock(wrap, block);
 		const mine = deps.annotations().filter((annotation) => annotation.anchor === block.start);
 		if (mine.length > 0) wrap.classList.add("bf-block--commented");
 		const rail = el("div", "bf-block__rail");

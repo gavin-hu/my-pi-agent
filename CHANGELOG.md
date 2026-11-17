@@ -29,6 +29,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a run of steps or risks in the review page is one block per item again, each drawing its
+  own item, so the page no longer leaves an empty block under every item — a nine-step list put a
+  band of blank rows between the list and the heading after it, and the comment control, badge,
+  change mark and scroll anchor for steps 2–n sat on those rows instead of on the step. The kit's
+  gap between two lists is shut for a run's items and kept at the item that ends it, and a numbered
+  item carries its own number (`3.` and `1)`) because a split list restarts at 1. A run is now one
+  single-item list per block to a screen reader, which is the price of the rail landing on its step.
+
 - `plan`: a `steps` tick matches each entry's `expected` against the step's own line with its
   inline markdown, case, and spacing ignored, so the plan's text works as written — and the todo
   item seeded from that step is ticked instead of reported unmatched. A refused step names the

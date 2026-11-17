@@ -88,12 +88,8 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
     wrap.appendChild(frame);
   }
 
-  // The list a run of items is being drawn into, owned by the frame that draws them: the scan
-  // gives every item its own block (a comment points at a step), so grouping them is the page's.
-  function renderBlockContent(wrap, block, list) {
+  function renderBlockContent(wrap, block) {
     var lines = Array.isArray(block.lines) ? block.lines : [];
-    // Nothing but an item continues a list: every other kind ends the run.
-    if (block.kind !== "list") list.open = null;
     if (block.kind === "heading") {
       var level = Math.min(6, Math.max(1, Number(block.level) || 1));
       var heading = el("h" + level);
@@ -112,17 +108,14 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
       return;
     }
     if (block.kind === "list") {
-      // One item, one <li>: the marker is the kit's, the box is the kit's drawn checkbox, and
-      // the page keeps only the grouping and what a plan knows — how deep the item sits and
-      // which of its steps the file has ticked.
+      // One item, one list: the block is what a comment anchors to, so its rail must sit on the
+      // item it names. The page shuts the kit's gap between two lists, so a run drawn item by
+      // item still reads as one, and this keeps only what a plan knows — how deep the item sits
+      // and which of its steps the file has ticked.
       var item = block.item || {};
       var ordered = item.ordered === true;
-      if (!list.open || list.ordered !== ordered) {
-        // A change of marker kind starts a list of its own; the kit's rules draw both.
-        list.open = el(ordered ? "ol" : "ul");
-        list.ordered = ordered;
-        wrap.appendChild(list.open);
-      }
+      var open = el(ordered ? "ol" : "ul");
+      wrap.appendChild(open);
       var rest = String(item.content === undefined ? lines.join(" ") : item.content);
       // A continuation line is the item's own text, so it hangs under it rather than opening
       // a paragraph of its own.
@@ -130,6 +123,13 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
         if (String(lines[n]).trim()) rest += " " + String(lines[n]).trim();
       }
       var row = el("li");
+      // A split list restarts at 1, so an item carries the number its own marker wrote — a step
+      // marked 3. and one marked 1) alike, which is why the digits are read out of the marker
+      // rather than the marker converted as a number.
+      if (ordered) {
+        var number = parseInt(String(item.marker), 10);
+        if (number > 0) row.value = number;
+      }
       // Only a nested item states an indent: a top-level one leaves the marker where the kit
       // puts it, so a plain bullet's text and a task's own text keep the one left edge.
       var depth = Math.floor(Number(item.indent) / 2);
@@ -144,7 +144,7 @@ export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans ou
         row.appendChild(check);
       }
       renderInline(row, rest);
-      list.open.appendChild(row);
+      open.appendChild(row);
       return;
     }
     var paragraph = el("p");
