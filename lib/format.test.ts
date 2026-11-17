@@ -129,9 +129,6 @@ describe("formatAge", () => {
 
 	test("crosses into the page's bundle as one body", () => {
 		expect(FORMAT_AGE_JS).toBe(String(formatAge));
-		// The bundle is a template literal, so the source may hold neither of these.
-		expect(FORMAT_AGE_JS).not.toContain("`");
-		expect(FORMAT_AGE_JS).not.toContain("${");
 		const browserAge = new Function(`return (${FORMAT_AGE_JS});`)() as (now: number, at: number) => string;
 		for (const at of [0, 1_000_000_000 - 44_000, 1_000_000_000 - 7 * 60_000, 1_000_000_000 - 86_400_000]) {
 			expect(browserAge(1_000_000_000, at)).toBe(formatAge(1_000_000_000, at));
@@ -142,8 +139,6 @@ describe("formatAge", () => {
 		// body under another name: the string is what crosses, so the mapping is proved here.
 		expect(["now", "1m", "2h", "1d"].map(ageWords)).toEqual(["just now", "1m ago", "2h ago", "1d ago"]);
 		expect(AGE_WORDS_JS).toBe(String(ageWords));
-		expect(AGE_WORDS_JS).not.toContain("`");
-		expect(AGE_WORDS_JS).not.toContain("${");
 		const browserWords = new Function(`return (${AGE_WORDS_JS});`)() as (age: string) => string;
 		for (const age of ["now", "1m", "2h", "1d"]) expect(browserWords(age)).toBe(ageWords(age));
 	});

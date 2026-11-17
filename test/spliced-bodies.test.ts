@@ -17,6 +17,11 @@
  * wherever a body spells it, because that is what the transpiler's own read looks like. So a
  * body names nothing of its own with a leading underscore, and one that writes that form fails
  * here rather than reading the wrong value on a page, which nothing else would report.
+ *
+ * The forms a body may not spell are `.replace`'s own. A fragment substitutes a body as a
+ * *value*, so a `${` or a backtick in it is inert — six bodies on the tree spell them and draw —
+ * while `$$`, `$&`, `$'` and `` $` `` in the replacement string are expanded where the body was
+ * meant to land. The third check holds those four, and they are the whole list.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -68,6 +73,9 @@ function spliceAt(file: string, lines: string[], start: number): Splice {
 /** The `_x.member` form `pageSource` writes back to `member`, wherever a body spells it. */
 const UNDERSCORE_FIELD = /(?<![\w$.])_[A-Za-z$][\w$]*\.[A-Za-z$][\w$]*/;
 
+/** The four forms `String.prototype.replace` reads in a replacement string. */
+const REPLACEMENT_PATTERNS = ["$$", "$&", "$'", "$`"];
+
 /** The names one declaration hands to `pageSource`, in the called form and the mapped one. */
 function splicedNames(text: string): string[] {
 	const names = new Set<string>();
@@ -114,6 +122,23 @@ function underscoreFields(
 			for (const body of index.get(name) ?? []) {
 				const hit = UNDERSCORE_FIELD.exec(body.text)?.[0];
 				if (hit !== undefined) offenders.push(`${body.file}: ${name} writes \`${hit}\``);
+			}
+		}
+	}
+	return offenders.sort();
+}
+
+/** The spliced bodies that spell a form `.replace` reads in its replacement, as `file: name spells form`. */
+function replacementForms(
+	found: readonly Splice[],
+	index: ReadonlyMap<string, { file: string; text: string }[]>,
+): string[] {
+	const offenders: string[] = [];
+	for (const splice of found) {
+		for (const name of splicedNames(splice.text)) {
+			for (const body of index.get(name) ?? []) {
+				const hit = REPLACEMENT_PATTERNS.find((form) => body.text.includes(form));
+				if (hit !== undefined) offenders.push(`${body.file}: ${name} spells \`${hit}\``);
 			}
 		}
 	}
@@ -187,6 +212,14 @@ describe("the bodies a page receives", () => {
 		).toEqual([]);
 	});
 
+	test("spell none of the forms `.replace` reads in a replacement", () => {
+		// A body crosses as a *value*: a fragment substitutes it with `.replace("__X__", body)`, which
+		// reads `$$`, `$&`, `$'` and `` $` `` in that value and injects the match or the template's own
+		// text where the body was meant to land. A `${` or a backtick is inert at that point, which is
+		// why the case below passes a body that spells a template.
+		expect(replacementForms(found, index), "a spliced body spells a form `.replace` reads").toEqual([]);
+	});
+
 	test("fails the one form the rewrite eats, and passes a body that names its own field", () => {
 		const splice = [{ file: "lib/x.ts", line: 6, text: "export const A_JS = pageSource(render);" }];
 		const eaten = new Map([["render", [{ file: "lib/x.ts", text: "function render() { return _cache.value; }" }]]]);
@@ -196,6 +229,16 @@ describe("the bodies a page receives", () => {
 		// The mapped form names its bodies too, so a fragment spliced as an array is checked alike.
 		const mapped = [{ file: "lib/x.ts", line: 7, text: '[render, paint].map(pageSource).join("\\n\\n");' }];
 		expect(splicedNames(mapped[0]?.text ?? "")).toEqual(["paint", "render"]);
+	});
+
+	test("fails a body that spells a replacement pattern, and passes one that spells a template", () => {
+		const splice = [{ file: "lib/x.ts", line: 6, text: "export const A_JS = pageSource(render);" }];
+		// Which of the four bit is named, because `$$` is the broad one and may be legitimate.
+		const bitten = new Map([["render", [{ file: "lib/x.ts", text: 'function render() { return "a $& b"; }' }]]]);
+		expect(replacementForms(splice, bitten)).toEqual(["lib/x.ts: render spells `$&`"]);
+		// The form the old rule banned for the wrong reason: a template literal in a body is inert.
+		const words = new Map([["render", [{ file: "lib/x.ts", text: "function render(age) { return `${age} ago`; }" }]]]);
+		expect(replacementForms(splice, words)).toEqual([]);
 	});
 
 	test("fails a body stringified straight from its function, and one mapped by name", () => {
