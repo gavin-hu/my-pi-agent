@@ -65,9 +65,23 @@ const STEPPED: SetPlanStepsDetails = {
 	total: 3,
 };
 
+/** The batch form: one call that ticks a whole plan, which is where the call line's label showed. */
+const STEPPED_BATCH: SetPlanStepsDetails = {
+	action: "steps",
+	path: PLAN_PATH,
+	relativePath: shown(PLAN_PATH),
+	updates: [
+		{ step: 1, status: "completed", expected: "Add a token-bucket limiter" },
+		{ step: 2, status: "completed", expected: "Wire it into the API middleware" },
+		{ step: 3, status: "completed", expected: "Add tests for burst and sustained rates" },
+	],
+	done: 3,
+	total: 3,
+};
+
 const CANCELLED: CancelPlanModeDetails = { action: "cancel", cancelled: true };
 
-/** One entry per action of the `plan` tool, in gallery order. */
+/** One entry per action of the `plan` tool, in gallery order, plus the batch form of `steps`. */
 export const PLAN_FIXTURES: ToolFixture[] = [
 	{
 		name: "plan",
@@ -111,6 +125,25 @@ export const PLAN_FIXTURES: ToolFixture[] = [
 		result: {
 			content: [{ type: "text", text: `Step 1 completed (1/3 done) in ${shown(PLAN_PATH)}` }],
 			details: STEPPED,
+		},
+	},
+	{
+		name: "plan-steps-batch",
+		tool: "plan",
+		group: "package",
+		label: "three steps ticked in one call",
+		args: {
+			action: "steps",
+			plan_path: PLAN_PATH,
+			updates: [
+				{ step: 1, status: "completed", expected: "Add a token-bucket limiter" },
+				{ step: 2, status: "completed", expected: "Wire it into the API middleware" },
+				{ step: 3, status: "completed", expected: "Add tests for burst and sustained rates" },
+			],
+		},
+		result: {
+			content: [{ type: "text", text: `Steps 1, 2, 3 completed (3/3 done) in ${shown(PLAN_PATH)}` }],
+			details: STEPPED_BATCH,
 		},
 	},
 	{

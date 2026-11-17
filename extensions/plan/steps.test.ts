@@ -4,10 +4,14 @@
  *
  * Pure cases only — the store's `setSteps` and the tools that read these live in
  * `plans.test.ts` and `tools.test.ts` — so a change to what a step *is* is proved here
- * rather than through a file write.
+ * rather than through a file write. The `steps` call line lives here with the shapes: it is a
+ * pure function over the arguments and a theme, it names the step numbers this file is about, and
+ * the two suites that own the tool are at their pinned heights.
  */
 
 import { describe, expect, test } from "bun:test";
+import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { type SetPlanStepsArgs, callSteps } from "./tools/steps.ts";
 import {
 	elideStep,
 	extractPlanSteps,
@@ -349,5 +353,32 @@ describe("a step longer than the display cap", () => {
 		const long = "x".repeat(MAX_STEP_LENGTH + 40);
 		expect(matchesStepText(long, long)).toBe(true);
 		expect(matchesStepText(long, elideStep(long))).toBe(false);
+	});
+});
+
+describe("the call line", () => {
+	type Update = NonNullable<SetPlanStepsArgs["updates"]>[number];
+	const update = (step: number): Update => ({ step, status: "completed", expected: `step ${step}` });
+	/** The subject the transcript draws, as one line. */
+	const line = (args: SetPlanStepsArgs): string => callSteps(args, fakeTheme, undefined).render(80).join("\n");
+
+	test("names the steps a batch moves, in place of counting them", () => {
+		// A count read as a step number: `steps 6 steps` said six updates and `steps 6` would say step
+		// six, which is why the numbers themselves are what the line carries.
+		expect(line({ updates: [update(1), update(3), update(5)] })).toContain("plan steps 1, 3, 5");
+		expect(line({ updates: [update(1), update(3), update(5)] })).not.toContain("3 steps");
+	});
+
+	test("keeps a single update reading as its own number", () => {
+		expect(line({ updates: [update(3)] })).toContain("plan steps 3");
+	});
+
+	test("waits for the step of an argument still arriving", () => {
+		// A streamed call reaches the renderer half-built, so an entry can have no `step` yet: the
+		// label names the one that is there rather than printing the gap as a number.
+		const partial = [{ ...update(3) }, {} as Update];
+		expect(line({ updates: partial })).toContain("plan steps 3");
+		expect(line({ updates: partial })).not.toContain("undefined");
+		expect(line({ updates: [] })).toContain("plan steps");
 	});
 });
