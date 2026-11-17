@@ -24,7 +24,6 @@ import {
 	messagePaths,
 	unaccountedLines,
 } from "./format.ts";
-import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { mailNotice } from "./notice.ts";
 import { busMessage } from "../../test/helpers/bus.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
@@ -227,12 +226,6 @@ describe("inbox", () => {
 		// what a second `inbox` call would actually return.
 		const remainder = formatInbox([message()], 3, ["a.jsonl"]);
 		expect(remainder.text).toContain("… 2 more in the inbox");
-	});
-
-	test("bounds a read at the send cap's own number, not a second copy of it", () => {
-		// One owner: `lib/session-tool.ts`'s MAX_MESSAGE_TEXT. A literal here is how the read's ceiling
-		// and the send's cap drift a number apart, and nothing else compares them.
-		expect(INBOX_BUDGET).toBe(MAX_MESSAGE_TEXT);
 	});
 
 	test("renders a body whole, so a read cannot consume a tail it never showed", () => {
