@@ -69,6 +69,10 @@ and finalizes a session goal that was only drafted, from the plan's own `Goal`.
 Approving a refined plan again replaces the items the earlier approval added that
 nobody has started, so the list matches the plan you last read.
 
+**Ticking a step.** `steps` matches each entry's `expected` with inline markdown,
+case, and spacing ignored, so the plan's own line works as written; a refusal names
+the plan file and the text it now reads.
+
 **Review screen keys.** `a` approve (`y`/`Enter` confirms), `r` refine inline,
 `Esc` keep planning, `x` exit without approving, `w` open the browser review,
 `n`/`p` jump sections. `Ctrl+C` interrupts without approving or rejecting

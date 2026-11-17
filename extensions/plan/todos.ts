@@ -11,7 +11,7 @@
  */
 
 import type { ExistingTodo } from "../../lib/todo-state.ts";
-import { elideStep, matchesStepText, type PlanStep, type StepUpdate } from "./steps.ts";
+import { elideStep, matchesStepText, normalizeStepText, type PlanStep, type StepUpdate } from "./steps.ts";
 
 /** The merged list plus the counts the approval message reports. */
 export interface TodoMerge {
@@ -93,11 +93,6 @@ export function mirrorStepStatuses(existing: ExistingTodo[], updates: readonly S
 	return { todos, updated, unmatched };
 }
 
-/** Case- and whitespace-insensitive key for recognizing a repeated item. */
-function contentKey(content: string): string {
-	return content.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
 /**
  * Merge the plan's steps into an existing list. Existing items come first and
  * keep their status, a legacy in-progress item without an `activeForm` gets its
@@ -120,15 +115,15 @@ export function mergeTodos(
 	// A plan refined after approval is approved again over the list its first approval
 	// made. An item this plan seeded that is no longer one of its steps is a leftover, and
 	// only an item *this plan seeded* is a candidate: a user's own item is never touched.
-	const ours = new Set((previous ?? []).map(contentKey));
-	const current = new Set(steps.map((step) => contentKey(step.content)));
-	if (trailing) current.add(contentKey(trailing.content));
+	const ours = new Set((previous ?? []).map(normalizeStepText));
+	const current = new Set(steps.map((step) => normalizeStepText(step.content)));
+	if (trailing) current.add(normalizeStepText(trailing.content));
 	let replaced = 0;
 	let stale = 0;
 	const kept: ExistingTodo[] = [];
 	const seeded: string[] = [];
 	for (const todo of existing) {
-		const key = contentKey(todo.content);
+		const key = normalizeStepText(todo.content);
 		if (ours.has(key) && !current.has(key)) {
 			// An untouched leftover is bookkeeping and goes; one someone acted on is
 			// evidence of work, and is named rather than deleted.
@@ -147,12 +142,12 @@ export function mergeTodos(
 	const todos: ExistingTodo[] = kept.map((todo) =>
 		todo.status === "in_progress" && !todo.activeForm ? { ...todo, activeForm: todo.content } : todo,
 	);
-	const seen = new Set(todos.map((todo) => contentKey(todo.content)));
+	const seen = new Set(todos.map((todo) => normalizeStepText(todo.content)));
 	let added = 0;
 	let skipped = 0;
 	let deferred = 0;
 	for (const step of steps) {
-		const key = contentKey(step.content);
+		const key = normalizeStepText(step.content);
 		if (!key) continue;
 		if (seen.has(key)) {
 			skipped += 1;
@@ -170,7 +165,7 @@ export function mergeTodos(
 
 	let trailingOutcome: TodoMerge["trailing"];
 	if (trailing) {
-		const key = contentKey(trailing.content);
+		const key = normalizeStepText(trailing.content);
 		if (!key) trailingOutcome = undefined;
 		else if (seen.has(key)) trailingOutcome = "skipped";
 		else if (todos.length >= limit) trailingOutcome = "deferred";
