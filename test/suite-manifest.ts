@@ -112,6 +112,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/pages",
 		"view/blocks",
 		"view/chrome",
+		"view/subject-behaviour",
 		"transport/router",
 		"transport/root-move",
 		"command",

@@ -73,13 +73,16 @@ describe("the toolbar", () => {
 	test("names the repository in the toolbar, and the root on its hover", () => {
 		const page = pageOf("board");
 		expect(page).toContain(
-			`<span class="bf-context bf-context--subject" id="board-repo" title="${ROOT}">${REPO}</span>`,
+			`<span class="bf-context bf-context--subject" id="board-repo" title="${ROOT}"><bdi>${REPO}</bdi></span>`,
 		);
 		// Both are server data, and a repository path can hold a quote: it is escaped, because
 		// the root goes in an attribute.
 		const odd = renderBoardPage({ view: "board", base: "", repo: "a&b", root: '/tmp/"x"', where: WHERE });
 		expect(odd).toContain('title="/tmp/&quot;x&quot;"');
-		expect(odd).toContain(">a&amp;b<");
+		expect(odd).toContain("<bdi>a&amp;b</bdi>");
+		// The frame rewrites the name, so it writes into the label's isolate rather than over it:
+		// the row is rtl, and a name opening with a dot would otherwise move behind the name.
+		expect(BOARD_CLIENT_JS).toContain('(repo.querySelector("bdi") || repo).textContent = view.repo;');
 	});
 });
 

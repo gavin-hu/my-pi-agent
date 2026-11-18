@@ -10,6 +10,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and every repaint. `Escape` closes the edit before the composer and the review, and Resolve,
   Edit, Delete and the view switch refuse while a draft is open instead of dropping its text; an
   edit updates the tab's draft as it is typed, and Cancel puts the note back.
+- `lib/web`: a page's subject keeps its leading `/`. The identity row's label sits in a
+  right-to-left span so a long path keeps the folder it names, and an rtl paragraph moves a
+  leading neutral character — the `/` an absolute path opens with — to the visual end, so a
+  served root painted as `Users/…/my-pi-agent/` while the footer under it printed the path
+  correctly. The label is isolated from the row's direction now, and a page that rewrites it
+  writes into that isolate rather than over it.
 
 ## [0.29.0] - 2026-11-18
 

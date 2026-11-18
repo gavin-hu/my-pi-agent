@@ -59,7 +59,9 @@ describe("the app head", () => {
 		expect(subject).toContain('id="board-repo"');
 		// The whole path is the hover: the line keeps the tail, and the head is where two clones of one repository differ.
 		expect(subject).toContain('title="/tmp/&quot;x&quot;"');
-		expect(appHead({ ...ROW, subject: { label: "a&b", title: "a&b" } })).toContain(">a&amp;b<");
+		// The label is isolated from the row's rtl, so the escape happens inside the isolate: a
+		// label of nothing but markup still paints as text.
+		expect(appHead({ ...ROW, subject: { label: "a&b", title: "a&b" } })).toContain("<bdi>a&amp;b</bdi>");
 		// A subject with nothing to name writes no id, rather than an empty one.
 		expect(appHead({ ...ROW, subject: { label: "a", title: "a" } })).not.toContain(' id="board-repo"');
 	});

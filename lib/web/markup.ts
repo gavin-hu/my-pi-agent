@@ -159,6 +159,11 @@ export function themeToggle(): string {
  * It is the toolbar's splitter as well as its label, so the only thing after it is the page's
  * own facts and the app's chrome. The whole value is on the hover, because the line truncates
  * its head: two clones of one repository, or two served folders, are told apart by the path.
+ *
+ * That truncation is the span's `direction: rtl`, and an rtl paragraph moves a leading neutral
+ * character — the `/` an absolute path opens with — to the visual end. The isolate is the
+ * label's: it keeps the slash where a reader put it, and it is a `bdi` rather than a `dir` so a
+ * name that reads right to left still does.
  */
 /** What the identity row's subject says: the label, and the whole value it stands for. */
 export interface PageSubjectOptions {
@@ -172,7 +177,7 @@ export interface PageSubjectOptions {
 
 function pageSubject(options: PageSubjectOptions): string {
 	const id = options.id === undefined ? "" : ` id="${escapeHtml(options.id)}"`;
-	return `<span class="bf-context bf-context--subject"${id} title="${escapeHtml(options.title)}">${escapeHtml(options.label)}</span>`;
+	return `<span class="bf-context bf-context--subject"${id} title="${escapeHtml(options.title)}"><bdi>${escapeHtml(options.label)}</bdi></span>`;
 }
 
 /**
