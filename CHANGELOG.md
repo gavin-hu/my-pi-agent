@@ -33,6 +33,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Every refusal about a value being too long names the length it received and how much to trim,
+  through the one sentence `lib/format.ts` already owned: nineteen sites across `memory`,
+  `web-access` (url, body, query, header value), `job` (command, label, input), `watch` (pattern,
+  path, command, label), `session-bus` (text), `goal` (objective), `bytefly`'s two settings
+  refusals and `lib/todo-state.ts`, where `X is longer than N characters.`, `X must be at most N
+  characters.`, `header "X" is too long.` and `Too long: N characters, the limit is M.` are now
+  `X is 42 characters; the limit is 40 — trim 2.` A label the old sentence carried stays
+  (`Todo 3: content`, `header "X"`, a teammate name, a settings row's own label), no cap or tool
+  contract changed, and count refusals (`at most N headers`, `tooManyPaths`) keep their own
+  sentence because they already name their limit.
+
 - `memory`: the 500-character note cap has one home. The picker re-declared it as
   `MAX_NOTE_CHARS` beside the tool's `MAX_ENTRY_CHARS`, so the two agreed by hand; the picker
   imports the tool's constant now, and a case holds the screen's refusal sentence to that number

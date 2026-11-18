@@ -18,7 +18,7 @@
  * Value-only: no module state, no host access.
  */
 
-import { sanitizeLine } from "./format.ts";
+import { overLimit, sanitizeLine } from "./format.ts";
 import { TODO_TOOL } from "./tool-names.ts";
 import { toolResultDetails } from "./tool-result.ts";
 
@@ -74,7 +74,7 @@ export function normalizeTodos(raw: unknown): ExistingTodo[] {
 		const content = typeof item.content === "string" ? sanitizeLine(item.content) : "";
 		if (!content) throw new Error(`Todo ${i + 1}: content is required.`);
 		if (content.length > MAX_CONTENT) {
-			throw new Error(`Todo ${i + 1}: content is longer than ${MAX_CONTENT} characters.`);
+			throw new Error(overLimit(`Todo ${i + 1}: content`, content.length, MAX_CONTENT));
 		}
 
 		const key = content.toLowerCase();
@@ -86,7 +86,7 @@ export function normalizeTodos(raw: unknown): ExistingTodo[] {
 
 		const activeForm = typeof item.activeForm === "string" ? sanitizeLine(item.activeForm) : "";
 		if (activeForm.length > MAX_CONTENT) {
-			throw new Error(`Todo ${i + 1}: activeForm is longer than ${MAX_CONTENT} characters.`);
+			throw new Error(overLimit(`Todo ${i + 1}: activeForm`, activeForm.length, MAX_CONTENT));
 		}
 		todos.push(activeForm ? { content, status, activeForm } : { content, status });
 	}

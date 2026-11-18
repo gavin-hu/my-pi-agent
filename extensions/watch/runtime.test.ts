@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { makeHarnessSuite, runtimeHarness, settle } from "../../test/helpers/fixtures/watch.ts";
 import { DEFAULT_CONFIG, normalizeConfig } from "./config.ts";
 import { MAX_LABEL, normalizeCall } from "./schema.ts";
+import { overLimit } from "../../lib/format.ts";
 
 const suite = makeHarnessSuite();
 afterEach(() => suite.cleanup());
@@ -90,7 +91,7 @@ describe("watch call schema", () => {
 
 	test("add rejects an oversized label", () => {
 		expect(() => normalizeCall({ action: "add", path: "a", pattern: "x", label: "z".repeat(MAX_LABEL + 1) })).toThrow(
-			/label is longer/,
+			overLimit("label", MAX_LABEL + 1, MAX_LABEL),
 		);
 	});
 

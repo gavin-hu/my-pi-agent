@@ -22,6 +22,7 @@ import {
 	readMemoryFile,
 	sameStamp,
 } from "./store.ts";
+import { overLimit } from "../../lib/format.ts";
 
 /** Whether this host can create symlinks (unprivileged Windows cannot). */
 function probeSymlinks(): boolean {
@@ -277,7 +278,6 @@ describe("memory runtime", () => {
 		suite.write("global", "- global fact\n");
 
 		const loaded = await load(true);
-
 		expect(loaded.paths()).toEqual({ project: suite.projectPath, global: suite.globalPath });
 		expect(loaded.entries()).toEqual({ project: [{ text: "repo fact" }], global: [{ text: "global fact" }] });
 	});
@@ -645,11 +645,11 @@ describe("memory schema", () => {
 	test("normalizeEntryText rejects a blank, non-string, or over-long note", () => {
 		expect(() => normalizeEntryText("   ")).toThrow(/text is required/);
 		expect(() => normalizeEntryText(123)).toThrow(/text is required/);
-		expect(() => normalizeEntryText("x".repeat(MAX_ENTRY_CHARS + 1))).toThrow(/longer than/);
+		expect(() => normalizeEntryText("x".repeat(MAX_ENTRY_CHARS + 1))).toThrow(overLimit("text", 501, 500));
 	});
 
 	test("normalizeEntryText names the field it validates", () => {
 		expect(() => normalizeEntryText(undefined, "to")).toThrow(/to is required/);
-		expect(() => normalizeEntryText("x".repeat(MAX_ENTRY_CHARS + 1), "to")).toThrow(/to is longer than/);
+		expect(() => normalizeEntryText("x".repeat(MAX_ENTRY_CHARS + 1), "to")).toThrow(overLimit("to", 501, 500));
 	});
 });

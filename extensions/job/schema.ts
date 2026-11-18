@@ -11,6 +11,7 @@ import { optionalString } from "../../lib/json.ts";
 import { StringEnum } from "../../lib/tool-schema.ts";
 import { JOB_ACTIONS, KILL_SIGNALS, type JobAction, type KillSignal } from "./types.ts";
 import { MAX_WAIT_MS } from "./waiters.ts";
+import { overLimit } from "../../lib/format.ts";
 
 /** Longest accepted command string. */
 export const MAX_COMMAND = 4000;
@@ -106,9 +107,9 @@ export function normalizeCall(raw: unknown): JobCall {
 		case "start": {
 			const command = typeof args.command === "string" ? args.command.trim() : "";
 			if (!command) throw new Error('"start" requires a command.');
-			if (command.length > MAX_COMMAND) throw new Error(`command is longer than ${MAX_COMMAND} characters.`);
+			if (command.length > MAX_COMMAND) throw new Error(overLimit("command", command.length, MAX_COMMAND));
 			const label = optionalString(args.label);
-			if (label && label.length > MAX_LABEL) throw new Error(`label is longer than ${MAX_LABEL} characters.`);
+			if (label && label.length > MAX_LABEL) throw new Error(overLimit("label", label.length, MAX_LABEL));
 			const cwd = optionalString(args.cwd);
 			const timeoutMs = typeof args.timeoutMs === "number" ? Math.round(args.timeoutMs) : undefined;
 			if (timeoutMs !== undefined && (timeoutMs < MIN_JOB_TIMEOUT_MS || timeoutMs > MAX_JOB_TIMEOUT_MS)) {
@@ -143,7 +144,7 @@ export function normalizeCall(raw: unknown): JobCall {
 			}
 			const input = typeof args.input === "string" ? args.input : undefined;
 			if (input !== undefined && input.length > MAX_STDIN) {
-				throw new Error(`input is longer than ${MAX_STDIN} characters.`);
+				throw new Error(overLimit("input", input.length, MAX_STDIN));
 			}
 			const eof = args.eof === true;
 			if (!input && !eof) throw new Error('"send" requires `input` or `eof: true`.');

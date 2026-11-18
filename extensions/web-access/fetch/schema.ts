@@ -7,6 +7,7 @@ import { StringEnum } from "../../../lib/tool-schema.ts";
 import { MAX_OUTPUT_CHARS, type WebFetchConfig } from "./config.ts";
 import type { FindMode } from "./find.ts";
 import type { FetchRequest } from "./types.ts";
+import { overLimit } from "../../../lib/format.ts";
 
 const MAX_URL_LENGTH = 2048;
 export const MIN_CHARS = 200;
@@ -137,7 +138,7 @@ function normalizeHeaders(raw: unknown): Record<string, string> {
 		if (/[\r\n]/.test(rawValue)) throw new Error(`header "${name}" contains an invalid character.`);
 		const value = rawValue.trim();
 		if (!value) continue;
-		if (value.length > MAX_HEADER_VALUE) throw new Error(`header "${name}" is too long.`);
+		if (value.length > MAX_HEADER_VALUE) throw new Error(overLimit(`header "${name}"`, value.length, MAX_HEADER_VALUE));
 		if (count >= MAX_HEADERS) throw new Error(`at most ${MAX_HEADERS} headers are allowed.`);
 		headers[name] = value;
 		count++;
@@ -149,14 +150,14 @@ function normalizeHeaders(raw: unknown): Record<string, string> {
 export function resolveRequest(args: WebFetchArgs, config: WebFetchConfig): FetchRequest {
 	const url = typeof args.url === "string" ? args.url.trim() : "";
 	if (!url) throw new Error("url is required.");
-	if (url.length > MAX_URL_LENGTH) throw new Error(`url must be at most ${MAX_URL_LENGTH} characters.`);
+	if (url.length > MAX_URL_LENGTH) throw new Error(overLimit("url", url.length, MAX_URL_LENGTH));
 
 	const explicitMethod = args.method === "GET" || args.method === "POST" ? args.method : undefined;
 	if (args.body !== undefined && explicitMethod === "GET") throw new Error('body requires method "POST".');
 	const method: "GET" | "POST" = explicitMethod ?? (args.body !== undefined ? "POST" : "GET");
 
 	if (typeof args.body === "string" && args.body.length > config.maxBodyChars) {
-		throw new Error(`body is longer than ${config.maxBodyChars} characters.`);
+		throw new Error(overLimit("body", args.body.length, config.maxBodyChars));
 	}
 	const headers = normalizeHeaders(args.headers);
 	const body = typeof args.body === "string" ? args.body : undefined;

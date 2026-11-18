@@ -14,6 +14,7 @@ import { PLAN_MODE_ENTRY_TYPE, isPlanModeEnabled } from "./plan-state.ts";
 import { type ExistingTodo, lastTodos, MAX_CONTENT, MAX_TODOS, normalizeTodos, TODO_STATUSES } from "./todo-state.ts";
 import { GOAL_TOOL, TODO_TOOL } from "./tool-names.ts";
 import { toolResultEntry } from "../test/helpers/entries.ts";
+import { overLimit } from "./format.ts";
 
 // --- The published goal -----------------------------------------------------
 
@@ -200,7 +201,7 @@ describe("normalizeTodos", () => {
 	test("rejects an over-long activeForm", () => {
 		expect(() =>
 			normalizeTodos([{ content: "Run tests", status: "in_progress", activeForm: "x".repeat(MAX_CONTENT + 1) }]),
-		).toThrow(`activeForm is longer than ${MAX_CONTENT}`);
+		).toThrow(overLimit(`Todo 1: activeForm`, MAX_CONTENT + 1, MAX_CONTENT));
 	});
 
 	test("accepts every declared status, in any case", () => {
@@ -247,7 +248,7 @@ describe("normalizeTodos", () => {
 
 	test("rejects over-long content", () => {
 		expect(() => normalizeTodos([{ content: "x".repeat(MAX_CONTENT + 1), status: "pending" }])).toThrow(
-			`longer than ${MAX_CONTENT}`,
+			overLimit(`Todo 1: content`, MAX_CONTENT + 1, MAX_CONTENT),
 		);
 	});
 

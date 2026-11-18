@@ -25,7 +25,7 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { sanitizeLine } from "../../../lib/format.ts";
+import { overLimit, sanitizeLine } from "../../../lib/format.ts";
 import { ConfirmState } from "../../../lib/tui/confirm.ts";
 import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../../lib/tui/cursor.ts";
 import { dockListFrame, editorTheme, screenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
@@ -260,7 +260,7 @@ export class MemoryPickerComponent implements Component {
 			return;
 		}
 		if (text.length > MAX_ENTRY_CHARS) {
-			this.notice = `A note must be at most ${MAX_ENTRY_CHARS} characters.`;
+			this.notice = overLimit("The note", text.length, MAX_ENTRY_CHARS);
 			this.requestRender();
 			return;
 		}

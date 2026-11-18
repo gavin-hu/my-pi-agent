@@ -11,6 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { settle } from "../../../test/helpers/process.ts";
 import { MAX_ENTRY_CHARS } from "../schema.ts";
 import { pickerOver } from "../../../test/helpers/fixtures/memory.ts";
+import { overLimit } from "../../../lib/format.ts";
 
 describe("MemoryPickerComponent notices", () => {
 	test("a merge whose pair vanished says so, and keeps the focus", async () => {
@@ -80,7 +81,7 @@ describe("MemoryPickerComponent notices", () => {
 		await settle();
 
 		// The sentence is built from the tool's constant, so the two cannot drift apart.
-		expect(h.text()).toContain(`A note must be at most ${MAX_ENTRY_CHARS} characters.`);
+		expect(h.text()).toContain(overLimit("The note", MAX_ENTRY_CHARS + 1, MAX_ENTRY_CHARS));
 		expect(added).toEqual([]);
 	});
 
