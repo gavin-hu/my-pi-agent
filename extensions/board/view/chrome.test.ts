@@ -126,6 +126,16 @@ describe("the footer", () => {
 /** The board the stream case reads, and its browser. */
 let board: BoardBrowser;
 
+/**
+ * The reconnect hint the stream case serves, in ms.
+ *
+ * A browser waits the hint out before it tries again, so the product's two seconds makes the
+ * drop take ~4.6 s to become `dead` — three failed connects, two waits. That delay is the
+ * browser's own, so it is shortened at the hint the page serves rather than by widening a
+ * paint budget: the case is then a wiring check that finishes in half a second.
+ */
+const QUICK_RETRY_MS = 50;
+
 describe.skipIf(CHROME === undefined)("a dropped stream", () => {
 	beforeAll(async () => {
 		board = await openBoardBrowser({
@@ -147,6 +157,7 @@ describe.skipIf(CHROME === undefined)("a dropped stream", () => {
 		const served = await serveBoardPage({
 			store: board.store,
 			now: clock.now,
+			retryMs: QUICK_RETRY_MS,
 			display: { repo: REPO, root: ROOT, where: WHERE },
 		});
 		const page = await board.tab(served.url);
@@ -170,8 +181,10 @@ describe.skipIf(CHROME === undefined)("a dropped stream", () => {
 
 			await served.close();
 			// A stream that did not come back is where the page stops being true, so the chip ends
-			// at `offline` in the danger tone and the reload appears beside it. The retry states
-			// between the drop and this one are the shared client's, held in its own suite.
+			// at `offline` in the danger tone and the reload appears beside it. What `dead` means is
+			// the shared client's transitions (`lib/web/live-stream.test.ts`), the hint it backs off
+			// on is the sink's ladder (`lib/http/sink.test.ts`), and this case is the wiring between
+			// them: three failed connects from this page, and the control a reader is left with.
 			await page.waitForSelector("#reload-hint:not([hidden])", { timeout: PAINT_MS });
 			expect(await chipText()).toContain("offline");
 			expect(await page.getAttribute("#board-status", "class")).toContain("bf-tone--danger");
@@ -182,9 +195,6 @@ describe.skipIf(CHROME === undefined)("a dropped stream", () => {
 			await page.close();
 			await served.close();
 		}
-		// The stream is dead only after its retries, and each one waits out the server's own
-		// `retry:` hint, so this case is a few seconds long by design rather than slow — inside
-		// the run's own case budget.
 	});
 });
 describe("the page's elevation", () => {

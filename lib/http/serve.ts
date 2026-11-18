@@ -83,6 +83,8 @@ export interface ServedMount {
 	timer?: ArmTimer;
 	/** The ticker this mount's keepalives are armed on; one comment every `KEEPALIVE_MS`. */
 	interval?: RepeatTimer;
+	/** The hint the first reconnect carries, in ms; absent, `RETRY_MS`. */
+	retryMs?: number;
 }
 
 /** A prefix served on a running server. */
@@ -360,7 +362,7 @@ export async function serveHttp(options: ServeOptions): Promise<ServedServer> {
 		mount(spec) {
 			const base = normalizeBase(spec.prefix);
 			if (routes.has(base)) return undefined;
-			const sinks = createSinks({ idle: spec.idle, timer: spec.timer, interval: spec.interval });
+			const sinks = createSinks({ idle: spec.idle, timer: spec.timer, interval: spec.interval, retryMs: spec.retryMs });
 			const route: Route = {
 				spec: { ...spec, prefix: base },
 				base,

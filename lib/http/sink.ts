@@ -86,6 +86,13 @@ export interface SinkDeps {
 	timer?: ArmTimer;
 	/** The ticker a keepalive is armed on; defaults to an unref'd one. */
 	interval?: RepeatTimer;
+	/**
+	 * The hint the first reconnect carries, in ms; defaults to {@link RETRY_MS}.
+	 *
+	 * A browser waits it out before trying again, so this is the seam a case that watches a
+	 * stream die uses instead of waiting on the browser's own clock.
+	 */
+	retryMs?: number;
 }
 
 /** The open streams of one loopback server. */
@@ -104,15 +111,16 @@ export interface SinkRegistry {
 }
 
 /**
- * The reconnect hint for the `attempt`th connect in a row: `RETRY_MS`, then doubling,
- * and never past `RETRY_MAX_MS`.
+ * The reconnect hint for the `attempt`th connect in a row: `base`, then doubling, and
+ * never past `RETRY_MAX_MS`.
  */
-function retryHint(attempt: number): number {
-	return Math.min(RETRY_MS * 2 ** Math.max(0, attempt - 1), RETRY_MAX_MS);
+function retryHint(attempt: number, base: number): number {
+	return Math.min(base * 2 ** Math.max(0, attempt - 1), RETRY_MAX_MS);
 }
 
 export function createSinks(deps: SinkDeps = {}): SinkRegistry {
 	const streams = new Set<EventSink>();
+	const retry = deps.retryMs ?? RETRY_MS;
 	const timer = deps.timer ?? defaultTimer;
 	const beat = deps.interval ?? defaultInterval;
 	let cancelIdle: (() => void) | undefined;
@@ -146,7 +154,7 @@ export function createSinks(deps: SinkDeps = {}): SinkRegistry {
 			// A second tab on a mount that is already being read is not a reconnect, so it
 			// neither climbs the ladder nor takes a bigger hint than the first one got.
 			if (streams.size === 0) attempt += 1;
-			openEventStream(response, head, retryHint(attempt));
+			openEventStream(response, head, retryHint(attempt, retry));
 			const sink = createSink(response, beat, (delivered) => {
 				if (delivered) attempt = 0;
 				if (!streams.delete(sink)) return;

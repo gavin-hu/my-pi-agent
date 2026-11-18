@@ -99,6 +99,11 @@ is gone or no longer shows a boot call. It holds the clocks too: the watchdog
 leaves its case room to report, and a case that states a budget names a constant
 rather than writing a number.
 
+A case that waits for a served page's stream to die is waiting on the browser's own
+backoff, not on a paint: the fixture serves a shorter `retry:` hint
+(`serveBoardPage`'s `retryMs`) rather than a wider budget, so the case stays a wiring
+check instead of a bet on the runner's clock.
+
 The always-on model-facing prompt size is budgeted. `test/prompt-budget.test.ts`
 covers the pure per-turn injected-context builders, which are re-injected every
 turn, so a regression in that text fails fast.

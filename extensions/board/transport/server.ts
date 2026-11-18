@@ -109,6 +109,14 @@ export interface BoardServerOptions {
 	 * awaits its injected milliseconds is really betting its budget on machine load.
 	 */
 	timer?: ArmTimer;
+	/**
+	 * The hint this page's first reconnect carries, in ms; absent, `RETRY_MS`.
+	 *
+	 * The same seam as `timer`: a browser waits the hint out before it tries again, so a
+	 * case that watches a dropped stream reach its last state would otherwise spend four
+	 * seconds of its budget on the browser's clock.
+	 */
+	retryMs?: number;
 }
 
 /** A running page. */
@@ -209,6 +217,7 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 					},
 				}),
 		...(options.timer === undefined ? {} : { timer: options.timer }),
+		...(options.retryMs === undefined ? {} : { retryMs: options.retryMs }),
 	};
 	const outcome = await options.mount({
 		...spec,
