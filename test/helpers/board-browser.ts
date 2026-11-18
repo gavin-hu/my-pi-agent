@@ -22,7 +22,7 @@ import { boardConfig } from "../../lib/workflow/config.ts";
 import { DEFAULT_WIP, MAX_WIP } from "../../lib/workflow/limits.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { type BoardStore, createStore } from "../../lib/workflow/store.ts";
-import { launchBrowser } from "./browser.ts";
+import { guarded, launchBrowser } from "./browser.ts";
 import { type PageDisplay, serveBoardPage } from "./board-page.ts";
 
 /** The browser this machine has; absent means a browser suite is skipped, naming `PI_CHROME`. */
@@ -150,28 +150,32 @@ export async function openBoardBrowser(options: BoardBrowserOptions): Promise<Bo
 		...(options.bus === undefined ? {} : { bus: options.bus }),
 	});
 	const browser = await launchBrowser(BOARD_CHROME);
-	const tab = async (url: string): Promise<Page> => {
-		const page = await browser.newPage({ viewport: VIEWPORT, reducedMotion: "reduce" });
-		await page.goto(url, { waitUntil: "load" });
-		return landed(page);
-	};
+	const tab = async (url: string): Promise<Page> =>
+		guarded(browser, async () => {
+			const page = await browser.newPage({ viewport: VIEWPORT, reducedMotion: "reduce" });
+			await page.goto(url, { waitUntil: "load" });
+			return landed(page);
+		});
 	/** The tab `reuse()` hands out, made on the first call and reloaded on every one after it. */
 	let shared: Page | undefined;
 	return {
 		store,
 		directory,
 		tab,
-		reuse: async () => {
-			if (shared === undefined) {
-				shared = await tab(server.url);
-				return shared;
-			}
-			// The viewport is the tab's, not the document's, so a case that shrank it would draw the
-			// next one's document at that width: put it back before the reload.
-			await shared.setViewportSize(VIEWPORT);
-			await shared.reload({ waitUntil: "load" });
-			return landed(shared);
-		},
+		reuse: async () =>
+			// A dead browser is met here first: this is the reload of a tab that outlives its case, so
+			// without the guard the death surfaces as this case's own timeout in a file nothing touched.
+			guarded(browser, async () => {
+				if (shared === undefined) {
+					shared = await tab(server.url);
+					return shared;
+				}
+				// The viewport is the tab's, not the document's, so a case that shrank it would draw the
+				// next one's document at that width: put it back before the reload.
+				await shared.setViewportSize(VIEWPORT);
+				await shared.reload({ waitUntil: "load" });
+				return landed(shared);
+			}),
 		close: async () => {
 			await browser.close();
 			await server.close();

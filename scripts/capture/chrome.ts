@@ -49,12 +49,28 @@ export function chromeBinary(): string {
 	return binary;
 }
 
-/** A headless browser a capture drives, and the close that does not wait on Chrome. */
+/** What the browser's process did when it went: a death carries a code or a signal. */
+export interface BrowserExit {
+	/** The exit code, or `null` when a signal ended it. */
+	code: number | null;
+	/** The signal that ended it, or `null` when it exited by code. */
+	signal: string | null;
+}
+
+/** A headless browser a capture or a suite drives. */
 export interface BrowserHandle {
 	/** A fresh tab in this browser. */
 	newPage: Browser["newPage"];
 	/** Kill the browser and drop the connection; resolves in milliseconds. */
 	close(): Promise<void>;
+	/**
+	 * The exit this browser's process took on its own, or `undefined` while it is up or after
+	 * `close()`. A suite reads it after a call threw: a browser that died mid-case is that, and
+	 * not the case spending its budget. Our own close is not a death, so it is never recorded.
+	 */
+	exited(): BrowserExit | undefined;
+	/** The process id, for a suite that has to end it (a repro of a starved run). */
+	pid(): number | undefined;
 }
 
 /**
@@ -69,13 +85,27 @@ export interface BrowserHandle {
 export async function launchChrome(executablePath: string, args: readonly string[] = []): Promise<BrowserHandle> {
 	const launched = await chromium.launchServer({ executablePath, headless: true, args: [...args] });
 	const browser = await chromium.connect(launched.wsEndpoint());
+	// The process is the only witness to how the browser went: a connection error reads the same
+	// whether a starved machine killed it or we did, and a suite must not blame the machine for
+	// its own teardown. `close()` raises the flag before it kills, so only an unasked exit lands.
+	const child = launched.process();
+	let exit: BrowserExit | undefined;
+	let closing = false;
+	child?.once("exit", (code, signal) => {
+		if (!closing) exit = { code, signal };
+	});
 	return {
 		newPage: (options) => browser.newPage(options),
+		exited: () => exit,
+		pid: () => child?.pid,
 		close: async () => {
-			launched.process()?.kill("SIGKILL");
-			// Both resolve at once once the process is gone: the wait was the process exiting.
-			await browser.close();
-			await launched.close();
+			closing = true;
+			child?.kill("SIGKILL");
+			// A browser that is already gone cannot be shut down politely, and a file whose Chrome
+			// died mid-way still owes a clean `afterAll`: a refusal here would report the death
+			// twice, the second time as an unhandled rejection nobody can act on.
+			await browser.close().catch(() => {});
+			await launched.close().catch(() => {});
 		},
 	};
 }
