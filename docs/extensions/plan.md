@@ -61,10 +61,11 @@ The `plan` tool has five actions; `/plan` is the command that drives it.
 
 **The plan file.** `~/.pi/agent/plans/<repo-key>/<YYYY-MM-DD-HHmm>-<slug>.md` — one
 store per repository, shared by its worktrees. Each refinement keeps the previous
-text beside it as a hidden file, five deep, so two rounds can be compared. The plan
-is what the model follows: approving it seeds its steps into your todo list,
-finalizes a drafted session goal from its own `Goal`, and replaces the earlier
-approval's unstarted items, so the list matches the plan you last read.
+text beside it as a hidden file, five deep, so two rounds can be compared. The
+plan is what the model follows: approving it seeds its steps into your todo list,
+and finalizes a session goal that was only drafted, from the plan's own `Goal`.
+Approving a refined plan again replaces the items the earlier approval added that
+nobody has started, so the list matches the plan you last read.
 
 **Ticking a step.** `steps` matches each entry's `expected` with inline markdown,
 case, and spacing ignored, so the plan's own line works as written; a refusal names
@@ -75,15 +76,13 @@ the plan file and the text it now reads.
 `n`/`p` jump sections. `Ctrl+C` interrupts without approving or rejecting
 anything: plan mode stays on.
 
-**Browser review.** `w` opens the same plan as a page: the title, the live comment
+**Browser review.** `w` opens the same plan as a page: the title, the comment
 count, **Approve & run**, **Save feedback**, and **Back to Pi**. Hover a block and press
-the `+` in its margin (a button named "Comment on this block"), or select text to quote
-it, then **Save feedback** to send the comments back. A comment being written or edited
-is this tab's draft: a reload keeps it, a live change waits, and card actions and the
-view switch refuse rather than drop it; `Esc` closes the edit, then the composer, then
-the review. The switch above the sections shows **All**, **Changed** (what this review
-changed; off until there is an earlier review to compare against) and **Comments**, and
-the line under it counts what the view hid, or says which nothing it found.
+its `+`, or select text to quote it, then **Save feedback** sends them back. A comment
+being written or edited is this tab's draft: a reload keeps it, a live change waits,
+and card actions and the view switch refuse rather than drop it; `Esc` closes the edit,
+then the composer, then the review. The switch shows **All**, **Changed** (off until
+an earlier review) and **Comments**, and the line under it counts what the view hid.
 Paper is always the whole plan: the switch and its count go, every block returns.
 
 **Sharing.** **Share** mints a link and QR for this Wi-Fi, one per teammate (at
@@ -99,7 +98,8 @@ that changes. A delegated agent runs with writing forced off.
 
 ## Limits
 
-- Read-only is a guard rail, not a sandbox — extensions share Pi's permissions.
+- Read-only is a guard rail against accidents, not a sandbox — extensions share Pi's
+  permissions.
 - A plan holds at most 50 steps and 256 KiB; a bigger one is refused, not trimmed.
 - Plan mode has no PowerShell on Windows: Git Bash is the shell, and it must be installed.
 - The browser review needs `serve` and a local browser; a reviewer's page is only reachable
