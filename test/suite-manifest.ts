@@ -154,6 +154,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"worktree",
 		"view/memory-picker",
 		"view/memory-picker-trust",
+		"view/memory-picker-notices",
 	],
 	plan: [
 		"plans",

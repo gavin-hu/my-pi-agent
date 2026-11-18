@@ -71,6 +71,14 @@ function listLines(label: string, list: string[], expanded: boolean): string[] {
 	return lines;
 }
 
+/** What the picker says after a merge, an update or a forget, once the store has answered. */
+export function mutationNotice(verb: "merge" | "update" | "forget", changed: boolean, scope: MemoryScope): string {
+	const label = scopeLabel(scope);
+	if (verb === "merge") return changed ? `Merged 2 ${label} notes.` : "Those notes are no longer both here.";
+	if (verb === "forget") return changed ? `Forgot ${label} note.` : "That note was already gone.";
+	return changed ? `Updated ${label} note.` : "That note is no longer here.";
+}
+
 /** Model-facing result text. */
 export function formatResultText(details: MemoryDetails, expanded = false): string {
 	if (details.error) return `Error: ${details.error}`;

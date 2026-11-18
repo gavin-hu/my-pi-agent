@@ -66,6 +66,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `memory`: the picker reports what it did, not what it tried. `merge`, `update` and `forget`
+  discarded the store's answer, so a merge whose pair had gone printed `Merged 2 project notes.`
+  after a write that never happened — `applyMerge`, `applyUpdate` and `applyForget` all answer
+  `false` for exactly that case. The sentence is one function on the store's `changed` now, and a
+  refusal leaves the focus where it was rather than moving it to a note that does not exist: a
+  merge or update that changed nothing keeps the cursor on the note it named, and a forget that
+  matched nothing leaves it on the note still on screen.
+
 - `memory`: an `add` appends one line instead of rewriting the store, so two sessions adding a
   note at the same instant both land. A rewrite publishes by writing a temp and renaming it over
   the store, so two readers of the same store published one of the two notes and the other was
