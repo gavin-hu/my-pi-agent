@@ -150,6 +150,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"doctor",
 		"cap",
 		"attribution",
+		"append",
 		"worktree",
 		"view/memory-picker",
 		"view/memory-picker-trust",

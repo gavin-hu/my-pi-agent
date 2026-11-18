@@ -84,6 +84,11 @@ and move are in place, `/` filters, `r` reloads.
 - A worktree written by an older build may hold its own `.pi/memory.md`. It is not read
   now — one store per repository — and it goes with the worktree, so copy it into the
   checkout if it holds notes.
+- Two sessions adding a note at the same instant both land: an `add` appends one line
+  rather than rewriting the store. An `update`, `forget`, `merge` or `clear` racing an add can
+  still lose the other's line — those rewrite — and closing that window would take a lock the
+  store does not have. An append also leaves a store's trailing blank lines alone; the next
+  rewrite tidies them.
 - A label is a hint, not a signature: any session can claim any name, and the file is
   yours to edit by hand. It makes a peer's assertion visible; it does not prove it.
 - Notes are markdown on disk, so an edit outside Pi lands on the next read.

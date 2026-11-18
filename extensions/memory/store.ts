@@ -9,8 +9,8 @@
  * atomic write in `lib/json.ts`, whose temp name is per process and per write.
  */
 
-import { chmodSync, existsSync, lstatSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { appendFileSync, chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
 	CONFIG_DIR_NAME,
 	getAgentDir,
@@ -355,6 +355,56 @@ interface MutationResult {
 	existing?: string;
 }
 
+/** The refusal a write gets when it would take a store past its cap. */
+function overCapError(path: string, after: number): Error {
+	return new Error(
+		`The store would reach ${after} bytes, past the ${MAX_STORE_BYTES}-byte cap: ${path}. ` +
+			"Prune it first — `clear`, a `forget`, or a shorter `write` still lands.",
+	);
+}
+
+/**
+ * Append one note to a store instead of rewriting it.
+ *
+ * One `O_APPEND` write is the whole publication: no temp, no rename, no read-modify-write of
+ * the store's bytes, so a peer appending at the same instant keeps its line and this one keeps
+ * ours. The read before it only decides — is this a duplicate, would the *landed* bytes cross
+ * the cap, does an empty file need the header — and a decision that raced is a duplicate note
+ * rather than a lost one.
+ *
+ * The queue is still taken, for a narrower reason than before: it serialises this process's
+ * add against its own `forget`/`update`, where a rewrite that read first would otherwise write
+ * the store back without the new line.
+ *
+ * What an append cannot do is tidy: a store with blank lines at its end keeps them, because a
+ * rewrite is the only thing that collapses them. The next `forget` or `update` does.
+ */
+export async function appendMemoryNote(path: string, entry: string, stamp: NoteStamp = {}): Promise<MutationResult> {
+	return withFileMutationQueue(path, async () => {
+		const content = readMemoryFile(path);
+		// The decision, and the one place a note's bullet is built.
+		const planned = applyAdd(content, entry, stamp);
+		// The view is the file, not our read plus our line: a peer that appended between the two
+		// is in the store and belongs in this session's list. A peer that lands after this read
+		// is the window every `commit` already carries, whose stamp is taken from the file too.
+		const view = () => parseNotes(readMemoryFile(path));
+		if (!planned.changed) {
+			return planned.existing === undefined
+				? { entries: view(), changed: false }
+				: { entries: view(), changed: false, existing: planned.existing };
+		}
+		const prefix = content === "" ? `${HEADER}\n\n` : content.endsWith("\n") ? "" : "\n";
+		const suffix = `${prefix}${noteLine({ text: entry, ...stamp })}\n`;
+		// What lands, not what the rewrite would have collapsed: trailing blank lines stay.
+		const after = bytes(content) + bytes(suffix);
+		if (after > MAX_STORE_BYTES) throw overCapError(path, after);
+		mkdirSync(dirname(path), { recursive: true });
+		appendFileSync(path, suffix, { encoding: "utf-8", mode: FILE_MODE });
+		tightenMode(path);
+		return { entries: view(), changed: true };
+	});
+}
+
 /**
  * Apply a content transform to `path` as one read-modify-write under the host's
  * file-mutation queue, so concurrent writers for the same file serialize.
@@ -375,10 +425,7 @@ export async function mutateMemoryFile(
 			const before = bytes(content);
 			const after = bytes(result.content);
 			if (after > MAX_STORE_BYTES && after >= before) {
-				throw new Error(
-					`The store would reach ${after} bytes, past the ${MAX_STORE_BYTES}-byte cap: ${path}. ` +
-						"Prune it first — `clear`, a `forget`, or a shorter `write` still lands.",
-				);
+				throw overCapError(path, after);
 			}
 			writeTextAtomic(path, result.content, { mode: FILE_MODE });
 		} else tightenMode(path);

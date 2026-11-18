@@ -14,7 +14,7 @@ import { MAX_LABEL } from "../../lib/session-label.ts";
 import { DEFAULT_MEMORY_CONFIG, type MemoryConfig } from "./config.ts";
 import { type MemoryEntries, scopeLabel } from "./format.ts";
 import {
-	applyAdd,
+	appendMemoryNote,
 	applyClear,
 	applyForget,
 	applyMerge,
@@ -244,7 +244,7 @@ export function createMemoryRuntime(pi: Pick<ExtensionAPI, "exec">, options: Mem
 		async add(scope, entry) {
 			requireTrusted(scope);
 			const written = await stamp();
-			const result = await mutateMemoryFile(pathFor(scope), (content) => applyAdd(content, entry, written));
+			const result = await appendMemoryNote(pathFor(scope), entry, written);
 			commit(scope, result.entries);
 			return result.existing === undefined
 				? { changed: result.changed }
