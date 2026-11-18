@@ -14,6 +14,7 @@ import {
 	htmlResponse,
 	isLocalHostHeader,
 	jsonError,
+	jsonHeaders,
 	jsonResponse,
 	parseRequestUrl,
 	scriptHeaders,
@@ -164,6 +165,35 @@ async function errorPage(
 		live: liveOf(ctx),
 	});
 	return htmlResponse(status, body, extra);
+}
+
+/**
+ * The answer a refused request gets: JSON under `/api/`, where the caller parses a body, and the
+ * error page everywhere else, where a reader was navigating. One helper, used by the guards before
+ * routing and the catch after it, so a new guard cannot answer in the other shape.
+ *
+ * `extra` reaches both shapes because a 405 owes `Allow` either way, built as the kit's own 405
+ * builds it (`lib/http/guard.ts`): two surfaces whose 405s differ are two shapes to keep true.
+ */
+async function failure(
+	ctx: ServeContext,
+	api: boolean,
+	status: number,
+	message: string,
+	extra?: Record<string, string>,
+): Promise<ServeResponse> {
+	if (!api) return errorPage(ctx, status, message, extra);
+	const answer = jsonError(status, message);
+	return extra === undefined ? answer : { ...answer, headers: { ...jsonHeaders(), ...extra } };
+}
+
+/**
+ * The path an unparsable target names, for choosing a failure's shape before the URL is parsed.
+ * Only the leading run matters: no query can change which namespace was asked for.
+ */
+function rawPath(rawUrl: string): string {
+	const end = rawUrl.search(/[?#]/);
+	return end < 0 ? rawUrl : rawUrl.slice(0, end);
 }
 
 /** Resolve a request path once and render the directory or file page it names. */
@@ -372,16 +402,20 @@ export async function handleRequest(
 	rawUrl: string,
 	headers: Record<string, string | string[] | undefined> = {},
 ): Promise<ServeResponse> {
+	// Parsed first to know which shape a refusal takes. The guards keep their order — a refused
+	// method still answers 405 before the target is judged — and an unparsable one falls to the
+	// path it would have carried, so a target this server cannot read is not classified as JSON.
+	const parsed = parseRequestUrl(rawUrl);
+	const api = (parsed === undefined ? rawPath(rawUrl) : parsed.pathname).startsWith("/api/");
 	const upper = method.toUpperCase();
 	if (upper !== "GET" && upper !== "HEAD") {
-		return errorPage(ctx, 405, "Only GET and HEAD are served.", { Allow: "GET, HEAD" });
+		return failure(ctx, api, 405, "Only GET and HEAD are served.", { Allow: "GET, HEAD" });
 	}
 	if (!isLocalHostHeader(headers, { required: false })) {
-		return errorPage(ctx, 403, "Unexpected Host header.");
+		return failure(ctx, api, 403, "Unexpected Host header.");
 	}
+	if (parsed === undefined) return failure(ctx, api, 400, "Malformed request URL.");
 
-	const parsed = parseRequestUrl(rawUrl);
-	if (!parsed) return errorPage(ctx, 400, "Malformed request URL.");
 	const { pathname, search } = parsed;
 
 	try {
@@ -392,7 +426,7 @@ export async function handleRequest(
 		if (pathname === "/api/files") return await filesApi(ctx, search.get("q") ?? "");
 		if (pathname === "/events") return liveEvents(ctx);
 		const rawMode = search.get("mode");
-		if (rawMode !== null && !isDiffMode(rawMode)) return errorPage(ctx, 400, "Unknown diff mode.");
+		if (rawMode !== null && !isDiffMode(rawMode)) return failure(ctx, api, 400, "Unknown diff mode.");
 		const mode: DiffMode = isDiffMode(rawMode) ? rawMode : "head";
 		if (pathname === "/diff" || pathname === "/diff/") return await diffOverview(ctx, mode);
 		if (pathname.startsWith("/diff/")) return await diffFile(ctx, pathname.slice("/diff/".length), mode);
@@ -401,11 +435,10 @@ export async function handleRequest(
 		if (pathname.startsWith("/view/"))
 			return await view(ctx, pathname.slice("/view/".length), search.get("raw") === "1");
 		if (pathname.startsWith("/raw/")) return await raw(ctx, pathname.slice("/raw/".length));
-		return errorPage(ctx, 404, "That page does not exist.");
+		return failure(ctx, api, 404, "That page does not exist.");
 	} catch (error) {
 		const status = error instanceof HttpError ? error.status : 500;
 		const message = error instanceof HttpError ? error.message : "Something went wrong reading that path.";
-		if (pathname.startsWith("/api/")) return jsonError(status, message);
-		return errorPage(ctx, status, message);
+		return failure(ctx, api, status, message);
 	}
 }

@@ -115,6 +115,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"view/palette",
 		"view/subject-behaviour",
 		"transport/router",
+		"transport/api-errors",
 		"transport/root-move",
 		"command",
 		"files/files",
