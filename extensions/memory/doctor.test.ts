@@ -8,6 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { duplicatePairs, formatHealth, memoryHealth } from "./doctor.ts";
+import { MAX_STORE_BYTES } from "./store.ts";
 
 const CONFIG = { inject: true, maxInjectBytes: 8192 };
 /** Two resolved stores, so a row can be held to the file it names. */
@@ -85,6 +86,18 @@ describe("memory health", () => {
 		const text = formatHealth(health({}));
 		expect(text).toContain(`0 notes · ${PATHS.project}`);
 		expect(text).toContain(`0 notes · ${PATHS.global}`);
+	});
+
+	test("names a store past the write ceiling, with the number and the file", () => {
+		const text = formatHealth(health({ project: ["a"], sizes: { project: MAX_STORE_BYTES + 1 } }));
+
+		// The session's next decision is what to prune, so the row carries the cap it broke.
+		expect(text).toContain(`past the ${MAX_STORE_BYTES}-byte cap`);
+		expect(text).toContain(PATHS.project);
+	});
+
+	test("leaves a store under the ceiling unmarked", () => {
+		expect(formatHealth(health({ project: ["a"], sizes: { project: MAX_STORE_BYTES } }))).not.toContain("cap");
 	});
 
 	test("names the omitted notes and the scope they came from", () => {

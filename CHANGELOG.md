@@ -44,6 +44,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `memory`: a store cannot be written past its ceiling, and one that is over it can be repaired.
+  `MAX_MEMORY_BYTES` was doing two jobs at once — the write policy (a note store is small) and the
+  read guard (do not load an absurd file) — so a paste through `/memory edit` could leave a store
+  every path then refused: `edit` threw while reading it, and `clear`, `forget` and `update` threw
+  in the transform's read, leaving a shell as the only repair. They are separate numbers now: a
+  write may not grow a store past 256 KiB, and a write that shrinks one always lands, so pruning
+  is the way back; a file is read up to 4 MiB, an out-of-memory guard Pi cannot reach itself. The
+  refusal names the file and both sizes, and `/memory doctor` names a store past the write ceiling
+  with the number, since the next decision is what to prune.
+
 - `memory`: a note store is written through the one atomic write instead of a local copy of
   it. `writeAtomic` published through `${path}.tmp`, and `withFileMutationQueue` is the host's
   in-process queue, so two sessions on one checkout — the normal case since the store was

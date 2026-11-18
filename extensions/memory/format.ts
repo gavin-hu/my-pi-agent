@@ -22,7 +22,8 @@ export interface MemoryEntries {
 	global: string[];
 }
 
-function bytes(text: string): number {
+/** UTF-8 bytes, which is the unit every cap and byte count here speaks. */
+export function bytes(text: string): number {
 	return Buffer.byteLength(text, "utf-8");
 }
 
