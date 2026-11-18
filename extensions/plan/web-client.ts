@@ -484,7 +484,7 @@ ${WEB_CONFIRM_JS}
         setStatus(shortcutsToggle.checked ? "Keyboard shortcuts on." : "Keyboard shortcuts off.");
       });
       row.appendChild(shortcutsToggle);
-      row.appendChild(el("span", "bf-keys__toggle-label", "Keyboard shortcuts"));
+      row.appendChild(el("span", "", "Keyboard shortcuts"));
       panel.appendChild(row);
     }
     applyShortcuts();
