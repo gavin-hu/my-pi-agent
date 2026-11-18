@@ -404,7 +404,9 @@ export async function handleRequest(
 ): Promise<ServeResponse> {
 	// Parsed first to know which shape a refusal takes. The guards keep their order — a refused
 	// method still answers 405 before the target is judged — and an unparsable one falls to the
-	// path it would have carried, so a target this server cannot read is not classified as JSON.
+	// path it would have carried. A target this server cannot read therefore keeps the page shape:
+	// its path is what tells the two shapes apart, and there is none to read, so answering JSON
+	// would be a guess where the request itself is the thing that is wrong.
 	const parsed = parseRequestUrl(rawUrl);
 	const api = (parsed === undefined ? rawPath(rawUrl) : parsed.pathname).startsWith("/api/");
 	const upper = method.toUpperCase();
