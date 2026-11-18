@@ -58,7 +58,9 @@ file and in your todo list together.
 
 `w` opens the review page on `127.0.0.1`. Hover a block and press the `+` in its
 margin, or select text first to quote it; **Save feedback** writes the comments
-into the plan file and returns them to the model as review notes. The `+` is
+into the plan file and returns them to the model as review notes. A selection
+locates the note in this tab: the plan stores the comment beside its block, not
+the quoted text, so another reader sees the note without it. The `+` is
 announced as *Comment on this block*, and it is drawn only while the review can
 still take a comment — a settled review has none.
 
