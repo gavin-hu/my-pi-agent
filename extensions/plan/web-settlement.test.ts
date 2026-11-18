@@ -179,6 +179,8 @@ describe("review keyboard", () => {
 			closeComposer: () => calls.push("closeComposer"),
 			editOpen: () => false,
 			closeEdit: () => calls.push("closeEdit"),
+			modalOpen: () => false,
+			shortcutsOn: () => true,
 			cancel: () => calls.push("cancel"),
 			sheetOpen: () => false,
 			toggleSheet: () => calls.push("toggleSheet"),
@@ -223,6 +225,27 @@ describe("review keyboard", () => {
 		const bare = harness();
 		handleKey(bare.event("Escape").sent, bare.deps);
 		expect(bare.calls).toEqual(["cancel"]);
+	});
+
+	test("a dialog owns the keyboard, and the single keys can be turned off", () => {
+		// A modal covers the page: `?` must not open the sheet behind it, and no content key
+		// acts. Off is the reader's own switch; `?` still reaches the sheet that turns it on,
+		// and Escape and the buttons keep working.
+		const modal = harness({ modalOpen: () => true });
+		for (const key of ["s", "a", "j", "c", "?"]) handleKey(modal.event(key).sent, modal.deps);
+		expect(modal.calls).toEqual([]);
+
+		const off = harness({ shortcutsOn: () => false });
+		for (const key of ["s", "a", "j", "c", "v", "n"]) handleKey(off.event(key).sent, off.deps);
+		expect(off.calls).toEqual([]);
+		const question = off.event("?");
+		handleKey(question.sent, off.deps);
+		expect(off.calls).toEqual(["toggleSheet"]);
+		expect(question.prevented).toBe(1);
+
+		const peeling = harness({ shortcutsOn: () => false, composerOpen: () => true });
+		handleKey(peeling.event("Escape").sent, peeling.deps);
+		expect(peeling.calls).toEqual(["closeComposer"]);
 	});
 
 	test("a field owns the keyboard, and a modified key is never a shortcut", () => {

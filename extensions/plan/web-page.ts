@@ -124,6 +124,11 @@ export const REVIEW_CSS = pageSheet(
 .review-nav .lvl-4 a,.review-nav .lvl-5 a,.review-nav .lvl-6 a{padding-left:42px}
 .review-hints{margin:auto 0 0;padding-top:var(--space-3);color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-relaxed)}
 .review-hints .bf-kbd{margin:0 1px}
+/* The reader's shortcut switch: the sheet documents the keys, so its off state is a row
+   under them rather than a setting elsewhere. The list dims; the buttons still act. */
+.bf-keys__toggle{display:flex;align-items:center;gap:var(--space-2);margin:var(--space-2) 0 0;padding:var(--space-2) 0 0;border-top:1px solid var(--border);color:var(--muted);font:var(--fs-sm) var(--font-ui);cursor:pointer}
+.bf-keys__toggle input{accent-color:var(--accent);margin:0}
+.bf-keys--off{opacity:.55}
 /* The document: one measure, centred, with a comment rail in its left margin. */
 .bf-review>.bf-block{position:relative;width:100%;max-width:var(--review-measure);margin:0 auto;padding:3px 8px 3px var(--review-gutter);border-radius:var(--radius-md);overflow-wrap:break-word}
 /* The kit gaps one list from the next, which would put a blank line between every two steps: a
@@ -236,6 +241,22 @@ function approveDialog(): string {
 }
 
 /**
+ * The one confirmation the page's own actions share: Save, Post and Back to Pi open it while
+ * the review has comments the file does not have. The client sets the title, sentence and
+ * accept label per action; the cancel button is also the dialog's close, so Keep reviewing is
+ * the safe default the runtime focuses.
+ */
+function confirmDialog(): string {
+	return `<div class="bf-dialog" id="confirm-dialog" hidden>
+<div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+<div class="bf-dialog__head"><h2 id="confirm-title">Save and return?</h2></div>
+<div class="bf-dialog__body"><p id="confirm-body"></p></div>
+<div class="bf-dialog__actions"><button type="button" class="bf-btn" id="confirm-cancel">Keep reviewing</button><button type="button" class="bf-btn bf-btn--primary" id="confirm-accept">Save and return</button></div>
+</div>
+</div>`;
+}
+
+/**
  * The owner's Share dialog: one row per reviewer link, the QR of the link just
  * minted, and the two actions that change the set. The list is empty on purpose —
  * the client fills it after the server mints a token, so a link never travels in
@@ -326,16 +347,18 @@ ${reviewHints(data.role, data.canApprove)}
 	const isViewer = data.role === "viewer";
 	const approveButton = data.canApprove
 		? `
-<button type="button" class="bf-btn bf-btn--primary" id="approve">Approve &amp; run</button>`
+<button type="button" class="bf-btn bf-btn--primary" id="approve" data-keyshortcut="a">Approve &amp; run</button>`
 		: "";
 	// A viewer's page writes nothing, so it gets no save control of either kind — and the bar
 	// itself is left out below when every control in it is absent.
 	const saveControl = isOwner
-		? `<button type="button" class="${data.canApprove ? "bf-btn" : "bf-btn bf-btn--primary"}" id="save">Save feedback</button>`
+		? `<button type="button" class="${data.canApprove ? "bf-btn" : "bf-btn bf-btn--primary"}" id="save" data-keyshortcut="s">Save feedback</button>`
 		: isViewer
 			? ""
-			: `<button type="button" class="bf-btn bf-btn--primary" id="post">Post comments</button>`;
-	const closeControl = isOwner ? `<button type="button" class="bf-btn" id="cancel">Back to Pi</button>` : "";
+			: `<button type="button" class="bf-btn bf-btn--primary" id="post" data-keyshortcut="s">Post comments</button>`;
+	const closeControl = isOwner
+		? `<button type="button" class="bf-btn" id="cancel" data-keyshortcut="Escape">Back to Pi</button>`
+		: "";
 	// Sharing belongs to the owner; a reviewer's identity is a row in the panel.
 	const shareControl = isOwner ? `<button type="button" class="bf-btn" id="share">Share</button>` : "";
 	const controls = `${shareControl}${approveButton}${saveControl}${closeControl}`;
@@ -365,6 +388,7 @@ ${outlinePanel}<main class="bf-app__main bf-review bf-md" id="plan" aria-label="
 </div>
 ${pageFooter({ facts: `plan ${data.path}` })}
 ${keysSheet(reviewKeys(data.role, data.canApprove))}
+${isViewer ? "" : confirmDialog()}
 ${data.canApprove ? approveDialog() : ""}
 ${data.role === "owner" ? shareDialog() : data.role === "reviewer" ? nameDialog() : ""}
 <script type="application/json" id="review-data">${island}</script>

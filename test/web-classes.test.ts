@@ -77,6 +77,7 @@ const PAGES: readonly ServedPage[] = [
 		exceptions: [
 			{ name: "bf-review-draft", why: "a localStorage key the composer restores from, not a style" },
 			{ name: "bf-review-name", why: "a localStorage key that remembers the reviewer's name" },
+			{ name: "bf-review-shortcuts", why: "a localStorage key that remembers the reader's shortcut switch" },
 		],
 	},
 	{

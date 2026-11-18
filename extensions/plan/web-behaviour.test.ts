@@ -156,7 +156,7 @@ describe.skipIf(REVIEW_CHROME === undefined)("the served review", () => {
 			await page.click('#plan .bf-block[data-line="1"] .bf-block__add');
 			await page.fill(".bf-composer textarea", text);
 			await page.click(".bf-composer .bf-btn--primary");
-			await page.click("#post");
+			await page.click("#post").then(() => page.click("#confirm-accept"));
 			await page.waitForFunction(
 				() =>
 					/Posted/i.test(
