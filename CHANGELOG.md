@@ -31,6 +31,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   does not. Save, Post and Back to Pi open one confirmation naming the consequence, and a clean
   action runs as before; leaving clears the tab's draft. The `?` sheet's keyboard-shortcuts row
   turns the single keys off for this browser, while the buttons, Escape and `?` keep working.
+- `plan`: a settled comment keeps its body. The card hid the note and kept a quote that the plan
+  never stores, so a reloaded settled comment was an author and a chip with nothing to read; the
+  body now stays, dimmed, and the record is readable.
 
 ## [0.29.0] - 2026-11-18
 
