@@ -126,9 +126,9 @@ export function formatResultText(details: MemoryDetails, expanded = false): stri
 		case "forget":
 			return `Removed from ${scopeLabel(details.scope)} memory\nNow ${countLine(entries)}.`;
 		case "merge":
-			return details.changed
-				? `Merged 2 ${scopeLabel(details.scope)} notes\nNow ${countLine(entries)}.`
-				: `No ${scopeLabel(details.scope)} notes were merged.`;
+			// A merge that changed nothing is refused before this is built — the tool answers with
+			// an error carrying the notes, and `error` is read above the switch.
+			return `Merged 2 ${scopeLabel(details.scope)} notes\nNow ${countLine(entries)}.`;
 	}
 }
 
