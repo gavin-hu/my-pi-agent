@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+- `board`: a note has room for what a note says again — `MAX_NOTE` is 4,000, and an `approve` or
+  `review` account, which is recorded as a note, no longer arrives pre-trimmed to 1,200. The cap
+  still bounds the card file and the rollup line a blocked card prints; 1,200 was the number a
+  survey of 1,284 cards put under pressure, with 4,949 notes peaking at 1,198 and seven at 1,185 or
+  above — trimmed to fit. `MAX_CONTRACT` stays 600: its four lines peaked at 583 and none was ever
+  refused, and that first refusal is the signal to move it.
+
 - `plan`: the browser review keeps the comment a reader is writing or editing through a reload
   and every repaint. `Escape` closes the edit before the composer and the review, and Resolve,
   Edit, Delete and the view switch refuse while a draft is open instead of dropping its text; an
@@ -21,6 +28,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reader could see in the tree answered `No matches` beside it. The empty state now names them,
   a query that opens with one says it is not indexed and points at the tree, and a root with
   neither reads exactly as before.
+- `plan`: ending the review or posting comments asks first while the tab has comments the file
+  does not. Save, Post and Back to Pi open one confirmation naming the consequence, and a clean
+  action runs as before; leaving clears the tab's draft. The `?` sheet's keyboard-shortcuts row
+  turns the single keys off for this browser, while the buttons, Escape and `?` keep working.
 
 ## [0.29.0] - 2026-11-18
 
