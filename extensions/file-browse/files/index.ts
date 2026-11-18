@@ -15,6 +15,13 @@ export const INDEX_IGNORED_DIRS = new Set([".git", "node_modules"]);
 export interface FileIndex {
 	files: string[];
 	truncated: boolean;
+	/**
+	 * The root's own directories the walk refused, by name, for a page that has to say so. The
+	 * walk skips those names at any depth, but only a root-level one is named here: the message
+	 * built from this list is about the folders beside the reader's files, and a submodule's
+	 * nested `.git` is not the root's.
+	 */
+	skipped: string[];
 }
 
 /**
@@ -24,6 +31,7 @@ export interface FileIndex {
  */
 export async function buildFileIndex(root: string, limit: number): Promise<FileIndex> {
 	const files: string[] = [];
+	const skipped: string[] = [];
 	let truncated = false;
 
 	async function walk(absDir: string, relDir: string): Promise<void> {
@@ -39,7 +47,10 @@ export async function buildFileIndex(root: string, limit: number): Promise<FileI
 			if (dirent.isSymbolicLink()) continue;
 			const rel = relDir ? `${relDir}/${dirent.name}` : dirent.name;
 			if (dirent.isDirectory()) {
-				if (INDEX_IGNORED_DIRS.has(dirent.name)) continue;
+				if (INDEX_IGNORED_DIRS.has(dirent.name)) {
+					if (relDir === "") skipped.push(dirent.name);
+					continue;
+				}
 				await walk(join(absDir, dirent.name), rel);
 			} else if (dirent.isFile()) {
 				if (files.length >= limit) {
@@ -53,7 +64,7 @@ export async function buildFileIndex(root: string, limit: number): Promise<FileI
 
 	await walk(root, "");
 	files.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()) || a.localeCompare(b));
-	return { files, truncated };
+	return { files, truncated, skipped };
 }
 
 export type FileIndexProvider = () => Promise<FileIndex>;

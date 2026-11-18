@@ -349,7 +349,8 @@ async function dirRevApi(ctx: ServeContext, decodedPath: string): Promise<ServeR
 async function filesApi(ctx: ServeContext, query: string): Promise<ServeResponse> {
 	const index = ctx.index ? await ctx.index() : await buildFileIndex(ctx.root, ctx.config.maxIndexEntries);
 	const results = fuzzySearch(query, index.files, RESULT_LIMIT);
-	return jsonResponse(200, { query, total: index.files.length, truncated: index.truncated, results });
+	const skipped = index.skipped;
+	return jsonResponse(200, { query, total: index.files.length, truncated: index.truncated, skipped, results });
 }
 
 /**
