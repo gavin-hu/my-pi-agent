@@ -44,6 +44,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `memory`: a note store is written through the one atomic write instead of a local copy of
+  it. `writeAtomic` published through `${path}.tmp`, and `withFileMutationQueue` is the host's
+  in-process queue, so two sessions on one checkout — the normal case since the store was
+  anchored at the checkout — shared that name: one writer truncated the other's temp, the first
+  rename published the other writer's content under its own decision, and the second answered
+  `ENOENT` out of a call that had written nothing. `lib/json.ts` grows the primitive it already
+  owned — `tempPathFor` and `writeTextAtomic`, with `writeJsonFile` as its JSON face — so text
+  and JSON publish through one body, and a store write now leaves nothing beside it. `lib/session-files.ts`
+  was spelling the same name and adopts it, which is what that guard demands once an owner exists;
+  `plan-files.ts`'s variant is a different shape and stays for a card of its own. What this does not
+  fix: two adds in the same instant can still read one store and each write its own, losing one,
+  until the store has a cross-process lock. That is its own design and its own card.
+
 - `memory`: the project store is the checkout's, not the worktree's. It resolved its root with
   `git rev-parse --show-toplevel`, which inside `.pi/worktrees/x` answers the worktree — so an
   isolated session started with no notes, wrote them into a `.pi/` that `exit_worktree

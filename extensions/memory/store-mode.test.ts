@@ -4,7 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyAdd, mutateMemoryFile } from "./store.ts";
@@ -24,6 +24,16 @@ describe("note store file mode", () => {
 		const path = join(dir, "nested", "memory.md");
 		await mutateMemoryFile(path, (content) => applyAdd(content, "one"));
 		expect(statSync(path).mode & 0o777).toBe(0o600);
+	});
+
+	test("a store write leaves nothing beside the store", async () => {
+		const path = join(dir, "memory.md");
+		await mutateMemoryFile(path, (content) => applyAdd(content, "one"));
+		await mutateMemoryFile(path, (content) => applyAdd(content, "two"));
+
+		// The assertion that would have caught the shared temp: `${path}.tmp` was a second
+		// file in this directory for as long as a write took, and two sessions shared it.
+		expect(readdirSync(dir)).toEqual(["memory.md"]);
 	});
 
 	test.skipIf(process.platform === "win32")("a store left at the umask is tightened, even unchanged", async () => {

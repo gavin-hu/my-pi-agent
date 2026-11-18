@@ -5,20 +5,12 @@
  * the project store under the repository root's `.pi/`. Notes are read from
  * bullet lines, and every other line is preserved on write, so the files stay
  * human-editable. Reads are size-capped and refuse a symlinked path; writes are
- * read-modify-write under the host's file-mutation queue and land atomically.
+ * read-modify-write under the host's file-mutation queue and land through the one
+ * atomic write in `lib/json.ts`, whose temp name is per process and per write.
  */
 
-import {
-	chmodSync,
-	existsSync,
-	lstatSync,
-	mkdirSync,
-	readFileSync,
-	renameSync,
-	statSync,
-	writeFileSync,
-} from "node:fs";
-import { dirname, join } from "node:path";
+import { chmodSync, existsSync, lstatSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import {
 	CONFIG_DIR_NAME,
 	getAgentDir,
@@ -26,6 +18,7 @@ import {
 	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
+import { writeTextAtomic } from "../../lib/json.ts";
 
 /** Largest memory file read into memory, in bytes. */
 export const MAX_MEMORY_BYTES = 256 * 1024;
@@ -267,15 +260,6 @@ export function applyClear(content: string): FileChange {
 	return { content: body ? endWithNewline(body) : `${HEADER}\n`, changed: true };
 }
 
-function writeAtomic(path: string, content: string): void {
-	mkdirSync(dirname(path), { recursive: true });
-	const temp = `${path}.tmp`;
-	writeFileSync(temp, content, { encoding: "utf-8", mode: FILE_MODE });
-	// `mode` applies only to a file it creates, so a leftover temp keeps its own.
-	chmodSync(temp, FILE_MODE);
-	renameSync(temp, path);
-}
-
 /** Owner-only: a store written before the mode was set is still wider than it claims. */
 function tightenMode(path: string): void {
 	if (existsSync(path) && (statSync(path).mode & 0o777) !== FILE_MODE) chmodSync(path, FILE_MODE);
@@ -298,7 +282,7 @@ export async function mutateMemoryFile(
 ): Promise<MutationResult> {
 	return withFileMutationQueue(path, async () => {
 		const result = transform(readMemoryFile(path));
-		if (result.changed) writeAtomic(path, result.content);
+		if (result.changed) writeTextAtomic(path, result.content, { mode: FILE_MODE });
 		else tightenMode(path);
 		const entries = parseEntries(result.content);
 		return result.existing === undefined
